@@ -5,12 +5,14 @@ pragma solidity >=0.8.27;
 
 import {GSE} from "@aztec/governance/GSE.sol";
 import {TestBase} from "@test/base/Base.sol";
+import {TestConstants} from "@test/harnesses/TestConstants.sol";
 
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
+import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 
 struct Flags {
   bool openFloodgates;
@@ -63,16 +65,15 @@ contract GSEBuilder is TestBase {
     }
 
     if (address(config.gse) == address(0)) {
-      config.gse = new GSE(address(this), config.testERC20);
+      config.gse = new GSE(
+        address(this), config.testERC20, TestConstants.DEPOSIT_AMOUNT, TestConstants.MINIMUM_STAKE
+      );
       vm.label(address(config.gse), "GSE");
     }
 
     if (address(config.registry) == address(0)) {
       config.registry = new Registry(address(this), config.testERC20);
       config.rewardDistributor = RewardDistributor(address(config.registry.getRewardDistributor()));
-      config.testERC20.mint(
-        address(config.rewardDistributor), 1e6 * config.rewardDistributor.BLOCK_REWARD()
-      );
       vm.label(address(config.registry), "Registry");
       vm.label(address(config.rewardDistributor), "RewardDistributor");
     }
@@ -80,7 +81,12 @@ contract GSEBuilder is TestBase {
     GovernanceProposer proposer = new GovernanceProposer(
       config.registry, config.gse, config.values.govProposerN, config.values.govProposerM
     );
-    config.governance = new Governance(config.testERC20, address(proposer), address(config.gse));
+    config.governance = new Governance(
+      config.testERC20,
+      address(proposer),
+      address(config.gse),
+      TestConstants.getGovernanceConfiguration()
+    );
     vm.label(address(config.governance), "Governance");
     vm.label(address(proposer), "GovernanceProposer");
 
@@ -91,11 +97,10 @@ contract GSEBuilder is TestBase {
       vm.prank(address(config.governance));
       config.governance.openFloodgates();
 
-      assertEq(config.governance.isAllDepositsAllowed(), true);
+      assertEq(config.governance.isAllBeneficiariesAllowed(), true);
     }
 
     vm.startPrank(config.registry.owner());
-    config.registry.updateGovernance(address(config.governance));
     config.registry.transferOwnership(address(config.governance));
     vm.stopPrank();
 

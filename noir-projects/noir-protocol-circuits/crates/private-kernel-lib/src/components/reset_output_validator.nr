@@ -1,6 +1,8 @@
+mod validate_note_logs_linked_to_note_hashes;
+
 use crate::{abis::PaddedSideEffects, components::reset_output_composer::ResetOutputHints};
 use dep::reset_kernel_lib::{
-    PrivateValidationRequestProcessor, TransientDataIndexHint, verify_squashed_transient_data,
+    PrivateValidationRequestProcessor, TransientDataSquashingHint, validate_squashed_transient_data,
 };
 use dep::types::{
     abis::{
@@ -21,6 +23,7 @@ use dep::types::{
         assert_sorted_transformed_padded_array_capped_size,
     },
 };
+use validate_note_logs_linked_to_note_hashes::validate_note_logs_linked_to_note_hashes;
 
 fn assert_correctly_siloed_note_hash(
     out_note_hash: Field,
@@ -85,7 +88,7 @@ pub struct ResetOutputValidator<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, 
     output: PrivateKernelCircuitPublicInputs,
     previous_kernel: PrivateKernelCircuitPublicInputs,
     validation_request_processor: PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_HINTS_LEN>,
-    transient_data_index_hints: [TransientDataIndexHint; TRANSIENT_DATA_SQUASHING_HINTS_LEN],
+    transient_data_squashing_hints: [TransientDataSquashingHint; TRANSIENT_DATA_SQUASHING_HINTS_LEN],
     transient_data_squashing_amount: u32,
     note_hash_siloing_amount: u32,
     nullifier_siloing_amount: u32,
@@ -99,7 +102,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         output: PrivateKernelCircuitPublicInputs,
         previous_kernel: PrivateKernelCircuitPublicInputs,
         validation_request_processor: PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_HINTS_LEN>,
-        transient_data_index_hints: [TransientDataIndexHint; TRANSIENT_DATA_SQUASHING_HINTS_LEN],
+        transient_data_squashing_hints: [TransientDataSquashingHint; TRANSIENT_DATA_SQUASHING_HINTS_LEN],
         transient_data_squashing_amount: u32,
         note_hash_siloing_amount: u32,
         nullifier_siloing_amount: u32,
@@ -111,7 +114,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
             output,
             previous_kernel,
             validation_request_processor,
-            transient_data_index_hints,
+            transient_data_squashing_hints,
             transient_data_squashing_amount,
             note_hash_siloing_amount,
             nullifier_siloing_amount,
@@ -129,6 +132,27 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         // Validates that the hinted 'kept' arrays are correctly computed, by taking the
         // previous kernel's arrays and asserting that transient notes have been correctly splice-removed.
         self.validate_transient_data();
+
+        // Validates that note logs (where log.note_hash_counter != 0) are correctly linked to existing note hashes.
+        if self.transient_data_squashing_amount == 0 {
+            // The following check is unnecessary if there is transient data to be squashed
+            // (i.e. transient_data_squashing_amount != 0),
+            // because `validate_transient_data -> validate_squashed_transient_data` will be called,
+            // and it ensures that each note log is either:
+            // - linked to a note hash being squashed, or
+            // - linked to one that is being kept.
+            //
+            // In doing so, it guarantees all note logs are correctly linked to existing note hashes.
+            //
+            // Although this check is performed in the reset circuit, we can be confident that it has been run before
+            // executing a tail circuit.
+            // This is because the reset circuit is required to silo private logs, and as part of that process, all
+            // private logs are validated.
+            validate_note_logs_linked_to_note_hashes(
+                self.previous_kernel.end.private_logs,
+                self.previous_kernel.end.note_hashes,
+            );
+        }
 
         // Validates that the hinted output arrays are correctly sorted, siloed, and padded, by taking the
         // (now-validated-to-be-correct) hinted 'kept' arrays and asserting that transformations
@@ -187,16 +211,15 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
                 "mismatch kept private logs",
             );
         } else {
-            verify_squashed_transient_data(
+            validate_squashed_transient_data(
                 self.previous_kernel.end.note_hashes,
                 self.previous_kernel.end.nullifiers,
                 self.previous_kernel.end.private_logs,
                 self.hints.kept_note_hashes,
                 self.hints.kept_nullifiers,
                 self.hints.kept_private_logs,
-                self.transient_data_index_hints,
-                self.hints.transient_or_propagated_note_hash_index_for_each_log,
                 self.output.validation_requests.split_counter.unwrap_unchecked(),
+                self.transient_data_squashing_hints,
             );
         }
     }

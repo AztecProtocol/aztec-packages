@@ -5,9 +5,9 @@ import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2Block, L2BlockHash, type L2BlockSource, type L2Tips } from '@aztec/stdlib/block';
+import { L2Block, L2BlockHash, type L2BlockSource, type L2Tips, type ValidateBlockResult } from '@aztec/stdlib/block';
 import type { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import { type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
+import { EmptyL1RollupConstants, type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 import { type BlockHeader, TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
@@ -219,7 +219,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
   }
 
   getL1Constants(): Promise<L1RollupConstants> {
-    throw new Error('Method not implemented.');
+    return Promise.resolve(EmptyL1RollupConstants);
   }
 
   getL1Timestamp(): Promise<bigint> {
@@ -270,5 +270,13 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
 
   syncImmediate(): Promise<void> {
     return Promise.resolve();
+  }
+
+  isPendingChainInvalid(): Promise<boolean> {
+    return Promise.resolve(false);
+  }
+
+  getPendingChainValidationStatus(): Promise<ValidateBlockResult> {
+    return Promise.resolve({ valid: true });
   }
 }

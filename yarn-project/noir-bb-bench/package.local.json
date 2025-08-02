@@ -1,8 +1,0 @@
-{
-  "scripts": {
-    "build": "yarn clean && yarn generate && yarn build:ts",
-    "clean": "rm -rf ./dest .tsbuildinfo src/types artifacts",
-    "build:ts": "tsc -b"
-  },
-  "files": ["dest", "src", "artifacts", "!*.test.*"]
-}

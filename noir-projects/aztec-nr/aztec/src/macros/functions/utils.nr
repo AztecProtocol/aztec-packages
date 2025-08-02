@@ -1,27 +1,20 @@
 use crate::macros::{
-    functions::{abi_export::create_fn_abi_export, call_interface_stubs::stub_fn, stub_registry},
+    functions::{
+        auth_registry::AUTHORIZE_ONCE_REGISTRY, call_interface_stubs::stub_fn, stub_registry,
+    },
     notes::NOTES,
     utils::{
-        add_to_hasher, fn_has_noinitcheck, get_fn_visibility, is_fn_contract_library_method,
-        is_fn_initializer, is_fn_internal, is_fn_private, is_fn_public, is_fn_test, is_fn_utility,
-        is_fn_view, modify_fn_body, module_has_initializer, module_has_storage,
+        add_to_hasher, fn_has_authorize_once, fn_has_noinitcheck, get_fn_visibility,
+        is_fn_contract_library_method, is_fn_initializer, is_fn_internal, is_fn_private,
+        is_fn_public, is_fn_test, is_fn_utility, is_fn_view, modify_fn_body, module_has_initializer,
+        module_has_storage,
     },
 };
-use protocol_types::meta::generate_serialize_to_fields;
-use std::meta::type_of;
+use std::meta::{ctstring::AsCtString, type_of};
 
-pub(crate) comptime fn transform_private(f: FunctionDefinition) -> Quoted {
-    let fn_abi = create_fn_abi_export(f);
+pub(crate) comptime fn transform_private(f: FunctionDefinition) {
     let fn_stub = stub_fn(f);
     stub_registry::register(f.module(), fn_stub);
-
-    // If a function is further modified as unconstrained, we throw an error
-    if f.is_unconstrained() {
-        let name = f.name();
-        panic(
-            f"Function {name} is annotated with #[private] but marked as unconstrained, remove unconstrained keyword",
-        );
-    }
 
     let module_has_initializer = module_has_initializer(f.module());
     let module_has_storage = module_has_storage(f.module());
@@ -108,6 +101,13 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) -> Quoted {
         quote {}
     };
 
+    // Inject the authwit check if the function is marked with #[authorize_once].
+    let authorize_once_check = if fn_has_authorize_once(f) {
+        create_authorize_once_check(f)
+    } else {
+        quote {}
+    };
+
     // Finally, we need to change the return type to be `PrivateCircuitPublicInputs`, which is what the Private Kernel
     // circuit expects.
     let return_value_var_name = quote { macro__returned__values };
@@ -160,6 +160,7 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) -> Quoted {
         $view_check
         $storage_init
         $message_discovery_call
+        $authorize_once_check
     };
 
     let to_append = quote {
@@ -174,39 +175,37 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) -> Quoted {
             .as_type(),
     );
     f.set_return_data();
-
-    fn_abi
 }
 
-pub(crate) comptime fn transform_public(f: FunctionDefinition) -> Quoted {
-    let fn_abi = create_fn_abi_export(f);
+pub(crate) comptime fn transform_public(f: FunctionDefinition) {
     let fn_stub = stub_fn(f);
     stub_registry::register(f.module(), fn_stub);
-
-    // If a function is further modified as unconstrained, we throw an error
-    if f.is_unconstrained() {
-        let name = f.name();
-        panic(
-            f"Function {name} is annotated with #[public] but marked as unconstrained, remove unconstrained keyword",
-        );
-    }
 
     let module_has_initializer = module_has_initializer(f.module());
     let module_has_storage = module_has_storage(f.module());
 
     // Public functions undergo a lot of transformations from their Aztec.nr form.
     let original_params = f.parameters();
-    let args_len = original_params
-        .map(|(name, typ): (Quoted, Type)| {
-            generate_serialize_to_fields(name, typ, false).0.len()
-        })
-        .fold(0, |acc: u32, val: u32| acc + val);
+
+    let args_len_quote = if original_params.len() == 0 {
+        // If the function has no parameters, we set the args_len to 0.
+        quote { 0 }
+    } else {
+        // The following will give us <type_of_struct_member_1 as Serialize>::N + <type_of_struct_member_2 as Serialize>::N + ...
+        original_params
+            .map(|(_, param_type): (Quoted, Type)| {
+                quote {
+            <$param_type as $crate::protocol_types::traits::Serialize>::N
+        }
+            })
+            .join(quote {+})
+    };
 
     // Unlike in the private case, in public the `context` does not need to receive the hash of the original params.
     let context_creation = quote {
         let mut context = dep::aztec::context::public_context::PublicContext::new(|| {
         // We start from 1 because we skip the selector for the dispatch function.
-        let serialized_args : [Field; $args_len] = dep::aztec::context::public_context::calldata_copy(1, $args_len);
+        let serialized_args : [Field; $args_len_quote] = dep::aztec::context::public_context::calldata_copy(1, $args_len_quote);
         dep::aztec::hash::hash_args_array(serialized_args)
         });
     };
@@ -248,6 +247,13 @@ pub(crate) comptime fn transform_public(f: FunctionDefinition) -> Quoted {
         quote {}
     };
 
+    // Inject the authwit check if the function is marked with #[authorize_once].
+    let authorize_once_check = if fn_has_authorize_once(f) {
+        create_authorize_once_check(f)
+    } else {
+        quote {}
+    };
+
     let to_prepend = quote {
         $context_creation
         $assert_initializer
@@ -255,6 +261,7 @@ pub(crate) comptime fn transform_public(f: FunctionDefinition) -> Quoted {
         $internal_check
         $view_check
         $storage_init
+        $authorize_once_check
     };
 
     let to_append = quote {
@@ -270,22 +277,11 @@ pub(crate) comptime fn transform_public(f: FunctionDefinition) -> Quoted {
     // bytecode.
     f.set_unconstrained(true);
     f.set_return_public(true);
-
-    fn_abi
 }
 
-pub(crate) comptime fn transform_utility(f: FunctionDefinition) -> Quoted {
-    let fn_abi = create_fn_abi_export(f);
+pub(crate) comptime fn transform_utility(f: FunctionDefinition) {
     let fn_stub = stub_fn(f);
     stub_registry::register(f.module(), fn_stub);
-
-    // Check if function is marked as unconstrained
-    if !f.is_unconstrained() {
-        let name = f.name();
-        panic(
-            f"Function {name} is annotated with #[utility] but not marked as unconstrained, add unconstrained keyword",
-        );
-    }
 
     // Create utility context
     let context_creation =
@@ -321,8 +317,6 @@ pub(crate) comptime fn transform_utility(f: FunctionDefinition) -> Quoted {
     f.set_body(modified_body);
 
     f.set_return_public(true);
-
-    fn_abi
 }
 
 comptime fn create_internal_check(f: FunctionDefinition) -> Quoted {
@@ -336,7 +330,7 @@ comptime fn create_view_check(f: FunctionDefinition) -> Quoted {
     let assertion_message = f"Function {name} can only be called statically";
     if is_fn_private(f) {
         // Here `context` is of type context::PrivateContext
-        quote { assert(context.inputs.call_context.is_static_call == true, $assertion_message); }
+        quote { assert(context.inputs.call_context.is_static_call, $assertion_message); }
     } else {
         // Here `context` is of type context::PublicContext
         quote { assert(context.is_static_call(), $assertion_message); }
@@ -373,6 +367,85 @@ pub(crate) comptime fn create_message_discovery_call() -> Quoted {
                 _compute_note_hash_and_nullifier,
             );
         };
+    }
+}
+
+/// Injects an authwit verification check of the form:
+/// ```
+///   if (!from.eq(context.msg_sender())) {
+///         assert_current_call_valid_authwit::<N>(&mut context, from);
+///     } else {
+///         assert(authwit_nonce, "Invalid auhtwit nonce. When 'from' and 'msg_sender' are the same, authwit_nonce must be zero");
+///     }
+/// ```
+/// where `from` and `authwit_nonce` are the names of the parameters that are expected to be present in the function definition.
+/// This check is injected by the `#[authorize_once("from_arg_name", "nonce_arg_name")]`, which allows the user to define
+/// which parameters to use.
+pub(crate) comptime fn create_authorize_once_check(f: FunctionDefinition) -> Quoted {
+    let maybe_authorize_once_args = AUTHORIZE_ONCE_REGISTRY.get(f);
+    let authorize_once_args = if maybe_authorize_once_args.is_some() {
+        maybe_authorize_once_args.unwrap()
+    } else {
+        // We need to for authorize_once to have already executed so that we can retrieve its params - this depends on
+        // the order in which the attributes are applied.
+        panic(
+            f"Functions marked with #[authorize_once] must have the #[private] or #[public] attribute placed last",
+        )
+    };
+
+    let (from_arg_name, nonce_arg_name) = authorize_once_args;
+    let name: Quoted = f.name();
+
+    let from_arg_candidates =
+        f.parameters().filter(|(name, _)| name == f"{from_arg_name}".quoted_contents());
+    let (from_arg_name_quoted, from_arg_type) = if from_arg_candidates.len() == 1 {
+        from_arg_candidates[0]
+    } else {
+        panic(
+            f"Function {name} does not have a {from_arg_name} parameter. Please specify which one to use in #[authorize_once(\"...\", \"authwit_nonce\")]",
+        )
+    };
+    if from_arg_type
+        != quote { dep::protocol_types::address::aztec_address::AztecAddress }.as_type() {
+        panic(
+            f"Argument {from_arg_name_quoted} in function {name} must be of type AztecAddress, but is of type {from_arg_type}",
+        )
+    }
+
+    let nonce_arg_candidates =
+        f.parameters().filter(|(name, _)| name == f"{nonce_arg_name}".quoted_contents());
+    let (nonce_arg_name_quoted, nonce_arg_type) = if nonce_arg_candidates.len() == 1 {
+        nonce_arg_candidates[0]
+    } else {
+        panic(
+            f"Function {name} does not have a {nonce_arg_name}. Please specify which one to use in #[authorize_once(\"from\", \"...\")]",
+        )
+    };
+    if nonce_arg_type != quote { Field }.as_type() {
+        panic(
+            f"Argument {nonce_arg_name_quoted} in function {name} must be of type Field, but is of type {nonce_arg_type}",
+        );
+    }
+
+    let nonce_check_quote = f"{nonce_arg_name_quoted} == 0".quoted_contents();
+
+    let fn_call = if is_fn_private(f) {
+        // At this point, the original args of the fn have already been altered by the macro
+        // to include PrivateContextInputs, so we need to adjust the args_len accordingly.
+        let args_len = f.parameters().len() - 1;
+        quote { dep::aztec::authwit::auth::assert_current_call_valid_authwit::<$args_len> }
+    } else {
+        quote { dep::aztec::authwit::auth::assert_current_call_valid_authwit_public }
+    };
+    let invalid_nonce_message = f"Invalid authwit nonce. When '{from_arg_name}' and 'msg_sender' are the same, '{nonce_arg_name}' must be zero"
+        .as_ctstring()
+        .as_quoted_str();
+    quote {         
+        if (!$from_arg_name_quoted.eq(context.msg_sender())) {
+            $fn_call(&mut context, $from_arg_name_quoted);
+        } else {
+            assert($nonce_check_quote, $invalid_nonce_message);
+        }
     }
 }
 

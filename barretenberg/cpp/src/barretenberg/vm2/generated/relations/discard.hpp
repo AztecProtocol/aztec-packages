@@ -3,6 +3,7 @@
 
 #include <string_view>
 
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -30,13 +31,16 @@ template <typename FF_> class discardImpl {
     {
         using C = ColumnAndShifts;
 
+        PROFILE_THIS_NAME("accumulate/discard");
+
         const auto execution_DYING_CONTEXT_DIFF =
             (in.get(C::execution_context_id) - in.get(C::execution_dying_context_id));
 
         { // SEL_FAILURE
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::execution_sel_failure) -
-                        (FF(1) - (FF(1) - in.get(C::execution_sel_error)) * (FF(1) - in.get(C::execution_sel_revert))));
+            auto tmp =
+                (in.get(C::execution_sel_failure) - (FF(1) - (FF(1) - in.get(C::execution_sel_error)) *
+                                                                 (FF(1) - in.get(C::execution_sel_execute_revert))));
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
         }

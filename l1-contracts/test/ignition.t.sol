@@ -18,6 +18,7 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {RollupBase, IInstance} from "./base/RollupBase.sol";
 import {RollupBuilder} from "./builder/RollupBuilder.sol";
 import {TimeCheater} from "./staking/TimeCheater.sol";
+import {Bps, BpsLib} from "@aztec/core/libraries/rollup/RewardLib.sol";
 // solhint-disable comprehensive-interface
 
 /**
@@ -79,13 +80,37 @@ contract IgnitionTest is RollupBase {
 
     feeJuicePortal = FeeJuicePortal(address(rollup.getFeeAssetPortal()));
     rewardDistributor = RewardDistributor(address(registry.getRewardDistributor()));
-    testERC20.mint(address(rewardDistributor), 1e6 ether);
 
     _;
   }
 
   function test_emptyBlock() public setUpFor("empty_block_1") {
+    assertEq(rollup.getFeeAsset().balanceOf(address(rollup)), 0);
+
     _proposeBlock("empty_block_1", 1, 0);
+
+    _proveBlocks("empty_block_", 1, 1, address(0xbeef));
+
+    // The block rewards should have accumulated
+    assertEq(
+      rollup.getFeeAsset().balanceOf(address(rollup)),
+      rollup.getBlockReward(),
+      "no block rewards collected"
+    );
+
+    uint256 blockReward = rollup.getBlockReward();
+    Bps bps = rollup.getRewardConfig().sequencerBps;
+    uint256 sequencerReward = BpsLib.mul(blockReward, bps);
+
+    address coinbase = address(bytes20("sequencer"));
+    assertEq(
+      rollup.getSequencerRewards(coinbase), sequencerReward, "sequencer reward not collected"
+    );
+    assertEq(
+      rollup.getCollectiveProverRewardsForEpoch(Epoch.wrap(0)),
+      blockReward - sequencerReward,
+      "prover reward not collected"
+    );
   }
 
   function test_RevertNonEmptyBlock() public setUpFor("empty_block_1") {

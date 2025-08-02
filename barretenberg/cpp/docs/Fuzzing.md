@@ -64,7 +64,7 @@ cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_C_COMPILER=<path to clang> -DCMA
 
 ## Currently supported
 
-Currently we have fuzzers for bigfield, bit_array, bool, byte_array, field, safe_uint and uint. Each of them is available in 2 versions: StandardPlonk, ALL (differential fuzzing of 2 versions).
+Currently we have fuzzers for bigfield, bool, byte_array, field, safe_uint and uint. Each of them is available in 2 versions: StandardPlonk, ALL (differential fuzzing of 2 versions).
 To compile all fuzzers just type `make`.
 
 ## Running the fuzzer

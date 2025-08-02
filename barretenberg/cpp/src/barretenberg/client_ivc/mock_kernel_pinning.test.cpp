@@ -23,18 +23,18 @@ class MockKernelTest : public ::testing::Test {
 
 TEST_F(MockKernelTest, PinFoldingKernelSizes)
 {
-    ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
+    const size_t NUM_CIRCUITS = 4;
+    ClientIVC ivc{ NUM_CIRCUITS, { AZTEC_TRACE_STRUCTURE } };
 
     MockCircuitProducer circuit_producer;
 
     // Construct and accumulate a series of mocked private function execution circuits
-    size_t NUM_CIRCUITS = 4;
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        Builder circuit = circuit_producer.create_next_circuit(ivc);
+        auto [circuit, vk] = circuit_producer.create_next_circuit_and_vk(ivc);
 
-        ivc.accumulate(circuit);
+        ivc.accumulate(circuit, vk);
         EXPECT_TRUE(circuit.blocks.has_overflow); // trace overflow mechanism should be triggered
     }
 
-    EXPECT_EQ(ivc.fold_output.accumulator->proving_key.log_circuit_size, 19);
+    EXPECT_EQ(ivc.fold_output.accumulator->log_dyadic_size(), 19);
 }

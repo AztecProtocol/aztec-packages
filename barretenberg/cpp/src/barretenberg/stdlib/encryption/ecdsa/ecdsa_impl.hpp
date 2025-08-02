@@ -9,7 +9,6 @@
 #include "barretenberg/ecc/groups/precomputed_generators_secp256r1_impl.hpp"
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
-#include "barretenberg/stdlib/primitives//bit_array/bit_array.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 
 namespace bb::stdlib {
@@ -70,7 +69,7 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& messag
                                              "signature is non-standard");
 
     stdlib::byte_array<Builder> hashed_message =
-        static_cast<stdlib::byte_array<Builder>>(stdlib::sha256<Builder>(message));
+        static_cast<stdlib::byte_array<Builder>>(stdlib::SHA256<Builder>::hash(message));
 
     Fr z(hashed_message);
     z.assert_is_in_field();
@@ -228,7 +227,7 @@ bool_t<Builder> ecdsa_verify_signature_noassert(const stdlib::byte_array<Builder
                                                 const ecdsa_signature<Builder>& sig)
 {
     stdlib::byte_array<Builder> hashed_message =
-        static_cast<stdlib::byte_array<Builder>>(stdlib::sha256<Builder>(message));
+        static_cast<stdlib::byte_array<Builder>>(stdlib::SHA256<Builder>::hash(message));
 
     return ecdsa_verify_signature_prehashed_message_noassert<Builder, Curve, Fq, Fr, G1>(
         hashed_message, public_key, sig);

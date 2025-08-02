@@ -24,8 +24,8 @@ use dep::aztec::{
 // macro support is expanded.
 
 /// A private note representing a numeric value associated to an account (e.g. a token balance).
+#[derive(Eq, Serialize, Packable)]
 #[custom_note]
-#[derive(Eq, Serialize)]
 pub struct UintNote {
     // The ordering of these fields is important given that it must:
     //   a) match that of UintPartialNotePrivateContent, and
@@ -104,6 +104,10 @@ impl UintNote {
         self.value
     }
 
+    pub fn get_owner(self) -> AztecAddress {
+        self.owner
+    }
+
     /// Creates a partial note that will hide the owner and storage slot but not the value, since the note will be later
     /// completed in public. This is a powerful technique for scenarios in which the value cannot be known in private
     /// (e.g. because it depends on some public state, such as a DEX).
@@ -115,14 +119,13 @@ impl UintNote {
     /// Each partial note should only be used once, since otherwise multiple notes would be linked together and known to
     /// belong to the same owner.
     ///
-    /// As part of the partial note creation process, a log will be sent to `recipient` from `sender` so that they can
-    /// discover the note. `recipient` will typically be the same as `owner`.
+    /// As part of the partial note creation process, a log will be sent to `recipient` so that they can discover the
+    /// note. `recipient` will typically be the same as `owner`.
     pub fn partial(
         owner: AztecAddress,
         storage_slot: Field,
         context: &mut PrivateContext,
         recipient: AztecAddress,
-        sender: AztecAddress,
         completer: AztecAddress,
     ) -> PartialUintNote {
         // Safety: We use the randomness to preserve the privacy of the note recipient by preventing brute-forcing,
@@ -148,7 +151,7 @@ impl UintNote {
         };
 
         let encrypted_log =
-            note::compute_partial_note_log(private_log_content, storage_slot, recipient, sender);
+            note::compute_partial_note_log(private_log_content, storage_slot, recipient);
         // Regardless of the original content size, the log is padded with random bytes up to
         // `PRIVATE_LOG_SIZE_IN_FIELDS` to prevent leaking information about the actual size.
         let length = encrypted_log.len();
@@ -330,7 +333,7 @@ mod test {
     };
     use dep::aztec::{
         note::note_interface::NoteHash,
-        protocol_types::{address::AztecAddress, traits::{FromField, Packable}},
+        protocol_types::{address::AztecAddress, traits::{Deserialize, FromField, Packable}},
         utils::array::subarray,
     };
 
@@ -374,7 +377,9 @@ mod test {
             randomness,
             public_log_tag: commitment,
         };
-        let partial_note = PartialUintNote { commitment };
+        // The following is a misuse of the `deserialize` function, but this is just a test and it's better than
+        // letting devs manually construct it when they shouldn't be able to.
+        let partial_note = PartialUintNote::deserialize([commitment]);
 
         // The first field of the partial note private content is the public completion log tag, so it should match the
         // first field of the public log.

@@ -98,6 +98,7 @@ TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
 
     op_queue->eq_and_reset();
     op_queue->empty_row_for_testing();
+    op_queue->merge();
 
     // Sample the evaluation input x
     Fq x = Fq::random_element();

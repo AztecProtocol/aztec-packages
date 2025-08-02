@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup_edgecase_handling.hpp"
 #include <cstddef>
 namespace bb::stdlib::element_default {
@@ -21,7 +22,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::wnaf_batch_mul(const std::vector<el
                                                             const std::vector<Fr>& _scalars)
 {
     constexpr size_t WNAF_SIZE = 4;
-    ASSERT(_points.size() == _scalars.size());
+    BB_ASSERT_EQ(_points.size(), _scalars.size());
 
     const auto [points, scalars] = handle_points_at_infinity(_points, _scalars);
 

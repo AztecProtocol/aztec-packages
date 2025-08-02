@@ -12,6 +12,7 @@
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/map.hpp"
 #include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
+#include "barretenberg/vm2/simulation/lib/written_slots_tree.hpp"
 #include "barretenberg/world_state/types.hpp"
 #include "barretenberg/world_state/world_state.hpp"
 
@@ -60,6 +61,7 @@ class HintedRawMerkleDB final : public LowLevelMerkleDBInterface {
     void create_checkpoint() override;
     void commit_checkpoint() override;
     void revert_checkpoint() override;
+    uint32_t get_checkpoint_id() const override;
 
   private:
     TreeSnapshots tree_roots;

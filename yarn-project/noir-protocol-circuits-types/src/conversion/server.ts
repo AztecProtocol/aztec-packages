@@ -13,12 +13,11 @@ import {
   BLS12_FQ_LIMBS,
   BLS12_FR_LIMBS,
   CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
-  HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   type NESTED_RECURSIVE_PROOF_LENGTH,
   type NULLIFIER_TREE_HEIGHT,
   RECURSIVE_PROOF_LENGTH,
-  ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   type TUBE_PROOF_LENGTH,
+  ULTRA_VK_LENGTH_IN_FIELDS,
 } from '@aztec/constants';
 import { BLS12Fq, BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
 import { assertLength, mapTuple } from '@aztec/foundation/serialize';
@@ -36,7 +35,6 @@ import {
   type PrivateToPublicAccumulatedData,
   type PrivateToPublicKernelCircuitPublicInputs,
   PrivateToRollupKernelCircuitPublicInputs,
-  RollupValidationRequests,
 } from '@aztec/stdlib/kernel';
 import { BaseParityInputs, ParityPublicInputs, type RootParityInput, RootParityInputs } from '@aztec/stdlib/parity';
 import type { RecursiveProof } from '@aztec/stdlib/proofs';
@@ -74,9 +72,9 @@ import type {
   AvmProofData as AvmProofDataNoir,
   BLS12_381_Fq as BLS12FqNoir,
   BLS12_381_Fr as BLS12FrNoir,
+  BLS12_381 as BLS12PointNoir,
   BaseOrMergeRollupPublicInputs as BaseOrMergeRollupPublicInputsNoir,
   BaseParityInputs as BaseParityInputsNoir,
-  BigCurve,
   BlobAccumulatorPublicInputs as BlobAccumulatorPublicInputsNoir,
   BlockBlobPublicInputs as BlockBlobPublicInputsNoir,
   BlockConstantData as BlockConstantDataNoir,
@@ -109,7 +107,6 @@ import type {
   PublicBaseRollupInputs as PublicBaseRollupInputsNoir,
   PublicDataHint as PublicDataHintNoir,
   PublicTubeData as PublicTubeDataNoir,
-  RollupValidationRequests as RollupValidationRequestsNoir,
   RootParityInputs as RootParityInputsNoir,
   RootRollupInputs as RootRollupInputsNoir,
   RootRollupParityInput as RootRollupParityInputNoir,
@@ -124,6 +121,7 @@ import {
   mapAppendOnlyTreeSnapshotToNoir,
   mapAztecAddressFromNoir,
   mapAztecAddressToNoir,
+  mapBigIntFromNoir,
   mapEthAddressFromNoir,
   mapEthAddressToNoir,
   mapFieldArrayToNoir,
@@ -137,8 +135,6 @@ import {
   mapGlobalVariablesToNoir,
   mapHeaderFromNoir,
   mapHeaderToNoir,
-  mapIncludeByTimestampFromNoir,
-  mapIncludeByTimestampToNoir,
   mapMembershipWitnessToNoir,
   mapNullifierLeafPreimageToNoir,
   mapNumberFromNoir,
@@ -158,6 +154,7 @@ import {
   mapTupleFromNoir,
   mapTxContextFromNoir,
   mapTxContextToNoir,
+  mapU64ToNoir,
   mapVerificationKeyToNoir,
   mapVkDataToNoir,
 } from './common.js';
@@ -193,14 +190,14 @@ export function mapBLS12FqToNoir(number: BLS12Fq): BLS12FqNoir {
 }
 
 /**
- * @param number - The BigCurve representing the point.
+ * @param point - The BLS12_381 point.
  * @returns The point
  */
-export function mapBLS12PointFromNoir(bigcurve: BigCurve): BLS12Point {
-  return new BLS12Point(mapBLS12FqFromNoir(bigcurve.x), mapBLS12FqFromNoir(bigcurve.y), bigcurve.is_infinity);
+export function mapBLS12PointFromNoir(point: BLS12PointNoir): BLS12Point {
+  return new BLS12Point(mapBLS12FqFromNoir(point.x), mapBLS12FqFromNoir(point.y), point.is_infinity);
 }
 
-export function mapBLS12PointToNoir(point: BLS12Point): BigCurve {
+export function mapBLS12PointToNoir(point: BLS12Point): BLS12PointNoir {
   return {
     x: mapBLS12FqToNoir(point.x),
     y: mapBLS12FqToNoir(point.y),
@@ -465,7 +462,7 @@ export function mapRootParityInputToNoir(
 ): ParityRootParityInputNoir {
   return {
     proof: mapRecursiveProofToNoir(rootParityInput.proof),
-    verification_key: mapVerificationKeyToNoir(rootParityInput.verificationKey, HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+    verification_key: mapVerificationKeyToNoir(rootParityInput.verificationKey, ULTRA_VK_LENGTH_IN_FIELDS),
     vk_path: mapTuple(rootParityInput.vkPath, mapFieldToNoir),
     public_inputs: mapParityPublicInputsToNoir(rootParityInput.publicInputs),
   };
@@ -575,12 +572,12 @@ export function mapPrivateToPublicKernelCircuitPublicInputsToNoir(
 ): PrivateToPublicKernelCircuitPublicInputsNoir {
   return {
     constants: mapTxConstantDataToNoir(inputs.constants),
-    rollup_validation_requests: mapRollupValidationRequestsToNoir(inputs.rollupValidationRequests),
     non_revertible_accumulated_data: mapPrivateToPublicAccumulatedDataToNoir(inputs.nonRevertibleAccumulatedData),
     revertible_accumulated_data: mapPrivateToPublicAccumulatedDataToNoir(inputs.revertibleAccumulatedData),
     public_teardown_call_request: mapPublicCallRequestToNoir(inputs.publicTeardownCallRequest),
     gas_used: mapGasToNoir(inputs.gasUsed),
     fee_payer: mapAztecAddressToNoir(inputs.feePayer),
+    include_by_timestamp: mapU64ToNoir(inputs.includeByTimestamp),
   };
 }
 
@@ -588,11 +585,11 @@ export function mapPrivateToRollupKernelCircuitPublicInputsToNoir(
   inputs: PrivateToRollupKernelCircuitPublicInputs,
 ): PrivateToRollupKernelCircuitPublicInputsNoir {
   return {
-    rollup_validation_requests: mapRollupValidationRequestsToNoir(inputs.rollupValidationRequests),
     constants: mapTxConstantDataToNoir(inputs.constants),
     end: mapPrivateToRollupAccumulatedDataToNoir(inputs.end),
     gas_used: mapGasToNoir(inputs.gasUsed),
     fee_payer: mapAztecAddressToNoir(inputs.feePayer),
+    include_by_timestamp: mapU64ToNoir(inputs.includeByTimestamp),
   };
 }
 
@@ -705,7 +702,7 @@ export function mapPreviousRollupDataToNoir(previousRollupData: PreviousRollupDa
       previousRollupData.baseOrMergeRollupPublicInputs,
     ),
     proof: mapRecursiveProofToNoir(previousRollupData.proof),
-    vk_data: mapVkDataToNoir(previousRollupData.vkData, ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+    vk_data: mapVkDataToNoir(previousRollupData.vkData, ULTRA_VK_LENGTH_IN_FIELDS),
   };
 }
 
@@ -722,7 +719,7 @@ export function mapPreviousRollupBlockDataToNoir(
       previousRollupData.blockRootOrBlockMergePublicInputs,
     ),
     proof: mapRecursiveProofToNoir(previousRollupData.proof),
-    vk_data: mapVkDataToNoir(previousRollupData.vkData, ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+    vk_data: mapVkDataToNoir(previousRollupData.vkData, ULTRA_VK_LENGTH_IN_FIELDS),
   };
 }
 
@@ -731,7 +728,7 @@ export function mapRootRollupParityInputToNoir(
 ): RootRollupParityInputNoir {
   return {
     proof: mapRecursiveProofToNoir(rootParityInput.proof),
-    verification_key: mapVerificationKeyToNoir(rootParityInput.verificationKey, HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+    verification_key: mapVerificationKeyToNoir(rootParityInput.verificationKey, ULTRA_VK_LENGTH_IN_FIELDS),
     vk_path: mapTuple(rootParityInput.vkPath, mapFieldToNoir),
     public_inputs: mapParityPublicInputsToNoir(rootParityInput.publicInputs),
   };
@@ -885,7 +882,7 @@ function mapPrivateTubeDataToNoir(data: PrivateTubeData): PrivateTubeDataNoir {
   return {
     public_inputs: mapPrivateToRollupKernelCircuitPublicInputsToNoir(data.publicInputs),
     proof: mapRecursiveProofToNoir<typeof TUBE_PROOF_LENGTH>(data.proof),
-    vk_data: mapVkDataToNoir(data.vkData, ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+    vk_data: mapVkDataToNoir(data.vkData, ULTRA_VK_LENGTH_IN_FIELDS),
   };
 }
 
@@ -913,7 +910,7 @@ function mapPublicTubeDataToNoir(data: PublicTubeData): PublicTubeDataNoir {
   return {
     public_inputs: mapPrivateToPublicKernelCircuitPublicInputsToNoir(data.publicInputs),
     proof: mapRecursiveProofToNoir<typeof TUBE_PROOF_LENGTH>(data.proof),
-    vk_data: mapVkDataToNoir(data.vkData, ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+    vk_data: mapVkDataToNoir(data.vkData, ULTRA_VK_LENGTH_IN_FIELDS),
   };
 }
 
@@ -960,20 +957,6 @@ export function mapBlockMergeRollupInputsToNoir(mergeRollupInputs: BlockMergeRol
   };
 }
 
-export function mapRollupValidationRequestsToNoir(
-  rollupValidationRequests: RollupValidationRequests,
-): RollupValidationRequestsNoir {
-  return {
-    include_by_timestamp: mapIncludeByTimestampToNoir(rollupValidationRequests.includeByTimestamp),
-  };
-}
-
-export function mapRollupValidationRequestsFromNoir(
-  rollupValidationRequests: RollupValidationRequestsNoir,
-): RollupValidationRequests {
-  return new RollupValidationRequests(mapIncludeByTimestampFromNoir(rollupValidationRequests.include_by_timestamp));
-}
-
 export function mapRevertCodeFromNoir(revertCode: NoirField): RevertCode {
   return RevertCode.fromField(mapFieldFromNoir(revertCode));
 }
@@ -987,9 +970,9 @@ export function mapPrivateToRollupKernelCircuitPublicInputsFromNoir(
 ) {
   return new PrivateToRollupKernelCircuitPublicInputs(
     mapTxConstantDataFromNoir(inputs.constants),
-    mapRollupValidationRequestsFromNoir(inputs.rollup_validation_requests),
     mapPrivateToRollupAccumulatedDataFromNoir(inputs.end),
     mapGasFromNoir(inputs.gas_used),
     mapAztecAddressFromNoir(inputs.fee_payer),
+    mapBigIntFromNoir(inputs.include_by_timestamp),
   );
 }

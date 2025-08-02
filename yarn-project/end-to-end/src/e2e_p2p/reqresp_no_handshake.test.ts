@@ -18,7 +18,7 @@ import { createPXEServiceAndPrepareTransactions } from './shared.js';
 // Delete this file once we have settled on the cause of the reqresp flakes.
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
-const NUM_NODES = 6;
+const NUM_VALIDATORS = 6;
 const NUM_TXS_PER_NODE = 2;
 const BOOT_NODE_UDP_PORT = 4500;
 
@@ -31,7 +31,8 @@ describe('e2e_p2p_reqresp_tx_no_handshake', () => {
   beforeEach(async () => {
     t = await P2PNetworkTest.create({
       testName: 'e2e_p2p_reqresp_tx',
-      numberOfNodes: NUM_NODES,
+      numberOfNodes: 0,
+      numberOfValidators: NUM_VALIDATORS,
       basePort: BOOT_NODE_UDP_PORT,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up`
       metricsPort: shouldCollectMetrics(),
@@ -49,7 +50,7 @@ describe('e2e_p2p_reqresp_tx_no_handshake', () => {
   afterEach(async () => {
     await t.stopNodes(nodes);
     await t.teardown();
-    for (let i = 0; i < NUM_NODES; i++) {
+    for (let i = 0; i < NUM_VALIDATORS; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
     }
   });
@@ -75,7 +76,7 @@ describe('e2e_p2p_reqresp_tx_no_handshake', () => {
       { ...t.ctx.aztecNodeConfig, p2pDisableStatusHandshake: true }, // DIFFERENCE FROM reqresp.test.ts
       t.ctx.dateProvider,
       t.bootstrapNodeEnr,
-      NUM_NODES,
+      NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
       t.prefilledPublicData,
       DATA_DIR,
@@ -112,10 +113,10 @@ describe('e2e_p2p_reqresp_tx_no_handshake', () => {
     // We chose the first 2 nodes that will be the proposers for the next few slots
     for (const nodeIndex of nodesToTurnOffTxGossip) {
       const logger = createLogger(`p2p:${getNodePort(nodeIndex)}`);
-      jest.spyOn((nodes[nodeIndex] as any).p2pClient.p2pService, 'handleGossipedTx').mockImplementation((async (
+      jest.spyOn((nodes[nodeIndex] as any).p2pClient.p2pService, 'handleGossipedTx').mockImplementation(((
         payloadData: Buffer,
       ) => {
-        const txHash = await Tx.fromBuffer(payloadData).getTxHash();
+        const txHash = Tx.fromBuffer(payloadData).getTxHash();
         logger.info(`Skipping storage of gossiped transaction ${txHash.toString()}`);
         return Promise.resolve();
       }) as any);
@@ -128,7 +129,7 @@ describe('e2e_p2p_reqresp_tx_no_handshake', () => {
       c.txs.map(tx => {
         const node = nodes[proposerIndexes[i]];
         void node.sendTx(tx).catch(err => t.logger.error(`Error sending tx: ${err}`));
-        return new SentTx(node, () => tx.getTxHash());
+        return new SentTx(node, () => Promise.resolve(tx.getTxHash()));
       }),
     );
 
@@ -136,9 +137,9 @@ describe('e2e_p2p_reqresp_tx_no_handshake', () => {
     await Promise.all(
       sentTxs.flatMap((txs, i) =>
         txs.map(async (tx, j) => {
-          t.logger.info(`Waiting for tx ${i}-${j} ${await tx.getTxHash()} to be mined`);
+          t.logger.info(`Waiting for tx ${i}-${j} ${(await tx.getTxHash()).toString()} to be mined`);
           await tx.wait({ timeout: WAIT_FOR_TX_TIMEOUT * 1.5 }); // more transactions in this test so allow more time
-          t.logger.info(`Tx ${i}-${j} ${await tx.getTxHash()} has been mined`);
+          t.logger.info(`Tx ${i}-${j} ${(await tx.getTxHash()).toString()} has been mined`);
         }),
       ),
     );
@@ -178,7 +179,7 @@ describe('e2e_p2p_reqresp_tx_no_handshake', () => {
       );
     }
 
-    const nodesToTurnOffTxGossip = Array.from({ length: NUM_NODES }, (_, i) => i).filter(
+    const nodesToTurnOffTxGossip = Array.from({ length: NUM_VALIDATORS }, (_, i) => i).filter(
       i => !proposerIndexes.includes(i),
     );
     return { proposerIndexes, nodesToTurnOffTxGossip };

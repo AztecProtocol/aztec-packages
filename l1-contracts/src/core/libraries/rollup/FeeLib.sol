@@ -135,10 +135,11 @@ library FeeLib {
       return;
     }
 
-    feeStore.l1GasOracleValues.pre = feeStore.l1GasOracleValues.post;
-    feeStore.l1GasOracleValues.post =
-      L1FeeData({baseFee: block.basefee, blobFee: BlobLib.getBlobBaseFee()}).compress();
-    feeStore.l1GasOracleValues.slotOfChange = (slot + LAG).compress();
+    feeStore.l1GasOracleValues = L1GasOracleValues({
+      pre: feeStore.l1GasOracleValues.post,
+      post: L1FeeData({baseFee: block.basefee, blobFee: BlobLib.getBlobBaseFee()}).compress(),
+      slotOfChange: (slot + LAG).compress()
+    });
   }
 
   function computeFeeHeader(
@@ -249,6 +250,11 @@ library FeeLib {
       congestionCost: FeeAssetValue.unwrap(congestionCost.toFeeAsset(feeAssetPrice)),
       congestionMultiplier: congestionMultiplier_
     });
+  }
+
+  function isTxsEnabled() internal view returns (bool) {
+    // If the target is 0, the limit is 0. And no transactions can enter
+    return getManaTarget() > 0;
   }
 
   function getManaTarget() internal view returns (uint256) {

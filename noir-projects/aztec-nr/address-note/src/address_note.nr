@@ -1,10 +1,12 @@
 use dep::aztec::{
-    macros::notes::note, oracle::random::random, protocol_types::address::AztecAddress,
+    macros::notes::note,
+    oracle::random::random,
+    protocol_types::{address::AztecAddress, traits::Packable},
 };
 
 // docs:start:address_note_def
+#[derive(Eq, Packable)]
 #[note]
-#[derive(Eq)]
 pub struct AddressNote {
     address: AztecAddress,
     owner: AztecAddress,
@@ -19,6 +21,10 @@ impl AddressNote {
         // therefore assume that the sender will cooperate in the random value generation.
         let randomness = unsafe { random() };
         AddressNote { address, owner, randomness }
+    }
+
+    pub fn get_address(self) -> AztecAddress {
+        self.address
     }
 }
 // docs:end:address_note_def

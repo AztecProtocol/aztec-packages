@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/aztec.js';
-import { CheatCodes } from '@aztec/aztec.js/testing';
+import { CheatCodes } from '@aztec/aztec/testing';
 import { RollupContract } from '@aztec/ethereum';
 import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
 
@@ -101,7 +101,7 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     await crossChainTestHarness.withdrawFundsFromBridgeOnL1(
       withdrawAmount,
       l2TxReceipt.blockNumber!,
-      l2ToL1MessageResult!.l2MessageIndex,
+      l2ToL1MessageResult!.leafIndex,
       l2ToL1MessageResult!.siblingPath,
     );
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount + withdrawAmount);

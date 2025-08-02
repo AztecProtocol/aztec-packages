@@ -10,6 +10,8 @@
 #include <vector>
 
 #include "./fixed_base/fixed_base_params.hpp"
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 
 namespace bb::plookup {
@@ -38,8 +40,10 @@ enum BasicTableId {
     SHA256_BASE16_ROTATE8,
     UINT_XOR_SLICE_6_ROTATE_0,
     UINT_XOR_SLICE_2_ROTATE_0,
+    UINT_XOR_SLICE_4_ROTATE_0,
     UINT_AND_SLICE_6_ROTATE_0,
     UINT_AND_SLICE_2_ROTATE_0,
+    UINT_AND_SLICE_4_ROTATE_0,
     BN254_XLO_BASIC,
     BN254_XHI_BASIC,
     BN254_YLO_BASIC,
@@ -97,8 +101,14 @@ enum MultiTableId {
     FIXED_BASE_LEFT_HI,
     FIXED_BASE_RIGHT_LO,
     FIXED_BASE_RIGHT_HI,
+    UINT8_XOR,
+    UINT16_XOR,
     UINT32_XOR,
+    UINT64_XOR,
+    UINT8_AND,
+    UINT16_AND,
     UINT32_AND,
+    UINT64_AND,
     BN254_XLO,
     BN254_XHI,
     BN254_YLO,
@@ -323,13 +333,8 @@ struct LookupHashTable {
     Value operator[](const Key& key) const
     {
         auto it = index_map.find(key);
-        if (it != index_map.end()) {
-            return it->second;
-        } else {
-            info("LookupHashTable: Key not found!");
-            ASSERT(false);
-            return 0;
-        }
+        ASSERT(it != index_map.end(), "LookupHashTable: Key not found!");
+        return it->second;
     }
 
     bool operator==(const LookupHashTable& other) const = default;
@@ -389,7 +394,8 @@ struct BasicTable {
 
     size_t size() const
     {
-        ASSERT(column_1.size() == column_2.size() && column_2.size() == column_3.size());
+        BB_ASSERT_EQ(column_1.size(), column_2.size());
+        BB_ASSERT_EQ(column_2.size(), column_3.size());
         return column_1.size();
     }
 };

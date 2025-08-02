@@ -3,12 +3,10 @@ use crate::components::{
     private_kernel_circuit_output_validator::PrivateKernelCircuitOutputValidator,
     private_kernel_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer,
 };
-use dep::types::{
-    abis::{
-        kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-        private_circuit_public_inputs::PrivateCircuitPublicInputs,
-        private_kernel::private_call_data::{PrivateCallData, PrivateCallDataWithoutPublicInputs},
-    },
+use dep::types::abis::{
+    kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
+    private_circuit_public_inputs::PrivateCircuitPublicInputs,
+    private_kernel::private_call_data::{PrivateCallData, PrivateCallDataWithoutPublicInputs},
     transaction::tx_request::TxRequest,
 };
 
@@ -65,6 +63,8 @@ impl PrivateKernelInitCircuitPrivateInputs {
 
         private_call_data_validator.verify_proof(true /* is_first_app */);
 
+        private_call_data_validator.validate_common(self.protocol_contract_tree_root);
+
         private_call_data_validator.validate_as_first_call();
 
         private_call_data_validator.validate_against_tx_request(self.tx_request);
@@ -74,14 +74,6 @@ impl PrivateKernelInitCircuitPrivateInputs {
         // Note: the 0th nullifier is computed within here from the txRequest.
         // Safety: The output is validated below by PrivateKernelCircuitOutputValidator.
         let output = unsafe { self.generate_output() };
-
-        // Q: why is the output needed for this validation?
-        // A: it's used in log validation.
-        // Q: Should that log validation instead happen within the Output Validator steps below?
-        private_call_data_validator.validate_common(
-            output.end.note_hashes,
-            self.protocol_contract_tree_root,
-        );
 
         // Validate output.
         if dep::types::validate::should_validate_output() {
@@ -101,12 +93,14 @@ impl PrivateKernelInitCircuitPrivateInputs {
 mod tests {
     use crate::private_kernel_init::PrivateKernelInitCircuitPrivateInputs;
     use dep::types::{
-        abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
+        abis::{
+            kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
+            transaction::tx_request::TxRequest,
+        },
         tests::{
             fixture_builder::{claimed_length_array_from_bounded_vec, FixtureBuilder},
             utils::assert_array_eq,
         },
-        transaction::tx_request::TxRequest,
     };
 
     struct PrivateKernelInitInputsBuilder {

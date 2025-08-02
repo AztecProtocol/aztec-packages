@@ -23,18 +23,25 @@ template <typename Flavor> class UltraVerifier_ {
     using Transcript = typename Flavor::Transcript;
     using DeciderVK = DeciderVerificationKey_<Flavor>;
     using DeciderVerifier = DeciderVerifier_<Flavor>;
+    using PublicInputs = std::vector<FF>;
+
+    std::pair<PublicInputs, typename DeciderVerifier::Output> verify_internal(const HonkProof& proof);
 
   public:
     explicit UltraVerifier_(
-        const std::shared_ptr<VerificationKey>& verifier_key,
+        const std::shared_ptr<VerificationKey>& vk,
         VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key = VerifierCommitmentKey<curve::Grumpkin>(),
         const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>())
-        : verification_key(std::make_shared<DeciderVK>(verifier_key))
+        : verification_key(std::make_shared<DeciderVK>(vk))
         , ipa_verification_key(std::move(ipa_verification_key))
         , transcript(transcript)
     {}
 
-    bool verify_proof(const HonkProof& proof, const HonkProof& ipa_proof = {});
+    bool verify_proof(const HonkProof& proof, const HonkProof& ipa_proof = {})
+        requires IsUltraHonk<Flavor>;
+
+    std::pair<bool, std::array<Commitment, Flavor::NUM_WIRES>> verify_proof(const HonkProof& proof)
+        requires IsMegaFlavor<Flavor> && (!HasIPAAccumulator<Flavor>);
 
     std::shared_ptr<Transcript> ipa_transcript = std::make_shared<Transcript>();
     std::shared_ptr<DeciderVK> verification_key;

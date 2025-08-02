@@ -54,7 +54,6 @@ struct AcirFormatOriginalOpcodeIndices {
     std::vector<size_t> poseidon2_constraints;
     std::vector<size_t> multi_scalar_mul_constraints;
     std::vector<size_t> ec_add_constraints;
-    std::vector<size_t> recursion_constraints;
     std::vector<size_t> honk_recursion_constraints;
     std::vector<size_t> avm_recursion_constraints;
     std::vector<size_t> ivc_recursion_constraints;
@@ -97,7 +96,6 @@ struct AcirFormat {
     std::vector<Poseidon2Constraint> poseidon2_constraints;
     std::vector<MultiScalarMul> multi_scalar_mul_constraints;
     std::vector<EcAdd> ec_add_constraints;
-    std::vector<RecursionConstraint> recursion_constraints;
     std::vector<RecursionConstraint> honk_recursion_constraints;
     std::vector<RecursionConstraint> avm_recursion_constraints;
     std::vector<RecursionConstraint> ivc_recursion_constraints;
@@ -125,7 +123,10 @@ struct AcirFormat {
 
     // Set of constrained witnesses
     std::set<uint32_t> constrained_witness = {};
+    // map witness with their minimal bit-range
     std::map<uint32_t, uint32_t> minimal_range = {};
+    // map witness with their minimal bit-range implied by array operations
+    std::map<uint32_t, uint32_t> index_range = {};
 
     // Indices of the original opcode that originated each constraint in AcirFormat.
     AcirFormatOriginalOpcodeIndices original_opcode_indices;
@@ -145,7 +146,6 @@ struct AcirFormat {
                    poseidon2_constraints,
                    multi_scalar_mul_constraints,
                    ec_add_constraints,
-                   recursion_constraints,
                    honk_recursion_constraints,
                    avm_recursion_constraints,
                    ivc_recursion_constraints,

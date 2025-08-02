@@ -47,10 +47,16 @@ images:
     image: curlimages/curl:7.81.0
     pullPolicy: IfNotPresent
   reth:
-    image: ghcr.io/paradigmxyz/reth:v1.0.8
+    image: ghcr.io/paradigmxyz/reth:v1.6.0
     pullPolicy: IfNotPresent
   lighthouse:
-    image: sigp/lighthouse:v6.0.1
+    image: sigp/lighthouse:v7.1.0
+    pullPolicy: IfNotPresent
+  geth:
+    image: ethereum/client-go:v1.15.5
+    pullPolicy: IfNotPresent
+  nethermind:
+    image: nethermind/nethermind:1.32.2
     pullPolicy: IfNotPresent
 
 aztec:
@@ -78,9 +84,24 @@ aztec:
   proverKeyIndexStart: 1000
   validatorKeyIndexStart: 2000
   botKeyIndexStart: 3000
+  slasherKeyIndexStart: 3500
   extraAccountsStartIndex: 4000
   ## The number of extra accounts to prefund
   extraAccounts: 10
+
+  slash:
+    payloadTtlSeconds: "86400"
+    pruneEnabled: false
+    prunePenalty: "1"
+    pruneMaxPenalty: "100"
+    inactivityEnabled: false
+    inactivityCreateTargetPercentage: 0.9
+    inactivitySignalTargetPercentage: 0.6
+    inactivityCreatePenalty: "1"
+    inactivityMaxPenalty: "100"
+    invalidBlockEnabled: false
+    invalidBlockPenalty: "1"
+    invalidBlockMaxPenalty: "100"
 
 bootNode:
   enabled: true
@@ -153,6 +174,7 @@ fullNode:
   sentinelEnabled: false
 
 validator:
+  sentinelEnabled: false
   # If true, the validator will use its peers to serve as the boot node.
   # This cannot be used when the network first starts up.
   # But it must be used if the boot node is killed, and the validator is restarted.
@@ -291,7 +313,8 @@ ethereum:
     spotEnabled: false
   args: ""
   execution:
-    externalHosts: ""
+    client: "reth"
+    externalHosts:
     service:
       port: 8545
       targetPort: 8545
@@ -299,7 +322,7 @@ ethereum:
       wsTargetPort: 8546
     storageSize: "80Gi"
   beacon:
-    externalHost: ""
+    externalHost:
     apiKey: ""
     apiKeyHeader: ""
     service:

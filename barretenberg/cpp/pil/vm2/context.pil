@@ -10,17 +10,17 @@ namespace execution;
     #[skippable_if]
     sel = 0;
 
-    // Guaranteed to be boolean because sel_call & sel_static_call are mutually exclusive
+    // Guaranteed to be boolean because sel_execute_call & sel_execute_static_call are mutually exclusive
     pol commit sel_enter_call;
     // Handle error separately since it takes priority and may occur during an sel_x_call
-    sel_enter_call = (sel_call + sel_static_call) * (1 - sel_error);
+    sel_enter_call = (sel_execute_call + sel_execute_static_call) * (1 - sel_error);
     // CALL & precomputed.first_row are mutually exclusive
     sel_enter_call * precomputed.first_row = 0;
 
     // sel_exit_call is used to flag if we are returning or reverting or we error
-    // sel_revert & sel_return are mutually exclusive
+    // sel_execute_revert & sel_execute_return are mutually exclusive
     pol commit sel_exit_call;
-    sel_exit_call = 1 - (1 - sel_revert - sel_return) * (1 - sel_error);
+    sel_exit_call = 1 - (1 - sel_execute_revert - sel_execute_return) * (1 - sel_error);
 
     // Context columns
     pol commit context_id;
@@ -62,13 +62,15 @@ namespace execution;
 
     pol commit prev_public_data_tree_root;
     pol commit prev_public_data_tree_size;
-    pol commit prev_num_pub_data_writes_emitted;
 
-    pol commit prev_l1_l2_tree_root;
-    pol commit prev_l1_l2_tree_size;
+    pol commit prev_written_public_data_slots_tree_root;
+    pol commit prev_written_public_data_slots_tree_size;
+
+    // L1 to L2 tree doesn't evolve during execution of the AVM
+    pol commit l1_l2_tree_root;
 
     // Next Tree State
-    pol commit note_hash_tree_root;
+    pol commit note_hash_tree_root; // TODO: Constrain root, sizes and emitted not changing unless specific opcode selectors are on
     pol commit note_hash_tree_size;
     pol commit num_note_hashes_emitted;
 
@@ -78,10 +80,17 @@ namespace execution;
 
     pol commit public_data_tree_root;
     pol commit public_data_tree_size;
-    pol commit num_pub_data_writes_emitted;
 
-    pol commit l1_l2_tree_root;
-    pol commit l1_l2_tree_size;
+    pol commit written_public_data_slots_tree_root;
+    pol commit written_public_data_slots_tree_size;
+
+    // Prev side effects state
+    pol commit prev_num_unencrypted_logs;
+    pol commit prev_num_l2_to_l1_messages;
+
+    // Next side effects state
+    pol commit num_unencrypted_logs;
+    pol commit num_l2_to_l1_messages;
 
     // ==== Helper columns ====
     // TODO: These context modifiers also need to factor in when a new enqueued call occurs
@@ -89,6 +98,8 @@ namespace execution;
     pol SWITCH_CTX = sel_enter_call + sel_exit_call; // Mutually Exclusive
     // We default propagate the context rows if we have more execution steps and we are not exiting or entering a call
     pol DEFAULT_CTX_ROW = (1 - SWITCH_CTX);
+
+    pol PC_JUMP = sel_execute_internal_call + sel_execute_internal_return + sel_execute_jump + sel_execute_jumpi;
 
     pol commit has_parent_ctx; // == 1 if parent_id != 0;
     has_parent_ctx * (1 - has_parent_ctx) = 0;
@@ -158,7 +169,7 @@ namespace execution;
     // otherwise        = 0 ==> is_static' = is_static
     #[IS_STATIC_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (is_static' - is_static) = 0;
-    NOT_LAST_EXEC * sel_enter_call  * (is_static' - sel_static_call) = 0;
+    NOT_LAST_EXEC * sel_enter_call  * (is_static' - sel_execute_static_call) = 0;
 
     // nested_exit_call = 1 ==> constraints come from lookup
     // sel_enter_call   = 1 ==> parent_calldata_addr' = rop[3] (resolved operand 4 from execution trace)
@@ -255,7 +266,19 @@ namespace execution;
         parent_l2_gas_limit,
         parent_da_gas_limit,
         parent_l2_gas_used,
-        parent_da_gas_used
+        parent_da_gas_used,
+        note_hash_tree_root,
+        note_hash_tree_size,
+        num_note_hashes_emitted,
+        nullifier_tree_root,
+        nullifier_tree_size,
+        num_nullifiers_emitted,
+        public_data_tree_root,
+        public_data_tree_size,
+        written_public_data_slots_tree_root,
+        written_public_data_slots_tree_size,
+        num_unencrypted_logs,
+        num_l2_to_l1_messages
     } in
     context_stack.sel {
         context_stack.entered_context_id,
@@ -270,14 +293,26 @@ namespace execution;
         context_stack.parent_l2_gas_limit,
         context_stack.parent_da_gas_limit,
         context_stack.parent_l2_gas_used,
-        context_stack.parent_da_gas_used
+        context_stack.parent_da_gas_used,
+        context_stack.note_hash_tree_root,
+        context_stack.note_hash_tree_size,
+        context_stack.num_note_hashes_emitted,
+        context_stack.nullifier_tree_root,
+        context_stack.nullifier_tree_size,
+        context_stack.num_nullifiers_emitted,
+        context_stack.public_data_tree_root,
+        context_stack.public_data_tree_size,
+        context_stack.written_public_data_slots_tree_root,
+        context_stack.written_public_data_slots_tree_size,
+        context_stack.num_unencrypted_logs,
+        context_stack.num_l2_to_l1_messages
     };
 
     // If we are reverting or erroring a nested call, we restore the entire ctx from the stack
     pol commit rollback_context;
     rollback_context * (1 - rollback_context) = 0;
     // Constrained to be boolean based on previous relations
-    rollback_context = nested_exit_call * (1 - sel_return);
+    rollback_context = nested_exit_call * (1 - sel_execute_return);
 
     #[CTX_STACK_ROLLBACK]
     rollback_context {
@@ -293,9 +328,20 @@ namespace execution;
         parent_l2_gas_limit',
         parent_da_gas_limit',
         parent_l2_gas_used',
-        parent_da_gas_used'
-        // Tree Snapshots
-        // Counters
+        parent_da_gas_used',
+        // Revert trees and side effects
+        prev_note_hash_tree_root',
+        prev_note_hash_tree_size',
+        prev_num_note_hashes_emitted',
+        prev_nullifier_tree_root',
+        prev_nullifier_tree_size',
+        prev_num_nullifiers_emitted',
+        prev_public_data_tree_root',
+        prev_public_data_tree_size',
+        prev_written_public_data_slots_tree_root',
+        prev_written_public_data_slots_tree_size',
+        prev_num_unencrypted_logs',
+        prev_num_l2_to_l1_messages'
     } in
     context_stack.sel {
         context_stack.entered_context_id,
@@ -310,13 +356,23 @@ namespace execution;
         context_stack.parent_l2_gas_limit,
         context_stack.parent_da_gas_limit,
         context_stack.parent_l2_gas_used,
-        context_stack.parent_da_gas_used
-        // Tree Snapshots
-        // Counters
+        context_stack.parent_da_gas_used,
+        context_stack.note_hash_tree_root,
+        context_stack.note_hash_tree_size,
+        context_stack.num_note_hashes_emitted,
+        context_stack.nullifier_tree_root,
+        context_stack.nullifier_tree_size,
+        context_stack.num_nullifiers_emitted,
+        context_stack.public_data_tree_root,
+        context_stack.public_data_tree_size,
+        context_stack.written_public_data_slots_tree_root,
+        context_stack.written_public_data_slots_tree_size,
+        context_stack.num_unencrypted_logs,
+        context_stack.num_l2_to_l1_messages
     };
 
     pol commit nested_return;
-    nested_return = nested_exit_call * sel_return;
+    nested_return = nested_exit_call * sel_execute_return;
     #[CTX_STACK_RETURN]
     nested_return {
         context_id,
@@ -332,6 +388,7 @@ namespace execution;
         parent_da_gas_limit',
         parent_l2_gas_used',
         parent_da_gas_used'
+        // We don't restore trees or side effects in return since we adopt the nested state after end.
     } in
     context_stack.sel {
         context_stack.entered_context_id,
@@ -349,3 +406,60 @@ namespace execution;
         context_stack.parent_da_gas_used
     };
 
+    // ==== GAS USED CONSTRAINING ====
+
+    // If any error happened during execution (i.e., sel_error=1), all gas should be consumed.
+    pol SEL_CONSUMED_ALL_GAS = sel_error;
+    (l2_gas_limit - PREV_GAS_PLUS_USAGE_L2) * SEL_CONSUMED_ALL_GAS + PREV_GAS_PLUS_USAGE_L2 - l2_gas_used = 0;
+    (da_gas_limit - PREV_GAS_PLUS_USAGE_DA) * SEL_CONSUMED_ALL_GAS + PREV_GAS_PLUS_USAGE_DA - da_gas_used = 0;
+
+    // nested_exit_call = 1 <==> prev_gas_used' = parent_gas_used + gas_used
+    // sel_enter_call   = 1 <==> prev_gas_used' = 0
+    // otherwise        = 0 <==> prev_gas_used' = gas_used
+    pol commit prev_l2_gas_used;
+    pol commit prev_da_gas_used;
+
+    #[L2_GAS_USED_CONTINUITY]
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (l2_gas_used - prev_l2_gas_used') = 0;
+    #[L2_GAS_USED_ZERO_AFTER_CALL]
+    NOT_LAST_EXEC * sel_enter_call * prev_l2_gas_used' = 0;
+    #[L2_GAS_USED_INGEST_AFTER_EXIT]
+    NOT_LAST_EXEC * nested_exit_call * (parent_l2_gas_used + l2_gas_used - prev_l2_gas_used') = 0;
+    #[DA_GAS_USED_CONTINUITY]
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (da_gas_used - prev_da_gas_used') = 0;
+    #[DA_GAS_USED_ZERO_AFTER_CALL]
+    NOT_LAST_EXEC * sel_enter_call * prev_da_gas_used' = 0;
+    #[DA_GAS_USED_INGEST_AFTER_EXIT]
+    NOT_LAST_EXEC * nested_exit_call * (parent_da_gas_used + da_gas_used - prev_da_gas_used') = 0;
+    // Tree and sideffect state should not change in default rows and nested returns.
+    // In top level exits, the state is constrained by the tx > execution lookup
+    // In nested reverts, the state is constrained by the rollback_context lookup
+    pol DEFAULT_OR_NESTED_RETURN = DEFAULT_CTX_ROW + nested_return; // Mutually exclusive
+    #[NOTE_HASH_TREE_ROOT_CONTINUITY]
+    NOT_LAST_EXEC * DEFAULT_OR_NESTED_RETURN * (note_hash_tree_root - prev_note_hash_tree_root') = 0;
+    #[NOTE_HASH_TREE_SIZE_CONTINUITY]
+    NOT_LAST_EXEC * DEFAULT_OR_NESTED_RETURN * (note_hash_tree_size - prev_note_hash_tree_size') = 0;
+    #[NUM_NOTE_HASHES_EMITTED_CONTINUITY]
+    NOT_LAST_EXEC * DEFAULT_OR_NESTED_RETURN * (num_note_hashes_emitted - prev_num_note_hashes_emitted') = 0;
+    #[NULLIFIER_TREE_ROOT_CONTINUITY]
+    NOT_LAST_EXEC * DEFAULT_OR_NESTED_RETURN * (nullifier_tree_root - prev_nullifier_tree_root') = 0;
+    #[NULLIFIER_TREE_SIZE_CONTINUITY]
+    NOT_LAST_EXEC * DEFAULT_OR_NESTED_RETURN * (nullifier_tree_size - prev_nullifier_tree_size') = 0;
+    #[NUM_NULLIFIERS_EMITTED_CONTINUITY]
+    NOT_LAST_EXEC * DEFAULT_OR_NESTED_RETURN * (num_nullifiers_emitted - prev_num_nullifiers_emitted') = 0;
+    #[PUBLIC_DATA_TREE_ROOT_CONTINUITY]
+    NOT_LAST_EXEC * DEFAULT_OR_NESTED_RETURN * (public_data_tree_root - prev_public_data_tree_root') = 0;
+    #[PUBLIC_DATA_TREE_SIZE_CONTINUITY]
+    NOT_LAST_EXEC * DEFAULT_OR_NESTED_RETURN * (public_data_tree_size - prev_public_data_tree_size') = 0;
+    #[WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY]
+    NOT_LAST_EXEC * DEFAULT_OR_NESTED_RETURN * (written_public_data_slots_tree_root - prev_written_public_data_slots_tree_root') = 0;
+    #[WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY]
+    NOT_LAST_EXEC * DEFAULT_OR_NESTED_RETURN * (written_public_data_slots_tree_size - prev_written_public_data_slots_tree_size') = 0;
+    // L1 to L2 message tree is immutable in a tx
+    #[L1_L2_TREE_ROOT_CONTINUITY]
+    NOT_LAST_EXEC * (l1_l2_tree_root - l1_l2_tree_root') = 0;
+
+    #[NUM_UNENCRYPTED_LOGS_CONTINUITY]
+    NOT_LAST_EXEC * DEFAULT_OR_NESTED_RETURN * (num_unencrypted_logs - prev_num_unencrypted_logs') = 0;
+    #[NUM_L2_TO_L1_MESSAGES_CONTINUITY]
+    NOT_LAST_EXEC * DEFAULT_OR_NESTED_RETURN * (num_l2_to_l1_messages - prev_num_l2_to_l1_messages') = 0;

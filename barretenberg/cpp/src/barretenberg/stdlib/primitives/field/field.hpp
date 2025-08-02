@@ -339,6 +339,9 @@ template <typename Builder> class field_t {
 
     std::array<field_t, 3> slice(uint8_t msb, uint8_t lsb) const;
 
+    std::pair<field_t<Builder>, field_t<Builder>> split_at(
+        const size_t lsb_index, const size_t num_bits = grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH) const;
+
     bool_t<Builder> is_zero() const;
 
     void create_range_constraint(size_t num_bits, std::string const& msg = "field_t::range_constraint") const;
@@ -353,7 +356,8 @@ template <typename Builder> class field_t {
      */
     void convert_constant_to_fixed_witness(Builder* ctx)
     {
-        ASSERT(is_constant() && ctx);
+        ASSERT(is_constant());
+        ASSERT(ctx);
         context = ctx;
         (*this) = field_t<Builder>(witness_t<Builder>(context, get_value()));
         context->fix_witness(witness_index, get_value());

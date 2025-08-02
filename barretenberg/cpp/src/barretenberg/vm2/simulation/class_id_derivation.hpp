@@ -15,7 +15,7 @@ class ClassIdDerivationInterface {
 
 class ClassIdDerivation : public ClassIdDerivationInterface {
   public:
-    ClassIdDerivation(Poseidon2& poseidon2, EventEmitterInterface<ClassIdDerivationEvent>& events)
+    ClassIdDerivation(Poseidon2Interface& poseidon2, EventEmitterInterface<ClassIdDerivationEvent>& events)
         : events(events)
         , poseidon2(poseidon2)
     {}

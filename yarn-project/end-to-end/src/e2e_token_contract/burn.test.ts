@@ -72,7 +72,7 @@ describe('e2e_token_contract burn', () => {
         expect(amount).toBeGreaterThan(0n);
         const authwitNonce = 1;
         await expect(asset.methods.burn_public(accounts[0].address, amount, authwitNonce).simulate()).rejects.toThrow(
-          'Assertion failed: invalid authwit nonce',
+          "Assertion failed: Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero",
         );
       });
 
@@ -175,7 +175,7 @@ describe('e2e_token_contract burn', () => {
         const amount = balance0 - 1n;
         expect(amount).toBeGreaterThan(0n);
         await expect(asset.methods.burn_private(accounts[0].address, amount, 1).simulate()).rejects.toThrow(
-          'Assertion failed: invalid authwit nonce',
+          "Assertion failed: Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero",
         );
       });
 

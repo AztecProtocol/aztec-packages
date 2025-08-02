@@ -1,7 +1,16 @@
+import { NULL_KEY } from '@aztec/ethereum';
 import type { ConfigMappingsType } from '@aztec/foundation/config';
-import { bigintConfigHelper, booleanConfigHelper, numberConfigHelper } from '@aztec/foundation/config';
+import {
+  SecretValue,
+  bigintConfigHelper,
+  booleanConfigHelper,
+  floatConfigHelper,
+  numberConfigHelper,
+  secretValueConfigHelper,
+} from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
+import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
 
 export enum Offense {
   UNKNOWN = 0,
@@ -59,25 +68,6 @@ export type Watcher = WatcherEmitter & {
   stop?: () => Promise<void>;
 };
 
-export interface SlasherConfig {
-  // New configurations based on design doc
-  slashOverridePayload?: EthAddress;
-  slashPayloadTtlSeconds: number; // TTL for payloads, in seconds
-  slashPruneEnabled: boolean;
-  slashPrunePenalty: bigint;
-  slashPruneMaxPenalty: bigint;
-  slashInvalidBlockEnabled: boolean;
-  slashInvalidBlockPenalty: bigint;
-  slashInvalidBlockMaxPenalty: bigint;
-  slashInactivityEnabled: boolean;
-  slashInactivityCreateTargetPercentage: number; // 0-1, 0.9 means 90%
-  slashInactivitySignalTargetPercentage: number; // 0-1, 0.6 means 60%
-  slashInactivityCreatePenalty: bigint;
-  slashInactivityMaxPenalty: bigint;
-  slashProposerRoundPollingIntervalSeconds: number;
-  // Consider adding: slashInactivityCreateEnabled: boolean;
-}
-
 export const DefaultSlasherConfig: SlasherConfig = {
   slashPayloadTtlSeconds: 60 * 60 * 24, // 1 day
   slashOverridePayload: undefined,
@@ -93,6 +83,7 @@ export const DefaultSlasherConfig: SlasherConfig = {
   slashInactivityCreatePenalty: 1n,
   slashInactivityMaxPenalty: 100n,
   slashProposerRoundPollingIntervalSeconds: 12,
+  slasherPrivateKey: new SecretValue<string | undefined>(undefined),
 };
 
 export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
@@ -144,13 +135,23 @@ export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
   },
   slashInactivityCreateTargetPercentage: {
     env: 'SLASH_INACTIVITY_CREATE_TARGET_PERCENTAGE',
-    description: 'Missed attestation percentage to trigger creation of inactivity slash payload (0-100).',
-    ...numberConfigHelper(DefaultSlasherConfig.slashInactivityCreateTargetPercentage),
+    description:
+      'Missed attestation percentage to trigger creation of inactivity slash payload (0, 1]. Must be greater than 0',
+    ...floatConfigHelper(DefaultSlasherConfig.slashInactivityCreateTargetPercentage, v => {
+      if (v <= 0 || v > 1) {
+        throw new RangeError(`SLASH_INACTIVITY_CREATE_TARGET_PERCENTAGE out of range. Expected (0, 1] got ${v}`);
+      }
+    }),
   },
   slashInactivitySignalTargetPercentage: {
     env: 'SLASH_INACTIVITY_SIGNAL_TARGET_PERCENTAGE',
-    description: 'Missed attestation percentage to trigger voting for an inactivity slash payload (0-100).',
-    ...numberConfigHelper(DefaultSlasherConfig.slashInactivitySignalTargetPercentage),
+    description:
+      'Missed attestation percentage to trigger voting for an inactivity slash payload (0, 1]. Must be greater than 0',
+    ...floatConfigHelper(DefaultSlasherConfig.slashInactivitySignalTargetPercentage, v => {
+      if (v <= 0 || v > 1) {
+        throw new RangeError(`SLASH_INACTIVITY_SIGNAL_TARGET_PERCENTAGE out of range. Expected (0, 1] got ${v}`);
+      }
+    }),
   },
   slashInactivityCreatePenalty: {
     env: 'SLASH_INACTIVITY_CREATE_PENALTY',
@@ -165,5 +166,9 @@ export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
   slashProposerRoundPollingIntervalSeconds: {
     description: 'Polling interval for slashing proposer round in seconds.',
     ...numberConfigHelper(DefaultSlasherConfig.slashProposerRoundPollingIntervalSeconds),
+  },
+  slasherPrivateKey: {
+    description: 'Private key used for creating slash payloads.',
+    ...secretValueConfigHelper(val => (val ? `0x${val.replace('0x', '')}` : NULL_KEY)),
   },
 };

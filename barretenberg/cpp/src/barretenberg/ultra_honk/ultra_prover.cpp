@@ -34,7 +34,7 @@ UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<DeciderPK>& proving_key
     : proving_key(std::move(proving_key))
     , honk_vk(honk_vk)
     , transcript(transcript)
-    , commitment_key(proving_key->proving_key.commitment_key)
+    , commitment_key(proving_key->commitment_key)
 {}
 
 /**
@@ -51,7 +51,7 @@ UltraProver_<Flavor>::UltraProver_(Builder& circuit,
     : proving_key(std::make_shared<DeciderPK>(circuit))
     , honk_vk(honk_vk)
     , transcript(transcript)
-    , commitment_key(proving_key->proving_key.commitment_key)
+    , commitment_key(proving_key->commitment_key)
 {}
 
 template <IsUltraOrMegaHonk Flavor>
@@ -59,7 +59,7 @@ UltraProver_<Flavor>::UltraProver_(Builder&& circuit, const std::shared_ptr<Honk
     : proving_key(std::make_shared<DeciderPK>(circuit))
     , honk_vk(honk_vk)
     , transcript(std::make_shared<Transcript>())
-    , commitment_key(proving_key->proving_key.commitment_key)
+    , commitment_key(proving_key->commitment_key)
 {}
 
 template <IsUltraOrMegaHonk Flavor> HonkProof UltraProver_<Flavor>::export_proof()
@@ -69,8 +69,8 @@ template <IsUltraOrMegaHonk Flavor> HonkProof UltraProver_<Flavor>::export_proof
     // Add the IPA proof
     if constexpr (HasIPAAccumulator<Flavor>) {
         // The extra calculation is for the IPA proof length.
-        BB_ASSERT_EQ(proving_key->proving_key.ipa_proof.size(), static_cast<size_t>(IPA_PROOF_LENGTH));
-        proof.insert(proof.end(), proving_key->proving_key.ipa_proof.begin(), proving_key->proving_key.ipa_proof.end());
+        BB_ASSERT_EQ(proving_key->ipa_proof.size(), static_cast<size_t>(IPA_PROOF_LENGTH));
+        proof.insert(proof.end(), proving_key->ipa_proof.begin(), proving_key->ipa_proof.end());
     }
 
     return proof;

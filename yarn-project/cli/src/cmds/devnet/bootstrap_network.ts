@@ -140,10 +140,12 @@ async function deployERC20(l1Client: ExtendedViemWalletClient) {
   const { TestERC20Abi, TestERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } = await import('@aztec/l1-artifacts');
 
   const erc20: ContractArtifacts = {
+    name: 'TestERC20',
     contractAbi: TestERC20Abi,
     contractBytecode: TestERC20Bytecode,
   };
   const portal: ContractArtifacts = {
+    name: 'TokenPortal',
     contractAbi: TokenPortalAbi,
     contractBytecode: TokenPortalBytecode,
   };
@@ -297,8 +299,8 @@ async function fundFPC(
 
   // TODO (alexg) remove this once sequencer builds blocks continuously
   // advance the chain
-  await counter.methods.increment(wallet.getAddress(), wallet.getAddress()).send().wait(waitOpts);
-  await counter.methods.increment(wallet.getAddress(), wallet.getAddress()).send().wait(waitOpts);
+  await counter.methods.increment(wallet.getAddress()).send().wait(waitOpts);
+  await counter.methods.increment(wallet.getAddress()).send().wait(waitOpts);
 
   debugLog.info('Claiming FPC');
 

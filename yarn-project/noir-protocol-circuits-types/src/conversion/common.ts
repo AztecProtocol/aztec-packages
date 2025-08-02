@@ -43,11 +43,11 @@ import {
   BlockHeader,
   ContentCommitment,
   GlobalVariables,
-  IncludeByTimestamp,
   PartialStateReference,
   StateReference,
   TxContext,
 } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 import type { VerificationKeyAsFields, VkData } from '@aztec/stdlib/vks';
 
 import type {
@@ -63,7 +63,6 @@ import type {
   GasSettings as GasSettingsNoir,
   GlobalVariables as GlobalVariablesNoir,
   EmbeddedCurveScalar as GrumpkinScalarNoir,
-  IncludeByTimestamp as IncludeByTimestampNoir,
   L2ToL1Message as L2ToL1MessageNoir,
   LogHash as LogHashNoir,
   Log as LogNoir,
@@ -85,9 +84,9 @@ import type {
   Scoped,
   StateReference as StateReferenceNoir,
   TxContext as TxContextNoir,
+  u64 as U64Noir,
   VerificationKey as VerificationKeyNoir,
   VkData as VkDataNoir,
-  u64,
 } from '../types/index.js';
 
 /* eslint-disable camelcase */
@@ -136,6 +135,14 @@ export function mapWrappedFieldToNoir(field: Fr): { inner: NoirField } {
 /** Maps a noir wrapped field type (ie any type implemented as struct with an inner Field) to a typescript field. */
 export function mapWrappedFieldFromNoir(wrappedField: { inner: NoirField }): Fr {
   return mapFieldFromNoir(wrappedField.inner);
+}
+
+export function mapU64ToNoir(u64: UInt64): U64Noir {
+  return mapBigIntToNoir(u64);
+}
+
+export function mapU64FromNoir(u64: U64Noir): UInt64 {
+  return mapBigIntFromNoir(u64);
 }
 
 /**
@@ -440,28 +447,15 @@ export function mapHeaderFromNoir(header: BlockHeaderNoir): BlockHeader {
   );
 }
 
-export function mapOptionalNumberToNoir(option: OptionalNumber): OptionalNumberNoir<u64> {
+export function mapOptionalNumberToNoir(option: OptionalNumber): OptionalNumberNoir {
   return {
     _is_some: option.isSome,
     _value: mapNumberToNoir(option.value),
   };
 }
 
-export function mapOptionalNumberFromNoir(option: OptionalNumberNoir<u64>) {
+export function mapOptionalNumberFromNoir(option: OptionalNumberNoir) {
   return new OptionalNumber(option._is_some, mapNumberFromNoir(option._value));
-}
-
-export function mapIncludeByTimestampToNoir(includeByTimestamp: IncludeByTimestamp): IncludeByTimestampNoir {
-  return {
-    _opt: {
-      _is_some: includeByTimestamp.isSome,
-      _value: mapBigIntToNoir(includeByTimestamp.value),
-    },
-  };
-}
-
-export function mapIncludeByTimestampFromNoir(includeByTimestamp: IncludeByTimestampNoir): IncludeByTimestamp {
-  return new IncludeByTimestamp(includeByTimestamp._opt._is_some, mapBigIntFromNoir(includeByTimestamp._opt._value));
 }
 
 /**

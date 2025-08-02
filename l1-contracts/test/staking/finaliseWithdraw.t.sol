@@ -13,10 +13,10 @@ contract FinaliseWithdrawTest is StakingBase {
     vm.expectRevert(abi.encodeWithSelector(Errors.Staking__NotExiting.selector, ATTESTER));
     staking.finaliseWithdraw(ATTESTER);
 
-    stakingAsset.mint(address(this), DEPOSIT_AMOUNT);
+    mint(address(this), DEPOSIT_AMOUNT);
     stakingAsset.approve(address(staking), DEPOSIT_AMOUNT);
 
-    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
+    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _moveWithLatestRollup: true});
     staking.flushEntryQueue();
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Staking__NotExiting.selector, ATTESTER));
@@ -32,10 +32,10 @@ contract FinaliseWithdrawTest is StakingBase {
   modifier givenStatusIsExiting() {
     // We deposit and initiate a withdraw
 
-    stakingAsset.mint(address(this), DEPOSIT_AMOUNT);
+    mint(address(this), DEPOSIT_AMOUNT);
     stakingAsset.approve(address(staking), DEPOSIT_AMOUNT);
 
-    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
+    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _moveWithLatestRollup: true});
     staking.flushEntryQueue();
 
     vm.prank(WITHDRAWER);

@@ -26,6 +26,7 @@ import {
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PRIVATE_LOGS_PER_CALL,
   MAX_PRIVATE_LOGS_PER_TX,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_PUBLIC_LOGS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NESTED_RECURSIVE_PROOF_LENGTH,
@@ -33,6 +34,7 @@ import {
   NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_TREE_HEIGHT,
+  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
   NUM_MSGS_PER_BASE_PARITY,
   PRIVATE_LOG_SIZE_IN_FIELDS,
@@ -97,7 +99,6 @@ import type { MerkleTreeReadOperations } from '../interfaces/merkle_tree_operati
 import { KeyValidationRequest } from '../kernel/hints/key_validation_request.js';
 import { KeyValidationRequestAndGenerator } from '../kernel/hints/key_validation_request_and_generator.js';
 import { ReadRequest } from '../kernel/hints/read_request.js';
-import { RollupValidationRequests } from '../kernel/hints/rollup_validation_requests.js';
 import {
   ClaimedLengthArray,
   PartialPrivateTailPublicInputsForPublic,
@@ -165,7 +166,6 @@ import { CallContext } from '../tx/call_context.js';
 import { ContentCommitment } from '../tx/content_commitment.js';
 import { FunctionData } from '../tx/function_data.js';
 import { GlobalVariables } from '../tx/global_variables.js';
-import { IncludeByTimestamp } from '../tx/include_by_timestamp.js';
 import { PartialStateReference } from '../tx/partial_state_reference.js';
 import { makeProcessedTxFromPrivateOnlyTx, makeProcessedTxFromTxWithPublicCalls } from '../tx/processed_tx.js';
 import { PublicCallRequestWithCalldata } from '../tx/public_call_request_with_calldata.js';
@@ -307,10 +307,6 @@ export function makeContractStorageRead(seed = 1): ContractStorageRead {
   return new ContractStorageRead(fr(seed), fr(seed + 1), seed + 2);
 }
 
-export function makeRollupValidationRequests(seed = 1) {
-  return new RollupValidationRequests(new IncludeByTimestamp(true, BigInt(seed + 0x31415)));
-}
-
 function makeTxConstantData(seed = 1) {
   return new TxConstantData(makeHeader(seed), makeTxContext(seed + 0x100), new Fr(seed + 0x200), new Fr(seed + 0x201));
 }
@@ -409,9 +405,9 @@ export function makePrivateKernelTailCircuitPublicInputs(
     : undefined;
   return new PrivateKernelTailCircuitPublicInputs(
     makeTxConstantData(seed + 0x300),
-    makeRollupValidationRequests(seed + 0x500),
     makeGas(seed + 0x600),
     makeAztecAddress(seed + 0x700),
+    BigInt(seed + 0x800),
     forPublic,
     forRollup,
   );
@@ -420,12 +416,12 @@ export function makePrivateKernelTailCircuitPublicInputs(
 function makePrivateToPublicKernelCircuitPublicInputs(seed = 1) {
   return new PrivateToPublicKernelCircuitPublicInputs(
     makeTxConstantData(seed),
-    makeRollupValidationRequests(seed + 0x100),
     makePrivateToPublicAccumulatedData(seed + 0x200),
     makePrivateToPublicAccumulatedData(seed + 0x300),
     makePublicCallRequest(seed + 0x400),
     makeGas(seed + 0x500),
     makeAztecAddress(seed + 0x600),
+    BigInt(seed + 0x700),
   );
 }
 
@@ -440,10 +436,10 @@ export function makePrivateToRollupKernelCircuitPublicInputs(
 ): PrivateToRollupKernelCircuitPublicInputs {
   return new PrivateToRollupKernelCircuitPublicInputs(
     makeTxConstantData(seed + 0x100),
-    makeRollupValidationRequests(seed),
     makePrivateToRollupAccumulatedData(seed, fullAccumulatedData),
     makeGas(seed + 0x600),
     makeAztecAddress(seed + 0x700),
+    BigInt(seed + 0x800),
   );
 }
 
@@ -576,7 +572,7 @@ function makeClaimedLengthArray<T extends Serializable, N extends number>(
  */
 export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicInputs {
   return PrivateCircuitPublicInputs.from({
-    includeByTimestamp: new IncludeByTimestamp(true, BigInt(seed + 0x31415)),
+    includeByTimestamp: BigInt(seed + 0x31415),
     callContext: makeCallContext(seed, { isStaticCall: true }),
     argsHash: fr(seed + 0x100),
     returnsHash: fr(seed + 0x200),
@@ -939,15 +935,18 @@ export function makeHeader(
  * @returns A state reference.
  */
 export function makeStateReference(seed = 0): StateReference {
-  return new StateReference(makeAppendOnlyTreeSnapshot(seed), makePartialStateReference(seed + 1));
+  return new StateReference(
+    makeAppendOnlyTreeSnapshot(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP * seed),
+    makePartialStateReference(seed + 1),
+  );
 }
 
 function makeTreeSnapshots(seed = 0) {
   return new TreeSnapshots(
-    makeAppendOnlyTreeSnapshot(seed),
-    makeAppendOnlyTreeSnapshot(seed + 0x10),
-    makeAppendOnlyTreeSnapshot(seed + 0x20),
-    makeAppendOnlyTreeSnapshot(seed + 0x30),
+    makeAppendOnlyTreeSnapshot(seed * NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
+    makeAppendOnlyTreeSnapshot((seed + 0x10) * MAX_NOTE_HASHES_PER_TX),
+    makeAppendOnlyTreeSnapshot((seed + 0x20) * MAX_NULLIFIERS_PER_TX),
+    makeAppendOnlyTreeSnapshot((seed + 0x30) * MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX),
   );
 }
 
@@ -978,9 +977,9 @@ function makeScopedL2ToL1Message(seed = 1) {
  */
 export function makePartialStateReference(seed = 0): PartialStateReference {
   return new PartialStateReference(
-    makeAppendOnlyTreeSnapshot(seed),
-    makeAppendOnlyTreeSnapshot(seed + 1),
-    makeAppendOnlyTreeSnapshot(seed + 2),
+    makeAppendOnlyTreeSnapshot(MAX_NOTE_HASHES_PER_TX * seed),
+    makeAppendOnlyTreeSnapshot(MAX_NULLIFIERS_PER_TX * (seed + 1)),
+    makeAppendOnlyTreeSnapshot(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * (seed + 2)),
   );
 }
 
@@ -1483,7 +1482,6 @@ export async function makePublicCallRequestWithCalldata(seed = 0): Promise<Publi
 export async function makeAvmTxHint(seed = 0): Promise<AvmTxHint> {
   return new AvmTxHint(
     `txhash-${seed}`,
-    makeGlobalVariables(seed),
     makeGasSettings(),
     makeGasFees(seed + 0x1000),
     {
@@ -1518,6 +1516,7 @@ export async function makeAvmExecutionHints(
   const baseLength = lengthOffset + (seed % lengthSeedMod);
 
   const fields = {
+    globalVariables: makeGlobalVariables(seed + 0x4000),
     tx: await makeAvmTxHint(seed + 0x4100),
     contractInstances: makeArray(baseLength + 2, makeAvmContractInstanceHint, seed + 0x4700),
     contractClasses: makeArray(baseLength + 5, makeAvmContractClassHint, seed + 0x4900),
@@ -1550,6 +1549,7 @@ export async function makeAvmExecutionHints(
   };
 
   return new AvmExecutionHints(
+    fields.globalVariables,
     fields.tx,
     fields.contractInstances,
     fields.contractClasses,
@@ -1658,6 +1658,7 @@ export async function makeBloatedProcessedTx({
 
     tx.data.forRollup!.end = data;
 
+    await tx.recomputeHash();
     return makeProcessedTxFromPrivateOnlyTx(tx, transactionFee, feePaymentPublicDataWrite, globalVariables);
   } else {
     const dataFromPrivate = tx.data.forPublic!;
@@ -1723,6 +1724,7 @@ export async function makeBloatedProcessedTx({
       billedGas: Gas.empty(),
     } satisfies GasUsed;
 
+    await tx.recomputeHash();
     return makeProcessedTxFromTxWithPublicCalls(
       tx,
       {

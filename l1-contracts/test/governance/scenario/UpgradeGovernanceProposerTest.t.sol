@@ -33,7 +33,7 @@ import {TimeCheater} from "../../staking/TimeCheater.sol";
 contract UpgradeGovernanceProposerTest is TestBase {
   using ProposalLib for Proposal;
 
-  IMintableERC20 internal token;
+  TestERC20 internal token;
   Registry internal registry;
   Governance internal governance;
   GovernanceProposer internal governanceProposer;
@@ -73,7 +73,6 @@ contract UpgradeGovernanceProposerTest is TestBase {
     governanceProposer = GovernanceProposer(governance.governanceProposer());
     gse = IGSE(address(rollup.getGSE()));
 
-    registry.updateGovernance(address(governance));
     registry.transferOwnership(address(governance));
 
     timeCheater = new TimeCheater(
@@ -92,18 +91,20 @@ contract UpgradeGovernanceProposerTest is TestBase {
     for (uint256 i = 0; i < 10; i++) {
       address proposer = rollup.getCurrentProposer();
       vm.prank(proposer);
-      governanceProposer.vote(payload);
+      governanceProposer.signal(payload);
       vm.warp(Timestamp.unwrap(rollup.getTimestampForSlot(rollup.getCurrentSlot() + Slot.wrap(1))));
     }
 
-    governanceProposer.executeProposal(0);
+    governanceProposer.submitRoundWinner(0);
     proposal = governance.getProposal(0);
 
     GSEPayload gsePayload = GSEPayload(address(proposal.payload));
     address originalPayload = address(gsePayload.getOriginalPayload());
 
     assertEq(originalPayload, address(payload));
+    assertEq(gsePayload.getURI(), payload.getURI());
 
+    vm.prank(token.owner());
     token.mint(EMPEROR, 10000 ether);
 
     vm.startPrank(EMPEROR);

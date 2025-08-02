@@ -91,7 +91,7 @@ export async function createPrivateFunctionMembershipProof(
 }
 
 /**
- * Verifies that a private function with a membership proof as emitted by the ClassRegisterer contract is valid,
+ * Verifies that a private function with a membership proof as emitted by the ClassRegistry contract is valid,
  * as defined in the protocol specs at contract-deployment/classes:
  *
  * ```

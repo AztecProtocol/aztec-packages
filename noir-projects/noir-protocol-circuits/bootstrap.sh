@@ -9,7 +9,7 @@ export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 export PLATFORM_TAG=any
 export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
-export BB_HASH=$(cache_content_hash ../../barretenberg/cpp/.rebuild_patterns)
+export BB_HASH=$(../../barretenberg/cpp/bootstrap.sh hash)
 export NOIR_HASH=${NOIR_HASH:-$(../../noir/bootstrap.sh hash)}
 
 export key_dir=./target/keys
@@ -65,6 +65,7 @@ function compile {
       echo "Error: $json_path bytecode size of $bytecode_size exceeds 850MB"
       exit 1
     fi
+
     cache_upload circuit-$hash.tar.gz $json_path &> /dev/null
   fi
 

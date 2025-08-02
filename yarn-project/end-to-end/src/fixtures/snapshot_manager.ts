@@ -14,16 +14,17 @@ import {
   getContractClassFromArtifact,
   waitForProven,
 } from '@aztec/aztec.js';
-import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
-import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec.js/testing';
+import { publishContractClass, publishInstance } from '@aztec/aztec.js/deployment';
+import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
 import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
 import {
   type DeployL1ContractsArgs,
   type DeployL1ContractsReturnType,
+  FeeAssetArtifact,
+  RollupContract,
   createExtendedL1Client,
   deployMulticall3,
   getL1ContractsConfigEnvVars,
-  l1Artifacts,
 } from '@aztec/ethereum';
 import { EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
 import { asyncMap } from '@aztec/foundation/async-map';
@@ -35,6 +36,7 @@ import { resolver, reviver } from '@aztec/foundation/serialize';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import type { ProverNode } from '@aztec/prover-node';
 import { type PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
+import type { SequencerClient } from '@aztec/sequencer-client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { getConfigEnvVars as getTelemetryConfig, initTelemetryClient } from '@aztec/telemetry-client';
 import { getGenesisValues } from '@aztec/world-state/testing';
@@ -74,6 +76,7 @@ export type SubsystemsContext = {
   proverNode?: ProverNode;
   watcher: AnvilTestWatcher;
   cheatCodes: CheatCodes;
+  sequencer: SequencerClient;
   dateProvider: TestDateProvider;
   blobSink: BlobSinkServer;
   initialFundedAccounts: InitialAccountData[];
@@ -376,22 +379,24 @@ async function setupFromFresh(
   if (opts.fundRewardDistributor) {
     // Mints block rewards for 10000 blocks to the rewardDistributor contract
 
-    const rewardDistributor = getContract({
-      address: deployL1ContractsValues.l1ContractAddresses.rewardDistributorAddress.toString(),
-      abi: l1Artifacts.rewardDistributor.contractAbi,
-      client: deployL1ContractsValues.l1Client,
-    });
+    const rollup = new RollupContract(
+      deployL1ContractsValues.l1Client,
+      deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+    );
 
-    const blockReward = await rewardDistributor.read.BLOCK_REWARD();
+    const blockReward = await rollup.getBlockReward();
     const mintAmount = 10_000n * (blockReward as bigint);
 
     const feeJuice = getContract({
       address: deployL1ContractsValues.l1ContractAddresses.feeJuiceAddress.toString(),
-      abi: l1Artifacts.feeAsset.contractAbi,
+      abi: FeeAssetArtifact.contractAbi,
       client: deployL1ContractsValues.l1Client,
     });
 
-    const rewardDistributorMintTxHash = await feeJuice.write.mint([rewardDistributor.address, mintAmount], {} as any);
+    const rewardDistributorMintTxHash = await feeJuice.write.mint(
+      [deployL1ContractsValues.l1ContractAddresses.rewardDistributorAddress.toString(), mintAmount],
+      {} as any,
+    );
     await deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: rewardDistributorMintTxHash });
     logger.info(`Funding rewardDistributor in ${rewardDistributorMintTxHash}`);
   }
@@ -443,11 +448,11 @@ async function setupFromFresh(
 
   let proverNode: ProverNode | undefined = undefined;
   if (opts.startProverNode) {
-    logger.verbose('Creating and syncing a simulated prover node...');
+    logger.verbose('Creating and syncing a simulated prover node with p2p disabled...');
     proverNode = await createAndSyncProverNode(
       `0x${proverNodePrivateKey!.toString('hex')}`,
       aztecNodeConfig,
-      { dataDirectory: path.join(directoryToCleanup, randomBytes(8).toString('hex')) },
+      { dataDirectory: path.join(directoryToCleanup, randomBytes(8).toString('hex')), p2pEnabled: false },
       aztecNode,
       prefilledPublicData,
     );
@@ -472,6 +477,7 @@ async function setupFromFresh(
     anvil,
     aztecNode,
     pxe,
+    sequencer: aztecNode.getSequencer()!,
     acvmConfig,
     bbConfig,
     deployL1ContractsValues,
@@ -590,6 +596,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
     anvil,
     aztecNode,
     pxe,
+    sequencer: aztecNode.getSequencer()!,
     acvmConfig,
     bbConfig,
     proverNode,
@@ -653,8 +660,8 @@ export async function publicDeployAccounts(
   const alreadyRegistered = (await sender.getContractClassMetadata(contractClass.id)).isContractClassPubliclyRegistered;
 
   const calls: ContractFunctionInteraction[] = await Promise.all([
-    ...(!alreadyRegistered ? [registerContractClass(sender, SchnorrAccountContractArtifact)] : []),
-    ...instances.map(instance => deployInstance(sender, instance!)),
+    ...(!alreadyRegistered ? [publishContractClass(sender, SchnorrAccountContractArtifact)] : []),
+    ...instances.map(instance => publishInstance(sender, instance!)),
   ]);
 
   const batch = new BatchCall(sender, calls);

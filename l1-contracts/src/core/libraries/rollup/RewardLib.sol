@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 
 import {RollupStore, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {CompressedFeeHeader, FeeHeaderLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {CompressedFeeHeader, FeeHeaderLib, FeeLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Epoch, Timestamp, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
@@ -38,6 +38,7 @@ struct RewardConfig {
   IRewardDistributor rewardDistributor;
   Bps sequencerBps;
   IBoosterCore booster;
+  uint96 blockReward;
 }
 
 struct RewardStorage {
@@ -130,8 +131,7 @@ library RewardLib {
     RollupStore storage rollupStore = STFLib.getStorage();
     RewardStorage storage rewardStorage = getStorage();
 
-    bool isRewardDistributorCanonical =
-      address(this) == rewardStorage.config.rewardDistributor.canonicalRollup();
+    // Determine if this rollup is canonical according to its RewardDistributor.
 
     uint256 length = _args.end - _args.start + 1;
     EpochRewards storage $er = rewardStorage.epochRewards[_endEpoch];
@@ -156,9 +156,26 @@ library RewardLib {
 
       {
         uint256 added = length - $er.longestProvenLength;
-        uint256 blockRewardsAvailable = isRewardDistributorCanonical
-          ? rewardStorage.config.rewardDistributor.claimBlockRewards(address(this), added)
-          : 0;
+        uint256 blockRewardsDesired = added * getBlockReward();
+        uint256 blockRewardsAvailable = 0;
+
+        // Only if we require block rewards and are canonical will we claim.
+        if (blockRewardsDesired > 0) {
+          // Cache the reward distributor contract
+          IRewardDistributor distributor = rewardStorage.config.rewardDistributor;
+
+          if (address(this) == distributor.canonicalRollup()) {
+            uint256 amountToClaim = Math.min(
+              blockRewardsDesired, rollupStore.config.feeAsset.balanceOf(address(distributor))
+            );
+
+            if (amountToClaim > 0) {
+              distributor.claim(address(this), amountToClaim);
+              blockRewardsAvailable = amountToClaim;
+            }
+          }
+        }
+
         uint256 sequencerShare =
           BpsLib.mul(blockRewardsAvailable, rewardStorage.config.sequencerBps);
         v.sequencerBlockReward = sequencerShare / added;
@@ -166,22 +183,29 @@ library RewardLib {
         $er.rewards += (blockRewardsAvailable - sequencerShare).toUint128();
       }
 
+      bool isTxsEnabled = FeeLib.isTxsEnabled();
+
       for (uint256 i = $er.longestProvenLength; i < length; i++) {
-        CompressedFeeHeader feeHeader = STFLib.getFeeHeader(_args.start + i);
+        if (isTxsEnabled) {
+          // During ignition there can be no txs, so there can be no fees either
+          // so we can skip the fee calculation
 
-        v.manaUsed = feeHeader.getManaUsed();
+          CompressedFeeHeader feeHeader = STFLib.getFeeHeader(_args.start + i);
 
-        uint256 fee = uint256(_args.fees[1 + i * 2]);
-        uint256 burn = feeHeader.getCongestionCost() * v.manaUsed;
+          v.manaUsed = feeHeader.getManaUsed();
 
-        t.feesToClaim += fee;
-        t.totalBurn += burn;
+          uint256 fee = uint256(_args.fees[1 + i * 2]);
+          uint256 burn = feeHeader.getCongestionCost() * v.manaUsed;
 
-        // Compute the proving fee in the fee asset
-        v.proverFee = Math.min(v.manaUsed * feeHeader.getProverCost(), fee - burn);
-        $er.rewards += v.proverFee.toUint128();
+          t.feesToClaim += fee;
+          t.totalBurn += burn;
 
-        v.sequencerFee = fee - burn - v.proverFee;
+          // Compute the proving fee in the fee asset
+          v.proverFee = Math.min(v.manaUsed * feeHeader.getProverCost(), fee - burn);
+          $er.rewards += v.proverFee.toUint128();
+
+          v.sequencerFee = fee - burn - v.proverFee;
+        }
 
         {
           v.sequencer = fieldToAddress(_args.fees[i * 2]);
@@ -223,6 +247,10 @@ library RewardLib {
 
   function getHasClaimed(address _prover, Epoch _epoch) internal view returns (bool) {
     return getStorage().proverClaimed[_prover].get(Epoch.unwrap(_epoch));
+  }
+
+  function getBlockReward() internal view returns (uint256) {
+    return getStorage().config.blockReward;
   }
 
   function getSpecificProverRewardsForEpoch(Epoch _epoch, address _prover)

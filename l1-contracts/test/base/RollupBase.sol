@@ -11,6 +11,7 @@ import {
   PublicInputArgs
 } from "@aztec/core/interfaces/IRollup.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {CommitteeAttestations} from "@aztec/shared/libraries/SignatureLib.sol";
 import {Strings} from "@oz/utils/Strings.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
@@ -35,6 +36,7 @@ contract RollupBase is DecoderBase {
   MerkleTestUtil internal merkleTestUtil = new MerkleTestUtil();
 
   CommitteeAttestation[] internal attestations;
+  address[] internal signers;
 
   mapping(uint256 => uint256) internal blockFees;
 
@@ -100,6 +102,7 @@ contract RollupBase is DecoderBase {
         end: endBlockNumber,
         args: args,
         fees: fees,
+        attestations: CommitteeAttestations({signatureIndices: "", signaturesOrAddresses: ""}),
         blobInputs: endFull.block.batchedBlobInputs,
         proof: ""
       })
@@ -196,14 +199,13 @@ contract RollupBase is DecoderBase {
       header: full.block.header,
       archive: full.block.archive,
       stateReference: EMPTY_STATE_REFERENCE,
-      oracleInput: OracleInput(0),
-      txHashes: new bytes32[](0)
+      oracleInput: OracleInput(0)
     });
 
     if (_revertMsg.length > 0) {
       vm.expectRevert(_revertMsg);
     }
-    rollup.propose(args, SignatureLib.packAttestations(attestations), blobCommitments);
+    rollup.propose(args, SignatureLib.packAttestations(attestations), signers, blobCommitments);
 
     if (_revertMsg.length > 0) {
       return;
@@ -253,6 +255,11 @@ contract RollupBase is DecoderBase {
   }
 
   function _populateInbox(address _sender, bytes32 _recipient, bytes32[] memory _contents) internal {
+    if (rollup.getManaTarget() == 0) {
+      // If we are in ignition, we cannot populate the inbox.
+      return;
+    }
+
     inbox = Inbox(address(rollup.getInbox()));
     uint256 version = rollup.getVersion();
 

@@ -7,12 +7,15 @@ import {Ownable} from "@oz/access/Ownable.sol";
 import {GSE} from "@aztec/governance/GSE.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
+import {TestConstants} from "../../../harnesses/TestConstants.sol";
 
 contract SetGovernanceTest is WithGSE {
   address internal caller;
 
   function setUp() public override(WithGSE) {
-    gse = new GSE(address(this), IERC20(address(0)));
+    gse = new GSE(
+      address(this), IERC20(address(0)), TestConstants.DEPOSIT_AMOUNT, TestConstants.MINIMUM_STAKE
+    );
   }
 
   function test_WhenCallerNeqOwner(address _caller) external {

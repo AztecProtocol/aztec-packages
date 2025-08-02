@@ -9,11 +9,13 @@ use crate::components::{
     private_kernel_circuit_public_inputs_composer::create_protocol_nullifier,
 };
 use dep::types::{
-    abis::{private_call_request::PrivateCallRequest, side_effect::OrderedValue},
-    constants::{DEFAULT_UPDATE_DELAY, PRIVATE_KERNEL_INIT_INDEX},
+    abis::{
+        private_call_request::PrivateCallRequest, side_effect::OrderedValue,
+        transaction::tx_request::TxRequest,
+    },
+    constants::PRIVATE_KERNEL_INIT_INDEX,
     tests::fixture_builder::FixtureBuilder,
     traits::Empty,
-    transaction::tx_request::TxRequest,
 };
 
 pub struct PrivateKernelCircuitOutputValidatorBuilder {
@@ -31,10 +33,9 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
         let private_call = FixtureBuilder::new();
         let mut output = FixtureBuilder::new();
         let tx_request = output.build_tx_request();
+
         output.claimed_first_nullifier = 27;
-        output.set_include_by_timestamp(
-            previous_kernel.historical_header.global_variables.timestamp + DEFAULT_UPDATE_DELAY,
-        );
+
         previous_kernel.claimed_first_nullifier = 27;
         previous_kernel = previous_kernel.in_vk_tree(PRIVATE_KERNEL_INIT_INDEX);
 

@@ -130,10 +130,10 @@ library StakingLib {
     store.gse.vote(_proposalId, vp, true);
 
     // If we are the canonical at the time of the proposal we also cast those votes.
-    if (store.gse.getCanonicalAt(ts) == address(this)) {
-      address magic = store.gse.getCanonicalMagicAddress();
-      vp = store.gse.getVotingPowerAt(magic, ts);
-      store.gse.voteWithCanonical(_proposalId, vp, true);
+    if (store.gse.getLatestRollupAt(ts) == address(this)) {
+      address bonusInstance = store.gse.getBonusInstanceAddress();
+      vp = store.gse.getVotingPowerAt(bonusInstance, ts);
+      store.gse.voteWithBonus(_proposalId, vp, true);
     }
   }
 
@@ -217,7 +217,7 @@ library StakingLib {
     }
   }
 
-  function deposit(address _attester, address _withdrawer, bool _onCanonical) internal {
+  function deposit(address _attester, address _withdrawer, bool _moveWithLatestRollup) internal {
     require(
       _attester != address(0) && _withdrawer != address(0),
       Errors.Staking__InvalidDeposit(_attester, _withdrawer)
@@ -228,7 +228,7 @@ library StakingLib {
     uint256 amount = store.gse.DEPOSIT_AMOUNT();
 
     store.stakingAsset.transferFrom(msg.sender, address(this), amount);
-    store.entryQueue.enqueue(_attester, _withdrawer, _onCanonical);
+    store.entryQueue.enqueue(_attester, _withdrawer, _moveWithLatestRollup);
     emit IStakingCore.ValidatorQueued(_attester, _withdrawer);
   }
 
@@ -252,7 +252,7 @@ library StakingLib {
       DepositArgs memory args = store.entryQueue.dequeue();
       (bool success, bytes memory data) = address(store.gse).call(
         abi.encodeWithSelector(
-          IStakingCore.deposit.selector, args.attester, args.withdrawer, args.onCanonical
+          IStakingCore.deposit.selector, args.attester, args.withdrawer, args.moveWithLatestRollup
         )
       );
       if (success) {
@@ -351,6 +351,14 @@ library StakingLib {
     return getStorage().gse.getAttesterFromIndexAtTime(
       address(this), _index, Timestamp.wrap(block.timestamp)
     );
+  }
+
+  function getAttesterFromIndexAtTime(uint256 _index, Timestamp _timestamp)
+    internal
+    view
+    returns (address)
+  {
+    return getStorage().gse.getAttesterFromIndexAtTime(address(this), _index, _timestamp);
   }
 
   function getAttestersFromIndicesAtTime(Timestamp _timestamp, uint256[] memory _indices)

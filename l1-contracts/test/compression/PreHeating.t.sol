@@ -90,14 +90,8 @@ contract FakeCanonical is IRewardDistributor {
     canonicalRollup = _rollup;
   }
 
-  function claim(address _recipient) external returns (uint256) {
-    TestERC20(address(UNDERLYING)).mint(_recipient, BLOCK_REWARD);
-    return BLOCK_REWARD;
-  }
-
-  function claimBlockRewards(address _recipient, uint256 _blocks) external returns (uint256) {
-    TestERC20(address(UNDERLYING)).mint(_recipient, _blocks * BLOCK_REWARD);
-    return _blocks * BLOCK_REWARD;
+  function claim(address _recipient, uint256 _amount) external {
+    TestERC20(address(UNDERLYING)).mint(_recipient, _amount);
   }
 
   function distributeFees(address _recipient, uint256 _amount) external {
@@ -124,6 +118,7 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
     ProposeArgs proposeArgs;
     bytes blobInputs;
     CommitteeAttestation[] attestations;
+    address[] signers;
   }
 
   DecoderBase.Full full = load("empty_block_1");
@@ -140,6 +135,9 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
 
   CommitteeAttestation internal emptyAttestation;
   mapping(address attester => uint256 privateKey) internal attesterPrivateKeys;
+
+  // Track attestations by block number for proof submission
+  mapping(uint256 => CommitteeAttestations) internal blockAttestations;
 
   SlashingProposer internal slashingProposer;
   IPayload internal slashPayload;
@@ -231,8 +229,14 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
 
         skipBlobCheck(address(rollup));
 
+        // Store the attestations for the current block number
+        uint256 currentBlockNumber = rollup.getPendingBlockNumber() + 1;
+        blockAttestations[currentBlockNumber] = SignatureLib.packAttestations(b.attestations);
+
         vm.prank(proposer);
-        rollup.propose(b.proposeArgs, SignatureLib.packAttestations(b.attestations), b.blobInputs);
+        rollup.propose(
+          b.proposeArgs, SignatureLib.packAttestations(b.attestations), b.signers, b.blobInputs
+        );
 
         nextSlot = nextSlot + Slot.wrap(1);
       }
@@ -275,6 +279,7 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
               end: start + epochSize - 1,
               args: args,
               fees: fees,
+              attestations: blockAttestations[start + epochSize - 1],
               blobInputs: full.block.batchedBlobInputs,
               proof: ""
             })
@@ -303,8 +308,6 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
     // to prove, but we don't need to prove anything here.
     bytes32 archiveRoot = bytes32(Constants.GENESIS_ARCHIVE_ROOT);
 
-    bytes32[] memory txHashes = new bytes32[](0);
-
     ProposedHeader memory header = full.block.header;
 
     Slot slotNumber = rollup.getCurrentSlot();
@@ -332,16 +335,17 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
       header: header,
       archive: archiveRoot,
       stateReference: EMPTY_STATE_REFERENCE,
-      oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier}),
-      txHashes: txHashes
+      oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier})
     });
 
     CommitteeAttestation[] memory attestations;
+    address[] memory signers;
 
     {
       address[] memory validators = rollup.getEpochCommittee(rollup.getCurrentEpoch());
       uint256 needed = validators.length * 2 / 3 + 1;
       attestations = new CommitteeAttestation[](validators.length);
+      signers = new address[](needed);
 
       bytes32 headerHash = ProposedHeaderLib.hash(proposeArgs.header);
 
@@ -349,8 +353,7 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
         archive: proposeArgs.archive,
         stateReference: proposeArgs.stateReference,
         oracleInput: proposeArgs.oracleInput,
-        headerHash: headerHash,
-        txHashes: proposeArgs.txHashes
+        headerHash: headerHash
       });
 
       bytes32 digest = ProposeLib.digest(proposePayload);
@@ -365,12 +368,16 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
       // loop through again to get to the required number of attestations.
       // yes, inefficient, but it's simple, clear, and is a test.
       uint256 sigCount = 1;
+      uint256 signersIndex = 0;
       for (uint256 i = 0; i < validators.length; i++) {
         if (validators[i] == proposer) {
-          continue;
+          signers[signersIndex] = validators[i];
+          signersIndex++;
         } else if (sigCount < needed) {
           attestations[i] = createAttestation(validators[i], digest);
+          signers[signersIndex] = validators[i];
           sigCount++;
+          signersIndex++;
         } else {
           attestations[i] = createEmptyAttestation(validators[i]);
         }
@@ -380,7 +387,8 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
     return Block({
       proposeArgs: proposeArgs,
       blobInputs: full.block.blobCommitments,
-      attestations: attestations
+      attestations: attestations,
+      signers: signers
     });
   }
 
@@ -410,19 +418,20 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
   }
 
   /**
-   * @notice Creates an EIP-712 signature for voteWithSig
-   * @param _signer The address that should sign (must match a proposer)
-   * @param _proposal The proposal to vote on
+   * @notice Creates an EIP-712 signature for signalWithSig
+   * @param _signer The address that should sign (must match a block proposer)
+   * @param _payload The payload to signal
+   * @param _round The round to signal in
    * @return The EIP-712 signature
    */
-  function createVoteSignature(address _signer, IPayload _proposal)
+  function createSignalSignature(address _signer, IPayload _payload, uint256 _round)
     internal
     view
     returns (Signature memory)
   {
     uint256 privateKey = attesterPrivateKeys[_signer];
     require(privateKey != 0, "Private key not found for signer");
-    bytes32 digest = slashingProposer.getVoteSignatureDigest(_proposal, _signer);
+    bytes32 digest = slashingProposer.getSignalSignatureDigest(_payload, _signer, _round);
 
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
 

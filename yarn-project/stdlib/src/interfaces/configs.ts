@@ -40,6 +40,18 @@ export interface SequencerConfig {
   enforceTimeTable?: boolean;
   /** How many seconds into an L1 slot we can still send a tx and get it mined. */
   maxL1TxInclusionTimeIntoSlot?: number;
+  /** Used for testing to introduce a fake delay after processing each tx */
+  fakeProcessingDelayPerTxMs?: number;
+  /** How many seconds it takes for proposals and attestations to travel across the p2p layer (one-way) */
+  attestationPropagationTime?: number;
+  /** How many seconds before invalidating a block as a committee member (zero to never invalidate) */
+  secondsBeforeInvalidatingBlockAsCommitteeMember?: number;
+  /** How many seconds before invalidating a block as a non-committee member (zero to never invalidate) */
+  secondsBeforeInvalidatingBlockAsNonCommitteeMember?: number;
+  /** Skip collecting attestations (for testing only) */
+  skipCollectingAttestations?: boolean;
+  /** Do not invalidate the previous block if invalid when we are the proposer (for testing only) */
+  skipInvalidateBlockAsProposer?: boolean;
 }
 
 export const SequencerConfigSchema = z.object({
@@ -58,4 +70,9 @@ export const SequencerConfigSchema = z.object({
   governanceProposerPayload: schemas.EthAddress.optional(),
   maxL1TxInclusionTimeIntoSlot: z.number().optional(),
   enforceTimeTable: z.boolean().optional(),
+  fakeProcessingDelayPerTxMs: z.number().optional(),
+  attestationPropagationTime: z.number().optional(),
+  skipCollectingAttestations: z.boolean().optional(),
+  secondsBeforeInvalidatingBlockAsCommitteeMember: z.number(),
+  secondsBeforeInvalidatingBlockAsNonCommitteeMember: z.number(),
 }) satisfies ZodFor<SequencerConfig>;

@@ -79,7 +79,7 @@ export class SequencerClient {
     const chain = createEthereumChain(rpcUrls, chainId);
     const log = createLogger('sequencer-client');
     const l1Client = createExtendedL1Client(rpcUrls, publisherPrivateKey.getValue(), chain.chainInfo);
-    const l1TxUtils = deps.l1TxUtils ?? new L1TxUtilsWithBlobs(l1Client, log, config);
+    const l1TxUtils = deps.l1TxUtils ?? new L1TxUtilsWithBlobs(l1Client, log, deps.dateProvider, config);
     const rollupContract = new RollupContract(l1Client, config.l1Contracts.rollupAddress.toString());
     const [l1GenesisTime, slotDuration] = await Promise.all([
       rollupContract.getL1GenesisTime(),
@@ -184,11 +184,6 @@ export class SequencerClient {
    */
   public async stop() {
     await this.sequencer.stop();
-  }
-
-  /** Forces the sequencer to bypass all time and tx count checks for the next block and build anyway. */
-  public flush() {
-    this.sequencer.flush();
   }
 
   /**

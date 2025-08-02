@@ -13,15 +13,12 @@ pub contract SimpleToken {
     use dep::compressed_string::FieldCompressedString;
 
     use dep::aztec::{
-        authwit::auth::{
-            assert_current_call_valid_authwit, assert_current_call_valid_authwit_public,
-            compute_authwit_nullifier,
-        },
+        authwit::auth::compute_authwit_nullifier,
         context::{PrivateCallInterface, PrivateContext, PublicContext},
         event::event_interface::{emit_event_in_private_log, PrivateLogContent},
         macros::{
             events::event,
-            functions::{initializer, internal, private, public, utility, view},
+            functions::{authorize_once, initializer, internal, private, public, utility, view},
             storage::storage,
         },
         messages::logs::note::{encode_and_encrypt_note, encode_and_encrypt_note_unconstrained},
@@ -92,7 +89,7 @@ pub contract SimpleToken {
     }
 
     #[utility]
-    pub(crate) unconstrained fn private_balance_of(owner: AztecAddress) -> u128 {
+    unconstrained fn private_balance_of(owner: AztecAddress) -> u128 {
         storage.balances.at(owner).balance_of()
     }
 
@@ -104,32 +101,25 @@ pub contract SimpleToken {
         storage.total_supply.write(supply);
     }
 
+    #[authorize_once("from", "authwit_nonce")]
     #[public]
     fn public_transfer(from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) {
-        if (!from.eq(context.msg_sender())) {
-            assert_current_call_valid_authwit_public(&mut context, from);
-        } else {
-            assert(authwit_nonce == 0, "invalid authwit nonce");
-        }
         let from_balance = storage.public_balances.at(from).read().sub(amount);
         storage.public_balances.at(from).write(from_balance);
         let to_balance = storage.public_balances.at(to).read().add(amount);
         storage.public_balances.at(to).write(to_balance);
     }
 
+    #[authorize_once("from", "authwit_nonce")]
     #[public]
     fn burn_public(from: AztecAddress, amount: u128, authwit_nonce: Field) {
-        if (!from.eq(context.msg_sender())) {
-            assert_current_call_valid_authwit_public(&mut context, from);
-        } else {
-            assert(authwit_nonce == 0, "invalid authwit nonce");
-        }
         let from_balance = storage.public_balances.at(from).read().sub(amount);
         storage.public_balances.at(from).write(from_balance);
         let new_supply = storage.total_supply.read().sub(amount);
         storage.total_supply.write(new_supply);
     }
 
+    #[authorize_once("from", "authwit_nonce")]
     #[private]
     fn transfer_from_private_to_public(
         from: AztecAddress,
@@ -137,17 +127,7 @@ pub contract SimpleToken {
         amount: u128,
         authwit_nonce: Field,
     ) {
-        if (!from.eq(context.msg_sender())) {
-            assert_current_call_valid_authwit(&mut context, from);
-        } else {
-            assert(authwit_nonce == 0, "invalid authwit nonce");
-        }
-
-        storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(
-            &mut context,
-            from,
-            from,
-        ));
+        storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(&mut context, from));
         SimpleToken::at(context.this_address())._increase_public_balance(to, amount).enqueue(
             &mut context,
         );
@@ -167,35 +147,24 @@ pub contract SimpleToken {
         storage.balances.at(from).add(from, change).emit(encode_and_encrypt_note_unconstrained(
             &mut context,
             from,
-            from,
         ));
         storage.balances.at(to).add(to, amount).emit(encode_and_encrypt_note_unconstrained(
             &mut context,
             to,
-            from,
         ));
 
         emit_event_in_private_log(
             Transfer { from, to, amount },
             &mut context,
-            from,
             to,
             PrivateLogContent.NO_CONSTRAINTS,
         );
     }
 
+    #[authorize_once("from", "authwit_nonce")]
     #[private]
     fn burn_private(from: AztecAddress, amount: u128, authwit_nonce: Field) {
-        if (!from.eq(context.msg_sender())) {
-            assert_current_call_valid_authwit(&mut context, from);
-        } else {
-            assert(authwit_nonce == 0, "invalid authwit nonce");
-        }
-        storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(
-            &mut context,
-            from,
-            from,
-        ));
+        storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(&mut context, from));
         SimpleToken::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
     }
 
@@ -204,18 +173,17 @@ pub contract SimpleToken {
         let from = context.msg_sender();
         let token = SimpleToken::at(context.this_address());
 
-        let partial_note = _prepare_private_balance_increase(from, to, &mut context, storage);
+        let partial_note = _prepare_private_balance_increase(to, &mut context, storage);
         token._finalize_transfer_to_private_unsafe(from, amount, partial_note).enqueue(&mut context);
     }
 
     #[private]
     fn prepare_private_balance_increase(to: AztecAddress, from: AztecAddress) -> PartialUintNote {
-        _prepare_private_balance_increase(from, to, &mut context, storage)
+        _prepare_private_balance_increase(to, &mut context, storage)
     }
 
     #[contract_library_method]
     fn _prepare_private_balance_increase(
-        from: AztecAddress,
         to: AztecAddress,
         context: &mut PrivateContext,
         storage: Storage<&mut PrivateContext>,
@@ -225,8 +193,7 @@ pub contract SimpleToken {
             storage.balances.at(to).set.storage_slot,
             context,
             to,
-            from,
-            from,
+            context.msg_sender(),
         );
 
         partial_note
@@ -277,7 +244,7 @@ pub contract SimpleToken {
     #[private]
     fn mint_privately(from: AztecAddress, to: AztecAddress, amount: u128) {
         let token = SimpleToken::at(context.this_address());
-        let partial_note = _prepare_private_balance_increase(from, to, &mut context, storage);
+        let partial_note = _prepare_private_balance_increase(to, &mut context, storage);
         token._finalize_mint_to_private_unsafe(context.msg_sender(), amount, partial_note).enqueue(
             &mut context,
         );
@@ -378,7 +345,7 @@ pub contract SimpleToken {
         context: PrivateContext,
         account: AztecAddress,
         remaining: u128,
-    ) -> PrivateCallInterface<25, u128, 1> {
+    ) -> PrivateCallInterface<25, u128> {
         SimpleToken::at(context.this_address())._recurse_subtract_balance(account, remaining)
     }
 

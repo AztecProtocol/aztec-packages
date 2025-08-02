@@ -14,18 +14,18 @@ use dep::aztec::{
     protocol_types::{
         address::AztecAddress,
         constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-        traits::{FromField, Hash, Serialize, ToField},
+        traits::{FromField, Hash, Packable, Serialize, ToField},
     },
     state_vars::{PrivateSet, storage::HasStorageSlot},
 };
 use dep::value_note::value_note::ValueNote;
 use std::meta::derive;
 
-#[derive(Serialize)]
+#[derive(Packable, Serialize)]
 pub struct Card {
     // We use u32s since u16s are unsupported
-    strength: u32,
-    points: u32,
+    pub strength: u32,
+    pub points: u32,
 }
 
 impl FromField for Card {
@@ -68,7 +68,7 @@ impl CardNote {
     }
 
     pub fn from_note(note: ValueNote) -> CardNote {
-        CardNote { card: Card::from_field(note.value), note }
+        CardNote { card: Card::from_field(note.value()), note }
     }
 }
 
@@ -121,11 +121,7 @@ impl Deck<&mut PrivateContext> {
         let mut inserted_cards = &[];
         for card in cards {
             let card_note = CardNote::from_card(card, owner);
-            self.set.insert(card_note.note).emit(encode_and_encrypt_note(
-                self.set.context,
-                owner,
-                self.set.context.msg_sender(),
-            ));
+            self.set.insert(card_note.note).emit(encode_and_encrypt_note(self.set.context, owner));
             inserted_cards = inserted_cards.push_back(card_note);
         }
 
@@ -144,15 +140,7 @@ impl Deck<UtilityContext> {
         let mut options = NoteViewerOptions::new();
         let notes = self.set.view_notes(options.set_offset(offset));
 
-        // TODO: ideally we'd do let cards = notes.map(|note| Cards::from_field(note.value));
-        // see https://github.com/noir-lang/noir/pull/5250
-        let mut cards = BoundedVec::new();
-        cards.len = notes.len();
-        for i in 0..notes.len() {
-            cards.storage[i] = Card::from_field(notes.get_unchecked(i).value);
-        }
-
-        cards
+        notes.map(|note| Card::from_field(note.value()))
     }
 }
 

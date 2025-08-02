@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
 #include "barretenberg/honk/execution_trace/ultra_execution_trace.hpp"
 #include "barretenberg/honk/types/circuit_type.hpp"
@@ -22,14 +23,19 @@
 
 namespace bb {
 
-template <typename FF> struct non_native_field_witnesses {
+template <typename FF> struct non_native_multiplication_witnesses {
     // first 4 array elements = limbs
     std::array<uint32_t, 4> a;
     std::array<uint32_t, 4> b;
     std::array<uint32_t, 4> q;
     std::array<uint32_t, 4> r;
     std::array<FF, 4> neg_modulus;
-    FF modulus;
+};
+
+template <typename FF> struct non_native_partial_multiplication_witnesses {
+    // first 4 array elements = limbs
+    std::array<uint32_t, 4> a;
+    std::array<uint32_t, 4> b;
 };
 
 template <typename ExecutionTrace_>
@@ -42,7 +48,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     static constexpr size_t NUM_WIRES = ExecutionTrace::NUM_WIRES;
     // Keeping NUM_WIRES, at least temporarily, for backward compatibility
     static constexpr size_t program_width = ExecutionTrace::NUM_WIRES;
-    static constexpr size_t num_selectors = ExecutionTrace::NUM_SELECTORS;
 
     static constexpr std::string_view NAME_STRING = "UltraCircuitBuilder";
     static constexpr CircuitType CIRCUIT_TYPE = CircuitType::ULTRA;
@@ -61,19 +66,23 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     // number of gates created per non-native field operation in process_non_native_field_multiplications
     static constexpr size_t GATES_PER_NON_NATIVE_FIELD_MULTIPLICATION_ARITHMETIC = 7;
 
-    enum AUX_SELECTORS {
-        NONE,
-        LIMB_ACCUMULATE_1,
-        LIMB_ACCUMULATE_2,
-        NON_NATIVE_FIELD_1,
-        NON_NATIVE_FIELD_2,
-        NON_NATIVE_FIELD_3,
+    enum MEMORY_SELECTORS {
+        MEM_NONE,
         RAM_CONSISTENCY_CHECK,
         ROM_CONSISTENCY_CHECK,
         RAM_TIMESTAMP_CHECK,
         ROM_READ,
         RAM_READ,
         RAM_WRITE,
+    };
+
+    enum NNF_SELECTORS {
+        NNF_NONE,
+        LIMB_ACCUMULATE_1,
+        LIMB_ACCUMULATE_2,
+        NON_NATIVE_FIELD_1,
+        NON_NATIVE_FIELD_2,
+        NON_NATIVE_FIELD_3,
     };
 
     struct RangeList {
@@ -255,8 +264,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
             this->add_variable(value);
         }
 
-        // Add the public_inputs from acir
-        this->public_inputs = public_inputs;
+        // Initialize the builder public_inputs directly from the acir public inputs.
+        this->initialize_public_inputs(public_inputs);
 
         // Add the const zero variable after the acir witness has been
         // incorporated into variables.
@@ -322,9 +331,10 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         // do nothing
 #else
         for (auto& block : blocks.get()) {
-            size_t nominal_size = block.selectors[0].size();
-            for (size_t idx = 1; idx < block.selectors.size(); ++idx) {
-                ASSERT(block.selectors[idx].size() == nominal_size);
+            const auto& block_selectors = block.get_selectors();
+            size_t nominal_size = block_selectors[0].size();
+            for (size_t idx = 1; idx < block_selectors.size(); ++idx) {
+                ASSERT_DEBUG(block_selectors[idx].size() == nominal_size);
             }
         }
 
@@ -588,7 +598,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     size_t get_finalized_total_circuit_size() const
     {
         ASSERT(circuit_finalized);
-        auto num_filled_gates = get_num_finalized_gates() + this->public_inputs.size();
+        auto num_filled_gates = get_num_finalized_gates() + this->num_public_inputs();
         return std::max(get_tables_size(), num_filled_gates);
     }
 
@@ -603,7 +613,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      */
     size_t get_estimated_total_circuit_size() const
     {
-        auto num_filled_gates = get_estimated_num_finalized_gates() + this->public_inputs.size();
+        auto num_filled_gates = get_estimated_num_finalized_gates() + this->num_public_inputs();
         return std::max(get_tables_size(), num_filled_gates);
     }
 
@@ -627,7 +637,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         size_t total = count + romcount + ramcount + rangecount;
         std::cout << "gates = " << total << " (arith " << count << ", rom " << romcount << ", ram " << ramcount
                   << ", range " << rangecount << ", non native field gates " << nnfcount
-                  << "), pubinp = " << this->public_inputs.size() << std::endl;
+                  << "), pubinp = " << this->num_public_inputs() << std::endl;
     }
 
     void assert_equal_constant(const uint32_t a_idx, const FF& b, std::string const& msg = "assert equal constant")
@@ -667,19 +677,52 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         const uint32_t variable_index,
         const size_t num_bits,
         std::string const& msg = "decompose_into_default_range_better_for_oddlimbnum");
-    void create_dummy_gate(auto& block, const uint32_t&, const uint32_t&, const uint32_t&, const uint32_t&);
+
+    /**
+     * @brief Create a gate with no constraints but with possibly non-trivial wire values
+     * @details A dummy gate can be used to provide wire values to be accessed via shifts by the gate that proceeds it.
+     * The dummy gate itself does not have to satisfy any constraints (all selectors are zero).
+     *
+     * @tparam ExecutionTrace
+     * @param block Execution trace block into which the dummy gate is to be placed
+     */
+    void create_dummy_gate(
+        auto& block, const uint32_t& idx_1, const uint32_t& idx_2, const uint32_t& idx_3, const uint32_t& idx_4)
+    {
+        block.populate_wires(idx_1, idx_2, idx_3, idx_4);
+        block.q_m().emplace_back(0);
+        block.q_1().emplace_back(0);
+        block.q_2().emplace_back(0);
+        block.q_3().emplace_back(0);
+        block.q_c().emplace_back(0);
+        block.q_arith().emplace_back(0);
+        block.q_4().emplace_back(0);
+        block.q_delta_range().emplace_back(0);
+        block.q_elliptic().emplace_back(0);
+        block.q_lookup_type().emplace_back(0);
+        block.q_memory().emplace_back(0);
+        block.q_nnf().emplace_back(0);
+        block.q_poseidon2_external().emplace_back(0);
+        block.q_poseidon2_internal().emplace_back(0);
+
+        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
+            block.pad_additional();
+        }
+        check_selector_length_consistency();
+        ++this->num_gates;
+    }
     void create_dummy_constraints(const std::vector<uint32_t>& variable_index);
     void create_sort_constraint(const std::vector<uint32_t>& variable_index);
     void create_sort_constraint_with_edges(const std::vector<uint32_t>& variable_index, const FF&, const FF&);
     void assign_tag(const uint32_t variable_index, const uint32_t tag)
     {
-        ASSERT(tag <= this->current_tag);
+        BB_ASSERT_LTE(tag, this->current_tag);
         // If we've already assigned this tag to this variable, return (can happen due to copy constraints)
         if (this->real_variable_tags[this->real_variable_index[variable_index]] == tag) {
             return;
         }
 
-        ASSERT(this->real_variable_tags[this->real_variable_index[variable_index]] == DUMMY_TAG);
+        BB_ASSERT_EQ(this->real_variable_tags[this->real_variable_index[variable_index]], DUMMY_TAG);
         this->real_variable_tags[this->real_variable_index[variable_index]] = tag;
     }
 
@@ -703,7 +746,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     /**
      * Custom Gate Selectors
      **/
-    void apply_aux_selectors(const AUX_SELECTORS type);
+    void apply_memory_selectors(const MEMORY_SELECTORS type);
+    void apply_nnf_selectors(const NNF_SELECTORS type);
 
     /**
      * Non Native Field Arithmetic
@@ -714,8 +758,10 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
                                    const size_t hi_limb_bits = DEFAULT_NON_NATIVE_FIELD_LIMB_BITS);
     std::array<uint32_t, 2> decompose_non_native_field_double_width_limb(
         const uint32_t limb_idx, const size_t num_limb_bits = (2 * DEFAULT_NON_NATIVE_FIELD_LIMB_BITS));
-    std::array<uint32_t, 2> evaluate_non_native_field_multiplication(const non_native_field_witnesses<FF>& input);
-    std::array<uint32_t, 2> queue_partial_non_native_field_multiplication(const non_native_field_witnesses<FF>& input);
+    std::array<uint32_t, 2> evaluate_non_native_field_multiplication(
+        const non_native_multiplication_witnesses<FF>& input);
+    std::array<uint32_t, 2> queue_partial_non_native_field_multiplication(
+        const non_native_partial_multiplication_witnesses<FF>& input);
     using scaled_witness = std::pair<uint32_t, FF>;
     using add_simple = std::tuple<scaled_witness, scaled_witness, FF>;
     std::array<uint32_t, 5> evaluate_non_native_field_subtraction(add_simple limb0,
@@ -752,8 +798,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
     void create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in);
     void create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in);
-
-    uint256_t hash_circuit() const;
 
     msgpack::sbuffer export_circuit() override;
 };

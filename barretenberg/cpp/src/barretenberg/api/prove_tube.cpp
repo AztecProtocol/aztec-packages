@@ -16,6 +16,7 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     using namespace stdlib::recursion::honk;
 
     using Builder = UltraCircuitBuilder;
+    using StdlibProof = ClientIVCRecursiveVerifier::StdlibProof;
 
     std::string proof_path = output_path + "/proof";
 
@@ -25,24 +26,27 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
 
     auto builder = std::make_shared<Builder>();
 
-    // Preserve the public inputs that should be passed to the base rollup by making them public inputs to the tube
-    // circuit
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1048): INSECURE - make this tube proof actually use
-    // these public inputs by turning proof into witnesses and calling set_public on each witness
-    auto num_inner_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(vk.mega->num_public_inputs));
-    num_inner_public_inputs -= bb::PAIRING_POINTS_SIZE; // don't add the agg object
-
-    for (size_t i = 0; i < num_inner_public_inputs; i++) {
-        builder->add_public_variable(proof.mega_proof[i]);
-    }
     ClientIVCRecursiveVerifier verifier{ builder, vk };
 
-    ClientIVCRecursiveVerifier::Output client_ivc_rec_verifier_output = verifier.verify(proof);
+    StdlibProof stdlib_proof(*builder, proof);
+    ClientIVCRecursiveVerifier::Output client_ivc_rec_verifier_output = verifier.verify(stdlib_proof);
 
-    client_ivc_rec_verifier_output.points_accumulator.set_public();
-    // The tube only calls an IPA recursive verifier once, so we can just add this IPA claim and proof
-    client_ivc_rec_verifier_output.opening_claim.set_public();
-    builder->ipa_proof = convert_stdlib_proof_to_native(client_ivc_rec_verifier_output.ipa_proof);
+    // The public inputs in the proof are propagated to the base rollup by making them public inputs of this circuit.
+    // Exclude the public inputs of the Hiding Kernel: the pairing points are handled separately, the ecc op tables are
+    // not needed after this point
+    auto num_inner_public_inputs = vk.mega->num_public_inputs - HidingKernelIO<Builder>::PUBLIC_INPUTS_SIZE;
+    for (size_t i = 0; i < num_inner_public_inputs; i++) {
+        stdlib_proof.mega_proof[i].set_public();
+    }
+
+    // IO
+    RollupIO inputs;
+    inputs.pairing_inputs = client_ivc_rec_verifier_output.points_accumulator;
+    inputs.ipa_claim = client_ivc_rec_verifier_output.opening_claim;
+    inputs.set_public();
+
+    // The tube only calls an IPA recursive verifier once, so we can just add this IPA proof
+    builder->ipa_proof = client_ivc_rec_verifier_output.ipa_proof.get_value();
     BB_ASSERT_EQ(builder->ipa_proof.size(), IPA_PROOF_LENGTH, "IPA proof should be set.");
 
     using Prover = UltraProver_<UltraRollupFlavor>;
@@ -51,7 +55,7 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1201): Precompute tube vk and pass it in.
     info("WARNING: computing tube vk in prove_tube, but a precomputed vk should be passed in.");
     auto tube_verification_key =
-        std::make_shared<typename UltraRollupFlavor::VerificationKey>(proving_key->proving_key);
+        std::make_shared<typename UltraRollupFlavor::VerificationKey>(proving_key->get_precomputed());
 
     Prover tube_prover{ proving_key, tube_verification_key };
     auto tube_proof = tube_prover.construct_proof();
@@ -93,7 +97,7 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
 
     // Break up the tube proof into the honk portion and the ipa portion
     const size_t HONK_PROOF_LENGTH_WITHOUT_INNER_PUB_INPUTS =
-        UltraRollupFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + PAIRING_POINTS_SIZE + IPA_CLAIM_SIZE;
+        UltraRollupFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + RollupIO::PUBLIC_INPUTS_SIZE;
     // The extra calculation is for the IPA proof length.
     BB_ASSERT_EQ(tube_proof.size(),
                  HONK_PROOF_LENGTH_WITHOUT_INNER_PUB_INPUTS + num_inner_public_inputs,

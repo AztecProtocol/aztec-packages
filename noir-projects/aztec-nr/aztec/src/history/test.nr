@@ -1,9 +1,6 @@
-use crate::{
-    note::{
-        lifecycle::{create_note as lifecycle_create_note, destroy_note},
-        note_metadata::NoteMetadata,
-    },
-    oracle::execution::get_contract_address,
+use crate::note::{
+    lifecycle::{create_note as lifecycle_create_note, destroy_note},
+    note_metadata::NoteMetadata,
 };
 use crate::note::retrieved_note::RetrievedNote;
 use crate::test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote};
@@ -12,45 +9,41 @@ pub(crate) global NOTE_STORAGE_SLOT: Field = 420;
 pub(crate) global NOTE_CREATED_AT: u32 = 2;
 pub(crate) global NOTE_NULLIFIED_AT: u32 = 3;
 
-// We create a note in block 2.
-pub(crate) unconstrained fn create_note() -> (&mut TestEnvironment, RetrievedNote<MockNote>) {
-    let mut env = TestEnvironment::new();
-    let context = &mut env.private();
+pub(crate) unconstrained fn create_note() -> (TestEnvironment, RetrievedNote<MockNote>) {
+    let env = TestEnvironment::new();
 
-    // We sanity check that we are building block 2, thus block 2 is where the note will be added.
-    assert_eq(env.pending_block_number(), NOTE_CREATED_AT);
+    // We create a note in block NOTE_CREATED_AT
+    let retrieved_note = env.private_context(|context| {
+        let contract_address = context.this_address();
 
-    let contract_address = get_contract_address();
+        // The test environment doesn't yet supporting delivering settled notes, so we hardcode the nonce we know the
+        // note will have if emitted as the only note in block NOTE_CREATED_AT.
+        let retrieved_note = MockNote::new(69)
+            .contract_address(contract_address)
+            .note_metadata(NoteMetadata::from_raw_data(
+                false,
+                0x256c00025f88d92eb518176c67c9d619b876e7261ef3ef5879fac1cf3b5acab2,
+            ))
+            .build_retrieved_note();
 
-    let retrieved_note = MockNote::new(69)
-        .contract_address(contract_address)
-        .note_metadata(NoteMetadata::from_raw_data(
-            false,
-            0x256c00025f88d92eb518176c67c9d619b876e7261ef3ef5879fac1cf3b5acab2,
-        ))
-        .build_retrieved_note();
+        let _ = lifecycle_create_note(context, NOTE_STORAGE_SLOT, retrieved_note.note);
 
-    let _ = lifecycle_create_note(context, NOTE_STORAGE_SLOT, retrieved_note.note);
+        retrieved_note
+    });
 
-    // TODO(#12226): FIX
-    // context.push_note_hash(retrieved_note.note.compute_note_hash(15));
-    env.advance_block_by(1);
+    // Verify the note was inserted in the correct block
+    assert_eq(env.last_block_number(), NOTE_CREATED_AT);
 
-    (&mut env, retrieved_note)
+    (env, retrieved_note)
 }
 
-// We create a note at block 2 and nullify it in the next block.
-pub(crate) unconstrained fn create_note_and_nullify_it() -> (&mut TestEnvironment, RetrievedNote<MockNote>) {
+pub(crate) unconstrained fn create_note_and_nullify_it() -> (TestEnvironment, RetrievedNote<MockNote>) {
     let (env, retrieved_note) = create_note();
 
-    let context = &mut env.private();
+    env.private_context(|context| { destroy_note(context, retrieved_note, NOTE_STORAGE_SLOT); });
 
-    // We sanity check that we are building block 3, thus block 3 is where the note will be nullified.
-    assert_eq(env.pending_block_number(), NOTE_NULLIFIED_AT);
-
-    destroy_note(context, retrieved_note, NOTE_STORAGE_SLOT);
-
-    env.advance_block_by(1);
+    // Verify the note was nullified in the correct block
+    assert_eq(env.last_block_number(), NOTE_NULLIFIED_AT);
 
     (env, retrieved_note)
 }

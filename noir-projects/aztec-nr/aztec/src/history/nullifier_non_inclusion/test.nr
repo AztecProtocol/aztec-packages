@@ -3,72 +3,70 @@ use crate::history::{
     test,
 };
 use crate::oracle::{notes::notify_created_nullifier, random::random};
-use crate::test::helpers::test_environment::TestEnvironment;
+use crate::test::helpers::test_environment::{PrivateContextOptions, TestEnvironment};
 use dep::protocol_types::{
     constants::GENERATOR_INDEX__OUTER_NULLIFIER, hash::poseidon2_hash_with_separator,
     traits::ToField,
 };
 
-// In these tests, we create a note in one block and nullify it in the next.
-
-// In this test, we prove the absence of the note's nullifier in state at the block before it was nullified.
 #[test]
-unconstrained fn note_not_nullified() {
+unconstrained fn note_not_nullified_succeeds_in_blocks_before_note_nullification() {
     let (env, retrieved_note) = test::create_note_and_nullify_it();
 
-    let context = &mut env.private_at(test::NOTE_NULLIFIED_AT - 1);
-
-    context.historical_header.prove_note_not_nullified(
-        retrieved_note,
-        test::NOTE_STORAGE_SLOT,
-        context,
+    env.private_context_opts(
+        PrivateContextOptions::new().at_historical_block_number(test::NOTE_NULLIFIED_AT - 1),
+        |context| {
+            let header = context.historical_header;
+            header.prove_note_not_nullified(retrieved_note, test::NOTE_STORAGE_SLOT, context);
+        },
     );
 }
 
-// In this test, we fail prove the absence of the note's nullifier in state at the block it was nullified in.
 #[test(should_fail_with = "Proving nullifier non-inclusion failed")]
-unconstrained fn note_not_nullified_fails() {
+unconstrained fn note_not_nullified_fails_in_blocks_after_note_nullification_fails() {
     let (env, retrieved_note) = test::create_note_and_nullify_it();
 
-    let context = &mut env.private_at(test::NOTE_NULLIFIED_AT);
-    context.historical_header.prove_note_not_nullified(
-        retrieved_note,
-        test::NOTE_STORAGE_SLOT,
-        context,
+    env.private_context_opts(
+        PrivateContextOptions::new().at_historical_block_number(test::NOTE_NULLIFIED_AT),
+        |context| {
+            let header = context.historical_header;
+            header.prove_note_not_nullified(retrieved_note, test::NOTE_STORAGE_SLOT, context);
+        },
     );
 }
 
-// In this test, we prove the absence of an arbitrary nullifier in state.
 #[test]
-unconstrained fn nullifier_non_inclusion() {
-    let mut env = TestEnvironment::new();
+unconstrained fn nullifier_non_inclusion_succeeds_in_blocks_before_nullifier_creation() {
+    let env = TestEnvironment::new();
 
-    let context = &mut env.private();
-
-    context.historical_header.prove_nullifier_non_inclusion(random());
+    env.private_context(|context| {
+        let header = context.historical_header;
+        header.prove_nullifier_non_inclusion(random());
+    });
 }
 
-// In this test, we create a nullifier and fail to prove its absence in state (we are checking the
-// siloed version of it because that is what is actually pushed to state).
 #[test(should_fail_with = "Proving nullifier non-inclusion failed")]
-unconstrained fn nullifier_non_inclusion_fails() {
-    let mut env = TestEnvironment::new();
+unconstrained fn nullifier_non_inclusion_fails_in_blocks_after_nullifier_creation() {
+    let env = TestEnvironment::new();
 
-    let unsiloed_nullifier = 42069;
+    let siloed_nullifier = env.private_context(|context| {
+        let unsiloed_nullifier = 42069;
+        notify_created_nullifier(unsiloed_nullifier);
 
-    // We need to create the siloed nullifier so we can check for its inclusion in state.
-    let siloed_nullifier = poseidon2_hash_with_separator(
-        [env.contract_address().to_field(), unsiloed_nullifier],
-        GENERATOR_INDEX__OUTER_NULLIFIER,
+        // We need to compute the siloed nullifier so we can check for its inclusion in state.
+        poseidon2_hash_with_separator(
+            [context.this_address().to_field(), unsiloed_nullifier],
+            GENERATOR_INDEX__OUTER_NULLIFIER,
+        )
+    });
+
+    let nullifier_created_at = env.last_block_number();
+
+    env.private_context_opts(
+        PrivateContextOptions::new().at_historical_block_number(nullifier_created_at),
+        |context| {
+            let header = context.historical_header;
+            header.prove_nullifier_non_inclusion(siloed_nullifier);
+        },
     );
-
-    notify_created_nullifier(unsiloed_nullifier);
-
-    let nullifier_created_at = env.pending_block_number();
-
-    env.advance_block_by(1);
-
-    let context = &mut env.private_at(nullifier_created_at);
-
-    context.historical_header.prove_nullifier_non_inclusion(siloed_nullifier);
 }

@@ -2,7 +2,7 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
-#include "barretenberg/stdlib/pairing_points.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -36,6 +36,8 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
         using Commitment = typename Flavor::Commitment;
         TranscriptManifest manifest_expected;
 
+        size_t NUM_PUBLIC_INPUTS =
+            stdlib::recursion::honk::HidingKernelIO<typename Flavor::CircuitBuilder>::PUBLIC_INPUTS_SIZE;
         size_t MAX_PARTIAL_RELATION_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
         size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
 
@@ -45,20 +47,9 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
         size_t frs_per_evals = (Flavor::NUM_ALL_ENTITIES)*frs_per_Fr;
 
         size_t round = 0;
-        manifest_expected.add_entry(round, "vkey_circuit_size", frs_per_Fr);
-        manifest_expected.add_entry(round, "vkey_num_public_inputs", frs_per_Fr);
-        manifest_expected.add_entry(round, "vkey_pub_inputs_offset", frs_per_Fr);
-        manifest_expected.add_entry(round, "vkey_pairing_points_start_idx", frs_per_Fr);
-        manifest_expected.add_entry(round, "vkey_app_return_data_commitment_start_idx", frs_per_Fr);
-        manifest_expected.add_entry(round, "vkey_kernel_return_data_commitment_start_idx", frs_per_Fr);
-        manifest_expected.add_entry(round, "vkey_is_kernel", frs_per_Fr);
-        for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; i++) {
-            manifest_expected.add_entry(round, "vkey_commitment", frs_per_G);
-        }
-        manifest_expected.add_challenge(round, "vkey_hash");
-        round++;
+        manifest_expected.add_entry(round, "vk_hash", frs_per_Fr);
         manifest_expected.add_entry(round, "public_input_0", frs_per_Fr);
-        for (size_t i = 0; i < PAIRING_POINTS_SIZE; i++) {
+        for (size_t i = 0; i < NUM_PUBLIC_INPUTS; i++) {
             manifest_expected.add_entry(round, "public_input_" + std::to_string(1 + i), frs_per_Fr);
         }
         manifest_expected.add_entry(round, "W_L", frs_per_G);
@@ -185,7 +176,7 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
         uint32_t d_idx = builder.add_variable(d);
 
         builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, FF(1), FF(1), FF(1), FF(-1), FF(0) });
-        stdlib::recursion::PairingPoints<typename Flavor::CircuitBuilder>::add_default_to_public_inputs(builder);
+        stdlib::recursion::honk::HidingKernelIO<typename Flavor::CircuitBuilder>::add_default(builder);
     }
 };
 TYPED_TEST_SUITE(MegaTranscriptTests, FlavorTypes);
@@ -205,7 +196,7 @@ TYPED_TEST(MegaTranscriptTests, ProverManifestConsistency)
 
     // Automatically generate a transcript manifest by constructing a proof
     auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key);
+    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
     Prover prover(proving_key, verification_key);
     prover.transcript->enable_manifest();
     auto proof = prover.construct_proof();
@@ -214,7 +205,7 @@ TYPED_TEST(MegaTranscriptTests, ProverManifestConsistency)
     auto manifest_expected = TestFixture::construct_mega_honk_manifest();
     auto prover_manifest = prover.transcript->get_manifest();
     // Note: a manifest can be printed using manifest.print()
-    ASSERT(manifest_expected.size() > 0);
+    ASSERT_GT(manifest_expected.size(), 0);
     for (size_t round = 0; round < manifest_expected.size(); ++round) {
         if (prover_manifest[round] != manifest_expected[round]) {
             info("Prover manifest discrepency in round ", round);
@@ -222,7 +213,7 @@ TYPED_TEST(MegaTranscriptTests, ProverManifestConsistency)
             prover_manifest[round].print();
             info("Expected manifest:");
             manifest_expected[round].print();
-            ASSERT(false);
+            FAIL();
         }
     }
 }
@@ -246,7 +237,7 @@ TYPED_TEST(MegaTranscriptTests, VerifierManifestConsistency)
 
     // Automatically generate a transcript manifest in the prover by constructing a proof
     auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-    auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
+    auto verification_key = std::make_shared<VerificationKey>(proving_key->get_precomputed());
     Prover prover(proving_key, verification_key);
     prover.transcript->enable_manifest();
     auto proof = prover.construct_proof();
@@ -254,7 +245,7 @@ TYPED_TEST(MegaTranscriptTests, VerifierManifestConsistency)
     // Automatically generate a transcript manifest in the verifier by verifying a proof
     Verifier verifier(verification_key);
     verifier.transcript->enable_manifest();
-    verifier.verify_proof(proof);
+    [[maybe_unused]] auto verifier_output = verifier.verify_proof(proof);
 
     // Check consistency between the manifests generated by the prover and verifier
     auto prover_manifest = prover.transcript->get_manifest();
@@ -262,13 +253,13 @@ TYPED_TEST(MegaTranscriptTests, VerifierManifestConsistency)
     auto verifier_manifest = verifier.transcript->get_manifest();
 
     // Note: a manifest can be printed using manifest.print()
-    ASSERT(prover_manifest.size() > 0);
+    ASSERT_GT(prover_manifest.size(), 0);
     for (size_t round = 0; round < prover_manifest.size(); ++round) {
         if (prover_manifest[round] != verifier_manifest[round]) {
             info("Prover/Verifier manifest discrepency in round ", round);
             prover_manifest[round].print();
             verifier_manifest[round].print();
-            ASSERT(false);
+            FAIL();
         }
     }
 }
@@ -322,7 +313,7 @@ TYPED_TEST(MegaTranscriptTests, StructureTest)
         auto proving_key = std::make_shared<DeciderProvingKey>(builder);
         Prover prover(proving_key);
         auto proof = prover.construct_proof();
-        auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
+        auto verification_key = std::make_shared<VerificationKey>(proving_key->get_precomputed());
         Verifier verifier(verification_key);
         EXPECT_TRUE(verifier.verify_proof(proof));
 

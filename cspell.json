@@ -69,6 +69,7 @@
     "cond",
     "counterparty",
     "cpus",
+    "ctstring",
     "customizability",
     "danlee",
     "Daos",
@@ -200,6 +201,7 @@
     "namespacing",
     "napi",
     "Nargo",
+    "nethermind",
     "nixpkgs",
     "nodebuffer",
     "noinitcheck",
@@ -276,6 +278,7 @@
     "secp",
     "SEMRESATTRS",
     "Sepolia",
+    "serde",
     "setsid",
     "sigchld",
     "Signerless",
@@ -284,6 +287,7 @@
     "snakecase",
     "socat",
     "solhint",
+    "squashable",
     "SSTORE",
     "starknet",
     "staticcall",
@@ -379,5 +383,9 @@
     "lib",
     "*.cmake"
   ],
-  "flagWords": ["anonymous", "offence", "offences"]
+  "flagWords": [
+    "anonymous",
+    "offence",
+    "offences"
+  ]
 }

@@ -79,9 +79,6 @@ template <typename Curve> class OpeningClaim {
         opening_pair.evaluation.set_public();
         commitment.set_public();
 
-        Builder* ctx = commitment.get_context();
-        ctx->ipa_claim_public_input_key.start_idx = start_idx;
-
         return start_idx;
     }
 
@@ -105,6 +102,28 @@ template <typename Curve> class OpeningClaim {
         auto challenge = Fr::reconstruct_from_public(challenge_limbs);
         auto evaluation = Fr::reconstruct_from_public(evaluation_limbs);
         auto commitment = Commitment::reconstruct_from_public(commitment_limbs);
+
+        return OpeningClaim<Curve>{ { challenge, evaluation }, commitment };
+    }
+
+    /**
+     * @brief Reconstruct a native opening claim from native field elements
+     * @note Implemented for native curve::Grumpkin for use with IPA.
+     *
+     */
+    static OpeningClaim<Curve> reconstruct_from_public(const std::span<const bb::fr, IPA_CLAIM_SIZE>& ipa_claim_limbs)
+        requires(std::is_same_v<Curve, curve::Grumpkin>)
+    {
+        size_t index = 0;
+        std::span<const bb::fr> challenge_limbs = ipa_claim_limbs.subspan(index, FQ_PUBLIC_INPUT_SIZE);
+        index += FQ_PUBLIC_INPUT_SIZE;
+        std::span<const bb::fr> evaluation_limbs = ipa_claim_limbs.subspan(index, FQ_PUBLIC_INPUT_SIZE);
+        index += FQ_PUBLIC_INPUT_SIZE;
+        std::span<const bb::fr> point_limbs = ipa_claim_limbs.subspan(index, 2 * FR_PUBLIC_INPUTS_SIZE);
+
+        auto challenge = fq::reconstruct_from_public(challenge_limbs);
+        auto evaluation = fq::reconstruct_from_public(evaluation_limbs);
+        typename Curve::AffineElement commitment = Curve::AffineElement::reconstruct_from_public(point_limbs);
 
         return OpeningClaim<Curve>{ { challenge, evaluation }, commitment };
     }
@@ -144,6 +163,8 @@ template <typename Curve> class OpeningClaim {
  * @brief An accumulator consisting of the Shplonk evaluation challenge and vectors of commitments and scalars.
  *
  * @details This structure is used in the `reduce_verify_batch_opening_claim` method of KZG or IPA.
+ *
+ * @note This structure always represents a zero evaluation claim.
  *
  * @tparam Curve: BN254 or Grumpkin.
  */

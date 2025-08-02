@@ -53,7 +53,6 @@ TEST_F(Poseidon2Tests, TestPoseidon2Permutation)
         .poseidon2_constraints = { poseidon2_constraint },
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
-        .recursion_constraints = {},
         .honk_recursion_constraints = {},
         .avm_recursion_constraints = {},
         .ivc_recursion_constraints = {},
