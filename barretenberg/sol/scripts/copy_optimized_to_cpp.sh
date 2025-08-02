@@ -85,6 +85,10 @@ awk '
         gsub(/GEMINI_A_EVAL_14/, "GEMINI_A_EVAL_{{ LOG_N_MINUS_ONE }}")
         gsub(/INVERTED_CHALLENEGE_POW_MINUS_U_14_LOC/, "INVERTED_CHALLENEGE_POW_MINUS_U_{{ LOG_N_MINUS_ONE }}_LOC")
         gsub(/FOLD_POS_EVALUATIONS_14_LOC/, "FOLD_POS_EVALUATIONS_{{ LOG_N_MINUS_ONE }}_LOC")
+        gsub(/mcopy\(0x20, GEMINI_FOLD_UNIVARIATE_0_X_LOC, 0x380\)/, "mcopy(0x20, GEMINI_FOLD_UNIVARIATE_0_X_LOC, {{ GEMINI_FOLD_UNIVARIATE_LENGTH }})")
+        gsub(/prev_challenge := mod\(keccak256\(0x00, 0x3a0\), p\)/, "prev_challenge := mod(keccak256(0x00, {{ GEMINI_FOLD_UNIVARIATE_HASH_LENGTH }}), p)")
+        gsub(/mcopy\(0x20, GEMINI_A_EVAL_0, 0x1e0\)/, "mcopy(0x20, GEMINI_A_EVAL_0, {{ GEMINI_EVALS_LENGTH }})")
+        gsub(/prev_challenge := mod\(keccak256\(0x00, 0x200\), p\)/, "prev_challenge := mod(keccak256(0x00, {{ GEMINI_EVALS_HASH_LENGTH }}), p)")
         print
     }
 ' "$TEMP_SOL" > "${TEMP_SOL}.tmp" && mv "${TEMP_SOL}.tmp" "$TEMP_SOL"
@@ -116,6 +120,87 @@ awk '
 
     # Skip lines inside unroll sections
     in_unroll { next }
+
+    # Print all other lines
+    { print }
+' "$TEMP_SOL" > "${TEMP_SOL}.tmp" && mv "${TEMP_SOL}.tmp" "$TEMP_SOL"
+
+# Process the file to remove code inside ACCUMULATE_GEMINI_FOLD_UNIVARIATE section while preserving the markers
+awk '
+    BEGIN {
+        in_accumulate_gemini = 0
+    }
+
+    # Detect UNROLL_SECTION_START ACCUMULATE_GEMINI_FOLD_UNIVARIATE
+    /\/\/\/ \{\{ UNROLL_SECTION_START ACCUMULATE_GEMINI_FOLD_UNIVARIATE \}\}/ {
+        print  # Print the start marker
+        in_accumulate_gemini = 1
+        next
+    }
+
+    # Detect UNROLL_SECTION_END ACCUMULATE_GEMINI_FOLD_UNIVARIATE
+    /\/\/\/ \{\{ UNROLL_SECTION_END ACCUMULATE_GEMINI_FOLD_UNIVARIATE \}\}/ {
+        print  # Print the end marker
+        in_accumulate_gemini = 0
+        next
+    }
+
+    # Skip lines inside accumulate gemini section
+    in_accumulate_gemini { next }
+
+    # Print all other lines
+    { print }
+' "$TEMP_SOL" > "${TEMP_SOL}.tmp" && mv "${TEMP_SOL}.tmp" "$TEMP_SOL"
+
+# Process the file to remove code inside GEMINI_FOLD_UNIVARIATE_ON_CURVE section while preserving the markers
+awk '
+    BEGIN {
+        in_gemini_fold = 0
+    }
+
+    # Detect UNROLL_SECTION_START GEMINI_FOLD_UNIVARIATE_ON_CURVE
+    /\/\/\/ \{\{ UNROLL_SECTION_START GEMINI_FOLD_UNIVARIATE_ON_CURVE \}\}/ {
+        print  # Print the start marker
+        in_gemini_fold = 1
+        next
+    }
+
+    # Detect UNROLL_SECTION_END GEMINI_FOLD_UNIVARIATE_ON_CURVE
+    /\/\/\/ \{\{ UNROLL_SECTION_END GEMINI_FOLD_UNIVARIATE_ON_CURVE \}\}/ {
+        print  # Print the end marker
+        in_gemini_fold = 0
+        next
+    }
+
+    # Skip lines inside gemini fold section
+    in_gemini_fold { next }
+
+    # Print all other lines
+    { print }
+' "$TEMP_SOL" > "${TEMP_SOL}.tmp" && mv "${TEMP_SOL}.tmp" "$TEMP_SOL"
+
+# Process the file to remove code inside MEMORY_LAYOUT section while preserving the markers
+awk '
+    BEGIN {
+        in_memory_layout = 0
+    }
+
+    # Detect SECTION_START MEMORY_LAYOUT
+    /\{\{[[:space:]]*SECTION_START[[:space:]]+MEMORY_LAYOUT[[:space:]]*\}\}/ {
+        print  # Print the start marker
+        in_memory_layout = 1
+        next
+    }
+
+    # Detect SECTION_END MEMORY_LAYOUT
+    /\{\{[[:space:]]*SECTION_END[[:space:]]+MEMORY_LAYOUT[[:space:]]*\}\}/ {
+        print  # Print the end marker
+        in_memory_layout = 0
+        next
+    }
+
+    # Skip lines inside memory layout section
+    in_memory_layout { next }
 
     # Print all other lines
     { print }

@@ -229,8 +229,8 @@ abstract contract BaseHonkVerifier is IVerifier {
         Fr[] memory powers_of_evaluation_challenge = CommitmentSchemeLib.computeSquares(tp.geminiR, $LOG_N);
 
         // Arrays hold values that will be linearly combined for the gemini and shplonk batch openings
-        Fr[] memory scalars = new Fr[](NUMBER_OF_ENTITIES + $LOG_N + 2);
-        Honk.G1Point[] memory commitments = new Honk.G1Point[](NUMBER_OF_ENTITIES + $LOG_N + 2);
+        Fr[] memory scalars = new Fr[](NUMBER_UNSHIFTED + $LOG_N + 2);
+        Honk.G1Point[] memory commitments = new Honk.G1Point[](NUMBER_UNSHIFTED + $LOG_N + 2);
 
         mem.posInvertedDenominator = (tp.shplonkZ - powers_of_evaluation_challenge[0]).invert();
         mem.negInvertedDenominator = (tp.shplonkZ + powers_of_evaluation_challenge[0]).invert();
@@ -404,8 +404,8 @@ abstract contract BaseHonkVerifier is IVerifier {
 
         Honk.G1Point memory quotient_commitment = proof.kzgQuotient;
 
-        commitments[NUMBER_OF_ENTITIES + $LOG_N + 1] = quotient_commitment;
-        scalars[NUMBER_OF_ENTITIES + $LOG_N + 1] = tp.shplonkZ; // evaluation challenge
+        commitments[NUMBER_UNSHIFTED + $LOG_N + 1] = quotient_commitment;
+        scalars[NUMBER_UNSHIFTED + $LOG_N + 1] = tp.shplonkZ; // evaluation challenge
 
         Honk.G1Point memory P_0_agg = batchMul(commitments, scalars);
         Honk.G1Point memory P_1_agg = negateInplace(quotient_commitment);
@@ -431,7 +431,7 @@ abstract contract BaseHonkVerifier is IVerifier {
         view
         returns (Honk.G1Point memory result)
     {
-        uint256 limit = NUMBER_OF_ENTITIES + $LOG_N + 2;
+        uint256 limit = NUMBER_UNSHIFTED + $LOG_N + 2;
 
         // Validate all points are on the curve
         for (uint256 i = 0; i < limit; ++i) {

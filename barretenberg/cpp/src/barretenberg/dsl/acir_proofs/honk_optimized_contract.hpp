@@ -423,7 +423,6 @@ error SUMCHECK_FAILED();
 error PAIRING_FAILED();
 error BATCH_ACCUMULATION_FAILED();
 error MODEXP_FAILED();
-error PROOF_POINT_NOT_ON_CURVE();
 
 contract HonkVerifier is IVerifier {
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -485,6 +484,7 @@ contract HonkVerifier is IVerifier {
     uint256 internal constant ACCUMULATOR = 0x00;
     uint256 internal constant ACCUMULATOR_2 = 0x40;
     uint256 internal constant G1_LOCATION = 0x60;
+    uint256 internal constant G1_Y_LOCATION = 0x80;
     uint256 internal constant SCALAR_LOCATION = 0xa0;
     uint256 internal constant LOWER_128_MASK = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
 
@@ -830,9 +830,6 @@ contract HonkVerifier is IVerifier {
                 // The format of these commitments are proof points, which are explained above
                 // 0x40 * (logN - 1)
 
-                ///////////////////
-                // TODO: CALCUALTE AT GENERATION TIME THIS SIZE
-                ///////////////////
                 mcopy(0x20, GEMINI_FOLD_UNIVARIATE_0_X_LOC, {{ GEMINI_FOLD_UNIVARIATE_LENGTH }})
 
                 prev_challenge := mod(keccak256(0x00, {{ GEMINI_FOLD_UNIVARIATE_HASH_LENGTH }}), p)
@@ -848,9 +845,6 @@ contract HonkVerifier is IVerifier {
                 // The shplonk nu challenge hashes the evaluations of the above gemini univariates
                 // 0x20 * logN = 0x20 * 15 = 0x1e0
 
-                ///////////////////
-                // TODO: CALCUALTE AT GENERATION TIME THIS SIZE
-                ///////////////////
                 mcopy(0x20, GEMINI_A_EVAL_0, {{ GEMINI_EVALS_LENGTH }})
                 prev_challenge := mod(keccak256(0x00, {{ GEMINI_EVALS_HASH_LENGTH }}), p)
                 mstore(0x00, prev_challenge)
@@ -2331,8 +2325,8 @@ contract HonkVerifier is IVerifier {
                 accumulator := mload(0x00)
             }
 
-            // {{ UNROLL_SECTION_START COLLECT_INVERSES }}
-            // {{ UNROLL_SECTION_END COLLECT_INVERSES }}
+            /// {{ UNROLL_SECTION_START COLLECT_INVERSES }}
+            /// {{ UNROLL_SECTION_END COLLECT_INVERSES }}
 
             let inverted_gemini_r := accumulator
 
@@ -2711,89 +2705,22 @@ contract HonkVerifier is IVerifier {
                 }
             }
 
-            // TODO: remove this function entirely and replace with manual writes
-            // TODO: update these comments
-            // This function takes a proof point from its field element representaiton into its
-            // functional bytes representation
-            //
-            // WORKTODO: check that these offsets are correct!!
-            // Proof points are sent in the proof in the format:
-            // 0x00: x_coordinate_low
-            // 0x20: x_coordinate_high
-            // 0x40: y_coordinate_low
-            // 0x60: y_coordinate_high
-            //
-            // The reason being, proofs in their current form are optimised to make recursive proving
-            // simpler. In essence this is tech debt, and will be updated at a future point
-            // <MAKEISSUE>
-            // This function converts the proofs into their correct version
-            // 0x00: x_coordinate
-            // 0x20: y_coordinate
-            //
-            // This is the form that the bn254 ecMul precompile expects, and such is the form we will use
-            //
-            // The expected usage of this function is to convert proof points on the fly
-            // and write them into the scratch space in order to be accumulated with the
-            // ecMul precompile
-            //
-            function writeProofPointIntoScratchSpace(proof_memory_location) {
-                mstore(0x60, mload(proof_memory_location))
-                mstore(0x80, mload(add(proof_memory_location, 0x20)))
-
-                // By now, we should expect our scratch space to look as follows
-                // 0x00: scalar
-                // 0x20: x_coordinate
-                // 0x40: y_coordinate
-            }
-
-            // TODO: inline use of this function
-            function validateProofPointOnCurve(proof_point_memory_location, q_clone) -> success_return {
-                let x := mload(proof_point_memory_location)
-                let y := mload(add(proof_point_memory_location, 0x20))
-
-                let xx := mulmod(x, x, q_clone)
-                let xxx := mulmod(xx, x, q_clone)
-                let yy := mulmod(y, y, q_clone)
-
-                success_return := eq(yy, addmod(xxx, 3, q_clone))
-            }
-
-            // Validate the proof points are on the curve
-            {
-                let q := 21888242871839275222246405745257275088696311157297823662689037894645226208583 // EC group order
-                let success_flag := 1
-                // Wires
-                success_flag := and(success_flag, validateProofPointOnCurve(W_L_X_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(W_R_X_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(W_O_X_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(LOOKUP_READ_COUNTS_X_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(LOOKUP_READ_TAGS_X_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(W_4_X_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(LOOKUP_INVERSES_X_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(Z_PERM_X_LOC, q))
-
-                // Gemini commitments - validate up to log n
-                /// {{ UNROLL_SECTION_START GEMINI_FOLD_UNIVARIATE_ON_CURVE }}
-                /// {{ UNROLL_SECTION_END GEMINI_FOLD_UNIVARIATE_ON_CURVE }}
-
-                // Shlponk
-                success_flag := and(success_flag, validateProofPointOnCurve(SHPLONK_Q_X_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(KZG_QUOTIENT_X_LOC, q))
-
-                if iszero(success_flag) {
-                    mstore(0x00, PROOF_POINT_NOT_ON_CURVE_SELECTOR)
-                    revert(0x00, 0x04)
-                }
-            }
-
             let precomp_success_flag := 1
-
+            let q := 21888242871839275222246405745257275088696311157297823662689037894645226208583 // EC group order
             {
                 // The initial accumulator = 1 * shplonk_q
                 // WORKTODO(md): we can ignore this accumulation as we are multiplying by 1,
                 // Just set the accumulator instead.
                 mstore(SCALAR_LOCATION, 0x1)
-                writeProofPointIntoScratchSpace(SHPLONK_Q_X_LOC)
+                {
+                    let x := mload(SHPLONK_Q_X_LOC)
+                    let y := mload(SHPLONK_Q_Y_LOC)
+                    let xx := mulmod(x, x, q)
+                    // validate on curve
+                    precomp_success_flag :=
+                        and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
+                }
+                mcopy(G1_LOCATION, SHPLONK_Q_X_LOC, 0x40)
                 precomp_success_flag := staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR, 0x40)
             }
 
@@ -3024,25 +2951,52 @@ contract HonkVerifier is IVerifier {
                 precomp_success_flag :=
                     and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
+                {
+                    let x := mload(W_L_X_LOC)
+                    let y := mload(W_L_Y_LOC)
+                    let xx := mulmod(x, x, q)
+                    // validate on curve
+                    precomp_success_flag :=
+                        and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
+                }
+
                 // Accumulate proof points
                 // Accumulator = accumulator + scalar[29] * w_l
-                writeProofPointIntoScratchSpace(W_L_X_LOC)
+                mcopy(G1_LOCATION, W_L_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_29_LOC))
                 precomp_success_flag :=
                     and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag :=
                     and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
+                {
+                    let x := mload(W_R_X_LOC)
+                    let y := mload(W_R_Y_LOC)
+                    let xx := mulmod(x, x, q)
+                    // validate on curve
+                    precomp_success_flag :=
+                        and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
+                }
+
                 // Accumulator = accumulator + scalar[30] * w_r
-                writeProofPointIntoScratchSpace(W_R_X_LOC)
+                mcopy(G1_LOCATION, W_R_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_30_LOC))
                 precomp_success_flag :=
                     and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag :=
                     and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
+                {
+                    let x := mload(W_O_X_LOC)
+                    let y := mload(W_O_Y_LOC)
+                    let xx := mulmod(x, x, q)
+                    // validate on curve
+                    precomp_success_flag :=
+                        and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
+                }
+
                 // Accumulator = accumulator + scalar[31] * w_o
-                writeProofPointIntoScratchSpace(W_O_X_LOC)
+                mcopy(G1_LOCATION, W_O_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_31_LOC))
                 precomp_success_flag :=
                     and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
@@ -3050,50 +3004,84 @@ contract HonkVerifier is IVerifier {
                     and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
                 // Accumulator = accumulator + scalar[32] * w_4
-                writeProofPointIntoScratchSpace(W_4_X_LOC)
+                {
+                    let x := mload(W_4_X_LOC)
+                    let y := mload(W_4_Y_LOC)
+                    let xx := mulmod(x, x, q)
+                    // validate on curve
+                    precomp_success_flag :=
+                        and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
+                }
+                mcopy(G1_LOCATION, W_4_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_32_LOC))
                 precomp_success_flag :=
                     and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag :=
                     and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
+                {
+                    let x := mload(Z_PERM_X_LOC)
+                    let y := mload(Z_PERM_Y_LOC)
+                    let xx := mulmod(x, x, q)
+                    // validate on curve
+                    precomp_success_flag :=
+                        and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
+                }
                 // Accumulator = accumulator + scalar[33] * z_perm
-                writeProofPointIntoScratchSpace(Z_PERM_X_LOC)
+                mcopy(G1_LOCATION, Z_PERM_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_33_LOC))
                 precomp_success_flag :=
                     and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag :=
                     and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
+                {
+                    let x := mload(LOOKUP_INVERSES_X_LOC)
+                    let y := mload(LOOKUP_INVERSES_Y_LOC)
+                    let xx := mulmod(x, x, q)
+                    // validate on curve
+                    precomp_success_flag :=
+                        and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
+                }
                 // Accumulator = accumulator + scalar[34] * lookup_inverses
-                writeProofPointIntoScratchSpace(LOOKUP_INVERSES_X_LOC)
+                mcopy(G1_LOCATION, LOOKUP_INVERSES_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_34_LOC))
                 precomp_success_flag :=
                     and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag :=
                     and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
+                {
+                    let x := mload(LOOKUP_READ_COUNTS_X_LOC)
+                    let y := mload(LOOKUP_READ_COUNTS_Y_LOC)
+                    let xx := mulmod(x, x, q)
+                    // validate on curve
+                    precomp_success_flag :=
+                        and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
+                }
                 // Accumulator = accumulator + scalar[35] * lookup_read_counts
-                writeProofPointIntoScratchSpace(LOOKUP_READ_COUNTS_X_LOC)
+                mcopy(G1_LOCATION, LOOKUP_READ_COUNTS_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_35_LOC))
                 precomp_success_flag :=
                     and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag :=
                     and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
+                {
+                    let x := mload(LOOKUP_READ_TAGS_X_LOC)
+                    let y := mload(LOOKUP_READ_TAGS_Y_LOC)
+                    let xx := mulmod(x, x, q)
+                    // validate on curve
+                    precomp_success_flag :=
+                        and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
+                }
                 // Accumulator = accumulator + scalar[36] * lookup_read_tags
-                writeProofPointIntoScratchSpace(LOOKUP_READ_TAGS_X_LOC)
+                mcopy(G1_LOCATION, LOOKUP_READ_TAGS_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_36_LOC))
                 precomp_success_flag :=
                     and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                 precomp_success_flag :=
                     and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                // TODO(md): there is no reason that this isnt done before the accumulation above
-                // Batch gemini claims from the prover
-
-                // WORKTODO: note we can reuse all of the batch scalar memory locations up to 40 at this point
-                // We can also accumulate commitments in place
 
                 // Accumulate these LOG_N scalars with the gemini fold univariates
                 {
@@ -3107,7 +3095,7 @@ contract HonkVerifier is IVerifier {
                     // Accumulate the constant term accumulator
                     // Accumulator = accumulator + 1 * costant term accumulator
                     mstore(G1_LOCATION, 0x01)
-                    mstore(add(G1_LOCATION, 0x20), 0x02)
+                    mstore(G1_Y_LOCATION, 0x02)
                     mstore(SCALAR_LOCATION, constant_term_acc)
                     precomp_success_flag :=
                         and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
@@ -3116,9 +3104,15 @@ contract HonkVerifier is IVerifier {
 
                     // Accumlate final quotient commitment into shplonk check
                     // Accumulator = accumulator + shplonkZ * quotient commitment
-                    writeProofPointIntoScratchSpace(KZG_QUOTIENT_X_LOC)
-                    let x := mload(0x60)
-                    let y := mload(0x80)
+                    {
+                        let x := mload(KZG_QUOTIENT_X_LOC)
+                        let y := mload(KZG_QUOTIENT_Y_LOC)
+                        let xx := mulmod(x, x, q)
+                        // validate on curve
+                        precomp_success_flag :=
+                            and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
+                    }
+                    mcopy(G1_LOCATION, KZG_QUOTIENT_X_LOC, 0x40)
 
                     mstore(SCALAR_LOCATION, mload(SHPLONK_Z_CHALLENGE))
                     precomp_success_flag :=
@@ -3140,8 +3134,6 @@ contract HonkVerifier is IVerifier {
                 /*                       PAIRING CHECK                        */
                 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
                 {
-                    let q := 21888242871839275222246405745257275088696311157297823662689037894645226208583 // EC group order
-                    // NOTE: this was written to scratch space above, OPT?
                     // P_1
                     mstore(0xc0, mload(KZG_QUOTIENT_X_LOC))
                     mstore(0xe0, sub(q, mload(KZG_QUOTIENT_Y_LOC)))
@@ -3440,6 +3432,39 @@ inline std::string get_optimized_honk_solidity_verifier(auto const& verification
                 }
                 temp_idx--;
             }
+        } else if (section_name == "ACCUMULATE_GEMINI_FOLD_UNIVARIATE") {
+            // Generate GEMINI_FOLD_UNIVARIATE accumulations
+            // We need log_n - 1 folding commitments
+            for (int i = 0; i < log_n - 1; ++i) {
+                // Validate on curve then accumulate
+                code << "                        {\n";
+                code << "                            let x := mload(GEMINI_FOLD_UNIVARIATE_" << i << "_X_LOC)\n";
+                code << "                            let y := mload(GEMINI_FOLD_UNIVARIATE_" << i << "_Y_LOC)\n";
+                code << "                            let xx := mulmod(x, x, q)\n";
+                code << "                            // validate on curve\n";
+                code << "                            precomp_success_flag := and(eq(mulmod(y, y, q), addmod(mulmod(x, "
+                        "xx, q), 3, q)), precomp_success_flag)\n";
+                code << "                        }\n";
+                code << "                        mcopy(G1_LOCATION, GEMINI_FOLD_UNIVARIATE_" << i << "_X_LOC, 0x40)\n";
+                code << "                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_" << (37 + i) << "_LOC))\n";
+                code << "                        precomp_success_flag :=\n";
+                code << "                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, "
+                        "ACCUMULATOR_2, 0x40))\n";
+                code << "                        precomp_success_flag :=\n";
+                code << "                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, "
+                        "ACCUMULATOR, 0x40))\n";
+                if (i < log_n - 2) {
+                    code << "\n";
+                }
+            }
+        } else if (section_name == "GEMINI_FOLD_UNIVARIATE_ON_CURVE") {
+            // Generate GEMINI_FOLD_UNIVARIATE_ON_CURVE validations
+            // We need log_n - 1 folding commitments to validate
+            for (int i = 0; i < log_n - 1; ++i) {
+                code << "                success_flag := and(success_flag, "
+                        "validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_"
+                     << i << "_X_LOC, q))\n";
+            }
         }
 
         return code.str();
@@ -3466,6 +3491,32 @@ inline std::string get_optimized_honk_solidity_verifier(auto const& verification
         if (start_pos != std::string::npos && end_pos != std::string::npos) {
             std::string::size_type start_line_end = template_str.find("\n", start_pos);
             std::string generated_code = generate_unroll_section("COLLECT_INVERSES", log_n);
+            template_str = template_str.substr(0, start_line_end + 1) + generated_code + template_str.substr(end_pos);
+        }
+    }
+
+    // Replace ACCUMULATE_GEMINI_FOLD_UNIVARIATE section
+    {
+        std::string::size_type start_pos =
+            template_str.find("/// {{ UNROLL_SECTION_START ACCUMULATE_GEMINI_FOLD_UNIVARIATE }}");
+        std::string::size_type end_pos =
+            template_str.find("/// {{ UNROLL_SECTION_END ACCUMULATE_GEMINI_FOLD_UNIVARIATE }}");
+        if (start_pos != std::string::npos && end_pos != std::string::npos) {
+            std::string::size_type start_line_end = template_str.find("\n", start_pos);
+            std::string generated_code = generate_unroll_section("ACCUMULATE_GEMINI_FOLD_UNIVARIATE", log_n);
+            template_str = template_str.substr(0, start_line_end + 1) + generated_code + template_str.substr(end_pos);
+        }
+    }
+
+    // Replace GEMINI_FOLD_UNIVARIATE_ON_CURVE section
+    {
+        std::string::size_type start_pos =
+            template_str.find("/// {{ UNROLL_SECTION_START GEMINI_FOLD_UNIVARIATE_ON_CURVE }}");
+        std::string::size_type end_pos =
+            template_str.find("/// {{ UNROLL_SECTION_END GEMINI_FOLD_UNIVARIATE_ON_CURVE }}");
+        if (start_pos != std::string::npos && end_pos != std::string::npos) {
+            std::string::size_type start_line_end = template_str.find("\n", start_pos);
+            std::string generated_code = generate_unroll_section("GEMINI_FOLD_UNIVARIATE_ON_CURVE", log_n);
             template_str = template_str.substr(0, start_line_end + 1) + generated_code + template_str.substr(end_pos);
         }
     }

@@ -3606,10 +3606,11 @@ contract BlakeOptHonkVerifier is IVerifier {
                 mstore(SCALAR_LOCATION, 0x1)
                 {
                     let x := mload(SHPLONK_Q_X_LOC)
-                    let y := mload(SHPLONK_Q_X_LOC)
+                    let y := mload(SHPLONK_Q_Y_LOC)
                     let xx := mulmod(x, x, q)
                     // validate on curve
-                    precomp_success_flag := and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
+                    precomp_success_flag :=
+                        and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
                 }
                 mcopy(G1_LOCATION, SHPLONK_Q_X_LOC, 0x40)
                 precomp_success_flag := staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR, 0x40)
@@ -3844,10 +3845,11 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                 {
                     let x := mload(W_L_X_LOC)
-                    let y := mload(W_L_X_LOC)
+                    let y := mload(W_L_Y_LOC)
                     let xx := mulmod(x, x, q)
                     // validate on curve
-                    precomp_success_flag := and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
+                    precomp_success_flag :=
+                        and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
                 }
 
                 // Accumulate proof points
@@ -3861,10 +3863,11 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                 {
                     let x := mload(W_R_X_LOC)
-                    let y := mload(W_R_X_LOC)
+                    let y := mload(W_R_Y_LOC)
                     let xx := mulmod(x, x, q)
                     // validate on curve
-                    precomp_success_flag := and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
+                    precomp_success_flag :=
+                        and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
                 }
 
                 // Accumulator = accumulator + scalar[30] * w_r
@@ -3877,10 +3880,11 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                 {
                     let x := mload(W_O_X_LOC)
-                    let y := mload(W_O_X_LOC)
+                    let y := mload(W_O_Y_LOC)
                     let xx := mulmod(x, x, q)
                     // validate on curve
-                    precomp_success_flag := and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
+                    precomp_success_flag :=
+                        and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
                 }
 
                 // Accumulator = accumulator + scalar[31] * w_o
@@ -3894,10 +3898,11 @@ contract BlakeOptHonkVerifier is IVerifier {
                 // Accumulator = accumulator + scalar[32] * w_4
                 {
                     let x := mload(W_4_X_LOC)
-                    let y := mload(W_4_X_LOC)
+                    let y := mload(W_4_Y_LOC)
                     let xx := mulmod(x, x, q)
                     // validate on curve
-                    precomp_success_flag := and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
+                    precomp_success_flag :=
+                        and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
                 }
                 mcopy(G1_LOCATION, W_4_X_LOC, 0x40)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_32_LOC))
@@ -3908,10 +3913,11 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                 {
                     let x := mload(Z_PERM_X_LOC)
-                    let y := mload(Z_PERM_X_LOC)
+                    let y := mload(Z_PERM_Y_LOC)
                     let xx := mulmod(x, x, q)
                     // validate on curve
-                    precomp_success_flag := and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
+                    precomp_success_flag :=
+                        and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
                 }
                 // Accumulator = accumulator + scalar[33] * z_perm
                 mcopy(G1_LOCATION, Z_PERM_X_LOC, 0x40)
@@ -3923,10 +3929,11 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                 {
                     let x := mload(LOOKUP_INVERSES_X_LOC)
-                    let y := mload(LOOKUP_INVERSES_X_LOC)
+                    let y := mload(LOOKUP_INVERSES_Y_LOC)
                     let xx := mulmod(x, x, q)
                     // validate on curve
-                    precomp_success_flag := and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
+                    precomp_success_flag :=
+                        and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
                 }
                 // Accumulator = accumulator + scalar[34] * lookup_inverses
                 mcopy(G1_LOCATION, LOOKUP_INVERSES_X_LOC, 0x40)
@@ -3938,10 +3945,11 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                 {
                     let x := mload(LOOKUP_READ_COUNTS_X_LOC)
-                    let y := mload(LOOKUP_READ_COUNTS_X_LOC)
+                    let y := mload(LOOKUP_READ_COUNTS_Y_LOC)
                     let xx := mulmod(x, x, q)
                     // validate on curve
-                    precomp_success_flag := and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
+                    precomp_success_flag :=
+                        and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
                 }
                 // Accumulator = accumulator + scalar[35] * lookup_read_counts
                 mcopy(G1_LOCATION, LOOKUP_READ_COUNTS_X_LOC, 0x40)
@@ -3953,10 +3961,11 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                 {
                     let x := mload(LOOKUP_READ_TAGS_X_LOC)
-                    let y := mload(LOOKUP_READ_TAGS_X_LOC)
+                    let y := mload(LOOKUP_READ_TAGS_Y_LOC)
                     let xx := mulmod(x, x, q)
                     // validate on curve
-                    precomp_success_flag := and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
+                    precomp_success_flag :=
+                        and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
                 }
                 // Accumulator = accumulator + scalar[36] * lookup_read_tags
                 mcopy(G1_LOCATION, LOOKUP_READ_TAGS_X_LOC, 0x40)
@@ -3972,10 +3981,11 @@ contract BlakeOptHonkVerifier is IVerifier {
                         /// {{ UNROLL_SECTION_START ACCUMULATE_GEMINI_FOLD_UNIVARIATE }}
                         {
                             let x := mload(GEMINI_FOLD_UNIVARIATE_0_X_LOC)
-                            let y := mload(GEMINI_FOLD_UNIVARIATE_0_X_LOC)
+                            let y := mload(GEMINI_FOLD_UNIVARIATE_0_Y_LOC)
                             let xx := mulmod(x, x, q)
                             // validate on curve
-                            precomp_success_flag := and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
+                            precomp_success_flag :=
+                                and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
                         }
                         // accumulator = accumulator + scalar[37] * gemini_fold_univariates[0]
                         mcopy(G1_LOCATION, GEMINI_FOLD_UNIVARIATE_0_X_LOC, 0x40)
@@ -3987,10 +3997,11 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                         {
                             let x := mload(GEMINI_FOLD_UNIVARIATE_1_X_LOC)
-                            let y := mload(GEMINI_FOLD_UNIVARIATE_1_X_LOC)
+                            let y := mload(GEMINI_FOLD_UNIVARIATE_1_Y_LOC)
                             let xx := mulmod(x, x, q)
                             // validate on curve
-                            precomp_success_flag := and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
+                            precomp_success_flag :=
+                                and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
                         }
                         // accumulator = accumulator + scalar[38] * gemini_fold_univariates[1]
                         mcopy(G1_LOCATION, GEMINI_FOLD_UNIVARIATE_1_X_LOC, 0x40)
@@ -4002,10 +4013,11 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                         {
                             let x := mload(GEMINI_FOLD_UNIVARIATE_2_X_LOC)
-                            let y := mload(GEMINI_FOLD_UNIVARIATE_2_X_LOC)
+                            let y := mload(GEMINI_FOLD_UNIVARIATE_2_Y_LOC)
                             let xx := mulmod(x, x, q)
                             // validate on curve
-                            precomp_success_flag := and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
+                            precomp_success_flag :=
+                                and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
                         }
                         // accumulator = accumulator + scalar[39] * gemini_fold_univariates[2]
                         mcopy(G1_LOCATION, GEMINI_FOLD_UNIVARIATE_2_X_LOC, 0x40)
@@ -4017,10 +4029,11 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                         {
                             let x := mload(GEMINI_FOLD_UNIVARIATE_3_X_LOC)
-                            let y := mload(GEMINI_FOLD_UNIVARIATE_3_X_LOC)
+                            let y := mload(GEMINI_FOLD_UNIVARIATE_3_Y_LOC)
                             let xx := mulmod(x, x, q)
                             // validate on curve
-                            precomp_success_flag := and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
+                            precomp_success_flag :=
+                                and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
                         }
                         // accumulator = accumulator + scalar[40] * gemini_fold_univariates[3]
                         mcopy(G1_LOCATION, GEMINI_FOLD_UNIVARIATE_3_X_LOC, 0x40)
@@ -4032,10 +4045,11 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                         {
                             let x := mload(GEMINI_FOLD_UNIVARIATE_4_X_LOC)
-                            let y := mload(GEMINI_FOLD_UNIVARIATE_4_X_LOC)
+                            let y := mload(GEMINI_FOLD_UNIVARIATE_4_Y_LOC)
                             let xx := mulmod(x, x, q)
                             // validate on curve
-                            precomp_success_flag := and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
+                            precomp_success_flag :=
+                                and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
                         }
                         // accumulator = accumulator + scalar[41] * gemini_fold_univariates[4]
                         mcopy(G1_LOCATION, GEMINI_FOLD_UNIVARIATE_4_X_LOC, 0x40)
@@ -4049,10 +4063,11 @@ contract BlakeOptHonkVerifier is IVerifier {
                     {
                         {
                             let x := mload(GEMINI_FOLD_UNIVARIATE_5_X_LOC)
-                            let y := mload(GEMINI_FOLD_UNIVARIATE_5_X_LOC)
+                            let y := mload(GEMINI_FOLD_UNIVARIATE_5_Y_LOC)
                             let xx := mulmod(x, x, q)
                             // validate on curve
-                            precomp_success_flag := and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
+                            precomp_success_flag :=
+                                and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
                         }
                         // accumulator = accumulator + scalar[42] * gemini_fold_univariates[5]
                         mcopy(G1_LOCATION, GEMINI_FOLD_UNIVARIATE_5_X_LOC, 0x40)
@@ -4064,10 +4079,11 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                         {
                             let x := mload(GEMINI_FOLD_UNIVARIATE_6_X_LOC)
-                            let y := mload(GEMINI_FOLD_UNIVARIATE_6_X_LOC)
+                            let y := mload(GEMINI_FOLD_UNIVARIATE_6_Y_LOC)
                             let xx := mulmod(x, x, q)
                             // validate on curve
-                            precomp_success_flag := and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
+                            precomp_success_flag :=
+                                and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
                         }
                         // accumulator = accumulator + scalar[43] * gemini_fold_univariates[6]
                         mcopy(G1_LOCATION, GEMINI_FOLD_UNIVARIATE_6_X_LOC, 0x40)
@@ -4079,10 +4095,11 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                         {
                             let x := mload(GEMINI_FOLD_UNIVARIATE_7_X_LOC)
-                            let y := mload(GEMINI_FOLD_UNIVARIATE_7_X_LOC)
+                            let y := mload(GEMINI_FOLD_UNIVARIATE_7_Y_LOC)
                             let xx := mulmod(x, x, q)
                             // validate on curve
-                            precomp_success_flag := and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
+                            precomp_success_flag :=
+                                and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
                         }
                         // accumulator = accumulator + scalar[44] * gemini_fold_univariates[7]
                         mcopy(G1_LOCATION, GEMINI_FOLD_UNIVARIATE_7_X_LOC, 0x40)
@@ -4094,10 +4111,11 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                         {
                             let x := mload(GEMINI_FOLD_UNIVARIATE_8_X_LOC)
-                            let y := mload(GEMINI_FOLD_UNIVARIATE_8_X_LOC)
+                            let y := mload(GEMINI_FOLD_UNIVARIATE_8_Y_LOC)
                             let xx := mulmod(x, x, q)
                             // validate on curve
-                            precomp_success_flag := and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
+                            precomp_success_flag :=
+                                and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
                         }
                         // accumulator = accumulator + scalar[45] * gemini_fold_univariates[8]
                         mcopy(G1_LOCATION, GEMINI_FOLD_UNIVARIATE_8_X_LOC, 0x40)
@@ -4109,10 +4127,11 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                         {
                             let x := mload(GEMINI_FOLD_UNIVARIATE_9_X_LOC)
-                            let y := mload(GEMINI_FOLD_UNIVARIATE_9_X_LOC)
+                            let y := mload(GEMINI_FOLD_UNIVARIATE_9_Y_LOC)
                             let xx := mulmod(x, x, q)
                             // validate on curve
-                            precomp_success_flag := and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
+                            precomp_success_flag :=
+                                and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
                         }
                         // accumulator = accumulator + scalar[46] * gemini_fold_univariates[9]
                         mcopy(G1_LOCATION, GEMINI_FOLD_UNIVARIATE_9_X_LOC, 0x40)
@@ -4124,10 +4143,11 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                         {
                             let x := mload(GEMINI_FOLD_UNIVARIATE_10_X_LOC)
-                            let y := mload(GEMINI_FOLD_UNIVARIATE_10_X_LOC)
+                            let y := mload(GEMINI_FOLD_UNIVARIATE_10_Y_LOC)
                             let xx := mulmod(x, x, q)
                             // validate on curve
-                            precomp_success_flag := and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
+                            precomp_success_flag :=
+                                and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
                         }
                         // accumulator = accumulator + scalar[47] * gemini_fold_univariates[10]
                         mcopy(G1_LOCATION, GEMINI_FOLD_UNIVARIATE_10_X_LOC, 0x40)
@@ -4141,10 +4161,11 @@ contract BlakeOptHonkVerifier is IVerifier {
                     {
                         {
                             let x := mload(GEMINI_FOLD_UNIVARIATE_11_X_LOC)
-                            let y := mload(GEMINI_FOLD_UNIVARIATE_11_X_LOC)
+                            let y := mload(GEMINI_FOLD_UNIVARIATE_11_Y_LOC)
                             let xx := mulmod(x, x, q)
                             // validate on curve
-                            precomp_success_flag := and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
+                            precomp_success_flag :=
+                                and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
                         }
                         // accumulator = accumulator + scalar[48] * gemini_fold_univariates[11]
                         mcopy(G1_LOCATION, GEMINI_FOLD_UNIVARIATE_11_X_LOC, 0x40)
@@ -4156,10 +4177,11 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                         {
                             let x := mload(GEMINI_FOLD_UNIVARIATE_12_X_LOC)
-                            let y := mload(GEMINI_FOLD_UNIVARIATE_12_X_LOC)
+                            let y := mload(GEMINI_FOLD_UNIVARIATE_12_Y_LOC)
                             let xx := mulmod(x, x, q)
                             // validate on curve
-                            precomp_success_flag := and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
+                            precomp_success_flag :=
+                                and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
                         }
                         // accumulator = accumulator + scalar[49] * gemini_fold_univariates[12]
                         mcopy(G1_LOCATION, GEMINI_FOLD_UNIVARIATE_12_X_LOC, 0x40)
@@ -4171,10 +4193,11 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                         {
                             let x := mload(GEMINI_FOLD_UNIVARIATE_13_X_LOC)
-                            let y := mload(GEMINI_FOLD_UNIVARIATE_13_X_LOC)
+                            let y := mload(GEMINI_FOLD_UNIVARIATE_13_Y_LOC)
                             let xx := mulmod(x, x, q)
                             // validate on curve
-                            precomp_success_flag := and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
+                            precomp_success_flag :=
+                                and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
                         }
                         // accumulator = accumulator + scalar[50] * gemini_fold_univariates[13]
                         mcopy(G1_LOCATION, GEMINI_FOLD_UNIVARIATE_13_X_LOC, 0x40)
@@ -4206,7 +4229,8 @@ contract BlakeOptHonkVerifier is IVerifier {
                         let y := mload(KZG_QUOTIENT_Y_LOC)
                         let xx := mulmod(x, x, q)
                         // validate on curve
-                        precomp_success_flag := and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
+                        precomp_success_flag :=
+                            and(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)), precomp_success_flag)
                     }
                     mcopy(G1_LOCATION, KZG_QUOTIENT_X_LOC, 0x40)
 

@@ -11,8 +11,6 @@ import {
 import {Fr, FrLib} from "./Fr.sol";
 import {bytesToG1Point, bytesToFr} from "./utils.sol";
 
-import {logFr, logG} from "./Debug.sol";
-
 // Transcript library to generate fiat shamir challenges
 struct Transcript {
     // Oink
@@ -80,12 +78,6 @@ library TranscriptLib {
             generateEtaChallenge(proof, publicInputs, circuitSize, publicInputsSize, pubInputsOffset);
 
         (rp.beta, rp.gamma, nextPreviousChallenge) = generateBetaAndGammaChallenges(previousChallenge, proof);
-
-        logFr("eta", rp.eta);
-        logFr("etaTwo", rp.etaTwo);
-        logFr("etaThree", rp.etaThree);
-        logFr("beta", rp.beta);
-        logFr("gamma", rp.gamma);
     }
 
     function generateEtaChallenge(
@@ -226,7 +218,7 @@ library TranscriptLib {
         pure
         returns (Fr geminiR, Fr nextPreviousChallenge)
     {
-        uint256[] memory gR = new uint256[]((logN - 1) * 4 + 1);
+        uint256[] memory gR = new uint256[]((logN - 1) * 2 + 1);
         gR[0] = Fr.unwrap(prevChallenge);
 
         for (uint256 i = 0; i < logN - 1; i++) {
@@ -292,10 +284,6 @@ library TranscriptLib {
         p.w3 = bytesToG1Point(proof[boundary:boundary + 0x40]);
         boundary += 0x40;
 
-        logG("w1", p.w1);
-        logG("w2", p.w2);
-        logG("w3", p.w3);
-
         // Lookup / Permutation Helper Commitments
         p.lookupReadCounts = bytesToG1Point(proof[boundary:boundary + 0x40]);
         boundary += 0x40;
@@ -307,12 +295,6 @@ library TranscriptLib {
         boundary += 0x40;
         p.zPerm = bytesToG1Point(proof[boundary:boundary + 0x40]);
         boundary += 0x40;
-
-        logG("lookupReadCounts", p.lookupReadCounts);
-        logG("lookupReadTags", p.lookupReadTags);
-        logG("w4", p.w4);
-        logG("lookupInverses", p.lookupInverses);
-        logG("zPerm", p.zPerm);
 
         // Sumcheck univariates
         for (uint256 i = 0; i < logN; i++) {

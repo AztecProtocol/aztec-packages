@@ -2,6 +2,16 @@
 
 ## A mini python script to help generate the locations in memory of the indicies requred to generate a proof
 
+BATCHED_RELATION_PARTIAL_LENGTH = 8
+CONST_PROOF_SIZE_LOG_N = 28
+LOG_N = 15
+NUMBER_OF_ENTITIES = 41
+NUMBER_OF_SUBRELATIONS = 28
+NUMBER_OF_ALPHAS = NUMBER_OF_SUBRELATIONS - 1
+
+START_POINTER = 0x1000
+SCRATCH_SPACE_POINTER = 0x100
+
 vk_fr = [
     "VK_CIRCUIT_SIZE_LOC",
     "VK_NUM_PUBLIC_INPUTS_LOC",
@@ -138,10 +148,9 @@ challenges = [
     "PUBLIC_INPUTS_DELTA_DENOMINATOR"
 ]
 
-START_POINTER = 0x1000
-SCRATCH_SPACE_POINTER = 0x100
-
-
+#########################################################
+#                       HELPERS                         #
+#########################################################
 def print_header_centered(text: str):
     top = "/*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/"
     bottom = "/*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/"
@@ -153,9 +162,6 @@ def print_header_centered(text: str):
     print(top)
     print(centered)
     print(bottom)
-
-
-# Generate the verification key memory locations, leaving plenty of room for scratch space
 
 def print_loc(pointer: int, name: str):
     print("uint256 internal constant ", name, " = ", hex(pointer), ";")
@@ -169,6 +175,9 @@ def print_g1(pointer: int, name: str):
     print_loc(pointer + 32, name + "_Y_LOC")
 
 
+#########################################################
+#                         VK                            #
+#########################################################
 def print_vk(pointer: int):
     for item in vk_fr:
         print_fr(pointer, item)
@@ -180,29 +189,16 @@ def print_vk(pointer: int):
 
     return pointer
 
-def print_proof(pointer: int):
-    for item in pairing_points:
-        print_fr(pointer, item)
-        pointer += 32
-
-    for item in proof_g1:
-        print_g1(pointer, item)
-        pointer += (2*32)
-
-    return pointer
-
-BATCHED_RELATION_PARTIAL_LENGTH = 8
-PROOF_SIZE_LOG_N = 28
-NUMBER_OF_ENTITIES = 41
-NUMBER_OF_SUBRELATIONS = 28
-NUMBER_OF_ALPHAS = NUMBER_OF_SUBRELATIONS - 1
+#########################################################
+#                        PROOF                          #
+#########################################################
 # For the meantime we will load the entire proof into memory here
 # however i predict that it will be more efficient to load in the sumcheck univars
 # for each round with their own slice of calldatacopy
 def print_sumcheck_univariates(pointer: int):
-    for relation_len in range(0, BATCHED_RELATION_PARTIAL_LENGTH):
-        for size in range(0, PROOF_SIZE_LOG_N):
-            name = "SUMCHECK_UNIVARIATE_" + str(relation_len) + "_" + str(size) + "_LOC"
+    for size in range(0, LOG_N):
+        for relation_len in range(0, BATCHED_RELATION_PARTIAL_LENGTH):
+            name = "SUMCHECK_UNIVARIATE_" + str(size) + "_" + str(relation_len) + "_LOC"
             print_fr(pointer, name)
             pointer += 32
 
@@ -215,15 +211,61 @@ def print_entities(pointer: int):
 
     return pointer
 
+def print_proof(pointer: int):
+    for item in pairing_points:
+        print_fr(pointer, item)
+        pointer += 32
 
+    for item in proof_g1:
+        print_g1(pointer, item)
+        pointer += (2*32)
+
+    print_header_centered("PROOF INDICIES - SUMCHECK UNIVARIATES")
+    pointer = print_sumcheck_univariates(pointer)
+
+    print_header_centered("PROOF INDICIES - SUMCHECK EVALUATIONS")
+    pointer = print_entities(pointer)
+
+    pointer = print_shplemini(pointer)
+
+    print_header_centered("PROOF INDICIES - COMPLETE")
+
+
+    return pointer
+
+#########################################################
+#                      CHALLENGES                       #
+#########################################################
+def print_challenges(pointer: int):
+    for chall in challenges:
+        print_fr(pointer, chall + "_CHALLENGE")
+        pointer += 32
+
+    for alpha in range(0, NUMBER_OF_ALPHAS):
+        print_fr(pointer, "ALPHA_CHALLENGE_" + str(alpha))
+        pointer += 32
+
+    for gate in range(0, LOG_N):
+        print_fr(pointer, "GATE_CHALLENGE_" + str(gate))
+        pointer += 32
+
+    for sum_u in range(0, LOG_N):
+        print_fr(pointer, "SUM_U_CHALLENGE_" + str(sum_u))
+        pointer += 32
+
+    return pointer
+
+#########################################################
+#                      SHPLEMINI                        #
+#########################################################
 def print_shplemini(pointer: int):
     print_header_centered("PROOF INDICIES - GEMINI FOLDING COMMS")
-    for size in range(0, PROOF_SIZE_LOG_N - 1):
+    for size in range(0, LOG_N - 1):
         print_g1(pointer, "GEMINI_FOLD_UNIVARIATE_" + str(size))
         pointer += (2*32)
 
     print_header_centered("PROOF INDICIES - GEMINI FOLDING EVALUATIONS")
-    for size in range(0, PROOF_SIZE_LOG_N):
+    for size in range(0, LOG_N):
         print_fr(pointer, "GEMINI_A_EVAL_" + str(size))
         pointer += 32
 
@@ -234,26 +276,10 @@ def print_shplemini(pointer: int):
 
     return pointer
 
-def print_challenges(pointer: int):
-    for chall in challenges:
-        print_fr(pointer, chall + "_CHALLENGE")
-        pointer += 32
 
-    for alpha in range(0, NUMBER_OF_ALPHAS):
-        print_fr(pointer, "ALPHA_CHALLENGE_" + str(alpha))
-        pointer += 32
-
-    # TODO: this NOT THE PROOF SIZE LOG_N?????
-    for gate in range(0, PROOF_SIZE_LOG_N):
-        print_fr(pointer, "GATE_CHALLENGE_" + str(gate))
-        pointer += 32
-
-    for sum_u in range(0, PROOF_SIZE_LOG_N):
-        print_fr(pointer, "SUM_U_CHALLENGE_" + str(sum_u))
-        pointer += 32
-
-    return pointer
-
+#########################################################
+#                      RUNTIME MEMORY                   #
+#########################################################
 BARYCENTRIC_DOMAIN_SIZE = 8
 def print_barycentric_domain():
     # use scratch space
@@ -262,7 +288,7 @@ def print_barycentric_domain():
         print_fr(bary_pointer, "BARYCENTRIC_LAGRANGE_DENOMINATOR_" + str(i) + "_LOC")
         bary_pointer += 32
 
-    for i in range(0, PROOF_SIZE_LOG_N):
+    for i in range(0, LOG_N):
         for j in range(0, BARYCENTRIC_DOMAIN_SIZE):
             print_fr(bary_pointer, "BARYCENTRIC_DENOMINATOR_INVERSES_" + str(i) + "_" + str(j) + "_LOC")
             bary_pointer += 32
@@ -309,13 +335,15 @@ def print_batch_scalars(pointer: int):
     return pointer
 
 def print_powers_of_evaluation_challenge(pointer: int):
-    for i in range(0, PROOF_SIZE_LOG_N):
+    print("/// {{ UNROLL_SECTION_START POWERS_OF_EVALUATION_CHALLENGE }}")
+    for i in range(0, LOG_N):
         print_fr(pointer, "POWERS_OF_EVALUATION_CHALLENGE_" + str(i) + "_LOC")
         pointer += 32
+    print("/// {{ UNROLL_SECTION_END POWERS_OF_EVALUATION_CHALLENGE }}")
     return pointer
 
 def print_inverted_gemini_denominators(pointer: int):
-    for i in range(0, PROOF_SIZE_LOG_N + 1):
+    for i in range(0, LOG_N + 1):
         print_fr(pointer, "INVERTED_GEMINI_DENOMINATOR_" + str(i) + "_LOC")
         pointer += 32
     return pointer
@@ -365,8 +393,6 @@ def print_inversions():
     print("")
     pointer = print_fold_pos_evaluations(pointer)
 
-
-
 def print_pos_neg_inverted_denominators(pointer: int):
     print_fr(pointer, "POS_INVERTED_DENOMINATOR")
     pointer += 32
@@ -375,28 +401,61 @@ def print_pos_neg_inverted_denominators(pointer: int):
     return pointer
 
 def print_inverted_challenge_pow_minus_u(pointer: int):
-    for i in range(0, PROOF_SIZE_LOG_N):
+    for i in range(0, LOG_N):
         print_fr(pointer, "INVERTED_CHALLENEGE_POW_MINUS_U_" + str(i) + "_LOC")
         pointer += 32
     return pointer
 
 def print_pos_inverted_denom(pointer: int):
-    for i in range(0, PROOF_SIZE_LOG_N):
+    for i in range(0, LOG_N):
         print_fr(pointer, "POS_INVERTED_DENOM_" + str(i) + "_LOC")
         pointer += 32
     return pointer
 
 def print_neg_inverted_denom(pointer: int):
-    for i in range(0, PROOF_SIZE_LOG_N):
+    for i in range(0, LOG_N):
         print_fr(pointer, "NEG_INVERTED_DENOM_" + str(i) + "_LOC")
         pointer += 32
     return pointer
 
 def print_fold_pos_evaluations(pointer: int):
-    for i in range(0, PROOF_SIZE_LOG_N):
+    for i in range(0, LOG_N):
         print_fr(pointer, "FOLD_POS_EVALUATIONS_" + str(i) + "_LOC")
         pointer += 32
     return pointer
+
+def print_runtime_memory(pointer: int):
+    print_header_centered("SUMCHECK - RUNTIME MEMORY - BARYCENTRIC")
+    print_barycentric_domain()
+    print_header_centered("SUMCHECK - RUNTIME MEMORY - BARYCENTRIC COMPLETE")
+
+    print_header_centered("SUMCHECK - RUNTIME MEMORY - SUBRELATION EVALUATIONS")
+    pointer = print_subrelation_eval(pointer)
+    print_header_centered("SUMCHECK - RUNTIME MEMORY - SUBRELATION EVALUATIONS COMPLETE")
+
+    print_header_centered("SUMCHECK - RUNTIME MEMORY - SUBRELATION INTERMEDIATES")
+    pointer = print_subrelation_intermediates(pointer)
+
+    print_header_centered("SUMCHECK - RUNTIME MEMORY - COMPLETE")
+
+    print_header_centered("SHPLEMINI - RUNTIME MEMORY")
+    print_header_centered("SHPLEMINI - POWERS OF EVALUATION CHALLENGE")
+    pointer = print_powers_of_evaluation_challenge(pointer)
+    print_header_centered("SHPLEMINI - POWERS OF EVALUATION CHALLENGE COMPLETE")
+
+    # This is a temporary method to write where the batch scalars should be
+    # But in reality it will overlap with the sumcheck univariates
+    print_header_centered("SHPLEMINI - RUNTIME MEMORY - BATCH SCALARS")
+    pointer = print_batch_scalars(pointer)
+    print_header_centered("SHPLEMINI - RUNTIME MEMORY - BATCH SCALARS COMPLETE")
+
+    print_header_centered("SHPLEMINI - RUNTIME MEMORY - INVERSIONS")
+    print_inversions()
+    print_header_centered("SHPLEMINI RUNTIME MEMORY - INVERSIONS - COMPLETE")
+    return pointer
+
+
+
 
 def print_later_scratch_space(pointer: int):
     print_fr(pointer, "LATER_SCRATCH_SPACE")
@@ -404,7 +463,7 @@ def print_later_scratch_space(pointer: int):
     return pointer
 
 def print_temp_space(pointer: int):
-    for i in range(0, 3 * PROOF_SIZE_LOG_N):
+    for i in range(0, 3 * LOG_N):
         print_fr(pointer, "TEMP_" + str(i) + "_LOC")
         pointer += 32
     return pointer
@@ -437,6 +496,7 @@ def print_ec_aliases():
     print("")
     print("// Aliases for selectors (Elliptic curve gadget)")
     print("uint256 internal constant EC_Q_SIGN = QL_EVAL_LOC;")
+    print("uint256 internal constant EC_Q_IS_DOUBLE = QM_EVAL_LOC;")
 
 def main():
     # This is an arbitrary offset, but will need to be adjusted based on the
@@ -450,49 +510,13 @@ def main():
     print_header_centered("PROOF INDICIES")
     pointer = print_proof(pointer)
 
-    print_header_centered("PROOF INDICIES - SUMCHECK UNIVARIATES")
-    pointer = print_sumcheck_univariates(pointer)
-
-    print_header_centered("PROOF INDICIES - SUMCHECK EVALUATIONS")
-    pointer = print_entities(pointer)
-
-    pointer = print_shplemini(pointer)
-
-    print_header_centered("PROOF INDICIES - COMPLETE")
 
     print_header_centered("CHALLENGES")
     pointer = print_challenges(pointer)
     print_header_centered("CHALLENGES - COMPLETE")
 
     print_header_centered("SUMCHECK - RUNTIME MEMORY")
-
-    print_header_centered("SUMCHECK - RUNTIME MEMORY - BARYCENTRIC")
-    print_barycentric_domain()
-    print_header_centered("SUMCHECK - RUNTIME MEMORY - BARYCENTRIC COMPLETE")
-
-    print_header_centered("SUMCHECK - RUNTIME MEMORY - SUBRELATION EVALUATIONS")
-    pointer = print_subrelation_eval(pointer)
-    print_header_centered("SUMCHECK - RUNTIME MEMORY - SUBRELATION EVALUATIONS COMPLETE")
-
-    print_header_centered("SUMCHECK - RUNTIME MEMORY - SUBRELATION INTERMEDIATES")
-    pointer = print_subrelation_intermediates(pointer)
-
-    print_header_centered("SUMCHECK - RUNTIME MEMORY - COMPLETE")
-
-    print_header_centered("SHPLEMINI - RUNTIME MEMORY")
-    print_header_centered("SHPLEMINI - POWERS OF EVALUATION CHALLENGE")
-    pointer = print_powers_of_evaluation_challenge(pointer)
-    print_header_centered("SHPLEMINI - POWERS OF EVALUATION CHALLENGE COMPLETE")
-
-    # This is a temporary method to write where the batch scalars should be
-    # But in reality it will overlap with the sumcheck univariates
-    print_header_centered("SHPLEMINI - RUNTIME MEMORY - BATCH SCALARS")
-    pointer = print_batch_scalars(pointer)
-    print_header_centered("SHPLEMINI - RUNTIME MEMORY - BATCH SCALARS COMPLETE")
-
-    print_header_centered("SHPLEMINI - RUNTIME MEMORY - INVERSIONS")
-    print_inversions()
-    print_header_centered("SHPLEMINI RUNTIME MEMORY - INVERSIONS - COMPLETE")
+    pointer = print_runtime_memory(pointer)
     print_header_centered("SHPLEMINI RUNTIME MEMORY - COMPLETE")
 
     print("")
