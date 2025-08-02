@@ -227,6 +227,18 @@ class TXEDispatcher {
     }
 
     const txeService = TXESessions.get(sessionId);
+
+    // Check if the function exists on the txeService before calling it
+    if (typeof (txeService as any)[functionName] !== 'function') {
+      const availableMethods = Object.getOwnPropertyNames(Object.getPrototypeOf(txeService))
+        .filter(name => typeof (txeService as any)[name] === 'function' && name !== 'constructor')
+        .sort();
+
+      throw new Error(
+        `TXE function '${functionName}' is not available. ` + `Available methods: ${availableMethods.join(', ')}`,
+      );
+    }
+
     const response = await (txeService as any)[functionName](...inputs);
     return response;
   }
