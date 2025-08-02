@@ -16,12 +16,15 @@ class AvmProver {
     using Curve = Flavor::Curve;
     using PCSCommitmentKey = Flavor::CommitmentKey;
     using ProvingKey = Flavor::ProvingKey;
+    using VerificationKey = Flavor::VerificationKey;
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
     using Transcript = Flavor::Transcript;
     using Proof = HonkProof;
 
-    explicit AvmProver(std::shared_ptr<ProvingKey> input_key, const PCSCommitmentKey& commitment_key);
+    explicit AvmProver(std::shared_ptr<ProvingKey> input_key,
+                       std::shared_ptr<VerificationKey> vk,
+                       const PCSCommitmentKey& commitment_key);
     AvmProver(AvmProver&& prover) = default;
     virtual ~AvmProver() = default;
 
@@ -44,6 +47,7 @@ class AvmProver {
     bb::RelationParameters<FF> relation_parameters;
 
     std::shared_ptr<ProvingKey> key;
+    std::shared_ptr<VerificationKey> vk;
 
     // Container for spans of all polynomials required by the prover (i.e. all multivariates evaluated by Sumcheck).
     ProverPolynomials prover_polynomials;

@@ -84,8 +84,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
     // This routine is adding some placeholders for avm proof and avm vk in the case where witnesses are not present.
     // TODO(#14234)[Unconditional PIs validation]: Remove next line and use offset == 0 for subsequent line.
     builder.set_variable(proof_fields[0].witness_index, 1);
-    builder.set_variable(proof_fields[1].witness_index, 1 << log_circuit_size);
-    offset = 2; // TODO(#14234)[Unconditional PIs validation]: reset offset = 1
+    offset = 1; // TODO(#14234)[Unconditional PIs validation]: reset offset = 1
 
     // Witness Commitments
     for (size_t i = 0; i < Flavor::NUM_WITNESS_ENTITIES; i++) {
