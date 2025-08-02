@@ -37,6 +37,11 @@ contract DelegateTest is WithGSE {
   ) external givenInstanceIsRegistered(_instance) {
     // it reverts
 
+    // Get two different attesters, and a withdrawer
+    // Deposit the first attester into the rollup instance
+    // Deposit the second attester into the bonus instance
+    // Check that in all cases only the withdrawer may delegate
+
     vm.assume(_withdrawer != _attester);
     vm.assume(_withdrawer != _attester2);
     vm.assume(_attester != address(0));
@@ -47,7 +52,7 @@ contract DelegateTest is WithGSE {
     cheat_deposit(_instance, _attester, _withdrawer, false);
     cheat_deposit(_instance, _attester2, _withdrawer, true);
 
-    // Checks on the specific instance
+    // Check the rollup and the bonus instance on _attester
     {
       vm.prank(_attester);
       vm.expectRevert(
@@ -57,23 +62,26 @@ contract DelegateTest is WithGSE {
 
       address bonus = gse.getBonusInstanceAddress();
 
+      // The bonus instance should see the original withdrawer
       vm.prank(_attester);
       vm.expectRevert(
-        abi.encodeWithSelector(Errors.GSE__NotWithdrawer.selector, address(0), _attester)
+        abi.encodeWithSelector(Errors.GSE__NotWithdrawer.selector, _withdrawer, _attester)
       );
       gse.delegate(bonus, _attester, _delegatee);
     }
 
-    // Checks on the bonus address
+    // Check the rollup and the bonus instance on _attester2
     {
+      // The rollup instance should see the withdrawer
       vm.prank(_attester2);
       vm.expectRevert(
-        abi.encodeWithSelector(Errors.GSE__NotWithdrawer.selector, address(0), _attester2)
+        abi.encodeWithSelector(Errors.GSE__NotWithdrawer.selector, _withdrawer, _attester2)
       );
       gse.delegate(_instance, _attester2, _delegatee);
 
       address bonus = gse.getBonusInstanceAddress();
 
+      // The bonus instance should see the original withdrawer
       vm.prank(_attester2);
       vm.expectRevert(
         abi.encodeWithSelector(Errors.GSE__NotWithdrawer.selector, _withdrawer, _attester2)

@@ -3,7 +3,7 @@
 pragma solidity >=0.8.27;
 
 import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
-import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
+import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
 struct CheatDepositArgs {

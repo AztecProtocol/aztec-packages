@@ -16,7 +16,7 @@ import {GSE, AttesterConfig} from "@aztec/governance/GSE.sol";
 import {Proposal} from "@aztec/governance/interfaces/IGovernance.sol";
 import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
-import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
+import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {
   CompressedTimeMath, CompressedTimestamp
 } from "@aztec/shared/libraries/CompressedTimeMath.sol";
@@ -189,11 +189,11 @@ library StakingLib {
 
       emit IStakingCore.Slashed(_attester, slashAmount);
     } else {
-      (address withdrawer, bool attesterExists,) = store.gse.getWithdrawer(address(this), _attester);
-      require(attesterExists, Errors.Staking__NoOneToSlash(_attester));
-
       // Get the effective balance of the attester
       uint256 effectiveBalance = store.gse.effectiveBalanceOf(address(this), _attester);
+      require(effectiveBalance > 0, Errors.Staking__NoOneToSlash(_attester));
+
+      address withdrawer = store.gse.getWithdrawer(_attester);
 
       // If the slash amount is greater than the effective balance, bound it to the effective balance
       uint256 slashAmount = Math.min(_amount, effectiveBalance);
@@ -325,13 +325,14 @@ library StakingLib {
 
       emit IStakingCore.WithdrawInitiated(_attester, _recipient, store.exits[_attester].amount);
     } else {
-      (address withdrawer, bool attesterExists,) = store.gse.getWithdrawer(address(this), _attester);
-      require(attesterExists, Errors.Staking__NothingToExit(_attester));
+      uint256 effectiveBalance = store.gse.effectiveBalanceOf(address(this), _attester);
+      require(effectiveBalance > 0, Errors.Staking__NothingToExit(_attester));
+
+      address withdrawer = store.gse.getWithdrawer(_attester);
       require(msg.sender == withdrawer, Errors.Staking__NotWithdrawer(withdrawer, msg.sender));
 
-      uint256 amount = store.gse.effectiveBalanceOf(address(this), _attester);
       (uint256 actualAmount, bool removed, uint256 withdrawalId) =
-        store.gse.withdraw(_attester, amount);
+        store.gse.withdraw(_attester, effectiveBalance);
       require(removed, Errors.Staking__WithdrawFailed(_attester));
 
       store.exits[_attester] = Exit({
@@ -369,8 +370,8 @@ library StakingLib {
       return exit.exitableAt > Timestamp.wrap(block.timestamp);
     }
 
-    (, bool attesterExists,) = store.gse.getWithdrawer(address(this), _attester);
-    return attesterExists;
+    uint256 effectiveBalance = store.gse.effectiveBalanceOf(address(this), _attester);
+    return effectiveBalance > 0;
   }
 
   function getAttesterCountAtTime(Timestamp _timestamp) internal view returns (uint256) {
@@ -408,7 +409,7 @@ library StakingLib {
   }
 
   function getConfig(address _attester) internal view returns (AttesterConfig memory) {
-    return getStorage().gse.getConfig(address(this), _attester);
+    return getStorage().gse.getConfig(_attester);
   }
 
   function getAttesterView(address _attester) internal view returns (AttesterView memory) {

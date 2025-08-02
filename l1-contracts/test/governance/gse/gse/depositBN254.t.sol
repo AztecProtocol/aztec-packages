@@ -98,9 +98,7 @@ contract DepositBN254Test is WithGSE {
       emit log_string("Getting attester1's public key should work");
       address[] memory attesters = new address[](1);
       attesters[0] = _attester1;
-      G1Point[] memory publicKeys = gse.getG1PublicKeysFromAddresses(
-        _moveWithLatestRollup ? gse.BONUS_INSTANCE_ADDRESS() : _instance, attesters
-      );
+      G1Point[] memory publicKeys = gse.getG1PublicKeysFromAddresses(attesters);
       assertEq(publicKeys.length, 1);
       assertEq(publicKeys[0].x, proofOfPossessions[sk1].pk1.x);
       assertEq(publicKeys[0].y, proofOfPossessions[sk1].pk1.y);
@@ -144,9 +142,7 @@ contract DepositBN254Test is WithGSE {
       emit log_string("Getting attester1's public key should work still work");
       address[] memory attesters = new address[](1);
       attesters[0] = _attester1;
-      G1Point[] memory publicKeys = gse.getG1PublicKeysFromAddresses(
-        _moveWithLatestRollup ? gse.BONUS_INSTANCE_ADDRESS() : _instance, attesters
-      );
+      G1Point[] memory publicKeys = gse.getG1PublicKeysFromAddresses(attesters);
       assertEq(publicKeys.length, 1);
       assertEq(publicKeys[0].x, proofOfPossessions[sk1].pk1.x);
       assertEq(publicKeys[0].y, proofOfPossessions[sk1].pk1.y);
@@ -239,9 +235,7 @@ contract DepositBN254Test is WithGSE {
       address[] memory attesters = new address[](2);
       attesters[0] = _attester1;
       attesters[1] = _attester2;
-      G1Point[] memory publicKeys = gse.getG1PublicKeysFromAddresses(
-        _moveWithLatestRollup ? gse.BONUS_INSTANCE_ADDRESS() : _instance, attesters
-      );
+      G1Point[] memory publicKeys = gse.getG1PublicKeysFromAddresses(attesters);
       assertEq(publicKeys.length, 2);
       assertEq(publicKeys[0].x, proofOfPossessions[sk1].pk1.x);
       assertEq(publicKeys[0].y, proofOfPossessions[sk1].pk1.y);

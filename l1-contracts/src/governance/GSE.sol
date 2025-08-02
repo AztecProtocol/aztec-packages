@@ -31,9 +31,6 @@ struct AttesterConfig {
 // Finally a flag to track if the instance exists.
 struct InstanceStaking {
   SnapshottedAddressSet attesters;
-  mapping(address attester => AttesterConfig config) configOf;
-  // Mapping from the hashed public key in G1 of BN254 to the owner of the public key.
-  mapping(bytes32 hashedPK1 => address owner) ownedPKs;
   bool exists;
 }
 
@@ -73,18 +70,12 @@ interface IGSE is IGSECore {
     view
     returns (uint256);
 
-  function getWithdrawer(address _instance, address _attester)
-    external
-    view
-    returns (address, bool, address);
+  function getWithdrawer(address _attester) external view returns (address);
   function balanceOf(address _instance, address _attester) external view returns (uint256);
   function effectiveBalanceOf(address _instance, address _attester) external view returns (uint256);
   function supplyOf(address _instance) external view returns (uint256);
   function totalSupply() external view returns (uint256);
-  function getConfig(address _instance, address _attester)
-    external
-    view
-    returns (AttesterConfig memory);
+  function getConfig(address _attester) external view returns (AttesterConfig memory);
   function getAttesterCountAtTime(address _instance, Timestamp _timestamp)
     external
     view
@@ -95,7 +86,7 @@ interface IGSE is IGSECore {
     Timestamp _timestamp,
     uint256[] memory _indices
   ) external view returns (address[] memory);
-  function getG1PublicKeysFromAddresses(address _instance, address[] memory _attesters)
+  function getG1PublicKeysFromAddresses(address[] memory _attesters)
     external
     view
     returns (G1Point[] memory);
@@ -210,6 +201,11 @@ contract GSECore is IGSECore, Ownable {
   Checkpoints.Trace224 internal rollups;
   // Mapping from instance address to its historical staking information.
   mapping(address instanceAddress => InstanceStaking instance) internal instances;
+
+  // Global attester information
+  mapping(address attester => AttesterConfig config) internal configOf;
+  // Mapping from the hashed public key in G1 of BN254 to the keys are registered.
+  mapping(bytes32 hashedPK1 => bool isRegistered) internal ownedPKs;
 
   /**
    * Contains state for:
@@ -353,26 +349,46 @@ contract GSECore is IGSECore, Ownable {
     // NOTE: we only need to check for the existence of Pk1, and not also for Pk2,
     // as the Pk2 will be constrained to have the same underlying secret key as part of the proofOfPossession,
     // so existence/correctness of Pk2 is implied by existence/correctness of Pk1.
+    bool isNewRegistration = true;
+
     if (checkProofOfPossession) {
-      bytes32 hashedPk1 = keccak256(abi.encodePacked(_publicKeyInG1.x, _publicKeyInG1.y));
-      address owner = instances[recipientInstance].ownedPKs[hashedPk1];
-      require(
-        owner == address(0) || owner == _attester,
-        Errors.GSE__ProofOfPossessionAlreadySeen(hashedPk1)
-      );
-      instances[recipientInstance].ownedPKs[hashedPk1] = _attester;
-      G1Point memory oldPk1 = instances[recipientInstance].configOf[_attester].publicKey;
-      // if there was an old pk1, we need to make sure it matches the proof of possession:
-      // attesters cannot change their public keys.
-      require(
-        (oldPk1.x == 0 && oldPk1.y == 0)
-          || (oldPk1.x == _publicKeyInG1.x && oldPk1.y == _publicKeyInG1.y),
-        Errors.GSE__CannotChangePublicKeys(oldPk1.x, oldPk1.y)
-      );
+      G1Point memory previouslyRegisteredPoint = configOf[_attester].publicKey;
+      bytes32 hashedIncomingPoint = keccak256(abi.encodePacked(_publicKeyInG1.x, _publicKeyInG1.y));
+
+      // if the incoming public key is already registered, it must be owned by the attester:
+      // either the attester is depositing on a new instance,
+      // or they exited and are re-depositing on the same instance.
+      if (ownedPKs[hashedIncomingPoint]) {
+        require(
+          (
+            previouslyRegisteredPoint.x == _publicKeyInG1.x
+              && previouslyRegisteredPoint.y == _publicKeyInG1.y
+          ),
+          Errors.GSE__ProofOfPossessionAlreadySeen(hashedIncomingPoint)
+        );
+
+        isNewRegistration = false;
+      } else {
+        // the public key provided in the args have not been seen before,
+        // so we need to make sure the attester isn't trying to
+        // create a new deposit with a different key.
+        require(
+          (previouslyRegisteredPoint.x == 0 && previouslyRegisteredPoint.y == 0),
+          Errors.GSE__CannotChangePublicKeys(
+            previouslyRegisteredPoint.x, previouslyRegisteredPoint.y
+          )
+        );
+
+        ownedPKs[hashedIncomingPoint] = true;
+      }
     }
 
-    instances[recipientInstance].configOf[_attester] =
-      AttesterConfig({withdrawer: _withdrawer, publicKey: _publicKeyInG1});
+    // This is the ONLY place where we set the configuration for an attester.
+    // This means that their withdrawer and public keys are set once, globally.
+    // Even if they exit and re-deposit, the withdrawer and public keys are the same.
+    if (isNewRegistration) {
+      configOf[_attester] = AttesterConfig({withdrawer: _withdrawer, publicKey: _publicKeyInG1});
+    }
 
     delegation.delegate(recipientInstance, _attester, recipientInstance);
     delegation.increaseBalance(recipientInstance, _attester, DEPOSIT_AMOUNT);
@@ -444,17 +460,17 @@ contract GSECore is IGSECore, Ownable {
     // However, if the attester is slashed, we might just reduce the balance.
     if (isRemoved) {
       require(instanceStaking.attesters.remove(_attester), Errors.GSE__FailedToRemove(_attester));
-      // We intentionally do not remove the public key from the instance's mapping of owned public keys,
-      // nor from the attester's config.
-      // This is to ensure that if the attester is removed from the instance, we can still get the
-      // public key they registered with.
-      instanceStaking.configOf[_attester].withdrawer = address(0);
       amountWithdrawn = balance;
 
       // Update the delegatee to address(0) when removing
       // This reduces the voting power of the attester's delegatee by the amount withdrawn
       // by moving it to address(0).
       delegation.delegate(withdrawingInstance, _attester, address(0));
+
+      // NOTE
+      // We intentionally did not remove the attester config.
+      // Attester config is set ONCE when the attester is first seen by the GSE,
+      // and is shared across all instances.
     }
 
     // Decrease the balance of the attester in the instance.
@@ -524,8 +540,7 @@ contract GSECore is IGSECore, Ownable {
   /**
    * @notice  Delegates the voting power of `_attester` at `_instance` to `_delegatee`
    *
-   *          Only callable by the `withdrawer` for the given `_attester` at the given
-   *          `_instance`.
+   *          Only callable by the `withdrawer` for the given `_attester`.
    *
    * @dev The delegatee may use this voting power to vote on proposals in Governance.
    *
@@ -543,7 +558,7 @@ contract GSECore is IGSECore, Ownable {
     override(IGSECore)
   {
     require(isRollupRegistered(_instance), Errors.GSE__InstanceDoesNotExist(_instance));
-    address withdrawer = instances[_instance].configOf[_attester].withdrawer;
+    address withdrawer = configOf[_attester].withdrawer;
     require(msg.sender == withdrawer, Errors.GSE__NotWithdrawer(withdrawer, msg.sender));
     delegation.delegate(_instance, _attester, _delegatee);
   }
@@ -666,37 +681,24 @@ contract GSE is IGSE, GSECore {
     return BN254Lib.g1ToDigestPoint(_publicKey);
   }
 
-  function getConfig(address _instance, address _attester)
+  function getConfig(address _attester)
     external
     view
     override(IGSE)
     returns (AttesterConfig memory)
   {
-    (InstanceStaking storage instanceStaking, bool attesterExists,) =
-      _getInstanceStoreWithAttester(_instance, _attester);
-
-    if (!attesterExists) {
-      return AttesterConfig({withdrawer: address(0), publicKey: BN254Lib.g1Zero()});
-    }
-
-    return instanceStaking.configOf[_attester];
+    return configOf[_attester];
   }
 
-  function getWithdrawer(address _instance, address _attester)
+  function getWithdrawer(address _attester)
     external
     view
     override(IGSE)
-    returns (address withdrawer, bool attesterExists, address instanceAddress)
+    returns (address withdrawer)
   {
-    InstanceStaking storage instanceStaking;
-    (instanceStaking, attesterExists, instanceAddress) =
-      _getInstanceStoreWithAttester(_instance, _attester);
+    AttesterConfig memory config = configOf[_attester];
 
-    if (!attesterExists) {
-      return (address(0), false, address(0));
-    }
-
-    return (instanceStaking.configOf[_attester].withdrawer, true, instanceAddress);
+    return config.withdrawer;
   }
 
   function balanceOf(address _instance, address _attester)
@@ -786,16 +788,15 @@ contract GSE is IGSE, GSECore {
   }
 
   /**
-   * @notice  Get the G1 public keys of the attesters at the instance
+   * @notice  Get the G1 public keys of the attesters
    *
-   * NOTE: this function does NOT check if the attesters are ACTIVELY registered in the instance
+   * NOTE: this function does NOT check if the attesters are CURRENTLY ACTIVE.
    *
-   * @param _instance   - The instance to look at
    * @param _attesters  - The attesters to lookup
    *
-   * @return The G1 public keys of the attesters at the instance
+   * @return The G1 public keys of the attesters
    */
-  function getG1PublicKeysFromAddresses(address _instance, address[] memory _attesters)
+  function getG1PublicKeysFromAddresses(address[] memory _attesters)
     external
     view
     override(IGSE)
@@ -803,7 +804,7 @@ contract GSE is IGSE, GSECore {
   {
     G1Point[] memory keys = new G1Point[](_attesters.length);
     for (uint256 i = 0; i < _attesters.length; i++) {
-      keys[i] = instances[_instance].configOf[_attesters[i]].publicKey;
+      keys[i] = configOf[_attesters[i]].publicKey;
     }
 
     return keys;

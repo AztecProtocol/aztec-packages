@@ -39,7 +39,7 @@ import {
   FeeConfigLib,
   CompressedFeeConfig
 } from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
-import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
+import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 /**
  * @title Rollup

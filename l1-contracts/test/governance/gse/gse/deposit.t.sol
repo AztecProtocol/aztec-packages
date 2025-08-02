@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 import {WithGSE} from "./base.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {IGSECore} from "@aztec/governance/GSE.sol";
-import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
+import {BN254Lib} from "@aztec/shared/libraries/BN254Lib.sol";
 
 contract DepositTest is WithGSE {
   address internal caller;
@@ -155,7 +155,7 @@ contract DepositTest is WithGSE {
     assertEq(gse.isRegistered(_instance, _attester), false);
     assertEq(gse.getDelegatee(instance, _attester), gse.BONUS_INSTANCE_ADDRESS());
     assertEq(gse.getDelegatee(_instance, _attester), address(0));
-    assertEq(gse.getConfig(instance, _attester).withdrawer, _withdrawer);
+    assertEq(gse.getConfig(_attester).withdrawer, _withdrawer);
     assertEq(gse.balanceOf(instance, _attester), depositAmount);
     assertEq(gse.balanceOf(_instance, _attester), 0);
     assertEq(gse.effectiveBalanceOf(instance, _attester), depositAmount);
@@ -284,7 +284,7 @@ contract DepositTest is WithGSE {
     assertEq(gse.isRegistered(bonus, _attester), false);
     assertEq(gse.getDelegatee(_instance, _attester), _instance);
     assertEq(gse.getDelegatee(bonus, _attester), address(0));
-    assertEq(gse.getConfig(_instance, _attester).withdrawer, _withdrawer);
+    assertEq(gse.getConfig(_attester).withdrawer, _withdrawer);
     assertEq(gse.balanceOf(_instance, _attester), depositAmount);
     assertEq(gse.balanceOf(bonus, _attester), 0);
     assertEq(gse.effectiveBalanceOf(_instance, _attester), depositAmount);
@@ -344,7 +344,7 @@ contract DepositTest is WithGSE {
     assertEq(gse.isRegistered(bonus, _attester), false);
     assertEq(gse.getDelegatee(_instance, _attester), _instance);
     assertEq(gse.getDelegatee(bonus, _attester), address(0));
-    assertEq(gse.getConfig(_instance, _attester).withdrawer, _withdrawer);
+    assertEq(gse.getConfig(_attester).withdrawer, _withdrawer);
     assertEq(gse.balanceOf(_instance, _attester), depositAmount);
     assertEq(gse.balanceOf(bonus, _attester), 0);
     assertEq(gse.effectiveBalanceOf(_instance, _attester), depositAmount);

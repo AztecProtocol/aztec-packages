@@ -9,7 +9,7 @@ import {StakingLib} from "./StakingLib.sol";
 import {InvalidateLib} from "./InvalidateLib.sol";
 import {ValidatorSelectionLib} from "./ValidatorSelectionLib.sol";
 import {CommitteeAttestations} from "@aztec/shared/libraries/SignatureLib.sol";
-import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
+import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 library ExtRollupLib2 {
   using TimeLib for Timestamp;
