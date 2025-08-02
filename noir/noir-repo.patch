@@ -1,4 +1,4 @@
-From d9e2fb487247e68d4ceb9b0680c0cd51d787eeca Mon Sep 17 00:00:00 2001
+From 74c2d600e2049e5486f402723bb72841520009c6 Mon Sep 17 00:00:00 2001
 From: TomAFrench <tom@tomfren.ch>
 Date: Sat, 15 Mar 2025 15:36:12 +0000
 Subject: [PATCH 1/5] chore: turn on `skipLibCheck`
@@ -8,7 +8,7 @@ Subject: [PATCH 1/5] chore: turn on `skipLibCheck`
  1 file changed, 1 insertion(+)
 
 diff --git a/tooling/noir_codegen/tsconfig.json b/tooling/noir_codegen/tsconfig.json
-index 30dd2a7ee..a2712fd73 100644
+index 30dd2a7ee5..a2712fd731 100644
 --- a/tooling/noir_codegen/tsconfig.json
 +++ b/tooling/noir_codegen/tsconfig.json
 @@ -10,6 +10,7 @@
@@ -22,39 +22,21 @@ index 30dd2a7ee..a2712fd73 100644
 -- 
 2.43.0
 
-From be45adb30222e99faceb48b7dc936538f62c6936 Mon Sep 17 00:00:00 2001
+From 5a81da505586f9f46ac9e865cdbc040ad6361cb5 Mon Sep 17 00:00:00 2001
 From: Charlie Lye <5764343+charlielye@users.noreply.github.com>
 Date: Wed, 2 Jul 2025 15:58:11 +0000
-Subject: [PATCH 3/5] dump cmd
+Subject: [PATCH 2/5] dump cmd
 
 ---
- Cargo.lock                                    |   2 +
  .../execution_success/strings/src/main.nr     |   2 +-
  tooling/nargo_cli/Cargo.toml                  |   2 +
  tooling/nargo_cli/src/cli/dump_cmd.rs         | 431 ++++++++++++++++++
  tooling/nargo_cli/src/cli/mod.rs              |   4 +
- 5 files changed, 440 insertions(+), 1 deletion(-)
+ 4 files changed, 438 insertions(+), 1 deletion(-)
  create mode 100644 tooling/nargo_cli/src/cli/dump_cmd.rs
 
-diff --git a/Cargo.lock b/Cargo.lock
-index 41cb1c0b5..ad127ef6a 100644
---- a/Cargo.lock
-+++ b/Cargo.lock
-@@ -3194,10 +3194,12 @@ version = "1.0.0-beta.7"
- dependencies = [
-  "acvm",
-  "ark-bn254 0.5.0",
-+ "ark-ff 0.5.0",
-  "assert_cmd",
-  "assert_fs",
-  "async-lsp",
-  "base64 0.21.7",
-+ "bincode",
-  "bn254_blackbox_solver",
-  "build-data",
-  "clap",
 diff --git a/test_programs/execution_success/strings/src/main.nr b/test_programs/execution_success/strings/src/main.nr
-index c4fa05397..5cb12c856 100644
+index c4fa053974..5cb12c8560 100644
 --- a/test_programs/execution_success/strings/src/main.nr
 +++ b/test_programs/execution_success/strings/src/main.nr
 @@ -72,7 +72,7 @@ fn failed_constraint(hex_as_field: Field) {
@@ -67,7 +49,7 @@ index c4fa05397..5cb12c856 100644
      failed_constraint(0x41);
  }
 diff --git a/tooling/nargo_cli/Cargo.toml b/tooling/nargo_cli/Cargo.toml
-index ee6da9fe1..f732d3eab 100644
+index ee6da9fe1f..f732d3eab9 100644
 --- a/tooling/nargo_cli/Cargo.toml
 +++ b/tooling/nargo_cli/Cargo.toml
 @@ -75,6 +75,8 @@ color-eyre.workspace = true
@@ -81,7 +63,7 @@ index ee6da9fe1..f732d3eab 100644
  notify-debouncer-full = "0.3.1"
 diff --git a/tooling/nargo_cli/src/cli/dump_cmd.rs b/tooling/nargo_cli/src/cli/dump_cmd.rs
 new file mode 100644
-index 000000000..3b100b750
+index 0000000000..3b100b7504
 --- /dev/null
 +++ b/tooling/nargo_cli/src/cli/dump_cmd.rs
 @@ -0,0 +1,431 @@
@@ -517,7 +499,7 @@ index 000000000..3b100b750
 +    }
 +}
 diff --git a/tooling/nargo_cli/src/cli/mod.rs b/tooling/nargo_cli/src/cli/mod.rs
-index b49881a6d..ffc839afe 100644
+index b49881a6da..ffc839afe9 100644
 --- a/tooling/nargo_cli/src/cli/mod.rs
 +++ b/tooling/nargo_cli/src/cli/mod.rs
 @@ -33,6 +33,7 @@ mod interpret_cmd;
@@ -548,19 +530,18 @@ index b49881a6d..ffc839afe 100644
 -- 
 2.43.0
 
-From 198c64a3f3561d13a6423ca29e6d218dc0a445dd Mon Sep 17 00:00:00 2001
+From 93e6c5df792fb3fb2d87d86d4b76e1de6d57d2b3 Mon Sep 17 00:00:00 2001
 From: Charlie Lye <5764343+charlielye@users.noreply.github.com>
 Date: Sat, 2 Aug 2025 21:42:23 +0000
-Subject: [PATCH 5/5] disable inline
+Subject: [PATCH 3/5] disable inline
 
 ---
- .../src/brillig/brillig_ir/entry_point.rs     |  2 +-
- compiler/noirc_evaluator/src/ssa.rs           | 28 +++++++++----------
- tooling/nargo_cli/src/cli/dump_cmd.rs         | 18 ++++++++++--
- 3 files changed, 30 insertions(+), 18 deletions(-)
+ .../src/brillig/brillig_ir/entry_point.rs      |  2 +-
+ tooling/nargo_cli/src/cli/dump_cmd.rs          | 18 +++++++++++++++---
+ 2 files changed, 16 insertions(+), 4 deletions(-)
 
 diff --git a/compiler/noirc_evaluator/src/brillig/brillig_ir/entry_point.rs b/compiler/noirc_evaluator/src/brillig/brillig_ir/entry_point.rs
-index 3c767a007..c92018022 100644
+index e9e1a7f9d5..6a16394db4 100644
 --- a/compiler/noirc_evaluator/src/brillig/brillig_ir/entry_point.rs
 +++ b/compiler/noirc_evaluator/src/brillig/brillig_ir/entry_point.rs
 @@ -13,7 +13,7 @@ use acvm::acir::{
@@ -572,58 +553,8 @@ index 3c767a007..c92018022 100644
  pub(crate) const MAX_SCRATCH_SPACE: usize = 64;
  
  impl<F: AcirField + DebugToString> BrilligContext<F, Stack> {
-diff --git a/compiler/noirc_evaluator/src/ssa.rs b/compiler/noirc_evaluator/src/ssa.rs
-index 1b3f379af..8ee58169c 100644
---- a/compiler/noirc_evaluator/src/ssa.rs
-+++ b/compiler/noirc_evaluator/src/ssa.rs
-@@ -166,20 +166,20 @@ pub fn primary_passes(options: &SsaEvaluatorOptions) -> Vec<SsaPass> {
-     vec![
-         SsaPass::new(Ssa::remove_unreachable_functions, "Removing Unreachable Functions"),
-         SsaPass::new(Ssa::defunctionalize, "Defunctionalization"),
--        SsaPass::new(Ssa::inline_simple_functions, "Inlining simple functions")
--            .and_then(Ssa::remove_unreachable_functions),
-+        // SsaPass::new(Ssa::inline_simple_functions, "Inlining simple functions")
-+        //     .and_then(Ssa::remove_unreachable_functions),
-         // BUG: Enabling this mem2reg causes an integration test failure in aztec-package; see:
-         // https://github.com/AztecProtocol/aztec-packages/pull/11294#issuecomment-2622809518
-         //SsaPass::new(Ssa::mem2reg, "Mem2Reg (1st)"),
-         SsaPass::new(Ssa::remove_paired_rc, "Removing Paired rc_inc & rc_decs"),
--        SsaPass::new_try(
--            move |ssa| ssa.preprocess_functions(options.inliner_aggressiveness),
--            "Preprocessing Functions",
--        ),
--        SsaPass::new_try(
--            move |ssa| ssa.inline_functions(options.inliner_aggressiveness),
--            "Inlining",
--        ),
-+        // SsaPass::new_try(
-+        //     move |ssa| ssa.preprocess_functions(options.inliner_aggressiveness),
-+        //     "Preprocessing Functions",
-+        // ),
-+        // SsaPass::new_try(
-+        //     move |ssa| ssa.inline_functions(options.inliner_aggressiveness),
-+        //     "Inlining",
-+        // ),
-         // Run mem2reg with the CFG separated into blocks
-         SsaPass::new(Ssa::mem2reg, "Mem2Reg"),
-         SsaPass::new(Ssa::simplify_cfg, "Simplifying"),
-@@ -205,10 +205,10 @@ pub fn primary_passes(options: &SsaEvaluatorOptions) -> Vec<SsaPass> {
-         // Before flattening is run, we treat functions marked with the `InlineType::NoPredicates` as an entry point.
-         // This pass must come immediately following `mem2reg` as the succeeding passes
-         // may create an SSA which inlining fails to handle.
--        SsaPass::new_try(
--            move |ssa| ssa.inline_functions_with_no_predicates(options.inliner_aggressiveness),
--            "Inlining",
--        ),
-+        // SsaPass::new_try(
-+        //     move |ssa| ssa.inline_functions_with_no_predicates(options.inliner_aggressiveness),
-+        //     "Inlining",
-+        // ),
-         SsaPass::new_try(Ssa::remove_if_else, "Remove IfElse"),
-         SsaPass::new(Ssa::purity_analysis, "Purity Analysis"),
-         SsaPass::new(Ssa::fold_constants, "Constant Folding"),
 diff --git a/tooling/nargo_cli/src/cli/dump_cmd.rs b/tooling/nargo_cli/src/cli/dump_cmd.rs
-index 3b100b750..02f2469ab 100644
+index 3b100b7504..02f2469ab2 100644
 --- a/tooling/nargo_cli/src/cli/dump_cmd.rs
 +++ b/tooling/nargo_cli/src/cli/dump_cmd.rs
 @@ -24,10 +24,11 @@ use noirc_frontend::graph::CrateName;
@@ -669,6 +600,86 @@ index 3b100b750..02f2469ab 100644
      } else {
          println!("Failed to compile {}", fn_name);
      }
+-- 
+2.43.0
+
+From ddde9c4493e1f1e0c455c6df9722d10b9331f23c Mon Sep 17 00:00:00 2001
+From: Charlie Lye <5764343+charlielye@users.noreply.github.com>
+Date: Sat, 2 Aug 2025 22:13:02 +0000
+Subject: [PATCH 5/5] disable inline again
+
+---
+ Cargo.lock                              |  2 ++
+ compiler/noirc_evaluator/src/ssa/mod.rs | 28 ++++++++++++-------------
+ 2 files changed, 16 insertions(+), 14 deletions(-)
+
+diff --git a/Cargo.lock b/Cargo.lock
+index a0433d5ac4..4c506b926a 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -3192,10 +3192,12 @@ version = "1.0.0-beta.8"
+ dependencies = [
+  "acvm",
+  "ark-bn254 0.5.0",
++ "ark-ff 0.5.0",
+  "assert_cmd",
+  "assert_fs",
+  "async-lsp",
+  "base64",
++ "bincode",
+  "bn254_blackbox_solver",
+  "build-data",
+  "clap",
+diff --git a/compiler/noirc_evaluator/src/ssa/mod.rs b/compiler/noirc_evaluator/src/ssa/mod.rs
+index 1a7edf7fff..6b8c3ce761 100644
+--- a/compiler/noirc_evaluator/src/ssa/mod.rs
++++ b/compiler/noirc_evaluator/src/ssa/mod.rs
+@@ -110,20 +110,20 @@ pub fn primary_passes(options: &SsaEvaluatorOptions) -> Vec<SsaPass> {
+         SsaPass::new(Ssa::expand_signed_checks, "expand signed checks"),
+         SsaPass::new(Ssa::remove_unreachable_functions, "Removing Unreachable Functions"),
+         SsaPass::new(Ssa::defunctionalize, "Defunctionalization"),
+-        SsaPass::new(Ssa::inline_simple_functions, "Inlining simple functions")
+-            .and_then(Ssa::remove_unreachable_functions),
++        // SsaPass::new(Ssa::inline_simple_functions, "Inlining simple functions")
++        //     .and_then(Ssa::remove_unreachable_functions),
+         // BUG: Enabling this mem2reg causes an integration test failure in aztec-package; see:
+         // https://github.com/AztecProtocol/aztec-packages/pull/11294#issuecomment-2622809518
+         //SsaPass::new(Ssa::mem2reg, "Mem2Reg (1st)"),
+         SsaPass::new(Ssa::remove_paired_rc, "Removing Paired rc_inc & rc_decs"),
+-        SsaPass::new_try(
+-            move |ssa| ssa.preprocess_functions(options.inliner_aggressiveness),
+-            "Preprocessing Functions",
+-        ),
+-        SsaPass::new_try(
+-            move |ssa| ssa.inline_functions(options.inliner_aggressiveness),
+-            "Inlining",
+-        ),
++        // SsaPass::new_try(
++        //     move |ssa| ssa.preprocess_functions(options.inliner_aggressiveness),
++        //     "Preprocessing Functions",
++        // ),
++        // SsaPass::new_try(
++        //     move |ssa| ssa.inline_functions(options.inliner_aggressiveness),
++        //     "Inlining",
++        // ),
+         // Run mem2reg with the CFG separated into blocks
+         SsaPass::new(Ssa::mem2reg, "Mem2Reg"),
+         SsaPass::new(Ssa::simplify_cfg, "Simplifying"),
+@@ -149,10 +149,10 @@ pub fn primary_passes(options: &SsaEvaluatorOptions) -> Vec<SsaPass> {
+         // Before flattening is run, we treat functions marked with the `InlineType::NoPredicates` as an entry point.
+         // This pass must come immediately following `mem2reg` as the succeeding passes
+         // may create an SSA which inlining fails to handle.
+-        SsaPass::new_try(
+-            move |ssa| ssa.inline_functions_with_no_predicates(options.inliner_aggressiveness),
+-            "Inlining",
+-        ),
++        // SsaPass::new_try(
++        //     move |ssa| ssa.inline_functions_with_no_predicates(options.inliner_aggressiveness),
++        //     "Inlining",
++        // ),
+         SsaPass::new_try(Ssa::remove_if_else, "Remove IfElse"),
+         SsaPass::new(Ssa::purity_analysis, "Purity Analysis"),
+         SsaPass::new(Ssa::fold_constants, "Constant Folding"),
 -- 
 2.43.0
 
