@@ -200,8 +200,8 @@ contract FlushEntryQueueTest is StakingBase {
   function _help_deposit(address _attester, address _withdrawer, bool _moveWithLatestRollup)
     internal
   {
-    mint(address(this), DEPOSIT_AMOUNT);
-    stakingAsset.approve(address(staking), DEPOSIT_AMOUNT);
+    mint(address(this), ACTIVATION_THRESHOLD);
+    stakingAsset.approve(address(staking), ACTIVATION_THRESHOLD);
     uint256 balance = stakingAsset.balanceOf(address(staking));
 
     staking.deposit({
@@ -210,7 +210,9 @@ contract FlushEntryQueueTest is StakingBase {
       _moveWithLatestRollup: _moveWithLatestRollup
     });
 
-    assertEq(stakingAsset.balanceOf(address(staking)), balance + DEPOSIT_AMOUNT, "invalid balance");
+    assertEq(
+      stakingAsset.balanceOf(address(staking)), balance + ACTIVATION_THRESHOLD, "invalid balance"
+    );
   }
 
   function _help_flushEntryQueue(uint256 _numValidators, uint256 _expectedFlushSize) internal {
@@ -233,7 +235,9 @@ contract FlushEntryQueueTest is StakingBase {
       "depositors should not be active"
     );
     assertEq(
-      stakingAsset.balanceOf(address(staking)), _numValidators * DEPOSIT_AMOUNT, "invalid balance"
+      stakingAsset.balanceOf(address(staking)),
+      _numValidators * ACTIVATION_THRESHOLD,
+      "invalid balance"
     );
 
     uint256 flushSize = staking.getEntryQueueFlushSize();
@@ -262,7 +266,7 @@ contract FlushEntryQueueTest is StakingBase {
         }
         depositCount++;
         vm.expectEmit(true, true, true, true);
-        emit IStakingCore.Deposit(attester, withdrawer, DEPOSIT_AMOUNT);
+        emit IStakingCore.Deposit(attester, withdrawer, ACTIVATION_THRESHOLD);
       }
     }
 
@@ -278,20 +282,20 @@ contract FlushEntryQueueTest is StakingBase {
 
     assertEq(
       stakingAsset.balanceOf(address(staking)),
-      numStillInQueue * DEPOSIT_AMOUNT,
+      numStillInQueue * ACTIVATION_THRESHOLD,
       "rollup should still have some balance"
     );
 
     assertEq(
       stakingAsset.balanceOf(address(staking.getGSE().getGovernance())),
-      (depositCount + initialActiveAttesterCount) * DEPOSIT_AMOUNT,
+      (depositCount + initialActiveAttesterCount) * ACTIVATION_THRESHOLD,
       "governance should have received the deposits from successful deposits"
     );
 
     if (numDequeued > 1) {
       assertEq(
         stakingAsset.balanceOf(address(uint160(1 * 2 + 1))),
-        DEPOSIT_AMOUNT,
+        ACTIVATION_THRESHOLD,
         "withdrawer should have received the deposit"
       );
     }
@@ -305,7 +309,7 @@ contract FlushEntryQueueTest is StakingBase {
         assertTrue(attesterView.status == Status.NONE, "invalid status");
       } else {
         attesterView = staking.getAttesterView(attester);
-        assertEq(attesterView.effectiveBalance, DEPOSIT_AMOUNT, "invalid effective balance");
+        assertEq(attesterView.effectiveBalance, ACTIVATION_THRESHOLD, "invalid effective balance");
         assertEq(attesterView.config.withdrawer, withdrawer, "invalid withdrawer");
         assertTrue(attesterView.status == Status.VALIDATING, "invalid status");
       }

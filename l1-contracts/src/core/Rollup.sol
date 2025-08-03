@@ -224,12 +224,12 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return StakingLib.getStorage().stakingAsset;
   }
 
-  function getMinimumStake() external view override(IStaking) returns (uint256) {
-    return StakingLib.getStorage().gse.MINIMUM_STAKE();
+  function getEjectionThreshold() external view override(IStaking) returns (uint256) {
+    return StakingLib.getStorage().gse.EJECTION_THRESHOLD();
   }
 
-  function getDepositAmount() external view override(IStaking) returns (uint256) {
-    return StakingLib.getStorage().gse.DEPOSIT_AMOUNT();
+  function getActivationThreshold() external view override(IStaking) returns (uint256) {
+    return StakingLib.getStorage().gse.ACTIVATION_THRESHOLD();
   }
 
   function getExitDelay() external view override(IStaking) returns (Timestamp) {
