@@ -186,13 +186,13 @@ export class RollupContract {
   }
 
   @memoize
-  getMinimumStake() {
-    return this.rollup.read.getMinimumStake();
+  getEjectionThreshold() {
+    return this.rollup.read.getEjectionThreshold();
   }
 
   @memoize
-  getDepositAmount() {
-    return this.rollup.read.getDepositAmount();
+  getActivationThreshold() {
+    return this.rollup.read.getActivationThreshold();
   }
 
   @memoize

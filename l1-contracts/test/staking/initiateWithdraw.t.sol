@@ -16,8 +16,8 @@ contract InitiateWithdrawTest is StakingBase {
   }
 
   modifier whenAttesterIsRegistered() {
-    mint(address(this), DEPOSIT_AMOUNT);
-    stakingAsset.approve(address(staking), DEPOSIT_AMOUNT);
+    mint(address(this), ACTIVATION_THRESHOLD);
+    stakingAsset.approve(address(staking), ACTIVATION_THRESHOLD);
     staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _moveWithLatestRollup: true});
     staking.flushEntryQueue();
     _;
@@ -87,7 +87,7 @@ contract InitiateWithdrawTest is StakingBase {
 
     address lookup = address(staking.getGSE().getGovernance());
 
-    assertEq(stakingAsset.balanceOf(lookup), DEPOSIT_AMOUNT);
+    assertEq(stakingAsset.balanceOf(lookup), ACTIVATION_THRESHOLD);
     assertEq(stakingAsset.balanceOf(RECIPIENT), 0);
     AttesterView memory attesterView = staking.getAttesterView(ATTESTER);
     assertTrue(attesterView.status == Status.VALIDATING);
@@ -100,14 +100,14 @@ contract InitiateWithdrawTest is StakingBase {
     assertEq(staking.getActiveAttesterCount(), 1);
 
     vm.expectEmit(true, true, true, true, address(staking));
-    emit IStakingCore.WithdrawInitiated(ATTESTER, RECIPIENT, DEPOSIT_AMOUNT);
+    emit IStakingCore.WithdrawInitiated(ATTESTER, RECIPIENT, ACTIVATION_THRESHOLD);
 
     vm.prank(WITHDRAWER);
     staking.initiateWithdraw(ATTESTER, RECIPIENT);
 
     // @todo We should look at updating these, the location of balance depends on time
     // and whether the governance.finaliseWithdraw have been called now.
-    assertEq(stakingAsset.balanceOf(lookup), DEPOSIT_AMOUNT);
+    assertEq(stakingAsset.balanceOf(lookup), ACTIVATION_THRESHOLD);
     assertEq(stakingAsset.balanceOf(RECIPIENT), 0);
 
     attesterView = staking.getAttesterView(ATTESTER);
@@ -127,16 +127,16 @@ contract InitiateWithdrawTest is StakingBase {
 
     address lookup = address(staking.getGSE().getGovernance());
 
-    assertEq(stakingAsset.balanceOf(lookup), DEPOSIT_AMOUNT);
+    assertEq(stakingAsset.balanceOf(lookup), ACTIVATION_THRESHOLD);
 
-    uint256 slashAmount = DEPOSIT_AMOUNT - MINIMUM_STAKE + 1;
+    uint256 slashAmount = ACTIVATION_THRESHOLD - EJECTION_THRESHOLD + 1;
 
     vm.prank(SLASHER);
     staking.slash(ATTESTER, slashAmount);
 
     // @todo Again, need to cover more cases because funds could be many places now.
     // But if not called, the funds should still be in the governance
-    assertEq(stakingAsset.balanceOf(lookup), DEPOSIT_AMOUNT);
+    assertEq(stakingAsset.balanceOf(lookup), ACTIVATION_THRESHOLD);
     assertEq(stakingAsset.balanceOf(RECIPIENT), 0);
 
     AttesterView memory attesterView = staking.getAttesterView(ATTESTER);
@@ -144,24 +144,24 @@ contract InitiateWithdrawTest is StakingBase {
     assertEq(attesterView.exit.exitableAt, Timestamp.wrap(block.timestamp) + staking.getExitDelay());
     assertEq(attesterView.exit.exists, true);
     assertEq(attesterView.exit.isRecipient, false);
-    assertEq(attesterView.exit.amount, DEPOSIT_AMOUNT - slashAmount);
+    assertEq(attesterView.exit.amount, ACTIVATION_THRESHOLD - slashAmount);
     assertEq(attesterView.exit.recipientOrWithdrawer, WITHDRAWER);
 
     assertEq(staking.getActiveAttesterCount(), 0);
 
     vm.expectEmit(true, true, true, true, address(staking));
-    emit IStakingCore.WithdrawInitiated(ATTESTER, RECIPIENT, DEPOSIT_AMOUNT - slashAmount);
+    emit IStakingCore.WithdrawInitiated(ATTESTER, RECIPIENT, ACTIVATION_THRESHOLD - slashAmount);
 
     vm.prank(WITHDRAWER);
     staking.initiateWithdraw(ATTESTER, RECIPIENT);
 
-    assertEq(stakingAsset.balanceOf(lookup), DEPOSIT_AMOUNT);
+    assertEq(stakingAsset.balanceOf(lookup), ACTIVATION_THRESHOLD);
     assertEq(stakingAsset.balanceOf(RECIPIENT), 0);
     attesterView = staking.getAttesterView(ATTESTER);
     assertEq(attesterView.exit.exitableAt, Timestamp.wrap(block.timestamp) + staking.getExitDelay());
     assertEq(attesterView.exit.exists, true);
     assertEq(attesterView.exit.isRecipient, true);
-    assertEq(attesterView.exit.amount, DEPOSIT_AMOUNT - slashAmount);
+    assertEq(attesterView.exit.amount, ACTIVATION_THRESHOLD - slashAmount);
     assertEq(attesterView.exit.recipientOrWithdrawer, RECIPIENT);
     assertTrue(attesterView.status == Status.EXITING);
     assertEq(staking.getActiveAttesterCount(), 0);

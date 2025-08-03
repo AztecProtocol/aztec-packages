@@ -15,8 +15,8 @@ contract SlashTest is StakingBase {
   }
 
   function test_WhenCallerIsNotTheSlasher() external {
-    mint(address(this), DEPOSIT_AMOUNT);
-    stakingAsset.approve(address(staking), DEPOSIT_AMOUNT);
+    mint(address(this), ACTIVATION_THRESHOLD);
+    stakingAsset.approve(address(staking), ACTIVATION_THRESHOLD);
     staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _moveWithLatestRollup: true});
     staking.flushEntryQueue();
 
@@ -40,8 +40,8 @@ contract SlashTest is StakingBase {
   }
 
   modifier whenAttesterIsRegistered() {
-    mint(address(this), DEPOSIT_AMOUNT);
-    stakingAsset.approve(address(staking), DEPOSIT_AMOUNT);
+    mint(address(this), ACTIVATION_THRESHOLD);
+    stakingAsset.approve(address(staking), ACTIVATION_THRESHOLD);
 
     staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _moveWithLatestRollup: true});
     staking.flushEntryQueue();
@@ -84,7 +84,7 @@ contract SlashTest is StakingBase {
 
     AttesterView memory attesterView = staking.getAttesterView(ATTESTER);
     assertEq(attesterView.effectiveBalance, 0);
-    assertEq(attesterView.exit.amount, DEPOSIT_AMOUNT, "Invalid exit amount");
+    assertEq(attesterView.exit.amount, ACTIVATION_THRESHOLD, "Invalid exit amount");
     assertTrue(attesterView.status == Status.EXITING);
 
     vm.expectEmit(true, true, true, true, address(staking));
@@ -94,7 +94,7 @@ contract SlashTest is StakingBase {
 
     attesterView = staking.getAttesterView(ATTESTER);
     assertEq(attesterView.effectiveBalance, 0);
-    assertEq(attesterView.exit.amount, DEPOSIT_AMOUNT - 1, "Invalid exit amount 2");
+    assertEq(attesterView.exit.amount, ACTIVATION_THRESHOLD - 1, "Invalid exit amount 2");
     assertTrue(attesterView.status == Status.EXITING);
   }
 
@@ -112,7 +112,7 @@ contract SlashTest is StakingBase {
       assertEq(staking.getActiveAttesterCount(), isAlive ? 1 : 0, "Invalid active attester count");
 
       uint256 balance = isAlive ? attesterView.effectiveBalance : attesterView.exit.amount;
-      slashingAmount = isAlive ? DEPOSIT_AMOUNT / 3 : balance;
+      slashingAmount = isAlive ? ACTIVATION_THRESHOLD / 3 : balance;
 
       vm.expectEmit(true, true, true, true, address(staking));
       emit IStakingCore.Slashed(ATTESTER, slashingAmount);
@@ -145,9 +145,9 @@ contract SlashTest is StakingBase {
     }
   }
 
-  modifier whenAttesterIsValidatingAndStakeIsBelowMinimumStake() {
+  modifier whenAttesterIsValidatingAndStakeIsBelowejectionThreshold() {
     AttesterView memory attesterView = staking.getAttesterView(ATTESTER);
-    uint256 targetBalance = MINIMUM_STAKE - 1;
+    uint256 targetBalance = EJECTION_THRESHOLD - 1;
 
     slashingAmount = attesterView.effectiveBalance - targetBalance;
     _;
@@ -157,7 +157,7 @@ contract SlashTest is StakingBase {
     external
     whenCallerIsTheSlasher
     whenAttesterIsRegistered
-    whenAttesterIsValidatingAndStakeIsBelowMinimumStake
+    whenAttesterIsValidatingAndStakeIsBelowejectionThreshold
   {
     // it reverts
 
@@ -169,7 +169,7 @@ contract SlashTest is StakingBase {
     external
     whenCallerIsTheSlasher
     whenAttesterIsRegistered
-    whenAttesterIsValidatingAndStakeIsBelowMinimumStake
+    whenAttesterIsValidatingAndStakeIsBelowejectionThreshold
   {
     // it reduce stake by amount
     // it remove from active attesters
