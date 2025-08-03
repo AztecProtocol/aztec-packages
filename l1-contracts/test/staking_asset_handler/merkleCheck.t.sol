@@ -11,8 +11,7 @@ import {MerkleTreeGetters} from "./merkle/merkle_tree_getters.sol";
 
 contract MerkleCheck is StakingAssetHandlerBase, MerkleTreeGetters {
   // Generate with `node ./test/staking_asset_handler/merkle/get-root.js`
-  bytes32 internal constant ROOT =
-    0x9c6c9656a7180da61f979b48cb6f9f4d8d91d7f602e172bf8555a6a2d7aef935;
+  bytes32 internal constant ROOT = 0x9c6c9656a7180da61f979b48cb6f9f4d8d91d7f602e172bf8555a6a2d7aef935;
 
   function setUp() public override {
     super.setUp();

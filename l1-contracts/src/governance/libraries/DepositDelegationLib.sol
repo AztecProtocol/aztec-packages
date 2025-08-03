@@ -2,9 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {
-  Checkpoints, CheckpointedUintLib
-} from "@aztec/governance/libraries/CheckpointedUintLib.sol";
+import {Checkpoints, CheckpointedUintLib} from "@aztec/governance/libraries/CheckpointedUintLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 
@@ -107,8 +105,7 @@ library DepositDelegationLib {
     uint256 powerUsed = getPowerUsed(_self, _delegatee, _proposalId);
 
     require(
-      powerAt >= powerUsed + _amount,
-      Errors.Delegation__InsufficientPower(_delegatee, powerAt, powerUsed + _amount)
+      powerAt >= powerUsed + _amount, Errors.Delegation__InsufficientPower(_delegatee, powerAt, powerUsed + _amount)
     );
 
     _self.votingAccounts[_delegatee].powerUsed[_proposalId] += _amount;
@@ -130,27 +127,19 @@ library DepositDelegationLib {
     moveVotingPower(_self, oldDelegate, _delegatee, getBalanceOf(_self, _instance, _attester));
   }
 
-  function undelegate(
-    DepositAndDelegationAccounting storage _self,
-    address _instance,
-    address _attester
-  ) internal {
+  function undelegate(DepositAndDelegationAccounting storage _self, address _instance, address _attester) internal {
     delegate(_self, _instance, _attester, address(0));
   }
 
-  function getBalanceOf(
-    DepositAndDelegationAccounting storage _self,
-    address _instance,
-    address _attester
-  ) internal view returns (uint256) {
-    return _self.ledgers[_instance].positions[_attester].balance;
-  }
-
-  function getSupplyOf(DepositAndDelegationAccounting storage _self, address _instance)
+  function getBalanceOf(DepositAndDelegationAccounting storage _self, address _instance, address _attester)
     internal
     view
     returns (uint256)
   {
+    return _self.ledgers[_instance].positions[_attester].balance;
+  }
+
+  function getSupplyOf(DepositAndDelegationAccounting storage _self, address _instance) internal view returns (uint256) {
     return _self.ledgers[_instance].supply.valueNow();
   }
 
@@ -158,11 +147,11 @@ library DepositDelegationLib {
     return _self.supply.valueNow();
   }
 
-  function getDelegatee(
-    DepositAndDelegationAccounting storage _self,
-    address _instance,
-    address _attester
-  ) internal view returns (address) {
+  function getDelegatee(DepositAndDelegationAccounting storage _self, address _instance, address _attester)
+    internal
+    view
+    returns (address)
+  {
     return _self.ledgers[_instance].positions[_attester].delegatee;
   }
 
@@ -174,28 +163,25 @@ library DepositDelegationLib {
     return _self.votingAccounts[_delegatee].votingPower.valueNow();
   }
 
-  function getVotingPowerAt(
-    DepositAndDelegationAccounting storage _self,
-    address _delegatee,
-    Timestamp _timestamp
-  ) internal view returns (uint256) {
+  function getVotingPowerAt(DepositAndDelegationAccounting storage _self, address _delegatee, Timestamp _timestamp)
+    internal
+    view
+    returns (uint256)
+  {
     return _self.votingAccounts[_delegatee].votingPower.valueAt(_timestamp);
   }
 
-  function getPowerUsed(
-    DepositAndDelegationAccounting storage _self,
-    address _delegatee,
-    uint256 _proposalId
-  ) internal view returns (uint256) {
+  function getPowerUsed(DepositAndDelegationAccounting storage _self, address _delegatee, uint256 _proposalId)
+    internal
+    view
+    returns (uint256)
+  {
     return _self.votingAccounts[_delegatee].powerUsed[_proposalId];
   }
 
-  function moveVotingPower(
-    DepositAndDelegationAccounting storage _self,
-    address _from,
-    address _to,
-    uint256 _amount
-  ) private {
+  function moveVotingPower(DepositAndDelegationAccounting storage _self, address _from, address _to, uint256 _amount)
+    private
+  {
     if (_from == _to || _amount == 0) {
       return;
     }
