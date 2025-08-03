@@ -245,7 +245,7 @@ export class P2PNetworkTest {
           client: deployL1ContractsValues.l1Client,
         });
 
-        const stakeNeeded = l1ContractsConfig.depositAmount * BigInt(this.numberOfValidators);
+        const stakeNeeded = l1ContractsConfig.activationThreshold * BigInt(this.numberOfValidators);
         await Promise.all(
           [await stakingAsset.write.mint([multiAdder.address, stakeNeeded], {} as any)].map(txHash =>
             deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: txHash }),
