@@ -38,12 +38,7 @@ contract GovernanceProposer is IGovernanceProposer, EmpireBase {
     GSE = _gse;
   }
 
-  function getProposalProposer(uint256 _proposalId)
-    external
-    view
-    override(IGovernanceProposer)
-    returns (address)
-  {
+  function getProposalProposer(uint256 _proposalId) external view override(IGovernanceProposer) returns (address) {
     return proposalProposer[_proposalId];
   }
 

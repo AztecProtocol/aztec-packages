@@ -13,9 +13,7 @@ contract ClaimTest is RewardDistributorBase {
     address canonical = address(registry.getCanonicalRollup());
     vm.assume(_caller != canonical);
 
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.RewardDistributor__InvalidCaller.selector, _caller, canonical)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.RewardDistributor__InvalidCaller.selector, _caller, canonical));
     vm.prank(_caller);
     rewardDistributor.claim(_caller, 1e18);
   }

@@ -26,8 +26,7 @@ library ConfigurationLib {
    * The "small buffer" is somewhat arbitrarily set to the votingDelay / 5.
    */
   function withdrawalDelay(Configuration storage _self) internal view returns (Timestamp) {
-    return Timestamp.wrap(Timestamp.unwrap(_self.votingDelay) / 5) + _self.votingDuration
-      + _self.executionDelay;
+    return Timestamp.wrap(Timestamp.unwrap(_self.votingDelay) / 5) + _self.votingDuration + _self.executionDelay;
   }
 
   /**
@@ -44,61 +43,28 @@ library ConfigurationLib {
       Errors.Governance__ConfigurationLib__RequiredYeaMarginTooBig()
     );
 
-    require(
-      _self.minimumVotes >= VOTES_LOWER, Errors.Governance__ConfigurationLib__InvalidMinimumVotes()
-    );
-    require(
-      _self.proposeConfig.lockAmount >= VOTES_LOWER,
-      Errors.Governance__ConfigurationLib__LockAmountTooSmall()
-    );
+    require(_self.minimumVotes >= VOTES_LOWER, Errors.Governance__ConfigurationLib__InvalidMinimumVotes());
+    require(_self.proposeConfig.lockAmount >= VOTES_LOWER, Errors.Governance__ConfigurationLib__LockAmountTooSmall());
 
-    // Beyond checking the bounds like this, it might be useful to ensure that the value is larger than the withdrawal delay
-    // this, can be useful if one want to ensure that the "locker" cannot himself vote in the proposal, but as it is unclear
+    // Beyond checking the bounds like this, it might be useful to ensure that the value is larger than the withdrawal
+    // delay
+    // this, can be useful if one want to ensure that the "locker" cannot himself vote in the proposal, but as it is
+    // unclear
     // if this is a useful property, it is not enforced.
-    require(
-      _self.proposeConfig.lockDelay >= TIME_LOWER,
-      Errors.Governance__ConfigurationLib__TimeTooSmall("LockDelay")
-    );
-    require(
-      _self.proposeConfig.lockDelay <= TIME_UPPER,
-      Errors.Governance__ConfigurationLib__TimeTooBig("LockDelay")
-    );
+    require(_self.proposeConfig.lockDelay >= TIME_LOWER, Errors.Governance__ConfigurationLib__TimeTooSmall("LockDelay"));
+    require(_self.proposeConfig.lockDelay <= TIME_UPPER, Errors.Governance__ConfigurationLib__TimeTooBig("LockDelay"));
 
-    require(
-      _self.votingDelay >= TIME_LOWER,
-      Errors.Governance__ConfigurationLib__TimeTooSmall("VotingDelay")
-    );
-    require(
-      _self.votingDelay <= TIME_UPPER,
-      Errors.Governance__ConfigurationLib__TimeTooBig("VotingDelay")
-    );
+    require(_self.votingDelay >= TIME_LOWER, Errors.Governance__ConfigurationLib__TimeTooSmall("VotingDelay"));
+    require(_self.votingDelay <= TIME_UPPER, Errors.Governance__ConfigurationLib__TimeTooBig("VotingDelay"));
 
-    require(
-      _self.votingDuration >= TIME_LOWER,
-      Errors.Governance__ConfigurationLib__TimeTooSmall("VotingDuration")
-    );
-    require(
-      _self.votingDuration <= TIME_UPPER,
-      Errors.Governance__ConfigurationLib__TimeTooBig("VotingDuration")
-    );
+    require(_self.votingDuration >= TIME_LOWER, Errors.Governance__ConfigurationLib__TimeTooSmall("VotingDuration"));
+    require(_self.votingDuration <= TIME_UPPER, Errors.Governance__ConfigurationLib__TimeTooBig("VotingDuration"));
 
-    require(
-      _self.executionDelay >= TIME_LOWER,
-      Errors.Governance__ConfigurationLib__TimeTooSmall("ExecutionDelay")
-    );
-    require(
-      _self.executionDelay <= TIME_UPPER,
-      Errors.Governance__ConfigurationLib__TimeTooBig("ExecutionDelay")
-    );
+    require(_self.executionDelay >= TIME_LOWER, Errors.Governance__ConfigurationLib__TimeTooSmall("ExecutionDelay"));
+    require(_self.executionDelay <= TIME_UPPER, Errors.Governance__ConfigurationLib__TimeTooBig("ExecutionDelay"));
 
-    require(
-      _self.gracePeriod >= TIME_LOWER,
-      Errors.Governance__ConfigurationLib__TimeTooSmall("GracePeriod")
-    );
-    require(
-      _self.gracePeriod <= TIME_UPPER,
-      Errors.Governance__ConfigurationLib__TimeTooBig("GracePeriod")
-    );
+    require(_self.gracePeriod >= TIME_LOWER, Errors.Governance__ConfigurationLib__TimeTooSmall("GracePeriod"));
+    require(_self.gracePeriod <= TIME_UPPER, Errors.Governance__ConfigurationLib__TimeTooBig("GracePeriod"));
 
     return true;
   }

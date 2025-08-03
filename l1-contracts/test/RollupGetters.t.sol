@@ -280,17 +280,9 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
       blockReward: 100e18
     });
 
-    assertNotEq(
-      address(config.rewardDistributor),
-      address(updated.rewardDistributor),
-      "invalid reward distributor"
-    );
+    assertNotEq(address(config.rewardDistributor), address(updated.rewardDistributor), "invalid reward distributor");
     assertNotEq(address(config.booster), address(updated.booster), "invalid booster");
-    assertEq(
-      Bps.unwrap(config.sequencerBps),
-      Bps.unwrap(defaultConfig.sequencerBps),
-      "invalid sequencerBps"
-    );
+    assertEq(Bps.unwrap(config.sequencerBps), Bps.unwrap(defaultConfig.sequencerBps), "invalid sequencerBps");
     assertEq(config.blockReward, defaultConfig.blockReward, "invalid initial blockReward");
 
     address owner = rollup.owner();
@@ -301,14 +293,8 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
     rollup.setRewardConfig(updated);
     config = rollup.getRewardConfig();
 
-    assertEq(
-      Bps.unwrap(config.sequencerBps), Bps.unwrap(updated.sequencerBps), "invalid sequencerBps"
-    );
-    assertEq(
-      address(config.rewardDistributor),
-      address(updated.rewardDistributor),
-      "invalid reward distributor"
-    );
+    assertEq(Bps.unwrap(config.sequencerBps), Bps.unwrap(updated.sequencerBps), "invalid sequencerBps");
+    assertEq(address(config.rewardDistributor), address(updated.rewardDistributor), "invalid reward distributor");
     assertEq(address(config.booster), address(updated.booster), "invalid booster");
     assertEq(config.blockReward, updated.blockReward, "invalid blockReward");
   }
