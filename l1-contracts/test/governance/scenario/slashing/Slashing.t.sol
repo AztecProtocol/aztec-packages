@@ -113,7 +113,7 @@ contract SlashingTest is TestBase {
       TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS
     );
 
-    // We jumpt forward 2 epochs because there are nothing interesting happening in the first epochs
+    // We jump forward 2 epochs because there is nothing interesting happening in the first epochs
     // as our sampling is delayed zzz.
     timeCheater.cheat__jumpForwardEpochs(2);
 

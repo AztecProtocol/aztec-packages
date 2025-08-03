@@ -226,7 +226,7 @@ contract ExecuteProposalTest is GovernanceProposerBase {
   {
     // it revert
 
-    // When using a new registry we change the governanceProposer's interpetation of time :O
+    // When using a new registry we change the governanceProposer's interpretation of time :O
     Fakerollup freshInstance = new Fakerollup();
     vm.prank(registry.getGovernance());
     registry.addRollup(IRollup(address(freshInstance)));

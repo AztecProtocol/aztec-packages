@@ -77,7 +77,7 @@ contract FinaliseWithdrawTest is GovernanceBase {
     }
 
     for (uint256 i = 0; i < withdrawalCount; i++) {
-      vm.expectRevert(abi.encodeWithSelector(Errors.Governance__WithdrawalAlreadyclaimed.selector));
+      vm.expectRevert(abi.encodeWithSelector(Errors.Governance__WithdrawalAlreadyClaimed.selector));
       governance.finaliseWithdraw(i);
     }
   }
