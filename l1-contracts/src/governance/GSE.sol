@@ -294,7 +294,7 @@ contract GSECore is IGSECore, Ownable {
    * But she CAN go back and deposit directly into C, with _moveWithLatestRollup = false.
    *
    * @param _attester     - The attester address on behalf of which the deposit is made.
-   * @param _withdrawer   - Address to which the staking asset will be sent when withdrawing from `_attester`.
+   * @param _withdrawer   - Address which can initiate a withdraw for the `_attester`
    * @param _moveWithLatestRollup  - Whether to deposit into the specific instance, or the bonus instance
    */
   function deposit(address _attester, address _withdrawer, bool _moveWithLatestRollup)
