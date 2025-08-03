@@ -30,6 +30,9 @@ library Errors {
   error Governance__ProposalCannotBeDropped();
   error Governance__DepositNotAllowed();
 
+  error Governance__CheckpointedUintLib__InsufficientValue(
+    address owner, uint256 have, uint256 required
+  );
   error Governance__CheckpointedUintLib__NotInPast();
 
   error Governance__ConfigurationLib__InvalidMinimumVotes();

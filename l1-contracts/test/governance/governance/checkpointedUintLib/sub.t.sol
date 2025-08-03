@@ -32,7 +32,9 @@ contract SubTest is CheckpointedUintLibBase {
   function test_GivenUserHaveNoCheckpoints(uint256 _amount) external whenAmountGt0(_amount) {
     // it revert
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.Governance__InsufficientPower.selector, msg.sender, 0, amount)
+      abi.encodeWithSelector(
+        Errors.Governance__CheckpointedUintLib__InsufficientValue.selector, msg.sender, 0, amount
+      )
     );
     vm.prank(msg.sender);
     this.callSub(amount);
@@ -50,7 +52,10 @@ contract SubTest is CheckpointedUintLibBase {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.Governance__InsufficientPower.selector, msg.sender, sumBefore, amount
+        Errors.Governance__CheckpointedUintLib__InsufficientValue.selector,
+        msg.sender,
+        sumBefore,
+        amount
       )
     );
     vm.prank(msg.sender);

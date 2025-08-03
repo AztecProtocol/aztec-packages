@@ -21,13 +21,13 @@ struct DepositLedger {
 }
 
 // A struct storing the voting power used for each proposal for a delegatee
-// as well as their
+// as well as their checkpointed voting power
 struct VotingAccount {
   mapping(uint256 proposalId => uint256 powerUsed) powerUsed;
   Checkpoints.Trace224 votingPower;
 }
 
-// A struct storing the ledgers the individual rollup instances, the voting
+// A struct storing the ledgers for the individual rollup instances, the voting
 // account for delegatees and the total supply.
 struct DepositAndDelegationAccounting {
   mapping(address instance => DepositLedger ledger) ledgers;

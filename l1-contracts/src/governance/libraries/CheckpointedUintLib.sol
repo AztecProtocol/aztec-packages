@@ -19,8 +19,11 @@ library CheckpointedUintLib {
   /**
    * @notice  Add `_amount` to the current value
    *
+   * @dev   The amounts are cast to uint224 before storing such that the (key: value) fits in a single slot
+   *
    * @param _self - The Trace224 to add to
    * @param _amount - The amount to add
+   *
    * @return - The current value and the new value
    */
   function add(Checkpoints.Trace224 storage _self, uint256 _amount)
@@ -52,7 +55,10 @@ library CheckpointedUintLib {
       return (current, current);
     }
     uint224 amount = _amount.toUint224();
-    require(current >= amount, Errors.Governance__InsufficientPower(msg.sender, current, amount));
+    require(
+      current >= amount,
+      Errors.Governance__CheckpointedUintLib__InsufficientValue(msg.sender, current, amount)
+    );
     _self.push(block.timestamp.toUint32(), current - amount);
     return (current, current - amount);
   }

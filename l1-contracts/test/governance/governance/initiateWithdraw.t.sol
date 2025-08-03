@@ -24,7 +24,7 @@ contract InitiateWithdrawTest is GovernanceBase {
     uint256 amount = bound(_amount, 1, type(uint224).max);
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.Governance__InsufficientPower.selector, address(this), 0, amount
+        Errors.Governance__CheckpointedUintLib__InsufficientValue.selector, address(this), 0, amount
       )
     );
     governance.initiateWithdraw(address(this), amount);
@@ -44,7 +44,7 @@ contract InitiateWithdrawTest is GovernanceBase {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.Governance__InsufficientPower.selector,
+        Errors.Governance__CheckpointedUintLib__InsufficientValue.selector,
         address(this),
         activationThreshold,
         withdrawalAmount
