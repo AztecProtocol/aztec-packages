@@ -136,6 +136,7 @@ contract GSECore is IGSECore, Ownable {
 
   /**
    * Create a special "bonus" address for use by the latest rollup.
+   * This is a convenience mechanism to allow attesters to always be staked on the latest rollup.
    *
    * As far as terminology, the GSE tracks deposits and voting/delegation data for "instances",
    * and an "instance" is either the address of a "true" rollup contract which was added via `addRollup`,
@@ -223,7 +224,9 @@ contract GSECore is IGSECore, Ownable {
   /**
    * @param __owner - The owner of the GSE.
    *                  Initially a deployer to allow adding an initial rollup, then handed over to governance.
-   * @param _asset - The asset used in governance and for sybil resistance
+   * @param _asset - The ERC20 token asset used in governance and for sybil resistance.
+   *                 This token is deposited by attesters to gain voting power in governance
+   *                 (ratio of voting power to staked amount is 1:1).
    * @param _activationThreshold - The amount of asset required to deposit an attester on the rollup.
    * @param _ejectionThreshold - The minimum amount of asset required to be in the set to be considered an attester.
    *                        If the balance falls below this threshold, the attester is ejected from the set.
@@ -241,7 +244,6 @@ contract GSECore is IGSECore, Ownable {
   }
 
   function setGovernance(Governance _governance) external override(IGSECore) onlyOwner {
-    // Once again desperate times calls for desperate measures.
     require(address(governance) == address(0), Errors.GSE__GovernanceAlreadySet());
     governance = _governance;
   }
@@ -251,6 +253,10 @@ contract GSECore is IGSECore, Ownable {
    *          Only callable by the owner (usually governance) and only when the rollup is not already in the set
    *
    * @dev rollups only have access to the "bonus instance" while they are the most recent rollup.
+   *
+   * @dev The GSE only supports adding rollups, not removing them. If a rollup becomes compromised, governance can
+   * simply add a new rollup and the bonus instance mechanism ensures a smooth transition by allowing the new rollup
+   * to immediately inherit attesters.
    *
    * @param _rollup - The address of the rollup to add
    */
@@ -270,8 +276,8 @@ contract GSECore is IGSECore, Ownable {
    *
    * @dev if _moveWithLatestRollup is true, then msg.sender must be the latest rollup.
    *
-   * @dev The same attester may deposit on multiple *instances*, so long as the invariant described
-   * above BONUS_INSTANCE_ADDRESS holds.
+   * @dev The same attester may deposit on multiple *instances*, so long as
+   * the latest-rollup-instance-attesters-form-set invariant described above BONUS_INSTANCE_ADDRESS holds.
    *
    * E.g. Suppose the registered rollups are A, then B, then C, so C's effective attesters are
    * those associated with C and the bonus address.
@@ -287,8 +293,8 @@ contract GSECore is IGSECore, Ownable {
    * Now she cannot deposit through D AT ALL, since she is already in D's effective attesters.
    * But she CAN go back and deposit directly into C, with _moveWithLatestRollup = false.
    *
-   * @param _attester     - The attester address of the attester
-   * @param _withdrawer   - The withdrawer address of the attester
+   * @param _attester     - The attester address on behalf of which the deposit is made.
+   * @param _withdrawer   - Address which can initiate a withdraw for the `_attester`
    * @param _moveWithLatestRollup  - Whether to deposit into the specific instance, or the bonus instance
    */
   function deposit(address _attester, address _withdrawer, bool _moveWithLatestRollup)
@@ -355,7 +361,7 @@ contract GSECore is IGSECore, Ownable {
    *          withdrawn and the bool.
    *
    * @param _attester - The attester to withdraw from.
-   * @param _amount   - The amount to withdraw
+   * @param _amount   - The amount of staking asset to withdraw. Has 1:1 ratio with voting power.
    *
    * @return The actual amount withdrawn.
    * @return True if attester is removed from set, false otherwise
@@ -411,7 +417,8 @@ contract GSECore is IGSECore, Ownable {
     // Reduce the supply of the instance and the total supply.
     delegation.decreaseBalance(withdrawingInstance, _attester, amountWithdrawn);
 
-    // The withdrawal contains a pending amount that may be claimed by ID when a delay has passed.
+    // The withdrawal contains a pending amount that may be claimed using the withdrawal ID when a delay enforced by
+    // the Governance contract has passed.
     // Note that the rollup is the one that receives the funds when the withdrawal is claimed.
     uint256 withdrawalId = getGovernance().initiateWithdraw(msg.sender, amountWithdrawn);
 
@@ -449,8 +456,10 @@ contract GSECore is IGSECore, Ownable {
    *
    * @dev The delay until the withdrawal may be finalized is equal to the current `lockDelay` in Governance.
    *
-   * @param _payload - The IPayload address, which is a contract that contains the proposed actions to be executed by the governance.
-   * @param _to - The address that will receive the withdrawn funds when the withdrawal is finalized (see `finaliseWithdraw`)
+   * @param _payload - The IPayload address, which is a contract that contains the proposed actions to be executed by
+   * the governance.
+   * @param _to - The address that will receive the withdrawn funds when the withdrawal is finalized (see
+   * `finaliseWithdraw`)
    *
    * @return The id of the proposal
    */
@@ -513,7 +522,7 @@ contract GSECore is IGSECore, Ownable {
   }
 
   /**
-   * @notice  Votes at the governance using the power delegated the bonus instance
+   * @notice  Votes at the governance using the power delegated to the bonus instance.
    *          Only callable by the rollup that was the latest rollup at the time of the proposal.
    *
    * @param _proposalId - The id of the proposal in the governance to vote on
