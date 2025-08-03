@@ -66,7 +66,7 @@ contract StaticTest is WithGSE {
     cheat_deposit(_instance, _attester, _attester, false);
 
     assertEq(gse.getVotingPower(_attester), 0, "invalid voting power");
-    assertEq(gse.getVotingPower(_instance), gse.DEPOSIT_AMOUNT(), "invalid voting power");
+    assertEq(gse.getVotingPower(_instance), gse.ACTIVATION_THRESHOLD(), "invalid voting power");
   }
 
   function test_getAttesterFromIndexAtTime(address _instance, address[4] memory _attesters)

@@ -6,10 +6,10 @@ import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {Test} from "forge-std/Test.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 
-import {DelegationLibWrapper} from "./DelegationLibWrapper.sol";
+import {StakeDelegationLibWrapper} from "./StakeDelegationLibWrapper.sol";
 
 contract UsePowerTest is Test {
-  DelegationLibWrapper internal delegationLib = new DelegationLibWrapper();
+  StakeDelegationLibWrapper internal delegationLib = new StakeDelegationLibWrapper();
 
   function test_GivenPowerUsedPlusAmountGtPowerAt(
     address _delegatee,
