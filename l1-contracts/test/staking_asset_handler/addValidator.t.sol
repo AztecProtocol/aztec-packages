@@ -71,11 +71,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
 
     uint256 revertTimestamp = stakingAssetHandler.lastMintTimestamp() + mintInterval;
 
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        IStakingAssetHandler.ValidatorQuotaFilledUntil.selector, revertTimestamp
-      )
-    );
+    vm.expectRevert(abi.encodeWithSelector(IStakingAssetHandler.ValidatorQuotaFilledUntil.selector, revertTimestamp));
     vm.prank(_caller);
     stakingAssetHandler.addValidator(_attester, validMerkleProof, realProof);
   }
@@ -118,9 +114,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
 
     // Set the lastMintTimestamp to be the same as the current timestamp such that our proof will be valid
     // block.timestamp is overriden to be the time of the proof in ZKPassportBase constructor
-    stdstore.target(address(stakingAssetHandler)).sig("lastMintTimestamp()").checked_write(
-      block.timestamp
-    );
+    stdstore.target(address(stakingAssetHandler)).sig("lastMintTimestamp()").checked_write(block.timestamp);
     _;
   }
 
@@ -138,10 +132,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     // it deposits into the rollup
     // it emits a {ValidatorAdded} event
 
-    vm.assume(
-      _attester != address(0) && _caller != address(this) && _attester != address(this)
-        && _caller != unhinged
-    );
+    vm.assume(_attester != address(0) && _caller != address(this) && _attester != address(this) && _caller != unhinged);
     uint256 revertTimestamp = stakingAssetHandler.lastMintTimestamp() + mintInterval;
     vm.warp(revertTimestamp);
 
@@ -167,10 +158,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     givenPassportProofIsValid
   {
     // it reverts
-    vm.assume(
-      _attester != address(0) && _caller != address(this) && _attester != address(this)
-        && _caller != unhinged
-    );
+    vm.assume(_attester != address(0) && _caller != address(this) && _attester != address(this) && _caller != unhinged);
 
     stakingAssetHandler.setDepositsPerMint(10);
 
@@ -184,9 +172,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
 
     uint256 uniqueIdentifierLocation = _proof.publicInputs.length - 1;
     vm.expectRevert(
-      abi.encodeWithSelector(
-        IStakingAssetHandler.SybilDetected.selector, _proof.publicInputs[uniqueIdentifierLocation]
-      )
+      abi.encodeWithSelector(IStakingAssetHandler.SybilDetected.selector, _proof.publicInputs[uniqueIdentifierLocation])
     );
     // Call from somebody else
     vm.prank(_caller);
@@ -203,8 +189,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     _proof.devMode = true;
 
     vm.assume(
-      _attester != address(0) && _caller != address(this) && _attester != address(this)
-        && _attester != unhinged
+      _attester != address(0) && _caller != address(this) && _attester != address(this) && _attester != unhinged
     );
     uint256 revertTimestamp = block.timestamp + mintInterval;
     vm.warp(revertTimestamp);
@@ -246,10 +231,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     // it does not revert even though flushEntryQueue reverts
     // it shows the validator was added to the queue
 
-    vm.assume(
-      _attester != address(0) && _caller != address(this) && _attester != address(this)
-        && _caller != unhinged
-    );
+    vm.assume(_attester != address(0) && _caller != address(this) && _attester != address(this) && _caller != unhinged);
 
     uint256 revertTimestamp = stakingAssetHandler.lastMintTimestamp() + mintInterval;
     vm.warp(revertTimestamp);

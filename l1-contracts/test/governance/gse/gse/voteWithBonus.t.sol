@@ -40,11 +40,10 @@ contract VoteWithBonusTest is WithGSE {
     _;
   }
 
-  function test_GivenAmountGreaterThanAvailableBonusPower(
-    address _instance,
-    address _attester,
-    uint256 _amount
-  ) external givenCallerIsLatestAtProposalTime(_instance) {
+  function test_GivenAmountGreaterThanAvailableBonusPower(address _instance, address _attester, uint256 _amount)
+    external
+    givenCallerIsLatestAtProposalTime(_instance)
+  {
     // it reverts
 
     uint256 availablePower = _prepare(_instance, _attester);
@@ -52,9 +51,7 @@ contract VoteWithBonusTest is WithGSE {
 
     vm.prank(_instance);
     vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.Delegation__InsufficientPower.selector, BONUS_ADDRESS, availablePower, amount
-      )
+      abi.encodeWithSelector(Errors.Delegation__InsufficientPower.selector, BONUS_ADDRESS, availablePower, amount)
     );
     gse.voteWithBonus(0, amount, true);
   }
