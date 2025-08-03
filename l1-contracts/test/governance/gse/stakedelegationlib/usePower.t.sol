@@ -41,9 +41,7 @@ contract UsePowerTest is Test {
 
     // At this point, we expect a failure when we are trying to vote with move than we have available
     vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.Delegation__InsufficientPower.selector, _delegatee, powerAt, preAmount + amount
-      )
+      abi.encodeWithSelector(Errors.Delegation__InsufficientPower.selector, _delegatee, powerAt, preAmount + amount)
     );
     delegationLib.usePower(_delegatee, _proposalId, Timestamp.wrap(timestamp - 1), amount);
   }

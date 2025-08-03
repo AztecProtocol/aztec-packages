@@ -71,17 +71,11 @@ contract Outbox is IOutbox {
     uint256 _leafIndex,
     bytes32[] calldata _path
   ) external override(IOutbox) {
-    require(
-      _l2BlockNumber <= ROLLUP.getProvenBlockNumber(), Errors.Outbox__BlockNotProven(_l2BlockNumber)
-    );
-    require(
-      _message.sender.version == VERSION,
-      Errors.Outbox__VersionMismatch(_message.sender.version, VERSION)
-    );
+    require(_l2BlockNumber <= ROLLUP.getProvenBlockNumber(), Errors.Outbox__BlockNotProven(_l2BlockNumber));
+    require(_message.sender.version == VERSION, Errors.Outbox__VersionMismatch(_message.sender.version, VERSION));
 
     require(
-      msg.sender == _message.recipient.actor,
-      Errors.Outbox__InvalidRecipient(_message.recipient.actor, msg.sender)
+      msg.sender == _message.recipient.actor, Errors.Outbox__InvalidRecipient(_message.recipient.actor, msg.sender)
     );
 
     require(block.chainid == _message.recipient.chainId, Errors.Outbox__InvalidChainId());
@@ -94,9 +88,7 @@ contract Outbox is IOutbox {
 
     uint256 leafId = (1 << _path.length) + _leafIndex;
 
-    require(
-      !rootData.nullified.get(leafId), Errors.Outbox__AlreadyNullified(_l2BlockNumber, leafId)
-    );
+    require(!rootData.nullified.get(leafId), Errors.Outbox__AlreadyNullified(_l2BlockNumber, leafId));
 
     bytes32 messageHash = _message.sha256ToField();
 

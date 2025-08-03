@@ -3,11 +3,7 @@
 pragma solidity >=0.8.27;
 
 import {Test} from "forge-std/Test.sol";
-import {
-  FeeHeader,
-  CompressedFeeHeader,
-  FeeHeaderLib
-} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
+import {FeeHeader, CompressedFeeHeader, FeeHeaderLib} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 
 contract FeeStructsTest is Test {
   using FeeHeaderLib for FeeHeader;
@@ -43,9 +39,7 @@ contract FeeStructsTest is Test {
       feeHeader.feeAssetPriceNumerator,
       "Getter Fee asset price numerator"
     );
-    assertEq(
-      compressedFeeHeader.getCongestionCost(), feeHeader.congestionCost, "Getter Congestion cost"
-    );
+    assertEq(compressedFeeHeader.getCongestionCost(), feeHeader.congestionCost, "Getter Congestion cost");
     assertEq(compressedFeeHeader.getProverCost(), feeHeader.proverCost, "Getter Prover cost");
 
     // Checke the decompressed value
@@ -56,9 +50,7 @@ contract FeeStructsTest is Test {
       feeHeader.feeAssetPriceNumerator,
       "Decompressed Fee asset price numerator"
     );
-    assertEq(
-      decompressedFeeHeader.congestionCost, feeHeader.congestionCost, "Decompressed Congestion cost"
-    );
+    assertEq(decompressedFeeHeader.congestionCost, feeHeader.congestionCost, "Decompressed Congestion cost");
     assertEq(decompressedFeeHeader.proverCost, feeHeader.proverCost, "Decompressed Prover cost");
   }
 }

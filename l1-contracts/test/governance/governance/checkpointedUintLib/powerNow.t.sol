@@ -2,9 +2,7 @@
 pragma solidity >=0.8.27;
 
 import {CheckpointedUintLibBase} from "./base.t.sol";
-import {
-  Checkpoints, CheckpointedUintLib
-} from "@aztec/governance/libraries/CheckpointedUintLib.sol";
+import {Checkpoints, CheckpointedUintLib} from "@aztec/governance/libraries/CheckpointedUintLib.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
