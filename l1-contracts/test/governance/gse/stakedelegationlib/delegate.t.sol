@@ -3,7 +3,7 @@
 pragma solidity >=0.8.27;
 
 import {Test} from "forge-std/Test.sol";
-import {DelegationLibWrapper} from "./DelegationLibWrapper.sol";
+import {StakeDelegationLibWrapper} from "./StakeDelegationLibWrapper.sol";
 
 import {WithDelegationLib} from "./base.sol";
 

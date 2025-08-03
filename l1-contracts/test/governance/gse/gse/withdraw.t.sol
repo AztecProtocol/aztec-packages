@@ -111,7 +111,9 @@ contract WithdrawTest is WithGSE {
     amount = bound(_amount, balance + 1, type(uint256).max);
 
     vm.prank(_instance);
-    vm.expectRevert(abi.encodeWithSelector(Errors.GSE__InsufficientStake.selector, balance, amount));
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.GSE__InsufficientBalance.selector, balance, amount)
+    );
     gse.withdraw(_attester, amount);
   }
 
@@ -121,7 +123,7 @@ contract WithdrawTest is WithGSE {
     _;
   }
 
-  function test_GivenBalanceMinusAmountLessThanMinimumStake(
+  function test_GivenBalanceMinusAmountLessThanejectionThreshold(
     address _instance,
     address _attester,
     uint256 _amount
@@ -146,7 +148,7 @@ contract WithdrawTest is WithGSE {
       assertEq(gse.getDelegatee(BONUS_ADDRESS, _attester), BONUS_ADDRESS);
       assertEq(gse.getConfig(BONUS_ADDRESS, _attester).withdrawer, WITHDRAWER);
 
-      amount = bound(_amount, balance - gse.MINIMUM_STAKE() + 1, balance);
+      amount = bound(_amount, balance - gse.EJECTION_THRESHOLD() + 1, balance);
     }
 
     // He will be removed entirely
@@ -172,7 +174,7 @@ contract WithdrawTest is WithGSE {
     }
   }
 
-  function test_GivenBalanceMinusAmountGreaterOrEqualToMinimumStake(
+  function test_GivenBalanceMinusAmountGreaterOrEqualToejectionThreshold(
     address _instance,
     address _attester,
     uint256 _amount
@@ -195,7 +197,7 @@ contract WithdrawTest is WithGSE {
       assertEq(gse.getDelegatee(BONUS_ADDRESS, _attester), BONUS_ADDRESS);
       assertEq(gse.getConfig(BONUS_ADDRESS, _attester).withdrawer, WITHDRAWER);
 
-      amount = bound(_amount, 0, balance - gse.MINIMUM_STAKE());
+      amount = bound(_amount, 0, balance - gse.EJECTION_THRESHOLD());
     }
 
     // He will not be removed
@@ -242,7 +244,9 @@ contract WithdrawTest is WithGSE {
     amount = bound(_amount, balance + 1, type(uint256).max);
 
     vm.prank(_instance);
-    vm.expectRevert(abi.encodeWithSelector(Errors.GSE__InsufficientStake.selector, balance, amount));
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.GSE__InsufficientBalance.selector, balance, amount)
+    );
     gse.withdraw(_attester, amount);
   }
 
@@ -257,7 +261,7 @@ contract WithdrawTest is WithGSE {
     _;
   }
 
-  function test_GivenBalanceMinusAmountLessThanMinimumStake2(
+  function test_GivenBalanceMinusAmountLessThanejectionThreshold2(
     address _instance,
     address _attester,
     uint256 _amount
@@ -281,7 +285,7 @@ contract WithdrawTest is WithGSE {
       assertEq(gse.getDelegatee(_instance, _attester), _instance);
       assertEq(gse.getConfig(_instance, _attester).withdrawer, WITHDRAWER);
 
-      amount = bound(_amount, balance - gse.MINIMUM_STAKE() + 1, balance);
+      amount = bound(_amount, balance - gse.EJECTION_THRESHOLD() + 1, balance);
     }
 
     // He will be removed entirely
@@ -307,7 +311,7 @@ contract WithdrawTest is WithGSE {
     }
   }
 
-  function test_GivenBalanceMinusAmountGreaterOrEqualToMinimumStake2(
+  function test_GivenBalanceMinusAmountGreaterOrEqualToejectionThreshold2(
     address _instance,
     address _attester,
     uint256 _amount
@@ -328,7 +332,7 @@ contract WithdrawTest is WithGSE {
       assertEq(gse.getDelegatee(_instance, _attester), _instance);
       assertEq(gse.getConfig(_instance, _attester).withdrawer, WITHDRAWER);
 
-      amount = bound(_amount, 0, balance - gse.MINIMUM_STAKE());
+      amount = bound(_amount, 0, balance - gse.EJECTION_THRESHOLD());
     }
 
     // He will not be removed
