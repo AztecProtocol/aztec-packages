@@ -40,9 +40,7 @@ contract DepositTest is StakingBase {
     // it reverts
 
     vm.expectRevert(
-      abi.encodeWithSelector(
-        IERC20Errors.ERC20InsufficientBalance.selector, address(this), 0, ACTIVATION_THRESHOLD
-      )
+      abi.encodeWithSelector(IERC20Errors.ERC20InsufficientBalance.selector, address(this), 0, ACTIVATION_THRESHOLD)
     );
 
     staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _moveWithLatestRollup: true});
@@ -67,9 +65,8 @@ contract DepositTest is StakingBase {
     stakingAsset.approve(address(staking), type(uint256).max);
 
     // Now reset the next flushable epoch to 0
-    stdstore.enable_packed_slots().target(address(staking)).sig(
-      IStaking.getNextFlushableEpoch.selector
-    ).depth(0).checked_write(uint256(0));
+    stdstore.enable_packed_slots().target(address(staking)).sig(IStaking.getNextFlushableEpoch.selector).depth(0)
+      .checked_write(uint256(0));
     staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _moveWithLatestRollup: true});
 
     // The real error gets caught by the flushEntryQueue call

@@ -11,11 +11,9 @@ import {ProofVerificationParams} from "@zkpassport/ZKPassportVerifier.sol";
 
 interface IZKPassportVerifier {
   function verifyProof(ProofVerificationParams calldata params) external returns (bool, bytes32);
-  function verifyScopes(
-    bytes32[] calldata publicInputs,
-    string calldata domain,
-    string calldata scope
-  ) external returns (bool);
+  function verifyScopes(bytes32[] calldata publicInputs, string calldata domain, string calldata scope)
+    external
+    returns (bool);
 }
 
 // A mock zk passport verifier that returns an incrementing unique identifier (nullifier) - for happy case tests
@@ -26,11 +24,7 @@ contract MockZKPassportVerifier is IZKPassportVerifier {
     return (true, bytes32(uniqueIdentifier));
   }
 
-  function verifyScopes(bytes32[] calldata, string calldata, string calldata)
-    external
-    pure
-    returns (bool)
-  {
+  function verifyScopes(bytes32[] calldata, string calldata, string calldata) external pure returns (bool) {
     return true;
   }
 

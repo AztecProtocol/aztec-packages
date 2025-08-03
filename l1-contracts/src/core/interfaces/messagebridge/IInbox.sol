@@ -28,9 +28,7 @@ interface IInbox {
    * @param hash - The hash of the message
    * @param rollingHash - The rolling hash of all messages inserted into the inbox
    */
-  event MessageSent(
-    uint256 indexed l2BlockNumber, uint256 index, bytes32 indexed hash, bytes16 rollingHash
-  );
+  event MessageSent(uint256 indexed l2BlockNumber, uint256 index, bytes32 indexed hash, bytes16 rollingHash);
 
   // docs:start:send_l1_to_l2_message
   /**
@@ -38,14 +36,13 @@ interface IInbox {
    * @dev Emits `MessageSent` with data for easy access by the sequencer
    * @param _recipient - The recipient of the message
    * @param _content - The content of the message (application specific)
-   * @param _secretHash - The secret hash of the message (make it possible to hide when a specific message is consumed on L2)
+   * @param _secretHash - The secret hash of the message (make it possible to hide when a specific message is consumed
+   * on L2)
    * @return The key of the message in the set and its leaf index in the tree
    */
-  function sendL2Message(
-    DataStructures.L2Actor memory _recipient,
-    bytes32 _content,
-    bytes32 _secretHash
-  ) external returns (bytes32, uint256);
+  function sendL2Message(DataStructures.L2Actor memory _recipient, bytes32 _content, bytes32 _secretHash)
+    external
+    returns (bytes32, uint256);
   // docs:end:send_l1_to_l2_message
 
   // docs:start:consume

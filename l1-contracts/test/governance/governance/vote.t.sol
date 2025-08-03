@@ -72,12 +72,10 @@ contract VoteTest is GovernanceBase {
     assertEq(governance.getProposalState(proposalId), ProposalState.Rejected);
   }
 
-  function test_GivenStateIsDropped(
-    address _voter,
-    uint256 _amount,
-    bool _support,
-    address _proposer
-  ) external givenStateIsNotActive(_voter, _amount, _support) {
+  function test_GivenStateIsDropped(address _voter, uint256 _amount, bool _support, address _proposer)
+    external
+    givenStateIsNotActive(_voter, _amount, _support)
+  {
     // it revert
     _stateDroppable("empty", _proposer);
     governance.dropProposal(proposalId);
@@ -125,11 +123,7 @@ contract VoteTest is GovernanceBase {
 
     uint256 power = bound(_votePower, depositPower + 1, type(uint256).max);
 
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.Governance__InsufficientPower.selector, _voter, depositPower, power
-      )
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.Governance__InsufficientPower.selector, _voter, depositPower, power));
     vm.prank(_voter);
     governance.vote(proposalId, power, _support);
   }

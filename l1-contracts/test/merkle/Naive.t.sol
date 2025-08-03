@@ -38,7 +38,8 @@ contract NaiveTest is Test {
       )
     ];
 
-    /// We then compute the sibling path using the tree and expect that our manual calculation should equal the computed one
+    /// We then compute the sibling path using the tree and expect that our manual calculation should equal the computed
+    /// one
     (bytes32[] memory path, bytes32 leaf) = tree.computeSiblingPath(0);
     assertEq(leaf, bytes32(abi.encode(1)));
     assertEq(path[0], expectedPath[0]);
@@ -56,7 +57,8 @@ contract NaiveTest is Test {
 
     /**
      * We manually make a path; this is the sibling path of the leaf with the value of 8.
-     * This path, from leaf to root, consists of c a, b, and c; which correspond to the value of 7, then the hash of 5 and 6,
+     * This path, from leaf to root, consists of c a, b, and c; which correspond to the value of 7, then the hash of 5
+     * and 6,
      * and finally, the hash of 1 and 2 concatenated with the hash of 3 and 4;
      * d0:                                            [ root ]
      * d1:                      [c]                                               [ ]
@@ -74,7 +76,8 @@ contract NaiveTest is Test {
       )
     ];
 
-    /// We then compute the sibling path using the tree and expect that our manual calculation should equal the computed one
+    /// We then compute the sibling path using the tree and expect that our manual calculation should equal the computed
+    /// one
     (bytes32[] memory path, bytes32 leaf) = tree.computeSiblingPath(7);
     assertEq(leaf, bytes32(abi.encode(8)));
     assertEq(path[0], expectedPath[0]);

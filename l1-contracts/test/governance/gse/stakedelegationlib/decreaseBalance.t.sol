@@ -17,12 +17,10 @@ contract DecreaseBalanceTest is WithDelegationLib {
     _;
   }
 
-  function test_GivenNoDelegatee(
-    address[2] memory _instances,
-    address _attester,
-    uint256 _amount,
-    uint256 _balance
-  ) external whenAmountGt0 {
+  function test_GivenNoDelegatee(address[2] memory _instances, address _attester, uint256 _amount, uint256 _balance)
+    external
+    whenAmountGt0
+  {
     // it decrease balance by amount
     // it decrease instance supply by amount
     // it decrease supply by amount

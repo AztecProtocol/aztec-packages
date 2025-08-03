@@ -29,9 +29,7 @@ contract StakingQueueConfigTest is Test {
     CompressedStakingQueueConfig b = a.compress();
     StakingQueueConfig memory c = b.decompress();
 
-    assertEq(
-      c.bootstrapValidatorSetSize, a.bootstrapValidatorSetSize, "Bootstrap validator set size"
-    );
+    assertEq(c.bootstrapValidatorSetSize, a.bootstrapValidatorSetSize, "Bootstrap validator set size");
     assertEq(c.bootstrapFlushSize, a.bootstrapFlushSize, "Bootstrap flush size");
     assertEq(c.normalFlushSizeMin, a.normalFlushSizeMin, "Normal flush size min");
     assertEq(c.normalFlushSizeQuotient, a.normalFlushSizeQuotient, "Normal flush size quotient");

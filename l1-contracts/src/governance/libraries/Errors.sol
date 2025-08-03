@@ -30,9 +30,7 @@ library Errors {
   error Governance__ProposalCannotBeDropped();
   error Governance__DepositNotAllowed();
 
-  error Governance__CheckpointedUintLib__InsufficientValue(
-    address owner, uint256 have, uint256 required
-  );
+  error Governance__CheckpointedUintLib__InsufficientValue(address owner, uint256 have, uint256 required);
   error Governance__CheckpointedUintLib__NotInPast();
 
   error Governance__ConfigurationLib__InvalidMinimumVotes();
@@ -54,9 +52,7 @@ library Errors {
   error GovernanceProposer__InsufficientSignals(uint256 signalsCast, uint256 signalsNeeded);
   error GovernanceProposer__InvalidQuorumAndRoundSize(uint256 quorumSize, uint256 roundSize);
   error GovernanceProposer__QuorumCannotBeLargerThanRoundSize(uint256 quorumSize, uint256 roundSize);
-  error GovernanceProposer__InvalidLifetimeAndExecutionDelay(
-    uint256 lifetimeInRounds, uint256 executionDelayInRounds
-  );
+  error GovernanceProposer__InvalidLifetimeAndExecutionDelay(uint256 lifetimeInRounds, uint256 executionDelayInRounds);
   error GovernanceProposer__OnlyProposerCanSignal(address caller, address proposer);
   error GovernanceProposer__PayloadAlreadySubmitted(uint256 roundNumber);
   error GovernanceProposer__PayloadCannotBeAddressZero();

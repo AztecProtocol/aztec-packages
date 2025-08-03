@@ -50,9 +50,7 @@ contract DistributeFees is Test {
     // it should revert
     vm.prank(address(rollup));
     vm.expectRevert(
-      abi.encodeWithSelector(
-        IERC20Errors.ERC20InsufficientBalance.selector, address(feeJuicePortal), 0, 0 + 1
-      )
+      abi.encodeWithSelector(IERC20Errors.ERC20InsufficientBalance.selector, address(feeJuicePortal), 0, 0 + 1)
     );
     feeJuicePortal.distributeFees(address(this), 1);
   }

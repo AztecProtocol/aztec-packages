@@ -2,9 +2,7 @@
 pragma solidity >=0.8.27;
 
 import {CheckpointedUintLibBase} from "./base.t.sol";
-import {
-  Checkpoints, CheckpointedUintLib
-} from "@aztec/governance/libraries/CheckpointedUintLib.sol";
+import {Checkpoints, CheckpointedUintLib} from "@aztec/governance/libraries/CheckpointedUintLib.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
@@ -32,9 +30,7 @@ contract SubTest is CheckpointedUintLibBase {
   function test_GivenUserHaveNoCheckpoints(uint256 _amount) external whenAmountGt0(_amount) {
     // it revert
     vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.Governance__CheckpointedUintLib__InsufficientValue.selector, msg.sender, 0, amount
-      )
+      abi.encodeWithSelector(Errors.Governance__CheckpointedUintLib__InsufficientValue.selector, msg.sender, 0, amount)
     );
     vm.prank(msg.sender);
     this.callSub(amount);
@@ -52,10 +48,7 @@ contract SubTest is CheckpointedUintLibBase {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.Governance__CheckpointedUintLib__InsufficientValue.selector,
-        msg.sender,
-        sumBefore,
-        amount
+        Errors.Governance__CheckpointedUintLib__InsufficientValue.selector, msg.sender, sumBefore, amount
       )
     );
     vm.prank(msg.sender);

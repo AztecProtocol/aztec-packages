@@ -87,20 +87,12 @@ library FeeHeaderLib {
     return (CompressedFeeHeader.unwrap(_compressedFeeHeader) >> 32) & 0xFFFFFFFFFFFF;
   }
 
-  function getFeeAssetPriceNumerator(CompressedFeeHeader _compressedFeeHeader)
-    internal
-    pure
-    returns (uint256)
-  {
+  function getFeeAssetPriceNumerator(CompressedFeeHeader _compressedFeeHeader) internal pure returns (uint256) {
     // Reads the bits 128-175
     return (CompressedFeeHeader.unwrap(_compressedFeeHeader) >> 80) & 0xFFFFFFFFFFFF;
   }
 
-  function getCongestionCost(CompressedFeeHeader _compressedFeeHeader)
-    internal
-    pure
-    returns (uint256)
-  {
+  function getCongestionCost(CompressedFeeHeader _compressedFeeHeader) internal pure returns (uint256) {
     // Reads the bits 64-127
     return (CompressedFeeHeader.unwrap(_compressedFeeHeader) >> 128) & 0xFFFFFFFFFFFFFFFF;
   }
@@ -128,11 +120,7 @@ library FeeHeaderLib {
     return CompressedFeeHeader.wrap(value);
   }
 
-  function decompress(CompressedFeeHeader _compressedFeeHeader)
-    internal
-    pure
-    returns (FeeHeader memory)
-  {
+  function decompress(CompressedFeeHeader _compressedFeeHeader) internal pure returns (FeeHeader memory) {
     uint256 value = CompressedFeeHeader.unwrap(_compressedFeeHeader);
 
     uint256 manaUsed = value & 0xFFFFFFFF;
@@ -154,11 +142,7 @@ library FeeHeaderLib {
     });
   }
 
-  function preheat(CompressedFeeHeader _compressedFeeHeader)
-    internal
-    pure
-    returns (CompressedFeeHeader)
-  {
+  function preheat(CompressedFeeHeader _compressedFeeHeader) internal pure returns (CompressedFeeHeader) {
     uint256 value = CompressedFeeHeader.unwrap(_compressedFeeHeader);
     value |= 1 << 255;
     return CompressedFeeHeader.wrap(value);

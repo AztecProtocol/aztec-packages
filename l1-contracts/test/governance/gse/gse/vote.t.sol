@@ -31,9 +31,7 @@ contract VoteTest is WithGSE {
 
     vm.prank(voter);
     vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.Delegation__InsufficientPower.selector, voter, availablePower, amount
-      )
+      abi.encodeWithSelector(Errors.Delegation__InsufficientPower.selector, voter, availablePower, amount)
     );
     gse.vote(0, amount, true);
   }

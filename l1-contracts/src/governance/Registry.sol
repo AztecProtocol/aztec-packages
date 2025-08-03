@@ -48,8 +48,7 @@ contract Registry is IRegistry, Ownable {
    * Then the owner is updated to Governance.
    */
   constructor(address _owner, IERC20 _rewardAsset) Ownable(_owner) {
-    $.rewardDistributor =
-      IRewardDistributor(address(new RewardDistributor(_rewardAsset, IRegistry(address(this)))));
+    $.rewardDistributor = IRewardDistributor(address(new RewardDistributor(_rewardAsset, IRegistry(address(this)))));
     emit RewardDistributorUpdated(address($.rewardDistributor));
   }
 
@@ -60,8 +59,7 @@ contract Registry is IRegistry, Ownable {
   function addRollup(IHaveVersion _rollup) external override(IRegistry) onlyOwner {
     uint256 version = _rollup.getVersion();
     require(
-      address($.versionToRollup[version]) == address(0),
-      Errors.Registry__RollupAlreadyRegistered(address(_rollup))
+      address($.versionToRollup[version]) == address(0), Errors.Registry__RollupAlreadyRegistered(address(_rollup))
     );
     $.versionToRollup[version] = _rollup;
     $.versions.push(version);
@@ -69,11 +67,7 @@ contract Registry is IRegistry, Ownable {
     emit CanonicalRollupUpdated(address(_rollup), version);
   }
 
-  function updateRewardDistributor(address _rewardDistributor)
-    external
-    override(IRegistry)
-    onlyOwner
-  {
+  function updateRewardDistributor(address _rewardDistributor) external override(IRegistry) onlyOwner {
     $.rewardDistributor = IRewardDistributor(_rewardDistributor);
     emit RewardDistributorUpdated(_rewardDistributor);
   }

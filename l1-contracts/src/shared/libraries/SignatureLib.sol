@@ -20,7 +20,8 @@ struct Signature {
 }
 
 // A committee attestation can be made up of a signature and an address.
-// Committee members that have attested will produce a signature, and if they have not attested, the signature will be empty and
+// Committee members that have attested will produce a signature, and if they have not attested, the signature will be
+// empty and
 // an address provided.
 struct CommitteeAttestation {
   address addr;
@@ -43,8 +44,7 @@ library SignatureLib {
    * @return True if the committee attestations are empty, false otherwise
    */
   function isEmpty(CommitteeAttestations memory _attestations) internal pure returns (bool) {
-    return
-      _attestations.signatureIndices.length == 0 && _attestations.signaturesOrAddresses.length == 0;
+    return _attestations.signatureIndices.length == 0 && _attestations.signaturesOrAddresses.length == 0;
   }
 
   /**
@@ -59,11 +59,7 @@ library SignatureLib {
    *
    * See its use over in ValidatorSelectionLib.sol
    */
-  function isSignature(CommitteeAttestations memory _attestations, uint256 _index)
-    internal
-    pure
-    returns (bool)
-  {
+  function isSignature(CommitteeAttestations memory _attestations, uint256 _index) internal pure returns (bool) {
     uint256 byteIndex = _index / 8;
     uint256 shift = 7 - (_index % 8);
     return (uint8(_attestations.signatureIndices[byteIndex]) >> shift) & 1 == 1;
@@ -108,7 +104,8 @@ library SignatureLib {
   }
 
   /**
-   * Returns the addresses from the CommitteeAttestations, using the array of signers to populate where there are signatures.
+   * Returns the addresses from the CommitteeAttestations, using the array of signers to populate where there are
+   * signatures.
    * Indices with signatures will have a zero address.
    * @param _attestations - The committee attestations
    * @param _length - The number of addresses to return, should match the number of committee members
@@ -167,11 +164,7 @@ library SignatureLib {
    * @param _signer - The expected signer of the signature
    * @param _digest - The digest that was signed
    */
-  function verify(Signature memory _signature, address _signer, bytes32 _digest)
-    internal
-    pure
-    returns (bool)
-  {
+  function verify(Signature memory _signature, address _signer, bytes32 _digest) internal pure returns (bool) {
     address recovered = ECDSA.recover(_digest, _signature.v, _signature.r, _signature.s);
     require(_signer == recovered, SignatureLib__InvalidSignature(_signer, recovered));
     return true;
@@ -249,9 +242,6 @@ library SignatureLib {
       }
     }
 
-    return CommitteeAttestations({
-      signatureIndices: signatureIndices,
-      signaturesOrAddresses: signaturesOrAddresses
-    });
+    return CommitteeAttestations({signatureIndices: signatureIndices, signaturesOrAddresses: signaturesOrAddresses});
   }
 }

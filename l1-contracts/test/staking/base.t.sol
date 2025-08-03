@@ -25,8 +25,7 @@ contract StakingBase is TestBase {
   address internal SLASHER;
 
   function setUp() public virtual {
-    RollupBuilder builder =
-      new RollupBuilder(address(this)).setSlashingQuorum(1).setSlashingRoundSize(1);
+    RollupBuilder builder = new RollupBuilder(address(this)).setSlashingQuorum(1).setSlashingRoundSize(1);
     builder.deploy();
 
     registry = builder.getConfig().registry;

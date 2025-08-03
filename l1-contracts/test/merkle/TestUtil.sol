@@ -22,15 +22,20 @@ contract MerkleTestUtil is Test {
     /// hence the next highest power of two from the amount of leaves - Math.ceil(Math.log2(x))
     uint256 height = 0;
 
-    /// While size > 1, we divide by two, and count how many times we do this; producing a rudimentary way of calculating Math.Floor(Math.log2(x))
+    /// While size > 1, we divide by two, and count how many times we do this; producing a rudimentary way of
+    /// calculating Math.Floor(Math.log2(x))
     while (_size > 1) {
       _size >>= 1;
       height++;
     }
 
-    /// @notice - We check if 2 ** height does not equal our original number. If so, this means that our size is not a power of two,
-    /// and hence we've rounded down (Math.floor) and have obtained the next lowest power of two instead of rounding up (Math.ceil) to obtain the next highest power of two and therefore we need to increment height before returning it.
-    /// If 2 ** height equals our original number, it means that we have a perfect power of two and Math.floor(Math.log2(x)) = Math.ceil(Math.log2(x)) and we can return height as-is
+    /// @notice - We check if 2 ** height does not equal our original number. If so, this means that our size is not a
+    /// power of two,
+    /// and hence we've rounded down (Math.floor) and have obtained the next lowest power of two instead of rounding up
+    /// (Math.ceil) to obtain the next highest power of two and therefore we need to increment height before returning
+    /// it.
+    /// If 2 ** height equals our original number, it means that we have a perfect power of two and
+    /// Math.floor(Math.log2(x)) = Math.ceil(Math.log2(x)) and we can return height as-is
     return (2 ** height) != originalNumber ? ++height : height;
   }
 

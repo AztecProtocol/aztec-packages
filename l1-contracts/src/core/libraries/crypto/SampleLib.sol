@@ -34,10 +34,7 @@ library SampleLib {
     internal
     returns (uint256[] memory)
   {
-    require(
-      _committeeSize <= _indexCount,
-      Errors.SampleLib__SampleLargerThanIndex(_committeeSize, _indexCount)
-    );
+    require(_committeeSize <= _indexCount, Errors.SampleLib__SampleLargerThanIndex(_committeeSize, _indexCount));
 
     if (_committeeSize == 0) {
       return new uint256[](0);
@@ -100,11 +97,7 @@ library SampleLib {
    *
    * @return shuffledIndex - The shuffled index
    */
-  function computeSampleIndex(uint256 _index, uint256 _indexCount, uint256 _seed)
-    internal
-    pure
-    returns (uint256)
-  {
+  function computeSampleIndex(uint256 _index, uint256 _indexCount, uint256 _seed) internal pure returns (uint256) {
     // Cannot modulo by 0
     if (_indexCount == 0) {
       return 0;

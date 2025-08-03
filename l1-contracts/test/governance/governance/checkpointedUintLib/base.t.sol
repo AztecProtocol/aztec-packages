@@ -2,9 +2,7 @@
 pragma solidity >=0.8.27;
 
 import {TestBase} from "@test/base/Base.sol";
-import {
-  Checkpoints, CheckpointedUintLib
-} from "@aztec/governance/libraries/CheckpointedUintLib.sol";
+import {Checkpoints, CheckpointedUintLib} from "@aztec/governance/libraries/CheckpointedUintLib.sol";
 
 contract CheckpointedUintLibBase is TestBase {
   using CheckpointedUintLib for Checkpoints.Trace224;

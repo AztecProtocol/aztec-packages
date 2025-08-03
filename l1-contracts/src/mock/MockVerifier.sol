@@ -17,12 +17,7 @@ contract MockVerifier is IVerifier {
    * @param - The public inputs, which are ignored
    * @return True always
    */
-  function verify(bytes calldata, bytes32[] calldata)
-    external
-    pure
-    override(IVerifier)
-    returns (bool)
-  {
+  function verify(bytes calldata, bytes32[] calldata) external pure override(IVerifier) returns (bool) {
     return true;
   }
 }

@@ -3,9 +3,7 @@ pragma solidity >=0.8.27;
 
 import {StakingBase} from "./base.t.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {
-  Timestamp, Status, AttesterView, Exit, IStakingCore
-} from "@aztec/core/interfaces/IStaking.sol";
+import {Timestamp, Status, AttesterView, Exit, IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
 
 contract InitiateWithdrawTest is StakingBase {
   function test_WhenAttesterIsNotRegistered() external {
@@ -28,9 +26,7 @@ contract InitiateWithdrawTest is StakingBase {
 
     vm.assume(_caller != WITHDRAWER);
 
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Staking__NotWithdrawer.selector, WITHDRAWER, _caller)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__NotWithdrawer.selector, WITHDRAWER, _caller));
     vm.prank(_caller);
     staking.initiateWithdraw(ATTESTER, RECIPIENT);
   }
@@ -39,11 +35,7 @@ contract InitiateWithdrawTest is StakingBase {
     _;
   }
 
-  function test_GivenAttesterIsNotValidatingOrLiving()
-    external
-    whenAttesterIsRegistered
-    whenCallerIsTheWithdrawer
-  {
+  function test_GivenAttesterIsNotValidatingOrLiving() external whenAttesterIsRegistered whenCallerIsTheWithdrawer {
     // it revert
 
     assertTrue(staking.getStatus(address(1)) == Status.NONE);

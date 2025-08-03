@@ -2,9 +2,7 @@
 pragma solidity >=0.8.27;
 
 import {GovernanceBase} from "./base.t.sol";
-import {
-  IGovernance, Configuration, Withdrawal
-} from "@aztec/governance/interfaces/IGovernance.sol";
+import {IGovernance, Configuration, Withdrawal} from "@aztec/governance/interfaces/IGovernance.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {ConfigurationLib} from "@aztec/governance/libraries/ConfigurationLib.sol";
@@ -93,11 +91,7 @@ contract InitiateWithdrawTest is GovernanceBase {
 
       Withdrawal memory withdrawal = governance.getWithdrawal(withdrawalId);
       assertEq(withdrawal.amount, amount, "invalid amount");
-      assertEq(
-        withdrawal.unlocksAt,
-        Timestamp.wrap(block.timestamp) + config.withdrawalDelay(),
-        "Invalid timestamp"
-      );
+      assertEq(withdrawal.unlocksAt, Timestamp.wrap(block.timestamp) + config.withdrawalDelay(), "Invalid timestamp");
       assertEq(withdrawal.recipient, recipient, "invalid recipient");
       assertFalse(withdrawal.claimed, "already claimed");
       assertEq(governance.totalPowerAt(Timestamp.wrap(block.timestamp)), sum);

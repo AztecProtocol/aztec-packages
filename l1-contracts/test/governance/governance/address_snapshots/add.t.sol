@@ -70,11 +70,7 @@ contract AddressSnapshotAddTest is AddressSnapshotsBase {
     assertEq(writes.length, 0);
   }
 
-  function test_WhenValidatorHasBeenRemovedFromTheSet(
-    address[] memory _addrs,
-    uint16 _add2,
-    uint16 _add3
-  ) public {
+  function test_WhenValidatorHasBeenRemovedFromTheSet(address[] memory _addrs, uint16 _add2, uint16 _add3) public {
     // It can be added again
 
     _addrs = boundUnique(_addrs);

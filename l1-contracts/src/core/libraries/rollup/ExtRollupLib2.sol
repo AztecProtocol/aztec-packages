@@ -76,10 +76,7 @@ library ExtRollupLib2 {
     return StakingLib.trySlash(_attester, _amount);
   }
 
-  function canProposeAtTime(Timestamp _ts, bytes32 _archive, address _who)
-    external
-    returns (Slot, uint256)
-  {
+  function canProposeAtTime(Timestamp _ts, bytes32 _archive, address _who) external returns (Slot, uint256) {
     return ValidatorSelectionLib.canProposeAtTime(_ts, _archive, _who);
   }
 

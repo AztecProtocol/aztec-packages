@@ -32,9 +32,7 @@ contract NewGovernanceProposerPayload is IPayload {
 
     res[0] = Action({
       target: address(governance),
-      data: abi.encodeWithSelector(
-        governance.updateGovernanceProposer.selector, NEW_GOVERNANCE_PROPOSER
-      )
+      data: abi.encodeWithSelector(governance.updateGovernanceProposer.selector, NEW_GOVERNANCE_PROPOSER)
     });
 
     return res;

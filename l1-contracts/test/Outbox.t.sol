@@ -40,11 +40,7 @@ contract OutboxTest is Test {
     merkleTestUtil = new MerkleTestUtil();
   }
 
-  function _fakeMessage(address _recipient, uint256 _content)
-    internal
-    view
-    returns (DataStructures.L2ToL1Msg memory)
-  {
+  function _fakeMessage(address _recipient, uint256 _content) internal view returns (DataStructures.L2ToL1Msg memory) {
     return DataStructures.L2ToL1Msg({
       sender: DataStructures.L2Actor({
         actor: 0x2000000000000000000000000000000000000000000000000000000000000000,
@@ -72,8 +68,10 @@ contract OutboxTest is Test {
   }
 
   // This function tests the insertion of random arrays of L2 to L1 messages
-  // We make a naive tree with a computed height, insert the leafs into it, and compute a root. We then add the root as the root of the
-  // L2 to L1 message tree, expect for the correct event to be emitted, and then query for the root in the contract—making sure the roots, as well as the
+  // We make a naive tree with a computed height, insert the leafs into it, and compute a root. We then add the root as
+  // the root of the
+  // L2 to L1 message tree, expect for the correct event to be emitted, and then query for the root in the
+  // contract—making sure the roots, as well as the
   // the tree height (which is also the length of the sibling path) match
   function testInsertVariedLeafs(bytes32[] calldata _messageLeafs) public {
     uint256 treeHeight = merkleTestUtil.calculateTreeHeightFromSize(_messageLeafs.length);
@@ -101,9 +99,7 @@ contract OutboxTest is Test {
     (bytes32[] memory path,) = zeroedTree.computeSiblingPath(0);
 
     vm.prank(NOT_RECIPIENT);
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Outbox__InvalidRecipient.selector, address(this), NOT_RECIPIENT)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__InvalidRecipient.selector, address(this), NOT_RECIPIENT));
     outbox.consume(fakeMessage, 1, 1, path);
   }
 
@@ -124,9 +120,7 @@ contract OutboxTest is Test {
 
     message.sender.version = AZTEC_VERSION + 1;
     vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.Outbox__VersionMismatch.selector, message.sender.version, AZTEC_VERSION
-      )
+      abi.encodeWithSelector(Errors.Outbox__VersionMismatch.selector, message.sender.version, AZTEC_VERSION)
     );
     outbox.consume(message, 1, 1, path);
   }
@@ -137,9 +131,7 @@ contract OutboxTest is Test {
 
     (bytes32[] memory path,) = zeroedTree.computeSiblingPath(0);
 
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Outbox__NothingToConsumeAtBlock.selector, blockNumber)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__NothingToConsumeAtBlock.selector, blockNumber));
     outbox.consume(fakeMessage, blockNumber, 1, path);
   }
 
@@ -179,16 +171,14 @@ contract OutboxTest is Test {
     bytes32 smallerTreeRoot = smallerTree.computeRoot();
 
     (bytes32[] memory path,) = smallerTree.computeSiblingPath(0);
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.MerkleLib__InvalidRoot.selector, root, smallerTreeRoot, leaf, 0)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.MerkleLib__InvalidRoot.selector, root, smallerTreeRoot, leaf, 0));
     outbox.consume(fakeMessage, 1, 0, path);
   }
 
   function testRevertIfTryingToConsumeMessageNotInTree() public {
     DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage(address(this), 123);
     bytes32 leaf = fakeMessage.sha256ToField();
-    fakeMessage.content = bytes32(uint256(42069));
+    fakeMessage.content = bytes32(uint256(42_069));
     bytes32 modifiedLeaf = fakeMessage.sha256ToField();
 
     NaiveMerkle tree = new NaiveMerkle(DEFAULT_TREE_HEIGHT);
@@ -204,11 +194,7 @@ contract OutboxTest is Test {
 
     (bytes32[] memory path,) = modifiedTree.computeSiblingPath(0);
 
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.MerkleLib__InvalidRoot.selector, root, modifiedRoot, modifiedLeaf, 0
-      )
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.MerkleLib__InvalidRoot.selector, root, modifiedRoot, modifiedLeaf, 0));
     outbox.consume(fakeMessage, 1, 0, path);
   }
 
@@ -398,9 +384,7 @@ contract OutboxTest is Test {
       }
       outbox.consume(fakeMessages[msgIndex], blockNumber, leafIndex, path);
 
-      vm.expectRevert(
-        abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, blockNumber, leafId)
-      );
+      vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, blockNumber, leafId));
       outbox.consume(fakeMessages[msgIndex], blockNumber, leafIndex, path);
     }
 
@@ -418,9 +402,7 @@ contract OutboxTest is Test {
       }
       outbox.consume(fakeMessages[msgIndex], blockNumber, leafIndex, path);
 
-      vm.expectRevert(
-        abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, blockNumber, leafId)
-      );
+      vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, blockNumber, leafId));
       outbox.consume(fakeMessages[msgIndex], blockNumber, leafIndex, path);
     }
 
@@ -432,9 +414,7 @@ contract OutboxTest is Test {
       (bytes32[] memory path,) = topTree.computeSiblingPath(1);
       outbox.consume(fakeMessages[msgIndex], blockNumber, leafIndex, path);
 
-      vm.expectRevert(
-        abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, blockNumber, leafId)
-      );
+      vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, blockNumber, leafId));
       outbox.consume(fakeMessages[msgIndex], blockNumber, leafIndex, path);
     }
   }
@@ -532,9 +512,7 @@ contract OutboxTest is Test {
       path[1] = txOutHashes[2];
       outbox.consume(fakeMessages[msgIndex], blockNumber, leafIndex, path);
 
-      vm.expectRevert(
-        abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, blockNumber, leafId)
-      );
+      vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, blockNumber, leafId));
       outbox.consume(fakeMessages[msgIndex], blockNumber, leafIndex, path);
     }
 
@@ -559,9 +537,7 @@ contract OutboxTest is Test {
       path[3] = txOutHashes[2];
       outbox.consume(fakeMessages[msgIndex], blockNumber, leafIndex, path);
 
-      vm.expectRevert(
-        abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, blockNumber, leafId)
-      );
+      vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, blockNumber, leafId));
       outbox.consume(fakeMessages[msgIndex], blockNumber, leafIndex, path);
     }
 
@@ -583,9 +559,7 @@ contract OutboxTest is Test {
       path[2] = subtreeRoot;
       outbox.consume(fakeMessages[msgIndex], blockNumber, leafIndex, path);
 
-      vm.expectRevert(
-        abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, blockNumber, leafId)
-      );
+      vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, blockNumber, leafId));
       outbox.consume(fakeMessages[msgIndex], blockNumber, leafIndex, path);
     }
 
@@ -604,9 +578,7 @@ contract OutboxTest is Test {
       path[1] = subtreeRoot;
       outbox.consume(fakeMessages[msgIndex], blockNumber, leafIndex, path);
 
-      vm.expectRevert(
-        abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, blockNumber, leafId)
-      );
+      vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, blockNumber, leafId));
       outbox.consume(fakeMessages[msgIndex], blockNumber, leafIndex, path);
     }
   }

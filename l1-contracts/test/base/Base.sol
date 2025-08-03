@@ -4,9 +4,7 @@ pragma solidity >=0.8.27;
 import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {Test} from "forge-std/Test.sol";
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
-import {
-  AttesterView, Exit, Status, AttesterConfig
-} from "@aztec/core/libraries/rollup/StakingLib.sol";
+import {AttesterView, Exit, Status, AttesterConfig} from "@aztec/core/libraries/rollup/StakingLib.sol";
 import {
   AppendOnlyTreeSnapshot,
   PartialStateReference,

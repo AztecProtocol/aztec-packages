@@ -22,11 +22,7 @@ contract ParityTest is Test {
 
     // We can't use Constants.NUM_MSGS_PER_BASE_PARITY directly when defining the array so we do the check here to
     // ensure it does not get outdated.
-    assertEq(
-      msgs.length,
-      Constants.NUM_MSGS_PER_BASE_PARITY,
-      "NUM_MSGS_PER_BASE_PARITY changed, update msgs."
-    );
+    assertEq(msgs.length, Constants.NUM_MSGS_PER_BASE_PARITY, "NUM_MSGS_PER_BASE_PARITY changed, update msgs.");
 
     uint256 treeHeight = 2; // log_2(NUM_MSGS_PER_BASE_PARITY)
     // We don't have log_2 directly accessible in solidity so I just do the following check here to ensure

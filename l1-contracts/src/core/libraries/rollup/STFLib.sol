@@ -8,10 +8,7 @@ import {
   TempBlockLog,
   CompressedTempBlockLogLib
 } from "@aztec/core/libraries/compressed-data/BlockLog.sol";
-import {
-  CompressedFeeHeader,
-  FeeHeaderLib
-} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
+import {CompressedFeeHeader, FeeHeaderLib} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
@@ -87,7 +84,8 @@ library STFLib {
     CompressedChainTips tips = rollupStore.tips;
     uint256 pending = tips.getPendingBlockNumber();
 
-    // @note  We are not deleting the blocks, but we are "winding back" the pendingTip to the last block that was proven.
+    // @note  We are not deleting the blocks, but we are "winding back" the pendingTip to the last block that was
+    // proven.
     //        We can do because any new block proposed will overwrite a previous block in the block log,
     //        so no values should "survive".
     //        People must therefore read the chain using the pendingTip as a boundary.
@@ -130,11 +128,7 @@ library STFLib {
     return getStorage().tempBlockLogs[_blockNumber % size].decompress();
   }
 
-  function getStorageTempBlockLog(uint256 _blockNumber)
-    internal
-    view
-    returns (CompressedTempBlockLog storage)
-  {
+  function getStorageTempBlockLog(uint256 _blockNumber) internal view returns (CompressedTempBlockLog storage) {
     (, uint256 size) = innerIsStale(_blockNumber, true);
     return getStorage().tempBlockLogs[_blockNumber % size];
   }
@@ -162,8 +156,7 @@ library STFLib {
   function getEffectivePendingBlockNumber(Timestamp _timestamp) internal view returns (uint256) {
     RollupStore storage rollupStore = STFLib.getStorage();
     CompressedChainTips tips = rollupStore.tips;
-    return
-      STFLib.canPruneAtTime(_timestamp) ? tips.getProvenBlockNumber() : tips.getPendingBlockNumber();
+    return STFLib.canPruneAtTime(_timestamp) ? tips.getProvenBlockNumber() : tips.getPendingBlockNumber();
   }
 
   function getEpochForBlock(uint256 _blockNumber) internal view returns (Epoch) {

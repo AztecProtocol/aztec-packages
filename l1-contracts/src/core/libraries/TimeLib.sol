@@ -12,7 +12,9 @@ struct TimeStorage {
   uint32 slotDuration; // Number of seconds in a slot
   uint32 epochDuration; // Number of slots in an epoch
   /**
-   * @notice Number of epochs after the end of a given epoch that proofs are still accepted. For example, a value of 1 means that after epoch n ends, the proofs must land *before* epoch n+1 ends. A value of 0 would mean that the proofs for epoch n must land while the epoch is ongoing.
+   * @notice Number of epochs after the end of a given epoch that proofs are still accepted. For example, a value of 1
+   * means that after epoch n ends, the proofs must land *before* epoch n+1 ends. A value of 0 would mean that the
+   * proofs for epoch n must land while the epoch is ongoing.
    */
   uint32 proofSubmissionEpochs;
 }
@@ -91,9 +93,7 @@ library TimeLib {
   function epochFromTimestamp(Timestamp _a) internal view returns (Epoch) {
     TimeStorage storage store = getStorage();
 
-    return Epoch.wrap(
-      (Timestamp.unwrap(_a) - store.genesisTime) / (store.epochDuration * store.slotDuration)
-    );
+    return Epoch.wrap((Timestamp.unwrap(_a) - store.genesisTime) / (store.epochDuration * store.slotDuration));
   }
 
   function epochFromSlot(Slot _a) internal view returns (Epoch) {

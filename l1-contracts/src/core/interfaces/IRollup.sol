@@ -6,14 +6,10 @@ import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
-import {
-  BlockLog, CompressedTempBlockLog
-} from "@aztec/core/libraries/compressed-data/BlockLog.sol";
+import {BlockLog, CompressedTempBlockLog} from "@aztec/core/libraries/compressed-data/BlockLog.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {CompressedChainTips, ChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
-import {
-  FeeHeader, L1FeeData, ManaBaseFeeComponents
-} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {FeeHeader, L1FeeData, ManaBaseFeeComponents} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {FeeAssetPerEthE9, EthValue, FeeAssetValue} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
@@ -93,9 +89,7 @@ struct RollupStore {
 }
 
 interface IRollupCore {
-  event L2BlockProposed(
-    uint256 indexed blockNumber, bytes32 indexed archive, bytes32[] versionedBlobHashes
-  );
+  event L2BlockProposed(uint256 indexed blockNumber, bytes32 indexed archive, bytes32[] versionedBlobHashes);
   event L2ProofVerified(uint256 indexed blockNumber, address indexed proverId);
   event BlockInvalidated(uint256 indexed blockNumber);
   event RewardConfigUpdated(RewardConfig rewardConfig);
@@ -107,9 +101,7 @@ interface IRollupCore {
 
   function setRewardsClaimable(bool _isRewardsClaimable) external;
   function claimSequencerRewards(address _recipient) external returns (uint256);
-  function claimProverRewards(address _recipient, Epoch[] memory _epochs)
-    external
-    returns (uint256);
+  function claimProverRewards(address _recipient, Epoch[] memory _epochs) external returns (uint256);
 
   function prune() external;
   function updateL1GasFeeOracle() external;
@@ -155,9 +147,7 @@ interface IRollup is IRollupCore, IHaveVersion {
     BlockHeaderValidationFlags memory _flags
   ) external;
 
-  function canProposeAtTime(Timestamp _ts, bytes32 _archive, address _who)
-    external
-    returns (Slot, uint256);
+  function canProposeAtTime(Timestamp _ts, bytes32 _archive, address _who) external returns (Slot, uint256);
 
   function getTips() external view returns (ChainTips memory);
 
@@ -181,10 +171,7 @@ interface IRollup is IRollupCore, IHaveVersion {
     bytes calldata _blobPublicInputs
   ) external view returns (bytes32[] memory);
 
-  function validateBlobs(bytes calldata _blobsInputs)
-    external
-    view
-    returns (bytes32[] memory, bytes32, bytes[] memory);
+  function validateBlobs(bytes calldata _blobsInputs) external view returns (bytes32[] memory, bytes32, bytes[] memory);
 
   function getManaBaseFeeComponentsAt(Timestamp _timestamp, bool _inFeeAsset)
     external
@@ -209,14 +196,8 @@ interface IRollup is IRollupCore, IHaveVersion {
   function getSharesFor(address _prover) external view returns (uint256);
   function getSequencerRewards(address _sequencer) external view returns (uint256);
   function getCollectiveProverRewardsForEpoch(Epoch _epoch) external view returns (uint256);
-  function getSpecificProverRewardsForEpoch(Epoch _epoch, address _prover)
-    external
-    view
-    returns (uint256);
-  function getHasSubmitted(Epoch _epoch, uint256 _length, address _prover)
-    external
-    view
-    returns (bool);
+  function getSpecificProverRewardsForEpoch(Epoch _epoch, address _prover) external view returns (uint256);
+  function getHasSubmitted(Epoch _epoch, uint256 _length, address _prover) external view returns (bool);
   function getHasClaimed(address _prover, Epoch _epoch) external view returns (bool);
 
   function getProofSubmissionEpochs() external view returns (uint256);

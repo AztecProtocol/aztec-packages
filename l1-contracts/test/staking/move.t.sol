@@ -30,8 +30,8 @@ contract MoveTest is StakingBase {
     StakingQueueConfig memory stakingQueueConfig = TestConstants.getStakingQueueConfig();
     stakingQueueConfig.normalFlushSizeMin = n;
 
-    RollupBuilder builder = new RollupBuilder(address(this)).setSlashingQuorum(1)
-      .setSlashingRoundSize(1).setStakingQueueConfig(stakingQueueConfig);
+    RollupBuilder builder = new RollupBuilder(address(this)).setSlashingQuorum(1).setSlashingRoundSize(1)
+      .setStakingQueueConfig(stakingQueueConfig);
     builder.deploy();
 
     registry = builder.getConfig().registry;
@@ -55,10 +55,11 @@ contract MoveTest is StakingBase {
     StakingQueueConfig memory stakingQueueConfig = TestConstants.getStakingQueueConfig();
     stakingQueueConfig.normalFlushSizeMin = n;
 
-    RollupBuilder builder = new RollupBuilder(address(this)).setGSE(gse).setTestERC20(stakingAsset)
-      .setRegistry(registry).setMakeCanonical(false).setMakeGovernance(false).setUpdateOwnerships(
-      false
-    ).setStakingQueueConfig(stakingQueueConfig).deploy();
+    RollupBuilder builder = new RollupBuilder(address(this)).setGSE(gse).setTestERC20(stakingAsset).setRegistry(
+      registry
+    ).setMakeCanonical(false).setMakeGovernance(false).setUpdateOwnerships(false).setStakingQueueConfig(
+      stakingQueueConfig
+    ).deploy();
 
     IInstance oldRollup = IInstance(address(staking));
     IInstance newRollup = IInstance(address(builder.getConfig().rollup));
@@ -78,8 +79,7 @@ contract MoveTest is StakingBase {
     oldRollup.flushEntryQueue();
 
     Epoch epoch = Epoch.wrap(5);
-    Timestamp ts =
-      newRollup.getTimestampForSlot(Slot.wrap(Epoch.unwrap(epoch) * newRollup.getEpochDuration()));
+    Timestamp ts = newRollup.getTimestampForSlot(Slot.wrap(Epoch.unwrap(epoch) * newRollup.getEpochDuration()));
 
     assertEq(gse.getAttesterCountAtTime(address(oldRollup), Timestamp.wrap(block.timestamp)), n);
     assertEq(gse.getAttesterCountAtTime(address(newRollup), Timestamp.wrap(block.timestamp)), 0);
@@ -89,9 +89,7 @@ contract MoveTest is StakingBase {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.ValidatorSelection__InsufficientCommitteeSize.selector,
-        0,
-        newRollup.getTargetCommitteeSize()
+        Errors.ValidatorSelection__InsufficientCommitteeSize.selector, 0, newRollup.getTargetCommitteeSize()
       )
     );
     newRollup.getEpochCommittee(epoch);
@@ -103,9 +101,7 @@ contract MoveTest is StakingBase {
 
     // Look at the data "right now", see that half have been moved
     assertEq(gse.getAttesterCountAtTime(address(oldRollup), Timestamp.wrap(block.timestamp)), n / 2);
-    assertEq(
-      gse.getAttesterCountAtTime(address(newRollup), Timestamp.wrap(block.timestamp)), n - n / 2
-    );
+    assertEq(gse.getAttesterCountAtTime(address(newRollup), Timestamp.wrap(block.timestamp)), n - n / 2);
 
     // When we look at the committee for that epoch, the setup "depends" on how far in the past we "lock-in"
     // the committee. So for good measure, we will first check at the epoch and then add another 100.
@@ -113,9 +109,7 @@ contract MoveTest is StakingBase {
     assertEq(oldRollup.getEpochCommittee(epoch).length, oldRollup.getTargetCommitteeSize());
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.ValidatorSelection__InsufficientCommitteeSize.selector,
-        0,
-        newRollup.getTargetCommitteeSize()
+        Errors.ValidatorSelection__InsufficientCommitteeSize.selector, 0, newRollup.getTargetCommitteeSize()
       )
     );
     newRollup.getEpochCommittee(epoch);
@@ -159,9 +153,7 @@ contract MoveTest is StakingBase {
     attesterView = newRollup.getAttesterView(attesterToExit);
     assertEq(attesterView.exit.exists, true);
     assertEq(attesterView.exit.isRecipient, true);
-    assertEq(
-      attesterView.exit.exitableAt, Timestamp.wrap(block.timestamp) + newRollup.getExitDelay()
-    );
+    assertEq(attesterView.exit.exitableAt, Timestamp.wrap(block.timestamp) + newRollup.getExitDelay());
     assertEq(attesterView.exit.recipientOrWithdrawer, RECIPIENT);
     assertTrue(attesterView.status == Status.EXITING);
 

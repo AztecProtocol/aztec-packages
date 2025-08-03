@@ -11,11 +11,7 @@ import {BlobLib} from "./BlobLib.sol";
 import {EpochProofLib} from "./EpochProofLib.sol";
 import {SignatureLib} from "@aztec/shared/libraries/SignatureLib.sol";
 import {
-  ProposeLib,
-  ProposeArgs,
-  CommitteeAttestations,
-  ValidateHeaderArgs,
-  ValidatorSelectionLib
+  ProposeLib, ProposeArgs, CommitteeAttestations, ValidateHeaderArgs, ValidatorSelectionLib
 } from "./ProposeLib.sol";
 
 // We are using this library such that we can more easily "link" just a larger external library
@@ -73,11 +69,7 @@ library ExtRollupLib {
   function validateBlobs(bytes calldata _blobsInput, bool _checkBlob)
     external
     view
-    returns (
-      bytes32[] memory blobHashes,
-      bytes32 blobsHashesCommitment,
-      bytes[] memory blobCommitments
-    )
+    returns (bytes32[] memory blobHashes, bytes32 blobsHashesCommitment, bytes[] memory blobCommitments)
   {
     return BlobLib.validateBlobs(_blobsInput, _checkBlob);
   }

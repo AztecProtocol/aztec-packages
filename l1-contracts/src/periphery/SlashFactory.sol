@@ -14,11 +14,11 @@ contract SlashFactory is ISlashFactory {
     VALIDATOR_SELECTION = _validatorSelection;
   }
 
-  function createSlashPayload(
-    address[] memory _validators,
-    uint96[] memory _amounts,
-    uint256[] memory _offenses
-  ) external override(ISlashFactory) returns (IPayload) {
+  function createSlashPayload(address[] memory _validators, uint96[] memory _amounts, uint256[] memory _offenses)
+    external
+    override(ISlashFactory)
+    returns (IPayload)
+  {
     require(
       _validators.length == _amounts.length,
       ISlashFactory.SlashPayloadAmountsLengthMismatch(_validators.length, _amounts.length)
@@ -28,8 +28,7 @@ contract SlashFactory is ISlashFactory {
       ISlashFactory.SlashPayloadOffensesLengthMismatch(_validators.length, _offenses.length)
     );
 
-    (address predictedAddress, bytes32 salt, bool isDeployed) =
-      getAddressAndIsDeployed(_validators, _amounts);
+    (address predictedAddress, bytes32 salt, bool isDeployed) = getAddressAndIsDeployed(_validators, _amounts);
 
     if (isDeployed) {
       return IPayload(predictedAddress);
@@ -61,16 +60,10 @@ contract SlashFactory is ISlashFactory {
     bytes32 salt = keccak256(abi.encodePacked(_validators, _amounts));
 
     bytes memory constructorArgs = abi.encode(_validators, _amounts, VALIDATOR_SELECTION);
-    bytes32 creationCodeHash =
-      keccak256(abi.encodePacked(type(SlashPayload).creationCode, constructorArgs));
+    bytes32 creationCodeHash = keccak256(abi.encodePacked(type(SlashPayload).creationCode, constructorArgs));
 
     return (
-      address(
-        uint160(
-          uint256(keccak256(abi.encodePacked(bytes1(0xff), address(this), salt, creationCodeHash)))
-        )
-      ),
-      salt
+      address(uint160(uint256(keccak256(abi.encodePacked(bytes1(0xff), address(this), salt, creationCodeHash))))), salt
     );
   }
 }

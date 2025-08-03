@@ -33,9 +33,7 @@ contract UpgradeTest is RegistryBase {
     registry.addRollup(IRollup(address(new FakeRollup())));
     address rollup = address(registry.getCanonicalRollup());
 
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Registry__RollupAlreadyRegistered.selector, rollup)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.Registry__RollupAlreadyRegistered.selector, rollup));
     registry.addRollup(IRollup(rollup));
   }
 

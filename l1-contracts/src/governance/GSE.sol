@@ -5,13 +5,9 @@ pragma solidity >=0.8.27;
 import {Governance} from "@aztec/governance/Governance.sol";
 import {Proposal} from "@aztec/governance/interfaces/IGovernance.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
+import {AddressSnapshotLib, SnapshottedAddressSet} from "@aztec/governance/libraries/AddressSnapshotLib.sol";
 import {
-  AddressSnapshotLib,
-  SnapshottedAddressSet
-} from "@aztec/governance/libraries/AddressSnapshotLib.sol";
-import {
-  DepositDelegationLib,
-  DepositAndDelegationAccounting
+  DepositDelegationLib, DepositAndDelegationAccounting
 } from "@aztec/governance/libraries/DepositDelegationLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
@@ -59,37 +55,21 @@ interface IGSECore {
 interface IGSE is IGSECore {
   function getDelegatee(address _instance, address _attester) external view returns (address);
   function getVotingPower(address _attester) external view returns (uint256);
-  function getVotingPowerAt(address _attester, Timestamp _timestamp)
-    external
-    view
-    returns (uint256);
+  function getVotingPowerAt(address _attester, Timestamp _timestamp) external view returns (uint256);
 
-  function getWithdrawer(address _instance, address _attester)
-    external
-    view
-    returns (address, bool, address);
+  function getWithdrawer(address _instance, address _attester) external view returns (address, bool, address);
   function balanceOf(address _instance, address _attester) external view returns (uint256);
   function effectiveBalanceOf(address _instance, address _attester) external view returns (uint256);
   function supplyOf(address _instance) external view returns (uint256);
   function totalSupply() external view returns (uint256);
-  function getConfig(address _instance, address _attester)
-    external
-    view
-    returns (AttesterConfig memory);
-  function getAttesterCountAtTime(address _instance, Timestamp _timestamp)
-    external
-    view
-    returns (uint256);
+  function getConfig(address _instance, address _attester) external view returns (AttesterConfig memory);
+  function getAttesterCountAtTime(address _instance, Timestamp _timestamp) external view returns (uint256);
 
-  function getAttestersFromIndicesAtTime(
-    address _instance,
-    Timestamp _timestamp,
-    uint256[] memory _indices
-  ) external view returns (address[] memory);
-  function getAttestersAtTime(address _instance, Timestamp _timestamp)
+  function getAttestersFromIndicesAtTime(address _instance, Timestamp _timestamp, uint256[] memory _indices)
     external
     view
     returns (address[] memory);
+  function getAttestersAtTime(address _instance, Timestamp _timestamp) external view returns (address[] memory);
   function getAttesterFromIndexAtTime(address _instance, uint256 _index, Timestamp _timestamp)
     external
     view
@@ -180,8 +160,7 @@ contract GSECore is IGSECore, Ownable {
    * NB: in a large way, the BONUS_INSTANCE_ADDRESS is the entire point of the GSE,
    * otherwise the rollups would've managed their own attesters/delegation/etc.
    */
-  address public constant BONUS_INSTANCE_ADDRESS =
-    address(uint160(uint256(keccak256("bonus-instance"))));
+  address public constant BONUS_INSTANCE_ADDRESS = address(uint160(uint256(keccak256("bonus-instance"))));
 
   // The amount of ASSET needed to add an attester to the set
   uint256 public immutable ACTIVATION_THRESHOLD;
@@ -190,7 +169,8 @@ contract GSECore is IGSECore, Ownable {
   // the attester will be ejected from the set.
   uint256 public immutable EJECTION_THRESHOLD;
 
-  // The asset used for sybil resistance and power in governance. Must match the ASSET in `Governance` to work as intended.
+  // The asset used for sybil resistance and power in governance. Must match the ASSET in `Governance` to work as
+  // intended.
   IERC20 public immutable ASSET;
 
   // The GSE's history of rollups.
@@ -231,12 +211,9 @@ contract GSECore is IGSECore, Ownable {
    * @param _ejectionThreshold - The minimum amount of asset required to be in the set to be considered an attester.
    *                        If the balance falls below this threshold, the attester is ejected from the set.
    */
-  constructor(
-    address __owner,
-    IERC20 _asset,
-    uint256 _activationThreshold,
-    uint256 _ejectionThreshold
-  ) Ownable(__owner) {
+  constructor(address __owner, IERC20 _asset, uint256 _activationThreshold, uint256 _ejectionThreshold)
+    Ownable(__owner)
+  {
     ASSET = _asset;
     ACTIVATION_THRESHOLD = _activationThreshold;
     EJECTION_THRESHOLD = _ejectionThreshold;
@@ -305,14 +282,10 @@ contract GSECore is IGSECore, Ownable {
     bool isMsgSenderLatestRollup = getLatestRollup() == msg.sender;
 
     // If _moveWithLatestRollup is true, then msg.sender must be the latest rollup.
-    require(
-      !_moveWithLatestRollup || isMsgSenderLatestRollup, Errors.GSE__NotLatestRollup(msg.sender)
-    );
+    require(!_moveWithLatestRollup || isMsgSenderLatestRollup, Errors.GSE__NotLatestRollup(msg.sender));
 
     // Ensure that we are not already attesting on the rollup
-    require(
-      !isRegistered(msg.sender, _attester), Errors.GSE__AlreadyRegistered(msg.sender, _attester)
-    );
+    require(!isRegistered(msg.sender, _attester), Errors.GSE__AlreadyRegistered(msg.sender, _attester));
 
     // Ensure that if we are the latest rollup, we are not already attesting on the bonus instance.
     require(
@@ -330,8 +303,7 @@ contract GSECore is IGSECore, Ownable {
 
     // Add the attester to the instance's checkpointed set of attesters.
     require(
-      instances[recipientInstance].attesters.add(_attester),
-      Errors.GSE__AlreadyRegistered(recipientInstance, _attester)
+      instances[recipientInstance].attesters.add(_attester), Errors.GSE__AlreadyRegistered(recipientInstance, _attester)
     );
 
     instances[recipientInstance].configOf[_attester] = AttesterConfig({withdrawer: _withdrawer});
@@ -379,7 +351,8 @@ contract GSECore is IGSECore, Ownable {
     InstanceAttesterRegistry storage attesterRegistry = instances[msg.sender];
     bool foundAttester = attesterRegistry.attesters.contains(_attester);
 
-    // If we haven't found the attester in the rollup instance, and we are latest rollup, go look in the "bonus" instance.
+    // If we haven't found the attester in the rollup instance, and we are latest rollup, go look in the "bonus"
+    // instance.
     if (
       !foundAttester && getLatestRollup() == msg.sender
         && instances[BONUS_INSTANCE_ADDRESS].attesters.contains(_attester)
@@ -463,11 +436,7 @@ contract GSECore is IGSECore, Ownable {
    *
    * @return The id of the proposal
    */
-  function proposeWithLock(IPayload _payload, address _to)
-    external
-    override(IGSECore)
-    returns (uint256)
-  {
+  function proposeWithLock(IPayload _payload, address _to) external override(IGSECore) returns (uint256) {
     Governance gov = getGovernance();
     uint256 amount = gov.getConfiguration().proposeConfig.lockAmount;
 
@@ -499,10 +468,7 @@ contract GSECore is IGSECore, Ownable {
    * @param _attester   - The address of the attester to delegate on behalf of
    * @param _delegatee  - The delegatee that should receive the power
    */
-  function delegate(address _instance, address _attester, address _delegatee)
-    external
-    override(IGSECore)
-  {
+  function delegate(address _instance, address _attester, address _delegatee) external override(IGSECore) {
     require(isRollupRegistered(_instance), Errors.GSE__InstanceDoesNotExist(_instance));
     address withdrawer = instances[_instance].configOf[_attester].withdrawer;
     require(msg.sender == withdrawer, Errors.GSE__NotWithdrawer(withdrawer, msg.sender));
@@ -529,10 +495,7 @@ contract GSECore is IGSECore, Ownable {
    * @param _amount     - The amount of voting power to use in the vote
    *                      In the gov, it is possible to do a vote with partial power
    */
-  function voteWithBonus(uint256 _proposalId, uint256 _amount, bool _support)
-    external
-    override(IGSECore)
-  {
+  function voteWithBonus(uint256 _proposalId, uint256 _amount, bool _support) external override(IGSECore) {
     Timestamp ts = _pendingThrough(_proposalId);
     require(msg.sender == getLatestRollupAt(ts), Errors.GSE__NotLatestRollup(msg.sender));
     _vote(BONUS_INSTANCE_ADDRESS, _proposalId, _amount, _support);
@@ -550,12 +513,7 @@ contract GSECore is IGSECore, Ownable {
    *
    * @return  True if the `_attester` is in the set of `_instance`, false otherwise
    */
-  function isRegistered(address _instance, address _attester)
-    public
-    view
-    override(IGSECore)
-    returns (bool)
-  {
+  function isRegistered(address _instance, address _attester) public view override(IGSECore) returns (bool) {
     return instances[_instance].attesters.contains(_attester);
   }
 
@@ -614,19 +572,11 @@ contract GSE is IGSE, GSECore {
   using Checkpoints for Checkpoints.Trace224;
   using DepositDelegationLib for DepositAndDelegationAccounting;
 
-  constructor(
-    address __owner,
-    IERC20 _asset,
-    uint256 _activationThreshold,
-    uint256 _ejectionThreshold
-  ) GSECore(__owner, _asset, _activationThreshold, _ejectionThreshold) {}
+  constructor(address __owner, IERC20 _asset, uint256 _activationThreshold, uint256 _ejectionThreshold)
+    GSECore(__owner, _asset, _activationThreshold, _ejectionThreshold)
+  {}
 
-  function getConfig(address _instance, address _attester)
-    external
-    view
-    override(IGSE)
-    returns (AttesterConfig memory)
-  {
+  function getConfig(address _instance, address _attester) external view override(IGSE) returns (AttesterConfig memory) {
     (InstanceAttesterRegistry storage attesterRegistry, bool attesterExists,) =
       _getInstanceStoreWithAttester(_instance, _attester);
 
@@ -644,8 +594,7 @@ contract GSE is IGSE, GSECore {
     returns (address withdrawer, bool attesterExists, address instanceAddress)
   {
     InstanceAttesterRegistry storage attesterRegistry;
-    (attesterRegistry, attesterExists, instanceAddress) =
-      _getInstanceStoreWithAttester(_instance, _attester);
+    (attesterRegistry, attesterExists, instanceAddress) = _getInstanceStoreWithAttester(_instance, _attester);
 
     if (!attesterExists) {
       return (address(0), false, address(0));
@@ -654,12 +603,7 @@ contract GSE is IGSE, GSECore {
     return (attesterRegistry.configOf[_attester].withdrawer, true, instanceAddress);
   }
 
-  function balanceOf(address _instance, address _attester)
-    external
-    view
-    override(IGSE)
-    returns (uint256)
-  {
+  function balanceOf(address _instance, address _attester) external view override(IGSE) returns (uint256) {
     return delegation.getBalanceOf(_instance, _attester);
   }
 
@@ -674,12 +618,7 @@ contract GSE is IGSE, GSECore {
    *
    * @return The effective balance of the attester at the instance
    */
-  function effectiveBalanceOf(address _instance, address _attester)
-    external
-    view
-    override(IGSE)
-    returns (uint256)
-  {
+  function effectiveBalanceOf(address _instance, address _attester) external view override(IGSE) returns (uint256) {
     uint256 balance = delegation.getBalanceOf(_instance, _attester);
     if (getLatestRollup() == _instance) {
       balance += delegation.getBalanceOf(BONUS_INSTANCE_ADDRESS, _attester);
@@ -695,12 +634,7 @@ contract GSE is IGSE, GSECore {
     return delegation.getSupply();
   }
 
-  function getDelegatee(address _instance, address _attester)
-    external
-    view
-    override(IGSE)
-    returns (address)
-  {
+  function getDelegatee(address _instance, address _attester) external view override(IGSE) returns (address) {
     return delegation.getDelegatee(_instance, _attester);
   }
 
@@ -731,11 +665,12 @@ contract GSE is IGSE, GSECore {
     return _getAddressFromIndicesAtTimestamp(_instance, indices, _timestamp);
   }
 
-  function getAttestersFromIndicesAtTime(
-    address _instance,
-    Timestamp _timestamp,
-    uint256[] memory _indices
-  ) external view override(IGSE) returns (address[] memory) {
+  function getAttestersFromIndicesAtTime(address _instance, Timestamp _timestamp, uint256[] memory _indices)
+    external
+    view
+    override(IGSE)
+    returns (address[] memory)
+  {
     return _getAddressFromIndicesAtTimestamp(_instance, _indices, _timestamp);
   }
 
@@ -750,12 +685,7 @@ contract GSE is IGSE, GSECore {
     return _getAddressFromIndicesAtTimestamp(_instance, indices, _timestamp)[0];
   }
 
-  function getPowerUsed(address _delegatee, uint256 _proposalId)
-    external
-    view
-    override(IGSE)
-    returns (uint256)
-  {
+  function getPowerUsed(address _delegatee, uint256 _proposalId) external view override(IGSE) returns (uint256) {
     return delegation.getPowerUsed(_delegatee, _proposalId);
   }
 
@@ -763,12 +693,7 @@ contract GSE is IGSE, GSECore {
     return BONUS_INSTANCE_ADDRESS;
   }
 
-  function getVotingPowerAt(address _delegatee, Timestamp _timestamp)
-    public
-    view
-    override(IGSE)
-    returns (uint256)
-  {
+  function getVotingPowerAt(address _delegatee, Timestamp _timestamp) public view override(IGSE) returns (uint256) {
     return delegation.getVotingPowerAt(_delegatee, _timestamp);
   }
 
@@ -781,12 +706,7 @@ contract GSE is IGSE, GSECore {
    *
    * @return The number of effective attesters at the instance at the time of `_timestamp`
    */
-  function getAttesterCountAtTime(address _instance, Timestamp _timestamp)
-    public
-    view
-    override(IGSE)
-    returns (uint256)
-  {
+  function getAttesterCountAtTime(address _instance, Timestamp _timestamp) public view override(IGSE) returns (uint256) {
     InstanceAttesterRegistry storage store = instances[_instance];
     uint32 timestamp = Timestamp.unwrap(_timestamp).toUint32();
 
@@ -809,11 +729,11 @@ contract GSE is IGSE, GSECore {
    *
    * @return The addresses of the attesters at the instance at the time of `_timestamp`
    */
-  function _getAddressFromIndicesAtTimestamp(
-    address _instance,
-    uint256[] memory _indices,
-    Timestamp _timestamp
-  ) internal view returns (address[] memory) {
+  function _getAddressFromIndicesAtTimestamp(address _instance, uint256[] memory _indices, Timestamp _timestamp)
+    internal
+    view
+    returns (address[] memory)
+  {
     address[] memory attesters = new address[](_indices.length);
 
     // Note: This function could get called where _instance is the bonus instance.
@@ -831,7 +751,8 @@ contract GSE is IGSE, GSECore {
 
     // When this is called from `getAttestersAtTime`, _indices.length is one more than the effective attester count.
     // And the returned array will be:
-    // [rollup attester 1, rollup attester 2, ..., rollup attester N, bonus attester 1, bonus attester 2, ..., bonus attester M]
+    // [rollup attester 1, rollup attester 2, ..., rollup attester N, bonus attester 1, bonus attester 2, ..., bonus
+    // attester M]
     for (uint256 i = 0; i < _indices.length; i++) {
       uint256 index = _indices[i];
       require(index < totalSize, Errors.GSE__OutOfBounds(index, totalSize));
@@ -839,8 +760,7 @@ contract GSE is IGSE, GSECore {
       if (index < storeSize) {
         attesters[i] = instanceStore.attesters.unsafeGetRecentAddressFromIndexAtTimestamp(index, ts);
       } else if (isLatestRollup) {
-        attesters[i] =
-          bonusStore.attesters.unsafeGetRecentAddressFromIndexAtTimestamp(index - storeSize, ts);
+        attesters[i] = bonusStore.attesters.unsafeGetRecentAddressFromIndexAtTimestamp(index - storeSize, ts);
       } else {
         revert Errors.GSE__FatalError("SHOULD NEVER HAPPEN");
       }

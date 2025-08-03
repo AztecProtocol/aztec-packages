@@ -24,10 +24,7 @@ contract RewardDistributor is IRewardDistributor {
   }
 
   function claim(address _to, uint256 _amount) external override(IRewardDistributor) {
-    require(
-      msg.sender == canonicalRollup(),
-      Errors.RewardDistributor__InvalidCaller(msg.sender, canonicalRollup())
-    );
+    require(msg.sender == canonicalRollup(), Errors.RewardDistributor__InvalidCaller(msg.sender, canonicalRollup()));
     ASSET.safeTransfer(_to, _amount);
   }
 
