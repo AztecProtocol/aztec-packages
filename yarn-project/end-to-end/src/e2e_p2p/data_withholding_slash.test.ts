@@ -94,7 +94,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
       await debugRollup();
     }
 
-    const slashingAmount = (await rollup.getDepositAmount()) - (await rollup.getMinimumStake()) + 1n;
+    const slashingAmount = (await rollup.getActivationThreshold()) - (await rollup.getEjectionThreshold()) + 1n;
     t.ctx.aztecNodeConfig.slashPruneEnabled = true;
     t.ctx.aztecNodeConfig.slashPrunePenalty = slashingAmount;
     t.ctx.aztecNodeConfig.slashPruneMaxPenalty = slashingAmount;

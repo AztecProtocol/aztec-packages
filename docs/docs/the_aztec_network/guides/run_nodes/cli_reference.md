@@ -381,10 +381,10 @@ If two subsystems can contain the same configuration option, only one needs to b
     --archiver.aztecProofSubmissionEpochs <value>                  (default: 1)                                                  ($AZTEC_PROOF_SUBMISSION_EPOCHS)
           The number of epochs after an epoch ends that proofs are still accepted.
 
-    --archiver.depositAmount <value>                               (default: 100000000000000000000)                              ($AZTEC_DEPOSIT_AMOUNT)
+    --archiver.activationThreshold <value>                               (default: 100000000000000000000)                              ($AZTEC_ACTIVATION_THRESHOLD)
           The deposit amount for a validator
 
-    --archiver.minimumStake <value>                                (default: 50000000000000000000)                               ($AZTEC_MINIMUM_STAKE)
+    --archiver.ejectionThreshold <value>                                (default: 50000000000000000000)                               ($AZTEC_EJECTION_THRESHOLD)
           The minimum stake for a validator.
 
     --archiver.slashingQuorum <value>                              (default: 101)                                                ($AZTEC_SLASHING_QUORUM)

@@ -150,7 +150,7 @@ library StakingLib {
 
     delete store.exits[_attester];
 
-    store.gse.finaliseHelper(exit.withdrawalId);
+    store.gse.finaliseWithdraw(exit.withdrawalId);
     store.stakingAsset.transfer(exit.recipientOrWithdrawer, exit.amount);
 
     emit IStakingCore.WithdrawFinalised(_attester, exit.recipientOrWithdrawer, exit.amount);
@@ -225,7 +225,7 @@ library StakingLib {
     StakingStorage storage store = getStorage();
     // We don't allow deposits, if we are currently exiting.
     require(!store.exits[_attester].exists, Errors.Staking__AlreadyExiting(_attester));
-    uint256 amount = store.gse.DEPOSIT_AMOUNT();
+    uint256 amount = store.gse.ACTIVATION_THRESHOLD();
 
     store.stakingAsset.transferFrom(msg.sender, address(this), amount);
     store.entryQueue.enqueue(_attester, _withdrawer, _moveWithLatestRollup);
@@ -243,7 +243,7 @@ library StakingLib {
       store.nextFlushableEpoch <= currentEpoch, Errors.Staking__QueueAlreadyFlushed(currentEpoch)
     );
     store.nextFlushableEpoch = currentEpoch + Epoch.wrap(1);
-    uint256 amount = store.gse.DEPOSIT_AMOUNT();
+    uint256 amount = store.gse.ACTIVATION_THRESHOLD();
 
     uint256 queueLength = store.entryQueue.length();
     uint256 numToDequeue = Math.min(_maxAddableValidators, queueLength);

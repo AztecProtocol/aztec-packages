@@ -23,8 +23,8 @@ contract Test15050 is StakingBase {
 
   function test_15050() external {
     vm.prank(stakingAsset.owner());
-    stakingAsset.mint(address(this), DEPOSIT_AMOUNT);
-    stakingAsset.approve(address(staking), DEPOSIT_AMOUNT);
+    stakingAsset.mint(address(this), ACTIVATION_THRESHOLD);
+    stakingAsset.approve(address(staking), ACTIVATION_THRESHOLD);
 
     staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _moveWithLatestRollup: true});
     staking.flushEntryQueue();
@@ -32,11 +32,11 @@ contract Test15050 is StakingBase {
     address[] memory validators = new address[](1);
     validators[0] = ATTESTER;
     uint96[] memory amounts = new uint96[](1);
-    amounts[0] = uint96(DEPOSIT_AMOUNT);
+    amounts[0] = uint96(ACTIVATION_THRESHOLD);
 
     AttesterView memory attesterView = staking.getAttesterView(ATTESTER);
     assertTrue(attesterView.status == Status.VALIDATING);
-    assertEq(attesterView.effectiveBalance, DEPOSIT_AMOUNT);
+    assertEq(attesterView.effectiveBalance, ACTIVATION_THRESHOLD);
     assertEq(attesterView.exit.amount, 0);
     assertEq(attesterView.exit.exitableAt, 0);
     assertEq(attesterView.exit.isRecipient, false);
@@ -83,7 +83,7 @@ contract Test15050 is StakingBase {
 
     attesterView = staking.getAttesterView(ATTESTER);
     assertTrue(attesterView.status == Status.VALIDATING);
-    assertEq(attesterView.effectiveBalance, DEPOSIT_AMOUNT);
+    assertEq(attesterView.effectiveBalance, ACTIVATION_THRESHOLD);
     assertEq(attesterView.exit.amount, 0);
     assertEq(attesterView.exit.exitableAt, 0);
     assertEq(attesterView.exit.isRecipient, false);

@@ -8,8 +8,8 @@ contract GettersTest is StakingBase {
     super.setUp();
 
     vm.prank(stakingAsset.owner());
-    stakingAsset.mint(address(this), DEPOSIT_AMOUNT);
-    stakingAsset.approve(address(staking), DEPOSIT_AMOUNT);
+    stakingAsset.mint(address(this), ACTIVATION_THRESHOLD);
+    stakingAsset.approve(address(staking), ACTIVATION_THRESHOLD);
     staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _moveWithLatestRollup: true});
     staking.flushEntryQueue();
   }

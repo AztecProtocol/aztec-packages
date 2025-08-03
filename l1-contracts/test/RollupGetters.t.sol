@@ -89,10 +89,10 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
 
     timeCheater.cheat__jumpForwardEpochs(2);
 
-    uint256 depositAmount = rollup.getGSE().DEPOSIT_AMOUNT();
+    uint256 activationThreshold = rollup.getGSE().ACTIVATION_THRESHOLD();
 
     vm.prank(testERC20.owner());
-    testERC20.mint(address(this), 10e3 * depositAmount);
+    testERC20.mint(address(this), 10e3 * activationThreshold);
     testERC20.approve(address(rollup), type(uint256).max);
 
     uint256 offset = 0;
@@ -149,10 +149,10 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
     // altering the size checkpoints do not heavily impact the gas costs.
     timeCheater.cheat__jumpForwardEpochs(2);
 
-    uint256 depositAmount = rollup.getGSE().DEPOSIT_AMOUNT();
+    uint256 activationThreshold = rollup.getGSE().ACTIVATION_THRESHOLD();
 
     vm.prank(testERC20.owner());
-    testERC20.mint(address(this), 10e3 * depositAmount);
+    testERC20.mint(address(this), 10e3 * activationThreshold);
     testERC20.approve(address(rollup), type(uint256).max);
 
     // Add a bunch of attesters to

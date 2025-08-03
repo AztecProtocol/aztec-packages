@@ -30,7 +30,10 @@ library Errors {
   error Governance__ProposalCannotBeDropped();
   error Governance__DepositNotAllowed();
 
-  error Governance__UserLib__NotInPast();
+  error Governance__CheckpointedUintLib__InsufficientValue(
+    address owner, uint256 have, uint256 required
+  );
+  error Governance__CheckpointedUintLib__NotInPast();
 
   error Governance__ConfigurationLib__InvalidMinimumVotes();
   error Governance__ConfigurationLib__LockAmountTooSmall();
@@ -78,7 +81,7 @@ library Errors {
   error GSE__NotLatestRollup(address);
   error GSE__AlreadyRegistered(address, address);
   error GSE__NothingToExit(address);
-  error GSE__InsufficientStake(uint256, uint256);
+  error GSE__InsufficientBalance(uint256, uint256);
   error GSE__FailedToRemove(address);
   error GSE__InstanceDoesNotExist(address);
   error GSE__NotWithdrawer(address, address);

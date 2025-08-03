@@ -18,7 +18,7 @@ contract ProposeWithLockTest is GovernanceBase {
     Configuration memory config = governance.getConfiguration();
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.Governance__InsufficientPower.selector,
+        Errors.Governance__CheckpointedUintLib__InsufficientValue.selector,
         address(this),
         0,
         config.proposeConfig.lockAmount
