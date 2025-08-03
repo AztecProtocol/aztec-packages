@@ -3,12 +3,7 @@
 
 pragma solidity >=0.8.27;
 
-import {
-  RollupConfigInput,
-  GenesisState,
-  EthValue,
-  RewardConfig
-} from "@aztec/core/interfaces/IRollup.sol";
+import {RollupConfigInput, GenesisState, EthValue, RewardConfig} from "@aztec/core/interfaces/IRollup.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Bps} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
@@ -28,7 +23,7 @@ library TestConstants {
   uint256 internal constant AZTEC_SLASHING_LIFETIME_IN_ROUNDS = 5;
   uint256 internal constant AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS = 0;
   address internal constant AZTEC_SLASHING_VETOER = address(0);
-  uint256 internal constant AZTEC_MANA_TARGET = 100000000;
+  uint256 internal constant AZTEC_MANA_TARGET = 100_000_000;
   uint256 internal constant AZTEC_ENTRY_QUEUE_FLUSH_SIZE_MIN = 4;
   uint256 internal constant AZTEC_ENTRY_QUEUE_FLUSH_SIZE_QUOTIENT = 2;
   uint256 internal constant AZTEC_ENTRY_QUEUE_BOOTSTRAP_VALIDATOR_SET_SIZE = 0;
@@ -46,10 +41,7 @@ library TestConstants {
 
   function getGovernanceConfiguration() internal pure returns (Configuration memory) {
     return Configuration({
-      proposeConfig: ProposeConfiguration({
-        lockDelay: Timestamp.wrap(60 * 60 * 24 * 30),
-        lockAmount: 1e24
-      }),
+      proposeConfig: ProposeConfiguration({lockDelay: Timestamp.wrap(60 * 60 * 24 * 30), lockAmount: 1e24}),
       votingDelay: Timestamp.wrap(60),
       votingDuration: Timestamp.wrap(60 * 60),
       executionDelay: Timestamp.wrap(60),
@@ -69,13 +61,7 @@ library TestConstants {
   }
 
   function getRewardBoostConfig() internal pure returns (RewardBoostConfig memory) {
-    return RewardBoostConfig({
-      increment: 200000,
-      maxScore: 5000000,
-      a: 5000,
-      k: 1000000,
-      minimum: 100000
-    });
+    return RewardBoostConfig({increment: 200_000, maxScore: 5_000_000, a: 5000, k: 1_000_000, minimum: 100_000});
   }
 
   function getRewardConfig() internal pure returns (RewardConfig memory) {

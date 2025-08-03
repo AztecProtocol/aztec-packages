@@ -111,9 +111,7 @@ contract WithdrawTest is WithGSE {
     amount = bound(_amount, balance + 1, type(uint256).max);
 
     vm.prank(_instance);
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.GSE__InsufficientBalance.selector, balance, amount)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.GSE__InsufficientBalance.selector, balance, amount));
     gse.withdraw(_attester, amount);
   }
 
@@ -123,11 +121,7 @@ contract WithdrawTest is WithGSE {
     _;
   }
 
-  function test_GivenBalanceMinusAmountLessThanejectionThreshold(
-    address _instance,
-    address _attester,
-    uint256 _amount
-  )
+  function test_GivenBalanceMinusAmountLessThanejectionThreshold(address _instance, address _attester, uint256 _amount)
     external
     whenCallerIsRegisteredRollup(_instance)
     givenAttesterNotFoundInCallerInstance(_instance, _attester)
@@ -154,8 +148,7 @@ contract WithdrawTest is WithGSE {
     // He will be removed entirely
     {
       vm.prank(_instance);
-      (uint256 amountWithdrawn, bool isRemoved, uint256 withdrawalId) =
-        gse.withdraw(_attester, amount);
+      (uint256 amountWithdrawn, bool isRemoved, uint256 withdrawalId) = gse.withdraw(_attester, amount);
       assertEq(amountWithdrawn, balance);
       assertEq(isRemoved, true);
       assertEq(withdrawalId, 0);
@@ -203,8 +196,7 @@ contract WithdrawTest is WithGSE {
     // He will not be removed
     {
       vm.prank(_instance);
-      (uint256 amountWithdrawn, bool isRemoved, uint256 withdrawalId) =
-        gse.withdraw(_attester, amount);
+      (uint256 amountWithdrawn, bool isRemoved, uint256 withdrawalId) = gse.withdraw(_attester, amount);
       assertEq(amountWithdrawn, amount);
       assertEq(isRemoved, false);
       assertEq(withdrawalId, 0);
@@ -244,28 +236,18 @@ contract WithdrawTest is WithGSE {
     amount = bound(_amount, balance + 1, type(uint256).max);
 
     vm.prank(_instance);
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.GSE__InsufficientBalance.selector, balance, amount)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.GSE__InsufficientBalance.selector, balance, amount));
     gse.withdraw(_attester, amount);
   }
 
-  modifier givenBalanceGreaterOrEqualToAmount2(
-    address _instance,
-    address _attester,
-    uint256 _amount
-  ) {
+  modifier givenBalanceGreaterOrEqualToAmount2(address _instance, address _attester, uint256 _amount) {
     uint256 balance = gse.balanceOf(_instance, _attester);
     amount = bound(_amount, 0, balance);
 
     _;
   }
 
-  function test_GivenBalanceMinusAmountLessThanejectionThreshold2(
-    address _instance,
-    address _attester,
-    uint256 _amount
-  )
+  function test_GivenBalanceMinusAmountLessThanejectionThreshold2(address _instance, address _attester, uint256 _amount)
     external
     whenCallerIsRegisteredRollup(_instance)
     givenAttesterFoundInCallerInstance(_instance, _attester)
@@ -291,8 +273,7 @@ contract WithdrawTest is WithGSE {
     // He will be removed entirely
     {
       vm.prank(_instance);
-      (uint256 amountWithdrawn, bool isRemoved, uint256 withdrawalId) =
-        gse.withdraw(_attester, amount);
+      (uint256 amountWithdrawn, bool isRemoved, uint256 withdrawalId) = gse.withdraw(_attester, amount);
       assertEq(amountWithdrawn, balance);
       assertEq(isRemoved, true);
       assertEq(withdrawalId, 0);
@@ -338,8 +319,7 @@ contract WithdrawTest is WithGSE {
     // He will not be removed
     {
       vm.prank(_instance);
-      (uint256 amountWithdrawn, bool isRemoved, uint256 withdrawalId) =
-        gse.withdraw(_attester, amount);
+      (uint256 amountWithdrawn, bool isRemoved, uint256 withdrawalId) = gse.withdraw(_attester, amount);
       assertEq(amountWithdrawn, amount);
       assertEq(isRemoved, false);
       assertEq(withdrawalId, 0);
