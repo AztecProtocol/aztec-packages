@@ -54,14 +54,13 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     auto proving_key = std::make_shared<DeciderProvingKey_<UltraRollupFlavor>>(*builder);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1201): Precompute tube vk and pass it in.
     info("WARNING: computing tube vk in prove_tube, but a precomputed vk should be passed in.");
-    auto tube_verification_key =
-        std::make_shared<typename UltraRollupFlavor::VerificationKey>(proving_key->get_precomputed());
+    auto tube_verification_key = std::make_shared<UltraRollupFlavor::VerificationKey>(proving_key->get_precomputed());
 
     Prover tube_prover{ proving_key, tube_verification_key };
     auto tube_proof = tube_prover.construct_proof();
     std::string tubePublicInputsPath = output_path + "/public_inputs";
     std::string tubeProofPath = output_path + "/proof";
-    PublicInputsAndProof public_inputs_and_proof{
+    PublicInputsAndProof<HonkProof> public_inputs_and_proof{
         PublicInputsVector(tube_proof.begin(),
                            tube_proof.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs)),
         HonkProof(tube_proof.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs), tube_proof.end())

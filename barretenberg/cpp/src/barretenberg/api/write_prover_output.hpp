@@ -24,12 +24,20 @@ inline std::string field_elements_to_json(const std::vector<bb::fr>& fields)
     return ss.str();
 }
 
-template <typename VK> struct PubInputsProofAndKey {
+template <typename Flavor> struct PubInputsProofAndKey {
     PublicInputsVector public_inputs;
-    HonkProof proof;
-    std::shared_ptr<VK> key;
+    typename Flavor::Transcript::Proof proof;
+    std::shared_ptr<typename Flavor::VerificationKey> key;
     fr vk_hash;
 };
+
+template <typename T> std::string to_json(const std::vector<T>& data)
+{
+    if (data.empty()) {
+        return std::string("[]");
+    }
+    return format("[", join(transform::map(data, [](const T& el) { return format("\"", el, "\""); })), "]");
+}
 
 template <typename ProverOutput>
 void write(const ProverOutput& prover_output,
@@ -40,12 +48,6 @@ void write(const ProverOutput& prover_output,
     enum class ObjectToWrite : size_t { PUBLIC_INPUTS, PROOF, VK, VK_HASH };
     const bool output_to_stdout = output_dir == "-";
 
-    const auto to_json = [](const std::vector<bb::fr>& data) {
-        if (data.empty()) {
-            return std::string("[]");
-        }
-        return format("[", join(transform::map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
-    };
     const auto to_json_fr = [](const bb::fr& fr) { return format("\"", fr, "\""); };
 
     const auto write_bytes = [&](const ObjectToWrite& obj) {
