@@ -159,6 +159,9 @@ class IvcRecursionConstraintTest : public ::testing::Test {
         case QUEUE_TYPE::PG_FINAL:
             proof_type = PG_FINAL;
             break;
+        case QUEUE_TYPE::PG_TAIL:
+            proof_type = PG_TAIL;
+            break;
         default:
             throw std::runtime_error("Invalid proof type");
         }
@@ -273,7 +276,8 @@ TEST_F(IvcRecursionConstraintTest, AccumulateTwo)
 TEST_F(IvcRecursionConstraintTest, AccumulateFour)
 {
     TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
-    auto ivc = std::make_shared<ClientIVC>(/*num_circuits=*/4, trace_settings);
+    // 4 ciruits and the tail kernel
+    auto ivc = std::make_shared<ClientIVC>(/*num_circuits=*/5, trace_settings);
 
     // construct a mock app_circuit
     Builder app_circuit_0 = construct_mock_app_circuit(ivc);
@@ -298,6 +302,12 @@ TEST_F(IvcRecursionConstraintTest, AccumulateFour)
     EXPECT_TRUE(CircuitChecker::check(kernel_1));
     ivc->accumulate(kernel_1, construct_kernel_vk_from_acir_program(program_1, trace_settings));
 
+    // Now we add the tail kernel
+    EXPECT_EQ(ivc->verification_queue.size(), 1);
+    EXPECT_EQ(ivc->verification_queue[0].type, QUEUE_TYPE::PG_TAIL);
+    AcirProgram tail_program = construct_mock_kernel_program(ivc->verification_queue);
+    Builder tail_kernel = acir_format::create_circuit<Builder>(tail_program, metadata);
+    ivc->accumulate(tail_kernel, construct_kernel_vk_from_acir_program(tail_program, trace_settings));
     EXPECT_TRUE(ivc->prove_and_verify());
 }
 
@@ -365,7 +375,7 @@ TEST_F(IvcRecursionConstraintTest, GenerateResetKernelVKFromConstraints)
 
         { // Construct and accumulate a mock RESET/TAIL kernel (PG recursion for kernel accumulation)
             EXPECT_TRUE(ivc->verification_queue.size() == 1);
-            EXPECT_TRUE(ivc->verification_queue[0].type == bb::ClientIVC::QUEUE_TYPE::PG);
+            EXPECT_TRUE(ivc->verification_queue[0].type == bb::ClientIVC::QUEUE_TYPE::PG_TAIL);
             AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
             Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
             ivc->accumulate(kernel, construct_kernel_vk_from_acir_program(program, trace_settings));
@@ -399,7 +409,9 @@ TEST_F(IvcRecursionConstraintTest, GenerateInnerKernelVKFromConstraints)
     // First, construct the kernel VK by running the full IVC (accumulate one app and one kernel)
     std::shared_ptr<MegaFlavor::VerificationKey> expected_kernel_vk;
     {
-        auto ivc = std::make_shared<ClientIVC>(/*num_circuits=*/4, trace_settings);
+        // we have to set the number of circuits one more than the number of circuits we're accumulating as otherwise
+        // the last circuit will be seen as a tail
+        auto ivc = std::make_shared<ClientIVC>(/*num_circuits=*/5, trace_settings);
 
         const ProgramMetadata metadata{ ivc };
 
@@ -421,7 +433,6 @@ TEST_F(IvcRecursionConstraintTest, GenerateInnerKernelVKFromConstraints)
 
         { // Construct and accumulate a mock INNER kernel (PG recursion for kernel accumulation)
             EXPECT_TRUE(ivc->verification_queue.size() == 2);
-            EXPECT_TRUE(ivc->verification_queue[0].type == bb::ClientIVC::QUEUE_TYPE::PG);
             EXPECT_TRUE(ivc->verification_queue[1].type == bb::ClientIVC::QUEUE_TYPE::PG);
             AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
             Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
@@ -475,7 +486,7 @@ TEST_F(IvcRecursionConstraintTest, GenerateHidingKernelVKFromConstraints)
 
         { // Construct and accumulate a mock TAIL kernel (PG recursion for kernel accumulation)
             EXPECT_TRUE(ivc->verification_queue.size() == 1);
-            EXPECT_TRUE(ivc->verification_queue[0].type == bb::ClientIVC::QUEUE_TYPE::PG);
+            EXPECT_TRUE(ivc->verification_queue[0].type == bb::ClientIVC::QUEUE_TYPE::PG_TAIL);
             AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
             Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
             ivc->accumulate(kernel, construct_kernel_vk_from_acir_program(program, trace_settings));

@@ -62,8 +62,9 @@ contract UpgradeGovernanceProposerTest is TestBase {
       initialValidators[i - 1] = CheatDepositArgs({attester: validator, withdrawer: validator});
     }
 
-    RollupBuilder builder = new RollupBuilder(address(this)).setGovProposerN(7).setGovProposerM(10)
-      .setValidators(initialValidators).setTargetCommitteeSize(4).setEpochDuration(1);
+    RollupBuilder builder = new RollupBuilder(address(this)).setGovProposerN(7).setGovProposerM(10).setValidators(
+      initialValidators
+    ).setTargetCommitteeSize(4).setEpochDuration(1);
     builder.deploy();
 
     rollup = builder.getConfig().rollup;
@@ -105,18 +106,18 @@ contract UpgradeGovernanceProposerTest is TestBase {
     assertEq(gsePayload.getURI(), payload.getURI());
 
     vm.prank(token.owner());
-    token.mint(EMPEROR, 10000 ether);
+    token.mint(EMPEROR, 10_000 ether);
 
     vm.startPrank(EMPEROR);
-    token.approve(address(governance), 10000 ether);
-    governance.deposit(EMPEROR, 10000 ether);
+    token.approve(address(governance), 10_000 ether);
+    governance.deposit(EMPEROR, 10_000 ether);
     vm.stopPrank();
 
     vm.warp(Timestamp.unwrap(proposal.pendingThrough()) + 1);
     assertTrue(governance.getProposalState(0) == ProposalState.Active);
 
     vm.prank(EMPEROR);
-    governance.vote(0, 10000 ether, true);
+    governance.vote(0, 10_000 ether, true);
 
     vm.warp(Timestamp.unwrap(proposal.activeThrough()) + 1);
     assertTrue(governance.getProposalState(0) == ProposalState.Queued);
@@ -128,16 +129,13 @@ contract UpgradeGovernanceProposerTest is TestBase {
     governance.execute(0);
 
     assertNotEq(governance.governanceProposer(), address(governanceProposer));
-    address newGovernanceProposer =
-      address(NewGovernanceProposerPayload(address(payload)).NEW_GOVERNANCE_PROPOSER());
+    address newGovernanceProposer = address(NewGovernanceProposerPayload(address(payload)).NEW_GOVERNANCE_PROPOSER());
     assertEq(governance.governanceProposer(), newGovernanceProposer);
 
     // Ensure that we cannot push a proposal after the upgrade.
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.Governance__CallerNotGovernanceProposer.selector,
-        address(governanceProposer),
-        newGovernanceProposer
+        Errors.Governance__CallerNotGovernanceProposer.selector, address(governanceProposer), newGovernanceProposer
       )
     );
     vm.prank(address(governanceProposer));

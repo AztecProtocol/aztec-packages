@@ -3,7 +3,8 @@ import { DefaultL1ContractsConfig } from '@aztec/ethereum';
 import type { EnvVar, NetworkNames } from '@aztec/foundation/config';
 import type { SharedNodeConfig } from '@aztec/node-lib/config';
 
-import path from 'path';
+import { mkdir, readFile, stat, writeFile } from 'fs/promises';
+import path, { dirname, join } from 'path';
 
 import publicIncludeMetrics from '../../public_include_metric_prefixes.json' with { type: 'json' };
 
@@ -40,9 +41,9 @@ export type L2ChainConfig = {
   /** The number of epochs after an epoch ends that proofs are still accepted. */
   aztecProofSubmissionEpochs: number;
   /** The deposit amount for a validator */
-  depositAmount: bigint;
+  activationThreshold: bigint;
   /** The minimum stake for a validator. */
-  minimumStake: bigint;
+  ejectionThreshold: bigint;
   /** The slashing quorum */
   slashingQuorum: number;
   /** The slashing round size */
@@ -102,9 +103,9 @@ export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
   /** The number of epochs after an epoch ends that proofs are still accepted. */
   aztecProofSubmissionEpochs: 1,
   /** The deposit amount for a validator */
-  depositAmount: DefaultL1ContractsConfig.depositAmount,
+  activationThreshold: DefaultL1ContractsConfig.activationThreshold,
   /** The minimum stake for a validator. */
-  minimumStake: DefaultL1ContractsConfig.minimumStake,
+  ejectionThreshold: DefaultL1ContractsConfig.ejectionThreshold,
   /** The slashing quorum */
   slashingQuorum: DefaultL1ContractsConfig.slashingQuorum,
   /** The slashing round size */
@@ -166,9 +167,9 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   /** The number of epochs after an epoch ends that proofs are still accepted. */
   aztecProofSubmissionEpochs: 1,
   /** The deposit amount for a validator */
-  depositAmount: DefaultL1ContractsConfig.depositAmount,
+  activationThreshold: DefaultL1ContractsConfig.activationThreshold,
   /** The minimum stake for a validator. */
-  minimumStake: DefaultL1ContractsConfig.minimumStake,
+  ejectionThreshold: DefaultL1ContractsConfig.ejectionThreshold,
   /** The slashing quorum */
   slashingQuorum: 101,
   /** The slashing round size */
@@ -185,20 +186,34 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   // slashing stuff
   slashPayloadTtlSeconds: 36 * 32 * 24, // 24 epochs
   slashPruneEnabled: true,
-  slashPrunePenalty: 17n * (DefaultL1ContractsConfig.depositAmount / 100n),
-  slashPruneMaxPenalty: 17n * (DefaultL1ContractsConfig.depositAmount / 100n),
+  slashPrunePenalty: 17n * (DefaultL1ContractsConfig.activationThreshold / 100n),
+  slashPruneMaxPenalty: 17n * (DefaultL1ContractsConfig.activationThreshold / 100n),
   slashInactivityEnabled: true,
   slashInactivityCreateTargetPercentage: 1,
-  slashInactivitySignalTargetPercentage: 1,
-  slashInactivityCreatePenalty: 17n * (DefaultL1ContractsConfig.depositAmount / 100n),
-  slashInactivityMaxPenalty: 17n * (DefaultL1ContractsConfig.depositAmount / 100n),
+  slashInactivitySignalTargetPercentage: 0.67,
+  slashInactivityCreatePenalty: 17n * (DefaultL1ContractsConfig.activationThreshold / 100n),
+  slashInactivityMaxPenalty: 17n * (DefaultL1ContractsConfig.activationThreshold / 100n),
   slashInvalidBlockEnabled: true,
-  slashInvalidBlockPenalty: DefaultL1ContractsConfig.depositAmount,
-  slashInvalidBlockMaxPenalty: DefaultL1ContractsConfig.depositAmount,
+  slashInvalidBlockPenalty: DefaultL1ContractsConfig.activationThreshold,
+  slashInvalidBlockMaxPenalty: DefaultL1ContractsConfig.activationThreshold,
   sentinelEnabled: true,
 };
 
-export async function getBootnodes(networkName: NetworkNames) {
+const BOOTNODE_CACHE_DURATION_MS = 60 * 60 * 1000; // 1 hour;
+
+export async function getBootnodes(networkName: NetworkNames, cacheDir?: string) {
+  const cacheFile = cacheDir ? join(cacheDir, networkName, 'bootnodes.json') : undefined;
+  try {
+    if (cacheFile) {
+      const info = await stat(cacheFile);
+      if (info.mtimeMs + BOOTNODE_CACHE_DURATION_MS > Date.now()) {
+        return JSON.parse(await readFile(cacheFile, 'utf-8'))['bootnodes'];
+      }
+    }
+  } catch {
+    // no-op. Get the remote-file
+  }
+
   const url = `http://static.aztec.network/${networkName}/bootnodes.json`;
   const response = await fetch(url);
   if (!response.ok) {
@@ -208,20 +223,30 @@ export async function getBootnodes(networkName: NetworkNames) {
   }
   const json = await response.json();
 
+  try {
+    if (cacheFile) {
+      await mkdir(dirname(cacheFile), { recursive: true });
+      await writeFile(cacheFile, JSON.stringify(json), 'utf-8');
+    }
+  } catch {
+    // no-op
+  }
+
   return json['bootnodes'];
 }
 
 export async function getL2ChainConfig(
   networkName: NetworkNames,
-): Promise<{ config: L2ChainConfig; networkName: string } | undefined> {
+  cacheDir?: string,
+): Promise<L2ChainConfig | undefined> {
   if (networkName === 'testnet-ignition') {
     const config = { ...testnetIgnitionL2ChainConfig };
-    config.p2pBootstrapNodes = await getBootnodes(networkName);
-    return { config, networkName };
+    config.p2pBootstrapNodes = await getBootnodes(networkName, cacheDir);
+    return config;
   } else if (networkName === 'alpha-testnet' || networkName === 'testnet') {
     const config = { ...alphaTestnetL2ChainConfig };
-    config.p2pBootstrapNodes = await getBootnodes('alpha-testnet');
-    return { config, networkName: 'alpha-testnet' };
+    config.p2pBootstrapNodes = await getBootnodes('alpha-testnet', cacheDir);
+    return config;
   }
   return undefined;
 }
@@ -243,16 +268,32 @@ function enrichEthAddressVar(envVar: EnvVar, value: string) {
   enrichVar(envVar, value);
 }
 
+function getDefaultDataDir(networkName: NetworkNames): string {
+  let prefix: string;
+  if (networkName === 'testnet-ignition') {
+    prefix = 'testnet-ignition';
+  } else if (networkName === 'alpha-testnet' || networkName === 'testnet') {
+    prefix = 'alpha-testnet';
+  } else {
+    prefix = networkName;
+  }
+
+  return path.join(process.env.HOME || '~', '.aztec', prefix, 'data');
+}
+
 export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames) {
   if (networkName === 'local') {
     return;
   }
 
-  const result = await getL2ChainConfig(networkName);
-  if (!result) {
+  enrichVar('DATA_DIRECTORY', getDefaultDataDir(networkName));
+  const cacheDir = process.env.DATA_DIRECTORY ? join(process.env.DATA_DIRECTORY, 'cache') : undefined;
+  const config = await getL2ChainConfig(networkName, cacheDir);
+
+  if (!config) {
     throw new Error(`Unknown network name: ${networkName}`);
   }
-  const { config, networkName: name } = result;
+
   enrichVar('BOOTSTRAP_NODES', config.p2pBootstrapNodes.join(','));
   enrichVar('TEST_ACCOUNTS', config.testAccounts.toString());
   enrichVar('SPONSORED_FPC', config.sponsoredFPC.toString());
@@ -260,7 +301,6 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
   enrichVar('L1_CHAIN_ID', config.l1ChainId.toString());
   enrichVar('SEQ_MIN_TX_PER_BLOCK', config.seqMinTxsPerBlock.toString());
   enrichVar('SEQ_MAX_TX_PER_BLOCK', config.seqMaxTxsPerBlock.toString());
-  enrichVar('DATA_DIRECTORY', path.join(process.env.HOME || '~', '.aztec', name, 'data'));
   enrichVar('PROVER_REAL_PROOFS', config.realProofs.toString());
   enrichVar('PXE_PROVER_ENABLED', config.realProofs.toString());
   enrichVar('SYNC_SNAPSHOTS_URL', config.snapshotsUrl);
@@ -296,8 +336,8 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
   enrichVar('AZTEC_EPOCH_DURATION', config.aztecEpochDuration.toString());
   enrichVar('AZTEC_TARGET_COMMITTEE_SIZE', config.aztecTargetCommitteeSize.toString());
   enrichVar('AZTEC_PROOF_SUBMISSION_EPOCHS', config.aztecProofSubmissionEpochs.toString());
-  enrichVar('AZTEC_DEPOSIT_AMOUNT', config.depositAmount.toString());
-  enrichVar('AZTEC_MINIMUM_STAKE', config.minimumStake.toString());
+  enrichVar('AZTEC_ACTIVATION_THRESHOLD', config.activationThreshold.toString());
+  enrichVar('AZTEC_EJECTION_THRESHOLD', config.ejectionThreshold.toString());
   enrichVar('AZTEC_SLASHING_QUORUM', config.slashingQuorum.toString());
   enrichVar('AZTEC_SLASHING_ROUND_SIZE', config.slashingRoundSize.toString());
   enrichVar('AZTEC_GOVERNANCE_PROPOSER_QUORUM', config.governanceProposerQuorum.toString());

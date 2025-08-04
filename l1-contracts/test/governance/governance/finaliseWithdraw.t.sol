@@ -2,9 +2,7 @@
 pragma solidity >=0.8.27;
 
 import {GovernanceBase} from "./base.t.sol";
-import {
-  IGovernance, Configuration, Withdrawal
-} from "@aztec/governance/interfaces/IGovernance.sol";
+import {IGovernance, Configuration, Withdrawal} from "@aztec/governance/interfaces/IGovernance.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
@@ -26,12 +24,12 @@ contract FinaliseWithdrawTest is GovernanceBase {
 
   // Lot of this is similar to initiateWithdraw.t.sol::test_WhenCallerHaveSufficientDeposits
   modifier whenItMatchPendingWithdrawal(
-    uint256 _depositAmount,
+    uint256 _activationThreshold,
     address[WITHDRAWAL_COUNT] memory _recipient,
     uint256[WITHDRAWAL_COUNT] memory _withdrawals,
     uint256[WITHDRAWAL_COUNT] memory _timejumps
   ) {
-    deposit = bound(_depositAmount, 1, type(uint224).max);
+    deposit = bound(_activationThreshold, 1, type(uint224).max);
     uint256 sum = deposit;
 
     token.mint(address(this), deposit);
@@ -59,11 +57,11 @@ contract FinaliseWithdrawTest is GovernanceBase {
   }
 
   function test_GivenWithdrawanAlreadyClaimed(
-    uint256 _depositAmount,
+    uint256 _activationThreshold,
     address[WITHDRAWAL_COUNT] memory _recipient,
     uint256[WITHDRAWAL_COUNT] memory _withdrawals,
     uint256[WITHDRAWAL_COUNT] memory _timejumps
-  ) external whenItMatchPendingWithdrawal(_depositAmount, _recipient, _withdrawals, _timejumps) {
+  ) external whenItMatchPendingWithdrawal(_activationThreshold, _recipient, _withdrawals, _timejumps) {
     // it revert
 
     uint256 withdrawalCount = governance.withdrawalCount();
@@ -74,7 +72,7 @@ contract FinaliseWithdrawTest is GovernanceBase {
     }
 
     for (uint256 i = 0; i < withdrawalCount; i++) {
-      vm.expectRevert(abi.encodeWithSelector(Errors.Governance__WithdrawalAlreadyclaimed.selector));
+      vm.expectRevert(abi.encodeWithSelector(Errors.Governance__WithdrawalAlreadyClaimed.selector));
       governance.finaliseWithdraw(i);
     }
   }
@@ -84,14 +82,14 @@ contract FinaliseWithdrawTest is GovernanceBase {
   }
 
   function test_WhenTimeIsBeforeUnlock(
-    uint256 _depositAmount,
+    uint256 _activationThreshold,
     address[WITHDRAWAL_COUNT] memory _recipient,
     uint256[WITHDRAWAL_COUNT] memory _withdrawals,
     uint256[WITHDRAWAL_COUNT] memory _timejumps,
     uint256[WITHDRAWAL_COUNT] memory _timejumps2
   )
     external
-    whenItMatchPendingWithdrawal(_depositAmount, _recipient, _withdrawals, _timejumps)
+    whenItMatchPendingWithdrawal(_activationThreshold, _recipient, _withdrawals, _timejumps)
     givenWithdrawanNotClaimed
   {
     // it revert
@@ -104,16 +102,13 @@ contract FinaliseWithdrawTest is GovernanceBase {
       }
       assertGt(withdrawal.unlocksAt, block.timestamp);
 
-      uint256 time =
-        bound(_timejumps2[i], block.timestamp, Timestamp.unwrap(withdrawal.unlocksAt) - 1);
+      uint256 time = bound(_timejumps2[i], block.timestamp, Timestamp.unwrap(withdrawal.unlocksAt) - 1);
 
       vm.warp(time);
 
       vm.expectRevert(
         abi.encodeWithSelector(
-          Errors.Governance__WithdrawalNotUnlockedYet.selector,
-          Timestamp.wrap(block.timestamp),
-          withdrawal.unlocksAt
+          Errors.Governance__WithdrawalNotUnlockedYet.selector, Timestamp.wrap(block.timestamp), withdrawal.unlocksAt
         )
       );
       governance.finaliseWithdraw(i);
@@ -121,14 +116,14 @@ contract FinaliseWithdrawTest is GovernanceBase {
   }
 
   function test_WhenTimeIsAfterOrAtUnlock(
-    uint256 _depositAmount,
+    uint256 _activationThreshold,
     address[WITHDRAWAL_COUNT] memory _recipient,
     uint256[WITHDRAWAL_COUNT] memory _withdrawals,
     uint256[WITHDRAWAL_COUNT] memory _timejumps,
     uint256[WITHDRAWAL_COUNT] memory _timejumps2
   )
     external
-    whenItMatchPendingWithdrawal(_depositAmount, _recipient, _withdrawals, _timejumps)
+    whenItMatchPendingWithdrawal(_activationThreshold, _recipient, _withdrawals, _timejumps)
     givenWithdrawanNotClaimed
   {
     // it mark withdrawal as claimed
@@ -141,9 +136,8 @@ contract FinaliseWithdrawTest is GovernanceBase {
     for (uint256 i = 0; i < withdrawalCount; i++) {
       Withdrawal memory withdrawal = governance.getWithdrawal(i);
 
-      uint256 upper = i + 1 == withdrawalCount
-        ? type(uint64).max
-        : Timestamp.unwrap(governance.getWithdrawal(i + 1).unlocksAt);
+      uint256 upper =
+        i + 1 == withdrawalCount ? type(uint64).max : Timestamp.unwrap(governance.getWithdrawal(i + 1).unlocksAt);
       uint256 time = bound(_timejumps2[i], Timestamp.unwrap(withdrawal.unlocksAt), upper);
 
       vm.warp(time);
@@ -159,9 +153,7 @@ contract FinaliseWithdrawTest is GovernanceBase {
       sums[withdrawal.recipient] += withdrawal.amount;
 
       assertEq(token.balanceOf(address(governance)), sum, "total balance");
-      assertEq(
-        token.balanceOf(withdrawal.recipient), sums[withdrawal.recipient], "recipient balance"
-      );
+      assertEq(token.balanceOf(withdrawal.recipient), sums[withdrawal.recipient], "recipient balance");
     }
   }
 }
