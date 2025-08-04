@@ -170,23 +170,23 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      *
      * @return std::vector<FF>
      */
-    virtual std::vector<fr> to_field_elements() const
+    virtual std::vector<typename Transcript::DataType> to_field_elements() const
     {
         using namespace bb::field_conversion;
 
-        auto serialize_to_field_buffer = [](const auto& input, std::vector<fr>& buffer) {
-            std::vector<fr> input_fields = convert_to_bn254_frs(input);
+        auto serialize = [](const auto& input, std::vector<typename Transcript::DataType>& buffer) {
+            std::vector<typename Transcript::DataType> input_fields = Transcript::serialize(input);
             buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
         };
 
-        std::vector<fr> elements;
+        std::vector<typename Transcript::DataType> elements;
 
-        serialize_to_field_buffer(this->log_circuit_size, elements);
-        serialize_to_field_buffer(this->num_public_inputs, elements);
-        serialize_to_field_buffer(this->pub_inputs_offset, elements);
+        serialize(this->log_circuit_size, elements);
+        serialize(this->num_public_inputs, elements);
+        serialize(this->pub_inputs_offset, elements);
 
         for (const Commitment& commitment : this->get_all()) {
-            serialize_to_field_buffer(commitment, elements);
+            serialize(commitment, elements);
         }
 
         return elements;
