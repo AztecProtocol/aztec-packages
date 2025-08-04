@@ -217,7 +217,7 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 {
 
     // Transcript to be shared shared across recursive verification of the folding of K_{i-1} (kernel), A_{i,1} (app),
-    // .., A_{i, n} (app)
+    // .., A_{i, n} (app) (i.e. all circuits accumulated between the previous kernel and the current one)
     auto accumulation_recursive_transcript = std::make_shared<RecursiveTranscript>();
 
     // Commitment to the previous state of the op_queue in the recursive verification
@@ -233,6 +233,18 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     PairingPoints points_accumulator;
     while (!stdlib_verification_queue.empty()) {
         const StdlibVerifierInputs& verifier_input = stdlib_verification_queue.front();
+        is_hiding_kernel = (verifier_input.type == QUEUE_TYPE::PG_FINAL);
+
+        // If the incoming circuit is a kernel, start its subtable with an eq and reset operation to ensure a
+        // neighbouring misconfigured subtable coming from an app cannot affect the operations in the
+        // current subtable. We don't do this for the hiding kernel as it succeeds another kernel and because the hiding
+        // kernel has to start with a no-op for the correct functioning of translator. Once the hiding kernel's subtable
+        // will be merged via APPEND, the tail kernel (whose ecc ops will be at the top of the ecc op table) will have
+        // to be the one starting with a no-op and it will also not start with an eq and reset. This is fine as the tail
+        // kernel is itself a successor of another kernel starting with an eq and reset.
+        if (!is_hiding_kernel) {
+            circuit.queue_ecc_eq();
+        }
         auto [pairing_points, merged_table_commitments] = perform_recursive_verification_and_databus_consistency_checks(
             circuit, verifier_input, T_prev_commitments, accumulation_recursive_transcript);
 
@@ -244,8 +256,6 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
         T_prev_commitments = merged_table_commitments;
 
         stdlib_verification_queue.pop_front();
-
-        is_hiding_kernel = (verifier_input.type == QUEUE_TYPE::PG_FINAL);
     }
 
     // Set the kernel output data to be propagated via the public inputs
@@ -261,6 +271,10 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 
         kernel_output.set_public();
     }
+
+    // Transcript to be shared across folding of K_{i} (kernel) (i.e. the current kernel), A_{i+1,1} (app), .., A_{i+1,
+    // n} (app)
+    accumulation_transcript = std::make_shared<Transcript>();
 }
 
 /**
@@ -279,11 +293,6 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
 {
     BB_ASSERT_LT(
         num_circuits_accumulated, num_circuits, "ClientIVC: Attempting to accumulate more circuits than expected.");
-
-    if (circuit.is_kernel) {
-        // Transcript to be shared across folding of K_{i} (kernel), A_{i+1,1} (app), .., A_{i+1, n} (app)
-        accumulation_transcript = std::make_shared<Transcript>();
-    }
 
     // Construct the proving key for circuit
     std::shared_ptr<DeciderProvingKey> proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
@@ -313,9 +322,11 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
         vinfo("set honk vk metadata");
     }
 
-    VerifierInputs queue_entry{ .honk_vk = honk_vk, .is_kernel = circuit.is_kernel };
+    VerifierInputs queue_entry{ .honk_vk = honk_vk,
+                                // first circuit accumulated should be an app?
+                                .is_kernel = verification_queue.empty() && num_circuits_accumulated > 0 };
     if (num_circuits_accumulated == 0) { // First circuit in the IVC
-        BB_ASSERT_EQ(circuit.is_kernel, false, "First circuit accumulated is always be an app");
+        // BB_ASSERT_EQ(circuit.is_kernel, false, "First circuit accumulated is always be an app");
         // For first circuit in the IVC, use oink to complete the decider proving key and generate an oink proof
         MegaOinkProver oink_prover{ proving_key, honk_vk, accumulation_transcript };
         vinfo("computing oink proof...");
