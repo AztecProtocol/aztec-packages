@@ -639,7 +639,9 @@ class MockAztecNode implements AztecNode {
     return Promise.resolve(1);
   }
   getUtilityContextWithoutContractAddress(): Promise<UtilityContextWithoutContractAddress> {
-    return Promise.resolve(new UtilityContextWithoutContractAddress(1, 1n, 1, 1));
+    return Promise.resolve(
+      UtilityContextWithoutContractAddress.from({ blockNumber: 1, timestamp: 1n, version: 1, chainId: 1 }),
+    );
   }
   @memoize
   getL1ContractAddresses(): Promise<L1ContractAddresses> {

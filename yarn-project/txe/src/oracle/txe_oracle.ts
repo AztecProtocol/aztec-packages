@@ -254,13 +254,13 @@ export class TXE {
 
   utilityGetUtilityContext() {
     return Promise.resolve(
-      new UtilityContext(
-        this.blockNumber,
-        this.timestamp,
-        this.contractAddress,
-        new Fr(this.ROLLUP_VERSION),
-        new Fr(this.CHAIN_ID),
-      ),
+      UtilityContext.from({
+        blockNumber: this.blockNumber,
+        timestamp: this.timestamp,
+        contractAddress: this.contractAddress,
+        version: new Fr(this.ROLLUP_VERSION),
+        chainId: new Fr(this.CHAIN_ID),
+      }),
     );
   }
 
