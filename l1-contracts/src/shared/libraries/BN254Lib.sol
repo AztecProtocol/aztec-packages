@@ -116,55 +116,6 @@ library BN254Lib {
     return bn254Pairing(left, g2NegatedGenerator(), right, pk2);
   }
 
-  function isOnCurveG1(G1Point memory point) internal pure returns (bool _isOnCurve) {
-    assembly {
-      let t0 := mload(point)
-      let t1 := mload(add(point, 32))
-      let t2 := mulmod(t0, t0, BASE_FIELD_ORDER)
-      t2 := mulmod(t2, t0, BASE_FIELD_ORDER)
-      t2 := addmod(t2, 3, BASE_FIELD_ORDER)
-      t1 := mulmod(t1, t1, BASE_FIELD_ORDER)
-      _isOnCurve := eq(t1, t2)
-    }
-  }
-
-  function isOnCurveG2(G2Point memory point) internal pure returns (bool _isOnCurve) {
-    assembly {
-      // x0, x1
-      let t0 := mload(point)
-      let t1 := mload(add(point, 32))
-      // x0 ^ 2
-      let t2 := mulmod(t0, t0, BASE_FIELD_ORDER)
-      // x1 ^ 2
-      let t3 := mulmod(t1, t1, BASE_FIELD_ORDER)
-      // 3 * x0 ^ 2
-      let t4 := add(add(t2, t2), t2)
-      // 3 * x1 ^ 2
-      let t5 := addmod(add(t3, t3), t3, BASE_FIELD_ORDER)
-      // x0 * (x0 ^ 2 - 3 * x1 ^ 2)
-      t2 := mulmod(add(t2, sub(BASE_FIELD_ORDER, t5)), t0, BASE_FIELD_ORDER)
-      // x1 * (3 * x0 ^ 2 - x1 ^ 2)
-      t3 := mulmod(add(t4, sub(BASE_FIELD_ORDER, t3)), t1, BASE_FIELD_ORDER)
-
-      // x ^ 3 + b
-      t0 := addmod(t2, 0x2b149d40ceb8aaae81be18991be06ac3b5b4c5e559dbefa33267e6dc24a138e5, BASE_FIELD_ORDER)
-      t1 := addmod(t3, 0x009713b03af0fed4cd2cafadeed8fdf4a74fa084e52d1852e4a2bd0685c315d2, BASE_FIELD_ORDER)
-
-      // y0, y1
-      t2 := mload(add(point, 64))
-      t3 := mload(add(point, 96))
-      // y ^ 2
-      t4 :=
-        mulmod(
-          addmod(t2, t3, BASE_FIELD_ORDER), addmod(t2, sub(BASE_FIELD_ORDER, t3), BASE_FIELD_ORDER), BASE_FIELD_ORDER
-        )
-      t3 := mulmod(shl(1, t2), t3, BASE_FIELD_ORDER)
-
-      // y ^ 2 == x ^ 3 + b
-      _isOnCurve := and(eq(t0, t4), eq(t1, t3))
-    }
-  }
-
   /// @notice Convert a G1 point (public key) to the digest point that must be signed to prove possession.
   /// @dev exposed as public to allow clients not to have implemented the hashToPoint function.
   function g1ToDigestPoint(G1Point memory pk1) internal view returns (G1Point memory) {
@@ -315,6 +266,55 @@ library BN254Lib {
       result := mload(freeMem)
     }
     if (!success) revert InverseFail();
+  }
+
+  function isOnCurveG1(G1Point memory point) internal pure returns (bool _isOnCurve) {
+    assembly {
+      let t0 := mload(point)
+      let t1 := mload(add(point, 32))
+      let t2 := mulmod(t0, t0, BASE_FIELD_ORDER)
+      t2 := mulmod(t2, t0, BASE_FIELD_ORDER)
+      t2 := addmod(t2, 3, BASE_FIELD_ORDER)
+      t1 := mulmod(t1, t1, BASE_FIELD_ORDER)
+      _isOnCurve := eq(t1, t2)
+    }
+  }
+
+  function isOnCurveG2(G2Point memory point) internal pure returns (bool _isOnCurve) {
+    assembly {
+      // x0, x1
+      let t0 := mload(point)
+      let t1 := mload(add(point, 32))
+      // x0 ^ 2
+      let t2 := mulmod(t0, t0, BASE_FIELD_ORDER)
+      // x1 ^ 2
+      let t3 := mulmod(t1, t1, BASE_FIELD_ORDER)
+      // 3 * x0 ^ 2
+      let t4 := add(add(t2, t2), t2)
+      // 3 * x1 ^ 2
+      let t5 := addmod(add(t3, t3), t3, BASE_FIELD_ORDER)
+      // x0 * (x0 ^ 2 - 3 * x1 ^ 2)
+      t2 := mulmod(add(t2, sub(BASE_FIELD_ORDER, t5)), t0, BASE_FIELD_ORDER)
+      // x1 * (3 * x0 ^ 2 - x1 ^ 2)
+      t3 := mulmod(add(t4, sub(BASE_FIELD_ORDER, t3)), t1, BASE_FIELD_ORDER)
+
+      // x ^ 3 + b
+      t0 := addmod(t2, 0x2b149d40ceb8aaae81be18991be06ac3b5b4c5e559dbefa33267e6dc24a138e5, BASE_FIELD_ORDER)
+      t1 := addmod(t3, 0x009713b03af0fed4cd2cafadeed8fdf4a74fa084e52d1852e4a2bd0685c315d2, BASE_FIELD_ORDER)
+
+      // y0, y1
+      t2 := mload(add(point, 64))
+      t3 := mload(add(point, 96))
+      // y ^ 2
+      t4 :=
+        mulmod(
+          addmod(t2, t3, BASE_FIELD_ORDER), addmod(t2, sub(BASE_FIELD_ORDER, t3), BASE_FIELD_ORDER), BASE_FIELD_ORDER
+        )
+      t3 := mulmod(shl(1, t2), t3, BASE_FIELD_ORDER)
+
+      // y ^ 2 == x ^ 3 + b
+      _isOnCurve := and(eq(t0, t4), eq(t1, t3))
+    }
   }
 
   /// @notice γ = keccak(PK1, PK2, σ_init) mod Fr
