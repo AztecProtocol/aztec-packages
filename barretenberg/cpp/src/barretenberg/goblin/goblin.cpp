@@ -21,10 +21,10 @@ Goblin::Goblin(CommitmentKey<curve::BN254> bn254_commitment_key, const std::shar
     , transcript(transcript)
 {}
 
-void Goblin::prove_merge(const std::shared_ptr<Transcript>& transcript)
+void Goblin::prove_merge(const std::shared_ptr<Transcript>& transcript, const MergeSettings merge_settings)
 {
     PROFILE_THIS_NAME("Goblin::merge");
-    MergeProver merge_prover{ op_queue, MergeSettings::PREPEND, commitment_key, transcript };
+    MergeProver merge_prover{ op_queue, merge_settings, commitment_key, transcript };
     merge_verification_queue.push_back(merge_prover.construct_proof());
 }
 
@@ -51,7 +51,7 @@ GoblinProof Goblin::prove()
 {
     PROFILE_THIS_NAME("Goblin::prove");
 
-    prove_merge(transcript); // Use shared transcript for merge proving
+    prove_merge(transcript, MergeSettings::APPEND); // Use shared transcript for merge proving
     info("Constructing a Goblin proof with num ultra ops = ", op_queue->get_ultra_ops_table_num_rows());
 
     BB_ASSERT_EQ(merge_verification_queue.size(),
@@ -77,14 +77,15 @@ GoblinProof Goblin::prove()
 std::pair<Goblin::PairingPoints, Goblin::RecursiveTableCommitments> Goblin::recursively_verify_merge(
     MegaBuilder& builder,
     const RecursiveMergeCommitments& merge_commitments,
-    const std::shared_ptr<RecursiveTranscript>& transcript)
+    const std::shared_ptr<RecursiveTranscript>& transcript,
+    const MergeSettings merge_settings)
 {
     ASSERT(!merge_verification_queue.empty());
     // Recursively verify the next merge proof in the verification queue in a FIFO manner
     const MergeProof& merge_proof = merge_verification_queue.front();
     const stdlib::Proof<MegaBuilder> stdlib_merge_proof(builder, merge_proof);
 
-    MergeRecursiveVerifier merge_verifier{ &builder, MergeSettings::PREPEND, transcript };
+    MergeRecursiveVerifier merge_verifier{ &builder, merge_settings, transcript };
     auto [pairing_points, merged_table_commitments] =
         merge_verifier.verify_proof(stdlib_merge_proof, merge_commitments);
 
@@ -97,7 +98,7 @@ bool Goblin::verify(const GoblinProof& proof,
                     const MergeCommitments& merge_commitments,
                     const std::shared_ptr<Transcript>& transcript)
 {
-    MergeVerifier merge_verifier(MergeSettings::PREPEND, transcript);
+    MergeVerifier merge_verifier(MergeSettings::APPEND, transcript);
     auto [merge_verified, merged_table_commitments] = merge_verifier.verify_proof(proof.merge_proof, merge_commitments);
 
     ECCVMVerifier eccvm_verifier(transcript);

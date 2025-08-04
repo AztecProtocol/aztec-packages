@@ -78,7 +78,7 @@ class ClientIVCTests : public ::testing::Test {
  */
 TEST_F(ClientIVCTests, Basic)
 {
-    ClientIVC ivc{ /*num_circuits=*/2 };
+    ClientIVC ivc{ /*num_circuits=*/3 };
 
     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
 
@@ -87,10 +87,14 @@ TEST_F(ClientIVCTests, Basic)
         circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = MEDIUM_LOG_2_NUM_GATES });
     ivc.accumulate(circuit_0, vk_0);
 
-    // Create another circuit and accumulate
     auto [circuit_1, vk_1] =
         circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = MEDIUM_LOG_2_NUM_GATES });
     ivc.accumulate(circuit_1, vk_1);
+
+    // Create another circuit and accumulate
+    auto [circuit_2, vk_2] =
+        circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = MEDIUM_LOG_2_NUM_GATES });
+    ivc.accumulate(circuit_2, vk_2);
 
     EXPECT_TRUE(ivc.prove_and_verify());
 };

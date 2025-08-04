@@ -111,6 +111,8 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
     switch (verifier_inputs.type) {
     case QUEUE_TYPE::PG_TAIL:
     case QUEUE_TYPE::PG: {
+        circuit.queue_ecc_eq();
+
         // Construct stdlib verifier accumulator from the native counterpart computed on a previous round
         auto stdlib_verifier_accum = std::make_shared<RecursiveDeciderVerificationKey>(&circuit, verifier_accumulator);
 
@@ -130,6 +132,8 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
     }
 
     case QUEUE_TYPE::OINK: {
+        circuit.queue_ecc_eq();
+
         // Construct an incomplete stdlib verifier accumulator from the corresponding stdlib verification key
         auto verifier_accum =
             std::make_shared<RecursiveDeciderVerificationKey>(&circuit, verifier_inputs.honk_vk_and_hash);
@@ -228,23 +232,33 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
         instantiate_stdlib_verification_queue(circuit);
     }
 
-    bool is_hiding_kernel = false;
+    bool is_hiding_kernel =
+        stdlib_verification_queue.size() == 1 && (stdlib_verification_queue.front().type == QUEUE_TYPE::PG_FINAL);
+    bool is_tail_kernel = std::any_of(stdlib_verification_queue.begin(),
+                                      stdlib_verification_queue.end(),
+                                      [](const auto& entry) { return entry.type == QUEUE_TYPE::PG_TAIL; });
+    if (!is_hiding_kernel) {
+        if (is_tail_kernel) {
+            circuit.queue_ecc_no_op();
+        }
+        circuit.queue_ecc_eq();
+    }
+
     // Perform Oink/PG and Merge recursive verification + databus consistency checks for each entry in the queue
     PairingPoints points_accumulator;
     while (!stdlib_verification_queue.empty()) {
         const StdlibVerifierInputs& verifier_input = stdlib_verification_queue.front();
-        is_hiding_kernel = (verifier_input.type == QUEUE_TYPE::PG_FINAL);
 
         // If the incoming circuit is a kernel, start its subtable with an eq and reset operation to ensure a
         // neighbouring misconfigured subtable coming from an app cannot affect the operations in the
-        // current subtable. We don't do this for the hiding kernel as it succeeds another kernel and because the hiding
-        // kernel has to start with a no-op for the correct functioning of translator. Once the hiding kernel's subtable
-        // will be merged via APPEND, the tail kernel (whose ecc ops will be at the top of the ecc op table) will have
-        // to be the one starting with a no-op and it will also not start with an eq and reset. This is fine as the tail
-        // kernel is itself a successor of another kernel starting with an eq and reset.
-        if (!is_hiding_kernel) {
-            circuit.queue_ecc_eq();
-        }
+        // current subtable. We don't do this for the hiding kernel as it succeeds another kernel and because the
+        // hiding kernel has to start with a no-op for the correct functioning of translator. Once the hiding
+        // kernel's subtable will be merged via APPEND, the tail kernel (whose ecc ops will be at the top of the ecc
+        // op table) will have to be the one starting with a no-op and it will also not start with an eq and reset.
+        // This is fine as the tail kernel is itself a successor of another kernel starting with an eq and reset.
+        // if (!is_hiding_kernel) {
+        //     circuit.queue_ecc_eq();
+        // }
         auto [pairing_points, merged_table_commitments] = perform_recursive_verification_and_databus_consistency_checks(
             circuit, verifier_input, T_prev_commitments, accumulation_recursive_transcript);
 
@@ -392,7 +406,7 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::comp
 
     // Add a no-op at the beginning of the hiding circuit to ensure the wires representing the op queue in translator
     // circuit are shiftable polynomials, i.e. their 0th coefficient is equal to 0.
-    circuit.queue_ecc_no_op();
+    // circuit.queue_ecc_no_op();
 
     hide_op_queue_accumulation_result(circuit);
 
