@@ -21,7 +21,7 @@ class DefaultIO {
     using FF = curve::BN254::ScalarField;
     using PublicPairingPoints = PublicInputComponent<PairingPoints>;
 
-    static constexpr size_t PUBLIC_INPUTS_SIZE = PairingPoints::PUBLIC_INPUTS_SIZE;
+    static constexpr size_t PUBLIC_INPUTS_SIZE = DEFAULT_PUBLIC_INPUTS_SIZE;
 
     PairingPoints pairing_inputs;
 
@@ -44,18 +44,14 @@ class DefaultIO {
  */
 class HidingKernelIO {
   public:
-    // Number of columns that jointly constitute the op_queue, should be the same as the number of wires in the
-    // MegaCircuitBuilder
-    static constexpr size_t NUM_WIRES = 4;
-
     using FF = curve::BN254::ScalarField;
     using G1 = curve::BN254::AffineElement;
-    using TableCommitments = std::array<G1, NUM_WIRES>;
+    using TableCommitments = std::array<G1, MegaCircuitBuilder::NUM_WIRES>;
 
     using PublicPairingPoints = PublicInputComponent<PairingPoints>;
     using PublicPoint = PublicInputComponent<G1>;
 
-    static constexpr size_t PUBLIC_INPUTS_SIZE = PairingPoints::PUBLIC_INPUTS_SIZE + NUM_WIRES * G1::PUBLIC_INPUTS_SIZE;
+    static constexpr size_t PUBLIC_INPUTS_SIZE = HIDING_KERNEL_PUBLIC_INPUTS_SIZE;
 
     PairingPoints pairing_inputs;
     TableCommitments ecc_op_tables;
@@ -90,7 +86,7 @@ class RollupIO {
     using PublicPairingPoints = PublicInputComponent<PairingPoints>;
     using PublicIpaClaim = PublicInputComponent<IpaClaim>;
 
-    static constexpr size_t PUBLIC_INPUTS_SIZE = PairingPoints::PUBLIC_INPUTS_SIZE + IpaClaim::PUBLIC_INPUTS_SIZE;
+    static constexpr size_t PUBLIC_INPUTS_SIZE = ROLLUP_PUBLIC_INPUTS_SIZE;
 
     PairingPoints pairing_inputs;
     IpaClaim ipa_claim;

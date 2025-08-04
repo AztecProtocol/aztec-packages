@@ -38,4 +38,29 @@ static constexpr std::size_t GRUMPKIN_OPENING_CLAIM_SIZE = 2 * FR_PUBLIC_INPUTS_
 // Invalid public input size, used in OpeningClaim<Curve> when Curve is not Grumpkin
 static constexpr std::size_t INVALID_PUBLIC_INPUTS_SIZE = 0;
 
+// Number of wires in the Mega execution trace, they must be re-defined to avoid circular dependencies
+static constexpr std::size_t MEGA_EXECUTION_TRACE_NUM_WIRES = 4;
+
+// Number of bb::fr elements used to represent the public inputs of an INIT/INNER/RESET/TAIL kernel
+static constexpr std::size_t KERNEL_PUBLIC_INPUTS_SIZE =
+    /*pairing_inputs*/ PAIRING_POINTS_SIZE +
+    /*kernel_return_data*/ GOBLIN_GROUP_PUBLIC_INPUTS_SIZE +
+    /*app_return_data*/ GOBLIN_GROUP_PUBLIC_INPUTS_SIZE +
+    /*table_commitments*/ MEGA_EXECUTION_TRACE_NUM_WIRES * GOBLIN_GROUP_PUBLIC_INPUTS_SIZE;
+
+// Number of bb::fr elements used to represent the default public inputs, i.e., the pairing points
+static constexpr std::size_t DEFAULT_PUBLIC_INPUTS_SIZE = PAIRING_POINTS_SIZE;
+
+// Number of bb::fr elements used to represent the public inputs of an App circuit
+static constexpr std::size_t APP_PUBLIC_INPUTS_SIZE = PAIRING_POINTS_SIZE;
+
+// Number of bb::fr elements used to represent the public inputs of the HIDING kernel
+static constexpr std::size_t HIDING_KERNEL_PUBLIC_INPUTS_SIZE =
+    /*pairing_inputs*/ PAIRING_POINTS_SIZE +
+    /*table_commitments*/ MEGA_EXECUTION_TRACE_NUM_WIRES * GOBLIN_GROUP_PUBLIC_INPUTS_SIZE;
+
+// Number of bb::fr elements used to represent the public inputs of a ROLLUP circuit
+static constexpr std::size_t ROLLUP_PUBLIC_INPUTS_SIZE =
+    /*pairing_inputs*/ PAIRING_POINTS_SIZE + /*ipa_claim*/ GRUMPKIN_OPENING_CLAIM_SIZE;
+
 } // namespace bb
