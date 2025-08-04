@@ -18,8 +18,4 @@ services:
       - BB_EXECUTABLE_PATH=/root/.bb/bb
     restart: unless-stopped
     deploy:
-      resources:
-        limits:
-          cpus: "1"
-          memory: 30G # like a boss
       replicas: 4
