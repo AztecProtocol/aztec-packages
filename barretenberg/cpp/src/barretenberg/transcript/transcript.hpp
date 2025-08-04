@@ -342,7 +342,7 @@ template <typename TranscriptParams> class BaseTranscript {
      * @param data Vector of field elements to hash
      * @return Fr Hash result
      */
-    static Fr hash(const std::vector<Fr>& data) { return TranscriptParams::hash(data); }
+    static DataType hash(const std::vector<DataType>& data) { return TranscriptParams::hash(data); }
 
     /**
      * @brief After all the prover messages have been sent, finalize the round by hashing all the data and then
