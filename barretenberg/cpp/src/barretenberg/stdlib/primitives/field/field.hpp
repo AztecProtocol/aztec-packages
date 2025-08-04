@@ -348,7 +348,11 @@ template <typename Builder> class field_t {
     void assert_is_not_zero(std::string const& msg = "field_t::assert_is_not_zero") const;
     void assert_is_zero(std::string const& msg = "field_t::assert_is_zero") const;
     bool is_constant() const { return witness_index == IS_CONSTANT; }
-    uint32_t set_public() const { return context->set_public_input(normalize().witness_index); }
+    uint32_t set_public() const
+    {
+        ASSERT(!is_constant());
+        return context->set_public_input(get_normalized_witness_index());
+    }
 
     /**
      * Create a witness from a constant. This way the value of the witness is fixed and public (public, because the
