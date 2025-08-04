@@ -106,7 +106,9 @@ function compile {
     echo_stderr $vk_cmd
     dump_fail "$vk_cmd"
     vk_bytes=$(cat $outdir/vk | xxd -p -c 0)
-    vk_fields
+    # Split the hex-encoded vk bytes into fields boundaries (but still hex-encoded), first making 64-character lines and then encoding as JSON.
+    # This used to be done by barretenberg itself, but with serialization now always being in field elements we can do it outside of bb.
+    vk_fields=$(echo "$vk_bytes" | fold -w64 | jq -R -s -c 'split("\n")')
     # echo_stderr $vkf_cmd
     jq -n --arg vk "$vk_bytes" --argjson vkf "$vk_fields" '{keyAsBytes: $vk, keyAsFields: $vkf}' > $key_path
     echo_stderr "Key output at: $key_path (${SECONDS}s)"
