@@ -73,7 +73,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::prove()
  * @brief Export the Oink proof
  */
 
-template <IsUltraOrMegaHonk Flavor> HonkProof OinkProver<Flavor>::export_proof()
+template <IsUltraOrMegaHonk Flavor> typename OinkProver<Flavor>::Proof OinkProver<Flavor>::export_proof()
 {
     return transcript->export_proof();
 }
