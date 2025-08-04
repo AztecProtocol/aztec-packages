@@ -196,43 +196,23 @@ TEST_F(ApiUltraHonkTest, ProveWithDifferentSettings)
 TEST_F(ApiUltraHonkTest, WriteVk)
 {
     auto [bytecode_path, witness_path] = create_test_circuit_files(test_dir);
+    API::Flags flags;
+    flags.output_format = "bytes";
+    flags.oracle_hash_type = "poseidon2";
 
-    // Test bytes format
-    {
-        API::Flags flags;
-        flags.output_format = "bytes";
-        flags.oracle_hash_type = "poseidon2";
+    UltraHonkAPI api;
+    api.write_vk(flags, bytecode_path, test_dir);
 
-        UltraHonkAPI api;
-        api.write_vk(flags, bytecode_path, test_dir);
+    // Test against bbapi::CircuitComputeVk
+    auto bytecode = read_file(bytecode_path);
+    auto expected_vk =
+        bbapi::CircuitComputeVk({ .circuit = { .bytecode = bb::decompress(bytecode.data(), bytecode.size()) },
+                                  .settings = { .oracle_hash_type = flags.oracle_hash_type } })
+            .execute();
 
-        EXPECT_TRUE(std::filesystem::exists(test_dir / "vk_fields.json"));
-        EXPECT_TRUE(std::filesystem::exists(test_dir / "vk_hash_fields.json"));
-
-        EXPECT_FALSE(std::filesystem::exists(test_dir / "vk"));
-        EXPECT_FALSE(std::filesystem::exists(test_dir / "vk_hash"));
-    }
-
-    // Test with bytes format, simple vk recalculation
-    {
-        API::Flags flags;
-        flags.output_format = "bytes";
-        flags.oracle_hash_type = "poseidon2";
-
-        UltraHonkAPI api;
-        api.write_vk(flags, bytecode_path, test_dir);
-
-        // Test against bbapi::CircuitComputeVk
-        auto bytecode = read_file(bytecode_path);
-        auto expected_vk =
-            bbapi::CircuitComputeVk({ .circuit = { .bytecode = bb::decompress(bytecode.data(), bytecode.size()) },
-                                      .settings = { .oracle_hash_type = flags.oracle_hash_type } })
-                .execute();
-
-        info("after write_vk, expected_vk size: {}", expected_vk.bytes.size());
-        EXPECT_EQ(expected_vk.bytes, read_file(test_dir / "vk"));
-        EXPECT_EQ(expected_vk.hash, read_file(test_dir / "vk_hash"));
-    }
+    info("after write_vk, expected_vk size: {}", expected_vk.bytes.size());
+    EXPECT_EQ(expected_vk.bytes, read_file(test_dir / "vk"));
+    EXPECT_EQ(expected_vk.hash, read_file(test_dir / "vk_hash"));
 }
 
 // NOTE: very light test

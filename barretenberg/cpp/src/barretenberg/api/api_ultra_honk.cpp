@@ -156,12 +156,10 @@ void UltraHonkAPI::write_vk(const Flags& flags,
                                          .oracle_hash_type = flags.oracle_hash_type,
                                          .disable_zk = flags.disable_zk };
 
-    // Execute compute VK command
     auto response = bbapi::CircuitComputeVk{ .circuit = { .name = "circuit", .bytecode = std::move(bytecode) },
                                              .settings = settings }
                         .execute();
 
-    // Write VK outputs using the helper function
     write_vk_outputs(response, flags.output_format, output_dir);
 }
 
