@@ -80,10 +80,10 @@ import {
   PrivateKernelTailCircuitPublicInputs,
   PrivateToPublicAccumulatedData,
   PublicCallRequest,
-  UtilityContext,
 } from '@aztec/stdlib/kernel';
 import { ContractClassLog, IndexedTaggingSecret, PrivateLog, type PublicLog } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
+import { UtilityContext } from '@aztec/stdlib/oracle';
 import { ClientIvcProof } from '@aztec/stdlib/proofs';
 import {
   makeAppendOnlyTreeSnapshot,

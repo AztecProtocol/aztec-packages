@@ -77,9 +77,9 @@ import {
   type WorldStateSynchronizer,
   tryStop,
 } from '@aztec/stdlib/interfaces/server';
-import { UtilityContextWithoutContractAddress } from '@aztec/stdlib/kernel';
 import type { LogFilter, PrivateLog, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { UtilityContextWithoutContractAddress } from '@aztec/stdlib/oracle';
 import { P2PClientType } from '@aztec/stdlib/p2p';
 import type { MonitoredSlashPayload } from '@aztec/stdlib/slashing';
 import type { NullifierLeafPreimage, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';

@@ -33,13 +33,13 @@ import {
   getContractClassFromArtifact,
 } from '../contract/index.js';
 import { GasFees } from '../gas/gas_fees.js';
-import { UtilityContextWithoutContractAddress } from '../kernel/utility_context.js';
 import { PublicKeys } from '../keys/public_keys.js';
 import { ExtendedContractClassLog } from '../logs/extended_contract_class_log.js';
 import { ExtendedPublicLog } from '../logs/extended_public_log.js';
 import type { LogFilter } from '../logs/log_filter.js';
 import { PrivateLog } from '../logs/private_log.js';
 import { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
+import { UtilityContextWithoutContractAddress } from '../oracle/utility_context_without_contract_address.js';
 import { getTokenContractArtifact } from '../tests/fixtures.js';
 import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierMembershipWitness } from '../trees/nullifier_membership_witness.js';
@@ -234,6 +234,16 @@ describe('AztecNodeApiSchema', () => {
   it('getChainId', async () => {
     const response = await context.client.getChainId();
     expect(response).toBe(1);
+  });
+
+  it('getUtilityContextWithoutContractAddress', async () => {
+    const response = await context.client.getUtilityContextWithoutContractAddress();
+    expect(response).toEqual({
+      blockNumber: 1,
+      chainId: 1,
+      timestamp: 1n,
+      version: 1,
+    });
   });
 
   it('getL1ContractAddresses', async () => {
