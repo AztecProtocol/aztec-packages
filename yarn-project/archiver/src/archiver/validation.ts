@@ -1,18 +1,24 @@
 import type { EpochCache } from '@aztec/epoch-cache';
 import type { Logger } from '@aztec/foundation/log';
-import { type PublishedL2Block, getAttestationsFromPublishedL2Block } from '@aztec/stdlib/block';
+import {
+  type PublishedL2Block,
+  type ValidateBlockResult,
+  getAttestationsFromPublishedL2Block,
+} from '@aztec/stdlib/block';
 import { type L1RollupConstants, getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
+
+export type { ValidateBlockResult };
 
 /**
  * Validates the attestations submitted for the given block.
  * Returns true if the attestations are valid and sufficient, false otherwise.
  */
 export async function validateBlockAttestations(
-  publishedBlock: Pick<PublishedL2Block, 'attestations' | 'block'>,
+  publishedBlock: PublishedL2Block,
   epochCache: EpochCache,
   constants: Pick<L1RollupConstants, 'epochDuration'>,
   logger?: Logger,
-): Promise<boolean> {
+): Promise<ValidateBlockResult> {
   const attestations = getAttestationsFromPublishedL2Block(publishedBlock);
   const { block } = publishedBlock;
   const blockHash = await block.hash().then(hash => hash.toString());
@@ -31,19 +37,19 @@ export async function validateBlockAttestations(
   });
 
   if (!committee || committee.length === 0) {
-    // Q: Should we accept blocks with no committee?
     logger?.warn(`No committee found for epoch ${epoch} at slot ${slot}. Accepting block without validation.`, logData);
-    return true;
+    return { valid: true };
   }
 
   const committeeSet = new Set(committee.map(member => member.toString()));
   const requiredAttestationCount = Math.floor((committee.length * 2) / 3) + 1;
 
-  for (const attestation of attestations) {
+  for (let i = 0; i < attestations.length; i++) {
+    const attestation = attestations[i];
     const signer = attestation.getSender().toString();
     if (!committeeSet.has(signer)) {
       logger?.warn(`Attestation from non-committee member ${signer} at slot ${slot}`, { committee });
-      return false;
+      return { valid: false, reason: 'invalid-attestation', invalidIndex: i, block: publishedBlock, committee };
     }
   }
 
@@ -53,9 +59,9 @@ export async function validateBlockAttestations(
       actualAttestations: attestations.length,
       ...logData,
     });
-    return false;
+    return { valid: false, reason: 'insufficient-attestations', block: publishedBlock, committee };
   }
 
   logger?.debug(`Block attestations validated successfully for block ${block.number} at slot ${slot}`, logData);
-  return true;
+  return { valid: true };
 }

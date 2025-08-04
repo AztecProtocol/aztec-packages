@@ -78,16 +78,15 @@
 #include "barretenberg/constants.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/ecc/fields/field_conversion.hpp"
-#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/honk/types/circuit_type.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
+#include "barretenberg/public_input_component/public_component_key.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
-#include "barretenberg/stdlib_circuit_builders/public_component_key.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 #include <array>
@@ -197,9 +196,10 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      * @details Currently only used in testing.
      * @return FF
      */
-    fr hash()
+    fr hash() const
     {
-        fr vk_hash = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(this->to_field_elements());
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1498): should hash be dependent on transcript?
+        fr vk_hash = Transcript::hash(this->to_field_elements());
         return vk_hash;
     }
 

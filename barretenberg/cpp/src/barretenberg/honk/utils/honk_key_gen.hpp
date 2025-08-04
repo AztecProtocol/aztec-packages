@@ -67,6 +67,7 @@ inline void output_vk_sol_ultra_honk(std::ostream& os,
     print_u256_const(1 << key->log_circuit_size, "N");
     print_u256_const(key->log_circuit_size, "LOG_N");
     print_u256_const(key->num_public_inputs, "NUMBER_OF_PUBLIC_INPUTS");
+    print_u256_const(key->hash(), "VK_HASH");
     os << ""
     "library " << class_name << " {\n"
       "    function loadVerificationKey() internal pure returns (Honk.VerificationKey memory) {\n"

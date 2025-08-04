@@ -38,6 +38,7 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
     using Builder = Flavor::CircuitBuilder;
     using Prover = UltraProver_<Flavor>;
     using Verifier = UltraVerifier_<Flavor>;
+    using Proof = typename Flavor::Transcript::Proof;
 
     /**
      * @brief Construct a manifest for a Ultra Honk proof
@@ -63,26 +64,15 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         size_t frs_per_evals = (Flavor::NUM_ALL_ENTITIES)*frs_per_Fr;
 
         size_t round = 0;
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1427): Add VK FS to solidity verifier.
-        if constexpr (!IsAnyOf<Flavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
-            manifest_expected.add_entry(round, "vk_hash", frs_per_Fr);
-        } else {
-            size_t frs_per_uint32 = bb::field_conversion::calc_num_bn254_frs<uint32_t>();
-            manifest_expected.add_entry(round, "vk_log_circuit_size", frs_per_uint32);
-            manifest_expected.add_entry(round, "vk_num_public_inputs", frs_per_uint32);
-            manifest_expected.add_entry(round, "vk_pub_inputs_offset", frs_per_uint32);
-        }
+        manifest_expected.add_entry(round, "vk_hash", frs_per_Fr);
 
         manifest_expected.add_entry(round, "public_input_0", frs_per_Fr);
-        for (size_t i = 0; i < PAIRING_POINTS_SIZE; i++) {
+        constexpr size_t PUBLIC_INPUTS_SIZE =
+            HasIPAAccumulator<Flavor> ? RollupIO::PUBLIC_INPUTS_SIZE : DefaultIO::PUBLIC_INPUTS_SIZE;
+        for (size_t i = 0; i < PUBLIC_INPUTS_SIZE; i++) {
             manifest_expected.add_entry(round, "public_input_" + std::to_string(1 + i), frs_per_Fr);
         }
-        if constexpr (HasIPAAccumulator<Flavor>) {
-            for (size_t i = 0; i < IPA_CLAIM_SIZE; i++) {
-                manifest_expected.add_entry(
-                    round, "public_input_" + std::to_string(1 + PAIRING_POINTS_SIZE + i), frs_per_Fr);
-            }
-        }
+
         manifest_expected.add_entry(round, "W_L", frs_per_G);
         manifest_expected.add_entry(round, "W_R", frs_per_G);
         manifest_expected.add_entry(round, "W_O", frs_per_G);
@@ -201,7 +191,7 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         }
     }
 
-    HonkProof export_serialized_proof(Prover prover, const size_t num_public_inputs)
+    Proof export_serialized_proof(Prover prover, const size_t num_public_inputs)
     {
         // reset internal variables needed for exporting the proof
         prover.transcript->num_frs_written = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + num_public_inputs;
@@ -255,7 +245,6 @@ TYPED_TEST(UltraTranscriptTests, ProverManifestConsistency)
  */
 TYPED_TEST(UltraTranscriptTests, VerifierManifestConsistency)
 {
-
     // Construct a simple circuit of size n = 8 (i.e. the minimum circuit size)
     auto builder = typename TestFixture::Builder();
     TestFixture::generate_test_circuit(builder);
@@ -270,8 +259,8 @@ TYPED_TEST(UltraTranscriptTests, VerifierManifestConsistency)
     // Automatically generate a transcript manifest in the verifier by verifying a proof
     typename TestFixture::Verifier verifier(verification_key);
     verifier.transcript->enable_manifest();
-    HonkProof honk_proof;
-    HonkProof ipa_proof;
+    typename TestFixture::Proof honk_proof;
+    typename TestFixture::Proof ipa_proof;
     if constexpr (HasIPAAccumulator<TypeParam>) {
         verifier.ipa_verification_key = VerifierCommitmentKey<curve::Grumpkin>(1 << CONST_ECCVM_LOG_N);
         const size_t HONK_PROOF_LENGTH = TypeParam::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH;
@@ -282,8 +271,9 @@ TYPED_TEST(UltraTranscriptTests, VerifierManifestConsistency)
         // split out the ipa proof
         const std::ptrdiff_t honk_proof_with_pub_inputs_length =
             static_cast<std::ptrdiff_t>(HONK_PROOF_LENGTH + num_public_inputs);
-        ipa_proof = HonkProof(proof.begin() + honk_proof_with_pub_inputs_length, proof.end());
-        honk_proof = HonkProof(proof.begin(), proof.begin() + honk_proof_with_pub_inputs_length);
+
+        honk_proof = typename TestFixture::Proof(proof.begin(), proof.begin() + honk_proof_with_pub_inputs_length);
+        ipa_proof = typename TestFixture::Proof(proof.begin() + honk_proof_with_pub_inputs_length, proof.end());
     } else {
         honk_proof = proof;
     }

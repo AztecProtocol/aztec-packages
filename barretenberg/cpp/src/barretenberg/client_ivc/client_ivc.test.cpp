@@ -545,6 +545,8 @@ TEST_F(ClientIVCTests, MsgpackProofFromBuffer)
 /**
  * @brief Check that a CIVC proof can be serialized and deserialized via msgpack and that attempting to deserialize
  * a random buffer of bytes fails gracefully with a type error
+ * @brief Check that a CIVC proof can be serialized and deserialized via msgpack and that attempting to deserialize
+ * a random buffer of bytes fails gracefully with a type error
  */
 TEST_F(ClientIVCTests, RandomProofBytes)
 {

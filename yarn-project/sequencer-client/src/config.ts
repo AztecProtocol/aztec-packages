@@ -120,6 +120,29 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   fakeProcessingDelayPerTxMs: {
     description: 'Used for testing to introduce a fake delay after processing each tx',
   },
+  secondsBeforeInvalidatingBlockAsCommitteeMember: {
+    env: 'SEQ_SECONDS_BEFORE_INVALIDATING_BLOCK_AS_COMMITTEE_MEMBER',
+    description:
+      'How many seconds to wait before trying to invalidate a block from the pending chain as a committee member (zero to never invalidate).' +
+      ' The next proposer is expected to invalidate, so the committee acts as a fallback.',
+    ...numberConfigHelper(144), // 12 L1 blocks
+  },
+  secondsBeforeInvalidatingBlockAsNonCommitteeMember: {
+    env: 'SEQ_SECONDS_BEFORE_INVALIDATING_BLOCK_AS_NON_COMMITTEE_MEMBER',
+    description:
+      'How many seconds to wait before trying to invalidate a block from the pending chain as a non-committee member (zero to never invalidate).' +
+      ' The next proposer is expected to invalidate, then the committee, so other sequencers act as a fallback.',
+    ...numberConfigHelper(432), // 36 L1 blocks
+  },
+  skipCollectingAttestations: {
+    description:
+      'Whether to skip collecting attestations from validators and only use self-attestations (for testing only)',
+    ...booleanConfigHelper(false),
+  },
+  skipInvalidateBlockAsProposer: {
+    description: 'Do not invalidate the previous block if invalid when we are the proposer (for testing only)',
+    ...booleanConfigHelper(false),
+  },
   ...pickConfigMappings(p2pConfigMappings, ['txPublicSetupAllowList']),
 };
 

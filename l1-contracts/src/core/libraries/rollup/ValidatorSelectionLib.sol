@@ -9,9 +9,7 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {StakingLib} from "@aztec/core/libraries/rollup/StakingLib.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
-import {
-  SignatureLib, Signature, CommitteeAttestations
-} from "@aztec/shared/libraries/SignatureLib.sol";
+import {SignatureLib, Signature, CommitteeAttestations} from "@aztec/shared/libraries/SignatureLib.sol";
 import {ECDSA} from "@oz/utils/cryptography/ECDSA.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
@@ -42,8 +40,7 @@ library ValidatorSelectionLib {
     address[] reconstructedCommittee;
   }
 
-  bytes32 private constant VALIDATOR_SELECTION_STORAGE_POSITION =
-    keccak256("aztec.validator_selection.storage");
+  bytes32 private constant VALIDATOR_SELECTION_STORAGE_POSITION = keccak256("aztec.validator_selection.storage");
   // Namespace for cached proposer computations
   string private constant PROPOSER_NAMESPACE = "aztec.validator_selection.transient.proposer";
 
@@ -111,15 +108,12 @@ library ValidatorSelectionLib {
       }
 
       // Reconstruct the committee from the attestations and signers
-      address[] memory committee =
-        _attestations.reconstructCommitteeFromSigners(_signers, committeeSize);
+      address[] memory committee = _attestations.reconstructCommitteeFromSigners(_signers, committeeSize);
 
       // Check it matches the expected one
       bytes32 reconstructedCommitment = computeCommitteeCommitment(committee);
       if (reconstructedCommitment != committeeCommitment) {
-        revert Errors.ValidatorSelection__InvalidCommitteeCommitment(
-          reconstructedCommitment, committeeCommitment
-        );
+        revert Errors.ValidatorSelection__InvalidCommitteeCommitment(reconstructedCommitment, committeeCommitment);
       }
 
       // Get the proposer from the committee based on the epoch, slot, and sample seed
@@ -162,8 +156,7 @@ library ValidatorSelectionLib {
     CommitteeAttestations memory _attestations,
     bytes32 _digest
   ) internal {
-    (bytes32 committeeCommitment, uint256 targetCommitteeSize) =
-      getCommitteeCommitmentAt(_epochNumber);
+    (bytes32 committeeCommitment, uint256 targetCommitteeSize) = getCommitteeCommitmentAt(_epochNumber);
 
     // If the rollup is *deployed* with a target committee size of 0, we skip the validation.
     // Note: This generally only happens in test setups; In production, the target committee is non-zero,
@@ -173,9 +166,7 @@ library ValidatorSelectionLib {
     }
 
     VerifyStack memory stack = VerifyStack({
-      proposerIndex: computeProposerIndex(
-        _epochNumber, _slot, getSampleSeed(_epochNumber), targetCommitteeSize
-      ),
+      proposerIndex: computeProposerIndex(_epochNumber, _slot, getSampleSeed(_epochNumber), targetCommitteeSize),
       needed: (targetCommitteeSize << 1) / 3 + 1, // targetCommitteeSize * 2 / 3 + 1, but cheaper
       index: 0,
       signaturesRecovered: 0,
@@ -231,19 +222,14 @@ library ValidatorSelectionLib {
     // Check the committee commitment
     bytes32 reconstructedCommitment = computeCommitteeCommitment(stack.reconstructedCommittee);
     if (reconstructedCommitment != committeeCommitment) {
-      revert Errors.ValidatorSelection__InvalidCommitteeCommitment(
-        reconstructedCommitment, committeeCommitment
-      );
+      revert Errors.ValidatorSelection__InvalidCommitteeCommitment(reconstructedCommitment, committeeCommitment);
     }
 
     setCachedProposer(_slot, proposer, stack.proposerIndex);
   }
 
   function setCachedProposer(Slot _slot, address _proposer, uint256 _proposerIndex) internal {
-    require(
-      _proposerIndex <= type(uint96).max,
-      Errors.ValidatorSelection__ProposerIndexTooLarge(_proposerIndex)
-    );
+    require(_proposerIndex <= type(uint96).max, Errors.ValidatorSelection__ProposerIndexTooLarge(_proposerIndex));
     bytes32 packed = bytes32(uint256(uint160(_proposer))) | (bytes32(_proposerIndex) << 160);
     PROPOSER_NAMESPACE.erc7201Slot().deriveMapping(Slot.unwrap(_slot)).asBytes32().tstore(packed);
   }
@@ -263,10 +249,7 @@ library ValidatorSelectionLib {
       return (address(0), 0);
     }
     uint256 proposerIndex = computeProposerIndex(epochNumber, _slot, sampleSeed, committeeSize);
-    return (
-      StakingLib.getAttesterFromIndexAtTime(indices[proposerIndex], Timestamp.wrap(ts)),
-      proposerIndex
-    );
+    return (StakingLib.getAttesterFromIndexAtTime(indices[proposerIndex], Timestamp.wrap(ts)), proposerIndex);
   }
 
   /**
@@ -311,8 +294,7 @@ library ValidatorSelectionLib {
     committeeCommitment = store.committeeCommitments[_epochNumber];
     if (committeeCommitment == 0) {
       // If no committee has been stored, then we need to setup the epoch
-      committeeCommitment =
-        computeCommitteeCommitment(sampleValidators(_epochNumber, getSampleSeed(_epochNumber)));
+      committeeCommitment = computeCommitteeCommitment(sampleValidators(_epochNumber, getSampleSeed(_epochNumber)));
     }
 
     return (committeeCommitment, store.targetCommitteeSize);
@@ -337,7 +319,8 @@ library ValidatorSelectionLib {
     uint32 epoch = Epoch.unwrap(_epoch).toUint32();
 
     // Check if the latest checkpoint is for the next epoch
-    // It should be impossible that zero epoch snapshots exist, as in the genesis state we push the first sample seed into the store
+    // It should be impossible that zero epoch snapshots exist, as in the genesis state we push the first sample seed
+    // into the store
     (, uint32 mostRecentSeedEpoch,) = store.seeds.latestCheckpoint();
 
     // If the sample seed for the next epoch is already set, we can skip the computation
@@ -345,7 +328,8 @@ library ValidatorSelectionLib {
       return;
     }
 
-    // If the most recently stored seed is less than the epoch we are querying, then we need to compute it's seed for later use
+    // If the most recently stored seed is less than the epoch we are querying, then we need to compute it's seed for
+    // later use
     if (mostRecentSeedEpoch < epoch) {
       // Compute the sample seed for the next epoch
       uint224 nextSeed = computeNextSeed(_epoch);
@@ -353,10 +337,7 @@ library ValidatorSelectionLib {
     }
   }
 
-  function canProposeAtTime(Timestamp _ts, bytes32 _archive, address _who)
-    internal
-    returns (Slot, uint256)
-  {
+  function canProposeAtTime(Timestamp _ts, bytes32 _archive, address _who) internal returns (Slot, uint256) {
     Slot slot = _ts.slotFromTimestamp();
     RollupStore storage rollupStore = STFLib.getStorage();
 
@@ -376,13 +357,8 @@ library ValidatorSelectionLib {
     return (slot, pendingBlockNumber + 1);
   }
 
-  function getCachedProposer(Slot _slot)
-    internal
-    view
-    returns (address proposer, uint256 proposerIndex)
-  {
-    bytes32 packed =
-      PROPOSER_NAMESPACE.erc7201Slot().deriveMapping(Slot.unwrap(_slot)).asBytes32().tload();
+  function getCachedProposer(Slot _slot) internal view returns (address proposer, uint256 proposerIndex) {
+    bytes32 packed = PROPOSER_NAMESPACE.erc7201Slot().deriveMapping(Slot.unwrap(_slot)).asBytes32().tload();
     // Extract address from lower 160 bits
     proposer = address(uint160(uint256(packed)));
     // Extract uint96 from upper 96 bits
@@ -396,8 +372,7 @@ library ValidatorSelectionLib {
     // as we "start" time $t$. We then shift that back by an entire L2 epoch to guarantee
     // we are not hit by last-minute changes or L1 reorgs when syncing validators from our clients.
 
-    return Timestamp.unwrap(_epoch.toTimestamp()).toUint32()
-      - uint32(TimeLib.getEpochDurationInSeconds()) - 1;
+    return Timestamp.unwrap(_epoch.toTimestamp()).toUint32() - uint32(TimeLib.getEpochDurationInSeconds()) - 1;
   }
 
   /**
@@ -432,11 +407,7 @@ library ValidatorSelectionLib {
    *
    * @return The index of the proposer
    */
-  function computeProposerIndex(Epoch _epoch, Slot _slot, uint256 _seed, uint256 _size)
-    internal
-    pure
-    returns (uint256)
-  {
+  function computeProposerIndex(Epoch _epoch, Slot _slot, uint256 _seed, uint256 _size) internal pure returns (uint256) {
     return uint256(keccak256(abi.encode(_epoch, _slot, _seed))) % _size;
   }
 
@@ -448,10 +419,7 @@ library ValidatorSelectionLib {
    *
    * @return  The sample time and the indices of the validators for the given epoch
    */
-  function sampleValidatorsIndices(Epoch _epoch, uint224 _seed)
-    private
-    returns (uint32, uint256[] memory)
-  {
+  function sampleValidatorsIndices(Epoch _epoch, uint224 _seed) private returns (uint32, uint256[] memory) {
     ValidatorSelectionStorage storage store = getStorage();
     uint32 ts = epochToSampleTime(_epoch);
     uint256 validatorSetSize = StakingLib.getAttesterCountAtTime(Timestamp.wrap(ts));

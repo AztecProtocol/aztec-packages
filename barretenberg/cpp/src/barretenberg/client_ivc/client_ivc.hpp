@@ -136,7 +136,7 @@ class ClientIVC {
         MSGPACK_FIELDS(mega, eccvm, translator);
     };
 
-    enum class QUEUE_TYPE { OINK, PG, PG_FINAL }; // for specifying type of proof in the verification queue
+    enum class QUEUE_TYPE { OINK, PG, PG_FINAL, PG_TAIL }; // for specifying type of proof in the verification queue
 
     // An entry in the native verification queue
     struct VerifierInputs {

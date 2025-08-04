@@ -19,7 +19,7 @@ library Errors {
   error Governance__NoCheckpointsFound();
   error Governance__InsufficientPower(address voter, uint256 have, uint256 required);
   error Governance__InvalidConfiguration();
-  error Governance__WithdrawalAlreadyclaimed();
+  error Governance__WithdrawalAlreadyClaimed();
   error Governance__WithdrawalNotUnlockedYet(Timestamp currentTime, Timestamp unlocksAt);
   error Governance__ProposalNotActive();
   error Governance__ProposalNotExecutable();
@@ -30,7 +30,8 @@ library Errors {
   error Governance__ProposalCannotBeDropped();
   error Governance__DepositNotAllowed();
 
-  error Governance__UserLib__NotInPast();
+  error Governance__CheckpointedUintLib__InsufficientValue(address owner, uint256 have, uint256 required);
+  error Governance__CheckpointedUintLib__NotInPast();
 
   error Governance__ConfigurationLib__InvalidMinimumVotes();
   error Governance__ConfigurationLib__LockAmountTooSmall();
@@ -51,9 +52,7 @@ library Errors {
   error GovernanceProposer__InsufficientSignals(uint256 signalsCast, uint256 signalsNeeded);
   error GovernanceProposer__InvalidQuorumAndRoundSize(uint256 quorumSize, uint256 roundSize);
   error GovernanceProposer__QuorumCannotBeLargerThanRoundSize(uint256 quorumSize, uint256 roundSize);
-  error GovernanceProposer__InvalidLifetimeAndExecutionDelay(
-    uint256 lifetimeInRounds, uint256 executionDelayInRounds
-  );
+  error GovernanceProposer__InvalidLifetimeAndExecutionDelay(uint256 lifetimeInRounds, uint256 executionDelayInRounds);
   error GovernanceProposer__OnlyProposerCanSignal(address caller, address proposer);
   error GovernanceProposer__PayloadAlreadySubmitted(uint256 roundNumber);
   error GovernanceProposer__PayloadCannotBeAddressZero();
@@ -78,7 +77,7 @@ library Errors {
   error GSE__NotLatestRollup(address);
   error GSE__AlreadyRegistered(address, address);
   error GSE__NothingToExit(address);
-  error GSE__InsufficientStake(uint256, uint256);
+  error GSE__InsufficientBalance(uint256, uint256);
   error GSE__FailedToRemove(address);
   error GSE__InstanceDoesNotExist(address);
   error GSE__NotWithdrawer(address, address);
