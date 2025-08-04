@@ -417,12 +417,13 @@ template <typename Builder> class field_t {
 
     /**
      * @brief Return (a < b) as bool circuit type.
-     *        This method *assumes* that both a and b are < 2^{num_bits} - 1
+     *        This method *assumes* that both a and b are < 2^{num_bits}
      *        i.e. it is not checked here, we assume this has been done previously
      *
      */
     template <size_t num_bits> bool_t<Builder> ranged_less_than(const field_t<Builder>& other) const
     {
+
         const auto& a = (*this);
         const auto& b = other;
         auto* ctx = a.context ? a.context : b.context;
@@ -431,14 +432,22 @@ template <typename Builder> class field_t {
         }
 
         // Let q = (a < b)
-        // Assume both a and b are < K where K = 2^{num_bits} - 1
+        // Assume both a and b are < K where K = 2^{num_bits}
         //    q == 1 <=>  0 < b - a - 1     < K
         //    q == 0 <=>  0 < b - a + K - 1 < K
         // i.e. for any bool value of q:
         //    (b - a - 1) * q + (b - a + K - 1) * (1 - q) = r < K
         //     q * (b - a - b + a) + b - a + K - 1 - (K - 1) * q - q = r < K
         //     b - a + (K - 1) - K * q = r < K
+
         static constexpr uint256_t range_constant = (uint256_t(1) << num_bits);
+        // Since in the worst case scenario
+        //     r = K - 1 + (K - 1) = 2 * K - 2,
+        // to ensure that it never wraps around the field modulus, we impose that it's smaller than half the modulus
+        BB_ASSERT_LT(range_constant,
+                     bb::fr::modulus >> 1,
+                     "ranged_less_than: 2^num_bits must be less than half the field modulus.");
+
         bool predicate_witness = uint256_t(a.get_value()) < uint256_t(b.get_value());
         bool_t<Builder> predicate(witness_t<Builder>(ctx, predicate_witness));
         field_t predicate_valid = b.add_two(-(a) + range_constant - 1, -field_t(predicate) * range_constant);
