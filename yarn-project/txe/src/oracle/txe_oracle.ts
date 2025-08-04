@@ -80,6 +80,7 @@ import {
   PrivateKernelTailCircuitPublicInputs,
   PrivateToPublicAccumulatedData,
   PublicCallRequest,
+  UtilityContext,
 } from '@aztec/stdlib/kernel';
 import { ContractClassLog, IndexedTaggingSecret, PrivateLog, type PublicLog } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
@@ -249,6 +250,18 @@ export class TXE {
 
   utilityGetVersion(): Promise<Fr> {
     return Promise.resolve(new Fr(this.ROLLUP_VERSION));
+  }
+
+  utilityGetUtilityContext() {
+    return Promise.resolve(
+      new UtilityContext(
+        this.blockNumber,
+        this.timestamp,
+        this.contractAddress,
+        new Fr(this.ROLLUP_VERSION),
+        new Fr(this.CHAIN_ID),
+      ),
+    );
   }
 
   getMsgSender() {
