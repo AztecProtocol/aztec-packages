@@ -217,7 +217,7 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 {
 
     // Transcript to be shared shared across recursive verification of the folding of K_{i-1} (kernel), A_{i,1} (app),
-    // .., A_{i, n} (app) (i.e. all circuits accumulated between the previous kernel and the current one)
+    // .., A_{i, n} (app) (all circuits accumulated between the previous kernel and current one)
     auto accumulation_recursive_transcript = std::make_shared<RecursiveTranscript>();
 
     // Commitment to the previous state of the op_queue in the recursive verification
@@ -272,7 +272,7 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
         kernel_output.set_public();
     }
 
-    // Transcript to be shared across folding of K_{i} (kernel) (i.e. the current kernel), A_{i+1,1} (app), .., A_{i+1,
+    // Transcript to be shared across folding of K_{i} (kernel) (the current kernel), A_{i+1,1} (app), .., A_{i+1,
     // n} (app)
     accumulation_transcript = std::make_shared<Transcript>();
 }
@@ -310,10 +310,10 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
     honk_vk = precomputed_vk;
 
     VerifierInputs queue_entry{ .honk_vk = honk_vk,
-                                // first circuit accumulated should be an app?
+                                // first circuit accumulated should be an app
                                 .is_kernel = verification_queue.empty() && num_circuits_accumulated > 0 };
     if (num_circuits_accumulated == 0) { // First circuit in the IVC
-        // BB_ASSERT_EQ(circuit.is_kernel, false, "First circuit accumulated is always be an app");
+        BB_ASSERT_EQ(queue_entry.is_kernel, false, "First circuit accumulated is always be an app");
         // For first circuit in the IVC, use oink to complete the decider proving key and generate an oink proof
         MegaOinkProver oink_prover{ proving_key, honk_vk, accumulation_transcript };
         vinfo("computing oink proof...");
