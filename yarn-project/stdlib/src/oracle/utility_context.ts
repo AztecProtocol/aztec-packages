@@ -47,8 +47,8 @@ export class UtilityContext {
   public toNoirRepresentation(): (string | string[])[] {
     // TODO(#12874): remove the stupid as string conversion by modifying ForeignCallOutput type in acvm.js
     return [
-      this.blockNumber.toString() as string,
-      this.timestamp.toString() as string,
+      new Fr(this.blockNumber).toString() as string,
+      new Fr(this.timestamp).toString() as string,
       this.contractAddress.toString() as string,
       this.version.toString() as string,
       this.chainId.toString() as string,
