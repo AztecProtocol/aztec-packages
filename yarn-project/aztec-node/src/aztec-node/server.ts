@@ -553,12 +553,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
             'Aztec Node failed to obtain the latest block header when fetching the utility context without contract address.',
           );
         }
-        return new UtilityContextWithoutContractAddress(
-          blockHeader.globalVariables.blockNumber,
-          blockHeader.globalVariables.timestamp,
+        return UtilityContextWithoutContractAddress.from({
+          blockNumber: blockHeader.globalVariables.blockNumber,
+          timestamp: blockHeader.globalVariables.timestamp,
           version,
           chainId,
-        );
+        });
       },
     );
   }

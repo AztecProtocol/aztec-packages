@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
+import type { FieldsOf } from '@aztec/foundation/types';
 
 import type { AztecAddress } from '../aztec-address/index.js';
 import type { UInt64 } from '../types/shared.js';
@@ -8,12 +9,12 @@ import type { UtilityContextWithoutContractAddress } from './utility_context_wit
  * TypeScript counterpart of utility_context.nr. Used only as a return value for the utilityGetUtilityContext oracle.
  */
 export class UtilityContext {
-  constructor(
-    private readonly blockNumber: number,
-    private readonly timestamp: UInt64,
-    private readonly contractAddress: AztecAddress,
-    private readonly version: Fr,
-    private readonly chainId: Fr,
+  private constructor(
+    public readonly blockNumber: number,
+    public readonly timestamp: UInt64,
+    public readonly contractAddress: AztecAddress,
+    public readonly version: Fr,
+    public readonly chainId: Fr,
   ) {}
 
   static fromUtilityContextWithoutContractAddressAndContractAddress(
@@ -26,6 +27,16 @@ export class UtilityContext {
       contractAddress,
       new Fr(context.version),
       new Fr(context.chainId),
+    );
+  }
+
+  static from(fields: FieldsOf<UtilityContext>) {
+    return new UtilityContext(
+      fields.blockNumber,
+      fields.timestamp,
+      fields.contractAddress,
+      fields.version,
+      fields.chainId,
     );
   }
 
