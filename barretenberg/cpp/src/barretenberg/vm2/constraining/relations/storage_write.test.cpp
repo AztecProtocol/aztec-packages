@@ -104,7 +104,7 @@ TEST(SStoreConstrainingTest, MaxDataWritesReached)
                               "SSTORE_MAX_DATA_WRITES_REACHED");
 }
 
-TEST(SStoreConstrainingTest, ErrorTooManyWrites)
+TEST(SStoreConstrainingTest, OpcodeError)
 {
     TestTraceContainer trace({
         {
@@ -116,16 +116,30 @@ TEST(SStoreConstrainingTest, ErrorTooManyWrites)
         {
             { C::execution_sel_execute_sstore, 1 },
             { C::execution_dynamic_da_gas_factor, 0 },
+            { C::execution_max_data_writes_reached, 0 },
+            { C::execution_is_static, 1 },
+            { C::execution_sel_opcode_error, 1 },
+        },
+        {
+            { C::execution_sel_execute_sstore, 1 },
+            { C::execution_dynamic_da_gas_factor, 0 },
             { C::execution_max_data_writes_reached, 1 },
             { C::execution_sel_opcode_error, 0 },
         },
     });
-    check_relation<sstore>(trace, sstore::SR_SSTORE_ERROR_TOO_MANY_WRITES);
+    check_relation<sstore>(trace, sstore::SR_OPCODE_ERROR_IF_OVERFLOW_OR_STATIC);
 
     trace.set(C::execution_dynamic_da_gas_factor, 0, 0);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace, sstore::SR_SSTORE_ERROR_TOO_MANY_WRITES),
-                              "SSTORE_ERROR_TOO_MANY_WRITES");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace, sstore::SR_OPCODE_ERROR_IF_OVERFLOW_OR_STATIC),
+                              "OPCODE_ERROR_IF_OVERFLOW_OR_STATIC");
+
+    trace.set(C::execution_dynamic_da_gas_factor, 0, 1);
+
+    trace.set(C::execution_is_static, 1, 0);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace, sstore::SR_OPCODE_ERROR_IF_OVERFLOW_OR_STATIC),
+                              "OPCODE_ERROR_IF_OVERFLOW_OR_STATIC");
 }
 
 TEST(SStoreConstrainingTest, TreeStateNotChangedOnError)
