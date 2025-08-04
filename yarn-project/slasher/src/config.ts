@@ -11,39 +11,9 @@ import {
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
+import { Offense } from '@aztec/stdlib/slashing';
 
-export enum Offense {
-  UNKNOWN = 0,
-  DATA_WITHHOLDING = 1,
-  VALID_EPOCH_PRUNED = 2,
-  INACTIVITY = 3,
-  INVALID_BLOCK = 4,
-}
-
-export const OffenseToBigInt: Record<Offense, bigint> = {
-  [Offense.UNKNOWN]: 0n,
-  [Offense.DATA_WITHHOLDING]: 1n,
-  [Offense.VALID_EPOCH_PRUNED]: 2n,
-  [Offense.INACTIVITY]: 3n,
-  [Offense.INVALID_BLOCK]: 4n,
-};
-
-export function bigIntToOffense(offense: bigint): Offense {
-  switch (offense) {
-    case 0n:
-      return Offense.UNKNOWN;
-    case 1n:
-      return Offense.DATA_WITHHOLDING;
-    case 2n:
-      return Offense.VALID_EPOCH_PRUNED;
-    case 3n:
-      return Offense.INACTIVITY;
-    case 4n:
-      return Offense.INVALID_BLOCK;
-    default:
-      throw new Error(`Unknown offense: ${offense}`);
-  }
-}
+export type { SlasherConfig };
 
 export const WANT_TO_SLASH_EVENT = 'wantToSlash' as const;
 
@@ -82,6 +52,10 @@ export const DefaultSlasherConfig: SlasherConfig = {
   slashInactivitySignalTargetPercentage: 0.6,
   slashInactivityCreatePenalty: 1n,
   slashInactivityMaxPenalty: 100n,
+  slashProposeInvalidAttestationsPenalty: 1n,
+  slashProposeInvalidAttestationsMaxPenalty: 100n,
+  slashAttestDescendantOfInvalidPenalty: 1n,
+  slashAttestDescendantOfInvalidMaxPenalty: 100n,
   slashProposerRoundPollingIntervalSeconds: 12,
   slasherPrivateKey: new SecretValue<string | undefined>(undefined),
 };
@@ -162,6 +136,26 @@ export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
     env: 'SLASH_INACTIVITY_MAX_PENALTY',
     description: 'Maximum penalty amount for slashing an inactive validator.',
     ...bigintConfigHelper(DefaultSlasherConfig.slashInactivityMaxPenalty),
+  },
+  slashProposeInvalidAttestationsPenalty: {
+    env: 'SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY',
+    description: 'Penalty amount for slashing a proposer that proposed invalid attestations.',
+    ...bigintConfigHelper(DefaultSlasherConfig.slashProposeInvalidAttestationsPenalty),
+  },
+  slashProposeInvalidAttestationsMaxPenalty: {
+    env: 'SLASH_PROPOSE_INVALID_ATTESTATIONS_MAX_PENALTY',
+    description: 'Maximum penalty amount for slashing a proposer that proposed invalid attestations.',
+    ...bigintConfigHelper(DefaultSlasherConfig.slashProposeInvalidAttestationsMaxPenalty),
+  },
+  slashAttestDescendantOfInvalidPenalty: {
+    env: 'SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY',
+    description: 'Penalty amount for slashing a validator that attested to a descendant of an invalid block.',
+    ...bigintConfigHelper(DefaultSlasherConfig.slashAttestDescendantOfInvalidPenalty),
+  },
+  slashAttestDescendantOfInvalidMaxPenalty: {
+    env: 'SLASH_ATTEST_DESCENDANT_OF_INVALID_MAX_PENALTY',
+    description: 'Maximum penalty amount for slashing a validator that attested to a descendant of an invalid block.',
+    ...bigintConfigHelper(DefaultSlasherConfig.slashAttestDescendantOfInvalidMaxPenalty),
   },
   slashProposerRoundPollingIntervalSeconds: {
     description: 'Polling interval for slashing proposer round in seconds.',

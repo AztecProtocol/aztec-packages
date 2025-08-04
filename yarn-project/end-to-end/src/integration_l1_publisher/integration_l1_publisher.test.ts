@@ -581,6 +581,9 @@ describe('L1Publisher integration', () => {
         valid: false,
         committee: committee!,
         block: new PublishedL2Block(block, {} as L1PublishedData, badAttestations),
+        attestations: badBlockAttestations,
+        epoch: 1n,
+        seed: 1n,
         reason: 'insufficient-attestations',
       });
       expect(invalidateRequest).toBeDefined();
