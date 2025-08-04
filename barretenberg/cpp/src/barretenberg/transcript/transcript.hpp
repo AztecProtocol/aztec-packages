@@ -775,6 +775,7 @@ struct KeccakTranscriptParams {
     }
     static inline std::array<DataType, 2> split_challenge(const DataType& challenge)
     {
+        // Challenges sizes are matched with the challenge sizes used in bb::fr
         // match the parameter used in stdlib, which is derived from cycle_scalar (is 128)
         static constexpr size_t LO_BITS = bb::fr::Params::MAX_BITS_PER_ENDOMORPHISM_SCALAR;
         static constexpr size_t HI_BITS = bb::fr::modulus.get_msb() + 1 - LO_BITS;
