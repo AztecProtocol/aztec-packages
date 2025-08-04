@@ -153,6 +153,7 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
         break;
     }
     case QUEUE_TYPE::PG_FINAL: {
+        // we should construct the hiding kernel in this case
         BB_ASSERT_EQ(stdlib_verification_queue.size(), size_t(1));
         BB_ASSERT_EQ(num_circuits_accumulated,
                      num_circuits,
