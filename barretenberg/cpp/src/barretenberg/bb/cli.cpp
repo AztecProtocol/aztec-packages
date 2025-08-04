@@ -25,7 +25,6 @@
 #include "barretenberg/bbapi/c_bind.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/flavor/ultra_rollup_flavor.hpp"
-#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/srs/factories/native_crs_factory.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include <fstream>
