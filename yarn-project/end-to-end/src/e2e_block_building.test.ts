@@ -609,9 +609,7 @@ describe('e2e_block_building', () => {
 
     afterEach(() => teardown());
 
-    // TODO: Re-enable once the error regex in test patterns is fixed. For more context see this discussion on slack:
-    // https://aztecprotocol.slack.com/archives/C04BTJAA694/p1753780080508249
-    it.skip('detects an upcoming reorg and builds a block for the correct slot', async () => {
+    it('detects an upcoming reorg and builds a block for the correct slot', async () => {
       // Advance to a fresh epoch and mark the current one as proven
       await cheatCodes.rollup.advanceToNextEpoch();
       await cheatCodes.rollup.markAsProven();
@@ -631,11 +629,7 @@ describe('e2e_block_building', () => {
 
       logger.info('Advancing past the proof submission window');
 
-      await cheatCodes.rollup.advanceToEpoch(
-        getProofSubmissionDeadlineEpoch(2n, {
-          proofSubmissionEpochs: 1,
-        }),
-      );
+      await cheatCodes.rollup.advanceToEpoch(getProofSubmissionDeadlineEpoch(2n, { proofSubmissionEpochs: 1 }));
 
       // Wait until the sequencer kicks out tx1
       logger.info(`Waiting for node to prune tx1`);
@@ -643,7 +637,7 @@ describe('e2e_block_building', () => {
         async () => (await aztecNode.getTxReceipt(tx1.txHash)).status === TxStatus.PENDING,
         'wait for pruning',
         15,
-        1,
+        0.11,
       );
 
       // And wait until it is brought back tx1
