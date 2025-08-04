@@ -5,7 +5,7 @@ import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import { siloNullifier } from '@aztec/stdlib/hash';
-import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
+import { type KeyValidationRequest, UtilityContext } from '@aztec/stdlib/kernel';
 import { IndexedTaggingSecret } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
@@ -54,6 +54,14 @@ export class UtilityExecutionOracle extends TypedOracle {
 
   public override utilityGetVersion(): Promise<Fr> {
     return Promise.resolve(this.executionDataProvider.getVersion().then(v => new Fr(v)));
+  }
+
+  public override async utilityGetUtilityContext(): Promise<UtilityContext> {
+    const contextWithoutContractAddress = await this.executionDataProvider.getUtilityContextWithoutContractAddress();
+    return UtilityContext.fromUtilityContextWithoutContractAddressAndContractAddress(
+      contextWithoutContractAddress,
+      this.contractAddress,
+    );
   }
 
   /**
