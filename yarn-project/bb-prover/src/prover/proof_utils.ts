@@ -39,7 +39,7 @@ export async function writeClientIVCProofToOutputDirectory(clientIvcProof: Clien
 
 function splitBufferIntoFields(buffer: Buffer): Fr[] {
   const fields: Fr[] = [];
-  for (const i = 0; i < buffer.length / Fr.SIZE_IN_BYTES; i++) {
+  for (let i = 0; i < buffer.length / Fr.SIZE_IN_BYTES; i++) {
     fields.push(Fr.fromBuffer(buffer.subarray(i * Fr.SIZE_IN_BYTES, (i + 1) * Fr.SIZE_IN_BYTES)));
   }
   return fields;
