@@ -1150,17 +1150,13 @@ template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const 
     }
     // Add the accumulated constant term to the first witness. It does not create any gates - only the additive
     // constant of `accumulator[0]` is updated.
-    if (accumulator.size() != input.size()) {
-        accumulator[0] += constant_term;
-    }
+    accumulator[0] += constant_term;
 
     // At this point, the `accumulator` vector consisting of witnesses is not empty, so we can extract the context.
     Builder* ctx = accumulator[0].get_context();
 
     // Step 2: compute output value
     size_t num_elements = accumulator.size();
-    // If `input` contains non-constant `field_t` elements, add the accumulated constant value to the output value,
-    // else initialize by 0.
     bb::fr output = bb::fr::zero();
     for (const auto& acc : accumulator) {
         output += acc.get_value();
