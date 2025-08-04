@@ -56,6 +56,7 @@ describe('e2e_epochs/epochs_first_slot', () => {
       maxTxsPerBlock: 1,
       attestationPropagationTime: 0.5,
       maxL1TxInclusionTimeIntoSlot: 0,
+      archiverPollingIntervalMS: 200,
     });
 
     ({ context, logger } = test);

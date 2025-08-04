@@ -34,7 +34,7 @@ describe('e2e_epochs/epochs_proof_fails', () => {
   beforeEach(async () => {
     // Bumping the epoch duration to 5 because otherwise it takes a full epoch before the actual test starts,
     // which means the prover node is attempting to prove before we setup the mocks.
-    test = await EpochsTestContext.setup({ aztecEpochDuration: 5 });
+    test = await EpochsTestContext.setup({ ethereumSlotDuration: 8, aztecEpochDuration: 5 });
     ({ proverDelayer, sequencerDelayer, context, l1Client, rollup, constants, logger, monitor } = test);
     ({ L1_BLOCK_TIME_IN_S, L2_SLOT_DURATION_IN_S } = test);
   });
