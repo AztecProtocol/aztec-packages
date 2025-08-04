@@ -199,15 +199,17 @@ where
     }
 }
 
-impl<Note, let INITIAL_DELAY: u64, let N: u32> Packable<2 * N + 1> for DelayedPrivateMutableNote<Note, INITIAL_DELAY>
+impl<Note, let INITIAL_DELAY: u64, let N: u32> Packable for DelayedPrivateMutableNote<Note, INITIAL_DELAY>
 where
-    Note: Packable<N>,
+    Note: Packable,
 {
-    fn pack(self) -> [Field; 2 * N + 1] {
+    let N: u32 = 2 * <Note as Packable>::N + 1;
+
+    fn pack(self) -> [Field; Self::N] {
         self.delayed_mutable_values.pack()
     }
 
-    fn unpack(fields: [Field; 2 * N + 1]) -> Self {
+    fn unpack(fields: [Field; Self::N]) -> Self {
         Self { delayed_mutable_values: DelayedPublicMutableValues::unpack(fields) }
     }
 }

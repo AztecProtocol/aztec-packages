@@ -32,6 +32,7 @@ impl<T, let INITIAL_DELAY: u64> DelayedPublicMutableValues<T, INITIAL_DELAY> {
 }
 
 /// Extracts a ScheduledValueChange struct from the packed representation of the full DelayedPublicMutable.
+/// TODO: impl the packable trait for ScheduledValueChange
 pub fn unpack_value_change<T, let M: u32>(packed: [Field; 2 * M + 1]) -> ScheduledValueChange<T>
 where
     T: Packable<N = M>,

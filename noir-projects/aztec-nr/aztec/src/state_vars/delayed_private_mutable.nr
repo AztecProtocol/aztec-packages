@@ -84,12 +84,12 @@ where
     /// https://github.com/AztecProtocol/aztec-packages/issues/5501
     /// Notes are assumed to be Note::empty() before the initialization takes effect,
     /// so do not infer meaning from an empty note, other than "it has not yet been initialized".
-    pub fn schedule_initialization<let N: u32>(
+    pub fn schedule_initialization(
         self,
         note: Note,
     ) -> NoteEmission<DelayedPrivateMutableNote<Note, INITIAL_DELAY>>
     where
-        Note: Empty + Packable<N>,
+        Note: Empty + Packable,
     {
         // TODO: make this configurable
         // https://github.com/AztecProtocol/aztec-packages/issues/5501
@@ -121,11 +121,9 @@ where
         create_note(self.context, self.storage_slot, wrapped_note)
     }
 
-    fn get_and_nullify_wrapped_note<let N: u32>(
-        self,
-    ) -> DelayedPrivateMutableNote<Note, INITIAL_DELAY>
+    fn get_and_nullify_wrapped_note(self) -> DelayedPrivateMutableNote<Note, INITIAL_DELAY>
     where
-        Note: Packable<N>,
+        Note: Packable,
     {
         let (retrieved_wrapped_note, retrieved_wrapped_note_hash_for_read_request): (RetrievedNote<DelayedPrivateMutableNote<Note, INITIAL_DELAY>>, Field) =
             get_note(self.context, self.storage_slot);
@@ -140,12 +138,12 @@ where
         retrieved_wrapped_note.note
     }
 
-    pub fn schedule_replacement<let N: u32>(
+    pub fn schedule_replacement(
         self,
         new_note: Note,
     ) -> NoteEmission<DelayedPrivateMutableNote<Note, INITIAL_DELAY>>
     where
-        Note: Packable<N>,
+        Note: Packable,
     {
         let old_wrapped_note = self.get_and_nullify_wrapped_note();
 
@@ -179,12 +177,12 @@ where
         create_note(self.context, self.storage_slot, wrapped_note)
     }
 
-    pub fn schedule_delay_change<let N: u32>(
+    pub fn schedule_delay_change(
         self,
         new_delay: u64,
     ) -> NoteEmission<DelayedPrivateMutableNote<Note, INITIAL_DELAY>>
     where
-        Note: Packable<N>,
+        Note: Packable,
     {
         let old_wrapped_note = self.get_and_nullify_wrapped_note();
 
@@ -215,7 +213,7 @@ where
 {
     pub fn get_current_note<let N: u32>(self) -> Note
     where
-        Note: Packable<N>,
+        Note: Packable,
     {
         let svc = self.get_latest_historical_delayed_mutable_values().svc;
         let historical_timestamp = self.context.get_block_header().global_variables.timestamp;
@@ -225,7 +223,7 @@ where
 
     pub fn get_current_delay<let N: u32>(self) -> u64
     where
-        Note: Packable<N>,
+        Note: Packable,
     {
         let sdc = self.get_latest_historical_delayed_mutable_values().sdc;
         let historical_timestamp = self.context.get_block_header().global_variables.timestamp;
@@ -235,7 +233,7 @@ where
 
     pub fn get_scheduled_note<let N: u32>(self) -> (Note, u64)
     where
-        Note: Packable<N>,
+        Note: Packable,
     {
         let svc = self.get_latest_historical_delayed_mutable_values().svc;
 
@@ -244,18 +242,18 @@ where
 
     pub fn get_scheduled_delay<let N: u32>(self) -> (u64, u64)
     where
-        Note: Packable<N>,
+        Note: Packable,
     {
         let sdc = self.get_latest_historical_delayed_mutable_values().sdc;
 
         sdc.get_scheduled()
     }
 
-    pub fn get_latest_historical_delayed_mutable_values<let N: u32>(
+    pub fn get_latest_historical_delayed_mutable_values(
         self,
     ) -> DelayedPublicMutableValues<Note, INITIAL_DELAY>
     where
-        Note: Packable<N>,
+        Note: Packable,
     {
         let old_wrapped_note = self.get_latest_historical_wrapped_note();
 
@@ -276,11 +274,9 @@ where
         old_wrapped_note.delayed_mutable_values
     }
 
-    fn get_latest_historical_wrapped_note<let N: u32>(
-        self,
-    ) -> DelayedPrivateMutableNote<Note, INITIAL_DELAY>
+    fn get_latest_historical_wrapped_note(self) -> DelayedPrivateMutableNote<Note, INITIAL_DELAY>
     where
-        Note: Packable<N>,
+        Note: Packable,
     {
         // We want to get the "current" note, from the perspective of the historical_timestamp of this tx.
         // To check whether a note is current, we'd ordinarily have to publicly leak its nullifier, as a way of
@@ -319,7 +315,7 @@ where
 {
     pub unconstrained fn view_current_note<let N: u32>(self) -> Note
     where
-        Note: Eq + Packable<N>,
+        Note: Eq + Packable,
     {
         let mut options = NoteViewerOptions::new();
         let wrapped_note: DelayedPrivateMutableNote<Note, INITIAL_DELAY> =

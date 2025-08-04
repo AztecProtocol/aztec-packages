@@ -184,8 +184,9 @@ global TWO_POW_8: Field = 2.pow_32(8);
 
 // We pack to `2 * N + 1` fields because ScheduledValueChange contains T twice (hence `2 * N`) and we need one extra
 // field to store ScheduledDelayChange and the timestamp_of_change of ScheduledValueChange.
-impl<let INITIAL_DELAY: u64> Packable<1> for ScheduledDelayChange<INITIAL_DELAY> {
-    fn pack(self) -> [Field; 1] {
+// TODO: impl this as `Packable for ScheduledDelayChange`
+impl<let INITIAL_DELAY: u64> ScheduledDelayChange<INITIAL_DELAY> {
+    pub fn pack(self) -> [Field; 1] {
         let mut result = [0; 1];
 
         // We copy the packing approach of delayed_public_mutable_values, just omitting the
@@ -204,7 +205,7 @@ impl<let INITIAL_DELAY: u64> Packable<1> for ScheduledDelayChange<INITIAL_DELAY>
         result
     }
 
-    fn unpack(packed: [Field; 1]) -> Self {
+    pub fn unpack(packed: [Field; 1]) -> Self {
         let field = packed[0];
 
         // TODO: ScheduledDelayChange should not be concerned with a packing approach that
