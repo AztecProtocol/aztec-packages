@@ -37,7 +37,7 @@ contract BN254KeyTest is Test {
       FixtureKey memory key = fixtureData.sampleKeys[i];
       key.pk1.x++;
       G1Point memory sigma = this.signRegistrationDigest(key.sk);
-      vm.expectRevert(BN254Lib.MulPointFail.selector);
+      vm.expectRevert(abi.encodeWithSelector(BN254Lib.NotOnCurve.selector, key.pk1.x, key.pk1.y));
       // need to set the gas since the precompile uses everything given to it
       // if it fails
       this.proofOfPossession{gas: 100_000}(key.pk1, key.pk2, sigma);
@@ -49,7 +49,9 @@ contract BN254KeyTest is Test {
       FixtureKey memory key = fixtureData.sampleKeys[i];
       key.pk2.x0++;
       G1Point memory sigma = signRegistrationDigest(key.sk);
-      vm.expectRevert(BN254Lib.PairingFail.selector);
+      vm.expectRevert(
+        abi.encodeWithSelector(BN254Lib.NotOnCurveG2.selector, key.pk2.x0, key.pk2.x1, key.pk2.y0, key.pk2.y1)
+      );
       this.proofOfPossession{gas: 100_000}(key.pk1, key.pk2, sigma);
     }
   }
@@ -59,7 +61,7 @@ contract BN254KeyTest is Test {
       FixtureKey memory key = fixtureData.sampleKeys[i];
       G1Point memory sigma = signRegistrationDigest(key.sk);
       sigma.x++;
-      vm.expectRevert(BN254Lib.AddPointFail.selector);
+      vm.expectRevert(abi.encodeWithSelector(BN254Lib.NotOnCurve.selector, sigma.x, sigma.y));
       this.proofOfPossession{gas: 100_000}(key.pk1, key.pk2, sigma);
     }
   }

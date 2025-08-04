@@ -12,7 +12,7 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {StakingQueueLib, StakingQueue, DepositArgs} from "@aztec/core/libraries/StakingQueue.sol";
 import {TimeLib, Timestamp, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
-import {GSE, AttesterConfig} from "@aztec/governance/GSE.sol";
+import {GSE, AttesterConfig, IGSECore} from "@aztec/governance/GSE.sol";
 import {Proposal} from "@aztec/governance/interfaces/IGovernance.sol";
 import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
@@ -250,7 +250,7 @@ library StakingLib {
       DepositArgs memory args = store.entryQueue.dequeue();
       (bool success, bytes memory data) = address(store.gse).call(
         abi.encodeWithSelector(
-          IStakingCore.deposit.selector,
+          IGSECore.deposit.selector,
           args.attester,
           args.withdrawer,
           args.publicKeyInG1,

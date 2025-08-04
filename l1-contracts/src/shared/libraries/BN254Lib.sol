@@ -51,6 +51,8 @@ library BN254Lib {
   uint256 private constant T24 = 0x1000000000000000000000000000000000000000000000000;
   uint256 private constant MASK24 = 0xffffffffffffffffffffffffffffffffffffffffffffffff;
 
+  error NotOnCurve(uint256 x, uint256 y);
+  error NotOnCurveG2(uint256 x0, uint256 x1, uint256 y0, uint256 y1);
   error Pk1Zero();
   error Pk2Zero();
   error SignatureZero();
@@ -92,6 +94,9 @@ library BN254Lib {
     require(pk1.x != 0 && pk1.y != 0, Pk1Zero());
     require(pk2.x0 != 0 && pk2.x1 != 0 && pk2.y0 != 0 && pk2.y1 != 0, Pk2Zero());
     require(signature.x != 0 && signature.y != 0, SignatureZero());
+    require(isOnCurveG1(pk1), NotOnCurve(pk1.x, pk1.y));
+    require(isOnCurveG2(pk2), NotOnCurveG2(pk2.x0, pk2.x1, pk2.y0, pk2.y1));
+    require(isOnCurveG1(signature), NotOnCurve(signature.x, signature.y));
 
     // Compute the point "digest" of the pk1 that sigma is a signature over
     G1Point memory pk1DigestPoint = g1ToDigestPoint(pk1);
@@ -109,6 +114,55 @@ library BN254Lib {
 
     // Pairing: e(L, -G2) * e(R, pk2) == 1
     return bn254Pairing(left, g2NegatedGenerator(), right, pk2);
+  }
+
+  function isOnCurveG1(G1Point memory point) internal pure returns (bool _isOnCurve) {
+    assembly {
+      let t0 := mload(point)
+      let t1 := mload(add(point, 32))
+      let t2 := mulmod(t0, t0, BASE_FIELD_ORDER)
+      t2 := mulmod(t2, t0, BASE_FIELD_ORDER)
+      t2 := addmod(t2, 3, BASE_FIELD_ORDER)
+      t1 := mulmod(t1, t1, BASE_FIELD_ORDER)
+      _isOnCurve := eq(t1, t2)
+    }
+  }
+
+  function isOnCurveG2(G2Point memory point) internal pure returns (bool _isOnCurve) {
+    assembly {
+      // x0, x1
+      let t0 := mload(point)
+      let t1 := mload(add(point, 32))
+      // x0 ^ 2
+      let t2 := mulmod(t0, t0, BASE_FIELD_ORDER)
+      // x1 ^ 2
+      let t3 := mulmod(t1, t1, BASE_FIELD_ORDER)
+      // 3 * x0 ^ 2
+      let t4 := add(add(t2, t2), t2)
+      // 3 * x1 ^ 2
+      let t5 := addmod(add(t3, t3), t3, BASE_FIELD_ORDER)
+      // x0 * (x0 ^ 2 - 3 * x1 ^ 2)
+      t2 := mulmod(add(t2, sub(BASE_FIELD_ORDER, t5)), t0, BASE_FIELD_ORDER)
+      // x1 * (3 * x0 ^ 2 - x1 ^ 2)
+      t3 := mulmod(add(t4, sub(BASE_FIELD_ORDER, t3)), t1, BASE_FIELD_ORDER)
+
+      // x ^ 3 + b
+      t0 := addmod(t2, 0x2b149d40ceb8aaae81be18991be06ac3b5b4c5e559dbefa33267e6dc24a138e5, BASE_FIELD_ORDER)
+      t1 := addmod(t3, 0x009713b03af0fed4cd2cafadeed8fdf4a74fa084e52d1852e4a2bd0685c315d2, BASE_FIELD_ORDER)
+
+      // y0, y1
+      t2 := mload(add(point, 64))
+      t3 := mload(add(point, 96))
+      // y ^ 2
+      t4 :=
+        mulmod(
+          addmod(t2, t3, BASE_FIELD_ORDER), addmod(t2, sub(BASE_FIELD_ORDER, t3), BASE_FIELD_ORDER), BASE_FIELD_ORDER
+        )
+      t3 := mulmod(shl(1, t2), t3, BASE_FIELD_ORDER)
+
+      // y ^ 2 == x ^ 3 + b
+      _isOnCurve := and(eq(t0, t4), eq(t1, t3))
+    }
   }
 
   /// @notice Convert a G1 point (public key) to the digest point that must be signed to prove possession.
