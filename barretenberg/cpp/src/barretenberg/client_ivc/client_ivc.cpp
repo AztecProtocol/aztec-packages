@@ -440,6 +440,9 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::comp
     return { points_accumulator, merged_table_commitments };
 }
 
+/**
+ * @brief Construct the proving key of the hiding circuit, from the hiding_circuit builder in the client_ivc class
+ */
 std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::get_hiding_circuit_proving_key()
 {
     auto hiding_decider_pk =
