@@ -5,7 +5,7 @@ import { FunctionCall, FunctionSelector, FunctionType, encodeArguments } from '@
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CompleteAddress, type ContractInstance } from '@aztec/stdlib/contract';
 import { Note } from '@aztec/stdlib/note';
-import { BlockHeader } from '@aztec/stdlib/tx';
+import { UtilityContextWithoutContractAddress } from '@aztec/stdlib/oracle';
 
 import { mock } from 'jest-mock-extended';
 
@@ -58,15 +58,12 @@ describe('Utility Execution test suite', () => {
 
       const notes: Note[] = [...Array(5).fill(buildNote(1n, owner)), ...Array(2).fill(buildNote(2n, owner))];
 
-      executionDataProvider.getBlockNumber.mockResolvedValue(27);
       executionDataProvider.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
       executionDataProvider.getFunctionArtifact.mockResolvedValue(artifact);
       executionDataProvider.getContractInstance.mockResolvedValue({
         currentContractClassId: new Fr(42),
         originalContractClassId: new Fr(42),
       } as ContractInstance);
-      executionDataProvider.syncTaggedLogs.mockResolvedValue();
-      executionDataProvider.getBlockHeader.mockResolvedValue(BlockHeader.empty());
       executionDataProvider.getNotes.mockResolvedValue(
         notes.map((note, index) => ({
           contractAddress,
@@ -80,8 +77,15 @@ describe('Utility Execution test suite', () => {
         })),
       );
 
-      executionDataProvider.syncTaggedLogs.mockImplementation((_, __) => Promise.resolve());
       executionDataProvider.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
+      executionDataProvider.getUtilityContextWithoutContractAddress.mockResolvedValue(
+        UtilityContextWithoutContractAddress.from({
+          blockNumber: 27,
+          timestamp: 0n,
+          version: 1,
+          chainId: 1,
+        }),
+      );
 
       const execRequest: FunctionCall = {
         name: artifact.name,
