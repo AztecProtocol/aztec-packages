@@ -745,17 +745,21 @@ contract GSE is IGSE, GSECore {
 
     uint32 ts = Timestamp.unwrap(_timestamp).toUint32();
 
+    // The effective size of the set will be the size of the instance attesters, plus the size of the bonus attesters
+    // if the instance is the latest rollup. This will effectively work as one long list with [...instance, ...bonus]
     uint256 storeSize = instanceStore.attesters.lengthAtTimestamp(ts);
     uint256 canonicalSize = isLatestRollup ? bonusStore.attesters.lengthAtTimestamp(ts) : 0;
     uint256 totalSize = storeSize + canonicalSize;
 
-    // When this is called from `getAttestersAtTime`, _indices.length is one more than the effective attester count.
-    // And the returned array will be:
-    // [rollup attester 1, rollup attester 2, ..., rollup attester N, bonus attester 1, bonus attester 2, ..., bonus
-    // attester M]
+    // We loop through the indices, and for each index we get the attester from the instance or bonus instance
+    // depending on value in the collective list [...instance, ...bonus]
     for (uint256 i = 0; i < _indices.length; i++) {
       uint256 index = _indices[i];
       require(index < totalSize, Errors.GSE__OutOfBounds(index, totalSize));
+
+      // since we have ensured that the index is not out of bounds, we can use the unsafe function in
+      // `AddressSnapshotLib` to fetch if. We use the `recent` variant as we expect the attesters to
+      // mainly be from recent history when fetched during tx execution.
 
       if (index < storeSize) {
         attesters[i] = instanceStore.attesters.unsafeGetRecentAddressFromIndexAtTimestamp(index, ts);
