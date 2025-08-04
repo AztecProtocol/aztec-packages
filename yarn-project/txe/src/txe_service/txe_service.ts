@@ -587,6 +587,18 @@ export class TXEService {
     return toForeignCallResult([toSingle(await this.txe.utilityGetVersion())]);
   }
 
+  async utilityGetUtilityContext() {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
+      throw new Error(
+        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
+      );
+    }
+
+    const context = await this.txe.utilityGetUtilityContext();
+
+    return toForeignCallResult(context.toNoirRepresentation());
+  }
+
   async utilityGetBlockHeader(blockNumber: ForeignCallSingle) {
     if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(

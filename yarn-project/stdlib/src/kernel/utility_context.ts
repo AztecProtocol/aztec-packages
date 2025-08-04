@@ -8,7 +8,7 @@ import type { UInt64 } from '../types/shared.js';
 
 // TODO(benesjan): move this to a different place, it doesn't belong here
 export class UtilityContext {
-  private constructor(
+  constructor(
     private readonly blockNumber: number,
     private readonly timestamp: UInt64,
     private readonly contractAddress: AztecAddress,
