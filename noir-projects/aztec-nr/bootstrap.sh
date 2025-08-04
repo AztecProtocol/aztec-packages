@@ -44,7 +44,7 @@ function format {
 }
 
 function release {
-  if semver check $REF_NAME; then
+  if ! semver check $REF_NAME; then
     echo_stderr "Release tag must be a valid semver version. Found: $REF_NAME"
     exit 1
   fi

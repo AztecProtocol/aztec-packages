@@ -20,7 +20,7 @@ namespace bb {
  */
 template <typename Flavor>
 std::pair<typename UltraVerifier_<Flavor>::PublicInputs, typename UltraVerifier_<Flavor>::DeciderVerifier::Output>
-UltraVerifier_<Flavor>::verify_internal(const HonkProof& proof)
+UltraVerifier_<Flavor>::verify_internal(const typename UltraVerifier_<Flavor>::Proof& proof)
 {
     using FF = typename Flavor::FF;
 
@@ -44,7 +44,8 @@ UltraVerifier_<Flavor>::verify_internal(const HonkProof& proof)
  *
  */
 template <typename Flavor>
-bool UltraVerifier_<Flavor>::verify_proof(const HonkProof& proof, const HonkProof& ipa_proof)
+bool UltraVerifier_<Flavor>::verify_proof(const typename UltraVerifier_<Flavor>::Proof& proof,
+                                          const typename UltraVerifier_<Flavor>::Proof& ipa_proof)
     requires IsUltraHonk<Flavor>
 {
     using RollUpIO = bb::RollupIO;
@@ -93,7 +94,7 @@ bool UltraVerifier_<Flavor>::verify_proof(const HonkProof& proof, const HonkProo
  */
 template <typename Flavor>
 std::pair<bool, std::array<typename UltraVerifier_<Flavor>::Commitment, Flavor::NUM_WIRES>> UltraVerifier_<
-    Flavor>::verify_proof(const HonkProof& proof)
+    Flavor>::verify_proof(const typename UltraVerifier_<Flavor>::Proof& proof)
     requires IsMegaFlavor<Flavor> && (!HasIPAAccumulator<Flavor>)
 {
     auto [public_inputs, decider_output] = verify_internal(proof);

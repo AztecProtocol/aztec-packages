@@ -10,6 +10,7 @@
 
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/debug_log.hpp"
+#include "barretenberg/common/serialize.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
@@ -87,10 +88,11 @@ class TranscriptManifest {
 };
 
 struct NativeTranscriptParams {
-    using Fr = bb::fr;
+    using DataType = bb::fr;
     using Proof = HonkProof;
-    static Fr hash(const std::vector<Fr>& data);
-    template <typename T> static inline T convert_challenge(const Fr& challenge)
+
+    static DataType hash(const std::vector<DataType>& data);
+    template <typename T> static inline T convert_challenge(const DataType& challenge)
     {
         return bb::field_conversion::convert_challenge<T>(challenge);
     }
@@ -102,26 +104,26 @@ struct NativeTranscriptParams {
      * @param challenge
      * @return std::array<Fr, 2>
      */
-    static inline std::array<Fr, 2> split_challenge(const Fr& challenge)
+    static inline std::array<DataType, 2> split_challenge(const DataType& challenge)
     {
         // match the parameter used in stdlib, which is derived from cycle_scalar (is 128)
-        static constexpr size_t LO_BITS = Fr::Params::MAX_BITS_PER_ENDOMORPHISM_SCALAR;
-        static constexpr size_t HI_BITS = Fr::modulus.get_msb() + 1 - LO_BITS;
+        static constexpr size_t LO_BITS = DataType::Params::MAX_BITS_PER_ENDOMORPHISM_SCALAR;
+        static constexpr size_t HI_BITS = DataType::modulus.get_msb() + 1 - LO_BITS;
 
         auto converted = static_cast<uint256_t>(challenge);
         uint256_t lo = converted.slice(0, LO_BITS);
         uint256_t hi = converted.slice(LO_BITS, LO_BITS + HI_BITS);
-        return std::array<Fr, 2>{ Fr(lo), Fr(hi) };
+        return std::array<DataType, 2>{ DataType(lo), DataType(hi) };
     }
-    template <typename T> static constexpr size_t calc_num_bn254_frs()
+    template <typename T> static constexpr size_t calc_num_data_types()
     {
         return bb::field_conversion::calc_num_bn254_frs<T>();
     }
-    template <typename T> static inline T convert_from_bn254_frs(std::span<const Fr> frs)
+    template <typename T> static inline T deserialize(std::span<const DataType> frs)
     {
         return bb::field_conversion::convert_from_bn254_frs<T>(frs);
     }
-    template <typename T> static inline std::vector<Fr> convert_to_bn254_frs(const T& element)
+    template <typename T> static inline std::vector<DataType> serialize(const T& element)
     {
         return bb::field_conversion::convert_to_bn254_frs(element);
     }
@@ -129,7 +131,7 @@ struct NativeTranscriptParams {
 
 // A template for detecting whether a type is native or in-circuit
 template <typename T>
-concept InCircuit = !(std::same_as<T, bb::fr> || std::same_as<T, grumpkin::fr>);
+concept InCircuit = !(std::same_as<T, bb::fr> || std::same_as<T, grumpkin::fr> || std::same_as<T, uint256_t>);
 
 template <typename T, typename = void> struct is_iterable : std::false_type {};
 
@@ -151,11 +153,11 @@ inline std::atomic<size_t> unique_transcript_index{ 0 };
  */
 template <typename TranscriptParams> class BaseTranscript {
   public:
-    using Fr = typename TranscriptParams::Fr;
+    using DataType = TranscriptParams::DataType;
     using Proof = typename TranscriptParams::Proof;
 
     // Detects whether the transcript is in-circuit or not
-    static constexpr bool in_circuit = InCircuit<Fr>;
+    static constexpr bool in_circuit = InCircuit<DataType>;
 
     // The unique index of the transcript
     size_t transcript_index = 0;
@@ -183,10 +185,12 @@ template <typename TranscriptParams> class BaseTranscript {
     size_t round_number = 0;    // current round for manifest
 
   private:
-    bool is_first_challenge = true;     // indicates if this is the first challenge this transcript is generating
-    Fr previous_challenge{};            // default-initialized to zeros
-    std::vector<Fr> current_round_data; // the data for the current round that will be hashed to generate challenges
-    std::vector<Fr> independent_hash_buffer; // data that will be independently hashed to get the hash of an object
+    bool is_first_challenge = true; // indicates if this is the first challenge this transcript is generating
+    DataType previous_challenge{};  // default-initialized to zeros
+    std::vector<DataType>
+        current_round_data; // the data for the current round that will be hashed to generate challenges
+    std::vector<DataType>
+        independent_hash_buffer; // data that will be independently hashed to get the hash of an object
 
     bool use_manifest = false; // indicates whether the manifest is turned on, currently only on for manifest tests.
 
@@ -201,7 +205,7 @@ template <typename TranscriptParams> class BaseTranscript {
      * to the current challenge buffer to set up next function call.
      * @return std::array<Fr, HASH_OUTPUT_SIZE>
      */
-    [[nodiscard]] std::array<Fr, 2> get_next_duplex_challenge_buffer(size_t num_challenges)
+    [[nodiscard]] std::array<DataType, 2> get_next_duplex_challenge_buffer(size_t num_challenges)
     {
         // challenges need at least 110 bits in them to match the presumed security parameter of the BN254 curve.
         BB_ASSERT_LTE(num_challenges, 2U);
@@ -215,7 +219,7 @@ template <typename TranscriptParams> class BaseTranscript {
         // TODO(Adrian): Do we want to use a domain separator as the initial challenge buffer?
         // We could be cheeky and use the hash of the manifest as domain separator, which would prevent us from
         // having to domain separate all the data. (See https://safe-hash.dev)
-        std::vector<Fr> full_buffer;
+        std::vector<DataType> full_buffer;
         if (!is_first_challenge) {
             // if not the first challenge, we can use the previous_challenge
             full_buffer.emplace_back(previous_challenge);
@@ -234,8 +238,8 @@ template <typename TranscriptParams> class BaseTranscript {
         // Hash the full buffer with poseidon2, which is believed to be a collision resistant hash function and a
         // random oracle, removing the need to pre-hash to compress and then hash with a random oracle, as we
         // previously did with Pedersen and Blake3s.
-        Fr new_challenge = TranscriptParams::hash(full_buffer);
-        std::array<Fr, 2> new_challenges = TranscriptParams::split_challenge(new_challenge);
+        DataType new_challenge = TranscriptParams::hash(full_buffer);
+        std::array<DataType, 2> new_challenges = TranscriptParams::split_challenge(new_challenge);
         // update previous challenge buffer for next time we call this function
         previous_challenge = new_challenge;
         return new_challenges;
@@ -250,7 +254,7 @@ template <typename TranscriptParams> class BaseTranscript {
      * @param label of the element sent
      * @param element_frs serialized
      */
-    void add_element_frs_to_hash_buffer(const std::string& label, std::span<const Fr> element_frs)
+    void add_element_frs_to_hash_buffer(const std::string& label, std::span<const DataType> element_frs)
     {
         if (use_manifest) {
             // Add an entry to the current round of the manifest
@@ -270,7 +274,7 @@ template <typename TranscriptParams> class BaseTranscript {
      */
     template <typename T> void serialize_to_buffer(const T& element, Proof& proof_data)
     {
-        auto element_frs = TranscriptParams::template convert_to_bn254_frs(element);
+        auto element_frs = TranscriptParams::template serialize(element);
         proof_data.insert(proof_data.end(), element_frs.begin(), element_frs.end());
     }
     /**
@@ -284,13 +288,13 @@ template <typename TranscriptParams> class BaseTranscript {
      */
     template <typename T> T deserialize_from_buffer(const Proof& proof_data, size_t& offset) const
     {
-        constexpr size_t element_fr_size = TranscriptParams::template calc_num_bn254_frs<T>();
+        constexpr size_t element_fr_size = TranscriptParams::template calc_num_data_types<T>();
         BB_ASSERT_LTE(offset + element_fr_size, proof_data.size());
 
         auto element_frs = std::span{ proof_data }.subspan(offset, element_fr_size);
         offset += element_fr_size;
 
-        auto element = TranscriptParams::template convert_from_bn254_frs<T>(element_frs);
+        auto element = TranscriptParams::template deserialize<T>(element_frs);
 
         return element;
     }
@@ -303,16 +307,16 @@ template <typename TranscriptParams> class BaseTranscript {
      * export_proof at the end of each provers' code returns the slices T_1, T_2 of the transcript that must be loaded
      * by the verifiers via load_proof.
      */
-    std::vector<Fr> export_proof()
+    std::vector<DataType> export_proof()
     {
-        std::vector<Fr> result(num_frs_written);
+        std::vector<DataType> result(num_frs_written);
         std::copy_n(proof_data.begin() + proof_start, num_frs_written, result.begin());
         proof_start += static_cast<std::ptrdiff_t>(num_frs_written);
         num_frs_written = 0;
         return result;
     };
 
-    void load_proof(const std::vector<Fr>& proof)
+    void load_proof(const std::vector<DataType>& proof)
     {
         std::copy(proof.begin(), proof.end(), std::back_inserter(proof_data));
     }
@@ -338,7 +342,7 @@ template <typename TranscriptParams> class BaseTranscript {
      * @param data Vector of field elements to hash
      * @return Fr Hash result
      */
-    static Fr hash(const std::vector<Fr>& data) { return TranscriptParams::hash(data); }
+    static DataType hash(const std::vector<DataType>& data) { return TranscriptParams::hash(data); }
 
     /**
      * @brief After all the prover messages have been sent, finalize the round by hashing all the data and then
@@ -409,7 +413,7 @@ template <typename TranscriptParams> class BaseTranscript {
         auto call_get_challenges = [&] {
             auto call_fn_with_expanded_parameters =
                 [&]<size_t... Indices>([[maybe_unused]] std::index_sequence<Indices...>) {
-                    return get_challenges<Fr>(std::get<Indices>(labels)...);
+                    return get_challenges<ChallengeType>(std::get<Indices>(labels)...);
                 };
             return call_fn_with_expanded_parameters(std::make_index_sequence<NumChallenges>());
         };
@@ -445,7 +449,7 @@ template <typename TranscriptParams> class BaseTranscript {
                 element.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
             }
         }
-        auto element_frs = TranscriptParams::convert_to_bn254_frs(element);
+        auto element_frs = TranscriptParams::serialize(element);
 
 #ifdef LOG_INTERACTIONS
         if constexpr (Loggable<T>) {
@@ -461,9 +465,9 @@ template <typename TranscriptParams> class BaseTranscript {
      * @param label Human-readable name for the challenge.
      * @return Fr The hash of the independent hash buffer.
      */
-    Fr hash_independent_buffer(const std::string& label)
+    DataType hash_independent_buffer(const std::string& label)
     {
-        Fr buffer_hash = TranscriptParams::hash(independent_hash_buffer);
+        DataType buffer_hash = TranscriptParams::hash(independent_hash_buffer);
         independent_hash_buffer.clear();
         add_to_hash_buffer(label, buffer_hash);
         return buffer_hash;
@@ -498,14 +502,14 @@ template <typename TranscriptParams> class BaseTranscript {
                 element.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
             }
         }
-        auto element_frs = TranscriptParams::convert_to_bn254_frs(element);
+        auto elements = TranscriptParams::serialize(element);
 
 #ifdef LOG_INTERACTIONS
         if constexpr (Loggable<T>) {
             info("consumed:     ", label, ": ", element);
         }
 #endif
-        BaseTranscript::add_element_frs_to_hash_buffer(label, element_frs);
+        BaseTranscript::add_element_frs_to_hash_buffer(label, elements);
     }
 
     /**
@@ -525,7 +529,7 @@ template <typename TranscriptParams> class BaseTranscript {
     {
         DEBUG_LOG(label, element);
 
-        auto element_frs = TranscriptParams::convert_to_bn254_frs(element);
+        auto element_frs = TranscriptParams::serialize(element);
         proof_data.insert(proof_data.end(), element_frs.begin(), element_frs.end());
         num_frs_written += element_frs.size();
 
@@ -564,7 +568,7 @@ template <typename TranscriptParams> class BaseTranscript {
      */
     template <class T> T receive_from_prover(const std::string& label)
     {
-        const size_t element_size = TranscriptParams::template calc_num_bn254_frs<T>();
+        const size_t element_size = TranscriptParams::template calc_num_data_types<T>();
         BB_ASSERT_LTE(num_frs_read + element_size, proof_data.size());
 
         auto element_frs = std::span{ proof_data }.subspan(num_frs_read, element_size);
@@ -572,7 +576,7 @@ template <typename TranscriptParams> class BaseTranscript {
 
         BaseTranscript::add_element_frs_to_hash_buffer(label, element_frs);
 
-        auto element = TranscriptParams::template convert_from_bn254_frs<T>(element_frs);
+        auto element = TranscriptParams::template deserialize<T>(element_frs);
         DEBUG_LOG(label, element);
 
 #ifdef LOG_INTERACTIONS
@@ -627,7 +631,7 @@ template <typename TranscriptParams> class BaseTranscript {
     {
         auto verifier_transcript = std::make_shared<BaseTranscript>();
         verifier_transcript->load_proof(transcript->proof_data);
-        [[maybe_unused]] auto _ = verifier_transcript->template receive_from_prover<Fr>("Init");
+        [[maybe_unused]] auto _ = verifier_transcript->template receive_from_prover<DataType>("Init");
         return verifier_transcript;
     };
 
@@ -717,6 +721,7 @@ using NativeTranscript = BaseTranscript<NativeTranscriptParams>;
 ///////////////////////////////////////////
 
 // This is a compatible wrapper around the keccak256 function from ethash
+// inline uint256_t keccak_hash_uint256(std::vector<uint256_t> const& data)
 inline bb::fr keccak_hash_uint256(std::vector<bb::fr> const& data)
 // Losing 2 bits of this is not an issue -> we can just reduce mod p
 {
@@ -738,38 +743,47 @@ inline bb::fr keccak_hash_uint256(std::vector<bb::fr> const& data)
         }
     }
 
-    auto result_fr = from_buffer<bb::fr>(result);
-
-    return result_fr;
+    return from_buffer<bb::fr>(result);
 }
 
 struct KeccakTranscriptParams {
     using Fr = bb::fr;
-    using Proof = HonkProof;
+    using DataType = Fr;
+    using Proof = std::vector<Fr>;
 
-    static inline Fr hash(const std::vector<Fr>& data) { return keccak_hash_uint256(data); }
+    static inline Fr hash(const std::vector<DataType>& data) { return keccak_hash_uint256(data); }
 
-    template <typename T> static inline T convert_challenge(const Fr& challenge)
+    template <typename T> static inline T convert_challenge(const DataType& challenge)
     {
         return bb::field_conversion::convert_challenge<T>(challenge);
     }
-    template <typename T> static constexpr size_t calc_num_bn254_frs()
+
+    template <typename T> static constexpr size_t calc_num_data_types()
     {
+        // return bb::field_conversion::calc_num_uint256_t<T>();
         return bb::field_conversion::calc_num_bn254_frs<T>();
     }
-    template <typename T> static inline T convert_from_bn254_frs(std::span<const Fr> frs)
+    template <typename T> static inline T deserialize(std::span<const DataType> elements)
     {
-        return bb::field_conversion::convert_from_bn254_frs<T>(frs);
+        // return bb::field_conversion::convert_from_uint256_t<T>(elements);
+        return bb::field_conversion::convert_from_bn254_frs<T>(elements);
     }
-    template <typename T> static inline std::vector<Fr> convert_to_bn254_frs(const T& element)
+    template <typename T> static inline std::vector<DataType> serialize(const T& element)
     {
-        // TODO(md): Need to refactor this to be able to NOT just be field elements - Im working about it in the
-        // verifier for keccak resulting in twice as much hashing
+        // return bb::field_conversion::convert_to_uint256(element);
         return bb::field_conversion::convert_to_bn254_frs(element);
     }
-    static inline std::array<Fr, 2> split_challenge(const Fr& challenge)
+    static inline std::array<DataType, 2> split_challenge(const DataType& challenge)
     {
-        return NativeTranscriptParams::split_challenge(challenge);
+        // Challenges sizes are matched with the challenge sizes used in bb::fr
+        // match the parameter used in stdlib, which is derived from cycle_scalar (is 128)
+        static constexpr size_t LO_BITS = bb::fr::Params::MAX_BITS_PER_ENDOMORPHISM_SCALAR;
+        static constexpr size_t HI_BITS = bb::fr::modulus.get_msb() + 1 - LO_BITS;
+
+        auto converted = static_cast<uint256_t>(challenge);
+        uint256_t lo = converted.slice(0, LO_BITS);
+        uint256_t hi = converted.slice(LO_BITS, LO_BITS + HI_BITS);
+        return std::array<DataType, 2>{ DataType(lo), DataType(hi) };
     }
 };
 
