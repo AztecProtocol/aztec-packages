@@ -10,7 +10,7 @@ import {Vm} from "forge-std/Vm.sol";
 /**
  * @title BlobLib - Blob Management and Validation Library
  * @author Aztec Labs
- * @notice Core library for handling EIP-4844 blob operations, validation, and commitment management in the Aztec rollup.
+ * @notice Core library for handling blob operations, validation, and commitment management in the Aztec rollup.
  *
  * @dev This library provides functionality for managing blobs:
  *      - Blob hash retrieval and validation against EIP-4844 specifications

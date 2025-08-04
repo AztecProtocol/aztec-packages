@@ -32,10 +32,12 @@ import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/Compre
  *      - Tips: tracks both pending (latest proposed) and proven (latest with valid proof) block numbers
  *
  *      Circular Storage ("Roundabout") Pattern:
- *      - The temporary block logs use a circular storage pattern where blocks are stored at index (blockNumber % roundaboutSize).
+ *      - The temporary block logs use a circular storage pattern where blocks are stored at index (blockNumber %
+ *        roundaboutSize).
  *        This reuses storage slots for old blocks that have been proven or pruned.
  *        The roundabout size is calculated as maxPrunableBlocks() + 1 to ensure at least the last provable block
- *        remains accessible even after pruning operations. This saves gas costs by minimizing storage writes to fresh slots.
+ *        remains accessible even after pruning operations. This saves gas costs by minimizing storage writes to fresh
+ *        slots.
  *
  *      Pruning Mechanism:
  *      - Blocks become eligible for pruning when their proof submission window expires. The proof submission
@@ -123,7 +125,8 @@ library STFLib {
   }
 
   /**
-   * @notice Preheats the temporary block log storage with non-zero values to optimize gas costs for accurate benchmarking
+   * @notice Preheats the temporary block log storage with non-zero values to optimize gas costs for accurate
+   * benchmarking
    * @dev Iterates through all slots in the circular storage and replaces zero values with 0x1
    *      to avoid expensive SSTORE operations when transitioning from zero to non-zero values.
    *      This is a gas optimization technique used primarily for benchmarking and testing.
@@ -286,11 +289,7 @@ library STFLib {
    * @param _blockNumber The block number to get the storage reference for
    * @return A storage reference to the compressed temporary block log
    */
-  function getStorageTempBlockLog(uint256 _blockNumber)
-    internal
-    view
-    returns (CompressedTempBlockLog storage)
-  {
+  function getStorageTempBlockLog(uint256 _blockNumber) internal view returns (CompressedTempBlockLog storage) {
     (, uint256 size) = innerIsStale(_blockNumber, true);
     return getStorage().tempBlockLogs[_blockNumber % size];
   }

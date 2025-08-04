@@ -115,18 +115,20 @@ library ProposeLib {
   /**
    * @notice  Publishes a new L2 block to the pending chain.
    * @dev     Handles a proposed L2 block, validates it, and updates rollup state adding it to the pending chain.
-   *          Orchestrates blob validation, header validation, proposer verification, fee calculations, and state transitions.
-   *          Automatically prunes unproven blocks if the proof submission window has passed.
+   *          Orchestrates blob validation, header validation, proposer verification, fee calculations, and state
+   *          transitions. Automatically prunes unproven blocks if the proof submission window has passed.
    *
-   *          Note that some validations and processes are disabled if the chain is configured to run without transactions,
-   *          such as during ignition phase:
+   *          Note that some validations and processes are disabled if the chain is configured to run without
+   *          transactions, such as during ignition phase:
    *          - No fee header computation or L1 gas fee oracle update
    *          - No inbox message consumption or outbox message insertion
    *
    *          Validations performed:
-   *          - Blob commitments against provided blob data: Errors.Rollup__InvalidBlobHash, Errors.Rollup__InvalidBlobProof
+   *          - Blob commitments against provided blob data: Errors.Rollup__InvalidBlobHash,
+   *            Errors.Rollup__InvalidBlobProof
    *          - Block header validations (see validateHeader function for details)
-   *          - Proposer signature is valid for designated slot proposer: Errors.ValidatorSelection__MissingProposerSignature
+   *          - Proposer signature is valid for designated slot proposer:
+   *            Errors.ValidatorSelection__MissingProposerSignature
    *          - Inbox hash matches expected value (when txs enabled): Errors.Rollup__InvalidInHash
    *
    *          Validations NOT performed:
@@ -152,13 +154,15 @@ library ProposeLib {
    * @param _signers - Addresses of the signers in the attestations:
    *        - Must match the addresses that would be recovered from signatures in _attestations
    *        - Same length as the number of signatures in _attestations
-   *        - Used to verify that the proposer is one of the committee members by allowing cheap reconstruction of the commitment
+   *        - Used to verify that the proposer is one of the committee members by allowing cheap reconstruction of the
+   *          commitment
    *        - Allows computing committee commitment without expensive signature recovery on-chain thus saving gas
    *        - Nodes must validate actual signatures off-chain when downloading blocks
    * @param _blobsInput - The bytes to verify our input blob commitments match real blobs:
    *        - input[:1] - num blobs in block
    *        - input[1:] - blob commitments (48 bytes * num blobs in block)
-   * @param _checkBlob - Whether to skip blob related checks. Hardcoded to true in RollupCore, exists only to be overridden in tests
+   * @param _checkBlob - Whether to skip blob related checks. Hardcoded to true in RollupCore, exists only to be
+   *          overridden in tests
    */
   function propose(
     ProposeArgs calldata _args,
@@ -184,8 +188,8 @@ library ProposeLib {
     }
 
     // Validate blob commitments against actual blob data and extract hashes
-    // TODO(#13430): The below blobsHashesCommitment known as blobsHash elsewhere in the code. The name is confusingly similar to blobCommitmentsHash,
-    // see comment in BlobLib.sol -> validateBlobs().
+    // TODO(#13430): The below blobsHashesCommitment known as blobsHash elsewhere in the code. The name is confusingly
+    // similar to blobCommitmentsHash, see comment in BlobLib.sol -> validateBlobs().
     (v.blobHashes, v.blobsHashesCommitment, v.blobCommitments) = BlobLib.validateBlobs(_blobsInput, _checkBlob);
 
     ProposedHeader memory header = _args.header;
@@ -227,9 +231,7 @@ library ProposeLib {
     );
 
     // Verify that the proposer is the correct one for this slot by checking their signature in the attestations
-    ValidatorSelectionLib.verifyProposer(
-      header.slotNumber, v.currentEpoch, _attestations, _signers, v.payloadDigest
-    );
+    ValidatorSelectionLib.verifyProposer(header.slotNumber, v.currentEpoch, _attestations, _signers, v.payloadDigest);
 
     // Begin state updates - get storage reference and current chain tips
     RollupStore storage rollupStore = STFLib.getStorage();
@@ -240,9 +242,9 @@ library ProposeLib {
     tips = tips.updatePendingBlockNumber(blockNumber);
 
     // Calculate accumulated blob commitments hash for this block
-    // Blob commitments are collected and proven per root rollup proof (per epoch), so we need to know whether we are at the epoch start:
-    v.isFirstBlockOfEpoch =
-      v.currentEpoch > STFLib.getEpochForBlock(blockNumber - 1) || blockNumber == 1;
+    // Blob commitments are collected and proven per root rollup proof (per epoch),
+    // so we need to know whether we are at the epoch start:
+    v.isFirstBlockOfEpoch = v.currentEpoch > STFLib.getEpochForBlock(blockNumber - 1) || blockNumber == 1;
     bytes32 blobCommitmentsHash = BlobLib.calculateBlobCommitmentsHash(
       STFLib.getBlobCommitmentsHash(blockNumber - 1), v.blobCommitments, v.isFirstBlockOfEpoch
     );

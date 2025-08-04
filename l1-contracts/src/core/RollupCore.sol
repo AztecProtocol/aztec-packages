@@ -70,20 +70,18 @@ import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
  *
  *      2) Committee Members: Drafted from the validator set and remain stable throughout an epoch.
  *         A block requires 2/3rds of the committee for the epoch to be considered valid. These attestations serve two
- * purposes:
+ *         purposes:
  *         - Attest to data availability for transaction data not posted on L1, which is required by provers to generate
- * epoch proofs
+ *           epoch proofs
  *         - Re-execute everything and attest to the resulting state root, acting as training wheels for the proving
- * system
+ *           system
  *
  *      3) Proposers: Drafted from the validator set (currently proposers are part of the committee for the epoch,
- * though this may change).
- *         They have exclusive rights to propose a block at a given slot, ensuring orderly block production without
- * competition.
+ *         though this may change). They have exclusive rights to propose a block at a given slot, ensuring orderly
+ *         block production without competition.
  *
  *      4) Provers: Generate validity proofs for the state transitions of blocks in an epoch. No need to stake to be a
- * prover.
- *         They have access to large amounts of compute.
+ *         prover. They have access to large amounts of compute.
  *
  * @dev Block Building Flow
  *
@@ -118,37 +116,35 @@ import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
  *        nodes are expected to verify them off-chain, and skip a block if its attestations are invalid.
  *      - If a block has invalid attestation signatures, anyone can call `invalidateBadAttestation()`
  *      - If a block has insufficient valid attestations (< 2/3 of committee), anyone can call
- * `invalidateInsufficientAttestations()`
+ *        `invalidateInsufficientAttestations()`
  *      - While anyone can call invalidation functions, it is expected that the next proposer will do so, and if they
  *        fail to do so, then other committee members do, and if they fail to do so, then any validator will do so.
  *      - Upon invalidation, the invalid block and all subsequent blocks are removed from the chain, so the pending
- * chain tip
- *        reverts to the block immediately before the invalid one.
+ *        chain tip reverts to the block immediately before the invalid one.
  *       - Note that only unproven blocks can be invalidated, as proven blocks are final and cannot be reverted.
  *
  *      Unhappy path for missing proofs:
  *      - Each epoch has a proof submission window (configured via aztecProofSubmissionEpochs).
  *      - If no proof is submitted within the window, it is assumed that the epoch cannot be proven due to missing data,
  *        so all blocks in the epoch are pruned. This is done by calling `prune()` manually, or automatically on the
- * next proposal.
+ *        next proposal.
  *      - The committee for the epoch is expected to disseminate transaction data to allow proving, so a prune is
- * considered a slashable offense,
+ *        considered a slashable offense,
  *        that causes validators to vote for slashing the committee of the unproven epoch.
  *      - When the pending chain is pruned, all unproven blocks are removed from the pending chain, and the chain
- * resumes from the last proven block.
+ *        resumes from the last proven block.
  *
  * @dev Slashing Mechanism
  *
  *      Slashing is a critical security mechanism that penalizes validators who misbehave or fail to fulfill their
- * duties.
- *      The slashing process is governance-based and operates through a voting mechanism:
+ *      duties. The slashing process is governance-based and operates through a voting mechanism:
  *
  *      - When nodes detect validator misbehavior, they create a proposal for slashing the offending validators
  *      - The proposal is submitted to the slashing contract and enters a voting period
  *      - Each block proposer votes on the slashing proposal during their assigned slot
  *      - If the proposal receives sufficient votes (reaches the configured quorum), it passes
  *      - Once approved, the offending validators are slashed, meaning their staked assets are reduced by the slashing
- * amount
+ *        amount
  *      - If a validator's stake falls below the minimum required amount due to slashing, they are automatically
  *        removed from the validator set
  *
