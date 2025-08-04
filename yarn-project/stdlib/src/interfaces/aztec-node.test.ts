@@ -33,6 +33,7 @@ import {
   getContractClassFromArtifact,
 } from '../contract/index.js';
 import { GasFees } from '../gas/gas_fees.js';
+import { UtilityContextWithoutContractAddress } from '../kernel/utility_context.js';
 import { PublicKeys } from '../keys/public_keys.js';
 import { ExtendedContractClassLog } from '../logs/extended_contract_class_log.js';
 import { ExtendedPublicLog } from '../logs/extended_public_log.js';
@@ -626,6 +627,9 @@ class MockAztecNode implements AztecNode {
   }
   getChainId(): Promise<number> {
     return Promise.resolve(1);
+  }
+  getUtilityContextWithoutContractAddress(): Promise<UtilityContextWithoutContractAddress> {
+    return Promise.resolve(new UtilityContextWithoutContractAddress(1, 1n, 1, 1));
   }
   @memoize
   getL1ContractAddresses(): Promise<L1ContractAddresses> {
