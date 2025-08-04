@@ -271,7 +271,7 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
 
         // If we are not using the keccak flavor, then we skip padding the proof with zero univariates
         // Zero univariates are used to pad the proof to the fixed size virtual_log_n.
-        if constexpr (!IsAnyOf<Flavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
+        if constexpr (Flavor::USE_PADDING) {
             auto zero_univariate = bb::Univariate<FF, Flavor::BATCHED_RELATION_PARTIAL_LENGTH>::zero();
             for (size_t idx = multivariate_d; idx < virtual_log_n; idx++) {
                 transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(idx), zero_univariate);
@@ -410,8 +410,7 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
         vinfo("completed ", multivariate_d, " rounds of sumcheck");
 
         // If we are not using the keccak flavor, then we skip padding the proof with zero univariates
-        // if constexpr (Flavor::USE_PADDING) {
-        if constexpr (!IsAnyOf<Flavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
+        if constexpr (Flavor::USE_PADDING) {
             // Zero univariates are used to pad the proof to the fixed size virtual_log_n.
             auto zero_univariate = bb::Univariate<FF, Flavor::BATCHED_RELATION_PARTIAL_LENGTH>::zero();
             for (size_t idx = multivariate_d; idx < virtual_log_n; idx++) {
@@ -721,19 +720,12 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
         }
 
         size_t log_n = 0;
-        if constexpr (!IsAnyOf<Flavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
+        if constexpr (Flavor::USE_PADDING) {
             log_n = virtual_log_n;
         } else {
             // Set log_n to the highest non zero value in padding_indicator_array
             // TODO: clean up
-            log_n = 0;
-            for (size_t i = 0; i < virtual_log_n; ++i) {
-                if (padding_indicator_array[i] != FF(0)) {
-                    log_n = i + 1;
-                } else {
-                    break;
-                }
-            }
+            log_n = gate_challenges.size();
         }
 
         std::vector<FF> multivariate_challenge;
@@ -829,8 +821,8 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
         const FF libra_challenge = transcript->template get_challenge<FF>("Libra:Challenge");
 
         // If we are using the keccak flavor, then we use the log_circuit_size from the relation parameters, otherwise
-        if constexpr (IsAnyOf<Flavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
-            // hack
+        if constexpr (Flavor::USE_PADDING) {
+            // This assumes gate challenges have been set correctly and are not padded
             virtual_log_n = gate_challenges.size();
         }
 

@@ -31,9 +31,7 @@ UltraVerifier_<Flavor>::verify_internal(const HonkProof& proof)
 
     // If we are using the keccak flavor, then we use the log_circuit_size from the verification key, otherwise we use
     // the constant proof size log_n
-    const uint64_t log_n = IsAnyOf<Flavor, UltraKeccakFlavor, UltraKeccakZKFlavor>
-                               ? verification_key->vk->log_circuit_size
-                               : CONST_PROOF_SIZE_LOG_N;
+    const uint64_t log_n = Flavor::USE_PADDING ? CONST_PROOF_SIZE_LOG_N : verification_key->vk->log_circuit_size;
 
     for (size_t idx = 0; idx < log_n; idx++) {
         verification_key->gate_challenges.emplace_back(
