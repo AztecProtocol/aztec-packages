@@ -36,6 +36,11 @@ function on_exit {
 }
 trap on_exit EXIT
 
+function binary_hex_to_fields_json {
+  # 1. split encoded hex into 64-character lines 3. encode as JSON array of hex strings
+  fold -w64 | jq -R -s -c 'split("\n") | map(select(length > 0)) | map("0x" + .)'
+}
+
 function compile {
   set -euo pipefail
   local dir=$1
@@ -108,7 +113,7 @@ function compile {
     vk_bytes=$(cat $outdir/vk | xxd -p -c 0)
     # Split the hex-encoded vk bytes into fields boundaries (but still hex-encoded), first making 64-character lines and then encoding as JSON.
     # This used to be done by barretenberg itself, but with serialization now always being in field elements we can do it outside of bb.
-    vk_fields=$(echo "$vk_bytes" | fold -w64 | jq -R -s -c 'split("\n") | map(select(length > 0)) | map("0x" + .)')
+    vk_fields=$(echo "$vk_bytes" | binary_hex_to_fields_json)
     # echo_stderr $vkf_cmd
     jq -n --arg vk "$vk_bytes" --argjson vkf "$vk_fields" '{keyAsBytes: $vk, keyAsFields: $vkf}' > $key_path
     echo_stderr "Key output at: $key_path (${SECONDS}s)"
