@@ -54,7 +54,10 @@ impl<T, let InitialDelay: u64> DelayedPublicMutable<T, InitialDelay, &mut Public
 where
     T: Eq,
 {
-
+    /// Schedules a change to the new_value at the earliest possible time, given the current
+    /// delay of this state.
+    /// TODO: make this configurable to an optional later time (an earlier time is not allowed).
+    /// https://github.com/AztecProtocol/aztec-packages/issues/5501
     pub fn schedule_value_change(self, new_value: T)
     where
         T: Packable,
@@ -66,11 +69,12 @@ where
     where
         T: Packable,
     {
+        // TODO: doing two reads is wasteful, because it's reading the same slot twice. We should instead read the slot once.
         let mut value_change = self.read_value_change();
         let delay_change = self.read_delay_change();
 
         let current_timestamp = self.context.timestamp();
-        let current_delay = delay_change.get_current(current_timestamp);
+        let current_delay = delay_change.get_current_at(current_timestamp);
 
         // TODO: make this configurable
         // https://github.com/AztecProtocol/aztec-packages/issues/5501
@@ -115,7 +119,7 @@ where
         T: Packable,
     {
         let current_timestamp = self.context.timestamp();
-        self.read_delay_change().get_current(current_timestamp)
+        self.read_delay_change().get_current_at(current_timestamp)
     }
 
     pub fn get_scheduled_value(self) -> (T, u64)
@@ -152,6 +156,12 @@ where
         // need to offset the storage slot to get the position where it'd land.
         // We don't read ScheduledDelayChange directly by having it implement Packable because ScheduledValueChange
         // and ScheduledDelayChange are packed together (sdc and svc.timestamp_of_change are stored in the same slot).
+
+        // Observation: it's kind of weird that if you compare this fn with the one above, they both do:
+        // `self.context.storage_read(self.storage_slot)`,
+        // but one call returns a [Field; ((N*2)+1)], and the other returns a `Field`.
+        // In each case, the type is actually being inferred by the next line, but it broke my brain for a little while, there.
+        // Is this expected Noir behaviour, or is it a bug?
         let packed = self.context.storage_read(self.storage_slot);
         unpack_delay_change::<InitialDelay>(packed)
     }
@@ -204,7 +214,7 @@ where
         let effective_minimum_delay =
             delay_change.get_effective_minimum_delay_at(historical_timestamp);
         let time_horizon =
-            value_change.get_time_horizon(historical_timestamp, effective_minimum_delay);
+            value_change.get_time_horizon_at(historical_timestamp, effective_minimum_delay);
 
         // We prevent this transaction from being included in any timestamp after the time horizon, ensuring that the
         // historical public value matches the current one, since it can only change after the horizon.
@@ -213,6 +223,11 @@ where
         value_change.get_current_at(historical_timestamp)
     }
 
+    // TODO: we have 3 similar, but different names as we go through this fn:
+    // - historical_read_from_public_storage
+    // - historical_public_storage_read
+    // - public_storage_historical_read
+    // Can we align that naming?
     fn historical_read_from_public_storage(
         self,
     ) -> (ScheduledValueChange<T>, ScheduledDelayChange<InitialDelay>, u64)

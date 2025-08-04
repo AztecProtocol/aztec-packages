@@ -11,6 +11,7 @@ use crate::{
 
 mod test;
 
+// Why does this trait need to exist? Why isn't it a free function?
 pub trait ProveNoteInclusion {
     fn prove_note_inclusion<Note>(
         header: BlockHeader,
@@ -22,6 +23,8 @@ pub trait ProveNoteInclusion {
 }
 
 impl ProveNoteInclusion for BlockHeader {
+    // TODO: "prove" is too broad; everything is being proven.
+    // Renaming suggestion: assert_note_exists
     fn prove_note_inclusion<Note>(self, retrieved_note: RetrievedNote<Note>, storage_slot: Field)
     where
         Note: NoteHash,

@@ -54,6 +54,7 @@ impl ProveNullifierNonInclusion for BlockHeader {
     }
 }
 
+// Why does this trait need to exist? Why isn't it a free function?
 pub trait ProveNoteNotNullified {
     fn prove_note_not_nullified<Note>(
         header: BlockHeader,
@@ -66,6 +67,8 @@ pub trait ProveNoteNotNullified {
 }
 
 impl ProveNoteNotNullified for BlockHeader {
+    // TODO: "prove" is too broad; everything is being proven.
+    // Renaming suggestion: assert_note_not_nullified.
     // docs:start:prove_note_not_nullified
     fn prove_note_not_nullified<Note>(
         self,
