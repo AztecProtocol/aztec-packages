@@ -10,18 +10,16 @@ VERIFY_FLAGS="$FLAGS --oracle_hash keccak"
 outdir=$(mktemp -d)
 trap "rm -rf $outdir" EXIT
 
+# Create a proof, write the solidity contract
+$BIN prove $PROVE_FLAGS -o $outdir
+$BIN verify $VERIFY_FLAGS -i $outdir/public_inputs -k $outdir/vk -p $outdir/proof
+$BIN write_solidity_verifier $FLAGS -k $outdir/vk -o $outdir/Verifier.sol
+
 # Export the paths to the environment variables for the js test runner
 export PUBLIC_INPUTS="$outdir/public_inputs"
-export PUBLIC_INPUTS_AS_FIELDS="$outdir/public_inputs_fields.json"
 export PROOF="$outdir/proof"
-export PROOF_AS_FIELDS="$outdir/proof_fields.json"
 export VK="$outdir/vk"
 export VERIFIER_CONTRACT="$outdir/Verifier.sol"
-
-# Create a proof, write the solidity contract, write the proof as fields in order to extract the public inputs
-$BIN prove $PROVE_FLAGS -o $outdir
-$BIN verify $VERIFY_FLAGS -i $PUBLIC_INPUTS -k $VK -p $PROOF
-$BIN write_solidity_verifier $FLAGS -k $VK -o $VERIFIER_CONTRACT
 
 # Export the paths to the environment variables for the js test runner
 export VERIFIER_PATH="$outdir/Verifier.sol"

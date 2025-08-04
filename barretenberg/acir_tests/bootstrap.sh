@@ -23,7 +23,7 @@ tests_hash=$(hash_str \
     ../ts/.rebuild_patterns \
     ../noir/))
 
-function binary_hex_to_fields_json {
+function hex_to_fields_json {
   # 1. split encoded hex into 64-character lines 3. encode as JSON array of hex strings
   fold -w64 | jq -R -s -c 'split("\n") | map(select(length > 0)) | map("0x" + .)'
 }
@@ -56,10 +56,10 @@ function run_proof_generation {
 
   # Split the hex-encoded vk bytes into fields boundaries (but still hex-encoded), first making 64-character lines and then encoding as JSON.
   # This used to be done by barretenberg itself, but with serialization now always being in field elements we can do it outside of bb.
-  local vk_fields=$(cat "$outdir/vk" | xxd -p -c 0 | binary_hex_to_fields_json)
-  local vk_hash_fields=$(cat "$outdir/vk_hash" | xxd -p -c 0 | binary_hex_to_fields_json)
-  local public_inputs_fields=$(cat "$outdir/public_inputs" | xxd -p -c 0 | binary_hex_to_fields_json)
-  local proof_fields=$(cat "$outdir/proof" | xxd -p -c 0 | binary_hex_to_fields_json)
+  local vk_fields=$(cat "$outdir/vk" | xxd -p -c 0 | hex_to_fields_json)
+  local vk_hash_fields=$(cat "$outdir/vk_hash" | xxd -p -c 0 | hex_to_fields_json)
+  local public_inputs_fields=$(cat "$outdir/public_inputs" | xxd -p -c 0 | hex_to_fields_json)
+  local proof_fields=$(cat "$outdir/proof" | xxd -p -c 0 | hex_to_fields_json)
 
   generate_toml "$program" "$vk_fields" "$vk_hash_fields" "$proof_fields" "$public_inputs_fields"
 }
