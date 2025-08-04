@@ -3,5 +3,6 @@
   "private_kernel_empty.*",
   "rollup_base.*",
   "rollup_block.*",
-  "rollup_merge"
+  "rollup_merge",
+  "rollup_checkpoint.*"
 ]

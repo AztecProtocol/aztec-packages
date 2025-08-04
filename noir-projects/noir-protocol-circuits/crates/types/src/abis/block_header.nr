@@ -4,7 +4,6 @@ use crate::{
         state_reference::StateReference,
     },
     constants::{BLOCK_HEADER_LENGTH, GENERATOR_INDEX__BLOCK_HASH, GENESIS_BLOCK_HEADER_HASH},
-    content_commitment::ContentCommitment,
     hash::poseidon2_hash_with_separator,
     traits::{Deserialize, Empty, Hash, Serialize},
 };
@@ -14,8 +13,15 @@ use std::meta::derive;
 #[derive(Deserialize, Eq, Serialize)]
 pub struct BlockHeader {
     pub last_archive: AppendOnlyTreeSnapshot,
-    pub content_commitment: ContentCommitment,
     pub state: StateReference,
+
+    // The hash of the sponge blob for this block, which commits to the tx effects added in this block.
+    // Note: it may also include tx effects from previous blocks within the same checkpoint.
+    // When proving tx effects from this block only, we must refer to the `sponge_blob_hash` in the previous block
+    // header to show that the effect was added after the previous block.
+    // The previous block header can be validated using a membership proof of the last leaf in `last_archive`.
+    pub sponge_blob_hash: Field,
+
     pub global_variables: GlobalVariables,
     pub total_fees: Field,
     pub total_mana_used: Field,
@@ -26,8 +32,8 @@ impl Empty for BlockHeader {
     fn empty() -> Self {
         Self {
             last_archive: AppendOnlyTreeSnapshot::empty(),
-            content_commitment: ContentCommitment::empty(),
             state: StateReference::empty(),
+            sponge_blob_hash: 0,
             global_variables: GlobalVariables::empty(),
             total_fees: 0,
             total_mana_used: 0,

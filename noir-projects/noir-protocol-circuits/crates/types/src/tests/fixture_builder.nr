@@ -399,6 +399,7 @@ impl FixtureBuilder {
             vk_tree_root: self.vk_tree_root,
             protocol_contract_tree_root: self.protocol_contract_tree_root,
             global_variables: self.global_variables,
+            prover_id: 1,
         }
     }
 
