@@ -113,7 +113,7 @@ abstract contract EmpireBase is EIP712, IEmpire {
   uint256 public immutable QUORUM_SIZE;
   // The number of slots per round.
   uint256 public immutable ROUND_SIZE;
-  // The number of rounds that a round winner may be submitted for.
+  // The number of rounds that a round winner may be submitted for, after it have passed.
   uint256 public immutable LIFETIME_IN_ROUNDS;
   // The number of rounds that must elapse before a round winner may be submitted.
   uint256 public immutable EXECUTION_DELAY_IN_ROUNDS;
@@ -198,6 +198,10 @@ abstract contract EmpireBase is EIP712, IEmpire {
 
     CompressedRoundAccounting storage round = rounds[instance][_roundNumber];
     require(!round.executed, Errors.GovernanceProposer__PayloadAlreadySubmitted(_roundNumber));
+
+    // If the payload with the most signals is address(0) there are nothing to execute and it is a no-op.
+    // This will be the case if no signals have been cast during a round, or if people have simple signalled
+    // for nothing to happen (the same as not signalling).
     require(
       round.payloadWithMostSignals != IPayload(address(0)), Errors.GovernanceProposer__PayloadCannotBeAddressZero()
     );
@@ -276,18 +280,19 @@ abstract contract EmpireBase is EIP712, IEmpire {
     address instance = getInstance();
     require(instance.code.length > 0, Errors.GovernanceProposer__InstanceHaveNoCode(instance));
 
-    IEmperor sequencerSelection = IEmperor(instance);
-    Slot currentSlot = sequencerSelection.getCurrentSlot();
+    IEmperor selection = IEmperor(instance);
+    Slot currentSlot = selection.getCurrentSlot();
 
     uint256 roundNumber = computeRound(currentSlot);
 
     CompressedRoundAccounting storage round = rounds[instance][roundNumber];
 
+    // Ensure that time have progressed since the last slot. If not, the current proposer might send multiple signals
     require(
       currentSlot > round.lastSignalSlot.decompress(), Errors.GovernanceProposer__SignalAlreadyCastForSlot(currentSlot)
     );
 
-    address signaler = sequencerSelection.getCurrentProposer();
+    address signaler = selection.getCurrentProposer();
 
     if (_sig.isEmpty()) {
       require(msg.sender == signaler, Errors.GovernanceProposer__OnlyProposerCanSignal(msg.sender, signaler));
