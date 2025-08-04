@@ -82,16 +82,6 @@ TEST_F(ClientIVCTests, Basic)
     circuit_producer.accumulate_next_circuit(ivc, settings);
     circuit_producer.accumulate_next_circuit(ivc, settings);
 
-    // // Initialize the IVC with an arbitrary circuit
-    // auto [circuit_0, vk_0] =
-    //     circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = MEDIUM_LOG_2_NUM_GATES });
-    // ivc.accumulate(circuit_0, vk_0);
-
-    // // Create another circuit and accumulate
-    // auto [circuit_1, vk_1] =
-    //     circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = MEDIUM_LOG_2_NUM_GATES });
-    // ivc.accumulate(circuit_1, vk_1);
-
     EXPECT_TRUE(ivc.prove_and_verify());
 };
 
@@ -159,12 +149,8 @@ TEST_F(ClientIVCTests, BadProofFailure)
                 tamper_with_proof(ivc.verification_queue[0].proof,
                                   num_public_inputs); // tamper with first proof
             }
-
-            if (ivc.num_circuits_accumulated == ivc.get_num_circuits()) {
-                ClientIVC::ClientCircuit circuit{ ivc.goblin.op_queue };
-                ivc.complete_kernel_circuit_logic(circuit);
-            }
         }
+        circuit_producer.complete_ivc_accumulation(ivc);
         EXPECT_FALSE(ivc.prove_and_verify());
     }
 
@@ -185,11 +171,8 @@ TEST_F(ClientIVCTests, BadProofFailure)
                 tamper_with_proof(ivc.verification_queue[1].proof,
                                   circuit.num_public_inputs()); // tamper with second proof
             }
-            if (ivc.num_circuits_accumulated == ivc.get_num_circuits()) {
-                ClientIVC::ClientCircuit circuit{ ivc.goblin.op_queue };
-                ivc.complete_kernel_circuit_logic(circuit);
-            }
         }
+        circuit_producer.complete_ivc_accumulation(ivc);
         EXPECT_FALSE(ivc.prove_and_verify());
     }
 
@@ -210,17 +193,14 @@ TEST_F(ClientIVCTests, BadProofFailure)
             if (idx == NUM_CIRCUITS - 1) {
                 num_public_inputs = circuit.num_public_inputs();
             }
-
-            if (ivc.num_circuits_accumulated == ivc.get_num_circuits()) {
-                ClientIVC::ClientCircuit circuit{ ivc.goblin.op_queue };
-                ivc.complete_kernel_circuit_logic(circuit);
-            }
         }
 
         // Only a single proof should be present in the queue when verification of the IVC is performed
         EXPECT_EQ(ivc.verification_queue.size(), 1);
         tamper_with_proof(ivc.verification_queue[0].proof,
                           num_public_inputs); // tamper with the final fold proof
+
+        circuit_producer.complete_ivc_accumulation(ivc);
 
         EXPECT_FALSE(ivc.prove_and_verify());
     }

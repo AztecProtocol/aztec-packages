@@ -77,7 +77,8 @@ ClientIvcProve::Response ClientIvcProve::execute(BBApiRequest& request) &&
     }
 
     info("ClientIvcProve - generating proof for ", request.ivc_stack_depth, " accumulated circuits");
-
+    ClientIVC::ClientCircuit circuit{ request.ivc_in_progress->goblin.op_queue };
+    request.ivc_in_progress->complete_kernel_circuit_logic(circuit);
     ClientIVC::Proof proof = request.ivc_in_progress->prove();
 
     // We verify this proof. Another bb call to verify has some overhead of loading VK/proof/SRS,
@@ -135,8 +136,7 @@ ClientIVC::VerificationKey compute_civc_vk(const BBApiRequest& request, size_t n
                                                     });
     ivc.accumulate(circuit_1, vk_1);
 
-    ClientIVC::ClientCircuit circuit{ ivc.goblin.op_queue };
-    ivc.complete_kernel_circuit_logic(circuit);
+    circuit_producer.complete_ivc_accumulation(ivc);
     // Construct the hiding circuit and its VK (stored internally in the IVC)
     auto hiding_decider_pk = ivc.get_hiding_circuit_proving_key();
     auto hiding_honk_vk = std::make_shared<ClientIVC::MegaZKVerificationKey>(hiding_decider_pk->get_precomputed());
