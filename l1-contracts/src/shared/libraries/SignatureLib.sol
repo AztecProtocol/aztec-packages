@@ -38,6 +38,9 @@ struct CommitteeAttestations {
 error SignatureLib__InvalidSignature(address, address);
 
 library SignatureLib {
+  uint256 private constant SIGNATURE_LENGTH = 65; // v (1) + r (32) + s (32)
+  uint256 private constant ADDRESS_LENGTH = 20;
+
   /**
    * @notice Checks if the given CommitteeAttestations is empty
    * @param _attestations - The committee attestations
@@ -86,7 +89,7 @@ library SignatureLib {
 
     // Move to the start of the signature
     for (uint256 i = 0; i < _index; ++i) {
-      dataPtr += isSignature(_attestations, i) ? 65 : 20;
+      dataPtr += isSignature(_attestations, i) ? SIGNATURE_LENGTH : ADDRESS_LENGTH;
     }
 
     uint8 v;
@@ -141,7 +144,7 @@ library SignatureLib {
       bitMask >>= 1;
 
       if (isSignatureFlag) {
-        dataPtr += 65;
+        dataPtr += SIGNATURE_LENGTH;
         addresses[i] = _signers[signersIndex];
         signersIndex++;
       } else {
@@ -194,9 +197,9 @@ library SignatureLib {
     uint256 totalDataSize = 0;
     for (uint256 i = 0; i < length; i++) {
       if (!isEmpty(_attestations[i].signature)) {
-        totalDataSize += 65; // v (1) + r (32) + s (32)
+        totalDataSize += SIGNATURE_LENGTH;
       } else {
-        totalDataSize += 20; // address only
+        totalDataSize += ADDRESS_LENGTH;
       }
     }
 
@@ -238,7 +241,7 @@ library SignatureLib {
           let dataPtr := add(add(signaturesOrAddresses, 0x20), dataIndex)
           mstore(dataPtr, shl(96, addr))
         }
-        dataIndex += 20;
+        dataIndex += ADDRESS_LENGTH;
       }
     }
 
