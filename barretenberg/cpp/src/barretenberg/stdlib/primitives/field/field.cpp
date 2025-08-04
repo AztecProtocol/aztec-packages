@@ -44,7 +44,7 @@ field_t<Builder>::field_t(const bool_t<Builder>& other)
     : context(other.context)
 {
     if (other.is_constant()) {
-        additive_constant = (other.witness_bool ^ other.witness_inverted) ? bb::fr::one() : bb::fr::zero();
+        additive_constant = other.get_value();
         multiplicative_constant = bb::fr::one();
         witness_index = IS_CONSTANT;
     } else {
@@ -86,7 +86,7 @@ template <typename Builder> field_t<Builder>::operator bool_t<Builder>() const
     const bool add_constant_check = (additive_constant == bb::fr::zero());
     const bool mul_constant_check = (multiplicative_constant == bb::fr::one());
     const bool inverted_check = (additive_constant == bb::fr::one()) && (multiplicative_constant == bb::fr::neg_one());
-    bool_t<Builder> result(context);
+    bool result_inverted = false;
     // Process the elements of the form
     //      a = a.v * 1 + 0 and a = a.v * (-1) + 1
     // They do not need to be normalized if `a.v` is constrained to be boolean. In the first case, we have
@@ -96,7 +96,7 @@ template <typename Builder> field_t<Builder>::operator bool_t<Builder>() const
     // The distinction between the cases is tracked by the .witness_inverted field of bool_t.
     uint32_t witness_idx = witness_index;
     if ((add_constant_check && mul_constant_check) || inverted_check) {
-        result.witness_inverted = inverted_check;
+        result_inverted = inverted_check;
     } else {
         // In general, the witness has to be normalized.
         witness_idx = get_normalized_witness_index();
@@ -106,7 +106,8 @@ template <typename Builder> field_t<Builder>::operator bool_t<Builder>() const
     BB_ASSERT_EQ((witness == bb::fr::zero()) || (witness == bb::fr::one()),
                  true,
                  "Attempting to create a bool_t from a witness_t not satisfying x^2 - x = 0");
-    result.witness_bool = (witness == bb::fr::one());
+    bool_t result(context, witness == bb::fr::one());
+    result.witness_inverted = result_inverted;
     result.witness_index = witness_idx;
     context->create_bool_gate(witness_idx);
     result.set_origin_tag(tag);
