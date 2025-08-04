@@ -648,10 +648,10 @@ template <typename Builder> field_t<Builder> field_t<Builder>::normalize() const
     //     q_3 := -1;
     //     q_c := this.add;
     // The `add` gate enforces the relation
-    //       this.v * q_1 + this.v * q_2 + result.v * q_3 + q_c = 0
+    //       this.v * q_1 + result.v * q_3 + q_c = 0
 
     context->create_add_gate({ .a = witness_index,
-                               .b = witness_index,
+                               .b = context->zero_idx,
                                .c = result.witness_index,
                                .a_scaling = multiplicative_constant,
                                .b_scaling = bb::fr::zero(),
