@@ -748,7 +748,6 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
         const searchRangeEnd = Number(currentL1BlockNumber);
 
         localPendingBlockInChain = await this.checkForReorgUsingL2Events(
-          localPendingBlockNumber,
           localPendingBlock,
           BigInt(searchRangeStart),
           BigInt(searchRangeEnd),
@@ -1332,11 +1331,11 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
    * This is used when the header hash is stale and we can't rely on status() for re-org detection.
    */
   private async checkForReorgUsingL2Events(
-    localPendingBlockNumber: number,
     localPendingBlock: L2Block,
     fromL1Block: bigint,
     toL1Block: bigint,
   ): Promise<boolean> {
+    const localPendingBlockNumber = localPendingBlock.number;
     try {
       // Get recent L2BlockProposed events
       const l2BlockProposedLogs = await this.rollup.getContract().getEvents.L2BlockProposed(

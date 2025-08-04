@@ -153,7 +153,7 @@ describe('full_prover', () => {
       const snapshot = (t.aztecNode as AztecNodeService)['worldStateSynchronizer'].getSnapshot(previousEpochLastBlock);
       const archiveTreeInfo = await snapshot.getTreeInfo(MerkleTreeId.ARCHIVE);
       const realArchive = `0x${archiveTreeInfo.root.toString('hex').replace('0x', '')}` as `0x${string}`;
-      await t.cheatCodes.rollup.setArchiveForBlock(previousEpochLastBlock, realArchive);
+      await t.cheatCodes.rollup.markAsProven(previousEpochLastBlock, realArchive);
 
       const rewardsBeforeCoinbase = await rollup.getSequencerRewards(COINBASE_ADDRESS);
       const rewardsBeforeProver = await rollup.getSpecificProverRewardsForEpoch(epoch, t.proverAddress);

@@ -156,7 +156,7 @@ export class RollupCheatCodes {
    * Marks the specified block (or latest if none) as proven
    * @param maybeBlockNumber - The block number to mark as proven (defaults to latest pending)
    */
-  public markAsProven(maybeBlockNumber?: number | bigint) {
+  public markAsProven(maybeBlockNumber?: number | bigint, maybeArchive?: `0x${string}`) {
     return this.ethCheatCodes.execWithPausedAnvil(async () => {
       const tipsBefore = await this.getTips();
       const { pending, proven } = tipsBefore;
@@ -184,6 +184,10 @@ export class RollupCheatCodes {
       const tipsAfter = await this.getTips();
       if (tipsAfter.pending < tipsAfter.proven) {
         throw new Error('Overwrote pending tip to a block in the past');
+      }
+
+      if (maybeArchive) {
+        await this.setArchiveForBlock(Number(tipsAfter.proven), maybeArchive);
       }
 
       this.logger.info(

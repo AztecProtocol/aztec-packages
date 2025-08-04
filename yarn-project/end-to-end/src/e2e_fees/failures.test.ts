@@ -88,7 +88,7 @@ describe('e2e_fees failures', () => {
     const snapshot = t.context.aztecNode['worldStateSynchronizer'].getSnapshot(previousEpochLastBlock);
     const archiveTreeInfo = await snapshot.getTreeInfo(MerkleTreeId.ARCHIVE);
     const realArchive = `0x${archiveTreeInfo.root.toString('hex').replace('0x', '')}` as `0x${string}`;
-    await t.cheatCodes.rollup.setArchiveForBlock(previousEpochLastBlock, realArchive);
+    await t.cheatCodes.rollup.markAsProven(previousEpochLastBlock, realArchive);
 
     await t.catchUpProvenChain();
 
