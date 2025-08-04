@@ -115,7 +115,6 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
         };
     case simulation::AluOperation::NOT: {
         const FF tag_diff = static_cast<uint8_t>(event.a.get_tag()) - static_cast<uint8_t>(MemoryTag::FF);
-        bool is_ff = event.a.get_tag() == ValueTag::FF;
         return {
             { Column::alu_sel_op_not, 1 },
             { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::NOT).subtrace_operation_id },
