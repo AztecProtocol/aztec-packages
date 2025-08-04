@@ -230,7 +230,7 @@ contract UpdateConfigurationTest is GovernanceBase {
     // it updates the configuration
     // it emits {ConfigurationUpdated} event
 
-    uint256 val = bound(_val, ConfigurationLib.VOTES_LOWER, type(uint256).max);
+    uint256 val = bound(_val, ConfigurationLib.LOCK_AMOUNT_LOWER, type(uint256).max);
 
     vm.assume(val != config.proposeConfig.lockAmount);
     config.proposeConfig.lockAmount = val;
