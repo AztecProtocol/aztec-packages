@@ -81,7 +81,6 @@ interface IGSE is IGSECore {
     returns (address[] memory);
   function getG1PublicKeysFromAddresses(address[] memory _attesters) external view returns (G1Point[] memory);
   function getAttestersAtTime(address _instance, Timestamp _timestamp) external view returns (address[] memory);
-  function getAttestersAtTime(address _instance, Timestamp _timestamp) external view returns (address[] memory);
   function getAttesterFromIndexAtTime(address _instance, uint256 _index, Timestamp _timestamp)
     external
     view
