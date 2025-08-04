@@ -91,6 +91,7 @@ unconstrained fn initialize_and_get_pending() {
         // - a read request for the read value
         // - a nullifier for the read note
         // - a new note for the recreation of the read value
+        // Note: the TestEnvironment does not perform squashing like the proper kernel reset circuit would do.
         assert_eq(context.note_hash_read_requests.len(), note_hash_read_requests_pre_get + 1);
         assert_eq(context.nullifiers.len(), nullifiers_pre_get + 1);
         assert_eq(context.note_hashes.len(), note_hashes_pre_get + 1);

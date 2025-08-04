@@ -18,7 +18,7 @@ where
 {
     let effective_minimum_delay =
         delayed_public_mutable_values.sdc.get_effective_minimum_delay_at(historical_timestamp);
-    delayed_public_mutable_values.svc.get_time_horizon(
+    delayed_public_mutable_values.svc.get_time_horizon_at(
         historical_timestamp,
         effective_minimum_delay,
     )

@@ -19,6 +19,9 @@ trait ProveNoteValidity {
         Note: NoteHash;
 }
 
+// TODO: "prove" and "validity" are not the correct terms here; they're both too broad.
+// We're _asserting_ that the note is still "current".
+// Renaming suggestion: assert_note_is_current
 impl ProveNoteValidity for BlockHeader {
     fn prove_note_validity<Note>(
         self,

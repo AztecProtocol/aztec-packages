@@ -1,4 +1,4 @@
-use crate::traits::Empty;
+use crate::traits::{Empty, Packable};
 use std::cmp::min;
 
 mod test;
@@ -21,17 +21,20 @@ pub struct ScheduledDelayChange<let INITIAL_DELAY: u64> {
 }
 
 impl<let INITIAL_DELAY: u64> ScheduledDelayChange<INITIAL_DELAY> {
+
+    // PUBLIC ONLY
+
     pub fn new(pre: Option<u64>, post: Option<u64>, timestamp_of_change: u64) -> Self {
         Self { pre, post, timestamp_of_change }
     }
 
     /// Returns the current value of the delay stored in the data structure.
-    /// This function only returns a meaningful value when called in public with the current timestamp - for
+    /// WARNING: This function only returns a meaningful value when called in public with the current timestamp - for
     /// historical private reads use `get_effective_minimum_delay_at` instead.
-    pub fn get_current(self, current_timestamp: u64) -> u64 {
+    pub fn get_current_at(self, timestamp: u64) -> u64 {
         // The post value becomes the current one at the timestamp of change, so any transaction that is included at or after
         // the timestamp of change will use the post value.
-        if current_timestamp < self.timestamp_of_change {
+        if timestamp < self.timestamp_of_change {
             self.pre.unwrap_or(INITIAL_DELAY)
         } else {
             self.post.unwrap_or(INITIAL_DELAY)
@@ -53,7 +56,7 @@ impl<let INITIAL_DELAY: u64> ScheduledDelayChange<INITIAL_DELAY> {
     ///    new delay. For example, if reducing from 3 days to 1 day, the reduction will be scheduled to happen after 2
     ///    days.
     pub fn schedule_change(&mut self, new: u64, current_timestamp: u64) {
-        let current = self.get_current(current_timestamp);
+        let current = self.get_current_at(current_timestamp);
 
         // When changing the delay value we must ensure that it is not possible to produce a value change with a delay
         // shorter than the current one.
@@ -81,15 +84,59 @@ impl<let INITIAL_DELAY: u64> ScheduledDelayChange<INITIAL_DELAY> {
         self.timestamp_of_change = current_timestamp + time_until_change;
     }
 
+    // PRIVATE ONLY
+
+    /// Mutates the delay change by scheduling a change at the current timestamp. This function is only meaningful
+    /// when called in public with the current timestamp.
+    /// The timestamp at which the new delay will become effective is determined automatically:
+    ///  - when increasing the delay, the change is effective immediately
+    ///  - when reducing the delay, the change will take effect after a delay equal to the difference between old and
+    ///    new delay. For example, if reducing from 3 days to 1 day, the reduction will be scheduled to happen after 2
+    ///    days.
+    pub fn schedule_change_in_private(
+        &mut self,
+        new_delay: u64,
+        historical_timestamp: u64,
+        include_by_timestamp: u64,
+    ) {
+        let time_until_delay_horizon = self.get_effective_minimum_delay_at(historical_timestamp);
+
+        // When changing the delay value we must ensure that it is not possible to produce a value change with a delay
+        // shorter than the current one.
+        let time_until_change = if new_delay > time_until_delay_horizon {
+            // Increasing the delay value can therefore be done immediately: this does not invalidate prior constraints
+            // about how quickly a value might be changed (indeed it strengthens them).
+            0
+        } else {
+            // Decreasing the delay requires waiting for the difference between current and new delay in order to ensure
+            // that overall the current delay is respected.
+            //
+            //      current                    delay              earliest value timestamp of change
+            //      timestamp             timestamp of change         if delay remained unchanged
+            //  =======N=========================|================================X=================>
+            //         ^                         ^                                ^
+            //         |-------------------------|--------------------------------|
+            //         |   time until change               new delay              |
+            //         ------------------------------------------------------------
+            //                            current delay
+            time_until_delay_horizon - new_delay
+        };
+
+        self.pre = Option::some(self.get_current_at(historical_timestamp));
+        self.post = Option::some(new_delay);
+        self.timestamp_of_change = include_by_timestamp + time_until_change;
+    }
+
     /// Returns the minimum delay before a value might mutate due to a scheduled change, from the perspective of some
     /// historical timestamp (timestamp of a historical block). It only returns a meaningful value when called in
     /// private with historical timestamps. This function can be used alongside
-    /// `ScheduledValueChange.get_time_horizon` to properly constrain the `include_by_timestamp` transaction
+    /// `ScheduledValueChange.get_time_horizon_at` to properly constrain the `include_by_timestamp` transaction
     /// property when reading delayed mutable state.
     /// This value typically equals the current delay at the timestamp following the historical one (the earliest one in
     /// which a value change could be scheduled), but it also considers scenarios in which a delay reduction is
     /// scheduled to happen in the near future, resulting in a way to schedule a change with an overall delay lower than
     /// the current one.
+    // Q: what does the word "Effective" mean, versus just saying "minimum delay"? I think "effective" is redundant here (and has been confusing my brain a bit).
     pub fn get_effective_minimum_delay_at(self, historical_timestamp: u64) -> u64 {
         if self.timestamp_of_change <= historical_timestamp {
             // If no delay changes were scheduled, then the delay value at the historical timestamp (post) is guaranteed to
@@ -97,7 +144,7 @@ impl<let INITIAL_DELAY: u64> ScheduledDelayChange<INITIAL_DELAY> {
             self.post.unwrap_or(INITIAL_DELAY)
         } else {
             // If a change is scheduled, then the effective delay might be lower than the current one (pre). At the
-            // timestamp of change the current delay will be the scheduled one, with an overall delay from the historical
+            // timestamp of change the current delay will be the scheduled one[confused: "current" has no meaning in private. You mean if reading at the timestamp of change?], with an overall delay from the historical
             // timestamp equal to the time until the change plus the new delay. If this value is lower
             // than the current delay, then that is the effective minimum delay.
             //
@@ -115,13 +162,85 @@ impl<let INITIAL_DELAY: u64> ScheduledDelayChange<INITIAL_DELAY> {
             //           |                                                                |
             //           |----------------------------------------------------------------|
             //                        current delay at the earliest timestamp in
-            //                             which to scheduled value change
+            //                             which to scheduled value change [huh?]
+            //
+            // Note: Even though when the change was scheduled we had time_until_change + new = current_delay,
+            // some time must have passed since the scheduling, so now (at the time of read), some of the initial
+            // time until change has diagram elapsed. The current time_until_change is shorter, and so
+            // the current time_until_change + new_delay < current_delay (hence explaining why X < Y in this diagram).
             let time_until_change = self.timestamp_of_change - (historical_timestamp + 1);
 
             min(
                 self.pre.unwrap_or(INITIAL_DELAY),
                 time_until_change + self.post.unwrap_or(INITIAL_DELAY),
             )
+        }
+    }
+}
+
+// TODO: check whether this evaluates at comptime or runtime.
+global TWO_POW_32: Field = 2.pow_32(32);
+global TWO_POW_8: Field = 2.pow_32(8);
+
+// We pack to `2 * N + 1` fields because ScheduledValueChange contains T twice (hence `2 * N`) and we need one extra
+// field to store ScheduledDelayChange and the timestamp_of_change of ScheduledValueChange.
+// TODO: impl this as `Packable for ScheduledDelayChange`
+impl<let INITIAL_DELAY: u64> ScheduledDelayChange<INITIAL_DELAY> {
+    pub fn pack(self) -> [Field; 1] {
+        let mut result = [0; 1];
+
+        // We copy the packing approach of delayed_public_mutable_values, just omitting the
+        // svc items.
+        //
+        // We pack sdc.pre, sdc.post, sdc.timestamp_of_change and ~svc.timestamp_of_change~ into a single field as follows:
+        // [ sdc.pre_inner: u32 | sdc.pre_is_some: u8 | sdc.post_inner: u32 | sdc.post_is_some: u8 | sdc.timestamp_of_change: u32 | svc.timestamp_of_change: u32 ]
+        // Note that the code below no longer works after 2106 as by that time the timestamp will overflow u32. This is a tech debt that is not worth tackling.
+        result[0] = 0 // instead of svc.timestamp_of_change as Field
+            + ((self.timestamp_of_change as Field) * 2.pow_32(32))
+            + ((self.post.is_some() as Field) * 2.pow_32(64))
+            + ((self.post.unwrap_unchecked() as Field) * 2.pow_32(72))
+            + ((self.pre.is_some() as Field) * 2.pow_32(104))
+            + ((self.pre.unwrap_unchecked() as Field) * 2.pow_32(112));
+
+        result
+    }
+
+    pub fn unpack(packed: [Field; 1]) -> Self {
+        let field = packed[0];
+
+        // TODO: ScheduledDelayChange should not be concerned with a packing approach that
+        // contains a placeholder for a ScheduledValueChange timestamp, but this is where we are.
+        let lo_32_bits = field as u32;
+
+        let mut tmp = (field - lo_32_bits as Field) / TWO_POW_32;
+        let sdc_timestamp_of_change = tmp as u32;
+
+        tmp = (tmp - sdc_timestamp_of_change as Field) / TWO_POW_32;
+        let sdc_post_is_some = (tmp as u1) != 0;
+
+        tmp = (tmp - sdc_post_is_some as Field) / TWO_POW_8;
+        let sdc_post_inner = tmp as u32;
+
+        tmp = (tmp - sdc_post_inner as Field) / TWO_POW_32;
+        let sdc_pre_is_some = (tmp as u1) != 0;
+
+        tmp = (tmp - sdc_pre_is_some as Field) / TWO_POW_8;
+        let sdc_pre_inner = tmp as u32;
+
+        // Note that below we cast the values to u64 as that is the default type of timestamp in the system. Us packing
+        // the values as u32 is a tech debt that is not worth tackling.
+        ScheduledDelayChange {
+            pre: if sdc_pre_is_some {
+                Option::some(sdc_pre_inner as u64)
+            } else {
+                Option::none()
+            },
+            post: if sdc_post_is_some {
+                Option::some(sdc_post_inner as u64)
+            } else {
+                Option::none()
+            },
+            timestamp_of_change: sdc_timestamp_of_change as u64,
         }
     }
 }

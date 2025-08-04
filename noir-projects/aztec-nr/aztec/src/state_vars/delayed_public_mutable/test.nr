@@ -33,6 +33,18 @@ unconstrained fn in_utility(
     DelayedPublicMutable::new(context, storage_slot)
 }
 
+/**
+ * Some missing tests:
+ * get_storage_slot
+ * explicit tests of schedule_and_return_value_change
+ * Scheduling a new delay which is _bigger_ than the current delay, with the timestamp_of_change taking effect _immediately_ at the time of scheduling.
+ * Scheduling a new delay which is _bigger_ than the current delay, with the timestamp_of_change being deferred for some time.
+ * A scheduled delay change (increase, deferred), but then a value change gets scheduled to take effect _before_ the delay change takes effect.
+ * A scheduled delay change (decrease, deferred), but then a value change gets scheduled to take effect _before_ the delay change takes effect.
+ * A scheduled VALUE change (increase, deferred), but then a value change gets scheduled to take effect _before_ the first value change takes effect.
+ * See: https://miro.com/app/board/uXjVJe05l5o=/
+ */
+
 #[test]
 unconstrained fn get_current_value_in_public_initial() {
     let env = TestEnvironment::_new();
@@ -50,12 +62,12 @@ unconstrained fn get_scheduled_value_in_public() {
     env.public_context(|context| {
         let state_var = in_public(context);
 
-        // Since we haven't modified the delay, it's value should be the default value of TEST_INITIAL_DELAY.
         state_var.schedule_value_change(new_value);
 
         let (scheduled, timestamp_of_change) = state_var.get_scheduled_value();
 
         assert_eq(scheduled, new_value);
+        // Since we haven't modified the delay, its value should be the default value of TEST_INITIAL_DELAY.
         assert_eq(timestamp_of_change, context.timestamp() + TEST_INITIAL_DELAY);
     });
 }
