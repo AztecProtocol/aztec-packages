@@ -28,18 +28,18 @@ contract DepositBN254Test is WithGSE {
     // Prefilling here, and the rest of the data will be generated using the helper
     // generateProofsOfPossession()
     proofOfPossessions[sk1].pk2 = G2Point({
-      x1: 12000187580290590047264785709963395816646295176893602234201956783324175839805,
-      x0: 17931071651819835067098563222910421513876328033572114834306979690881549564414,
-      y1: 3847186948811352011829434621581350901968531448585779990319356482934947911409,
-      y0: 9611549517545166944736557219282359806761534888544046901025233666228290030286
+      x1: 12_000_187_580_290_590_047_264_785_709_963_395_816_646_295_176_893_602_234_201_956_783_324_175_839_805,
+      x0: 17_931_071_651_819_835_067_098_563_222_910_421_513_876_328_033_572_114_834_306_979_690_881_549_564_414,
+      y1: 3_847_186_948_811_352_011_829_434_621_581_350_901_968_531_448_585_779_990_319_356_482_934_947_911_409,
+      y0: 9_611_549_517_545_166_944_736_557_219_282_359_806_761_534_888_544_046_901_025_233_666_228_290_030_286
     });
     generateProofsOfPossession(sk1);
 
     proofOfPossessions[sk2].pk2 = G2Point({
-      x1: 1508004737965051103384491280975170100170616215043110680634427285854533421349,
-      x0: 2276549912948331340977885552999684185609731617727385907945409014914655706355,
-      y1: 12411732771141425816085037286206083986670633222105118555909903595342512393131,
-      y0: 5774481376093013975280852628790789958927737066979135638334935597723797963109
+      x1: 1_508_004_737_965_051_103_384_491_280_975_170_100_170_616_215_043_110_680_634_427_285_854_533_421_349,
+      x0: 2_276_549_912_948_331_340_977_885_552_999_684_185_609_731_617_727_385_907_945_409_014_914_655_706_355,
+      y1: 12_411_732_771_141_425_816_085_037_286_206_083_986_670_633_222_105_118_555_909_903_595_342_512_393_131,
+      y0: 5_774_481_376_093_013_975_280_852_628_790_789_958_927_737_066_979_135_638_334_935_597_723_797_963_109
     });
     generateProofsOfPossession(sk2);
   }
@@ -54,21 +54,14 @@ contract DepositBN254Test is WithGSE {
     _;
   }
 
-  function test_WhenTheDepositKeysDoNotPassTheProofOfPossessionCheck(
-    address _instance,
-    bool _moveWithLatestRollup
-  ) external whenCallerIsRegisteredRollup(_instance) {
+  function test_WhenTheDepositKeysDoNotPassTheProofOfPossessionCheck(address _instance, bool _moveWithLatestRollup)
+    external
+    whenCallerIsRegisteredRollup(_instance)
+  {
     // it reverts
     vm.prank(_instance);
     vm.expectRevert(abi.encodeWithSelector(BN254Lib.Pk1Zero.selector));
-    gse.deposit(
-      address(0),
-      address(0),
-      BN254Lib.g1Zero(),
-      BN254Lib.g2Zero(),
-      BN254Lib.g1Zero(),
-      _moveWithLatestRollup
-    );
+    gse.deposit(address(0), address(0), BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), _moveWithLatestRollup);
   }
 
   function test_WhenTheDepositKeysPassTheProofOfPossessionCheck(
@@ -180,9 +173,7 @@ contract DepositBN254Test is WithGSE {
       stakingAsset.approve(address(gse), activationThreshold);
       vm.expectRevert(
         abi.encodeWithSelector(
-          Errors.GSE__CannotChangePublicKeys.selector,
-          proofOfPossessions[sk1].pk1.x,
-          proofOfPossessions[sk1].pk1.y
+          Errors.GSE__CannotChangePublicKeys.selector, proofOfPossessions[sk1].pk1.x, proofOfPossessions[sk1].pk1.y
         )
       );
       gse.deposit(
@@ -204,9 +195,7 @@ contract DepositBN254Test is WithGSE {
       stakingAsset.approve(address(gse), activationThreshold);
       vm.expectRevert(
         abi.encodeWithSelector(
-          Errors.GSE__CannotChangePublicKeys.selector,
-          proofOfPossessions[sk1].pk1.x,
-          proofOfPossessions[sk1].pk1.y
+          Errors.GSE__CannotChangePublicKeys.selector, proofOfPossessions[sk1].pk1.x, proofOfPossessions[sk1].pk1.y
         )
       );
       gse.deposit(
@@ -253,9 +242,8 @@ contract DepositBN254Test is WithGSE {
 
   function generateProofsOfPossession(uint256 _sk) internal {
     G1Point memory pk1 = BN254Lib.g1Mul(BN254Lib.g1Generator(), _sk);
-    G1Point memory sigma = BN254Lib.g1Mul(
-      BN254Lib.hashToPoint(BN254Lib.STAKING_DOMAIN_SEPARATOR, abi.encodePacked(pk1.x, pk1.y)), _sk
-    );
+    G1Point memory sigma =
+      BN254Lib.g1Mul(BN254Lib.hashToPoint(BN254Lib.STAKING_DOMAIN_SEPARATOR, abi.encodePacked(pk1.x, pk1.y)), _sk);
     proofOfPossessions[_sk] = ProofOfPossession({
       pk1: pk1,
       // pk2 must be prefilled

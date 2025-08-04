@@ -35,12 +35,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     if (_isExiting) {
       vm.prank(unhinged);
       stakingAssetHandler.addValidator(
-        _attester,
-        validMerkleProof,
-        fakeProof,
-        BN254Lib.g1Zero(),
-        BN254Lib.g2Zero(),
-        BN254Lib.g1Zero()
+        _attester, validMerkleProof, fakeProof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
       );
 
       vm.prank(WITHDRAWER);
@@ -52,12 +47,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
 
     vm.prank(unhinged);
     stakingAssetHandler.addValidator(
-      _attester,
-      validMerkleProof,
-      fakeProof,
-      BN254Lib.g1Zero(),
-      BN254Lib.g2Zero(),
-      BN254Lib.g1Zero()
+      _attester, validMerkleProof, fakeProof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
     );
 
     AttesterView memory attesterView = staking.getAttesterView(_attester);
@@ -89,12 +79,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     vm.expectRevert(abi.encodeWithSelector(IStakingAssetHandler.ValidatorQuotaFilledUntil.selector, revertTimestamp));
     vm.prank(_caller);
     stakingAssetHandler.addValidator(
-      _attester,
-      validMerkleProof,
-      realProof,
-      BN254Lib.g1Zero(),
-      BN254Lib.g2Zero(),
-      BN254Lib.g1Zero()
+      _attester, validMerkleProof, realProof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
     );
   }
 
@@ -122,12 +107,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     emit IStakingAssetHandler.ValidatorAdded(address(staking), _attester, WITHDRAWER);
     vm.prank(_caller);
     stakingAssetHandler.addValidator(
-      _attester,
-      validMerkleProof,
-      realProof,
-      BN254Lib.g1Zero(),
-      BN254Lib.g2Zero(),
-      BN254Lib.g1Zero()
+      _attester, validMerkleProof, realProof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
     );
 
     AttesterView memory attesterView = staking.getAttesterView(_attester);

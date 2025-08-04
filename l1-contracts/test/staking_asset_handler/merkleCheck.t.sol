@@ -52,8 +52,6 @@ contract MerkleCheck is StakingAssetHandlerBase, MerkleTreeGetters {
 
     vm.expectRevert(abi.encodeWithSelector(IStakingAssetHandler.MerkleProofInvalid.selector));
     vm.prank(addr);
-    stakingAssetHandler.addValidator(
-      addr, proof, realProof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
-    );
+    stakingAssetHandler.addValidator(addr, proof, realProof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero());
   }
 }

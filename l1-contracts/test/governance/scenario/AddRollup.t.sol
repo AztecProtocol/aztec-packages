@@ -165,12 +165,7 @@ contract AddRollupTest is TestBase {
         token.mint(address(this), activationThreshold);
         token.approve(address(rollup), activationThreshold);
         rollup.deposit(
-          address(uint160(val)),
-          address(this),
-          BN254Lib.g1Zero(),
-          BN254Lib.g2Zero(),
-          BN254Lib.g1Zero(),
-          false
+          address(uint160(val)), address(this), BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), false
         );
         val++;
       }

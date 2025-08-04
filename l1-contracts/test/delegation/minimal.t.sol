@@ -71,21 +71,15 @@ contract MinimalDelegationTest is GSEBase {
     // Lets start
     assertEq(gse.getVotingPower(bonus), 0, "votingPowerCanonical");
 
-    help__deposit(
-      ATTESTER1, WITHDRAWER, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), true
-    );
+    help__deposit(ATTESTER1, WITHDRAWER, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), true);
 
     vm.warp(ts.ts2);
 
-    help__deposit(
-      ATTESTER2, WITHDRAWER, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), false
-    );
+    help__deposit(ATTESTER2, WITHDRAWER, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), false);
 
     vm.warp(ts.ts3);
 
-    help__deposit(
-      WITHDRAWER, WITHDRAWER, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), true
-    );
+    help__deposit(WITHDRAWER, WITHDRAWER, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), true);
 
     vm.warp(ts.ts4);
 

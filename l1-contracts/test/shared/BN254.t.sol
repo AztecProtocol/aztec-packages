@@ -40,7 +40,7 @@ contract BN254KeyTest is Test {
       vm.expectRevert(BN254Lib.MulPointFail.selector);
       // need to set the gas since the precompile uses everything given to it
       // if it fails
-      this.proofOfPossession{gas: 100000}(key.pk1, key.pk2, sigma);
+      this.proofOfPossession{gas: 100_000}(key.pk1, key.pk2, sigma);
     }
   }
 
@@ -50,7 +50,7 @@ contract BN254KeyTest is Test {
       key.pk2.x0++;
       G1Point memory sigma = signRegistrationDigest(key.sk);
       vm.expectRevert(BN254Lib.PairingFail.selector);
-      this.proofOfPossession{gas: 100000}(key.pk1, key.pk2, sigma);
+      this.proofOfPossession{gas: 100_000}(key.pk1, key.pk2, sigma);
     }
   }
 
@@ -60,7 +60,7 @@ contract BN254KeyTest is Test {
       G1Point memory sigma = signRegistrationDigest(key.sk);
       sigma.x++;
       vm.expectRevert(BN254Lib.AddPointFail.selector);
-      this.proofOfPossession{gas: 100000}(key.pk1, key.pk2, sigma);
+      this.proofOfPossession{gas: 100_000}(key.pk1, key.pk2, sigma);
     }
   }
 
@@ -79,20 +79,10 @@ contract BN254KeyTest is Test {
       vm.expectRevert(BN254Lib.SignatureZero.selector);
       this.proofOfPossession(key.pk1, key.pk2, BN254Lib.g1Zero());
 
-      assertFalse(
-        this.proofOfPossession(key.negativePk1, key.pk2, sigma), "proof of possession should fail"
-      );
-      assertFalse(
-        this.proofOfPossession(key.pk1, key.negativePk2, sigma), "proof of possession should fail"
-      );
-      assertFalse(
-        this.proofOfPossession(key.negativePk1, key.negativePk2, sigma),
-        "proof of possession should fail"
-      );
-      assertFalse(
-        this.proofOfPossession(key.pk1, key.pk2, BN254Lib.g1Negate(sigma)),
-        "proof of possession should fail"
-      );
+      assertFalse(this.proofOfPossession(key.negativePk1, key.pk2, sigma), "proof of possession should fail");
+      assertFalse(this.proofOfPossession(key.pk1, key.negativePk2, sigma), "proof of possession should fail");
+      assertFalse(this.proofOfPossession(key.negativePk1, key.negativePk2, sigma), "proof of possession should fail");
+      assertFalse(this.proofOfPossession(key.pk1, key.pk2, BN254Lib.g1Negate(sigma)), "proof of possession should fail");
       assertFalse(
         this.proofOfPossession(key.negativePk1, key.negativePk2, BN254Lib.g1Negate(sigma)),
         "proof of possession should fail"
@@ -154,14 +144,10 @@ contract BN254KeyTest is Test {
       }
 
       G1Point memory wrongPk1 = BN254Lib.g1Mul(BN254Lib.g1Generator(), newSk);
-      assertFalse(
-        this.proofOfPossession(wrongPk1, key.pk2, sigma), "proof of possession should fail"
-      );
+      assertFalse(this.proofOfPossession(wrongPk1, key.pk2, sigma), "proof of possession should fail");
 
       G1Point memory wrongSigma = signRegistrationDigest(newSk);
-      assertFalse(
-        this.proofOfPossession(key.pk1, key.pk2, wrongSigma), "proof of possession should fail"
-      );
+      assertFalse(this.proofOfPossession(key.pk1, key.pk2, wrongSigma), "proof of possession should fail");
     }
   }
 
@@ -173,9 +159,7 @@ contract BN254KeyTest is Test {
       bytes memory pk1Bytes = abi.encodePacked(key.pk1.x, key.pk1.y);
       G1Point memory pk1DigestPoint = BN254Lib.hashToPoint(newDomainSeparator, pk1Bytes);
       G1Point memory sigma = BN254Lib.g1Mul(pk1DigestPoint, key.sk);
-      assertFalse(
-        this.proofOfPossession(key.pk1, key.pk2, sigma), "proof of possession should fail"
-      );
+      assertFalse(this.proofOfPossession(key.pk1, key.pk2, sigma), "proof of possession should fail");
     }
   }
 
@@ -184,10 +168,10 @@ contract BN254KeyTest is Test {
     // https://eips.ethereum.org/EIPS/eip-197#definition-of-the-groups
 
     G2Point memory g2 = G2Point({
-      x1: 11559732032986387107991004021392285783925812861821192530917403151452391805634,
-      x0: 10857046999023057135944570762232829481370756359578518086990519993285655852781,
-      y1: 4082367875863433681332203403145435568316851327593401208105741076214120093531,
-      y0: 8495653923123431417604973247489272438418190587263600148770280649306958101930
+      x1: 11_559_732_032_986_387_107_991_004_021_392_285_783_925_812_861_821_192_530_917_403_151_452_391_805_634,
+      x0: 10_857_046_999_023_057_135_944_570_762_232_829_481_370_756_359_578_518_086_990_519_993_285_655_852_781,
+      y1: 4_082_367_875_863_433_681_332_203_403_145_435_568_316_851_327_593_401_208_105_741_076_214_120_093_531,
+      y0: 8_495_653_923_123_431_417_604_973_247_489_272_438_418_190_587_263_600_148_770_280_649_306_958_101_930
     });
 
     assertEq(g2.x0, fixtureData.g2Generator.x0);
@@ -197,9 +181,7 @@ contract BN254KeyTest is Test {
 
     // Sanity Check
     assertTrue(
-      bn254Pairing(
-        BN254Lib.g1Generator(), BN254Lib.g2NegatedGenerator(), BN254Lib.g1Generator(), g2
-      ),
+      bn254Pairing(BN254Lib.g1Generator(), BN254Lib.g2NegatedGenerator(), BN254Lib.g1Generator(), g2),
       "Pairing of generators failed"
     );
   }
@@ -212,20 +194,18 @@ contract BN254KeyTest is Test {
     G1Point memory pk1 = BN254Lib.g1Mul(BN254Lib.g1Generator(), sk);
     bytes memory pk1Bytes = abi.encodePacked(pk1.x, pk1.y);
 
-    G1Point memory pk1DigestPoint =
-      BN254Lib.hashToPoint(BN254Lib.STAKING_DOMAIN_SEPARATOR, pk1Bytes);
+    G1Point memory pk1DigestPoint = BN254Lib.hashToPoint(BN254Lib.STAKING_DOMAIN_SEPARATOR, pk1Bytes);
 
     G1Point memory sigma = BN254Lib.g1Mul(pk1DigestPoint, sk);
     return sigma;
   }
 
   // wrapper for negative testing
-  function bn254Pairing(
-    G1Point memory _g1a,
-    G2Point memory _g2a,
-    G1Point memory _g1b,
-    G2Point memory _g2b
-  ) public view returns (bool ok) {
+  function bn254Pairing(G1Point memory _g1a, G2Point memory _g2a, G1Point memory _g1b, G2Point memory _g2b)
+    public
+    view
+    returns (bool ok)
+  {
     return BN254Lib.bn254Pairing(_g1a, _g2a, _g1b, _g2b);
   }
 

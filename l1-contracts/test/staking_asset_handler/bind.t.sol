@@ -26,12 +26,7 @@ contract BindTest is StakingAssetHandlerBase {
     emit IStakingAssetHandler.ValidatorAdded(address(staking), BOUND_ADDRESS, WITHDRAWER);
     vm.prank(BOUND_ADDRESS);
     stakingAssetHandler.addValidator(
-      BOUND_ADDRESS,
-      validMerkleProof,
-      realProof,
-      BN254Lib.g1Zero(),
-      BN254Lib.g2Zero(),
-      BN254Lib.g1Zero()
+      BOUND_ADDRESS, validMerkleProof, realProof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
     );
   }
 
@@ -45,12 +40,7 @@ contract BindTest is StakingAssetHandlerBase {
     );
     vm.prank(_attester);
     stakingAssetHandler.addValidator(
-      _attester,
-      validMerkleProof,
-      realProof,
-      BN254Lib.g1Zero(),
-      BN254Lib.g2Zero(),
-      BN254Lib.g1Zero()
+      _attester, validMerkleProof, realProof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
     );
   }
 }

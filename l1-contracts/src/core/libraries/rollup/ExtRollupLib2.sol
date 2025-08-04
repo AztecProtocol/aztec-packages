@@ -31,12 +31,7 @@ library ExtRollupLib2 {
     bool _moveWithLatestRollup
   ) external {
     StakingLib.deposit(
-      _attester,
-      _withdrawer,
-      _publicKeyInG1,
-      _publicKeyInG2,
-      _proofOfPossession,
-      _moveWithLatestRollup
+      _attester, _withdrawer, _publicKeyInG1, _publicKeyInG2, _proofOfPossession, _moveWithLatestRollup
     );
   }
 

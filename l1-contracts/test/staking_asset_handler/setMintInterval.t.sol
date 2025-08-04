@@ -47,12 +47,7 @@ contract SetMintIntervalTest is StakingAssetHandlerBase {
     );
     vm.prank(address(0xbeefdeef));
     stakingAssetHandler.addValidator(
-      address(1),
-      validMerkleProof,
-      fakeProof,
-      BN254Lib.g1Zero(),
-      BN254Lib.g2Zero(),
-      BN254Lib.g1Zero()
+      address(1), validMerkleProof, fakeProof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
     );
   }
 
@@ -74,12 +69,7 @@ contract SetMintIntervalTest is StakingAssetHandlerBase {
     emit IStakingAssetHandler.ValidatorAdded(address(staking), address(1), WITHDRAWER);
     vm.prank(address(0xbeefdeef));
     stakingAssetHandler.addValidator(
-      address(1),
-      validMerkleProof,
-      realProof,
-      BN254Lib.g1Zero(),
-      BN254Lib.g2Zero(),
-      BN254Lib.g1Zero()
+      address(1), validMerkleProof, realProof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
     );
 
     assertEq(stakingAssetHandler.lastMintTimestamp(), block.timestamp);

@@ -68,12 +68,7 @@ contract SetDepositsPerMintTest is StakingAssetHandlerBase {
       emit IStakingAssetHandler.ValidatorAdded(address(staking), validators[i], WITHDRAWER);
       vm.prank(caller);
       stakingAssetHandler.addValidator(
-        validators[i],
-        validMerkleProof,
-        realProof,
-        BN254Lib.g1Zero(),
-        BN254Lib.g2Zero(),
-        BN254Lib.g1Zero()
+        validators[i], validMerkleProof, realProof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
       );
 
       // Increase the unique identifier in our zkpassport proof such that the nullifier for each validator is different.
@@ -89,12 +84,7 @@ contract SetDepositsPerMintTest is StakingAssetHandlerBase {
     );
     vm.prank(caller);
     stakingAssetHandler.addValidator(
-      address(0xbeefdeef),
-      validMerkleProof,
-      realProof,
-      BN254Lib.g1Zero(),
-      BN254Lib.g2Zero(),
-      BN254Lib.g1Zero()
+      address(0xbeefdeef), validMerkleProof, realProof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
     );
 
     emit log_named_uint("balance", stakingAsset.balanceOf(address(stakingAssetHandler)));

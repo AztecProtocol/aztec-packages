@@ -99,9 +99,7 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
     uint256 offset = 0;
 
     for (uint256 i = 0; i < 50; i++) {
-      rollup.deposit(
-        vm.addr(i + 1), address(this), BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), true
-      );
+      rollup.deposit(vm.addr(i + 1), address(this), BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), true);
       rollup.flushEntryQueue();
       timeCheater.cheat__jumpForwardEpochs(2);
     }
@@ -124,12 +122,7 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
 
       for (uint256 j = 0; j < toRemove; j++) {
         rollup.deposit(
-          vm.addr(offset + j + 1),
-          address(this),
-          BN254Lib.g1Zero(),
-          BN254Lib.g2Zero(),
-          BN254Lib.g1Zero(),
-          true
+          vm.addr(offset + j + 1), address(this), BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), true
         );
         rollup.flushEntryQueue();
         timeCheater.cheat__jumpForwardEpochs(2);
@@ -167,9 +160,7 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
 
     // Add a bunch of attesters to
     for (uint256 i = 0; i < 200; i++) {
-      rollup.deposit(
-        vm.addr(i + 1), address(this), BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), true
-      );
+      rollup.deposit(vm.addr(i + 1), address(this), BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), true);
       rollup.flushEntryQueue();
       timeCheater.cheat__jumpForwardEpochs(2);
     }
@@ -191,14 +182,7 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
     }
 
     for (uint256 i = 0; i < 800; i++) {
-      rollup.deposit(
-        vm.addr(i + 200),
-        address(this),
-        BN254Lib.g1Zero(),
-        BN254Lib.g2Zero(),
-        BN254Lib.g1Zero(),
-        true
-      );
+      rollup.deposit(vm.addr(i + 200), address(this), BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), true);
       rollup.flushEntryQueue();
       timeCheater.cheat__jumpForwardEpochs(2);
     }

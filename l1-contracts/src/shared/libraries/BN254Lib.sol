@@ -37,10 +37,10 @@ library BN254Lib {
 
   // See bn254_registration.test.ts and BLSKey.t.sol for tests which validate these constants.
   uint256 public constant BASE_FIELD_ORDER =
-    21888242871839275222246405745257275088696311157297823662689037894645226208583;
+    21_888_242_871_839_275_222_246_405_745_257_275_088_696_311_157_297_823_662_689_037_894_645_226_208_583;
 
   uint256 public constant GROUP_ORDER =
-    21888242871839275222246405745257275088548364400416034343698204186575808495617;
+    21_888_242_871_839_275_222_246_405_745_257_275_088_548_364_400_416_034_343_698_204_186_575_808_495_617;
 
   bytes32 public constant STAKING_DOMAIN_SEPARATOR = bytes32("AZTEC_BLS_POP_BN254_V1");
 
@@ -120,11 +120,7 @@ library BN254Lib {
 
   /// @dev Add two points on BN254 G1 (affine coords).
   ///      Reverts if the inputs are not on‐curve.
-  function g1Add(G1Point memory p1, G1Point memory p2)
-    internal
-    view
-    returns (G1Point memory output)
-  {
+  function g1Add(G1Point memory p1, G1Point memory p2) internal view returns (G1Point memory output) {
     uint256[4] memory input;
     input[0] = p1.x;
     input[1] = p1.y;
@@ -174,12 +170,11 @@ library BN254Lib {
     return output;
   }
 
-  function bn254Pairing(
-    G1Point memory g1a,
-    G2Point memory g2a,
-    G1Point memory g1b,
-    G2Point memory g2b
-  ) internal view returns (bool) {
+  function bn254Pairing(G1Point memory g1a, G2Point memory g2a, G1Point memory g1b, G2Point memory g2b)
+    internal
+    view
+    returns (bool)
+  {
     uint256[12] memory input;
 
     input[0] = g1a.x;
@@ -213,11 +208,7 @@ library BN254Lib {
     return result[0] == 1;
   }
 
-  function hashToPoint(bytes32 domain, bytes memory message)
-    internal
-    view
-    returns (G1Point memory output)
-  {
+  function hashToPoint(bytes32 domain, bytes memory message) internal view returns (G1Point memory output) {
     bytes32 hashed = keccak256(abi.encode(domain, message));
     uint256 x = uint256(hashed) % BASE_FIELD_ORDER;
     uint256 y;
@@ -273,14 +264,9 @@ library BN254Lib {
   }
 
   /// @notice γ = keccak(PK1, PK2, σ_init) mod Fr
-  function gammaOf(G1Point memory pk1, G2Point memory pk2, G1Point memory sigmaInit)
-    internal
-    pure
-    returns (uint256)
-  {
-    return uint256(
-      keccak256(abi.encode(pk1.x, pk1.y, pk2.x0, pk2.x1, pk2.y0, pk2.y1, sigmaInit.x, sigmaInit.y))
-    ) % GROUP_ORDER;
+  function gammaOf(G1Point memory pk1, G2Point memory pk2, G1Point memory sigmaInit) internal pure returns (uint256) {
+    return uint256(keccak256(abi.encode(pk1.x, pk1.y, pk2.x0, pk2.x1, pk2.y0, pk2.y1, sigmaInit.x, sigmaInit.y)))
+      % GROUP_ORDER;
   }
 
   function g1Negate(G1Point memory p) internal pure returns (G1Point memory) {
@@ -308,10 +294,10 @@ library BN254Lib {
 
   function g2NegatedGenerator() internal pure returns (G2Point memory) {
     return G2Point({
-      x0: 10857046999023057135944570762232829481370756359578518086990519993285655852781,
-      x1: 11559732032986387107991004021392285783925812861821192530917403151452391805634,
-      y0: 13392588948715843804641432497768002650278120570034223513918757245338268106653,
-      y1: 17805874995975841540914202342111839520379459829704422454583296818431106115052
+      x0: 10_857_046_999_023_057_135_944_570_762_232_829_481_370_756_359_578_518_086_990_519_993_285_655_852_781,
+      x1: 11_559_732_032_986_387_107_991_004_021_392_285_783_925_812_861_821_192_530_917_403_151_452_391_805_634,
+      y0: 13_392_588_948_715_843_804_641_432_497_768_002_650_278_120_570_034_223_513_918_757_245_338_268_106_653,
+      y1: 17_805_874_995_975_841_540_914_202_342_111_839_520_379_459_829_704_422_454_583_296_818_431_106_115_052
     });
   }
 }
