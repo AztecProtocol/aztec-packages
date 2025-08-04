@@ -455,7 +455,7 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::get_hiding_circuit_pr
  *
  * @return HonkProof - a ZK Mega proof
  */
-HonkProof ClientIVC::construct_and_prove_hiding_circuit()
+HonkProof ClientIVC::prove_hiding_circuit()
 {
     // Assert somewhere the verication queue is 1 before constructing the hiding circuit
     ASSERT(hiding_circuit != nullptr, "hiding circuit should have been constructed before attempted to create its key");
@@ -478,7 +478,10 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
  */
 ClientIVC::Proof ClientIVC::prove()
 {
-    auto mega_proof = construct_and_prove_hiding_circuit();
+    // deallocate the protogalaxy accumulator
+    fold_output.accumulator = nullptr;
+
+    auto mega_proof = prove_hiding_circuit();
 
     // A transcript is shared between the Hiding circuit prover and the Goblin prover
     goblin.transcript = transcript;
