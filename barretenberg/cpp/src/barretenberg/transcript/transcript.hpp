@@ -770,12 +770,8 @@ struct KeccakTranscriptParams {
     }
     template <typename T> static inline std::vector<DataType> serialize(const T& element)
     {
-        // Move to appropiate place
         // return bb::field_conversion::convert_to_uint256(element);
         return bb::field_conversion::convert_to_bn254_frs(element);
-
-        // wont work as returning a vector
-        // return from_buffer<DataType>(to_buffer(element));
     }
     static inline std::array<DataType, 2> split_challenge(const DataType& challenge)
     {
