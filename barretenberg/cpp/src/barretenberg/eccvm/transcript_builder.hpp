@@ -26,14 +26,14 @@ class ECCVMTranscriptBuilder {
         /////////////////////////////////////
 
         bool transcript_msm_infinity = false; // are we at the end of an MSM *and* is the output the point at infinity?
-        bool accumulator_not_empty = false;   // is the accumulator either empty or point-at-infinity?
+        bool accumulator_not_empty = false;   // not(is the accumulator either empty or point-at-infinity?)
         bool q_add = false;
         bool q_mul = false;
         bool q_eq = false;
         bool q_reset_accumulator = false;
         bool msm_transition = false;
         uint32_t pc = 0;
-        uint32_t msm_count = 0;
+        uint32_t msm_count = 0; // number of multiplications in the MSM *up until and not including* this step.
         bool msm_count_zero_at_transition =
             false;     // is the number of scalar muls we have completed at the end of our "MSM block" zero?
         FF base_x = 0; // [P] = (base_x, base_y)
