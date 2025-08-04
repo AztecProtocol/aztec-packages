@@ -102,11 +102,11 @@ function compile {
     SECONDS=0
     outdir=$(mktemp -d)
     trap "rm -rf $outdir" EXIT
-    local vk_cmd="jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB $write_vk_cmd -b - -o $outdir --output_format bytes_and_fields"
+    local vk_cmd="jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB $write_vk_cmd -b - -o $outdir --output_format bytes"
     echo_stderr $vk_cmd
     dump_fail "$vk_cmd"
     vk_bytes=$(cat $outdir/vk | xxd -p -c 0)
-    vk_fields=$(cat $outdir/vk_fields.json)
+    vk_fields
     # echo_stderr $vkf_cmd
     jq -n --arg vk "$vk_bytes" --argjson vkf "$vk_fields" '{keyAsBytes: $vk, keyAsFields: $vkf}' > $key_path
     echo_stderr "Key output at: $key_path (${SECONDS}s)"

@@ -10,7 +10,6 @@ import { basename, dirname, join } from 'path';
 import type { UltraHonkFlavor } from '../honk.js';
 
 export const VK_FILENAME = 'vk';
-export const VK_FIELDS_FILENAME = 'vk_fields.json';
 export const PUBLIC_INPUTS_FILENAME = 'public_inputs';
 export const PUBLIC_INPUTS_FIELDS_FILENAME = 'public_inputs_fields.json';
 export const PROOF_FILENAME = 'proof';
@@ -250,7 +249,7 @@ export async function generateProof(
     const args = getArgs(flavor).concat([
       '--disable_zk',
       '--output_format',
-      'bytes_and_fields',
+      'bytes',
       '--write_vk',
       '-o',
       outputPath,

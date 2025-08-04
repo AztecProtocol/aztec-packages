@@ -18,7 +18,7 @@ export VK="$outdir/vk"
 export VERIFIER_CONTRACT="$outdir/Verifier.sol"
 
 # Create a proof, write the solidity contract, write the proof as fields in order to extract the public inputs
-$BIN prove -o $outdir $FLAGS $BFLAG $PROTOCOL_FLAGS --output_format bytes_and_fields --write_vk
+$BIN prove -o $outdir $FLAGS $BFLAG $PROTOCOL_FLAGS --output_format bytes --write_vk
 $BIN verify -i $PUBLIC_INPUTS -k $VK -p $PROOF $FLAGS $PROTOCOL_FLAGS
 $BIN write_solidity_verifier $FLAGS -k $VK -o $VERIFIER_CONTRACT
 

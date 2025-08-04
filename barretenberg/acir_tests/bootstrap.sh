@@ -44,14 +44,15 @@ function run_proof_generation {
   if [[ $program == *"zk"* ]]; then
     disable_zk=""
   fi
-  local prove_cmd="$bb prove --scheme ultra_honk $disable_zk --init_kzg_accumulator $ipa_accumulation_flag --output_format fields --write_vk -o $outdir -b ./target/program.json -w ./target/witness.gz"
+  local prove_cmd="$bb prove --scheme ultra_honk $disable_zk --init_kzg_accumulator $ipa_accumulation_flag --output_format bytes --write_vk -o $outdir -b ./target/program.json -w ./target/witness.gz"
   echo_stderr "$prove_cmd"
   dump_fail "$prove_cmd"
 
-  local vk_fields=$(cat "$outdir/vk_fields.json")
-  local vk_hash_fields=$(cat "$outdir/vk_hash_fields.json")
-  local public_inputs_fields=$(cat "$outdir/public_inputs_fields.json")
-  local proof_fields=$(cat "$outdir/proof_fields.json")
+  # Convert binary outputs to fields using the conversion script
+  local vk_fields=$(../../binary_to_fields.sh "$outdir/vk")
+  local vk_hash_fields=$(../../binary_to_fields.sh "$outdir/vk_hash" | jq -r '.[0]')
+  local public_inputs_fields=$(../../binary_to_fields.sh "$outdir/public_inputs")
+  local proof_fields=$(../../binary_to_fields.sh "$outdir/proof")
 
   generate_toml "$program" "$vk_fields" "$vk_hash_fields" "$proof_fields" "$public_inputs_fields"
 }
@@ -61,7 +62,7 @@ function generate_toml {
   local vk_fields=$2
   local vk_hash_fields=$3
   local proof_fields=$4
-  local num_inner_public_inputs=$5
+  local public_inputs_fields=$5
   local output_file="../$program/Prover.toml"
 
   jq -nr \

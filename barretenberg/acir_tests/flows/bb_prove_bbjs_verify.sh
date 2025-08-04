@@ -27,7 +27,7 @@ $BIN prove \
   -b $artifact_dir/program.json \
   -w $artifact_dir/witness.gz \
   -k $output_dir/vk \
-  --output_format bytes_and_fields \
+  --output_format bytes \
   -o $output_dir
 
 # Verify the proof with bb.js classes

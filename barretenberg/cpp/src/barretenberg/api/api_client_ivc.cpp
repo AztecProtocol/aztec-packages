@@ -47,16 +47,8 @@ void write_standalone_vk(const std::string& output_format,
             write_file(path, data);
         }
     };
-    if (output_format == "bytes_and_fields" && is_stdout) {
-        throw_or_abort("Cannot write to stdout in bytes_and_fields format.");
-    }
-    if (output_format == "bytes" || output_format == "bytes_and_fields") {
+    if (output_format == "bytes") {
         write_fn(output_path / "vk", response.bytes);
-        wrote_file = true;
-    }
-    if (output_format == "fields" || output_format == "bytes_and_fields") {
-        std::string json = field_elements_to_json(response.fields);
-        write_fn(output_path / "vk_fields.json", std::vector<uint8_t>(json.begin(), json.end()));
         wrote_file = true;
     }
     if (!wrote_file) {
@@ -77,7 +69,7 @@ void write_civc_vk(const std::string& output_format,
     // For now, we'll use the compute_civc_vk function directly as it was designed for this purpose
     bbapi::BBApiRequest request;
     auto vk = bbapi::compute_civc_vk(request, num_public_inputs_in_final_circuit);
-    const auto buf = to_buffer(vk.to_field_elements());
+    const auto buf = to_buffer(vk);
 
     const bool output_to_stdout = output_dir == "-";
 
@@ -299,7 +291,7 @@ void write_arbitrary_valid_client_ivc_proof_and_vk_to_file(const std::filesystem
     vinfo("writing ClientIVC proof and vk...");
     proof.to_file_msgpack(output_dir / "proof");
 
-    write_file(output_dir / "vk", to_buffer(ivc.get_vk().to_field_elements()));
+    write_file(output_dir / "vk", to_buffer(ivc.get_vk()));
 }
 
 } // namespace bb

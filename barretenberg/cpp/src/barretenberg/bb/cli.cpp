@@ -206,14 +206,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
 
     const auto add_output_format_option = [&](CLI::App* subcommand) {
         return subcommand
-            ->add_option(
-                "--output_format",
-                flags.output_format,
-                "The type of the data to be written by the command. If bytes, output the raw bytes prefixed with "
-                "header information for deserialization. If fields, output a string representation of an array of "
-                "field elements. If bytes_and_fields do both. If fields_msgpack, outputs a msgpack buffer of Fr "
-                "elements.")
-            ->check(CLI::IsMember({ "bytes", "fields", "bytes_and_fields", "fields_msgpack" }).name("is_member"));
+            ->add_option("--output_format",
+                         flags.output_format,
+                         "The type of the data to be written by the command. Output the raw bytes prefixed with "
+                         "header information for deserialization.")
+            ->check(CLI::IsMember({ "bytes" }).name("is_member"));
     };
 
     const auto add_write_vk_flag = [&](CLI::App* subcommand) {

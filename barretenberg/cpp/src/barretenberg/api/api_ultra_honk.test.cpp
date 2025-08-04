@@ -146,19 +146,19 @@ TEST_F(ApiUltraHonkTest, ProveAndVerifyWithFields)
     api.write_vk(vk_flags, bytecode_path, vk_output_path);
     EXPECT_TRUE(std::filesystem::exists(vk_output_path / "vk"));
 
-    // Now test fields format for proof generation
+    // Now test bytes format for proof generation
     API::Flags flags;
-    flags.output_format = "fields";
+    flags.output_format = "bytes";
     flags.oracle_hash_type = "poseidon2";
 
-    // Generate proof with fields output
+    // Generate proof with bytes output
     auto proof_output_dir = test_dir / "proof";
     std::filesystem::create_directories(proof_output_dir);
     api.prove(flags, bytecode_path, witness_path, vk_output_path / "vk", proof_output_dir);
 
-    // Check that proof field files were created
-    EXPECT_TRUE(std::filesystem::exists(proof_output_dir / "proof_fields.json"));
-    EXPECT_TRUE(std::filesystem::exists(proof_output_dir / "public_inputs_fields.json"));
+    // Check that proof files were created
+    EXPECT_TRUE(std::filesystem::exists(proof_output_dir / "proof"));
+    EXPECT_TRUE(std::filesystem::exists(proof_output_dir / "public_inputs"));
 }
 
 TEST_F(ApiUltraHonkTest, ProveWithDifferentSettings)
@@ -197,10 +197,10 @@ TEST_F(ApiUltraHonkTest, WriteVk)
 {
     auto [bytecode_path, witness_path] = create_test_circuit_files(test_dir);
 
-    // Smoke test fields format (no real verification)
+    // Test bytes format
     {
         API::Flags flags;
-        flags.output_format = "fields";
+        flags.output_format = "bytes";
         flags.oracle_hash_type = "poseidon2";
 
         UltraHonkAPI api;

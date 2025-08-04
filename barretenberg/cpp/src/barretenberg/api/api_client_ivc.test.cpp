@@ -180,20 +180,16 @@ TEST_F(ClientIVCAPITests, WriteVkFieldsSmokeTest)
     std::filesystem::path bytecode_path = test_dir / "circuit.acir";
     write_file(bytecode_path, bb::compress(bytecode));
 
-    // Test write_vk with fields output format
+    // Test write_vk with bytes output format
     ClientIVCAPI::Flags flags;
     flags.verifier_type = "standalone";
-    flags.output_format = "fields";
+    flags.output_format = "bytes";
 
     ClientIVCAPI api;
     api.write_vk(flags, bytecode_path, test_dir);
 
-    // Read and verify the fields format
-    auto vk_data = read_file(test_dir / "vk_fields.json");
-    std::string vk_str(vk_data.begin(), vk_data.end());
-    // Just check that this looks a bit like JSON.
-    EXPECT_NE(vk_str.find('['), std::string::npos);
-    EXPECT_NE(vk_str.find(']'), std::string::npos);
+    // Verify the binary VK file was created
+    EXPECT_TRUE(std::filesystem::exists(test_dir / "vk"));
 }
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1461): Make this test actually test # gates

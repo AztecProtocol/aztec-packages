@@ -75,9 +75,7 @@ template <typename Flavor> std::vector<uint8_t> _compute_vk(const std::vector<ui
 {
     auto proving_key = _compute_proving_key<Flavor>(bytecode, {});
     auto vk = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
-    // Serialize via to_field_elements() then to_buffer()
-    auto field_elements = vk->to_field_elements();
-    return to_buffer(field_elements);
+    return to_buffer(*vk);
 }
 
 template <typename Flavor>
@@ -92,8 +90,7 @@ CircuitProve::Response _prove(std::vector<uint8_t>&& bytecode,
         vk = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
     } else {
         // Deserialize directly from buffer
-        auto deserialized_vk = from_buffer<typename Flavor::VerificationKey>(vk_bytes);
-        vk = std::make_shared<typename Flavor::VerificationKey>(std::move(deserialized_vk));
+        vk = from_buffer<std::shared_ptr<typename Flavor::VerificationKey>>(vk_bytes);
     }
 
     UltraProver_<Flavor> prover{ proving_key, vk };
@@ -216,13 +213,7 @@ CircuitComputeVk::Response CircuitComputeVk::execute(BB_UNUSED const BBApiReques
     auto compute_vk_and_fields = [&]<typename Flavor>() {
         auto proving_key = _compute_proving_key<Flavor>(circuit.bytecode, {});
         auto vk = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
-        std::vector<uint8_t> vk_bytes2;
-        write(vk_bytes2, *vk);
         vk_fields = vk->to_field_elements();
-        BB_ASSERT_EQ(vk_fields.size(), Flavor::VerificationKey::calc_num_frs(), "VK serialization mismatch");
-        vk_bytes = to_buffer(vk_fields);
-        BB_ASSERT_EQ(vk_bytes.size(), vk_fields.size() * sizeof(fr), "VK serialization mismatch");
-        BB_ASSERT_EQ(vk_bytes.size(), to_buffer(vk).size(), "VK serialization mismatch");
         vk_hash_bytes = to_buffer(vk->hash());
     };
 

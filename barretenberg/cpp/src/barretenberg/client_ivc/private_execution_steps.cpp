@@ -133,8 +133,7 @@ void PrivateExecutionSteps::parse(std::vector<PrivateExecutionStepRaw>&& steps)
             // For backwards compatibility, but it affects performance and correctness.
             precomputed_vks[i] = nullptr;
         } else {
-            auto deserialized_vk = from_buffer<ClientIVC::MegaVerificationKey>(step.vk);
-            precomputed_vks[i] = std::make_shared<ClientIVC::MegaVerificationKey>(std::move(deserialized_vk));
+            precomputed_vks[i] = from_buffer<std::shared_ptr<ClientIVC::MegaVerificationKey>>(step.vk);
         }
         function_names[i] = step.function_name;
     }
