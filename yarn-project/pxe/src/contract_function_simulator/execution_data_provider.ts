@@ -4,9 +4,10 @@ import type { FunctionArtifact, FunctionArtifactWithContractName, FunctionSelect
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
-import type { KeyValidationRequest, UtilityContextWithoutContractAddress } from '@aztec/stdlib/kernel';
+import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { IndexedTaggingSecret } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
+import { UtilityContextWithoutContractAddress } from '@aztec/stdlib/oracle';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, NodeStats } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
@@ -233,9 +234,10 @@ export interface ExecutionDataProvider {
   getVersion(): Promise<number>;
 
   /**
-   * TODO(benesjan): Actual docs
    * Fetches the current utility context without the contract address.
-   * @returns The utility context without the contract address.
+   * @dev PXE uses this along with the locally stored contract address to construct the full UtilityContext when
+   * processing the utilityGetUtilityContext oracle.
+   * @returns The utility context containing block number, timestamp, version and chain ID.
    */
   getUtilityContextWithoutContractAddress(): Promise<UtilityContextWithoutContractAddress>;
 

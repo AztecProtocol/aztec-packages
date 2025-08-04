@@ -1,12 +1,12 @@
 import { Fr } from '@aztec/foundation/fields';
-import { schemas } from '@aztec/foundation/schemas';
-
-import { z } from 'zod';
 
 import type { AztecAddress } from '../aztec-address/index.js';
 import type { UInt64 } from '../types/shared.js';
+import type { UtilityContextWithoutContractAddress } from './utility_context_without_contract_address.js';
 
-// TODO(benesjan): move this to a different place, it doesn't belong here
+/**
+ * TypeScript counterpart of utility_context.nr. Used only as a return value for the utilityGetUtilityContext oracle.
+ */
 export class UtilityContext {
   constructor(
     private readonly blockNumber: number,
@@ -31,6 +31,7 @@ export class UtilityContext {
 
   /**
    * Returns a representation of the utility context as expected by intrinsic Noir deserialization.
+   * The order of the fields has to be the same as the order of the fields in the utility_context.nr.
    */
   public toNoirRepresentation(): (string | string[])[] {
     // TODO(#12874): remove the stupid as string conversion by modifying ForeignCallOutput type in acvm.js
@@ -43,19 +44,3 @@ export class UtilityContext {
     ];
   }
 }
-
-export class UtilityContextWithoutContractAddress {
-  constructor(
-    public readonly blockNumber: number,
-    public readonly timestamp: UInt64,
-    public readonly version: number,
-    public readonly chainId: number,
-  ) {}
-}
-
-export const UtilityContextWithoutContractAddressSchema = z.object({
-  blockNumber: z.number(),
-  timestamp: schemas.BigInt,
-  version: z.number(),
-  chainId: z.number(),
-});

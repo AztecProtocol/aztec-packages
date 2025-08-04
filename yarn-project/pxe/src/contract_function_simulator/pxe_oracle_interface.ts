@@ -14,7 +14,7 @@ import type { InBlock, L2Block, L2BlockNumber } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier, siloPrivateLog } from '@aztec/stdlib/hash';
 import { type AztecNode, MAX_RPC_LEN } from '@aztec/stdlib/interfaces/client';
-import type { KeyValidationRequest, UtilityContextWithoutContractAddress } from '@aztec/stdlib/kernel';
+import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { computeAddressSecret, computeAppTaggingSecret } from '@aztec/stdlib/keys';
 import {
   IndexedTaggingSecret,
@@ -27,6 +27,7 @@ import {
 } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
+import { UtilityContextWithoutContractAddress } from '@aztec/stdlib/oracle';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 import { TxHash } from '@aztec/stdlib/tx';
@@ -269,9 +270,10 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   }
 
   /**
-   * TODO(benesjan): Actual docs
    * Fetches the current utility context without the contract address.
-   * @returns The utility context without the contract address.
+   * @dev PXE uses this along with the locally stored contract address to construct the full UtilityContext when
+   * processing the utilityGetUtilityContext oracle.
+   * @returns The utility context containing block number, timestamp, version and chain ID.
    */
   public getUtilityContextWithoutContractAddress(): Promise<UtilityContextWithoutContractAddress> {
     return this.aztecNode.getUtilityContextWithoutContractAddress();
