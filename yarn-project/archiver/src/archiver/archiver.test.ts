@@ -15,7 +15,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { bufferToHex, withoutHexPrefix } from '@aztec/foundation/string';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
+import { CommitteeAttestation, L2Block, L2BlockSourceEvents } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { PrivateLog } from '@aztec/stdlib/logs';
 import { InboxLeaf } from '@aztec/stdlib/messaging';
@@ -391,6 +391,10 @@ describe('Archiver', () => {
     const committee = signers.map(signer => signer.address);
     epochCache.getCommitteeForEpoch.mockResolvedValue({ committee } as EpochCommitteeInfo);
 
+    // Setup spy to listen for InvalidBlockDetected events
+    const invalidBlockDetectedSpy = jest.fn();
+    archiver.on(L2BlockSourceEvents.InvalidAttestationsBlockDetected, invalidBlockDetectedSpy);
+
     // Add the attestations from the signers to all 3 blocks
     const rollupTxs = await Promise.all(blocks.map(b => makeRollupTx(b, signers)));
     const blobHashes = await Promise.all(blocks.map(makeVersionedBlobHashes));
@@ -439,6 +443,14 @@ describe('Archiver', () => {
       }),
     );
 
+    // Check that InvalidBlockDetected event was emitted for the bad block
+    expect(invalidBlockDetectedSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: L2BlockSourceEvents.InvalidAttestationsBlockDetected,
+        validationResult: expect.objectContaining({ valid: false, reason: 'invalid-attestation', invalidIndex: 0 }),
+      }),
+    );
+
     // Now another loop, where we propose a block 3 with bad attestations
     logger.warn(`Adding new block 3 with bad attestations`);
     publicClient.getBlockNumber.mockResolvedValue(90n);
@@ -462,6 +474,17 @@ describe('Archiver', () => {
     assert(!validationStatus.valid);
     expect(validationStatus.block.block.number).toEqual(2);
     expect(validationStatus.block.block.archive.root.toString()).toEqual(badBlock2.archive.root.toString());
+
+    // Check that InvalidBlockDetected event was also emitted for bad block 3
+    expect(invalidBlockDetectedSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: L2BlockSourceEvents.InvalidAttestationsBlockDetected,
+        validationResult: expect.objectContaining({ valid: false, reason: 'invalid-attestation', invalidIndex: 0 }),
+      }),
+    );
+
+    // Should have been called twice total (for blocks 2 and 3)
+    expect(invalidBlockDetectedSpy).toHaveBeenCalledTimes(2);
 
     // Now we go for another loop, where proper blocks 2 and 3 are proposed with correct attestations
     // IRL there would be an "Invalidated" event, but we are not currently relying on it
