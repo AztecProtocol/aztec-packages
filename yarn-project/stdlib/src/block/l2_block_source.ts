@@ -130,8 +130,8 @@ export interface L2BlockSource {
   isPendingChainInvalid(): Promise<boolean>;
 
   /**
-   * Returns the status of the pending chain validation.
-   * This includes whether the chain is valid, and if not, the reason for invalidation.
+   * Returns the status of the pending chain validation. If the chain is invalid, reports the earliest consecutive block
+   * that is invalid, along with the reason for being invalid, which can be used to trigger an invalidation.
    */
   getPendingChainValidationStatus(): Promise<ValidateBlockResult>;
 
@@ -141,7 +141,7 @@ export interface L2BlockSource {
 
 /** Result type for validating a block attestations */
 export type ValidateBlockResult =
-  | { valid: true; block?: PublishedL2Block }
+  | { valid: true }
   | { valid: false; block: PublishedL2Block; committee: EthAddress[]; reason: 'insufficient-attestations' }
   | {
       valid: false;
