@@ -408,13 +408,6 @@ template <typename Builder> class field_t {
      */
     uint32_t get_normalized_witness_index() const { return normalize().witness_index; }
 
-    std::vector<bool_t<Builder>> decompose_into_bits(
-        const size_t num_bits = 256,
-        std::function<witness_t<Builder>(Builder* ctx, uint64_t, uint256_t)> get_bit =
-            [](Builder* ctx, uint64_t j, const uint256_t& val) {
-                return witness_t<Builder>(ctx, val.get_bit(j));
-            }) const;
-
     /**
      * @brief Return (a < b) as bool circuit type.
      *        This method *assumes* that both a and b are < 2^{num_bits} - 1

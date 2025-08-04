@@ -43,6 +43,9 @@ template <class Params_> struct alignas(32) field {
     using out_buf = uint8_t*;
     using vec_out_buf = uint8_t**;
 
+    // The number of element required to represent field<Params_> in the public inputs of a circuit
+    static constexpr size_t PUBLIC_INPUTS_SIZE = Params::PUBLIC_INPUTS_SIZE;
+
 #if defined(__wasm__) || !defined(__SIZEOF_INT128__)
 #define WASM_NUM_LIMBS 9
 #define WASM_LIMB_BITS 29
@@ -373,7 +376,7 @@ template <class Params_> struct alignas(32) field {
 
     static field serialize_from_buffer(const uint8_t* buffer) { return from_buffer<field>(buffer); }
 
-    template <class V> static field reconstruct_from_public(const std::span<const field<V>>& limbs);
+    template <class V> static field reconstruct_from_public(const std::span<const field<V>, PUBLIC_INPUTS_SIZE>& limbs);
 
     [[nodiscard]] BB_INLINE std::vector<uint8_t> to_buffer() const { return ::to_buffer(*this); }
 
