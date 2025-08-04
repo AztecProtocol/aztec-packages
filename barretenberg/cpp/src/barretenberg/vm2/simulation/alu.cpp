@@ -64,10 +64,8 @@ MemoryValue Alu::mul(const MemoryValue& a, const MemoryValue& b)
 MemoryValue Alu::div(const MemoryValue& a, const MemoryValue& b)
 {
     try {
-        MemoryValue c = a / b; // This will throw if the tags do not match.
+        MemoryValue c = a / b; // This will throw if the tags do not match or if we divide by 0.
         MemoryValue remainder = a - c * b;
-
-        // TODO add div 0 error
 
         uint256_t c_int = static_cast<uint256_t>(c.as_ff());
         uint256_t b_int = static_cast<uint256_t>(b.as_ff());
@@ -93,6 +91,10 @@ MemoryValue Alu::div(const MemoryValue& a, const MemoryValue& b)
         return c;
     } catch (const TagMismatchException& e) {
         events.emit({ .operation = AluOperation::DIV, .a = a, .b = b, .error = AluError::TAG_ERROR });
+        throw AluException("DIV, " + std::string(e.what()));
+    } catch (const InvalidOperationTag& e) {
+        // TODO(MW): Add specific dividing by zero exception to catch? Is looking for InvalidOperationTag enough?
+        events.emit({ .operation = AluOperation::DIV, .a = a, .b = b, .error = AluError::DIV_0_ERROR });
         throw AluException("DIV, " + std::string(e.what()));
     }
 }

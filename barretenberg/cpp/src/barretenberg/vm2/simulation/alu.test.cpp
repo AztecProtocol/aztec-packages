@@ -272,8 +272,26 @@ TEST(AvmSimulationAluTest, DivOverflowU128)
     EXPECT_THAT(events, ElementsAre(AluEvent{ .operation = AluOperation::DIV, .a = a, .b = b, .c = c }));
 }
 
+TEST(AvmSimulationAluTest, DivByZero)
+{
+    EventEmitter<AluEvent> alu_event_emitter;
+    StrictMock<MockGreaterThan> gt;
+    StrictMock<MockFieldGreaterThan> field_gt;
+    StrictMock<MockRangeCheck> range_check;
+    Alu alu(gt, field_gt, range_check, alu_event_emitter);
+
+    auto a = MemoryValue::from<uint32_t>(6);
+    auto b = MemoryValue::from<uint32_t>(0);
+
+    EXPECT_THROW(alu.div(a, b), AluException);
+
+    auto events = alu_event_emitter.dump_events();
+    EXPECT_THAT(
+        events,
+        ElementsAre(AluEvent{ .operation = AluOperation::DIV, .a = a, .b = b, .error = AluError::DIV_0_ERROR }));
+}
+
 // TODO
-// Div by 0
 // tag is ff
 
 TEST(AvmSimulationAluTest, LT)

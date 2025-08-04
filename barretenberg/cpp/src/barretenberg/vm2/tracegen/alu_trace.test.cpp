@@ -450,6 +450,7 @@ TEST_P(AluDivTraceGenerationTest, TraceGenerationDiv)
     auto [a, b, c] = GetParam();
     auto tag = a.get_tag();
     uint256_t res_hi = 0;
+    bool div_0_error = b.as_ff() == FF(0);
     bool is_u128 = tag == MemoryTag::U128;
     if (is_u128) {
         // a - r = b * c --> split into res_hi_full * 2^128 + res
@@ -462,7 +463,11 @@ TEST_P(AluDivTraceGenerationTest, TraceGenerationDiv)
     }
     builder.process(
         {
-            { .operation = AluOperation::DIV, .a = a, .b = b, .c = c },
+            { .operation = AluOperation::DIV,
+              .a = a,
+              .b = b,
+              .c = c,
+              .error = div_0_error ? std::make_optional(simulation::AluError::DIV_0_ERROR) : std::nullopt },
         },
         trace);
 
@@ -562,7 +567,6 @@ TEST_F(AluTraceGenerationTest, TraceGenerationDivU128)
 }
 
 // TODO
-// Div by 0
 // tag is ff
 
 // EQ TESTS

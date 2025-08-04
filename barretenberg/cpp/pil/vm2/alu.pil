@@ -8,6 +8,8 @@ namespace alu;
 
 pol commit sel;
 
+pol commit sel_err;
+
 pol commit sel_op_add;
 pol commit sel_op_sub;
 pol commit sel_op_mul;
@@ -56,6 +58,9 @@ cf * (1 - cf) = 0;
 sel_is_ff * (1 - sel_is_ff) = 0;
 sel_is_u128 * (1 - sel_is_u128) = 0;
 
+#[ERR_CHECK]
+sel_err = sel_tag_err + sel_div_0_err;
+
 // TODO: Consider to gate with (1 - sel_tag_err) for op_id. This might help us remove the (1 - sel_tag_err)
 // in various operation relations below.
 // Note that the op_ids below represent a binary decomposition (see constants_gen.pil):
@@ -79,7 +84,7 @@ execution.sel_execute_alu {
     execution.register[0], execution.mem_tag_reg[0], execution.register[1],
     execution.mem_tag_reg[1], execution.register[2], execution.mem_tag_reg[2], execution.subtrace_operation_id, execution.sel_opcode_error
 } in sel {
-    ia, ia_tag, ib, ib_tag, ic, ic_tag, op_id, sel_tag_err
+    ia, ia_tag, ib, ib_tag, ic, ic_tag, op_id, sel_err
 };
 
 // MW Note: No need to range check values fit in their tag's max bits. Inputs a and b are reads (already checked), and c is checked in memory.
@@ -117,6 +122,7 @@ pol EXPECTED_C_TAG = (sel_op_add + sel_op_sub + sel_op_mul + sel_op_div + sel_op
 (1 - sel_tag_err) * (EXPECTED_C_TAG - ic_tag) = 0;
 
 pol commit sel_tag_err;
+sel_tag_err * (1 - sel_tag_err) = 0;
 pol commit ab_tags_diff_inv;
 pol AB_TAGS_EQ = 1 - sel_tag_err;
 
@@ -230,14 +236,22 @@ sel_mul_div_u128 { c_hi, constant_64 } in range_check.sel { range_check.value, r
 
 sel_op_div * (1 - sel_op_div) = 0;
 
-// TODO
-// if sel_op_div = 1 && ib = 0, div_0_error
+pol commit sel_div_0_err;
+sel_div_0_err * (1 - sel_div_0_err) = 0;
+
+// We prove that sel_div_0_err == 1 <==> sel_op_div == 1 && b == 0:
+//      sel_div_0_err == 1 <==> b == 0:         ib * (sel_div_0_err * (1 - b_inv) + b_inv) + sel_div_0_err - 1 = 0
+//      sel_div_0_err == 1 => sel_op_div == 1:  sel_div_0_err * ( sel_div_0_err - sel_op_div ) = 0
+pol commit b_inv;
+#[DIV_0_ERR]
+sel_op_div * (ib * (sel_div_0_err * (1 - b_inv) + b_inv) + sel_div_0_err - 1) + sel_div_0_err * ( sel_div_0_err - sel_op_div ) = 0;
 
 // This is integer division, so we disallow FF (use tag err here?)
 sel_op_div * sel_is_ff = 0;
 
 // We need to show that remainder < b (remainder stored in helper1)
 // TODO(MW): Reuse #[INT_GT] by setting lt_ops_input_a = b, lt_ops_input_b = helper1, lt_ops_result_c = 1
+// TODO(MW): Gate by sel_div_0_err?
 #[GT_DIV_REMAINDER]
 sel_op_div { ib, helper1, sel_op_div } in gt.sel { gt.input_a, gt.input_b, gt.res };
 
@@ -245,7 +259,7 @@ sel_op_div { ib, helper1, sel_op_div } in gt.sel { gt.input_a, gt.input_b, gt.re
 
 // a / b = c + remainder ==> show a - remainder = b * c
 #[ALU_DIV_NON_U128]
-sel_op_div * IS_NOT_U128 * (1 - sel_tag_err)
+sel_op_div * IS_NOT_U128 * (1 - sel_err)
     * (
         ib * ic
         - (ia - helper1)
@@ -292,10 +306,10 @@ sel_mul_div_u128 - (sel_mul_u128 + sel_div_u128) = 0;
 // => cf is always 0 and below relation should protect against underflows (see above point?)
 
 #[ALU_DIV_U128]
-sel_div_u128 * (1 - sel_tag_err)
+sel_div_u128 * (1 - sel_err)
     * (
         ic * b_lo + a_lo * b_hi * TWO_POW_64            // c * b without the hi bits
-        - (ia - helper1)                              // a - r
+        - (ia - helper1)                                // a - r
         - (max_value + 1) * (cf * TWO_POW_64 + c_hi)    // res_hi * 2^128 + (cf ? 2^192 : 0)
     ) = 0;
 

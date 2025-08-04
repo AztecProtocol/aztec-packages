@@ -347,13 +347,18 @@ TEST_P(AluAddConstrainingTest, NegativeAddWrongTagABMismatch)
     // ab_tags_diff_inv = inv(a_tag - b_tag) = inv(1) = 1:
     trace.set(Column::alu_ab_tags_diff_inv, 0, 1);
     trace.set(Column::alu_sel_tag_err, 0, 1);
+    // If we set one error, we need to make sure the overall ALU error selector is correct:
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ERR_CHECK");
+    trace.set(Column::alu_sel_err, 0, 1);
     // Though the tags don't match, with error handling we can return the error rather than fail:
     check_relation<alu>(trace);
     // Removing the error will fail:
     trace.set(Column::alu_sel_tag_err, 0, 0);
+    trace.set(Column::alu_sel_err, 0, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");
     // Correctly using the error, but injecting the wrong inverse will fail:
     trace.set(Column::alu_sel_tag_err, 0, 1);
+    trace.set(Column::alu_sel_err, 0, 1);
     trace.set(Column::alu_ab_tags_diff_inv, 0, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");
 }
@@ -616,6 +621,7 @@ TEST_P(AluMulConstrainingTest, AluMul)
 {
     auto trace = process_mul_trace(GetParam());
     check_all_interactions<AluTraceBuilder>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
     check_relation<alu>(trace);
 }
 
@@ -623,6 +629,7 @@ TEST_P(AluMulConstrainingTest, AluMulTraceGen)
 {
     auto trace = process_mul_with_tracegen(GetParam());
     check_all_interactions<AluTraceBuilder>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
     check_relation<alu>(trace);
 }
 
@@ -686,6 +693,7 @@ TEST_F(AluConstrainingTest, AluMulU128Carry)
                                 trace);
 
     check_all_interactions<AluTraceBuilder>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
     check_relation<alu>(trace);
 
     // Below = (a * b mod p) mod 2^128
@@ -698,6 +706,7 @@ TEST_P(AluMulConstrainingTest, NegativeAluMul)
 {
     auto trace = process_mul_trace(GetParam());
     check_all_interactions<AluTraceBuilder>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
     check_relation<alu>(trace);
     trace.set(Column::alu_ic, 0, trace.get(Column::alu_ic, 0) + 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ALU_MUL");
@@ -726,10 +735,12 @@ class AluDivConstrainingTest : public AluConstrainingTest,
         auto tag = static_cast<uint8_t>(mem_tag);
         auto remainder = a - b * c;
 
+        auto div_0_error = b.as_ff() == FF(0);
         auto is_u128 = mem_tag == MemoryTag::U128;
 
         auto trace = TestTraceContainer::from_rows({
             {
+                .alu_b_inv = div_0_error ? 0 : b.as_ff().invert(),
                 .alu_constant_64 = 64,
                 .alu_helper1 = remainder,
                 .alu_ia = a,
@@ -742,7 +753,9 @@ class AluDivConstrainingTest : public AluConstrainingTest,
                 .alu_max_value = get_tag_max_value(mem_tag),
                 .alu_op_id = AVM_EXEC_OP_ID_ALU_DIV,
                 .alu_sel = 1,
+                .alu_sel_div_0_err = div_0_error ? 1 : 0,
                 .alu_sel_div_u128 = is_u128 ? 1 : 0,
+                .alu_sel_err = div_0_error ? 1 : 0,
                 .alu_sel_is_u128 = is_u128 ? 1 : 0,
                 .alu_sel_mul_div_u128 = is_u128 ? 1 : 0,
                 .alu_sel_op_div = 1,
@@ -755,6 +768,7 @@ class AluDivConstrainingTest : public AluConstrainingTest,
                 .execution_register_1_ = b,                                // = ib
                 .execution_register_2_ = c,                                // = ic
                 .execution_sel_execute_alu = 1,                            // = sel
+                .execution_sel_opcode_error = div_0_error ? 1 : 0,         // = sel_err
                 .execution_subtrace_operation_id = AVM_EXEC_OP_ID_ALU_DIV, // = alu_op_id
             },
         });
@@ -797,12 +811,17 @@ class AluDivConstrainingTest : public AluConstrainingTest,
     {
         TestTraceContainer trace;
         auto [a, b, c] = params;
+        bool div_0_error = b.as_ff() == FF(0);
         auto mem_tag = a.get_tag();
         auto remainder = a - b * c;
 
         builder.process(
             {
-                { .operation = simulation::AluOperation::DIV, .a = a, .b = b, .c = c },
+                { .operation = simulation::AluOperation::DIV,
+                  .a = a,
+                  .b = b,
+                  .c = c,
+                  .error = div_0_error ? std::make_optional(simulation::AluError::DIV_0_ERROR) : std::nullopt },
             },
             trace);
 
@@ -838,6 +857,7 @@ TEST_P(AluDivConstrainingTest, AluDiv)
 {
     auto trace = process_div_trace(GetParam());
     check_all_interactions<AluTraceBuilder>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
     check_relation<alu>(trace);
 }
 
@@ -856,6 +876,7 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivUnderflow)
     auto c = a / b;
     auto trace = process_div_trace({ a, b, c });
     check_all_interactions<AluTraceBuilder>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
     check_relation<alu>(trace);
 
     // Good path: 2/5 gives 0 with remainder = 2
@@ -912,9 +933,53 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivU128Carry)
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ALU_DIV_U128");
 }
 
-// TODO
-// Div by 0
-// tag is ff
+TEST_F(AluDivConstrainingTest, NegativeAluDivByZero)
+{
+    auto a = MemoryValue::from_tag(MemoryTag::U32, 2);
+    auto b = MemoryValue::from_tag(MemoryTag::U32, 5);
+    auto c = a / b;
+    auto trace = process_div_trace({ a, b, c });
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_relation<alu>(trace);
+
+    // Set b, b_inv to 0...
+    trace.set(Column::alu_ib, 0, 0);
+    trace.set(Column::alu_b_inv, 0, 0);
+    // ...and since we haven't set the error correctly, we expect the below to fail:
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "DIV_0_ERR");
+    // We need to set the div_0_err and...
+    trace.set(Column::alu_sel_div_0_err, 0, 1);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ERR_CHECK");
+    // ...the overall sel_err:
+    trace.set(Column::alu_sel_err, 0, 1);
+    check_relation<alu>(trace);
+
+    // If we try and have div_0_err on without doing a div, the below should fail:
+    trace.set(Column::alu_sel_op_div, 0, 0);
+    trace.set(Column::alu_sel_op_mul, 0, 1);
+    trace.set(Column::alu_op_id, 0, AVM_EXEC_OP_ID_ALU_MUL);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "DIV_0_ERR");
+
+    trace.set(Column::alu_sel_op_div, 0, 1);
+    trace.set(Column::alu_sel_op_mul, 0, 0);
+    trace.set(Column::alu_op_id, 0, AVM_EXEC_OP_ID_ALU_DIV);
+    check_relation<alu>(trace);
+
+    // If we try and set b != 0 with div_0_err on, the below should fail:
+    trace.set(Column::alu_ib, 0, b);
+    trace.set(Column::alu_b_inv, 0, b.as_ff().invert());
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "DIV_0_ERR");
+}
+
+TEST_F(AluDivConstrainingTest, NegativeAluFF)
+{
+    auto a = MemoryValue::from_tag(MemoryTag::FF, 2);
+    auto b = MemoryValue::from_tag(MemoryTag::FF, 5);
+    auto c = a / b;
+    auto trace = process_div_with_tracegen({ a, b, c });
+    // TODO(MW): Either set using FF for DIV as under the tag error umbrella, or name the failing relation
+    EXPECT_THROW(check_relation<alu>(trace), std::runtime_error);
+}
 
 // EQ TESTS
 

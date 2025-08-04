@@ -24,7 +24,7 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
 {
     bool is_ff = event.a.get_tag() == ValueTag::FF;
     bool is_u128 = event.a.get_tag() == ValueTag::U128;
-    bool no_tag_err = !event.error.has_value() || event.error != simulation::AluError::TAG_ERROR;
+    bool no_tag_err = event.error != simulation::AluError::TAG_ERROR;
     switch (event.operation) {
     case simulation::AluOperation::ADD:
         return { { Column::alu_sel_op_add, 1 },
@@ -75,6 +75,7 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
         return res;
     }
     case simulation::AluOperation::DIV: {
+        bool div_0_error = event.error == simulation::AluError::DIV_0_ERROR;
         auto remainder = event.a - event.b * event.c;
         uint256_t c_int = static_cast<uint256_t>(event.c.as_ff());
         uint256_t b_int = static_cast<uint256_t>(event.b.as_ff());
@@ -94,6 +95,7 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
               is_u128 ? 0
                       : (FF(static_cast<uint8_t>(event.a.get_tag())) - FF(static_cast<uint8_t>(MemoryTag::U128)))
                             .invert() },
+            { Column::alu_b_inv, div_0_error ? 0 : event.b.as_ff().invert() },
         };
         if (is_u128) {
             // For u128s, we decompose c and b into 64 bit chunks:
@@ -224,6 +226,14 @@ void AluTraceBuilder::process(const simulation::EventEmitterInterface<simulation
             }
         }
 
+        bool div_0_error = event.error.has_value() && event.error == AluError::DIV_0_ERROR;
+        if (div_0_error) {
+            // TODO(MW): Below needed?
+            // Should not emit a divide by 0 error if we are not in DIV or FDIV or have no 0 divisor:
+            assert((event.b.as_ff() == FF(0)) & (event.operation == simulation::AluOperation::DIV) &&
+                   "ALU Event emitted with divide by zero error, but none exists");
+        }
+
         // Operation specific columns:
         trace.set(row, get_operation_columns(event));
 
@@ -239,6 +249,8 @@ void AluTraceBuilder::process(const simulation::EventEmitterInterface<simulation
                       { C::alu_max_bits, get_tag_bits(static_cast<MemoryTag>(a_tag_u8)) },
                       { C::alu_max_value, get_tag_max_value(static_cast<MemoryTag>(a_tag_u8)) },
                       { C::alu_sel_tag_err, tag_check_failed ? 1 : 0 },
+                      { C::alu_sel_div_0_err, div_0_error ? 1 : 0 },
+                      { C::alu_sel_err, tag_check_failed || div_0_error ? 1 : 0 },
                       { C::alu_ab_tags_diff_inv, alu_ab_tags_diff_inv },
                   } });
 
