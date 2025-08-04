@@ -50,7 +50,7 @@ This prevents the network-wide privacy set from being split between transactions
 
 ## `DelayedPublicMutable`
 
-`DelayedPublicMutable` provides capabilities to read the same state both in private and public, and to schedule value changes after a delay. You can view the implementation [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/state_vars/delayed_public_mutable/delayed_public_mutable.nr).
+`DelayedPublicMutable` provides capabilities to read the same state both in private and public, and to schedule value changes after a delay. You can view the implementation [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/next/noir-projects/aztec-nr/aztec/src/state_vars/delayed_public_mutable.nr).
 
 Unlike other state variables, `DelayedPublicMutable` receives not only a type parameter for the underlying datatype, but also a `DELAY` type parameter with the value change delay as a number of seconds.
 
