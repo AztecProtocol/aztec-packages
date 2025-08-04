@@ -228,23 +228,24 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
         instantiate_stdlib_verification_queue(circuit);
     }
 
-    bool is_hiding_kernel = false;
+    bool is_hiding_kernel =
+        stdlib_verification_queue.size() == 1 && (stdlib_verification_queue.front().type == QUEUE_TYPE::PG_FINAL);
+
+    // If the incoming circuit is a kernel, start its subtable with an eq and reset operation to ensure a
+    // neighbouring misconfigured subtable coming from an app cannot affect the operations in the
+    // current subtable. We don't do this for the hiding kernel as it succeeds another kernel and because the hiding
+    // kernel has to start with a no-op for the correct functioning of translator. Once the hiding kernel's subtable
+    // will be merged via APPEND, the tail kernel (whose ecc ops will be at the top of the ecc op table) will have
+    // to be the one starting with a no-op and it will also not start with an eq and reset. This is fine as the tail
+    // kernel is itself a successor of another kernel starting with an eq and reset.
+    if (!is_hiding_kernel) {
+        circuit.queue_ecc_eq();
+    }
     // Perform Oink/PG and Merge recursive verification + databus consistency checks for each entry in the queue
     PairingPoints points_accumulator;
     while (!stdlib_verification_queue.empty()) {
         const StdlibVerifierInputs& verifier_input = stdlib_verification_queue.front();
-        is_hiding_kernel = (verifier_input.type == QUEUE_TYPE::PG_FINAL);
 
-        // If the incoming circuit is a kernel, start its subtable with an eq and reset operation to ensure a
-        // neighbouring misconfigured subtable coming from an app cannot affect the operations in the
-        // current subtable. We don't do this for the hiding kernel as it succeeds another kernel and because the hiding
-        // kernel has to start with a no-op for the correct functioning of translator. Once the hiding kernel's subtable
-        // will be merged via APPEND, the tail kernel (whose ecc ops will be at the top of the ecc op table) will have
-        // to be the one starting with a no-op and it will also not start with an eq and reset. This is fine as the tail
-        // kernel is itself a successor of another kernel starting with an eq and reset.
-        if (!is_hiding_kernel) {
-            circuit.queue_ecc_eq();
-        }
         auto [pairing_points, merged_table_commitments] = perform_recursive_verification_and_databus_consistency_checks(
             circuit, verifier_input, T_prev_commitments, accumulation_recursive_transcript);
 
