@@ -162,7 +162,6 @@ std::shared_ptr<ClientIVC> PrivateExecutionSteps::accumulate()
         // case, no work is added to the Goblin opqueue, but VM proofs for trivials inputs are produced.
         ivc->accumulate(circuit, precomputed_vk);
     }
-    // Add hiding circuit logic
 
     return ivc;
 }

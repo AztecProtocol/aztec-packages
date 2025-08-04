@@ -79,7 +79,9 @@ TEST_F(ClientIVCTests, Basic)
     ClientIVC ivc{ /*num_circuits=*/2 };
     TestSettings settings{ .log2_num_gates = MEDIUM_LOG_2_NUM_GATES };
     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
+    // Initialize the IVC with an arbitrary circuit
     circuit_producer.accumulate_next_circuit(ivc, settings);
+    // Create another circuit and accumulate
     circuit_producer.accumulate_next_circuit(ivc, settings);
 
     EXPECT_TRUE(ivc.prove_and_verify());
@@ -543,8 +545,6 @@ TEST_F(ClientIVCTests, MsgpackProofFromBuffer)
 };
 
 /**
- * @brief Check that a CIVC proof can be serialized and deserialized via msgpack and that attempting to deserialize
- * a random buffer of bytes fails gracefully with a type error
  * @brief Check that a CIVC proof can be serialized and deserialized via msgpack and that attempting to deserialize
  * a random buffer of bytes fails gracefully with a type error
  */

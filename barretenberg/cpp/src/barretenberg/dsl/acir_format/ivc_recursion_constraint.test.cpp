@@ -366,6 +366,8 @@ TEST_F(IvcRecursionConstraintTest, GenerateResetKernelVKFromConstraints)
 
         // Construct and accumulate a mock INIT kernel (oink recursion for app accumulation)
         construct_and_accumulate_mock_kernel(ivc, trace_settings);
+        EXPECT_TRUE(ivc->verification_queue.size() == 1);
+        EXPECT_TRUE(ivc->verification_queue[0].type == bb::ClientIVC::QUEUE_TYPE::PG_TAIL);
 
         // Construct and accumulate a mock RESET/TAIL kernel (PG recursion for kernel accumulation)
         construct_and_accumulate_mock_kernel(ivc, trace_settings);

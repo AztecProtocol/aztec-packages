@@ -153,6 +153,7 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
         break;
     }
     case QUEUE_TYPE::PG_FINAL: {
+        BB_ASSERT_EQ(stdlib_verification_queue.size(), size_t(1));
         BB_ASSERT_EQ(num_circuits_accumulated,
                      num_circuits,
                      "All circuits must be accumulated before constructing the hiding circuit.");
@@ -336,10 +337,6 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
             // we are folding in the "Tail" kernel, so the verification_queue entry should have type PG_FINAL
             queue_entry.type = QUEUE_TYPE::PG_FINAL;
             decider_proof = decider_prove();
-            // Deallocate the last PG prover accumulator after constructing a decider proof for it in order to free
-            // memory
-            // use reset?
-            // fold_output.accumulator = nullptr;
             vinfo("constructed decider proof");
         } else if (num_circuits_accumulated == num_circuits - 2) {
             // we are folding in the "Inner/Reset" kernel, so the verification_queue entry should have type PG_TAIL
@@ -457,12 +454,9 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::get_hiding_circuit_pr
  */
 HonkProof ClientIVC::prove_hiding_circuit()
 {
-    // Assert somewhere the verication queue is 1 before constructing the hiding circuit
     ASSERT(hiding_circuit != nullptr, "hiding circuit should have been constructed before attempted to create its key");
     auto hiding_decider_pk = get_hiding_circuit_proving_key();
     honk_vk = std::make_shared<MegaZKVerificationKey>(hiding_decider_pk->get_precomputed());
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1431): Avoid computing the hiding circuit verification
-    // key during proving. Precompute instead.
     auto& hiding_circuit_vk = honk_vk;
     // Hiding circuit is proven by a MegaZKProver
     MegaZKProver prover(hiding_decider_pk, hiding_circuit_vk, transcript);
