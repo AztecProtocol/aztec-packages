@@ -65,9 +65,8 @@ contract GSEBuilder is TestBase {
     }
 
     if (address(config.gse) == address(0)) {
-      config.gse = new GSE(
-        address(this), config.testERC20, TestConstants.DEPOSIT_AMOUNT, TestConstants.MINIMUM_STAKE
-      );
+      config.gse =
+        new GSE(address(this), config.testERC20, TestConstants.ACTIVATION_THRESHOLD, TestConstants.EJECTION_THRESHOLD);
       vm.label(address(config.gse), "GSE");
     }
 
@@ -78,14 +77,10 @@ contract GSEBuilder is TestBase {
       vm.label(address(config.rewardDistributor), "RewardDistributor");
     }
 
-    GovernanceProposer proposer = new GovernanceProposer(
-      config.registry, config.gse, config.values.govProposerN, config.values.govProposerM
-    );
+    GovernanceProposer proposer =
+      new GovernanceProposer(config.registry, config.gse, config.values.govProposerN, config.values.govProposerM);
     config.governance = new Governance(
-      config.testERC20,
-      address(proposer),
-      address(config.gse),
-      TestConstants.getGovernanceConfiguration()
+      config.testERC20, address(proposer), address(config.gse), TestConstants.getGovernanceConfiguration()
     );
     vm.label(address(config.governance), "Governance");
     vm.label(address(proposer), "GovernanceProposer");

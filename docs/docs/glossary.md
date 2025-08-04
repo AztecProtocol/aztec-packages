@@ -115,10 +115,6 @@ Programs that run on the Aztec network are called smart contracts, similar to [p
 
 However, these will be written in the [Noir](https://noir-lang.org/index.html) programming language, and may optionally include private state and private functions.
 
-### Testing eXecution Environment (TXE)
-
-<Glossary.TXE />
-
 ### Proving Key
 
 A key that is used to generate a proof. In the case of Aztec, these are compiled from Noir smart contracts.

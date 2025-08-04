@@ -58,54 +58,52 @@ contract DepositTest is WithGSE {
   ) external whenCallerIsRegisteredRollup(_instance) givenOnBonusEqTrue givenCallerIsLatest {
     // it reverts
 
-    uint256 depositAmount = gse.DEPOSIT_AMOUNT();
+    uint256 activationThreshold = gse.ACTIVATION_THRESHOLD();
 
     vm.prank(stakingAsset.owner());
-    stakingAsset.mint(address(_instance), depositAmount);
+    stakingAsset.mint(address(_instance), activationThreshold);
 
     vm.startPrank(_instance);
-    stakingAsset.approve(address(gse), depositAmount);
+    stakingAsset.approve(address(gse), activationThreshold);
     gse.deposit(_attester, _withdrawer, false);
     vm.stopPrank();
 
     vm.prank(_instance);
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.GSE__AlreadyRegistered.selector, _instance, _attester)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.GSE__AlreadyRegistered.selector, _instance, _attester));
     gse.deposit(_attester, _withdrawer, onBonus);
   }
 
-  function test_GivenAttesterAlreadyRegisteredOnBonus(
-    address _instance,
-    address _attester,
-    address _withdrawer
-  ) external whenCallerIsRegisteredRollup(_instance) givenOnBonusEqTrue givenCallerIsLatest {
+  function test_GivenAttesterAlreadyRegisteredOnBonus(address _instance, address _attester, address _withdrawer)
+    external
+    whenCallerIsRegisteredRollup(_instance)
+    givenOnBonusEqTrue
+    givenCallerIsLatest
+  {
     // it reverts
 
-    uint256 depositAmount = gse.DEPOSIT_AMOUNT();
+    uint256 activationThreshold = gse.ACTIVATION_THRESHOLD();
 
     vm.prank(stakingAsset.owner());
-    stakingAsset.mint(address(_instance), depositAmount);
+    stakingAsset.mint(address(_instance), activationThreshold);
 
     vm.startPrank(_instance);
-    stakingAsset.approve(address(gse), depositAmount);
+    stakingAsset.approve(address(gse), activationThreshold);
     gse.deposit(_attester, _withdrawer, true);
     vm.stopPrank();
 
     address bonus = gse.BONUS_INSTANCE_ADDRESS();
 
     vm.prank(_instance);
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.GSE__AlreadyRegistered.selector, bonus, _attester)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.GSE__AlreadyRegistered.selector, bonus, _attester));
     gse.deposit(_attester, _withdrawer, onBonus);
   }
 
-  function test_GivenAttesterNotRegisteredAnywhere(
-    address _instance,
-    address _attester,
-    address _withdrawer
-  ) external whenCallerIsRegisteredRollup(_instance) givenOnBonusEqTrue givenCallerIsLatest {
+  function test_GivenAttesterNotRegisteredAnywhere(address _instance, address _attester, address _withdrawer)
+    external
+    whenCallerIsRegisteredRollup(_instance)
+    givenOnBonusEqTrue
+    givenCallerIsLatest
+  {
     // it adds attester to bonus instance
     // it sets attester config with withdrawer
     // it delegates attester to bonus if not delegated
@@ -115,13 +113,13 @@ contract DepositTest is WithGSE {
     // it deposits staking asset to governance
     // it emits Deposit event
 
-    uint256 depositAmount = gse.DEPOSIT_AMOUNT();
+    uint256 activationThreshold = gse.ACTIVATION_THRESHOLD();
 
     vm.prank(stakingAsset.owner());
-    stakingAsset.mint(address(_instance), depositAmount);
+    stakingAsset.mint(address(_instance), activationThreshold);
 
     vm.prank(_instance);
-    stakingAsset.approve(address(gse), depositAmount);
+    stakingAsset.approve(address(gse), activationThreshold);
 
     assertEq(gse.isRegistered(_instance, _attester), false);
     assertEq(gse.isRegistered(gse.BONUS_INSTANCE_ADDRESS(), _attester), false);
@@ -133,7 +131,7 @@ contract DepositTest is WithGSE {
     vm.prank(_instance);
     gse.deposit(_attester, _withdrawer, onBonus);
 
-    assertEq(stakingAsset.balanceOf(address(gse.getGovernance())), depositAmount);
+    assertEq(stakingAsset.balanceOf(address(gse.getGovernance())), activationThreshold);
     assertEq(stakingAsset.balanceOf(address(gse)), 0);
 
     assertEq(gse.isRegistered(instance, _attester), true);
@@ -141,13 +139,13 @@ contract DepositTest is WithGSE {
     assertEq(gse.getDelegatee(instance, _attester), gse.BONUS_INSTANCE_ADDRESS());
     assertEq(gse.getDelegatee(_instance, _attester), address(0));
     assertEq(gse.getConfig(instance, _attester).withdrawer, _withdrawer);
-    assertEq(gse.balanceOf(instance, _attester), depositAmount);
+    assertEq(gse.balanceOf(instance, _attester), activationThreshold);
     assertEq(gse.balanceOf(_instance, _attester), 0);
-    assertEq(gse.effectiveBalanceOf(instance, _attester), depositAmount);
-    assertEq(gse.effectiveBalanceOf(_instance, _attester), depositAmount);
-    assertEq(gse.supplyOf(instance), depositAmount);
+    assertEq(gse.effectiveBalanceOf(instance, _attester), activationThreshold);
+    assertEq(gse.effectiveBalanceOf(_instance, _attester), activationThreshold);
+    assertEq(gse.supplyOf(instance), activationThreshold);
     assertEq(gse.supplyOf(_instance), 0);
-    assertEq(gse.totalSupply(), depositAmount);
+    assertEq(gse.totalSupply(), activationThreshold);
   }
 
   modifier givenOnBonusEqFalse() {
@@ -166,20 +164,18 @@ contract DepositTest is WithGSE {
     // the only diff is `onBonus = false` here. We could consider slamming them together, but to be
     // explicit we are not doing that.
 
-    uint256 depositAmount = gse.DEPOSIT_AMOUNT();
+    uint256 activationThreshold = gse.ACTIVATION_THRESHOLD();
 
     vm.prank(stakingAsset.owner());
-    stakingAsset.mint(address(_instance), depositAmount);
+    stakingAsset.mint(address(_instance), activationThreshold);
 
     vm.startPrank(_instance);
-    stakingAsset.approve(address(gse), depositAmount);
+    stakingAsset.approve(address(gse), activationThreshold);
     gse.deposit(_attester, _withdrawer, false);
     vm.stopPrank();
 
     vm.prank(_instance);
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.GSE__AlreadyRegistered.selector, _instance, _attester)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.GSE__AlreadyRegistered.selector, _instance, _attester));
     gse.deposit(_attester, _withdrawer, onBonus);
   }
 
@@ -192,22 +188,20 @@ contract DepositTest is WithGSE {
 
     // Again, this one is essentially same as test_GivenAttesterAlreadyRegisteredOnBonus but with false.
 
-    uint256 depositAmount = gse.DEPOSIT_AMOUNT();
+    uint256 activationThreshold = gse.ACTIVATION_THRESHOLD();
 
     vm.prank(stakingAsset.owner());
-    stakingAsset.mint(address(_instance), depositAmount);
+    stakingAsset.mint(address(_instance), activationThreshold);
 
     vm.startPrank(_instance);
-    stakingAsset.approve(address(gse), depositAmount);
+    stakingAsset.approve(address(gse), activationThreshold);
     gse.deposit(_attester, _withdrawer, true);
     vm.stopPrank();
 
     address bonus = gse.BONUS_INSTANCE_ADDRESS();
 
     vm.prank(_instance);
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.GSE__AlreadyRegistered.selector, bonus, _attester)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.GSE__AlreadyRegistered.selector, bonus, _attester));
     gse.deposit(_attester, _withdrawer, onBonus);
   }
 
@@ -219,12 +213,7 @@ contract DepositTest is WithGSE {
     address _instance,
     address _attester,
     address _withdrawer
-  )
-    external
-    whenCallerIsRegisteredRollup(_instance)
-    givenOnBonusEqFalse
-    givenAttesterNotRegisteredOnSpecificInstance
-  {
+  ) external whenCallerIsRegisteredRollup(_instance) givenOnBonusEqFalse givenAttesterNotRegisteredOnSpecificInstance {
     // it adds attester to specific instance
     // it sets attester config with withdrawer
     // it delegates attester to instance if not delegated
@@ -234,13 +223,13 @@ contract DepositTest is WithGSE {
     // it deposits staking asset to governance
     // it emits Deposit event
 
-    uint256 depositAmount = gse.DEPOSIT_AMOUNT();
+    uint256 activationThreshold = gse.ACTIVATION_THRESHOLD();
 
     vm.prank(stakingAsset.owner());
-    stakingAsset.mint(address(_instance), depositAmount);
+    stakingAsset.mint(address(_instance), activationThreshold);
 
     vm.prank(_instance);
-    stakingAsset.approve(address(gse), depositAmount);
+    stakingAsset.approve(address(gse), activationThreshold);
 
     address bonus = gse.BONUS_INSTANCE_ADDRESS();
 
@@ -252,7 +241,7 @@ contract DepositTest is WithGSE {
     vm.prank(_instance);
     gse.deposit(_attester, _withdrawer, onBonus);
 
-    assertEq(stakingAsset.balanceOf(address(gse.getGovernance())), depositAmount);
+    assertEq(stakingAsset.balanceOf(address(gse.getGovernance())), activationThreshold);
     assertEq(stakingAsset.balanceOf(address(gse)), 0);
 
     assertEq(gse.isRegistered(_instance, _attester), true);
@@ -260,21 +249,16 @@ contract DepositTest is WithGSE {
     assertEq(gse.getDelegatee(_instance, _attester), _instance);
     assertEq(gse.getDelegatee(bonus, _attester), address(0));
     assertEq(gse.getConfig(_instance, _attester).withdrawer, _withdrawer);
-    assertEq(gse.balanceOf(_instance, _attester), depositAmount);
+    assertEq(gse.balanceOf(_instance, _attester), activationThreshold);
     assertEq(gse.balanceOf(bonus, _attester), 0);
-    assertEq(gse.effectiveBalanceOf(_instance, _attester), depositAmount);
+    assertEq(gse.effectiveBalanceOf(_instance, _attester), activationThreshold);
     assertEq(gse.effectiveBalanceOf(bonus, _attester), 0); // special case
-    assertEq(gse.supplyOf(_instance), depositAmount);
+    assertEq(gse.supplyOf(_instance), activationThreshold);
     assertEq(gse.supplyOf(bonus), 0);
-    assertEq(gse.totalSupply(), depositAmount);
+    assertEq(gse.totalSupply(), activationThreshold);
   }
 
-  function test_GivenCallerIsNotLatest2(
-    address _instance,
-    address _instance2,
-    address _attester,
-    address _withdrawer
-  )
+  function test_GivenCallerIsNotLatest2(address _instance, address _instance2, address _attester, address _withdrawer)
     external
     whenCallerIsRegisteredRollup(_instance)
     whenCallerIsRegisteredRollup(_instance2)
@@ -292,13 +276,13 @@ contract DepositTest is WithGSE {
 
     // @todo exactly the same as above, with only diff being not latest
 
-    uint256 depositAmount = gse.DEPOSIT_AMOUNT();
+    uint256 activationThreshold = gse.ACTIVATION_THRESHOLD();
 
     vm.prank(stakingAsset.owner());
-    stakingAsset.mint(address(_instance), depositAmount);
+    stakingAsset.mint(address(_instance), activationThreshold);
 
     vm.prank(_instance);
-    stakingAsset.approve(address(gse), depositAmount);
+    stakingAsset.approve(address(gse), activationThreshold);
 
     address bonus = gse.BONUS_INSTANCE_ADDRESS();
 
@@ -310,7 +294,7 @@ contract DepositTest is WithGSE {
     vm.prank(_instance);
     gse.deposit(_attester, _withdrawer, onBonus);
 
-    assertEq(stakingAsset.balanceOf(address(gse.getGovernance())), depositAmount);
+    assertEq(stakingAsset.balanceOf(address(gse.getGovernance())), activationThreshold);
     assertEq(stakingAsset.balanceOf(address(gse)), 0);
 
     assertEq(gse.isRegistered(_instance, _attester), true);
@@ -318,12 +302,12 @@ contract DepositTest is WithGSE {
     assertEq(gse.getDelegatee(_instance, _attester), _instance);
     assertEq(gse.getDelegatee(bonus, _attester), address(0));
     assertEq(gse.getConfig(_instance, _attester).withdrawer, _withdrawer);
-    assertEq(gse.balanceOf(_instance, _attester), depositAmount);
+    assertEq(gse.balanceOf(_instance, _attester), activationThreshold);
     assertEq(gse.balanceOf(bonus, _attester), 0);
-    assertEq(gse.effectiveBalanceOf(_instance, _attester), depositAmount);
+    assertEq(gse.effectiveBalanceOf(_instance, _attester), activationThreshold);
     assertEq(gse.effectiveBalanceOf(bonus, _attester), 0); // special case
-    assertEq(gse.supplyOf(_instance), depositAmount);
+    assertEq(gse.supplyOf(_instance), activationThreshold);
     assertEq(gse.supplyOf(bonus), 0);
-    assertEq(gse.totalSupply(), depositAmount);
+    assertEq(gse.totalSupply(), activationThreshold);
   }
 }

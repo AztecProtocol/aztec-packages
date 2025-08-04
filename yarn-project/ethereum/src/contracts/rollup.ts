@@ -5,13 +5,23 @@ import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { RollupStorage } from '@aztec/l1-artifacts/RollupStorage';
 import { SlasherAbi } from '@aztec/l1-artifacts/SlasherAbi';
 
-import { type Account, type GetContractReturnType, type Hex, encodeFunctionData, getAddress, getContract } from 'viem';
+import {
+  type Account,
+  type GetContractReturnType,
+  type Hex,
+  type StateOverride,
+  encodeFunctionData,
+  getAddress,
+  getContract,
+  hexToBigInt,
+  keccak256,
+} from 'viem';
 
 import { getPublicClient } from '../client.js';
 import type { DeployL1ContractsReturnType } from '../deploy_l1_contracts.js';
 import type { L1ContractAddresses } from '../l1_contract_addresses.js';
 import type { L1ReaderConfig } from '../l1_reader.js';
-import type { L1TxUtils } from '../l1_tx_utils.js';
+import type { L1TxRequest, L1TxUtils } from '../l1_tx_utils.js';
 import type { ViemClient } from '../types.js';
 import { formatViemError } from '../utils.js';
 import { SlashingProposerContract } from './slashing_proposer.js';
@@ -87,12 +97,18 @@ export type ViemAppendOnlyTreeSnapshot = {
 export class RollupContract {
   private readonly rollup: GetContractReturnType<typeof RollupAbi, ViemClient>;
 
+  private static cachedStfStorageSlot: Hex | undefined;
+
   static get checkBlobStorageSlot(): bigint {
     const asString = RollupStorage.find(storage => storage.label === 'checkBlob')?.slot;
     if (asString === undefined) {
       throw new Error('checkBlobStorageSlot not found');
     }
     return BigInt(asString);
+  }
+
+  static get stfStorageSlot(): Hex {
+    return (RollupContract.cachedStfStorageSlot ??= keccak256(Buffer.from('aztec.stf.storage', 'utf-8')));
   }
 
   static getFromL1ContractsValues(deployL1ContractsValues: DeployL1ContractsReturnType) {
@@ -170,13 +186,13 @@ export class RollupContract {
   }
 
   @memoize
-  getMinimumStake() {
-    return this.rollup.read.getMinimumStake();
+  getEjectionThreshold() {
+    return this.rollup.read.getEjectionThreshold();
   }
 
   @memoize
-  getDepositAmount() {
-    return this.rollup.read.getDepositAmount();
+  getActivationThreshold() {
+    return this.rollup.read.getActivationThreshold();
   }
 
   @memoize
@@ -498,6 +514,7 @@ export class RollupContract {
     archive: Buffer,
     account: `0x${string}` | Account,
     slotDuration: bigint | number,
+    opts: { forcePendingBlockNumber?: number } = {},
   ): Promise<{ slot: bigint; blockNumber: bigint; timeOfNextL1Slot: bigint }> {
     if (typeof slotDuration === 'number') {
       slotDuration = BigInt(slotDuration);
@@ -515,12 +532,76 @@ export class RollupContract {
         functionName: 'canProposeAtTime',
         args: [timeOfNextL1Slot, `0x${archive.toString('hex')}`, who],
         account,
+        stateOverride: await this.makePendingBlockNumberOverride(opts.forcePendingBlockNumber),
       });
 
       return { slot, blockNumber, timeOfNextL1Slot };
     } catch (err: unknown) {
       throw formatViemError(err);
     }
+  }
+
+  /**
+   * Returns a state override that sets the pending block number to the specified value. Useful for simulations.
+   * Requires querying the current state of the contract to get the current proven block number, as they are both
+   * stored in the same slot. If the argument is undefined, it returns an empty override.
+   */
+  public async makePendingBlockNumberOverride(forcePendingBlockNumber: number | undefined): Promise<StateOverride> {
+    if (forcePendingBlockNumber === undefined) {
+      return [];
+    }
+    const slot = RollupContract.stfStorageSlot;
+    const currentValue = await this.client.getStorageAt({ address: this.address, slot });
+    const currentProvenBlockNumber = currentValue ? hexToBigInt(currentValue) & ((1n << 128n) - 1n) : 0n;
+    const newValue = (BigInt(forcePendingBlockNumber) << 128n) | currentProvenBlockNumber;
+    return [
+      {
+        address: this.address,
+        stateDiff: [{ slot, value: `0x${newValue.toString(16).padStart(64, '0')}` }],
+      },
+    ];
+  }
+
+  /** Creates a request to Rollup#invalidateBadAttestation to be simulated or sent */
+  public buildInvalidateBadAttestationRequest(
+    blockNumber: number,
+    attestations: ViemCommitteeAttestation[],
+    committee: EthAddress[],
+    invalidIndex: number,
+  ): L1TxRequest {
+    return {
+      to: this.address,
+      data: encodeFunctionData({
+        abi: RollupAbi,
+        functionName: 'invalidateBadAttestation',
+        args: [
+          BigInt(blockNumber),
+          RollupContract.packAttestations(attestations),
+          committee.map(addr => addr.toString()),
+          BigInt(invalidIndex),
+        ],
+      }),
+    };
+  }
+
+  /** Creates a request to Rollup#invalidateInsufficientAttestations to be simulated or sent */
+  public buildInvalidateInsufficientAttestationsRequest(
+    blockNumber: number,
+    attestations: ViemCommitteeAttestation[],
+    committee: EthAddress[],
+  ): L1TxRequest {
+    return {
+      to: this.address,
+      data: encodeFunctionData({
+        abi: RollupAbi,
+        functionName: 'invalidateInsufficientAttestations',
+        args: [
+          BigInt(blockNumber),
+          RollupContract.packAttestations(attestations),
+          committee.map(addr => addr.toString()),
+        ],
+      }),
+    };
   }
 
   /** Calls getHasSubmitted directly. Returns whether the given prover has submitted a proof with the given length for the given epoch. */

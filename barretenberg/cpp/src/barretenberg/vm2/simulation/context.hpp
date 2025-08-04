@@ -44,6 +44,7 @@ class ContextInterface {
     virtual const FF& get_transaction_fee() const = 0;
     virtual bool get_is_static() const = 0;
     virtual SideEffectStates& get_side_effect_states() = 0;
+    virtual AppendOnlyTreeSnapshot get_written_public_data_slots_tree_snapshot() = 0;
     virtual void set_side_effect_states(SideEffectStates side_effect_states) = 0;
     virtual const GlobalVariables& get_globals() const = 0;
 
@@ -143,6 +144,10 @@ class BaseContext : public ContextInterface {
     void set_side_effect_states(SideEffectStates side_effect_states) override
     {
         this->side_effect_states = side_effect_states;
+    }
+    AppendOnlyTreeSnapshot get_written_public_data_slots_tree_snapshot() override
+    {
+        return written_public_data_slots_tree.snapshot();
     }
     const GlobalVariables& get_globals() const override { return globals; }
 

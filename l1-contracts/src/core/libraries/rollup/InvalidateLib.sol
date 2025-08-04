@@ -10,9 +10,7 @@ import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
-import {
-  CommitteeAttestations, SignatureLib, Signature
-} from "@aztec/shared/libraries/SignatureLib.sol";
+import {CommitteeAttestations, SignatureLib, Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {ECDSA} from "@oz/utils/cryptography/ECDSA.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 
@@ -112,37 +110,27 @@ library InvalidateLib {
     RollupStore storage rollupStore = STFLib.getStorage();
 
     // Block must be in the pending chain
-    require(
-      _blockNumber <= rollupStore.tips.getPendingBlockNumber(),
-      Errors.Rollup__BlockNotInPendingChain()
-    );
+    require(_blockNumber <= rollupStore.tips.getPendingBlockNumber(), Errors.Rollup__BlockNotInPendingChain());
 
     // But not yet proven
-    require(
-      _blockNumber > rollupStore.tips.getProvenBlockNumber(), Errors.Rollup__BlockAlreadyProven()
-    );
+    require(_blockNumber > rollupStore.tips.getProvenBlockNumber(), Errors.Rollup__BlockAlreadyProven());
 
     // Get the stored block data
     CompressedTempBlockLog storage blockLog = STFLib.getStorageTempBlockLog(_blockNumber);
 
     // Verify that the provided attestations match the stored hash
     bytes32 providedAttestationsHash = keccak256(abi.encode(_attestations));
-    require(
-      providedAttestationsHash == blockLog.attestationsHash, Errors.Rollup__InvalidAttestations()
-    );
+    require(providedAttestationsHash == blockLog.attestationsHash, Errors.Rollup__InvalidAttestations());
 
     // Get the epoch for the block's slot to verify committee
     Epoch epoch = blockLog.slotNumber.decompress().epochFromSlot();
 
     // Get and verify the committee commitment
-    (bytes32 committeeCommitment, uint256 committeeSize) =
-      ValidatorSelectionLib.getCommitteeCommitmentAt(epoch);
+    (bytes32 committeeCommitment, uint256 committeeSize) = ValidatorSelectionLib.getCommitteeCommitmentAt(epoch);
     bytes32 providedCommitteeCommitment = keccak256(abi.encode(_committee));
     require(
       committeeCommitment == providedCommitteeCommitment,
-      Errors.ValidatorSelection__InvalidCommitteeCommitment(
-        providedCommitteeCommitment, committeeCommitment
-      )
+      Errors.ValidatorSelection__InvalidCommitteeCommitment(providedCommitteeCommitment, committeeCommitment)
     );
 
     // Get the digest of the payload that was signed by the committee

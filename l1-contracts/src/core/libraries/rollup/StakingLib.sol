@@ -16,9 +16,7 @@ import {GSE, AttesterConfig} from "@aztec/governance/GSE.sol";
 import {Proposal} from "@aztec/governance/interfaces/IGovernance.sol";
 import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
-import {
-  CompressedTimeMath, CompressedTimestamp
-} from "@aztec/shared/libraries/CompressedTimeMath.sol";
+import {CompressedTimeMath, CompressedTimestamp} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@oz/utils/math/Math.sol";
@@ -115,13 +113,10 @@ library StakingLib {
     require(address(this) == govProposer.getInstance(), Errors.Staking__NotCanonical(address(this)));
     address proposalProposer = govProposer.getProposalProposer(_proposalId);
     require(
-      address(this) == proposalProposer,
-      Errors.Staking__NotOurProposal(_proposalId, address(this), proposalProposer)
+      address(this) == proposalProposer, Errors.Staking__NotOurProposal(_proposalId, address(this), proposalProposer)
     );
     Proposal memory proposal = gov.getProposal(_proposalId);
-    require(
-      proposal.proposer == address(govProposer), Errors.Staking__IncorrectGovProposer(_proposalId)
-    );
+    require(proposal.proposer == address(govProposer), Errors.Staking__IncorrectGovProposer(_proposalId));
 
     Timestamp ts = proposal.pendingThroughMemory();
 
@@ -150,7 +145,7 @@ library StakingLib {
 
     delete store.exits[_attester];
 
-    store.gse.finaliseHelper(exit.withdrawalId);
+    store.gse.finaliseWithdraw(exit.withdrawalId);
     store.stakingAsset.transfer(exit.recipientOrWithdrawer, exit.amount);
 
     emit IStakingCore.WithdrawFinalised(_attester, exit.recipientOrWithdrawer, exit.amount);
@@ -171,10 +166,7 @@ library StakingLib {
     Exit storage exit = store.exits[_attester];
 
     if (exit.exists) {
-      require(
-        exit.exitableAt > Timestamp.wrap(block.timestamp),
-        Errors.Staking__CannotSlashExitedStake(_attester)
-      );
+      require(exit.exitableAt > Timestamp.wrap(block.timestamp), Errors.Staking__CannotSlashExitedStake(_attester));
 
       // If the slash amount is greater than the exit amount, bound it to the exit amount
       uint256 slashAmount = Math.min(_amount, exit.amount);
@@ -197,8 +189,7 @@ library StakingLib {
       // If the slash amount is greater than the effective balance, bound it to the effective balance
       uint256 slashAmount = Math.min(_amount, effectiveBalance);
 
-      (uint256 amountWithdrawn, bool isRemoved, uint256 withdrawalId) =
-        store.gse.withdraw(_attester, slashAmount);
+      (uint256 amountWithdrawn, bool isRemoved, uint256 withdrawalId) = store.gse.withdraw(_attester, slashAmount);
 
       uint256 toUser = amountWithdrawn - slashAmount;
       if (isRemoved && toUser > 0) {
@@ -219,13 +210,12 @@ library StakingLib {
 
   function deposit(address _attester, address _withdrawer, bool _moveWithLatestRollup) internal {
     require(
-      _attester != address(0) && _withdrawer != address(0),
-      Errors.Staking__InvalidDeposit(_attester, _withdrawer)
+      _attester != address(0) && _withdrawer != address(0), Errors.Staking__InvalidDeposit(_attester, _withdrawer)
     );
     StakingStorage storage store = getStorage();
     // We don't allow deposits, if we are currently exiting.
     require(!store.exits[_attester].exists, Errors.Staking__AlreadyExiting(_attester));
-    uint256 amount = store.gse.DEPOSIT_AMOUNT();
+    uint256 amount = store.gse.ACTIVATION_THRESHOLD();
 
     store.stakingAsset.transferFrom(msg.sender, address(this), amount);
     store.entryQueue.enqueue(_attester, _withdrawer, _moveWithLatestRollup);
@@ -239,11 +229,9 @@ library StakingLib {
 
     Epoch currentEpoch = TimeLib.epochFromTimestamp(Timestamp.wrap(block.timestamp));
     StakingStorage storage store = getStorage();
-    require(
-      store.nextFlushableEpoch <= currentEpoch, Errors.Staking__QueueAlreadyFlushed(currentEpoch)
-    );
+    require(store.nextFlushableEpoch <= currentEpoch, Errors.Staking__QueueAlreadyFlushed(currentEpoch));
     store.nextFlushableEpoch = currentEpoch + Epoch.wrap(1);
-    uint256 amount = store.gse.DEPOSIT_AMOUNT();
+    uint256 amount = store.gse.ACTIVATION_THRESHOLD();
 
     uint256 queueLength = store.entryQueue.length();
     uint256 numToDequeue = Math.min(_maxAddableValidators, queueLength);
@@ -251,9 +239,7 @@ library StakingLib {
     for (uint256 i = 0; i < numToDequeue; i++) {
       DepositArgs memory args = store.entryQueue.dequeue();
       (bool success, bytes memory data) = address(store.gse).call(
-        abi.encodeWithSelector(
-          IStakingCore.deposit.selector, args.attester, args.withdrawer, args.moveWithLatestRollup
-        )
+        abi.encodeWithSelector(IStakingCore.deposit.selector, args.attester, args.withdrawer, args.moveWithLatestRollup)
       );
       if (success) {
         emit IStakingCore.Deposit(args.attester, args.withdrawer, amount);
@@ -296,8 +282,7 @@ library StakingLib {
       require(msg.sender == withdrawer, Errors.Staking__NotWithdrawer(withdrawer, msg.sender));
 
       uint256 amount = store.gse.effectiveBalanceOf(address(this), _attester);
-      (uint256 actualAmount, bool removed, uint256 withdrawalId) =
-        store.gse.withdraw(_attester, amount);
+      (uint256 actualAmount, bool removed, uint256 withdrawalId) = store.gse.withdraw(_attester, amount);
       require(removed, Errors.Staking__WithdrawFailed(_attester));
 
       store.exits[_attester] = Exit({
@@ -348,16 +333,10 @@ library StakingLib {
   }
 
   function getAttesterAtIndex(uint256 _index) internal view returns (address) {
-    return getStorage().gse.getAttesterFromIndexAtTime(
-      address(this), _index, Timestamp.wrap(block.timestamp)
-    );
+    return getStorage().gse.getAttesterFromIndexAtTime(address(this), _index, Timestamp.wrap(block.timestamp));
   }
 
-  function getAttesterFromIndexAtTime(uint256 _index, Timestamp _timestamp)
-    internal
-    view
-    returns (address)
-  {
+  function getAttesterFromIndexAtTime(uint256 _index, Timestamp _timestamp) internal view returns (address) {
     return getStorage().gse.getAttesterFromIndexAtTime(address(this), _index, _timestamp);
   }
 

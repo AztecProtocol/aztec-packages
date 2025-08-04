@@ -5,6 +5,7 @@ import {
   PAIRING_POINTS_SIZE,
   RECURSIVE_PROOF_LENGTH,
   TUBE_PROOF_LENGTH,
+  ULTRA_KECCAK_PROOF_LENGTH,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { runInDirectory } from '@aztec/foundation/fs';
@@ -501,7 +502,9 @@ export class BBNativeRollupProver implements ServerCircuitProver {
         bbWorkingDirectory,
       );
       const vkData = this.getVerificationKeyDataForCircuit(circuitType);
-      const proof = await readProofAsFields(provingResult.proofPath!, vkData, RECURSIVE_PROOF_LENGTH, logger);
+
+      const PROOF_LENGTH = circuitType == 'RootRollupArtifact' ? ULTRA_KECCAK_PROOF_LENGTH : RECURSIVE_PROOF_LENGTH;
+      const proof = await readProofAsFields(provingResult.proofPath!, vkData, PROOF_LENGTH, logger);
 
       const circuitName = mapProtocolArtifactNameToCircuitName(circuitType);
 

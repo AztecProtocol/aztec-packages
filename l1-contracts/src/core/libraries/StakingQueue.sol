@@ -25,19 +25,14 @@ library StakingQueueLib {
     self.last = 1;
   }
 
-  function enqueue(
-    StakingQueue storage self,
-    address _attester,
-    address _withdrawer,
-    bool _moveWithLatestRollup
-  ) internal returns (uint256) {
+  function enqueue(StakingQueue storage self, address _attester, address _withdrawer, bool _moveWithLatestRollup)
+    internal
+    returns (uint256)
+  {
     uint128 queueLocation = self.last;
 
-    self.validators[queueLocation] = DepositArgs({
-      attester: _attester,
-      withdrawer: _withdrawer,
-      moveWithLatestRollup: _moveWithLatestRollup
-    });
+    self.validators[queueLocation] =
+      DepositArgs({attester: _attester, withdrawer: _withdrawer, moveWithLatestRollup: _moveWithLatestRollup});
     self.last = queueLocation + 1;
 
     return queueLocation;

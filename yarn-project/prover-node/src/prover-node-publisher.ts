@@ -26,9 +26,6 @@ import { type Hex, type TransactionReceipt, encodeFunctionData } from 'viem';
 
 import { ProverNodePublisherMetrics } from './metrics.js';
 
-/**
- * Stats for a sent transaction.
- */
 /** Arguments to the submitEpochProof method of the rollup contract */
 export type L1SubmitEpochProofArgs = {
   epochSize: number;
@@ -142,11 +139,11 @@ export class ProverNodePublisher {
       }
 
       this.metrics.recordFailedTx();
-      this.log.error(`Rollup.submitEpochProof tx status failed: ${txReceipt.transactionHash}`, ctx);
+      this.log.error(`Rollup.submitEpochProof tx status failed ${txReceipt.transactionHash}`, undefined, ctx);
       await this.sleepOrInterrupted();
     }
 
-    this.log.verbose('L2 block data syncing interrupted while processing blocks.', ctx);
+    this.log.verbose('L2 block data syncing interrupted', ctx);
     return false;
   }
 

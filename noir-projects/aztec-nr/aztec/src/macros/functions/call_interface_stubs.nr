@@ -169,11 +169,8 @@ comptime fn create_utility_stub(f: FunctionDefinition) -> Quoted {
         create_stub_base(f);
     let fn_return_type = f.return_type();
 
-    // This is here because utility function call interfaces can only be used within TXe tests.
-    let modified_fn_name = f"_experimental_{fn_name}".quoted_contents();
-
     quote {
-        pub fn $modified_fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::UtilityCallInterface<$fn_name_len, $fn_return_type> {
+        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::UtilityCallInterface<$fn_name_len, $fn_return_type> {
             $serialized_args_slice_construction
             let selector = $FROM_FIELD($fn_selector);
             dep::aztec::context::call_interfaces::UtilityCallInterface::new(

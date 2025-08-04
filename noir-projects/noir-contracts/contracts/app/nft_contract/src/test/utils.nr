@@ -1,7 +1,6 @@
 use crate::NFT;
 use aztec::{
-    oracle::notes::set_sender_for_tags, protocol_types::address::AztecAddress,
-    test::helpers::test_environment::TestEnvironment,
+    protocol_types::address::AztecAddress, test::helpers::test_environment::TestEnvironment,
 };
 
 pub unconstrained fn setup(
@@ -16,11 +15,6 @@ pub unconstrained fn setup(
     } else {
         let owner = env.create_light_account();
         let recipient = env.create_light_account();
-
-        // We are not deploying any account contracts and so we need to manually set the sender for tags. This is
-        // usually done by account contract's entrypoint.
-        let sender = env.create_light_account();
-        set_sender_for_tags(sender);
 
         (owner, recipient)
     };
@@ -80,8 +74,8 @@ pub unconstrained fn assert_owns_private_nft(
     owner: AztecAddress,
     token_id: Field,
 ) {
-    let (private_nfts, _) = env.simulate_utility(NFT::at(nft_contract_address)
-        ._experimental_get_private_nfts(owner, 0));
+    let (private_nfts, _) =
+        env.simulate_utility(NFT::at(nft_contract_address).get_private_nfts(owner, 0));
 
     let mut nft_found = false;
     for obtained_token_id in private_nfts {

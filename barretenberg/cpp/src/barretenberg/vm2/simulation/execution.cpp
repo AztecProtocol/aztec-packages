@@ -894,6 +894,34 @@ void Execution::emit_unencrypted_log(ContextInterface& context, MemoryAddress lo
     }
 }
 
+void Execution::send_l2_to_l1_msg(ContextInterface& context, MemoryAddress recipient_addr, MemoryAddress content_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::SENDL2TOL1MSG;
+    auto& memory = context.get_memory();
+
+    auto recipient = memory.get(recipient_addr);
+    auto content = memory.get(content_addr);
+    set_and_validate_inputs(opcode, { recipient, content });
+
+    get_gas_tracker().consume_gas();
+
+    auto side_effects_states_before = context.get_side_effect_states();
+
+    if (context.get_is_static()) {
+        throw OpcodeExecutionException("SENDL2TOL1MSG: Cannot send L2 to L1 message in static context");
+    }
+
+    if (side_effects_states_before.numL2ToL1Messages == MAX_L2_TO_L1_MSGS_PER_TX) {
+        throw OpcodeExecutionException("SENDL2TOL1MSG: Maximum number of L2 to L1 messages reached");
+    }
+
+    // TODO: We don't store the l2 to l1 message in the context since it's not needed until cpp has to generate
+    // public inputs.
+
+    side_effects_states_before.numL2ToL1Messages++;
+    context.set_side_effect_states(side_effects_states_before);
+}
+
 // This context interface is a top-level enqueued one.
 // NOTE: For the moment this trace is not returning the context back.
 ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_call_context)
@@ -999,15 +1027,19 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
 
 void Execution::handle_enter_call(ContextInterface& parent_context, std::unique_ptr<ContextInterface> child_context)
 {
-    ctx_stack_events.emit({ .id = parent_context.get_context_id(),
-                            .parent_id = parent_context.get_parent_id(),
-                            .entered_context_id = context_provider.get_next_context_id(),
-                            .next_pc = parent_context.get_next_pc(),
-                            .msg_sender = parent_context.get_msg_sender(),
-                            .contract_addr = parent_context.get_address(),
-                            .is_static = parent_context.get_is_static(),
-                            .parent_gas_used = parent_context.get_parent_gas_used(),
-                            .parent_gas_limit = parent_context.get_parent_gas_limit() });
+    ctx_stack_events.emit(
+        { .id = parent_context.get_context_id(),
+          .parent_id = parent_context.get_parent_id(),
+          .entered_context_id = context_provider.get_next_context_id(),
+          .next_pc = parent_context.get_next_pc(),
+          .msg_sender = parent_context.get_msg_sender(),
+          .contract_addr = parent_context.get_address(),
+          .is_static = parent_context.get_is_static(),
+          .parent_gas_used = parent_context.get_parent_gas_used(),
+          .parent_gas_limit = parent_context.get_parent_gas_limit(),
+          .tree_states = merkle_db.get_tree_state(),
+          .written_public_data_slots_tree_snapshot = parent_context.get_written_public_data_slots_tree_snapshot(),
+          .side_effect_states = parent_context.get_side_effect_states() });
 
     external_call_stack.push(std::move(child_context));
 }
@@ -1189,6 +1221,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::EMITUNENCRYPTEDLOG:
         call_with_operands(&Execution::emit_unencrypted_log, context, resolved_operands);
+        break;
+    case ExecutionOpCode::SENDL2TOL1MSG:
+        call_with_operands(&Execution::send_l2_to_l1_msg, context, resolved_operands);
         break;
     default:
         // NOTE: Keep this a `std::runtime_error` so that the main loop panics.

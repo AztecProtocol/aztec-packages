@@ -34,15 +34,15 @@ BENCHMARK_DEFINE_F(ClientIVCBench, VerificationOnly)(benchmark::State& state)
 {
     ClientIVC ivc{ /*num_circuits=*/2, { AZTEC_TRACE_STRUCTURE } };
 
-    ClientIVCMockCircuitProducer circuit_producer;
+    PrivateFunctionExecutionMockCircuitProducer circuit_producer;
 
     // Initialize the IVC with an arbitrary circuit
-    auto circuit_0 = circuit_producer.create_next_circuit(ivc);
-    ivc.accumulate(circuit_0);
+    auto [circuit_0, vk_0] = circuit_producer.create_next_circuit_and_vk(ivc);
+    ivc.accumulate(circuit_0, vk_0);
 
     // Create another circuit and accumulate
-    auto circuit_1 = circuit_producer.create_next_circuit(ivc);
-    ivc.accumulate(circuit_1);
+    auto [circuit_1, vk_1] = circuit_producer.create_next_circuit_and_vk(ivc);
+    ivc.accumulate(circuit_1, vk_1);
 
     auto proof = ivc.prove();
 
@@ -63,7 +63,7 @@ BENCHMARK_DEFINE_F(ClientIVCBench, Full)(benchmark::State& state)
 
     for (auto _ : state) {
         BB_REPORT_OP_COUNT_IN_BENCH(state);
-        perform_ivc_accumulation_rounds(total_num_circuits, ivc, mocked_vks, /* mock_vk */ true);
+        perform_ivc_accumulation_rounds(total_num_circuits, ivc, mocked_vks);
         ivc.prove();
     }
 }
@@ -76,12 +76,12 @@ BENCHMARK_DEFINE_F(ClientIVCBench, Ambient_17_in_20)(benchmark::State& state)
 
     auto total_num_circuits = 2 * static_cast<size_t>(state.range(0)); // 2x accounts for kernel circuits
     ClientIVC ivc{ total_num_circuits, { AZTEC_TRACE_STRUCTURE } };
-    auto mocked_vks = mock_vks(total_num_circuits);
+    const bool large_first_app = false;
+    auto mocked_vks = mock_vks(total_num_circuits, large_first_app);
 
     for (auto _ : state) {
         BB_REPORT_OP_COUNT_IN_BENCH(state);
-        perform_ivc_accumulation_rounds(
-            total_num_circuits, ivc, mocked_vks, /* mock_vk */ true, /* large_first_app */ false);
+        perform_ivc_accumulation_rounds(total_num_circuits, ivc, mocked_vks, large_first_app);
         ivc.prove();
     }
 }

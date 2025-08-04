@@ -88,9 +88,9 @@ document.addEventListener('DOMContentLoaded', function () {
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   button.addEventListener('click', async () => {
     logger.info(`generating circuit and witness...`);
-    const [bytecodes, witnessStack] = await generate3FunctionTestingIVCStack();
+    const [bytecodes, witnessStack, _publicInputs, precomputedVks] = await generate3FunctionTestingIVCStack();
     logger.info(`done. proving and verifying...`);
-    const verified = await proveThenVerifyAztecClient(bytecodes, witnessStack);
+    const verified = await proveThenVerifyAztecClient(bytecodes, witnessStack, precomputedVks);
     logger.info(`verified? ${verified}`);
   });
   document.body.appendChild(button);

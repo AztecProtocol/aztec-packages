@@ -52,6 +52,12 @@ images:
   lighthouse:
     image: sigp/lighthouse:v7.1.0
     pullPolicy: IfNotPresent
+  geth:
+    image: ethereum/client-go:v1.15.5
+    pullPolicy: IfNotPresent
+  nethermind:
+    image: nethermind/nethermind:1.32.2
+    pullPolicy: IfNotPresent
 
 aztec:
   bootstrapENRs: ""
@@ -307,7 +313,8 @@ ethereum:
     spotEnabled: false
   args: ""
   execution:
-    externalHosts: ""
+    client: "reth"
+    externalHosts:
     service:
       port: 8545
       targetPort: 8545
@@ -315,7 +322,7 @@ ethereum:
       wsTargetPort: 8546
     storageSize: "80Gi"
   beacon:
-    externalHost: ""
+    externalHost:
     apiKey: ""
     apiKeyHeader: ""
     service:

@@ -22,8 +22,8 @@ contract GSEBase is TestBase {
   uint256 internal EPOCH_DURATION_SECONDS;
 
   function setUp() public virtual {
-    RollupBuilder builder = new RollupBuilder(address(this)).setSlashingQuorum(1)
-      .setSlashingRoundSize(1).setEpochDuration(1).setSlotDuration(1);
+    RollupBuilder builder = new RollupBuilder(address(this)).setSlashingQuorum(1).setSlashingRoundSize(1)
+      .setEpochDuration(1).setSlotDuration(1);
     builder.deploy();
 
     registry = builder.getConfig().registry;
@@ -32,8 +32,8 @@ contract GSEBase is TestBase {
     gse = builder.getConfig().gse;
     governance = builder.getConfig().governance;
 
-    EPOCH_DURATION_SECONDS = builder.getConfig().rollupConfigInput.aztecEpochDuration
-      * builder.getConfig().rollupConfigInput.aztecSlotDuration;
+    EPOCH_DURATION_SECONDS =
+      builder.getConfig().rollupConfigInput.aztecEpochDuration * builder.getConfig().rollupConfigInput.aztecSlotDuration;
 
     vm.label(address(governance), "governance");
     vm.label(address(governance.governanceProposer()), "governance proposer");
@@ -43,26 +43,18 @@ contract GSEBase is TestBase {
     vm.label(address(registry), "registry");
   }
 
-  function help__deposit(address _attester, address _withdrawer, bool _moveWithLatestRollup)
-    internal
-  {
-    uint256 depositAmount = ROLLUP.getDepositAmount();
+  function help__deposit(address _attester, address _withdrawer, bool _moveWithLatestRollup) internal {
+    uint256 activationThreshold = ROLLUP.getActivationThreshold();
     vm.prank(stakingAsset.owner());
-    stakingAsset.mint(address(this), depositAmount);
-    stakingAsset.approve(address(ROLLUP), depositAmount);
+    stakingAsset.mint(address(this), activationThreshold);
+    stakingAsset.approve(address(ROLLUP), activationThreshold);
 
     uint256 balance = stakingAsset.balanceOf(address(governance));
 
-    ROLLUP.deposit({
-      _attester: _attester,
-      _withdrawer: _withdrawer,
-      _moveWithLatestRollup: _moveWithLatestRollup
-    });
+    ROLLUP.deposit({_attester: _attester, _withdrawer: _withdrawer, _moveWithLatestRollup: _moveWithLatestRollup});
     ROLLUP.flushEntryQueue();
 
-    assertEq(
-      stakingAsset.balanceOf(address(governance)), balance + depositAmount, "invalid gov balance"
-    );
+    assertEq(stakingAsset.balanceOf(address(governance)), balance + activationThreshold, "invalid gov balance");
     assertEq(stakingAsset.balanceOf(address(ROLLUP)), 0, "invalid rollup balance");
   }
 }

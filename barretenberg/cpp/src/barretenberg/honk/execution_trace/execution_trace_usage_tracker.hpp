@@ -22,7 +22,6 @@ namespace bb {
 struct ExecutionTraceUsageTracker {
     using Range = std::pair<size_t, size_t>;
     using Builder = MegaCircuitBuilder;
-    using MegaTraceActiveRanges = MegaTraceBlockData<Range>;
     using MegaTraceFixedBlockSizes = MegaExecutionTraceBlocks;
 
     TraceStructure max_sizes;             // max utilization of each block

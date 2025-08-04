@@ -50,7 +50,7 @@ struct lookup_l1_to_l2_message_exists_l1_to_l2_msg_read_settings_ {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::execution_register_0_,
         ColumnAndShifts::execution_register_1_,
-        ColumnAndShifts::execution_prev_l1_l2_tree_root,
+        ColumnAndShifts::execution_l1_l2_tree_root,
         ColumnAndShifts::execution_register_2_
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {

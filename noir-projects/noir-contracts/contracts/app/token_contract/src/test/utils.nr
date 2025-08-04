@@ -1,7 +1,6 @@
 use crate::Token;
 use aztec::{
-    oracle::notes::set_sender_for_tags, protocol_types::address::AztecAddress,
-    test::helpers::test_environment::TestEnvironment,
+    protocol_types::address::AztecAddress, test::helpers::test_environment::TestEnvironment,
 };
 
 pub unconstrained fn setup(
@@ -16,11 +15,6 @@ pub unconstrained fn setup(
     } else {
         let owner = env.create_light_account();
         let recipient = env.create_light_account();
-
-        // We are not deploying any account contracts and so we need to manually set the sender for tags. This is
-        // usually done by account contract's entrypoint.
-        let sender = env.create_light_account();
-        set_sender_for_tags(sender);
 
         (owner, recipient)
     };
@@ -70,7 +64,6 @@ pub unconstrained fn setup_and_mint_to_private(
     setup_and_mint_amount_to_private(with_account_contracts, mint_amount)
 }
 
-// docs:start:txe_test_read_public
 pub unconstrained fn check_public_balance(
     env: TestEnvironment,
     token_contract_address: AztecAddress,
@@ -82,7 +75,6 @@ pub unconstrained fn check_public_balance(
         address_amount,
     );
 }
-// docs:end:txe_test_read_public
 
 // docs:start:txe_test_call_utility
 pub unconstrained fn check_private_balance(
@@ -92,9 +84,7 @@ pub unconstrained fn check_private_balance(
     address_amount: u128,
 ) {
     assert_eq(
-        env.simulate_utility(Token::at(token_contract_address)._experimental_balance_of_private(
-            address,
-        )),
+        env.simulate_utility(Token::at(token_contract_address).balance_of_private(address)),
         address_amount,
     );
 }

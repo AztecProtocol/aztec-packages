@@ -89,10 +89,10 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
 
     timeCheater.cheat__jumpForwardEpochs(2);
 
-    uint256 depositAmount = rollup.getGSE().DEPOSIT_AMOUNT();
+    uint256 activationThreshold = rollup.getGSE().ACTIVATION_THRESHOLD();
 
     vm.prank(testERC20.owner());
-    testERC20.mint(address(this), 10e3 * depositAmount);
+    testERC20.mint(address(this), 10e3 * activationThreshold);
     testERC20.approve(address(rollup), type(uint256).max);
 
     uint256 offset = 0;
@@ -149,10 +149,10 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
     // altering the size checkpoints do not heavily impact the gas costs.
     timeCheater.cheat__jumpForwardEpochs(2);
 
-    uint256 depositAmount = rollup.getGSE().DEPOSIT_AMOUNT();
+    uint256 activationThreshold = rollup.getGSE().ACTIVATION_THRESHOLD();
 
     vm.prank(testERC20.owner());
-    testERC20.mint(address(this), 10e3 * depositAmount);
+    testERC20.mint(address(this), 10e3 * activationThreshold);
     testERC20.approve(address(rollup), type(uint256).max);
 
     // Add a bunch of attesters to
@@ -280,17 +280,9 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
       blockReward: 100e18
     });
 
-    assertNotEq(
-      address(config.rewardDistributor),
-      address(updated.rewardDistributor),
-      "invalid reward distributor"
-    );
+    assertNotEq(address(config.rewardDistributor), address(updated.rewardDistributor), "invalid reward distributor");
     assertNotEq(address(config.booster), address(updated.booster), "invalid booster");
-    assertEq(
-      Bps.unwrap(config.sequencerBps),
-      Bps.unwrap(defaultConfig.sequencerBps),
-      "invalid sequencerBps"
-    );
+    assertEq(Bps.unwrap(config.sequencerBps), Bps.unwrap(defaultConfig.sequencerBps), "invalid sequencerBps");
     assertEq(config.blockReward, defaultConfig.blockReward, "invalid initial blockReward");
 
     address owner = rollup.owner();
@@ -301,14 +293,8 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
     rollup.setRewardConfig(updated);
     config = rollup.getRewardConfig();
 
-    assertEq(
-      Bps.unwrap(config.sequencerBps), Bps.unwrap(updated.sequencerBps), "invalid sequencerBps"
-    );
-    assertEq(
-      address(config.rewardDistributor),
-      address(updated.rewardDistributor),
-      "invalid reward distributor"
-    );
+    assertEq(Bps.unwrap(config.sequencerBps), Bps.unwrap(updated.sequencerBps), "invalid sequencerBps");
+    assertEq(address(config.rewardDistributor), address(updated.rewardDistributor), "invalid reward distributor");
     assertEq(address(config.booster), address(updated.booster), "invalid booster");
     assertEq(config.blockReward, updated.blockReward, "invalid blockReward");
   }

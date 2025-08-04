@@ -74,8 +74,8 @@ export async function sequencers(opts: {
 
     await Promise.all(
       [
-        await stakingAsset.write.mint([walletClient.account.address, config.depositAmount], {} as any),
-        await stakingAsset.write.approve([rollup.address, config.depositAmount], {} as any),
+        await stakingAsset.write.mint([walletClient.account.address, config.activationThreshold], {} as any),
+        await stakingAsset.write.approve([rollup.address, config.activationThreshold], {} as any),
       ].map(txHash => publicClient.waitForTransactionReceipt({ hash: txHash })),
     );
 

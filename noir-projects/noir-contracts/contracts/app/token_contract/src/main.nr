@@ -653,7 +653,7 @@ pub contract Token {
 
     // docs:start:balance_of_private
     #[utility]
-    pub(crate) unconstrained fn balance_of_private(owner: AztecAddress) -> u128 {
+    unconstrained fn balance_of_private(owner: AztecAddress) -> u128 {
         storage.balances.at(owner).balance_of()
     }
     // docs:end:balance_of_private

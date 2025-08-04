@@ -57,11 +57,8 @@ interface IStakingAssetHandler {
   error MerkleProofInvalid();
 
   // Add validator methods
-  function addValidator(
-    address _attester,
-    bytes32[] memory _merkleProof,
-    ProofVerificationParams memory _params
-  ) external;
+  function addValidator(address _attester, bytes32[] memory _merkleProof, ProofVerificationParams memory _params)
+    external;
   function reenterExitedValidator(address _attester) external;
 
   // Admin methods
@@ -160,29 +157,28 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
    *
    * @param _attester - the validator's attester address
    */
-  function addValidator(
-    address _attester,
-    bytes32[] memory _merkleProof,
-    ProofVerificationParams calldata _params
-  ) external override(IStakingAssetHandler) {
+  function addValidator(address _attester, bytes32[] memory _merkleProof, ProofVerificationParams calldata _params)
+    external
+    override(IStakingAssetHandler)
+  {
     IStaking rollup = IStaking(address(REGISTRY.getCanonicalRollup()));
-    uint256 depositAmount = rollup.getDepositAmount();
+    uint256 activationThreshold = rollup.getActivationThreshold();
 
     // If the sender is unhinged, will mint the required amount (to not impact other users).
     // Otherwise we add them to the deposit queue.
     if (isUnhinged[msg.sender]) {
-      STAKING_ASSET.mint(address(this), depositAmount);
+      STAKING_ASSET.mint(address(this), activationThreshold);
 
-      _triggerDeposit(rollup, depositAmount, _attester);
+      _triggerDeposit(rollup, activationThreshold, _attester);
     } else {
-      _topUpIfRequired(depositAmount);
+      _topUpIfRequired(activationThreshold);
 
       // Check attester has the guardian role (included in merkle tree)
       _validateMerkleProof(_attester, _merkleProof);
       _validatePassportProof(_attester, _params);
 
       // If the attester is currently exiting, we finalize the exit for him.
-      _triggerDeposit(rollup, depositAmount, _attester);
+      _triggerDeposit(rollup, activationThreshold, _attester);
     }
   }
 
@@ -199,10 +195,10 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     require(nullifiers[nullifier] != false, NoNullifier());
 
     IStaking rollup = IStaking(address(REGISTRY.getCanonicalRollup()));
-    uint256 depositAmount = rollup.getDepositAmount();
+    uint256 activationThreshold = rollup.getActivationThreshold();
 
-    _topUpIfRequired(depositAmount);
-    _triggerDeposit(rollup, depositAmount, _attester);
+    _topUpIfRequired(activationThreshold);
+    _triggerDeposit(rollup, activationThreshold, _attester);
   }
 
   function setMintInterval(uint256 _interval) external override(IStakingAssetHandler) onlyOwner {
@@ -210,21 +206,13 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     emit IntervalUpdated(_interval);
   }
 
-  function setDepositsPerMint(uint256 _depositsPerMint)
-    external
-    override(IStakingAssetHandler)
-    onlyOwner
-  {
+  function setDepositsPerMint(uint256 _depositsPerMint) external override(IStakingAssetHandler) onlyOwner {
     require(_depositsPerMint > 0, CannotMintZeroAmount());
     depositsPerMint = _depositsPerMint;
     emit DepositsPerMintUpdated(_depositsPerMint);
   }
 
-  function setZKPassportVerifier(address _zkPassportVerifier)
-    external
-    override(IStakingAssetHandler)
-    onlyOwner
-  {
+  function setZKPassportVerifier(address _zkPassportVerifier) external override(IStakingAssetHandler) onlyOwner {
     zkPassportVerifier = ZKPassportVerifier(_zkPassportVerifier);
     emit ZKPassportVerifierUpdated(_zkPassportVerifier);
   }
@@ -259,11 +247,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     emit SkipBindCheckUpdated(_skipBindCheck);
   }
 
-  function setSkipMerkleCheck(bool _skipMerkleCheck)
-    external
-    override(IStakingAssetHandler)
-    onlyOwner
-  {
+  function setSkipMerkleCheck(bool _skipMerkleCheck) external override(IStakingAssetHandler) onlyOwner {
     skipMerkleCheck = _skipMerkleCheck;
     emit SkipMerkleCheckUpdated(_skipMerkleCheck);
   }
@@ -283,9 +267,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
    * @param _attester - The validator's attester address
    * @param _params - ZKPassport proof params
    */
-  function _validatePassportProof(address _attester, ProofVerificationParams calldata _params)
-    internal
-  {
+  function _validatePassportProof(address _attester, ProofVerificationParams calldata _params) internal {
     // Must NOT be using dev mode - https://docs.zkpassport.id/getting-started/dev-mode
     // If active, nullifiers will end up being zero, but it is user provided input, so we are sanity checking it
     require(_params.devMode == false, InvalidProof());
@@ -299,8 +281,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     require(!nullifiers[nullifier], SybilDetected(nullifier));
 
     if (!skipBindCheck) {
-      bytes memory data =
-        zkPassportVerifier.getBindProofInputs(_params.committedInputs, _params.committedInputCounts);
+      bytes memory data = zkPassportVerifier.getBindProofInputs(_params.committedInputs, _params.committedInputCounts);
       // Use the getBoundData function to get the formatted data
       // which includes the user's address, chainId and any custom data
       (address boundAddress, uint256 chainId,) = zkPassportVerifier.getBoundData(data);
@@ -315,15 +296,14 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     attesterToNullifier[_attester] = nullifier;
   }
 
-  function _topUpIfRequired(uint256 _depositAmount) internal {
-    if (STAKING_ASSET.balanceOf(address(this)) < _depositAmount) {
+  function _topUpIfRequired(uint256 _activationThreshold) internal {
+    if (STAKING_ASSET.balanceOf(address(this)) < _activationThreshold) {
       require(
-        block.timestamp - lastMintTimestamp >= mintInterval,
-        ValidatorQuotaFilledUntil(lastMintTimestamp + mintInterval)
+        block.timestamp - lastMintTimestamp >= mintInterval, ValidatorQuotaFilledUntil(lastMintTimestamp + mintInterval)
       );
-      STAKING_ASSET.mint(address(this), _depositAmount * depositsPerMint);
+      STAKING_ASSET.mint(address(this), _activationThreshold * depositsPerMint);
       lastMintTimestamp = block.timestamp;
-      emit ToppedUp(_depositAmount * depositsPerMint);
+      emit ToppedUp(_activationThreshold * depositsPerMint);
     }
   }
 
@@ -333,16 +313,16 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
    * complete the exit for them first.
    *
    * @param _rollup - the rollup address
-   * @param _depositAmount - the deposit amount
+   * @param _activationThreshold - the deposit amount
    * @param _attester - the validator's attester address
    */
-  function _triggerDeposit(IStaking _rollup, uint256 _depositAmount, address _attester) internal {
+  function _triggerDeposit(IStaking _rollup, uint256 _activationThreshold, address _attester) internal {
     // If the attester is currently exiting, we finalize the exit for them.
     if (_rollup.getExit(_attester).exists) {
       _rollup.finaliseWithdraw(_attester);
     }
 
-    STAKING_ASSET.approve(address(_rollup), _depositAmount);
+    STAKING_ASSET.approve(address(_rollup), _activationThreshold);
     _rollup.deposit(_attester, withdrawer, true);
     emit ValidatorAdded(address(_rollup), _attester, withdrawer);
 

@@ -6,11 +6,13 @@ if [ -n "$K8S_MODE" ] && [ "$K8S_MODE" = "true" ]; then
     # First serialize the ssz file
     echo "running in k8s mode"
     cp -r /genesis-template /genesis &&
-    base64 -d /genesis/genesis-ssz > /genesis/genesis.ssz
+      base64 -d /genesis/genesis-ssz >/genesis/genesis.ssz
 fi
 
 echo "env vars: $BEACON_HTTP_PORT"
 echo "env vars: $ETH_EXECUTION_URL"
+
+echo "jwt secret: $(cat /genesis/jwt-secret.hex)"
 
 lighthouse bn \
     --disable-peer-scoring \
@@ -26,8 +28,8 @@ lighthouse bn \
     --listen-address=0.0.0.0 \
     --target-peers=0 \
     --testnet-dir=/genesis \
-    --execution-endpoints=${ETH_EXECUTION_URL} \
-    --execution-jwt-secret-key="61e1dd9539e8cc37b3d71dcf8ce372f0e119cc1c73426ee80472a4214f2a41a1" \
+    --execution-endpoint=${ETH_EXECUTION_URL} \
+    --execution-jwt=/genesis/jwt-secret.hex \
     --allow-insecure-genesis-sync \
     --log-format=JSON \
     --debug-level=info

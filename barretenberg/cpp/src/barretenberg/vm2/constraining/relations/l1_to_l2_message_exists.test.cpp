@@ -147,7 +147,7 @@ TEST(L1ToL2MessageExistsConstrainingTest, Interactions)
         { C::execution_sel_opcode_error, 0 },
         { C::execution_l1_to_l2_msg_tree_leaf_count, static_cast<uint64_t>(L1_TO_L2_MSG_TREE_LEAF_COUNT) },
         { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_L1_TO_L2_MESSAGE_EXISTS },
-        { C::execution_prev_l1_l2_tree_root, l1_to_l2_message_tree_snapshot.root },
+        { C::execution_l1_l2_tree_root, l1_to_l2_message_tree_snapshot.root },
     } });
 
     L1ToL2MessageTreeCheckTraceBuilder l1_to_l2_message_tree_check_trace_builder;

@@ -655,6 +655,13 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
                       .dyn_da = AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS },
         .dyn_gas_id = AVM_DYN_GAS_ID_EMITUNENCRYPTEDLOG,
         .register_info = RegisterInfo().add_inputs({ RegisterInfo::ANY_TAG, ValueTag::U32 }) } },
+    { ExecutionOpCode::SENDL2TOL1MSG,
+      { .num_addresses = 2,
+        .gas_cost = { .opcode_gas = AVM_SENDL2TOL1MSG_BASE_L2_GAS,
+                      .base_da = AVM_SENDL2TOL1MSG_BASE_DA_GAS,
+                      .dyn_l2 = 0,
+                      .dyn_da = 0 },
+        .register_info = RegisterInfo().add_inputs({ /* recipient */ ValueTag::FF, /* content */ ValueTag::FF }) } },
 
 };
 

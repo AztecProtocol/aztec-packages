@@ -3,10 +3,10 @@
 pragma solidity >=0.8.27;
 
 import {Test} from "forge-std/Test.sol";
-import {DelegationLibWrapper} from "./DelegationLibWrapper.sol";
+import {StakeDelegationLibWrapper} from "./StakeDelegationLibWrapper.sol";
 
 contract WithDelegationLib is Test {
-  DelegationLibWrapper internal delegationLib = new DelegationLibWrapper();
+  StakeDelegationLibWrapper internal delegationLib = new StakeDelegationLibWrapper();
 
   /**
    * @notice    A helper function to assert the number of writes performed

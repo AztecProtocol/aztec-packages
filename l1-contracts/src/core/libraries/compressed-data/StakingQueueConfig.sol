@@ -6,17 +6,22 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 type CompressedStakingQueueConfig is uint256;
 
 /**
- * If the number of validators in the rollup is 0, and the number of validators in the queue is less than `bootstrapValidatorSetSize`,
+ * If the number of validators in the rollup is 0, and the number of validators in the queue is less than
+ * `bootstrapValidatorSetSize`,
  * then `getEntryQueueFlushSize` will return 0.
  *
- * If the number of validators in the rollup is 0, and the number of validators in the queue is greater than or equal to `bootstrapValidatorSetSize`,
+ * If the number of validators in the rollup is 0, and the number of validators in the queue is greater than or equal to
+ * `bootstrapValidatorSetSize`,
  * then `getEntryQueueFlushSize` will return `bootstrapFlushSize`.
  *
- * If the number of validators in the rollup is greater than 0 and less than `bootstrapValidatorSetSize`, then `getEntryQueueFlushSize` will return `bootstrapFlushSize`.
+ * If the number of validators in the rollup is greater than 0 and less than `bootstrapValidatorSetSize`, then
+ * `getEntryQueueFlushSize` will return `bootstrapFlushSize`.
  *
- * If the number of validators in the rollup is greater than or equal to `bootstrapValidatorSetSize`, then `getEntryQueueFlushSize` will return Max( `normalFlushSizeMin`, `activeAttesterCount` / `normalFlushSizeQuotient`).
+ * If the number of validators in the rollup is greater than or equal to `bootstrapValidatorSetSize`, then
+ * `getEntryQueueFlushSize` will return Max( `normalFlushSizeMin`, `activeAttesterCount` / `normalFlushSizeQuotient`).
  *
- * NOTE: We will NEVER flush more than `MAX_QUEUE_FLUSH_SIZE` validators: it is applied as a Max at the end of every calculation.
+ * NOTE: We will NEVER flush more than `MAX_QUEUE_FLUSH_SIZE` validators: it is applied as a Max at the end of every
+ * calculation.
  * This is to prevent a situation where flushing the queue would exceed the block gas limit.
  */
 struct StakingQueueConfig {
@@ -31,11 +36,7 @@ library StakingQueueConfigLib {
 
   uint256 private constant MASK_64BIT = 0xFFFFFFFFFFFFFFFF;
 
-  function compress(StakingQueueConfig memory _config)
-    internal
-    pure
-    returns (CompressedStakingQueueConfig)
-  {
+  function compress(StakingQueueConfig memory _config) internal pure returns (CompressedStakingQueueConfig) {
     uint256 value = 0;
     value |= uint256(_config.normalFlushSizeQuotient.toUint64());
     value |= uint256(_config.normalFlushSizeMin.toUint64()) << 64;
@@ -45,11 +46,7 @@ library StakingQueueConfigLib {
     return CompressedStakingQueueConfig.wrap(value);
   }
 
-  function decompress(CompressedStakingQueueConfig _compressedConfig)
-    internal
-    pure
-    returns (StakingQueueConfig memory)
-  {
+  function decompress(CompressedStakingQueueConfig _compressedConfig) internal pure returns (StakingQueueConfig memory) {
     uint256 value = CompressedStakingQueueConfig.unwrap(_compressedConfig);
 
     return StakingQueueConfig({

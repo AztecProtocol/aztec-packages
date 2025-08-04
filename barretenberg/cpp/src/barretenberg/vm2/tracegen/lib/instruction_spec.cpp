@@ -105,6 +105,8 @@ const std::unordered_map<ExecutionOpCode, SubtraceInfo> SUBTRACE_INFO_MAP = {
     // Side effects
     { ExecutionOpCode::EMITUNENCRYPTEDLOG,
       { .subtrace_selector = SubtraceSel::EMITUNENCRYPTEDLOG, .subtrace_operation_id = 0 } },
+    { ExecutionOpCode::SENDL2TOL1MSG,
+      { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_SENDL2TOL1MSG } },
 };
 
 FF get_subtrace_id(SubtraceSel subtrace_sel)
