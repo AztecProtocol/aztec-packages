@@ -480,11 +480,9 @@ template <typename Flavor> class SumcheckProverRound {
         const ZKData& zk_sumcheck_data,
         const RowDisablingPolynomial<FF> row_disabling_polynomial)
         requires Flavor::HasZK
-
     {
         auto hiding_univariate = compute_libra_univariate(zk_sumcheck_data, round_idx);
         if constexpr (UseRowDisablingPolynomial<Flavor>) {
-
             hiding_univariate -= compute_disabled_contribution(
                 polynomials, relation_parameters, gate_separators, alpha, round_idx, row_disabling_polynomial);
         }
@@ -510,6 +508,9 @@ template <typename Flavor> class SumcheckProverRound {
         SumcheckTupleOfTuplesOfUnivariates univariate_accumulator;
         ExtendedEdges extended_edges;
         SumcheckRoundUnivariate result;
+
+        // Set all univariate accumulators to 0 before beginning the accumulation
+        Utils::zero_univariates(univariate_accumulator);
 
         // In Round 0, we have to compute the contribution from 2 edges: (1, 1,..., 1) and (0, 1, ..., 1) (as points on
         // (d-1) - dimensional Boolean hypercube).
@@ -666,32 +667,30 @@ template <typename Flavor> class SumcheckProverRound {
      * @result #univariate_accumulators are updated with the contribution from the current group of edges.  For each
      * relation, a univariate of some degree is computed by accumulating the contributions of each group of edges.
      */
-    template <size_t relation_idx = 0>
     void accumulate_relation_univariates(SumcheckTupleOfTuplesOfUnivariates& univariate_accumulators,
                                          const auto& extended_edges,
                                          const bb::RelationParameters<FF>& relation_parameters,
                                          const FF& scaling_factor)
     {
-        using Relation = std::tuple_element_t<relation_idx, Relations>;
-        // Check if the relation is skippable to speed up accumulation
-        if constexpr (!isSkippable<Relation, decltype(extended_edges)>) {
-            // If not, accumulate normally
-            Relation::accumulate(
-                std::get<relation_idx>(univariate_accumulators), extended_edges, relation_parameters, scaling_factor);
-        } else {
-            // If so, only compute the contribution if the relation is active
-            if (!Relation::skip(extended_edges)) {
+        constexpr_for<0, NUM_RELATIONS, 1>([&]<size_t relation_idx>() {
+            using Relation = std::tuple_element_t<relation_idx, Relations>;
+            // Check if the relation is skippable to speed up accumulation
+            if constexpr (!isSkippable<Relation, decltype(extended_edges)>) {
+                // If not, accumulate normally
                 Relation::accumulate(std::get<relation_idx>(univariate_accumulators),
                                      extended_edges,
                                      relation_parameters,
                                      scaling_factor);
+            } else {
+                // If so, only compute the contribution if the relation is active
+                if (!Relation::skip(extended_edges)) {
+                    Relation::accumulate(std::get<relation_idx>(univariate_accumulators),
+                                         extended_edges,
+                                         relation_parameters,
+                                         scaling_factor);
+                }
             }
-        }
-        // Repeat for the next relation.
-        if constexpr (relation_idx + 1 < NUM_RELATIONS) {
-            accumulate_relation_univariates<relation_idx + 1>(
-                univariate_accumulators, extended_edges, relation_parameters, scaling_factor);
-        }
+        });
     }
 };
 
@@ -804,6 +803,7 @@ template <typename Flavor> class SumcheckVerifierRound {
 
         return Utils::scale_and_batch_elements(relation_evaluations, alphas);
     }
+
     /**
      * @brief Temporary method to pad Protogalaxy gate challenges and the gate challenges in
      * TestBasicSingleAvmRecursionConstraint to CONST_PROOF_SIZE_LOG_N. Will be deprecated by more flexible padded size
