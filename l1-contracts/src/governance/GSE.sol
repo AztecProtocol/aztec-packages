@@ -306,10 +306,6 @@ contract GSECore is IGSECore, Ownable {
     bool _moveWithLatestRollup
   ) external override(IGSECore) onlyRollup {
     if (checkProofOfPossession) {
-      require(
-        BN254Lib.proofOfPossession(_publicKeyInG1, _publicKeyInG2, _proofOfPossession),
-        Errors.GSE__InvalidProofOfPossession()
-      );
       // Make sure the attester has not registered before
       G1Point memory previouslyRegisteredPoint = configOf[_attester].publicKey;
       require(
@@ -323,6 +319,11 @@ contract GSECore is IGSECore, Ownable {
       // so existence/correctness of Pk2 is implied by existence/correctness of Pk1.
       bytes32 hashedIncomingPoint = keccak256(abi.encodePacked(_publicKeyInG1.x, _publicKeyInG1.y));
       require((!ownedPKs[hashedIncomingPoint]), Errors.GSE__ProofOfPossessionAlreadySeen(hashedIncomingPoint));
+
+      require(
+        BN254Lib.proofOfPossession(_publicKeyInG1, _publicKeyInG2, _proofOfPossession),
+        Errors.GSE__InvalidProofOfPossession()
+      );
 
       ownedPKs[hashedIncomingPoint] = true;
     }
