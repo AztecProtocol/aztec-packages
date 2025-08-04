@@ -5,10 +5,7 @@ pragma solidity >=0.8.27;
 
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {
-  IRollupCore,
-  RollupStore,
-  SubmitEpochRootProofArgs,
-  RollupConfigInput
+  IRollupCore, RollupStore, SubmitEpochRootProofArgs, RollupConfigInput
 } from "@aztec/core/interfaces/IRollup.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
@@ -35,10 +32,7 @@ import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
 import {RewardLib, RewardConfig} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
-import {
-  FeeConfigLib,
-  CompressedFeeConfig
-} from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
+import {FeeConfigLib, CompressedFeeConfig} from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
 
 /**
  * @title Rollup
@@ -47,13 +41,7 @@ import {
  * not giving a damn about gas costs.
  * @dev WARNING: This contract is VERY close to the size limit
  */
-contract RollupCore is
-  EIP712("Aztec Rollup", "1"),
-  Ownable,
-  IStakingCore,
-  IValidatorSelectionCore,
-  IRollupCore
-{
+contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IValidatorSelectionCore, IRollupCore {
   using TimeLib for Timestamp;
   using TimeLib for Slot;
   using TimeLib for Epoch;
@@ -80,10 +68,7 @@ contract RollupCore is
     RollupConfigInput memory _config
   ) Ownable(_governance) {
     TimeLib.initialize(
-      block.timestamp,
-      _config.aztecSlotDuration,
-      _config.aztecEpochDuration,
-      _config.aztecProofSubmissionEpochs
+      block.timestamp, _config.aztecSlotDuration, _config.aztecEpochDuration, _config.aztecProofSubmissionEpochs
     );
 
     Timestamp exitDelay = Timestamp.wrap(_config.exitDelaySeconds);
@@ -95,9 +80,7 @@ contract RollupCore is
       _config.slashingVetoer
     );
 
-    StakingLib.initialize(
-      _stakingAsset, _gse, exitDelay, address(slasher), _config.stakingQueueConfig
-    );
+    StakingLib.initialize(_stakingAsset, _gse, exitDelay, address(slasher), _config.stakingQueueConfig);
     ExtRollupLib2.initializeValidatorSelection(_config.targetCommitteeSize);
 
     // If no booster specifically provided deploy one.
@@ -117,16 +100,11 @@ contract RollupCore is
 
     // @todo handle case where L1 forks and chainid is different
     // @note Truncated to 32 bits to make simpler to deal with all the node changes at a separate time.
-    uint32 version = uint32(
-      uint256(
-        keccak256(abi.encode(bytes("aztec_rollup"), block.chainid, address(this), _genesisState))
-      )
-    );
+    uint32 version =
+      uint32(uint256(keccak256(abi.encode(bytes("aztec_rollup"), block.chainid, address(this), _genesisState))));
     rollupStore.config.version = version;
 
-    IInbox inbox = IInbox(
-      address(new Inbox(address(this), _feeAsset, version, Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT))
-    );
+    IInbox inbox = IInbox(address(new Inbox(address(this), _feeAsset, version, Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT)));
 
     rollupStore.config.inbox = inbox;
 
@@ -148,10 +126,7 @@ contract RollupCore is
 
   function updateManaTarget(uint256 _manaTarget) external override(IRollupCore) onlyOwner {
     uint256 currentManaTarget = FeeLib.getStorage().config.getManaTarget();
-    require(
-      _manaTarget >= currentManaTarget,
-      Errors.Rollup__InvalidManaTarget(currentManaTarget, _manaTarget)
-    );
+    require(_manaTarget >= currentManaTarget, Errors.Rollup__InvalidManaTarget(currentManaTarget, _manaTarget));
     FeeLib.updateManaTarget(_manaTarget);
     emit IRollupCore.ManaTargetUpdated(_manaTarget);
   }
@@ -165,27 +140,15 @@ contract RollupCore is
     ExtRollupLib2.setSlasher(_slasher);
   }
 
-  function setProvingCostPerMana(EthValue _provingCostPerMana)
-    external
-    override(IRollupCore)
-    onlyOwner
-  {
+  function setProvingCostPerMana(EthValue _provingCostPerMana) external override(IRollupCore) onlyOwner {
     FeeLib.updateProvingCostPerMana(_provingCostPerMana);
   }
 
-  function updateStakingQueueConfig(StakingQueueConfig memory _config)
-    external
-    override(IStakingCore)
-    onlyOwner
-  {
+  function updateStakingQueueConfig(StakingQueueConfig memory _config) external override(IStakingCore) onlyOwner {
     ExtRollupLib2.updateStakingQueueConfig(_config);
   }
 
-  function claimSequencerRewards(address _recipient)
-    external
-    override(IRollupCore)
-    returns (uint256)
-  {
+  function claimSequencerRewards(address _recipient) external override(IRollupCore) returns (uint256) {
     require(isRewardsClaimable, Errors.Rollup__RewardsNotClaimable());
     return RewardLib.claimSequencerRewards(_recipient);
   }
@@ -203,10 +166,7 @@ contract RollupCore is
     ExtRollupLib2.vote(_proposalId);
   }
 
-  function deposit(address _attester, address _withdrawer, bool _moveWithLatestRollup)
-    external
-    override(IStakingCore)
-  {
+  function deposit(address _attester, address _withdrawer, bool _moveWithLatestRollup) external override(IStakingCore) {
     ExtRollupLib2.deposit(_attester, _withdrawer, _moveWithLatestRollup);
   }
 
@@ -215,11 +175,7 @@ contract RollupCore is
     ExtRollupLib2.flushEntryQueue(maxAddableValidators);
   }
 
-  function initiateWithdraw(address _attester, address _recipient)
-    external
-    override(IStakingCore)
-    returns (bool)
-  {
+  function initiateWithdraw(address _attester, address _recipient) external override(IStakingCore) returns (bool) {
     return ExtRollupLib2.initiateWithdraw(_attester, _recipient);
   }
 
@@ -235,10 +191,7 @@ contract RollupCore is
     ExtRollupLib.prune();
   }
 
-  function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args)
-    external
-    override(IRollupCore)
-  {
+  function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) external override(IRollupCore) {
     ExtRollupLib.submitEpochRootProof(_args);
   }
 

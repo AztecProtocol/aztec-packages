@@ -2,14 +2,14 @@
 pragma solidity >=0.8.27;
 
 import {TestBase} from "@test/base/Base.sol";
-import {User, UserLib} from "@aztec/governance/libraries/UserLib.sol";
+import {Checkpoints, CheckpointedUintLib} from "@aztec/governance/libraries/CheckpointedUintLib.sol";
 
-contract UserLibBase is TestBase {
-  using UserLib for User;
+contract CheckpointedUintLibBase is TestBase {
+  using CheckpointedUintLib for Checkpoints.Trace224;
 
   uint256 internal constant CHECKPOINT_COUNT = 8;
 
-  User internal user;
+  Checkpoints.Trace224 internal user;
 
   uint256 internal amount;
   uint256 internal sumBefore;

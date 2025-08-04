@@ -24,9 +24,8 @@ contract Slasher is ISlasher {
     uint256 _executionDelayInRounds,
     address _vetoer
   ) {
-    PROPOSER = new SlashingProposer(
-      msg.sender, this, _quorumSize, _roundSize, _lifetimeInRounds, _executionDelayInRounds
-    );
+    PROPOSER =
+      new SlashingProposer(msg.sender, this, _quorumSize, _roundSize, _lifetimeInRounds, _executionDelayInRounds);
     VETOER = _vetoer;
   }
 
@@ -37,9 +36,7 @@ contract Slasher is ISlasher {
   }
 
   function slash(IPayload _payload) external override(ISlasher) returns (bool) {
-    require(
-      msg.sender == address(PROPOSER), Slasher__CallerNotProposer(msg.sender, address(PROPOSER))
-    );
+    require(msg.sender == address(PROPOSER), Slasher__CallerNotProposer(msg.sender, address(PROPOSER)));
 
     require(!vetoedPayloads[address(_payload)], Slasher__PayloadVetoed(address(_payload)));
 

@@ -22,6 +22,7 @@ import {
   MockPrivateKernelResetCircuit,
   MockPrivateKernelResetVk,
   MockPrivateKernelTailCircuit,
+  MockPrivateKernelTailVk,
   generate3FunctionTestingIVCStack,
   getVkAsFields,
   witnessGenCreatorAppMockCircuit,
@@ -57,7 +58,7 @@ describe('Client IVC Integration', () => {
     const clientIVCWorkingDirectory = await getWorkingDirectory('bb-client-ivc-integration-');
     const tasks = [
       proveClientIVCNative(bbBinaryPath, clientIVCWorkingDirectory, witnessStack, bytecodes, vks, logger),
-      proveClientIVCWasm(bytecodes, witnessStack),
+      proveClientIVCWasm(bytecodes, witnessStack, vks),
     ];
     const [_, wasmProof] = await Promise.all(tasks);
 
@@ -155,7 +156,15 @@ describe('Client IVC Integration', () => {
       tailWitnessGenResult.witness,
     ];
 
-    const verifyResult = await proveThenVerifyAztecClient(bytecodes, witnessStack);
+    const precomputedVks = [
+      MockAppCreatorVk.keyAsBytes,
+      MockPrivateKernelInitVk.keyAsBytes,
+      MockAppReaderVk.keyAsBytes,
+      MockPrivateKernelInnerVk.keyAsBytes,
+      MockPrivateKernelResetVk.keyAsBytes,
+      MockPrivateKernelTailVk.keyAsBytes,
+    ];
+    const verifyResult = await proveThenVerifyAztecClient(bytecodes, witnessStack, precomputedVks);
     logger.info(`generated then verified proof. result: ${verifyResult}`);
 
     expect(verifyResult).toEqual(true);

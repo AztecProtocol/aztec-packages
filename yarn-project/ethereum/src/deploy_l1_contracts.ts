@@ -182,8 +182,8 @@ export const deploySharedContracts = async (
   const gseAddress = await deployer.deploy(GSEArtifact, [
     l1Client.account.address.toString(),
     stakingAssetAddress.toString(),
-    gseConfiguration.depositAmount,
-    gseConfiguration.minimumStake,
+    gseConfiguration.activationThreshold,
+    gseConfiguration.ejectionThreshold,
   ]);
   logger.verbose(`Deployed GSE at ${gseAddress}`);
 
@@ -431,7 +431,7 @@ export const deployRollupForUpgrade = async (
   extendedClient: ExtendedViemWalletClient,
   args: Omit<
     DeployL1ContractsArgs,
-    'governanceProposerQuorum' | 'governanceProposerRoundSize' | 'minimumStake' | 'depositAmount'
+    'governanceProposerQuorum' | 'governanceProposerRoundSize' | 'ejectionThreshold' | 'activationThreshold'
   >,
   registryAddress: EthAddress,
   logger: Logger,
@@ -481,7 +481,7 @@ export const deployRollup = async (
   deployer: L1Deployer,
   args: Omit<
     DeployL1ContractsArgs,
-    'governanceProposerQuorum' | 'governanceProposerRoundSize' | 'minimumStake' | 'depositAmount'
+    'governanceProposerQuorum' | 'governanceProposerRoundSize' | 'ejectionThreshold' | 'activationThreshold'
   >,
   addresses: Pick<
     L1ContractAddresses,
@@ -740,7 +740,7 @@ export const addMultipleValidators = async (
   logger: Logger,
 ) => {
   const rollup = new RollupContract(extendedClient, rollupAddress);
-  const depositAmount = await rollup.getDepositAmount();
+  const activationThreshold = await rollup.getActivationThreshold();
   if (validators && validators.length > 0) {
     // Check if some of the initial validators are already registered, so we support idempotent deployments
     if (!acceleratedTestDeployments) {
@@ -771,7 +771,7 @@ export const addMultipleValidators = async (
       }));
 
       // Mint tokens, approve them, use cheat code to initialise validator set without setting up the epoch.
-      const stakeNeeded = depositAmount * BigInt(validators.length);
+      const stakeNeeded = activationThreshold * BigInt(validators.length);
       const { txHash } = await deployer.sendTransaction({
         to: stakingAssetAddress,
         data: encodeFunctionData({

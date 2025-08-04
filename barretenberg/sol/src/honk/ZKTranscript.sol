@@ -6,7 +6,9 @@ import {
     NUMBER_OF_ENTITIES,
     ZK_BATCHED_RELATION_PARTIAL_LENGTH,
     CONST_PROOF_SIZE_LOG_N,
-    PAIRING_POINTS_SIZE
+    PAIRING_POINTS_SIZE,
+    GROUP_ELEMENT_SIZE,
+    FIELD_ELEMENT_SIZE
 } from "./HonkTypes.sol";
 import {Fr, FrLib} from "./Fr.sol";
 import {bytesToG1Point, bytesToFr} from "./utils.sol";
@@ -33,14 +35,12 @@ library ZKTranscriptLib {
     function generateTranscript(
         Honk.ZKProof memory proof,
         bytes32[] calldata publicInputs,
-        uint256 circuitSize,
-        uint256 publicInputsSize,
-        uint256 pubInputsOffset
+        uint256 vkHash,
+        uint256 publicInputsSize
     ) external pure returns (ZKTranscript memory t) {
         Fr previousChallenge;
-        (t.relationParameters, previousChallenge) = generateRelationParametersChallenges(
-            proof, publicInputs, circuitSize, publicInputsSize, pubInputsOffset, previousChallenge
-        );
+        (t.relationParameters, previousChallenge) =
+            generateRelationParametersChallenges(proof, publicInputs, vkHash, publicInputsSize, previousChallenge);
 
         (t.alphas, previousChallenge) = generateAlphaChallenges(previousChallenge, proof);
 
@@ -69,13 +69,12 @@ library ZKTranscriptLib {
     function generateRelationParametersChallenges(
         Honk.ZKProof memory proof,
         bytes32[] calldata publicInputs,
-        uint256 circuitSize,
+        uint256 vkHash,
         uint256 publicInputsSize,
-        uint256 pubInputsOffset,
         Fr previousChallenge
     ) internal pure returns (Honk.RelationParameters memory rp, Fr nextPreviousChallenge) {
         (rp.eta, rp.etaTwo, rp.etaThree, previousChallenge) =
-            generateEtaChallenge(proof, publicInputs, circuitSize, publicInputsSize, pubInputsOffset);
+            generateEtaChallenge(proof, publicInputs, vkHash, publicInputsSize);
 
         (rp.beta, rp.gamma, nextPreviousChallenge) = generateBetaAndGammaChallenges(previousChallenge, proof);
     }
@@ -83,29 +82,27 @@ library ZKTranscriptLib {
     function generateEtaChallenge(
         Honk.ZKProof memory proof,
         bytes32[] calldata publicInputs,
-        uint256 circuitSize,
-        uint256 publicInputsSize,
-        uint256 pubInputsOffset
+        uint256 vkHash,
+        uint256 publicInputsSize
     ) internal pure returns (Fr eta, Fr etaTwo, Fr etaThree, Fr previousChallenge) {
-        bytes32[] memory round0 = new bytes32[](3 + publicInputsSize + 6);
-        round0[0] = bytes32(circuitSize);
-        round0[1] = bytes32(publicInputsSize);
-        round0[2] = bytes32(pubInputsOffset);
+        bytes32[] memory round0 = new bytes32[](1 + publicInputsSize + 6);
+        round0[0] = bytes32(vkHash);
+
         for (uint256 i = 0; i < publicInputsSize - PAIRING_POINTS_SIZE; i++) {
-            round0[3 + i] = bytes32(publicInputs[i]);
+            round0[1 + i] = bytes32(publicInputs[i]);
         }
         for (uint256 i = 0; i < PAIRING_POINTS_SIZE; i++) {
-            round0[3 + publicInputsSize - PAIRING_POINTS_SIZE + i] = FrLib.toBytes32(proof.pairingPointObject[i]);
+            round0[1 + publicInputsSize - PAIRING_POINTS_SIZE + i] = FrLib.toBytes32(proof.pairingPointObject[i]);
         }
 
         // Create the first challenge
         // Note: w4 is added to the challenge later on
-        round0[3 + publicInputsSize] = bytes32(proof.w1.x);
-        round0[3 + publicInputsSize + 1] = bytes32(proof.w1.y);
-        round0[3 + publicInputsSize + 2] = bytes32(proof.w2.x);
-        round0[3 + publicInputsSize + 3] = bytes32(proof.w2.y);
-        round0[3 + publicInputsSize + 4] = bytes32(proof.w3.x);
-        round0[3 + publicInputsSize + 5] = bytes32(proof.w3.y);
+        round0[1 + publicInputsSize] = bytes32(proof.w1.x);
+        round0[1 + publicInputsSize + 1] = bytes32(proof.w1.y);
+        round0[1 + publicInputsSize + 2] = bytes32(proof.w2.x);
+        round0[1 + publicInputsSize + 3] = bytes32(proof.w2.y);
+        round0[1 + publicInputsSize + 4] = bytes32(proof.w3.x);
+        round0[1 + publicInputsSize + 5] = bytes32(proof.w3.y);
 
         previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(round0)));
         (eta, etaTwo) = splitChallenge(previousChallenge);
@@ -301,81 +298,81 @@ library ZKTranscriptLib {
 
         // Pairing point object
         for (uint256 i = 0; i < PAIRING_POINTS_SIZE; i++) {
-            p.pairingPointObject[i] = bytesToFr(proof[boundary:boundary + 0x20]);
-            boundary += 0x20;
+            p.pairingPointObject[i] = bytesToFr(proof[boundary:boundary + FIELD_ELEMENT_SIZE]);
+            boundary += FIELD_ELEMENT_SIZE;
         }
         // Commitments
-        p.w1 = bytesToG1Point(proof[boundary:boundary + 0x40]);
-        boundary += 0x40;
-        p.w2 = bytesToG1Point(proof[boundary:boundary + 0x40]);
-        boundary += 0x40;
-        p.w3 = bytesToG1Point(proof[boundary:boundary + 0x40]);
-        boundary += 0x40;
+        p.w1 = bytesToG1Point(proof[boundary:boundary + GROUP_ELEMENT_SIZE]);
+        boundary += GROUP_ELEMENT_SIZE;
+        p.w2 = bytesToG1Point(proof[boundary:boundary + GROUP_ELEMENT_SIZE]);
+        boundary += GROUP_ELEMENT_SIZE;
+        p.w3 = bytesToG1Point(proof[boundary:boundary + GROUP_ELEMENT_SIZE]);
+        boundary += GROUP_ELEMENT_SIZE;
 
         // Lookup / Permutation Helper Commitments
-        p.lookupReadCounts = bytesToG1Point(proof[boundary:boundary + 0x40]);
-        boundary += 0x40;
-        p.lookupReadTags = bytesToG1Point(proof[boundary:boundary + 0x40]);
-        boundary += 0x40;
-        p.w4 = bytesToG1Point(proof[boundary:boundary + 0x40]);
-        boundary += 0x40;
-        p.lookupInverses = bytesToG1Point(proof[boundary:boundary + 0x40]);
-        boundary += 0x40;
-        p.zPerm = bytesToG1Point(proof[boundary:boundary + 0x40]);
-        boundary += 0x40;
-        p.libraCommitments[0] = bytesToG1Point(proof[boundary:boundary + 0x40]);
-        boundary += 0x40;
+        p.lookupReadCounts = bytesToG1Point(proof[boundary:boundary + GROUP_ELEMENT_SIZE]);
+        boundary += GROUP_ELEMENT_SIZE;
+        p.lookupReadTags = bytesToG1Point(proof[boundary:boundary + GROUP_ELEMENT_SIZE]);
+        boundary += GROUP_ELEMENT_SIZE;
+        p.w4 = bytesToG1Point(proof[boundary:boundary + GROUP_ELEMENT_SIZE]);
+        boundary += GROUP_ELEMENT_SIZE;
+        p.lookupInverses = bytesToG1Point(proof[boundary:boundary + GROUP_ELEMENT_SIZE]);
+        boundary += GROUP_ELEMENT_SIZE;
+        p.zPerm = bytesToG1Point(proof[boundary:boundary + GROUP_ELEMENT_SIZE]);
+        boundary += GROUP_ELEMENT_SIZE;
+        p.libraCommitments[0] = bytesToG1Point(proof[boundary:boundary + GROUP_ELEMENT_SIZE]);
+        boundary += GROUP_ELEMENT_SIZE;
 
-        p.libraSum = bytesToFr(proof[boundary:boundary + 0x20]);
-        boundary += 0x20;
+        p.libraSum = bytesToFr(proof[boundary:boundary + FIELD_ELEMENT_SIZE]);
+        boundary += FIELD_ELEMENT_SIZE;
         // Sumcheck univariates
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
             for (uint256 j = 0; j < ZK_BATCHED_RELATION_PARTIAL_LENGTH; j++) {
-                p.sumcheckUnivariates[i][j] = bytesToFr(proof[boundary:boundary + 0x20]);
-                boundary += 0x20;
+                p.sumcheckUnivariates[i][j] = bytesToFr(proof[boundary:boundary + FIELD_ELEMENT_SIZE]);
+                boundary += FIELD_ELEMENT_SIZE;
             }
         }
 
         // Sumcheck evaluations
         for (uint256 i = 0; i < NUMBER_OF_ENTITIES; i++) {
-            p.sumcheckEvaluations[i] = bytesToFr(proof[boundary:boundary + 0x20]);
-            boundary += 0x20;
+            p.sumcheckEvaluations[i] = bytesToFr(proof[boundary:boundary + FIELD_ELEMENT_SIZE]);
+            boundary += FIELD_ELEMENT_SIZE;
         }
 
-        p.libraEvaluation = bytesToFr(proof[boundary:boundary + 0x20]);
-        boundary += 0x20;
+        p.libraEvaluation = bytesToFr(proof[boundary:boundary + FIELD_ELEMENT_SIZE]);
+        boundary += FIELD_ELEMENT_SIZE;
 
-        p.libraCommitments[1] = bytesToG1Point(proof[boundary:boundary + 0x40]);
-        boundary += 0x40;
-        p.libraCommitments[2] = bytesToG1Point(proof[boundary:boundary + 0x40]);
-        boundary += 0x40;
-        p.geminiMaskingPoly = bytesToG1Point(proof[boundary:boundary + 0x40]);
-        boundary += 0x40;
-        p.geminiMaskingEval = bytesToFr(proof[boundary:boundary + 0x20]);
-        boundary += 0x20;
+        p.libraCommitments[1] = bytesToG1Point(proof[boundary:boundary + GROUP_ELEMENT_SIZE]);
+        boundary += GROUP_ELEMENT_SIZE;
+        p.libraCommitments[2] = bytesToG1Point(proof[boundary:boundary + GROUP_ELEMENT_SIZE]);
+        boundary += GROUP_ELEMENT_SIZE;
+        p.geminiMaskingPoly = bytesToG1Point(proof[boundary:boundary + GROUP_ELEMENT_SIZE]);
+        boundary += GROUP_ELEMENT_SIZE;
+        p.geminiMaskingEval = bytesToFr(proof[boundary:boundary + FIELD_ELEMENT_SIZE]);
+        boundary += FIELD_ELEMENT_SIZE;
 
         // Gemini
         // Read gemini fold univariates
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; i++) {
-            p.geminiFoldComms[i] = bytesToG1Point(proof[boundary:boundary + 0x40]);
-            boundary += 0x40;
+            p.geminiFoldComms[i] = bytesToG1Point(proof[boundary:boundary + GROUP_ELEMENT_SIZE]);
+            boundary += GROUP_ELEMENT_SIZE;
         }
 
         // Read gemini a evaluations
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
-            p.geminiAEvaluations[i] = bytesToFr(proof[boundary:boundary + 0x20]);
-            boundary += 0x20;
+            p.geminiAEvaluations[i] = bytesToFr(proof[boundary:boundary + FIELD_ELEMENT_SIZE]);
+            boundary += FIELD_ELEMENT_SIZE;
         }
 
         for (uint256 i = 0; i < 4; i++) {
-            p.libraPolyEvals[i] = bytesToFr(proof[boundary:boundary + 0x20]);
-            boundary += 0x20;
+            p.libraPolyEvals[i] = bytesToFr(proof[boundary:boundary + FIELD_ELEMENT_SIZE]);
+            boundary += FIELD_ELEMENT_SIZE;
         }
 
         // Shplonk
-        p.shplonkQ = bytesToG1Point(proof[boundary:boundary + 0x40]);
-        boundary += 0x40;
+        p.shplonkQ = bytesToG1Point(proof[boundary:boundary + GROUP_ELEMENT_SIZE]);
+        boundary += GROUP_ELEMENT_SIZE;
         // KZG
-        p.kzgQuotient = bytesToG1Point(proof[boundary:boundary + 0x40]);
+        p.kzgQuotient = bytesToG1Point(proof[boundary:boundary + GROUP_ELEMENT_SIZE]);
     }
 }
