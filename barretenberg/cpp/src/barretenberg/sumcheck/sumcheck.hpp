@@ -474,7 +474,7 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
      * \f{align}{
         \texttt{partially_evaluated_polynomials}_{\ell,j} \gets &\
          P_j\left(u_0,\ldots, u_{i}, \vec \ell \right)    \\
-         = &\ P_j\left(u_0,\ldots, u_{i-1}, 0,  \vec \ell \right) + u_{i} \cdot \left( P_j\left(u_0, \ldots, u_{i-1}, 1,
+       = &\ P_j\left(u_0,\ldots, u_{i-1}, 0,  \vec \ell \right) + u_{i} \cdot \left( P_j\left(u_0, \ldots, u_{i-1}, 1,
     \vec \ell ) - P_j(u_0,\ldots, u_{i-1}, 0,  \vec \ell \right)\right)  \\ =
     &\ \texttt{partially_evaluated_polynomials}_{2 \ell,j}  + u_{i} \cdot
     (\texttt{partially_evaluated_polynomials}_{2 \ell+1,j} - \texttt{partially_evaluated_polynomials}_{2\ell,j}) \f}
@@ -638,8 +638,8 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
      *
      */
     using ClaimedEvaluations = typename Flavor::AllValues;
-    // For ZK Flavors: the verifier obtains a vector of evaluations of \f$ d \f$ univariate polynomials and uses
-    // them to compute full_honk_relation_purported_value
+    // For ZK Flavors: the verifier obtains a vector of evaluations of \f$ d \f$ univariate polynomials and uses them to
+    // compute full_honk_relation_purported_value
     using ClaimedLibraEvaluations = typename std::vector<FF>;
     using Transcript = typename Flavor::Transcript;
     using SubrelationSeparators = typename Flavor::SubrelationSeparators;
@@ -861,8 +861,8 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
             eval = transcript_eval;
         }
         // For ZK Flavors: the evaluation of the Row Disabling Polynomial at the sumcheck challenge
-        // Evaluate the Honk relation at the point (u_0, ..., u_{d-1}) using claimed evaluations of prover
-        // polynomials. In ZK Flavors, the evaluation is corrected by full_libra_purported_value
+        // Evaluate the Honk relation at the point (u_0, ..., u_{d-1}) using claimed evaluations of prover polynomials.
+        // In ZK Flavors, the evaluation is corrected by full_libra_purported_value
         FF full_honk_purported_value = round.compute_full_relation_purported_value(
             purported_evaluations, relation_parameters, gate_separators, alphas);
 
