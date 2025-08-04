@@ -58,38 +58,51 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         size_t MAX_PARTIAL_RELATION_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
         size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
         // Size of types is number of bb::frs needed to represent the types
-        size_t frs_per_Fr = bb::field_conversion::calc_num_bn254_frs<FF>();
-        size_t frs_per_G = bb::field_conversion::calc_num_bn254_frs<Commitment>();
-        size_t frs_per_uni = MAX_PARTIAL_RELATION_LENGTH * frs_per_Fr;
-        size_t frs_per_evals = (Flavor::NUM_ALL_ENTITIES)*frs_per_Fr;
+        // UltraKeccak uses uint256_t for commitments and frs, so we need to handle that differently.
+        size_t data_types_per_Frs = [] {
+            if constexpr (IsKeccakFlavor<Flavor>) {
+                return bb::field_conversion::calc_num_uint256_ts<FF>();
+            } else {
+                return bb::field_conversion::calc_num_bn254_frs<FF>();
+            }
+        }();
+        size_t data_types_per_G = [] {
+            if constexpr (IsKeccakFlavor<Flavor>) {
+                return bb::field_conversion::calc_num_uint256_ts<Commitment>();
+            } else {
+                return bb::field_conversion::calc_num_bn254_frs<Commitment>();
+            }
+        }();
+        size_t frs_per_uni = MAX_PARTIAL_RELATION_LENGTH * data_types_per_Frs;
+        size_t frs_per_evals = (Flavor::NUM_ALL_ENTITIES)*data_types_per_Frs;
 
         size_t round = 0;
-        manifest_expected.add_entry(round, "vk_hash", frs_per_Fr);
+        manifest_expected.add_entry(round, "vk_hash", data_types_per_Frs);
 
-        manifest_expected.add_entry(round, "public_input_0", frs_per_Fr);
+        manifest_expected.add_entry(round, "public_input_0", data_types_per_Frs);
         for (size_t i = 0; i < PAIRING_POINTS_SIZE; i++) {
-            manifest_expected.add_entry(round, "public_input_" + std::to_string(1 + i), frs_per_Fr);
+            manifest_expected.add_entry(round, "public_input_" + std::to_string(1 + i), data_types_per_Frs);
         }
         if constexpr (HasIPAAccumulator<Flavor>) {
             for (size_t i = 0; i < IPA_CLAIM_SIZE; i++) {
                 manifest_expected.add_entry(
-                    round, "public_input_" + std::to_string(1 + PAIRING_POINTS_SIZE + i), frs_per_Fr);
+                    round, "public_input_" + std::to_string(1 + PAIRING_POINTS_SIZE + i), data_types_per_Frs);
             }
         }
-        manifest_expected.add_entry(round, "W_L", frs_per_G);
-        manifest_expected.add_entry(round, "W_R", frs_per_G);
-        manifest_expected.add_entry(round, "W_O", frs_per_G);
+        manifest_expected.add_entry(round, "W_L", data_types_per_G);
+        manifest_expected.add_entry(round, "W_R", data_types_per_G);
+        manifest_expected.add_entry(round, "W_O", data_types_per_G);
         manifest_expected.add_challenge(round, "eta", "eta_two", "eta_three");
 
         round++;
-        manifest_expected.add_entry(round, "LOOKUP_READ_COUNTS", frs_per_G);
-        manifest_expected.add_entry(round, "LOOKUP_READ_TAGS", frs_per_G);
-        manifest_expected.add_entry(round, "W_4", frs_per_G);
+        manifest_expected.add_entry(round, "LOOKUP_READ_COUNTS", data_types_per_G);
+        manifest_expected.add_entry(round, "LOOKUP_READ_TAGS", data_types_per_G);
+        manifest_expected.add_entry(round, "W_4", data_types_per_G);
         manifest_expected.add_challenge(round, "beta", "gamma");
 
         round++;
-        manifest_expected.add_entry(round, "LOOKUP_INVERSES", frs_per_G);
-        manifest_expected.add_entry(round, "Z_PERM", frs_per_G);
+        manifest_expected.add_entry(round, "LOOKUP_INVERSES", data_types_per_G);
+        manifest_expected.add_entry(round, "Z_PERM", data_types_per_G);
 
         std::array<std::string, Flavor::NUM_SUBRELATIONS - 1> alpha_labels;
         for (size_t i = 0; i < NUM_SUBRELATIONS - 1; i++) {
@@ -107,8 +120,8 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         }
 
         if constexpr (Flavor::HasZK) {
-            manifest_expected.add_entry(round, "Libra:concatenation_commitment", frs_per_G);
-            manifest_expected.add_entry(round, "Libra:Sum", frs_per_Fr);
+            manifest_expected.add_entry(round, "Libra:concatenation_commitment", data_types_per_G);
+            manifest_expected.add_entry(round, "Libra:Sum", data_types_per_Frs);
             manifest_expected.add_challenge(round, "Libra:Challenge");
             round++;
         }
@@ -124,11 +137,11 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "Sumcheck:evaluations", frs_per_evals);
 
         if constexpr (Flavor::HasZK) {
-            manifest_expected.add_entry(round, "Libra:claimed_evaluation", frs_per_Fr);
-            manifest_expected.add_entry(round, "Libra:grand_sum_commitment", frs_per_G);
-            manifest_expected.add_entry(round, "Libra:quotient_commitment", frs_per_G);
-            manifest_expected.add_entry(round, "Gemini:masking_poly_comm", frs_per_G);
-            manifest_expected.add_entry(round, "Gemini:masking_poly_eval", frs_per_Fr);
+            manifest_expected.add_entry(round, "Libra:claimed_evaluation", data_types_per_Frs);
+            manifest_expected.add_entry(round, "Libra:grand_sum_commitment", data_types_per_G);
+            manifest_expected.add_entry(round, "Libra:quotient_commitment", data_types_per_G);
+            manifest_expected.add_entry(round, "Gemini:masking_poly_comm", data_types_per_G);
+            manifest_expected.add_entry(round, "Gemini:masking_poly_eval", data_types_per_Frs);
         }
 
         manifest_expected.add_challenge(round, "rho");
@@ -136,29 +149,29 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         round++;
         for (size_t i = 1; i < CONST_PROOF_SIZE_LOG_N; ++i) {
             std::string idx = std::to_string(i);
-            manifest_expected.add_entry(round, "Gemini:FOLD_" + idx, frs_per_G);
+            manifest_expected.add_entry(round, "Gemini:FOLD_" + idx, data_types_per_G);
         }
         manifest_expected.add_challenge(round, "Gemini:r");
         round++;
         for (size_t i = 1; i <= CONST_PROOF_SIZE_LOG_N; ++i) {
             std::string idx = std::to_string(i);
-            manifest_expected.add_entry(round, "Gemini:a_" + idx, frs_per_Fr);
+            manifest_expected.add_entry(round, "Gemini:a_" + idx, data_types_per_Frs);
         }
 
         if constexpr (Flavor::HasZK) {
-            manifest_expected.add_entry(round, "Libra:concatenation_eval", frs_per_Fr);
-            manifest_expected.add_entry(round, "Libra:shifted_grand_sum_eval", frs_per_Fr);
-            manifest_expected.add_entry(round, "Libra:grand_sum_eval", frs_per_Fr);
-            manifest_expected.add_entry(round, "Libra:quotient_eval", frs_per_Fr);
+            manifest_expected.add_entry(round, "Libra:concatenation_eval", data_types_per_Frs);
+            manifest_expected.add_entry(round, "Libra:shifted_grand_sum_eval", data_types_per_Frs);
+            manifest_expected.add_entry(round, "Libra:grand_sum_eval", data_types_per_Frs);
+            manifest_expected.add_entry(round, "Libra:quotient_eval", data_types_per_Frs);
         }
 
         manifest_expected.add_challenge(round, "Shplonk:nu");
         round++;
-        manifest_expected.add_entry(round, "Shplonk:Q", frs_per_G);
+        manifest_expected.add_entry(round, "Shplonk:Q", data_types_per_G);
         manifest_expected.add_challenge(round, "Shplonk:z");
 
         round++;
-        manifest_expected.add_entry(round, "KZG:W", frs_per_G);
+        manifest_expected.add_entry(round, "KZG:W", data_types_per_G);
         manifest_expected.add_challenge(round); // no challenge
 
         return manifest_expected;
