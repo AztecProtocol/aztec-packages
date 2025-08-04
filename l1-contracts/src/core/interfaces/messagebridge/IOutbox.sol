@@ -55,10 +55,7 @@ interface IOutbox {
    * @param _l2BlockNumber - The block number specifying the block that contains the message we want to check
    * @param _leafId - The unique id of the message leaf
    */
-  function hasMessageBeenConsumedAtBlock(uint256 _l2BlockNumber, uint256 _leafId)
-    external
-    view
-    returns (bool);
+  function hasMessageBeenConsumedAtBlock(uint256 _l2BlockNumber, uint256 _leafId) external view returns (bool);
   // docs:end:outbox_has_message_been_consumed_at_block_and_index
 
   /**

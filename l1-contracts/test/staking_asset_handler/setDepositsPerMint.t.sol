@@ -37,10 +37,7 @@ contract SetDepositsPerMintTest is StakingAssetHandlerBase {
     stakingAssetHandler.setDepositsPerMint(0);
   }
 
-  function test_WhenDepositsPerMintIsNot0(uint256 _newDepositsPerMint)
-    external
-    whenCallerOfSetDepositsPerMintIsOwner
-  {
+  function test_WhenDepositsPerMintIsNot0(uint256 _newDepositsPerMint) external whenCallerOfSetDepositsPerMintIsOwner {
     _newDepositsPerMint = bound(_newDepositsPerMint, 1, 1000);
     // it sets the deposits per mint
     // it emits a {DepositsPerMintUpdated} event
@@ -80,9 +77,7 @@ contract SetDepositsPerMintTest is StakingAssetHandlerBase {
     // it reverts when adding one more validator
     uint256 lastMintTimestamp = stakingAssetHandler.lastMintTimestamp();
     vm.expectRevert(
-      abi.encodeWithSelector(
-        IStakingAssetHandler.ValidatorQuotaFilledUntil.selector, lastMintTimestamp + mintInterval
-      )
+      abi.encodeWithSelector(IStakingAssetHandler.ValidatorQuotaFilledUntil.selector, lastMintTimestamp + mintInterval)
     );
     vm.prank(caller);
     stakingAssetHandler.addValidator(address(0xbeefdeef), validMerkleProof, realProof);

@@ -2,9 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {
-  RollupStore, IRollupCore, BlockHeaderValidationFlags
-} from "@aztec/core/interfaces/IRollup.sol";
+import {RollupStore, IRollupCore, BlockHeaderValidationFlags} from "@aztec/core/interfaces/IRollup.sol";
 import {TempBlockLog} from "@aztec/core/libraries/compressed-data/BlockLog.sol";
 import {FeeHeader} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
@@ -13,9 +11,7 @@ import {OracleInput, FeeLib, ManaBaseFeeComponents} from "@aztec/core/libraries/
 import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
-import {
-  SignatureDomainSeparator, CommitteeAttestations
-} from "@aztec/shared/libraries/SignatureLib.sol";
+import {SignatureDomainSeparator, CommitteeAttestations} from "@aztec/shared/libraries/SignatureLib.sol";
 import {BlobLib} from "./BlobLib.sol";
 import {ProposedHeader, ProposedHeaderLib, StateReference} from "./ProposedHeaderLib.sol";
 import {STFLib} from "./STFLib.sol";
@@ -84,7 +80,8 @@ library ProposeLib {
    * input[:1] - num blobs in block
    * input[1:] - blob commitments (48 bytes * num blobs in block)
    * @param _blobsInput - The above bytes to verify our input blob commitments match real blobs
-   * @param _checkBlob - Whether to skip blob related checks. Hardcoded to true (See RollupCore.sol -> checkBlob), exists only to be overriden in tests.
+   * @param _checkBlob - Whether to skip blob related checks. Hardcoded to true (See RollupCore.sol -> checkBlob),
+   *                     exists only to be overridden in tests and during simulation.
    */
   function propose(
     ProposeArgs calldata _args,
@@ -104,10 +101,10 @@ library ProposeLib {
       FeeLib.updateL1GasFeeOracle();
     }
 
-    // TODO(#13430): The below blobsHashesCommitment known as blobsHash elsewhere in the code. The name is confusingly similar to blobCommitmentsHash,
+    // TODO(#13430): The below blobsHashesCommitment known as blobsHash elsewhere in the code. The name is confusingly
+    // similar to blobCommitmentsHash,
     // see comment in BlobLib.sol -> validateBlobs().
-    (v.blobHashes, v.blobsHashesCommitment, v.blobCommitments) =
-      BlobLib.validateBlobs(_blobsInput, _checkBlob);
+    (v.blobHashes, v.blobsHashesCommitment, v.blobCommitments) = BlobLib.validateBlobs(_blobsInput, _checkBlob);
 
     ProposedHeader memory header = _args.header;
     v.headerHash = ProposedHeaderLib.hash(_args.header);
@@ -140,9 +137,7 @@ library ProposeLib {
       })
     );
 
-    ValidatorSelectionLib.verifyProposer(
-      header.slotNumber, v.currentEpoch, _attestations, _signers, v.payloadDigest
-    );
+    ValidatorSelectionLib.verifyProposer(header.slotNumber, v.currentEpoch, _attestations, _signers, v.payloadDigest);
 
     RollupStore storage rollupStore = STFLib.getStorage();
     CompressedChainTips tips = rollupStore.tips;
@@ -150,9 +145,9 @@ library ProposeLib {
     uint256 blockNumber = tips.getPendingBlockNumber() + 1;
     tips = tips.updatePendingBlockNumber(blockNumber);
 
-    // Blob commitments are collected and proven per root rollup proof (=> per epoch), so we need to know whether we are at the epoch start:
-    v.isFirstBlockOfEpoch =
-      v.currentEpoch > STFLib.getEpochForBlock(blockNumber - 1) || blockNumber == 1;
+    // Blob commitments are collected and proven per root rollup proof (=> per epoch), so we need to know whether we are
+    // at the epoch start:
+    v.isFirstBlockOfEpoch = v.currentEpoch > STFLib.getEpochForBlock(blockNumber - 1) || blockNumber == 1;
     bytes32 blobCommitmentsHash = BlobLib.calculateBlobCommitmentsHash(
       STFLib.getBlobCommitmentsHash(blockNumber - 1), v.blobCommitments, v.isFirstBlockOfEpoch
     );
@@ -227,16 +222,12 @@ library ProposeLib {
     require(slot == currentSlot, Errors.HeaderLib__InvalidSlotNumber(currentSlot, slot));
 
     Timestamp timestamp = TimeLib.toTimestamp(slot);
-    require(
-      _args.header.timestamp == timestamp,
-      Errors.Rollup__InvalidTimestamp(timestamp, _args.header.timestamp)
-    );
+    require(_args.header.timestamp == timestamp, Errors.Rollup__InvalidTimestamp(timestamp, _args.header.timestamp));
 
     require(timestamp <= currentTime, Errors.Rollup__TimestampInFuture(currentTime, timestamp));
 
     require(
-      _args.flags.ignoreDA
-        || _args.header.contentCommitment.blobsHash == _args.blobsHashesCommitment,
+      _args.flags.ignoreDA || _args.header.contentCommitment.blobsHash == _args.blobsHashesCommitment,
       Errors.Rollup__UnavailableTxs(_args.header.contentCommitment.blobsHash)
     );
 

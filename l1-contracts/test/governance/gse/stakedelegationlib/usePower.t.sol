@@ -6,10 +6,10 @@ import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {Test} from "forge-std/Test.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 
-import {DelegationLibWrapper} from "./DelegationLibWrapper.sol";
+import {StakeDelegationLibWrapper} from "./StakeDelegationLibWrapper.sol";
 
 contract UsePowerTest is Test {
-  DelegationLibWrapper internal delegationLib = new DelegationLibWrapper();
+  StakeDelegationLibWrapper internal delegationLib = new StakeDelegationLibWrapper();
 
   function test_GivenPowerUsedPlusAmountGtPowerAt(
     address _delegatee,
@@ -41,9 +41,7 @@ contract UsePowerTest is Test {
 
     // At this point, we expect a failure when we are trying to vote with move than we have available
     vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.Delegation__InsufficientPower.selector, _delegatee, powerAt, preAmount + amount
-      )
+      abi.encodeWithSelector(Errors.Delegation__InsufficientPower.selector, _delegatee, powerAt, preAmount + amount)
     );
     delegationLib.usePower(_delegatee, _proposalId, Timestamp.wrap(timestamp - 1), amount);
   }

@@ -14,7 +14,7 @@ template <typename FF_> class sstoreImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 8> SUBRELATION_PARTIAL_LENGTHS = { 3, 5, 4, 3, 4, 4, 4, 4 };
+    static constexpr std::array<size_t, 8> SUBRELATION_PARTIAL_LENGTHS = { 3, 5, 5, 3, 4, 4, 4, 4 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -58,11 +58,13 @@ template <typename FF_> class sstoreImpl {
             tmp *= scaling_factor;
             std::get<1>(evals) += typename Accumulator::View(tmp);
         }
-        { // SSTORE_ERROR_TOO_MANY_WRITES
+        { // OPCODE_ERROR_IF_OVERFLOW_OR_STATIC
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_execute_sstore) *
-                       (in.get(C::execution_max_data_writes_reached) * in.get(C::execution_dynamic_da_gas_factor) -
-                        in.get(C::execution_sel_opcode_error));
+            auto tmp =
+                in.get(C::execution_sel_execute_sstore) *
+                ((FF(1) - in.get(C::execution_max_data_writes_reached) * in.get(C::execution_dynamic_da_gas_factor)) *
+                     (FF(1) - in.get(C::execution_is_static)) -
+                 (FF(1) - in.get(C::execution_sel_opcode_error)));
             tmp *= scaling_factor;
             std::get<2>(evals) += typename Accumulator::View(tmp);
         }
@@ -116,7 +118,7 @@ template <typename FF> class sstore : public Relation<sstoreImpl<FF>> {
         case 1:
             return "SSTORE_MAX_DATA_WRITES_REACHED";
         case 2:
-            return "SSTORE_ERROR_TOO_MANY_WRITES";
+            return "OPCODE_ERROR_IF_OVERFLOW_OR_STATIC";
         case 4:
             return "SSTORE_WRITTEN_SLOTS_ROOT_NOT_CHANGED";
         case 5:
@@ -131,7 +133,7 @@ template <typename FF> class sstore : public Relation<sstoreImpl<FF>> {
 
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_SSTORE_MAX_DATA_WRITES_REACHED = 1;
-    static constexpr size_t SR_SSTORE_ERROR_TOO_MANY_WRITES = 2;
+    static constexpr size_t SR_OPCODE_ERROR_IF_OVERFLOW_OR_STATIC = 2;
     static constexpr size_t SR_SSTORE_WRITTEN_SLOTS_ROOT_NOT_CHANGED = 4;
     static constexpr size_t SR_SSTORE_WRITTEN_SLOTS_SIZE_NOT_CHANGED = 5;
     static constexpr size_t SR_SSTORE_PUBLIC_DATA_TREE_ROOT_NOT_CHANGED = 6;

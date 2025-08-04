@@ -3,16 +3,12 @@
 pragma solidity >=0.8.27;
 
 import {Test} from "forge-std/Test.sol";
-import {DelegationLibWrapper} from "./DelegationLibWrapper.sol";
+import {StakeDelegationLibWrapper} from "./StakeDelegationLibWrapper.sol";
 
 import {WithDelegationLib} from "./base.sol";
 
 contract DelegateTest is WithDelegationLib {
-  function test_WhenNewDelegateeEqOldDelegatee(
-    address _instance,
-    address _attester,
-    address _newDelegatee
-  ) external {
+  function test_WhenNewDelegateeEqOldDelegatee(address _instance, address _attester, address _newDelegatee) external {
     // it changes no state
 
     vm.assume(_newDelegatee != address(0));
@@ -36,12 +32,10 @@ contract DelegateTest is WithDelegationLib {
     _;
   }
 
-  function test_GivenOldDelegateeEq0(
-    address _instance,
-    address _attester,
-    address _newDelegatee,
-    uint256 _balance
-  ) external whenNewDelegateeNeqOldDelegatee {
+  function test_GivenOldDelegateeEq0(address _instance, address _attester, address _newDelegatee, uint256 _balance)
+    external
+    whenNewDelegateeNeqOldDelegatee
+  {
     // it updates the delegatee
     // it increases power of the new delegatee
 
@@ -68,12 +62,10 @@ contract DelegateTest is WithDelegationLib {
     assertEq(delegationLib.getBalanceOf(_instance, _attester), balance);
   }
 
-  function test_WhenNewDelegateeEq0(
-    address _instance,
-    address _attester,
-    address _tempDelegatee,
-    uint256 _balance
-  ) external whenNewDelegateeNeqOldDelegatee {
+  function test_WhenNewDelegateeEq0(address _instance, address _attester, address _tempDelegatee, uint256 _balance)
+    external
+    whenNewDelegateeNeqOldDelegatee
+  {
     // it updates the delegatee
     // it decreases power of the old delegatee
     vm.assume(_tempDelegatee != address(0));

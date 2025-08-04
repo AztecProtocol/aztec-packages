@@ -37,9 +37,8 @@ export async function validateBlockAttestations(
   });
 
   if (!committee || committee.length === 0) {
-    // Q: Should we accept blocks with no committee?
     logger?.warn(`No committee found for epoch ${epoch} at slot ${slot}. Accepting block without validation.`, logData);
-    return { valid: true, block: publishedBlock };
+    return { valid: true };
   }
 
   const committeeSet = new Set(committee.map(member => member.toString()));
@@ -64,5 +63,5 @@ export async function validateBlockAttestations(
   }
 
   logger?.debug(`Block attestations validated successfully for block ${block.number} at slot ${slot}`, logData);
-  return { valid: true, block: publishedBlock };
+  return { valid: true };
 }
