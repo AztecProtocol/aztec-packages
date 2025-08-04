@@ -383,19 +383,33 @@ describe('AztecNodeApiSchema', () => {
           slotWindow: 100,
       };
 
-      const response = await context.client.getValidatorStats(validatorAddress);
+      const response = await context.client.getValidatorStats(validatorAddress.toString());
       expect(response).toEqual(handler.singleValidatorStats);
   });
 
   it('getValidatorStats(non-existent)', async () => {
-      const response = await context.client.getValidatorStats(EthAddress.random());
+      const response = await context.client.getValidatorStats(EthAddress.random().toString());
       expect(response).toBeUndefined();
   });
 
   it('getValidatorStats(with-time-range)', async () => {
       const validatorAddress = EthAddress.random();
-      const response = await context.client.getValidatorStats(validatorAddress, 1n, 10n);
-      expect(response).toBeDefined();
+      handler.singleValidatorStats = {
+          validator: {
+              address: validatorAddress,
+              totalSlots: 3,
+              missedAttestations: { currentStreak: 0, count: 0 },
+              missedProposals: { currentStreak: 0, count: 0 },
+              history: [{ slot: 5n, status: 'attestation-sent' }],
+          },
+          provenPerformance: [],
+          lastProcessedSlot: 10n,
+          initialSlot: 5n,
+          slotWindow: 5,
+      };
+
+      const response = await context.client.getValidatorStats(validatorAddress.toString(), 5n, 10n);
+      expect(response).toEqual(handler.singleValidatorStats);
   });
 
   it('simulatePublicCalls', async () => {
@@ -687,8 +701,14 @@ class MockAztecNode implements AztecNode {
   getValidatorsStats(): Promise<ValidatorsStats> {
     return Promise.resolve(this.validatorStats!);
   }
-  getValidatorStats(validatorAddress: EthAddress, fromSlot?: bigint, toSlot?: bigint): Promise<SingleValidatorStats | undefined> {
-      expect(validatorAddress).toBeInstanceOf(EthAddress);
+  getValidatorStats(validatorAddress: string, fromSlot?: bigint, toSlot?: bigint): Promise<SingleValidatorStats | undefined> {
+      expect(typeof validatorAddress).toBe('string');
+      if (fromSlot !== undefined) {
+        expect(typeof fromSlot).toBe('bigint');
+      }
+      if (toSlot !== undefined) {
+        expect(typeof toSlot).toBe('bigint');
+      }
       return Promise.resolve(this.singleValidatorStats);
   }
   simulatePublicCalls(tx: Tx, _enforceFeePayment = false): Promise<PublicSimulationOutput> {
