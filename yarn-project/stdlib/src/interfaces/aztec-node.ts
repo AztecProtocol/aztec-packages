@@ -31,6 +31,10 @@ import {
   ProtocolContractAddressesSchema,
 } from '../contract/index.js';
 import { GasFees } from '../gas/gas_fees.js';
+import {
+  type UtilityContextWithoutContractAddress,
+  UtilityContextWithoutContractAddressSchema,
+} from '../kernel/utility_context.js';
 import { type LogFilter, LogFilterSchema } from '../logs/log_filter.js';
 import { PrivateLog } from '../logs/private_log.js';
 import { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
@@ -276,6 +280,13 @@ export interface AztecNode
    * @returns The chain id.
    */
   getChainId(): Promise<number>;
+
+  /**
+   * TODO(benesjan): Actual docs
+   * Method to fetch the utility context without the contract address.
+   * @returns The utility context without the contract address.
+   */
+  getUtilityContextWithoutContractAddress(): Promise<UtilityContextWithoutContractAddress>;
 
   /**
    * Method to fetch the currently deployed l1 contract addresses.
@@ -535,6 +546,8 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getVersion: z.function().returns(z.number()),
 
   getChainId: z.function().returns(z.number()),
+
+  getUtilityContextWithoutContractAddress: z.function().returns(UtilityContextWithoutContractAddressSchema),
 
   getL1ContractAddresses: z.function().returns(L1ContractAddressesSchema),
 

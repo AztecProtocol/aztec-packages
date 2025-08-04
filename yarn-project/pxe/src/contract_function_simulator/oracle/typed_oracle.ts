@@ -3,7 +3,7 @@ import { Fr, Point } from '@aztec/foundation/fields';
 import type { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
-import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
+import type { KeyValidationRequest, UtilityContext } from '@aztec/stdlib/kernel';
 import type { ContractClassLog, IndexedTaggingSecret } from '@aztec/stdlib/logs';
 import type { Note, NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
@@ -74,6 +74,10 @@ export abstract class TypedOracle {
 
   utilityGetVersion(): Promise<Fr> {
     return Promise.reject(new OracleMethodNotAvailableError('utilityGetVersion'));
+  }
+
+  utilityGetUtilityContext(): Promise<UtilityContext> {
+    return Promise.reject(new OracleMethodNotAvailableError('utilityGetUtilityContext'));
   }
 
   utilityGetKeyValidationRequest(_pkMHash: Fr): Promise<KeyValidationRequest> {

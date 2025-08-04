@@ -14,7 +14,7 @@ import type { InBlock, L2Block, L2BlockNumber } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier, siloPrivateLog } from '@aztec/stdlib/hash';
 import { type AztecNode, MAX_RPC_LEN } from '@aztec/stdlib/interfaces/client';
-import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
+import type { KeyValidationRequest, UtilityContextWithoutContractAddress } from '@aztec/stdlib/kernel';
 import { computeAddressSecret, computeAppTaggingSecret } from '@aztec/stdlib/keys';
 import {
   IndexedTaggingSecret,
@@ -256,16 +256,25 @@ export class PXEOracleInterface implements ExecutionDataProvider {
    * Fetches the current chain id.
    * @returns The chain id.
    */
-  public async getChainId(): Promise<number> {
-    return await this.aztecNode.getChainId();
+  public getChainId(): Promise<number> {
+    return this.aztecNode.getChainId();
   }
 
   /**
    * Fetches the current version.
    * @returns The version.
    */
-  public async getVersion(): Promise<number> {
-    return await this.aztecNode.getVersion();
+  public getVersion(): Promise<number> {
+    return this.aztecNode.getVersion();
+  }
+
+  /**
+   * TODO(benesjan): Actual docs
+   * Fetches the current utility context without the contract address.
+   * @returns The utility context without the contract address.
+   */
+  public getUtilityContextWithoutContractAddress(): Promise<UtilityContextWithoutContractAddress> {
+    return this.aztecNode.getUtilityContextWithoutContractAddress();
   }
 
   public getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string> {

@@ -4,7 +4,7 @@ import type { FunctionArtifact, FunctionArtifactWithContractName, FunctionSelect
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
-import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
+import type { KeyValidationRequest, UtilityContext, UtilityContextWithoutContractAddress } from '@aztec/stdlib/kernel';
 import { IndexedTaggingSecret } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
@@ -231,6 +231,13 @@ export interface ExecutionDataProvider {
    * @returns The chain id.
    */
   getVersion(): Promise<number>;
+
+  /**
+   * TODO(benesjan): Actual docs
+   * Fetches the current utility context without the contract address.
+   * @returns The utility context without the contract address.
+   */
+  getUtilityContextWithoutContractAddress(): Promise<UtilityContextWithoutContractAddress>;
 
   /**
    * Returns the tagging secret for a given sender and recipient pair. For this to work, the ivsk_m of the sender must be known.

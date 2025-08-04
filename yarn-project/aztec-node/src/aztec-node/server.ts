@@ -77,6 +77,7 @@ import {
   type WorldStateSynchronizer,
   tryStop,
 } from '@aztec/stdlib/interfaces/server';
+import { UtilityContextWithoutContractAddress } from '@aztec/stdlib/kernel';
 import type { LogFilter, PrivateLog, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { P2PClientType } from '@aztec/stdlib/p2p';
@@ -542,6 +543,24 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    */
   public getChainId(): Promise<number> {
     return Promise.resolve(this.l1ChainId);
+  }
+
+  public getUtilityContextWithoutContractAddress(): Promise<UtilityContextWithoutContractAddress> {
+    return Promise.all([this.getBlockHeader('latest'), this.getVersion(), this.getChainId()]).then(
+      ([blockHeader, version, chainId]) => {
+        if (!blockHeader) {
+          throw new Error(
+            'Aztec Node failed to obtain the latest block header when fetching the utility context without contract address.',
+          );
+        }
+        return new UtilityContextWithoutContractAddress(
+          blockHeader.globalVariables.blockNumber,
+          blockHeader.globalVariables.timestamp,
+          version,
+          chainId,
+        );
+      },
+    );
   }
 
   public getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
