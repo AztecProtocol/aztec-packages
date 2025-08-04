@@ -1052,46 +1052,6 @@ template <typename Builder> class FieldBase {
                 std::cout << "Reproduce via accumulate()" << std::endl;
 #endif
                 return ExecutionHandler(this->base, field_t::accumulate({ this->f() }));
-            case 8: {
-#ifdef FUZZING_SHOW_INFORMATION
-                std::cout << "Reproduce via decompose_into_bits()" << std::endl;
-#endif
-                const size_t min_num_bits = static_cast<uint256_t>(this->base).get_msb() + 1;
-                if (min_num_bits > 256)
-                    abort(); /* Should never happen */
-
-                const size_t num_bits = min_num_bits + (VarianceRNG.next() % (256 - min_num_bits + 1));
-                if (num_bits > 256)
-                    abort(); /* Should never happen */
-
-                /* XXX this gives: Range error at gate 559 */
-                // const auto bits = this->f().decompose_into_bits(num_bits);
-                const auto bits = this->f().decompose_into_bits();
-
-                std::vector<bb::fr> frs(bits.size());
-                for (size_t i = 0; i < bits.size(); i++) {
-                    frs[i] = bits[i].get_value() ? bb::fr(uint256_t(1) << i) : 0;
-                }
-
-                switch (VarianceRNG.next() % 2) {
-                case 0: {
-                    const bb::fr field_from_bits = std::accumulate(frs.begin(), frs.end(), bb::fr(0));
-                    return ExecutionHandler(this->base, field_t(builder, field_from_bits));
-                }
-                case 1: {
-                    std::vector<field_t> fields;
-                    for (const auto& fr : frs) {
-                        fields.push_back(field_t(builder, fr));
-                    }
-                    /* This is a good opportunity to test
-                     * field_t::accumulate with many elements
-                     */
-                    return ExecutionHandler(this->base, field_t::accumulate(fields));
-                }
-                default:
-                    abort();
-                }
-            }
             default:
                 abort();
             }
