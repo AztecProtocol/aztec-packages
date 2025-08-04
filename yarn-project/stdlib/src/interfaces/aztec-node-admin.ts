@@ -3,6 +3,7 @@ import { createSafeJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rp
 import { z } from 'zod';
 
 import type { ApiSchemaFor } from '../schemas/schemas.js';
+import { type MonitoredSlashPayload, MonitoredSlashPayloadSchema } from '../slashing/index.js';
 import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning/index.js';
 import { type SequencerConfig, SequencerConfigSchema } from './configs.js';
 import { type ProverConfig, ProverConfigSchema } from './prover-client.js';
@@ -41,6 +42,9 @@ export interface AztecNodeAdmin {
 
   /** Resumes archiver and world state syncing. */
   resumeSync(): Promise<void>;
+
+  /** Returns all monitored payloads by the slasher. */
+  getSlasherMonitoredPayloads(): Promise<MonitoredSlashPayload[]>;
 }
 
 export type AztecNodeAdminConfig = SequencerConfig & ProverConfig & SlasherConfig & { maxTxPoolSize: number };
@@ -56,6 +60,7 @@ export const AztecNodeAdminApiSchema: ApiSchemaFor<AztecNodeAdmin> = {
   rollbackTo: z.function().args(z.number()).returns(z.void()),
   pauseSync: z.function().returns(z.void()),
   resumeSync: z.function().returns(z.void()),
+  getSlasherMonitoredPayloads: z.function().returns(z.array(MonitoredSlashPayloadSchema)),
 };
 
 export function createAztecNodeAdminClient(

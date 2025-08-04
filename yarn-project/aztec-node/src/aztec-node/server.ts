@@ -42,7 +42,7 @@ import {
   createValidatorForAcceptingTxs,
 } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
-import { EpochPruneWatcher, SlasherClient, type Watcher } from '@aztec/slasher';
+import { AttestationsBlockWatcher, EpochPruneWatcher, SlasherClient, type Watcher } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type InBlock,
@@ -80,6 +80,7 @@ import {
 import type { LogFilter, PrivateLog, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { P2PClientType } from '@aztec/stdlib/p2p';
+import type { MonitoredSlashPayload } from '@aztec/stdlib/slashing';
 import type { NullifierLeafPreimage, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import {
@@ -309,6 +310,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       );
       await epochPruneWatcher.start();
       watchers.push(epochPruneWatcher);
+    }
+
+    // We assume we want to slash for invalid attestations unless all max penalties are set to 0
+    let attestationsBlockWatcher: AttestationsBlockWatcher | undefined;
+    if (config.slashProposeInvalidAttestationsMaxPenalty > 0n || config.slashAttestDescendantOfInvalidMaxPenalty > 0n) {
+      attestationsBlockWatcher = new AttestationsBlockWatcher(archiver, epochCache, config);
+      await attestationsBlockWatcher.start();
+      watchers.push(attestationsBlockWatcher);
     }
 
     const validatorClient = createValidatorClient(config, {
@@ -1199,6 +1208,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     this.worldStateSynchronizer.resumeSync();
     (this.blockSource as Archiver).resume();
     return Promise.resolve();
+  }
+
+  public getSlasherMonitoredPayloads(): Promise<MonitoredSlashPayload[]> {
+    if (!this.slasherClient) {
+      throw new Error('Slasher client is not initialized.');
+    }
+    return Promise.resolve(this.slasherClient.getMonitoredPayloads());
   }
 
   /**
