@@ -6,7 +6,6 @@
 
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/shared_shifted_virtual_zeroes_array.hpp"
 #include "barretenberg/stdlib/primitives/bool/bool.hpp"

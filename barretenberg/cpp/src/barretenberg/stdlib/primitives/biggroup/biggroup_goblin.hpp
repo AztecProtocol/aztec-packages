@@ -43,7 +43,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
     using biggroup_tag = goblin_element; // Facilitates a constexpr check IsBigGroup
 
     // Number of bb::fr field elements used to represent a goblin element in the public inputs
-    static constexpr size_t PUBLIC_INPUTS_SIZE = Fq::PUBLIC_INPUTS_SIZE * 2;
+    static constexpr size_t PUBLIC_INPUTS_SIZE = BIGGROUP_PUBLIC_INPUTS_SIZE;
 
     goblin_element() = default;
     goblin_element(const typename NativeGroup::affine_element& input)

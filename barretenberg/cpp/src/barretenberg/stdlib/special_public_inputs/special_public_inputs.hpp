@@ -46,8 +46,7 @@ class KernelIO {
     // FF pg_acc_hash;
 
     // Total size of the kernel IO public inputs
-    static constexpr size_t PUBLIC_INPUTS_SIZE = PairingInputs::PUBLIC_INPUTS_SIZE + G1::PUBLIC_INPUTS_SIZE +
-                                                 G1::PUBLIC_INPUTS_SIZE + Builder::NUM_WIRES * G1::PUBLIC_INPUTS_SIZE;
+    static constexpr size_t PUBLIC_INPUTS_SIZE = KERNEL_PUBLIC_INPUTS_SIZE;
 
     /**
      * @brief Reconstructs the IO components from a public inputs array.
@@ -126,7 +125,7 @@ template <typename Builder> class DefaultIO {
     PairingInputs pairing_inputs;
 
     // Total size of the IO public inputs
-    static constexpr size_t PUBLIC_INPUTS_SIZE = PairingInputs::PUBLIC_INPUTS_SIZE;
+    static constexpr size_t PUBLIC_INPUTS_SIZE = DEFAULT_PUBLIC_INPUTS_SIZE;
 
     /**
      * @brief Reconstructs the IO components from a public inputs array.
@@ -184,8 +183,7 @@ template <class Builder_> class HidingKernelIO {
     TableCommitments ecc_op_tables; // commitments to merged tables obtained from final Merge verification
 
     // Total size of the IO public inputs
-    static constexpr size_t PUBLIC_INPUTS_SIZE =
-        PairingInputs::PUBLIC_INPUTS_SIZE + Builder::NUM_WIRES * G1::PUBLIC_INPUTS_SIZE;
+    static constexpr size_t PUBLIC_INPUTS_SIZE = HIDING_KERNEL_PUBLIC_INPUTS_SIZE;
 
     /**
      * @brief Reconstructs the IO components from a public inputs array.
@@ -282,7 +280,7 @@ class RollupIO {
     IpaClaim ipa_claim;
 
     // Total size of the IO public inputs
-    static constexpr size_t PUBLIC_INPUTS_SIZE = PairingInputs::PUBLIC_INPUTS_SIZE + IpaClaim::PUBLIC_INPUTS_SIZE;
+    static constexpr size_t PUBLIC_INPUTS_SIZE = ROLLUP_PUBLIC_INPUTS_SIZE;
 
     /**
      * @brief Reconstructs the IO components from a public inputs array.

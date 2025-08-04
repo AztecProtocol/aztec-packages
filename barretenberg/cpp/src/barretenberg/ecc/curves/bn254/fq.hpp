@@ -16,11 +16,6 @@
 // NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays)
 namespace bb {
 
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1478): Can we define this constant as part of the
-// parameters and make it avaiable via the interface of field<T>?
-// A point in Fq is represented with 4 public inputs
-static constexpr size_t FQ_PUBLIC_INPUT_SIZE = 4;
-
 class Bn254FqParams {
     // There is a helper script in ecc/fields/parameter_helper.py that can be used to extract these parameters from the
     // source code
@@ -166,15 +161,15 @@ class Bn254FqParams {
     // The modulus is larger than BN254 scalar field modulus, so it maps to two BN254 scalars
     static constexpr size_t NUM_BN254_SCALARS = 2;
     static constexpr size_t MAX_BITS_PER_ENDOMORPHISM_SCALAR = 128;
+
+    // A point in Fq is represented as a bigfield element in the public inputs, so 4 public inputs
+    static constexpr size_t PUBLIC_INPUTS_SIZE = BIGFIELD_PUBLIC_INPUTS_SIZE;
 };
 
 using fq = field<Bn254FqParams>;
 
-template <> template <> inline fq fq::reconstruct_from_public(const std::span<const bb::fr>& limbs)
+template <> template <> inline fq fq::reconstruct_from_public(const std::span<const bb::fr, PUBLIC_INPUTS_SIZE>& limbs)
 {
-    // A point in Fq is represented with 4 public inputs
-    BB_ASSERT_EQ(limbs.size(), FQ_PUBLIC_INPUT_SIZE, "Incorrect number of limbs");
-
     const uint256_t limb = static_cast<uint256_t>(limbs[0]) +
                            (static_cast<uint256_t>(limbs[1]) << bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION) +
                            (static_cast<uint256_t>(limbs[2]) << (bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 2)) +

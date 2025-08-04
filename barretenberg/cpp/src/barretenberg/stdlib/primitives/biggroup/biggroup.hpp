@@ -29,7 +29,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     using BaseField = Fq;
 
     // Number of bb::fr field elements used to represent a goblin element in the public inputs
-    static constexpr size_t PUBLIC_INPUTS_SIZE = Fq::PUBLIC_INPUTS_SIZE * 2;
+    static constexpr size_t PUBLIC_INPUTS_SIZE = BIGGROUP_PUBLIC_INPUTS_SIZE;
     struct secp256k1_wnaf {
         std::vector<field_t<Builder>> wnaf;
         field_t<Builder> positive_skew;

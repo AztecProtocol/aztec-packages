@@ -9,6 +9,7 @@
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/numeric/bitop/sparse_form.hpp"
 #include "barretenberg/stdlib/primitives/logic/logic.hpp"
+#include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/keccak/keccak_rho.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/keccak/keccak_theta.hpp"
 namespace bb::stdlib {
@@ -494,16 +495,13 @@ template <typename Builder> void keccak<Builder>::keccakf1600(keccak_state& inte
 template <typename Builder>
 void keccak<Builder>::sponge_absorb(keccak_state& internal,
                                     const std::vector<field_ct>& input_buffer,
-                                    const std::vector<field_ct>& msb_buffer,
-                                    const field_ct& num_blocks_with_data)
+                                    const std::vector<field_ct>& msb_buffer)
 {
     const size_t l = input_buffer.size();
 
     const size_t num_blocks = l / (BLOCK_SIZE / 8);
 
     for (size_t i = 0; i < num_blocks; ++i) {
-        // create a copy of our keccak state in case we need to revert this hash block application
-        keccak_state previous = internal;
         if (i == 0) {
             for (size_t j = 0; j < LIMBS_PER_BLOCK; ++j) {
                 internal.state[j] = input_buffer[j];
@@ -522,21 +520,6 @@ void keccak<Builder>::sponge_absorb(keccak_state& internal,
 
         compute_twisted_state(internal);
         keccakf1600(internal);
-
-        // if `i >= num_blocks_with_data` then we want to revert the effects of this block and set `internal_state` to
-        // equal `previous`.
-        // This can happen for circuits where the input hash size is not known at circuit-compile time (only the maximum
-        // hash size).
-        // For example, a circuit that hashes up to 544 bytes (but maybe less depending on the witness assignment)
-        bool_ct block_predicate = field_ct(i).template ranged_less_than<8>(num_blocks_with_data);
-
-        for (size_t j = 0; j < NUM_KECCAK_LANES; ++j) {
-            internal.state[j] = field_ct::conditional_assign(block_predicate, internal.state[j], previous.state[j]);
-            internal.state_msb[j] =
-                field_ct::conditional_assign(block_predicate, internal.state_msb[j], previous.state_msb[j]);
-            internal.twisted_state[j] =
-                field_ct::conditional_assign(block_predicate, internal.twisted_state[j], previous.twisted_state[j]);
-        }
     }
 }
 
@@ -571,26 +554,12 @@ template <typename Builder> byte_array<Builder> keccak<Builder>::sponge_squeeze(
  *
  * @tparam Builder
  * @param input
- * @param num_bytes
  * @return std::vector<field_t<Builder>>
  */
-template <typename Builder>
-std::vector<field_t<Builder>> keccak<Builder>::format_input_lanes(byte_array_ct& _input, const uint32_ct& num_bytes)
+template <typename Builder> std::vector<field_t<Builder>> keccak<Builder>::format_input_lanes(byte_array_ct& input)
 {
-    byte_array_ct input(_input);
-
-    // make sure that every byte past `num_bytes` is zero!
-    for (size_t i = 0; i < input.size(); ++i) {
-        bool_ct valid_byte = uint32_ct(static_cast<uint32_t>(i)) < num_bytes;
-        input[i] = input[i] * valid_byte;
-    }
-
     auto* ctx = input.get_context();
 
-    // We require that `num_bytes` does not exceed the size of our input byte array.
-    // (can be less if the hash size is not known at circuit-compile time, only the maximum)
-    BB_ASSERT_GTE(input.size(), static_cast<size_t>(num_bytes.get_value()));
-    field_ct(num_bytes > uint32_ct(static_cast<uint32_t>(input.size()))).assert_equal(0);
     const size_t input_size = input.size();
     // max_blocks_length = maximum number of bytes to hash
     const size_t max_blocks = (input_size + BLOCK_SIZE) / BLOCK_SIZE;
@@ -605,18 +574,12 @@ std::vector<field_t<Builder>> keccak<Builder>::format_input_lanes(byte_array_ct&
     }
     block_bytes.write(padding_bytes);
 
-    uint32_ct num_real_blocks = (num_bytes + BLOCK_SIZE) / BLOCK_SIZE;
-    uint32_ct num_real_blocks_bytes = num_real_blocks * BLOCK_SIZE;
-
     // Keccak requires that 0x1 is appended after the final byte of input data.
     // Similarly, the final byte of the final padded block must be 0x80.
-    // If `num_bytes` is constant then we know where to write these values at circuit-compile time
-    if (num_bytes.is_constant()) {
-        const auto terminating_byte = static_cast<size_t>(num_bytes.get_value());
-        const auto terminating_block_byte = static_cast<size_t>(num_real_blocks_bytes.get_value()) - 1;
-        block_bytes[terminating_byte] = witness_ct::create_constant_witness(ctx, 0x1);
-        block_bytes[terminating_block_byte] = witness_ct::create_constant_witness(ctx, 0x80);
-    }
+    const auto terminating_byte = input_size;
+    const auto terminating_block_byte = block_bytes.size() - 1;
+    block_bytes[terminating_byte] = witness_ct::create_constant_witness(ctx, 0x1);
+    block_bytes[terminating_block_byte] = witness_ct::create_constant_witness(ctx, 0x80);
 
     // keccak lanes interpret memory as little-endian integers,
     // means we need to swap our byte ordering...
@@ -653,82 +616,7 @@ std::vector<field_t<Builder>> keccak<Builder>::format_input_lanes(byte_array_ct&
         sliced_buffer.emplace_back(sliced);
     }
 
-    // If the input preimage size is known at circuit-compile time, nothing more to do.
-    if (num_bytes.is_constant()) {
-        return sliced_buffer;
-    }
-
-    // If we do *not* know the preimage size at circuit-compile time, we have several steps we must execute:
-    // 1. Validate that `input[num_bytes], input[num_bytes + 1], ..., input[input.size() - 1]` are all ZERO.
-    // 2. Insert the keccak input terminating byte `0x1` at `input[num_bytes]`
-    // 3. Insert the keccak block terminating byte `0x80` at `input[num_real_block_bytes - 1]`
-    // We do these steps after we have converted into 64 bit lanes as we have fewer elements to iterate over (is
-    // cheaper)
-    std::vector<field_ct> lanes = sliced_buffer;
-
-    // compute the lane index of the terminating input byte
-    field_ct num_bytes_as_field(num_bytes);
-    field_ct terminating_index = field_ct(uint32_ct((num_bytes) / WORD_SIZE));
-
-    // compute the value we must add to limbs[terminating_index] to insert 0x1 at the correct byte index (accounting for
-    // the previous little-endian conversion)
-    field_ct terminating_index_bytes_shift = (num_bytes_as_field) - (terminating_index * WORD_SIZE);
-    field_ct terminating_index_limb_addition = field_ct(256).pow(terminating_index_bytes_shift);
-
-    // compute the lane index of the terminating block byte
-    field_ct terminating_block_index = field_ct((num_real_blocks_bytes - 1) / WORD_SIZE);
-    field_ct terminating_block_bytes_shift =
-        field_ct(num_real_blocks_bytes - 1) - (terminating_block_index * WORD_SIZE);
-    // compute the value we must add to limbs[terminating_index] to insert 0x1 at the correct byte index (accounting for
-    // the previous little-endian conversion)
-    field_ct terminating_block_limb_addition = field_ct(0x80ULL) * field_ct(256).pow(terminating_block_bytes_shift);
-
-    // validate the number of lanes is less than the default plookup size (we use the default size to do a cheap `<`
-    // check later on. Should be fine as this translates to ~2MB of input data)
-    BB_ASSERT_LT(uint256_t(sliced_buffer.size()), uint256_t(1ULL) << Builder::DEFAULT_PLOOKUP_RANGE_BITNUM);
-
-    // If the terminating input byte index matches the terminating block byte index, we set the byte to 0x80.
-    // If we trigger this case, set `terminating_index_limb_addition` to 0 so that we do not write `0x01 + 0x80`
-    terminating_index_limb_addition = field_ct::conditional_assign(
-        field_ct(num_bytes) == field_ct(num_real_blocks_bytes) - 1, 0, terminating_index_limb_addition);
-    field_ct terminating_limb;
-
-    // iterate over our lanes to perform the above listed checks
-    for (size_t i = 0; i < sliced_buffer.size(); ++i) {
-        // If i > terminating_index, limb must be 0
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1415): Insecure usage of field_t::ranged_less_than
-        // in stdlib::keccak
-        bool_ct limb_must_be_zeroes =
-            terminating_index.template ranged_less_than<Builder::DEFAULT_PLOOKUP_RANGE_BITNUM>(field_ct(i));
-        // Is i == terminating_limb_index?
-        bool_ct is_terminating_limb = terminating_index == field_ct(i);
-
-        // Is i == terminating_block_limb?
-        bool_ct is_terminating_block_limb = terminating_block_index == field_ct(i);
-
-        (lanes[i] * limb_must_be_zeroes).assert_equal(0);
-
-        // If i == terminating_limb_index, *some* of the limb must be zero.
-        // Assign to `terminating_limb` that we will check later.
-        terminating_limb = lanes[i].madd(is_terminating_limb, terminating_limb);
-
-        // conditionally insert terminating_index_limb_addition and/or terminating_block_limb_addition into limb
-        // (addition is as good as "insertion" as we check the original byte value at this position is 0)
-        lanes[i] = terminating_index_limb_addition.madd(is_terminating_limb, lanes[i]);
-        lanes[i] = terminating_block_limb_addition.madd(is_terminating_block_limb, lanes[i]);
-    }
-
-    // check terminating_limb has correct number of zeroes
-    {
-        // we know terminating_limb < 2^64
-        // offset of first zero byte = (num_bytes % 8)
-        // i.e. in our 8-byte limb, bytes[(8 - offset), ..., 7] are zeroes in little-endian form
-        // i.e. we multiply the limb by the above, the result should still be < 2^64 (but only if excess bytes are 0)
-        field_ct limb_shift = field_ct(256).pow(field_ct(8) - terminating_index_bytes_shift);
-        field_ct to_constrain = terminating_limb * limb_shift;
-        to_constrain.create_range_constraint(WORD_SIZE * 8);
-    }
-    return lanes;
+    return sliced_buffer;
 }
 
 // Returns the keccak f1600 permutation of the input state
@@ -787,12 +675,9 @@ void keccak<Builder>::sponge_absorb_with_permutation_opcode(keccak_state& intern
 // but it uses permutation_opcode() instead of calling directly keccakf1600().
 // As a result, this function is less efficient and should only be used to test permutation_opcode()
 template <typename Builder>
-stdlib::byte_array<Builder> keccak<Builder>::hash_using_permutation_opcode(byte_array_ct& input,
-                                                                           const uint32_ct& num_bytes)
+stdlib::byte_array<Builder> keccak<Builder>::hash_using_permutation_opcode(byte_array_ct& input)
 {
     auto ctx = input.get_context();
-
-    BB_ASSERT_EQ(uint256_t(num_bytes.get_value()), input.size());
 
     if (ctx == nullptr) {
         // if buffer is constant compute hash and return w/o creating constraints
@@ -805,11 +690,10 @@ stdlib::byte_array<Builder> keccak<Builder>::hash_using_permutation_opcode(byte_
     }
 
     // convert the input byte array into 64-bit keccak lanes (+ apply padding)
-    auto formatted_slices = format_input_lanes(input, num_bytes);
+    auto formatted_slices = format_input_lanes(input);
 
     keccak_state internal;
     internal.context = ctx;
-    uint32_ct num_blocks_with_data = (num_bytes + BLOCK_SIZE) / BLOCK_SIZE;
     sponge_absorb_with_permutation_opcode(internal, formatted_slices, formatted_slices.size());
 
     auto result = sponge_squeeze_for_permutation_opcode(internal.state, ctx);
@@ -817,12 +701,9 @@ stdlib::byte_array<Builder> keccak<Builder>::hash_using_permutation_opcode(byte_
     return result;
 }
 
-template <typename Builder>
-stdlib::byte_array<Builder> keccak<Builder>::hash(byte_array_ct& input, const uint32_ct& num_bytes)
+template <typename Builder> stdlib::byte_array<Builder> keccak<Builder>::hash(byte_array_ct& input)
 {
     auto ctx = input.get_context();
-
-    BB_ASSERT_LTE(uint256_t(num_bytes.get_value()), input.size());
 
     const auto constant_case = [&] { // if buffer is constant, compute hash and return w/o creating constraints
         byte_array_ct output(nullptr, 32);
@@ -838,7 +719,7 @@ stdlib::byte_array<Builder> keccak<Builder>::hash(byte_array_ct& input, const ui
     }
 
     // convert the input byte array into 64-bit keccak lanes (+ apply padding)
-    auto formatted_slices = format_input_lanes(input, num_bytes);
+    auto formatted_slices = format_input_lanes(input);
 
     std::vector<field_ct> converted_buffer(formatted_slices.size());
     std::vector<field_ct> msb_buffer(formatted_slices.size());
@@ -853,8 +734,7 @@ stdlib::byte_array<Builder> keccak<Builder>::hash(byte_array_ct& input, const ui
         msb_buffer[i] = accumulators[ColumnIdx::C3][accumulators[ColumnIdx::C3].size() - 1];
     }
 
-    uint32_ct num_blocks_with_data = (num_bytes + BLOCK_SIZE) / BLOCK_SIZE;
-    sponge_absorb(internal, converted_buffer, msb_buffer, field_ct(num_blocks_with_data));
+    sponge_absorb(internal, converted_buffer, msb_buffer);
 
     auto result = sponge_squeeze(internal);
 

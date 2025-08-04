@@ -79,25 +79,3 @@ class Grumpkin {
     static constexpr uint32_t LIBRA_UNIVARIATES_LENGTH = 3;
 };
 } // namespace bb::curve
-
-// Specialize the reconstruct from public method
-template <>
-inline bb::grumpkin::g1::affine_element bb::grumpkin::g1::affine_element::reconstruct_from_public(
-    const std::span<const bb::fr>& limbs)
-{
-    BB_ASSERT_EQ(limbs.size(), 2 * FR_PUBLIC_INPUTS_SIZE, "Incorrect number of limbs");
-
-    auto x_limbs = limbs.subspan(0, FR_PUBLIC_INPUTS_SIZE);
-    auto y_limbs = limbs.subspan(FR_PUBLIC_INPUTS_SIZE, FR_PUBLIC_INPUTS_SIZE);
-
-    affine_element result;
-    result.x = Fq::reconstruct_from_public(x_limbs);
-    result.y = Fq::reconstruct_from_public(y_limbs);
-
-    if (result.x == Fq::zero() && result.y == Fq::zero()) {
-        result.self_set_infinity();
-    }
-
-    ASSERT(result.on_curve());
-    return result;
-}

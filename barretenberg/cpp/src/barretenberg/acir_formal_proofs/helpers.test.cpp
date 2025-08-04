@@ -3,7 +3,6 @@
 #include "barretenberg/smt_verification/circuit/ultra_circuit.hpp"
 #include "barretenberg/smt_verification/solver/solver.hpp"
 #include "barretenberg/smt_verification/util/smt_util.hpp"
-#include "barretenberg/stdlib/primitives/uint/uint.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 using namespace bb;

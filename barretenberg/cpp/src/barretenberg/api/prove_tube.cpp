@@ -3,6 +3,7 @@
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/client_ivc_verifier/client_ivc_recursive_verifier.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 
 namespace bb {
 /**
@@ -17,6 +18,8 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
 
     using Builder = UltraCircuitBuilder;
     using StdlibProof = ClientIVCRecursiveVerifier::StdlibProof;
+    using HidingKernelIO = stdlib::recursion::honk::HidingKernelIO<Builder>;
+    using RollupIO = stdlib::recursion::honk::RollupIO;
 
     std::string proof_path = output_path + "/proof";
 
@@ -34,7 +37,7 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     // The public inputs in the proof are propagated to the base rollup by making them public inputs of this circuit.
     // Exclude the public inputs of the Hiding Kernel: the pairing points are handled separately, the ecc op tables are
     // not needed after this point
-    auto num_inner_public_inputs = vk.mega->num_public_inputs - HidingKernelIO<Builder>::PUBLIC_INPUTS_SIZE;
+    auto num_inner_public_inputs = vk.mega->num_public_inputs - HidingKernelIO::PUBLIC_INPUTS_SIZE;
     for (size_t i = 0; i < num_inner_public_inputs; i++) {
         stdlib_proof.mega_proof[i].set_public();
     }
