@@ -1,6 +1,6 @@
 
 #include <cstddef>
-#ifdef BB_USE_OP_COUNT
+#ifndef __wasm__
 #include "op_count.hpp"
 #include <iostream>
 #include <sstream>
