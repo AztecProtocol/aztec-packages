@@ -8,7 +8,7 @@ use crate::{
         offchain_messages::emit_offchain_message,
     },
     note::{note_emission::NoteEmission, note_interface::NoteType},
-    utils::{array::subarray::subarray, remove_constraints::remove_constraints},
+    utils::array::subarray::subarray,
 };
 use protocol_types::{
     abis::note_hash::NoteHash,
@@ -34,6 +34,17 @@ where
     Note: NoteType + Packable,
 {
     compute_log(note, storage_slot, recipient, PRIVATE_NOTE_MSG_TYPE_ID)
+}
+
+pub unconstrained fn compute_note_log_unconstrained<Note>(
+    note: Note,
+    storage_slot: Field,
+    recipient: AztecAddress,
+) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
+where
+    Note: NoteType + Packable,
+{
+    compute_log_unconstrained(note, storage_slot, recipient, PRIVATE_NOTE_MSG_TYPE_ID)
 }
 
 pub fn compute_partial_note_log<Note>(
@@ -67,6 +78,37 @@ where
     let mut msg_content = [0; 1 + <Note as Packable>::N];
     msg_content[0] = storage_slot;
     for i in 0..packed_note.len() {
+        crate::oracle::debug_log::debug_log_format("packed note field: {0}", [packed_note[i]]);
+        msg_content[1 + i] = packed_note[i];
+    }
+
+    // Notes use the note type id for metadata
+    let plaintext = encode_message(msg_type, Note::get_id() as u64, msg_content);
+
+    let ciphertext = AES128::encrypt_log(plaintext, recipient);
+
+    let log = prefix_with_tag(ciphertext, recipient);
+
+    log
+}
+
+unconstrained fn compute_log_unconstrained<Note>(
+    note: Note,
+    storage_slot: Field,
+    recipient: AztecAddress,
+    msg_type: u64,
+) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
+where
+    Note: NoteType + Packable,
+{
+    let packed_note = note.pack();
+
+    crate::oracle::debug_log::debug_log("hello");
+    // A note message's content is the storage slot followed by the packed note representation
+    let mut msg_content = [0; 1 + <Note as Packable>::N];
+    msg_content[0] = storage_slot;
+    for i in 0..packed_note.len() {
+        crate::oracle::debug_log::debug_log_format("packed note field: {0}", [packed_note[i]]);
         msg_content[1 + i] = packed_note[i];
     }
 
@@ -124,7 +166,7 @@ where
 
         // Safety: this function does not constrain the encryption of the log, as explained on its description.
         let encrypted_log =
-            unsafe { remove_constraints(|| compute_note_log(note, storage_slot, recipient)) };
+            unsafe { compute_note_log_unconstrained(note, storage_slot, recipient) };
         // Regardless of the original note size `N`, the log is padded with random bytes up to
         // `PRIVATE_LOG_SIZE_IN_FIELDS` to prevent leaking information about the actual size.
         let length = encrypted_log.len();
@@ -158,7 +200,7 @@ where
 
         // Safety: this function does not constrain the encryption of the log, as explained on its description.
         let encrypted_log =
-            unsafe { remove_constraints(|| compute_note_log(note, storage_slot, recipient)) };
+            unsafe { compute_note_log_unconstrained(note, storage_slot, recipient) };
 
         // Remove the tag from the log
         // TODO: This is a tech debt. We should refactor this file such that the log is by default computed without
