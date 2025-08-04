@@ -10,7 +10,6 @@
 #include <iomanip>
 
 #include "../../fields/field.hpp"
-#include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 

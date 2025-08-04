@@ -16,7 +16,7 @@ class RNG;
 namespace bb {
 template <class base_field, class Params> struct alignas(32) field2 {
   public:
-    static constexpr size_t PUBLIC_INPUTS_SIZE = 2 * base_field::PUBLIC_INPUTS_SIZE;
+    static constexpr size_t PUBLIC_INPUTS_SIZE = base_field::PUBLIC_INPUTS_SIZE + base_field::PUBLIC_INPUTS_SIZE;
 
     constexpr field2(const base_field& a = base_field::zero(), const base_field& b = base_field::zero())
         : c0(a)
