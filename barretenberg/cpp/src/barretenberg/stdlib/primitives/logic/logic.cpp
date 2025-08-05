@@ -95,10 +95,11 @@ field_t<Builder> logic<Builder>::create_logic_constraint(
             left = left >> 32;
             right = right >> 32;
         }
-        field_pt a_slice = a.slice(static_cast<uint8_t>(num_bits - 1), 0)[1];
-        field_pt b_slice = b.slice(static_cast<uint8_t>(num_bits - 1), 0)[1];
-        a_slice.assert_equal(a_accumulator, "stdlib logic: failed to reconstruct left operand");
-        b_slice.assert_equal(b_accumulator, "stdlib logic: failed to reconstruct right operand");
+
+        field_pt a_slice_other = a.split_at(num_bits).first;
+        field_pt b_slice_other = b.split_at(num_bits).first;
+        a_slice_other.assert_equal(a_accumulator, "stdlib logic: failed to reconstruct left operand");
+        b_slice_other.assert_equal(b_accumulator, "stdlib logic: failed to reconstruct right operand");
 
         return res;
     } else {
