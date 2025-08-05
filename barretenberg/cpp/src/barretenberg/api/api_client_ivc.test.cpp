@@ -49,7 +49,7 @@ void create_test_private_execution_steps(const std::filesystem::path& output_pat
 
     auto app_vk_response =
         bbapi::ClientIvcComputeStandaloneVk{ .circuit = { .name = "app_circuit", .bytecode = app_bytecode } }.execute();
-    
+
     // Decode VK to get field elements
     auto app_vk = from_buffer<MegaFlavor::VerificationKey>(app_vk_response.bytes);
     auto app_vk_fields = app_vk.to_field_elements();
@@ -108,11 +108,11 @@ ClientIVC::MegaVerificationKey get_ivc_vk(const std::filesystem::path& test_dir)
     bbapi::BBApiRequest request;
     auto app_vk_response =
         bbapi::ClientIvcComputeStandaloneVk{ .circuit = { .name = "app_circuit", .bytecode = app_bytecode } }.execute();
-    
+
     // Decode to get the field count
     auto app_vk = from_buffer<MegaFlavor::VerificationKey>(app_vk_response.bytes);
     size_t vk_field_count = app_vk.to_field_elements().size();
-    
+
     // Create a kernel circuit with the correct VK size
     auto bytecode = acir_bincode_mocks::create_simple_kernel(vk_field_count, /*is_init_kernel=*/false);
     std::filesystem::path bytecode_path = test_dir / "circuit.acir";

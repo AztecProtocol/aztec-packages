@@ -207,7 +207,7 @@ TEST_F(ApiUltraHonkTest, WriteVk)
     info("after write_vk, expected_vk size: {}", expected_vk.bytes.size());
     EXPECT_EQ(expected_vk.bytes, read_file(test_dir / "vk"));
     EXPECT_EQ(expected_vk.hash, read_file(test_dir / "vk_hash"));
-    
+
     // Verify round-trip: decode the VK and check that to_field_elements() matches
     auto vk_from_bytes = from_buffer<UltraFlavor::VerificationKey>(expected_vk.bytes);
     auto vk_from_file = from_buffer<UltraFlavor::VerificationKey>(read_file(test_dir / "vk"));

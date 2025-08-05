@@ -8,7 +8,7 @@ import { RawBuffer } from '../types/raw_buffer.js';
 import { fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
 import { createDebugLogger } from '../log/index.js';
 import { AsyncApi } from '../cbind/generated/async.js';
-import { BbApiBase, CircuitComputeVk, CircuitProve, CircuitVerify, ClientIvcAccumulate, ClientIvcComputeIvcVk, ClientIvcGates, ClientIvcLoad, ClientIvcProve, ClientIvcStart, ClientIvcVerify, VkAsFields } from '../cbind/generated/api_types.js';
+import { BbApiBase, CircuitComputeVk, CircuitProve, CircuitVerify, ClientIvcAccumulate, ClientIvcComputeIvcVk, ClientIvcGates, ClientIvcLoad, ClientIvcProve, ClientIvcStart, ClientIvcVerify } from '../cbind/generated/api_types.js';
 
 export { UltraHonkBackend, UltraHonkVerifierBackend, AztecClientBackend } from './backend.js';
 
@@ -160,9 +160,6 @@ export class Barretenberg extends BarretenbergApi {
     return this.bbApi.circuitVerify(command);
   }
 
-  async vkAsFields(command: VkAsFields) {
-    return this.bbApi.vkAsFields(command);
-  }
 }
 
 let barretenbergSyncSingletonPromise: Promise<BarretenbergSync>;

@@ -290,14 +290,6 @@ CircuitVerify::Response CircuitVerify::execute(BB_UNUSED const BBApiRequest& req
     return { verified };
 }
 
-VkAsFields::Response VkAsFields::execute(BB_UNUSED const BBApiRequest& request) &&
-{
-    // The input is already field elements serialized as bytes
-    auto fields = many_from_buffer<bb::fr>(verification_key);
-
-    return { std::move(fields) };
-}
-
 CircuitWriteSolidityVerifier::Response CircuitWriteSolidityVerifier::execute(BB_UNUSED const BBApiRequest& request) &&
 {
     using VK = UltraKeccakFlavor::VerificationKey;
