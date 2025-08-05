@@ -349,8 +349,11 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       this.instrumentation.updateL1BlockHeight(currentL1BlockNumber);
     }
 
-    // Handle retroactive proof updates for existing blocks (always check, even if no new blocks)
-    await this.handleRetroactiveProofUpdates(currentL1BlockNumber);
+    // During initial sync, proof events will be found naturally in their L1 blocks
+    // After initial sync, we need to check for proof events that come later for blocks we already synced
+    if (this.initialSyncComplete) {
+      await this.handleRetroactiveProofUpdates(currentL1BlockNumber);
+    }
 
     // After syncing has completed, update the current l1 block number and timestamp,
     // otherwise we risk announcing to the world that we've synced to a given point,
@@ -722,65 +725,67 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
         return rollupStatus;
       }
 
-      // Simplified re-org detection: First check if our latest proven block is on chain
-      // Since proven blocks have archives, we can reliably compare them
-      const latestProvenBlockNumber = await this.getProvenBlockNumber();
-      const isLatestProvenBlockOnChain = await this.isProvenBlockOnChain(latestProvenBlockNumber);
+      let isLocalPendingBlockInChain = false;
 
-      if (!isLatestProvenBlockOnChain) {
-        // If the latest proven block is not on chain, this indicates an L1 re-org
-        // We need to unwind to find a block that is both proven and on L1
-        this.log.warn(`Latest proven block ${latestProvenBlockNumber} is not on chain, L1 re-org detected`);
+      if (!isLocalPendingBlockStale) {
+        // If header hash is not stale, use header hash comparison
+        isLocalPendingBlockInChain =
+          headerHashForLocalPendingBlockNumber === localPendingBlock.header.toPropose().hash().toString();
+      } else {
+        // If header hash is stale, we need to decide how to handle this
+        this.log.debug(`Header hash is stale for block ${localPendingBlockNumber}`);
 
-        let validProvenBlock = latestProvenBlockNumber;
-        while (validProvenBlock > 0) {
-          const isOnChain = await this.isProvenBlockOnChain(validProvenBlock);
-          if (isOnChain) {
-            break;
-          }
-          validProvenBlock--;
-        }
+        const latestProvenBlockNumber = await this.getProvenBlockNumber();
 
-        // Unwind to the last valid proven block
-        const blocksToUnwind = localPendingBlockNumber - validProvenBlock;
-        if (blocksToUnwind > 0) {
-          await this.store.unwindBlocks(Number(localPendingBlockNumber), Number(blocksToUnwind));
-          this.log.warn(
-            `Unwound ${count(blocksToUnwind, 'block')} from L2 block ${localPendingBlockNumber} ` +
-              `due to L1 re-org. Updated L2 latest block is ${await this.getBlockNumber()}.`,
+        // Check if we have any proven blocks beyond genesis (block 0 has GENESIS_ARCHIVE_ROOT)
+        const hasProvenBlocks = latestProvenBlockNumber > 0;
+
+        if (!hasProvenBlocks) {
+          // During initial sync, before we have any proven blocks, keep syncing
+          // We can't do reliable re-org detection without proven block checkpoints
+          this.log.debug(
+            `Initial sync: no proven blocks yet, continuing sync for stale header at block ${localPendingBlockNumber}`,
           );
-        }
-      } else if (localPendingBlockNumber > latestProvenBlockNumber) {
-        // If the latest proven block is on chain, but we have pending blocks beyond it,
-        // check if the pending block is still valid
+          isLocalPendingBlockInChain = true;
+        } else {
+          // We have proven blocks, so we can do proper re-org detection
+          const isLatestProvenBlockOnChain = await this.isProvenBlockOnChain(latestProvenBlockNumber);
 
-        // First check if L1 pending block has moved backwards (indicating reorg/prune)
+          if (!isLatestProvenBlockOnChain) {
+            // If the latest proven block is not on chain, this indicates an L1 re-org
+            this.log.warn(`Latest proven block ${latestProvenBlockNumber} is not on chain, L1 re-org detected`);
+            isLocalPendingBlockInChain = false;
+          } else {
+            // Latest proven block is on chain, but stale headers beyond it are suspect
+            // For stale headers, we conservatively assume pending blocks are invalid
+            isLocalPendingBlockInChain = localPendingBlockNumber <= latestProvenBlockNumber;
+          }
+        }
+      }
+
+      if (!isLocalPendingBlockInChain) {
+        // Handle unwinding logic
+        const latestProvenBlockNumber = await this.getProvenBlockNumber();
+
+        // Check if L1 pending block has moved backwards (indicating reorg/prune)
         const l1HasMovedBackwards = Number(pendingBlockNumber) < localPendingBlockNumber;
 
-        // Then check header hash if L1 hasn't moved backwards and header isn't stale
-        const isLocalPendingBlockInChain =
-          !l1HasMovedBackwards &&
-          !isLocalPendingBlockStale &&
-          headerHashForLocalPendingBlockNumber === localPendingBlock.header.toPropose().hash().toString();
+        // Determine the target to unwind to
+        let unwindTarget = latestProvenBlockNumber;
+        if (l1HasMovedBackwards) {
+          // If L1 moved backwards, unwind to the L1 pending block number
+          unwindTarget = Number(pendingBlockNumber);
+        }
 
-        if (!isLocalPendingBlockInChain) {
-          // Determine the target to unwind to
-          let unwindTarget = latestProvenBlockNumber;
-          if (l1HasMovedBackwards) {
-            // If L1 moved backwards, unwind to the L1 pending block number
-            unwindTarget = Number(pendingBlockNumber);
-          }
-
-          const blocksToUnwind = localPendingBlockNumber - unwindTarget;
-          if (blocksToUnwind > 0) {
-            await this.store.unwindBlocks(Number(localPendingBlockNumber), Number(blocksToUnwind));
-            const reason = l1HasMovedBackwards ? 'L1 pending block moved backwards' : 'stale pending blocks';
-            this.log.warn(
-              `Unwound ${count(blocksToUnwind, 'block')} from L2 block ${localPendingBlockNumber} ` +
-                `back to block ${unwindTarget} due to ${reason}. ` +
-                `Updated L2 latest block is ${await this.getBlockNumber()}.`,
-            );
-          }
+        const blocksToUnwind = localPendingBlockNumber - unwindTarget;
+        if (blocksToUnwind > 0) {
+          await this.store.unwindBlocks(Number(localPendingBlockNumber), Number(blocksToUnwind));
+          const reason = l1HasMovedBackwards ? 'L1 pending block moved backwards' : 'pending block not on chain';
+          this.log.warn(
+            `Unwound ${count(blocksToUnwind, 'block')} from L2 block ${localPendingBlockNumber} ` +
+              `back to block ${unwindTarget} due to ${reason}. ` +
+              `Updated L2 latest block is ${await this.getBlockNumber()}.`,
+          );
         }
       }
     }
@@ -823,15 +828,18 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       );
 
       // Find all proven blocks in the range
-      const provenBlocks = await retrieveL2ProofsFromRollup(
-        this.rollup.getContract() as GetContractReturnType<typeof RollupAbi, ViemPublicClient>,
-        this.publicClient,
-        searchStartBlock,
-        searchEndBlock,
-      );
+      let provenBlocks: { retrievedData: { l2BlockNumber: number; archiveRoot: Fr }[] } | undefined;
+      if (!this.initialSyncComplete) {
+        provenBlocks = await retrieveL2ProofsFromRollup(
+          this.rollup.getContract() as GetContractReturnType<typeof RollupAbi, ViemPublicClient>,
+          this.publicClient,
+          searchStartBlock,
+          searchEndBlock,
+        );
+      }
 
       const publishedBlocks = retrievedBlocks.map(b => {
-        const provenBlock = provenBlocks.retrievedData.find(pb => pb.l2BlockNumber === b.l2BlockNumber);
+        const provenBlock = provenBlocks?.retrievedData.find(pb => pb.l2BlockNumber === b.l2BlockNumber);
         const archive = provenBlock?.archiveRoot;
         return retrievedBlockToPublishedL2Block(b, archive);
       });
