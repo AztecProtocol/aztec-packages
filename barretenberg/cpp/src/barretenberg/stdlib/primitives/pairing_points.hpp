@@ -147,8 +147,6 @@ template <typename Builder_> struct PairingPoints {
      *
      * @param builder
      */
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/984): Check how many gates this costs and if they're
-    // necessary.
     static void add_default_to_public_inputs(Builder& builder)
     {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): These are pairing points extracted from a
