@@ -324,6 +324,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       services: {
         identify: identify({
           protocolPrefix: 'aztec',
+          runOnConnectionOpen: false,
         }),
         pubsub: gossipsub({
           directPeers,
