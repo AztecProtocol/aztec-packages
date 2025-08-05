@@ -93,7 +93,7 @@ function regenerate_recursive_inputs {
   parallel 'run_proof_generation {}' ::: $(ls internal_test_programs)
 }
 
-export -f regenerate_recursive_inputs run_proof_generation generate_toml
+export -f hex_to_fields_json regenerate_recursive_inputs run_proof_generation generate_toml
 
 function build {
   echo_header "acir_tests build"
