@@ -1,363 +1,226 @@
-// use crate::{
-//     context::{PrivateContext, PublicContext, UtilityContext},
-//     oracle::execution::get_contract_address,
-//     state_vars::delayed_private_mutable::DelayedPrivateMutable,
-//     test::{
-//         helpers::test_environment::TestEnvironment,
-//         mocks::{mock_note::MockNote, mock_struct::MockStruct},
-//     },
-// };
+use crate::{
+    context::{PrivateContext, PublicContext, UtilityContext},
+    oracle::execution::get_contract_address,
+    state_vars::delayed_private_mutable::DelayedPrivateMutable,
+    test::{
+        helpers::test_environment::TestEnvironment,
+        mocks::{mock_note::{MockNote, MockNoteBuilder}, mock_struct::MockStruct},
+    },
+};
 
-// use std::test::OracleMock;
+use std::test::OracleMock;
 
-// use protocol_types::traits::Empty;
+use protocol_types::{
+    address::AztecAddress,
+    delayed_public_mutable::scheduled_delay_change::ScheduledDelayChange,
+    traits::{Empty, Packable},
+};
 
-// use dep::std::mem::zeroed;
+use dep::std::mem::zeroed;
 
-// global storage_slot: Field = 47;
+global STORAGE_SLOT: Field = 47;
 
-// global TEST_INITIAL_DELAY: u64 = 32;
+global INITIAL_VALUE: Field = 17;
+global NEW_VALUE: Field = 18;
 
-// global new_delay: u64 = 20;
+global TEST_INITIAL_DELAY: u64 = 100;
+
+global new_delay: u64 = 20;
 // global new_value: MockStruct = MockStruct { a: 17, b: 42 };
-// global new_note: MockNote =
-
-// unconstrained fn setup() -> TestEnvironment {
-//     let mut env = TestEnvironment::new();
-//     // Advance 1 block so we can read historic state from private
-//     env.advance_block_by(1);
-//     env
-// }
-
-// unconstrained fn in_private(
-//     env: &mut TestEnvironment,
-// ) -> DelayedPrivateMutable<MockNote, TEST_INITIAL_DELAY, &mut PrivateContext> {
-//     let state_var = DelayedPrivateMutable::new(&mut env.private(), storage_slot);
-
-//     // This oracle is called for its side effects alone - it does not return anything.
-//     let _ = OracleMock::mock("notifyCreatedNote").returns(());
-
-//     state_var
-// }
-
-// // unconstrained fn in_public(
-// //     env: TestEnvironment,
-// // ) -> DelayedPublicMutable<MockStruct, TEST_INITIAL_DELAY, &mut PublicContext> {
-// //     DelayedPublicMutable::new(&mut env.public(), storage_slot)
-// // }
-
-// unconstrained fn in_private_at_historical_timestamp(
-//     env: &mut TestEnvironment,
-//     historical_timestamp: u64,
-// ) -> DelayedPrivateMutable<MockStruct, TEST_INITIAL_DELAY, &mut PrivateContext> {
-//     DelayedPrivateMutable::new(
-//         &mut env.private_at_timestamp(historical_timestamp),
-//         storage_slot,
-//     )
-// }
-
-// // unconstrained fn in_utility(
-// //     env: TestEnvironment,
-// // ) -> DelayedPublicMutable<MockStruct, TEST_INITIAL_DELAY, UtilityContext> {
-// //     DelayedPublicMutable::new(env.utility(), storage_slot)
-// // }
-
-// #[test]
-// unconstrained fn test_get_current_note_in_private_initial() {
-//     let mut env = setup();
-//     let state_var = in_private(&mut env);
+// global new_note = MockNote::new(17).build_note();
+// global new_note = MockNote { value: 17 };
 
-//     assert_eq(state_var.get_current_note(), zeroed());
-// }
+unconstrained fn in_public(
+    context: &mut PublicContext,
+) -> DelayedPrivateMutable<MockNote, TEST_INITIAL_DELAY, &mut PublicContext> {
+    DelayedPrivateMutable::new(context, STORAGE_SLOT)
+}
 
-// #[test]
-// unconstrained fn test_get_scheduled_note_in_public() {
-//     let mut env = setup();
-//     let state_var = in_private(&mut env);
+unconstrained fn in_private(
+    context: &mut PrivateContext,
+) -> DelayedPrivateMutable<MockNote, TEST_INITIAL_DELAY, &mut PrivateContext> {
+    DelayedPrivateMutable::new(context, STORAGE_SLOT)
+}
 
-//     // Schedule a note change that will activate at `private_context.include_by_timestamp() + current_delay`.
-//     // Since we haven't modified the delay, it remains at the initial value of TEST_INITIAL_DELAY.
-//     state_var.schedule_note_change(new_value);
-
-//     let (scheduled, timestamp_of_change) = state_var.get_scheduled_value();
-//     assert_eq(scheduled, new_value);
+unconstrained fn in_utility(
+    context: UtilityContext,
+) -> DelayedPrivateMutable<MockNote, TEST_INITIAL_DELAY, UtilityContext> {
+    DelayedPrivateMutable::new(context, STORAGE_SLOT)
+}
 
-//     // The timestamp of change should equal the pending timestamp plus TEST_INITIAL_DELAY because:
-//     // 1. The value change is scheduled using the timestamp from the public context
-//     // 2. The public context's timestamp corresponds to the pending timestamp
-//     // 3. The current delay is TEST_INITIAL_DELAY since it hasn't been modified
-//     assert_eq(timestamp_of_change, env.pending_timestamp() + TEST_INITIAL_DELAY);
-// }
+// First, a collection of tests that are modifications of those for PrivateMutable:
+#[test(should_fail_with = "Failed to get a note")]
+unconstrained fn get_uninitialized() {
+    let env = TestEnvironment::_new();
 
-// // #[test]
-// // unconstrained fn test_get_current_value_in_public_before_scheduled_change() {
-// //     let mut env = setup();
-// //     let state_var = in_public(env);
+    env.private_context(|context| {
+        let state_var = in_private(context);
+        let _ = state_var.get_current_note();
+    });
+}
 
-// //     state_var.schedule_value_change(new_value);
+#[test(should_fail_with = "Failed to get a note")]
+unconstrained fn replace_uninitialized() {
+    let env = TestEnvironment::_new();
 
-// //     let (_, timestamp_of_change) = state_var.get_scheduled_value();
+    env.private_context(|context| {
+        let state_var = in_private(context);
 
-// //     let original_value = zeroed();
+        let note = MockNote::new(INITIAL_VALUE).build_note();
+        let _ = state_var.schedule_replacement(note);
+    });
+}
 
-// //     // The current value has not changed
-// //     assert_eq(state_var.get_current_value(), original_value);
+#[test]
+unconstrained fn schedule_initialization() {
+    let env = TestEnvironment::_new();
 
-// //     // The current value still does not change right before the timestamp of change
-// //     env.advance_timestamp_to(timestamp_of_change - 1);
-// //     assert_eq(state_var.get_current_value(), original_value);
-// // }
+    env.private_context(|context| {
+        let state_var = in_private(context);
 
-// // #[test]
-// // unconstrained fn test_get_current_value_in_public_at_scheduled_change() {
-// //     let mut env = setup();
-// //     let state_var = in_public(env);
+        let note = MockNote::new(INITIAL_VALUE).build_note();
 
-// //     state_var.schedule_value_change(new_value);
+        let emission = state_var.schedule_initialization(note);
 
-// //     let (_, timestamp_of_change) = state_var.get_scheduled_value();
+        // During initialization we both create the new note and emit the initialization nullifier
+        assert_eq(context.note_hashes.len(), 1);
+        assert_eq(context.nullifiers.len(), 1);
+        assert_eq(context.nullifiers.get(0).value, state_var.compute_initialization_nullifier());
 
-// //     env.advance_timestamp_to(timestamp_of_change);
-// //     assert_eq(state_var.get_current_value(), new_value);
-// // }
+        let wrapper_note = emission.note;
 
-// // #[test]
-// // unconstrained fn test_get_current_value_in_public_after_scheduled_change() {
-// //     let mut env = setup();
-// //     let state_var = in_public(env);
+        let svc = wrapper_note.delayed_mutable_values.svc;
+        let pre = svc.get_pre();
+        let post = svc.get_post();
+        let ts = svc.get_timestamp_of_change();
 
-// //     state_var.schedule_value_change(new_value);
+        assert_eq(pre, MockNote::empty());
+        assert_eq(post, note);
 
-// //     let (_, timestamp_of_change) = state_var.get_scheduled_value();
+        let expected_ts = context.include_by_timestamp + TEST_INITIAL_DELAY;
+        assert_eq(ts, expected_ts);
 
-// //     env.advance_timestamp_to(timestamp_of_change + 10);
-// //     assert_eq(state_var.get_current_value(), new_value);
-// // }
+        let sdc = wrapper_note.delayed_mutable_values.sdc;
+        assert_eq(sdc, ScheduledDelayChange::<TEST_INITIAL_DELAY>::empty());
 
-// // #[test]
-// // unconstrained fn test_get_current_delay_in_public_initial() {
-// //     let env = setup();
-// //     let state_var = in_public(env);
+        assert_eq(emission.storage_slot, STORAGE_SLOT);
+    });
+}
 
-// //     assert_eq(state_var.get_current_delay(), TEST_INITIAL_DELAY);
-// // }
+#[test]
+unconstrained fn get_current_note_before_scheduled_initialization_takes_effect() {
+    let env = TestEnvironment::_new();
 
-// // #[test]
-// // unconstrained fn test_get_scheduled_delay_in_public() {
-// //     let mut env = setup();
-// //     let state_var = in_public(env);
+    env.private_context(|context| {
+        let state_var = in_private(context);
 
-// //     state_var.schedule_delay_change(new_delay);
+        let note = MockNote::new(INITIAL_VALUE).build_note();
 
-// //     let (scheduled, timestamp_of_change) = state_var.get_scheduled_delay();
-// //     assert_eq(scheduled, new_delay);
-// //     // The new delay is smaller, therefore we need to wait for the difference between current and new
-// //     assert_eq(timestamp_of_change, env.pending_timestamp() + TEST_INITIAL_DELAY - new_delay);
-// // }
+        let _ = state_var.schedule_initialization(note);
 
-// // #[test]
-// // unconstrained fn test_get_current_delay_in_public_before_scheduled_change() {
-// //     let mut env = setup();
-// //     let state_var = in_public(env);
+        let current_note = state_var.get_current_note();
 
-// //     state_var.schedule_delay_change(new_delay);
+        assert_eq(current_note, MockNote::empty());
+    });
+}
 
-// //     let (_, timestamp_of_change) = state_var.get_scheduled_delay();
+#[test]
+unconstrained fn get_scheduled_note_before_scheduled_initialization_takes_effect() {
+    let env = TestEnvironment::_new();
 
-// //     let original_delay = TEST_INITIAL_DELAY;
+    env.private_context(|context| {
+        let state_var = in_private(context);
 
-// //     // The current delay has not changed
-// //     assert_eq(state_var.get_current_delay(), original_delay);
+        let note = MockNote::new(INITIAL_VALUE).build_note();
 
-// //     // The current delay still does not change right before the timestamp of change
-// //     env.advance_timestamp_to(timestamp_of_change - 1);
-// //     assert_eq(state_var.get_current_delay(), original_delay);
-// // }
+        let _ = state_var.schedule_initialization(note);
 
-// // #[test]
-// // unconstrained fn test_get_current_delay_in_public_at_scheduled_change() {
-// //     let mut env = setup();
-// //     let state_var = in_public(env);
+        // Note: we have to compute the expected_ts _before_ we get_scheduled_note, because the
+        // act of getting the scheduled note will mutate the `context.include_by_timestamp`.
+        let expected_ts = context.include_by_timestamp + TEST_INITIAL_DELAY;
 
-// //     state_var.schedule_delay_change(new_delay);
+        // When we perform a read at this moment in time, it is only valid for
+        // TEST_INITIAL_DELAY amount of time from the anchor timestamp.
+        let (scheduled_note, scheduled_ts) = state_var.get_scheduled_note();
+        let include_by_ts_after = context.include_by_timestamp;
 
-// //     let (_, timestamp_of_change) = state_var.get_scheduled_delay();
+        let anchor_ts = context.get_anchor_timestamp();
+        let expected_include_by_ts_after = anchor_ts + TEST_INITIAL_DELAY;
 
-// //     env.advance_timestamp_to(timestamp_of_change);
-// //     assert_eq(state_var.get_current_delay(), new_delay);
-// // }
+        assert_eq(note, scheduled_note);
+        assert_eq(scheduled_ts, expected_ts);
+        assert_eq(include_by_ts_after, expected_include_by_ts_after)
+    });
+}
 
-// // #[test]
-// // unconstrained fn test_get_current_delay_in_public_after_scheduled_change() {
-// //     let mut env = setup();
-// //     let state_var = in_public(env);
+#[test]
+unconstrained fn get_current_note_at_the_time_scheduled_initialization_takes_effect() {
+    let env = TestEnvironment::_new();
 
-// //     state_var.schedule_delay_change(new_delay);
+    let (scheduled_note, timestamp_of_change) = env.private_context(|context| {
+        let state_var = in_private(context);
 
-// //     let (_, timestamp_of_change) = state_var.get_scheduled_delay();
+        let note = MockNote::new(INITIAL_VALUE).build_note();
 
-// //     env.advance_timestamp_to(timestamp_of_change + 10);
-// //     assert_eq(state_var.get_current_delay(), new_delay);
-// // }
+        let _ = state_var.schedule_initialization(note);
 
-// // #[test]
-// // unconstrained fn test_get_current_value_in_private_initial() {
-// //     let mut env = setup();
+        state_var.get_scheduled_note()
+    });
 
-// //     let historical_timestamp = env.pending_timestamp();
-// //     let state_var = in_private(&mut env, historical_timestamp);
+    env.set_next_block_timestamp(timestamp_of_change);
 
-// //     assert_eq(state_var.get_current_value(), zeroed());
-// //     assert_eq(state_var.context.include_by_timestamp, historical_timestamp + TEST_INITIAL_DELAY);
-// // }
+    // TODO: we need note discovery for this to work.
+    env.private_context(|context| {
+        let state_var = in_private(context);
+        let current_note = state_var.get_current_note();
+        assert_eq(current_note, scheduled_note);
+    })
+}
 
-// // #[test]
-// // unconstrained fn test_get_current_value_in_private_before_change() {
-// //     let mut env = setup();
+#[test]
+unconstrained fn get_scheduled_note_at_the_time_scheduled_initialization_takes_effect() {
+    let env = TestEnvironment::_new();
 
-// //     let public_state_var = in_public(env);
-// //     public_state_var.schedule_value_change(new_value);
+    env.private_context(|context| {
+        let state_var = in_private(context);
 
-// //     let (_, timestamp_of_change) = public_state_var.get_scheduled_value();
+        let note = MockNote::new(INITIAL_VALUE).build_note();
 
-// //     let schedule_timestamp = env.pending_timestamp();
+        let _ = state_var.schedule_initialization(note);
 
-// //     let private_state_var = in_private(&mut env, schedule_timestamp);
-// //     assert_eq(private_state_var.get_current_value(), MockStruct::empty());
-// //     assert_eq(private_state_var.context.include_by_timestamp, timestamp_of_change - 1);
-// // }
+        // Note: we have to compute the expected_ts _before_ we get_scheduled_note, because the
+        // act of getting the scheduled note will mutate the `context.include_by_timestamp`.
+        let expected_ts = context.include_by_timestamp + TEST_INITIAL_DELAY;
 
-// // #[test]
-// // unconstrained fn test_get_current_value_in_private_immediately_before_change() {
-// //     let mut env = setup();
+        // When we perform a read at this moment in time, it is only valid for
+        // TEST_INITIAL_DELAY amount of time from the anchor timestamp.
+        let (scheduled_note, scheduled_ts) = state_var.get_scheduled_note();
+        let include_by_ts_after = context.include_by_timestamp;
 
-// //     let public_state_var = in_public(env);
-// //     public_state_var.schedule_value_change(new_value);
+        let anchor_ts = context.get_anchor_timestamp();
+        let expected_include_by_ts_after = anchor_ts + TEST_INITIAL_DELAY;
 
-// //     let (_, timestamp_of_change) = public_state_var.get_scheduled_value();
+        assert_eq(note, scheduled_note);
+        assert_eq(scheduled_ts, expected_ts);
+        assert_eq(include_by_ts_after, expected_include_by_ts_after)
+    });
+}
 
-// //     let private_state_var = in_private(&mut env, timestamp_of_change - 1);
+// DELAY
 
-// //     // Note that this transaction would never be valid since the max timestamp is the same as the historical timestamp
-// //     // used to built the proof, i.e. in the past.
-// //     assert_eq(private_state_var.get_current_value(), MockStruct::empty());
-// //     assert_eq(private_state_var.context.include_by_timestamp, timestamp_of_change - 1);
-// // }
+#[test]
+unconstrained fn get_current_delay_before_scheduled_initialization_takes_effect() {
+    let env = TestEnvironment::_new();
 
-// // #[test]
-// // unconstrained fn test_get_current_value_in_private_at_change() {
-// //     let mut env = setup();
+    env.private_context(|context| {
+        let state_var = in_private(context);
 
-// //     let public_state_var = in_public(env);
-// //     public_state_var.schedule_value_change(new_value);
+        let note = MockNote::new(INITIAL_VALUE).build_note();
 
-// //     let (_, timestamp_of_change) = public_state_var.get_scheduled_value();
+        let _ = state_var.schedule_initialization(note);
 
-// //     let historical_timestamp = timestamp_of_change;
-// //     let private_state_var = in_private(&mut env, historical_timestamp);
-// //     assert_eq(private_state_var.get_current_value(), new_value);
-// //     assert_eq(
-// //         private_state_var.context.include_by_timestamp,
-// //         historical_timestamp + TEST_INITIAL_DELAY,
-// //     );
-// // }
+        let current_delay = state_var.get_current_delay();
 
-// // #[test]
-// // unconstrained fn test_get_current_value_in_private_after_change() {
-// //     let mut env = setup();
-
-// //     let public_state_var = in_public(env);
-// //     public_state_var.schedule_value_change(new_value);
-
-// //     let (_, timestamp_of_change) = public_state_var.get_scheduled_value();
-
-// //     let historical_timestamp = timestamp_of_change + 10;
-// //     let private_state_var = in_private(&mut env, historical_timestamp);
-// //     assert_eq(private_state_var.get_current_value(), new_value);
-// //     assert_eq(
-// //         private_state_var.context.include_by_timestamp,
-// //         historical_timestamp + TEST_INITIAL_DELAY,
-// //     );
-// // }
-
-// // #[test]
-// // unconstrained fn test_get_current_value_in_private_with_non_initial_delay() {
-// //     let mut env = setup();
-
-// //     let public_state_var = in_public(env);
-// //     public_state_var.schedule_value_change(new_value);
-// //     public_state_var.schedule_delay_change(new_delay);
-
-// //     let (_, value_timestamp_of_change) = public_state_var.get_scheduled_value();
-// //     let (_, delay_timestamp_of_change) = public_state_var.get_scheduled_delay();
-
-// //     let historical_timestamp = if value_timestamp_of_change > delay_timestamp_of_change {
-// //         value_timestamp_of_change
-// //     } else {
-// //         delay_timestamp_of_change
-// //     };
-
-// //     let private_state_var = in_private(&mut env, historical_timestamp);
-// //     assert_eq(private_state_var.get_current_value(), new_value);
-// //     assert_eq(private_state_var.context.include_by_timestamp, historical_timestamp + new_delay);
-// // }
-
-// // #[test]
-// // unconstrained fn test_get_current_value_in_utility_initial() {
-// //     let env = setup();
-// //     let state_var = in_utility(env);
-
-// //     assert_eq(state_var.get_current_value(), zeroed());
-// // }
-
-// // #[test]
-// // unconstrained fn test_get_current_value_in_utility_before_scheduled_change() {
-// //     let mut env = setup();
-// //     let state_var_public = in_public(env);
-
-// //     state_var_public.schedule_value_change(new_value);
-
-// //     let (_, timestamp_of_change) = state_var_public.get_scheduled_value();
-
-// //     let original_value = zeroed();
-
-// //     let mut state_var_unconstrained = in_utility(env);
-
-// //     // The current value has not changed
-// //     assert_eq(state_var_unconstrained.get_current_value(), original_value);
-
-// //     // The current value still does not change right before the timestamp of change
-// //     env.advance_timestamp_to(timestamp_of_change - 1);
-
-// //     state_var_unconstrained = in_utility(env);
-// //     assert_eq(state_var_unconstrained.get_current_value(), original_value);
-// // }
-
-// // #[test]
-// // unconstrained fn test_get_current_value_in_utility_at_scheduled_change() {
-// //     let mut env = setup();
-// //     let state_var_public = in_public(env);
-
-// //     state_var_public.schedule_value_change(new_value);
-
-// //     let (_, timestamp_of_change) = state_var_public.get_scheduled_value();
-
-// //     env.advance_timestamp_to(timestamp_of_change);
-
-// //     let state_var_unconstrained = in_utility(env);
-// //     assert_eq(state_var_unconstrained.get_current_value(), new_value);
-// // }
-
-// // #[test]
-// // unconstrained fn test_get_current_value_in_utility_after_scheduled_change() {
-// //     let mut env = setup();
-// //     let state_var_public = in_public(env);
-
-// //     state_var_public.schedule_value_change(new_value);
-
-// //     let (_, timestamp_of_change) = state_var_public.get_scheduled_value();
-
-// //     env.advance_timestamp_to(timestamp_of_change + 10);
-// //     let state_var_unconstrained = in_utility(env);
-// //     assert_eq(state_var_unconstrained.get_current_value(), new_value);
-// // }
+        assert_eq(TEST_INITIAL_DELAY, current_delay);
+    });
+}

@@ -12,17 +12,7 @@ pub struct DelayedPrivateMutableNote<Note, let INITIAL_DELAY: u64> {
     pub delayed_mutable_values: DelayedPublicMutableValues<Note, INITIAL_DELAY>,
 }
 
-// stuff:
-//     - svc.timestamp_of_change
-//     - sdc.timestamp_of_change
-//     - sdc.post.is_some()
-//     - sdc.post
-//     - sdc.pre.is_some()
-//     - sdc.pre
-// pre_note,
-// post_note,
-
-impl<Note> NoteHash for DelayedPrivateMutableNote<Note, _>
+impl<Note, let INITIAL_DELAY: u64> NoteHash for DelayedPrivateMutableNote<Note, INITIAL_DELAY>
 where
     Note: NoteHash,
 {
@@ -189,7 +179,7 @@ where
     }
 }
 
-impl<Note> NoteType for DelayedPrivateMutableNote<Note, _>
+impl<Note, let INITIAL_DELAY: u64> NoteType for DelayedPrivateMutableNote<Note, INITIAL_DELAY>
 where
     Note: NoteType,
 {

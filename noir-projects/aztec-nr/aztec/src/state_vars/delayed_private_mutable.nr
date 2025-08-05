@@ -99,7 +99,7 @@ where
 
         svc.schedule_change_in_private(
             note,
-            self.context.historical_header.global_variables.timestamp,
+            self.context.get_anchor_timestamp(),
             self.context.include_by_timestamp,
             INITIAL_DELAY,
             timestamp_of_change,
@@ -121,23 +121,6 @@ where
         create_note(self.context, self.storage_slot, wrapped_note)
     }
 
-    fn get_and_nullify_wrapped_note(self) -> DelayedPrivateMutableNote<Note, INITIAL_DELAY>
-    where
-        Note: Packable,
-    {
-        let (retrieved_wrapped_note, retrieved_wrapped_note_hash_for_read_request): (RetrievedNote<DelayedPrivateMutableNote<Note, INITIAL_DELAY>>, Field) =
-            get_note(self.context, self.storage_slot);
-
-        // Nullify previous note.
-        destroy_note_unsafe(
-            self.context,
-            retrieved_wrapped_note,
-            retrieved_wrapped_note_hash_for_read_request,
-        );
-
-        retrieved_wrapped_note.note
-    }
-
     pub fn schedule_replacement(
         self,
         new_note: Note,
@@ -150,9 +133,9 @@ where
         let mut svc = old_wrapped_note.delayed_mutable_values.svc;
         let sdc = old_wrapped_note.delayed_mutable_values.sdc;
 
-        let historical_timestamp = self.context.historical_header.global_variables.timestamp;
+        let anchor_timestamp = self.context.get_anchor_timestamp();
 
-        let time_until_delay_horizon = sdc.get_effective_minimum_delay_at(historical_timestamp);
+        let time_until_delay_horizon = sdc.get_effective_minimum_delay_at(anchor_timestamp);
 
         // TODO: make this configurable:
         let include_by_timestamp = self.context.include_by_timestamp;
@@ -162,7 +145,7 @@ where
 
         svc.schedule_change_in_private(
             new_note,
-            historical_timestamp,
+            anchor_timestamp,
             include_by_timestamp,
             time_until_delay_horizon,
             timestamp_of_change,
@@ -189,11 +172,11 @@ where
         let svc = old_wrapped_note.delayed_mutable_values.svc;
         let mut sdc = old_wrapped_note.delayed_mutable_values.sdc;
 
-        let historical_timestamp = self.context.historical_header.global_variables.timestamp;
+        let anchor_timestamp = self.context.get_anchor_timestamp();
 
         let include_by_timestamp = self.context.include_by_timestamp;
 
-        sdc.schedule_change_in_private(new_delay, historical_timestamp, include_by_timestamp);
+        sdc.schedule_change_in_private(new_delay, anchor_timestamp, include_by_timestamp);
 
         // We wrap the note in a DelayedPrivateMutableNote:
         let wrapped_note = DelayedPrivateMutableNote {
@@ -203,91 +186,109 @@ where
         // Add replacement note.
         create_note(self.context, self.storage_slot, wrapped_note)
     }
+
+    fn get_and_nullify_wrapped_note(self) -> DelayedPrivateMutableNote<Note, INITIAL_DELAY>
+    where
+        Note: Packable,
+    {
+        let (retrieved_wrapped_note, retrieved_wrapped_note_hash_for_read_request): (RetrievedNote<DelayedPrivateMutableNote<Note, INITIAL_DELAY>>, Field) =
+            get_note(self.context, self.storage_slot);
+
+        // Nullify previous note.
+        destroy_note_unsafe(
+            self.context,
+            retrieved_wrapped_note,
+            retrieved_wrapped_note_hash_for_read_request,
+        );
+
+        retrieved_wrapped_note.note
+    }
 }
 
 // READ
+// Note: all reads mutate the `include_by_timestamp` of the `context`, to ensure the read expires before the value can change.
 
 impl<Note, let INITIAL_DELAY: u64> DelayedPrivateMutable<Note, INITIAL_DELAY, &mut PrivateContext>
 where
     Note: NoteType + NoteHash,
 {
-    pub fn get_current_note<let N: u32>(self) -> Note
+    pub fn get_current_note(self) -> Note
     where
         Note: Packable,
     {
-        let svc = self.get_latest_historical_delayed_mutable_values().svc;
-        let historical_timestamp = self.context.get_block_header().global_variables.timestamp;
+        let svc = self.get_delayed_mutable_values_at_anchor_block().svc;
+        let anchor_timestamp = self.context.get_block_header().global_variables.timestamp;
 
-        svc.get_current_at(historical_timestamp)
+        svc.get_current_at(anchor_timestamp)
     }
 
-    pub fn get_current_delay<let N: u32>(self) -> u64
+    pub fn get_current_delay(self) -> u64
     where
         Note: Packable,
     {
-        let sdc = self.get_latest_historical_delayed_mutable_values().sdc;
-        let historical_timestamp = self.context.get_block_header().global_variables.timestamp;
+        let sdc = self.get_delayed_mutable_values_at_anchor_block().sdc;
+        let anchor_timestamp = self.context.get_block_header().global_variables.timestamp;
 
-        sdc.get_current_at(historical_timestamp)
+        sdc.get_current_at(anchor_timestamp)
     }
 
-    pub fn get_scheduled_note<let N: u32>(self) -> (Note, u64)
+    pub fn get_scheduled_note(self) -> (Note, u64)
     where
         Note: Packable,
     {
-        let svc = self.get_latest_historical_delayed_mutable_values().svc;
+        let svc = self.get_delayed_mutable_values_at_anchor_block().svc;
 
         svc.get_scheduled()
     }
 
-    pub fn get_scheduled_delay<let N: u32>(self) -> (u64, u64)
+    pub fn get_scheduled_delay(self) -> (u64, u64)
     where
         Note: Packable,
     {
-        let sdc = self.get_latest_historical_delayed_mutable_values().sdc;
+        let sdc = self.get_delayed_mutable_values_at_anchor_block().sdc;
 
         sdc.get_scheduled()
     }
 
-    pub fn get_latest_historical_delayed_mutable_values(
+    fn get_delayed_mutable_values_at_anchor_block(
         self,
     ) -> DelayedPublicMutableValues<Note, INITIAL_DELAY>
     where
         Note: Packable,
     {
-        let old_wrapped_note = self.get_latest_historical_wrapped_note();
+        let old_wrapped_note = self.get_wrapped_note_at_anchor_block();
 
         let svc = old_wrapped_note.delayed_mutable_values.svc;
         let sdc = old_wrapped_note.delayed_mutable_values.sdc;
 
         // TODO: consider consolidating common functionality between the delayed public and private mutables. Everything below in this function is exactly the same as DelayedPrivateMutable's get_current_value.
 
-        let historical_timestamp = self.context.get_block_header().global_variables.timestamp;
+        let anchor_timestamp = self.context.get_anchor_timestamp();
 
-        let effective_minimum_delay = sdc.get_effective_minimum_delay_at(historical_timestamp);
-        let time_horizon = svc.get_time_horizon_at(historical_timestamp, effective_minimum_delay);
+        let effective_minimum_delay = sdc.get_effective_minimum_delay_at(anchor_timestamp);
+        let time_horizon = svc.get_time_horizon_at(anchor_timestamp, effective_minimum_delay);
 
         // We prevent this transaction from being included in any timestamp after the time horizon, ensuring that the
-        // historical public value matches the current one, since it can only change after the horizon.
+        // historical value matches the current one, since it can only change after the horizon.
         self.context.set_include_by_timestamp(time_horizon);
 
         old_wrapped_note.delayed_mutable_values
     }
 
-    fn get_latest_historical_wrapped_note(self) -> DelayedPrivateMutableNote<Note, INITIAL_DELAY>
+    fn get_wrapped_note_at_anchor_block(self) -> DelayedPrivateMutableNote<Note, INITIAL_DELAY>
     where
         Note: Packable,
     {
-        // We want to get the "current" note, from the perspective of the historical_timestamp of this tx.
+        // We want to get the "current" note, from the perspective of the anchor_timestamp of this tx.
         // To check whether a note is current, we'd ordinarily have to publicly leak its nullifier, as a way of
         // demonstrating that it hasn't already been nullified.
         // But since we've designed this state variable to have a _delay_, we have a window of time where if
-        // the nullifier doesn't yet exist in the historical header, we have a guarantee that the "current value"
+        // the nullifier doesn't yet exist in the anchor header, we have a guarantee that the "current value"
         // of the note won't change for some time.
         // So we do that:
-        // We read the note from the historical header.
-        // We assert that the note's nullifier does not exist in that historical header.
-        // We proceed with reading the "current value" of the note, as at the historical header,
+        // We read the note from the anchor header.
+        // We assert that the note's nullifier does not exist in that anchor header.
+        // We proceed with reading the "current value" of the note, as at the anchor header,
         // and we `set_include_by_timestamp` so that the tx expires before the note that we've read could
         // possibly be changed.
         let (retrieved_note, retrieved_note_hash_for_read_request): (RetrievedNote<DelayedPrivateMutableNote<Note, INITIAL_DELAY>>, Field) =
@@ -299,9 +300,9 @@ where
         );
         let nullifier = retrieved_note.note.compute_nullifier(self.context, note_hash_for_nullify);
 
-        let historical_header = self.context.get_block_header();
+        let anchor_header = self.context.get_block_header();
 
-        historical_header.prove_nullifier_non_inclusion(nullifier);
+        anchor_header.prove_nullifier_non_inclusion(nullifier);
 
         // No need to nullify the note with DelayedPrivateMutable; that's the whole point.
 

@@ -180,6 +180,16 @@ impl PrivateContext {
         get_block_header_at(block_number, self)
     }
 
+    /// Gets the block timestamp of the anchor block (the block whose roots this function
+    /// is reading from).
+    ///
+    /// # Returns
+    /// `u64` - the timestamp of the anchor block for this private function.
+    ///
+    pub fn get_anchor_timestamp(self) -> u64 {
+        self.get_block_header().global_variables.timestamp
+    }
+
     pub fn set_return_hash(&mut self, returns_hasher: ArgsHasher) {
         self.return_hash = returns_hasher.hash();
         execution_cache::store(returns_hasher.fields, self.return_hash);
