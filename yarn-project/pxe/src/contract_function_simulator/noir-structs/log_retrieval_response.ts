@@ -6,7 +6,7 @@ import type { TxHash } from '@aztec/stdlib/tx';
 const MAX_LOG_CONTENT_LEN = Math.max(PUBLIC_LOG_PLAINTEXT_LEN, PRIVATE_LOG_CIPHERTEXT_LEN);
 
 /**
- * Intermediate struct used to perform batch log retrieval by PXE. The `bulkRetrieveLogs` oracle stores values of this
+ * Intermediate struct used to perform batch log retrieval by PXE. The `utilityBulkRetrieveLogs` oracle stores values of this
  * type in a `CapsuleArray`.
  */
 export class LogRetrievalResponse {

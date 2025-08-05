@@ -38,7 +38,7 @@ pub unconstrained fn copy(
     copy_oracle(contract_address, src_slot, dst_slot, num_entries);
 }
 
-#[oracle(storeCapsule)]
+#[oracle(utilityStoreCapsule)]
 unconstrained fn store_oracle<let N: u32>(
     contract_address: AztecAddress,
     slot: Field,
@@ -52,17 +52,17 @@ unconstrained fn store_oracle<let N: u32>(
 /// require for the oracle resolver to know the shape of T (e.g. if T were a struct of 3 u32 values then the expected
 /// response shape would be 3 single items, whereas it were a struct containing `u32, [Field;10], u32` then the expected
 /// shape would be single, array, single.). Instead, we return the serialization and deserialize in Noir.
-#[oracle(loadCapsule)]
+#[oracle(utilityLoadCapsule)]
 unconstrained fn load_oracle<let N: u32>(
     contract_address: AztecAddress,
     slot: Field,
     array_len: u32,
 ) -> Option<[Field; N]> {}
 
-#[oracle(deleteCapsule)]
+#[oracle(utilityDeleteCapsule)]
 unconstrained fn delete_oracle(contract_address: AztecAddress, slot: Field) {}
 
-#[oracle(copyCapsule)]
+#[oracle(utilityCopyCapsule)]
 unconstrained fn copy_oracle(
     contract_address: AztecAddress,
     src_slot: Field,

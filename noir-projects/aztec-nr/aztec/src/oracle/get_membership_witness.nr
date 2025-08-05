@@ -15,7 +15,7 @@ pub struct MembershipWitness<let N: u32, let M: u32> {
     pub path: [Field; N],
 }
 
-#[oracle(getMembershipWitness)]
+#[oracle(utilityGetMembershipWitness)]
 unconstrained fn get_membership_witness<let N: u32, let M: u32>(
     _block_number: u32,
     _tree_id: Field,

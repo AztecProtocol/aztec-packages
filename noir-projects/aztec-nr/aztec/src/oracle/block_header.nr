@@ -6,7 +6,7 @@ use crate::{
     context::PrivateContext, oracle::get_membership_witness::get_archive_membership_witness,
 };
 
-#[oracle(getBlockHeader)]
+#[oracle(utilityGetBlockHeader)]
 unconstrained fn get_block_header_at_oracle(_block_number: u32) -> BlockHeader {}
 
 unconstrained fn get_block_header_at_internal(block_number: u32) -> BlockHeader {

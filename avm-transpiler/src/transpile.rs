@@ -565,7 +565,7 @@ fn handle_foreign_call(
         "avmOpcodeRevert" => handle_revert(avm_instrs, destinations, inputs),
         "avmOpcodeStorageRead" => handle_storage_read(avm_instrs, destinations, inputs),
         "avmOpcodeStorageWrite" => handle_storage_write(avm_instrs, destinations, inputs),
-        "debugLog" => handle_debug_log(avm_instrs, destinations, inputs),
+        "utilityDebugLog" => handle_debug_log(avm_instrs, destinations, inputs),
         // Getters.
         _ if inputs.is_empty() && destinations.len() == 1 => {
             handle_getter_instruction(avm_instrs, function, destinations, inputs);

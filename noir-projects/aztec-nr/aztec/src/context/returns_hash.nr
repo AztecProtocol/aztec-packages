@@ -81,7 +81,7 @@ mod test {
 
         let hash = hash_args_array(serialized);
 
-        let _ = OracleMock::mock("loadFromExecutionCache").returns(bad_serialized);
+        let _ = OracleMock::mock("privateLoadFromExecutionCache").returns(bad_serialized);
         assert_eq(ReturnsHash::new(hash).get_preimage(), value);
     }
 
@@ -93,7 +93,7 @@ mod test {
 
     //     let hash = hash_args_array(serialized);
 
-    //     let _ = OracleMock::mock("loadFromExecutionCache").returns([1]);
+    //     let _ = OracleMock::mock("privateLoadFromExecutionCache").returns([1]);
     //     assert_eq(ReturnsHash::new(hash).get_preimage(), value);
     // }
 }

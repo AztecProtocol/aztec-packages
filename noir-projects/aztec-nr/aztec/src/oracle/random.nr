@@ -6,5 +6,5 @@ pub unconstrained fn random() -> Field {
     rand_oracle()
 }
 
-#[oracle(getRandomField)]
+#[oracle(utilityGetRandomField)]
 unconstrained fn rand_oracle() -> Field {}

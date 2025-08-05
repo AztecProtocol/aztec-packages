@@ -24,7 +24,7 @@ impl NullifierMembershipWitness {
     }
 }
 
-#[oracle(getLowNullifierMembershipWitness)]
+#[oracle(utilityGetLowNullifierMembershipWitness)]
 unconstrained fn get_low_nullifier_membership_witness_oracle(
     _block_number: u32,
     _nullifier: Field,
@@ -39,7 +39,7 @@ pub unconstrained fn get_low_nullifier_membership_witness(
     get_low_nullifier_membership_witness_oracle(block_number, nullifier)
 }
 
-#[oracle(getNullifierMembershipWitness)]
+#[oracle(utilityGetNullifierMembershipWitness)]
 unconstrained fn get_nullifier_membership_witness_oracle(
     _block_number: u32,
     _nullifier: Field,

@@ -24,5 +24,5 @@ pub unconstrained fn debug_log_oracle_wrapper<let M: u32, let N: u32>(
 }
 
 // WARNING: sometimes when using debug logs the ACVM errors with: `thrown: "solver opcode resolution error: cannot solve opcode: expression has too many unknowns x155"`
-#[oracle(debugLog)]
+#[oracle(utilityDebugLog)]
 unconstrained fn debug_log_oracle<let M: u32>(_msg: str<M>, args: [Field]) {}

@@ -180,7 +180,7 @@ mod test {
 
             // Mock the oracle to return a non-zero hint/packed value
             let value_packed = MockStruct { a: 1, b: 1 }.pack();
-            let _ = OracleMock::mock("storageRead")
+            let _ = OracleMock::mock("utilityStorageRead")
                 .with_params((
                     address.to_field(), STORAGE_SLOT, block_header.global_variables.block_number,
                     value_packed.len(),

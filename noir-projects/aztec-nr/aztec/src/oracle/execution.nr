@@ -1,18 +1,18 @@
 use dep::protocol_types::address::AztecAddress;
 
-#[oracle(getContractAddress)]
+#[oracle(utilityGetContractAddress)]
 unconstrained fn get_contract_address_oracle() -> AztecAddress {}
 
-#[oracle(getBlockNumber)]
+#[oracle(utilityGetBlockNumber)]
 unconstrained fn get_block_number_oracle() -> u32 {}
 
-#[oracle(getTimestamp)]
+#[oracle(utilityGetTimestamp)]
 unconstrained fn get_timestamp_oracle() -> u64 {}
 
-#[oracle(getChainId)]
+#[oracle(utilityGetChainId)]
 unconstrained fn get_chain_id_oracle() -> Field {}
 
-#[oracle(getVersion)]
+#[oracle(utilityGetVersion)]
 unconstrained fn get_version_oracle() -> Field {}
 
 pub unconstrained fn get_contract_address() -> AztecAddress {

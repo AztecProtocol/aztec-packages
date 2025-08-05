@@ -4,7 +4,7 @@ use crate::{
 };
 use protocol_types::{address::AztecAddress, traits::Serialize};
 
-/// Intermediate struct used to perform batch event validation by PXE. The `validateEnqueuedNotesAndEvents` oracle
+/// Intermediate struct used to perform batch event validation by PXE. The `utilityValidateEnqueuedNotesAndEvents` oracle
 /// expects for values of this type to be stored in a `CapsuleArray` at the given `base_slot`.
 #[derive(Serialize)]
 pub(crate) struct EventValidationRequest {

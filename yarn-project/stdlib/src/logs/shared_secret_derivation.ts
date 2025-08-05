@@ -13,7 +13,7 @@ import type { PublicKey } from '../keys/public_key.js';
  * @returns A derived shared secret.
  * @throws If the publicKey is zero.
  *
- * TODO(#12656): This function is kept around because of the getSharedSecret oracle. Nuke this once returning
+ * TODO(#12656): This function is kept around because of the utilityGetSharedSecret oracle. Nuke this once returning
  * the app-siloed secret.
  */
 export async function deriveEcdhSharedSecret(secretKey: GrumpkinScalar, publicKey: PublicKey): Promise<Point> {

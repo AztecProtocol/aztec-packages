@@ -7,7 +7,7 @@ import { TxHash } from '@aztec/stdlib/tx';
 const MAX_NOTE_PACKED_LEN = 12;
 
 /**
- * Intermediate struct used to perform batch note validation by PXE. The `validateEnqueuedNotesAndEvents` oracle
+ * Intermediate struct used to perform batch note validation by PXE. The `utilityValidateEnqueuedNotesAndEvents` oracle
  * expects for values of this type to be stored in a `CapsuleArray`.
  */
 export class NoteValidationRequest {

@@ -8,7 +8,7 @@
 /// Note that we accept ciphertext as a BoundedVec, not as an array. This is because this function is typically used
 /// when processing logs and at that point we don't have a comptime information about the length of the ciphertext
 /// as the log is not specific to any individual note.
-#[oracle(aes128Decrypt)]
+#[oracle(utilityAes128Decrypt)]
 pub unconstrained fn aes128_decrypt_oracle<let N: u32>(
     ciphertext: BoundedVec<u8, N>,
     iv: [u8; 16],
