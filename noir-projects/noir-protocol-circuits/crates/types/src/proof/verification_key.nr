@@ -2,7 +2,7 @@ use crate::{
     constants::{
         AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS, MEGA_VK_LENGTH_IN_FIELDS, ULTRA_VK_LENGTH_IN_FIELDS,
     },
-    traits::Empty,
+    traits::{Deserialize, Empty, Serialize},
 };
 use std::meta::derive;
 
@@ -12,18 +12,23 @@ pub struct VerificationKey<let N: u32> {
     pub hash: Field,
 }
 
-// Intrinsic Noir serialization format is not used here so we don't implement `Serialize` and `Deserialize` traits.
-impl<let M: u32> VerificationKey<M> {
-    fn serialize_non_standard(self) -> [Field; M + 1] {
-        let mut fields = [0; M + 1];
+impl<let M: u32> Serialize for VerificationKey<M> {
+    let N: u32 = M + 1;
+
+    fn serialize(self) -> [Field; Self::N] {
+        let mut fields = [0; Self::N];
         for i in 0..M {
             fields[i] = self.key[i];
         }
         fields[M] = self.hash;
         fields
     }
+}
 
-    fn deserialize_non_standard(fields: [Field; M + 1]) -> Self {
+impl<let M: u32> Deserialize for VerificationKey<M> {
+    let N: u32 = M + 1;
+
+    fn deserialize(fields: [Field; Self::N]) -> Self {
         let mut key = VerificationKey::empty();
         for i in 0..M {
             key.key[i] = fields[i];
