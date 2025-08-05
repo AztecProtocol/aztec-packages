@@ -15,7 +15,7 @@ if [[ "$#" = 0 ]]; then
 fi
 
 AZTEC_CACHE_COMMIT=${AZTEC_CACHE_COMMIT:-HEAD}
-PLATFORM_TAG="${OSTYPE:-unknown}-$(uname -m)"
+PLATFORM_TAG="${PLATFORM_TAG:-${OSTYPE:-unknown}-$(uname -m)}"
 
 rebuild_patterns=()
 for arg in "$@"; do

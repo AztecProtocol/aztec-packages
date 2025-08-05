@@ -39,7 +39,7 @@ function test {
 }
 
 function format {
-  parallel -k ./{}/bootstrap.sh format ::: noir-protocol-circuits noir-contracts aztec-nr
+    parallel -k ./{}/bootstrap.sh format ::: noir-protocol-circuits noir-contracts aztec-nr
 }
 
 case "$cmd" in
