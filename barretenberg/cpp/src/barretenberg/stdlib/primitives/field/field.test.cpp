@@ -546,6 +546,22 @@ template <typename Builder> class stdlib_field : public testing::Test {
         // Check that the result is correct
         EXPECT_TRUE(a.get_value() * b.get_value() == 1);
     }
+
+    static void test_invert_zero()
+    {
+        Builder builder = Builder();
+
+        field_ct a(witness_ct(&builder, 0));
+        {
+            a.invert();
+            // Check that the result is constant and correct
+            EXPECT_FALSE(CircuitChecker::check(builder));
+            EXPECT_EQ(builder.err(), "field_t::invert denominator is 0");
+        }
+
+        a = 0;
+        EXPECT_THROW_OR_ABORT(a.invert(), "field_t::invert denominator is constant 0");
+    }
     static void test_postfix_increment()
     {
         Builder builder = Builder();
@@ -1756,6 +1772,10 @@ TYPED_TEST(stdlib_field, test_fix_witness)
 TYPED_TEST(stdlib_field, test_invert)
 {
     TestFixture::test_invert();
+}
+TYPED_TEST(stdlib_field, test_invert_zero)
+{
+    TestFixture::test_invert_zero();
 }
 TYPED_TEST(stdlib_field, test_is_zero)
 {

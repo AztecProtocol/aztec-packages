@@ -294,7 +294,19 @@ template <typename Builder> class field_t {
         return this_before_operation;
     };
 
-    field_t invert() const { return field_t(fr::one()) / *this; }
+    field_t invert() const
+    {
+        auto* ctx = get_context();
+        if (is_constant()) {
+            ASSERT(!get_value().is_zero(), "field_t::invert denominator is constant 0");
+        }
+
+        if (get_value().is_zero() && !ctx->failed()) {
+            ctx->failure("field_t::invert denominator is 0");
+        }
+
+        return field_t(fr::one()).divide_no_zero_check(*this);
+    }
 
     field_t operator-() const
     {
