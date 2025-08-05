@@ -36,7 +36,7 @@ library ZKTranscriptLib {
         Honk.ZKProof memory proof,
         bytes32[] calldata publicInputs,
         uint256 vkHash,
-        uint256 publicInputsSize
+        uint256 publicInputsSize,
         uint256 logN
     ) external pure returns (ZKTranscript memory t) {
         Fr previousChallenge;
