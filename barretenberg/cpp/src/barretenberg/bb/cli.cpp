@@ -25,6 +25,7 @@
 #include "barretenberg/bbapi/bbapi.hpp"
 #include "barretenberg/bbapi/c_bind.hpp"
 #include "barretenberg/common/op_count.hpp"
+#include "barretenberg/common/op_count_google_bench.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/srs/factories/native_crs_factory.hpp"
@@ -141,7 +142,23 @@ struct CLIContext {
 
 } // namespace
 
-int run(CLIContext&);
+int run(CLIContext& ctx);
+
+namespace {
+void run_as_benchmark(benchmark::State& state, CLIContext* ctx)
+{
+    for (auto _ : state) {
+        BB_REPORT_OP_COUNT_IN_BENCH(state);
+
+        // Call the main function with the parsed arguments
+        int result = run(*ctx);
+        if (result != 0) {
+            exit(result);
+        }
+    }
+}
+
+} // namespace
 
 /**
  * @brief Parse command line arguments and run the corresponding command.
@@ -675,7 +692,16 @@ int parse_and_run_cli_command(int argc, char* argv[])
     slow_low_memory = flags.slow_low_memory;
     detail::use_op_count_time = !flags.benchmark_out.empty();
 
-    return run(ctx);
+    if (flags.benchmark_out.empty()) {
+        return run(ctx);
+    }
+
+    benchmark::RegisterBenchmark("bb", run_as_benchmark, &ctx);
+    benchmark::Initialize(&argc, argv);
+    benchmark::RunSpecifiedBenchmarks();
+    benchmark::Shutdown();
+
+    return 0;
 }
 
 int run(CLIContext& ctx)
@@ -818,4 +844,5 @@ int run(CLIContext& ctx)
     }
     return 0;
 }
+
 } // namespace bb
