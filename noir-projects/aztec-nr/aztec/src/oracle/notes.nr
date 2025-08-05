@@ -55,7 +55,7 @@ unconstrained fn notify_created_note_oracle_wrapper<let N: u32>(
     notify_created_note_oracle(storage_slot, note_type_id, packed_note, note_hash, counter);
 }
 
-#[oracle(notifyCreatedNote)]
+#[oracle(privateNotifyCreatedNote)]
 unconstrained fn notify_created_note_oracle<let N: u32>(
     _storage_slot: Field,
     _note_type_id: Field,
@@ -72,17 +72,17 @@ unconstrained fn notify_nullified_note_oracle_wrapper(
     notify_nullified_note_oracle(nullifier, note_hash, counter);
 }
 
-#[oracle(notifyNullifiedNote)]
+#[oracle(privateNotifyNullifiedNote)]
 unconstrained fn notify_nullified_note_oracle(_nullifier: Field, _note_hash: Field, _counter: u32) {}
 
 unconstrained fn notify_created_nullifier_oracle_wrapper(nullifier: Field) {
     notify_created_nullifier_oracle(nullifier);
 }
 
-#[oracle(notifyCreatedNullifier)]
+#[oracle(privateNotifyCreatedNullifier)]
 unconstrained fn notify_created_nullifier_oracle(_nullifier: Field) {}
 
-#[oracle(getNotes)]
+#[oracle(utilityGetNotes)]
 unconstrained fn get_notes_oracle<let NotePckdLen: u32, let M: u32, let MaxNotes: u32>(
     _storage_slot: Field,
     _num_selects: u8,
@@ -185,7 +185,7 @@ pub unconstrained fn check_nullifier_exists(inner_nullifier: Field) -> bool {
     check_nullifier_exists_oracle(inner_nullifier)
 }
 
-#[oracle(checkNullifierExists)]
+#[oracle(utilityCheckNullifierExists)]
 unconstrained fn check_nullifier_exists_oracle(_inner_nullifier: Field) -> bool {}
 
 // TODO: Oracles below are generic private log oracles and are not specific to notes. Move them somewhere else.
@@ -196,7 +196,7 @@ pub unconstrained fn get_app_tag_as_sender(sender: AztecAddress, recipient: Azte
     get_indexed_tagging_secret_as_sender_oracle(sender, recipient).compute_tag(recipient)
 }
 
-#[oracle(getIndexedTaggingSecretAsSender)]
+#[oracle(utilityGetIndexedTaggingSecretAsSender)]
 unconstrained fn get_indexed_tagging_secret_as_sender_oracle(
     _sender: AztecAddress,
     _recipient: AztecAddress,
@@ -222,7 +222,7 @@ unconstrained fn increment_app_tagging_secret_index_as_sender_wrapper(
     increment_app_tagging_secret_index_as_sender_oracle(sender, recipient);
 }
 
-#[oracle(incrementAppTaggingSecretIndexAsSender)]
+#[oracle(privateIncrementAppTaggingSecretIndexAsSender)]
 unconstrained fn increment_app_tagging_secret_index_as_sender_oracle(
     _sender: AztecAddress,
     _recipient: AztecAddress,
@@ -240,7 +240,7 @@ pub unconstrained fn get_sender_for_tags() -> Option<AztecAddress> {
     get_sender_for_tags_oracle()
 }
 
-#[oracle(getSenderForTags)]
+#[oracle(privateGetSenderForTags)]
 unconstrained fn get_sender_for_tags_oracle() -> Option<AztecAddress> {}
 
 /// Sets the sender for tags.
@@ -256,5 +256,5 @@ pub unconstrained fn set_sender_for_tags(sender_for_tags: AztecAddress) {
     set_sender_for_tags_oracle(sender_for_tags);
 }
 
-#[oracle(setSenderForTags)]
+#[oracle(privateSetSenderForTags)]
 unconstrained fn set_sender_for_tags_oracle(_sender_for_tags: AztecAddress) {}
