@@ -206,38 +206,37 @@ CircuitProve::Response CircuitProve::execute(BB_UNUSED const BBApiRequest& reque
 CircuitComputeVk::Response CircuitComputeVk::execute(BB_UNUSED const BBApiRequest& request) &&
 {
     std::vector<uint8_t> vk_bytes;
-    std::vector<fr> vk_fields;
     std::vector<uint8_t> vk_hash_bytes;
 
-    // Helper lambda to compute VK, fields, and hash for a given flavor
-    auto compute_vk_and_fields = [&]<typename Flavor>() {
+    // Helper lambda to compute VK and hash for a given flavor
+    auto compute_vk = [&]<typename Flavor>() {
         auto proving_key = _compute_proving_key<Flavor>(circuit.bytecode, {});
         auto vk = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
-        vk_fields = vk->to_field_elements();
+        vk_bytes = to_buffer(vk);
         vk_hash_bytes = to_buffer(vk->hash());
     };
 
     if (settings.ipa_accumulation) {
-        compute_vk_and_fields.template operator()<UltraRollupFlavor>();
+        compute_vk.template operator()<UltraRollupFlavor>();
     } else if (settings.oracle_hash_type == "poseidon2" && !settings.disable_zk) {
-        compute_vk_and_fields.template operator()<UltraZKFlavor>();
+        compute_vk.template operator()<UltraZKFlavor>();
     } else if (settings.oracle_hash_type == "poseidon2" && settings.disable_zk) {
-        compute_vk_and_fields.template operator()<UltraFlavor>();
+        compute_vk.template operator()<UltraFlavor>();
     } else if (settings.oracle_hash_type == "keccak" && !settings.disable_zk) {
-        compute_vk_and_fields.template operator()<UltraKeccakZKFlavor>();
+        compute_vk.template operator()<UltraKeccakZKFlavor>();
     } else if (settings.oracle_hash_type == "keccak" && settings.disable_zk) {
-        compute_vk_and_fields.template operator()<UltraKeccakFlavor>();
+        compute_vk.template operator()<UltraKeccakFlavor>();
 #ifdef STARKNET_GARAGA_FLAVORS
     } else if (settings.oracle_hash_type == "starknet" && !settings.disable_zk) {
-        compute_vk_and_fields.template operator()<UltraStarknetZKFlavor>();
+        compute_vk.template operator()<UltraStarknetZKFlavor>();
     } else if (settings.oracle_hash_type == "starknet" && settings.disable_zk) {
-        compute_vk_and_fields.template operator()<UltraStarknetFlavor>();
+        compute_vk.template operator()<UltraStarknetFlavor>();
 #endif
     } else {
         throw_or_abort("invalid proof type in _write_vk");
     }
 
-    return { .bytes = std::move(vk_bytes), .fields = std::move(vk_fields), .hash = std::move(vk_hash_bytes) };
+    return { .bytes = std::move(vk_bytes), .hash = std::move(vk_hash_bytes) };
 }
 
 CircuitGates::Response CircuitGates::execute(BB_UNUSED const BBApiRequest& request) &&

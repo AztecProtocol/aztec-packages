@@ -49,7 +49,10 @@ void create_test_private_execution_steps(const std::filesystem::path& output_pat
 
     auto app_vk_response =
         bbapi::ClientIvcComputeStandaloneVk{ .circuit = { .name = "app_circuit", .bytecode = app_bytecode } }.execute();
-    auto app_vk_fields = app_vk_response.fields;
+    
+    // Decode VK to get field elements
+    auto app_vk = from_buffer<MegaFlavor::VerificationKey>(app_vk_response.bytes);
+    auto app_vk_fields = app_vk.to_field_elements();
 
     // Now create a kernel circuit that verifies the app circuit
     auto kernel_bytecode = acir_bincode_mocks::create_simple_kernel(app_vk_fields.size(), /*is_init_kernel=*/true);
@@ -98,17 +101,20 @@ namespace bb {
 std::vector<uint8_t> compress(const std::vector<uint8_t>& input);
 } // namespace bb
 
-// Used to get a mock IVC vk.
+// Helper to get an IVC verification key for testing
 ClientIVC::MegaVerificationKey get_ivc_vk(const std::filesystem::path& test_dir)
 {
     auto [app_bytecode, app_witness_data] = acir_bincode_mocks::create_simple_circuit_bytecode();
     bbapi::BBApiRequest request;
     auto app_vk_response =
         bbapi::ClientIvcComputeStandaloneVk{ .circuit = { .name = "app_circuit", .bytecode = app_bytecode } }.execute();
-    auto app_vk = app_vk_response.bytes;
-    auto app_vk_fields = app_vk_response.fields;
-    // Use this to get the size of the vk.
-    auto bytecode = acir_bincode_mocks::create_simple_kernel(app_vk_fields.size(), /*is_init_kernel=*/false);
+    
+    // Decode to get the field count
+    auto app_vk = from_buffer<MegaFlavor::VerificationKey>(app_vk_response.bytes);
+    size_t vk_field_count = app_vk.to_field_elements().size();
+    
+    // Create a kernel circuit with the correct VK size
+    auto bytecode = acir_bincode_mocks::create_simple_kernel(vk_field_count, /*is_init_kernel=*/false);
     std::filesystem::path bytecode_path = test_dir / "circuit.acir";
     write_file(bytecode_path, bb::compress(bytecode));
 
