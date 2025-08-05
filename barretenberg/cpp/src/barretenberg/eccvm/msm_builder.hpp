@@ -49,7 +49,7 @@ class ECCVMMSMMBuilder {
             AffineElement point{ 0, 0 }; // point being added into the accumulator
             FF lambda = 0; // when adding `point` into the accumulator via Affine point addition, the value of `lambda`
                            // (i.e., the slope of the line). (we need this as a witness in the circuit.)
-            FF collision_inverse = 0; // collision_inverse` is used to validate we are not hitting point addition edge
+            FF collision_inverse = 0; // `collision_inverse` is used to validate we are not hitting point addition edge
                                       // case exceptions, i.e., we want the VM proof to fail if we're doing a point
                                       // addition where (x1 == x2). to do this, we simply provide an inverse to x1 - x2.
         };
