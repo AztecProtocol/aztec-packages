@@ -3,27 +3,45 @@ use super::traits::{Deserialize, Packable, Serialize};
 comptime fn get_generics_declarations(s: TypeDefinition) -> Quoted {
     let generics = s.generics();
 
-    // We check that each generic's second tuple field (maybe_numeric_generic) is Some,
-    // which indicates it's a numeric generic parameter (like N in Foo<N>).
-    // Non-numeric generics (like T in Foo<T>) would have None in this field.
-    // derive_serialize requires all generics to be numeric.
-    generics.for_each(|(_, maybe_numeric_generic)| {
-        assert(maybe_numeric_generic.is_some(), "All generic parameters must be numeric");
-    });
-
     // Constructs the "<let N: u32, let M: u8>" string that is injected after the "impl" keyword in e.g.
     // "impl<let N: u32, let M: u8> Serialize for Foo<N, M>".
     // Returns an empty quote if the struct has no generics.
     if generics.len() > 0 {
         let generics_declarations_items = generics
-            .map(|(name, typ)| {
-                let integer_type = typ.unwrap();
-                quote {let $name: $integer_type}
+            .map(|(name, maybe_integer_typ)| {
+                // The second item in the generics tuple is an Option of an integer type that is Some if the generic is
+                //numeric.
+                if maybe_integer_typ.is_some() {
+                    // The generic is numeric, so we return a quote defined as e.g. "let N: u32"
+                    let integer_type = maybe_integer_typ.unwrap();
+                    quote {let $name: $integer_type}
+                } else {
+                    // The generic is not numeric, so we return a quote containing the name of the generic (e.g. "T")
+                    quote {$name}
+                }
             })
             .join(quote {,});
         quote {<$generics_declarations_items>}
     } else {
         // The struct doesn't have any generics defined, so we just return an empty quote.
+        quote {}
+    }
+}
+
+comptime fn get_where_serialize_clause(s: TypeDefinition) -> Quoted {
+    let generics = s.generics();
+
+    // The second item in the generics tuple is an Option of an integer type that is Some if the generic is
+    // numeric.
+    let non_numeric_generics =
+        generics.filter(|(_, maybe_integer_typ)| maybe_integer_typ.is_none());
+
+    if non_numeric_generics.len() > 0 {
+        let non_numeric_generics_declarations =
+            non_numeric_generics.map(|(name, _)| quote {$name: Serialize}).join(quote {,});
+        quote {where $non_numeric_generics_declarations}
+    } else {
+        // There are no non-numeric generics, so we return an empty quote.
         quote {}
     }
 }
@@ -73,16 +91,13 @@ comptime fn get_generics_declarations(s: TypeDefinition) -> Quoted {
 ///     }
 /// }
 /// ```
-///
-/// TODO(benesjan): does this make sense? Can we just slap there the non-numeric generics?
-/// Note that numeric generic parameters (like `N` in `Log<N>`) are supported.
-/// Non-numeric generic parameters (like `T` in `Container<T>`) are not supported.
 pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
     let typ = s.as_type();
     let nested_struct = typ.as_data_type().unwrap();
     let params = nested_struct.0.fields(nested_struct.1);
 
     let generics_declarations = get_generics_declarations(s);
+    let where_serialize_clause = get_where_serialize_clause(s);
 
     // The following will give us <type_of_struct_member_1 as Serialize>::N + <type_of_struct_member_2 as Serialize>::N + ...
     let right_hand_side_of_definition_of_n = params
@@ -111,7 +126,9 @@ pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
         .join(quote {});
 
     quote {
-        impl$generics_declarations $crate::traits::Serialize for $typ {
+        impl$generics_declarations $crate::traits::Serialize for $typ
+            $where_serialize_clause
+        {
             let N: u32 = $right_hand_side_of_definition_of_n;
 
             #[inline_always]
@@ -336,6 +353,12 @@ pub struct Fancier {
     b: [Field; 2],
     c: [u8; 3],
     d: str<16>,
+}
+
+#[derive(Serialize)]
+pub struct ContainsArrayWithGenerics<T, let N: u32> {
+    pub fields: [T; N],
+    pub length: u32,
 }
 
 fn main() {
