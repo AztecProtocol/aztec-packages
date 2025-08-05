@@ -62,13 +62,13 @@ export class Oracle {
   }
 
   // Since the argument is a slice, noir automatically adds a length field to oracle call.
-  pxeStoreInExecutionCache(_length: ACVMField[], values: ACVMField[], [hash]: ACVMField[]): Promise<ACVMField[]> {
-    this.typedOracle.pxeStoreInExecutionCache(values.map(Fr.fromString), Fr.fromString(hash));
+  privateStoreInExecutionCache(_length: ACVMField[], values: ACVMField[], [hash]: ACVMField[]): Promise<ACVMField[]> {
+    this.typedOracle.privateStoreInExecutionCache(values.map(Fr.fromString), Fr.fromString(hash));
     return Promise.resolve([]);
   }
 
-  async pxeLoadFromExecutionCache([returnsHash]: ACVMField[]): Promise<ACVMField[][]> {
-    const values = await this.typedOracle.pxeLoadFromExecutionCache(Fr.fromString(returnsHash));
+  async privateLoadFromExecutionCache([returnsHash]: ACVMField[]): Promise<ACVMField[][]> {
+    const values = await this.typedOracle.privateLoadFromExecutionCache(Fr.fromString(returnsHash));
     return [values.map(toACVMField)];
   }
 
@@ -264,14 +264,14 @@ export class Oracle {
     return arrayOfArraysToBoundedVecOfArrays(returnDataAsArrayOfACVMFieldArrays, +maxNotes, +packedRetrievedNoteLength);
   }
 
-  pxeNotifyCreatedNote(
+  privateNotifyCreatedNote(
     [storageSlot]: ACVMField[],
     [noteTypeId]: ACVMField[],
     note: ACVMField[],
     [noteHash]: ACVMField[],
     [counter]: ACVMField[],
   ): Promise<ACVMField[]> {
-    this.typedOracle.pxeNotifyCreatedNote(
+    this.typedOracle.privateNotifyCreatedNote(
       Fr.fromString(storageSlot),
       NoteSelector.fromField(Fr.fromString(noteTypeId)),
       note.map(Fr.fromString),
@@ -281,17 +281,17 @@ export class Oracle {
     return Promise.resolve([]);
   }
 
-  async pxeNotifyNullifiedNote(
+  async privateNotifyNullifiedNote(
     [innerNullifier]: ACVMField[],
     [noteHash]: ACVMField[],
     [counter]: ACVMField[],
   ): Promise<ACVMField[]> {
-    await this.typedOracle.pxeNotifyNullifiedNote(Fr.fromString(innerNullifier), Fr.fromString(noteHash), +counter);
+    await this.typedOracle.privateNotifyNullifiedNote(Fr.fromString(innerNullifier), Fr.fromString(noteHash), +counter);
     return [];
   }
 
-  async pxeNotifyCreatedNullifier([innerNullifier]: ACVMField[]): Promise<ACVMField[]> {
-    await this.typedOracle.pxeNotifyCreatedNullifier(Fr.fromString(innerNullifier));
+  async privateNotifyCreatedNullifier([innerNullifier]: ACVMField[]): Promise<ACVMField[]> {
+    await this.typedOracle.privateNotifyCreatedNullifier(Fr.fromString(innerNullifier));
     return [];
   }
 
@@ -328,7 +328,7 @@ export class Oracle {
     return [values.map(toACVMField)];
   }
 
-  pxeNotifyCreatedContractClassLog(
+  privateNotifyCreatedContractClassLog(
     [contractAddress]: ACVMField[],
     message: ACVMField[],
     [length]: ACVMField[],
@@ -337,7 +337,7 @@ export class Oracle {
     const logFields = new ContractClassLogFields(message.map(Fr.fromString));
     const log = new ContractClassLog(new AztecAddress(Fr.fromString(contractAddress)), logFields, +length);
 
-    this.typedOracle.pxeNotifyCreatedContractClassLog(log, +counter);
+    this.typedOracle.privateNotifyCreatedContractClassLog(log, +counter);
     return Promise.resolve([]);
   }
 
@@ -350,14 +350,14 @@ export class Oracle {
 
   // This function's name is directly hardcoded in `circuit_recorder.ts`. Don't forget to update it there if you
   // change the name here.
-  async pxeCallPrivateFunction(
+  async privateCallPrivateFunction(
     [contractAddress]: ACVMField[],
     [functionSelector]: ACVMField[],
     [argsHash]: ACVMField[],
     [sideEffectCounter]: ACVMField[],
     [isStaticCall]: ACVMField[],
   ): Promise<ACVMField[][]> {
-    const { endSideEffectCounter, returnsHash } = await this.typedOracle.pxeCallPrivateFunction(
+    const { endSideEffectCounter, returnsHash } = await this.typedOracle.privateCallPrivateFunction(
       AztecAddress.fromField(Fr.fromString(contractAddress)),
       FunctionSelector.fromField(Fr.fromString(functionSelector)),
       Fr.fromString(argsHash),
@@ -367,13 +367,13 @@ export class Oracle {
     return [[endSideEffectCounter, returnsHash].map(toACVMField)];
   }
 
-  async pxeNotifyEnqueuedPublicFunctionCall(
+  async privateNotifyEnqueuedPublicFunctionCall(
     [contractAddress]: ACVMField[],
     [calldataHash]: ACVMField[],
     [sideEffectCounter]: ACVMField[],
     [isStaticCall]: ACVMField[],
   ): Promise<ACVMField[]> {
-    await this.typedOracle.pxeNotifyEnqueuedPublicFunctionCall(
+    await this.typedOracle.privateNotifyEnqueuedPublicFunctionCall(
       AztecAddress.fromString(contractAddress),
       Fr.fromString(calldataHash),
       Fr.fromString(sideEffectCounter).toNumber(),
@@ -382,13 +382,13 @@ export class Oracle {
     return [];
   }
 
-  async pxeNotifySetPublicTeardownFunctionCall(
+  async privateNotifySetPublicTeardownFunctionCall(
     [contractAddress]: ACVMField[],
     [calldataHash]: ACVMField[],
     [sideEffectCounter]: ACVMField[],
     [isStaticCall]: ACVMField[],
   ): Promise<ACVMField[]> {
-    await this.typedOracle.pxeNotifySetPublicTeardownFunctionCall(
+    await this.typedOracle.privateNotifySetPublicTeardownFunctionCall(
       AztecAddress.fromString(contractAddress),
       Fr.fromString(calldataHash),
       Fr.fromString(sideEffectCounter).toNumber(),
@@ -397,10 +397,10 @@ export class Oracle {
     return [];
   }
 
-  async pxeNotifySetMinRevertibleSideEffectCounter([minRevertibleSideEffectCounter]: ACVMField[]): Promise<
+  async privateNotifySetMinRevertibleSideEffectCounter([minRevertibleSideEffectCounter]: ACVMField[]): Promise<
     ACVMField[]
   > {
-    await this.typedOracle.pxeNotifySetMinRevertibleSideEffectCounter(
+    await this.typedOracle.privateNotifySetMinRevertibleSideEffectCounter(
       Fr.fromString(minRevertibleSideEffectCounter).toNumber(),
     );
     return Promise.resolve([]);
@@ -414,11 +414,11 @@ export class Oracle {
     return taggingSecret.toFields().map(toACVMField);
   }
 
-  async pxeIncrementAppTaggingSecretIndexAsSender(
+  async privateIncrementAppTaggingSecretIndexAsSender(
     [sender]: ACVMField[],
     [recipient]: ACVMField[],
   ): Promise<ACVMField[]> {
-    await this.typedOracle.pxeIncrementAppTaggingSecretIndexAsSender(
+    await this.typedOracle.privateIncrementAppTaggingSecretIndexAsSender(
       AztecAddress.fromString(sender),
       AztecAddress.fromString(recipient),
     );
@@ -546,14 +546,14 @@ export class Oracle {
     return [];
   }
 
-  async pxeGetSenderForTags(): Promise<ACVMField[]> {
-    const sender = await this.typedOracle.pxeGetSenderForTags();
+  async privateGetSenderForTags(): Promise<ACVMField[]> {
+    const sender = await this.typedOracle.privateGetSenderForTags();
     // Return [1, address] for Some(address), [0, 0] for None
     return sender ? [toACVMField(1n), toACVMField(sender)] : [toACVMField(0n), toACVMField(0n)];
   }
 
-  async pxeSetSenderForTags([senderForTags]: ACVMField[]): Promise<ACVMField[]> {
-    await this.typedOracle.pxeSetSenderForTags(AztecAddress.fromField(Fr.fromString(senderForTags)));
+  async privateSetSenderForTags([senderForTags]: ACVMField[]): Promise<ACVMField[]> {
+    await this.typedOracle.privateSetSenderForTags(AztecAddress.fromField(Fr.fromString(senderForTags)));
     return [];
   }
 }

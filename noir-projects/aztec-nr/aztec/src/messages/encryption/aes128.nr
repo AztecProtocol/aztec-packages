@@ -401,7 +401,7 @@ mod test {
             let _ = OracleMock::mock("utilityGetIndexedTaggingSecretAsSender").returns(
                 IndexedTaggingSecret::deserialize([69420, 1337]),
             );
-            let _ = OracleMock::mock("pxeIncrementAppTaggingSecretIndexAsSender").returns(());
+            let _ = OracleMock::mock("privateIncrementAppTaggingSecretIndexAsSender").returns(());
 
             // Encrypt the log
             let encrypted_log = BoundedVec::from_array(AES128::encrypt_log(plaintext, recipient));

@@ -167,7 +167,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
    * The value persists through nested calls, meaning all calls down the stack will use the same
    * 'senderForTags' value (unless it is replaced).
    */
-  public override pxeGetSenderForTags(): Promise<AztecAddress | undefined> {
+  public override privateGetSenderForTags(): Promise<AztecAddress | undefined> {
     return Promise.resolve(this.senderForTags);
   }
 
@@ -182,7 +182,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
    * through nested calls, meaning all calls down the stack will use the same 'senderForTags'
    * value (unless it is replaced by another call to this setter).
    */
-  public override pxeSetSenderForTags(senderForTags: AztecAddress): Promise<void> {
+  public override privateSetSenderForTags(senderForTags: AztecAddress): Promise<void> {
     this.senderForTags = senderForTags;
     return Promise.resolve();
   }
@@ -192,7 +192,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
    * @param values - Values to store.
    * @returns The hash of the values.
    */
-  public override pxeStoreInExecutionCache(values: Fr[], hash: Fr) {
+  public override privateStoreInExecutionCache(values: Fr[], hash: Fr) {
     return this.executionCache.store(values, hash);
   }
 
@@ -201,7 +201,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
    * @param hash - Hash of the values.
    * @returns The values.
    */
-  public override pxeLoadFromExecutionCache(hash: Fr): Promise<Fr[]> {
+  public override privateLoadFromExecutionCache(hash: Fr): Promise<Fr[]> {
     const preimage = this.executionCache.getPreimage(hash);
     if (!preimage) {
       throw new Error(`Preimage for hash ${hash.toString()} not found in cache`);
@@ -307,7 +307,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
    * @param noteHash - A hash of the new note.
    * @returns
    */
-  public override pxeNotifyCreatedNote(
+  public override privateNotifyCreatedNote(
     storageSlot: Fr,
     noteTypeId: NoteSelector,
     noteItems: Fr[],
@@ -342,7 +342,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
    * @param innerNullifier - The pending nullifier to add in the list (not yet siloed by contract address).
    * @param noteHash - A hash of the new note.
    */
-  public override async pxeNotifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, counter: number) {
+  public override async privateNotifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, counter: number) {
     const nullifiedNoteHashCounter = await this.noteCache.nullifyNote(
       this.callContext.contractAddress,
       innerNullifier,
@@ -359,7 +359,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
    * @param innerNullifier - The pending nullifier to add in the list (not yet siloed by contract address).
    * @param noteHash - A hash of the new note.
    */
-  public override pxeNotifyCreatedNullifier(innerNullifier: Fr) {
+  public override privateNotifyCreatedNullifier(innerNullifier: Fr) {
     return this.noteCache.nullifierCreated(this.callContext.contractAddress, innerNullifier);
   }
 
@@ -370,7 +370,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
    * @param log - The contract class log to be emitted.
    * @param counter - The contract class log's counter.
    */
-  public override pxeNotifyCreatedContractClassLog(log: ContractClassLog, counter: number) {
+  public override privateNotifyCreatedContractClassLog(log: ContractClassLog, counter: number) {
     this.contractClassLogs.push(new CountedContractClassLog(log, counter));
     const text = log.toBuffer().toString('hex');
     this.log.verbose(
@@ -399,7 +399,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
    * @param isStaticCall - Whether the call is a static call.
    * @returns The execution result.
    */
-  override async pxeCallPrivateFunction(
+  override async privateCallPrivateFunction(
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
     argsHash: Fr,
@@ -490,7 +490,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
    * @param sideEffectCounter - The side effect counter at the start of the call.
    * @param isStaticCall - Whether the call is a static call.
    */
-  public override pxeNotifyEnqueuedPublicFunctionCall(
+  public override privateNotifyEnqueuedPublicFunctionCall(
     _targetContractAddress: AztecAddress,
     calldataHash: Fr,
     _sideEffectCounter: number,
@@ -507,7 +507,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
    * @param sideEffectCounter - The side effect counter at the start of the call.
    * @param isStaticCall - Whether the call is a static call.
    */
-  public override pxeNotifySetPublicTeardownFunctionCall(
+  public override privateNotifySetPublicTeardownFunctionCall(
     _targetContractAddress: AztecAddress,
     calldataHash: Fr,
     _sideEffectCounter: number,
@@ -517,7 +517,9 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
     return Promise.resolve();
   }
 
-  public override pxeNotifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number): Promise<void> {
+  public override privateNotifySetMinRevertibleSideEffectCounter(
+    minRevertibleSideEffectCounter: number,
+  ): Promise<void> {
     return this.noteCache.setMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter);
   }
 
@@ -545,7 +547,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
     return this.executionDataProvider.getDebugFunctionName(this.contractAddress, this.callContext.functionSelector);
   }
 
-  public override async pxeIncrementAppTaggingSecretIndexAsSender(sender: AztecAddress, recipient: AztecAddress) {
+  public override async privateIncrementAppTaggingSecretIndexAsSender(sender: AztecAddress, recipient: AztecAddress) {
     await this.executionDataProvider.incrementAppTaggingSecretIndexAsSender(this.contractAddress, sender, recipient);
   }
 

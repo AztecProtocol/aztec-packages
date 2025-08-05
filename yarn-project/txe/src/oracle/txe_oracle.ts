@@ -149,7 +149,7 @@ export class TXE {
 
   private authwits: Map<string, AuthWitness> = new Map();
 
-  // Used by pxeSetSenderForTags and pxeGetSenderForTags oracles.
+  // Used by privateSetSenderForTags and privateGetSenderForTags oracles.
   private senderForTags?: AztecAddress;
 
   private constructor(
@@ -379,11 +379,11 @@ export class TXE {
     return Fr.random();
   }
 
-  pxeStoreInExecutionCache(values: Fr[], hash: Fr) {
+  privateStoreInExecutionCache(values: Fr[], hash: Fr) {
     return this.executionCache.store(values, hash);
   }
 
-  pxeLoadFromExecutionCache(hash: Fr) {
+  privateLoadFromExecutionCache(hash: Fr) {
     const preimage = this.executionCache.getPreimage(hash);
     if (!preimage) {
       throw new Error(`Preimage for hash ${hash.toString()} not found in cache`);
@@ -480,7 +480,7 @@ export class TXE {
     return notes;
   }
 
-  pxeNotifyCreatedNote(storageSlot: Fr, _noteTypeId: NoteSelector, noteItems: Fr[], noteHash: Fr, counter: number) {
+  privateNotifyCreatedNote(storageSlot: Fr, _noteTypeId: NoteSelector, noteItems: Fr[], noteHash: Fr, counter: number) {
     const note = new Note(noteItems);
     this.noteCache.addNewNote(
       {
@@ -496,13 +496,13 @@ export class TXE {
     this.sideEffectCounter = counter + 1;
   }
 
-  async pxeNotifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, counter: number) {
+  async privateNotifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, counter: number) {
     await this.checkNullifiersNotInTree(this.contractAddress, [innerNullifier]);
     await this.noteCache.nullifyNote(this.contractAddress, innerNullifier, noteHash);
     this.sideEffectCounter = counter + 1;
   }
 
-  async pxeNotifyCreatedNullifier(innerNullifier: Fr): Promise<void> {
+  async privateNotifyCreatedNullifier(innerNullifier: Fr): Promise<void> {
     await this.checkNullifiersNotInTree(this.contractAddress, [innerNullifier]);
     await this.noteCache.nullifierCreated(this.contractAddress, innerNullifier);
   }
@@ -717,7 +717,7 @@ export class TXE {
         selector: call.selector,
       });
 
-      const args = await this.pxeLoadFromExecutionCache(argsHash);
+      const args = await this.privateLoadFromExecutionCache(argsHash);
       const initialWitness = toACVMWitness(0, args);
       const acirExecutionResult = await this.simulator
         .executeUserCircuit(initialWitness, entryPointArtifact, new Oracle(oracle).toACIRCallback())
@@ -739,7 +739,7 @@ export class TXE {
 
       const returnHash = await computeVarArgsHash(returnWitness);
 
-      this.pxeStoreInExecutionCache(returnWitness, returnHash);
+      this.privateStoreInExecutionCache(returnWitness, returnHash);
       return returnHash;
     } catch (err) {
       throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));
@@ -779,7 +779,7 @@ export class TXE {
     this.logger.verbose(`${applyStringFormatting(message, fields)}`, { module: `${this.logger.module}:debug_log` });
   }
 
-  async pxeIncrementAppTaggingSecretIndexAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<void> {
+  async privateIncrementAppTaggingSecretIndexAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<void> {
     await this.pxeOracleInterface.incrementAppTaggingSecretIndexAsSender(this.contractAddress, sender, recipient);
   }
 
@@ -903,11 +903,11 @@ export class TXE {
     return this.pxeOracleInterface.getSharedSecret(address, ephPk);
   }
 
-  pxeGetSenderForTags(): Promise<AztecAddress | undefined> {
+  privateGetSenderForTags(): Promise<AztecAddress | undefined> {
     return Promise.resolve(this.senderForTags);
   }
 
-  pxeSetSenderForTags(senderForTags: AztecAddress): Promise<void> {
+  privateSetSenderForTags(senderForTags: AztecAddress): Promise<void> {
     this.senderForTags = senderForTags;
     return Promise.resolve();
   }
@@ -979,7 +979,7 @@ export class TXE {
       from,
     );
 
-    context.pxeStoreInExecutionCache(args, argsHash);
+    context.privateStoreInExecutionCache(args, argsHash);
 
     // Note: This is a slight modification of simulator.run without any of the checks. Maybe we should modify simulator.run with a boolean value to skip checks.
     let result: PrivateExecutionResult;
@@ -1003,7 +1003,7 @@ export class TXE {
       );
       const publicFunctionsCalldata = await Promise.all(
         publicCallRequests.map(async r => {
-          const calldata = await context.pxeLoadFromExecutionCache(r.calldataHash);
+          const calldata = await context.privateLoadFromExecutionCache(r.calldataHash);
           return new HashedValues(calldata, r.calldataHash);
         }),
       );
@@ -1018,7 +1018,7 @@ export class TXE {
       // This is a bit of a hack to not deal with returning a slice in nr which is what normally happens.
       // Investigate whether it is faster to do this or return from the oracle directly.
       const returnValuesHash = await computeVarArgsHash(returnValues);
-      this.pxeStoreInExecutionCache(returnValues, returnValuesHash);
+      this.privateStoreInExecutionCache(returnValues, returnValuesHash);
     }
 
     // According to the protocol rules, the nonce generator for the note hashes
@@ -1237,7 +1237,7 @@ export class TXE {
       // This is a bit of a hack to not deal with returning a slice in nr which is what normally happens.
       // Investigate whether it is faster to do this or return from the oracle directly.
       returnValuesHash = await computeVarArgsHash(returnValues);
-      this.pxeStoreInExecutionCache(returnValues, returnValuesHash);
+      this.privateStoreInExecutionCache(returnValues, returnValuesHash);
     }
 
     if (isStaticCall) {

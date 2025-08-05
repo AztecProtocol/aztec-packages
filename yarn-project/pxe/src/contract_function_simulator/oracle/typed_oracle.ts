@@ -48,12 +48,12 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('utilityGetRandomField');
   }
 
-  pxeStoreInExecutionCache(_values: Fr[], _hash: Fr): void {
-    throw new OracleMethodNotAvailableError('pxeStoreInExecutionCache');
+  privateStoreInExecutionCache(_values: Fr[], _hash: Fr): void {
+    throw new OracleMethodNotAvailableError('privateStoreInExecutionCache');
   }
 
-  pxeLoadFromExecutionCache(_hash: Fr): Promise<Fr[]> {
-    return Promise.reject(new OracleMethodNotAvailableError('pxeLoadFromExecutionCache'));
+  privateLoadFromExecutionCache(_hash: Fr): Promise<Fr[]> {
+    return Promise.reject(new OracleMethodNotAvailableError('privateLoadFromExecutionCache'));
   }
 
   utilityGetBlockNumber(): Promise<number> {
@@ -137,22 +137,22 @@ export abstract class TypedOracle {
     return Promise.reject(new OracleMethodNotAvailableError('utilityGetNotes'));
   }
 
-  pxeNotifyCreatedNote(
+  privateNotifyCreatedNote(
     _storageSlot: Fr,
     _noteTypeId: NoteSelector,
     _note: Fr[],
     _noteHash: Fr,
     _counter: number,
   ): void {
-    throw new OracleMethodNotAvailableError('pxeNotifyCreatedNote');
+    throw new OracleMethodNotAvailableError('privateNotifyCreatedNote');
   }
 
-  pxeNotifyNullifiedNote(_innerNullifier: Fr, _noteHash: Fr, _counter: number): Promise<void> {
-    return Promise.reject(new OracleMethodNotAvailableError('pxeNotifyNullifiedNote'));
+  privateNotifyNullifiedNote(_innerNullifier: Fr, _noteHash: Fr, _counter: number): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError('privateNotifyNullifiedNote'));
   }
 
-  pxeNotifyCreatedNullifier(_innerNullifier: Fr): Promise<void> {
-    return Promise.reject(new OracleMethodNotAvailableError('pxeNotifyCreatedNullifier'));
+  privateNotifyCreatedNullifier(_innerNullifier: Fr): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError('privateNotifyCreatedNullifier'));
   }
 
   utilityCheckNullifierExists(_innerNullifier: Fr): Promise<boolean> {
@@ -176,40 +176,40 @@ export abstract class TypedOracle {
     return Promise.reject(new OracleMethodNotAvailableError('utilityStorageRead'));
   }
 
-  pxeNotifyCreatedContractClassLog(_log: ContractClassLog, _counter: number): void {
-    throw new OracleMethodNotAvailableError('pxeNotifyCreatedContractClassLog');
+  privateNotifyCreatedContractClassLog(_log: ContractClassLog, _counter: number): void {
+    throw new OracleMethodNotAvailableError('privateNotifyCreatedContractClassLog');
   }
 
-  pxeCallPrivateFunction(
+  privateCallPrivateFunction(
     _targetContractAddress: AztecAddress,
     _functionSelector: FunctionSelector,
     _argsHash: Fr,
     _sideEffectCounter: number,
     _isStaticCall: boolean,
   ): Promise<{ endSideEffectCounter: Fr; returnsHash: Fr }> {
-    return Promise.reject(new OracleMethodNotAvailableError('pxeCallPrivateFunction'));
+    return Promise.reject(new OracleMethodNotAvailableError('privateCallPrivateFunction'));
   }
 
-  pxeNotifyEnqueuedPublicFunctionCall(
+  privateNotifyEnqueuedPublicFunctionCall(
     _targetContractAddress: AztecAddress,
     _calldataHash: Fr,
     _sideEffectCounter: number,
     _isStaticCall: boolean,
   ): Promise<void> {
-    return Promise.reject(new OracleMethodNotAvailableError('pxeNotifyEnqueuedPublicFunctionCall'));
+    return Promise.reject(new OracleMethodNotAvailableError('privateNotifyEnqueuedPublicFunctionCall'));
   }
 
-  pxeNotifySetPublicTeardownFunctionCall(
+  privateNotifySetPublicTeardownFunctionCall(
     _targetContractAddress: AztecAddress,
     _calldataHash: Fr,
     _sideEffectCounter: number,
     _isStaticCall: boolean,
   ): Promise<void> {
-    return Promise.reject(new OracleMethodNotAvailableError('pxeNotifySetPublicTeardownFunctionCall'));
+    return Promise.reject(new OracleMethodNotAvailableError('privateNotifySetPublicTeardownFunctionCall'));
   }
 
-  pxeNotifySetMinRevertibleSideEffectCounter(_minRevertibleSideEffectCounter: number): Promise<void> {
-    throw new OracleMethodNotAvailableError('pxeNotifySetMinRevertibleSideEffectCounter');
+  privateNotifySetMinRevertibleSideEffectCounter(_minRevertibleSideEffectCounter: number): Promise<void> {
+    throw new OracleMethodNotAvailableError('privateNotifySetMinRevertibleSideEffectCounter');
   }
 
   utilityDebugLog(_message: string, _fields: Fr[]): void {
@@ -223,8 +223,8 @@ export abstract class TypedOracle {
     return Promise.reject(new OracleMethodNotAvailableError('utilityGetIndexedTaggingSecretAsSender'));
   }
 
-  pxeIncrementAppTaggingSecretIndexAsSender(_sender: AztecAddress, _recipient: AztecAddress): Promise<void> {
-    return Promise.reject(new OracleMethodNotAvailableError('pxeIncrementAppTaggingSecretIndexAsSender'));
+  privateIncrementAppTaggingSecretIndexAsSender(_sender: AztecAddress, _recipient: AztecAddress): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError('privateIncrementAppTaggingSecretIndexAsSender'));
   }
 
   utilityFetchTaggedLogs(_pendingTaggedLogArrayBaseSlot: Fr): Promise<void> {
@@ -275,11 +275,11 @@ export abstract class TypedOracle {
     return Promise.reject(new OracleMethodNotAvailableError('utilityEmitOffchainEffect'));
   }
 
-  pxeGetSenderForTags(): Promise<AztecAddress | undefined> {
-    return Promise.reject(new OracleMethodNotAvailableError('pxeGetSenderForTags'));
+  privateGetSenderForTags(): Promise<AztecAddress | undefined> {
+    return Promise.reject(new OracleMethodNotAvailableError('privateGetSenderForTags'));
   }
 
-  pxeSetSenderForTags(_senderForTags: AztecAddress): Promise<void> {
-    return Promise.reject(new OracleMethodNotAvailableError('pxeSetSenderForTags'));
+  privateSetSenderForTags(_senderForTags: AztecAddress): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError('privateSetSenderForTags'));
   }
 }

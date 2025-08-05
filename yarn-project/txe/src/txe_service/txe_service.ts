@@ -267,25 +267,25 @@ export class TXEService {
   }
 
   // Since the argument is a slice, noir automatically adds a length field to oracle call.
-  pxeStoreInExecutionCache(_length: ForeignCallSingle, values: ForeignCallArray, hash: ForeignCallSingle) {
+  privateStoreInExecutionCache(_length: ForeignCallSingle, values: ForeignCallArray, hash: ForeignCallSingle) {
     if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
 
-    this.txe.pxeStoreInExecutionCache(fromArray(values), fromSingle(hash));
+    this.txe.privateStoreInExecutionCache(fromArray(values), fromSingle(hash));
     return toForeignCallResult([]);
   }
 
-  async pxeLoadFromExecutionCache(hash: ForeignCallSingle) {
+  async privateLoadFromExecutionCache(hash: ForeignCallSingle) {
     if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
 
-    const returns = await this.txe.pxeLoadFromExecutionCache(fromSingle(hash));
+    const returns = await this.txe.privateLoadFromExecutionCache(fromSingle(hash));
     return toForeignCallResult([toArray(returns)]);
   }
 
@@ -406,7 +406,7 @@ export class TXEService {
     );
   }
 
-  pxeNotifyCreatedNote(
+  privateNotifyCreatedNote(
     storageSlot: ForeignCallSingle,
     noteTypeId: ForeignCallSingle,
     note: ForeignCallArray,
@@ -419,7 +419,7 @@ export class TXEService {
       );
     }
 
-    this.txe.pxeNotifyCreatedNote(
+    this.txe.privateNotifyCreatedNote(
       fromSingle(storageSlot),
       NoteSelector.fromField(fromSingle(noteTypeId)),
       fromArray(note),
@@ -429,7 +429,7 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
-  async pxeNotifyNullifiedNote(
+  async privateNotifyNullifiedNote(
     innerNullifier: ForeignCallSingle,
     noteHash: ForeignCallSingle,
     counter: ForeignCallSingle,
@@ -440,7 +440,7 @@ export class TXEService {
       );
     }
 
-    await this.txe.pxeNotifyNullifiedNote(
+    await this.txe.privateNotifyNullifiedNote(
       fromSingle(innerNullifier),
       fromSingle(noteHash),
       fromSingle(counter).toNumber(),
@@ -448,14 +448,14 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
-  async pxeNotifyCreatedNullifier(innerNullifier: ForeignCallSingle) {
+  async privateNotifyCreatedNullifier(innerNullifier: ForeignCallSingle) {
     if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
 
-    await this.txe.pxeNotifyCreatedNullifier(fromSingle(innerNullifier));
+    await this.txe.privateNotifyCreatedNullifier(fromSingle(innerNullifier));
     return toForeignCallResult([]);
   }
 
@@ -512,7 +512,7 @@ export class TXEService {
     return toForeignCallResult(keyValidationRequest.toFields().map(toSingle));
   }
 
-  pxeCallPrivateFunction(
+  privateCallPrivateFunction(
     _targetContractAddress: ForeignCallSingle,
     _functionSelector: ForeignCallSingle,
     _argsHash: ForeignCallSingle,
@@ -554,7 +554,7 @@ export class TXEService {
     return toForeignCallResult([toArray(authWitness)]);
   }
 
-  public pxeNotifyEnqueuedPublicFunctionCall(
+  public privateNotifyEnqueuedPublicFunctionCall(
     _targetContractAddress: ForeignCallSingle,
     _calldataHash: ForeignCallSingle,
     _sideEffectCounter: ForeignCallSingle,
@@ -563,7 +563,7 @@ export class TXEService {
     throw new Error('Enqueueing public calls is not supported in TestEnvironment::private_context');
   }
 
-  public pxeNotifySetPublicTeardownFunctionCall(
+  public privateNotifySetPublicTeardownFunctionCall(
     _targetContractAddress: ForeignCallSingle,
     _calldataHash: ForeignCallSingle,
     _sideEffectCounter: ForeignCallSingle,
@@ -572,7 +572,7 @@ export class TXEService {
     throw new Error('Enqueueing public calls is not supported in TestEnvironment::private_context');
   }
 
-  public pxeNotifySetMinRevertibleSideEffectCounter(_minRevertibleSideEffectCounter: ForeignCallSingle) {
+  public privateNotifySetMinRevertibleSideEffectCounter(_minRevertibleSideEffectCounter: ForeignCallSingle) {
     throw new Error('Enqueueing public calls is not supported in TestEnvironment::private_context');
   }
 
@@ -1106,14 +1106,14 @@ export class TXEService {
     return toForeignCallResult([toArray([result.returnsHash, result.txHash.hash])]);
   }
 
-  async pxeGetSenderForTags() {
+  async privateGetSenderForTags() {
     if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
 
-    const sender = await this.txe.pxeGetSenderForTags();
+    const sender = await this.txe.privateGetSenderForTags();
     // Return a Noir Option struct with `some` and `value` fields
     if (sender === undefined) {
       // No sender found, return Option with some=0 and value=0
@@ -1124,14 +1124,14 @@ export class TXEService {
     }
   }
 
-  async pxeSetSenderForTags(senderForTags: ForeignCallSingle) {
+  async privateSetSenderForTags(senderForTags: ForeignCallSingle) {
     if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
 
-    await this.txe.pxeSetSenderForTags(AztecAddress.fromField(fromSingle(senderForTags)));
+    await this.txe.privateSetSenderForTags(AztecAddress.fromField(fromSingle(senderForTags)));
     return toForeignCallResult([]);
   }
 }
