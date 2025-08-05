@@ -16,7 +16,7 @@ This guide assumes you have an Aztec app on sandbox and you wish to deploy it on
 
 :::warning
 
-The testnet is version dependent. It is currently running version `0.87.8`. Maintain version consistency when interacting with the testnet to reduce errors.
+The testnet is version dependent. It is currently running version `1.2.0`. Maintain version consistency when interacting with the testnet to reduce errors.
 
 :::
 
@@ -66,6 +66,7 @@ import { createAztecNodeClient } from "@aztec/aztec.js";
 import { getPXEServiceConfig } from "@aztec/pxe/server";
 import { createStore } from "@aztec/kv-store/lmdb";
 
+const PXE_URL = "https://aztec-alpha-testnet-fullnode.zkv.xyz";
 const node = createAztecNodeClient(PXE_URL);
 const l1Contracts = await node.getL1ContractAddresses();
 const config = getPXEServiceConfig();
