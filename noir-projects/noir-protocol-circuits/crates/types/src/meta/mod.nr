@@ -1,5 +1,3 @@
-use super::traits::{Deserialize, Packable, Serialize};
-
 comptime fn get_generics_declarations(s: TypeDefinition) -> Quoted {
     let generics = s.generics();
 
@@ -28,7 +26,7 @@ comptime fn get_generics_declarations(s: TypeDefinition) -> Quoted {
     }
 }
 
-comptime fn get_where_serialize_clause(s: TypeDefinition) -> Quoted {
+comptime fn get_where_trait_clause(s: TypeDefinition, trait_name: Quoted) -> Quoted {
     let generics = s.generics();
 
     // The second item in the generics tuple is an Option of an integer type that is Some if the generic is
@@ -38,7 +36,7 @@ comptime fn get_where_serialize_clause(s: TypeDefinition) -> Quoted {
 
     if non_numeric_generics.len() > 0 {
         let non_numeric_generics_declarations =
-            non_numeric_generics.map(|(name, _)| quote {$name: Serialize}).join(quote {,});
+            non_numeric_generics.map(|(name, _)| quote {$name: $trait_name}).join(quote {,});
         quote {where $non_numeric_generics_declarations}
     } else {
         // There are no non-numeric generics, so we return an empty quote.
@@ -97,7 +95,7 @@ pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
     let params = nested_struct.0.fields(nested_struct.1);
 
     let generics_declarations = get_generics_declarations(s);
-    let where_serialize_clause = get_where_serialize_clause(s);
+    let where_serialize_clause = get_where_trait_clause(s, quote {Serialize});
 
     // The following will give us <type_of_struct_member_1 as Serialize>::N + <type_of_struct_member_2 as Serialize>::N + ...
     let right_hand_side_of_definition_of_n = params
@@ -150,6 +148,7 @@ pub(crate) comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
     let params = nested_struct.0.fields(nested_struct.1);
 
     let generics_declarations = get_generics_declarations(s);
+    let where_deserialize_clause = get_where_trait_clause(s, quote {Deserialize});
 
     // The following will give us <type_of_struct_member_1 as Deserialize>::N + <type_of_struct_member_2 as Deserialize>::N + ...
     let right_hand_side_of_definition_of_n = params
@@ -181,7 +180,9 @@ pub(crate) comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
         .join(quote {,});
 
     quote {
-        impl$generics_declarations $crate::traits::Deserialize for $typ {
+        impl$generics_declarations $crate::traits::Deserialize for $typ
+            $where_deserialize_clause
+        {
             let N: u32 = $right_hand_side_of_definition_of_n;
 
             #[inline_always]
@@ -335,71 +336,87 @@ pub comptime fn derive_packable(s: TypeDefinition) -> Quoted {
     }
 }
 
-#[derive(Packable, Serialize, Deserialize, Eq)]
-pub struct Smol {
-    a: Field,
-    b: Field,
-}
+mod test {
 
-#[derive(Serialize, Deserialize, Eq)]
-pub struct HasArray {
-    a: [Field; 2],
-    b: bool,
-}
+    use crate::traits::{Deserialize, Packable, Serialize};
 
-#[derive(Serialize, Deserialize, Eq)]
-pub struct Fancier {
-    a: Smol,
-    b: [Field; 2],
-    c: [u8; 3],
-    d: str<16>,
-}
+    #[derive(Packable, Serialize, Deserialize, Eq)]
+    pub struct Smol {
+        a: Field,
+        b: Field,
+    }
 
-#[derive(Serialize)]
-pub struct ContainsArrayWithGenerics<T, let N: u32> {
-    pub fields: [T; N],
-    pub length: u32,
-}
+    #[derive(Serialize, Deserialize, Eq)]
+    pub struct HasArray {
+        a: [Field; 2],
+        b: bool,
+    }
 
-fn main() {
-    assert(false);
-}
+    #[derive(Serialize, Deserialize, Eq)]
+    pub struct Fancier {
+        a: Smol,
+        b: [Field; 2],
+        c: [u8; 3],
+        d: str<16>,
+    }
 
-#[test]
-fn smol_test() {
-    let smol = Smol { a: 1, b: 2 };
-    let serialized = smol.serialize();
-    assert(serialized == [1, 2], serialized);
-    let deserialized = Smol::deserialize(serialized);
-    assert(deserialized == smol);
+    #[derive(Serialize, Deserialize, Eq)]
+    pub struct ContainsArrayWithGenerics<T, let N: u32> {
+        pub fields: [T; N],
+        pub length: u32,
+    }
 
-    // None of the struct members implements the `Packable` trait so the packed and serialized data should be the same
-    let packed = smol.pack();
-    assert_eq(packed, serialized, "Packed does not match serialized");
-}
+    fn main() {
+        assert(false);
+    }
 
-#[test]
-fn has_array_test() {
-    let has_array = HasArray { a: [1, 2], b: true };
-    let serialized = has_array.serialize();
-    assert(serialized == [1, 2, 1], serialized);
-    let deserialized = HasArray::deserialize(serialized);
-    assert(deserialized == has_array);
-}
+    #[test]
+    fn smol_test() {
+        let smol = Smol { a: 1, b: 2 };
+        let serialized = smol.serialize();
+        assert(serialized == [1, 2], serialized);
+        let deserialized = Smol::deserialize(serialized);
+        assert(deserialized == smol);
 
-#[test]
-fn fancier_test() {
-    let fancier =
-        Fancier { a: Smol { a: 1, b: 2 }, b: [0, 1], c: [1, 2, 3], d: "metaprogramming!" };
-    let serialized = fancier.serialize();
-    assert(
-        serialized
-            == [
-                1, 2, 0, 1, 1, 2, 3, 0x6d, 0x65, 0x74, 0x61, 0x70, 0x72, 0x6f, 0x67, 0x72, 0x61,
-                0x6d, 0x6d, 0x69, 0x6e, 0x67, 0x21,
-            ],
-        serialized,
-    );
-    let deserialized = Fancier::deserialize(serialized);
-    assert(deserialized == fancier);
+        // None of the struct members implements the `Packable` trait so the packed and serialized data should be the same
+        let packed = smol.pack();
+        assert_eq(packed, serialized, "Packed does not match serialized");
+    }
+
+    #[test]
+    fn has_array_test() {
+        let has_array = HasArray { a: [1, 2], b: true };
+        let serialized = has_array.serialize();
+        assert(serialized == [1, 2, 1], serialized);
+        let deserialized = HasArray::deserialize(serialized);
+        assert(deserialized == has_array);
+    }
+
+    #[test]
+    fn fancier_test() {
+        let fancier =
+            Fancier { a: Smol { a: 1, b: 2 }, b: [0, 1], c: [1, 2, 3], d: "metaprogramming!" };
+        let serialized = fancier.serialize();
+        assert(
+            serialized
+                == [
+                    1, 2, 0, 1, 1, 2, 3, 0x6d, 0x65, 0x74, 0x61, 0x70, 0x72, 0x6f, 0x67, 0x72, 0x61,
+                    0x6d, 0x6d, 0x69, 0x6e, 0x67, 0x21,
+                ],
+            serialized,
+        );
+        let deserialized = Fancier::deserialize(serialized);
+        assert(deserialized == fancier);
+    }
+
+    #[test]
+    fn struct_with_array_of_generics_test() {
+        let struct_with_array_of_generics =
+            ContainsArrayWithGenerics { fields: [1, 2, 3], length: 3 };
+        let serialized = struct_with_array_of_generics.serialize();
+        assert(serialized == [1, 2, 3, 3], serialized);
+        let deserialized = ContainsArrayWithGenerics::deserialize(serialized);
+        assert(deserialized == struct_with_array_of_generics);
+    }
+
 }
