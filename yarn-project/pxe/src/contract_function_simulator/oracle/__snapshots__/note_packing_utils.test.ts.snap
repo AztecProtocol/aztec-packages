@@ -1,6 +1,6 @@
 // Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
-exports[`packAsRetrievedNote packs note data correctly 1`] = `
+exports[`packs retrieved note 1`] = `
 [
   "0x0000000000000000000000000000000000000000000000000000000000000003",
   "0x0000000000000000000000000000000000000000000000000000000000000004",
