@@ -304,7 +304,11 @@ export class ClientFlowsBenchmark {
 
         this.logger.info(`BananaPay deployed at ${bananaFPC.address}`);
 
-        await this.feeJuiceBridgeTestHarness.bridgeFromL1ToL2(FEE_FUNDING_FOR_TESTER_ACCOUNT, bananaFPC.address);
+        await this.feeJuiceBridgeTestHarness.bridgeFromL1ToL2(
+          FEE_FUNDING_FOR_TESTER_ACCOUNT,
+          bananaFPC.address,
+          this.adminAddress,
+        );
 
         return { bananaFPCAddress: bananaFPC.address };
       },
@@ -343,6 +347,7 @@ export class ClientFlowsBenchmark {
       this.pxe,
       l1Client,
       owner,
+      owner.getAddress(),
       this.logger,
       underlyingERC20Address,
     );

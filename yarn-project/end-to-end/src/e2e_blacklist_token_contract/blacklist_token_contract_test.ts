@@ -74,8 +74,11 @@ export class BlacklistTokenContractTest {
   aztecNode!: AztecNode;
 
   admin!: AccountWallet;
+  adminAddress!: AztecAddress;
   other!: AccountWallet;
+  otherAddress!: AztecAddress;
   blacklisted!: AccountWallet;
+  blacklistedAddress!: AztecAddress;
 
   constructor(testName: string) {
     this.logger = createLogger(`e2e:e2e_blacklist_token_contract:${testName}`);
@@ -109,8 +112,11 @@ export class BlacklistTokenContractTest {
         this.sequencer = sequencer;
         this.wallets = await Promise.all(deployedAccounts.map(a => getSchnorrWallet(pxe, a.address, a.signingKey)));
         this.admin = this.wallets[0];
+        this.adminAddress = this.admin.getAddress();
         this.other = this.wallets[1];
+        this.otherAddress = this.other.getAddress();
         this.blacklisted = this.wallets[2];
+        this.blacklistedAddress = this.blacklisted.getAddress();
         this.accounts = this.wallets.map(w => w.getCompleteAddress());
       },
     );
@@ -121,14 +127,16 @@ export class BlacklistTokenContractTest {
         // Create the token contract state.
         // Move this account thing to addAccounts above?
         this.logger.verbose(`Public deploy accounts...`);
-        await publicDeployAccounts(this.wallets[0], this.accounts.slice(0, 3));
+        await publicDeployAccounts(this.admin, this.accounts.slice(0, 3));
 
         this.logger.verbose(`Deploying TokenContract...`);
-        this.asset = await TokenBlacklistContract.deploy(this.admin, this.admin.getAddress()).send().deployed();
+        this.asset = await TokenBlacklistContract.deploy(this.admin, this.adminAddress)
+          .send({ from: this.adminAddress })
+          .deployed();
         this.logger.verbose(`Token deployed to ${this.asset.address}`);
 
         this.logger.verbose(`Deploying bad account...`);
-        this.badAccount = await InvalidAccountContract.deploy(this.wallets[0]).send().deployed();
+        this.badAccount = await InvalidAccountContract.deploy(this.admin).send({ from: this.adminAddress }).deployed();
         this.logger.verbose(`Deployed to ${this.badAccount.address}.`);
 
         await this.crossTimestampOfChange();
@@ -150,7 +158,7 @@ export class BlacklistTokenContractTest {
         this.badAccount = await InvalidAccountContract.at(badAccountAddress, this.wallets[0]);
         this.logger.verbose(`Bad account address: ${this.badAccount.address}`);
 
-        expect(await this.asset.methods.get_roles(this.admin.getAddress()).simulate()).toEqual(
+        expect(await this.asset.methods.get_roles(this.adminAddress).simulate({ from: this.adminAddress })).toEqual(
           new Role().withAdmin().toNoirStruct(),
         );
       },
@@ -189,7 +197,7 @@ export class BlacklistTokenContractTest {
         txEffects!.data.nullifiers[0],
         recipient,
       )
-      .simulate();
+      .simulate({ from: recipient });
   }
 
   async applyMintSnapshot() {
