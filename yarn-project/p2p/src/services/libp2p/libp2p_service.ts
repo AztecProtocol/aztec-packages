@@ -19,7 +19,7 @@ import {
   PeerErrorSeverity,
   TopicType,
   createTopicString,
-  getTopicTypeForClientType,
+  getTopicsForClientAndConfig,
   metricsTopicStrToLabels,
 } from '@aztec/stdlib/p2p';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
@@ -441,9 +441,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     await this.node.start();
 
     // Subscribe to standard GossipSub topics by default
-    for (const topic of getTopicTypeForClientType(this.clientType).filter(
-      t => t !== TopicType.tx || !this.config.disableTransactions,
-    )) {
+    for (const topic of getTopicsForClientAndConfig(this.clientType, this.config.disableTransactions)) {
       this.subscribeToTopic(this.topicStrings[topic]);
     }
 
