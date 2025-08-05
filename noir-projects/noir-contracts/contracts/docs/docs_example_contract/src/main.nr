@@ -189,6 +189,7 @@ pub contract DocsExample {
         let mut context = PrivateContext::new(inputs, args_hasher.hash());
         // docs:end:context-example-context
         // docs:start:storage-example-context
+        #[allow(unused_variables)]
         let mut storage = Storage::init(&mut context);
         // docs:end:storage-example-context
         // ************************************************************

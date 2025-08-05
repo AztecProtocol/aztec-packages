@@ -40,9 +40,12 @@ struct ContextEvent {
     InternalCallId internal_call_return_id = 0;
     InternalCallId next_internal_call_id = 0;
 
-    // Tree State
+    // Tree States
     TreeStates tree_states;
     AppendOnlyTreeSnapshot written_public_data_slots_tree_snapshot;
+
+    // Side Effects
+    SideEffectStates side_effect_states;
 };
 
 struct ContextStackEvent {
@@ -64,8 +67,12 @@ struct ContextStackEvent {
     Gas parent_gas_used;
     Gas parent_gas_limit;
 
-    // Tree State
-    // TreeSnapshots tree_state;
+    // Tree States
+    TreeStates tree_states;
+    AppendOnlyTreeSnapshot written_public_data_slots_tree_snapshot;
+
+    // Side Effect States
+    SideEffectStates side_effect_states;
 };
 
 } // namespace bb::avm2::simulation

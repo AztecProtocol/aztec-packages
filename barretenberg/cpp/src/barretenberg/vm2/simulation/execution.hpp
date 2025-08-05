@@ -18,6 +18,7 @@
 #include "barretenberg/vm2/simulation/context_provider.hpp"
 #include "barretenberg/vm2/simulation/data_copy.hpp"
 #include "barretenberg/vm2/simulation/ecc.hpp"
+#include "barretenberg/vm2/simulation/emit_unencrypted_log.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/events/gas_event.hpp"
@@ -55,6 +56,7 @@ class Execution : public ExecutionInterface {
               DataCopyInterface& data_copy,
               Poseidon2Interface& poseidon2,
               EccInterface& ecc,
+              ToRadixInterface& to_radix,
               ExecutionComponentsProviderInterface& execution_components,
               ContextProviderInterface& context_provider,
               const InstructionInfoDBInterface& instruction_info_db,
@@ -64,6 +66,7 @@ class Execution : public ExecutionInterface {
               KeccakF1600Interface& keccakf1600,
               GreaterThanInterface& greater_than,
               GetContractInstanceInterface& get_contract_instance_component,
+              EmitUnencryptedLogInterface& emit_unencrypted_log_component,
               HighLevelMerkleDBInterface& merkle_db)
         : execution_components(execution_components)
         , instruction_info_db(instruction_info_db)
@@ -71,12 +74,14 @@ class Execution : public ExecutionInterface {
         , bitwise(bitwise)
         , poseidon2(poseidon2)
         , embedded_curve(ecc)
+        , to_radix(to_radix)
         , context_provider(context_provider)
         , execution_id_manager(execution_id_manager)
         , data_copy(data_copy)
         , keccakf1600(keccakf1600)
         , greater_than(greater_than)
         , get_contract_instance_component(get_contract_instance_component)
+        , emit_unencrypted_log_component(emit_unencrypted_log_component)
         , merkle_db(merkle_db)
         , events(event_emitter)
         , ctx_stack_events(ctx_stack_emitter)
@@ -86,6 +91,7 @@ class Execution : public ExecutionInterface {
 
     // Opcode handlers. The order of the operands matters and should be the same as the wire format.
     void add(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
+    void sub(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void mul(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void eq(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void lt(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
@@ -156,6 +162,14 @@ class Execution : public ExecutionInterface {
                  MemoryAddress q_y_addr,
                  MemoryAddress q_inf_addr,
                  MemoryAddress dst_addr);
+    void to_radix_be(ContextInterface& context,
+                     MemoryAddress value_addr,
+                     MemoryAddress radix_addr,
+                     MemoryAddress num_limbs_addr,
+                     MemoryAddress is_output_bits_addr,
+                     MemoryAddress dst_addr);
+    void emit_unencrypted_log(ContextInterface& context, MemoryAddress log_offset, MemoryAddress log_size_offset);
+    void send_l2_to_l1_msg(ContextInterface& context, MemoryAddress recipient_addr, MemoryAddress content_addr);
 
   protected:
     // Only here for testing. TODO(fcarreiro): try to improve.
@@ -175,6 +189,7 @@ class Execution : public ExecutionInterface {
 
     void handle_enter_call(ContextInterface& parent_context, std::unique_ptr<ContextInterface> child_context);
     void handle_exit_call();
+    void handle_exceptional_halt(ContextInterface& context);
 
     // TODO(#13683): This is leaking circuit implementation details. We should have a better way to do this.
     // Setters for inputs and output for gadgets/subtraces. These are used for register allocation.
@@ -190,12 +205,14 @@ class Execution : public ExecutionInterface {
     BitwiseInterface& bitwise;
     Poseidon2Interface& poseidon2;
     EccInterface& embedded_curve;
+    ToRadixInterface& to_radix;
     ContextProviderInterface& context_provider;
     ExecutionIdManagerInterface& execution_id_manager;
     DataCopyInterface& data_copy;
     KeccakF1600Interface& keccakf1600;
     GreaterThanInterface& greater_than;
     GetContractInstanceInterface& get_contract_instance_component;
+    EmitUnencryptedLogInterface& emit_unencrypted_log_component;
     HighLevelMerkleDBInterface& merkle_db;
 
     EventEmitterInterface<ExecutionEvent>& events;

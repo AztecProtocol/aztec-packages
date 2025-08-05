@@ -21,6 +21,7 @@
 #include "relations/ecc_mem.hpp"
 #include "relations/emit_notehash.hpp"
 #include "relations/emit_nullifier.hpp"
+#include "relations/emit_unencrypted_log.hpp"
 #include "relations/execution.hpp"
 #include "relations/external_call.hpp"
 #include "relations/ff_gt.hpp"
@@ -49,10 +50,12 @@
 #include "relations/range_check.hpp"
 #include "relations/registers.hpp"
 #include "relations/scalar_mul.hpp"
+#include "relations/send_l2_to_l1_msg.hpp"
 #include "relations/sha256.hpp"
 #include "relations/sload.hpp"
 #include "relations/sstore.hpp"
 #include "relations/to_radix.hpp"
+#include "relations/to_radix_mem.hpp"
 #include "relations/tx.hpp"
 #include "relations/update_check.hpp"
 #include "relations/written_public_data_slots_tree_check.hpp"
@@ -73,6 +76,7 @@
 #include "relations/lookups_ecc_mem.hpp"
 #include "relations/lookups_emit_notehash.hpp"
 #include "relations/lookups_emit_nullifier.hpp"
+#include "relations/lookups_emit_unencrypted_log.hpp"
 #include "relations/lookups_execution.hpp"
 #include "relations/lookups_external_call.hpp"
 #include "relations/lookups_ff_gt.hpp"
@@ -97,10 +101,12 @@
 #include "relations/lookups_range_check.hpp"
 #include "relations/lookups_registers.hpp"
 #include "relations/lookups_scalar_mul.hpp"
+#include "relations/lookups_send_l2_to_l1_msg.hpp"
 #include "relations/lookups_sha256.hpp"
 #include "relations/lookups_sload.hpp"
 #include "relations/lookups_sstore.hpp"
 #include "relations/lookups_to_radix.hpp"
+#include "relations/lookups_to_radix_mem.hpp"
 #include "relations/lookups_tx.hpp"
 #include "relations/lookups_update_check.hpp"
 #include "relations/lookups_written_public_data_slots_tree_check.hpp"
@@ -109,15 +115,16 @@
 #include "relations/perms_keccakf1600.hpp"
 #include "relations/perms_poseidon2_mem.hpp"
 #include "relations/perms_public_data_check.hpp"
+#include "relations/perms_to_radix_mem.hpp"
 
 namespace bb::avm2 {
 
 struct AvmFlavorVariables {
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 125;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2536;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 250;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 126;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2658;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 287;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2911;
+    static constexpr size_t NUM_ALL_ENTITIES = 3071;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -142,6 +149,7 @@ struct AvmFlavorVariables {
         avm2::ecc_mem<FF_>,
         avm2::emit_notehash<FF_>,
         avm2::emit_nullifier<FF_>,
+        avm2::emit_unencrypted_log<FF_>,
         avm2::execution<FF_>,
         avm2::external_call<FF_>,
         avm2::ff_gt<FF_>,
@@ -170,10 +178,12 @@ struct AvmFlavorVariables {
         avm2::range_check<FF_>,
         avm2::registers<FF_>,
         avm2::scalar_mul<FF_>,
+        avm2::send_l2_to_l1_msg<FF_>,
         avm2::sha256<FF_>,
         avm2::sload<FF_>,
         avm2::sstore<FF_>,
         avm2::to_radix<FF_>,
+        avm2::to_radix_mem<FF_>,
         avm2::tx<FF_>,
         avm2::update_check<FF_>,
         avm2::written_public_data_slots_tree_check<FF_>>;
@@ -254,10 +264,18 @@ struct AvmFlavorVariables {
         lookup_ecc_mem_write_mem_2_relation<FF_>,
         lookup_emit_notehash_notehash_tree_write_relation<FF_>,
         lookup_emit_nullifier_write_nullifier_relation<FF_>,
+        lookup_emit_unencrypted_log_check_log_size_too_large_relation<FF_>,
+        lookup_emit_unencrypted_log_check_memory_out_of_bounds_relation<FF_>,
+        lookup_emit_unencrypted_log_dispatch_exec_emit_unencrypted_log_relation<FF_>,
+        lookup_emit_unencrypted_log_read_mem_relation<FF_>,
+        lookup_emit_unencrypted_log_write_log_to_public_inputs_relation<FF_>,
         lookup_execution_bytecode_retrieval_result_relation<FF_>,
+        lookup_execution_check_radix_gt_256_relation<FF_>,
         lookup_execution_check_written_storage_slot_relation<FF_>,
         lookup_execution_dyn_l2_factor_bitwise_relation<FF_>,
         lookup_execution_exec_spec_read_relation<FF_>,
+        lookup_execution_get_max_limbs_relation<FF_>,
+        lookup_execution_get_p_limbs_relation<FF_>,
         lookup_execution_instruction_fetching_body_relation<FF_>,
         lookup_execution_instruction_fetching_result_relation<FF_>,
         lookup_external_call_call_allocated_left_da_range_relation<FF_>,
@@ -479,6 +497,7 @@ struct AvmFlavorVariables {
         lookup_scalar_mul_add_relation<FF_>,
         lookup_scalar_mul_double_relation<FF_>,
         lookup_scalar_mul_to_radix_relation<FF_>,
+        lookup_send_l2_to_l1_msg_write_l2_to_l1_msg_relation<FF_>,
         lookup_sha256_round_constant_relation<FF_>,
         lookup_sload_storage_read_relation<FF_>,
         lookup_sstore_record_written_storage_slot_relation<FF_>,
@@ -488,6 +507,11 @@ struct AvmFlavorVariables {
         lookup_to_radix_limb_less_than_radix_range_relation<FF_>,
         lookup_to_radix_limb_p_diff_range_relation<FF_>,
         lookup_to_radix_limb_range_relation<FF_>,
+        lookup_to_radix_mem_check_dst_addr_in_range_relation<FF_>,
+        lookup_to_radix_mem_check_radix_gt_256_relation<FF_>,
+        lookup_to_radix_mem_check_radix_lt_2_relation<FF_>,
+        lookup_to_radix_mem_input_output_to_radix_relation<FF_>,
+        lookup_to_radix_mem_write_mem_relation<FF_>,
         lookup_tx_balance_slot_poseidon2_relation<FF_>,
         lookup_tx_balance_validation_relation<FF_>,
         lookup_tx_note_hash_append_relation<FF_>,
@@ -522,7 +546,8 @@ struct AvmFlavorVariables {
         perm_keccakf1600_read_to_slice_relation<FF_>,
         perm_keccakf1600_write_to_slice_relation<FF_>,
         perm_poseidon2_mem_dispatch_exec_pos2_relation<FF_>,
-        perm_public_data_check_squashing_relation<FF_>>;
+        perm_public_data_check_squashing_relation<FF_>,
+        perm_to_radix_mem_dispatch_exec_to_radix_relation<FF_>>;
 };
 
 } // namespace bb::avm2

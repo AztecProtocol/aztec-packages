@@ -44,6 +44,10 @@ contract GSEPayload is IProposerPayload {
     return ORIGINAL;
   }
 
+  function getURI() external view override(IPayload) returns (string memory) {
+    return ORIGINAL.getURI();
+  }
+
   /**
    * @notice called by the Governance contract when executing the proposal.
    *
@@ -57,10 +61,8 @@ contract GSEPayload is IProposerPayload {
       actions[i] = originalActions[i];
     }
 
-    actions[originalActions.length] = IPayload.Action({
-      target: address(this),
-      data: abi.encodeWithSelector(GSEPayload.amIValid.selector)
-    });
+    actions[originalActions.length] =
+      IPayload.Action({target: address(this), data: abi.encodeWithSelector(GSEPayload.amIValid.selector)});
 
     return actions;
   }
@@ -80,10 +82,7 @@ contract GSEPayload is IProposerPayload {
     address bonusInstance = GSE.getBonusInstanceAddress();
     uint256 effectiveSupplyOfLatestRollup = GSE.supplyOf(latestRollup) + GSE.supplyOf(bonusInstance);
 
-    require(
-      effectiveSupplyOfLatestRollup > totalSupply * 2 / 3,
-      Errors.GovernanceProposer__GSEPayloadInvalid()
-    );
+    require(effectiveSupplyOfLatestRollup > totalSupply * 2 / 3, Errors.GovernanceProposer__GSEPayloadInvalid());
     return true;
   }
 }

@@ -11,7 +11,7 @@ import {
   PRIVATE_CONTEXT_INPUTS_LENGTH,
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { Aes128, Schnorr, poseidon2Hash } from '@aztec/foundation/crypto';
+import { Aes128, Schnorr } from '@aztec/foundation/crypto';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { type Logger, applyStringFormatting } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
@@ -41,13 +41,11 @@ import {
   pickNotes,
 } from '@aztec/pxe/simulator';
 import { WASMSimulator, extractCallStack, toACVMWitness, witnessMapToFields } from '@aztec/simulator/client';
-import { createTxForPublicCalls } from '@aztec/simulator/public/fixtures';
 import {
   ExecutionError,
   GuardedMerkleTreeOperations,
   PublicContractsDB,
   PublicProcessor,
-  type PublicTxResult,
   PublicTxSimulator,
   createSimulationError,
   resolveAssertionMessageFromError,
@@ -64,7 +62,6 @@ import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstance, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import { SimulationError } from '@aztec/stdlib/errors';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import {
   computeCalldataHash,
@@ -84,7 +81,6 @@ import {
   PrivateToPublicAccumulatedData,
   PublicCallRequest,
 } from '@aztec/stdlib/kernel';
-import { deriveKeys } from '@aztec/stdlib/keys';
 import { ContractClassLog, IndexedTaggingSecret, PrivateLog, type PublicLog } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { ClientIvcProof } from '@aztec/stdlib/proofs';
@@ -97,7 +93,6 @@ import {
 import {
   AppendOnlyTreeSnapshot,
   MerkleTreeId,
-  type NullifierLeafPreimage,
   NullifierMembershipWitness,
   PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
@@ -106,11 +101,9 @@ import {
 import {
   BlockHeader,
   CallContext,
-  GlobalVariables,
   HashedValues,
   PrivateCallExecutionResult,
   PrivateExecutionResult,
-  PublicCallRequestWithCalldata,
   Tx,
   TxConstantData,
   TxContext,
@@ -134,7 +127,6 @@ export class TXE {
   private sideEffectCounter = 0;
   private msgSender: AztecAddress;
   private functionSelector = FunctionSelector.fromField(new Fr(0));
-  private isStaticCall = false;
 
   private pxeOracleInterface: PXEOracleInterface;
 
@@ -157,7 +149,7 @@ export class TXE {
 
   private authwits: Map<string, AuthWitness> = new Map();
 
-  // Used by setSenderForTags and getSenderForTags oracles.
+  // Used by privateSetSenderForTags and privateGetSenderForTags oracles.
   private senderForTags?: AztecAddress;
 
   private constructor(
@@ -251,11 +243,11 @@ export class TXE {
     return this.baseFork;
   }
 
-  getChainId(): Promise<Fr> {
+  utilityGetChainId(): Promise<Fr> {
     return Promise.resolve(new Fr(this.CHAIN_ID));
   }
 
-  getVersion(): Promise<Fr> {
+  utilityGetVersion(): Promise<Fr> {
     return Promise.resolve(new Fr(this.ROLLUP_VERSION));
   }
 
@@ -263,27 +255,7 @@ export class TXE {
     return this.msgSender;
   }
 
-  getFunctionSelector() {
-    return this.functionSelector;
-  }
-
-  setMsgSender(msgSender: AztecAddress) {
-    this.msgSender = msgSender;
-  }
-
-  setFunctionSelector(functionSelector: FunctionSelector) {
-    this.functionSelector = functionSelector;
-  }
-
-  getSideEffectsCounter() {
-    return this.sideEffectCounter;
-  }
-
-  setSideEffectsCounter(sideEffectsCounter: number) {
-    this.sideEffectCounter = sideEffectsCounter;
-  }
-
-  setContractAddress(contractAddress: AztecAddress) {
+  txeSetContractAddress(contractAddress: AztecAddress) {
     this.contractAddress = contractAddress;
   }
 
@@ -292,7 +264,7 @@ export class TXE {
     this.blockNumber = blockNumber;
   }
 
-  advanceTimestampBy(duration: UInt64) {
+  txeAdvanceTimestampBy(duration: UInt64) {
     this.timestamp = this.timestamp + duration;
   }
 
@@ -320,7 +292,7 @@ export class TXE {
     await this.contractDataProvider.addContractArtifact(contractClassId, artifact);
   }
 
-  async getPrivateContextInputs(
+  async txeGetPrivateContextInputs(
     blockNumber: number | null,
     sideEffectsCounter = this.sideEffectCounter,
     isStaticCall = false,
@@ -347,11 +319,7 @@ export class TXE {
     return inputs;
   }
 
-  deriveKeys(secret: Fr) {
-    return deriveKeys(secret);
-  }
-
-  async addAuthWitness(address: AztecAddress, messageHash: Fr) {
+  async txeAddAuthWitness(address: AztecAddress, messageHash: Fr) {
     const account = await this.accountDataProvider.getAccount(address);
     const privateKey = await this.keyStore.getMasterSecretKey(account.publicKeys.masterIncomingViewingPublicKey);
     const schnorr = new Schnorr();
@@ -389,61 +357,33 @@ export class TXE {
     this.uniqueNoteHashesFromPublic.push(...siloedNoteHashes);
   }
 
-  async addPrivateLogs(contractAddress: AztecAddress, privateLogs: PrivateLog[]) {
-    for (const privateLog of privateLogs) {
-      privateLog.fields[0] = await poseidon2Hash([contractAddress, privateLog.fields[0]]);
-    }
-
-    this.privateLogs.push(...privateLogs);
-  }
-
-  addPublicLogs(logs: PublicLog[]) {
-    logs.forEach(log => {
-      try {
-        const tag = log.fields[0];
-        this.logger.verbose(`Found tagged public log with tag ${tag.toString()} in block ${this.blockNumber}`);
-        this.publicLogs.push(log);
-      } catch (err) {
-        this.logger.warn(`Failed to add tagged log to store: ${err}`);
-      }
-    });
-  }
-
   // TypedOracle
 
-  getBlockNumber() {
+  utilityGetBlockNumber() {
     return Promise.resolve(this.blockNumber);
   }
 
-  getTimestamp() {
+  utilityGetTimestamp() {
     return Promise.resolve(this.timestamp);
   }
 
-  getLastBlockTimestamp() {
+  txeGetLastBlockTimestamp() {
     return this.getBlockTimestamp(this.blockNumber - 1);
   }
 
-  getContractAddress() {
+  utilityGetContractAddress() {
     return Promise.resolve(this.contractAddress);
   }
 
-  setIsStaticCall(isStatic: boolean) {
-    this.isStaticCall = isStatic;
-  }
-
-  getIsStaticCall() {
-    return this.isStaticCall;
-  }
-
-  getRandomField() {
+  utilityGetRandomField() {
     return Fr.random();
   }
 
-  storeInExecutionCache(values: Fr[], hash: Fr) {
+  privateStoreInExecutionCache(values: Fr[], hash: Fr) {
     return this.executionCache.store(values, hash);
   }
 
-  loadFromExecutionCache(hash: Fr) {
+  privateLoadFromExecutionCache(hash: Fr) {
     const preimage = this.executionCache.getPreimage(hash);
     if (!preimage) {
       throw new Error(`Preimage for hash ${hash.toString()} not found in cache`);
@@ -451,109 +391,50 @@ export class TXE {
     return Promise.resolve(preimage);
   }
 
-  getKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest> {
+  utilityGetKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest> {
     return this.keyStore.getKeyValidationRequest(pkMHash, this.contractAddress);
   }
 
-  async getContractInstance(address: AztecAddress): Promise<ContractInstance> {
-    const contractInstance = await this.contractDataProvider.getContractInstance(address);
-    if (!contractInstance) {
-      throw new Error(`Contract instance not found for address ${address}`);
-    }
-    return contractInstance;
+  utilityGetContractInstance(address: AztecAddress): Promise<ContractInstance> {
+    return this.pxeOracleInterface.getContractInstance(address);
   }
 
-  async getMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[] | undefined> {
-    const snap = this.nativeWorldStateService.getSnapshot(blockNumber);
-    const index = (await snap.findLeafIndices(treeId, [leafValue.toBuffer()]))[0];
-    if (index === undefined) {
-      throw new Error(`Leaf value: ${leafValue} not found in ${MerkleTreeId[treeId]} at block ${blockNumber}`);
-    }
-    const siblingPath = await snap.getSiblingPath(treeId, index);
-
-    return [new Fr(index), ...siblingPath.toFields()];
+  utilityGetMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[] | undefined> {
+    return this.pxeOracleInterface.getMembershipWitness(blockNumber, treeId, leafValue);
   }
 
-  async getSiblingPath(blockNumber: number, treeId: MerkleTreeId, leafIndex: Fr) {
-    const snap = this.nativeWorldStateService.getSnapshot(blockNumber);
-
-    const result = await snap.getSiblingPath(treeId, leafIndex.toBigInt());
-    return result.toFields();
-  }
-
-  async getNullifierMembershipWitness(
+  utilityGetNullifierMembershipWitness(
     blockNumber: number,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
-    const snap = this.nativeWorldStateService.getSnapshot(blockNumber);
-
-    const [index] = await snap.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]);
-    if (!index) {
-      return undefined;
-    }
-
-    const leafPreimagePromise = snap.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, index);
-    const siblingPathPromise = snap.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, BigInt(index));
-
-    const [leafPreimage, siblingPath] = await Promise.all([leafPreimagePromise, siblingPathPromise]);
-
-    if (!leafPreimage) {
-      return undefined;
-    }
-
-    return new NullifierMembershipWitness(BigInt(index), leafPreimage as NullifierLeafPreimage, siblingPath);
+    return this.pxeOracleInterface.getNullifierMembershipWitness(blockNumber, nullifier);
   }
 
-  async getPublicDataWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
-    const snap = this.nativeWorldStateService.getSnapshot(blockNumber);
-
-    const lowLeafResult = await snap.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
-    if (!lowLeafResult) {
-      return undefined;
-    } else {
-      const preimage = (await snap.getLeafPreimage(
-        MerkleTreeId.PUBLIC_DATA_TREE,
-        lowLeafResult.index,
-      )) as PublicDataTreeLeafPreimage;
-      const path = await snap.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, lowLeafResult.index);
-      return new PublicDataWitness(lowLeafResult.index, preimage, path);
-    }
+  utilityGetPublicDataWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
+    return this.pxeOracleInterface.getPublicDataWitness(blockNumber, leafSlot);
   }
 
-  async getLowNullifierMembershipWitness(
+  utilityGetLowNullifierMembershipWitness(
     blockNumber: number,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
-    const snap = this.nativeWorldStateService.getSnapshot(blockNumber);
-
-    const findResult = await snap.getPreviousValueIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBigInt());
-    if (!findResult) {
-      return undefined;
-    }
-    const { index, alreadyPresent } = findResult;
-    if (alreadyPresent) {
-      this.logger.warn(`Nullifier ${nullifier.toBigInt()} already exists in the tree`);
-    }
-    const preimageData = (await snap.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, index))!;
-
-    const siblingPath = await snap.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, BigInt(index));
-    return new NullifierMembershipWitness(BigInt(index), preimageData as NullifierLeafPreimage, siblingPath);
+    return this.pxeOracleInterface.getLowNullifierMembershipWitness(blockNumber, nullifier);
   }
 
-  getBlockHeader(blockNumber: number): Promise<BlockHeader | undefined> {
+  utilityGetBlockHeader(blockNumber: number): Promise<BlockHeader | undefined> {
     return this.stateMachine.archiver.getBlockHeader(blockNumber);
   }
 
-  getCompleteAddress(account: AztecAddress) {
+  utilityGetCompleteAddress(account: AztecAddress) {
     return Promise.resolve(this.accountDataProvider.getAccount(account));
   }
 
-  getAuthWitness(messageHash: Fr) {
+  utilityGetAuthWitness(messageHash: Fr) {
     const authwit = this.authwits.get(messageHash.toString());
     return Promise.resolve(authwit?.witness);
   }
 
-  async getNotes(
+  async utilityGetNotes(
     storageSlot: Fr,
     numSelects: number,
     selectByIndexes: number[],
@@ -599,7 +480,7 @@ export class TXE {
     return notes;
   }
 
-  notifyCreatedNote(storageSlot: Fr, _noteTypeId: NoteSelector, noteItems: Fr[], noteHash: Fr, counter: number) {
+  privateNotifyCreatedNote(storageSlot: Fr, _noteTypeId: NoteSelector, noteItems: Fr[], noteHash: Fr, counter: number) {
     const note = new Note(noteItems);
     this.noteCache.addNewNote(
       {
@@ -615,18 +496,18 @@ export class TXE {
     this.sideEffectCounter = counter + 1;
   }
 
-  async notifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, counter: number) {
+  async privateNotifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, counter: number) {
     await this.checkNullifiersNotInTree(this.contractAddress, [innerNullifier]);
     await this.noteCache.nullifyNote(this.contractAddress, innerNullifier, noteHash);
     this.sideEffectCounter = counter + 1;
   }
 
-  async notifyCreatedNullifier(innerNullifier: Fr): Promise<void> {
+  async privateNotifyCreatedNullifier(innerNullifier: Fr): Promise<void> {
     await this.checkNullifiersNotInTree(this.contractAddress, [innerNullifier]);
     await this.noteCache.nullifierCreated(this.contractAddress, innerNullifier);
   }
 
-  async checkNullifierExists(innerNullifier: Fr): Promise<boolean> {
+  async utilityCheckNullifierExists(innerNullifier: Fr): Promise<boolean> {
     const snap = this.nativeWorldStateService.getSnapshot(this.blockNumber - 1);
 
     const nullifier = await siloNullifier(this.contractAddress, innerNullifier!);
@@ -645,7 +526,7 @@ export class TXE {
     throw new Error('Method not implemented.');
   }
 
-  async storageRead(
+  async utilityStorageRead(
     contractAddress: AztecAddress,
     startStorageSlot: Fr,
     blockNumber: number,
@@ -693,7 +574,7 @@ export class TXE {
   }
 
   async commitState() {
-    const blockNumber = await this.getBlockNumber();
+    const blockNumber = await this.utilityGetBlockNumber();
     const { usedTxRequestHashForNonces } = this.noteCache.finish();
     if (this.committedBlocks.has(blockNumber)) {
       throw new Error('Already committed state');
@@ -781,7 +662,7 @@ export class TXE {
     );
 
     header.globalVariables.blockNumber = blockNumber;
-    header.globalVariables.timestamp = await this.getTimestamp();
+    header.globalVariables.timestamp = await this.utilityGetTimestamp();
     header.globalVariables.version = new Fr(this.ROLLUP_VERSION);
     header.globalVariables.chainId = new Fr(this.CHAIN_ID);
 
@@ -836,7 +717,7 @@ export class TXE {
         selector: call.selector,
       });
 
-      const args = await this.loadFromExecutionCache(argsHash);
+      const args = await this.privateLoadFromExecutionCache(argsHash);
       const initialWitness = toACVMWitness(0, args);
       const acirExecutionResult = await this.simulator
         .executeUserCircuit(initialWitness, entryPointArtifact, new Oracle(oracle).toACIRCallback())
@@ -858,7 +739,7 @@ export class TXE {
 
       const returnHash = await computeVarArgsHash(returnWitness);
 
-      this.storeInExecutionCache(returnWitness, returnHash);
+      this.privateStoreInExecutionCache(returnWitness, returnHash);
       return returnHash;
     } catch (err) {
       throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));
@@ -876,7 +757,7 @@ export class TXE {
 
     const historicalBlockNumber = this.blockNumber - 1; // i.e. last
 
-    const privateContextInputs = await this.getPrivateContextInputs(
+    const privateContextInputs = await this.txeGetPrivateContextInputs(
       historicalBlockNumber,
       sideEffectCounter,
       isStaticCall,
@@ -894,179 +775,22 @@ export class TXE {
     return await this.contractDataProvider.getDebugFunctionName(address, selector);
   }
 
-  private async executePublicFunction(
-    calldata: Fr[],
-    msgSender: AztecAddress,
-    contractAddress: AztecAddress,
-    isStaticCall: boolean,
-    isTeardown: boolean = false,
-  ) {
-    const callRequest = await PublicCallRequest.fromCalldata(msgSender, contractAddress, isStaticCall, calldata);
-    const executionRequest = new PublicCallRequestWithCalldata(callRequest, calldata);
-
-    const db = this.baseFork;
-
-    const globalVariables = GlobalVariables.empty();
-    globalVariables.chainId = new Fr(this.CHAIN_ID);
-    globalVariables.version = new Fr(this.ROLLUP_VERSION);
-    globalVariables.blockNumber = this.blockNumber;
-    globalVariables.timestamp = this.timestamp;
-    globalVariables.gasFees = new GasFees(1, 1);
-
-    let result: PublicTxResult;
-    // Checkpoint here so that we can revert merkle ops after simulation.
-    // See note at revert below.
-    const checkpoint = await ForkCheckpoint.new(db);
-    try {
-      const contractsDB = new PublicContractsDB(new TXEPublicContractDataSource(this));
-      const simulator = new PublicTxSimulator(
-        this.baseFork,
-        contractsDB,
-        globalVariables,
-        /*doMerkleOperations=*/ false,
-        /*skipFeeEnforcement=*/ false,
-        /*clientInitiatedSimulation=*/ true,
-      );
-
-      const { usedTxRequestHashForNonces } = this.noteCache.finish();
-      const firstNullifier = usedTxRequestHashForNonces
-        ? this.getTxRequestHash()
-        : this.noteCache.getAllNullifiers()[0];
-
-      // When setting up a teardown call, we tell it that
-      // private execution used Gas(1, 1) so it can compute a tx fee.
-      const gasUsedByPrivate = isTeardown ? new Gas(1, 1) : Gas.empty();
-      const tx = await createTxForPublicCalls(
-        {
-          nonRevertible: {
-            nullifiers: [firstNullifier],
-          },
-        },
-        /*setupExecutionRequests=*/ [],
-        /*appExecutionRequests=*/ isTeardown ? [] : [executionRequest],
-        /*teardownExecutionRequests=*/ isTeardown ? executionRequest : undefined,
-        /*feePayer=*/ AztecAddress.zero(),
-        gasUsedByPrivate,
-      );
-
-      result = await simulator.simulate(tx);
-    } finally {
-      // NOTE: Don't accept any merkle updates from the AVM since this was just 1 enqueued call
-      // and the TXE will re-apply all txEffects after entire execution (all enqueued calls)
-      // complete.
-      await checkpoint.revert();
-      // If an error is thrown during the above simulation, this revert is the last
-      // thing executed and we skip the postprocessing below.
-    }
-
-    const noteHashes = result.avmProvingRequest.inputs.publicInputs.accumulatedData.noteHashes.filter(
-      s => !s.isEmpty(),
-    );
-
-    const publicDataWrites = result.avmProvingRequest.inputs.publicInputs.accumulatedData.publicDataWrites.filter(
-      s => !s.isEmpty(),
-    );
-    // For now, public data writes are the only merkle operations that are readable by later enqueued calls in the TXE.
-    await this.addPublicDataWrites(publicDataWrites);
-
-    this.addUniqueNoteHashesFromPublic(noteHashes);
-
-    this.addPublicLogs(
-      result.avmProvingRequest.inputs.publicInputs.accumulatedData.publicLogs.filter(
-        log => !log.contractAddress.equals(AztecAddress.ZERO),
-      ),
-    );
-
-    return Promise.resolve(result);
-  }
-
-  async notifyEnqueuedPublicFunctionCall(
-    targetContractAddress: AztecAddress,
-    calldataHash: Fr,
-    _sideEffectCounter: number,
-    isStaticCall: boolean,
-    isTeardown = false,
-  ): Promise<void> {
-    // Store and modify env
-    const currentContractAddress = this.contractAddress;
-    const currentMessageSender = this.msgSender;
-    const currentFunctionSelector = FunctionSelector.fromField(this.functionSelector.toField());
-    const calldata = this.executionCache.getPreimage(calldataHash);
-    if (!calldata) {
-      throw new Error('Calldata for enqueued call not found in cache');
-    }
-    const functionSelector = FunctionSelector.fromField(calldata[0]);
-    this.setMsgSender(this.contractAddress);
-    this.setContractAddress(targetContractAddress);
-    this.setFunctionSelector(functionSelector);
-
-    const executionResult = await this.executePublicFunction(
-      calldata,
-      /* msgSender */ currentContractAddress,
-      targetContractAddress,
-      isStaticCall,
-      isTeardown,
-    );
-
-    // Poor man's revert handling
-    if (!executionResult.revertCode.isOK()) {
-      if (executionResult.revertReason && executionResult.revertReason instanceof SimulationError) {
-        await enrichPublicSimulationError(executionResult.revertReason, this.contractDataProvider, this.logger);
-        throw new Error(executionResult.revertReason.message);
-      } else {
-        throw new Error(`Enqueued public function call reverted: ${executionResult.revertReason}`);
-      }
-    }
-
-    // Apply side effects
-    const sideEffects = executionResult.avmProvingRequest.inputs.publicInputs.accumulatedData;
-
-    const { usedTxRequestHashForNonces } = this.noteCache.finish();
-    const firstNullifier = usedTxRequestHashForNonces ? this.getTxRequestHash() : this.noteCache.getAllNullifiers()[0];
-    const nullifiers = sideEffects.nullifiers.filter(s => !s.isEmpty()).filter(s => !s.equals(firstNullifier));
-
-    // For some reason we cannot move this up to 'executePublicFunction'. It gives us an error of trying to modify the same nullifier twice.
-    this.addSiloedNullifiersFromPublic(nullifiers);
-
-    this.setContractAddress(currentContractAddress);
-    this.setMsgSender(currentMessageSender);
-    this.setFunctionSelector(currentFunctionSelector);
-  }
-
-  async notifySetPublicTeardownFunctionCall(
-    targetContractAddress: AztecAddress,
-    calldataHash: Fr,
-    sideEffectCounter: number,
-    isStaticCall: boolean,
-  ): Promise<void> {
-    // Definitely not right, in that the teardown should always be last.
-    // But useful for executing flows.
-    await this.notifyEnqueuedPublicFunctionCall(
-      targetContractAddress,
-      calldataHash,
-      sideEffectCounter,
-      isStaticCall,
-      /*isTeardown=*/ true,
-    );
-  }
-
-  async notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number) {
-    await this.noteCache.setMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter);
-  }
-
-  debugLog(message: string, fields: Fr[]): void {
+  utilityDebugLog(message: string, fields: Fr[]): void {
     this.logger.verbose(`${applyStringFormatting(message, fields)}`, { module: `${this.logger.module}:debug_log` });
   }
 
-  async incrementAppTaggingSecretIndexAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<void> {
+  async privateIncrementAppTaggingSecretIndexAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<void> {
     await this.pxeOracleInterface.incrementAppTaggingSecretIndexAsSender(this.contractAddress, sender, recipient);
   }
 
-  async getIndexedTaggingSecretAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<IndexedTaggingSecret> {
+  async utilityGetIndexedTaggingSecretAsSender(
+    sender: AztecAddress,
+    recipient: AztecAddress,
+  ): Promise<IndexedTaggingSecret> {
     return await this.pxeOracleInterface.getIndexedTaggingSecretAsSender(this.contractAddress, sender, recipient);
   }
 
-  async fetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr) {
+  async utilityFetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr) {
     await this.pxeOracleInterface.syncTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot);
 
     await this.pxeOracleInterface.removeNullifiedNotes(this.contractAddress);
@@ -1074,7 +798,7 @@ export class TXE {
     return Promise.resolve();
   }
 
-  public async validateEnqueuedNotesAndEvents(
+  public async utilityValidateEnqueuedNotesAndEvents(
     contractAddress: AztecAddress,
     noteValidationRequestsArrayBaseSlot: Fr,
     eventValidationRequestsArrayBaseSlot: Fr,
@@ -1086,7 +810,7 @@ export class TXE {
     );
   }
 
-  async bulkRetrieveLogs(
+  async utilityBulkRetrieveLogs(
     contractAddress: AztecAddress,
     logRetrievalRequestsArrayBaseSlot: Fr,
     logRetrievalResponsesArrayBaseSlot: Fr,
@@ -1138,7 +862,7 @@ export class TXE {
     return preimage.leaf.value;
   }
 
-  storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
+  utilityStoreCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
@@ -1146,7 +870,7 @@ export class TXE {
     return this.pxeOracleInterface.storeCapsule(this.contractAddress, slot, capsule);
   }
 
-  loadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
+  utilityLoadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
@@ -1154,7 +878,7 @@ export class TXE {
     return this.pxeOracleInterface.loadCapsule(this.contractAddress, slot);
   }
 
-  deleteCapsule(contractAddress: AztecAddress, slot: Fr): Promise<void> {
+  utilityDeleteCapsule(contractAddress: AztecAddress, slot: Fr): Promise<void> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
@@ -1162,7 +886,7 @@ export class TXE {
     return this.pxeOracleInterface.deleteCapsule(this.contractAddress, slot);
   }
 
-  copyCapsule(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
+  utilityCopyCapsule(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
@@ -1170,30 +894,25 @@ export class TXE {
     return this.pxeOracleInterface.copyCapsule(this.contractAddress, srcSlot, dstSlot, numEntries);
   }
 
-  aes128Decrypt(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer> {
+  utilityAes128Decrypt(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer> {
     const aes128 = new Aes128();
     return aes128.decryptBufferCBC(ciphertext, iv, symKey);
   }
 
-  getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
+  utilityGetSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
     return this.pxeOracleInterface.getSharedSecret(address, ephPk);
   }
 
-  emitOffchainEffect(_data: Fr[]) {
-    // Offchain effects are discarded in TXE tests.
-    return Promise.resolve();
-  }
-
-  getSenderForTags(): Promise<AztecAddress | undefined> {
+  privateGetSenderForTags(): Promise<AztecAddress | undefined> {
     return Promise.resolve(this.senderForTags);
   }
 
-  setSenderForTags(senderForTags: AztecAddress): Promise<void> {
+  privateSetSenderForTags(senderForTags: AztecAddress): Promise<void> {
     this.senderForTags = senderForTags;
     return Promise.resolve();
   }
 
-  async privateCallNewFlow(
+  async txePrivateCallNewFlow(
     from: AztecAddress,
     targetContractAddress: AztecAddress = AztecAddress.zero(),
     functionSelector: FunctionSelector = FunctionSelector.empty(),
@@ -1211,7 +930,13 @@ export class TXE {
     const artifact = await this.contractDataProvider.getFunctionArtifact(targetContractAddress, functionSelector);
 
     if (artifact === undefined) {
-      throw new Error('Function Artifact does not exist');
+      if (functionSelector.equals(await FunctionSelector.fromSignature('verify_private_authwit(Field)'))) {
+        throw new Error(
+          'Found no account contract artifact for a private authwit check - use `create_contract_account` instead of `create_light_account` for authwit support.',
+        );
+      } else {
+        throw new Error('Function Artifact does not exist');
+      }
     }
 
     const callContext = new CallContext(from, targetContractAddress, functionSelector, isStaticCall);
@@ -1228,6 +953,7 @@ export class TXE {
 
     const noteCache = new ExecutionNoteCache(this.getTxRequestHash());
 
+    // TODO(benesjan): Fix stale 'context' name.
     const context = new PrivateExecutionOracle(
       argsHash,
       txContext,
@@ -1253,7 +979,7 @@ export class TXE {
       from,
     );
 
-    context.storeInExecutionCache(args, argsHash);
+    context.privateStoreInExecutionCache(args, argsHash);
 
     // Note: This is a slight modification of simulator.run without any of the checks. Maybe we should modify simulator.run with a boolean value to skip checks.
     let result: PrivateExecutionResult;
@@ -1277,7 +1003,7 @@ export class TXE {
       );
       const publicFunctionsCalldata = await Promise.all(
         publicCallRequests.map(async r => {
-          const calldata = await context.loadFromExecutionCache(r.calldataHash);
+          const calldata = await context.privateLoadFromExecutionCache(r.calldataHash);
           return new HashedValues(calldata, r.calldataHash);
         }),
       );
@@ -1292,7 +1018,7 @@ export class TXE {
       // This is a bit of a hack to not deal with returning a slice in nr which is what normally happens.
       // Investigate whether it is faster to do this or return from the oracle directly.
       const returnValuesHash = await computeVarArgsHash(returnValues);
-      this.storeInExecutionCache(returnValues, returnValuesHash);
+      this.privateStoreInExecutionCache(returnValues, returnValuesHash);
     }
 
     // According to the protocol rules, the nonce generator for the note hashes
@@ -1330,8 +1056,15 @@ export class TXE {
     const [processedTx] = results[0];
     const failedTxs = results[1];
 
-    if (failedTxs.length !== 0 || !processedTx.revertCode.isOK()) {
-      throw new Error('Public execution has failed', processedTx.revertReason);
+    if (failedTxs.length !== 0) {
+      throw new Error(`Public execution has failed: ${failedTxs[0].error}`);
+    } else if (!processedTx.revertCode.isOK()) {
+      if (processedTx.revertReason) {
+        await enrichPublicSimulationError(processedTx.revertReason, this.contractDataProvider, this.logger);
+        throw new Error(`Contract execution has reverted: ${processedTx.revertReason.getMessage()}`);
+      } else {
+        throw new Error('Contract execution has reverted');
+      }
     }
 
     if (isStaticCall) {
@@ -1395,7 +1128,7 @@ export class TXE {
     };
   }
 
-  async publicCallNewFlow(
+  async txePublicCallNewFlow(
     from: AztecAddress,
     targetContractAddress: AztecAddress,
     calldata: Fr[],
@@ -1483,11 +1216,18 @@ export class TXE {
 
     const results = await processor.process([tx]);
 
-    const processedTxs = results[0];
+    const [processedTx] = results[0];
     const failedTxs = results[1];
 
-    if (failedTxs.length !== 0 || !processedTxs[0].revertCode.isOK()) {
-      throw new Error('Public execution has failed');
+    if (failedTxs.length !== 0) {
+      throw new Error(`Public execution has failed: ${failedTxs[0].error}`);
+    } else if (!processedTx.revertCode.isOK()) {
+      if (processedTx.revertReason) {
+        await enrichPublicSimulationError(processedTx.revertReason, this.contractDataProvider, this.logger);
+        throw new Error(`Contract execution has reverted: ${processedTx.revertReason.getMessage()}`);
+      } else {
+        throw new Error('Contract execution has reverted');
+      }
     }
 
     const returnValues = results[3][0].values;
@@ -1497,7 +1237,7 @@ export class TXE {
       // This is a bit of a hack to not deal with returning a slice in nr which is what normally happens.
       // Investigate whether it is faster to do this or return from the oracle directly.
       returnValuesHash = await computeVarArgsHash(returnValues);
-      this.storeInExecutionCache(returnValues, returnValuesHash);
+      this.privateStoreInExecutionCache(returnValues, returnValuesHash);
     }
 
     if (isStaticCall) {
@@ -1513,11 +1253,11 @@ export class TXE {
 
     const txEffect = TxEffect.empty();
 
-    txEffect.noteHashes = processedTxs[0]!.txEffect.noteHashes;
-    txEffect.nullifiers = processedTxs[0]!.txEffect.nullifiers;
-    txEffect.privateLogs = processedTxs[0]!.txEffect.privateLogs;
-    txEffect.publicLogs = processedTxs[0]!.txEffect.publicLogs;
-    txEffect.publicDataWrites = processedTxs[0]!.txEffect.publicDataWrites;
+    txEffect.noteHashes = processedTx!.txEffect.noteHashes;
+    txEffect.nullifiers = processedTx!.txEffect.nullifiers;
+    txEffect.privateLogs = processedTx!.txEffect.privateLogs;
+    txEffect.publicLogs = processedTx!.txEffect.publicLogs;
+    txEffect.publicDataWrites = processedTx!.txEffect.publicDataWrites;
 
     txEffect.txHash = new TxHash(new Fr(this.blockNumber));
 

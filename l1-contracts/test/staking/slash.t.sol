@@ -3,9 +3,8 @@ pragma solidity >=0.8.27;
 
 import {StakingBase} from "./base.t.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {
-  IStakingCore, Status, AttesterView, Exit, Timestamp
-} from "@aztec/core/interfaces/IStaking.sol";
+import {IStakingCore, Status, AttesterView, Exit, Timestamp} from "@aztec/core/interfaces/IStaking.sol";
+import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 contract SlashTest is StakingBase {
   uint256 internal slashingAmount = 1;
@@ -15,15 +14,20 @@ contract SlashTest is StakingBase {
   }
 
   function test_WhenCallerIsNotTheSlasher() external {
-    mint(address(this), DEPOSIT_AMOUNT);
-    stakingAsset.approve(address(staking), DEPOSIT_AMOUNT);
-    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _moveWithLatestRollup: true});
+    mint(address(this), ACTIVATION_THRESHOLD);
+    stakingAsset.approve(address(staking), ACTIVATION_THRESHOLD);
+    staking.deposit({
+      _attester: ATTESTER,
+      _withdrawer: WITHDRAWER,
+      _publicKeyInG1: BN254Lib.g1Zero(),
+      _publicKeyInG2: BN254Lib.g2Zero(),
+      _proofOfPossession: BN254Lib.g1Zero(),
+      _moveWithLatestRollup: true
+    });
     staking.flushEntryQueue();
 
     // it reverts
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Staking__NotSlasher.selector, SLASHER, address(this))
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__NotSlasher.selector, SLASHER, address(this)));
     staking.slash(ATTESTER, 1);
   }
 
@@ -40,10 +44,17 @@ contract SlashTest is StakingBase {
   }
 
   modifier whenAttesterIsRegistered() {
-    mint(address(this), DEPOSIT_AMOUNT);
-    stakingAsset.approve(address(staking), DEPOSIT_AMOUNT);
+    mint(address(this), ACTIVATION_THRESHOLD);
+    stakingAsset.approve(address(staking), ACTIVATION_THRESHOLD);
 
-    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _moveWithLatestRollup: true});
+    staking.deposit({
+      _attester: ATTESTER,
+      _withdrawer: WITHDRAWER,
+      _publicKeyInG1: BN254Lib.g1Zero(),
+      _publicKeyInG2: BN254Lib.g2Zero(),
+      _proofOfPossession: BN254Lib.g1Zero(),
+      _moveWithLatestRollup: true
+    });
     staking.flushEntryQueue();
     _;
   }
@@ -55,12 +66,7 @@ contract SlashTest is StakingBase {
     _;
   }
 
-  function test_GivenTimeIsAfterUnlock()
-    external
-    whenCallerIsTheSlasher
-    whenAttesterIsRegistered
-    whenAttesterIsExiting
-  {
+  function test_GivenTimeIsAfterUnlock() external whenCallerIsTheSlasher whenAttesterIsRegistered whenAttesterIsExiting {
     // it reverts
 
     Exit memory exit = staking.getExit(ATTESTER);
@@ -84,7 +90,7 @@ contract SlashTest is StakingBase {
 
     AttesterView memory attesterView = staking.getAttesterView(ATTESTER);
     assertEq(attesterView.effectiveBalance, 0);
-    assertEq(attesterView.exit.amount, DEPOSIT_AMOUNT, "Invalid exit amount");
+    assertEq(attesterView.exit.amount, ACTIVATION_THRESHOLD, "Invalid exit amount");
     assertTrue(attesterView.status == Status.EXITING);
 
     vm.expectEmit(true, true, true, true, address(staking));
@@ -94,7 +100,7 @@ contract SlashTest is StakingBase {
 
     attesterView = staking.getAttesterView(ATTESTER);
     assertEq(attesterView.effectiveBalance, 0);
-    assertEq(attesterView.exit.amount, DEPOSIT_AMOUNT - 1, "Invalid exit amount 2");
+    assertEq(attesterView.exit.amount, ACTIVATION_THRESHOLD - 1, "Invalid exit amount 2");
     assertTrue(attesterView.status == Status.EXITING);
   }
 
@@ -106,13 +112,11 @@ contract SlashTest is StakingBase {
       bool isAlive = i != 2;
       // Prepare the status and state
       AttesterView memory attesterView = staking.getAttesterView(ATTESTER);
-      assertTrue(
-        attesterView.status == (isAlive ? Status.VALIDATING : Status.ZOMBIE), "Invalid status"
-      );
+      assertTrue(attesterView.status == (isAlive ? Status.VALIDATING : Status.ZOMBIE), "Invalid status");
       assertEq(staking.getActiveAttesterCount(), isAlive ? 1 : 0, "Invalid active attester count");
 
       uint256 balance = isAlive ? attesterView.effectiveBalance : attesterView.exit.amount;
-      slashingAmount = isAlive ? DEPOSIT_AMOUNT / 3 : balance;
+      slashingAmount = isAlive ? ACTIVATION_THRESHOLD / 3 : balance;
 
       vm.expectEmit(true, true, true, true, address(staking));
       emit IStakingCore.Slashed(ATTESTER, slashingAmount);
@@ -123,9 +127,7 @@ contract SlashTest is StakingBase {
 
       if (i == 0) {
         // The first round, we are still active, not slashing enough yet!
-        assertEq(
-          attesterView.effectiveBalance, balance - slashingAmount, "Invalid effective balance"
-        );
+        assertEq(attesterView.effectiveBalance, balance - slashingAmount, "Invalid effective balance");
         assertEq(attesterView.exit.amount, 0, "Invalid exit amount");
         assertTrue(attesterView.status == Status.VALIDATING, "Invalid status after slash");
         assertEq(staking.getActiveAttesterCount(), 1, "Invalid active attester count");
@@ -145,9 +147,9 @@ contract SlashTest is StakingBase {
     }
   }
 
-  modifier whenAttesterIsValidatingAndStakeIsBelowMinimumStake() {
+  modifier whenAttesterIsValidatingAndStakeIsBelowejectionThreshold() {
     AttesterView memory attesterView = staking.getAttesterView(ATTESTER);
-    uint256 targetBalance = MINIMUM_STAKE - 1;
+    uint256 targetBalance = EJECTION_THRESHOLD - 1;
 
     slashingAmount = attesterView.effectiveBalance - targetBalance;
     _;
@@ -157,7 +159,7 @@ contract SlashTest is StakingBase {
     external
     whenCallerIsTheSlasher
     whenAttesterIsRegistered
-    whenAttesterIsValidatingAndStakeIsBelowMinimumStake
+    whenAttesterIsValidatingAndStakeIsBelowejectionThreshold
   {
     // it reverts
 
@@ -169,7 +171,7 @@ contract SlashTest is StakingBase {
     external
     whenCallerIsTheSlasher
     whenAttesterIsRegistered
-    whenAttesterIsValidatingAndStakeIsBelowMinimumStake
+    whenAttesterIsValidatingAndStakeIsBelowejectionThreshold
   {
     // it reduce stake by amount
     // it remove from active attesters

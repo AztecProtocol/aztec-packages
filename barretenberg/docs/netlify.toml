@@ -1,0 +1,13 @@
+[build]
+  base = "barretenberg/docs"
+  command = "yarn build"
+  publish = "build"
+
+# Redirect root to /docs
+[[redirects]]
+  from = "/"
+  to = "/docs"
+  status = 302
+
+# Serve static API files from /api
+# The API files are already in static/api directory which will be served at /api
