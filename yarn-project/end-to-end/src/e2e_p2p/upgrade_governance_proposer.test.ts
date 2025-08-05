@@ -50,8 +50,8 @@ describe('e2e_p2p_governance_proposer', () => {
         listenAddress: '127.0.0.1',
         governanceProposerQuorum: 6,
         governanceProposerRoundSize: 10,
-        depositAmount: 10n ** 22n,
-        minimumStake: 5n ** 22n,
+        activationThreshold: 10n ** 22n,
+        ejectionThreshold: 5n ** 22n,
       },
     });
 

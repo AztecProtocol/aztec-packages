@@ -47,15 +47,6 @@ template <typename FF_> class MemoryRelationImpl {
      *
      * Multiple selectors are used to 'switch' memory gates on/off according to the following pattern:
      *
-     * | gate type                    | q_mem | q_1 | q_2 | q_4 | q_m | q_c | q_arith |
-     * | ---------------------------- | ----- | --- | --- | --- | --- | --- | ------  |
-     * | RAM/ROM access gate          | 1     | 1   | 0   | 0   | 1   | --- | 0       |
-     * | RAM timestamp check          | 1     | 1   | 0   | 1   | 0   | --- | 0       |
-     * | ROM consistency check        | 1     | 1   | 1   | 0   | 0   | --- | 0       |
-     * | RAM consistency check        | 1     | 0   | 0   | 0   | 0   | 0   | 1       |
-     *
-     * NOTE: Proposed updated selector pattern (i.e. replace q_arith with q_3):
-     *
      * | gate type                    | q_mem | q_1 | q_2 | q_3 | q_4 | q_m | q_c |
      * | ---------------------------- | ----- | --- | --- | --- | --- | --- | --- |
      * | RAM/ROM access gate          | 1     | 1   | 0   | 0   | 0   | 1   | --- |
@@ -105,10 +96,10 @@ template <typename FF_> class MemoryRelationImpl {
 
         auto q_1_m = CoefficientAccumulator(in.q_l);
         auto q_2_m = CoefficientAccumulator(in.q_r);
+        auto q_3_m = CoefficientAccumulator(in.q_o);
         auto q_4_m = CoefficientAccumulator(in.q_4);
         auto q_m_m = CoefficientAccumulator(in.q_m);
         auto q_c_m = CoefficientAccumulator(in.q_c);
-        auto q_arith_m = CoefficientAccumulator(in.q_arith);
 
         auto q_memory_m = CoefficientAccumulator(in.q_memory);
 
@@ -245,15 +236,15 @@ template <typename FF_> class MemoryRelationImpl {
         // deg 2 or 4
         auto next_gate_access_type_is_boolean = neg_next_gate_access_type.sqr() + neg_next_gate_access_type;
 
-        auto q_arith_by_memory_and_scaling = Accumulator(q_arith_m * q_memory_by_scaling_m);
+        auto q_3_by_memory_and_scaling = Accumulator(q_3_m * q_memory_by_scaling_m);
         // Putting it all together...
         std::get<3>(accumulators) +=
             adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation *
-            q_arith_by_memory_and_scaling;                                                              // deg 5 or 6
-        std::get<4>(accumulators) += index_is_monotonically_increasing * q_arith_by_memory_and_scaling; // deg 4
-        std::get<5>(accumulators) += next_gate_access_type_is_boolean * q_arith_by_memory_and_scaling;  // deg 4 or 6
+            q_3_by_memory_and_scaling;                                                              // deg 5 or 6
+        std::get<4>(accumulators) += index_is_monotonically_increasing * q_3_by_memory_and_scaling; // deg 4
+        std::get<5>(accumulators) += next_gate_access_type_is_boolean * q_3_by_memory_and_scaling;  // deg 4 or 6
 
-        auto RAM_consistency_check_identity = access_check * q_arith_by_memory_and_scaling; // deg 3 or 5
+        auto RAM_consistency_check_identity = access_check * q_3_by_memory_and_scaling; // deg 3 or 5
 
         /**
          * RAM Timestamp Consistency Check

@@ -629,11 +629,7 @@ describe('e2e_block_building', () => {
 
       logger.info('Advancing past the proof submission window');
 
-      await cheatCodes.rollup.advanceToEpoch(
-        getProofSubmissionDeadlineEpoch(2n, {
-          proofSubmissionEpochs: 1,
-        }),
-      );
+      await cheatCodes.rollup.advanceToEpoch(getProofSubmissionDeadlineEpoch(2n, { proofSubmissionEpochs: 1 }));
 
       // Wait until the sequencer kicks out tx1
       logger.info(`Waiting for node to prune tx1`);
@@ -641,7 +637,7 @@ describe('e2e_block_building', () => {
         async () => (await aztecNode.getTxReceipt(tx1.txHash)).status === TxStatus.PENDING,
         'wait for pruning',
         15,
-        1,
+        0.11,
       );
 
       // And wait until it is brought back tx1

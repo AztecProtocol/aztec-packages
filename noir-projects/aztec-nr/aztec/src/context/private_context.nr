@@ -12,6 +12,7 @@ use crate::{
         },
         execution_cache,
         key_validation_request::get_key_validation_request,
+        logs::notify_created_contract_class_log,
         notes::{notify_created_nullifier, notify_nullified_note},
     },
 };
@@ -34,16 +35,18 @@ use dep::protocol_types::{
     },
     address::{AztecAddress, EthAddress},
     constants::{
-        MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_ENQUEUED_CALLS_PER_CALL,
-        MAX_INCLUDE_BY_TIMESTAMP_DURATION, MAX_KEY_VALIDATION_REQUESTS_PER_CALL,
-        MAX_L2_TO_L1_MSGS_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
+        CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_CONTRACT_CLASS_LOGS_PER_CALL,
+        MAX_ENQUEUED_CALLS_PER_CALL, MAX_INCLUDE_BY_TIMESTAMP_DURATION,
+        MAX_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL,
+        MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
         MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL,
         PRIVATE_LOG_SIZE_IN_FIELDS,
     },
+    hash::poseidon2_hash,
     messaging::l2_to_l1_message::L2ToL1Message,
     traits::{Empty, Hash, ToField},
-    utils::arrays::ClaimedLengthArray,
+    utils::arrays::{ClaimedLengthArray, trimmed_array_length_hint},
 };
 
 // When finished, one can call .finish() to convert back to the abi
@@ -341,11 +344,32 @@ impl PrivateContext {
         self.private_logs.push(private_log);
     }
 
-    pub fn call_private_function<let ARGS_COUNT: u32>(
+    pub fn emit_contract_class_log<let N: u32>(&mut self, log: [Field; N]) {
+        let contract_address = self.this_address();
+        let counter = self.next_counter();
+
+        let log_to_emit: [Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS] =
+            log.concat([0; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS - N]);
+        // Note: the length is not always N, it is the number of fields we want to broadcast, omitting trailing zeros to save blob space.
+        // Safety: The below length is constrained in the base rollup, which will make sure that all the fields beyond length are zero.
+        let length = unsafe { trimmed_array_length_hint(log_to_emit) };
+        // We hash the entire padded log to ensure a user cannot pass a shorter length and so emit incorrect shorter bytecode.
+        let log_hash = poseidon2_hash(log_to_emit);
+        // Safety: the below only exists to broadcast the raw log, so we can provide it to the base rollup later to be constrained.
+        unsafe {
+            notify_created_contract_class_log(contract_address, log_to_emit, length, counter);
+        }
+
+        self.contract_class_logs_hashes.push(LogHash { value: log_hash, length: length }.count(
+            counter,
+        ));
+    }
+
+    pub fn call_private_function<let ArgsCount: u32>(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT],
+        args: [Field; ArgsCount],
     ) -> ReturnsHash {
         let args_hash = hash_args_array(args);
         execution_cache::store(args, args_hash);
@@ -357,11 +381,11 @@ impl PrivateContext {
         )
     }
 
-    pub fn static_call_private_function<let ARGS_COUNT: u32>(
+    pub fn static_call_private_function<let ArgsCount: u32>(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT],
+        args: [Field; ArgsCount],
     ) -> ReturnsHash {
         let args_hash = hash_args_array(args);
         execution_cache::store(args, args_hash);
@@ -444,11 +468,11 @@ impl PrivateContext {
         ReturnsHash::new(returns_hash)
     }
 
-    pub fn call_public_function<let ARGS_COUNT: u32>(
+    pub fn call_public_function<let ArgsCount: u32>(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT],
+        args: [Field; ArgsCount],
     ) {
         let calldata = [function_selector.to_field()].concat(args);
         let calldata_hash = hash_calldata_array(calldata);
@@ -456,11 +480,11 @@ impl PrivateContext {
         self.call_public_function_with_calldata_hash(contract_address, calldata_hash, false)
     }
 
-    pub fn static_call_public_function<let ARGS_COUNT: u32>(
+    pub fn static_call_public_function<let ArgsCount: u32>(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT],
+        args: [Field; ArgsCount],
     ) {
         let calldata = [function_selector.to_field()].concat(args);
         let calldata_hash = hash_calldata_array(calldata);
@@ -513,11 +537,11 @@ impl PrivateContext {
         self.public_call_requests.push(Counted::new(call_request, counter));
     }
 
-    pub fn set_public_teardown_function<let ARGS_COUNT: u32>(
+    pub fn set_public_teardown_function<let ArgsCount: u32>(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT],
+        args: [Field; ArgsCount],
     ) {
         let calldata = [function_selector.to_field()].concat(args);
         let calldata_hash = hash_calldata_array(calldata);
@@ -550,10 +574,7 @@ impl PrivateContext {
         };
     }
 
-    // This function got exposed publicly to be able to access it in ContractClassRegistry.
-    // TODO(#15980): Implement a method for pushing contract class log hashes to the context and un-expose this
-    // function.
-    pub fn next_counter(&mut self) -> u32 {
+    fn next_counter(&mut self) -> u32 {
         let counter = self.side_effect_counter;
         self.side_effect_counter += 1;
         counter

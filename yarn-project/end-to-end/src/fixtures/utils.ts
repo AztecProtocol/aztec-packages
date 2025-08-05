@@ -309,6 +309,8 @@ export type SetupOptions = {
   automineL1Setup?: boolean;
   /** How many accounts to seed and unlock in anvil. */
   anvilAccounts?: number;
+  /** Port to start anvil (defaults to 8545) */
+  anvilPort?: number;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
@@ -400,7 +402,11 @@ export async function setup(
         );
       }
 
-      const res = await startAnvil({ l1BlockTime: opts.ethereumSlotDuration, accounts: opts.anvilAccounts });
+      const res = await startAnvil({
+        l1BlockTime: opts.ethereumSlotDuration,
+        accounts: opts.anvilAccounts,
+        port: opts.anvilPort,
+      });
       anvil = res.anvil;
       config.l1RpcUrls = [res.rpcUrl];
     }
