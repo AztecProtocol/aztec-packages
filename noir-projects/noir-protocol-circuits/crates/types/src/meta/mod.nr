@@ -143,6 +143,8 @@ pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
     let nested_struct = typ.as_data_type().unwrap();
     let params = nested_struct.0.fields(nested_struct.1);
 
+    // Generates the generic parameter declarations (to be placed after the `impl` keyword) and the `where` clause
+    // for the `Serialize` trait.
     let generics_declarations = get_generics_declarations(s);
     let where_serialize_clause = get_where_trait_clause(s, quote {Serialize});
 
@@ -241,6 +243,8 @@ pub(crate) comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
     let nested_struct = typ.as_data_type().unwrap();
     let params = nested_struct.0.fields(nested_struct.1);
 
+    // Generates the generic parameter declarations (to be placed after the `impl` keyword) and the `where` clause
+    // for the `Deserialize` trait.
     let generics_declarations = get_generics_declarations(s);
     let where_deserialize_clause = get_where_trait_clause(s, quote {Deserialize});
 
@@ -361,6 +365,11 @@ pub comptime fn derive_packable(s: TypeDefinition) -> Quoted {
     let nested_struct = typ.as_data_type().unwrap();
     let params = nested_struct.0.fields(nested_struct.1);
 
+    // Generates the generic parameter declarations (to be placed after the `impl` keyword) and the `where` clause
+    // for the `Packable` trait.
+    let generics_declarations = get_generics_declarations(s);
+    let where_packable_clause = get_where_trait_clause(s, quote {Packable});
+
     // The following will give us <type_of_struct_member_1 as Packable>::N + <type_of_struct_member_2 as Packable>::N + ...
     let right_hand_side_of_definition_of_n = params
         .map(|(_, param_type, _): (Quoted, Type, Quoted)| {
@@ -407,7 +416,9 @@ pub comptime fn derive_packable(s: TypeDefinition) -> Quoted {
         .join(quote {,});
 
     quote {
-        impl $crate::traits::Packable for $typ {
+        impl$generics_declarations $crate::traits::Packable for $typ
+            $where_packable_clause
+        {
             let N: u32 = $right_hand_side_of_definition_of_n;
 
             fn pack(self) -> [Field; Self::N] {
@@ -431,22 +442,21 @@ pub comptime fn derive_packable(s: TypeDefinition) -> Quoted {
 }
 
 mod test {
-
     use crate::traits::{Deserialize, Packable, Serialize};
 
-    #[derive(Packable, Serialize, Deserialize, Eq)]
+    #[derive(Deserialize, Eq, Packable, Serialize)]
     pub struct Smol {
         a: Field,
         b: Field,
     }
 
-    #[derive(Serialize, Deserialize, Eq)]
+    #[derive(Deserialize, Eq, Serialize)]
     pub struct HasArray {
         a: [Field; 2],
         b: bool,
     }
 
-    #[derive(Serialize, Deserialize, Eq)]
+    #[derive(Deserialize, Eq, Serialize)]
     pub struct Fancier {
         a: Smol,
         b: [Field; 2],
@@ -454,18 +464,14 @@ mod test {
         d: str<16>,
     }
 
-    #[derive(Serialize, Deserialize, Eq)]
-    pub struct ContainsArrayWithGenerics<T, let N: u32> {
+    #[derive(Deserialize, Eq, Packable, Serialize)]
+    pub struct HasArrayWithGenerics<T, let N: u32> {
         pub fields: [T; N],
         pub length: u32,
     }
 
-    fn main() {
-        assert(false);
-    }
-
     #[test]
-    fn smol_test() {
+    fn serde_on_smol() {
         let smol = Smol { a: 1, b: 2 };
         let serialized = smol.serialize();
         assert(serialized == [1, 2], serialized);
@@ -478,7 +484,7 @@ mod test {
     }
 
     #[test]
-    fn has_array_test() {
+    fn serde_on_has_array() {
         let has_array = HasArray { a: [1, 2], b: true };
         let serialized = has_array.serialize();
         assert(serialized == [1, 2, 1], serialized);
@@ -487,7 +493,7 @@ mod test {
     }
 
     #[test]
-    fn fancier_test() {
+    fn serde_on_fancier() {
         let fancier =
             Fancier { a: Smol { a: 1, b: 2 }, b: [0, 1], c: [1, 2, 3], d: "metaprogramming!" };
         let serialized = fancier.serialize();
@@ -504,13 +510,22 @@ mod test {
     }
 
     #[test]
-    fn struct_with_array_of_generics_test() {
-        let struct_with_array_of_generics =
-            ContainsArrayWithGenerics { fields: [1, 2, 3], length: 3 };
+    fn serde_on_contains_array_with_generics() {
+        let struct_with_array_of_generics = HasArrayWithGenerics { fields: [1, 2, 3], length: 3 };
         let serialized = struct_with_array_of_generics.serialize();
         assert(serialized == [1, 2, 3, 3], serialized);
-        let deserialized = ContainsArrayWithGenerics::deserialize(serialized);
+        let deserialized = HasArrayWithGenerics::deserialize(serialized);
         assert(deserialized == struct_with_array_of_generics);
+    }
+
+    #[test]
+    fn packable_on_contains_array_with_generics() {
+        let struct_with_array_of_generics = HasArrayWithGenerics { fields: [1, 2, 3], length: 3 };
+        let packed = struct_with_array_of_generics.pack();
+        assert(packed == [1, 2, 3, 3], packed);
+
+        let unpacked = HasArrayWithGenerics::unpack(packed);
+        assert(unpacked == struct_with_array_of_generics);
     }
 
 }
