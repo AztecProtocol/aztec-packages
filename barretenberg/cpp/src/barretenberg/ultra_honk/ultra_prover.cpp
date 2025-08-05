@@ -78,12 +78,11 @@ template <IsUltraOrMegaHonk Flavor> typename UltraProver_<Flavor>::Proof UltraPr
 
 template <IsUltraOrMegaHonk Flavor> void UltraProver_<Flavor>::generate_gate_challenges()
 {
-    // If we are using the keccak flavor, then we use the log_circuit_size from the verification key, otherwise we use
-    // the constant proof size log_n
+    // Determine the number of rounds in the sumcheck based on whether or not padding is employed
+    const size_t virtual_log_n =
+        Flavor::USE_PADDING ? CONST_PROOF_SIZE_LOG_N : static_cast<size_t>(proving_key->log_dyadic_size());
 
-    const uint64_t log_n = Flavor::USE_PADDING ? CONST_PROOF_SIZE_LOG_N : honk_vk->log_circuit_size;
-
-    std::vector<FF> gate_challenges(static_cast<size_t>(log_n));
+    std::vector<FF> gate_challenges(static_cast<size_t>(virtual_log_n));
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }

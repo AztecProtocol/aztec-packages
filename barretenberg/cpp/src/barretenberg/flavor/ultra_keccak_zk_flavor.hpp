@@ -22,6 +22,7 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
                   "LIBRA_UNIVARIATES_LENGTH must be equal to UltraKeccakZKFlavor::BATCHED_RELATION_PARTIAL_LENGTH");
 
     // Proof length formula
+    // WORKTODO:
     static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
         /* 1. NUM_WITNESS_ENTITIES commitments */ (NUM_WITNESS_ENTITIES * num_elements_comm) +
         /* 2. Libra concatenation commitment*/ (num_elements_comm) +
@@ -84,7 +85,7 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
          * proof.
          *
          */
-        void deserialize_full_transcript(size_t public_input_size)
+        void deserialize_full_transcript(size_t public_input_size, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N)
         {
             // take current proof and put them into the struct
             size_t num_frs_read = 0;
@@ -105,7 +106,7 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
                 Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             libra_sum = Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
 
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+            for (size_t i = 0; i < virtual_log_n; ++i) {
                 zk_sumcheck_univariates.push_back(
                     Base::template deserialize_from_buffer<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
                         proof_data, num_frs_read));
@@ -117,11 +118,11 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
             libra_quotient_commitment = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             hiding_polynomial_commitment = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             hiding_polynomial_eval = Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
+            for (size_t i = 0; i < virtual_log_n - 1; ++i) {
                 this->gemini_fold_comms.push_back(
                     Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read));
             }
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+            for (size_t i = 0; i < virtual_log_n; ++i) {
                 this->gemini_fold_evals.push_back(Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read));
             }
             libra_concatenation_eval = Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
@@ -139,7 +140,7 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
          * modified.
          *
          */
-        void serialize_full_transcript()
+        void serialize_full_transcript(size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N)
         {
             auto& proof_data = this->proof_data;
             size_t old_proof_length = proof_data.size();
@@ -158,7 +159,7 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
             Base::template serialize_to_buffer(libra_concatenation_commitment, proof_data);
             Base::template serialize_to_buffer(libra_sum, proof_data);
 
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+            for (size_t i = 0; i < virtual_log_n; ++i) {
                 Base::template serialize_to_buffer(zk_sumcheck_univariates[i], proof_data);
             }
             Base::template serialize_to_buffer(libra_claimed_evaluation, proof_data);
@@ -168,10 +169,10 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
             Base::template serialize_to_buffer(libra_quotient_commitment, proof_data);
             Base::template serialize_to_buffer(hiding_polynomial_commitment, proof_data);
             Base::template serialize_to_buffer(hiding_polynomial_eval, proof_data);
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
+            for (size_t i = 0; i < virtual_log_n - 1; ++i) {
                 Base::template serialize_to_buffer(this->gemini_fold_comms[i], proof_data);
             }
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+            for (size_t i = 0; i < virtual_log_n; ++i) {
                 Base::template serialize_to_buffer(this->gemini_fold_evals[i], proof_data);
             }
             Base::template serialize_to_buffer(libra_concatenation_eval, proof_data);

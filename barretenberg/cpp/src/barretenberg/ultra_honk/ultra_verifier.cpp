@@ -29,8 +29,7 @@ UltraVerifier_<Flavor>::verify_internal(const typename UltraVerifier_<Flavor>::P
     oink_verifier.verify();
     const PublicInputs& public_inputs = oink_verifier.public_inputs;
 
-    // If we are using the keccak flavor, then we use the log_circuit_size from the verification key, otherwise we use
-    // the constant proof size log_n
+    // Determine the number of rounds in the sumcheck based on whether or not padding is employed
     const uint64_t log_n = Flavor::USE_PADDING ? CONST_PROOF_SIZE_LOG_N : verification_key->vk->log_circuit_size;
 
     for (size_t idx = 0; idx < log_n; idx++) {

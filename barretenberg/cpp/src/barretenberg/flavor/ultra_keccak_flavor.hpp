@@ -42,6 +42,7 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
     // Proof length formula
     static constexpr size_t OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS =
         /* 1. NUM_WITNESS_ENTITIES commitments */ (NUM_WITNESS_ENTITIES * num_elements_comm);
+    // WORKTODO
     static constexpr size_t DECIDER_PROOF_LENGTH =
         /* 2. CONST_PROOF_SIZE_LOG_N sumcheck univariates */
         (CONST_PROOF_SIZE_LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * num_elements_fr) +

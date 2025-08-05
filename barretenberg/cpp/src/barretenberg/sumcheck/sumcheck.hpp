@@ -276,16 +276,14 @@ template <typename Flavor> class SumcheckProver {
         }
         vinfo("completed ", multivariate_d, " rounds of sumcheck");
 
-        // If we are not using the keccak flavor, then we skip padding the proof with zero univariates
         // Zero univariates are used to pad the proof to the fixed size virtual_log_n.
-        if constexpr (Flavor::USE_PADDING) {
-            auto zero_univariate = bb::Univariate<FF, Flavor::BATCHED_RELATION_PARTIAL_LENGTH>::zero();
-            for (size_t idx = multivariate_d; idx < virtual_log_n; idx++) {
-                transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(idx), zero_univariate);
-                FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(idx));
-                multivariate_challenge.emplace_back(round_challenge);
-            }
+        auto zero_univariate = bb::Univariate<FF, Flavor::BATCHED_RELATION_PARTIAL_LENGTH>::zero();
+        for (size_t idx = multivariate_d; idx < virtual_log_n; idx++) {
+            transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(idx), zero_univariate);
+            FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(idx));
+            multivariate_challenge.emplace_back(round_challenge);
         }
+
         // Claimed evaluations of Prover polynomials are extracted and added to the transcript. When Flavor has ZK, the
         // evaluations of all witnesses are masked.
         ClaimedEvaluations multivariate_evaluations = extract_claimed_evaluations(partially_evaluated_polynomials);
@@ -416,16 +414,13 @@ template <typename Flavor> class SumcheckProver {
         }
         vinfo("completed ", multivariate_d, " rounds of sumcheck");
 
-        // If we are not using the keccak flavor, then we skip padding the proof with zero univariates
-        if constexpr (Flavor::USE_PADDING) {
-            // Zero univariates are used to pad the proof to the fixed size virtual_log_n.
-            auto zero_univariate = bb::Univariate<FF, Flavor::BATCHED_RELATION_PARTIAL_LENGTH>::zero();
-            for (size_t idx = multivariate_d; idx < virtual_log_n; idx++) {
-                transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(idx), zero_univariate);
+        // Zero univariates are used to pad the proof to the fixed size virtual_log_n.
+        auto zero_univariate = bb::Univariate<FF, Flavor::BATCHED_RELATION_PARTIAL_LENGTH>::zero();
+        for (size_t idx = multivariate_d; idx < virtual_log_n; idx++) {
+            transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(idx), zero_univariate);
 
-                FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(idx));
-                multivariate_challenge.emplace_back(round_challenge);
-            }
+            FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(idx));
+            multivariate_challenge.emplace_back(round_challenge);
         }
 
         // Claimed evaluations of Prover polynomials are extracted and added to the transcript. When Flavor has ZK, the
@@ -715,8 +710,8 @@ template <typename Flavor> class SumcheckVerifier {
         bool verified(true);
 
         // Pad gate challenges for Protogalaxy DeciderVerifier and AVM
-        if constexpr (Flavor::USE_PADDING) {
-            round.pad_gate_challenges(gate_challenges);
+        if (gate_challenges.size() < virtual_log_n) {
+            round.pad_gate_challenges(gate_challenges, virtual_log_n);
         }
 
         bb::GateSeparatorPolynomial<FF> gate_separators(gate_challenges);
@@ -733,18 +728,9 @@ template <typename Flavor> class SumcheckVerifier {
             round.target_total_sum = libra_total_sum * libra_challenge;
         }
 
-        size_t log_n = 0;
-        if constexpr (Flavor::USE_PADDING) {
-            log_n = virtual_log_n;
-        } else {
-            // Set log_n to the highest non zero value in padding_indicator_array
-            // TODO: clean up
-            log_n = gate_challenges.size();
-        }
-
         std::vector<FF> multivariate_challenge;
-        multivariate_challenge.reserve(log_n);
-        for (size_t round_idx = 0; round_idx < log_n; round_idx++) {
+        multivariate_challenge.reserve(virtual_log_n);
+        for (size_t round_idx = 0; round_idx < virtual_log_n; round_idx++) {
             // Obtain the round univariate from the transcript
             std::string round_univariate_label = "Sumcheck:univariate_" + std::to_string(round_idx);
             round_univariate =
@@ -833,12 +819,6 @@ template <typename Flavor> class SumcheckVerifier {
         libra_total_sum = transcript->template receive_from_prover<FF>("Libra:Sum");
         // get the challenge for the ZK Sumcheck claim
         const FF libra_challenge = transcript->template get_challenge<FF>("Libra:Challenge");
-
-        // If we are using the keccak flavor, then we use the log_circuit_size from the relation parameters, otherwise
-        if constexpr (Flavor::USE_PADDING) {
-            // This assumes gate challenges have been set correctly and are not padded
-            virtual_log_n = gate_challenges.size();
-        }
 
         std::vector<FF> multivariate_challenge;
         multivariate_challenge.reserve(virtual_log_n);
