@@ -803,6 +803,46 @@ template <typename Builder> class stdlib_field : public testing::Test {
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
+    static void test_madd_add_two_gate_count()
+    {
+
+        auto make_constant = [](Builder& builder, int val) { return field_ct(&builder, bb::fr(val)); };
+        auto make_witness = [](Builder& builder, int val) { return field_ct(witness_ct(&builder, bb::fr(val))); };
+
+        struct Case {
+            bool a_const;
+            bool b_const;
+            bool c_const;
+            bool expect_gate;
+        };
+
+        std::vector<Case> cases = {
+            { true, true, true, false },  { true, true, false, false },  { true, false, true, false },
+            { false, true, true, false }, { true, false, false, true },  { false, true, false, true },
+            { false, false, true, true }, { false, false, false, true },
+        };
+
+        for (const auto& [a_const, b_const, c_const, expect_gate] : cases) {
+            Builder builder;
+
+            auto a = a_const ? make_constant(builder, 1) : make_witness(builder, 1);
+            auto b = b_const ? make_constant(builder, 2) : make_witness(builder, 2);
+            auto c = c_const ? make_constant(builder, 3) : make_witness(builder, 3);
+
+            size_t before = builder.get_estimated_num_finalized_gates();
+            a.madd(b, c);
+            size_t after = builder.get_estimated_num_finalized_gates();
+            bool gate_added = (after - before == 1);
+            EXPECT_EQ(gate_added, expect_gate);
+
+            before = builder.get_estimated_num_finalized_gates();
+            a.add_two(b, c);
+            after = builder.get_estimated_num_finalized_gates();
+
+            gate_added = (after - before == 1);
+            EXPECT_EQ(gate_added, expect_gate);
+        }
+    }
     static void test_conditional_negate()
     {
         Builder builder = Builder();
@@ -1707,6 +1747,10 @@ TYPED_TEST(stdlib_field, test_larger_circuit)
 TYPED_TEST(stdlib_field, test_madd)
 {
     TestFixture::test_madd();
+}
+TYPED_TEST(stdlib_field, test_madd_add_two_gate_count)
+{
+    TestFixture::test_madd_add_two_gate_count();
 }
 TYPED_TEST(stdlib_field, test_multiplicative_constant_regression)
 {

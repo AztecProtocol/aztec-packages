@@ -508,7 +508,10 @@ template <typename Builder> field_t<Builder> field_t<Builder>::madd(const field_
 {
     Builder* ctx = validate_context<Builder>(context, to_mul.context, to_add.context);
 
-    if (to_mul.is_constant() && to_add.is_constant() && is_constant()) {
+    int num_const = static_cast<int>(is_constant()) + static_cast<int>(to_mul.is_constant()) +
+                    static_cast<int>(to_add.is_constant());
+
+    if (num_const >= 2) {
         return ((*this) * to_mul + to_add);
     }
 
@@ -566,7 +569,10 @@ template <typename Builder> field_t<Builder> field_t<Builder>::madd(const field_
  */
 template <typename Builder> field_t<Builder> field_t<Builder>::add_two(const field_t& add_b, const field_t& add_c) const
 {
-    if ((add_b.is_constant()) && (add_c.is_constant()) && (is_constant())) {
+    int num_const =
+        static_cast<int>(is_constant()) + static_cast<int>(add_b.is_constant()) + static_cast<int>(add_c.is_constant());
+
+    if (num_const >= 2) {
         return (*this) + add_b + add_c;
     }
     Builder* ctx = validate_context<Builder>(context, add_b.context, add_c.context);
