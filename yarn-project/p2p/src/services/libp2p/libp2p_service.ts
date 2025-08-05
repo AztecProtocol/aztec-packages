@@ -441,7 +441,9 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     await this.node.start();
 
     // Subscribe to standard GossipSub topics by default
-    for (const topic of getTopicTypeForClientType(this.clientType)) {
+    for (const topic of getTopicTypeForClientType(this.clientType).filter(
+      t => t !== TopicType.tx || !this.config.disableTransactions,
+    )) {
       this.subscribeToTopic(this.topicStrings[topic]);
     }
 
@@ -458,7 +460,6 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const requestResponseHandlers: Partial<ReqRespSubProtocolHandlers> = {
       [ReqRespSubProtocol.PING]: pingHandler,
       [ReqRespSubProtocol.STATUS]: statusHandler.bind(this),
-      [ReqRespSubProtocol.TX]: txHandler.bind(this),
       [ReqRespSubProtocol.GOODBYE]: goodbyeHandler.bind(this),
       [ReqRespSubProtocol.BLOCK]: blockHandler.bind(this),
     };
@@ -467,6 +468,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     if (this.mempools.attestationPool) {
       const blockTxsHandler = reqRespBlockTxsHandler(this.mempools.attestationPool, this.mempools.txPool);
       requestResponseHandlers[ReqRespSubProtocol.BLOCK_TXS] = blockTxsHandler.bind(this);
+    }
+
+    if (!this.config.disableTransactions) {
+      requestResponseHandlers[ReqRespSubProtocol.TX] = txHandler.bind(this);
     }
 
     // add GossipSub listener
@@ -1015,6 +1020,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       protocolContractTreeRoot,
       this.archiver,
       this.proofVerifier,
+      !this.config.disableTransactions,
       allowedInSetup,
     );
   }
