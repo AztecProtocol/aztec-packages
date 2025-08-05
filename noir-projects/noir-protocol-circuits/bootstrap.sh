@@ -140,7 +140,7 @@ function compile {
     fi
   fi
 }
-export -f compile
+export -f hex_to_fields_json compile
 
 function build {
   set -eu
