@@ -6,6 +6,7 @@
 #include "barretenberg/vm2/simulation/testing/mock_field_gt.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_poseidon2.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_written_public_data_slots_tree_check.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 
 #include <gmock/gmock.h>
@@ -16,6 +17,7 @@ namespace {
 
 using ::testing::NiceMock;
 using ::testing::Return;
+using ::testing::ReturnRef;
 
 class TxExecutionTest : public ::testing::Test {
   protected:
@@ -27,8 +29,14 @@ class TxExecutionTest : public ::testing::Test {
     NiceMock<MockExecution> execution;
     NiceMock<MockFieldGreaterThan> field_gt;
     NiceMock<MockPoseidon2> poseidon2;
-    TxExecution tx_execution =
-        TxExecution(execution, context_provider, merkle_db, field_gt, poseidon2, tx_event_emitter);
+    NiceMock<MockWrittenPublicDataSlotsTreeCheck> written_public_data_slots_tree_check;
+    TxExecution tx_execution = TxExecution(execution,
+                                           context_provider,
+                                           merkle_db,
+                                           written_public_data_slots_tree_check,
+                                           field_gt,
+                                           poseidon2,
+                                           tx_event_emitter);
 };
 
 TEST_F(TxExecutionTest, simulateTx)
@@ -64,17 +72,21 @@ TEST_F(TxExecutionTest, simulateTx)
         .publicDataTree = { .tree = dummy_snapshot, .counter = 0 },
     };
     ON_CALL(merkle_db, get_tree_state()).WillByDefault(Return(tree_state));
+    SideEffectStates side_effect_states = SideEffectStates{ .numUnencryptedLogs = 0, .numL2ToL1Messages = 0 };
 
     // Number of Enqueued Calls in the transaction : 1 setup, 1 app logic, and 1 teardown
 
     auto setup_context = std::make_unique<NiceMock<MockContext>>();
     ON_CALL(*setup_context, halted()).WillByDefault(Return(true)); // dont do any actual
+    EXPECT_CALL(*setup_context, get_side_effect_states()).WillOnce(ReturnRef(side_effect_states));
 
     auto app_logic_context = std::make_unique<NiceMock<MockContext>>();
     ON_CALL(*app_logic_context, halted()).WillByDefault(Return(true));
+    EXPECT_CALL(*app_logic_context, get_side_effect_states()).WillOnce(ReturnRef(side_effect_states));
 
     auto teardown_context = std::make_unique<NiceMock<MockContext>>();
     ON_CALL(*teardown_context, halted()).WillByDefault(Return(true));
+    EXPECT_CALL(*teardown_context, get_side_effect_states()).WillOnce(ReturnRef(side_effect_states));
 
     EXPECT_CALL(context_provider, make_enqueued_context)
         .WillOnce(Return(std::move(setup_context)))

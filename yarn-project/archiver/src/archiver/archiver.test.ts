@@ -2,9 +2,11 @@ import { Blob } from '@aztec/blob-lib';
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { BlobWithIndex } from '@aztec/blob-sink/types';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
+import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
 import { DefaultL1ContractsConfig, InboxContract, RollupContract, type ViemPublicClient } from '@aztec/ethereum';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
+import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -13,13 +15,15 @@ import { sleep } from '@aztec/foundation/sleep';
 import { bufferToHex, withoutHexPrefix } from '@aztec/foundation/string';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { L2Block } from '@aztec/stdlib/block';
+import { CommitteeAttestation, L2Block, L2BlockSourceEvents } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { PrivateLog } from '@aztec/stdlib/logs';
 import { InboxLeaf } from '@aztec/stdlib/messaging';
+import { makeBlockAttestationFromBlock } from '@aztec/stdlib/testing';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { jest } from '@jest/globals';
+import assert from 'assert';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import { type FormattedBlock, type Log, type Transaction, encodeFunctionData, multicall3Abi, toHex } from 'viem';
 
@@ -30,6 +34,8 @@ import { KVArchiverDataStore } from './kv_archiver_store/kv_archiver_store.js';
 import { updateRollingHash } from './structs/inbox_message.js';
 
 interface MockRollupContractRead {
+  /** Returns the target committee size */
+  getTargetCommitteeSize: () => Promise<bigint>;
   /** Returns the rollup version. */
   getVersion: () => Promise<bigint>;
   /** Given an L2 block number, returns the archive. */
@@ -81,9 +87,19 @@ describe('Archiver', () => {
     publicClient.getBlockNumber.mockResolvedValue(nums.at(-1)!);
   };
 
+  const makeBlock = async (blockNumber: number) => {
+    const block = await L2Block.random(blockNumber, txsPerBlock, blockNumber + 1, 2);
+    block.header.globalVariables.timestamp = BigInt(now + Number(ETHEREUM_SLOT_DURATION) * (blockNumber + 1));
+    block.body.txEffects.forEach((txEffect, i) => {
+      txEffect.privateLogs = times(getNumPrivateLogsForTx(block.number, i), () => PrivateLog.random());
+    });
+    return block;
+  };
+
   let publicClient: MockProxy<ViemPublicClient>;
   let instrumentation: MockProxy<ArchiverInstrumentation>;
   let blobSinkClient: MockProxy<BlobSinkClientInterface>;
+  let epochCache: MockProxy<EpochCache>;
   let archiverStore: ArchiverDataStore;
   let l1Constants: L1RollupConstants & { l1StartBlockHash: Buffer32 };
   let now: number;
@@ -132,6 +148,8 @@ describe('Archiver', () => {
     }) as any);
 
     blobSinkClient = mock<BlobSinkClientInterface>();
+    epochCache = mock<EpochCache>();
+    epochCache.getCommitteeForEpoch.mockResolvedValue({ committee: [] as EthAddress[] } as EpochCommitteeInfo);
 
     const tracer = getTelemetryClient().getTracer('');
     instrumentation = mock<ArchiverInstrumentation>({ isEnabled: () => true, tracer });
@@ -152,17 +170,12 @@ describe('Archiver', () => {
       archiverStore,
       { pollingIntervalMs: 1000, batchSize: 1000 },
       blobSinkClient,
+      epochCache,
       instrumentation,
       l1Constants,
     );
 
-    blocks = await Promise.all(blockNumbers.map(x => L2Block.random(x, txsPerBlock, x + 1, 2)));
-    blocks.forEach((block, i) => {
-      block.header.globalVariables.timestamp = BigInt(now + Number(ETHEREUM_SLOT_DURATION) * (i + 1));
-      block.body.txEffects.forEach((txEffect, i) => {
-        txEffect.privateLogs = times(getNumPrivateLogsForTx(block.number, i), () => PrivateLog.random());
-      });
-    });
+    blocks = await Promise.all(blockNumbers.map(makeBlock));
 
     // TODO(palla/archiver) Instead of guessing the archiver requests with mockResolvedValueOnce,
     // we should use a mock implementation that returns the expected value based on the input.
@@ -171,7 +184,7 @@ describe('Archiver', () => {
     // blobsFromBlocks = await Promise.all(blocks.map(b => makeBlobsFromBlock(b)));
     // blobsFromBlocks.forEach(blobs => blobSinkClient.getBlobSidecar.mockResolvedValueOnce(blobs));
 
-    // rollupTxs = await Promise.all(blocks.map(makeRollupTx));
+    // rollupTxs = await Promise.all(blocks.map(b => makeRollupTx(b)));
     // publicClient.getTransaction.mockImplementation((args: { hash?: `0x${string}` }) => {
     //   const index = parseInt(withoutHexPrefix(args.hash!));
     //   if (index > blocks.length) {
@@ -252,7 +265,7 @@ describe('Archiver', () => {
     let latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(0);
 
-    const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
+    const rollupTxs = await Promise.all(blocks.map(b => makeRollupTx(b)));
     const blobHashes = await Promise.all(blocks.map(makeVersionedBlobHashes));
 
     mockL1BlockNumbers(2500n, 2510n, 2520n);
@@ -334,7 +347,7 @@ describe('Archiver', () => {
 
     const numL2BlocksInTest = 2;
 
-    const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
+    const rollupTxs = await Promise.all(blocks.map(b => makeRollupTx(b)));
     const blobHashes = await Promise.all(blocks.map(makeVersionedBlobHashes));
 
     // Here we set the current L1 block number to 102. L1 to L2 messages after this should not be read.
@@ -368,6 +381,146 @@ describe('Archiver', () => {
     });
   }, 10_000);
 
+  it('ignores blocks because of invalid attestations', async () => {
+    let latestBlockNum = await archiver.getBlockNumber();
+    expect(latestBlockNum).toEqual(0);
+
+    // Setup a committee of 3 signers
+    mockRollupRead.getTargetCommitteeSize.mockResolvedValue(3n);
+    const signers = times(3, Secp256k1Signer.random);
+    const committee = signers.map(signer => signer.address);
+    epochCache.getCommitteeForEpoch.mockResolvedValue({ committee } as EpochCommitteeInfo);
+
+    // Setup spy to listen for InvalidBlockDetected events
+    const invalidBlockDetectedSpy = jest.fn();
+    archiver.on(L2BlockSourceEvents.InvalidAttestationsBlockDetected, invalidBlockDetectedSpy);
+
+    // Add the attestations from the signers to all 3 blocks
+    const rollupTxs = await Promise.all(blocks.map(b => makeRollupTx(b, signers)));
+    const blobHashes = await Promise.all(blocks.map(makeVersionedBlobHashes));
+    const blobsFromBlocks = await Promise.all(blocks.map(b => makeBlobsFromBlock(b)));
+
+    // And define bad blocks with attestations from random signers
+    const makeBadBlock = async (blockNumber: number) => {
+      const badBlock = await makeBlock(blockNumber);
+      badBlock.archive.root = new Fr(0x1000 + blockNumber);
+      const badBlockRollupTx = await makeRollupTx(badBlock, times(3, Secp256k1Signer.random));
+      const badBlockBlobHashes = await makeVersionedBlobHashes(badBlock);
+      const badBlockBlobs = await makeBlobsFromBlock(badBlock);
+      return [badBlock, badBlockRollupTx, badBlockBlobHashes, badBlockBlobs] as const;
+    };
+
+    const [badBlock2, badBlock2RollupTx, badBlock2BlobHashes, badBlock2Blobs] = await makeBadBlock(2);
+    const [badBlock3, badBlock3RollupTx, badBlock3BlobHashes, badBlock3Blobs] = await makeBadBlock(3);
+
+    // Return the archive root for the bad block 2 when L1 is queried
+    mockRollupRead.archiveAt.mockImplementation((args: readonly [bigint]) =>
+      Promise.resolve((args[0] === 2n ? badBlock2 : blocks[Number(args[0] - 1n)]).archive.root.toString()),
+    );
+
+    blocks.forEach(b => logger.warn(`Created valid block ${b.number} with root ${b.archive.root.toString()}`));
+    logger.warn(`Created invalid block 2 with root ${badBlock2.archive.root.toString()}`);
+    logger.warn(`Created invalid block 3 with root ${badBlock3.archive.root.toString()}`);
+
+    // During the first archiver loop, we fetch block 1 and the block 2 with bad attestations
+    publicClient.getBlockNumber.mockResolvedValue(85n);
+    makeL2BlockProposedEvent(70n, 1n, blocks[0].archive.root.toString(), blobHashes[0]);
+    makeL2BlockProposedEvent(80n, 2n, badBlock2.archive.root.toString(), badBlock2BlobHashes);
+    mockRollup.read.status.mockResolvedValue([0n, GENESIS_ROOT, 2n, badBlock2.archive.root.toString(), GENESIS_ROOT]);
+    publicClient.getTransaction.mockResolvedValueOnce(rollupTxs[0]).mockResolvedValueOnce(badBlock2RollupTx);
+    blobSinkClient.getBlobSidecar.mockResolvedValueOnce(blobsFromBlocks[0]).mockResolvedValueOnce(badBlock2Blobs);
+
+    // Start archiver, the bad block 2 should not be synced
+    await archiver.start(true);
+    latestBlockNum = await archiver.getBlockNumber();
+    expect(latestBlockNum).toEqual(1);
+    expect(await archiver.getPendingChainValidationStatus()).toEqual(
+      expect.objectContaining({
+        valid: false,
+        reason: 'invalid-attestation',
+        invalidIndex: 0,
+        committee,
+      }),
+    );
+
+    // Check that InvalidBlockDetected event was emitted for the bad block
+    expect(invalidBlockDetectedSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: L2BlockSourceEvents.InvalidAttestationsBlockDetected,
+        validationResult: expect.objectContaining({ valid: false, reason: 'invalid-attestation', invalidIndex: 0 }),
+      }),
+    );
+
+    // Now another loop, where we propose a block 3 with bad attestations
+    logger.warn(`Adding new block 3 with bad attestations`);
+    publicClient.getBlockNumber.mockResolvedValue(90n);
+    makeL2BlockProposedEvent(85n, 3n, badBlock3.archive.root.toString(), badBlock3BlobHashes);
+    mockRollup.read.status.mockResolvedValue([
+      0n,
+      GENESIS_ROOT,
+      3n,
+      badBlock3.archive.root.toString(),
+      blocks[0].archive.root.toString(),
+    ]);
+    publicClient.getTransaction.mockResolvedValueOnce(badBlock3RollupTx);
+    blobSinkClient.getBlobSidecar.mockResolvedValueOnce(badBlock3Blobs);
+
+    // We should still be at block 1, and the pending chain validation status should still be invalid and point to block 2
+    // since we want the archiver to always return the earliest block with invalid attestations
+    await archiver.syncImmediate();
+    latestBlockNum = await archiver.getBlockNumber();
+    expect(latestBlockNum).toEqual(1);
+    const validationStatus = await archiver.getPendingChainValidationStatus();
+    assert(!validationStatus.valid);
+    expect(validationStatus.block.block.number).toEqual(2);
+    expect(validationStatus.block.block.archive.root.toString()).toEqual(badBlock2.archive.root.toString());
+
+    // Check that InvalidBlockDetected event was also emitted for bad block 3
+    expect(invalidBlockDetectedSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: L2BlockSourceEvents.InvalidAttestationsBlockDetected,
+        validationResult: expect.objectContaining({ valid: false, reason: 'invalid-attestation', invalidIndex: 0 }),
+      }),
+    );
+
+    // Should have been called twice total (for blocks 2 and 3)
+    expect(invalidBlockDetectedSpy).toHaveBeenCalledTimes(2);
+
+    // Now we go for another loop, where proper blocks 2 and 3 are proposed with correct attestations
+    // IRL there would be an "Invalidated" event, but we are not currently relying on it
+    logger.warn(`Adding new blocks 2 and 3 with correct attestations`);
+    publicClient.getBlockNumber.mockResolvedValue(100n);
+    makeL2BlockProposedEvent(94n, 2n, blocks[1].archive.root.toString(), blobHashes[1]);
+    makeL2BlockProposedEvent(95n, 3n, blocks[2].archive.root.toString(), blobHashes[2]);
+    mockRollup.read.status.mockResolvedValue([
+      0n,
+      GENESIS_ROOT,
+      3n,
+      blocks[2].archive.root.toString(),
+      blocks[0].archive.root.toString(),
+    ]);
+    publicClient.getTransaction.mockResolvedValueOnce(rollupTxs[1]).mockResolvedValueOnce(rollupTxs[2]);
+    blobSinkClient.getBlobSidecar.mockResolvedValueOnce(blobsFromBlocks[1]).mockResolvedValueOnce(blobsFromBlocks[2]);
+    mockRollupRead.archiveAt.mockImplementation((args: readonly [bigint]) =>
+      Promise.resolve(blocks[Number(args[0] - 1n)].archive.root.toString()),
+    );
+
+    // Now we should move to block 3
+    await archiver.syncImmediate();
+    await waitUntilArchiverBlock(3);
+    latestBlockNum = await archiver.getBlockNumber();
+    expect(latestBlockNum).toEqual(3);
+
+    // And block 2 should return the proper one
+    const [block2] = await archiver.getPublishedBlocks(2, 1);
+    expect(block2.block.number).toEqual(2);
+    expect(block2.block.archive.root.toString()).toEqual(blocks[1].archive.root.toString());
+    expect(block2.attestations.length).toEqual(3);
+
+    // With a valid pending chain validation status
+    expect(await archiver.getPendingChainValidationStatus()).toEqual(expect.objectContaining({ valid: true }));
+  }, 10_000);
+
   it('skip event search if no changes found', async () => {
     const loggerSpy = jest.spyOn((archiver as any).log, 'debug');
 
@@ -376,7 +529,7 @@ describe('Archiver', () => {
 
     const numL2BlocksInTest = 2;
 
-    const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
+    const rollupTxs = await Promise.all(blocks.map(b => makeRollupTx(b)));
     const blobHashes = await Promise.all(blocks.map(makeVersionedBlobHashes));
 
     mockL1BlockNumbers(50n, 100n);
@@ -414,7 +567,7 @@ describe('Archiver', () => {
 
     const numL2BlocksInTest = 2;
 
-    const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
+    const rollupTxs = await Promise.all(blocks.map(b => makeRollupTx(b)));
     const blobHashes = await Promise.all(blocks.map(makeVersionedBlobHashes));
 
     let mockedBlockNum = 0n;
@@ -460,7 +613,7 @@ describe('Archiver', () => {
     // Lets take a look to see if we can find re-org stuff!
     await sleep(2000);
 
-    expect(loggerSpy).toHaveBeenCalledWith(`L2 prune has been detected.`);
+    expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining(`L2 prune has been detected`), expect.anything());
 
     // Should also see the block number be reduced
     latestBlockNum = await archiver.getBlockNumber();
@@ -538,7 +691,7 @@ describe('Archiver', () => {
     blocks = [l2Block];
     const blobHashes = await makeVersionedBlobHashes(l2Block);
 
-    const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
+    const rollupTxs = await Promise.all(blocks.map(b => makeRollupTx(b)));
     publicClient.getBlockNumber.mockResolvedValue(l1BlockForL2Block);
     mockRollup.read.status.mockResolvedValueOnce([0n, GENESIS_ROOT, 1n, l2Block.archive.root.toString(), GENESIS_ROOT]);
     makeL2BlockProposedEvent(l1BlockForL2Block, 1n, l2Block.archive.root.toString(), blobHashes);
@@ -570,7 +723,7 @@ describe('Archiver', () => {
     blocks = [l2Block];
     const blobHashes = await makeVersionedBlobHashes(l2Block);
 
-    const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
+    const rollupTxs = await Promise.all(blocks.map(b => makeRollupTx(b)));
     publicClient.getBlockNumber.mockResolvedValue(l1BlockForL2Block);
     mockRollup.read.status.mockResolvedValueOnce([0n, GENESIS_ROOT, 1n, l2Block.archive.root.toString(), GENESIS_ROOT]);
     makeL2BlockProposedEvent(l1BlockForL2Block, 1n, l2Block.archive.root.toString(), blobHashes);
@@ -630,7 +783,7 @@ describe('Archiver', () => {
     blocks = [l2Block];
     const blobHashes = await makeVersionedBlobHashes(l2Block);
 
-    const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
+    const rollupTxs = await Promise.all(blocks.map(b => makeRollupTx(b)));
     publicClient.getBlockNumber.mockResolvedValue(lastL1BlockForEpoch);
     mockRollup.read.status.mockResolvedValueOnce([0n, GENESIS_ROOT, 1n, l2Block.archive.root.toString(), GENESIS_ROOT]);
     makeL2BlockProposedEvent(l1BlockForL2Block, 1n, l2Block.archive.root.toString(), blobHashes);
@@ -660,7 +813,7 @@ describe('Archiver', () => {
   it('handles a block gap due to a spurious L2 prune', async () => {
     expect(await archiver.getBlockNumber()).toEqual(0);
 
-    const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
+    const rollupTxs = await Promise.all(blocks.map(b => makeRollupTx(b)));
     const blobHashes = await Promise.all(blocks.map(makeVersionedBlobHashes));
     const blobsFromBlocks = await Promise.all(blocks.map(b => makeBlobsFromBlock(b)));
 
@@ -805,7 +958,11 @@ describe('Archiver', () => {
  * @param block - The L2Block.
  * @returns A fake tx with calldata that corresponds to calling process in the Rollup contract.
  */
-async function makeRollupTx(l2Block: L2Block) {
+async function makeRollupTx(l2Block: L2Block, signers: Secp256k1Signer[] = []) {
+  const attestations = signers
+    .map(signer => makeBlockAttestationFromBlock(l2Block, signer))
+    .map(blockAttestation => CommitteeAttestation.fromSignature(blockAttestation.signature))
+    .map(committeeAttestation => committeeAttestation.toViem());
   const header = l2Block.header.toPropose().toViem();
   const blobInput = Blob.getPrefixedEthBlobCommitments(await Blob.getBlobsPerBlock(l2Block.body.toBlobFields()));
   const archive = toHex(l2Block.archive.root.toBuffer());
@@ -820,7 +977,8 @@ async function makeRollupTx(l2Block: L2Block) {
         stateReference,
         oracleInput: { feeAssetPriceModifier: 0n },
       },
-      RollupContract.packAttestations([]),
+      RollupContract.packAttestations(attestations),
+      signers.map(signer => signer.address.toString()),
       blobInput,
     ],
   });

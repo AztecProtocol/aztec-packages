@@ -29,7 +29,7 @@ import {
 } from '../../test-helpers/make-test-p2p-clients.js';
 import { MockGossipSubNetwork } from '../../test-helpers/mock-pubsub.js';
 
-const TEST_TIMEOUT = 120000;
+const TEST_TIMEOUT = 120_000;
 jest.setTimeout(TEST_TIMEOUT);
 
 describe('p2p client integration message propagation', () => {
@@ -80,13 +80,13 @@ describe('p2p client integration message propagation', () => {
   });
 
   afterEach(async () => {
-    jest.restoreAllMocks();
-    jest.resetAllMocks();
-    jest.clearAllMocks();
-
     logger.info(`Tearing down state for ${expect.getState().currentTestName}`);
     await shutdown(clients);
     logger.info('Shut down p2p clients');
+
+    jest.restoreAllMocks();
+    jest.resetAllMocks();
+    jest.clearAllMocks();
 
     clients = [];
   });
@@ -191,16 +191,17 @@ describe('p2p client integration message propagation', () => {
     await (client1 as any).p2pService.broadcastAttestation(attestation);
 
     // Clients 2 and 3 should receive all messages
-    const messagesPromise = Promise.all([
+    const messagesPromise = [
       client2TxPromise.promise,
       client3TxPromise.promise,
       client2ProposalPromise.promise,
       client3ProposalPromise.promise,
       client2AttestationPromise.promise,
       client3AttestationPromise.promise,
-    ]);
+    ];
 
-    const messages = await Promise.race([messagesPromise, sleep(6000).then(() => undefined)]);
+    const messages = await retryUntil(() => collectIfReady(messagesPromise), 'all gossiped messages received', 12, 0.5);
+
     expect(messages).toBeDefined();
     expect(client2HandleGossipedTxSpy).toHaveBeenCalled();
     expect(client2HandleGossipedProposalSpy).toHaveBeenCalled();
@@ -221,6 +222,14 @@ describe('p2p client integration message propagation', () => {
     }
   };
 
+  const collectIfReady = async (promises: Promise<any>[]) => {
+    const settled = await Promise.allSettled(promises);
+    if (settled.every(s => s.status === 'fulfilled')) {
+      return settled.map(s => (s as PromiseFulfilledResult<any>).value);
+    }
+    return undefined;
+  };
+
   // Test creates 3 nodes. Node 1 sends all message types to others.
   // Test confirms that nodes 2 and 3 receive all messages.
   // Then nodes 2 and 3 are restarted, node 3 is restarted at a new version
@@ -231,31 +240,24 @@ describe('p2p client integration message propagation', () => {
     async () => {
       // Create a set of nodes, client 1 will send a messages to other peers
       const numberOfNodes = 3;
+      const mockGossipSubNetwork = new MockGossipSubNetwork();
       // We start at rollup version 1
       const testConfig: MakeTestP2PClientOptions = {
-        p2pBaseConfig: { ...p2pBaseConfig, rollupVersion: 1 },
+        p2pBaseConfig: { ...p2pBaseConfig, rollupVersion: 1, p2pDisableStatusHandshake: true },
         mockAttestationPool: attestationPool,
         mockTxPool: txPool,
         mockEpochCache: epochCache,
         mockWorldState: worldState,
         alwaysTrueVerifier: true,
         logger,
+        mockGossipSubNetwork,
       };
 
       const clientsAndConfig = await makeAndStartTestP2PClients(numberOfNodes, testConfig);
-      //Disable handshake because it makes this test flaky
-      for (const c of clientsAndConfig) {
-        (c as any).client.p2pService.peerManager.exchangeStatusHandshake = jest.fn().mockImplementation(() => {});
-      }
       const [client1, client2, client3] = clientsAndConfig;
 
-      //Disable handshake because it makes this test flaky
-      clientsAndConfig.forEach((c: any) => {
-        c.client.p2pService.peerManager.exchangeStatusHandshake = jest.fn().mockImplementation(() => {});
-      });
-
       // Give the nodes time to discover each other
-      await retryUntil(async () => (await client1.client.getPeers()).length >= 2, 'peers discovered', 10, 0.5);
+      await retryUntil(async () => (await client1.client.getPeers()).length >= 2, 'peers discovered', 12, 0.5);
       logger.info(`Finished waiting for clients to discover each other`);
 
       // Assert that messages get propagated
@@ -285,14 +287,9 @@ describe('p2p client integration message propagation', () => {
 
       const clients = [newClient2, newClient3];
 
-      //Disable handshake because it makes this test flaky
-      clients.forEach((c: any) => {
-        c.p2pService.peerManager.exchangeStatusHandshake = jest.fn().mockImplementation(() => {});
-      });
-
       await startTestP2PClients(clients);
       // Give everyone time to connect again
-      await retryUntil(async () => (await client1.client.getPeers()).length >= 2, 'peers rediscovered', 10, 0.5);
+      await retryUntil(async () => (await client1.client.getPeers()).length >= 2, 'peers rediscovered', 12, 0.5);
       logger.info(`Finished waiting for clients to rediscover each other`);
 
       // Client 1 sends a tx a block proposal and an attestation and only client 2 should receive them, client 3 is now on a new version
@@ -343,22 +340,22 @@ describe('p2p client integration message propagation', () => {
         await (client1.client as any).p2pService.broadcastAttestation(attestation);
 
         // Only client 2 should receive the messages
-        const client2MessagesPromises = Promise.all([
-          client2TxPromise.promise,
-          client2ProposalPromise.promise,
-          client2AttestationPromise.promise,
-        ]);
+        const client2Messages = await retryUntil(
+          () =>
+            collectIfReady([
+              client2TxPromise.promise,
+              client2ProposalPromise.promise,
+              client2AttestationPromise.promise,
+            ]),
+          'client2 received all messages',
+          12,
+          0.5,
+        );
 
         // We use Promise.any as no messages should be received
-        const client3MessagesPromises = Promise.any([
-          client3TxPromise.promise,
-          client3ProposalPromise.promise,
-          client3AttestationPromise.promise,
-        ]);
-
-        const [client2Messages, client3Messages] = await Promise.all([
-          Promise.race([client2MessagesPromises, sleep(6000).then(() => undefined)]),
-          Promise.race([client3MessagesPromises, sleep(6000).then(() => undefined)]),
+        const client3Messages = await Promise.race([
+          Promise.any([client3TxPromise.promise, client3ProposalPromise.promise, client3AttestationPromise.promise]),
+          sleep(6_000).then(() => undefined),
         ]);
 
         // We expect that all messages were received by client 2

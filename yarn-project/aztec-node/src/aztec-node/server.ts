@@ -22,7 +22,7 @@ import {
   isExtendedClient,
 } from '@aztec/ethereum';
 import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
-import { compactArray } from '@aztec/foundation/collection';
+import { compactArray, pick } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
@@ -42,7 +42,7 @@ import {
   createValidatorForAcceptingTxs,
 } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
-import { EpochPruneWatcher, SlasherClient, type Watcher } from '@aztec/slasher';
+import { AttestationsBlockWatcher, EpochPruneWatcher, SlasherClient, type Watcher } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type InBlock,
@@ -61,17 +61,17 @@ import type {
 } from '@aztec/stdlib/contract';
 import type { GasFees } from '@aztec/stdlib/gas';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
-import type {
-  AztecNode,
-  AztecNodeAdmin,
-  GetContractClassLogsResponse,
-  GetPublicLogsResponse,
+import {
+  type AztecNode,
+  type AztecNodeAdmin,
+  type AztecNodeAdminConfig,
+  AztecNodeAdminConfigSchema,
+  type GetContractClassLogsResponse,
+  type GetPublicLogsResponse,
 } from '@aztec/stdlib/interfaces/client';
 import {
   type ClientProtocolCircuitVerifier,
   type L2LogsSource,
-  type ProverConfig,
-  type SequencerConfig,
   type Service,
   type WorldStateSyncStatus,
   type WorldStateSynchronizer,
@@ -80,6 +80,7 @@ import {
 import type { LogFilter, PrivateLog, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { P2PClientType } from '@aztec/stdlib/p2p';
+import type { MonitoredSlashPayload } from '@aztec/stdlib/slashing';
 import type { NullifierLeafPreimage, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import {
@@ -234,7 +235,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // attempt snapshot sync if possible
     await trySnapshotSync(config, log);
 
-    const archiver = await createArchiver(config, blobSinkClient, { blockUntilSync: true }, telemetry);
+    const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, { dateProvider });
+
+    const archiver = await createArchiver(
+      config,
+      { blobSinkClient, epochCache, telemetry, dateProvider },
+      { blockUntilSync: true },
+    );
 
     // now create the merkle trees and the world state synchronizer
     const worldStateSynchronizer = await createWorldStateSynchronizer(
@@ -248,8 +255,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       log.warn(`Aztec node is accepting fake proofs`);
     }
     const proofVerifier = new QueuedIVCVerifier(config, circuitVerifier);
-
-    const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, { dateProvider });
 
     // create the tx pool and the p2p client, which will need the l2 block source
     const p2pClient = await createP2PClient(
@@ -307,6 +312,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       watchers.push(epochPruneWatcher);
     }
 
+    // We assume we want to slash for invalid attestations unless all max penalties are set to 0
+    let attestationsBlockWatcher: AttestationsBlockWatcher | undefined;
+    if (config.slashProposeInvalidAttestationsMaxPenalty > 0n || config.slashAttestDescendantOfInvalidMaxPenalty > 0n) {
+      attestationsBlockWatcher = new AttestationsBlockWatcher(archiver, epochCache, config);
+      await attestationsBlockWatcher.start();
+      watchers.push(attestationsBlockWatcher);
+    }
+
     const validatorClient = createValidatorClient(config, {
       p2pClient,
       telemetry,
@@ -324,9 +337,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     log.verbose(`All Aztec Node subsystems synced`);
 
     const { slasherPrivateKey, l1RpcUrls } = config;
+    const slasherPrivateKeyString = slasherPrivateKey.getValue();
     const slasherL1Client =
-      slasherPrivateKey?.getValue() && slasherPrivateKey.getValue() !== NULL_KEY
-        ? createExtendedL1Client(l1RpcUrls, slasherPrivateKey.getValue(), ethereumChain.chainInfo)
+      slasherPrivateKeyString && slasherPrivateKeyString !== NULL_KEY
+        ? createExtendedL1Client(l1RpcUrls, slasherPrivateKeyString, ethereumChain.chainInfo)
         : getPublicClient(config);
     const slasherL1TxUtils = isExtendedClient(slasherL1Client)
       ? new L1TxUtils(slasherL1Client, log, dateProvider, config)
@@ -1073,9 +1087,16 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return await validator.validateTx(tx);
   }
 
-  public async setConfig(config: Partial<SequencerConfig & ProverConfig>): Promise<void> {
+  public getConfig(): Promise<AztecNodeAdminConfig> {
+    const schema = AztecNodeAdminConfigSchema;
+    const keys = schema.keyof().options;
+    return Promise.resolve(pick(this.config, ...keys));
+  }
+
+  public async setConfig(config: Partial<AztecNodeAdminConfig>): Promise<void> {
     const newConfig = { ...this.config, ...config };
     this.sequencer?.updateSequencerConfig(config);
+    this.slasherClient?.updateConfig(config);
     // this.blockBuilder.updateConfig(config); // TODO: Spyros has a PR to add the builder to `this`, so we can do this
     await this.p2pClient.updateP2PConfig(config);
 
@@ -1097,14 +1118,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
   public registerContractFunctionSignatures(signatures: string[]): Promise<void> {
     return this.contractDataSource.registerContractFunctionSignatures(signatures);
-  }
-
-  public flushTxs(): Promise<void> {
-    if (!this.sequencer) {
-      throw new Error(`Sequencer is not initialized`);
-    }
-    this.sequencer.flush();
-    return Promise.resolve();
   }
 
   public getValidatorsStats(): Promise<ValidatorsStats> {
@@ -1195,6 +1208,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     this.worldStateSynchronizer.resumeSync();
     (this.blockSource as Archiver).resume();
     return Promise.resolve();
+  }
+
+  public getSlasherMonitoredPayloads(): Promise<MonitoredSlashPayload[]> {
+    if (!this.slasherClient) {
+      throw new Error('Slasher client is not initialized.');
+    }
+    return Promise.resolve(this.slasherClient.getMonitoredPayloads());
   }
 
   /**

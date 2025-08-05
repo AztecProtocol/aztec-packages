@@ -18,6 +18,7 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {RollupBase, IInstance} from "./base/RollupBase.sol";
 import {RollupBuilder} from "./builder/RollupBuilder.sol";
 import {TimeCheater} from "./staking/TimeCheater.sol";
+import {Bps, BpsLib} from "@aztec/core/libraries/rollup/RewardLib.sol";
 // solhint-disable comprehensive-interface
 
 /**
@@ -52,9 +53,8 @@ contract IgnitionTest is RollupBase {
     SLOT_DURATION = TestConstants.AZTEC_SLOT_DURATION;
     EPOCH_DURATION = TestConstants.AZTEC_EPOCH_DURATION;
     PROOF_SUBMISSION_EPOCHS = TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS;
-    timeCheater = new TimeCheater(
-      address(this), block.timestamp, SLOT_DURATION, EPOCH_DURATION, PROOF_SUBMISSION_EPOCHS
-    );
+    timeCheater =
+      new TimeCheater(address(this), block.timestamp, SLOT_DURATION, EPOCH_DURATION, PROOF_SUBMISSION_EPOCHS);
   }
 
   /**
@@ -64,13 +64,11 @@ contract IgnitionTest is RollupBase {
     {
       DecoderBase.Full memory full = load(_name);
       Slot slotNumber = full.block.header.slotNumber;
-      uint256 initialTime =
-        Timestamp.unwrap(full.block.header.timestamp) - Slot.unwrap(slotNumber) * SLOT_DURATION;
+      uint256 initialTime = Timestamp.unwrap(full.block.header.timestamp) - Slot.unwrap(slotNumber) * SLOT_DURATION;
       vm.warp(initialTime);
     }
 
-    RollupBuilder builder =
-      new RollupBuilder(address(this)).setManaTarget(0).setTargetCommitteeSize(0);
+    RollupBuilder builder = new RollupBuilder(address(this)).setManaTarget(0).setTargetCommitteeSize(0);
     builder.deploy();
 
     rollup = IInstance(address(builder.getConfig().rollup));
@@ -84,12 +82,29 @@ contract IgnitionTest is RollupBase {
   }
 
   function test_emptyBlock() public setUpFor("empty_block_1") {
+    assertEq(rollup.getFeeAsset().balanceOf(address(rollup)), 0);
+
     _proposeBlock("empty_block_1", 1, 0);
+
+    _proveBlocks("empty_block_", 1, 1, address(0xbeef));
+
+    // The block rewards should have accumulated
+    assertEq(rollup.getFeeAsset().balanceOf(address(rollup)), rollup.getBlockReward(), "no block rewards collected");
+
+    uint256 blockReward = rollup.getBlockReward();
+    Bps bps = rollup.getRewardConfig().sequencerBps;
+    uint256 sequencerReward = BpsLib.mul(blockReward, bps);
+
+    address coinbase = address(bytes20("sequencer"));
+    assertEq(rollup.getSequencerRewards(coinbase), sequencerReward, "sequencer reward not collected");
+    assertEq(
+      rollup.getCollectiveProverRewardsForEpoch(Epoch.wrap(0)),
+      blockReward - sequencerReward,
+      "prover reward not collected"
+    );
   }
 
   function test_RevertNonEmptyBlock() public setUpFor("empty_block_1") {
-    _proposeBlockFail(
-      "empty_block_1", 1, 1, abi.encodeWithSelector(Errors.Rollup__ManaLimitExceeded.selector)
-    );
+    _proposeBlockFail("empty_block_1", 1, 1, abi.encodeWithSelector(Errors.Rollup__ManaLimitExceeded.selector));
   }
 }

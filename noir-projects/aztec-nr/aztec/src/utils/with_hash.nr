@@ -138,7 +138,7 @@ mod test {
 
     #[test]
     unconstrained fn read_uninitialized_value() {
-        let mut env = TestEnvironment::new();
+        let env = TestEnvironment::new();
 
         env.private_context(|context| {
             let result = WithHash::<MockStruct, _>::historical_public_storage_read(
@@ -153,7 +153,7 @@ mod test {
 
     #[test]
     unconstrained fn read_initialized_value() {
-        let mut env = TestEnvironment::new();
+        let env = TestEnvironment::new();
 
         let value = MockStruct { a: 5, b: 3 };
         let value_with_hash = WithHash::new(value);
@@ -172,7 +172,7 @@ mod test {
 
     #[test(should_fail_with = "Non-zero hint for zero hash")]
     unconstrained fn bad_hint_uninitialized_value() {
-        let mut env = TestEnvironment::new();
+        let env = TestEnvironment::new();
 
         env.private_context(|context| {
             let block_header = context.historical_header;
@@ -180,7 +180,7 @@ mod test {
 
             // Mock the oracle to return a non-zero hint/packed value
             let value_packed = MockStruct { a: 1, b: 1 }.pack();
-            let _ = OracleMock::mock("storageRead")
+            let _ = OracleMock::mock("utilityStorageRead")
                 .with_params((
                     address.to_field(), STORAGE_SLOT, block_header.global_variables.block_number,
                     value_packed.len(),
@@ -199,7 +199,7 @@ mod test {
 
     #[test(should_fail_with = "Hint values do not match hash")]
     unconstrained fn bad_hint_initialized_value() {
-        let mut env = TestEnvironment::new();
+        let env = TestEnvironment::new();
 
         env.public_context(|context| {
             // Write the value and hash separately so that the hash is wrong

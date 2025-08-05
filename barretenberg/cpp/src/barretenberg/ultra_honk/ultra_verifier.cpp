@@ -20,7 +20,7 @@ namespace bb {
  */
 template <typename Flavor>
 std::pair<typename UltraVerifier_<Flavor>::PublicInputs, typename UltraVerifier_<Flavor>::DeciderVerifier::Output>
-UltraVerifier_<Flavor>::verify_internal(const HonkProof& proof)
+UltraVerifier_<Flavor>::verify_internal(const typename UltraVerifier_<Flavor>::Proof& proof)
 {
     using FF = typename Flavor::FF;
 
@@ -44,7 +44,8 @@ UltraVerifier_<Flavor>::verify_internal(const HonkProof& proof)
  *
  */
 template <typename Flavor>
-bool UltraVerifier_<Flavor>::verify_proof(const HonkProof& proof, const HonkProof& ipa_proof)
+bool UltraVerifier_<Flavor>::verify_proof(const typename UltraVerifier_<Flavor>::Proof& proof,
+                                          const typename UltraVerifier_<Flavor>::Proof& ipa_proof)
     requires IsUltraHonk<Flavor>
 {
     using RollUpIO = bb::RollupIO;
@@ -93,23 +94,18 @@ bool UltraVerifier_<Flavor>::verify_proof(const HonkProof& proof, const HonkProo
  */
 template <typename Flavor>
 std::pair<bool, std::array<typename UltraVerifier_<Flavor>::Commitment, Flavor::NUM_WIRES>> UltraVerifier_<
-    Flavor>::verify_proof(const HonkProof& proof)
+    Flavor>::verify_proof(const typename UltraVerifier_<Flavor>::Proof& proof)
     requires IsMegaFlavor<Flavor> && (!HasIPAAccumulator<Flavor>)
 {
     auto [public_inputs, decider_output] = verify_internal(proof);
 
     // Reconstruct the public inputs
-    DefaultIO inputs; // Will be HidingKernelIO
+    HidingKernelIO inputs;
     inputs.reconstruct_from_public(public_inputs);
 
     decider_output.pairing_points.aggregate(inputs.pairing_inputs);
 
-    // Dummy vector, will be fetched from inputs once we have HidingKernelIO
-    std::array<Commitment, Flavor::NUM_WIRES> dummy;
-    for (auto& commitment : dummy) {
-        commitment = Commitment::one();
-    }
-    return std::make_pair(decider_output.check(), dummy);
+    return std::make_pair(decider_output.check(), inputs.ecc_op_tables);
 }
 
 template class UltraVerifier_<UltraFlavor>;

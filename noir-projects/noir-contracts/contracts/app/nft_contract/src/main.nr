@@ -13,7 +13,6 @@ pub contract NFT {
         authwit::auth::compute_authwit_nullifier,
         context::{PrivateContext, PublicContext},
         macros::{
-            events::event,
             functions::{authorize_once, initializer, internal, private, public, utility, view},
             storage::storage,
         },
@@ -32,12 +31,12 @@ pub contract NFT {
 
     // TODO(#8467): Rename this to Transfer - calling this NFTTransfer to avoid export conflict with the Transfer event
     // in the Token contract.
-    #[event]
-    struct NFTTransfer {
-        from: AztecAddress,
-        to: AztecAddress,
-        token_id: Field,
-    }
+    // #[event]
+    // struct NFTTransfer {
+    //     from: AztecAddress,
+    //     to: AztecAddress,
+    //     token_id: Field,
+    // }
 
     // docs:start:storage_struct
     #[storage]
@@ -357,7 +356,7 @@ pub contract NFT {
         let mut owned_nft_ids = [0; MAX_NOTES_PER_PAGE];
         for i in 0..options.limit {
             if i < notes.len() {
-                owned_nft_ids[i] = notes.get_unchecked(i).token_id;
+                owned_nft_ids[i] = notes.get_unchecked(i).get_token_id();
             }
         }
 

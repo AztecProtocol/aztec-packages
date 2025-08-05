@@ -5,9 +5,9 @@ use aztec::{macros::notes::note, protocol_types::{address::AztecAddress, traits:
 #[derive(Eq, Packable)]
 #[note]
 pub struct PublicKeyNote {
-    x: Field,
-    y: Field,
-    owner: AztecAddress,
+    pub x: Field,
+    pub y: Field,
+    pub owner: AztecAddress,
 }
 
 impl PublicKeyNote {

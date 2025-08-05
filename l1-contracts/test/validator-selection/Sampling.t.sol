@@ -18,11 +18,7 @@ contract Sampler {
     return SampleLib.computeCommittee(_committeeSize, _indexCount, _seed);
   }
 
-  function computeSampleIndex(uint256 _index, uint256 _indexCount, uint256 _seed)
-    public
-    pure
-    returns (uint256)
-  {
+  function computeSampleIndex(uint256 _index, uint256 _indexCount, uint256 _seed) public pure returns (uint256) {
     return SampleLib.computeSampleIndex(_index, _indexCount, _seed);
   }
 }
@@ -82,11 +78,7 @@ contract SamplingTest is Test {
     uint256 totalSize = bound(_indexCount, 1, type(uint256).max - 1);
     uint256 committeeSize = bound(_committeeSize, totalSize + 1, type(uint256).max);
 
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.SampleLib__SampleLargerThanIndex.selector, committeeSize, totalSize
-      )
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.SampleLib__SampleLargerThanIndex.selector, committeeSize, totalSize));
     sampler.computeCommittee(committeeSize, totalSize, 0);
   }
 

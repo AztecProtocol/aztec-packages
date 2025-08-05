@@ -19,6 +19,7 @@ import {
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
   type PublicProcessorLimits,
+  type SequencerConfig,
   WorldStateRunningState,
   type WorldStateSyncStatus,
   type WorldStateSynchronizer,
@@ -236,6 +237,8 @@ describe('sequencer', () => {
       getBlockNumber: mockFn().mockResolvedValue(lastBlockNumber),
       getL2Tips: mockFn().mockResolvedValue({ latest: { number: lastBlockNumber, hash } }),
       getL1Timestamp: mockFn().mockResolvedValue(1000n),
+      isPendingChainInvalid: mockFn().mockResolvedValue(false),
+      getPendingChainValidationStatus: mockFn().mockResolvedValue({ valid: true }),
     });
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>({
@@ -252,7 +255,7 @@ describe('sequencer', () => {
 
     dateProvider = new TestDateProvider();
 
-    const config = { enforceTimeTable: true, maxTxsPerBlock: 4 };
+    const config: SequencerConfig = { enforceTimeTable: true, maxTxsPerBlock: 4 };
     sequencer = new TestSubject(
       publisher,
       // TODO(md): add the relevant methods to the validator client that will prevent it stalling when waiting for attestations
@@ -393,75 +396,6 @@ describe('sequencer', () => {
     );
 
     expectPublisherProposeL2Block(await Promise.all(neededTxs.map(tx => tx.getTxHash())));
-  });
-
-  it('builds a block that contains zero real transactions once flushed', async () => {
-    const txs = await timesParallel(8, i => makeTx(i * 0x10000));
-
-    sequencer.updateConfig({ minTxsPerBlock: 4 });
-
-    // block is not built with 0 txs
-    mockPendingTxs([]);
-    await sequencer.doRealWork();
-    expect(blockBuilder.buildBlock).toHaveBeenCalledTimes(0);
-
-    // block is not built with 3 txs
-    mockPendingTxs(txs.slice(0, 3));
-    await sequencer.doRealWork();
-    expect(blockBuilder.buildBlock).toHaveBeenCalledTimes(0);
-
-    // flush the sequencer and it should build a block
-    sequencer.flush();
-
-    // block is built with 0 txs
-    mockPendingTxs([]);
-    block = await makeBlock([]);
-
-    await sequencer.doRealWork();
-
-    expect(blockBuilder.buildBlock).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.anything(),
-      globalVariables,
-      expect.anything(),
-    );
-    expectPublisherProposeL2Block([]);
-  });
-
-  it('builds a block that contains less than the minimum number of transactions once flushed', async () => {
-    const txs = await timesParallel(8, i => makeTx(i * 0x10000));
-
-    sequencer.updateConfig({ minTxsPerBlock: 4 });
-
-    // block is not built with 0 txs
-    mockPendingTxs([]);
-    await sequencer.doRealWork();
-    expect(blockBuilder.buildBlock).toHaveBeenCalledTimes(0);
-
-    // block is not built with 3 txs
-    mockPendingTxs(txs.slice(0, 3));
-    await sequencer.doRealWork();
-    expect(blockBuilder.buildBlock).toHaveBeenCalledTimes(0);
-
-    // flush the sequencer and it should build a block
-    sequencer.flush();
-
-    // block is built with 3 txs
-    const postFlushTxs = txs.slice(0, 3);
-    mockPendingTxs(postFlushTxs);
-    block = await makeBlock(postFlushTxs);
-    const postFlushTxHashes = await Promise.all(postFlushTxs.map(tx => tx.getTxHash()));
-
-    await sequencer.doRealWork();
-    expect(blockBuilder.buildBlock).toHaveBeenCalledTimes(1);
-    expect(blockBuilder.buildBlock).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.anything(),
-      globalVariables,
-      expect.anything(),
-    );
-
-    expectPublisherProposeL2Block(postFlushTxHashes);
   });
 
   it('settles on the chain tip before it starts building a block', async () => {
