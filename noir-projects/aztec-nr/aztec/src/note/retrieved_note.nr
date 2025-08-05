@@ -31,7 +31,7 @@ mod test {
         // Below we reproduce what the typescript function `packAsRetrievedNote` does. This is a bit strange but we
         // also want to test that the `fromRawData` function matches the Noir one.
         let note_is_transient = index.is_none();
-        let nonzero_note_hash_counter = !note_is_transient;
+        let nonzero_note_hash_counter = note_is_transient;
         let note_metadata = NoteMetadata::from_raw_data(nonzero_note_hash_counter, note_nonce);
 
         // Now we reconstruct the retrieved note from the values above and pack it.
@@ -50,9 +50,6 @@ mod test {
             0x0000000000000000000000000000000000000000000000000000000000000002,
             0x0000000000000000000000000000000000000000000000000000000000000002,
         ];
-
-        std::println(packed_retrieved_note);
-        std::println(packed_retrieved_note_from_typescript);
 
         assert_eq(
             packed_retrieved_note,

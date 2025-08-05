@@ -25,7 +25,5 @@ describe('packAsRetrievedNote', () => {
       'packed_retrieved_note_from_typescript',
       fieldArrayStr,
     );
-
-    console.log(fieldArrayStr);
   });
 });
