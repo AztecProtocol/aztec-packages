@@ -226,7 +226,7 @@ class PrivateFunctionExecutionMockCircuitProducer {
     /**
      * @brief Creates the hiding circuit to complete IVC accumulation
      */
-    void construct_hiding_kernel(ClientIVC& ivc)
+    static void construct_hiding_kernel(ClientIVC& ivc)
     {
         // create a builder from the goblin op_queue
         ClientIVC::ClientCircuit circuit{ ivc.goblin.op_queue };

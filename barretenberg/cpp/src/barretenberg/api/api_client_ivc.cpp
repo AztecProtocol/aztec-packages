@@ -177,10 +177,8 @@ bool ClientIVCAPI::prove_and_verify(const std::filesystem::path& input_path)
     steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
 
     std::shared_ptr<ClientIVC> ivc = steps.accumulate();
-    // to finish the IVC steps, we need to construct the hiding kernel.
-    // create a builder from the IVC state to complete the construction of the hiding kernel
+    // Construct the hiding kernel as the final step of the IVC
     ClientIVC::ClientCircuit circuit{ ivc->goblin.op_queue };
-    // complete the hiding circuit logic
     ivc->complete_kernel_circuit_logic(circuit);
     const bool verified = ivc->prove_and_verify();
     return verified;

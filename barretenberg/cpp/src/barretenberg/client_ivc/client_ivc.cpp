@@ -153,7 +153,6 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
         break;
     }
     case QUEUE_TYPE::PG_FINAL: {
-        // Construct the hiding kernel in this case
         BB_ASSERT_EQ(stdlib_verification_queue.size(), size_t(1));
         BB_ASSERT_EQ(num_circuits_accumulated,
                      num_circuits,
@@ -162,7 +161,7 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
         auto [pairing_points, merged_table_commitments] =
             complete_hiding_circuit_logic(verifier_inputs.proof, verifier_inputs.honk_vk_and_hash, circuit);
         // Return early since the hiding circuit method performs merge and public inputs handling
-        // todo(https://github.com/AztecProtocol/barretenberg/issues/1501): we should remove the code duplication for
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1501): we should remove the code duplication for
         // the consistency checks at some point
         return { pairing_points, merged_table_commitments };
     }

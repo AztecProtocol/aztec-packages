@@ -77,10 +77,8 @@ ClientIvcProve::Response ClientIvcProve::execute(BBApiRequest& request) &&
     }
 
     info("ClientIvcProve - generating proof for ", request.ivc_stack_depth, " accumulated circuits");
-    // to finish the ivc steps, we need to construct the hiding kernel
-    // create a builder from the IVC state to complete the hiding circuit logic
+    // Construct the hiding kernel to finalise the IVC steps
     ClientIVC::ClientCircuit circuit{ request.ivc_in_progress->goblin.op_queue };
-    // complete the hiding circuit logic for the IVC in progress
     request.ivc_in_progress->complete_kernel_circuit_logic(circuit);
     ClientIVC::Proof proof = request.ivc_in_progress->prove();
 
