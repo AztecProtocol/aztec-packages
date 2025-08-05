@@ -3,8 +3,8 @@ use crate::{hash::poseidon2_hash, traits::{Deserialize, Empty, Hash, Packable, S
 
 pub global POINT_LENGTH: u32 = 3;
 
-// Note: Not deriving this because it's currently not supported to call derive_serialize on a "remote" struct.
-// See this conversation on slack for more details: https://aztecprotocol.slack.com/archives/C04QF64EDNV/p1745445181590219
+// Note: Not deriving this because it's not supported to call derive_serialize on a "remote" struct (and it will never
+// be supported).
 impl Serialize for Point {
     let N: u32 = POINT_LENGTH;
 
