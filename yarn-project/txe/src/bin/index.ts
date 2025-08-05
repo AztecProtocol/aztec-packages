@@ -1,6 +1,6 @@
 #!/usr/bin/env -S node --no-warnings
-import { createLogger } from '@aztec/aztec.js';
 import { startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
+import { createLogger } from '@aztec/foundation/log';
 
 import { createTXERpcServer } from '../index.js';
 
