@@ -83,6 +83,12 @@ library Errors {
   error GSE__NotWithdrawer(address, address);
   error GSE__OutOfBounds(uint256, uint256);
   error GSE__FatalError(string);
+  error GSE__InvalidProofOfPossession();
+  error GSE__CannotChangePublicKeys(uint256 existingPk1x, uint256 existingPk1y);
+  error GSE__ProofOfPossessionAlreadySeen(bytes32 hashedPK1);
 
   error Delegation__InsufficientPower(address, uint256, uint256);
+
+  error Governance__BlsKeyInvalidG1Point(uint256[2]);
+  error Governance__BlsKeyInvalidG2Point(uint256[4]);
 }

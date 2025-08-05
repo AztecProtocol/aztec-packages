@@ -11,6 +11,7 @@ import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.so
 import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 import {SlashingProposer} from "@aztec/core/slashing/SlashingProposer.sol";
 import {RoundAccounting} from "@aztec/governance/proposer/EmpireBase.sol";
+import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 contract Test15050 is StakingBase {
   using stdStorage for StdStorage;
@@ -24,7 +25,14 @@ contract Test15050 is StakingBase {
     stakingAsset.mint(address(this), ACTIVATION_THRESHOLD);
     stakingAsset.approve(address(staking), ACTIVATION_THRESHOLD);
 
-    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _moveWithLatestRollup: true});
+    staking.deposit({
+      _attester: ATTESTER,
+      _withdrawer: WITHDRAWER,
+      _publicKeyInG1: BN254Lib.g1Zero(),
+      _publicKeyInG2: BN254Lib.g2Zero(),
+      _proofOfPossession: BN254Lib.g1Zero(),
+      _moveWithLatestRollup: true
+    });
     staking.flushEntryQueue();
 
     address[] memory validators = new address[](1);

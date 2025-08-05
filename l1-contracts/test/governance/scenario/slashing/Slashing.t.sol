@@ -29,6 +29,7 @@ import {Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {TimeCheater} from "../../../staking/TimeCheater.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {RollupBuilder} from "../../../builder/RollupBuilder.sol";
+import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 // solhint-disable comprehensive-interface
 // solhint-disable func-name-mixedcase
@@ -88,7 +89,13 @@ contract SlashingTest is TestBase {
       uint256 attesterPrivateKey = uint256(keccak256(abi.encode("attester", i)));
       address attester = vm.addr(attesterPrivateKey);
 
-      initialValidators[i - 1] = CheatDepositArgs({attester: attester, withdrawer: address(this)});
+      initialValidators[i - 1] = CheatDepositArgs({
+        attester: attester,
+        withdrawer: address(this),
+        publicKeyInG1: BN254Lib.g1Zero(),
+        publicKeyInG2: BN254Lib.g2Zero(),
+        proofOfPossession: BN254Lib.g1Zero()
+      });
     }
 
     RollupBuilder builder = new RollupBuilder(address(this)).setValidators(initialValidators).setTargetCommitteeSize(4)

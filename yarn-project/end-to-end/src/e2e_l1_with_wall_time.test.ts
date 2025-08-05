@@ -1,4 +1,4 @@
-import { EthAddress, type Logger, type PXE, type Wallet } from '@aztec/aztec.js';
+import { EthAddress, Fr, type Logger, type PXE, type Wallet } from '@aztec/aztec.js';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import type { PXEService } from '@aztec/pxe/server';
 
@@ -27,6 +27,7 @@ describe('e2e_l1_with_wall_time', () => {
         attester: EthAddress.fromString(account.address),
         withdrawer: EthAddress.fromString(account.address),
         privateKey,
+        bn254SecretKey: Fr.random().toBigInt(),
       },
     ];
     const { ethereumSlotDuration } = getL1ContractsConfigEnvVars();

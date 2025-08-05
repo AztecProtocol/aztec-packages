@@ -17,6 +17,7 @@ import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQ
 import {Test} from "forge-std/Test.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {CoinIssuer} from "@aztec/governance/CoinIssuer.sol";
+import {stdStorage, StdStorage} from "forge-std/Test.sol";
 
 // Stack the layers to avoid the stack too deep 🧌
 struct ConfigFlags {
@@ -24,6 +25,7 @@ struct ConfigFlags {
   bool makeGovernance;
   bool updateOwnerships;
   bool openFloodgates;
+  bool checkProofOfPossession;
 }
 
 struct ConfigValues {
@@ -55,6 +57,8 @@ struct Config {
  *          the constructor and configuration options.
  */
 contract RollupBuilder is Test {
+  using stdStorage for StdStorage;
+
   Config public config;
 
   constructor(address _deployer) {
@@ -70,6 +74,7 @@ contract RollupBuilder is Test {
     config.flags.makeGovernance = true;
     config.flags.updateOwnerships = true;
     config.flags.openFloodgates = true;
+    config.flags.checkProofOfPossession = false;
   }
 
   function setTestERC20(TestERC20 _testERC20) public returns (RollupBuilder) {
@@ -134,6 +139,11 @@ contract RollupBuilder is Test {
 
   function setOpenFloodgates(bool _openFloodgates) public returns (RollupBuilder) {
     config.flags.openFloodgates = _openFloodgates;
+    return this;
+  }
+
+  function setCheckProofOfPossession(bool _checkProofOfPossession) public returns (RollupBuilder) {
+    config.flags.checkProofOfPossession = _checkProofOfPossession;
     return this;
   }
 
@@ -219,6 +229,10 @@ contract RollupBuilder is Test {
     if (address(config.gse) == address(0)) {
       config.gse =
         new GSE(address(this), config.testERC20, TestConstants.ACTIVATION_THRESHOLD, TestConstants.EJECTION_THRESHOLD);
+
+      stdstore.target(address(config.gse)).sig("checkProofOfPossession()").checked_write(
+        config.flags.checkProofOfPossession
+      );
     }
 
     if (address(config.registry) == address(0)) {

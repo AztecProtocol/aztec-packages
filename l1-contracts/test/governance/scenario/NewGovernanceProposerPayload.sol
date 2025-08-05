@@ -21,10 +21,6 @@ contract NewGovernanceProposerPayload is IPayload {
     NEW_GOVERNANCE_PROPOSER = address(new GovernanceProposer(_registry, _gse, 667, 1000));
   }
 
-  function getURI() external view override(IPayload) returns (string memory) {
-    return "NewGovernanceProposerPayload";
-  }
-
   function getActions() external view override(IPayload) returns (IPayload.Action[] memory) {
     IPayload.Action[] memory res = new IPayload.Action[](1);
 
@@ -36,5 +32,9 @@ contract NewGovernanceProposerPayload is IPayload {
     });
 
     return res;
+  }
+
+  function getURI() external pure override(IPayload) returns (string memory) {
+    return "NewGovernanceProposerPayload";
   }
 }

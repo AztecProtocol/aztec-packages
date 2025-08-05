@@ -293,6 +293,11 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     )
     .addOption(l1ChainIdOption)
     .option('--attester <address>', 'ethereum address of the attester', parseEthereumAddress)
+    .option(
+      '--bls-secret-key <string>',
+      'The BN254 scalar field element used as a secret key for BLS signatures. Will be associated with the attester address.',
+      parseBigint,
+    )
     .option('--staking-asset-handler <address>', 'ethereum address of the staking asset handler', parseEthereumAddress)
     .option('--proof <buffer>', 'The proof to use for the attestation', arg =>
       Buffer.from(withoutHexPrefix(arg), 'hex'),
@@ -313,6 +318,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
         stakingAssetHandlerAddress: options.stakingAssetHandler,
         merkleProof: options.merkleProof,
         proofParams: options.proof,
+        blsSecretKey: options.blsSecretKey,
         log,
         debugLogger,
       });

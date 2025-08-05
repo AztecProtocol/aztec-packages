@@ -27,8 +27,8 @@ import {GSEPayload} from "@aztec/governance/GSEPayload.sol";
 import {FakeRollup} from "../governance/TestPayloads.sol";
 import {RegisterNewRollupVersionPayload} from "./RegisterNewRollupVersionPayload.sol";
 import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
-import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
+import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 contract BadRollup {
   IGSE public immutable gse;
@@ -89,7 +89,13 @@ contract AddRollupTest is TestBase {
       address validator = vm.addr(privateKey);
       privateKeys[validator] = privateKey;
       validators[i - 1] = validator;
-      initialValidators[i - 1] = CheatDepositArgs({attester: validator, withdrawer: validator});
+      initialValidators[i - 1] = CheatDepositArgs({
+        attester: validator,
+        withdrawer: validator,
+        publicKeyInG1: BN254Lib.g1Zero(),
+        publicKeyInG2: BN254Lib.g2Zero(),
+        proofOfPossession: BN254Lib.g1Zero()
+      });
     }
 
     MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
@@ -158,7 +164,9 @@ contract AddRollupTest is TestBase {
         vm.prank(token.owner());
         token.mint(address(this), activationThreshold);
         token.approve(address(rollup), activationThreshold);
-        rollup.deposit(address(uint160(val)), address(this), false);
+        rollup.deposit(
+          address(uint160(val)), address(this), BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), false
+        );
         val++;
       }
       rollup.flushEntryQueue();

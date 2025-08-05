@@ -24,6 +24,7 @@ import {RollupBuilder} from "../../builder/RollupBuilder.sol";
 import {IGSE} from "@aztec/governance/GSE.sol";
 import {GSEPayload} from "@aztec/governance/GSEPayload.sol";
 import {TimeCheater} from "../../staking/TimeCheater.sol";
+import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 /**
  * @title UpgradeGovernanceProposerTest
@@ -59,7 +60,13 @@ contract UpgradeGovernanceProposerTest is TestBase {
       address validator = vm.addr(privateKey);
       privateKeys[validator] = privateKey;
       validators[i - 1] = validator;
-      initialValidators[i - 1] = CheatDepositArgs({attester: validator, withdrawer: validator});
+      initialValidators[i - 1] = CheatDepositArgs({
+        attester: validator,
+        withdrawer: validator,
+        publicKeyInG1: BN254Lib.g1Zero(),
+        publicKeyInG2: BN254Lib.g2Zero(),
+        proofOfPossession: BN254Lib.g1Zero()
+      });
     }
 
     RollupBuilder builder = new RollupBuilder(address(this)).setGovProposerN(7).setGovProposerM(10).setValidators(

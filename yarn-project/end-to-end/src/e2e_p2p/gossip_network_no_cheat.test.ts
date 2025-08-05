@@ -1,6 +1,6 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { EthAddress, sleep } from '@aztec/aztec.js';
+import { EthAddress, Fr, sleep } from '@aztec/aztec.js';
 import { addL1Validator } from '@aztec/cli/l1';
 import { MockZKPassportVerifierAbi } from '@aztec/l1-artifacts/MockZKPassportVerifierAbi';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
@@ -124,6 +124,7 @@ describe('e2e_p2p_network', () => {
         merkleProof: [], // empty merkle proof - check is disabled in the test
         stakingAssetHandlerAddress: t.ctx.deployL1ContractsValues.l1ContractAddresses.stakingAssetHandlerAddress!,
         proofParams: mockPassportProof,
+        blsSecretKey: Fr.random().toBigInt(),
         log: t.logger.info,
         debugLogger: t.logger,
       });
