@@ -305,29 +305,6 @@ contract GSECore is IGSECore, Ownable {
     G1Point memory _proofOfPossession,
     bool _moveWithLatestRollup
   ) external override(IGSECore) onlyRollup {
-    if (checkProofOfPossession) {
-      // Make sure the attester has not registered before
-      G1Point memory previouslyRegisteredPoint = configOf[_attester].publicKey;
-      require(
-        (previouslyRegisteredPoint.x == 0 && previouslyRegisteredPoint.y == 0),
-        Errors.GSE__CannotChangePublicKeys(previouslyRegisteredPoint.x, previouslyRegisteredPoint.y)
-      );
-
-      // Make sure the incoming point has not been seen before
-      // NOTE: we only need to check for the existence of Pk1, and not also for Pk2,
-      // as the Pk2 will be constrained to have the same underlying secret key as part of the proofOfPossession,
-      // so existence/correctness of Pk2 is implied by existence/correctness of Pk1.
-      bytes32 hashedIncomingPoint = keccak256(abi.encodePacked(_publicKeyInG1.x, _publicKeyInG1.y));
-      require((!ownedPKs[hashedIncomingPoint]), Errors.GSE__ProofOfPossessionAlreadySeen(hashedIncomingPoint));
-
-      require(
-        BN254Lib.proofOfPossession(_publicKeyInG1, _publicKeyInG2, _proofOfPossession),
-        Errors.GSE__InvalidProofOfPossession()
-      );
-
-      ownedPKs[hashedIncomingPoint] = true;
-    }
-
     bool isMsgSenderLatestRollup = getLatestRollup() == msg.sender;
 
     // If _moveWithLatestRollup is true, then msg.sender must be the latest rollup.
@@ -354,6 +331,29 @@ contract GSECore is IGSECore, Ownable {
     require(
       instances[recipientInstance].attesters.add(_attester), Errors.GSE__AlreadyRegistered(recipientInstance, _attester)
     );
+
+    if (checkProofOfPossession) {
+      // Make sure the attester has not registered before
+      G1Point memory previouslyRegisteredPoint = configOf[_attester].publicKey;
+      require(
+        (previouslyRegisteredPoint.x == 0 && previouslyRegisteredPoint.y == 0),
+        Errors.GSE__CannotChangePublicKeys(previouslyRegisteredPoint.x, previouslyRegisteredPoint.y)
+      );
+
+      // Make sure the incoming point has not been seen before
+      // NOTE: we only need to check for the existence of Pk1, and not also for Pk2,
+      // as the Pk2 will be constrained to have the same underlying secret key as part of the proofOfPossession,
+      // so existence/correctness of Pk2 is implied by existence/correctness of Pk1.
+      bytes32 hashedIncomingPoint = keccak256(abi.encodePacked(_publicKeyInG1.x, _publicKeyInG1.y));
+      require((!ownedPKs[hashedIncomingPoint]), Errors.GSE__ProofOfPossessionAlreadySeen(hashedIncomingPoint));
+
+      require(
+        BN254Lib.proofOfPossession(_publicKeyInG1, _publicKeyInG2, _proofOfPossession),
+        Errors.GSE__InvalidProofOfPossession()
+      );
+
+      ownedPKs[hashedIncomingPoint] = true;
+    }
 
     // This is the ONLY place where we set the configuration for an attester.
     // This means that their withdrawer and public keys are set once, globally.

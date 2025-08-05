@@ -53,16 +53,12 @@ library BN254Lib {
 
   error NotOnCurve(uint256 x, uint256 y);
   error NotOnCurveG2(uint256 x0, uint256 x1, uint256 y0, uint256 y1);
-  error Pk1Zero();
-  error Pk2Zero();
-  error SignatureZero();
   error AddPointFail();
   error MulPointFail();
   error GammaZero();
   error InverseFail();
   error SqrtFail();
   error PairingFail();
-  error ValueOutOfRange(uint256 value, uint256 min, uint256 max);
   error NoPointFound();
 
   /**
@@ -91,9 +87,6 @@ library BN254Lib {
     view
     returns (bool)
   {
-    require(pk1.x != 0 && pk1.y != 0, Pk1Zero());
-    require(pk2.x0 != 0 && pk2.x1 != 0 && pk2.y0 != 0 && pk2.y1 != 0, Pk2Zero());
-    require(signature.x != 0 && signature.y != 0, SignatureZero());
     require(isOnCurveG1(pk1), NotOnCurve(pk1.x, pk1.y));
     require(isOnCurveG2(pk2), NotOnCurveG2(pk2.x0, pk2.x1, pk2.y0, pk2.y1));
     require(isOnCurveG1(signature), NotOnCurve(signature.x, signature.y));
@@ -282,38 +275,66 @@ library BN254Lib {
 
   function isOnCurveG2(G2Point memory point) internal pure returns (bool _isOnCurve) {
     assembly {
-      // x0, x1
-      let t0 := mload(point)
-      let t1 := mload(add(point, 32))
-      // x0 ^ 2
-      let t2 := mulmod(t0, t0, BASE_FIELD_ORDER)
-      // x1 ^ 2
-      let t3 := mulmod(t1, t1, BASE_FIELD_ORDER)
-      // 3 * x0 ^ 2
-      let t4 := add(add(t2, t2), t2)
-      // 3 * x1 ^ 2
-      let t5 := addmod(add(t3, t3), t3, BASE_FIELD_ORDER)
-      // x0 * (x0 ^ 2 - 3 * x1 ^ 2)
-      t2 := mulmod(add(t2, sub(BASE_FIELD_ORDER, t5)), t0, BASE_FIELD_ORDER)
-      // x1 * (3 * x0 ^ 2 - x1 ^ 2)
-      t3 := mulmod(add(t4, sub(BASE_FIELD_ORDER, t3)), t1, BASE_FIELD_ORDER)
+      // Load x-coordinate from memory where x = x0 + x1*u
+      let x0 := mload(point) // First component of x in Fp2
+      let x1 := mload(add(point, 32)) // Second component of x in Fp2
 
-      // x ^ 3 + b
-      t0 := addmod(t2, 0x2b149d40ceb8aaae81be18991be06ac3b5b4c5e559dbefa33267e6dc24a138e5, BASE_FIELD_ORDER)
-      t1 := addmod(t3, 0x009713b03af0fed4cd2cafadeed8fdf4a74fa084e52d1852e4a2bd0685c315d2, BASE_FIELD_ORDER)
+      // Compute x0^2 (mod p)
+      let x0_squared := mulmod(x0, x0, BASE_FIELD_ORDER)
 
-      // y0, y1
-      t2 := mload(add(point, 64))
-      t3 := mload(add(point, 96))
-      // y ^ 2
-      t4 :=
+      // Compute x1^2 (mod p)
+      let x1_squared := mulmod(x1, x1, BASE_FIELD_ORDER)
+
+      // Compute 3*x0^2 (mod p) - needed for x^3 calculation
+      // Note: we compute 3*a as a + a + a to avoid multiplication by constant
+      let three_x0_squared := add(add(x0_squared, x0_squared), x0_squared)
+
+      // Compute 3*x1^2 (mod p) - needed for x^3 calculation
+      let three_x1_squared := addmod(add(x1_squared, x1_squared), x1_squared, BASE_FIELD_ORDER)
+
+      // Compute x^3 where x = x0 + x1*u
+      // x^3 = (x0 + x1*u)^3 = x0^3 + 3*x0^2*x1*u + 3*x0*x1^2*u^2 + x1^3*u^3
+      // Since u^2 = -1, we have u^3 = -u, so:
+      // x^3 = x0^3 + 3*x0^2*x1*u - 3*x0*x1^2 - x1^3*u
+      // x^3 = (x0^3 - 3*x0*x1^2) + (3*x0^2*x1 - x1^3)*u
+
+      // Real component of x^3: x0^3 - 3*x0*x1^2 = x0*(x0^2 - 3*x1^2)
+      let x_cubed_real := mulmod(add(x0_squared, sub(BASE_FIELD_ORDER, three_x1_squared)), x0, BASE_FIELD_ORDER)
+
+      // Imaginary component of x^3: 3*x0^2*x1 - x1^3 = x1*(3*x0^2 - x1^2)
+      let x_cubed_imag := mulmod(add(three_x0_squared, sub(BASE_FIELD_ORDER, x1_squared)), x1, BASE_FIELD_ORDER)
+
+      // Add the curve parameter b = b0 + b1*u to get x^3 + b
+      // For BN254 G2: b0 = 0x2b149d40ceb8aaae81be18991be06ac3b5b4c5e559dbefa33267e6dc24a138e5
+      //               b1 = 0x009713b03af0fed4cd2cafadeed8fdf4a74fa084e52d1852e4a2bd0685c315d2
+      let rhs_real :=
+        addmod(x_cubed_real, 0x2b149d40ceb8aaae81be18991be06ac3b5b4c5e559dbefa33267e6dc24a138e5, BASE_FIELD_ORDER)
+      let rhs_imag :=
+        addmod(x_cubed_imag, 0x009713b03af0fed4cd2cafadeed8fdf4a74fa084e52d1852e4a2bd0685c315d2, BASE_FIELD_ORDER)
+
+      // Load y-coordinate from memory where y = y0 + y1*u
+      let y0 := mload(add(point, 64)) // First component of y in Fp2
+      let y1 := mload(add(point, 96)) // Second component of y in Fp2
+
+      // Compute y^2 where y = y0 + y1*u
+      // y^2 = (y0 + y1*u)^2 = y0^2 + 2*y0*y1*u + y1^2*u^2
+      // Since u^2 = -1:
+      // y^2 = (y0^2 - y1^2) + 2*y0*y1*u
+
+      // Real component of y^2: y0^2 - y1^2 = (y0 + y1)*(y0 - y1)
+      let y_squared_real :=
         mulmod(
-          addmod(t2, t3, BASE_FIELD_ORDER), addmod(t2, sub(BASE_FIELD_ORDER, t3), BASE_FIELD_ORDER), BASE_FIELD_ORDER
+          addmod(y0, y1, BASE_FIELD_ORDER), // (y0 + y1)
+          addmod(y0, sub(BASE_FIELD_ORDER, y1), BASE_FIELD_ORDER), // (y0 - y1)
+          BASE_FIELD_ORDER
         )
-      t3 := mulmod(shl(1, t2), t3, BASE_FIELD_ORDER)
 
-      // y ^ 2 == x ^ 3 + b
-      _isOnCurve := and(eq(t0, t4), eq(t1, t3))
+      // Imaginary component of y^2: 2*y0*y1
+      let y_squared_imag := mulmod(shl(1, y0), y1, BASE_FIELD_ORDER) // shl(1, y0) = 2*y0
+
+      // Check if the curve equation holds: y^2 = x^3 + b
+      // This requires both components to be equal
+      _isOnCurve := and(eq(rhs_real, y_squared_real), eq(rhs_imag, y_squared_imag))
     }
   }
 

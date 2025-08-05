@@ -3,35 +3,11 @@
 pragma solidity >=0.8.27;
 
 import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
-import {Test} from "forge-std/Test.sol";
+import {BN254Fixtures} from "./BN254Fixtures.t.sol";
 
 // solhint-disable comprehensive-interface
 
-contract BN254KeyTest is Test {
-  struct FixtureData {
-    uint256 fpOrder;
-    uint256 frOrder;
-    G1Point g1Generator;
-    G2Point g2Generator;
-    G1Point negativeG1Generator;
-    G2Point negativeG2Generator;
-    FixtureKey[] sampleKeys;
-  }
-
-  struct FixtureKey {
-    G1Point negativePk1;
-    G2Point negativePk2;
-    G1Point pk1;
-    G2Point pk2;
-    uint256 sk;
-  }
-
-  FixtureData private fixtureData;
-
-  function setUp() public {
-    loadFixtureData();
-  }
-
+contract BN254KeyTest is BN254Fixtures {
   function testInvalidPk1InProofOfPossession() public {
     for (uint256 i = 0; i < fixtureData.sampleKeys.length; i++) {
       FixtureKey memory key = fixtureData.sampleKeys[i];
@@ -72,13 +48,13 @@ contract BN254KeyTest is Test {
 
       G1Point memory sigma = signRegistrationDigest(key.sk);
 
-      vm.expectRevert(BN254Lib.Pk1Zero.selector);
+      vm.expectRevert(abi.encodeWithSelector(BN254Lib.NotOnCurve.selector, 0, 0));
       this.proofOfPossession(BN254Lib.g1Zero(), key.pk2, sigma);
 
-      vm.expectRevert(BN254Lib.Pk2Zero.selector);
+      vm.expectRevert(abi.encodeWithSelector(BN254Lib.NotOnCurveG2.selector, 0, 0, 0, 0));
       this.proofOfPossession(key.pk1, BN254Lib.g2Zero(), sigma);
 
-      vm.expectRevert(BN254Lib.SignatureZero.selector);
+      vm.expectRevert(abi.encodeWithSelector(BN254Lib.NotOnCurve.selector, 0, 0));
       this.proofOfPossession(key.pk1, key.pk2, BN254Lib.g1Zero());
 
       assertFalse(this.proofOfPossession(key.negativePk1, key.pk2, sigma), "proof of possession should fail");
@@ -192,16 +168,6 @@ contract BN254KeyTest is Test {
   //      Helper Functions      //
   //############################//
 
-  function signRegistrationDigest(uint256 sk) public view returns (G1Point memory) {
-    G1Point memory pk1 = BN254Lib.g1Mul(BN254Lib.g1Generator(), sk);
-    bytes memory pk1Bytes = abi.encodePacked(pk1.x, pk1.y);
-
-    G1Point memory pk1DigestPoint = BN254Lib.hashToPoint(BN254Lib.STAKING_DOMAIN_SEPARATOR, pk1Bytes);
-
-    G1Point memory sigma = BN254Lib.g1Mul(pk1DigestPoint, sk);
-    return sigma;
-  }
-
   // wrapper for negative testing
   function bn254Pairing(G1Point memory _g1a, G2Point memory _g2a, G1Point memory _g1b, G2Point memory _g2b)
     public
@@ -218,25 +184,5 @@ contract BN254KeyTest is Test {
     returns (bool ok)
   {
     return BN254Lib.proofOfPossession(_pk1, _pk2, _sigma);
-  }
-
-  function loadFixtureData() internal {
-    string memory root = vm.projectRoot();
-    string memory path = string.concat(root, "/test/fixtures/bn254_constants.json");
-    string memory json = vm.readFile(path);
-    bytes memory jsonBytes = vm.parseJson(json);
-    FixtureData memory data = abi.decode(jsonBytes, (FixtureData));
-    fixtureData.fpOrder = data.fpOrder;
-    fixtureData.frOrder = data.frOrder;
-    fixtureData.g1Generator = data.g1Generator;
-    fixtureData.g2Generator = data.g2Generator;
-    fixtureData.negativeG1Generator = data.negativeG1Generator;
-    fixtureData.negativeG2Generator = data.negativeG2Generator;
-
-    // you cannot copy memory arrays, so we need to push each element
-    for (uint256 i = 0; i < data.sampleKeys.length; i++) {
-      fixtureData.sampleKeys.push(data.sampleKeys[i]);
-    }
-    assertEq(fixtureData.sampleKeys.length, 50, "sampleKeys length mismatch");
   }
 }

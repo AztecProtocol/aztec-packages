@@ -60,7 +60,7 @@ contract DepositBN254Test is WithGSE {
   {
     // it reverts
     vm.prank(_instance);
-    vm.expectRevert(abi.encodeWithSelector(BN254Lib.Pk1Zero.selector));
+    vm.expectRevert(abi.encodeWithSelector(BN254Lib.NotOnCurve.selector, 0, 0));
     gse.deposit(address(0), address(0), BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), _moveWithLatestRollup);
   }
 
