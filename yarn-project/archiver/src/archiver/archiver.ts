@@ -1,5 +1,4 @@
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
-import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import {
   BlockTagTooOldError,
   InboxContract,
@@ -630,7 +629,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     const updateProvenBlock = async () => {
       // Annoying edge case: if proven block is moved back to 0 due to a reorg at the beginning of the chain,
       // we need to set it to zero. This is an edge case because we dont have a block zero (initial block is one),
-      // so localBlockForDestinationProvenBlockNumber would not be found below.
+      // so localBlockAtTargetProvenBlockNumber would not be found below.
       if (provenBlockNumber === 0n) {
         const localProvenBlockNumber = await this.store.getProvenL2BlockNumber();
         if (localProvenBlockNumber !== Number(provenBlockNumber)) {
@@ -655,17 +654,17 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
           localBlockAtTargetProvenBlockNumber?.header.toPropose().hash().toString() ?? 'undefined'
         }`,
       );
+
       if (localBlockAtTargetProvenBlockNumber) {
         this.log.trace(
           `Archive root of local block at remote proven block #${provenBlockNumber} is ${localBlockAtTargetProvenBlockNumber.archive.root.toString()}`,
         );
         this.log.trace(`Remote proven archive root is ${provenArchive}`);
       }
-      const localArchiveRootMatch =
+      if (
         localBlockAtTargetProvenBlockNumber &&
-        provenArchive === localBlockAtTargetProvenBlockNumber.archive.root.toString();
-      this.log.trace(`Archive root comparison result: ${localArchiveRootMatch}`);
-      if (localArchiveRootMatch) {
+        provenArchive === localBlockAtTargetProvenBlockNumber.archive.root.toString()
+      ) {
         const localProvenBlockNumber = await this.store.getProvenL2BlockNumber();
         if (localProvenBlockNumber !== Number(provenBlockNumber)) {
           await this.store.setProvenL2BlockNumber(Number(provenBlockNumber));
@@ -723,70 +722,66 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
         return rollupStatus;
       }
 
-      let localPendingBlockInChain = false;
+      // Simplified re-org detection: First check if our latest proven block is on chain
+      // Since proven blocks have archives, we can reliably compare them
+      const latestProvenBlockNumber = await this.getProvenBlockNumber();
+      const isLatestProvenBlockOnChain = await this.isProvenBlockOnChain(latestProvenBlockNumber);
 
-      if (!isLocalPendingBlockStale) {
-        // Use status() result for re-org detection when header hash is not stale
-        localPendingBlockInChain =
-          headerHashForLocalPendingBlockNumber === localPendingBlock.header.toPropose().hash().toString();
-      } else {
-        // If the header hash is stale, we can't reliably check for re-orgs using status().
-        // Instead, use L2BlockProposed events with parent header hash to detect chain continuity.
-        //
-        // When header hash is stale, it means:
-        // 1. We haven't hit a prune yet (circular storage is long enough for recent blocks)
-        // 2. But the specific block is too old to be in circular storage
-        // However, we can still detect L1 re-orgs by checking if recent L2BlockProposed events
-        // have parent header hashes that match our local chain
+      if (!isLatestProvenBlockOnChain) {
+        // If the latest proven block is not on chain, this indicates an L1 re-org
+        // We need to unwind to find a block that is both proven and on L1
+        this.log.warn(`Latest proven block ${latestProvenBlockNumber} is not on chain, L1 re-org detected`);
 
-        this.log.debug(
-          `Header hash is stale for block ${localPendingBlockNumber}, checking re-org via parent header hashes in last ${Archiver.MAX_L1_REORG_DEPTH} L1 blocks`,
-        );
-
-        // Look for L2BlockProposed events within maximum expected L1 re-org depth
-        const searchRangeStart = Math.max(0, Number(currentL1BlockNumber) - Archiver.MAX_L1_REORG_DEPTH);
-        const searchRangeEnd = Number(currentL1BlockNumber);
-
-        localPendingBlockInChain = await this.checkForReorgUsingL2Events(
-          localPendingBlock,
-          BigInt(searchRangeStart),
-          BigInt(searchRangeEnd),
-        );
-      }
-
-      if (!localPendingBlockInChain) {
-        // If our local pending block tip is not in the chain on L1 a "prune" must have happened
-        // or the L1 have reorged.
-        // In any case, we have to figure out how far into the past the action will take us.
-        // For simplicity here, we will simply rewind until we end in a block that is also on the chain on L1.
-        this.log.debug(`L2 prune has been detected.`);
-
-        let tipAfterUnwind = localPendingBlockNumber;
-        while (true) {
-          const candidateBlock = await this.getBlock(Number(tipAfterUnwind));
-          if (candidateBlock === undefined) {
+        let validProvenBlock = latestProvenBlockNumber;
+        while (validProvenBlock > 0) {
+          const isOnChain = await this.isProvenBlockOnChain(validProvenBlock);
+          if (isOnChain) {
             break;
           }
-
-          // Use header hash comparison instead of archive root comparison
-          const candidateStatus = await this.rollup.status(BigInt(candidateBlock.number));
-          const { headerHashOfMyBlock: headerHashAtContract, isBlockHeaderHashStale: isBlockStale } = candidateStatus;
-
-          // If header hash is stale, we can't reliably compare, so we assume it doesn't match
-          if (!isBlockStale && headerHashAtContract === candidateBlock.header.toPropose().hash().toString()) {
-            break;
-          }
-          tipAfterUnwind--;
+          validProvenBlock--;
         }
 
-        const blocksToUnwind = localPendingBlockNumber - tipAfterUnwind;
-        await this.store.unwindBlocks(Number(localPendingBlockNumber), Number(blocksToUnwind));
+        // Unwind to the last valid proven block
+        const blocksToUnwind = localPendingBlockNumber - validProvenBlock;
+        if (blocksToUnwind > 0) {
+          await this.store.unwindBlocks(Number(localPendingBlockNumber), Number(blocksToUnwind));
+          this.log.warn(
+            `Unwound ${count(blocksToUnwind, 'block')} from L2 block ${localPendingBlockNumber} ` +
+              `due to L1 re-org. Updated L2 latest block is ${await this.getBlockNumber()}.`,
+          );
+        }
+      } else if (localPendingBlockNumber > latestProvenBlockNumber) {
+        // If the latest proven block is on chain, but we have pending blocks beyond it,
+        // check if the pending block is still valid
 
-        this.log.warn(
-          `Unwound ${count(blocksToUnwind, 'block')} from L2 block ${localPendingBlockNumber} ` +
-            `due to mismatched block hashes at L1 block ${currentL1BlockNumber}. ` +
-            `Updated L2 latest block is ${await this.getBlockNumber()}.`,
-        );
+        // First check if L1 pending block has moved backwards (indicating reorg/prune)
+        const l1HasMovedBackwards = Number(pendingBlockNumber) < localPendingBlockNumber;
+
+        // Then check header hash if L1 hasn't moved backwards and header isn't stale
+        const isLocalPendingBlockInChain =
+          !l1HasMovedBackwards &&
+          !isLocalPendingBlockStale &&
+          headerHashForLocalPendingBlockNumber === localPendingBlock.header.toPropose().hash().toString();
+
+        if (!isLocalPendingBlockInChain) {
+          // Determine the target to unwind to
+          let unwindTarget = latestProvenBlockNumber;
+          if (l1HasMovedBackwards) {
+            // If L1 moved backwards, unwind to the L1 pending block number
+            unwindTarget = Number(pendingBlockNumber);
+          }
+
+          const blocksToUnwind = localPendingBlockNumber - unwindTarget;
+          if (blocksToUnwind > 0) {
+            await this.store.unwindBlocks(Number(localPendingBlockNumber), Number(blocksToUnwind));
+            const reason = l1HasMovedBackwards ? 'L1 pending block moved backwards' : 'stale pending blocks';
+            this.log.warn(
+              `Unwound ${count(blocksToUnwind, 'block')} from L2 block ${localPendingBlockNumber} ` +
+                `back to block ${unwindTarget} due to ${reason}. ` +
+                `Updated L2 latest block is ${await this.getBlockNumber()}.`,
+            );
+          }
+        }
       }
     }
 
@@ -1327,142 +1322,38 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
   }
 
   /**
-   * Checks for L1/L2 re-orgs by examining L2BlockProposed events and reconstructing the chain.
-   * This is used when the header hash is stale and we can't rely on status() for re-org detection.
+   * Checks if a proven block is on chain by comparing its archive root.
+   * Since proven blocks have valid archives, this is a reliable method for checking chain consistency.
    */
-  private async checkForReorgUsingL2Events(
-    localPendingBlock: L2Block,
-    fromL1Block: bigint,
-    toL1Block: bigint,
-  ): Promise<boolean> {
-    const localPendingBlockNumber = localPendingBlock.number;
+  private async isProvenBlockOnChain(provenBlockNumber: number): Promise<boolean> {
+    if (provenBlockNumber === 0) {
+      return true; // Genesis case
+    }
+
     try {
-      // Get recent L2BlockProposed events
-      const l2BlockProposedLogs = await this.rollup.getContract().getEvents.L2BlockProposed(
-        {},
-        {
-          fromBlock: fromL1Block,
-          toBlock: toL1Block,
-        },
+      const localProvenBlock = await this.getBlock(provenBlockNumber);
+      if (!localProvenBlock) {
+        this.log.debug(`Local proven block ${provenBlockNumber} not found`);
+        return false;
+      }
+
+      // Get the archive from L1 for this proven block
+      const l1Block = await this.rollup.getBlock(BigInt(provenBlockNumber));
+      const l1Archive = l1Block.archive;
+
+      // Compare local archive with L1 archive
+      const localArchive = localProvenBlock.archive.root.toString();
+      const isOnChain = l1Archive === localArchive;
+
+      this.log.debug(
+        `Proven block ${provenBlockNumber} archive comparison: local=${localArchive}, l1=${l1Archive}, match=${isOnChain}`,
       );
 
-      if (l2BlockProposedLogs.length === 0) {
-        this.log.debug(
-          `No L2BlockProposed events found for re-org check between L1 blocks ${fromL1Block}-${toL1Block}`,
-        );
-        return true; // Assume no re-org if no events found in recent range
-      }
-
-      // Sort events by block number (ascending) to build chain from genesis
-      const sortedLogs = l2BlockProposedLogs.sort((a, b) => Number(a.args.blockNumber) - Number(b.args.blockNumber));
-
-      // Build a map of block number to most recent event (in case of multiple events for same block)
-      const blockEvents = new Map<number, (typeof sortedLogs)[0]>();
-      for (const log of sortedLogs) {
-        const blockNum = Number(log.args.blockNumber);
-        const existing = blockEvents.get(blockNum);
-        if (!existing || log.blockNumber! > existing.blockNumber!) {
-          blockEvents.set(blockNum, log);
-        }
-      }
-
-      // Find the event for our local pending block
-      const ourBlockEvent = blockEvents.get(localPendingBlockNumber);
-      if (!ourBlockEvent) {
-        this.log.debug(
-          `No L2BlockProposed event found for our block ${localPendingBlockNumber}, checking parent chain`,
-        );
-        return await this.checkParentChainContinuity(localPendingBlockNumber, localPendingBlock, blockEvents);
-      }
-
-      // Check if our local block's header hash matches what's on L1
-      const ourLocalHeaderHash = localPendingBlock.header.toPropose().hash().toString();
-      const l1HeaderHash = ourBlockEvent.args.headerHash;
-
-      if (ourLocalHeaderHash !== l1HeaderHash) {
-        this.log.warn(`L2 re-org detected: header hash mismatch for block ${localPendingBlockNumber}`, {
-          localPendingBlockNumber,
-          ourLocalHeaderHash,
-          l1HeaderHash,
-          l1BlockNumber: ourBlockEvent.blockNumber,
-        });
-        return false;
-      }
-
-      // Verify parent chain continuity
-      return await this.checkParentChainContinuity(localPendingBlockNumber, localPendingBlock, blockEvents);
+      return isOnChain;
     } catch (error) {
-      this.log.warn(`Error checking for re-org using L2 events, assuming re-org occurred`, { error });
-      return false; // Conservative: assume re-org if we can't check
+      this.log.warn(`Error checking if proven block ${provenBlockNumber} is on chain: ${error}`);
+      return false;
     }
-  }
-
-  /**
-   * Verifies that the parent chain is consistent by checking parent header hashes.
-   */
-  private async checkParentChainContinuity(
-    localPendingBlockNumber: number,
-    localPendingBlock: L2Block,
-    blockEvents: Map<number, any>,
-  ): Promise<boolean> {
-    // Special case: block 1 should have GENESIS_BLOCK_HEADER_HASH as parent
-    if (localPendingBlockNumber === 1) {
-      const block1Event = blockEvents.get(1);
-      if (block1Event) {
-        const expectedGenesisHash = new Fr(GENESIS_BLOCK_HEADER_HASH).toString();
-        const actualParentHash = block1Event.args.parentHeaderHash;
-
-        if (actualParentHash !== expectedGenesisHash) {
-          this.log.warn(`Block 1 parent header hash mismatch`, {
-            expected: expectedGenesisHash,
-            actual: actualParentHash,
-          });
-          return false;
-        }
-      }
-      return true; // Block 1 is valid if it exists and has correct parent
-    }
-
-    // For other blocks, check if any subsequent block references our block as parent
-    const ourLocalHeaderHash = localPendingBlock.header.toPropose().hash().toString();
-
-    // Look for the next block that should reference our block as parent
-    const nextBlockEvent = blockEvents.get(localPendingBlockNumber + 1);
-    if (nextBlockEvent) {
-      const nextBlockParentHash = nextBlockEvent.args.parentHeaderHash;
-
-      if (nextBlockParentHash !== ourLocalHeaderHash) {
-        this.log.warn(`Parent chain discontinuity detected`, {
-          localPendingBlockNumber,
-          ourLocalHeaderHash,
-          nextBlockNumber: localPendingBlockNumber + 1,
-          nextBlockParentHash,
-        });
-        return false;
-      }
-    }
-
-    // Also check if our block's expected parent exists and matches
-    if (localPendingBlockNumber > 1) {
-      const parentBlock = await this.getBlock(localPendingBlockNumber - 1);
-      const parentEvent = blockEvents.get(localPendingBlockNumber - 1);
-
-      if (parentBlock && parentEvent) {
-        const expectedParentHash = parentBlock.header.toPropose().hash().toString();
-        const ourBlockEvent = blockEvents.get(localPendingBlockNumber);
-
-        if (ourBlockEvent && ourBlockEvent.args.parentHeaderHash !== expectedParentHash) {
-          this.log.warn(`Our block's parent header hash doesn't match expected parent`, {
-            localPendingBlockNumber,
-            expectedParentHash,
-            actualParentHash: ourBlockEvent.args.parentHeaderHash,
-          });
-          return false;
-        }
-      }
-    }
-
-    return true; // Chain continuity verified
   }
 
   /**

@@ -611,6 +611,7 @@ describe('Archiver', () => {
 
   it('handles L2 reorg', async () => {
     const loggerSpy = jest.spyOn((archiver as any).log, 'debug');
+    const loggerWarnSpy = jest.spyOn((archiver as any).log, 'warn');
 
     let latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(0);
@@ -722,7 +723,9 @@ describe('Archiver', () => {
     // Lets take a look to see if we can find re-org stuff!
     await sleep(2000);
 
-    expect(loggerSpy).toHaveBeenCalledWith(`L2 prune has been detected.`);
+    expect(loggerWarnSpy).toHaveBeenCalledWith(
+      `Unwound 1 block from L2 block 2 back to block 1 due to L1 pending block moved backwards. Updated L2 latest block is 1.`,
+    );
 
     // Should also see the block number be reduced
     latestBlockNum = await archiver.getBlockNumber();
