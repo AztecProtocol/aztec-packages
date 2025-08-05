@@ -211,7 +211,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
 
     static void construct_and_accumulate_mock_kernel(std::shared_ptr<ClientIVC> ivc, TraceSettings trace_settings)
     {
-        // construct a mock ivc acir program from the ivc verification queue
+        // construct a mock kernel program (acir) from the ivc verification queue
         const ProgramMetadata metadata{ ivc };
         AcirProgram mock_kernel_program = construct_mock_kernel_program(ivc->verification_queue);
         auto kernel = acir_format::create_circuit<Builder>(mock_kernel_program, metadata);
@@ -483,7 +483,7 @@ TEST_F(IvcRecursionConstraintTest, GenerateHidingKernelVKFromConstraints)
             AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
             Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
             // Note: Cannot call ivc->accumulate(kernel) here; hiding circuit is not yet supported
-            auto proving_key = ivc->get_hiding_circuit_proving_key();
+            auto proving_key = ivc->compute_hiding_circuit_proving_key();
             expected_hiding_kernel_vk =
                 std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->get_precomputed());
         }

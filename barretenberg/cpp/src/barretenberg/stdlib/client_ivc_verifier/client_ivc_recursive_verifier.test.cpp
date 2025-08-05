@@ -38,7 +38,7 @@ class ClientIVCRecursionTests : public testing::Test {
         MockCircuitProducer circuit_producer;
 
         for (size_t idx = 0; idx < ivc.get_num_circuits(); ++idx) {
-            circuit_producer.accumulate_next_circuit(ivc);
+            circuit_producer.construct_and_accumulate_next_circuit(ivc);
         }
 
         return { ivc.prove(), ivc.get_vk() };

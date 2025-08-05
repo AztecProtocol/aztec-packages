@@ -153,7 +153,7 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
         break;
     }
     case QUEUE_TYPE::PG_FINAL: {
-        // we should construct the hiding kernel in this case
+        // Construct the hiding kernel in this case
         BB_ASSERT_EQ(stdlib_verification_queue.size(), size_t(1));
         BB_ASSERT_EQ(num_circuits_accumulated,
                      num_circuits,
@@ -161,7 +161,9 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
         // Complete the hiding circuit construction
         auto [pairing_points, merged_table_commitments] =
             complete_hiding_circuit_logic(verifier_inputs.proof, verifier_inputs.honk_vk_and_hash, circuit);
-        // Return early since the hiding circuit method performs merge and public inputs handling (fix this!)
+        // Return early since the hiding circuit method performs merge and public inputs handling
+        // todo(https://github.com/AztecProtocol/barretenberg/issues/1501): we should remove the code duplication for
+        // the consistency checks at some point
         return { pairing_points, merged_table_commitments };
     }
     default: {
@@ -258,7 +260,8 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
         HidingKernelIO hiding_output{ points_accumulator, T_prev_commitments };
         hiding_output.set_public();
         // preserve the hiding circuit so a proof for it can be created
-        // TODO(Mara): reconsider approach once integration is complete
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1502): reconsider approach once integration is
+        // complete
         hiding_circuit = std::make_unique<ClientCircuit>(circuit);
     } else {
         KernelIO kernel_output;
@@ -443,7 +446,7 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::comp
 /**
  * @brief Construct the proving key of the hiding circuit, from the hiding_circuit builder in the client_ivc class
  */
-std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::get_hiding_circuit_proving_key()
+std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::compute_hiding_circuit_proving_key()
 {
     auto hiding_decider_pk =
         std::make_shared<DeciderZKProvingKey>(*hiding_circuit, TraceSettings(), bn254_commitment_key);
@@ -459,7 +462,7 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::get_hiding_circuit_pr
 HonkProof ClientIVC::prove_hiding_circuit()
 {
     ASSERT(hiding_circuit != nullptr, "hiding circuit should have been constructed before attempted to create its key");
-    auto hiding_decider_pk = get_hiding_circuit_proving_key();
+    auto hiding_decider_pk = compute_hiding_circuit_proving_key();
     honk_vk = std::make_shared<MegaZKVerificationKey>(hiding_decider_pk->get_precomputed());
     auto& hiding_circuit_vk = honk_vk;
     // Hiding circuit is proven by a MegaZKProver

@@ -62,7 +62,7 @@ class ClientIVCTests : public ::testing::Test {
         ClientIVC ivc{ num_circuits, { SMALL_TEST_STRUCTURE } };
         PrivateFunctionExecutionMockCircuitProducer circuit_producer;
         for (size_t j = 0; j < num_circuits; ++j) {
-            circuit_producer.accumulate_next_circuit(ivc);
+            circuit_producer.construct_and_accumulate_next_circuit(ivc);
         }
         return { ivc.prove(), ivc.get_vk() };
     };
@@ -80,9 +80,9 @@ TEST_F(ClientIVCTests, Basic)
     TestSettings settings{ .log2_num_gates = MEDIUM_LOG_2_NUM_GATES };
     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
     // Initialize the IVC with an arbitrary circuit
-    circuit_producer.accumulate_next_circuit(ivc, settings);
+    circuit_producer.construct_and_accumulate_next_circuit(ivc, settings);
     // Create another circuit and accumulate
-    circuit_producer.accumulate_next_circuit(ivc, settings);
+    circuit_producer.construct_and_accumulate_next_circuit(ivc, settings);
 
     EXPECT_TRUE(ivc.prove_and_verify());
 };
@@ -98,7 +98,7 @@ TEST_F(ClientIVCTests, BasicFour)
 
     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
     for (size_t idx = 0; idx < 4; ++idx) {
-        circuit_producer.accumulate_next_circuit(ivc);
+        circuit_producer.construct_and_accumulate_next_circuit(ivc);
     }
 
     EXPECT_TRUE(ivc.prove_and_verify());
@@ -123,7 +123,7 @@ TEST_F(ClientIVCTests, BadProofFailure)
 
         // Construct and accumulate a set of mocked private function execution circuits
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-            circuit_producer.accumulate_next_circuit(ivc, settings);
+            circuit_producer.construct_and_accumulate_next_circuit(ivc, settings);
         }
         EXPECT_TRUE(ivc.prove_and_verify());
     }
@@ -152,7 +152,7 @@ TEST_F(ClientIVCTests, BadProofFailure)
                                   num_public_inputs); // tamper with first proof
             }
         }
-        circuit_producer.complete_ivc_accumulation(ivc);
+        circuit_producer.construct_hiding_kernel(ivc);
         EXPECT_FALSE(ivc.prove_and_verify());
     }
 
@@ -174,7 +174,7 @@ TEST_F(ClientIVCTests, BadProofFailure)
                                   circuit.num_public_inputs()); // tamper with second proof
             }
         }
-        circuit_producer.complete_ivc_accumulation(ivc);
+        circuit_producer.construct_hiding_kernel(ivc);
         EXPECT_FALSE(ivc.prove_and_verify());
     }
 
@@ -202,7 +202,7 @@ TEST_F(ClientIVCTests, BadProofFailure)
         tamper_with_proof(ivc.verification_queue[0].proof,
                           num_public_inputs); // tamper with the final fold proof
 
-        circuit_producer.complete_ivc_accumulation(ivc);
+        circuit_producer.construct_hiding_kernel(ivc);
 
         EXPECT_FALSE(ivc.prove_and_verify());
     }
@@ -224,7 +224,7 @@ TEST_F(ClientIVCTests, BasicStructured)
     // Construct and accumulate some circuits of varying size
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
         settings.log2_num_gates = SMALL_LOG_2_NUM_GATES + idx;
-        circuit_producer.accumulate_next_circuit(ivc, settings);
+        circuit_producer.construct_and_accumulate_next_circuit(ivc, settings);
     }
 
     EXPECT_TRUE(ivc.prove_and_verify());
@@ -301,7 +301,7 @@ TEST_F(ClientIVCTests, VKIndependenceTest)
         ClientIVC ivc{ num_circuits, { SMALL_TEST_STRUCTURE } };
         PrivateFunctionExecutionMockCircuitProducer circuit_producer;
         for (size_t j = 0; j < num_circuits; ++j) {
-            circuit_producer.accumulate_next_circuit(ivc, settings);
+            circuit_producer.construct_and_accumulate_next_circuit(ivc, settings);
         }
         ivc.prove();
         auto ivc_vk = ivc.get_vk();
@@ -353,7 +353,7 @@ TEST_F(ClientIVCTests, VKIndependenceWithOverflow)
         PrivateFunctionExecutionMockCircuitProducer circuit_producer;
         for (size_t j = 0; j < num_circuits; ++j) {
             settings.log2_num_gates = log2_num_gates;
-            circuit_producer.accumulate_next_circuit(ivc, settings);
+            circuit_producer.construct_and_accumulate_next_circuit(ivc, settings);
         }
         ivc.prove();
         auto ivc_vk = ivc.get_vk();
@@ -404,7 +404,7 @@ HEAVY_TEST(ClientIVCKernelCapacity, MaxCapacityPassing)
     ClientIVC ivc{ total_num_circuits, { AZTEC_TRACE_STRUCTURE } };
     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
     for (size_t j = 0; j < total_num_circuits; ++j) {
-        circuit_producer.accumulate_next_circuit(ivc);
+        circuit_producer.construct_and_accumulate_next_circuit(ivc);
     }
     auto proof = ivc.prove();
     bool verified = verify_ivc(proof, ivc);
@@ -419,7 +419,7 @@ HEAVY_TEST(ClientIVCKernelCapacity, MaxCapacityFailing)
     ClientIVC ivc{ total_num_circuits, { AZTEC_TRACE_STRUCTURE } };
     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
     for (size_t j = 0; j < total_num_circuits; ++j) {
-        circuit_producer.accumulate_next_circuit(ivc);
+        circuit_producer.construct_and_accumulate_next_circuit(ivc);
     }
     EXPECT_ANY_THROW(ivc.prove());
 }
@@ -444,7 +444,7 @@ TEST_F(ClientIVCTests, StructuredTraceOverflow)
     size_t log2_num_gates = 14;
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
         settings.log2_num_gates = log2_num_gates;
-        circuit_producer.accumulate_next_circuit(ivc, settings);
+        circuit_producer.construct_and_accumulate_next_circuit(ivc, settings);
         log2_num_gates += 1;
     }
 
@@ -483,7 +483,8 @@ TEST_F(ClientIVCTests, DynamicTraceOverflow)
 
         // Accumulate
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-            circuit_producer.accumulate_next_circuit(ivc, { .log2_num_gates = test.log2_num_arith_gates[idx] });
+            circuit_producer.construct_and_accumulate_next_circuit(
+                ivc, { .log2_num_gates = test.log2_num_arith_gates[idx] });
         }
 
         EXPECT_EQ(check_accumulator_target_sum_manual(ivc.fold_output.accumulator), true);
@@ -502,10 +503,10 @@ TEST_F(ClientIVCTests, MsgpackProofFromFile)
     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
 
     // Initialize the IVC with an arbitrary circuit
-    circuit_producer.accumulate_next_circuit(ivc);
+    circuit_producer.construct_and_accumulate_next_circuit(ivc);
 
     // Create another circuit and accumulate
-    circuit_producer.accumulate_next_circuit(ivc);
+    circuit_producer.construct_and_accumulate_next_circuit(ivc);
 
     const auto proof = ivc.prove();
 
@@ -528,10 +529,10 @@ TEST_F(ClientIVCTests, MsgpackProofFromBuffer)
     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
 
     // Initialize the IVC with an arbitrary circuit
-    circuit_producer.accumulate_next_circuit(ivc);
+    circuit_producer.construct_and_accumulate_next_circuit(ivc);
 
     // Create another circuit and accumulate
-    circuit_producer.accumulate_next_circuit(ivc);
+    circuit_producer.construct_and_accumulate_next_circuit(ivc);
 
     const auto proof = ivc.prove();
 
@@ -555,10 +556,10 @@ TEST_F(ClientIVCTests, RandomProofBytes)
     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
 
     // Initialize the IVC with an arbitrary circuit
-    circuit_producer.accumulate_next_circuit(ivc);
+    circuit_producer.construct_and_accumulate_next_circuit(ivc);
 
     // Create another circuit and accumulate
-    circuit_producer.accumulate_next_circuit(ivc);
+    circuit_producer.construct_and_accumulate_next_circuit(ivc);
 
     const auto proof = ivc.prove();
 

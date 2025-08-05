@@ -209,13 +209,13 @@ class PrivateFunctionExecutionMockCircuitProducer {
         return { circuit, get_verification_key(circuit, ivc.trace_settings) };
     }
 
-    void accumulate_next_circuit(ClientIVC& ivc, TestSettings settings = {})
+    void construct_and_accumulate_next_circuit(ClientIVC& ivc, TestSettings settings = {})
     {
         auto [circuit, vk] = create_next_circuit_and_vk(ivc, settings);
         ivc.accumulate(circuit, vk);
 
         if (circuit_counter == ivc.get_num_circuits()) {
-            complete_ivc_accumulation(ivc);
+            construct_hiding_kernel(ivc);
         }
     }
 
@@ -226,11 +226,11 @@ class PrivateFunctionExecutionMockCircuitProducer {
     /**
      * @brief Creates the hiding circuit to complete IVC accumulation
      */
-    static void complete_ivc_accumulation(ClientIVC& ivc)
+    void construct_hiding_kernel(ClientIVC& ivc)
     {
-        // get the builder
+        // create a builder from the goblin op_queue
         ClientIVC::ClientCircuit circuit{ ivc.goblin.op_queue };
-        // now we create the hiding circuit
+        // complete the hiding kernel logic
         ivc.complete_kernel_circuit_logic(circuit);
     }
 };

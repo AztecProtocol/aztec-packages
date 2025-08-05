@@ -77,7 +77,10 @@ ClientIvcProve::Response ClientIvcProve::execute(BBApiRequest& request) &&
     }
 
     info("ClientIvcProve - generating proof for ", request.ivc_stack_depth, " accumulated circuits");
+    // to finish the ivc steps, we need to construct the hiding kernel
+    // create a builder from the IVC state to complete the hiding circuit logic
     ClientIVC::ClientCircuit circuit{ request.ivc_in_progress->goblin.op_queue };
+    // complete the hiding circuit logic for the IVC in progress
     request.ivc_in_progress->complete_kernel_circuit_logic(circuit);
     ClientIVC::Proof proof = request.ivc_in_progress->prove();
 
@@ -136,9 +139,9 @@ ClientIVC::VerificationKey compute_civc_vk(const BBApiRequest& request, size_t n
                                                     });
     ivc.accumulate(circuit_1, vk_1);
 
-    circuit_producer.complete_ivc_accumulation(ivc);
+    circuit_producer.construct_hiding_kernel(ivc);
     // Construct the hiding circuit proving and verification key
-    auto hiding_decider_pk = ivc.get_hiding_circuit_proving_key();
+    auto hiding_decider_pk = ivc.compute_hiding_circuit_proving_key();
     auto hiding_honk_vk = std::make_shared<ClientIVC::MegaZKVerificationKey>(hiding_decider_pk->get_precomputed());
     return { hiding_honk_vk,
              std::make_shared<ClientIVC::ECCVMVerificationKey>(),
