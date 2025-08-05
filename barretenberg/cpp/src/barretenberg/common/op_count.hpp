@@ -4,16 +4,16 @@
 #include <memory>
 #include <tracy/Tracy.hpp>
 
-#ifdef TRACY_INSTRUMENTED
-#define PROFILE_THIS() ZoneScopedN(__func__)
-#define PROFILE_THIS_NAME(name) ZoneScopedN(name)
-#elif defined __wasm__
+// #ifdef TRACY_INSTRUMENTED
+// #define PROFILE_THIS() ZoneScopedN(__func__)
+// #define PROFILE_THIS_NAME(name) ZoneScopedN(name)
+// #elif defined __wasm__
 #define PROFILE_THIS() (void)0
 #define PROFILE_THIS_NAME(name) (void)0
-#else
-#define PROFILE_THIS() BB_OP_COUNT_TIME_NAME(__func__)
-#define PROFILE_THIS_NAME(name) BB_OP_COUNT_TIME_NAME(name)
-#endif
+// #else
+// #define PROFILE_THIS() BB_OP_COUNT_TIME_NAME(__func__)
+// #define PROFILE_THIS_NAME(name) BB_OP_COUNT_TIME_NAME(name)
+// #endif
 
 #ifdef __wasm__
 // require a semicolon to appease formatters
