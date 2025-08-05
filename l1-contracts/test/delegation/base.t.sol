@@ -6,6 +6,7 @@ import {Registry} from "@aztec/governance/Registry.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {Rollup, GSE, RollupBuilder} from "../builder/RollupBuilder.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
+import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 contract GSEBase is TestBase {
   Rollup internal ROLLUP;
@@ -43,7 +44,14 @@ contract GSEBase is TestBase {
     vm.label(address(registry), "registry");
   }
 
-  function help__deposit(address _attester, address _withdrawer, bool _moveWithLatestRollup) internal {
+  function help__deposit(
+    address _attester,
+    address _withdrawer,
+    G1Point memory _publicKeyInG1,
+    G2Point memory _publicKeyInG2,
+    G1Point memory _proofOfPossession,
+    bool _moveWithLatestRollup
+  ) internal {
     uint256 activationThreshold = ROLLUP.getActivationThreshold();
     vm.prank(stakingAsset.owner());
     stakingAsset.mint(address(this), activationThreshold);
@@ -51,7 +59,14 @@ contract GSEBase is TestBase {
 
     uint256 balance = stakingAsset.balanceOf(address(governance));
 
-    ROLLUP.deposit({_attester: _attester, _withdrawer: _withdrawer, _moveWithLatestRollup: _moveWithLatestRollup});
+    ROLLUP.deposit({
+      _attester: _attester,
+      _withdrawer: _withdrawer,
+      _publicKeyInG1: _publicKeyInG1,
+      _publicKeyInG2: _publicKeyInG2,
+      _proofOfPossession: _proofOfPossession,
+      _moveWithLatestRollup: _moveWithLatestRollup
+    });
     ROLLUP.flushEntryQueue();
 
     assertEq(stakingAsset.balanceOf(address(governance)), balance + activationThreshold, "invalid gov balance");
