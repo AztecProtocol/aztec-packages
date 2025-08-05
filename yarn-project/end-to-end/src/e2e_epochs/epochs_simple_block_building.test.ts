@@ -87,8 +87,8 @@ describe('e2e_epochs/epochs_simple_block_building', () => {
     logger.warn(`Started all sequencers`);
 
     // Wait until all txs are mined
-    const timeout = test.L2_SLOT_DURATION_IN_S * (TX_COUNT * 2 + 1) * 1000;
-    await executeTimeout(() => Promise.all(sentTxs.map(tx => tx.wait())), timeout);
+    const timeout = test.L2_SLOT_DURATION_IN_S * (TX_COUNT * 2 + 1);
+    await executeTimeout(() => Promise.all(sentTxs.map(tx => tx.wait({ timeout }))), timeout * 1000);
     logger.warn(`All txs have been mined`);
 
     // Expect no failures from sequencers during block building.
