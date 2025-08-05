@@ -50,7 +50,6 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-      USE_CIRCUITS_CACHE: 1
     steps:
       - name: Skip if no changes
         if: ${{ matrix.docs.changed != 'true' }}
