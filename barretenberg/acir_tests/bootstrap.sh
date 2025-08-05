@@ -57,7 +57,7 @@ function run_proof_generation {
   # Split the hex-encoded vk bytes into fields boundaries (but still hex-encoded), first making 64-character lines and then encoding as JSON.
   # This used to be done by barretenberg itself, but with serialization now always being in field elements we can do it outside of bb.
   local vk_fields=$(cat "$outdir/vk" | xxd -p -c 0 | hex_to_fields_json)
-  local vk_hash_field="\"$(cat "$outdir/vk_hash" | xxd -p -c 0)\""
+  local vk_hash_field="\"0x$(cat "$outdir/vk_hash" | xxd -p -c 0)\""
   local public_inputs_fields=$(cat "$outdir/public_inputs" | xxd -p -c 0 | hex_to_fields_json)
   local proof_fields=$(cat "$outdir/proof" | xxd -p -c 0 | hex_to_fields_json)
 
