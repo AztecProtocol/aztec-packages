@@ -82,7 +82,7 @@ jobs:
           cp ./bb ./dist/bb
           7z a -ttar -so -an ./dist/* | 7z a -si ./barretenberg-${{ matrix.label }}.tar.gz
 
-      - name: Package barretenberg artifact (${{ matrix.label }})
+      - name: Package libbarretenberg artifact (${{ matrix.label }})
         working-directory: barretenberg/cpp/build/lib
         continue-on-error: ${{ matrix.optional }}
         run: |
@@ -90,7 +90,7 @@ jobs:
           cp ./libbarretenberg.a ./dist/libbarretenberg.a
           7z a -ttar -so -an ./dist/* | 7z a -si ./libbarretenberg-${{ matrix.label }}.tar.gz
 
-      - name: Upload artifact (${{ matrix.label }})
+      - name: Upload barretenberg artifact (${{ matrix.label }})
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         continue-on-error: ${{ matrix.optional }}
         with:
@@ -98,7 +98,7 @@ jobs:
           path: ./barretenberg/cpp/build/bin/barretenberg-${{ matrix.label }}.tar.gz
           retention-days: 3
 
-      - name: Upload artifact (${{ matrix.label }})
+      - name: Upload libbarretenberg artifact (${{ matrix.label }})
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         continue-on-error: ${{ matrix.optional }}
         with:
@@ -146,45 +146,45 @@ jobs:
     needs: build-check
     runs-on: ubuntu-latest
     steps:
-      - name: Download artifact (amd64-darwin)
+      - name: Download barretenberg artifact (amd64-darwin)
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: barretenberg-amd64-darwin.tar.gz
 
-      - name: Download artifact (arm64-darwin)
+      - name: Download barretenberg artifact (arm64-darwin)
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: barretenberg-arm64-darwin.tar.gz
 
-      - name: Download artifact (amd64-darwin-starknet)
+      - name: Download barretenberg artifact (amd64-darwin-starknet)
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         continue-on-error: true
         with:
           name: barretenberg-amd64-darwin-starknet.tar.gz
 
-      - name: Download artifact (arm64-darwin-starknet)
+      - name: Download barretenberg artifact (arm64-darwin-starknet)
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         continue-on-error: true
         with:
           name: barretenberg-arm64-darwin-starknet.tar.gz
 
-      - name: Download artifact (amd64-darwin)
+      - name: Download libbarretenberg artifact (amd64-darwin)
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: libbarretenberg-amd64-darwin.tar.gz
 
-      - name: Download artifact (arm64-darwin)
+      - name: Download libbarretenberg artifact (arm64-darwin)
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: libbarretenberg-arm64-darwin.tar.gz
 
-      - name: Download artifact (amd64-darwin-starknet)
+      - name: Download libbarretenberg artifact (amd64-darwin-starknet)
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         continue-on-error: true
         with:
           name: libbarretenberg-amd64-darwin-starknet.tar.gz
 
-      - name: Download artifact (arm64-darwin-starknet)
+      - name: Download libbarretenberg artifact (arm64-darwin-starknet)
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         continue-on-error: true
         with:
