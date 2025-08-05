@@ -90,7 +90,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     // Multiply each linearly independent subrelation contribution by `alpha^i` for i = 0, ..., NUM_SUBRELATIONS - 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
-    SumcheckVerifier<Flavor> sumcheck(transcript, alpha);
+    SumcheckVerifier<Flavor> sumcheck(transcript, alpha, CONST_PROOF_SIZE_LOG_N);
 
     auto gate_challenges = std::vector<FF>(log_circuit_size);
     for (size_t idx = 0; idx < log_circuit_size; idx++) {
