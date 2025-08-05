@@ -128,7 +128,7 @@ void ECCVMProver::execute_grand_product_computation_round()
 void ECCVMProver::execute_relation_check_rounds()
 {
 
-    using Sumcheck = SumcheckProver<Flavor, CONST_ECCVM_LOG_N>;
+    using Sumcheck = SumcheckProver<Flavor>;
 
     // Each linearly independent subrelation contribution is multiplied by `alpha^i`, where
     //  i = 0, ..., NUM_SUBRELATIONS- 1.

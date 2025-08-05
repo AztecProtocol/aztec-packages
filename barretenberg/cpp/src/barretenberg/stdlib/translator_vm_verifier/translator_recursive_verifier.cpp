@@ -91,7 +91,7 @@ TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_p
                                                                                      const BF& evaluation_input_x,
                                                                                      const BF& batching_challenge_v)
 {
-    using Sumcheck = ::bb::SumcheckVerifier<Flavor, TranslatorFlavor::CONST_TRANSLATOR_LOG_N>;
+    using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
     using PCS = Flavor::PCS;
     using Curve = Flavor::Curve;
     using Shplemini = ::bb::ShpleminiVerifier_<Curve>;

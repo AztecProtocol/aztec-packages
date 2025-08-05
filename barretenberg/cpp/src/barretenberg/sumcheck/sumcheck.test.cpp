@@ -258,13 +258,13 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
                 prover_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
         }
 
-        SumcheckProver<Flavor, multivariate_d> sumcheck_prover(multivariate_n,
-                                                               full_polynomials,
-                                                               prover_transcript,
-                                                               prover_alpha,
-                                                               prover_gate_challenges,
-                                                               relation_parameters,
-                                                               multivariate_d);
+        SumcheckProver<Flavor> sumcheck_prover(multivariate_n,
+                                               full_polynomials,
+                                               prover_transcript,
+                                               prover_alpha,
+                                               prover_gate_challenges,
+                                               relation_parameters,
+                                               multivariate_d);
 
         SumcheckOutput<Flavor> output;
         if constexpr (Flavor::HasZK) {
@@ -281,8 +281,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
             verifier_alpha[idx] =
                 verifier_transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
         }
-        auto sumcheck_verifier =
-            SumcheckVerifier<Flavor, multivariate_d>(verifier_transcript, verifier_alpha, multivariate_d);
+        auto sumcheck_verifier = SumcheckVerifier<Flavor>(verifier_transcript, verifier_alpha, multivariate_d);
 
         std::vector<FF> verifier_gate_challenges(multivariate_d);
         for (size_t idx = 0; idx < multivariate_d; idx++) {
@@ -358,13 +357,13 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
                 prover_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
         }
 
-        SumcheckProver<Flavor, multivariate_d> sumcheck_prover(multivariate_n,
-                                                               full_polynomials,
-                                                               prover_transcript,
-                                                               prover_alpha,
-                                                               prover_gate_challenges,
-                                                               relation_parameters,
-                                                               multivariate_d);
+        SumcheckProver<Flavor> sumcheck_prover(multivariate_n,
+                                               full_polynomials,
+                                               prover_transcript,
+                                               prover_alpha,
+                                               prover_gate_challenges,
+                                               relation_parameters,
+                                               multivariate_d);
 
         SumcheckOutput<Flavor> output;
         if constexpr (Flavor::HasZK) {
@@ -382,7 +381,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
             verifier_alpha[idx] =
                 verifier_transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
         }
-        SumcheckVerifier<Flavor, multivariate_d> sumcheck_verifier(verifier_transcript, verifier_alpha, multivariate_d);
+        SumcheckVerifier<Flavor> sumcheck_verifier(verifier_transcript, verifier_alpha, multivariate_d);
 
         std::vector<FF> verifier_gate_challenges(multivariate_d);
         for (size_t idx = 0; idx < multivariate_d; idx++) {

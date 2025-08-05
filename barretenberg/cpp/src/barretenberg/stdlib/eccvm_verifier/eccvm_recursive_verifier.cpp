@@ -51,7 +51,7 @@ ECCVMRecursiveVerifier::IpaClaimAndProof ECCVMRecursiveVerifier::verify_proof(co
     using OpeningClaim = OpeningClaim<Curve>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
-    using Sumcheck = SumcheckVerifier<Flavor, CONST_ECCVM_LOG_N>;
+    using Sumcheck = SumcheckVerifier<Flavor>;
 
     RelationParameters<FF> relation_parameters;
 

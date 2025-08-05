@@ -202,7 +202,7 @@ TEST_F(ECCVMTests, CommittedSumcheck)
     prover_transcript = std::make_shared<Transcript>();
 
     // Run Sumcheck on the ECCVM Prover polynomials
-    using SumcheckProver = SumcheckProver<ECCVMFlavor, CONST_ECCVM_LOG_N>;
+    using SumcheckProver = SumcheckProver<ECCVMFlavor>;
     SumcheckProver sumcheck_prover(pk->circuit_size,
                                    pk->polynomials,
                                    prover_transcript,
@@ -219,7 +219,7 @@ TEST_F(ECCVMTests, CommittedSumcheck)
     verifier_transcript->load_proof(prover_transcript->export_proof());
 
     // Execute Sumcheck Verifier
-    SumcheckVerifier<Flavor, CONST_ECCVM_LOG_N> sumcheck_verifier(verifier_transcript, alpha, CONST_ECCVM_LOG_N);
+    SumcheckVerifier<Flavor> sumcheck_verifier(verifier_transcript, alpha, CONST_ECCVM_LOG_N);
     SumcheckOutput<ECCVMFlavor> verifier_output = sumcheck_verifier.verify(relation_parameters, gate_challenges);
 
     // Evaluate prover's round univariates at corresponding challenges and compare them with the claimed evaluations

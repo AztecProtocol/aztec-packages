@@ -120,7 +120,7 @@ transcript. These operations are taken care of by \ref bb::BaseTranscript "Trans
 ## Output
 The Sumcheck output is specified by \ref bb::SumcheckOutput< Flavor >.
  */
-template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class SumcheckProver {
+template <typename Flavor> class SumcheckProver {
   public:
     using FF = typename Flavor::FF;
     // PartiallyEvaluatedMultivariates OR ProverPolynomials
@@ -626,7 +626,7 @@ u_{d-1})\right)\f}
   \snippet cpp/src/barretenberg/sumcheck/sumcheck.hpp Final Verification Step
 
  */
-template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class SumcheckVerifier {
+template <typename Flavor> class SumcheckVerifier {
 
   public:
     using Utils = bb::RelationUtils<Flavor>;
