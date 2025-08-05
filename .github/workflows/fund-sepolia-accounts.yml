@@ -16,10 +16,10 @@ on:
         description: The branch or tag to checkout
         required: false
         type: string
-        default: master
+        default: next
       funding_amount:
         description: The amount of ETH to fund each account with
-        required: true
+        required: false
         type: number
         default: 5
     secrets:
@@ -47,7 +47,7 @@ on:
         description: The branch or tag to checkout
         required: false
         type: string
-        default: master
+        default: next
       funding_amount:
         description: The amount of ETH to fund each account with
         required: true
@@ -61,7 +61,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: ${{ inputs.ref || github.ref || 'master' }}
+          ref: ${{ inputs.ref || github.ref || 'next' }}
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@6fc4af4b145ae7821d527454aa9bd537d1f2dc5f
