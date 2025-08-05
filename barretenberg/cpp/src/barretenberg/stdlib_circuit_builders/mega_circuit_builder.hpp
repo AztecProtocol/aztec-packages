@@ -39,11 +39,13 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     ecc_op_tuple queue_ecc_mul_accum(const g1::affine_element& point, const FF& scalar);
     ecc_op_tuple queue_ecc_eq();
     ecc_op_tuple queue_ecc_no_op();
+    void queue_ecc_random_op(); // WORKTODO: clean this up
 
     bool is_kernel = false; // Flag indicating whether this circuit is a kernel
 
   private:
     ecc_op_tuple populate_ecc_op_wires(const UltraOp& ultra_op);
+    void populate_ecc_op_wires_from_random_op(const UltraOp& ultra_op);
     void set_goblin_ecc_op_code_constant_variables();
     void create_databus_read_gate(const databus_lookup_gate_<FF>& in, BusId bus_idx);
     void apply_databus_selectors(BusId bus_idx);

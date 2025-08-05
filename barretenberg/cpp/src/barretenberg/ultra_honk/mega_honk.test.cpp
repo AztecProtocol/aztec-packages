@@ -517,3 +517,28 @@ TYPED_TEST(MegaHonkTests, PolySwap)
         EXPECT_FALSE(std::get<0>(verifier.verify_proof(proof)));
     }
 }
+
+TYPED_TEST(MegaHonkTests, OpQueueWithRandomValues)
+{
+    using Flavor = TypeParam;
+    using Builder = Flavor::CircuitBuilder;
+    {
+        Builder builder;
+        GoblinMockCircuits::randomise_op_queue(builder);
+        GoblinMockCircuits::construct_simple_circuit(builder);
+
+        // Construct and verify Honk proof
+        bool honk_verified = this->construct_and_verify_honk_proof(builder);
+        EXPECT_TRUE(honk_verified);
+    }
+
+    {
+        Builder builder;
+        GoblinMockCircuits::construct_simple_circuit(builder);
+        GoblinMockCircuits::randomise_op_queue(builder);
+
+        // Construct and verify Honk proof
+        bool honk_verified = this->construct_and_verify_honk_proof(builder);
+        EXPECT_TRUE(honk_verified);
+    }
+}

@@ -28,14 +28,22 @@ enum MergeSettings { PREPEND, APPEND };
  * - no operation: all false, value() = 0
  */
 struct EccOpCode {
+    using Fr = curve::BN254::ScalarField;
     bool add = false;
     bool mul = false;
     bool eq = false;
     bool reset = false;
     bool operator==(const EccOpCode& other) const = default;
 
+    bool is_random_op = false;
+    Fr random_value_1 = Fr(0);
+    Fr random_value_2 = Fr(0);
+
     [[nodiscard]] uint32_t value() const
     {
+        if (random_value_1 != 0 || random_value_2 != 0) {
+            throw_or_abort("should not call value() on a random op");
+        }
         auto res = static_cast<uint32_t>(add);
         res += res;
         res += static_cast<uint32_t>(mul);
@@ -282,12 +290,13 @@ class UltraEccOpsTable {
         for (size_t subtable_idx = subtable_start_idx; subtable_idx < subtable_end_idx; ++subtable_idx) {
             const auto& subtable = table.get()[subtable_idx];
             for (const auto& op : subtable) {
-                column_polynomials[0].at(i) = op.op_code.value();
+                column_polynomials[0].at(i) = !op.op_code.is_random_op ? op.op_code.value() : op.op_code.random_value_1;
                 column_polynomials[1].at(i) = op.x_lo;
                 column_polynomials[2].at(i) = op.x_hi;
                 column_polynomials[3].at(i) = op.y_lo;
                 i++;
-                column_polynomials[0].at(i) = 0; // only the first 'op' field is utilized
+                column_polynomials[0].at(i) = !op.op_code.is_random_op ? 0 : op.op_code.random_value_2;
+                // only the first 'op' field is utilized
                 column_polynomials[1].at(i) = op.y_hi;
                 column_polynomials[2].at(i) = op.z_1;
                 column_polynomials[3].at(i) = op.z_2;

@@ -180,6 +180,41 @@ template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::populate_ecc_op_wir
     return op_tuple;
 };
 
+template <typename FF> void MegaCircuitBuilder_<FF>::queue_ecc_random_op()
+{
+    // Add the operation to the op queue
+    auto ultra_op = op_queue->random_op_ultra_only();
+
+    // Add corresponding gates for the operation
+    populate_ecc_op_wires_from_random_op(ultra_op);
+}
+
+template <typename FF> void MegaCircuitBuilder_<FF>::populate_ecc_op_wires_from_random_op(const UltraOp& ultra_op)
+{
+    ecc_op_tuple op_tuple;
+    ASSERT(ultra_op.op_code.is_random_op,
+           "MegaCircuitBuilder::populate_ecc_op_wires_from_random_op should only be called for random ecc ops");
+
+    uint32_t random_value1_idx = this->add_variable(ultra_op.op_code.random_value_1);
+    uint32_t random_value2_idx = this->add_variable(ultra_op.op_code.random_value_2);
+    op_tuple.x_lo = this->add_variable(ultra_op.x_lo);
+    op_tuple.x_hi = this->add_variable(ultra_op.x_hi);
+    op_tuple.y_lo = this->add_variable(ultra_op.y_lo);
+    op_tuple.y_hi = this->add_variable(ultra_op.y_hi);
+    op_tuple.z_1 = this->add_variable(ultra_op.z_1);
+    op_tuple.z_2 = this->add_variable(ultra_op.z_2);
+
+    this->blocks.ecc_op.populate_wires(random_value1_idx, op_tuple.x_lo, op_tuple.x_hi, op_tuple.y_lo);
+    for (auto& selector : this->blocks.ecc_op.get_selectors()) {
+        selector.emplace_back(0);
+    }
+
+    this->blocks.ecc_op.populate_wires(random_value2_idx, op_tuple.y_hi, op_tuple.z_1, op_tuple.z_2);
+    for (auto& selector : this->blocks.ecc_op.get_selectors()) {
+        selector.emplace_back(0);
+    }
+};
+
 template <typename FF> void MegaCircuitBuilder_<FF>::set_goblin_ecc_op_code_constant_variables()
 {
     null_op_idx = this->zero_idx; // constant 0 is is associated with the zero index

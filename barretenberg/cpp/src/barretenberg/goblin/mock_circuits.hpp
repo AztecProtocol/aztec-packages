@@ -72,11 +72,6 @@ class GoblinMockCircuits {
 
     static constexpr size_t NUM_WIRES = Flavor::NUM_WIRES;
 
-    struct KernelInput {
-        HonkProof proof;
-        std::shared_ptr<Flavor::VerificationKey> verification_key;
-    };
-
     /**
      * @brief Populate a builder with some arbitrary but nontrivial constraints
      * @details Although the details of the circuit constructed here are arbitrary, the intent is to mock something a
@@ -124,7 +119,15 @@ class GoblinMockCircuits {
             builder.queue_ecc_mul_accum(point, scalar);
         }
         // queues the result of the preceding ECC
+
         builder.queue_ecc_eq(); // should be eq and reset
+    }
+
+    static void randomise_op_queue(MegaBuilder& builder)
+    {
+        // WORKTODO assert the op queue is not empty
+        builder.queue_ecc_random_op();
+        builder.queue_ecc_random_op();
     }
 
     /**
@@ -136,6 +139,7 @@ class GoblinMockCircuits {
     {
         PROFILE_THIS();
         // The last circuit to be accumulated must contain a no-op
+        // this is icky
         if (last_circuit) {
             builder.queue_ecc_no_op();
         }
