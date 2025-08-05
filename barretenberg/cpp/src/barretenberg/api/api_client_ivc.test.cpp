@@ -114,7 +114,6 @@ ClientIVC::MegaVerificationKey get_ivc_vk(const std::filesystem::path& test_dir)
 
     ClientIVCAPI::Flags write_vk_flags;
     write_vk_flags.verifier_type = "ivc";
-    write_vk_flags.output_format = "bytes";
 
     ClientIVCAPI api;
     api.write_vk(write_vk_flags, bytecode_path, test_dir);
@@ -180,10 +179,9 @@ TEST_F(ClientIVCAPITests, WriteVkFieldsSmokeTest)
     std::filesystem::path bytecode_path = test_dir / "circuit.acir";
     write_file(bytecode_path, bb::compress(bytecode));
 
-    // Test write_vk with bytes output format
+    // Test write_vk
     ClientIVCAPI::Flags flags;
     flags.verifier_type = "standalone";
-    flags.output_format = "bytes";
 
     ClientIVCAPI api;
     api.write_vk(flags, bytecode_path, test_dir);

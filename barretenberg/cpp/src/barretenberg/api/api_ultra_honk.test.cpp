@@ -76,7 +76,6 @@ TEST_F(ApiUltraHonkTest, ProveAndVerify)
     auto [bytecode_path, witness_path] = create_test_circuit_files(test_dir);
 
     API::Flags flags;
-    flags.output_format = "bytes";
     flags.oracle_hash_type = "poseidon2"; // Set default oracle hash type
 
     UltraHonkAPI api;
@@ -107,7 +106,6 @@ TEST_F(ApiUltraHonkTest, ProveWithWriteVk)
     auto [bytecode_path, witness_path] = create_test_circuit_files(test_dir);
 
     API::Flags flags;
-    flags.output_format = "bytes";
     flags.oracle_hash_type = "poseidon2";
     flags.write_vk = true;
 
@@ -134,9 +132,8 @@ TEST_F(ApiUltraHonkTest, ProveAndVerifyWithFields)
 {
     auto [bytecode_path, witness_path] = create_test_circuit_files(test_dir);
 
-    // First generate VK in bytes format for the prove step
+    // First generate VK for the prove step
     API::Flags vk_flags;
-    vk_flags.output_format = "bytes";
     vk_flags.oracle_hash_type = "poseidon2";
 
     UltraHonkAPI api;
@@ -146,9 +143,8 @@ TEST_F(ApiUltraHonkTest, ProveAndVerifyWithFields)
     api.write_vk(vk_flags, bytecode_path, vk_output_path);
     EXPECT_TRUE(std::filesystem::exists(vk_output_path / "vk"));
 
-    // Now test bytes format for proof generation
+    // Now test proof generation
     API::Flags flags;
-    flags.output_format = "bytes";
     flags.oracle_hash_type = "poseidon2";
 
     // Generate proof with bytes output
@@ -174,7 +170,6 @@ TEST_F(ApiUltraHonkTest, ProveWithDifferentSettings)
 
     for (const auto& [oracle_hash_type, disable_zk] : test_cases) {
         API::Flags flags;
-        flags.output_format = "bytes";
         flags.oracle_hash_type = oracle_hash_type;
         flags.disable_zk = disable_zk;
         flags.write_vk = true;
@@ -197,7 +192,6 @@ TEST_F(ApiUltraHonkTest, WriteVk)
 {
     auto [bytecode_path, witness_path] = create_test_circuit_files(test_dir);
     API::Flags flags;
-    flags.output_format = "bytes";
     flags.oracle_hash_type = "poseidon2";
 
     UltraHonkAPI api;

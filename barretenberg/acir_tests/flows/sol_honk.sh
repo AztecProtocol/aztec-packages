@@ -4,7 +4,7 @@ set -eu
 VFLAG=${VERBOSE:+-v}
 BFLAG="-b ./target/program.json"
 FLAGS="-c $CRS_PATH $VFLAG --scheme ultra_honk --disable_zk"
-PROVE_FLAGS="$FLAGS $BFLAG --oracle_hash keccak --output_format bytes --write_vk"
+PROVE_FLAGS="$FLAGS $BFLAG --oracle_hash keccak --write_vk"
 VERIFY_FLAGS="$FLAGS --oracle_hash keccak"
 
 outdir=$(mktemp -d)

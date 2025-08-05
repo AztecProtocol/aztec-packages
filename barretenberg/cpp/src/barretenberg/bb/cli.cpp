@@ -21,7 +21,6 @@
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/api/gate_count.hpp"
 #include "barretenberg/api/prove_tube.hpp"
-#include "barretenberg/api/write_prover_output.hpp"
 #include "barretenberg/bb/cli11_formatter.hpp"
 #include "barretenberg/bbapi/bbapi.hpp"
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
@@ -144,7 +143,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
     std::filesystem::path vk_path{ "./target/vk" };
     flags.scheme = "";
     flags.oracle_hash_type = "poseidon2";
-    flags.output_format = "bytes";
     flags.crs_path = srs::bb_crs_path();
     flags.include_gates_per_opcode = false;
     const auto add_output_path_option = [&](CLI::App* subcommand, auto& _output_path) {
@@ -202,15 +200,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
                 "has a privileged position due to the existence of an EVM precompile. Starknet is optimized "
                 "for verification in a Starknet smart contract, which can be generated using the Garaga library.")
             ->check(CLI::IsMember({ "poseidon2", "keccak", "starknet" }).name("is_member"));
-    };
-
-    const auto add_output_format_option = [&](CLI::App* subcommand) {
-        return subcommand
-            ->add_option("--output_format",
-                         flags.output_format,
-                         "The type of the data to be written by the command. Output the raw bytes prefixed with "
-                         "header information for deserialization.")
-            ->check(CLI::IsMember({ "bytes" }).name("is_member"));
     };
 
     const auto add_write_vk_flag = [&](CLI::App* subcommand) {
@@ -356,7 +345,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_debug_flag(prove);
     add_crs_path_option(prove);
     add_oracle_hash_option(prove);
-    add_output_format_option(prove);
     add_write_vk_flag(prove);
     remove_zk_option(prove);
     add_init_kzg_accumulator_option(prove);
@@ -383,7 +371,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
 
     add_verbose_flag(write_vk);
     add_debug_flag(write_vk);
-    add_output_format_option(write_vk);
     add_crs_path_option(write_vk);
     add_init_kzg_accumulator_option(write_vk);
     add_oracle_hash_option(write_vk);

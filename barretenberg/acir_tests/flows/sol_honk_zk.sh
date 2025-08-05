@@ -10,7 +10,7 @@ outdir=$(mktemp -d)
 trap "rm -rf $outdir" EXIT
 
 # Create a proof, write the solidity contract
-$BIN prove -o $outdir $FLAGS $BFLAG $PROTOCOL_FLAGS --output_format bytes --write_vk
+$BIN prove -o $outdir $FLAGS $BFLAG $PROTOCOL_FLAGS --write_vk
 $BIN verify -i $outdir/public_inputs -k $outdir/vk -p $outdir/proof $FLAGS $PROTOCOL_FLAGS
 $BIN write_solidity_verifier $FLAGS -k $outdir/vk -o $outdir/Verifier.sol
 

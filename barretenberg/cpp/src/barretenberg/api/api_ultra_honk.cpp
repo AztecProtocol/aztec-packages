@@ -20,31 +20,23 @@ namespace bb {
 
 namespace {
 
-void write_vk_outputs(const bbapi::CircuitComputeVk::Response& vk_response,
-                      const std::string& output_format,
-                      const std::filesystem::path& output_dir)
+void write_vk_outputs(const bbapi::CircuitComputeVk::Response& vk_response, const std::filesystem::path& output_dir)
 {
-    if (output_format == "bytes") {
-        write_file(output_dir / "vk", vk_response.bytes);
-        info("VK saved to ", output_dir / "vk");
-        write_file(output_dir / "vk_hash", vk_response.hash);
-        info("VK Hash saved to ", output_dir / "vk_hash");
-    }
+    write_file(output_dir / "vk", vk_response.bytes);
+    info("VK saved to ", output_dir / "vk");
+    write_file(output_dir / "vk_hash", vk_response.hash);
+    info("VK Hash saved to ", output_dir / "vk_hash");
 }
 
-void write_proof_outputs(const bbapi::CircuitProve::Response& prove_response,
-                         const std::string& output_format,
-                         const std::filesystem::path& output_dir)
+void write_proof_outputs(const bbapi::CircuitProve::Response& prove_response, const std::filesystem::path& output_dir)
 {
-    if (output_format == "bytes") {
-        auto public_inputs_buf = to_buffer(prove_response.public_inputs);
-        auto proof_buf = to_buffer(prove_response.proof);
+    auto public_inputs_buf = to_buffer(prove_response.public_inputs);
+    auto proof_buf = to_buffer(prove_response.proof);
 
-        write_file(output_dir / "public_inputs", public_inputs_buf);
-        write_file(output_dir / "proof", proof_buf);
-        info("Public inputs saved to ", output_dir / "public_inputs");
-        info("Proof saved to ", output_dir / "proof");
-    }
+    write_file(output_dir / "public_inputs", public_inputs_buf);
+    write_file(output_dir / "proof", proof_buf);
+    info("Public inputs saved to ", output_dir / "public_inputs");
+    info("Proof saved to ", output_dir / "proof");
 }
 
 } // anonymous namespace
@@ -88,7 +80,7 @@ void UltraHonkAPI::prove(const Flags& flags,
                 .execute();
 
         // Write VK outputs separately
-        write_vk_outputs(vk_response, flags.output_format, output_dir);
+        write_vk_outputs(vk_response, output_dir);
         vk_bytes = std::move(vk_response.bytes);
     } else {
         vk_bytes = read_file(vk_path);
@@ -103,7 +95,7 @@ void UltraHonkAPI::prove(const Flags& flags,
                               .execute();
 
     // Write proof outputs (not VK - that's handled above)
-    write_proof_outputs(prove_response, flags.output_format, output_dir);
+    write_proof_outputs(prove_response, output_dir);
 }
 
 bool UltraHonkAPI::verify(const Flags& flags,
@@ -160,7 +152,7 @@ void UltraHonkAPI::write_vk(const Flags& flags,
                                              .settings = settings }
                         .execute();
 
-    write_vk_outputs(response, flags.output_format, output_dir);
+    write_vk_outputs(response, output_dir);
 }
 
 void UltraHonkAPI::gates([[maybe_unused]] const Flags& flags,

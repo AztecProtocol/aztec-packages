@@ -21,13 +21,12 @@ $BIN write_vk \
   -b $artifact_dir/program.json \
   -o $output_dir
 
-# Generate the proof using BB CLI (save as both bytes and fields)
+# Generate the proof using BB CLI
 $BIN prove \
   --scheme ultra_honk \
   -b $artifact_dir/program.json \
   -w $artifact_dir/witness.gz \
   -k $output_dir/vk \
-  --output_format bytes \
   -o $output_dir
 
 # Verify the proof with bb.js classes

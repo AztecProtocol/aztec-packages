@@ -14,6 +14,6 @@ trap "rm -rf $outdir" EXIT
 flags="--scheme client_ivc -c $CRS_PATH ${VERBOSE:+-v}"
 
 parallel ::: \
-  "$BIN prove $flags -i target/ivc-inputs.msgpack $INFLAG --output_format proof -o $outdir" \
+  "$BIN prove $flags -i target/ivc-inputs.msgpack $INFLAG -o $outdir" \
   "$BIN write_vk $flags -i target/ivc-inputs.msgpack $INFLAG --verifier_type ivc -o $outdir"
 $BIN verify $flags -p $outdir/proof -k $outdir/vk
