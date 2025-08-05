@@ -33,12 +33,12 @@ export class Oracle {
       name => !excludedProps.includes(name as (typeof excludedProps)[number]),
     );
 
-    // Validate oracle names - these must be prefixed with either "pxe" or "utility" to indicate their scope and must
-    // correspond to a function on the Oracle class.
+    // Validate oracle names - these must be prefixed with either "private" or "utility" to indicate their scope
+    // and must correspond to a function on the Oracle class.
     oracleNames.forEach(name => {
-      if (!name.startsWith('pxe') && !name.startsWith('utility')) {
+      if (!name.startsWith('private') && !name.startsWith('utility')) {
         throw new Error(
-          `Oracle function "${name}" must be prefixed with either "pxe" or "utility" to indicate its scope`,
+          `Oracle function "${name}" must be prefixed with either "private" or "utility" to indicate its scope`,
         );
       }
 
