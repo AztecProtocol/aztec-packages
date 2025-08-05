@@ -32,12 +32,6 @@ function build_and_deploy {
   fi
 
   if [ "${CI:-0}" -eq 1 ] && [ "$(arch)" == "amd64" ]; then
-    if [ -z "${NETLIFY_SITE_ID:-}" ] || [ -z "${NETLIFY_AUTH_TOKEN:-}" ]; then
-      echo "No netlify credentials available, skipping."
-      return
-    fi
-
-    # Deploy to prod if on the main branch (next)
     if [ "$REF_NAME" == "next" ]; then
       echo_header "deploying to production"
       do_or_dryrun yarn netlify deploy --site barretenberg --prod
