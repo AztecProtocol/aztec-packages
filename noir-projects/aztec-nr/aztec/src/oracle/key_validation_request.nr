@@ -1,6 +1,6 @@
 use protocol_types::abis::validation_requests::KeyValidationRequest;
 
-#[oracle(getKeyValidationRequest)]
+#[oracle(utilityGetKeyValidationRequest)]
 unconstrained fn get_key_validation_request_oracle(
     _pk_m_hash: Field,
     _key_index: Field,
