@@ -407,13 +407,15 @@ template <typename Builder> class stdlib_field : public testing::Test {
         // Witness != witness (both are not normalized)
         {
             Builder builder;
+            size_t num_gates_start = builder.get_estimated_num_finalized_gates();
             field_ct a = field_ct::from_witness(&builder, 10);
             a += 13;
             field_ct b = field_ct::from_witness(&builder, 15);
             b += 1;
             a.assert_equal(b);
             EXPECT_FALSE(CircuitChecker::check(builder));
-            // Both witnesses are not normalized, we use an `add_gate` to ensure they are equal
+            // Both witnesses are not normalized, we use a single `add_gate` to ensure they are equal
+            EXPECT_EQ(builder.get_estimated_num_finalized_gates() - num_gates_start, 1);
             EXPECT_EQ(builder.err(), "field_t::assert_equal");
         }
     }
