@@ -22,7 +22,7 @@ The testnet is version dependent. It is currently running version `1.2.0`. Maint
 
 ## Sandbox, nodes, and PXE
 
-To connect a local PXE to testnet, install the testnet version of the sandbox.
+To connect to the testnet, install the testnet version of the sandbox.
 
 ```sh
 aztec-up -v latest
@@ -37,7 +37,7 @@ aztec-wallet create-account -a main --register-only --node-url $NODE_URL
 
 You can find a full flow in the [getting started on testnet](./developers/getting_started.md) guide.
 
-Instead of running a PXE locally, you can also use one directly with AztecJS in your app. For this, you will need to connect to an Aztec node and initialize the PXE.
+To instantiate a PXE directly with AztecJS in your app, you will need to connect to an Aztec node and initialize the PXE.
 
 In the browser:
 
