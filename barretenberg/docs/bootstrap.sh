@@ -34,9 +34,11 @@ function build_and_deploy {
   if [ "${CI:-0}" -eq 1 ] && [ "$(arch)" == "amd64" ]; then
     if [ "$REF_NAME" == "next" ]; then
       echo_header "deploying to production"
+      denoise "yarn install && yarn build"
       do_or_dryrun yarn netlify deploy --site barretenberg --prod
     else
       echo_header "deploying preview for branch: $REF_NAME"
+      denoise "yarn install && yarn build"
       do_or_dryrun yarn netlify deploy --site barretenberg
     fi
   else
