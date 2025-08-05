@@ -4,7 +4,7 @@ use dep::protocol_types::{
     public_keys::{IvpkM, NpkM, OvpkM, PublicKeys, TpkM},
 };
 
-#[oracle(getPublicKeysAndPartialAddress)]
+#[oracle(utilityGetPublicKeysAndPartialAddress)]
 unconstrained fn get_public_keys_and_partial_address_oracle(_address: AztecAddress) -> [Field; 13] {}
 
 pub unconstrained fn get_public_keys_and_partial_address(

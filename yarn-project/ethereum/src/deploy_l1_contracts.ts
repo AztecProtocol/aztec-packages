@@ -31,6 +31,7 @@ import {
   getRewardBoostConfig,
   getRewardConfig,
 } from './config.js';
+import { GSEContract } from './contracts/gse.js';
 import { deployMulticall3 } from './contracts/multicall.js';
 import { RegistryContract } from './contracts/registry.js';
 import { RollupContract } from './contracts/rollup.js';
@@ -71,6 +72,7 @@ const networkName = getActiveNetworkName();
 export type Operator = {
   attester: EthAddress;
   withdrawer: EthAddress;
+  bn254SecretKey: bigint;
 };
 
 /**
@@ -182,8 +184,8 @@ export const deploySharedContracts = async (
   const gseAddress = await deployer.deploy(GSEArtifact, [
     l1Client.account.address.toString(),
     stakingAssetAddress.toString(),
-    gseConfiguration.depositAmount,
-    gseConfiguration.minimumStake,
+    gseConfiguration.activationThreshold,
+    gseConfiguration.ejectionThreshold,
   ]);
   logger.verbose(`Deployed GSE at ${gseAddress}`);
 
@@ -431,7 +433,7 @@ export const deployRollupForUpgrade = async (
   extendedClient: ExtendedViemWalletClient,
   args: Omit<
     DeployL1ContractsArgs,
-    'governanceProposerQuorum' | 'governanceProposerRoundSize' | 'minimumStake' | 'depositAmount'
+    'governanceProposerQuorum' | 'governanceProposerRoundSize' | 'ejectionThreshold' | 'activationThreshold'
   >,
   registryAddress: EthAddress,
   logger: Logger,
@@ -481,7 +483,7 @@ export const deployRollup = async (
   deployer: L1Deployer,
   args: Omit<
     DeployL1ContractsArgs,
-    'governanceProposerQuorum' | 'governanceProposerRoundSize' | 'minimumStake' | 'depositAmount'
+    'governanceProposerQuorum' | 'governanceProposerRoundSize' | 'ejectionThreshold' | 'activationThreshold'
   >,
   addresses: Pick<
     L1ContractAddresses,
@@ -638,6 +640,7 @@ export const deployRollup = async (
     await addMultipleValidators(
       extendedClient,
       deployer,
+      addresses.gseAddress.toString(),
       rollupAddress.toString(),
       addresses.stakingAssetAddress.toString(),
       args.initialValidators,
@@ -733,6 +736,7 @@ export const handoverToGovernance = async (
 export const addMultipleValidators = async (
   extendedClient: ExtendedViemWalletClient,
   deployer: L1Deployer,
+  gseAddress: Hex,
   rollupAddress: Hex,
   stakingAssetAddress: Hex,
   validators: Operator[],
@@ -740,7 +744,7 @@ export const addMultipleValidators = async (
   logger: Logger,
 ) => {
   const rollup = new RollupContract(extendedClient, rollupAddress);
-  const depositAmount = await rollup.getDepositAmount();
+  const activationThreshold = await rollup.getActivationThreshold();
   if (validators && validators.length > 0) {
     // Check if some of the initial validators are already registered, so we support idempotent deployments
     if (!acceleratedTestDeployments) {
@@ -763,15 +767,22 @@ export const addMultipleValidators = async (
     }
 
     if (validators.length > 0) {
+      const gseContract = new GSEContract(extendedClient, gseAddress);
       const multiAdder = await deployer.deploy(MultiAdderArtifact, [rollupAddress, deployer.client.account.address]);
 
-      const validatorsTuples = validators.map(v => ({
-        attester: getAddress(v.attester.toString()),
-        withdrawer: getAddress(v.withdrawer.toString()),
-      }));
+      const makeValidatorTuples = async (validator: Operator) => {
+        const registrationTuple = await gseContract.makeRegistrationTuple(validator.bn254SecretKey);
+        return {
+          attester: getAddress(validator.attester.toString()),
+          withdrawer: getAddress(validator.withdrawer.toString()),
+          ...registrationTuple,
+        };
+      };
+
+      const validatorsTuples = await Promise.all(validators.map(makeValidatorTuples));
 
       // Mint tokens, approve them, use cheat code to initialise validator set without setting up the epoch.
-      const stakeNeeded = depositAmount * BigInt(validators.length);
+      const stakeNeeded = activationThreshold * BigInt(validators.length);
       const { txHash } = await deployer.sendTransaction({
         to: stakingAssetAddress,
         data: encodeFunctionData({

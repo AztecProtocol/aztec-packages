@@ -9,6 +9,7 @@ import type {
   MerkleTreeWriteOperations,
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { Offense } from '@aztec/stdlib/slashing';
 import { Tx } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
@@ -16,7 +17,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import EventEmitter from 'node:events';
 import type { Hex } from 'viem';
 
-import { Offense, WANT_TO_SLASH_EVENT } from './config.js';
+import { WANT_TO_SLASH_EVENT } from './config.js';
 import { EpochPruneWatcher } from './epoch_prune_watcher.js';
 
 describe('EpochPruneWatcher', () => {
