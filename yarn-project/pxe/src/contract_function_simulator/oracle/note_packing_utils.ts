@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
-
-import type { NoteData } from './typed_oracle.js';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { Note } from '@aztec/stdlib/note';
 
 // TS equivalent of the `NoteMetadata::from_raw_data` function in `aztec/src/note/note_metadata.nr`
 function fromRawData(nonzeroNoteHashCounter: boolean, maybeNoteNonce: Fr): { stage: number; maybeNoteNonce: Fr } {
@@ -17,8 +17,17 @@ function fromRawData(nonzeroNoteHashCounter: boolean, maybeNoteNonce: Fr): { sta
   }
 }
 
-export function packAsRetrievedNote(note: NoteData) {
-  const { contractAddress, noteNonce, index, note: noteContent } = note;
+export function packAsRetrievedNote({
+  contractAddress,
+  noteNonce,
+  index,
+  note: noteContent,
+}: {
+  contractAddress: AztecAddress;
+  noteNonce: Fr;
+  index?: bigint;
+  note: Note;
+}) {
   // If index is undefined, the note is transient which implies that the nonzero_note_hash_counter has to be true
   const noteIsTransient = index === undefined;
   const nonzeroNoteHashCounter = noteIsTransient ? true : false;

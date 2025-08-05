@@ -10,24 +10,56 @@ pub struct RetrievedNote<Note> {
     pub metadata: NoteMetadata,
 }
 
-// // This function is not part of the Packable trait implementation because in the case of the retrieved note, the pack
-// // functionality resides in TS (oracle.ts and txe_service.ts).
-// pub fn unpack_retrieved_note<Note>(
-//     packed_retrieved_note: [Field; <RetrievedNote<Note> as Packable>::N],
-// ) -> RetrievedNote<Note>
-// where
-//     Note: Packable,
-// {
-//     let contract_address = AztecAddress::from_field(packed_retrieved_note[0]);
-//     let note_nonce = packed_retrieved_note[1];
-//     let nonzero_note_hash_counter = (packed_retrieved_note[2] as u1) != 0;
+mod test {
+    use crate::note::note_metadata::NoteMetadata;
+    use crate::note::retrieved_note::RetrievedNote;
+    use protocol_types::address::AztecAddress;
+    use protocol_types::traits::{FromField, Packable};
 
-//     let packed_note = subarray(packed_retrieved_note, <RetrievedNote<Note> as Packable>::N);
-//     let note = Note::unpack(packed_note);
+    #[derive(Packable)]
+    struct TestNote {
+        value1: Field,
+        value2: Field,
+    }
 
-//     RetrievedNote {
-//         note,
-//         contract_address,
-//         metadata: NoteMetadata::from_raw_data(nonzero_note_hash_counter, note_nonce),
-//     }
-// }
+    #[test]
+    unconstrained fn unpacks_retrieved_note_from_typescript() {
+        // The following 4 values are an input to the typescript function `packAsRetrievedNote`
+        let contract_address = AztecAddress::from_field(1);
+        let note_nonce = 2;
+        let index = Option::<Field>::none(); // Transient note
+        let packed_note = [3, 4];
+
+        // Below we reproduce what the typescript function `packAsRetrievedNote` does. This is a bit strange but we
+        // also want to test that the `fromRawData` function matches the Noir one.
+        let note_is_transient = index.is_none();
+        let nonzero_note_hash_counter = !note_is_transient;
+        let note_metadata = NoteMetadata::from_raw_data(nonzero_note_hash_counter, note_nonce);
+
+        // Now we reconstruct the retrieved note from the values above and pack it.
+        let retrieved_note = RetrievedNote {
+            note: TestNote::unpack(packed_note),
+            contract_address,
+            metadata: note_metadata,
+        };
+
+        let packed_retrieved_note = retrieved_note.pack();
+
+        let packed_retrieved_note_from_typescript = [
+            0x0000000000000000000000000000000000000000000000000000000000000002,
+            0x0000000000000000000000000000000000000000000000000000000000000002,
+            0x0000000000000000000000000000000000000000000000000000000000000001,
+            0x0000000000000000000000000000000000000000000000000000000000000003,
+            0x0000000000000000000000000000000000000000000000000000000000000004,
+        ];
+
+        std::println(packed_retrieved_note);
+        std::println(packed_retrieved_note_from_typescript);
+
+        assert_eq(
+            packed_retrieved_note,
+            packed_retrieved_note_from_typescript,
+            "packed retrieved note does not match value from typescript",
+        );
+    }
+}
