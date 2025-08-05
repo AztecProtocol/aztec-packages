@@ -59,9 +59,8 @@ struct CircuitComputeVk {
         static constexpr const char* MSGPACK_SCHEMA_NAME = "CircuitComputeVkResponse";
 
         std::vector<uint8_t> bytes; // Serialized verification key
-        std::vector<fr> fields;     // VK as field elements
         std::vector<uint8_t> hash;  // The VK hash
-        MSGPACK_FIELDS(bytes, fields, hash);
+        MSGPACK_FIELDS(bytes, hash);
         bool operator==(const Response&) const = default;
     };
 
@@ -121,30 +120,6 @@ struct CircuitVerify {
     MSGPACK_FIELDS(verification_key, public_inputs, proof, settings);
     Response execute(const BBApiRequest& request = {}) &&;
     bool operator==(const CircuitVerify&) const = default;
-};
-
-/**
- * @struct VkAsFields
- * @brief Convert a verification key to field elements representation.
- * WORKTODO(bbapi): this should become mostly obsolete with having the verification keys always reported as field
-elements as well,
- * and having a simpler serialization method.
- */
-struct VkAsFields {
-    static constexpr const char* MSGPACK_SCHEMA_NAME = "VkAsFields";
-
-    struct Response {
-        static constexpr const char* MSGPACK_SCHEMA_NAME = "VkAsFieldsResponse";
-
-        std::vector<bb::fr> fields;
-        MSGPACK_FIELDS(fields);
-        bool operator==(const Response&) const = default;
-    };
-
-    std::vector<uint8_t> verification_key;
-    MSGPACK_FIELDS(verification_key);
-    Response execute(const BBApiRequest& request = {}) &&;
-    bool operator==(const VkAsFields&) const = default;
 };
 
 /**

@@ -21,7 +21,6 @@
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/api/gate_count.hpp"
 #include "barretenberg/api/prove_tube.hpp"
-#include "barretenberg/api/write_prover_output.hpp"
 #include "barretenberg/bb/cli11_formatter.hpp"
 #include "barretenberg/bbapi/bbapi.hpp"
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
@@ -144,7 +143,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
     std::filesystem::path vk_path{ "./target/vk" };
     flags.scheme = "";
     flags.oracle_hash_type = "poseidon2";
-    flags.output_format = "bytes";
     flags.crs_path = srs::bb_crs_path();
     flags.include_gates_per_opcode = false;
     const auto add_output_path_option = [&](CLI::App* subcommand, auto& _output_path) {
@@ -202,18 +200,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
                 "has a privileged position due to the existence of an EVM precompile. Starknet is optimized "
                 "for verification in a Starknet smart contract, which can be generated using the Garaga library.")
             ->check(CLI::IsMember({ "poseidon2", "keccak", "starknet" }).name("is_member"));
-    };
-
-    const auto add_output_format_option = [&](CLI::App* subcommand) {
-        return subcommand
-            ->add_option(
-                "--output_format",
-                flags.output_format,
-                "The type of the data to be written by the command. If bytes, output the raw bytes prefixed with "
-                "header information for deserialization. If fields, output a string representation of an array of "
-                "field elements. If bytes_and_fields do both. If fields_msgpack, outputs a msgpack buffer of Fr "
-                "elements.")
-            ->check(CLI::IsMember({ "bytes", "fields", "bytes_and_fields", "fields_msgpack" }).name("is_member"));
     };
 
     const auto add_write_vk_flag = [&](CLI::App* subcommand) {
@@ -359,7 +345,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_debug_flag(prove);
     add_crs_path_option(prove);
     add_oracle_hash_option(prove);
-    add_output_format_option(prove);
     add_write_vk_flag(prove);
     remove_zk_option(prove);
     add_init_kzg_accumulator_option(prove);
@@ -386,7 +371,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
 
     add_verbose_flag(write_vk);
     add_debug_flag(write_vk);
-    add_output_format_option(write_vk);
     add_crs_path_option(write_vk);
     add_init_kzg_accumulator_option(write_vk);
     add_oracle_hash_option(write_vk);
@@ -468,20 +452,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_crs_path_option(OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file);
     std::string arbitrary_valid_proof_path{ "./proofs/proof" };
     add_output_path_option(OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file, arbitrary_valid_proof_path);
-
-    /***************************************************************************************************************
-     * Subcommand: OLD_API write_recursion_inputs_ultra_honk
-     ***************************************************************************************************************/
-    CLI::App* OLD_API_write_recursion_inputs_ultra_honk =
-        OLD_API->add_subcommand("write_recursion_inputs_ultra_honk", "");
-    add_verbose_flag(OLD_API_write_recursion_inputs_ultra_honk);
-    add_debug_flag(OLD_API_write_recursion_inputs_ultra_honk);
-    add_crs_path_option(OLD_API_write_recursion_inputs_ultra_honk);
-    std::string recursion_inputs_output_path{ "./target" };
-    add_output_path_option(OLD_API_write_recursion_inputs_ultra_honk, recursion_inputs_output_path);
-    add_ipa_accumulation_flag(OLD_API_write_recursion_inputs_ultra_honk);
-    add_recursive_flag(OLD_API_write_recursion_inputs_ultra_honk);
-    add_bytecode_path_option(OLD_API_write_recursion_inputs_ultra_honk);
 
     /***************************************************************************************************************
      * Subcommand: OLD_API gates
@@ -702,16 +672,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
         } else if (OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file->parsed()) {
             write_arbitrary_valid_client_ivc_proof_and_vk_to_file(arbitrary_valid_proof_path);
             return 0;
-        }
-        // ULTRA HONK EXTRA COMMANDS
-        else if (OLD_API_write_recursion_inputs_ultra_honk->parsed()) {
-            if (flags.ipa_accumulation) {
-                write_recursion_inputs_ultra_honk<UltraRollupFlavor>(
-                    bytecode_path, witness_path, recursion_inputs_output_path);
-            } else {
-                write_recursion_inputs_ultra_honk<UltraFlavor>(
-                    bytecode_path, witness_path, recursion_inputs_output_path);
-            }
         }
         // NEW STANDARD API
         // NOTE(AD): We likely won't really have a standard API if our main flavours are UH or CIVC, with CIVC so

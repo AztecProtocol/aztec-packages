@@ -43,7 +43,6 @@ template <IsUltraOrMegaHonk Flavor> class DeciderVerificationKey_ {
     DeciderVerificationKey_(std::shared_ptr<VerificationKey> vk)
         : vk(vk)
     {}
-
-    MSGPACK_FIELDS(vk, relation_parameters, alphas, is_accumulator, gate_challenges, target_sum, witness_commitments);
 };
+
 } // namespace bb

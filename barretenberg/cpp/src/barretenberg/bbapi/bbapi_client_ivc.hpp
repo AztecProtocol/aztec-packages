@@ -196,7 +196,9 @@ struct ClientIvcComputeIvcVk {
 
         /** @brief Serialized IVC verification key in binary format */
         std::vector<uint8_t> bytes;
-        MSGPACK_FIELDS(bytes);
+        /** @brief Verification key as array of field elements */
+        std::vector<bb::fr> fields;
+        MSGPACK_FIELDS(bytes, fields);
         bool operator==(const Response&) const = default;
     };
 

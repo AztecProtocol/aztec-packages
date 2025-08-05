@@ -101,14 +101,14 @@ This will generate a `Prover.toml` you can fill with the values you want to prov
 
 ```bash
 nargo execute <witness-name>
-bb prove -b ./target/<circuit-name>.json -w ./target/<witness-name> -o ./target --oracle_hash keccak --output_format bytes_and_fields
+bb prove -b ./target/<circuit-name>.json -w ./target/<witness-name> -o ./target --oracle_hash keccak
 ```
 
-Why `bytes_and_fields?
+Binary Output Format
 
-By default, barretenberg appends the public inputs to the proof, which may or may not be useful. You'll find that it is definitely not useful on a Solidity verifier, as the public inputs will often be provided by the contract.
+Barretenberg outputs `proof` and `public_inputs` files in binary format. The binary format is fields-compatible, meaning it can be split into 32-byte chunks where each chunk represents a field element.
 
-The flag `--output_format bytes_and_fields` makes `bb` output a `proof` file with _just_ the proof, and the `public_inputs_fields.json` file with _just_ the public inputs.
+This produces a `proof` file with the proof data and a `public_inputs` file with the public input values.
 
 A programmatic example of how the `verify` function is called can be seen in the example zk voting application [here](https://github.com/noir-lang/noir-examples/blob/33e598c257e2402ea3a6b68dd4c5ad492bce1b0a/foundry-voting/src/zkVote.sol#L35):
 

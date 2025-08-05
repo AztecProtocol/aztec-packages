@@ -2,6 +2,7 @@
 #include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/constants.hpp"
@@ -21,6 +22,7 @@
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
+#include <cstdint>
 #ifdef STARKNET_GARAGA_FLAVORS
 #include "barretenberg/flavor/ultra_starknet_flavor.hpp"
 #include "barretenberg/flavor/ultra_starknet_zk_flavor.hpp"
@@ -87,8 +89,8 @@ CircuitProve::Response _prove(std::vector<uint8_t>&& bytecode,
         info("WARNING: computing verification key while proving. Pass in a precomputed vk for better performance.");
         vk = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
     } else {
-        vk =
-            std::make_shared<typename Flavor::VerificationKey>(from_buffer<typename Flavor::VerificationKey>(vk_bytes));
+        // Deserialize directly from buffer
+        vk = from_buffer<std::shared_ptr<typename Flavor::VerificationKey>>(vk_bytes);
     }
 
     UltraProver_<Flavor> prover{ proving_key, vk };
@@ -121,7 +123,8 @@ bool _verify(const bool ipa_accumulation,
     using VerificationKey = typename Flavor::VerificationKey;
     using Verifier = UltraVerifier_<Flavor>;
 
-    std::shared_ptr<VerificationKey> vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_bytes));
+    // Deserialize directly from buffer
+    auto vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_bytes));
 
     // concatenate public inputs and proof
     std::vector<fr> complete_proof = public_inputs;
@@ -203,39 +206,37 @@ CircuitProve::Response CircuitProve::execute(BB_UNUSED const BBApiRequest& reque
 CircuitComputeVk::Response CircuitComputeVk::execute(BB_UNUSED const BBApiRequest& request) &&
 {
     std::vector<uint8_t> vk_bytes;
-    std::vector<fr> vk_fields;
     std::vector<uint8_t> vk_hash_bytes;
 
-    // Helper lambda to compute VK, fields, and hash for a given flavor
-    auto compute_vk_and_fields = [&]<typename Flavor>() {
+    // Helper lambda to compute VK and hash for a given flavor
+    auto compute_vk = [&]<typename Flavor>() {
         auto proving_key = _compute_proving_key<Flavor>(circuit.bytecode, {});
         auto vk = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
-        vk_bytes = to_buffer(*vk);
-        vk_fields = vk->to_field_elements();
+        vk_bytes = to_buffer(vk);
         vk_hash_bytes = to_buffer(vk->hash());
     };
 
     if (settings.ipa_accumulation) {
-        compute_vk_and_fields.template operator()<UltraRollupFlavor>();
+        compute_vk.template operator()<UltraRollupFlavor>();
     } else if (settings.oracle_hash_type == "poseidon2" && !settings.disable_zk) {
-        compute_vk_and_fields.template operator()<UltraZKFlavor>();
+        compute_vk.template operator()<UltraZKFlavor>();
     } else if (settings.oracle_hash_type == "poseidon2" && settings.disable_zk) {
-        compute_vk_and_fields.template operator()<UltraFlavor>();
+        compute_vk.template operator()<UltraFlavor>();
     } else if (settings.oracle_hash_type == "keccak" && !settings.disable_zk) {
-        compute_vk_and_fields.template operator()<UltraKeccakZKFlavor>();
+        compute_vk.template operator()<UltraKeccakZKFlavor>();
     } else if (settings.oracle_hash_type == "keccak" && settings.disable_zk) {
-        compute_vk_and_fields.template operator()<UltraKeccakFlavor>();
+        compute_vk.template operator()<UltraKeccakFlavor>();
 #ifdef STARKNET_GARAGA_FLAVORS
     } else if (settings.oracle_hash_type == "starknet" && !settings.disable_zk) {
-        compute_vk_and_fields.template operator()<UltraStarknetZKFlavor>();
+        compute_vk.template operator()<UltraStarknetZKFlavor>();
     } else if (settings.oracle_hash_type == "starknet" && settings.disable_zk) {
-        compute_vk_and_fields.template operator()<UltraStarknetFlavor>();
+        compute_vk.template operator()<UltraStarknetFlavor>();
 #endif
     } else {
         throw_or_abort("invalid proof type in _write_vk");
     }
 
-    return { .bytes = std::move(vk_bytes), .fields = std::move(vk_fields), .hash = std::move(vk_hash_bytes) };
+    return { .bytes = std::move(vk_bytes), .hash = std::move(vk_hash_bytes) };
 }
 
 CircuitGates::Response CircuitGates::execute(BB_UNUSED const BBApiRequest& request) &&
@@ -289,20 +290,10 @@ CircuitVerify::Response CircuitVerify::execute(BB_UNUSED const BBApiRequest& req
     return { verified };
 }
 
-VkAsFields::Response VkAsFields::execute(BB_UNUSED const BBApiRequest& request) &&
-{
-    std::vector<bb::fr> fields;
-
-    // Standard UltraHonk flavors
-    auto vk = from_buffer<UltraFlavor::VerificationKey>(verification_key);
-    fields = vk.to_field_elements();
-
-    return { std::move(fields) };
-}
-
 CircuitWriteSolidityVerifier::Response CircuitWriteSolidityVerifier::execute(BB_UNUSED const BBApiRequest& request) &&
 {
     using VK = UltraKeccakFlavor::VerificationKey;
+    // Deserialize directly from buffer
     auto vk = std::make_shared<VK>(from_buffer<VK>(verification_key));
     std::string contract = settings.disable_zk ? get_honk_solidity_verifier(vk) : get_honk_zk_solidity_verifier(vk);
 

@@ -21,17 +21,8 @@ node ../../bbjs-test prove \
   -w $artifact_dir/witness.gz \
   -o $output_dir
 
-proof_bytes=$(cat $output_dir/proof | xxd -p)
-public_inputs=$(cat $output_dir/public_inputs_fields.json | jq -r '.[]')
-
-public_inputs_bytes=""
-for input in $public_inputs; do
-  public_inputs_bytes+=$input
-done
-
-# Combine proof header and the proof to a single file
-echo -n $proof_bytes | xxd -r -p > $output_dir/proof
-echo -n $public_inputs_bytes | xxd -r -p > $output_dir/public_inputs
+# The proof is already in binary format from bbjs-test
+# bb verify expects binary inputs, so we can use them directly
 echo "$BIN verify \
   --scheme ultra_honk \
   -k $output_dir/vk \

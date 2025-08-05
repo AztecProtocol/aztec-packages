@@ -243,7 +243,11 @@ class AvmFlavor {
         auto get_to_be_shifted() { return AvmFlavor::get_to_be_shifted<Polynomial>(*this); }
     };
 
-    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
+    // Our VerificationKey, mostly defined by NativeVerificationKey. We serialize log_circuit_size, num_public_inputs
+    // but not pub_inputs_offset (hence VKSerializationMode::NO_PUB_OFFSET).
+    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>,
+                                                          Transcript,
+                                                          VKSerializationMode::NO_PUB_OFFSET> {
       public:
         static constexpr size_t NUM_PRECOMPUTED_COMMITMENTS = NUM_PRECOMPUTED_ENTITIES;
 
@@ -267,13 +271,6 @@ class AvmFlavor {
                 vk_cmt = cmt;
             }
         }
-
-        /**
-         * @brief Serialize verification key to field elements
-         *
-         * @return std::vector<FF>
-         */
-        std::vector<fr> to_field_elements() const override;
 
         /**
          * @brief Adds the verification key hash to the transcript and returns the hash.

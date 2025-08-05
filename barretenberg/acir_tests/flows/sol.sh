@@ -5,15 +5,14 @@ VFLAG=${VERBOSE:+-v}
 BFLAG="-b ./target/program.json"
 FLAGS="-c $CRS_PATH $VFLAG"
 
-export PROOF="$PWD/sol_proof"
-export PROOF_AS_FIELDS="$PWD/sol_proof_fields.json"
-export VK="$PWD/sol_vk"
+# Create a proof, write the solidity contract
+$BIN OLD_API prove -o sol_proof $FLAGS
+$BIN OLD_API write_vk  -o sol_vk $FLAGS
+$BIN OLD_API contract -k sol_vk $FLAGS $BFLAG -o Key.sol
 
-# Create a proof, write the solidity contract, write the proof as fields in order to extract the public inputs
-$BIN OLD_API prove -o $PROOF $FLAGS
-$BIN OLD_API write_vk  -o $VK $FLAGS
-$BIN OLD_API proof_as_fields -k $VK $FLAGS -p $PROOF
-$BIN OLD_API contract -k $VK $FLAGS $BFLAG -o Key.sol
+# Export paths for JS test runner
+export PROOF="$PWD/sol_proof"
+export VK="$PWD/sol_vk"
 
 # Export the paths to the environment variables for the js test runner
 export KEY_PATH="$PWD/Key.sol"
