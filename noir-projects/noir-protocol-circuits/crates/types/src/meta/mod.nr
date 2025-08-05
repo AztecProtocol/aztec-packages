@@ -191,6 +191,51 @@ pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
     }
 }
 
+/// Generates a `Deserialize` trait implementation for a given struct `s`.
+///
+/// # Arguments
+/// * `s` - The struct type definition to generate the implementation for
+///
+/// # Returns
+/// A `Quoted` block containing the generated trait implementation
+///
+/// # Requirements
+/// Each struct member type must implement the `Deserialize` trait (it gets used in the generated code).
+///
+/// # Example
+/// For a struct like:
+/// ```
+/// struct MyStruct {
+///     x: AztecAddress,
+///     y: Field,
+/// }
+/// ```
+///
+/// This generates:
+/// ```
+/// impl Deserialize for MyStruct {
+///     let N: u32 = <AztecAddress as Deserialize>::N + <Field as Deserialize>::N;
+///
+///     fn deserialize(serialized: [Field; Self::N]) -> Self {
+///         let mut offset = 0;
+///         let mut member_fields = [0; <AztecAddress as Deserialize>::N];
+///         for i in 0..<AztecAddress as Deserialize>::N {
+///             member_fields[i] = serialized[i + offset];
+///         }
+///         let x = <AztecAddress as Deserialize>::deserialize(member_fields);
+///         offset += <AztecAddress as Deserialize>::N;
+///
+///         let mut member_fields = [0; <Field as Deserialize>::N];
+///         for i in 0..<Field as Deserialize>::N {
+///             member_fields[i] = serialized[i + offset];
+///         }
+///         let y = <Field as Deserialize>::deserialize(member_fields);
+///         offset += <Field as Deserialize>::N;
+///
+///         Self { x, y }
+///     }
+/// }
+/// ```
 pub(crate) comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
     let typ = s.as_type();
     let nested_struct = typ.as_data_type().unwrap();
