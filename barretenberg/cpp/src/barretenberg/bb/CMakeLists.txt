@@ -8,6 +8,8 @@ barretenberg_module(
     ${TRACY_LIBS}
     libdeflate::libdeflate_static)
 
+target_link_libraries(bb-cli-lib_objects PRIVATE benchmark::benchmark)
+
 if(NOT DISABLE_AZTEC_VM)
     add_dependencies(bb-cli-lib vm2)
 endif()
@@ -22,6 +24,7 @@ if (NOT(FUZZING))
         PRIVATE
         bb-cli-lib
         tracy_mem
+        benchmark::benchmark
     )
     if(CHECK_CIRCUIT_STACKTRACES)
         target_link_libraries(
