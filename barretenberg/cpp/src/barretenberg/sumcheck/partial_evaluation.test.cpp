@@ -67,7 +67,7 @@ TYPED_TEST(PartialEvaluationTests, TwoRoundsSpecial)
     std::vector<FF> gate_challenges{ 1, 1 };
 
     SumcheckProver<Flavor, multivariate_d> sumcheck(
-        multivariate_n, full_polynomials, transcript, alpha, gate_challenges, {});
+        multivariate_n, full_polynomials, transcript, alpha, gate_challenges, {}, multivariate_d);
 
     FF round_challenge_0 = { 0x6c7301b49d85a46c, 0x44311531e39c64f6, 0xb13d66d8d6c1a24c, 0x04410c360230a295 };
     round_challenge_0.self_to_montgomery_form();
@@ -114,7 +114,7 @@ TYPED_TEST(PartialEvaluationTests, TwoRoundsGeneric)
     std::vector<FF> gate_challenges{ 1, 1 };
 
     SumcheckProver<Flavor, multivariate_d> sumcheck(
-        multivariate_n, full_polynomials, transcript, alpha, gate_challenges, {});
+        multivariate_n, full_polynomials, transcript, alpha, gate_challenges, {}, multivariate_d);
 
     FF round_challenge_0 = FF::random_element();
     FF expected_lo = v00 * (FF(1) - round_challenge_0) + v10 * round_challenge_0;
@@ -186,7 +186,7 @@ TYPED_TEST(PartialEvaluationTests, ThreeRoundsSpecial)
     std::vector<FF> gate_challenges{ 1, 1, 1 };
 
     SumcheckProver<Flavor, multivariate_d> sumcheck(
-        multivariate_n, full_polynomials, transcript, alpha, gate_challenges, {});
+        multivariate_n, full_polynomials, transcript, alpha, gate_challenges, {}, multivariate_d);
 
     FF round_challenge_0 = 1;
     FF expected_q1 = v000 * (FF(1) - round_challenge_0) + v100 * round_challenge_0; // 2
@@ -248,7 +248,7 @@ TYPED_TEST(PartialEvaluationTests, ThreeRoundsGeneric)
     std::vector<FF> gate_challenges{ 1, 1, 1 };
 
     SumcheckProver<Flavor, multivariate_d> sumcheck(
-        multivariate_n, full_polynomials, transcript, alpha, gate_challenges, {});
+        multivariate_n, full_polynomials, transcript, alpha, gate_challenges, {}, multivariate_d);
 
     FF round_challenge_0 = FF::random_element();
     FF expected_q1 = v000 * (FF(1) - round_challenge_0) + v100 * round_challenge_0;
@@ -323,7 +323,7 @@ TYPED_TEST(PartialEvaluationTests, ThreeRoundsGenericMultiplePolys)
     std::vector<FF> gate_challenges{ 1, 1, 1 };
 
     SumcheckProver<Flavor, multivariate_d> sumcheck(
-        multivariate_n, full_polynomials, transcript, alpha, gate_challenges, {});
+        multivariate_n, full_polynomials, transcript, alpha, gate_challenges, {}, multivariate_d);
 
     std::array<FF, 3> expected_q1;
     std::array<FF, 3> expected_q2;

@@ -81,7 +81,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     // Execute Sumcheck Verifier
     const size_t log_circuit_size = numeric::get_msb(circuit_size);
 
-    std::array<FF, CONST_PROOF_SIZE_LOG_N> padding_indicator_array;
+    std::vector<FF> padding_indicator_array(CONST_PROOF_SIZE_LOG_N);
 
     for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
         padding_indicator_array[idx] = (idx < log_circuit_size) ? FF{ 1 } : FF{ 0 };

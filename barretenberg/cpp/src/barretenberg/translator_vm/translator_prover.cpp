@@ -150,8 +150,13 @@ void TranslatorProver::execute_relation_check_rounds()
 
     const size_t circuit_size = key->proving_key->circuit_size;
 
-    Sumcheck sumcheck(
-        circuit_size, key->proving_key->polynomials, transcript, alpha, gate_challenges, relation_parameters);
+    Sumcheck sumcheck(circuit_size,
+                      key->proving_key->polynomials,
+                      transcript,
+                      alpha,
+                      gate_challenges,
+                      relation_parameters,
+                      Flavor::CONST_TRANSLATOR_LOG_N);
 
     const size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Flavor::Curve::SUBGROUP_SIZE));
     // Create a temporary commitment key that is only used to initialise the ZKSumcheckData

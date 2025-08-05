@@ -162,6 +162,8 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
     // Contains various challenges, such as `beta` and `gamma` used in the Grand Product argument.
     bb::RelationParameters<FF> relation_parameters;
 
+    size_t real_log_n;
+
     std::vector<FF> multivariate_challenge;
 
     std::vector<typename Flavor::Commitment> round_univariate_commitments = {};
@@ -189,7 +191,8 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
                    std::shared_ptr<Transcript> transcript,
                    const SubrelationSeparators& relation_separator,
                    const std::vector<FF>& gate_challenges,
-                   const RelationParameters<FF>& relation_parameters)
+                   const RelationParameters<FF>& relation_parameters,
+                   const size_t real_log_n)
         : multivariate_n(multivariate_n)
         , multivariate_d(numeric::get_msb(multivariate_n))
         , full_polynomials(prover_polynomials)
@@ -197,7 +200,8 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
         , round(multivariate_n)
         , alphas(relation_separator)
         , gate_challenges(gate_challenges)
-        , relation_parameters(relation_parameters){};
+        , relation_parameters(relation_parameters)
+        , real_log_n(real_log_n){};
 
     // SumcheckProver constructor for the Flavors that generate a single challeng `alpha` and use its powers as
     // subrelation seperator challenges.
@@ -206,7 +210,8 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
                    std::shared_ptr<Transcript> transcript,
                    const FF& alpha,
                    const std::vector<FF>& gate_challenges,
-                   const RelationParameters<FF>& relation_parameters)
+                   const RelationParameters<FF>& relation_parameters,
+                   const size_t real_log_n)
         : multivariate_n(multivariate_n)
         , multivariate_d(numeric::get_msb(multivariate_n))
         , full_polynomials(prover_polynomials)
@@ -214,7 +219,8 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
         , round(multivariate_n)
         , alphas(initialize_relation_separator<FF, Flavor::NUM_SUBRELATIONS - 1>(alpha))
         , gate_challenges(gate_challenges)
-        , relation_parameters(relation_parameters){};
+        , relation_parameters(relation_parameters)
+        , real_log_n(real_log_n){};
     /**
      * @brief Non-ZK version: Compute round univariate, place it in transcript, compute challenge, partially evaluate.
      * Repeat until final round, then get full evaluations of prover polynomials, and place them in transcript.
@@ -228,7 +234,7 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
         // on the boolean hypercube.
         GateSeparatorPolynomial<FF> gate_separators(gate_challenges, multivariate_d);
 
-        multivariate_challenge.reserve(virtual_log_n);
+        multivariate_challenge.reserve(real_log_n);
         // In the first round, we compute the first univariate polynomial and populate the book-keeping table of
         // #partially_evaluated_polynomials, which has \f$ n/2 \f$ rows and \f$ N \f$ columns.
         auto round_univariate =
@@ -269,9 +275,9 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
         }
         vinfo("completed ", multivariate_d, " rounds of sumcheck");
 
-        // Zero univariates are used to pad the proof to the fixed size virtual_log_n.
+        // Zero univariates are used to pad the proof to the fixed size real_log_n.
         auto zero_univariate = bb::Univariate<FF, Flavor::BATCHED_RELATION_PARTIAL_LENGTH>::zero();
-        for (size_t idx = multivariate_d; idx < virtual_log_n; idx++) {
+        for (size_t idx = multivariate_d; idx < real_log_n; idx++) {
             transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(idx), zero_univariate);
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(idx));
             multivariate_challenge.emplace_back(round_challenge);
@@ -406,9 +412,9 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
         }
         vinfo("completed ", multivariate_d, " rounds of sumcheck");
 
-        // Zero univariates are used to pad the proof to the fixed size virtual_log_n.
+        // Zero univariates are used to pad the proof to the fixed size real_log_n.
         auto zero_univariate = bb::Univariate<FF, Flavor::BATCHED_RELATION_PARTIAL_LENGTH>::zero();
-        for (size_t idx = multivariate_d; idx < virtual_log_n; idx++) {
+        for (size_t idx = multivariate_d; idx < real_log_n; idx++) {
             transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(idx), zero_univariate);
 
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(idx));
@@ -651,6 +657,9 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
 
     std::shared_ptr<Transcript> transcript;
     SumcheckVerifierRound<Flavor> round;
+
+    size_t real_log_n;
+
     // An array of size NUM_SUBRELATIONS-1 containing challenges or consecutive powers of a single challenge that
     // separate linearly independent subrelation.
     SubrelationSeparators alphas;
@@ -665,14 +674,20 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
 
     explicit SumcheckVerifier(std::shared_ptr<Transcript> transcript,
                               SubrelationSeparators& relation_separator,
+                              size_t real_log_n,
                               FF target_sum = 0)
         : transcript(std::move(transcript))
         , round(target_sum)
+        , real_log_n(real_log_n)
         , alphas(relation_separator){};
 
-    explicit SumcheckVerifier(std::shared_ptr<Transcript> transcript, const FF& alpha, FF target_sum = 0)
+    explicit SumcheckVerifier(std::shared_ptr<Transcript> transcript,
+                              const FF& alpha,
+                              size_t real_log_n,
+                              FF target_sum = 0)
         : transcript(std::move(transcript))
         , round(target_sum)
+        , real_log_n(real_log_n)
         , alphas(initialize_relation_separator<FF, Flavor::NUM_SUBRELATIONS - 1>(alpha)){};
     /**
      * @brief Extract round univariate, check sum, generate challenge, compute next target sum..., repeat until
@@ -685,7 +700,7 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
      */
     SumcheckOutput<Flavor> verify(const bb::RelationParameters<FF>& relation_parameters,
                                   std::vector<FF>& gate_challenges,
-                                  const std::array<FF, virtual_log_n>& padding_indicator_array)
+                                  const std::vector<FF>& padding_indicator_array)
         requires(!IsGrumpkinFlavor<Flavor>)
     {
         bool verified(true);
@@ -710,8 +725,8 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
         }
 
         std::vector<FF> multivariate_challenge;
-        multivariate_challenge.reserve(virtual_log_n);
-        for (size_t round_idx = 0; round_idx < virtual_log_n; round_idx++) {
+        multivariate_challenge.reserve(real_log_n);
+        for (size_t round_idx = 0; round_idx < real_log_n; round_idx++) {
             // Obtain the round univariate from the transcript
             std::string round_univariate_label = "Sumcheck:univariate_" + std::to_string(round_idx);
             round_univariate =
@@ -803,12 +818,12 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
         const FF libra_challenge = transcript->template get_challenge<FF>("Libra:Challenge");
 
         std::vector<FF> multivariate_challenge;
-        multivariate_challenge.reserve(virtual_log_n);
+        multivariate_challenge.reserve(real_log_n);
         // if Flavor has ZK, the target total sum is corrected by Libra total sum multiplied by the Libra
         // challenge
         round.target_total_sum = libra_total_sum * libra_challenge;
 
-        for (size_t round_idx = 0; round_idx < virtual_log_n; round_idx++) {
+        for (size_t round_idx = 0; round_idx < real_log_n; round_idx++) {
             // Obtain the round univariate from the transcript
             const std::string round_univariate_comm_label = "Sumcheck:univariate_comm_" + std::to_string(round_idx);
             const std::string univariate_eval_label_0 = "Sumcheck:univariate_" + std::to_string(round_idx) + "_eval_0";
@@ -848,7 +863,7 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
         // Compute the evaluations of the polynomial (1 - \sum L_i) where the sum is for i corresponding to the rows
         // where all sumcheck relations are disabled
         full_honk_purported_value *=
-            RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge, virtual_log_n);
+            RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge, real_log_n);
 
         // Extract claimed evaluations of Libra univariates and compute their sum multiplied by the Libra challenge
         const FF libra_evaluation = transcript->template receive_from_prover<FF>("Libra:claimed_evaluation");
@@ -856,9 +871,9 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
         // Libra polynomials
         full_honk_purported_value += libra_evaluation * libra_challenge;
 
-        // Populate claimed evaluations of Sumcheck Round Unviariates at the round challenges. These will be
+        // Populate claimed evaluations of Sumcheck Round Univariates at the round challenges. These will be
         // checked as a part of Shplemini.
-        for (size_t round_idx = 1; round_idx < virtual_log_n; round_idx++) {
+        for (size_t round_idx = 1; round_idx < real_log_n; round_idx++) {
             round_univariate_evaluations[round_idx - 1][2] =
                 round_univariate_evaluations[round_idx][0] + round_univariate_evaluations[round_idx][1];
         };
@@ -883,7 +898,7 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
             verified = (first_sumcheck_round_evaluations_sum == round.target_total_sum);
         }
 
-        round_univariate_evaluations[virtual_log_n - 1][2] = full_honk_purported_value;
+        round_univariate_evaluations[real_log_n - 1][2] = full_honk_purported_value;
 
         //! [Final Verification Step]
         // For ZK Flavors: the evaluations of Libra univariates are included in the Sumcheck Output

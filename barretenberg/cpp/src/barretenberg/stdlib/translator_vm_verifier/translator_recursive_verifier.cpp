@@ -140,7 +140,7 @@ TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_p
     //  i = 0, ..., NUM_SUBRELATIONS- 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
-    Sumcheck sumcheck(transcript, alpha);
+    Sumcheck sumcheck(transcript, alpha, TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
 
     std::vector<FF> gate_challenges(TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
@@ -153,7 +153,7 @@ TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_p
     FF one{ 1 };
     one.convert_constant_to_fixed_witness(builder);
 
-    std::array<FF, TranslatorFlavor::CONST_TRANSLATOR_LOG_N> padding_indicator_array;
+    std::vector<FF> padding_indicator_array(TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
     std::ranges::fill(padding_indicator_array, one);
 
     auto sumcheck_output = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator_array);

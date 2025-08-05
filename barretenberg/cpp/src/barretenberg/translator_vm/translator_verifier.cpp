@@ -107,7 +107,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
     // Execute Sumcheck Verifier
-    Sumcheck sumcheck(transcript, alpha);
+    Sumcheck sumcheck(transcript, alpha, Flavor::CONST_TRANSLATOR_LOG_N);
 
     std::vector<FF> gate_challenges(Flavor::CONST_TRANSLATOR_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
@@ -118,7 +118,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
     libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
 
-    std::array<FF, TranslatorFlavor::CONST_TRANSLATOR_LOG_N> padding_indicator_array;
+    std::vector<FF> padding_indicator_array(Flavor::CONST_TRANSLATOR_LOG_N);
     std::ranges::fill(padding_indicator_array, FF{ 1 });
 
     auto sumcheck_output = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator_array);

@@ -203,8 +203,13 @@ TEST_F(ECCVMTests, CommittedSumcheck)
 
     // Run Sumcheck on the ECCVM Prover polynomials
     using SumcheckProver = SumcheckProver<ECCVMFlavor, CONST_ECCVM_LOG_N>;
-    SumcheckProver sumcheck_prover(
-        pk->circuit_size, pk->polynomials, prover_transcript, alpha, gate_challenges, relation_parameters);
+    SumcheckProver sumcheck_prover(pk->circuit_size,
+                                   pk->polynomials,
+                                   prover_transcript,
+                                   alpha,
+                                   gate_challenges,
+                                   relation_parameters,
+                                   CONST_ECCVM_LOG_N);
 
     ZKData zk_sumcheck_data = ZKData(CONST_ECCVM_LOG_N, prover_transcript);
 
@@ -214,7 +219,7 @@ TEST_F(ECCVMTests, CommittedSumcheck)
     verifier_transcript->load_proof(prover_transcript->export_proof());
 
     // Execute Sumcheck Verifier
-    SumcheckVerifier<Flavor, CONST_ECCVM_LOG_N> sumcheck_verifier(verifier_transcript, alpha);
+    SumcheckVerifier<Flavor, CONST_ECCVM_LOG_N> sumcheck_verifier(verifier_transcript, alpha, CONST_ECCVM_LOG_N);
     SumcheckOutput<ECCVMFlavor> verifier_output = sumcheck_verifier.verify(relation_parameters, gate_challenges);
 
     // Evaluate prover's round univariates at corresponding challenges and compare them with the claimed evaluations
