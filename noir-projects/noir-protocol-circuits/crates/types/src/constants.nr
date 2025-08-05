@@ -60,8 +60,8 @@ pub global NOTE_HASH_TREE_ID: Field = 1;
 pub global PUBLIC_DATA_TREE_ID: Field = 2;
 pub global L1_TO_L2_MESSAGE_TREE_ID: Field = 3;
 pub global ARCHIVE_TREE_ID: Field = 4;
-pub global NOTE_HASH_TREE_LEAF_COUNT: u64 = 1 << (NOTE_HASH_TREE_HEIGHT as u8);
-pub global L1_TO_L2_MSG_TREE_LEAF_COUNT: u64 = 1 << (L1_TO_L2_MSG_TREE_HEIGHT as u8);
+pub global NOTE_HASH_TREE_LEAF_COUNT: u64 = 1 << (NOTE_HASH_TREE_HEIGHT as u64);
+pub global L1_TO_L2_MSG_TREE_LEAF_COUNT: u64 = 1 << (L1_TO_L2_MSG_TREE_HEIGHT as u64);
 
 // SUB-TREES RELATED CONSTANTS
 pub global NOTE_HASH_SUBTREE_HEIGHT: u32 = 6;
@@ -175,7 +175,7 @@ pub global CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE: Field =
     0x0e92f9f8a534e858fcf777da206e08b0c620ecf9deb21d13479813f6;
 
 // CANONICAL CONTRACT ADDRESSES
-pub global MAX_PROTOCOL_CONTRACTS: u32 = (1 << PROTOCOL_CONTRACT_TREE_HEIGHT as u8) - 1; // Index 0 can't be used.
+pub global MAX_PROTOCOL_CONTRACTS: u32 = (1 << PROTOCOL_CONTRACT_TREE_HEIGHT) - 1; // Index 0 can't be used.
 pub global CANONICAL_AUTH_REGISTRY_ADDRESS: AztecAddress = AztecAddress::from_field(1);
 pub global CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(2);
 pub global CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(3);
