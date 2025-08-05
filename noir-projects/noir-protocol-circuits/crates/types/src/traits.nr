@@ -364,7 +364,7 @@ impl<let M: u32> Serialize for str<M> {
 /// - +1 is for storing the length
 ///
 /// # Note
-/// Not deriving this because it's not supported to call derive_serialize on a "remote" struct (and it will never
+/// Not deriving this because it's not supported to call derive_deserialize on a "remote" struct (and it will never
 /// be supported).
 impl<T, let M: u32> Deserialize for BoundedVec<T, M>
 where
