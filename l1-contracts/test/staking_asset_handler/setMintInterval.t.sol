@@ -4,6 +4,7 @@ pragma solidity >=0.8.27;
 import {StakingAssetHandlerBase} from "./base.t.sol";
 import {StakingAssetHandler, IStakingAssetHandler} from "@aztec/mock/StakingAssetHandler.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
+import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 // solhint-disable comprehensive-interface
 // solhint-disable func-name-mixedcase
@@ -45,7 +46,9 @@ contract SetMintIntervalTest is StakingAssetHandlerBase {
       )
     );
     vm.prank(address(0xbeefdeef));
-    stakingAssetHandler.addValidator(address(1), validMerkleProof, fakeProof);
+    stakingAssetHandler.addValidator(
+      address(1), validMerkleProof, fakeProof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
+    );
   }
 
   function test_WhenOwnerTriesToMintAfterTheNewIntervalHasPassed(uint256 _newMintInterval) external {
@@ -65,7 +68,9 @@ contract SetMintIntervalTest is StakingAssetHandlerBase {
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ValidatorAdded(address(staking), address(1), WITHDRAWER);
     vm.prank(address(0xbeefdeef));
-    stakingAssetHandler.addValidator(address(1), validMerkleProof, realProof);
+    stakingAssetHandler.addValidator(
+      address(1), validMerkleProof, realProof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
+    );
 
     assertEq(stakingAssetHandler.lastMintTimestamp(), block.timestamp);
   }
