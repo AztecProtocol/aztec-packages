@@ -287,6 +287,27 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_TRUE(c.multiplicative_constant == bb::fr::one());
     }
 
+    static void test_mul_by_const_zero()
+    {
+        Builder builder;
+
+        field_ct zero(&builder, 0);
+        field_ct b(&builder, 4);
+
+        field_ct result = zero * b;
+
+        EXPECT_TRUE(result.is_constant() && (result.get_value() == 0));
+
+        b = witness_ct(&builder, 4);
+        result = zero * b;
+
+        EXPECT_TRUE(result.is_constant() && (result.get_value() == 0));
+
+        result = b * zero;
+
+        EXPECT_TRUE(result.is_constant() && (result.get_value() == 0));
+    }
+
     /**
      * @brief Demonstrate current behavior of assert_equal.
      */
@@ -1755,6 +1776,10 @@ TYPED_TEST(stdlib_field, test_madd_add_two_gate_count)
 TYPED_TEST(stdlib_field, test_multiplicative_constant_regression)
 {
     TestFixture::test_multiplicative_constant_regression();
+}
+TYPED_TEST(stdlib_field, test_mul_by_const_zero)
+{
+    TestFixture::test_mul_by_const_zero();
 }
 TYPED_TEST(stdlib_field, test_origin_tag_consistency)
 {
