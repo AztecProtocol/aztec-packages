@@ -62,7 +62,7 @@ describe('e2e_p2p_validators_sentinel', () => {
     await t.setup();
 
     const { rollup } = await t.getContracts();
-    slashingAmount = (await rollup.getDepositAmount()) - (await rollup.getMinimumStake()) + 1n;
+    slashingAmount = (await rollup.getActivationThreshold()) - (await rollup.getEjectionThreshold()) + 1n;
     t.ctx.aztecNodeConfig.slashInactivityEnabled = true;
     t.ctx.aztecNodeConfig.slashInactivityCreatePenalty = slashingAmount;
     t.ctx.aztecNodeConfig.slashInactivityMaxPenalty = slashingAmount;

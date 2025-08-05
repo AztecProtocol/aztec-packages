@@ -45,6 +45,7 @@ import {
 export const WORLD_STATE_BLOCK_HISTORY = 2;
 export const WORLD_STATE_BLOCK_CHECK_INTERVAL = 50;
 export const ARCHIVER_POLL_INTERVAL = 50;
+export const DEFAULT_L1_BLOCK_TIME = process.env.CI ? 12 : 8;
 
 export type EpochsTestOpts = Partial<SetupOptions> & { numberOfAccounts?: number };
 
@@ -86,7 +87,9 @@ export class EpochsTestContext {
   }
 
   public static getSlotDurations(opts: EpochsTestOpts = {}) {
-    const envEthereumSlotDuration = process.env.L1_BLOCK_TIME ? parseInt(process.env.L1_BLOCK_TIME) : 8;
+    const envEthereumSlotDuration = process.env.L1_BLOCK_TIME
+      ? parseInt(process.env.L1_BLOCK_TIME)
+      : DEFAULT_L1_BLOCK_TIME;
     const ethereumSlotDuration = opts.ethereumSlotDuration ?? envEthereumSlotDuration;
     const aztecSlotDuration = opts.aztecSlotDuration ?? ethereumSlotDuration * 2;
     const aztecEpochDuration = opts.aztecEpochDuration ?? 4;

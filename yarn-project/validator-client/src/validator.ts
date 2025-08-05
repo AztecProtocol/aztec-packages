@@ -12,8 +12,8 @@ import type { P2P, PeerId } from '@aztec/p2p';
 import { AuthRequest, AuthResponse, ReqRespSubProtocol, TxProvider } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import { computeInHashFromL1ToL2Messages } from '@aztec/prover-client/helpers';
+import { Offense } from '@aztec/slasher';
 import {
-  Offense,
   type SlasherConfig,
   WANT_TO_SLASH_EVENT,
   type WantToSlashArgs,
@@ -228,7 +228,10 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       this.log.info(`Started validator with addresses: ${myAddresses.map(a => a.toString()).join(', ')}`);
     }
     this.epochCacheUpdateLoop.start();
+
+    this.p2pClient.registerThisValidatorAddresses(myAddresses);
     await this.p2pClient.addReqRespSubProtocol(ReqRespSubProtocol.AUTH, this.handleAuthRequest.bind(this));
+
     return Promise.resolve();
   }
 
@@ -465,7 +468,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       {
         validator: proposer,
         amount: this.config.slashInvalidBlockPenalty,
-        offense: Offense.INVALID_BLOCK,
+        offense: Offense.BROADCASTED_INVALID_BLOCK_PROPOSAL,
       },
     ]);
   }
@@ -521,6 +524,13 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     await this.p2pClient.broadcastProposal(proposal);
   }
 
+  async collectOwnAttestations(proposal: BlockProposal): Promise<BlockAttestation[]> {
+    const slot = proposal.payload.header.slotNumber.toBigInt();
+    const inCommittee = await this.epochCache.filterInCommittee(slot, this.keyStore.getAddresses());
+    this.log.debug(`Collecting ${inCommittee.length} self-attestations for slot ${slot}`, { inCommittee });
+    return this.doAttestToProposal(proposal, inCommittee);
+  }
+
   async collectAttestations(proposal: BlockProposal, required: number, deadline: Date): Promise<BlockAttestation[]> {
     // Wait and poll the p2pClient's attestation pool for this block until we have enough attestations
     const slot = proposal.payload.header.slotNumber.toBigInt();
@@ -533,11 +543,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       throw new AttestationTimeoutError(0, required, slot);
     }
 
-    const proposalId = proposal.archive.toString();
-    // adds attestations for all of my addresses locally
-    const inCommittee = await this.epochCache.filterInCommittee(slot, this.keyStore.getAddresses());
-    await this.doAttestToProposal(proposal, inCommittee);
+    await this.collectOwnAttestations(proposal);
 
+    const proposalId = proposal.archive.toString();
     const myAddresses = this.keyStore.getAddresses();
 
     let attestations: BlockAttestation[] = [];
