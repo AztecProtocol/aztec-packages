@@ -246,8 +246,6 @@ export async function generateProof(
     // TODO(#15043): Avoid write_vk flag here.
     const args = getArgs(flavor).concat([
       '--disable_zk',
-      '--output_format',
-      'bytes',
       '--write_vk',
       '-o',
       outputPath,
