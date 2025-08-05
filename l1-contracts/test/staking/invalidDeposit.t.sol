@@ -14,7 +14,7 @@ import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {BN254Fixtures} from "../shared/BN254Fixtures.t.sol";
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
 
-contract ExploitFlushEntryQueueTest is StakingBase, BN254Fixtures {
+contract InvalidPointsFlushEntryQueueTest is StakingBase, BN254Fixtures {
   using stdStorage for StdStorage;
 
   struct ProofOfPossession {
@@ -47,7 +47,10 @@ contract ExploitFlushEntryQueueTest is StakingBase, BN254Fixtures {
     epochSeconds = rollup.getEpochDuration() * rollup.getSlotDuration();
   }
 
-  function test_exploit() public {
+  function test_invalid_points() public {
+    // Ensure we got enough keys to walk over each of the cases below
+    assertGt(fixtureData.sampleKeys.length, 6, "not enough keys");
+
     GSE gse = staking.getGSE();
     activationThreshold = gse.ACTIVATION_THRESHOLD();
 
@@ -57,7 +60,15 @@ contract ExploitFlushEntryQueueTest is StakingBase, BN254Fixtures {
       G1Point memory proof1 = signRegistrationDigest(key1.sk);
       G1Point memory proof2 = signRegistrationDigest(key2.sk);
 
-      key2.pk2.x0 = uint256(keccak256(abi.encodePacked("https://www.youtube.com/watch?v=glN0W8WogK8")));
+      // Ensure that failures happen regardless of which point is invalid
+      uint256 invalidXCoord = uint256(keccak256(abi.encodePacked("https://www.youtube.com/watch?v=glN0W8WogK8")));
+      if (i % 3 == 0) {
+        key1.pk1.x = invalidXCoord;
+      } else if (i % 3 == 1) {
+        key1.pk2.x0 = invalidXCoord;
+      } else {
+        proof1.x = invalidXCoord;
+      }
 
       vm.prank(stakingAsset.owner());
       stakingAsset.mint(address(this), activationThreshold * 2);
