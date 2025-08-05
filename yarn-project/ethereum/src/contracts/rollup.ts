@@ -84,6 +84,16 @@ export type ViemAppendOnlyTreeSnapshot = {
   nextAvailableLeafIndex: number;
 };
 
+export type ViemRollupStatus = {
+  provenBlockNumber: bigint;
+  provenArchive: `0x${string}`;
+  pendingBlockNumber: bigint;
+  pendingHeaderHash: `0x${string}`;
+  headerHashOfMyBlock: `0x${string}`;
+  provenEpochNumber: bigint;
+  isBlockHeaderHashStale: boolean;
+};
+
 export class RollupContract {
   private readonly rollup: GetContractReturnType<typeof RollupAbi, ViemClient>;
 
@@ -533,7 +543,7 @@ export class RollupContract {
     return this.rollup.read.getSlotAt([timestamp]);
   }
 
-  async status(blockNumber: bigint, options?: { blockNumber?: bigint }) {
+  async status(blockNumber: bigint, options?: { blockNumber?: bigint }): Promise<ViemRollupStatus> {
     await checkBlockTag(options?.blockNumber, this.client);
     return this.rollup.read.status([blockNumber], options);
   }

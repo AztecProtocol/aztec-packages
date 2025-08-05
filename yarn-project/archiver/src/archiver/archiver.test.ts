@@ -2,7 +2,13 @@ import { Blob } from '@aztec/blob-lib';
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { BlobWithIndex } from '@aztec/blob-sink/types';
 import { GENESIS_ARCHIVE_ROOT, GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
-import { DefaultL1ContractsConfig, InboxContract, RollupContract, type ViemPublicClient } from '@aztec/ethereum';
+import {
+  DefaultL1ContractsConfig,
+  InboxContract,
+  RollupContract,
+  type ViemPublicClient,
+  type ViemRollupStatus,
+} from '@aztec/ethereum';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -47,9 +53,7 @@ interface MockRollupContractRead {
     };
   }>;
   /** Given an L2 block number, returns provenBlockNumber, provenArchive, pendingBlockNumber, pendingHeaderHash, headerHashOfMyBlock, provenEpochNumber, isMyBlockStale. */
-  status: (
-    args: readonly [bigint],
-  ) => Promise<[bigint, `0x${string}`, bigint, `0x${string}`, `0x${string}`, bigint, boolean]>;
+  status: (args: readonly [bigint]) => Promise<ViemRollupStatus>;
   /** Checks if a block header hash is stale (beyond circular storage). */
   isBlockHeaderHashStale: (args: readonly [bigint]) => Promise<boolean>;
 }
@@ -138,24 +142,6 @@ describe('Archiver', () => {
   const GENESIS_ROOT = new Fr(GENESIS_ARCHIVE_ROOT).toString();
   const GENESIS_HEADER_HASH = new Fr(GENESIS_BLOCK_HEADER_HASH).toString();
   const ETHEREUM_SLOT_DURATION = BigInt(DefaultL1ContractsConfig.ethereumSlotDuration);
-
-  const createMockRollupStatus = (
-    provenBlockNumber: bigint,
-    provenArchive: string,
-    pendingBlockNumber: bigint,
-    pendingHeaderHash: string,
-    headerHashOfMyBlock: string,
-    provenEpochNumber: bigint,
-    isBlockHeaderHashStale: boolean,
-  ) => ({
-    provenBlockNumber,
-    provenArchive,
-    pendingBlockNumber,
-    pendingHeaderHash,
-    headerHashOfMyBlock,
-    provenEpochNumber,
-    isBlockHeaderHashStale,
-  });
 
   beforeEach(async () => {
     logger = createLogger('archiver:test');
@@ -332,22 +318,34 @@ describe('Archiver', () => {
     const blobHashes = await Promise.all(blocks.map(makeVersionedBlobHashes));
 
     mockL1BlockNumbers(2500n, 2510n, 2520n);
-
+    // {
+    //   provenBlockNumber: bigint;
+    //   provenArchive: `0x${string}`;
+    //   pendingBlockNumber: bigint;
+    //   pendingHeaderHash: `0x${string}`;
+    //   headerHashOfMyBlock: `0x${string}`;
+    //   provenEpochNumber: bigint;
+    //   isBlockHeaderHashStale: boolean;
+    // }
     mockRollup.read.status
-      .mockResolvedValueOnce(
-        createMockRollupStatus(0n, GENESIS_ROOT, 1n, headerHashes[0].toString(), GENESIS_HEADER_HASH, 0n, false),
-      )
-      .mockResolvedValue(
-        createMockRollupStatus(
-          1n,
-          blocks[0].archive.root.toString(),
-          3n,
-          headerHashes[2].toString(),
-          headerHashes[0].toString(),
-          0n,
-          false,
-        ),
-      );
+      .mockResolvedValueOnce({
+        provenBlockNumber: 0n,
+        provenArchive: GENESIS_ROOT,
+        pendingBlockNumber: 1n,
+        pendingHeaderHash: headerHashes[0].toString(),
+        headerHashOfMyBlock: GENESIS_HEADER_HASH,
+        provenEpochNumber: 0n,
+        isBlockHeaderHashStale: false,
+      } as ViemRollupStatus)
+      .mockResolvedValue({
+        provenBlockNumber: 1n,
+        provenArchive: blocks[0].archive.root.toString(),
+        pendingBlockNumber: 3n,
+        pendingHeaderHash: headerHashes[2].toString(),
+        headerHashOfMyBlock: headerHashes[0].toString(),
+        provenEpochNumber: 0n,
+        isBlockHeaderHashStale: false,
+      } as ViemRollupStatus);
 
     const blobsFromBlocks = await Promise.all(blocks.map(b => makeBlobsFromBlock(b)));
     blobsFromBlocks.forEach(blobs => blobSinkClient.getBlobSidecar.mockResolvedValueOnce(blobs));
@@ -489,9 +487,15 @@ describe('Archiver', () => {
 
     // Mock status to indicate only blocks 1-2 are valid (pendingBlockNumber = 2)
     // No blocks are proven (provenBlockNumber = 0, provenArchive = GENESIS_ROOT)
-    mockRollup.read.status.mockResolvedValue(
-      createMockRollupStatus(0n, GENESIS_ROOT, 2n, headerHashes[1].toString(), GENESIS_HEADER_HASH, 0n, false),
-    );
+    mockRollup.read.status.mockResolvedValue({
+      provenBlockNumber: 0n,
+      provenArchive: GENESIS_ROOT,
+      pendingBlockNumber: 2n,
+      pendingHeaderHash: headerHashes[1].toString(),
+      headerHashOfMyBlock: GENESIS_HEADER_HASH,
+      provenEpochNumber: 0n,
+      isBlockHeaderHashStale: false,
+    } as ViemRollupStatus);
 
     publicClient.getTransaction.mockImplementation(((args: { hash?: `0x${string}` }) => {
       const indexAndType = args.hash?.split('-');
@@ -558,12 +562,24 @@ describe('Archiver', () => {
     );
     makeL2ProofVerifiedEvent(81n, 2, proverIds[1]);
     mockRollup.read.status
-      .mockResolvedValueOnce(
-        createMockRollupStatus(0n, GENESIS_ROOT, 0n, GENESIS_HEADER_HASH, GENESIS_HEADER_HASH, 0n, false),
-      )
-      .mockResolvedValueOnce(
-        createMockRollupStatus(0n, GENESIS_ROOT, 2n, headerHashes[1].toString(), GENESIS_HEADER_HASH, 0n, false),
-      );
+      .mockResolvedValueOnce({
+        provenBlockNumber: 0n,
+        provenArchive: GENESIS_ROOT,
+        pendingBlockNumber: 0n,
+        pendingHeaderHash: GENESIS_HEADER_HASH,
+        headerHashOfMyBlock: GENESIS_HEADER_HASH,
+        provenEpochNumber: 0n,
+        isBlockHeaderHashStale: false,
+      } as ViemRollupStatus)
+      .mockResolvedValueOnce({
+        provenBlockNumber: 0n,
+        provenArchive: GENESIS_ROOT,
+        pendingBlockNumber: 2n,
+        pendingHeaderHash: headerHashes[1].toString(),
+        headerHashOfMyBlock: GENESIS_HEADER_HASH,
+        provenEpochNumber: 0n,
+        isBlockHeaderHashStale: false,
+      } as ViemRollupStatus);
 
     makeMessageSentEvent(66n, 1, 0n);
     makeMessageSentEvent(68n, 1, 1n);
@@ -628,22 +644,52 @@ describe('Archiver', () => {
     // We will return status at first to have an empty round, then as if we have 2 pending blocks, and finally
     // Just a single pending block returning a "failure" for the expected pending block
     mockRollup.read.status
-      .mockResolvedValueOnce(
-        createMockRollupStatus(0n, GENESIS_ROOT, 0n, GENESIS_HEADER_HASH, GENESIS_HEADER_HASH, 0n, false),
-      )
-      .mockResolvedValueOnce(
-        createMockRollupStatus(0n, GENESIS_ROOT, 2n, headerHashes[1].toString(), GENESIS_HEADER_HASH, 0n, false),
-      )
-      .mockResolvedValueOnce(
-        createMockRollupStatus(0n, GENESIS_ROOT, 1n, headerHashes[0].toString(), Fr.ZERO.toString(), 0n, false),
-      ) // Fr.ZERO = mismatch, not stale
+      .mockResolvedValueOnce({
+        provenBlockNumber: 0n,
+        provenArchive: GENESIS_ROOT,
+        pendingBlockNumber: 0n,
+        pendingHeaderHash: GENESIS_HEADER_HASH,
+        headerHashOfMyBlock: GENESIS_HEADER_HASH,
+        provenEpochNumber: 0n,
+        isBlockHeaderHashStale: false,
+      } as ViemRollupStatus)
+      .mockResolvedValueOnce({
+        provenBlockNumber: 0n,
+        provenArchive: GENESIS_ROOT,
+        pendingBlockNumber: 2n,
+        pendingHeaderHash: headerHashes[1].toString(),
+        headerHashOfMyBlock: GENESIS_HEADER_HASH,
+        provenEpochNumber: 0n,
+        isBlockHeaderHashStale: false,
+      } as ViemRollupStatus)
+      .mockResolvedValueOnce({
+        provenBlockNumber: 0n,
+        provenArchive: GENESIS_ROOT,
+        pendingBlockNumber: 1n,
+        pendingHeaderHash: headerHashes[0].toString(),
+        headerHashOfMyBlock: Fr.ZERO.toString(),
+        provenEpochNumber: 0n,
+        isBlockHeaderHashStale: false,
+      } as ViemRollupStatus) // Fr.ZERO = mismatch, not stale
       // Additional status calls for unwinding logic:
-      .mockResolvedValueOnce(
-        createMockRollupStatus(0n, GENESIS_ROOT, 1n, headerHashes[0].toString(), Fr.ZERO.toString(), 0n, false),
-      ) // status(2) → block 2 doesn't exist but not stale
-      .mockResolvedValueOnce(
-        createMockRollupStatus(0n, GENESIS_ROOT, 1n, headerHashes[0].toString(), headerHashes[0].toString(), 0n, false),
-      ); // status(1) → block 1 exists
+      .mockResolvedValueOnce({
+        provenBlockNumber: 0n,
+        provenArchive: GENESIS_ROOT,
+        pendingBlockNumber: 1n,
+        pendingHeaderHash: headerHashes[0].toString(),
+        headerHashOfMyBlock: Fr.ZERO.toString(),
+        provenEpochNumber: 0n,
+        isBlockHeaderHashStale: false,
+      } as ViemRollupStatus) // status(2) → block 2 doesn't exist but not stale
+      .mockResolvedValueOnce({
+        provenBlockNumber: 0n,
+        provenArchive: GENESIS_ROOT,
+        pendingBlockNumber: 1n,
+        pendingHeaderHash: headerHashes[0].toString(),
+        headerHashOfMyBlock: headerHashes[0].toString(),
+        provenEpochNumber: 0n,
+        isBlockHeaderHashStale: false,
+      } as ViemRollupStatus); // status(1) → block 1 exists
 
     makeMessageSentEvent(66n, 1, 0n);
     makeMessageSentEvent(68n, 1, 1n);
@@ -695,9 +741,15 @@ describe('Archiver', () => {
     let l1BlockNumber = 110n;
     publicClient.getBlockNumber.mockImplementation(() => Promise.resolve(l1BlockNumber++));
 
-    mockRollup.read.status.mockResolvedValue(
-      createMockRollupStatus(0n, GENESIS_ROOT, 0n, GENESIS_ROOT, GENESIS_ROOT, 0n, false),
-    );
+    mockRollup.read.status.mockResolvedValue({
+      provenBlockNumber: 0n,
+      provenArchive: GENESIS_ROOT,
+      pendingBlockNumber: 0n,
+      pendingHeaderHash: GENESIS_ROOT,
+      headerHashOfMyBlock: GENESIS_ROOT,
+      provenEpochNumber: 0n,
+      isBlockHeaderHashStale: false,
+    } as ViemRollupStatus);
 
     // Creates messages for L2 blocks 1 and 3, across L1 blocks 100 and 101
     makeMessageSentEvent(100n, 1, 0n);
@@ -783,9 +835,15 @@ describe('Archiver', () => {
     );
 
     // No proof events yet - blocks will be stored with Fr.ZERO archive roots
-    mockRollup.read.status.mockResolvedValue(
-      createMockRollupStatus(0n, GENESIS_ROOT, 2n, headerHashes[1].toString(), GENESIS_HEADER_HASH, 0n, false),
-    );
+    mockRollup.read.status.mockResolvedValue({
+      provenBlockNumber: 0n,
+      provenArchive: GENESIS_ROOT,
+      pendingBlockNumber: 2n,
+      pendingHeaderHash: headerHashes[1].toString(),
+      headerHashOfMyBlock: GENESIS_HEADER_HASH,
+      provenEpochNumber: 0n,
+      isBlockHeaderHashStale: false,
+    } as ViemRollupStatus);
 
     makeMessageSentEvent(140n, 1, 0n);
     makeMessageSentEvent(145n, 1, 1n);
@@ -872,9 +930,15 @@ describe('Archiver', () => {
 
     const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
     publicClient.getBlockNumber.mockResolvedValue(l1BlockForL2Block);
-    mockRollup.read.status.mockResolvedValueOnce(
-      createMockRollupStatus(0n, GENESIS_ROOT, 1n, headerHashes[0].toString(), GENESIS_HEADER_HASH, 0n, false),
-    );
+    mockRollup.read.status.mockResolvedValueOnce({
+      provenBlockNumber: 0n,
+      provenArchive: GENESIS_ROOT,
+      pendingBlockNumber: 1n,
+      pendingHeaderHash: headerHashes[0].toString(),
+      headerHashOfMyBlock: GENESIS_HEADER_HASH,
+      provenEpochNumber: 0n,
+      isBlockHeaderHashStale: false,
+    } as ViemRollupStatus);
     makeL2BlockProposedEvent(
       l1BlockForL2Block,
       1n,
@@ -912,9 +976,15 @@ describe('Archiver', () => {
 
     const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
     publicClient.getBlockNumber.mockResolvedValue(l1BlockForL2Block);
-    mockRollup.read.status.mockResolvedValueOnce(
-      createMockRollupStatus(0n, GENESIS_ROOT, 1n, headerHashes[0].toString(), GENESIS_HEADER_HASH, 0n, false),
-    );
+    mockRollup.read.status.mockResolvedValueOnce({
+      provenBlockNumber: 0n,
+      provenArchive: GENESIS_ROOT,
+      pendingBlockNumber: 1n,
+      pendingHeaderHash: headerHashes[0].toString(),
+      headerHashOfMyBlock: GENESIS_HEADER_HASH,
+      provenEpochNumber: 0n,
+      isBlockHeaderHashStale: false,
+    } as ViemRollupStatus);
     makeL2BlockProposedEvent(
       l1BlockForL2Block,
       1n,
@@ -946,9 +1016,15 @@ describe('Archiver', () => {
 
     logger.info(`Syncing archiver to L1 block ${notLastL1BlockForEpoch}`);
     publicClient.getBlockNumber.mockResolvedValue(notLastL1BlockForEpoch);
-    mockRollup.read.status.mockResolvedValueOnce(
-      createMockRollupStatus(0n, GENESIS_ROOT, 0n, GENESIS_ROOT, GENESIS_ROOT, 0n, false),
-    );
+    mockRollup.read.status.mockResolvedValueOnce({
+      provenBlockNumber: 0n,
+      provenArchive: GENESIS_ROOT,
+      pendingBlockNumber: 0n,
+      pendingHeaderHash: GENESIS_ROOT,
+      headerHashOfMyBlock: GENESIS_ROOT,
+      provenEpochNumber: 0n,
+      isBlockHeaderHashStale: false,
+    } as ViemRollupStatus);
 
     await archiver.start(true);
     expect(await archiver.isEpochComplete(0n)).toBe(false);
@@ -961,9 +1037,15 @@ describe('Archiver', () => {
 
     logger.info(`Syncing archiver to L1 block ${lastL1BlockForEpoch}`);
     publicClient.getBlockNumber.mockResolvedValue(lastL1BlockForEpoch);
-    mockRollup.read.status.mockResolvedValueOnce(
-      createMockRollupStatus(0n, GENESIS_ROOT, 0n, GENESIS_ROOT, GENESIS_ROOT, 0n, false),
-    );
+    mockRollup.read.status.mockResolvedValueOnce({
+      provenBlockNumber: 0n,
+      provenArchive: GENESIS_ROOT,
+      pendingBlockNumber: 0n,
+      pendingHeaderHash: GENESIS_ROOT,
+      headerHashOfMyBlock: GENESIS_ROOT,
+      provenEpochNumber: 0n,
+      isBlockHeaderHashStale: false,
+    } as ViemRollupStatus);
 
     await archiver.start(true);
     expect(await archiver.isEpochComplete(0n)).toBe(true);
@@ -984,15 +1066,15 @@ describe('Archiver', () => {
 
     const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
     publicClient.getBlockNumber.mockResolvedValue(lastL1BlockForEpoch);
-    mockRollup.read.status.mockResolvedValueOnce([
-      0n,
-      GENESIS_ROOT,
-      1n,
-      headerHashes[0].toString(),
-      GENESIS_HEADER_HASH,
-      0n,
-      false,
-    ]);
+    mockRollup.read.status.mockResolvedValueOnce({
+      provenBlockNumber: 0n,
+      provenArchive: GENESIS_ROOT,
+      pendingBlockNumber: 1n,
+      pendingHeaderHash: headerHashes[0].toString(),
+      headerHashOfMyBlock: GENESIS_HEADER_HASH,
+      provenEpochNumber: 0n,
+      isBlockHeaderHashStale: false,
+    } as ViemRollupStatus);
     makeL2BlockProposedEvent(
       l1BlockForL2Block,
       1n,
@@ -1066,38 +1148,38 @@ describe('Archiver', () => {
         // status(blockNumber) call during unwinding - return header hash for that specific block
         const requestedBlock = Number(blockNumber[0]);
         if (requestedBlock <= currentBlocks.length && requestedBlock > 0) {
-          return Promise.resolve([
-            0n,
-            GENESIS_ROOT,
-            contractPendingBlockNumber,
-            contractPendingHeaderHash,
-            headerHashes[requestedBlock - 1].toString(), // headerHashOfMyBlock for this specific block
-            0n,
-            false,
-          ]);
+          return Promise.resolve({
+            provenBlockNumber: 0n,
+            provenArchive: GENESIS_ROOT,
+            pendingBlockNumber: contractPendingBlockNumber,
+            pendingHeaderHash: contractPendingHeaderHash,
+            headerHashOfMyBlock: headerHashes[requestedBlock - 1].toString(), // headerHashOfMyBlock for this specific block
+            provenEpochNumber: 0n,
+            isBlockHeaderHashStale: false,
+          } as ViemRollupStatus);
         } else {
           // Block doesn't exist on contract
-          return Promise.resolve([
-            0n,
-            GENESIS_ROOT,
-            contractPendingBlockNumber,
-            contractPendingHeaderHash,
-            Fr.ZERO.toString(),
-            0n,
-            false,
-          ]);
+          return Promise.resolve({
+            provenBlockNumber: 0n,
+            provenArchive: GENESIS_ROOT,
+            pendingBlockNumber: contractPendingBlockNumber,
+            pendingHeaderHash: contractPendingHeaderHash,
+            headerHashOfMyBlock: Fr.ZERO.toString(),
+            provenEpochNumber: 0n,
+            isBlockHeaderHashStale: false,
+          } as ViemRollupStatus);
         }
       } else {
         // Regular status() call - return current chain tip
-        return Promise.resolve([
-          0n,
-          GENESIS_ROOT,
-          contractPendingBlockNumber,
-          contractPendingHeaderHash,
-          GENESIS_HEADER_HASH,
-          0n,
-          false,
-        ]);
+        return Promise.resolve({
+          provenBlockNumber: 0n,
+          provenArchive: GENESIS_ROOT,
+          pendingBlockNumber: contractPendingBlockNumber,
+          pendingHeaderHash: contractPendingHeaderHash,
+          headerHashOfMyBlock: GENESIS_HEADER_HASH,
+          provenEpochNumber: 0n,
+          isBlockHeaderHashStale: false,
+        } as ViemRollupStatus);
       }
     });
 
