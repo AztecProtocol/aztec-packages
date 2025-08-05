@@ -76,7 +76,7 @@ export class BlockProvingState {
     public readonly newL1ToL2Messages: Fr[],
     public readonly l1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
     private readonly l1ToL2MessageSubtreeSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
-    private readonly l1ToL2MessageTreeSnapshotAfterInsertion: AppendOnlyTreeSnapshot,
+    public readonly l1ToL2MessageTreeSnapshotAfterInsertion: AppendOnlyTreeSnapshot,
     private readonly lastArchiveSnapshot: AppendOnlyTreeSnapshot,
     private readonly lastArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     private readonly newArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
@@ -223,7 +223,7 @@ export class BlockProvingState {
     if (this.totalNumTxs === 0) {
       const constants = BlockConstantData.from({
         lastArchive: this.lastArchiveSnapshot,
-        lastL1ToL2: this.l1ToL2MessageTreeSnapshot,
+        newL1ToL2: this.l1ToL2MessageTreeSnapshotAfterInsertion,
         globalVariables: this.globalVariables,
         vkTreeRoot: getVKTreeRoot(),
         protocolContractTreeRoot,

@@ -41,12 +41,12 @@ describe('prover/orchestrator/failures', () => {
 
       orchestrator.startNewEpoch(1, 1, 3, finalBlobChallenges);
 
-      for (const { block, txs, msgs } of blocks) {
+      for (const { block, txs, l1ToL2Messages } of blocks) {
         // these operations could fail if the target circuit fails before adding all blocks or txs
         try {
           await orchestrator.startNewBlock(
             block.header.globalVariables,
-            msgs,
+            l1ToL2Messages,
             context.getPreviousBlockHeader(block.number),
           );
           let allTxsAdded = true;

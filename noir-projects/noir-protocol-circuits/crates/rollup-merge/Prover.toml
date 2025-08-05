@@ -13,7 +13,7 @@ accumulated_mana_used = "0x00000000000000000000000000000000000000000000000000000
     root = "0x11ec690ae2d1a79033acbde89cb053a6bfeb7713fdc47a18b28fde85057afb4d"
     next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000008"
 
-    [inputs.previous_rollup_data.base_or_merge_rollup_public_inputs.constants.last_l1_to_l2]
+    [inputs.previous_rollup_data.base_or_merge_rollup_public_inputs.constants.new_l1_to_l2]
     root = "0x2e33ee2008411c04b99c24b313513d097a0d21a5040b6193d1f978b8226892d6"
     next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000070"
 
@@ -781,7 +781,7 @@ accumulated_mana_used = "0x00000000000000000000000000000000000000000000000000000
     root = "0x11ec690ae2d1a79033acbde89cb053a6bfeb7713fdc47a18b28fde85057afb4d"
     next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000008"
 
-    [inputs.previous_rollup_data.base_or_merge_rollup_public_inputs.constants.last_l1_to_l2]
+    [inputs.previous_rollup_data.base_or_merge_rollup_public_inputs.constants.new_l1_to_l2]
     root = "0x2e33ee2008411c04b99c24b313513d097a0d21a5040b6193d1f978b8226892d6"
     next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000070"
 

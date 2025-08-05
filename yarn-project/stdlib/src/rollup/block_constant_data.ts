@@ -12,8 +12,8 @@ export class BlockConstantData {
   constructor(
     /** Archive tree snapshot at the very beginning of the entire rollup. */
     public lastArchive: AppendOnlyTreeSnapshot,
-    /** L1 to L2 message tree snapshot at the very beginning of the entire rollup. */
-    public lastL1ToL2: AppendOnlyTreeSnapshot,
+    /** L1 to L2 message tree snapshot after this block lands. */
+    public newL1ToL2: AppendOnlyTreeSnapshot,
     /** Root of the verification key tree. */
     public vkTreeRoot: Fr,
     /** Root of the protocol contract tree. */
@@ -40,7 +40,7 @@ export class BlockConstantData {
   static getFields(fields: FieldsOf<BlockConstantData>) {
     return [
       fields.lastArchive,
-      fields.lastL1ToL2,
+      fields.newL1ToL2,
       fields.vkTreeRoot,
       fields.protocolContractTreeRoot,
       fields.globalVariables,

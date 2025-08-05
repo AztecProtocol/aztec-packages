@@ -370,7 +370,7 @@ function mapPublicDataHintToNoir(hint: PublicDataHint): PublicDataHintNoir {
 function mapBlockConstantDataToNoir(constants: BlockConstantData): BlockConstantDataNoir {
   return {
     last_archive: mapAppendOnlyTreeSnapshotToNoir(constants.lastArchive),
-    last_l1_to_l2: mapAppendOnlyTreeSnapshotToNoir(constants.lastL1ToL2),
+    new_l1_to_l2: mapAppendOnlyTreeSnapshotToNoir(constants.newL1ToL2),
     vk_tree_root: mapFieldToNoir(constants.vkTreeRoot),
     protocol_contract_tree_root: mapFieldToNoir(constants.protocolContractTreeRoot),
     global_variables: mapGlobalVariablesToNoir(constants.globalVariables),
@@ -380,7 +380,7 @@ function mapBlockConstantDataToNoir(constants: BlockConstantData): BlockConstant
 function mapBlockConstantDataFromNoir(constants: BlockConstantDataNoir) {
   return new BlockConstantData(
     mapAppendOnlyTreeSnapshotFromNoir(constants.last_archive),
-    mapAppendOnlyTreeSnapshotFromNoir(constants.last_l1_to_l2),
+    mapAppendOnlyTreeSnapshotFromNoir(constants.new_l1_to_l2),
     mapFieldFromNoir(constants.vk_tree_root),
     mapFieldFromNoir(constants.protocol_contract_tree_root),
     mapGlobalVariablesFromNoir(constants.global_variables),

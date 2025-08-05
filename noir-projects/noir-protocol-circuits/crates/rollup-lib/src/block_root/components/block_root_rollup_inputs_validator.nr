@@ -107,12 +107,5 @@ impl<let NUM_ROLLUPS: u32, let N: u32> BlockRootRollupInputsValidator<NUM_ROLLUP
             ),
             "hash of the previous block header is not the last leaf in the archive tree",
         );
-
-        // Validate last_l1_to_l2.
-        assert_eq(
-            constants.last_l1_to_l2,
-            previous_block_header.state.l1_to_l2_message_tree,
-            "last_l1_to_l2 in constants does not match the value in the previous block header",
-        );
     }
 }

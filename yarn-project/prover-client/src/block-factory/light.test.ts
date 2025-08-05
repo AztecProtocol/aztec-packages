@@ -237,25 +237,26 @@ describe('LightBlockBuilder', () => {
     }
 
     const l1ToL2Snapshot = await getL1ToL2Snapshot(l1ToL2Messages);
-    const rollupOutputs = await getPrivateBaseRollupOutputs(txs, l1ToL2Snapshot.messageTreeSnapshot);
-    const previousRollups = await getTopMerges!(rollupOutputs);
     const parityOutput = await getParityOutput(l1ToL2Messages);
+    const newL1ToL2TreeSnapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, expectsFork);
+    const rollupOutputs = await getPrivateBaseRollupOutputs(txs, newL1ToL2TreeSnapshot);
+    const previousRollups = await getTopMerges!(rollupOutputs);
     const { startBlobAccumulator, blobData } = await getBlobData(txs);
     const rootOutput = await getBlockRootOutput(
       previousRollups,
       parityOutput,
       l1ToL2Snapshot,
+      newL1ToL2TreeSnapshot,
       startBlobAccumulator,
       blobData,
     );
 
-    const messageTreeSnapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, expectsFork);
     const partialState = new PartialStateReference(
       await getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE, expectsFork),
       await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE, expectsFork),
       await getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE, expectsFork),
     );
-    const endState = new StateReference(messageTreeSnapshot, partialState);
+    const endState = new StateReference(newL1ToL2TreeSnapshot, partialState);
 
     const expectedHeader = buildHeaderFromCircuitOutputs(
       previousRollups,
@@ -289,7 +290,7 @@ describe('LightBlockBuilder', () => {
     return { messageTreeSnapshot, l1ToL2MessageSubtreeSiblingPath, l1ToL2Messages };
   };
 
-  const getPrivateBaseRollupOutputs = async (txs: ProcessedTx[], l1ToL2Snapshot: AppendOnlyTreeSnapshot) => {
+  const getPrivateBaseRollupOutputs = async (txs: ProcessedTx[], newL1ToL2Snapshot: AppendOnlyTreeSnapshot) => {
     const rollupOutputs = [];
     const spongeBlobState = SpongeBlob.init(toNumBlobFields(txs));
     for (const tx of txs) {
@@ -302,7 +303,7 @@ describe('LightBlockBuilder', () => {
       const hints = await insertSideEffectsAndBuildBaseRollupHints(
         tx,
         globalVariables,
-        l1ToL2Snapshot,
+        newL1ToL2Snapshot,
         expectsFork,
         spongeBlobState,
       );
@@ -364,11 +365,12 @@ describe('LightBlockBuilder', () => {
   const getBlockRootOutput = async (
     previousRollups: BaseOrMergeRollupPublicInputs[],
     parityOutput: ParityPublicInputs,
-    l1ToL2Snapshot: {
+    lastL1ToL2Snapshot: {
       l1ToL2Messages: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>;
       l1ToL2MessageSubtreeSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>;
       messageTreeSnapshot: AppendOnlyTreeSnapshot;
     },
+    newL1ToL2Snapshot: AppendOnlyTreeSnapshot,
     startBlobAccumulator: BatchedBlobAccumulator,
     blobData: BlockRootRollupBlobData,
   ) => {
@@ -391,7 +393,7 @@ describe('LightBlockBuilder', () => {
 
     const data = BlockRootRollupData.from({
       l1ToL2Roots: rootParityInput,
-      l1ToL2MessageSubtreeSiblingPath: l1ToL2Snapshot.l1ToL2MessageSubtreeSiblingPath,
+      l1ToL2MessageSubtreeSiblingPath: lastL1ToL2Snapshot.l1ToL2MessageSubtreeSiblingPath,
       previousArchiveSiblingPath,
       newArchiveSiblingPath,
       previousBlockHeader,
@@ -403,7 +405,7 @@ describe('LightBlockBuilder', () => {
     if (previousRollupData.length === 0) {
       const constants = BlockConstantData.from({
         lastArchive: startArchiveSnapshot,
-        lastL1ToL2: l1ToL2Snapshot.messageTreeSnapshot,
+        newL1ToL2: newL1ToL2Snapshot,
         globalVariables,
         vkTreeRoot: getVKTreeRoot(),
         protocolContractTreeRoot,

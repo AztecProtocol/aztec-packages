@@ -89,7 +89,7 @@ impl PublicBaseRollupInputs {
 
         BlockConstantData {
             last_archive: self.last_archive,
-            last_l1_to_l2: avm_data.start_tree_snapshots.l1_to_l2_message_tree,
+            new_l1_to_l2: avm_data.start_tree_snapshots.l1_to_l2_message_tree,
             global_variables: avm_data.global_variables,
             vk_tree_root: tube_data.constants.vk_tree_root,
             protocol_contract_tree_root: tube_data.constants.protocol_contract_tree_root,

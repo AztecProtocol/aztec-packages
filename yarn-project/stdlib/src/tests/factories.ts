@@ -1607,6 +1607,7 @@ export async function makeBloatedProcessedTx({
   vkTreeRoot = Fr.ZERO,
   protocolContractTreeRoot = Fr.ZERO,
   globalVariables = GlobalVariables.empty(),
+  newL1ToL2Snapshot = AppendOnlyTreeSnapshot.empty(),
   feePayer,
   feePaymentPublicDataWrite,
   privateOnly = false,
@@ -1619,6 +1620,7 @@ export async function makeBloatedProcessedTx({
   gasSettings?: GasSettings;
   vkTreeRoot?: Fr;
   globalVariables?: GlobalVariables;
+  newL1ToL2Snapshot?: AppendOnlyTreeSnapshot;
   protocolContractTreeRoot?: Fr;
   feePayer?: AztecAddress;
   feePaymentPublicDataWrite?: PublicDataWrite;
@@ -1672,6 +1674,9 @@ export async function makeBloatedProcessedTx({
 
     // Create avm output.
     const avmOutput = AvmCircuitPublicInputs.empty();
+    // Assign data from hints.
+    avmOutput.startTreeSnapshots.l1ToL2MessageTree = newL1ToL2Snapshot;
+    avmOutput.endTreeSnapshots.l1ToL2MessageTree = newL1ToL2Snapshot;
     // Assign data from private.
     avmOutput.globalVariables = globalVariables;
     avmOutput.startGasUsed = tx.data.gasUsed;
@@ -1715,6 +1720,7 @@ export async function makeBloatedProcessedTx({
     avmOutput.gasSettings = gasSettings;
 
     const avmCircuitInputs = await makeAvmCircuitInputs(seed + 0x3000, { publicInputs: avmOutput });
+    avmCircuitInputs.hints.startingTreeRoots.l1ToL2MessageTree = newL1ToL2Snapshot;
 
     const gasUsed = {
       totalGas: Gas.empty(),

@@ -31,7 +31,10 @@ describe('prover/bb_prover/parity', () => {
       bbProver = await BBNativeRollupProver.new(bbConfig);
       return bbProver;
     };
-    context = await TestContext.new(logger, 1, FAKE_PROOFS ? undefined : buildProver);
+    context = await TestContext.new(logger, {
+      proverCount: 1,
+      createProver: FAKE_PROOFS ? undefined : buildProver,
+    });
   });
 
   afterAll(async () => {

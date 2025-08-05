@@ -8,8 +8,8 @@ use std::meta::derive;
 pub struct BlockConstantData {
     // Archive tree snapshot at the very beginning of the entire block.
     pub last_archive: AppendOnlyTreeSnapshot,
-    // L1toL2Message tree snapshot at the very beginning of the entire block.
-    pub last_l1_to_l2: AppendOnlyTreeSnapshot,
+    // L1toL2Message tree snapshot after this block lands.
+    pub new_l1_to_l2: AppendOnlyTreeSnapshot,
     pub vk_tree_root: Field,
     pub protocol_contract_tree_root: Field,
     pub global_variables: GlobalVariables,
@@ -19,7 +19,7 @@ impl Empty for BlockConstantData {
     fn empty() -> Self {
         BlockConstantData {
             last_archive: AppendOnlyTreeSnapshot::empty(),
-            last_l1_to_l2: AppendOnlyTreeSnapshot::empty(),
+            new_l1_to_l2: AppendOnlyTreeSnapshot::empty(),
             vk_tree_root: 0,
             protocol_contract_tree_root: 0,
             global_variables: GlobalVariables::empty(),
@@ -43,7 +43,7 @@ mod test {
     fn serialization_of_block_constant_data() {
         let item = BlockConstantData {
             last_archive: AppendOnlyTreeSnapshot { root: 123, next_available_leaf_index: 456 },
-            last_l1_to_l2: AppendOnlyTreeSnapshot { root: 789, next_available_leaf_index: 101112 },
+            new_l1_to_l2: AppendOnlyTreeSnapshot { root: 789, next_available_leaf_index: 101112 },
             vk_tree_root: 131415,
             protocol_contract_tree_root: 161718,
             global_variables: GlobalVariables {

@@ -468,7 +468,7 @@ pub global AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = GLOBAL_VARIABLES_LENGTH
     + 1 /* reverted */;
 
 pub global BLOCK_CONSTANT_DATA_LENGTH: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH /* last_archive */
-    + APPEND_ONLY_TREE_SNAPSHOT_LENGTH /* last_l1_to_l2_message_tree */
+    + APPEND_ONLY_TREE_SNAPSHOT_LENGTH /* new_l1_to_l2_message_tree */
     + 1 /* vk_tree_root */
     + 1 /* protocol_contract_tree_root */
     + GLOBAL_VARIABLES_LENGTH;

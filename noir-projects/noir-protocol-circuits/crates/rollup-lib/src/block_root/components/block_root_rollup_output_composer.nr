@@ -178,6 +178,15 @@ impl BlockRootRollupOutputComposer {
             self.data.l1_to_l2_roots.public_inputs.converted_root,
             L1_TO_L2_MSG_SUBTREE_HEIGHT as u8,
         );
+
+        // Check that the `new_l1_to_l2` tree snapshot in the constants matches the computed value.
+        // This snapshot is used in the avm to validate the l1 to l2 message read requests
+        assert_eq(
+            constants.new_l1_to_l2,
+            new_l1_to_l2_message_tree_snapshot,
+            "new_l1_to_l2 in constants does not match the computed value",
+        );
+
         let state = StateReference {
             l1_to_l2_message_tree: new_l1_to_l2_message_tree_snapshot,
             partial: end_partial_state,
