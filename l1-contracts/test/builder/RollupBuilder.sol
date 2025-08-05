@@ -92,18 +92,12 @@ contract RollupBuilder is Test {
     return this;
   }
 
-  function setRollupConfigInput(RollupConfigInput memory _rollupConfigInput)
-    public
-    returns (RollupBuilder)
-  {
+  function setRollupConfigInput(RollupConfigInput memory _rollupConfigInput) public returns (RollupBuilder) {
     config.rollupConfigInput = _rollupConfigInput;
     return this;
   }
 
-  function setRewardDistributor(RewardDistributor _rewardDistributor)
-    public
-    returns (RollupBuilder)
-  {
+  function setRewardDistributor(RewardDistributor _rewardDistributor) public returns (RollupBuilder) {
     config.rewardDistributor = _rewardDistributor;
     return this;
   }
@@ -182,18 +176,12 @@ contract RollupBuilder is Test {
     return this;
   }
 
-  function setSlashingLifetimeInRounds(uint256 _slashingLifetimeInRounds)
-    public
-    returns (RollupBuilder)
-  {
+  function setSlashingLifetimeInRounds(uint256 _slashingLifetimeInRounds) public returns (RollupBuilder) {
     config.rollupConfigInput.slashingLifetimeInRounds = _slashingLifetimeInRounds;
     return this;
   }
 
-  function setSlashingExecutionDelayInRounds(uint256 _slashingExecutionDelayInRounds)
-    public
-    returns (RollupBuilder)
-  {
+  function setSlashingExecutionDelayInRounds(uint256 _slashingExecutionDelayInRounds) public returns (RollupBuilder) {
     config.rollupConfigInput.slashingExecutionDelayInRounds = _slashingExecutionDelayInRounds;
     return this;
   }
@@ -203,10 +191,7 @@ contract RollupBuilder is Test {
     return this;
   }
 
-  function setStakingQueueConfig(StakingQueueConfig memory _stakingQueueConfig)
-    public
-    returns (RollupBuilder)
-  {
+  function setStakingQueueConfig(StakingQueueConfig memory _stakingQueueConfig) public returns (RollupBuilder) {
     config.rollupConfigInput.stakingQueueConfig = _stakingQueueConfig;
     return this;
   }
@@ -232,30 +217,22 @@ contract RollupBuilder is Test {
     }
 
     if (address(config.gse) == address(0)) {
-      config.gse = new GSE(
-        address(this), config.testERC20, TestConstants.DEPOSIT_AMOUNT, TestConstants.MINIMUM_STAKE
-      );
+      config.gse =
+        new GSE(address(this), config.testERC20, TestConstants.ACTIVATION_THRESHOLD, TestConstants.EJECTION_THRESHOLD);
     }
 
     if (address(config.registry) == address(0)) {
       config.registry = new Registry(address(this), config.testERC20);
       config.rewardDistributor = RewardDistributor(address(config.registry.getRewardDistributor()));
-      config.testERC20.mint(
-        address(config.rewardDistributor), 1e6 * config.rewardDistributor.BLOCK_REWARD()
-      );
     } else {
       config.rewardDistributor = RewardDistributor(address(config.registry.getRewardDistributor()));
     }
 
     if (config.flags.makeGovernance) {
-      GovernanceProposer proposer = new GovernanceProposer(
-        config.registry, config.gse, config.values.govProposerN, config.values.govProposerM
-      );
+      GovernanceProposer proposer =
+        new GovernanceProposer(config.registry, config.gse, config.values.govProposerN, config.values.govProposerM);
       config.governance = new Governance(
-        config.testERC20,
-        address(proposer),
-        address(config.gse),
-        TestConstants.getGovernanceConfiguration()
+        config.testERC20, address(proposer), address(config.gse), TestConstants.getGovernanceConfiguration()
       );
       vm.label(address(config.governance), "Governance");
       vm.label(address(proposer), "GovernanceProposer");
@@ -291,6 +268,8 @@ contract RollupBuilder is Test {
       vm.prank(config.testERC20.owner());
       config.testERC20.mint(feeAssetPortal, config.values.mintFeeAmount);
 
+      config.testERC20.mint(address(config.rewardDistributor), 1e6 * config.rollup.getBlockReward());
+
       vm.prank(config.registry.owner());
       config.registry.addRollup(config.rollup);
 
@@ -300,9 +279,7 @@ contract RollupBuilder is Test {
 
     if (config.validators.length > 0) {
       MultiAdder multiAdder = new MultiAdder(address(config.rollup), address(this));
-      config.testERC20.mint(
-        address(multiAdder), config.gse.DEPOSIT_AMOUNT() * config.validators.length
-      );
+      config.testERC20.mint(address(multiAdder), config.gse.ACTIVATION_THRESHOLD() * config.validators.length);
       multiAdder.addValidators(config.validators);
     }
 

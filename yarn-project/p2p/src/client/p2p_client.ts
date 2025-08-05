@@ -3,6 +3,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton } from '@aztec/kv-store';
 import type {
+  EthAddress,
   L2Block,
   L2BlockId,
   L2BlockSource,
@@ -76,6 +77,8 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
   private txProvider: TxProvider;
 
+  private validatorAddresses: EthAddress[] = [];
+
   /**
    * In-memory P2P client constructor.
    * @param store - The client's instance of the KV store.
@@ -132,6 +135,11 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     this.synchedLatestSlot = store.openSingleton('p2p_pool_last_l2_slot');
   }
 
+  public registerThisValidatorAddresses(addresses: EthAddress[]): void {
+    this.validatorAddresses = [...addresses];
+    this.p2pService.registerThisValidatorAddresses(this.validatorAddresses);
+  }
+
   public clear(): Promise<void> {
     return this.store.clear();
   }
@@ -154,6 +162,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
   public updateP2PConfig(config: Partial<P2PConfig>): Promise<void> {
     this.txPool.updateConfig(config);
+    this.p2pService.updateConfig(config);
     return Promise.resolve();
   }
 
@@ -778,15 +787,8 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @param latestBlock - The block number the chain was pruned to.
    */
   private async handlePruneL2Blocks(latestBlock: number): Promise<void> {
-    // NOTE: temporary fix for alphanet, deleting ALL txs that were in the epoch from the pool #13723
-    // TODO: undo once fixed: #13770
     const txsToDelete = new Map<string, TxHash>();
     const minedTxs = await this.txPool.getMinedTxHashes();
-    for (const [txHash, blockNumber] of minedTxs) {
-      if (blockNumber > latestBlock) {
-        txsToDelete.set(txHash.toString(), txHash);
-      }
-    }
 
     // Find transactions that reference pruned blocks in their historical header
     for (const tx of await this.txPool.getAllTxs()) {
@@ -811,17 +813,15 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     // NOTE: we can't move _all_ txs back to pending because the tx pool could keep hold of mined txs for longer
     // (see this.keepProvenTxsFor)
 
-    // NOTE: given current fix for alphanet, the code below is redundant as all these txs will be deleted.
-    // TODO: bring back once fixed: #13770
-    // const txsToMoveToPending: TxHash[] = [];
-    // for (const [txHash, blockNumber] of minedTxs) {
-    //   if (blockNumber > latestBlock) {
-    //     txsToMoveToPending.push(txHash);
-    //   }
-    // }
+    const txsToMoveToPending: TxHash[] = [];
+    for (const [txHash, blockNumber] of minedTxs) {
+      if (blockNumber > latestBlock) {
+        txsToMoveToPending.push(txHash);
+      }
+    }
 
-    // this.log.info(`Moving ${txsToMoveToPending.length} mined txs back to pending`);
-    // await this.txPool.markMinedAsPending(txsToMoveToPending);
+    this.log.info(`Moving ${txsToMoveToPending.length} mined txs back to pending`);
+    await this.txPool.markMinedAsPending(txsToMoveToPending);
 
     await this.synchedLatestBlockNumber.set(latestBlock);
     // no need to update block hashes, as they will be updated as new blocks are added

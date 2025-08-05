@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 
 import {DecoderBase} from "../base/DecoderBase.sol";
 
-import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
+import {Signature, CommitteeAttestation} from "@aztec/shared/libraries/SignatureLib.sol";
 
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
@@ -20,7 +20,7 @@ import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
-import {ProposePayload} from "@aztec/core/libraries/rollup/ProposeLib.sol";
+import {ProposePayload, ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
 import {Slot} from "@aztec/core/libraries/TimeLib.sol";
@@ -28,6 +28,7 @@ import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQ
 
 import {TimeCheater} from "../staking/TimeCheater.sol";
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
+import {Math} from "@oz/utils/math/Math.sol";
 // solhint-disable comprehensive-interface
 
 /**
@@ -38,13 +39,16 @@ contract ValidatorSelectionTestBase is DecoderBase {
   using MessageHashUtils for bytes32;
   using stdStorage for StdStorage;
 
-  struct StructToAvoidDeepStacks {
+  struct ProposeTestData {
     uint256 needed;
     address proposer;
-    bool shouldRevert;
-    bool provideEmptyAttestations;
+    address sender;
     uint256 attestationsCount;
+    address[] committee;
+    CommitteeAttestation[] attestations;
+    address[] signers;
     ProposePayload proposePayload;
+    ProposeArgs proposeArgs;
   }
 
   SlashFactory internal slashFactory;
@@ -69,8 +73,8 @@ contract ValidatorSelectionTestBase is DecoderBase {
     {
       DecoderBase.Full memory full = load(_name);
       Slot slotNumber = full.block.header.slotNumber;
-      uint256 initialTime = Timestamp.unwrap(full.block.header.timestamp)
-        - Slot.unwrap(slotNumber) * TestConstants.AZTEC_SLOT_DURATION;
+      uint256 initialTime =
+        Timestamp.unwrap(full.block.header.timestamp) - Slot.unwrap(slotNumber) * TestConstants.AZTEC_SLOT_DURATION;
 
       timeCheater = new TimeCheater(
         address(rollup),
@@ -89,11 +93,11 @@ contract ValidatorSelectionTestBase is DecoderBase {
     }
 
     StakingQueueConfig memory stakingQueueConfig = TestConstants.getStakingQueueConfig();
-    stakingQueueConfig.normalFlushSizeMin = _validatorCount;
+    stakingQueueConfig.normalFlushSizeMin = Math.max(_validatorCount, 1);
 
-    RollupBuilder builder = new RollupBuilder(address(this)).setStakingQueueConfig(
-      stakingQueueConfig
-    ).setValidators(initialValidators).setTargetCommitteeSize(_targetCommitteeSize);
+    RollupBuilder builder = new RollupBuilder(address(this)).setStakingQueueConfig(stakingQueueConfig).setValidators(
+      initialValidators
+    ).setTargetCommitteeSize(_targetCommitteeSize);
     builder.deploy();
 
     rollup = builder.getConfig().rollup;

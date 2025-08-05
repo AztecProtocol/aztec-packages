@@ -21,6 +21,10 @@ contract NewGovernanceProposerPayload is IPayload {
     NEW_GOVERNANCE_PROPOSER = address(new GovernanceProposer(_registry, _gse, 667, 1000));
   }
 
+  function getURI() external view override(IPayload) returns (string memory) {
+    return "NewGovernanceProposerPayload";
+  }
+
   function getActions() external view override(IPayload) returns (IPayload.Action[] memory) {
     IPayload.Action[] memory res = new IPayload.Action[](1);
 
@@ -28,9 +32,7 @@ contract NewGovernanceProposerPayload is IPayload {
 
     res[0] = Action({
       target: address(governance),
-      data: abi.encodeWithSelector(
-        governance.updateGovernanceProposer.selector, NEW_GOVERNANCE_PROPOSER
-      )
+      data: abi.encodeWithSelector(governance.updateGovernanceProposer.selector, NEW_GOVERNANCE_PROPOSER)
     });
 
     return res;

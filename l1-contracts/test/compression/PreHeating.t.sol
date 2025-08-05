@@ -40,12 +40,7 @@ import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {ProposedHeaderLib} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
-import {
-  ProposeArgs,
-  ProposePayload,
-  OracleInput,
-  ProposeLib
-} from "@aztec/core/libraries/rollup/ProposeLib.sol";
+import {ProposeArgs, ProposePayload, OracleInput, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {
   FeeLib,
@@ -56,10 +51,7 @@ import {
   ManaBaseFeeComponents
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {
-  FeeModelTestPoints,
-  TestPoint,
-  FeeHeaderModel,
-  ManaBaseFeeComponentsModel
+  FeeModelTestPoints, TestPoint, FeeHeaderModel, ManaBaseFeeComponentsModel
 } from "test/fees/FeeModelTestPoints.t.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
@@ -90,14 +82,8 @@ contract FakeCanonical is IRewardDistributor {
     canonicalRollup = _rollup;
   }
 
-  function claim(address _recipient) external returns (uint256) {
-    TestERC20(address(UNDERLYING)).mint(_recipient, BLOCK_REWARD);
-    return BLOCK_REWARD;
-  }
-
-  function claimBlockRewards(address _recipient, uint256 _blocks) external returns (uint256) {
-    TestERC20(address(UNDERLYING)).mint(_recipient, _blocks * BLOCK_REWARD);
-    return _blocks * BLOCK_REWARD;
+  function claim(address _recipient, uint256 _amount) external {
+    TestERC20(address(UNDERLYING)).mint(_recipient, _amount);
   }
 
   function distributeFees(address _recipient, uint256 _amount) external {
@@ -124,6 +110,7 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
     ProposeArgs proposeArgs;
     bytes blobInputs;
     CommitteeAttestation[] attestations;
+    address[] signers;
   }
 
   DecoderBase.Full full = load("empty_block_1");
@@ -140,6 +127,9 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
 
   CommitteeAttestation internal emptyAttestation;
   mapping(address attester => uint256 privateKey) internal attesterPrivateKeys;
+
+  // Track attestations by block number for proof submission
+  mapping(uint256 => CommitteeAttestations) internal blockAttestations;
 
   SlashingProposer internal slashingProposer;
   IPayload internal slashPayload;
@@ -161,12 +151,13 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
     StakingQueueConfig memory stakingQueueConfig = TestConstants.getStakingQueueConfig();
     stakingQueueConfig.normalFlushSizeMin = _validatorCount;
 
-    RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost)
-      .setManaTarget(MANA_TARGET).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION)
-      .setMintFeeAmount(1e30).setValidators(initialValidators).setTargetCommitteeSize(
-      _targetCommitteeSize
-    ).setStakingQueueConfig(stakingQueueConfig).setSlashingQuorum(VOTING_ROUND_SIZE)
-      .setSlashingRoundSize(VOTING_ROUND_SIZE);
+    RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost).setManaTarget(
+      MANA_TARGET
+    ).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION).setMintFeeAmount(1e30).setValidators(
+      initialValidators
+    ).setTargetCommitteeSize(_targetCommitteeSize).setStakingQueueConfig(stakingQueueConfig).setSlashingQuorum(
+      VOTING_ROUND_SIZE
+    ).setSlashingRoundSize(VOTING_ROUND_SIZE);
     builder.deploy();
 
     asset = builder.getConfig().testERC20;
@@ -231,8 +222,12 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
 
         skipBlobCheck(address(rollup));
 
+        // Store the attestations for the current block number
+        uint256 currentBlockNumber = rollup.getPendingBlockNumber() + 1;
+        blockAttestations[currentBlockNumber] = SignatureLib.packAttestations(b.attestations);
+
         vm.prank(proposer);
-        rollup.propose(b.proposeArgs, SignatureLib.packAttestations(b.attestations), b.blobInputs);
+        rollup.propose(b.proposeArgs, SignatureLib.packAttestations(b.attestations), b.signers, b.blobInputs);
 
         nextSlot = nextSlot + Slot.wrap(1);
       }
@@ -275,6 +270,7 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
               end: start + epochSize - 1,
               args: args,
               fees: fees,
+              attestations: blockAttestations[start + epochSize - 1],
               blobInputs: full.block.batchedBlobInputs,
               proof: ""
             })
@@ -310,8 +306,7 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
 
     Timestamp ts = rollup.getTimestampForSlot(slotNumber);
 
-    uint128 manaBaseFee =
-      SafeCast.toUint128(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true));
+    uint128 manaBaseFee = SafeCast.toUint128(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true));
     uint256 manaSpent = point.block_header.mana_spent;
 
     address proposer = rollup.getCurrentProposer();
@@ -334,11 +329,13 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
     });
 
     CommitteeAttestation[] memory attestations;
+    address[] memory signers;
 
     {
       address[] memory validators = rollup.getEpochCommittee(rollup.getCurrentEpoch());
       uint256 needed = validators.length * 2 / 3 + 1;
       attestations = new CommitteeAttestation[](validators.length);
+      signers = new address[](needed);
 
       bytes32 headerHash = ProposedHeaderLib.hash(proposeArgs.header);
 
@@ -361,12 +358,16 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
       // loop through again to get to the required number of attestations.
       // yes, inefficient, but it's simple, clear, and is a test.
       uint256 sigCount = 1;
+      uint256 signersIndex = 0;
       for (uint256 i = 0; i < validators.length; i++) {
         if (validators[i] == proposer) {
-          continue;
+          signers[signersIndex] = validators[i];
+          signersIndex++;
         } else if (sigCount < needed) {
           attestations[i] = createAttestation(validators[i], digest);
+          signers[signersIndex] = validators[i];
           sigCount++;
+          signersIndex++;
         } else {
           attestations[i] = createEmptyAttestation(validators[i]);
         }
@@ -376,15 +377,12 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
     return Block({
       proposeArgs: proposeArgs,
       blobInputs: full.block.blobCommitments,
-      attestations: attestations
+      attestations: attestations,
+      signers: signers
     });
   }
 
-  function createAttestation(address _signer, bytes32 _digest)
-    internal
-    view
-    returns (CommitteeAttestation memory)
-  {
+  function createAttestation(address _signer, bytes32 _digest) internal view returns (CommitteeAttestation memory) {
     uint256 privateKey = attesterPrivateKeys[_signer];
 
     bytes32 digest = _digest.toEthSignedMessageHash();
@@ -395,12 +393,9 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
     return CommitteeAttestation({addr: _signer, signature: signature});
   }
 
-  // This is used for attestations that are not signed - we include their address to help reconstruct the committee commitment
-  function createEmptyAttestation(address _signer)
-    internal
-    pure
-    returns (CommitteeAttestation memory)
-  {
+  // This is used for attestations that are not signed - we include their address to help reconstruct the committee
+  // commitment
+  function createEmptyAttestation(address _signer) internal pure returns (CommitteeAttestation memory) {
     Signature memory emptySignature = Signature({v: 0, r: 0, s: 0});
     return CommitteeAttestation({addr: _signer, signature: emptySignature});
   }

@@ -5,12 +5,12 @@ import { type AccountWalletWithSecretKey, EthAddress } from '@aztec/aztec.js';
 import {
   type ExtendedViemWalletClient,
   L1TxUtils,
+  MultiAdderArtifact,
   type Operator,
   RollupContract,
   type ViemClient,
   deployL1Contract,
   getL1ContractsConfigEnvVars,
-  l1Artifacts,
 } from '@aztec/ethereum';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -234,18 +234,18 @@ export class P2PNetworkTest {
 
         const { address: multiAdderAddress } = await deployL1Contract(
           deployL1ContractsValues.l1Client,
-          l1Artifacts.multiAdder.contractAbi,
-          l1Artifacts.multiAdder.contractBytecode,
+          MultiAdderArtifact.contractAbi,
+          MultiAdderArtifact.contractBytecode,
           [rollup.address, deployL1ContractsValues.l1Client.account.address],
         );
 
         const multiAdder = getContract({
           address: multiAdderAddress.toString(),
-          abi: l1Artifacts.multiAdder.contractAbi,
+          abi: MultiAdderArtifact.contractAbi,
           client: deployL1ContractsValues.l1Client,
         });
 
-        const stakeNeeded = l1ContractsConfig.depositAmount * BigInt(this.numberOfValidators);
+        const stakeNeeded = l1ContractsConfig.activationThreshold * BigInt(this.numberOfValidators);
         await Promise.all(
           [await stakingAsset.write.mint([multiAdder.address, stakeNeeded], {} as any)].map(txHash =>
             deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: txHash }),

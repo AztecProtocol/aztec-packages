@@ -18,15 +18,15 @@ contract SlashPayload is IPayload {
   IValidatorSelection public immutable VALIDATOR_SELECTION;
   Offender[] public offenders;
 
-  constructor(
-    address[] memory _validators,
-    uint96[] memory _amounts,
-    IValidatorSelection _validatorSelection
-  ) {
+  constructor(address[] memory _validators, uint96[] memory _amounts, IValidatorSelection _validatorSelection) {
     for (uint256 i = 0; i < _validators.length; i++) {
       offenders.push(Offender({validator: _validators[i], amount: _amounts[i]}));
     }
     VALIDATOR_SELECTION = _validatorSelection;
+  }
+
+  function getURI() external view override(IPayload) returns (string memory) {
+    return "SlashPayload";
   }
 
   function getActions() external view override(IPayload) returns (IPayload.Action[] memory) {
@@ -35,9 +35,7 @@ contract SlashPayload is IPayload {
     for (uint256 i = 0; i < offenders.length; i++) {
       actions[i] = IPayload.Action({
         target: address(VALIDATOR_SELECTION),
-        data: abi.encodeWithSelector(
-          IStakingCore.slash.selector, offenders[i].validator, offenders[i].amount
-        )
+        data: abi.encodeWithSelector(IStakingCore.slash.selector, offenders[i].validator, offenders[i].amount)
       });
     }
     return actions;
