@@ -18,6 +18,10 @@ class OinkTests : public ::testing::Test {
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); };
 };
 
+/**
+ * @brief Test that the OinkProver produces the same result when run multiple times on the same key
+ *
+ */
 TEST_F(OinkTests, OinkProverIsDeterministic)
 {
     Builder circuit;
