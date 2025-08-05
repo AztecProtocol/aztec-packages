@@ -57,23 +57,23 @@ function run_proof_generation {
   # Split the hex-encoded vk bytes into fields boundaries (but still hex-encoded), first making 64-character lines and then encoding as JSON.
   # This used to be done by barretenberg itself, but with serialization now always being in field elements we can do it outside of bb.
   local vk_fields=$(cat "$outdir/vk" | xxd -p -c 0 | hex_to_fields_json)
-  local vk_hash_fields=$(cat "$outdir/vk_hash" | xxd -p -c 0 | hex_to_fields_json)
+  local vk_hash_field="\"$(cat "$outdir/vk_hash" | xxd -p -c 0)\""
   local public_inputs_fields=$(cat "$outdir/public_inputs" | xxd -p -c 0 | hex_to_fields_json)
   local proof_fields=$(cat "$outdir/proof" | xxd -p -c 0 | hex_to_fields_json)
 
-  generate_toml "$program" "$vk_fields" "$vk_hash_fields" "$proof_fields" "$public_inputs_fields"
+  generate_toml "$program" "$vk_fields" "$vk_hash_field" "$proof_fields" "$public_inputs_fields"
 }
 
 function generate_toml {
   local program=$1
   local vk_fields=$2
-  local vk_hash_fields=$3
+  local vk_hash_field=$3
   local proof_fields=$4
   local public_inputs_fields=$5
   local output_file="../$program/Prover.toml"
 
   jq -nr \
-      --arg key_hash "$vk_hash_fields" \
+      --arg key_hash "$vk_hash_field" \
       --argjson vk_f "$vk_fields" \
       --argjson public_inputs_f "$public_inputs_fields" \
       --argjson proof_f "$proof_fields" \
@@ -87,7 +87,6 @@ function generate_toml {
 }
 
 function regenerate_recursive_inputs {
-  local program=$1
   # Compile the assert_statement test as it's used for the recursive tests.
   COMPILE=2 ./scripts/run_test.sh assert_statement
   parallel 'run_proof_generation {}' ::: $(ls internal_test_programs)

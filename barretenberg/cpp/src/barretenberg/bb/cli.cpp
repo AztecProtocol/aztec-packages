@@ -454,20 +454,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_output_path_option(OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file, arbitrary_valid_proof_path);
 
     /***************************************************************************************************************
-     * Subcommand: OLD_API write_recursion_inputs_ultra_honk
-     ***************************************************************************************************************/
-    CLI::App* OLD_API_write_recursion_inputs_ultra_honk =
-        OLD_API->add_subcommand("write_recursion_inputs_ultra_honk", "");
-    add_verbose_flag(OLD_API_write_recursion_inputs_ultra_honk);
-    add_debug_flag(OLD_API_write_recursion_inputs_ultra_honk);
-    add_crs_path_option(OLD_API_write_recursion_inputs_ultra_honk);
-    std::string recursion_inputs_output_path{ "./target" };
-    add_output_path_option(OLD_API_write_recursion_inputs_ultra_honk, recursion_inputs_output_path);
-    add_ipa_accumulation_flag(OLD_API_write_recursion_inputs_ultra_honk);
-    add_recursive_flag(OLD_API_write_recursion_inputs_ultra_honk);
-    add_bytecode_path_option(OLD_API_write_recursion_inputs_ultra_honk);
-
-    /***************************************************************************************************************
      * Subcommand: OLD_API gates
      ***************************************************************************************************************/
     CLI::App* OLD_API_gates = OLD_API->add_subcommand("gates", "");
@@ -686,16 +672,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
         } else if (OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file->parsed()) {
             write_arbitrary_valid_client_ivc_proof_and_vk_to_file(arbitrary_valid_proof_path);
             return 0;
-        }
-        // ULTRA HONK EXTRA COMMANDS
-        else if (OLD_API_write_recursion_inputs_ultra_honk->parsed()) {
-            if (flags.ipa_accumulation) {
-                write_recursion_inputs_ultra_honk<UltraRollupFlavor>(
-                    bytecode_path, witness_path, recursion_inputs_output_path);
-            } else {
-                write_recursion_inputs_ultra_honk<UltraFlavor>(
-                    bytecode_path, witness_path, recursion_inputs_output_path);
-            }
         }
         // NEW STANDARD API
         // NOTE(AD): We likely won't really have a standard API if our main flavours are UH or CIVC, with CIVC so
