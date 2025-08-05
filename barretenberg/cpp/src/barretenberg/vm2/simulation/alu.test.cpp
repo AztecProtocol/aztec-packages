@@ -291,8 +291,27 @@ TEST(AvmSimulationAluTest, DivByZero)
         ElementsAre(AluEvent{ .operation = AluOperation::DIV, .a = a, .b = b, .error = AluError::DIV_0_ERROR }));
 }
 
-// TODO
-// tag is ff
+TEST(AvmSimulationAluTest, NegativeDivTagFF)
+{
+    EventEmitter<AluEvent> alu_event_emitter;
+    StrictMock<MockGreaterThan> gt;
+    StrictMock<MockFieldGreaterThan> field_gt;
+    StrictMock<MockRangeCheck> range_check;
+    Alu alu(gt, field_gt, range_check, alu_event_emitter);
+
+    auto a = MemoryValue::from<FF>(2);
+    auto b = MemoryValue::from<FF>(2);
+
+    EXPECT_THROW(alu.div(a, b), AluException);
+
+    auto events = alu_event_emitter.dump_events();
+    EXPECT_THAT(events,
+                ElementsAre(AluEvent{ .operation = AluOperation::DIV,
+                                      .a = a,
+                                      .b = b,
+                                      .c = MemoryValue::from_tag(static_cast<MemoryTag>(0), 0),
+                                      .error = AluError::TAG_ERROR }));
+}
 
 TEST(AvmSimulationAluTest, LT)
 {

@@ -346,20 +346,23 @@ TEST_P(AluAddConstrainingTest, NegativeAddWrongTagABMismatch)
     trace.set(Column::alu_ib_tag, 0, tag - 1);
     // ab_tags_diff_inv = inv(a_tag - b_tag) = inv(1) = 1:
     trace.set(Column::alu_ab_tags_diff_inv, 0, 1);
+    trace.set(Column::alu_sel_ab_tag_mismatch, 0, 1);
+    // If we set the mismatch error, we need to make sure the ALU tag error selector is correct:
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "TAG_ERR_CHECK");
     trace.set(Column::alu_sel_tag_err, 0, 1);
     // If we set one error, we need to make sure the overall ALU error selector is correct:
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ERR_CHECK");
     trace.set(Column::alu_sel_err, 0, 1);
     // Though the tags don't match, with error handling we can return the error rather than fail:
     check_relation<alu>(trace);
-    // Removing the error will fail:
+    // Correctly using the error, but injecting the wrong inverse will fail:
+    trace.set(Column::alu_ab_tags_diff_inv, 0, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");
+    trace.set(Column::alu_ab_tags_diff_inv, 0, 1);
+    // Correcting the inverse, but removing the error will fail:
+    trace.set(Column::alu_sel_ab_tag_mismatch, 0, 0);
     trace.set(Column::alu_sel_tag_err, 0, 0);
     trace.set(Column::alu_sel_err, 0, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");
-    // Correctly using the error, but injecting the wrong inverse will fail:
-    trace.set(Column::alu_sel_tag_err, 0, 1);
-    trace.set(Column::alu_sel_err, 0, 1);
-    trace.set(Column::alu_ab_tags_diff_inv, 0, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");
 }
 
@@ -971,14 +974,36 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivByZero)
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "DIV_0_ERR");
 }
 
-TEST_F(AluDivConstrainingTest, NegativeAluFF)
+TEST_F(AluDivConstrainingTest, NegativeAluDivFF)
 {
     auto a = MemoryValue::from_tag(MemoryTag::FF, 2);
     auto b = MemoryValue::from_tag(MemoryTag::FF, 5);
     auto c = a / b;
     auto trace = process_div_with_tracegen({ a, b, c });
-    // TODO(MW): Either set using FF for DIV as under the tag error umbrella, or name the failing relation
-    EXPECT_THROW(check_relation<alu>(trace), std::runtime_error);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "TAG_ERR_CHECK");
+    // This case should be recoverable, so we set the tag err selectors:
+    trace.set(Column::alu_sel_tag_err, 0, 1);
+    trace.set(Column::alu_sel_err, 0, 1);
+    check_relation<alu>(trace);
+    check_all_interactions<AluTraceBuilder>(trace);
+}
+
+TEST_F(AluDivConstrainingTest, NegativeAluDivByZeroFF)
+{
+    // For DIV, we can have both FF and dividing by zero errors:
+    auto a = MemoryValue::from_tag(MemoryTag::FF, 2);
+    auto b = MemoryValue::from_tag(MemoryTag::FF, 5);
+    auto c = a / b;
+    auto trace = process_div_with_tracegen({ a, b, c });
+    trace.set(Column::alu_sel_tag_err, 0, 1);
+    trace.set(Column::alu_sel_err, 0, 1);
+    check_relation<alu>(trace);
+    // Set b, b_inv to 0 with dividing by 0 errors:
+    trace.set(Column::alu_ib, 0, 0);
+    trace.set(Column::alu_b_inv, 0, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "DIV_0_ERR");
+    trace.set(Column::alu_sel_div_0_err, 0, 1);
+    check_relation<alu>(trace);
 }
 
 // EQ TESTS
@@ -1428,7 +1453,6 @@ TEST_P(AluNotConstrainingTest, NegativeAluNotTraceGen)
     }
 }
 
-// TODO(MW): Will remove below test/values if we really do want to fail the relation when a_tag != b_tag for NOT
 TEST_P(AluNotConstrainingTest, AluNotTraceGenTagError)
 {
     auto [a, b] = GetParam();
@@ -1436,15 +1460,7 @@ TEST_P(AluNotConstrainingTest, AluNotTraceGenTagError)
         TwoOperandTestParams{ a, MemoryValue::from_tag(TAG_ERROR_TEST_VALUES.at(b.get_tag()), b.as_ff()) }, true);
     check_all_interactions<AluTraceBuilder>(trace);
     check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
-
-    if (a.get_tag() == MemoryTag::FF) {
-        check_relation<alu>(trace);
-    } else {
-        // TODO(MW): Currently the below fails because for NOT a tag error occurs iff we have an FF input. We don't seem
-        // to care about using tag_err for a_tag != b_tag, Is this intended?
-        // trace.set(Column::alu_sel_tag_err, 0, 0);
-        EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");
-    }
+    check_relation<alu>(trace);
 }
 
 // TRUNCATE operation (SET/CAST opcodes)

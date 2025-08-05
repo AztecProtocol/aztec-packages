@@ -71,6 +71,13 @@ MemoryValue Alu::div(const MemoryValue& a, const MemoryValue& b)
         uint256_t b_int = static_cast<uint256_t>(b.as_ff());
         MemoryTag tag = a.get_tag();
 
+        if (tag == MemoryTag::FF) {
+            // DIV on a field is not a valid operation, but should be recoverable.
+            // TODO(MW): cleanup - It comes under the umbrella of tag errors (like NOT) but MemoryValue c = a / b does
+            // not throw, so I sin here and throw a not relevant error we know will create a TAG_ERROR:
+            throw TagMismatchException("Cannot perform integer division on a field element");
+        }
+
         // Check remainder < b:
         greater_than.gt(b, remainder);
         if (tag == MemoryTag::U128) {
