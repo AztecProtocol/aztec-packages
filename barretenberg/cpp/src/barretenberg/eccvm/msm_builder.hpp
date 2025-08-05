@@ -32,7 +32,7 @@ class ECCVMMSMMBuilder {
         uint32_t msm_count = 0; // number of multiplications processed so far in current MSM round
         uint32_t msm_round = 0; // current "round" of MSM, in {0, ..., 32}. (final round deals with the `skew` bit.)
                                 // here, 32 = `NUM_WNAF_DIGITS_PER_SCALAR`.
-        bool msm_transition = false; // is 1 if the next row starts the processing of a different MSM, else 0.
+        bool msm_transition = false; // is 1 if the current row *starts* the processing of a different MSM, else 0.
         bool q_add = false;
         bool q_double = false;
         bool q_skew = false;
@@ -255,7 +255,6 @@ class ECCVMMSMMBuilder {
             Element accumulator = offset_generator; // for every MSM, we start with the same `offset_generator`
             const auto& msm = msms[msm_idx]; // which MSM we are processing. This is of type `std::vector<ScalarMul>`.
             size_t msm_row_index = msm_row_counts[msm_idx]; // the row where the given MSM starts
-            auto& row = msm_rows[msm_row_index];            // actual `MSMRow` we will fill out in the body of this loop
             const size_t msm_size = msm.size();
             const size_t num_rows_per_digit =
                 (msm_size / ADDITIONS_PER_ROW) +
@@ -267,16 +266,18 @@ class ECCVMMSMMBuilder {
             size_t trace_index =
                 (msm_row_counts[msm_idx] - 1) * 4; // tracks the index in the traces of `p1`, `p2`, `p3`, and
                                                    // `accumulator_trace` that we are filling out
-            const auto pc = static_cast<uint32_t>(pc_values[msm_idx]); // pc that our msm starts at
 
             // for each digit-slot (`digit_idx`), and then for each row of the VM (which does `ADDITIONS_PER_ROW` point
             // additions), we either enter in/process (`ADDITIONS_PER_ROW`) `AddState` objects, and then if necessary,
             // process the doubling.
             for (size_t digit_idx = 0; digit_idx < NUM_WNAF_DIGITS_PER_SCALAR; ++digit_idx) {
+                const auto pc = static_cast<uint32_t>(pc_values[msm_idx]); // pc that our msm starts at
+
                 for (size_t row_idx = 0; row_idx < num_rows_per_digit; ++row_idx) {
                     const size_t num_points_in_row = (row_idx + 1) * ADDITIONS_PER_ROW > msm_size
                                                          ? (msm_size % ADDITIONS_PER_ROW)
                                                          : ADDITIONS_PER_ROW;
+                    auto& row = msm_rows[msm_row_index]; // actual `MSMRow` we will fill out in the body of this loop
                     const size_t offset = row_idx * ADDITIONS_PER_ROW;
                     row.msm_transition = (digit_idx == 0) && (row_idx == 0);
                     // each iteration of this loop process/enters in one of the `AddState` objects in `row.add_state`.

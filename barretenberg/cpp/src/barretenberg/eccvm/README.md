@@ -42,10 +42,6 @@ In a bit more detail, the ECCVM is an compiler that takes a sequence of operatio
 
 In fact, due to our MSM optimizations, we produce _three_ tables, where each table has it's own set of multivariate polynomials, such that the correct evaluation of the operations corresponds to each table's multivariates evaluating to zero on each row. These tables will "communicate" with each other via lookup arguments.
 
-$\textcolor{red}{\text{TODO(RAJU)}}$: add brief description of Goblin plonk.
-
-$\textcolor{red}{\text{TODO(RAJU)}}$ edit the following: The motivation for the ECCVM is the following. We use BN-254 for our (KZG) commitments; hence, for most parts of our stack, we build "arithmetic circuits" (and their variants) over $\fr$. For various purposes (folding, recursion, user-defined apps), we would like to encode/arithmetize BN-254 operations themselves. As the field-of-definition of BN-254 is $\fq$, a long MSM would involve many non-native field operations (i.e., $\fq$ operations arithmetized in $\fr$).
-
 ## Op Queue
 
 To understand what the OpQueue is, we first need to understand `EccOpCode` and what the VM operations are. Loosely, the OpQueue is a list of operations on a fixed elliptic curve, which in particular admit an accumulator which propages from instruction to instruction. It may therefore be seen as a finite state machine with a single register.
@@ -74,6 +70,8 @@ On the level of selectors, `opcode_value`=$8\qadd + 4 \qmul + 2 \qeq + \qreset$.
 
 ### Decomposing scalars
 
+_Decomposing scalars_ is an important optimization for (multi)scalar multiplications that is especially helpful if we are doing scalar multiplications where the scalar has 128 bits, i.e., is small.
+
 Note that both $\fr$ and $\fq$ have a non-trivial cube roots of unity. (Their orders are both $1\mod(3)$.) We fix $\beta\in\fq$ to be a primitive cube root of unity. Note that $\beta$ induces an order 6 automorphism $\varphi$ of BN-254, defined on the level of points as:
 $$\varphi\colon (x, y)\mapsto (\beta x, -y).$$
 
@@ -90,7 +88,7 @@ An operation in the OpQueue may be entered into a table as follows:
 
 | `op` | `X` | `Y` | `z_1` | `z_2` | `mul_scalar_full` |
 
-Here, `op` is the value of the operation, $(X, Y)$ are the _affine_ coordinates of $P$, `mul_full_scalar` stands for "full scalar if the operation is `mul`" (so is an element of $\fr$), and `z_1` and `z_2` are a decomposition of `mul_scalar_ful` as explained above. In particular, `z_1` and `z_2` may each be represented by 128 bits.
+Here, `op` is the value of the operation, $(X, Y)$ are the _affine_ coordinates of $P$, `mul_scalar_full` stands for "full scalar if the operation is `mul`" (so is an element of $\fr$), and `z_1` and `z_2` are a decomposition of `mul_scalar_full` as explained above. In particular, `z_1` and `z_2` may each be represented by 128 bits.
 
 ### VM operations
 
@@ -154,7 +152,7 @@ To do this, we break up our computation into steps.
 For each $s_i$, we expand it in wNAF form:$s_i = \sum_{j=0}^{31} a_{i, j} 2^{4j} + \text{skew}_i$.
 
 For every $P_i$, precompute and store the multiples: $$\{-15P_i, -13P_i, \ldots, 13P_i, 15P_i\}$$
-as well as $2P_i$. These will be stored in a table of length 16, $T_i$, with the ordering $\textcolor{red}{\text{TODO}}$.
+as well as $2P_i$. Note that, $E$ is represented in Weierstrauss form, $nP$ and $-nP$ have the same affine $y$-coordinate and the $x$-coordinates differ by a sign.
 
 ##### Algorithm
 
@@ -175,7 +173,7 @@ There is one important static variable we require: `static constexpr size_t ADDI
 We have three tables that mediate the computation. As explained above, all of the computations are easy except for scalar multiplications. We process the computation and chunk what looks like scalar multiplications into MSMs. Here is the brief outline.
 
 - `transcript_builder`. The transcript columns organize and process all of the computations _except for the scalar multiplications_. In particular, the Transcript Columns _do not bear witness_ to the intermediate computations necessary for MSMs. However, they still "access" the results of these computations.
-- `precomputed_tables_builder`. The precomputed columns are: for every $P$ that occurs in an MSM (which was syntactically pulled out by the `transcript_builder`, $\textcolor{red}{\textsf{I THINK}}$)
+- `precomputed_tables_builder`. The precomputed columns are: for every $P$ that occurs in an MSM (which was syntactically pulled out by the `transcript_builder`)
 - `msm_builder` actually computes/constrains the MSMs.
 
 A final note: Note: apart from three Lagrange columns, all columns are either:
@@ -187,42 +185,42 @@ In the following tables, each column has a defined "value range". If the range i
 
 #### Transcript Columns
 
-| name                            | value range        | computation                                                                                                                          | description                                                                                                                                                                |
-| ------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|                                 |                    | $\textcolor{blue}{\textbf{Populated in the first loop}}$                                                                             |                                                                                                                                                                            |
-| transcript_msm_infinity         | $\{0, 1 \}$        | `row.transcript_msm_infinity = msm_output.is_point_at_infinity();`                                                                   | are we at the end of an MSM _and_ is the output the point at infinity?                                                                                                     |
-| accumulator_not_empty           | $\{0, 1 \}$        | `row.accumulator_not_empty = !state.is_accumulator_empty;`, `final_row.accumulator_not_empty = !updated_state.is_accumulator_empty;` | not(is the accumulator either empty or point-at-infinity?)                                                                                                                 |
-| q_add                           | $\{0, 1 \}$        |                                                                                                                                      | is opcode                                                                                                                                                                  |
-| q_mul                           | $\{0, 1 \}$        |                                                                                                                                      | is opcode                                                                                                                                                                  |
-| q_eq                            | $\{0, 1\}$         |                                                                                                                                      | is opcode                                                                                                                                                                  |
-| q_reset_accumulator             | $\{0, 1 \}$        |                                                                                                                                      | does opcode reset accumulator?                                                                                                                                             |
-| msm_transition                  | $\{0, 1\}$         | `msm_transition = is_mul && next_not_msm && (state.count + num_muls > 0);`                                                           | are we at the end of an msm?                                                                                                                                               |
-| pc                              | $\mathbb{F}_q$     | `updated_state.pc = state.pc - num_muls;`                                                                                            | _decreasing_ program counter                                                                                                                                               |
-| msm_count                       | $\mathbb{F}_q$     | `updated_state.count = current_ongoing_msm ? state.count + num_muls : 0;`                                                            | Number of muls so far in the _current_ MSM (_not including_ the current step)                                                                                              |
-| msm_count_zero_at_transition    | $\{0, 1\}$         | `row.msm_count_zero_at_transition = ((state.count + num_muls) == 0) && entry.op_code.mul && next_not_msm;`                           | is the number of scalar muls we have completed at the end of our "MSM block" zero?                                                                                         |
-| base_x                          | $\mathbb{F}_q$     |                                                                                                                                      | (input trace) x-coordinate of base point $P$                                                                                                                               |
-| base_y                          | $\mathbb{F}_q$     |                                                                                                                                      | (input trace) y-coordinate of base point $P$                                                                                                                               |
-| base_infinity                   | $\{0, 1\}$         |                                                                                                                                      | is $P=\NeutralElt$?                                                                                                                                                        |
-| z1                              | $[0,2^{128})$      |                                                                                                                                      | (input trace) first part of decomposed scalar                                                                                                                              |
-| z2                              | $[0,2^{128})$      |                                                                                                                                      | (input trace) second part of decomposed scalar                                                                                                                             |
-| z1_zero                         | $\{0, 1\}$         |                                                                                                                                      | is z1 zero?                                                                                                                                                                |
-| z2_zero                         | $\{0, 1\}$         |                                                                                                                                      | is z2 zero?                                                                                                                                                                |
-| op_code                         | $\in \mathbb{F}_q$ | `row.opcode = entry.op_code.value();`                                                                                                | 8 `q_add` + 4 `q_mul` + 2 `q_eq` + `q_reset`                                                                                                                               |
-|                                 |                    | $\textcolor{blue}{\textbf{Populated after converting from projective to affine coordinates}}$                                        |                                                                                                                                                                            |
-| accumulator_x                   | $\in \mathbb{F}_q$ |                                                                                                                                      | x-coordinate of accumulator $A$                                                                                                                                            |
-| accumulator_y                   | $\in \mathbb{F}_q$ |                                                                                                                                      | y-coordinate of accumulator $A$                                                                                                                                            |
-| msm_output_x                    | $\in \mathbb{F}_q$ |                                                                                                                                      | if we are at the end of an MSM, (output of MSM) + `offset_generator()` = `(msm_output_x, msm_output_y)`, else 0                                                            |
-| msm_output_y                    | $\in \mathbb{F}_q$ |                                                                                                                                      | if we are at the end of an MSM, (output of MSM) + `offset_generator()` = `(msm_output_x, msm_output_y)`, else 0                                                            |
-| transcript_msm_intermediate_x   | $\in \mathbb{F}_q$ |                                                                                                                                      | if we are at the end of an MSM, (output of MSM) = `(transcript_msm_intermediate_x, transcript_msm_intermediate_y)`, else 0                                                 |
-| transcript_msm_intermediate_y   | $\in \mathbb{F}_q$ |                                                                                                                                      | if we are at the end of an MSM, (output of MSM) = `(transcript_msm_intermediate_x, transcript_msm_intermediate_y)`, else 0                                                 |
-| transcript_msm_intermediate_y   | $\in \mathbb{F}_q$ |                                                                                                                                      | if we are at the end of an MSM, (output of MSM) = `(transcript_msm_intermediate_x, transcript_msm_intermediate_y)`, else 0                                                 |
-| transcript_add_x_equal          | $\{0, 1\}$         | `(vm_x == accumulator_x) or (vm_infinity && accumulator_infinity);`                                                                  | do the accumulator and the point we are adding have the same $x$-value? (here, the two point we are adding is either part of an `add` instruction or the output of an MSM) |
-| transcript_add_y_equal          | $\{0, 1\}$         | `(vm_y == accumulator_y) or (vm_infinity && accumulator_infinity);`                                                                  | do the accumulator and the point we are adding have the same $y$-value?                                                                                                    |
-| base_x_inverse                  | $\in \mathbb{F}_q$ |                                                                                                                                      |                                                                                                                                                                            |
-| base_y_inverse                  | $\in \mathbb{F}_q$ |                                                                                                                                      |                                                                                                                                                                            |
-| transcript_add_lambda           | $\in \mathbb{F}_q$ |                                                                                                                                      |                                                                                                                                                                            |
-| transcript_msm_x_inverse        | $\in \mathbb{F}_q$ |                                                                                                                                      |                                                                                                                                                                            |
-| msm_count_at_transition_inverse | $\in \mathbb{F}_q$ |                                                                                                                                      |                                                                                                                                                                            |
+| column name | builder name | value range | computation | description |
+| ----------- | ------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| | | | $\textcolor{blue}{\textbf{Populated in the first loop}}$ | |
+| transcript_msm_infinity | transcript_msm_infinity | $\{0, 1 \}$ | `row.transcript_msm_infinity = msm_output.is_point_at_infinity();` | are we at the end of an MSM \_and* is the output the point at infinity? |
+| transcript_accumulator_not_empty | accumulator_not_empty | $\{0, 1 \}$ | `row.accumulator_not_empty = !state.is_accumulator_empty;`, `final_row.accumulator_not_empty = !updated_state.is_accumulator_empty;` | not(is the accumulator either empty or point-at-infinity?) |
+| transcript_add | q_add | $\{0, 1 \}$ | | is opcode |
+| transcript_mul | q_mul | $\{0, 1 \}$ | | is opcode |
+| transcript_eq | q_eq | $\{0, 1\}$ | | is opcode |
+| transcript_reset_accumulator | q_reset_accumulator | $\{0, 1 \}$ | | does opcode reset accumulator? |
+| transcript_msm_transition | msm_transition | $\{0, 1\}$ | `msm_transition = is_mul && next_not_msm && (state.count + num_muls > 0);` | are we at the end of an msm? i.e., is current transcript row the final `mul` opcode of a MSM |
+| transcript_pc | pc | $\mathbb{F}_q$ | `updated_state.pc = state.pc - num_muls;` | *decreasing* program counter |
+| transcript_msm_count | msm_count | $\mathbb{F}_q$ | `updated_state.count = current_ongoing_msm ? state.count + num_muls : 0;` | Number of muls so far in the *current\* MSM (NOT INCLUDING the current step) |
+| transcript_msm_count_zero_at_transition | msm_count_zero_at_transition | $\{0, 1\}$ | `row.msm_count_zero_at_transition = ((state.count + num_muls) == 0) && entry.op_code.mul && next_not_msm;` | is the number of scalar muls we have completed at the end of our "MSM block" zero? |
+| transcript_Px | base_x | $\mathbb{F}_q$ | | (input trace) x-coordinate of base point $P$ |
+| transcript_Py | base_y | $\mathbb{F}_q$ | | (input trace) y-coordinate of base point $P$ |
+| transcript_base_infinity | base_infinity | $\{0, 1\}$ | | is $P=\NeutralElt$? |
+| transcript_z1 | z1 | $[0,2^{128})$ | | (input trace) first part of decomposed scalar |
+| transcript_z2 | z2 | $[0,2^{128})$ | | (input trace) second part of decomposed scalar |
+| transcript_z1zero | z1_zero | $\{0, 1\}$ | | is z1 zero? |
+| transcript_z2zero | z2_zero | $\{0, 1\}$ | | is z2 zero? |
+| transcript_op | op_code | $\in \mathbb{F}_q$ | `row.opcode = entry.op_code.value();` | 8 `q_add` + 4 `q_mul` + 2 `q_eq` + `q_reset` |
+| | | | $\textcolor{blue}{\textbf{Populated after converting from projective to affine coordinates}}$ | |
+| transcript_accumulator_x | accumulator_x | $\in \mathbb{F}_q$ | | x-coordinate of accumulator $A$ |
+| transcript_accumulator_y | accumulator_y | $\in \mathbb{F}_q$ | | y-coordinate of accumulator $A$ |
+| transcript_msm_x | msm_output_x | $\in \mathbb{F}_q$ | | if we are at the end of an MSM, (output of MSM) + `offset_generator()` = `(msm_output_x, msm_output_y)`, else 0 |
+| transcript_msm_y | msm_output_y | $\in \mathbb{F}_q$ | | if we are at the end of an MSM, (output of MSM) + `offset_generator()` = `(msm_output_x, msm_output_y)`, else 0 |
+| transcript_msm_intermediate_x | transcript_msm_intermediate_x | $\in \mathbb{F}_q$ | | if we are at the end of an MSM, (output of MSM) = `(transcript_msm_intermediate_x, transcript_msm_intermediate_y)`, else 0 |
+| transcript_msm_intermediate_y | transcript_msm_intermediate_y | $\in \mathbb{F}_q$ | | if we are at the end of an MSM, (output of MSM) = `(transcript_msm_intermediate_x, transcript_msm_intermediate_y)`, else 0 |
+| transcript_msm_intermediate_y | transcript_msm_intermediate_y | $\in \mathbb{F}_q$ | | if we are at the end of an MSM, (output of MSM) = `(transcript_msm_intermediate_x, transcript_msm_intermediate_y)`, else 0 |
+| transcript_add_x_equal | transcript_add_x_equal | $\{0, 1\}$ | `(vm_x == accumulator_x) or (vm_infinity && accumulator_infinity);` | do the accumulator and the point we are adding have the same $x$-value? (here, the two point we are adding is either part of an `add` instruction or the output of an MSM). 0 if we are not accumulating anything. |
+| transcript_add_y_equal | transcript_add_y_equal | $\{0, 1\}$ | `(vm_y == accumulator_y) or (vm_infinity && accumulator_infinity);` | do the accumulator and the point we are adding have the same $y$-value? 0 if we are not accumulating anything.|
+| transcript_base_x_inverse | base_x_inverse | $\in \mathbb{F}_q$ | | if adding a point to the accumulator and the $x$ values are not equal, the inverse of the difference of the $x$ values. (witnesses `transcript_add_x_equal == 0`|
+| transcript_base_y_inverse | base_y_inverse | $\in \mathbb{F}_q$ | | if adding a point to the accumulator and the $y$ values are not equal, the inverse of the difference of the $y$ values. (witnesses `transcript_add_y_equal == 0`|
+| transcript_add_lambda | transcript_add_lambda | $\in \mathbb{F}_q$ | | if adding a point into the accumulator, contains the lambda gradient|
+| transcript_msm_x_inverse | transcript_msm_x_inverse | $\in \mathbb{F}_q$ | |used to validate transcript_msm_infinity correct $\textcolor{red}{\text{TODO:??}}$ |
+| transcript_msm_count_at_transition_inverse | msm_count_at_transition_inverse | $\in \mathbb{F}_q$ | | used to validate transcript_msm_count_zero_at_transition|
 
 #### Precomputed Columns
 
@@ -251,7 +249,7 @@ As the set of precomputed columns is smaller, we include the code snippet.
 
 ```
 
-As discussed (TODO(RAJU): ADD HYPERLINK), our scalars have 128 bits and we may expand them in $w=4$ wNAF:
+As discussed ($\textcolor{red}{\text{TODO}}$(RAJU): ADD HYPERLINK), our scalars have 128 bits and we may expand them in $w=4$ wNAF:
 
 $$s = \sum_{j=0}^{31} a_j 2^{4j} + \text{skew},$$
 where
@@ -264,21 +262,98 @@ $$\text{compress}\colon d\mapsto \frac{d+15}{2},$$
 which is of course a bijection $\{-15, -13, \ldots, 15\}\rightarrow \{0,\ldots, 15\}$
 
 The following is one row in the Precomputed table; there are `NUM_WNAF_DIGITS_PER_SCALAR / WNAF_DIGITS_PER_ROW == 32/4 = 8` rows. The row index is `i`; it is also witnessed as `round`.
+| column name | builder name | value range | computation | description |
+| ----------- | ---------------------- | ----------- | --------------------------------------------------------------- | ------------------------------------------------------- |
+| precompute_s1hi | s1 | $[0, 4)$ | | first two bits of $\text{compress}(a*{31 - 4i})$ |
+| precompute_s1lo | s2 | $[0, 4)$ | | second two bits of $\text{compress}(a*{31 - 4i})$ |
+| precompute_s2hi | s3 | $[0, 4)$ | | first two bits of $\text{compress}(a*{31 - (4i + 1)})$ |
+| precompute_s2lo | s4 | $[0, 4)$ | | second two bits of $\text{compress}(a*{31 - (4i + 1)})$ |
+| precompute_s3hi | s5 | $[0, 4)$ | | first two bits of $\text{compress}(a*{31 - (4i + 2)})$ |
+| precompute_s3lo | s6 | $[0, 4)$ | | second two bits of $\text{compress}(a*{31 - (4i + 2)})$ |
+| precompute_s4hi | s7 | $[0, 4)$ | | first two bits of $\text{compress}(a*{31 - (4i + 3)})$ |
+| precompute_s4lo | s8 | $[0, 4)$ | | second two bits of $\text{compress}(a*{31 - (4i + 3)})$ |
+| precompute_skew | skew | $\{0,1\}$ | | skew bit |
+| precompute_point_transition | point_transition | $\{0,1\}$ | | are we at the last row corresponding to this scalar? |
+| precompute_pc | pc | $\fq$ | | value of the program counter of this EC operation |
+| precompute_round | round | $\fq$ | `static_cast<uint32_t>(i);` | "row" of the computation. |
+| precompute_scalar_sum | scalar_sum | $\fq$ | | sum up-to-now of the digits |
+| precompute_tx, precompute_ty | precompute_accumulator | $E(\fq)\subset \fq\times \fq$ | `entry.precomputed_table[bb::eccvm::POINT_TABLE_SIZE - 1 - i];` | $(15-2i)P$ |
+| precompute_dx, precompute_dy | precompute_double | $E(\fq)\subset \fq\times \fq$ | | $2P$ |
 
-| name                   | value range | computation                                                     | description                                             |
-| ---------------------- | ----------- | --------------------------------------------------------------- | ------------------------------------------------------- |
-| s1                     | $[0, 4)$    |                                                                 | first two bits of $\text{compress}(a_{31 - 4i})$        |
-| s2                     | $[0, 4)$    |                                                                 | second two bits of $\text{compress}(a_{31 - 4i})$       |
-| s3                     | $[0, 4)$    |                                                                 | first two bits of $\text{compress}(a_{31 - (4i + 1)})$  |
-| s4                     | $[0, 4)$    |                                                                 | second two bits of $\text{compress}(a_{31 - (4i + 1)})$ |
-| s5                     | $[0, 4)$    |                                                                 | first two bits of $\text{compress}(a_{31 - (4i + 2)})$  |
-| s6                     | $[0, 4)$    |                                                                 | second two bits of $\text{compress}(a_{31 - (4i + 2)})$ |
-| s7                     | $[0, 4)$    |                                                                 | first two bits of $\text{compress}(a_{31 - (4i + 3)})$  |
-| s8                     | $[0, 4)$    |                                                                 | second two bits of $\text{compress}(a_{31 - (4i + 3)})$ |
-| skew                   | $\{0,1\}$   |                                                                 | skew bit                                                |
-| point_transition       | $\{0,1\}$   |                                                                 | are we at the last row corresponding to this scalar?    |
-| pc                     | $\fq$       |                                                                 | value of the program counter of this EC operation       |
-| round                  | $\fq$       | `static_cast<uint32_t>(i);`                                     | "row" of the computation.                               |
-| scalar_sum             | $\fq$       |                                                                 | sum up-to-now of the digits                             |
-| precompute_accumulator | $E(\fq)$    | `entry.precomputed_table[bb::eccvm::POINT_TABLE_SIZE - 1 - i];` | $(15-2i)P$                                              |
-| precompute_double      | $E(\fq)$    |                                                                 | $2P$                                                    |
+#### MSM columns
+
+This table is the most complicated and responsible for the efficiently handling of MSMs.
+
+```
+struct alignas(64) MSMRow {
+        uint32_t pc = 0;        // counter over all half-length (128 bit) scalar muls used to compute the required MSMs
+        uint32_t msm_size = 0;  // the number of points that will be scaled and summed
+        uint32_t msm_count = 0; // number of multiplications processed so far in current MSM round
+        uint32_t msm_round = 0; // current "round" of MSM, in {0, ..., 32}. (final round deals with the `skew` bit.)
+                                // here, 32 = `NUM_WNAF_DIGITS_PER_SCALAR`.
+        bool msm_transition = false; // is 1 if the *current* row starts the processing of a different MSM, else 0.
+        bool q_add = false;
+        bool q_double = false;
+        bool q_skew = false;
+
+        // Each row in the MSM portion of the ECCVM can handle (up to) 4 point-additions.
+        // For each row in the VM we represent the point addition data via a size-4 array of
+        // AddState objects.
+        struct AddState {
+            bool add = false; // are we adding a point at this location in the VM?
+                              // e.g if the MSM is of size-2 then the 3rd and 4th AddState objects will have this set
+                              // to `false`.
+            int slice = 0; // wNAF slice value. This has values in {0, ..., 15} and corresponds to an odd number in the
+                           // range {-15, -13, ..., 15} via the monotonic bijection.
+            AffineElement point{ 0, 0 }; // point being added into the accumulator
+            FF lambda = 0; // when adding `point` into the accumulator via Affine point addition, the value of `lambda`
+                           // (i.e., the slope of the line). (we need this as a witness in the circuit.)
+            FF collision_inverse = 0; // collision_inverse` is used to validate we are not hitting point addition edge
+                                      // case exceptions, i.e., we want the VM proof to fail if we're doing a point
+                                      // addition where (x1 == x2). to do this, we simply provide an inverse to x1 - x2.
+        };
+        std::array<AddState, 4> add_state{ AddState{ false, 0, { 0, 0 }, 0, 0 },
+                                           AddState{ false, 0, { 0, 0 }, 0, 0 },
+                                           AddState{ false, 0, { 0, 0 }, 0, 0 },
+                                           AddState{ false, 0, { 0, 0 }, 0, 0 } };
+        FF accumulator_x = 0;
+        FF accumulator_y = 0;
+    };
+```
+
+| column name       | builder name                   | value range    | computation | description                                                                                                                           |
+| ----------------- | ------------------------------ | -------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| msm_pc            | pc                             | $\mathbb{F}_q$ |             | counter over all half-length (128 bit) scalar muls used to compute the required MSMs                                                  |
+| msm_size_of_msm   | msm_size                       | $\mathbb{F}_q$ |             | the number of points that will be scaled and summed                                                                                   |
+| msm_count         | msm_count                      | $\mathbb{F}_q$ |             | number of multiplications processed so far in current MSM round                                                                       |
+| msm_round         | msm_round                      | $[0, 32]$      |             | current "round" of MSM, in $\{0, \ldots, 32\}$. (final round deals with the `skew` bit.)                                              |
+| msm_transition    | msm_transition                 | $\{0, 1\}$     |             | is 1 if the current row starts the processing of a different MSM, else 0                                                              |
+| msm_add           | q_add                          | $\{0, 1\}$     |             | 1 if we are adding points in Straus MSM algorithm at current row                                                                      |
+| msm_double        | q_double                       | $\{0, 1\}$     |             | 1 if we are doubling accumulator in Straus MSM algorithm at current row                                                               |
+| msm_skew          | q_skew                         | $\{0, 1\}$     |             | 1 if we are adding skew points in Straus MSM algorithm at current row                                                                 |
+| msm_x1            | add_state[0].point.x           | $\mathbb{F}_q$ |             | x-coordinate of first potential point to add in Straus MSM round                                                                      |
+| msm_y1            | add_state[0].point.y           | $\mathbb{F}_q$ |             | y-coordinate of first potential point to add in Straus MSM round                                                                      |
+| msm_x2            | add_state[1].point.x           | $\mathbb{F}_q$ |             | x-coordinate of second potential point to add in Straus MSM round                                                                     |
+| msm_y2            | add_state[1].point.y           | $\mathbb{F}_q$ |             | y-coordinate of second potential point to add in Straus MSM round                                                                     |
+| msm_x3            | add_state[2].point.x           | $\mathbb{F}_q$ |             | x-coordinate of third potential point to add in Straus MSM round                                                                      |
+| msm_y3            | add_state[2].point.y           | $\mathbb{F}_q$ |             | y-coordinate of third potential point to add in Straus MSM round                                                                      |
+| msm_x4            | add_state[3].point.x           | $\mathbb{F}_q$ |             | x-coordinate of fourth potential point to add in Straus MSM round                                                                     |
+| msm_y4            | add_state[3].point.y           | $\mathbb{F}_q$ |             | y-coordinate of fourth potential point to add in Straus MSM round                                                                     |
+| msm_add1          | add_state[0].add               | $\{0, 1\}$     |             | are we adding msm_x1/msm_y1 (resp. add_state[0]) into accumulator at current round?                                                   |
+| msm_add2          | add_state[1].add               | $\{0, 1\}$     |             | are we adding msm_x2/msm_y2 (resp. add_state[1]) into accumulator at current round?                                                   |
+| msm_add3          | add_state[2].add               | $\{0, 1\}$     |             | are we adding msm_x3/msm_y3 (resp. add_state[2]) into accumulator at current round?                                                   |
+| msm_add4          | add_state[3].add               | $\{0, 1\}$     |             | are we adding msm_x4/msm_y4 (resp. add_state[3]) into accumulator at current round?                                                   |
+| msm_slice1        | add_state[0].slice             | $[0, 15]$      |             | wNAF slice value (a.k.a. digit) for first point (corresponds to odd number in $\{-15, -13, \ldots, 15\}$ via the monotonic bijection) |
+| msm_slice2        | add_state[1].slice             | $[0, 15]$      |             | wNAF slice value (a.k.a. digit) for second point                                                                                      |
+| msm_slice3        | add_state[2].slice             | $[0, 15]$      |             | wNAF slice value (a.k.a. digit) for third point                                                                                       |
+| msm_slice4        | add_state[3].slice             | $[0, 15]$      |             | wNAF slice value (a.k.a. digit) for fourth point                                                                                      |
+| msm_lambda1       | add_state[0].lambda            | $\mathbb{F}_q$ |             | temp variable used for ecc point addition algorithm if msm_add1 = 1                                                                   |
+| msm_lambda2       | add_state[1].lambda            | $\mathbb{F}_q$ |             | temp variable used for ecc point addition algorithm if msm_add2 = 1                                                                   |
+| msm_lambda3       | add_state[2].lambda            | $\mathbb{F}_q$ |             | temp variable used for ecc point addition algorithm if msm_add3 = 1                                                                   |
+| msm_lambda4       | add_state[3].lambda            | $\mathbb{F}_q$ |             | temp variable used for ecc point addition algorithm if msm_add4 = 1                                                                   |
+| msm_collision_x1  | add_state[0].collision_inverse | $\mathbb{F}_q$ |             | used to ensure incomplete ecc addition exceptions not triggered if msm_add1 = 1                                                       |
+| msm_collision_x2  | add_state[1].collision_inverse | $\mathbb{F}_q$ |             | used to ensure incomplete ecc addition exceptions not triggered if msm_add2 = 1                                                       |
+| msm_collision_x3  | add_state[2].collision_inverse | $\mathbb{F}_q$ |             | used to ensure incomplete ecc addition exceptions not triggered if msm_add3 = 1                                                       |
+| msm_collision_x4  | add_state[3].collision_inverse | $\mathbb{F}_q$ |             | used to ensure incomplete ecc addition exceptions not triggered if msm_add4 = 1                                                       |
+| msm_accumulator_x | accumulator_x                  | $\mathbb{F}_q$ |             | x-coordinate of MSM accumulator                                                                                                       |
+| msm_accumulator_y | accumulator_y                  | $\mathbb{F}_q$ |             | y-coordinate of MSM accumulator                                                                                                       |
