@@ -36,5 +36,5 @@ export function packAsRetrievedNote({
   const noteMetadata = fromRawData(nonzeroNoteHashCounter, noteNonce);
 
   // Pack metadata first (stage and maybe_note_nonce), followed by the rest
-  return [new Fr(noteMetadata.stage), noteMetadata.maybeNoteNonce, contractAddress, ...noteContent.items];
+  return [...noteContent.items, contractAddress, new Fr(noteMetadata.stage), noteMetadata.maybeNoteNonce];
 }

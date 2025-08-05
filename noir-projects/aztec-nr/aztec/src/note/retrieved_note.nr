@@ -11,10 +11,8 @@ pub struct RetrievedNote<Note> {
 }
 
 mod test {
-    use crate::note::note_metadata::NoteMetadata;
-    use crate::note::retrieved_note::RetrievedNote;
-    use protocol_types::address::AztecAddress;
-    use protocol_types::traits::{FromField, Packable};
+    use crate::note::{note_metadata::NoteMetadata, retrieved_note::RetrievedNote};
+    use protocol_types::{address::AztecAddress, traits::{FromField, Packable}};
 
     #[derive(Packable)]
     struct TestNote {
@@ -46,11 +44,11 @@ mod test {
         let packed_retrieved_note = retrieved_note.pack();
 
         let packed_retrieved_note_from_typescript = [
-            0x0000000000000000000000000000000000000000000000000000000000000002,
-            0x0000000000000000000000000000000000000000000000000000000000000002,
-            0x0000000000000000000000000000000000000000000000000000000000000001,
             0x0000000000000000000000000000000000000000000000000000000000000003,
             0x0000000000000000000000000000000000000000000000000000000000000004,
+            0x0000000000000000000000000000000000000000000000000000000000000001,
+            0x0000000000000000000000000000000000000000000000000000000000000002,
+            0x0000000000000000000000000000000000000000000000000000000000000002,
         ];
 
         std::println(packed_retrieved_note);
