@@ -1,12 +1,7 @@
 import { BackendOptions, Barretenberg, CircuitOptions } from './index.js';
 import { RawBuffer } from '../types/raw_buffer.js';
 import {
-  deflattenFields,
-  flattenFieldsAsArray,
   ProofData,
-  reconstructHonkProof,
-  splitHonkProof,
-  PAIRING_POINTS_SIZE,
   uint8ArrayToHex,
   hexToUint8Array,
 } from '../proof/index.js';
