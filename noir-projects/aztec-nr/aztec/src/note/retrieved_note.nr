@@ -20,8 +20,14 @@ mod test {
         value2: Field,
     }
 
+    /// This test is a bit strange because in TS we don't have on the input the actual packed retrieved note but
+    /// instead run `fromRawData` function to get the metadata and then we construct and pack the retrieved note.
+    /// To ensure that the `fromRawData` function matches the Noir one, we also run it here and compare the final
+    /// packed retrieved note. It would be slightly more correct to have a separate unit test for the `fromRawData`
+    /// function but I felt like it's not worth the effort. The code here is not that complex and it all should be
+    /// straightforward to fix if the format, for whatever reason, changes.
     #[test]
-    unconstrained fn unpacks_retrieved_note_from_typescript() {
+    unconstrained fn packing_retrieved_note_matches_typescript() {
         // The following 4 values are an input to the typescript function `packAsRetrievedNote`
         let contract_address = AztecAddress::from_field(1);
         let note_nonce = 2;

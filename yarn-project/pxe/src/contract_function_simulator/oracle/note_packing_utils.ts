@@ -17,6 +17,18 @@ function fromRawData(nonzeroNoteHashCounter: boolean, maybeNoteNonce: Fr): { sta
   }
 }
 
+/**
+ * Packs a note in a format that is compatible with the default Packable implementation of the retrieved note.
+ *
+ * @dev Unlike the default Packable implementation, this function first constructs the note metadata from the inputs
+ * and only after that it packs the retrieved note. Hence it doesn't map one to `RetrievedNote::pack()`.
+ *
+ * @param contractAddress - The address of the contract that owns the note
+ * @param noteNonce - The nonce injected into the note hash preimage by kernels.
+ * @param index - Optional index in the note hash tree. If undefined, indicates a transient note
+ * @param note - The note content containing the actual note data
+ * @returns The packed note as an array of field elements
+ */
 export function packAsRetrievedNote({
   contractAddress,
   noteNonce,
