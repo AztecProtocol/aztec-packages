@@ -12,6 +12,34 @@
 #include <functional>
 
 namespace bb::stdlib {
+// Base case: only one pointer
+template <typename T> T* validate_context(T* ptr)
+{
+    return ptr;
+}
+
+// Variadic version: compare first with the rest
+template <typename T, typename... Ts> T* validate_context(T* first, Ts*... rest)
+{
+    T* tail = validate_context(rest...);
+    if (!first) {
+        return tail; // first is null, rely on tail
+    }
+    if (!tail) {
+        return first; // tail is null, use first
+    }
+    ASSERT(first == tail && "Pointers refer to different builder objects!");
+    return first;
+}
+
+template <typename T, typename Container> T* validate_context(const Container& elements)
+{
+    T* result = nullptr;
+    for (const auto& element : elements) {
+        result = validate_context<T>(result, element.get_context());
+    }
+    return result;
+}
 
 template <typename Builder> class bool_t;
 template <typename Builder> class field_t {
@@ -430,7 +458,7 @@ template <typename Builder> class field_t {
 
         const auto& a = (*this);
         const auto& b = other;
-        auto* ctx = a.context ? a.context : b.context;
+        auto* ctx = validate_context(a.context, b.context);
         if (a.is_constant() && b.is_constant()) {
             return uint256_t(a.get_value()) < uint256_t(b.get_value());
         }
@@ -470,15 +498,5 @@ template <typename Builder> class field_t {
 template <typename Builder> inline std::ostream& operator<<(std::ostream& os, field_t<Builder> const& v)
 {
     return os << v.get_value();
-}
-// Recursive helper to determine first non-null ptr to avoid sequential ternary choices.
-template <typename T> T* first_non_null(T* ptr)
-{
-    return ptr;
-}
-
-template <typename T, typename... Ts> T* first_non_null(T* first, Ts*... rest)
-{
-    return first ? first : first_non_null(rest...);
 }
 } // namespace bb::stdlib

@@ -120,7 +120,7 @@ template <typename Builder> field_t<Builder>::operator bool_t<Builder>() const
  */
 template <typename Builder> field_t<Builder> field_t<Builder>::operator+(const field_t& other) const
 {
-    Builder* ctx = (context == nullptr) ? other.context : context;
+    Builder* ctx = validate_context(other.context, context);
     field_t<Builder> result(ctx);
     // Ensure that non-constant circuit elements can not be added without context
     ASSERT(ctx || (is_constant() && other.is_constant()));
@@ -188,7 +188,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator-(const f
  */
 template <typename Builder> field_t<Builder> field_t<Builder>::operator*(const field_t& other) const
 {
-    Builder* ctx = (context == nullptr) ? other.context : context;
+    Builder* ctx = validate_context(other.context, context);
     field_t<Builder> result(ctx);
     // Ensure that non-constant circuit elements can not be multiplied without context
     ASSERT(ctx || (is_constant() && other.is_constant()));
@@ -313,7 +313,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
     //    a := this;
     //    b := other;
     //    q := a / b;
-    Builder* ctx = (context) ? context : other.context;
+    Builder* ctx = validate_context(context, other.context);
     field_t<Builder> result(ctx);
     // Ensure that non-constant circuit elements can not be divided without context
     ASSERT(ctx || (is_constant() && other.is_constant()));
@@ -466,7 +466,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t
         return pow(static_cast<uint32_t>(exponent_value));
     }
 
-    auto* ctx = exponent.context;
+    auto* ctx = validate_context(context, exponent.context);
 
     std::array<bool_t<Builder>, 32> exponent_bits;
     // Collect individual bits as bool_t's
@@ -506,7 +506,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t
  */
 template <typename Builder> field_t<Builder> field_t<Builder>::madd(const field_t& to_mul, const field_t& to_add) const
 {
-    Builder* ctx = first_non_null<Builder>(context, to_mul.context, to_add.context);
+    Builder* ctx = validate_context<Builder>(context, to_mul.context, to_add.context);
 
     if (to_mul.is_constant() && to_add.is_constant() && is_constant()) {
         return ((*this) * to_mul + to_add);
@@ -569,7 +569,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::add_two(const fie
     if ((add_b.is_constant()) && (add_c.is_constant()) && (is_constant())) {
         return (*this) + add_b + add_c;
     }
-    Builder* ctx = first_non_null<Builder>(context, add_b.context, add_c.context);
+    Builder* ctx = validate_context<Builder>(context, add_b.context, add_c.context);
 
     // Let  d := a + (b+c), where
     //      a := *this;
@@ -918,7 +918,7 @@ void field_t<Builder>::create_range_constraint(const size_t num_bits, std::strin
 template <typename Builder> void field_t<Builder>::assert_equal(const field_t& rhs, std::string const& msg) const
 {
     const field_t lhs = *this;
-    Builder* ctx = lhs.get_context() ? lhs.get_context() : rhs.get_context();
+    Builder* ctx = validate_context(lhs.get_context(), rhs.get_context());
     (void)OriginTag(get_origin_tag(), rhs.get_origin_tag());
     if (lhs.is_constant() && rhs.is_constant()) {
         BB_ASSERT_EQ(lhs.get_value(), rhs.get_value());
@@ -1052,7 +1052,7 @@ field_t<Builder> field_t<Builder>::select_from_three_bit_table(const std::array<
 template <typename Builder>
 void field_t<Builder>::evaluate_linear_identity(const field_t& a, const field_t& b, const field_t& c, const field_t& d)
 {
-    Builder* ctx = first_non_null(a.context, b.context, c.context, d.context);
+    Builder* ctx = validate_context(a.context, b.context, c.context, d.context);
 
     if (a.is_constant() && b.is_constant() && c.is_constant() && d.is_constant()) {
         BB_ASSERT_EQ(a.get_value() + b.get_value() + c.get_value() + d.get_value(), 0);
@@ -1094,7 +1094,7 @@ void field_t<Builder>::evaluate_polynomial_identity(const field_t& a,
         return;
     }
 
-    Builder* ctx = first_non_null(a.context, b.context, c.context, d.context);
+    Builder* ctx = validate_context(a.context, b.context, c.context, d.context);
 
     // validate that a * b + c + d = 0
     bb::fr q_m = a.multiplicative_constant * b.multiplicative_constant;
@@ -1153,7 +1153,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const 
     accumulator[0] += constant_term;
 
     // At this point, the `accumulator` vector consisting of witnesses is not empty, so we can extract the context.
-    Builder* ctx = accumulator[0].get_context();
+    Builder* ctx = validate_context<Builder>(accumulator);
 
     // Step 2: compute output value
     size_t num_elements = accumulator.size();

@@ -1476,8 +1476,118 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_THROW(q + q, std::runtime_error);
 #endif
     }
-};
 
+    void test_validate_context()
+    {
+        using bb::stdlib::validate_context;
+
+        Builder builder1;
+        Builder builder2;
+
+        auto null = static_cast<Builder*>(nullptr);
+
+        // Case 1: All nullptr
+        {
+            Builder* result = validate_context(null, null, null);
+            EXPECT_EQ(result, nullptr);
+        }
+
+        // Case 2: One non-nullptr
+        {
+            Builder* result = validate_context(&builder1);
+            EXPECT_EQ(result, &builder1);
+        }
+
+        // Case 3: Leading nullptrs
+        {
+            Builder* result = validate_context(null, null, &builder1);
+            EXPECT_EQ(result, &builder1);
+        }
+
+        // Case 4: One non-null followed by nullptrs
+        {
+            Builder* result = validate_context(&builder1, null, null);
+            EXPECT_EQ(result, &builder1);
+        }
+
+        // Case 5: All same non-nullptr
+        {
+            Builder* result = validate_context(&builder1, &builder1, &builder1);
+            EXPECT_EQ(result, &builder1);
+        }
+
+        // Case 6: Conflict between two different non-nullptrs
+        {
+            EXPECT_THROW_OR_ABORT(validate_context(&builder1, &builder2),
+                                  "Pointers refer to different builder objects!");
+        }
+
+        // Case 7: Conflict between first and last non-null
+        {
+            EXPECT_THROW_OR_ABORT(validate_context(&builder1, null, null, &builder2),
+                                  "Pointers refer to different builder objects!");
+        }
+
+        // Case 8: First null, two same non-null later
+        {
+            Builder* result = validate_context(null, &builder1, &builder1);
+            EXPECT_EQ(result, &builder1);
+        }
+
+        // Case 9: Interleaved nulls and same pointer
+        {
+            Builder* result = validate_context(&builder1, null, &builder1, null);
+            EXPECT_EQ(result, &builder1);
+        }
+    }
+
+    void test_validate_container_context()
+    {
+        // Case 1: Empty container returns nullptr
+        {
+            std::vector<field_ct> empty;
+            Builder* ctx = validate_context<Builder>(empty);
+            EXPECT_EQ(ctx, nullptr);
+        }
+
+        // Case 2: Same context
+        {
+            Builder builder;
+            std::vector<field_ct> fields = {
+                field_ct(&builder, 1),
+                field_ct(&builder, 2),
+                field_ct(&builder, 3),
+            };
+            Builder* ctx = validate_context<Builder>(fields);
+            EXPECT_EQ(ctx, &builder);
+        }
+
+        // Case 3: Some nullptr contexts
+        {
+            Builder builder;
+            field_ct null_field; // context is nullptr
+            field_ct a(&builder, 1);
+            field_ct b(&builder, 2);
+            std::vector<field_ct> fields = { null_field, a, b };
+            Builder* ctx = validate_context<Builder>(fields);
+            EXPECT_EQ(ctx, &builder);
+        }
+
+        // Case 4: Mismatched contexts should throw/abort
+        {
+            Builder builder1;
+            Builder builder2;
+            std::vector<field_ct> fields = {
+                field_ct(&builder1, 1),
+                field_ct(&builder1, 1),
+                field_ct(1),
+                field_ct(&builder2, 2),
+            };
+
+            EXPECT_THROW_OR_ABORT(validate_context<Builder>(fields), "Pointers refer to different builder objects!");
+        }
+    }
+};
 using CircuitTypes = testing::Types<bb::UltraCircuitBuilder>;
 
 TYPED_TEST_SUITE(stdlib_field, CircuitTypes);
@@ -1657,4 +1767,12 @@ TYPED_TEST(stdlib_field, test_three_bit_table)
 TYPED_TEST(stdlib_field, test_two_bit_table)
 {
     TestFixture::test_two_bit_table();
+}
+TYPED_TEST(stdlib_field, test_validate_context)
+{
+    TestFixture::test_validate_context();
+}
+TYPED_TEST(stdlib_field, test_validate_container_context)
+{
+    TestFixture::test_validate_container_context();
 }
