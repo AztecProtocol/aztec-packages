@@ -349,6 +349,75 @@ template <typename Builder> class stdlib_field : public testing::Test {
         run_test(true, false);
     }
 
+    void test_assert_equal_with_gate_count()
+    {
+        Builder builder;
+
+        // Constant == constant
+        {
+            field_ct a(&builder, 5);
+            field_ct b(&builder, 5);
+            EXPECT_NO_THROW(a.assert_equal(b));
+        }
+
+        // Constant != constant
+        {
+            field_ct a(&builder, 3);
+            field_ct b(&builder, 7);
+            EXPECT_THROW_OR_ABORT(a.assert_equal(b), "field_t::assert_equal: constants are not equal");
+        }
+
+        // Constant == witness
+        {
+            Builder builder;
+            size_t num_gates_start = builder.get_estimated_num_finalized_gates();
+            field_ct a(&builder, 9);
+            field_ct b = field_ct::from_witness(&builder, 9);
+            a.assert_equal(b);
+            EXPECT_TRUE(CircuitChecker::check(builder));
+            // 1 gate is needed to fix the constant
+            EXPECT_EQ(builder.get_estimated_num_finalized_gates() - num_gates_start, 1);
+        }
+
+        // Witness == constant
+        {
+            Builder builder;
+            size_t num_gates_start = builder.get_estimated_num_finalized_gates();
+            field_ct a = field_ct::from_witness(&builder, 42);
+            field_ct b(&builder, 42);
+            a.assert_equal(b);
+            EXPECT_TRUE(CircuitChecker::check(builder));
+            // 1 gate is needed to fix the constant
+            EXPECT_EQ(builder.get_estimated_num_finalized_gates() - num_gates_start, 1);
+        }
+
+        // Witness == witness (equal values)
+        {
+            Builder builder;
+            size_t num_gates_start = builder.get_estimated_num_finalized_gates();
+
+            field_ct a = field_ct::from_witness(&builder, 11);
+            field_ct b = field_ct::from_witness(&builder, 11);
+            a.assert_equal(b);
+            EXPECT_TRUE(CircuitChecker::check(builder));
+            // Both witnesses are normalized, no gates are created, only a copy constraint
+            EXPECT_EQ(builder.get_estimated_num_finalized_gates() - num_gates_start, 0);
+        }
+
+        // Witness != witness (both are not normalized)
+        {
+            Builder builder;
+            field_ct a = field_ct::from_witness(&builder, 10);
+            a += 13;
+            field_ct b = field_ct::from_witness(&builder, 15);
+            b += 1;
+            a.assert_equal(b);
+            EXPECT_FALSE(CircuitChecker::check(builder));
+            // Both witnesses are not normalized, we use an `add_gate` to ensure they are equal
+            EXPECT_EQ(builder.err(), "field_t::assert_equal");
+        }
+    }
+
     static void test_add_mul_with_constants()
     {
         Builder builder = Builder();
@@ -1536,6 +1605,10 @@ TYPED_TEST(stdlib_field, test_add_two)
 TYPED_TEST(stdlib_field, test_assert_equal)
 {
     TestFixture::test_assert_equal();
+}
+TYPED_TEST(stdlib_field, test_assert_equal_gate_count)
+{
+    TestFixture::test_assert_equal_with_gate_count();
 }
 TYPED_TEST(stdlib_field, test_assert_is_in_set)
 {

@@ -625,7 +625,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::add_two(const fie
  */
 template <typename Builder> field_t<Builder> field_t<Builder>::normalize() const
 {
-    if (is_constant() || ((multiplicative_constant == bb::fr::one()) && (additive_constant == bb::fr::zero()))) {
+    if (is_normalized()) {
         return *this;
     }
     ASSERT(context);
@@ -921,17 +921,30 @@ template <typename Builder> void field_t<Builder>::assert_equal(const field_t& r
     Builder* ctx = validate_context(lhs.get_context(), rhs.get_context());
     (void)OriginTag(get_origin_tag(), rhs.get_origin_tag());
     if (lhs.is_constant() && rhs.is_constant()) {
-        BB_ASSERT_EQ(lhs.get_value(), rhs.get_value());
-    } else if (lhs.is_constant()) {
-        field_t right = rhs.normalize();
-        ctx->assert_equal_constant(right.witness_index, lhs.get_value(), msg);
+        BB_ASSERT_EQ(lhs.get_value(), rhs.get_value(), "field_t::assert_equal: constants are not equal");
+        return;
+    }
+    if (lhs.is_constant()) {
+        ctx->assert_equal_constant(rhs.get_normalized_witness_index(), lhs.get_value(), msg);
     } else if (rhs.is_constant()) {
-        field_t left = lhs.normalize();
-        ctx->assert_equal_constant(left.witness_index, rhs.get_value(), msg);
+        ctx->assert_equal_constant(lhs.get_normalized_witness_index(), rhs.get_value(), msg);
     } else {
-        field_t left = lhs.normalize();
-        field_t right = rhs.normalize();
-        ctx->assert_equal(left.witness_index, right.witness_index, msg);
+        if (lhs.is_normalized() || rhs.is_normalized()) {
+            ctx->assert_equal(lhs.get_normalized_witness_index(), rhs.get_normalized_witness_index(), msg);
+        } else {
+            // Instead of creating 2 gates for normalizing both witnesses and applying a copy constraint, we use a
+            // single `add` gate
+            ctx->create_add_gate({ .a = lhs.witness_index,
+                                   .b = rhs.witness_index,
+                                   .c = ctx->zero_idx,
+                                   .a_scaling = lhs.multiplicative_constant,
+                                   .b_scaling = -rhs.multiplicative_constant,
+                                   .c_scaling = 0,
+                                   .const_scaling = lhs.additive_constant - rhs.additive_constant });
+            if ((lhs.get_value() != rhs.get_value()) && !ctx->failed()) {
+                ctx->failure(msg);
+            }
+        }
     }
 }
 /**
