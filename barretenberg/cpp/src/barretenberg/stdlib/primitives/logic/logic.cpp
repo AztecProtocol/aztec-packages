@@ -17,7 +17,7 @@ namespace bb::stdlib {
 /**
  * @brief A logical AND or XOR over a variable number of bits.
  *
- * @details If the left and right operands are larger than num_bit, the result will be truncated to num_bits.
+ * @details If the left and right operands are larger than num_bits, the result will be truncated to num_bits.
  * However, the two operands could be range-constrained to num_bits before the call, which would remove the need to
  * range constrain inside this function.
  *
@@ -56,6 +56,11 @@ field_t<Builder> logic<Builder>::create_logic_constraint(
 
     Builder* ctx = a.get_context();
 
+    // We slice the input values into 32-bit chunks, and then use a multi-table lookup to compute the AND or XOR
+    // of each chunk. Since we perform the lookup from 32-bit multi-tables, the lookup operation implicitly enforces a
+    // 32-bit range constraint on each chunk. However, if `num_bits` is not a multiple of 32, the last chunk will be
+    // smaller than 32 bits. Therefore, the last chunk needs to be explicitly range-constrained to ensure it is in the
+    // correct range. The result is then reconstructed from the chunks, and checked against the original value.
     const size_t num_chunks = (num_bits / 32) + ((num_bits % 32 == 0) ? 0 : 1);
     auto left((uint256_t)a.get_value());
     auto right((uint256_t)b.get_value());
@@ -78,6 +83,7 @@ field_t<Builder> logic<Builder>::create_logic_constraint(
         b_accumulator += b_chunk * scaling_factor;
 
         if (chunk_size != 32) {
+            // If the chunk is smaller than 32 bits, we need to explicitly range constrain it.
             ctx->create_range_constraint(
                 a_chunk.witness_index, chunk_size, "stdlib logic: bad range on final chunk of left operand");
             ctx->create_range_constraint(
