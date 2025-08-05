@@ -1,14 +1,37 @@
+/// Generates the generic parameter declarations for a struct's trait implementation.
+///
+/// This function takes a struct type definition and generates the generic parameter declarations
+/// that go after the `impl` keyword. For example, given a struct with generics `N: u32` and `T`,
+/// it generates `<let N: u32, T>`.
+///
+/// # Parameters
+/// - `s`: The struct type definition to generate generic declarations for
+///
+/// # Returns
+/// A quoted code block containing the generic parameter declarations, or an empty quote if the struct
+/// has no generic parameters
+///
+/// # Example
+/// For a struct defined as:
+/// ```
+/// struct Container<T, let N: u32> {
+///     items: [T; N],
+///     count: u32
+/// }
+/// ```
+///
+/// This function generates:
+/// ```
+/// <let N: u32, T>
+/// ```
 comptime fn get_generics_declarations(s: TypeDefinition) -> Quoted {
     let generics = s.generics();
 
-    // Constructs the "<let N: u32, let M: u8>" string that is injected after the "impl" keyword in e.g.
-    // "impl<let N: u32, let M: u8> Serialize for Foo<N, M>".
-    // Returns an empty quote if the struct has no generics.
     if generics.len() > 0 {
         let generics_declarations_items = generics
             .map(|(name, maybe_integer_typ)| {
-                // The second item in the generics tuple is an Option of an integer type that is Some if the generic is
-                //numeric.
+                // The second item in the generics tuple is an Option of an integer type that is Some only if
+                // the generic is numeric.
                 if maybe_integer_typ.is_some() {
                     // The generic is numeric, so we return a quote defined as e.g. "let N: u32"
                     let integer_type = maybe_integer_typ.unwrap();
@@ -26,10 +49,36 @@ comptime fn get_generics_declarations(s: TypeDefinition) -> Quoted {
     }
 }
 
+/// Generates the `where` clause for a trait implementation that constrains non-numeric generic type parameters.
+///
+/// This function takes a struct type definition and a trait name, and generates a `where` clause that
+/// requires all non-numeric generic type parameters to implement the specified trait.
+///
+/// # Parameters
+/// - `s`: The struct type definition to generate the where clause for
+/// - `trait_name`: The name of the trait that non-numeric generic parameters must implement
+///
+/// # Returns
+/// A quoted code block containing the where clause, or an empty quote if the struct has no non-numeric
+/// generic parameters
+///
+/// # Example
+/// For a struct defined as:
+/// ```
+/// struct Container<T, let N: u32> {
+///     items: [T; N],
+///     count: u32
+/// }
+/// ```
+///
+/// And trait name "Serialize", this function generates:
+/// ```
+/// where T: Serialize
+/// ```
 comptime fn get_where_trait_clause(s: TypeDefinition, trait_name: Quoted) -> Quoted {
     let generics = s.generics();
 
-    // The second item in the generics tuple is an Option of an integer type that is Some if the generic is
+    // The second item in the generics tuple is an Option of an integer type that is Some only if the generic is
     // numeric.
     let non_numeric_generics =
         generics.filter(|(_, maybe_integer_typ)| maybe_integer_typ.is_none());
