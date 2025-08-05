@@ -48,7 +48,7 @@ The first program can be anything, so we should focus on the second one. The cir
 
 ```rust
 global HONK_VK_SIZE: u32 = 112;
-global HONK_PROOF_SIZE: u32 = 507;
+global HONK_PROOF_SIZE: u32 = 456;
 global HONK_IDENTIFIER: u32 = 1;
 
 fn main(

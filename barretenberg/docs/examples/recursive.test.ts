@@ -11,6 +11,7 @@ describe('Recursive Aggregation Example', () => {
   let recursiveBackend: UltraHonkBackend;
   let mainNoir: Noir;
   let recursiveNoir: Noir;
+  let recursiveInputs: any;
 
   before(async function() {
     this.timeout(120000);
@@ -91,24 +92,23 @@ describe('Recursive Aggregation Example', () => {
     expect(mainVerificationKey.length).to.be.greaterThan(0);
   });
 
+
   it('should prepare recursive inputs from proof and verification key', async function() {
     this.timeout(120000);
 
     // Generate witness and proof for main circuit
     const { witness: mainWitness } = await mainNoir.execute({ x: 1, y: 2 });
-    const mainProofData = await mainBackend.generateProof(mainWitness, { keccakZK: true });
-    const mainVerificationKey = await mainBackend.getVerificationKey({ keccakZK: true });
+    const mainProofData = await mainBackend.generateProof(mainWitness);
+    const mainVerificationKey = await mainBackend.getVerificationKey();
 
     // docs:start:recursive_inputs
     // Convert proof and VK to fields for recursive circuit
     const barretenbergAPI = await Barretenberg.new({ threads: 1 });
-    const proofAsFields = deflattenFields(new RawBuffer(mainProofData.proof));
     const vkAsFields = (await barretenbergAPI.acirVkAsFieldsUltraHonk(new RawBuffer(mainVerificationKey)))
       .map(field => field.toString());
 
-    // Prepare inputs for recursive circuit
-    const recursiveInputs = {
-      proof: proofAsFields,
+    recursiveInputs = {
+      proof: deflattenFields(mainProofData.proof),
       public_inputs: [2],
       verification_key: vkAsFields
     };
@@ -124,28 +124,8 @@ describe('Recursive Aggregation Example', () => {
     expect(recursiveInputs.public_inputs).to.deep.equal([2]);
   });
 
-  // TODO: Skipping because recursive proving is actually not working!
-  it.skip('should generate recursive proof', async function() {
+  it('should generate recursive proof', async function() {
     this.timeout(180000);
-
-    // Generate witness and proof for main circuit
-    const { witness: mainWitness } = await mainNoir.execute({ x: 1, y: 2 });
-    const mainProofData = await mainBackend.generateProof(mainWitness, { keccakZK: true });
-    const mainVerificationKey = await mainBackend.getVerificationKey({ keccakZK: true });
-
-    // Prepare recursive inputs
-    const barretenbergAPI = await Barretenberg.new({ threads: 1 });
-    const proofAsFields = deflattenFields(new RawBuffer(mainProofData.proof));
-    const vkAsFields = (await barretenbergAPI.acirVkAsFieldsUltraHonk(new RawBuffer(mainVerificationKey)))
-      .map(field => field.toString());
-
-    const recursiveInputs = {
-      proof: proofAsFields,
-      public_inputs: [2],
-      verification_key: vkAsFields
-    };
-
-    await barretenbergAPI.destroy();
 
     // docs:start:recursive_proof
     // Generate witness for recursive circuit

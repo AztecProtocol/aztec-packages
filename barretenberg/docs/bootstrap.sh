@@ -26,11 +26,10 @@ function build_and_deploy {
     return
   fi
   echo_header "build docs"
-  if cache_download bb-docs-$hash.tar.gz; then
-    return
+  if ! cache_download bb-docs-$hash.tar.gz; then
+    denoise "yarn install && yarn build"
+    cache_upload bb-docs-$hash.tar.gz build
   fi
-  denoise "yarn install && yarn build"
-  cache_upload bb-docs-$hash.tar.gz build
 
   if [ "${CI:-0}" -eq 1 ] && [ "$(arch)" == "amd64" ]; then
     if [ -z "${NETLIFY_SITE_ID:-}" ] || [ -z "${NETLIFY_AUTH_TOKEN:-}" ]; then
