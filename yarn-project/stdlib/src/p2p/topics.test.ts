@@ -1,4 +1,3 @@
-// Serde test for the block attestation type
 import { P2PClientType } from './client_type.js';
 import { getTopicsForClientAndConfig } from './topic_type.js';
 
