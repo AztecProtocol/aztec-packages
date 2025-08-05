@@ -234,10 +234,7 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     // If the incoming circuit is a kernel, start its subtable with an eq and reset operation to ensure a
     // neighbouring misconfigured subtable coming from an app cannot affect the operations in the
     // current subtable. We don't do this for the hiding kernel as it succeeds another kernel and because the hiding
-    // kernel has to start with a no-op for the correct functioning of translator. Once the hiding kernel's subtable
-    // will be merged via APPEND, the tail kernel (whose ecc ops will be at the top of the ecc op table) will have
-    // to be the one starting with a no-op and it will also not start with an eq and reset. This is fine as the tail
-    // kernel is itself a successor of another kernel starting with an eq and reset.
+    // kernel has to start with a no-op for the correct functioning of translator.
     if (!is_hiding_kernel) {
         circuit.queue_ecc_eq();
     }
@@ -272,10 +269,6 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 
         kernel_output.set_public();
     }
-
-    // Transcript to be shared across folding of K_{i} (kernel) (the current kernel), A_{i+1,1} (app), .., A_{i+1,
-    // n} (app)
-    accumulation_transcript = std::make_shared<Transcript>();
 }
 
 /**
@@ -310,9 +303,20 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
 
     honk_vk = precomputed_vk;
 
+    // We're acccumulating a kernel if the verification queue is empty (because the kernel circuit contains recursive
+    // verifiers for all the entries previously present in the verification queue) and if it's not the first accumulate
+    // call (which will always be for an app circuit).
+    bool is_kernel = verification_queue.empty() && num_circuits_accumulated > 0;
+
+    // Transcript to be shared across folding of K_{i} (kernel) (the current kernel), A_{i+1,1} (app), .., A_{i+1,
+    // n} (app)
+    if (is_kernel) {
+        accumulation_transcript = std::make_shared<Transcript>();
+    }
+
     VerifierInputs queue_entry{ .honk_vk = honk_vk,
                                 // first circuit accumulated should be an app
-                                .is_kernel = verification_queue.empty() && num_circuits_accumulated > 0 };
+                                .is_kernel = is_kernel };
     if (num_circuits_accumulated == 0) { // First circuit in the IVC
         BB_ASSERT_EQ(queue_entry.is_kernel, false, "First circuit accumulated is always be an app");
         // For first circuit in the IVC, use oink to complete the decider proving key and generate an oink proof
