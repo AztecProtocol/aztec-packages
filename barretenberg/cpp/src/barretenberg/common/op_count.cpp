@@ -1,4 +1,5 @@
 
+#include "barretenberg/common/log.hpp"
 #include <cstddef>
 #ifndef __wasm__
 #include "op_count.hpp"
@@ -7,6 +8,10 @@
 #include <thread>
 
 namespace bb::detail {
+
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+bool use_op_count_time =
+    std::getenv("BB_USE_OP_COUNT_TIME") == nullptr ? false : std::string(std::getenv("BB_USE_OP_COUNT_TIME")) == "1";
 
 GlobalOpCountContainer::~GlobalOpCountContainer()
 {

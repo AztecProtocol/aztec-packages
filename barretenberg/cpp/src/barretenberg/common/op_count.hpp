@@ -4,16 +4,16 @@
 #include <memory>
 #include <tracy/Tracy.hpp>
 
-// #ifdef TRACY_INSTRUMENTED
-// #define PROFILE_THIS() ZoneScopedN(__func__)
-// #define PROFILE_THIS_NAME(name) ZoneScopedN(name)
-// #elif defined __wasm__
+#ifdef TRACY_INSTRUMENTED
+#define PROFILE_THIS() ZoneScopedN(__func__)
+#define PROFILE_THIS_NAME(name) ZoneScopedN(name)
+#elif defined __wasm__
 #define PROFILE_THIS() (void)0
 #define PROFILE_THIS_NAME(name) (void)0
-// #else
-// #define PROFILE_THIS() BB_OP_COUNT_TIME_NAME(__func__)
-// #define PROFILE_THIS_NAME(name) BB_OP_COUNT_TIME_NAME(name)
-// #endif
+#else
+#define PROFILE_THIS() BB_OP_COUNT_TIME_NAME(__func__)
+#define PROFILE_THIS_NAME(name) BB_OP_COUNT_TIME_NAME(name)
+#endif
 
 #ifdef __wasm__
 // require a semicolon to appease formatters
@@ -41,9 +41,13 @@
 #include <cstdlib>
 #include <map>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <vector>
 namespace bb::detail {
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+extern bool use_op_count_time;
+
 // Compile-time string
 // See e.g. https://www.reddit.com/r/cpp_questions/comments/pumi9r/does_c20_not_support_string_literals_as_template/
 template <std::size_t N> struct OperationLabel {
@@ -167,7 +171,9 @@ struct OpCountTimeReporter {
 #define BB_OP_COUNT_CYCLES() BB_OP_COUNT_CYCLES_NAME(__func__)
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define BB_OP_COUNT_TIME_NAME(name)                                                                                    \
-    bb::detail::OpCountTimeReporter __bb_op_count_time(bb::detail::GlobalOpCount<name>::ensure_stats())
+    std::optional<bb::detail::OpCountTimeReporter> __bb_op_count_time;                                                 \
+    if (bb::detail::use_op_count_time)                                                                                 \
+    __bb_op_count_time.emplace(bb::detail::GlobalOpCount<name>::ensure_stats())
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define BB_OP_COUNT_TIME() BB_OP_COUNT_TIME_NAME(__func__)
 #endif
