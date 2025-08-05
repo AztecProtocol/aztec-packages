@@ -1,7 +1,7 @@
 use crate::traits::{Deserialize, Empty, Serialize};
 use std::meta::derive;
 
-#[derive(Eq, Serialize)]
+#[derive(Deserialize, Eq, Serialize)]
 pub struct Log<let N: u32> {
     pub fields: [Field; N],
     // The actual length (number of fields) of the log to be included in the blobs.
@@ -17,24 +17,5 @@ impl<let N: u32> Log<N> {
 impl<let N: u32> Empty for Log<N> {
     fn empty() -> Log<N> {
         Log { fields: [0; N], length: 0 }
-    }
-}
-
-impl<let N: u32> Deserialize for Log<N> {
-    let N: u32 = N + 1; // +1 for length field
-
-    #[inline_always]
-    fn deserialize(fields: [Field; Self::N]) -> Self {
-        let mut log_fields = [0; N];
-
-        // Copy log fields
-        for i in 0..N {
-            log_fields[i] = fields[i];
-        }
-
-        // Get length from last field
-        let length = fields[N] as u32;
-
-        Self { fields: log_fields, length }
     }
 }

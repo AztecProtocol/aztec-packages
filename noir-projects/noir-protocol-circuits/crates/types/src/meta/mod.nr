@@ -111,7 +111,7 @@ pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
         .join(quote {});
 
     quote {
-        impl $crate::traits::Serialize for $typ {
+        impl$generics_declarations $crate::traits::Serialize for $typ {
             let N: u32 = $right_hand_side_of_definition_of_n;
 
             #[inline_always]
@@ -131,6 +131,8 @@ pub(crate) comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
     let typ = s.as_type();
     let nested_struct = typ.as_data_type().unwrap();
     let params = nested_struct.0.fields(nested_struct.1);
+
+    let generics_declarations = get_generics_declarations(s);
 
     // The following will give us <type_of_struct_member_1 as Deserialize>::N + <type_of_struct_member_2 as Deserialize>::N + ...
     let right_hand_side_of_definition_of_n = params
@@ -162,7 +164,7 @@ pub(crate) comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
         .join(quote {,});
 
     quote {
-        impl $crate::traits::Deserialize for $typ {
+        impl$generics_declarations $crate::traits::Deserialize for $typ {
             let N: u32 = $right_hand_side_of_definition_of_n;
 
             #[inline_always]
