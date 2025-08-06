@@ -532,15 +532,16 @@ template <typename Builder> field_t<Builder> field_t<Builder>::madd(const field_
     //
     // result = a * b + c
     //   = (a.v * a.mul + a.add) * (b.v * b.mul + b.add) + (c.v * c.mul + c.add)
-    //   = a.v * b.v * [a.mul * b.mul] + a.v * [a.mul * b.add] + b.v * [b.mul + a.add] + c.v * [c.mul] +
-    //     [a.add * b.add + c.add]
-    //   = a.v * b.v * [     q_m     ] + a.v * [     q_1     ] + b.v * [     q_2     ] + c.v * [ q_3 ] + [ q_c ]
+    //   = a.v * b.v * [a.mul * b.mul] + a.v * [a.mul * b.add] + b.v * [b.mul + a.add] + c.v * [c.mul]
+    //      +  [a.add * b.add + c.add]
+    //   = a.v * b.v * [ mul_scaling ] + a.v * [  a_scaling  ] + b.v * [  b_scaling  ] + c.v * [ c_scaling ]
+    //      +    [ const_scaling ]
 
-    bb::fr q_m = multiplicative_constant * to_mul.multiplicative_constant;
-    bb::fr q_1 = multiplicative_constant * to_mul.additive_constant;
-    bb::fr q_2 = to_mul.multiplicative_constant * additive_constant;
-    bb::fr q_3 = to_add.multiplicative_constant;
-    bb::fr q_c = additive_constant * to_mul.additive_constant + to_add.additive_constant;
+    bb::fr mul_scaling = multiplicative_constant * to_mul.multiplicative_constant;
+    bb::fr a_scaling = multiplicative_constant * to_mul.additive_constant;
+    bb::fr b_scaling = to_mul.multiplicative_constant * additive_constant;
+    bb::fr c_scaling = to_add.multiplicative_constant;
+    bb::fr const_scaling = additive_constant * to_mul.additive_constant + to_add.additive_constant;
 
     // Note: the value of a constant field_t is wholly tracked by the field_t's `additive_constant` member, which is
     // accounted for in the above-calculated selectors (`q_`'s). Therefore no witness (`variables[witness_index]`)
@@ -549,7 +550,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::madd(const field_
     bb::fr b = to_mul.is_constant() ? bb::fr::zero() : ctx->get_variable(to_mul.witness_index);
     bb::fr c = to_add.is_constant() ? bb::fr::zero() : ctx->get_variable(to_add.witness_index);
 
-    bb::fr out = a * b * q_m + a * q_1 + b * q_2 + c * q_3 + q_c;
+    bb::fr out = a * b * mul_scaling + a * a_scaling + b * b_scaling + c * c_scaling + const_scaling;
 
     field_t<Builder> result(ctx);
     result.witness_index = ctx->add_variable(out);
@@ -558,12 +559,12 @@ template <typename Builder> field_t<Builder> field_t<Builder>::madd(const field_
         .b = to_mul.is_constant() ? ctx->zero_idx : to_mul.witness_index,
         .c = to_add.is_constant() ? ctx->zero_idx : to_add.witness_index,
         .d = result.witness_index,
-        .mul_scaling = q_m,
-        .a_scaling = q_1,
-        .b_scaling = q_2,
-        .c_scaling = q_3,
+        .mul_scaling = mul_scaling,
+        .a_scaling = a_scaling,
+        .b_scaling = b_scaling,
+        .c_scaling = c_scaling,
         .d_scaling = bb::fr::neg_one(),
-        .const_scaling = q_c,
+        .const_scaling = const_scaling,
     });
     result.tag = OriginTag(tag, to_mul.tag, to_add.tag);
     return result;
@@ -587,25 +588,26 @@ template <typename Builder> field_t<Builder> field_t<Builder>::add_two(const fie
     //      b := add_b;
     //      c := add_c;
     // define selector values by
-    //      q_1 :=  a_mul;
-    //      q_2 :=  b_mul;
-    //      q_3 :=  c_mul;
-    //      q_4 :=  -1;
-    //      q_c := a_add + b_add + c_add;
+    //      mul_scaling   :=  0
+    //      a_scaling     :=  a_mul;
+    //      b_scaling     :=  b_mul;
+    //      c_scaling     :=  c_mul;
+    //      d_scaling     :=  -1;
+    //      const_scaling := a_add + b_add + c_add;
     // Create a `big_mul_gate` to constrain
-    //  	a * b * q_m + a * q_1 + b * q_2 + c * q_3 + d * q_4 + q_c = 0
+    //  	a * b * mul_scaling + a * a_scaling + b * b_scaling + c * c_scaling + d * d_scaling + const_scaling = 0
 
-    bb::fr q_1 = multiplicative_constant;
-    bb::fr q_2 = add_b.multiplicative_constant;
-    bb::fr q_3 = add_c.multiplicative_constant;
-    bb::fr q_c = additive_constant + add_b.additive_constant + add_c.additive_constant;
+    bb::fr a_scaling = multiplicative_constant;
+    bb::fr b_scaling = add_b.multiplicative_constant;
+    bb::fr c_scaling = add_c.multiplicative_constant;
+    bb::fr const_scaling = additive_constant + add_b.additive_constant + add_c.additive_constant;
 
     // Compute the sum of values of all summands
     bb::fr a = is_constant() ? bb::fr::zero() : ctx->get_variable(witness_index);
     bb::fr b = add_b.is_constant() ? bb::fr::zero() : ctx->get_variable(add_b.witness_index);
     bb::fr c = add_c.is_constant() ? bb::fr::zero() : ctx->get_variable(add_c.witness_index);
 
-    bb::fr out = a * q_1 + b * q_2 + c * q_3 + q_c;
+    bb::fr out = a * a_scaling + b * b_scaling + c * c_scaling + const_scaling;
 
     field_t<Builder> result(ctx);
     result.witness_index = ctx->add_variable(out);
@@ -617,11 +619,11 @@ template <typename Builder> field_t<Builder> field_t<Builder>::add_two(const fie
         .c = add_c.is_constant() ? ctx->zero_idx : add_c.witness_index,
         .d = result.witness_index,
         .mul_scaling = bb::fr::zero(),
-        .a_scaling = q_1,
-        .b_scaling = q_2,
-        .c_scaling = q_3,
+        .a_scaling = a_scaling,
+        .b_scaling = b_scaling,
+        .c_scaling = c_scaling,
         .d_scaling = bb::fr::neg_one(),
-        .const_scaling = q_c,
+        .const_scaling = const_scaling,
     });
     result.tag = OriginTag(tag, add_b.tag, add_c.tag);
     return result;
@@ -654,12 +656,12 @@ template <typename Builder> field_t<Builder> field_t<Builder>::normalize() const
     // The aim of a new `add` gate is to constrain
     //              this.v * this.mul + this.add == result.v
     // Let
-    //     q_1 := this.mul;
-    //     q_2 := 0;
-    //     q_3 := -1;
-    //     q_c := this.add;
+    //     a_scaling     := this.mul;
+    //     b_scaling     := 0;
+    //     c_scaling     := -1;
+    //     const_scaling := this.add;
     // The `add` gate enforces the relation
-    //       this.v * q_1 + result.v * q_3 + q_c = 0
+    //       this.v * a_scaling + result.v * c_scaling + const_scaling = 0
 
     context->create_add_gate({ .a = witness_index,
                                .b = context->zero_idx,
@@ -795,25 +797,27 @@ template <typename Builder> bool_t<Builder> field_t<Builder>::is_zero() const
     // Note that `evaluate_polynomial_identity(a, b, c, d)` checks that `a * b + c + d = 0`, so we are using it for the
     // constraints 1) and 2) above.
     // More precisely, to check that `a * I - 1 + is_zero   = 0`, it creates a `big_mul_gate` given by the equation:
-    //      a.v * I.v * q_m + a.v * q_1 + I.v * q_2 + is_zero.v * q_3 + (-1) * q_4 + q_c = 0
+    //      a.v * I.v * mul_scaling + a.v * a_scaling + I.v * b_scaling + is_zero.v * c_scaling + (-1) * d_scaling +
+    //      const_scaling = 0
     // where
-    //      q_m := a.mul * I.mul;
-    //      q_1 := a.mul * I.add;
-    //      q_2 := I.mul * a.add;
-    //      q_3 := 1;
-    //      q_4 := 0;
-    //      q_c := a.add * I.add + is_zero.add - 1;
+    //      muk_scaling := a.mul * I.mul;
+    //      a_scaling := a.mul * I.add;
+    //      b_scaling := I.mul * a.add;
+    //      c_scaling := 1;
+    //      d_scaling := 0;
+    //      const_scaling := a.add * I.add + is_zero.add - 1;
     field_t::evaluate_polynomial_identity(*this, inverse, is_zero, bb::fr::neg_one());
 
     // To check that `-is_zero * I + is_zero = 0`, create a `big_mul_gate` given by the equation:
-    //      is_zero.v * (-I).v * q_m + is_zero.v * q_1 + (-I).v * q_2 + is_zero.v * q_3 + 0 * q_4 + q_c = 0
+    //      is_zero.v * (-I).v * mul_scaling + is_zero.v * a_scaling + (-I).v * b_scaling + is_zero.v * c_scaling + 0 *
+    //      d_scaling + const_scaling = 0
     // where
-    //      q_m := is_zero.mul * (-I).mul;
-    //      q_1 := is_zero.mul * (-I).add;
-    //      q_2 := (-I).mul * is_zero.add;
-    //      q_3 := is_zero.mul;
-    //      q_4 := 0;
-    //      q_c := is_zero.add * (-I).add + is_zero.add;
+    //      mul_scaling := is_zero.mul * (-I).mul;
+    //      a_scaling := is_zero.mul * (-I).add;
+    //      b_scaling := (-I).mul * is_zero.add;
+    //      c_scaling := is_zero.mul;
+    //      d_scaling := 0;
+    //      const_scaling := is_zero.add * (-I).add + is_zero.add;
     field_t::evaluate_polynomial_identity(is_zero, -inverse, is_zero, bb::fr::zero());
     is_zero.set_origin_tag(tag);
     return is_zero;
@@ -944,7 +948,7 @@ template <typename Builder> void field_t<Builder>::assert_equal(const field_t& r
             ctx->assert_equal(lhs.get_normalized_witness_index(), rhs.get_normalized_witness_index(), msg);
         } else {
             // Instead of creating 2 gates for normalizing both witnesses and applying a copy constraint, we use a
-            // single `add` gate
+            // single `add` gate constraining a - b = 0
             ctx->create_add_gate({ .a = lhs.witness_index,
                                    .b = rhs.witness_index,
                                    .c = ctx->zero_idx,
@@ -1084,22 +1088,18 @@ void field_t<Builder>::evaluate_linear_identity(const field_t& a, const field_t&
     }
 
     // validate that a + b + c + d = 0
-    bb::fr q_1 = a.multiplicative_constant;
-    bb::fr q_2 = b.multiplicative_constant;
-    bb::fr q_3 = c.multiplicative_constant;
-    bb::fr q_4 = d.multiplicative_constant;
-    bb::fr q_c = a.additive_constant + b.additive_constant + c.additive_constant + d.additive_constant;
+    bb::fr const_scaling = a.additive_constant + b.additive_constant + c.additive_constant + d.additive_constant;
 
     ctx->create_big_add_gate({
-        a.is_constant() ? ctx->zero_idx : a.witness_index,
-        b.is_constant() ? ctx->zero_idx : b.witness_index,
-        c.is_constant() ? ctx->zero_idx : c.witness_index,
-        d.is_constant() ? ctx->zero_idx : d.witness_index,
-        q_1,
-        q_2,
-        q_3,
-        q_4,
-        q_c,
+        .a = a.is_constant() ? ctx->zero_idx : a.witness_index,
+        .b = b.is_constant() ? ctx->zero_idx : b.witness_index,
+        .c = c.is_constant() ? ctx->zero_idx : c.witness_index,
+        .d = d.is_constant() ? ctx->zero_idx : d.witness_index,
+        .a_scaling = a.multiplicative_constant,
+        .b_scaling = b.multiplicative_constant,
+        .c_scaling = c.multiplicative_constant,
+        .d_scaling = d.multiplicative_constant,
+        .const_scaling = const_scaling,
     });
 }
 /**
@@ -1121,24 +1121,24 @@ void field_t<Builder>::evaluate_polynomial_identity(const field_t& a,
     Builder* ctx = validate_context(a.context, b.context, c.context, d.context);
 
     // validate that a * b + c + d = 0
-    bb::fr q_m = a.multiplicative_constant * b.multiplicative_constant;
-    bb::fr q_1 = a.multiplicative_constant * b.additive_constant;
-    bb::fr q_2 = b.multiplicative_constant * a.additive_constant;
-    bb::fr q_3 = c.multiplicative_constant;
-    bb::fr q_4 = d.multiplicative_constant;
-    bb::fr q_c = a.additive_constant * b.additive_constant + c.additive_constant + d.additive_constant;
+    bb::fr mul_scaling = a.multiplicative_constant * b.multiplicative_constant;
+    bb::fr a_scaling = a.multiplicative_constant * b.additive_constant;
+    bb::fr b_scaling = b.multiplicative_constant * a.additive_constant;
+    bb::fr c_scaling = c.multiplicative_constant;
+    bb::fr d_scaling = d.multiplicative_constant;
+    bb::fr const_scaling = a.additive_constant * b.additive_constant + c.additive_constant + d.additive_constant;
 
     ctx->create_big_mul_gate({
-        a.is_constant() ? ctx->zero_idx : a.witness_index,
-        b.is_constant() ? ctx->zero_idx : b.witness_index,
-        c.is_constant() ? ctx->zero_idx : c.witness_index,
-        d.is_constant() ? ctx->zero_idx : d.witness_index,
-        q_m,
-        q_1,
-        q_2,
-        q_3,
-        q_4,
-        q_c,
+        .a = a.is_constant() ? ctx->zero_idx : a.witness_index,
+        .b = b.is_constant() ? ctx->zero_idx : b.witness_index,
+        .c = c.is_constant() ? ctx->zero_idx : c.witness_index,
+        .d = d.is_constant() ? ctx->zero_idx : d.witness_index,
+        .mul_scaling = mul_scaling,
+        .a_scaling = a_scaling,
+        .b_scaling = b_scaling,
+        .c_scaling = c_scaling,
+        .d_scaling = d_scaling,
+        .const_scaling = const_scaling,
     });
 }
 
@@ -1212,27 +1212,27 @@ template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const 
 
     for (size_t i = 0; i < last_gate_idx; ++i) {
         // For i < last_gate_idx, we create a `big_add_gate` constraint
-        //      a_i.v * q_l + b_i.v* q_r + c_i.v * q_o + d_i.v * q_4 + q_c + w_4_omega = 0
+        //      a_i.v * a_scaling + b_i.v * b_scaling + c_i.v * c_scaling + d_i.v * d_scaling + const_scaling +
+        //      w_4_omega = 0
         // where
-        //      q_l       :=  a_i_mul
-        //      q_r       :=  b_i_mul
-        //      q_o       :=  c_i_mul
-        //      q_4       := -1
-        //      q_c       :=  a_i_add + b_i_add + c_i_add
-        //      d_i_mul   := -1
+        //      a_scaling       :=  a_i.mul
+        //      b_scaling       :=  b_i.mul
+        //      c_scaling       :=  c_i.mul
+        //      d_scaling       := -1
+        //      const_scaling   :=  a_i.add + b_i.add + c_i.add
         //      w_4_omega :=  d_{i+1}
         ctx->create_big_add_gate(
             {
-                accumulator[3 * i].witness_index,
-                accumulator[3 * i + 1].witness_index,
-                accumulator[3 * i + 2].witness_index,
-                accumulating_total.witness_index,
-                accumulator[3 * i].multiplicative_constant,
-                accumulator[3 * i + 1].multiplicative_constant,
-                accumulator[3 * i + 2].multiplicative_constant,
-                -1,
-                accumulator[3 * i].additive_constant + accumulator[3 * i + 1].additive_constant +
-                    accumulator[3 * i + 2].additive_constant,
+                .a = accumulator[3 * i].witness_index,
+                .b = accumulator[3 * i + 1].witness_index,
+                .c = accumulator[3 * i + 2].witness_index,
+                .d = accumulating_total.witness_index,
+                .a_scaling = accumulator[3 * i].multiplicative_constant,
+                .b_scaling = accumulator[3 * i + 1].multiplicative_constant,
+                .c_scaling = accumulator[3 * i + 2].multiplicative_constant,
+                .d_scaling = -1,
+                .const_scaling = accumulator[3 * i].additive_constant + accumulator[3 * i + 1].additive_constant +
+                                 accumulator[3 * i + 2].additive_constant,
             },
             /*use_next_gate_w_4 = */ true);
         bb::fr new_total = accumulating_total.get_value() - accumulator[3 * i].get_value() -
@@ -1241,18 +1241,19 @@ template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const 
     }
 
     // For i = last_gate_idx, we create a `big_add_gate` constraining
-    //      a_i.v * q_l + b_i.v * q_r + c_i.v * q_o + d_i.v * q_4 + q_c = 0
+    //      a_i.v * a_scaling + b_i.v * b_scaling + c_i.v * c_scaling + d_i.v * d_scaling + const_scaling = 0
     ctx->create_big_add_gate({
-        accumulator[3 * last_gate_idx].witness_index,
-        accumulator[3 * last_gate_idx + 1].witness_index,
-        accumulator[3 * last_gate_idx + 2].witness_index,
-        accumulating_total.witness_index,
-        accumulator[3 * last_gate_idx].multiplicative_constant,
-        accumulator[3 * last_gate_idx + 1].multiplicative_constant,
-        accumulator[3 * last_gate_idx + 2].multiplicative_constant,
-        -1,
-        accumulator[3 * last_gate_idx].additive_constant + accumulator[3 * last_gate_idx + 1].additive_constant +
-            accumulator[3 * last_gate_idx + 2].additive_constant,
+        .a = accumulator[3 * last_gate_idx].witness_index,
+        .b = accumulator[3 * last_gate_idx + 1].witness_index,
+        .c = accumulator[3 * last_gate_idx + 2].witness_index,
+        .d = accumulating_total.witness_index,
+        .a_scaling = accumulator[3 * last_gate_idx].multiplicative_constant,
+        .b_scaling = accumulator[3 * last_gate_idx + 1].multiplicative_constant,
+        .c_scaling = accumulator[3 * last_gate_idx + 2].multiplicative_constant,
+        .d_scaling = -1,
+        .const_scaling = accumulator[3 * last_gate_idx].additive_constant +
+                         accumulator[3 * last_gate_idx + 1].additive_constant +
+                         accumulator[3 * last_gate_idx + 2].additive_constant,
     });
     OriginTag new_tag{};
     for (const auto& single_input : input) {

@@ -218,8 +218,9 @@ template <typename Builder> class stdlib_field : public testing::Test {
                 if (!predicate.is_constant()) {
                     // If the witness index and constants of lhs and lhs do coincide, no gates are added
                     if (!same_elt) {
+                        int num_witnesses = static_cast<int>(!rhs.is_constant()) + static_cast<int>(!lhs.is_constant());
                         // If lhs or rhs is a constant field element, `lhs - rhs` does not create an extra gate
-                        expected_num_gates += 1 + static_cast<size_t>(!rhs.is_constant() && !lhs.is_constant());
+                        expected_num_gates += static_cast<size_t>(num_witnesses);
                     }
                 }
 
@@ -900,7 +901,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
             // Check that `result` is constant if and only if both the predicate and (*this) are constant.
             EXPECT_TRUE(result.is_constant() == predicate.is_constant());
             // A gate is only added if the predicate is a witness
-            EXPECT_TRUE(builder.get_estimated_num_finalized_gates() - num_gates_before == predicate_is_witness);
+            EXPECT_TRUE(builder.get_estimated_num_finalized_gates() - num_gates_before == 0);
 
             // Conditionally negate a witness
             num_gates_before = builder.get_estimated_num_finalized_gates();
