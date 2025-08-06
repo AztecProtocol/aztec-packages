@@ -146,6 +146,22 @@ struct CLIContext {
 int run(CLIContext& ctx);
 
 namespace {
+
+// This is used to suppress the default output of Google Benchmark.
+// This is useful to run this benchmark without altering the stdout result of our simulated bb cli command.
+// We instead use the `--benchmark_out` flag to output the results to a file.
+class ConsoleNoOutputReporter : public benchmark::BenchmarkReporter {
+  public:
+    // We return `true` here to indicate "keep running" if there are multiple benchmark suites.
+    bool ReportContext(const Context&) override { return true; }
+
+    // Called once for each run. We just do nothing here.
+    void ReportRuns(const std::vector<Run>&) override {}
+
+    // Called at the end. Also do nothing.
+    void Finalize() override {}
+};
+
 void run_as_benchmark(benchmark::State& state, CLIContext* ctx)
 {
     for (auto _ : state) {
@@ -378,6 +394,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
         return subcommand->add_option("--benchmark_out", benchmark_out, "File to report benchmark.");
     };
 
+    bool print_benchmark = false;
+    const auto add_print_benchmark_flag = [&](CLI::App* subcommand) {
+        return subcommand->add_flag("--print_benchmark", print_benchmark, "Report benchmark in console.");
+    };
+
     /***************************************************************************************************************
      * Top-level flags
      ***************************************************************************************************************/
@@ -444,6 +465,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_honk_recursion_option(prove);
     add_slow_low_memory_flag(prove);
     add_benchmark_out_option(prove);
+    add_print_benchmark_flag(prove);
 
     prove->add_flag("--verify", "Verify the proof natively, resulting in a boolean output. Useful for testing.");
 
@@ -694,7 +716,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     slow_low_memory = flags.slow_low_memory;
     detail::use_op_count_time = !benchmark_out.empty();
 
-    if (benchmark_out.empty()) {
+    if (benchmark_out.empty() && !print_benchmark) {
         return run(ctx);
     }
 
@@ -706,10 +728,15 @@ int parse_and_run_cli_command(int argc, char* argv[])
     char* args[] = { const_cast<char*>(bb.c_str()), const_cast<char*>(benchmark_out.c_str()) };
     int num_args = 2;
 
-    benchmark::RegisterBenchmark(bb, run_as_benchmark, &ctx);
+    benchmark::RegisterBenchmark(bb, run_as_benchmark, &ctx)->Unit(benchmark::kMillisecond);
     benchmark::Initialize(&num_args, args);
     ASSERT(!benchmark::ReportUnrecognizedArguments(num_args, args));
-    benchmark::RunSpecifiedBenchmarks();
+    if (print_benchmark) {
+        benchmark::RunSpecifiedBenchmarks();
+    } else {
+        ConsoleNoOutputReporter reporter;
+        benchmark::RunSpecifiedBenchmarks(&reporter);
+    }
     benchmark::Shutdown();
 
     return 0;
