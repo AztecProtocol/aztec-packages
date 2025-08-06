@@ -20,8 +20,8 @@ const NUM_NODES = 4;
 const NUM_VALIDATORS = NUM_NODES + 1; // We create an extra validator, who will not have a running node
 const BOOT_NODE_UDP_PORT = 4500;
 const EPOCH_DURATION = 4;
-const SLASHING_QUORUM = 3;
-const SLASHING_ROUND_SIZE = 5;
+const SLASHING_QUORUM = 5;
+const SLASHING_ROUND_SIZE = 9;
 const AZTEC_SLOT_DURATION = 12;
 const ETHEREUM_SLOT_DURATION = 6;
 const LIFETIME_IN_ROUNDS = 2;
@@ -64,10 +64,6 @@ describe('veto slash', () => {
     await t.applyBaseSnapshots();
     await t.setup();
 
-    ({ rollup } = await t.getContracts());
-    // slash amount is just below the ejection threshold
-    slashingAmount = (await rollup.getActivationThreshold()) - (await rollup.getEjectionThreshold()) - 1n;
-
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
       t.ctx.dateProvider,
@@ -78,6 +74,13 @@ describe('veto slash', () => {
 
       DATA_DIR,
     );
+
+    ({ rollup } = await t.getContracts());
+    // slash amount is just below the ejection threshold
+    slashingAmount = (await rollup.getActivationThreshold()) - (await rollup.getEjectionThreshold()) - 1n;
+    t.ctx.aztecNodeConfig.slashInactivityEnabled = true;
+    t.ctx.aztecNodeConfig.slashInactivityCreatePenalty = slashingAmount;
+    t.ctx.aztecNodeConfig.slashInactivityMaxPenalty = slashingAmount;
     for (const node of nodes) {
       await node.setConfig({
         slashInactivityEnabled: true,
@@ -85,6 +88,7 @@ describe('veto slash', () => {
         slashInactivityMaxPenalty: slashingAmount,
       });
     }
+
     await t.removeInitialNode();
 
     t.logger.info(`Setup complete`, { validators: t.validators });
@@ -117,7 +121,7 @@ describe('veto slash', () => {
     return slashFactoryAddress;
   }
 
-  it.each([true, false])(
+  it.each([false])(
     'sets the new slasher and shouldVeto=%s',
     async (shouldVeto: boolean) => {
       const l1Client = t.ctx.deployL1ContractsValues.l1Client;

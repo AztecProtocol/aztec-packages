@@ -147,7 +147,6 @@ export class RollupContract {
     return this.rollup;
   }
 
-  @memoize
   public async getSlashingProposer() {
     const slasherAddress = await this.rollup.read.getSlasher();
     const slasher = getContract({ address: slasherAddress, abi: SlasherAbi, client: this.client });
