@@ -1262,55 +1262,6 @@ template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const 
     total.tag = new_tag;
     return total.normalize();
 }
-/**
- * @brief Given a field_t element, return an array of 3 field elements representing the bits [0, msb-1], [msb, lsb], and
- * [lsb+1, 256] respectively
- *
- */
-template <typename Builder>
-std::array<field_t<Builder>, 3> field_t<Builder>::slice(const uint8_t msb, const uint8_t lsb) const
-{
-    BB_ASSERT_GTE(msb, lsb);
-    BB_ASSERT_LT(msb, grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH);
-    Builder* ctx = get_context();
-    const uint256_t one(1);
-
-    const uint256_t value = get_value();
-    const uint8_t msb_plus_one = msb + 1;
-    // Slice the bits of `*this` in the range [msb + 1, 255]
-    const auto hi_mask = (one << (256 - msb)) - 1;
-    const auto hi = (value >> msb_plus_one) & hi_mask;
-
-    // Slice the bits of `*this` in the range [0,lsb - 1]
-    const auto lo_mask = (one << lsb) - 1;
-    const auto lo = value & lo_mask;
-
-    // Slice the bits in the desired range [lsb, msb]
-    const auto slice_mask = (one << (msb_plus_one - lsb)) - 1;
-    const auto slice = (value >> lsb) & slice_mask;
-
-    const field_t hi_wit(witness_t(ctx, hi));
-    const field_t lo_wit(witness_t(ctx, lo));
-    const field_t slice_wit(witness_t(ctx, slice));
-
-    // `hi_wit` contains the bits above bit `msb`, so a priori it fits in at most (255 - msb) bits. We need to
-    // ensure that its value is strictly less than 2^(252 - msb)
-    hi_wit.create_range_constraint(grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH - msb, "slice: hi value too large.");
-    // Ensure that `lo_wit`is in the range [0, lsb - 1]
-    lo_wit.create_range_constraint(lsb, "slice: lo value too large.");
-    // Ensure that `slice_wit` is in the range [lsb, msb]
-    slice_wit.create_range_constraint(msb_plus_one - lsb, "slice: sliced value too large.");
-    // Check that
-    //     *this = lo_wit + slice_wit * 2^{lsb} + hi_wit * 2^{msb + 1}
-    const field_t decomposed = lo_wit.add_two(slice_wit * field_t(one << lsb), hi_wit * field_t(one << msb_plus_one));
-    assert_equal(decomposed);
-
-    std::array<field_t, 3> result = { lo_wit, slice_wit, hi_wit };
-    for (size_t i = 0; i < 3; i++) {
-        result[i].tag = tag;
-    }
-    return result;
-}
 
 template <typename Builder>
 std::pair<field_t<Builder>, field_t<Builder>> field_t<Builder>::split_at(const size_t lsb_index,

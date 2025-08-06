@@ -941,74 +941,6 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_EQ(result, true);
     }
 
-    static void test_slice()
-    {
-        Builder builder = Builder();
-        // 0b11110110101001011
-        //         ^      ^
-        //        msb    lsb
-        //        10      3
-        // hi=0x111101, lo=0x011, slice=0x10101001
-        //
-        field_ct a(witness_ct(&builder, fr(126283)));
-        auto slice_data = a.slice(10, 3);
-        EXPECT_EQ(slice_data[0].get_value(), fr(3));
-        EXPECT_EQ(slice_data[1].get_value(), fr(169));
-        EXPECT_EQ(slice_data[2].get_value(), fr(61));
-
-        EXPECT_TRUE(CircuitChecker::check(builder));
-    }
-
-    static void test_slice_equal_msb_lsb()
-    {
-        Builder builder = Builder();
-        // 0b11110110101001011
-        //             ^
-        //         msb = lsb
-        //             6
-        // hi=0b1111011010, lo=0b001011, slice=0b1
-        //
-        field_ct a(witness_ct(&builder, fr(126283)));
-        auto slice_data = a.slice(6, 6);
-
-        EXPECT_EQ(slice_data[0].get_value(), fr(11));
-        EXPECT_EQ(slice_data[1].get_value(), fr(1));
-        EXPECT_EQ(slice_data[2].get_value(), fr(986));
-
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, true);
-    }
-
-    static void test_slice_random()
-    {
-        Builder builder = Builder();
-
-        uint8_t lsb = 106;
-        uint8_t msb = 189;
-        fr a_ = fr(engine.get_random_uint256() && ((uint256_t(1) << 252) - 1));
-        field_ct a(witness_ct(&builder, a_));
-        auto slice = a.slice(msb, lsb);
-
-        const uint256_t expected0 = uint256_t(a_) & ((uint256_t(1) << lsb) - 1);
-        const uint256_t expected1 = (uint256_t(a_) >> lsb) & ((uint256_t(1) << (msb - lsb + 1)) - 1);
-        const uint256_t expected2 = (uint256_t(a_) >> (msb + 1)) & ((uint256_t(1) << (252 - msb - 1)) - 1);
-
-        EXPECT_EQ(slice[0].get_value(), fr(expected0));
-        EXPECT_EQ(slice[1].get_value(), fr(expected1));
-        EXPECT_EQ(slice[2].get_value(), fr(expected2));
-
-        EXPECT_TRUE(CircuitChecker::check(builder));
-
-        // Check that attempting to slice a full uint256_t value leads to a circuit failure.
-        while (static_cast<uint256_t>(a.get_value()).get_msb() < grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH + 1) {
-            a = witness_ct(&builder, engine.get_random_uint256());
-        }
-        info(static_cast<uint256_t>(a.get_value()).get_msb());
-        slice = a.slice(msb, lsb);
-        EXPECT_FALSE(CircuitChecker::check(builder));
-        EXPECT_TRUE(builder.err() == "slice: hi value too large.");
-    }
-
     static void test_split_at()
     {
         Builder builder = Builder();
@@ -1518,12 +1450,6 @@ template <typename Builder> class stdlib_field : public testing::Test {
             elements.pop_back();
         }
 
-        // Slice preserves tags
-        auto n = a.slice(1, 0);
-        for (const auto& element : n) {
-            EXPECT_EQ(element.get_origin_tag(), submitted_value_origin_tag);
-        }
-
         // Split preserves tags
         const size_t num_bits = uint256_t(a.get_value()).get_msb() + 1;
         auto split_data = a.split_at(num_bits / 2, num_bits);
@@ -1829,18 +1755,6 @@ TYPED_TEST(stdlib_field, test_ranged_less_than)
 TYPED_TEST(stdlib_field, test_ranged_less_than_invalid_num_bits)
 {
     TestFixture::test_ranged_less_than_invalid_num_bits();
-}
-TYPED_TEST(stdlib_field, test_slice)
-{
-    TestFixture::test_slice();
-}
-TYPED_TEST(stdlib_field, test_slice_equal_msb_lsb)
-{
-    TestFixture::test_slice_equal_msb_lsb();
-}
-TYPED_TEST(stdlib_field, test_slice_random)
-{
-    TestFixture::test_slice_random();
 }
 TYPED_TEST(stdlib_field, test_split_at)
 {

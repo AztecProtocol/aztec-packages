@@ -377,8 +377,6 @@ template <typename Builder> class field_t {
 
     Builder* get_context() const { return context; }
 
-    std::array<field_t, 3> slice(uint8_t msb, uint8_t lsb) const;
-
     std::pair<field_t<Builder>, field_t<Builder>> split_at(
         const size_t lsb_index, const size_t num_bits = grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH) const;
 
