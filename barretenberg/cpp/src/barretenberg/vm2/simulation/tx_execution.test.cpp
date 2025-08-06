@@ -72,7 +72,7 @@ TEST_F(TxExecutionTest, simulateTx)
         .l1ToL2MessageTree = { .tree = dummy_snapshot, .counter = 0 },
         .publicDataTree = { .tree = dummy_snapshot, .counter = 0 },
     };
-    ON_CALL(merkle_db, get_tree_state()).WillByDefault(Return(tree_state));
+    ON_CALL(merkle_db, get_tree_state()).WillByDefault([&]() { return tree_state; });
     SideEffectStates side_effect_states = SideEffectStates{ .numUnencryptedLogs = 0, .numL2ToL1Messages = 0 };
     ON_CALL(merkle_db, siloed_nullifier_write(_)).WillByDefault(Return(true));
     // Number of Enqueued Calls in the transaction : 1 setup, 1 app logic, and 1 teardown
@@ -169,7 +169,7 @@ TEST_F(TxExecutionTest, NoteHashLimitReached)
         .l1ToL2MessageTree = { .tree = dummy_snapshot, .counter = 0 },
         .publicDataTree = { .tree = dummy_snapshot, .counter = 0 },
     };
-    ON_CALL(merkle_db, get_tree_state()).WillByDefault(Return(tree_state));
+    ON_CALL(merkle_db, get_tree_state()).WillByDefault([&]() { return tree_state; });
     ON_CALL(merkle_db, siloed_nullifier_write(_)).WillByDefault([&](const auto& /*nullifier*/) {
         tree_state.nullifierTree.counter++;
         return true;
@@ -264,7 +264,7 @@ TEST_F(TxExecutionTest, NullifierLimitReached)
         .l1ToL2MessageTree = { .tree = dummy_snapshot, .counter = 0 },
         .publicDataTree = { .tree = dummy_snapshot, .counter = 0 },
     };
-    ON_CALL(merkle_db, get_tree_state()).WillByDefault(Return(tree_state));
+    ON_CALL(merkle_db, get_tree_state()).WillByDefault([&]() { return tree_state; });
     ON_CALL(merkle_db, siloed_nullifier_write(_)).WillByDefault([&](const auto& /*nullifier*/) {
         tree_state.nullifierTree.counter++;
         return true;
@@ -360,7 +360,7 @@ TEST_F(TxExecutionTest, L2ToL1MessageLimitReached)
         .l1ToL2MessageTree = { .tree = dummy_snapshot, .counter = 0 },
         .publicDataTree = { .tree = dummy_snapshot, .counter = 0 },
     };
-    ON_CALL(merkle_db, get_tree_state()).WillByDefault(Return(tree_state));
+    ON_CALL(merkle_db, get_tree_state()).WillByDefault([&]() { return tree_state; });
     ON_CALL(merkle_db, siloed_nullifier_write(_)).WillByDefault([&](const auto& /*nullifier*/) {
         tree_state.nullifierTree.counter++;
         return true;
