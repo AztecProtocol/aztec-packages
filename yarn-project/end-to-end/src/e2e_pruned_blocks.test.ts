@@ -1,4 +1,3 @@
-import type { AztecNodeService } from '@aztec/aztec-node';
 import {
   type AccountWallet,
   type AztecAddress,
