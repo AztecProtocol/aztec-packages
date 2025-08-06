@@ -120,7 +120,7 @@ transcript. These operations are taken care of by \ref bb::BaseTranscript "Trans
 ## Output
 The Sumcheck output is specified by \ref bb::SumcheckOutput< Flavor >.
  */
-template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class SumcheckProver {
+template <typename Flavor> class SumcheckProver {
   public:
     using FF = typename Flavor::FF;
     // PartiallyEvaluatedMultivariates OR ProverPolynomials
@@ -162,6 +162,9 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
     // Contains various challenges, such as `beta` and `gamma` used in the Grand Product argument.
     bb::RelationParameters<FF> relation_parameters;
 
+    // Determines the number of rounds in the sumcheck (may include padding rounds, i.e. >= multivariate_d).
+    size_t virtual_log_n;
+
     std::vector<FF> multivariate_challenge;
 
     std::vector<typename Flavor::Commitment> round_univariate_commitments = {};
@@ -189,7 +192,8 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
                    std::shared_ptr<Transcript> transcript,
                    const SubrelationSeparators& relation_separator,
                    const std::vector<FF>& gate_challenges,
-                   const RelationParameters<FF>& relation_parameters)
+                   const RelationParameters<FF>& relation_parameters,
+                   const size_t virtual_log_n)
         : multivariate_n(multivariate_n)
         , multivariate_d(numeric::get_msb(multivariate_n))
         , full_polynomials(prover_polynomials)
@@ -197,7 +201,8 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
         , round(multivariate_n)
         , alphas(relation_separator)
         , gate_challenges(gate_challenges)
-        , relation_parameters(relation_parameters){};
+        , relation_parameters(relation_parameters)
+        , virtual_log_n(virtual_log_n){};
 
     // SumcheckProver constructor for the Flavors that generate a single challeng `alpha` and use its powers as
     // subrelation seperator challenges.
@@ -206,7 +211,8 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
                    std::shared_ptr<Transcript> transcript,
                    const FF& alpha,
                    const std::vector<FF>& gate_challenges,
-                   const RelationParameters<FF>& relation_parameters)
+                   const RelationParameters<FF>& relation_parameters,
+                   const size_t virtual_log_n)
         : multivariate_n(multivariate_n)
         , multivariate_d(numeric::get_msb(multivariate_n))
         , full_polynomials(prover_polynomials)
@@ -214,7 +220,8 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
         , round(multivariate_n)
         , alphas(initialize_relation_separator<FF, Flavor::NUM_SUBRELATIONS - 1>(alpha))
         , gate_challenges(gate_challenges)
-        , relation_parameters(relation_parameters){};
+        , relation_parameters(relation_parameters)
+        , virtual_log_n(virtual_log_n){};
     /**
      * @brief Non-ZK version: Compute round univariate, place it in transcript, compute challenge, partially evaluate.
      * Repeat until final round, then get full evaluations of prover polynomials, and place them in transcript.
@@ -620,7 +627,7 @@ u_{d-1})\right)\f}
   \snippet cpp/src/barretenberg/sumcheck/sumcheck.hpp Final Verification Step
 
  */
-template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class SumcheckVerifier {
+template <typename Flavor> class SumcheckVerifier {
 
   public:
     using Utils = bb::RelationUtils<Flavor>;
@@ -651,6 +658,10 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
 
     std::shared_ptr<Transcript> transcript;
     SumcheckVerifierRound<Flavor> round;
+
+    // Determines number of rounds in the sumcheck (may include padding rounds)
+    size_t virtual_log_n;
+
     // An array of size NUM_SUBRELATIONS-1 containing challenges or consecutive powers of a single challenge that
     // separate linearly independent subrelation.
     SubrelationSeparators alphas;
@@ -665,14 +676,20 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
 
     explicit SumcheckVerifier(std::shared_ptr<Transcript> transcript,
                               SubrelationSeparators& relation_separator,
+                              size_t virtual_log_n,
                               FF target_sum = 0)
         : transcript(std::move(transcript))
         , round(target_sum)
+        , virtual_log_n(virtual_log_n)
         , alphas(relation_separator){};
 
-    explicit SumcheckVerifier(std::shared_ptr<Transcript> transcript, const FF& alpha, FF target_sum = 0)
+    explicit SumcheckVerifier(std::shared_ptr<Transcript> transcript,
+                              const FF& alpha,
+                              size_t virtual_log_n,
+                              FF target_sum = 0)
         : transcript(std::move(transcript))
         , round(target_sum)
+        , virtual_log_n(virtual_log_n)
         , alphas(initialize_relation_separator<FF, Flavor::NUM_SUBRELATIONS - 1>(alpha)){};
     /**
      * @brief Extract round univariate, check sum, generate challenge, compute next target sum..., repeat until
@@ -685,7 +702,7 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
      */
     SumcheckOutput<Flavor> verify(const bb::RelationParameters<FF>& relation_parameters,
                                   std::vector<FF>& gate_challenges,
-                                  const std::array<FF, virtual_log_n>& padding_indicator_array)
+                                  const std::vector<FF>& padding_indicator_array)
         requires(!IsGrumpkinFlavor<Flavor>)
     {
         bool verified(true);
@@ -856,7 +873,7 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
         // Libra polynomials
         full_honk_purported_value += libra_evaluation * libra_challenge;
 
-        // Populate claimed evaluations of Sumcheck Round Unviariates at the round challenges. These will be
+        // Populate claimed evaluations of Sumcheck Round Univariates at the round challenges. These will be
         // checked as a part of Shplemini.
         for (size_t round_idx = 1; round_idx < virtual_log_n; round_idx++) {
             round_univariate_evaluations[round_idx - 1][2] =
