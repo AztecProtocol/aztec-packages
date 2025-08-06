@@ -30,6 +30,7 @@
 #include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/srs/factories/native_crs_factory.hpp"
 #include "barretenberg/srs/global_crs.hpp"
+#include "benchmark/benchmark.h"
 #include <fstream>
 #include <iostream>
 
@@ -372,8 +373,9 @@ int parse_and_run_cli_command(int argc, char* argv[])
         return subcommand->add_flag("--update_inputs", flags.update_inputs, "Update inputs if vk check fails.");
     };
 
-    const auto add_benchmark_out_flag = [&](CLI::App* subcommand) {
-        return subcommand->add_flag("--benchmark_out", flags.benchmark_out, "File to report benchmark.");
+    std::string benchmark_out;
+    const auto add_benchmark_out_option = [&](CLI::App* subcommand) {
+        return subcommand->add_option("--benchmark_out", benchmark_out, "File to report benchmark.");
     };
 
     /***************************************************************************************************************
@@ -441,7 +443,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_recursive_flag(prove);
     add_honk_recursion_option(prove);
     add_slow_low_memory_flag(prove);
-    add_benchmark_out_flag(prove);
+    add_benchmark_out_option(prove);
 
     prove->add_flag("--verify", "Verify the proof natively, resulting in a boolean output. Useful for testing.");
 
@@ -690,14 +692,23 @@ int parse_and_run_cli_command(int argc, char* argv[])
     debug_logging = flags.debug;
     verbose_logging = debug_logging || flags.verbose;
     slow_low_memory = flags.slow_low_memory;
-    detail::use_op_count_time = !flags.benchmark_out.empty();
+    detail::use_op_count_time = !benchmark_out.empty();
 
-    if (flags.benchmark_out.empty()) {
+    if (benchmark_out.empty()) {
         return run(ctx);
     }
 
-    benchmark::RegisterBenchmark("bb", run_as_benchmark, &ctx);
-    benchmark::Initialize(&argc, argv);
+    // Allocate the strings dynamically so the char* pointers remain valid
+    std::string bb = "bb";
+    benchmark_out = "--benchmark_out=" + benchmark_out;
+
+    // NOLINTNEXTLINE
+    char* args[] = { const_cast<char*>(bb.c_str()), const_cast<char*>(benchmark_out.c_str()) };
+    int num_args = 2;
+
+    benchmark::RegisterBenchmark(bb, run_as_benchmark, &ctx);
+    benchmark::Initialize(&num_args, args);
+    ASSERT(!benchmark::ReportUnrecognizedArguments(num_args, args));
     benchmark::RunSpecifiedBenchmarks();
     benchmark::Shutdown();
 
