@@ -107,8 +107,7 @@ class ProtogalaxyRecursiveTests : public testing::Test {
 
         big_a* big_b;
 
-        // Must be HidingKernelIO as UltraVerifier<MegaFlavor> expects the public inputs set by HidingKernelIO
-        stdlib::recursion::honk::HidingKernelIO<OuterBuilder>::add_default(builder);
+        stdlib::recursion::honk::DefaultIO<OuterBuilder>::add_default(builder);
     };
 
     static std::tuple<std::shared_ptr<InnerDeciderProvingKey>, std::shared_ptr<InnerDeciderVerificationKey>>
@@ -259,8 +258,7 @@ class ProtogalaxyRecursiveTests : public testing::Test {
 
         // Check for a failure flag in the recursive verifier circuit
         {
-            // Must be HidingKernelIO as UltraVerifier<MegaFlavor> expects the public inputs set by HidingKernelIO
-            stdlib::recursion::honk::HidingKernelIO<OuterBuilder>::add_default(folding_circuit);
+            stdlib::recursion::honk::DefaultIO<OuterBuilder>::add_default(folding_circuit);
             // inefficiently check finalized size
             folding_circuit.finalize_circuit(/* ensure_nonzero= */ true);
             info("Folding Recursive Verifier: num gates finalized = ", folding_circuit.num_gates);
@@ -350,9 +348,8 @@ class ProtogalaxyRecursiveTests : public testing::Test {
         auto pairing_points = decider_verifier.verify_proof(decider_proof);
 
         // IO
-        HidingKernelIO<OuterBuilder> inputs;
+        DefaultIO<OuterBuilder> inputs;
         inputs.pairing_inputs = pairing_points;
-        inputs.ecc_op_tables = HidingKernelIO<OuterBuilder>::default_ecc_op_tables(decider_circuit);
         inputs.set_public();
 
         info("Decider Recursive Verifier: num gates = ", decider_circuit.num_gates);
