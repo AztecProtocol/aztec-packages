@@ -505,12 +505,12 @@ TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_sorted
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 2);
     bool result = true;
-    for (size_t i = 0; i < connected_components[0].size(); i++) {
-        result = result && (variables_gate_counts[connected_components[0][i]] == 1);
+    for (const auto& var_idx : connected_components[0].vars()) {
+        result = result && (variables_gate_counts[var_idx] == 1);
     }
 
-    for (size_t i = 0; i < connected_components[1].size(); i++) {
-        result = result && (variables_gate_counts[connected_components[1][i]] == 1);
+    for (const auto& var_idx : connected_components[1].vars()) {
+        result = result && (variables_gate_counts[var_idx] == 1);
     }
     EXPECT_EQ(result, true);
 }
@@ -536,9 +536,6 @@ TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_sorted
     auto variables_gate_counts = graph.get_variables_gate_counts();
     EXPECT_EQ(connected_components.size(), 2);
     bool result = true;
-    for (const auto& [key, value] : variables_gate_counts) {
-        info("variable with index == ", key, " in ", value, " gates");
-    }
     for (size_t i = 0; i < var_idx1.size(); i++) {
         if (i % 4 == 1 && i > 1) {
             result = variables_gate_counts[var_idx1[i]] == 2;
@@ -579,12 +576,11 @@ TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_ecc_ad
     StaticAnalyzer graph = StaticAnalyzer(circuit_constructor);
     auto variables_gate_counts = graph.get_variables_gate_counts();
     auto connected_components = graph.find_connected_components();
-    bool result = (variables_gate_counts[connected_components[0][0]] == 1) &&
-                  (variables_gate_counts[connected_components[0][1]] == 1) &&
-                  (variables_gate_counts[connected_components[0][2]] == 1) &&
-                  (variables_gate_counts[connected_components[0][3]] == 1) &&
-                  (variables_gate_counts[connected_components[0][4]] == 1) &&
-                  (variables_gate_counts[connected_components[0][5]] == 1);
+    auto variable_indices = connected_components[0].vars();
+    bool result =
+        (variables_gate_counts[variable_indices[0]] == 1) && (variables_gate_counts[variable_indices[1]] == 1) &&
+        (variables_gate_counts[variable_indices[2]] == 1) && (variables_gate_counts[variable_indices[3]] == 1) &&
+        (variables_gate_counts[variable_indices[4]] == 1) && (variables_gate_counts[variable_indices[5]] == 1);
     EXPECT_EQ(connected_components.size(), 1);
     EXPECT_EQ(result, true);
 }
@@ -617,10 +613,10 @@ TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_ecc_db
     auto variables_gate_counts = graph.get_variables_gate_counts();
     auto connected_components = graph.find_connected_components();
 
-    bool result = (variables_gate_counts[connected_components[0][0]] == 1) &&
-                  (variables_gate_counts[connected_components[0][1]] == 1) &&
-                  (variables_gate_counts[connected_components[0][2]] == 1) &&
-                  (variables_gate_counts[connected_components[0][3]] == 1);
+    auto vars = connected_components[0].vars();
+    EXPECT_EQ(vars.size(), 4);
+    bool result = (variables_gate_counts[vars[0]] == 1) && (variables_gate_counts[vars[1]] == 1) &&
+                  (variables_gate_counts[vars[2]] == 1) && (variables_gate_counts[vars[3]] == 1);
 
     EXPECT_EQ(connected_components.size(), 1);
     EXPECT_EQ(result, true);
