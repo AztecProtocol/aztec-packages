@@ -56,8 +56,7 @@ jobs:
       deployment_mnemonic_secret_name: junk-mnemonic
       respect_tf_lock: "false"
       run_terraform_destroy: "true"
-      ref: next
       sepolia_deployment: "false"
-      skip_funding: "true"
+      skip_funding: true
     secrets:
       GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}

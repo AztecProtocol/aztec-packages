@@ -16,15 +16,15 @@ import type { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
  * Information about a note needed during execution.
  */
 export interface NoteData {
-  /** The note. */
+  /** The actual note content (the fields of the Noir #[note] struct). */
   note: Note;
-  /** The contract address of the note. */
+  /** The address of the contract that owns the note. */
   contractAddress: AztecAddress;
   /** The storage slot of the note. */
   storageSlot: Fr;
-  /** The nonce of the note. */
+  /** The nonce injected into the note hash preimage by kernels. */
   noteNonce: Fr;
-  /** A hash of the note. */
+  /** A hash of the note as it gets stored in the note hash tree. */
   noteHash: Fr;
   /** The corresponding nullifier of the note. Undefined for pending notes. */
   siloedNullifier?: Fr;
