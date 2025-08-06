@@ -20,7 +20,7 @@ if semver check $REF_NAME; then
   export COMMIT_TAG=$REF_NAME
 fi
 
-function build_and_deploy {
+function build {
   if [ "${CI:-0}" -eq 1 ] && [ $(arch) == arm64 ]; then
     echo "Not building bb docs for arm64 in CI."
     return
@@ -29,20 +29,6 @@ function build_and_deploy {
   if ! cache_download bb-docs-$hash.tar.gz; then
     denoise "yarn install && yarn build"
     cache_upload bb-docs-$hash.tar.gz build
-  fi
-
-  if [ "${CI:-0}" -eq 1 ] && [ "$(arch)" == "amd64" ]; then
-    if [ "$REF_NAME" == "next" ]; then
-      echo_header "deploying to production"
-      denoise "yarn install && yarn build"
-      do_or_dryrun yarn netlify deploy --site barretenberg --prod
-    else
-      echo_header "deploying preview for branch: $REF_NAME"
-      denoise "yarn install && yarn build"
-      do_or_dryrun yarn netlify deploy --site barretenberg
-    fi
-  else
-    echo "Skipping deployment - only deploy in CI on amd64."
   fi
 }
 
@@ -62,7 +48,7 @@ case "$cmd" in
     git clean -fdx
     ;;
   ""|"full"|"fast"|"ci")
-    build_and_deploy
+    build
     ;;
   "hash")
     echo "$hash"
