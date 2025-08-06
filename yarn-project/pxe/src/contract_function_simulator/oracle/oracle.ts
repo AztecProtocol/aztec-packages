@@ -13,6 +13,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { ContractClassLog, ContractClassLogFields } from '@aztec/stdlib/logs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
+import { packAsRetrievedNote } from './note_packing_utils.js';
 import type { TypedOracle } from './typed_oracle.js';
 
 /**
@@ -245,20 +246,12 @@ export class Oracle {
       }
     }
 
-    // The expected return type is a BoundedVec<[Field; packedRetrievedNoteLength], maxNotes> where each
-    // array is structured as [contract_address, note_nonce, nonzero_note_hash_counter, ...packed_note].
-
-    const returnDataAsArrayOfArrays = noteDatas.map(({ contractAddress, noteNonce, index, note }) => {
-      // If index is undefined, the note is transient which implies that the nonzero_note_hash_counter has to be true
-      const noteIsTransient = index === undefined;
-      const nonzeroNoteHashCounter = noteIsTransient ? true : false;
-      // If you change the array on the next line you have to change the `unpack_retrieved_note` function in
-      // `aztec/src/note/retrieved_note.nr`
-      return [contractAddress, noteNonce, nonzeroNoteHashCounter, ...note.items];
-    });
+    const returnDataAsArrayOfPackedRetrievedNotes = noteDatas.map(packAsRetrievedNote);
 
     // Now we convert each sub-array to an array of ACVMField
-    const returnDataAsArrayOfACVMFieldArrays = returnDataAsArrayOfArrays.map(subArray => subArray.map(toACVMField));
+    const returnDataAsArrayOfACVMFieldArrays = returnDataAsArrayOfPackedRetrievedNotes.map(subArray =>
+      subArray.map(toACVMField),
+    );
 
     // At last we convert the array of arrays to a bounded vec of arrays
     return arrayOfArraysToBoundedVecOfArrays(returnDataAsArrayOfACVMFieldArrays, +maxNotes, +packedRetrievedNoteLength);

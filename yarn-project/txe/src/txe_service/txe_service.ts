@@ -3,6 +3,7 @@ import { CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS } from '@aztec/constants';
 import type { Logger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { ProtocolContract } from '@aztec/protocol-contracts';
+import { packAsRetrievedNote } from '@aztec/pxe/simulator';
 import { type ContractArtifact, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computePartialAddress } from '@aztec/stdlib/contract';
@@ -379,17 +380,7 @@ export class TXEService {
       }
     }
 
-    // The expected return type is a BoundedVec<[Field; packedRetrievedNoteLength], maxNotes> where each
-    // array is structured as [contract_address, note_nonce, nonzero_note_hash_counter, ...packed_note].
-
-    const returnDataAsArrayOfArrays = noteDatas.map(({ contractAddress, noteNonce, index, note }) => {
-      // If index is undefined, the note is transient which implies that the nonzero_note_hash_counter has to be true
-      const noteIsTransient = index === undefined;
-      const nonzeroNoteHashCounter = noteIsTransient ? true : false;
-      // If you change the array on the next line you have to change the `unpack_retrieved_note` function in
-      // `aztec/src/note/retrieved_note.nr`
-      return [contractAddress, noteNonce, nonzeroNoteHashCounter, ...note.items];
-    });
+    const returnDataAsArrayOfArrays = noteDatas.map(packAsRetrievedNote);
 
     // Now we convert each sub-array to an array of ForeignCallSingles
     const returnDataAsArrayOfForeignCallSingleArrays = returnDataAsArrayOfArrays.map(subArray =>
