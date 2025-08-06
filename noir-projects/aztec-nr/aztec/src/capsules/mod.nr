@@ -112,7 +112,7 @@ impl<T> CapsuleArray<T> {
         }
     }
 
-    unconstrained fn slot_at(self, index: u32) -> Field {
+    unconstrained fn slot_at(&self, index: u32) -> Field {
         // Elements are stored immediately after the base slot, so we add 1 to it to compute the slot for the first
         // element.
         self.base_slot + 1 + index as Field
