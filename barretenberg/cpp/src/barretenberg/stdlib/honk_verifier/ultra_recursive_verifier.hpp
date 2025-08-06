@@ -30,7 +30,21 @@ template <typename Builder> struct UltraRecursiveVerifierOutput {
     stdlib::Proof<Builder> ipa_proof;
     std::array<G1, Builder::NUM_WIRES> ecc_op_tables; // Ecc op tables' commitments as extracted from the public inputs
                                                       // of the HidingKernel, only for MegaFlavor
-    FF mega_inputs_hash; // Hash of the mega inputs used by the inner circuit in the GoblinAvmRecursiveVerifier
+
+    UltraRecursiveVerifierOutput() = default;
+
+    template <class IO>
+    UltraRecursiveVerifierOutput(IO& inputs)
+        : points_accumulator(inputs.pairing_inputs)
+    {
+        if constexpr (std::is_same_v<IO, RollupIO>) {
+            ipa_claim = inputs.ipa_claim;
+        } else if constexpr (std::is_same_v<IO, HidingKernelIO<Builder>>) {
+            ecc_op_tables = inputs.ecc_op_tables;
+        } else if constexpr (!std::is_same_v<IO, DefaultIO<Builder>>) {
+            throw_or_abort("Invalid public input type.");
+        }
+    }
 };
 
 template <typename Flavor> class UltraRecursiveVerifier_ {
@@ -53,13 +67,8 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
                                      const std::shared_ptr<VKAndHash>& vk_and_hash,
                                      const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
-    [[nodiscard("IPA claim and Pairing points should be accumulated")]] Output verify_proof(const HonkProof& proof);
-    [[nodiscard("IPA claim and Pairing points should be accumulated")]] Output verify_proof(const StdlibProof& proof);
-
     template <class IO>
-    [[nodiscard("IPA claim and Pairing points should be accumulated")]] Output verify_proof_with_io_type(
-        const StdlibProof& proof)
-        requires(IsMegaFlavor<Flavor>);
+    [[nodiscard("IPA claim and Pairing points should be accumulated")]] Output verify_proof(const StdlibProof& proof);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1364): Improve VKs. Clarify the usage of
     // RecursiveDeciderVK here. Seems unnecessary.
@@ -67,9 +76,6 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
     VerifierCommitmentKey pcs_verification_key;
     Builder* builder;
     std::shared_ptr<Transcript> transcript;
-
-  private:
-    std::tuple<PairingObject, StdlibProof, std::vector<FF>> verify_internal(const StdlibProof& proof);
 };
 
 } // namespace bb::stdlib::recursion::honk
