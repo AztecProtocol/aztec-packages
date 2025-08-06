@@ -23,9 +23,9 @@ const ETHEREUM_SLOT_DURATION = 6;
 const AZTEC_SLOT_DURATION = 12;
 const EPOCH_DURATION = 4;
 // how many l2 slots make up a slashing round
-const SLASHING_ROUND_SIZE = 9;
+const SLASHING_ROUND_SIZE = 5;
 // how many block builders must signal for a single payload in a single round for it to be executable
-const SLASHING_QUORUM = 5;
+const SLASHING_QUORUM = 3;
 // an attester must not attest to 50% of proven blocks over an epoch to warrant a slash payload being created
 const SLASH_INACTIVITY_CREATE_TARGET_PERCENTAGE = 0.5;
 // an attester must not attest to 10% of proven blocks over an epoch to agree with a slash
@@ -43,7 +43,7 @@ describe('veto slash', () => {
   let additionalNode: AztecNodeService | undefined;
   let rollup: RollupContract;
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     t = await P2PNetworkTest.create({
       testName: 'e2e_p2p_slash_veto_demo',
       numberOfNodes: 0,
@@ -100,7 +100,7 @@ describe('veto slash', () => {
     t.logger.info(`Setup complete`, { validators: t.validators });
   });
 
-  afterEach(async () => {
+  afterAll(async () => {
     await t.stopNodes(nodes);
     if (additionalNode !== undefined) {
       await t.stopNodes([additionalNode]);
@@ -133,7 +133,7 @@ describe('veto slash', () => {
     return slashFactoryAddress;
   }
 
-  it.each([false])(
+  it.each([false, true])(
     'sets the new slasher and shouldVeto=%s',
     async (shouldVeto: boolean) => {
       //################################//
