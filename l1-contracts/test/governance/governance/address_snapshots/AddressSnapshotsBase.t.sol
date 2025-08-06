@@ -2,10 +2,7 @@
 // Copyright 2025 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {
-  AddressSnapshotLib,
-  SnapshottedAddressSet
-} from "@aztec/governance/libraries/AddressSnapshotLib.sol";
+import {AddressSnapshotLib, SnapshottedAddressSet} from "@aztec/governance/libraries/AddressSnapshotLib.sol";
 
 import {Test} from "forge-std/Test.sol";
 import {TimeLib, TimeStorage, Epoch, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
@@ -34,11 +31,7 @@ contract AddressSetWrapper {
     return validatorSet.at(_index);
   }
 
-  function getAddressFromIndexAtTimestamp(uint256 _index, uint32 _timestamp)
-    public
-    view
-    returns (address)
-  {
+  function getAddressFromIndexAtTimestamp(uint256 _index, uint32 _timestamp) public view returns (address) {
     return validatorSet.getAddressFromIndexAtTimestamp(_index, _timestamp);
   }
 
@@ -88,8 +81,7 @@ contract AddressSnapshotsBase is Test {
     GENESIS_TIME = block.timestamp;
     TimeLib.initialize(GENESIS_TIME, SLOT_DURATION, EPOCH_DURATION, PROOF_SUBMISSION_EPOCHS);
     validatorSet = new AddressSetWrapper();
-    timeCheater = new TimeCheater(
-      address(validatorSet), GENESIS_TIME, SLOT_DURATION, EPOCH_DURATION, PROOF_SUBMISSION_EPOCHS
-    );
+    timeCheater =
+      new TimeCheater(address(validatorSet), GENESIS_TIME, SLOT_DURATION, EPOCH_DURATION, PROOF_SUBMISSION_EPOCHS);
   }
 }

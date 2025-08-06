@@ -13,9 +13,8 @@ contract SetGovernanceTest is WithGSE {
   address internal caller;
 
   function setUp() public override(WithGSE) {
-    gse = new GSE(
-      address(this), IERC20(address(0)), TestConstants.DEPOSIT_AMOUNT, TestConstants.MINIMUM_STAKE
-    );
+    gse =
+      new GSE(address(this), IERC20(address(0)), TestConstants.ACTIVATION_THRESHOLD, TestConstants.EJECTION_THRESHOLD);
   }
 
   function test_WhenCallerNeqOwner(address _caller) external {

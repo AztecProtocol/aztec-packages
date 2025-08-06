@@ -2,6 +2,7 @@ import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 
+import type { MonitoredSlashPayload } from '../slashing/index.js';
 import { type AztecNodeAdmin, AztecNodeAdminApiSchema } from './aztec-node-admin.js';
 import type { SequencerConfig } from './configs.js';
 import type { ProverConfig } from './prover-client.js';
@@ -55,6 +56,19 @@ describe('AztecNodeAdminApiSchema', () => {
   it('resumeSync', async () => {
     await context.client.resumeSync();
   });
+
+  it('getSlasherMonitoredPayloads', async () => {
+    const payloads: MonitoredSlashPayload[] = await context.client.getSlasherMonitoredPayloads();
+    expect(payloads).toHaveLength(1);
+    expect(payloads[0]).toMatchObject({
+      payloadAddress: expect.any(EthAddress),
+      validators: expect.arrayContaining([expect.any(EthAddress)]),
+      amounts: expect.arrayContaining([expect.any(BigInt)]),
+      offenses: [],
+      observedAtSeconds: expect.any(Number),
+      totalAmount: expect.any(BigInt),
+    });
+  });
 });
 
 class MockAztecNodeAdmin implements AztecNodeAdmin {
@@ -62,6 +76,18 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
   setConfig(config: Partial<SequencerConfig & ProverConfig & SlasherConfig>): Promise<void> {
     expect(config.coinbase).toBeInstanceOf(EthAddress);
     return Promise.resolve();
+  }
+  getSlasherMonitoredPayloads(): Promise<MonitoredSlashPayload[]> {
+    return Promise.resolve([
+      {
+        payloadAddress: EthAddress.random(),
+        validators: [EthAddress.random(), EthAddress.random()],
+        amounts: [100n, 200n],
+        offenses: [],
+        observedAtSeconds: Math.floor(Date.now() / 1000),
+        totalAmount: 300n,
+      },
+    ]);
   }
   getConfig(): Promise<SequencerConfig & ProverConfig & SlasherConfig & { maxTxPoolSize: number }> {
     return Promise.resolve({
@@ -86,6 +112,12 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
       slashInactivityMaxPenalty: 1000n,
       slashProposerRoundPollingIntervalSeconds: 1000,
       slasherPrivateKey: new SecretValue<string | undefined>(undefined),
+      secondsBeforeInvalidatingBlockAsCommitteeMember: 0,
+      secondsBeforeInvalidatingBlockAsNonCommitteeMember: 0,
+      slashProposeInvalidAttestationsPenalty: 1000n,
+      slashProposeInvalidAttestationsMaxPenalty: 1000n,
+      slashAttestDescendantOfInvalidPenalty: 1000n,
+      slashAttestDescendantOfInvalidMaxPenalty: 1000n,
     });
   }
   startSnapshotUpload(_location: string): Promise<void> {

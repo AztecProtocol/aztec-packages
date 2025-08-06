@@ -25,8 +25,9 @@ export async function validateBlockAttestations(
   const archiveRoot = block.archive.root.toString();
   const slot = block.header.getSlot();
   const epoch = getEpochAtSlot(slot, constants);
-  const { committee } = await epochCache.getCommitteeForEpoch(epoch);
+  const { committee, seed } = await epochCache.getCommitteeForEpoch(epoch);
   const logData = { blockNumber: block.number, slot, epoch, blockHash, archiveRoot };
+
   logger?.debug(`Validating attestations for block ${block.number} at slot ${slot} in epoch ${epoch}`, {
     committee: (committee ?? []).map(member => member.toString()),
     recoveredAttestors: attestations.map(a => a.getSender().toString()),
@@ -37,9 +38,8 @@ export async function validateBlockAttestations(
   });
 
   if (!committee || committee.length === 0) {
-    // Q: Should we accept blocks with no committee?
     logger?.warn(`No committee found for epoch ${epoch} at slot ${slot}. Accepting block without validation.`, logData);
-    return { valid: true, block: publishedBlock };
+    return { valid: true };
   }
 
   const committeeSet = new Set(committee.map(member => member.toString()));
@@ -50,7 +50,8 @@ export async function validateBlockAttestations(
     const signer = attestation.getSender().toString();
     if (!committeeSet.has(signer)) {
       logger?.warn(`Attestation from non-committee member ${signer} at slot ${slot}`, { committee });
-      return { valid: false, reason: 'invalid-attestation', invalidIndex: i, block: publishedBlock, committee };
+      const reason = 'invalid-attestation';
+      return { valid: false, reason, invalidIndex: i, block: publishedBlock, committee, seed, epoch, attestations };
     }
   }
 
@@ -60,9 +61,10 @@ export async function validateBlockAttestations(
       actualAttestations: attestations.length,
       ...logData,
     });
-    return { valid: false, reason: 'insufficient-attestations', block: publishedBlock, committee };
+    const reason = 'insufficient-attestations';
+    return { valid: false, reason, block: publishedBlock, committee, seed, epoch, attestations };
   }
 
   logger?.debug(`Block attestations validated successfully for block ${block.number} at slot ${slot}`, logData);
-  return { valid: true, block: publishedBlock };
+  return { valid: true };
 }

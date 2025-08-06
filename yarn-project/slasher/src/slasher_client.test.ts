@@ -19,6 +19,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import { SlashFactoryAbi } from '@aztec/l1-artifacts/SlashFactoryAbi';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
+import { Offense } from '@aztec/stdlib/slashing';
 
 import type { Anvil } from '@viem/anvil';
 import EventEmitter from 'node:events';
@@ -28,7 +29,6 @@ import { foundry } from 'viem/chains';
 
 import {
   DefaultSlasherConfig,
-  Offense,
   WANT_TO_SLASH_EVENT,
   type WantToSlashArgs,
   type Watcher,
@@ -56,7 +56,7 @@ describe('SlasherClient', () => {
   let rollup: RollupContract;
   let slashingProposer: SlashingProposerContract;
   let l1TxUtils: L1TxUtils;
-  let depositAmount: bigint;
+  let activationThreshold: bigint;
   let slasherL1Client: ExtendedViemWalletClient;
   let testHarnessL1Client: ExtendedViemWalletClient;
   let ethCheatCodes: EthCheatCodes;
@@ -93,6 +93,7 @@ describe('SlasherClient', () => {
         {
           attester: EthAddress.fromString(slasherL1Client.account.address),
           withdrawer: EthAddress.fromString(slasherL1Client.account.address),
+          bn254SecretKey: Fr.random().toBigInt(),
         },
       ],
       realVerifier: false,
@@ -132,7 +133,7 @@ describe('SlasherClient', () => {
     rollup = new RollupContract(l1TxUtils.client, deployed.l1ContractAddresses.rollupAddress);
     slashingProposer = await rollup.getSlashingProposer();
 
-    depositAmount = await rollup.getDepositAmount();
+    activationThreshold = await rollup.getActivationThreshold();
 
     await retryUntil(
       async () => {
@@ -155,8 +156,8 @@ describe('SlasherClient', () => {
   });
 
   it('creates payloads when the watcher signals', async () => {
-    const slashAmount = depositAmount - 1n;
-    expect(slashAmount).toBeLessThan(depositAmount);
+    const slashAmount = activationThreshold - 1n;
+    expect(slashAmount).toBeLessThan(activationThreshold);
     const committee = await rollup.getCurrentEpochCommittee();
     if (!committee) {
       throw new Error('No committee found');
@@ -253,7 +254,7 @@ describe('SlasherClient', () => {
     const info = await rollup.getAttesterView(slasherL1Client.account.address);
 
     expect(info.effectiveBalance).toBe(0n);
-    expect(info.exit.amount).toBe(depositAmount - slashAmount);
+    expect(info.exit.amount).toBe(activationThreshold - slashAmount);
   });
 
   it('drops payloads beyond TTL', async () => {
@@ -264,7 +265,7 @@ describe('SlasherClient', () => {
     dummyWatcher.triggerSlash([
       {
         validator: EthAddress.random(),
-        amount: depositAmount,
+        amount: activationThreshold,
         offense: Offense.UNKNOWN,
       },
     ]);
@@ -284,7 +285,7 @@ describe('SlasherClient', () => {
     dummyWatcher.triggerSlash([
       {
         validator: EthAddress.random(),
-        amount: depositAmount,
+        amount: activationThreshold,
         offense: Offense.UNKNOWN,
       },
     ]);
@@ -308,7 +309,7 @@ describe('SlasherClient', () => {
     dummyWatcher.triggerSlash([
       {
         validator: EthAddress.random(),
-        amount: depositAmount,
+        amount: activationThreshold,
         offense: Offense.UNKNOWN,
       },
     ]);
@@ -378,7 +379,7 @@ describe('SlasherClient', () => {
     dummyWatcher.triggerSlash([
       {
         validator,
-        amount: depositAmount,
+        amount: activationThreshold,
         offense: Offense.UNKNOWN,
       },
     ]);
@@ -389,7 +390,7 @@ describe('SlasherClient', () => {
     dummyWatcher.triggerSlash([
       {
         validator,
-        amount: depositAmount,
+        amount: activationThreshold,
         offense: Offense.UNKNOWN,
       },
     ]);
@@ -398,13 +399,13 @@ describe('SlasherClient', () => {
 
     expect(slasherClient.getMonitoredPayloads().length).toEqual(1);
     expect(slasherClient.getMonitoredPayloads()[0].validators).toEqual([validator]);
-    expect(slasherClient.getMonitoredPayloads()[0].amounts).toEqual([depositAmount]);
+    expect(slasherClient.getMonitoredPayloads()[0].amounts).toEqual([activationThreshold]);
     expect(slasherClient.getMonitoredPayloads()[0].offenses).toEqual([Offense.UNKNOWN]);
 
     dummyWatcher.triggerSlash([
       {
         validator,
-        amount: depositAmount,
+        amount: activationThreshold,
         offense: Offense.UNKNOWN,
       },
     ]);
@@ -416,7 +417,7 @@ describe('SlasherClient', () => {
     await awaitMonitoredPayloads(slasherClient);
     expect(slasherClient.getMonitoredPayloads().length).toEqual(1);
     expect(slasherClient.getMonitoredPayloads()[0].validators).toEqual([validator]);
-    expect(slasherClient.getMonitoredPayloads()[0].amounts).toEqual([depositAmount]);
+    expect(slasherClient.getMonitoredPayloads()[0].amounts).toEqual([activationThreshold]);
     expect(slasherClient.getMonitoredPayloads()[0].offenses).toEqual([Offense.UNKNOWN]);
   });
 
@@ -427,7 +428,7 @@ describe('SlasherClient', () => {
     dummyWatcher.triggerSlash([
       {
         validator,
-        amount: depositAmount - 1n,
+        amount: activationThreshold - 1n,
         offense: Offense.UNKNOWN,
       },
     ]);
@@ -436,7 +437,7 @@ describe('SlasherClient', () => {
     dummyWatcher.triggerSlash([
       {
         validator,
-        amount: depositAmount,
+        amount: activationThreshold,
         offense: Offense.UNKNOWN,
       },
     ]);
@@ -444,10 +445,10 @@ describe('SlasherClient', () => {
 
     expect(slasherClient.getMonitoredPayloads().length).toEqual(2);
     expect(slasherClient.getMonitoredPayloads()[0].validators).toEqual([validator]);
-    expect(slasherClient.getMonitoredPayloads()[0].amounts).toEqual([depositAmount]);
+    expect(slasherClient.getMonitoredPayloads()[0].amounts).toEqual([activationThreshold]);
     expect(slasherClient.getMonitoredPayloads()[0].offenses).toEqual([Offense.UNKNOWN]);
     expect(slasherClient.getMonitoredPayloads()[1].validators).toEqual([validator]);
-    expect(slasherClient.getMonitoredPayloads()[1].amounts).toEqual([depositAmount - 1n]);
+    expect(slasherClient.getMonitoredPayloads()[1].amounts).toEqual([activationThreshold - 1n]);
     expect(slasherClient.getMonitoredPayloads()[1].offenses).toEqual([Offense.UNKNOWN]);
 
     const firstPayload = await slasherClient.getSlashPayload(await rollup.getSlotNumber());
@@ -459,7 +460,7 @@ describe('SlasherClient', () => {
 
     expect(slasherClient.getMonitoredPayloads().length).toEqual(1);
     expect(slasherClient.getMonitoredPayloads()[0].validators).toEqual([validator]);
-    expect(slasherClient.getMonitoredPayloads()[0].amounts).toEqual([depositAmount - 1n]);
+    expect(slasherClient.getMonitoredPayloads()[0].amounts).toEqual([activationThreshold - 1n]);
     expect(slasherClient.getMonitoredPayloads()[0].offenses).toEqual([Offense.UNKNOWN]);
   });
 

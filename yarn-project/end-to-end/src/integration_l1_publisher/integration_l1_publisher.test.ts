@@ -512,7 +512,13 @@ describe('L1Publisher integration', () => {
       validators = [new Secp256k1Signer(Buffer32.fromString(sequencerPK)), ...times(2, Secp256k1Signer.random)];
       await setup({
         aztecTargetCommitteeSize: 3,
-        initialValidators: validators.map(v => v.address).map(address => ({ attester: address, withdrawer: address })),
+        initialValidators: validators
+          .map(v => v.address)
+          .map(address => ({
+            attester: address,
+            withdrawer: address,
+            bn254SecretKey: Fr.random().toBigInt(),
+          })),
       });
     });
 
@@ -581,6 +587,9 @@ describe('L1Publisher integration', () => {
         valid: false,
         committee: committee!,
         block: new PublishedL2Block(block, {} as L1PublishedData, badAttestations),
+        attestations: badBlockAttestations,
+        epoch: 1n,
+        seed: 1n,
         reason: 'insufficient-attestations',
       });
       expect(invalidateRequest).toBeDefined();

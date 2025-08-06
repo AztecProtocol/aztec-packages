@@ -50,7 +50,8 @@
     "./file-store": "./dest/file-store/index.js",
     "./snapshots": "./dest/snapshots/index.js",
     "./update-checker": "./dest/update-checker/index.js",
-    "./zkpassport": "./dest/zkpassport/index.js"
+    "./zkpassport": "./dest/zkpassport/index.js",
+    "./slashing": "./dest/slashing/index.js"
   },
   "typedocOptions": {
     "entryPoints": [

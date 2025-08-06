@@ -38,11 +38,7 @@ contract Multicall3 {
   /// @param calls An array of Call structs
   /// @return blockNumber The block number where the calls were executed
   /// @return returnData An array of bytes containing the responses
-  function aggregate(Call[] calldata calls)
-    public
-    payable
-    returns (uint256 blockNumber, bytes[] memory returnData)
-  {
+  function aggregate(Call[] calldata calls) public payable returns (uint256 blockNumber, bytes[] memory returnData) {
     blockNumber = block.number;
     uint256 length = calls.length;
     returnData = new bytes[](length);
@@ -63,11 +59,7 @@ contract Multicall3 {
   /// @param requireSuccess If true, require all calls to succeed
   /// @param calls An array of Call structs
   /// @return returnData An array of Result structs
-  function tryAggregate(bool requireSuccess, Call[] calldata calls)
-    public
-    payable
-    returns (Result[] memory returnData)
-  {
+  function tryAggregate(bool requireSuccess, Call[] calldata calls) public payable returns (Result[] memory returnData) {
     uint256 length = calls.length;
     returnData = new Result[](length);
     Call calldata call;
@@ -148,11 +140,7 @@ contract Multicall3 {
   /// @notice Reverts if msg.value is less than the sum of the call values
   /// @param calls An array of Call3Value structs
   /// @return returnData An array of Result structs
-  function aggregate3Value(Call3Value[] calldata calls)
-    public
-    payable
-    returns (Result[] memory returnData)
-  {
+  function aggregate3Value(Call3Value[] calldata calls) public payable returns (Result[] memory returnData) {
     uint256 valAccumulator;
     uint256 length = calls.length;
     returnData = new Result[](length);

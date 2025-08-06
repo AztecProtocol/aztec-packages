@@ -38,6 +38,7 @@ describe('deploy_l1_contracts', () => {
     initialValidators = times(3, () => ({
       attester: EthAddress.random(),
       withdrawer: EthAddress.random(),
+      bn254SecretKey: Fr.random().toBigInt(),
     }));
 
     if (!rpcUrl) {
