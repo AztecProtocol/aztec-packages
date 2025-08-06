@@ -42,7 +42,7 @@ contract SlashingTest is TestBase {
   SlashingProposer internal slashingProposer;
   TimeCheater internal timeCheater;
 
-  function _createPayloadAndSignalForSlashing(address[] memory _attesters, uint96 _slashAmount)
+  function _createPayloadAndSignalForSlashing(address[] memory _attesters, uint96 _slashAmount, uint256 _howMany)
     internal
     returns (uint256, IPayload)
   {
@@ -53,13 +53,15 @@ contract SlashingTest is TestBase {
     timeCheater.cheat__jumpToSlot(desiredSlot);
     uint256 round = slashingProposer.getCurrentRound();
 
-    uint96[] memory amounts = new uint96[](_attesters.length);
-    uint256[] memory offenses = new uint256[](_attesters.length);
-    for (uint256 i = 0; i < _attesters.length; i++) {
+    address[] memory offenders = new address[](_howMany);
+    uint96[] memory amounts = new uint96[](_howMany);
+    uint256[] memory offenses = new uint256[](_howMany);
+    for (uint256 i = 0; i < _howMany; i++) {
+      offenders[i] = _attesters[i];
       amounts[i] = _slashAmount;
     }
 
-    IPayload payload = slashFactory.createSlashPayload(_attesters, amounts, offenses);
+    IPayload payload = slashFactory.createSlashPayload(offenders, amounts, offenses);
 
     for (uint256 i = 0; i < 10; i++) {
       address proposer = rollup.getCurrentProposer();
@@ -128,7 +130,7 @@ contract SlashingTest is TestBase {
     _setupCommitteeForSlashing(_lifetimeInRounds, _executionDelayInRounds);
     address[] memory attesters = rollup.getEpochCommittee(Epoch.wrap(2));
     uint96 slashAmount = 10e18;
-    (uint256 firstSlashingRound,) = _createPayloadAndSignalForSlashing(attesters, slashAmount);
+    (uint256 firstSlashingRound,) = _createPayloadAndSignalForSlashing(attesters, slashAmount, attesters.length);
 
     uint256 firstExecutableSlot = (firstSlashingRound + _executionDelayInRounds + 1) * slashingProposer.ROUND_SIZE();
     _jumpToSlot = bound(_jumpToSlot, timeCheater.currentSlot(), firstExecutableSlot - 1);
@@ -152,7 +154,7 @@ contract SlashingTest is TestBase {
     _setupCommitteeForSlashing(_lifetimeInRounds, _executionDelayInRounds);
     address[] memory attesters = rollup.getEpochCommittee(Epoch.wrap(2));
     uint96 slashAmount = 10e18;
-    (uint256 firstSlashingRound,) = _createPayloadAndSignalForSlashing(attesters, slashAmount);
+    (uint256 firstSlashingRound,) = _createPayloadAndSignalForSlashing(attesters, slashAmount, attesters.length);
 
     uint256 firstExecutableSlot = (firstSlashingRound + _executionDelayInRounds + 1) * slashingProposer.ROUND_SIZE();
     uint256 lastExecutableSlot = (firstSlashingRound + _lifetimeInRounds) * slashingProposer.ROUND_SIZE();
@@ -184,7 +186,8 @@ contract SlashingTest is TestBase {
     _setupCommitteeForSlashing(_lifetimeInRounds, _executionDelayInRounds);
     address[] memory attesters = rollup.getEpochCommittee(Epoch.wrap(2));
     uint96 slashAmount = 10e18;
-    (uint256 firstSlashingRound, IPayload payload) = _createPayloadAndSignalForSlashing(attesters, slashAmount);
+    (uint256 firstSlashingRound, IPayload payload) =
+      _createPayloadAndSignalForSlashing(attesters, slashAmount, attesters.length);
 
     vm.prank(address(slasher.VETOER()));
     slasher.vetoPayload(payload);
@@ -201,6 +204,7 @@ contract SlashingTest is TestBase {
 
   function test_Slashing() public {
     _setupCommitteeForSlashing();
+    uint256 howManyToSlash = 4;
 
     address[] memory attesters = rollup.getEpochCommittee(Epoch.wrap(2));
     uint256[] memory stakes = new uint256[](attesters.length);
@@ -212,10 +216,10 @@ contract SlashingTest is TestBase {
 
     // We slash a small amount and see that they are all still validating, but less stake
     uint96 slashAmount1 = 10e18;
-    (uint256 firstSlashingRound,) = _createPayloadAndSignalForSlashing(attesters, slashAmount1);
+    (uint256 firstSlashingRound,) = _createPayloadAndSignalForSlashing(attesters, slashAmount1, howManyToSlash);
     slashingProposer.submitRoundWinner(firstSlashingRound);
 
-    for (uint256 i = 0; i < attesters.length; i++) {
+    for (uint256 i = 0; i < howManyToSlash; i++) {
       AttesterView memory attesterView = rollup.getAttesterView(attesters[i]);
       assertEq(attesterView.effectiveBalance, stakes[i] - slashAmount1);
       assertEq(attesterView.exit.amount, 0, "Invalid stake");
@@ -226,10 +230,10 @@ contract SlashingTest is TestBase {
     // Why we doing it in two steps explicitly here? To make sure that it is clear
     // that it works like this.
     uint96 slashAmount2 = 40e18 + 1;
-    (uint256 secondSlashingRound,) = _createPayloadAndSignalForSlashing(attesters, slashAmount2);
+    (uint256 secondSlashingRound,) = _createPayloadAndSignalForSlashing(attesters, slashAmount2, howManyToSlash);
     slashingProposer.submitRoundWinner(secondSlashingRound);
 
-    for (uint256 i = 0; i < attesters.length; i++) {
+    for (uint256 i = 0; i < howManyToSlash; i++) {
       AttesterView memory attesterView = rollup.getAttesterView(attesters[i]);
       assertEq(attesterView.effectiveBalance, 0);
       assertEq(attesterView.exit.amount, stakes[i] - slashAmount1 - slashAmount2, "Invalid stake");
