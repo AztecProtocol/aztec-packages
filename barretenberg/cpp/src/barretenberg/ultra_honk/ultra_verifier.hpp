@@ -38,10 +38,9 @@ template <typename Flavor> class UltraVerifier_ {
         , transcript(transcript)
     {}
 
-    bool verify_proof(const Proof& proof, const Proof& ipa_proof = {})
-        requires IsUltraHonk<Flavor>;
+    bool verify_proof(const Proof& proof, const Proof& ipa_proof = {});
 
-    std::pair<bool, std::array<Commitment, Flavor::NUM_WIRES>> verify_proof(const Proof& proof)
+    std::pair<bool, std::array<Commitment, Flavor::NUM_WIRES>> verify_proof_hiding_kernel(const Proof& proof)
         requires IsMegaFlavor<Flavor> && (!HasIPAAccumulator<Flavor>);
 
     std::shared_ptr<Transcript> ipa_transcript = std::make_shared<Transcript>();

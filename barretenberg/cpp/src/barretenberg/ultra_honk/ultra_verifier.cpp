@@ -40,13 +40,15 @@ UltraVerifier_<Flavor>::verify_internal(const typename UltraVerifier_<Flavor>::P
 }
 
 /**
- * @brief This function verifies an Ultra Honk proof for a given UltraHonk Flavor.
+ * @brief This function verifies an Ultra Honk proof for a given Flavor.
+ *
+ * @details This function infers the public input type from the Flavor: either RollupIO if HasIPAAccumulator<Flavor>, or
+ * DefaultIO
  *
  */
 template <typename Flavor>
 bool UltraVerifier_<Flavor>::verify_proof(const typename UltraVerifier_<Flavor>::Proof& proof,
                                           const typename UltraVerifier_<Flavor>::Proof& ipa_proof)
-    requires IsUltraHonk<Flavor>
 {
     using RollUpIO = bb::RollupIO;
     using DefaultIO = bb::DefaultIO;
@@ -85,7 +87,7 @@ bool UltraVerifier_<Flavor>::verify_proof(const typename UltraVerifier_<Flavor>:
 }
 
 /**
- * @brief This function verifies an Ultra Honk proof for a Mega Flavor.
+ * @brief This function verifies an Ultra Honk proof of the hiding kernel.
  *
  * @details This function returns a boolean whose meaning is whether the decider proof is valid or not, and an array of
  * commitments, corresponding to the commitments to the merged table that is the output of the merge verification
@@ -94,7 +96,7 @@ bool UltraVerifier_<Flavor>::verify_proof(const typename UltraVerifier_<Flavor>:
  */
 template <typename Flavor>
 std::pair<bool, std::array<typename UltraVerifier_<Flavor>::Commitment, Flavor::NUM_WIRES>> UltraVerifier_<
-    Flavor>::verify_proof(const typename UltraVerifier_<Flavor>::Proof& proof)
+    Flavor>::verify_proof_hiding_kernel(const typename UltraVerifier_<Flavor>::Proof& proof)
     requires IsMegaFlavor<Flavor> && (!HasIPAAccumulator<Flavor>)
 {
     auto [public_inputs, decider_output] = verify_internal(proof);

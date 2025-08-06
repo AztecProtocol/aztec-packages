@@ -14,6 +14,7 @@
 #include "barretenberg/stdlib/honk_verifier/oink_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
@@ -21,6 +22,7 @@ namespace bb::stdlib::recursion::honk {
 
 template <typename Builder> struct UltraRecursiveVerifierOutput {
     using Curve = bn254<Builder>;
+    using FF = Curve::ScalarField;
     using G1 = Curve::Group;
 
     PairingPoints<Builder> points_accumulator;
@@ -28,7 +30,9 @@ template <typename Builder> struct UltraRecursiveVerifierOutput {
     stdlib::Proof<Builder> ipa_proof;
     std::array<G1, Builder::NUM_WIRES> ecc_op_tables; // Ecc op tables' commitments as extracted from the public inputs
                                                       // of the HidingKernel, only for MegaFlavor
+    FF mega_inputs_hash; // Hash of the mega inputs used by the inner circuit in the GoblinAvmRecursiveVerifier
 };
+
 template <typename Flavor> class UltraRecursiveVerifier_ {
   public:
     using FF = typename Flavor::FF;
@@ -52,12 +56,20 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] Output verify_proof(const HonkProof& proof);
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] Output verify_proof(const StdlibProof& proof);
 
+    template <class IO>
+    [[nodiscard("IPA claim and Pairing points should be accumulated")]] Output verify_proof_with_io_type(
+        const StdlibProof& proof)
+        requires(IsMegaFlavor<Flavor>);
+
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1364): Improve VKs. Clarify the usage of
     // RecursiveDeciderVK here. Seems unnecessary.
     std::shared_ptr<RecursiveDeciderVK> key;
     VerifierCommitmentKey pcs_verification_key;
     Builder* builder;
     std::shared_ptr<Transcript> transcript;
+
+  private:
+    std::tuple<PairingObject, StdlibProof, std::vector<FF>> verify_internal(const StdlibProof& proof);
 };
 
 } // namespace bb::stdlib::recursion::honk
