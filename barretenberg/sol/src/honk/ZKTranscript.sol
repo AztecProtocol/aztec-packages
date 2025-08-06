@@ -355,7 +355,7 @@ library ZKTranscriptLib {
         // Gemini
         // Read gemini fold univariates
         for (uint256 i = 0; i < logN - 1; i++) {
-            p.geminiFoldComms[i] = bytesToG1ProofPoint(proof[boundary:boundary + GROUP_ELEMENT_SIZE]);
+            p.geminiFoldComms[i] = bytesToG1Point(proof[boundary:boundary + GROUP_ELEMENT_SIZE]);
             boundary += GROUP_ELEMENT_SIZE;
         }
 
