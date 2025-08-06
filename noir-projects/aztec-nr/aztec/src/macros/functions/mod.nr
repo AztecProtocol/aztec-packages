@@ -117,6 +117,14 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
         );
     }
 
+    let visibility = f.visibility();
+    if visibility != quote {} {
+        let name = f.name();
+        panic(
+            f"A function marked as #[private] must not have public Noir visibility - {name}'s visibility is '{visibility}'",
+        );
+    }
+
     if f.is_unconstrained() {
         let name = f.name();
         panic(
@@ -145,6 +153,14 @@ pub comptime fn public(f: FunctionDefinition) -> Quoted {
             );
         }
 
+        let visibility = f.visibility();
+        if visibility != quote {} {
+            let name = f.name();
+            panic(
+                f"A function marked as #[public] must not have public Noir visibility - {name}'s visibility is '{visibility}'",
+            );
+        }
+
         if f.is_unconstrained() {
             let name = f.name();
             panic(f"#[public] functions must not be unconstrained - {name} is");
@@ -167,6 +183,14 @@ pub comptime fn utility(f: FunctionDefinition) -> Quoted {
         let name = f.name();
         panic(
             f"A function marked as #[utility] cannot also be #[private] or #[public] - {name} is more than one of these",
+        );
+    }
+
+    let visibility = f.visibility();
+    if visibility != quote {} {
+        let name = f.name();
+        panic(
+            f"A function marked as #[utility] must not have public Noir visibility - {name}'s visibility is '{visibility}'",
         );
     }
 

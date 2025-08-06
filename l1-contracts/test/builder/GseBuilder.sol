@@ -13,9 +13,11 @@ import {Registry} from "@aztec/governance/Registry.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
+import {stdStorage, StdStorage} from "forge-std/Test.sol";
 
 struct Flags {
   bool openFloodgates;
+  bool checkProofOfPossession;
 }
 
 struct Values {
@@ -35,12 +37,15 @@ struct Config {
 }
 
 contract GSEBuilder is TestBase {
+  using stdStorage for StdStorage;
+
   Config internal config;
 
   constructor() {
     config.values.govProposerN = 1;
     config.values.govProposerM = 1;
     config.flags.openFloodgates = true;
+    config.flags.checkProofOfPossession = false;
   }
 
   function setOpenFloodgates(bool _openFloodgates) public returns (GSEBuilder) {
@@ -68,6 +73,9 @@ contract GSEBuilder is TestBase {
       config.gse =
         new GSE(address(this), config.testERC20, TestConstants.ACTIVATION_THRESHOLD, TestConstants.EJECTION_THRESHOLD);
       vm.label(address(config.gse), "GSE");
+      stdstore.target(address(config.gse)).sig("checkProofOfPossession()").checked_write(
+        config.flags.checkProofOfPossession
+      );
     }
 
     if (address(config.registry) == address(0)) {

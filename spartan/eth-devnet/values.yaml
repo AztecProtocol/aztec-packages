@@ -1,0 +1,56 @@
+nameOverride: ""
+fullnameOverride: ""
+
+images:
+  reth:
+    image: ghcr.io/paradigmxyz/reth:v1.6.0
+    pullPolicy: IfNotPresent
+  geth:
+    image: ethereum/client-go:v1.15.5
+    pullPolicy: IfNotPresent
+  nethermind:
+    image: nethermind/nethermind:1.32.2
+    pullPolicy: IfNotPresent
+  lighthouse:
+    image: sigp/lighthouse:v7.1.0
+    pullPolicy: IfNotPresent
+
+ethereum:
+  genesisBasePath: "out"
+  chainId: 1337
+  blockTime: 12
+
+  # 1 billion gas limit
+  # helps ensure we can deploy public contracts
+  gasLimit: "1000000000"
+  # 10 times the default of 131072
+  maxTxInputSizeBytes: "1310720"
+
+  execution:
+    client: "reth"
+    hostNetwork: false
+    service:
+      type: ClusterIP
+      loadBalancerIP: null
+      annotations: {}
+      port: 8545
+      targetPort: 8545
+      wsPort: 8546
+      wsTargetPort: 8546
+    storageSize: "8Gi"
+
+  beacon:
+    hostNetwork: false
+    service:
+      type: ClusterIP
+      loadBalancerIP: null
+      annotations: {}
+      port: 5052
+      targetPort: 5052
+    storageSize: "8Gi"
+    resources: {}
+
+  validator:
+    storageSize: "8Gi"
+    mnemonic: "test test test test test test test test test test test junk"
+    resources: {}

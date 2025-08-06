@@ -10,7 +10,7 @@
 #include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_zk_contract.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/honk/types/aggregation_object_type.hpp"
+#include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 
 namespace bb {
@@ -87,16 +87,22 @@ PubInputsProofAndKey<Flavor> _prove(const bool compute_vk,
     UltraProver_<Flavor> prover{ proving_key, vk };
 
     Proof concat_pi_and_proof = prover.construct_proof();
-    size_t num_inner_public_inputs = prover.proving_key->num_public_inputs();
-    // Loose check that the public inputs contain a pairing point accumulator, doesn't catch everything.
-    BB_ASSERT_GTE(prover.proving_key->num_public_inputs(),
-                  PAIRING_POINTS_SIZE,
-                  "Public inputs should contain a pairing point accumulator.");
-    num_inner_public_inputs -= PAIRING_POINTS_SIZE;
-    if constexpr (HasIPAAccumulator<Flavor>) {
-        BB_ASSERT_GTE(num_inner_public_inputs, IPA_CLAIM_SIZE, "Public inputs should contain an IPA claim.");
-        num_inner_public_inputs -= IPA_CLAIM_SIZE;
-    }
+    // Compute number of inner public inputs. Perform loose checks that the public inputs contain enough data.
+    auto num_inner_public_inputs = [&]() {
+        size_t num_public_inputs = prover.proving_key->num_public_inputs();
+        if constexpr (HasIPAAccumulator<Flavor>) {
+            BB_ASSERT_GTE(num_public_inputs,
+                          RollupIO::PUBLIC_INPUTS_SIZE,
+                          "Public inputs should contain a pairing point accumulator and an IPA claim.");
+            return num_public_inputs - RollupIO::PUBLIC_INPUTS_SIZE;
+        } else {
+            BB_ASSERT_GTE(num_public_inputs,
+                          DefaultIO::PUBLIC_INPUTS_SIZE,
+                          "Public inputs should contain a pairing point accumulator.");
+            return num_public_inputs - DefaultIO::PUBLIC_INPUTS_SIZE;
+        }
+    }();
+
     // We split the inner public inputs, which are stored at the front of the proof, from the rest of the proof. Now,
     // the "proof" refers to everything except the inner public inputs.
     PublicInputsAndProof<Proof> public_inputs_and_proof{
