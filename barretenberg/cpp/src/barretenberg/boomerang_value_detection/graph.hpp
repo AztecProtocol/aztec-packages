@@ -10,9 +10,6 @@
 #include <vector>
 
 namespace cdg {
-
-using UltraBlock = bb::UltraTraceBlock;
-using MegaBlock = bb::MegaTraceBlock;
 /**
  * We've added a new feature to the static analyzer that tracks which gates contain each variable.
  * This is helpful for removing false-positive variables from the analyzer by using gate selectors
@@ -49,6 +46,17 @@ struct KeyEquals {
     {
         return (p1.first == p2.first && p1.second == p2.second);
     }
+};
+
+struct ConnectedComponent {
+    std::vector<uint32_t> variable_indices;
+    bool is_range_list_cc;
+    ConnectedComponent() = default;
+    ConnectedComponent(const std::vector<uint32_t>& vector)
+        : variable_indices(vector)
+        , is_range_list_cc(false){};
+    size_t size() const { return variable_indices.size(); }
+    const std::vector<uint32_t>& vars() const { return variable_indices; }
 };
 
 /*
@@ -90,37 +98,7 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     void process_gate_variables(std::vector<uint32_t>& gate_variables, size_t gate_index, size_t blk_idx);
     std::unordered_map<uint32_t, size_t> get_variables_gate_counts() const { return this->variables_gate_counts; };
 
-    std::vector<std::vector<uint32_t>> get_arithmetic_gate_connected_component(
-        bb::UltraCircuitBuilder& ultra_circuit_builder, size_t index, size_t block_idx, UltraBlock& blk);
-    std::vector<uint32_t> get_elliptic_gate_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
-                                                                size_t index,
-                                                                size_t block_idx,
-                                                                UltraBlock& blk);
-    std::vector<uint32_t> get_plookup_gate_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
-                                                               size_t index,
-                                                               size_t block_idx,
-                                                               UltraBlock& blk);
-    std::vector<uint32_t> get_sort_constraint_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
-                                                                  size_t index,
-                                                                  size_t block_idx,
-                                                                  UltraBlock& blk);
-    std::vector<uint32_t> get_poseido2s_gate_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
-                                                                 size_t index,
-                                                                 size_t block_idx,
-                                                                 UltraBlock& blk);
-    std::vector<uint32_t> get_memory_gate_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
-                                                              size_t index,
-                                                              size_t block_idx,
-                                                              UltraBlock& blk);
-    std::vector<uint32_t> get_non_native_field_gate_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
-                                                                        size_t index,
-                                                                        size_t block_idx,
-                                                                        UltraBlock& blk);
-    std::vector<uint32_t> get_rom_table_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
-                                                            const bb::RomTranscript& rom_array);
-    std::vector<uint32_t> get_ram_table_connected_component(bb::UltraCircuitBuilder& ultra_builder,
-                                                            const bb::RamTranscript& ram_array);
-    void process_execution_trace(bool connect_variables = true);
+    void process_execution_trace();
 
     std::vector<std::vector<uint32_t>> get_arithmetic_gate_connected_component(size_t index,
                                                                                size_t block_idx,
@@ -132,28 +110,19 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     std::vector<uint32_t> get_auxiliary_gate_connected_component(size_t index, size_t block_idx, auto& blk);
     std::vector<uint32_t> get_rom_table_connected_component(const bb::RomTranscript& rom_array);
     std::vector<uint32_t> get_ram_table_connected_component(const bb::RamTranscript& ram_array);
-
+    // functions for MegaCircuitBuilder
     std::vector<uint32_t> get_databus_connected_component(size_t index, size_t block_idx, auto& blk);
     std::vector<uint32_t> get_eccop_connected_component(size_t index, size_t block_idx, auto& blk);
     std::vector<uint32_t> get_eccop_part_connected_component(size_t index, size_t block_idx, auto& blk);
 
     void add_new_edge(const uint32_t& first_variable_index, const uint32_t& second_variable_index);
-    std::vector<uint32_t> get_variable_adjacency_list(const uint32_t& variable_index)
-    {
-        return variable_adjacency_lists[variable_index];
-    };
-
     void depth_first_search(const uint32_t& variable_index,
                             std::unordered_set<uint32_t>& is_used,
                             std::vector<uint32_t>& connected_component);
-    std::vector<std::vector<uint32_t>> find_connected_components();
-
-    std::vector<uint32_t> find_variables_with_degree_one();
-
-    size_t get_distance_between_variables(const uint32_t& first_variable_index, const uint32_t& second_variable_index);
+    void mark_range_list_connected_components();
+    std::vector<ConnectedComponent> find_connected_components(bool return_all_connected_components = false);
     bool check_vertex_in_connected_component(const std::vector<uint32_t>& connected_component,
                                              const uint32_t& var_index);
-
     void connect_all_variables_in_vector(const std::vector<uint32_t>& variables_vector);
     bool check_is_not_constant_variable(const uint32_t& variable_index);
 
@@ -171,7 +140,7 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     void remove_unnecessary_sha256_plookup_variables(bb::plookup::BasicTableId& table_id, size_t gate_index);
     void remove_record_witness_variables();
 
-    void print_connected_components();
+    void print_connected_components_info();
     void print_variables_gate_counts();
     void print_variable_in_one_gate(const uint32_t real_idx);
     ~StaticAnalyzer_() = default;
@@ -179,6 +148,7 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
   private:
     // Store reference to the circuit builder
     CircuitBuilder& circuit_builder;
+    bool connect_variables;
 
     std::unordered_map<uint32_t, std::vector<uint32_t>>
         variable_adjacency_lists; // we use this data structure to contain information about variables and their
@@ -189,9 +159,10 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
         variables_degree; // we use this data structure to count, how many every variable have edges
     std::unordered_map<KeyPair, std::vector<size_t>, KeyHasher, KeyEquals>
         variable_gates; // we use this data structure to store gates and TraceBlocks for every variables, where static
-                        // analyzer found them in the circuit.
+                        // analyzer finds them in the circuit.
     std::unordered_set<uint32_t> variables_in_one_gate;
     std::unordered_set<uint32_t> fixed_variables;
+    std::vector<ConnectedComponent> connected_components;
 };
 
 // Type aliases for convenience
