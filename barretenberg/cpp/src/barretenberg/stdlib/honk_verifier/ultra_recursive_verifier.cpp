@@ -28,7 +28,8 @@ UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(Builder* builder,
 
 /**
  * @brief This function constructs a recursive verifier circuit for a native Ultra Honk proof of a given flavor.
- * @tparam IO Public inputs type
+ *
+ * @tparam IO Public input type, specifies which public inputs should be extracted from the proof
  * @return Output aggregation object
  */
 template <typename Flavor>

@@ -124,7 +124,11 @@ class IvcRecursionConstraintTest : public ::testing::Test {
 
             StdlibProof stdlib_inner_proof(circuit, inner_proof);
             VerifierOutput output = verifier.template verify_proof<StdlibIO>(stdlib_inner_proof);
-            output.points_accumulator.set_public(); // propagate resulting pairing points on the public inputs
+
+            // IO
+            StdlibIO inputs;
+            inputs.pairing_inputs = output.points_accumulator;
+            inputs.set_public(); // propagate resulting pairing points on the public inputs
         }
 
         return circuit;

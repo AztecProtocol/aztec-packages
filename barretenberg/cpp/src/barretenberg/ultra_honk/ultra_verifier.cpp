@@ -17,9 +17,7 @@ namespace bb {
 /**
  * @brief This function verifies an Ultra Honk proof for a given Flavor.
  *
- * @details This function infers the public input type from the Flavor: either RollupIO if HasIPAAccumulator<Flavor>, or
- * DefaultIO
- *
+ * @tparam IO Public input type, specifies which public inputs should be extracted from the proof
  */
 template <typename Flavor>
 template <class IO>

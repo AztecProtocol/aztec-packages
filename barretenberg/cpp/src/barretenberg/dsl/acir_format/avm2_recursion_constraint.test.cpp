@@ -141,7 +141,7 @@ TEST_F(AcirAvm2RecursionConstraint, TestBasicSingleAvm2RecursionConstraint)
     VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
     OuterVerifier verifier(verification_key, ipa_verification_key);
     bool result = verifier.template verify_proof<bb::RollupIO>(proof, proving_key->ipa_proof).result;
-    EXPECT_EQ(result, true);
+    EXPECT_TRUE(result);
 }
 
 /**

@@ -42,7 +42,8 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
     using InnerCommitment = InnerFlavor::Commitment;
     using InnerFF = InnerFlavor::FF;
     using InnerIO = std::conditional_t<HasIPAAccumulator<RecursiveFlavor>,
-                                       bb::stdlib::recursion::honk::RollupIO,
+                                       bb::stdlib::recursion::honk::RollupIO, // If RecursiveFlavor has IPA, then
+                                                                              // OuterVerifier is Rollup flavor
                                        bb::stdlib::recursion::honk::DefaultIO<InnerBuilder>>;
 
     // Defines types for the outer circuit, i.e. the circuit of the recursive verifier
@@ -56,7 +57,8 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
     using OuterDeciderProvingKey = DeciderProvingKey_<OuterFlavor>;
     using OuterStdlibProof = bb::stdlib::Proof<OuterBuilder>;
     using OuterIO = std::conditional_t<HasIPAAccumulator<RecursiveFlavor>,
-                                       bb::stdlib::recursion::honk::RollupIO,
+                                       bb::stdlib::recursion::honk::RollupIO, // If RecursiveFlavor has IPA, then
+                                                                              // OuterVerifier is Rollup flavor
                                        bb::stdlib::recursion::honk::DefaultIO<OuterBuilder>>;
 
     using RecursiveVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
