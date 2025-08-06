@@ -56,6 +56,7 @@ export type EpochsTestOpts = Partial<
     | 'initialValidators'
     | 'mockGossipSubNetwork'
     | 'disableAnvilTestWatcher'
+    | 'minTxsPerBlock'
   >
 > & { numberOfAccounts?: number };
 
