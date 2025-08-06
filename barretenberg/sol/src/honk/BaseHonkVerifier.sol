@@ -3,6 +3,7 @@
 pragma solidity >=0.8.21;
 
 import {IVerifier} from "../interfaces/IVerifier.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {
     Honk,
     WIRE,
@@ -44,22 +45,60 @@ abstract contract BaseHonkVerifier is IVerifier {
 
     // Errors
     error ProofLengthWrong();
+    error ProofLengthWrongWithLogN(uint256 logN, uint256 actualLength, uint256 expectedLength);
     error PublicInputsLengthWrong();
     error SumcheckFailed();
     error ShpleminiFailed();
 
+    // Events for debugging
+    event ProofLengthDebug(uint256 logN, uint256 actualLength, uint256 expectedLength);
+
+    // Constants for proof length calculation (matching UltraKeccakFlavor)
+    uint256 constant NUM_WITNESS_ENTITIES = 8;
+    uint256 constant NUM_ELEMENTS_COMM = 2; // uint256 elements for curve points
+    uint256 constant NUM_ELEMENTS_FR = 1; // uint256 elements for field elements
+
+    // Calculate proof size based on log_n (matching UltraKeccakFlavor formula)
+    function calculateProofSize(uint256 logN) internal pure returns (uint256) {
+        uint256 proofLength = NUM_WITNESS_ENTITIES * NUM_ELEMENTS_COMM // witness commitments
+            + (logN * BATCHED_RELATION_PARTIAL_LENGTH * NUM_ELEMENTS_FR) // sumcheck univariates
+            + (NUMBER_OF_ENTITIES * NUM_ELEMENTS_FR) // sumcheck evaluations
+            + ((logN - 1) * NUM_ELEMENTS_COMM) // Gemini Fold commitments
+            + (logN * NUM_ELEMENTS_FR) // Gemini a evaluations
+            + (NUM_ELEMENTS_COMM) // Shplonk Q commitment
+            + (NUM_ELEMENTS_COMM) // KZG W commitment
+            + PAIRING_POINTS_SIZE; // pairing inputs carried on public inputs
+
+        return proofLength;
+    }
+
     // Number of field elements in a ultra keccak honk proof for log_n = 25, including pairing point object.
-    uint256 constant PROOF_SIZE = 350;
+    uint256 constant PROOF_SIZE = 350; // Legacy constant - will be replaced by calculateProofSize($LOG_N)
     uint256 constant SHIFTED_COMMITMENTS_START = 29;
 
     function loadVerificationKey() internal pure virtual returns (Honk.VerificationKey memory);
 
     function verify(bytes calldata proof, bytes32[] calldata publicInputs) public view override returns (bool) {
-        // Check the received proof is the expected size where each field element is 32 bytes
-        // if (proof.length != PROOF_SIZE * 32) {
-        //     revert ProofLengthWrong();
-        // }
+        // Calculate expected proof size based on $LOG_N
+        uint256 expectedProofSize = calculateProofSize($LOG_N);
 
+        // Check the received proof is the expected size where each field element is 32 bytes
+        if (proof.length != expectedProofSize * 32) {
+            // Use require to show debug info in view function (all values in uint256 elements)
+            require(
+                false,
+                string(
+                    abi.encodePacked(
+                        "ProofLength: logN=",
+                        Strings.toString($LOG_N),
+                        " actual=",
+                        Strings.toString(proof.length / 32),
+                        " expected=",
+                        Strings.toString(expectedProofSize)
+                    )
+                )
+            );
+        }
         Honk.VerificationKey memory vk = loadVerificationKey();
         Honk.Proof memory p = TranscriptLib.loadProof(proof, $LOG_N);
         if (publicInputs.length != vk.publicInputsSize - PAIRING_POINTS_SIZE) {

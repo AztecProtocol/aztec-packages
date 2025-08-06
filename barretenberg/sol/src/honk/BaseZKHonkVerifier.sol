@@ -45,6 +45,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
 
     // Errors
     error ProofLengthWrong();
+    error ProofLengthWrongWithLogN(uint256 logN, uint256 actualLength, uint256 expectedLength);
     error PublicInputsLengthWrong();
     error SumcheckFailed();
     error ShpleminiFailed();
@@ -64,9 +65,10 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         returns (bool verified)
     {
         // Check the received proof is the expected size where each field element is 32 bytes
-        // if (proof.length != PROOF_SIZE * 32) {
-        //     revert ProofLengthWrong();
-        // }
+        //if (proof.length != PROOF_SIZE * 32) {
+        //    // print $LOG_N here!
+        //    revert ProofLengthWrongWithLogN($LOG_N, proof.length, PROOF_SIZE * 32);
+        //}
 
         Honk.VerificationKey memory vk = loadVerificationKey();
         Honk.ZKProof memory p = ZKTranscriptLib.loadProof(proof, $LOG_N);
