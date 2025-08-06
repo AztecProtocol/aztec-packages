@@ -33,14 +33,15 @@ import { GENESIS_ARCHIVE_ROOT, SPONSORED_FPC_SALT } from '@aztec/constants';
 import {
   type DeployL1ContractsArgs,
   type DeployL1ContractsReturnType,
+  FeeAssetArtifact,
   NULL_KEY,
   type Operator,
+  RollupContract,
   createExtendedL1Client,
   deployL1Contracts,
   deployMulticall3,
   getL1ContractsConfigEnvVars,
   isAnvilTestChain,
-  l1Artifacts,
 } from '@aztec/ethereum';
 import { DelayedTxUtils, EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
 import { SecretValue } from '@aztec/foundation/config';
@@ -50,7 +51,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { tryRmDir } from '@aztec/foundation/fs';
 import { withLogNameSuffix } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
-import { TestDateProvider } from '@aztec/foundation/timer';
+import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
@@ -310,6 +311,10 @@ export type SetupOptions = {
   disableAnvilTestWatcher?: boolean;
   /** Whether to enable anvil automine during deployment of L1 contracts (consider defaulting this to true). */
   automineL1Setup?: boolean;
+  /** How many accounts to seed and unlock in anvil. */
+  anvilAccounts?: number;
+  /** Port to start anvil (defaults to 8545) */
+  anvilPort?: number;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
@@ -401,7 +406,11 @@ export async function setup(
         );
       }
 
-      const res = await startAnvil({ l1BlockTime: opts.ethereumSlotDuration });
+      const res = await startAnvil({
+        l1BlockTime: opts.ethereumSlotDuration,
+        accounts: opts.anvilAccounts,
+        port: opts.anvilPort,
+      });
       anvil = res.anvil;
       config.l1RpcUrls = [res.rpcUrl];
     }
@@ -481,22 +490,24 @@ export async function setup(
     if (opts.fundRewardDistributor) {
       // Mints block rewards for 10000 blocks to the rewardDistributor contract
 
-      const rewardDistributor = getContract({
-        address: deployL1ContractsValues.l1ContractAddresses.rewardDistributorAddress.toString(),
-        abi: l1Artifacts.rewardDistributor.contractAbi,
-        client: deployL1ContractsValues.l1Client,
-      });
+      const rollup = new RollupContract(
+        deployL1ContractsValues.l1Client,
+        deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+      );
 
-      const blockReward = await rewardDistributor.read.BLOCK_REWARD();
+      const blockReward = await rollup.getBlockReward();
       const mintAmount = 10_000n * (blockReward as bigint);
 
       const feeJuice = getContract({
         address: deployL1ContractsValues.l1ContractAddresses.feeJuiceAddress.toString(),
-        abi: l1Artifacts.feeAsset.contractAbi,
+        abi: FeeAssetArtifact.contractAbi,
         client: deployL1ContractsValues.l1Client,
       });
 
-      const rewardDistributorMintTxHash = await feeJuice.write.mint([rewardDistributor.address, mintAmount], {} as any);
+      const rewardDistributorMintTxHash = await feeJuice.write.mint(
+        [deployL1ContractsValues.l1ContractAddresses.rewardDistributorAddress.toString(), mintAmount],
+        {} as any,
+      );
       await deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: rewardDistributorMintTxHash });
       logger.info(`Funding rewardDistributor in ${rewardDistributorMintTxHash}`);
     }
@@ -598,11 +609,7 @@ export async function setup(
 
     if (sequencerClient) {
       const publisher = (sequencerClient as TestSequencerClient).sequencer.publisher;
-      publisher.l1TxUtils = DelayedTxUtils.fromL1TxUtils(
-        publisher.l1TxUtils,
-        dateProvider,
-        config.ethereumSlotDuration,
-      );
+      publisher.l1TxUtils = DelayedTxUtils.fromL1TxUtils(publisher.l1TxUtils, config.ethereumSlotDuration);
     }
 
     let proverNode: ProverNode | undefined = undefined;
@@ -902,7 +909,7 @@ export function createAndSyncProverNode(
 
     // Creating temp store and archiver for simulated prover node
     const archiverConfig = { ...aztecNodeConfig, dataDirectory: proverNodeConfig.dataDirectory };
-    const archiver = await createArchiver(archiverConfig, blobSinkClient, { blockUntilSync: true });
+    const archiver = await createArchiver(archiverConfig, { blobSinkClient }, { blockUntilSync: true });
 
     // Prover node config is for simulated proofs
     const proverConfig: ProverNodeConfig = {
@@ -922,7 +929,12 @@ export function createAndSyncProverNode(
       ...proverNodeConfig,
     };
 
-    const l1TxUtils = createDelayedL1TxUtils(aztecNodeConfig, proverNodePrivateKey, 'prover-node');
+    const l1TxUtils = createDelayedL1TxUtils(
+      aztecNodeConfig,
+      proverNodePrivateKey,
+      'prover-node',
+      proverNodeDeps.dateProvider,
+    );
 
     const proverNode = await createProverNode(
       proverConfig,
@@ -935,11 +947,16 @@ export function createAndSyncProverNode(
   });
 }
 
-function createDelayedL1TxUtils(aztecNodeConfig: AztecNodeConfig, privateKey: `0x${string}`, logName: string) {
+function createDelayedL1TxUtils(
+  aztecNodeConfig: AztecNodeConfig,
+  privateKey: `0x${string}`,
+  logName: string,
+  dateProvider?: DateProvider,
+) {
   const l1Client = createExtendedL1Client(aztecNodeConfig.l1RpcUrls, privateKey, foundry);
 
   const log = createLogger(logName);
-  const l1TxUtils = new DelayedTxUtils(l1Client, log, aztecNodeConfig);
+  const l1TxUtils = new DelayedTxUtils(l1Client, log, dateProvider, aztecNodeConfig);
   l1TxUtils.enableDelayer(aztecNodeConfig.ethereumSlotDuration);
   return l1TxUtils;
 }

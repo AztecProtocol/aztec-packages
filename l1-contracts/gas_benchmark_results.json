@@ -1,0 +1,10 @@
+{
+  "ignition": {
+    "no_validators": {},
+    "validators": {}
+  },
+  "alpha": {
+    "no_validators": {},
+    "validators": {}
+  }
+}

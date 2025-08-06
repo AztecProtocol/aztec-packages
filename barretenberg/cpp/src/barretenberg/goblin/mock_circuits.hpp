@@ -9,7 +9,6 @@
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/crypto/ecdsa/ecdsa.hpp"
-#include "barretenberg/crypto/merkle_tree/membership.hpp"
 #include "barretenberg/crypto/merkle_tree/memory_store.hpp"
 #include "barretenberg/crypto/merkle_tree/merkle_tree.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
@@ -19,11 +18,21 @@
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
-#include "barretenberg/stdlib/primitives/packed_byte_array/packed_byte_array.hpp"
 #include "barretenberg/stdlib/protogalaxy_verifier/protogalaxy_recursive_verifier.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 
 namespace bb {
+
+template <typename Builder> void generate_sha256_test_circuit(Builder& builder, size_t num_iterations)
+{
+    std::string in;
+    in.resize(32);
+    stdlib::packed_byte_array<Builder> input(&builder, in);
+    for (size_t i = 0; i < num_iterations; i++) {
+        input = stdlib::SHA256<Builder>::hash(input);
+    }
+}
 
 /**
  * @brief An arbitrary but small-ish structuring that can be used for testing with non-trivial circuits in cases when
@@ -36,7 +45,8 @@ static constexpr TraceStructure SMALL_TEST_STRUCTURE_FOR_OVERFLOWS{ .ecc_op = 1 
                                                                     .arithmetic = 1 << 15,
                                                                     .delta_range = 1 << 14,
                                                                     .elliptic = 1 << 14,
-                                                                    .aux = 1 << 14,
+                                                                    .memory = 1 << 14,
+                                                                    .nnf = 1 << 7,
                                                                     .poseidon2_external = 1 << 14,
                                                                     .poseidon2_internal = 1 << 15,
                                                                     .overflow = 0 };
@@ -60,7 +70,6 @@ class GoblinMockCircuits {
     using RecursiveVerifierAccumulator = std::shared_ptr<RecursiveDeciderVerificationKey>;
     using VerificationKey = Flavor::VerificationKey;
 
-    using PairingPoints = stdlib::recursion::PairingPoints<MegaBuilder>;
     static constexpr size_t NUM_WIRES = Flavor::NUM_WIRES;
 
     struct KernelInput {
@@ -82,13 +91,11 @@ class GoblinMockCircuits {
         PROFILE_THIS();
 
         if (large) { // Results in circuit size 2^19
-            stdlib::generate_sha256_test_circuit(builder, 9);
+            generate_sha256_test_circuit<MegaBuilder>(builder, 9);
             stdlib::generate_ecdsa_verification_test_circuit(builder, 8);
-            stdlib::generate_merkle_membership_test_circuit(builder, 12);
         } else { // Results in circuit size 2^17
-            stdlib::generate_sha256_test_circuit(builder, 8);
+            generate_sha256_test_circuit<MegaBuilder>(builder, 8);
             stdlib::generate_ecdsa_verification_test_circuit(builder, 2);
-            stdlib::generate_merkle_membership_test_circuit(builder, 10);
         }
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): We require goblin ops to be added to the
@@ -97,7 +104,7 @@ class GoblinMockCircuits {
         // MegaHonk circuits (where we don't explicitly need to add goblin ops), in IVC merge proving happens prior to
         // folding where the absense of goblin ecc ops will result in zero commitments.
         MockCircuits::construct_goblin_ecc_op_circuit(builder);
-        PairingPoints::add_default_to_public_inputs(builder);
+        bb::stdlib::recursion::honk::AppIO::add_default(builder);
     }
 
     /**
@@ -135,7 +142,9 @@ class GoblinMockCircuits {
 
         add_some_ecc_op_gates(builder);
         MockCircuits::construct_arithmetic_circuit(builder);
-        PairingPoints::add_default_to_public_inputs(builder);
+        // Flavor = bb::MegaFlavor, so the public inputs should be that of the HidingKernelIO (UltraVerifier<MegaFlavor>
+        // expects the public inputs to be that of the HidingKernel)
+        bb::stdlib::recursion::honk::HidingKernelIO<MegaBuilder>::add_default(builder);
     }
 
     /**
@@ -153,12 +162,10 @@ class GoblinMockCircuits {
 
         // Add operations representing general kernel logic e.g. state updates. Note: these are structured to make
         // the kernel "full" within the dyadic size 2^17
-        const size_t NUM_MERKLE_CHECKS = 19;
-        const size_t NUM_ECDSA_VERIFICATIONS = 1;
-        const size_t NUM_SHA_HASHES = 1;
-        stdlib::generate_merkle_membership_test_circuit(builder, NUM_MERKLE_CHECKS);
+        const size_t NUM_ECDSA_VERIFICATIONS = 2;
+        const size_t NUM_SHA_HASHES = 10;
         stdlib::generate_ecdsa_verification_test_circuit(builder, NUM_ECDSA_VERIFICATIONS);
-        stdlib::generate_sha256_test_circuit(builder, NUM_SHA_HASHES);
+        generate_sha256_test_circuit<MegaBuilder>(builder, NUM_SHA_HASHES);
     }
 };
 } // namespace bb

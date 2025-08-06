@@ -6,7 +6,6 @@
 
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/shared_shifted_virtual_zeroes_array.hpp"
 #include "barretenberg/stdlib/primitives/bool/bool.hpp"
@@ -32,10 +31,11 @@ AvmRecursiveVerifier::AvmRecursiveVerifier(Builder& builder, const std::shared_p
 AvmRecursiveVerifier::FF AvmRecursiveVerifier::evaluate_public_input_column(const std::vector<FF>& points,
                                                                             const std::vector<FF>& challenges)
 {
+    size_t circuit_size = 1 << static_cast<uint32_t>(key->log_circuit_size.get_value());
     auto coefficients = SharedShiftedVirtualZeroesArray<FF>{
         .start_ = 0,
         .end_ = points.size(),
-        .virtual_size_ = static_cast<uint32_t>(key->circuit_size.get_value()),
+        .virtual_size_ = circuit_size,
         .backing_memory_ = BackingMemory<FF>::allocate(points.size()),
     };
 
@@ -94,7 +94,8 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     VerifierCommitments commitments{ key };
 
     const auto circuit_size = transcript->template receive_from_prover<FF>("circuit_size");
-    if (static_cast<uint32_t>(circuit_size.get_value()) != static_cast<uint32_t>(key->circuit_size.get_value())) {
+    uint32_t vk_circuit_size = 1 << static_cast<uint32_t>(key->log_circuit_size.get_value());
+    if (static_cast<uint32_t>(circuit_size.get_value()) != vk_circuit_size) {
         throw_or_abort("AvmRecursiveVerifier::verify_proof: proof circuit size does not match verification key!");
     }
 

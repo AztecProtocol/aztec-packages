@@ -143,6 +143,8 @@ describe('prover-node-publisher', () => {
           archive:
             Number(blockNumber) === fromBlock - 1 ? blocks[Number(blockNumber) - 1].endArchiveRoot.toString() : '0x',
           headerHash: headerHash as `0x${string}`,
+          attestationsHash: '0x', // unused,
+          payloadDigest: '0x', // unused,
           blobCommitmentsHash: '0x', // unused,
           slotNumber: 0n, // unused,
           feeHeader: {
@@ -182,6 +184,7 @@ describe('prover-node-publisher', () => {
           publicInputs: ourPublicInputs,
           proof: Proof.empty(),
           batchedBlobInputs: ourBatchedBlob,
+          attestations: [],
         })
         .then(() => 'Success')
         .catch(error => error.message);

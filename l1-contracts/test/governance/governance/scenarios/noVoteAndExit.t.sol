@@ -13,12 +13,7 @@ contract NoVoteAndExitTest is GovernanceBase {
   // Ensure that it is not possible to BOTH vote on proposal AND withdraw the funds before
   // it can be executed
 
-  function test_CannotVoteAndExit(
-    address _voter,
-    uint256 _totalPower,
-    uint256 _votesCast,
-    uint256 _yeas
-  ) external {
+  function test_CannotVoteAndExit(address _voter, uint256 _totalPower, uint256 _votesCast, uint256 _yeas) external {
     bytes32 _proposalName = "empty";
 
     vm.assume(_voter != address(0));
@@ -29,7 +24,7 @@ contract NoVoteAndExitTest is GovernanceBase {
     uint256 votesNeeded = Math.mulDiv(totalPower, proposal.config.quorum, 1e18, Math.Rounding.Ceil);
     uint256 votesCast = bound(_votesCast, votesNeeded, totalPower);
 
-    uint256 yeaLimitFraction = Math.ceilDiv(1e18 + proposal.config.voteDifferential, 2);
+    uint256 yeaLimitFraction = Math.ceilDiv(1e18 + proposal.config.requiredYeaMargin, 2);
     uint256 yeaLimit = Math.mulDiv(votesCast, yeaLimitFraction, 1e18, Math.Rounding.Ceil);
 
     uint256 yeas = yeaLimit == votesCast ? votesCast : bound(_yeas, yeaLimit + 1, votesCast);
@@ -64,9 +59,7 @@ contract NoVoteAndExitTest is GovernanceBase {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.Governance__WithdrawalNotUnlockedYet.selector,
-        Timestamp.wrap(block.timestamp),
-        withdrawal.unlocksAt
+        Errors.Governance__WithdrawalNotUnlockedYet.selector, Timestamp.wrap(block.timestamp), withdrawal.unlocksAt
       )
     );
     governance.finaliseWithdraw(withdrawalId);

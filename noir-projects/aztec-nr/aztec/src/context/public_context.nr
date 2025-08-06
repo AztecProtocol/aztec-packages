@@ -241,9 +241,9 @@ impl PublicContext {
         out
     }
 
-    pub fn storage_read<T, let N: u32>(self, storage_slot: Field) -> T
+    pub fn storage_read<T>(self, storage_slot: Field) -> T
     where
-        T: Packable<N>,
+        T: Packable,
     {
         T::unpack(self.raw_storage_read(storage_slot))
     }
@@ -255,9 +255,9 @@ impl PublicContext {
         }
     }
 
-    pub fn storage_write<T, let N: u32>(self, storage_slot: Field, value: T)
+    pub fn storage_write<T>(self, storage_slot: Field, value: T)
     where
-        T: Packable<N>,
+        T: Packable,
     {
         self.raw_storage_write(storage_slot, value.pack());
     }
@@ -321,6 +321,7 @@ unconstrained fn l1_to_l2_msg_exists(msg_hash: Field, msg_leaf_index: u64) -> u1
 unconstrained fn send_l2_to_l1_msg(recipient: EthAddress, content: Field) {
     send_l2_to_l1_msg_opcode(recipient, content)
 }
+
 unconstrained fn call(
     l2_gas_allocation: u32,
     da_gas_allocation: u32,
@@ -344,15 +345,22 @@ pub unconstrained fn calldata_copy<let N: u32>(cdoffset: u32, copy_size: u32) ->
 }
 
 // `success_copy` is placed immediately after the CALL opcode to get the success value
-unconstrained fn success_copy() -> bool {
+//
+// This function is temporarily exposed publicly to be able to test it in AVMTest contract.
+// TODO: Refactor tests to keep this implementation detail private within the crate.
+pub unconstrained fn success_copy() -> bool {
     success_copy_opcode()
 }
 
-unconstrained fn returndata_size() -> u32 {
+// This function is temporarily exposed publicly to be able to test it in AVMTest contract.
+// TODO: Refactor tests to keep this implementation detail private within the crate.
+pub unconstrained fn returndata_size() -> u32 {
     returndata_size_opcode()
 }
 
-unconstrained fn returndata_copy(rdoffset: u32, copy_size: u32) -> [Field] {
+// This function is temporarily exposed publicly to be able to test it in AVMTest contract.
+// TODO: Refactor tests to keep this implementation detail private within the crate.
+pub unconstrained fn returndata_copy(rdoffset: u32, copy_size: u32) -> [Field] {
     returndata_copy_opcode(rdoffset, copy_size)
 }
 
@@ -364,7 +372,10 @@ pub unconstrained fn avm_return(returndata: [Field]) {
 // to do rethrows, where the revert data is the same as the original revert data.
 // For normal reverts, use Noir's `assert` which, on top of reverting, will also add
 // an error selector to the revert data.
-unconstrained fn avm_revert(revertdata: [Field]) {
+//
+// This function is temporarily exposed publicly to be able to test it in AVMTest contract.
+// TODO: Refactor tests to keep this implementation detail private within the crate.
+pub unconstrained fn avm_revert(revertdata: [Field]) {
     revert_opcode(revertdata)
 }
 

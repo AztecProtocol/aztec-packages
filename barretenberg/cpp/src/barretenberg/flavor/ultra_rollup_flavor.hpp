@@ -7,6 +7,7 @@
 #pragma once
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
+#include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 
 namespace bb {
 
@@ -16,7 +17,7 @@ class UltraRollupFlavor : public bb::UltraFlavor {
     static constexpr size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<FF>();
     static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
         UltraFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + IPA_PROOF_LENGTH;
-    static constexpr size_t BACKEND_PUB_INPUTS_SIZE = PAIRING_POINTS_SIZE + IPA_CLAIM_SIZE;
+    static constexpr size_t BACKEND_PUB_INPUTS_SIZE = RollupIO::PUBLIC_INPUTS_SIZE;
 
     using UltraFlavor::UltraFlavor;
 
@@ -42,8 +43,7 @@ class UltraRollupFlavor : public bb::UltraFlavor {
 
         VerificationKey(const PrecomputedData& precomputed)
         {
-            this->circuit_size = precomputed.metadata.dyadic_size;
-            this->log_circuit_size = numeric::get_msb(this->circuit_size);
+            this->log_circuit_size = numeric::get_msb(precomputed.metadata.dyadic_size);
             this->num_public_inputs = precomputed.metadata.num_public_inputs;
             this->pub_inputs_offset = precomputed.metadata.pub_inputs_offset;
 
@@ -57,8 +57,7 @@ class UltraRollupFlavor : public bb::UltraFlavor {
         using MSGPACK_NO_STATIC_CHECK = std::true_type;
 
         // For serialising and deserialising data
-        MSGPACK_FIELDS(circuit_size,
-                       log_circuit_size,
+        MSGPACK_FIELDS(log_circuit_size,
                        num_public_inputs,
                        pub_inputs_offset,
                        q_m,
@@ -71,7 +70,8 @@ class UltraRollupFlavor : public bb::UltraFlavor {
                        q_arith,
                        q_delta_range,
                        q_elliptic,
-                       q_aux,
+                       q_memory,
+                       q_nnf,
                        q_poseidon2_external,
                        q_poseidon2_internal,
                        sigma_1,

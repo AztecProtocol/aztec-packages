@@ -270,7 +270,7 @@ function build {
 function bench_cmds {
   if [ "$#" -eq 0 ]; then
     # Ordered with longest running first, to ensure they get scheduled earliest.
-    set -- yarn-project/end-to-end yarn-project barretenberg/cpp barretenberg/acir_tests noir-projects/noir-protocol-circuits l1-contracts
+    set -- yarn-project/end-to-end yarn-project barretenberg/cpp barretenberg/sol barretenberg/acir_tests noir-projects/noir-protocol-circuits l1-contracts
   fi
   parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@ | sort_by_cpus
 }
@@ -343,7 +343,7 @@ function release {
   #   aztec-up => upload scripts to prod if dist tag is latest
   #   playground => publish if dist tag is latest.
   #   release-image => push docker image to dist tag.
-  #   boxes/l1-contracts => mirror repo to branch equal to dist tag (master if latest). Also mirror to tag equal to REF_NAME.
+  #   boxes/l1-contracts/aztec-nr => mirror repo to branch equal to dist tag (master if latest). Also mirror to tag equal to REF_NAME.
 
   echo_header "release all"
   set -x
@@ -359,6 +359,7 @@ function release {
     barretenberg/ts
     noir
     l1-contracts
+    noir-projects/aztec-nr
     yarn-project
     boxes
     aztec-up

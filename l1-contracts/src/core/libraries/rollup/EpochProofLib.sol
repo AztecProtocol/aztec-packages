@@ -2,12 +2,8 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {
-  SubmitEpochRootProofArgs,
-  PublicInputArgs,
-  IRollupCore,
-  RollupStore
-} from "@aztec/core/interfaces/IRollup.sol";
+import {SubmitEpochRootProofArgs, PublicInputArgs, IRollupCore, RollupStore} from "@aztec/core/interfaces/IRollup.sol";
+import {CompressedTempBlockLog} from "@aztec/core/libraries/compressed-data/BlockLog.sol";
 import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
@@ -15,7 +11,10 @@ import {BlobLib} from "@aztec/core/libraries/rollup/BlobLib.sol";
 import {CompressedFeeHeader, FeeHeaderLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {RewardLib} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
+import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
+import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
+import {CommitteeAttestations, SignatureLib} from "@aztec/shared/libraries/SignatureLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
@@ -26,6 +25,8 @@ library EpochProofLib {
   using FeeHeaderLib for CompressedFeeHeader;
   using SafeCast for uint256;
   using ChainTipsLib for CompressedChainTips;
+  using SignatureLib for CommitteeAttestations;
+  using CompressedTimeMath for CompressedSlot;
 
   // This is a temporary struct to avoid stack too deep errors
   struct BlobVarsTemp {
@@ -55,7 +56,8 @@ library EpochProofLib {
    *          _end - The block number at the end of the epoch
    *          _args - Array of public inputs to the proof (previousArchive, endArchive, endTimestamp, outHash, proverId)
    *          _fees - Array of recipient-value pairs with fees to be distributed for the epoch
-   *          _blobInputs - The batched blob inputs for the EVM point evaluation precompile and as public inputs for the proof
+   *          _blobInputs - The batched blob inputs for the EVM point evaluation precompile and as public inputs for the
+   * proof
    *          _proof - The proof to verify
    */
   function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) internal {
@@ -65,13 +67,15 @@ library EpochProofLib {
 
     Epoch endEpoch = assertAcceptable(_args.start, _args.end);
 
+    // Verify attestations for the last block in the epoch
+    verifyLastBlockAttestations(_args.end, _args.attestations);
+
     require(verifyEpochRootProof(_args), Errors.Rollup__InvalidProof());
 
     RollupStore storage rollupStore = STFLib.getStorage();
     rollupStore.archives[_args.end] = _args.args.endArchive;
-    rollupStore.tips = rollupStore.tips.updateProvenBlockNumber(
-      Math.max(rollupStore.tips.getProvenBlockNumber(), _args.end)
-    );
+    rollupStore.tips =
+      rollupStore.tips.updateProvenBlockNumber(Math.max(rollupStore.tips.getProvenBlockNumber(), _args.end));
 
     RewardLib.handleRewardsAndFees(_args, endEpoch);
 
@@ -112,6 +116,13 @@ library EpochProofLib {
         require(
           expectedPreviousArchive == _args.previousArchive,
           Errors.Rollup__InvalidPreviousArchive(expectedPreviousArchive, _args.previousArchive)
+        );
+      }
+
+      {
+        bytes32 expectedEndArchive = rollupStore.archives[_end];
+        require(
+          expectedEndArchive == _args.endArchive, Errors.Rollup__InvalidArchive(expectedEndArchive, _args.endArchive)
         );
       }
     }
@@ -174,9 +185,12 @@ library EpochProofLib {
     offset += 1;
 
     // FinalBlobAccumulatorPublicInputs:
-    // The blob public inputs do not require the versioned hash of the batched commitment, which is stored in _blobPublicInputs[0:32]
-    // or the KZG opening 'proof' (commitment Q) stored in _blobPublicInputs[144:]. They are used in validateBatchedBlob().
-    // See BlobLib.sol -> validateBatchedBlob() and calculateBlobCommitmentsHash() for documentation on the below blob related inputs.
+    // The blob public inputs do not require the versioned hash of the batched commitment, which is stored in
+    // _blobPublicInputs[0:32]
+    // or the KZG opening 'proof' (commitment Q) stored in _blobPublicInputs[144:]. They are used in
+    // validateBatchedBlob().
+    // See BlobLib.sol -> validateBatchedBlob() and calculateBlobCommitmentsHash() for documentation on the below blob
+    // related inputs.
 
     // blobCommitmentsHash
     publicInputs[offset] = STFLib.getBlobCommitmentsHash(_end);
@@ -201,6 +215,26 @@ library EpochProofLib {
     offset += 2;
 
     return publicInputs;
+  }
+
+  /**
+   * @notice Verifies the attestations for the last block in the epoch
+   * @param _endBlockNumber The last block number in the epoch
+   * @param _attestations The attestations to verify
+   */
+  function verifyLastBlockAttestations(uint256 _endBlockNumber, CommitteeAttestations memory _attestations) private {
+    // Get the stored attestation hash and payload digest for the last block
+    CompressedTempBlockLog storage blockLog = STFLib.getStorageTempBlockLog(_endBlockNumber);
+
+    // Verify that the provided attestations match the stored hash
+    bytes32 providedAttestationsHash = keccak256(abi.encode(_attestations));
+    require(providedAttestationsHash == blockLog.attestationsHash, Errors.Rollup__InvalidAttestations());
+
+    // Get the slot and epoch for the last block
+    Slot slot = blockLog.slotNumber.decompress();
+    Epoch epoch = STFLib.getEpochForBlock(_endBlockNumber);
+
+    ValidatorSelectionLib.verifyAttestations(slot, epoch, _attestations, blockLog.payloadDigest);
   }
 
   function assertAcceptable(uint256 _start, uint256 _end) private view returns (Epoch) {
@@ -233,18 +267,13 @@ library EpochProofLib {
 
     bool claimedNumBlocksInEpoch = _end - _start + 1 <= Constants.AZTEC_MAX_EPOCH_DURATION;
     require(
-      claimedNumBlocksInEpoch,
-      Errors.Rollup__TooManyBlocksInEpoch(Constants.AZTEC_MAX_EPOCH_DURATION, _end - _start)
+      claimedNumBlocksInEpoch, Errors.Rollup__TooManyBlocksInEpoch(Constants.AZTEC_MAX_EPOCH_DURATION, _end - _start)
     );
 
     return endEpoch;
   }
 
-  function verifyEpochRootProof(SubmitEpochRootProofArgs calldata _args)
-    private
-    view
-    returns (bool)
-  {
+  function verifyEpochRootProof(SubmitEpochRootProofArgs calldata _args) private view returns (bool) {
     RollupStore storage rollupStore = STFLib.getStorage();
 
     BlobLib.validateBatchedBlob(_args.blobInputs);
@@ -252,10 +281,7 @@ library EpochProofLib {
     bytes32[] memory publicInputs =
       getEpochProofPublicInputs(_args.start, _args.end, _args.args, _args.fees, _args.blobInputs);
 
-    require(
-      rollupStore.config.epochProofVerifier.verify(_args.proof, publicInputs),
-      Errors.Rollup__InvalidProof()
-    );
+    require(rollupStore.config.epochProofVerifier.verify(_args.proof, publicInputs), Errors.Rollup__InvalidProof());
 
     return true;
   }

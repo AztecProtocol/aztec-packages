@@ -30,15 +30,25 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
     // Number of columns that jointly constitute the op_queue, should be the same as the number of wires in the
     // MegaCircuitBuilder
     static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
+    using TableCommitments = std::array<Commitment, NUM_WIRES>; // Commitments to the subtables and the merged table
 
-    std::array<Commitment, NUM_WIRES> T_commitments;
+    /**
+     * Commitments used by the verifier to run the verification algorithm. They contain:
+     *  - `t_commitments`: the subtable commitments data, containing the commitments to t_j read from the transcript by
+     *     the PG verifier with which the Merge verifier shares a transcript
+     *  - `T_prev_commitments`: the commitments to the full op_queue table after the previous iteration of merge
+     */
+    struct InputCommitments {
+        TableCommitments t_commitments;
+        TableCommitments T_prev_commitments;
+    };
 
     explicit MergeRecursiveVerifier_(CircuitBuilder* builder,
-                                     const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
-                                     MergeSettings settings = MergeSettings::PREPEND);
+                                     const MergeSettings settings = MergeSettings::PREPEND,
+                                     const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
-    [[nodiscard("Pairing points should be accumulated")]] PairingPoints verify_proof(
-        const stdlib::Proof<CircuitBuilder>& proof, const RefArray<Commitment, NUM_WIRES> t_commitments);
+    [[nodiscard("Pairing points should be accumulated")]] std::pair<PairingPoints, TableCommitments> verify_proof(
+        const stdlib::Proof<CircuitBuilder>& proof, const InputCommitments& input_commitments);
 };
 
 } // namespace bb::stdlib::recursion::goblin

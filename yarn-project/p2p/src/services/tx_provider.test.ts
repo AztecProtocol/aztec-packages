@@ -4,7 +4,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { P2PClient, type PeerId, type TxPool, TxProvider } from '@aztec/p2p';
 import { BlockProposal, ConsensusPayload } from '@aztec/stdlib/p2p';
 import { mockTx } from '@aztec/stdlib/testing';
-import { ProposedBlockHeader, StateReference, Tx, type TxHash, type TxWithHash } from '@aztec/stdlib/tx';
+import { ProposedBlockHeader, StateReference, Tx, type TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -26,12 +26,12 @@ describe('TxProvider', () => {
   // There is a tx pool in the p2p layer and one in each node.
   const txPools: Map<string, Tx> = new Map();
   // This is a list of txs that are on the p2p network but not in the pool.
-  const additionalP2PTxs: TxWithHash[] = [];
+  const additionalP2PTxs: Tx[] = [];
   // Opts for requesting txs
   let opts: { deadline: Date; pinnedPeer: PeerId | undefined };
 
   const generateTransactions = async (numTxs: number) => {
-    return Tx.toTxsWithHashes(await Promise.all(times(numTxs, () => mockTx())));
+    return await Promise.all(times(numTxs, () => mockTx()));
   };
 
   const buildProposal = (txs: Tx[], txHashes: TxHash[]) => {
@@ -39,7 +39,7 @@ describe('TxProvider', () => {
     return new BlockProposal(1, payload, Signature.empty(), Fr.ZERO, txHashes, txs);
   };
 
-  const setupTxPools = (txsInPool: number, txsOnP2P: number, txs: TxWithHash[]) => {
+  const setupTxPools = (txsInPool: number, txsOnP2P: number, txs: Tx[]) => {
     let offset = 0;
     txs.slice(0, txsInPool).forEach(tx => txPools.set(tx.txHash.toString(), tx));
     offset += txsInPool;
@@ -170,14 +170,14 @@ describe('TxProvider', () => {
     // Annotate txs with "source" to track where they came from
     const txs = await generateTransactions(10);
 
-    const poolTxs = txs.slice(0, 5).map(tx => Object.assign(Tx.clone(tx) as TxWithHash, { source: 'pool' })); // 5 txs in pool
+    const poolTxs = txs.slice(0, 5).map(tx => Object.assign(Tx.clone(tx) as Tx, { source: 'pool' })); // 5 txs in pool
     poolTxs.forEach(tx => txPools.set(tx.txHash.toString(), tx));
 
-    const proposalTxs = txs.slice(0, 6).map(tx => Object.assign(Tx.clone(tx) as TxWithHash, { source: 'proposal' })); // 6 txs in proposal
+    const proposalTxs = txs.slice(0, 6).map(tx => Object.assign(Tx.clone(tx) as Tx, { source: 'proposal' })); // 6 txs in proposal
     const proposalTxHashes = txs.map(tx => tx.txHash);
     const proposal = buildProposal(proposalTxs, proposalTxHashes);
 
-    const p2pTxs = txs.slice(0, 8).map(tx => Object.assign(Tx.clone(tx) as TxWithHash, { source: 'network' })); // 8 txs on p2p
+    const p2pTxs = txs.slice(0, 8).map(tx => Object.assign(Tx.clone(tx) as Tx, { source: 'network' })); // 8 txs on p2p
     additionalP2PTxs.push(...p2pTxs);
 
     // Spy on the instrumentation methods to check how many txs were collected from each source

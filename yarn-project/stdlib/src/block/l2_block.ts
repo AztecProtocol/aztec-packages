@@ -154,6 +154,7 @@ export class L2Block {
 
   toBlockInfo(): BlockInfo {
     return {
+      blockHash: this.blockHash?.toString(),
       archive: this.archive.root.toString(),
       headerHash: this.header.toPropose().hash().toString(),
       blockNumber: this.number,
@@ -170,6 +171,7 @@ export class L2Block {
 export type BlockInfo = {
   archive?: string;
   headerHash: string;
+  blockHash?: string;
   blockNumber: number;
   slotNumber: number;
   txCount: number;

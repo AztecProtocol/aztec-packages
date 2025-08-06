@@ -22,14 +22,13 @@ contract ZKPassportBase is Test {
 
   // Path to the proof file - using files directly in project root
   // Fixtures copied from within the zk passport subrepo
-  bytes32 constant VKEY_HASH =
-    bytes32(uint256(0x2ab349ef31f5d516da820a3f55f93c53f9c899b0b991c93fc341199cc1e3b36c));
+  bytes32 constant VKEY_HASH = bytes32(uint256(0x2ab349ef31f5d516da820a3f55f93c53f9c899b0b991c93fc341199cc1e3b36c));
   bytes32 constant CERTIFICATE_REGISTRY_ROOT =
     bytes32(uint256(0x130b5775fe59204b0490bdfcdd02bd7cc2bbf5fe3f3fee34cee13c3a3f9b7bbb));
 
   // From fixtures - see lib/circuits/src/solidity/test/SampleContract.t.sol
-  string constant CORRECT_SCOPE = "zkpassport.id";
-  string constant CORRECT_SUBSCOPE = "bigproof";
+  string constant CORRECT_DOMAIN = "zkpassport.id";
+  string constant CORRECT_SCOPE = "bigproof";
 
   // Using this base contract will make a zkpassport verifier and proof available for testing purposes
   constructor() {
@@ -52,8 +51,8 @@ contract ZKPassportBase is Test {
     zkPassportVerifier.addCertificateRegistryRoot(CERTIFICATE_REGISTRY_ROOT);
 
     // ( When the proof was made )
-    // Set the timestamp to 2025-06-05 15:34:45 UTC
-    vm.warp(1749137685);
+    // Set the timestamp to 2025-07-16 20:26:48 UTC
+    vm.warp(1_752_697_608);
     realProof = makeValidProof();
     fakeProof = makeFakeProof();
 
@@ -78,8 +77,8 @@ contract ZKPassportBase is Test {
       committedInputs: committedInputs,
       committedInputCounts: committedInputCounts,
       validityPeriodInDays: 7,
-      scope: "zkpassport.id",
-      subscope: "bigproof",
+      domain: "zkpassport.id",
+      scope: "bigproof",
       devMode: false
     });
   }
@@ -107,8 +106,8 @@ contract ZKPassportBase is Test {
       committedInputs: committedInputs,
       committedInputCounts: committedInputCounts,
       validityPeriodInDays: 7,
-      scope: "zkpassport.id",
-      subscope: "bigproof",
+      domain: "zkpassport.id",
+      scope: "bigproof",
       devMode: true
     });
   }
@@ -156,11 +155,7 @@ contract ZKPassportBase is Test {
   /**
    * @dev Helper function to slice a string
    */
-  function slice(string memory s, uint256 start, uint256 length)
-    internal
-    pure
-    returns (string memory)
-  {
+  function slice(string memory s, uint256 start, uint256 length) internal pure returns (string memory) {
     bytes memory b = bytes(s);
     require(start + length <= b.length, "String slice out of bounds");
 

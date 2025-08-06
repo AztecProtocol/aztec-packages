@@ -3,12 +3,12 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
-#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
@@ -50,21 +50,24 @@ template <typename Flavor> class UltraHonkTests : public ::testing::Test {
         }
     }
 
-    void prove_and_verify(auto& circuit_builder, bool expected_result)
+    void prove_and_verify(typename Flavor::CircuitBuilder& circuit_builder, bool expected_result)
     {
         auto proving_key = std::make_shared<DeciderProvingKey>(circuit_builder);
+        prove_and_verify(proving_key, expected_result);
+    };
+
+    void prove_and_verify(const std::shared_ptr<DeciderProvingKey>& proving_key, bool expected_result)
+    {
         auto verification_key = std::make_shared<VerificationKey>(proving_key->get_precomputed());
         Prover prover(proving_key, verification_key);
         auto proof = prover.construct_proof();
         if constexpr (HasIPAAccumulator<Flavor>) {
             VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
             Verifier verifier(verification_key, ipa_verification_key);
-            bool verified = verifier.verify_proof(proof, proving_key->ipa_proof);
-            EXPECT_EQ(verified, expected_result);
+            EXPECT_EQ(verifier.verify_proof(proof, proving_key->ipa_proof), expected_result);
         } else {
             Verifier verifier(verification_key);
-            bool verified = verifier.verify_proof(proof);
-            EXPECT_EQ(verified, expected_result);
+            EXPECT_EQ(verifier.verify_proof(proof), expected_result);
         }
     };
 
@@ -99,18 +102,20 @@ TYPED_TEST_SUITE(UltraHonkTests, FlavorTypes);
 TYPED_TEST(UltraHonkTests, ProofLengthCheck)
 {
     using Flavor = TypeParam;
+    using Builder = Flavor::CircuitBuilder;
+    using IO = std::conditional_t<HasIPAAccumulator<Flavor>,
+                                  stdlib::recursion::honk::RollupIO,
+                                  stdlib::recursion::honk::DefaultIO<Builder>>;
+    using Proof = typename Flavor::Transcript::Proof;
 
-    auto builder = typename Flavor::CircuitBuilder{};
-    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
+    auto builder = Builder{};
+    IO::add_default(builder);
     // Construct a UH proof and ensure its size matches expectation; if not, the constant may need to be updated
     auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
     auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
     UltraProver_<Flavor> prover(proving_key, verification_key);
-    HonkProof ultra_proof = prover.construct_proof();
-    size_t expected_proof_length = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + PAIRING_POINTS_SIZE;
-    if (HasIPAAccumulator<Flavor>) {
-        expected_proof_length += IPA_CLAIM_SIZE;
-    }
+    Proof ultra_proof = prover.construct_proof();
+    size_t expected_proof_length = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + IO::PUBLIC_INPUTS_SIZE;
     EXPECT_EQ(ultra_proof.size(), expected_proof_length);
 }
 
@@ -265,7 +270,6 @@ TYPED_TEST(UltraHonkTests, CreateGatesFromPlookupAccumulators)
 TYPED_TEST(UltraHonkTests, LookupFailure)
 {
     using DeciderProvingKey = typename TestFixture::DeciderProvingKey;
-    using VerificationKey = typename TestFixture::VerificationKey;
     // Construct a circuit with lookup and arithmetic gates
     auto construct_circuit_with_lookups = [this]() {
         UltraCircuitBuilder builder;
@@ -277,27 +281,11 @@ TYPED_TEST(UltraHonkTests, LookupFailure)
         return builder;
     };
 
-    auto prove_and_verify = [](auto& proving_key) {
-        auto verification_key = std::make_shared<VerificationKey>(proving_key->get_precomputed());
-        typename TestFixture::Prover prover(proving_key, verification_key);
-        auto proof = prover.construct_proof();
-        if constexpr (HasIPAAccumulator<TypeParam>) {
-            VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key = (1 << CONST_ECCVM_LOG_N);
-            typename TestFixture::Verifier verifier(verification_key, ipa_verification_key);
-            return verifier.verify_proof(proof, proving_key->ipa_proof);
-        } else {
-            typename TestFixture::Verifier verifier(verification_key);
-            return verifier.verify_proof(proof);
-        }
-    };
-
     // Ensure the unaltered test circuit is valid
     {
         auto builder = construct_circuit_with_lookups();
 
-        auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-
-        prove_and_verify(proving_key);
+        TestFixture::prove_and_verify(builder, true);
     }
 
     // Failure mode 1: bad read counts/tags
@@ -319,7 +307,7 @@ TYPED_TEST(UltraHonkTests, LookupFailure)
         polynomials.lookup_read_tags = polynomials.lookup_read_tags.full();
         polynomials.lookup_read_tags.at(25) = 1;
 
-        EXPECT_FALSE(prove_and_verify(proving_key));
+        TestFixture::prove_and_verify(proving_key, false);
     }
 
     // Failure mode 2: bad lookup gate wire value
@@ -339,7 +327,7 @@ TYPED_TEST(UltraHonkTests, LookupFailure)
             }
         }
         EXPECT_TRUE(altered);
-        EXPECT_FALSE(prove_and_verify(proving_key));
+        TestFixture::prove_and_verify(proving_key, false);
     }
 
     // Failure mode 3: erroneous lookup gate
@@ -355,7 +343,7 @@ TYPED_TEST(UltraHonkTests, LookupFailure)
         EXPECT_TRUE(polynomials.q_lookup[25] != 1);
         polynomials.q_lookup.at(25) = 1;
 
-        EXPECT_FALSE(prove_and_verify(proving_key));
+        TestFixture::prove_and_verify(proving_key, false);
     }
 }
 

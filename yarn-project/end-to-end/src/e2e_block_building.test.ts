@@ -4,6 +4,7 @@ import {
   type AccountWallet,
   type AztecAddress,
   type AztecNode,
+  BatchCall,
   ContractDeployer,
   ContractFunctionInteraction,
   Fr,
@@ -24,6 +25,7 @@ import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { BlockBuilder, SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
+import { Set } from '@aztec/simulator/public/avm/opcodes';
 import { type PublicTxResult, PublicTxSimulator } from '@aztec/simulator/server';
 import { getProofSubmissionDeadlineEpoch } from '@aztec/stdlib/epoch-helpers';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
@@ -126,7 +128,9 @@ describe('e2e_block_building', () => {
       const provenTxs = await asyncMap(methods, method => method.prove());
       logger.info(`Sending ${TX_COUNT} txs to the node`);
       const txs = await Promise.all(provenTxs.map(tx => tx.send()));
-      logger.info(`All ${TX_COUNT} txs have been sent`, { txs: await Promise.all(txs.map(tx => tx.getTxHash())) });
+      logger.info(`All ${TX_COUNT} txs have been sent`, {
+        txs: (await Promise.all(txs.map(tx => tx.getTxHash()))).map(h => h.toString()),
+      });
 
       // Await txs to be mined and assert they are mined across multiple different blocks.
       const receipts = await Promise.all(txs.map(tx => tx.wait()));
@@ -162,7 +166,7 @@ describe('e2e_block_building', () => {
       const txs = await Promise.all(provenTxs.map(tx => tx.send()));
       logger.info(`Txs sent with hashes: `);
       for (const tx of txs) {
-        logger.info(` ${await tx.getTxHash()}`);
+        logger.info(` ${(await tx.getTxHash()).toString()}`);
       }
 
       // Await txs to be mined and assert they are all mined on the same block
@@ -196,7 +200,7 @@ describe('e2e_block_building', () => {
       const txs = await Promise.all(provenTxs.map(tx => tx.send()));
       logger.info(`Txs sent with hashes: `);
       for (const tx of txs) {
-        logger.info(` ${await tx.getTxHash()}`);
+        logger.info(` ${(await tx.getTxHash()).toString()}`);
       }
 
       // Await txs to be mined and assert they are all mined on the same block
@@ -521,11 +525,65 @@ describe('e2e_block_building', () => {
       logger.info('Waiting for txs to be mined');
       await Promise.all(txs.map(tx => tx.wait({ timeout: 600 })));
     });
+
+    // Regression for ReexStateMismatch happening on testnet when AVM processing throws an unexpected error.
+    // The culprit is a nullifier not being cleared up from world state during block building if a tx fails processing,
+    // which translates in an incorrect end state for world state. We can easily detect this by checking whether the nullifier
+    // tree next available leaf index is a multiple of 64.
+    it('clears up all nullifiers if tx processing fails', async () => {
+      const context = await setup(1, {
+        minTxsPerBlock: 1,
+        skipProtocolContracts: true,
+        numberOfInitialFundedAccounts: 1,
+      });
+      ({ teardown, pxe, logger, aztecNode } = context);
+
+      const testContract = await TestContract.deploy(context.wallets[0]).send().deployed();
+      logger.warn(`Test contract deployed at ${testContract.address}`);
+
+      // Send two txs that emit two nullifiers each, one from private and one from public.
+      context.sequencer?.updateSequencerConfig({ minTxsPerBlock: 2 });
+      const makeBatch = () =>
+        new BatchCall(context.wallets[0], [
+          testContract.methods.emit_nullifier(Fr.random()),
+          testContract.methods.emit_nullifier_public(Fr.random()),
+        ]);
+      const batches = times(2, makeBatch);
+
+      // This is embarrassingly brittle. What we want to do here is: we want the sequencer to wait until both
+      // txs have arrived (so minTxsPerBlock=2), but agree to build a block with 1 tx only, so we change the config
+      // to minTxsPerBlock=1 as soon as we start processing. We also want to simulate an AVM failure in tx processing
+      // for only one of the txs, and near the end so all nullifiers have been emitted. So we throw on one of the last
+      // calls to SET. Note that this will break on brillig or AVM changes that change how many SET operations we use.
+      let setCount = 0;
+      const origExecute = Set.prototype.execute;
+      const spy = jest.spyOn(Set.prototype, 'execute').mockImplementation(async function (...args: any[]) {
+        setCount++;
+        if (setCount === 1) {
+          context.sequencer?.updateSequencerConfig({ minTxsPerBlock: 1 });
+        } else if (setCount === 48) {
+          throw new Error('Simulated failure in AVM opcode SET');
+        }
+        // @ts-expect-error: eslint-be-happy
+        await origExecute.call(this, ...args);
+      });
+
+      const txs = await Promise.all(batches.map(batch => batch.send()));
+      logger.warn(`Sent two txs to test contract`, { txs: await Promise.all(txs.map(tx => tx.getTxHash())) });
+      await Promise.race(txs.map(tx => tx.wait({ timeout: 60 })));
+
+      logger.warn(`At least one tx has been mined (after ${spy.mock.calls.length} AVM SET invocations)`);
+      expect(setCount).toBeGreaterThanOrEqual(48);
+      const lastBlock = await context.aztecNode.getBlockHeader();
+      expect(lastBlock).toBeDefined();
+
+      logger.warn(`Latest block is ${lastBlock!.getBlockNumber()}`, { state: lastBlock?.state.partial });
+      const nextNullifierIndex = lastBlock!.state.partial.nullifierTree.nextAvailableLeafIndex;
+      expect(nextNullifierIndex % 64).toEqual(0);
+    });
   });
 
-  // Due to #13723, this test is disabled.
-  // TODO: bring back once fixed: #13770
-  describe.skip('reorgs', () => {
+  describe('reorgs', () => {
     let contract: StatefulTestContract;
     let cheatCodes: CheatCodes;
     let ownerAddress: AztecAddress;
@@ -575,11 +633,8 @@ describe('e2e_block_building', () => {
       expect(await contract.methods.summed_values(ownerAddress).simulate()).toEqual(51n);
 
       logger.info('Advancing past the proof submission window');
-      await cheatCodes.rollup.advanceToEpoch(
-        getProofSubmissionDeadlineEpoch(0n, {
-          proofSubmissionEpochs: 1,
-        }),
-      );
+
+      await cheatCodes.rollup.advanceToEpoch(getProofSubmissionDeadlineEpoch(2n, { proofSubmissionEpochs: 1 }));
 
       // Wait until the sequencer kicks out tx1
       logger.info(`Waiting for node to prune tx1`);
@@ -587,7 +642,7 @@ describe('e2e_block_building', () => {
         async () => (await aztecNode.getTxReceipt(tx1.txHash)).status === TxStatus.PENDING,
         'wait for pruning',
         15,
-        1,
+        0.11,
       );
 
       // And wait until it is brought back tx1

@@ -6,6 +6,7 @@
 
 #include "goblin.hpp"
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/translator_vm/translator_prover.hpp"
 #include "barretenberg/translator_vm/translator_proving_key.hpp"
@@ -23,7 +24,7 @@ Goblin::Goblin(CommitmentKey<curve::BN254> bn254_commitment_key, const std::shar
 void Goblin::prove_merge(const std::shared_ptr<Transcript>& transcript)
 {
     PROFILE_THIS_NAME("Goblin::merge");
-    MergeProver merge_prover{ op_queue, commitment_key, transcript };
+    MergeProver merge_prover{ op_queue, MergeSettings::PREPEND, commitment_key, transcript };
     merge_verification_queue.push_back(merge_prover.construct_proof());
 }
 
@@ -50,11 +51,12 @@ GoblinProof Goblin::prove()
 {
     PROFILE_THIS_NAME("Goblin::prove");
 
+    prove_merge(transcript); // Use shared transcript for merge proving
     info("Constructing a Goblin proof with num ultra ops = ", op_queue->get_ultra_ops_table_num_rows());
 
-    prove_merge(transcript); // Use shared transcript for merge proving
-    ASSERT(merge_verification_queue.size() == 1,
-           "Goblin::prove: merge_verification_queue should contain only a single proof at this stage.");
+    BB_ASSERT_EQ(merge_verification_queue.size(),
+                 1U,
+                 "Goblin::prove: merge_verification_queue should contain only a single proof at this stage.");
     goblin_proof.merge_proof = merge_verification_queue.back();
 
     {
@@ -72,9 +74,9 @@ GoblinProof Goblin::prove()
     return goblin_proof;
 }
 
-Goblin::PairingPoints Goblin::recursively_verify_merge(
+std::pair<Goblin::PairingPoints, Goblin::RecursiveTableCommitments> Goblin::recursively_verify_merge(
     MegaBuilder& builder,
-    const RefArray<MergeRecursiveVerifier::Commitment, MegaFlavor::NUM_WIRES>& t_commitments,
+    const RecursiveMergeCommitments& merge_commitments,
     const std::shared_ptr<RecursiveTranscript>& transcript)
 {
     ASSERT(!merge_verification_queue.empty());
@@ -82,20 +84,21 @@ Goblin::PairingPoints Goblin::recursively_verify_merge(
     const MergeProof& merge_proof = merge_verification_queue.front();
     const stdlib::Proof<MegaBuilder> stdlib_merge_proof(builder, merge_proof);
 
-    MergeRecursiveVerifier merge_verifier{ &builder, transcript };
-    PairingPoints pairing_points = merge_verifier.verify_proof(stdlib_merge_proof, t_commitments);
+    MergeRecursiveVerifier merge_verifier{ &builder, MergeSettings::PREPEND, transcript };
+    auto [pairing_points, merged_table_commitments] =
+        merge_verifier.verify_proof(stdlib_merge_proof, merge_commitments);
 
     merge_verification_queue.pop_front(); // remove the processed proof from the queue
 
-    return pairing_points;
+    return { pairing_points, merged_table_commitments };
 }
 
 bool Goblin::verify(const GoblinProof& proof,
-                    const RefArray<MergeVerifier::Commitment, MegaFlavor::NUM_WIRES>& t_commitments,
+                    const MergeCommitments& merge_commitments,
                     const std::shared_ptr<Transcript>& transcript)
 {
-    MergeVerifier merge_verifier(transcript);
-    bool merge_verified = merge_verifier.verify_proof(proof.merge_proof, t_commitments);
+    MergeVerifier merge_verifier(MergeSettings::PREPEND, transcript);
+    auto [merge_verified, merged_table_commitments] = merge_verifier.verify_proof(proof.merge_proof, merge_commitments);
 
     ECCVMVerifier eccvm_verifier(transcript);
     bool eccvm_verified = eccvm_verifier.verify_proof(proof.eccvm_proof);
@@ -111,7 +114,7 @@ bool Goblin::verify(const GoblinProof& proof,
     // Verify the consistency between the commitments to polynomials representing the op queue received by translator
     // and final merge verifier
     bool op_queue_consistency_verified =
-        translator_verifier.verify_consistency_with_final_merge(merge_verifier.T_commitments);
+        translator_verifier.verify_consistency_with_final_merge(merged_table_commitments);
 
     vinfo("merge verified?: ", merge_verified);
     vinfo("eccvm verified?: ", eccvm_verified);

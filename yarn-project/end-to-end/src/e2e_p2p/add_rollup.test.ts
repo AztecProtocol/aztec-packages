@@ -27,7 +27,7 @@ import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
 import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
-import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
+import { computeL2ToL1MembershipWitness, getL2ToL1MessageLeafId } from '@aztec/stdlib/messaging';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { jest } from '@jest/globals';
@@ -158,6 +158,9 @@ describe('e2e_p2p_add_rollup', () => {
         aztecProofSubmissionEpochs: t.ctx.aztecNodeConfig.aztecProofSubmissionEpochs,
         slashingQuorum: t.ctx.aztecNodeConfig.slashingQuorum,
         slashingRoundSize: t.ctx.aztecNodeConfig.slashingRoundSize,
+        slashingLifetimeInRounds: t.ctx.aztecNodeConfig.slashingLifetimeInRounds,
+        slashingExecutionDelayInRounds: t.ctx.aztecNodeConfig.slashingExecutionDelayInRounds,
+        slashingVetoer: t.ctx.aztecNodeConfig.slashingVetoer,
         manaTarget: t.ctx.aztecNodeConfig.manaTarget,
         provingCostPerMana: t.ctx.aztecNodeConfig.provingCostPerMana,
         feeJuicePortalInitialBalance: fundingNeeded,
@@ -185,13 +188,13 @@ describe('e2e_p2p_add_rollup', () => {
         t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
         round,
       ]);
-      const leaderVotes = await governanceProposer.read.yeaCount([
+      const leaderVotes = await governanceProposer.read.signalCount([
         t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
         round,
-        info.leader,
+        info.payloadWithMostSignals,
       ]);
       t.logger.info(
-        `Governance stats for round ${round} (Slot: ${slot}, BN: ${bn}). Leader: ${info.leader} have ${leaderVotes} votes`,
+        `Governance stats for round ${round} (Slot: ${slot}, BN: ${bn}). Leader: ${info.payloadWithMostSignals} have ${leaderVotes} signals`,
       );
       return { bn, slot, round, info, leaderVotes };
     };
@@ -306,6 +309,7 @@ describe('e2e_p2p_add_rollup', () => {
         });
 
         const l2ToL1MessageResult = await computeL2ToL1MembershipWitness(node, l2OutgoingReceipt!.blockNumber, leaf);
+        const leafId = getL2ToL1MessageLeafId(l2ToL1MessageResult!);
 
         // We need to mark things as proven
         const cheatcodes = RollupCheatCodes.create(l1RpcUrls, l1ContractAddresses);
@@ -331,7 +335,7 @@ describe('e2e_p2p_add_rollup', () => {
             args: [
               l2ToL1Message,
               BigInt(l2OutgoingReceipt!.blockNumber!),
-              BigInt(l2ToL1MessageResult!.l2MessageIndex),
+              BigInt(l2ToL1MessageResult!.leafIndex),
               l2ToL1MessageResult!.siblingPath
                 .toBufferArray()
                 .map((buf: Buffer) => `0x${buf.toString('hex')}`) as readonly `0x${string}`[],
@@ -354,13 +358,13 @@ describe('e2e_p2p_add_rollup', () => {
             l2BlockNumber: bigint;
             root: `0x${string}`;
             messageHash: `0x${string}`;
-            leafIndex: bigint;
+            leafId: bigint;
           };
         };
 
-        // We check that MessageConsumed event was emitted with the expected message hash and leaf index
+        // We check that MessageConsumed event was emitted with the expected message hash and leaf id
         expect(topics.args.messageHash).toStrictEqual(leaf.toString());
-        expect(topics.args.leafIndex).toStrictEqual(BigInt(0));
+        expect(topics.args.leafId).toStrictEqual(leafId);
       }
     };
 
@@ -396,11 +400,11 @@ describe('e2e_p2p_add_rollup', () => {
       to: governanceProposer.address,
       data: encodeFunctionData({
         abi: GovernanceProposerAbi,
-        functionName: 'executeProposal',
+        functionName: 'submitRoundWinner',
         args: [govData.round],
       }),
     });
-    t.logger.info(`Executed proposal ${govData.round}`);
+    t.logger.info(`Submitted winner for round ${govData.round}`);
 
     const proposal = await governance.read.getProposal([0n]);
 

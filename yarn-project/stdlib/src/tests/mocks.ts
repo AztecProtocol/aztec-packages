@@ -166,7 +166,12 @@ export const mockTx = async (
       .build();
   }
 
-  return new Tx(data, clientIvcProof, [], publicFunctionCalldata);
+  return await Tx.create({
+    data,
+    clientIvcProof,
+    contractClassLogFields: [],
+    publicFunctionCalldata,
+  });
 };
 
 export const mockTxForRollup = (seed = 1, opts: Parameters<typeof mockTx>[1] = {}) =>
@@ -217,7 +222,6 @@ export const randomContractArtifact = (): ContractArtifact => ({
   },
   fileMap: {},
   storageLayout: {},
-  notes: {},
 });
 
 export const randomContractInstanceWithAddress = async (
@@ -294,6 +298,16 @@ export const makeBlockAttestation = (options?: MakeConsensusPayloadOptions): Blo
   return new BlockAttestation(blockNumber, payload, signature);
 };
 
+export const makeBlockAttestationFromBlock = (block: L2Block, signer?: Secp256k1Signer): BlockAttestation => {
+  return makeBlockAttestation({
+    signer,
+    header: block.header,
+    archive: block.archive.root,
+    stateReference: block.header.state,
+    txHashes: block.body.txEffects.map(tx => tx.txHash),
+  });
+};
+
 export async function randomPublishedL2Block(
   l2BlockNumber: number,
   opts: { signers?: Secp256k1Signer[] } = {},
@@ -306,16 +320,7 @@ export async function randomPublishedL2Block(
   };
 
   const signers = opts.signers ?? times(3, () => Secp256k1Signer.random());
-  const atts = await Promise.all(
-    signers.map(signer =>
-      makeBlockAttestation({
-        signer,
-        header: block.header,
-        stateReference: block.header.state,
-        txHashes: block.body.txEffects.map(tx => tx.txHash),
-      }),
-    ),
-  );
+  const atts = await Promise.all(signers.map(signer => makeBlockAttestationFromBlock(block, signer)));
   const attestations = atts.map(
     (attestation, i) => new CommitteeAttestation(signers[i].address, attestation.signature),
   );

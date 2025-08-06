@@ -1,0 +1,41 @@
+SignalTest
+├── when proposal hold no code
+│   └── it revert
+└── when proposal hold code
+    ├── given canonical rollup hold no code
+    │   └── it revert
+    └── given canonical rollup hold code
+        ├── given a signal already cast in the slot
+        │   └── it revert
+        ├── given signal is for prior round
+        │   └── it revert
+        └── given no signal already cast in the slot
+            ├── when caller is not proposer
+            │   └── it revert
+            └── when caller is proposer
+                ├── given new canonical instance
+                │   ├── it ignore signals from prior instance
+                │   ├── it increase the yea count
+                │   ├── it updates the leader to the proposal
+                │   ├── it emits {SignalCast} event
+                │   └── it returns true
+                ├── given round changed
+                │   ├── it ignore signals in prior round
+                │   ├── it increase the yea count
+                │   ├── it updates the leader to the proposal
+                │   ├── it emits {SignalCast} event
+                │   └── it returns true
+                └── given round and instance is stable
+                    ├── given proposal is leader
+                    │   ├── it increase the yea count
+                    │   ├── it emits {SignalCast} event
+                    │   └── it returns true
+                    ├── given proposal have fever signals than leader
+                    │   ├── it increase the yea count
+                    │   ├── it emits {SignalCast} event
+                    │   └── it returns true
+                    └── given proposal have more signals than leader
+                        ├── it increase the yea count
+                        ├── it updates the leader to the proposal
+                        ├── it emits {SignalCast} event
+                        └── it returns true

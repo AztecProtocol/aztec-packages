@@ -5,6 +5,7 @@
 // =====================
 
 #include "mega_circuit_builder.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include <unordered_map>
@@ -167,12 +168,12 @@ template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::populate_ecc_op_wir
     op_tuple.z_2 = this->add_variable(ultra_op.z_2);
 
     this->blocks.ecc_op.populate_wires(op_tuple.op, op_tuple.x_lo, op_tuple.x_hi, op_tuple.y_lo);
-    for (auto& selector : this->blocks.ecc_op.selectors) {
+    for (auto& selector : this->blocks.ecc_op.get_selectors()) {
         selector.emplace_back(0);
     }
 
     this->blocks.ecc_op.populate_wires(this->zero_idx, op_tuple.y_hi, op_tuple.z_1, op_tuple.z_2);
-    for (auto& selector : this->blocks.ecc_op.selectors) {
+    for (auto& selector : this->blocks.ecc_op.get_selectors()) {
         selector.emplace_back(0);
     }
 
@@ -202,7 +203,7 @@ uint32_t MegaCircuitBuilder_<FF>::read_bus_vector(BusId bus_idx, const uint32_t&
     // Get the raw index into the databus column
     const uint32_t read_idx = static_cast<uint32_t>(uint256_t(this->get_variable(read_idx_witness_idx)));
 
-    ASSERT(read_idx < bus_vector.size()); // Ensure that the read index is valid
+    BB_ASSERT_LT(read_idx, bus_vector.size()); // Ensure that the read index is valid
 
     // Create a variable corresponding to the result of the read. Note that we do not in general connect reads from
     // databus via copy constraints (i.e. we create a unique variable for the result of each read)
@@ -263,7 +264,8 @@ template <typename FF> void MegaCircuitBuilder_<FF>::apply_databus_selectors(con
     block.q_4().emplace_back(0);
     block.q_lookup_type().emplace_back(0);
     block.q_elliptic().emplace_back(0);
-    block.q_aux().emplace_back(0);
+    block.q_memory().emplace_back(0);
+    block.q_nnf().emplace_back(0);
     block.q_poseidon2_external().emplace_back(0);
     block.q_poseidon2_internal().emplace_back(0);
 }

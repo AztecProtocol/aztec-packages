@@ -18,6 +18,8 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import { SlashFactoryAbi } from '@aztec/l1-artifacts/SlashFactoryAbi';
+import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
+import { Offense } from '@aztec/stdlib/slashing';
 
 import type { Anvil } from '@viem/anvil';
 import EventEmitter from 'node:events';
@@ -27,8 +29,6 @@ import { foundry } from 'viem/chains';
 
 import {
   DefaultSlasherConfig,
-  Offense,
-  type SlasherConfig,
   WANT_TO_SLASH_EVENT,
   type WantToSlashArgs,
   type Watcher,
@@ -56,7 +56,7 @@ describe('SlasherClient', () => {
   let rollup: RollupContract;
   let slashingProposer: SlashingProposerContract;
   let l1TxUtils: L1TxUtils;
-  let depositAmount: bigint;
+  let activationThreshold: bigint;
   let slasherL1Client: ExtendedViemWalletClient;
   let testHarnessL1Client: ExtendedViemWalletClient;
   let ethCheatCodes: EthCheatCodes;
@@ -84,6 +84,7 @@ describe('SlasherClient', () => {
       genesisArchiveRoot: Fr.random(),
       slashingQuorum: 6,
       slashingRoundSize: 10,
+      slashingExecutionDelayInRounds: 1,
       ethereumSlotDuration,
       aztecSlotDuration,
       aztecEpochDuration: 4,
@@ -92,6 +93,7 @@ describe('SlasherClient', () => {
         {
           attester: EthAddress.fromString(slasherL1Client.account.address),
           withdrawer: EthAddress.fromString(slasherL1Client.account.address),
+          bn254SecretKey: Fr.random().toBigInt(),
         },
       ],
       realVerifier: false,
@@ -126,12 +128,12 @@ describe('SlasherClient', () => {
       new DateProvider(),
     );
 
-    slasherClient.start();
+    await slasherClient.start();
 
     rollup = new RollupContract(l1TxUtils.client, deployed.l1ContractAddresses.rollupAddress);
     slashingProposer = await rollup.getSlashingProposer();
 
-    depositAmount = await rollup.getDepositAmount();
+    activationThreshold = await rollup.getActivationThreshold();
 
     await retryUntil(
       async () => {
@@ -154,8 +156,8 @@ describe('SlasherClient', () => {
   });
 
   it('creates payloads when the watcher signals', async () => {
-    const slashAmount = depositAmount - 1n;
-    expect(slashAmount).toBeLessThan(depositAmount);
+    const slashAmount = activationThreshold - 1n;
+    expect(slashAmount).toBeLessThan(activationThreshold);
     const committee = await rollup.getCurrentEpochCommittee();
     if (!committee) {
       throw new Error('No committee found');
@@ -218,22 +220,26 @@ describe('SlasherClient', () => {
         // Print debug info
         const round = await slashingProposer.computeRound(slotNumAtNextL1Block);
         const roundInfo = await slashingProposer.getRoundInfo(rollup.address, round);
-        const leaderVotes = await slashingProposer.getProposalVotes(rollup.address, round, roundInfo.leader);
+        const leaderVotes = await slashingProposer.getPayloadSignals(
+          rollup.address,
+          round,
+          roundInfo.payloadWithMostSignals,
+        );
         logger.info(`Currently in round ${round}`);
         logger.info('Round info:', roundInfo);
         logger.info(`Leader votes: ${leaderVotes}`);
 
         // Have the slasher sign the vote request
-        const voteRequest = await slashingProposer.createVoteRequestWithSignature(
+        const signalRequest = await slashingProposer.createSignalRequestWithSignature(
           payload!.toString(),
           round,
           slasherL1Client.chain.id,
           slasherPrivateKey.address,
-          msg => slasherPrivateKey.sign({ hash: msg }),
+          msg => slasherPrivateKey.signTypedData(msg),
         );
 
         // Have the test harness send the vote request to avoid nonce conflicts
-        await testHarnessL1Client.sendTransaction(voteRequest).catch(ignoreExpectedErrors);
+        await testHarnessL1Client.sendTransaction(signalRequest).catch(ignoreExpectedErrors);
 
         // Check if the payload is cleared
         const slot = await rollup.getSlotNumber();
@@ -248,7 +254,7 @@ describe('SlasherClient', () => {
     const info = await rollup.getAttesterView(slasherL1Client.account.address);
 
     expect(info.effectiveBalance).toBe(0n);
-    expect(info.exit.amount).toBe(depositAmount - slashAmount);
+    expect(info.exit.amount).toBe(activationThreshold - slashAmount);
   });
 
   it('drops payloads beyond TTL', async () => {
@@ -259,7 +265,7 @@ describe('SlasherClient', () => {
     dummyWatcher.triggerSlash([
       {
         validator: EthAddress.random(),
-        amount: depositAmount,
+        amount: activationThreshold,
         offense: Offense.UNKNOWN,
       },
     ]);
@@ -279,7 +285,7 @@ describe('SlasherClient', () => {
     dummyWatcher.triggerSlash([
       {
         validator: EthAddress.random(),
-        amount: depositAmount,
+        amount: activationThreshold,
         offense: Offense.UNKNOWN,
       },
     ]);
@@ -303,7 +309,7 @@ describe('SlasherClient', () => {
     dummyWatcher.triggerSlash([
       {
         validator: EthAddress.random(),
-        amount: depositAmount,
+        amount: activationThreshold,
         offense: Offense.UNKNOWN,
       },
     ]);
@@ -314,7 +320,7 @@ describe('SlasherClient', () => {
     const payload2 = await slasherClient.getSlashPayload(slot2);
     expect(payload2).toBe(config.slashOverridePayload);
 
-    slasherClient.proposalExecuted({ round: 0n, proposal: config.slashOverridePayload.toString() });
+    slasherClient.payloadSubmitted({ round: 0n, payload: config.slashOverridePayload.toString() });
 
     const slot3 = BigInt(Math.floor(Math.random() * 1000000));
     const payload3 = await slasherClient.getSlashPayload(slot3);
@@ -373,7 +379,7 @@ describe('SlasherClient', () => {
     dummyWatcher.triggerSlash([
       {
         validator,
-        amount: depositAmount,
+        amount: activationThreshold,
         offense: Offense.UNKNOWN,
       },
     ]);
@@ -384,7 +390,7 @@ describe('SlasherClient', () => {
     dummyWatcher.triggerSlash([
       {
         validator,
-        amount: depositAmount,
+        amount: activationThreshold,
         offense: Offense.UNKNOWN,
       },
     ]);
@@ -393,13 +399,13 @@ describe('SlasherClient', () => {
 
     expect(slasherClient.getMonitoredPayloads().length).toEqual(1);
     expect(slasherClient.getMonitoredPayloads()[0].validators).toEqual([validator]);
-    expect(slasherClient.getMonitoredPayloads()[0].amounts).toEqual([depositAmount]);
+    expect(slasherClient.getMonitoredPayloads()[0].amounts).toEqual([activationThreshold]);
     expect(slasherClient.getMonitoredPayloads()[0].offenses).toEqual([Offense.UNKNOWN]);
 
     dummyWatcher.triggerSlash([
       {
         validator,
-        amount: depositAmount,
+        amount: activationThreshold,
         offense: Offense.UNKNOWN,
       },
     ]);
@@ -411,7 +417,7 @@ describe('SlasherClient', () => {
     await awaitMonitoredPayloads(slasherClient);
     expect(slasherClient.getMonitoredPayloads().length).toEqual(1);
     expect(slasherClient.getMonitoredPayloads()[0].validators).toEqual([validator]);
-    expect(slasherClient.getMonitoredPayloads()[0].amounts).toEqual([depositAmount]);
+    expect(slasherClient.getMonitoredPayloads()[0].amounts).toEqual([activationThreshold]);
     expect(slasherClient.getMonitoredPayloads()[0].offenses).toEqual([Offense.UNKNOWN]);
   });
 
@@ -422,7 +428,7 @@ describe('SlasherClient', () => {
     dummyWatcher.triggerSlash([
       {
         validator,
-        amount: depositAmount - 1n,
+        amount: activationThreshold - 1n,
         offense: Offense.UNKNOWN,
       },
     ]);
@@ -431,7 +437,7 @@ describe('SlasherClient', () => {
     dummyWatcher.triggerSlash([
       {
         validator,
-        amount: depositAmount,
+        amount: activationThreshold,
         offense: Offense.UNKNOWN,
       },
     ]);
@@ -439,22 +445,22 @@ describe('SlasherClient', () => {
 
     expect(slasherClient.getMonitoredPayloads().length).toEqual(2);
     expect(slasherClient.getMonitoredPayloads()[0].validators).toEqual([validator]);
-    expect(slasherClient.getMonitoredPayloads()[0].amounts).toEqual([depositAmount]);
+    expect(slasherClient.getMonitoredPayloads()[0].amounts).toEqual([activationThreshold]);
     expect(slasherClient.getMonitoredPayloads()[0].offenses).toEqual([Offense.UNKNOWN]);
     expect(slasherClient.getMonitoredPayloads()[1].validators).toEqual([validator]);
-    expect(slasherClient.getMonitoredPayloads()[1].amounts).toEqual([depositAmount - 1n]);
+    expect(slasherClient.getMonitoredPayloads()[1].amounts).toEqual([activationThreshold - 1n]);
     expect(slasherClient.getMonitoredPayloads()[1].offenses).toEqual([Offense.UNKNOWN]);
 
     const firstPayload = await slasherClient.getSlashPayload(await rollup.getSlotNumber());
     expect(firstPayload).toBeDefined();
-    slasherClient.proposalExecuted({ round: 0n, proposal: firstPayload!.toString() });
+    slasherClient.payloadSubmitted({ round: 0n, payload: firstPayload!.toString() });
 
     const secondPayload = await slasherClient.getSlashPayload(await rollup.getSlotNumber());
     expect(secondPayload).toBeDefined();
 
     expect(slasherClient.getMonitoredPayloads().length).toEqual(1);
     expect(slasherClient.getMonitoredPayloads()[0].validators).toEqual([validator]);
-    expect(slasherClient.getMonitoredPayloads()[0].amounts).toEqual([depositAmount - 1n]);
+    expect(slasherClient.getMonitoredPayloads()[0].amounts).toEqual([activationThreshold - 1n]);
     expect(slasherClient.getMonitoredPayloads()[0].offenses).toEqual([Offense.UNKNOWN]);
   });
 
@@ -506,8 +512,8 @@ class TestSlasherClient extends SlasherClient {
     super(config, slashFactoryContract, slashingProposer, l1TxUtils, watchers, dateProvider, log);
   }
 
-  public override proposalExecuted(args: { round: bigint; proposal: `0x${string}` }) {
-    super.proposalExecuted(args);
+  public override payloadSubmitted(args: { round: bigint; payload: `0x${string}` }) {
+    super.payloadSubmitted(args);
   }
 }
 

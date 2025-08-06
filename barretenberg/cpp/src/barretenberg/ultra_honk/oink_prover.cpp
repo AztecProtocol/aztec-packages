@@ -73,7 +73,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::prove()
  * @brief Export the Oink proof
  */
 
-template <IsUltraOrMegaHonk Flavor> HonkProof OinkProver<Flavor>::export_proof()
+template <IsUltraOrMegaHonk Flavor> typename OinkProver<Flavor>::Proof OinkProver<Flavor>::export_proof()
 {
     return transcript->export_proof();
 }
@@ -86,10 +86,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_preamble_ro
 {
     PROFILE_THIS_NAME("OinkProver::execute_preamble_round");
     fr vkey_hash = honk_vk->add_hash_to_transcript(domain_separator, *transcript);
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1427): Add VK FS to solidity verifier.
-    if constexpr (!IsAnyOf<Flavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
-        vinfo("vk hash in Oink prover: ", vkey_hash);
-    }
+    vinfo("vk hash in Oink prover: ", vkey_hash);
 
     for (size_t i = 0; i < proving_key->num_public_inputs(); ++i) {
         auto public_input_i = proving_key->public_inputs[i];
@@ -228,7 +225,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_grand_produ
     WitnessComputation<Flavor>::compute_grand_product_polynomial(proving_key->polynomials,
                                                                  proving_key->public_inputs,
                                                                  proving_key->pub_inputs_offset(),
-                                                                 proving_key->dyadic_size(),
+                                                                 proving_key->log_dyadic_size(),
                                                                  proving_key->active_region_data,
                                                                  proving_key->relation_parameters,
                                                                  proving_key->get_final_active_wire_idx() + 1);

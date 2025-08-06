@@ -76,7 +76,7 @@ WASM_EXPORT void acir_prove_and_verify_mega_honk(uint8_t const* acir_vec, uint8_
 
     MegaVerifier verifier{ verification_key };
 
-    *result = verifier.verify_proof(proof);
+    *result = std::get<0>(verifier.verify_proof(proof));
 }
 
 WASM_EXPORT void acir_prove_aztec_client(uint8_t const* ivc_inputs_buf, uint8_t** out_proof, uint8_t** out_vk)
@@ -255,7 +255,7 @@ WASM_EXPORT void acir_verify_ultra_keccak_honk(uint8_t const* proof_buf, uint8_t
     using VerificationKey = UltraKeccakFlavor::VerificationKey;
     using Verifier = UltraVerifier_<UltraKeccakFlavor>;
 
-    auto proof = many_from_buffer<bb::fr>(from_buffer<std::vector<uint8_t>>(proof_buf));
+    auto proof = many_from_buffer<uint256_t>(from_buffer<std::vector<uint8_t>>(proof_buf));
     auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_buf));
 
     Verifier verifier{ verification_key };
@@ -268,7 +268,7 @@ WASM_EXPORT void acir_verify_ultra_keccak_zk_honk(uint8_t const* proof_buf, uint
     using VerificationKey = UltraKeccakZKFlavor::VerificationKey;
     using Verifier = UltraVerifier_<UltraKeccakZKFlavor>;
 
-    auto proof = many_from_buffer<bb::fr>(from_buffer<std::vector<uint8_t>>(proof_buf));
+    auto proof = many_from_buffer<uint256_t>(from_buffer<std::vector<uint8_t>>(proof_buf));
     auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_buf));
 
     Verifier verifier{ verification_key };

@@ -29,13 +29,19 @@ export type L1ContractsConfig = {
   /** The number of epochs after an epoch ends that proofs are still accepted. */
   aztecProofSubmissionEpochs: number;
   /** The deposit amount for a validator */
-  depositAmount: bigint;
+  activationThreshold: bigint;
   /** The minimum stake for a validator. */
-  minimumStake: bigint;
-  /** The slashing quorum */
+  ejectionThreshold: bigint;
+  /** The slashing quorum, i.e. how many slots must signal for the same payload in a round for it to be submittable to the Slasher */
   slashingQuorum: number;
-  /** The slashing round size */
+  /** The slashing round size, i.e. how many slots are in a round */
   slashingRoundSize: number;
+  /** The slashing lifetime in rounds. I.e., if 1, round N must be submitted before round N + 2 */
+  slashingLifetimeInRounds: number;
+  /** The slashing execution delay in rounds. I.e., if 1, round N may not be submitted until round N + 2 */
+  slashingExecutionDelayInRounds: number;
+  /** The slashing vetoer. May blacklist a payload from being submitted. */
+  slashingVetoer: EthAddress;
   /** Governance proposing quorum */
   governanceProposerQuorum: number;
   /** Governance proposing round size */
@@ -54,10 +60,13 @@ export const DefaultL1ContractsConfig = {
   aztecEpochDuration: 32,
   aztecTargetCommitteeSize: 48,
   aztecProofSubmissionEpochs: 1, // you have a full epoch to submit a proof after the epoch to prove ends
-  depositAmount: BigInt(100e18),
-  minimumStake: BigInt(50e18),
+  activationThreshold: BigInt(100e18),
+  ejectionThreshold: BigInt(50e18),
   slashingQuorum: 101,
   slashingRoundSize: 200,
+  slashingLifetimeInRounds: 5,
+  slashingExecutionDelayInRounds: 0, // round N may be submitted in round N + 1
+  slashingVetoer: EthAddress.ZERO,
   governanceProposerQuorum: 151,
   governanceProposerRoundSize: 300,
   manaTarget: BigInt(1e10),
@@ -74,23 +83,23 @@ const LocalGovernanceConfiguration = {
   votingDuration: 60n * 60n,
   executionDelay: 60n,
   gracePeriod: 60n * 60n * 24n * 7n,
-  quorum: 1n * 10n ** 17n,
-  voteDifferential: 4n * 10n ** 16n,
+  quorum: 1n * 10n ** 17n, // 10%
+  requiredYeaMargin: 4n * 10n ** 16n, // 4%
   minimumVotes: 400n * 10n ** 18n,
 };
 
 const TestnetGovernanceConfiguration = {
   proposeConfig: {
     lockDelay: 60n * 60n * 24n,
-    lockAmount: DefaultL1ContractsConfig.depositAmount * 100n,
+    lockAmount: DefaultL1ContractsConfig.activationThreshold * 100n,
   },
   votingDelay: 60n,
   votingDuration: 60n * 60n,
   executionDelay: 60n * 60n * 24n,
   gracePeriod: 60n * 60n * 24n * 7n,
-  quorum: 3n * 10n ** 17n,
-  voteDifferential: 4n * 10n ** 16n,
-  minimumVotes: DefaultL1ContractsConfig.minimumStake * 200n,
+  quorum: 3n * 10n ** 17n, // 30%
+  requiredYeaMargin: 4n * 10n ** 16n, // 4%
+  minimumVotes: DefaultL1ContractsConfig.ejectionThreshold * 200n,
 };
 
 export const getGovernanceConfiguration = (networkName: NetworkNames) => {
@@ -100,6 +109,23 @@ export const getGovernanceConfiguration = (networkName: NetworkNames) => {
   return LocalGovernanceConfiguration;
 };
 
+const TestnetGSEConfiguration = {
+  activationThreshold: BigInt(100e18),
+  ejectionThreshold: BigInt(50e18),
+};
+
+const LocalGSEConfiguration = {
+  activationThreshold: BigInt(100e18),
+  ejectionThreshold: BigInt(50e18),
+};
+
+export const getGSEConfiguration = (networkName: NetworkNames) => {
+  if (networkName === 'alpha-testnet' || networkName === 'testnet') {
+    return TestnetGSEConfiguration;
+  }
+  return LocalGSEConfiguration;
+};
+
 // Making a default config here as we are only using it thought the deployment
 // and do not expect to be using different setups, so having environment variables
 // for it seems overkill
@@ -107,12 +133,14 @@ const LocalRewardConfig = {
   sequencerBps: 5000,
   rewardDistributor: EthAddress.ZERO.toString(),
   booster: EthAddress.ZERO.toString(),
+  blockReward: BigInt(50e18),
 };
 
 const TestnetRewardConfig = {
   sequencerBps: 5000,
   rewardDistributor: EthAddress.ZERO.toString(),
   booster: EthAddress.ZERO.toString(),
+  blockReward: BigInt(50e18),
 };
 
 export const getRewardConfig = (networkName: NetworkNames) => {
@@ -193,15 +221,15 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     description: 'The number of epochs after an epoch ends that proofs are still accepted.',
     ...numberConfigHelper(DefaultL1ContractsConfig.aztecProofSubmissionEpochs),
   },
-  depositAmount: {
-    env: 'AZTEC_DEPOSIT_AMOUNT',
+  activationThreshold: {
+    env: 'AZTEC_ACTIVATION_THRESHOLD',
     description: 'The deposit amount for a validator',
-    ...bigintConfigHelper(DefaultL1ContractsConfig.depositAmount),
+    ...bigintConfigHelper(DefaultL1ContractsConfig.activationThreshold),
   },
-  minimumStake: {
-    env: 'AZTEC_MINIMUM_STAKE',
+  ejectionThreshold: {
+    env: 'AZTEC_EJECTION_THRESHOLD',
     description: 'The minimum stake for a validator.',
-    ...bigintConfigHelper(DefaultL1ContractsConfig.minimumStake),
+    ...bigintConfigHelper(DefaultL1ContractsConfig.ejectionThreshold),
   },
   slashingQuorum: {
     env: 'AZTEC_SLASHING_QUORUM',
@@ -212,6 +240,22 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     env: 'AZTEC_SLASHING_ROUND_SIZE',
     description: 'The slashing round size',
     ...numberConfigHelper(DefaultL1ContractsConfig.slashingRoundSize),
+  },
+  slashingLifetimeInRounds: {
+    env: 'AZTEC_SLASHING_LIFETIME_IN_ROUNDS',
+    description: 'The slashing lifetime in rounds',
+    ...numberConfigHelper(DefaultL1ContractsConfig.slashingLifetimeInRounds),
+  },
+  slashingExecutionDelayInRounds: {
+    env: 'AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS',
+    description: 'The slashing execution delay in rounds',
+    ...numberConfigHelper(DefaultL1ContractsConfig.slashingExecutionDelayInRounds),
+  },
+  slashingVetoer: {
+    env: 'AZTEC_SLASHING_VETOER',
+    description: 'The slashing vetoer',
+    parseEnv: (val: string) => EthAddress.fromString(val),
+    defaultValue: DefaultL1ContractsConfig.slashingVetoer,
   },
   governanceProposerQuorum: {
     env: 'AZTEC_GOVERNANCE_PROPOSER_QUORUM',

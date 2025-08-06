@@ -240,7 +240,7 @@ function build_bench {
     # Run builds in parallel with different targets per preset
     # bb_cli_bench is later used in yarn-project.
     parallel --line-buffered denoise ::: \
-      "build_preset $native_preset --target ultra_honk_bench --target client_ivc_bench --target bb_cli_bench" \
+      "build_preset $native_preset --target ultra_honk_bench --target client_ivc_bench --target bb_cli_bench --target honk_solidity_proof_gen" \
       "build_preset wasm-threads --target ultra_honk_bench --target client_ivc_bench --target bb_cli_bench"
     cache_upload barretenberg-benchmarks-$hash.zst \
       {build,build-wasm-threads}/bin/{ultra_honk_bench,client_ivc_bench,bb_cli_bench}
@@ -310,7 +310,7 @@ case "$cmd" in
     export AZTEC_CACHE_COMMIT=$commit_hash
     # TODO currently does nothing! to reinstate in cache_download
     export FORCE_CACHE_DOWNLOAD=${FORCE_CACHE_DOWNLOAD:-1}
-    USE_CIRCUITS_CACHE=1 BOOTSTRAP_AFTER=barretenberg BOOSTRAP_TO=yarn-project ../../bootstrap.sh
+    BOOTSTRAP_AFTER=barretenberg BOOSTRAP_TO=yarn-project ../../bootstrap.sh
 
     rm -rf bench-out
 

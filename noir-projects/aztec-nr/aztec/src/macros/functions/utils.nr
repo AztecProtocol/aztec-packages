@@ -1,7 +1,6 @@
 use crate::macros::{
     functions::{
-        abi_export::create_fn_abi_export, auth_registry::AUTHORIZE_ONCE_REGISTRY,
-        call_interface_stubs::stub_fn, stub_registry,
+        auth_registry::AUTHORIZE_ONCE_REGISTRY, call_interface_stubs::stub_fn, stub_registry,
     },
     notes::NOTES,
     utils::{
@@ -11,21 +10,11 @@ use crate::macros::{
         module_has_storage,
     },
 };
-use protocol_types::meta::generate_serialize_to_fields;
 use std::meta::{ctstring::AsCtString, type_of};
 
-pub(crate) comptime fn transform_private(f: FunctionDefinition) -> Quoted {
-    let fn_abi = create_fn_abi_export(f);
+pub(crate) comptime fn transform_private(f: FunctionDefinition) {
     let fn_stub = stub_fn(f);
     stub_registry::register(f.module(), fn_stub);
-
-    // If a function is further modified as unconstrained, we throw an error
-    if f.is_unconstrained() {
-        let name = f.name();
-        panic(
-            f"Function {name} is annotated with #[private] but marked as unconstrained, remove unconstrained keyword",
-        );
-    }
 
     let module_has_initializer = module_has_initializer(f.module());
     let module_has_storage = module_has_storage(f.module());
@@ -186,39 +175,37 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) -> Quoted {
             .as_type(),
     );
     f.set_return_data();
-
-    fn_abi
 }
 
-pub(crate) comptime fn transform_public(f: FunctionDefinition) -> Quoted {
-    let fn_abi = create_fn_abi_export(f);
+pub(crate) comptime fn transform_public(f: FunctionDefinition) {
     let fn_stub = stub_fn(f);
     stub_registry::register(f.module(), fn_stub);
-
-    // If a function is further modified as unconstrained, we throw an error
-    if f.is_unconstrained() {
-        let name = f.name();
-        panic(
-            f"Function {name} is annotated with #[public] but marked as unconstrained, remove unconstrained keyword",
-        );
-    }
 
     let module_has_initializer = module_has_initializer(f.module());
     let module_has_storage = module_has_storage(f.module());
 
     // Public functions undergo a lot of transformations from their Aztec.nr form.
     let original_params = f.parameters();
-    let args_len = original_params
-        .map(|(name, typ): (Quoted, Type)| {
-            generate_serialize_to_fields(name, typ, false).0.len()
-        })
-        .fold(0, |acc: u32, val: u32| acc + val);
+
+    let args_len_quote = if original_params.len() == 0 {
+        // If the function has no parameters, we set the args_len to 0.
+        quote { 0 }
+    } else {
+        // The following will give us <type_of_struct_member_1 as Serialize>::N + <type_of_struct_member_2 as Serialize>::N + ...
+        original_params
+            .map(|(_, param_type): (Quoted, Type)| {
+                quote {
+            <$param_type as $crate::protocol_types::traits::Serialize>::N
+        }
+            })
+            .join(quote {+})
+    };
 
     // Unlike in the private case, in public the `context` does not need to receive the hash of the original params.
     let context_creation = quote {
         let mut context = dep::aztec::context::public_context::PublicContext::new(|| {
         // We start from 1 because we skip the selector for the dispatch function.
-        let serialized_args : [Field; $args_len] = dep::aztec::context::public_context::calldata_copy(1, $args_len);
+        let serialized_args : [Field; $args_len_quote] = dep::aztec::context::public_context::calldata_copy(1, $args_len_quote);
         dep::aztec::hash::hash_args_array(serialized_args)
         });
     };
@@ -290,22 +277,11 @@ pub(crate) comptime fn transform_public(f: FunctionDefinition) -> Quoted {
     // bytecode.
     f.set_unconstrained(true);
     f.set_return_public(true);
-
-    fn_abi
 }
 
-pub(crate) comptime fn transform_utility(f: FunctionDefinition) -> Quoted {
-    let fn_abi = create_fn_abi_export(f);
+pub(crate) comptime fn transform_utility(f: FunctionDefinition) {
     let fn_stub = stub_fn(f);
     stub_registry::register(f.module(), fn_stub);
-
-    // Check if function is marked as unconstrained
-    if !f.is_unconstrained() {
-        let name = f.name();
-        panic(
-            f"Function {name} is annotated with #[utility] but not marked as unconstrained, add unconstrained keyword",
-        );
-    }
 
     // Create utility context
     let context_creation =
@@ -341,8 +317,6 @@ pub(crate) comptime fn transform_utility(f: FunctionDefinition) -> Quoted {
     f.set_body(modified_body);
 
     f.set_return_public(true);
-
-    fn_abi
 }
 
 comptime fn create_internal_check(f: FunctionDefinition) -> Quoted {
@@ -356,7 +330,7 @@ comptime fn create_view_check(f: FunctionDefinition) -> Quoted {
     let assertion_message = f"Function {name} can only be called statically";
     if is_fn_private(f) {
         // Here `context` is of type context::PrivateContext
-        quote { assert(context.inputs.call_context.is_static_call == true, $assertion_message); }
+        quote { assert(context.inputs.call_context.is_static_call, $assertion_message); }
     } else {
         // Here `context` is of type context::PublicContext
         quote { assert(context.is_static_call(), $assertion_message); }
@@ -408,15 +382,12 @@ pub(crate) comptime fn create_message_discovery_call() -> Quoted {
 /// This check is injected by the `#[authorize_once("from_arg_name", "nonce_arg_name")]`, which allows the user to define
 /// which parameters to use.
 pub(crate) comptime fn create_authorize_once_check(f: FunctionDefinition) -> Quoted {
-    if !is_fn_private(f) & !is_fn_public(f) {
-        panic(
-            f"Functions marked with #[authorize_once] must either be #[private] or #[public]",
-        );
-    }
     let maybe_authorize_once_args = AUTHORIZE_ONCE_REGISTRY.get(f);
     let authorize_once_args = if maybe_authorize_once_args.is_some() {
         maybe_authorize_once_args.unwrap()
     } else {
+        // We need to for authorize_once to have already executed so that we can retrieve its params - this depends on
+        // the order in which the attributes are applied.
         panic(
             f"Functions marked with #[authorize_once] must have the #[private] or #[public] attribute placed last",
         )

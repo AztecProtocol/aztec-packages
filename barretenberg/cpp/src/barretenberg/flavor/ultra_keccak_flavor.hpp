@@ -8,6 +8,7 @@
 #pragma once
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
+#include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
@@ -16,7 +17,6 @@
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
-#include "barretenberg/relations/auxiliary_relation.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/elliptic_relation.hpp"
 #include "barretenberg/relations/logderiv_lookup_relation.hpp"
@@ -34,6 +34,23 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
   public:
     using Transcript = UltraKeccakFlavor::Transcript_<KeccakTranscriptParams>;
 
+    // Override as proof length is different
+    static constexpr size_t num_elements_comm = bb::field_conversion::calc_num_uint256_ts<Commitment>();
+    static constexpr size_t num_elements_fr = bb::field_conversion::calc_num_uint256_ts<FF>();
+    // Proof length formula
+    static constexpr size_t OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS =
+        /* 1. NUM_WITNESS_ENTITIES commitments */ (NUM_WITNESS_ENTITIES * num_elements_comm);
+    static constexpr size_t DECIDER_PROOF_LENGTH =
+        /* 2. CONST_PROOF_SIZE_LOG_N sumcheck univariates */
+        (CONST_PROOF_SIZE_LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * num_elements_fr) +
+        /* 3. NUM_ALL_ENTITIES sumcheck evaluations */ (NUM_ALL_ENTITIES * num_elements_fr) +
+        /* 4. CONST_PROOF_SIZE_LOG_N - 1 Gemini Fold commitments */ ((CONST_PROOF_SIZE_LOG_N - 1) * num_elements_comm) +
+        /* 5. CONST_PROOF_SIZE_LOG_N Gemini a evaluations */ (CONST_PROOF_SIZE_LOG_N * num_elements_fr) +
+        /* 6. Shplonk Q commitment */ (num_elements_comm) +
+        /* 7. KZG W commitment */ (num_elements_comm);
+    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
+        OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS + DECIDER_PROOF_LENGTH;
+
     /**
      * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
      * polynomials used by the verifier.
@@ -46,7 +63,9 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
     // VerificationKey from UltraFlavor can be used
     class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
       public:
-        static constexpr size_t VERIFICATION_KEY_LENGTH = UltraFlavor::VerificationKey::VERIFICATION_KEY_LENGTH;
+        static constexpr size_t VERIFICATION_KEY_LENGTH =
+            /* 1. Metadata (log_circuit_size, num_public_inputs, pub_inputs_offset) */ (3 * num_elements_fr) +
+            /* 2. NUM_PRECOMPUTED_ENTITIES commitments */ (NUM_PRECOMPUTED_ENTITIES * num_elements_comm);
 
         VerificationKey() = default;
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
@@ -55,8 +74,7 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
 
         VerificationKey(const PrecomputedData& precomputed)
         {
-            this->circuit_size = precomputed.metadata.dyadic_size;
-            this->log_circuit_size = numeric::get_msb(this->circuit_size);
+            this->log_circuit_size = numeric::get_msb(precomputed.metadata.dyadic_size);
             this->num_public_inputs = precomputed.metadata.num_public_inputs;
             this->pub_inputs_offset = precomputed.metadata.pub_inputs_offset;
 
@@ -78,21 +96,18 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
          */
         fr add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const override
         {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1427): We need to update this function to look
-            // like UltraFlavor's add_hash_to_transcript. Alternatively, the VerificationKey class will go away when we
-            // add pairing point aggregation to the solidity verifier.
-            transcript.add_to_hash_buffer(domain_separator + "vk_circuit_size", this->circuit_size);
-            transcript.add_to_hash_buffer(domain_separator + "vk_num_public_inputs", this->num_public_inputs);
-            transcript.add_to_hash_buffer(domain_separator + "vk_pub_inputs_offset", this->pub_inputs_offset);
-            return 0;
+            // This hash contains a hash of the entire vk - including all of the elements
+            const fr hash = this->hash();
+
+            transcript.add_to_hash_buffer(domain_separator + "vk_hash", hash);
+            return hash;
         }
 
         // Don't statically check for object completeness.
         using MSGPACK_NO_STATIC_CHECK = std::true_type;
 
         // For serialising and deserialising data
-        MSGPACK_FIELDS(circuit_size,
-                       log_circuit_size,
+        MSGPACK_FIELDS(log_circuit_size,
                        num_public_inputs,
                        pub_inputs_offset,
                        q_m,
@@ -105,7 +120,8 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
                        q_arith,
                        q_delta_range,
                        q_elliptic,
-                       q_aux,
+                       q_memory,
+                       q_nnf,
                        q_poseidon2_external,
                        q_poseidon2_internal,
                        sigma_1,

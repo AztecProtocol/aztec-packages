@@ -10,9 +10,11 @@
 #include "barretenberg/common/log.hpp"
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/common/stringify.hpp"
+#include "barretenberg/vm2/common/to_radix.hpp"
 #include "barretenberg/vm2/common/uint1.hpp"
 #include "barretenberg/vm2/simulation/addressing.hpp"
 #include "barretenberg/vm2/simulation/context.hpp"
@@ -56,6 +58,44 @@ void Execution::add(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
         set_output(opcode, c);
     } catch (AluException& e) {
         throw OpcodeExecutionException("Alu add operation failed");
+    }
+}
+
+void Execution::sub(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::SUB;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(a_addr);
+    MemoryValue b = memory.get(b_addr);
+    set_and_validate_inputs(opcode, { a, b });
+
+    get_gas_tracker().consume_gas();
+
+    try {
+        MemoryValue c = alu.sub(a, b);
+        memory.set(dst_addr, c);
+        set_output(opcode, c);
+    } catch (AluException& e) {
+        throw OpcodeExecutionException("Alu sub operation failed");
+    }
+}
+
+void Execution::mul(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::MUL;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(a_addr);
+    MemoryValue b = memory.get(b_addr);
+    set_and_validate_inputs(opcode, { a, b });
+
+    get_gas_tracker().consume_gas();
+
+    try {
+        MemoryValue c = alu.mul(a, b);
+        memory.set(dst_addr, c);
+        set_output(opcode, c);
+    } catch (AluException& e) {
+        throw OpcodeExecutionException("Alu mul operation failed");
     }
 }
 
@@ -134,6 +174,19 @@ void Execution::op_not(ContextInterface& context, MemoryAddress src_addr, Memory
     }
 }
 
+void Execution::cast(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr, uint8_t dst_tag)
+{
+    constexpr auto opcode = ExecutionOpCode::CAST;
+    auto& memory = context.get_memory();
+    auto val = memory.get(src_addr);
+    set_and_validate_inputs(opcode, { val });
+
+    get_gas_tracker().consume_gas();
+    MemoryValue truncated = alu.truncate(val.as_ff(), static_cast<MemoryTag>(dst_tag));
+    memory.set(dst_addr, truncated);
+    set_output(opcode, truncated);
+}
+
 void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, uint8_t var_enum)
 {
     constexpr auto opcode = ExecutionOpCode::GETENVVAR;
@@ -190,14 +243,14 @@ void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, u
 }
 
 // TODO: My dispatch system makes me have a uint8_t tag. Rethink.
-void Execution::set(ContextInterface& context, MemoryAddress dst_addr, uint8_t tag, FF value)
+void Execution::set(ContextInterface& context, MemoryAddress dst_addr, uint8_t tag, const FF& value)
 {
     get_gas_tracker().consume_gas();
 
     constexpr auto opcode = ExecutionOpCode::SET;
-    TaggedValue tagged_value = TaggedValue::from_tag(static_cast<ValueTag>(tag), value);
-    context.get_memory().set(dst_addr, tagged_value);
-    set_output(opcode, tagged_value);
+    MemoryValue truncated = alu.truncate(value, static_cast<MemoryTag>(tag));
+    context.get_memory().set(dst_addr, truncated);
+    set_output(opcode, truncated);
 }
 
 void Execution::mov(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr)
@@ -244,7 +297,8 @@ void Execution::call(ContextInterface& context,
                                                                /*cd_offset_addr=*/cd_offset,
                                                                /*cd_size_addr=*/cd_size.as<uint32_t>(),
                                                                /*is_static=*/false,
-                                                               /*gas_limit=*/gas_limit);
+                                                               /*gas_limit=*/gas_limit,
+                                                               /*side_effect_states=*/context.get_side_effect_states());
 
     // We do not recurse. This context will be use on the next cycle of execution.
     handle_enter_call(context, std::move(nested_context));
@@ -547,6 +601,10 @@ void Execution::sstore(ContextInterface& context, MemoryAddress src_addr, Memory
     uint32_t da_gas_factor = static_cast<uint32_t>(!was_slot_written_before);
     get_gas_tracker().consume_gas({ .l2Gas = 0, .daGas = da_gas_factor });
 
+    if (context.get_is_static()) {
+        throw OpcodeExecutionException("SSTORE: Cannot write to storage in static context");
+    }
+
     if (!was_slot_written_before &&
         merkle_db.get_tree_state().publicDataTree.counter == MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX) {
         throw OpcodeExecutionException("SSTORE: Maximum number of data writes reached");
@@ -585,6 +643,57 @@ void Execution::note_hash_exists(ContextInterface& context,
     set_output(opcode, value);
 }
 
+void Execution::nullifier_exists(ContextInterface& context,
+                                 MemoryAddress nullifier_offset,
+                                 MemoryAddress address_offset,
+                                 MemoryAddress exists_offset)
+{
+    constexpr auto opcode = ExecutionOpCode::NULLIFIEREXISTS;
+    auto& memory = context.get_memory();
+
+    auto nullifier = memory.get(nullifier_offset);
+    auto address = memory.get(address_offset);
+    set_and_validate_inputs(opcode, { nullifier, address });
+
+    get_gas_tracker().consume_gas();
+
+    // Check nullifier existence via MerkleDB
+    // (this also tag checks address and nullifier as FFs)
+    auto exists = merkle_db.nullifier_exists(nullifier.as_ff(), address.as_ff());
+
+    // Write result to memory
+    // (assigns tag u1 to result)
+    TaggedValue result = TaggedValue::from<uint1_t>(exists ? 1 : 0);
+    memory.set(exists_offset, result);
+    set_output(opcode, result);
+}
+
+void Execution::emit_nullifier(ContextInterface& context, MemoryAddress nullifier_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::EMITNULLIFIER;
+
+    auto& memory = context.get_memory();
+    MemoryValue nullifier = memory.get(nullifier_addr);
+    set_and_validate_inputs(opcode, { nullifier });
+
+    get_gas_tracker().consume_gas();
+
+    if (context.get_is_static()) {
+        throw OpcodeExecutionException("EMITNULLIFIER: Cannot emit nullifier in static context");
+    }
+
+    if (merkle_db.get_tree_state().nullifierTree.counter == MAX_NULLIFIERS_PER_TX) {
+        throw OpcodeExecutionException("EMITNULLIFIER: Maximum number of nullifiers reached");
+    }
+
+    // Emit nullifier via MerkleDB
+    // (and tag check nullifier as FF)
+    bool success = merkle_db.nullifier_write(context.get_address(), nullifier.as<FF>());
+    if (!success) {
+        throw OpcodeExecutionException("EMITNULLIFIER: Nullifier collision");
+    }
+}
+
 void Execution::get_contract_instance(ContextInterface& context,
                                       MemoryAddress address_offset,
                                       MemoryAddress dst_offset,
@@ -621,6 +730,10 @@ void Execution::emit_note_hash(ContextInterface& context, MemoryAddress note_has
 
     get_gas_tracker().consume_gas();
 
+    if (context.get_is_static()) {
+        throw OpcodeExecutionException("EMITNOTEHASH: Cannot emit note hash in static context");
+    }
+
     if (merkle_db.get_tree_state().noteHashTree.counter == MAX_NOTE_HASHES_PER_TX) {
         throw OpcodeExecutionException("EMITNOTEHASH: Maximum number of note hashes reached");
     }
@@ -656,6 +769,157 @@ void Execution::l1_to_l2_message_exists(ContextInterface& context,
 
     memory.set(dst_addr, value);
     set_output(opcode, value);
+}
+
+void Execution::poseidon2_permutation(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr)
+{
+    get_gas_tracker().consume_gas();
+    try {
+        poseidon2.permutation(context.get_memory(), src_addr, dst_addr);
+    } catch (const Poseidon2Exception& e) {
+        throw OpcodeExecutionException("Poseidon2 permutation failed: " + std::string(e.what()));
+    }
+}
+
+void Execution::ecc_add(ContextInterface& context,
+                        MemoryAddress p_x_addr,
+                        MemoryAddress p_y_addr,
+                        MemoryAddress p_inf_addr,
+                        MemoryAddress q_x_addr,
+                        MemoryAddress q_y_addr,
+                        MemoryAddress q_inf_addr,
+                        MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::ECADD;
+    auto& memory = context.get_memory();
+
+    // Read the points from memory.
+    MemoryValue p_x = memory.get(p_x_addr);
+    MemoryValue p_y = memory.get(p_y_addr);
+    MemoryValue p_inf = memory.get(p_inf_addr);
+
+    MemoryValue q_x = memory.get(q_x_addr);
+    MemoryValue q_y = memory.get(q_y_addr);
+    MemoryValue q_inf = memory.get(q_inf_addr);
+
+    set_and_validate_inputs(opcode, { p_x, p_y, p_inf, q_x, q_y, q_inf });
+    get_gas_tracker().consume_gas();
+
+    // Once inputs are tag checked the conversion to EmbeddedCurvePoint is safe, on curve checks are done in the add
+    // method.
+    EmbeddedCurvePoint p = EmbeddedCurvePoint(p_x.as_ff(), p_y.as_ff(), p_inf == MemoryValue::from<uint1_t>(1));
+    EmbeddedCurvePoint q = EmbeddedCurvePoint(q_x.as_ff(), q_y.as_ff(), q_inf == MemoryValue::from<uint1_t>(1));
+
+    try {
+        embedded_curve.add(memory, p, q, dst_addr);
+    } catch (const EccException& e) {
+        throw OpcodeExecutionException("Embedded curve add failed: " + std::string(e.what()));
+    }
+}
+
+void Execution::to_radix_be(ContextInterface& context,
+                            MemoryAddress value_addr,
+                            MemoryAddress radix_addr,
+                            MemoryAddress num_limbs_addr,
+                            MemoryAddress is_output_bits_addr, // Decides if output is U1 or U8
+                            MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::TORADIXBE;
+    auto& memory = context.get_memory();
+
+    MemoryValue value = memory.get(value_addr);                   // Field
+    MemoryValue radix = memory.get(radix_addr);                   // U32
+    MemoryValue num_limbs = memory.get(num_limbs_addr);           // U32
+    MemoryValue is_output_bits = memory.get(is_output_bits_addr); // U1
+
+    // Tag check the inputs
+    set_and_validate_inputs(opcode, { value, radix, num_limbs, is_output_bits });
+
+    // The range check for a valid radix (2 <= radix <= 256) is done in the gadget.
+    // However, in order to compute the dynamic gas value we need to constrain the radix
+    // to be <= 256 since the `get_p_limbs_per_radix` lookup table is only defined for the range [0, 256].
+    // This does mean that the <= 256 check is duplicated - this can be optimised later.
+
+    // The dynamic gas factor is the maximum of the num_limbs requested by the opcode and the number of limbs
+    // the gadget that the field modulus, p, decomposes into given a radix (num_p_limbs).
+    // See to_radix.pil for how these values impact the row count.
+
+    // The lookup table of radix decomposed limbs of the modulus p is defined for radix values [0, 256],
+    // so for any radix value greater than 256 we set num_p_limbs to 32 - with
+    // the understanding the opcode will fail in the gadget (since the radix is invalid).
+    uint32_t radix_value = radix.as<uint32_t>();
+    uint32_t num_p_limbs = greater_than.gt(radix.as<uint32_t>(), 256)
+                               ? 32
+                               : static_cast<uint32_t>(get_p_limbs_per_radix()[radix_value].size());
+
+    // Compute the dynamic gas factor - done this way to trigger relevant circuit interactions
+    if (greater_than.gt(num_limbs.as<uint32_t>(), num_p_limbs)) {
+        get_gas_tracker().consume_gas({ .l2Gas = num_limbs.as<uint32_t>(), .daGas = 0 });
+
+    } else {
+        get_gas_tracker().consume_gas({ .l2Gas = num_p_limbs, .daGas = 0 });
+    }
+
+    try {
+        // Call the gadget to perform the conversion.
+        to_radix.to_be_radix(memory,
+                             value.as_ff(),
+                             radix_value,
+                             num_limbs.as<uint32_t>(),
+                             is_output_bits.as<uint1_t>().value() == 1,
+                             dst_addr);
+    } catch (const ToRadixException& e) {
+        throw OpcodeExecutionException("ToRadixBe gadget failed: " + std::string(e.what()));
+    }
+}
+
+void Execution::emit_unencrypted_log(ContextInterface& context, MemoryAddress log_offset, MemoryAddress log_size_offset)
+{
+    constexpr auto opcode = ExecutionOpCode::EMITUNENCRYPTEDLOG;
+    auto& memory = context.get_memory();
+
+    auto first_field = memory.get(log_offset);
+    auto log_size = memory.get(log_size_offset);
+    set_and_validate_inputs(opcode, { first_field, log_size });
+    uint32_t log_size_int = log_size.as<uint32_t>();
+
+    get_gas_tracker().consume_gas({ .daGas = log_size_int });
+
+    // Call the dedicated opcode component to emit the log
+    try {
+        emit_unencrypted_log_component.emit_unencrypted_log(
+            memory, context, context.get_address(), log_offset, log_size_int);
+    } catch (const EmitUnencryptedLogException& e) {
+        throw OpcodeExecutionException("EmitUnencryptedLog Exception");
+    }
+}
+
+void Execution::send_l2_to_l1_msg(ContextInterface& context, MemoryAddress recipient_addr, MemoryAddress content_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::SENDL2TOL1MSG;
+    auto& memory = context.get_memory();
+
+    auto recipient = memory.get(recipient_addr);
+    auto content = memory.get(content_addr);
+    set_and_validate_inputs(opcode, { recipient, content });
+
+    get_gas_tracker().consume_gas();
+
+    auto side_effects_states_before = context.get_side_effect_states();
+
+    if (context.get_is_static()) {
+        throw OpcodeExecutionException("SENDL2TOL1MSG: Cannot send L2 to L1 message in static context");
+    }
+
+    if (side_effects_states_before.numL2ToL1Messages == MAX_L2_TO_L1_MSGS_PER_TX) {
+        throw OpcodeExecutionException("SENDL2TOL1MSG: Maximum number of L2 to L1 messages reached");
+    }
+
+    // TODO: We don't store the l2 to l1 message in the context since it's not needed until cpp has to generate
+    // public inputs.
+
+    side_effects_states_before.numL2ToL1Messages++;
+    context.set_side_effect_states(side_effects_states_before);
 }
 
 // This context interface is a top-level enqueued one.
@@ -708,33 +972,27 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
             vinfo("Bytecode not found: ", e.what());
             ex_event.error = ExecutionError::BYTECODE_NOT_FOUND;
             ex_event.bytecode_id = e.bytecode_id;
-            context.set_gas_used(context.get_gas_limit()); // Consume all gas.
-            context.halt();
-            set_execution_result({ .success = false });
+            handle_exceptional_halt(context);
         } catch (const InstructionFetchingError& e) {
             vinfo("Instruction fetching error: ", e.what());
             ex_event.error = ExecutionError::INSTRUCTION_FETCHING;
-            context.set_gas_used(context.get_gas_limit()); // Consume all gas.
-            context.halt();
-            set_execution_result({ .success = false });
+            handle_exceptional_halt(context);
         } catch (const AddressingException& e) {
             vinfo("Addressing exception: ", e.what());
             ex_event.error = ExecutionError::ADDRESSING;
-            context.set_gas_used(context.get_gas_limit()); // Consume all gas.
-            context.halt();
-            set_execution_result({ .success = false });
+            handle_exceptional_halt(context);
         } catch (const RegisterValidationException& e) {
             vinfo("Register validation exception: ", e.what());
             ex_event.error = ExecutionError::REGISTER_READ;
-            context.set_gas_used(context.get_gas_limit()); // Consume all gas.
-            context.halt();
-            set_execution_result({ .success = false });
+            handle_exceptional_halt(context);
+        } catch (const OutOfGasException& e) {
+            vinfo("Out of gas exception: ", e.what());
+            ex_event.error = ExecutionError::GAS;
+            handle_exceptional_halt(context);
         } catch (const OpcodeExecutionException& e) {
             vinfo("Opcode execution exception: ", e.what());
             ex_event.error = ExecutionError::OPCODE_EXECUTION;
-            context.set_gas_used(context.get_gas_limit()); // Consume all gas.
-            context.halt();
-            set_execution_result({ .success = false });
+            handle_exceptional_halt(context);
         } catch (const std::exception& e) {
             // This is a coding error, we should not get here.
             // All exceptions should fall in the above catch blocks.
@@ -769,15 +1027,19 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
 
 void Execution::handle_enter_call(ContextInterface& parent_context, std::unique_ptr<ContextInterface> child_context)
 {
-    ctx_stack_events.emit({ .id = parent_context.get_context_id(),
-                            .parent_id = parent_context.get_parent_id(),
-                            .entered_context_id = context_provider.get_next_context_id(),
-                            .next_pc = parent_context.get_next_pc(),
-                            .msg_sender = parent_context.get_msg_sender(),
-                            .contract_addr = parent_context.get_address(),
-                            .is_static = parent_context.get_is_static(),
-                            .parent_gas_used = parent_context.get_parent_gas_used(),
-                            .parent_gas_limit = parent_context.get_parent_gas_limit() });
+    ctx_stack_events.emit(
+        { .id = parent_context.get_context_id(),
+          .parent_id = parent_context.get_parent_id(),
+          .entered_context_id = context_provider.get_next_context_id(),
+          .next_pc = parent_context.get_next_pc(),
+          .msg_sender = parent_context.get_msg_sender(),
+          .contract_addr = parent_context.get_address(),
+          .is_static = parent_context.get_is_static(),
+          .parent_gas_used = parent_context.get_parent_gas_used(),
+          .parent_gas_limit = parent_context.get_parent_gas_limit(),
+          .tree_states = merkle_db.get_tree_state(),
+          .written_public_data_slots_tree_snapshot = parent_context.get_written_public_data_slots_tree_snapshot(),
+          .side_effect_states = parent_context.get_side_effect_states() });
 
     external_call_stack.push(std::move(child_context));
 }
@@ -789,17 +1051,46 @@ void Execution::handle_exit_call()
     external_call_stack.pop();
     ExecutionResult result = get_execution_result();
 
+    // We only handle reverting/committing of nested calls. Enqueued calls are handled by TX execution.
     if (!external_call_stack.empty()) {
+        // Note: committing or reverting the db here also commits or reverts the
+        // tracked nullifiers, public writes dictionary, etc. These structures
+        // "listen" to the db changes.
+        if (result.success) {
+            merkle_db.commit_checkpoint();
+        } else {
+            merkle_db.revert_checkpoint();
+        }
+
         auto& parent_context = *external_call_stack.top();
         // was not top level, communicate with parent
         parent_context.set_last_rd_addr(result.rd_offset);
         parent_context.set_last_rd_size(result.rd_size);
         parent_context.set_last_success(result.success);
-        parent_context.set_child_context(std::move(child_context));
         // Safe since the nested context gas limit should be clamped to the available gas.
         parent_context.set_gas_used(result.gas_used + parent_context.get_gas_used());
+        if (result.success) {
+            parent_context.set_side_effect_states(child_context->get_side_effect_states());
+        }
+        parent_context.set_child_context(std::move(child_context));
+
+        // TODO(fcarreiro): move somewhere else.
+        if (parent_context.get_checkpoint_id_at_creation() != merkle_db.get_checkpoint_id()) {
+            throw std::runtime_error(format("Checkpoint id mismatch: ",
+                                            parent_context.get_checkpoint_id_at_creation(),
+                                            " != ",
+                                            merkle_db.get_checkpoint_id(),
+                                            " (gone back to the wrong db/context)"));
+        }
     }
     // Else: was top level. ExecutionResult is already set and that will be returned.
+}
+
+void Execution::handle_exceptional_halt(ContextInterface& context)
+{
+    context.set_gas_used(context.get_gas_limit()); // Consume all gas.
+    context.halt();
+    set_execution_result({ .rd_offset = 0, .rd_size = 0, .gas_used = context.get_gas_used(), .success = false });
 }
 
 void Execution::dispatch_opcode(ExecutionOpCode opcode,
@@ -815,6 +1106,12 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
     case ExecutionOpCode::ADD:
         call_with_operands(&Execution::add, context, resolved_operands);
         break;
+    case ExecutionOpCode::SUB:
+        call_with_operands(&Execution::sub, context, resolved_operands);
+        break;
+    case ExecutionOpCode::MUL:
+        call_with_operands(&Execution::mul, context, resolved_operands);
+        break;
     case ExecutionOpCode::EQ:
         call_with_operands(&Execution::eq, context, resolved_operands);
         break;
@@ -826,6 +1123,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::NOT:
         call_with_operands(&Execution::op_not, context, resolved_operands);
+        break;
+    case ExecutionOpCode::CAST:
+        call_with_operands(&Execution::cast, context, resolved_operands);
         break;
     case ExecutionOpCode::GETENVVAR:
         call_with_operands(&Execution::get_env_var, context, resolved_operands);
@@ -870,7 +1170,13 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         call_with_operands(&Execution::rd_size, context, resolved_operands);
         break;
     case ExecutionOpCode::DEBUGLOG:
-        call_with_operands(&Execution::debug_log, context, resolved_operands);
+        debug_log(context,
+                  resolved_operands.at(0).as<MemoryAddress>(),
+                  resolved_operands.at(1).as<MemoryAddress>(),
+                  resolved_operands.at(2).as<MemoryAddress>(),
+                  resolved_operands.at(3).as<uint16_t>(),
+                  debug_logging);
+        break;
     case ExecutionOpCode::AND:
         call_with_operands(&Execution::and_op, context, resolved_operands);
         break;
@@ -889,6 +1195,12 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
     case ExecutionOpCode::NOTEHASHEXISTS:
         call_with_operands(&Execution::note_hash_exists, context, resolved_operands);
         break;
+    case ExecutionOpCode::NULLIFIEREXISTS:
+        call_with_operands(&Execution::nullifier_exists, context, resolved_operands);
+        break;
+    case ExecutionOpCode::EMITNULLIFIER:
+        call_with_operands(&Execution::emit_nullifier, context, resolved_operands);
+        break;
     case ExecutionOpCode::GETCONTRACTINSTANCE:
         call_with_operands(&Execution::get_contract_instance, context, resolved_operands);
         break;
@@ -897,6 +1209,21 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::L1TOL2MSGEXISTS:
         call_with_operands(&Execution::l1_to_l2_message_exists, context, resolved_operands);
+        break;
+    case ExecutionOpCode::POSEIDON2PERM:
+        call_with_operands(&Execution::poseidon2_permutation, context, resolved_operands);
+        break;
+    case ExecutionOpCode::ECADD:
+        call_with_operands(&Execution::ecc_add, context, resolved_operands);
+        break;
+    case ExecutionOpCode::TORADIXBE:
+        call_with_operands(&Execution::to_radix_be, context, resolved_operands);
+        break;
+    case ExecutionOpCode::EMITUNENCRYPTEDLOG:
+        call_with_operands(&Execution::emit_unencrypted_log, context, resolved_operands);
+        break;
+    case ExecutionOpCode::SENDL2TOL1MSG:
+        call_with_operands(&Execution::send_l2_to_l1_msg, context, resolved_operands);
         break;
     default:
         // NOTE: Keep this a `std::runtime_error` so that the main loop panics.

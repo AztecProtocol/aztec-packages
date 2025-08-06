@@ -63,7 +63,12 @@ function test_cmds {
 
   if [ "$CI_NIGHTLY" -eq 1 ]; then
     NIGHTLY_NS=nightly-$(date -u +%Y%m%d)
-    echo "$hash:TIMEOUT=20m FRESH_INSTALL=no-deploy NAMESPACE=$NIGHTLY_NS ./spartan/bootstrap.sh test-gke-transfer"
+    echo "$hash:TIMEOUT=20m FRESH_INSTALL=no-deploy NAMESPACE=$NIGHTLY_NS ./spartan/bootstrap.sh test-gke-transfer reth"
+    echo "$hash:TIMEOUT=20m FRESH_INSTALL=no-deploy NAMESPACE=$NIGHTLY_NS ./spartan/bootstrap.sh test-gke-transfer geth"
+
+    # Nethermind test can be enabled once https://github.com/NethermindEth/nethermind/pull/8897 is released
+    # echo "$hash:TIMEOUT=20m FRESH_INSTALL=no-deploy NAMESPACE=$NIGHTLY_NS ./spartan/bootstrap.sh test-gke-transfer nethermind"
+
     #echo "$hash:TIMEOUT=30m FRESH_INSTALL=no-deploy NAMESPACE=$NIGHTLY_NS ./spartan/bootstrap.sh test-gke-1tps"
     #echo "$hash:TIMEOUT=30m FRESH_INSTALL=no-deploy NAMESPACE=$NIGHTLY_NS ./spartan/bootstrap.sh test-gke-4epochs"
 
@@ -91,7 +96,7 @@ function start_env {
 }
 
 function stop_env {
-  if [ "$CI_NIGHTLY" -eq 1 ]; then
+  if [ "$CI_NIGHTLY" -eq 1 ] && [ "$(arch)" != "arm64" ]; then
     NIGHTLY_NS=nightly-$(date -u +%Y%m%d)
     echo "Uninstalling test network in namespace $NIGHTLY_NS"
     ./scripts/cleanup_k8s.sh "$NIGHTLY_NS" "$NIGHTLY_NS"
@@ -115,6 +120,9 @@ case "$cmd" in
       flock scripts/logs/kind-boot.lock bash -c "kind delete cluster; kind create cluster --config scripts/kind-config.yaml"
       # Patch the kubeconfig to replace any invalid API server address (0.0.0.0) with 127.0.0.1
       sed -i 's/https:\/\/0\.0\.0\.0:/https:\/\/127.0.0.1:/' "$HOME/.kube/config"
+
+      # Patch DNS if KIND_FIX_DNS=true
+      ./scripts/patch_dns.sh
     fi
     kubectl config use-context kind-kind >/dev/null || true
     docker update --restart=no kind-control-plane >/dev/null || true
@@ -178,6 +186,21 @@ case "$cmd" in
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false RESOURCES_FILE=gcloud-1tps-sim.yaml \
       ./scripts/test_k8s.sh kind src/spartan/1tps.test.ts ci-1tps.yaml one-tps${NAME_POSTFIX:-}
     ;;
+  "test-kind-10tps-10%-drop")
+    OVERRIDES="telemetry.enabled=false,blobSink.enabled=true,bot.enabled=false,validator.p2p.dropTransactions=true,validator.p2p.dropTransactionsProbability=0.1" \
+    FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
+    ./scripts/test_k8s.sh kind src/spartan/n_tps.test.ts ci-1tps.yaml ten-tps${NAME_POSTFIX:-}
+  ;;
+  "test-kind-10tps-30%-drop")
+    OVERRIDES="telemetry.enabled=false,blobSink.enabled=true,bot.enabled=false,validator.p2p.dropTransactions=true,validator.p2p.dropTransactionsProbability=0.3" \
+    FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
+    ./scripts/test_k8s.sh kind src/spartan/n_tps.test.ts ci-tx-drop.yaml ten-tps${NAME_POSTFIX:-}
+  ;;
+  "test-kind-10tps-50%-drop")
+    OVERRIDES="telemetry.enabled=false,blobSink.enabled=true,bot.enabled=false,validator.p2p.dropTransactions=true,validator.p2p.dropTransactionsProbability=0.5" \
+    FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
+    ./scripts/test_k8s.sh kind src/spartan/n_tps.test.ts ci-tx-drop.yaml ten-tps${NAME_POSTFIX:-}
+  ;;
   "test-kind-upgrade-rollup-version")
     OVERRIDES="bot.enabled=false,ethereum.acceleratedTestDeployments=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
@@ -192,8 +215,13 @@ case "$cmd" in
       ./scripts/test_k8s.sh kind src/spartan/upgrade_via_cli.test.ts 1-validators.yaml upgrade-via-cli${NAME_POSTFIX:-}
     ;;
   "test-gke-transfer")
+    shift
+    execution_client="$1"
     # TODO(#12163) reenable bot once not conflicting with transfer
-    OVERRIDES="blobSink.enabled=true,bot.enabled=false" \
+    OVERRIDES="blobSink.enabled=true,bot.enabled=false"
+    if [ -n "$execution_client" ]; then
+      OVERRIDES="$OVERRIDES,ethereum.execution.client=$execution_client"
+    fi
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false RESOURCES_FILE=gcloud-1tps-sim.yaml  \
       ./scripts/test_k8s.sh gke src/spartan/transfer.test.ts ci-fast-epoch.yaml ${NAMESPACE:-"transfer${NAME_POSTFIX:-}"}
     ;;

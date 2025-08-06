@@ -4,6 +4,7 @@
     "accum",
     "acir",
     "acvm",
+    "addmod",
     "addrs",
     "alphanet",
     "anytype",
@@ -69,6 +70,7 @@
     "cond",
     "counterparty",
     "cpus",
+    "ctstring",
     "customizability",
     "danlee",
     "Daos",
@@ -79,6 +81,7 @@
     "deduped",
     "defi",
     "deinit",
+    "delegatees",
     "demonomorphization",
     "demonomorphize",
     "demonomorphized",
@@ -142,6 +145,7 @@
     "herskind",
     "homomorphic",
     "ierc",
+    "IGSE",
     "indexeddb",
     "initialise",
     "initialised",
@@ -187,7 +191,9 @@
     "mplex",
     "msgpack",
     "msgpackr",
+    "mstore",
     "muldiv",
+    "mulmod",
     "multiaddr",
     "multiaddrs",
     "multiarch",
@@ -200,6 +206,7 @@
     "namespacing",
     "napi",
     "Nargo",
+    "nethermind",
     "nixpkgs",
     "nodebuffer",
     "noinitcheck",
@@ -210,6 +217,7 @@
     "offchain",
     "onchain",
     "opentelemetry",
+    "optimise",
     "otel",
     "OTLP",
     "otterscan",
@@ -286,6 +294,7 @@
     "snakecase",
     "socat",
     "solhint",
+    "squashable",
     "SSTORE",
     "starknet",
     "staticcall",
@@ -381,9 +390,5 @@
     "lib",
     "*.cmake"
   ],
-  "flagWords": [
-    "anonymous",
-    "offence",
-    "offences"
-  ]
+  "flagWords": ["anonymous", "offence", "offences"]
 }

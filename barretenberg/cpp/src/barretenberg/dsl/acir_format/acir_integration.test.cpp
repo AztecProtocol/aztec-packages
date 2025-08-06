@@ -75,7 +75,11 @@ class AcirIntegrationTest : public ::testing::Test {
 
         // Verify Honk proof
         Verifier verifier{ verification_key };
-        return verifier.verify_proof(proof);
+        if constexpr (IsUltraHonk<Flavor>) {
+            return verifier.verify_proof(proof);
+        } else {
+            return std::get<0>(verifier.verify_proof(proof));
+        }
     }
 
     void add_some_simple_RAM_gates(auto& circuit)
@@ -405,9 +409,9 @@ TEST_F(AcirIntegrationTest, DISABLED_DatabusTwoCalldata)
     const auto& secondary_calldata = builder.get_secondary_calldata();
     const auto& return_data = builder.get_return_data();
 
-    BB_ASSERT_EQ(calldata.size(), static_cast<size_t>(4));
-    BB_ASSERT_EQ(secondary_calldata.size(), static_cast<size_t>(3));
-    BB_ASSERT_EQ(return_data.size(), static_cast<size_t>(4));
+    ASSERT_EQ(calldata.size(), static_cast<size_t>(4));
+    ASSERT_EQ(secondary_calldata.size(), static_cast<size_t>(3));
+    ASSERT_EQ(return_data.size(), static_cast<size_t>(4));
 
     // Check that return data was computed from the two calldata inputs as expected
     ASSERT_EQ(builder.get_variable(calldata[0]) + builder.get_variable(secondary_calldata[0]),

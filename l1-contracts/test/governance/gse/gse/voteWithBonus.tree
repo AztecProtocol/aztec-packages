@@ -1,0 +1,10 @@
+VoteWithBonusTest
+├── given caller is not latest at proposal time
+│   └── it reverts
+└── given caller is latest at proposal time
+    ├── given amount greater than available bonus power
+    │   └── it reverts
+    └── given amount less or equal to available bonus power
+        ├── it uses delegation power for bonus
+        ├── it votes in governance
+        └── it returns true

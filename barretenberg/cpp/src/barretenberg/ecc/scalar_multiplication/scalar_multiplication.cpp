@@ -3,6 +3,7 @@
 // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/groups/precomputed_generators_bn254_impl.hpp"
 #include "barretenberg/ecc/groups/precomputed_generators_grumpkin_impl.hpp"
 
@@ -340,7 +341,7 @@ void MSM<Curve>::add_affine_points(typename Curve::AffineElement* points,
     }
     if (batch_inversion_accumulator == 0) {
         // prefer abort to throw for code that might emit from multiple threads
-        abort_with_message("attempted to invert zero in add_affine_points");
+        throw_or_abort("attempted to invert zero in add_affine_points");
     } else {
         batch_inversion_accumulator = batch_inversion_accumulator.invert();
     }
@@ -764,7 +765,7 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
     std::vector<std::span<ScalarField>>& scalars,
     bool handle_edge_cases) noexcept
 {
-    ASSERT(points.size() == scalars.size());
+    BB_ASSERT_EQ(points.size(), scalars.size());
     const size_t num_msms = points.size();
 
     std::vector<std::vector<uint32_t>> msm_scalar_indices;

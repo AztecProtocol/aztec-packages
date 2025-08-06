@@ -24,8 +24,8 @@ use dep::aztec::{
 // macro support is expanded.
 
 /// A private note representing a numeric value associated to an account (e.g. a token balance).
+#[derive(Eq, Serialize, Packable)]
 #[custom_note]
-#[derive(Eq, Serialize)]
 pub struct UintNote {
     // The ordering of these fields is important given that it must:
     //   a) match that of UintPartialNotePrivateContent, and
@@ -102,6 +102,10 @@ impl UintNote {
 
     pub fn get_value(self) -> u128 {
         self.value
+    }
+
+    pub fn get_owner(self) -> AztecAddress {
+        self.owner
     }
 
     /// Creates a partial note that will hide the owner and storage slot but not the value, since the note will be later
@@ -329,7 +333,7 @@ mod test {
     };
     use dep::aztec::{
         note::note_interface::NoteHash,
-        protocol_types::{address::AztecAddress, traits::{FromField, Packable}},
+        protocol_types::{address::AztecAddress, traits::{Deserialize, FromField, Packable}},
         utils::array::subarray,
     };
 
@@ -373,7 +377,9 @@ mod test {
             randomness,
             public_log_tag: commitment,
         };
-        let partial_note = PartialUintNote { commitment };
+        // The following is a misuse of the `deserialize` function, but this is just a test and it's better than
+        // letting devs manually construct it when they shouldn't be able to.
+        let partial_note = PartialUintNote::deserialize([commitment]);
 
         // The first field of the partial note private content is the public completion log tag, so it should match the
         // first field of the public log.
