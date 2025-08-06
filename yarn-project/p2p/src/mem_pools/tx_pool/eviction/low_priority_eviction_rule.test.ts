@@ -1,3 +1,4 @@
+import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 
@@ -13,8 +14,10 @@ describe('LowPriorityEvictionRule', () => {
 
   beforeEach(() => {
     txPool = mock();
+    txPool.getPendingTxs.mockResolvedValue([]);
+
     config = {
-      maxPoolSize: 1000,
+      maxPoolSize: 100,
     };
     rule = new LowPriorityEvictionRule(config);
   });
@@ -25,20 +28,11 @@ describe('LowPriorityEvictionRule', () => {
       expect(rule.getConfig()).toEqual(config);
     });
 
-    it.each([
-      {
-        description: 'updates configuration partially',
-        update: { maxPoolSize: 2000 },
-        expected: { maxPoolSize: 2000 },
-      },
-      {
-        description: 'updates configuration completely',
-        update: { maxPoolSize: 500 },
-        expected: { maxPoolSize: 500 },
-      },
-    ])('$description', ({ update, expected }) => {
-      rule.updateConfig(update);
-      expect(rule.getConfig()).toEqual(expected);
+    it('updates the config', () => {
+      rule.updateConfig({ maxPoolSize: 200 });
+      expect(rule.getConfig()).toEqual({
+        maxPoolSize: 200,
+      });
     });
   });
 
@@ -59,7 +53,6 @@ describe('LowPriorityEvictionRule', () => {
           success: true,
           txsEvicted: [],
         });
-        expect(txPool.getPendingTxs).not.toHaveBeenCalled();
       });
 
       it('returns empty result for CHAIN_PRUNED event', async () => {
@@ -75,7 +68,6 @@ describe('LowPriorityEvictionRule', () => {
           success: true,
           txsEvicted: [],
         });
-        expect(txPool.getPendingTxs).not.toHaveBeenCalled();
       });
     });
 
@@ -85,7 +77,6 @@ describe('LowPriorityEvictionRule', () => {
       beforeEach(() => {
         context = {
           event: EvictionEvent.TXS_ADDED,
-
           newTxs: [TxHash.random(), TxHash.random()],
         };
       });
@@ -100,10 +91,16 @@ describe('LowPriorityEvictionRule', () => {
           success: true,
           txsEvicted: [],
         });
-        expect(txPool.getPendingTxs).not.toHaveBeenCalled();
       });
 
       it('returns empty result when mempool size is below threshold', async () => {
+        const pendingTxs = times<PendingTxInfo>(Math.floor(config.maxPoolSize / 2), () => ({
+          txHash: TxHash.random(),
+          blockHash: Fr.ZERO,
+          isEvictable: true,
+        }));
+        txPool.getPendingTxs.mockResolvedValue(pendingTxs);
+
         const result = await rule.evict(context, txPool);
 
         expect(result).toEqual({
@@ -111,10 +108,16 @@ describe('LowPriorityEvictionRule', () => {
           success: true,
           txsEvicted: [],
         });
-        expect(txPool.getPendingTxs).not.toHaveBeenCalled();
       });
 
       it('returns empty result when mempool size equals threshold', async () => {
+        const pendingTxs = times<PendingTxInfo>(config.maxPoolSize, () => ({
+          txHash: TxHash.random(),
+          blockHash: Fr.ZERO,
+          isEvictable: true,
+        }));
+        txPool.getPendingTxs.mockResolvedValue(pendingTxs);
+
         const result = await rule.evict(context, txPool);
 
         expect(result).toEqual({
@@ -122,18 +125,20 @@ describe('LowPriorityEvictionRule', () => {
           success: true,
           txsEvicted: [],
         });
-        expect(txPool.getPendingTxs).not.toHaveBeenCalled();
+        expect(txPool.getPendingTxs).toHaveBeenCalledTimes(1);
       });
 
       it('evicts transactions when mempool size exceeds threshold', async () => {
+        rule.updateConfig({ maxPoolSize: 1 });
+
         const tx1 = TxHash.random();
         const tx2 = TxHash.random();
         const tx3 = TxHash.random();
 
         const pendingTxs: PendingTxInfo[] = [
-          { blockHash: Fr.ZERO, txHash: tx1, size: 200, isEvictable: true },
-          { blockHash: Fr.ZERO, txHash: tx2, size: 300, isEvictable: true },
-          { blockHash: Fr.ZERO, txHash: tx3, size: 100, isEvictable: true },
+          { blockHash: Fr.ZERO, txHash: tx1, isEvictable: true },
+          { blockHash: Fr.ZERO, txHash: tx2, isEvictable: true },
+          { blockHash: Fr.ZERO, txHash: tx3, isEvictable: true },
         ];
         txPool.getPendingTxs.mockResolvedValue(pendingTxs);
 
@@ -141,16 +146,18 @@ describe('LowPriorityEvictionRule', () => {
 
         expect(result.success).toBe(true);
         expect(result.txsEvicted).toEqual([tx1, tx2]); // Should evict enough to get below target
-        expect(txPool.deleteTxs).toHaveBeenCalledWith([tx1, tx2]);
+        expect(txPool.deleteTxs).toHaveBeenCalledWith([tx1, tx2], true);
       });
 
       it('respects non-evictable transactions', async () => {
+        rule.updateConfig({ maxPoolSize: 1 });
+
         const evictableTx = TxHash.random();
         const nonEvictableTx = TxHash.random();
 
         const pendingTxs: PendingTxInfo[] = [
-          { blockHash: Fr.ZERO, txHash: nonEvictableTx, size: 300, isEvictable: false },
-          { blockHash: Fr.ZERO, txHash: evictableTx, size: 300, isEvictable: true },
+          { blockHash: Fr.ZERO, txHash: nonEvictableTx, isEvictable: false },
+          { blockHash: Fr.ZERO, txHash: evictableTx, isEvictable: true },
         ];
         txPool.getPendingTxs.mockResolvedValue(pendingTxs);
 
@@ -158,29 +165,33 @@ describe('LowPriorityEvictionRule', () => {
 
         expect(result.success).toBe(true);
         expect(result.txsEvicted).toEqual([evictableTx]);
-        expect(txPool.deleteTxs).toHaveBeenCalledWith([evictableTx]);
+        expect(txPool.deleteTxs).toHaveBeenCalledWith([evictableTx], true);
       });
 
       it('stops evicting when target size is reached', async () => {
+        rule.updateConfig({ maxPoolSize: 1 });
+
         const tx1 = TxHash.random();
         const tx2 = TxHash.random();
         const tx3 = TxHash.random();
 
         const pendingTxs: PendingTxInfo[] = [
-          { blockHash: Fr.ZERO, txHash: tx1, size: 200, isEvictable: true },
-          { blockHash: Fr.ZERO, txHash: tx2, size: 150, isEvictable: true }, // This should bring us to exactly 950, below target
-          { blockHash: Fr.ZERO, txHash: tx3, size: 100, isEvictable: true },
+          { blockHash: Fr.ZERO, txHash: tx1, isEvictable: true },
+          { blockHash: Fr.ZERO, txHash: tx2, isEvictable: true }, // This should bring us to exactly 1, at target
+          { blockHash: Fr.ZERO, txHash: tx3, isEvictable: true },
         ];
         txPool.getPendingTxs.mockResolvedValue(pendingTxs);
 
         const result = await rule.evict(context, txPool);
 
         expect(result.success).toBe(true);
-        expect(result.txsEvicted).toEqual([tx1, tx2]); // Should stop at tx2
-        expect(txPool.deleteTxs).toHaveBeenCalledWith([tx1, tx2]);
+        expect(result.txsEvicted).toEqual([tx1, tx2]);
+        expect(txPool.deleteTxs).toHaveBeenCalledWith([tx1, tx2], true);
       });
 
       it('tracks newly added transactions that were evicted', async () => {
+        rule.updateConfig({ maxPoolSize: 1 });
+
         const newTx1 = TxHash.random();
         const newTx2 = TxHash.random();
         const oldTx = TxHash.random();
@@ -188,17 +199,17 @@ describe('LowPriorityEvictionRule', () => {
         (context as any).newTxs = [newTx1, newTx2];
 
         const pendingTxs: PendingTxInfo[] = [
-          { blockHash: Fr.ZERO, txHash: oldTx, size: 200, isEvictable: true },
-          { blockHash: Fr.ZERO, txHash: newTx1, size: 200, isEvictable: true },
-          { blockHash: Fr.ZERO, txHash: newTx2, size: 200, isEvictable: true },
+          { blockHash: Fr.ZERO, txHash: oldTx, isEvictable: true },
+          { blockHash: Fr.ZERO, txHash: newTx1, isEvictable: true },
+          { blockHash: Fr.ZERO, txHash: newTx2, isEvictable: true },
         ];
         txPool.getPendingTxs.mockResolvedValue(pendingTxs);
 
         const result = await rule.evict(context, txPool);
 
         expect(result.success).toBe(true);
-        expect(result.txsEvicted).toEqual([oldTx, newTx1, newTx2]);
-        expect(txPool.deleteTxs).toHaveBeenCalledWith([oldTx, newTx1, newTx2]);
+        expect(result.txsEvicted).toEqual([oldTx, newTx1]);
+        expect(txPool.deleteTxs).toHaveBeenCalledWith([oldTx, newTx1], true);
       });
 
       it('handles empty pending transactions list', async () => {
@@ -219,8 +230,8 @@ describe('LowPriorityEvictionRule', () => {
         const tx2 = TxHash.random();
 
         txPool.getPendingTxs.mockResolvedValue([
-          { blockHash: Fr.ZERO, txHash: tx1, size: 0, isEvictable: false },
-          { blockHash: Fr.ZERO, txHash: tx2, size: 0, isEvictable: false },
+          { blockHash: Fr.ZERO, txHash: tx1, isEvictable: false },
+          { blockHash: Fr.ZERO, txHash: tx2, isEvictable: false },
         ]);
 
         const result = await rule.evict(context, txPool);
@@ -247,114 +258,18 @@ describe('LowPriorityEvictionRule', () => {
       });
 
       it('handles error from deleteTxs operation', async () => {
-        const tx1 = TxHash.random();
-        const error = new Error('Delete error');
-
-        txPool.getPendingTxs.mockResolvedValue([{ blockHash: Fr.ZERO, txHash: tx1, size: 200, isEvictable: true }]);
-        txPool.deleteTxs.mockRejectedValue(error);
+        rule.updateConfig({ maxPoolSize: 1 });
+        txPool.getPendingTxs.mockResolvedValue([
+          { blockHash: Fr.ZERO, txHash: TxHash.random(), isEvictable: true },
+          { blockHash: Fr.ZERO, txHash: TxHash.random(), isEvictable: true },
+        ]);
+        txPool.deleteTxs.mockRejectedValue(new Error('test error'));
 
         const result = await rule.evict(context, txPool);
 
         expect(result.success).toBe(false);
         expect(result.txsEvicted).toEqual([]);
-        expect(result.error?.cause).toBe(error);
-      });
-    });
-
-    describe('transaction count limit', () => {
-      it('evicts when transaction count exceeds limit', async () => {
-        const testCases = [
-          { maxSize: 1000, txCount: 1000, shouldEvict: false }, // At limit
-          { maxSize: 1000, txCount: 1001, shouldEvict: true }, // Above limit
-          { maxSize: 500, txCount: 500, shouldEvict: false }, // At limit
-          { maxSize: 500, txCount: 501, shouldEvict: true }, // Above limit
-        ];
-
-        for (const testCase of testCases) {
-          rule.updateConfig({ maxPoolSize: testCase.maxSize });
-
-          // Mock getPendingTxs to return testCase.txCount transactions
-          const mockTxs = Array.from({ length: testCase.txCount }, () => ({
-            txHash: TxHash.random(),
-            size: 100,
-            blockHash: Fr.random(),
-            isEvictable: true,
-          }));
-          txPool.getPendingTxs.mockResolvedValue(mockTxs);
-
-          const context: EvictionContext = {
-            event: EvictionEvent.TXS_ADDED,
-
-            newTxs: [],
-          };
-
-          const result = await rule.evict(context, txPool);
-
-          expect(result.success).toBe(true);
-          if (testCase.shouldEvict) {
-            expect(result.txsEvicted.length).toBeGreaterThan(0);
-          } else {
-            expect(result.txsEvicted).toEqual([]);
-          }
-        }
-      });
-    });
-
-    describe('edge cases', () => {
-      it('handles zero-sized transactions', async () => {
-        const tx1 = TxHash.random();
-        const context: EvictionContext = {
-          event: EvictionEvent.TXS_ADDED,
-
-          newTxs: [],
-        };
-
-        txPool.getPendingTxs.mockResolvedValue([{ blockHash: Fr.ZERO, txHash: tx1, size: 0, isEvictable: true }]);
-
-        const result = await rule.evict(context, txPool);
-
-        expect(result.success).toBe(true);
-        expect(result.txsEvicted).toEqual([tx1]);
-      });
-
-      it('handles very large mempool size', async () => {
-        const tx1 = TxHash.random();
-        const context: EvictionContext = {
-          event: EvictionEvent.TXS_ADDED,
-
-          newTxs: [],
-        };
-
-        txPool.getPendingTxs.mockResolvedValue([{ blockHash: Fr.ZERO, txHash: tx1, size: 1000, isEvictable: true }]);
-
-        const result = await rule.evict(context, txPool);
-
-        expect(result.success).toBe(true);
-        expect(result.txsEvicted.length).toBeGreaterThan(0);
-      });
-
-      it('handles exact transaction count limits', async () => {
-        rule.updateConfig({ maxPoolSize: 1000 });
-
-        // Mock 1001 transactions (1 over limit)
-        const mockTxs = Array.from({ length: 1001 }, () => ({
-          txHash: TxHash.random(),
-          size: 100,
-          blockHash: Fr.random(),
-          isEvictable: true,
-        }));
-        txPool.getPendingTxs.mockResolvedValue(mockTxs);
-
-        const context: EvictionContext = {
-          event: EvictionEvent.TXS_ADDED,
-
-          newTxs: [],
-        };
-
-        const result = await rule.evict(context, txPool);
-
-        expect(result.success).toBe(true);
-        expect(result.txsEvicted.length).toBe(1); // Should evict 1 tx to bring it back to limit
+        expect(result.error?.cause).toEqual(new Error('test error'));
       });
     });
   });

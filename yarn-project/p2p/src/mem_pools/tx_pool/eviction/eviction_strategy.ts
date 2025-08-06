@@ -41,7 +41,6 @@ export interface EvictionResult {
  */
 export interface PendingTxInfo {
   txHash: TxHash;
-  size: number;
   blockHash: Fr;
   isEvictable: boolean;
 }

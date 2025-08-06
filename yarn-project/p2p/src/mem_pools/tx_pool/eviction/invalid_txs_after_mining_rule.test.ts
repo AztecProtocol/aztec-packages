@@ -86,8 +86,8 @@ describe('InvalidTxsAfterMiningRule', () => {
         mockTx1.data.forRollup!.end.nullifiers[0] = newNullifiers[0];
 
         const pendingTxs: PendingTxInfo[] = [
-          { blockHash: Fr.ZERO, txHash: tx1, size: 100, isEvictable: true },
-          { blockHash: Fr.ZERO, txHash: tx2, size: 100, isEvictable: true },
+          { blockHash: Fr.ZERO, txHash: tx1, isEvictable: true },
+          { blockHash: Fr.ZERO, txHash: tx2, isEvictable: true },
         ];
         txPool.getPendingTxs.mockResolvedValue(pendingTxs);
         txPool.getTxByHash.mockImplementation(txHash => {
@@ -104,7 +104,7 @@ describe('InvalidTxsAfterMiningRule', () => {
 
         expect(result.success).toBe(true);
         expect(result.txsEvicted).toEqual([tx1]); // Only tx1 has duplicate nullifier
-        expect(txPool.deleteTxs).toHaveBeenCalledWith([tx1]);
+        expect(txPool.deleteTxs).toHaveBeenCalledWith([tx1], true);
       });
 
       it('evicts transactions with expired timestamps', async () => {
@@ -124,8 +124,8 @@ describe('InvalidTxsAfterMiningRule', () => {
         mockTx2.data.includeByTimestamp = 1500n;
 
         const pendingTxs: PendingTxInfo[] = [
-          { blockHash: Fr.ZERO, txHash: tx1, size: 100, isEvictable: true },
-          { blockHash: Fr.ZERO, txHash: tx2, size: 100, isEvictable: true },
+          { blockHash: Fr.ZERO, txHash: tx1, isEvictable: true },
+          { blockHash: Fr.ZERO, txHash: tx2, isEvictable: true },
         ];
         txPool.getPendingTxs.mockResolvedValue(pendingTxs);
         txPool.getTxByHash.mockImplementation(txHash => {
@@ -142,7 +142,7 @@ describe('InvalidTxsAfterMiningRule', () => {
 
         expect(result.success).toBe(true);
         expect(result.txsEvicted).toEqual([tx1]); // Only tx1 is expired
-        expect(txPool.deleteTxs).toHaveBeenCalledWith([tx1]);
+        expect(txPool.deleteTxs).toHaveBeenCalledWith([tx1], true);
       });
 
       it('respects non-evictable transactions', async () => {
@@ -164,8 +164,8 @@ describe('InvalidTxsAfterMiningRule', () => {
         mockNonEvictableTx.data.forRollup!.end.nullifiers[0] = newNullifiers[0];
 
         const pendingTxs: PendingTxInfo[] = [
-          { blockHash: Fr.ZERO, txHash: evictableTx, size: 100, isEvictable: true },
-          { blockHash: Fr.ZERO, txHash: nonEvictableTx, size: 100, isEvictable: false },
+          { blockHash: Fr.ZERO, txHash: evictableTx, isEvictable: true },
+          { blockHash: Fr.ZERO, txHash: nonEvictableTx, isEvictable: false },
         ];
         txPool.getPendingTxs.mockResolvedValue(pendingTxs);
         txPool.getTxByHash.mockImplementation(txHash => {
@@ -182,7 +182,7 @@ describe('InvalidTxsAfterMiningRule', () => {
 
         expect(result.success).toBe(true);
         expect(result.txsEvicted).toEqual([evictableTx]); // Only evictable tx is evicted
-        expect(txPool.deleteTxs).toHaveBeenCalledWith([evictableTx]);
+        expect(txPool.deleteTxs).toHaveBeenCalledWith([evictableTx], true);
       });
 
       it('handles empty pending transactions list', async () => {

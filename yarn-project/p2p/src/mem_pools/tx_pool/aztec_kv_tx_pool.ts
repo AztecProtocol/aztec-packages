@@ -41,13 +41,8 @@ export class AztecKVTxPool
   /** Our tx pool, stored as a Map, with K: tx hash and V: the transaction. */
   #txs: AztecAsyncMap<string, Buffer>;
 
-  #txInfo: AztecAsyncMap<
-    string,
-    {
-      size: number;
-      historicalHeaderHash: string;
-    }
-  >;
+  /** Holds the historical block for each tx */
+  #txHistoricalBlock: AztecAsyncMap<string, string>;
 
   /** Index from tx hash to the block number in which they were mined, filtered by mined txs. */
   #minedTxHashToBlock: AztecAsyncMap<string, number>;
@@ -105,7 +100,7 @@ export class AztecKVTxPool
     this.updateConfig(config);
 
     this.#txs = store.openMap('txs');
-    this.#txInfo = store.openMap('txInfo');
+    this.#txHistoricalBlock = store.openMap('txHistoricalBlock');
     this.#minedTxHashToBlock = store.openMap('txHashToBlockMined');
     this.#pendingTxPriorityToHash = store.openMultiMap('pendingTxFeeToHash');
     this.#historicalHeaderToTxHash = store.openMultiMap('historicalHeaderToPendingTxHash');
@@ -226,24 +221,20 @@ export class AztecKVTxPool
   }
 
   private async getTxInfo(txHash: TxHash): Promise<PendingTxInfo> {
-    let info = await this.#txInfo.getAsync(txHash.toString());
+    let historicalBlockHash = await this.#txHistoricalBlock.getAsync(txHash.toString());
     // Not all tx might have this index created.
-    if (!info) {
+    if (!historicalBlockHash) {
       const tx = await this.getTxByHash(txHash);
       if (!tx) {
         throw new Error(`Tx ${txHash} not found`);
       }
 
-      info = {
-        historicalHeaderHash: (await tx.data.constants.historicalHeader.hash()).toString(),
-        size: tx.getSize(),
-      };
+      historicalBlockHash = (await tx.data.constants.historicalHeader.hash()).toString();
     }
 
     return {
       txHash,
-      size: info.size,
-      blockHash: Fr.fromString(info.historicalHeaderHash),
+      blockHash: Fr.fromString(historicalBlockHash),
       isEvictable: !this.#nonEvictableTxs.has(txHash.toString()),
     };
   }
@@ -371,10 +362,7 @@ export class AztecKVTxPool
 
           await this.#txs.set(key, tx.toBuffer());
           addedTxs.push(tx as Tx);
-          await this.#txInfo.set(key, {
-            size: tx.getSize(),
-            historicalHeaderHash: (await tx.data.constants.historicalHeader.hash()).toString(),
-          });
+          await this.#txHistoricalBlock.set(key, (await tx.data.constants.historicalHeader.hash()).toString());
 
           if (!(await this.#minedTxHashToBlock.hasAsync(key))) {
             await this.addPendingTxIndices(tx, key);
@@ -422,6 +410,7 @@ export class AztecKVTxPool
           }
 
           await this.#txs.delete(key);
+          await this.#txHistoricalBlock.delete(key);
           await this.#minedTxHashToBlock.delete(key);
         }
       }

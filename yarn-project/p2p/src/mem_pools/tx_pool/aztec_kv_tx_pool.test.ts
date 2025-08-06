@@ -15,7 +15,6 @@ import {
 } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, TxHash } from '@aztec/stdlib/tx';
 
-import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { AztecKVTxPool } from './aztec_kv_tx_pool.js';
@@ -26,7 +25,6 @@ describe('KV TX pool', () => {
   let worldState: MockProxy<WorldStateSynchronizer>;
   let db: MockProxy<MerkleTreeReadOperations>;
   let nextTxSeed: number;
-  let mockTxSize: number;
 
   const block1Header = BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: 1, timestamp: 0n }) });
   const block2Header = BlockHeader.empty({
@@ -43,7 +41,6 @@ describe('KV TX pool', () => {
 
   beforeEach(async () => {
     nextTxSeed = 1;
-    mockTxSize = 100;
 
     worldState = worldState = mock<WorldStateSynchronizer>();
     db = mock<MerkleTreeReadOperations>();
@@ -74,7 +71,6 @@ describe('KV TX pool', () => {
 
   const mockFixedSizeTx = async (maxPriorityFeesPerGas?: GasFees) => {
     const tx = await mockTx(nextTxSeed++, { maxPriorityFeesPerGas });
-    jest.spyOn(tx, 'getSize').mockReturnValue(mockTxSize);
     return tx;
   };
 
@@ -113,7 +109,7 @@ describe('KV TX pool', () => {
 
   it('Evicts low priority txs to satisfy the pending tx size limit', async () => {
     txPool = new AztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
-      maxTxPoolSize: 15000,
+      maxTxPoolSize: 3,
     });
 
     const tx1 = await mockTx(1, { maxPriorityFeesPerGas: new GasFees(1, 1) });
@@ -192,7 +188,7 @@ describe('KV TX pool', () => {
 
   it('evicts based on the updated size limit', async () => {
     txPool = new AztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
-      maxTxPoolSize: mockTxSize * 10, // pool should contain no more than 10 mock txs
+      maxTxPoolSize: 10, // pool should contain no more than 10 mock txs
     });
 
     const cmp = (a: TxHash, b: TxHash) => (a.toBigInt() < b.toBigInt() ? -1 : a.toBigInt() > b.toBigInt() ? 1 : 0);
@@ -213,7 +209,7 @@ describe('KV TX pool', () => {
 
     // now set the limit to 5 txs
     const numRemainingTxs = 5;
-    txPool.updateConfig({ maxTxPoolSize: mockTxSize * numRemainingTxs });
+    txPool.updateConfig({ maxTxPoolSize: numRemainingTxs });
 
     // txs are not immediately evicted
     expect(await toArray(sort(await txPool.getPendingTxHashes(), cmp))).toEqual(
@@ -359,7 +355,7 @@ describe('KV TX pool', () => {
   });
   it('Does not evict low priority txs marked as non-evictable', async () => {
     txPool = new AztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
-      maxTxPoolSize: 15000,
+      maxTxPoolSize: 3,
     });
 
     const tx1 = await mockTx(1, { maxPriorityFeesPerGas: new GasFees(1, 1) });
@@ -380,7 +376,7 @@ describe('KV TX pool', () => {
 
   it('Evicts low priority txs after block is mined', async () => {
     txPool = new AztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
-      maxTxPoolSize: 15000,
+      maxTxPoolSize: 3,
     });
 
     const tx1 = await mockTx(1, { maxPriorityFeesPerGas: new GasFees(1, 1) });

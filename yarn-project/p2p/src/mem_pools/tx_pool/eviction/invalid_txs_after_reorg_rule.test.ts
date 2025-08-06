@@ -1,5 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 import type { ReadonlyWorldStateAccess } from '@aztec/stdlib/interfaces/server';
+import type { MerkleTreeReadOperations } from '@aztec/stdlib/trees';
 import { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -7,6 +8,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import {
   type EvictionContext,
   EvictionEvent,
+  type PendingTxInfo,
   type TxBlockReference,
   type TxPoolOperations,
 } from './eviction_strategy.js';
@@ -15,11 +17,20 @@ import { InvalidTxsAfterReorgRule } from './invalid_txs_after_reorg_rule.js';
 describe('InvalidTxsAfterReorgRule', () => {
   let txPool: MockProxy<TxPoolOperations>;
   let worldState: MockProxy<ReadonlyWorldStateAccess>;
+  let db: MockProxy<MerkleTreeReadOperations>;
   let rule: InvalidTxsAfterReorgRule;
 
   beforeEach(() => {
     txPool = mock();
+    txPool.getPendingTxs.mockResolvedValue([]);
+
+    db = mock<MerkleTreeReadOperations>();
+    // default mock implementation - no blocks exist in the tree
+    db.findLeafIndices.mockImplementation((_, indices) => Promise.resolve(indices.map(_ => undefined)));
+
     worldState = mock();
+    worldState.getSnapshot.mockReturnValue(db);
+
     rule = new InvalidTxsAfterReorgRule(worldState);
   });
 
@@ -59,12 +70,13 @@ describe('InvalidTxsAfterReorgRule', () => {
     });
 
     describe('CHAIN_PRUNED events', () => {
-      it('returns empty result when no pruned block hashes', async () => {
+      it('handles no pending transactions', async () => {
         const context: EvictionContext = {
           event: EvictionEvent.CHAIN_PRUNED,
           block: BlockHeader.empty(),
         };
 
+        txPool.getPendingTxs.mockResolvedValue([]);
         const result = await rule.evict(context, txPool);
 
         expect(result).toEqual({
@@ -72,21 +84,8 @@ describe('InvalidTxsAfterReorgRule', () => {
           success: true,
           txsEvicted: [],
         });
-      });
 
-      it('returns empty result when prunedBlockHashes is undefined', async () => {
-        const context: EvictionContext = {
-          event: EvictionEvent.CHAIN_PRUNED,
-          block: BlockHeader.empty(),
-        };
-
-        const result = await rule.evict(context, txPool);
-
-        expect(result).toEqual({
-          reason: 'reorg_invalid_txs',
-          success: true,
-          txsEvicted: [],
-        });
+        expect(txPool.deleteTxs).not.toHaveBeenCalled();
       });
 
       it('evicts all transactions that reference pruned blocks', async () => {
@@ -100,18 +99,18 @@ describe('InvalidTxsAfterReorgRule', () => {
         const headerHash1 = Fr.random();
         const headerHash2 = Fr.random();
 
-        const txBlockRefs: TxBlockReference[] = [
+        const pendingTxs: PendingTxInfo[] = [
           { txHash: TxHash.fromString(tx1Hash), blockHash: headerHash1, isEvictable: true },
           { txHash: TxHash.fromString(tx2Hash), blockHash: headerHash2, isEvictable: true },
         ];
 
-        txPool.getPendingTxsReferencingBlocks.mockResolvedValue(txBlockRefs);
+        txPool.getPendingTxs.mockResolvedValue(pendingTxs);
 
         const result = await rule.evict(context, txPool);
 
         expect(result.success).toBe(true);
         expect(result.txsEvicted).toEqual([TxHash.fromString(tx1Hash), TxHash.fromString(tx2Hash)]); // Both txs reference pruned blocks
-        expect(txPool.deleteTxs).toHaveBeenCalledWith([TxHash.fromString(tx1Hash), TxHash.fromString(tx2Hash)]);
+        expect(txPool.deleteTxs).toHaveBeenCalledWith([TxHash.fromString(tx1Hash), TxHash.fromString(tx2Hash)], true);
       });
 
       it('respects non-evictable transactions', async () => {
@@ -125,62 +124,18 @@ describe('InvalidTxsAfterReorgRule', () => {
         const headerHash1 = Fr.random();
         const headerHash2 = Fr.random();
 
-        const txBlockRefs: TxBlockReference[] = [
+        const pendingTxs: PendingTxInfo[] = [
           { txHash: TxHash.fromString(evictableTxHash), blockHash: headerHash1, isEvictable: true },
           { txHash: TxHash.fromString(nonEvictableTxHash), blockHash: headerHash2, isEvictable: false },
         ];
 
-        txPool.getPendingTxsReferencingBlocks.mockResolvedValue(txBlockRefs);
+        txPool.getPendingTxs.mockResolvedValue(pendingTxs);
 
         const result = await rule.evict(context, txPool);
 
         expect(result.success).toBe(true);
         expect(result.txsEvicted).toEqual([TxHash.fromString(evictableTxHash)]); // Only evictable tx is evicted
-        expect(txPool.deleteTxs).toHaveBeenCalledWith([TxHash.fromString(evictableTxHash)]);
-      });
-
-      it('deletes all transactions referencing pruned blocks without checking existence', async () => {
-        const context: EvictionContext = {
-          event: EvictionEvent.CHAIN_PRUNED,
-          block: BlockHeader.empty(),
-        };
-
-        const tx1Hash = TxHash.random().toString();
-        const tx2Hash = TxHash.random().toString();
-        const headerHash1 = Fr.random();
-        const headerHash2 = Fr.random();
-
-        const txBlockRefs: TxBlockReference[] = [
-          { txHash: TxHash.fromString(tx1Hash), blockHash: headerHash1, isEvictable: true },
-          { txHash: TxHash.fromString(tx2Hash), blockHash: headerHash2, isEvictable: true },
-        ];
-
-        txPool.getPendingTxsReferencingBlocks.mockResolvedValue(txBlockRefs);
-
-        const result = await rule.evict(context, txPool);
-
-        expect(result.success).toBe(true);
-        expect(result.txsEvicted).toEqual([TxHash.fromString(tx1Hash), TxHash.fromString(tx2Hash)]); // Both txs sent for deletion
-        expect(txPool.deleteTxs).toHaveBeenCalledWith([TxHash.fromString(tx1Hash), TxHash.fromString(tx2Hash)]);
-        expect(txPool.getTxByHash).not.toHaveBeenCalled(); // No database lookups needed
-      });
-
-      it('handles empty pending transactions map', async () => {
-        const context: EvictionContext = {
-          event: EvictionEvent.CHAIN_PRUNED,
-          block: BlockHeader.empty(),
-        };
-
-        txPool.getPendingTxsReferencingBlocks.mockResolvedValue([]);
-
-        const result = await rule.evict(context, txPool);
-
-        expect(result).toEqual({
-          reason: 'reorg_invalid_txs',
-          success: true,
-          txsEvicted: [],
-        });
-        expect(txPool.deleteTxs).not.toHaveBeenCalled();
+        expect(txPool.deleteTxs).toHaveBeenCalledWith([TxHash.fromString(evictableTxHash)], true);
       });
 
       it('handles large number of transactions efficiently', async () => {
@@ -198,13 +153,19 @@ describe('InvalidTxsAfterReorgRule', () => {
           largeTxBlockRefs.push({ txHash, blockHash: headerHash, isEvictable: true });
         }
 
-        txPool.getPendingTxsReferencingBlocks.mockResolvedValue(largeTxBlockRefs);
+        const pendingTxs: PendingTxInfo[] = largeTxBlockRefs.map(ref => ({
+          txHash: ref.txHash,
+          blockHash: ref.blockHash,
+          isEvictable: ref.isEvictable,
+        }));
+
+        txPool.getPendingTxs.mockResolvedValue(pendingTxs);
 
         const result = await rule.evict(context, txPool);
 
         expect(result.success).toBe(true);
-        expect(result.txsEvicted.length).toBe(1000); // All transactions reference pruned blocks
-        expect(txPool.deleteTxs).toHaveBeenCalledWith(result.txsEvicted);
+        expect(result.txsEvicted.length).toBe(pendingTxs.length);
+        expect(txPool.deleteTxs).toHaveBeenCalledWith(result.txsEvicted, true);
       });
 
       it('handles error from deleteTxs operation', async () => {
@@ -217,9 +178,11 @@ describe('InvalidTxsAfterReorgRule', () => {
         const headerHash = Fr.random();
         const error = new Error('Delete failed');
 
-        txPool.getPendingTxsReferencingBlocks.mockResolvedValue([
+        const pendingTxs: PendingTxInfo[] = [
           { txHash: TxHash.fromString(txHash), blockHash: headerHash, isEvictable: true },
-        ]);
+        ];
+
+        txPool.getPendingTxs.mockResolvedValue(pendingTxs);
         txPool.deleteTxs.mockRejectedValue(error);
 
         const result = await rule.evict(context, txPool);
@@ -239,15 +202,17 @@ describe('InvalidTxsAfterReorgRule', () => {
         const txHash = TxHash.random().toString();
         const headerHash = Fr.random();
 
-        txPool.getPendingTxsReferencingBlocks.mockResolvedValue([
+        const pendingTxs: PendingTxInfo[] = [
           { txHash: TxHash.fromString(txHash), blockHash: headerHash, isEvictable: true },
-        ]);
+        ];
+
+        txPool.getPendingTxs.mockResolvedValue(pendingTxs);
 
         const result = await rule.evict(context, txPool);
 
         expect(result.success).toBe(true);
         expect(result.txsEvicted).toEqual([TxHash.fromString(txHash)]);
-        expect(txPool.deleteTxs).toHaveBeenCalledWith([TxHash.fromString(txHash)]);
+        expect(txPool.deleteTxs).toHaveBeenCalledWith([TxHash.fromString(txHash)], true);
       });
     });
   });

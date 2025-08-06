@@ -85,10 +85,6 @@ describe('mempool limiter test', () => {
 
   beforeAll(async () => {
     debugLogger.debug(`Preparing account and token contract`);
-
-    // set a large pool size so that deploy txs fit
-    await nodeAdmin.setConfig({ maxTxPoolSize: 1e9 });
-
     const pxe = await createPXEService(node, pxeOptions);
 
     await registerSponsoredFPC(pxe);
@@ -134,19 +130,17 @@ describe('mempool limiter test', () => {
       .transfer_in_public(wallet.getAddress(), await AztecAddress.random(), 1, 0)
       .prove({ fee });
     sampleTx = proventx;
-    const sampleTxSize = sampleTx.getSize();
-    const maxTxPoolSize = TX_MEMPOOL_LIMIT * sampleTxSize;
+    const maxTxPoolSize = TX_MEMPOOL_LIMIT;
 
     await nodeAdmin.setConfig({ maxTxPoolSize });
 
-    debugLogger.info(`Sample tx size: ${sampleTxSize} bytes`);
     debugLogger.info(`Mempool limited to: ${maxTxPoolSize} bytes`);
 
     await pxe.stop();
   }, 240_000);
 
   afterAll(async () => {
-    await nodeAdmin.setConfig({ maxTxPoolSize: 1e9 });
+    await nodeAdmin.setConfig({ maxTxPoolSize: 172800 });
     forwardProcesses.forEach(p => p.kill());
   });
 

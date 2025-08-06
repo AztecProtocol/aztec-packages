@@ -17,6 +17,9 @@ describe('OutOfBalanceTxsAfterMining', () => {
 
   beforeEach(() => {
     txPool = mock<TxPoolOperations>();
+    txPool.getPendingTxs.mockResolvedValue([]);
+    txPool.getPendingTxsWithFeePayer.mockResolvedValue([]);
+
     worldState = mock<MerkleTreeReadOperations>();
     worldState.getPreviousValueIndex.mockResolvedValue(undefined),
       worldState.getLeafPreimage.mockResolvedValue(
@@ -96,8 +99,8 @@ describe('OutOfBalanceTxsAfterMining', () => {
         });
 
         const pendingTxs: PendingTxInfo[] = [
-          { txHash: tx1, blockHash: Fr.ZERO, size: 100, isEvictable: true },
-          { txHash: tx2, blockHash: Fr.ZERO, size: 100, isEvictable: true },
+          { txHash: tx1, blockHash: Fr.ZERO, isEvictable: true },
+          { txHash: tx2, blockHash: Fr.ZERO, isEvictable: true },
         ];
         txPool.getPendingTxsWithFeePayer.mockResolvedValue(pendingTxs);
         txPool.getTxByHash.mockImplementation(txHash => {
@@ -125,7 +128,7 @@ describe('OutOfBalanceTxsAfterMining', () => {
 
         expect(result.success).toBe(true);
         expect(result.txsEvicted).toEqual([tx1]); // Only tx1 has duplicate nullifier
-        expect(txPool.deleteTxs).toHaveBeenCalledWith([tx1]);
+        expect(txPool.deleteTxs).toHaveBeenCalledWith([tx1], true);
       });
 
       it('respects non-evictable transactions', async () => {
@@ -146,8 +149,8 @@ describe('OutOfBalanceTxsAfterMining', () => {
         mockNonEvictableTx.data.feePayer = feePayers[1];
 
         const pendingTxs: PendingTxInfo[] = [
-          { txHash: evictableTx, blockHash: Fr.ZERO, size: 100, isEvictable: true },
-          { txHash: nonEvictableTx, blockHash: Fr.ZERO, size: 100, isEvictable: false },
+          { txHash: evictableTx, blockHash: Fr.ZERO, isEvictable: true },
+          { txHash: nonEvictableTx, blockHash: Fr.ZERO, isEvictable: false },
         ];
         txPool.getPendingTxsWithFeePayer.mockResolvedValue(pendingTxs);
         txPool.getTxByHash.mockImplementation(txHash => {
@@ -164,7 +167,7 @@ describe('OutOfBalanceTxsAfterMining', () => {
 
         expect(result.success).toBe(true);
         expect(result.txsEvicted).toEqual([evictableTx]); // Only evictable tx is evicted
-        expect(txPool.deleteTxs).toHaveBeenCalledWith([evictableTx]);
+        expect(txPool.deleteTxs).toHaveBeenCalledWith([evictableTx], true);
       });
 
       it('handles empty pending transactions list', async () => {
