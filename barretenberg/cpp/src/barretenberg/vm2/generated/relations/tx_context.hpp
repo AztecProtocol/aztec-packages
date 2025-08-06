@@ -18,6 +18,13 @@ template <typename FF_> class tx_contextImpl {
                                                                             4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
                                                                             4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4 };
 
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        using C = ColumnAndShifts;
+
+        return (in.get(C::tx_sel)).is_zero();
+    }
+
     template <typename ContainerOverSubrelations, typename AllEntities>
     void static accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& in,
