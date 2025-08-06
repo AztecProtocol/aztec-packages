@@ -8,3 +8,4 @@ export { PrivateExecutionOracle } from './oracle/private_execution_oracle.js';
 export { Oracle } from './oracle/oracle.js';
 export { executePrivateFunction, extractPrivateCircuitPublicInputs } from './oracle/private_execution.js';
 export { generateSimulatedProvingResult } from './contract_function_simulator.js';
+export { packAsRetrievedNote } from './oracle/note_packing_utils.js';
