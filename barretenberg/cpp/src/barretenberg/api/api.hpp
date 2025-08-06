@@ -26,7 +26,6 @@ class API {
         bool include_gates_per_opcode{ false }; // should we include gates_per_opcode in the gates command output
         bool slow_low_memory{ false };          // use file backed memory for polynomials
         bool update_inputs{ false };            // update inputs when check fails
-        std::string benchmark_out;              // file to report benchmark
 
         friend std::ostream& operator<<(std::ostream& os, const Flags& flags)
         {
