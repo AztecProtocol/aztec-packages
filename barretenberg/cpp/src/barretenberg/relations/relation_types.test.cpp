@@ -27,4 +27,14 @@ TEST(RelationTypes, CreateSumcheckTupleOfTuplesOfUnivariates)
     EXPECT_EQ(std::get<0>(std::get<0>(tuple_of_tuples)), expected_zero_1);
     EXPECT_EQ(std::get<0>(std::get<1>(tuple_of_tuples)), expected_zero_2);
     EXPECT_EQ(std::get<1>(std::get<1>(tuple_of_tuples)), expected_zero_3);
+
+    // Now test it when creating it from the type.
+    using SumcheckTupleOfTuplesOfUnivariates =
+        decltype(create_sumcheck_tuple_of_tuples_of_univariates<RelationsTuple>());
+    // Note: {} is required to initialize the tuple contents. Otherwise the univariates contain garbage.
+    SumcheckTupleOfTuplesOfUnivariates tuple_of_tuples_from_type{};
+
+    EXPECT_EQ(std::get<0>(std::get<0>(tuple_of_tuples_from_type)), expected_zero_1);
+    EXPECT_EQ(std::get<0>(std::get<1>(tuple_of_tuples_from_type)), expected_zero_2);
+    EXPECT_EQ(std::get<1>(std::get<1>(tuple_of_tuples_from_type)), expected_zero_3);
 }

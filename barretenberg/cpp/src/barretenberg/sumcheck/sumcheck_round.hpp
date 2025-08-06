@@ -76,6 +76,7 @@ template <typename Flavor> class SumcheckProverRound {
      */
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
     using SumcheckRoundUnivariate = bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>;
+    // Note: since this is not initialized with {}, the univariates contain garbage.
     SumcheckTupleOfTuplesOfUnivariates univariate_accumulators;
 
     // The length of the polynomials used to mask the Sumcheck Round Univariates.
@@ -85,7 +86,6 @@ template <typename Flavor> class SumcheckProverRound {
     SumcheckProverRound(size_t initial_round_size)
         : round_size(initial_round_size)
     {
-
         PROFILE_THIS_NAME("SumcheckProverRound constructor");
 
         // Initialize univariate accumulators to 0
@@ -505,12 +505,10 @@ template <typename Flavor> class SumcheckProverRound {
         const RowDisablingPolynomial<FF> row_disabling_polynomial)
         requires UseRowDisablingPolynomial<Flavor>
     {
-        SumcheckTupleOfTuplesOfUnivariates univariate_accumulator;
+        // Note: {} is required to initialize the tuple contents. Otherwise the univariates contain garbage.
+        SumcheckTupleOfTuplesOfUnivariates univariate_accumulator{};
         ExtendedEdges extended_edges;
         SumcheckRoundUnivariate result;
-
-        // Set all univariate accumulators to 0 before beginning the accumulation
-        Utils::zero_univariates(univariate_accumulator);
 
         // In Round 0, we have to compute the contribution from 2 edges: (1, 1,..., 1) and (0, 1, ..., 1) (as points on
         // (d-1) - dimensional Boolean hypercube).
