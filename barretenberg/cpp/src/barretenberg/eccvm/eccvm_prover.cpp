@@ -128,7 +128,7 @@ void ECCVMProver::execute_grand_product_computation_round()
 void ECCVMProver::execute_relation_check_rounds()
 {
 
-    using Sumcheck = SumcheckProver<Flavor, CONST_ECCVM_LOG_N>;
+    using Sumcheck = SumcheckProver<Flavor>;
 
     // Each linearly independent subrelation contribution is multiplied by `alpha^i`, where
     //  i = 0, ..., NUM_SUBRELATIONS- 1.
@@ -139,7 +139,13 @@ void ECCVMProver::execute_relation_check_rounds()
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
-    Sumcheck sumcheck(key->circuit_size, key->polynomials, transcript, alpha, gate_challenges, relation_parameters);
+    Sumcheck sumcheck(key->circuit_size,
+                      key->polynomials,
+                      transcript,
+                      alpha,
+                      gate_challenges,
+                      relation_parameters,
+                      CONST_ECCVM_LOG_N);
 
     zk_sumcheck_data = ZKData(key->log_circuit_size, transcript, key->commitment_key);
 
