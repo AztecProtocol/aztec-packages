@@ -19,16 +19,22 @@ const debugLogger = createLogger('e2e:spartan-test:slash-veto-demo');
 const NUM_NODES = 4;
 const NUM_VALIDATORS = NUM_NODES + 1; // We create an extra validator, who will not have a running node
 const BOOT_NODE_UDP_PORT = 4500;
-const EPOCH_DURATION = 4;
-const SLASHING_QUORUM = 5;
-const SLASHING_ROUND_SIZE = 9;
-const AZTEC_SLOT_DURATION = 12;
 const ETHEREUM_SLOT_DURATION = 6;
+const AZTEC_SLOT_DURATION = 12;
+const EPOCH_DURATION = 4;
+// how many l2 slots make up a slashing round
+const SLASHING_ROUND_SIZE = 9;
+// how many block builders must signal for a single payload in a single round for it to be executable
+const SLASHING_QUORUM = 5;
+// an attester must not attest to 50% of proven blocks over an epoch to warrant a slash payload being created
+const SLASH_INACTIVITY_CREATE_TARGET_PERCENTAGE = 0.5;
+// an attester must not attest to 10% of proven blocks over an epoch to agree with a slash
+const SLASH_INACTIVITY_SIGNAL_TARGET_PERCENTAGE = 0.1;
+// round N must be submitted in/before round N + LIFETIME_IN_ROUNDS
 const LIFETIME_IN_ROUNDS = 2;
+// round N must be submitted after round N + EXECUTION_DELAY_IN_ROUNDS
 const EXECUTION_DELAY_IN_ROUNDS = 1;
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'slash-veto-demo-'));
-
-// const config = setupEnvironment(process.env) as K8sGCloudConfig;
 
 describe('veto slash', () => {
   let t: P2PNetworkTest;
@@ -53,10 +59,10 @@ describe('veto slash', () => {
         aztecEpochDuration: EPOCH_DURATION,
         validatorReexecute: false,
         sentinelEnabled: true,
-        slashingQuorum: SLASHING_QUORUM,
         slashingRoundSize: SLASHING_ROUND_SIZE,
-        slashInactivityCreateTargetPercentage: 0.5,
-        slashInactivitySignalTargetPercentage: 0.1,
+        slashingQuorum: SLASHING_QUORUM,
+        slashInactivityCreateTargetPercentage: SLASH_INACTIVITY_CREATE_TARGET_PERCENTAGE,
+        slashInactivitySignalTargetPercentage: SLASH_INACTIVITY_SIGNAL_TARGET_PERCENTAGE,
         slashProposerRoundPollingIntervalSeconds: 1,
       },
     });
@@ -105,6 +111,12 @@ describe('veto slash', () => {
     }
   });
 
+  /**
+   * Deploys a new slasher contract on L1.
+   *
+   * @param deployerClient - The client to use to deploy the slasher contract. Also serves as the VETOER.
+   * @returns The address of the deployed slasher contract.
+   */
   async function deployNewSlasher(deployerClient: ExtendedViemWalletClient) {
     const deployer = new L1Deployer(deployerClient, 42, undefined, false, undefined, undefined);
     const args = [
@@ -124,6 +136,12 @@ describe('veto slash', () => {
   it.each([false])(
     'sets the new slasher and shouldVeto=%s',
     async (shouldVeto: boolean) => {
+      //################################//
+      //                                //
+      // Create new Slasher with Vetoer //
+      //                                //
+      //################################//
+
       const l1Client = t.ctx.deployL1ContractsValues.l1Client;
       const newSlasherAddress = await deployNewSlasher(l1Client);
       debugLogger.info(`\n\nnewSlasherAddress: ${newSlasherAddress}\n\n`);
@@ -148,6 +166,12 @@ describe('veto slash', () => {
       expect(slasherVetoer).toEqual(l1Client.account.address);
 
       const slashingProposer = await rollup.getSlashingProposer();
+
+      //#######################################//
+      //                                       //
+      // Wait for quorum on inactive validator //
+      //                                       //
+      //#######################################//
 
       const awaitSubmittableRound = new Promise<{ payload: `0x${string}`; round: bigint }>(resolve => {
         slashingProposer.listenToSubmittablePayloads(args => {
@@ -187,10 +211,22 @@ describe('veto slash', () => {
       debugLogger.info(`\n\nsubmittableRound: ${submittableRound.round}\n\n`);
       debugLogger.info(`\n\nsubmittablePayload: ${submittableRound.payload}\n\n`);
 
+      //##############################//
+      //                              //
+      // Wait until the round is over //
+      //                              //
+      //##############################//
+
       await retryUntil(async () => {
         const currentRound = await slashingProposer.getCurrentRound();
         return currentRound > submittableRound.round;
       });
+
+      //###########################################//
+      //                                           //
+      // Get initial balance of inactive validator //
+      //                                           //
+      //###########################################//
 
       const attesterPrivateKey = t.attesterPrivateKeys[t.attesterPrivateKeys.length - 1];
       const attester = privateKeyToAccount(attesterPrivateKey);
@@ -206,6 +242,12 @@ describe('veto slash', () => {
       const gseOwnerAddress = await gse.read.owner();
       debugLogger.info(`\n\ngseOwnerAddress: ${gseOwnerAddress}\n\n`);
 
+      //##############################//
+      //                              //
+      // Veto the slash if configured //
+      //                              //
+      //##############################//
+
       if (shouldVeto) {
         const slasher = getContract({
           address: await rollup.getSlasher(),
@@ -216,6 +258,12 @@ describe('veto slash', () => {
         const receipt = await t.ctx.deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: tx });
         debugLogger.info(`\n\nvetoPayload tx receipt: ${receipt.status}\n\n`);
       }
+
+      //###################################//
+      //                                   //
+      // Await payload expired or executed //
+      //                                   //
+      //###################################//
 
       const awaitPayloadSubmitted = new Promise<{ round: bigint; payload: `0x${string}` }>(resolve => {
         slashingProposer.listenToPayloadSubmitted(args => {
@@ -230,9 +278,11 @@ describe('veto slash', () => {
       const payloadExecutedOrExpired = await Promise.race([awaitPayloadSubmitted, awaitPayloadExpiredPromise]);
       const badAttesterFinalBalance = await gse.read.effectiveBalanceOf([rollup.address, attester.address]);
       if (shouldVeto) {
+        // If we vetoed, the attester should have their balance unchanged.
         expect(payloadExecutedOrExpired).toBe(true);
         expect(badAttesterFinalBalance).toBe(badAttesterInitialBalance);
       } else {
+        // If we didn't veto, the attester should have their balance decreased by the slashing amount.
         expect((payloadExecutedOrExpired as { round: bigint; payload: `0x${string}` }).round).toBe(
           submittableRound.round,
         );
