@@ -9,7 +9,7 @@ const logger = pino({
 });
 
 const UH_PROOF_FIELDS_LENGTH = 508; // length of UltraZKHonk flavor
-const UH_KECCAK_PROOF_ELEMENTS_LENGTH = 426; // length of UltraZKHonk flavor
+const UH_KECCAK_PROOF_ELEMENTS_LENGTH = 396; // length of UltraZKHonk flavor
 const BYTES_PER_ELEMENT = 32;
 const UH_PROOF_LENGTH_IN_BYTES = UH_PROOF_FIELDS_LENGTH * BYTES_PER_ELEMENT;
 const UH_KECCAK_PROOF_LENGTH_IN_BYTES =
