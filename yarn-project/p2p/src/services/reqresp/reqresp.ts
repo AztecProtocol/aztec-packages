@@ -556,7 +556,9 @@ export class ReqResp implements ReqRespInterface {
           ? 'Protocol error sent successfully.'
           : 'Stream already closed or poisoned, not sending error response.';
 
-        const level = err.status === ReqRespStatus.RATE_LIMIT_EXCEEDED ? 'debug' : 'warn';
+        const isRateLimit = err.status === ReqRespStatus.RATE_LIMIT_EXCEEDED;
+
+        const level = isRateLimit ? 'debug' : 'warn';
         this.logger[level](logMessage + ` Status: ${ReqRespStatus[err.status]}`, {
           protocol,
           err,
@@ -566,7 +568,11 @@ export class ReqResp implements ReqRespInterface {
       } else {
         // In erroneous case we abort the stream, this will signal the peer that something went wrong
         // and that this stream should be dropped
-        this.logger.warn('Unknown stream error while handling the stream, aborting', {
+        const isMessageToNotWarn =
+          err instanceof Error &&
+          ['stream reset', 'Cannot push value onto an ended pushable'].some(msg => err.message.includes(msg));
+        const level = isMessageToNotWarn ? 'debug' : 'warn';
+        this.logger[level]('Unknown stream error while handling the stream, aborting', {
           protocol,
           err,
         });
