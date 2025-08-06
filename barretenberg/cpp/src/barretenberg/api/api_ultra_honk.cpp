@@ -140,7 +140,7 @@ bool _verify(const bool ipa_accumulation,
 
     Verifier verifier{ vk, ipa_verification_key };
 
-    bool verified;
+    bool verified = false;
     if (ipa_accumulation) {
         const size_t HONK_PROOF_LENGTH = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH;
         const size_t num_public_inputs = static_cast<size_t>(vk->num_public_inputs);
@@ -153,9 +153,9 @@ bool _verify(const bool ipa_accumulation,
         auto ipa_proof = Proof(complete_proof.begin() + honk_proof_with_pub_inputs_length, complete_proof.end());
         auto tube_honk_proof =
             Proof(complete_proof.begin(), complete_proof.begin() + honk_proof_with_pub_inputs_length);
-        verified = verifier.verify_proof(complete_proof, ipa_proof);
+        verified = verifier.template verify_proof<RollupIO>(complete_proof, ipa_proof).result;
     } else {
-        verified = verifier.verify_proof(complete_proof);
+        verified = verifier.template verify_proof<DefaultIO>(complete_proof).result;
     }
 
     if (verified) {

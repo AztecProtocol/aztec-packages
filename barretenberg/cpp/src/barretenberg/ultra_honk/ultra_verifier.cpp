@@ -99,6 +99,9 @@ template UltraVerifier_<UltraFlavor>::UltraVerifierOutput UltraVerifier_<UltraFl
 template UltraVerifier_<UltraZKFlavor>::UltraVerifierOutput UltraVerifier_<UltraZKFlavor>::verify_proof<DefaultIO>(
     const Proof& proof, const Proof& ipa_proof);
 
+template UltraVerifier_<UltraKeccakFlavor>::UltraVerifierOutput UltraVerifier_<UltraKeccakFlavor>::verify_proof<
+    DefaultIO>(const Proof& proof, const Proof& ipa_proof);
+
 #ifdef STARKNET_GARAGA_FLAVORS
 template UltraVerifier_<UltraStarknetFlavor>::UltraVerifierOutput UltraVerifier_<UltraStarknetFlavor>::verify_proof<
     DefaultIO>(const Proof& proof, const Proof& ipa_proof);
