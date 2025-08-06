@@ -85,12 +85,15 @@ jobs:
           git config --global user.email tech@aztecprotocol.com
 
       - name: Build dependencies for Aztec docs
-        if: ${{ matrix.docs.changed == 'true' && matrix.docs.name == 'aztec' }}
+        if: ${{ matrix.docs.changed == 'true' && matrix.docs.name == 'aztec-docs-prod' }}
         run: |
-          export NOIR_HASH=$(./noir/bootstrap.sh hash)
-          for project in noir barretenberg avm-transpiler noir-projects l1-contracts yarn-project; do
-            $project/bootstrap.sh
-          done
+          # Only build if we want TypeDoc generation
+          # For standalone builds, comment out the following:
+          # export NOIR_HASH=$(./noir/bootstrap.sh hash)
+          # for project in noir barretenberg avm-transpiler noir-projects l1-contracts yarn-project; do
+          #   $project/bootstrap.sh
+          # done
+          echo "Skipping package builds for standalone docs build"
 
       - name: Build dependencies for Barretenberg docs
         if: ${{ matrix.docs.changed == 'true' && matrix.docs.name == 'barretenberg' }}
@@ -105,7 +108,7 @@ jobs:
         run: |
           echo "Deploying ${{ matrix.docs.name }} docs to production"
           yarn install
-          yarn build
+          yarn build:standalone
 
           if ! deploy_output=$(yarn netlify deploy --site ${{ matrix.docs.name }} --prod 2>&1); then
             echo "Netlify deploy failed with error:"
