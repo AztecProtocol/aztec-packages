@@ -254,7 +254,7 @@ TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
     auto proof_copy = prover_copy.construct_proof();
 
     RelationChecker<Flavor>::check_all(proving_key->polynomials, proving_key->relation_parameters);
-    bool result_copy = verifier.template verify_proof<DefaultIO>(proof_copy).result;
+    bool result_copy = verifier_copy.template verify_proof<DefaultIO>(proof_copy).result;
     EXPECT_TRUE(result_copy);
 }
 
@@ -520,6 +520,6 @@ TYPED_TEST(MegaHonkTests, PolySwap)
         typename TestFixture::Verifier verifier(verification_key);
         auto proof = prover.construct_proof();
         bool result = verifier.template verify_proof<DefaultIO>(proof).result;
-        EXPECT_TRUE(result);
+        EXPECT_FALSE(result);
     }
 }
