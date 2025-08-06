@@ -1,0 +1,195 @@
+namespace tx;
+
+
+    // This the same sel as in tx
+    #[skippable_if]
+    sel = 0;
+
+    // Previous Tree State
+    pol commit prev_note_hash_tree_root;
+    pol commit prev_note_hash_tree_size;
+    pol commit prev_num_note_hashes_emitted;
+
+    pol commit prev_nullifier_tree_root;
+    pol commit prev_nullifier_tree_size;
+    pol commit prev_num_nullifiers_emitted;
+
+    pol commit prev_public_data_tree_root;
+    pol commit prev_public_data_tree_size;
+
+    pol commit prev_written_public_data_slots_tree_root;
+    pol commit prev_written_public_data_slots_tree_size;
+
+    // L1 to L2 tree doesn't evolve during execution of the AVM
+    pol commit l1_l2_tree_root;
+
+    // Next Tree State
+    pol commit next_note_hash_tree_root;
+    pol commit next_note_hash_tree_size;
+    pol commit next_num_note_hashes_emitted;
+
+    pol commit next_nullifier_tree_root;
+    pol commit next_nullifier_tree_size;
+    pol commit next_num_nullifiers_emitted;
+
+    pol commit next_public_data_tree_root;
+    pol commit next_public_data_tree_size;
+
+    pol commit next_written_public_data_slots_tree_root;
+    pol commit next_written_public_data_slots_tree_size;
+
+    // Prev side effect states
+    pol commit prev_num_unencrypted_logs;
+    pol commit prev_num_l2_to_l1_messages;
+    // Next side effect states
+    pol commit next_num_unencrypted_logs;
+    pol commit next_num_l2_to_l1_messages;
+
+    pol NOT_LAST_ROW = sel * sel';
+
+    // Base continuity constraints
+    #[NOTE_HASH_ROOT_CONTINUITY]
+    NOT_LAST_ROW * (1 - reverted) * (next_note_hash_tree_root - prev_note_hash_tree_root') = 0;
+    #[NOTE_HASH_TREE_SIZE_CONTINUITY]
+    NOT_LAST_ROW * (1 - reverted) * (next_note_hash_tree_size - prev_note_hash_tree_size') = 0;
+    #[NUM_NOTE_HASHES_EMITTED_CONTINUITY]
+    NOT_LAST_ROW * (1 - reverted) * (next_num_note_hashes_emitted - prev_num_note_hashes_emitted') = 0;
+    #[NULLIFIER_TREE_ROOT_CONTINUITY]
+    NOT_LAST_ROW * (1 - reverted) * (next_nullifier_tree_root - prev_nullifier_tree_root') = 0;
+    #[NULLIFIER_TREE_SIZE_CONTINUITY]
+    NOT_LAST_ROW * (1 - reverted) * (next_nullifier_tree_size - prev_nullifier_tree_size') = 0;
+    #[NUM_NULLIFIERS_EMITTED_CONTINUITY]
+    NOT_LAST_ROW * (1 - reverted) * (next_num_nullifiers_emitted - prev_num_nullifiers_emitted') = 0;
+    #[PUBLIC_DATA_TREE_ROOT_CONTINUITY]
+    NOT_LAST_ROW * (1 - reverted) * (next_public_data_tree_root - prev_public_data_tree_root') = 0;
+    #[PUBLIC_DATA_TREE_SIZE_CONTINUITY]
+    NOT_LAST_ROW * (1 - reverted) * (next_public_data_tree_size - prev_public_data_tree_size') = 0;
+    #[WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY]
+    NOT_LAST_ROW * (1 - reverted) * (next_written_public_data_slots_tree_root - prev_written_public_data_slots_tree_root') = 0;
+    #[WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY]
+    NOT_LAST_ROW * (1 - reverted) * (next_written_public_data_slots_tree_size - prev_written_public_data_slots_tree_size') = 0;
+    #[L1_L2_TREE_ROOT_CONTINUITY]
+    NOT_LAST_ROW * (l1_l2_tree_root - l1_l2_tree_root') = 0;
+
+    #[NUM_UNENCRYPTED_LOGS_CONTINUITY]
+    NOT_LAST_ROW * (1 - reverted) * (next_num_unencrypted_logs - prev_num_unencrypted_logs') = 0;
+    #[NUM_L2_TO_L1_MESSAGES_CONTINUITY]
+    NOT_LAST_ROW * (1 - reverted) * (next_num_l2_to_l1_messages - prev_num_l2_to_l1_messages') = 0;
+
+    pol commit setup_phase_value;
+    sel * (4 - setup_phase_value) = 0;
+
+    // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
+    // #[RESTORE_STATE_ON_REVERT]
+    // reverted {
+    //     setup_phase_value,
+    //     reverted, // end_phase = 1
+    //     prev_note_hash_tree_root',
+    //     prev_note_hash_tree_size',
+    //     prev_num_note_hashes_emitted',
+    //     prev_nullifier_tree_root',
+    //     prev_nullifier_tree_size',
+    //     prev_num_nullifiers_emitted',
+    //     prev_public_data_tree_root',
+    //     prev_public_data_tree_size',
+    //     prev_written_public_data_slots_tree_root',
+    //     prev_written_public_data_slots_tree_size',
+    //     prev_num_unencrypted_logs',
+    //     prev_num_l2_to_l1_messages'
+    // } in
+    // tx.sel {
+    //     phase_value,
+    //     end_phase,
+    //     next_note_hash_tree_root,
+    //     next_note_hash_tree_size,
+    //     next_num_note_hashes_emitted,
+    //     next_nullifier_tree_root,
+    //     next_nullifier_tree_size,
+    //     next_num_nullifiers_emitted,
+    //     next_public_data_tree_root,
+    //     next_public_data_tree_size,
+    //     next_written_public_data_slots_tree_root,
+    //     next_written_public_data_slots_tree_size,
+    //     next_num_unencrypted_logs,
+    //     next_num_l2_to_l1_messages
+    // };
+
+    // Selectors to allow prev => next state changes on the different phases
+    pol commit sel_can_emit_note_hash;
+    pol commit sel_can_emit_nullifier;
+    pol commit sel_can_write_public_data;
+    pol commit sel_can_emit_unencrypted_log;
+    pol commit sel_can_emit_l2_l1_msg;
+
+
+    #[NOTE_HASH_ROOT_IMMUTABILITY]
+    sel * (1 - sel_can_emit_note_hash) * (prev_note_hash_tree_root - next_note_hash_tree_root) = 0;
+    #[NOTE_HASH_SIZE_IMMUTABILITY]
+    sel * (1 - sel_can_emit_note_hash) * (prev_note_hash_tree_size - next_note_hash_tree_size) = 0;
+    #[NOTE_HASH_COUNT_IMMUTABILITY]
+    sel * (1 - sel_can_emit_note_hash) * (prev_num_note_hashes_emitted - next_num_note_hashes_emitted) = 0;
+
+    #[NULLIFIER_ROOT_IMMUTABILITY]
+    sel * (1 - sel_can_emit_nullifier) * (prev_nullifier_tree_root - next_nullifier_tree_root) = 0;
+    #[NULLIFIER_SIZE_IMMUTABILITY]
+    sel * (1 - sel_can_emit_nullifier) * (prev_nullifier_tree_size - next_nullifier_tree_size) = 0;
+    #[NULLIFIER_COUNT_IMMUTABILITY]
+    sel * (1 - sel_can_emit_nullifier) * (prev_num_nullifiers_emitted - next_num_nullifiers_emitted) = 0;
+
+    #[PUBLIC_DATA_ROOT_IMMUTABILITY]
+    sel * (1 - sel_can_write_public_data) * (prev_public_data_tree_root - next_public_data_tree_root) = 0;
+    #[PUBLIC_DATA_SIZE_IMMUTABILITY]
+    sel * (1 - sel_can_write_public_data) * (prev_public_data_tree_size - next_public_data_tree_size) = 0;
+    #[WRITTEN_PUBLIC_DATA_SLOTS_ROOT_IMMUTABILITY]
+    sel * (1 - sel_can_write_public_data) * (prev_written_public_data_slots_tree_root - next_written_public_data_slots_tree_root) = 0;
+    #[WRITTEN_PUBLIC_DATA_SLOTS_SIZE_IMMUTABILITY]
+    sel * (1 - sel_can_write_public_data) * (prev_written_public_data_slots_tree_size - next_written_public_data_slots_tree_size) = 0;
+
+    #[UNENCRYPTED_LOG_COUNT_IMMUTABILITY]
+    sel * (1 - sel_can_emit_unencrypted_log) * (prev_num_unencrypted_logs - next_num_unencrypted_logs) = 0;
+
+    #[L2_TO_L1_MESSAGE_COUNT_IMMUTABILITY]
+    sel * (1 - sel_can_emit_l2_l1_msg) * (prev_num_l2_to_l1_messages - next_num_l2_to_l1_messages) = 0;
+
+    // Padded rows are not allowed to change the state
+    #[NOTE_HASH_ROOT_PADDED_IMMUTABILITY]
+    sel * is_padded * (prev_note_hash_tree_root - next_note_hash_tree_root) = 0;
+    #[NOTE_HASH_SIZE_PADDED_IMMUTABILITY]
+    sel * is_padded * (prev_note_hash_tree_size - next_note_hash_tree_size) = 0;
+    #[NOTE_HASH_COUNT_PADDED_IMMUTABILITY]
+    sel * is_padded * (prev_num_note_hashes_emitted - next_num_note_hashes_emitted) = 0;
+
+    #[NULLIFIER_ROOT_PADDED_IMMUTABILITY]
+    sel * is_padded * (prev_nullifier_tree_root - next_nullifier_tree_root) = 0;
+    #[NULLIFIER_SIZE_PADDED_IMMUTABILITY]
+    sel * is_padded * (prev_nullifier_tree_size - next_nullifier_tree_size) = 0;
+    #[NULLIFIER_COUNT_PADDED_IMMUTABILITY]
+    sel * is_padded * (prev_num_nullifiers_emitted - next_num_nullifiers_emitted) = 0;
+
+    #[PUBLIC_DATA_ROOT_PADDED_IMMUTABILITY]
+    sel * is_padded * (prev_public_data_tree_root - next_public_data_tree_root) = 0;
+    #[PUBLIC_DATA_SIZE_PADDED_IMMUTABILITY]
+    sel * is_padded * (prev_public_data_tree_size - next_public_data_tree_size) = 0;
+    #[WRITTEN_PUBLIC_DATA_SLOTS_ROOT_PADDED_IMMUTABILITY]
+    sel * is_padded * (prev_written_public_data_slots_tree_root - next_written_public_data_slots_tree_root) = 0;
+    #[WRITTEN_PUBLIC_DATA_SLOTS_SIZE_PADDED_IMMUTABILITY]
+    sel * is_padded * (prev_written_public_data_slots_tree_size - next_written_public_data_slots_tree_size) = 0;
+
+    #[UNENCRYPTED_LOG_COUNT_PADDED_IMMUTABILITY]
+    sel * is_padded * (prev_num_unencrypted_logs - next_num_unencrypted_logs) = 0;
+    #[L2_TO_L1_MESSAGE_COUNT_PADDED_IMMUTABILITY]
+    sel * is_padded * (prev_num_l2_to_l1_messages - next_num_l2_to_l1_messages) = 0;
+
+    // Gas Info
+    // TODO: Constrain first row read from PI
+    pol commit prev_l2_gas_used;
+    pol commit prev_da_gas_used;
+
+    pol commit next_l2_gas_used;
+    pol commit next_da_gas_used;
+
+    #[PROPAGATE_L2_GAS_USED]
+    NOT_LAST_ROW * (next_l2_gas_used - prev_l2_gas_used') = 0;
+    #[PROPAGATE_DA_GAS_USED]
+    NOT_LAST_ROW * (next_da_gas_used - prev_da_gas_used') = 0;
+
