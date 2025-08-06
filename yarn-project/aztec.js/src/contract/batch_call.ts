@@ -21,7 +21,7 @@ export class BatchCall extends BaseContractInteraction {
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns A Promise that resolves to a transaction instance.
    */
-  public async create(options: SendMethodOptions): Promise<TxExecutionRequest> {
+  public async create(options: SendMethodOptions = { from: this.wallet.getAddress() }): Promise<TxExecutionRequest> {
     const requestWithoutFee = await this.request(options);
 
     const { fee: userFee, txNonce, cancellable } = options;

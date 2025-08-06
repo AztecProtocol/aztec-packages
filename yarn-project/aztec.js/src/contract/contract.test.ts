@@ -205,6 +205,6 @@ describe('Contract Class', () => {
 
   it('should not call create on a utility  function', async () => {
     const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
-    await expect(fooContract.methods.qux().create({ from: account.address })).rejects.toThrow();
+    await expect(fooContract.methods.qux().create()).rejects.toThrow();
   });
 });

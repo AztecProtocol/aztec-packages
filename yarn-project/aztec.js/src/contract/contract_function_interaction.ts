@@ -71,9 +71,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns A Promise that resolves to a transaction instance.
    */
-  public override async create(
-    options: SendMethodOptions = { from: this.wallet.getAddress() },
-  ): Promise<TxExecutionRequest> {
+  public override async create(options: Omit<SendMethodOptions, 'from'> = {}): Promise<TxExecutionRequest> {
     // docs:end:create
     if (this.functionDao.functionType === FunctionType.UTILITY) {
       throw new Error("Can't call `create` on a utility  function.");
@@ -199,9 +197,9 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     if (this.functionDao.functionType == FunctionType.UTILITY) {
       throw new Error("Can't profile a utility function.");
     }
-    const { authWitnesses, capsules, fee, from } = options;
+    const { authWitnesses, capsules, fee } = options;
 
-    const txRequest = await this.create({ from, fee, authWitnesses, capsules });
+    const txRequest = await this.create({ fee, authWitnesses, capsules });
     return await this.wallet.profileTx(txRequest, options.profileMode, options.skipProofGeneration, options?.from);
   }
 

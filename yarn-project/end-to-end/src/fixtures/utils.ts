@@ -258,7 +258,7 @@ async function setupWithRemoteEnvironment(
     config,
     initialFundedAccounts,
     wallet: wallets[0],
-    wallets: wallets.slice(0, numberOfAccounts),
+    accounts: wallets.slice(0, numberOfAccounts).map(w => w.getAddress()),
     logger,
     cheatCodes,
     prefilledPublicData: undefined,
@@ -338,7 +338,7 @@ export type EndToEndContext = {
   /** The first wallet to be used. */
   wallet: AccountWalletWithSecretKey;
   /** The wallets to be used. */
-  wallets: AccountWalletWithSecretKey[];
+  accounts: AztecAddress[];
   /** Logger instance named as the current test. */
   logger: Logger;
   /** The cheat codes. */
@@ -711,7 +711,7 @@ export async function setup(
       teardown,
       telemetryClient: telemetry,
       wallet: wallets[0],
-      wallets,
+      accounts: wallets.map(w => w.getAddress()),
       watcher,
     };
   } catch (err) {

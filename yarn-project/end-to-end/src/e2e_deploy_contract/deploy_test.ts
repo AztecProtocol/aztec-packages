@@ -25,7 +25,7 @@ export class DeployTest {
   public logger: Logger;
   public pxe!: PXE;
   public wallet!: AccountWallet;
-  public defaultAddress!: AztecAddress;
+  public defaultAccountAddress!: AztecAddress;
   public aztecNode!: AztecNode;
   public aztecNodeAdmin!: AztecNodeAdmin;
 
@@ -54,7 +54,7 @@ export class DeployTest {
         const wallets = await Promise.all(deployedAccounts.map(a => getSchnorrWallet(pxe, a.address, a.signingKey)));
         wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
         this.wallet = wallets[0];
-        this.defaultAddress = this.wallet.getAddress();
+        this.defaultAccountAddress = this.wallet.getAddress();
       },
     );
   }

@@ -133,7 +133,7 @@ describe('e2e_deploy_contract legacy', () => {
     expect(badTxReceipt.status).toEqual(TxStatus.APP_LOGIC_REVERTED);
 
     const { isContractClassPubliclyRegistered } = await pxe.getContractClassMetadata(
-      (await badDeploy.getInstance({ from: defaultAccountAddress })).currentContractClassId,
+      (await badDeploy.getInstance()).currentContractClassId,
     );
     // But the bad tx did not deploy
     expect(isContractClassPubliclyRegistered).toBeFalse();

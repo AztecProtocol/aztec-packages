@@ -162,7 +162,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @param options - Contract creation options.
    * @returns An execution payload with potentially calls (and bytecode capsule) to the class registry and instance registry.
    */
-  protected async getPublicationExecutionPayload(options: DeployOptions): Promise<ExecutionPayload> {
+  protected async getPublicationExecutionPayload(options: Omit<DeployOptions, 'from'> = {}): Promise<ExecutionPayload> {
     const calls: ExecutionPayload[] = [];
 
     // Set contract instance object so it's available for populating the DeploySendTx object
@@ -209,7 +209,9 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @param options - Deployment options.
    * @returns - An array of function calls.
    */
-  protected async getInitializationExecutionPayload(options: DeployOptions): Promise<ExecutionPayload> {
+  protected async getInitializationExecutionPayload(
+    options: Omit<DeployOptions, 'from'> = {},
+  ): Promise<ExecutionPayload> {
     const executionsPayloads: ExecutionPayload[] = [];
     if (this.constructorArtifact && !options.skipInitialization) {
       const { address } = await this.getInstance(options);
@@ -244,7 +246,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @param options - An object containing various initialization and publication options.
    * @returns An instance object.
    */
-  public async getInstance(options: DeployOptions): Promise<ContractInstanceWithAddress> {
+  public async getInstance(options: Omit<DeployOptions, 'from'> = {}): Promise<ContractInstanceWithAddress> {
     if (!this.instance) {
       this.instance = await getContractInstanceFromInstantiationParams(this.artifact, {
         constructorArgs: this.args,
