@@ -1,5 +1,10 @@
 namespace tx;
 
+
+    // This the same sel as in tx
+    #[skippable_if]
+    sel = 0;
+
     // Previous Tree State
     pol commit prev_note_hash_tree_root;
     pol commit prev_note_hash_tree_size;
