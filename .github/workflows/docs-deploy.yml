@@ -5,9 +5,8 @@ on:
   push:
     branches:
       - next
-    paths:
-      - docs/**
-      - barretenberg/docs/**
+    tags:
+      - "v*"
 
 permissions:
   contents: read
@@ -29,16 +28,16 @@ jobs:
             barretenberg:
               - 'barretenberg/docs/**'
 
-  docs-preview:
+  docs-deploy:
     runs-on: ubuntu-latest
     needs: check-changes
     strategy:
       matrix:
         docs:
-          - name: "aztec-docs"
+          - name: "aztec-docs-prod"
             path: "docs"
             changed: "${{ needs.check-changes.outputs.aztec }}"
-          - name: "barretenberg-docs"
+          - name: "barretenberg"
             path: "barretenberg/docs"
             changed: "${{ needs.check-changes.outputs.barretenberg }}"
     if: |
