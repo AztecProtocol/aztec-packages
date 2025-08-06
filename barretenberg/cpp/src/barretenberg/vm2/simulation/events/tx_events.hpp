@@ -19,6 +19,8 @@ struct EnqueuedCallEvent {
     FF transaction_fee;
     bool is_static;
     FF calldata_hash;
+    Gas start_gas;
+    Gas end_gas;
     Gas gas_limit;
     bool success;
 };

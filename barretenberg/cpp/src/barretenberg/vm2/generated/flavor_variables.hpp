@@ -57,6 +57,7 @@
 #include "relations/to_radix.hpp"
 #include "relations/to_radix_mem.hpp"
 #include "relations/tx.hpp"
+#include "relations/tx_context.hpp"
 #include "relations/update_check.hpp"
 #include "relations/written_public_data_slots_tree_check.hpp"
 
@@ -120,11 +121,11 @@
 namespace bb::avm2 {
 
 struct AvmFlavorVariables {
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 126;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2658;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 287;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 131;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2667;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 300;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3071;
+    static constexpr size_t NUM_ALL_ENTITIES = 3098;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -185,6 +186,7 @@ struct AvmFlavorVariables {
         avm2::to_radix<FF_>,
         avm2::to_radix_mem<FF_>,
         avm2::tx<FF_>,
+        avm2::tx_context<FF_>,
         avm2::update_check<FF_>,
         avm2::written_public_data_slots_tree_check<FF_>>;
 
