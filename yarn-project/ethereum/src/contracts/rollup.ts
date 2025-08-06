@@ -235,6 +235,10 @@ export class RollupContract {
     return this.rollup.read.getSlasher();
   }
 
+  getOwner() {
+    return this.rollup.read.owner();
+  }
+
   public async getSlashingProposerAddress() {
     const slasherAddress = await this.getSlasher();
     const slasher = getContract({
@@ -702,5 +706,21 @@ export class RollupContract {
         args: [proposalId],
       }),
     });
+  }
+
+  public listenToSlasherChanged(callback: (args: { oldSlasher: `0x${string}`; newSlasher: `0x${string}` }) => unknown) {
+    return this.rollup.watchEvent.SlasherUpdated(
+      {},
+      {
+        onLogs: logs => {
+          for (const log of logs) {
+            const args = log.args;
+            if (args.oldSlasher && args.newSlasher) {
+              callback(args as { oldSlasher: `0x${string}`; newSlasher: `0x${string}` });
+            }
+          }
+        },
+      },
+    );
   }
 }
