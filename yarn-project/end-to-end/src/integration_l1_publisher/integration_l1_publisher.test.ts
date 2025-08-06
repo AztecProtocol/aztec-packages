@@ -531,7 +531,7 @@ describe('L1Publisher integration', () => {
       const blockAttestations = validators.map(v => makeBlockAttestationFromBlock(block, v));
       const attestations = orderAttestations(blockAttestations, committee!);
 
-      const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
+      const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(0), proposer!);
       expect(canPropose?.slot).toEqual(block.header.getSlot());
       await publisher.validateBlockHeader(block.header.toPropose());
 
@@ -545,7 +545,7 @@ describe('L1Publisher integration', () => {
       // Reverse attestations to break proposer attestation
       const attestations = orderAttestations(blockAttestations, committee!).reverse();
 
-      const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
+      const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(0), proposer!);
       expect(canPropose?.slot).toEqual(block.header.getSlot());
       await publisher.validateBlockHeader(block.header.toPropose());
 
@@ -593,10 +593,9 @@ describe('L1Publisher integration', () => {
       expect(forcePendingBlockNumber).toEqual(0);
 
       // We cannot propose directly, we need to assume the previous block is invalidated
-      const genesis = new Fr(GENESIS_ARCHIVE_ROOT);
-      logger.warn(`Checking can propose at next eth block on top of genesis ${genesis}`);
-      expect(await publisher.canProposeAtNextEthBlock(genesis, proposer!)).toBeUndefined();
-      const canPropose = await publisher.canProposeAtNextEthBlock(genesis, proposer!, { forcePendingBlockNumber });
+      logger.warn(`Checking can propose at next eth block on top of genesis`);
+      expect(await publisher.canProposeAtNextEthBlock(new Fr(0), proposer!)).toBeUndefined();
+      const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(0), proposer!, { forcePendingBlockNumber });
       expect(canPropose?.slot).toEqual(block.header.getSlot());
 
       // Same for validation

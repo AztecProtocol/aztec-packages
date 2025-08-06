@@ -578,9 +578,29 @@ describe('Archiver', () => {
 
     // During the first archiver loop, we fetch block 1 and the block 2 with bad attestations
     publicClient.getBlockNumber.mockResolvedValue(85n);
-    makeL2BlockProposedEvent(70n, 1n, blocks[0].archive.root.toString(), blobHashes[0]);
-    makeL2BlockProposedEvent(80n, 2n, badBlock2.archive.root.toString(), badBlock2BlobHashes);
-    mockRollup.read.status.mockResolvedValue([0n, GENESIS_ROOT, 2n, badBlock2.archive.root.toString(), GENESIS_ROOT]);
+    makeL2BlockProposedEvent(
+      70n,
+      1n,
+      blocks[0].header.toPropose().hash().toString(),
+      GENESIS_HEADER_HASH,
+      blobHashes[0],
+    );
+    makeL2BlockProposedEvent(
+      80n,
+      2n,
+      badBlock2.header.toPropose().hash().toString(),
+      blocks[0].header.toPropose().hash().toString(),
+      badBlock2BlobHashes,
+    );
+    mockRollup.read.status.mockResolvedValue({
+      provenBlockNumber: 0n,
+      provenArchive: GENESIS_ROOT,
+      pendingBlockNumber: 2n,
+      pendingHeaderHash: badBlock2.header.toPropose().hash().toString(),
+      headerHashOfMyBlock: GENESIS_HEADER_HASH,
+      provenEpochNumber: 0n,
+      isBlockHeaderHashStale: false,
+    } as ViemRollupStatus);
     publicClient.getTransaction.mockResolvedValueOnce(rollupTxs[0]).mockResolvedValueOnce(badBlock2RollupTx);
     blobSinkClient.getBlobSidecar.mockResolvedValueOnce(blobsFromBlocks[0]).mockResolvedValueOnce(badBlock2Blobs);
 
@@ -608,14 +628,22 @@ describe('Archiver', () => {
     // Now another loop, where we propose a block 3 with bad attestations
     logger.warn(`Adding new block 3 with bad attestations`);
     publicClient.getBlockNumber.mockResolvedValue(90n);
-    makeL2BlockProposedEvent(85n, 3n, badBlock3.archive.root.toString(), badBlock3BlobHashes);
-    mockRollup.read.status.mockResolvedValue([
-      0n,
-      GENESIS_ROOT,
+    makeL2BlockProposedEvent(
+      85n,
       3n,
-      badBlock3.archive.root.toString(),
-      blocks[0].archive.root.toString(),
-    ]);
+      badBlock3.header.toPropose().hash().toString(),
+      blocks[1].header.toPropose().hash().toString(),
+      badBlock3BlobHashes,
+    );
+    mockRollup.read.status.mockResolvedValue({
+      provenBlockNumber: 0n,
+      provenArchive: GENESIS_ROOT,
+      pendingBlockNumber: 3n,
+      pendingHeaderHash: badBlock3.header.toPropose().hash().toString(),
+      headerHashOfMyBlock: blocks[0].archive.root.toString(),
+      provenEpochNumber: 0n,
+      isBlockHeaderHashStale: false,
+    } as ViemRollupStatus);
     publicClient.getTransaction.mockResolvedValueOnce(badBlock3RollupTx);
     blobSinkClient.getBlobSidecar.mockResolvedValueOnce(badBlock3Blobs);
 
@@ -644,15 +672,29 @@ describe('Archiver', () => {
     // IRL there would be an "Invalidated" event, but we are not currently relying on it
     logger.warn(`Adding new blocks 2 and 3 with correct attestations`);
     publicClient.getBlockNumber.mockResolvedValue(100n);
-    makeL2BlockProposedEvent(94n, 2n, blocks[1].archive.root.toString(), blobHashes[1]);
-    makeL2BlockProposedEvent(95n, 3n, blocks[2].archive.root.toString(), blobHashes[2]);
-    mockRollup.read.status.mockResolvedValue([
-      0n,
-      GENESIS_ROOT,
+    makeL2BlockProposedEvent(
+      94n,
+      2n,
+      blocks[1].header.toPropose().hash().toString(),
+      GENESIS_HEADER_HASH,
+      blobHashes[1],
+    );
+    makeL2BlockProposedEvent(
+      95n,
       3n,
-      blocks[2].archive.root.toString(),
-      blocks[0].archive.root.toString(),
-    ]);
+      blocks[2].header.toPropose().hash().toString(),
+      blocks[1].header.toPropose().hash().toString(),
+      blobHashes[2],
+    );
+    mockRollup.read.status.mockResolvedValue({
+      provenBlockNumber: 0n,
+      provenArchive: GENESIS_ROOT,
+      pendingBlockNumber: 3n,
+      pendingHeaderHash: blocks[2].archive.root.toString(),
+      headerHashOfMyBlock: blocks[0].archive.root.toString(),
+      provenEpochNumber: 0n,
+      isBlockHeaderHashStale: false,
+    } as ViemRollupStatus);
     publicClient.getTransaction.mockResolvedValueOnce(rollupTxs[1]).mockResolvedValueOnce(rollupTxs[2]);
     blobSinkClient.getBlobSidecar.mockResolvedValueOnce(blobsFromBlocks[1]).mockResolvedValueOnce(blobsFromBlocks[2]);
     mockRollupRead.archiveAt.mockImplementation((args: readonly [bigint]) =>

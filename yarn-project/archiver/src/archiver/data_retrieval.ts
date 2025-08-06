@@ -328,7 +328,7 @@ async function getBlockFromRollupTx(
 
   logger.trace(`Recovered propose calldata from tx ${txHash}`, {
     l2BlockNumber,
-    archive: decodedArgs.archive,
+    headerHash: ProposedBlockHeader.fromViem(decodedArgs.header).hash().toString(),
     stateReference: decodedArgs.stateReference,
     header: decodedArgs.header,
     blobHashes,
