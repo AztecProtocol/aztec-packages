@@ -169,7 +169,6 @@ ecc_op_tuple MegaCircuitBuilder_<FF>::populate_ecc_op_wires(const UltraOp& ultra
     op_tuple.z_1 = this->add_variable(ultra_op.z_1);
     op_tuple.z_2 = this->add_variable(ultra_op.z_2);
 
-<<<<<<< HEAD
     // Set the indices for the op values for each of the two rows
     uint32_t op_val_idx_1 = op_tuple.op;    // genuine op code value
     uint32_t op_val_idx_2 = this->zero_idx; // second row value always set to 0
@@ -181,15 +180,6 @@ ecc_op_tuple MegaCircuitBuilder_<FF>::populate_ecc_op_wires(const UltraOp& ultra
 
     this->blocks.ecc_op.populate_wires(op_val_idx_1, op_tuple.x_lo, op_tuple.x_hi, op_tuple.y_lo);
     for (auto& selector : this->blocks.ecc_op.get_selectors()) {
-=======
-    if (in_finalize) {
-        update_vector_used_witnesses(
-            { op_tuple.op, op_tuple.x_lo, op_tuple.x_hi, op_tuple.y_lo, op_tuple.y_hi, op_tuple.z_1, op_tuple.z_2 });
-    }
-
-    this->blocks.ecc_op.populate_wires(op_tuple.op, op_tuple.x_lo, op_tuple.x_hi, op_tuple.y_lo);
-    for (auto& selector : this->blocks.ecc_op.selectors) {
->>>>>>> 36b9cbc7e1 (protogalaxy for MegaCircuitBuilder)
         selector.emplace_back(0);
     }
 
