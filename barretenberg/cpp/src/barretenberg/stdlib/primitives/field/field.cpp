@@ -190,11 +190,6 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator*(const f
 {
     Builder* ctx = validate_context(other.context, context);
     field_t<Builder> result(ctx);
-
-    // If at least one of the arguments is a constant 0, the output is a constant 0
-    if ((is_constant() && is_zero().get_value()) || (other.is_constant() && other.is_zero().get_value())) {
-        return field_t(ctx, bb::fr::zero());
-    }
     // Ensure that non-constant circuit elements can not be multiplied without context
     ASSERT(ctx || (is_constant() && other.is_constant()));
 
