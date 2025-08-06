@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "eth-devnet.fullname" . }}-eth-beacon
+  labels:
+    {{- include "eth-devnet.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  serviceName: {{ include "eth-devnet.fullname" . }}-eth-beacon
+  selector:
+    matchLabels:
+      {{- include "eth-devnet.selectorLabels" . | nindent 6 }}
+      app: eth-beacon
+  template:
+    metadata:
+      labels:
+        {{- include "eth-devnet.selectorLabels" . | nindent 8 }}
+        app: eth-beacon
+    spec:
+      {{- if .Values.ethereum.beacon.nodeSelector }}
+      nodeSelector:
+        {{- toYaml .Values.ethereum.beacon.nodeSelector | nindent 8 }}
+      {{- end }}
+      {{- if .Values.ethereum.beacon.hostNetwork }}
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      {{- end }}
+      containers:
+        - name: eth-beacon
+          image: "{{ .Values.images.lighthouse.image }}"
+          imagePullPolicy: {{ .Values.images.lighthouse.pullPolicy }}
+          command: ["/bin/sh"]
+          args: ["/entrypoints/eth-beacon.sh"]
+          env:
+            - name: K8S_MODE
+              value: "true"
+            - name: BEACON_HTTP_PORT
+              value: "{{ .Values.ethereum.beacon.service.port }}"
+            - name: ETH_EXECUTION_URL
+              value: "http://{{ include "eth-devnet.fullname" . }}-eth-execution.{{ .Release.Namespace }}.svc.cluster.local:8551"
+          volumeMounts:
+            - name: shared-volume
+              mountPath: /data
+            - name: genesis
+              mountPath: /genesis-template
+            - name: entrypoint-scripts
+              mountPath: /entrypoints
+          resources:
+            {{- toYaml .Values.ethereum.beacon.resources | nindent 12 }}
+      volumes:
+        - name: shared-volume
+          persistentVolumeClaim:
+            claimName: shared-volume
+        - name: genesis
+          configMap:
+            name: {{ include "eth-devnet.fullname" . }}-eth-beacon-genesis
+        - name: entrypoint-scripts
+          configMap:
+            name: {{ include "eth-devnet.fullname" . }}-entrypoint-scripts
+            defaultMode: 0755
+  volumeClaimTemplates:
+  - metadata:
+      name: shared-volume
+      labels:
+        {{- include "eth-devnet.labels" . | nindent 8 }}
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: {{ .Values.ethereum.beacon.storageSize }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "eth-devnet.fullname" . }}-eth-beacon
+  labels:
+    {{- include "eth-devnet.labels" . | nindent 4 }}
+    app: eth-beacon
+  {{- if .Values.ethereum.beacon.service.annotations }}
+  annotations:
+    {{- toYaml .Values.ethereum.beacon.service.annotations | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.ethereum.beacon.service.type }}
+  {{- if .Values.ethereum.beacon.service.loadBalancerIP }}
+  loadBalancerIP: {{ .Values.ethereum.beacon.service.loadBalancerIP }}
+  {{- end }}
+  selector:
+    {{- include "eth-devnet.selectorLabels" . | nindent 4 }}
+    app: eth-beacon
+  ports:
+    - protocol: TCP
+      port: {{ .Values.ethereum.beacon.service.port }}
+      targetPort: {{ .Values.ethereum.beacon.service.targetPort }}
+---
