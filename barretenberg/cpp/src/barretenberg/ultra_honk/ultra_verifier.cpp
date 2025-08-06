@@ -25,7 +25,9 @@ UltraVerifier_<Flavor>::verify_internal(const typename UltraVerifier_<Flavor>::P
     using FF = typename Flavor::FF;
 
     transcript->load_proof(proof);
+    info("creating the oink verifier");
     OinkVerifier<Flavor> oink_verifier{ verification_key, transcript };
+    info("verifying oink proof");
     oink_verifier.verify();
     const PublicInputs& public_inputs = oink_verifier.public_inputs;
 

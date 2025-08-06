@@ -119,10 +119,11 @@ void ClientIVCAPI::prove(const Flags& flags,
     bbapi::BBApiRequest request;
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
-    bbapi::ClientIvcStart{ .num_circuits = raw_steps.size() }.execute(request);
+    bbapi::ClientIvcStart{ .num_circuits = raw_steps.size() - 1 }.execute(request);
 
     size_t loaded_circuit_public_inputs_size = 0;
-    for (const auto& step : raw_steps) {
+    for (size_t i = 0; i < raw_steps.size() - 1; ++i) {
+        const auto& step = raw_steps[i];
         bbapi::ClientIvcLoad{
             .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk }
         }.execute(request);
@@ -132,6 +133,12 @@ void ClientIVCAPI::prove(const Flags& flags,
         info("ClientIVC: accumulating " + step.function_name);
         bbapi::ClientIvcAccumulate{ .witness = step.witness }.execute(request);
     }
+    // the last step is the hiding kernel
+    const auto& step = raw_steps[raw_steps.size() - 1];
+    bbapi::ClientIvcLoad{
+        .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk }
+    }.execute(request);
+    bbapi::ClientIvcHidingKernel{ .witness = step.witness }.execute(request);
 
     auto proof = bbapi::ClientIvcProve{}.execute(request).proof;
 
@@ -172,14 +179,13 @@ bool ClientIVCAPI::verify([[maybe_unused]] const Flags& flags,
 // WORKTODO(bbapi) remove this
 bool ClientIVCAPI::prove_and_verify(const std::filesystem::path& input_path)
 {
-
     PrivateExecutionSteps steps;
     steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
 
     std::shared_ptr<ClientIVC> ivc = steps.accumulate();
     // Construct the hiding kernel as the final step of the IVC
-    ClientIVC::ClientCircuit circuit{ ivc->goblin.op_queue };
-    ivc->complete_kernel_circuit_logic(circuit);
+    // ClientIVC::ClientCircuit circuit{ ivc->goblin.op_queue };
+    // ivc->complete_kernel_circuit_logic(circuit);
     const bool verified = ivc->prove_and_verify();
     return verified;
 }

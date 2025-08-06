@@ -66,6 +66,29 @@ ClientIvcAccumulate::Response ClientIvcAccumulate::execute(BBApiRequest& request
     return Response{};
 }
 
+ClientIvcHidingKernel::Response ClientIvcHidingKernel::execute(BBApiRequest& request) &&
+{
+    if (!request.ivc_in_progress) {
+        throw_or_abort("ClientIVC not started. Call ClientIvcStart first.");
+    }
+
+    if (!request.loaded_circuit_constraints.has_value()) {
+        throw_or_abort("No circuit loaded. Call ClientIvcLoad first.");
+    }
+
+    acir_format::WitnessVector witness_data = acir_format::witness_buf_to_witness_data(std::move(witness));
+    acir_format::AcirProgram program{ std::move(request.loaded_circuit_constraints.value()), std::move(witness_data) };
+
+    const acir_format::ProgramMetadata metadata{ request.ivc_in_progress };
+    auto circuit = acir_format::create_circuit<ClientIVC::ClientCircuit>(program, metadata);
+    info("ClientIvcHidingKernel - we are processing the hiding circuit: '", request.loaded_circuit_name, "'");
+
+    request.loaded_circuit_constraints.reset();
+    request.loaded_circuit_vk.clear();
+
+    return Response{};
+}
+
 ClientIvcProve::Response ClientIvcProve::execute(BBApiRequest& request) &&
 {
     if (!request.ivc_in_progress) {
@@ -77,9 +100,9 @@ ClientIvcProve::Response ClientIvcProve::execute(BBApiRequest& request) &&
     }
 
     info("ClientIvcProve - generating proof for ", request.ivc_stack_depth, " accumulated circuits");
-    // Construct the hiding kernel to finalise the IVC steps
-    ClientIVC::ClientCircuit circuit{ request.ivc_in_progress->goblin.op_queue };
-    request.ivc_in_progress->complete_kernel_circuit_logic(circuit);
+    // // Construct the hiding kernel to finalise the IVC steps
+    // ClientIVC::ClientCircuit circuit{ request.ivc_in_progress->goblin.op_queue };
+    // request.ivc_in_progress->complete_kernel_circuit_logic(circuit);
     ClientIVC::Proof proof = request.ivc_in_progress->prove();
 
     // We verify this proof. Another bb call to verify has some overhead of loading VK/proof/SRS,

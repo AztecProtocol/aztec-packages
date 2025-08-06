@@ -28,7 +28,7 @@ describe('Client IVC Integration', () => {
   // 2. Run the init kernel to process the app run
   // 3. Run the tail kernel to finish the client IVC chain.
   // 4. Run the hiding kernel.
-  it('Should generate a verifiable client IVC proof from a simple mock tx', async () => {
+  it.only('Should generate a verifiable client IVC proof from a simple mock tx', async () => {
     const [bytecodes, witnessStack, _, vks] = await generate3FunctionTestingIVCStack();
 
     const proof = await proveClientIVC(bbBinaryPath, bbWorkingDirectory, witnessStack, bytecodes, vks, logger);
