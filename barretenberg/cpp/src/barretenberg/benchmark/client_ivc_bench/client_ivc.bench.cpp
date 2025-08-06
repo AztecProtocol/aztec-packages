@@ -37,12 +37,10 @@ BENCHMARK_DEFINE_F(ClientIVCBench, VerificationOnly)(benchmark::State& state)
     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
 
     // Initialize the IVC with an arbitrary circuit
-    auto [circuit_0, vk_0] = circuit_producer.create_next_circuit_and_vk(ivc);
-    ivc.accumulate(circuit_0, vk_0);
+    circuit_producer.construct_and_accumulate_next_circuit(ivc);
 
     // Create another circuit and accumulate
-    auto [circuit_1, vk_1] = circuit_producer.create_next_circuit_and_vk(ivc);
-    ivc.accumulate(circuit_1, vk_1);
+    circuit_producer.construct_and_accumulate_next_circuit(ivc);
 
     auto proof = ivc.prove();
 
