@@ -118,13 +118,6 @@ library EpochProofLib {
           Errors.Rollup__InvalidPreviousArchive(expectedPreviousArchive, _args.previousArchive)
         );
       }
-
-      {
-        bytes32 expectedEndArchive = rollupStore.archives[_end];
-        require(
-          expectedEndArchive == _args.endArchive, Errors.Rollup__InvalidArchive(expectedEndArchive, _args.endArchive)
-        );
-      }
     }
 
     bytes32[] memory publicInputs = new bytes32[](Constants.ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH);
