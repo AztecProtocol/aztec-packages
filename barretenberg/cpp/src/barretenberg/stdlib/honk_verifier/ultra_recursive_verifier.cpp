@@ -80,7 +80,7 @@ UltraRecursiveVerifier_<Flavor>::verify_internal(const stdlib::Proof<Builder>& p
     const auto padding_indicator_array =
         compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(key->vk_and_hash->vk->log_circuit_size);
 
-    Sumcheck sumcheck(transcript, key->alphas);
+    Sumcheck sumcheck(transcript, key->alphas, CONST_PROOF_SIZE_LOG_N);
 
     // Receive commitments to Libra masking polynomials
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
