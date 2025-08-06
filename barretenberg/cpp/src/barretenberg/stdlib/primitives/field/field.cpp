@@ -1263,6 +1263,11 @@ template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const 
     return total.normalize();
 }
 
+/**
+ * @brief Splits the field element into (lo, hi), where:
+ * - lo contains bits [0, lsb_index)
+ * - hi contains bits [lsb_index, num_bits)
+ */
 template <typename Builder>
 std::pair<field_t<Builder>, field_t<Builder>> field_t<Builder>::split_at(const size_t lsb_index,
                                                                          const size_t num_bits) const
