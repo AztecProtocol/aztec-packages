@@ -528,6 +528,9 @@ void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
         for (auto [witness_idx, constraint_witness_idx] : zip_view(public_input_indices, constraint.public_inputs)) {
             builder.assert_equal(witness_idx, constraint_witness_idx);
         }
+        if (constraint.proof_type == PG_FINAL) {
+            info("ACIR_FORMAT: We have gotten the hiding circuit from Noir");
+        }
     }
 
     // Complete the kernel circuit with all required recursive verifications, databus consistency checks etc.

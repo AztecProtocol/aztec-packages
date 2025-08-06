@@ -153,6 +153,7 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
         break;
     }
     case QUEUE_TYPE::PG_FINAL: {
+        info("now constructing the hiding circuit");
         BB_ASSERT_EQ(stdlib_verification_queue.size(), size_t(1));
         BB_ASSERT_EQ(num_circuits_accumulated,
                      num_circuits,
@@ -163,6 +164,7 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
         // Return early since the hiding circuit method performs merge and public inputs handling
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1501): we should remove the code duplication for
         // the consistency checks at some point
+        info("construction of hiding circuit completed");
         return { pairing_points, merged_table_commitments };
     }
     default: {
@@ -356,6 +358,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
         if (num_circuits_accumulated == num_circuits - 1) {
             // we are folding in the "Tail" kernel, so the verification_queue entry should have type PG_FINAL
             queue_entry.type = QUEUE_TYPE::PG_FINAL;
+            info("CIVC: queue_type is PG_FINAL");
             decider_proof = decider_prove();
             vinfo("constructed decider proof");
         } else if (num_circuits_accumulated == num_circuits - 2) {
@@ -366,6 +369,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
         }
         queue_entry.proof = fold_output.proof;
     }
+    // info("the type of the queue_entry is:", queue_entry.type);
     verification_queue.push_back(queue_entry);
 
     // Construct merge proof for the present circuit
@@ -411,7 +415,6 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::comp
     circuit.queue_ecc_no_op();
 
     hide_op_queue_accumulation_result(circuit);
-
     // Construct stdlib accumulator, decider vkey and folding proof
     auto stdlib_verifier_accumulator =
         std::make_shared<RecursiveDeciderVerificationKey>(&circuit, verifier_accumulator);
@@ -448,7 +451,6 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::comp
     // Perform recursive verification of the last merge proof
     auto [points_accumulator, merged_table_commitments] =
         goblin.recursively_verify_merge(circuit, merge_commitments, pg_merge_transcript);
-
     points_accumulator.aggregate(kernel_input.pairing_inputs);
 
     // Perform recursive decider verification
@@ -464,8 +466,10 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::comp
  */
 std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::compute_hiding_circuit_proving_key()
 {
+
     auto hiding_decider_pk =
         std::make_shared<DeciderZKProvingKey>(*hiding_circuit, TraceSettings(), bn254_commitment_key);
+
     return hiding_decider_pk;
 }
 
@@ -479,6 +483,7 @@ HonkProof ClientIVC::prove_hiding_circuit()
 {
     ASSERT(hiding_circuit != nullptr, "hiding circuit should have been constructed before attempted to create its key");
     auto hiding_decider_pk = compute_hiding_circuit_proving_key();
+    vinfo("creating the proving key for the hiding circuit");
     honk_vk = std::make_shared<MegaZKVerificationKey>(hiding_decider_pk->get_precomputed());
     auto& hiding_circuit_vk = honk_vk;
     // Hiding circuit is proven by a MegaZKProver
@@ -495,6 +500,7 @@ HonkProof ClientIVC::prove_hiding_circuit()
  */
 ClientIVC::Proof ClientIVC::prove()
 {
+    vinfo("proving the clientIVC");
     // deallocate the protogalaxy accumulator
     fold_output.accumulator = nullptr;
 
@@ -509,11 +515,15 @@ ClientIVC::Proof ClientIVC::prove()
 
 bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
 {
+    info("verifying the IVC");
     using TableCommitments = Goblin::TableCommitments;
     // Create a transcript to be shared by MegaZK-, Merge-, ECCVM-, and Translator- Verifiers.
+    info("creating goblin transcript");
     std::shared_ptr<Goblin::Transcript> civc_verifier_transcript = std::make_shared<Goblin::Transcript>();
     // Verify the hiding circuit proof
+    info("creating the mega verifier");
     MegaZKVerifier verifier{ vk.mega, /*ipa_verification_key=*/{}, civc_verifier_transcript };
+    info("verifying the mega proof");
     auto [mega_verified, T_prev_commitments] = verifier.verify_proof(proof.mega_proof);
     vinfo("Mega verified: ", mega_verified);
 

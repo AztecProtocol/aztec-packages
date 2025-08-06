@@ -275,6 +275,7 @@ void OinkProver<Flavor>::commit_to_witness_polynomial(Polynomial<FF>& polynomial
 
     commitment =
         proving_key->commitment_key.commit_with_type(polynomial, type, proving_key->active_region_data.get_ranges());
+    vinfo("commitment in oink prover:", commitment);
     // Send the commitment to the verifier
     transcript->send_to_verifier(domain_separator + label, commitment);
 }
