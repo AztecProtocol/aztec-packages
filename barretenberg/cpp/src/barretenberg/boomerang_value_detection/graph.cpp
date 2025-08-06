@@ -221,9 +221,19 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_sort_const
 {
     std::vector<uint32_t> gate_variables = {};
     if (!block.q_delta_range()[index].is_zero()) {
-        gate_variables.insert(gate_variables.end(),
-                              { block.w_l()[index], block.w_r()[index], block.w_o()[index], block.w_4()[index] });
-        if (index != block.size() - 1) {
+        std::vector<uint32_t> row_variables = {
+            block.w_l()[index], block.w_r()[index], block.w_o()[index], block.w_4()[index]
+        };
+        /*
+        sometimes process_range_list function adds variables with zero_idx in beginning of vector with indices
+        in order to pad a size of indices to gate width. But tool has to ignore these additional variables
+        */
+        for (const auto& var_idx : row_variables) {
+            if (var_idx != circuit_builder.zero_idx) {
+                gate_variables.emplace_back(var_idx);
+            }
+        }
+        if (index != block.size() - 1 && block.w_l()[index + 1] != circuit_builder.zero_idx) {
             gate_variables.emplace_back(block.w_l()[index + 1]);
         }
     }
@@ -619,8 +629,7 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_eccop_part
     return gate_variables;
 }
 
-template <typename FF, typename CircuitBuilder>
-void StaticAnalyzer_<FF, CircuitBuilder>::process_execution_trace(bool connect_variables)
+template <typename FF, typename CircuitBuilder> void StaticAnalyzer_<FF, CircuitBuilder>::process_execution_trace()
 {
     auto block_data = circuit_builder.blocks.get();
 
@@ -672,8 +681,8 @@ void StaticAnalyzer_<FF, CircuitBuilder>::process_execution_trace(bool connect_v
                 connect_all_variables_in_vector(delta_range_variables);
             }
             if constexpr (std::is_same_v<CircuitBuilder, bb::MegaCircuitBuilder>) {
-                // If type of CircuitBuilder is MegaCircuitBuilder, we'll try to process blocks like they are databus or
-                // eccop
+                // If type of CircuitBuilder is MegaCircuitBuilder, we'll try to process blocks like they can be databus
+                // or eccop
                 auto databus_variables = get_databus_connected_component(gate_idx, blk_idx, block_data[blk_idx]);
                 if (connect_variables) {
                     connect_all_variables_in_vector(databus_variables);
@@ -699,9 +708,9 @@ void StaticAnalyzer_<FF, CircuitBuilder>::process_execution_trace(bool connect_v
     const auto& rom_arrays = circuit_builder.rom_ram_logic.rom_arrays;
     if (!rom_arrays.empty()) {
         for (const auto& rom_array : rom_arrays) {
-            std::vector<uint32_t> variable_indices = this->get_rom_table_connected_component(rom_array);
+            std::vector<uint32_t> variable_indices = get_rom_table_connected_component(rom_array);
             if (connect_variables) {
-                this->connect_all_variables_in_vector(variable_indices);
+                connect_all_variables_in_vector(variable_indices);
             }
         }
     }
@@ -709,9 +718,9 @@ void StaticAnalyzer_<FF, CircuitBuilder>::process_execution_trace(bool connect_v
     const auto& ram_arrays = circuit_builder.rom_ram_logic.ram_arrays;
     if (!ram_arrays.empty()) {
         for (const auto& ram_array : ram_arrays) {
-            std::vector<uint32_t> variable_indices = this->get_ram_table_connected_component(ram_array);
+            std::vector<uint32_t> variable_indices = get_ram_table_connected_component(ram_array);
             if (connect_variables) {
-                this->connect_all_variables_in_vector(variable_indices);
+                connect_all_variables_in_vector(variable_indices);
             }
         }
     }
@@ -740,17 +749,18 @@ void StaticAnalyzer_<FF, CircuitBuilder>::process_execution_trace(bool connect_v
 template <typename FF, typename CircuitBuilder>
 StaticAnalyzer_<FF, CircuitBuilder>::StaticAnalyzer_(CircuitBuilder& circuit_builder, bool connect_variables)
     : circuit_builder(circuit_builder)
+    , connect_variables(connect_variables)
 {
-    this->variables_gate_counts = std::unordered_map<uint32_t, size_t>(circuit_builder.real_variable_index.size());
-    this->variable_adjacency_lists =
+    variables_gate_counts = std::unordered_map<uint32_t, size_t>(circuit_builder.real_variable_index.size());
+    variable_adjacency_lists =
         std::unordered_map<uint32_t, std::vector<uint32_t>>(circuit_builder.real_variable_index.size());
-    this->variables_degree = std::unordered_map<uint32_t, size_t>(circuit_builder.real_variable_index.size());
+    variables_degree = std::unordered_map<uint32_t, size_t>(circuit_builder.real_variable_index.size());
     for (const auto& variable_index : circuit_builder.real_variable_index) {
         variables_gate_counts[variable_index] = 0;
         variables_degree[variable_index] = 0;
         variable_adjacency_lists[variable_index] = {};
     }
-    process_execution_trace(connect_variables);
+    process_execution_trace();
 }
 
 /**
@@ -810,7 +820,7 @@ void StaticAnalyzer_<FF, CircuitBuilder>::connect_all_variables_in_vector(const 
         return;
     }
     for (size_t i = 0; i < filtered_variables_vector.size() - 1; i++) {
-        this->add_new_edge(filtered_variables_vector[i], filtered_variables_vector[i + 1]);
+        add_new_edge(filtered_variables_vector[i], filtered_variables_vector[i + 1]);
     }
 }
 
@@ -867,21 +877,54 @@ void StaticAnalyzer_<FF, CircuitBuilder>::depth_first_search(const uint32_t& var
  */
 
 template <typename FF, typename CircuitBuilder>
-std::vector<std::vector<uint32_t>> StaticAnalyzer_<FF, CircuitBuilder>::find_connected_components()
+std::vector<ConnectedComponent> StaticAnalyzer_<FF, CircuitBuilder>::find_connected_components(
+    bool return_all_connected_components)
 {
-    std::unordered_set<uint32_t> is_used;
-    std::vector<std::vector<uint32_t>> connected_components;
+    if (!connect_variables) {
+        throw std::runtime_error("find_connected_components() can only be called when connect_variables is true");
+    }
+    std::unordered_set<uint32_t> visited;
     for (const auto& pair : variable_adjacency_lists) {
         if (pair.first != 0 && variables_degree[pair.first] > 0) {
-            if (!is_used.contains(pair.first)) {
-                std::vector<uint32_t> connected_component;
-                this->depth_first_search(pair.first, is_used, connected_component);
-                std::sort(connected_component.begin(), connected_component.end());
-                connected_components.emplace_back(connected_component);
+            if (!visited.contains(pair.first)) {
+                std::vector<uint32_t> variable_indices;
+                depth_first_search(pair.first, visited, variable_indices);
+                std::sort(variable_indices.begin(), variable_indices.end());
+                connected_components.emplace_back(ConnectedComponent(variable_indices));
             }
         }
     }
+    mark_range_list_connected_components();
+    if (!return_all_connected_components) {
+        std::vector<ConnectedComponent> main_connected_components;
+        for (const auto& cc : connected_components) {
+            if (!cc.is_range_list_cc) {
+                main_connected_components.emplace_back(cc);
+            }
+        }
+        return main_connected_components;
+    }
     return connected_components;
+}
+
+template <typename FF, typename CircuitBuilder>
+void StaticAnalyzer_<FF, CircuitBuilder>::mark_range_list_connected_components()
+{
+    const auto& tags = circuit_builder.real_variable_tags;
+    std::unordered_set<uint32_t> tau_tags;
+    for (const auto& pair : circuit_builder.range_lists) {
+        tau_tags.insert(pair.second.tau_tag);
+    }
+    for (auto& cc : connected_components) {
+        const auto& variables = cc.variable_indices;
+        const uint32_t first_tag = tags[variables[0]];
+        if (tau_tags.contains(first_tag)) {
+            cc.is_range_list_cc =
+                std::all_of(variables.begin() + 1, variables.end(), [&tags, first_tag](uint32_t var_idx) {
+                    return tags[var_idx] == first_tag;
+                });
+        }
+    }
 }
 
 /**
@@ -1253,48 +1296,46 @@ template <typename FF, typename CircuitBuilder>
 std::unordered_set<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_variables_in_one_gate()
 {
     for (const auto& pair : variables_gate_counts) {
-        bool is_not_constant_variable = this->check_is_not_constant_variable(pair.first);
+        bool is_not_constant_variable = check_is_not_constant_variable(pair.first);
         if (pair.second == 1 && pair.first != 0 && is_not_constant_variable) {
-            this->variables_in_one_gate.insert(pair.first);
+            variables_in_one_gate.insert(pair.first);
         }
     }
     auto range_lists = circuit_builder.range_lists;
-    std::unordered_set<uint32_t> decompose_varialbes;
+    std::unordered_set<uint32_t> decompose_variables;
     for (auto& pair : range_lists) {
         for (auto& elem : pair.second.variable_indices) {
-            bool is_not_constant_variable = this->check_is_not_constant_variable(elem);
+            bool is_not_constant_variable = check_is_not_constant_variable(elem);
             if (variables_gate_counts[circuit_builder.real_variable_index[elem]] == 1 && is_not_constant_variable) {
-                decompose_varialbes.insert(circuit_builder.real_variable_index[elem]);
+                decompose_variables.insert(circuit_builder.real_variable_index[elem]);
             }
         }
     }
-    this->remove_unnecessary_decompose_variables(decompose_varialbes);
-    this->remove_unnecessary_plookup_variables();
-    this->remove_unnecessary_range_constrains_variables();
-    for (const auto& elem : this->fixed_variables) {
-        this->variables_in_one_gate.erase(elem);
+    remove_unnecessary_decompose_variables(decompose_variables);
+    remove_unnecessary_plookup_variables();
+    remove_unnecessary_range_constrains_variables();
+    for (const auto& elem : fixed_variables) {
+        variables_in_one_gate.erase(elem);
     }
     // we found variables that were in one gate and they are intended cases.
     // so we have to remove them from the scope
     for (const auto& elem : circuit_builder.get_used_witnesses()) {
-        this->variables_in_one_gate.erase(elem);
+        variables_in_one_gate.erase(elem);
     }
-    this->remove_record_witness_variables();
+    remove_record_witness_variables();
     return variables_in_one_gate;
 }
 
 /**
- * @brief this method prints all connected components that were found in the graph
+ * @brief this method prints additional information about connected components that were found in the graph
  * @tparam FF
  */
-template <typename FF, typename CircuitBuilder> void StaticAnalyzer_<FF, CircuitBuilder>::print_connected_components()
+template <typename FF, typename CircuitBuilder>
+void StaticAnalyzer_<FF, CircuitBuilder>::print_connected_components_info()
 {
-    auto connected_components = find_connected_components();
     for (size_t i = 0; i < connected_components.size(); i++) {
-        info("printing the ", i + 1, " connected component with size ", connected_components[i].size(), ":");
-        for (const auto& it : connected_components[i]) {
-            info(it, " ");
-        }
+        info("size of ", i + 1, " connected component == ", connected_components[i].size(), ":");
+        info("Doest connected component represent range list? ", connected_components[i].is_range_list_cc);
     }
 }
 
