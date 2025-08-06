@@ -68,8 +68,7 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
     // Type aliases specific to GoblinRecursion test
     using AvmRecursiveVerifier = AvmGoblinRecursiveVerifier;
     using OuterBuilder = typename UltraRollupFlavor::CircuitBuilder;
-    using UltraRollupRecursiveFlavor = UltraRollupRecursiveFlavor_<OuterBuilder>;
-    using UltraFF = UltraRollupRecursiveFlavor::FF;
+    using UltraFF = UltraRecursiveFlavor_<OuterBuilder>::FF;
     using UltraRollupProver = UltraProver_<UltraRollupFlavor>;
     using NativeVerifierCommitmentKey = typename AvmFlavor::VerifierCommitmentKey;
 

@@ -77,6 +77,7 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
 
         for (const auto& inner_circuit_data : inner_circuits) {
             const std::vector<fr> key_witnesses = inner_circuit_data.verification_key->to_field_elements();
+            const std::vector<fr> key_hash = { inner_circuit_data.verification_key->hash() };
             const std::vector<fr> proof_witnesses = inner_circuit_data.proof;
             const std::vector<fr> public_inputs_witnesses = inner_circuit_data.public_inputs_flat;
 
@@ -97,7 +98,7 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
                 .key = add_to_witness_and_track_indices(key_witnesses),
                 .proof = add_to_witness_and_track_indices(proof_witnesses),
                 .public_inputs = add_to_witness_and_track_indices(public_inputs_witnesses),
-                .key_hash = 0, // not used
+                .key_hash = add_to_witness_and_track_indices(key_hash)[0],
                 .proof_type = AVM,
             };
             avm_recursion_constraints.push_back(avm_recursion_constraint);
@@ -195,6 +196,13 @@ TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
     }
 
     // Compare the VK constructed via running the IVC with the one constructed via mocking
+    // print vk comms
+    for (auto& comm : expected_vk->get_all()) {
+        info("expected comm = ", comm);
+    }
+    for (auto& comm : actual_vk->get_all()) {
+        info("actual comm = ", comm);
+    }
     EXPECT_EQ(*actual_vk.get(), *expected_vk.get());
 }
 
