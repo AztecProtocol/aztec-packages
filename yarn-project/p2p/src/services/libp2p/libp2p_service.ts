@@ -258,12 +258,14 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       )
     ).filter(peer => peer !== undefined);
 
+    const announceTcpMultiaddr = config.p2pIp ? [convertToMultiaddr(config.p2pIp, p2pPort, 'tcp')] : [];
+
     const node = await createLibp2p({
       start: false,
       peerId,
       addresses: {
         listen: [bindAddrTcp],
-        announce: [], // announce is handled by the peer discovery service
+        announce: announceTcpMultiaddr,
       },
       transports: [
         tcp({
@@ -324,7 +326,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       services: {
         identify: identify({
           protocolPrefix: 'aztec',
-          runOnConnectionOpen: false,
+          runOnConnectionOpen: true,
         }),
         pubsub: gossipsub({
           directPeers,
