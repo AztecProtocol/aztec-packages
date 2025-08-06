@@ -11,6 +11,7 @@
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
+#include "barretenberg/ultra_honk/oink_verifier.hpp"
 
 namespace bb {
 
@@ -112,7 +113,8 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
     case QUEUE_TYPE::PG_TAIL:
     case QUEUE_TYPE::PG: {
         // Construct stdlib verifier accumulator from the native counterpart computed on a previous round
-        auto stdlib_verifier_accum = std::make_shared<RecursiveDeciderVerificationKey>(&circuit, verifier_accumulator);
+        auto stdlib_verifier_accum =
+            std::make_shared<RecursiveDeciderVerificationKey>(&circuit, recursive_verifier_verifier_accumulator);
 
         // Perform folding recursive verification to update the verifier accumulator
         FoldingRecursiveVerifier verifier{
@@ -121,7 +123,9 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
         auto verifier_accum = verifier.verify_folding_proof(verifier_inputs.proof);
 
         // Extract native verifier accumulator from the stdlib accum for use on the next round
-        verifier_accumulator = std::make_shared<DeciderVerificationKey>(verifier_accum->get_value());
+        recursive_verifier_verifier_accumulator = std::make_shared<DeciderVerificationKey>(verifier_accum->get_value());
+        info("first selector comm of recursive_verifier_verifier_accumulator: ",
+             recursive_verifier_verifier_accumulator->vk->get_all()[0]);
 
         witness_commitments = std::move(verifier.keys_to_fold[1]->witness_commitments);
         public_inputs = std::move(verifier.public_inputs);
@@ -140,9 +144,11 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
         verifier_accum->is_accumulator = true; // indicate to PG that it should not run oink
 
         // Extract native verifier accumulator from the stdlib accum for use on the next round
-        verifier_accumulator = std::make_shared<DeciderVerificationKey>(verifier_accum->get_value());
+        recursive_verifier_verifier_accumulator = std::make_shared<DeciderVerificationKey>(verifier_accum->get_value());
+        info("first selector comm of recursive_verifier_verifier_accumulator: ",
+             recursive_verifier_verifier_accumulator->vk->get_all()[0]);
         // Initialize the gate challenges to zero for use in first round of folding
-        verifier_accumulator->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
+        recursive_verifier_verifier_accumulator->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
 
         witness_commitments = std::move(verifier_accum->witness_commitments);
         public_inputs = std::move(verifier.public_inputs);
@@ -341,17 +347,36 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
 
         fold_output.accumulator = proving_key; // initialize the prover accum with the completed key
 
+        auto decider_vk = std::make_shared<DeciderVerificationKey>(honk_vk);
+        auto oink_verifier_transcript = std::make_shared<Transcript>();
+        oink_verifier_transcript->load_proof(oink_proof);
+        OinkVerifier<Flavor> oink_verifier{ decider_vk, oink_verifier_transcript };
+        oink_verifier.verify();
+        prover_verifier_accumulator = decider_vk;
+        prover_verifier_accumulator->is_accumulator = true;
+        prover_verifier_accumulator->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
+        info("first selector comm: ", prover_verifier_accumulator->vk->get_all()[0]);
+
         queue_entry.type = QUEUE_TYPE::OINK;
         queue_entry.proof = oink_proof;
     } else { // Otherwise, fold the new key into the accumulator
         vinfo("computing folding proof");
         auto vk = std::make_shared<DeciderVerificationKey_<Flavor>>(honk_vk);
+        // make a copy of the accumulation_transcript for the verifier to use
+        BB_ASSERT_EQ(accumulation_transcript->num_frs_written, static_cast<size_t>(0), "Expected to be empty");
+        auto verifier_transcript = std::make_shared<Transcript>(*accumulation_transcript);
+        verifier_transcript->num_frs_read = static_cast<size_t>(verifier_transcript->proof_start);
+        verifier_transcript->proof_start = 0;
+
         FoldingProver folding_prover({ fold_output.accumulator, proving_key },
-                                     { verifier_accumulator, vk },
+                                     { prover_verifier_accumulator, vk },
                                      accumulation_transcript,
                                      trace_usage_tracker);
         fold_output = folding_prover.prove();
         vinfo("constructed folding proof");
+        FoldingVerifier folding_verifier({ prover_verifier_accumulator, vk }, verifier_transcript);
+        prover_verifier_accumulator = folding_verifier.verify_folding_proof(fold_output.proof);
+        info("first selector comm: ", prover_verifier_accumulator->vk->get_all()[0]);
 
         if (num_circuits_accumulated == num_circuits - 1) {
             // we are folding in the "Tail" kernel, so the verification_queue entry should have type PG_FINAL
@@ -414,7 +439,9 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::comp
 
     // Construct stdlib accumulator, decider vkey and folding proof
     auto stdlib_verifier_accumulator =
-        std::make_shared<RecursiveDeciderVerificationKey>(&circuit, verifier_accumulator);
+        std::make_shared<RecursiveDeciderVerificationKey>(&circuit, recursive_verifier_verifier_accumulator);
+    info("first selector comm of stdlib_verifier_accumulator in hiding circuit: ",
+         recursive_verifier_verifier_accumulator->vk->get_all()[0]);
 
     // Propagate the public inputs of the tail kernel by converting them to public inputs of the hiding circuit.
     auto num_public_inputs = static_cast<size_t>(honk_vk->num_public_inputs);
@@ -428,6 +455,8 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::comp
         &circuit, stdlib_verifier_accumulator, { stdlib_vk_and_hash }, pg_merge_transcript
     };
     auto recursive_verifier_accumulator = folding_verifier.verify_folding_proof(stdlib_proof);
+    info("first selector comm of recursive_verifier_verifier_accumulator: ",
+         recursive_verifier_accumulator->vk_and_hash->vk->get_all()[0].get_value());
     verification_queue.clear();
 
     // Get the completed decider verification key corresponding to the tail kernel from the folding verifier

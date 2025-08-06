@@ -149,17 +149,13 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
     {
         transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_log_circuit_size",
                                                   this->vk_and_hash->vk->log_circuit_size);
-        info("decider_vk_log_circuit_size: ", this->vk_and_hash->vk->log_circuit_size.get_value());
         transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_num_public_inputs",
                                                   this->vk_and_hash->vk->num_public_inputs);
-        info("decider_vk_num_public_inputs: ", this->vk_and_hash->vk->num_public_inputs.get_value());
         transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_pub_inputs_offset",
                                                   this->vk_and_hash->vk->pub_inputs_offset);
-        info("decider_vk_pub_inputs_offset: ", this->vk_and_hash->vk->pub_inputs_offset.get_value());
 
         for (const Commitment& commitment : this->vk_and_hash->vk->get_all()) {
             transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_precomputed_comm", commitment);
-            info("decider_vk_precomputed_comm: ", commitment.get_value());
         }
         for (const Commitment& comm : witness_commitments.get_all()) {
             transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_wit_comm", comm);

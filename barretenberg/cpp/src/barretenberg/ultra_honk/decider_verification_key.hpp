@@ -50,17 +50,13 @@ template <IsUltraOrMegaHonk Flavor> class DeciderVerificationKey_ {
     {
         transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_log_circuit_size",
                                                   this->vk->log_circuit_size);
-        info("decider_vk_log_circuit_size: ", this->vk->log_circuit_size);
         transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_num_public_inputs",
                                                   this->vk->num_public_inputs);
-        info("decider_vk_num_public_inputs: ", this->vk->num_public_inputs);
         transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_pub_inputs_offset",
                                                   this->vk->pub_inputs_offset);
-        info("decider_vk_pub_inputs_offset: ", this->vk->pub_inputs_offset);
 
         for (const Commitment& commitment : this->vk->get_all()) {
             transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_precomputed_comm", commitment);
-            info("decider_vk_precomputed_comm: ", commitment);
         }
         for (const Commitment& comm : witness_commitments.get_all()) {
             transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_wit_comm", comm);
