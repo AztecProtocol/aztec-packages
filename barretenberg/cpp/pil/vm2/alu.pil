@@ -238,7 +238,7 @@ sel_mul_div_u128 { b_hi, constant_64 } in range_check.sel { range_check.value, r
 // up max_value. i.e. we cannot provide a malicious c, c_hi such that a + b - c_hi * 2^n = c passes for n < 128.
 // No need to range_check c_lo = ic because the memory write will ensure ic <= max_value.
 #[RANGE_CHECK_MUL_U128_C_HI]
-sel_mul_div_u128 { c_hi, constant_64 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_mul_u128 { c_hi, constant_64 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
 
 // DIV
 
@@ -289,31 +289,28 @@ sel_mul_div_u128 - (sel_mul_u128 + sel_div_u128) = 0;
 // Taken from vm1:
 // We express c, b in 64-bit slices: c = c_l + c_h * 2^64
 //                                   b = b_l + b_h * 2^64
-// => c * b = c_l * b_l + (c_h * b_l + c_l * b_h) * 2^64 + (c_h * b_h) * 2^128 = res_hi_full * 2^128 + res
-// => the 'top bits' are given by (res_hi_full - (c_h * b_h)) * 2^128
-// We can show for a 64 bit res_hi = res_hi_full - (c_h * b_h) % 2^64 that:
-// c_l * b_l + (c_h * b_l + c_l * b_h) * 2^64 = res_hi * 2^128 + res
-// Equivalently:
-// c * b_l + c_l * b_h * 2^64 = res_hi * 2^128 + res
-// => no need for c_h in final relation
+// => c * b = c_l * b_l + (c_h * b_l + c_l * b_h) * 2^64 + (c_h * b_h) * 2^128 = a - r
+// => the 'top bits' are given by (res_h - (c_h * b_h)) * 2^128
+// For a happy path of 128 bit integer division (a / b = c), we cannot have both b and c > 64 bits
+//  => c_h * b_h = 0 (see ALU_DIV_U128_CHECK)
+//  => above is equivalent to:
+// c_l * b_l + (c_h * b_l + c_l * b_h) * 2^64 = a - r
+// c * b_l + c_l * b_h * 2^64 = a - r
+
+// We shouldn't need to decompose a - r because the LHS is constrained to be < 192 bits, protecting against
+// field underflows.
 
 // Reuse columns b_lo, b_hi from MUL above to represent b (see B_DECOMPOSITION)
 // Reuse columns a_lo, a_hi from MUL above to represent c (see A_DECOMPOSITION)
-// Reuse column c_hi from MUL above to represent res_hi (see RANGE_CHECK_MUL_U128_C_HI)
 
-// TODO(MW): I'm unsure whether this protects against a - remainder underflowing, but I think it might
-// because we have from the below relation:
-// a - remainder
-//  + res_hi * 2^128 <-- res_hi is 64 bits => cannot be over 2^192
-//  = c * b_lo + c_lo * b_hi * TWO_POW_64 <-- all are 64 bits => cannot be over 2^192
-// where a, b are tagged to be under 2^128, and we check r < b < 2^128. But I'm not 100% sure (brain hurt)
+#[ALU_DIV_U128_CHECK]
+sel_div_u128 * (1 - sel_err) * a_hi * b_hi = 0;
 
 #[ALU_DIV_U128]
 sel_div_u128 * (1 - sel_err)
     * (
         ic * b_lo + a_lo * b_hi * TWO_POW_64            // c * b without the hi bits
         - (ia - helper1)                                // a - r
-        - c_hi * (max_value + 1)                        // res_hi * 2^128
     ) = 0;
 
 // EQ

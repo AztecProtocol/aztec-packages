@@ -66,9 +66,6 @@ MemoryValue Alu::div(const MemoryValue& a, const MemoryValue& b)
     try {
         MemoryValue c = a / b; // This will throw if the tags do not match or if we divide by 0.
         MemoryValue remainder = a - c * b;
-
-        uint256_t c_int = static_cast<uint256_t>(c.as_ff());
-        uint256_t b_int = static_cast<uint256_t>(b.as_ff());
         MemoryTag tag = a.get_tag();
 
         if (tag == MemoryTag::FF) {
@@ -88,11 +85,6 @@ MemoryValue Alu::div(const MemoryValue& a, const MemoryValue& b)
             range_check.assert_range(c_decomp.hi, 64);
             range_check.assert_range(b_decomp.lo, 64);
             range_check.assert_range(b_decomp.hi, 64);
-            auto hi_operand = static_cast<uint256_t>(c_decomp.hi) * static_cast<uint256_t>(b_decomp.hi);
-            // a - r = b * c --> split into res_hi_full * 2^128 + res
-            // res_hi = (res_hi_full - c_hi * b_hi) % 2^64
-            uint256_t res_hi = (((c_int * b_int) >> 128) - hi_operand) % (uint256_t(1) << 64);
-            range_check.assert_range(static_cast<uint128_t>(res_hi), 64);
         }
         events.emit({ .operation = AluOperation::DIV, .a = a, .b = b, .c = c });
         return c;

@@ -77,8 +77,6 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
     case simulation::AluOperation::DIV: {
         bool div_0_error = event.error == simulation::AluError::DIV_0_ERROR;
         auto remainder = no_tag_err ? event.a - event.b * event.c : MemoryValue::from_tag(event.a.get_tag(), 0);
-        uint256_t c_int = static_cast<uint256_t>(event.c.as_ff());
-        uint256_t b_int = static_cast<uint256_t>(event.b.as_ff());
         // Columns shared for all tags in a DIV:
         std::vector<std::pair<Column, FF>> res = {
             { Column::alu_sel_op_div, 1 },
@@ -101,9 +99,6 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
             // For u128s, we decompose c and b into 64 bit chunks:
             auto c_decomp = simulation::decompose(static_cast<uint128_t>(event.c.as_ff()));
             auto b_decomp = simulation::decompose(static_cast<uint128_t>(event.b.as_ff()));
-            // a - r = b * c --> split into res_hi_full * 2^128 + res
-            // res_hi = (res_hi_full - c_hi * b_hi) % 2^64 --> is (confusingly) stored in the c_hi column
-            auto hi_operand = static_cast<uint256_t>(c_decomp.hi) * static_cast<uint256_t>(b_decomp.hi);
             res.insert(res.end(),
                        {
                            { Column::alu_sel_div_u128, 1 },
@@ -112,7 +107,6 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
                            { Column::alu_a_hi, c_decomp.hi },
                            { Column::alu_b_lo, b_decomp.lo },
                            { Column::alu_b_hi, b_decomp.hi },
-                           { Column::alu_c_hi, (((c_int * b_int) >> 128) - hi_operand) % (uint256_t(1) << 64) },
                        });
         }
         return res;

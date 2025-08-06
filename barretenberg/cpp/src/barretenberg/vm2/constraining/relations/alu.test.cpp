@@ -787,23 +787,16 @@ class AluDivConstrainingTest : public AluConstrainingTest,
             auto c_decomp = simulation::decompose(c.as<uint128_t>());
             auto b_decomp = simulation::decompose(b.as<uint128_t>());
 
-            // a - r = b * c --> split into res_hi_full * 2^128 + res
-            // res_hi = (res_hi_full - c_hi * b_hi) % 2^64 --> is (confusingly) stored in the c_hi column
-            auto hi_operand = static_cast<uint256_t>(c_decomp.hi) * static_cast<uint256_t>(b_decomp.hi);
-            auto res_hi_full = static_cast<uint256_t>(c.as_ff()) * static_cast<uint256_t>(b.as_ff()) >> 128;
-            auto res_hi = (res_hi_full - hi_operand) % (uint256_t(1) << 64);
             trace.set(0,
                       { { { Column::alu_a_lo, c_decomp.lo },
                           { Column::alu_a_hi, c_decomp.hi },
                           { Column::alu_b_lo, b_decomp.lo },
-                          { Column::alu_b_hi, b_decomp.hi },
-                          { Column::alu_c_hi, res_hi } } });
+                          { Column::alu_b_hi, b_decomp.hi } } });
 
             range_check_builder.process({ { .value = c_decomp.lo, .num_bits = 64 },
                                           { .value = c_decomp.hi, .num_bits = 64 },
                                           { .value = b_decomp.lo, .num_bits = 64 },
-                                          { .value = b_decomp.hi, .num_bits = 64 },
-                                          { .value = static_cast<uint128_t>(res_hi), .num_bits = 64 } },
+                                          { .value = b_decomp.hi, .num_bits = 64 } },
                                         trace);
         }
 
@@ -832,16 +825,10 @@ class AluDivConstrainingTest : public AluConstrainingTest,
             auto c_decomp = simulation::decompose(c.as<uint128_t>());
             auto b_decomp = simulation::decompose(b.as<uint128_t>());
 
-            // a - r = b * c --> split into res_hi_full * 2^128 + res
-            // res_hi = (res_hi_full - c_hi * b_hi) % 2^64 --> is (confusingly) stored in the c_hi column
-            auto hi_operand = static_cast<uint256_t>(c_decomp.hi) * static_cast<uint256_t>(b_decomp.hi);
-            auto res_hi_full = static_cast<uint256_t>(c.as_ff()) * static_cast<uint256_t>(b.as_ff()) >> 128;
-            auto res_hi = (res_hi_full - hi_operand) % (uint256_t(1) << 64);
             range_check_builder.process({ { .value = c_decomp.lo, .num_bits = 64 },
                                           { .value = c_decomp.hi, .num_bits = 64 },
                                           { .value = b_decomp.lo, .num_bits = 64 },
-                                          { .value = b_decomp.hi, .num_bits = 64 },
-                                          { .value = static_cast<uint128_t>(res_hi), .num_bits = 64 } },
+                                          { .value = b_decomp.hi, .num_bits = 64 } },
                                         trace);
         }
         precomputed_builder.process_misc(trace, NUM_OF_TAGS);
@@ -913,7 +900,6 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivU128Carry)
 
     c = MemoryValue::from_tag(MemoryTag::U128, (uint256_t(1) << 64) + 3);
     auto wrong_remainder = a.as_ff() - FF(static_cast<uint256_t>(b.as_ff()) * static_cast<uint256_t>(c.as_ff()));
-    auto overflow_bc_int = static_cast<uint256_t>(a.as_ff() - wrong_remainder);
 
     // We now have c and wrong_remainder s.t. a - wrong_remainder == b * c in the field...
 
@@ -924,13 +910,8 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivU128Carry)
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "DECOMPOSITION");
 
     auto c_decomp = simulation::decompose(c.as<uint128_t>());
-    auto b_decomp = simulation::decompose(b.as<uint128_t>());
     trace.set(Column::alu_a_lo, 0, c_decomp.lo);
     trace.set(Column::alu_a_hi, 0, c_decomp.hi);
-    // res_hi = res_hi_full - c_hi * b_hi % 2^64
-    auto hi_operand = static_cast<uint256_t>(c_decomp.hi) * static_cast<uint256_t>(b_decomp.hi);
-    auto res_hi = ((overflow_bc_int >> 128) - hi_operand) % (uint256_t(1) << 64);
-    trace.set(Column::alu_c_hi, 0, res_hi);
 
     // Setting the decomposed values still (correctly) fails:
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ALU_DIV_U128");

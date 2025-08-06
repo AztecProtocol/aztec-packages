@@ -14,10 +14,10 @@ template <typename FF_> class aluImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 52> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 2, 5, 5, 4, 3, 3, 4, 6,
-                                                                            3, 3, 6, 3, 6, 3, 5, 3, 5, 3, 3, 3, 5,
-                                                                            6, 3, 2, 5, 3, 6, 3, 3, 3, 3, 3, 3, 3,
-                                                                            4, 3, 4, 3, 3, 3, 3, 2, 2, 3, 3, 4, 3 };
+    static constexpr std::array<size_t, 53> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 2, 5, 5, 4, 3, 3, 4, 6, 3,
+                                                                            3, 6, 3, 6, 3, 5, 3, 5, 3, 3, 3, 5, 6, 3,
+                                                                            2, 5, 5, 3, 6, 3, 3, 3, 3, 3, 3, 3, 4, 3,
+                                                                            4, 3, 3, 3, 3, 2, 2, 3, 3, 4, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -289,161 +289,167 @@ template <typename FF_> class aluImpl {
             tmp *= scaling_factor;
             std::get<28>(evals) += typename Accumulator::View(tmp);
         }
-        { // ALU_DIV_U128
+        { // ALU_DIV_U128_CHECK
             using Accumulator = typename std::tuple_element_t<29, ContainerOverSubrelations>;
-            auto tmp = in.get(C::alu_sel_div_u128) * (FF(1) - in.get(C::alu_sel_err)) *
-                       (((in.get(C::alu_ic) * in.get(C::alu_b_lo) +
-                          in.get(C::alu_a_lo) * in.get(C::alu_b_hi) * alu_TWO_POW_64) -
-                         (in.get(C::alu_ia) - in.get(C::alu_helper1))) -
-                        in.get(C::alu_c_hi) * (in.get(C::alu_max_value) + FF(1)));
+            auto tmp = in.get(C::alu_sel_div_u128) * (FF(1) - in.get(C::alu_sel_err)) * in.get(C::alu_a_hi) *
+                       in.get(C::alu_b_hi);
             tmp *= scaling_factor;
             std::get<29>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // ALU_DIV_U128
             using Accumulator = typename std::tuple_element_t<30, ContainerOverSubrelations>;
-            auto tmp = in.get(C::alu_sel_op_eq) * (FF(1) - in.get(C::alu_sel_op_eq));
+            auto tmp = in.get(C::alu_sel_div_u128) * (FF(1) - in.get(C::alu_sel_err)) *
+                       ((in.get(C::alu_ic) * in.get(C::alu_b_lo) +
+                         in.get(C::alu_a_lo) * in.get(C::alu_b_hi) * alu_TWO_POW_64) -
+                        (in.get(C::alu_ia) - in.get(C::alu_helper1)));
             tmp *= scaling_factor;
             std::get<30>(evals) += typename Accumulator::View(tmp);
         }
-        { // EQ_OP_MAIN
+        {
             using Accumulator = typename std::tuple_element_t<31, ContainerOverSubrelations>;
+            auto tmp = in.get(C::alu_sel_op_eq) * (FF(1) - in.get(C::alu_sel_op_eq));
+            tmp *= scaling_factor;
+            std::get<31>(evals) += typename Accumulator::View(tmp);
+        }
+        { // EQ_OP_MAIN
+            using Accumulator = typename std::tuple_element_t<32, ContainerOverSubrelations>;
             auto tmp =
                 in.get(C::alu_sel_op_eq) * (FF(1) - in.get(C::alu_sel_tag_err)) *
                 ((alu_DIFF * (in.get(C::alu_ic) * (FF(1) - in.get(C::alu_helper1)) + in.get(C::alu_helper1)) - FF(1)) +
                  in.get(C::alu_ic));
             tmp *= scaling_factor;
-            std::get<31>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<32, ContainerOverSubrelations>;
-            auto tmp = in.get(C::alu_sel_op_lt) * (FF(1) - in.get(C::alu_sel_op_lt));
-            tmp *= scaling_factor;
             std::get<32>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<33, ContainerOverSubrelations>;
-            auto tmp = in.get(C::alu_sel_op_lte) * (FF(1) - in.get(C::alu_sel_op_lte));
+            auto tmp = in.get(C::alu_sel_op_lt) * (FF(1) - in.get(C::alu_sel_op_lt));
             tmp *= scaling_factor;
             std::get<33>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<34, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::alu_sel_lt_ops) -
-                        (FF(1) - in.get(C::alu_sel_tag_err)) * (in.get(C::alu_sel_op_lt) + in.get(C::alu_sel_op_lte)));
+            auto tmp = in.get(C::alu_sel_op_lte) * (FF(1) - in.get(C::alu_sel_op_lte));
             tmp *= scaling_factor;
             std::get<34>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<35, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::alu_sel_ff_lt_ops) - in.get(C::alu_sel_is_ff) * in.get(C::alu_sel_lt_ops));
+            auto tmp = (in.get(C::alu_sel_lt_ops) -
+                        (FF(1) - in.get(C::alu_sel_tag_err)) * (in.get(C::alu_sel_op_lt) + in.get(C::alu_sel_op_lte)));
             tmp *= scaling_factor;
             std::get<35>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<36, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::alu_sel_int_lt_ops) - alu_IS_NOT_FF * in.get(C::alu_sel_lt_ops));
+            auto tmp = (in.get(C::alu_sel_ff_lt_ops) - in.get(C::alu_sel_is_ff) * in.get(C::alu_sel_lt_ops));
             tmp *= scaling_factor;
             std::get<36>(evals) += typename Accumulator::View(tmp);
         }
-        { // LT_SWAP_INPUTS_A
+        {
             using Accumulator = typename std::tuple_element_t<37, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::alu_sel_op_lt) * (in.get(C::alu_lt_ops_input_a) - in.get(C::alu_ib)) +
-                        in.get(C::alu_sel_op_lte) * (in.get(C::alu_lt_ops_input_a) - in.get(C::alu_ia)));
+            auto tmp = (in.get(C::alu_sel_int_lt_ops) - alu_IS_NOT_FF * in.get(C::alu_sel_lt_ops));
             tmp *= scaling_factor;
             std::get<37>(evals) += typename Accumulator::View(tmp);
         }
-        { // LT_SWAP_INPUTS_B
+        { // LT_SWAP_INPUTS_A
             using Accumulator = typename std::tuple_element_t<38, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::alu_sel_op_lt) * (in.get(C::alu_lt_ops_input_b) - in.get(C::alu_ia)) +
-                        in.get(C::alu_sel_op_lte) * (in.get(C::alu_lt_ops_input_b) - in.get(C::alu_ib)));
+            auto tmp = (in.get(C::alu_sel_op_lt) * (in.get(C::alu_lt_ops_input_a) - in.get(C::alu_ib)) +
+                        in.get(C::alu_sel_op_lte) * (in.get(C::alu_lt_ops_input_a) - in.get(C::alu_ia)));
             tmp *= scaling_factor;
             std::get<38>(evals) += typename Accumulator::View(tmp);
         }
-        { // LTE_NEGATE_RESULT_C
+        { // LT_SWAP_INPUTS_B
             using Accumulator = typename std::tuple_element_t<39, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::alu_sel_op_lt) * (in.get(C::alu_lt_ops_input_b) - in.get(C::alu_ia)) +
+                        in.get(C::alu_sel_op_lte) * (in.get(C::alu_lt_ops_input_b) - in.get(C::alu_ib)));
+            tmp *= scaling_factor;
+            std::get<39>(evals) += typename Accumulator::View(tmp);
+        }
+        { // LTE_NEGATE_RESULT_C
+            using Accumulator = typename std::tuple_element_t<40, ContainerOverSubrelations>;
             auto tmp = (in.get(C::alu_sel_op_lt) * (in.get(C::alu_lt_ops_result_c) - in.get(C::alu_ic)) +
                         in.get(C::alu_sel_op_lte) * (FF(1) - in.get(C::alu_sel_tag_err)) *
                             ((FF(1) - in.get(C::alu_lt_ops_result_c)) - in.get(C::alu_ic)));
             tmp *= scaling_factor;
-            std::get<39>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<40, ContainerOverSubrelations>;
-            auto tmp = in.get(C::alu_sel_op_not) * (FF(1) - in.get(C::alu_sel_op_not));
-            tmp *= scaling_factor;
             std::get<40>(evals) += typename Accumulator::View(tmp);
         }
-        { // NOT_OP_MAIN
+        {
             using Accumulator = typename std::tuple_element_t<41, ContainerOverSubrelations>;
-            auto tmp = in.get(C::alu_sel_op_not) * (FF(1) - in.get(C::alu_sel_tag_err)) *
-                       ((in.get(C::alu_ia) + in.get(C::alu_ib)) - in.get(C::alu_max_value));
+            auto tmp = in.get(C::alu_sel_op_not) * (FF(1) - in.get(C::alu_sel_op_not));
             tmp *= scaling_factor;
             std::get<41>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // NOT_OP_MAIN
             using Accumulator = typename std::tuple_element_t<42, ContainerOverSubrelations>;
-            auto tmp = in.get(C::alu_sel_op_truncate) * (FF(1) - in.get(C::alu_sel_op_truncate));
+            auto tmp = in.get(C::alu_sel_op_not) * (FF(1) - in.get(C::alu_sel_tag_err)) *
+                       ((in.get(C::alu_ia) + in.get(C::alu_ib)) - in.get(C::alu_max_value));
             tmp *= scaling_factor;
             std::get<42>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<43, ContainerOverSubrelations>;
-            auto tmp = in.get(C::alu_sel_trunc_trivial) * (FF(1) - in.get(C::alu_sel_trunc_trivial));
+            auto tmp = in.get(C::alu_sel_op_truncate) * (FF(1) - in.get(C::alu_sel_op_truncate));
             tmp *= scaling_factor;
             std::get<43>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<44, ContainerOverSubrelations>;
-            auto tmp = in.get(C::alu_sel_trunc_gte_128) * (FF(1) - in.get(C::alu_sel_trunc_gte_128));
+            auto tmp = in.get(C::alu_sel_trunc_trivial) * (FF(1) - in.get(C::alu_sel_trunc_trivial));
             tmp *= scaling_factor;
             std::get<44>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<45, ContainerOverSubrelations>;
-            auto tmp = in.get(C::alu_sel_trunc_lt_128) * (FF(1) - in.get(C::alu_sel_trunc_lt_128));
+            auto tmp = in.get(C::alu_sel_trunc_gte_128) * (FF(1) - in.get(C::alu_sel_trunc_gte_128));
             tmp *= scaling_factor;
             std::get<45>(evals) += typename Accumulator::View(tmp);
         }
-        { // SEL_TRUNC_NON_TRIVIAL
+        {
             using Accumulator = typename std::tuple_element_t<46, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::alu_sel_trunc_non_trivial) -
-                        (in.get(C::alu_sel_trunc_gte_128) + in.get(C::alu_sel_trunc_lt_128)));
+            auto tmp = in.get(C::alu_sel_trunc_lt_128) * (FF(1) - in.get(C::alu_sel_trunc_lt_128));
             tmp *= scaling_factor;
             std::get<46>(evals) += typename Accumulator::View(tmp);
         }
-        { // SEL_TRUNCATE
+        { // SEL_TRUNC_NON_TRIVIAL
             using Accumulator = typename std::tuple_element_t<47, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::alu_sel_op_truncate) -
-                        (in.get(C::alu_sel_trunc_non_trivial) + in.get(C::alu_sel_trunc_trivial)));
+            auto tmp = (in.get(C::alu_sel_trunc_non_trivial) -
+                        (in.get(C::alu_sel_trunc_gte_128) + in.get(C::alu_sel_trunc_lt_128)));
             tmp *= scaling_factor;
             std::get<47>(evals) += typename Accumulator::View(tmp);
         }
-        { // TRUNC_TRIVIAL_CASE
+        { // SEL_TRUNCATE
             using Accumulator = typename std::tuple_element_t<48, ContainerOverSubrelations>;
-            auto tmp = in.get(C::alu_sel_trunc_trivial) * (in.get(C::alu_ia) - in.get(C::alu_ic));
+            auto tmp = (in.get(C::alu_sel_op_truncate) -
+                        (in.get(C::alu_sel_trunc_non_trivial) + in.get(C::alu_sel_trunc_trivial)));
             tmp *= scaling_factor;
             std::get<48>(evals) += typename Accumulator::View(tmp);
         }
-        { // SMALL_TRUNC_VAL_IS_LO
+        { // TRUNC_TRIVIAL_CASE
             using Accumulator = typename std::tuple_element_t<49, ContainerOverSubrelations>;
-            auto tmp = in.get(C::alu_sel_trunc_lt_128) * (in.get(C::alu_a_lo) - in.get(C::alu_ia));
+            auto tmp = in.get(C::alu_sel_trunc_trivial) * (in.get(C::alu_ia) - in.get(C::alu_ic));
             tmp *= scaling_factor;
             std::get<49>(evals) += typename Accumulator::View(tmp);
         }
-        { // TRUNC_LO_128_DECOMPOSITION
+        { // SMALL_TRUNC_VAL_IS_LO
             using Accumulator = typename std::tuple_element_t<50, ContainerOverSubrelations>;
+            auto tmp = in.get(C::alu_sel_trunc_lt_128) * (in.get(C::alu_a_lo) - in.get(C::alu_ia));
+            tmp *= scaling_factor;
+            std::get<50>(evals) += typename Accumulator::View(tmp);
+        }
+        { // TRUNC_LO_128_DECOMPOSITION
+            using Accumulator = typename std::tuple_element_t<51, ContainerOverSubrelations>;
             auto tmp =
                 in.get(C::alu_sel_trunc_non_trivial) *
                 ((in.get(C::alu_ic) + in.get(C::alu_mid) * (in.get(C::alu_max_value) + FF(1))) - in.get(C::alu_a_lo));
             tmp *= scaling_factor;
-            std::get<50>(evals) += typename Accumulator::View(tmp);
+            std::get<51>(evals) += typename Accumulator::View(tmp);
         }
         { // TRUNC_MID_BITS
-            using Accumulator = typename std::tuple_element_t<51, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<52, ContainerOverSubrelations>;
             auto tmp =
                 (in.get(C::alu_mid_bits) - in.get(C::alu_sel_trunc_non_trivial) * (FF(128) - in.get(C::alu_max_bits)));
             tmp *= scaling_factor;
-            std::get<51>(evals) += typename Accumulator::View(tmp);
+            std::get<52>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -484,28 +490,30 @@ template <typename FF> class alu : public Relation<aluImpl<FF>> {
         case 26:
             return "ALU_DIV_NON_U128";
         case 29:
+            return "ALU_DIV_U128_CHECK";
+        case 30:
             return "ALU_DIV_U128";
-        case 31:
+        case 32:
             return "EQ_OP_MAIN";
-        case 37:
-            return "LT_SWAP_INPUTS_A";
         case 38:
-            return "LT_SWAP_INPUTS_B";
+            return "LT_SWAP_INPUTS_A";
         case 39:
+            return "LT_SWAP_INPUTS_B";
+        case 40:
             return "LTE_NEGATE_RESULT_C";
-        case 41:
+        case 42:
             return "NOT_OP_MAIN";
-        case 46:
-            return "SEL_TRUNC_NON_TRIVIAL";
         case 47:
-            return "SEL_TRUNCATE";
+            return "SEL_TRUNC_NON_TRIVIAL";
         case 48:
-            return "TRUNC_TRIVIAL_CASE";
+            return "SEL_TRUNCATE";
         case 49:
-            return "SMALL_TRUNC_VAL_IS_LO";
+            return "TRUNC_TRIVIAL_CASE";
         case 50:
-            return "TRUNC_LO_128_DECOMPOSITION";
+            return "SMALL_TRUNC_VAL_IS_LO";
         case 51:
+            return "TRUNC_LO_128_DECOMPOSITION";
+        case 52:
             return "TRUNC_MID_BITS";
         }
         return std::to_string(index);
@@ -526,18 +534,19 @@ template <typename FF> class alu : public Relation<aluImpl<FF>> {
     static constexpr size_t SR_ALU_MUL_U128 = 21;
     static constexpr size_t SR_DIV_0_ERR = 25;
     static constexpr size_t SR_ALU_DIV_NON_U128 = 26;
-    static constexpr size_t SR_ALU_DIV_U128 = 29;
-    static constexpr size_t SR_EQ_OP_MAIN = 31;
-    static constexpr size_t SR_LT_SWAP_INPUTS_A = 37;
-    static constexpr size_t SR_LT_SWAP_INPUTS_B = 38;
-    static constexpr size_t SR_LTE_NEGATE_RESULT_C = 39;
-    static constexpr size_t SR_NOT_OP_MAIN = 41;
-    static constexpr size_t SR_SEL_TRUNC_NON_TRIVIAL = 46;
-    static constexpr size_t SR_SEL_TRUNCATE = 47;
-    static constexpr size_t SR_TRUNC_TRIVIAL_CASE = 48;
-    static constexpr size_t SR_SMALL_TRUNC_VAL_IS_LO = 49;
-    static constexpr size_t SR_TRUNC_LO_128_DECOMPOSITION = 50;
-    static constexpr size_t SR_TRUNC_MID_BITS = 51;
+    static constexpr size_t SR_ALU_DIV_U128_CHECK = 29;
+    static constexpr size_t SR_ALU_DIV_U128 = 30;
+    static constexpr size_t SR_EQ_OP_MAIN = 32;
+    static constexpr size_t SR_LT_SWAP_INPUTS_A = 38;
+    static constexpr size_t SR_LT_SWAP_INPUTS_B = 39;
+    static constexpr size_t SR_LTE_NEGATE_RESULT_C = 40;
+    static constexpr size_t SR_NOT_OP_MAIN = 42;
+    static constexpr size_t SR_SEL_TRUNC_NON_TRIVIAL = 47;
+    static constexpr size_t SR_SEL_TRUNCATE = 48;
+    static constexpr size_t SR_TRUNC_TRIVIAL_CASE = 49;
+    static constexpr size_t SR_SMALL_TRUNC_VAL_IS_LO = 50;
+    static constexpr size_t SR_TRUNC_LO_128_DECOMPOSITION = 51;
+    static constexpr size_t SR_TRUNC_MID_BITS = 52;
 };
 
 } // namespace bb::avm2

@@ -155,7 +155,7 @@ struct lookup_alu_range_check_mul_u128_c_hi_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ALU_RANGE_CHECK_MUL_U128_C_HI";
     static constexpr std::string_view RELATION_NAME = "alu";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::alu_sel_mul_div_u128;
+    static constexpr Column SRC_SELECTOR = Column::alu_sel_mul_u128;
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
     static constexpr Column COUNTS = Column::lookup_alu_range_check_mul_u128_c_hi_counts;
     static constexpr Column INVERSES = Column::lookup_alu_range_check_mul_u128_c_hi_inv;

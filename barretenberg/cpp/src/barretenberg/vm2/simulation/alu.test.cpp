@@ -261,8 +261,8 @@ TEST(AvmSimulationAluTest, DivOverflowU128)
 
     EXPECT_CALL(gt, gt(b, MemoryValue::from<uint128_t>(1))).WillOnce(Return(true));
 
-    // For u128s, we range check c_lo, c_hi, b_lo, b_hi, and res_hi:
-    EXPECT_CALL(range_check, assert_range(_, 64)).Times(5);
+    // For u128s, we range check c_lo, c_hi, b_lo, b_hi:
+    EXPECT_CALL(range_check, assert_range(_, 64)).Times(4);
 
     auto c = alu.div(a, b);
 

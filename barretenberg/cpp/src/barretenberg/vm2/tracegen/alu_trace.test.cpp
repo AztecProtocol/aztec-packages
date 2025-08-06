@@ -451,18 +451,8 @@ TEST_P(AluDivTraceGenerationTest, TraceGenerationDiv)
 {
     auto [a, b, c] = GetParam();
     auto tag = a.get_tag();
-    uint256_t res_hi = 0;
     bool div_0_error = b.as_ff() == FF(0);
     bool is_u128 = tag == MemoryTag::U128;
-    if (is_u128) {
-        // a - r = b * c --> split into res_hi_full * 2^128 + res
-        auto c_hi = simulation::decompose(static_cast<uint128_t>(c.as_ff())).hi;
-        auto b_hi = simulation::decompose(static_cast<uint128_t>(b.as_ff())).hi;
-        // res_hi = (res_hi_full - c_hi * b_hi) % 2^64 --> is (confusingly) stored in the c_hi column
-        auto hi_operand = static_cast<uint256_t>(c_hi) * static_cast<uint256_t>(b_hi);
-        auto res_hi_full = static_cast<uint256_t>(c.as_ff()) * static_cast<uint256_t>(b.as_ff()) >> 128;
-        res_hi = (res_hi_full - hi_operand) % (uint256_t(1) << 64);
-    }
     builder.process(
         {
             { .operation = AluOperation::DIV,
@@ -482,7 +472,6 @@ TEST_P(AluDivTraceGenerationTest, TraceGenerationDiv)
             ROW_FIELD_EQ(alu_ia, a),
             ROW_FIELD_EQ(alu_ib, b),
             ROW_FIELD_EQ(alu_ic, c),
-            ROW_FIELD_EQ(alu_c_hi, res_hi),
             ROW_FIELD_EQ(alu_helper1, a - b * c),
             ROW_FIELD_EQ(alu_ia_tag, static_cast<uint8_t>(tag)),
             ROW_FIELD_EQ(alu_ib_tag, static_cast<uint8_t>(tag)),
@@ -529,7 +518,6 @@ TEST_F(AluTraceGenerationTest, TraceGenerationDivU128)
                                   ROW_FIELD_EQ(alu_b_hi, 0),
                                   ROW_FIELD_EQ(alu_b_lo, 3),
                                   ROW_FIELD_EQ(alu_ic, 2),
-                                  ROW_FIELD_EQ(alu_c_hi, 0),
                                   ROW_FIELD_EQ(alu_helper1, 0),
                                   ROW_FIELD_EQ(alu_ia_tag, static_cast<uint8_t>(MemoryTag::U128)),
                                   ROW_FIELD_EQ(alu_ib_tag, static_cast<uint8_t>(MemoryTag::U128)),
@@ -553,7 +541,6 @@ TEST_F(AluTraceGenerationTest, TraceGenerationDivU128)
                                   ROW_FIELD_EQ(alu_b_hi, (uint256_t(1) << 64) - 1),
                                   ROW_FIELD_EQ(alu_b_lo, (uint256_t(1) << 64) - 3),
                                   ROW_FIELD_EQ(alu_ic, 1),
-                                  ROW_FIELD_EQ(alu_c_hi, 0),
                                   ROW_FIELD_EQ(alu_helper1, 2),
                                   ROW_FIELD_EQ(alu_ia_tag, static_cast<uint8_t>(MemoryTag::U128)),
                                   ROW_FIELD_EQ(alu_ib_tag, static_cast<uint8_t>(MemoryTag::U128)),
