@@ -142,9 +142,7 @@ std::vector<std::pair<Column, FF>> insert_side_effect_states(const SideEffectSta
 }
 
 // Helper to retrieve the read and write offsets and populate the read and write counters
-std::vector<std::pair<Column, FF>> handle_pi_read_write(TransactionPhase phase,
-                                                        uint32_t phase_length,
-                                                        uint32_t read_counter)
+std::vector<std::pair<Column, FF>> handle_pi_read(TransactionPhase phase, uint32_t phase_length, uint32_t read_counter)
 
 {
     auto [read_offset, write_offset, length_offset] = TxPhaseOffsetsTable::get_offsets(phase);
@@ -441,7 +439,7 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
             TransactionPhase phase = phase_array[i];
             trace.set(row, insert_state(propagated_state, propagated_state));
             trace.set(row, handle_padded_row(phase, gas_used, gas_limit));
-            trace.set(row, handle_pi_read_write(phase, /*phase_length=*/0, /*read_counter*/ 0));
+            trace.set(row, handle_pi_read(phase, /*phase_length=*/0, /*read_counter*/ 0));
             trace.set(row, handle_prev_gas_used(gas_used));
             trace.set(row, handle_next_gas_used(gas_used));
             trace.set(row, handle_gas_limit(gas_limit));
@@ -479,39 +477,39 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
             trace.set(row, handle_state_change_selectors(tx_phase_event->phase));
 
             // Pattern match on the variant event type and call the appropriate handler
-            std::visit(overloaded{
-                           [&](const simulation::EnqueuedCallEvent& event) {
+            std::visit(
+                overloaded{ [&](const simulation::EnqueuedCallEvent& event) {
                                trace.set(row, handle_enqueued_call_event(tx_phase_event->phase, event));
                                // No explicit write counter for this phase
-                               trace.set(row, handle_pi_read_write(tx_phase_event->phase, phase_length, phase_counter));
+                               trace.set(row, handle_pi_read(tx_phase_event->phase, phase_length, phase_counter));
 
                                // Gas limit will change in teardown
                                gas_limit = event.gas_limit;
 
                                gas_used = tx_phase_event->state_after.gas_used;
                            },
-                           [&](const simulation::PrivateAppendTreeEvent& event) {
-                               trace.set(row,
-                                         handle_append_tree_event(event,
-                                                                  tx_phase_event->phase,
-                                                                  tx_phase_event->state_before,
-                                                                  tx_phase_event->reverted));
+                            [&](const simulation::PrivateAppendTreeEvent& event) {
+                                trace.set(row,
+                                          handle_append_tree_event(event,
+                                                                   tx_phase_event->phase,
+                                                                   tx_phase_event->state_before,
+                                                                   tx_phase_event->reverted));
 
-                               trace.set(row, handle_pi_read_write(tx_phase_event->phase, phase_length, phase_counter));
-                           },
-                           [&](const simulation::PrivateEmitL2L1MessageEvent& event) {
-                               trace.set(row,
-                                         handle_l2_l1_msg_event(event,
-                                                                tx_phase_event->phase,
-                                                                tx_phase_event->state_before,
-                                                                tx_phase_event->reverted));
-                               trace.set(row, handle_pi_read_write(tx_phase_event->phase, phase_length, phase_counter));
-                           },
-                           [&](const simulation::CollectGasFeeEvent& event) {
-                               trace.set(row, handle_pi_read_write(tx_phase_event->phase, 1, 0));
-                               trace.set(row, handle_collect_gas_fee_event(event));
-                           } },
-                       tx_phase_event->event);
+                                trace.set(row, handle_pi_read(tx_phase_event->phase, phase_length, phase_counter));
+                            },
+                            [&](const simulation::PrivateEmitL2L1MessageEvent& event) {
+                                trace.set(row,
+                                          handle_l2_l1_msg_event(event,
+                                                                 tx_phase_event->phase,
+                                                                 tx_phase_event->state_before,
+                                                                 tx_phase_event->reverted));
+                                trace.set(row, handle_pi_read(tx_phase_event->phase, phase_length, phase_counter));
+                            },
+                            [&](const simulation::CollectGasFeeEvent& event) {
+                                trace.set(row, handle_pi_read(tx_phase_event->phase, 1, 0));
+                                trace.set(row, handle_collect_gas_fee_event(event));
+                            } },
+                tx_phase_event->event);
             trace.set(row, handle_next_gas_used(gas_used));
             trace.set(row, handle_gas_limit(gas_limit));
 
