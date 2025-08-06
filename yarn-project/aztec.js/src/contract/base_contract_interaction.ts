@@ -60,6 +60,11 @@ export abstract class BaseContractInteraction {
    */
   public async prove(options: SendMethodOptions): Promise<ProvenTx> {
     // docs:end:prove
+    if (!options.from.equals(this.wallet.getAddress())) {
+      throw new Error(
+        `The address provided as from does not match the wallet address. Expected ${this.wallet.getAddress().toString()}, got ${options.from.toString()}.`,
+      );
+    }
     const txProvingResult = await this.proveInternal(options);
     return new ProvenTx(
       this.wallet,
@@ -96,10 +101,10 @@ export abstract class BaseContractInteraction {
    * @returns Gas limits.
    */
   public async estimateGas(
-    opts: Omit<SendMethodOptions, 'estimateGas'>,
+    options: Omit<SendMethodOptions, 'estimateGas'>,
   ): Promise<Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>> {
     // docs:end:estimateGas
-    const txRequest = await this.create({ ...opts, fee: { ...opts?.fee, estimateGas: false } });
+    const txRequest = await this.create({ ...options, fee: { ...options?.fee, estimateGas: false } });
     const simulationResult = await this.wallet.simulateTx(
       txRequest,
       true /*simulatePublic*/,
@@ -108,7 +113,7 @@ export abstract class BaseContractInteraction {
     );
     const { totalGas: gasLimits, teardownGas: teardownGasLimits } = getGasLimits(
       simulationResult,
-      opts?.fee?.estimatedGasPadding,
+      options?.fee?.estimatedGasPadding,
     );
     return { gasLimits, teardownGasLimits };
   }

@@ -150,7 +150,8 @@ export class BlacklistTokenContractTest {
 
         this.tokenSim = new TokenSimulator(
           this.asset as unknown as TokenContract,
-          this.wallets[0],
+          this.admin,
+          this.adminAddress,
           this.logger,
           this.accounts.map(a => a.address),
         );
@@ -211,32 +212,34 @@ export class BlacklistTokenContractTest {
         await this.asset
           .withWallet(this.admin)
           .methods.update_roles(this.admin.getAddress(), adminMinterRole.toNoirStruct())
-          .send()
+          .send({ from: this.adminAddress })
           .wait();
 
         const blacklistRole = new Role().withBlacklisted();
         await this.asset
           .withWallet(this.admin)
           .methods.update_roles(this.blacklisted.getAddress(), blacklistRole.toNoirStruct())
-          .send()
+          .send({ from: this.adminAddress })
           .wait();
 
         await this.crossTimestampOfChange();
 
-        expect(await this.asset.methods.get_roles(this.admin.getAddress()).simulate()).toEqual(
-          adminMinterRole.toNoirStruct(),
-        );
+        expect(
+          await this.asset.methods.get_roles(this.admin.getAddress()).simulate({ from: this.adminAddress }),
+        ).toEqual(adminMinterRole.toNoirStruct());
 
         this.logger.verbose(`Minting ${amount} publicly...`);
-        await asset.methods.mint_public(accounts[0].address, amount).send().wait();
+        await asset.methods.mint_public(accounts[0].address, amount).send({ from: this.adminAddress }).wait();
 
         this.logger.verbose(`Minting ${amount} privately...`);
         const secret = Fr.random();
         const secretHash = await computeSecretHash(secret);
-        const receipt = await asset.methods.mint_private(amount, secretHash).send().wait();
+        const receipt = await asset.methods.mint_private(amount, secretHash).send({ from: this.adminAddress }).wait();
 
         await this.addPendingShieldNoteToPXE(asset, wallets[0].getAddress(), amount, secretHash, receipt.txHash);
-        const txClaim = asset.methods.redeem_shield(accounts[0].address, amount, secret).send();
+        const txClaim = asset.methods
+          .redeem_shield(accounts[0].address, amount, secret)
+          .send({ from: this.adminAddress });
         await txClaim.wait();
         this.logger.verbose(`Minting complete.`);
 
@@ -250,16 +253,16 @@ export class BlacklistTokenContractTest {
         } = this;
         tokenSim.mintPublic(address, amount);
 
-        const publicBalance = await asset.methods.balance_of_public(address).simulate();
+        const publicBalance = await asset.methods.balance_of_public(address).simulate({ from: address });
         this.logger.verbose(`Public balance of wallet 0: ${publicBalance}`);
         expect(publicBalance).toEqual(this.tokenSim.balanceOfPublic(address));
 
         tokenSim.mintPrivate(address, amount);
-        const privateBalance = await asset.methods.balance_of_private(address).simulate();
+        const privateBalance = await asset.methods.balance_of_private(address).simulate({ from: address });
         this.logger.verbose(`Private balance of wallet 0: ${privateBalance}`);
         expect(privateBalance).toEqual(tokenSim.balanceOfPrivate(address));
 
-        const totalSupply = await asset.methods.total_supply().simulate();
+        const totalSupply = await asset.methods.total_supply().simulate({ from: address });
         this.logger.verbose(`Total supply: ${totalSupply}`);
         expect(totalSupply).toEqual(tokenSim.totalSupply);
 
