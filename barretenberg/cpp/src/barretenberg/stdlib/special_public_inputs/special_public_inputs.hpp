@@ -8,10 +8,10 @@
 
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
-#include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/databus/databus.hpp"
+#include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/public_input_component/public_input_component.hpp"
 namespace bb::stdlib::recursion::honk {
 

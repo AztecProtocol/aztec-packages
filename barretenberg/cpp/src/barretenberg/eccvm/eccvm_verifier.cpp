@@ -63,7 +63,7 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
     // Execute Sumcheck Verifier
-    SumcheckVerifier<Flavor, CONST_ECCVM_LOG_N> sumcheck(transcript, alpha);
+    SumcheckVerifier<Flavor> sumcheck(transcript, alpha, CONST_ECCVM_LOG_N);
 
     std::vector<FF> gate_challenges(CONST_ECCVM_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {

@@ -40,7 +40,8 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::execute_relatio
                       transcript,
                       proving_key->alphas,
                       proving_key->gate_challenges,
-                      proving_key->relation_parameters);
+                      proving_key->relation_parameters,
+                      CONST_PROOF_SIZE_LOG_N);
     {
 
         PROFILE_THIS_NAME("sumcheck.prove");

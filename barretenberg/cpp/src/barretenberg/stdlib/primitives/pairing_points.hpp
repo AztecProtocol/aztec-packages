@@ -147,23 +147,28 @@ template <typename Builder_> struct PairingPoints {
      *
      * @param builder
      */
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/984): Check how many gates this costs and if they're
-    // necessary.
     static void add_default_to_public_inputs(Builder& builder)
     {
-        using BaseField = typename Curve::BaseField;
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): These are pairing points extracted from a
         // valid proof. This is a workaround because we can't represent the point at infinity in biggroup yet.
-        uint256_t x0_val("0x031e97a575e9d05a107acb64952ecab75c020998797da7842ab5d6d1986846cf");
-        uint256_t y0_val("0x178cbf4206471d722669117f9758a4c410db10a01750aebb5666547acf8bd5a4");
-        uint256_t x1_val("0x0f94656a2ca489889939f81e9c74027fd51009034b3357f0e91b8a11e7842c38");
-        uint256_t y1_val("0x1b52c2020d7464a0c80c0da527a08193fe27776f50224bd6fb128b46c1ddb67f");
-        BaseField x0 = BaseField::from_witness(&builder, x0_val);
-        BaseField y0 = BaseField::from_witness(&builder, y0_val);
-        BaseField x1 = BaseField::from_witness(&builder, x1_val);
-        BaseField y1 = BaseField::from_witness(&builder, y1_val);
-        PairingPoints<Builder> points_accumulator{ Group(x0, y0), Group(x1, y1) };
-        points_accumulator.set_public();
+        bigfield<Builder, bb::Bn254FqParams> x0(
+            fq("0x031e97a575e9d05a107acb64952ecab75c020998797da7842ab5d6d1986846cf"));
+        bigfield<Builder, bb::Bn254FqParams> y0(
+            fq("0x178cbf4206471d722669117f9758a4c410db10a01750aebb5666547acf8bd5a4"));
+        bigfield<Builder, bb::Bn254FqParams> x1(
+            fq("0x0f94656a2ca489889939f81e9c74027fd51009034b3357f0e91b8a11e7842c38"));
+        bigfield<Builder, bb::Bn254FqParams> y1(
+            fq("0x1b52c2020d7464a0c80c0da527a08193fe27776f50224bd6fb128b46c1ddb67f"));
+
+        x0.convert_constant_to_fixed_witness(&builder);
+        y0.convert_constant_to_fixed_witness(&builder);
+        x1.convert_constant_to_fixed_witness(&builder);
+        y1.convert_constant_to_fixed_witness(&builder);
+
+        x0.set_public();
+        y0.set_public();
+        x1.set_public();
+        y1.set_public();
     }
 };
 

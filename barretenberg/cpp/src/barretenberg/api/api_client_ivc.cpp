@@ -177,6 +177,9 @@ bool ClientIVCAPI::prove_and_verify(const std::filesystem::path& input_path)
     steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
 
     std::shared_ptr<ClientIVC> ivc = steps.accumulate();
+    // Construct the hiding kernel as the final step of the IVC
+    ClientIVC::ClientCircuit circuit{ ivc->goblin.op_queue };
+    ivc->complete_kernel_circuit_logic(circuit);
     const bool verified = ivc->prove_and_verify();
     return verified;
 }
@@ -289,8 +292,7 @@ void write_arbitrary_valid_client_ivc_proof_and_vk_to_file(const std::filesystem
     // Construct and accumulate a series of mocked private function execution circuits
     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        auto [circuit, vk] = circuit_producer.create_next_circuit_and_vk(ivc);
-        ivc.accumulate(circuit, vk);
+        circuit_producer.construct_and_accumulate_next_circuit(ivc);
     }
 
     ClientIVC::Proof proof = ivc.prove();

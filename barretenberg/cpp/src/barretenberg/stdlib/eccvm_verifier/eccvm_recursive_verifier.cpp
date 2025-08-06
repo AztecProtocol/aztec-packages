@@ -51,7 +51,7 @@ ECCVMRecursiveVerifier::IpaClaimAndProof ECCVMRecursiveVerifier::verify_proof(co
     using OpeningClaim = OpeningClaim<Curve>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
-    using Sumcheck = SumcheckVerifier<Flavor, CONST_ECCVM_LOG_N>;
+    using Sumcheck = SumcheckVerifier<Flavor>;
 
     RelationParameters<FF> relation_parameters;
 
@@ -91,7 +91,7 @@ ECCVMRecursiveVerifier::IpaClaimAndProof ECCVMRecursiveVerifier::verify_proof(co
     // Each linearly independent subrelation contribution is multiplied by `alpha^i`, where
     //  i = 0, ..., NUM_SUBRELATIONS- 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
-    Sumcheck sumcheck(transcript, alpha);
+    Sumcheck sumcheck(transcript, alpha, CONST_ECCVM_LOG_N);
 
     std::vector<FF> gate_challenges(CONST_ECCVM_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {

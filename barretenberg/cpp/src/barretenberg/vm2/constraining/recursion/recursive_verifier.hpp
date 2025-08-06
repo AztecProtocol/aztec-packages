@@ -1,6 +1,6 @@
 #pragma once
 
-#include "barretenberg/stdlib/pairing_points.hpp"
+#include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_flavor.hpp"

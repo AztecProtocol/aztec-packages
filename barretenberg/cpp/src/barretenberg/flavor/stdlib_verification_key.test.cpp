@@ -4,7 +4,7 @@
 #include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/eccvm_recursive_flavor.hpp"
-#include "barretenberg/stdlib/pairing_points.hpp"
+#include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/translator_vm_verifier/translator_recursive_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
