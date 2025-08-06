@@ -119,6 +119,9 @@ template UltraVerifier_<UltraRollupFlavor>::UltraVerifierOutput UltraVerifier_<U
 template UltraVerifier_<MegaFlavor>::UltraVerifierOutput UltraVerifier_<MegaFlavor>::verify_proof<DefaultIO>(
     const Proof& proof, const Proof& ipa_proof);
 
+template UltraVerifier_<MegaZKFlavor>::UltraVerifierOutput UltraVerifier_<MegaZKFlavor>::verify_proof<DefaultIO>(
+    const Proof& proof, const Proof& ipa_proof);
+
 // ClientIVC specialization
 template UltraVerifier_<MegaZKFlavor>::UltraVerifierOutput UltraVerifier_<MegaZKFlavor>::verify_proof<HidingKernelIO>(
     const Proof& proof, const Proof& ipa_proof);
