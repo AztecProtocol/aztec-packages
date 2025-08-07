@@ -3,18 +3,18 @@ set -eu
 
 TARGET="protogalaxy_bench"
 FILTER="/16$"
-BUILD_DIR=build-op-count-time
+BUILD_DIR=build-no-avm
 
 # Move above script dir.
 cd $(dirname $0)/..
 
 # Measure the benchmarks with ops time counting
 ./scripts/benchmark_remote.sh protogalaxy_bench\
-                              "./protogalaxy_bench --benchmark_filter=$FILTER\
+                              "BB_USE_OP_COUNT_TIME=1 ./protogalaxy_bench --benchmark_filter=$FILTER\
                                                   --benchmark_out=$TARGET.json\
                                                   --benchmark_out_format=json"\
-                              op-count-time\
-                              build-op-count-time
+                              clang16-no-avm\
+                              $BUILD_DIR
 
 # Retrieve output from benching instance
 cd $BUILD_DIR
