@@ -1,5 +1,6 @@
 #include "univariate.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+
 #include <gtest/gtest.h>
 
 using namespace bb;
@@ -37,7 +38,6 @@ TYPED_TEST(UnivariateTest, Addition)
 
 TYPED_TEST(UnivariateTest, Multiplication)
 {
-
     Univariate<fr, 3> f1 = Univariate<fr, 2>{ { 1, 2 } }.template extend_to<3>();
     Univariate<fr, 3> f2 = Univariate<fr, 2>{ { 3, 4 } }.template extend_to<3>();
     // output should be {3, 8, 15}
@@ -48,7 +48,6 @@ TYPED_TEST(UnivariateTest, Multiplication)
 
 TYPED_TEST(UnivariateTest, ConstructUnivariateViewFromUnivariate)
 {
-
     Univariate<fr, 3> f{ { 1, 2, 3 } };
     UnivariateView<fr, 2> g(f);
     EXPECT_EQ(g.value_at(0), f.value_at(0));
@@ -57,7 +56,6 @@ TYPED_TEST(UnivariateTest, ConstructUnivariateViewFromUnivariate)
 
 TYPED_TEST(UnivariateTest, ConstructUnivariateFromUnivariateView)
 {
-
     Univariate<fr, 3> f{ { 1, 2, 3 } };
     UnivariateView<fr, 2> g(f);
     Univariate<fr, 2> h(g);
@@ -81,6 +79,7 @@ TYPED_TEST(UnivariateTest, UnivariateViewAddition)
     Univariate<fr, 2> expected_result2{ { 5, 8 } };
     EXPECT_EQ(result2, expected_result2);
 }
+
 TYPED_TEST(UnivariateTest, UnivariateViewSubtraction)
 {
     Univariate<fr, 3> f1{ { 1, 2, 3 } };
@@ -140,13 +139,13 @@ TYPED_TEST(UnivariateTest, Serialization)
 
 TYPED_TEST(UnivariateTest, EvaluationCustomDomain)
 {
-    []() {
+    {
         auto poly = Univariate<fr, 3, 1>(std::array<fr, 2>{ 1, 2 });
         EXPECT_EQ(poly.evaluate(fr(5)), fr(5));
-    }();
+    }
 
-    []() {
+    {
         auto poly = Univariate<fr, 37, 32>(std::array<fr, 5>{ 1, 11, 111, 1111, 11111 });
         EXPECT_EQ(poly.evaluate(fr(2)), fr(294330751));
-    }();
+    }
 }

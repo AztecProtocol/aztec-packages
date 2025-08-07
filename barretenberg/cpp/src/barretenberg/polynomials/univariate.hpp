@@ -160,7 +160,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
             return evaluations[i - domain_start];
         }
     };
-    size_t size() { return evaluations.size(); };
+    size_t size() const { return evaluations.size(); };
 
     // Check if the univariate is identically zero
     bool is_zero() const
