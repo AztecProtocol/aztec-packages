@@ -76,6 +76,7 @@ template <typename Flavor> class SumcheckProverRound {
      */
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
     using SumcheckRoundUnivariate = bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>;
+    // Note: since this is not initialized with {}, the univariates contain garbage.
     SumcheckTupleOfTuplesOfUnivariates univariate_accumulators;
 
     // The length of the polynomials used to mask the Sumcheck Round Univariates.
@@ -85,7 +86,6 @@ template <typename Flavor> class SumcheckProverRound {
     SumcheckProverRound(size_t initial_round_size)
         : round_size(initial_round_size)
     {
-
         PROFILE_THIS_NAME("SumcheckProverRound constructor");
 
         // Initialize univariate accumulators to 0
@@ -259,12 +259,11 @@ template <typename Flavor> class SumcheckProverRound {
 
         size_t chunk_size = round_size / num_of_chunks;
         // Construct univariate accumulator containers; one per thread
+        // Note: std::vector will trigger {}-initialization of the contents. Therefore no need to zero the univariates.
         std::vector<SumcheckTupleOfTuplesOfUnivariates> thread_univariate_accumulators(num_threads);
 
         // Accumulate the contribution from each sub-relation accross each edge of the hyper-cube
         parallel_for(num_threads, [&](size_t thread_idx) {
-            // Initialize the thread accumulator to 0
-            Utils::zero_univariates(thread_univariate_accumulators[thread_idx]);
             // Construct extended univariates containers; one per thread
             ExtendedEdges extended_edges;
             for (size_t chunk_idx = 0; chunk_idx < num_of_chunks; chunk_idx++) {
@@ -432,6 +431,7 @@ template <typename Flavor> class SumcheckProverRound {
         size_t iterations_per_thread = num_valid_iterations / num_threads; // actual iterations per thread
         size_t iterations_for_last_thread = num_valid_iterations - (iterations_per_thread * (num_threads - 1));
         // Construct univariate accumulator containers; one per thread
+        // Note: std::vector will trigger {}-initialization of the contents. Therefore no need to zero the univariates.
         std::vector<SumcheckTupleOfTuplesOfUnivariates> thread_univariate_accumulators(num_threads);
 
         parallel_for(num_threads, [&](size_t thread_idx) {
@@ -440,8 +440,6 @@ template <typename Flavor> class SumcheckProverRound {
                                                                : (thread_idx + 1) * iterations_per_thread;
 
             RowIterator edge_iterator(round_manifest, start);
-            // Initialize the thread accumulator to 0
-            Utils::zero_univariates(thread_univariate_accumulators[thread_idx]);
             // Construct extended univariates containers; one per thread
             ExtendedEdges extended_edges;
             for (size_t i = start; i < end; ++i) {
@@ -480,11 +478,9 @@ template <typename Flavor> class SumcheckProverRound {
         const ZKData& zk_sumcheck_data,
         const RowDisablingPolynomial<FF> row_disabling_polynomial)
         requires Flavor::HasZK
-
     {
         auto hiding_univariate = compute_libra_univariate(zk_sumcheck_data, round_idx);
         if constexpr (UseRowDisablingPolynomial<Flavor>) {
-
             hiding_univariate -= compute_disabled_contribution(
                 polynomials, relation_parameters, gate_separators, alpha, round_idx, row_disabling_polynomial);
         }
@@ -507,7 +503,8 @@ template <typename Flavor> class SumcheckProverRound {
         const RowDisablingPolynomial<FF> row_disabling_polynomial)
         requires UseRowDisablingPolynomial<Flavor>
     {
-        SumcheckTupleOfTuplesOfUnivariates univariate_accumulator;
+        // Note: {} is required to initialize the tuple contents. Otherwise the univariates contain garbage.
+        SumcheckTupleOfTuplesOfUnivariates univariate_accumulator{};
         ExtendedEdges extended_edges;
         SumcheckRoundUnivariate result;
 
@@ -666,32 +663,30 @@ template <typename Flavor> class SumcheckProverRound {
      * @result #univariate_accumulators are updated with the contribution from the current group of edges.  For each
      * relation, a univariate of some degree is computed by accumulating the contributions of each group of edges.
      */
-    template <size_t relation_idx = 0>
     void accumulate_relation_univariates(SumcheckTupleOfTuplesOfUnivariates& univariate_accumulators,
                                          const auto& extended_edges,
                                          const bb::RelationParameters<FF>& relation_parameters,
                                          const FF& scaling_factor)
     {
-        using Relation = std::tuple_element_t<relation_idx, Relations>;
-        // Check if the relation is skippable to speed up accumulation
-        if constexpr (!isSkippable<Relation, decltype(extended_edges)>) {
-            // If not, accumulate normally
-            Relation::accumulate(
-                std::get<relation_idx>(univariate_accumulators), extended_edges, relation_parameters, scaling_factor);
-        } else {
-            // If so, only compute the contribution if the relation is active
-            if (!Relation::skip(extended_edges)) {
+        constexpr_for<0, NUM_RELATIONS, 1>([&]<size_t relation_idx>() {
+            using Relation = std::tuple_element_t<relation_idx, Relations>;
+            // Check if the relation is skippable to speed up accumulation
+            if constexpr (!isSkippable<Relation, decltype(extended_edges)>) {
+                // If not, accumulate normally
                 Relation::accumulate(std::get<relation_idx>(univariate_accumulators),
                                      extended_edges,
                                      relation_parameters,
                                      scaling_factor);
+            } else {
+                // If so, only compute the contribution if the relation is active
+                if (!Relation::skip(extended_edges)) {
+                    Relation::accumulate(std::get<relation_idx>(univariate_accumulators),
+                                         extended_edges,
+                                         relation_parameters,
+                                         scaling_factor);
+                }
             }
-        }
-        // Repeat for the next relation.
-        if constexpr (relation_idx + 1 < NUM_RELATIONS) {
-            accumulate_relation_univariates<relation_idx + 1>(
-                univariate_accumulators, extended_edges, relation_parameters, scaling_factor);
-        }
+        });
     }
 };
 
@@ -804,6 +799,7 @@ template <typename Flavor> class SumcheckVerifierRound {
 
         return Utils::scale_and_batch_elements(relation_evaluations, alphas);
     }
+
     /**
      * @brief Temporary method to pad Protogalaxy gate challenges and the gate challenges in
      * TestBasicSingleAvmRecursionConstraint to CONST_PROOF_SIZE_LOG_N. Will be deprecated by more flexible padded size

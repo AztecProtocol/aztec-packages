@@ -118,7 +118,6 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 
     void test_prover()
     {
-
         const size_t multivariate_d(2);
         const size_t multivariate_n(1 << multivariate_d);
 
@@ -219,7 +218,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
             full_polynomials.z_perm = bb::Polynomial<FF>(z_perm);
             full_polynomials.lookup_inverses = bb::Polynomial<FF>(lookup_inverses);
             full_polynomials.lookup_read_counts = bb::Polynomial<FF>(skipping_disabler);
-            if constexpr (std::is_same<Flavor, MegaZKFlavor>::value) {
+            if constexpr (std::is_same_v<Flavor, MegaZKFlavor>) {
                 std::array<FF, multivariate_n> return_data_inverses = { 0, 0, 0, 0, 0, 0, r * r, -r };
                 full_polynomials.return_data_inverses = bb::Polynomial<FF>(return_data_inverses);
 
@@ -401,19 +400,16 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 };
 
 // Define the FlavorTypes
-#ifdef STARKNET_GARAGA_FLAVORS
 using FlavorTypes = testing::Types<UltraFlavor,
                                    UltraZKFlavor,
                                    UltraKeccakFlavor,
                                    UltraKeccakZKFlavor,
+#ifdef STARKNET_GARAGA_FLAVORS
                                    UltraStarknetFlavor,
                                    UltraStarknetZKFlavor,
+#endif
                                    MegaFlavor,
                                    MegaZKFlavor>;
-#else
-using FlavorTypes =
-    testing::Types<UltraFlavor, UltraZKFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor, MegaFlavor, MegaZKFlavor>;
-#endif
 
 TYPED_TEST_SUITE(SumcheckTests, FlavorTypes);
 

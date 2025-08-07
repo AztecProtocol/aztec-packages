@@ -42,7 +42,7 @@ class PGInternalTest : public ProtogalaxyProverInternal<DeciderProvingKeys_<Flav
         const UnivariateRelationParametersNoOptimisticSkipping& relation_parameters,
         const UnivariateSubrelationSeparators& alphas)
     {
-        TupleOfTuplesOfUnivariatesNoOptimisticSkipping accumulators;
+        TupleOfTuplesOfUnivariatesNoOptimisticSkipping accumulators{};
         return compute_combiner_no_optimistic_skipping(
             keys, gate_separators, relation_parameters, alphas, accumulators);
     }
@@ -77,6 +77,7 @@ class PGInternalTest : public ProtogalaxyProverInternal<DeciderProvingKeys_<Flav
         // doesn't skip computation), so we need to define types depending on the template instantiation
         using ThreadAccumulators = TupleOfTuplesOfUnivariatesNoOptimisticSkipping;
         // Construct univariate accumulator containers; one per thread
+        // Note: std::vector will trigger {}-initialization of the contents. Therefore no need to zero the univariates.
         std::vector<ThreadAccumulators> thread_univariate_accumulators(num_threads);
 
         // Distribute the execution trace rows across threads so that each handles an equal number of active rows
@@ -84,8 +85,6 @@ class PGInternalTest : public ProtogalaxyProverInternal<DeciderProvingKeys_<Flav
 
         // Accumulate the contribution from each sub-relation
         parallel_for(num_threads, [&](size_t thread_idx) {
-            // Initialize the thread accumulator to 0
-            RelationUtils::zero_univariates(thread_univariate_accumulators[thread_idx]);
             // Construct extended univariates containers; one per thread
             ExtendedUnivariatesTypeNoOptimisticSkipping extended_univariates;
 
@@ -355,7 +354,8 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
             // Relation parameters are all zeroes
             RelationParameters<FF> relation_parameters;
             // Temporary accumulator to compute the sumcheck on the second key
-            typename Flavor::TupleOfArraysOfValues temporary_accumulator;
+            // Note: {} is required to initialize the tuple contents. Otherwise the values contain garbage.
+            typename Flavor::TupleOfArraysOfValues temporary_accumulator{};
 
             // Accumulate arithmetic relation over 2 rows on the second key
             for (size_t i = 0; i < 2; i++) {
@@ -390,8 +390,8 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
             std::array<FF, UNIVARIATE_LENGTH> precomputed_result{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
             // Compute the sum for each index separately, treating each extended key independently
             for (size_t idx = 0; idx < UNIVARIATE_LENGTH; idx++) {
-
-                typename Flavor::TupleOfArraysOfValues accumulator;
+                // Note: {} is required to initialize the tuple contents. Otherwise the values contain garbage.
+                typename Flavor::TupleOfArraysOfValues accumulator{};
                 if (idx < NUM_KEYS) {
                     for (size_t i = 0; i < 2; i++) {
                         UltraArithmeticRelation::accumulate(std::get<0>(accumulator),
