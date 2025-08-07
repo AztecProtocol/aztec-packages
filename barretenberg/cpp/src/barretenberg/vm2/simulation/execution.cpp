@@ -1030,7 +1030,7 @@ void Execution::handle_enter_call(ContextInterface& parent_context, std::unique_
     ctx_stack_events.emit(
         { .id = parent_context.get_context_id(),
           .parent_id = parent_context.get_parent_id(),
-          .entered_context_id = context_provider.get_next_context_id(),
+          .entered_context_id = child_context->get_context_id(), // gets the context id of the child!
           .next_pc = parent_context.get_next_pc(),
           .msg_sender = parent_context.get_msg_sender(),
           .contract_addr = parent_context.get_address(),

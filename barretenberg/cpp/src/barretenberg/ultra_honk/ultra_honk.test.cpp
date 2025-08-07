@@ -6,8 +6,8 @@
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
-#include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
+#include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
@@ -64,10 +64,12 @@ template <typename Flavor> class UltraHonkTests : public ::testing::Test {
         if constexpr (HasIPAAccumulator<Flavor>) {
             VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
             Verifier verifier(verification_key, ipa_verification_key);
-            EXPECT_EQ(verifier.verify_proof(proof, proving_key->ipa_proof), expected_result);
+            bool result = verifier.template verify_proof<RollupIO>(proof, proving_key->ipa_proof).result;
+            EXPECT_EQ(result, expected_result);
         } else {
             Verifier verifier(verification_key);
-            EXPECT_EQ(verifier.verify_proof(proof), expected_result);
+            bool result = verifier.template verify_proof<DefaultIO>(proof).result;
+            EXPECT_EQ(result, expected_result);
         }
     };
 
