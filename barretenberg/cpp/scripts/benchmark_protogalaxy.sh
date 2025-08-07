@@ -3,7 +3,7 @@ set -eu
 
 TARGET="protogalaxy_bench"
 FILTER="/16$"
-BUILD_DIR=build-no-avm
+BUILD_DIR=build
 
 # Move above script dir.
 cd $(dirname $0)/..
@@ -13,7 +13,7 @@ cd $(dirname $0)/..
                               "BB_USE_OP_COUNT_TIME=1 ./protogalaxy_bench --benchmark_filter=$FILTER\
                                                   --benchmark_out=$TARGET.json\
                                                   --benchmark_out_format=json"\
-                              clang16-no-avm\
+                              clang16-assert\
                               $BUILD_DIR
 
 # Retrieve output from benching instance
