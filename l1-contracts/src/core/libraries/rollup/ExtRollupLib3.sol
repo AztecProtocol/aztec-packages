@@ -18,6 +18,7 @@ library ExtRollupLib3 {
   }
 
   function deploySlasher(
+    address _rollup,
     uint256 _slashingQuorum,
     uint256 _slashingRoundSize,
     uint256 _slashingLifetimeInRounds,
@@ -25,7 +26,12 @@ library ExtRollupLib3 {
     address _slashingVetoer
   ) external returns (ISlasher) {
     Slasher slasher = new Slasher(
-      _slashingQuorum, _slashingRoundSize, _slashingLifetimeInRounds, _slashingExecutionDelayInRounds, _slashingVetoer
+      _rollup,
+      _slashingQuorum,
+      _slashingRoundSize,
+      _slashingLifetimeInRounds,
+      _slashingExecutionDelayInRounds,
+      _slashingVetoer
     );
     return ISlasher(address(slasher));
   }
