@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-PREFIX = Path("build-no-avm")
+PREFIX = Path("build")
 PROTOGALAXY_BENCH_JSON = Path("protogalaxy_bench.json")
 BENCHMARK = "fold_k/16"
 
