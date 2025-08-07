@@ -41,7 +41,6 @@ TEST_F(Sha256Tests, TestSha256Compression)
         .range_constraints = {},
         .aes128_constraints = {},
         .sha256_compression = { sha256_compression },
-
         .ecdsa_k1_constraints = {},
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},
@@ -53,9 +52,6 @@ TEST_F(Sha256Tests, TestSha256Compression)
         .honk_recursion_constraints = {},
         .avm_recursion_constraints = {},
         .ivc_recursion_constraints = {},
-        .bigint_from_le_bytes_constraints = {},
-        .bigint_to_le_bytes_constraints = {},
-        .bigint_operations = {},
         .assert_equalities = {},
         .poly_triple_constraints = {},
         .quad_constraints = {},

@@ -31,9 +31,6 @@ namespace acir_format {
 
 using namespace bb;
 
-template class DSLBigInts<UltraCircuitBuilder>;
-template class DSLBigInts<MegaCircuitBuilder>;
-
 template <typename Builder>
 void handle_IPA_accumulation(Builder& builder,
                              const std::vector<OpeningClaim<stdlib::grumpkin<Builder>>>& nested_ipa_claims,
@@ -223,30 +220,6 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
                 constraint_system.gates_per_opcode[opcode_index] = avg_gates_per_opcode;
             }
         }
-    }
-
-    // Add big_int constraints
-    DSLBigInts<Builder> dsl_bigints;
-    dsl_bigints.set_builder(&builder);
-    for (size_t i = 0; i < constraint_system.bigint_from_le_bytes_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.bigint_from_le_bytes_constraints.at(i);
-        create_bigint_from_le_bytes_constraint(builder, constraint, dsl_bigints);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.bigint_from_le_bytes_constraints.at(i));
-    }
-
-    for (size_t i = 0; i < constraint_system.bigint_operations.size(); ++i) {
-        const auto& constraint = constraint_system.bigint_operations[i];
-        create_bigint_operations_constraint<Builder>(constraint, dsl_bigints, has_valid_witness_assignments);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.bigint_operations[i]);
-    }
-
-    for (size_t i = 0; i < constraint_system.bigint_to_le_bytes_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.bigint_to_le_bytes_constraints.at(i);
-        create_bigint_to_le_bytes_constraint(builder, constraint, dsl_bigints);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.bigint_to_le_bytes_constraints.at(i));
     }
 
     // assert equals

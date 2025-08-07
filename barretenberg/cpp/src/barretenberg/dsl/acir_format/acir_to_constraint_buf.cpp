@@ -777,54 +777,6 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                 default:
                     throw_or_abort("Invalid PROOF_TYPE in RecursionConstraint!");
                 }
-            } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::BigIntFromLeBytes>) {
-                af.bigint_from_le_bytes_constraints.push_back(BigIntFromLeBytes{
-                    .inputs = transform::map(arg.inputs, [](auto& e) { return get_witness_from_function_input(e); }),
-                    .modulus = transform::map(arg.modulus, [](auto& e) -> uint32_t { return e; }),
-                    .result = arg.output,
-                });
-                af.original_opcode_indices.bigint_from_le_bytes_constraints.push_back(opcode_index);
-            } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::BigIntToLeBytes>) {
-                af.bigint_to_le_bytes_constraints.push_back(BigIntToLeBytes{
-                    .input = arg.input,
-                    .result = transform::map(arg.outputs, [](auto& e) { return e.value; }),
-                });
-                for (auto& output : af.bigint_to_le_bytes_constraints.back().result) {
-                    af.constrained_witness.insert(output);
-                }
-                af.original_opcode_indices.bigint_to_le_bytes_constraints.push_back(opcode_index);
-            } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::BigIntAdd>) {
-                af.bigint_operations.push_back(BigIntOperation{
-                    .lhs = arg.lhs,
-                    .rhs = arg.rhs,
-                    .result = arg.output,
-                    .opcode = BigIntOperationType::Add,
-                });
-                af.original_opcode_indices.bigint_operations.push_back(opcode_index);
-            } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::BigIntSub>) {
-                af.bigint_operations.push_back(BigIntOperation{
-                    .lhs = arg.lhs,
-                    .rhs = arg.rhs,
-                    .result = arg.output,
-                    .opcode = BigIntOperationType::Sub,
-                });
-                af.original_opcode_indices.bigint_operations.push_back(opcode_index);
-            } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::BigIntMul>) {
-                af.bigint_operations.push_back(BigIntOperation{
-                    .lhs = arg.lhs,
-                    .rhs = arg.rhs,
-                    .result = arg.output,
-                    .opcode = BigIntOperationType::Mul,
-                });
-                af.original_opcode_indices.bigint_operations.push_back(opcode_index);
-            } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::BigIntDiv>) {
-                af.bigint_operations.push_back(BigIntOperation{
-                    .lhs = arg.lhs,
-                    .rhs = arg.rhs,
-                    .result = arg.output,
-                    .opcode = BigIntOperationType::Div,
-                });
-                af.original_opcode_indices.bigint_operations.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::Poseidon2Permutation>) {
                 af.poseidon2_constraints.push_back(Poseidon2Constraint{
                     .state = transform::map(arg.inputs, [](auto& e) { return parse_input(e); }),
