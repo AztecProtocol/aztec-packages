@@ -25,7 +25,7 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
  *
  * @dev This library implements epoch proof verification, which advances the proven chain tip.
  *      - Epoch boundary validation and proof deadline enforcement
- *      - Attestation verification for the last block in the epoch
+ *      - Attestation verification for the last block in the proven range (which may be a partial epoch)
  *      - Validity proof verification using the configured verifier
  *      - Blob commitment validation and batched blob proof verification
  *      - Public input assembly and validation for the root rollup circuit
@@ -42,13 +42,14 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
  *      This ensures that the committee has properly validated the final state of the epoch. Note that this is
  *      equivalent to verifying the attestations for every block in the epoch, since the committee should not attest
  *      to a block unless its ancestors are also valid and have been attested to. This step checks that the committee
- *      has re-executed all public transactions in the epoch and arrived to the same state root, effectively acting
- *      as training wheels for the proving of public executions (ie the AVM).
+ *      have agreed on the same output state of the proven range. For honest nodes, this is done by re-executing the
+ *      transactions in the proven range and matching the state root, effectively acting as training wheels for the
+ *      proving of public executions (i.e., the AVM).
  *
  *      Proof Submission Window:
  *      Epochs have a configurable proof submission deadline measured in epochs after the epoch's completion.
  *      This prevents indefinite delays in proof submission while allowing reasonable time for proof generation.
- *      If no proof is submitted within the deadline, blocks become prunable to maintain chain liveness.
+ *      If no proof is submitted within the deadline, blocks are pruned to maintain chain liveness.
  *
  *      Blob Integration:
  *      The library validates batched blob proofs using EIP-4844's point evaluation precompile and ensures
@@ -101,7 +102,7 @@ library EpochProofLib {
    * @param _args The epoch proof submission arguments containing:
    *              - start: First block number in the epoch (inclusive)
    *              - end: Last block number in the epoch (inclusive)
-   *              - args: Public inputs (previousArchive, endArchive, endTimestamp, outHash, proverId)
+   *              - args: Public inputs (previousArchive, endArchive, endTimestamp, proverId)
    *              - fees: Fee distribution array (recipient-value pairs)
    *              - attestations: Committee attestations for the last block in the epoch
    *              - blobInputs: Batched blob data for EIP-4844 point evaluation precompile

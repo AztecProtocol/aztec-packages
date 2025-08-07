@@ -103,7 +103,7 @@ struct ValidateHeaderArgs {
  *      - Each block must built on the immediate previous one, ensuring no forks. This is enforced by checking
  *        the last archive root and block numbers. If the previous block is invalid, the proposer is expected to
  *        first invalidate it.
- *      - Blob commitments are validated.
+ *      - Blob commitments are validated, to ensure that the values provided correctly match the actual blobs published
  */
 library ProposeLib {
   using TimeLib for Timestamp;
@@ -140,7 +140,8 @@ library ProposeLib {
    *          - Store archive root for the new block number
    *          - Store block metadata in circular storage (TempBlockLog)
    *          - Update L1 gas fee oracle (when txs enabled)
-   *          - Consume inbox messages, insert outbox messages (when txs enabled)
+   *          - Consume inbox messages (when txs enabled)
+   *          - Insert outbox messages (when txs enabled)
    *          - Setup epoch for validator selection (first block of the epoch)
    *
    * @param _args - The arguments to propose the block

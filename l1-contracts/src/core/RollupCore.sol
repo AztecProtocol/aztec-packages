@@ -56,7 +56,7 @@ import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
  *
  *      Key invariants:
  *      - The L2 chain is linear (no forks) but can be rolled back
- *      - Blocks must build on the previous block's archive
+ *        - New blocks must build on the state of the current pending block
  *      - Blocks with invalid attestations can be removed via the invalidation mechanism
  *      - Unproven blocks are pruned if no proof is submitted in time
  *
@@ -69,7 +69,7 @@ import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
  *         They form the pool from which committee members and proposers are selected.
  *
  *      2) Committee Members: Drafted from the validator set and remain stable throughout an epoch.
- *         A block requires 2/3rds of the committee for the epoch to be considered valid. These attestations serve two
+ *         A block requires >2/3rds of the committee for the epoch to be considered valid. These attestations serve two
  *         purposes:
  *         - Attest to data availability for transaction data not posted on L1, which is required by provers to generate
  *           epoch proofs
@@ -98,24 +98,29 @@ import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
  *      - At each L2 slot a single proposer is chosen from the validator set who assembles a block that:
  *         - Builds on top of the last pending block (tips.pending) in the rollup
  *         - Includes state transitions, messages, and fee calculations
- *         - Contains proper archive linking to maintain chain continuity
- *         - Is attested by at least 2/3 of the committee members
+ *         - Is attested by >2/3 of the committee members
  *      - The L2 block is posted to L1 via the `propose` function
  *         - The pending chain tip advances to the new block
  *         - State is updated (message trees, archives, etc.)
- *      - After the epoch has ended, a prover generates a proof of the state transition for all blocks in the epoch
- *         - The proof is submitted via `submitEpochRootProof`
- *         - The proof must be submitted within the configured proof submission window
- *         - Upon successful proof submission the proven chain tip advances to the last block in the proven epoch
+ *      - After the epoch has ended, a prover generates a proof of the valid state transition for a prefix of blocks in
+ *        the epoch
+ *         - Most often the prefix will be all the blocks, but "partial epochs" can also be proven for faster message
+ *           transmission
+ *         - The proof is submitted via `submitEpochRootProof` and must be submitted within the configured proof
+ *           submission window
+ *         - Upon successful proof submission the proven chain tip advances to the last block in the proven prefix if it
+ *           is past the current proven tip, otherwise the tip remain unchanged
+ *         - It is possible to submit multiple proofs for the same epoch (or prefixes of it)
+ *         - Provers of longest prefix shares the proving rewards
  *      - Proving a block makes it finalized from the perspective of L1
- *         - This triggers disbursing rewards to the sequencers and provers of the epoch
+ *         - This triggers reward and fee accounting for the sequencers and provers of the epoch
  *         - And pushes messages to the outbox for L1 processing
  *
  *      Unhappy path for invalid attestations:
  *      - Attestations in blocks are not validated on-chain to save gas. Since attestations are still posted to L1,
  *        nodes are expected to verify them off-chain, and skip a block if its attestations are invalid.
  *      - If a block has invalid attestation signatures, anyone can call `invalidateBadAttestation()`
- *      - If a block has insufficient valid attestations (< 2/3 of committee), anyone can call
+ *      - If a block has insufficient valid attestations (<= 2/3 of committee), anyone can call
  *        `invalidateInsufficientAttestations()`
  *      - While anyone can call invalidation functions, it is expected that the next proposer will do so, and if they
  *        fail to do so, then other committee members do, and if they fail to do so, then any validator will do so.
@@ -126,18 +131,19 @@ import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
  *      Unhappy path for missing proofs:
  *      - Each epoch has a proof submission window (configured via aztecProofSubmissionEpochs).
  *      - If no proof is submitted within the window, it is assumed that the epoch cannot be proven due to missing data,
- *        so all blocks in the epoch are pruned. This is done by calling `prune()` manually, or automatically on the
- *        next proposal.
+ *        so the entire pending chain all the way back to the last proven block is pruned. This is done by calling
+ *        `prune()` manually, or automatically on the next proposal.
  *      - The committee for the epoch is expected to disseminate transaction data to allow proving, so a prune is
- *        considered a slashable offense,
- *        that causes validators to vote for slashing the committee of the unproven epoch.
+ *        considered a slashable offense, that causes validators to vote for slashing the committee of the unproven
+ * epoch.
  *      - When the pending chain is pruned, all unproven blocks are removed from the pending chain, and the chain
  *        resumes from the last proven block.
  *
  * @dev Slashing Mechanism
  *
  *      Slashing is a critical security mechanism that penalizes validators who misbehave or fail to fulfill their
- *      duties. The slashing process is governance-based and operates through a voting mechanism:
+ *      duties. Slashing occurs for both safety violations (e.g., invalid attestations) and liveness failures
+ *      (e.g., missing proofs). The slashing process is governance-based and operates through a voting mechanism:
  *
  *      - When nodes detect validator misbehavior, they create a proposal for slashing the offending validators
  *      - The proposal is submitted to the slashing contract and enters a voting period
@@ -150,7 +156,6 @@ import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
  *
  *      Conditions that cause nodes to vote for slashing a validator:
  *      1. Validators that fail to fulfill their duties:
- *         - Block proposers who fail to propose during their assigned slot
  *         - Committee members who fail to attest to blocks when required
  *      2. Committee members of an unproven epoch:
  *         - When an epoch's proof window expires without a valid proof being submitted
@@ -168,7 +173,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
 
   /**
    * @notice The L1 block number when this rollup was deployed
-   * @dev Used for calculating time-based operations and genesis references
+   * @dev Used when synching the node as starting block for event watching
    */
   uint256 public immutable L1_BLOCK_AT_GENESIS;
 
@@ -195,7 +200,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    *      initializes staking, validator selection, and creates inbox/outbox contracts
    * @param _feeAsset The ERC20 token used for transaction fees
    * @param _stakingAsset The ERC20 token used for validator staking
-   * @param _gse The Governance State Engine contract
+   * @param _gse The Governance Staking Escrow contract
    * @param _epochProofVerifier The honk verifier contract for root epoch proofs
    * @param _governance The address with owner privileges
    * @param _genesisState Initial state containing VK tree root, protocol contract tree root, and genesis archive
@@ -281,7 +286,8 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
   /**
    * @notice Updates the target mana (computational units) per slot
    * @dev Only callable by owner. The new target must be greater than or equal to the current target
-   *      to prevent disruption of the fee market. Mana is the unit of computational cost in Aztec.
+   *      to avoid the ability for governance to use it directly to kill an old rollup.
+   *      Mana is the unit of computational cost in Aztec.
    * @param _manaTarget The new target mana per slot
    */
   function updateManaTarget(uint256 _manaTarget) external override(IRollupCore) onlyOwner {
@@ -357,8 +363,9 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
   }
 
   /**
-   * @notice Allows validators to vote on governance proposals
-   * @dev Voting power is based on the validator's stake
+   * @notice Allows the rollup itself to vote on governance proposals
+   * @dev This enables the rollup to participate in governance by voting on proposals.
+   *      See StakingLib.sol for more details on the voting mechanism.
    * @param _proposalId The ID of the proposal to vote on
    */
   function vote(uint256 _proposalId) external override(IStakingCore) {
@@ -373,7 +380,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @param _publicKeyInG1 The G1 point for the BLS public key
    * @param _publicKeyInG2 The G2 point for the BLS public key
    * @param _proofOfPossession The proof of possession to show that the keys in G1 and G2 share secret key
-   * @param _moveWithLatestRollup Whether to follow the chain if a fork occurs
+   * @param _moveWithLatestRollup Whether to follow the chain if governance migrates to a new rollup version
    */
   function deposit(
     address _attester,
@@ -442,7 +449,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
 
   /**
    * @notice Submits a zero-knowledge proof for an epoch's state transition
-   * @dev Proves the validity of all blocks in an epoch. Once proven, blocks become final
+   * @dev Proves the validity of a prefix of the blocks in an epoch. Once proven, blocks become final
    *      and cannot be pruned. The proof must be submitted within the submission window.
    *      Successful submission triggers prover rewards.
    * @param _args Contains the epoch range, public inputs, fees, attestations, and the ZK proof
@@ -453,7 +460,8 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
 
   /**
    * @notice Proposes a new L2 block to extend the chain
-   * @dev Core function for block production. The caller must be the designated proposer for the current slot.
+   * @dev Core function for block production.
+   *      The attestations must include a signature from designated proposer to be accepted.
    *      The block must build on the previous block and include valid attestations from committee members.
    *      Failed proposals revert; successful ones emit L2BlockProposed and advance the chain state.
    *      See ProposeLib#propose for more details.
@@ -474,7 +482,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
   /**
    * @notice Invalidates a block due to a bad attestation signature
    * @dev Anyone can call this if they detect an invalid signature. This removes the block
-   *      and all subsequent blocks from the pending chain. Used to maintain chain integrity.
+   *      and all subsequent blocks from the pending chain. Used to maintain pending chain integrity.
    * @param _blockNumber The L2 block number to invalidate
    * @param _attestations The attestations that were submitted with the block
    * @param _committee The committee members for the block's epoch
@@ -490,7 +498,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
   }
 
   /**
-   * @notice Invalidates a block due to insufficient valid attestations (at least 2/3 of committee)
+   * @notice Invalidates a block due to insufficient valid attestations (>2/3 of committee required)
    * @dev Anyone can call this if a block doesn't meet the required attestation threshold.
    *      Even if all signatures are valid, blocks need a minimum number of attestations.
    * @param _blockNumber The L2 block number to invalidate
@@ -508,10 +516,9 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
   /**
    * @notice Sets up validator selection for the current epoch
    * @dev Can be called by anyone at the start of an epoch. Samples the committee
-   *      and determines proposers for all slots in the epoch. Automatically called
-   *      during `propose`.
-   * @custom:question Is there any reason for this being external other than testing, or to setup an epoch if there were
-   * no block proposals?
+   *      and determines proposers for all slots in the epoch. Also stores a seed
+   *      that is used for future sampling. Automatically called during `propose`.
+   *      External mainly for testing and to setup an epoch if there were no block proposals.
    */
   function setupEpoch() public override(IValidatorSelectionCore) {
     ExtRollupLib2.setupEpoch();

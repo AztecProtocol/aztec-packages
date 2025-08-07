@@ -216,7 +216,7 @@ library STFLib {
    *
    *      This ensures that:
    *      - All blocks within the proof submission window remain accessible
-   *      - At least one additional slot is available for the next block
+   *      - At least the last proven block is available as a trusted anchor
    *
    * @return The number of slots in the circular storage buffer
    */
@@ -381,16 +381,17 @@ library STFLib {
    *      Pruning is allowed when:
    *
    *      1. There are unproven blocks (pending > proven)
-   *      2. The oldest pending epoch is no longer accepting proofs at the current epoch
+   *      2. The oldest pending epoch is no longer accepting proofs at the epoch at _ts
    *
    *      The proof submission window is defined by the aztecProofSubmissionEpochs configuration,
    *      which specifies how many epochs after an epoch ends that proofs are still accepted.
    *
    *      Example timeline:
    *      - Block proposed in epoch N
-   *      - Proof submission window = 2 epochs
-   *      - Proof deadline = end of epoch N+2
-   *      - If current time > epoch N+2, pruning is allowed
+   *      - Proof submission window = 1 epochs
+   *      - Proof deadline = epoch + 1 + Proof submission window
+   *          The deadline is the point in time where it is no longer acceptable, (if you touch the line you die)
+   *      - If epoch(_ts) >= epoch N + 1 + Proof submission window, pruning is allowed
    *
    *      This mechanism ensures rollup liveness by preventing indefinite stalling on unproven blocks
    *      while providing sufficient time for proof generation and submission.

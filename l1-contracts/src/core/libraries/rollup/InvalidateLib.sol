@@ -25,7 +25,7 @@ import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
  *
  *      The invalidation system addresses two main types of attestation failures:
  *      1. Bad attestation signatures: When committee members provide invalid signatures
- *      2. Insufficient attestations: When a block doesn't meet the required 2/3 committee threshold
+ *      2. Insufficient attestations: When a block doesn't meet the required >2/3 committee threshold
  *
  *      Key invariants:
  *      - Only pending (unproven) blocks can be invalidated
@@ -47,6 +47,8 @@ import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
  *      This invalidation mechanism ensures that even though attestations are not fully validated on-chain
  *      during block proposal (to save gas), invalid attestations can be challenged and removed after the fact,
  *      maintaining the security of the rollup while optimizing for efficient block production.
+ *
+ *      Note that attestations are validated during the proof submission, but not at every propose call.
  */
 library InvalidateLib {
   using TimeLib for Timestamp;
@@ -61,9 +63,8 @@ library InvalidateLib {
    * @notice Invalidates a block containing an invalid attestation signature from a committee member
    * @dev Anyone can call this function to remove blocks with invalid attestations.
    *
-   *      The function verifies that the signature at the specified index either:
-   *      - Is a signature that doesn't recover to the expected committee member's address
-   *      - Is an address that does not match the expected committee member's address
+   *      The function verifies that the signature at the specified index is invalid,
+   *      i.e., it doesn't recover to the expected committee member's address
    *
    *      Upon successful validation of the invalid attestation, the block and all subsequent pending
    *      blocks are removed from the chain by resetting the pending tip to the previous valid block.
@@ -109,7 +110,7 @@ library InvalidateLib {
   }
 
   /**
-   * @notice Invalidates a block that doesn't meet the required 2/3 committee attestation threshold
+   * @notice Invalidates a block that doesn't meet the required >2/3 committee attestation threshold
    * @dev Anyone can call this function to remove blocks with insufficient valid attestations.
    *
    *      The function counts the number of signature attestations (as opposed to address attestations) and
