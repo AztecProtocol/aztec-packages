@@ -145,12 +145,20 @@ pol commit abs_diff;
 sel * (2 * sel_overflow_correction_needed * (WINDOW_SIZE - bytes_remaining) - WINDOW_SIZE + bytes_remaining - abs_diff) = 0;
 
 // We prove that the abs_diff is positive (and therefore sel_overflow_correction_needed correct) over the integers
-// using a range check over 16 bits. We know that WINDOWS_SIZE fits into 16 bits and bytes_remaining cannot be larger
+// using a range check over 24 bits. We know that WINDOWS_SIZE fits into 16 bits and bytes_remaining cannot be larger
 // than the trace size 2^21 (and bytecode hashing/validation could not pass). This provides guarantee that
 // abs_diff cannot be the result of an underflow. This would be only possible for bytes_remaining being very close
 // to the field order.
-#[ABS_DIFF_IS_U16]
-sel { abs_diff } in precomputed.sel_range_16 { precomputed.clk };
+
+pol commit abs_diff_lo;
+pol commit abs_diff_hi;
+abs_diff = abs_diff_hi * 2**16 + abs_diff_lo;
+
+#[ABS_DIFF_LO_IS_U16]
+sel { abs_diff_lo } in precomputed.sel_range_16 { precomputed.clk };
+
+#[ABS_DIFF_HI_IS_U8]
+sel { abs_diff_hi } in precomputed.sel_range_8 { precomputed.clk };
 
 #[BC_DEC_OVERFLOW_CORRECTION_VALUE]
 sel * ((1 - sel_overflow_correction_needed) * (bytes_to_read - WINDOW_SIZE) + sel_overflow_correction_needed * (bytes_to_read - bytes_remaining)) = 0;
