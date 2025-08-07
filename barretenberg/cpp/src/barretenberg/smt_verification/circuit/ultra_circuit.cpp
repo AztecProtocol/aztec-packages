@@ -196,7 +196,7 @@ void UltraCircuit::process_new_table(uint32_t table_idx)
     this->tables_sizes.insert({ table_idx, new_table.size() });
 
     info(table_name, RESET);
-    SymSet<STuple> new_stable(new_table, this->tag + table_name);
+    SymSet<STuple> new_stable(new_table, table_name + this->tag);
     this->cached_symbolic_tables.insert({ table_idx, new_stable });
 }
 
@@ -433,7 +433,7 @@ void UltraCircuit::handle_range_constraints()
                     for (size_t entry = 0; entry <= range; entry++) {
                         new_range_table.push_back(STerm(entry, this->solver, this->type));
                     }
-                    std::string table_name = this->tag + "RANGE_" + std::to_string(range);
+                    std::string table_name = "RANGE_" + std::to_string(range) + this->tag;
                     SymSet<STerm> new_range_stable(new_range_table, table_name);
                     info(RED, "Initialized new range: ", table_name, RESET);
                     this->cached_range_tables.insert({ range, new_range_stable });
