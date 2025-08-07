@@ -254,6 +254,8 @@ TEST_F(ExecutionSimulationTest, Call)
         .WillOnce(Return(written_public_data_slots_tree_snapshot));
     EXPECT_CALL(context, get_side_effect_states).WillRepeatedly(ReturnRef(side_effect_states));
 
+    EXPECT_CALL(context, get_phase).WillOnce(Return(TransactionPhase::APP_LOGIC));
+
     EXPECT_CALL(merkle_db, get_tree_state).WillOnce(Return(tree_states));
 
     EXPECT_CALL(context, get_memory);
@@ -268,7 +270,16 @@ TEST_F(ExecutionSimulationTest, Call)
         .WillByDefault(Return(true)); // We just want the recursive call to return immediately.
 
     EXPECT_CALL(context_provider,
-                make_nested_context(nested_address, parent_address, _, _, _, _, _, Gas{ 2, 3 }, side_effect_states))
+                make_nested_context(nested_address,
+                                    parent_address,
+                                    _,
+                                    _,
+                                    _,
+                                    _,
+                                    _,
+                                    Gas{ 2, 3 },
+                                    side_effect_states,
+                                    TransactionPhase::APP_LOGIC))
         .WillOnce(Return(std::move(nested_context)));
 
     execution.call(context,
