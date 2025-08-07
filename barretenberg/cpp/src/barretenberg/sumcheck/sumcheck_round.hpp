@@ -259,12 +259,11 @@ template <typename Flavor> class SumcheckProverRound {
 
         size_t chunk_size = round_size / num_of_chunks;
         // Construct univariate accumulator containers; one per thread
+        // Note: std::vector will trigger {}-initialization of the contents. Therefore no need to zero the univariates.
         std::vector<SumcheckTupleOfTuplesOfUnivariates> thread_univariate_accumulators(num_threads);
 
         // Accumulate the contribution from each sub-relation accross each edge of the hyper-cube
         parallel_for(num_threads, [&](size_t thread_idx) {
-            // Initialize the thread accumulator to 0
-            Utils::zero_univariates(thread_univariate_accumulators[thread_idx]);
             // Construct extended univariates containers; one per thread
             ExtendedEdges extended_edges;
             for (size_t chunk_idx = 0; chunk_idx < num_of_chunks; chunk_idx++) {
@@ -432,6 +431,7 @@ template <typename Flavor> class SumcheckProverRound {
         size_t iterations_per_thread = num_valid_iterations / num_threads; // actual iterations per thread
         size_t iterations_for_last_thread = num_valid_iterations - (iterations_per_thread * (num_threads - 1));
         // Construct univariate accumulator containers; one per thread
+        // Note: std::vector will trigger {}-initialization of the contents. Therefore no need to zero the univariates.
         std::vector<SumcheckTupleOfTuplesOfUnivariates> thread_univariate_accumulators(num_threads);
 
         parallel_for(num_threads, [&](size_t thread_idx) {
@@ -440,8 +440,6 @@ template <typename Flavor> class SumcheckProverRound {
                                                                : (thread_idx + 1) * iterations_per_thread;
 
             RowIterator edge_iterator(round_manifest, start);
-            // Initialize the thread accumulator to 0
-            Utils::zero_univariates(thread_univariate_accumulators[thread_idx]);
             // Construct extended univariates containers; one per thread
             ExtendedEdges extended_edges;
             for (size_t i = start; i < end; ++i) {
