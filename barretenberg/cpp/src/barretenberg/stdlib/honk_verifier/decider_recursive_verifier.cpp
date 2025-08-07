@@ -45,7 +45,6 @@ DeciderRecursiveVerifier_<Flavor>::PairingPoints DeciderRecursiveVerifier_<Flavo
 
     VerifierCommitments commitments{ accumulator->vk_and_hash->vk, accumulator->witness_commitments };
 
-    // WORKTODO: may need to update this if we test with different flavors
     const auto padding_indicator_array =
         compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(accumulator->vk_and_hash->vk->log_circuit_size);
 

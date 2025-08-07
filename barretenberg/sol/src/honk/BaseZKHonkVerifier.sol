@@ -52,14 +52,11 @@ abstract contract BaseZKHonkVerifier is IVerifier {
     error GeminiChallengeInSubgroup();
     error ConsistencyCheckFailed();
 
-    // Events for debugging
-    event ProofLengthDebug(uint256 logN, uint256 actualLength, uint256 expectedLength);
-
     // Constants for proof length calculation (matching UltraKeccakZKFlavor)
     uint256 constant NUM_WITNESS_ENTITIES = 8;
     uint256 constant NUM_ELEMENTS_COMM = 2; // uint256 elements for curve points
     uint256 constant NUM_ELEMENTS_FR = 1; // uint256 elements for field elements
-    uint256 constant NUM_SMALL_IPA_EVALUATIONS = 4; // libra evaluations
+    uint256 constant NUM_LIBRA_EVALUATIONS = 4; // libra evaluations
 
     // Calculate proof size based on log_n (matching UltraKeccakZKFlavor formula)
     function calculateProofSize(uint256 logN) internal pure returns (uint256) {
@@ -74,7 +71,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         // Libra and Gemini
         proofLength += NUM_ELEMENTS_FR * 3; // Libra sum, claimed eval, Gemini masking eval
         proofLength += logN * NUM_ELEMENTS_FR; // Gemini a evaluations
-        proofLength += NUM_SMALL_IPA_EVALUATIONS * NUM_ELEMENTS_FR; // libra evaluations
+        proofLength += NUM_LIBRA_EVALUATIONS * NUM_ELEMENTS_FR; // libra evaluations
 
         // PCS commitments
         proofLength += (logN - 1) * NUM_ELEMENTS_COMM; // Gemini Fold commitments

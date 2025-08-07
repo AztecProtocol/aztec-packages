@@ -49,9 +49,6 @@ abstract contract BaseHonkVerifier is IVerifier {
     error SumcheckFailed();
     error ShpleminiFailed();
 
-    // Events for debugging
-    event ProofLengthDebug(uint256 logN, uint256 actualLength, uint256 expectedLength);
-
     // Constants for proof length calculation (matching UltraKeccakFlavor)
     uint256 constant NUM_WITNESS_ENTITIES = 8;
     uint256 constant NUM_ELEMENTS_COMM = 2; // uint256 elements for curve points
