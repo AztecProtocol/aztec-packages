@@ -13,7 +13,6 @@ use dep::aztec::{
         },
         hash::poseidon2_hash_with_separator,
         traits::{Deserialize, Hash, Packable, Serialize, ToField},
-        utils::arrays::array_concat,
     },
 };
 
@@ -25,8 +24,8 @@ use dep::aztec::{
 
 // docs:start:nft_note
 /// A private note representing a token id associated to an account.
+#[derive(Eq, Serialize, Packable)]
 #[custom_note]
-#[derive(Eq, Serialize)]
 pub struct NFTNote {
     // The ordering of these fields is important given that it must:
     //   a) match that of NFTPartialNotePrivateContent, and
@@ -123,7 +122,6 @@ impl NFTNote {
         storage_slot: Field,
         context: &mut PrivateContext,
         recipient: AztecAddress,
-        sender: AztecAddress,
         completer: AztecAddress,
     ) -> PartialNFTNote {
         // Safety: We use the randomness to preserve the privacy of the note recipient by preventing brute-forcing,
@@ -149,7 +147,7 @@ impl NFTNote {
         };
 
         let encrypted_log =
-            note::compute_partial_note_log(private_log_content, storage_slot, recipient, sender);
+            note::compute_partial_note_log(private_log_content, storage_slot, recipient);
         // Regardless of the original content size, the log is padded with random bytes up to
         // `PRIVATE_LOG_SIZE_IN_FIELDS` to prevent leaking information about the actual size.
         let length = encrypted_log.len();
@@ -181,7 +179,7 @@ impl NFTPartialNotePrivateContent {
     fn compute_partial_commitment(self, storage_slot: Field) -> Field {
         // Here we commit to all private values, including the storage slot.
         poseidon2_hash_with_separator(
-            array_concat(self.pack(), [storage_slot]),
+            self.pack().concat([storage_slot]),
             GENERATOR_INDEX__NOTE_HASH,
         )
     }
@@ -273,11 +271,7 @@ mod test {
     };
     use dep::aztec::{
         note::note_interface::NoteHash,
-        protocol_types::{
-            address::AztecAddress,
-            traits::{FromField, Packable},
-            utils::arrays::array_concat,
-        },
+        protocol_types::{address::AztecAddress, traits::{Deserialize, FromField, Packable}},
         utils::array::subarray,
     };
 
@@ -321,7 +315,9 @@ mod test {
             randomness,
             public_log_tag: commitment,
         };
-        let partial_note = PartialNFTNote { commitment };
+        // The following is a misuse of the `deserialize` function, but this is just a test and it's better than
+        // letting devs manually construct it when they shouldn't be able to.
+        let partial_note = PartialNFTNote::deserialize([commitment]);
 
         // The first field of the partial note private content is the public completion log tag, so it should match the
         // first field of the public log.
@@ -337,9 +333,6 @@ mod test {
         let public_log_without_tag: [_; 1] =
             subarray(partial_note.compute_note_completion_log(token_id), 1);
 
-        assert_eq(
-            array_concat(private_log_without_public_tag, public_log_without_tag),
-            note.pack(),
-        );
+        assert_eq(private_log_without_public_tag.concat(public_log_without_tag), note.pack());
     }
 }

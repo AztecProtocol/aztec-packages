@@ -1,5 +1,7 @@
-import type { ExportResult } from '@opentelemetry/core';
+import { type ExportResult, ExportResultCode } from '@opentelemetry/core';
 import type { MetricData, PushMetricExporter, ResourceMetrics } from '@opentelemetry/sdk-metrics';
+
+import { AZTEC_NODE_ROLE } from './attributes.js';
 
 export class OtelFilterMetricExporter implements PushMetricExporter {
   constructor(
@@ -50,5 +52,29 @@ export class OtelFilterMetricExporter implements PushMetricExporter {
 
   public setMetricPrefixes(metrics: string[]) {
     this.metricPrefix = metrics;
+  }
+}
+
+export class PublicOtelFilterMetricExporter extends OtelFilterMetricExporter {
+  constructor(
+    private allowedRoles: string[],
+    exporter: PushMetricExporter,
+    metricPrefix: string[],
+  ) {
+    super(exporter, metricPrefix, 'allow');
+  }
+
+  public override export(metrics: ResourceMetrics, resultCallback: (result: ExportResult) => void): void {
+    const role = String(metrics.resource.attributes[AZTEC_NODE_ROLE] ?? '');
+    if (!role || !this.allowedRoles.includes(role)) {
+      // noop
+      return resultCallback({ code: ExportResultCode.SUCCESS });
+    }
+
+    super.export(metrics, resultCallback);
+  }
+
+  public setAllowedRoles(roles: string[]) {
+    this.allowedRoles = roles;
   }
 }

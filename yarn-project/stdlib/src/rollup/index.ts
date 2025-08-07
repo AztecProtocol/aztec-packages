@@ -8,6 +8,7 @@ export * from './empty_block_root_rollup_inputs.js';
 export * from './epoch_constant_data.js';
 export * from './block_root_rollup.js';
 export * from './merge_rollup.js';
+export * from './padding_block_root_rollup_inputs.js';
 export * from './previous_rollup_block_data.js';
 export * from './previous_rollup_data.js';
 export * from './private_base_rollup_inputs.js';

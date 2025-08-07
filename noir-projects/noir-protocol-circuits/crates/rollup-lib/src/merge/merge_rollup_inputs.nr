@@ -12,6 +12,7 @@ use dep::types::{
 global ALLOWED_PREVIOUS_CIRCUITS: [u32; 3] =
     [MERGE_ROLLUP_INDEX, PRIVATE_BASE_ROLLUP_VK_INDEX, PUBLIC_BASE_ROLLUP_VK_INDEX];
 
+#[derive(Eq)]
 pub struct MergeRollupInputs {
     pub previous_rollup_data: [PreviousRollupData; 2],
 }
@@ -53,8 +54,8 @@ mod tests {
     #[test(should_fail_with = "The rollup should be filled greedily from L to R, but received a L base and R merge")]
     fn different_rollup_type_fails() {
         let mut inputs = default_merge_rollup_inputs();
-        inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.rollup_type = 0;
-        inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.rollup_type = 1;
+        inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.num_txs = 1; // base
+        inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.num_txs = 2; // merge
         let _output = inputs.merge_rollup_circuit();
     }
 
@@ -102,18 +103,13 @@ mod tests {
     fn rollup_fields_are_set_correctly() {
         let mut inputs = default_merge_rollup_inputs();
         let mut outputs = inputs.merge_rollup_circuit();
-        assert_eq(outputs.rollup_type, 1);
         assert_eq(outputs.num_txs, 2);
 
         // set inputs to have a merge rollup type and set the rollup height and test again.
-        inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.rollup_type = 1;
         inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.num_txs = 2;
-
-        inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.rollup_type = 1;
         inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.num_txs = 2;
 
         outputs = inputs.merge_rollup_circuit();
-        assert_eq(outputs.rollup_type, 1);
         assert_eq(outputs.num_txs, 4);
     }
 
@@ -124,13 +120,11 @@ mod tests {
         // Start with two bases => two single txs
         assert_eq(outputs.num_txs, 2);
         // Test one merge of 2 merged with one base
-        inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.rollup_type = 1;
         inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.num_txs = 2;
         outputs = inputs.merge_rollup_circuit();
         // Should have one subtree of size 2, and one of size 1
         assert_eq(outputs.num_txs, 3);
         // Test two merges, each with a subtree of 2
-        inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.rollup_type = 1;
         inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.num_txs = 2;
         outputs = inputs.merge_rollup_circuit();
         // Should have one subtree of size 4

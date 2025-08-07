@@ -43,6 +43,7 @@ template <IsUltraOrMegaHonk Flavor> class OinkProver {
     using DeciderPK = DeciderProvingKey_<Flavor>;
     using Transcript = typename Flavor::Transcript;
     using FF = typename Flavor::FF;
+    using Proof = typename Transcript::Proof;
 
   public:
     std::shared_ptr<DeciderPK> proving_key;
@@ -52,7 +53,7 @@ template <IsUltraOrMegaHonk Flavor> class OinkProver {
     ExecutionTraceUsageTracker trace_usage_tracker;
 
     typename Flavor::CommitmentLabels commitment_labels;
-    using RelationSeparator = typename Flavor::RelationSeparator;
+    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
 
     OinkProver(std::shared_ptr<DeciderPK> proving_key,
                std::shared_ptr<HonkVK> honk_vk,
@@ -67,13 +68,13 @@ template <IsUltraOrMegaHonk Flavor> class OinkProver {
     {}
 
     void prove();
-    HonkProof export_proof();
+    Proof export_proof();
     void execute_preamble_round();
     void execute_wire_commitments_round();
     void execute_sorted_list_accumulator_round();
     void execute_log_derivative_inverse_round();
     void execute_grand_product_computation_round();
-    RelationSeparator generate_alphas_round();
+    SubrelationSeparators generate_alphas_round();
     void commit_to_witness_polynomial(Polynomial<FF>& polynomial,
                                       const std::string& label,
                                       const CommitmentKey::CommitType type = CommitmentKey::CommitType::Default);

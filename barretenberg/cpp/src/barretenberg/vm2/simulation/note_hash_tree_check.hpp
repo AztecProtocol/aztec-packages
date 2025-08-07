@@ -12,10 +12,11 @@ class NoteHashTreeCheckInterface {
   public:
     virtual ~NoteHashTreeCheckInterface() = default;
 
-    virtual void assert_read(const FF& note_hash,
-                             index_t leaf_index,
-                             std::span<const FF> sibling_path,
-                             const AppendOnlyTreeSnapshot& snapshot) = 0;
+    virtual bool note_hash_exists(const FF& unique_note_hash,
+                                  const FF& leaf_value,
+                                  uint64_t leaf_index,
+                                  std::span<const FF> sibling_path,
+                                  const AppendOnlyTreeSnapshot& snapshot) = 0;
     virtual FF get_first_nullifier() const = 0;
     virtual AppendOnlyTreeSnapshot append_note_hash(const FF& note_hash,
                                                     AztecAddress contract_address,
@@ -46,10 +47,11 @@ class NoteHashTreeCheck : public NoteHashTreeCheckInterface, public CheckpointNo
 
     FF get_first_nullifier() const override { return first_nullifier; }
 
-    void assert_read(const FF& note_hash,
-                     index_t leaf_index,
-                     std::span<const FF> sibling_path,
-                     const AppendOnlyTreeSnapshot& snapshot) override;
+    bool note_hash_exists(const FF& unique_note_hash,
+                          const FF& leaf_value,
+                          uint64_t leaf_index,
+                          std::span<const FF> sibling_path,
+                          const AppendOnlyTreeSnapshot& snapshot) override;
     AppendOnlyTreeSnapshot append_note_hash(const FF& note_hash,
                                             AztecAddress contract_address,
                                             uint64_t note_hash_counter,
@@ -64,9 +66,9 @@ class NoteHashTreeCheck : public NoteHashTreeCheckInterface, public CheckpointNo
                                                    std::span<const FF> sibling_path,
                                                    const AppendOnlyTreeSnapshot& prev_snapshot) override;
 
-    void on_checkpoint_created() override { events.emit(CheckPointEventType::CREATE_CHECKPOINT); }
-    void on_checkpoint_committed() override { events.emit(CheckPointEventType::COMMIT_CHECKPOINT); }
-    void on_checkpoint_reverted() override { events.emit(CheckPointEventType::REVERT_CHECKPOINT); }
+    void on_checkpoint_created() override;
+    void on_checkpoint_committed() override;
+    void on_checkpoint_reverted() override;
 
   private:
     FF make_siloed(AztecAddress contract_address, const FF& note_hash) const;

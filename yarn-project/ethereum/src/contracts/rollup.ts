@@ -5,13 +5,23 @@ import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { RollupStorage } from '@aztec/l1-artifacts/RollupStorage';
 import { SlasherAbi } from '@aztec/l1-artifacts/SlasherAbi';
 
-import { type Account, type GetContractReturnType, type Hex, encodeFunctionData, getAddress, getContract } from 'viem';
+import {
+  type Account,
+  type GetContractReturnType,
+  type Hex,
+  type StateOverride,
+  encodeFunctionData,
+  getAddress,
+  getContract,
+  hexToBigInt,
+  keccak256,
+} from 'viem';
 
 import { getPublicClient } from '../client.js';
 import type { DeployL1ContractsReturnType } from '../deploy_l1_contracts.js';
 import type { L1ContractAddresses } from '../l1_contract_addresses.js';
 import type { L1ReaderConfig } from '../l1_reader.js';
-import type { L1TxUtils } from '../l1_tx_utils.js';
+import type { L1TxRequest, L1TxUtils } from '../l1_tx_utils.js';
 import type { ViemClient } from '../types.js';
 import { formatViemError } from '../utils.js';
 import { SlashingProposerContract } from './slashing_proposer.js';
@@ -20,6 +30,11 @@ import { checkBlockTag } from './utils.js';
 export type ViemCommitteeAttestation = {
   addr: `0x${string}`;
   signature: ViemSignature;
+};
+
+export type ViemCommitteeAttestations = {
+  signatureIndices: `0x${string}`;
+  signaturesOrAddresses: `0x${string}`;
 };
 
 export type L1RollupContractAddresses = Pick<
@@ -82,12 +97,18 @@ export type ViemAppendOnlyTreeSnapshot = {
 export class RollupContract {
   private readonly rollup: GetContractReturnType<typeof RollupAbi, ViemClient>;
 
+  private static cachedStfStorageSlot: Hex | undefined;
+
   static get checkBlobStorageSlot(): bigint {
     const asString = RollupStorage.find(storage => storage.label === 'checkBlob')?.slot;
     if (asString === undefined) {
       throw new Error('checkBlobStorageSlot not found');
     }
     return BigInt(asString);
+  }
+
+  static get stfStorageSlot(): Hex {
+    return (RollupContract.cachedStfStorageSlot ??= keccak256(Buffer.from('aztec.stf.storage', 'utf-8')));
   }
 
   static getFromL1ContractsValues(deployL1ContractsValues: DeployL1ContractsReturnType) {
@@ -165,13 +186,18 @@ export class RollupContract {
   }
 
   @memoize
-  getMinimumStake() {
-    return this.rollup.read.getMinimumStake();
+  getEjectionThreshold() {
+    return this.rollup.read.getEjectionThreshold();
   }
 
   @memoize
-  getDepositAmount() {
-    return this.rollup.read.getDepositAmount();
+  getActivationThreshold() {
+    return this.rollup.read.getActivationThreshold();
+  }
+
+  @memoize
+  getExitDelay() {
+    return this.rollup.read.getExitDelay();
   }
 
   @memoize
@@ -217,6 +243,10 @@ export class RollupContract {
       client: this.client,
     });
     return EthAddress.fromString(await slasher.read.PROPOSER());
+  }
+
+  getBlockReward() {
+    return this.rollup.read.getBlockReward();
   }
 
   getBlockNumber() {
@@ -376,7 +406,8 @@ export class RollupContract {
   public async validateHeader(
     args: readonly [
       ViemHeader,
-      ViemCommitteeAttestation[],
+      ViemCommitteeAttestations,
+      `0x${string}`[],
       `0x${string}`,
       `0x${string}`,
       {
@@ -390,13 +421,84 @@ export class RollupContract {
       await this.client.simulateContract({
         address: this.address,
         abi: RollupAbi,
-        functionName: 'validateHeader',
+        functionName: 'validateHeaderWithAttestations',
         args,
         account,
       });
     } catch (error: unknown) {
       throw formatViemError(error);
     }
+  }
+
+  /**
+   * Packs an array of committee attestations into the format expected by the Solidity contract
+   *
+   * @param attestations - Array of committee attestations with addresses and signatures
+   * @returns Packed attestations with bitmap and tightly packed signature/address data
+   */
+  static packAttestations(attestations: ViemCommitteeAttestation[]): ViemCommitteeAttestations {
+    const length = attestations.length;
+
+    // Calculate bitmap size (1 bit per attestation, rounded up to nearest byte)
+    const bitmapSize = Math.ceil(length / 8);
+    const signatureIndices = new Uint8Array(bitmapSize);
+
+    // Calculate total data size needed
+    let totalDataSize = 0;
+    for (let i = 0; i < length; i++) {
+      const signature = attestations[i].signature;
+      // Check if signature is empty (v = 0)
+      const isEmpty = signature.v === 0;
+
+      if (!isEmpty) {
+        totalDataSize += 65; // v (1) + r (32) + s (32)
+      } else {
+        totalDataSize += 20; // address only
+      }
+    }
+
+    const signaturesOrAddresses = new Uint8Array(totalDataSize);
+    let dataIndex = 0;
+
+    // Pack the data
+    for (let i = 0; i < length; i++) {
+      const attestation = attestations[i];
+      const signature = attestation.signature;
+
+      // Check if signature is empty
+      const isEmpty = signature.v === 0;
+
+      if (!isEmpty) {
+        // Set bit in bitmap (bit 7-0 in each byte, left to right)
+        const byteIndex = Math.floor(i / 8);
+        const bitIndex = 7 - (i % 8);
+        signatureIndices[byteIndex] |= 1 << bitIndex;
+
+        // Pack signature: v + r + s
+        signaturesOrAddresses[dataIndex] = signature.v;
+        dataIndex++;
+
+        // Pack r (32 bytes)
+        const rBytes = Buffer.from(signature.r.slice(2), 'hex');
+        signaturesOrAddresses.set(rBytes, dataIndex);
+        dataIndex += 32;
+
+        // Pack s (32 bytes)
+        const sBytes = Buffer.from(signature.s.slice(2), 'hex');
+        signaturesOrAddresses.set(sBytes, dataIndex);
+        dataIndex += 32;
+      } else {
+        // Pack address only (20 bytes)
+        const addrBytes = Buffer.from(attestation.addr.slice(2), 'hex');
+        signaturesOrAddresses.set(addrBytes, dataIndex);
+        dataIndex += 20;
+      }
+    }
+
+    return {
+      signatureIndices: `0x${Buffer.from(signatureIndices).toString('hex')}`,
+      signaturesOrAddresses: `0x${Buffer.from(signaturesOrAddresses).toString('hex')}`,
+    };
   }
 
   /**
@@ -412,12 +514,14 @@ export class RollupContract {
     archive: Buffer,
     account: `0x${string}` | Account,
     slotDuration: bigint | number,
+    opts: { forcePendingBlockNumber?: number } = {},
   ): Promise<{ slot: bigint; blockNumber: bigint; timeOfNextL1Slot: bigint }> {
     if (typeof slotDuration === 'number') {
       slotDuration = BigInt(slotDuration);
     }
     const latestBlock = await this.client.getBlock();
     const timeOfNextL1Slot = latestBlock.timestamp + slotDuration;
+    const who = typeof account === 'string' ? account : account.address;
 
     try {
       const {
@@ -426,14 +530,78 @@ export class RollupContract {
         address: this.address,
         abi: RollupAbi,
         functionName: 'canProposeAtTime',
-        args: [timeOfNextL1Slot, `0x${archive.toString('hex')}`],
+        args: [timeOfNextL1Slot, `0x${archive.toString('hex')}`, who],
         account,
+        stateOverride: await this.makePendingBlockNumberOverride(opts.forcePendingBlockNumber),
       });
 
       return { slot, blockNumber, timeOfNextL1Slot };
     } catch (err: unknown) {
       throw formatViemError(err);
     }
+  }
+
+  /**
+   * Returns a state override that sets the pending block number to the specified value. Useful for simulations.
+   * Requires querying the current state of the contract to get the current proven block number, as they are both
+   * stored in the same slot. If the argument is undefined, it returns an empty override.
+   */
+  public async makePendingBlockNumberOverride(forcePendingBlockNumber: number | undefined): Promise<StateOverride> {
+    if (forcePendingBlockNumber === undefined) {
+      return [];
+    }
+    const slot = RollupContract.stfStorageSlot;
+    const currentValue = await this.client.getStorageAt({ address: this.address, slot });
+    const currentProvenBlockNumber = currentValue ? hexToBigInt(currentValue) & ((1n << 128n) - 1n) : 0n;
+    const newValue = (BigInt(forcePendingBlockNumber) << 128n) | currentProvenBlockNumber;
+    return [
+      {
+        address: this.address,
+        stateDiff: [{ slot, value: `0x${newValue.toString(16).padStart(64, '0')}` }],
+      },
+    ];
+  }
+
+  /** Creates a request to Rollup#invalidateBadAttestation to be simulated or sent */
+  public buildInvalidateBadAttestationRequest(
+    blockNumber: number,
+    attestations: ViemCommitteeAttestation[],
+    committee: EthAddress[],
+    invalidIndex: number,
+  ): L1TxRequest {
+    return {
+      to: this.address,
+      data: encodeFunctionData({
+        abi: RollupAbi,
+        functionName: 'invalidateBadAttestation',
+        args: [
+          BigInt(blockNumber),
+          RollupContract.packAttestations(attestations),
+          committee.map(addr => addr.toString()),
+          BigInt(invalidIndex),
+        ],
+      }),
+    };
+  }
+
+  /** Creates a request to Rollup#invalidateInsufficientAttestations to be simulated or sent */
+  public buildInvalidateInsufficientAttestationsRequest(
+    blockNumber: number,
+    attestations: ViemCommitteeAttestation[],
+    committee: EthAddress[],
+  ): L1TxRequest {
+    return {
+      to: this.address,
+      data: encodeFunctionData({
+        abi: RollupAbi,
+        functionName: 'invalidateInsufficientAttestations',
+        args: [
+          BigInt(blockNumber),
+          RollupContract.packAttestations(attestations),
+          committee.map(addr => addr.toString()),
+        ],
+      }),
+    };
   }
 
   /** Calls getHasSubmitted directly. Returns whether the given prover has submitted a proof with the given length for the given epoch. */

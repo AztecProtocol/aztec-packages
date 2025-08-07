@@ -11,7 +11,8 @@ import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
  * Errors are prefixed with the contract name to make it easy to identify where the error originated
  * when there are multiple contracts that could have thrown the error.
  *
- * Sigs are provided for easy reference, but don't trust; verify! run `forge inspect src/core/libraries/Errors.sol:Errors errors`
+ * Sigs are provided for easy reference, but don't trust; verify! run `forge inspect
+ * src/core/libraries/Errors.sol:Errors errors`
  */
 library Errors {
   // DEVNET related
@@ -25,6 +26,7 @@ library Errors {
   error Inbox__ContentTooLarge(bytes32 content); // 0x47452014
   error Inbox__SecretHashTooLarge(bytes32 secretHash); // 0xecde7e2c
   error Inbox__MustBuildBeforeConsume(); // 0xc4901999
+  error Inbox__Ignition();
 
   // Outbox
   error Outbox__Unauthorized(); // 0x2c9490c2
@@ -56,6 +58,10 @@ library Errors {
   error Rollup__InvalidProof(); // 0xa5b2ba17
   error Rollup__InvalidProposedArchive(bytes32 expected, bytes32 actual); // 0x32532e73
   error Rollup__InvalidTimestamp(Timestamp expected, Timestamp actual); // 0x3132e895
+  error Rollup__InvalidAttestations();
+  error Rollup__AttestationsAreValid();
+  error Rollup__BlockAlreadyProven();
+  error Rollup__BlockNotInPendingChain();
   error Rollup__InvalidBlobHash(bytes32 expected, bytes32 actual); // 0x13031e6a
   error Rollup__InvalidBlobProof(bytes32 blobHash); // 0x5ca17bef
   error Rollup__NoEpochToProve(); // 0xcbaa3951
@@ -82,6 +88,7 @@ library Errors {
   error Rollup__RewardsNotClaimable();
   error Rollup__InvalidFirstEpochProof();
   error Rollup__InvalidCoinbase();
+  error Rollup__StaleTempBlockLog(uint256 blockNumber, uint256 pendingBlockNumber, uint256 size);
 
   // ProposedHeaderLib
   error HeaderLib__InvalidHeaderSize(uint256 expected, uint256 actual); // 0xf3ccb247
@@ -97,11 +104,12 @@ library Errors {
   // Sequencer Selection (ValidatorSelection)
   error ValidatorSelection__EpochNotSetup(); // 0x10816cae
   error ValidatorSelection__InvalidProposer(address expected, address actual); // 0xa8843a68
+  error ValidatorSelection__MissingProposerSignature(address proposer, uint256 index);
   error ValidatorSelection__InvalidDeposit(address attester, address proposer); // 0x533169bd
   error ValidatorSelection__InsufficientAttestations(uint256 minimumNeeded, uint256 provided); // 0xaf47297f
   error ValidatorSelection__InvalidCommitteeCommitment(bytes32 reconstructed, bytes32 expected); // 0xca8d5954
-  error ValidatorSelection__InvalidAttestationsLength(uint256 expected, uint256 actual); // 0xe923198c
   error ValidatorSelection__InsufficientCommitteeSize(uint256 actual, uint256 expected); // 0x98673597
+  error ValidatorSelection__ProposerIndexTooLarge(uint256 index);
 
   // Staking
   error Staking__AlreadyQueued(address _attester);
@@ -134,6 +142,7 @@ library Errors {
   error Staking__NotOurProposal(uint256, address, address);
   error Staking__IncorrectGovProposer(uint256);
   error Staking__GovernanceAlreadySet();
+  error Staking__InsufficientBootstrapValidators(uint256 queueSize, uint256 bootstrapFlushSize);
 
   // Fee Juice Portal
   error FeeJuicePortal__AlreadyInitialized(); // 0xc7a172fe
@@ -147,4 +156,11 @@ library Errors {
 
   // FeeLib
   error FeeLib__InvalidFeeAssetPriceModifier(); // 0xf2fb32ad
+  error FeeLib__AlreadyPreheated();
+
+  // SignatureLib (duplicated)
+  error SignatureLib__InvalidSignature(address, address); // 0xd9cbae6c
+
+  // RewardBooster
+  error RewardBooster__OnlyRollup(address caller);
 }

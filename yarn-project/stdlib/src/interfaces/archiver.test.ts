@@ -10,7 +10,7 @@ import { FunctionSelector } from '../abi/function_selector.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import { CommitteeAttestation, L2BlockHash } from '../block/index.js';
 import { L2Block } from '../block/l2_block.js';
-import type { L2Tips } from '../block/l2_block_source.js';
+import type { L2Tips, ValidateBlockResult } from '../block/l2_block_source.js';
 import type { PublishedL2Block } from '../block/published_l2_block.js';
 import { getContractClassFromArtifact } from '../contract/contract_class.js';
 import {
@@ -219,7 +219,7 @@ describe('ArchiverApiSchema', () => {
 
   it('getContract', async () => {
     const address = await AztecAddress.random();
-    const result = await context.client.getContract(address, 27);
+    const result = await context.client.getContract(address, 27n);
     expect(result).toEqual({
       address,
       currentContractClassId: expect.any(Fr),
@@ -245,11 +245,27 @@ describe('ArchiverApiSchema', () => {
     const result = await context.client.getL1Timestamp();
     expect(result).toBe(1n);
   });
+
+  it('getPendingChainValidationStatus', async () => {
+    const result = await context.client.getPendingChainValidationStatus();
+    expect(result).toEqual({ valid: true });
+  });
+
+  it('isPendingChainInvalid', async () => {
+    const result = await context.client.isPendingChainInvalid();
+    expect(result).toBe(false);
+  });
 });
 
 class MockArchiver implements ArchiverApi {
   constructor(private artifact: ContractArtifact) {}
 
+  isPendingChainInvalid(): Promise<boolean> {
+    return Promise.resolve(false);
+  }
+  getPendingChainValidationStatus(): Promise<ValidateBlockResult> {
+    return Promise.resolve({ valid: true });
+  }
   syncImmediate() {
     return Promise.resolve();
   }
@@ -364,8 +380,8 @@ class MockArchiver implements ArchiverApi {
     );
     return functionsAndSelectors.find(f => f.selector.equals(selector))?.name;
   }
-  async getContract(address: AztecAddress, blockNumber?: number): Promise<ContractInstanceWithAddress | undefined> {
-    expect(blockNumber).toEqual(27);
+  async getContract(address: AztecAddress, timestamp?: bigint): Promise<ContractInstanceWithAddress | undefined> {
+    expect(timestamp).toEqual(27n);
     return {
       address,
       currentContractClassId: Fr.random(),

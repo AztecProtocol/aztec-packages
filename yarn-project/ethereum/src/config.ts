@@ -1,10 +1,12 @@
 import {
   type ConfigMappingsType,
+  type NetworkNames,
   bigintConfigHelper,
   booleanConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
 } from '@aztec/foundation/config';
+import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { type L1TxUtilsConfig, l1TxUtilsConfigMappings } from './l1_tx_utils.js';
 
@@ -27,13 +29,19 @@ export type L1ContractsConfig = {
   /** The number of epochs after an epoch ends that proofs are still accepted. */
   aztecProofSubmissionEpochs: number;
   /** The deposit amount for a validator */
-  depositAmount: bigint;
+  activationThreshold: bigint;
   /** The minimum stake for a validator. */
-  minimumStake: bigint;
-  /** The slashing quorum */
+  ejectionThreshold: bigint;
+  /** The slashing quorum, i.e. how many slots must signal for the same payload in a round for it to be submittable to the Slasher */
   slashingQuorum: number;
-  /** The slashing round size */
+  /** The slashing round size, i.e. how many slots are in a round */
   slashingRoundSize: number;
+  /** The slashing lifetime in rounds. I.e., if 1, round N must be submitted before round N + 2 */
+  slashingLifetimeInRounds: number;
+  /** The slashing execution delay in rounds. I.e., if 1, round N may not be submitted until round N + 2 */
+  slashingExecutionDelayInRounds: number;
+  /** The slashing vetoer. May blacklist a payload from being submitted. */
+  slashingVetoer: EthAddress;
   /** Governance proposing quorum */
   governanceProposerQuorum: number;
   /** Governance proposing round size */
@@ -42,6 +50,8 @@ export type L1ContractsConfig = {
   manaTarget: bigint;
   /** The proving cost per mana */
   provingCostPerMana: bigint;
+  /** The number of seconds to wait for an exit */
+  exitDelaySeconds: number;
 } & L1TxUtilsConfig;
 
 export const DefaultL1ContractsConfig = {
@@ -50,21 +60,97 @@ export const DefaultL1ContractsConfig = {
   aztecEpochDuration: 32,
   aztecTargetCommitteeSize: 48,
   aztecProofSubmissionEpochs: 1, // you have a full epoch to submit a proof after the epoch to prove ends
-  depositAmount: BigInt(100e18),
-  minimumStake: BigInt(50e18),
-  slashingQuorum: 6,
-  slashingRoundSize: 10,
-  governanceProposerQuorum: 51,
-  governanceProposerRoundSize: 100,
+  activationThreshold: BigInt(100e18),
+  ejectionThreshold: BigInt(50e18),
+  slashingQuorum: 101,
+  slashingRoundSize: 200,
+  slashingLifetimeInRounds: 5,
+  slashingExecutionDelayInRounds: 0, // round N may be submitted in round N + 1
+  slashingVetoer: EthAddress.ZERO,
+  governanceProposerQuorum: 151,
+  governanceProposerRoundSize: 300,
   manaTarget: BigInt(1e10),
   provingCostPerMana: BigInt(100),
+  exitDelaySeconds: 2 * 24 * 60 * 60,
 } satisfies L1ContractsConfig;
+
+const LocalGovernanceConfiguration = {
+  proposeConfig: {
+    lockDelay: 60n * 60n * 24n * 30n,
+    lockAmount: 1n * 10n ** 24n,
+  },
+  votingDelay: 60n,
+  votingDuration: 60n * 60n,
+  executionDelay: 60n,
+  gracePeriod: 60n * 60n * 24n * 7n,
+  quorum: 1n * 10n ** 17n, // 10%
+  requiredYeaMargin: 4n * 10n ** 16n, // 4%
+  minimumVotes: 400n * 10n ** 18n,
+};
+
+const TestnetGovernanceConfiguration = {
+  proposeConfig: {
+    lockDelay: 60n * 60n * 24n,
+    lockAmount: DefaultL1ContractsConfig.activationThreshold * 100n,
+  },
+  votingDelay: 60n,
+  votingDuration: 60n * 60n,
+  executionDelay: 60n * 60n * 24n,
+  gracePeriod: 60n * 60n * 24n * 7n,
+  quorum: 3n * 10n ** 17n, // 30%
+  requiredYeaMargin: 4n * 10n ** 16n, // 4%
+  minimumVotes: DefaultL1ContractsConfig.ejectionThreshold * 200n,
+};
+
+export const getGovernanceConfiguration = (networkName: NetworkNames) => {
+  if (networkName === 'alpha-testnet' || networkName === 'testnet') {
+    return TestnetGovernanceConfiguration;
+  }
+  return LocalGovernanceConfiguration;
+};
+
+const TestnetGSEConfiguration = {
+  activationThreshold: BigInt(100e18),
+  ejectionThreshold: BigInt(50e18),
+};
+
+const LocalGSEConfiguration = {
+  activationThreshold: BigInt(100e18),
+  ejectionThreshold: BigInt(50e18),
+};
+
+export const getGSEConfiguration = (networkName: NetworkNames) => {
+  if (networkName === 'alpha-testnet' || networkName === 'testnet') {
+    return TestnetGSEConfiguration;
+  }
+  return LocalGSEConfiguration;
+};
 
 // Making a default config here as we are only using it thought the deployment
 // and do not expect to be using different setups, so having environment variables
 // for it seems overkill
-export const DefaultRewardConfig = {
+const LocalRewardConfig = {
   sequencerBps: 5000,
+  rewardDistributor: EthAddress.ZERO.toString(),
+  booster: EthAddress.ZERO.toString(),
+  blockReward: BigInt(50e18),
+};
+
+const TestnetRewardConfig = {
+  sequencerBps: 5000,
+  rewardDistributor: EthAddress.ZERO.toString(),
+  booster: EthAddress.ZERO.toString(),
+  blockReward: BigInt(50e18),
+};
+
+export const getRewardConfig = (networkName: NetworkNames) => {
+  if (networkName === 'alpha-testnet' || networkName === 'testnet') {
+    return TestnetRewardConfig;
+  }
+  return LocalRewardConfig;
+};
+
+const LocalRewardBoostConfig = {
   increment: 200000,
   maxScore: 5000000,
   a: 5000,
@@ -72,10 +158,41 @@ export const DefaultRewardConfig = {
   minimum: 100000,
 };
 
+const TestnetRewardBoostConfig = {
+  increment: 125000,
+  maxScore: 15000000,
+  a: 1000,
+  k: 1000000,
+  minimum: 100000,
+};
+
+export const getRewardBoostConfig = (networkName: NetworkNames) => {
+  if (networkName === 'alpha-testnet' || networkName === 'testnet') {
+    return TestnetRewardBoostConfig;
+  }
+  return LocalRewardBoostConfig;
+};
+
 // Similar to the above, no need for environment variables for this.
-export const DefaultEntryQueueConfig = {
-  flushSizeMin: 48,
-  flushSizeQuotient: 2,
+const LocalEntryQueueConfig = {
+  bootstrapValidatorSetSize: 0,
+  bootstrapFlushSize: 0,
+  normalFlushSizeMin: 48,
+  normalFlushSizeQuotient: 2,
+};
+
+const TestnetEntryQueueConfig = {
+  bootstrapValidatorSetSize: 750,
+  bootstrapFlushSize: 75,
+  normalFlushSizeMin: 1,
+  normalFlushSizeQuotient: 2475,
+};
+
+export const getEntryQueueConfig = (networkName: NetworkNames) => {
+  if (networkName === 'alpha-testnet' || networkName === 'testnet') {
+    return TestnetEntryQueueConfig;
+  }
+  return LocalEntryQueueConfig;
 };
 
 export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = {
@@ -104,15 +221,15 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     description: 'The number of epochs after an epoch ends that proofs are still accepted.',
     ...numberConfigHelper(DefaultL1ContractsConfig.aztecProofSubmissionEpochs),
   },
-  depositAmount: {
-    env: 'AZTEC_DEPOSIT_AMOUNT',
+  activationThreshold: {
+    env: 'AZTEC_ACTIVATION_THRESHOLD',
     description: 'The deposit amount for a validator',
-    ...bigintConfigHelper(DefaultL1ContractsConfig.depositAmount),
+    ...bigintConfigHelper(DefaultL1ContractsConfig.activationThreshold),
   },
-  minimumStake: {
-    env: 'AZTEC_MINIMUM_STAKE',
+  ejectionThreshold: {
+    env: 'AZTEC_EJECTION_THRESHOLD',
     description: 'The minimum stake for a validator.',
-    ...bigintConfigHelper(DefaultL1ContractsConfig.minimumStake),
+    ...bigintConfigHelper(DefaultL1ContractsConfig.ejectionThreshold),
   },
   slashingQuorum: {
     env: 'AZTEC_SLASHING_QUORUM',
@@ -123,6 +240,22 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     env: 'AZTEC_SLASHING_ROUND_SIZE',
     description: 'The slashing round size',
     ...numberConfigHelper(DefaultL1ContractsConfig.slashingRoundSize),
+  },
+  slashingLifetimeInRounds: {
+    env: 'AZTEC_SLASHING_LIFETIME_IN_ROUNDS',
+    description: 'The slashing lifetime in rounds',
+    ...numberConfigHelper(DefaultL1ContractsConfig.slashingLifetimeInRounds),
+  },
+  slashingExecutionDelayInRounds: {
+    env: 'AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS',
+    description: 'The slashing execution delay in rounds',
+    ...numberConfigHelper(DefaultL1ContractsConfig.slashingExecutionDelayInRounds),
+  },
+  slashingVetoer: {
+    env: 'AZTEC_SLASHING_VETOER',
+    description: 'The slashing vetoer',
+    parseEnv: (val: string) => EthAddress.fromString(val),
+    defaultValue: DefaultL1ContractsConfig.slashingVetoer,
   },
   governanceProposerQuorum: {
     env: 'AZTEC_GOVERNANCE_PROPOSER_QUORUM',
@@ -143,6 +276,11 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     env: 'AZTEC_PROVING_COST_PER_MANA',
     description: 'The proving cost per mana',
     ...bigintConfigHelper(DefaultL1ContractsConfig.provingCostPerMana),
+  },
+  exitDelaySeconds: {
+    env: 'AZTEC_EXIT_DELAY_SECONDS',
+    description: 'The delay before a validator can exit the set',
+    ...numberConfigHelper(DefaultL1ContractsConfig.exitDelaySeconds),
   },
   ...l1TxUtilsConfigMappings,
 };

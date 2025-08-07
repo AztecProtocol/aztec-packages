@@ -2,9 +2,7 @@
 pragma solidity >=0.8.27;
 
 import {GovernanceBase} from "./base.t.sol";
-import {
-  IGovernance, Configuration, Withdrawal
-} from "@aztec/governance/interfaces/IGovernance.sol";
+import {IGovernance, Configuration, Withdrawal} from "@aztec/governance/interfaces/IGovernance.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {ConfigurationLib} from "@aztec/governance/libraries/ConfigurationLib.sol";
@@ -24,29 +22,29 @@ contract InitiateWithdrawTest is GovernanceBase {
     uint256 amount = bound(_amount, 1, type(uint224).max);
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.Governance__InsufficientPower.selector, address(this), 0, amount
+        Errors.Governance__CheckpointedUintLib__InsufficientValue.selector, address(this), 0, amount
       )
     );
     governance.initiateWithdraw(address(this), amount);
   }
 
-  function test_GivenCheckpoints(uint256 _depositAmount, uint256 _withdrawalAmount)
+  function test_GivenCheckpoints(uint256 _activationThreshold, uint256 _withdrawalAmount)
     external
     whenCallerHaveInsufficientDeposits
   {
     // it revert
-    uint256 depositAmount = bound(_depositAmount, 1, type(uint128).max);
-    uint256 withdrawalAmount = bound(_withdrawalAmount, depositAmount + 1, type(uint224).max);
+    uint256 activationThreshold = bound(_activationThreshold, 1, type(uint128).max);
+    uint256 withdrawalAmount = bound(_withdrawalAmount, activationThreshold + 1, type(uint224).max);
 
-    token.mint(address(this), depositAmount);
-    token.approve(address(governance), depositAmount);
-    governance.deposit(address(this), depositAmount);
+    token.mint(address(this), activationThreshold);
+    token.approve(address(governance), activationThreshold);
+    governance.deposit(address(this), activationThreshold);
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.Governance__InsufficientPower.selector,
+        Errors.Governance__CheckpointedUintLib__InsufficientValue.selector,
         address(this),
-        depositAmount,
+        activationThreshold,
         withdrawalAmount
       )
     );
@@ -54,7 +52,7 @@ contract InitiateWithdrawTest is GovernanceBase {
   }
 
   function test_WhenCallerHaveSufficientDeposits(
-    uint256 _depositAmount,
+    uint256 _activationThreshold,
     address[WITHDRAWAL_COUNT] memory _recipient,
     uint256[WITHDRAWAL_COUNT] memory _withdrawals,
     uint256[WITHDRAWAL_COUNT] memory _timejumps
@@ -64,7 +62,7 @@ contract InitiateWithdrawTest is GovernanceBase {
     // it creates a pending withdrawal with time of unlock
     // it emits {WithdrawalInitiated} event
 
-    uint256 deposit = bound(_depositAmount, 1, type(uint224).max);
+    uint256 deposit = bound(_activationThreshold, 1, type(uint224).max);
     uint256 sum = deposit;
     uint256 withdrawalId = 0;
 
@@ -93,11 +91,7 @@ contract InitiateWithdrawTest is GovernanceBase {
 
       Withdrawal memory withdrawal = governance.getWithdrawal(withdrawalId);
       assertEq(withdrawal.amount, amount, "invalid amount");
-      assertEq(
-        withdrawal.unlocksAt,
-        Timestamp.wrap(block.timestamp) + config.withdrawalDelay(),
-        "Invalid timestamp"
-      );
+      assertEq(withdrawal.unlocksAt, Timestamp.wrap(block.timestamp) + config.withdrawalDelay(), "Invalid timestamp");
       assertEq(withdrawal.recipient, recipient, "invalid recipient");
       assertFalse(withdrawal.claimed, "already claimed");
       assertEq(governance.totalPowerAt(Timestamp.wrap(block.timestamp)), sum);

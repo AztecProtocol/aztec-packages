@@ -1,5 +1,5 @@
 import { type AccountWallet, Fr, type Logger } from '@aztec/aztec.js';
-import { CheatCodes } from '@aztec/aztec.js/testing';
+import { CheatCodes } from '@aztec/aztec/testing';
 import { type DeployL1ContractsReturnType, RollupContract } from '@aztec/ethereum';
 import type { TestDateProvider } from '@aztec/foundation/timer';
 import { LendingContract } from '@aztec/noir-contracts.js/Lending';
@@ -9,7 +9,7 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { afterAll, jest } from '@jest/globals';
 
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
-import { ensureAccountsPubliclyDeployed, setup } from './fixtures/utils.js';
+import { ensureAccountContractsPublished, setup } from './fixtures/utils.js';
 import { LendingAccount, LendingSimulator, TokenSimulator } from './simulators/index.js';
 
 describe('e2e_lending_contract', () => {
@@ -63,7 +63,7 @@ describe('e2e_lending_contract', () => {
     const ctx = await setup(1);
     ({ teardown, logger, cheatCodes: cc, wallet, deployL1ContractsValues, dateProvider } = ctx);
     ({ lendingContract, priceFeedContract, collateralAsset, stableCoin } = await deployContracts());
-    await ensureAccountsPubliclyDeployed(wallet, [wallet]);
+    await ensureAccountContractsPublished(wallet, [wallet]);
 
     const rollup = new RollupContract(
       deployL1ContractsValues.l1Client,
@@ -127,19 +127,19 @@ describe('e2e_lending_contract', () => {
 
   describe('Deposits', () => {
     it('Depositing 🥸 : 💰 -> 🏦', async () => {
-      const depositAmount = 420n;
+      const activationThreshold = 420n;
       const authwitNonce = Fr.random();
       const transferToPublicAuthwit = await wallet.createAuthWit({
         caller: lendingContract.address,
         action: collateralAsset.methods.transfer_to_public(
           lendingAccount.address,
           lendingContract.address,
-          depositAmount,
+          activationThreshold,
           authwitNonce,
         ),
       });
       await lendingSim.progressSlots(SLOT_JUMP, dateProvider);
-      lendingSim.depositPrivate(lendingAccount.address, await lendingAccount.key(), depositAmount);
+      lendingSim.depositPrivate(lendingAccount.address, await lendingAccount.key(), activationThreshold);
 
       // Make a private deposit of funds into own account.
       // This should:
@@ -150,7 +150,7 @@ describe('e2e_lending_contract', () => {
       await lendingContract.methods
         .deposit_private(
           lendingAccount.address,
-          depositAmount,
+          activationThreshold,
           authwitNonce,
           lendingAccount.secret,
           0n,
@@ -161,20 +161,20 @@ describe('e2e_lending_contract', () => {
     });
 
     it('Depositing 🥸 on behalf of recipient: 💰 -> 🏦', async () => {
-      const depositAmount = 421n;
+      const activationThreshold = 421n;
       const authwitNonce = Fr.random();
       const transferToPublicAuthwit = await wallet.createAuthWit({
         caller: lendingContract.address,
         action: collateralAsset.methods.transfer_to_public(
           lendingAccount.address,
           lendingContract.address,
-          depositAmount,
+          activationThreshold,
           authwitNonce,
         ),
       });
 
       await lendingSim.progressSlots(SLOT_JUMP, dateProvider);
-      lendingSim.depositPrivate(lendingAccount.address, lendingAccount.address.toField(), depositAmount);
+      lendingSim.depositPrivate(lendingAccount.address, lendingAccount.address.toField(), activationThreshold);
       // Make a private deposit of funds into another account, in this case, a public account.
       // This should:
       // - increase the interest accumulator
@@ -184,7 +184,7 @@ describe('e2e_lending_contract', () => {
       await lendingContract.methods
         .deposit_private(
           lendingAccount.address,
-          depositAmount,
+          activationThreshold,
           authwitNonce,
           0n,
           lendingAccount.address,
@@ -195,7 +195,7 @@ describe('e2e_lending_contract', () => {
     });
 
     it('Depositing: 💰 -> 🏦', async () => {
-      const depositAmount = 211n;
+      const activationThreshold = 211n;
 
       const authwitNonce = Fr.random();
 
@@ -206,7 +206,7 @@ describe('e2e_lending_contract', () => {
           action: collateralAsset.methods.transfer_in_public(
             lendingAccount.address,
             lendingContract.address,
-            depositAmount,
+            activationThreshold,
             authwitNonce,
           ),
         },
@@ -215,7 +215,7 @@ describe('e2e_lending_contract', () => {
       await validateAction.send().wait();
 
       await lendingSim.progressSlots(SLOT_JUMP, dateProvider);
-      lendingSim.depositPublic(lendingAccount.address, lendingAccount.address.toField(), depositAmount);
+      lendingSim.depositPublic(lendingAccount.address, lendingAccount.address.toField(), activationThreshold);
 
       // Make a public deposit of funds into self.
       // This should:
@@ -225,7 +225,7 @@ describe('e2e_lending_contract', () => {
 
       logger.info('Depositing: 💰 -> 🏦');
       await lendingContract.methods
-        .deposit_public(depositAmount, authwitNonce, lendingAccount.address, collateralAsset.address)
+        .deposit_public(activationThreshold, authwitNonce, lendingAccount.address, collateralAsset.address)
         .send()
         .wait();
     });

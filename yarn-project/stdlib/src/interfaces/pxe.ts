@@ -125,6 +125,8 @@ export interface PXE {
    * This is called by aztec.js when instantiating a contract in a given address with a mismatching artifact.
    * @param contractAddress - The address of the contract to update.
    * @param artifact - The updated artifact for the contract.
+   * @throws If the artifact's contract class is not found in the PXE or if the contract class is different from
+   * the current one (current one from the point of view of the node to which the PXE is connected).
    */
   updateContract(contractAddress: AztecAddress, artifact: ContractArtifact): Promise<void>;
 
@@ -417,7 +419,7 @@ export interface PXEInfo {
 export interface ContractMetadata {
   contractInstance?: ContractInstanceWithAddress | undefined;
   isContractInitialized: boolean;
-  isContractPubliclyDeployed: boolean;
+  isContractPublished: boolean;
 }
 
 export interface ContractClassMetadata {
@@ -429,7 +431,7 @@ export interface ContractClassMetadata {
 const ContractMetadataSchema = z.object({
   contractInstance: z.union([ContractInstanceWithAddressSchema, z.undefined()]),
   isContractInitialized: z.boolean(),
-  isContractPubliclyDeployed: z.boolean(),
+  isContractPublished: z.boolean(),
 }) satisfies ZodFor<ContractMetadata>;
 
 const ContractClassMetadataSchema = z.object({

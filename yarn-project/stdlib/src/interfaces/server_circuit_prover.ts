@@ -15,6 +15,7 @@ import type { BlockMergeRollupInputs } from '../rollup/block_merge_rollup.js';
 import type { BlockRootOrBlockMergePublicInputs } from '../rollup/block_root_or_block_merge_public_inputs.js';
 import type { BlockRootRollupInputs, SingleTxBlockRootRollupInputs } from '../rollup/block_root_rollup.js';
 import type { EmptyBlockRootRollupInputs } from '../rollup/empty_block_root_rollup_inputs.js';
+import type { PaddingBlockRootRollupInputs } from '../rollup/index.js';
 import type { MergeRollupInputs } from '../rollup/merge_rollup.js';
 import type { PrivateBaseRollupInputs } from '../rollup/private_base_rollup_inputs.js';
 import type { PublicBaseRollupInputs } from '../rollup/public_base_rollup_inputs.js';
@@ -115,6 +116,14 @@ export interface ServerCircuitProver {
    */
   getEmptyBlockRootRollupProof(
     input: EmptyBlockRootRollupInputs,
+    signal?: AbortSignal,
+    epochNumber?: number,
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  >;
+
+  getPaddingBlockRootRollupProof(
+    input: PaddingBlockRootRollupInputs,
     signal?: AbortSignal,
     epochNumber?: number,
   ): Promise<

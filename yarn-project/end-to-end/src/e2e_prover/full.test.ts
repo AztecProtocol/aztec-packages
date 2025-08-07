@@ -4,7 +4,7 @@ import { parseBooleanEnv } from '@aztec/foundation/config';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing/files';
 import type { FieldsOf } from '@aztec/foundation/types';
-import { FeeJuicePortalAbi, RewardDistributorAbi, TestERC20Abi } from '@aztec/l1-artifacts';
+import { FeeJuicePortalAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { Gas } from '@aztec/stdlib/gas';
 import { PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import { ClientIvcProof } from '@aztec/stdlib/proofs';
@@ -32,7 +32,6 @@ describe('full_prover', () => {
   let recipient: AztecAddress;
 
   let rollup: RollupContract;
-  let rewardDistributor: GetContractReturnType<typeof RewardDistributorAbi, ExtendedViemWalletClient>;
   let feeJuiceToken: GetContractReturnType<typeof TestERC20Abi, ExtendedViemWalletClient>;
   let feeJuicePortal: GetContractReturnType<typeof FeeJuicePortalAbi, ExtendedViemWalletClient>;
 
@@ -47,12 +46,6 @@ describe('full_prover', () => {
     [sender, recipient] = accounts.map(a => a.address);
 
     rollup = new RollupContract(t.l1Contracts.l1Client, t.l1Contracts.l1ContractAddresses.rollupAddress);
-
-    rewardDistributor = getContract({
-      abi: RewardDistributorAbi,
-      address: t.l1Contracts.l1ContractAddresses.rewardDistributorAddress.toString(),
-      client: t.l1Contracts.l1Client,
-    });
 
     feeJuicePortal = getContract({
       abi: FeeJuicePortalAbi,
@@ -160,7 +153,7 @@ describe('full_prover', () => {
       const rewardsAfterProver = await rollup.getSpecificProverRewardsForEpoch(epoch, t.proverAddress);
       expect(rewardsAfterProver).toBeGreaterThan(rewardsBeforeProver);
 
-      const blockReward = (await rewardDistributor.read.BLOCK_REWARD()) as bigint;
+      const blockReward = await rollup.getBlockReward();
       const fees = (
         await Promise.all([
           t.aztecNode.getBlock(Number(newProvenBlockNumber - 1n)),
@@ -312,27 +305,29 @@ describe('full_prover', () => {
       // Spam node with invalid txs
       logger.info(`Submitting ${NUM_INVALID_TXS} invalid transactions to simulate a ddos attack`);
       const data = provenTx.data;
-      const invalidTxs = Array.from({ length: NUM_INVALID_TXS }, (_, i) => {
-        // Use a random ClientIvcProof and alter the public tx data to generate a unique invalid tx hash
-        const invalidProvenTx = new ProvenTx(
-          wallet,
-          new Tx(
-            new PrivateKernelTailCircuitPublicInputs(
-              data.constants,
-              data.rollupValidationRequests,
-              data.gasUsed.add(new Gas(i + 1, 0)),
-              data.feePayer,
-              data.forPublic,
-              data.forRollup,
-            ),
-            ClientIvcProof.random(),
-            provenTx.contractClassLogFields,
-            provenTx.publicFunctionCalldata,
-          ),
-          [],
-        );
-        return invalidProvenTx.send();
-      });
+      const invalidTxs = await Promise.all(
+        Array.from({ length: NUM_INVALID_TXS }, async (_, i) => {
+          // Use a random ClientIvcProof and alter the public tx data to generate a unique invalid tx hash
+          const invalidProvenTx = new ProvenTx(
+            wallet,
+            await Tx.create({
+              data: new PrivateKernelTailCircuitPublicInputs(
+                data.constants,
+                data.gasUsed.add(new Gas(i + 1, 0)),
+                data.feePayer,
+                data.includeByTimestamp,
+                data.forPublic,
+                data.forRollup,
+              ),
+              clientIvcProof: ClientIvcProof.random(),
+              contractClassLogFields: provenTx.contractClassLogFields,
+              publicFunctionCalldata: provenTx.publicFunctionCalldata,
+            }),
+            [],
+          );
+          return invalidProvenTx.send();
+        }),
+      );
 
       logger.info(`Sending proven tx`);
       const validTx = provenTx.send();

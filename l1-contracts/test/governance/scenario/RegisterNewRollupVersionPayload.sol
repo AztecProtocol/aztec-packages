@@ -23,10 +23,8 @@ contract RegisterNewRollupVersionPayload is IPayload {
   function getActions() external view override(IPayload) returns (IPayload.Action[] memory) {
     IPayload.Action[] memory res = new IPayload.Action[](2);
 
-    res[0] = Action({
-      target: address(REGISTRY),
-      data: abi.encodeWithSelector(IRegistry.addRollup.selector, address(ROLLUP))
-    });
+    res[0] =
+      Action({target: address(REGISTRY), data: abi.encodeWithSelector(IRegistry.addRollup.selector, address(ROLLUP))});
 
     res[1] = Action({
       target: address(ROLLUP.getGSE()),
@@ -34,5 +32,9 @@ contract RegisterNewRollupVersionPayload is IPayload {
     });
 
     return res;
+  }
+
+  function getURI() external pure override(IPayload) returns (string memory) {
+    return "RegisterNewRollupVersionPayload";
   }
 }

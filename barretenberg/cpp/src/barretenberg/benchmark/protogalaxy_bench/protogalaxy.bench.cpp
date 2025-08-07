@@ -29,7 +29,7 @@ void compute_row_evaluations(State& state) noexcept
 {
     using PGInternal = ProtogalaxyProverInternal<DeciderProvingKeys_<Flavor, 2>>;
     using Polys = Flavor::ProverPolynomials;
-    using Alphas = Flavor::RelationSeparator;
+    using Alphas = Flavor::SubrelationSeparators;
     using Params = RelationParameters<FF>;
 
     const size_t dyadic_size = 1 << state.range(0);
@@ -68,13 +68,15 @@ void fold_k(State& state) noexcept
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/938): Parallelize this loop
     for (size_t i = 0; i < k + 1; ++i) {
         std::shared_ptr<DeciderProvingKey> decider_pk = construct_key();
-        auto honk_vk = std::make_shared<Flavor::VerificationKey>(decider_pk->proving_key);
+        auto honk_vk = std::make_shared<Flavor::VerificationKey>(decider_pk->get_precomputed());
         std::shared_ptr<DeciderVerificationKey> decider_vk = std::make_shared<DeciderVerificationKey>(honk_vk);
         decider_pks.emplace_back(decider_pk);
         decider_vks.emplace_back(decider_vk);
     }
+    std::shared_ptr<typename ProtogalaxyProver::Transcript> transcript =
+        std::make_shared<typename ProtogalaxyProver::Transcript>();
 
-    ProtogalaxyProver folding_prover(decider_pks, decider_vks);
+    ProtogalaxyProver folding_prover(decider_pks, decider_vks, transcript);
 
     for (auto _ : state) {
         BB_REPORT_OP_COUNT_IN_BENCH(state);

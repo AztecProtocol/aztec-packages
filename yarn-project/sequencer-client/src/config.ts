@@ -27,6 +27,8 @@ import {
 export * from './publisher/config.js';
 export type { SequencerConfig };
 
+export const DEFAULT_ATTESTATION_PROPAGATION_TIME = 2;
+
 /**
  * Configuration settings for the SequencerClient.
  */
@@ -109,6 +111,37 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     env: 'SEQ_MAX_L1_TX_INCLUSION_TIME_INTO_SLOT',
     description: 'How many seconds into an L1 slot we can still send a tx and get it mined.',
     parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+  },
+  attestationPropagationTime: {
+    env: 'SEQ_ATTESTATION_PROPAGATION_TIME',
+    description: 'How many seconds it takes for proposals and attestations to travel across the p2p layer (one-way)',
+    ...numberConfigHelper(DEFAULT_ATTESTATION_PROPAGATION_TIME),
+  },
+  fakeProcessingDelayPerTxMs: {
+    description: 'Used for testing to introduce a fake delay after processing each tx',
+  },
+  secondsBeforeInvalidatingBlockAsCommitteeMember: {
+    env: 'SEQ_SECONDS_BEFORE_INVALIDATING_BLOCK_AS_COMMITTEE_MEMBER',
+    description:
+      'How many seconds to wait before trying to invalidate a block from the pending chain as a committee member (zero to never invalidate).' +
+      ' The next proposer is expected to invalidate, so the committee acts as a fallback.',
+    ...numberConfigHelper(144), // 12 L1 blocks
+  },
+  secondsBeforeInvalidatingBlockAsNonCommitteeMember: {
+    env: 'SEQ_SECONDS_BEFORE_INVALIDATING_BLOCK_AS_NON_COMMITTEE_MEMBER',
+    description:
+      'How many seconds to wait before trying to invalidate a block from the pending chain as a non-committee member (zero to never invalidate).' +
+      ' The next proposer is expected to invalidate, then the committee, so other sequencers act as a fallback.',
+    ...numberConfigHelper(432), // 36 L1 blocks
+  },
+  skipCollectingAttestations: {
+    description:
+      'Whether to skip collecting attestations from validators and only use self-attestations (for testing only)',
+    ...booleanConfigHelper(false),
+  },
+  skipInvalidateBlockAsProposer: {
+    description: 'Do not invalidate the previous block if invalid when we are the proposer (for testing only)',
+    ...booleanConfigHelper(false),
   },
   ...pickConfigMappings(p2pConfigMappings, ['txPublicSetupAllowList']),
 };

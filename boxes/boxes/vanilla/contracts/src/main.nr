@@ -7,8 +7,8 @@ pub contract EasyPrivateVoting {
         functions::{initializer, internal, private, public, utility},
         storage::storage,
     };
-    use dep::aztec::prelude::{AztecAddress, Map, PublicImmutable, PublicMutable};
-    use dep::aztec::protocol_types::traits::{Hash, ToField};
+    use dep::aztec::state_vars::{Map, PublicImmutable, PublicMutable};
+    use dep::aztec::protocol_types::{address::AztecAddress, traits::{Hash, ToField}};
 
     #[storage]
     struct Storage<Context> {

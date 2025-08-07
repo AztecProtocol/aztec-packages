@@ -31,6 +31,33 @@ enum TransactionPhase {
 
 using InternalCallId = uint32_t;
 
+/**
+ * Enum for environment variables, representing the various environment values
+ * that can be accessed by the AVM GETENVVAR opcode.
+ */
+enum class EnvironmentVariable {
+    ADDRESS,
+    SENDER,
+    TRANSACTIONFEE,
+    CHAINID,
+    VERSION,
+    BLOCKNUMBER,
+    TIMESTAMP,
+    BASEFEEPERL2GAS,
+    BASEFEEPERDAGAS,
+    ISSTATICCALL,
+    L2GASLEFT,
+    DAGASLEFT,
+    MAX = DAGASLEFT,
+};
+
+enum class ContractInstanceMember {
+    DEPLOYER = 0,
+    CLASS_ID = 1,
+    INIT_HASH = 2,
+    MAX = INIT_HASH,
+};
+
 ////////////////////////////////////////////////////////////////////////////
 // Keys, Instances, Classes
 ////////////////////////////////////////////////////////////////////////////
@@ -281,6 +308,13 @@ struct TreeStates {
     TreeState publicDataTree;
 
     bool operator==(const TreeStates& other) const = default;
+};
+
+struct SideEffectStates {
+    uint32_t numUnencryptedLogs;
+    uint32_t numL2ToL1Messages;
+
+    bool operator==(const SideEffectStates& other) const = default;
 };
 
 } // namespace bb::avm2

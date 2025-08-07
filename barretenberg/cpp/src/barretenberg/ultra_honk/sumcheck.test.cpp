@@ -2,12 +2,11 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/honk/library/grand_product_library.hpp"
-#include "barretenberg/relations/auxiliary_relation.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/elliptic_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
-#include "barretenberg/stdlib/pairing_points.hpp"
+#include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/witness_computation.hpp"
@@ -33,7 +32,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     using Flavor = UltraFlavor;
     using FF = typename Flavor::FF;
     using Transcript = typename Flavor::Transcript;
-    using RelationSeparator = typename Flavor::RelationSeparator;
+    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
 
     // Create a composer and a dummy circuit with a few gates
     auto builder = UltraCircuitBuilder();
@@ -154,46 +153,50 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     WitnessComputation<Flavor>::complete_proving_key_for_test(decider_pk);
 
     auto prover_transcript = Transcript::prover_init_empty();
-    auto circuit_size = decider_pk->proving_key.circuit_size;
+    auto circuit_size = decider_pk->dyadic_size();
     auto log_circuit_size = numeric::get_msb(circuit_size);
 
-    RelationSeparator prover_alphas;
+    SubrelationSeparators prover_alphas;
     for (size_t idx = 0; idx < prover_alphas.size(); idx++) {
         prover_alphas[idx] = prover_transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
     }
 
-    decider_pk->alphas = prover_alphas;
-    auto sumcheck_prover = SumcheckProver<Flavor>(circuit_size, prover_transcript);
     std::vector<FF> prover_gate_challenges(log_circuit_size);
     for (size_t idx = 0; idx < log_circuit_size; idx++) {
         prover_gate_challenges[idx] =
             prover_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
     decider_pk->gate_challenges = prover_gate_challenges;
-    auto prover_output = sumcheck_prover.prove(decider_pk->proving_key.polynomials,
-                                               decider_pk->relation_parameters,
-                                               decider_pk->alphas,
-                                               decider_pk->gate_challenges);
+
+    SumcheckProver<Flavor> sumcheck_prover(circuit_size,
+                                           decider_pk->polynomials,
+                                           prover_transcript,
+                                           prover_alphas,
+                                           prover_gate_challenges,
+                                           decider_pk->relation_parameters,
+                                           CONST_PROOF_SIZE_LOG_N);
+
+    auto prover_output = sumcheck_prover.prove();
 
     auto verifier_transcript = Transcript::verifier_init_empty(prover_transcript);
 
-    auto sumcheck_verifier = SumcheckVerifier<Flavor>(verifier_transcript);
-    RelationSeparator verifier_alphas;
+    SubrelationSeparators verifier_alphas;
     for (size_t idx = 0; idx < verifier_alphas.size(); idx++) {
         verifier_alphas[idx] = verifier_transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
     }
+    SumcheckVerifier<Flavor> sumcheck_verifier(verifier_transcript, verifier_alphas, CONST_PROOF_SIZE_LOG_N);
 
     std::vector<FF> verifier_gate_challenges(log_circuit_size);
     for (size_t idx = 0; idx < log_circuit_size; idx++) {
         verifier_gate_challenges[idx] =
             verifier_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
-    std::array<FF, CONST_PROOF_SIZE_LOG_N> padding_indicator_array;
+    std::vector<FF> padding_indicator_array(CONST_PROOF_SIZE_LOG_N);
     for (size_t idx = 0; idx < padding_indicator_array.size(); idx++) {
         padding_indicator_array[idx] = (idx < log_circuit_size) ? FF{ 1 } : FF{ 0 };
     }
-    auto verifier_output = sumcheck_verifier.verify(
-        decider_pk->relation_parameters, verifier_alphas, verifier_gate_challenges, padding_indicator_array);
+    auto verifier_output =
+        sumcheck_verifier.verify(decider_pk->relation_parameters, verifier_gate_challenges, padding_indicator_array);
 
     auto verified = verifier_output.verified;
 

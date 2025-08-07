@@ -1,11 +1,11 @@
 use dep::aztec::{
-    context::PrivateContext,
+    context::{PrivateContext, UtilityContext},
     messages::logs::note::encode_and_encrypt_note,
     note::note_getter_options::NoteGetterOptions,
     protocol_types::address::AztecAddress,
-    state_vars::{PrivateSet, storage::Storage},
+    state_vars::{PrivateSet, storage::HasStorageSlot},
 };
-use dep::value_note::{filter::filter_notes_min_sum, value_note::ValueNote};
+use dep::value_note::{balance_utils, filter::filter_notes_min_sum, value_note::ValueNote};
 
 pub struct EasyPrivateUint<Context> {
     context: Context,
@@ -13,7 +13,7 @@ pub struct EasyPrivateUint<Context> {
 }
 
 // TODO(#13824): remove this impl once we allow structs to hold state variables.
-impl<Context> Storage<1> for EasyPrivateUint<Context> {
+impl<Context> HasStorageSlot<1> for EasyPrivateUint<Context> {
     fn get_storage_slot(self) -> Field {
         self.set.get_storage_slot()
     }
@@ -28,18 +28,18 @@ impl<Context> EasyPrivateUint<Context> {
 
 impl EasyPrivateUint<&mut PrivateContext> {
     // Very similar to `value_note::utils::increment`.
-    pub fn add(self, addend: u64, owner: AztecAddress, sender: AztecAddress) {
+    pub fn add(self, addend: u64, owner: AztecAddress) {
         // Creates new note for the owner.
         let addend_note = ValueNote::new(addend as Field, owner);
 
         // Insert the new note to the owner's set of notes.
         // docs:start:insert
-        self.set.insert(addend_note).emit(encode_and_encrypt_note(self.context, owner, sender));
+        self.set.insert(addend_note).emit(encode_and_encrypt_note(self.context, owner));
         // docs:end:insert
     }
 
     // Very similar to `value_note::utils::decrement`.
-    pub fn sub(self, subtrahend: u64, owner: AztecAddress, sender: AztecAddress) {
+    pub fn sub(self, subtrahend: u64, owner: AztecAddress) {
         // docs:start:pop_notes
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend as Field);
         let notes = self.set.pop_notes(options);
@@ -58,6 +58,12 @@ impl EasyPrivateUint<&mut PrivateContext> {
         // Creates change note for the owner.
         let result_value = minuend - subtrahend;
         let result_note = ValueNote::new(result_value as Field, owner);
-        self.set.insert(result_note).emit(encode_and_encrypt_note(self.context, owner, sender));
+        self.set.insert(result_note).emit(encode_and_encrypt_note(self.context, owner));
+    }
+}
+
+impl EasyPrivateUint<UtilityContext> {
+    pub unconstrained fn get_value(self) -> Field {
+        balance_utils::get_balance(self.set)
     }
 }

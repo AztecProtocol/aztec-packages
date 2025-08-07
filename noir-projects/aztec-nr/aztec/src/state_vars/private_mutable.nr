@@ -13,7 +13,7 @@ use crate::note::{
 };
 use crate::note::retrieved_note::RetrievedNote;
 use crate::oracle::notes::check_nullifier_exists;
-use crate::state_vars::storage::Storage;
+use crate::state_vars::storage::HasStorageSlot;
 
 // docs:start:struct
 pub struct PrivateMutable<Note, Context> {
@@ -27,7 +27,7 @@ mod test;
 // Private storage slots are not really 'slots' but rather a value in the note hash preimage, so there is no notion of a
 // value spilling over multiple slots. For this reason PrivateMutable (and all other private state variables) needs just
 // one slot to be reserved, regardless of what it stores.
-impl<T, Context> Storage<1> for PrivateMutable<T, Context> {
+impl<T, Context> HasStorageSlot<1> for PrivateMutable<T, Context> {
     fn get_storage_slot(self) -> Field {
         self.storage_slot
     }
@@ -62,9 +62,9 @@ where
     Note: NoteType + NoteHash,
 {
     // docs:start:initialize
-    pub fn initialize<let N: u32>(self, note: Note) -> NoteEmission<Note>
+    pub fn initialize(self, note: Note) -> NoteEmission<Note>
     where
-        Note: Packable<N>,
+        Note: Packable,
     {
         // Nullify the storage slot.
         let nullifier = self.compute_initialization_nullifier();
@@ -75,9 +75,9 @@ where
     // docs:end:initialize
 
     // docs:start:replace
-    pub fn replace<let N: u32>(self, new_note: Note) -> NoteEmission<Note>
+    pub fn replace(self, new_note: Note) -> NoteEmission<Note>
     where
-        Note: Packable<N>,
+        Note: Packable,
     {
         let (prev_retrieved_note, note_hash_for_read_request): (RetrievedNote<Note>, Field) =
             get_note(self.context, self.storage_slot);
@@ -94,9 +94,9 @@ where
     }
     // docs:end:replace
 
-    pub fn initialize_or_replace<let N: u32>(self, note: Note) -> NoteEmission<Note>
+    pub fn initialize_or_replace(self, note: Note) -> NoteEmission<Note>
     where
-        Note: Packable<N>,
+        Note: Packable,
     {
         // Safety: `check_nullifier_exists` is an unconstrained function - we can constrain a true value
         // by providing an inclusion proof of the nullifier, but cannot constrain a false value since
@@ -120,9 +120,9 @@ where
     }
 
     // docs:start:get_note
-    pub fn get_note<let N: u32>(self) -> NoteEmission<Note>
+    pub fn get_note(self) -> NoteEmission<Note>
     where
-        Note: Packable<N>,
+        Note: Packable,
     {
         let mut (retrieved_note, note_hash_for_read_request) =
             get_note(self.context, self.storage_slot);
@@ -147,11 +147,11 @@ where
     }
 
     // docs:start:view_note
-    pub unconstrained fn view_note<let N: u32>(self) -> Note
+    pub unconstrained fn view_note(self) -> Note
     where
-        Note: Packable<N>,
+        Note: Packable,
     {
-        let mut options = NoteViewerOptions::new();
+        let mut options = NoteViewerOptions::<Note, <Note as Packable>::N>::new();
         view_notes(self.storage_slot, options.set_limit(1)).get(0)
     }
     // docs:end:view_note

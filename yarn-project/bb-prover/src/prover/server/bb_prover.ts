@@ -5,6 +5,7 @@ import {
   PAIRING_POINTS_SIZE,
   RECURSIVE_PROOF_LENGTH,
   TUBE_PROOF_LENGTH,
+  ULTRA_KECCAK_PROOF_LENGTH,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { runInDirectory } from '@aztec/foundation/fs';
@@ -22,6 +23,8 @@ import {
   convertEmptyBlockRootRollupOutputsFromWitnessMap,
   convertMergeRollupInputsToWitnessMap,
   convertMergeRollupOutputsFromWitnessMap,
+  convertPaddingBlockRootRollupInputsToWitnessMap,
+  convertPaddingBlockRootRollupOutputsFromWitnessMap,
   convertPrivateBaseRollupInputsToWitnessMap,
   convertPrivateBaseRollupOutputsFromWitnessMap,
   convertPublicBaseRollupInputsToWitnessMap,
@@ -55,6 +58,7 @@ import {
   type BlockRootRollupInputs,
   type EmptyBlockRootRollupInputs,
   type MergeRollupInputs,
+  PaddingBlockRootRollupInputs,
   type PrivateBaseRollupInputs,
   PublicBaseRollupInputs,
   type RootRollupInputs,
@@ -345,6 +349,26 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
   }
 
+  public async getPaddingBlockRootRollupProof(
+    input: PaddingBlockRootRollupInputs,
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
+    const { circuitOutput, proof } = await this.createRecursiveProof(
+      input,
+      'PaddingBlockRootRollupArtifact',
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+      convertPaddingBlockRootRollupInputsToWitnessMap,
+      convertPaddingBlockRootRollupOutputsFromWitnessMap,
+    );
+
+    const verificationKey = this.getVerificationKeyDataForCircuit('PaddingBlockRootRollupArtifact');
+
+    await this.verifyProof('PaddingBlockRootRollupArtifact', proof.binaryProof);
+
+    return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
+  }
+
   /**
    * Simulates the block merge rollup circuit from its inputs.
    * @param input - Inputs to the circuit.
@@ -478,7 +502,9 @@ export class BBNativeRollupProver implements ServerCircuitProver {
         bbWorkingDirectory,
       );
       const vkData = this.getVerificationKeyDataForCircuit(circuitType);
-      const proof = await readProofAsFields(provingResult.proofPath!, vkData, RECURSIVE_PROOF_LENGTH, logger);
+
+      const PROOF_LENGTH = circuitType == 'RootRollupArtifact' ? ULTRA_KECCAK_PROOF_LENGTH : RECURSIVE_PROOF_LENGTH;
+      const proof = await readProofAsFields(provingResult.proofPath!, vkData, PROOF_LENGTH, logger);
 
       const circuitName = mapProtocolArtifactNameToCircuitName(circuitType);
 

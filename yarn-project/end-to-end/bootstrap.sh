@@ -3,10 +3,6 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 
-if [[ $(arch) == "arm64" && "$CI" -eq 1 ]]; then
-  export DISABLE_AZTEC_VM=1
-fi
-
 hash=$(../bootstrap.sh hash)
 bench_fixtures_dir=example-app-ivc-inputs-out
 
@@ -16,7 +12,7 @@ function test_cmds {
 
   # Longest-running tests first
   # Can't run full prover tests on ARM because AVM is disabled.
-  if [ "${DISABLE_AZTEC_VM:-0}" -eq 1 ]; then
+  if ../../barretenberg/cpp/bootstrap.sh hash | grep -qE no-avm; then
     if [ "$CI_FULL" -eq 1 ]; then
       echo "$prefix:TIMEOUT=15m:CPUS=16:MEM=96g:NAME=e2e_prover_client_real $run_test_script simple e2e_prover/client"
     else
@@ -96,10 +92,6 @@ function build_bench {
   rm -rf bench-out && mkdir -p bench-out
   if cache_download bb-client-ivc-captures-$hash.tar.gz; then
     return
-  fi
-  if [ -n "${DOWNLOAD_ONLY:-}" ]; then
-    echo "Could not find ivc inputs cached!"
-    exit 1
   fi
   parallel --tag --line-buffer --halt now,fail=1 'docker_isolate "scripts/run_test.sh simple {}"' ::: \
     client_flows/account_deployments \

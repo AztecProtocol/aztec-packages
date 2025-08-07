@@ -2,15 +2,16 @@ import { ArchiverStoreHelper, KVArchiverDataStore, type PublishedL2Block } from 
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2Block, L2Tips } from '@aztec/stdlib/block';
+import type { L2Block, L2BlockSource, L2Tips, ValidateBlockResult } from '@aztec/stdlib/block';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { BlockHeader } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 
 // We are extending the ArchiverDataStoreHelper here because it provides most of the endpoints needed by the
 // node for reading from and writing to state, without needing any of the extra overhead that the Archiver itself
 // requires (i.e. an L1 client)
-export class TXEArchiver extends ArchiverStoreHelper {
+export class TXEArchiver extends ArchiverStoreHelper implements L2BlockSource {
   constructor(db: AztecAsyncKVStore) {
     super(new KVArchiverDataStore(db, 9999));
   }
@@ -118,7 +119,7 @@ export class TXEArchiver extends ArchiverStoreHelper {
     throw new Error('TXE Archiver does not implement "syncImmediate"');
   }
 
-  public getContract(_address: AztecAddress, _blockNumber?: number): Promise<ContractInstanceWithAddress | undefined> {
+  public getContract(_address: AztecAddress, _timestamp?: UInt64): Promise<ContractInstanceWithAddress | undefined> {
     throw new Error('TXE Archiver does not implement "getContract"');
   }
 
@@ -132,5 +133,13 @@ export class TXEArchiver extends ArchiverStoreHelper {
 
   public getL1Timestamp(): Promise<bigint> {
     throw new Error('TXE Archiver does not implement "getL1Timestamp"');
+  }
+
+  public isPendingChainInvalid(): Promise<boolean> {
+    return Promise.resolve(false);
+  }
+
+  public getPendingChainValidationStatus(): Promise<ValidateBlockResult> {
+    return Promise.resolve({ valid: true });
   }
 }

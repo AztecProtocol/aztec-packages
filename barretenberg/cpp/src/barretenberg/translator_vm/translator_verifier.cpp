@@ -67,11 +67,16 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
     using InterleavedBatch = ClaimBatcher::InterleavedBatch;
-    using Sumcheck = SumcheckVerifier<Flavor, Flavor::CONST_TRANSLATOR_LOG_N>;
+    using Sumcheck = SumcheckVerifier<Flavor>;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
 
     // Load the proof produced by the translator prover
     transcript->load_proof(proof);
+
+    // Fiat-Shamir the vk hash
+    typename Flavor::FF vk_hash = key->hash();
+    transcript->add_to_hash_buffer("vk_hash", vk_hash);
+    vinfo("Translator vk hash in verifier: ", vk_hash);
 
     Flavor::VerifierCommitments commitments{ key };
     Flavor::CommitmentLabels commitment_labels;
@@ -97,9 +102,13 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
     // Get commitment to permutation and lookup grand products
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
 
+    // Each linearly independent subrelation contribution is multiplied by `alpha^i`, where
+    //  i = 0, ..., NUM_SUBRELATIONS- 1.
+    const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
+
     // Execute Sumcheck Verifier
-    Sumcheck sumcheck(transcript);
-    FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
+    Sumcheck sumcheck(transcript, alpha, Flavor::CONST_TRANSLATOR_LOG_N);
+
     std::vector<FF> gate_challenges(Flavor::CONST_TRANSLATOR_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
@@ -109,10 +118,10 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
     libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
 
-    std::array<FF, TranslatorFlavor::CONST_TRANSLATOR_LOG_N> padding_indicator_array;
+    std::vector<FF> padding_indicator_array(Flavor::CONST_TRANSLATOR_LOG_N);
     std::ranges::fill(padding_indicator_array, FF{ 1 });
 
-    auto sumcheck_output = sumcheck.verify(relation_parameters, alpha, gate_challenges, padding_indicator_array);
+    auto sumcheck_output = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator_array);
 
     // If Sumcheck did not verify, return false
     if (!sumcheck_output.verified) {

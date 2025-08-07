@@ -6,6 +6,7 @@
 
 #pragma once
 #include "barretenberg/common/serialize.hpp"
+#include "barretenberg/dsl/acir_format/witness_constant.hpp"
 #include <cstdint>
 #include <vector>
 
@@ -15,7 +16,7 @@ namespace acir_format {
 // ACIR
 // Keep this enum values in sync with their noir counterpart constants defined in
 // noir-protocol-circuits/crates/types/src/constants.nr
-enum PROOF_TYPE { PLONK, HONK, OINK, PG, AVM, ROLLUP_HONK, ROOT_ROLLUP_HONK, HONK_ZK };
+enum PROOF_TYPE { PLONK, HONK, OINK, PG, AVM, ROLLUP_HONK, ROOT_ROLLUP_HONK, HONK_ZK, PG_FINAL, PG_TAIL };
 
 /**
  * @brief RecursionConstraint struct contains information required to recursively verify a proof!
@@ -62,6 +63,7 @@ struct RecursionConstraint {
     std::vector<uint32_t> public_inputs;
     uint32_t key_hash;
     uint32_t proof_type;
+    WitnessOrConstant<bb::fr> predicate;
 
     friend bool operator==(RecursionConstraint const& lhs, RecursionConstraint const& rhs) = default;
 };
@@ -73,6 +75,7 @@ template <typename B> inline void read(B& buf, RecursionConstraint& constraint)
     read(buf, constraint.proof);
     read(buf, constraint.public_inputs);
     read(buf, constraint.key_hash);
+    read(buf, constraint.predicate);
 }
 
 template <typename B> inline void write(B& buf, RecursionConstraint const& constraint)
@@ -82,6 +85,7 @@ template <typename B> inline void write(B& buf, RecursionConstraint const& const
     write(buf, constraint.proof);
     write(buf, constraint.public_inputs);
     write(buf, constraint.key_hash);
+    write(buf, constraint.predicate);
 }
 
 } // namespace acir_format

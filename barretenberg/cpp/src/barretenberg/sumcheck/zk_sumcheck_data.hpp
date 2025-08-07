@@ -58,7 +58,7 @@ template <typename Flavor> struct ZKSumcheckData {
     // Main constructor
     ZKSumcheckData(const size_t multivariate_d,
                    std::shared_ptr<typename Flavor::Transcript> transcript = nullptr,
-                   typename Flavor::CommitmentKey commitment_key = typename Flavor::CommitmentKey())
+                   const typename Flavor::CommitmentKey& commitment_key = typename Flavor::CommitmentKey())
         : constant_term(FF::random_element())
         , libra_concatenated_monomial_form(SUBGROUP_SIZE + 2) // includes masking
         , libra_univariates(generate_libra_univariates(multivariate_d, LIBRA_UNIVARIATES_LENGTH))
@@ -170,7 +170,7 @@ template <typename Flavor> struct ZKSumcheckData {
      */
     static void setup_auxiliary_data(auto& libra_univariates,
                                      FF& libra_scaling_factor,
-                                     const FF libra_challenge,
+                                     const FF& libra_challenge,
                                      FF& libra_running_sum)
     {
         libra_scaling_factor *= libra_challenge; // \rho * 2^{d-1}
@@ -272,7 +272,7 @@ template <typename Flavor> struct ZKSumcheckData {
      * @param libra_running_sum
      * @param libra_evaluations
      */
-    void update_zk_sumcheck_data(const FF round_challenge, const size_t round_idx)
+    void update_zk_sumcheck_data(const FF& round_challenge, const size_t round_idx)
     {
         static constexpr FF two_inv = FF(1) / FF(2);
         // when round_idx = d - 1, the update is not needed

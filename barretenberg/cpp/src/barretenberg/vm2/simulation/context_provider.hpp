@@ -19,18 +19,22 @@ class ContextProviderInterface {
 
     virtual std::unique_ptr<ContextInterface> make_nested_context(AztecAddress address,
                                                                   AztecAddress msg_sender,
+                                                                  FF transaction_fee,
                                                                   ContextInterface& parent_context,
-                                                                  MemoryAddress cd_offset_addr,
-                                                                  MemoryAddress cd_size_addr,
+                                                                  MemoryAddress cd_offset_address,
+                                                                  MemoryAddress cd_size_address,
                                                                   bool is_static,
-                                                                  Gas gas_limit) = 0;
+                                                                  Gas gas_limit,
+                                                                  SideEffectStates side_effect_states) = 0;
 
     virtual std::unique_ptr<ContextInterface> make_enqueued_context(AztecAddress address,
                                                                     AztecAddress msg_sender,
+                                                                    FF transaction_fee,
                                                                     std::span<const FF> calldata,
                                                                     bool is_static,
                                                                     Gas gas_limit,
-                                                                    Gas gas_used) = 0;
+                                                                    Gas gas_used,
+                                                                    SideEffectStates side_effect_states) = 0;
 
     // This can be removed if we use clk for the context id
     virtual uint32_t get_next_context_id() const = 0;
@@ -41,25 +45,35 @@ class ContextProvider : public ContextProviderInterface {
     ContextProvider(TxBytecodeManagerInterface& tx_bytecode_manager,
                     MemoryProviderInterface& memory_provider,
                     CalldataHashingProviderInterface& cd_hash_provider,
-                    InternalCallStackManagerProviderInterface& internal_call_stack_manager_provider)
+                    InternalCallStackManagerProviderInterface& internal_call_stack_manager_provider,
+                    HighLevelMerkleDBInterface& merkle_db,
+                    WrittenPublicDataSlotsTreeCheckInterface& written_public_data_slots_tree,
+                    const GlobalVariables& global_variables)
         : tx_bytecode_manager(tx_bytecode_manager)
         , memory_provider(memory_provider)
         , cd_hash_provider(cd_hash_provider)
         , internal_call_stack_manager_provider(internal_call_stack_manager_provider)
+        , merkle_db(merkle_db)
+        , written_public_data_slots_tree(written_public_data_slots_tree)
+        , global_variables(global_variables)
     {}
     std::unique_ptr<ContextInterface> make_nested_context(AztecAddress address,
                                                           AztecAddress msg_sender,
+                                                          FF transaction_fee,
                                                           ContextInterface& parent_context,
-                                                          uint32_t cd_offset_addr,
-                                                          uint32_t cd_size_addr,
+                                                          MemoryAddress cd_offset_address,
+                                                          MemoryAddress cd_size_address,
                                                           bool is_static,
-                                                          Gas gas_limit) override;
+                                                          Gas gas_limit,
+                                                          SideEffectStates side_effect_states) override;
     std::unique_ptr<ContextInterface> make_enqueued_context(AztecAddress address,
                                                             AztecAddress msg_sender,
+                                                            FF transaction_fee,
                                                             std::span<const FF> calldata,
                                                             bool is_static,
                                                             Gas gas_limit,
-                                                            Gas gas_used) override;
+                                                            Gas gas_used,
+                                                            SideEffectStates side_effect_states) override;
     uint32_t get_next_context_id() const override;
 
   private:
@@ -69,6 +83,9 @@ class ContextProvider : public ContextProviderInterface {
     MemoryProviderInterface& memory_provider;
     CalldataHashingProviderInterface& cd_hash_provider;
     InternalCallStackManagerProviderInterface& internal_call_stack_manager_provider;
+    HighLevelMerkleDBInterface& merkle_db;
+    WrittenPublicDataSlotsTreeCheckInterface& written_public_data_slots_tree;
+    const GlobalVariables& global_variables;
 };
 
 } // namespace bb::avm2::simulation

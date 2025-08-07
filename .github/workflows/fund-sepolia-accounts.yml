@@ -16,7 +16,12 @@ on:
         description: The branch or tag to checkout
         required: false
         type: string
-        default: master
+        default: next
+      funding_amount:
+        description: The amount of ETH to fund each account with
+        required: false
+        type: number
+        default: 5
     secrets:
       GCP_SA_KEY:
         required: true
@@ -42,7 +47,12 @@ on:
         description: The branch or tag to checkout
         required: false
         type: string
-        default: master
+        default: next
+      funding_amount:
+        description: The amount of ETH to fund each account with
+        required: true
+        type: number
+        default: 5
 
 jobs:
   fund-sepolia-accounts:
@@ -51,7 +61,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: ${{ inputs.ref || github.ref || 'master' }}
+          ref: ${{ inputs.ref || github.ref || 'next' }}
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@6fc4af4b145ae7821d527454aa9bd537d1f2dc5f
@@ -79,7 +89,7 @@ jobs:
           if [[ "${{ steps.get-mnemonic.outputs.new_mnemonic }}" == "true" ]]; then
             echo "Generating new mnemonic"
           else
-            MNEMONIC="${{ steps.get-mnemonic.outputs.mnemonic }}"
+            export MNEMONIC="${{ steps.get-mnemonic.outputs.mnemonic }}"
             echo "Using mnemonic from GCP"
           fi
 
@@ -89,7 +99,7 @@ jobs:
           export ETHEREUM_HOST="https://json-rpc.${{ secrets.GCP_SEPOLIA_URL }}?key=${{ secrets.GCP_SEPOLIA_API_KEY }}"
 
           echo "Funding accounts..."
-          $REPO/spartan/scripts/prepare_sepolia_accounts.sh ${{ inputs.values_file }} 30 "$MNEMONIC_FILE"
+          $REPO/spartan/scripts/prepare_sepolia_accounts.sh ${{ inputs.values_file }} ${{ inputs.funding_amount }} "$MNEMONIC_FILE"
           mnemonic=$(cat "$MNEMONIC_FILE")
           rm "$MNEMONIC_FILE"
           echo "::add-mask::$mnemonic"
@@ -103,7 +113,7 @@ jobs:
           echo "Creating new secret ${{ inputs.sepolia_accounts_mnemonic_secret_name }}"
           gcloud secrets create ${{ inputs.sepolia_accounts_mnemonic_secret_name }}
           TMP_FILE=$(mktemp)
-          echo "${{ steps.fund-accounts.outputs.mnemonic }}" > "$TMP_FILE"
+          echo -n "${{ steps.fund-accounts.outputs.mnemonic }}" > "$TMP_FILE"
           gcloud secrets versions add ${{ inputs.sepolia_accounts_mnemonic_secret_name }} --data-file="$TMP_FILE"
           rm "$TMP_FILE"
           echo "Saved mnemonic to GCP secret ${{ inputs.sepolia_accounts_mnemonic_secret_name }}"

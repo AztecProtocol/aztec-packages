@@ -48,13 +48,9 @@ TEST_F(AcirFormatTests, TestASingleConstraintNoPubInputs)
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
-        .recursion_constraints = {},
         .honk_recursion_constraints = {},
         .avm_recursion_constraints = {},
         .ivc_recursion_constraints = {},
-        .bigint_from_le_bytes_constraints = {},
-        .bigint_to_le_bytes_constraints = {},
-        .bigint_operations = {},
         .assert_equalities = {},
         .poly_triple_constraints = { constraint },
         .quad_constraints = {},
@@ -64,7 +60,8 @@ TEST_F(AcirFormatTests, TestASingleConstraintNoPubInputs)
     };
     mock_opcode_indices(constraint_system);
     WitnessVector witness{ 5, 7, 12 };
-    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness);
+    AcirProgram program{ constraint_system, witness };
+    auto builder = create_circuit(program);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
@@ -161,13 +158,9 @@ TEST_F(AcirFormatTests, TestLogicGateFromNoirCircuit)
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
-        .recursion_constraints = {},
         .honk_recursion_constraints = {},
         .avm_recursion_constraints = {},
         .ivc_recursion_constraints = {},
-        .bigint_from_le_bytes_constraints = {},
-        .bigint_to_le_bytes_constraints = {},
-        .bigint_operations = {},
         .assert_equalities = {},
         .poly_triple_constraints = { expr_a, expr_b, expr_c, expr_d },
         .quad_constraints = {},
@@ -181,7 +174,8 @@ TEST_F(AcirFormatTests, TestLogicGateFromNoirCircuit)
     WitnessVector witness{
         5, 10, 15, 5, inverse_of_five, 1,
     };
-    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness);
+    AcirProgram program{ constraint_system, witness };
+    auto builder = create_circuit(program);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
@@ -237,13 +231,9 @@ TEST_F(AcirFormatTests, TestKeccakPermutation)
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
-        .recursion_constraints = {},
         .honk_recursion_constraints = {},
         .avm_recursion_constraints = {},
         .ivc_recursion_constraints = {},
-        .bigint_from_le_bytes_constraints = {},
-        .bigint_to_le_bytes_constraints = {},
-        .bigint_operations = {},
         .assert_equalities = {},
         .poly_triple_constraints = {},
         .quad_constraints = {},
@@ -257,7 +247,8 @@ TEST_F(AcirFormatTests, TestKeccakPermutation)
                            18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34,
                            35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50 };
 
-    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint=*/0, witness);
+    AcirProgram program{ constraint_system, witness };
+    auto builder = create_circuit(program);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
@@ -305,13 +296,9 @@ TEST_F(AcirFormatTests, TestCollectsGateCounts)
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
-        .recursion_constraints = {},
         .honk_recursion_constraints = {},
         .avm_recursion_constraints = {},
         .ivc_recursion_constraints = {},
-        .bigint_from_le_bytes_constraints = {},
-        .bigint_to_le_bytes_constraints = {},
-        .bigint_operations = {},
         .assert_equalities = {},
         .poly_triple_constraints = { first_gate, second_gate },
         .quad_constraints = {},
@@ -430,13 +417,9 @@ TEST_F(AcirFormatTests, TestBigAdd)
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
-        .recursion_constraints = {},
         .honk_recursion_constraints = {},
         .avm_recursion_constraints = {},
         .ivc_recursion_constraints = {},
-        .bigint_from_le_bytes_constraints = {},
-        .bigint_to_le_bytes_constraints = {},
-        .bigint_operations = {},
         .assert_equalities = {},
         .poly_triple_constraints = { assert_equal },
         .quad_constraints = {},
@@ -446,7 +429,8 @@ TEST_F(AcirFormatTests, TestBigAdd)
     };
     mock_opcode_indices(constraint_system);
 
-    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness_values);
+    AcirProgram program{ constraint_system, witness_values };
+    auto builder = create_circuit(program);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }

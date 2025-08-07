@@ -5,7 +5,7 @@ import type { LogFn } from '@aztec/foundation/log';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type ContractInstanceWithAddress, getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
+import { type ContractInstanceWithAddress, getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import type { PXE } from '@aztec/stdlib/interfaces/client';
 
 const BANANA_COIN_SALT = new Fr(0);
@@ -23,7 +23,7 @@ function getBananaAdmin(initialAccounts: InitialAccountData[]): AztecAddress {
 
 async function getBananaCoinInstance(initialAccounts: InitialAccountData[]): Promise<ContractInstanceWithAddress> {
   const admin = getBananaAdmin(initialAccounts);
-  return await getContractInstanceFromDeployParams(TokenContract.artifact, {
+  return await getContractInstanceFromInstantiationParams(TokenContract.artifact, {
     constructorArgs: [admin, bananaCoinArgs.name, bananaCoinArgs.symbol, bananaCoinArgs.decimal],
     salt: BANANA_COIN_SALT,
   });
@@ -36,7 +36,7 @@ export async function getBananaCoinAddress(initialAccounts: InitialAccountData[]
 async function getBananaFPCInstance(initialAccounts: InitialAccountData[]): Promise<ContractInstanceWithAddress> {
   const bananaCoin = await getBananaCoinAddress(initialAccounts);
   const admin = getBananaAdmin(initialAccounts);
-  return await getContractInstanceFromDeployParams(FPCContract.artifact, {
+  return await getContractInstanceFromInstantiationParams(FPCContract.artifact, {
     constructorArgs: [bananaCoin, admin],
     salt: BANANA_FPC_SALT,
   });

@@ -31,12 +31,13 @@ template <typename Flavor> class DataBusTests : public ::testing::Test {
     static bool construct_and_verify_proof(MegaCircuitBuilder& builder)
     {
         auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
-        auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key);
+        auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
 
         Prover prover{ proving_key, verification_key };
         auto proof = prover.construct_proof();
         Verifier verifier{ verification_key };
-        return verifier.verify_proof(proof);
+        bool result = verifier.template verify_proof<DefaultIO>(proof).result;
+        return result;
     }
 
     // Construct a Mega circuit with some arbitrary sample gates

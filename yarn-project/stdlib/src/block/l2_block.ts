@@ -148,7 +148,25 @@ export class L2Block {
     };
   }
 
+  toBlockInfo(): BlockInfo {
+    return {
+      blockHash: this.blockHash?.toString(),
+      archive: this.archive.root.toString(),
+      blockNumber: this.number,
+      slotNumber: Number(this.header.getSlot()),
+      txCount: this.body.txEffects.length,
+    };
+  }
+
   equals(other: L2Block) {
     return this.archive.equals(other.archive) && this.header.equals(other.header) && this.body.equals(other.body);
   }
 }
+
+export type BlockInfo = {
+  blockHash?: string;
+  archive: string;
+  blockNumber: number;
+  slotNumber: number;
+  txCount: number;
+};

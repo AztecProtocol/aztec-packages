@@ -12,22 +12,25 @@ pub contract Test {
     // as the note type ids of current notes might have changed.
 
     use dep::aztec::messages::logs::note::encode_and_encrypt_note;
-    use dep::aztec::prelude::{
-        AztecAddress, EthAddress, FunctionSelector, Map, NoteGetterOptions, NoteViewerOptions,
-        PrivateImmutable, PrivateMutable, PrivateSet, PublicImmutable, SharedMutable,
+    use dep::aztec::{
+        note::{note_getter_options::NoteGetterOptions, note_viewer_options::NoteViewerOptions},
+        state_vars::{
+            DelayedPublicMutable, Map, PrivateImmutable, PrivateMutable, PrivateSet,
+            PublicImmutable,
+        },
     };
 
     use dep::aztec::protocol_types::{
+        abis::function_selector::FunctionSelector,
+        address::{AztecAddress, EthAddress},
         constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, PRIVATE_LOG_SIZE_IN_FIELDS},
         traits::{Hash, Packable, Serialize},
-        utils::arrays::array_concat,
     };
 
     use dep::aztec::keys::getters::get_public_keys;
     use dep::aztec::note::constants::MAX_NOTES_PER_PAGE;
 
     use dep::aztec::{
-        deploy::deploy_contract as aztec_deploy_contract,
         event::event_interface::{emit_event_in_private_log, PrivateLogContent},
         hash::{ArgsHasher, pedersen_hash},
         history::note_inclusion::ProveNoteInclusion,
@@ -42,7 +45,7 @@ pub contract Test {
             note_getter_options::NoteStatus,
             retrieved_note::RetrievedNote,
         },
-        test::mocks::mock_struct::MockStruct,
+        publish_contract_instance::publish_contract_instance_for_public_execution,
     };
     use dep::token_portal_content_hash_lib::get_mint_to_private_content_hash;
     use std::meta::derive;
@@ -50,7 +53,7 @@ pub contract Test {
     // We are importing different kinds of notes to test the note type ids
     use crate::test_note::TestNote;
     use address_note::address_note::AddressNote;
-    use value_note::value_note::ValueNote;
+    use uint_note::uint_note::{PartialUintNote, UintNote};
 
     #[event]
     struct ExampleEvent {
@@ -70,7 +73,7 @@ pub contract Test {
         value4: Field,
     }
 
-    global SHARED_MUTABLE_INITIAL_DELAY: u32 = 2;
+    global DELAYED_PUBLIC_MUTABLE_INITIAL_DELAY: u64 = 2;
 
     // This struct is used to test the storage slot allocation mechanism - if modified the test_storage_slot_allocation
     // test function must also be updated accordingly.
@@ -85,7 +88,7 @@ pub contract Test {
         note_in_public_immutable: PublicImmutable<TestNote, Context>,
         struct_in_public_immutable: PublicImmutable<ExampleStruct, Context>,
         struct_in_map: Map<AztecAddress, PrivateImmutable<ExampleStruct, Context>, Context>,
-        struct_in_shared_mutable: SharedMutable<ExampleStruct, SHARED_MUTABLE_INITIAL_DELAY, Context>,
+        struct_in_delayed_public_mutable: DelayedPublicMutable<ExampleStruct, DELAYED_PUBLIC_MUTABLE_INITIAL_DELAY, Context>,
         dummy_variable: PrivateImmutable<TestNote, Context>,
     }
 
@@ -113,10 +116,10 @@ pub contract Test {
     }
 
     #[private]
-    fn set_tx_max_block_number(max_block_number: u32, enqueue_public_call: bool) {
-        context.set_tx_max_block_number(max_block_number);
+    fn set_include_by_timestamp(include_by_timestamp: u64, make_tx_hybrid: bool) {
+        context.set_include_by_timestamp(include_by_timestamp);
 
-        if enqueue_public_call {
+        if make_tx_hybrid {
             Test::at(context.this_address()).dummy_public_call().enqueue(&mut context)
         }
     }
@@ -125,82 +128,120 @@ pub contract Test {
     #[internal]
     fn dummy_public_call() {}
 
-    // docs:start:create_note
     #[private]
     fn call_create_note(
-        value: Field,
+        value: u128,
         owner: AztecAddress,
-        sender: AztecAddress,
         storage_slot: Field,
+        make_tx_hybrid: bool,
     ) {
-        let note = ValueNote::new(value, owner);
+        // docs:start:create_note
+        let note = UintNote::new(value, owner);
         create_note(&mut context, storage_slot, note).emit(encode_and_encrypt_note(
             &mut context,
             owner,
-            sender,
         ));
+        // docs:end:create_note
+
+        if make_tx_hybrid {
+            Test::at(context.this_address()).dummy_public_call().enqueue(&mut context);
+        }
     }
-    // docs:end:create_note
 
     #[private]
-    fn call_get_notes(storage_slot: Field, active_or_nullified: bool) -> Field {
+    fn call_create_partial_note(owner: AztecAddress, storage_slot: Field) -> PartialUintNote {
+        UintNote::partial(
+            owner,
+            storage_slot,
+            &mut context,
+            owner,
+            context.this_address(),
+        )
+    }
+
+    #[public]
+    fn call_complete_partial_note(partial_note: PartialUintNote, value: u128) {
+        partial_note.complete(&mut context, context.this_address(), value);
+    }
+
+    #[private]
+    fn call_create_and_complete_partial_note(
+        owner: AztecAddress,
+        storage_slot: Field,
+        value: u128,
+    ) {
+        let partial_note = UintNote::partial(
+            owner,
+            storage_slot,
+            &mut context,
+            owner,
+            context.this_address(),
+        );
+
+        Test::at(context.this_address()).call_complete_partial_note(partial_note, value).enqueue(
+            &mut context,
+        );
+    }
+
+    #[private]
+    fn call_get_notes(storage_slot: Field, active_or_nullified: bool) -> u128 {
         let mut options = NoteGetterOptions::new();
         if (active_or_nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
         // docs:start:get_note_from_pxe
-        let (retrieved_notes, _): (BoundedVec<RetrievedNote<ValueNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
+        let (retrieved_notes, _): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
             get_notes(&mut context, storage_slot, options);
         // docs:end:get_note_from_pxe
 
-        retrieved_notes.get(0).note.value
+        retrieved_notes.get(0).note.get_value()
     }
 
     #[private]
-    fn call_get_notes_many(storage_slot: Field, active_or_nullified: bool) -> [Field; 2] {
+    fn call_get_notes_many(storage_slot: Field, active_or_nullified: bool) -> [u128; 2] {
         let mut options = NoteGetterOptions::new();
         if (active_or_nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        let (retrieved_notes, _): (BoundedVec<RetrievedNote<ValueNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
+        let (retrieved_notes, _): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
             get_notes(&mut context, storage_slot, options);
 
-        [retrieved_notes.get(0).note.value, retrieved_notes.get(1).note.value]
+        [retrieved_notes.get(0).note.get_value(), retrieved_notes.get(1).note.get_value()]
     }
 
     #[utility]
-    unconstrained fn call_view_notes(storage_slot: Field, active_or_nullified: bool) -> Field {
+    unconstrained fn call_view_notes(storage_slot: Field, active_or_nullified: bool) -> u128 {
         let mut options = NoteViewerOptions::new();
         if (active_or_nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> = view_notes(storage_slot, options);
+        let notes: BoundedVec<UintNote, MAX_NOTES_PER_PAGE> = view_notes(storage_slot, options);
 
-        notes.get(0).value
+        notes.get(0).get_value()
     }
 
     #[utility]
     unconstrained fn call_view_notes_many(
         storage_slot: Field,
         active_or_nullified: bool,
-    ) -> [Field; 2] {
+    ) -> [u128; 2] {
         let mut options = NoteViewerOptions::new();
         if (active_or_nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> = view_notes(storage_slot, options);
+        let notes: BoundedVec<UintNote, MAX_NOTES_PER_PAGE> = view_notes(storage_slot, options);
 
-        [notes.get(0).value, notes.get(1).value]
+        [notes.get(0).get_value(), notes.get(1).get_value()]
     }
 
     #[private]
     fn call_destroy_note(storage_slot: Field) {
         let options = NoteGetterOptions::new();
-        let (retrieved_notes, note_hashes): (BoundedVec<RetrievedNote<ValueNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
+        let (retrieved_notes, note_hashes): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
             get_notes(&mut context, storage_slot, options);
 
         let retrieved_note = retrieved_notes.get(0);
@@ -216,7 +257,7 @@ pub contract Test {
         let mut options = NoteGetterOptions::new();
         options = options.set_limit(1);
 
-        let (retrieved_notes, _): (BoundedVec<RetrievedNote<ValueNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
+        let (retrieved_notes, _): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
             get_notes(&mut context, storage_slot, options);
 
         let header = context.get_block_header();
@@ -277,13 +318,11 @@ pub contract Test {
         context.message_portal(recipient, content);
     }
 
-    // Purely exists for testing
     #[public]
     fn emit_nullifier_public(nullifier: Field) {
         context.push_nullifier(nullifier);
     }
 
-    // Forcefully emits a nullifier (for testing purposes)
     #[private]
     #[noinitcheck]
     fn emit_nullifier(nullifier: Field) {
@@ -292,12 +331,7 @@ pub contract Test {
 
     // For testing non-note encrypted logs
     #[private]
-    fn emit_array_as_encrypted_log(
-        fields: [Field; 5],
-        owner: AztecAddress,
-        sender: AztecAddress,
-        nest: bool,
-    ) {
+    fn emit_array_as_encrypted_log(fields: [Field; 5], owner: AztecAddress, nest: bool) {
         let event = ExampleEvent {
             value0: fields[0],
             value1: fields[1],
@@ -306,23 +340,17 @@ pub contract Test {
             value4: fields[4],
         };
 
-        emit_event_in_private_log(
-            event,
-            &mut context,
-            sender,
-            owner,
-            PrivateLogContent.NO_CONSTRAINTS,
-        );
+        emit_event_in_private_log(event, &mut context, owner, PrivateLogContent.NO_CONSTRAINTS);
 
         // this contract has reached max number of functions, so using this one fn
         // to test nested and non nested encrypted logs
         if nest {
             Test::at(context.this_address())
-                .emit_array_as_encrypted_log([0, 0, 0, 0, 0], owner, sender, false)
+                .emit_array_as_encrypted_log([0, 0, 0, 0, 0], owner, false)
                 .call(&mut context);
 
             // Emit a log with non-encrypted content for testing purpose.
-            let leaky_log = array_concat(event.serialize(), [0; PRIVATE_LOG_SIZE_IN_FIELDS - 5]);
+            let leaky_log = event.serialize().concat([0; PRIVATE_LOG_SIZE_IN_FIELDS - 5]);
             context.emit_private_log(leaky_log, 5);
         }
     }
@@ -393,14 +421,14 @@ pub contract Test {
     //}
 
     #[private]
-    fn deploy_contract(target: AztecAddress) {
-        aztec_deploy_contract(&mut context, target);
+    fn publish_contract_instance(target: AztecAddress) {
+        publish_contract_instance_for_public_execution(&mut context, target);
     }
 
     #[derive(Serialize)]
     pub struct DummyNote {
-        amount: Field,
-        secret_hash: Field,
+        pub amount: Field,
+        pub secret_hash: Field,
     }
 
     impl DummyNote {
@@ -414,10 +442,10 @@ pub contract Test {
     }
 
     pub struct DeepStruct {
-        a_field: Field,
-        a_bool: bool,
-        a_note: DummyNote,
-        many_notes: [DummyNote; 3],
+        pub a_field: Field,
+        pub a_bool: bool,
+        pub a_note: DummyNote,
+        pub many_notes: [DummyNote; 3],
     }
 
     // Serializing using "canonical" form.
@@ -425,9 +453,11 @@ pub contract Test {
     // 2. Strings become arrays of bytes (no strings here)
     // 4. Arrays become arrays of Fields following rules 2 and 3 (no arrays here)
     // 5. Structs become arrays of Fields, with every item defined in the same order as they are in Noir code, following rules 2, 3, 4 and 5 (recursive)
-    impl Serialize<10> for DeepStruct {
-        fn serialize(self) -> [Field; 10] {
-            let mut result = [0; 10];
+    impl Serialize for DeepStruct {
+        let N: u32 = 10;
+
+        fn serialize(self) -> [Field; Self::N] {
+            let mut result = [0; Self::N];
             result[0] = self.a_field;
             result[1] = self.a_bool as Field;
             result[2] = self.a_note.amount;

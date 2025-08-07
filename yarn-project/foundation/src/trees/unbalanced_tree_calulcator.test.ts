@@ -31,6 +31,33 @@ describe('Wonky tree', () => {
     hasher = new SHA256Trunc();
   });
 
+  // Example - 1 tx
+  describe('1 Transaction', () => {
+    beforeAll(async () => {
+      const res = await createAndFillTree(1);
+      tree = res.tree;
+      leaves = res.leaves;
+    });
+
+    it("Shouldn't accept more leaves", async () => {
+      await expect(() => tree.appendLeaves([Buffer.alloc(32)])).rejects.toThrow(
+        "Can't re-append to an unbalanced tree. Current has 1 leaves.",
+      );
+    });
+
+    it('Correctly computes root', () => {
+      const root = tree.getRoot();
+      const expectedRoot = leaves[0];
+      expect(root).toEqual(expectedRoot);
+    });
+
+    it('Correctly computes sibling path', async () => {
+      const sibPath = await tree.getSiblingPath(BigInt('0x' + leaves[0].toString('hex')));
+      expect(sibPath.pathSize).toEqual(0);
+      expect(sibPath.toBufferArray()).toEqual([]);
+    });
+  });
+
   // Example - 2 txs:
   //
   //   root

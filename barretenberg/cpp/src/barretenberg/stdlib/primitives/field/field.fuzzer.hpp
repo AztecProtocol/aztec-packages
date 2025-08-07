@@ -25,9 +25,9 @@ FastRandom VarianceRNG(0);
 
 // #define DISABLE_DIVISION
 //  Enable this definition, when you want to find out the instructions that caused a failure
-// #define SHOW_INFORMATION 1
+// #define FUZZING_SHOW_INFORMATION 1
 
-#ifdef SHOW_INFORMATION
+#ifdef FUZZING_SHOW_INFORMATION
 #define PRINT_SINGLE_ARG_INSTRUCTION(first_index, vector, operation_name, preposition)                                 \
     {                                                                                                                  \
         std::cout << operation_name << " " << (vector[first_index].field.is_constant() ? "constant(" : "witness(")     \
@@ -988,32 +988,32 @@ template <typename Builder> class FieldBase {
 
             switch (VarianceRNG.next() % 9) {
             case 0:
-#ifdef SHOW_INFORMATION
-                std::cout << "Construct via bit_array" << std::endl;
+#ifdef FUZZING_SHOW_INFORMATION
+                std::cout << "Construct via field_t" << std::endl;
 #endif
                 return ExecutionHandler(this->base, field_t(this->field));
             case 1:
-#ifdef SHOW_INFORMATION
+#ifdef FUZZING_SHOW_INFORMATION
                 std::cout << "Construct via int" << std::endl;
 #endif
                 return construct_via_cast<int>(std::numeric_limits<int>::max());
             case 2:
-#ifdef SHOW_INFORMATION
+#ifdef FUZZING_SHOW_INFORMATION
                 std::cout << "Construct via unsigned int" << std::endl;
 #endif
                 return construct_via_cast<unsigned int>(std::numeric_limits<unsigned int>::max());
             case 3:
-#ifdef SHOW_INFORMATION
+#ifdef FUZZING_SHOW_INFORMATION
                 std::cout << "Construct via unsigned long" << std::endl;
 #endif
                 return construct_via_cast<unsigned long>(std::numeric_limits<unsigned long>::max());
             case 4:
-#ifdef SHOW_INFORMATION
+#ifdef FUZZING_SHOW_INFORMATION
                 std::cout << "Construct via uint256_t" << std::endl;
 #endif
                 return construct_via_cast<uint256_t>();
             case 5:
-#ifdef SHOW_INFORMATION
+#ifdef FUZZING_SHOW_INFORMATION
                 std::cout << "Construct via fr" << std::endl;
 #endif
                 return construct_via_cast<bb::fr>(bb::fr::modulus - 1);
@@ -1040,7 +1040,7 @@ template <typename Builder> class FieldBase {
                 if (static_cast<uint256_t>(this->base) > 1) {
                     return ExecutionHandler(this->base, field_t(this->field));
                 } else {
-#ifdef SHOW_INFORMATION
+#ifdef FUZZING_SHOW_INFORMATION
                     std::cout << "Construct via bool_t" << std::endl;
 #endif
                     /* Construct via bool_t */
@@ -1048,50 +1048,10 @@ template <typename Builder> class FieldBase {
                 }
 #endif
             case 7:
-#ifdef SHOW_INFORMATION
+#ifdef FUZZING_SHOW_INFORMATION
                 std::cout << "Reproduce via accumulate()" << std::endl;
 #endif
                 return ExecutionHandler(this->base, field_t::accumulate({ this->f() }));
-            case 8: {
-#ifdef SHOW_INFORMATION
-                std::cout << "Reproduce via decompose_into_bits()" << std::endl;
-#endif
-                const size_t min_num_bits = static_cast<uint256_t>(this->base).get_msb() + 1;
-                if (min_num_bits > 256)
-                    abort(); /* Should never happen */
-
-                const size_t num_bits = min_num_bits + (VarianceRNG.next() % (256 - min_num_bits + 1));
-                if (num_bits > 256)
-                    abort(); /* Should never happen */
-
-                /* XXX this gives: Range error at gate 559 */
-                // const auto bits = this->f().decompose_into_bits(num_bits);
-                const auto bits = this->f().decompose_into_bits();
-
-                std::vector<bb::fr> frs(bits.size());
-                for (size_t i = 0; i < bits.size(); i++) {
-                    frs[i] = bits[i].get_value() ? bb::fr(uint256_t(1) << i) : 0;
-                }
-
-                switch (VarianceRNG.next() % 2) {
-                case 0: {
-                    const bb::fr field_from_bits = std::accumulate(frs.begin(), frs.end(), bb::fr(0));
-                    return ExecutionHandler(this->base, field_t(builder, field_from_bits));
-                }
-                case 1: {
-                    std::vector<field_t> fields;
-                    for (const auto& fr : frs) {
-                        fields.push_back(field_t(builder, fr));
-                    }
-                    /* This is a good opportunity to test
-                     * field_t::accumulate with many elements
-                     */
-                    return ExecutionHandler(this->base, field_t::accumulate(fields));
-                }
-                default:
-                    abort();
-                }
-            }
             default:
                 abort();
             }
@@ -1120,7 +1080,7 @@ template <typename Builder> class FieldBase {
             (void)builder;
             stack.push_back(
                 ExecutionHandler(instruction.arguments.element, field_t(builder, instruction.arguments.element)));
-#ifdef SHOW_INFORMATION
+#ifdef FUZZING_SHOW_INFORMATION
             std::cout << "Pushed constant value " << instruction.arguments.element << " to position "
                       << stack.size() - 1 << std::endl;
 #endif
@@ -1144,7 +1104,7 @@ template <typename Builder> class FieldBase {
             stack.push_back(
                 ExecutionHandler(instruction.arguments.element, witness_t(builder, instruction.arguments.element)));
 
-#ifdef SHOW_INFORMATION
+#ifdef FUZZING_SHOW_INFORMATION
             std::cout << "Pushed witness value " << instruction.arguments.element << " to position " << stack.size() - 1
                       << std::endl;
 #endif
@@ -1168,7 +1128,7 @@ template <typename Builder> class FieldBase {
             auto v = field_t(instruction.arguments.element);
             v.convert_constant_to_fixed_witness(builder);
             stack.push_back(ExecutionHandler(instruction.arguments.element, std::move(v)));
-#ifdef SHOW_INFORMATION
+#ifdef FUZZING_SHOW_INFORMATION
             std::cout << "Pushed constant witness value " << instruction.arguments.element << " to position "
                       << stack.size() - 1 << std::endl;
 #endif
@@ -1301,7 +1261,7 @@ template <typename Builder> class FieldBase {
             size_t second_index = instruction.arguments.twoArgs.out % stack.size();
 
             PRINT_TWO_ARG_INSTRUCTION(first_index, second_index, stack, "ASSERT_EQUAL", "== something + ")
-#ifdef SHOW_INFORMATION
+#ifdef FUZZING_SHOW_INFORMATION
             std::cout << std::endl;
 #endif
 
@@ -1329,7 +1289,7 @@ template <typename Builder> class FieldBase {
             size_t second_index = instruction.arguments.twoArgs.out % stack.size();
 
             PRINT_TWO_ARG_INSTRUCTION(first_index, second_index, stack, "ASSERT_NOT_EQUAL", "!=")
-#ifdef SHOW_INFORMATION
+#ifdef FUZZING_SHOW_INFORMATION
             std::cout << std::endl;
 #endif
 
@@ -1360,7 +1320,7 @@ template <typename Builder> class FieldBase {
                 return 0;
             }
             PRINT_SINGLE_ARG_INSTRUCTION(index, stack, "ASSERT_ZERO", "!")
-#ifdef SHOW_INFORMATION
+#ifdef FUZZING_SHOW_INFORMATION
             std::cout << std::endl;
 #endif
 
@@ -1391,7 +1351,7 @@ template <typename Builder> class FieldBase {
             }
 
             PRINT_SINGLE_ARG_INSTRUCTION(index, stack, "ASSERT_NOT_ZERO", "!!")
-#ifdef SHOW_INFORMATION
+#ifdef FUZZING_SHOW_INFORMATION
             std::cout << std::endl;
 #endif
             stack[index].assert_not_zero();
@@ -1573,7 +1533,7 @@ template <typename Builder> class FieldBase {
             size_t output_index = instruction.arguments.sliceArgs.out3;
             PRINT_SLICE(first_index, lsb, msb, stack)
             // Check assert conditions
-            if ((lsb > msb) || (msb > 252) ||
+            if ((lsb > msb) || (msb >= bb::grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH) ||
                 (static_cast<uint256_t>(stack[first_index].f().get_value()) >=
                  (static_cast<uint256_t>(1) << bb::grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH))) {
                 return 0;

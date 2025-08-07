@@ -64,7 +64,6 @@ TEST_F(EcOperations, TestECOperations)
         .range_constraints = {},
         .aes128_constraints = {},
         .sha256_compression = {},
-
         .ecdsa_k1_constraints = {},
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},
@@ -73,13 +72,9 @@ TEST_F(EcOperations, TestECOperations)
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = { ec_add_constraint },
-        .recursion_constraints = {},
         .honk_recursion_constraints = {},
         .avm_recursion_constraints = {},
         .ivc_recursion_constraints = {},
-        .bigint_from_le_bytes_constraints = {},
-        .bigint_to_le_bytes_constraints = {},
-        .bigint_operations = {},
         .assert_equalities = {},
         .poly_triple_constraints = {},
         .quad_constraints = {},
@@ -89,7 +84,8 @@ TEST_F(EcOperations, TestECOperations)
     };
     mock_opcode_indices(constraint_system);
 
-    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness_values);
+    AcirProgram program{ constraint_system, witness_values };
+    auto builder = create_circuit(program);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
@@ -201,13 +197,9 @@ TEST_F(EcOperations, TestECMultiScalarMul)
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = { msm_constrain },
         .ec_add_constraints = {},
-        .recursion_constraints = {},
         .honk_recursion_constraints = {},
         .avm_recursion_constraints = {},
         .ivc_recursion_constraints = {},
-        .bigint_from_le_bytes_constraints = {},
-        .bigint_to_le_bytes_constraints = {},
-        .bigint_operations = {},
         .assert_equalities = {},
         .poly_triple_constraints = { assert_equal },
         .quad_constraints = {},
@@ -217,7 +209,8 @@ TEST_F(EcOperations, TestECMultiScalarMul)
     };
     mock_opcode_indices(constraint_system);
 
-    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness_values);
+    AcirProgram program{ constraint_system, witness_values };
+    auto builder = create_circuit(program);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }

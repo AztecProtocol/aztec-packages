@@ -4,6 +4,7 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include <gtest/gtest.h>
 #include <utility>
@@ -36,7 +37,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         field_ct c = a + b;
         EXPECT_TRUE(c.witness_index == a.witness_index);
         EXPECT_TRUE(builder.get_estimated_num_finalized_gates() == num_gates);
-        field_ct d(&builder, fr::coset_generator(0)); // like b, d is just a constant and not a wire value
+        field_ct d(&builder, fr::coset_generator<0>()); // like b, d is just a constant and not a wire value
 
         // by this point, we shouldn't have added any constraints in our circuit
         for (size_t i = 0; i < 17; ++i) {
@@ -166,17 +167,16 @@ template <typename Builder> class stdlib_field : public testing::Test {
                 EXPECT_TRUE(converted.witness_index == field_elt.witness_index);
             }
         }
-#ifndef NDEBUG
         // Check that the conversion aborts in the case of random field elements.
         bool_ct invalid_bool;
         // Case 4: Invalid constant conversion
-        EXPECT_DEATH(invalid_bool = bool_ct(field_ct(input_array.back())),
-                     "Assertion failed: (additive_constant == bb::fr::one() || additive_constant == bb::fr::zero())");
+        EXPECT_THROW_OR_ABORT(
+            invalid_bool = bool_ct(field_ct(input_array.back())),
+            "Assertion failed: (additive_constant == bb::fr::one() || additive_constant == bb::fr::zero())");
         // Case 5: Invalid witness conversion
         Builder builder = Builder();
-        EXPECT_DEATH(invalid_bool = bool_ct(field_ct(witness_ct(&builder, input_array.back()))),
-                     "Assertion failed: ((witness == bb::fr::zero()) || (witness == bb::fr::one()) == true)");
-#endif
+        EXPECT_THROW_OR_ABORT(invalid_bool = bool_ct(field_ct(witness_ct(&builder, input_array.back()))),
+                              "Assertion failed: ((witness == bb::fr::zero()) || (witness == bb::fr::one()) == true)");
     }
     /**
      * @brief Test that bool is converted correctly
@@ -409,19 +409,17 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_TRUE(q.is_constant());
         EXPECT_EQ(a.get_value() / b.get_value(), q.get_value());
 
-#ifndef NDEBUG
         {
             // Case 1. Numerator = const, denominator = const 0. Check that the division is aborted
             b = 0;
-            EXPECT_DEATH(a / b, ".*");
+            EXPECT_THROW_OR_ABORT(a / b, ".*");
         }
         { // Case 2. Numerator != const, denominator = const 0. Check that the division is aborted
             Builder builder = Builder();
             field_ct a = witness_ct(&builder, bb::fr::random_element());
             b = 0;
-            EXPECT_DEATH(a / b, ".*");
+            EXPECT_THROW_OR_ABORT(a / b, ".*");
         }
-#endif
         {
             // Case 3. Numerator != const, denominator = witness 0 . Check that the circuit fails.
             Builder builder = Builder();
@@ -682,9 +680,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         }
         { // a is a const 0
             a = field_ct(0);
-#ifndef NDEBUG
-            EXPECT_DEATH(a.assert_is_not_zero(), "assert_is_not_zero");
-#endif
+            EXPECT_THROW_OR_ABORT(a.assert_is_not_zero(), "assert_is_not_zero");
         }
     }
 
@@ -864,6 +860,56 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_TRUE(builder.err() == "slice: hi value too large.");
     }
 
+    static void test_split_at()
+    {
+        Builder builder = Builder();
+
+        // Test different bit sizes
+        std::vector<size_t> test_bit_sizes = { 8, 16, 32, 100, 252 };
+
+        // Lambda to check split_at functionality
+        auto check_split_at = [&](const field_ct& a, size_t start, size_t num_bits) {
+            const uint256_t a_native = a.get_value();
+            auto split_data = a.split_at(start, num_bits);
+            EXPECT_EQ(split_data.first.get_value(), a_native & ((uint256_t(1) << start) - 1));
+            EXPECT_EQ(split_data.second.get_value(), (a_native >> start) & ((uint256_t(1) << num_bits) - 1));
+
+            if (a.is_constant()) {
+                EXPECT_TRUE(split_data.first.is_constant());
+                EXPECT_TRUE(split_data.second.is_constant());
+            }
+
+            if (start == 0) {
+                EXPECT_TRUE(split_data.first.is_constant());
+                EXPECT_TRUE(split_data.first.get_value() == 0);
+                EXPECT_EQ(split_data.second.get_value(), a.get_value());
+            }
+        };
+
+        for (size_t num_bits : test_bit_sizes) {
+            uint256_t a_native = engine.get_random_uint256() & ((uint256_t(1) << num_bits) - 1);
+
+            // check split_at for a constant
+            field_ct a_constant(a_native);
+            check_split_at(a_constant, 0, num_bits);
+            check_split_at(a_constant, num_bits / 4, num_bits);
+            check_split_at(a_constant, num_bits / 3, num_bits);
+            check_split_at(a_constant, num_bits / 2, num_bits);
+            check_split_at(a_constant, num_bits - 1, num_bits);
+
+            // check split_at for a witness
+            field_ct a_witness(witness_ct(&builder, a_native));
+            check_split_at(a_witness, 0, num_bits);
+            check_split_at(a_witness, num_bits / 4, num_bits);
+            check_split_at(a_witness, num_bits / 3, num_bits);
+            check_split_at(a_witness, num_bits / 2, num_bits);
+            check_split_at(a_witness, num_bits - 1, num_bits);
+        }
+
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, true);
+    }
+
     static void test_three_bit_table()
     {
         Builder builder = Builder();
@@ -901,74 +947,6 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
-    }
-
-    /**
-     * @brief Test success and failure cases for decompose_into_bits.
-     *
-     * @details The target function constructs `sum` from a supplied collection of bits and compares it with a value
-     * `val_256`. We supply bit vectors to test some failure cases.
-     */
-
-    static void test_decompose_into_bits()
-    {
-        using witness_supplier_type = std::function<witness_ct(Builder * ctx, uint64_t, uint256_t)>;
-
-        // check that constraints are satisfied for a variety of inputs
-        auto run_success_test = [&](size_t num_bits) {
-            Builder builder = Builder();
-
-            uint256_t random_val(engine.get_random_uint256());
-            // For big values (num_bits>=254), ensure that they can't overflow by shifting by 4 bits.
-            uint256_t scalar_raw = (num_bits < 254) ? random_val >> (256 - num_bits) : random_val >> 4;
-            field_ct a = witness_ct(&builder, scalar_raw);
-            std::vector<bool_ct> c = a.decompose_into_bits(num_bits);
-            uint256_t bit_sum = 0;
-            for (size_t i = 0; i < c.size(); i++) {
-                uint256_t scaling_factor_value(uint256_t(1) << i);
-                bit_sum += fr(c[i].get_value()) * scaling_factor_value;
-            }
-            EXPECT_EQ(bit_sum, scalar_raw);
-
-            ASSERT_TRUE(CircuitChecker::check(builder));
-        };
-
-        // Now try to supply unintended witness values and test for failure.
-        // Fr::modulus is equivalent to zero in Fr, but this should be forbidden by a range constraint.
-        witness_supplier_type supply_modulus_bits = [](Builder* ctx, uint64_t j, uint256_t val_256) {
-            ignore_unused(val_256);
-            // use this to get `sum` to be fr::modulus.
-            return witness_ct(ctx, fr::modulus.get_bit(j));
-        };
-
-        // design a bit vector that will pass all range constraints, but it fails the copy constraint.
-        witness_supplier_type supply_half_modulus_bits = [](Builder* ctx, uint64_t j, uint256_t val_256) {
-            // use this to fit y_hi into 128 bits
-            if (j > 127) {
-                return witness_ct(ctx, val_256.get_bit(j));
-            };
-
-            return witness_ct(ctx, (fr::modulus).get_bit(j));
-        };
-
-        auto run_failure_test = [&](witness_supplier_type witness_supplier, std::string err_msg) {
-            Builder builder = Builder();
-
-            fr a_expected = 0;
-            field_ct a = witness_ct(&builder, a_expected);
-            std::vector<bool_ct> c = a.decompose_into_bits(256, witness_supplier);
-
-            bool verified = CircuitChecker::check(builder);
-            ASSERT_FALSE(verified);
-            EXPECT_TRUE(err_msg == builder.err());
-        };
-
-        for (size_t idx = 1; idx <= 256; idx++) {
-            run_success_test(idx);
-        }
-
-        run_failure_test(supply_modulus_bits, "field_t: bit decomposition fails: y_hi is too large.");
-        run_failure_test(supply_half_modulus_bits, "field_t: bit decomposition_fails: copy constraint");
     }
 
     static void test_assert_is_in_set()
@@ -1066,16 +1044,12 @@ template <typename Builder> class stdlib_field : public testing::Test {
         uint64_t exponent_val = engine.get_random_uint32();
         exponent_val += (uint64_t(1) << 32);
 
-        field_ct base = witness_ct(&builder, base_val);
+        [[maybe_unused]] field_ct base = witness_ct(&builder, base_val);
         field_ct exponent = witness_ct(&builder, exponent_val);
-#ifndef NDEBUG
-        EXPECT_DEATH(base.pow(exponent), "Assertion failed: \\(exponent_value.get_msb\\(\\) < 32\\)");
-#endif
+        EXPECT_THROW_OR_ABORT(base.pow(exponent), "Assertion failed: \\(exponent_value.get_msb\\(\\) < 32\\)");
 
         exponent = field_ct(exponent_val);
-#ifndef NDEBUG
-        EXPECT_DEATH(base.pow(exponent), "Assertion failed: \\(exponent_value.get_msb\\(\\) < 32\\)");
-#endif
+        EXPECT_THROW_OR_ABORT(base.pow(exponent), "Assertion failed: \\(exponent_value.get_msb\\(\\) < 32\\)");
     };
 
     static void test_copy_as_new_witness()
@@ -1107,12 +1081,10 @@ template <typename Builder> class stdlib_field : public testing::Test {
         elt.assert_is_zero();
         // If we apply `assert_is_zero()` to a non-zero constant, we hit an ASSERT failure
         elt = bb::fr::random_element();
-#ifndef NDEBUG
 
         if (elt.get_value() != 0) {
-            EXPECT_DEATH(elt.assert_is_zero(), "field_t::assert_is_zero");
+            EXPECT_THROW_OR_ABORT(elt.assert_is_zero(), "field_t::assert_is_zero");
         }
-#endif
         // Create a witness 0
         Builder builder = Builder();
         elt = witness_ct(&builder, bb::fr::zero());
@@ -1269,7 +1241,10 @@ template <typename Builder> class stdlib_field : public testing::Test {
     static void test_origin_tag_consistency()
     {
         Builder builder = Builder();
-        auto a = field_ct(witness_ct(&builder, bb::fr::random_element()));
+        // Randomly generate a and b (a must ≤ 252 bits)
+        uint256_t a_val =
+            uint256_t(bb::fr::random_element()) & ((uint256_t(1) << grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH) - 1);
+        auto a = field_ct(witness_ct(&builder, a_val));
         auto b = field_ct(witness_ct(&builder, bb::fr::random_element()));
         EXPECT_TRUE(a.get_origin_tag().is_empty());
         EXPECT_TRUE(b.get_origin_tag().is_empty());
@@ -1373,12 +1348,11 @@ template <typename Builder> class stdlib_field : public testing::Test {
             EXPECT_EQ(element.get_origin_tag(), submitted_value_origin_tag);
         }
 
-        // Decomposition preserves tags
-
-        auto decomposed_bits = a.decompose_into_bits();
-        for (const auto& bit : decomposed_bits) {
-            EXPECT_EQ(bit.get_origin_tag(), submitted_value_origin_tag);
-        }
+        // Split preserves tags
+        const size_t num_bits = uint256_t(a.get_value()).get_msb() + 1;
+        auto split_data = a.split_at(num_bits / 2, num_bits);
+        EXPECT_EQ(split_data.first.get_origin_tag(), submitted_value_origin_tag);
+        EXPECT_EQ(split_data.second.get_origin_tag(), submitted_value_origin_tag);
 
         // Conversions
 
@@ -1474,10 +1448,6 @@ TYPED_TEST(stdlib_field, test_create_range_constraint)
 {
     TestFixture::create_range_constraint();
 }
-TYPED_TEST(stdlib_field, test_decompose_into_bits)
-{
-    TestFixture::test_decompose_into_bits();
-}
 TYPED_TEST(stdlib_field, test_div)
 {
     TestFixture::test_div();
@@ -1565,6 +1535,10 @@ TYPED_TEST(stdlib_field, test_slice_equal_msb_lsb)
 TYPED_TEST(stdlib_field, test_slice_random)
 {
     TestFixture::test_slice_random();
+}
+TYPED_TEST(stdlib_field, test_split_at)
+{
+    TestFixture::test_split_at();
 }
 TYPED_TEST(stdlib_field, test_three_bit_table)
 {

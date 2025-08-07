@@ -5,6 +5,7 @@ import { type EncodeFunctionDataParameters, type Hex, encodeFunctionData, multic
 
 import type { L1BlobInputs, L1GasConfig, L1TxRequest, L1TxUtils } from '../l1_tx_utils.js';
 import type { ExtendedViemWalletClient } from '../types.js';
+import { FormattedViemError, formatViemError } from '../utils.js';
 import { RollupContract } from './rollup.js';
 
 export const MULTI_CALL_3_ADDRESS = '0xcA11bde05977b3631167028862bE2a173976CA11' as const;
@@ -17,12 +18,13 @@ export class Multicall3 {
     blobConfig: L1BlobInputs | undefined,
     rollupAddress: Hex,
     logger: Logger,
+    opts: { revertOnFailure?: boolean } = {},
   ) {
     requests = requests.filter(request => request.to !== null);
     const args = requests.map(r => ({
       target: r.to!,
       callData: r.data!,
-      allowFailure: false,
+      allowFailure: !opts.revertOnFailure,
     }));
     const forwarderFunctionData: Required<EncodeFunctionDataParameters<typeof multicall3Abi, 'aggregate3'>> = {
       abi: multicall3Abi,
@@ -32,66 +34,98 @@ export class Multicall3 {
 
     const encodedForwarderData = encodeFunctionData(forwarderFunctionData);
 
-    const { receipt, gasPrice } = await l1TxUtils.sendAndMonitorTransaction(
-      {
-        to: MULTI_CALL_3_ADDRESS,
-        data: encodedForwarderData,
-      },
-      gasConfig,
-      blobConfig,
-    );
+    try {
+      const { receipt, gasPrice } = await l1TxUtils.sendAndMonitorTransaction(
+        {
+          to: MULTI_CALL_3_ADDRESS,
+          data: encodedForwarderData,
+        },
+        gasConfig,
+        blobConfig,
+      );
 
-    if (receipt.status === 'success') {
-      const stats = await l1TxUtils.getTransactionStats(receipt.transactionHash);
-      return { receipt, gasPrice, stats };
-    } else {
-      logger.error('Forwarder transaction failed', undefined, { receipt });
-
-      const args = {
-        ...forwarderFunctionData,
-        address: MULTI_CALL_3_ADDRESS,
-      };
-
-      let errorMsg: string | undefined;
-
-      if (blobConfig) {
-        const maxFeePerBlobGas = blobConfig.maxFeePerBlobGas ?? gasPrice.maxFeePerBlobGas;
-        if (maxFeePerBlobGas === undefined) {
-          errorMsg = 'maxFeePerBlobGas is required to get the error message';
-        } else {
-          logger.debug('Trying to get error from reverted tx with blob config');
-          errorMsg = await l1TxUtils.tryGetErrorFromRevertedTx(
-            encodedForwarderData,
-            args,
-            {
-              blobs: blobConfig.blobs,
-              kzg: blobConfig.kzg,
-              maxFeePerBlobGas,
-            },
-            [
-              {
-                address: rollupAddress,
-                stateDiff: [
-                  {
-                    slot: toPaddedHex(RollupContract.checkBlobStorageSlot, true),
-                    value: toPaddedHex(0n, true),
-                  },
-                ],
-              },
-            ],
-          );
-        }
+      if (receipt.status === 'success') {
+        const stats = await l1TxUtils.getTransactionStats(receipt.transactionHash);
+        return { receipt, gasPrice, stats };
       } else {
-        logger.debug('Trying to get error from reverted tx without blob config');
-        errorMsg = await l1TxUtils.tryGetErrorFromRevertedTx(encodedForwarderData, args, undefined, []);
-      }
+        logger.error('Forwarder transaction failed', undefined, { receipt });
 
-      return { receipt, gasPrice, errorMsg };
+        const args = {
+          ...forwarderFunctionData,
+          address: MULTI_CALL_3_ADDRESS,
+        };
+
+        let errorMsg: string | undefined;
+
+        if (blobConfig) {
+          const maxFeePerBlobGas = blobConfig.maxFeePerBlobGas ?? gasPrice.maxFeePerBlobGas;
+          if (maxFeePerBlobGas === undefined) {
+            errorMsg = 'maxFeePerBlobGas is required to get the error message';
+          } else {
+            logger.debug('Trying to get error from reverted tx with blob config');
+            errorMsg = await l1TxUtils.tryGetErrorFromRevertedTx(
+              encodedForwarderData,
+              args,
+              {
+                blobs: blobConfig.blobs,
+                kzg: blobConfig.kzg,
+                maxFeePerBlobGas,
+              },
+              [
+                {
+                  address: rollupAddress,
+                  stateDiff: [
+                    {
+                      slot: toPaddedHex(RollupContract.checkBlobStorageSlot, true),
+                      value: toPaddedHex(0n, true),
+                    },
+                  ],
+                },
+              ],
+            );
+          }
+        } else {
+          logger.debug('Trying to get error from reverted tx without blob config');
+          errorMsg = await l1TxUtils.tryGetErrorFromRevertedTx(encodedForwarderData, args, undefined, []);
+        }
+
+        return { receipt, gasPrice, errorMsg };
+      }
+    } catch (err) {
+      for (const request of requests) {
+        logger.debug('Simulating request', { request });
+        const result = await l1TxUtils
+          .simulate(request, undefined, [
+            {
+              address: rollupAddress,
+              stateDiff: [
+                { slot: toPaddedHex(RollupContract.checkBlobStorageSlot, true), value: toPaddedHex(0n, true) },
+              ],
+            },
+          ])
+          .catch(err => formatViemError(err, request.abi));
+        if (result instanceof FormattedViemError) {
+          logger.error('Found error in simulation', result, {
+            to: request.to ?? 'null',
+            data: request.data,
+          });
+
+          return result;
+        }
+      }
+      logger.warn('Failed to get error from reverted tx', { err });
+      throw err;
     }
   }
 }
 
 export async function deployMulticall3(l1Client: ExtendedViemWalletClient, logger: Logger) {
+  const existing = await l1Client.getCode({ address: MULTI_CALL_3_ADDRESS });
+  if (existing && existing !== '0x') {
+    logger.verbose('Multicall3 already deployed', { address: MULTI_CALL_3_ADDRESS });
+    return;
+  }
+
   const deployer = '0x05f32b3cc3888453ff71b01135b34ff8e41263f2';
   const sendEth = await l1Client.sendTransaction({ to: deployer, value: 10n ** 17n });
   logger.info('Sent 0.1 ETH to deployer', { deployer, value: 10n ** 17n });

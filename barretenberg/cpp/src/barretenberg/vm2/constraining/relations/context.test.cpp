@@ -68,7 +68,7 @@ TEST(ContextConstrainingTest, ContextSwitchingCallReturn)
                                    { C::execution_sel, 1 },
                                    { C::execution_pc, 1 },
                                    { C::execution_next_pc, 2 },
-                                   { C::execution_sel_call, 1 },
+                                   { C::execution_sel_execute_call, 1 },
                                    { C::execution_sel_enter_call, 1 },
                                    { C::execution_context_id, 1 },
                                    { C::execution_next_context_id, 2 },
@@ -99,7 +99,7 @@ TEST(ContextConstrainingTest, ContextSwitchingCallReturn)
                                    { C::execution_sel, 1 },
                                    { C::execution_pc, 20 },
                                    { C::execution_next_pc, 30 },
-                                   { C::execution_sel_return, 1 },
+                                   { C::execution_sel_execute_return, 1 },
                                    { C::execution_rop_0_, 500 },      // Return data size offset
                                    { C::execution_rop_1_, 600 },      // Return data offset
                                    { C::execution_register_0_, 200 }, // Return data size
@@ -144,6 +144,7 @@ TEST(ContextConstrainingTest, ContextSwitchingCallReturn)
 
     check_relation<context>(trace);
 
+    // TODO: Migrate to check_interaction pattern once these lookups are added in a builder
     tracegen::LookupIntoDynamicTableSequential<stack_call_interaction::Settings>().process(trace);
     tracegen::LookupIntoDynamicTableSequential<stack_return_interaction::Settings>().process(trace);
 }
@@ -254,6 +255,223 @@ TEST(ContextConstrainingTest, GasNextRow)
     trace.set(C::execution_parent_da_gas_used, 2, 1501);
     EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PARENT_DA_GAS_USED_NEXT_ROW),
                               "PARENT_DA_GAS_USED_NEXT_ROW");
+}
+
+TEST(ContextConstrainingTest, GasUsedContinuity)
+{
+    TestTraceContainer trace({ { { C::precomputed_first_row, 1 } },
+                               {
+                                   // First Row of execution
+                                   { C::execution_sel, 1 },
+                                   { C::execution_l2_gas_used, 100 },
+                                   { C::execution_da_gas_used, 200 },
+                               },
+                               {
+                                   // CALL
+                                   { C::execution_sel, 1 },
+                                   { C::execution_sel_enter_call, 1 },
+                                   { C::execution_l2_gas_used, 110 },
+                                   { C::execution_da_gas_used, 200 },
+                                   { C::execution_prev_l2_gas_used, 100 },
+                                   { C::execution_prev_da_gas_used, 200 },
+                               },
+                               {
+                                   // Return
+                                   { C::execution_sel, 1 },
+                                   { C::execution_sel_exit_call, 1 },
+                                   { C::execution_nested_exit_call, 1 },
+                                   { C::execution_l2_gas_used, 50 },
+                                   { C::execution_da_gas_used, 60 },
+                                   { C::execution_parent_l2_gas_used, 110 },
+                                   { C::execution_parent_da_gas_used, 200 },
+                                   { C::execution_prev_l2_gas_used, 0 },
+                                   { C::execution_prev_da_gas_used, 0 },
+                               },
+                               {
+                                   // After return
+                                   { C::execution_sel, 1 },
+                                   { C::execution_l2_gas_used, 170 },
+                                   { C::execution_da_gas_used, 260 },
+                                   { C::execution_prev_l2_gas_used, 160 }, // 110 + 50
+                                   { C::execution_prev_da_gas_used, 260 }, // 200 + 60
+                               },
+                               {
+                                   { C::execution_sel, 0 },
+                                   { C::execution_last, 1 },
+                               } });
+
+    check_relation<context>(trace,
+                            context::SR_L2_GAS_USED_CONTINUITY,
+                            context::SR_L2_GAS_USED_ZERO_AFTER_CALL,
+                            context::SR_L2_GAS_USED_INGEST_AFTER_EXIT,
+                            context::SR_DA_GAS_USED_CONTINUITY,
+                            context::SR_DA_GAS_USED_ZERO_AFTER_CALL,
+                            context::SR_DA_GAS_USED_INGEST_AFTER_EXIT);
+
+    // Negative test: after return, ingest a wrong value
+    trace.set(C::execution_prev_l2_gas_used, 4, 110);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_L2_GAS_USED_INGEST_AFTER_EXIT),
+                              "L2_GAS_USED_INGEST_AFTER_EXIT");
+
+    trace.set(C::execution_prev_da_gas_used, 4, 60);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_DA_GAS_USED_INGEST_AFTER_EXIT),
+                              "DA_GAS_USED_INGEST_AFTER_EXIT");
+
+    // Negative test: inside a nested call, start with non-zero gas used
+    trace.set(C::execution_prev_l2_gas_used, 3, 110);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_L2_GAS_USED_ZERO_AFTER_CALL),
+                              "L2_GAS_USED_ZERO_AFTER_CALL");
+
+    trace.set(C::execution_prev_da_gas_used, 3, 200);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_DA_GAS_USED_ZERO_AFTER_CALL),
+                              "DA_GAS_USED_ZERO_AFTER_CALL");
+
+    // Negative test: when no calls are made, prev gas used should be gas used of the previous row
+    trace.set(C::execution_prev_l2_gas_used, 2, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_L2_GAS_USED_CONTINUITY),
+                              "L2_GAS_USED_CONTINUITY");
+
+    trace.set(C::execution_prev_da_gas_used, 2, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_DA_GAS_USED_CONTINUITY),
+                              "DA_GAS_USED_CONTINUITY");
+}
+
+TEST(ContextConstrainingTest, TreeStateContinuity)
+{
+    TestTraceContainer trace({ { { C::precomputed_first_row, 1 } },
+                               {
+                                   // First Row of execution
+                                   { C::execution_sel, 1 },
+                                   { C::execution_note_hash_tree_root, 10 },
+                                   { C::execution_note_hash_tree_size, 9 },
+                                   { C::execution_num_note_hashes_emitted, 8 },
+                                   { C::execution_nullifier_tree_root, 7 },
+                                   { C::execution_nullifier_tree_size, 6 },
+                                   { C::execution_num_nullifiers_emitted, 5 },
+                                   { C::execution_public_data_tree_root, 4 },
+                                   { C::execution_public_data_tree_size, 3 },
+                                   { C::execution_written_public_data_slots_tree_root, 2 },
+                                   { C::execution_written_public_data_slots_tree_size, 1 },
+                                   { C::execution_l1_l2_tree_root, 27 },
+                               },
+                               {
+                                   // Second row of execution
+                                   { C::execution_sel, 1 },
+                                   { C::execution_prev_note_hash_tree_root, 10 },
+                                   { C::execution_prev_note_hash_tree_size, 9 },
+                                   { C::execution_prev_num_note_hashes_emitted, 8 },
+                                   { C::execution_prev_nullifier_tree_root, 7 },
+                                   { C::execution_prev_nullifier_tree_size, 6 },
+                                   { C::execution_prev_num_nullifiers_emitted, 5 },
+                                   { C::execution_prev_public_data_tree_root, 4 },
+                                   { C::execution_prev_public_data_tree_size, 3 },
+                                   { C::execution_prev_written_public_data_slots_tree_root, 2 },
+                                   { C::execution_prev_written_public_data_slots_tree_size, 1 },
+                                   { C::execution_l1_l2_tree_root, 27 },
+                               } });
+
+    check_relation<context>(trace,
+                            context::SR_NOTE_HASH_TREE_ROOT_CONTINUITY,
+                            context::SR_NOTE_HASH_TREE_SIZE_CONTINUITY,
+                            context::SR_NUM_NOTE_HASHES_EMITTED_CONTINUITY,
+                            context::SR_NULLIFIER_TREE_ROOT_CONTINUITY,
+                            context::SR_NULLIFIER_TREE_SIZE_CONTINUITY,
+                            context::SR_NUM_NULLIFIERS_EMITTED_CONTINUITY,
+                            context::SR_PUBLIC_DATA_TREE_ROOT_CONTINUITY,
+                            context::SR_PUBLIC_DATA_TREE_SIZE_CONTINUITY,
+                            context::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY,
+                            context::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY,
+                            context::SR_L1_L2_TREE_ROOT_CONTINUITY);
+
+    // Negative test: change note hash tree root
+    trace.set(C::execution_prev_note_hash_tree_root, 2, 100);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NOTE_HASH_TREE_ROOT_CONTINUITY),
+                              "NOTE_HASH_TREE_ROOT_CONTINUITY");
+
+    // Negative test: change note hash tree size
+    trace.set(C::execution_prev_note_hash_tree_size, 2, 100);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NOTE_HASH_TREE_SIZE_CONTINUITY),
+                              "NOTE_HASH_TREE_SIZE_CONTINUITY");
+
+    // Negative test: change num note hashes emitted
+    trace.set(C::execution_prev_num_note_hashes_emitted, 2, 10);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NUM_NOTE_HASHES_EMITTED_CONTINUITY),
+                              "NUM_NOTE_HASHES_EMITTED_CONTINUITY");
+
+    // Negative test: change nullifier tree root
+    trace.set(C::execution_prev_nullifier_tree_root, 2, 100);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NULLIFIER_TREE_ROOT_CONTINUITY),
+                              "NULLIFIER_TREE_ROOT_CONTINUITY");
+
+    // Negative test: change nullifier tree size
+    trace.set(C::execution_prev_nullifier_tree_size, 2, 100);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NULLIFIER_TREE_SIZE_CONTINUITY),
+                              "NULLIFIER_TREE_SIZE_CONTINUITY");
+
+    // Negative test: change num nullifiers emitted
+    trace.set(C::execution_prev_num_nullifiers_emitted, 2, 100);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NUM_NULLIFIERS_EMITTED_CONTINUITY),
+                              "NUM_NULLIFIERS_EMITTED_CONTINUITY");
+
+    // Negative test: change public data tree root
+    trace.set(C::execution_prev_public_data_tree_root, 2, 100);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PUBLIC_DATA_TREE_ROOT_CONTINUITY),
+                              "PUBLIC_DATA_TREE_ROOT_CONTINUITY");
+
+    // Negative test: change public data tree size
+    trace.set(C::execution_prev_public_data_tree_size, 2, 100);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PUBLIC_DATA_TREE_SIZE_CONTINUITY),
+                              "PUBLIC_DATA_TREE_SIZE_CONTINUITY");
+
+    // Negative test: change written public data slots tree root
+    trace.set(C::execution_prev_written_public_data_slots_tree_root, 2, 100);
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<context>(trace, context::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY),
+        "WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY");
+
+    // Negative test: change written public data slots tree size
+    trace.set(C::execution_prev_written_public_data_slots_tree_size, 2, 100);
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<context>(trace, context::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY),
+        "WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY");
+
+    // Negative test: change l1 l2 tree root
+    trace.set(C::execution_l1_l2_tree_root, 2, 100);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_L1_L2_TREE_ROOT_CONTINUITY),
+                              "L1_L2_TREE_ROOT_CONTINUITY");
+}
+
+TEST(ContextConstrainingTest, SideEffectStateContinuity)
+{
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
+        {
+            // First Row of execution
+            { C::execution_sel, 1 },
+            { C::execution_num_unencrypted_logs, 10 },
+            { C::execution_num_l2_to_l1_messages, 11 },
+        },
+        {
+            // Second row of execution
+            { C::execution_sel, 1 },
+            { C::execution_prev_num_unencrypted_logs, 10 },
+            { C::execution_prev_num_l2_to_l1_messages, 11 },
+        },
+    });
+
+    check_relation<context>(
+        trace, context::SR_NUM_UNENCRYPTED_LOGS_CONTINUITY, context::SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY);
+
+    // Negative test: change num unencrypted logs
+    trace.set(C::execution_prev_num_unencrypted_logs, 2, 100);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NUM_UNENCRYPTED_LOGS_CONTINUITY),
+                              "NUM_UNENCRYPTED_LOGS_CONTINUITY");
+
+    // Negative test: change num l2 to l1 messages
+    trace.set(C::execution_prev_num_l2_to_l1_messages, 2, 100);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY),
+                              "NUM_L2_TO_L1_MESSAGES_CONTINUITY");
 }
 
 } // namespace

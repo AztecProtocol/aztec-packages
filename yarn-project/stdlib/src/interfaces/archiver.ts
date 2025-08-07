@@ -3,7 +3,7 @@ import type { ApiSchemaFor } from '@aztec/foundation/schemas';
 import { z } from 'zod';
 
 import { L2Block } from '../block/l2_block.js';
-import { type L2BlockSource, L2TipsSchema } from '../block/l2_block_source.js';
+import { type L2BlockSource, L2TipsSchema, ValidateBlockResultSchema } from '../block/l2_block_source.js';
 import { PublishedL2Block } from '../block/published_l2_block.js';
 import {
   ContractClassPublicSchema,
@@ -65,7 +65,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getBytecodeCommitment: z.function().args(schemas.Fr).returns(schemas.Fr),
   getContract: z
     .function()
-    .args(schemas.AztecAddress, optional(schemas.Integer))
+    .args(schemas.AztecAddress, optional(schemas.BigInt))
     .returns(ContractInstanceWithAddressSchema.optional()),
   getContractClassIds: z.function().args().returns(z.array(schemas.Fr)),
   registerContractFunctionSignatures: z.function().args(z.array(z.string())).returns(z.void()),
@@ -75,4 +75,6 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getL1Constants: z.function().args().returns(L1RollupConstantsSchema),
   getL1Timestamp: z.function().args().returns(schemas.BigInt),
   syncImmediate: z.function().args().returns(z.void()),
+  isPendingChainInvalid: z.function().args().returns(z.boolean()),
+  getPendingChainValidationStatus: z.function().args().returns(ValidateBlockResultSchema),
 };

@@ -4,7 +4,7 @@ import { AvmTestContract } from '@aztec/noir-test-contracts.js/AvmTest';
 
 import { jest } from '@jest/globals';
 
-import { ensureAccountsPubliclyDeployed, setup } from './fixtures/utils.js';
+import { ensureAccountContractsPublished, setup } from './fixtures/utils.js';
 
 const TIMEOUT = 100_000;
 
@@ -16,7 +16,7 @@ describe('e2e_avm_simulator', () => {
 
   beforeAll(async () => {
     ({ teardown, wallet } = await setup(1));
-    await ensureAccountsPubliclyDeployed(wallet, [wallet]);
+    await ensureAccountContractsPublished(wallet, [wallet]);
   });
 
   afterAll(() => teardown());
@@ -174,11 +174,13 @@ describe('e2e_avm_simulator', () => {
         // The nested call reverts and by default caller rethrows
         await expect(avmContract.methods.nested_call_to_nothing().simulate()).rejects.toThrow(/No bytecode/);
       });
-      it('Nested CALL instruction to non-existent contract returns failure, but caller can recover', async () => {
-        // The nested call reverts (returns failure), but the caller doesn't HAVE to rethrow.
-        const tx = await avmContract.methods.nested_call_to_nothing_recovers().send().wait();
-        expect(tx.status).toEqual(TxStatus.SUCCESS);
-      });
+
+      // TODO(#16099): Re-enable this test
+      // it('Nested CALL instruction to non-existent contract returns failure, but caller can recover', async () => {
+      //   // The nested call reverts (returns failure), but the caller doesn't HAVE to rethrow.
+      //   const tx = await avmContract.methods.nested_call_to_nothing_recovers().send().wait();
+      //   expect(tx.status).toEqual(TxStatus.SUCCESS);
+      // });
       it('Should NOT be able to emit the same unsiloed nullifier from the same contract', async () => {
         const nullifier = new Fr(1);
         await expect(

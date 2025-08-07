@@ -1,6 +1,8 @@
 use crate::context::{PublicContext, UtilityContext};
-use crate::state_vars::storage::Storage;
+use crate::state_vars::storage::HasStorageSlot;
 use dep::protocol_types::traits::Packable;
+
+mod test;
 
 // docs:start:public_mutable_struct
 pub struct PublicMutable<T, Context> {
@@ -9,9 +11,9 @@ pub struct PublicMutable<T, Context> {
 }
 // docs:end:public_mutable_struct
 
-impl<T, Context, let N: u32> Storage<N> for PublicMutable<T, Context>
+impl<T, Context, let M: u32> HasStorageSlot<M> for PublicMutable<T, Context>
 where
-    T: Packable<N>,
+    T: Packable<N = M>,
 {
     fn get_storage_slot(self) -> Field {
         self.storage_slot
@@ -33,18 +35,18 @@ impl<T, Context> PublicMutable<T, Context> {
 
 impl<T> PublicMutable<T, &mut PublicContext> {
     // docs:start:public_mutable_struct_read
-    pub fn read<let T_PACKED_LEN: u32>(self) -> T
+    pub fn read(self) -> T
     where
-        T: Packable<T_PACKED_LEN>,
+        T: Packable,
     {
         self.context.storage_read(self.storage_slot)
     }
     // docs:end:public_mutable_struct_read
 
     // docs:start:public_mutable_struct_write
-    pub fn write<let T_PACKED_LEN: u32>(self, value: T)
+    pub fn write(self, value: T)
     where
-        T: Packable<T_PACKED_LEN>,
+        T: Packable,
     {
         self.context.storage_write(self.storage_slot, value);
     }
@@ -52,9 +54,9 @@ impl<T> PublicMutable<T, &mut PublicContext> {
 }
 
 impl<T> PublicMutable<T, UtilityContext> {
-    pub unconstrained fn read<let T_PACKED_LEN: u32>(self) -> T
+    pub unconstrained fn read(self) -> T
     where
-        T: Packable<T_PACKED_LEN>,
+        T: Packable,
     {
         self.context.storage_read(self.storage_slot)
     }

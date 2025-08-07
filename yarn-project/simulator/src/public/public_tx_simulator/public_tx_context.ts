@@ -108,7 +108,7 @@ export class PublicTxContext {
       trace,
       doMerkleOperations,
       firstNullifier,
-      globalVariables.blockNumber,
+      globalVariables.timestamp,
     );
 
     const gasSettings = tx.data.constants.txContext.gasSettings;
@@ -119,7 +119,7 @@ export class PublicTxContext {
     const gasAllocatedToPublicTeardown = clampedGasSettings.teardownGasLimits;
 
     return new PublicTxContext(
-      await tx.getTxHash(),
+      tx.getTxHash(),
       new PhaseStateManager(txStateManager),
       await txStateManager.getTreeSnapshots(),
       globalVariables,
@@ -143,10 +143,8 @@ export class PublicTxContext {
    * All phases have been processed.
    * Actual transaction fee and actual total consumed gas can now be queried.
    */
-  async halt() {
-    if (this.state.isForked()) {
-      await this.state.mergeForkedState();
-    }
+  halt() {
+    assert(!this.state.isForked(), 'Cannot halt when state is forked');
     this.halted = true;
   }
 
@@ -165,11 +163,6 @@ export class PublicTxContext {
     }
     if (phase === TxExecutionPhase.SETUP) {
       this.log.warn(`Setup phase reverted! The transaction will be thrown out.`);
-      if (revertReason) {
-        throw revertReason;
-      } else {
-        throw new Error(`Setup phase reverted! The transaction will be thrown out. ${culprit} failed`);
-      }
     } else if (phase === TxExecutionPhase.APP_LOGIC) {
       this.revertCode = RevertCode.APP_LOGIC_REVERTED;
     } else if (phase === TxExecutionPhase.TEARDOWN) {
@@ -338,6 +331,15 @@ export class PublicTxContext {
       );
     })();
 
+    // Count before padding.
+    const accumulatedDataArrayLengths = new AvmAccumulatedDataArrayLengths(
+      avmNoteHashes.length,
+      avmNullifiers.length,
+      avmL2ToL1Msgs.length,
+      finalPublicLogs.length,
+      finalPublicDataWrites.length,
+    );
+
     const accumulatedData = new AvmAccumulatedData(
       /*noteHashes=*/ padArrayEnd(
         avmNoteHashes.map(n => n.value),
@@ -376,14 +378,6 @@ export class PublicTxContext {
         countAccumulatedItems(from.nullifiers),
         countAccumulatedItems(from.l2ToL1Msgs),
       );
-    const getAvmAccumulatedDataArrayLengths = (from: AvmAccumulatedData) =>
-      new AvmAccumulatedDataArrayLengths(
-        from.noteHashes.length,
-        from.nullifiers.length,
-        from.l2ToL1Msgs.length,
-        from.publicLogs.length,
-        from.publicDataWrites.length,
-      );
 
     return new AvmCircuitPublicInputs(
       this.globalVariables,
@@ -416,7 +410,7 @@ export class PublicTxContext {
       convertAccumulatedData(this.revertibleAccumulatedDataFromPrivate),
       endTreeSnapshots,
       this.getTotalGasUsed(),
-      getAvmAccumulatedDataArrayLengths(accumulatedData),
+      accumulatedDataArrayLengths,
       accumulatedData,
       /*transactionFee=*/ this.getTransactionFeeUnsafe(),
       /*isReverted=*/ !this.revertCode.isOK(),

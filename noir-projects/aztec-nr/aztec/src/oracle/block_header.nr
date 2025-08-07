@@ -1,12 +1,12 @@
 use protocol_types::{
-    block_header::BlockHeader, merkle_tree::root::root_from_sibling_path, traits::Hash,
+    abis::block_header::BlockHeader, merkle_tree::root::root_from_sibling_path, traits::Hash,
 };
 
 use crate::{
     context::PrivateContext, oracle::get_membership_witness::get_archive_membership_witness,
 };
 
-#[oracle(getBlockHeader)]
+#[oracle(utilityGetBlockHeader)]
 unconstrained fn get_block_header_at_oracle(_block_number: u32) -> BlockHeader {}
 
 unconstrained fn get_block_header_at_internal(block_number: u32) -> BlockHeader {
@@ -86,22 +86,27 @@ mod test {
 
     #[test(should_fail_with = "Block number provided is not the same as the block number from the header hint")]
     unconstrained fn fetching_a_valid_but_different_header_should_fail() {
-        let mut env = TestEnvironment::new();
+        let env = TestEnvironment::new();
 
-        env.advance_block_by(4);
+        env.mine_block();
+        env.mine_block();
+        env.mine_block();
+        env.mine_block();
 
         // We get our current header for the last archive values.
-        let current_header = env.private().historical_header;
+        env.private_context(|context| {
+            let current_header = context.historical_header;
 
-        let target_block_number = 3;
-        let bad_header = get_block_header_at_internal(target_block_number);
+            let target_block_number = current_header.global_variables.block_number - 2;
+            let bad_header = get_block_header_at_internal(target_block_number);
 
-        // We pass in a different block number than the header received
-        constrain_get_block_header_at_internal(
-            bad_header,
-            target_block_number - 1,
-            current_header.global_variables.block_number - 1,
-            current_header.last_archive.root,
-        );
+            // We pass in a different block number than the header received
+            constrain_get_block_header_at_internal(
+                bad_header,
+                target_block_number - 1,
+                current_header.global_variables.block_number - 1,
+                current_header.last_archive.root,
+            );
+        });
     }
 }

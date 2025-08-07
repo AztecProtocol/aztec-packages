@@ -55,7 +55,6 @@ pub(crate) mod tests {
         constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
         hash::{accumulate_sha256, poseidon2_hash},
         tests::utils::assert_array_eq,
-        utils::arrays::array_concat,
     };
 
     pub struct TestBuilder {
@@ -105,7 +104,7 @@ pub(crate) mod tests {
         assert_eq(output.start_global_variables, left_rollup.constants.global_variables);
         assert_eq(output.end_global_variables, left_rollup.constants.global_variables);
 
-        let expected_out_hash = accumulate_sha256([left_rollup.out_hash, right_rollup.out_hash]);
+        let expected_out_hash = accumulate_sha256(left_rollup.out_hash, right_rollup.out_hash);
         assert_eq(output.out_hash, expected_out_hash);
 
         let expected_fee = FeeRecipient {
@@ -175,7 +174,7 @@ pub(crate) mod tests {
         let end_sponge_blob = builder.inputs.previous_rollup_data[1]
             .base_or_merge_rollup_public_inputs
             .end_sponge_blob;
-        let blobs_fields = array_concat(blob_fields_0, blob_fields_1);
+        let blobs_fields = blob_fields_0.concat(blob_fields_1);
         let mut expected_sponge = start_sponge_blob;
         expected_sponge.absorb(blobs_fields, blobs_fields.len());
         assert(!end_sponge_blob.eq(start_sponge_blob));

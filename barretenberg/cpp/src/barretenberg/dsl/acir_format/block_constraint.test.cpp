@@ -28,13 +28,14 @@ class MegaHonk : public ::testing::Test {
     static bool prove_and_verify(Builder& circuit)
     {
         auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(circuit);
-        auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
+        auto verification_key = std::make_shared<VerificationKey>(proving_key->get_precomputed());
         Prover prover{ proving_key, verification_key };
         auto proof = prover.construct_proof();
 
         Verifier verifier{ verification_key };
 
-        return verifier.verify_proof(proof);
+        bool result = verifier.template verify_proof<DefaultIO>(proof).result;
+        return result;
     }
 
   protected:
@@ -144,7 +145,6 @@ TEST_F(UltraPlonkRAM, TestBlockConstraint)
         .range_constraints = {},
         .aes128_constraints = {},
         .sha256_compression = {},
-
         .ecdsa_k1_constraints = {},
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},
@@ -153,13 +153,9 @@ TEST_F(UltraPlonkRAM, TestBlockConstraint)
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
-        .recursion_constraints = {},
         .honk_recursion_constraints = {},
         .avm_recursion_constraints = {},
         .ivc_recursion_constraints = {},
-        .bigint_from_le_bytes_constraints = {},
-        .bigint_to_le_bytes_constraints = {},
-        .bigint_operations = {},
         .assert_equalities = {},
         .poly_triple_constraints = {},
         .quad_constraints = {},
@@ -198,13 +194,9 @@ TEST_F(MegaHonk, Databus)
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
-        .recursion_constraints = {},
         .honk_recursion_constraints = {},
         .avm_recursion_constraints = {},
         .ivc_recursion_constraints = {},
-        .bigint_from_le_bytes_constraints = {},
-        .bigint_to_le_bytes_constraints = {},
-        .bigint_operations = {},
         .assert_equalities = {},
         .poly_triple_constraints = {},
         .quad_constraints = {},
@@ -303,13 +295,9 @@ TEST_F(MegaHonk, DatabusReturn)
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
-        .recursion_constraints = {},
         .honk_recursion_constraints = {},
         .avm_recursion_constraints = {},
         .ivc_recursion_constraints = {},
-        .bigint_from_le_bytes_constraints = {},
-        .bigint_to_le_bytes_constraints = {},
-        .bigint_operations = {},
         .assert_equalities = {},
         .poly_triple_constraints = { assert_equal },
         .quad_constraints = {},

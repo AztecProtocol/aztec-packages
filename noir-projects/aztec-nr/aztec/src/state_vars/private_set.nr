@@ -10,7 +10,7 @@ use crate::note::{
     utils::compute_note_hash_for_read_request,
 };
 use crate::note::retrieved_note::RetrievedNote;
-use crate::state_vars::storage::Storage;
+use crate::state_vars::storage::HasStorageSlot;
 use dep::protocol_types::{
     abis::read_request::ReadRequest, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
     traits::Packable,
@@ -28,7 +28,7 @@ pub struct PrivateSet<Note, Context> {
 // Private storage slots are not really 'slots' but rather a value in the note hash preimage, so there is no notion of a
 // value spilling over multiple slots. For this reason PrivateSet (and all other private state variables) needs just one
 // slot to be reserved, regardless of what it stores.
-impl<T, Context> Storage<1> for PrivateSet<T, Context> {
+impl<T, Context> HasStorageSlot<1> for PrivateSet<T, Context> {
     fn get_storage_slot(self) -> Field {
         self.storage_slot
     }
@@ -48,20 +48,20 @@ where
     Note: NoteType + NoteHash + Eq,
 {
     // docs:start:insert
-    pub fn insert<let N: u32>(self, note: Note) -> NoteEmission<Note>
+    pub fn insert(self, note: Note) -> NoteEmission<Note>
     where
-        Note: Packable<N>,
+        Note: Packable,
     {
         create_note(self.context, self.storage_slot, note)
     }
     // docs:end:insert
 
-    pub fn pop_notes<PREPROCESSOR_ARGS, FILTER_ARGS, let N: u32>(
+    pub fn pop_notes<PreprocessorArgs, FilterArgs, let M: u32>(
         self,
-        options: NoteGetterOptions<Note, N, PREPROCESSOR_ARGS, FILTER_ARGS>,
+        options: NoteGetterOptions<Note, M, PreprocessorArgs, FilterArgs>,
     ) -> BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>
     where
-        Note: Packable<N>,
+        Note: Packable<N = M>,
     {
         let (retrieved_notes, note_hashes) = get_notes(self.context, self.storage_slot, options);
         // We iterate in a range 0..options.limit instead of 0..notes.len() because options.limit is known at compile
@@ -95,12 +95,12 @@ where
 
     /// Note that if you later on remove the note it's much better to use `pop_notes` as `pop_notes` results
     /// in significantly less constrains due to avoiding 1 read request check.
-    pub fn get_notes<PREPROCESSOR_ARGS, FILTER_ARGS, let N: u32>(
+    pub fn get_notes<PreprocessorArgs, FilterArgs, let M: u32>(
         self,
-        options: NoteGetterOptions<Note, N, PREPROCESSOR_ARGS, FILTER_ARGS>,
+        options: NoteGetterOptions<Note, M, PreprocessorArgs, FilterArgs>,
     ) -> BoundedVec<RetrievedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>
     where
-        Note: Packable<N>,
+        Note: Packable<N = M>,
     {
         get_notes(self.context, self.storage_slot, options).0
     }
@@ -111,12 +111,12 @@ where
     Note: NoteType + NoteHash + Eq,
 {
     // docs:start:view_notes
-    pub unconstrained fn view_notes<let N: u32>(
+    pub unconstrained fn view_notes(
         self,
-        options: NoteViewerOptions<Note, N>,
+        options: NoteViewerOptions<Note, <Note as Packable>::N>,
     ) -> BoundedVec<Note, MAX_NOTES_PER_PAGE>
     where
-        Note: Packable<N>,
+        Note: Packable,
     {
         view_notes(self.storage_slot, options)
     }

@@ -35,12 +35,6 @@ export async function startProverNode(
     process.exit(1);
   }
 
-  // Check if running on ARM and fast-fail if so.
-  if (process.arch.startsWith('arm')) {
-    userLog(`Prover node is not supported on ARM architecture (detected: ${process.arch}). Exiting.`);
-    process.exit(1);
-  }
-
   let proverConfig = {
     ...getProverNodeConfigFromEnv(), // get default config from env
     ...extractRelevantOptions<ProverNodeConfig>(options, proverNodeConfigMappings, 'proverNode'), // override with command line options
@@ -118,7 +112,7 @@ export async function startProverNode(
   services.proverNode = [proverNode, ProverNodeApiSchema];
 
   if (proverNode.getP2P()) {
-    services.p2p = [proverNode.getP2P()!, P2PApiSchema];
+    services.p2p = [proverNode.getP2P(), P2PApiSchema];
   }
 
   if (!proverConfig.proverBrokerUrl) {

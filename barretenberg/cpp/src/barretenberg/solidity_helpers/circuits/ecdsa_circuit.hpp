@@ -32,7 +32,7 @@ class EcdsaCircuit {
         // Create an input buffer the same size as our inputs
         typename curve::byte_array_ct input_buffer(&builder, NUM_PUBLIC_INPUTS);
         for (size_t i = 0; i < NUM_PUBLIC_INPUTS; ++i) {
-            input_buffer.set_byte(i, public_witness_ct(&builder, public_inputs[i]));
+            input_buffer[i] = public_witness_ct(&builder, public_inputs[i]);
         }
 
         // This is the message that we would like to confirm
@@ -67,12 +67,12 @@ class EcdsaCircuit {
 
         std::vector<uint8_t> rr(signature.r.begin(), signature.r.end());
         std::vector<uint8_t> ss(signature.s.begin(), signature.s.end());
-        uint8_t vv = signature.v;
+        std::vector<uint8_t> vv = { signature.v };
 
         // IN CIRCUIT: create a witness with the sig in our circuit
         stdlib::ecdsa_signature<Builder> sig{ typename curve::byte_array_ct(&builder, rr),
                                               typename curve::byte_array_ct(&builder, ss),
-                                              stdlib::uint8<Builder>(&builder, vv) };
+                                              typename curve::byte_array_ct(&builder, vv) };
 
         // IN CIRCUIT: verify the signature
         typename curve::bool_ct signature_result = stdlib::ecdsa_verify_signature<Builder,

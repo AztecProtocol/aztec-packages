@@ -1,6 +1,6 @@
 use crate::base::components::{
     constants::validate_tx_constant_data, gas::clamp_gas_settings_for_avm,
-    validation_requests::validate_max_block_number,
+    include_by_timestamp::validate_include_by_timestamp,
 };
 use super::fees::compute_effective_gas_fees;
 use dep::types::{
@@ -22,7 +22,7 @@ fn assert_eq_array_and_length<T, let N: u32, let M: u32>(
     name: str<M>,
 )
 where
-    T: Eq + Empty,
+    T: Empty,
 {
     assert_eq(array_from_tube, array_from_avm, f"{name} mismatch between tube and avm");
 
@@ -58,9 +58,9 @@ impl PublicTubeDataValidator {
             archive_root_membership_witness,
         );
 
-        validate_max_block_number(
-            self.data.public_inputs.rollup_validation_requests,
-            constants.global_variables.block_number,
+        validate_include_by_timestamp(
+            self.data.public_inputs.include_by_timestamp,
+            constants.global_variables,
         );
     }
 

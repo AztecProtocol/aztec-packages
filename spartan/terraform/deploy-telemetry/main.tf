@@ -91,21 +91,45 @@ resource "kubernetes_manifest" "otel_ingress_backend" {
   }
 }
 
+locals {
+  prefixes   = jsondecode(file("../../../yarn-project/aztec/public_include_metric_prefixes.json"))
+  registries = ["0xec4156431d0f3df66d4e24ba3d30dcb4c85fa309"]
+  roles      = ["sequencer"]
+
+  otel_metric_allowlist   = join(" or ", formatlist("HasPrefix(name, %q)", local.prefixes))
+  otel_registry_allowlist = join(" or ", formatlist("resource.attributes[\"aztec.registry_address\"] == %q", local.registries))
+  otel_role_allowlist     = join(" or ", formatlist("resource.attributes[\"aztec.node_role\"] == %q", local.roles))
+}
+
 resource "helm_release" "otel_collector" {
   provider          = helm.gke-cluster
   name              = "otel"
   namespace         = kubernetes_namespace.ns.metadata[0].name
   repository        = "https://open-telemetry.github.io/opentelemetry-helm-charts"
   chart             = "opentelemetry-collector"
-  version           = "0.104.0"
+  version           = "0.127.2"
   create_namespace  = false
   upgrade_install   = true
   dependency_update = true
   force_update      = true
-  reuse_values      = true
+  reuse_values      = false
+  reset_values      = true
 
   # base values file
-  values = [file("./values/public-otel-collector.yaml")]
+  values = [
+    file("./values/public-otel-collector.yaml"),
+    # have to use a heredoc because of quotation issues with OTTL
+    <<-EOF
+config:
+  processors:
+    filter:
+      metrics:
+        metric:
+        - 'not (${local.otel_registry_allowlist})'
+        - 'not (${local.otel_role_allowlist})'
+        - 'not (${local.otel_metric_allowlist})'
+EOF
+  ]
 
   set {
     name  = "ingress.annotations.kubernetes\\.io\\/ingress\\.global-static-ip-name"
@@ -122,9 +146,11 @@ resource "helm_release" "otel_collector" {
     value = var.HOSTNAME
   }
 
-  timeout       = 300
-  wait          = false
-  wait_for_jobs = false
+  timeout         = 300
+  wait            = true
+  wait_for_jobs   = true
+  atomic          = true
+  cleanup_on_fail = true
 }
 
 resource "helm_release" "public_prometheus" {
@@ -138,11 +164,14 @@ resource "helm_release" "public_prometheus" {
   upgrade_install   = true
   dependency_update = true
   force_update      = true
-  reuse_values      = true
+  reuse_values      = false
+  reset_values      = true
 
   values = [file("./values/public-prometheus.yaml")]
 
-  timeout       = 600
-  wait          = false
-  wait_for_jobs = false
+  timeout         = 300
+  wait            = true
+  wait_for_jobs   = true
+  atomic          = true
+  cleanup_on_fail = true
 }

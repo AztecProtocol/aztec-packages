@@ -24,7 +24,7 @@
     "./avm": "./dest/avm/index.js",
     "./schemas": "./dest/schemas/index.js",
     "./noir": "./dest/noir/index.js",
-    "./shared-mutable": "./dest/shared_mutable/index.js",
+    "./delayed-public-mutable": "./dest/delayed_public_mutable/index.js",
     "./parity": "./dest/parity/index.js",
     "./vks": "./dest/vks/index.js",
     "./proofs": "./dest/proofs/index.js",
@@ -50,7 +50,8 @@
     "./file-store": "./dest/file-store/index.js",
     "./snapshots": "./dest/snapshots/index.js",
     "./update-checker": "./dest/update-checker/index.js",
-    "./zkpassport": "./dest/zkpassport/index.js"
+    "./zkpassport": "./dest/zkpassport/index.js",
+    "./slashing": "./dest/slashing/index.js"
   },
   "typedocOptions": {
     "entryPoints": [

@@ -16,6 +16,7 @@ struct ContextEvent {
     uint32_t pc;
     AztecAddress msg_sender;
     AztecAddress contract_addr;
+    FF transaction_fee;
     bool is_static;
 
     // Calldata info from parent context
@@ -24,7 +25,7 @@ struct ContextEvent {
 
     // Return data info from child context
     uint32_t last_child_rd_addr;
-    uint32_t last_child_rd_size_addr;
+    uint32_t last_child_rd_size;
     bool last_child_success;
 
     // Gas
@@ -39,8 +40,12 @@ struct ContextEvent {
     InternalCallId internal_call_return_id = 0;
     InternalCallId next_internal_call_id = 0;
 
-    // Tree State
-    // TreeSnapshots tree_state;
+    // Tree States
+    TreeStates tree_states;
+    AppendOnlyTreeSnapshot written_public_data_slots_tree_snapshot;
+
+    // Side Effects
+    SideEffectStates side_effect_states;
 };
 
 struct ContextStackEvent {
@@ -62,8 +67,12 @@ struct ContextStackEvent {
     Gas parent_gas_used;
     Gas parent_gas_limit;
 
-    // Tree State
-    // TreeSnapshots tree_state;
+    // Tree States
+    TreeStates tree_states;
+    AppendOnlyTreeSnapshot written_public_data_slots_tree_snapshot;
+
+    // Side Effect States
+    SideEffectStates side_effect_states;
 };
 
 } // namespace bb::avm2::simulation

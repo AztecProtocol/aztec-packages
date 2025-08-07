@@ -61,14 +61,13 @@ describe('Aztec persistence', () => {
   beforeAll(async () => {
     dataDirectory = await mkdtemp(join(tmpdir(), 'aztec-node-'));
 
-    const initialContext = await setup(0, { dataDirectory, numberOfInitialFundedAccounts: 3 }, { dataDirectory });
+    const initialContext = await setup(1, { dataDirectory, numberOfInitialFundedAccounts: 3 }, { dataDirectory });
     pxe = initialContext.pxe;
     deployL1ContractsValues = initialContext.deployL1ContractsValues;
 
     initialFundedAccounts = initialContext.initialFundedAccounts;
     owner = initialFundedAccounts[0];
-    const ownerAccount = await deployFundedSchnorrAccount(initialContext.pxe, owner);
-    const ownerWallet = await ownerAccount.getWallet();
+    const ownerWallet = initialContext.wallet;
 
     const contract = await TokenBlacklistContract.deploy(ownerWallet, ownerWallet.getAddress()).send().deployed();
     contractInstance = contract.instance;
@@ -105,7 +104,7 @@ describe('Aztec persistence', () => {
   }, 180_000);
 
   const progressBlocksPastDelay = async (contract: TokenBlacklistContract) => {
-    for (let i = 0; i < BlacklistTokenContractTest.DELAY; ++i) {
+    for (let i = 0; i < BlacklistTokenContractTest.CHANGE_ROLES_DELAY; ++i) {
       await contract.methods.get_roles(owner.address).send().wait();
     }
   };

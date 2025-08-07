@@ -4,8 +4,12 @@
 pragma solidity >=0.8.27;
 
 import {Epoch, Slot, Timestamp, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
+import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {StakingLib} from "./StakingLib.sol";
+import {InvalidateLib} from "./InvalidateLib.sol";
 import {ValidatorSelectionLib} from "./ValidatorSelectionLib.sol";
+import {CommitteeAttestations} from "@aztec/shared/libraries/SignatureLib.sol";
+import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 library ExtRollupLib2 {
   using TimeLib for Timestamp;
@@ -18,8 +22,17 @@ library ExtRollupLib2 {
     StakingLib.vote(_proposalId);
   }
 
-  function deposit(address _attester, address _withdrawer, bool _onCanonical) external {
-    StakingLib.deposit(_attester, _withdrawer, _onCanonical);
+  function deposit(
+    address _attester,
+    address _withdrawer,
+    G1Point memory _publicKeyInG1,
+    G2Point memory _publicKeyInG2,
+    G1Point memory _proofOfPossession,
+    bool _moveWithLatestRollup
+  ) external {
+    StakingLib.deposit(
+      _attester, _withdrawer, _publicKeyInG1, _publicKeyInG2, _proofOfPossession, _moveWithLatestRollup
+    );
   }
 
   function flushEntryQueue(uint256 _maxAddableValidators) external {
@@ -28,6 +41,10 @@ library ExtRollupLib2 {
 
   function initiateWithdraw(address _attester, address _recipient) external returns (bool) {
     return StakingLib.initiateWithdraw(_attester, _recipient);
+  }
+
+  function finaliseWithdraw(address _attester) external {
+    StakingLib.finaliseWithdraw(_attester);
   }
 
   function initializeValidatorSelection(uint256 _targetCommitteeSize) external {
@@ -44,12 +61,41 @@ library ExtRollupLib2 {
     ValidatorSelectionLib.setSampleSeedForNextEpoch(currentEpoch);
   }
 
+  function updateStakingQueueConfig(StakingQueueConfig memory _config) external {
+    StakingLib.updateStakingQueueConfig(_config);
+  }
+
+  function invalidateBadAttestation(
+    uint256 _blockNumber,
+    CommitteeAttestations memory _attestations,
+    address[] memory _committee,
+    uint256 _invalidIndex
+  ) external {
+    InvalidateLib.invalidateBadAttestation(_blockNumber, _attestations, _committee, _invalidIndex);
+  }
+
+  function invalidateInsufficientAttestations(
+    uint256 _blockNumber,
+    CommitteeAttestations memory _attestations,
+    address[] memory _committee
+  ) external {
+    InvalidateLib.invalidateInsufficientAttestations(_blockNumber, _attestations, _committee);
+  }
+
+  function slash(address _attester, uint256 _amount) external returns (bool) {
+    return StakingLib.trySlash(_attester, _amount);
+  }
+
+  function canProposeAtTime(Timestamp _ts, bytes32 _archive, address _who) external returns (Slot, uint256) {
+    return ValidatorSelectionLib.canProposeAtTime(_ts, _archive, _who);
+  }
+
   function getCommitteeAt(Epoch _epoch) external returns (address[] memory) {
     return ValidatorSelectionLib.getCommitteeAt(_epoch);
   }
 
-  function getProposerAt(Slot _slot) external returns (address) {
-    return ValidatorSelectionLib.getProposerAt(_slot);
+  function getProposerAt(Slot _slot) external returns (address proposer) {
+    (proposer,) = ValidatorSelectionLib.getProposerAt(_slot);
   }
 
   function getCommitteeCommitmentAt(Epoch _epoch) external returns (bytes32, uint256) {
@@ -62,5 +108,9 @@ library ExtRollupLib2 {
 
   function getTargetCommitteeSize() external view returns (uint256) {
     return ValidatorSelectionLib.getStorage().targetCommitteeSize;
+  }
+
+  function getEntryQueueFlushSize() external view returns (uint256) {
+    return StakingLib.getEntryQueueFlushSize();
   }
 }

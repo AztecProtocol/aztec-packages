@@ -26,9 +26,7 @@ contract ConstructorTest is Test {
 
     uint256 n = bound(_n, 0, _m / 2);
 
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.GovernanceProposer__InvalidNAndMValues.selector, n, _m)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__InvalidQuorumAndRoundSize.selector, n, _m));
     new GovernanceProposer(REGISTRY, GSE, n, _m);
   }
 
@@ -37,9 +35,7 @@ contract ConstructorTest is Test {
     uint256 m = bound(_m, 0, type(uint256).max - 1);
     uint256 n = bound(_n, m + 1, type(uint256).max);
 
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.GovernanceProposer__NCannotBeLargerTHanM.selector, n, m)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__QuorumCannotBeLargerThanRoundSize.selector, n, m));
     new GovernanceProposer(REGISTRY, GSE, n, m);
   }
 
@@ -52,9 +48,9 @@ contract ConstructorTest is Test {
     GovernanceProposer g = new GovernanceProposer(REGISTRY, GSE, n, m);
 
     assertEq(address(g.REGISTRY()), address(REGISTRY));
-    assertEq(g.N(), n);
-    assertEq(g.M(), m);
-    assertEq(g.getExecutor(), address(REGISTRY.getGovernance()), "executor");
+    assertEq(g.QUORUM_SIZE(), n);
+    assertEq(g.ROUND_SIZE(), m);
+    assertEq(g.getGovernance(), address(REGISTRY.getGovernance()), "governance");
     assertEq(g.getInstance(), address(REGISTRY.getCanonicalRollup()), "instance");
   }
 }

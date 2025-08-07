@@ -1,11 +1,12 @@
-mode: deployment
+mode: statefulset
 replicaCount: 1
 
 nodeSelector:
   node-type: infra
 
 image:
-  repository: "otel/opentelemetry-collector-contrib"
+  repository: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib
+  tag: "0.128.0"
 
 resources:
   requests:
@@ -39,12 +40,12 @@ config:
       endpoint: ${env:MY_POD_IP}:13133
 
   receivers:
-    jaeger: null
-    prometheus: null
-    zipkin: null
+    jaeger: {}
+    prometheus: {}
+    zipkin: {}
     otlp:
       protocols:
-        grpc: null
+        grpc: {}
         http:
           endpoint: ${env:MY_POD_IP}:4318
 
@@ -56,21 +57,21 @@ config:
 
     filter:
       metrics:
-        metric:
-          - 'not IsMatch(name, "aztec\\..*")'
-          - 'resource.attributes["aztec.node_role"] != "sequencer"'
-          - 'resource.attributes["aztec.registry_address"] != "0x4d2cc1d5fb6be65240e0bfc8154243e69c0fb19e"'
+        metric: [] # placeholder
         datapoint:
           - 'metric.type == METRIC_DATA_TYPE_HISTOGRAM and Len(explicit_bounds) > 20'
+
+    resource:
+      attributes:
+        - pattern: "(k8s|os|telemetry|service|exported).*"
+          action: delete
 
     transform:
       metric_statements:
         - context: datapoint
           statements:
-          - set(attributes["service.instance.id"], resource.attributes["service.instance.id"])
-          - set(attributes["service.name"], resource.attributes["service.name"])
-          - set(attributes["service.namespace"], resource.attributes["service.namespace"])
           - set(attributes["aztec.node_role"], resource.attributes["aztec.node_role"])
+          - set(attributes["aztec.registry_address"], resource.attributes["aztec.registry_address"])
 
     batch: {}
 
@@ -83,6 +84,10 @@ config:
         enabled: false
 
   service:
+    telemetry:
+      metrics:
+        address: ${env:MY_POD_IP}:8888
+
     pipelines:
       logs: null
       traces: null
@@ -92,6 +97,7 @@ config:
           - otlp
         processors:
           - memory_limiter
+          - resource
           - filter
           - transform
           - batch
@@ -119,6 +125,18 @@ ports:
     servicePort: 13133
     hostPort: 13133
     protocol: TCP
+  prom-otel:
+    enabled: true
+    containerPort: 8888
+    servicePort: 8888
+    hostPort: 8888
+    protocol: TCP
+  prom-aztec:
+    enabled: true
+    containerPort: 8889
+    servicePort: 8889
+    hostPort: 8889
+    protocol: TCP
 service:
   enabled: true
   type: LoadBalancer
@@ -131,7 +149,7 @@ ingress:
     kubernetes.io/ingress.allow-http: "true"
     kubernetes.io/ingress.class: gce
     kubernetes.io/ingress.global-static-ip-name: ""
-    cloud.google.com/health-check-port: "13133"
+    cloud.google.com/healthcheck-port: "13133"
     cloud.google.com/healthcheck-path: "/"
 
     # networking.gke.io/managed-certificates: null

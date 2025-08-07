@@ -5,10 +5,11 @@ import { L2Block, type L2BlockSourceEventEmitter, L2BlockSourceEvents } from '@a
 import type {
   BuildBlockResult,
   IFullNodeBlockBuilder,
-  ITxCollector,
+  ITxProvider,
   MerkleTreeWriteOperations,
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { Offense } from '@aztec/stdlib/slashing';
 import { Tx } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
@@ -16,7 +17,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import EventEmitter from 'node:events';
 import type { Hex } from 'viem';
 
-import { Offense, WANT_TO_SLASH_EVENT } from './config.js';
+import { WANT_TO_SLASH_EVENT } from './config.js';
 import { EpochPruneWatcher } from './epoch_prune_watcher.js';
 
 describe('EpochPruneWatcher', () => {
@@ -24,7 +25,7 @@ describe('EpochPruneWatcher', () => {
   let l2BlockSource: L2BlockSourceEventEmitter;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let epochCache: MockProxy<EpochCache>;
-  let txCollector: MockProxy<ITxCollector>;
+  let txProvider: MockProxy<Pick<ITxProvider, 'getAvailableTxs'>>;
   let blockBuilder: MockProxy<IFullNodeBlockBuilder>;
   let fork: MockProxy<MerkleTreeWriteOperations>;
   const penalty = BigInt(1000000000000000000n);
@@ -35,7 +36,7 @@ describe('EpochPruneWatcher', () => {
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
     l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue([]);
     epochCache = mock<EpochCache>();
-    txCollector = mock<ITxCollector>();
+    txProvider = mock<Pick<ITxProvider, 'getAvailableTxs'>>();
     blockBuilder = mock<IFullNodeBlockBuilder>();
     fork = mock<MerkleTreeWriteOperations>();
     blockBuilder.getFork.mockResolvedValue(fork);
@@ -44,7 +45,7 @@ describe('EpochPruneWatcher', () => {
       l2BlockSource,
       l1ToL2MessageSource,
       epochCache,
-      txCollector,
+      txProvider,
       blockBuilder,
       penalty,
       maxPenalty,
@@ -63,7 +64,7 @@ describe('EpochPruneWatcher', () => {
       1, // block number
       4, // txs per block
     );
-    txCollector.collectTransactions.mockResolvedValue({ txs: [], missing: [block.body.txEffects[0].txHash] });
+    txProvider.getAvailableTxs.mockResolvedValue({ txs: [], missingTxs: [block.body.txEffects[0].txHash] });
 
     const committee: Hex[] = [
       '0x0000000000000000000000000000000000000abc',
@@ -145,7 +146,7 @@ describe('EpochPruneWatcher', () => {
       4, // txs per block
     );
     const tx = Tx.random();
-    txCollector.collectTransactions.mockResolvedValue({ txs: [tx] });
+    txProvider.getAvailableTxs.mockResolvedValue({ txs: [tx], missingTxs: [] });
     blockBuilder.buildBlock.mockResolvedValue({
       block: block,
       failedTxs: [],
@@ -199,7 +200,7 @@ describe('EpochPruneWatcher', () => {
       1, // txs per block
     );
     const tx = Tx.random();
-    txCollector.collectTransactions.mockResolvedValue({ txs: [tx] });
+    txProvider.getAvailableTxs.mockResolvedValue({ txs: [tx], missingTxs: [] });
     blockBuilder.buildBlock.mockResolvedValue({
       block: blockFromBuilder,
       failedTxs: [],

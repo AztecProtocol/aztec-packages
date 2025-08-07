@@ -1,4 +1,4 @@
-use crate::{parity_public_inputs::ParityPublicInputs, utils::sha256_merkle_tree::Sha256MerkleTree};
+use crate::parity_public_inputs::ParityPublicInputs;
 use dep::types::{constants::NUM_MSGS_PER_BASE_PARITY, merkle_tree::MerkleTree};
 
 pub struct BaseParityInputs {
@@ -8,7 +8,7 @@ pub struct BaseParityInputs {
 
 impl BaseParityInputs {
     pub fn base_parity_circuit(self) -> ParityPublicInputs {
-        let sha_tree = Sha256MerkleTree::new(self.msgs);
+        let sha_tree = MerkleTree::new_sha(self.msgs);
         let poseidon_tree = MerkleTree::new(self.msgs);
 
         ParityPublicInputs {
@@ -35,5 +35,5 @@ fn test_sha_root_matches_frontier_tree() {
     // 31 byte truncated root hash
     let expected_sha_root = 0xfc986d54a5e0af4f6e0d49399b9806c2b225e6c652fa5a831ecf6c6c29719d;
 
-    assert(public_inputs.sha_root == expected_sha_root, "sha root does not match");
+    assert_eq(public_inputs.sha_root, expected_sha_root, "sha root does not match");
 }

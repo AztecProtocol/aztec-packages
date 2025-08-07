@@ -7,7 +7,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
 import { PublicTxSimulationTester } from '../../fixtures/public_tx_simulation_tester.js';
-import { deployToken } from './token_test.js';
+import { setUpToken } from './token_test.js';
 
 const INITIAL_TOKEN_BALANCE = 1_000_000_000n;
 /**
@@ -22,9 +22,9 @@ export async function ammTest(tester: PublicTxSimulationTester, logger: Logger) 
   const sender = AztecAddress.fromNumber(111);
 
   logger.debug(`Deploying tokens`);
-  const token0 = await deployToken(tester, admin, /*seed=*/ 0);
-  const token1 = await deployToken(tester, admin, /*seed=*/ 1);
-  const liquidityToken = await deployToken(tester, admin, /*seed=*/ 2);
+  const token0 = await setUpToken(tester, admin, /*seed=*/ 0);
+  const token1 = await setUpToken(tester, admin, /*seed=*/ 1);
+  const liquidityToken = await setUpToken(tester, admin, /*seed=*/ 2);
   logger.debug(`Deploying AMM`);
   const constructorArgs = [token0, token1, liquidityToken];
   const amm = await tester.registerAndDeployContract(

@@ -3,7 +3,7 @@ import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import type {
   EpochProofPublicInputArgs,
   ViemClient,
-  ViemCommitteeAttestation,
+  ViemCommitteeAttestations,
   ViemHeader,
   ViemPublicClient,
   ViemStateReference,
@@ -112,7 +112,7 @@ export async function retrieveBlocksFromRollup(
 ): Promise<RetrievedL2Block[]> {
   const retrievedBlocks: RetrievedL2Block[] = [];
 
-  let rollupConstants: { chainId: Fr; version: Fr } | undefined;
+  let rollupConstants: { chainId: Fr; version: Fr; targetCommitteeSize: number } | undefined;
 
   do {
     if (searchStartBlock > searchEndBlock) {
@@ -138,8 +138,16 @@ export async function retrieveBlocksFromRollup(
     );
 
     if (rollupConstants === undefined) {
-      const [chainId, version] = await Promise.all([publicClient.getChainId(), rollup.read.getVersion()]);
-      rollupConstants = { chainId: new Fr(chainId), version: new Fr(version) };
+      const [chainId, version, targetCommitteeSize] = await Promise.all([
+        publicClient.getChainId(),
+        rollup.read.getVersion(),
+        rollup.read.getTargetCommitteeSize(),
+      ]);
+      rollupConstants = {
+        chainId: new Fr(chainId),
+        version: new Fr(version),
+        targetCommitteeSize: Number(targetCommitteeSize),
+      };
     }
 
     const newBlocks = await processL2BlockProposedLogs(
@@ -170,7 +178,7 @@ async function processL2BlockProposedLogs(
   publicClient: ViemPublicClient,
   blobSinkClient: BlobSinkClientInterface,
   logs: GetContractEventsReturnType<typeof RollupAbi, 'L2BlockProposed'>,
-  { chainId, version }: { chainId: Fr; version: Fr },
+  { chainId, version, targetCommitteeSize }: { chainId: Fr; version: Fr; targetCommitteeSize: number },
   logger: Logger,
 ): Promise<RetrievedL2Block[]> {
   const retrievedBlocks: RetrievedL2Block[] = [];
@@ -189,6 +197,7 @@ async function processL2BlockProposedLogs(
         blobHashes,
         l2BlockNumber,
         rollup.address,
+        targetCommitteeSize,
         logger,
       );
 
@@ -287,6 +296,7 @@ async function getBlockFromRollupTx(
   blobHashes: Buffer[], // TODO(md): buffer32?
   l2BlockNumber: number,
   rollupAddress: Hex,
+  targetCommitteeSize: number,
   logger: Logger,
 ): Promise<Omit<RetrievedL2Block, 'l1' | 'chainId' | 'version'>> {
   const { input: forwarderData, blockHash } = await publicClient.getTransaction({ hash: txHash });
@@ -301,7 +311,7 @@ async function getBlockFromRollupTx(
     throw new Error(`Unexpected rollup method called ${rollupFunctionName}`);
   }
 
-  const [decodedArgs, attestations, _blobInput] = rollupArgs! as readonly [
+  const [decodedArgs, packedAttestations, _signers, _blobInput] = rollupArgs! as readonly [
     {
       archive: Hex;
       stateReference: ViemStateReference;
@@ -311,9 +321,23 @@ async function getBlockFromRollupTx(
       header: ViemHeader;
       txHashes: readonly Hex[];
     },
-    ViemCommitteeAttestation[],
+    ViemCommitteeAttestations,
+    Hex[],
     Hex,
   ];
+
+  const attestations = CommitteeAttestation.fromPacked(packedAttestations, targetCommitteeSize);
+
+  logger.trace(`Recovered propose calldata from tx ${txHash}`, {
+    l2BlockNumber,
+    archive: decodedArgs.archive,
+    stateReference: decodedArgs.stateReference,
+    header: decodedArgs.header,
+    blobHashes,
+    attestations,
+    packedAttestations,
+    targetCommitteeSize,
+  });
 
   // TODO(md): why is the proposed block header different to the actual block header?
   // This is likely going to be a footgun
@@ -348,7 +372,7 @@ async function getBlockFromRollupTx(
     stateReference,
     header,
     body,
-    attestations: attestations.map(CommitteeAttestation.fromViem),
+    attestations,
   };
 }
 

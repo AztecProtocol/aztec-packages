@@ -51,7 +51,8 @@
     "./validation": "./dest/validation/index.js",
     "./promise": "./dest/promise/index.js",
     "./string": "./dest/string/index.js",
-    "./message": "./dest/message/index.js"
+    "./message": "./dest/message/index.js",
+    "./number": "./dest/number/index.js"
   },
   "scripts": {
     "build": "yarn clean && tsc -b",
@@ -103,7 +104,7 @@
   "dependencies": {
     "@aztec/bb.js": "portal:../../barretenberg/ts",
     "@koa/cors": "^5.0.0",
-    "@noble/curves": "^1.2.0",
+    "@noble/curves": "=1.2.0",
     "bn.js": "^5.2.1",
     "colorette": "^2.0.20",
     "detect-node": "^2.1.0",
