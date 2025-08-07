@@ -42,7 +42,7 @@ class PGInternalTest : public ProtogalaxyProverInternal<DeciderProvingKeys_<Flav
         const UnivariateRelationParametersNoOptimisticSkipping& relation_parameters,
         const UnivariateSubrelationSeparators& alphas)
     {
-        TupleOfTuplesOfUnivariatesNoOptimisticSkipping accumulators;
+        TupleOfTuplesOfUnivariatesNoOptimisticSkipping accumulators{};
         return compute_combiner_no_optimistic_skipping(
             keys, gate_separators, relation_parameters, alphas, accumulators);
     }
@@ -355,7 +355,8 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
             // Relation parameters are all zeroes
             RelationParameters<FF> relation_parameters;
             // Temporary accumulator to compute the sumcheck on the second key
-            typename Flavor::TupleOfArraysOfValues temporary_accumulator;
+            // Note: {} is required to initialize the tuple contents. Otherwise the values contain garbage.
+            typename Flavor::TupleOfArraysOfValues temporary_accumulator{};
 
             // Accumulate arithmetic relation over 2 rows on the second key
             for (size_t i = 0; i < 2; i++) {
@@ -390,8 +391,8 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
             std::array<FF, UNIVARIATE_LENGTH> precomputed_result{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
             // Compute the sum for each index separately, treating each extended key independently
             for (size_t idx = 0; idx < UNIVARIATE_LENGTH; idx++) {
-
-                typename Flavor::TupleOfArraysOfValues accumulator;
+                // Note: {} is required to initialize the tuple contents. Otherwise the values contain garbage.
+                typename Flavor::TupleOfArraysOfValues accumulator{};
                 if (idx < NUM_KEYS) {
                     for (size_t i = 0; i < 2; i++) {
                         UltraArithmeticRelation::accumulate(std::get<0>(accumulator),

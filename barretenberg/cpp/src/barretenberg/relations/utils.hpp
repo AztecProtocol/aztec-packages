@@ -155,7 +155,7 @@ template <typename Flavor> class RelationUtils {
                                                                       const Parameters& relation_parameters,
                                                                       const FF& partial_evaluation_result)
     {
-        RelationEvaluations result;
+        RelationEvaluations result{};
         constexpr_for<0, NUM_RELATIONS, 1>([&]<size_t rel_index>() {
             accumulate_single_relation<Parameters, rel_index>(
                 evaluations, result, relation_parameters, partial_evaluation_result);

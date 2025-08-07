@@ -419,7 +419,8 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                                                          const UnivariateRelationParameters& relation_parameters,
                                                          const UnivariateSubrelationSeparators& alphas)
     {
-        TupleOfTuplesOfUnivariates accumulators;
+        // Note: {} is required to initialize the tuple contents. Otherwise the univariates contain garbage.
+        TupleOfTuplesOfUnivariates accumulators{};
         return compute_combiner(keys, gate_separators, relation_parameters, alphas, accumulators);
     }
 
@@ -443,7 +444,8 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
             element = element_with_skipping.convert();
         };
 
-        TupleOfTuplesOfUnivariatesNoOptimisticSkipping result;
+        // Note: {} is required to initialize the tuple contents. Otherwise the univariates contain garbage.
+        TupleOfTuplesOfUnivariatesNoOptimisticSkipping result{};
         RelationUtils::template apply_to_tuple_of_tuples(result, deoptimise);
         return result;
     }
