@@ -9,6 +9,7 @@ import { createBlobArchiveClient } from '../archive/factory.js';
 import type { BlobArchiveClient } from '../archive/interface.js';
 import { outboundTransform } from '../encoding/index.js';
 import { BlobWithIndex } from '../types/blob_with_index.js';
+import { getBeaconNodeFetchOptions } from './beacon_api.js';
 import { type BlobSinkConfig, getBlobSinkConfigFromEnv } from './config.js';
 import type { BlobSinkClientInterface } from './interface.js';
 
@@ -71,11 +72,12 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
         const l1ConsensusHostUrl = l1ConsensusHostUrls[l1ConsensusHostIndex];
         try {
           const { url, ...options } = getBeaconNodeFetchOptions(
-            `${l1ConsensusHostUrl}/eth/v1/beacon/headers`,
+            l1ConsensusHostUrl,
+            'eth/v1/beacon/headers',
             this.config,
             l1ConsensusHostIndex,
           );
-          const res = await this.fetch(url, options);
+          const res = await this.fetch(url.href, options);
           if (res.ok) {
             this.log.info(`L1 consensus host is reachable`, { l1ConsensusHostUrl });
             successfulSourceCount++;
@@ -299,22 +301,26 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
     indices: number[],
     l1ConsensusHostIndex?: number,
   ): Promise<Response> {
-    let baseUrl = `${hostUrl}/eth/v1/beacon/blob_sidecars/${blockHashOrSlot}`;
+    let baseUrl = `eth/v1/beacon/blob_sidecars/${blockHashOrSlot}`;
     if (indices.length > 0) {
       baseUrl += `?indices=${indices.join(',')}`;
     }
 
-    const { url, ...options } = getBeaconNodeFetchOptions(baseUrl, this.config, l1ConsensusHostIndex);
+    const { url, ...options } = getBeaconNodeFetchOptions(hostUrl, baseUrl, this.config, l1ConsensusHostIndex);
     this.log.debug(`Fetching blob sidecar for ${blockHashOrSlot}`, { url, ...options });
-    return this.fetch(url, options);
+    return this.fetch(url.href, options);
   }
 
   private async getLatestSlotNumber(hostUrl: string, l1ConsensusHostIndex?: number): Promise<number | undefined> {
     try {
-      const baseUrl = `${hostUrl}/eth/v1/beacon/headers/head`;
-      const { url, ...options } = getBeaconNodeFetchOptions(baseUrl, this.config, l1ConsensusHostIndex);
+      const { url, ...options } = getBeaconNodeFetchOptions(
+        hostUrl,
+        'eth/v1/beacon/headers/head',
+        this.config,
+        l1ConsensusHostIndex,
+      );
       this.log.debug(`Fetching latest slot number`, { url, ...options });
-      const res = await this.fetch(url, options);
+      const res = await this.fetch(url.href, options);
       if (res.ok) {
         const body = await res.json();
         const slot = parseInt(body.data.header.message.slot);
@@ -385,11 +391,12 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
       l1ConsensusHostUrl = l1ConsensusHostUrls[l1ConsensusHostIndex];
       try {
         const { url, ...options } = getBeaconNodeFetchOptions(
+          l1ConsensusHostUrl,
           `${l1ConsensusHostUrl}/eth/v1/beacon/headers/${parentBeaconBlockRoot}`,
           this.config,
           l1ConsensusHostIndex,
         );
-        const res = await this.fetch(url, options);
+        const res = await this.fetch(url.href, options);
 
         if (res.ok) {
           const body = await res.json();
@@ -441,29 +448,4 @@ async function getRelevantBlobs(
   // Second map is async, so we need to await it, and filter out blobs that did not deserialise
   const maybeBlobs = await Promise.all(blobsPromise);
   return maybeBlobs.filter((b: BlobWithIndex | undefined): b is BlobWithIndex => b !== undefined);
-}
-
-function getBeaconNodeFetchOptions(url: string, config: BlobSinkConfig, l1ConsensusHostIndex?: number) {
-  const { l1ConsensusHostApiKeys, l1ConsensusHostApiKeyHeaders } = config;
-  const l1ConsensusHostApiKey =
-    l1ConsensusHostIndex !== undefined && l1ConsensusHostApiKeys && l1ConsensusHostApiKeys[l1ConsensusHostIndex];
-  const l1ConsensusHostApiKeyHeader =
-    l1ConsensusHostIndex !== undefined &&
-    l1ConsensusHostApiKeyHeaders &&
-    l1ConsensusHostApiKeyHeaders[l1ConsensusHostIndex];
-
-  let formattedUrl = url;
-  if (l1ConsensusHostApiKey && !l1ConsensusHostApiKeyHeader) {
-    formattedUrl += `${formattedUrl.includes('?') ? '&' : '?'}key=${l1ConsensusHostApiKey.getValue()}`;
-  }
-
-  return {
-    url: formattedUrl,
-    ...(l1ConsensusHostApiKey &&
-      l1ConsensusHostApiKeyHeader && {
-        headers: {
-          [l1ConsensusHostApiKeyHeader]: l1ConsensusHostApiKey.getValue(),
-        },
-      }),
-  };
 }
