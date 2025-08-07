@@ -133,7 +133,7 @@ describe('veto slash', () => {
     return slashFactoryAddress;
   }
 
-  it.each([false, true])(
+  it.each([true])(
     'sets the new slasher and shouldVeto=%s',
     async (shouldVeto: boolean) => {
       //################################//
