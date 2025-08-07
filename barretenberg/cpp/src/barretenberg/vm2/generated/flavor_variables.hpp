@@ -127,7 +127,150 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 131;
+<<<<<<< HEAD
     static constexpr size_t NUM_WITNESS_ENTITIES = 2755;
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2681;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 300;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+<<<<<<< HEAD
+    static constexpr size_t NUM_ALL_ENTITIES = 3112;
+=======
+<<<<<<< HEAD
+    static constexpr size_t NUM_ALL_ENTITIES = 3111;
+=======
+    static constexpr size_t NUM_ALL_ENTITIES = 3102;
+=======
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 126;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2732;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 293;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+<<<<<<< HEAD
+    static constexpr size_t NUM_ALL_ENTITIES = 3071;
+=======
+=======
+>>>>>>> 099710dbcc (feat: happy path working)
+=======
+>>>>>>> f9ba70507c (wip)
+=======
+>>>>>>> 02eb9e9f6c (feat: initial tests)
+<<<<<<< HEAD
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2656;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 287;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 3069;
+=======
+=======
+>>>>>>> c51f9cc720 (feat: happy path working)
+=======
+>>>>>>> 9c49ea15b2 (wip)
+<<<<<<< HEAD
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2649;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 274;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 3049;
+=======
+=======
+>>>>>>> 117933a04d (feat: happy path working)
+=======
+>>>>>>> 4072f93e1f (wip)
+<<<<<<< HEAD
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2640;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 274;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 3040;
+=======
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2659;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 261;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 3046;
+>>>>>>> db25bd772e (feat!(avm): mem aware and err handling sha256)
+<<<<<<< HEAD
+>>>>>>> 7fb3d9ba15 (feat!(avm): mem aware and err handling sha256)
+<<<<<<< HEAD
+>>>>>>> 2d1cb79a43 (feat!(avm): mem aware and err handling sha256)
+<<<<<<< HEAD
+>>>>>>> f18b5163ac (feat!(avm): mem aware and err handling sha256)
+<<<<<<< HEAD
+>>>>>>> 960a085475 (feat!(avm): mem aware and err handling sha256)
+<<<<<<< HEAD
+>>>>>>> 02c6294445 (feat!(avm): mem aware and err handling sha256)
+<<<<<<< HEAD
+>>>>>>> 0fde829ef8 (feat!(avm): mem aware and err handling sha256)
+=======
+=======
+=======
+=======
+=======
+=======
+=======
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2660;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 265;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 3051;
+>>>>>>> 1fbcb75b2a (feat: happy path working)
+<<<<<<< HEAD
+>>>>>>> 117933a04d (feat: happy path working)
+<<<<<<< HEAD
+>>>>>>> c51f9cc720 (feat: happy path working)
+<<<<<<< HEAD
+>>>>>>> 099710dbcc (feat: happy path working)
+<<<<<<< HEAD
+>>>>>>> 0c57832299 (feat: happy path working)
+<<<<<<< HEAD
+>>>>>>> 7e705a8f3b (feat: happy path working)
+<<<<<<< HEAD
+>>>>>>> 87a30aa748 (feat: happy path working)
+=======
+=======
+=======
+=======
+=======
+=======
+=======
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2659;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 265;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 3050;
+>>>>>>> c86f6277a8 (wip)
+>>>>>>> 4072f93e1f (wip)
+>>>>>>> 9c49ea15b2 (wip)
+<<<<<<< HEAD
+>>>>>>> f9ba70507c (wip)
+<<<<<<< HEAD
+>>>>>>> c65ce9d828 (wip)
+<<<<<<< HEAD
+>>>>>>> d893820a78 (wip)
+<<<<<<< HEAD
+>>>>>>> dc711d4766 (wip)
+=======
+=======
+=======
+=======
+=======
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2722;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 280;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 3128;
+>>>>>>> 2a8ba6aa19 (feat: initial tests)
+>>>>>>> 02eb9e9f6c (feat: initial tests)
+>>>>>>> 130bc3f5d9 (feat: initial tests)
+<<<<<<< HEAD
+>>>>>>> ee2622e306 (feat: initial tests)
+<<<<<<< HEAD
+>>>>>>> 1a79d47002 (feat: initial tests)
+=======
+=======
+=======
+    static constexpr size_t NUM_ALL_ENTITIES = 3151;
+>>>>>>> c51cb2e260 (adjust latch)
+>>>>>>> fce373acdc (adjust latch)
+>>>>>>> b04ee54c25 (adjust latch)
+=======
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2754;
+>>>>>>> ec424959a5 (fix: add range checks)
     static constexpr size_t NUM_SHIFTED_ENTITIES = 306;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
 <<<<<<< HEAD
@@ -265,7 +408,16 @@ struct AvmFlavorVariables {
 >>>>>>> b9cffc96be (feat(avm)!: enable sha bitwise lookups)
 >>>>>>> e3daf17b55 (feat(avm)!: enable sha bitwise lookups)
 >>>>>>> e5e77f6ad4 (feat(avm)!: enable sha bitwise lookups)
+<<<<<<< HEAD
 >>>>>>> 681e2e44b3 (feat(avm)!: enable sha bitwise lookups)
+=======
+=======
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2822;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 306;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 3259;
+>>>>>>> 847ba0e8e3 (fix: add range checks)
+>>>>>>> ec424959a5 (fix: add range checks)
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -663,6 +815,18 @@ struct AvmFlavorVariables {
         lookup_sha256_mem_mem_op_5_relation<FF_>,
         lookup_sha256_mem_mem_op_6_relation<FF_>,
         lookup_sha256_mem_mem_op_7_relation<FF_>,
+        lookup_sha256_range_rhs_a_13_relation<FF_>,
+        lookup_sha256_range_rhs_a_2_relation<FF_>,
+        lookup_sha256_range_rhs_a_22_relation<FF_>,
+        lookup_sha256_range_rhs_e_11_relation<FF_>,
+        lookup_sha256_range_rhs_e_25_relation<FF_>,
+        lookup_sha256_range_rhs_e_6_relation<FF_>,
+        lookup_sha256_range_rhs_w_10_relation<FF_>,
+        lookup_sha256_range_rhs_w_17_relation<FF_>,
+        lookup_sha256_range_rhs_w_18_relation<FF_>,
+        lookup_sha256_range_rhs_w_19_relation<FF_>,
+        lookup_sha256_range_rhs_w_3_relation<FF_>,
+        lookup_sha256_range_rhs_w_7_relation<FF_>,
         lookup_sha256_round_constant_relation<FF_>,
         lookup_sha256_s_0_xor_0_relation<FF_>,
         lookup_sha256_s_0_xor_1_relation<FF_>,

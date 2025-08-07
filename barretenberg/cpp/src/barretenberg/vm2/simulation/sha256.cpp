@@ -24,22 +24,31 @@ constexpr std::array<uint32_t, 64> round_constants{
     0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
 };
 
-// Don't worry about any weird edge cases since we have fixed non-zero shifts
-MemoryValue ror(MemoryValue x, uint32_t shift)
-{
-    auto val = x.as<uint32_t>();
-    uint32_t result = (val >> (shift & 31U)) | (val << (32U - (shift & 31U)));
-    return MemoryValue::from<uint32_t>(result);
-}
-
-MemoryValue shr(MemoryValue x, uint32_t shift)
-{
-    auto val = x.as<uint32_t>();
-    uint32_t result = val >> (shift & 31U);
-    return MemoryValue::from<uint32_t>(result);
-}
-
 } // namespace
+
+// Don't worry about any weird edge cases since we have fixed non-zero shifts
+MemoryValue Sha256::ror(MemoryValue x, uint32_t shift)
+{
+    auto val = x.as<uint32_t>();
+    // In a rotation, we decompose into a lhs and rhs (or hi and lo) part.
+    uint32_t lo = val & ((1U << shift) - 1);
+    uint32_t hi = val >> shift;
+    uint32_t result = lo << (32U - (shift & 31U)) | hi;
+    assert(gt.gt(1 << shift, lo) && "Low Value in ROR out of range");
+    return MemoryValue::from<uint32_t>(result);
+}
+
+// Don't need to worry about edge cases with shifts since we know we only shift by 3 and 10 for sha256
+MemoryValue Sha256::shr(MemoryValue x, uint32_t shift)
+{
+    uint32_t input = x.as<uint32_t>();
+    // Get the lower shift bits
+    uint32_t lo = input & ((1U << shift) - 1);
+    uint32_t hi = input >> shift;
+    assert(gt.gt(1 << shift, lo) && "Low Value in SHR out of range");
+
+    return MemoryValue::from<uint32_t>(hi);
+}
 
 void Sha256::compression(MemoryInterface& memory,
                          MemoryAddress state_addr,

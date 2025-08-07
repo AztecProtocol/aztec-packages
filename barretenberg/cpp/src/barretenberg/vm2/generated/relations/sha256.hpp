@@ -14,10 +14,10 @@ template <typename FF_> class sha256Impl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 76> SUBRELATION_PARTIAL_LENGTHS = {
-        3, 2, 4, 3, 4, 6, 5, 5, 5, 5, 5, 5, 5, 5, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 5, 5, 5, 5, 5, 5, 5
+    static constexpr std::array<size_t, 88> SUBRELATION_PARTIAL_LENGTHS = {
+        3, 2, 4, 3, 4, 6, 5, 5, 5, 5, 5, 5, 5, 5, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 5, 5, 5, 5, 5, 5, 5
     };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -298,54 +298,48 @@ template <typename FF_> class sha256Impl {
         }
         {
             using Accumulator = typename std::tuple_element_t<35, ContainerOverSubrelations>;
-            auto tmp =
-                in.get(C::sha256_sel_compute_w) *
-                (in.get(C::sha256_helper_w1) - (in.get(C::sha256_lhs_w_18) * FF(262144) + in.get(C::sha256_rhs_w_18)));
+            auto tmp = in.get(C::sha256_sel_compute_w) * (in.get(C::sha256_two_pow_7) - FF(128));
             tmp *= scaling_factor;
             std::get<35>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<36, ContainerOverSubrelations>;
-            auto tmp = in.get(C::sha256_sel_compute_w) *
-                       (in.get(C::sha256_w_15_rotr_18) -
-                        (in.get(C::sha256_rhs_w_18) * FF(16384) + in.get(C::sha256_lhs_w_18)));
+            auto tmp =
+                in.get(C::sha256_sel_compute_w) *
+                (in.get(C::sha256_helper_w1) - (in.get(C::sha256_lhs_w_18) * FF(262144) + in.get(C::sha256_rhs_w_18)));
             tmp *= scaling_factor;
             std::get<36>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<37, ContainerOverSubrelations>;
             auto tmp = in.get(C::sha256_sel_compute_w) *
-                       (in.get(C::sha256_helper_w1) - (in.get(C::sha256_lhs_w_3) * FF(8) + in.get(C::sha256_rhs_w_3)));
+                       (in.get(C::sha256_w_15_rotr_18) -
+                        (in.get(C::sha256_rhs_w_18) * FF(16384) + in.get(C::sha256_lhs_w_18)));
             tmp *= scaling_factor;
             std::get<37>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<38, ContainerOverSubrelations>;
-            auto tmp = in.get(C::sha256_sel_compute_w) * (in.get(C::sha256_w_15_rshift_3) - in.get(C::sha256_lhs_w_3));
+            auto tmp = in.get(C::sha256_sel_compute_w) * (in.get(C::sha256_two_pow_18) - FF(262144));
             tmp *= scaling_factor;
             std::get<38>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<39, ContainerOverSubrelations>;
-            auto tmp =
-                in.get(C::sha256_sel_compute_w) *
-                (in.get(C::sha256_helper_w14) - (in.get(C::sha256_lhs_w_17) * FF(131072) + in.get(C::sha256_rhs_w_17)));
+            auto tmp = in.get(C::sha256_sel_compute_w) *
+                       (in.get(C::sha256_helper_w1) - (in.get(C::sha256_lhs_w_3) * FF(8) + in.get(C::sha256_rhs_w_3)));
             tmp *= scaling_factor;
             std::get<39>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<40, ContainerOverSubrelations>;
-            auto tmp =
-                in.get(C::sha256_sel_compute_w) *
-                (in.get(C::sha256_w_2_rotr_17) - (in.get(C::sha256_rhs_w_17) * FF(32768) + in.get(C::sha256_lhs_w_17)));
+            auto tmp = in.get(C::sha256_sel_compute_w) * (in.get(C::sha256_w_15_rshift_3) - in.get(C::sha256_lhs_w_3));
             tmp *= scaling_factor;
             std::get<40>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<41, ContainerOverSubrelations>;
-            auto tmp =
-                in.get(C::sha256_sel_compute_w) *
-                (in.get(C::sha256_helper_w14) - (in.get(C::sha256_lhs_w_19) * FF(524288) + in.get(C::sha256_rhs_w_19)));
+            auto tmp = in.get(C::sha256_sel_compute_w) * (in.get(C::sha256_two_pow_3) - FF(8));
             tmp *= scaling_factor;
             std::get<41>(evals) += typename Accumulator::View(tmp);
         }
@@ -353,7 +347,7 @@ template <typename FF_> class sha256Impl {
             using Accumulator = typename std::tuple_element_t<42, ContainerOverSubrelations>;
             auto tmp =
                 in.get(C::sha256_sel_compute_w) *
-                (in.get(C::sha256_w_2_rotr_19) - (in.get(C::sha256_rhs_w_19) * FF(8192) + in.get(C::sha256_lhs_w_19)));
+                (in.get(C::sha256_helper_w14) - (in.get(C::sha256_lhs_w_17) * FF(131072) + in.get(C::sha256_rhs_w_17)));
             tmp *= scaling_factor;
             std::get<42>(evals) += typename Accumulator::View(tmp);
         }
@@ -361,87 +355,83 @@ template <typename FF_> class sha256Impl {
             using Accumulator = typename std::tuple_element_t<43, ContainerOverSubrelations>;
             auto tmp =
                 in.get(C::sha256_sel_compute_w) *
-                (in.get(C::sha256_helper_w14) - (in.get(C::sha256_lhs_w_10) * FF(1024) + in.get(C::sha256_rhs_w_10)));
+                (in.get(C::sha256_w_2_rotr_17) - (in.get(C::sha256_rhs_w_17) * FF(32768) + in.get(C::sha256_lhs_w_17)));
             tmp *= scaling_factor;
             std::get<43>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<44, ContainerOverSubrelations>;
-            auto tmp = in.get(C::sha256_sel_compute_w) * (in.get(C::sha256_w_2_rshift_10) - in.get(C::sha256_lhs_w_10));
+            auto tmp = in.get(C::sha256_sel_compute_w) * (in.get(C::sha256_two_pow_17) - FF(131072));
             tmp *= scaling_factor;
             std::get<44>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<45, ContainerOverSubrelations>;
-            auto tmp = in.get(C::sha256_perform_round) *
-                       (in.get(C::sha256_e) - (in.get(C::sha256_lhs_e_6) * FF(64) + in.get(C::sha256_rhs_e_6)));
+            auto tmp =
+                in.get(C::sha256_sel_compute_w) *
+                (in.get(C::sha256_helper_w14) - (in.get(C::sha256_lhs_w_19) * FF(524288) + in.get(C::sha256_rhs_w_19)));
             tmp *= scaling_factor;
             std::get<45>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<46, ContainerOverSubrelations>;
             auto tmp =
-                in.get(C::sha256_perform_round) *
-                (in.get(C::sha256_e_rotr_6) - (in.get(C::sha256_rhs_e_6) * FF(67108864) + in.get(C::sha256_lhs_e_6)));
+                in.get(C::sha256_sel_compute_w) *
+                (in.get(C::sha256_w_2_rotr_19) - (in.get(C::sha256_rhs_w_19) * FF(8192) + in.get(C::sha256_lhs_w_19)));
             tmp *= scaling_factor;
             std::get<46>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<47, ContainerOverSubrelations>;
-            auto tmp = in.get(C::sha256_perform_round) *
-                       (in.get(C::sha256_e) - (in.get(C::sha256_lhs_e_11) * FF(2048) + in.get(C::sha256_rhs_e_11)));
+            auto tmp = in.get(C::sha256_sel_compute_w) * (in.get(C::sha256_two_pow_19) - FF(524288));
             tmp *= scaling_factor;
             std::get<47>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<48, ContainerOverSubrelations>;
             auto tmp =
-                in.get(C::sha256_perform_round) *
-                (in.get(C::sha256_e_rotr_11) - (in.get(C::sha256_rhs_e_11) * FF(2097152) + in.get(C::sha256_lhs_e_11)));
+                in.get(C::sha256_sel_compute_w) *
+                (in.get(C::sha256_helper_w14) - (in.get(C::sha256_lhs_w_10) * FF(1024) + in.get(C::sha256_rhs_w_10)));
             tmp *= scaling_factor;
             std::get<48>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<49, ContainerOverSubrelations>;
-            auto tmp = in.get(C::sha256_perform_round) *
-                       (in.get(C::sha256_e) - (in.get(C::sha256_lhs_e_25) * FF(33554432) + in.get(C::sha256_rhs_e_25)));
+            auto tmp = in.get(C::sha256_sel_compute_w) * (in.get(C::sha256_w_2_rshift_10) - in.get(C::sha256_lhs_w_10));
             tmp *= scaling_factor;
             std::get<49>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<50, ContainerOverSubrelations>;
-            auto tmp =
-                in.get(C::sha256_perform_round) *
-                (in.get(C::sha256_e_rotr_25) - (in.get(C::sha256_rhs_e_25) * FF(128) + in.get(C::sha256_lhs_e_25)));
+            auto tmp = in.get(C::sha256_sel_compute_w) * (in.get(C::sha256_two_pow_10) - FF(1024));
             tmp *= scaling_factor;
             std::get<50>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<51, ContainerOverSubrelations>;
-            auto tmp =
-                in.get(C::sha256_perform_round) * ((in.get(C::sha256_e) + in.get(C::sha256_not_e)) - FF(4294967295UL));
+            auto tmp = in.get(C::sha256_perform_round) *
+                       (in.get(C::sha256_e) - (in.get(C::sha256_lhs_e_6) * FF(64) + in.get(C::sha256_rhs_e_6)));
             tmp *= scaling_factor;
             std::get<51>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<52, ContainerOverSubrelations>;
-            auto tmp = in.get(C::sha256_perform_round) *
-                       (in.get(C::sha256_a) - (in.get(C::sha256_lhs_a_2) * FF(4) + in.get(C::sha256_rhs_a_2)));
+            auto tmp =
+                in.get(C::sha256_perform_round) *
+                (in.get(C::sha256_e_rotr_6) - (in.get(C::sha256_rhs_e_6) * FF(67108864) + in.get(C::sha256_lhs_e_6)));
             tmp *= scaling_factor;
             std::get<52>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<53, ContainerOverSubrelations>;
-            auto tmp =
-                in.get(C::sha256_perform_round) *
-                (in.get(C::sha256_a_rotr_2) - (in.get(C::sha256_rhs_a_2) * FF(1073741824) + in.get(C::sha256_lhs_a_2)));
+            auto tmp = in.get(C::sha256_perform_round) * (in.get(C::sha256_two_pow_6) - FF(64));
             tmp *= scaling_factor;
             std::get<53>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<54, ContainerOverSubrelations>;
             auto tmp = in.get(C::sha256_perform_round) *
-                       (in.get(C::sha256_a) - (in.get(C::sha256_lhs_a_13) * FF(8192) + in.get(C::sha256_rhs_a_13)));
+                       (in.get(C::sha256_e) - (in.get(C::sha256_lhs_e_11) * FF(2048) + in.get(C::sha256_rhs_e_11)));
             tmp *= scaling_factor;
             std::get<54>(evals) += typename Accumulator::View(tmp);
         }
@@ -449,22 +439,20 @@ template <typename FF_> class sha256Impl {
             using Accumulator = typename std::tuple_element_t<55, ContainerOverSubrelations>;
             auto tmp =
                 in.get(C::sha256_perform_round) *
-                (in.get(C::sha256_a_rotr_13) - (in.get(C::sha256_rhs_a_13) * FF(524288) + in.get(C::sha256_lhs_a_13)));
+                (in.get(C::sha256_e_rotr_11) - (in.get(C::sha256_rhs_e_11) * FF(2097152) + in.get(C::sha256_lhs_e_11)));
             tmp *= scaling_factor;
             std::get<55>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<56, ContainerOverSubrelations>;
-            auto tmp = in.get(C::sha256_perform_round) *
-                       (in.get(C::sha256_a) - (in.get(C::sha256_lhs_a_22) * FF(4194304) + in.get(C::sha256_rhs_a_22)));
+            auto tmp = in.get(C::sha256_perform_round) * (in.get(C::sha256_two_pow_11) - FF(2048));
             tmp *= scaling_factor;
             std::get<56>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<57, ContainerOverSubrelations>;
-            auto tmp =
-                in.get(C::sha256_perform_round) *
-                (in.get(C::sha256_a_rotr_22) - (in.get(C::sha256_rhs_a_22) * FF(1024) + in.get(C::sha256_lhs_a_22)));
+            auto tmp = in.get(C::sha256_perform_round) *
+                       (in.get(C::sha256_e) - (in.get(C::sha256_lhs_e_25) * FF(33554432) + in.get(C::sha256_rhs_e_25)));
             tmp *= scaling_factor;
             std::get<57>(evals) += typename Accumulator::View(tmp);
         }
@@ -472,129 +460,213 @@ template <typename FF_> class sha256Impl {
             using Accumulator = typename std::tuple_element_t<58, ContainerOverSubrelations>;
             auto tmp =
                 in.get(C::sha256_perform_round) *
-                ((in.get(C::sha256_next_a_lhs) * FF(4294967296UL) + in.get(C::sha256_next_a_rhs)) - sha256_NEXT_A);
+                (in.get(C::sha256_e_rotr_25) - (in.get(C::sha256_rhs_e_25) * FF(128) + in.get(C::sha256_lhs_e_25)));
             tmp *= scaling_factor;
             std::get<58>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<59, ContainerOverSubrelations>;
-            auto tmp =
-                in.get(C::sha256_perform_round) *
-                ((in.get(C::sha256_next_e_lhs) * FF(4294967296UL) + in.get(C::sha256_next_e_rhs)) - sha256_NEXT_E);
+            auto tmp = in.get(C::sha256_perform_round) * (in.get(C::sha256_two_pow_25) - FF(33554432));
             tmp *= scaling_factor;
             std::get<59>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<60, ContainerOverSubrelations>;
-            auto tmp = in.get(C::sha256_perform_round) * (in.get(C::sha256_a_shift) - in.get(C::sha256_next_a_rhs));
+            auto tmp =
+                in.get(C::sha256_perform_round) * ((in.get(C::sha256_e) + in.get(C::sha256_not_e)) - FF(4294967295UL));
             tmp *= scaling_factor;
             std::get<60>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<61, ContainerOverSubrelations>;
-            auto tmp = in.get(C::sha256_perform_round) * (in.get(C::sha256_b_shift) - in.get(C::sha256_a));
+            auto tmp = in.get(C::sha256_perform_round) *
+                       (in.get(C::sha256_a) - (in.get(C::sha256_lhs_a_2) * FF(4) + in.get(C::sha256_rhs_a_2)));
             tmp *= scaling_factor;
             std::get<61>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<62, ContainerOverSubrelations>;
-            auto tmp = in.get(C::sha256_perform_round) * (in.get(C::sha256_c_shift) - in.get(C::sha256_b));
+            auto tmp =
+                in.get(C::sha256_perform_round) *
+                (in.get(C::sha256_a_rotr_2) - (in.get(C::sha256_rhs_a_2) * FF(1073741824) + in.get(C::sha256_lhs_a_2)));
             tmp *= scaling_factor;
             std::get<62>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<63, ContainerOverSubrelations>;
-            auto tmp = in.get(C::sha256_perform_round) * (in.get(C::sha256_d_shift) - in.get(C::sha256_c));
+            auto tmp = in.get(C::sha256_perform_round) * (in.get(C::sha256_two_pow_2) - FF(4));
             tmp *= scaling_factor;
             std::get<63>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<64, ContainerOverSubrelations>;
-            auto tmp = in.get(C::sha256_perform_round) * (in.get(C::sha256_e_shift) - in.get(C::sha256_next_e_rhs));
+            auto tmp = in.get(C::sha256_perform_round) *
+                       (in.get(C::sha256_a) - (in.get(C::sha256_lhs_a_13) * FF(8192) + in.get(C::sha256_rhs_a_13)));
             tmp *= scaling_factor;
             std::get<64>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<65, ContainerOverSubrelations>;
-            auto tmp = in.get(C::sha256_perform_round) * (in.get(C::sha256_f_shift) - in.get(C::sha256_e));
+            auto tmp =
+                in.get(C::sha256_perform_round) *
+                (in.get(C::sha256_a_rotr_13) - (in.get(C::sha256_rhs_a_13) * FF(524288) + in.get(C::sha256_lhs_a_13)));
             tmp *= scaling_factor;
             std::get<65>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<66, ContainerOverSubrelations>;
-            auto tmp = in.get(C::sha256_perform_round) * (in.get(C::sha256_g_shift) - in.get(C::sha256_f));
+            auto tmp = in.get(C::sha256_perform_round) * (in.get(C::sha256_two_pow_13) - FF(8192));
             tmp *= scaling_factor;
             std::get<66>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<67, ContainerOverSubrelations>;
-            auto tmp = in.get(C::sha256_perform_round) * (in.get(C::sha256_h_shift) - in.get(C::sha256_g));
+            auto tmp = in.get(C::sha256_perform_round) *
+                       (in.get(C::sha256_a) - (in.get(C::sha256_lhs_a_22) * FF(4194304) + in.get(C::sha256_rhs_a_22)));
             tmp *= scaling_factor;
             std::get<67>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<68, ContainerOverSubrelations>;
             auto tmp =
-                sha256_LAST *
-                (sha256_OUT_A - (in.get(C::sha256_output_a_lhs) * FF(4294967296UL) + in.get(C::sha256_output_a_rhs)));
+                in.get(C::sha256_perform_round) *
+                (in.get(C::sha256_a_rotr_22) - (in.get(C::sha256_rhs_a_22) * FF(1024) + in.get(C::sha256_lhs_a_22)));
             tmp *= scaling_factor;
             std::get<68>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<69, ContainerOverSubrelations>;
-            auto tmp =
-                sha256_LAST *
-                (sha256_OUT_B - (in.get(C::sha256_output_b_lhs) * FF(4294967296UL) + in.get(C::sha256_output_b_rhs)));
+            auto tmp = in.get(C::sha256_perform_round) * (in.get(C::sha256_two_pow_22) - FF(4194304));
             tmp *= scaling_factor;
             std::get<69>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<70, ContainerOverSubrelations>;
             auto tmp =
-                sha256_LAST *
-                (sha256_OUT_C - (in.get(C::sha256_output_c_lhs) * FF(4294967296UL) + in.get(C::sha256_output_c_rhs)));
+                in.get(C::sha256_perform_round) *
+                ((in.get(C::sha256_next_a_lhs) * FF(4294967296UL) + in.get(C::sha256_next_a_rhs)) - sha256_NEXT_A);
             tmp *= scaling_factor;
             std::get<70>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<71, ContainerOverSubrelations>;
             auto tmp =
-                sha256_LAST *
-                (sha256_OUT_D - (in.get(C::sha256_output_d_lhs) * FF(4294967296UL) + in.get(C::sha256_output_d_rhs)));
+                in.get(C::sha256_perform_round) *
+                ((in.get(C::sha256_next_e_lhs) * FF(4294967296UL) + in.get(C::sha256_next_e_rhs)) - sha256_NEXT_E);
             tmp *= scaling_factor;
             std::get<71>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<72, ContainerOverSubrelations>;
-            auto tmp =
-                sha256_LAST *
-                (sha256_OUT_E - (in.get(C::sha256_output_e_lhs) * FF(4294967296UL) + in.get(C::sha256_output_e_rhs)));
+            auto tmp = in.get(C::sha256_perform_round) * (in.get(C::sha256_a_shift) - in.get(C::sha256_next_a_rhs));
             tmp *= scaling_factor;
             std::get<72>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<73, ContainerOverSubrelations>;
-            auto tmp =
-                sha256_LAST *
-                (sha256_OUT_F - (in.get(C::sha256_output_f_lhs) * FF(4294967296UL) + in.get(C::sha256_output_f_rhs)));
+            auto tmp = in.get(C::sha256_perform_round) * (in.get(C::sha256_b_shift) - in.get(C::sha256_a));
             tmp *= scaling_factor;
             std::get<73>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<74, ContainerOverSubrelations>;
-            auto tmp =
-                sha256_LAST *
-                (sha256_OUT_G - (in.get(C::sha256_output_g_lhs) * FF(4294967296UL) + in.get(C::sha256_output_g_rhs)));
+            auto tmp = in.get(C::sha256_perform_round) * (in.get(C::sha256_c_shift) - in.get(C::sha256_b));
             tmp *= scaling_factor;
             std::get<74>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<75, ContainerOverSubrelations>;
+            auto tmp = in.get(C::sha256_perform_round) * (in.get(C::sha256_d_shift) - in.get(C::sha256_c));
+            tmp *= scaling_factor;
+            std::get<75>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<76, ContainerOverSubrelations>;
+            auto tmp = in.get(C::sha256_perform_round) * (in.get(C::sha256_e_shift) - in.get(C::sha256_next_e_rhs));
+            tmp *= scaling_factor;
+            std::get<76>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<77, ContainerOverSubrelations>;
+            auto tmp = in.get(C::sha256_perform_round) * (in.get(C::sha256_f_shift) - in.get(C::sha256_e));
+            tmp *= scaling_factor;
+            std::get<77>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<78, ContainerOverSubrelations>;
+            auto tmp = in.get(C::sha256_perform_round) * (in.get(C::sha256_g_shift) - in.get(C::sha256_f));
+            tmp *= scaling_factor;
+            std::get<78>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<79, ContainerOverSubrelations>;
+            auto tmp = in.get(C::sha256_perform_round) * (in.get(C::sha256_h_shift) - in.get(C::sha256_g));
+            tmp *= scaling_factor;
+            std::get<79>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<80, ContainerOverSubrelations>;
+            auto tmp =
+                sha256_LAST *
+                (sha256_OUT_A - (in.get(C::sha256_output_a_lhs) * FF(4294967296UL) + in.get(C::sha256_output_a_rhs)));
+            tmp *= scaling_factor;
+            std::get<80>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<81, ContainerOverSubrelations>;
+            auto tmp =
+                sha256_LAST *
+                (sha256_OUT_B - (in.get(C::sha256_output_b_lhs) * FF(4294967296UL) + in.get(C::sha256_output_b_rhs)));
+            tmp *= scaling_factor;
+            std::get<81>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<82, ContainerOverSubrelations>;
+            auto tmp =
+                sha256_LAST *
+                (sha256_OUT_C - (in.get(C::sha256_output_c_lhs) * FF(4294967296UL) + in.get(C::sha256_output_c_rhs)));
+            tmp *= scaling_factor;
+            std::get<82>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<83, ContainerOverSubrelations>;
+            auto tmp =
+                sha256_LAST *
+                (sha256_OUT_D - (in.get(C::sha256_output_d_lhs) * FF(4294967296UL) + in.get(C::sha256_output_d_rhs)));
+            tmp *= scaling_factor;
+            std::get<83>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<84, ContainerOverSubrelations>;
+            auto tmp =
+                sha256_LAST *
+                (sha256_OUT_E - (in.get(C::sha256_output_e_lhs) * FF(4294967296UL) + in.get(C::sha256_output_e_rhs)));
+            tmp *= scaling_factor;
+            std::get<84>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<85, ContainerOverSubrelations>;
+            auto tmp =
+                sha256_LAST *
+                (sha256_OUT_F - (in.get(C::sha256_output_f_lhs) * FF(4294967296UL) + in.get(C::sha256_output_f_rhs)));
+            tmp *= scaling_factor;
+            std::get<85>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<86, ContainerOverSubrelations>;
+            auto tmp =
+                sha256_LAST *
+                (sha256_OUT_G - (in.get(C::sha256_output_g_lhs) * FF(4294967296UL) + in.get(C::sha256_output_g_rhs)));
+            tmp *= scaling_factor;
+            std::get<86>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<87, ContainerOverSubrelations>;
             auto tmp =
                 sha256_LAST *
                 (sha256_OUT_H - (in.get(C::sha256_output_h_lhs) * FF(4294967296UL) + in.get(C::sha256_output_h_rhs)));
             tmp *= scaling_factor;
-            std::get<75>(evals) += typename Accumulator::View(tmp);
+            std::get<87>(evals) += typename Accumulator::View(tmp);
         }
     }
 };

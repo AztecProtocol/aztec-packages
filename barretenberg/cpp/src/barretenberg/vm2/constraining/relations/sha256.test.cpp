@@ -113,8 +113,14 @@ TEST(Sha256ConstrainingTest, Interaction)
     StrictMock<MockExecutionIdManager> execution_id_manager;
     EXPECT_CALL(execution_id_manager, get_execution_id()).WillRepeatedly(Return(1));
     EventEmitter<BitwiseEvent> bitwise_event_emitter;
+    EventEmitter<GreaterThanEvent> gt_event_emitter;
+    EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
+    EventEmitter<RangeCheckEvent> range_check_event_emitter;
 
-    FakeGreaterThan gt;
+    RangeCheck range_check(range_check_event_emitter);
+    FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
+    GreaterThan gt(field_gt, range_check, gt_event_emitter);
+
     Bitwise bitwise(bitwise_event_emitter);
 
     EventEmitter<Sha256CompressionEvent> sha256_event_emitter;
@@ -145,7 +151,11 @@ TEST(Sha256ConstrainingTest, Interaction)
     BitwiseTraceBuilder bitwise_builder;
     bitwise_builder.process(bitwise_event_emitter.dump_events(), trace);
 
+    GreaterThanTraceBuilder gt_builder;
+    gt_builder.process(gt_event_emitter.dump_events(), trace);
+
     builder.process(sha256_event_emitter.get_events(), trace);
+
     // Check bitwise and round constant lookups
     check_interaction<Sha256TraceBuilder,
                       lookup_sha256_round_constant_settings,
@@ -164,7 +174,19 @@ TEST(Sha256ConstrainingTest, Interaction)
                       lookup_sha256_maj_and_1_settings,
                       lookup_sha256_maj_and_2_settings,
                       lookup_sha256_maj_xor_0_settings,
-                      lookup_sha256_maj_xor_1_settings>(trace);
+                      lookup_sha256_maj_xor_1_settings,
+                      lookup_sha256_range_rhs_w_7_settings,
+                      lookup_sha256_range_rhs_w_18_settings,
+                      lookup_sha256_range_rhs_w_3_settings,
+                      lookup_sha256_range_rhs_w_17_settings,
+                      lookup_sha256_range_rhs_w_19_settings,
+                      lookup_sha256_range_rhs_w_10_settings,
+                      lookup_sha256_range_rhs_e_6_settings,
+                      lookup_sha256_range_rhs_e_11_settings,
+                      lookup_sha256_range_rhs_e_25_settings,
+                      lookup_sha256_range_rhs_a_2_settings,
+                      lookup_sha256_range_rhs_a_13_settings,
+                      lookup_sha256_range_rhs_a_22_settings>(trace);
 
     check_relation<sha256>(trace);
 }

@@ -121,12 +121,15 @@ uint32_t Sha256TraceBuilder::compute_w_with_witness(const std::array<uint32_t, 1
     // Compute ror(w[i - 15], 7)
     uint32_t rot_7 =
         ror_with_witness(prev_w_helpers[1], 7, C::sha256_w_15_rotr_7, C::sha256_lhs_w_7, C::sha256_rhs_w_7, trace);
+    trace.set(C::sha256_two_pow_7, row, 128); // Store 2^7 for reference
     // Compute ror(w[i - 15], 18)
     uint32_t rot_18 =
         ror_with_witness(prev_w_helpers[1], 18, C::sha256_w_15_rotr_18, C::sha256_lhs_w_18, C::sha256_rhs_w_18, trace);
+    trace.set(C::sha256_two_pow_18, row, 262144); // Store 2^18 for reference
     // Compute (w[i - 15] >> 3)
     uint32_t shift_3 =
         shr_with_witness(prev_w_helpers[1], 3, C::sha256_w_15_rshift_3, C::sha256_lhs_w_3, C::sha256_rhs_w_3, trace);
+    trace.set(C::sha256_two_pow_3, row, 8); // Store 2^3 for reference
 
     // Compute ror(w[i - 15], 7) ^ ror(w[i - 15], 18)
     trace.set(C::sha256_w_15_rotr_7_xor_w_15_rotr_18, row, rot_7 ^ rot_18);
@@ -138,12 +141,15 @@ uint32_t Sha256TraceBuilder::compute_w_with_witness(const std::array<uint32_t, 1
     // Compute ror(w[i - 2], 17)
     uint32_t rot_17 =
         ror_with_witness(prev_w_helpers[14], 17, C::sha256_w_2_rotr_17, C::sha256_lhs_w_17, C::sha256_rhs_w_17, trace);
+    trace.set(C::sha256_two_pow_17, row, 131072); // Store 2^17 for reference
     // Compute ror(wi - 2, 19)
     uint32_t rot_19 =
         ror_with_witness(prev_w_helpers[14], 19, C::sha256_w_2_rotr_19, C::sha256_lhs_w_19, C::sha256_rhs_w_19, trace);
+    trace.set(C::sha256_two_pow_19, row, 524288); // Store 2^19 for reference
     // Compute (w[i - 2] >> 10)
     uint32_t shift_10 = shr_with_witness(
         prev_w_helpers[14], 10, C::sha256_w_2_rshift_10, C::sha256_lhs_w_10, C::sha256_rhs_w_10, trace);
+    trace.set(C::sha256_two_pow_10, row, 1024); // Store 2^10 for reference
 
     // Compute ror(w[i - 2], 17) ^ ror(w[i - 2], 19)
     trace.set(C::sha256_w_2_rotr_17_xor_w_2_rotr_19, row, rot_17 ^ rot_19);
@@ -173,12 +179,15 @@ std::array<uint32_t, 8> Sha256TraceBuilder::compute_compression_with_witness(con
     // Compute S1 := ror(e, 6U) ^ ror(e, 11U) ^ ror(e, 25U);
     // Compute ror(e, 6)
     uint32_t rot_6 = ror_with_witness(state[4], 6, C::sha256_e_rotr_6, C::sha256_lhs_e_6, C::sha256_rhs_e_6, trace);
+    trace.set(C::sha256_two_pow_6, row, 64); // Store 2^6 for reference
     // Compute ror(e, 11)
     uint32_t rot_11 =
         ror_with_witness(state[4], 11, C::sha256_e_rotr_11, C::sha256_lhs_e_11, C::sha256_rhs_e_11, trace);
+    trace.set(C::sha256_two_pow_11, row, 2048); // Store 2^11 for reference
     // Compute ror(e, 25)
     uint32_t rot_25 =
         ror_with_witness(state[4], 25, C::sha256_e_rotr_25, C::sha256_lhs_e_25, C::sha256_rhs_e_25, trace);
+    trace.set(C::sha256_two_pow_25, row, 33554432); // Store 2^25 for reference
 
     // Compute ror(e, 6) ^ ror(e, 11)
     trace.set(C::sha256_e_rotr_6_xor_e_rotr_11, row, rot_6 ^ rot_11);
@@ -203,12 +212,15 @@ std::array<uint32_t, 8> Sha256TraceBuilder::compute_compression_with_witness(con
     // Compute S0 := ror(a, 2U) ^ ror(a, 13U) ^ ror(a, 22U);
     // Compute ror(a, 2)
     uint32_t rot_2 = ror_with_witness(state[0], 2, C::sha256_a_rotr_2, C::sha256_lhs_a_2, C::sha256_rhs_a_2, trace);
+    trace.set(C::sha256_two_pow_2, row, 4); // Store 2^2 for reference
     // Compute ror(a, 13)
     uint32_t rot_13 =
         ror_with_witness(state[0], 13, C::sha256_a_rotr_13, C::sha256_lhs_a_13, C::sha256_rhs_a_13, trace);
+    trace.set(C::sha256_two_pow_13, row, 8192); // Store 2^13 for reference
     // Compute ror(a, 22)
     uint32_t rot_22 =
         ror_with_witness(state[0], 22, C::sha256_a_rotr_22, C::sha256_lhs_a_22, C::sha256_rhs_a_22, trace);
+    trace.set(C::sha256_two_pow_22, row, 4194304); // Store 2^22 for reference
 
     // Compute ror(a, 2) ^ ror(a, 13)
     trace.set(C::sha256_a_rotr_2_xor_a_rotr_13, row, rot_2 ^ rot_13);
@@ -636,6 +648,19 @@ const InteractionDefinition Sha256TraceBuilder::interactions =
         .add<lookup_sha256_maj_and_1_settings, InteractionType::LookupGeneric>()
         .add<lookup_sha256_maj_and_2_settings, InteractionType::LookupGeneric>()
         .add<lookup_sha256_maj_xor_0_settings, InteractionType::LookupGeneric>()
-        .add<lookup_sha256_maj_xor_1_settings, InteractionType::LookupGeneric>();
+        .add<lookup_sha256_maj_xor_1_settings, InteractionType::LookupGeneric>()
+        // Range Checks for Rotations and Shifts
+        .add<lookup_sha256_range_rhs_w_7_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_rhs_w_18_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_rhs_w_3_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_rhs_w_17_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_rhs_w_19_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_rhs_w_10_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_rhs_e_6_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_rhs_e_11_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_rhs_e_25_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_rhs_a_2_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_rhs_a_13_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_rhs_a_22_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen
