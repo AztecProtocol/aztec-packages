@@ -136,7 +136,7 @@ export class ConnectionSampler {
     return this.libp2p
       .getPeers()
       .filter(id => !excluding?.has(id.toString()))
-      .map(id => ({ id, count: this.activeConnectionsCount.get(id) ?? 0 }))
+      .map(id => ({ id, count: this.activeConnectionsCount.get(id.toString()) ?? 0 }))
       .sort((a, b) => a.count - b.count)
       .map(p => p.id);
   }
