@@ -13,7 +13,7 @@ import { type ReqRespInterface, ReqRespSubProtocol } from '.././interface.js';
 import { BlockTxsRequest, BlockTxsResponse } from '.././protocols/index.js';
 import { ReqRespStatus } from '.././status.js';
 import { MissingTxMetadata, MissingTxMetadataCollection, TX_BATCH_SIZE } from './missing_txs.js';
-import { PeerCollection } from './peer_colleciton.js';
+import { PeerCollection } from './peer_collection.js';
 
 const SMART_PEERS_TO_QUERY_IN_PARALLEL = 10;
 const DUMB_PEERS_TO_QUERY_IN_PARALLEL = 10;
