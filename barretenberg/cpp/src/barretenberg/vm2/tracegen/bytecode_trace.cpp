@@ -45,6 +45,11 @@ void BytecodeTraceBuilder::process_decomposition(
             const uint32_t abs_diff = DECOMPOSE_WINDOW_SIZE > remaining ? DECOMPOSE_WINDOW_SIZE - remaining
                                                                         : remaining - DECOMPOSE_WINDOW_SIZE;
             const bool is_last = remaining == 1;
+            const uint16_t abs_diff_lo = static_cast<uint16_t>(abs_diff);
+            const uint8_t abs_diff_hi = static_cast<uint8_t>(abs_diff >> 16);
+
+            // Check that we still expect the max public bytecode in bytes to fit within 24 bits (i.e. <= 0xffffff).
+            static_assert(MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS * 32 <= 0xffffff);
 
             // We set the decomposition in bytes, and other values.
             trace.set(
@@ -58,6 +63,8 @@ void BytecodeTraceBuilder::process_decomposition(
                     { C::bc_decomposition_bytes_rem_inv, FF(remaining).invert() }, // remaining != 0 for activated rows
                     { C::bc_decomposition_bytes_rem_min_one_inv, is_last ? 0 : FF(remaining - 1).invert() },
                     { C::bc_decomposition_abs_diff, abs_diff },
+                    { C::bc_decomposition_abs_diff_lo, abs_diff_lo },
+                    { C::bc_decomposition_abs_diff_hi, abs_diff_hi },
                     { C::bc_decomposition_bytes_to_read, bytes_to_read },
                     { C::bc_decomposition_sel_overflow_correction_needed, remaining < DECOMPOSE_WINDOW_SIZE ? 1 : 0 },
                     // Sliding window.
@@ -377,7 +384,8 @@ const InteractionDefinition BytecodeTraceBuilder::interactions =
         .add<lookup_bc_retrieval_contract_instance_retrieval_settings, InteractionType::LookupSequential>()
         // Bytecode Decomposition
         .add<lookup_bc_decomposition_bytes_are_bytes_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_bc_decomposition_abs_diff_is_u16_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_bc_decomposition_abs_diff_lo_is_u16_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_bc_decomposition_abs_diff_hi_is_u8_settings, InteractionType::LookupIntoIndexedByClk>()
         // Instruction Fetching
         .add<lookup_instr_fetching_bytes_from_bc_dec_settings, InteractionType::LookupGeneric>()
         .add<lookup_instr_fetching_bytecode_size_from_bc_dec_settings, InteractionType::LookupGeneric>()
