@@ -1,4 +1,4 @@
-import type { AccountWalletWithSecretKey, Logger } from '@aztec/aztec.js';
+import type { AccountWalletWithSecretKey, AztecAddress, Logger } from '@aztec/aztec.js';
 import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
 
 import { foundry, sepolia } from 'viem/chains';
@@ -13,6 +13,10 @@ import { setup } from '../fixtures/utils.js';
 describe(`deploys and transfers a private only token`, () => {
   let deployerWallet: AccountWalletWithSecretKey;
   let recipientWallet: AccountWalletWithSecretKey;
+
+  let deployerAddress: AztecAddress;
+  let recipientAddress: AztecAddress;
+
   let logger: Logger;
   let teardown: () => Promise<void>;
 
@@ -20,7 +24,8 @@ describe(`deploys and transfers a private only token`, () => {
     const chainId = !process.env.L1_CHAIN_ID ? foundry.id : +process.env.L1_CHAIN_ID;
     const chain = chainId == sepolia.id ? sepolia : foundry; // Not the best way of doing this.
     let wallets: AccountWalletWithSecretKey[];
-    ({ logger, teardown, wallets } = await setup(
+    let accounts: AztecAddress[];
+    ({ logger, teardown, wallets, accounts } = await setup(
       2, // Deploy 2 accounts.
       {
         numberOfInitialFundedAccounts: 2, // Fund 2 accounts.
@@ -32,6 +37,7 @@ describe(`deploys and transfers a private only token`, () => {
     ));
 
     [deployerWallet, recipientWallet] = wallets;
+    [deployerAddress, recipientAddress] = accounts;
   }, 600_000);
 
   afterEach(async () => {
@@ -42,8 +48,9 @@ describe(`deploys and transfers a private only token`, () => {
     const initialBalance = 100_000_000_000n;
     const transferValue = 5n;
 
-    const token = await EasyPrivateTokenContract.deploy(deployerWallet, initialBalance, deployerWallet.getAddress())
+    const token = await EasyPrivateTokenContract.deploy(deployerWallet, initialBalance, deployerAddress)
       .send({
+        from: deployerAddress,
         universalDeploy: true,
         skipInstancePublication: true,
         skipClassPublication: true,
@@ -54,14 +61,14 @@ describe(`deploys and transfers a private only token`, () => {
     logger.info(`Performing transfer.`);
 
     await token.methods
-      .transfer(transferValue, deployerWallet.getAddress(), recipientWallet.getAddress())
-      .send()
+      .transfer(transferValue, deployerAddress, recipientAddress)
+      .send({ from: deployerAddress })
       .wait({ timeout: 300 });
 
     logger.info(`Transfer completed`);
 
-    const balanceDeployer = await token.methods.get_balance(deployerWallet.getAddress()).simulate();
-    const balanceRecipient = await token.methods.get_balance(recipientWallet.getAddress()).simulate();
+    const balanceDeployer = await token.methods.get_balance(deployerAddress).simulate({ from: deployerAddress });
+    const balanceRecipient = await token.methods.get_balance(recipientAddress).simulate({ from: recipientAddress });
 
     logger.info(`Deployer balance: ${balanceDeployer}, Recipient balance: ${balanceRecipient}`);
 

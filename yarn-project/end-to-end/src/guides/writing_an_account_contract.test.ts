@@ -75,16 +75,18 @@ describe('guides/writing_an_account_contract', () => {
     // docs:end:account-contract-deploy
     logger.info(`Deployed account contract at ${address}`);
 
+    const fundedWalletAddress = fundedWallet.getAddress();
+
     // docs:start:token-contract-deploy
-    const token = await TokenContract.deploy(fundedWallet, fundedWallet.getAddress(), 'TokenName', 'TokenSymbol', 18)
-      .send()
+    const token = await TokenContract.deploy(fundedWallet, fundedWalletAddress, 'TokenName', 'TokenSymbol', 18)
+      .send({ from: fundedWalletAddress })
       .deployed();
     logger.info(`Deployed token contract at ${token.address}`);
 
     const mintAmount = 50n;
-    await token.methods.mint_to_private(address, mintAmount).send().wait();
+    await token.methods.mint_to_private(address, mintAmount).send({ from: fundedWalletAddress }).wait();
 
-    const balance = await token.methods.balance_of_private(address).simulate();
+    const balance = await token.methods.balance_of_private(address).simulate({ from: address });
     logger.info(`Balance of wallet is now ${balance}`);
     // docs:end:token-contract-deploy
     expect(balance).toEqual(50n);
@@ -97,7 +99,7 @@ describe('guides/writing_an_account_contract', () => {
     const tokenWithWrongWallet = token.withWallet(wrongWallet);
 
     try {
-      await tokenWithWrongWallet.methods.mint_to_public(address, 200).prove();
+      await tokenWithWrongWallet.methods.mint_to_public(address, 200).prove({ from: wrongWallet.getAddress() });
     } catch (err) {
       logger.info(`Failed to send tx: ${err}`);
     }

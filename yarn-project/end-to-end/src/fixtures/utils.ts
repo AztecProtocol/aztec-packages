@@ -257,6 +257,7 @@ async function setupWithRemoteEnvironment(
     deployL1ContractsValues,
     config,
     initialFundedAccounts,
+    wallets,
     wallet: wallets[0],
     accounts: wallets.slice(0, numberOfAccounts).map(w => w.getAddress()),
     logger,
@@ -335,9 +336,11 @@ export type EndToEndContext = {
   config: AztecNodeConfig;
   /** The data for the initial funded accounts. */
   initialFundedAccounts: InitialAccountData[];
+  /* Wallets created for the initial funded accounts, with secret keys. */
+  wallets: AccountWalletWithSecretKey[];
   /** The first wallet to be used. */
   wallet: AccountWalletWithSecretKey;
-  /** The wallets to be used. */
+  /** The accounts to be used. */
   accounts: AztecAddress[];
   /** Logger instance named as the current test. */
   logger: Logger;
@@ -710,6 +713,7 @@ export async function setup(
       sequencer: sequencerClient,
       teardown,
       telemetryClient: telemetry,
+      wallets,
       wallet: wallets[0],
       accounts: wallets.map(w => w.getAddress()),
       watcher,
