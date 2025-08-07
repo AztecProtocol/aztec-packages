@@ -23,6 +23,27 @@ static constexpr bb::curve::BN254::AffineElement DEFAULT_ECC_COMMITMENT(DEFAULT_
                                                                         DEFAULT_ECC_COMMITMENT_Y);
 
 /**
+ * @brief Construct commitments to empty subtables
+ *
+ * @details In the first iteration of the Merge, the verifier sets the commitments to the previous full state of the
+ * op_queue equal to the commitments to the empty tables. This ensures that prover cannot lie, as the starting point
+ * of the merge is fixed.
+ *
+ * @param builder
+ * @return std::array<typename bn254<Builder>::Group, Builder::NUM_WIRES>
+ */
+template <typename Builder>
+std::array<typename bn254<Builder>::Group, Builder::NUM_WIRES> empty_ecc_op_tables(Builder& builder)
+{
+    std::array<typename bn254<Builder>::Group, Builder::NUM_WIRES> empty_tables;
+    for (auto& table_commitment : empty_tables) {
+        table_commitment = bn254<Builder>::Group::point_at_infinity(&builder);
+    }
+
+    return empty_tables;
+}
+
+/**
  * @brief Manages the data that is propagated on the public inputs of a kernel circuit
  *
  */
@@ -167,8 +188,9 @@ using AppIO = DefaultIO<MegaCircuitBuilder>; // app IO is always Mega
 /**
  * @brief The data that is propagated on the public inputs of the inner GoblinAvmRecursiveVerifier circuit
  */
-template <typename Builder> class GoblinAvmIO {
+template <typename Builder_> class GoblinAvmIO {
   public:
+    using Builder = Builder_;
     using Curve = stdlib::bn254<Builder>; // curve is always bn254
     using FF = Curve::ScalarField;
     using PairingInputs = stdlib::recursion::PairingPoints<Builder>;
@@ -263,26 +285,6 @@ template <class Builder_> class HidingKernelIO {
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
         Builder* builder = pairing_inputs.P0.get_context();
         builder->finalize_public_inputs();
-    }
-
-    /**
-     * @brief Construct commitments to empty subtables
-     *
-     * @details In the first iteration of the Merge, the verifier sets the commitments to the previous full state of the
-     * op_queue equal to the commitments to the empty tables. This ensures that prover cannot lie, as the starting point
-     * of the merge is fixed.
-     *
-     * @param builder
-     * @return TableCommitments
-     */
-    static TableCommitments empty_ecc_op_tables(Builder& builder)
-    {
-        TableCommitments empty_tables;
-        for (auto& table_commitment : empty_tables) {
-            table_commitment = G1::point_at_infinity(&builder);
-        }
-
-        return empty_tables;
     }
 
     static TableCommitments default_ecc_op_tables(Builder& builder)
