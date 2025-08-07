@@ -31,8 +31,9 @@ use std::meta::type_of;
 /// ```
 ///
 /// ## The #[abi(functions)] Attribute
-/// The `#[abi(functions)]` is a custom attribute that is then used by the toolchain to generate the contract ABI.
-/// TODO: Is this responsible for the `abi` item in the function artifact?
+/// The `#[abi(functions)]` attribute marks this struct to be included in the contract ABI's `outputs.functions` array.
+/// This array contains the function signatures with their original parameter and return types, before any
+/// transformations by macros are applied. This allows the toolchain to know the original function interfaces.
 pub(crate) comptime fn create_fn_abi_export(f: FunctionDefinition) -> Quoted {
     let name = f.name();
     let mut parameters =
