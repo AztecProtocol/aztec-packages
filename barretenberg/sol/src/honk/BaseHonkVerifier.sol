@@ -479,8 +479,9 @@ abstract contract BaseHonkVerifier is IVerifier {
         for (uint256 i = 0; i < limit; ++i) {
             validateOnCurve(base[i]);
         }
+
+        bool success = true;
         assembly {
-            let success := 0x01
             let free := mload(0x40)
 
             let count := 0x01
@@ -503,5 +504,7 @@ abstract contract BaseHonkVerifier is IVerifier {
             mstore(result, mload(free))
             mstore(add(result, 0x20), mload(add(free, 0x20)))
         }
+
+        require(success, ShpleminiFailed());
     }
 }

@@ -75,6 +75,7 @@ library FrLib {
                 revert(0, 0)
             }
             result := mload(0x00)
+            mstore(0x40, add(free, 0x80))
         }
 
         return Fr.wrap(result);
@@ -98,6 +99,7 @@ library FrLib {
                 revert(0, 0)
             }
             result := mload(0x00)
+            mstore(0x40, add(free, 0x80))
         }
 
         return Fr.wrap(result);
@@ -1655,6 +1657,8 @@ function ecMul(Fr value, Honk.G1Point memory point) view returns (Honk.G1Point m
         // result + 0x20|  result.y
         mstore(result, mload(free))
         mstore(add(result, 0x20), mload(add(free, 0x20)))
+
+        mstore(0x40, add(free, 0x60))
     }
 
     return result;
@@ -1701,6 +1705,8 @@ function ecAdd(Honk.G1Point memory lhs, Honk.G1Point memory rhs) view returns (H
         // result + 0x20|  result.y
         mstore(result, mload(free))
         mstore(add(result, 0x20), mload(add(free, 0x20)))
+
+        mstore(0x40, add(free, 0x80))
     }
 
     return result;
@@ -1763,6 +1769,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
 
     // Errors
     error ProofLengthWrong();
+    error ProofLengthWrongWithLogN(uint256 logN, uint256 actualLength, uint256 expectedLength);
     error PublicInputsLengthWrong();
     error SumcheckFailed();
     error ShpleminiFailed();
@@ -1782,9 +1789,10 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         returns (bool verified)
     {
         // Check the received proof is the expected size where each field element is 32 bytes
-        // if (proof.length != PROOF_SIZE * 32) {
-        //     revert ProofLengthWrong();
-        // }
+        //if (proof.length != PROOF_SIZE * 32) {
+        //    // print $LOG_N here!
+        //    revert ProofLengthWrongWithLogN($LOG_N, proof.length, PROOF_SIZE * 32);
+        //}
 
         Honk.VerificationKey memory vk = loadVerificationKey();
         Honk.ZKProof memory p = ZKTranscriptLib.loadProof(proof, $LOG_N);
@@ -2244,8 +2252,8 @@ abstract contract BaseZKHonkVerifier is IVerifier {
             validateOnCurve(base[i]);
         }
 
+        bool success = true;
         assembly {
-            let success := 0x01
             let free := mload(0x40)
 
             let count := 0x01
@@ -2268,6 +2276,8 @@ abstract contract BaseZKHonkVerifier is IVerifier {
             mstore(result, mload(free))
             mstore(add(result, 0x20), mload(add(free, 0x20)))
         }
+
+        require(success, ShpleminiFailed());
     }
 }
 

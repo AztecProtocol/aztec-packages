@@ -534,8 +534,8 @@ abstract contract BaseZKHonkVerifier is IVerifier {
             validateOnCurve(base[i]);
         }
 
+        bool success = true;
         assembly {
-            let success := 0x01
             let free := mload(0x40)
 
             let count := 0x01
@@ -558,5 +558,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
             mstore(result, mload(free))
             mstore(add(result, 0x20), mload(add(free, 0x20)))
         }
+
+        require(success, ShpleminiFailed());
     }
 }
