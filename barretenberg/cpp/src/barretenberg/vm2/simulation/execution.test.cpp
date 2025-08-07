@@ -205,7 +205,6 @@ TEST_F(ExecutionSimulationTest, Call)
 
     // Context snapshotting
     EXPECT_CALL(context, get_context_id);
-    EXPECT_CALL(context_provider, get_next_context_id);
     EXPECT_CALL(context, get_parent_id);
     EXPECT_CALL(context, get_next_pc);
     EXPECT_CALL(context, get_is_static);
