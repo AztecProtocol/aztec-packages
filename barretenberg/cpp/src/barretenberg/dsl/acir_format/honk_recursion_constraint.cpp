@@ -222,6 +222,9 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     using RecursiveVerificationKey = Flavor::VerificationKey;
     using RecursiveVKAndHash = Flavor::VKAndHash;
     using RecursiveVerifier = bb::stdlib::recursion::honk::UltraRecursiveVerifier_<Flavor>;
+    using IO = std::conditional_t<HasIPAAccumulator<Flavor>,
+                                  stdlib::recursion::honk::RollupIO,
+                                  stdlib::recursion::honk::DefaultIO<Builder>>;
 
     ASSERT(input.proof_type == HONK || input.proof_type == HONK_ZK || HasIPAAccumulator<Flavor>);
     BB_ASSERT_EQ(input.proof_type == ROLLUP_HONK || input.proof_type == ROOT_ROLLUP_HONK, HasIPAAccumulator<Flavor>);
@@ -254,17 +257,8 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     if (!has_valid_witness_assignments) {
         // In the constraint, the agg object public inputs are still contained in the proof. To get the 'raw' size of
         // the proof and public_inputs we subtract and add the corresponding amount from the respective sizes.
-        size_t size_of_proof_with_no_pub_inputs = input.proof.size();
-        size_t total_num_public_inputs = input.public_inputs.size();
-        if constexpr (HasIPAAccumulator<Flavor>) {
-            using RollupIO = stdlib::recursion::honk::RollupIO;
-            size_of_proof_with_no_pub_inputs -= RollupIO::PUBLIC_INPUTS_SIZE;
-            total_num_public_inputs += RollupIO::PUBLIC_INPUTS_SIZE;
-        } else {
-            using DefaultIO = stdlib::recursion::honk::DefaultIO<Builder>;
-            size_of_proof_with_no_pub_inputs -= DefaultIO::PUBLIC_INPUTS_SIZE;
-            total_num_public_inputs += DefaultIO::PUBLIC_INPUTS_SIZE;
-        }
+        size_t size_of_proof_with_no_pub_inputs = input.proof.size() - IO::PUBLIC_INPUTS_SIZE;
+        size_t total_num_public_inputs = input.public_inputs.size() + IO::PUBLIC_INPUTS_SIZE;
 
         create_dummy_vkey_and_proof<Flavor>(
             builder, size_of_proof_with_no_pub_inputs, total_num_public_inputs, key_fields, proof_fields);
@@ -274,7 +268,7 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     auto vkey = std::make_shared<RecursiveVerificationKey>(builder, key_fields);
     auto vk_and_hash = std::make_shared<RecursiveVKAndHash>(vkey, vk_hash);
     RecursiveVerifier verifier(&builder, vk_and_hash);
-    UltraRecursiveVerifierOutput<Builder> verifier_output = verifier.verify_proof(proof_fields);
+    UltraRecursiveVerifierOutput<Builder> verifier_output = verifier.template verify_proof<IO>(proof_fields);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/996): investigate whether assert_equal on public inputs
     // is important, like what the plonk recursion constraint does.
     return verifier_output;
