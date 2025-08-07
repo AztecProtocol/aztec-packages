@@ -142,8 +142,7 @@ TEST(smtExample, unique_witness_ext)
     smt_solver::Solver s(circuit_info.modulus);
 
     std::pair<smt_circuit::UltraCircuit, smt_circuit::UltraCircuit> cirs =
-        smt_circuit::UltraCircuit::unique_witness_ext(
-            circuit_info, &s, smt_terms::TermType::FFTerm, { "ev" }, { "z" });
+        smt_circuit::UltraCircuit::unique_witness_ext(circuit_info, &s, smt_terms::TermType::FFTerm, { "ev" }, { "z" });
 
     bool res = s.check();
     ASSERT_TRUE(res);

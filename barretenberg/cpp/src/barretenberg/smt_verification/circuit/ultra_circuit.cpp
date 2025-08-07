@@ -345,7 +345,7 @@ size_t UltraCircuit::handle_elliptic_relation(size_t cursor)
         x_add_identity == 0; // scaling_factor = 1
         y_add_identity == 0; // scaling_factor = 1
     }
-    
+
     bb::fr curve_b = this->selectors[BlockType::ELLIPTIC][cursor][12];
     auto x_pow_4 = (y1_sqr - curve_b) * x_1;
     auto y1_sqr_mul_4 = y1_sqr + y1_sqr;

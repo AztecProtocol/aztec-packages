@@ -8,11 +8,11 @@
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
 #include "barretenberg/stdlib/primitives/logic/logic.hpp"
 #include "barretenberg/stdlib/primitives/memory/ram_table.hpp"
 #include "barretenberg/stdlib/primitives/memory/rom_table.hpp"
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
-#include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
 
 #include "barretenberg/smt_verification/circuit/ultra_circuit.hpp"
 #include "barretenberg/smt_verification/util/smt_util.hpp"
@@ -108,8 +108,10 @@ TEST(UltraCircuitSMT, EllipticRelationADD)
 {
     UltraCircuitBuilder builder;
 
-    auto p1 = cycle_group_t::from_witness(&builder, bb::stdlib::cycle_group<Builder>::Curve::AffineElement::random_element());
-    auto p2 = cycle_group_t::from_witness(&builder, bb::stdlib::cycle_group<Builder>::Curve::AffineElement::random_element());
+    auto p1 =
+        cycle_group_t::from_witness(&builder, bb::stdlib::cycle_group<Builder>::Curve::AffineElement::random_element());
+    auto p2 =
+        cycle_group_t::from_witness(&builder, bb::stdlib::cycle_group<Builder>::Curve::AffineElement::random_element());
     auto p3 = p1.unconditional_add(p2);
 
     builder.set_variable_name(p1.x.get_witness_index(), "x1");
@@ -152,7 +154,8 @@ TEST(UltraCircuitSMT, EllipticRelationDBL)
 {
     UltraCircuitBuilder builder;
 
-    auto p1 = cycle_group_t::from_witness(&builder, bb::stdlib::cycle_group<Builder>::Curve::AffineElement::random_element());
+    auto p1 =
+        cycle_group_t::from_witness(&builder, bb::stdlib::cycle_group<Builder>::Curve::AffineElement::random_element());
     auto p2 = p1.dbl();
 
     builder.set_variable_name(p1.x.get_witness_index(), "x1");
@@ -160,7 +163,6 @@ TEST(UltraCircuitSMT, EllipticRelationDBL)
     builder.set_variable_name(p1.y.get_witness_index(), "y1");
     builder.set_variable_name(p2.y.get_witness_index(), "y2");
     builder.set_variable_name(p1.is_point_at_infinity().witness_index, "is_inf");
-
 
     auto circuit_info = unpack_from_buffer(builder.export_circuit());
     Solver s(circuit_info.modulus, ultra_solver_config);
@@ -266,7 +268,7 @@ TEST(UltraCircuitSMT, LookupRelation2)
 
 //// Due to ranges being huge it takes 5 min 32 sec to finish
 // TODO(alex): Wait until the bug with large sets is resolved by cvc5
-//TEST(UltraCircuitSMT, NNFRelation)
+// TEST(UltraCircuitSMT, NNFRelation)
 //{
 //    UltraCircuitBuilder builder;
 //
