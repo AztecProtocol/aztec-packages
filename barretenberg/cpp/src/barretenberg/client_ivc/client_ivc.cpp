@@ -157,10 +157,16 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
         break;
     }
     case QUEUE_TYPE::PG_FINAL: {
-        // Constuct the hiding circuit
+        BB_ASSERT_EQ(stdlib_verification_queue.size(), size_t(1));
+        BB_ASSERT_EQ(num_circuits_accumulated,
+                     num_circuits,
+                     "All circuits must be accumulated before constructing the hiding circuit.");
+        // Complete the hiding circuit construction
         auto [pairing_points, merged_table_commitments] =
             complete_hiding_circuit_logic(verifier_inputs.proof, verifier_inputs.honk_vk_and_hash, circuit);
-        // Return early since the hiding circuit method performs merge and public inputs handling (fix this!)
+        // Return early since the hiding circuit method performs merge and public inputs handling
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1501): we should remove the code duplication for
+        // the consistency checks at some point
         return { pairing_points, merged_table_commitments };
     }
     default: {
@@ -249,16 +255,6 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     while (!stdlib_verification_queue.empty()) {
         const StdlibVerifierInputs& verifier_input = stdlib_verification_queue.front();
 
-        // If the incoming circuit is a kernel, start its subtable with an eq and reset operation to ensure a
-        // neighbouring misconfigured subtable coming from an app cannot affect the operations in the
-        // current subtable. We don't do this for the hiding kernel as it succeeds another kernel and because the
-        // hiding kernel has to start with a no-op for the correct functioning of translator. Once the hiding
-        // kernel's subtable will be merged via APPEND, the tail kernel (whose ecc ops will be at the top of the ecc
-        // op table) will have to be the one starting with a no-op and it will also not start with an eq and reset.
-        // This is fine as the tail kernel is itself a successor of another kernel starting with an eq and reset.
-        // if (!is_hiding_kernel) {
-        //     circuit.queue_ecc_eq();
-        // }
         auto [pairing_points, merged_table_commitments] = perform_recursive_verification_and_databus_consistency_checks(
             circuit, verifier_input, T_prev_commitments, accumulation_recursive_transcript);
 
@@ -276,6 +272,10 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     if (is_hiding_kernel) {
         HidingKernelIO hiding_output{ points_accumulator, T_prev_commitments };
         hiding_output.set_public();
+        // preserve the hiding circuit so a proof for it can be created
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1502): reconsider approach once integration is
+        // complete
+        hiding_circuit = std::make_unique<ClientCircuit>(circuit);
     } else {
         KernelIO kernel_output;
         kernel_output.pairing_inputs = points_accumulator;
@@ -323,9 +323,20 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
 
     honk_vk = precomputed_vk;
 
+    // We're acccumulating a kernel if the verification queue is empty (because the kernel circuit contains recursive
+    // verifiers for all the entries previously present in the verification queue) and if it's not the first accumulate
+    // call (which will always be for an app circuit).
+    bool is_kernel = verification_queue.empty() && num_circuits_accumulated > 0;
+
+    // Transcript to be shared across folding of K_{i} (kernel) (the current kernel), A_{i+1,1} (app), .., A_{i+1,
+    // n} (app)
+    if (is_kernel) {
+        accumulation_transcript = std::make_shared<Transcript>();
+    }
+
     VerifierInputs queue_entry{ .honk_vk = honk_vk,
                                 // first circuit accumulated should be an app
-                                .is_kernel = verification_queue.empty() && num_circuits_accumulated > 0 };
+                                .is_kernel = is_kernel };
     if (num_circuits_accumulated == 0) { // First circuit in the IVC
         BB_ASSERT_EQ(queue_entry.is_kernel, false, "First circuit accumulated is always be an app");
         // For first circuit in the IVC, use oink to complete the decider proving key and generate an oink proof
@@ -398,6 +409,7 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::comp
     ClientCircuit& circuit)
 {
     using MergeCommitments = Goblin::MergeRecursiveVerifier::InputCommitments;
+    trace_usage_tracker.print();
 
     // Shared transcript between PG and Merge
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1453): Investigate whether Decider/PG/Merge need to
@@ -458,49 +470,26 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::comp
 }
 
 /**
- * @brief Construct the proving key of the hiding circuit, which recursively verifies the last folding proof and the
- * decider proof.
+ * @brief Construct the proving key of the hiding circuit, from the hiding_circuit builder in the client_ivc class
  */
-std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circuit_key()
+std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::compute_hiding_circuit_proving_key()
 {
-    BB_ASSERT_EQ(num_circuits_accumulated,
-                 num_circuits,
-                 "All circuits must be accumulated before constructing the hiding circuit.");
-    trace_usage_tracker.print(); // print minimum structured sizes for each block
-    BB_ASSERT_EQ(verification_queue.size(), static_cast<size_t>(1));
-
-    ClientCircuit builder{ goblin.op_queue };
-
-    StdlibProof stdlib_proof{ builder, verification_queue[0].proof };
-
-    auto stdlib_vk_and_hash = std::make_shared<RecursiveVKAndHash>(
-        std::make_shared<RecursiveVerificationKey>(&builder, verification_queue[0].honk_vk),
-        ClientIVC::RecursiveFlavor::FF::from_witness(&builder, verification_queue[0].honk_vk->hash()));
-
-    auto [pairing_points, merged_table_commitments] =
-        complete_hiding_circuit_logic(stdlib_proof, stdlib_vk_and_hash, builder);
-    fold_output.accumulator = nullptr;
-
-    HidingKernelIO hiding_output{ pairing_points, merged_table_commitments };
-    hiding_output.set_public();
-
-    auto decider_pk = std::make_shared<DeciderZKProvingKey>(builder, TraceSettings(), bn254_commitment_key);
-    honk_vk = std::make_shared<MegaZKVerificationKey>(decider_pk->get_precomputed());
-
-    return decider_pk;
+    auto hiding_decider_pk =
+        std::make_shared<DeciderZKProvingKey>(*hiding_circuit, TraceSettings(), bn254_commitment_key);
+    return hiding_decider_pk;
 }
 
 /**
- * @brief Construct the hiding circuit  then produce a proof of the circuit's correctness with MegaHonk.
+ * @brief Construct a zero-knowledge proof for the hiding circuit, which recursively verifies the last folding, merge
+ * and decider proof.
  *
- * @return HonkProof - a Mega proof
+ * @return HonkProof - a ZK Mega proof
  */
-HonkProof ClientIVC::construct_and_prove_hiding_circuit()
+HonkProof ClientIVC::prove_hiding_circuit()
 {
-    // Create a transcript to be shared by final merge prover, ECCVM, Translator, and Hiding Circuit provers.
-    std::shared_ptr<DeciderZKProvingKey> hiding_decider_pk = construct_hiding_circuit_key();
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1431): Avoid computing the hiding circuit verification
-    // key during proving. Precompute instead.
+    ASSERT(hiding_circuit != nullptr, "hiding circuit should have been constructed before attempted to create its key");
+    auto hiding_decider_pk = compute_hiding_circuit_proving_key();
+    honk_vk = std::make_shared<MegaZKVerificationKey>(hiding_decider_pk->get_precomputed());
     auto& hiding_circuit_vk = honk_vk;
     // Hiding circuit is proven by a MegaZKProver
     MegaZKProver prover(hiding_decider_pk, hiding_circuit_vk, transcript);
@@ -516,7 +505,10 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
  */
 ClientIVC::Proof ClientIVC::prove()
 {
-    auto mega_proof = construct_and_prove_hiding_circuit();
+    // deallocate the protogalaxy accumulator
+    fold_output.accumulator = nullptr;
+
+    auto mega_proof = prove_hiding_circuit();
 
     // A transcript is shared between the Hiding circuit prover and the Goblin prover
     goblin.transcript = transcript;
@@ -532,7 +524,7 @@ bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
     std::shared_ptr<Goblin::Transcript> civc_verifier_transcript = std::make_shared<Goblin::Transcript>();
     // Verify the hiding circuit proof
     MegaZKVerifier verifier{ vk.mega, /*ipa_verification_key=*/{}, civc_verifier_transcript };
-    auto [mega_verified, T_prev_commitments] = verifier.verify_proof(proof.mega_proof);
+    auto [mega_verified, T_prev_commitments] = verifier.template verify_proof<bb::HidingKernelIO>(proof.mega_proof);
     vinfo("Mega verified: ", mega_verified);
 
     // Extract the commitments to the subtable corresponding to the incoming circuit
@@ -589,7 +581,6 @@ bool ClientIVC::prove_and_verify()
     start = end;
     const bool verified = verify(proof);
     end = std::chrono::steady_clock::now();
-
     diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     vinfo("time to verify ClientIVC proof: ", diff.count(), " ms.");
 

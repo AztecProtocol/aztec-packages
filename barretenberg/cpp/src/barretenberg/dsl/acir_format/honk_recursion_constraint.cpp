@@ -11,12 +11,11 @@
 #include "barretenberg/flavor/ultra_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_recursive_flavor.hpp"
-#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
-#include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
+#include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "proof_surgeon.hpp"
@@ -55,6 +54,9 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
 {
     using Builder = typename Flavor::CircuitBuilder;
     using NativeFlavor = typename Flavor::NativeFlavor;
+
+    static constexpr size_t IPA_CLAIM_SIZE = stdlib::recursion::honk::RollupIO::IpaClaim::PUBLIC_INPUTS_SIZE;
+
     // Set vkey->circuit_size correctly based on the proof size
     BB_ASSERT_EQ(proof_size, NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
     // a lambda that adds dummy commitments (libra and gemini)
@@ -83,10 +85,8 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     // Third key field is the pub inputs offset
     uint32_t pub_inputs_offset = NativeFlavor::has_zero_row ? 1 : 0;
     builder.set_variable(key_fields[offset++].witness_index, pub_inputs_offset);
-    size_t num_inner_public_inputs = public_inputs_size - bb::PAIRING_POINTS_SIZE;
-    if constexpr (HasIPAAccumulator<Flavor>) {
-        num_inner_public_inputs -= bb::IPA_CLAIM_SIZE;
-    }
+    size_t num_inner_public_inputs = HasIPAAccumulator<Flavor> ? public_inputs_size - bb::RollupIO::PUBLIC_INPUTS_SIZE
+                                                               : public_inputs_size - bb::DefaultIO::PUBLIC_INPUTS_SIZE;
 
     for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; ++i) {
         set_dummy_commitment(offset);
@@ -110,7 +110,7 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     // IPA claim
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1392): Don't use random elements here.
     if constexpr (HasIPAAccumulator<Flavor>) {
-        for (size_t i = 0; i < bb::IPA_CLAIM_SIZE; i++) {
+        for (size_t i = 0; i < IPA_CLAIM_SIZE; i++) {
             set_dummy_evaluation(offset);
         }
     }
@@ -222,6 +222,9 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     using RecursiveVerificationKey = Flavor::VerificationKey;
     using RecursiveVKAndHash = Flavor::VKAndHash;
     using RecursiveVerifier = bb::stdlib::recursion::honk::UltraRecursiveVerifier_<Flavor>;
+    using IO = std::conditional_t<HasIPAAccumulator<Flavor>,
+                                  stdlib::recursion::honk::RollupIO,
+                                  stdlib::recursion::honk::DefaultIO<Builder>>;
 
     ASSERT(input.proof_type == HONK || input.proof_type == HONK_ZK || HasIPAAccumulator<Flavor>);
     BB_ASSERT_EQ(input.proof_type == ROLLUP_HONK || input.proof_type == ROOT_ROLLUP_HONK, HasIPAAccumulator<Flavor>);
@@ -254,15 +257,8 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     if (!has_valid_witness_assignments) {
         // In the constraint, the agg object public inputs are still contained in the proof. To get the 'raw' size of
         // the proof and public_inputs we subtract and add the corresponding amount from the respective sizes.
-        size_t size_of_proof_with_no_pub_inputs = input.proof.size();
-        size_t total_num_public_inputs = input.public_inputs.size();
-        if constexpr (HasIPAAccumulator<Flavor>) {
-            size_of_proof_with_no_pub_inputs -= RollupIO::PUBLIC_INPUTS_SIZE;
-            total_num_public_inputs += RollupIO::PUBLIC_INPUTS_SIZE;
-        } else {
-            size_of_proof_with_no_pub_inputs -= DefaultIO<Builder>::PUBLIC_INPUTS_SIZE;
-            total_num_public_inputs += DefaultIO<Builder>::PUBLIC_INPUTS_SIZE;
-        }
+        size_t size_of_proof_with_no_pub_inputs = input.proof.size() - IO::PUBLIC_INPUTS_SIZE;
+        size_t total_num_public_inputs = input.public_inputs.size() + IO::PUBLIC_INPUTS_SIZE;
 
         create_dummy_vkey_and_proof<Flavor>(
             builder, size_of_proof_with_no_pub_inputs, total_num_public_inputs, key_fields, proof_fields);
@@ -272,7 +268,7 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     auto vkey = std::make_shared<RecursiveVerificationKey>(builder, key_fields);
     auto vk_and_hash = std::make_shared<RecursiveVKAndHash>(vkey, vk_hash);
     RecursiveVerifier verifier(&builder, vk_and_hash);
-    UltraRecursiveVerifierOutput<Builder> verifier_output = verifier.verify_proof(proof_fields);
+    UltraRecursiveVerifierOutput<Builder> verifier_output = verifier.template verify_proof<IO>(proof_fields);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/996): investigate whether assert_equal on public inputs
     // is important, like what the plonk recursion constraint does.
     return verifier_output;

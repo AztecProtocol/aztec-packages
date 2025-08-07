@@ -8,7 +8,6 @@
 #include "../bigfield/bigfield.hpp"
 #include "../biggroup/biggroup.hpp"
 #include "../field/field.hpp"
-#include "../uint/uint.hpp"
 #include "barretenberg/ecc/curves/types.hpp"
 
 namespace bb::stdlib {
@@ -43,7 +42,6 @@ template <typename CircuitBuilder> struct bn254 {
     using public_witness_ct = public_witness_t<CircuitBuilder>;
     using byte_array_ct = byte_array<CircuitBuilder>;
     using bool_ct = bool_t<CircuitBuilder>;
-    using uint32_ct = stdlib::uint32<CircuitBuilder>;
 
     using bigfr_ct = bigfield<CircuitBuilder, bb::Bn254FrParams>;
     using g1_bigfr_ct = element<CircuitBuilder, BaseField, bigfr_ct, GroupNative>;

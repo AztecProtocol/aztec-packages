@@ -673,6 +673,7 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
     "@jest/globals": "npm:^30.0.0"
+    "@noble/curves": "npm:^1.7.0"
     "@types/jest": "npm:^30.0.0"
     "@types/lodash.pickby": "npm:^4"
     "@types/node": "npm:^22.15.17"
@@ -951,7 +952,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/noir-noir_codegen@portal:../noir/packages/noir_codegen::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@aztec/noir-types": "npm:1.0.0-beta.8"
+    "@aztec/noir-types": "npm:1.0.0-beta.9"
     glob: "npm:^11.0.2"
     ts-command-line-args: "npm:^2.5.1"
   bin:
@@ -960,14 +961,14 @@ __metadata:
   linkType: soft
 
 "@aztec/noir-noir_js@file:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
-  version: 1.0.0-beta.8
-  resolution: "@aztec/noir-noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=0b938a&locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  version: 1.0.0-beta.9
+  resolution: "@aztec/noir-noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=6d22a4&locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@aztec/noir-acvm_js": "npm:1.0.0-beta.8"
-    "@aztec/noir-noirc_abi": "npm:1.0.0-beta.8"
-    "@aztec/noir-types": "npm:1.0.0-beta.8"
+    "@aztec/noir-acvm_js": "npm:1.0.0-beta.9"
+    "@aztec/noir-noirc_abi": "npm:1.0.0-beta.9"
+    "@aztec/noir-types": "npm:1.0.0-beta.9"
     pako: "npm:^2.1.0"
-  checksum: 10/95686ffa46786c421f2f632d0993967ade29ba4af068c352b76a6ad5fc72bd45d50b7d35c06531b8e937e345765e2307e3eb382076cf8659fe58c776717e25dd
+  checksum: 10/8dae123556c3119c1f8959f2ebcbe00986dbf9b2a25b9c4b6b2a11482aed1f1a07ddd554afdfaac0cd6479d19f91485974ecca6949ef663938bb30e5c2f671da
   languageName: node
   linkType: hard
 
@@ -975,7 +976,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/noir-noirc_abi@portal:../noir/packages/noirc_abi::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@aztec/noir-types": "npm:1.0.0-beta.8"
+    "@aztec/noir-types": "npm:1.0.0-beta.9"
   languageName: node
   linkType: soft
 
@@ -4592,6 +4593,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@noble/curves@npm:^1.7.0":
+  version: 1.9.5
+  resolution: "@noble/curves@npm:1.9.5"
+  dependencies:
+    "@noble/hashes": "npm:1.8.0"
+  checksum: 10/58bd7215c41b9562ac12b45245cc99c36575f805a15cea9e419d5017d12037a321ad6d997e0829f55b05f18ce2338a1ba733b6d79e76fd63f379e45555e9acff
+  languageName: node
+  linkType: hard
+
 "@noble/hashes@npm:1.3.3, @noble/hashes@npm:~1.3.2":
   version: 1.3.3
   resolution: "@noble/hashes@npm:1.3.3"
@@ -4617,6 +4627,13 @@ __metadata:
   version: 1.7.1
   resolution: "@noble/hashes@npm:1.7.1"
   checksum: 10/ca3120da0c3e7881d6a481e9667465cc9ebbee1329124fb0de442e56d63fef9870f8cc96f264ebdb18096e0e36cebc0e6e979a872d545deb0a6fed9353f17e05
+  languageName: node
+  linkType: hard
+
+"@noble/hashes@npm:1.8.0":
+  version: 1.8.0
+  resolution: "@noble/hashes@npm:1.8.0"
+  checksum: 10/474b7f56bc6fb2d5b3a42132561e221b0ea4f91e590f4655312ca13667840896b34195e2b53b7f097ec080a1fdd3b58d902c2a8d0fbdf51d2e238b53808a177e
   languageName: node
   linkType: hard
 

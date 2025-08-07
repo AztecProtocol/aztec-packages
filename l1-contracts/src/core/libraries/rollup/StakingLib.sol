@@ -12,10 +12,11 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {StakingQueueLib, StakingQueue, DepositArgs} from "@aztec/core/libraries/StakingQueue.sol";
 import {TimeLib, Timestamp, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
-import {GSE, AttesterConfig} from "@aztec/governance/GSE.sol";
+import {GSE, AttesterConfig, IGSECore} from "@aztec/governance/GSE.sol";
 import {Proposal} from "@aztec/governance/interfaces/IGovernance.sol";
 import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
+import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {CompressedTimeMath, CompressedTimestamp} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
@@ -180,11 +181,11 @@ library StakingLib {
 
       emit IStakingCore.Slashed(_attester, slashAmount);
     } else {
-      (address withdrawer, bool attesterExists,) = store.gse.getWithdrawer(address(this), _attester);
-      require(attesterExists, Errors.Staking__NoOneToSlash(_attester));
-
       // Get the effective balance of the attester
       uint256 effectiveBalance = store.gse.effectiveBalanceOf(address(this), _attester);
+      require(effectiveBalance > 0, Errors.Staking__NoOneToSlash(_attester));
+
+      address withdrawer = store.gse.getWithdrawer(_attester);
 
       // If the slash amount is greater than the effective balance, bound it to the effective balance
       uint256 slashAmount = Math.min(_amount, effectiveBalance);
@@ -208,7 +209,14 @@ library StakingLib {
     }
   }
 
-  function deposit(address _attester, address _withdrawer, bool _moveWithLatestRollup) internal {
+  function deposit(
+    address _attester,
+    address _withdrawer,
+    G1Point memory _publicKeyInG1,
+    G2Point memory _publicKeyInG2,
+    G1Point memory _proofOfPossession,
+    bool _moveWithLatestRollup
+  ) internal {
     require(
       _attester != address(0) && _withdrawer != address(0), Errors.Staking__InvalidDeposit(_attester, _withdrawer)
     );
@@ -218,7 +226,9 @@ library StakingLib {
     uint256 amount = store.gse.ACTIVATION_THRESHOLD();
 
     store.stakingAsset.transferFrom(msg.sender, address(this), amount);
-    store.entryQueue.enqueue(_attester, _withdrawer, _moveWithLatestRollup);
+    store.entryQueue.enqueue(
+      _attester, _withdrawer, _publicKeyInG1, _publicKeyInG2, _proofOfPossession, _moveWithLatestRollup
+    );
     emit IStakingCore.ValidatorQueued(_attester, _withdrawer);
   }
 
@@ -239,10 +249,20 @@ library StakingLib {
     for (uint256 i = 0; i < numToDequeue; i++) {
       DepositArgs memory args = store.entryQueue.dequeue();
       (bool success, bytes memory data) = address(store.gse).call(
-        abi.encodeWithSelector(IStakingCore.deposit.selector, args.attester, args.withdrawer, args.moveWithLatestRollup)
+        abi.encodeWithSelector(
+          IGSECore.deposit.selector,
+          args.attester,
+          args.withdrawer,
+          args.publicKeyInG1,
+          args.publicKeyInG2,
+          args.proofOfPossession,
+          args.moveWithLatestRollup
+        )
       );
       if (success) {
-        emit IStakingCore.Deposit(args.attester, args.withdrawer, amount);
+        emit IStakingCore.Deposit(
+          args.attester, args.withdrawer, args.publicKeyInG1, args.publicKeyInG2, args.proofOfPossession, amount
+        );
       } else {
         // If the deposit fails, we generally ignore it, since we need to continue dequeuing to prevent DoS.
         // However, if the data is empty, we can assume that the deposit failed due to out of gas, since
@@ -252,7 +272,9 @@ library StakingLib {
         // we have enough gas to refund/dequeue.
         require(data.length > 0, Errors.Staking__DepositOutOfGas());
         store.stakingAsset.transfer(args.withdrawer, amount);
-        emit IStakingCore.FailedDeposit(args.attester, args.withdrawer);
+        emit IStakingCore.FailedDeposit(
+          args.attester, args.withdrawer, args.publicKeyInG1, args.publicKeyInG2, args.proofOfPossession
+        );
       }
     }
     store.stakingAsset.approve(address(store.gse), 0);
@@ -277,12 +299,13 @@ library StakingLib {
 
       emit IStakingCore.WithdrawInitiated(_attester, _recipient, store.exits[_attester].amount);
     } else {
-      (address withdrawer, bool attesterExists,) = store.gse.getWithdrawer(address(this), _attester);
-      require(attesterExists, Errors.Staking__NothingToExit(_attester));
+      uint256 effectiveBalance = store.gse.effectiveBalanceOf(address(this), _attester);
+      require(effectiveBalance > 0, Errors.Staking__NothingToExit(_attester));
+
+      address withdrawer = store.gse.getWithdrawer(_attester);
       require(msg.sender == withdrawer, Errors.Staking__NotWithdrawer(withdrawer, msg.sender));
 
-      uint256 amount = store.gse.effectiveBalanceOf(address(this), _attester);
-      (uint256 actualAmount, bool removed, uint256 withdrawalId) = store.gse.withdraw(_attester, amount);
+      (uint256 actualAmount, bool removed, uint256 withdrawalId) = store.gse.withdraw(_attester, effectiveBalance);
       require(removed, Errors.Staking__WithdrawFailed(_attester));
 
       store.exits[_attester] = Exit({
@@ -320,8 +343,8 @@ library StakingLib {
       return exit.exitableAt > Timestamp.wrap(block.timestamp);
     }
 
-    (, bool attesterExists,) = store.gse.getWithdrawer(address(this), _attester);
-    return attesterExists;
+    uint256 effectiveBalance = store.gse.effectiveBalanceOf(address(this), _attester);
+    return effectiveBalance > 0;
   }
 
   function getAttesterCountAtTime(Timestamp _timestamp) internal view returns (uint256) {
@@ -353,7 +376,7 @@ library StakingLib {
   }
 
   function getConfig(address _attester) internal view returns (AttesterConfig memory) {
-    return getStorage().gse.getConfig(address(this), _attester);
+    return getStorage().gse.getConfig(_attester);
   }
 
   function getAttesterView(address _attester) internal view returns (AttesterView memory) {

@@ -12,8 +12,9 @@ import type { P2P, PeerId } from '@aztec/p2p';
 import { AuthRequest, AuthResponse, ReqRespSubProtocol, TxProvider } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import { computeInHashFromL1ToL2Messages } from '@aztec/prover-client/helpers';
+import { Offense } from '@aztec/slasher';
 import {
-  Offense,
+  type SlasherConfig,
   WANT_TO_SLASH_EVENT,
   type WantToSlashArgs,
   type Watcher,
@@ -21,7 +22,7 @@ import {
 } from '@aztec/slasher/config';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
-import type { IFullNodeBlockBuilder, SequencerConfig, SlasherConfig } from '@aztec/stdlib/interfaces/server';
+import type { IFullNodeBlockBuilder, SequencerConfig } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { BlockAttestation, BlockProposal, BlockProposalOptions } from '@aztec/stdlib/p2p';
 import { GlobalVariables, type ProposedBlockHeader, type StateReference, type Tx } from '@aztec/stdlib/tx';
@@ -467,7 +468,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       {
         validator: proposer,
         amount: this.config.slashInvalidBlockPenalty,
-        offense: Offense.INVALID_BLOCK,
+        offense: Offense.BROADCASTED_INVALID_BLOCK_PROPOSAL,
       },
     ]);
   }
