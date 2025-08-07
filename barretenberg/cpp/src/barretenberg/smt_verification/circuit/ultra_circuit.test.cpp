@@ -12,6 +12,7 @@
 #include "barretenberg/stdlib/primitives/memory/ram_table.hpp"
 #include "barretenberg/stdlib/primitives/memory/rom_table.hpp"
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
+#include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
 
 #include "barretenberg/smt_verification/circuit/ultra_circuit.hpp"
 #include "barretenberg/smt_verification/util/smt_util.hpp"
@@ -35,6 +36,7 @@ using bigfield_t = bb::stdlib::bigfield<Builder, bb::Bn254FqParams>;
 using uint_t = stdlib::uint32<UltraCircuitBuilder>;
 using rom_table_t = bb::stdlib::rom_table<Builder>;
 using ram_table_t = bb::stdlib::ram_table<Builder>;
+using cycle_group_t = bb::stdlib::cycle_group<Builder>;
 
 TEST(UltraCircuitSMT, AssertEqual)
 {
@@ -106,35 +108,26 @@ TEST(UltraCircuitSMT, EllipticRelationADD)
 {
     UltraCircuitBuilder builder;
 
-    bb::grumpkin::g1::affine_element p1 = bb::crypto::pedersen_commitment::commit_native({ bb::fr::one() }, 0);
-    bb::grumpkin::g1::affine_element p2 = bb::crypto::pedersen_commitment::commit_native({ bb::fr::one() }, 1);
-    bb::grumpkin::g1::affine_element p3 = bb::grumpkin::g1::element(p1) + bb::grumpkin::g1::element(p2);
+    auto p1 = cycle_group_t::from_witness(&builder, bb::stdlib::cycle_group<Builder>::Curve::AffineElement::random_element());
+    auto p2 = cycle_group_t::from_witness(&builder, bb::stdlib::cycle_group<Builder>::Curve::AffineElement::random_element());
+    auto p3 = p1.unconditional_add(p2);
 
-    uint32_t x1 = builder.add_variable(p1.x);
-    uint32_t y1 = builder.add_variable(p1.y);
-    uint32_t x2 = builder.add_variable(p2.x);
-    uint32_t y2 = builder.add_variable(p2.y);
-    uint32_t x3 = builder.add_variable(p3.x);
-    uint32_t y3 = builder.add_variable(p3.y);
-
-    builder.set_variable_name(x1, "x1");
-    builder.set_variable_name(x2, "x2");
-    builder.set_variable_name(x3, "x3");
-    builder.set_variable_name(y1, "y1");
-    builder.set_variable_name(y2, "y2");
-    builder.set_variable_name(y3, "y3");
-
-    builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, 1 });
+    builder.set_variable_name(p1.x.get_witness_index(), "x1");
+    builder.set_variable_name(p2.x.get_witness_index(), "x2");
+    builder.set_variable_name(p3.x.get_witness_index(), "x3");
+    builder.set_variable_name(p1.y.get_witness_index(), "y1");
+    builder.set_variable_name(p2.y.get_witness_index(), "y2");
+    builder.set_variable_name(p3.y.get_witness_index(), "y3");
 
     auto circuit_info = unpack_from_buffer(builder.export_circuit());
     Solver s(circuit_info.modulus, ultra_solver_config);
     UltraCircuit cir(circuit_info, &s);
     ASSERT_EQ(cir.get_num_gates(), builder.get_estimated_num_finalized_gates());
 
-    cir["x1"] == builder.get_variable(x1);
-    cir["x2"] == builder.get_variable(x2);
-    cir["y1"] == builder.get_variable(y1);
-    cir["y2"] == builder.get_variable(y2);
+    cir["x1"] == p1.x.get_value();
+    cir["x2"] == p2.x.get_value();
+    cir["y1"] == p1.y.get_value();
+    cir["y2"] == p2.y.get_value();
 
     bool res = s.check();
     ASSERT_TRUE(res);
@@ -142,14 +135,14 @@ TEST(UltraCircuitSMT, EllipticRelationADD)
     bb::fr x3_solver_val = string_to_fr(s[cir["x3"]], /*base=*/10);
     bb::fr y3_solver_val = string_to_fr(s[cir["y3"]], /*base=*/10);
 
-    bb::fr x3_builder_val = builder.get_variable(x3);
-    bb::fr y3_builder_val = builder.get_variable(y3);
+    bb::fr x3_builder_val = p3.x.get_value();
+    bb::fr y3_builder_val = p3.y.get_value();
 
     ASSERT_EQ(x3_solver_val, x3_builder_val);
     ASSERT_EQ(y3_solver_val, y3_builder_val);
 
-    ((Bool(cir["x3"]) != Bool(STerm(builder.get_variable(x3), &s, TermType::FFTerm))) |
-     (Bool(cir["y3"]) != Bool(STerm(builder.get_variable(y3), &s, TermType::FFTerm))))
+    ((Bool(cir["x3"]) != Bool(STerm(x3_builder_val, &s, TermType::FFTerm))) |
+     (Bool(cir["y3"]) != Bool(STerm(y3_builder_val, &s, TermType::FFTerm))))
         .assert_term();
     res = s.check();
     ASSERT_FALSE(res);
@@ -159,42 +152,39 @@ TEST(UltraCircuitSMT, EllipticRelationDBL)
 {
     UltraCircuitBuilder builder;
 
-    bb::grumpkin::g1::affine_element p1 = bb::crypto::pedersen_commitment::commit_native({ bb::fr::one() }, 0);
-    bb::grumpkin::g1::affine_element p3 = bb::grumpkin::g1::element(p1).dbl();
+    auto p1 = cycle_group_t::from_witness(&builder, bb::stdlib::cycle_group<Builder>::Curve::AffineElement::random_element());
+    auto p2 = p1.dbl();
 
-    uint32_t x1 = builder.add_variable(p1.x);
-    uint32_t y1 = builder.add_variable(p1.y);
-    uint32_t x3 = builder.add_variable(p3.x);
-    uint32_t y3 = builder.add_variable(p3.y);
-    builder.set_variable_name(x1, "x1");
-    builder.set_variable_name(x3, "x3");
-    builder.set_variable_name(y1, "y1");
-    builder.set_variable_name(y3, "y3");
+    builder.set_variable_name(p1.x.get_witness_index(), "x1");
+    builder.set_variable_name(p2.x.get_witness_index(), "x2");
+    builder.set_variable_name(p1.y.get_witness_index(), "y1");
+    builder.set_variable_name(p2.y.get_witness_index(), "y2");
+    builder.set_variable_name(p1.is_point_at_infinity().witness_index, "is_inf");
 
-    builder.create_ecc_dbl_gate({ x1, y1, x3, y3 });
 
     auto circuit_info = unpack_from_buffer(builder.export_circuit());
     Solver s(circuit_info.modulus, ultra_solver_config);
     UltraCircuit cir(circuit_info, &s);
     ASSERT_EQ(cir.get_num_gates(), builder.get_estimated_num_finalized_gates());
 
-    cir["x1"] == builder.get_variable(x1);
-    cir["y1"] == builder.get_variable(y1);
+    cir["x1"] == p1.x.get_value();
+    cir["y1"] == p1.y.get_value();
+    cir["is_inf"] == static_cast<size_t>(p1.is_point_at_infinity().get_value());
 
     bool res = s.check();
     ASSERT_TRUE(res);
 
-    bb::fr x3_solver_val = string_to_fr(s[cir["x3"]], /*base=*/10);
-    bb::fr y3_solver_val = string_to_fr(s[cir["y3"]], /*base=*/10);
+    bb::fr x2_solver_val = string_to_fr(s[cir["x2"]], /*base=*/10);
+    bb::fr y2_solver_val = string_to_fr(s[cir["y2"]], /*base=*/10);
 
-    bb::fr x3_builder_val = builder.get_variable(x3);
-    bb::fr y3_builder_val = builder.get_variable(y3);
+    bb::fr x2_builder_val = p2.x.get_value();
+    bb::fr y2_builder_val = p2.y.get_value();
 
-    ASSERT_EQ(x3_solver_val, x3_builder_val);
-    ASSERT_EQ(y3_solver_val, y3_builder_val);
+    ASSERT_EQ(x2_solver_val, x2_builder_val);
+    ASSERT_EQ(y2_solver_val, y2_builder_val);
 
-    ((Bool(cir["x3"]) != Bool(STerm(builder.get_variable(x3), &s, TermType::FFTerm))) |
-     (Bool(cir["y3"]) != Bool(STerm(builder.get_variable(y3), &s, TermType::FFTerm))))
+    ((Bool(cir["x2"]) != Bool(STerm(x2_builder_val, &s, TermType::FFTerm))) |
+     (Bool(cir["y2"]) != Bool(STerm(y2_builder_val, &s, TermType::FFTerm))))
         .assert_term();
     res = s.check();
     ASSERT_FALSE(res);
@@ -274,8 +264,9 @@ TEST(UltraCircuitSMT, LookupRelation2)
     ASSERT_EQ(c_solver_val, c_builder_val);
 }
 
-// Due to ranges being huge it takes 5 min 32 sec to finish
-// TEST(UltraCircuitSMT, AuxRelation)
+//// Due to ranges being huge it takes 5 min 32 sec to finish
+// TODO(alex): Wait until the bug with large sets is resolved by cvc5
+//TEST(UltraCircuitSMT, NNFRelation)
 //{
 //    UltraCircuitBuilder builder;
 //
@@ -287,11 +278,13 @@ TEST(UltraCircuitSMT, LookupRelation2)
 //    Solver slv(circuit_info.modulus, /*config=*/debug_solver_config, /*base=*/16);
 //    UltraCircuit cir(circuit_info, &slv, TermType::FFTerm);
 //
-//    for(uint32_t i = 0; i < builder.variables.size(); i++){
-//        cir[i] == builder.variables[i];
+//    for(uint32_t i = 0; i < builder.get_variables().size(); i++){
+//        if (!cir.optimized[i]){
+//            cir[i] == builder.get_variables()[i];
+//        }
 //    }
 //
-//    // slv.print_assertions();
+//    slv.print_assertions();
 //    bool res = smt_timer(&slv);
 //    ASSERT_TRUE(res);
 //}

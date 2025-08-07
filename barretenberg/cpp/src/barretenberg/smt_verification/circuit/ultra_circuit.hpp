@@ -25,7 +25,6 @@ struct BlockType {
  */
 class UltraCircuit : public CircuitBase {
   public:
-    // TODO(alex): check that there's no actual pub_inputs block
     std::vector<std::vector<std::vector<bb::fr>>> selectors;    // all selectors from the circuit
                                                                 // 1st entry are lookup selectors
                                                                 // 2nd entry are arithmetic selectors
@@ -85,7 +84,6 @@ class UltraCircuit : public CircuitBase {
     size_t handle_lookup_relation(size_t cursor);
     size_t handle_elliptic_relation(size_t cursor);
     size_t handle_delta_range_relation(size_t cursor);
-    size_t handle_memory_relation(size_t cursor);
     size_t handle_nnf_relation(size_t cursor);
 
     void handle_range_constraints();
