@@ -425,18 +425,18 @@ process_honk_recursion_constraints(Builder& builder,
                 builder, constraint, has_valid_witness_assignments);
 
             if (output.points_accumulator.has_data) {
-                output.points_accumulator.aggregate(honk_recursion_constraint.pairing_points);
+                output.points_accumulator.aggregate(honk_recursion_constraint.points_accumulator);
             } else {
-                output.points_accumulator = honk_recursion_constraint.pairing_points;
+                output.points_accumulator = honk_recursion_constraint.points_accumulator;
             }
 
         } else if (constraint.proof_type == HONK) {
             auto honk_recursion_constraint = create_honk_recursion_constraints<UltraRecursiveFlavor_<Builder>>(
                 builder, constraint, has_valid_witness_assignments);
             if (output.points_accumulator.has_data) {
-                output.points_accumulator.aggregate(honk_recursion_constraint.pairing_points);
+                output.points_accumulator.aggregate(honk_recursion_constraint.points_accumulator);
             } else {
-                output.points_accumulator = honk_recursion_constraint.pairing_points;
+                output.points_accumulator = honk_recursion_constraint.points_accumulator;
             }
         } else if (constraint.proof_type == ROLLUP_HONK || constraint.proof_type == ROOT_ROLLUP_HONK) {
             if constexpr (!IsUltraBuilder<Builder>) {
@@ -449,9 +449,9 @@ process_honk_recursion_constraints(Builder& builder,
                     create_honk_recursion_constraints<UltraRollupRecursiveFlavor_<Builder>>(
                         builder, constraint, has_valid_witness_assignments);
                 if (output.points_accumulator.has_data) {
-                    output.points_accumulator.aggregate(honk_recursion_constraint.pairing_points);
+                    output.points_accumulator.aggregate(honk_recursion_constraint.points_accumulator);
                 } else {
-                    output.points_accumulator = honk_recursion_constraint.pairing_points;
+                    output.points_accumulator = honk_recursion_constraint.points_accumulator;
                 }
                 output.nested_ipa_claims.push_back(honk_recursion_constraint.ipa_claim);
                 output.nested_ipa_proofs.push_back(honk_recursion_constraint.ipa_proof);
