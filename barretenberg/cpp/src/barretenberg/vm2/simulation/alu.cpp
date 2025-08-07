@@ -91,8 +91,7 @@ MemoryValue Alu::div(const MemoryValue& a, const MemoryValue& b)
     } catch (const TagMismatchException& e) {
         events.emit({ .operation = AluOperation::DIV, .a = a, .b = b, .error = AluError::TAG_ERROR });
         throw AluException("DIV, " + std::string(e.what()));
-    } catch (const InvalidOperationTag& e) {
-        // TODO(MW): Add specific dividing by zero exception to catch? Is looking for InvalidOperationTag enough?
+    } catch (const DivisionByZero& e) {
         events.emit({ .operation = AluOperation::DIV, .a = a, .b = b, .error = AluError::DIV_0_ERROR });
         throw AluException("DIV, " + std::string(e.what()));
     }

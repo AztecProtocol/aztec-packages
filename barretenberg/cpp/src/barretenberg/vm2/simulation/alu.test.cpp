@@ -246,7 +246,7 @@ TEST(AvmSimulationAluTest, Div)
     EXPECT_THAT(events, ElementsAre(AluEvent{ .operation = AluOperation::DIV, .a = a, .b = b, .c = c }));
 }
 
-TEST(AvmSimulationAluTest, DivOverflowU128)
+TEST(AvmSimulationAluTest, DivU128)
 {
     EventEmitter<AluEvent> alu_event_emitter;
     StrictMock<MockGreaterThan> gt;
@@ -291,7 +291,7 @@ TEST(AvmSimulationAluTest, DivByZero)
         ElementsAre(AluEvent{ .operation = AluOperation::DIV, .a = a, .b = b, .error = AluError::DIV_0_ERROR }));
 }
 
-TEST(AvmSimulationAluTest, NegativeDivTagFF)
+TEST(AvmSimulationAluTest, DivFFTag)
 {
     EventEmitter<AluEvent> alu_event_emitter;
     StrictMock<MockGreaterThan> gt;

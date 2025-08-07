@@ -15,8 +15,8 @@ template <typename FF_> class aluImpl {
     using FF = FF_;
 
     static constexpr std::array<size_t, 53> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 2, 5, 5, 4, 3, 3, 4, 6, 3,
-                                                                            3, 6, 3, 6, 3, 5, 3, 5, 3, 3, 3, 5, 6, 3,
-                                                                            2, 5, 5, 3, 6, 3, 3, 3, 3, 3, 3, 3, 4, 3,
+                                                                            3, 6, 3, 6, 3, 6, 3, 5, 3, 3, 3, 5, 3, 6,
+                                                                            3, 6, 6, 3, 6, 3, 3, 3, 3, 3, 3, 3, 4, 3,
                                                                             4, 3, 3, 3, 3, 2, 2, 3, 3, 4, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -67,6 +67,10 @@ template <typename FF_> class aluImpl {
             ((FF(1) - in.get(C::alu_sel_op_not) * in.get(C::alu_sel_is_ff)) - in.get(C::alu_sel_op_truncate));
         const auto alu_AB_TAGS_EQ = (FF(1) - in.get(C::alu_sel_ab_tag_mismatch));
         const auto alu_TWO_POW_64 = FF(uint256_t{ 0UL, 1UL, 0UL, 0UL });
+        const auto alu_DECOMPOSED_A = in.get(C::alu_sel_mul_u128) * in.get(C::alu_ia) +
+                                      in.get(C::alu_sel_is_u128) * in.get(C::alu_sel_op_div) *
+                                          (FF(1) - in.get(C::alu_sel_tag_err)) * in.get(C::alu_ic);
+        const auto alu_DECOMPOSED_B = in.get(C::alu_ib);
         const auto alu_DIFF = (in.get(C::alu_ia) - in.get(C::alu_ib));
 
         {
@@ -217,16 +221,14 @@ template <typename FF_> class aluImpl {
         { // A_DECOMPOSITION
             using Accumulator = typename std::tuple_element_t<19, ContainerOverSubrelations>;
             auto tmp = in.get(C::alu_sel_mul_div_u128) *
-                       ((in.get(C::alu_sel_mul_u128) * in.get(C::alu_ia) +
-                         in.get(C::alu_sel_div_u128) * (FF(1) - in.get(C::alu_sel_tag_err)) * in.get(C::alu_ic)) -
-                        (in.get(C::alu_a_lo) + alu_TWO_POW_64 * in.get(C::alu_a_hi)));
+                       (alu_DECOMPOSED_A - (in.get(C::alu_a_lo) + alu_TWO_POW_64 * in.get(C::alu_a_hi)));
             tmp *= scaling_factor;
             std::get<19>(evals) += typename Accumulator::View(tmp);
         }
         { // B_DECOMPOSITION
             using Accumulator = typename std::tuple_element_t<20, ContainerOverSubrelations>;
             auto tmp = in.get(C::alu_sel_mul_div_u128) *
-                       (in.get(C::alu_ib) - (in.get(C::alu_b_lo) + alu_TWO_POW_64 * in.get(C::alu_b_hi)));
+                       (alu_DECOMPOSED_B - (in.get(C::alu_b_lo) + alu_TWO_POW_64 * in.get(C::alu_b_hi)));
             tmp *= scaling_factor;
             std::get<20>(evals) += typename Accumulator::View(tmp);
         }
@@ -270,35 +272,37 @@ template <typename FF_> class aluImpl {
             tmp *= scaling_factor;
             std::get<25>(evals) += typename Accumulator::View(tmp);
         }
-        { // ALU_DIV_NON_U128
+        {
             using Accumulator = typename std::tuple_element_t<26, ContainerOverSubrelations>;
-            auto tmp = in.get(C::alu_sel_op_div) * alu_IS_NOT_U128 * (FF(1) - in.get(C::alu_sel_err)) *
-                       (in.get(C::alu_ib) * in.get(C::alu_ic) - (in.get(C::alu_ia) - in.get(C::alu_helper1)));
+            auto tmp =
+                (in.get(C::alu_sel_div_no_0_err) - in.get(C::alu_sel_op_div) * (FF(1) - in.get(C::alu_sel_div_0_err)));
             tmp *= scaling_factor;
             std::get<26>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // ALU_DIV_NON_U128
             using Accumulator = typename std::tuple_element_t<27, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::alu_sel_div_u128) - in.get(C::alu_sel_is_u128) * in.get(C::alu_sel_op_div));
+            auto tmp = in.get(C::alu_sel_op_div) * alu_IS_NOT_U128 * (FF(1) - in.get(C::alu_sel_err)) *
+                       (in.get(C::alu_ib) * in.get(C::alu_ic) - (in.get(C::alu_ia) - in.get(C::alu_helper1)));
             tmp *= scaling_factor;
             std::get<27>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<28, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::alu_sel_mul_div_u128) - (in.get(C::alu_sel_mul_u128) + in.get(C::alu_sel_div_u128)));
+            auto tmp = (in.get(C::alu_sel_mul_div_u128) -
+                        (in.get(C::alu_sel_mul_u128) + in.get(C::alu_sel_is_u128) * in.get(C::alu_sel_op_div)));
             tmp *= scaling_factor;
             std::get<28>(evals) += typename Accumulator::View(tmp);
         }
         { // ALU_DIV_U128_CHECK
             using Accumulator = typename std::tuple_element_t<29, ContainerOverSubrelations>;
-            auto tmp = in.get(C::alu_sel_div_u128) * (FF(1) - in.get(C::alu_sel_err)) * in.get(C::alu_a_hi) *
-                       in.get(C::alu_b_hi);
+            auto tmp = in.get(C::alu_sel_is_u128) * in.get(C::alu_sel_op_div) * (FF(1) - in.get(C::alu_sel_err)) *
+                       in.get(C::alu_a_hi) * in.get(C::alu_b_hi);
             tmp *= scaling_factor;
             std::get<29>(evals) += typename Accumulator::View(tmp);
         }
         { // ALU_DIV_U128
             using Accumulator = typename std::tuple_element_t<30, ContainerOverSubrelations>;
-            auto tmp = in.get(C::alu_sel_div_u128) * (FF(1) - in.get(C::alu_sel_err)) *
+            auto tmp = in.get(C::alu_sel_is_u128) * in.get(C::alu_sel_op_div) * (FF(1) - in.get(C::alu_sel_err)) *
                        ((in.get(C::alu_ic) * in.get(C::alu_b_lo) +
                          in.get(C::alu_a_lo) * in.get(C::alu_b_hi) * alu_TWO_POW_64) -
                         (in.get(C::alu_ia) - in.get(C::alu_helper1)));
@@ -487,7 +491,7 @@ template <typename FF> class alu : public Relation<aluImpl<FF>> {
             return "ALU_MUL_U128";
         case 25:
             return "DIV_0_ERR";
-        case 26:
+        case 27:
             return "ALU_DIV_NON_U128";
         case 29:
             return "ALU_DIV_U128_CHECK";
@@ -533,7 +537,7 @@ template <typename FF> class alu : public Relation<aluImpl<FF>> {
     static constexpr size_t SR_B_DECOMPOSITION = 20;
     static constexpr size_t SR_ALU_MUL_U128 = 21;
     static constexpr size_t SR_DIV_0_ERR = 25;
-    static constexpr size_t SR_ALU_DIV_NON_U128 = 26;
+    static constexpr size_t SR_ALU_DIV_NON_U128 = 27;
     static constexpr size_t SR_ALU_DIV_U128_CHECK = 29;
     static constexpr size_t SR_ALU_DIV_U128 = 30;
     static constexpr size_t SR_EQ_OP_MAIN = 32;

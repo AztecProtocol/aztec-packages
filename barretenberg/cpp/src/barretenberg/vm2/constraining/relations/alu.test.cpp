@@ -757,7 +757,7 @@ class AluDivConstrainingTest : public AluConstrainingTest,
                 .alu_op_id = AVM_EXEC_OP_ID_ALU_DIV,
                 .alu_sel = 1,
                 .alu_sel_div_0_err = div_0_error ? 1 : 0,
-                .alu_sel_div_u128 = is_u128 ? 1 : 0,
+                .alu_sel_div_no_0_err = div_0_error ? 0 : 1,
                 .alu_sel_err = div_0_error ? 1 : 0,
                 .alu_sel_is_u128 = is_u128 ? 1 : 0,
                 .alu_sel_mul_div_u128 = is_u128 ? 1 : 0,
@@ -933,6 +933,7 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivByZero)
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "DIV_0_ERR");
     // We need to set the div_0_err and...
     trace.set(Column::alu_sel_div_0_err, 0, 1);
+    trace.set(Column::alu_sel_div_no_0_err, 0, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ERR_CHECK");
     // ...the overall sel_err:
     trace.set(Column::alu_sel_err, 0, 1);
@@ -984,7 +985,37 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivByZeroFF)
     trace.set(Column::alu_b_inv, 0, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "DIV_0_ERR");
     trace.set(Column::alu_sel_div_0_err, 0, 1);
+    trace.set(Column::alu_sel_div_no_0_err, 0, 0);
     check_relation<alu>(trace);
+    check_all_interactions<AluTraceBuilder>(trace);
+}
+
+TEST_F(AluDivConstrainingTest, NegativeAluDivByZeroFFTagMismatch)
+{
+    // For DIV, we can have FF, tag mismatch, and dividing by zero errors:
+    auto a = MemoryValue::from_tag(MemoryTag::FF, 2);
+    auto b = MemoryValue::from_tag(MemoryTag::FF, 5);
+    auto c = a / b;
+    auto trace = process_div_with_tracegen({ a, b, c });
+    trace.set(Column::alu_sel_tag_err, 0, 1);
+    trace.set(Column::alu_sel_err, 0, 1);
+    check_relation<alu>(trace);
+    // Setting b to u8 also creates a tag mismatch:
+    trace.set(Column::alu_ib_tag, 0, static_cast<uint8_t>(MemoryTag::U8));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");
+    trace.set(Column::alu_sel_ab_tag_mismatch, 0, 1);
+    trace.set(Column::alu_ab_tags_diff_inv,
+              0,
+              (FF(static_cast<uint8_t>(MemoryTag::FF)) - FF(static_cast<uint8_t>(MemoryTag::U8))).invert());
+    check_relation<alu>(trace);
+    // We can also handle dividing by 0:
+    trace.set(Column::alu_ib, 0, 0);
+    trace.set(Column::alu_b_inv, 0, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "DIV_0_ERR");
+    trace.set(Column::alu_sel_div_0_err, 0, 1);
+    trace.set(Column::alu_sel_div_no_0_err, 0, 0);
+    check_relation<alu>(trace);
+    check_all_interactions<AluTraceBuilder>(trace);
 }
 
 // EQ TESTS
@@ -1361,8 +1392,8 @@ TEST_P(AluLTEConstrainingTest, NegativeAluLTEInput)
         // We rely on lookups, so we expect the relations to still pass...
         check_relation<alu>(trace);
 
-        // ... but the lookup will fail (TODO(MW): properly add a gt and => range check events so it fails because c is
-        // wrong, rather than because this test has not processed the events):
+        // ... but the lookup will fail (TODO(MW): properly add a gt and => range check events so it fails because c
+        // is wrong, rather than because this test has not processed the events):
         if (is_ff) {
             EXPECT_THROW_WITH_MESSAGE((check_interaction<AluTraceBuilder, lookup_alu_ff_gt_settings>(trace)),
                                       "LOOKUP_ALU_FF_GT");

@@ -177,7 +177,7 @@ struct lookup_alu_gt_div_remainder_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ALU_GT_DIV_REMAINDER";
     static constexpr std::string_view RELATION_NAME = "alu";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::alu_sel_op_div;
+    static constexpr Column SRC_SELECTOR = Column::alu_sel_div_no_0_err;
     static constexpr Column DST_SELECTOR = Column::gt_sel;
     static constexpr Column COUNTS = Column::lookup_alu_gt_div_remainder_counts;
     static constexpr Column INVERSES = Column::lookup_alu_gt_div_remainder_inv;

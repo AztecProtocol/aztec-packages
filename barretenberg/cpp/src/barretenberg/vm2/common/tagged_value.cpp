@@ -74,8 +74,7 @@ struct checked_divides {
     template <typename T> auto operator()(T&& a, T&& b) const
     {
         if (b == static_cast<T>(0)) {
-            // TODO(MW): Add specific dividing by zero exception?
-            throw InvalidOperationTag("Dividing by zero");
+            throw DivisionByZero("Dividing numeric value by zero");
         }
         return std::forward<T>(a) / std::forward<T>(b);
     }

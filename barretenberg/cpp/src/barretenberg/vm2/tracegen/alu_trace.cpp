@@ -94,6 +94,7 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
                       : (FF(static_cast<uint8_t>(event.a.get_tag())) - FF(static_cast<uint8_t>(MemoryTag::U128)))
                             .invert() },
             { Column::alu_b_inv, div_0_error ? 0 : event.b.as_ff().invert() },
+            { Column::alu_sel_div_no_0_err, div_0_error ? 0 : 1 },
         };
         if (is_u128) {
             // For u128s, we decompose c and b into 64 bit chunks:
@@ -101,7 +102,6 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
             auto b_decomp = simulation::decompose(static_cast<uint128_t>(event.b.as_ff()));
             res.insert(res.end(),
                        {
-                           { Column::alu_sel_div_u128, 1 },
                            { Column::alu_sel_mul_div_u128, 1 },
                            { Column::alu_a_lo, c_decomp.lo },
                            { Column::alu_a_hi, c_decomp.hi },
@@ -203,7 +203,7 @@ std::vector<std::pair<Column, FF>> get_tag_error_columns(const simulation::AluEv
     bool ff_tag_err = (event.a.get_tag() == MemoryTag::FF) && (event.operation == simulation::AluOperation::NOT ||
                                                                event.operation == simulation::AluOperation::DIV);
     // Case 2:
-    bool ab_tags_mismatch = ((a_tag_ff - b_tag_ff) != 0) && (event.operation != simulation::AluOperation::TRUNCATE);
+    bool ab_tags_mismatch = (a_tag_ff != b_tag_ff) && (event.operation != simulation::AluOperation::TRUNCATE);
     // Note: both cases can occur at the same time. Case 1 only requires sel_tag_error to be on, so we
     // check ab_tags_mismatch first:
     if (ab_tags_mismatch) {
