@@ -88,6 +88,7 @@ __metadata:
     "@aztec/blob-lib": "workspace:^"
     "@aztec/blob-sink": "workspace:^"
     "@aztec/constants": "workspace:^"
+    "@aztec/epoch-cache": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
@@ -580,7 +581,7 @@ __metadata:
     "@aztec/world-state": "workspace:^"
     "@iarna/toml": "npm:^2.2.5"
     "@jest/globals": "npm:^30.0.0"
-    "@noble/curves": "npm:^1.0.0"
+    "@noble/curves": "npm:=1.0.0"
     "@swc/core": "npm:^1.4.11"
     "@swc/jest": "npm:^0.2.36"
     "@types/fs-extra": "npm:^11.0.2"
@@ -672,6 +673,7 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
     "@jest/globals": "npm:^30.0.0"
+    "@noble/curves": "npm:=1.7.0"
     "@types/jest": "npm:^30.0.0"
     "@types/lodash.pickby": "npm:^4"
     "@types/node": "npm:^22.15.17"
@@ -698,7 +700,7 @@ __metadata:
     "@jest/globals": "npm:^30.0.0"
     "@koa/cors": "npm:^5.0.0"
     "@libp2p/interface": "npm:1.3.1"
-    "@noble/curves": "npm:^1.2.0"
+    "@noble/curves": "npm:=1.2.0"
     "@types/detect-node": "npm:^2.0.0"
     "@types/jest": "npm:^30.0.0"
     "@types/koa": "npm:^2.15.0"
@@ -950,7 +952,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/noir-noir_codegen@portal:../noir/packages/noir_codegen::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@aztec/noir-types": "npm:1.0.0-beta.8"
+    "@aztec/noir-types": "npm:1.0.0-beta.9"
     glob: "npm:^11.0.2"
     ts-command-line-args: "npm:^2.5.1"
   bin:
@@ -959,14 +961,14 @@ __metadata:
   linkType: soft
 
 "@aztec/noir-noir_js@file:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
-  version: 1.0.0-beta.8
-  resolution: "@aztec/noir-noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=0b938a&locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  version: 1.0.0-beta.9
+  resolution: "@aztec/noir-noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=6d22a4&locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@aztec/noir-acvm_js": "npm:1.0.0-beta.8"
-    "@aztec/noir-noirc_abi": "npm:1.0.0-beta.8"
-    "@aztec/noir-types": "npm:1.0.0-beta.8"
+    "@aztec/noir-acvm_js": "npm:1.0.0-beta.9"
+    "@aztec/noir-noirc_abi": "npm:1.0.0-beta.9"
+    "@aztec/noir-types": "npm:1.0.0-beta.9"
     pako: "npm:^2.1.0"
-  checksum: 10/95686ffa46786c421f2f632d0993967ade29ba4af068c352b76a6ad5fc72bd45d50b7d35c06531b8e937e345765e2307e3eb382076cf8659fe58c776717e25dd
+  checksum: 10/8dae123556c3119c1f8959f2ebcbe00986dbf9b2a25b9c4b6b2a11482aed1f1a07ddd554afdfaac0cd6479d19f91485974ecca6949ef663938bb30e5c2f671da
   languageName: node
   linkType: hard
 
@@ -974,7 +976,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/noir-noirc_abi@portal:../noir/packages/noirc_abi::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@aztec/noir-types": "npm:1.0.0-beta.8"
+    "@aztec/noir-types": "npm:1.0.0-beta.9"
   languageName: node
   linkType: soft
 
@@ -4573,7 +4575,34 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noble/curves@npm:^1.0.0, @noble/curves@npm:^1.1.0, @noble/curves@npm:^1.2.0, @noble/curves@npm:^1.4.0":
+"@noble/curves@npm:=1.0.0":
+  version: 1.0.0
+  resolution: "@noble/curves@npm:1.0.0"
+  dependencies:
+    "@noble/hashes": "npm:1.3.0"
+  checksum: 10/6db884e03b3f6c773317bcf4611bf1d9adb8084eab0bf6158407cc998c9c5dcb0560741bdd0aaca9c4393c9e8a3dcd7592b4148a6cfd561d0a00addb77a6129f
+  languageName: node
+  linkType: hard
+
+"@noble/curves@npm:=1.2.0":
+  version: 1.2.0
+  resolution: "@noble/curves@npm:1.2.0"
+  dependencies:
+    "@noble/hashes": "npm:1.3.2"
+  checksum: 10/94e02e9571a9fd42a3263362451849d2f54405cb3ce9fa7c45bc6b9b36dcd7d1d20e2e1e14cfded24937a13d82f1e60eefc4d7a14982ce0bc219a9fc0f51d1f9
+  languageName: node
+  linkType: hard
+
+"@noble/curves@npm:=1.7.0, @noble/curves@npm:^1.3.0":
+  version: 1.7.0
+  resolution: "@noble/curves@npm:1.7.0"
+  dependencies:
+    "@noble/hashes": "npm:1.6.0"
+  checksum: 10/2a11ef4895907d0b241bd3b72f9e6ebe56f0e705949bfd5efe003f25233549f620d287550df2d24ad56a1f953b82ec5f7cf4bd7cb78b1b2e76eb6dd516d44cf8
+  languageName: node
+  linkType: hard
+
+"@noble/curves@npm:^1.1.0, @noble/curves@npm:^1.4.0":
   version: 1.4.0
   resolution: "@noble/curves@npm:1.4.0"
   dependencies:
@@ -4582,12 +4611,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noble/curves@npm:^1.3.0":
-  version: 1.7.0
-  resolution: "@noble/curves@npm:1.7.0"
-  dependencies:
-    "@noble/hashes": "npm:1.6.0"
-  checksum: 10/2a11ef4895907d0b241bd3b72f9e6ebe56f0e705949bfd5efe003f25233549f620d287550df2d24ad56a1f953b82ec5f7cf4bd7cb78b1b2e76eb6dd516d44cf8
+"@noble/hashes@npm:1.3.0":
+  version: 1.3.0
+  resolution: "@noble/hashes@npm:1.3.0"
+  checksum: 10/4680a71941c06ac897cc9eab9d229717d5af1147cea5e8cd4942190c817426ad3173ded750d897f58d764b869f9347d4fc3f6b3c16574541ac81906efa9ddc36
+  languageName: node
+  linkType: hard
+
+"@noble/hashes@npm:1.3.2":
+  version: 1.3.2
+  resolution: "@noble/hashes@npm:1.3.2"
+  checksum: 10/685f59d2d44d88e738114b71011d343a9f7dce9dfb0a121f1489132f9247baa60bc985e5ec6f3213d114fbd1e1168e7294644e46cbd0ce2eba37994f28eeb51b
   languageName: node
   linkType: hard
 

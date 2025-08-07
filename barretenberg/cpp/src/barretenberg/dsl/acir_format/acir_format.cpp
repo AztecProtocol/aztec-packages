@@ -16,9 +16,9 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/honk/proving_key_inspector.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/verifier_commitment_key.hpp"
-#include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
+#include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -114,15 +114,23 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     }
 
     // Add range constraint
+    // preprocessing: remove range constraints if they are implied by memory operations
+    for (auto const& index_range : constraint_system.index_range) {
+        if (constraint_system.minimal_range[index_range.first] == index_range.second) {
+            constraint_system.minimal_range.erase(index_range.first);
+        }
+    }
     for (size_t i = 0; i < constraint_system.range_constraints.size(); ++i) {
         const auto& constraint = constraint_system.range_constraints.at(i);
         uint32_t range = constraint.num_bits;
         if (constraint_system.minimal_range.contains(constraint.witness)) {
             range = constraint_system.minimal_range[constraint.witness];
+            builder.create_range_constraint(constraint.witness, range, "");
+            gate_counter.track_diff(constraint_system.gates_per_opcode,
+                                    constraint_system.original_opcode_indices.range_constraints.at(i));
+            // no need to add more range constraints for this witness.
+            constraint_system.minimal_range.erase(constraint.witness);
         }
-        builder.create_range_constraint(constraint.witness, range, "");
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.range_constraints.at(i));
     }
 
     // Add aes128 constraints
@@ -271,7 +279,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         // If its an app circuit that has no recursion constraints, add default pairing points to public inputs.
         if (constraint_system.honk_recursion_constraints.empty() &&
             constraint_system.ivc_recursion_constraints.empty()) {
-            PairingPoints::add_default_to_public_inputs(builder);
+            stdlib::recursion::honk::AppIO::add_default(builder);
         }
     } else {
         HonkRecursionConstraintsOutput<Builder> honk_output =
@@ -596,11 +604,8 @@ template <> MegaCircuitBuilder create_circuit(AcirProgram& program, const Progra
 
     auto op_queue = (metadata.ivc == nullptr) ? std::make_shared<ECCOpQueue>() : metadata.ivc->goblin.op_queue;
 
-    // If the incoming program is a kernel, it will have at least one ivc_recursion_constraint.
-    bool is_kernel = !constraints.ivc_recursion_constraints.empty();
-
     // Construct a builder using the witness and public input data from acir and with the goblin-owned op_queue
-    auto builder = MegaCircuitBuilder{ op_queue, witness, constraints.public_inputs, constraints.varnum, is_kernel };
+    auto builder = MegaCircuitBuilder{ op_queue, witness, constraints.public_inputs, constraints.varnum };
 
     // Populate constraints in the builder via the data in constraint_system
     build_constraints(builder, program, metadata);

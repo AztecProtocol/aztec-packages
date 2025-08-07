@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
@@ -62,6 +61,58 @@ function build {
     echo "Targets built, you are good to go!"
 }
 
+function bench_cmds {
+  echo "$hash barretenberg/sol/bootstrap.sh bench"
+}
+
+function bench {
+  echo_header "barretenberg/sol gas benchmark"
+
+  rm -rf bench-out && mkdir -p bench-out
+
+  # Run forge test with gas report using JSON flag
+  echo "Running gas report for verifier contracts..."
+  FORGE_GAS_REPORT=true forge test --no-match-contract Base --json > gas_report.json 2>&1
+
+  # Check if we got any output
+  if [ ! -s gas_report.json ]; then
+    echo "Error: No output from forge test"
+    exit 1
+  fi
+
+  # Parse the JSON output to extract median gas values
+  jq '[
+    .[] | 
+    select(.functions."verify(bytes,bytes32[])" != null) |
+    {
+      name: (.contract | split(":")[1]),
+      value: .functions."verify(bytes,bytes32[])".median,
+      unit: "gas"
+    }
+  ]' gas_report.json > bench-out/verifier.bench.json.tmp
+
+  # Clean up
+  rm -f gas_report.json
+
+  # Validate JSON and move to final location
+  if jq . bench-out/verifier.bench.json.tmp >/dev/null 2>&1; then
+    mv bench-out/verifier.bench.json.tmp bench-out/verifier.bench.json
+    echo "Gas benchmark complete. Output written to bench-out/verifier.bench.json"
+
+    # Display summary
+    echo "Generated $(jq length bench-out/verifier.bench.json) benchmark entries"
+    
+    # Display gas report
+    echo -e "\nGas Report:"
+    jq -r '.[] | "\(.name): \(.value) gas"' bench-out/verifier.bench.json
+  else
+    echo "Error: Failed to generate valid JSON output"
+    cat bench-out/verifier.bench.json.tmp
+    rm -f bench-out/verifier.bench.json.tmp
+    exit 1
+  fi
+}
+
 
 case "$cmd" in
   "clean")
@@ -80,7 +131,13 @@ case "$cmd" in
   test|test_cmds)
     $cmd
     ;;
-  "bench"|"release")
+  "bench")
+    bench
+    ;;
+  "bench_cmds")
+    bench_cmds
+    ;;
+  "release")
     # noop
     exit 0
     ;;

@@ -1,16 +1,17 @@
 import { getSchnorrWalletWithSecretKey } from '@aztec/accounts/schnorr';
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import { type AccountWalletWithSecretKey, EthAddress } from '@aztec/aztec.js';
+import { type AccountWalletWithSecretKey, EthAddress, Fr } from '@aztec/aztec.js';
 import {
   type ExtendedViemWalletClient,
+  GSEContract,
   L1TxUtils,
+  MultiAdderArtifact,
   type Operator,
   RollupContract,
   type ViemClient,
   deployL1Contract,
   getL1ContractsConfigEnvVars,
-  l1Artifacts,
 } from '@aztec/ethereum';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -206,6 +207,7 @@ export class P2PNetworkTest {
       validators.push({
         attester: EthAddress.fromString(attester.address),
         withdrawer: EthAddress.fromString(attester.address),
+        bn254SecretKey: Fr.random().toBigInt(),
       });
 
       this.logger.info(`Adding attester ${attester.address} as validator`);
@@ -234,18 +236,18 @@ export class P2PNetworkTest {
 
         const { address: multiAdderAddress } = await deployL1Contract(
           deployL1ContractsValues.l1Client,
-          l1Artifacts.multiAdder.contractAbi,
-          l1Artifacts.multiAdder.contractBytecode,
+          MultiAdderArtifact.contractAbi,
+          MultiAdderArtifact.contractBytecode,
           [rollup.address, deployL1ContractsValues.l1Client.account.address],
         );
 
         const multiAdder = getContract({
           address: multiAdderAddress.toString(),
-          abi: l1Artifacts.multiAdder.contractAbi,
+          abi: MultiAdderArtifact.contractAbi,
           client: deployL1ContractsValues.l1Client,
         });
 
-        const stakeNeeded = l1ContractsConfig.depositAmount * BigInt(this.numberOfValidators);
+        const stakeNeeded = l1ContractsConfig.activationThreshold * BigInt(this.numberOfValidators);
         await Promise.all(
           [await stakingAsset.write.mint([multiAdder.address, stakeNeeded], {} as any)].map(txHash =>
             deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: txHash }),
@@ -255,16 +257,25 @@ export class P2PNetworkTest {
         const { validators } = this.getValidators();
         this.validators = validators;
 
+        const gseAddress = deployL1ContractsValues.l1ContractAddresses.gseAddress!;
+        if (!gseAddress) {
+          throw new Error('GSE contract not deployed');
+        }
+
+        const gseContract = new GSEContract(deployL1ContractsValues.l1Client, gseAddress.toString());
+
+        const makeValidatorTuples = async (validator: Operator) => {
+          const registrationTuple = await gseContract.makeRegistrationTuple(validator.bn254SecretKey);
+          return {
+            attester: validator.attester.toString() as `0x${string}`,
+            withdrawer: validator.withdrawer.toString() as `0x${string}`,
+            ...registrationTuple,
+          };
+        };
+        const validatorTuples = await Promise.all(validators.map(makeValidatorTuples));
+
         await deployL1ContractsValues.l1Client.waitForTransactionReceipt({
-          hash: await multiAdder.write.addValidators([
-            this.validators.map(
-              v =>
-                ({
-                  attester: v.attester.toString() as `0x${string}`,
-                  withdrawer: v.withdrawer.toString() as `0x${string}`,
-                }) as const,
-            ),
-          ]),
+          hash: await multiAdder.write.addValidators([validatorTuples]),
         });
 
         const timestamp = await cheatCodes.rollup.advanceToEpoch(2n, { updateDateProvider: dateProvider });

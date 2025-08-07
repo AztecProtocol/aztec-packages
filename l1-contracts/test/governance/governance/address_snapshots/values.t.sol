@@ -34,10 +34,7 @@ contract AddressSnapshotValuesTest is AddressSnapshotsBase {
     }
   }
 
-  function test_WhenValidatorsHaveNotChangedForSomeTime(
-    address[] memory _addrs,
-    uint16 _epochsToJump
-  ) public {
+  function test_WhenValidatorsHaveNotChangedForSomeTime(address[] memory _addrs, uint16 _epochsToJump) public {
     _addrs = boundUnique(_addrs);
     uint32 ts = uint32(block.timestamp);
 

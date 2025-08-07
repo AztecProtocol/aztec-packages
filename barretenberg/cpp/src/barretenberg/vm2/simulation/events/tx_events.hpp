@@ -5,13 +5,12 @@
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/simulation/events/tx_context_event.hpp"
 
 namespace bb::avm2::simulation {
 
 struct TxStartupEvent {
-    Gas tx_gas_limit;
-    Gas private_gas_used;
-    TreeStates tree_state;
+    TxContextEvent state;
 };
 
 struct EnqueuedCallEvent {
@@ -20,8 +19,8 @@ struct EnqueuedCallEvent {
     FF transaction_fee;
     bool is_static;
     FF calldata_hash;
-    Gas prev_gas_used;
-    Gas gas_used;
+    Gas start_gas;
+    Gas end_gas;
     Gas gas_limit;
     bool success;
 };
@@ -49,12 +48,9 @@ using TxPhaseEventType =
 
 struct TxPhaseEvent {
     TransactionPhase phase;
-    TreeStates prev_tree_state;
-    TreeStates next_tree_state;
-    // TODO: Add written public data slots tree snapshot, ideally via a TxContextEvent
-
+    TxContextEvent state_before;
+    TxContextEvent state_after;
     bool reverted;
-
     TxPhaseEventType event;
 };
 

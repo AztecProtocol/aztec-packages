@@ -8,27 +8,27 @@ unconstrained fn mint_success() {
     let (env, nft_contract_address, owner, _) = utils::setup(/* with_account_contracts */ false);
 
     let token_id = 10000;
-    let _ = env.call_public(owner, NFT::at(nft_contract_address).mint(owner, token_id));
+    env.call_public(owner, NFT::at(nft_contract_address).mint(owner, token_id));
 
     utils::assert_owns_public_nft(env, nft_contract_address, owner, token_id);
 }
 
-#[test(should_fail)] // should_fail_with="NFT minted by non-minter"
+#[test(should_fail_with = "caller is not a minter")]
 unconstrained fn mint_as_non_minter_fails() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, nft_contract_address, owner, other) = utils::setup(/* with_account_contracts */ false);
 
     let token_id = 10000;
-    let _ = env.call_public(other, NFT::at(nft_contract_address).mint(owner, token_id));
+    env.call_public(other, NFT::at(nft_contract_address).mint(owner, token_id));
 }
 
-#[test(should_fail)] // should_fail_with="NFT not minted"
+#[test(should_fail_with = "token already exists")]
 unconstrained fn mint_twice_fails() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, nft_contract_address, owner, _) = utils::setup(/* with_account_contracts */ false);
 
     let token_id = 10000;
-    let _ = env.call_public(owner, NFT::at(nft_contract_address).mint(owner, token_id));
+    env.call_public(owner, NFT::at(nft_contract_address).mint(owner, token_id));
 
     env.utility_context_at(nft_contract_address, |context| {
         let nft_exists_slot = NFT::storage_layout().nft_exists.slot;
@@ -36,13 +36,13 @@ unconstrained fn mint_twice_fails() {
         assert(context.storage_read(nft_slot));
     });
 
-    let _ = env.call_public(owner, NFT::at(nft_contract_address).mint(owner, token_id));
+    env.call_public(owner, NFT::at(nft_contract_address).mint(owner, token_id));
 }
 
-#[test(should_fail)]
+#[test(should_fail_with = "zero token ID not supported")]
 unconstrained fn mint_id_0_fails() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, nft_contract_address, owner, _) = utils::setup(/* with_account_contracts */ false);
 
-    let _ = env.call_public(owner, NFT::at(nft_contract_address).mint(owner, 0));
+    env.call_public(owner, NFT::at(nft_contract_address).mint(owner, 0));
 }

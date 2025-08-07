@@ -9,8 +9,11 @@ const logger = pino({
 });
 
 const UH_PROOF_FIELDS_LENGTH = 508; // length of UltraZKHonk flavor
-const BYTES_PER_FIELD = 32;
-const UH_PROOF_LENGTH_IN_BYTES = UH_PROOF_FIELDS_LENGTH * BYTES_PER_FIELD;
+const UH_KECCAK_PROOF_ELEMENTS_LENGTH = 426; // length of UltraZKHonk flavor
+const BYTES_PER_ELEMENT = 32;
+const UH_PROOF_LENGTH_IN_BYTES = UH_PROOF_FIELDS_LENGTH * BYTES_PER_ELEMENT;
+const UH_KECCAK_PROOF_LENGTH_IN_BYTES =
+  UH_KECCAK_PROOF_ELEMENTS_LENGTH * BYTES_PER_ELEMENT;
 
 const proofPath = (dir: string) => path.join(dir, "proof");
 const proofAsFieldsPath = (dir: string) => path.join(dir, "proof_fields.json");
@@ -46,7 +49,10 @@ async function generateProof({
     starknetZK: oracleHash === "starknetZK",
   });
   assert(
-    proof.proof.length === UH_PROOF_LENGTH_IN_BYTES,
+    proof.proof.length ===
+      (oracleHash === "keccakZK"
+        ? UH_KECCAK_PROOF_LENGTH_IN_BYTES
+        : UH_PROOF_LENGTH_IN_BYTES),
     `Unexpected proof length ${proof.proof.length} for ${bytecodePath}`
   );
 
@@ -83,8 +89,9 @@ async function verifyProof({ directory }: { directory: string }) {
 
   const proof = await fs.readFile(proofPath(directory));
   assert(
-    proof.length === UH_PROOF_LENGTH_IN_BYTES,
-    `Unexpected proof length ${proof.length}, expected ${UH_PROOF_LENGTH_IN_BYTES}`
+    proof.length === UH_PROOF_LENGTH_IN_BYTES ||
+      proof.length === UH_KECCAK_PROOF_LENGTH_IN_BYTES,
+    `Unexpected proof length ${proof.length}, expected ${UH_PROOF_LENGTH_IN_BYTES} or ${UH_KECCAK_PROOF_LENGTH_IN_BYTES}`
   );
 
   const publicInputs = JSON.parse(

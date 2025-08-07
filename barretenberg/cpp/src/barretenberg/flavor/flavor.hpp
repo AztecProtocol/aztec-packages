@@ -74,20 +74,20 @@
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/common/std_array.hpp"
 #include "barretenberg/common/std_vector.hpp"
+#include "barretenberg/common/tuple.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/ecc/fields/field_conversion.hpp"
-#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/honk/types/circuit_type.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
+#include "barretenberg/public_input_component/public_component_key.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
-#include "barretenberg/stdlib_circuit_builders/public_component_key.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 #include <array>
@@ -170,23 +170,23 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      *
      * @return std::vector<FF>
      */
-    virtual std::vector<fr> to_field_elements() const
+    virtual std::vector<typename Transcript::DataType> to_field_elements() const
     {
         using namespace bb::field_conversion;
 
-        auto serialize_to_field_buffer = [](const auto& input, std::vector<fr>& buffer) {
-            std::vector<fr> input_fields = convert_to_bn254_frs(input);
+        auto serialize = [](const auto& input, std::vector<typename Transcript::DataType>& buffer) {
+            std::vector<typename Transcript::DataType> input_fields = Transcript::serialize(input);
             buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
         };
 
-        std::vector<fr> elements;
+        std::vector<typename Transcript::DataType> elements;
 
-        serialize_to_field_buffer(this->log_circuit_size, elements);
-        serialize_to_field_buffer(this->num_public_inputs, elements);
-        serialize_to_field_buffer(this->pub_inputs_offset, elements);
+        serialize(this->log_circuit_size, elements);
+        serialize(this->num_public_inputs, elements);
+        serialize(this->pub_inputs_offset, elements);
 
         for (const Commitment& commitment : this->get_all()) {
-            serialize_to_field_buffer(commitment, elements);
+            serialize(commitment, elements);
         }
 
         return elements;
@@ -197,9 +197,10 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      * @details Currently only used in testing.
      * @return FF
      */
-    fr hash()
+    fr hash() const
     {
-        fr vk_hash = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(this->to_field_elements());
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1498): should hash be dependent on transcript?
+        fr vk_hash = Transcript::hash(this->to_field_elements());
         return vk_hash;
     }
 
@@ -401,11 +402,11 @@ constexpr auto create_protogalaxy_tuple_of_tuples_of_univariates()
     constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
     return []<size_t... I>(std::index_sequence<I...>) {
         if constexpr (optimised) {
-            return std::make_tuple(
+            return flat_tuple::make_tuple(
                 typename std::tuple_element_t<I, Tuple>::template ProtogalaxyTupleOfUnivariatesOverSubrelations<
                     NUM_KEYS>{}...);
         } else {
-            return std::make_tuple(
+            return flat_tuple::make_tuple(
                 typename std::tuple_element_t<I, Tuple>::
                     template ProtogalaxyTupleOfUnivariatesOverSubrelationsNoOptimisticSkipping<NUM_KEYS>{}...);
         }
@@ -418,17 +419,12 @@ constexpr auto create_protogalaxy_tuple_of_tuples_of_univariates()
  * tuple of univariates whose size is equal to the number of subrelations of the relation. The length of a
  * univariate in an inner tuple is determined by the corresponding subrelation length.
  */
-template <typename Tuple, bool ZK = false> constexpr auto create_sumcheck_tuple_of_tuples_of_univariates()
+template <typename RelationsTuple> constexpr auto create_sumcheck_tuple_of_tuples_of_univariates()
 {
-    constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
+    constexpr auto seq = std::make_index_sequence<std::tuple_size_v<RelationsTuple>>();
     return []<size_t... I>(std::index_sequence<I...>) {
-        if constexpr (ZK) {
-            return std::make_tuple(
-                typename std::tuple_element_t<I, Tuple>::ZKSumcheckTupleOfUnivariatesOverSubrelations{}...);
-        } else {
-            return std::make_tuple(
-                typename std::tuple_element_t<I, Tuple>::SumcheckTupleOfUnivariatesOverSubrelations{}...);
-        }
+        return flat_tuple::make_tuple(
+            typename std::tuple_element_t<I, RelationsTuple>::SumcheckTupleOfUnivariatesOverSubrelations{}...);
     }(seq);
 }
 
@@ -437,11 +433,12 @@ template <typename Tuple, bool ZK = false> constexpr auto create_sumcheck_tuple_
  * @details Container for storing value of each identity in each relation. Each Relation contributes an array of
  * length num-identities.
  */
-template <typename Tuple> constexpr auto create_tuple_of_arrays_of_values()
+template <typename RelationsTuple> constexpr auto create_tuple_of_arrays_of_values()
 {
-    constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
+    constexpr auto seq = std::make_index_sequence<std::tuple_size_v<RelationsTuple>>();
     return []<size_t... I>(std::index_sequence<I...>) {
-        return std::make_tuple(typename std::tuple_element_t<I, Tuple>::SumcheckArrayOfValuesOverSubrelations{}...);
+        return flat_tuple::make_tuple(
+            typename std::tuple_element_t<I, RelationsTuple>::SumcheckArrayOfValuesOverSubrelations{}...);
     }(seq);
 }
 

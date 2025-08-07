@@ -10,6 +10,7 @@
 #include "barretenberg/vm2/simulation/events/contract_instance_retrieval_event.hpp"
 #include "barretenberg/vm2/simulation/events/data_copy_events.hpp"
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
+#include "barretenberg/vm2/simulation/events/emit_unencrypted_log_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/events/field_gt_event.hpp"
@@ -56,6 +57,7 @@ struct EventsContainer {
     EventEmitterInterface<Poseidon2PermutationMemoryEvent>::Container poseidon2_permutation_mem;
     EventEmitterInterface<KeccakF1600Event>::Container keccakf1600;
     EventEmitterInterface<ToRadixEvent>::Container to_radix;
+    EventEmitterInterface<ToRadixMemoryEvent>::Container to_radix_memory;
     EventEmitterInterface<FieldGreaterThanEvent>::Container field_gt;
     EventEmitterInterface<GreaterThanEvent>::Container gt_events;
     EventEmitterInterface<MerkleCheckEvent>::Container merkle_check;
@@ -72,6 +74,7 @@ struct EventsContainer {
     EventEmitterInterface<ContractInstanceRetrievalEvent>::Container contract_instance_retrieval_events;
     EventEmitterInterface<GetContractInstanceEvent>::Container get_contract_instance_events;
     EventEmitterInterface<L1ToL2MessageTreeCheckEvent>::Container l1_to_l2_msg_tree_check_events;
+    EventEmitterInterface<EmitUnencryptedLogEvent>::Container emit_unencrypted_log_events;
 };
 
 } // namespace bb::avm2::simulation

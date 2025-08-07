@@ -23,24 +23,24 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
 
     // Proof length formula
     static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
-        /* 1. NUM_WITNESS_ENTITIES commitments */ (NUM_WITNESS_ENTITIES * num_frs_comm) +
-        /* 2. Libra concatenation commitment*/ (num_frs_comm) +
-        /* 3. Libra sum */ (num_frs_fr) +
+        /* 1. NUM_WITNESS_ENTITIES commitments */ (NUM_WITNESS_ENTITIES * num_elements_comm) +
+        /* 2. Libra concatenation commitment*/ (num_elements_comm) +
+        /* 3. Libra sum */ (num_elements_fr) +
         /* 4. CONST_PROOF_SIZE_LOG_N sumcheck univariates */
-        (CONST_PROOF_SIZE_LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr) +
-        /* 5. NUM_ALL_ENTITIES sumcheck evaluations*/ (NUM_ALL_ENTITIES * num_frs_fr) +
-        /* 6. Libra claimed evaluation */ (num_frs_fr) +
-        /* 7. Libra grand sum commitment */ (num_frs_comm) +
-        /* 8. Libra quotient commitment */ (num_frs_comm) +
-        /* 9. Gemini masking commitment */ (num_frs_comm) +
-        /* 10. Gemini masking evaluation */ (num_frs_fr) +
+        (CONST_PROOF_SIZE_LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * num_elements_fr) +
+        /* 5. NUM_ALL_ENTITIES sumcheck evaluations*/ (NUM_ALL_ENTITIES * num_elements_fr) +
+        /* 6. Libra claimed evaluation */ (num_elements_fr) +
+        /* 7. Libra grand sum commitment */ (num_elements_comm) +
+        /* 8. Libra quotient commitment */ (num_elements_comm) +
+        /* 9. Gemini masking commitment */ (num_elements_comm) +
+        /* 10. Gemini masking evaluation */ (num_elements_fr) +
         /* 11. CONST_PROOF_SIZE_LOG_N - 1 Gemini Fold commitments */
-        ((CONST_PROOF_SIZE_LOG_N - 1) * num_frs_comm) +
+        ((CONST_PROOF_SIZE_LOG_N - 1) * num_elements_comm) +
         /* 12. CONST_PROOF_SIZE_LOG_N Gemini a evaluations */
-        (CONST_PROOF_SIZE_LOG_N * num_frs_fr) +
-        /* 13. NUM_SMALL_IPA_EVALUATIONS libra evals */ (NUM_SMALL_IPA_EVALUATIONS * num_frs_fr) +
-        /* 14. Shplonk Q commitment */ (num_frs_comm) +
-        /* 15. KZG W commitment */ (num_frs_comm);
+        (CONST_PROOF_SIZE_LOG_N * num_elements_fr) +
+        /* 13. NUM_SMALL_IPA_EVALUATIONS libra evals */ (NUM_SMALL_IPA_EVALUATIONS * num_elements_fr) +
+        /* 14. Shplonk Q commitment */ (num_elements_comm) +
+        /* 15. KZG W commitment */ (num_elements_comm);
 
     /**
      * @brief Derived class that defines proof structure for Ultra zero knowledge proofs, as well as supporting
