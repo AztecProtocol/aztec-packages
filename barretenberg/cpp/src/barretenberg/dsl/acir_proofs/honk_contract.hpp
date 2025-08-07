@@ -1729,14 +1729,22 @@ abstract contract BaseHonkVerifier is IVerifier {
 
     // Calculate proof size based on log_n (matching UltraKeccakFlavor formula)
     function calculateProofSize(uint256 logN) internal pure returns (uint256) {
-        uint256 proofLength = NUM_WITNESS_ENTITIES * NUM_ELEMENTS_COMM // witness commitments
-            + (logN * BATCHED_RELATION_PARTIAL_LENGTH * NUM_ELEMENTS_FR) // sumcheck univariates
-            + (NUMBER_OF_ENTITIES * NUM_ELEMENTS_FR) // sumcheck evaluations
-            + ((logN - 1) * NUM_ELEMENTS_COMM) // Gemini Fold commitments
-            + (logN * NUM_ELEMENTS_FR) // Gemini a evaluations
-            + (NUM_ELEMENTS_COMM) // Shplonk Q commitment
-            + (NUM_ELEMENTS_COMM) // KZG W commitment
-            + PAIRING_POINTS_SIZE; // pairing inputs carried on public inputs
+        // Witness commitments
+        uint256 proofLength = NUM_WITNESS_ENTITIES * NUM_ELEMENTS_COMM; // witness commitments
+
+        // Sumcheck
+        proofLength += logN * BATCHED_RELATION_PARTIAL_LENGTH * NUM_ELEMENTS_FR; // sumcheck univariates
+        proofLength += NUMBER_OF_ENTITIES * NUM_ELEMENTS_FR; // sumcheck evaluations
+
+        // Gemini
+        proofLength += (logN - 1) * NUM_ELEMENTS_COMM; // Gemini Fold commitments
+        proofLength += logN * NUM_ELEMENTS_FR; // Gemini evaluations
+
+        // Shplonk and KZG commitments
+        proofLength += NUM_ELEMENTS_COMM * 2; // Shplonk Q and KZG W commitments
+
+        // Pairing points
+        proofLength += PAIRING_POINTS_SIZE; // pairing inputs carried on public inputs
 
         return proofLength;
     }
@@ -1755,6 +1763,7 @@ abstract contract BaseHonkVerifier is IVerifier {
         if (proof.length != expectedProofSize * 32) {
             revert ProofLengthWrongWithLogN($LOG_N, proof.length, expectedProofSize * 32);
         }
+
         Honk.VerificationKey memory vk = loadVerificationKey();
         Honk.Proof memory p = TranscriptLib.loadProof(proof, $LOG_N);
         if (publicInputs.length != vk.publicInputsSize - PAIRING_POINTS_SIZE) {

@@ -1776,8 +1776,40 @@ abstract contract BaseZKHonkVerifier is IVerifier {
     error GeminiChallengeInSubgroup();
     error ConsistencyCheckFailed();
 
-    // Number of field elements in a ultra honk zero knowledge proof
-    uint256 constant PROOF_SIZE = 393;
+    // Events for debugging
+    event ProofLengthDebug(uint256 logN, uint256 actualLength, uint256 expectedLength);
+
+    // Constants for proof length calculation (matching UltraKeccakZKFlavor)
+    uint256 constant NUM_WITNESS_ENTITIES = 8;
+    uint256 constant NUM_ELEMENTS_COMM = 2; // uint256 elements for curve points
+    uint256 constant NUM_ELEMENTS_FR = 1; // uint256 elements for field elements
+    uint256 constant NUM_SMALL_IPA_EVALUATIONS = 4; // libra evaluations
+
+    // Calculate proof size based on log_n (matching UltraKeccakZKFlavor formula)
+    function calculateProofSize(uint256 logN) internal pure returns (uint256) {
+        // Witness and Libra commitments
+        uint256 proofLength = NUM_WITNESS_ENTITIES * NUM_ELEMENTS_COMM; // witness commitments
+        proofLength += NUM_ELEMENTS_COMM * 4; // Libra concat, grand sum, quotient comms + Gemini masking
+
+        // Sumcheck
+        proofLength += logN * ZK_BATCHED_RELATION_PARTIAL_LENGTH * NUM_ELEMENTS_FR; // sumcheck univariates
+        proofLength += NUMBER_OF_ENTITIES * NUM_ELEMENTS_FR; // sumcheck evaluations
+
+        // Libra and Gemini
+        proofLength += NUM_ELEMENTS_FR * 3; // Libra sum, claimed eval, Gemini masking eval
+        proofLength += logN * NUM_ELEMENTS_FR; // Gemini a evaluations
+        proofLength += NUM_SMALL_IPA_EVALUATIONS * NUM_ELEMENTS_FR; // libra evaluations
+
+        // PCS commitments
+        proofLength += (logN - 1) * NUM_ELEMENTS_COMM; // Gemini Fold commitments
+        proofLength += NUM_ELEMENTS_COMM * 2; // Shplonk Q and KZG W commitments
+
+        // Pairing points
+        proofLength += PAIRING_POINTS_SIZE; // pairing inputs carried on public inputs
+
+        return proofLength;
+    }
+
     uint256 constant SHIFTED_COMMITMENTS_START = 30;
 
     function loadVerificationKey() internal pure virtual returns (Honk.VerificationKey memory);
@@ -1788,11 +1820,13 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         override
         returns (bool verified)
     {
+        // Calculate expected proof size based on $LOG_N
+        uint256 expectedProofSize = calculateProofSize($LOG_N);
+
         // Check the received proof is the expected size where each field element is 32 bytes
-        //if (proof.length != PROOF_SIZE * 32) {
-        //    // print $LOG_N here!
-        //    revert ProofLengthWrongWithLogN($LOG_N, proof.length, PROOF_SIZE * 32);
-        //}
+        if (proof.length != expectedProofSize * 32) {
+            revert ProofLengthWrongWithLogN($LOG_N, proof.length, expectedProofSize * 32);
+        }
 
         Honk.VerificationKey memory vk = loadVerificationKey();
         Honk.ZKProof memory p = ZKTranscriptLib.loadProof(proof, $LOG_N);
