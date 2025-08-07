@@ -61,7 +61,6 @@ class AvmGoblinRecursiveVerifier {
         GoblinProof goblin_proof;                             // \pi_G
         std::shared_ptr<MegaFlavor::VerificationKey> mega_vk; // VK_M
         Goblin::VerificationKey goblin_vk;                    // VK_G
-        size_t mega_hash_public_input_index;                  // Index of hash h_M in the Mega proof opub inputs
     };
 
     std::vector<UltraFF> outer_key_fields;
@@ -239,7 +238,6 @@ class AvmGoblinRecursiveVerifier {
             .goblin_proof = goblin_proof,
             .mega_vk = mega_vk,
             .goblin_vk = goblin_vk,
-            .mega_hash_public_input_index = mega_hash_public_input_index,
         };
     }
 };
