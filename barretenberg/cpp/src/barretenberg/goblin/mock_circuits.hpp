@@ -142,9 +142,7 @@ class GoblinMockCircuits {
 
         add_some_ecc_op_gates(builder);
         MockCircuits::construct_arithmetic_circuit(builder);
-        // Flavor = bb::MegaFlavor, so the public inputs should be that of the HidingKernelIO (UltraVerifier<MegaFlavor>
-        // expects the public inputs to be that of the HidingKernel)
-        bb::stdlib::recursion::honk::HidingKernelIO<MegaBuilder>::add_default(builder);
+        bb::stdlib::recursion::honk::DefaultIO<MegaBuilder>::add_default(builder);
     }
 
     /**

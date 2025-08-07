@@ -115,8 +115,7 @@ PubInputsProofAndKey<Flavor> _prove(const bool compute_vk,
 }
 
 template <typename Flavor>
-bool _verify(const bool ipa_accumulation,
-             const std::filesystem::path& public_inputs_path,
+bool _verify(const std::filesystem::path& public_inputs_path,
              const std::filesystem::path& proof_path,
              const std::filesystem::path& vk_path)
 {
@@ -134,14 +133,14 @@ bool _verify(const bool ipa_accumulation,
     complete_proof.insert(complete_proof.end(), proof.begin(), proof.end());
 
     VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key;
-    if (ipa_accumulation) {
+    if constexpr (HasIPAAccumulator<Flavor>) {
         ipa_verification_key = VerifierCommitmentKey<curve::Grumpkin>(1 << CONST_ECCVM_LOG_N);
     }
 
     Verifier verifier{ vk, ipa_verification_key };
 
-    bool verified;
-    if (ipa_accumulation) {
+    bool verified = false;
+    if constexpr (HasIPAAccumulator<Flavor>) {
         const size_t HONK_PROOF_LENGTH = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH;
         const size_t num_public_inputs = static_cast<size_t>(vk->num_public_inputs);
         // The extra calculation is for the IPA proof length.
@@ -153,9 +152,9 @@ bool _verify(const bool ipa_accumulation,
         auto ipa_proof = Proof(complete_proof.begin() + honk_proof_with_pub_inputs_length, complete_proof.end());
         auto tube_honk_proof =
             Proof(complete_proof.begin(), complete_proof.begin() + honk_proof_with_pub_inputs_length);
-        verified = verifier.verify_proof(complete_proof, ipa_proof);
+        verified = verifier.template verify_proof<RollupIO>(complete_proof, ipa_proof).result;
     } else {
-        verified = verifier.verify_proof(complete_proof);
+        verified = verifier.template verify_proof<DefaultIO>(complete_proof).result;
     }
 
     if (verified) {
@@ -217,15 +216,15 @@ bool UltraHonkAPI::verify(const Flags& flags,
     const bool ipa_accumulation = flags.ipa_accumulation;
     // if the ipa accumulation flag is set we are using the UltraRollupFlavor
     if (ipa_accumulation) {
-        return _verify<UltraRollupFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
+        return _verify<UltraRollupFlavor>(public_inputs_path, proof_path, vk_path);
     } else if (flags.oracle_hash_type == "poseidon2" && !flags.disable_zk) {
-        return _verify<UltraZKFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
+        return _verify<UltraZKFlavor>(public_inputs_path, proof_path, vk_path);
     } else if (flags.oracle_hash_type == "poseidon2" && flags.disable_zk) {
-        return _verify<UltraFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
+        return _verify<UltraFlavor>(public_inputs_path, proof_path, vk_path);
     } else if (flags.oracle_hash_type == "keccak" && !flags.disable_zk) {
-        return _verify<UltraKeccakZKFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
+        return _verify<UltraKeccakZKFlavor>(public_inputs_path, proof_path, vk_path);
     } else if (flags.oracle_hash_type == "keccak" && flags.disable_zk) {
-        return _verify<UltraKeccakFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
+        return _verify<UltraKeccakFlavor>(public_inputs_path, proof_path, vk_path);
 #ifdef STARKNET_GARAGA_FLAVORS
     } else if (flags.oracle_hash_type == "starknet" && !flags.disable_zk) {
         return _verify<UltraStarknetZKFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);

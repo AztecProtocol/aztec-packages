@@ -136,7 +136,7 @@ class AvmGoblinRecursiveVerifier {
         auto mega_vk_and_hash = std::make_shared<MegaRecursiveVKAndHash>(ultra_builder, inner_output.mega_vk);
         MegaRecursiveVerifier mega_verifier(&ultra_builder, mega_vk_and_hash, transcript);
         stdlib::Proof<UltraBuilder> mega_proof(ultra_builder, inner_output.mega_proof);
-        auto mega_verifier_output = mega_verifier.verify_proof(mega_proof);
+        auto mega_verifier_output = mega_verifier.template verify_proof<IO>(mega_proof);
 
         // Recursively verify the goblin proof\pi_G in the Ultra circuit
         MergeCommitments merge_commitments{
@@ -155,11 +155,11 @@ class AvmGoblinRecursiveVerifier {
         mega_proof[inner_output.mega_hash_public_input_index].assert_equal(ultra_hash);
 
         // Return ipa proof, ipa claim and output aggregation object produced from verifying the Mega + Goblin proofs
-        return RecursiveAvmGoblinOutput{
-            .points_accumulator = goblin_verifier_output.points_accumulator,
-            .ipa_claim = goblin_verifier_output.opening_claim,
-            .ipa_proof = goblin_verifier_output.ipa_proof,
-        };
+        RecursiveAvmGoblinOutput output;
+        output.points_accumulator = goblin_verifier_output.points_accumulator;
+        output.ipa_claim = goblin_verifier_output.opening_claim;
+        output.ipa_proof = goblin_verifier_output.ipa_proof;
+        return output;
     }
 
     /**

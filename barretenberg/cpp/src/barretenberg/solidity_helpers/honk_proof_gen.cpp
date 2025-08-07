@@ -27,6 +27,7 @@ template <typename Circuit, typename Flavor> void generate_proof(uint256_t input
     using Verifier = UltraVerifier_<Flavor>;
     using Proof = typename Flavor::Transcript::Proof;
     using CircuitBuilder = typename Flavor::CircuitBuilder;
+    using IO = std::conditional_t<HasIPAAccumulator<Flavor>, RollupIO, DefaultIO>;
 
     CircuitBuilder builder = Circuit::generate(inputs);
     // If this is not a recursive circuit, we need to add the default pairing points to the public inputs
@@ -41,7 +42,7 @@ template <typename Circuit, typename Flavor> void generate_proof(uint256_t input
 
     Proof proof = prover.construct_proof();
     {
-        if (!verifier.verify_proof(proof)) {
+        if (!verifier.template verify_proof<IO>(proof)) {
             throw_or_abort("Verification failed");
         }
 

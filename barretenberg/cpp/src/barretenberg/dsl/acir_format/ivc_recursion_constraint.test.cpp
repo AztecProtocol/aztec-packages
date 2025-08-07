@@ -101,6 +101,8 @@ class IvcRecursionConstraintTest : public ::testing::Test {
         {
             using RecursiveFlavor = UltraRecursiveFlavor_<Builder>;
             using VerifierOutput = bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<Builder>;
+            using StdlibProof = bb::stdlib::Proof<Builder>;
+            using StdlibIO = bb::stdlib::recursion::honk::DefaultIO<Builder>;
 
             // Create an arbitrary inner circuit
             auto inner_circuit = create_inner_circuit();
@@ -114,14 +116,19 @@ class IvcRecursionConstraintTest : public ::testing::Test {
             if (tamper_vk) {
                 honk_vk->q_l = g1::one;
                 UltraVerifier_<UltraFlavor> verifier(honk_vk);
-                EXPECT_FALSE(verifier.verify_proof(inner_proof));
+                EXPECT_FALSE(verifier.template verify_proof<DefaultIO>(inner_proof).result);
             }
             // Instantiate the recursive verifier using the native verification key
             auto stdlib_vk_and_hash = std::make_shared<RecursiveFlavor::VKAndHash>(circuit, honk_vk);
             stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor> verifier(&circuit, stdlib_vk_and_hash);
 
-            VerifierOutput output = verifier.verify_proof(inner_proof);
-            output.points_accumulator.set_public(); // propagate resulting pairing points on the public inputs
+            StdlibProof stdlib_inner_proof(circuit, inner_proof);
+            VerifierOutput output = verifier.template verify_proof<StdlibIO>(stdlib_inner_proof);
+
+            // IO
+            StdlibIO inputs;
+            inputs.pairing_inputs = output.points_accumulator;
+            inputs.set_public(); // propagate resulting pairing points on the public inputs
         }
 
         return circuit;

@@ -130,7 +130,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
             OuterProver prover(proving_key, verification_key);
             OuterVerifier verifier(verification_key);
             auto proof = prover.construct_proof();
-            bool verified = verifier.verify_proof(proof);
+            bool verified = verifier.template verify_proof<DefaultIO>(proof).result;
 
             ASSERT_TRUE(verified);
         }

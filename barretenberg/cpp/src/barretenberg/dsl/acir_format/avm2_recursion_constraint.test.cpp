@@ -140,7 +140,8 @@ TEST_F(AcirAvm2RecursionConstraint, TestBasicSingleAvm2RecursionConstraint)
     auto proof = prover.construct_proof();
     VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
     OuterVerifier verifier(verification_key, ipa_verification_key);
-    EXPECT_EQ(verifier.verify_proof(proof, proving_key->ipa_proof), true);
+    bool result = verifier.template verify_proof<bb::RollupIO>(proof, proving_key->ipa_proof).result;
+    EXPECT_TRUE(result);
 }
 
 /**
@@ -173,7 +174,9 @@ TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
         auto proof = prover.construct_proof();
         VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
         OuterVerifier verifier(expected_vk, ipa_verification_key);
-        EXPECT_TRUE(verifier.verify_proof(proof, proving_key->ipa_proof));
+
+        bool result = verifier.template verify_proof<bb::RollupIO>(proof, proving_key->ipa_proof).result;
+        EXPECT_TRUE(result);
     }
 
     // Now, construct the AVM2 recursive verifier circuit VK by providing the program without a witness

@@ -28,20 +28,12 @@ UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(Builder* builder,
 
 /**
  * @brief This function constructs a recursive verifier circuit for a native Ultra Honk proof of a given flavor.
+ *
+ * @tparam IO Public input type, specifies which public inputs should be extracted from the proof
  * @return Output aggregation object
  */
 template <typename Flavor>
-UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof)
-{
-    StdlibProof stdlib_proof(*builder, proof);
-    return verify_proof(stdlib_proof);
-}
-
-/**
- * @brief This function constructs a recursive verifier circuit for a native Ultra Honk proof of a given flavor.
- * @return Output aggregation object
- */
-template <typename Flavor>
+template <class IO>
 UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_proof(
     const stdlib::Proof<Builder>& proof)
 {
@@ -56,7 +48,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     const size_t num_public_inputs = static_cast<uint32_t>(key->vk_and_hash->vk->num_public_inputs.get_value());
     BB_ASSERT_EQ(proof.size(), Flavor::NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + num_public_inputs);
 
-    Output output;
+    StdlibProof ipa_proof;
     StdlibProof honk_proof;
     if constexpr (HasIPAAccumulator<Flavor>) {
         const size_t HONK_PROOF_LENGTH = Flavor::NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH;
@@ -66,7 +58,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
         // split out the ipa proof
         const std::ptrdiff_t honk_proof_with_pub_inputs_length =
             static_cast<std::ptrdiff_t>(HONK_PROOF_LENGTH + num_public_inputs);
-        output.ipa_proof = StdlibProof(proof.begin() + honk_proof_with_pub_inputs_length, proof.end());
+        ipa_proof = StdlibProof(proof.begin() + honk_proof_with_pub_inputs_length, proof.end());
         honk_proof = StdlibProof(proof.begin(), proof.begin() + honk_proof_with_pub_inputs_length);
     } else {
         honk_proof = proof;
@@ -81,23 +73,6 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     auto gate_challenges = std::vector<FF>(CONST_PROOF_SIZE_LOG_N);
     for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-    }
-
-    // Extract the data carried on the public inputs of the proof
-    if constexpr (HasIPAAccumulator<Flavor>) {
-        RollupIO inputs; // pairing points, IPA claim
-        inputs.reconstruct_from_public(public_inputs);
-        output.points_accumulator = inputs.pairing_inputs;
-        output.ipa_claim = inputs.ipa_claim;
-    } else if constexpr (IsMegaFlavor<Flavor>) {
-        HidingKernelIO<Builder> inputs;
-        inputs.reconstruct_from_public(public_inputs);
-        output.points_accumulator = inputs.pairing_inputs;
-        output.ecc_op_tables = inputs.ecc_op_tables;
-    } else {
-        DefaultIO<Builder> inputs; // pairing points
-        inputs.reconstruct_from_public(public_inputs);
-        output.points_accumulator = inputs.pairing_inputs;
     }
 
     // Execute Sumcheck Verifier and extract multivariate opening point u = (u_0, ..., u_{d-1}) and purported
@@ -140,6 +115,16 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
                                                sumcheck_output.claimed_libra_evaluation);
 
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
+
+    // Reconstruct the public inputs
+    IO inputs;
+    inputs.reconstruct_from_public(public_inputs);
+
+    // Construct output
+    Output output(inputs);
+    output.ipa_proof = ipa_proof; // Add IPA proof
+
+    // Aggregate new pairing point with the ones reconstructed from the public inputs
     output.points_accumulator.aggregate(pairing_points);
 
     return output;
@@ -147,11 +132,74 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
 
 template class UltraRecursiveVerifier_<bb::UltraRecursiveFlavor_<UltraCircuitBuilder>>;
 template class UltraRecursiveVerifier_<bb::UltraRecursiveFlavor_<MegaCircuitBuilder>>;
+template class UltraRecursiveVerifier_<bb::UltraZKRecursiveFlavor_<UltraCircuitBuilder>>;
+template class UltraRecursiveVerifier_<bb::UltraZKRecursiveFlavor_<MegaCircuitBuilder>>;
+template class UltraRecursiveVerifier_<bb::UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>;
 template class UltraRecursiveVerifier_<bb::MegaRecursiveFlavor_<UltraCircuitBuilder>>;
 template class UltraRecursiveVerifier_<bb::MegaRecursiveFlavor_<MegaCircuitBuilder>>;
 template class UltraRecursiveVerifier_<bb::MegaZKRecursiveFlavor_<MegaCircuitBuilder>>;
 template class UltraRecursiveVerifier_<bb::MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
-template class UltraRecursiveVerifier_<bb::UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>;
-template class UltraRecursiveVerifier_<bb::UltraZKRecursiveFlavor_<UltraCircuitBuilder>>;
-template class UltraRecursiveVerifier_<bb::UltraZKRecursiveFlavor_<MegaCircuitBuilder>>;
+
+// UltraRecursiveFlavor_ specializations
+template UltraRecursiveVerifier_<bb::UltraRecursiveFlavor_<UltraCircuitBuilder>>::Output UltraRecursiveVerifier_<
+    bb::UltraRecursiveFlavor_<UltraCircuitBuilder>>::
+    verify_proof<DefaultIO<UltraCircuitBuilder>>(
+        const UltraRecursiveVerifier_<bb::UltraRecursiveFlavor_<UltraCircuitBuilder>>::StdlibProof& proof);
+
+template UltraRecursiveVerifier_<bb::UltraRecursiveFlavor_<MegaCircuitBuilder>>::Output UltraRecursiveVerifier_<
+    bb::UltraRecursiveFlavor_<MegaCircuitBuilder>>::
+    verify_proof<DefaultIO<MegaCircuitBuilder>>(
+        const UltraRecursiveVerifier_<bb::UltraRecursiveFlavor_<MegaCircuitBuilder>>::StdlibProof& proof);
+
+// UltraZKRecursiveFlavor_ specializations
+template UltraRecursiveVerifier_<bb::UltraZKRecursiveFlavor_<UltraCircuitBuilder>>::Output UltraRecursiveVerifier_<
+    bb::UltraZKRecursiveFlavor_<UltraCircuitBuilder>>::
+    verify_proof<DefaultIO<UltraCircuitBuilder>>(
+        const UltraRecursiveVerifier_<bb::UltraZKRecursiveFlavor_<UltraCircuitBuilder>>::StdlibProof& proof);
+
+template UltraRecursiveVerifier_<bb::UltraZKRecursiveFlavor_<MegaCircuitBuilder>>::Output UltraRecursiveVerifier_<
+    bb::UltraZKRecursiveFlavor_<MegaCircuitBuilder>>::
+    verify_proof<DefaultIO<MegaCircuitBuilder>>(
+        const UltraRecursiveVerifier_<bb::UltraZKRecursiveFlavor_<MegaCircuitBuilder>>::StdlibProof& proof);
+
+// UltraRollupRecursiveFlavor_ specialization
+template UltraRecursiveVerifier_<bb::UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>::Output UltraRecursiveVerifier_<
+    bb::UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>::
+    verify_proof<RollupIO>(
+        const UltraRecursiveVerifier_<bb::UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>::StdlibProof& proof);
+
+// MegaRecursiveFlavor_ specialization with DefaultIO
+template UltraRecursiveVerifier_<bb::MegaRecursiveFlavor_<UltraCircuitBuilder>>::Output UltraRecursiveVerifier_<
+    bb::MegaRecursiveFlavor_<UltraCircuitBuilder>>::
+    verify_proof<DefaultIO<UltraCircuitBuilder>>(
+        const UltraRecursiveVerifier_<bb::MegaRecursiveFlavor_<UltraCircuitBuilder>>::StdlibProof& proof);
+
+template UltraRecursiveVerifier_<bb::MegaRecursiveFlavor_<MegaCircuitBuilder>>::Output UltraRecursiveVerifier_<
+    bb::MegaRecursiveFlavor_<MegaCircuitBuilder>>::
+    verify_proof<DefaultIO<MegaCircuitBuilder>>(
+        const UltraRecursiveVerifier_<bb::MegaRecursiveFlavor_<MegaCircuitBuilder>>::StdlibProof& proof);
+
+// MegaZKRecursiveFlavor_ specialization with DefaultIO
+template UltraRecursiveVerifier_<bb::MegaZKRecursiveFlavor_<UltraCircuitBuilder>>::Output UltraRecursiveVerifier_<
+    bb::MegaZKRecursiveFlavor_<UltraCircuitBuilder>>::
+    verify_proof<DefaultIO<UltraCircuitBuilder>>(
+        const UltraRecursiveVerifier_<bb::MegaZKRecursiveFlavor_<UltraCircuitBuilder>>::StdlibProof& proof);
+
+template UltraRecursiveVerifier_<bb::MegaZKRecursiveFlavor_<MegaCircuitBuilder>>::Output UltraRecursiveVerifier_<
+    bb::MegaZKRecursiveFlavor_<MegaCircuitBuilder>>::
+    verify_proof<DefaultIO<MegaCircuitBuilder>>(
+        const UltraRecursiveVerifier_<bb::MegaZKRecursiveFlavor_<MegaCircuitBuilder>>::StdlibProof& proof);
+
+// ClientIVC specialization
+template UltraRecursiveVerifier_<bb::MegaZKRecursiveFlavor_<UltraCircuitBuilder>>::Output UltraRecursiveVerifier_<
+    bb::MegaZKRecursiveFlavor_<UltraCircuitBuilder>>::
+    verify_proof<HidingKernelIO<UltraCircuitBuilder>>(
+        const UltraRecursiveVerifier_<bb::MegaZKRecursiveFlavor_<UltraCircuitBuilder>>::StdlibProof& proof);
+
+// GoblinAvm specialization
+template UltraRecursiveVerifier_<bb::MegaRecursiveFlavor_<UltraCircuitBuilder>>::Output UltraRecursiveVerifier_<
+    bb::MegaRecursiveFlavor_<UltraCircuitBuilder>>::
+    verify_proof<HidingKernelIO<UltraCircuitBuilder>>(
+        const UltraRecursiveVerifier_<bb::MegaRecursiveFlavor_<UltraCircuitBuilder>>::StdlibProof& proof);
+
 } // namespace bb::stdlib::recursion::honk
