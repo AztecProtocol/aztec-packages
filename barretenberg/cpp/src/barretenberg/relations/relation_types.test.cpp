@@ -38,3 +38,36 @@ TEST(RelationTypes, CreateSumcheckTupleOfTuplesOfUnivariates)
     EXPECT_EQ(std::get<0>(std::get<1>(tuple_of_tuples_from_type)), expected_zero_2);
     EXPECT_EQ(std::get<1>(std::get<1>(tuple_of_tuples_from_type)), expected_zero_3);
 }
+
+// This class needs to be outside the test because of the templated skip.
+struct RelationWithTemplatedSkip {
+    struct AllEntities {
+        int input;
+    };
+    template <typename Entities> static bool skip(const Entities&) { return false; }
+};
+
+TEST(RelationTypes, IsSkippableConcept)
+{
+    // Works with a non-templated skip function.
+    struct Relation1 {
+        struct AllEntities {
+            int input;
+        };
+        static bool skip(const AllEntities&) { return false; }
+    };
+    static_assert(isSkippable<Relation1, Relation1::AllEntities>);
+
+    // Works with a templated skip function.
+    static_assert(isSkippable<RelationWithTemplatedSkip, RelationWithTemplatedSkip::AllEntities>);
+
+    // False when the skip function is not there.
+    struct Relation2 {
+        struct AllEntities {
+            int input;
+        };
+    };
+    static_assert(!isSkippable<Relation2, Relation2::AllEntities>);
+
+    struct Relation3 {};
+}
