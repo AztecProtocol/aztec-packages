@@ -1,4 +1,4 @@
-import { bn254 } from '@noble/curves/bn254.js';
+import { bn254 } from '@noble/curves/bn254';
 import { writeFile } from 'fs/promises';
 
 // To update the test data, run "export AZTEC_GENERATE_TEST_DATA=1" in shell and run the tests again
@@ -9,21 +9,21 @@ describe('BN254 Registration', () => {
     expect(bn254.fields.Fp.ORDER).toBe(21888242871839275222246405745257275088696311157297823662689037894645226208583n);
     expect(bn254.fields.Fr.ORDER).toBe(21888242871839275222246405745257275088548364400416034343698204186575808495617n);
 
-    const g1Base = bn254.G1.Point.BASE.toAffine();
+    const g1Base = bn254.G1.ProjectivePoint.BASE.toAffine();
     expect(g1Base.x).toBe(1n);
     expect(g1Base.y).toBe(2n);
 
-    const negativeG1 = bn254.G1.Point.ZERO.subtract(bn254.G1.Point.BASE).toAffine();
+    const negativeG1 = bn254.G1.ProjectivePoint.ZERO.subtract(bn254.G1.ProjectivePoint.BASE).toAffine();
     expect(negativeG1.x).toBe(1n);
     expect(negativeG1.y).toBe(21888242871839275222246405745257275088696311157297823662689037894645226208581n);
 
-    const g2Base = bn254.G2.Point.BASE.toAffine();
+    const g2Base = bn254.G2.ProjectivePoint.BASE.toAffine();
     expect(g2Base.x.c0).toBe(10857046999023057135944570762232829481370756359578518086990519993285655852781n);
     expect(g2Base.x.c1).toBe(11559732032986387107991004021392285783925812861821192530917403151452391805634n);
     expect(g2Base.y.c0).toBe(8495653923123431417604973247489272438418190587263600148770280649306958101930n);
     expect(g2Base.y.c1).toBe(4082367875863433681332203403145435568316851327593401208105741076214120093531n);
 
-    const negativeG2 = bn254.G2.Point.ZERO.subtract(bn254.G2.Point.BASE).toAffine();
+    const negativeG2 = bn254.G2.ProjectivePoint.ZERO.subtract(bn254.G2.ProjectivePoint.BASE).toAffine();
     expect(negativeG2.x.c0).toBe(10857046999023057135944570762232829481370756359578518086990519993285655852781n);
     expect(negativeG2.x.c1).toBe(11559732032986387107991004021392285783925812861821192530917403151452391805634n);
     expect(negativeG2.y.c0).toBe(13392588948715843804641432497768002650278120570034223513918757245338268106653n);
@@ -36,10 +36,10 @@ describe('BN254 Registration', () => {
       const keys = [];
       for (let i = 0; i < keysToGenerate; i++) {
         const sk = startingScalar + BigInt(i);
-        const pk1Weierstrass = bn254.G1.Point.BASE.multiply(sk);
-        const negativePk1Weierstrass = bn254.G1.Point.ZERO.subtract(pk1Weierstrass);
-        const pk2Weierstrass = bn254.G2.Point.BASE.multiply(sk);
-        const negativePk2Weierstrass = bn254.G2.Point.ZERO.subtract(pk2Weierstrass);
+        const pk1Weierstrass = bn254.G1.ProjectivePoint.BASE.multiply(sk);
+        const negativePk1Weierstrass = bn254.G1.ProjectivePoint.ZERO.subtract(pk1Weierstrass);
+        const pk2Weierstrass = bn254.G2.ProjectivePoint.BASE.multiply(sk);
+        const negativePk2Weierstrass = bn254.G2.ProjectivePoint.ZERO.subtract(pk2Weierstrass);
 
         const pk1 = pk1Weierstrass.toAffine();
         const negativePk1 = negativePk1Weierstrass.toAffine();
