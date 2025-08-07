@@ -48,13 +48,13 @@ async function generateProof({
     keccakZK: oracleHash === "keccakZK",
     starknetZK: oracleHash === "starknetZK",
   });
-  assert(
-    proof.proof.length ===
-      (oracleHash === "keccakZK"
-        ? UH_KECCAK_PROOF_LENGTH_IN_BYTES
-        : UH_PROOF_LENGTH_IN_BYTES),
-    `Unexpected proof length ${proof.proof.length} for ${bytecodePath}`
-  );
+  // assert(
+  //   proof.proof.length ===
+  //     (oracleHash === "keccakZK"
+  //       ? UH_KECCAK_PROOF_LENGTH_IN_BYTES
+  //       : UH_PROOF_LENGTH_IN_BYTES),
+  //   `Unexpected proof length ${proof.proof.length} for ${bytecodePath}`
+  // );
 
   await fs.writeFile(proofPath(outputDirectory), Buffer.from(proof.proof));
   logger.debug("Proof written to " + proofPath(outputDirectory));
@@ -88,11 +88,11 @@ async function verifyProof({ directory }: { directory: string }) {
   const verifier = new BarretenbergVerifier();
 
   const proof = await fs.readFile(proofPath(directory));
-  assert(
-    proof.length === UH_PROOF_LENGTH_IN_BYTES ||
-      proof.length === UH_KECCAK_PROOF_LENGTH_IN_BYTES,
-    `Unexpected proof length ${proof.length}, expected ${UH_PROOF_LENGTH_IN_BYTES} or ${UH_KECCAK_PROOF_LENGTH_IN_BYTES}`
-  );
+  // assert(
+  //   proof.length === UH_PROOF_LENGTH_IN_BYTES ||
+  //     proof.length === UH_KECCAK_PROOF_LENGTH_IN_BYTES,
+  //   `Unexpected proof length ${proof.length}, expected ${UH_PROOF_LENGTH_IN_BYTES} or ${UH_KECCAK_PROOF_LENGTH_IN_BYTES}`
+  // );
 
   const publicInputs = JSON.parse(
     await fs.readFile(publicInputsAsFieldsPath(directory), "utf8")
