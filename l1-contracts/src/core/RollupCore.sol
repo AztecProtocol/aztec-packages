@@ -74,6 +74,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
 
     Timestamp exitDelay = Timestamp.wrap(_config.exitDelaySeconds);
     ISlasher slasher = ExtRollupLib3.deploySlasher(
+      address(this),
       _config.slashingQuorum,
       _config.slashingRoundSize,
       _config.slashingLifetimeInRounds,

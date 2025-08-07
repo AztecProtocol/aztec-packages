@@ -462,10 +462,12 @@ export function applyValidatorKill({
   namespace,
   spartanDir,
   logger,
+  values,
 }: {
   namespace: string;
   spartanDir: string;
   logger: Logger;
+  values?: Record<string, string | number>;
 }) {
   return installChaosMeshChart({
     instanceName: 'validator-kill',
@@ -473,6 +475,7 @@ export function applyValidatorKill({
     valuesFile: 'validator-kill.yaml',
     helmChartDir: getChartDir(spartanDir, 'aztec-chaos-scenarios'),
     logger,
+    values,
   });
 }
 

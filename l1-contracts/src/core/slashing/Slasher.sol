@@ -18,14 +18,14 @@ contract Slasher is ISlasher {
   error Slasher__PayloadVetoed(address payload);
 
   constructor(
+    address _rollup,
     uint256 _quorumSize,
     uint256 _roundSize,
     uint256 _lifetimeInRounds,
     uint256 _executionDelayInRounds,
     address _vetoer
   ) {
-    PROPOSER =
-      new SlashingProposer(msg.sender, this, _quorumSize, _roundSize, _lifetimeInRounds, _executionDelayInRounds);
+    PROPOSER = new SlashingProposer(_rollup, this, _quorumSize, _roundSize, _lifetimeInRounds, _executionDelayInRounds);
     VETOER = _vetoer;
   }
 

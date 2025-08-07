@@ -87,7 +87,20 @@ export class SlasherClient {
       client: l1Client,
     });
 
-    return new SlasherClient(config, slashFactoryContract, slashingProposer, l1TxUtils, watchers, dateProvider);
+    const slasherClient = new SlasherClient(
+      config,
+      slashFactoryContract,
+      slashingProposer,
+      l1TxUtils,
+      watchers,
+      dateProvider,
+    );
+    rollup.listenToSlasherChanged(async () => {
+      const newSlashingProposer = await rollup.getSlashingProposer();
+      await slasherClient.setSlashingProposer(newSlashingProposer);
+    });
+
+    return slasherClient;
   }
 
   constructor(
@@ -151,6 +164,15 @@ export class SlasherClient {
   public clearMonitoredPayloads() {
     this.log.warn('Clearing monitored payloads', this.monitoredPayloads);
     this.monitoredPayloads = [];
+  }
+
+  public async setSlashingProposer(slashingProposer: SlashingProposerContract) {
+    this.log.info('Slashing proposer changed');
+    // remove the old listeners
+    await this.stop();
+    this.slashingProposer = slashingProposer;
+    // start the new listeners
+    await this.start();
   }
 
   /**
