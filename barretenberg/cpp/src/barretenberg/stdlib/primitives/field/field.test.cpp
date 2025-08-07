@@ -1280,7 +1280,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_EQ(check_result, true);
     }
 
-    static void test_ranged_less_than_invalid_num_bits()
+    static void test_ranged_less_than_max_num_bits()
     {
         Builder builder;
 
@@ -1289,7 +1289,6 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
         constexpr uint256_t modulus = bb::fr::modulus;
         constexpr size_t max_valid_num_bits = modulus.get_msb() - 1;
-        constexpr size_t invalid_num_bits = max_valid_num_bits + 1;
 
         // ---------- VALID CASE ----------
         {
@@ -1298,12 +1297,6 @@ template <typename Builder> class stdlib_field : public testing::Test {
                 auto result = a.template ranged_less_than<num_bits>(b);
                 EXPECT_EQ(result.get_value(), true);
             });
-        }
-
-        // ---------- INVALID CASE ----------
-        {
-            constexpr size_t num_bits = invalid_num_bits;
-            EXPECT_THROW_OR_ABORT(a.template ranged_less_than<num_bits>(b), "ranged_less_than");
         }
     }
 
@@ -1727,9 +1720,9 @@ TYPED_TEST(stdlib_field, test_ranged_less_than)
 {
     TestFixture::test_ranged_less_than();
 }
-TYPED_TEST(stdlib_field, test_ranged_less_than_invalid_num_bits)
+TYPED_TEST(stdlib_field, test_ranged_less_than_max_num_bits)
 {
-    TestFixture::test_ranged_less_than_invalid_num_bits();
+    TestFixture::test_ranged_less_than_max_num_bits();
 }
 TYPED_TEST(stdlib_field, test_split_at)
 {

@@ -508,10 +508,11 @@ template <typename Builder> field_t<Builder> field_t<Builder>::madd(const field_
 {
     Builder* ctx = validate_context<Builder>(context, to_mul.context, to_add.context);
 
-    int num_const = static_cast<int>(is_constant()) + static_cast<int>(to_mul.is_constant()) +
-                    static_cast<int>(to_add.is_constant());
+    const bool mul_by_const = is_constant() || to_mul.is_constant();
 
-    if (num_const >= 2) {
+    if (mul_by_const) {
+        // If at least one of the multiplicands is constant, `madd` is efficiently handled by `*` and `+`
+        // operators.
         return ((*this) * to_mul + to_add);
     }
 
@@ -570,10 +571,10 @@ template <typename Builder> field_t<Builder> field_t<Builder>::madd(const field_
  */
 template <typename Builder> field_t<Builder> field_t<Builder>::add_two(const field_t& add_b, const field_t& add_c) const
 {
-    int num_const =
-        static_cast<int>(is_constant()) + static_cast<int>(add_b.is_constant()) + static_cast<int>(add_c.is_constant());
+    const bool has_const_summand = is_constant() || add_b.is_constant() || add_c.is_constant();
 
-    if (num_const >= 2) {
+    if (has_const_summand) {
+        // If at least one of the summands is constant, the summation is efficiently handled by `+` operator
         return (*this) + add_b + add_c;
     }
     Builder* ctx = validate_context<Builder>(context, add_b.context, add_c.context);

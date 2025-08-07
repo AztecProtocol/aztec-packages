@@ -294,8 +294,15 @@ template <typename Builder> class field_t {
         return this_before_operation;
     };
 
+    /**
+     * Compute 1 / (*this)
+     */
     field_t invert() const
     {
+        // Since the numerator is a constant 1, the constraint
+        //      (this.v * this.mul + this.add) * inverse.v == 1;
+        // created by applying `assert_is_not_zero` to `*this` coincides with the constraint created by
+        // `divide_no_zero_check`, hence we can safely apply the latter instead of `/` operator.
         auto* ctx = get_context();
         if (is_constant()) {
             ASSERT(!get_value().is_zero(), "field_t::invert denominator is constant 0");
@@ -483,9 +490,8 @@ template <typename Builder> class field_t {
         // Since in the worst case scenario
         //     r = K - 1 + (K - 1) = 2 * K - 2,
         // to ensure that it never wraps around the field modulus, we impose that it's smaller than half the modulus
-        BB_ASSERT_LT(range_constant,
-                     bb::fr::modulus >> 1,
-                     "ranged_less_than: 2^num_bits must be less than half the field modulus.");
+        static_assert(range_constant < bb::fr::modulus >> 1,
+                      "ranged_less_than: 2^num_bits must be less than half the field modulus.");
 
         bool predicate_witness = uint256_t(a.get_value()) < uint256_t(b.get_value());
         bool_t<Builder> predicate(witness_t<Builder>(ctx, predicate_witness));
