@@ -139,7 +139,8 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
     VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
     UltraRollupVerifier final_verifier(outer_verification_key, ipa_verification_key);
 
-    EXPECT_TRUE(final_verifier.verify_proof(outer_proof, outer_proving_key->ipa_proof));
+    bool result = final_verifier.template verify_proof<bb::RollupIO>(outer_proof, outer_proving_key->ipa_proof).result;
+    EXPECT_TRUE(result);
 }
 
 } // namespace bb::avm2::constraining

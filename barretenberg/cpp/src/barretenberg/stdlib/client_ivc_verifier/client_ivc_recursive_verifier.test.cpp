@@ -134,7 +134,10 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     // Natively verify the tube proof
     VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
     UltraVerifier_<NativeFlavor> native_verifier(native_vk_with_ipa, ipa_verification_key);
-    EXPECT_TRUE(native_verifier.verify_proof(native_tube_proof, tube_prover.proving_key->ipa_proof));
+    bool native_result =
+        native_verifier.template verify_proof<bb::RollupIO>(native_tube_proof, tube_prover.proving_key->ipa_proof)
+            .result;
+    EXPECT_TRUE(native_result);
 
     // Construct a base rollup circuit that recursively verifies the tube proof and forwards the IPA proof.
     Builder base_builder;
@@ -142,7 +145,7 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     auto stdlib_tube_vk_and_hash = std::make_shared<RollupFlavor::VKAndHash>(base_builder, tube_vk);
     stdlib::Proof<Builder> base_tube_proof(base_builder, native_tube_proof);
     UltraRecursiveVerifier base_verifier{ &base_builder, stdlib_tube_vk_and_hash };
-    UltraRecursiveVerifierOutput<Builder> output = base_verifier.verify_proof(base_tube_proof);
+    UltraRecursiveVerifierOutput<Builder> output = base_verifier.template verify_proof<RollupIO>(base_tube_proof);
     info("Tube UH Recursive Verifier: num prefinalized gates = ", base_builder.num_gates);
 
     {
