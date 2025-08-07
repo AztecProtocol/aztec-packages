@@ -20,6 +20,7 @@
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_addressing.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_alu.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_context.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_emit_notehash.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_emit_nullifier.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_execution.hpp"
@@ -1177,6 +1178,10 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_execution_check_radix_gt_256_settings, InteractionType::LookupGeneric>()
         .add<lookup_execution_get_p_limbs_settings, InteractionType::LookupGeneric>()
         .add<lookup_execution_get_max_limbs_settings, InteractionType::LookupGeneric>()
+        // Context Stack
+        .add<lookup_context_ctx_stack_call_settings, InteractionType::LookupGeneric>()
+        .add<lookup_context_ctx_stack_rollback_settings, InteractionType::LookupGeneric>()
+        .add<lookup_context_ctx_stack_return_settings, InteractionType::LookupGeneric>()
         // External Call
         .add<lookup_external_call_call_allocated_left_l2_range_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_external_call_call_allocated_left_da_range_settings, InteractionType::LookupIntoIndexedByClk>()
