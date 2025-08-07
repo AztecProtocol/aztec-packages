@@ -29,7 +29,7 @@ import {IProposerPayload} from "./interfaces/IProposerPayload.sol";
  *
  * In such an event, your recourse is either:
  * - wait for the canonical rollup to have at least 2/3 of the total stake
- * - `GSE.proposeWithLock`, which bypasses the GovernaceProposer
+ * - `GSE.proposeWithLock`, which bypasses the GovernanceProposer
  */
 contract GSEPayload is IProposerPayload {
   IPayload public immutable ORIGINAL;
@@ -42,6 +42,10 @@ contract GSEPayload is IProposerPayload {
 
   function getOriginalPayload() external view override(IProposerPayload) returns (IPayload) {
     return ORIGINAL;
+  }
+
+  function getURI() external view override(IPayload) returns (string memory) {
+    return ORIGINAL.getURI();
   }
 
   /**
@@ -57,10 +61,8 @@ contract GSEPayload is IProposerPayload {
       actions[i] = originalActions[i];
     }
 
-    actions[originalActions.length] = IPayload.Action({
-      target: address(this),
-      data: abi.encodeWithSelector(GSEPayload.amIValid.selector)
-    });
+    actions[originalActions.length] =
+      IPayload.Action({target: address(this), data: abi.encodeWithSelector(GSEPayload.amIValid.selector)});
 
     return actions;
   }
@@ -80,10 +82,7 @@ contract GSEPayload is IProposerPayload {
     address bonusInstance = GSE.getBonusInstanceAddress();
     uint256 effectiveSupplyOfLatestRollup = GSE.supplyOf(latestRollup) + GSE.supplyOf(bonusInstance);
 
-    require(
-      effectiveSupplyOfLatestRollup > totalSupply * 2 / 3,
-      Errors.GovernanceProposer__GSEPayloadInvalid()
-    );
+    require(effectiveSupplyOfLatestRollup > totalSupply * 2 / 3, Errors.GovernanceProposer__GSEPayloadInvalid());
     return true;
   }
 }

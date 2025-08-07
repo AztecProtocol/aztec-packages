@@ -99,7 +99,6 @@ export function recoverPublicKey(hash: Buffer32, signature: Signature): Buffer {
   const { r, s, v } = signature;
   const recoveryBit = toRecoveryBit(v);
   const sig = new secp256k1.Signature(r.toBigInt(), s.toBigInt()).addRecoveryBit(recoveryBit);
-
   const publicKey = sig.recoverPublicKey(hash.buffer).toHex(false);
   return Buffer.from(publicKey, 'hex');
 }

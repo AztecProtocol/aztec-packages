@@ -6,11 +6,7 @@ import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {IGSECore} from "@aztec/governance/GSE.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {
-  Configuration,
-  Proposal,
-  ProposalState,
-  IGovernance,
-  Withdrawal
+  Configuration, Proposal, ProposalState, IGovernance, Withdrawal
 } from "@aztec/governance/interfaces/IGovernance.sol";
 import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
@@ -21,10 +17,7 @@ contract ProposeWithLockTest is WithGSE {
     Configuration memory config = governance.getConfiguration();
     vm.expectRevert(
       abi.encodeWithSelector(
-        IERC20Errors.ERC20InsufficientAllowance.selector,
-        address(gse),
-        0,
-        config.proposeConfig.lockAmount
+        IERC20Errors.ERC20InsufficientAllowance.selector, address(gse), 0, config.proposeConfig.lockAmount
       )
     );
     gse.proposeWithLock(IPayload(address(0)), address(this));

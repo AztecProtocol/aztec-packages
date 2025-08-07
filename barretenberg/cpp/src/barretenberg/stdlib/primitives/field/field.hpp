@@ -339,6 +339,9 @@ template <typename Builder> class field_t {
 
     std::array<field_t, 3> slice(uint8_t msb, uint8_t lsb) const;
 
+    std::pair<field_t<Builder>, field_t<Builder>> split_at(
+        const size_t lsb_index, const size_t num_bits = grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH) const;
+
     bool_t<Builder> is_zero() const;
 
     void create_range_constraint(size_t num_bits, std::string const& msg = "field_t::range_constraint") const;
@@ -404,13 +407,6 @@ template <typename Builder> class field_t {
      * @return uint32_t
      */
     uint32_t get_normalized_witness_index() const { return normalize().witness_index; }
-
-    std::vector<bool_t<Builder>> decompose_into_bits(
-        const size_t num_bits = 256,
-        std::function<witness_t<Builder>(Builder* ctx, uint64_t, uint256_t)> get_bit =
-            [](Builder* ctx, uint64_t j, const uint256_t& val) {
-                return witness_t<Builder>(ctx, val.get_bit(j));
-            }) const;
 
     /**
      * @brief Return (a < b) as bool circuit type.

@@ -74,7 +74,7 @@ pub contract Child {
         let mut options = NoteGetterOptions::new();
         options = options.select(ValueNote::properties().value, Comparator.EQ, amount).set_limit(1);
         let retrieved_notes = storage.a_map_with_private_values.at(owner).get_notes(options);
-        retrieved_notes.get(0).note.value
+        retrieved_notes.get(0).note.value()
     }
 
     // Increments `current_value` by `new_value`

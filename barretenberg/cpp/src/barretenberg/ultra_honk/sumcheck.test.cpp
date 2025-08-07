@@ -6,7 +6,7 @@
 #include "barretenberg/relations/elliptic_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
-#include "barretenberg/stdlib/pairing_points.hpp"
+#include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/witness_computation.hpp"
@@ -173,7 +173,8 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
                                            prover_transcript,
                                            prover_alphas,
                                            prover_gate_challenges,
-                                           decider_pk->relation_parameters);
+                                           decider_pk->relation_parameters,
+                                           CONST_PROOF_SIZE_LOG_N);
 
     auto prover_output = sumcheck_prover.prove();
 
@@ -183,14 +184,14 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     for (size_t idx = 0; idx < verifier_alphas.size(); idx++) {
         verifier_alphas[idx] = verifier_transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
     }
-    SumcheckVerifier<Flavor> sumcheck_verifier(verifier_transcript, verifier_alphas);
+    SumcheckVerifier<Flavor> sumcheck_verifier(verifier_transcript, verifier_alphas, CONST_PROOF_SIZE_LOG_N);
 
     std::vector<FF> verifier_gate_challenges(log_circuit_size);
     for (size_t idx = 0; idx < log_circuit_size; idx++) {
         verifier_gate_challenges[idx] =
             verifier_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
-    std::array<FF, CONST_PROOF_SIZE_LOG_N> padding_indicator_array;
+    std::vector<FF> padding_indicator_array(CONST_PROOF_SIZE_LOG_N);
     for (size_t idx = 0; idx < padding_indicator_array.size(); idx++) {
         padding_indicator_array[idx] = (idx < log_circuit_size) ? FF{ 1 } : FF{ 0 };
     }

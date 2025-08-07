@@ -13,6 +13,7 @@ import { TokenPortalAbi } from '@aztec/l1-artifacts/TokenPortalAbi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeL2ToL1MessageHash, computeSecretHash } from '@aztec/stdlib/hash';
 import type { PXE } from '@aztec/stdlib/interfaces/client';
+import { getL2ToL1MessageLeafId } from '@aztec/stdlib/messaging';
 
 import { type Hex, getContract, toFunctionSelector } from 'viem';
 
@@ -400,9 +401,12 @@ export class L1TokenPortalManager extends L1ToL2TokenPortalManager {
       `Sending L1 tx to consume message at block ${blockNumber} index ${messageIndex} to withdraw ${amount}`,
     );
 
-    const isConsumedBefore = await this.outbox.read.hasMessageBeenConsumedAtBlockAndIndex([blockNumber, messageIndex]);
+    const messageLeafId = getL2ToL1MessageLeafId({ leafIndex: messageIndex, siblingPath });
+    const isConsumedBefore = await this.outbox.read.hasMessageBeenConsumedAtBlock([blockNumber, messageLeafId]);
     if (isConsumedBefore) {
-      throw new Error(`L1 to L2 message at block ${blockNumber} index ${messageIndex} has already been consumed`);
+      throw new Error(
+        `L1 to L2 message at block ${blockNumber} index ${messageIndex} height ${siblingPath.pathSize} has already been consumed`,
+      );
     }
 
     // Call function on L1 contract to consume the message
@@ -419,9 +423,11 @@ export class L1TokenPortalManager extends L1ToL2TokenPortalManager {
       hash: await this.extendedClient.writeContract(withdrawRequest),
     });
 
-    const isConsumedAfter = await this.outbox.read.hasMessageBeenConsumedAtBlockAndIndex([blockNumber, messageIndex]);
+    const isConsumedAfter = await this.outbox.read.hasMessageBeenConsumedAtBlock([blockNumber, messageLeafId]);
     if (!isConsumedAfter) {
-      throw new Error(`L1 to L2 message at block ${blockNumber} index ${messageIndex} not consumed after withdrawal`);
+      throw new Error(
+        `L1 to L2 message at block ${blockNumber} index ${messageIndex} height ${siblingPath.pathSize} not consumed after withdrawal`,
+      );
     }
   }
 

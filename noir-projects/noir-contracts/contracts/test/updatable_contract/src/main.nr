@@ -59,7 +59,7 @@ contract Updatable {
 
     #[utility]
     unconstrained fn get_private_value() -> Field {
-        storage.private_value.view_note().value
+        storage.private_value.view_note().value()
     }
 
     #[utility]

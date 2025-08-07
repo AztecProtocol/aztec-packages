@@ -28,7 +28,7 @@ template <typename Builder, typename T> class bigfield {
     using field_ct = field_t<Builder>;
 
     // Number of bb::fr field elements used to represent a bigfield element in the public inputs
-    static constexpr size_t PUBLIC_INPUTS_SIZE = 4;
+    static constexpr size_t PUBLIC_INPUTS_SIZE = BIGFIELD_PUBLIC_INPUTS_SIZE;
 
     struct Basis {
         uint512_t modulus;

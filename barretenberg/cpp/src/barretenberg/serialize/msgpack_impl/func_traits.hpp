@@ -1,51 +1,39 @@
 #pragma once
 #include "../msgpack.hpp"
 #include <tuple>
+#include <type_traits>
 
-// Define a template struct to deduce function traits for different function types
+// Base template for function traits
 template <typename Func> struct func_traits;
 
-// Specialization for function pointers
-template <typename R, typename... Vs> struct func_traits<R (*)(Vs...)> {
-    typedef std::tuple<typename std::decay<Vs>::type...> Args; // Define a tuple type that holds all argument types
-    Args args;                                                 // Args instance
-    R ret;                                                     // Holds return type
-    MSGPACK_FIELDS(args, ret); // Macro from msgpack library to serialize/deserialize fields
-};
-
-// Specialization for function references
-template <typename R, typename... Vs> struct func_traits<R (&)(Vs...)> {
-    typedef std::tuple<typename std::decay<Vs>::type...> Args;
+// Common implementation for all function types
+template <typename R, typename... Vs> struct func_traits_base {
+    using Args = std::tuple<typename std::decay<Vs>::type...>;
     Args args;
     R ret;
     MSGPACK_FIELDS(args, ret);
+
+    template <typename Func, typename Tuple> static R apply(Func&& f, Tuple&& t)
+    {
+        return std::apply([&f](auto&&... args) { return f(std::forward<Vs>(std::forward<decltype(args)>(args))...); },
+                          std::forward<Tuple>(t));
+    }
 };
 
-// Specialization for member function pointers. This also includes lambda types,
-// as they are functors (objects with operator()) and hence have a member function pointer
-template <typename R, typename T, typename... Vs> struct func_traits<R (T::*)(Vs...) const> {
-    typedef std::tuple<typename std::decay<Vs>::type...> Args;
-    Args args;
-    R ret;
-    MSGPACK_FIELDS(args, ret);
-};
+// Specializations inherit from common base
+template <typename R, typename... Vs> struct func_traits<R (*)(Vs...)> : func_traits_base<R, Vs...> {};
 
-// Define a concept that checks if the type is a lambda (or functor) type
-// This is done by checking if T::operator() exists
-template <typename T>
-concept LambdaType =
-    requires() { typename std::enable_if_t<std::is_member_function_pointer_v<decltype(&T::operator())>, void>; };
+template <typename R, typename... Vs> struct func_traits<R (&)(Vs...)> : func_traits_base<R, Vs...> {};
 
-// Overload for lambda (or functor) types
-template <LambdaType T> constexpr auto get_func_traits()
-{
-    // If T is a lambda type (i.e. it has operator()), deduce its traits using func_traits
-    return func_traits<decltype(&T::operator())>();
-}
+template <typename R, typename T, typename... Vs>
+struct func_traits<R (T::*)(Vs...) const> : func_traits_base<R, Vs...> {};
 
-// Overload for non-lambda types
+// Simplified trait getter
 template <typename T> constexpr auto get_func_traits()
 {
-    // If T is not a lambda, just deduce its traits using func_traits
-    return func_traits<T>();
+    if constexpr (requires { &T::operator(); }) {
+        return func_traits<decltype(&T::operator())>{};
+    } else {
+        return func_traits<T>{};
+    }
 }

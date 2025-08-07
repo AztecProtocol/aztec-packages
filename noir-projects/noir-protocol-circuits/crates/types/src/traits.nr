@@ -139,28 +139,28 @@ where
 
 // pub fn is_empty<T>(item: T) -> bool
 // where
-//     T: Empty + Eq,
+//     T: Empty,
 // {
 //     item.eq(T::empty())
 // }
 
 // pub fn is_empty_array<T, let N: u32>(array: [T; N]) -> bool
 // where
-//     T: Empty + Eq,
+//     T: Empty,
 // {
 //     array.all(|elem| is_empty(elem))
 // }
 
 // pub fn assert_empty<T>(item: T) -> ()
 // where
-//     T: Empty + Eq,
+//     T: Empty,
 // {
 //     assert(item.eq(T::empty()))
 // }
 
 // pub fn assert_empty_array<T, let N: u32>(array: [T; N]) -> ()
 // where
-//     T: Empty + Eq,
+//     T: Empty,
 // {
 //     // A cheaper option than `is_empty_array` for if you don't need to gracefully
 //     // handle a bool result.
@@ -302,15 +302,17 @@ impl FromField for u128 {
 /// Noir's intrinsic serialization and the implementation of this trait. If there is a mismatch, the function calls
 /// fail with an arguments hash mismatch error message.
 ///
-/// # Type Parameters
+/// # Associated Constants
 /// * `N` - The length of the output Field array, known at compile time
 ///
 /// # Example
 /// ```
-/// impl<let N: u32> Serialize<N> for str<N> {
-///     fn serialize(self) -> [Field; N] {
+/// impl<let N: u32> Serialize for str<N> {
+///     let N: u32 = N;
+///
+///     fn serialize(self) -> [Field; Self::N] {
 ///         let bytes = self.as_bytes();
-///         let mut fields = [0; N];
+///         let mut fields = [0; Self::N];
 ///         for i in 0..bytes.len() {
 ///             fields[i] = bytes[i] as Field;  // Each byte gets its own Field
 ///         }

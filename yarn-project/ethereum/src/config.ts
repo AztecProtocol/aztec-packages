@@ -29,9 +29,9 @@ export type L1ContractsConfig = {
   /** The number of epochs after an epoch ends that proofs are still accepted. */
   aztecProofSubmissionEpochs: number;
   /** The deposit amount for a validator */
-  depositAmount: bigint;
+  activationThreshold: bigint;
   /** The minimum stake for a validator. */
-  minimumStake: bigint;
+  ejectionThreshold: bigint;
   /** The slashing quorum, i.e. how many slots must signal for the same payload in a round for it to be submittable to the Slasher */
   slashingQuorum: number;
   /** The slashing round size, i.e. how many slots are in a round */
@@ -60,8 +60,8 @@ export const DefaultL1ContractsConfig = {
   aztecEpochDuration: 32,
   aztecTargetCommitteeSize: 48,
   aztecProofSubmissionEpochs: 1, // you have a full epoch to submit a proof after the epoch to prove ends
-  depositAmount: BigInt(100e18),
-  minimumStake: BigInt(50e18),
+  activationThreshold: BigInt(100e18),
+  ejectionThreshold: BigInt(50e18),
   slashingQuorum: 101,
   slashingRoundSize: 200,
   slashingLifetimeInRounds: 5,
@@ -91,7 +91,7 @@ const LocalGovernanceConfiguration = {
 const TestnetGovernanceConfiguration = {
   proposeConfig: {
     lockDelay: 60n * 60n * 24n,
-    lockAmount: DefaultL1ContractsConfig.depositAmount * 100n,
+    lockAmount: DefaultL1ContractsConfig.activationThreshold * 100n,
   },
   votingDelay: 60n,
   votingDuration: 60n * 60n,
@@ -99,7 +99,7 @@ const TestnetGovernanceConfiguration = {
   gracePeriod: 60n * 60n * 24n * 7n,
   quorum: 3n * 10n ** 17n, // 30%
   requiredYeaMargin: 4n * 10n ** 16n, // 4%
-  minimumVotes: DefaultL1ContractsConfig.minimumStake * 200n,
+  minimumVotes: DefaultL1ContractsConfig.ejectionThreshold * 200n,
 };
 
 export const getGovernanceConfiguration = (networkName: NetworkNames) => {
@@ -110,13 +110,13 @@ export const getGovernanceConfiguration = (networkName: NetworkNames) => {
 };
 
 const TestnetGSEConfiguration = {
-  depositAmount: BigInt(100e18),
-  minimumStake: BigInt(50e18),
+  activationThreshold: BigInt(100e18),
+  ejectionThreshold: BigInt(50e18),
 };
 
 const LocalGSEConfiguration = {
-  depositAmount: BigInt(100e18),
-  minimumStake: BigInt(50e18),
+  activationThreshold: BigInt(100e18),
+  ejectionThreshold: BigInt(50e18),
 };
 
 export const getGSEConfiguration = (networkName: NetworkNames) => {
@@ -133,12 +133,14 @@ const LocalRewardConfig = {
   sequencerBps: 5000,
   rewardDistributor: EthAddress.ZERO.toString(),
   booster: EthAddress.ZERO.toString(),
+  blockReward: BigInt(50e18),
 };
 
 const TestnetRewardConfig = {
   sequencerBps: 5000,
   rewardDistributor: EthAddress.ZERO.toString(),
   booster: EthAddress.ZERO.toString(),
+  blockReward: BigInt(50e18),
 };
 
 export const getRewardConfig = (networkName: NetworkNames) => {
@@ -219,15 +221,15 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     description: 'The number of epochs after an epoch ends that proofs are still accepted.',
     ...numberConfigHelper(DefaultL1ContractsConfig.aztecProofSubmissionEpochs),
   },
-  depositAmount: {
-    env: 'AZTEC_DEPOSIT_AMOUNT',
+  activationThreshold: {
+    env: 'AZTEC_ACTIVATION_THRESHOLD',
     description: 'The deposit amount for a validator',
-    ...bigintConfigHelper(DefaultL1ContractsConfig.depositAmount),
+    ...bigintConfigHelper(DefaultL1ContractsConfig.activationThreshold),
   },
-  minimumStake: {
-    env: 'AZTEC_MINIMUM_STAKE',
+  ejectionThreshold: {
+    env: 'AZTEC_EJECTION_THRESHOLD',
     description: 'The minimum stake for a validator.',
-    ...bigintConfigHelper(DefaultL1ContractsConfig.minimumStake),
+    ...bigintConfigHelper(DefaultL1ContractsConfig.ejectionThreshold),
   },
   slashingQuorum: {
     env: 'AZTEC_SLASHING_QUORUM',

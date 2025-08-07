@@ -75,13 +75,14 @@ class ClientIVC {
     using PairingPoints = stdlib::recursion::PairingPoints<ClientCircuit>;
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingPoints>;
     using KernelIO = bb::stdlib::recursion::honk::KernelIO;
+    using HidingKernelIO = bb::stdlib::recursion::honk::HidingKernelIO<ClientCircuit>;
     using AppIO = bb::stdlib::recursion::honk::AppIO;
     using StdlibProof = stdlib::Proof<ClientCircuit>;
     using StdlibFF = RecursiveFlavor::FF;
     using WitnessCommitments = RecursiveFlavor::WitnessCommitments;
 
     // Merge commitments
-    using MergeCommitments = stdlib::recursion::goblin::MergeRecursiveVerifier_<ClientCircuit>::WitnessCommitments;
+    using TableCommitments = std::array<RecursiveFlavor::Commitment, ClientCircuit::NUM_WIRES>;
 
     /**
      * @brief A full proof for the IVC scheme containing a Mega proof showing correctness of the hiding circuit (which
@@ -108,6 +109,7 @@ class ClientIVC {
          * @return uint8_t* Double size-prefixed msgpack buffer
          */
         uint8_t* to_msgpack_heap_buffer() const;
+        static constexpr const char* MSGPACK_SCHEMA_NAME = "ClientIVCProof";
 
         class DeserializationError : public std::runtime_error {
           public:
@@ -123,6 +125,7 @@ class ClientIVC {
         static Proof from_file_msgpack(const std::string& filename);
 
         MSGPACK_FIELDS(mega_proof, goblin_proof);
+        bool operator==(const Proof& other) const = default;
     };
 
     struct VerificationKey {
@@ -133,7 +136,7 @@ class ClientIVC {
         MSGPACK_FIELDS(mega, eccvm, translator);
     };
 
-    enum class QUEUE_TYPE { OINK, PG }; // for specifying type of proof in the verification queue
+    enum class QUEUE_TYPE { OINK, PG, PG_FINAL, PG_TAIL }; // for specifying type of proof in the verification queue
 
     // An entry in the native verification queue
     struct VerifierInputs {
@@ -165,12 +168,15 @@ class ClientIVC {
     // Transcript to be shared across the folding of K_{i-1} (kernel), A_{i,1} (app), .., A_{i, n}
     std::shared_ptr<Transcript> accumulation_transcript = std::make_shared<Transcript>();
 
+    std::unique_ptr<ClientCircuit> hiding_circuit;
+
     size_t num_circuits; // total number of circuits to be accumulated in the IVC
   public:
     size_t num_circuits_accumulated = 0; // number of circuits accumulated so far
 
     ProverFoldOutput fold_output; // prover accumulator and fold proof
-    HonkProof mega_proof;
+    HonkProof decider_proof;      // decider proof to be verified in the hiding circuit
+    HonkProof mega_proof;         // proof of the hiding circuit
 
     std::shared_ptr<DeciderVerificationKey> verifier_accumulator; // verifier accumulator
     std::shared_ptr<MegaVerificationKey> honk_vk; // honk vk to be completed and folded into the accumulator
@@ -197,15 +203,21 @@ class ClientIVC {
     void instantiate_stdlib_verification_queue(ClientCircuit& circuit,
                                                const std::vector<std::shared_ptr<RecursiveVKAndHash>>& input_keys = {});
 
-    [[nodiscard("Pairing points should be accumulated")]] PairingPoints
+    [[nodiscard("Pairing points should be accumulated")]] std::pair<PairingPoints, TableCommitments>
     perform_recursive_verification_and_databus_consistency_checks(
         ClientCircuit& circuit,
         const StdlibVerifierInputs& verifier_inputs,
-        MergeCommitments& merge_commitments,
+        const TableCommitments& T_prev_commitments,
         const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript);
 
     // Complete the logic of a kernel circuit (e.g. PG/merge recursive verification, databus consistency checks)
     void complete_kernel_circuit_logic(ClientCircuit& circuit);
+
+    // Complete the logic of the hiding circuit, which includes PG, decider and merge recursive verification
+    std::pair<PairingPoints, TableCommitments> complete_hiding_circuit_logic(
+        const StdlibProof& stdlib_proof,
+        const std::shared_ptr<RecursiveVKAndHash>& stdlib_vk_and_hash,
+        ClientCircuit& circuit);
 
     /**
      * @brief Perform prover work for accumulation (e.g. PG folding, merge proving)
@@ -215,15 +227,14 @@ class ClientIVC {
      * set using the proving key produced from `circuit` in order to pass some assertions in the Oink prover.
      * @param mock_vk A boolean to say whether the precomputed vk should have its metadata set.
      */
-    void accumulate(ClientCircuit& circuit,
-                    const std::shared_ptr<MegaVerificationKey>& precomputed_vk = nullptr,
-                    const bool mock_vk = false);
+    void accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& precomputed_vk);
 
     Proof prove();
 
     std::shared_ptr<ClientIVC::DeciderZKProvingKey> construct_hiding_circuit_key();
+    std::shared_ptr<ClientIVC::DeciderZKProvingKey> compute_hiding_circuit_proving_key();
     static void hide_op_queue_accumulation_result(ClientCircuit& circuit);
-    HonkProof construct_and_prove_hiding_circuit();
+    HonkProof prove_hiding_circuit();
 
     static bool verify(const Proof& proof, const VerificationKey& vk);
 
@@ -231,7 +242,7 @@ class ClientIVC {
 
     bool prove_and_verify();
 
-    HonkProof decider_prove() const;
+    HonkProof decider_prove();
 
     VerificationKey get_vk() const;
 };

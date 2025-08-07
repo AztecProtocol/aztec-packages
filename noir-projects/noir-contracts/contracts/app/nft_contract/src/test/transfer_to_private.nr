@@ -1,5 +1,5 @@
 use crate::{NFT, test::utils, types::nft_note::PartialNFTNote};
-use dep::aztec::{oracle::random::random, protocol_types::address::AztecAddress};
+use aztec::{oracle::random::random, protocol_types::{address::AztecAddress, traits::Deserialize}};
 
 /// Internal orchestration means that the calls to `prepare_private_balance_increase`
 /// and `finalize_transfer_to_private` are done by the NFT contract itself.
@@ -29,15 +29,13 @@ unconstrained fn transfer_to_private_external_orchestration() {
         utils::setup_and_mint(/* with_account_contracts */ false);
 
     // We prepare the transfer
-    let partial_note = env
-        .call_private(
-            owner,
-            NFT::at(nft_contract_address).prepare_private_balance_increase(recipient),
-        )
-        .return_value;
+    let partial_note = env.call_private(
+        owner,
+        NFT::at(nft_contract_address).prepare_private_balance_increase(recipient),
+    );
 
     // Finalize the transfer of the NFT (message sender owns the NFT in public)
-    let _ = env.call_public(
+    env.call_public(
         owner,
         NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, partial_note),
     );
@@ -49,23 +47,24 @@ unconstrained fn transfer_to_private_external_orchestration() {
     utils::assert_owns_public_nft(env, nft_contract_address, AztecAddress::zero(), token_id);
 }
 
-#[test(should_fail)] // should_fail_with = "Invalid partial note or completer"
+#[test(should_fail_with = "Invalid partial note or completer")]
 unconstrained fn transfer_to_private_transfer_not_prepared() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, nft_contract_address, owner, _, token_id) =
         utils::setup_and_mint(/* with_account_contracts */ false);
 
     // Transfer was not prepared so we can use random value for the partial note
-    let partial_note = PartialNFTNote { commitment: random() };
+    let commitment = random();
+    let partial_note = PartialNFTNote::deserialize([commitment]);
 
     // Try finalizing the transfer without preparing it
-    let _ = env.call_public(
+    env.call_public(
         owner,
         NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, partial_note),
     );
 }
 
-#[test(should_fail)] // should_fail_with = "invalid NFT owner"
+#[test(should_fail_with = "invalid NFT owner")]
 unconstrained fn transfer_to_private_failure_not_an_owner() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, nft_contract_address, owner, not_owner, token_id) =
@@ -74,40 +73,36 @@ unconstrained fn transfer_to_private_failure_not_an_owner() {
     // (For this specific test we could set a random value for the commitment and not do the call to `prepare...`
     // as the NFT owner check is before we use the value but that would made the test less robust against changes
     // in the contract.)
-    let partial_note = env
-        .call_private(
-            owner,
-            NFT::at(nft_contract_address).prepare_private_balance_increase(not_owner),
-        )
-        .return_value;
+    let partial_note = env.call_private(
+        owner,
+        NFT::at(nft_contract_address).prepare_private_balance_increase(not_owner),
+    );
 
     // Try transferring someone else's public NFT
-    let _ = env.call_public(
+    env.call_public(
         not_owner,
         NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, partial_note),
     );
 }
 
-#[test(should_fail)] // should_fail_with = "Invalid partial note or completer"
+#[test(should_fail_with = "Invalid partial note or completer")]
 unconstrained fn incorrect_completer_cannot_complete_partial_note() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough.
-    let (env, nft_contract_address, owner, recipient, token_id) =
+    let (mut env, nft_contract_address, owner, recipient, token_id) =
         utils::setup_and_mint(/* with_account_contracts */ false);
 
     // We set up the completer
-    let completer = env.create_account(3);
+    let completer = env.create_light_account();
 
     // We prepare the partial note as a completer.
-    let partial_note = env
-        .call_private(
-            completer,
-            NFT::at(nft_contract_address).prepare_private_balance_increase(recipient),
-        )
-        .return_value;
+    let partial_note = env.call_private(
+        completer,
+        NFT::at(nft_contract_address).prepare_private_balance_increase(recipient),
+    );
 
     // Now we try to complete the partial note as another completer. Note that the caller here is the owner of the token
     // we're transferring - this is so that we pass the owner check and fail on the partial note completer check.
-    let _ = env.call_public(
+    env.call_public(
         owner,
         NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, partial_note),
     );

@@ -76,10 +76,14 @@ inline BasicTable generate_and_rotate_table(BasicTableId id, const size_t table_
     return table;
 }
 
-inline MultiTable get_uint32_xor_table(const MultiTableId id = UINT32_XOR)
+template <size_t uint_size> inline MultiTable get_uint_xor_table(const MultiTableId id)
 {
+    // uint_size must be one of 8, 16, 32, or 64.
+    ASSERT(uint_size == 8 || uint_size == 16 || uint_size == 32 || uint_size == 64,
+           "unsupported uint size for XOR table generation");
+
     const size_t TABLE_BIT_SIZE = 6;
-    const size_t num_entries = 32 / TABLE_BIT_SIZE;
+    const size_t num_entries = uint_size / TABLE_BIT_SIZE;
     const uint64_t base = 1 << TABLE_BIT_SIZE;
     MultiTable table(base, base, base, num_entries);
 
@@ -90,20 +94,30 @@ inline MultiTable get_uint32_xor_table(const MultiTableId id = UINT32_XOR)
         table.get_table_values.emplace_back(&get_xor_rotate_values_from_key<6, 0>);
     }
 
-    // 32 = 5 * 6 + 2
-    // all remaining bits
-    const size_t LAST_TABLE_BIT_SIZE = 32 - TABLE_BIT_SIZE * num_entries;
+    // remaining bits
+    const size_t LAST_TABLE_BIT_SIZE = uint_size - TABLE_BIT_SIZE * num_entries;
     const size_t LAST_SLICE_SIZE = 1 << LAST_TABLE_BIT_SIZE;
     table.slice_sizes.emplace_back(LAST_SLICE_SIZE);
-    table.basic_table_ids.emplace_back(UINT_XOR_SLICE_2_ROTATE_0);
-    table.get_table_values.emplace_back(&get_xor_rotate_values_from_key<LAST_TABLE_BIT_SIZE, 0>);
+    if (uint_size == 8 || uint_size == 32) {
+        // uint8 and uint32 have 2 bits left because: 8 % 6 = 2 and 32 % 6 = 2
+        table.basic_table_ids.emplace_back(UINT_XOR_SLICE_2_ROTATE_0);
+        table.get_table_values.emplace_back(&get_xor_rotate_values_from_key<2, 0>);
+    } else {
+        // uint16 and uint64 have 4 bits left because: 16 % 6 = 4 and 64 % 6 = 4
+        table.basic_table_ids.emplace_back(UINT_XOR_SLICE_4_ROTATE_0);
+        table.get_table_values.emplace_back(&get_xor_rotate_values_from_key<4, 0>);
+    }
     return table;
 }
 
-inline MultiTable get_uint32_and_table(const MultiTableId id = UINT32_AND)
+template <size_t uint_size> inline MultiTable get_uint_and_table(const MultiTableId id)
 {
+    // uint_size must be one of 8, 16, 32, or 64.
+    ASSERT(uint_size == 8 || uint_size == 16 || uint_size == 32 || uint_size == 64,
+           "unsupported uint size for AND table generation");
+
     const size_t TABLE_BIT_SIZE = 6;
-    const size_t num_entries = 32 / TABLE_BIT_SIZE;
+    const size_t num_entries = uint_size / TABLE_BIT_SIZE;
     const uint64_t base = 1 << TABLE_BIT_SIZE;
     MultiTable table(base, base, base, num_entries);
 
@@ -111,16 +125,22 @@ inline MultiTable get_uint32_and_table(const MultiTableId id = UINT32_AND)
     for (size_t i = 0; i < num_entries; ++i) {
         table.slice_sizes.emplace_back(base);
         table.basic_table_ids.emplace_back(UINT_AND_SLICE_6_ROTATE_0);
-        table.get_table_values.emplace_back(&get_and_rotate_values_from_key<TABLE_BIT_SIZE, 0>);
+        table.get_table_values.emplace_back(&get_and_rotate_values_from_key<6, 0>);
     }
-    // 32 = 5 * 6 + 2
-    // all remaining bits
-    const size_t LAST_TABLE_BIT_SIZE = 32 - TABLE_BIT_SIZE * num_entries;
+
+    // remaining bits
+    const size_t LAST_TABLE_BIT_SIZE = uint_size - TABLE_BIT_SIZE * num_entries;
     const size_t LAST_SLICE_SIZE = 1 << LAST_TABLE_BIT_SIZE;
     table.slice_sizes.emplace_back(LAST_SLICE_SIZE);
-    table.basic_table_ids.emplace_back(UINT_AND_SLICE_2_ROTATE_0);
-    table.get_table_values.emplace_back(&get_and_rotate_values_from_key<LAST_TABLE_BIT_SIZE, 0>);
-
+    if (uint_size == 8 || uint_size == 32) {
+        // uint8 and uint32 have 2 bits left because: 8 % 6 = 2 and 32 % 6 = 2
+        table.basic_table_ids.emplace_back(UINT_AND_SLICE_2_ROTATE_0);
+        table.get_table_values.emplace_back(&get_and_rotate_values_from_key<2, 0>);
+    } else {
+        // uint16 and uint64 have 4 bits left because: 16 % 6 = 4 and 64 % 6 = 4
+        table.basic_table_ids.emplace_back(UINT_AND_SLICE_4_ROTATE_0);
+        table.get_table_values.emplace_back(&get_and_rotate_values_from_key<4, 0>);
+    }
     return table;
 }
 

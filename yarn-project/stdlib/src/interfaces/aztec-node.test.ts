@@ -686,9 +686,6 @@ class MockAztecNode implements AztecNode {
     };
     return instance;
   }
-  flushTxs(): Promise<void> {
-    return Promise.resolve();
-  }
   getEncodedEnr(): Promise<string | undefined> {
     return Promise.resolve('enr:-');
   }

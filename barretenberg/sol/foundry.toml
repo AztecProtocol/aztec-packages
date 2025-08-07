@@ -8,10 +8,8 @@ gas_limit = 900000000000000000
 bytecode_hash = "none"
 
 [fuzz]
-runs = 1
-
+runs = 2
 
 solc = "0.8.29"
-
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config

@@ -1,6 +1,10 @@
 #pragma once
+#include "barretenberg/common/msgpack_to_json.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include <sstream>
+#define MSGPACK_NO_BOOST
+#include "msgpack/object_fwd.hpp"
 #include <concepts>
 #include <optional>
 #include <stdexcept>
@@ -15,9 +19,9 @@ namespace bb {
  * @brief Concept to check if a type has a static NAME member
  */
 template <typename T>
-concept HasName = requires {
+concept HasMsgpackSchemaName = requires {
     {
-        T::NAME
+        T::MSGPACK_SCHEMA_NAME
     } -> std::convertible_to<std::string_view>;
 };
 
@@ -28,7 +32,7 @@ concept HasName = requires {
  * During serialization, the NAME is written first, then the object.
  * During deserialization, the NAME is read first to determine which type to construct.
  */
-template <HasName... Types> class NamedUnion {
+template <HasMsgpackSchemaName... Types> class NamedUnion {
   public:
     using VariantType = std::variant<Types...>;
 
@@ -40,7 +44,7 @@ template <HasName... Types> class NamedUnion {
     {
         if constexpr (I < sizeof...(Types)) {
             using CurrentType = std::variant_alternative_t<I, VariantType>;
-            if (name == CurrentType::NAME) {
+            if (name == CurrentType::MSGPACK_SCHEMA_NAME) {
                 return I;
             }
             return get_index_from_name<I + 1>(name);
@@ -95,8 +99,9 @@ template <HasName... Types> class NamedUnion {
     // Get the current type name
     std::string_view get_type_name() const
     {
-        return std::visit([](const auto& obj) -> std::string_view { return std::decay_t<decltype(obj)>::NAME; },
-                          value_);
+        return std::visit(
+            [](const auto& obj) -> std::string_view { return std::decay_t<decltype(obj)>::MSGPACK_SCHEMA_NAME; },
+            value_);
     }
 
     // Msgpack serialization
@@ -112,17 +117,19 @@ template <HasName... Types> class NamedUnion {
     }
 
     // Msgpack deserialization
-    void msgpack_unpack(auto o)
+    void msgpack_unpack(msgpack::object const& o)
     {
+        constexpr size_t MAX_OUTPUT_CHARS = 100;
         // access object assuming it is an array of size 2
-        if (!o.is_array() || o.via.array.size != 2) {
-            throw_or_abort("Expected an array of size 2 for NamedUnion deserialization");
+        if (o.type != msgpack::type::ARRAY || o.via.array.size != 2) {
+            throw_or_abort("Expected an array of size 2 for NamedUnion deserialization, got " +
+                           bb::msgpack_to_json(o, MAX_OUTPUT_CHARS));
         }
-        auto& arr = o.via.array;
-        if (!arr.ptr[0].is_string()) {
+        const auto& arr = o.via.array;
+        if (arr.ptr[0].type != msgpack::type::STR) {
             throw_or_abort("Expected first element to be a string (type name) in NamedUnion deserialization");
         }
-        std::string_view type_name = arr.ptr[0].template as<std::string_view>();
+        std::string_view type_name = std::string_view(arr.ptr[0].via.str.ptr, arr.ptr[0].via.str.size);
         auto index_opt = get_index_from_name(type_name);
         if (!index_opt.has_value()) {
             throw_or_abort("Unknown type name in NamedUnion deserialization: " + std::string(type_name));
@@ -139,9 +146,9 @@ template <HasName... Types> class NamedUnion {
         packer.pack("named_union");
         packer.pack_array(sizeof...(Types));
         (
-            [&packer, this]() {
+            [&packer]() {
                 packer.pack_array(2);
-                packer.pack(Types::NAME);
+                packer.pack(Types::MSGPACK_SCHEMA_NAME);
                 // Abitrary mutable object.
                 packer.pack_schema(*std::make_unique<Types>());
             }(),

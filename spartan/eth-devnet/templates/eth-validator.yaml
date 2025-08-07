@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "eth-devnet.fullname" . }}-eth-validator
+  labels:
+    {{- include "eth-devnet.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  serviceName: {{ include "eth-devnet.fullname" . }}-eth-validator
+  selector:
+    matchLabels:
+      {{- include "eth-devnet.selectorLabels" . | nindent 6 }}
+      app: eth-validator
+  template:
+    metadata:
+      labels:
+        {{- include "eth-devnet.selectorLabels" . | nindent 8 }}
+        app: eth-validator
+    spec:
+      {{- if .Values.ethereum.validator.nodeSelector }}
+      nodeSelector:
+        {{- toYaml .Values.ethereum.validator.nodeSelector | nindent 8 }}
+      {{- end }}
+      initContainers:
+        - name: create-genesis
+          image: maddiaa/eth2-val-tools:latest
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c"]
+          # Generate keystores based on the provided mnemonic, then copy them into the /validator-setup directory
+          args:
+            - >-
+              echo "Generating validator keys..." &&
+              ./eth2-val-tools keystores
+              --source-min=0
+              --source-max=64
+              --source-mnemonic="${MNEMONIC}"
+              --out-loc=data &&
+
+              mkdir -p /validator-setup &&
+              cp -r ./data/* /validator-setup &&
+              rm -rf /validator-setup/lodestar-secrets /validator-setup/nimbus-keys /validator-setup/prysm /validator-setup/teku-keys /validator-setup/teku-secrets &&
+              echo "Validator key generation complete!"
+          env:
+            - name: MNEMONIC
+              value: {{ .Values.ethereum.validator.mnemonic }}
+          volumeMounts:
+            - name: validator-setup
+              mountPath: /validator-setup
+      containers:
+        - name: eth-validator
+          image: "{{ .Values.images.lighthouse.image }}"
+          imagePullPolicy: {{ .Values.images.lighthouse.pullPolicy }}
+          command: ["/bin/sh"]
+          args: ["/entrypoints/eth-validator.sh"]
+          env:
+            - name: ETH_BEACON_URL
+              value: "http://{{ include "eth-devnet.fullname" . }}-eth-beacon.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.ethereum.beacon.service.port }}"
+            - name: K8S_MODE
+              value: "true"
+          volumeMounts:
+            - name: shared-volume
+              mountPath: /data
+            - name: genesis
+              mountPath: /genesis-template
+            - name: validator-setup
+              mountPath: /validator-setup
+            - name: entrypoint-scripts
+              mountPath: /entrypoints
+          resources:
+            {{- toYaml .Values.ethereum.validator.resources | nindent 12 }}
+      volumes:
+        - name: shared-volume
+          persistentVolumeClaim:
+            claimName: shared-volume
+        # Beacon genesis is defined with eth-beacon
+        - name: genesis
+          configMap:
+            name: {{ include "eth-devnet.fullname" . }}-eth-beacon-genesis
+        - name: validator-setup
+          emptyDir: {}
+        - name: entrypoint-scripts
+          configMap:
+            name: {{ include "eth-devnet.fullname" . }}-entrypoint-scripts
+            defaultMode: 0755
+  volumeClaimTemplates:
+  - metadata:
+      name: shared-volume
+      labels:
+        {{- include "eth-devnet.labels" . | nindent 8 }}
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: {{ .Values.ethereum.validator.storageSize }}
+---

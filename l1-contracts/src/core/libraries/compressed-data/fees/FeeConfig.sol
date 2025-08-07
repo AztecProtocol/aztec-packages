@@ -32,33 +32,17 @@ struct FeeConfig {
 }
 
 library PriceLib {
-  function toEth(FeeAssetValue _feeAssetValue, FeeAssetPerEthE9 _feeAssetPerEth)
-    internal
-    pure
-    returns (EthValue)
-  {
+  function toEth(FeeAssetValue _feeAssetValue, FeeAssetPerEthE9 _feeAssetPerEth) internal pure returns (EthValue) {
     return EthValue.wrap(
       Math.mulDiv(
-        FeeAssetValue.unwrap(_feeAssetValue),
-        1e9,
-        FeeAssetPerEthE9.unwrap(_feeAssetPerEth),
-        Math.Rounding.Ceil
+        FeeAssetValue.unwrap(_feeAssetValue), 1e9, FeeAssetPerEthE9.unwrap(_feeAssetPerEth), Math.Rounding.Ceil
       )
     );
   }
 
-  function toFeeAsset(EthValue _ethValue, FeeAssetPerEthE9 _feeAssetPerEth)
-    internal
-    pure
-    returns (FeeAssetValue)
-  {
+  function toFeeAsset(EthValue _ethValue, FeeAssetPerEthE9 _feeAssetPerEth) internal pure returns (FeeAssetValue) {
     return FeeAssetValue.wrap(
-      Math.mulDiv(
-        EthValue.unwrap(_ethValue),
-        FeeAssetPerEthE9.unwrap(_feeAssetPerEth),
-        1e9,
-        Math.Rounding.Ceil
-      )
+      Math.mulDiv(EthValue.unwrap(_ethValue), FeeAssetPerEthE9.unwrap(_feeAssetPerEth), 1e9, Math.Rounding.Ceil)
     );
   }
 }
@@ -73,20 +57,11 @@ library FeeConfigLib {
     return (CompressedFeeConfig.unwrap(_compressedFeeConfig) >> 192) & MASK_64_BITS;
   }
 
-  function getCongestionUpdateFraction(CompressedFeeConfig _compressedFeeConfig)
-    internal
-    pure
-    returns (uint256)
-  {
-    return
-      (CompressedFeeConfig.unwrap(_compressedFeeConfig) >> 64) & 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
+  function getCongestionUpdateFraction(CompressedFeeConfig _compressedFeeConfig) internal pure returns (uint256) {
+    return (CompressedFeeConfig.unwrap(_compressedFeeConfig) >> 64) & 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
   }
 
-  function getProvingCostPerMana(CompressedFeeConfig _compressedFeeConfig)
-    internal
-    pure
-    returns (EthValue)
-  {
+  function getProvingCostPerMana(CompressedFeeConfig _compressedFeeConfig) internal pure returns (EthValue) {
     return EthValue.wrap(CompressedFeeConfig.unwrap(_compressedFeeConfig) & MASK_64_BITS);
   }
 
@@ -99,11 +74,7 @@ library FeeConfigLib {
     return CompressedFeeConfig.wrap(value);
   }
 
-  function decompress(CompressedFeeConfig _compressedFeeConfig)
-    internal
-    pure
-    returns (FeeConfig memory)
-  {
+  function decompress(CompressedFeeConfig _compressedFeeConfig) internal pure returns (FeeConfig memory) {
     return FeeConfig({
       provingCostPerMana: getProvingCostPerMana(_compressedFeeConfig),
       congestionUpdateFraction: getCongestionUpdateFraction(_compressedFeeConfig),

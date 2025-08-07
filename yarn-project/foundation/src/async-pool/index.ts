@@ -29,6 +29,7 @@
 export function asyncPool<T, R>(poolLimit: number, iterable: T[], iteratorFn: (item: T, iterable: T[]) => Promise<R>) {
   let i = 0;
   const ret: Promise<R>[] = [];
+  // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
   const executing: Set<Promise<R>> = new Set();
   const enqueue = (): Promise<any> => {
     if (i === iterable.length) {

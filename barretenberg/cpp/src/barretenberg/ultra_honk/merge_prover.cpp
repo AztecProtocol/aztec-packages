@@ -90,10 +90,6 @@ MergeProver::MergeProof MergeProver::construct_proof()
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1473): remove generation of commitment to T_prev
     // Compute commitments [T_prev], [m_j], [g_j], and send to the verifier
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        // Note: This is hacky at the moment because the prover still needs to commit to T_prev. Once we connect two
-        // steps of the Merge, T_prev will not be sent by the Merge prover, so the following lines will be removed
-        auto previous_table = settings == MergeSettings::PREPEND ? right_table[idx] : left_table[idx];
-        transcript->send_to_verifier("T_PREV" + std::to_string(idx), pcs_commitment_key.commit(previous_table));
         transcript->send_to_verifier("MERGED_TABLE_" + std::to_string(idx),
                                      pcs_commitment_key.commit(merged_table[idx]));
         transcript->send_to_verifier("LEFT_TABLE_REVERSED_" + std::to_string(idx),

@@ -67,6 +67,7 @@ endif()
 
 add_subdirectory(barretenberg/api)
 add_subdirectory(barretenberg/bb)
+add_subdirectory(barretenberg/bbapi)
 add_subdirectory(barretenberg/boomerang_value_detection)
 add_subdirectory(barretenberg/circuit_checker)
 add_subdirectory(barretenberg/client_ivc)
@@ -125,6 +126,7 @@ include(GNUInstallDirs)
 message(STATUS "Compiling all-in-one barretenberg archive")
 
 set(BARRETENBERG_TARGET_OBJECTS
+    $<TARGET_OBJECTS:bbapi_objects>
     $<TARGET_OBJECTS:client_ivc_objects>
     $<TARGET_OBJECTS:commitment_schemes_objects>
     $<TARGET_OBJECTS:common_objects>

@@ -46,7 +46,6 @@ pub contract Test {
             retrieved_note::RetrievedNote,
         },
         publish_contract_instance::publish_contract_instance_for_public_execution,
-        test::mocks::mock_struct::MockStruct,
     };
     use dep::token_portal_content_hash_lib::get_mint_to_private_content_hash;
     use std::meta::derive;
@@ -196,7 +195,7 @@ pub contract Test {
             get_notes(&mut context, storage_slot, options);
         // docs:end:get_note_from_pxe
 
-        retrieved_notes.get(0).note.value
+        retrieved_notes.get(0).note.get_value()
     }
 
     #[private]
@@ -209,7 +208,7 @@ pub contract Test {
         let (retrieved_notes, _): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
             get_notes(&mut context, storage_slot, options);
 
-        [retrieved_notes.get(0).note.value, retrieved_notes.get(1).note.value]
+        [retrieved_notes.get(0).note.get_value(), retrieved_notes.get(1).note.get_value()]
     }
 
     #[utility]
@@ -221,7 +220,7 @@ pub contract Test {
 
         let notes: BoundedVec<UintNote, MAX_NOTES_PER_PAGE> = view_notes(storage_slot, options);
 
-        notes.get(0).value
+        notes.get(0).get_value()
     }
 
     #[utility]
@@ -236,7 +235,7 @@ pub contract Test {
 
         let notes: BoundedVec<UintNote, MAX_NOTES_PER_PAGE> = view_notes(storage_slot, options);
 
-        [notes.get(0).value, notes.get(1).value]
+        [notes.get(0).get_value(), notes.get(1).get_value()]
     }
 
     #[private]
@@ -428,8 +427,8 @@ pub contract Test {
 
     #[derive(Serialize)]
     pub struct DummyNote {
-        amount: Field,
-        secret_hash: Field,
+        pub amount: Field,
+        pub secret_hash: Field,
     }
 
     impl DummyNote {
@@ -443,10 +442,10 @@ pub contract Test {
     }
 
     pub struct DeepStruct {
-        a_field: Field,
-        a_bool: bool,
-        a_note: DummyNote,
-        many_notes: [DummyNote; 3],
+        pub a_field: Field,
+        pub a_bool: bool,
+        pub a_note: DummyNote,
+        pub many_notes: [DummyNote; 3],
     }
 
     // Serializing using "canonical" form.

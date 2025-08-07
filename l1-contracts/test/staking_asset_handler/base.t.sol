@@ -26,7 +26,7 @@ contract StakingAssetHandlerBase is ZKPassportBase, TestBase {
   bytes internal EMPTY_PROOF = bytes(string(""));
   bytes32[] internal EMPTY_PUBLIC_INPUTS = new bytes32[](0);
 
-  uint256 internal DEPOSIT_AMOUNT;
+  uint256 internal ACTIVATION_THRESHOLD;
   uint256 internal mintInterval = 1;
   uint256 internal depositsPerMint = 1;
 
@@ -42,7 +42,7 @@ contract StakingAssetHandlerBase is ZKPassportBase, TestBase {
 
     stakingAsset = builder.getConfig().testERC20;
     registry = builder.getConfig().registry;
-    DEPOSIT_AMOUNT = builder.getConfig().rollup.getDepositAmount();
+    ACTIVATION_THRESHOLD = builder.getConfig().rollup.getActivationThreshold();
     staking = IStaking(address(builder.getConfig().rollup));
 
     StakingAssetHandler.StakingAssetHandlerArgs memory stakingAssetHandlerArgs = StakingAssetHandler
@@ -56,8 +56,8 @@ contract StakingAssetHandlerBase is ZKPassportBase, TestBase {
       depositMerkleRoot: depositMerkleRoot,
       zkPassportVerifier: zkPassportVerifier,
       unhinged: new address[](0),
+      domain: CORRECT_DOMAIN,
       scope: CORRECT_SCOPE,
-      subscope: CORRECT_SUBSCOPE,
       skipBindCheck: true,
       skipMerkleCheck: true
     });

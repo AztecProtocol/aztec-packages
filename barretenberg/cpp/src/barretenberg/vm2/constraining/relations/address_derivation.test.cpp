@@ -13,15 +13,14 @@
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
+#include "barretenberg/vm2/simulation/testing/fakes/fake_to_radix.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
-#include "barretenberg/vm2/simulation/to_radix.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/tracegen/address_derivation_trace.hpp"
 #include "barretenberg/vm2/tracegen/ecc_trace.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
-#include "barretenberg/vm2/tracegen/to_radix_trace.hpp"
 
 namespace bb::avm2::constraining {
 namespace {
@@ -41,6 +40,7 @@ using simulation::Ecc;
 using simulation::EccAddEvent;
 using simulation::EccAddMemoryEvent;
 using simulation::EventEmitter;
+using simulation::FakeToRadix;
 using simulation::hash_public_keys;
 using simulation::MockExecutionIdManager;
 using simulation::MockGreaterThan;
@@ -50,8 +50,6 @@ using simulation::Poseidon2HashEvent;
 using simulation::Poseidon2PermutationEvent;
 using simulation::Poseidon2PermutationMemoryEvent;
 using simulation::ScalarMulEvent;
-using simulation::ToRadix;
-using simulation::ToRadixEvent;
 
 using FF = AvmFlavorSettings::FF;
 using C = Column;
@@ -102,7 +100,6 @@ TEST(AddressDerivationConstrainingTest, Basic)
 
 TEST(AddressDerivationConstrainingTest, WithInteractions)
 {
-    NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
     EventEmitter<EccAddEvent> ecadd_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
     NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
@@ -118,7 +115,7 @@ TEST(AddressDerivationConstrainingTest, WithInteractions)
     Poseidon2 poseidon2_simulator(
         mock_exec_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
 
-    ToRadix to_radix_simulator(to_radix_event_emitter);
+    FakeToRadix to_radix_simulator;
     Ecc ecc_simulator(mock_exec_id_manager,
                       mock_gt,
                       to_radix_simulator,

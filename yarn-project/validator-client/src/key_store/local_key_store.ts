@@ -1,7 +1,9 @@
-import type { Buffer32 } from '@aztec/foundation/buffer';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
+
+import { type TypedDataDefinition, hashTypedData } from 'viem';
 
 import type { ValidatorKeyStore } from './interface.js';
 
@@ -43,30 +45,32 @@ export class LocalKeyStore implements ValidatorKeyStore {
 
   /**
    * Sign a message with all keystore private keys
-   * @param digest - The message buffer to sign
+   * @param typedData - The complete EIP-712 typed data structure (domain, types, primaryType, message)
    * @return signature
    */
-  public sign(digest: Buffer32): Promise<Signature[]> {
-    return Promise.all(this.signers.map(signer => signer.sign(digest)));
+  public signTypedData(typedData: TypedDataDefinition): Promise<Signature[]> {
+    const digest = hashTypedData(typedData);
+    return Promise.all(this.signers.map(signer => signer.sign(Buffer32.fromString(digest))));
   }
 
   /**
    * Sign a message with a specific address's private key
    * @param address - The address of the signer to use
-   * @param digest - The message buffer to sign
+   * @param typedData - The complete EIP-712 typed data structure (domain, types, primaryType, message)
    * @returns signature for the specified address
    * @throws Error if the address is not found in the keystore
    */
-  public signWithAddress(address: EthAddress, digest: Buffer32): Promise<Signature> {
+  public signTypedDataWithAddress(address: EthAddress, typedData: TypedDataDefinition): Promise<Signature> {
     const signer = this.signersByAddress.get(address.toString());
     if (!signer) {
       throw new Error(`No signer found for address ${address.toString()}`);
     }
-    return Promise.resolve(signer.sign(digest));
+    const digest = hashTypedData(typedData);
+    return Promise.resolve(signer.sign(Buffer32.fromString(digest)));
   }
 
   /**
-   * Sign a message with all keystore private keys
+   * Sign a message using eth_sign with all keystore private keys
    *
    * @param message - The message to sign
    * @return signatures
@@ -76,7 +80,7 @@ export class LocalKeyStore implements ValidatorKeyStore {
   }
 
   /**
-   * Sign a message with a specific address's private key
+   * Sign a message using eth_sign with a specific address's private key
    * @param address - The address of the signer to use
    * @param message - The message to sign
    * @returns signature for the specified address

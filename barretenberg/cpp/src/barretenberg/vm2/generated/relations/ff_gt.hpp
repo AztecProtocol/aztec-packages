@@ -3,6 +3,7 @@
 
 #include <string_view>
 
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -30,6 +31,8 @@ template <typename FF_> class ff_gtImpl {
                            [[maybe_unused]] const FF& scaling_factor)
     {
         using C = ColumnAndShifts;
+
+        PROFILE_THIS_NAME("accumulate/ff_gt");
 
         const auto ff_gt_SEL_START = in.get(C::ff_gt_sel_gt) + in.get(C::ff_gt_sel_dec);
         const auto ff_gt_POW_128 = FF(uint256_t{ 0UL, 0UL, 1UL, 0UL });

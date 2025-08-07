@@ -63,8 +63,8 @@ export class Set extends Instruction {
     private value: bigint | number,
   ) {
     super();
-
-    assert(this.value < Fr.MODULUS, 'Value is larger than Fr.MODULUS');
+    assert(this.value >= 0, `Value ${this.value} is negative`);
+    assert(this.value < Fr.MODULUS, `Value ${this.value} is larger than Fr.MODULUS`);
   }
 
   public async execute(context: AvmContext): Promise<void> {

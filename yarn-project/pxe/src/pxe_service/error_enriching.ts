@@ -19,6 +19,7 @@ export async function enrichSimulationError(
   // Maps contract addresses to the set of function selectors that were in error.
   // Map and Set do reference equality for their keys instead of value equality, so we store the string
   // representation to get e.g. different contract address objects with the same address value to match.
+  // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
   const mentionedFunctions: Map<string, Set<FunctionSelector>> = new Map();
 
   err.getCallStack().forEach(({ contractAddress, functionSelector }) => {

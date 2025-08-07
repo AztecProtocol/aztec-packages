@@ -8,5 +8,15 @@ interface IPayload {
     bytes data;
   }
 
+  /**
+   * @notice  A URI that can be used to refer to where a non-coder human readable description
+   *          of the payload can be found.
+   *
+   * @dev     Not used in the contracts, so could be any string really
+   *
+   * @return - Ideally a useful URI for the payload description
+   */
+  function getURI() external view returns (string memory);
+
   function getActions() external view returns (Action[] memory);
 }

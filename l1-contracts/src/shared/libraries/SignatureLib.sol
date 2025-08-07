@@ -20,7 +20,8 @@ struct Signature {
 }
 
 // A committee attestation can be made up of a signature and an address.
-// Committee members that have attested will produce a signature, and if they have not attested, the signature will be empty and
+// Committee members that have attested will produce a signature, and if they have not attested, the signature will be
+// empty and
 // an address provided.
 struct CommitteeAttestation {
   address addr;
@@ -37,6 +38,18 @@ struct CommitteeAttestations {
 error SignatureLib__InvalidSignature(address, address);
 
 library SignatureLib {
+  uint256 private constant SIGNATURE_LENGTH = 65; // v (1) + r (32) + s (32)
+  uint256 private constant ADDRESS_LENGTH = 20;
+
+  /**
+   * @notice Checks if the given CommitteeAttestations is empty
+   * @param _attestations - The committee attestations
+   * @return True if the committee attestations are empty, false otherwise
+   */
+  function isEmpty(CommitteeAttestations memory _attestations) internal pure returns (bool) {
+    return _attestations.signatureIndices.length == 0 && _attestations.signaturesOrAddresses.length == 0;
+  }
+
   /**
    * @notice Checks if the given index in the CommitteeAttestations is a signature
    * @param _attestations - The committee attestations
@@ -49,28 +62,112 @@ library SignatureLib {
    *
    * See its use over in ValidatorSelectionLib.sol
    */
-  function isSignature(CommitteeAttestations memory _attestations, uint256 _index)
-    internal
-    pure
-    returns (bool)
-  {
+  function isSignature(CommitteeAttestations memory _attestations, uint256 _index) internal pure returns (bool) {
     uint256 byteIndex = _index / 8;
     uint256 shift = 7 - (_index % 8);
     return (uint8(_attestations.signatureIndices[byteIndex]) >> shift) & 1 == 1;
   }
 
   /**
-   * @notice Verified a signature, throws if the signature is invalid or empty
+   * @notice Gets the signature at the given index
+   * @param _attestations - The committee attestations
+   * @param _index - The index of the signature to get
+   */
+  function getSignature(CommitteeAttestations memory _attestations, uint256 _index)
+    internal
+    pure
+    returns (Signature memory)
+  {
+    bytes memory signaturesOrAddresses = _attestations.signaturesOrAddresses;
+    require(isSignature(_attestations, _index), "Not a signature at this index");
+
+    uint256 dataPtr;
+    assembly {
+      // Skip length
+      dataPtr := add(signaturesOrAddresses, 0x20)
+    }
+
+    // Move to the start of the signature
+    for (uint256 i = 0; i < _index; ++i) {
+      dataPtr += isSignature(_attestations, i) ? SIGNATURE_LENGTH : ADDRESS_LENGTH;
+    }
+
+    uint8 v;
+    bytes32 r;
+    bytes32 s;
+
+    assembly {
+      v := byte(0, mload(dataPtr))
+      dataPtr := add(dataPtr, 1)
+      r := mload(dataPtr)
+      dataPtr := add(dataPtr, 32)
+      s := mload(dataPtr)
+    }
+    return Signature({v: v, r: r, s: s});
+  }
+
+  /**
+   * Returns the addresses from the CommitteeAttestations, using the array of signers to populate where there are
+   * signatures.
+   * Indices with signatures will have a zero address.
+   * @param _attestations - The committee attestations
+   * @param _length - The number of addresses to return, should match the number of committee members
+   */
+  function reconstructCommitteeFromSigners(
+    CommitteeAttestations memory _attestations,
+    address[] memory _signers,
+    uint256 _length
+  ) internal pure returns (address[] memory) {
+    bytes memory signaturesOrAddresses = _attestations.signaturesOrAddresses;
+    bytes memory signatureIndices = _attestations.signatureIndices;
+    address[] memory addresses = new address[](_length);
+
+    uint256 signersIndex;
+    uint256 dataPtr;
+    uint256 currentByte;
+    uint256 bitMask;
+
+    assembly {
+      // Skip length
+      dataPtr := add(signaturesOrAddresses, 0x20)
+    }
+
+    for (uint256 i = 0; i < _length; ++i) {
+      // Load new byte every 8 iterations
+      if (i % 8 == 0) {
+        uint256 byteIndex = i / 8;
+        currentByte = uint8(signatureIndices[byteIndex]);
+        bitMask = 128; // 0b10000000
+      }
+
+      bool isSignatureFlag = (currentByte & bitMask) != 0;
+      bitMask >>= 1;
+
+      if (isSignatureFlag) {
+        dataPtr += SIGNATURE_LENGTH;
+        addresses[i] = _signers[signersIndex];
+        signersIndex++;
+      } else {
+        address addr;
+        assembly {
+          addr := shr(96, mload(dataPtr))
+          dataPtr := add(dataPtr, 20)
+        }
+        addresses[i] = addr;
+      }
+    }
+
+    return addresses;
+  }
+
+  /**
+   * @notice Verifies a signature, throws if the signature is invalid or empty
    *
    * @param _signature - The signature to verify
    * @param _signer - The expected signer of the signature
    * @param _digest - The digest that was signed
    */
-  function verify(Signature memory _signature, address _signer, bytes32 _digest)
-    internal
-    pure
-    returns (bool)
-  {
+  function verify(Signature memory _signature, address _signer, bytes32 _digest) internal pure returns (bool) {
     address recovered = ECDSA.recover(_digest, _signature.v, _signature.r, _signature.s);
     require(_signer == recovered, SignatureLib__InvalidSignature(_signer, recovered));
     return true;
@@ -100,9 +197,9 @@ library SignatureLib {
     uint256 totalDataSize = 0;
     for (uint256 i = 0; i < length; i++) {
       if (!isEmpty(_attestations[i].signature)) {
-        totalDataSize += 65; // v (1) + r (32) + s (32)
+        totalDataSize += SIGNATURE_LENGTH;
       } else {
-        totalDataSize += 20; // address only
+        totalDataSize += ADDRESS_LENGTH;
       }
     }
 
@@ -144,13 +241,10 @@ library SignatureLib {
           let dataPtr := add(add(signaturesOrAddresses, 0x20), dataIndex)
           mstore(dataPtr, shl(96, addr))
         }
-        dataIndex += 20;
+        dataIndex += ADDRESS_LENGTH;
       }
     }
 
-    return CommitteeAttestations({
-      signatureIndices: signatureIndices,
-      signaturesOrAddresses: signaturesOrAddresses
-    });
+    return CommitteeAttestations({signatureIndices: signatureIndices, signaturesOrAddresses: signaturesOrAddresses});
   }
 }

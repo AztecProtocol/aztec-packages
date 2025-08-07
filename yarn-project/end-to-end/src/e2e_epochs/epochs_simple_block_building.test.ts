@@ -1,5 +1,5 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { EthAddress, type Logger } from '@aztec/aztec.js';
+import { EthAddress, Fr, type Logger } from '@aztec/aztec.js';
 import type { Operator } from '@aztec/ethereum';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { times, timesAsync } from '@aztec/foundation/collection';
@@ -34,7 +34,7 @@ describe('e2e_epochs/epochs_simple_block_building', () => {
     validators = times(NODE_COUNT, i => {
       const privateKey = bufferToHex(getPrivateKeyFromIndex(i + 3)!);
       const attester = EthAddress.fromString(privateKeyToAccount(privateKey).address);
-      return { attester, withdrawer: attester, privateKey };
+      return { attester, withdrawer: attester, privateKey, bn254SecretKey: Fr.random().toBigInt() };
     });
 
     // Setup context with the given set of validators, no reorgs, mocked gossip sub network, and no anvil test watcher.
@@ -87,8 +87,8 @@ describe('e2e_epochs/epochs_simple_block_building', () => {
     logger.warn(`Started all sequencers`);
 
     // Wait until all txs are mined
-    const timeout = test.L2_SLOT_DURATION_IN_S * (TX_COUNT * 2 + 1) * 1000;
-    await executeTimeout(() => Promise.all(sentTxs.map(tx => tx.wait())), timeout);
+    const timeout = test.L2_SLOT_DURATION_IN_S * (TX_COUNT * 2 + 1);
+    await executeTimeout(() => Promise.all(sentTxs.map(tx => tx.wait({ timeout }))), timeout * 1000);
     logger.warn(`All txs have been mined`);
 
     // Expect no failures from sequencers during block building.

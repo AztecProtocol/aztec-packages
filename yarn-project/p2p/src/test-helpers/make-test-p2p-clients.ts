@@ -2,6 +2,7 @@ import { MockL2BlockSource } from '@aztec/archiver/test';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { SecretValue } from '@aztec/foundation/config';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -148,7 +149,7 @@ export async function makeAndStartTestP2PClients(numberOfPeers: number, testConf
     clients.push(client);
   }
 
-  await Promise.all(clients.map(client => client.isReady()));
+  await retryUntil(() => clients.every(c => c.isReady()), 'p2p clients started', 10, 0.5);
   testConfig.logger?.info(`Created and started ${clients.length} P2P clients at ports ${ports.join(',')}`, {
     ports,
     peerEnrs,
@@ -207,5 +208,5 @@ export async function makeTestP2PClients(numberOfPeers: number, testConfig: Make
 
 export async function startTestP2PClients(clients: P2PClient[]) {
   await Promise.all(clients.map(c => c.start()));
-  await Promise.all(clients.map(c => c.isReady()));
+  await retryUntil(() => clients.every(c => c.isReady()), 'p2p clients started', 10, 0.5);
 }

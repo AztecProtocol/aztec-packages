@@ -11,8 +11,9 @@ import { type SharedNodeConfig, sharedNodeConfigMappings } from '@aztec/node-lib
 import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
 import { type ProverClientUserConfig, proverClientConfigMappings } from '@aztec/prover-client/config';
 import { type SequencerClientConfig, sequencerClientConfigMappings } from '@aztec/sequencer-client/config';
-import { type SlasherConfig, slasherConfigMappings } from '@aztec/slasher';
+import { slasherConfigMappings } from '@aztec/slasher';
 import { type NodeRPCConfig, nodeRpcConfigMappings } from '@aztec/stdlib/config';
+import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
 import { type ValidatorClientConfig, validatorClientConfigMappings } from '@aztec/validator-client/config';
 import { type WorldStateConfig, worldStateConfigMappings } from '@aztec/world-state/config';
 

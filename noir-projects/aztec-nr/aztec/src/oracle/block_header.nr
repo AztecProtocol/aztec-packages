@@ -6,7 +6,7 @@ use crate::{
     context::PrivateContext, oracle::get_membership_witness::get_archive_membership_witness,
 };
 
-#[oracle(getBlockHeader)]
+#[oracle(utilityGetBlockHeader)]
 unconstrained fn get_block_header_at_oracle(_block_number: u32) -> BlockHeader {}
 
 unconstrained fn get_block_header_at_internal(block_number: u32) -> BlockHeader {
@@ -86,7 +86,7 @@ mod test {
 
     #[test(should_fail_with = "Block number provided is not the same as the block number from the header hint")]
     unconstrained fn fetching_a_valid_but_different_header_should_fail() {
-        let mut env = TestEnvironment::new();
+        let env = TestEnvironment::new();
 
         env.mine_block();
         env.mine_block();

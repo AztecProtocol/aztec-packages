@@ -4,6 +4,7 @@ export * from './fee_asset_handler.js';
 export * from './fee_juice.js';
 export * from './governance.js';
 export * from './governance_proposer.js';
+export * from './gse.js';
 export * from './inbox.js';
 export * from './multicall.js';
 export * from './registry.js';

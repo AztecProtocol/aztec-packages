@@ -62,7 +62,7 @@ UltraProver_<Flavor>::UltraProver_(Builder&& circuit, const std::shared_ptr<Honk
     , commitment_key(proving_key->commitment_key)
 {}
 
-template <IsUltraOrMegaHonk Flavor> HonkProof UltraProver_<Flavor>::export_proof()
+template <IsUltraOrMegaHonk Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Flavor>::export_proof()
 {
     auto proof = transcript->export_proof();
 
@@ -85,7 +85,7 @@ template <IsUltraOrMegaHonk Flavor> void UltraProver_<Flavor>::generate_gate_cha
     proving_key->gate_challenges = gate_challenges;
 }
 
-template <IsUltraOrMegaHonk Flavor> HonkProof UltraProver_<Flavor>::construct_proof()
+template <IsUltraOrMegaHonk Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Flavor>::construct_proof()
 {
     OinkProver<Flavor> oink_prover(proving_key, honk_vk, transcript);
     oink_prover.prove();

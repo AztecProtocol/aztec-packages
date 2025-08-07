@@ -72,13 +72,13 @@ describe('p2p client integration', () => {
   });
 
   afterEach(async () => {
-    jest.restoreAllMocks();
-    jest.resetAllMocks();
-    jest.clearAllMocks();
-
     logger.info(`Tearing down state for ${expect.getState().currentTestName}`);
     await shutdown(clients);
     logger.info('Shut down p2p clients');
+
+    jest.restoreAllMocks();
+    jest.resetAllMocks();
+    jest.clearAllMocks();
 
     clients = [];
   });

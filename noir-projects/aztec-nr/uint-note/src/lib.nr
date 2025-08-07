@@ -1,1 +1,1 @@
-mod uint_note;
+pub mod uint_note;

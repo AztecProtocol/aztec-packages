@@ -1,1 +1,1 @@
-mod address_note;
+pub mod address_note;

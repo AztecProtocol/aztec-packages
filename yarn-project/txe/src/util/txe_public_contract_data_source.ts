@@ -17,7 +17,7 @@ export class TXEPublicContractDataSource implements ContractDataSource {
   constructor(private txeOracle: TXE) {}
 
   getBlockNumber(): Promise<number> {
-    return this.txeOracle.getBlockNumber();
+    return this.txeOracle.utilityGetBlockNumber();
   }
 
   async getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {

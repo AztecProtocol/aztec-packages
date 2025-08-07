@@ -28,6 +28,7 @@ node:
 
     preStartScript: |
       source /scripts/get-private-key.sh
+      export TX_COLLECTION_NODE_RPC_URLS=$(bash /scripts/resolve-node-hosts.sh $NODE_HOSTS)
 
     startCmd:
       - --prover-node

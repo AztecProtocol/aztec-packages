@@ -16,13 +16,9 @@ import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 contract TokenPortal {
   using SafeERC20 for IERC20;
 
-  event DepositToAztecPublic(
-    bytes32 to, uint256 amount, bytes32 secretHash, bytes32 key, uint256 index
-  );
+  event DepositToAztecPublic(bytes32 to, uint256 amount, bytes32 secretHash, bytes32 key, uint256 index);
 
-  event DepositToAztecPrivate(
-    uint256 amount, bytes32 secretHashForL2MessageConsumption, bytes32 key, uint256 index
-  );
+  event DepositToAztecPrivate(uint256 amount, bytes32 secretHashForL2MessageConsumption, bytes32 key, uint256 index);
 
   IRegistry public registry;
   IERC20 public underlying;
@@ -57,12 +53,11 @@ contract TokenPortal {
    * @notice Deposit funds into the portal and adds an L2 message which can only be consumed publicly on Aztec
    * @param _to - The aztec address of the recipient
    * @param _amount - The amount to deposit
-   * @param _secretHash - The hash of the secret consumable message. The hash should be 254 bits (so it can fit in a Field element)
+   * @param _secretHash - The hash of the secret consumable message. The hash should be 254 bits (so it can fit in a
+   * Field element)
    * @return The key of the entry in the Inbox and its leaf index
    */
-  function depositToAztecPublic(bytes32 _to, uint256 _amount, bytes32 _secretHash)
-    external
-    returns (bytes32, uint256)
+  function depositToAztecPublic(bytes32 _to, uint256 _amount, bytes32 _secretHash) external returns (bytes32, uint256) 
   // docs:end:deposit_public
   {
     // Preamble
@@ -71,8 +66,7 @@ contract TokenPortal {
     // Hash the message content to be reconstructed in the receiving contract
     // The purpose of including the function selector is to make the message unique to that specific call. Note that
     // it has nothing to do with calling the function.
-    bytes32 contentHash =
-      Hash.sha256ToField(abi.encodeWithSignature("mint_to_public(bytes32,uint256)", _to, _amount));
+    bytes32 contentHash = Hash.sha256ToField(abi.encodeWithSignature("mint_to_public(bytes32,uint256)", _to, _amount));
 
     // Hold the tokens in the portal
     underlying.safeTransferFrom(msg.sender, address(this), _amount);
@@ -90,7 +84,8 @@ contract TokenPortal {
   /**
    * @notice Deposit funds into the portal and adds an L2 message which can only be consumed privately on Aztec
    * @param _amount - The amount to deposit
-   * @param _secretHashForL2MessageConsumption - The hash of the secret consumable L1 to L2 message. The hash should be 254 bits (so it can fit in a Field element)
+   * @param _secretHashForL2MessageConsumption - The hash of the secret consumable L1 to L2 message. The hash should be
+   * 254 bits (so it can fit in a Field element)
    * @return The key of the entry in the Inbox and its leaf index
    */
   function depositToAztecPrivate(uint256 _amount, bytes32 _secretHashForL2MessageConsumption)
@@ -103,15 +98,13 @@ contract TokenPortal {
 
     // Hash the message content to be reconstructed in the receiving contract - the signature below does not correspond
     // to a real function. It's just an identifier of an action.
-    bytes32 contentHash =
-      Hash.sha256ToField(abi.encodeWithSignature("mint_to_private(uint256)", _amount));
+    bytes32 contentHash = Hash.sha256ToField(abi.encodeWithSignature("mint_to_private(uint256)", _amount));
 
     // Hold the tokens in the portal
     underlying.safeTransferFrom(msg.sender, address(this), _amount);
 
     // Send message to rollup
-    (bytes32 key, uint256 index) =
-      inbox.sendL2Message(actor, contentHash, _secretHashForL2MessageConsumption);
+    (bytes32 key, uint256 index) = inbox.sendL2Message(actor, contentHash, _secretHashForL2MessageConsumption);
 
     // Emit event
     emit DepositToAztecPrivate(_amount, _secretHashForL2MessageConsumption, key, index);
@@ -146,10 +139,7 @@ contract TokenPortal {
       recipient: DataStructures.L1Actor(address(this), block.chainid),
       content: Hash.sha256ToField(
         abi.encodeWithSignature(
-          "withdraw(address,uint256,address)",
-          _recipient,
-          _amount,
-          _withCaller ? msg.sender : address(0)
+          "withdraw(address,uint256,address)", _recipient, _amount, _withCaller ? msg.sender : address(0)
         )
       )
     });

@@ -42,9 +42,9 @@ export const GoogleCloudLoggerConfig = {
       switch (label as pino.Level | keyof CustomLevels) {
         case 'trace':
         case 'debug':
+        case 'verbose':
           severity = 'DEBUG';
           break;
-        case 'verbose':
         case 'info':
           severity = 'INFO';
           break;

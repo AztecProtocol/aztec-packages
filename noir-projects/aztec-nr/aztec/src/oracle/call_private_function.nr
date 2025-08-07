@@ -2,7 +2,7 @@ use dep::protocol_types::{
     abis::function_selector::FunctionSelector, address::AztecAddress, utils::reader::Reader,
 };
 
-#[oracle(callPrivateFunction)]
+#[oracle(privateCallPrivateFunction)]
 unconstrained fn call_private_function_oracle(
     _contract_address: AztecAddress,
     _function_selector: FunctionSelector,

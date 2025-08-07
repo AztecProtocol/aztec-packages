@@ -78,7 +78,6 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
                 comm_idx++;
             }
             target_sum = FF::from_witness(builder, verification_key->target_sum);
-
             size_t challenge_idx = 0;
             gate_challenges = std::vector<FF>(verification_key->gate_challenges.size());
             for (auto& challenge : gate_challenges) {

@@ -7,7 +7,7 @@ services:
   eth_execution:
     build:
       context: .
-      dockerfile: entrypoints/eth-execution.Dockerfile
+      dockerfile: entrypoints/eth-execution.Dockerfile # Swap for different execution client (geth / nethermind)
     ports:
       - "8545:8545"
       - "8551:8551"

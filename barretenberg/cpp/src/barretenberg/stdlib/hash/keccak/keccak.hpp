@@ -6,7 +6,6 @@
 
 #pragma once
 #include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
-#include "barretenberg/stdlib/primitives/uint/uint.hpp"
 #include <array>
 
 namespace bb::stdlib {
@@ -29,7 +28,6 @@ template <typename Builder> class keccak {
     using field_ct = stdlib::field_t<Builder>;
     using bool_ct = stdlib::bool_t<Builder>;
     using byte_array_ct = stdlib::byte_array<Builder>;
-    using uint32_ct = stdlib::uint32<Builder>;
 
     // base of extended representation we use for efficient logic operations
     static constexpr uint256_t BASE = 11;
@@ -173,14 +171,12 @@ template <typename Builder> class keccak {
     static void iota(keccak_state& state, size_t round);
     static void sponge_absorb(keccak_state& internal,
                               const std::vector<field_ct>& input_buffer,
-                              const std::vector<field_ct>& msb_buffer,
-                              const field_ct& num_blocks_with_data);
+                              const std::vector<field_ct>& msb_buffer);
     static byte_array_ct sponge_squeeze(keccak_state& internal);
     static void keccakf1600(keccak_state& state);
-    static byte_array_ct hash(byte_array_ct& input, const uint32_ct& num_bytes);
-    static byte_array_ct hash(byte_array_ct& input) { return hash(input, static_cast<uint32_t>(input.size())); };
+    static byte_array_ct hash(byte_array_ct& input);
 
-    static std::vector<field_ct> format_input_lanes(byte_array_ct& input, const uint32_ct& num_bytes);
+    static std::vector<field_ct> format_input_lanes(byte_array_ct& input);
 
     static std::vector<uint8_t> hash_native(const std::vector<uint8_t>& data)
     {
@@ -194,7 +190,7 @@ template <typename Builder> class keccak {
     }
 
     // exposing keccak f1600 permutation
-    static byte_array_ct hash_using_permutation_opcode(byte_array_ct& input, const uint32_ct& num_bytes);
+    static byte_array_ct hash_using_permutation_opcode(byte_array_ct& input);
     static std::array<field_ct, NUM_KECCAK_LANES> permutation_opcode(std::array<field_ct, NUM_KECCAK_LANES> state,
                                                                      Builder* context);
     static void sponge_absorb_with_permutation_opcode(keccak_state& internal,

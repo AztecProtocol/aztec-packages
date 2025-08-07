@@ -61,11 +61,15 @@ config:
         datapoint:
           - 'metric.type == METRIC_DATA_TYPE_HISTOGRAM and Len(explicit_bounds) > 20'
 
+    resource:
+      attributes:
+        - pattern: "(k8s|os|telemetry|service|exported).*"
+          action: delete
+
     transform:
       metric_statements:
         - context: datapoint
           statements:
-          - set(attributes["service.instance.id"], resource.attributes["service.instance.id"])
           - set(attributes["aztec.node_role"], resource.attributes["aztec.node_role"])
           - set(attributes["aztec.registry_address"], resource.attributes["aztec.registry_address"])
 
@@ -93,6 +97,7 @@ config:
           - otlp
         processors:
           - memory_limiter
+          - resource
           - filter
           - transform
           - batch

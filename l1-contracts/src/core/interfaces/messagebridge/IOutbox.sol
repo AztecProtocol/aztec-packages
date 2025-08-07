@@ -13,10 +13,7 @@ import {DataStructures} from "../../libraries/DataStructures.sol";
 interface IOutbox {
   event RootAdded(uint256 indexed l2BlockNumber, bytes32 indexed root);
   event MessageConsumed(
-    uint256 indexed l2BlockNumber,
-    bytes32 indexed root,
-    bytes32 indexed messageHash,
-    uint256 leafIndex
+    uint256 indexed l2BlockNumber, bytes32 indexed root, bytes32 indexed messageHash, uint256 leafId
   );
 
   // docs:start:outbox_insert
@@ -53,15 +50,12 @@ interface IOutbox {
 
   // docs:start:outbox_has_message_been_consumed_at_block_and_index
   /**
-   * @notice Checks to see if an index of the L2 to L1 message tree for a specific block has been consumed
+   * @notice Checks to see if an L2 to L1 message in a specific block has been consumed
    * @dev - This function does not throw. Out-of-bounds access is considered valid, but will always return false
-   * @param _l2BlockNumber - The block number specifying the block that contains the index of the message we want to check
-   * @param _leafIndex - The index of the message inside the merkle tree
+   * @param _l2BlockNumber - The block number specifying the block that contains the message we want to check
+   * @param _leafId - The unique id of the message leaf
    */
-  function hasMessageBeenConsumedAtBlockAndIndex(uint256 _l2BlockNumber, uint256 _leafIndex)
-    external
-    view
-    returns (bool);
+  function hasMessageBeenConsumedAtBlock(uint256 _l2BlockNumber, uint256 _leafId) external view returns (bool);
   // docs:end:outbox_has_message_been_consumed_at_block_and_index
 
   /**

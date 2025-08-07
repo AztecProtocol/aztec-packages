@@ -27,9 +27,7 @@ contract ExecuteProposalTest is GovernanceProposerBase {
     registry.addRollup(IRollup(f));
     vm.etch(f, "");
 
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.GovernanceProposer__InstanceHaveNoCode.selector, address(f))
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__InstanceHaveNoCode.selector, address(f)));
     governanceProposer.submitRoundWinner(_roundNumber);
   }
 
@@ -50,26 +48,17 @@ contract ExecuteProposalTest is GovernanceProposerBase {
   }
 
   modifier whenRoundInPast() {
-    vm.warp(
-      Timestamp.unwrap(
-        validatorSelection.getTimestampForSlot(Slot.wrap(governanceProposer.ROUND_SIZE()))
-      )
-    );
+    vm.warp(Timestamp.unwrap(validatorSelection.getTimestampForSlot(Slot.wrap(governanceProposer.ROUND_SIZE()))));
     _;
   }
 
-  function test_WhenRoundTooFarInPast(uint256 _slotToHit)
-    external
-    givenCanonicalInstanceHoldCode
-    whenRoundInPast
-  {
+  function test_WhenRoundTooFarInPast(uint256 _slotToHit) external givenCanonicalInstanceHoldCode whenRoundInPast {
     // it revert
 
     Slot lower = validatorSelection.getCurrentSlot()
       + Slot.wrap(governanceProposer.ROUND_SIZE() * governanceProposer.LIFETIME_IN_ROUNDS() + 1);
     Slot upper = Slot.wrap(
-      (type(uint64).max - Timestamp.unwrap(validatorSelection.getGenesisTime()))
-        / validatorSelection.getSlotDuration()
+      (type(uint64).max - Timestamp.unwrap(validatorSelection.getGenesisTime())) / validatorSelection.getSlotDuration()
     );
     Slot slotToHit = Slot.wrap(bound(_slotToHit, Slot.unwrap(lower), Slot.unwrap(upper)));
     vm.warp(Timestamp.unwrap(validatorSelection.getTimestampForSlot(slotToHit)));
@@ -102,11 +91,7 @@ contract ExecuteProposalTest is GovernanceProposerBase {
         vm.prank(proposer);
         assertTrue(governanceProposer.signal(proposal));
         vm.warp(
-          Timestamp.unwrap(
-            validatorSelection.getTimestampForSlot(
-              validatorSelection.getCurrentSlot() + Slot.wrap(1)
-            )
-          )
+          Timestamp.unwrap(validatorSelection.getTimestampForSlot(validatorSelection.getCurrentSlot() + Slot.wrap(1)))
         );
       }
       vm.warp(
@@ -119,9 +104,7 @@ contract ExecuteProposalTest is GovernanceProposerBase {
       governanceProposer.submitRoundWinner(1);
     }
 
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.GovernanceProposer__PayloadAlreadySubmitted.selector, 1)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__PayloadAlreadySubmitted.selector, 1));
     governanceProposer.submitRoundWinner(1);
   }
 
@@ -144,17 +127,14 @@ contract ExecuteProposalTest is GovernanceProposerBase {
     // the last slot in the LIFETIME_IN_ROUNDS next round
     uint256 upper = Timestamp.unwrap(
       validatorSelection.getTimestampForSlot(
-        lowerSlot
-          + Slot.wrap(governanceProposer.ROUND_SIZE() * (governanceProposer.LIFETIME_IN_ROUNDS() - 1))
+        lowerSlot + Slot.wrap(governanceProposer.ROUND_SIZE() * (governanceProposer.LIFETIME_IN_ROUNDS() - 1))
       )
     );
     uint256 time = bound(_slotsToJump, lower, upper);
 
     vm.warp(time);
 
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.GovernanceProposer__PayloadCannotBeAddressZero.selector)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__PayloadCannotBeAddressZero.selector));
     governanceProposer.submitRoundWinner(0);
   }
 
@@ -184,11 +164,7 @@ contract ExecuteProposalTest is GovernanceProposerBase {
         )
       )
     );
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.GovernanceProposer__InsufficientSignals.selector, 1, votesNeeded
-      )
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__InsufficientSignals.selector, 1, votesNeeded));
     governanceProposer.submitRoundWinner(1);
   }
 
@@ -199,9 +175,7 @@ contract ExecuteProposalTest is GovernanceProposerBase {
       vm.prank(proposer);
       assertTrue(governanceProposer.signal(proposal));
       vm.warp(
-        Timestamp.unwrap(
-          validatorSelection.getTimestampForSlot(validatorSelection.getCurrentSlot() + Slot.wrap(1))
-        )
+        Timestamp.unwrap(validatorSelection.getTimestampForSlot(validatorSelection.getCurrentSlot() + Slot.wrap(1)))
       );
     }
     vm.warp(
@@ -226,7 +200,7 @@ contract ExecuteProposalTest is GovernanceProposerBase {
   {
     // it revert
 
-    // When using a new registry we change the governanceProposer's interpetation of time :O
+    // When using a new registry we change the governanceProposer's interpretation of time :O
     Fakerollup freshInstance = new Fakerollup();
     vm.prank(registry.getGovernance());
     registry.addRollup(IRollup(address(freshInstance)));
@@ -248,9 +222,7 @@ contract ExecuteProposalTest is GovernanceProposerBase {
         )
       )
     );
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.GovernanceProposer__PayloadCannotBeAddressZero.selector)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__PayloadCannotBeAddressZero.selector));
     governanceProposer.submitRoundWinner(1);
   }
 

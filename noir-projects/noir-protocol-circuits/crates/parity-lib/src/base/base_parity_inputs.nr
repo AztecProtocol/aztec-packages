@@ -1,4 +1,4 @@
-use crate::{parity_public_inputs::ParityPublicInputs, utils::sha256_merkle_tree::Sha256MerkleTree};
+use crate::parity_public_inputs::ParityPublicInputs;
 use dep::types::{constants::NUM_MSGS_PER_BASE_PARITY, merkle_tree::MerkleTree};
 
 pub struct BaseParityInputs {
@@ -8,7 +8,7 @@ pub struct BaseParityInputs {
 
 impl BaseParityInputs {
     pub fn base_parity_circuit(self) -> ParityPublicInputs {
-        let sha_tree = Sha256MerkleTree::new(self.msgs);
+        let sha_tree = MerkleTree::new_sha(self.msgs);
         let poseidon_tree = MerkleTree::new(self.msgs);
 
         ParityPublicInputs {

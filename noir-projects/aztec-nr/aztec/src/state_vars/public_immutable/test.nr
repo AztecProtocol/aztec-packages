@@ -21,7 +21,7 @@ fn in_utility(context: UtilityContext) -> PublicImmutable<MockStruct, UtilityCon
 
 #[test]
 unconstrained fn is_uninitialized_by_default() {
-    let mut env = TestEnvironment::_new();
+    let env = TestEnvironment::_new();
 
     env.public_context(|context| {
         let state_var = in_public(context);
@@ -31,7 +31,7 @@ unconstrained fn is_uninitialized_by_default() {
 
 #[test]
 unconstrained fn initialize_uninitialized_same_tx() {
-    let mut env = TestEnvironment::_new();
+    let env = TestEnvironment::_new();
 
     env.public_context(|context| {
         let state_var = in_public(context);
@@ -45,7 +45,7 @@ unconstrained fn initialize_uninitialized_same_tx() {
 
 #[test]
 unconstrained fn initialize_uninitialized_other_tx() {
-    let mut env = TestEnvironment::_new();
+    let env = TestEnvironment::_new();
 
     env.public_context(|context| {
         let state_var = in_public(context);
@@ -60,9 +60,9 @@ unconstrained fn initialize_uninitialized_other_tx() {
     });
 }
 
-#[test(should_fail)]
+#[test(should_fail_with = "Duplicate")]
 unconstrained fn initialize_already_initialized_same_tx() {
-    let mut env = TestEnvironment::_new();
+    let env = TestEnvironment::_new();
 
     env.public_context(|context| {
         let state_var = in_public(context);
@@ -75,9 +75,9 @@ unconstrained fn initialize_already_initialized_same_tx() {
     });
 }
 
-#[test(should_fail)]
+#[test(should_fail_with = "already present")]
 unconstrained fn initialize_already_initialized_other_tx() {
-    let mut env = TestEnvironment::_new();
+    let env = TestEnvironment::_new();
 
     env.public_context(|context| {
         let state_var = in_public(context);
@@ -94,7 +94,7 @@ unconstrained fn initialize_already_initialized_other_tx() {
 
 #[test(should_fail_with = "Trying to read from uninitialized PublicImmutable")]
 unconstrained fn read_uninitialized_public_fails() {
-    let mut env = TestEnvironment::_new();
+    let env = TestEnvironment::_new();
 
     env.public_context(|context| {
         let state_var = in_public(context);
@@ -105,7 +105,7 @@ unconstrained fn read_uninitialized_public_fails() {
 // TODO(#15703): this test should be made to fail
 #[test]
 unconstrained fn read_uninitialized_private_returns_default() {
-    let mut env = TestEnvironment::_new();
+    let env = TestEnvironment::_new();
 
     env.private_context(|context| {
         let state_var = in_private(context);
@@ -116,7 +116,7 @@ unconstrained fn read_uninitialized_private_returns_default() {
 // TODO(#15703): this test should be made to fail
 #[test]
 unconstrained fn read_uninitialized_utility_returns_default() {
-    let mut env = TestEnvironment::_new();
+    let env = TestEnvironment::_new();
 
     env.utility_context(|context| {
         let state_var = in_utility(context);
@@ -126,7 +126,7 @@ unconstrained fn read_uninitialized_utility_returns_default() {
 
 #[test]
 unconstrained fn read_initialized_public_same_tx() {
-    let mut env = TestEnvironment::_new();
+    let env = TestEnvironment::_new();
 
     env.public_context(|context| {
         let state_var = in_public(context);
@@ -139,7 +139,7 @@ unconstrained fn read_initialized_public_same_tx() {
 
 #[test]
 unconstrained fn read_initialized_public_other_tx() {
-    let mut env = TestEnvironment::_new();
+    let env = TestEnvironment::_new();
     let value = MockStruct::new(5, 6);
 
     env.public_context(|context| {
@@ -155,7 +155,7 @@ unconstrained fn read_initialized_public_other_tx() {
 
 #[test]
 unconstrained fn read_initialized_private() {
-    let mut env = TestEnvironment::_new();
+    let env = TestEnvironment::_new();
     let value = MockStruct::new(5, 6);
 
     env.public_context(|context| {
@@ -171,7 +171,7 @@ unconstrained fn read_initialized_private() {
 
 #[test]
 unconstrained fn read_initialized_utility() {
-    let mut env = TestEnvironment::_new();
+    let env = TestEnvironment::_new();
     let value = MockStruct::new(5, 6);
 
     env.public_context(|context| {

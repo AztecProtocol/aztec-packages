@@ -1,5 +1,5 @@
+import { retryUntil } from '@aztec/aztec.js';
 import { EthCheatCodes, RollupCheatCodes } from '@aztec/ethereum/test';
-import { sleep } from '@aztec/foundation/sleep';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { AztecNode, PXE } from '@aztec/stdlib/interfaces/client';
 
@@ -43,13 +43,23 @@ export class CheatCodes {
     // We warp the L1 timestamp
     await this.eth.warp(targetTimestamp, { resetBlockInterval: true });
 
-    // Force an empty block to be mined by "flushing" the sequencer.
-    sequencerClient.getSequencer().flush();
+    // Wait until an L2 block is mined
+    const sequencer = sequencerClient.getSequencer();
+    const minTxsPerBlock = sequencer.getConfig().minTxsPerBlock;
+    sequencer.updateConfig({ minTxsPerBlock: 0 });
 
-    // Wait for a new block to be mined by polling the node
-    while ((await node.getBlockNumber()) === currentL2BlockNumber) {
-      await sleep(2000);
-    }
+    await retryUntil(
+      async () => {
+        const newL2BlockNumber = await node.getBlockNumber();
+        return newL2BlockNumber > currentL2BlockNumber;
+      },
+      'new block after warping L2 time',
+      36,
+      1,
+    );
+
+    // Restore original minTxsPerBlock
+    sequencer.updateConfig({ minTxsPerBlock });
   }
 
   /**

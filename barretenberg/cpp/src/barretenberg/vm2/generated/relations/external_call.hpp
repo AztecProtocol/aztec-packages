@@ -3,6 +3,7 @@
 
 #include <string_view>
 
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -15,6 +16,13 @@ template <typename FF_> class external_callImpl {
 
     static constexpr std::array<size_t, 7> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 4, 4, 3, 4, 4 };
 
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        using C = ColumnAndShifts;
+
+        return (in.get(C::execution_sel_enter_call)).is_zero();
+    }
+
     template <typename ContainerOverSubrelations, typename AllEntities>
     void static accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& in,
@@ -22,6 +30,8 @@ template <typename FF_> class external_callImpl {
                            [[maybe_unused]] const FF& scaling_factor)
     {
         using C = ColumnAndShifts;
+
+        PROFILE_THIS_NAME("accumulate/external_call");
 
         const auto execution_L2_GAS_LEFT = (in.get(C::execution_l2_gas_limit) - in.get(C::execution_l2_gas_used));
         const auto execution_DA_GAS_LEFT = (in.get(C::execution_da_gas_limit) - in.get(C::execution_da_gas_used));

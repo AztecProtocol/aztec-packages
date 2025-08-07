@@ -1,38 +1,45 @@
 use crate::history::note_validity::ProveNoteValidity;
 use crate::history::test;
 
-// In these tests, we create a note in one block and nullify it in the next.
+use crate::test::helpers::test_environment::PrivateContextOptions;
 
-// In this test, we fail to prove the note's validity in the block before its creation. It fails the validity check due to
-// non-inclusion of the note in the block before its creation.
-#[test(should_fail_with = "not found in NOTE_HASH_TREE at block 1")]
-unconstrained fn note_not_valid_due_to_non_inclusion() {
+#[test(should_fail_with = "not found in tree NOTE_HASH_TREE at block")]
+unconstrained fn fails_on_blocks_before_note_creation() {
     let (env, retrieved_note) = test::create_note_and_nullify_it();
 
-    let context = &mut env.private_at(test::NOTE_CREATED_AT - 1);
-
-    context.historical_header.prove_note_validity(retrieved_note, test::NOTE_STORAGE_SLOT, context);
+    env.private_context_opts(
+        PrivateContextOptions::new().at_historical_block_number(test::NOTE_CREATED_AT - 1),
+        |context| {
+            let header = context.historical_header;
+            header.prove_note_validity(retrieved_note, test::NOTE_STORAGE_SLOT, context);
+        },
+    );
 }
 
-// In this test, we prove the note's validity in the block at its creation, and before its nullification. It succeeds
-// because it is included and not nullified at the block specified.
 #[test]
-unconstrained fn note_is_valid() {
+unconstrained fn succeeds_on_blocks_after_creation_and_before_nullification() {
     let (env, retrieved_note) = test::create_note_and_nullify_it();
 
-    let context = &mut env.private_at(test::NOTE_CREATED_AT);
-
-    // docs:start:prove_note_validity
-    context.historical_header.prove_note_validity(retrieved_note, test::NOTE_STORAGE_SLOT, context);
-    // docs:end:prove_note_validity
+    env.private_context_opts(
+        PrivateContextOptions::new().at_historical_block_number(test::NOTE_CREATED_AT),
+        |context| {
+            // docs:start:prove_note_validity
+            let header = context.historical_header;
+            header.prove_note_validity(retrieved_note, test::NOTE_STORAGE_SLOT, context);
+            // docs:end:prove_note_validity
+        },
+    );
 }
 
-// In this test, we fail to prove the note's validity in the block at its nullification. It fails the validity check due to
-// its nullifier being included in the state at one block after it was created.
 #[test(should_fail_with = "Proving nullifier non-inclusion failed")]
-unconstrained fn note_not_valid_due_to_nullification() {
+unconstrained fn fails_on_blocks_after_note_nullification() {
     let (env, retrieved_note) = test::create_note_and_nullify_it();
 
-    let context = &mut env.private_at(test::NOTE_NULLIFIED_AT);
-    context.historical_header.prove_note_validity(retrieved_note, test::NOTE_STORAGE_SLOT, context);
+    env.private_context_opts(
+        PrivateContextOptions::new().at_historical_block_number(test::NOTE_NULLIFIED_AT),
+        |context| {
+            let header = context.historical_header;
+            header.prove_note_validity(retrieved_note, test::NOTE_STORAGE_SLOT, context);
+        },
+    );
 }

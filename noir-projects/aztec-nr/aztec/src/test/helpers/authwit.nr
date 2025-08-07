@@ -31,7 +31,7 @@ where
 }
 
 pub unconstrained fn add_public_authwit_from_call_interface<C, let M: u32>(
-    env: &mut TestEnvironment,
+    env: TestEnvironment,
     on_behalf_of: AztecAddress,
     caller: AztecAddress,
     call_interface: C,
@@ -48,7 +48,7 @@ where
         compute_inner_authwit_hash([caller.to_field(), selector.to_field(), args_hash]);
     let message_hash = compute_authwit_message_hash(target, chain_id, version, inner_hash);
 
-    let _ = env.call_public(
+    env.call_public(
         on_behalf_of,
         PublicCallInterface::<_, ()>::new(
             CANONICAL_AUTH_REGISTRY_ADDRESS,

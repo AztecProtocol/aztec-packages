@@ -1,0 +1,30 @@
+#include "keccak.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/crypto/keccak/keccak.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
+#include <cassert>
+#include <cstdint>
+#include <vector>
+
+using namespace bb;
+using namespace bb::stdlib;
+
+extern "C" int LLVMFuzzerTestOneInput(const uint8_t* Data, size_t Size)
+{
+    if (Size == 0)
+        return 0;
+    UltraCircuitBuilder builder;
+    std::vector<uint8_t> input_vec(Data, Data + Size);
+    byte_array<UltraCircuitBuilder> input(&builder, input_vec);
+    auto output_bits = keccak<UltraCircuitBuilder>::hash(input);
+    auto output_str = output_bits.get_value();
+    std::vector<uint8_t> circuit_output(output_str.begin(), output_str.end());
+
+    auto expected_struct = ethash_keccak256(input_vec.data(), input_vec.size());
+    std::vector<uint8_t> expected(reinterpret_cast<uint8_t*>(expected_struct.word64s),
+                                  reinterpret_cast<uint8_t*>(expected_struct.word64s) + 32);
+
+    assert(circuit_output == expected);
+    assert(bb::CircuitChecker::check(builder));
+    return 0;
+}

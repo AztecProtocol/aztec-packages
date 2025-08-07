@@ -2,6 +2,8 @@ import type { Buffer32 } from '@aztec/foundation/buffer';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
 
+import type { TypedDataDefinition } from 'viem';
+
 /** Key Store
  *
  * A keystore interface that can be replaced with a local keystore / remote signer service
@@ -22,8 +24,8 @@ export interface ValidatorKeyStore {
    */
   getAddresses(): EthAddress[];
 
-  sign(message: Buffer32): Promise<Signature[]>;
-  signWithAddress(address: EthAddress, message: Buffer32): Promise<Signature>;
+  signTypedData(typedData: TypedDataDefinition): Promise<Signature[]>;
+  signTypedDataWithAddress(address: EthAddress, typedData: TypedDataDefinition): Promise<Signature>;
   /**
    * Flavor of sign message that followed EIP-712 eth signed message prefix
    * Note: this is only required when we are using ecdsa signatures over secp256k1

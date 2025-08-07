@@ -84,6 +84,10 @@ export class EpochProvingJob implements Traceable {
     return this.data.txs;
   }
 
+  private get attestations() {
+    return this.data.attestations;
+  }
+
   /**
    * Proves the given epoch and submits the proof to L1.
    */
@@ -96,6 +100,7 @@ export class EpochProvingJob implements Traceable {
       await this.scheduleEpochCheck();
     }
 
+    const attestations = this.attestations.map(attestation => attestation.toViem());
     const epochNumber = Number(this.epochNumber);
     const epochSizeBlocks = this.blocks.length;
     const epochSizeTxs = this.blocks.reduce((total, current) => total + current.body.txEffects.length, 0);
@@ -168,6 +173,7 @@ export class EpochProvingJob implements Traceable {
       this.log.info(`Finalised proof for epoch ${epochNumber}`, { epochNumber, uuid: this.uuid, duration: timer.ms() });
 
       this.progressState('publishing-proof');
+
       const success = await this.publisher.submitEpochProof({
         fromBlock,
         toBlock,
@@ -175,6 +181,7 @@ export class EpochProvingJob implements Traceable {
         publicInputs,
         proof,
         batchedBlobInputs,
+        attestations,
       });
       if (!success) {
         throw new Error('Failed to submit epoch proof to L1');

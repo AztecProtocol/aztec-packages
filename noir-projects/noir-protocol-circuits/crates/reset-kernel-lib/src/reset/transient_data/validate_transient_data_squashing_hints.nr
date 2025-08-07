@@ -18,16 +18,16 @@ use types::{
 ///
 /// The validation against the claimed lengths prevent malicious users from faking a note hash or nullifier beyond the
 /// claimed length to justify squashing a nullifier or note hash that should be kept.
-pub fn validate_transient_data_squashing_hints<let NOTE_HASHES_LEN: u32, let NULLIFIERS_LEN: u32, let SQUASHING_HINTS_LEN: u32>(
-    note_hashes: ClaimedLengthArray<ScopedNoteHash, NOTE_HASHES_LEN>,
-    nullifiers: ClaimedLengthArray<ScopedNullifier, NULLIFIERS_LEN>,
-    transient_data_squashing_hints: [TransientDataSquashingHint; SQUASHING_HINTS_LEN],
+pub fn validate_transient_data_squashing_hints<let NoteHashesLen: u32, let NullifiersLen: u32, let SquashingHintsLen: u32>(
+    note_hashes: ClaimedLengthArray<ScopedNoteHash, NoteHashesLen>,
+    nullifiers: ClaimedLengthArray<ScopedNullifier, NullifiersLen>,
+    transient_data_squashing_hints: [TransientDataSquashingHint; SquashingHintsLen],
     num_active_squashing_hints: u32,
     // Sorted values of nullifier indices (with original indices) used to validate uniqueness.
-    nullifier_index_sorted_tuples: [SortedTuple<u32>; SQUASHING_HINTS_LEN],
+    nullifier_index_sorted_tuples: [SortedTuple<u32>; SquashingHintsLen],
 ) {
     let mut is_active_hint = true;
-    for i in 0..SQUASHING_HINTS_LEN {
+    for i in 0..SquashingHintsLen {
         let hint = transient_data_squashing_hints[i];
         let nullifier_index_sorted_tuple = nullifier_index_sorted_tuples[i];
 
@@ -78,8 +78,8 @@ pub fn validate_transient_data_squashing_hints<let NOTE_HASHES_LEN: u32, let NUL
             // fake note hash beyond the claimed length.
             assert_eq(
                 hint.note_hash_index,
-                NOTE_HASHES_LEN,
-                "Unused note hash index hint must be set to NOTE_HASHES_LEN",
+                NoteHashesLen,
+                "Unused note hash index hint must be set to NoteHashesLen",
             );
 
             // === Nullifier index uniqueness check: Step 3 ===
@@ -87,8 +87,8 @@ pub fn validate_transient_data_squashing_hints<let NOTE_HASHES_LEN: u32, let NUL
             // That would allow a duplicate nullifier index in an active hint to slip through undetected.
             assert_eq(
                 hint.nullifier_index,
-                NULLIFIERS_LEN,
-                "Unused nullifier index hint must be set to NULLIFIERS_LEN",
+                NullifiersLen,
+                "Unused nullifier index hint must be set to NullifiersLen",
             );
         }
     }
@@ -174,7 +174,7 @@ mod tests {
         builder.validate_with_derived_hints(derived_hints);
     }
 
-    #[test(should_fail_with = "Unused note hash index hint must be set to NOTE_HASHES_LEN")]
+    #[test(should_fail_with = "Unused note hash index hint must be set to NoteHashesLen")]
     fn fails_note_hash_squashed_by_inactive_hint() {
         let mut builder = TransientDataFixtureBuilder::new();
 
@@ -270,7 +270,7 @@ mod tests {
         builder.validate_with_derived_hints(derived_hints);
     }
 
-    #[test(should_fail_with = "Unused nullifier index hint must be set to NULLIFIERS_LEN")]
+    #[test(should_fail_with = "Unused nullifier index hint must be set to NullifiersLen")]
     fn fails_nullifier_squashed_by_inactive_hint() {
         let mut builder = TransientDataFixtureBuilder::new();
 

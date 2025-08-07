@@ -69,7 +69,7 @@ pub contract StaticChild {
             .select(ValueNote::properties().owner, Comparator.EQ, owner)
             .set_limit(1);
         let retrieved_notes = storage.a_private_value.get_notes(options);
-        retrieved_notes.get(0).note.value
+        retrieved_notes.get(0).note.value()
     }
 
     // Increments `current_value` by `new_value`

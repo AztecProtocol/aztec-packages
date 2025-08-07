@@ -26,20 +26,20 @@ fn is_log_linked_to_note_hash(log: Scoped<PrivateLogData>, note_hash: ScopedNote
 /// - Correct linkage between logs and their note hashes.
 /// - Correct usage of squashing hints.
 /// - Both the log and the note hash must be revertible or non-revertible.
-pub fn validate_log_squashing<let LOGS_LEN: u32, let SQUASHING_HINTS_LEN: u32, let NOTE_HASHES_LEN: u32>(
-    logs: ClaimedLengthArray<Scoped<PrivateLogData>, LOGS_LEN>,
-    note_hashes: ClaimedLengthArray<ScopedNoteHash, NOTE_HASHES_LEN>,
-    expected_kept_logs: ClaimedLengthArray<Scoped<PrivateLogData>, LOGS_LEN>,
-    expected_kept_note_hashes: ClaimedLengthArray<ScopedNoteHash, NOTE_HASHES_LEN>,
+pub fn validate_log_squashing<let LogsLen: u32, let SquashingHintsLen: u32, let NoteHashesLen: u32>(
+    logs: ClaimedLengthArray<Scoped<PrivateLogData>, LogsLen>,
+    note_hashes: ClaimedLengthArray<ScopedNoteHash, NoteHashesLen>,
+    expected_kept_logs: ClaimedLengthArray<Scoped<PrivateLogData>, LogsLen>,
+    expected_kept_note_hashes: ClaimedLengthArray<ScopedNoteHash, NoteHashesLen>,
     min_revertible_side_effect_counter: u32,
-    transient_data_squashing_hints: [TransientDataSquashingHint; SQUASHING_HINTS_LEN],
-    note_log_linked_source_indices: [NoteLogLinkedSourceIndices; LOGS_LEN],
+    transient_data_squashing_hints: [TransientDataSquashingHint; SquashingHintsLen],
+    note_log_linked_source_indices: [NoteLogLinkedSourceIndices; LogsLen],
 ) {
     // This loop determines whether each log should be:
     // - kept and propagated forward, or
     // - squashed along with its associated note hash.
     let mut kept_logs_counter = 0;
-    for i in 0..LOGS_LEN {
+    for i in 0..LogsLen {
         let log = logs.array[i];
         let linked_source_indices = note_log_linked_source_indices[i];
 
@@ -89,7 +89,7 @@ pub fn validate_log_squashing<let LOGS_LEN: u32, let SQUASHING_HINTS_LEN: u32, l
             );
             // We can be sure that `hinted_squashed_note_hash` is squashed because its index appears in
             // `transient_data_squashing_hints`, which is iterated over earlier. And each `note_hash_index` beyond
-            // `num_active_squashing_hints` is set to `NOTE_HASHES_LEN` and would overflow the note hashes array.
+            // `num_active_squashing_hints` is set to `NoteHashesLen` and would overflow the note hashes array.
             //
             // No need to check that `squashed_note_hash_index` is within the claimed length; that check is already
             // done when the hint is used to squash the note hash.
@@ -126,7 +126,7 @@ pub fn validate_log_squashing<let LOGS_LEN: u32, let SQUASHING_HINTS_LEN: u32, l
     // Note: We can't directly compare `expected_kept_logs.length` with `kept_logs_counter`, because the counter
     // includes logs beyond the claimed length.
     // Instead, we calculate how many logs were squashed, and derive the expected kept array length.
-    let num_squashed_logs = LOGS_LEN - kept_logs_counter;
+    let num_squashed_logs = LogsLen - kept_logs_counter;
     assert_eq(
         expected_kept_logs.length,
         logs.length - num_squashed_logs,
@@ -491,7 +491,7 @@ mod tests {
         builder.validate_with_derived_hints(derived_hints);
     }
 
-    #[test(should_fail_with = "Unused note hash index hint must be set to NOTE_HASHES_LEN")]
+    #[test(should_fail_with = "Unused note hash index hint must be set to NoteHashesLen")]
     fn fails_squashed_log_linked_to_fake_note_hash() {
         let mut builder = TransientDataFixtureBuilder::new();
 

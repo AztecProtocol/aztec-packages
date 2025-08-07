@@ -22,7 +22,7 @@ fn assert_eq_array_and_length<T, let N: u32, let M: u32>(
     name: str<M>,
 )
 where
-    T: Eq + Empty,
+    T: Empty,
 {
     assert_eq(array_from_tube, array_from_avm, f"{name} mismatch between tube and avm");
 

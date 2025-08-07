@@ -997,6 +997,7 @@ export class ProvingOrchestrator implements EpochProver {
             );
 
             try {
+              this.metrics.incAvmFallback();
               const snapshotAvmPrivateInputs = readAvmMinimalPublicTxInputsFromFile();
               return await this.prover.getAvmProof(snapshotAvmPrivateInputs, true, signal, provingState.epochNumber);
             } catch (err) {

@@ -19,6 +19,7 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
   private readonly l1Client: ViemClient;
   private inbox: InboxContract | undefined;
   private handle: NodeJS.Timeout | undefined;
+  // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
   private running: Set<Promise<void>> = new Set();
 
   /** Current L1 block number */

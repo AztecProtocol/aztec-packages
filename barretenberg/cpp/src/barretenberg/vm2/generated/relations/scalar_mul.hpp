@@ -3,6 +3,7 @@
 
 #include <string_view>
 
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -31,6 +32,8 @@ template <typename FF_> class scalar_mulImpl {
                            [[maybe_unused]] const FF& scaling_factor)
     {
         using C = ColumnAndShifts;
+
+        PROFILE_THIS_NAME("accumulate/scalar_mul");
 
         const auto scalar_mul_LATCH_CONDITION = in.get(C::scalar_mul_end) + in.get(C::precomputed_first_row);
         const auto scalar_mul_should_pass = in.get(C::scalar_mul_not_end) * (FF(1) - in.get(C::scalar_mul_bit));

@@ -1,8 +1,8 @@
-import { serializeToBuffer } from '@aztec/foundation/serialize';
+import { type Bufferable, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { AsyncHasher } from '@aztec/foundation/trees';
 import { SiblingPath } from '@aztec/foundation/trees';
 
-import { pedersenHash } from '../crypto/pedersen/index.js';
+import { sha256Trunc } from '../crypto/index.js';
 
 const indexToKeyHash = (level: number, index: bigint) => `${level}:${index}`;
 
@@ -10,6 +10,7 @@ const indexToKeyHash = (level: number, index: bigint) => `${level}:${index}`;
  * An ephemeral unbalanced Merkle tree implementation.
  * Follows the rollup implementation which greedily hashes pairs of nodes up the tree.
  * Remaining rightmost nodes are shifted up until they can be paired.
+ * If there is only one leaf, the root is the leaf.
  */
 export class UnbalancedMerkleTreeCalculator {
   // This map stores index and depth -> value
@@ -27,8 +28,8 @@ export class UnbalancedMerkleTreeCalculator {
 
   static create(
     height: number,
-    hasher = async (left: Buffer, right: Buffer) =>
-      (await pedersenHash([left, right])).toBuffer() as Buffer<ArrayBuffer>,
+    hasher = (left: Buffer, right: Buffer) =>
+      Promise.resolve(sha256Trunc(Buffer.concat([left, right])) as Buffer<ArrayBuffer>),
   ) {
     return new UnbalancedMerkleTreeCalculator(height, hasher);
   }
@@ -47,7 +48,11 @@ export class UnbalancedMerkleTreeCalculator {
    * @returns A sibling path for the element.
    * Note: The sibling path is an array of sibling hashes, with the lowest hash (leaf hash) first, and the highest hash last.
    */
-  public getSiblingPath<N extends number>(value: bigint): Promise<SiblingPath<N>> {
+  public getSiblingPath<N extends number>(value: Bufferable): Promise<SiblingPath<N>> {
+    if (this.size === 1n) {
+      return Promise.resolve(new SiblingPath<N>(0 as N, []));
+    }
+
     const path: Buffer[] = [];
     const [depth, _index] = this.valueCache[serializeToBuffer(value).toString('hex')].split(':');
     let level = parseInt(depth, 10);
@@ -72,8 +77,17 @@ export class UnbalancedMerkleTreeCalculator {
     if (this.size != BigInt(0)) {
       throw Error(`Can't re-append to an unbalanced tree. Current has ${this.size} leaves.`);
     }
-    const root = await this.batchInsert(leaves);
-    this.root = root;
+    if (leaves.length === 0) {
+      throw Error(`Can't append 0 leaves to an unbalanced tree.`);
+    }
+
+    if (leaves.length === 1) {
+      this.root = leaves[0];
+    } else {
+      this.root = await this.batchInsert(leaves);
+    }
+
+    this.size = BigInt(leaves.length);
 
     return Promise.resolve();
   }
@@ -119,7 +133,7 @@ export class UnbalancedMerkleTreeCalculator {
       thisLayer = nextLayer;
       nextLayer = [];
     }
-    this.size += BigInt(_leaves.length);
+
     // return the root
     return thisLayer[0];
   }

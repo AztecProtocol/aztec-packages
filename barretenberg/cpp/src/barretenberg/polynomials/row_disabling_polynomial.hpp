@@ -187,13 +187,12 @@ template <typename FF> struct RowDisablingPolynomial {
      * @param multivariate_challenge Sumcheck evaluation challenge
      * @param padding_indicator_array An array with first log_n entries equal to 1, and the remaining entries are 0.
      */
-    template <size_t virtual_log_n>
     static FF evaluate_at_challenge(std::span<FF> multivariate_challenge,
-                                    const std::array<FF, virtual_log_n>& padding_indicator_array)
+                                    const std::vector<FF>& padding_indicator_array)
     {
         FF evaluation_at_multivariate_challenge{ 1 };
 
-        for (size_t idx = 2; idx < virtual_log_n; idx++) {
+        for (size_t idx = 2; idx < padding_indicator_array.size(); idx++) {
             const FF& indicator = padding_indicator_array[idx];
             evaluation_at_multivariate_challenge *= FF{ 1 } - indicator + indicator * multivariate_challenge[idx];
         }

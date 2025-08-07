@@ -1,4 +1,4 @@
-/// Returns `DST_LEN` elements from a source array, starting at `offset`. `DST_LEN` must not be larger than the number
+/// Returns `DstLen` elements from a source array, starting at `offset`. `DstLen` must not be larger than the number
 /// of elements past `offset`.
 ///
 /// Examples:
@@ -8,14 +8,11 @@
 ///
 /// let bar: [Field; 5] = subarray([1, 2, 3, 4, 5], 2); // fails - we can't return 5 elements since only 3 remain
 /// ```
-pub fn subarray<T, let SRC_LEN: u32, let DST_LEN: u32>(
-    src: [T; SRC_LEN],
-    offset: u32,
-) -> [T; DST_LEN] {
-    assert(offset + DST_LEN <= SRC_LEN, "DST_LEN too large for offset");
+pub fn subarray<T, let SrcLen: u32, let DstLen: u32>(src: [T; SrcLen], offset: u32) -> [T; DstLen] {
+    assert(offset + DstLen <= SrcLen, "DstLen too large for offset");
 
-    let mut dst: [T; DST_LEN] = std::mem::zeroed();
-    for i in 0..DST_LEN {
+    let mut dst: [T; DstLen] = std::mem::zeroed();
+    for i in 0..DstLen {
         dst[i] = src[i + offset];
     }
 
@@ -27,7 +24,7 @@ mod test {
 
     #[test]
     unconstrained fn subarray_into_empty() {
-        // In all of these cases we're setting DST_LEN to be 0, so we always get back an emtpy array.
+        // In all of these cases we're setting DstLen to be 0, so we always get back an empty array.
         assert_eq(subarray::<Field, _, _>([], 0), []);
         assert_eq(subarray([1, 2, 3, 4, 5], 0), []);
         assert_eq(subarray([1, 2, 3, 4, 5], 2), []);
@@ -48,7 +45,7 @@ mod test {
         assert_eq(subarray([1, 2, 3, 4, 5], 1), [2]);
     }
 
-    #[test(should_fail_with = "DST_LEN too large for offset")]
+    #[test(should_fail_with = "DstLen too large for offset")]
     unconstrained fn subarray_offset_too_large() {
         // With an offset of 1 we can only request up to 4 elements
         let _: [_; 5] = subarray([1, 2, 3, 4, 5], 1);

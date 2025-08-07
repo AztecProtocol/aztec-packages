@@ -89,6 +89,11 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
         inputs.reconstruct_from_public(public_inputs);
         output.points_accumulator = inputs.pairing_inputs;
         output.ipa_claim = inputs.ipa_claim;
+    } else if constexpr (IsMegaFlavor<Flavor>) {
+        HidingKernelIO<Builder> inputs;
+        inputs.reconstruct_from_public(public_inputs);
+        output.points_accumulator = inputs.pairing_inputs;
+        output.ecc_op_tables = inputs.ecc_op_tables;
     } else {
         DefaultIO<Builder> inputs; // pairing points
         inputs.reconstruct_from_public(public_inputs);
@@ -101,7 +106,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     const auto padding_indicator_array =
         compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(key->vk_and_hash->vk->log_circuit_size);
 
-    Sumcheck sumcheck(transcript, key->alphas);
+    Sumcheck sumcheck(transcript, key->alphas, CONST_PROOF_SIZE_LOG_N);
 
     // Receive commitments to Libra masking polynomials
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};

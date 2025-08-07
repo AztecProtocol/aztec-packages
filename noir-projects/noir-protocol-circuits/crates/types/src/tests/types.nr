@@ -48,15 +48,6 @@ impl Empty for TestCombinedValue {
     }
 }
 
-pub(crate) fn sum_two_values(from: TestTwoValues) -> TestValue {
-    TestValue { value: from.value_1 + from.value_2, counter: from.counter }
-}
-
-pub(crate) fn assert_summed_from_two_values(from: TestTwoValues, to: TestValue) -> () {
-    assert(from.value_1 + from.value_2 == to.value);
-    assert(from.counter == to.counter);
-}
-
 pub(crate) fn combine_two_values(from: TestTwoValues) -> TestCombinedValue {
     TestCombinedValue { value: from.value_1 + from.value_2 }
 }

@@ -7,9 +7,9 @@ use types::utils::arrays::{get_sorted_tuple, SortedTuple};
 /// and its original position in the `transient_data_squashing_hints` array.
 ///
 /// The array is sorted in ascending order by nullifier index.
-pub unconstrained fn build_nullifier_index_sorted_tuples<let SQUASHING_HINTS_LEN: u32>(
-    transient_data_squashing_hints: [TransientDataSquashingHint; SQUASHING_HINTS_LEN],
-) -> [SortedTuple<u32>; SQUASHING_HINTS_LEN] {
+pub unconstrained fn build_nullifier_index_sorted_tuples<let SquashingHintsLen: u32>(
+    transient_data_squashing_hints: [TransientDataSquashingHint; SquashingHintsLen],
+) -> [SortedTuple<u32>; SquashingHintsLen] {
     let nullifier_indices = transient_data_squashing_hints.map(|hint| hint.nullifier_index);
     get_sorted_tuple(nullifier_indices, |a, b| a < b)
 }

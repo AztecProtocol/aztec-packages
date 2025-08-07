@@ -25,7 +25,8 @@ class MockContextProvider : public ContextProviderInterface {
                  MemoryAddress cd_offset_addr,
                  MemoryAddress cd_size_addr,
                  bool is_static,
-                 Gas gas_limit),
+                 Gas gas_limit,
+                 SideEffectStates side_effect_states),
                 (override));
 
     MOCK_METHOD(std::unique_ptr<ContextInterface>,
@@ -36,7 +37,8 @@ class MockContextProvider : public ContextProviderInterface {
                  std::span<const FF> calldata,
                  bool is_static,
                  Gas gas_limit,
-                 Gas gas_used),
+                 Gas gas_used,
+                 SideEffectStates side_effect_states),
                 (override));
 
     MOCK_METHOD(uint32_t, get_next_context_id, (), (const, override));

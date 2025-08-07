@@ -26,6 +26,7 @@ import {
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PRIVATE_LOGS_PER_CALL,
   MAX_PRIVATE_LOGS_PER_TX,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_PUBLIC_LOGS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NESTED_RECURSIVE_PROOF_LENGTH,
@@ -33,6 +34,7 @@ import {
   NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_TREE_HEIGHT,
+  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
   NUM_MSGS_PER_BASE_PARITY,
   PRIVATE_LOG_SIZE_IN_FIELDS,
@@ -933,15 +935,18 @@ export function makeHeader(
  * @returns A state reference.
  */
 export function makeStateReference(seed = 0): StateReference {
-  return new StateReference(makeAppendOnlyTreeSnapshot(seed), makePartialStateReference(seed + 1));
+  return new StateReference(
+    makeAppendOnlyTreeSnapshot(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP * seed),
+    makePartialStateReference(seed + 1),
+  );
 }
 
 function makeTreeSnapshots(seed = 0) {
   return new TreeSnapshots(
-    makeAppendOnlyTreeSnapshot(seed),
-    makeAppendOnlyTreeSnapshot(seed + 0x10),
-    makeAppendOnlyTreeSnapshot(seed + 0x20),
-    makeAppendOnlyTreeSnapshot(seed + 0x30),
+    makeAppendOnlyTreeSnapshot(seed * NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
+    makeAppendOnlyTreeSnapshot((seed + 0x10) * MAX_NOTE_HASHES_PER_TX),
+    makeAppendOnlyTreeSnapshot((seed + 0x20) * MAX_NULLIFIERS_PER_TX),
+    makeAppendOnlyTreeSnapshot((seed + 0x30) * MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX),
   );
 }
 
@@ -972,9 +977,9 @@ function makeScopedL2ToL1Message(seed = 1) {
  */
 export function makePartialStateReference(seed = 0): PartialStateReference {
   return new PartialStateReference(
-    makeAppendOnlyTreeSnapshot(seed),
-    makeAppendOnlyTreeSnapshot(seed + 1),
-    makeAppendOnlyTreeSnapshot(seed + 2),
+    makeAppendOnlyTreeSnapshot(MAX_NOTE_HASHES_PER_TX * seed),
+    makeAppendOnlyTreeSnapshot(MAX_NULLIFIERS_PER_TX * (seed + 1)),
+    makeAppendOnlyTreeSnapshot(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * (seed + 2)),
   );
 }
 

@@ -1,6 +1,6 @@
 use dep::protocol_types::address::AztecAddress;
 
-#[oracle(notifyEnqueuedPublicFunctionCall)]
+#[oracle(privateNotifyEnqueuedPublicFunctionCall)]
 unconstrained fn notify_enqueued_public_function_call_oracle(
     _contract_address: AztecAddress,
     _calldata_hash: Field,
@@ -39,7 +39,7 @@ pub fn notify_enqueued_public_function_call(
     }
 }
 
-#[oracle(notifySetPublicTeardownFunctionCall)]
+#[oracle(privateNotifySetPublicTeardownFunctionCall)]
 unconstrained fn notify_set_public_teardown_function_call_oracle(
     _contract_address: AztecAddress,
     _calldata_hash: Field,
@@ -88,5 +88,5 @@ pub unconstrained fn notify_set_min_revertible_side_effect_counter_oracle_wrappe
     notify_set_min_revertible_side_effect_counter_oracle(counter);
 }
 
-#[oracle(notifySetMinRevertibleSideEffectCounter)]
+#[oracle(privateNotifySetMinRevertibleSideEffectCounter)]
 unconstrained fn notify_set_min_revertible_side_effect_counter_oracle(_counter: u32) {}

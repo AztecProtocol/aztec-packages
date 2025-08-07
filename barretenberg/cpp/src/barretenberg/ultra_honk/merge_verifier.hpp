@@ -32,50 +32,25 @@ class MergeVerifier {
 
   public:
     using Commitment = typename Curve::AffineElement;
+    using TableCommitments = std::array<Commitment, NUM_WIRES>; // Commitments to the subtables and the merged table
+
+    /**
+     * Commitments used by the verifier to run the verification algorithm. They contain:
+     *  - `t_commitments`: the subtable commitments data, containing the commitments to t_j read from the transcript by
+     *     the PG verifier with which the Merge verifier shares a transcript
+     *  - `T_prev_commitments`: the commitments to the full op_queue table after the previous iteration of merge
+     */
+    struct InputCommitments {
+        TableCommitments t_commitments;
+        TableCommitments T_prev_commitments;
+    };
 
     std::shared_ptr<Transcript> transcript;
     MergeSettings settings;
 
-    /**
-     * @brief Commitments to the subtable t_j on which the Merge verifier operates
-     *
-     */
-    class SubtableWitnessCommitments {
-      public:
-        std::array<Commitment, NUM_WIRES> t_commitments;
-        // std::array<Commitment, NUM_WIRES> T_prev_commitments;
-
-        SubtableWitnessCommitments() = default;
-
-        /**
-         * @brief Set t_commitments from RefArray
-         *
-         * @param t_commitments_ref
-         */
-        void set_t_commitments(const RefArray<Commitment, NUM_WIRES>& t_commitments_ref)
-        {
-            for (size_t idx = 0; idx < NUM_WIRES; idx++) {
-                t_commitments[idx] = t_commitments_ref[idx];
-            }
-        }
-    };
-
-    /**
-     * @brief Commitments used by the Merge verifier during the protocol
-     *
-     */
-    class WitnessCommitments : public SubtableWitnessCommitments {
-      public:
-        std::array<Commitment, NUM_WIRES> T_commitments;
-
-        WitnessCommitments() = default;
-    };
-
     explicit MergeVerifier(const MergeSettings settings = MergeSettings::PREPEND,
                            const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
-    bool verify_proof(const HonkProof& proof,
-                      const SubtableWitnessCommitments& subtable_commitments,
-                      std::array<Commitment, NUM_WIRES>& merged_table_commitment);
+    std::pair<bool, TableCommitments> verify_proof(const HonkProof& proof, const InputCommitments& input_commitments);
 };
 
 } // namespace bb

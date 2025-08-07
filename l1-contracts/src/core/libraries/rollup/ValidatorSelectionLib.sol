@@ -2,15 +2,14 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {BlockHeaderValidationFlags} from "@aztec/core/interfaces/IRollup.sol";
+import {RollupStore} from "@aztec/core/interfaces/IRollup.sol";
 import {ValidatorSelectionStorage} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {SampleLib} from "@aztec/core/libraries/crypto/SampleLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {StakingLib} from "@aztec/core/libraries/rollup/StakingLib.sol";
+import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
-import {
-  SignatureLib, Signature, CommitteeAttestations
-} from "@aztec/shared/libraries/SignatureLib.sol";
+import {SignatureLib, Signature, CommitteeAttestations} from "@aztec/shared/libraries/SignatureLib.sol";
 import {ECDSA} from "@oz/utils/cryptography/ECDSA.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
@@ -39,11 +38,9 @@ library ValidatorSelectionLib {
     uint256 needed;
     uint256 signaturesRecovered;
     address[] reconstructedCommittee;
-    bool proposerVerified;
   }
 
-  bytes32 private constant VALIDATOR_SELECTION_STORAGE_POSITION =
-    keccak256("aztec.validator_selection.storage");
+  bytes32 private constant VALIDATOR_SELECTION_STORAGE_POSITION = keccak256("aztec.validator_selection.storage");
   // Namespace for cached proposer computations
   string private constant PROPOSER_NAMESPACE = "aztec.validator_selection.transient.proposer";
 
@@ -82,30 +79,84 @@ library ValidatorSelectionLib {
   }
 
   /**
-   * @notice  Propose a pending block from the point-of-view of sequencer selection. Will:
-   *          - Setup the epoch if needed (if epoch committee is empty skips the rest)
-   *          - Validate that the proposer is the proposer of the slot
-   *          - Validate that the signatures for attestations are indeed from the validatorset
-   *          - Validate that the number of valid attestations is sufficient
+   * Verifies the proposer for a given slot and epoch for a block proposal.
+   * Checks if the proposer has either signed their attestation or is the sender of the transaction.
    *
-   * @dev     Cases where errors are thrown:
-   *          - If the epoch is not setup
-   *          - If the proposer is not the real proposer AND the proposer is not open
-   *          - If the number of valid attestations is insufficient
-   *
-   * @param _slot - The slot of the block
-   * @param _attestations - The signatures (or empty; just address is provided) of the committee members
-   * @param _digest - The digest of the block
+   * @param _slot - The slot of the block being proposed
+   * @param _attestations - The committee attestations for the block proposal
+   * @param _signers - The addresses of the signers from the attestations
+   * @param _digest - The digest of the block being proposed
    */
-  function verify(
+  function verifyProposer(
     Slot _slot,
     Epoch _epochNumber,
     CommitteeAttestations memory _attestations,
-    bytes32 _digest,
-    BlockHeaderValidationFlags memory _flags
+    address[] memory _signers,
+    bytes32 _digest
   ) internal {
-    (bytes32 committeeCommitment, uint256 targetCommitteeSize) =
-      getCommitteeCommitmentAt(_epochNumber);
+    // Try load the proposer from cache
+    (address proposer, uint256 proposerIndex) = getCachedProposer(_slot);
+
+    // If not in cache, grab from the committee, reconstructed from the attestations and signers
+    if (proposer == address(0)) {
+      // Load the committee commitment for the epoch
+      (bytes32 committeeCommitment, uint256 committeeSize) = getCommitteeCommitmentAt(_epochNumber);
+
+      // If the target committee size is 0, we skip the validation
+      if (committeeSize == 0) {
+        return;
+      }
+
+      // Reconstruct the committee from the attestations and signers
+      address[] memory committee = _attestations.reconstructCommitteeFromSigners(_signers, committeeSize);
+
+      // Check it matches the expected one
+      bytes32 reconstructedCommitment = computeCommitteeCommitment(committee);
+      if (reconstructedCommitment != committeeCommitment) {
+        revert Errors.ValidatorSelection__InvalidCommitteeCommitment(reconstructedCommitment, committeeCommitment);
+      }
+
+      // Get the proposer from the committee based on the epoch, slot, and sample seed
+      uint224 sampleSeed = getSampleSeed(_epochNumber);
+      proposerIndex = computeProposerIndex(_epochNumber, _slot, sampleSeed, committeeSize);
+      proposer = committee[proposerIndex];
+
+      setCachedProposer(_slot, proposer, proposerIndex);
+    }
+
+    // Check if the proposer has signed, if not, fail
+    bool hasProposerSignature = _attestations.isSignature(proposerIndex);
+    if (!hasProposerSignature) {
+      revert Errors.ValidatorSelection__MissingProposerSignature(proposer, proposerIndex);
+    }
+
+    // Check if the signature is correct
+    bytes32 digest = _digest.toEthSignedMessageHash();
+    Signature memory signature = _attestations.getSignature(proposerIndex);
+    SignatureLib.verify(signature, proposer, digest);
+  }
+
+  /**
+   * Verifies the committee attestations for a given slot and epoch. Throws on validation failure.
+   *
+   * - Computes the committee commitment for the epoch from storage as source of truth.
+   * - Recomputes the commitment from the signatures and compares with the stored one.
+   * - Sets the proposer in temporary storage.
+   * - Validates the signatures for the attestations.
+   * - Checks the number of valid attestations.
+   *
+   * @param _slot - The slot of the block
+   * @param _epochNumber - The epoch of the block
+   * @param _attestations - The signatures (or empty; just address is provided) of the committee members
+   * @param _digest - The digest of the block that the attestations are signed over
+   */
+  function verifyAttestations(
+    Slot _slot,
+    Epoch _epochNumber,
+    CommitteeAttestations memory _attestations,
+    bytes32 _digest
+  ) internal {
+    (bytes32 committeeCommitment, uint256 targetCommitteeSize) = getCommitteeCommitmentAt(_epochNumber);
 
     // If the rollup is *deployed* with a target committee size of 0, we skip the validation.
     // Note: This generally only happens in test setups; In production, the target committee is non-zero,
@@ -114,19 +165,12 @@ library ValidatorSelectionLib {
       return;
     }
 
-    if (_flags.ignoreSignatures) {
-      return;
-    }
-
     VerifyStack memory stack = VerifyStack({
-      proposerIndex: computeProposerIndex(
-        _epochNumber, _slot, getSampleSeed(_epochNumber), targetCommitteeSize
-      ),
+      proposerIndex: computeProposerIndex(_epochNumber, _slot, getSampleSeed(_epochNumber), targetCommitteeSize),
       needed: (targetCommitteeSize << 1) / 3 + 1, // targetCommitteeSize * 2 / 3 + 1, but cheaper
       index: 0,
       signaturesRecovered: 0,
-      reconstructedCommittee: new address[](targetCommitteeSize),
-      proposerVerified: false
+      reconstructedCommittee: new address[](targetCommitteeSize)
     });
 
     bytes32 digest = _digest.toEthSignedMessageHash();
@@ -157,10 +201,6 @@ library ValidatorSelectionLib {
 
           ++stack.signaturesRecovered;
           stack.reconstructedCommittee[i] = ECDSA.recover(digest, v, r, s);
-
-          if (i == stack.proposerIndex) {
-            stack.proposerVerified = true;
-          }
         } else {
           address addr;
           assembly {
@@ -175,11 +215,6 @@ library ValidatorSelectionLib {
     address proposer = stack.reconstructedCommittee[stack.proposerIndex];
 
     require(
-      stack.proposerVerified || proposer == msg.sender,
-      Errors.ValidatorSelection__InvalidProposer(proposer, msg.sender)
-    );
-
-    require(
       stack.signaturesRecovered >= stack.needed,
       Errors.ValidatorSelection__InsufficientAttestations(stack.needed, stack.signaturesRecovered)
     );
@@ -187,37 +222,34 @@ library ValidatorSelectionLib {
     // Check the committee commitment
     bytes32 reconstructedCommitment = computeCommitteeCommitment(stack.reconstructedCommittee);
     if (reconstructedCommitment != committeeCommitment) {
-      revert Errors.ValidatorSelection__InvalidCommitteeCommitment(
-        reconstructedCommitment, committeeCommitment
-      );
+      revert Errors.ValidatorSelection__InvalidCommitteeCommitment(reconstructedCommitment, committeeCommitment);
     }
 
-    setCachedProposer(_slot, proposer);
+    setCachedProposer(_slot, proposer, stack.proposerIndex);
   }
 
-  function setCachedProposer(Slot _slot, address _proposer) internal {
-    PROPOSER_NAMESPACE.erc7201Slot().deriveMapping(Slot.unwrap(_slot)).asAddress().tstore(_proposer);
+  function setCachedProposer(Slot _slot, address _proposer, uint256 _proposerIndex) internal {
+    require(_proposerIndex <= type(uint96).max, Errors.ValidatorSelection__ProposerIndexTooLarge(_proposerIndex));
+    bytes32 packed = bytes32(uint256(uint160(_proposer))) | (bytes32(_proposerIndex) << 160);
+    PROPOSER_NAMESPACE.erc7201Slot().deriveMapping(Slot.unwrap(_slot)).asBytes32().tstore(packed);
   }
 
-  function getProposerAt(Slot _slot) internal returns (address) {
-    address cachedProposer = getCachedProposer(_slot);
+  function getProposerAt(Slot _slot) internal returns (address, uint256) {
+    (address cachedProposer, uint256 cachedProposerIndex) = getCachedProposer(_slot);
     if (cachedProposer != address(0)) {
-      return cachedProposer;
+      return (cachedProposer, cachedProposerIndex);
     }
 
-    // @note this is deliberately "bad" for the simple reason of code reduction.
-    //       it does not need to actually return the full committee and then draw from it
-    //       it can just return the proposer directly, but then we duplicate the code
-    //       which we just don't have room for right now...
     Epoch epochNumber = _slot.epochFromSlot();
 
     uint224 sampleSeed = getSampleSeed(epochNumber);
-    address[] memory committee = sampleValidators(epochNumber, sampleSeed);
-    if (committee.length == 0) {
-      return address(0);
+    (uint32 ts, uint256[] memory indices) = sampleValidatorsIndices(epochNumber, sampleSeed);
+    uint256 committeeSize = indices.length;
+    if (committeeSize == 0) {
+      return (address(0), 0);
     }
-
-    return committee[computeProposerIndex(epochNumber, _slot, sampleSeed, committee.length)];
+    uint256 proposerIndex = computeProposerIndex(epochNumber, _slot, sampleSeed, committeeSize);
+    return (StakingLib.getAttesterFromIndexAtTime(indices[proposerIndex], Timestamp.wrap(ts)), proposerIndex);
   }
 
   /**
@@ -229,24 +261,7 @@ library ValidatorSelectionLib {
    * @return The validators for the given epoch
    */
   function sampleValidators(Epoch _epoch, uint224 _seed) internal returns (address[] memory) {
-    ValidatorSelectionStorage storage store = getStorage();
-    uint32 ts = epochToSampleTime(_epoch);
-    uint256 validatorSetSize = StakingLib.getAttesterCountAtTime(Timestamp.wrap(ts));
-    uint256 targetCommitteeSize = store.targetCommitteeSize;
-
-    require(
-      validatorSetSize >= targetCommitteeSize,
-      Errors.ValidatorSelection__InsufficientCommitteeSize(validatorSetSize, targetCommitteeSize)
-    );
-
-    if (targetCommitteeSize == 0) {
-      return new address[](0);
-    }
-
-    // Sample the larger committee
-    uint256[] memory indices =
-      SampleLib.computeCommittee(targetCommitteeSize, validatorSetSize, _seed);
-
+    (uint32 ts, uint256[] memory indices) = sampleValidatorsIndices(_epoch, _seed);
     return StakingLib.getAttestersFromIndicesAtTime(Timestamp.wrap(ts), indices);
   }
 
@@ -279,8 +294,7 @@ library ValidatorSelectionLib {
     committeeCommitment = store.committeeCommitments[_epochNumber];
     if (committeeCommitment == 0) {
       // If no committee has been stored, then we need to setup the epoch
-      committeeCommitment =
-        computeCommitteeCommitment(sampleValidators(_epochNumber, getSampleSeed(_epochNumber)));
+      committeeCommitment = computeCommitteeCommitment(sampleValidators(_epochNumber, getSampleSeed(_epochNumber)));
     }
 
     return (committeeCommitment, store.targetCommitteeSize);
@@ -305,7 +319,8 @@ library ValidatorSelectionLib {
     uint32 epoch = Epoch.unwrap(_epoch).toUint32();
 
     // Check if the latest checkpoint is for the next epoch
-    // It should be impossible that zero epoch snapshots exist, as in the genesis state we push the first sample seed into the store
+    // It should be impossible that zero epoch snapshots exist, as in the genesis state we push the first sample seed
+    // into the store
     (, uint32 mostRecentSeedEpoch,) = store.seeds.latestCheckpoint();
 
     // If the sample seed for the next epoch is already set, we can skip the computation
@@ -313,7 +328,8 @@ library ValidatorSelectionLib {
       return;
     }
 
-    // If the most recently stored seed is less than the epoch we are querying, then we need to compute it's seed for later use
+    // If the most recently stored seed is less than the epoch we are querying, then we need to compute it's seed for
+    // later use
     if (mostRecentSeedEpoch < epoch) {
       // Compute the sample seed for the next epoch
       uint224 nextSeed = computeNextSeed(_epoch);
@@ -321,8 +337,32 @@ library ValidatorSelectionLib {
     }
   }
 
-  function getCachedProposer(Slot _slot) internal view returns (address) {
-    return PROPOSER_NAMESPACE.erc7201Slot().deriveMapping(Slot.unwrap(_slot)).asAddress().tload();
+  function canProposeAtTime(Timestamp _ts, bytes32 _archive, address _who) internal returns (Slot, uint256) {
+    Slot slot = _ts.slotFromTimestamp();
+    RollupStore storage rollupStore = STFLib.getStorage();
+
+    uint256 pendingBlockNumber = STFLib.getEffectivePendingBlockNumber(_ts);
+
+    Slot lastSlot = STFLib.getSlotNumber(pendingBlockNumber);
+
+    require(slot > lastSlot, Errors.Rollup__SlotAlreadyInChain(lastSlot, slot));
+
+    // Make sure that the proposer is up to date and on the right chain (ie no reorgs)
+    bytes32 tipArchive = rollupStore.archives[pendingBlockNumber];
+    require(tipArchive == _archive, Errors.Rollup__InvalidArchive(tipArchive, _archive));
+
+    (address proposer,) = getProposerAt(slot);
+    require(proposer == _who, Errors.ValidatorSelection__InvalidProposer(proposer, _who));
+
+    return (slot, pendingBlockNumber + 1);
+  }
+
+  function getCachedProposer(Slot _slot) internal view returns (address proposer, uint256 proposerIndex) {
+    bytes32 packed = PROPOSER_NAMESPACE.erc7201Slot().deriveMapping(Slot.unwrap(_slot)).asBytes32().tload();
+    // Extract address from lower 160 bits
+    proposer = address(uint160(uint256(packed)));
+    // Extract uint96 from upper 96 bits
+    proposerIndex = uint256(packed >> 160);
   }
 
   function epochToSampleTime(Epoch _epoch) internal view returns (uint32) {
@@ -332,8 +372,7 @@ library ValidatorSelectionLib {
     // as we "start" time $t$. We then shift that back by an entire L2 epoch to guarantee
     // we are not hit by last-minute changes or L1 reorgs when syncing validators from our clients.
 
-    return Timestamp.unwrap(_epoch.toTimestamp()).toUint32()
-      - uint32(TimeLib.getEpochDurationInSeconds()) - 1;
+    return Timestamp.unwrap(_epoch.toTimestamp()).toUint32() - uint32(TimeLib.getEpochDurationInSeconds()) - 1;
   }
 
   /**
@@ -356,6 +395,46 @@ library ValidatorSelectionLib {
     assembly {
       storageStruct.slot := position
     }
+  }
+
+  /**
+   * @notice  Computes the index of the committee member that acts as proposer for a given slot
+   *
+   * @param _epoch - The epoch to compute the proposer index for
+   * @param _slot - The slot to compute the proposer index for
+   * @param _seed - The seed to use for the computation
+   * @param _size - The size of the committee
+   *
+   * @return The index of the proposer
+   */
+  function computeProposerIndex(Epoch _epoch, Slot _slot, uint256 _seed, uint256 _size) internal pure returns (uint256) {
+    return uint256(keccak256(abi.encode(_epoch, _slot, _seed))) % _size;
+  }
+
+  /**
+   * @notice  Samples a validator set for a specific epoch and returns their indices within the set.
+   *
+   * @dev     Only used internally, should never be called for anything but the "next" epoch
+   *          Allowing us to always use `lastSeed`.
+   *
+   * @return  The sample time and the indices of the validators for the given epoch
+   */
+  function sampleValidatorsIndices(Epoch _epoch, uint224 _seed) private returns (uint32, uint256[] memory) {
+    ValidatorSelectionStorage storage store = getStorage();
+    uint32 ts = epochToSampleTime(_epoch);
+    uint256 validatorSetSize = StakingLib.getAttesterCountAtTime(Timestamp.wrap(ts));
+    uint256 targetCommitteeSize = store.targetCommitteeSize;
+
+    require(
+      validatorSetSize >= targetCommitteeSize,
+      Errors.ValidatorSelection__InsufficientCommitteeSize(validatorSetSize, targetCommitteeSize)
+    );
+
+    if (targetCommitteeSize == 0) {
+      return (ts, new uint256[](0));
+    }
+
+    return (ts, SampleLib.computeCommittee(targetCommitteeSize, validatorSetSize, _seed));
   }
 
   /**
@@ -382,23 +461,5 @@ library ValidatorSelectionLib {
    */
   function computeCommitteeCommitment(address[] memory _committee) private pure returns (bytes32) {
     return keccak256(abi.encode(_committee));
-  }
-
-  /**
-   * @notice  Computes the index of the committee member that acts as proposer for a given slot
-   *
-   * @param _epoch - The epoch to compute the proposer index for
-   * @param _slot - The slot to compute the proposer index for
-   * @param _seed - The seed to use for the computation
-   * @param _size - The size of the committee
-   *
-   * @return The index of the proposer
-   */
-  function computeProposerIndex(Epoch _epoch, Slot _slot, uint256 _seed, uint256 _size)
-    private
-    pure
-    returns (uint256)
-  {
-    return uint256(keccak256(abi.encode(_epoch, _slot, _seed))) % _size;
   }
 }

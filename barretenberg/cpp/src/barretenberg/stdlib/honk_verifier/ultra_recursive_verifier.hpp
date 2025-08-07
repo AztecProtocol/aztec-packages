@@ -12,7 +12,7 @@
 #include "barretenberg/flavor/ultra_zk_recursive_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/honk_verifier/oink_recursive_verifier.hpp"
-#include "barretenberg/stdlib/pairing_points.hpp"
+#include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
@@ -20,9 +20,14 @@
 namespace bb::stdlib::recursion::honk {
 
 template <typename Builder> struct UltraRecursiveVerifierOutput {
+    using Curve = bn254<Builder>;
+    using G1 = Curve::Group;
+
     PairingPoints<Builder> points_accumulator;
     OpeningClaim<grumpkin<Builder>> ipa_claim;
     stdlib::Proof<Builder> ipa_proof;
+    std::array<G1, Builder::NUM_WIRES> ecc_op_tables; // Ecc op tables' commitments as extracted from the public inputs
+                                                      // of the HidingKernel, only for MegaFlavor
 };
 template <typename Flavor> class UltraRecursiveVerifier_ {
   public:

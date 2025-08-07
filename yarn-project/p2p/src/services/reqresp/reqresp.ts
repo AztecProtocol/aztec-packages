@@ -18,7 +18,11 @@ import {
 } from '../../errors/reqresp.error.js';
 import { SnappyTransform } from '../encoding.js';
 import type { PeerScoring } from '../peer-manager/peer_scoring.js';
-import type { P2PReqRespConfig } from './config.js';
+import {
+  DEFAULT_INDIVIDUAL_REQUEST_TIMEOUT_MS,
+  DEFAULT_REQRESP_DIAL_TIMEOUT_MS,
+  type P2PReqRespConfig,
+} from './config.js';
 import { BatchConnectionSampler } from './connection-sampler/batch_connection_sampler.js';
 import { ConnectionSampler, RandomSampler } from './connection-sampler/connection_sampler.js';
 import {
@@ -57,8 +61,8 @@ import { ReqRespStatus, ReqRespStatusError, parseStatusChunk, prettyPrintReqResp
  * see: https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#the-reqresp-domain
  */
 export class ReqResp implements ReqRespInterface {
-  private overallRequestTimeoutMs: number;
-  private individualRequestTimeoutMs: number;
+  private individualRequestTimeoutMs: number = DEFAULT_INDIVIDUAL_REQUEST_TIMEOUT_MS;
+  private dialTimeoutMs: number = DEFAULT_REQRESP_DIAL_TIMEOUT_MS;
 
   // Warning, if the `start` function is not called as the parent class constructor, then the default sub protocol handlers will be used ( not good )
   private subProtocolHandlers: ReqRespSubProtocolHandlers = DEFAULT_SUB_PROTOCOL_HANDLERS;
@@ -79,8 +83,7 @@ export class ReqResp implements ReqRespInterface {
     rateLimits: Partial<ReqRespSubProtocolRateLimits> = {},
     telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {
-    this.overallRequestTimeoutMs = config.overallRequestTimeoutMs;
-    this.individualRequestTimeoutMs = config.individualRequestTimeoutMs;
+    this.updateConfig(config);
 
     this.rateLimiter = new RequestResponseRateLimiter(peerScoring, rateLimits);
 
@@ -94,6 +97,16 @@ export class ReqResp implements ReqRespInterface {
 
     this.snappyTransform = new SnappyTransform();
     this.metrics = new ReqRespMetrics(telemetryClient);
+  }
+
+  public updateConfig(config: Partial<P2PReqRespConfig>): void {
+    if (typeof config.individualRequestTimeoutMs === 'number') {
+      this.individualRequestTimeoutMs = config.individualRequestTimeoutMs;
+    }
+
+    if (typeof config.dialTimeoutMs === 'number') {
+      this.dialTimeoutMs = config.dialTimeoutMs;
+    }
   }
 
   get tracer() {
@@ -372,7 +385,7 @@ export class ReqResp implements ReqRespInterface {
     peerId: PeerId,
     subProtocol: ReqRespSubProtocol,
     payload: Buffer,
-    dialTimeout: number = 500,
+    dialTimeout: number = this.dialTimeoutMs,
   ): Promise<ReqRespResponse> {
     let stream: Stream | undefined;
     try {
@@ -523,7 +536,7 @@ export class ReqResp implements ReqRespInterface {
       this.metrics.recordRequestReceived(protocol);
       const rateLimitStatus = this.rateLimiter.allow(protocol, connection.remotePeer);
       if (rateLimitStatus !== RateLimitStatus.Allowed) {
-        this.logger.warn(
+        this.logger.verbose(
           `Rate limit exceeded ${prettyPrintRateLimitStatus(rateLimitStatus)} for ${protocol} from ${
             connection.remotePeer
           }`,
@@ -540,10 +553,13 @@ export class ReqResp implements ReqRespInterface {
       if (err instanceof ReqRespStatusError) {
         const errorSent = await this.trySendError(stream, connection.remotePeer, protocol, err.status);
         const logMessage = errorSent
-          ? 'Protocol error sent successfully'
-          : 'Stream already closed or poisoned, not sending error response';
+          ? 'Protocol error sent successfully.'
+          : 'Stream already closed or poisoned, not sending error response.';
 
-        this.logger.warn(logMessage, {
+        const isRateLimit = err.status === ReqRespStatus.RATE_LIMIT_EXCEEDED;
+
+        const level = isRateLimit ? 'debug' : 'warn';
+        this.logger[level](logMessage + ` Status: ${ReqRespStatus[err.status]}`, {
           protocol,
           err,
           errorStatus: err.status,
@@ -552,7 +568,11 @@ export class ReqResp implements ReqRespInterface {
       } else {
         // In erroneous case we abort the stream, this will signal the peer that something went wrong
         // and that this stream should be dropped
-        this.logger.warn('Unknown stream error while handling the stream, aborting', {
+        const isMessageToNotWarn =
+          err instanceof Error &&
+          ['stream reset', 'Cannot push value onto an ended pushable'].some(msg => err.message.includes(msg));
+        const level = isMessageToNotWarn ? 'debug' : 'warn';
+        this.logger[level]('Unknown stream error while handling the stream, aborting', {
           protocol,
           err,
         });

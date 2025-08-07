@@ -23,6 +23,7 @@ import {
   GlobalVariables,
   NestedProcessReturnValues,
   type ProcessedTx,
+  StateReference,
   Tx,
   TxExecutionPhase,
   type TxValidator,
@@ -211,13 +212,13 @@ export class PublicProcessor implements Traceable {
         const txHash = tx.getTxHash();
         if (result.result === 'invalid') {
           const reason = result.reason.join(', ');
-          this.log.warn(`Rejecting tx ${txHash.toString()} due to pre-process validation fail: ${reason}`);
+          this.log.debug(`Rejecting tx ${txHash.toString()} due to pre-process validation fail: ${reason}`);
           failed.push({ tx, error: new Error(`Tx failed preprocess validation: ${reason}`) });
           returns.push(new NestedProcessReturnValues([]));
           continue;
         } else if (result.result === 'skipped') {
           const reason = result.reason.join(', ');
-          this.log.warn(`Skipping tx ${txHash.toString()} due to pre-process validation: ${reason}`);
+          this.log.debug(`Skipping tx ${txHash.toString()} due to pre-process validation: ${reason}`);
           returns.push(new NestedProcessReturnValues([]));
           continue;
         } else {
@@ -231,6 +232,7 @@ export class PublicProcessor implements Traceable {
       // By doing this, every transaction starts on a fresh checkpoint and it's state updates only make it to the fork if this checkpoint is committed.
       // Note: We use the underlying fork here not the guarded one, this ensures that it's not impacted by stopping the guarded version
       const checkpoint = await ForkCheckpoint.new(this.guardedMerkleTree.getUnderlyingFork());
+      const startStateReference = await this.guardedMerkleTree.getUnderlyingFork().getStateReference();
 
       try {
         const [processedTx, returnValues] = await this.processTx(tx, deadline);
@@ -238,7 +240,7 @@ export class PublicProcessor implements Traceable {
         // If the actual size of this tx would exceed block size, skip it
         const txSize = processedTx.txEffect.getDASize();
         if (maxBlockSize !== undefined && totalSizeInBytes + txSize > maxBlockSize) {
-          this.log.warn(`Skipping processed tx ${txHash} sized ${txSize} due to max block size.`, {
+          this.log.debug(`Skipping processed tx ${txHash} sized ${txSize} due to max block size.`, {
             txHash,
             sizeInBytes: txSize,
             totalSizeInBytes,
@@ -279,16 +281,23 @@ export class PublicProcessor implements Traceable {
           // This needs to be done directly on the underlying fork as the guarded fork has been stopped.
           await this.guardedMerkleTree.getUnderlyingFork().revertAllCheckpoints();
 
+          // Ensure we're at the same state as when we started processing this tx.
+          await this.checkWorldStateUnchanged(startStateReference, txHash, err);
+
           // We should now be in a position where the fork is in a clean state and no further updates can be made to it.
           break;
         }
 
         // Roll back state to start of TX before proceeding to next TX
         await checkpoint.revert();
+        await this.guardedMerkleTree.getUnderlyingFork().revertAllCheckpoints();
         const errorMessage = err instanceof Error ? err.message : 'Unknown error';
         this.log.warn(`Failed to process tx ${txHash.toString()}: ${errorMessage} ${err?.stack}`);
         failed.push({ tx, error: err instanceof Error ? err : new Error(errorMessage) });
         returns.push(new NestedProcessReturnValues([]));
+
+        // Ensure we're at the same state as when we started processing this tx.
+        await this.checkWorldStateUnchanged(startStateReference, txHash, err);
       } finally {
         // Base case is we always commit the checkpoint. Using the ForkCheckpoint means this has no effect if the tx was previously reverted
         await checkpoint.commit();
@@ -310,6 +319,22 @@ export class PublicProcessor implements Traceable {
     });
 
     return [result, failed, usedTxs, returns];
+  }
+
+  private async checkWorldStateUnchanged(
+    startStateReference: StateReference,
+    txHash: `0x${string}`,
+    cause: Error,
+  ): Promise<void> {
+    const endStateReference = await this.guardedMerkleTree.getUnderlyingFork().getStateReference();
+    if (!startStateReference.equals(endStateReference)) {
+      this.log.warn(`Fork state reference changed by tx ${txHash} after error in public processor`, {
+        expected: startStateReference.toInspect(),
+        actual: endStateReference.toInspect(),
+        cause,
+      });
+      throw new Error(`Fork state reference changed by tx ${txHash} after error in public processor`, { cause });
+    }
   }
 
   @trackSpan('PublicProcessor.processTx', tx => ({ [Attributes.TX_HASH]: tx.getTxHash().toString() }))

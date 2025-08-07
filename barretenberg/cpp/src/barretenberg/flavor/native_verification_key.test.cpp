@@ -3,7 +3,7 @@
 #include "barretenberg/flavor/ultra_keccak_flavor.hpp"
 #include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/srs/global_crs.hpp"
-#include "barretenberg/stdlib/pairing_points.hpp"
+#include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
@@ -68,12 +68,14 @@ TYPED_TEST(NativeVerificationKeyTests, VKHashingConsistency)
 {
     using Flavor = TypeParam;
     using VerificationKey = typename Flavor::VerificationKey;
+    using Transcript = typename Flavor::Transcript;
+    using DataType = typename Transcript::DataType;
 
     VerificationKey vk(TestFixture::create_vk());
 
     // First method of hashing: using to_field_elements and add_to_hash_buffer.
-    std::vector<fr> vk_field_elements = vk.to_field_elements();
-    NativeTranscript transcript;
+    std::vector<DataType> vk_field_elements = vk.to_field_elements();
+    Transcript transcript;
     for (const auto& field_element : vk_field_elements) {
         transcript.add_to_independent_hash_buffer("vk_element", field_element);
     }
@@ -81,9 +83,7 @@ TYPED_TEST(NativeVerificationKeyTests, VKHashingConsistency)
     // Second method of hashing: using hash().
     fr vkey_hash_2 = vk.hash();
     EXPECT_EQ(vkey_hash_1, vkey_hash_2);
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1427): Solidity verifier does not fiat shamir the full
-    // verification key. This will be fixed in a followup PR.
-    if constexpr (!IsAnyOf<Flavor, UltraKeccakFlavor, ECCVMFlavor, TranslatorFlavor>) {
+    if constexpr (!IsAnyOf<Flavor, ECCVMFlavor, TranslatorFlavor>) {
         // Third method of hashing: using add_hash_to_transcript.
         typename Flavor::Transcript transcript_2;
         fr vkey_hash_3 = vk.add_hash_to_transcript("", transcript_2);

@@ -294,6 +294,8 @@ TYPED_TEST(TestAffineElement, MulWithEndomorphismMatchesMulWithoutEndomorphism)
 TEST(AffineElementFromPublicInputs, Bn254FromPublicInputs)
 {
     using Curve = curve::BN254;
+    using Fq = Curve::BaseField;
+    using Fr = Curve::ScalarField;
     using AffineElement = Curve::AffineElement;
 
     AffineElement point = AffineElement::random_element();
@@ -301,21 +303,23 @@ TEST(AffineElementFromPublicInputs, Bn254FromPublicInputs)
     uint256_t y(point.y);
 
     // Construct public inputs
-    std::vector<bb::fr> public_inputs;
+    std::vector<Fr> public_inputs;
     size_t index = 0;
-    for (size_t idx = 0; idx < FQ_PUBLIC_INPUT_SIZE; idx++) {
+    for (size_t idx = 0; idx < Fq::PUBLIC_INPUTS_SIZE; idx++) {
         auto limb = x.slice(index, index + bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION);
-        public_inputs.emplace_back(bb::fr(limb));
+        public_inputs.emplace_back(Fr(limb));
         index += bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
     }
     index = 0;
-    for (size_t idx = 0; idx < FQ_PUBLIC_INPUT_SIZE; idx++) {
+    for (size_t idx = 0; idx < Fq::PUBLIC_INPUTS_SIZE; idx++) {
         auto limb = y.slice(index, index + bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION);
-        public_inputs.emplace_back(bb::fr(limb));
+        public_inputs.emplace_back(Fr(limb));
         index += bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
     }
 
-    auto reconstructed = AffineElement::reconstruct_from_public(std::span(public_inputs));
+    std::span<Fr, AffineElement::PUBLIC_INPUTS_SIZE> limbs(public_inputs.data(), AffineElement::PUBLIC_INPUTS_SIZE);
+
+    auto reconstructed = AffineElement::reconstruct_from_public(limbs);
 
     EXPECT_EQ(reconstructed, point);
 }
@@ -324,13 +328,16 @@ TEST(AffineElementFromPublicInputs, GrumpkinFromPublicInputs)
 {
     using Curve = curve::Grumpkin;
     using AffineElement = Curve::AffineElement;
+    using Fq = Curve::BaseField;
 
     AffineElement point = AffineElement::random_element();
 
     // Construct public inputs
-    std::vector<bb::fr> public_inputs = { point.x, point.y };
+    std::vector<Fq> public_inputs = { point.x, point.y };
 
-    auto reconstructed = AffineElement::reconstruct_from_public(std::span(public_inputs));
+    std::span<Fq, AffineElement::PUBLIC_INPUTS_SIZE> limbs(public_inputs.data(), AffineElement::PUBLIC_INPUTS_SIZE);
+
+    auto reconstructed = AffineElement::reconstruct_from_public(limbs);
 
     EXPECT_EQ(reconstructed, point);
 }

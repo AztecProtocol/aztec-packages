@@ -21,35 +21,27 @@ contract ScreamAndShoutTest is Test {
     bytes memory creationCode = type(Governance).creationCode;
     bytes32 codeHash = keccak256(creationCode);
 
-    assertEq(
-      codeHash, 0xf302136f8b3a84d3c36be87e283cda0d6ad04392b7e3c5379c55b2d5b2634c1c, ERR_STRING
-    );
+    assertEq(codeHash, 0xf302136f8b3a84d3c36be87e283cda0d6ad04392b7e3c5379c55b2d5b2634c1c, ERR_STRING);
   }
 
   function test_HonkVerifierCreationCode() public pure {
     bytes memory creationCode = type(HonkVerifier).creationCode;
     bytes32 codeHash = keccak256(creationCode);
 
-    assertEq(
-      codeHash, 0xe64a1670c48b0e0f03d405cdf00a7bc6823a47f89851e02680f827e055fd3c60, ERR_STRING
-    );
+    assertEq(codeHash, 0xe64a1670c48b0e0f03d405cdf00a7bc6823a47f89851e02680f827e055fd3c60, ERR_STRING);
   }
 
   function test_RegistryCreationCode() public pure {
     bytes memory creationCode = type(Registry).creationCode;
     bytes32 codeHash = keccak256(creationCode);
 
-    assertEq(
-      codeHash, 0x2cb444995a1644607bd5bdeb3ce0027a8484849810c28b57e641cdf61d786c4c, ERR_STRING
-    );
+    assertEq(codeHash, 0x2cb444995a1644607bd5bdeb3ce0027a8484849810c28b57e641cdf61d786c4c, ERR_STRING);
   }
 
   function test_RollupCreationCode() public pure {
     bytes memory creationCode = type(Rollup).creationCode;
     bytes32 codeHash = keccak256(creationCode);
 
-    assertEq(
-      codeHash, 0xb87a83463eba5f258db1166fb43f2cd6c55169fb5ef39412157d3acea384f7ce, ERR_STRING
-    );
+    assertEq(codeHash, 0xb87a83463eba5f258db1166fb43f2cd6c55169fb5ef39412157d3acea384f7ce, ERR_STRING);
   }
 }

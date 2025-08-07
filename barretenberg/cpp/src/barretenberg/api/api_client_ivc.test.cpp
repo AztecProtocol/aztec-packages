@@ -1,7 +1,7 @@
 #include "api_client_ivc.hpp"
-#include "barretenberg/api/bbapi.hpp"
-#include "barretenberg/api/bbapi_execute.hpp"
 #include "barretenberg/api/file_io.hpp"
+#include "barretenberg/bbapi/bbapi.hpp"
+#include "barretenberg/bbapi/bbapi_execute.hpp"
 #include "barretenberg/client_ivc/acir_bincode_mocks.hpp"
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/client_ivc/mock_circuit_producer.hpp"
@@ -69,6 +69,7 @@ void create_test_private_execution_steps(const std::filesystem::path& output_pat
                           .witness = kernel_witness_data,
                           .vk = kernel_vk,
                           .function_name = "kernel_function" });
+
     PrivateExecutionStepRaw::compress_and_save(std::move(raw_steps), output_path);
 }
 } // namespace
@@ -138,7 +139,6 @@ TEST_F(ClientIVCAPITests, ProveAndVerifyFileBasedFlow)
     auto create_proof_and_vk = [&]() {
         ClientIVCAPI::Flags flags;
         flags.write_vk = true;
-
         ClientIVCAPI api;
         api.prove(flags, input_path, output_dir);
     };
