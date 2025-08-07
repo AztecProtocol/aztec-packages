@@ -8,11 +8,13 @@ Then just build with `smt-verification` preset.
 
 ## 1. Setting variable names during circuit creation and exporting the circuit.
 
-### There're three new methods inside the CircuitBuilder
+### There're four new methods inside the CircuitBuilder
 
 - ```set_variable_name(u32 index, str name)``` - assignes a name to a variable. Specifically, binds a name with the first index of an equivalence class.
 
 **!NOTE that somtimes you may encounter variables that are set to be `assert_equal` to `zero`. Their name will be erased no matter what first variable in class says.**
+
+- ```update_variable_names(u32 idx)``` - in case you've called ```assert_equal``` and ```update_real_variable_indices``` somewhere and you know that two or more variables from the equivalence class have separate names, call this method. Idx is the index of one of the variables of this class. The name of the first variable in class will remain.
 
 - ```export_circuit()``` - exports all variables, gates, and assigned names to an msgpack-compatible buffer namely `msgpack::sbuffer`.
 
