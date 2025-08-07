@@ -1,7 +1,7 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { GSEAbi } from '@aztec/l1-artifacts/GSEAbi';
 
-import type { WeierstrassPoint } from '@noble/curves/abstract/weierstrass';
+import type { ProjPointType } from '@noble/curves/abstract/weierstrass';
 import { bn254 } from '@noble/curves/bn254';
 import { type GetContractReturnType, type Hex, getContract } from 'viem';
 
@@ -39,17 +39,17 @@ export class GSEContract {
     this.gse = getContract({ address, abi: GSEAbi, client });
   }
 
-  public async getRegistrationDigest(publicKey: WeierstrassPoint<bigint>): Promise<WeierstrassPoint<bigint>> {
+  public async getRegistrationDigest(publicKey: ProjPointType<bigint>): Promise<ProjPointType<bigint>> {
     const affinePublicKey = publicKey.toAffine();
     const g1PointDigest = await this.gse.read.getRegistrationDigest([{ x: affinePublicKey.x, y: affinePublicKey.y }]);
-    return bn254.G1.Point.fromAffine(g1PointDigest);
+    return bn254.G1.ProjectivePoint.fromAffine(g1PointDigest);
   }
 
   public async makeRegistrationTuple(privateKey: bigint): Promise<RegistrationTuple> {
-    const publicKeyG1 = bn254.G1.Point.BASE.multiply(privateKey);
+    const publicKeyG1 = bn254.G1.ProjectivePoint.BASE.multiply(privateKey);
     const digest = await this.getRegistrationDigest(publicKeyG1);
     const signature = digest.multiply(privateKey);
-    const publicKeyG2 = bn254.G2.Point.BASE.multiply(privateKey);
+    const publicKeyG2 = bn254.G2.ProjectivePoint.BASE.multiply(privateKey);
     const publicKeyG1Affine = publicKeyG1.toAffine();
     const signatureAffine = signature.toAffine();
     const publicKeyG2Affine = publicKeyG2.toAffine();
