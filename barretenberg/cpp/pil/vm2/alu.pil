@@ -174,12 +174,7 @@ pol commit c_hi;
 // MUL - non u128
 
 #[ALU_MUL_NON_U128]
-sel_op_mul * IS_NOT_U128 * (1 - sel_tag_err)
-    * (
-        ia * ib
-        - ic
-        - (max_value + 1) * c_hi
-    ) = 0;
+sel_op_mul * IS_NOT_U128 * (1 - sel_tag_err) * (ia * ib - ic - (max_value + 1) * c_hi) = 0;
 
 // MUL - u128
 
@@ -205,7 +200,7 @@ pol commit b_hi;
 pol TWO_POW_64 = 2 ** 64;
 
 // Reusing columns for decomposition (#[OP_ID_CHECK] ensures selectors are mutually exclusive):
-pol DECOMPOSED_A = (sel_mul_u128 * ia) + ((sel_is_u128 * sel_op_div) * (1 - sel_tag_err) * ic);
+pol DECOMPOSED_A = (sel_mul_u128 * ia) + (sel_is_u128 * sel_op_div * (1 - sel_tag_err) * ic);
 pol DECOMPOSED_B = ib;
 
 #[A_DECOMPOSITION]
@@ -281,11 +276,7 @@ sel_div_no_0_err { ib, helper1, sel_op_div } in gt.sel { gt.input_a, gt.input_b,
 // Note: Since a, b, c, and remainder are under 64 bits, we are protected against a - remainder underflowing,
 // i.e. b * c (< 128bits) cannot equal underflowed a - remainder (> 253 bits)
 #[ALU_DIV_NON_U128]
-sel_op_div * IS_NOT_U128 * (1 - sel_err)
-    * (
-        ib * ic
-        - (ia - helper1)
-    ) = 0;
+sel_op_div * IS_NOT_U128 * (1 - sel_err) * (ib * ic - (ia - helper1)) = 0;
 
 // DIV - u128
 
@@ -315,14 +306,10 @@ sel_mul_div_u128 = sel_mul_u128 + (sel_is_u128 * sel_op_div);
 // Reuse columns a_lo, a_hi from MUL above to represent c (see A_DECOMPOSITION)
 
 #[ALU_DIV_U128_CHECK]
-(sel_is_u128 * sel_op_div) * (1 - sel_err) * a_hi * b_hi = 0;
+sel_is_u128 * sel_op_div * (1 - sel_err) * a_hi * b_hi = 0;
 
 #[ALU_DIV_U128]
-(sel_is_u128 * sel_op_div) * (1 - sel_err)
-    * (
-        ic * b_lo + a_lo * b_hi * TWO_POW_64            // c * b without the hi bits
-        - (ia - helper1)                                // a - r
-    ) = 0;
+sel_is_u128 * sel_op_div * (1 - sel_err) * (ic * b_lo + a_lo * b_hi * TWO_POW_64 - (ia - helper1)) = 0;
 
 // EQ
 
