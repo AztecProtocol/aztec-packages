@@ -6,7 +6,7 @@ from pathlib import Path
 parser = argparse.ArgumentParser(description="Analyze benchmark JSON data.")
 parser.add_argument("--json", type=Path, default=Path("client_ivc_bench.json"), help="Benchmark JSON file name.")
 parser.add_argument("--benchmark", type=str, default="ClientIVCBench/Full/6", help="Benchmark name to analyze.")
-parser.add_argument("--prefix", type=Path, default=Path("build-op-count-time"), help="Prefix path for benchmark files.")
+parser.add_argument("--prefix", type=Path, default=Path("build"), help="Prefix path for benchmark files.")
 args = parser.parse_args()
 
 IVC_BENCH_JSON = args.json

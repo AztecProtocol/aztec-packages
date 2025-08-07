@@ -1,4 +1,3 @@
-# Used also by bb_cli_bench
 barretenberg_module(
     bb-cli-lib
     barretenberg

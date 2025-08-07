@@ -714,7 +714,9 @@ int parse_and_run_cli_command(int argc, char* argv[])
     debug_logging = flags.debug;
     verbose_logging = debug_logging || flags.verbose;
     slow_low_memory = flags.slow_low_memory;
+#ifndef __wasm__
     detail::use_op_count_time = !benchmark_out.empty();
+#endif
 
     if (benchmark_out.empty() && !print_benchmark) {
         return run(ctx);
