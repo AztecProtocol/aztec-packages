@@ -60,7 +60,7 @@ export class InMemoryTxPool extends (EventEmitter as new () => TypedEventEmitter
     return Promise.resolve();
   }
 
-  public markMinedAsPending(block: BlockHeader, txHashes: TxHash[]): Promise<void> {
+  public markMinedAsPending(txHashes: TxHash[]): Promise<void> {
     if (txHashes.length === 0) {
       return Promise.resolve();
     }

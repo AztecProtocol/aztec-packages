@@ -86,7 +86,7 @@ export function describeTxPool(getTxPool: () => TxPool) {
     await pool.addTxs([tx1, tx2]);
     await pool.markAsMined([tx1.getTxHash()], minedBlockHeader);
 
-    await pool.markMinedAsPending(BlockHeader.empty(), [tx1.getTxHash()]);
+    await pool.markMinedAsPending([tx1.getTxHash()], 1);
     await expect(pool.getMinedTxHashes()).resolves.toEqual([]);
     const pending = await pool.getPendingTxHashes();
     expect(pending).toHaveLength(2);
@@ -110,7 +110,7 @@ export function describeTxPool(getTxPool: () => TxPool) {
     );
 
     // reorg: both txs should now become available again
-    await pool.markMinedAsPending(BlockHeader.empty(), [tx1.getTxHash(), someTxHashThatThisPeerDidNotSee]);
+    await pool.markMinedAsPending([tx1.getTxHash(), someTxHashThatThisPeerDidNotSee], 1);
     await expect(pool.getMinedTxHashes()).resolves.toEqual([]);
     await expect(pool.getPendingTxHashes()).resolves.toEqual([tx1.getTxHash()]); // tx2 is not in the pool
     await expect(pool.getPendingTxCount()).resolves.toEqual(1);

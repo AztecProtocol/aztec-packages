@@ -28,7 +28,7 @@ export class OutOfBalanceTxsAfterMining implements EvictionRule {
         return this.evictTxs(affectedTxs, context.block.getBlockNumber(), txPool);
       } else if (context.event === 'chain_pruned') {
         const affectedTxs = await txPool.getPendingTxs();
-        return this.evictTxs(affectedTxs, context.block.getBlockNumber(), txPool);
+        return this.evictTxs(affectedTxs, context.blockNumber, txPool);
       } else {
         return {
           reason: 'insufficient_fee_juice',

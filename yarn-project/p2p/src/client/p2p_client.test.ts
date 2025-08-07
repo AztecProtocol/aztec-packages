@@ -7,7 +7,7 @@ import { L2Block } from '@aztec/stdlib/block';
 import { EmptyL1RollupConstants, type L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { P2PClientType } from '@aztec/stdlib/p2p';
 import { mockTx } from '@aztec/stdlib/testing';
-import { BlockHeader, TxArray, TxHash, TxHashArray } from '@aztec/stdlib/tx';
+import { TxArray, TxHash, TxHashArray } from '@aztec/stdlib/tx';
 
 import { expect, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -359,7 +359,7 @@ describe('P2P Client', () => {
       blockSource.removeBlocks(10);
       await client.sync();
       expect(txPool.deleteTxs).toHaveBeenCalledWith([badTx.getTxHash()]);
-      expect(txPool.markMinedAsPending).toHaveBeenCalledWith(expect.any(BlockHeader), [goodTx.getTxHash()]);
+      expect(txPool.markMinedAsPending).toHaveBeenCalledWith([goodTx.getTxHash()], expect.any(Number));
       await client.stop();
     });
   });

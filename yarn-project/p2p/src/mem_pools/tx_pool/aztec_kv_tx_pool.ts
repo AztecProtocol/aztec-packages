@@ -186,7 +186,7 @@ export class AztecKVTxPool
     this.#nonEvictableTxs.clear();
   }
 
-  public async markMinedAsPending(block: BlockHeader, txHashes: TxHash[]): Promise<void> {
+  public async markMinedAsPending(txHashes: TxHash[], blockNumber: number): Promise<void> {
     if (txHashes.length === 0) {
       return Promise.resolve();
     }
@@ -203,7 +203,7 @@ export class AztecKVTxPool
       }
 
       try {
-        await this.#evictionManager.evictAfterChainPrune(block);
+        await this.#evictionManager.evictAfterChainPrune(blockNumber);
       } catch (err) {
         this.#log.warn('Unexpected error running evictAfterChainPrune', { err });
       }

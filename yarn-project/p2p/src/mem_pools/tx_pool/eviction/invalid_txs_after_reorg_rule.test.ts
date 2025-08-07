@@ -73,7 +73,7 @@ describe('InvalidTxsAfterReorgRule', () => {
       it('handles no pending transactions', async () => {
         const context: EvictionContext = {
           event: EvictionEvent.CHAIN_PRUNED,
-          block: BlockHeader.empty(),
+          blockNumber: 1,
         };
 
         txPool.getPendingTxs.mockResolvedValue([]);
@@ -91,7 +91,7 @@ describe('InvalidTxsAfterReorgRule', () => {
       it('evicts all transactions that reference pruned blocks', async () => {
         const context: EvictionContext = {
           event: EvictionEvent.CHAIN_PRUNED,
-          block: BlockHeader.empty(),
+          blockNumber: 1,
         };
 
         const tx1Hash = TxHash.random().toString();
@@ -116,7 +116,7 @@ describe('InvalidTxsAfterReorgRule', () => {
       it('respects non-evictable transactions', async () => {
         const context: EvictionContext = {
           event: EvictionEvent.CHAIN_PRUNED,
-          block: BlockHeader.empty(),
+          blockNumber: 1,
         };
 
         const evictableTxHash = TxHash.random().toString();
@@ -141,7 +141,7 @@ describe('InvalidTxsAfterReorgRule', () => {
       it('handles large number of transactions efficiently', async () => {
         const context: EvictionContext = {
           event: EvictionEvent.CHAIN_PRUNED,
-          block: BlockHeader.empty(),
+          blockNumber: 1,
         };
 
         const largeTxBlockRefs: TxBlockReference[] = [];
@@ -171,7 +171,7 @@ describe('InvalidTxsAfterReorgRule', () => {
       it('handles error from deleteTxs operation', async () => {
         const context: EvictionContext = {
           event: EvictionEvent.CHAIN_PRUNED,
-          block: BlockHeader.empty(),
+          blockNumber: 1,
         };
 
         const txHash = TxHash.random().toString();
@@ -196,7 +196,7 @@ describe('InvalidTxsAfterReorgRule', () => {
       it('evicts transactions with valid header hash format', async () => {
         const context: EvictionContext = {
           event: EvictionEvent.CHAIN_PRUNED,
-          block: BlockHeader.empty(),
+          blockNumber: 1,
         };
 
         const txHash = TxHash.random().toString();

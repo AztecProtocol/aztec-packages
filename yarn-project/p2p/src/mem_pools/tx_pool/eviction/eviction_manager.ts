@@ -36,10 +36,10 @@ export class EvictionManager {
     await this.runEvictionRules(ctx);
   }
 
-  public async evictAfterChainPrune(block: BlockHeader): Promise<void> {
+  public async evictAfterChainPrune(blockNumber: number): Promise<void> {
     const ctx: EvictionContext = {
       event: EvictionEvent.CHAIN_PRUNED,
-      block,
+      blockNumber,
     };
     await this.runEvictionRules(ctx);
   }

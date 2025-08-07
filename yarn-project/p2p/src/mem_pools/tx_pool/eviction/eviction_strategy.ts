@@ -17,7 +17,7 @@ export type EvictionContext =
     }
   | {
       event: typeof EvictionEvent.CHAIN_PRUNED;
-      block: BlockHeader;
+      blockNumber: number;
     }
   | {
       event: typeof EvictionEvent.BLOCK_MINED;

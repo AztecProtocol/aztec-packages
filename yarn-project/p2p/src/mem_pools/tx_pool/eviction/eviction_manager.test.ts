@@ -145,12 +145,12 @@ describe('EvictionManager', () => {
       });
 
       evictionManager.registerRule(mockRule1);
-      await evictionManager.evictAfterChainPrune(BlockHeader.empty());
+      await evictionManager.evictAfterChainPrune(1);
 
       expect(mockRule1.evict).toHaveBeenCalledWith(
         {
           event: EvictionEvent.CHAIN_PRUNED,
-          block: BlockHeader.empty(),
+          blockNumber: 1,
         },
         txPool,
       );
@@ -250,7 +250,7 @@ describe('EvictionManager', () => {
     });
 
     it('handles evictAfterChainPrune with no rules gracefully', async () => {
-      await expect(evictionManager.evictAfterChainPrune(BlockHeader.empty())).resolves.not.toThrow();
+      await expect(evictionManager.evictAfterChainPrune(1)).resolves.not.toThrow();
     });
   });
 });

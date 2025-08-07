@@ -317,7 +317,7 @@ describe('KV TX pool', () => {
     await txPool.addTxs([tx1, tx2, tx3]);
     const txHashes = [tx1.getTxHash(), tx2.getTxHash(), tx3.getTxHash()];
     await txPool.markAsMined(txHashes, block1Header);
-    await txPool.markMinedAsPending(tx2.data.constants.historicalHeader, txHashes);
+    await txPool.markMinedAsPending(txHashes, tx2.data.constants.historicalHeader.getBlockNumber());
 
     const pendingTxHashes = await txPool.getPendingTxHashes();
     expect(pendingTxHashes).toEqual(expect.arrayContaining([tx2.getTxHash(), tx3.getTxHash()]));
@@ -346,7 +346,7 @@ describe('KV TX pool', () => {
       }
     });
 
-    await txPool.markMinedAsPending(BlockHeader.empty(), [tx2.getTxHash()]);
+    await txPool.markMinedAsPending([tx2.getTxHash()], 1);
     await checkPendingTxConsistency();
 
     const pendingTxHashes = await txPool.getPendingTxHashes();

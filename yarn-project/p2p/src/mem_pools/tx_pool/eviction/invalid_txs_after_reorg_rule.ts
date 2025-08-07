@@ -30,7 +30,7 @@ export class InvalidTxsAfterReorgRule implements EvictionRule {
 
     try {
       const candidateTxs = (await txPool.getPendingTxs()).filter(({ isEvictable }) => isEvictable);
-      const db = this.worldState.getSnapshot(context.block.getBlockNumber());
+      const db = this.worldState.getSnapshot(context.blockNumber);
       const results = await db.findLeafIndices(
         MerkleTreeId.ARCHIVE,
         candidateTxs.map(({ blockHash }) => blockHash),
