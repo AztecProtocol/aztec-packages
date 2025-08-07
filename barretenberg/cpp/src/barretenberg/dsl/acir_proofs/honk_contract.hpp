@@ -1753,20 +1753,7 @@ abstract contract BaseHonkVerifier is IVerifier {
 
         // Check the received proof is the expected size where each field element is 32 bytes
         if (proof.length != expectedProofSize * 32) {
-            // Use require to show debug info in view function (all values in uint256 elements)
-            require(
-                false,
-                string(
-                    abi.encodePacked(
-                        "ProofLength: logN=",
-                        Strings.toString($LOG_N),
-                        " actual=",
-                        Strings.toString(proof.length / 32),
-                        " expected=",
-                        Strings.toString(expectedProofSize)
-                    )
-                )
-            );
+            revert ProofLengthWrongWithLogN($LOG_N, proof.length, expectedProofSize * 32);
         }
         Honk.VerificationKey memory vk = loadVerificationKey();
         Honk.Proof memory p = TranscriptLib.loadProof(proof, $LOG_N);
