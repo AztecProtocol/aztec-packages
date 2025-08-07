@@ -1,12 +1,14 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 
 namespace bb::avm2 {
 
-constexpr uint32_t CIRCUIT_SUBGROUP_SIZE = 1 << 21;
+constexpr size_t MAX_AVM_TRACE_LOG_SIZE = 21;
+constexpr size_t MAX_AVM_TRACE_SIZE = 1 << MAX_AVM_TRACE_LOG_SIZE;
 
 // Also used for op_id in the circuit trace
 enum class BitwiseOperation : uint8_t {
