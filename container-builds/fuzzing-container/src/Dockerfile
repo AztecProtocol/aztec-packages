@@ -25,6 +25,10 @@ RUN git checkout as/fuzzing-coverage-1
 RUN cmake -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18 --preset fuzzing
 RUN cmake --build build-fuzzing
 
+# Build all fuzzers
+RUN cmake -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18 --preset fuzzing-noasm
+RUN cmake --build build-fuzzing-noasm
+
 # Build all post-crash loggers
 RUN cmake -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18 --preset fuzzing-asan
 RUN cmake --build build-fuzzing-asan
