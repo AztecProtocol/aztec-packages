@@ -218,6 +218,7 @@ std::vector<std::pair<Column, FF>> get_tag_error_columns(const simulation::AluEv
     }
     // We shouldn't have emitted an event with a tag error when one doesn't exist:
     assert(false && "ALU Event emitted with tag error, but none exists");
+    return {};
 }
 
 } // namespace
