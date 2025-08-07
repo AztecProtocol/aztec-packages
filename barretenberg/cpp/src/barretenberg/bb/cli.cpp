@@ -132,6 +132,7 @@ struct CLIContext {
     CLI::App* prove_tube_command{ nullptr };
     CLI::App* verify_tube_command{ nullptr };
     std::string prove_tube_output_path{ "./target" };
+    // doesn't make sense that this is set by -o but that's how it was
     std::string tube_proof_and_vk_path{ "./target" };
 
     // Msgpack
@@ -566,8 +567,8 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_verbose_flag(OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file);
     add_debug_flag(OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file);
     add_crs_path_option(OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file);
-    std::string arbitrary_valid_proof_path{ "./proofs/proof" };
-    add_output_path_option(OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file, arbitrary_valid_proof_path);
+    add_output_path_option(OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file,
+                           ctx.arbitrary_valid_proof_path);
 
     /***************************************************************************************************************
      * Subcommand: OLD_API write_recursion_inputs_ultra_honk
@@ -577,8 +578,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_verbose_flag(OLD_API_write_recursion_inputs_ultra_honk);
     add_debug_flag(OLD_API_write_recursion_inputs_ultra_honk);
     add_crs_path_option(OLD_API_write_recursion_inputs_ultra_honk);
-    std::string recursion_inputs_output_path{ "./target" };
-    add_output_path_option(OLD_API_write_recursion_inputs_ultra_honk, recursion_inputs_output_path);
+    add_output_path_option(OLD_API_write_recursion_inputs_ultra_honk, ctx.recursion_inputs_output_path);
     add_ipa_accumulation_flag(OLD_API_write_recursion_inputs_ultra_honk);
     add_recursive_flag(OLD_API_write_recursion_inputs_ultra_honk);
     add_bytecode_path_option(OLD_API_write_recursion_inputs_ultra_honk);
@@ -631,8 +631,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_verbose_flag(avm_prove_command);
     add_debug_flag(avm_prove_command);
     add_crs_path_option(avm_prove_command);
-    std::filesystem::path avm_prove_output_path{ "./proofs" };
-    add_output_path_option(avm_prove_command, avm_prove_output_path);
+    add_output_path_option(avm_prove_command, ctx.avm_prove_output_path);
     add_avm_inputs_option(avm_prove_command);
 
     /***************************************************************************************************************
@@ -671,9 +670,8 @@ int parse_and_run_cli_command(int argc, char* argv[])
     CLI::App* msgpack_run_command = ctx.msgpack_run_command =
         msgpack_command->add_subcommand("run", "Execute msgpack API commands from stdin or file.");
     add_verbose_flag(msgpack_run_command);
-    std::string msgpack_input_file;
     msgpack_run_command->add_option(
-        "-i,--input", msgpack_input_file, "Input file containing msgpack buffers (defaults to stdin)");
+        "-i,--input", ctx.msgpack_input_file, "Input file containing msgpack buffers (defaults to stdin)");
 
     /***************************************************************************************************************
      * Subcommand: prove_tube
@@ -684,8 +682,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_debug_flag(prove_tube_command);
     add_crs_path_option(prove_tube_command);
     add_vk_path_option(prove_tube_command);
-    std::string prove_tube_output_path{ "./target" };
-    add_output_path_option(prove_tube_command, prove_tube_output_path);
+    add_output_path_option(prove_tube_command, ctx.prove_tube_output_path);
 
     /***************************************************************************************************************
      * Subcommand: verify_tube
@@ -695,9 +692,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_verbose_flag(verify_tube_command);
     add_debug_flag(verify_tube_command);
     add_crs_path_option(verify_tube_command);
-    // doesn't make sense that this is set by -o but that's how it was
-    std::string tube_proof_and_vk_path{ "./target" };
-    add_output_path_option(verify_tube_command, tube_proof_and_vk_path);
+    add_output_path_option(verify_tube_command, ctx.tube_proof_and_vk_path);
 
     /***************************************************************************************************************
      * Build the CLI11 App
