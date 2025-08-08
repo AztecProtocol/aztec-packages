@@ -199,7 +199,7 @@ template UltraRecursiveVerifier_<bb::MegaZKRecursiveFlavor_<UltraCircuitBuilder>
 // GoblinAvm specialization
 template UltraRecursiveVerifier_<bb::MegaRecursiveFlavor_<UltraCircuitBuilder>>::Output UltraRecursiveVerifier_<
     bb::MegaRecursiveFlavor_<UltraCircuitBuilder>>::
-    verify_proof<HidingKernelIO<UltraCircuitBuilder>>(
+    verify_proof<GoblinAvmIO<UltraCircuitBuilder>>(
         const UltraRecursiveVerifier_<bb::MegaRecursiveFlavor_<UltraCircuitBuilder>>::StdlibProof& proof);
 
 } // namespace bb::stdlib::recursion::honk
