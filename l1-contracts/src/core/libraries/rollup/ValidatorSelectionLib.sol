@@ -49,9 +49,10 @@ import {TransientSlot} from "@oz/utils/TransientSlot.sol";
  *      3. Attestation System:
  *         - Committee members attest to blocks by providing signatures
  *         - Attestations serve dual purpose: data availability and state validation
- *         - Blocks require 2/3+ committee signatures to be considered valid
+ *         - Blocks require >2/3 committee signatures to be considered valid
  *         - Signatures are verified against expected committee members using ECDSA recovery
  *         - Mixed signature/address format allows optimization (addresses for non-signing members)
+ *         - Signature verification is delayed until proof submission to save gas
  *
  *      4. Seed Management:
  *         - Sample seeds determine committee and proposer selection for each epoch
@@ -61,6 +62,7 @@ import {TransientSlot} from "@oz/utils/TransientSlot.sol";
  *
  *      5. Caching and Optimization:
  *         - Transient storage caches proposer computations within the same transaction
+ *           - This is used when signaling for a governance or slashing payload after a block proposal
  *         - Committee commitments are stored to avoid recomputation during verification
  *         - Validator indices are sampled once and reused for address resolution
  *
@@ -165,7 +167,7 @@ library ValidatorSelectionLib {
   }
 
   /**
-   * @notice Verifies that the correct proposer is submitting a block proposal with valid signature
+   * @notice Verifies that the block proposal has been signed by the correct proposer
    * @dev Validates proposer eligibility and signature for block proposals by:
    *      1. Attempting to load cached proposer from transient storage
    *      2. If not cached, reconstructing committee from attestations and verifying against stored commitment
@@ -583,7 +585,6 @@ library ValidatorSelectionLib {
    * @notice Samples validator indices for a specific epoch using cryptographic randomness
    * @dev Determines sample timestamp, gets validator set size, and uses SampleLib to select committee indices.
    *      Validates that enough validators are available to meet target committee size.
-   *      Only used internally during epoch setup.
    * @param _epoch The epoch to sample validators for
    * @param _seed The cryptographic seed for sampling randomness
    * @return sampleTime The timestamp used for validator set sampling

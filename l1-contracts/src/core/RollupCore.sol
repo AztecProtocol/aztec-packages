@@ -143,26 +143,30 @@ import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
  *
  *      Slashing is a critical security mechanism that penalizes validators who misbehave or fail to fulfill their
  *      duties. Slashing occurs for both safety violations (e.g., invalid attestations) and liveness failures
- *      (e.g., missing proofs). The slashing process is governance-based and operates through a voting mechanism:
+ *      (e.g., missing proofs). The slashing process is governance-based and operates through a signalling mechanism:
  *
- *      - When nodes detect validator misbehavior, they create a proposal for slashing the offending validators
- *      - The proposal is submitted to the slashing contract and enters a voting period
- *      - Each block proposer votes on the slashing proposal during their assigned slot
- *      - If the proposal receives sufficient votes (reaches the configured quorum), it passes
- *      - Once approved, the offending validators are slashed, meaning their staked assets are reduced by the slashing
- *        amount
+ *      - When nodes detect validator misbehavior, they create a payload for slashing the offending validators
+ *      - The payload is submitted to the SlashingProposer contract, which keeps track of signalling rounds
+ *      - Each block proposer signals on a slashing payload during their assigned slot
+ *      - If the payload receives sufficient signals (reaches the configured quorum) within a round, it may be submitted
+ *        for execution by the Slasher after a configured delay.
+ *      - The Slasher has a Vetoer specified in the constructor, which can veto the payload if it is deemed to be
+ *        invalid.
+ *      - Once submitted to the Slasher, if the payload is not Vetoed, the offending validators are slashed, meaning
+ *        their staked assets are reduced by the slashing amount
  *      - If a validator's stake falls below the minimum required amount due to slashing, they are automatically
  *        removed from the validator set
  *
  *      Conditions that cause nodes to vote for slashing a validator:
  *      1. Validators that fail to fulfill their duties:
  *         - Committee members who fail to attest to blocks when required
- *      2. Committee members of an unproven epoch:
- *         - When an epoch's proof window expires without a valid proof being submitted
- *         - The entire committee is held responsible as they should have ensured data availability
+ *      2. Committee members of an unproven epoch where either:
+ *         - The data for the epoch is not available
+ *         - The the epoch was provable but no proof was submitted
  *      3. Proposers of invalid blocks or committee members who attest to blocks built on top of invalid ones:
  *         - Proposing blocks with invalid state transitions
- *         - Attesting to blocks that build upon known invalid blocks
+ *         - Proposing blocks with invalid attestations
+ *         - Attesting to blocks that build upon known invalid blocks (e.g. invalid attestations)
  *         - This ensures the integrity of the chain by penalizing those who contribute to invalid blocks
  */
 contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IValidatorSelectionCore, IRollupCore {
@@ -287,7 +291,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @notice Updates the target mana (computational units) per slot
    * @dev Only callable by owner. The new target must be greater than or equal to the current target
    *      to avoid the ability for governance to use it directly to kill an old rollup.
-   *      Mana is the unit of computational cost in Aztec.
+   *      Mana is the unit of computational work in Aztec.
    * @param _manaTarget The new target mana per slot
    */
   function updateManaTarget(uint256 _manaTarget) external override(IRollupCore) onlyOwner {
@@ -529,7 +533,6 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @dev Can be called by anyone. Takes a snapshot of the current state to ensure
    *      unpredictable but deterministic validator selection. Automatically called
    *      from setupEpoch.
-   * @custom:question Why is this public?
    */
   function setupSeedSnapshotForNextEpoch() public override(IValidatorSelectionCore) {
     ExtRollupLib2.setupSeedSnapshotForNextEpoch();

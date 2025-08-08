@@ -232,13 +232,12 @@ library STFLib {
    *      block, and the buffer size.
    *
    *      Example with roundabout size 5 and pending block 7:
-   *      Circular buffer state: [block3, block4, block5, block6, block7]
-   *      Buffer indices:        [3,     4,     0,     1,     2    ]
+   *      Circular buffer state: [block5, block6, block7, block3, block4]
    *
    *      Block 2 and below are stale because:
    *      - blockNumber + size <= pending
-   *      - 2 + 5 <= 7 ✓ (stale)
-   *      - 3 + 5 <= 7 ✗ (not stale)
+   *      - 2 + 5 <= 7 (stale)
+   *      - 3 + 5 <= 7 (not stale)
    *
    *      This ensures that only blocks within the current "window" of the circular buffer
    *      are considered valid and accessible.
@@ -389,9 +388,9 @@ library STFLib {
    *      Example timeline:
    *      - Block proposed in epoch N
    *      - Proof submission window = 1 epochs
-   *      - Proof deadline = epoch + 1 + Proof submission window
+   *      - Proof deadline epoch = N + Proof submission window + 1
    *          The deadline is the point in time where it is no longer acceptable, (if you touch the line you die)
-   *      - If epoch(_ts) >= epoch N + 1 + Proof submission window, pruning is allowed
+   *      - If epoch(_ts) >= epoch N + Proof submission window + 1, pruning is allowed
    *
    *      This mechanism ensures rollup liveness by preventing indefinite stalling on unproven blocks
    *      while providing sufficient time for proof generation and submission.
