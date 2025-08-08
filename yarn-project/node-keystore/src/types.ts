@@ -8,14 +8,20 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
+/** Parameterized hex string type for specific byte lengths */
+export type Hex<TByteLength extends number> = `0x${string}` & { readonly _length: TByteLength };
+
+/** A json keystore config points to a local file with the encrypted private key, and may require a password for decrypting it */
+export type EthJsonKeyFileV3Config = { path: string; password?: string };
+
 /** A private key is a 32-byte 0x-prefixed hex */
-export type EthPrivateKey = `0x${string}`;
+export type EthPrivateKey = Hex<32>;
 
 /** An address is a 20-byte 0x-prefixed hex */
-export type EthAddressHex = `0x${string}`;
+export type EthAddressHex = Hex<20>;
 
 /** An Aztec address is a 32-byte 0x-prefixed hex */
-export type AztecAddressHex = `0x${string}`;
+export type AztecAddressHex = Hex<32>;
 
 /** URL type for remote signers */
 export type Url = string;
@@ -43,12 +49,6 @@ export type EthRemoteSignerAccount =
       certPath?: string;
       certPass?: string;
     };
-
-/** A json keystore config points to a local file with the encrypted private key, and may require a password for decrypting it */
-export type EthJsonKeyFileV3Config = {
-  path: string;
-  password?: string;
-};
 
 /** An L1 account is a private key, a remote signer configuration, or a standard json key store file */
 export type EthAccount = EthPrivateKey | EthRemoteSignerAccount | EthJsonKeyFileV3Config;

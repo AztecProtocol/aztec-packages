@@ -1,156 +1,88 @@
 /**
- * Tests for keystore validation functionality
+ * Tests for keystore duplication check logic and validation integration
  */
+import { createLogger } from '@aztec/foundation/log';
+
 import { describe, expect, it } from '@jest/globals';
 
+import { KeyStoreLoadError, mergeKeystores } from './loader.js';
 import type { KeyStore } from './types.js';
-import {
-  KeyStoreValidationError,
-  isValidAztecAddress,
-  isValidEthAddress,
-  isValidPrivateKey,
-  isValidUrl,
-  validateKeyStore,
-} from './validation.js';
 
-describe('Keystore Validation', () => {
-  describe('Helper validators', () => {
-    it('should validate private keys correctly', () => {
-      expect(isValidPrivateKey('0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef')).toBe(true);
-      expect(isValidPrivateKey('0x123')).toBe(false);
-      expect(isValidPrivateKey('1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef')).toBe(false);
-      expect(isValidPrivateKey('')).toBe(false);
-    });
+// Enable logger output in tests by setting LOG_LEVEL
+const logger = createLogger('node-keystore:validation-test');
 
-    it('should validate Ethereum addresses correctly', () => {
-      expect(isValidEthAddress('0x1234567890123456789012345678901234567890')).toBe(true);
-      expect(isValidEthAddress('0x123')).toBe(false);
-      expect(isValidEthAddress('1234567890123456789012345678901234567890')).toBe(false);
-      expect(isValidEthAddress('')).toBe(false);
-    });
+describe('Keystore Duplication Validation', () => {
+  it('should reject duplicate attester addresses across keystores', () => {
+    logger.info('Testing duplicate attester validation');
 
-    it('should validate Aztec addresses correctly', () => {
-      expect(isValidAztecAddress('0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef')).toBe(true);
-      expect(isValidAztecAddress('0x123')).toBe(false);
-      expect(isValidAztecAddress('')).toBe(false);
-    });
+    const keystore1: KeyStore = {
+      schemaVersion: 1,
+      validators: [
+        {
+          attester: '0x1234567890123456789012345678901234567890' as any,
+          feeRecipient: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as any,
+        },
+      ],
+    };
 
-    it('should validate URLs correctly', () => {
-      expect(isValidUrl('https://example.com')).toBe(true);
-      expect(isValidUrl('http://localhost:8080')).toBe(true);
-      expect(isValidUrl('not-a-url')).toBe(false);
-      expect(isValidUrl('')).toBe(false);
-    });
+    const keystore2: KeyStore = {
+      schemaVersion: 1,
+      validators: [
+        {
+          attester: '0x1234567890123456789012345678901234567890' as any, // Duplicate!
+          feeRecipient: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as any,
+        },
+      ],
+    };
+
+    expect(() => mergeKeystores([keystore1, keystore2])).toThrow(KeyStoreLoadError);
+    expect(() => mergeKeystores([keystore1, keystore2])).toThrow(/Duplicate attester address/);
   });
 
-  describe('Keystore validation', () => {
-    it('should validate a simple validator keystore', () => {
-      const keystore: KeyStore = {
-        schemaVersion: 1,
-        validators: [
-          {
-            attester: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
-            feeRecipient: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
-          },
-        ],
-      };
+  it('should reject multiple prover configurations across keystores', () => {
+    logger.info('Testing multiple prover validation');
 
-      expect(() => validateKeyStore(keystore)).not.toThrow();
-    });
+    const keystore1: KeyStore = {
+      schemaVersion: 1,
+      prover: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as any,
+    };
 
-    it('should validate a keystore with mnemonic configuration', () => {
-      const keystore: KeyStore = {
-        schemaVersion: 1,
-        validators: [
-          {
-            attester: {
-              mnemonic: 'test test test test test test test test test test test junk',
-              addressIndex: 0,
-              addressCount: 2,
-            },
-            feeRecipient: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
-          },
-        ],
-      };
+    const keystore2: KeyStore = {
+      schemaVersion: 1,
+      prover: '0x9999999999999999999999999999999999999999999999999999999999999999' as any,
+    };
 
-      expect(() => validateKeyStore(keystore)).not.toThrow();
-    });
+    expect(() => mergeKeystores([keystore1, keystore2])).toThrow(KeyStoreLoadError);
+    expect(() => mergeKeystores([keystore1, keystore2])).toThrow(/Multiple prover configurations found/);
+  });
 
-    it('should validate a keystore with remote signer', () => {
-      const keystore: KeyStore = {
-        schemaVersion: 1,
-        remoteSigner: 'https://signer.example.com',
-        validators: [
-          {
-            attester: '0x1234567890123456789012345678901234567890',
-            feeRecipient: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
-          },
-        ],
-      };
+  it('should allow unique attester addresses across keystores', () => {
+    logger.info('Testing unique attester addresses');
 
-      expect(() => validateKeyStore(keystore)).not.toThrow();
-    });
-
-    it('should validate a keystore with prover configuration', () => {
-      const keystore: KeyStore = {
-        schemaVersion: 1,
-        prover: {
-          id: '0x1234567890123456789012345678901234567890',
-          publisher: ['0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'],
+    const keystore1: KeyStore = {
+      schemaVersion: 1,
+      validators: [
+        {
+          attester: '0x1111111111111111111111111111111111111111' as any,
+          feeRecipient: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as any,
         },
-      };
+      ],
+    };
 
-      expect(() => validateKeyStore(keystore)).not.toThrow();
-    });
+    const keystore2: KeyStore = {
+      schemaVersion: 1,
+      validators: [
+        {
+          attester: '0x2222222222222222222222222222222222222222' as any, // Different!
+          feeRecipient: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as any,
+        },
+      ],
+    };
 
-    it('should reject keystore with invalid schema version', () => {
-      const keystore = {
-        schemaVersion: 2, // Invalid
-        validators: [
-          {
-            attester: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
-            feeRecipient: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
-          },
-        ],
-      };
+    expect(() => mergeKeystores([keystore1, keystore2])).not.toThrow();
 
-      expect(() => validateKeyStore(keystore)).toThrow(KeyStoreValidationError);
-    });
-
-    it('should reject keystore without validators or prover', () => {
-      const keystore = {
-        schemaVersion: 1,
-      };
-
-      expect(() => validateKeyStore(keystore)).toThrow(KeyStoreValidationError);
-    });
-
-    it('should reject validator without required fields', () => {
-      const keystore = {
-        schemaVersion: 1,
-        validators: [
-          {
-            attester: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
-            // Missing feeRecipient
-          },
-        ],
-      };
-
-      expect(() => validateKeyStore(keystore)).toThrow(KeyStoreValidationError);
-    });
-
-    it('should reject validator with invalid addresses', () => {
-      const keystore = {
-        schemaVersion: 1,
-        validators: [
-          {
-            attester: 'invalid-key',
-            feeRecipient: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
-          },
-        ],
-      };
-
-      expect(() => validateKeyStore(keystore)).toThrow(KeyStoreValidationError);
-    });
+    const merged = mergeKeystores([keystore1, keystore2]);
+    logger.info('Successfully merged keystores with unique attesters');
+    expect(merged.validators).toHaveLength(2);
   });
 });

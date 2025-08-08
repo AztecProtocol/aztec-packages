@@ -1,19 +1,8 @@
-/**
- * Keystore Configuration Module
- *
- * Provides types, validation, and loading functionality for validator keystore files.
- */
-
-// Types
 export * from './types.js';
-
-// Validation
-export * from './validation.js';
-
-// Loading
 export * from './loader.js';
+export * from './schemas.js';
+export * from './resolver.js';
 
-// Re-export commonly used types for convenience
 export type {
   KeyStore,
   ValidatorKeyStore,
@@ -25,3 +14,5 @@ export type {
   ResolvedProverConfig,
   ResolvedAccount,
 } from './types.js';
+
+export type { AccountResolver, AccountResolutionError, ResolverOptions } from './resolver.js';

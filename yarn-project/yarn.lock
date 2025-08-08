@@ -894,6 +894,22 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@aztec/node-keystore@workspace:node-keystore":
+  version: 0.0.0-use.local
+  resolution: "@aztec/node-keystore@workspace:node-keystore"
+  dependencies:
+    "@aztec/foundation": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
+    "@jest/globals": "npm:^30.0.0"
+    "@types/jest": "npm:^30.0.0"
+    "@types/node": "npm:^22.15.17"
+    jest: "npm:^30.0.0"
+    ts-node: "npm:^10.9.1"
+    tslib: "npm:^2.4.0"
+    typescript: "npm:^5.3.3"
+  languageName: unknown
+  linkType: soft
+
 "@aztec/node-lib@workspace:^, @aztec/node-lib@workspace:node-lib":
   version: 0.0.0-use.local
   resolution: "@aztec/node-lib@workspace:node-lib"

@@ -6,8 +6,8 @@
 import { readFileSync, readdirSync, statSync } from 'fs';
 import { extname, join } from 'path';
 
+import { keystoreSchema } from './schemas.js';
 import type { KeyStore } from './types.js';
-import { KeyStoreValidationError, validateKeyStore } from './validation.js';
 
 /**
  * Error thrown when keystore loading fails
@@ -16,7 +16,7 @@ export class KeyStoreLoadError extends Error {
   constructor(
     message: string,
     public filePath: string,
-    public cause?: Error,
+    public override cause?: Error,
   ) {
     super(`Failed to load keystore from ${filePath}: ${message}`);
     this.name = 'KeyStoreLoadError';
@@ -24,23 +24,24 @@ export class KeyStoreLoadError extends Error {
 }
 
 /**
- * Loads and validates a single keystore file
+ * Loads and validates a single keystore file using Zod schema validation
  */
 export function loadKeystoreFile(filePath: string): KeyStore {
   try {
     const content = readFileSync(filePath, 'utf-8');
-    const parsed = JSON.parse(content);
 
-    // Validate the parsed content
-    validateKeyStore(parsed);
-
-    return parsed;
+    // Parse JSON and validate with Zod schema (following Aztec patterns)
+    return keystoreSchema.parse(JSON.parse(content));
   } catch (error) {
     if (error instanceof SyntaxError) {
       throw new KeyStoreLoadError('Invalid JSON format', filePath, error);
     }
-    if (error instanceof KeyStoreValidationError) {
-      throw new KeyStoreLoadError(`Validation failed: ${error.message}`, filePath, error);
+    if (error && typeof error === 'object' && 'issues' in error) {
+      // Zod validation error - format like Aztec does
+      const issues = (error as any).issues;
+      const message =
+        issues.map((e: any) => `${e.message} (${e.path.join('.')})`).join('. ') || 'Schema validation error';
+      throw new KeyStoreLoadError(`Schema validation failed: ${message}`, filePath, error as unknown as Error);
     }
     throw new KeyStoreLoadError(`Unexpected error: ${error}`, filePath, error as Error);
   }
@@ -181,7 +182,7 @@ export function mergeKeystores(keystores: KeyStore[]): KeyStore {
         const attesterKeys = extractAttesterKeys(validator.attester);
         for (const key of attesterKeys) {
           if (attesterAddresses.has(key)) {
-            throw new KeyStoreValidationError(
+            throw new KeyStoreLoadError(
               `Duplicate attester address ${key} found across keystore files`,
               `keystores[${i}].validators`,
             );
@@ -211,7 +212,7 @@ export function mergeKeystores(keystores: KeyStore[]): KeyStore {
     // Merge prover (error if multiple)
     if (keystore.prover) {
       if (merged.prover) {
-        throw new KeyStoreValidationError(
+        throw new KeyStoreLoadError(
           'Multiple prover configurations found across keystore files. Only one prover configuration is allowed.',
           `keystores[${i}].prover`,
         );
