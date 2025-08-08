@@ -8,6 +8,7 @@ import {
   type EncodeFunctionDataParameters,
   type GetContractReturnType,
   type Hex,
+  type Log,
   type TypedDataDefinition,
   encodeFunctionData,
   getContract,
@@ -15,7 +16,7 @@ import {
 
 import type { L1TxRequest, L1TxUtils } from '../l1_tx_utils.js';
 import type { ViemClient } from '../types.js';
-import { FormattedViemError } from '../utils.js';
+import { FormattedViemError, tryExtractEvent } from '../utils.js';
 import { type IEmpireBase, encodeSignal, encodeSignalWithSignature, signSignalWithSig } from './empire_base.js';
 
 export class ProposalAlreadyExecutedError extends Error {
@@ -25,7 +26,7 @@ export class ProposalAlreadyExecutedError extends Error {
 }
 
 export class SlashingProposerContract extends EventEmitter implements IEmpireBase {
-  private readonly logger = createLogger('SlashingProposerContract');
+  private readonly logger = createLogger('ethereum:contracts:slashing_proposer');
   private readonly proposer: GetContractReturnType<typeof EmpireSlashingProposerAbi, ViemClient>;
 
   constructor(
@@ -111,12 +112,12 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
     return this.proposer.watchEvent.PayloadSubmittable(
       {},
       {
+        strict: true,
         onLogs: logs => {
-          for (const payload of logs) {
-            const args = payload.args;
-            if (args.payload && args.round) {
-              // why compiler can't figure it out? no one knows
-              callback(args as { payload: `0x${string}`; round: bigint });
+          for (const log of logs) {
+            const { payload, round } = log.args;
+            if (payload && round) {
+              callback({ payload, round });
             }
           }
         },
@@ -129,15 +130,49 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
       {},
       {
         onLogs: logs => {
-          for (const payload of logs) {
-            const args = payload.args;
-            if (args.round && args.payload) {
-              callback(args as { round: bigint; payload: `0x${string}` });
+          for (const log of logs) {
+            const { payload, round } = log.args;
+            if (round && payload) {
+              callback({ round, payload });
             }
           }
         },
       },
     );
+  }
+
+  public listenToSignalCasted(
+    callback: (args: { round: bigint; payload: `0x${string}`; signaler: `0x${string}` }) => unknown,
+  ) {
+    return this.proposer.watchEvent.SignalCast(
+      {},
+      {
+        onLogs: logs => {
+          for (const log of logs) {
+            const { round, payload, signaler } = log.args;
+            if (round && payload && signaler) {
+              callback({ round, payload, signaler });
+            }
+          }
+        },
+      },
+    );
+  }
+
+  /** Creates an L1TxRequest to submit the round winner for the given round. */
+  public buildExecuteRoundRequest(round: bigint): L1TxRequest {
+    return {
+      to: this.address.toString(),
+      data: encodeFunctionData({
+        abi: EmpireSlashingProposerAbi,
+        functionName: 'submitRoundWinner',
+        args: [round],
+      }),
+    };
+  }
+
+  public tryExtractPayloadSubmittedEvent(logs: Log[]) {
+    return tryExtractEvent(logs, this.address.toString(), EmpireSlashingProposerAbi, 'PayloadSubmitted');
   }
 
   /**

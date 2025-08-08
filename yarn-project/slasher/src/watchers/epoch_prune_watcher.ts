@@ -10,7 +10,7 @@ import {
 } from '@aztec/stdlib/block';
 import type { IFullNodeBlockBuilder, ITxProvider, MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import { Offense } from '@aztec/stdlib/slashing';
+import { OffenseType } from '@aztec/stdlib/slashing';
 import {
   ReExFailedTxsError,
   ReExStateMismatchError,
@@ -20,7 +20,7 @@ import {
 
 import EventEmitter from 'node:events';
 
-import { WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher, type WatcherEmitter } from './config.js';
+import { WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher, type WatcherEmitter } from '../config.js';
 
 /**
  * This watcher is responsible for detecting chain prunes and creating slashing arguments for the committee.
@@ -30,11 +30,6 @@ import { WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher, type WatcherEm
  */
 export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter) implements Watcher {
   private log: Logger = createLogger('epoch-prune-watcher');
-
-  // Keep track of slashable epochs we've seen to their committee
-  private slashableCommittees: Map<bigint, EthAddress[]> = new Map();
-  // Only keep track of the last N slashable epochs
-  private maxSlashableEpochs = 100;
 
   // Store bound function reference for proper listener removal
   private boundHandlePruneL2Blocks = this.handlePruneL2Blocks.bind(this);
@@ -46,7 +41,6 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     private txProvider: Pick<ITxProvider, 'getAvailableTxs'>,
     private blockBuilder: IFullNodeBlockBuilder,
     private penalty: bigint,
-    private maxPenalty: bigint,
   ) {
     super();
     this.log.info('EpochPruneWatcher initialized');
@@ -71,9 +65,9 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
         this.log.info(`Pruned epoch ${epochNumber} was valid. Want to slash committee for not having it proven.`);
         const validators = await this.getValidatorsForEpoch(epochNumber);
         // need to specify return type to be able to return offense as undefined later on
-        const result: { validators: EthAddress[]; offense: Offense | undefined } = {
+        const result: { validators: EthAddress[]; offense: OffenseType | undefined } = {
           validators,
-          offense: Offense.VALID_EPOCH_PRUNED,
+          offense: OffenseType.VALID_EPOCH_PRUNED,
         };
         return result;
       })
@@ -83,7 +77,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
           const validators = await this.getValidatorsForEpoch(epochNumber);
           return {
             validators,
-            offense: Offense.DATA_WITHHOLDING,
+            offense: OffenseType.DATA_WITHHOLDING,
           };
         } else {
           this.log.error(`Error while validating pruned epoch ${epochNumber}. Will not want to slash.`, error);
@@ -97,9 +91,8 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
         if (validators.length === 0 || offense === undefined) {
           return;
         }
-        this.addToSlashableEpochs(epochNumber, validators);
-        const args = this.validatorsToSlashingArgs(validators, offense);
-        this.log.info(`Slash for epoch ${epochNumber} created.`, args);
+        const args = this.validatorsToSlashingArgs(validators, offense, BigInt(epochNumber));
+        this.log.info(`Slash for epoch ${epochNumber} created`, args);
         this.emit(WANT_TO_SLASH_EVENT, args);
       })
       .catch(error => {
@@ -154,16 +147,6 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     }
   }
 
-  private addToSlashableEpochs(epochNumber: bigint, validators: EthAddress[] | undefined) {
-    if (!validators) {
-      return;
-    }
-    this.slashableCommittees.set(epochNumber, validators);
-    if (this.slashableCommittees.size > this.maxSlashableEpochs) {
-      this.slashableCommittees.delete(this.slashableCommittees.keys().next().value!);
-    }
-  }
-
   private async getValidatorsForEpoch(epochNumber: bigint): Promise<EthAddress[]> {
     const { committee } = await this.epochCache.getCommitteeForEpoch(epochNumber);
     if (!committee) {
@@ -173,25 +156,16 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     return committee;
   }
 
-  private validatorsToSlashingArgs(validators: EthAddress[], offense: Offense): WantToSlashArgs[] {
+  private validatorsToSlashingArgs(
+    validators: EthAddress[],
+    offenseType: OffenseType,
+    epochOrSlot: bigint,
+  ): WantToSlashArgs[] {
     return validators.map(v => ({
       validator: v,
       amount: this.penalty,
-      offense,
+      offenseType,
+      epochOrSlot,
     }));
-  }
-
-  private wantToSlashForEpoch(validator: EthAddress, _amount: bigint, epochNumber: bigint): boolean {
-    return this.slashableCommittees.get(epochNumber)?.some(v => v.equals(validator)) ?? false;
-  }
-
-  public shouldSlash({ validator, amount }: WantToSlashArgs): Promise<boolean> {
-    for (const epoch of this.slashableCommittees.keys()) {
-      if (this.wantToSlashForEpoch(validator, amount, epoch) && amount <= this.maxPenalty) {
-        return Promise.resolve(true);
-      }
-    }
-
-    return Promise.resolve(false);
   }
 }

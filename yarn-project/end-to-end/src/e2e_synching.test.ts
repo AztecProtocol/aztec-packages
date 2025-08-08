@@ -415,6 +415,11 @@ describe('e2e_synching', () => {
       deployL1ContractsValues.l1Client,
       slashingProposerAddress.toString(),
     );
+    const { SlashFactoryContract } = await import('@aztec/stdlib/l1-contracts');
+    const slashFactoryContract = new SlashFactoryContract(
+      deployL1ContractsValues.l1Client,
+      deployL1ContractsValues.l1ContractAddresses.slashFactoryAddress!.toString(),
+    );
     const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, { dateProvider });
     const publisher = new SequencerPublisher(
       {
@@ -434,6 +439,7 @@ describe('e2e_synching', () => {
         rollupContract,
         governanceProposerContract,
         slashingProposerContract,
+        slashFactoryContract,
         epochCache,
         dateProvider: dateProvider!,
       },

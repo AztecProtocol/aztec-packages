@@ -20,6 +20,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { L2Block, Signature } from '@aztec/stdlib/block';
+import type { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import type { ProposedBlockHeader } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
@@ -36,7 +37,7 @@ import {
 import { privateKeyToAccount } from 'viem/accounts';
 
 import type { PublisherConfig, TxSenderConfig } from './config.js';
-import { SequencerPublisher, SignalType } from './sequencer-publisher.js';
+import { SequencerPublisher } from './sequencer-publisher.js';
 
 const mockRollupAddress = EthAddress.random().toString();
 const mockGovernanceProposerAddress = EthAddress.random().toString();
@@ -48,6 +49,7 @@ describe('SequencerPublisher', () => {
   let rollup: MockProxy<RollupContract>;
   let slashingProposerContract: MockProxy<SlashingProposerContract>;
   let governanceProposerContract: MockProxy<GovernanceProposerContract>;
+  let slashFactoryContract: MockProxy<SlashFactoryContract>;
   let l1TxUtils: MockProxy<L1TxUtilsWithBlobs>;
   let forwardSpy: jest.SpiedFunction<typeof Multicall3.forward>;
 
@@ -120,6 +122,7 @@ describe('SequencerPublisher', () => {
 
     slashingProposerContract = mock<SlashingProposerContract>();
     governanceProposerContract = mock<GovernanceProposerContract>();
+    slashFactoryContract = mock<SlashFactoryContract>();
 
     const epochCache = mock<EpochCache>();
     epochCache.getEpochAndSlotNow.mockReturnValue({ epoch: 1n, slot: 2n, ts: 3n, now: 3n });
@@ -132,6 +135,7 @@ describe('SequencerPublisher', () => {
       epochCache,
       slashingProposerContract,
       governanceProposerContract,
+      slashFactoryContract,
       dateProvider: new TestDateProvider(),
     });
 
@@ -229,12 +233,11 @@ describe('SequencerPublisher', () => {
     });
     rollup.getProposerAt.mockResolvedValueOnce(mockForwarderAddress);
     expect(
-      await publisher.enqueueCastSignal(
+      await publisher.enqueueGovernanceCastSignal(
         2n,
         1n,
-        SignalType.GOVERNANCE,
         EthAddress.fromString(testHarnessPrivateKey.address),
-        msg => testHarnessPrivateKey.signTypedData(msg),
+        (msg: any) => testHarnessPrivateKey.signTypedData(msg),
       ),
     ).toEqual(true);
 
@@ -263,6 +266,7 @@ describe('SequencerPublisher', () => {
       [],
       blobInput,
     ] as const;
+
     expect(forwardSpy).toHaveBeenCalledWith(
       [
         {

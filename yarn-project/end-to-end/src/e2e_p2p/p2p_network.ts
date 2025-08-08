@@ -21,6 +21,7 @@ import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import type { BootstrapNode } from '@aztec/p2p/bootstrap';
 import { createBootstrapNodeFromPrivateKey, getBootstrapNodeEnr } from '@aztec/p2p/test-helpers';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
+import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
 import { getGenesisValues } from '@aztec/world-state/testing';
@@ -415,11 +416,10 @@ export class P2PNetworkTest {
       client: this.ctx.deployL1ContractsValues.l1Client,
     });
 
-    const slashFactory = getContract({
-      address: getAddress(this.ctx.deployL1ContractsValues.l1ContractAddresses.slashFactoryAddress!.toString()),
-      abi: SlashFactoryAbi,
-      client: this.ctx.deployL1ContractsValues.l1Client,
-    });
+    const slashFactory = new SlashFactoryContract(
+      this.ctx.deployL1ContractsValues.l1Client,
+      getAddress(this.ctx.deployL1ContractsValues.l1ContractAddresses.slashFactoryAddress!.toString()),
+    );
 
     return { rollup, slasherContract, slashingProposer, slashFactory };
   }

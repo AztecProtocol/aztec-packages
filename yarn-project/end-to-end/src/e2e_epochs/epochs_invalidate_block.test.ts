@@ -8,7 +8,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { bufferToHex } from '@aztec/foundation/string';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
-import { Offense } from '@aztec/slasher';
+import { OffenseType } from '@aztec/slasher';
 
 import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -20,7 +20,6 @@ jest.setTimeout(1000 * 60 * 10);
 
 const NODE_COUNT = 3;
 const VALIDATOR_COUNT = 3;
-const SLASHER_PRIVATE_KEYS_START_INDEX = 12;
 
 describe('e2e_epochs/epochs_invalidate_block', () => {
   let context: EndToEndContext;
@@ -65,12 +64,11 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     // Start the validator nodes
     logger.warn(`Initial setup complete. Starting ${NODE_COUNT} validator nodes.`);
     const validatorNodes = validators.slice(0, NODE_COUNT);
-    nodes = await asyncMap(validatorNodes, ({ privateKey }, i) =>
+    nodes = await asyncMap(validatorNodes, ({ privateKey }) =>
       test.createValidatorNode([privateKey], {
         dontStartSequencer: true,
         minTxsPerBlock: 1,
         maxTxsPerBlock: 1,
-        slasherPrivateKey: new SecretValue(bufferToHex(getPrivateKeyFromIndex(SLASHER_PRIVATE_KEYS_START_INDEX + i)!)),
       }),
     );
     logger.warn(`Started ${NODE_COUNT} validator nodes.`, { validators: validatorNodes.map(v => v.attester) });
@@ -159,9 +157,11 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     logger.warn(`Transaction included in block ${receipt.blockNumber}`);
 
     // Check that we have created a slash payload for the proposer of the invalidated block
-    const monitoredPayloads = await context.aztecNodeAdmin!.getSlasherMonitoredPayloads();
+    const monitoredPayloads = await context.aztecNodeAdmin!.getSlashPayloads();
     expect(monitoredPayloads).toHaveLength(1);
-    expect(monitoredPayloads[0].offenses).toEqual([Offense.PROPOSED_INSUFFICIENT_ATTESTATIONS]);
+    expect(monitoredPayloads[0].slashes[0].offenses[0].offenseType).toEqual([
+      OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+    ]);
   });
 
   it('proposer invalidates previous block without publishing its own', async () => {

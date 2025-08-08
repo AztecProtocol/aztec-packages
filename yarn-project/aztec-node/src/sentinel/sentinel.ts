@@ -5,7 +5,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { L2TipsMemoryStore, type L2TipsStore } from '@aztec/kv-store/stores';
 import type { P2PClient } from '@aztec/p2p';
-import { Offense } from '@aztec/slasher';
+import { OffenseType } from '@aztec/slasher';
 import type { SlasherConfig, WantToSlashArgs, Watcher, WatcherEmitter } from '@aztec/slasher/config';
 import { WANT_TO_SLASH_EVENT } from '@aztec/slasher/config';
 import {
@@ -126,7 +126,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     this.logger.info(`Proven performance for epoch ${epoch}`, performance);
 
     await this.updateProvenPerformance(epoch, performance);
-    this.handleProvenPerformance(performance);
+    this.handleProvenPerformance(epoch, performance);
   }
 
   protected async computeProvenPerformance(epoch: bigint) {
@@ -169,7 +169,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     return this.store.updateProvenPerformance(epoch, performance);
   }
 
-  protected handleProvenPerformance(performance: ValidatorsEpochPerformance) {
+  protected handleProvenPerformance(epoch: bigint, performance: ValidatorsEpochPerformance) {
     const criminals = Object.entries(performance)
       .filter(([_, { missed, total }]) => {
         return missed / total >= this.config.slashInactivityCreateTargetPercentage;
@@ -179,7 +179,8 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     const args = criminals.map(address => ({
       validator: EthAddress.fromString(address),
       amount: this.config.slashInactivityCreatePenalty,
-      offense: Offense.INACTIVITY,
+      offenseType: OffenseType.INACTIVITY,
+      epochOrSlot: epoch,
     }));
 
     this.logger.info(`Criminals: ${criminals.length}`, { args });

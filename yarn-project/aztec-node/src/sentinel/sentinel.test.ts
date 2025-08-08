@@ -4,8 +4,8 @@ import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { P2PClient } from '@aztec/p2p';
-import { Offense } from '@aztec/slasher';
-import type { SlasherConfig } from '@aztec/slasher/config';
+import { OffenseType } from '@aztec/slasher';
+import type { SlasherConfig, WantToSlashArgs } from '@aztec/slasher/config';
 import { WANT_TO_SLASH_EVENT } from '@aztec/slasher/config';
 import {
   type L2BlockSource,
@@ -458,9 +458,10 @@ describe('sentinel', () => {
         {
           validator: validator2,
           amount: config.slashInactivityCreatePenalty,
-          offense: Offense.INACTIVITY,
+          offenseType: OffenseType.INACTIVITY,
+          epochOrSlot: 1n,
         },
-      ]);
+      ] satisfies WantToSlashArgs[]);
     });
 
     it('should agree with slash', async () => {
@@ -477,28 +478,31 @@ describe('sentinel', () => {
       await sentinel.updateProvenPerformance(1n, performance);
       const emitSpy = jest.spyOn(sentinel, 'emit');
 
-      sentinel.handleProvenPerformance(performance);
+      sentinel.handleProvenPerformance(1n, performance);
       const penalty = config.slashInactivityCreatePenalty;
 
       expect(emitSpy).toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, [
         {
           validator: EthAddress.fromString(`0x0000000000000000000000000000000000000008`),
           amount: penalty,
-          offense: Offense.INACTIVITY,
+          offenseType: OffenseType.INACTIVITY,
+          epochOrSlot: 1n,
         },
         {
           validator: EthAddress.fromString(`0x0000000000000000000000000000000000000009`),
           amount: penalty,
-          offense: Offense.INACTIVITY,
+          offenseType: OffenseType.INACTIVITY,
+          epochOrSlot: 1n,
         },
-      ]);
+      ] satisfies WantToSlashArgs[]);
 
       for (let i = 0; i < 10; i++) {
         const expectedAgree = i >= 6;
         const actualAgree = await sentinel.shouldSlash({
           validator: EthAddress.fromString(`0x000000000000000000000000000000000000000${i}`),
           amount: config.slashInactivityMaxPenalty,
-          offense: Offense.INACTIVITY,
+          offenseType: OffenseType.INACTIVITY,
+          epochOrSlot: 1n,
         });
         expect(actualAgree).toBe(expectedAgree);
 
@@ -507,7 +511,8 @@ describe('sentinel', () => {
           sentinel.shouldSlash({
             validator: EthAddress.fromString(`0x000000000000000000000000000000000000000${i}`),
             amount: config.slashInactivityMaxPenalty + 1n,
-            offense: Offense.INACTIVITY,
+            offenseType: OffenseType.INACTIVITY,
+            epochOrSlot: 1n,
           }),
         ).resolves.toBe(false);
       }
@@ -559,8 +564,8 @@ class TestSentinel extends Sentinel {
     return super.computeStats(opts);
   }
 
-  public override handleProvenPerformance(performance: ValidatorsEpochPerformance) {
-    return super.handleProvenPerformance(performance);
+  public override handleProvenPerformance(epoch: bigint, performance: ValidatorsEpochPerformance) {
+    return super.handleProvenPerformance(epoch, performance);
   }
 
   public override updateProvenPerformance(epoch: bigint, performance: ValidatorsEpochPerformance) {

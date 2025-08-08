@@ -3,6 +3,7 @@ import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import {
   AztecAddress,
+  EthAddress,
   Fr,
   type Logger,
   ProvenTx,
@@ -15,11 +16,11 @@ import type { RollupCheatCodes } from '@aztec/aztec/testing';
 import type { RollupContract, ViemClient } from '@aztec/ethereum';
 import { timesAsync } from '@aztec/foundation/collection';
 import type { EmpireSlashingProposerAbi } from '@aztec/l1-artifacts/EmpireSlashingProposerAbi';
-import type { SlashFactoryAbi } from '@aztec/l1-artifacts/SlashFactoryAbi';
 import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { TestContract, TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
 import { PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe/server';
-import { Offense, OffenseToBigInt } from '@aztec/slasher';
+import { OffenseType, type ValidatorSlash } from '@aztec/slasher';
+import type { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 
 import type { GetContractReturnType } from 'viem';
 
@@ -155,6 +156,7 @@ export async function awaitCommitteeExists({
  */
 export async function awaitCommitteeKicked({
   offense,
+  epochOrSlot,
   rollup,
   cheatCodes,
   committee,
@@ -166,12 +168,13 @@ export async function awaitCommitteeKicked({
   logger,
   sendDummyTx,
 }: {
-  offense: Offense;
+  offense: OffenseType;
+  epochOrSlot: bigint;
   rollup: RollupContract;
   cheatCodes: RollupCheatCodes;
   committee: readonly `0x${string}`[];
   slashingAmount: bigint;
-  slashFactory: GetContractReturnType<typeof SlashFactoryAbi, ViemClient>;
+  slashFactory: SlashFactoryContract;
   slashingProposer: GetContractReturnType<typeof EmpireSlashingProposerAbi, ViemClient>;
   slashingRoundSize: number;
   aztecSlotDuration: number;
@@ -179,14 +182,15 @@ export async function awaitCommitteeKicked({
   sendDummyTx: () => Promise<void>;
 }) {
   logger.info(`Waiting for slash payload to be deployed`);
-  const expectedSlashes = Array.from({ length: committee.length }, () => slashingAmount);
   const sortedCommittee = [...committee].sort((a, b) => a.localeCompare(b));
+  const expectedSlashes: ValidatorSlash[] = sortedCommittee.map(v => ({
+    validator: EthAddress.fromString(v),
+    amount: slashingAmount,
+    offenses: [{ epochOrSlot, offenseType: offense }],
+  }));
   await retryUntil(
     async () => {
-      const [address, _, isDeployed] = await slashFactory.read.getAddressAndIsDeployed([
-        sortedCommittee,
-        expectedSlashes,
-      ]);
+      const { address, isDeployed } = await slashFactory.getAddressAndIsDeployed(expectedSlashes);
       return address && isDeployed;
     },
     'slash payload deployed',
@@ -194,11 +198,9 @@ export async function awaitCommitteeKicked({
     1,
   );
 
-  const slashPayloadEvents = await slashFactory.getEvents.SlashPayloadCreated();
+  const slashPayloadEvents = await slashFactory.getSlashPayloadCreatedEvents();
   expect(slashPayloadEvents.length).toBe(1);
-  expect(slashPayloadEvents[0].args.offenses).toEqual(
-    Array.from({ length: committee.length }, () => OffenseToBigInt[offense]),
-  );
+  expect(slashPayloadEvents[0].slashes).toHaveLength(committee.length);
 
   const attestersPre = await rollup.getAttesters();
   expect(attestersPre.length).toBe(committee.length);

@@ -29,8 +29,10 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
-import { EmpireBaseAbi, ErrorsAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { EmpireBaseAbi, ErrorsAbi, RollupAbi, SlashFactoryAbi } from '@aztec/l1-artifacts';
+import type { ProposerSlashAction, ValidatorSlash } from '@aztec/slasher';
 import { CommitteeAttestation, type ValidateBlockResult } from '@aztec/stdlib/block';
+import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import { ConsensusPayload, SignatureDomainSeparator, getHashedSignaturePayload } from '@aztec/stdlib/p2p';
 import type { L1PublishBlockStats } from '@aztec/stdlib/stats';
 import { type ProposedBlockHeader, StateReference, TxHash } from '@aztec/stdlib/tx';
@@ -63,18 +65,18 @@ export enum SignalType {
   SLASHING,
 }
 
-type GetSlashPayloadCallBack = (slotNumber: bigint) => Promise<EthAddress | undefined>;
-
 const Actions = [
   'propose',
   'governance-signal',
   'slashing-signal',
+  'create-slashing-payload',
+  'execute-slashing-payload',
   'invalidate-by-invalid-attestation',
   'invalidate-by-insufficient-attestations',
 ] as const;
 export type Action = (typeof Actions)[number];
 
-// Sorting for actions such that invalidations go first, then proposals, and last votes
+// Sorting for actions such that invalidations go before proposals, and proposals go before votes
 const compareActions = (a: Action, b: Action) => Actions.indexOf(b) - Actions.indexOf(a);
 
 export type InvalidateBlockRequest = {
@@ -106,7 +108,7 @@ export class SequencerPublisher {
   private governancePayload: EthAddress = EthAddress.ZERO;
 
   protected slashingLog = createLogger('sequencer:publisher:slashing');
-  private getSlashPayload?: GetSlashPayloadCallBack = undefined;
+  protected slashingProposerAddress?: EthAddress;
 
   private myLastSignals: Record<SignalType, bigint> = {
     [SignalType.GOVERNANCE]: 0n,
@@ -132,6 +134,7 @@ export class SequencerPublisher {
   public rollupContract: RollupContract;
   public govProposerContract: GovernanceProposerContract;
   public slashingProposerContract: SlashingProposerContract;
+  public slashFactoryContract: SlashFactoryContract;
 
   protected requests: RequestWithExpiry[] = [];
 
@@ -144,6 +147,7 @@ export class SequencerPublisher {
       rollupContract: RollupContract;
       slashingProposerContract: SlashingProposerContract;
       governanceProposerContract: GovernanceProposerContract;
+      slashFactoryContract: SlashFactoryContract;
       epochCache: EpochCache;
       dateProvider: DateProvider;
     },
@@ -168,14 +172,11 @@ export class SequencerPublisher {
       const newSlashingProposer = await this.rollupContract.getSlashingProposer();
       this.slashingProposerContract = newSlashingProposer;
     });
+    this.slashFactoryContract = deps.slashFactoryContract;
   }
 
   public getRollupContract(): RollupContract {
     return this.rollupContract;
-  }
-
-  public registerSlashPayloadGetter(callback: GetSlashPayloadCallBack) {
-    this.getSlashPayload = callback;
   }
 
   public getSenderAddress() {
@@ -574,10 +575,11 @@ export class SequencerPublisher {
       await this.l1TxUtils.simulate(request, { time: timestamp }, [], ErrorsAbi);
       this.log.debug(`Simulation for ${action} at slot ${slotNumber} succeeded`, { request });
     } catch (err) {
-      this.log.warn(`Failed simulation for ${action} at slot ${slotNumber} (enqueuing the action anyway)`, err);
+      this.log.error(`Failed simulation for ${action} at slot ${slotNumber} (enqueuing the action anyway)`, err);
       // Yes, we enqueue the request anyway, in case there was a bug with the simulation itself
     }
 
+    // TODO(palla/slash): All votes (governance and slashing) should txTimeoutAt at the end of the slot.
     this.addRequest({
       gasConfig: { gasLimit: SequencerPublisher.VOTE_GAS_GUESS },
       action,
@@ -610,48 +612,78 @@ export class SequencerPublisher {
     return true;
   }
 
-  private async getSignalConfig(
-    slotNumber: bigint,
-    signalType: SignalType,
-  ): Promise<{ payload: EthAddress; base: IEmpireBase } | undefined> {
-    if (signalType === SignalType.GOVERNANCE) {
-      return { payload: this.governancePayload, base: this.govProposerContract };
-    } else if (signalType === SignalType.SLASHING) {
-      if (!this.getSlashPayload) {
-        return undefined;
-      }
-      const slashPayload = await this.getSlashPayload(slotNumber);
-      if (!slashPayload) {
-        return undefined;
-      }
-      this.log.info(`Slash payload: ${slashPayload}`);
-      return { payload: slashPayload, base: this.slashingProposerContract };
-    } else {
-      const _: never = signalType;
-      throw new Error('Unreachable: Invalid signal type');
-    }
-  }
-
   /**
-   * Enqueues a castSignal transaction to cast a signal for a given slot number.
+   * Enqueues a governance castSignal transaction to cast a signal for a given slot number.
    * @param slotNumber - The slot number to cast a signal for.
    * @param timestamp - The timestamp of the slot to cast a signal for.
-   * @param signalType - The type of signal to cast.
    * @returns True if the signal was successfully enqueued, false otherwise.
    */
-  public async enqueueCastSignal(
+  public enqueueGovernanceCastSignal(
     slotNumber: bigint,
     timestamp: bigint,
-    signalType: SignalType,
     signerAddress: EthAddress,
     signer: (msg: TypedDataDefinition) => Promise<`0x${string}`>,
   ): Promise<boolean> {
-    const signalConfig = await this.getSignalConfig(slotNumber, signalType);
-    if (!signalConfig) {
+    return this.enqueueCastSignalHelper(
+      slotNumber,
+      timestamp,
+      SignalType.GOVERNANCE,
+      this.governancePayload,
+      this.govProposerContract,
+      signerAddress,
+      signer,
+    );
+  }
+
+  /** Enqueues all slashing actions as returned by the slasher client. */
+  public async enqueueSlashingActions(
+    actions: ProposerSlashAction[],
+    slotNumber: bigint,
+    timestamp: bigint,
+    signerAddress: EthAddress,
+    signer: (msg: TypedDataDefinition) => Promise<`0x${string}`>,
+  ): Promise<boolean> {
+    if (actions.length === 0) {
+      this.log.debug(`No slashing actions to enqueue for slot ${slotNumber}`);
       return false;
     }
-    const { payload, base } = signalConfig;
-    return this.enqueueCastSignalHelper(slotNumber, timestamp, signalType, payload, base, signerAddress, signer);
+
+    for (const action of actions) {
+      switch (action.type) {
+        case 'vote-payload': {
+          this.log.debug(`Enqueuing slashing vote for payload ${action.payload} at slot ${slotNumber}`, {
+            slotNumber,
+            signerAddress,
+          });
+          await this.enqueueCastSignalHelper(
+            slotNumber,
+            timestamp,
+            SignalType.SLASHING,
+            action.payload,
+            this.slashingProposerContract,
+            signerAddress,
+            signer,
+          );
+          break;
+        }
+        case 'create-payload': {
+          this.log.debug(`Enqueuing slashing create payload at slot ${slotNumber}`, { slotNumber, signerAddress });
+          await this.enqueueCreateSlashingPayload(slotNumber, timestamp, action.data);
+          break;
+        }
+        case 'execute-payload': {
+          this.log.debug(`Enqueuing slashing execute payload at slot ${slotNumber}`, { slotNumber, signerAddress });
+          await this.enqueueExecuteSlashingPayload(slotNumber, timestamp, action.round);
+          break;
+        }
+        default: {
+          const _: never = action;
+          throw new Error(`Unknown slashing action type: ${(action as ProposerSlashAction).type}`);
+        }
+      }
+    }
+
+    return true;
   }
 
   /**
@@ -711,7 +743,7 @@ export class SequencerPublisher {
       return;
     }
 
-    // We issue the simulation against the rollup contract, so we need to account for the overhead of the multicall3
+    // We issued the simulation against the rollup contract, so we need to account for the overhead of the multicall3
     const gasLimit = this.l1TxUtils.bumpGasLimit(BigInt(Math.ceil((Number(request.gasUsed) * 64) / 63)));
 
     const logData = { ...pick(request, 'gasUsed', 'blockNumber'), gasLimit, opts };
@@ -735,6 +767,106 @@ export class SequencerPublisher {
         return !!success;
       },
     });
+  }
+
+  /**
+   * Simulates and enqueues a request to create a slashing payload.
+   */
+  public async enqueueCreateSlashingPayload(
+    slotNumber: bigint,
+    timestamp: bigint,
+    payloadData: ValidatorSlash[],
+  ): Promise<boolean> {
+    const request = this.slashFactoryContract.buildCreatePayloadRequest(payloadData);
+    const logData = { slotNumber, timestamp, payloadData, gasLimit: undefined as bigint | undefined };
+    let gasUsed: bigint;
+
+    this.log.debug(`Simulating create slashing payload`, logData);
+    try {
+      ({ gasUsed } = await this.l1TxUtils.simulate(request, { time: timestamp }, [], ErrorsAbi)); // TODO: Check the timestmap logic
+      this.log.verbose(`Simulation for create slashing payload succeeded`, { ...logData, request, gasUsed });
+    } catch (err) {
+      const viemError = formatViemError(err);
+      this.log.error(`Simulation for create slashing payload at ${slotNumber} failed`, viemError, logData);
+      return false;
+    }
+
+    // We issued the simulation against the rollup contract, so we need to account for the overhead of the multicall3
+    const gasLimit = this.l1TxUtils.bumpGasLimit(BigInt(Math.ceil((Number(gasUsed) * 64) / 63)));
+    logData.gasLimit = gasLimit;
+
+    this.log.debug(`Enqueuing create slashing payload`, logData);
+    this.addRequest({
+      action: 'create-slashing-payload',
+      request,
+      gasConfig: { gasLimit },
+      lastValidL2Slot: slotNumber,
+      checkSuccess: (_req, result) => {
+        const success =
+          result &&
+          result.receipt &&
+          result.receipt.status === 'success' &&
+          tryExtractEvent(
+            result.receipt.logs,
+            this.slashFactoryContract.address.toString(),
+            SlashFactoryAbi,
+            'SlashPayloadCreated',
+          );
+        if (!success) {
+          this.log.warn(`Create slashing payload at ${slotNumber} failed`, { ...result, ...logData });
+        } else {
+          this.log.info(`Create slashing payload at ${slotNumber} succeeded`, { ...result, ...logData });
+        }
+        return !!success;
+      },
+    });
+    return true;
+  }
+
+  /**
+   * Simulates and enqueues a request to execute a slashing payload.
+   * REFACTOR: This method is very similar to `enqueueCreateSlashingPayload`
+   */
+  public async enqueueExecuteSlashingPayload(slotNumber: bigint, timestamp: bigint, round: bigint): Promise<boolean> {
+    const request = this.slashingProposerContract.buildExecuteRoundRequest(round);
+    const logData = { slotNumber, timestamp, round, gasLimit: undefined as bigint | undefined };
+    let gasUsed: bigint;
+
+    this.log.debug(`Simulating execute slashing payload`, logData);
+    try {
+      ({ gasUsed } = await this.l1TxUtils.simulate(request, { time: timestamp }, [], ErrorsAbi)); // TODO: Check the timestmap logic
+      this.log.verbose(`Simulation for execute slashing payload succeeded`, { ...logData, request, gasUsed });
+    } catch (err) {
+      const viemError = formatViemError(err);
+      this.log.error(`Simulation for execute slashing payload at ${slotNumber} failed`, viemError, logData);
+      return false;
+    }
+
+    // We issued the simulation against the rollup contract, so we need to account for the overhead of the multicall3
+    const gasLimit = this.l1TxUtils.bumpGasLimit(BigInt(Math.ceil((Number(gasUsed) * 64) / 63)));
+    logData.gasLimit = gasLimit;
+
+    this.log.debug(`Enqueuing execute slashing payload`, logData);
+    this.addRequest({
+      action: 'execute-slashing-payload',
+      request,
+      gasConfig: { gasLimit },
+      lastValidL2Slot: slotNumber,
+      checkSuccess: (_req, result) => {
+        const success =
+          result &&
+          result.receipt &&
+          result.receipt.status === 'success' &&
+          this.slashingProposerContract.tryExtractPayloadSubmittedEvent(result.receipt.logs);
+        if (!success) {
+          this.log.warn(`Execute slashing payload for round ${round} failed`, { ...result, ...logData });
+        } else {
+          this.log.info(`Execute slashing payload for round ${round} succeeded`, { ...result, ...logData });
+        }
+        return !!success;
+      },
+    });
+    return true;
   }
 
   /**

@@ -1,32 +1,22 @@
-import {
-  DefaultL1ContractsConfig,
-  type DeployL1ContractsArgs,
-  type ExtendedViemWalletClient,
-  type L1ReaderConfig,
-  L1TxUtils,
-  RollupContract,
-  SlashingProposerContract,
-  type ViemClient,
-  createExtendedL1Client,
-  deployL1Contracts,
-} from '@aztec/ethereum';
-import { EthCheatCodes, RollupCheatCodes, startAnvil } from '@aztec/ethereum/test';
-import { SecretValue } from '@aztec/foundation/config';
+import { SlashingProposerContract } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { retryUntil } from '@aztec/foundation/retry';
-import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
-import { SlashFactoryAbi } from '@aztec/l1-artifacts/SlashFactoryAbi';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
-import { Offense } from '@aztec/stdlib/slashing';
+import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
+import {
+  type Offense,
+  OffenseType,
+  type ProposerSlashAction,
+  type SlashPayload,
+  type SlashPayloadRound,
+} from '@aztec/stdlib/slashing';
 
-import type { Anvil } from '@viem/anvil';
+import { jest } from '@jest/globals';
+import { type MockProxy, mockDeep } from 'jest-mock-extended';
+import assert from 'node:assert';
 import EventEmitter from 'node:events';
-import { type GetContractReturnType, getAddress, getContract } from 'viem';
-import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
-import { foundry } from 'viem/chains';
 
 import {
   DefaultSlasherConfig,
@@ -35,125 +25,157 @@ import {
   type Watcher,
   type WatcherEmitter,
 } from './config.js';
-import { SlasherClient } from './slasher_client.js';
-
-const originalVersionSalt = 42;
-const aztecSlotDuration = 4;
-const ethereumSlotDuration = 2;
+import { SlasherClient, type SlasherSettings } from './slasher_client.js';
+import { SlasherOffensesStore } from './stores/offenses_store.js';
+import { SlasherPayloadsStore } from './stores/payloads_store.js';
 
 describe('SlasherClient', () => {
-  let anvil: Anvil;
-  let anvilMethodCalls: string[] | undefined;
-  let rpcUrl: string;
-  let slasherPrivateKey: PrivateKeyAccount;
-  let testHarnessPrivateKey: PrivateKeyAccount;
+  let slasherClient: TestSlasherClient;
+  let slashFactoryContract: MockProxy<SlashFactoryContract>;
+  let slashingProposer: MockProxy<SlashingProposerContract>;
+  let dummyWatcher: DummyWatcher;
+  let kvStore: ReturnType<typeof openTmpStore>;
+  let offensesStore: SlasherOffensesStore;
+  let payloadsStore: SlasherPayloadsStore;
+  let dateProvider: DateProvider;
   let logger: Logger;
 
-  let vkTreeRoot: Fr;
-  let protocolContractTreeRoot: Fr;
+  const rollupAddress = EthAddress.random();
+  const settings: SlasherSettings = {
+    slashingExecutionDelayInRounds: 2n,
+    slashingPayloadLifetimeInRounds: 10n,
+    slashingRoundSize: 200n,
+    slashingQuorumSize: 120n,
+    epochDuration: 32,
+    proofSubmissionEpochs: 8,
+    l1GenesisTime: BigInt(Math.floor(Date.now() / 1000) - 10000),
+    l1StartBlock: 0n,
+    slotDuration: 4,
+    ethereumSlotDuration: 12,
+  };
 
-  let slasherClient: TestSlasherClient;
-  let dummyWatcher: DummyWatcher;
-  let rollup: RollupContract;
-  let slashingProposer: SlashingProposerContract;
-  let l1TxUtils: L1TxUtils;
-  let activationThreshold: bigint;
-  let slasherL1Client: ExtendedViemWalletClient;
-  let testHarnessL1Client: ExtendedViemWalletClient;
-  let ethCheatCodes: EthCheatCodes;
+  const config: SlasherConfig = {
+    ...DefaultSlasherConfig,
+    slashGracePeriodL2Slots: 10,
+    slashMaxPayloadSize: 100,
+  };
 
-  beforeEach(async () => {
-    logger = createLogger('slasher:test:slasher_client');
-    // this is the 6th address that gets funded by the junk mnemonic
-    slasherPrivateKey = privateKeyToAccount('0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba');
-    testHarnessPrivateKey = privateKeyToAccount('0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a');
+  const makeSlashPayload = (
+    opts: {
+      amount?: bigint;
+      address?: EthAddress;
+      validator?: EthAddress;
+      offenseType?: OffenseType;
+      epochOrSlot?: bigint;
+    } = {},
+  ): SlashPayload => {
+    const { amount = 100n, address, validator, offenseType = OffenseType.INACTIVITY, epochOrSlot = 1n } = opts;
+    const payloadAddress = address ?? EthAddress.random();
+    const validatorAddress = validator ?? EthAddress.random();
 
-    vkTreeRoot = Fr.random();
-    protocolContractTreeRoot = Fr.random();
+    const slashes =
+      amount === 0n ? [] : [{ validator: validatorAddress, amount, offenses: [{ epochOrSlot, offenseType }] }];
 
-    ({ anvil, rpcUrl, methodCalls: anvilMethodCalls } = await startAnvil({ captureMethodCalls: true }));
-
-    // Need separate clients for slasher and test harness to avoid nonce conflicts.
-    slasherL1Client = createExtendedL1Client([rpcUrl], slasherPrivateKey, foundry);
-    testHarnessL1Client = createExtendedL1Client([rpcUrl], testHarnessPrivateKey, foundry);
-
-    const config: DeployL1ContractsArgs = {
-      ...DefaultL1ContractsConfig,
-      salt: originalVersionSalt,
-      vkTreeRoot,
-      protocolContractTreeRoot,
-      genesisArchiveRoot: Fr.random(),
-      slashingQuorum: 6,
-      slashingRoundSize: 10,
-      slashingExecutionDelayInRounds: 1,
-      ethereumSlotDuration,
-      aztecSlotDuration,
-      aztecEpochDuration: 4,
-      aztecTargetCommitteeSize: 1,
-      initialValidators: [
-        {
-          attester: EthAddress.fromString(slasherL1Client.account.address),
-          withdrawer: EthAddress.fromString(slasherL1Client.account.address),
-          bn254SecretKey: new SecretValue(Fr.random().toBigInt()),
-        },
-      ],
-      realVerifier: false,
+    const payload: SlashPayload = {
+      address: payloadAddress,
+      slashes,
+      timestamp: BigInt(Date.now()),
     };
 
-    const deployed = await deployL1Contracts([rpcUrl], testHarnessPrivateKey, foundry, logger, config);
+    return payload;
+  };
 
-    const cheatCodes = RollupCheatCodes.create([rpcUrl], {
-      rollupAddress: deployed.l1ContractAddresses.rollupAddress,
-    });
+  const makeSlashPayloadRound = (
+    opts: {
+      amount?: bigint;
+      votes?: bigint;
+      round?: bigint;
+      address?: EthAddress;
+      validator?: EthAddress;
+      offenseType?: OffenseType;
+      epochOrSlot?: bigint;
+    } = {},
+  ): SlashPayloadRound => {
+    const { votes = 1n, round = 1n } = opts;
 
-    ethCheatCodes = new EthCheatCodes([rpcUrl]);
-    await cheatCodes.advanceToEpoch(2n);
+    const slashPayload = makeSlashPayload(opts);
+    return { ...slashPayload, votes, round };
+  };
 
-    l1TxUtils = new L1TxUtils(testHarnessL1Client, logger);
+  const addSlashPayload = async (opts: Parameters<typeof makeSlashPayloadRound>[0]): Promise<SlashPayloadRound> => {
+    const payload = makeSlashPayloadRound(opts);
+    await payloadsStore.addPayload(payload);
+    return payload;
+  };
 
+  const addPendingOffense = async (opts: {
+    amount?: bigint;
+    offenseType?: OffenseType;
+    epochOrSlot?: bigint;
+    validator?: EthAddress;
+  }): Promise<Offense> => {
+    const { amount = 100n, offenseType = OffenseType.UNKNOWN, epochOrSlot = 20n, validator } = opts;
+    const validatorAddress = validator ?? EthAddress.random();
+
+    const offense: Offense = {
+      validator: validatorAddress,
+      amount,
+      offenseType: offenseType,
+      epochOrSlot,
+    };
+
+    await offensesStore.addPendingOffense(offense);
+    return offense;
+  };
+
+  const expectActionCreatePayload = (action: ProposerSlashAction, expectedOffense: Offense) => {
+    expect(action.type).toBe('create-payload');
+    assert(action.type === 'create-payload');
+    expect(action.data).toHaveLength(1);
+    expect(action.data[0].validator).toEqual(expectedOffense.validator);
+    expect(action.data[0].amount).toEqual(expectedOffense.amount);
+    expect(action.data[0].offenses[0].offenseType).toEqual(expectedOffense.offenseType);
+  };
+
+  const expectActionVotePayload = (action: ProposerSlashAction, expectedPayload: EthAddress) => {
+    expect(action.type).toBe('vote-payload');
+    assert(action.type === 'vote-payload');
+    expect(action.payload).toEqual(expectedPayload);
+  };
+
+  beforeEach(() => {
+    logger = createLogger('slasher:test');
+    dateProvider = new DateProvider();
+
+    // Create real stores with in-memory database
+    kvStore = openTmpStore();
+    offensesStore = new SlasherOffensesStore(kvStore, settings);
+    payloadsStore = new SlasherPayloadsStore(kvStore);
+
+    // Create mocks for L1 contracts
+    slashFactoryContract = mockDeep<SlashFactoryContract>();
+    slashingProposer = mockDeep<SlashingProposerContract>();
+
+    // Create watcher
     dummyWatcher = new DummyWatcher();
 
-    slasherClient = await TestSlasherClient.new(
-      {
-        ...DefaultSlasherConfig,
-        slashInactivityCreatePenalty: 5n,
-        slashInactivityCreateTargetPercentage: 0.8,
-        slashInactivitySignalTargetPercentage: 0.6,
-        slashProposerRoundPollingIntervalSeconds: 0.25,
-        slashPayloadTtlSeconds: 100,
-      },
-      deployed.l1ContractAddresses,
-      new L1TxUtils(slasherL1Client, logger),
-      slasherL1Client,
+    // Create slasher client
+    slasherClient = new TestSlasherClient(
+      config,
+      settings,
+      slashFactoryContract,
+      slashingProposer,
+      rollupAddress,
       [dummyWatcher],
-      new DateProvider(),
-    );
-
-    await slasherClient.start();
-
-    rollup = new RollupContract(l1TxUtils.client, deployed.l1ContractAddresses.rollupAddress);
-    slashingProposer = await rollup.getSlashingProposer();
-
-    activationThreshold = await rollup.getActivationThreshold();
-
-    await retryUntil(
-      async () => {
-        await rollup.setupEpoch(l1TxUtils);
-        const c = await rollup.getCurrentEpochCommittee();
-        logger.debug('committee', c);
-        return c && c.length === 1 && c[0].toLowerCase() === slasherPrivateKey.address.toLowerCase();
-      },
-      'non-empty committee',
-      20,
-      1,
+      dateProvider,
+      offensesStore,
+      payloadsStore,
+      logger,
     );
   });
 
   afterEach(async () => {
-    // Make sure we do not ask anvil to sign, this should be handled by the wallet client
-    expect(anvilMethodCalls).not.toContain('eth_signTypedData_v4');
-    await slasherClient.stop();
-    await anvil.stop().catch(logger.error);
+    await kvStore.close();
   });
 
   it('creates payloads when the watcher signals', async () => {
@@ -339,194 +361,615 @@ describe('SlasherClient', () => {
       {
         validator: EthAddress.fromString('0x0000000000000000000000000000000000000003'),
         amount: 100n,
-        offense: Offense.UNKNOWN,
-      },
-      {
-        validator: EthAddress.fromString('0x0000000000000000000000000000000000000001'),
-        amount: 200n,
-        offense: Offense.VALID_EPOCH_PRUNED,
-      },
-      {
-        validator: EthAddress.fromString('0x0000000000000000000000000000000000000002'),
-        amount: 300n,
-        offense: Offense.INACTIVITY,
-      },
-    ]);
+        offenseType: OffenseType.UNKNOWN,
+        epochOrSlot: 1n,
+      };
 
-    await awaitMonitoredPayloads(slasherClient);
+      await slasherClient.handleWantToSlash([offense]);
+      await slasherClient.handleWantToSlash([offense]);
 
-    const payloadActions = slasherClient.getMonitoredPayloads();
-    expect(payloadActions.length).toBe(1);
-    expect(payloadActions[0].validators).toEqual([
-      EthAddress.fromString('0x0000000000000000000000000000000000000001'),
-      EthAddress.fromString('0x0000000000000000000000000000000000000002'),
-      EthAddress.fromString('0x0000000000000000000000000000000000000003'),
-    ]);
-    expect(payloadActions[0].offenses).toEqual([Offense.VALID_EPOCH_PRUNED, Offense.INACTIVITY, Offense.UNKNOWN]);
-    expect(payloadActions[0].amounts).toEqual([200n, 300n, 100n]);
+      const pendingOffenses = await offensesStore.getPendingOffenses();
+      expect(pendingOffenses).toHaveLength(1);
+    });
+
+    it('skips duplicate offenses with different amounts', async () => {
+      const validator = EthAddress.random();
+      const offense: WantToSlashArgs = {
+        validator,
+        amount: 100n,
+        offenseType: OffenseType.UNKNOWN,
+        epochOrSlot: 1n,
+      };
+
+      await slasherClient.handleWantToSlash([offense]);
+      await slasherClient.handleWantToSlash([{ ...offense, amount: 200n }]);
+
+      const pendingOffenses = await offensesStore.getPendingOffenses();
+      expect(pendingOffenses).toHaveLength(1);
+      expect(pendingOffenses[0]).toEqual(offense); // First one wins
+    });
+
+    it('skips offenses during grace period', async () => {
+      const validator = EthAddress.random();
+      const offense: WantToSlashArgs = {
+        validator,
+        amount: 100n,
+        offenseType: OffenseType.PROPOSED_INCORRECT_ATTESTATIONS, // Use a slot-based offense
+        epochOrSlot: 1n, // Slot 1 is within grace period of 10 slots
+      };
+
+      await slasherClient.handleWantToSlash([offense]);
+
+      const pendingOffenses = await offensesStore.getPendingOffenses();
+      expect(pendingOffenses).toHaveLength(0);
+    });
+
+    it('allows offenses after grace period', async () => {
+      const validator = EthAddress.random();
+      const offense: WantToSlashArgs = {
+        validator,
+        amount: 100n,
+        offenseType: OffenseType.PROPOSED_INCORRECT_ATTESTATIONS, // Use a slot-based offense
+        epochOrSlot: 20n, // After grace period of 10 slots
+      };
+
+      await slasherClient.handleWantToSlash([offense]);
+
+      const pendingOffenses = await offensesStore.getPendingOffenses();
+      expect(pendingOffenses).toHaveLength(1);
+    });
   });
 
-  it('handles replaying the same payload', async () => {
-    // trigger a payload
-    // observe it in monitored
-    // clear monitored
-    // trigger the same payload again
-    // observe it in monitored
-    // trigger the same payload again (without clearing)
-    // should only be one payload in monitored
-
-    const validator = EthAddress.random();
-    expect(slasherClient.getMonitoredPayloads()).toEqual([]);
-    dummyWatcher.triggerSlash([
-      {
-        validator,
-        amount: activationThreshold,
-        offense: Offense.UNKNOWN,
-      },
-    ]);
-
-    await awaitMonitoredPayloads(slasherClient);
-    slasherClient.clearMonitoredPayloads();
-
-    dummyWatcher.triggerSlash([
-      {
-        validator,
-        amount: activationThreshold,
-        offense: Offense.UNKNOWN,
-      },
-    ]);
-
-    await awaitMonitoredPayloads(slasherClient);
-
-    expect(slasherClient.getMonitoredPayloads().length).toEqual(1);
-    expect(slasherClient.getMonitoredPayloads()[0].validators).toEqual([validator]);
-    expect(slasherClient.getMonitoredPayloads()[0].amounts).toEqual([activationThreshold]);
-    expect(slasherClient.getMonitoredPayloads()[0].offenses).toEqual([Offense.UNKNOWN]);
-
-    dummyWatcher.triggerSlash([
-      {
-        validator,
-        amount: activationThreshold,
-        offense: Offense.UNKNOWN,
-      },
-    ]);
-
-    // manually sleep for 3 slots
-    await sleep(ethereumSlotDuration * 3 * 1000);
-
-    // now ensure that we only have one payload in monitored
-    await awaitMonitoredPayloads(slasherClient);
-    expect(slasherClient.getMonitoredPayloads().length).toEqual(1);
-    expect(slasherClient.getMonitoredPayloads()[0].validators).toEqual([validator]);
-    expect(slasherClient.getMonitoredPayloads()[0].amounts).toEqual([activationThreshold]);
-    expect(slasherClient.getMonitoredPayloads()[0].offenses).toEqual([Offense.UNKNOWN]);
+  describe('handleNewRound', () => {
+    it.todo('clears expired payloads and offenses');
   });
 
-  it('handles multiple payloads with the same validator but different offenses', async () => {
-    const validator = EthAddress.random();
-    expect(slasherClient.getMonitoredPayloads()).toEqual([]);
+  describe('handleProposalExecutable', () => {
+    it('tracks executable payloads and marks offenses as not pending', async () => {
+      const validator = EthAddress.random();
+      const round = 1n;
 
-    dummyWatcher.triggerSlash([
-      {
-        validator,
-        amount: activationThreshold - 1n,
-        offense: Offense.UNKNOWN,
-      },
-    ]);
-    await awaitMonitoredPayloads(slasherClient, 1);
+      // Add pending offenses
+      const slashedOffense = await addPendingOffense({ validator, epochOrSlot: 1n });
+      const anotherOffense = await addPendingOffense({ validator, epochOrSlot: 2n });
 
-    dummyWatcher.triggerSlash([
-      {
-        validator,
-        amount: activationThreshold,
-        offense: Offense.UNKNOWN,
-      },
-    ]);
-    await awaitMonitoredPayloads(slasherClient, 2);
+      // Mock the payload
+      const payload: SlashPayload = {
+        address: EthAddress.random(),
+        timestamp: BigInt(Date.now()),
+        slashes: [
+          {
+            validator,
+            amount: 100n,
+            offenses: [slashedOffense],
+          },
+        ],
+      };
+      slashFactoryContract.getSlashPayloadFromEvents.mockResolvedValue(payload);
 
-    expect(slasherClient.getMonitoredPayloads().length).toEqual(2);
-    expect(slasherClient.getMonitoredPayloads()[0].validators).toEqual([validator]);
-    expect(slasherClient.getMonitoredPayloads()[0].amounts).toEqual([activationThreshold]);
-    expect(slasherClient.getMonitoredPayloads()[0].offenses).toEqual([Offense.UNKNOWN]);
-    expect(slasherClient.getMonitoredPayloads()[1].validators).toEqual([validator]);
-    expect(slasherClient.getMonitoredPayloads()[1].amounts).toEqual([activationThreshold - 1n]);
-    expect(slasherClient.getMonitoredPayloads()[1].offenses).toEqual([Offense.UNKNOWN]);
+      // Trigger event
+      await slasherClient.handleProposalExecutable(payload.address, round);
 
-    const firstPayload = await slasherClient.getSlashPayload(await rollup.getSlotNumber());
-    expect(firstPayload).toBeDefined();
-    slasherClient.payloadSubmitted({ round: 0n, payload: firstPayload!.toString() });
+      // Check that payload is tracked as executable
+      expect(slasherClient.getExecutablePayloads()).toContainEqual({ payload: payload.address, round });
 
-    const secondPayload = await slasherClient.getSlashPayload(await rollup.getSlotNumber());
-    expect(secondPayload).toBeDefined();
+      // Check that offense is removed from pending
+      const pendingOffenses = await offensesStore.getPendingOffenses();
+      expect(pendingOffenses).toHaveLength(1);
+      expect(pendingOffenses[0]).toEqual(anotherOffense); // Only the other offense remains
+    });
 
-    expect(slasherClient.getMonitoredPayloads().length).toEqual(1);
-    expect(slasherClient.getMonitoredPayloads()[0].validators).toEqual([validator]);
-    expect(slasherClient.getMonitoredPayloads()[0].amounts).toEqual([activationThreshold - 1n]);
-    expect(slasherClient.getMonitoredPayloads()[0].offenses).toEqual([Offense.UNKNOWN]);
+    it('stops signaling for override payload when it becomes executable', async () => {
+      const overridePayload = EthAddress.random();
+      slasherClient.updateConfig({ slashOverridePayload: overridePayload });
+
+      const [overrideProposeAction] = await slasherClient.getProposePayloadActions(1n);
+      assert(overrideProposeAction.type === 'vote-payload');
+      expect(overrideProposeAction.payload).toEqual(overridePayload);
+
+      await slasherClient.handleProposalExecutable(overridePayload, 1n);
+
+      const afterOverrideExecutableActions = await slasherClient.getProposePayloadActions(1n);
+      expect(afterOverrideExecutableActions).toHaveLength(0);
+    });
   });
 
-  function awaitMonitoredPayloads(slasherClient: SlasherClient, minimumPayloads = 1) {
-    return retryUntil(
-      () => slasherClient.getMonitoredPayloads().length >= minimumPayloads,
-      'has monitored payload',
-      ethereumSlotDuration * 3,
-      0.1,
-    );
-  }
+  describe('handleProposalExecuted', () => {
+    it('removes payload from executable list', async () => {
+      const payloadAddress = EthAddress.random();
+      const round = 1n;
+
+      await slasherClient.handleProposalExecutable(payloadAddress, round);
+      expect(slasherClient.getExecutablePayloads()).toHaveLength(1);
+
+      await slasherClient.handleProposalExecuted(payloadAddress, round);
+      expect(slasherClient.getExecutablePayloads()).toHaveLength(0);
+    });
+  });
+
+  describe('handleProposalSignalled', () => {
+    it('adds votes to existing payloads', async () => {
+      const round = 1n;
+
+      // Add initial payload
+      const { address: payloadAddress } = await addSlashPayload({ round });
+
+      await slasherClient.handleProposalSignalled(payloadAddress, round, EthAddress.random());
+      await slasherClient.handleProposalSignalled(payloadAddress, round, EthAddress.random());
+      await slasherClient.handleProposalSignalled(payloadAddress, round, EthAddress.random());
+
+      const updatedPayload = await payloadsStore.getPayloadAtRound(payloadAddress, round);
+      expect(updatedPayload?.votes).toBe(4n);
+    });
+
+    it('fetches and stores new payloads', async () => {
+      const payloadAddress = EthAddress.random();
+      const round = 1n;
+      const signaller = EthAddress.random();
+
+      const payload: SlashPayload = {
+        address: payloadAddress,
+        slashes: [],
+        timestamp: BigInt(Date.now()),
+      };
+
+      slashFactoryContract.getSlashPayloadFromEvents.mockResolvedValue(payload);
+      slashingProposer.getPayloadSignals.mockResolvedValue(4n);
+
+      await slasherClient.handleProposalSignalled(payloadAddress, round, signaller);
+
+      const storedPayload = await payloadsStore.getPayloadAtRound(payloadAddress, round);
+      expect(storedPayload).toBeDefined();
+      expect(storedPayload?.votes).toBe(4n);
+    });
+
+    it('does not mix votes from different rounds', async () => {
+      const payloadAddress = EthAddress.random();
+      const signaller = EthAddress.random();
+
+      const payload: SlashPayload = {
+        address: payloadAddress,
+        slashes: [],
+        timestamp: BigInt(Date.now()),
+      };
+
+      slashFactoryContract.getSlashPayloadFromEvents.mockResolvedValue(payload);
+      slashingProposer.getPayloadSignals.mockResolvedValue(3n);
+
+      // Handle proposal in round 1
+      await slasherClient.handleProposalSignalled(payloadAddress, 1n, signaller);
+
+      // And it makes a comeback in round 2
+      await slasherClient.handleProposalSignalled(payloadAddress, 2n, signaller);
+
+      const storedPayload = await payloadsStore.getPayloadAtRound(payloadAddress, 2n);
+      expect(storedPayload).toBeDefined();
+      expect(storedPayload!.votes).toBe(1n);
+      expect(storedPayload!.round).toBe(2n);
+    });
+  });
+
+  describe('getProposerActions', () => {
+    let newPayloadAddress: EthAddress;
+    let slotNumber: bigint;
+    let round: bigint;
+
+    beforeEach(() => {
+      round = 1n;
+      slotNumber = 200n;
+      newPayloadAddress = EthAddress.random();
+      slashFactoryContract.getAddressAndIsDeployed.mockResolvedValue({
+        address: newPayloadAddress,
+        isDeployed: false,
+        salt: '0xcafe',
+      });
+
+      jest.spyOn(slasherClient, 'agreeWithPayload').mockResolvedValue(true);
+    });
+
+    it('creates payload from pending offenses', async () => {
+      const offense = await addPendingOffense({ epochOrSlot: 1n });
+
+      const actions = await slasherClient.getProposerActions(slotNumber);
+
+      // Should have both create and vote actions
+      expect(actions).toHaveLength(2);
+      expectActionCreatePayload(actions[0], offense);
+      expectActionVotePayload(actions[1], newPayloadAddress);
+    });
+
+    it('votes for payload with highest score', async () => {
+      // Add two payloads with different scores
+      const { address: _payloadAddress1 } = await addSlashPayload({ amount: 50n, votes: 2n, round });
+      const { address: payloadAddress2 } = await addSlashPayload({ amount: 100n, votes: 1n, round });
+
+      const actions = await slasherClient.getProposerActions(slotNumber);
+
+      expect(actions).toHaveLength(1);
+      expectActionVotePayload(actions[0], payloadAddress2);
+    });
+
+    it('does not vote for payloads not agreed with', async () => {
+      // Add two payloads with different scores
+      const { address: payloadAddress1 } = await addSlashPayload({ amount: 50n, votes: 2n, round });
+      const { address: _payloadAddress2 } = await addSlashPayload({ amount: 100n, votes: 1n, round });
+
+      // Mock that client agrees with first payload only
+      jest
+        .spyOn(slasherClient, 'agreeWithPayload')
+        .mockImplementation(payload => Promise.resolve(payload.address.equals(payloadAddress1)));
+
+      const actions = await slasherClient.getProposerActions(slotNumber);
+
+      expect(actions).toHaveLength(1);
+      expectActionVotePayload(actions[0], payloadAddress1);
+    });
+
+    it('does not vote for payloads that will never get enough votes', async () => {
+      await addSlashPayload({ amount: 50n, votes: 2n, round });
+
+      slotNumber = 290n; // Too close to end of round to get payload enough votes
+      const actions = await slasherClient.getProposerActions(slotNumber);
+
+      expect(actions).toHaveLength(0);
+    });
+
+    it('does not vote if a payload has already won', async () => {
+      await addSlashPayload({ amount: 50n, votes: settings.slashingQuorumSize, round });
+
+      const actions = await slasherClient.getProposerActions(slotNumber);
+
+      expect(actions).toHaveLength(0);
+    });
+
+    it('prefers creating a new payload if it has higher score', async () => {
+      // Add two payloads with different scores
+      const { address: _payloadAddress1 } = await addSlashPayload({ amount: 50n, votes: 2n, round });
+      const { address: _payloadAddress2 } = await addSlashPayload({ amount: 100n, votes: 1n, round });
+
+      // And adds an offense with very high amount
+      const offense = await addPendingOffense({ epochOrSlot: 1n, amount: 1000n });
+
+      // Mock that client agrees with both payloads
+      jest.spyOn(slasherClient, 'agreeWithPayload').mockResolvedValue(true);
+
+      const actions = await slasherClient.getProposerActions(slotNumber);
+
+      expect(actions).toHaveLength(2);
+
+      expectActionCreatePayload(actions[0], offense);
+      expectActionVotePayload(actions[1], newPayloadAddress);
+    });
+
+    it('does not create a new payload if out of nomination phase', async () => {
+      // Add two payloads with different scores
+      const { address: _payloadAddress1 } = await addSlashPayload({ amount: 50n, votes: 100n, round });
+      const { address: payloadAddress2 } = await addSlashPayload({ amount: 100n, votes: 100n, round });
+
+      // And adds an offense with very high amount
+      const offense = await addPendingOffense({ epochOrSlot: 1n, amount: 10000000000000n });
+
+      // If we are in nomination phase, we would create a new payload
+      const nominationActions = await slasherClient.getProposerActions(slotNumber);
+      expect(nominationActions).toHaveLength(2);
+      expectActionCreatePayload(nominationActions[0], offense);
+
+      // But we are too close to the end of the round to create a new payload
+      const actions = await slasherClient.getProposerActions(290n);
+      expect(actions).toHaveLength(1);
+      expectActionVotePayload(actions[0], payloadAddress2);
+    });
+
+    it('prefers voting for existing payloads over creating new ones', async () => {
+      // Add two existing payloads with different scores
+      const { address: _payloadAddress1 } = await addSlashPayload({ amount: 50n, votes: 2n, round });
+      const { address: payloadAddress2 } = await addSlashPayload({ amount: 100n, votes: 1n, round }); // Higher score
+
+      // And adds an offense with lower amount
+      const _offense = await addPendingOffense({ epochOrSlot: 1n, amount: 10n });
+
+      // Mock that client agrees with both payloads
+      jest.spyOn(slasherClient, 'agreeWithPayload').mockResolvedValue(true);
+
+      const actions = await slasherClient.getProposerActions(slotNumber);
+
+      expect(actions).toHaveLength(1);
+      expectActionVotePayload(actions[0], payloadAddress2);
+    });
+
+    it('executes eligible payloads', async () => {
+      const payloadAddress = EthAddress.random();
+      const payloadRound = 1n;
+      const currentRound = 4n; // After execution delay of 2 rounds
+
+      slasherClient.getExecutablePayloads().push({ payload: payloadAddress, round: payloadRound });
+
+      const roundInfo = { executed: false } as Awaited<ReturnType<SlashingProposerContract['getRoundInfo']>>;
+      slashingProposer.getRoundInfo.mockResolvedValue(roundInfo);
+
+      const slotNumber = currentRound * settings.slashingRoundSize;
+      const actions = await slasherClient.getProposerActions(slotNumber);
+
+      expect(actions).toContainEqual({
+        type: 'execute-payload',
+        round: payloadRound,
+      });
+    });
+
+    it('does not execute payloads before execution delay', async () => {
+      const payloadAddress = EthAddress.random();
+      const payloadRound = 1n;
+      const currentRound = 2n; // Not yet past execution delay
+
+      slasherClient.getExecutablePayloads().push({ payload: payloadAddress, round: payloadRound });
+
+      const roundInfo = { executed: false } as Awaited<ReturnType<SlashingProposerContract['getRoundInfo']>>;
+      slashingProposer.getRoundInfo.mockResolvedValue(roundInfo);
+
+      const slotNumber = currentRound * settings.slashingRoundSize;
+      const actions = await slasherClient.getProposerActions(slotNumber);
+
+      expect(actions).not.toContainEqual(
+        expect.objectContaining({
+          type: 'execute-payload',
+        }),
+      );
+    });
+
+    it('returns override payload when configured', async () => {
+      const { address: _payloadAddress } = await addSlashPayload({ amount: 100n, votes: 100n, round: 1n });
+
+      const overridePayload = EthAddress.random();
+      slasherClient.updateConfig({ slashOverridePayload: overridePayload });
+
+      const actions = await slasherClient.getProposerActions(100n);
+
+      expect(actions).toHaveLength(1);
+      expectActionVotePayload(actions[0], overridePayload);
+    });
+
+    it('stops using override payload after it becomes executable', async () => {
+      const offense = await addPendingOffense({ epochOrSlot: 1n });
+      const overridePayload = EthAddress.random();
+      slasherClient.updateConfig({ slashOverridePayload: overridePayload });
+
+      // First action should be to vote for override
+      let actions = await slasherClient.getProposerActions(slotNumber);
+      expectActionVotePayload(actions[0], overridePayload);
+
+      // Simulate override becoming executable
+      await slasherClient.handleProposalExecutable(overridePayload, 1n);
+
+      // Should now return action based on pending offenses, not override
+      actions = await slasherClient.getProposerActions(200n);
+      expect(actions).toHaveLength(2);
+      expectActionCreatePayload(actions[0], offense);
+      expectActionVotePayload(actions[1], newPayloadAddress);
+    });
+  });
+
+  describe('gatherOffensesForRound', () => {
+    it('only includes offenses from previous rounds', async () => {
+      const offenseType = OffenseType.PROPOSED_INCORRECT_ATTESTATIONS;
+      const offense1 = await addPendingOffense({ offenseType, epochOrSlot: 1n });
+      const _offense2 = await addPendingOffense({ offenseType, epochOrSlot: 10000n });
+
+      const offenses = await slasherClient.gatherOffensesForRound(1n);
+
+      expect(offenses).toHaveLength(1);
+      expect(offenses[0]).toEqual(offense1);
+    });
+
+    it('does not include expired offenses', async () => {
+      const offenseType = OffenseType.INACTIVITY;
+      const _offense1 = await addPendingOffense({ offenseType, epochOrSlot: 1n });
+      const offense2 = await addPendingOffense({ offenseType, epochOrSlot: 100n });
+
+      const offenses = await slasherClient.gatherOffensesForRound(20n);
+
+      expect(offenses).toHaveLength(1);
+      expect(offenses[0]).toEqual(offense2);
+    });
+
+    it('does not include slashed offenses', async () => {
+      const offenseType = OffenseType.PROPOSED_INCORRECT_ATTESTATIONS;
+      const offense1 = await addPendingOffense({ offenseType, epochOrSlot: 1n });
+      const offense2 = await addPendingOffense({ offenseType, epochOrSlot: 1n });
+
+      await offensesStore.markAsSlashed([offense1]);
+
+      const offenses = await slasherClient.gatherOffensesForRound(1n);
+
+      expect(offenses).toHaveLength(1);
+      expect(offenses[0]).toEqual(offense2);
+    });
+
+    it('respects max payload size', async () => {
+      expect(config.slashMaxPayloadSize).toBeLessThan(150);
+
+      const offenses: Offense[] = [];
+      for (let i = 0; i < 150; i++) {
+        offenses.push({
+          validator: EthAddress.random(),
+          amount: BigInt(1000 - i), // Decreasing amounts
+          offenseType: OffenseType.PROPOSED_INCORRECT_ATTESTATIONS,
+          epochOrSlot: 1n,
+        });
+      }
+
+      for (const offense of offenses) {
+        await addPendingOffense(offense);
+      }
+
+      const gathered = await slasherClient.gatherOffensesForRound(1n);
+      expect(gathered).toHaveLength(config.slashMaxPayloadSize);
+
+      // Should have the highest amounts
+      const amounts = gathered.map(o => o.amount).sort((a, b) => Number(b - a));
+      expect(amounts[0]).toBe(1000n);
+      expect(amounts[amounts.length - 1]).toBe(BigInt(1000 - config.slashMaxPayloadSize + 1));
+    });
+
+    it('always includes uncontroversial offenses', async () => {
+      // Generates subjective offenses with high amount, and uncontroversial ones with lower
+      const subjectiveOffenses: Offense[] = [];
+      const uncontroversialOffenses: Offense[] = [];
+      for (let i = 0; i < 90; i++) {
+        subjectiveOffenses.push({
+          validator: EthAddress.random(),
+          amount: BigInt(10000 - i), // Decreasing amounts
+          offenseType: OffenseType.INACTIVITY,
+          epochOrSlot: 1n,
+        });
+
+        uncontroversialOffenses.push({
+          validator: EthAddress.random(),
+          amount: BigInt(1000 - i),
+          offenseType: OffenseType.PROPOSED_INCORRECT_ATTESTATIONS,
+          epochOrSlot: 1n,
+        });
+      }
+
+      for (const offense of [...subjectiveOffenses, ...uncontroversialOffenses]) {
+        await addPendingOffense(offense);
+      }
+
+      const gathered = await slasherClient.gatherOffensesForRound(2n);
+      expect(gathered).toHaveLength(config.slashMaxPayloadSize);
+
+      // Should have all uncontroversial ones
+      const uncontroversialOffenseValidators = uncontroversialOffenses.map(o => o.validator.toString());
+      expect(gathered.map(o => o.validator.toString())).toEqual(
+        expect.arrayContaining(uncontroversialOffenseValidators),
+      );
+    });
+  });
+
+  describe('agreeWithPayload', () => {
+    it.todo('agrees if offenses match');
+
+    it.todo('disagrees if a single offense is not present');
+
+    it.todo('disagrees if a single offense has already been slashed');
+
+    it.todo('disagrees if a single offense is not for this round');
+
+    it.todo('disagrees if amount is out of range');
+
+    it.todo('disagrees if payload exceeds max size');
+
+    it.todo('disagrees if it does not include all uncontroversial offenses');
+  });
+
+  describe('calculatePayloadScore', () => {
+    it('is proportional to number of votes', () => {
+      const slashes = [
+        { validator: EthAddress.random(), amount: 100n, offenses: [] },
+        { validator: EthAddress.random(), amount: 50n, offenses: [] },
+      ];
+
+      const payload1 = { votes: 10n, slashes };
+      const payload2 = { votes: 20n, slashes };
+
+      const score1 = slasherClient.calculatePayloadScore(payload1);
+      const score2 = slasherClient.calculatePayloadScore(payload2);
+
+      expect(score2).toBeGreaterThan(score1);
+    });
+
+    it('is proportional to slash amount', () => {
+      const payload1 = { votes: 10n, slashes: [{ validator: EthAddress.random(), amount: 100n, offenses: [] }] };
+      const payload2 = { votes: 10n, slashes: [{ validator: EthAddress.random(), amount: 200n, offenses: [] }] };
+
+      const score1 = slasherClient.calculatePayloadScore(payload1);
+      const score2 = slasherClient.calculatePayloadScore(payload2);
+
+      expect(score2).toBeGreaterThan(score1);
+    });
+  });
 });
 
 class TestSlasherClient extends SlasherClient {
-  static override async new(
-    config: SlasherConfig,
-    l1Contracts: Pick<L1ReaderConfig['l1Contracts'], 'rollupAddress' | 'slashFactoryAddress'>,
-    l1TxUtils: L1TxUtils | undefined,
-    l1Client: ViemClient,
-    watchers: Watcher[],
-    dateProvider: DateProvider,
-  ) {
-    if (!l1Contracts.rollupAddress) {
-      throw new Error('Cannot initialize SlasherClient without a rollup address');
-    }
-    if (!l1Contracts.slashFactoryAddress) {
-      throw new Error('Cannot initialize SlasherClient without a slashFactory address');
-    }
-
-    const rollup = new RollupContract(l1Client, l1Contracts.rollupAddress);
-    const slashingProposer = await rollup.getSlashingProposer();
-    const slashFactoryContract = getContract({
-      address: getAddress(l1Contracts.slashFactoryAddress.toString()),
-      abi: SlashFactoryAbi,
-      client: l1Client,
-    });
-    return new TestSlasherClient(config, slashFactoryContract, slashingProposer, l1TxUtils, watchers, dateProvider);
-  }
-
   constructor(
     config: SlasherConfig,
-    slashFactoryContract: GetContractReturnType<typeof SlashFactoryAbi, ViemClient>,
+    settings: SlasherSettings,
+    slashFactoryContract: SlashFactoryContract,
     slashingProposer: SlashingProposerContract,
-    l1TxUtils: L1TxUtils | undefined,
+    rollupAddress: EthAddress,
     watchers: Watcher[],
     dateProvider: DateProvider,
-    log = createLogger('slasher'),
+    offensesStore: SlasherOffensesStore,
+    payloadsStore: SlasherPayloadsStore,
+    log: Logger = createLogger('slasher:test'),
   ) {
-    super(config, slashFactoryContract, slashingProposer, l1TxUtils, watchers, dateProvider, log);
+    super(
+      config,
+      settings,
+      slashFactoryContract,
+      slashingProposer,
+      rollupAddress,
+      watchers,
+      dateProvider,
+      offensesStore,
+      payloadsStore,
+      log,
+    );
   }
 
-  public override payloadSubmitted(args: { round: bigint; payload: `0x${string}` }) {
-    super.payloadSubmitted(args);
+  public override handleWantToSlash(args: WantToSlashArgs[]): Promise<void> {
+    return super.handleWantToSlash(args);
+  }
+
+  public override handleNewRound(round: bigint): Promise<void> {
+    return super.handleNewRound(round);
+  }
+
+  public override handleProposalExecutable(payloadAddress: EthAddress, round: bigint): Promise<void> {
+    return super.handleProposalExecutable(payloadAddress, round);
+  }
+
+  public override handleProposalExecuted(payload: EthAddress, round: bigint): Promise<void> {
+    return super.handleProposalExecuted(payload, round);
+  }
+
+  public override handleProposalSignalled(
+    payloadAddress: EthAddress,
+    round: bigint,
+    signaller: EthAddress,
+  ): Promise<void> {
+    return super.handleProposalSignalled(payloadAddress, round, signaller);
+  }
+
+  public override gatherOffensesForRound(round: bigint): Promise<Offense[]> {
+    return super.gatherOffensesForRound(round);
+  }
+
+  public override calculatePayloadScore(payload: Pick<SlashPayloadRound, 'votes' | 'slashes'>): bigint {
+    return super.calculatePayloadScore(payload);
+  }
+
+  public getExecutablePayloads() {
+    return this.executablePayloads;
+  }
+
+  public override getExecutePayloadAction(slotNumber: bigint): Promise<ProposerSlashAction | undefined> {
+    return super.getExecutePayloadAction(slotNumber);
+  }
+
+  public override getProposePayloadActions(slotNumber: bigint): Promise<ProposerSlashAction[]> {
+    return super.getProposePayloadActions(slotNumber);
+  }
+
+  public override agreeWithPayload(
+    payload: SlashPayload,
+    round: bigint,
+    cachedUncontroversialOffenses?: Offense[],
+  ): Promise<boolean> {
+    return super.agreeWithPayload(payload, round, cachedUncontroversialOffenses);
   }
 }
 
 class DummyWatcher extends (EventEmitter as new () => WatcherEmitter) implements Watcher {
-  constructor() {
-    super();
-  }
-
-  public shouldSlash(_args: WantToSlashArgs): Promise<boolean> {
-    return Promise.resolve(true);
-  }
-
   public triggerSlash(args: WantToSlashArgs[]) {
     this.emit(WANT_TO_SLASH_EVENT, args);
   }
