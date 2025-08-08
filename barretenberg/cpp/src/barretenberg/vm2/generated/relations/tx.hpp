@@ -44,7 +44,7 @@ template <typename FF_> class txImpl {
         const auto constants_AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX = FF(18);
         const auto constants_AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX = FF(369);
         const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX = FF(503);
-        const auto constants_AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX = FF(679);
+        const auto constants_AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX = FF(4671);
         const auto tx_NOT_LAST = in.get(C::tx_sel_shift) * in.get(C::tx_sel);
         const auto tx_NOT_PHASE_END = tx_NOT_LAST * (FF(1) - in.get(C::tx_end_phase));
         const auto tx_REM_COUNT_MINUS_1 = (in.get(C::tx_remaining_phase_counter) - FF(1));

@@ -36,8 +36,8 @@ template <typename FF_> class emit_unencrypted_logImpl {
 
         PROFILE_THIS_NAME("accumulate/emit_unencrypted_log");
 
-        const auto constants_MAX_PUBLIC_LOGS_PER_TX = FF(8);
-        const auto constants_PUBLIC_LOG_SIZE_IN_FIELDS = FF(13);
+        const auto constants_MAX_PUBLIC_LOGS_PER_TX = FF(256);
+        const auto constants_PUBLIC_LOG_SIZE_IN_FIELDS = FF(16);
         const auto constants_MEM_TAG_FF = FF(0);
         const auto constants_AVM_HIGHEST_MEM_ADDRESS = FF(4294967295UL);
         const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX = FF(511);
