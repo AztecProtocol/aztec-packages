@@ -157,6 +157,7 @@ export async function createProverNode(
     p2pClient,
     epochMonitor,
     l1Metrics,
+    rollupContract,
     proverNodeConfig,
     telemetry,
   );
