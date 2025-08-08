@@ -1,0 +1,51 @@
+// Discarding on error for tx-level operationxs
+
+// This is a virtual gadget, which is part of the execution trace.
+// This subtrace is focused on managing the changes to the discard column.
+namespace tx;
+    // No relations will be checked if this identity is satisfied.
+    #[skippable_if]
+    sel = 0; // from tx.pil.
+
+    pol commit discard;
+    discard * (1 - discard) = 0;
+
+    // If discard == 1, is_revertible must be 1
+    // Can ONLY discard during revertible phases (revertible insertions, app-logic, teardown)
+    discard * (1 - is_revertible) = 0;
+
+    // If failure == 1, discard must be 1
+    #[FAILURE_MUST_DISCARD]
+    reverted * (1 - discard) = 0;
+
+    //// By default, discard's value is propagated to the next row.
+    //// Lift/relax propagation of discard to the next row if:
+    //// 1. This row is the last row of SETUP.
+    ////     - end_phase && phase == SETUP
+    //// 2. A failure (reverted == 1) occurs in the current row.
+    //pol LAST_ROW_OF_SETUP = sel * sel' * (1 - is_revertible) * (is_revertible')
+    //// TODO: we can either constrain "phase == SETUP" using a generated PIL enum that defines "SETUP = 4",
+    //// or we can assume that this is the last row of setup if `sel == 1 && sel' == 1 && is_revertible == 0 && is_revertible' == 1`,
+    //// or in english, this is the last row of setup if:
+    //// 1. The current row and next row are both active (regardless of whether either is padding): `sel == 1 && sel' == 1`
+    //// 2. The current row is NOT revertible: `is_revertible == 0`
+    //// 3. The next row is revertible: `is_revertible' == 1`
+    //// TODO: confirm that we don't need end_phase here if we do this ^.
+    //// TDOO: confirm that even padding rows properly populate is_reverible and sel.
+
+    //pol commit propagate_discard; // TODO: constrain to be 1 by default and 0 under specific conditions
+    //#[SHOULD_PROPAGATE_DISCARD]
+    //sel * (propagate_discard - (1 - LAST_ROW_OF_SETUP) * (1 - reverted)) = 0;
+
+    pol LAST_ROW_OF_SETUP = (1 - is_revertible) * (is_revertible');
+    // Probably don't need to prefix this ^ with `sel * sel'` because the only scenario where the current row
+    // is not revertible, and the next one is, is the last row of setup. The only reason we might need it,
+    // is if you could technically skip the entire non-revertible and setup phases and go straight from the first row
+    // to non-revertibles.
+    pol PROPAGATE_DISCARD = (1 - LAST_ROW_OF_SETUP) * (1 - reverted);
+
+    // If propagate_discard == 1, discard' = discard.
+    #[DISCARD_PROPAGATION]
+    sel *PROPAGATE_DISCARD * (discard' - discard) = 0;
+    // TODO: this might be too high-degree....
+

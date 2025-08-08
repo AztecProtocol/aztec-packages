@@ -411,13 +411,30 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
 
     std::optional<simulation::TxStartupEvent> startup_event;
 
+    bool r_insertion_or_app_logic_failure = false;
+    bool teardown_failure = false;
     for (const auto& tx_event : events) {
         if (std::holds_alternative<simulation::TxStartupEvent>(tx_event)) {
             startup_event = std::get<simulation::TxStartupEvent>(tx_event);
+            // TODO: confirm that this cannot be r_insertions, app logic, or teardown!
         } else {
             const simulation::TxPhaseEvent& tx_phase_event = std::get<simulation::TxPhaseEvent>(tx_event);
             // Minus 1 since the enum is 1-indexed
             phase_buckets[static_cast<uint8_t>(tx_phase_event.phase) - 1].push_back(&tx_phase_event);
+
+            // Set some flags for use when populating the discard column.
+            if (tx_phase_event.reverted) {
+                if (!is_revertible(tx_phase_event.phase)) {
+                    throw std::runtime_error("Reverted in non-revertible phase: " +
+                                             std::to_string(static_cast<uint8_t>(tx_phase_event.phase)));
+                }
+
+                if (tx_phase_event.phase == TransactionPhase::TEARDOWN) {
+                    teardown_failure = true;
+                } else {
+                    r_insertion_or_app_logic_failure = true;
+                }
+            }
         }
     }
 
@@ -444,6 +461,7 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
             trace.set(row, handle_next_gas_used(gas_used));
             trace.set(row, handle_gas_limit(gas_limit));
             trace.set(row, handle_state_change_selectors(phase));
+            // TODO: set discard
             row++;
             continue;
         }
@@ -459,10 +477,30 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
             trace.set(row,
                       insert_side_effect_states(tx_phase_event->state_before.side_effect_states,
                                                 tx_phase_event->state_after.side_effect_states));
+            bool discard = false;
+            if (is_revertible(tx_phase_event->phase)) {
+                if (tx_phase_event->phase == TransactionPhase::TEARDOWN) {
+                    discard = teardown_failure;
+                } else {
+                    // Even if we don't fail until later in teardown, all revertible phases discard.
+                    discard = teardown_failure || r_insertion_or_app_logic_failure;
+                }
+            }
+            if (tx_phase_event->reverted) {
+                // If we are in a revertible phase, we set the discard column to 1
+                // If we are in a non-revertible phase, we set the discard column to 0
+                discard = is_revertible(tx_phase_event->phase);
+            } else if (r_insertion_or_app_logic_failure && is_revertible(tx_phase_event->phase)) {
+                // If we have a revertible failure in a previous phase, we set the discard column to 1
+                discard = true;
+            } else if (teardown_failure && tx_phase_event->phase == TransactionPhase::TEARDOWN) {
+                // If we have a teardown failure, we set the discard column to 1
+                discard = true;
+            }
             trace.set(row,
                       { {
                           { C::tx_sel, 1 },
-                          { C::tx_discard, 0 }, // TODO: Actually reconstruct discard in the tx.
+                          { C::tx_discard, discard ? 1 : 0 },
                           { C::tx_phase_value, static_cast<uint8_t>(tx_phase_event->phase) },
                           { Column::tx_setup_phase_value, static_cast<uint8_t>(TransactionPhase::SETUP) },
                           { C::tx_is_padded, 0 },
