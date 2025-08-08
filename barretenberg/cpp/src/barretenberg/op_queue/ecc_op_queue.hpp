@@ -217,7 +217,7 @@ class ECCOpQueue {
      */
     UltraOp no_op_ultra_only()
     {
-        UltraOp no_op;
+        UltraOp no_op{};
         ultra_ops_table.push(no_op);
         return no_op;
     }
