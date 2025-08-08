@@ -119,7 +119,6 @@ class GoblinMockCircuits {
             builder.queue_ecc_mul_accum(point, scalar);
         }
         // queues the result of the preceding ECC
-
         builder.queue_ecc_eq(); // should be eq and reset
     }
 
