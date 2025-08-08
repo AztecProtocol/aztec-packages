@@ -481,6 +481,7 @@ void KeccakF1600TraceBuilder::process_permutation(
                           { C::keccakf1600_clk, event.execution_clk },
                           { C::keccakf1600_bitwise_xor_op_id, static_cast<uint8_t>(BitwiseOperation::XOR) },
                           { C::keccakf1600_bitwise_and_op_id, static_cast<uint8_t>(BitwiseOperation::AND) },
+                          { C::keccakf1600_tag_u64, static_cast<uint8_t>(MemoryTag::U64) },
                           { C::keccakf1600_round, round_idx + 1 }, // round is 1-indexed
                           { C::keccakf1600_round_cst, simulation::keccak_round_constants[round_idx] },
                           { C::keccakf1600_thirty_two, AVM_MEMORY_NUM_BITS },

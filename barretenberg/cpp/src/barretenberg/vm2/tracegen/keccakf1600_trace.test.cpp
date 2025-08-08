@@ -175,6 +175,7 @@ TEST(KeccakF1600TraceGenTest, MainKeccakTraceWithSimulation)
                           ROW_FIELD_EQ(keccakf1600_dst_addr, dst_addr),
                           ROW_FIELD_EQ(keccakf1600_bitwise_xor_op_id, static_cast<uint8_t>(BitwiseOperation::XOR)),
                           ROW_FIELD_EQ(keccakf1600_bitwise_and_op_id, static_cast<uint8_t>(BitwiseOperation::AND)),
+                          ROW_FIELD_EQ(keccakf1600_tag_u64, static_cast<uint8_t>(MemoryTag::U64)),
                           ROW_FIELD_EQ(keccakf1600_round_cst, simulation::keccak_round_constants[i - 1]),
                           ROW_FIELD_EQ(keccakf1600_thirty_two, AVM_MEMORY_NUM_BITS),
                           ROW_FIELD_EQ(keccakf1600_src_out_of_range_error, 0),
