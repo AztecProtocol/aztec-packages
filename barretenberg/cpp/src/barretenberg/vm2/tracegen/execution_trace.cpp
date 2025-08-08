@@ -423,7 +423,7 @@ void ExecutionTraceBuilder::process(
                 { C::execution_num_l2_to_l1_messages,
                   ex_event.after_context_event.side_effect_states.numL2ToL1Messages },
                 // Other.
-                { C::execution_bytecode_id, ex_event.bytecode_id },
+                { C::execution_bytecode_id, ex_event.before_context_event.bytecode_id },
                 // Helpers for identifying parent context
                 { C::execution_has_parent_ctx, has_parent ? 1 : 0 },
                 { C::execution_is_parent_id_inv, cached_parent_id_inv },
@@ -446,7 +446,7 @@ void ExecutionTraceBuilder::process(
                   { {
                       { C::execution_sel_bytecode_retrieval_failure, bytecode_retrieval_failed ? 1 : 0 },
                       { C::execution_sel_bytecode_retrieval_success, !bytecode_retrieval_failed ? 1 : 0 },
-                      { C::execution_bytecode_id, ex_event.bytecode_id },
+                      { C::execution_bytecode_id, ex_event.before_context_event.bytecode_id },
                   } });
 
         /**************************************************************************************************

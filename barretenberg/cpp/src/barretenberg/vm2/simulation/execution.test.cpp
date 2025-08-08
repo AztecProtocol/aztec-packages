@@ -66,6 +66,7 @@ class ExecutionSimulationTest : public ::testing::Test {
     ExecutionSimulationTest()
     {
         ON_CALL(context, get_memory).WillByDefault(ReturnRef(memory));
+        ON_CALL(context, get_bytecode_manager).WillByDefault(ReturnRef(bytecode_manager));
         execution.set_gas_tracker(gas_tracker);
     }
 
@@ -90,6 +91,7 @@ class ExecutionSimulationTest : public ::testing::Test {
     StrictMock<MockEcc> ecc;
     StrictMock<MockToRadix> to_radix;
     StrictMock<MockEmitUnencryptedLog> emit_unencrypted_log;
+    StrictMock<MockBytecodeManager> bytecode_manager;
     TestingExecution execution = TestingExecution(alu,
                                                   bitwise,
                                                   data_copy,
@@ -220,6 +222,8 @@ TEST_F(ExecutionSimulationTest, Call)
     // Context snapshotting
     EXPECT_CALL(context, get_context_id);
     EXPECT_CALL(context, get_parent_id);
+    EXPECT_CALL(context, get_bytecode_manager).WillOnce(ReturnRef(bytecode_manager));
+    EXPECT_CALL(bytecode_manager, try_get_bytecode_id);
     EXPECT_CALL(context, get_next_pc);
     EXPECT_CALL(context, get_is_static);
     EXPECT_CALL(context, get_msg_sender).WillOnce(ReturnRef(parent_address));

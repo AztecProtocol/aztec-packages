@@ -29,6 +29,7 @@ namespace execution;
     pol commit next_pc;
     pol commit msg_sender;
     pol commit contract_address;
+    pol commit bytecode_id;
     pol commit transaction_fee;
     // Constrained boolean by tx trace (for enqueued call) and #[NEXT_IS_STATIC] for nested
     pol commit is_static;
@@ -156,6 +157,12 @@ namespace execution;
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (contract_address' - contract_address) = 0;
     NOT_LAST_EXEC * sel_enter_call  * (contract_address' - register[2]) = 0;
 
+    // bytecode_id is set from the context stack when entering a call and propagated
+    // from row to row as we do for others, except on context change.
+    #[BYTECODE_ID_NEXT_ROW]
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (bytecode_id' - bytecode_id) = 0;
+
+
     // transaction fee gets set at the start of an enqueued call and remains the same throughout
     // TODO(dbanks12): tracegen and test this
     #[TRANSACTION_FEE_NEXT_ROW]
@@ -260,6 +267,7 @@ namespace execution;
         next_pc,
         msg_sender,
         contract_address,
+        bytecode_id,
         is_static,
         parent_calldata_addr,
         parent_calldata_size,
@@ -287,6 +295,7 @@ namespace execution;
         context_stack.next_pc,
         context_stack.msg_sender,
         context_stack.contract_address,
+        context_stack.bytecode_id,
         context_stack.is_static,
         context_stack.parent_calldata_addr,
         context_stack.parent_calldata_size,
@@ -322,6 +331,7 @@ namespace execution;
         pc',
         msg_sender',
         contract_address',
+        bytecode_id',
         is_static',
         parent_calldata_addr',
         parent_calldata_size',
@@ -350,6 +360,7 @@ namespace execution;
         context_stack.next_pc,
         context_stack.msg_sender,
         context_stack.contract_address,
+        context_stack.bytecode_id,
         context_stack.is_static,
         context_stack.parent_calldata_addr,
         context_stack.parent_calldata_size,
@@ -381,6 +392,7 @@ namespace execution;
         pc',
         msg_sender',
         contract_address',
+        bytecode_id',
         is_static',
         parent_calldata_addr',
         parent_calldata_size',
@@ -397,6 +409,7 @@ namespace execution;
         context_stack.next_pc,
         context_stack.msg_sender,
         context_stack.contract_address,
+        context_stack.bytecode_id,
         context_stack.is_static,
         context_stack.parent_calldata_addr,
         context_stack.parent_calldata_size,

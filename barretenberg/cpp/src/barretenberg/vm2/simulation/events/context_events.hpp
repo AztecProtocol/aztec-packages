@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -16,6 +17,7 @@ struct ContextEvent {
     uint32_t pc;
     AztecAddress msg_sender;
     AztecAddress contract_addr;
+    BytecodeId bytecode_id;
     FF transaction_fee;
     bool is_static;
 
@@ -57,6 +59,7 @@ struct ContextStackEvent {
     uint32_t next_pc;
     AztecAddress msg_sender;
     AztecAddress contract_addr;
+    BytecodeId bytecode_id;
     bool is_static;
 
     // Calldata info from parent context

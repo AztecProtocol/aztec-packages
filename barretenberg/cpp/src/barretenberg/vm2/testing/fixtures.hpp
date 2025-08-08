@@ -41,6 +41,7 @@ simulation::Operand random_operand(simulation::OperandType operand_type);
 simulation::Instruction random_instruction(WireOpCode w_opcode);
 tracegen::TestTraceContainer empty_trace();
 ContractInstance random_contract_instance();
+ContractClass random_contract_class(size_t bytecode_size = 20);
 
 // A routine which provides a minimal trace and public inputs which should provide
 // a good coverage over the different sub-traces but yet as short as necessary.
