@@ -8,6 +8,7 @@ import {
   type CompleteAddress,
   type ContractFunctionInteraction,
   DefaultWaitForProvenOpts,
+  EthAddress,
   type Logger,
   type PXE,
   type Wallet,
@@ -25,6 +26,7 @@ import {
   createExtendedL1Client,
   deployMulticall3,
   getL1ContractsConfigEnvVars,
+  getPublicClient,
 } from '@aztec/ethereum';
 import { EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
 import { asyncMap } from '@aztec/foundation/async-map';
@@ -342,11 +344,14 @@ async function setupFromFresh(
   const publisherPrivKeyRaw = hdAccount.getHdKey().privateKey;
   const publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
 
+  const l1Client = createExtendedL1Client([aztecNodeConfig.l1RpcUrls[0]], hdAccount, foundry);
+
   const validatorPrivKey = getPrivateKeyFromIndex(0);
   const proverNodePrivateKey = getPrivateKeyFromIndex(0);
 
   aztecNodeConfig.publisherPrivateKey = new SecretValue<`0x${string}`>(`0x${publisherPrivKey!.toString('hex')}`);
   aztecNodeConfig.validatorPrivateKeys = new SecretValue([`0x${validatorPrivKey!.toString('hex')}`]);
+  aztecNodeConfig.coinbase = EthAddress.fromString(`${hdAccount.address}`);
 
   const ethCheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls);
 
@@ -361,7 +366,6 @@ async function setupFromFresh(
     opts.initialAccountFeeJuice,
   );
 
-  const l1Client = createExtendedL1Client([aztecNodeConfig.l1RpcUrls[0]], hdAccount, foundry);
   await deployMulticall3(l1Client, logger);
 
   const deployL1ContractsValues = await setupL1Contracts(aztecNodeConfig.l1RpcUrls[0], hdAccount, logger, {

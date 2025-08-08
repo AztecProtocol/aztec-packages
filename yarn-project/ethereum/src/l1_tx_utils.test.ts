@@ -13,7 +13,7 @@ import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { createExtendedL1Client, getPublicClient } from './client.js';
-import { type L1TxRequest, L1TxUtils, ReadOnlyL1TxUtils, defaultL1TxUtilsConfig } from './l1_tx_utils.js';
+import { type L1TxRequest, L1TxUtils, ReadOnlyL1TxUtils, TxUtilsState, defaultL1TxUtilsConfig } from './l1_tx_utils.js';
 import { L1TxUtilsWithBlobs } from './l1_tx_utils_with_blobs.js';
 import { EthCheatCodes } from './test/eth_cheat_codes.js';
 import { startAnvil } from './test/start_anvil.js';
@@ -86,6 +86,7 @@ describe('L1TxUtils', () => {
       });
 
       expect(receipt.status).toBe('success');
+      expect(gasUtils.state).toBe(TxUtilsState.MINED);
     }, 10_000);
 
     it('handles gas price spikes by retrying with higher gas price', async () => {
@@ -118,6 +119,7 @@ describe('L1TxUtils', () => {
         kzg,
         maxFeePerBlobGas: originalMaxFeePerBlobGas,
       });
+      expect(gasUtils.state).toBe(TxUtilsState.SENT);
 
       const rawTx = await cheatCodes.getRawTransaction(txHash);
 
@@ -142,10 +144,12 @@ describe('L1TxUtils', () => {
       });
 
       await sleep(2000);
+      expect(gasUtils.state).toBe(TxUtilsState.SPEED_UP);
       // re-enable mining
       await cheatCodes.setIntervalMining(1);
       const receipt = await monitorFn;
       expect(receipt.status).toBe('success');
+      expect(gasUtils.state).toBe(TxUtilsState.MINED);
       // Verify that a replacement transaction was created
       expect(receipt.transactionHash).not.toBe(txHash);
 
@@ -527,6 +531,8 @@ describe('L1TxUtils', () => {
       // Send initial transaction
       const { txHash } = await gasUtils.sendTransaction(request);
       const initialTx = await l1Client.getTransaction({ hash: txHash });
+
+      expect(gasUtils.state).toBe(TxUtilsState.SENT);
 
       // Try to monitor with a short timeout
       const monitorPromise = gasUtils.monitorTransaction(

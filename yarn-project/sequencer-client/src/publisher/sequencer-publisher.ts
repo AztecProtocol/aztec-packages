@@ -187,14 +187,6 @@ export class SequencerPublisher {
     return EthAddress.fromString(this.l1TxUtils.getSenderAddress());
   }
 
-  public getGovernancePayload() {
-    return this.governancePayload;
-  }
-
-  public setGovernancePayload(payload: EthAddress) {
-    this.governancePayload = payload;
-  }
-
   public addRequest(request: RequestWithExpiry) {
     this.requests.push(request);
   }
@@ -364,6 +356,7 @@ export class SequencerPublisher {
 
     // use sender balance to simulate
     const balance = await this.l1TxUtils.getSenderBalance();
+    console.log(`Simulating validateHeader with balance: ${balance}`);
     await this.l1TxUtils.simulate(
       {
         to: this.rollupContract.address,
@@ -376,6 +369,7 @@ export class SequencerPublisher {
         ...(await this.rollupContract.makePendingBlockNumberOverride(opts?.forcePendingBlockNumber)),
       ],
     );
+    console.log(`Simulated validateHeader`);
   }
 
   /**
