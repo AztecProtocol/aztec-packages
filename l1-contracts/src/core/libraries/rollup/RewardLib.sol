@@ -81,18 +81,18 @@ library RewardLib {
     rewardStorage.config = _config;
   }
 
-  function claimSequencerRewards(address _recipient) internal returns (uint256) {
+  function claimSequencerRewards(address _coinbase) internal returns (uint256) {
     RewardStorage storage rewardStorage = getStorage();
 
     RollupStore storage rollupStore = STFLib.getStorage();
-    uint256 amount = rewardStorage.sequencerRewards[msg.sender];
-    rewardStorage.sequencerRewards[msg.sender] = 0;
-    rollupStore.config.feeAsset.transfer(_recipient, amount);
+    uint256 amount = rewardStorage.sequencerRewards[_coinbase];
+    rewardStorage.sequencerRewards[_coinbase] = 0;
+    rollupStore.config.feeAsset.transfer(_coinbase, amount);
 
     return amount;
   }
 
-  function claimProverRewards(address _recipient, Epoch[] memory _epochs) internal returns (uint256) {
+  function claimProverRewards(address _coinbase, Epoch[] memory _epochs) internal returns (uint256) {
     Epoch currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
     RollupStore storage rollupStore = STFLib.getStorage();
 
@@ -106,20 +106,20 @@ library RewardLib {
       );
 
       require(
-        !rewardStorage.proverClaimed[msg.sender].get(Epoch.unwrap(_epochs[i])),
-        Errors.Rollup__AlreadyClaimed(msg.sender, _epochs[i])
+        !rewardStorage.proverClaimed[_coinbase].get(Epoch.unwrap(_epochs[i])),
+        Errors.Rollup__AlreadyClaimed(_coinbase, _epochs[i])
       );
-      rewardStorage.proverClaimed[msg.sender].set(Epoch.unwrap(_epochs[i]));
+      rewardStorage.proverClaimed[_coinbase].set(Epoch.unwrap(_epochs[i]));
 
       EpochRewards storage e = rewardStorage.epochRewards[_epochs[i]];
       SubEpochRewards storage se = e.subEpoch[e.longestProvenLength];
-      uint256 shares = se.shares[msg.sender];
+      uint256 shares = se.shares[_coinbase];
       if (shares > 0) {
         accumulatedRewards += (shares * e.rewards / se.summedShares);
       }
     }
 
-    rollupStore.config.feeAsset.transfer(_recipient, accumulatedRewards);
+    rollupStore.config.feeAsset.transfer(_coinbase, accumulatedRewards);
 
     return accumulatedRewards;
   }
