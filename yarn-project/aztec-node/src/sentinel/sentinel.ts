@@ -60,6 +60,10 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     this.runningPromise = new RunningPromise(this.work.bind(this), logger, interval);
   }
 
+  public updateConfig(config: Partial<SlasherConfig>) {
+    this.config = { ...this.config, ...config };
+  }
+
   public async start() {
     await this.init();
     this.runningPromise.start();

@@ -101,14 +101,11 @@ export class SequencerPublisher {
   private interrupted = false;
   private metrics: SequencerPublisherMetrics;
   public epochCache: EpochCache;
-  private dateProvider: DateProvider;
 
   protected governanceLog = createLogger('sequencer:publisher:governance');
-  protected governanceProposerAddress?: EthAddress;
   private governancePayload: EthAddress = EthAddress.ZERO;
 
   protected slashingLog = createLogger('sequencer:publisher:slashing');
-  protected slashingProposerAddress?: EthAddress;
   private getSlashPayload?: GetSlashPayloadCallBack = undefined;
 
   private myLastSignals: Record<SignalType, bigint> = {
@@ -153,7 +150,6 @@ export class SequencerPublisher {
   ) {
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
     this.epochCache = deps.epochCache;
-    this.dateProvider = deps.dateProvider;
 
     this.blobSinkClient =
       deps.blobSinkClient ?? createBlobSinkClient(config, { logger: createLogger('sequencer:blob-sink:client') });
@@ -166,6 +162,12 @@ export class SequencerPublisher {
 
     this.govProposerContract = deps.governanceProposerContract;
     this.slashingProposerContract = deps.slashingProposerContract;
+
+    this.rollupContract.listenToSlasherChanged(async () => {
+      this.log.info('Slashing proposer changed');
+      const newSlashingProposer = await this.rollupContract.getSlashingProposer();
+      this.slashingProposerContract = newSlashingProposer;
+    });
   }
 
   public getRollupContract(): RollupContract {
@@ -593,14 +595,14 @@ export class SequencerPublisher {
         const logData = { ...result, slotNumber, round, payload: payload.toString() };
         if (!success) {
           this.log.error(
-            `Voting in [${action}] for ${payload} at slot ${slotNumber} in round ${round} failed`,
+            `Signaling in [${action}] for ${payload} at slot ${slotNumber} in round ${round} failed`,
             logData,
           );
           this.myLastSignals[signalType] = cachedLastVote;
           return false;
         } else {
           this.log.info(
-            `Voting in [${action}] for ${payload} at slot ${slotNumber} in round ${round} succeeded`,
+            `Signaling in [${action}] for ${payload} at slot ${slotNumber} in round ${round} succeeded`,
             logData,
           );
           return true;

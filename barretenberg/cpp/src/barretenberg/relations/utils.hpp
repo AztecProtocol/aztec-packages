@@ -11,6 +11,7 @@
 #include <utility>
 
 #include "barretenberg/common/constexpr_utils.hpp"
+#include "barretenberg/common/tuple.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/polynomials/gate_separator.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
@@ -61,7 +62,7 @@ template <typename Flavor> class RelationUtils {
         auto set_to_zero = [](auto&&... elements) {
             (std::fill(elements.evaluations.begin(), elements.evaluations.end(), FF(0)), ...);
         };
-        std::apply([&](auto&&... args) { (std::apply(set_to_zero, args), ...); }, tuple);
+        flat_tuple::apply([&](auto&&... args) { (flat_tuple::apply(set_to_zero, args), ...); }, tuple);
     }
 
     /**
@@ -92,14 +93,13 @@ template <typename Flavor> class RelationUtils {
      * @param tuple_1 First summand. Result stored in this tuple
      * @param tuple_2 Second summand
      */
-    template <typename... T>
-    static constexpr void add_tuples(std::tuple<T...>& tuple_1, const std::tuple<T...>& tuple_2)
+    template <typename Tuple> static constexpr void add_tuples(Tuple& tuple_1, const Tuple& tuple_2)
     {
         auto add_tuples_helper = [&]<std::size_t... I>(std::index_sequence<I...>) {
             ((std::get<I>(tuple_1) += std::get<I>(tuple_2)), ...);
         };
 
-        add_tuples_helper(std::make_index_sequence<sizeof...(T)>{});
+        add_tuples_helper(std::make_index_sequence<std::tuple_size_v<Tuple>>{});
     }
 
     /**
@@ -113,13 +113,10 @@ template <typename Flavor> class RelationUtils {
      * @param tuple_1 First nested tuple summand. Result stored here
      * @param tuple_2 Second summand
      */
-    template <typename Tuple, std::size_t Index = 0>
-    static constexpr void add_nested_tuples(Tuple& tuple_1, const Tuple& tuple_2)
+    template <typename Tuple> static constexpr void add_nested_tuples(Tuple& tuple_1, const Tuple& tuple_2)
     {
-        if constexpr (Index < std::tuple_size<Tuple>::value) {
-            add_tuples(std::get<Index>(tuple_1), std::get<Index>(tuple_2));
-            add_nested_tuples<Tuple, Index + 1>(tuple_1, tuple_2);
-        }
+        constexpr_for<0, std::tuple_size_v<Tuple>, 1>(
+            [&]<size_t Index>() { add_tuples(std::get<Index>(tuple_1), std::get<Index>(tuple_2)); });
     }
 
     /**
@@ -158,7 +155,7 @@ template <typename Flavor> class RelationUtils {
                                                                       const Parameters& relation_parameters,
                                                                       const FF& partial_evaluation_result)
     {
-        RelationEvaluations result;
+        RelationEvaluations result{};
         constexpr_for<0, NUM_RELATIONS, 1>([&]<size_t rel_index>() {
             accumulate_single_relation<Parameters, rel_index>(
                 evaluations, result, relation_parameters, partial_evaluation_result);
@@ -202,7 +199,7 @@ template <typename Flavor> class RelationUtils {
      * @details FF's default constructor may not initialize to zero (e.g., bb::fr), hence we can't rely on
      * aggregate initialization of the evaluations array.
      */
-    template <size_t idx = 0> static void zero_elements(auto& tuple)
+    static void zero_elements(auto& tuple)
     {
         auto set_to_zero = [](auto& element) { std::fill(element.begin(), element.end(), FF(0)); };
         apply_to_tuple_of_arrays(set_to_zero, tuple);
@@ -237,10 +234,9 @@ template <typename Flavor> class RelationUtils {
      * @tparam Operation Any operation valid on elements of the inner arrays (FFs)
      * @param tuple Tuple of arrays (of FFs)
      */
-    template <typename Operation, typename... Ts>
-    static void apply_to_tuple_of_arrays(Operation&& operation, std::tuple<Ts...>& tuple)
+    template <typename Operation> static void apply_to_tuple_of_arrays(Operation&& operation, auto& tuple)
     {
-        std::apply(
+        flat_tuple::apply(
             [&operation](auto&... elements_ref) {
                 // The comma operator ensures sequential application of the operation to each element.
                 // (void) cast is used to discard the result of std::invoke if it's not void,
@@ -258,23 +254,15 @@ template <typename Flavor> class RelationUtils {
      * of array are values of subrelations and we want to accumulate some of these values separately (the linearly
      * dependent contribution when we compute the evaluation of full rel_U(G)H at particular row.)
      */
-    template <typename Operation, typename... Ts>
-    static void apply_to_tuple_of_arrays_elements(Operation&& operation, const std::tuple<Ts...>& tuple)
+    template <typename Operation, typename tuple_type>
+    static void apply_to_tuple_of_arrays_elements(Operation&& operation, const tuple_type& tuple)
     {
         // Iterate over each array in the outer tuple.
         // OuterIdx is the compile-time index of the current array in the tuple.
-        constexpr_for<0, sizeof...(Ts), 1>([&]<size_t OuterIdx>() {
-            // Determine the specific Relation type corresponding to the OuterIdx-th array.
-            // This is used to find the number of elements in the current array.
-            using Relation = typename std::tuple_element_t<OuterIdx, Relations>;
-
-            // Determine the number of elements in the current array.
-            // This relies on Relation::SUBRELATION_PARTIAL_LENGTHS.size() being a constexpr value,
-            // which indicates how many subrelations (and thus, evaluations) are in this relation's array.
-            constexpr size_t num_elements_in_current_array = Relation::SUBRELATION_PARTIAL_LENGTHS.size();
-
+        constexpr_for<0, std::tuple_size_v<tuple_type>, 1>([&]<size_t OuterIdx>() {
             // Get a const reference to the current array from the tuple.
             const auto& current_array = std::get<OuterIdx>(tuple);
+            constexpr size_t num_elements_in_current_array = std::tuple_size_v<std::decay_t<decltype(current_array)>>;
 
             // Iterate over each element within the current_array.
             // InnerIdx is the compile-time index of the element within this specific array.
