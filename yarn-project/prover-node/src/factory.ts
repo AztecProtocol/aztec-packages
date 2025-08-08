@@ -2,8 +2,16 @@ import { type Archiver, createArchiver } from '@aztec/archiver';
 import { BBCircuitVerifier, QueuedIVCVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import { EpochCache } from '@aztec/epoch-cache';
-import { L1TxUtils, RollupContract, createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
+import {
+  L1TxUtils,
+  PublisherManager,
+  RollupContract,
+  type ViemPublicClient,
+  createEthereumChain,
+  createExtendedL1Client,
+} from '@aztec/ethereum';
 import { pick } from '@aztec/foundation/collection';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
@@ -15,20 +23,20 @@ import type { AztecNode, ProvingJobBroker } from '@aztec/stdlib/interfaces/serve
 import { P2PClientType } from '@aztec/stdlib/p2p';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
-import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
+import { L1Metrics, type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
 import { type ProverNodeConfig, resolveConfig } from './config.js';
 import { EpochMonitor } from './monitors/epoch-monitor.js';
-import { ProverNodePublisher } from './prover-node-publisher.js';
 import { ProverNode } from './prover-node.js';
+import { ProverPublisherFactory } from './prover-publisher-factory.js';
 
 export type ProverNodeDeps = {
   telemetry?: TelemetryClient;
   log?: Logger;
   aztecNodeTxProvider?: Pick<AztecNode, 'getTxsByHash'>;
   archiver?: Archiver;
-  publisher?: ProverNodePublisher;
+  publisherFactory?: ProverPublisherFactory;
   blobSinkClient?: BlobSinkClientInterface;
   broker?: ProvingJobBroker;
   l1TxUtils?: L1TxUtils;
@@ -78,7 +86,14 @@ export async function createProverNode(
   const rollupContract = new RollupContract(l1Client, config.l1Contracts.rollupAddress.toString());
 
   const l1TxUtils = deps.l1TxUtils ?? new L1TxUtils(l1Client, log, deps.dateProvider, config);
-  const publisher = deps.publisher ?? new ProverNodePublisher(config, { telemetry, rollupContract, l1TxUtils });
+
+  const publisherFactory =
+    deps.publisherFactory ??
+    new ProverPublisherFactory(config, {
+      rollupContract,
+      publisherManager: new PublisherManager([l1TxUtils]),
+      telemetry,
+    });
 
   const proofVerifier = new QueuedIVCVerifier(
     config,
@@ -126,15 +141,22 @@ export async function createProverNode(
     telemetry,
   );
 
+  const l1Metrics = new L1Metrics(
+    telemetry.getMeter('ProverNodeL1Metrics'),
+    l1TxUtils.client as unknown as ViemPublicClient,
+    [EthAddress.fromString(l1TxUtils.getSenderAddress())],
+  );
+
   return new ProverNode(
     prover,
-    publisher,
+    publisherFactory,
     archiver,
     archiver,
     archiver,
     worldStateSynchronizer,
     p2pClient,
     epochMonitor,
+    l1Metrics,
     proverNodeConfig,
     telemetry,
   );

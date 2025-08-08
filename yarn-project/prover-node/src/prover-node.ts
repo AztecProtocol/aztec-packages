@@ -1,5 +1,5 @@
 import type { Archiver } from '@aztec/archiver';
-import type { ViemPublicClient } from '@aztec/ethereum';
+import type { RollupContract } from '@aztec/ethereum';
 import { assertRequired, compact, pick, sum } from '@aztec/foundation/collection';
 import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -42,6 +42,7 @@ import { EpochProvingJob, type EpochProvingJobState } from './job/epoch-proving-
 import { ProverNodeJobMetrics, ProverNodeRewardsMetrics } from './metrics.js';
 import type { EpochMonitor, EpochMonitorHandler } from './monitors/epoch-monitor.js';
 import type { ProverNodePublisher } from './prover-node-publisher.js';
+import type { ProverPublisherFactory } from './prover-publisher-factory.js';
 
 type ProverNodeOptions = SpecificProverNodeConfig & Partial<DataStoreOptions>;
 type DataStoreOptions = Pick<DataStoreConfig, 'dataDirectory'> & Pick<ChainConfig, 'l1ChainId' | 'rollupVersion'>;
@@ -59,28 +60,25 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   private config: ProverNodeOptions;
   private jobMetrics: ProverNodeJobMetrics;
   private rewardsMetrics: ProverNodeRewardsMetrics;
-  private l1Metrics: L1Metrics;
 
   public readonly tracer: Tracer;
 
+  protected publisher: ProverNodePublisher | undefined;
+
   constructor(
     protected readonly prover: EpochProverManager,
-    protected readonly publisher: ProverNodePublisher,
+    protected readonly publisherFactory: ProverPublisherFactory,
     protected readonly l2BlockSource: L2BlockSource & Partial<Service>,
     protected readonly l1ToL2MessageSource: L1ToL2MessageSource,
     protected readonly contractDataSource: ContractDataSource,
     protected readonly worldState: WorldStateSynchronizer,
     protected readonly p2pClient: Pick<P2PClient<P2PClientType.Prover>, 'getTxProvider'> & Partial<Service>,
     protected readonly epochsMonitor: EpochMonitor,
+    protected readonly l1Metrics: L1Metrics,
+    protected readonly rollupContract: RollupContract,
     config: Partial<ProverNodeOptions> = {},
     protected readonly telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {
-    this.l1Metrics = new L1Metrics(
-      telemetryClient.getMeter('ProverNodeL1Metrics'),
-      publisher.l1TxUtils.client as unknown as ViemPublicClient,
-      [publisher.getSenderAddress()],
-    );
-
     this.config = {
       proverNodePollingIntervalMs: 1_000,
       proverNodeMaxPendingJobs: 100,
@@ -103,7 +101,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     this.rewardsMetrics = new ProverNodeRewardsMetrics(
       meter,
       EthAddress.fromField(this.prover.getProverId()),
-      this.publisher.getRollupContract(),
+      rollupContract,
     );
   }
 
@@ -151,6 +149,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   async start() {
     this.epochsMonitor.start(this);
     this.l1Metrics.start();
+    this.publisher = await this.publisherFactory.create();
     await this.rewardsMetrics.start();
     this.log.info(`Started Prover Node with prover id ${this.prover.getProverId().toString()}`, this.config);
   }
@@ -164,7 +163,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     await this.prover.stop();
     await tryStop(this.p2pClient);
     await tryStop(this.l2BlockSource);
-    this.publisher.interrupt();
+    this.publisher?.interrupt();
     await Promise.all(Array.from(this.jobs.values()).map(job => job.stop()));
     await this.worldState.stop();
     this.l1Metrics.stop();
@@ -270,6 +269,8 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   private async createProvingJob(epochNumber: bigint, opts: { skipEpochCheck?: boolean } = {}) {
     this.checkMaximumPendingJobs();
 
+    this.publisher = await this.publisherFactory.create();
+
     // Gather all data for this epoch
     const epochData = await this.gatherEpochData(epochNumber);
 
@@ -291,7 +292,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     const deadlineTs = getProofSubmissionDeadlineTimestamp(epochNumber, await this.getL1Constants());
     const deadline = new Date(Number(deadlineTs) * 1000);
 
-    const job = this.doCreateEpochProvingJob(epochData, deadline, publicProcessorFactory, opts);
+    const job = this.doCreateEpochProvingJob(epochData, deadline, publicProcessorFactory, this.publisher, opts);
     this.jobs.set(job.getId(), job);
     return job;
   }
@@ -367,6 +368,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     data: EpochProvingJobData,
     deadline: Date | undefined,
     publicProcessorFactory: PublicProcessorFactory,
+    publisher: ProverNodePublisher,
     opts: { skipEpochCheck?: boolean } = {},
   ) {
     const { proverNodeMaxParallelBlocksPerEpoch: parallelBlockLimit } = this.config;
@@ -375,7 +377,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
       this.worldState,
       this.prover.createEpochProver(),
       publicProcessorFactory,
-      this.publisher,
+      publisher,
       this.l2BlockSource,
       this.jobMetrics,
       deadline,

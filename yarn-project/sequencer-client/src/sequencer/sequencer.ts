@@ -215,15 +215,19 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     );
   }
 
+  public async init() {
+    this.publisher = (await this.publisherFactory.create(undefined)).publisher;
+  }
+
   /**
    * Starts the sequencer and moves to IDLE state.
    */
-  public async start() {
+  public start() {
     this.metrics.start();
-    this.publisher = (await this.publisherFactory.create(undefined)).publisher;
     this.runningPromise = new RunningPromise(this.work.bind(this), this.log, this.pollingIntervalMs);
     this.setState(SequencerState.IDLE, undefined, { force: true });
     this.runningPromise.start();
+    this.log.info('Started sequencer');
   }
 
   /**
@@ -232,21 +236,12 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   public async stop(): Promise<void> {
     this.log.info(`Stopping sequencer`);
     this.metrics.stop();
+    this.publisher?.interrupt();
     await this.validatorClient?.stop();
     await this.runningPromise?.stop();
     this.setState(SequencerState.STOPPED, undefined, { force: true });
     this.log.info('Stopped sequencer');
   }
-
-  // /**
-  //  * Starts a previously stopped sequencer.
-  //  */
-  // public resume() {
-  //   this.log.info('Restarting sequencer');
-  //   this.publisher.restart();
-  //   this.runningPromise!.start();
-  //   this.setState(SequencerState.IDLE, undefined, { force: true });
-  // }
 
   /**
    * Returns the current state of the sequencer.
