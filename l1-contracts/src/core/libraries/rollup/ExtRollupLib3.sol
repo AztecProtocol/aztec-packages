@@ -11,6 +11,18 @@ import {
 } from "@aztec/core/reward-boost/RewardBooster.sol";
 import {Slasher, ISlasher} from "@aztec/core/slashing/Slasher.sol";
 
+/**
+ * @title ExtRollupLib3 - External Rollup Library (Deployment Functions)
+ * @author Aztec Labs
+ * @notice External library containing deployment functions for the Rollup contract to avoid exceeding max contract
+ * size.
+ *
+ * @dev This library serves as an external library for the Rollup contract, splitting off deployment-related
+ *      functionality to keep the main contract within the maximum contract size limit. The library contains
+ *      external functions focused on deployments performed during initialization:
+ *      - Reward booster contract deployment with configuration
+ *      - Slasher contract deployment with governance parameters
+ */
 library ExtRollupLib3 {
   function deployRewardBooster(RewardBoostConfig memory _config) external returns (IBoosterCore) {
     RewardBooster booster = new RewardBooster(IValidatorSelection(address(this)), _config);

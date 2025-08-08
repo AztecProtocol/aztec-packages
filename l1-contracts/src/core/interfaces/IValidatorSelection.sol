@@ -34,7 +34,7 @@ interface IValidatorSelection is IValidatorSelectionCore, IEmperor {
   // Consider removing below this point
   function getTimestampForSlot(Slot _slotNumber) external view returns (Timestamp);
 
-  // Likely removal of these to replace with a size and indiviual getter
+  // Likely removal of these to replace with a size and individual getter
   // Get the current epoch committee
   function getAttesters() external view returns (address[] memory);
 
