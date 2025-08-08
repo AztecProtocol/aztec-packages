@@ -85,6 +85,8 @@ describe('L1Publisher integration', () => {
   let l1ContractAddresses: L1ContractAddresses;
   let deployerAccount: PrivateKeyAccount;
 
+  let governanceProposerContract: GovernanceProposerContract;
+
   let rollupAddress: Address;
   let outboxAddress: Address;
 
@@ -208,7 +210,7 @@ describe('L1Publisher integration', () => {
       sequencerL1Client,
       slashingProposerAddress.toString(),
     );
-    const governanceProposerContract = new GovernanceProposerContract(
+    governanceProposerContract = new GovernanceProposerContract(
       sequencerL1Client,
       l1ContractAddresses.governanceProposerAddress.toString(),
     );
