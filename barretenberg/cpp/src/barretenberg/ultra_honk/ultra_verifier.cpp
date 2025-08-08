@@ -31,7 +31,10 @@ UltraVerifier_<Flavor>::UltraVerifierOutput UltraVerifier_<Flavor>::verify_proof
     oink_verifier.verify();
     const PublicInputs& public_inputs = oink_verifier.public_inputs;
 
-    for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
+    // Determine the number of rounds in the sumcheck based on whether or not padding is employed
+    const uint64_t log_n = Flavor::USE_PADDING ? CONST_PROOF_SIZE_LOG_N : verification_key->vk->log_circuit_size;
+
+    for (size_t idx = 0; idx < log_n; idx++) {
         verification_key->gate_challenges.emplace_back(
             transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx)));
     }
