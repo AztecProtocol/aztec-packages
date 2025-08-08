@@ -123,8 +123,9 @@ void ClientIVCAPI::prove(const Flags& flags,
     }.execute(request);
     bbapi::ClientIvcHidingKernel{ .witness = step.witness }.execute(request);
 
-    auto expected_vk = request.ivc_in_progress->get_vk();
     auto proof = bbapi::ClientIvcProve{}.execute(request).proof;
+    auto expected_vk = request.ivc_in_progress->get_vk();
+    info("expected for hiding number of public inputs", expected_vk.mega->num_public_inputs);
 
     // We'd like to use the `write` function that UltraHonkAPI uses, but there are missing functions for creating
     // std::string representations of vks that don't feel worth implementing
@@ -147,7 +148,10 @@ void ClientIVCAPI::prove(const Flags& flags,
         vinfo("writing ClientIVC vk in directory ", output_dir);
         auto vk_buf = write_civc_vk("bytes", step.bytecode, output_dir);
         auto vk = from_buffer<ClientIVC::VerificationKey>(vk_buf);
-        msgpack::msgpack_check_eq(vk.mega, expected_vk.mega, const std::string_view& error_message)
+        info("number of public inputs in the hiding circuit vk:", vk.mega->num_public_inputs);
+        ASSERT(msgpack::msgpack_check_eq(*vk.mega, *expected_vk.mega, "mega doesn't match"));
+        ASSERT(msgpack::msgpack_check_eq(*vk.eccvm, *expected_vk.eccvm, "eccvm doesn't match"));
+        ASSERT(msgpack::msgpack_check_eq(*vk.translator, *expected_vk.translator, "translator doesn't match"));
     }
 }
 

@@ -421,6 +421,7 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::comp
 
     // Propagate the public inputs of the tail kernel by converting them to public inputs of the hiding circuit.
     auto num_public_inputs = static_cast<size_t>(honk_vk->num_public_inputs);
+    info("number of public inputs in complete kernel circuit", num_public_inputs);
     num_public_inputs -= KernelIO::PUBLIC_INPUTS_SIZE; // exclude fixed kernel_io public inputs
     for (size_t i = 0; i < num_public_inputs; i++) {
         stdlib_proof[i].set_public();
@@ -502,7 +503,7 @@ ClientIVC::Proof ClientIVC::prove()
 {
     vinfo("proving the clientIVC");
     // deallocate the protogalaxy accumulator
-    fold_output.accumulator = nullptr;
+    // fold_output.accumulator = nullptr;
 
     auto mega_proof = prove_hiding_circuit();
 

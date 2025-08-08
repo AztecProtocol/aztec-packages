@@ -81,6 +81,7 @@ ClientIvcHidingKernel::Response ClientIvcHidingKernel::execute(BBApiRequest& req
 
     const acir_format::ProgramMetadata metadata{ request.ivc_in_progress };
     auto circuit = acir_format::create_circuit<ClientIVC::ClientCircuit>(program, metadata);
+
     info("ClientIvcHidingKernel - we are processing the hiding circuit: '", request.loaded_circuit_name, "'");
 
     request.loaded_circuit_constraints.reset();
@@ -107,11 +108,12 @@ ClientIvcProve::Response ClientIvcProve::execute(BBApiRequest& request) &&
 
     // We verify this proof. Another bb call to verify has some overhead of loading VK/proof/SRS,
     // and it is mysterious if this transaction fails later in the lifecycle.
+    info("the number of public inputs in prove:", request.ivc_in_progress->get_vk().mega->num_public_inputs);
     if (!request.ivc_in_progress->verify(proof)) {
         throw_or_abort("Failed to verify the generated proof!");
     }
 
-    request.ivc_in_progress.reset();
+    // request.ivc_in_progress.reset();
     request.ivc_stack_depth = 0;
 
     Response response;
