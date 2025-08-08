@@ -101,10 +101,8 @@ export class SequencerPublisher {
   public epochCache: EpochCache;
 
   protected governanceLog = createLogger('sequencer:publisher:governance');
-  protected governanceProposerAddress?: EthAddress;
 
   protected slashingLog = createLogger('sequencer:publisher:slashing');
-  protected slashingProposerAddress?: EthAddress;
 
   private myLastSignals: Record<SignalType, bigint> = {
     [SignalType.GOVERNANCE]: 0n,
@@ -160,6 +158,12 @@ export class SequencerPublisher {
 
     this.govProposerContract = deps.governanceProposerContract;
     this.slashingProposerContract = deps.slashingProposerContract;
+
+    this.rollupContract.listenToSlasherChanged(async () => {
+      this.log.info('Slashing proposer changed');
+      const newSlashingProposer = await this.rollupContract.getSlashingProposer();
+      this.slashingProposerContract = newSlashingProposer;
+    });
   }
 
   public getRollupContract(): RollupContract {
@@ -339,7 +343,6 @@ export class SequencerPublisher {
 
     // use sender balance to simulate
     const balance = await this.l1TxUtils.getSenderBalance();
-    console.log(`Simulating validateHeader with balance: ${balance}`);
     await this.l1TxUtils.simulate(
       {
         to: this.rollupContract.address,
@@ -352,7 +355,6 @@ export class SequencerPublisher {
         ...(await this.rollupContract.makePendingBlockNumberOverride(opts?.forcePendingBlockNumber)),
       ],
     );
-    console.log(`Simulated validateHeader`);
   }
 
   /**
@@ -575,14 +577,14 @@ export class SequencerPublisher {
         const logData = { ...result, slotNumber, round, payload: payload.toString() };
         if (!success) {
           this.log.error(
-            `Voting in [${action}] for ${payload} at slot ${slotNumber} in round ${round} failed`,
+            `Signaling in [${action}] for ${payload} at slot ${slotNumber} in round ${round} failed`,
             logData,
           );
           this.myLastSignals[signalType] = cachedLastVote;
           return false;
         } else {
           this.log.info(
-            `Voting in [${action}] for ${payload} at slot ${slotNumber} in round ${round} succeeded`,
+            `Signaling in [${action}] for ${payload} at slot ${slotNumber} in round ${round} succeeded`,
             logData,
           );
           return true;
