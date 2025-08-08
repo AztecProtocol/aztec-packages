@@ -33,14 +33,14 @@ describe('Client IVC Integration', () => {
 
     const proof = await proveClientIVC(bbBinaryPath, bbWorkingDirectory, witnessStack, bytecodes, vks, logger);
     await writeClientIVCProofToOutputDirectory(proof, bbWorkingDirectory);
-    // const verifyResult = await verifyClientIvcProof(
-    //   bbBinaryPath,
-    //   bbWorkingDirectory.concat('/proof'),
-    //   bbWorkingDirectory.concat('/vk'),
-    //   logger.info,
-    // );
+    const verifyResult = await verifyClientIvcProof(
+      bbBinaryPath,
+      bbWorkingDirectory.concat('/proof'),
+      bbWorkingDirectory.concat('/vk'),
+      logger.info,
+    );
 
-    // expect(verifyResult.status).toEqual(BB_RESULT.SUCCESS);
+    expect(verifyResult.status).toEqual(BB_RESULT.SUCCESS);
   });
 
   // This test will verify a client IVC proof of a more complex tx:
