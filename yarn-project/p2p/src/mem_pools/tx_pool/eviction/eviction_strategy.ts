@@ -62,6 +62,13 @@ export interface TxPoolOperations {
   getPendingTxs(): Promise<PendingTxInfo[]>;
   getPendingTxsReferencingBlocks(blockHashes: Fr[]): Promise<TxBlockReference[]>;
   getPendingTxsWithFeePayer(feePayer: AztecAddress[]): Promise<PendingTxInfo[]>;
+  /** Cheap count of current pending transactions. */
+  getPendingTxCount(): Promise<number>;
+  /**
+   * Returns up to `limit` lowest-priority evictable pending tx hashes.
+   * Ordering should be from lowest priority upwards.
+   */
+  getLowestPriorityEvictable(limit: number): Promise<TxHash[]>;
   deleteTxs(txHashes: TxHash[], eviction?: boolean): Promise<void>;
 }
 

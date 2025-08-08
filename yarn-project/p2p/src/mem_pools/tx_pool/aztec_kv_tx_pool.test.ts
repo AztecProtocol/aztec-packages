@@ -406,4 +406,42 @@ describe('KV TX pool', () => {
     await txPool.addTxs([tx6]);
     await expect(txPool.getPendingTxHashes()).resolves.toEqual([tx6.getTxHash(), tx5.getTxHash(), tx4.getTxHash()]);
   });
+
+  describe('getLowestPriorityEvictable', () => {
+    it('returns the lowest-priority evictable tx hashes up to limit', async () => {
+      txPool = new AztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
+        maxTxPoolSize: 0,
+      });
+
+      const tx1 = await mockTx(1, { maxPriorityFeesPerGas: new GasFees(1, 1) });
+      const tx2 = await mockTx(2, { maxPriorityFeesPerGas: new GasFees(2, 2) });
+      const tx3 = await mockTx(3, { maxPriorityFeesPerGas: new GasFees(3, 3) });
+      const tx4 = await mockTx(4, { maxPriorityFeesPerGas: new GasFees(4, 4) });
+      await txPool.addTxs([tx3, tx1, tx4, tx2]);
+
+      // Mark tx2 as non-evictable; tx1 should be considered first
+      await txPool.markTxsAsNonEvictable([tx2.getTxHash()]);
+
+      const res1 = await txPool.getLowestPriorityEvictable(1);
+      expect(res1).toEqual([tx1.getTxHash()]);
+
+      const res2 = await txPool.getLowestPriorityEvictable(2);
+      // After skipping non-evictable tx2, next lowest is tx3
+      expect(res2).toEqual([tx1.getTxHash(), tx3.getTxHash()]);
+
+      const res3 = await txPool.getLowestPriorityEvictable(10);
+      expect(res3).toEqual([tx1.getTxHash(), tx3.getTxHash(), tx4.getTxHash()]);
+    });
+
+    it('respects zero and all non-evictable cases', async () => {
+      txPool = new AztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState);
+      const tx1 = await mockTx(10, { maxPriorityFeesPerGas: new GasFees(1, 1) });
+      await txPool.addTxs([tx1]);
+
+      expect(await txPool.getLowestPriorityEvictable(0)).toEqual([]);
+
+      await txPool.markTxsAsNonEvictable([tx1.getTxHash()]);
+      expect(await txPool.getLowestPriorityEvictable(1)).toEqual([]);
+    });
+  });
 });

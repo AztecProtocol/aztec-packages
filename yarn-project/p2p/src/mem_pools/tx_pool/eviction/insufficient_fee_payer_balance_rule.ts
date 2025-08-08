@@ -14,12 +14,12 @@ import type {
   TxPoolOperations,
 } from './eviction_strategy.js';
 
-export class OutOfBalanceTxsAfterMining implements EvictionRule {
-  public readonly name = 'OutOfBalanceTxsAfterMining';
+export class InsufficientFeePayerBalanceRule implements EvictionRule {
+  public readonly name = 'InsufficientFeePayerBalance';
 
   public constructor(private worldState: ReadonlyWorldStateAccess) {}
 
-  private log = createLogger('p2p:mempool:tx_pool:out_of_balance_txs_after_mining_rule');
+  private log = createLogger('p2p:mempool:tx_pool:insufficient_fee_payer_balance_rule');
 
   async evict(context: EvictionContext, txPool: TxPoolOperations): Promise<EvictionResult> {
     try {
@@ -48,15 +48,14 @@ export class OutOfBalanceTxsAfterMining implements EvictionRule {
   }
 
   private async evictTxs(
-    candiateTxs: PendingTxInfo[],
+    candidateTxs: PendingTxInfo[],
     blockNumber: number,
     txPool: TxPoolOperations,
   ): Promise<EvictionResult> {
     const txsToEvict: TxHash[] = [];
     const gasValidator = this.createGasTxValidator(this.worldState.getSnapshot(blockNumber));
 
-    for (const { txHash, isEvictable } of candiateTxs) {
-      // Skip non-evictable transactions
+    for (const { txHash, isEvictable } of candidateTxs) {
       if (!isEvictable) {
         continue;
       }
@@ -88,11 +87,6 @@ export class OutOfBalanceTxsAfterMining implements EvictionRule {
     };
   }
 
-  /**
-   * Creates a GasTxValidator instance.
-   * @param db - DB for the validator to use
-   * @returns A GasTxValidator instance
-   */
   private createGasTxValidator(db: MerkleTreeReadOperations): GasTxValidator {
     return new GasTxValidator(new DatabasePublicStateSource(db), ProtocolContractAddress.FeeJuice, GasFees.empty());
   }

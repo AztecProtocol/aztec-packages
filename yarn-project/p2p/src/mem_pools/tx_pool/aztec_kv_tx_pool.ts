@@ -4,28 +4,23 @@ import { toArray } from '@aztec/foundation/iterable';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
-import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { GasFees } from '@aztec/stdlib/gas';
-import type { MerkleTreeReadOperations, ReadonlyWorldStateAccess } from '@aztec/stdlib/interfaces/server';
+import type { ReadonlyWorldStateAccess } from '@aztec/stdlib/interfaces/server';
 import { ClientIvcProof } from '@aztec/stdlib/proofs';
 import type { TxAddedToPoolStats } from '@aztec/stdlib/stats';
-import { DatabasePublicStateSource } from '@aztec/stdlib/trees';
 import { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import assert from 'assert';
 import EventEmitter from 'node:events';
 
-import { ArchiveCache } from '../../msg_validators/tx_validator/archive_cache.js';
-import { GasTxValidator } from '../../msg_validators/tx_validator/gas_validator.js';
 import { PoolInstrumentation, PoolName, type PoolStatsCallback } from '../instrumentation.js';
 import { EvictionManager } from './eviction/eviction_manager.js';
 import type { PendingTxInfo, TxBlockReference, TxPoolOperations } from './eviction/eviction_strategy.js';
+import { InsufficientFeePayerBalanceRule } from './eviction/insufficient_fee_payer_balance_rule.js';
 import { InvalidTxsAfterMiningRule } from './eviction/invalid_txs_after_mining_rule.js';
 import { InvalidTxsAfterReorgRule } from './eviction/invalid_txs_after_reorg_rule.js';
 import { LowPriorityEvictionRule } from './eviction/low_priority_eviction_rule.js';
-import { OutOfBalanceTxsAfterMining } from './eviction/out_of_balance_tx_rule.js';
 import { getPendingTxPriority } from './priority.js';
 import type { TxPool, TxPoolEvents, TxPoolOptions } from './tx_pool.js';
 
@@ -123,7 +118,7 @@ export class AztecKVTxPool
     this.#evictionManager.registerRule(this.#maxSizeEvictionRule);
     this.#evictionManager.registerRule(new InvalidTxsAfterMiningRule());
     this.#evictionManager.registerRule(new InvalidTxsAfterReorgRule(worldState));
-    this.#evictionManager.registerRule(new OutOfBalanceTxsAfterMining(worldState));
+    this.#evictionManager.registerRule(new InsufficientFeePayerBalanceRule(worldState));
   }
 
   private countTxs: PoolStatsCallback = async () => {
@@ -173,16 +168,20 @@ export class AztecKVTxPool
           await this.removePendingTxIndices(tx, key);
         }
       }
+    });
 
+    await this.#store.transactionAsync(async () => {
       try {
         await this.#evictionManager.evictAfterNewBlock(blockHeader, minedNullifiers, minedFeePayers);
       } catch (err) {
         this.#log.warn('Unexpected error running evictAfterNewBlock', { err });
       }
     });
-    // We update this after the transaction above. This ensures that the non-evictable transactions are not evicted
-    // until any that have been mined are marked as such.
-    // The non-evictable set is not considered when evicting transactions that are invalid after a block is mined.
+
+    // Clear the non-evictable set after completing the DB updates above.
+    // This ensures pinned (non-evictable) txs are protected while we mark mined txs,
+    // but they won't remain pinned indefinitely across blocks. Note that eviction rules
+    // (including post-mining invalidation) respect the non-evictable flag while it is set.
     this.#nonEvictableTxs.clear();
   }
 
@@ -201,7 +200,9 @@ export class AztecKVTxPool
           await this.addPendingTxIndices(tx, key);
         }
       }
+    });
 
+    await this.#store.transactionAsync(async () => {
       try {
         await this.#evictionManager.evictAfterChainPrune(blockNumber);
       } catch (err) {
@@ -370,7 +371,9 @@ export class AztecKVTxPool
           }
         }),
       );
+    });
 
+    await this.#store.transactionAsync(async () => {
       try {
         await this.#evictionManager.evictAfterNewTxs(addedTxs.map(({ txHash }) => txHash));
       } catch (err) {
@@ -455,24 +458,6 @@ export class AztecKVTxPool
   public markTxsAsNonEvictable(txHashes: TxHash[]): Promise<void> {
     txHashes.forEach(txHash => this.#nonEvictableTxs.add(txHash.toString()));
     return Promise.resolve();
-  }
-
-  /**
-   * Creates a GasTxValidator instance.
-   * @param db - DB for the validator to use
-   * @returns A GasTxValidator instance
-   */
-  protected createGasTxValidator(db: MerkleTreeReadOperations): GasTxValidator {
-    return new GasTxValidator(new DatabasePublicStateSource(db), ProtocolContractAddress.FeeJuice, GasFees.empty());
-  }
-
-  /**
-   * Creates an ArchiveCache instance.
-   * @param db - DB for the cache to use
-   * @returns An ArchiveCache instance
-   */
-  protected createArchiveCache(db: MerkleTreeReadOperations): ArchiveCache {
-    return new ArchiveCache(db);
   }
 
   /**
@@ -567,5 +552,25 @@ export class AztecKVTxPool
       );
       await this.#feePayerToTxHash.deleteValue(tx.data.feePayer.toString(), txHash);
     });
+  }
+
+  /**
+   * Returns up to `limit` lowest-priority evictable pending tx hashes without hydrating transactions.
+   * Iterates the priority index in ascending order and skips non-evictable txs.
+   */
+  public async getLowestPriorityEvictable(limit: number): Promise<TxHash[]> {
+    const result: TxHash[] = [];
+    if (limit <= 0) {
+      return result;
+    }
+    for await (const txHashStr of this.#pendingTxPriorityToHash.valuesAsync()) {
+      if (!this.#nonEvictableTxs.has(txHashStr)) {
+        result.push(TxHash.fromString(txHashStr));
+        if (result.length >= limit) {
+          break;
+        }
+      }
+    }
+    return result;
   }
 }

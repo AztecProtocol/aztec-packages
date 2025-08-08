@@ -8,12 +8,12 @@ import { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { type EvictionContext, EvictionEvent, type PendingTxInfo, type TxPoolOperations } from './eviction_strategy.js';
-import { OutOfBalanceTxsAfterMining } from './out_of_balance_tx_rule.js';
+import { InsufficientFeePayerBalanceRule } from './insufficient_fee_payer_balance_rule.js';
 
-describe('OutOfBalanceTxsAfterMining', () => {
+describe('InsufficientFeePayerBalanceRule', () => {
   let txPool: MockProxy<TxPoolOperations>;
   let worldState: MockProxy<MerkleTreeReadOperations>;
-  let rule: OutOfBalanceTxsAfterMining;
+  let rule: InsufficientFeePayerBalanceRule;
 
   beforeEach(() => {
     txPool = mock<TxPoolOperations>();
@@ -21,15 +21,15 @@ describe('OutOfBalanceTxsAfterMining', () => {
     txPool.getPendingTxsWithFeePayer.mockResolvedValue([]);
 
     worldState = mock<MerkleTreeReadOperations>();
-    worldState.getPreviousValueIndex.mockResolvedValue(undefined),
-      worldState.getLeafPreimage.mockResolvedValue(
-        new PublicDataTreeLeafPreimage(PublicDataTreeLeaf.empty(), Fr.ONE, 1n),
-      );
+    worldState.getPreviousValueIndex.mockResolvedValue(undefined);
+    worldState.getLeafPreimage.mockResolvedValue(
+      new PublicDataTreeLeafPreimage(PublicDataTreeLeaf.empty(), Fr.ONE, 1n),
+    );
 
-    rule = new OutOfBalanceTxsAfterMining({
+    rule = new InsufficientFeePayerBalanceRule({
       getSnapshot: () => worldState,
       getCommitted: () => worldState,
-    });
+    } as any);
   });
 
   describe('evict method', () => {
@@ -88,7 +88,6 @@ describe('OutOfBalanceTxsAfterMining', () => {
         const tx1 = TxHash.random();
         const tx2 = TxHash.random();
 
-        // Create real mock transactions with proper structure
         const mockTx1 = await mockTx(1, {
           numberOfNonRevertiblePublicCallRequests: 0,
           numberOfRevertiblePublicCallRequests: 0,
@@ -116,7 +115,7 @@ describe('OutOfBalanceTxsAfterMining', () => {
         worldState.getPreviousValueIndex
           .mockResolvedValueOnce({ index: 42n, alreadyPresent: true })
           .mockResolvedValueOnce({ index: 123n, alreadyPresent: true })
-          .mockResolvedValue(undefined);
+          .mockResolvedValue(undefined as any);
 
         worldState.getLeafPreimage
           .mockResolvedValueOnce(new PublicDataTreeLeafPreimage(new PublicDataTreeLeaf(Fr.ZERO, new Fr(1)), Fr.ONE, 1n))
@@ -127,7 +126,7 @@ describe('OutOfBalanceTxsAfterMining', () => {
         const result = await rule.evict(context, txPool);
 
         expect(result.success).toBe(true);
-        expect(result.txsEvicted).toEqual([tx1]); // Only tx1 has duplicate nullifier
+        expect(result.txsEvicted).toEqual([tx1]);
         expect(txPool.deleteTxs).toHaveBeenCalledWith([tx1], true);
       });
 
@@ -135,7 +134,6 @@ describe('OutOfBalanceTxsAfterMining', () => {
         const evictableTx = TxHash.random();
         const nonEvictableTx = TxHash.random();
 
-        // Create real mock transactions with proper structure
         const mockEvictableTx = await mockTx(1, {
           numberOfNonRevertiblePublicCallRequests: 0,
           numberOfRevertiblePublicCallRequests: 0,
@@ -166,7 +164,7 @@ describe('OutOfBalanceTxsAfterMining', () => {
         const result = await rule.evict(context, txPool);
 
         expect(result.success).toBe(true);
-        expect(result.txsEvicted).toEqual([evictableTx]); // Only evictable tx is evicted
+        expect(result.txsEvicted).toEqual([evictableTx]);
         expect(txPool.deleteTxs).toHaveBeenCalledWith([evictableTx], true);
       });
 

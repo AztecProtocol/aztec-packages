@@ -176,7 +176,7 @@ describe('InvalidTxsAfterReorgRule', () => {
 
         const txHash = TxHash.random().toString();
         const headerHash = Fr.random();
-        const error = new Error('Delete failed');
+        const error = new Error('Test error');
 
         const pendingTxs: PendingTxInfo[] = [
           { txHash: TxHash.fromString(txHash), blockHash: headerHash, isEvictable: true },

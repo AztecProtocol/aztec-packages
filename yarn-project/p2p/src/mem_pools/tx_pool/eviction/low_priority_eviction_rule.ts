@@ -37,8 +37,7 @@ export class LowPriorityEvictionRule implements EvictionRule {
     }
 
     try {
-      const pendingTxs = await txPool.getPendingTxs();
-      const currentTxCount = pendingTxs.length;
+      const currentTxCount = await txPool.getPendingTxCount();
       const maxCount = this.config.maxPoolSize;
 
       if (currentTxCount <= maxCount) {
@@ -51,28 +50,8 @@ export class LowPriorityEvictionRule implements EvictionRule {
       }
 
       this.log.verbose(`Evicting low priority txs. Pending tx count above limit: ${currentTxCount} > ${maxCount}`);
-      const txsToEvict: TxHash[] = [];
-      let remainingTxCount = currentTxCount;
-      const targetCount = this.config.maxPoolSize;
-
-      for (const { txHash, isEvictable } of pendingTxs) {
-        if (!isEvictable) {
-          continue;
-        }
-
-        this.log.verbose(`Evicting tx ${txHash} from pool due to low priority to satisfy max tx count limit`, {
-          txHash: txHash.toString(),
-          remainingTxCount,
-          targetCount,
-        });
-
-        txsToEvict.push(txHash);
-        remainingTxCount -= 1;
-
-        if (remainingTxCount <= targetCount) {
-          break;
-        }
-      }
+      const numberToEvict = currentTxCount - maxCount;
+      const txsToEvict: TxHash[] = await txPool.getLowestPriorityEvictable(numberToEvict);
 
       if (txsToEvict.length > 0) {
         await txPool.deleteTxs(txsToEvict, true);
