@@ -148,7 +148,7 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
         public_inputs = std::move(verifier.public_inputs);
 
         // T_prev = 0 in the first recursive verification
-        merge_commitments.T_prev_commitments = HidingKernelIO::empty_ecc_op_tables(circuit);
+        merge_commitments.T_prev_commitments = stdlib::recursion::honk::empty_ecc_op_tables(circuit);
 
         break;
     }

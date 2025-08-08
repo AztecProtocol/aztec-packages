@@ -117,7 +117,8 @@ TYPED_TEST(UltraHonkTests, ProofLengthCheck)
     auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
     UltraProver_<Flavor> prover(proving_key, verification_key);
     Proof ultra_proof = prover.construct_proof();
-    size_t expected_proof_length = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + IO::PUBLIC_INPUTS_SIZE;
+    const size_t virtual_log_n = Flavor::USE_PADDING ? CONST_PROOF_SIZE_LOG_N : proving_key->log_dyadic_size();
+    size_t expected_proof_length = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n) + IO::PUBLIC_INPUTS_SIZE;
     EXPECT_EQ(ultra_proof.size(), expected_proof_length);
 }
 
