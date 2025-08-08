@@ -26,9 +26,17 @@ template <typename Flavor> class UltraVerifier_ {
     using PublicInputs = std::vector<FF>;
     using Proof = typename Transcript::Proof;
 
-    std::pair<PublicInputs, typename DeciderVerifier::Output> verify_internal(const Proof& proof);
-
   public:
+    struct UltraVerifierOutput {
+      public:
+        bool result;
+        std::array<Commitment, Flavor::NUM_WIRES> ecc_op_tables;
+
+        UltraVerifierOutput() = default;
+
+        explicit operator bool() const { return result; }
+    };
+
     explicit UltraVerifier_(
         const std::shared_ptr<VerificationKey>& vk,
         VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key = VerifierCommitmentKey<curve::Grumpkin>(),
@@ -38,11 +46,7 @@ template <typename Flavor> class UltraVerifier_ {
         , transcript(transcript)
     {}
 
-    bool verify_proof(const Proof& proof, const Proof& ipa_proof = {})
-        requires IsUltraHonk<Flavor>;
-
-    std::pair<bool, std::array<Commitment, Flavor::NUM_WIRES>> verify_proof(const Proof& proof)
-        requires IsMegaFlavor<Flavor> && (!HasIPAAccumulator<Flavor>);
+    template <class IO> UltraVerifierOutput verify_proof(const Proof& proof, const Proof& ipa_proof = {});
 
     std::shared_ptr<Transcript> ipa_transcript = std::make_shared<Transcript>();
     std::shared_ptr<DeciderVK> verification_key;
