@@ -77,6 +77,8 @@ Uses Docusaurus versioning with:
 - Use second person "you" perspective for user guides, how-to guides, and tutorials
 - Use first person plural "we" perspective for conceptual pages, architectural overviews and explanations
 - Keep language inclusive and accessible
+- Favor concise, direct language
+- Avoid passive voice where possible
 - Avoid jargon unless necessary (and define it when used)
 - Be encouraging rather than prescriptive ("you can" vs "you must" where appropriate)
 
