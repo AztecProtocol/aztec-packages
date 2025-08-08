@@ -157,13 +157,17 @@ pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
         })
         .join(quote {+});
 
-    // Generates serialization code for each struct member that:
-    // 1. Serializes the member
-    // 2. Copies serialized fields into result array at correct offset
-    // 3. Updates offset for next member
-    let serialization_of_struct_members = params
-        .map(|(param_name, param_type, _): (Quoted, Type, Quoted)| {
-            quote {
+    // For a single struct member, we can optimize by just serializing the member and returning the result directly.
+    // This optimization is relevant for brillig as there the loop is not expected to be optimized. For ACIR this
+    // optimization would not matter as there the loop is expected to be optimized away.
+    let function_body = if params.len() > 1 {
+        // For multiple struct members, generate serialization code that:
+        // 1. Serializes each member
+        // 2. Copies the serialized fields into the result array at the correct offset
+        // 3. Updates the offset for the next member
+        let serialization_of_struct_members = params
+            .map(|(param_name, param_type, _): (Quoted, Type, Quoted)| {
+                quote {
                 let serialized_member = $crate::traits::Serialize::serialize(self.$param_name);
                 let serialized_member_len = <$param_type as $crate::traits::Serialize>::N;
                 for i in 0..serialized_member_len {
@@ -171,8 +175,23 @@ pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
                 }
                 offset += serialized_member_len;
             }
-        })
-        .join(quote {});
+            })
+            .join(quote {});
+
+        quote {
+            let mut result = [0; _];
+            let mut offset = 0;
+
+            $serialization_of_struct_members
+
+            result
+        }
+    } else {
+        let param_name = params[0].0;
+        quote {
+            $crate::traits::Serialize::serialize(self.$param_name)
+        }
+    };
 
     quote {
         impl$generics_declarations $crate::traits::Serialize for $typ
@@ -182,12 +201,7 @@ pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
 
             #[inline_always]
             fn serialize(self) -> [Field; Self::N] {
-                let mut result = [0; _];
-                let mut offset = 0;
-
-                $serialization_of_struct_members
-
-                result
+                $function_body
             }
         }
     }
