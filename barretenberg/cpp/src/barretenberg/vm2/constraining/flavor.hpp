@@ -12,9 +12,9 @@
 #include "barretenberg/transcript/transcript.hpp"
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/constraining/entities.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
-
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/flavor_variables.hpp"
 
@@ -104,7 +104,7 @@ class AvmFlavor {
     // to see its value and then update `AVM_V2_PROOF_LENGTH_IN_FIELDS` in constants.nr.
     static constexpr size_t COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS =
         (NUM_WITNESS_ENTITIES + 1) * NUM_FRS_COM + (NUM_ALL_ENTITIES + 1) * NUM_FRS_FR +
-        CONST_PROOF_SIZE_LOG_N * (NUM_FRS_COM + NUM_FRS_FR * (BATCHED_RELATION_PARTIAL_LENGTH + 1));
+        MAX_AVM_TRACE_LOG_SIZE * (NUM_FRS_COM + NUM_FRS_FR * (BATCHED_RELATION_PARTIAL_LENGTH + 1));
 
     static_assert(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED >= COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS,
                   "\n The constant AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED is now too short\n"

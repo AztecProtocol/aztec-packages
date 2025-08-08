@@ -81,16 +81,16 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     // Execute Sumcheck Verifier
     const size_t log_circuit_size = numeric::get_msb(circuit_size);
 
-    std::array<FF, CONST_PROOF_SIZE_LOG_N> padding_indicator_array;
+    std::array<FF, MAX_AVM_TRACE_LOG_SIZE> padding_indicator_array;
 
-    for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
+    for (size_t idx = 0; idx < MAX_AVM_TRACE_LOG_SIZE; idx++) {
         padding_indicator_array[idx] = (idx < log_circuit_size) ? FF{ 1 } : FF{ 0 };
     }
 
     // Multiply each linearly independent subrelation contribution by `alpha^i` for i = 0, ..., NUM_SUBRELATIONS - 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
-    SumcheckVerifier<Flavor> sumcheck(transcript, alpha);
+    SumcheckVerifier<Flavor, MAX_AVM_TRACE_LOG_SIZE> sumcheck(transcript, alpha);
 
     auto gate_challenges = std::vector<FF>(log_circuit_size);
     for (size_t idx = 0; idx < log_circuit_size; idx++) {

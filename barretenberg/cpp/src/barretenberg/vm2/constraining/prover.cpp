@@ -9,6 +9,7 @@
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
+#include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/tooling/stats.hpp"
 
 namespace bb::avm2 {
@@ -95,7 +96,7 @@ void AvmProver::execute_log_derivative_inverse_commitments_round()
  */
 void AvmProver::execute_relation_check_rounds()
 {
-    using Sumcheck = SumcheckProver<Flavor>;
+    using Sumcheck = SumcheckProver<Flavor, MAX_AVM_TRACE_LOG_SIZE>;
 
     // Multiply each linearly independent subrelation contribution by `alpha^i` for i = 0, ..., NUM_SUBRELATIONS - 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");

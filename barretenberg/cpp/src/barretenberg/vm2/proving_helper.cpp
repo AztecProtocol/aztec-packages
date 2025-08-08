@@ -24,19 +24,30 @@ namespace {
 std::shared_ptr<AvmProver::ProvingKey> create_proving_key(AvmProver::ProverPolynomials& polynomials)
 {
     // TODO: Why is num_public_inputs 0?
-    auto proving_key = std::make_shared<AvmProver::ProvingKey>(CIRCUIT_SUBGROUP_SIZE, /*num_public_inputs=*/0);
+    auto proving_key = std::make_shared<AvmProver::ProvingKey>(MAX_AVM_TRACE_SIZE, /*num_public_inputs=*/0);
 
     for (auto [key_poly, prover_poly] : zip_view(proving_key->get_all(), polynomials.get_unshifted())) {
         BB_ASSERT_EQ(flavor_get_label(*proving_key, key_poly), flavor_get_label(polynomials, prover_poly));
         key_poly = std::move(prover_poly);
     }
 
-    proving_key->commitment_key = AvmProver::PCSCommitmentKey(CIRCUIT_SUBGROUP_SIZE);
+    proving_key->commitment_key = AvmProver::PCSCommitmentKey(MAX_AVM_TRACE_SIZE);
 
     return proving_key;
 }
 
 } // namespace
+
+std::shared_ptr<AvmVerifier::VerificationKey> AvmProvingHelper::generate_verification_key(
+    tracegen::TraceContainer&& precomputed_trace)
+{
+    auto polynomials =
+        AVM_TRACK_TIME_V("proving/prove:compute_polynomials", constraining::compute_polynomials(precomputed_trace));
+    auto proving_key = AVM_TRACK_TIME_V("proving/prove:proving_key", create_proving_key(polynomials));
+    auto verification_key =
+        AVM_TRACK_TIME_V("proving/prove:verification_key", std::make_shared<AvmVerifier::VerificationKey>(proving_key));
+    return verification_key;
+}
 
 // Create AvmVerifier::VerificationKey based on VkData and returns shared pointer.
 std::shared_ptr<AvmVerifier::VerificationKey> AvmProvingHelper::create_verification_key(const VkData& vk_data)

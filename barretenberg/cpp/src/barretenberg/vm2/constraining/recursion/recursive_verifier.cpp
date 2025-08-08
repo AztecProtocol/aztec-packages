@@ -97,6 +97,8 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     const auto circuit_size = transcript->template receive_from_prover<FF>("circuit_size");
     uint32_t vk_circuit_size = 1 << static_cast<uint32_t>(key->log_circuit_size.get_value());
     if (static_cast<uint32_t>(circuit_size.get_value()) != vk_circuit_size) {
+        info("circuit_size: ", circuit_size.get_value());
+        info("vk_circuit_size: ", vk_circuit_size);
         throw_or_abort("AvmRecursiveVerifier::verify_proof: proof circuit size does not match verification key!");
     }
 
@@ -117,12 +119,12 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     // unconstrained
     const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(circuit_size.get_value()));
     const auto padding_indicator_array =
-        stdlib::compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(FF(log_circuit_size));
+        stdlib::compute_padding_indicator_array<Curve, MAX_AVM_TRACE_LOG_SIZE>(FF(log_circuit_size));
 
     // Multiply each linearly independent subrelation contribution by `alpha^i` for i = 0, ..., NUM_SUBRELATIONS - 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
-    SumcheckVerifier<Flavor> sumcheck(transcript, alpha);
+    SumcheckVerifier<Flavor, MAX_AVM_TRACE_LOG_SIZE> sumcheck(transcript, alpha);
 
     auto gate_challenges = std::vector<FF>(log_circuit_size);
     for (size_t idx = 0; idx < log_circuit_size; idx++) {
