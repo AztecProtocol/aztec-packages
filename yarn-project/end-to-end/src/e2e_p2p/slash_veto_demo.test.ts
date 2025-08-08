@@ -9,6 +9,7 @@ import {
   RollupContract,
   SlasherArtifact,
   createExtendedL1Client,
+  createL1TxUtilsFromViemWallet,
 } from '@aztec/ethereum';
 import { tryJsonStringify } from '@aztec/foundation/json-rpc';
 import { bufferToHex } from '@aztec/foundation/string';
@@ -100,7 +101,7 @@ describe('veto slash', () => {
       t.ctx.aztecNodeConfig.l1RpcUrls,
       bufferToHex(getPrivateKeyFromIndex(VETOER_PRIVATE_KEY_INDEX)!),
     );
-    vetoerL1TxUtils = new L1TxUtils(vetoerL1Client);
+    vetoerL1TxUtils = createL1TxUtilsFromViemWallet(vetoerL1Client, t.logger, t.ctx.dateProvider);
 
     ({ rollup } = await t.getContracts());
 
@@ -160,7 +161,7 @@ describe('veto slash', () => {
     const proposer = await deployer.deploy(EmpireSlashingProposerArtifact, proposerArgs);
 
     debugLogger.info(`\n\ninitializing slasher with proposer: ${proposer}\n\n`);
-    const txUtils = new L1TxUtils(deployerClient);
+    const txUtils = createL1TxUtilsFromViemWallet(deployerClient, t.logger, t.ctx.dateProvider);
     await txUtils.sendAndMonitorTransaction({
       to: slasher.toString(),
       data: encodeFunctionData({
@@ -184,7 +185,11 @@ describe('veto slash', () => {
 
       const newSlasherAddress = await deployNewSlasher(vetoerL1Client);
       debugLogger.info(`\n\nnewSlasherAddress: ${newSlasherAddress}\n\n`);
-      const { receipt } = await new L1TxUtils(t.ctx.deployL1ContractsValues.l1Client).sendAndMonitorTransaction({
+      const { receipt } = await createL1TxUtilsFromViemWallet(
+        t.ctx.deployL1ContractsValues.l1Client,
+        t.logger,
+        t.ctx.dateProvider,
+      ).sendAndMonitorTransaction({
         to: rollup.address,
         data: encodeFunctionData({
           abi: RollupAbi,

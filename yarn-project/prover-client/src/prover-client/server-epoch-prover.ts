@@ -1,6 +1,6 @@
 import type { BatchedBlob, FinalBlobBatchingChallenges } from '@aztec/blob-lib';
 import type { Fr } from '@aztec/foundation/fields';
-import type { L2Block } from '@aztec/stdlib/block';
+import type { EthAddress, L2Block } from '@aztec/stdlib/block';
 import type { EpochProver } from '@aztec/stdlib/interfaces/server';
 import type { Proof } from '@aztec/stdlib/proofs';
 import type { RootRollupPublicInputs } from '@aztec/stdlib/rollup';
@@ -37,7 +37,7 @@ export class ServerEpochProver implements EpochProver {
   cancel(): void {
     this.orchestrator.cancel();
   }
-  getProverId(): Fr {
+  getProverId(): EthAddress {
     return this.orchestrator.getProverId();
   }
   getBlock(index: number): L2Block {

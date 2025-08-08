@@ -5,11 +5,11 @@ import { type AccountWalletWithSecretKey, AztecAddress, EthAddress, Fr } from '@
 import {
   type ExtendedViemWalletClient,
   GSEContract,
-  L1TxUtils,
   MultiAdderArtifact,
   type Operator,
   RollupContract,
   type ViemClient,
+  createL1TxUtilsFromViemWallet,
   deployL1Contract,
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
@@ -349,7 +349,7 @@ export class P2PNetworkTest {
   }
 
   private async _sendDummyTx(l1Client: ExtendedViemWalletClient) {
-    const l1TxUtils = new L1TxUtils(l1Client);
+    const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client);
     return await l1TxUtils.sendAndMonitorTransaction({
       to: l1Client.account!.address,
       value: 1n,
