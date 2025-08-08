@@ -297,6 +297,7 @@ void Sha256TraceBuilder::process(
                       { C::sha256_start, 1 },
                       { C::sha256_execution_clk, event.execution_clk },
                       { C::sha256_space_id, event.space_id },
+                      { C::sha256_u32_tag, static_cast<uint8_t>(MemoryTag::U32) },
                       // Operand Addresses
                       { C::sha256_state_addr, state_addr },
                       { C::sha256_input_addr, input_addr },
@@ -316,16 +317,16 @@ void Sha256TraceBuilder::process(
         //////////////////////////////////////
         bool state_out_of_range = max_state_addr > AVM_HIGHEST_MEM_ADDRESS;
         bool input_out_of_range = max_input_addr > AVM_HIGHEST_MEM_ADDRESS;
-        bool dst_out_of_range = max_output_addr > AVM_HIGHEST_MEM_ADDRESS;
+        bool output_out_of_range = max_output_addr > AVM_HIGHEST_MEM_ADDRESS;
 
-        bool out_of_range_err = dst_out_of_range || input_out_of_range || state_out_of_range;
+        bool out_of_range_err = output_out_of_range || input_out_of_range || state_out_of_range;
         if (out_of_range_err) {
             trace.set(row,
                       { {
                           // Error flags
                           { C::sha256_sel_state_out_of_range_err, state_out_of_range ? 1 : 0 },
                           { C::sha256_sel_input_out_of_range_err, input_out_of_range ? 1 : 0 },
-                          { C::sha256_sel_dst_out_of_range_err, dst_out_of_range ? 1 : 0 },
+                          { C::sha256_sel_output_out_of_range_err, output_out_of_range ? 1 : 0 },
                           { C::sha256_mem_out_of_range_err, 1 },
                           { C::sha256_err, 1 },   // Set the error flag
                           { C::sha256_latch, 1 }, // Latch is set on error
@@ -340,13 +341,12 @@ void Sha256TraceBuilder::process(
         // If we get here we are safe to load the memory, we need to split this up between the parallel and sequential
         // loading. State is loaded in parallel, whilst inputs are loaded sequential.
 
-        // Since we treat them as separate temporality groups, if there is in error in the state loading, we will not
+        // Since we treat them as separate temporality groups, if there is an error in the state loading, we will not
         // load the input
         trace.set(row,
                   { {
                       // State Loading Selectors
                       { C::sha256_sel_mem_state_or_output, 1 },
-                      { C::sha256_u32_tag, static_cast<uint8_t>(MemoryTag::U32) },
                       // State Addresses
                       { C::sha256_memory_address_0_, state_addr },
                       { C::sha256_memory_address_1_, state_addr + 1 },

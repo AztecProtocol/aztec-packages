@@ -29,8 +29,9 @@
 namespace bb::avm2::constraining {
 namespace {
 
+// todo(ilyas): add negative tests
+
 using ::testing::Return;
-using ::testing::ReturnRef;
 using ::testing::StrictMock;
 
 using simulation::EventEmitter;
