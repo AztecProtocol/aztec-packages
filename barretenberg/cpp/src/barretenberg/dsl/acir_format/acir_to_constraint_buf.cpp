@@ -672,6 +672,7 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                     .pub_y_indices =
                         transform::map(*arg.public_key_y, [](auto& e) { return get_witness_from_function_input(e); }),
                     .result = arg.output.value,
+                    .predicate = parse_input(arg.predicate),
                 });
                 af.constrained_witness.insert(af.ecdsa_k1_constraints.back().result);
                 af.original_opcode_indices.ecdsa_k1_constraints.push_back(opcode_index);
@@ -684,6 +685,7 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                     .pub_y_indices =
                         transform::map(*arg.public_key_y, [](auto& e) { return get_witness_from_function_input(e); }),
                     .result = arg.output.value,
+                    .predicate = parse_input(arg.predicate),
                     .signature =
                         transform::map(*arg.signature, [](auto& e) { return get_witness_from_function_input(e); }),
                 });
