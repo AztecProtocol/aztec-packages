@@ -85,6 +85,8 @@ describe('L1Publisher integration', () => {
   let l1ContractAddresses: L1ContractAddresses;
   let deployerAccount: PrivateKeyAccount;
 
+  let governanceProposerContract: GovernanceProposerContract;
+
   let rollupAddress: Address;
   let outboxAddress: Address;
 
@@ -208,7 +210,7 @@ describe('L1Publisher integration', () => {
       sequencerL1Client,
       slashingProposerAddress.toString(),
     );
-    const governanceProposerContract = new GovernanceProposerContract(
+    governanceProposerContract = new GovernanceProposerContract(
       sequencerL1Client,
       l1ContractAddresses.governanceProposerAddress.toString(),
     );
@@ -625,7 +627,11 @@ describe('L1Publisher integration', () => {
 
     it(`succeeds proposing new block when vote fails`, async () => {
       const block = await buildSingleBlock();
-      publisher.registerSlashPayloadGetter(() => Promise.resolve(EthAddress.random()));
+
+      const signalConfig = {
+        payload: EthAddress.random(),
+        base: governanceProposerContract,
+      };
 
       await publisher.enqueueProposeL2Block(block);
       await publisher.enqueueCastSignal(
@@ -633,6 +639,7 @@ describe('L1Publisher integration', () => {
         block.header.globalVariables.timestamp,
         SignalType.SLASHING,
         EthAddress.random(),
+        signalConfig,
         _payload => Promise.resolve(Signature.random().toString()),
       );
 
