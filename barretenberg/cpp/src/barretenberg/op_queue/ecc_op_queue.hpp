@@ -222,6 +222,13 @@ class ECCOpQueue {
         return no_op;
     }
 
+    /**
+     * @brief Writes randomness to the ultra ops table but adds no eccvm operations.
+     *
+     * @details This method is used to add randomness to the ultra ops table with the aim of randomising the commitment
+     * and evaluations of its corresponding columns
+     * @return UltraOp
+     */
     UltraOp random_op_ultra_only()
     {
         UltraOp random_op{ .op_code = EccOpCode{ .is_random_op = true,

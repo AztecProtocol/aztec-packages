@@ -123,9 +123,11 @@ class GoblinMockCircuits {
         builder.queue_ecc_eq(); // should be eq and reset
     }
 
+    /**
+     * @brief Add some randomness into the op queue.
+     */
     static void randomise_op_queue(MegaBuilder& builder)
     {
-        // WORKTODO assert the op queue is not empty
         builder.queue_ecc_random_op();
         builder.queue_ecc_random_op();
     }
@@ -139,7 +141,6 @@ class GoblinMockCircuits {
     {
         PROFILE_THIS();
         // The last circuit to be accumulated must contain a no-op
-        // this is icky
         if (last_circuit) {
             builder.queue_ecc_no_op();
         }

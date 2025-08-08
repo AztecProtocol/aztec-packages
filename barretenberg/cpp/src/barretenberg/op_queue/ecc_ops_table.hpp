@@ -21,11 +21,18 @@ namespace bb {
 enum MergeSettings { PREPEND, APPEND };
 
 /**
- * @brief Defines the opcodes for ECC operations used in both the Ultra and ECCVM formats. There are four opcodes:
+ * @brief Defines the opcodes for ECC operations used in both the Ultra and ECCVM formats. There are three opcodes that
+ * are reflected in both ultra ops and eccvm table and so, that lead to actual operations in the ECCVM :
  * - addition: add = true, value() = 8
  * - multiplication: mul = true, value() = 4
  * - equality abd reset: eq = true, reset = true,  value() = 3
- * - no operation: all false, value() = 0
+ * On top of that, we see two more opcodes reflected only in the ultra ops table
+ * - no operation: all false, value() = 0 - The ultra ops table is seen as 4 column polynomials in the merge protocol
+ * and translator. We need to be able to shift these polynomials in translator and so they will have to start with
+ * zeroes
+ * - random operation: value() should never be called on this - To randomise the commitment and evaluations of the op
+ * column polynomial in merge protocol and translator we have to add sufficient randomness. We do this via a "random op"
+ * in which case two indices of the op column will be populated with random scalars.
  */
 struct EccOpCode {
     using Fr = curve::BN254::ScalarField;
@@ -41,8 +48,8 @@ struct EccOpCode {
 
     [[nodiscard]] uint32_t value() const
     {
-        if (random_value_1 != 0 || random_value_2 != 0) {
-            throw_or_abort("should not call value() on a random op");
+        if (is_random_op) {
+            throw_or_abort("EccOpCode::value() should not be called on a random op");
         }
         auto res = static_cast<uint32_t>(add);
         res += res;

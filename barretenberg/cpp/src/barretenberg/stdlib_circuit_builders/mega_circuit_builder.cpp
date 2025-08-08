@@ -180,6 +180,13 @@ template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::populate_ecc_op_wir
     return op_tuple;
 };
 
+/**
+ * @brief Mechanism for populating two rows with randomness.  This "operation" doesn't return a tuple representing the
+ * indices of the ecc op values because it should never be used in subsequent logic.
+ *
+ * @note All selectors are set to 0 since the ecc op selector is derived later based on the block size/location. The
+ * method does not return a tuple of variable indices as those should not be used in subsequent steps for random ops.
+ */
 template <typename FF> void MegaCircuitBuilder_<FF>::queue_ecc_random_op()
 {
     // Add the operation to the op queue
@@ -189,6 +196,9 @@ template <typename FF> void MegaCircuitBuilder_<FF>::queue_ecc_random_op()
     populate_ecc_op_wires_from_random_op(ultra_op);
 }
 
+/**
+ * @brief Populate the wires with randomness coming froma  random op.
+ */
 template <typename FF> void MegaCircuitBuilder_<FF>::populate_ecc_op_wires_from_random_op(const UltraOp& ultra_op)
 {
     ecc_op_tuple op_tuple;
