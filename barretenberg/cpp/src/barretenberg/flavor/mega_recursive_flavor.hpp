@@ -92,9 +92,6 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
     static constexpr size_t NUM_SUBRELATIONS = MegaFlavor::NUM_SUBRELATIONS;
     using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
 
-    // define the container for storing the univariate contribution from each relation in Sumcheck
-    using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
-
     /**
      * @brief A field element for each entity of the flavor. These entities represent the prover polynomials evaluated
      * at one point.

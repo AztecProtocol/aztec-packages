@@ -46,7 +46,7 @@ template <typename Flavor> class SumcheckProverRound {
 
     using Utils = bb::RelationUtils<Flavor>;
     using Relations = typename Flavor::Relations;
-    using SumcheckTupleOfTuplesOfUnivariates = typename Flavor::SumcheckTupleOfTuplesOfUnivariates;
+    using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
     using SubrelationSeparators = typename Flavor::SubrelationSeparators;
 
   public:
@@ -705,7 +705,7 @@ template <typename Flavor> class SumcheckProverRound {
 template <typename Flavor> class SumcheckVerifierRound {
     using Utils = bb::RelationUtils<Flavor>;
     using Relations = typename Flavor::Relations;
-    using TupleOfArraysOfValues = typename Flavor::TupleOfArraysOfValues;
+    using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<typename Flavor::Relations>());
     using SubrelationSeparators = typename Flavor::SubrelationSeparators;
 
   public:
