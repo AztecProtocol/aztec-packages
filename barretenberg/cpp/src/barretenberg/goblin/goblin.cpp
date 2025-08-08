@@ -53,6 +53,8 @@ GoblinProof Goblin::prove()
 
     prove_merge(transcript); // Use shared transcript for merge proving
     info("Constructing a Goblin proof with num ultra ops = ", op_queue->get_ultra_ops_table_num_rows());
+    info("the number of eccvm msm rows is ", op_queue->get_num_rows());
+    info("which is ", op_queue->get_num_transcript_rows(), " transcript rows");
 
     BB_ASSERT_EQ(merge_verification_queue.size(),
                  1U,

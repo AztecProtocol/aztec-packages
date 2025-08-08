@@ -128,6 +128,7 @@ template <typename Curve> class GeminiProver_ {
         Polynomial random_polynomial; // random polynomial used for ZK
         bool has_random_polynomial = false;
 
+      public:
         RefVector<Polynomial> unshifted;                             // set of unshifted polynomials
         RefVector<Polynomial> to_be_shifted_by_one;                  // set of polynomials to be left shifted by 1
         RefVector<Polynomial> to_be_shifted_by_k;                    // set of polynomials to be right shifted by k
@@ -144,7 +145,6 @@ template <typename Curve> class GeminiProver_ {
         // linearly combining the i-th polynomial in each group
         std::vector<Polynomial> batched_group;
 
-      public:
         PolynomialBatcher(const size_t full_batched_size)
             : full_batched_size(full_batched_size)
             , batched_unshifted(full_batched_size)

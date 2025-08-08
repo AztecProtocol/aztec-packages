@@ -74,6 +74,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
 
     // Get the batching challenge
     const Fr rho = transcript->template get_challenge<Fr>("rho");
+    info("gemini rho P ", rho);
 
     Fr running_scalar = has_zk ? rho : 1; // ρ⁰ is used to batch the hiding polynomial
 
