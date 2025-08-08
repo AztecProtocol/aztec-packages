@@ -209,6 +209,15 @@ export type TransactionStats = {
   calldataGas: number;
 };
 
+export enum TxUtilsState {
+  IDLE,
+  SENT,
+  SPEED_UP,
+  CANCELLED,
+  NOT_MINED,
+  MINED,
+}
+
 export class ReadOnlyL1TxUtils {
   public readonly config: L1TxUtilsConfig;
   protected interrupted = false;
@@ -538,6 +547,9 @@ export class ReadOnlyL1TxUtils {
 }
 
 export class L1TxUtils extends ReadOnlyL1TxUtils {
+  private txUtilsState: TxUtilsState = TxUtilsState.IDLE;
+  private lastMinedBlockNumber: bigint | undefined = undefined;
+
   constructor(
     public override client: ExtendedViemWalletClient,
     protected override logger: Logger = createLogger('L1TxUtils'),
@@ -549,6 +561,23 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     if (!isExtendedClient(this.client)) {
       throw new Error('L1TxUtils has to be instantiated with a wallet client.');
     }
+  }
+
+  public get state() {
+    return this.txUtilsState;
+  }
+
+  public get lastMinedAtBlockNumber() {
+    return this.lastMinedBlockNumber;
+  }
+
+  private set lastMinedAtBlockNumber(blockNumber: bigint | undefined) {
+    this.lastMinedBlockNumber = blockNumber;
+  }
+
+  private set state(state: TxUtilsState) {
+    this.txUtilsState = state;
+    this.logger?.debug(`L1TxUtils state changed to ${TxUtilsState[state]} for sender: ${this.getSenderAddress()}`);
   }
 
   public getSenderAddress() {
@@ -571,6 +600,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     request: L1TxRequest,
     _gasConfig?: L1GasConfig,
     blobInputs?: L1BlobInputs,
+    stateChange: TxUtilsState = TxUtilsState.SENT,
   ): Promise<{ txHash: Hex; gasLimit: bigint; gasPrice: GasPrice }> {
     try {
       const gasConfig = { ...this.config, ..._gasConfig };
@@ -610,6 +640,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
           maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
         });
       }
+      this.state = stateChange;
       const cleanGasConfig = pickBy(gasConfig, (_, key) => key in l1TxUtilsConfigMappings);
       this.logger?.verbose(`Sent L1 transaction ${txHash}`, {
         gasLimit,
@@ -713,6 +744,8 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
                 } else {
                   this.logger?.debug(`L1 transaction ${hash} mined`);
                 }
+                this.state = TxUtilsState.MINED;
+                this.lastMinedAtBlockNumber = receipt.blockNumber;
                 return receipt;
               }
             } catch (err) {
@@ -790,6 +823,9 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
             maxFeePerGas: newGasPrice.maxFeePerGas,
             maxPriorityFeePerGas: newGasPrice.maxPriorityFeePerGas,
           });
+          if (!isCancelTx) {
+            this.state = TxUtilsState.SPEED_UP;
+          }
 
           const cleanGasConfig = pickBy(gasConfig, (_, key) => key in l1TxUtilsConfigMappings);
           this.logger?.verbose(`Sent L1 speed-up tx ${newHash}, replacing ${currentTxHash}`, {
@@ -818,7 +854,11 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       txTimedOut = isTimedOut();
     }
 
-    if (!isCancelTx && gasConfig.cancelTxOnTimeout) {
+    // The transaction has timed out. If it's a cancellation then we are giving up on it.
+    // Otherwise we may attempt to cancel it if configured to do so.
+    if (isCancelTx) {
+      this.state = TxUtilsState.NOT_MINED;
+    } else if (gasConfig.cancelTxOnTimeout) {
       // Fire cancellation without awaiting to avoid blocking the main thread
       this.attemptTxCancellation(currentTxHash, nonce, isBlobTx, lastGasPrice, attempts).catch(err => {
         const viemError = formatViemError(err);
@@ -935,6 +975,8 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       maxFeePerGas: cancelGasPrice.maxFeePerGas,
       maxPriorityFeePerGas: cancelGasPrice.maxPriorityFeePerGas,
     });
+
+    this.state = TxUtilsState.CANCELLED;
 
     this.logger?.debug(`Sent cancellation tx ${cancelTxHash} for timed out tx ${currentTxHash}`, { nonce });
 

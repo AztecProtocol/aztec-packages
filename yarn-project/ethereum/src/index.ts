@@ -13,3 +13,4 @@ export * from './client.js';
 export * from './account.js';
 export * from './l1_types.js';
 export * from './l1_artifacts.js';
+export * from './publisher_manager.js';
