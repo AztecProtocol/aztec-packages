@@ -166,6 +166,20 @@ TEST_F(ExecutionSimulationTest, Div)
     execution.div(context, 1, 2, 3);
 }
 
+TEST_F(ExecutionSimulationTest, FDiv)
+{
+    auto a = MemoryValue::from<FF>(FF::modulus - 4);
+    auto b = MemoryValue::from<FF>(2);
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, get).Times(2).WillOnce(ReturnRef(a)).WillOnce(ReturnRef(b));
+    EXPECT_CALL(alu, fdiv(a, b)).WillOnce(Return(MemoryValue::from<FF>(FF::modulus - 2)));
+    EXPECT_CALL(memory, set(3, MemoryValue::from<FF>(FF::modulus - 2)));
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    execution.fdiv(context, 1, 2, 3);
+}
+
 // TODO(MW): Add alu tests here for other ops
 
 TEST_F(ExecutionSimulationTest, Call)

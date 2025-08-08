@@ -313,6 +313,66 @@ TEST(AvmSimulationAluTest, DivFFTag)
                                       .error = AluError::TAG_ERROR }));
 }
 
+TEST(AvmSimulationAluTest, FDiv)
+{
+    EventEmitter<AluEvent> alu_event_emitter;
+    StrictMock<MockGreaterThan> gt;
+    StrictMock<MockFieldGreaterThan> field_gt;
+    StrictMock<MockRangeCheck> range_check;
+    Alu alu(gt, field_gt, range_check, alu_event_emitter);
+
+    auto a = MemoryValue::from<FF>(FF::modulus - 4);
+    auto b = MemoryValue::from<FF>(2);
+
+    auto c = alu.fdiv(a, b);
+
+    EXPECT_EQ(c, MemoryValue::from<FF>(FF::modulus - 2));
+
+    auto events = alu_event_emitter.dump_events();
+    EXPECT_THAT(events, ElementsAre(AluEvent{ .operation = AluOperation::FDIV, .a = a, .b = b, .c = c }));
+}
+
+TEST(AvmSimulationAluTest, FDivByZero)
+{
+    EventEmitter<AluEvent> alu_event_emitter;
+    StrictMock<MockGreaterThan> gt;
+    StrictMock<MockFieldGreaterThan> field_gt;
+    StrictMock<MockRangeCheck> range_check;
+    Alu alu(gt, field_gt, range_check, alu_event_emitter);
+
+    auto a = MemoryValue::from<FF>(FF::modulus - 4);
+    auto b = MemoryValue::from<FF>(0);
+
+    EXPECT_THROW(alu.fdiv(a, b), AluException);
+
+    auto events = alu_event_emitter.dump_events();
+    EXPECT_THAT(
+        events,
+        ElementsAre(AluEvent{ .operation = AluOperation::FDIV, .a = a, .b = b, .error = AluError::DIV_0_ERROR }));
+}
+
+TEST(AvmSimulationAluTest, FDivNonFFTag)
+{
+    EventEmitter<AluEvent> alu_event_emitter;
+    StrictMock<MockGreaterThan> gt;
+    StrictMock<MockFieldGreaterThan> field_gt;
+    StrictMock<MockRangeCheck> range_check;
+    Alu alu(gt, field_gt, range_check, alu_event_emitter);
+
+    auto a = MemoryValue::from<uint64_t>(2);
+    auto b = MemoryValue::from<uint64_t>(2);
+
+    EXPECT_THROW(alu.fdiv(a, b), AluException);
+
+    auto events = alu_event_emitter.dump_events();
+    EXPECT_THAT(events,
+                ElementsAre(AluEvent{ .operation = AluOperation::FDIV,
+                                      .a = a,
+                                      .b = b,
+                                      .c = MemoryValue::from_tag(static_cast<MemoryTag>(0), 0),
+                                      .error = AluError::TAG_ERROR }));
+}
+
 TEST(AvmSimulationAluTest, LT)
 {
     EventEmitter<AluEvent> alu_event_emitter;
