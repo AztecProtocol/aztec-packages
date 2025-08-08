@@ -72,11 +72,6 @@ class GoblinMockCircuits {
 
     static constexpr size_t NUM_WIRES = Flavor::NUM_WIRES;
 
-    struct KernelInput {
-        HonkProof proof;
-        std::shared_ptr<Flavor::VerificationKey> verification_key;
-    };
-
     /**
      * @brief Populate a builder with some arbitrary but nontrivial constraints
      * @details Although the details of the circuit constructed here are arbitrary, the intent is to mock something a
@@ -125,6 +120,15 @@ class GoblinMockCircuits {
         }
         // queues the result of the preceding ECC
         builder.queue_ecc_eq(); // should be eq and reset
+    }
+
+    /**
+     * @brief Add some randomness into the op queue.
+     */
+    static void randomise_op_queue(MegaBuilder& builder)
+    {
+        builder.queue_ecc_random_op();
+        builder.queue_ecc_random_op();
     }
 
     /**
