@@ -1,7 +1,7 @@
 ---
 title: Getting Started
 sidebar_position: 0
-tags: [sandbox. testnet]
+tags: [sandbox, testnet]
 ---
 
 import Tabs from '@theme/Tabs';
@@ -106,7 +106,7 @@ aztec-wallet create-account -a my-wallet --payment method=fee_juice,feePayer=tes
 
 This will create a new wallet with an account and give it the alias `my-wallet`. Accounts can be referenced with `accounts:<alias>`. You will see logs telling you the address, public key, secret key, and more.
 
-On successful depoyment of the account, you should see something like this:
+On successful deployment of the account, you should see something like this:
 
 ```bash
 New account:
@@ -211,7 +211,7 @@ Simulation result:  100n
 
 ## Playing with hybrid state and private functions
 
-In the following steps, we'll moving some tokens from public to private state, and check our private and public balance.
+In the following steps, we'll move some tokens from public to private state, and check our private and public balance.
 
 ```bash
 aztec-wallet send transfer_to_private --from accounts:test0 --contract-address testtoken --args accounts:test0 25
