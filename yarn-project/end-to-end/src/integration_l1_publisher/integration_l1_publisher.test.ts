@@ -23,7 +23,6 @@ import { times, timesParallel } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
 import { SHA256Trunc, Secp256k1Signer, sha256ToField } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Signature } from '@aztec/foundation/eth-signature';
 import { hexToBuffer } from '@aztec/foundation/string';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
@@ -32,9 +31,10 @@ import { StandardTree } from '@aztec/merkle-tree';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { buildBlockWithCleanDB } from '@aztec/prover-client/block-factory';
-import { SequencerPublisher, SignalType } from '@aztec/sequencer-client';
-import { type CommitteeAttestation, type L2Tips, PublishedL2Block } from '@aztec/stdlib/block';
+import { SequencerPublisher } from '@aztec/sequencer-client';
+import { type CommitteeAttestation, type L2Tips, PublishedL2Block, Signature } from '@aztec/stdlib/block';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
+import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import { orderAttestations } from '@aztec/stdlib/p2p';
 import { fr, makeBloatedProcessedTx, makeBlockAttestationFromBlock } from '@aztec/stdlib/testing';
 import type { BlockHeader, ProcessedTx } from '@aztec/stdlib/tx';
@@ -212,6 +212,10 @@ describe('L1Publisher integration', () => {
       sequencerL1Client,
       l1ContractAddresses.governanceProposerAddress.toString(),
     );
+    const slashFactoryContract = new SlashFactoryContract(
+      sequencerL1Client,
+      l1ContractAddresses.slashFactoryAddress!.toString(),
+    );
     epochCache = await EpochCache.create(l1ContractAddresses.rollupAddress, config, { dateProvider });
     const blobSinkClient = createBlobSinkClient();
 
@@ -233,6 +237,7 @@ describe('L1Publisher integration', () => {
         epochCache,
         governanceProposerContract,
         slashingProposerContract,
+        slashFactoryContract,
         dateProvider,
       },
     );
@@ -625,15 +630,14 @@ describe('L1Publisher integration', () => {
 
     it(`succeeds proposing new block when vote fails`, async () => {
       const block = await buildSingleBlock();
-      publisher.registerSlashPayloadGetter(() => Promise.resolve(EthAddress.random()));
 
       await publisher.enqueueProposeL2Block(block);
-      await publisher.enqueueCastSignal(
-        block.header.getSlot(),
-        block.header.globalVariables.timestamp,
-        SignalType.SLASHING,
+      await publisher.enqueueSlashingActions(
+        [{ type: 'vote-payload', payload: EthAddress.random() }],
+        block.slot,
+        block.timestamp,
         EthAddress.random(),
-        _payload => Promise.resolve(Signature.random().toString()),
+        (_payload: any) => Promise.resolve(Signature.random().toString()),
       );
 
       const result = await publisher.sendRequests();

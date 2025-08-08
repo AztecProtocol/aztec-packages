@@ -1,6 +1,6 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { sleep } from '@aztec/aztec.js';
-import { Offense } from '@aztec/slasher';
+import { OffenseType } from '@aztec/slasher';
 
 import { jest } from '@jest/globals';
 import fs from 'fs';
@@ -116,7 +116,8 @@ describe('e2e_p2p_valid_epoch_pruned', () => {
 
     // ...and then we wait for them to be kicked.
     await awaitCommitteeKicked({
-      offense: Offense.VALID_EPOCH_PRUNED,
+      offense: OffenseType.VALID_EPOCH_PRUNED,
+      epochOrSlot: 4n,
       rollup,
       cheatCodes: t.ctx.cheatCodes.rollup,
       committee,
