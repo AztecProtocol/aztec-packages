@@ -11,6 +11,21 @@ import {ValidatorSelectionLib} from "./ValidatorSelectionLib.sol";
 import {CommitteeAttestations} from "@aztec/shared/libraries/SignatureLib.sol";
 import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
+/**
+ * @title ExtRollupLib2 - External Rollup Library (Staking Functions)
+ * @author Aztec Labs
+ * @notice External library containing staking-related functions for the Rollup contract to avoid exceeding max contract
+ * size.
+ *
+ * @dev This library serves as an external library for the Rollup contract, splitting off staking-related
+ *      functionality to keep the main contract within the maximum contract size limit. The library contains
+ *      external functions primarily focused on:
+ *      - Validator staking operations (deposit, withdraw, queue management)
+ *      - Validator selection and committee setup
+ *      - Block attestation invalidation
+ *      - Slashing mechanism integration
+ *      - Epoch and proposer management
+ */
 library ExtRollupLib2 {
   using TimeLib for Timestamp;
 

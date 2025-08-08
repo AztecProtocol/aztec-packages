@@ -147,7 +147,6 @@ export class RollupContract {
     return this.rollup;
   }
 
-  @memoize
   public async getSlashingProposer() {
     const slasherAddress = await this.rollup.read.getSlasher();
     const slasher = getContract({ address: slasherAddress, abi: SlasherAbi, client: this.client });
@@ -233,6 +232,10 @@ export class RollupContract {
 
   getSlasher() {
     return this.rollup.read.getSlasher();
+  }
+
+  getOwner() {
+    return this.rollup.read.owner();
   }
 
   public async getSlashingProposerAddress() {
@@ -702,5 +705,21 @@ export class RollupContract {
         args: [proposalId],
       }),
     });
+  }
+
+  public listenToSlasherChanged(callback: (args: { oldSlasher: `0x${string}`; newSlasher: `0x${string}` }) => unknown) {
+    return this.rollup.watchEvent.SlasherUpdated(
+      {},
+      {
+        onLogs: logs => {
+          for (const log of logs) {
+            const args = log.args;
+            if (args.oldSlasher && args.newSlasher) {
+              callback(args as { oldSlasher: `0x${string}`; newSlasher: `0x${string}` });
+            }
+          }
+        },
+      },
+    );
   }
 }

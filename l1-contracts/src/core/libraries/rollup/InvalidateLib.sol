@@ -14,6 +14,42 @@ import {CommitteeAttestations, SignatureLib, Signature} from "@aztec/shared/libr
 import {ECDSA} from "@oz/utils/cryptography/ECDSA.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 
+/**
+ * @title InvalidateLib
+ * @author Aztec Labs
+ * @notice Library responsible for handling the invalidation of L2 blocks with incorrect attestations in the Aztec
+ * rollup.
+ *
+ * @dev This library implements the invalidation mechanism that allows anyone to remove invalid blocks from the
+ *      pending chain. An invalid block is one without proper attestations.
+ *
+ *      The invalidation system addresses two main types of attestation failures:
+ *      1. Bad attestation signatures: When committee members provide invalid signatures
+ *      2. Insufficient attestations: When a block doesn't meet the required >2/3 committee threshold
+ *
+ *      Key invariants:
+ *      - Only pending (unproven) blocks can be invalidated
+ *      - Block must exist in the pending chain (between proven tip and pending tip)
+ *      - Invalid blocks and all subsequent blocks are removed from the pending chain
+ *
+ *      Security model:
+ *      - Anyone can call invalidation functions (permissionless)
+ *      - No economic incentive (rebate) is provided for calling these functions
+ *      - Expected to be called by next proposer, then committee members, then any validator as fallback
+ *      - Invalidation reverts the pending chain tip to the block immediately before the invalid one
+ *
+ *      Integration with the rollup system:
+ *      - Works with STFLib for storage access and chain state management
+ *      - Uses ValidatorSelectionLib to verify committee commitments
+ *      - Validates against TempBlockLog storage for block metadata
+ *      - Emits BlockInvalidated events via IRollupCore interface
+ *
+ *      This invalidation mechanism ensures that even though attestations are not fully validated on-chain
+ *      during block proposal (to save gas), invalid attestations can be challenged and removed after the fact,
+ *      maintaining the security of the rollup while optimizing for efficient block production.
+ *
+ *      Note that attestations are validated during the proof submission, but not at every propose call.
+ */
 library InvalidateLib {
   using TimeLib for Timestamp;
   using TimeLib for Slot;
@@ -24,13 +60,27 @@ library InvalidateLib {
   using CompressedTimeMath for CompressedSlot;
 
   /**
-   * @notice Invalidates a block with a bad attestation signature
-   * @dev Anyone can call this function to remove blocks with invalid attestations
-   * @dev No rebate is provided for calling this function
-   * @param _blockNumber The block number to invalidate
-   * @param _attestations The attestations that are claimed to be invalid
-   * @param _committee The committee members for the epoch
-   * @param _invalidIndex The index of the invalid attestation in the committee
+   * @notice Invalidates a block containing an invalid attestation signature from a committee member
+   * @dev Anyone can call this function to remove blocks with invalid attestations.
+   *
+   *      The function verifies that the signature at the specified index is invalid,
+   *      i.e., it doesn't recover to the expected committee member's address
+   *
+   *      Upon successful validation of the invalid attestation, the block and all subsequent pending
+   *      blocks are removed from the chain by resetting the pending tip to the previous valid block.
+   *
+   *      No economic rebate is provided for calling this function.
+   *
+   * @param _blockNumber The L2 block number to invalidate (must be in pending chain)
+   * @param _attestations The attestations that were submitted with the block (must match stored hash)
+   * @param _committee The committee members for the block's epoch (must match stored computed commitment)
+   * @param _invalidIndex The index in the committee/attestations array of the invalid attestation
+   *
+   * @custom:reverts Errors.Rollup__BlockNotInPendingChain If block number is beyond pending tip
+   * @custom:reverts Errors.Rollup__BlockAlreadyProven If block number is already proven
+   * @custom:reverts Errors.Rollup__InvalidAttestations If provided attestations don't match stored hash
+   * @custom:reverts Errors.ValidatorSelection__InvalidCommitteeCommitment If committee doesn't match stored commitment
+   * @custom:reverts Errors.Rollup__AttestationsAreValid If the attestation at invalidIndex is actually valid
    */
   function invalidateBadAttestation(
     uint256 _blockNumber,
@@ -60,12 +110,24 @@ library InvalidateLib {
   }
 
   /**
-   * @notice Invalidates a block with insufficient attestations
-   * @dev Anyone can call this function to remove blocks with insufficient attestations
-   * @dev No rebate is provided for calling this function
-   * @param _blockNumber The block number to invalidate
-   * @param _attestations The attestations that are claimed to be insufficient
-   * @param _committee The committee members for the epoch
+   * @notice Invalidates a block that doesn't meet the required >2/3 committee attestation threshold
+   * @dev Anyone can call this function to remove blocks with insufficient valid attestations.
+   *
+   *      The function counts the number of signature attestations (as opposed to address attestations) and
+   *      compares against the required threshold of (committeeSize * 2 / 3) + 1. If insufficient signatures
+   *      are present, the block and all subsequent pending blocks are removed from the chain.
+   *
+   *      No economic rebate is provided for calling this function.
+   *
+   * @param _blockNumber The L2 block number to invalidate (must be in pending chain)
+   * @param _attestations The attestations that were submitted with the block (must match stored hash)
+   * @param _committee The committee members for the block's epoch (must match stored commitment)
+   *
+   * @custom:reverts Errors.Rollup__BlockNotInPendingChain If block number is beyond pending tip
+   * @custom:reverts Errors.Rollup__BlockAlreadyProven If block number is already proven
+   * @custom:reverts Errors.Rollup__InvalidAttestations If provided attestations don't match stored hash
+   * @custom:reverts Errors.ValidatorSelection__InvalidCommitteeCommitment If committee doesn't match stored commitment
+   * @custom:reverts Errors.ValidatorSelection__InsufficientAttestations If the attestations actually meet the threshold
    */
   function invalidateInsufficientAttestations(
     uint256 _blockNumber,
@@ -94,13 +156,34 @@ library InvalidateLib {
   }
 
   /**
-   * @notice Common validation logic for invalidation functions. Verifies that the block is in the pending chain,
-   *         that the attestations match the stored hash, and that the committee commitment is valid.
-   * @param _blockNumber The block number to validate
-   * @param _attestations The attestations to validate
-   * @param _committee The committee members for the epoch
-   * @return digest Digest of the payload that was signed by the committee
-   * @return committeeSize The size of the committee
+   * @notice Common validation logic shared by all invalidation functions
+   * @dev Performs validation checks to ensure invalidation calls are legitimate and target valid blocks.
+   *      This function establishes the foundation for all invalidation operations by verifying:
+   *
+   *      1. Block existence and state: The target block must be in the pending chain (after the proven tip
+   *         but not beyond the pending tip). Proven blocks cannot be invalidated as they are final.
+   *
+   *      2. Attestation integrity: The provided attestations must exactly match the hash stored when the
+   *         block was originally proposed. This prevents manipulation of attestation data.
+   *
+   *      3. Committee authenticity: The provided committee addresses must match the commitment stored for
+   *         the block's epoch. This ensures invalidation is based on the actual committee that should have
+   *         attested to the block.
+   *
+   *      4. Signature context: Computes the digest that committee members were expected to sign, enabling
+   *         proper signature verification in calling functions.
+   *
+   * @param _blockNumber The L2 block number being validated for invalidation
+   * @param _attestations The attestations provided for validation
+   * @param _committee The committee members for the block's epoch
+   * @return digest The payload digest that committee members signed
+   * @return committeeSize The number of committee members for the epoch
+   *
+   * @custom:reverts Errors.Rollup__BlockNotInPendingChain If block is beyond the current pending tip
+   * @custom:reverts Errors.Rollup__BlockAlreadyProven If block has already been proven and is final
+   * @custom:reverts Errors.Rollup__InvalidAttestations If attestations hash doesn't match stored value
+   * @custom:reverts Errors.ValidatorSelection__InvalidCommitteeCommitment If committee hash doesn't match stored
+   * commitment
    */
   function _validateInvalidationInputs(
     uint256 _blockNumber,
@@ -140,7 +223,22 @@ library InvalidateLib {
   }
 
   /**
-   * @notice Invalidates a block by resetting the pending block number to the one immediately before it.
+   * @notice Helper that invalidates a block by rolling back the pending chain to the previous valid block
+   * @dev This function implements the core invalidation logic by updating the chain tips to remove
+   *      the invalid block and all subsequent blocks from the pending chain. The rollback is atomic
+   *      and immediately takes effect, preventing any further operations on the invalidated blocks.
+   *
+   *      The invalidation works by:
+   *      1. Setting the pending block number to (_blockNumber - 1)
+   *      2. Emitting a BlockInvalidated event for external observers
+   *
+   *      This approach ensures that when the next valid block is proposed, it will build on the
+   *      last remaining valid block, effectively removing the invalid block and any blocks that
+   *      were built on top of it.
+   *
+   *      Note: This function does not clean up the storage for invalidated blocks (archive roots,
+   *      temp block logs, etc.) as they may be overwritten by future valid blocks at the same numbers.
+   *
    * @param _blockNumber The block number to invalidate
    */
   function _invalidateBlock(uint256 _blockNumber) private {
