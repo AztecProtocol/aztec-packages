@@ -1,6 +1,7 @@
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
 import { type EthAddress, Fr } from '@aztec/aztec.js';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
+import { SecretValue } from '@aztec/foundation/config';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
@@ -33,7 +34,7 @@ export async function deployL1Contracts(
   const initialValidatorOperators = initialValidators.map(a => ({
     attester: a,
     withdrawer: a,
-    bn254SecretKey: Fr.random().toBigInt(),
+    bn254SecretKey: new SecretValue(Fr.random().toBigInt()),
   }));
 
   const { l1ContractAddresses } = await deployAztecContracts(
