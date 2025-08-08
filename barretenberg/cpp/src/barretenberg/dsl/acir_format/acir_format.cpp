@@ -421,24 +421,22 @@ process_honk_recursion_constraints(Builder& builder,
     size_t idx = 0;
     for (auto& constraint : constraint_system.honk_recursion_constraints) {
         if (constraint.proof_type == HONK_ZK) {
-            auto [pairing_points, _ipa_claim, _ipa_proof, _ecc_op_tables] =
-                create_honk_recursion_constraints<UltraZKRecursiveFlavor_<Builder>>(
-                    builder, constraint, has_valid_witness_assignments);
+            auto honk_recursion_constraint = create_honk_recursion_constraints<UltraZKRecursiveFlavor_<Builder>>(
+                builder, constraint, has_valid_witness_assignments);
 
             if (output.points_accumulator.has_data) {
-                output.points_accumulator.aggregate(pairing_points);
+                output.points_accumulator.aggregate(honk_recursion_constraint.points_accumulator);
             } else {
-                output.points_accumulator = pairing_points;
+                output.points_accumulator = honk_recursion_constraint.points_accumulator;
             }
 
         } else if (constraint.proof_type == HONK) {
-            auto [pairing_points, _ipa_claim, _ipa_proof, _ecc_op_tables] =
-                create_honk_recursion_constraints<UltraRecursiveFlavor_<Builder>>(
-                    builder, constraint, has_valid_witness_assignments);
+            auto honk_recursion_constraint = create_honk_recursion_constraints<UltraRecursiveFlavor_<Builder>>(
+                builder, constraint, has_valid_witness_assignments);
             if (output.points_accumulator.has_data) {
-                output.points_accumulator.aggregate(pairing_points);
+                output.points_accumulator.aggregate(honk_recursion_constraint.points_accumulator);
             } else {
-                output.points_accumulator = pairing_points;
+                output.points_accumulator = honk_recursion_constraint.points_accumulator;
             }
         } else if (constraint.proof_type == ROLLUP_HONK || constraint.proof_type == ROOT_ROLLUP_HONK) {
             if constexpr (!IsUltraBuilder<Builder>) {
@@ -447,16 +445,16 @@ process_honk_recursion_constraints(Builder& builder,
                 if (constraint.proof_type == ROOT_ROLLUP_HONK) {
                     output.is_root_rollup = true;
                 }
-                auto [pairing_points, ipa_claim, ipa_proof, _ecc_op_tables] =
+                auto honk_recursion_constraint =
                     create_honk_recursion_constraints<UltraRollupRecursiveFlavor_<Builder>>(
                         builder, constraint, has_valid_witness_assignments);
                 if (output.points_accumulator.has_data) {
-                    output.points_accumulator.aggregate(pairing_points);
+                    output.points_accumulator.aggregate(honk_recursion_constraint.points_accumulator);
                 } else {
-                    output.points_accumulator = pairing_points;
+                    output.points_accumulator = honk_recursion_constraint.points_accumulator;
                 }
-                output.nested_ipa_claims.push_back(ipa_claim);
-                output.nested_ipa_proofs.push_back(ipa_proof);
+                output.nested_ipa_claims.push_back(honk_recursion_constraint.ipa_claim);
+                output.nested_ipa_proofs.push_back(honk_recursion_constraint.ipa_proof);
             }
         } else {
             throw_or_abort("Invalid Honk proof type");
