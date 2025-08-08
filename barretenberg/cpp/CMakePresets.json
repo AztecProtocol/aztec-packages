@@ -781,14 +781,14 @@
       "configurePreset": "wasm-threads-dbg",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": ["barretenberg.wasm"]
+      "targets": ["barretenberg.wasm", "bb"]
     },
     {
       "name": "wasm-threads-assert",
       "configurePreset": "wasm-threads-assert",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": ["barretenberg.wasm"]
+      "targets": ["barretenberg.wasm", "bb"]
     },
     {
       "name": "wasm-threads",
