@@ -1,37 +1,38 @@
-import {
-  type L1ReaderConfig,
-  L1TxUtils,
-  ProposalAlreadyExecutedError,
-  RollupContract,
-  SlashingProposerContract,
-  type ViemClient,
-} from '@aztec/ethereum';
+import { type L1ReaderConfig, RollupContract, SlashingProposerContract, type ViemClient } from '@aztec/ethereum';
+import { sumBigint } from '@aztec/foundation/bigint';
+import { compactArray, filterAsync, maxBy } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import type { DateProvider } from '@aztec/foundation/timer';
-import { SlashFactoryAbi } from '@aztec/l1-artifacts';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
-import { type Offense, bigIntToOffense } from '@aztec/stdlib/slashing';
-
+import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import {
-  type GetContractEventsReturnType,
-  type GetContractReturnType,
-  type Hex,
-  encodeFunctionData,
-  getAddress,
-  getContract,
-} from 'viem';
+  type Offense,
+  type OffenseIdentifier,
+  OffenseType,
+  type ProposerSlashAction,
+  type ProposerSlashActionProvider,
+  type SlashPayload,
+  type SlashPayloadRound,
+  type ValidatorSlashOffense,
+  getOffenseIdentifiersFromPayload,
+  isOffenseUncontroversial,
+  offenseDataComparator,
+  offensesToValidatorSlash,
+} from '@aztec/stdlib/slashing';
 
 import { WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher } from './config.js';
+import type { SlasherOffensesStore, SlasherPayloadsStore } from './slasher_store.js';
 
-type MonitoredSlashPayload = {
-  payloadAddress: EthAddress;
-  validators: readonly EthAddress[];
-  amounts: readonly bigint[];
-  offenses: readonly Offense[];
-  observedAtSeconds: number;
-  totalAmount: bigint;
+type PayloadWithRound = {
+  payload: EthAddress;
+  round: bigint;
+};
+
+type SlasherSettings = {
+  slashingExecutionDelayInRounds: bigint;
+  slashingPayloadLifetimeInRounds: bigint;
 };
 
 /**
@@ -46,31 +47,36 @@ type MonitoredSlashPayload = {
  * - confirm/deny whether they agree with a proposed offense
  *
  * The SlasherClient class is responsible for:
- * - listening for events from the watchers and creating a corresponding payload
- * - listening for the payloads from L1 filtering them through the watchers
- * - ordering the payloads and discarding stale payloads
- * - presenting the payload that ought to be currently voted for
- * - detecting when it wants to execute a round
- * - executing a round
- * - listening for the round to be executed
- * - removing the executed round from the list of monitored payloads
+ * - listening for events from the watchers and storing them as pending offenses (no immediate L1 transactions)
+ * - aggregating pending offenses from previous rounds when it's the proposer's turn
+ * - providing actions to the sequencer via getProposerAction() for creating/voting/executing slash payloads
+ * - monitoring slash payloads created by other nodes and validating them against agreement criteria
+ * - tracking pending offenses with configurable expiration (default 4 rounds)
+ * - ensuring payload quality through size limits, amount validation, and uncontroversial offense requirements
+ * - executing slashing rounds when they become submittable
+ * - removing executed offenses from the pending list
+ * - persisting state (pending offenses and current round) across restarts when storage is configured
  *
- * A few improvements:
- * - TODO(#14421): Only vote on the proposal if it is possible to reach quorum, e.g., if 6 votes are needed and only 4 slots are left don't vote.
+ * Key changes from previous implementation:
+ * - Only proposers can create slash payloads (when infrastructure supports tracking)
+ * - Offenses are aggregated over rounds instead of creating immediate payloads
+ * - Payload creation is round-based with scoring functions for optimal selection
+ * - Agreement criteria includes uncontroversial offenses from past rounds
  */
-export class SlasherClient {
-  private monitoredPayloads: MonitoredSlashPayload[] = [];
+export class SlasherClient implements ProposerSlashActionProvider {
   private unwatchCallbacks: (() => void)[] = [];
   private overridePayloadActive = false;
-  private slashingExecutionDelayInRounds = 0n;
+  private executablePayloads: PayloadWithRound[] = [];
 
   static async new(
     config: Omit<SlasherConfig, 'slasherPrivateKey'>,
     l1Contracts: Pick<L1ReaderConfig['l1Contracts'], 'rollupAddress' | 'slashFactoryAddress'>,
-    l1TxUtils: L1TxUtils | undefined,
     l1Client: ViemClient,
     watchers: Watcher[],
     dateProvider: DateProvider,
+    offensesStore: SlasherOffensesStore,
+    payloadsStore: SlasherPayloadsStore,
+    logger?: Logger,
   ) {
     if (!l1Contracts.rollupAddress) {
       throw new Error('Cannot initialize SlasherClient without a rollup address');
@@ -81,52 +87,89 @@ export class SlasherClient {
 
     const rollup = new RollupContract(l1Client, l1Contracts.rollupAddress);
     const slashingProposer = await rollup.getSlashingProposer();
-    const slashFactoryContract = getContract({
-      address: getAddress(l1Contracts.slashFactoryAddress.toString()),
-      abi: SlashFactoryAbi,
-      client: l1Client,
-    });
+    const slashFactoryContract = new SlashFactoryContract(l1Client, l1Contracts.slashFactoryAddress.toString());
 
-    return new SlasherClient(config, slashFactoryContract, slashingProposer, l1TxUtils, watchers, dateProvider);
+    const settings: SlasherSettings = {
+      slashingExecutionDelayInRounds: await slashingProposer.getExecutionDelayInRounds(),
+      slashingPayloadLifetimeInRounds: await slashingProposer.getLifetimeInRounds(),
+    };
+
+    return new SlasherClient(
+      config,
+      settings,
+      slashFactoryContract,
+      slashingProposer,
+      l1Contracts.rollupAddress,
+      watchers,
+      dateProvider,
+      offensesStore,
+      payloadsStore,
+      logger,
+    );
   }
 
   constructor(
     public config: Omit<SlasherConfig, 'slasherPrivateKey'>,
-    protected slashFactoryContract: GetContractReturnType<typeof SlashFactoryAbi, ViemClient>,
+    private settings: SlasherSettings,
+    private slashFactoryContract: SlashFactoryContract,
     private slashingProposer: SlashingProposerContract,
-    private l1TxUtils: L1TxUtils | undefined,
+    private rollupAddress: EthAddress,
     private watchers: Watcher[],
     private dateProvider: DateProvider,
+    private offensesStore: SlasherOffensesStore,
+    private payloadsStore: SlasherPayloadsStore,
     private log = createLogger('slasher'),
   ) {
     this.overridePayloadActive = config.slashOverridePayload !== undefined && !config.slashOverridePayload.isZero();
   }
 
-  //////////////////// Public methods ////////////////////
-
-  public async start() {
+  public start() {
     this.log.debug('Starting Slasher client...');
-    this.slashingExecutionDelayInRounds = await this.slashingProposer.getExecutionDelayInRounds();
 
-    // detect when new payloads are created
-    this.unwatchCallbacks.push(this.watchSlashFactoryEvents());
+    // TODO(palla/slash): Sync any events since the last time we were offline, or since the current round started.
 
-    // detect when a payload is submittable
-    this.unwatchCallbacks.push(this.slashingProposer.listenToSubmittablePayloads(this.submitRoundIfAgree.bind(this)));
+    // Detect when a payload wins voting via PayloadSubmittable event
+    this.unwatchCallbacks.push(
+      this.slashingProposer.listenToSubmittablePayloads(
+        ({ payload, round }) =>
+          void this.handleProposalExecutable(EthAddress.fromString(payload), round).catch(err =>
+            this.log.error('Error handling proposalExecutable', err, { payload, round }),
+          ),
+      ),
+    );
 
-    // detect when a payload is submitted
-    this.unwatchCallbacks.push(this.slashingProposer.listenToPayloadSubmitted(this.payloadSubmitted.bind(this)));
+    // Detect when a payload is submitted via PayloadSubmitted event
+    this.unwatchCallbacks.push(
+      this.slashingProposer.listenToPayloadSubmitted(
+        ({ payload, round }) =>
+          void this.handleProposalExecuted(EthAddress.fromString(payload), round).catch(err =>
+            this.log.error('Error handling payloadSubmitted', err, { payload, round }),
+          ),
+      ),
+    );
 
-    // start each watcher, who will signal the slasher client when they want to slash
-    const wantToSlashCb = this.wantToSlash.bind(this);
+    // Detect when a payload is signalled via SignalCast event
+    this.unwatchCallbacks.push(
+      this.slashingProposer.listenToSignalCasted(
+        ({ payload, round, signaler }) =>
+          void this.handleProposalSignalled(
+            EthAddress.fromString(payload),
+            round,
+            EthAddress.fromString(signaler),
+          ).catch(err => this.log.error('Error handling proposalSignalled', err, { payload, round, signaler })),
+      ),
+    );
+
+    // Subscribe to watchers WANT_TO_SLASH_EVENT
     for (const watcher of this.watchers) {
-      watcher.on(WANT_TO_SLASH_EVENT, wantToSlashCb);
-      this.unwatchCallbacks.push(() => watcher.removeListener(WANT_TO_SLASH_EVENT, wantToSlashCb));
+      const wantToSlashCallback = (args: WantToSlashArgs[]) =>
+        void this.handleWantToSlash(args).catch(err => this.log.error('Error handling wantToSlash', err));
+      watcher.on(WANT_TO_SLASH_EVENT, wantToSlashCallback);
+      this.unwatchCallbacks.push(() => watcher.removeListener(WANT_TO_SLASH_EVENT, wantToSlashCallback));
     }
 
-    this.log.info(
-      `Started Slasher client${this.l1TxUtils ? ` with publisher address ${this.l1TxUtils.client.account.address}` : ''}`,
-    );
+    this.log.info(`Started slasher client`);
+    return Promise.resolve();
   }
 
   /**
@@ -135,9 +178,11 @@ export class SlasherClient {
    */
   public async stop() {
     this.log.debug('Stopping Slasher client...');
-    for (const cb of this.unwatchCallbacks) {
-      cb();
+
+    for (const unwatchCallback of this.unwatchCallbacks) {
+      unwatchCallback();
     }
+
     // Viem calls eth_uninstallFilter under the hood when uninstalling event watchers, but these calls are not awaited,
     // meaning that any error that happens during the uninstallation will not be caught. This causes errors during jest teardowns,
     // where we stop anvil after all other processes are stopped, so sometimes the eth_uninstallFilter call fails because anvil
@@ -145,23 +190,17 @@ export class SlasherClient {
     // viem to await the eth_uninstallFilter calls, or to catch any errors that happen during the uninstallation.
     // See https://github.com/wevm/viem/issues/3714.
     await sleep(2000);
-    this.log.info('Slasher client stopped.');
-  }
-
-  public clearMonitoredPayloads() {
-    this.log.warn('Clearing monitored payloads', this.monitoredPayloads);
-    this.monitoredPayloads = [];
+    this.log.info('Slasher client stopped');
   }
 
   /**
    * Update the config of the slasher client
-   *
-   * @param config - the new config. Cannot update the slasher private key.
+   * @param config - The new config. Cannot update the slasher private key.
    */
   public updateConfig(config: Partial<SlasherConfig>) {
     const { slasherPrivateKey: _doNotUpdate, ...configWithoutPrivateKey } = config;
 
-    const newConfig: Omit<SlasherConfig, 'slasherPrivateKey'> = {
+    const newConfig = {
       ...this.config,
       ...configWithoutPrivateKey,
     };
@@ -174,337 +213,409 @@ export class SlasherClient {
   }
 
   /**
-   * Get the payload to slash
-   *
-   * @param _slotNumber the current slot number (unused)
-   * @returns the payload to slash or undefined if there is no payload to slash
+   * Called when a slash watcher emits WANT_TO_SLASH_EVENT.
+   * Stores pending offenses instead of creating payloads immediately.
+   * @param args - the arguments from the watcher, including the validators, amounts, and offenses
    */
-  public getSlashPayload(_slotNumber: bigint): Promise<EthAddress | undefined> {
-    if (this.overridePayloadActive && this.config.slashOverridePayload && !this.config.slashOverridePayload.isZero()) {
-      this.log.info(`Overriding slash payload to: ${this.config.slashOverridePayload.toString()}`);
-      return Promise.resolve(this.config.slashOverridePayload);
+  private async handleWantToSlash(args: WantToSlashArgs[]) {
+    for (const arg of args) {
+      const pendingOffense: Offense = {
+        validator: arg.validator,
+        amount: arg.amount,
+        offense: arg.offense,
+        epochOrSlot: arg.epochOrSlot,
+      };
+
+      if (await this.offensesStore.hasOffense(pendingOffense)) {
+        this.log.debug('Skipping repeated offense', pendingOffense);
+        continue;
+      }
+
+      this.log.info(`Adding pending offense for validator ${arg.validator}`, pendingOffense);
+      await this.offensesStore.addPendingOffense(pendingOffense);
     }
+  }
 
-    const currentTimeSeconds = this.dateProvider.now() / 1000;
-    this.filterExpiredPayloads(currentTimeSeconds, this.config.slashPayloadTtlSeconds);
-
-    if (this.monitoredPayloads.length === 0) {
-      this.log.debug('No monitored payloads, returning undefined');
-      return Promise.resolve(undefined);
-    }
-
-    const selectedPayload = this.monitoredPayloads[0];
-    this.log.info(`Selected slash payload at ${selectedPayload.payloadAddress}`, selectedPayload);
-
-    return Promise.resolve(selectedPayload.payloadAddress);
+  // TODO(palla/slash): Need to wire this to either a timer or an event
+  private async handleNewRound(round: bigint) {
+    this.log.info(`Starting new slashing round ${round}`);
+    await this.payloadsStore.clearExpiredPayloads(round);
+    await this.offensesStore.removeExpiredOffenses(round);
   }
 
   /**
-   * Get the list of monitored payloads
-   *
-   * Useful for tests.
-   *
-   * @returns the list of monitored payloads
+   * Called when we see a PayloadSubmittable event on the SlashProposer.
+   * Adds the proposal to the list of executable ones.
    */
-  public getMonitoredPayloads(): MonitoredSlashPayload[] {
-    return this.monitoredPayloads;
-  }
+  private async handleProposalExecutable(payloadAddress: EthAddress, round: bigint) {
+    // Track this payload for execution later
+    this.executablePayloads.push({ payload: payloadAddress, round });
+    this.log.verbose(`Proposal ${payloadAddress.toString()} is executable for round ${round}`, {
+      payloadAddress,
+      round,
+    });
 
-  //////////////////// Protected methods ////////////////////
-
-  /**
-   * Handler for when a proposal is executed.
-   *
-   * Removes the first matching payload from the list of monitored payloads.
-   *
-   * Bound to the slashing proposer contract's listenToProposalExecuted method in `.start()`.
-   *
-   * @param {round: bigint; proposal: `0x${string}`} param0
-   */
-  protected payloadSubmitted({ round, payload }: { round: bigint; payload: `0x${string}` }) {
-    this.log.info('Payload submitted', { round, payload });
-    const payloadAddress = EthAddress.fromString(payload);
-    // Stop signaling for the override payload if it was executed
-    if (this.overridePayloadActive && this.config.slashOverridePayload?.equals(payloadAddress)) {
+    // Stop signaling for the override payload if it was elected
+    if (
+      this.overridePayloadActive &&
+      this.config.slashOverridePayload &&
+      this.config.slashOverridePayload.equals(payloadAddress)
+    ) {
       this.overridePayloadActive = false;
     }
 
-    const index = this.monitoredPayloads.findIndex(p => p.payloadAddress.equals(payloadAddress));
-    if (index === -1) {
-      return;
-    }
-    this.monitoredPayloads.splice(index, 1);
-  }
-
-  //////////////////// Private methods ////////////////////
-
-  /**
-   * This is called when a watcher emits WANT_TO_SLASH_EVENT.
-   *
-   * @param args - the arguments from the watcher, including the validators, amounts, and offenses
-   */
-  private wantToSlash(args: WantToSlashArgs[]) {
-    if (!this.l1TxUtils) {
-      this.log.warn(
-        'Cannot slash validators: no slasher private key configured. Set SLASHER_PRIVATE_KEY environment variable.',
-        {
-          validators: args.map(arg => arg.validator.toString()),
-          offenses: args.map(arg => arg.offense),
-        },
-      );
+    // Load the payload to unflag all offenses to be slashed as pending
+    const payload =
+      (await this.payloadsStore.getPayload(payloadAddress)) ??
+      (await this.slashFactoryContract.getSlashPayloadFromEvents(payloadAddress, round));
+    if (!payload) {
+      this.log.warn(`No payload found for ${payloadAddress.toString()} in round ${round}`);
       return;
     }
 
-    const sortedArgs = [...args].sort((a, b) => a.validator.toString().localeCompare(b.validator.toString()));
-    this.log.info('Wants to slash', sortedArgs);
-    this.l1TxUtils
-      .sendAndMonitorTransaction({
-        to: this.slashFactoryContract.address,
-        data: encodeFunctionData({
-          abi: SlashFactoryAbi,
-          functionName: 'createSlashPayload',
-          args: [
-            sortedArgs.map(a => a.validator.toString()),
-            sortedArgs.map(a => a.amount),
-            sortedArgs.map(a => BigInt(a.offense)),
-          ],
-        }),
-      })
-      .then(tx => {
-        if (tx.receipt.status !== 'success') {
-          this.log.error('Slash payload creation failed', tx);
-          // TODO
-          // this.l1TxUtils.tryGetErrorFromRevertedTx()
-          throw new Error('Slash payload creation failed');
-        }
-        return this.getAddressAndIsDeployed(
-          sortedArgs.map(a => a.validator),
-          sortedArgs.map(a => a.amount),
-        );
-      })
-      .then(({ address, salt, isDeployed }) => {
-        if (!isDeployed) {
-          this.log.info('Slash payload not deployed', { address, salt });
-          throw new Error('Slash payload not deployed');
-        }
-        const payload = this.slashPayloadToMonitoredPayload({
-          payloadAddress: address.toString(),
-          validators: sortedArgs.map(a => a.validator.toString()),
-          amounts: sortedArgs.map(a => a.amount),
-          offenses: sortedArgs.map(a => BigInt(a.offense)),
-        });
-        if (!payload) {
-          this.log.error('Invalid payload', { address, salt });
-          throw new Error('Invalid payload');
-        }
-        return this.addMonitoredPayload(payload);
-      })
-      .then(added => {
-        if (!added) {
-          this.log.warn('Failed to add monitored payload that we created');
-        } else {
-          this.sortMonitoredPayloads();
-          this.log.info('Added monitored payload that we created');
-        }
-      })
-      // note, we don't need to monitor the logs here,
-      // it is handled by watchSlashFactoryEvents
-      .catch(e => {
-        this.log.error('Error slashing', e);
-      });
+    const offenses = getOffenseIdentifiersFromPayload(payload);
+    this.log.debug(`Marking offenses from payload ${payloadAddress.toString()} as not pending`, { offenses });
+    await this.offensesStore.removeFromPending(offenses);
   }
 
   /**
-   * Watch for new payloads created by the slash factory
-   *
-   * Whenever a log has events, we iterate over them and convert them to MonitoredSlashPayloads
-   *
-   * We then add the payloads to the list of monitored payloads if we agree with them
-   *
-   * @returns a callback to remove the watcher
+   * Called when we see a PayloadSubmitted event on the SlashProposer.
+   * Removes the proposal from the list of executable ones.
    */
-  private watchSlashFactoryEvents(): () => void {
-    return this.slashFactoryContract.watchEvent.SlashPayloadCreated({
-      onLogs: logs => {
-        for (const payload of this.factoryEventsToMonitoredPayloads(logs)) {
-          this.log.info('Slash payload created', payload);
-          this.addMonitoredPayload(payload).catch(e => {
-            this.log.error('Error adding monitored payload', e);
-          });
-        }
-        this.sortMonitoredPayloads();
-      },
-    });
+  private handleProposalExecuted(payload: EthAddress, round: bigint) {
+    this.log.verbose(`Proposal ${payload.toString()} on round ${round} has been executed`);
+    const index = this.executablePayloads.findIndex(p => p.payload.equals(payload));
+    if (index !== -1) {
+      this.executablePayloads.splice(index, 1);
+    }
+    return Promise.resolve();
   }
 
   /**
-   * Convert a list of factory events to an iterable of monitored payloads
-   *
-   * @param args
-   * @returns the list of monitored payloads
+   * Called when we see a SignalCast event on the SlashProposer.
+   * Adds a vote for the given payload in the round.
+   * Retrieves the proposal if we have not seen it before.
    */
-  private *factoryEventsToMonitoredPayloads(
-    args: GetContractEventsReturnType<typeof SlashFactoryAbi, 'SlashPayloadCreated'>,
-  ): IterableIterator<MonitoredSlashPayload> {
-    for (const event of args) {
-      if (!event.args) {
-        continue;
-      }
-      const payload = this.slashPayloadToMonitoredPayload(event.args);
+  private async handleProposalSignalled(payloadAddress: EthAddress, round: bigint, signaller: EthAddress) {
+    const payload = await this.payloadsStore.getPayload(payloadAddress);
+    if (!payload) {
+      this.log.debug(`Fetching payload for signal at ${payloadAddress.toString()}`);
+      const payload = await this.slashFactoryContract.getSlashPayloadFromEvents(payloadAddress, round);
       if (!payload) {
+        this.log.warn(`No payload found for signal at ${payloadAddress.toString()}`);
+        return;
+      }
+      const votes = await this.slashingProposer.getPayloadSignals(
+        this.rollupAddress.toString(),
+        round,
+        payloadAddress.toString(),
+      );
+      await this.payloadsStore.addPayload({ ...payload, votes, round });
+      this.log.verbose(`Added payload at ${payloadAddress}`, { ...payload, votes, round, signaller });
+    } else {
+      const votes = await this.payloadsStore.incrementPayloadVotes(payloadAddress, round);
+      this.log.verbose(`Added vote for payload at ${payloadAddress}`, { votes, signaller, round });
+    }
+  }
+
+  /**
+   * Create a slash payload for the given round from pending offenses
+   * @param round - The round to create the payload for
+   * @returns The payload data or undefined if no offenses to slash
+   */
+  private async gatherOffensesForRound(round: bigint): Promise<Offense[]> {
+    // Filter pending offenses to those that can be included in this round
+    const pendingOffenses = await this.offensesStore.getPendingOffenses();
+    const eligibleOffenses = pendingOffenses.filter(offense => this.isOffenseForRound(offense, round));
+
+    // Sort by uncontroversial first, then slash amount (descending), then detection time (ascending)
+    const sortedOffenses = [...eligibleOffenses].sort(offenseDataComparator);
+
+    // Take up to maxPayloadSize offenses
+    const selectedOffenses = sortedOffenses.slice(0, this.config.slashMaxPayloadSize);
+    if (selectedOffenses.length !== sortedOffenses.length) {
+      this.log.warn(
+        `Slash payload of ${sortedOffenses.length} truncated to max size of ${this.config.slashMaxPayloadSize}`,
+      );
+    }
+
+    return selectedOffenses;
+  }
+
+  /**
+   * Calculate score for a slash payload
+   * @param payload - The payload to score
+   * @param votes - Number of votes the payload has received
+   * @returns The score for the payload
+   */
+  private calculatePayloadScore(payload: Pick<SlashPayloadRound, 'votes' | 'slashes'>): bigint {
+    // TODO: Update this function to something smarter
+    return payload.votes * sumBigint(payload.slashes.map(o => o.amount));
+  }
+
+  /**
+   * Get the actions the proposer should take for slashing
+   * @param slotNumber - The current slot number
+   * @returns The actions to take
+   */
+  public async getProposerActions(slotNumber: bigint): Promise<ProposerSlashAction[]> {
+    const [executeAction, proposePayloadActions] = await Promise.all([
+      this.getExecutePayloadAction(slotNumber),
+      this.getProposePayloadActions(slotNumber),
+    ]);
+
+    return compactArray<ProposerSlashAction>([executeAction, ...proposePayloadActions]);
+  }
+
+  /** Returns an execute payload action if there are any payloads ready to be executed */
+  private async getExecutePayloadAction(slotNumber: bigint): Promise<ProposerSlashAction | undefined> {
+    const round = this.getRoundForSlot(slotNumber);
+    const toRemove: PayloadWithRound[] = [];
+
+    let toExecute: PayloadWithRound | undefined;
+    for (const payload of this.executablePayloads) {
+      // TODO(palla/slash): Check for off-by-one errors here
+      const executableRound = payload.round + this.settings.slashingExecutionDelayInRounds + 1n;
+      if (round < executableRound) {
+        this.log.debug(`Payload ${payload.payload} for round ${payload.round} is not executable yet`);
         continue;
       }
-      yield payload;
+
+      if (payload.round + this.settings.slashingPayloadLifetimeInRounds < round) {
+        this.log.verbose(`Payload ${payload.payload} for round ${payload.round} has expired`);
+        toRemove.push(payload);
+        continue;
+      }
+
+      const roundInfo = await this.slashingProposer.getRoundInfo(this.rollupAddress.toString(), payload.round);
+      if (roundInfo.executed) {
+        this.log.verbose(`Payload ${payload.payload} for round ${payload.round} has already been executed`);
+        toRemove.push(payload);
+        continue;
+      }
+
+      this.log.info(`Executing payload ${payload.payload} from round ${payload.round}`);
+      toExecute = payload;
+      break;
     }
+
+    // Clean up expired or executed payloads
+    this.executablePayloads = this.executablePayloads.filter(p => !toRemove.includes(p));
+    return toExecute ? { type: 'execute-payload', round: toExecute.round } : undefined;
   }
 
-  private slashPayloadToMonitoredPayload(
-    payload: GetContractEventsReturnType<typeof SlashFactoryAbi, 'SlashPayloadCreated'>[number]['args'],
-  ): MonitoredSlashPayload | undefined {
-    if (!payload.payloadAddress || !payload.validators || !payload.amounts || !payload.offenses) {
-      return undefined;
+  /** Returns a vote or create payload action based on payload scoring */
+  private async getProposePayloadActions(slotNumber: bigint): Promise<ProposerSlashAction[]> {
+    // If override payload is active, vote for it
+    if (this.overridePayloadActive && this.config.slashOverridePayload && !this.config.slashOverridePayload.isZero()) {
+      this.log.info(`Overriding slash payload to ${this.config.slashOverridePayload.toString()}`);
+      return [{ type: 'vote-payload', payload: this.config.slashOverridePayload }];
     }
-    return {
-      payloadAddress: EthAddress.fromString(payload.payloadAddress),
-      validators: payload.validators.map(EthAddress.fromString),
-      amounts: payload.amounts,
-      offenses: payload.offenses.map(offense => bigIntToOffense(offense)),
-      observedAtSeconds: this.dateProvider.now() / 1000,
-      totalAmount: payload.amounts.reduce((acc, amount) => acc + amount, BigInt(0)),
-    };
-  }
 
-  /**
-   * Add a payload to the list of monitored payloads if we agree with it
-   *
-   * @param payload
-   */
-  private async addMonitoredPayload(payload: MonitoredSlashPayload): Promise<boolean> {
-    const duplicate = this.monitoredPayloads.find(p => p.payloadAddress.equals(payload.payloadAddress));
-    if (duplicate) {
-      this.log.verbose('Duplicate payload. Not adding to monitored payloads', payload);
-      return false;
-    }
-    if (await this.doIAgreeWithPayload(payload)) {
-      this.log.info('Adding monitored payload', payload);
-      this.monitoredPayloads.push(payload);
-      return true;
+    // Create our ideal payload from pending offenses
+    const round = this.getRoundForSlot(slotNumber);
+    const idealOffenses = await this.gatherOffensesForRound(round);
+    const idealPayload: Pick<SlashPayloadRound, 'slashes' | 'votes' | 'address'> | undefined =
+      idealOffenses.length === 0
+        ? undefined
+        : { slashes: offensesToValidatorSlash(idealOffenses), votes: 1n, address: EthAddress.ZERO };
+
+    // Find the best existing payload
+    const existingPayloads = await this.payloadsStore.getPayloads(round);
+    const requiredOffenses = await this.getPendingUncontroversialOffenses(round);
+    const agreedPayloads = await filterAsync(existingPayloads, p => this.agreeWithPayload(p, round, requiredOffenses));
+    const bestPayload = maxBy([...agreedPayloads, idealPayload], p => (p ? this.calculatePayloadScore(p) : 0));
+
+    if (bestPayload === undefined) {
+      // No payloads to vote for, do nothing
+      return [];
+    } else if (bestPayload === idealPayload) {
+      // If our ideal payload is the best, we create it (if not deployed yet) and vote for it
+      const { address, isDeployed } = await this.slashFactoryContract.getAddressAndIsDeployed(idealPayload.slashes);
+      const createAction: ProposerSlashAction | undefined = isDeployed
+        ? undefined
+        : { type: 'create-payload', data: idealPayload.slashes };
+      const voteAction: ProposerSlashAction = { type: 'vote-payload', payload: address };
+      return compactArray([createAction, voteAction]);
     } else {
-      this.log.info('Disagree with payload. Not adding to monitored payloads', payload);
-      return false;
+      // Otherwise, vote for our favorite payload
+      return [{ type: 'vote-payload', payload: bestPayload.address }];
     }
   }
 
-  /**
-   * Check if we agree with a payload
-   *
-   * We check each offense and validator pair against the watchers
-   *
-   * @param payload
-   * @returns true if any watcher agrees with the payload, false otherwise
-   */
-  private async doIAgreeWithPayload(payload: MonitoredSlashPayload) {
-    // zip offenses and validators together
-    const offensesAndValidators = payload.offenses.map((offense, index) => ({
-      offense,
-      validator: payload.validators[index],
-      amount: payload.amounts[index],
-    }));
+  /** Returns the slashing round given an L2 slot number  */
+  private getRoundForSlot(_slotNumber: bigint): bigint {
+    throw new Error('Method not implemented.');
+  }
 
-    // check each offense
-    for (const offenseAndValidator of offensesAndValidators) {
-      const watcherResponses = await Promise.all(
-        this.watchers.map(watcher => watcher.shouldSlash(offenseAndValidator)),
+  /**
+   * Check if we agree with a payload:
+   * - We must agree with every offense in the payload
+   * - All uncontroversial offenses from past rounds must be included
+   * - Payload must be below maximum size
+   * - Slash amounts must be within acceptable ranges
+   */
+  private async agreeWithPayload(
+    payload: SlashPayload,
+    round: bigint,
+    cachedUncontroversialOffenses?: Offense[],
+  ): Promise<boolean> {
+    // Check size limit
+    const maxPayloadSize = this.config.slashMaxPayloadSize;
+    if (payload.slashes.length > maxPayloadSize) {
+      this.log.verbose(
+        `Rejecting payload ${payload.address} since size ${payload.slashes.length} exceeds maximum ${maxPayloadSize}`,
+        { payload, maxPayloadSize },
       );
-      // if no watcher agrees, return false
-      if (watcherResponses.every(response => !response)) {
+      return false;
+    }
+
+    // Check we agree with all offenses and proposed slash amounts, and all offenses are from past rounds
+    for (const slash of payload.slashes) {
+      for (const { offenseType, epochOrSlot } of slash.offenses) {
+        const offense = { validator: slash.validator, offense: offenseType, epochOrSlot };
+        if (!(await this.offensesStore.hasPendingOffense(offense))) {
+          this.log.debug(`Rejecting payload ${payload.address} due to offense not found`, { offense, payload });
+          return false;
+        }
+        const [minRound, maxRound] = this.getRoundRangeForOffense(offense);
+        if (round < minRound || round > maxRound) {
+          this.log.debug(`Rejecting payload ${payload.address} due to offense not from valid round`, {
+            offense,
+            payload,
+            round,
+            minRound,
+            maxRound,
+          });
+          return false;
+        }
+      }
+      const [minSlashAmount, maxSlashAmount] = this.getSlashAmountValidRange(slash.offenses);
+      if (slash.amount < minSlashAmount || slash.amount > maxSlashAmount) {
+        this.log.debug(`Rejecting payload ${payload.address} due to slash amount out of range`, {
+          amount: slash.amount,
+          minSlashAmount,
+          maxSlashAmount,
+          payload,
+        });
         return false;
       }
     }
+
+    // Check that all uncontroversial offenses from past rounds are included
+    const uncontroversialOffenses =
+      cachedUncontroversialOffenses ?? (await this.getPendingUncontroversialOffenses(round));
+    for (const requiredOffense of uncontroversialOffenses) {
+      const validatorOffenses = payload.slashes
+        .filter(slash => slash.validator.equals(requiredOffense.validator))
+        .flatMap(slash => slash.offenses);
+      if (
+        !validatorOffenses.some(
+          o => o.offenseType === requiredOffense.offense && o.epochOrSlot === requiredOffense.epochOrSlot,
+        )
+      ) {
+        this.log.debug(
+          `Rejecting payload due to missing uncontroversial offense for validator ${requiredOffense.validator}`,
+          { requiredOffense, validatorOffenses, payload },
+        );
+        return false;
+      }
+    }
+
     return true;
   }
 
   /**
-   * Sort the monitored payloads by total amount in descending order
+   * Returns the range of rounds in which we could expect an offense to be found.
+   * Upper bound is determined by all offenses that should have been captured before the start of the current round,
+   * which depends on the offense type (eg INACTIVITY is captured once an epoch ends, DATA_WITHHOLDING is captured
+   * after the epoch proof submission window for the epoch for which the data was withheld).
+   * Lower bound is determined by the expiration rounds for an offense, which is a config setting.
+   * Both bounds are inclusive.
    */
-  private sortMonitoredPayloads() {
-    this.monitoredPayloads.sort((a, b) => {
-      const diff = b.totalAmount - a.totalAmount;
-      return diff > 0n ? 1 : -1;
-    });
+  private getRoundRangeForOffense(_offense: OffenseIdentifier): [bigint, bigint] {
+    throw new Error('Method not implemented.');
+  }
+
+  /** Returns whether the given offense can be included in the given round. */
+  private isOffenseForRound(offense: OffenseIdentifier, round: bigint): boolean {
+    const [minRound, maxRound] = this.getRoundRangeForOffense(offense);
+    return round >= minRound && round <= maxRound;
+  }
+
+  /** Returns the acceptable range for slash amount given a set of offenses. */
+  private getSlashAmountValidRange(offenses: ValidatorSlashOffense[]): [bigint, bigint] {
+    if (offenses.length === 0) {
+      return [0n, 0n];
+    }
+    const minAmount = sumBigint(offenses.map(o => this.getMinAmountForOffense(o.offenseType)));
+    const maxAmount = sumBigint(offenses.map(o => this.getMaxAmountForOffense(o.offenseType)));
+    return [minAmount, maxAmount];
+  }
+
+  /** Get uncontroversial offenses that are expected to be present on the current round. */
+  private async getPendingUncontroversialOffenses(round: bigint): Promise<Offense[]> {
+    const pendingOffenses = await this.offensesStore.getPendingOffenses();
+
+    const filteredOffenses = pendingOffenses
+      .filter(offense => isOffenseUncontroversial(offense.offense) && this.isOffenseForRound(offense, round))
+      .sort(offenseDataComparator);
+
+    return filteredOffenses.slice(0, this.config.slashMaxPayloadSize);
   }
 
   /**
-   * Filter out payloads that have expired
-   *
-   * @param currentTimeSeconds
-   * @param payloadTtlSeconds
+   * Get minimum acceptable amount for an offense type
    */
-  private filterExpiredPayloads(currentTimeSeconds: number, payloadTtlSeconds: number) {
-    this.monitoredPayloads = this.monitoredPayloads.filter(payload => {
-      return payload.observedAtSeconds + payloadTtlSeconds > currentTimeSeconds;
-    });
+  private getMinAmountForOffense(offense: OffenseType): bigint {
+    // Use the configured penalty amounts as minimums
+    // TODO(palla/slash): Should we add a new set of variables? Or just have a multiplier so we dont go crazy?
+    switch (offense) {
+      case OffenseType.VALID_EPOCH_PRUNED:
+      case OffenseType.DATA_WITHHOLDING:
+        return this.config.slashPrunePenalty;
+      case OffenseType.INACTIVITY:
+        return this.config.slashInactivityCreatePenalty;
+      case OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS:
+      case OffenseType.PROPOSED_INCORRECT_ATTESTATIONS:
+        return this.config.slashProposeInvalidAttestationsPenalty;
+      case OffenseType.ATTESTED_DESCENDANT_OF_INVALID:
+        return this.config.slashAttestDescendantOfInvalidPenalty;
+      case OffenseType.UNKNOWN:
+        return this.config.slashUnknownPenalty;
+      case OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL:
+        return this.config.slashBroadcastedInvalidBlockPenalty;
+      default: {
+        const _: never = offense;
+        throw new Error(`Unknown offense type: ${offense}`);
+      }
+    }
   }
 
   /**
-   * Submit a round to the Slasher if we agree with the payload.
-   *
-   * Bound to the slashing proposer contract's listenToSubmittablePayloads method in the constructor.
-   *
-   * @param {proposal: `0x${string}`; round: bigint} param0
+   * Get maximum acceptable amount for an offense type
    */
-  private async submitRoundIfAgree({ payload, round }: { payload: `0x${string}`; round: bigint }) {
-    if (!this.l1TxUtils) {
-      this.log.warn(
-        'Cannot execute slashing proposal: no slasher private key configured. Set SLASHER_PRIVATE_KEY environment variable.',
-        {
-          payload,
-          round,
-        },
-      );
-      return;
+  private getMaxAmountForOffense(offense: OffenseType): bigint {
+    // Use the configured max penalty amounts
+    switch (offense) {
+      case OffenseType.VALID_EPOCH_PRUNED:
+      case OffenseType.DATA_WITHHOLDING:
+        return this.config.slashPruneMaxPenalty;
+      case OffenseType.INACTIVITY:
+        return this.config.slashInactivityMaxPenalty;
+      case OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS:
+      case OffenseType.PROPOSED_INCORRECT_ATTESTATIONS:
+        return this.config.slashProposeInvalidAttestationsMaxPenalty;
+      case OffenseType.ATTESTED_DESCENDANT_OF_INVALID:
+        return this.config.slashAttestDescendantOfInvalidMaxPenalty;
+      case OffenseType.UNKNOWN:
+        return this.config.slashUnknownMaxPenalty;
+      case OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL:
+        return this.config.slashBroadcastedInvalidBlockMaxPenalty;
+      default: {
+        const _: never = offense;
+        throw new Error(`Unknown offense type: ${offense}`);
+      }
     }
-    const payloadAddress = EthAddress.fromString(payload);
-    if (!this.monitoredPayloads.find(p => p.payloadAddress.equals(payloadAddress))) {
-      this.log.debug('Round executable, but we disagree', { payload, round });
-      return;
-    }
-
-    const executableRound = round + BigInt(this.slashingExecutionDelayInRounds) + 1n;
-    this.log.info(`Waiting for round ${executableRound} to be reached`);
-    const reached = await this.slashingProposer.waitForRound(
-      executableRound,
-      this.config.slashProposerRoundPollingIntervalSeconds,
-    );
-    if (!reached) {
-      this.log.warn('Round not reached', { payload, round });
-      return;
-    }
-    this.log.info('Executing round', { payload, round });
-
-    await this.slashingProposer
-      .executeRound(this.l1TxUtils, round)
-      .then(({ receipt }) => {
-        this.log.info('Round executed', { round, receipt });
-      })
-      .catch(err => {
-        if (err instanceof ProposalAlreadyExecutedError) {
-          this.log.debug('Round already executed', { round });
-          return;
-        } else {
-          this.log.warn('Error executing round', err);
-        }
-      });
-  }
-
-  private async getAddressAndIsDeployed(
-    validators: EthAddress[],
-    amounts: bigint[],
-  ): Promise<{ address: EthAddress; salt: Hex; isDeployed: boolean }> {
-    const [address, salt, isDeployed] = await this.slashFactoryContract.read.getAddressAndIsDeployed([
-      validators.map(v => v.toString()),
-      amounts,
-    ]);
-    return { address: EthAddress.fromString(address), salt, isDeployed };
   }
 }

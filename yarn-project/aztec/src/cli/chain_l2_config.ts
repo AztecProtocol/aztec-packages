@@ -75,6 +75,10 @@ export type L2ChainConfig = {
   slashProposeInvalidAttestationsMaxPenalty: bigint;
   slashAttestDescendantOfInvalidPenalty: bigint;
   slashAttestDescendantOfInvalidMaxPenalty: bigint;
+  slashUnknownPenalty: bigint;
+  slashUnknownMaxPenalty: bigint;
+  slashBroadcastedInvalidBlockPenalty: bigint;
+  slashBroadcastedInvalidBlockMaxPenalty: bigint;
   // control whether sentinel is enabled or not. Needed for slashing
   sentinelEnabled: boolean;
 };
@@ -141,6 +145,10 @@ export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
   slashProposeInvalidAttestationsMaxPenalty: 0n,
   slashAttestDescendantOfInvalidPenalty: 0n,
   slashAttestDescendantOfInvalidMaxPenalty: 0n,
+  slashUnknownPenalty: 0n,
+  slashUnknownMaxPenalty: 0n,
+  slashBroadcastedInvalidBlockPenalty: 0n,
+  slashBroadcastedInvalidBlockMaxPenalty: 0n,
   sentinelEnabled: false,
 };
 
@@ -209,6 +217,10 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   slashProposeInvalidAttestationsMaxPenalty: DefaultL1ContractsConfig.activationThreshold,
   slashAttestDescendantOfInvalidPenalty: DefaultL1ContractsConfig.activationThreshold,
   slashAttestDescendantOfInvalidMaxPenalty: DefaultL1ContractsConfig.activationThreshold,
+  slashUnknownPenalty: 17n * (DefaultL1ContractsConfig.activationThreshold / 100n),
+  slashUnknownMaxPenalty: 17n * (DefaultL1ContractsConfig.activationThreshold / 100n),
+  slashBroadcastedInvalidBlockPenalty: DefaultL1ContractsConfig.activationThreshold,
+  slashBroadcastedInvalidBlockMaxPenalty: DefaultL1ContractsConfig.activationThreshold,
   sentinelEnabled: true,
 };
 
@@ -381,6 +393,10 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
     'SLASH_ATTEST_DESCENDANT_OF_INVALID_MAX_PENALTY',
     config.slashAttestDescendantOfInvalidMaxPenalty.toString(),
   );
+  enrichVar('SLASH_UNKNOWN_PENALTY', config.slashUnknownPenalty.toString());
+  enrichVar('SLASH_UNKNOWN_MAX_PENALTY', config.slashUnknownMaxPenalty.toString());
+  enrichVar('SLASH_BROADCASTED_INVALID_BLOCK_PENALTY', config.slashBroadcastedInvalidBlockPenalty.toString());
+  enrichVar('SLASH_BROADCASTED_INVALID_BLOCK_MAX_PENALTY', config.slashBroadcastedInvalidBlockMaxPenalty.toString());
 
   enrichVar('SENTINEL_ENABLED', config.sentinelEnabled.toString());
 }

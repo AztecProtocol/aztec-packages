@@ -118,6 +118,8 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
       slashProposeInvalidAttestationsMaxPenalty: 1000n,
       slashAttestDescendantOfInvalidPenalty: 1000n,
       slashAttestDescendantOfInvalidMaxPenalty: 1000n,
+      slashOffenseExpirationRounds: 4,
+      slashMaxPayloadSize: 50,
     });
   }
   startSnapshotUpload(_location: string): Promise<void> {

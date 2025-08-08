@@ -9,7 +9,7 @@ import type {
   MerkleTreeWriteOperations,
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import { Offense } from '@aztec/stdlib/slashing';
+import { OffenseType } from '@aztec/stdlib/slashing';
 import { Tx } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
@@ -89,12 +89,14 @@ describe('EpochPruneWatcher', () => {
       {
         validator: EthAddress.fromString(committee[0]),
         amount: penalty,
-        offense: Offense.DATA_WITHHOLDING,
+        offense: OffenseType.DATA_WITHHOLDING,
+        epochOrSlot: 1n,
       },
       {
         validator: EthAddress.fromString(committee[1]),
         amount: penalty,
-        offense: Offense.DATA_WITHHOLDING,
+        offense: OffenseType.DATA_WITHHOLDING,
+        epochOrSlot: 1n,
       },
     ]);
 
@@ -102,21 +104,24 @@ describe('EpochPruneWatcher', () => {
       watcher.shouldSlash({
         validator: EthAddress.fromString(committee[0]),
         amount: penalty,
-        offense: Offense.DATA_WITHHOLDING,
+        offense: OffenseType.DATA_WITHHOLDING,
+        epochOrSlot: 1n,
       }),
     ).resolves.toBe(true);
     await expect(
       watcher.shouldSlash({
         validator: EthAddress.fromString(committee[1]),
         amount: penalty,
-        offense: Offense.DATA_WITHHOLDING,
+        offense: OffenseType.DATA_WITHHOLDING,
+        epochOrSlot: 1n,
       }),
     ).resolves.toBe(true);
     await expect(
       watcher.shouldSlash({
         validator: EthAddress.fromString('0x0000000000000000000000000000000000000000'),
         amount: penalty,
-        offense: Offense.DATA_WITHHOLDING,
+        offense: OffenseType.DATA_WITHHOLDING,
+        epochOrSlot: 1n,
       }),
     ).resolves.toBe(false);
 
@@ -125,7 +130,8 @@ describe('EpochPruneWatcher', () => {
       watcher.shouldSlash({
         validator: EthAddress.fromString(committee[0]),
         amount: maxPenalty,
-        offense: Offense.DATA_WITHHOLDING,
+        offense: OffenseType.DATA_WITHHOLDING,
+        epochOrSlot: 1n,
       }),
     ).resolves.toBe(true);
     // Should not slash if the penalty is above the max penalty
@@ -133,7 +139,8 @@ describe('EpochPruneWatcher', () => {
       watcher.shouldSlash({
         validator: EthAddress.fromString(committee[0]),
         amount: maxPenalty + 1n,
-        offense: Offense.DATA_WITHHOLDING,
+        offense: OffenseType.DATA_WITHHOLDING,
+        epochOrSlot: 1n,
       }),
     ).resolves.toBe(false);
   });
@@ -176,12 +183,14 @@ describe('EpochPruneWatcher', () => {
       {
         validator: EthAddress.fromString(committee[0]),
         amount: penalty,
-        offense: Offense.VALID_EPOCH_PRUNED,
+        offense: OffenseType.VALID_EPOCH_PRUNED,
+        epochOrSlot: 1n,
       },
       {
         validator: EthAddress.fromString(committee[1]),
         amount: penalty,
-        offense: Offense.VALID_EPOCH_PRUNED,
+        offense: OffenseType.VALID_EPOCH_PRUNED,
+        epochOrSlot: 1n,
       },
     ]);
 

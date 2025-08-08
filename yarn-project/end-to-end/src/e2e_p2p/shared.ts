@@ -18,7 +18,7 @@ import type { SlashingProposerAbi } from '@aztec/l1-artifacts/SlashingProposerAb
 import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { TestContract, TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
 import { PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe/server';
-import { Offense, OffenseToBigInt } from '@aztec/slasher';
+import { OffenseToBigInt, OffenseType } from '@aztec/slasher';
 
 import type { GetContractReturnType } from 'viem';
 
@@ -164,7 +164,7 @@ export async function awaitCommitteeKicked({
   logger,
   sendDummyTx,
 }: {
-  offense: Offense;
+  offense: OffenseType;
   rollup: RollupContract;
   cheatCodes: RollupCheatCodes;
   committee: readonly `0x${string}`[];

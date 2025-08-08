@@ -12,7 +12,7 @@ import type { P2P, PeerId } from '@aztec/p2p';
 import { AuthRequest, AuthResponse, ReqRespSubProtocol, TxProvider } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import { computeInHashFromL1ToL2Messages } from '@aztec/prover-client/helpers';
-import { Offense } from '@aztec/slasher';
+import { OffenseType } from '@aztec/slasher';
 import {
   type SlasherConfig,
   WANT_TO_SLASH_EVENT,
@@ -468,7 +468,8 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       {
         validator: proposer,
         amount: this.config.slashInvalidBlockPenalty,
-        offense: Offense.BROADCASTED_INVALID_BLOCK_PROPOSAL,
+        offense: OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL,
+        epochOrSlot: BigInt(proposal.blockNumber),
       },
     ]);
   }

@@ -51,7 +51,8 @@
     "./snapshots": "./dest/snapshots/index.js",
     "./update-checker": "./dest/update-checker/index.js",
     "./zkpassport": "./dest/zkpassport/index.js",
-    "./slashing": "./dest/slashing/index.js"
+    "./slashing": "./dest/slashing/index.js",
+    "./l1-contracts": "./dest/l1-contracts/index.js"
   },
   "typedocOptions": {
     "entryPoints": [
@@ -73,6 +74,7 @@
     "@aztec/constants": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
+    "@aztec/l1-artifacts": "workspace:^",
     "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi",
     "@google-cloud/storage": "^7.15.0",
     "axios": "^1.9.0",

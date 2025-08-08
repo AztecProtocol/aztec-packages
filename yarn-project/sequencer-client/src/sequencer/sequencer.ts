@@ -46,14 +46,10 @@ import {
 import type { ValidatorClient } from '@aztec/validator-client';
 
 import EventEmitter from 'node:events';
+import type { TypedDataDefinition } from 'viem';
 
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
-import {
-  type Action,
-  type InvalidateBlockRequest,
-  type SequencerPublisher,
-  SignalType,
-} from '../publisher/sequencer-publisher.js';
+import type { Action, InvalidateBlockRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
 import type { SequencerConfig } from './config.js';
 import { SequencerMetrics } from './metrics.js';
 import { SequencerTimetable, SequencerTooSlowError } from './timetable.js';
@@ -141,9 +137,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       publisher.l1TxUtils.client as unknown as ViemPublicClient,
       [publisher.getSenderAddress()],
     );
-
-    // Register the slasher on the publisher to fetch slashing payloads
-    this.publisher.registerSlashPayloadGetter(this.slasherClient.getSlashPayload.bind(this.slasherClient));
 
     // Initialize config
     this.updateConfig(this.config);
@@ -415,21 +408,20 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       slot,
     );
 
-    const enqueueGovernanceVotePromise = this.publisher.enqueueCastSignal(
+    const { timestamp } = newGlobalVariables;
+    const signerFn = (msg: TypedDataDefinition) =>
+      this.validatorClient!.signWithAddress(proposerAddress, msg).then(s => s.toString());
+
+    const enqueueGovernanceSignalPromise = this.publisher.enqueueGovernanceCastSignal(
       slot,
-      newGlobalVariables.timestamp,
-      SignalType.GOVERNANCE,
+      timestamp,
       proposerAddress,
-      msg => this.validatorClient!.signWithAddress(proposerAddress, msg).then(s => s.toString()),
+      signerFn,
     );
 
-    const enqueueSlashingVotePromise = this.publisher.enqueueCastSignal(
-      slot,
-      newGlobalVariables.timestamp,
-      SignalType.SLASHING,
-      proposerAddress,
-      msg => this.validatorClient!.signWithAddress(proposerAddress, msg).then(s => s.toString()),
-    );
+    const enqueueSlashingActionsPromise = this.slasherClient
+      .getProposerActions(slot)
+      .then(actions => this.publisher.enqueueSlashingActions(actions, slot, timestamp, proposerAddress, signerFn));
 
     if (invalidateBlock && !this.config.skipInvalidateBlockAsProposer) {
       this.publisher.enqueueInvalidateBlock(invalidateBlock);
@@ -484,11 +476,11 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.emit('tx-count-check-failed', { minTxs: this.minTxsPerBlock, availableTxs: pendingTxCount });
     }
 
-    await enqueueGovernanceVotePromise.catch(err => {
+    await enqueueGovernanceSignalPromise.catch(err => {
       this.log.error(`Error enqueuing governance vote`, err, { blockNumber: newBlockNumber, slot });
     });
-    await enqueueSlashingVotePromise.catch(err => {
-      this.log.error(`Error enqueuing slashing vote`, err, { blockNumber: newBlockNumber, slot });
+    await enqueueSlashingActionsPromise.catch(err => {
+      this.log.error(`Error enqueuing slashing actions`, err, { blockNumber: newBlockNumber, slot });
     });
 
     const l1Response = await this.publisher.sendRequests();

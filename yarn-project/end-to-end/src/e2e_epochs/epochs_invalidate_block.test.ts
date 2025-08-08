@@ -8,7 +8,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { bufferToHex } from '@aztec/foundation/string';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
-import { Offense } from '@aztec/slasher';
+import { OffenseType } from '@aztec/slasher';
 
 import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -161,7 +161,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     // Check that we have created a slash payload for the proposer of the invalidated block
     const monitoredPayloads = await context.aztecNodeAdmin!.getSlasherMonitoredPayloads();
     expect(monitoredPayloads).toHaveLength(1);
-    expect(monitoredPayloads[0].offenses).toEqual([Offense.PROPOSED_INSUFFICIENT_ATTESTATIONS]);
+    expect(monitoredPayloads[0].offenses).toEqual([OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS]);
   });
 
   it('proposer invalidates previous block without publishing its own', async () => {

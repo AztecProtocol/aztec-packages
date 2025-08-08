@@ -16,7 +16,7 @@ import {
   createSecp256k1PeerId,
 } from '@aztec/p2p';
 import { computeInHashFromL1ToL2Messages } from '@aztec/prover-client/helpers';
-import { Offense, WANT_TO_SLASH_EVENT } from '@aztec/slasher';
+import { OffenseType, WANT_TO_SLASH_EVENT } from '@aztec/slasher';
 import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
 import { Gas } from '@aztec/stdlib/gas';
 import type { BuildBlockResult, IFullNodeBlockBuilder, SlasherConfig } from '@aztec/stdlib/interfaces/server';
@@ -289,7 +289,8 @@ describe('ValidatorClient', () => {
         {
           validator: proposer,
           amount: config.slashInvalidBlockPenalty,
-          offense: Offense.BROADCASTED_INVALID_BLOCK_PROPOSAL,
+          offense: OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL,
+          epochOrSlot: expect.any(BigInt),
         },
       ]);
 
@@ -298,7 +299,8 @@ describe('ValidatorClient', () => {
         validatorClient.shouldSlash({
           validator: EthAddress.fromString(proposer.toString()), // create a copy of the EthAddress
           amount: config.slashInvalidBlockMaxPenalty,
-          offense: Offense.BROADCASTED_INVALID_BLOCK_PROPOSAL,
+          offense: OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL,
+          epochOrSlot: 1n,
         }),
       ).resolves.toBe(true);
 
@@ -307,7 +309,8 @@ describe('ValidatorClient', () => {
         validatorClient.shouldSlash({
           validator: EthAddress.fromString(proposer.toString()),
           amount: config.slashInvalidBlockMaxPenalty + 1n,
-          offense: Offense.BROADCASTED_INVALID_BLOCK_PROPOSAL,
+          offense: OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL,
+          epochOrSlot: 1n,
         }),
       ).resolves.toBe(false);
     });

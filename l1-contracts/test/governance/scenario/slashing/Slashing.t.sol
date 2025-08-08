@@ -55,9 +55,10 @@ contract SlashingTest is TestBase {
     uint256 round = slashingProposer.getCurrentRound();
 
     uint96[] memory amounts = new uint96[](_attesters.length);
-    uint256[] memory offenses = new uint256[](_attesters.length);
+    uint128[][] memory offenses = new uint128[][](_attesters.length);
     for (uint256 i = 0; i < _attesters.length; i++) {
       amounts[i] = _slashAmount;
+      offenses[i] = new uint128[](0); // Empty array of offenses for each validator
     }
 
     IPayload payload = slashFactory.createSlashPayload(_attesters, amounts, offenses);

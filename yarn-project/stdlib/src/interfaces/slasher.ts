@@ -23,7 +23,13 @@ export interface SlasherConfig {
   slashProposeInvalidAttestationsMaxPenalty: bigint;
   slashAttestDescendantOfInvalidPenalty: bigint;
   slashAttestDescendantOfInvalidMaxPenalty: bigint;
+  slashUnknownPenalty: bigint;
+  slashUnknownMaxPenalty: bigint;
+  slashBroadcastedInvalidBlockPenalty: bigint;
+  slashBroadcastedInvalidBlockMaxPenalty: bigint;
   slasherPrivateKey: SecretValue<string | undefined>; // Private key of the slasher account used for creating slash payloads
+  slashOffenseExpirationRounds: number; // Number of rounds after which pending offenses expire
+  slashMaxPayloadSize: number; // Maximum number of offenses to include in a single slash payload
 }
 
 export const SlasherConfigSchema = z.object({
@@ -45,5 +51,11 @@ export const SlasherConfigSchema = z.object({
   slashProposeInvalidAttestationsMaxPenalty: schemas.BigInt,
   slashAttestDescendantOfInvalidPenalty: schemas.BigInt,
   slashAttestDescendantOfInvalidMaxPenalty: schemas.BigInt,
+  slashUnknownPenalty: schemas.BigInt,
+  slashUnknownMaxPenalty: schemas.BigInt,
+  slashBroadcastedInvalidBlockPenalty: schemas.BigInt,
+  slashBroadcastedInvalidBlockMaxPenalty: schemas.BigInt,
   slasherPrivateKey: schemas.SecretValue(z.string().optional()),
+  slashOffenseExpirationRounds: z.number(),
+  slashMaxPayloadSize: z.number(),
 }) satisfies ZodFor<SlasherConfig>;

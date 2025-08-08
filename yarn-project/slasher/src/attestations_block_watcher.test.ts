@@ -10,7 +10,7 @@ import {
   type ValidateBlockNegativeResult,
 } from '@aztec/stdlib/block';
 import { BlockAttestation } from '@aztec/stdlib/p2p';
-import { Offense } from '@aztec/stdlib/slashing';
+import { OffenseType } from '@aztec/stdlib/slashing';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -78,7 +78,8 @@ describe('AttestationsBlockWatcher', () => {
       {
         validator: proposer,
         amount: config.slashProposeInvalidAttestationsPenalty,
-        offense: Offense.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+        offense: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+        epochOrSlot: 1n,
       },
     ]);
     expect(handler).toHaveBeenCalledTimes(1);
@@ -109,7 +110,8 @@ describe('AttestationsBlockWatcher', () => {
       {
         validator: proposer,
         amount: config.slashProposeInvalidAttestationsPenalty,
-        offense: Offense.PROPOSED_INCORRECT_ATTESTATIONS,
+        offense: OffenseType.PROPOSED_INCORRECT_ATTESTATIONS,
+        epochOrSlot: 1n,
       },
     ]);
     expect(handler).toHaveBeenCalledTimes(1);
@@ -176,7 +178,8 @@ describe('AttestationsBlockWatcher', () => {
       {
         validator: proposer2,
         amount: config.slashProposeInvalidAttestationsPenalty,
-        offense: Offense.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+        offense: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+        epochOrSlot: 2n,
       },
     ]);
 
@@ -184,12 +187,14 @@ describe('AttestationsBlockWatcher', () => {
       {
         validator: attestor1,
         amount: config.slashAttestDescendantOfInvalidPenalty,
-        offense: Offense.ATTESTED_DESCENDANT_OF_INVALID,
+        offense: OffenseType.ATTESTED_DESCENDANT_OF_INVALID,
+        epochOrSlot: 2n,
       },
       {
         validator: attestor2,
         amount: config.slashAttestDescendantOfInvalidPenalty,
-        offense: Offense.ATTESTED_DESCENDANT_OF_INVALID,
+        offense: OffenseType.ATTESTED_DESCENDANT_OF_INVALID,
+        epochOrSlot: 2n,
       },
     ]);
     expect(handler).toHaveBeenCalledTimes(2);
@@ -220,7 +225,8 @@ describe('AttestationsBlockWatcher', () => {
       watcher.shouldSlash({
         validator: proposer,
         amount: config.slashProposeInvalidAttestationsPenalty,
-        offense: Offense.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+        offense: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+        epochOrSlot: 1n,
       }),
     ).resolves.toBe(true);
 
@@ -229,7 +235,8 @@ describe('AttestationsBlockWatcher', () => {
       watcher.shouldSlash({
         validator: EthAddress.fromString('0x0000000000000000000000000000000000000000'),
         amount: config.slashProposeInvalidAttestationsPenalty,
-        offense: Offense.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+        offense: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+        epochOrSlot: 1n,
       }),
     ).resolves.toBe(false);
 
@@ -261,7 +268,8 @@ describe('AttestationsBlockWatcher', () => {
       watcher.shouldSlash({
         validator: proposer,
         amount: config.slashProposeInvalidAttestationsMaxPenalty + 1n,
-        offense: Offense.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+        offense: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+        epochOrSlot: 1n,
       }),
     ).resolves.toBe(false);
 
@@ -270,7 +278,8 @@ describe('AttestationsBlockWatcher', () => {
       watcher.shouldSlash({
         validator: proposer,
         amount: config.slashProposeInvalidAttestationsMaxPenalty,
-        offense: Offense.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+        offense: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+        epochOrSlot: 1n,
       }),
     ).resolves.toBe(true);
 
@@ -336,7 +345,8 @@ describe('AttestationsBlockWatcher', () => {
       watcher.shouldSlash({
         validator,
         amount: 1000n,
-        offense: Offense.UNKNOWN,
+        offense: OffenseType.UNKNOWN,
+        epochOrSlot: 1n,
       }),
     ).resolves.toBe(false);
   });
