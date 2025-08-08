@@ -438,7 +438,7 @@ TEST(TaggedValueTest, UnaryOperations)
 
     // Test that unary bitwise operations on FF throw exceptions
     auto ff_val = TaggedValue::from<FF>(123);
-    EXPECT_THROW(~ff_val, std::runtime_error);
+    EXPECT_THROW(~ff_val, InvalidOperationTag);
 }
 
 // Test edge cases with uint1_t
@@ -477,23 +477,32 @@ TEST(TaggedValueTest, ErrorCases)
     auto ff_val1 = TaggedValue::from<FF>(10);
     auto ff_val2 = TaggedValue::from<FF>(5);
 
-    EXPECT_THROW(ff_val1 & ff_val2, std::runtime_error);
-    EXPECT_THROW(ff_val1 | ff_val2, std::runtime_error);
-    EXPECT_THROW(ff_val1 ^ ff_val2, std::runtime_error);
-    EXPECT_THROW(~ff_val1, std::runtime_error);
+    EXPECT_THROW(ff_val1 & ff_val2, InvalidOperationTag);
+    EXPECT_THROW(ff_val1 | ff_val2, InvalidOperationTag);
+    EXPECT_THROW(ff_val1 ^ ff_val2, InvalidOperationTag);
+    EXPECT_THROW(~ff_val1, InvalidOperationTag);
 
     // Test mixed type operations
     auto u8_val1 = TaggedValue::from<uint8_t>(10);
     auto u16_val = TaggedValue::from<uint16_t>(5);
 
     // Binary operations with different types should throw
-    EXPECT_THROW(u8_val1 + u16_val, std::runtime_error);
-    EXPECT_THROW(u8_val1 - u16_val, std::runtime_error);
-    EXPECT_THROW(u8_val1 * u16_val, std::runtime_error);
-    EXPECT_THROW(u8_val1 / u16_val, std::runtime_error);
-    EXPECT_THROW(u8_val1 & u16_val, std::runtime_error);
-    EXPECT_THROW(u8_val1 | u16_val, std::runtime_error);
-    EXPECT_THROW(u8_val1 ^ u16_val, std::runtime_error);
+    EXPECT_THROW(u8_val1 + u16_val, TagMismatchException);
+    EXPECT_THROW(u8_val1 - u16_val, TagMismatchException);
+    EXPECT_THROW(u8_val1 * u16_val, TagMismatchException);
+    EXPECT_THROW(u8_val1 / u16_val, TagMismatchException);
+    EXPECT_THROW(u8_val1 & u16_val, TagMismatchException);
+    EXPECT_THROW(u8_val1 | u16_val, TagMismatchException);
+    EXPECT_THROW(u8_val1 ^ u16_val, TagMismatchException);
+
+    // Dividing by zero should throw (see checked_divides)
+    EXPECT_THROW(TaggedValue::from<uint1_t>(1) / TaggedValue::from<uint1_t>(0), DivisionByZero);
+    EXPECT_THROW(u8_val1 / TaggedValue::from<uint8_t>(0), DivisionByZero);
+    EXPECT_THROW(u16_val / TaggedValue::from<uint16_t>(0), DivisionByZero);
+    EXPECT_THROW(TaggedValue::from<uint32_t>(1) / TaggedValue::from<uint32_t>(0), DivisionByZero);
+    EXPECT_THROW(TaggedValue::from<uint64_t>(1) / TaggedValue::from<uint64_t>(0), DivisionByZero);
+    EXPECT_THROW(TaggedValue::from<uint128_t>(1) / TaggedValue::from<uint128_t>(0), DivisionByZero);
+    EXPECT_THROW(ff_val1 / TaggedValue::from<FF>(0), DivisionByZero);
 }
 
 // Test shift operations with different right-side types

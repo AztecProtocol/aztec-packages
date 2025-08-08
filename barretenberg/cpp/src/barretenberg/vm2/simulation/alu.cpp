@@ -43,7 +43,7 @@ MemoryValue Alu::mul(const MemoryValue& a, const MemoryValue& b)
         if (tag == MemoryTag::U128) {
             // For u128, we decompose a and b into 64 bit chunks and discard the highest bits given by the product:
             auto a_decomp = decompose(static_cast<uint128_t>(a.as_ff()));
-            auto b_decomp = decompose(static_cast<uint128_t>(a.as_ff()));
+            auto b_decomp = decompose(static_cast<uint128_t>(b.as_ff()));
             range_check.assert_range(a_decomp.lo, 64);
             range_check.assert_range(a_decomp.hi, 64);
             range_check.assert_range(b_decomp.lo, 64);
@@ -58,6 +58,42 @@ MemoryValue Alu::mul(const MemoryValue& a, const MemoryValue& b)
     } catch (const TagMismatchException& e) {
         events.emit({ .operation = AluOperation::MUL, .a = a, .b = b, .error = AluError::TAG_ERROR });
         throw AluException("MUL, " + std::string(e.what()));
+    }
+}
+
+MemoryValue Alu::div(const MemoryValue& a, const MemoryValue& b)
+{
+    try {
+        MemoryValue c = a / b; // This will throw if the tags do not match or if we divide by 0.
+        MemoryValue remainder = a - c * b;
+        MemoryTag tag = a.get_tag();
+
+        if (tag == MemoryTag::FF) {
+            // DIV on a field is not a valid operation, but should be recoverable.
+            // TODO(MW): cleanup - It comes under the umbrella of tag errors (like NOT) but MemoryValue c = a / b does
+            // not throw, so I sin here and throw a not relevant error we know will create a TAG_ERROR:
+            throw TagMismatchException("Cannot perform integer division on a field element");
+        }
+
+        // Check remainder < b:
+        greater_than.gt(b, remainder);
+        if (tag == MemoryTag::U128) {
+            // For u128, we decompose c and b into 64 bit chunks and discard the highest bits given by the product:
+            auto c_decomp = decompose(static_cast<uint128_t>(c.as_ff()));
+            auto b_decomp = decompose(static_cast<uint128_t>(b.as_ff()));
+            range_check.assert_range(c_decomp.lo, 64);
+            range_check.assert_range(c_decomp.hi, 64);
+            range_check.assert_range(b_decomp.lo, 64);
+            range_check.assert_range(b_decomp.hi, 64);
+        }
+        events.emit({ .operation = AluOperation::DIV, .a = a, .b = b, .c = c });
+        return c;
+    } catch (const TagMismatchException& e) {
+        events.emit({ .operation = AluOperation::DIV, .a = a, .b = b, .error = AluError::TAG_ERROR });
+        throw AluException("DIV, " + std::string(e.what()));
+    } catch (const DivisionByZero& e) {
+        events.emit({ .operation = AluOperation::DIV, .a = a, .b = b, .error = AluError::DIV_0_ERROR });
+        throw AluException("DIV, " + std::string(e.what()));
     }
 }
 
