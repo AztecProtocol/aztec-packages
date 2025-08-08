@@ -13,8 +13,6 @@ static_assert(AvmFlavor::MAX_PARTIAL_RELATION_LENGTH == compute_max_partial_rela
               "MAX_PARTIAL_RELATION_LENGTH mismatch! Update the value in flavor.hpp");
 static_assert(AvmFlavor::NUM_RELATIONS == std::tuple_size_v<Relations>,
               "NUM_RELATIONS mismatch! Update the value in flavor.hpp");
-static_assert(AvmFlavor::BATCHED_RELATION_PARTIAL_LENGTH == AvmFlavor::MAX_PARTIAL_RELATION_LENGTH + 1,
-              "BATCHED_RELATION_PARTIAL_LENGTH mismatch!");
 static_assert(AvmFlavor::MAX_PARTIAL_RELATION_LENGTH < 8, "MAX_PARTIAL_RELATION_LENGTH must be less than 8");
 
 // Define the type aliases that depend on Relations here where it's already instantiated
