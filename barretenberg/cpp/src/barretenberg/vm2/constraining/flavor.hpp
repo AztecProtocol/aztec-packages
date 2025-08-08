@@ -78,23 +78,23 @@ class AvmFlavor {
     // Need to be templated for recursive verifier
     template <typename FF_> using Relations_ = tuple_cat_t<MainRelations_<FF_>, LookupRelations_<FF_>>;
 
-    static constexpr size_t NUM_SUBRELATIONS = 2221;         // Will be verified in flavor.cpp
-    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = 7; // Will be verified in flavor.cpp
-    static constexpr size_t NUM_RELATIONS = 413;             // Will be verified in flavor.cpp
-    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
-
-    // SubrelationSeparators only depends on constants, so it's safe to define
-    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
-
-    // MEMORY OPTIMIZATION: These type aliases cause instantiation of all 413 relations.
-    // To avoid this in test files, we only define them when actually needed.
-    // Files that need these (prover.cpp, verifier.cpp) should define AVM_FLAVOR_NEED_SUMCHECK_TYPES
+    // MEMORY OPTIMIZATION: These type aliases cause instantiation of all relations.
+    // To avoid this in files that don't need them, e.g. tests, we only define them when actually needed.
+    // Files that need these e.g. prover.cpp, verifier.cpp, should define AVM_FLAVOR_NEED_SUMCHECK_TYPES
     // before including this header.
 #ifdef AVM_FLAVOR_NEED_SUMCHECK_TYPES
     using Relations = Relations_<FF>;
     using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 #endif
+
+    // These are hardcoded here and checked by explicit instantiation in flavor.cpp.
+    // Reduces compilation time/mem massively for many cpp units as we don't need to instantiate all the relations.
+    static constexpr size_t NUM_SUBRELATIONS = 2288;
+    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = 7;
+    static constexpr size_t NUM_RELATIONS = 416;
+    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
+    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
 
     static constexpr bool has_zero_row = true;
 
