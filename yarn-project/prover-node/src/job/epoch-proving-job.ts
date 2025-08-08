@@ -125,7 +125,7 @@ export class EpochProvingJob implements Traceable {
 
       const finalBlobBatchingChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(allBlobs);
       this.prover.startNewEpoch(epochNumber, fromBlock, epochSizeBlocks, finalBlobBatchingChallenges);
-      await this.prover.startTubeCircuits(this.txs);
+      await this.prover.startTubeCircuits(Array.from(this.txs.values()));
 
       await asyncPool(this.config.parallelBlockLimit ?? 32, this.blocks, async block => {
         this.checkState();
@@ -307,7 +307,7 @@ export class EpochProvingJob implements Traceable {
   }
 
   private getTxs(block: L2Block): Tx[] {
-    return block.body.txEffects.map(txEffect => this.txs.find(tx => tx.getTxHash().equals(txEffect.txHash))!);
+    return block.body.txEffects.map(txEffect => this.txs.get(txEffect.txHash.toString())!);
   }
 
   private getL1ToL2Messages(block: L2Block) {

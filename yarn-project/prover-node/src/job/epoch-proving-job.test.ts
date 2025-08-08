@@ -49,9 +49,11 @@ describe('epoch-proving-job', () => {
 
   // Subject factory
   const createJob = (opts: { deadline?: Date; parallelBlockLimit?: number } = {}) => {
+    const txsMap = new Map<string, Tx>(txs.map(tx => [tx.getTxHash().toString(), tx]));
+
     const data: EpochProvingJobData = {
       blocks,
-      txs,
+      txs: txsMap,
       epochNumber: BigInt(epochNumber),
       l1ToL2Messages: fromEntries(blocks.map(b => [b.number, []])),
       previousBlockHeader: initialHeader,
