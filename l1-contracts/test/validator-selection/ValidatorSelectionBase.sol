@@ -51,6 +51,7 @@ contract ValidatorSelectionTestBase is DecoderBase {
     address[] signers;
     ProposePayload proposePayload;
     ProposeArgs proposeArgs;
+    uint256 invalidAttestationIndex;
   }
 
   SlashFactory internal slashFactory;
