@@ -76,7 +76,7 @@ struct lookup_sha256_mem_check_output_addr_in_range_settings_ {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::sha256_max_output_addr,
         ColumnAndShifts::sha256_max_mem_addr,
-        ColumnAndShifts::sha256_sel_dst_out_of_range_err
+        ColumnAndShifts::sha256_sel_output_out_of_range_err
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
                                                                                     ColumnAndShifts::gt_input_b,
