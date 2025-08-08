@@ -39,6 +39,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     ecc_op_tuple queue_ecc_mul_accum(const g1::affine_element& point, const FF& scalar);
     ecc_op_tuple queue_ecc_eq();
     ecc_op_tuple queue_ecc_no_op();
+    void queue_ecc_random_op();
 
   private:
     ecc_op_tuple populate_ecc_op_wires(const UltraOp& ultra_op);

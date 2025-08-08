@@ -23,6 +23,27 @@ static constexpr bb::curve::BN254::AffineElement DEFAULT_ECC_COMMITMENT(DEFAULT_
                                                                         DEFAULT_ECC_COMMITMENT_Y);
 
 /**
+ * @brief Construct commitments to empty subtables
+ *
+ * @details In the first iteration of the Merge, the verifier sets the commitments to the previous full state of the
+ * op_queue equal to the commitments to the empty tables. This ensures that prover cannot lie, as the starting point
+ * of the merge is fixed.
+ *
+ * @param builder
+ * @return std::array<typename bn254<Builder>::Group, Builder::NUM_WIRES>
+ */
+template <typename Builder>
+std::array<typename bn254<Builder>::Group, Builder::NUM_WIRES> empty_ecc_op_tables(Builder& builder)
+{
+    std::array<typename bn254<Builder>::Group, Builder::NUM_WIRES> empty_tables;
+    for (auto& table_commitment : empty_tables) {
+        table_commitment = bn254<Builder>::Group::point_at_infinity(&builder);
+    }
+
+    return empty_tables;
+}
+
+/**
  * @brief Manages the data that is propagated on the public inputs of a kernel circuit
  *
  */
@@ -165,6 +186,54 @@ template <typename Builder> class DefaultIO {
 using AppIO = DefaultIO<MegaCircuitBuilder>; // app IO is always Mega
 
 /**
+ * @brief The data that is propagated on the public inputs of the inner GoblinAvmRecursiveVerifier circuit
+ */
+template <typename Builder_> class GoblinAvmIO {
+  public:
+    using Builder = Builder_;
+    using Curve = stdlib::bn254<Builder>; // curve is always bn254
+    using FF = Curve::ScalarField;
+    using PairingInputs = stdlib::recursion::PairingPoints<Builder>;
+
+    using PublicFF = stdlib::PublicInputComponent<FF>;
+    using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
+
+    FF mega_hash;
+    PairingInputs pairing_inputs;
+
+    // Total size of the IO public inputs
+    static constexpr size_t PUBLIC_INPUTS_SIZE = GOBLIN_AVM_PUBLIC_INPUTS_SIZE;
+
+    /**
+     * @brief Reconstructs the IO components from a public inputs array.
+     *
+     * @param public_inputs Public inputs array containing the serialized kernel public inputs.
+     */
+    void reconstruct_from_public(const std::vector<FF>& public_inputs)
+    {
+        // Assumes that the GoblinAvm-io public inputs are at the end of the public_inputs vector
+        uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
+        mega_hash = PublicFF::reconstruct(public_inputs, PublicComponentKey{ index });
+        index += FF::PUBLIC_INPUTS_SIZE;
+        pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
+    }
+
+    /**
+     * @brief Set each IO component to be a public input of the underlying circuit.
+     *
+     */
+    void set_public()
+    {
+        mega_hash.set_public();
+        pairing_inputs.set_public();
+
+        // Finalize the public inputs to ensure no more public inputs can be added hereafter.
+        Builder* builder = pairing_inputs.P0.get_context();
+        builder->finalize_public_inputs();
+    }
+};
+
+/**
  * @brief Manages the data that is propagated on the public inputs of a hiding kernel circuit
  */
 template <class Builder_> class HidingKernelIO {
@@ -216,26 +285,6 @@ template <class Builder_> class HidingKernelIO {
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
         Builder* builder = pairing_inputs.P0.get_context();
         builder->finalize_public_inputs();
-    }
-
-    /**
-     * @brief Construct commitments to empty subtables
-     *
-     * @details In the first iteration of the Merge, the verifier sets the commitments to the previous full state of the
-     * op_queue equal to the commitments to the empty tables. This ensures that prover cannot lie, as the starting point
-     * of the merge is fixed.
-     *
-     * @param builder
-     * @return TableCommitments
-     */
-    static TableCommitments empty_ecc_op_tables(Builder& builder)
-    {
-        TableCommitments empty_tables;
-        for (auto& table_commitment : empty_tables) {
-            table_commitment = G1::point_at_infinity(&builder);
-        }
-
-        return empty_tables;
     }
 
     static TableCommitments default_ecc_op_tables(Builder& builder)

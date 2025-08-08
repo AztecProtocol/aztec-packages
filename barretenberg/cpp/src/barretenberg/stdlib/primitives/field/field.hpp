@@ -14,8 +14,12 @@
 namespace bb::stdlib {
 
 template <typename Builder> class bool_t;
-template <typename Builder> class field_t {
+template <typename Builder_> class field_t {
   public:
+    using Builder = Builder_;
+
+    static constexpr size_t PUBLIC_INPUTS_SIZE = FR_PUBLIC_INPUTS_SIZE;
+
     mutable Builder* context = nullptr;
 
     /**
@@ -369,6 +373,11 @@ template <typename Builder> class field_t {
         auto result = field_t(witness_t<Builder>(ctx, input));
         result.set_free_witness_tag();
         return result;
+    }
+
+    static field_t reconstruct_from_public(const std::span<const field_t, PUBLIC_INPUTS_SIZE>& limbs)
+    {
+        return limbs[0];
     }
 
     /**

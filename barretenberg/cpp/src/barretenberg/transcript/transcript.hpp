@@ -274,7 +274,7 @@ template <typename TranscriptParams> class BaseTranscript {
      */
     template <typename T> void serialize_to_buffer(const T& element, Proof& proof_data)
     {
-        auto element_frs = TranscriptParams::template serialize(element);
+        auto element_frs = TranscriptParams::serialize(element);
         proof_data.insert(proof_data.end(), element_frs.begin(), element_frs.end());
     }
     /**
@@ -352,7 +352,7 @@ template <typename TranscriptParams> class BaseTranscript {
      */
     template <typename T> static inline std::vector<DataType> serialize(const T& element)
     {
-        return TranscriptParams::template serialize(element);
+        return TranscriptParams::serialize(element);
     }
 
     /**

@@ -52,9 +52,11 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
      *
      * @return TranscriptManifest
      */
-    TranscriptManifest construct_ultra_honk_manifest()
+    TranscriptManifest construct_ultra_honk_manifest(const size_t& log_n)
     {
         TranscriptManifest manifest_expected;
+
+        const size_t virtual_log_n = Flavor::USE_PADDING ? CONST_PROOF_SIZE_LOG_N : log_n;
 
         size_t MAX_PARTIAL_RELATION_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
         size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
@@ -111,7 +113,7 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         manifest_expected.add_challenge(round, alpha_labels);
         round++;
 
-        for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
+        for (size_t i = 0; i < virtual_log_n; i++) {
             std::string label = "Sumcheck:gate_challenge_" + std::to_string(i);
             manifest_expected.add_challenge(round, label);
             round++;
@@ -124,7 +126,7 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
             round++;
         }
 
-        for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+        for (size_t i = 0; i < virtual_log_n; ++i) {
             std::string idx = std::to_string(i);
             manifest_expected.add_entry(round, "Sumcheck:univariate_" + idx, frs_per_uni);
             std::string label = "Sumcheck:u_" + idx;
@@ -145,13 +147,13 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         manifest_expected.add_challenge(round, "rho");
 
         round++;
-        for (size_t i = 1; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+        for (size_t i = 1; i < virtual_log_n; ++i) {
             std::string idx = std::to_string(i);
             manifest_expected.add_entry(round, "Gemini:FOLD_" + idx, data_types_per_G);
         }
         manifest_expected.add_challenge(round, "Gemini:r");
         round++;
-        for (size_t i = 1; i <= CONST_PROOF_SIZE_LOG_N; ++i) {
+        for (size_t i = 1; i <= virtual_log_n; ++i) {
             std::string idx = std::to_string(i);
             manifest_expected.add_entry(round, "Gemini:a_" + idx, data_types_per_Frs);
         }
@@ -208,7 +210,7 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
     Proof export_serialized_proof(Prover prover, const size_t num_public_inputs)
     {
         // reset internal variables needed for exporting the proof
-        prover.transcript->num_frs_written = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + num_public_inputs;
+        prover.transcript->num_frs_written = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS() + num_public_inputs;
         prover.transcript->proof_start = 0;
         return prover.export_proof();
     }
@@ -234,7 +236,7 @@ TYPED_TEST(UltraTranscriptTests, ProverManifestConsistency)
     auto proof = prover.construct_proof();
 
     // Check that the prover generated manifest agrees with the manifest hard coded in this suite
-    auto manifest_expected = TestFixture::construct_ultra_honk_manifest();
+    auto manifest_expected = TestFixture::construct_ultra_honk_manifest(prover.proving_key->log_dyadic_size());
     auto prover_manifest = prover.transcript->get_manifest();
     // Note: a manifest can be printed using manifest.print()
     manifest_expected.print();
@@ -277,7 +279,7 @@ TYPED_TEST(UltraTranscriptTests, VerifierManifestConsistency)
     typename TestFixture::Proof ipa_proof;
     if constexpr (HasIPAAccumulator<TypeParam>) {
         verifier.ipa_verification_key = VerifierCommitmentKey<curve::Grumpkin>(1 << CONST_ECCVM_LOG_N);
-        const size_t HONK_PROOF_LENGTH = TypeParam::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH;
+        const size_t HONK_PROOF_LENGTH = TypeParam::PROOF_LENGTH_WITHOUT_PUB_INPUTS() - IPA_PROOF_LENGTH;
         const size_t num_public_inputs = static_cast<uint32_t>(verification_key->num_public_inputs);
         // The extra calculation is for the IPA proof length.
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1182): Handle in ProofSurgeon.
@@ -338,7 +340,7 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
     using Commitment = Flavor::Commitment;
     // Construct a simple circuit of size n = 8 (i.e. the minimum circuit size)
     auto builder = typename TestFixture::Builder();
-    if constexpr (IsAnyOf<TypeParam, UltraRollupFlavor>) {
+    if constexpr (IsAnyOf<TypeParam, UltraRollupFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
         GTEST_SKIP() << "Not built for this parameter";
     }
     TestFixture::generate_test_circuit(builder);
@@ -354,9 +356,11 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
         EXPECT_TRUE(result);
     }
 
+    const size_t virtual_log_n = Flavor::USE_PADDING ? CONST_PROOF_SIZE_LOG_N : proving_key->log_dyadic_size();
+
     // try deserializing and serializing with no changes and check proof is still valid
-    prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs);
-    prover.transcript->serialize_full_transcript();
+    prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs, virtual_log_n);
+    prover.transcript->serialize_full_transcript(virtual_log_n);
     // reset verifier's transcript
     verifier.transcript = std::make_shared<typename Flavor::Transcript>();
 

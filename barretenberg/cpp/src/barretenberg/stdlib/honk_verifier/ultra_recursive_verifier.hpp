@@ -29,7 +29,8 @@ template <typename Builder> struct UltraRecursiveVerifierOutput {
     OpeningClaim<grumpkin<Builder>> ipa_claim;
     stdlib::Proof<Builder> ipa_proof;
     std::array<G1, Builder::NUM_WIRES> ecc_op_tables; // Ecc op tables' commitments as extracted from the public inputs
-                                                      // of the HidingKernel, only for MegaFlavor
+                                                      // of the HidingKernel, only for ClientIVC
+    FF mega_hash; // The hash of public inputs and VK of the inner circuit in the GoblinAvmRecursiveVerifier
 
     UltraRecursiveVerifierOutput() = default;
 
@@ -41,6 +42,8 @@ template <typename Builder> struct UltraRecursiveVerifierOutput {
             ipa_claim = inputs.ipa_claim;
         } else if constexpr (std::is_same_v<IO, HidingKernelIO<Builder>>) {
             ecc_op_tables = inputs.ecc_op_tables;
+        } else if constexpr (std::is_same_v<IO, GoblinAvmIO<Builder>>) {
+            mega_hash = inputs.mega_hash;
         } else if constexpr (!std::is_same_v<IO, DefaultIO<Builder>>) {
             throw_or_abort("Invalid public input type.");
         }

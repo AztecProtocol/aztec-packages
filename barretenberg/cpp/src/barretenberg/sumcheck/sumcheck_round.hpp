@@ -808,15 +808,15 @@ template <typename Flavor> class SumcheckVerifierRound {
      *
      * @param gate_challenges
      */
-    void pad_gate_challenges(std::vector<FF>& gate_challenges)
+    void pad_gate_challenges(std::vector<FF>& gate_challenges, const size_t virtual_log_n)
     {
 
-        if (gate_challenges.size() < CONST_PROOF_SIZE_LOG_N) {
+        if (gate_challenges.size() < virtual_log_n) {
             FF zero{ 0 };
             if constexpr (IsRecursiveFlavor<Flavor>) {
                 zero.convert_constant_to_fixed_witness(gate_challenges[0].get_context());
             }
-            for (size_t idx = gate_challenges.size(); idx < CONST_PROOF_SIZE_LOG_N; idx++) {
+            for (size_t idx = gate_challenges.size(); idx < virtual_log_n; idx++) {
                 gate_challenges.emplace_back(zero);
             }
         }

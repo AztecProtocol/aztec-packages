@@ -2,7 +2,6 @@
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/api/get_bytecode.hpp"
 #include "barretenberg/api/log.hpp"
-#include "barretenberg/api/write_prover_output.hpp"
 #include "barretenberg/bbapi/bbapi.hpp"
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/client_ivc/mock_circuit_producer.hpp"
