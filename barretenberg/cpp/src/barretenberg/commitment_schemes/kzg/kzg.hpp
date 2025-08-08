@@ -133,6 +133,7 @@ template <typename Curve_> class KZG {
         batch_opening_claim.scalars.emplace_back(batch_opening_claim.evaluation_point);
         // Compute C + [W]₁ ⋅ z
         if constexpr (Curve::is_stdlib_type) {
+            info("comm size ", batch_opening_claim.commitments.size());
             P_0 = GroupElement::batch_mul(batch_opening_claim.commitments,
                                           batch_opening_claim.scalars,
                                           /*max_num_bits=*/0,

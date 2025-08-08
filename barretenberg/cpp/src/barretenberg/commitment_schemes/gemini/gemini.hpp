@@ -128,13 +128,6 @@ template <typename Curve> class GeminiProver_ {
         Polynomial random_polynomial; // random polynomial used for ZK
         bool has_random_polynomial = false;
 
-      public:
-        RefVector<Polynomial> unshifted;                             // set of unshifted polynomials
-        RefVector<Polynomial> to_be_shifted_by_one;                  // set of polynomials to be left shifted by 1
-        RefVector<Polynomial> to_be_shifted_by_k;                    // set of polynomials to be right shifted by k
-        RefVector<Polynomial> interleaved;                           // the interleaved polynomials used in Translator
-        std::vector<RefVector<Polynomial>> groups_to_be_interleaved; // groups of polynomials to be interleaved
-
         size_t k_shift_magnitude = 0; // magnitude of right-shift-by-k (assumed even)
 
         Polynomial batched_unshifted;            // linear combination of unshifted polynomials
@@ -144,6 +137,13 @@ template <typename Curve> class GeminiProver_ {
         // linear combination of the groups to be interleaved where polynomial i in the batched group is obtained by
         // linearly combining the i-th polynomial in each group
         std::vector<Polynomial> batched_group;
+
+      public:
+        RefVector<Polynomial> unshifted;                             // set of unshifted polynomials
+        RefVector<Polynomial> to_be_shifted_by_one;                  // set of polynomials to be left shifted by 1
+        RefVector<Polynomial> to_be_shifted_by_k;                    // set of polynomials to be right shifted by k
+        RefVector<Polynomial> interleaved;                           // the interleaved polynomials used in Translator
+        std::vector<RefVector<Polynomial>> groups_to_be_interleaved; // groups of polynomials to be interleaved
 
         PolynomialBatcher(const size_t full_batched_size)
             : full_batched_size(full_batched_size)

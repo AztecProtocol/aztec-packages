@@ -66,28 +66,21 @@ template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typena
         return out;
     }
 
-    static std::vector<std::string> generate_labels(std::string prefix, size_t count)
-    {
-        std::vector<std::string> labels(count);
-        for (size_t i = 0; i < count; ++i) {
-            labels[i] = prefix + std::to_string(i);
-        }
-        return labels;
-    }
-
     template <size_t num_polys, size_t num_shifted> void run_shplemini_full_scalars(size_t log_circuit_size)
     {
-        run_shplemini_generic<num_polys, num_shifted>(log_circuit_size, false);
+        run_shplemini_generic<num_polys, num_shifted, false>(log_circuit_size);
     }
 
-    template <size_t num_polys, size_t num_shifted> void run_shplemini_short_scalars(size_t log_circuit_size)
+    template <size_t num_polys, size_t num_shifted>
+    void run_shplemini_short_scalars(size_t log_circuit_size)
+        requires std::is_same_v<Builder, MegaCircuitBuilder>
     {
-        run_shplemini_generic<num_polys, num_shifted>(log_circuit_size, true);
+        run_shplemini_generic<num_polys, num_shifted, true>(log_circuit_size);
     }
 
   private:
-    template <size_t num_polys, size_t num_shifted>
-    size_t run_shplemini_generic(size_t log_circuit_size, bool short_scalars)
+    template <size_t num_polys, size_t num_shifted, bool short_scalars>
+    size_t run_shplemini_generic(size_t log_circuit_size)
     {
         using diff_t = typename std::vector<NativeFr>::difference_type;
 
@@ -103,20 +96,21 @@ template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typena
 
         MockClaimGen mock_claims(N, num_polys, num_shifted, 0, truncated_u_challenge, commitment_key);
         auto prover_transcript = NativeTranscript::prover_init_empty();
-        // Initialize polys outside of `if` as they are used inside RefVectors
+        // Initialize polys outside of `if` as they are used inside RefVector ClaimBatcher members.
         Polynomial<NativeFr> squashed_unshifted(N);
         Polynomial<NativeFr> squashed_shifted(Polynomial<NativeFr>::shiftable(N));
+        // Labels are shared by Prover and Verifier
         std::array<std::string, num_polys - 1> unshifted_batching_challenge_labels;
         std::array<std::string, num_shifted> shifted_batching_challenge_labels;
-        if (short_scalars) {
+        size_t idx = 0;
+        for (auto& label : unshifted_batching_challenge_labels) {
+            label = "rho_" + std::to_string(idx++);
+        }
+        for (auto& label : shifted_batching_challenge_labels) {
+            label = "rho_" + std::to_string(idx++);
+        }
 
-            size_t idx = 0;
-            for (auto& label : unshifted_batching_challenge_labels) {
-                label = "rho_" + std::to_string(idx++);
-            }
-            for (auto& label : shifted_batching_challenge_labels) {
-                label = "rho_" + std::to_string(idx++);
-            }
+        if constexpr (short_scalars) {
 
             std::array<NativeFr, num_polys - 1> unshifted_challenges =
                 prover_transcript->template get_challenges<NativeFr>(unshifted_batching_challenge_labels);
@@ -170,48 +164,64 @@ template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typena
         Commitment squashed_shifted_comm;
         Fr squashed_unshifted_eval;
         Fr squashed_shifted_eval;
-        if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
-            if (short_scalars) {
+        if constexpr (short_scalars) {
+
+            // Helper that produces the vectors of batching challenges that will be fed to `batch_mul`
+            auto get_batching_challenges = [&](const std::array<std::string, num_polys - 1>& unshifted_labels,
+                                               const std::array<std::string, num_shifted>& shifted_labels) {
+                // `batch_mul` expects a vector of scalars.
                 std::vector<Fr> unshifted_challenges(num_polys);
+                // Except for the first commitment, each one of them is multiplied by a challenge, which is <= 128
+                // bits.
                 unshifted_challenges[0] = Fr(1);
-                auto tail =
-                    stdlib_verifier_transcript->template get_challenges<Fr>(unshifted_batching_challenge_labels);
+                // Get `num_polys - 1` short challenges to batch all unshifted commitments
+                auto tail = stdlib_verifier_transcript->template get_challenges<Fr>(unshifted_labels);
                 std::copy(tail.begin(), tail.end(), unshifted_challenges.begin() + 1);
-                auto shifted_challenges =
-                    stdlib_verifier_transcript->template get_challenges<Fr>(shifted_batching_challenge_labels);
-                std::vector<Fr> shifted_challenges_vector(num_shifted);
-                std::copy(shifted_challenges.begin(), shifted_challenges.end(), shifted_challenges_vector.begin());
 
-                size_t num_rows_before_msm = builder.op_queue->get_num_rows();
-                squashed_unshifted_comm =
-                    Commitment::batch_mul(claim_batcher.get_unshifted().commitments, unshifted_challenges);
+                // Get `num_shifted` short challenges to batch all shifted commitments
+                auto shifted = stdlib_verifier_transcript->template get_challenges<Fr>(shifted_labels);
+                std::vector<Fr> shifted_challenges(shifted.begin(), shifted.end());
 
-                size_t num_rows_after_msm = builder.op_queue->get_num_rows();
-                // Since the first coefficient is 1, we subtract 1.
-                size_t ceil = (num_polys - 1 + 3) / 4;
+                return std::pair{ std::move(unshifted_challenges), std::move(shifted_challenges) };
+            };
 
-                EXPECT_EQ(num_rows_after_msm - num_rows_before_msm, 33 * ceil + 31);
+            auto [unshifted_challenges, shifted_challenges] =
+                get_batching_challenges(unshifted_batching_challenge_labels, shifted_batching_challenge_labels);
 
-                num_rows_before_msm = num_rows_after_msm;
+            // Track the number of ECCVM rows being added by a `batch_mul` call.
+            size_t num_rows_before_msm = builder.op_queue->get_num_rows();
 
-                squashed_shifted_comm =
-                    Commitment::batch_mul(claim_batcher.get_shifted().commitments, shifted_challenges_vector);
-                num_rows_after_msm = builder.op_queue->get_num_rows();
-                EXPECT_EQ(num_rows_after_msm - num_rows_before_msm, 33 * ((num_shifted + 3) / 4) + 31);
-                squashed_unshifted_eval = std::inner_product(unshifted_challenges.begin(),
-                                                             unshifted_challenges.end(),
-                                                             claim_batcher.get_unshifted().evaluations.begin(),
-                                                             Fr(0));
-                squashed_shifted_eval = std::inner_product(shifted_challenges.begin(),
-                                                           shifted_challenges.end(),
-                                                           claim_batcher.get_shifted().evaluations.begin(),
-                                                           Fr(0));
+            squashed_unshifted_comm =
+                Commitment::batch_mul(claim_batcher.get_unshifted().commitments, unshifted_challenges);
 
-                squashed_claim_batcher = ClaimBatcher{
-                    .unshifted = ClaimBatch{ RefVector(squashed_unshifted_comm), RefVector(squashed_unshifted_eval) },
-                    .shifted = ClaimBatch{ RefVector(squashed_shifted_comm), RefVector(squashed_shifted_eval) }
-                };
-            }
+            size_t num_rows_after_msm = builder.op_queue->get_num_rows();
+            // Since the first coefficient is 1, we subtract 1.
+            size_t ceil = (num_polys - 1 + 3) / 4;
+            // Check that the number of new rows is as expected.
+            EXPECT_EQ(num_rows_after_msm - num_rows_before_msm, 33 * ceil + 31);
+
+            // Track the number of ECCVM rows added by batching all shifted commitments
+            num_rows_before_msm = num_rows_after_msm;
+
+            squashed_shifted_comm = Commitment::batch_mul(claim_batcher.get_shifted().commitments, shifted_challenges);
+            num_rows_after_msm = builder.op_queue->get_num_rows();
+            // Check that the number of new rows is as expected.
+            EXPECT_EQ(num_rows_after_msm - num_rows_before_msm, 33 * ((num_shifted + 3) / 4) + 31);
+
+            // Compute claimed evaluations
+            squashed_unshifted_eval = std::inner_product(unshifted_challenges.begin(),
+                                                         unshifted_challenges.end(),
+                                                         claim_batcher.get_unshifted().evaluations.begin(),
+                                                         Fr(0));
+            squashed_shifted_eval = std::inner_product(shifted_challenges.begin(),
+                                                       shifted_challenges.end(),
+                                                       claim_batcher.get_shifted().evaluations.begin(),
+                                                       Fr(0));
+
+            squashed_claim_batcher = ClaimBatcher{
+                .unshifted = ClaimBatch{ RefVector(squashed_unshifted_comm), RefVector(squashed_unshifted_eval) },
+                .shifted = ClaimBatch{ RefVector(squashed_shifted_comm), RefVector(squashed_shifted_eval) }
+            };
         } else {
             squashed_claim_batcher = claim_batcher;
         }
@@ -269,4 +279,5 @@ TEST_F(ShpleminiMegaTest, GoblinProveAndVerifyShortScalars)
     run_shplemini_short_scalars<13, 5>(10);
     run_shplemini_short_scalars<14, 6>(10);
     run_shplemini_short_scalars<15, 7>(10);
+    run_shplemini_short_scalars<16, 8>(10);
 }
