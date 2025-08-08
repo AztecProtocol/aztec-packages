@@ -15,7 +15,6 @@ import { createLogger } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { P2P } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
-import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { IFullNodeBlockBuilder, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
@@ -116,16 +115,17 @@ export class SequencerClient {
       l1Client,
       config.l1Contracts.slashFactoryAddress?.toString() ?? EthAddress.ZERO.toString(),
     );
+
     const publisherFactory =
       deps.publisherFactory ??
       new SequencerPublisherFactory(config, {
         telemetry: telemetryClient,
         blobSinkClient: deps.blobSinkClient,
-        rollupContract,
         epochCache,
         governanceProposerContract,
         slashingProposerContract,
         slashFactoryContract,
+        rollupContract,
         dateProvider: deps.dateProvider,
         publisherManager,
       });

@@ -57,7 +57,7 @@ import {
   type SequencerPublisher,
   SignalType,
 } from '../publisher/sequencer-publisher.js';
-import type { SequencerConfig } from './config.js';
+import type { SequencerConfig, SequencerContracts } from './config.js';
 import { SequencerMetrics } from './metrics.js';
 import { SequencerTimetable, SequencerTooSlowError } from './timetable.js';
 import { SequencerState, type SequencerStateWithSlot } from './utils.js';
