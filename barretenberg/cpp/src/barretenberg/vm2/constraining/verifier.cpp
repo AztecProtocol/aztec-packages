@@ -1,3 +1,5 @@
+// Enable sumcheck types that cause heavy template instantiation
+#define AVM_FLAVOR_NEED_SUMCHECK_TYPES
 #include "barretenberg/vm2/constraining/verifier.hpp"
 
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"

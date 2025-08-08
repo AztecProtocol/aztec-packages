@@ -3,6 +3,28 @@
 
 namespace bb::avm2 {
 
+// Define the Relations type only in this compilation unit
+using Relations = AvmFlavor::Relations_<AvmFlavorSettings::FF>;
+
+// Verify that the hardcoded constants in the header match the actual computed values
+static_assert(AvmFlavor::NUM_SUBRELATIONS == compute_number_of_subrelations<Relations>(),
+              "NUM_SUBRELATIONS mismatch! Update the value in flavor.hpp");
+static_assert(AvmFlavor::MAX_PARTIAL_RELATION_LENGTH == compute_max_partial_relation_length<Relations>(),
+              "MAX_PARTIAL_RELATION_LENGTH mismatch! Update the value in flavor.hpp");
+static_assert(AvmFlavor::NUM_RELATIONS == std::tuple_size_v<Relations>,
+              "NUM_RELATIONS mismatch! Update the value in flavor.hpp");
+static_assert(AvmFlavor::BATCHED_RELATION_PARTIAL_LENGTH == AvmFlavor::MAX_PARTIAL_RELATION_LENGTH + 1,
+              "BATCHED_RELATION_PARTIAL_LENGTH mismatch!");
+static_assert(AvmFlavor::MAX_PARTIAL_RELATION_LENGTH < 8, "MAX_PARTIAL_RELATION_LENGTH must be less than 8");
+
+// Define the type aliases that depend on Relations here where it's already instantiated
+// These are used internally by the flavor implementation but not exposed in the header
+// to avoid instantiating all relations in every compilation unit
+namespace {
+using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
+using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
+} // namespace
+
 AvmFlavor::ProverPolynomials::ProverPolynomials(ProvingKey& proving_key)
 {
     for (auto [prover_poly, key_poly] : zip_view(this->get_unshifted(), proving_key.get_all())) {
