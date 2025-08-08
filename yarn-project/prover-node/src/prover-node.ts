@@ -24,6 +24,7 @@ import {
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { P2PClientType } from '@aztec/stdlib/p2p';
+import type { Tx } from '@aztec/stdlib/tx';
 import {
   Attributes,
   L1Metrics,
@@ -303,7 +304,8 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   @trackSpan('ProverNode.gatherEpochData', epochNumber => ({ [Attributes.EPOCH_NUMBER]: Number(epochNumber) }))
   private async gatherEpochData(epochNumber: bigint): Promise<EpochProvingJobData> {
     const blocks = await this.gatherBlocks(epochNumber);
-    const txs = await this.gatherTxs(epochNumber, blocks);
+    const txArray = await this.gatherTxs(epochNumber, blocks);
+    const txs = new Map<string, Tx>(txArray.map(tx => [tx.getTxHash().toString(), tx]));
     const l1ToL2Messages = await this.gatherMessages(epochNumber, blocks);
     const previousBlockHeader = await this.gatherPreviousBlockHeader(epochNumber, blocks[0]);
     const [lastBlock] = await this.l2BlockSource.getPublishedBlocks(blocks.at(-1)!.number, 1);
