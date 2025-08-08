@@ -1,14 +1,7 @@
 import type { L2Block } from '@aztec/aztec.js';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
-import {
-  type EmpireSlashingProposerContract,
-  FormattedViemError,
-  type GovernanceProposerContract,
-  NoCommitteeError,
-  type RollupContract,
-  type TallySlashingProposerContract,
-} from '@aztec/ethereum';
+import { FormattedViemError, NoCommitteeError, type RollupContract } from '@aztec/ethereum';
 import { omit, pick } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -132,8 +125,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     protected dateProvider: DateProvider,
     protected epochCache: EpochCache,
     protected rollupContract: RollupContract,
-    protected governanceProposerContract: GovernanceProposerContract,
-    protected slashingProposerContract: EmpireSlashingProposerContract | TallySlashingProposerContract,
     protected config: SequencerConfig,
     protected telemetry: TelemetryClient = getTelemetryClient(),
     protected log = createLogger('sequencer'),

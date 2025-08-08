@@ -1,6 +1,7 @@
 import { Body, L2Block } from '@aztec/aztec.js';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
+import type { RollupContract } from '@aztec/ethereum';
 import { timesParallel } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -36,7 +37,9 @@ import { expect } from '@jest/globals';
 import { type MockProxy, mock, mockDeep, mockFn } from 'jest-mock-extended';
 
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
+import type { AttestorPublisherPair, SequencerPublisherFactory } from '../publisher/sequencer-publisher-factory.js';
 import type { SequencerPublisher } from '../publisher/sequencer-publisher.js';
+import type { SequencerContracts } from './config.js';
 import { Sequencer } from './sequencer.js';
 import { SequencerState } from './utils.js';
 
@@ -53,6 +56,9 @@ describe('sequencer', () => {
   let l2BlockSource: MockProxy<L2BlockSource>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let slasherClient: MockProxy<SlasherClientInterface>;
+  let publisherFactory: MockProxy<SequencerPublisherFactory>;
+
+  let rollupContract: MockProxy<RollupContract>;
 
   let dateProvider: TestDateProvider;
 
@@ -181,6 +187,14 @@ describe('sequencer', () => {
       timeOfNextL1Slot: 1000n,
     });
 
+    publisherFactory = mockDeep<SequencerPublisherFactory>();
+    publisherFactory.create.mockResolvedValue({
+      attestorAddress: publisher.getSenderAddress(),
+      publisher,
+    } satisfies AttestorPublisherPair);
+
+    rollupContract = mockDeep<RollupContract>();
+
     globalVariableBuilder = mock<GlobalVariableBuilder>();
     globalVariableBuilder.buildGlobalVariables.mockResolvedValue(globalVariables);
 
@@ -258,7 +272,7 @@ describe('sequencer', () => {
 
     const config: SequencerConfig = { enforceTimeTable: true, maxTxsPerBlock: 4 };
     sequencer = new TestSubject(
-      publisher,
+      publisherFactory,
       // TODO(md): add the relevant methods to the validator client that will prevent it stalling when waiting for attestations
       validatorClient,
       globalVariableBuilder,
@@ -270,6 +284,9 @@ describe('sequencer', () => {
       blockBuilder,
       l1Constants,
       dateProvider,
+      epochCache,
+      rollupContract,
+      config,
     );
     sequencer.updateConfig(config);
   });

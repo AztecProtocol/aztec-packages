@@ -171,8 +171,6 @@ export class SequencerClient {
       deps.dateProvider,
       epochCache,
       rollupContract,
-      governanceProposerContract,
-      slashingProposerContract,
       { ...config, maxL1TxInclusionTimeIntoSlot, maxL2BlockGas: sequencerManaLimit },
       telemetryClient,
     );
