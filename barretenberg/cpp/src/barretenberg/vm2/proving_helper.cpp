@@ -15,7 +15,6 @@
 #include "barretenberg/vm2/constraining/prover.hpp"
 #include "barretenberg/vm2/constraining/verifier.hpp"
 #include "barretenberg/vm2/tooling/stats.hpp"
-#include "barretenberg/vm2/tracegen_helper.hpp"
 
 namespace bb::avm2 {
 
@@ -39,12 +38,11 @@ std::shared_ptr<AvmProver::ProvingKey> create_proving_key(AvmProver::ProverPolyn
 
 } // namespace
 
-std::shared_ptr<AvmVerifier::VerificationKey> AvmProvingHelper::generate_verification_key()
+std::shared_ptr<AvmVerifier::VerificationKey> AvmProvingHelper::generate_verification_key(
+    tracegen::TraceContainer&& precomputed_trace)
 {
-    AvmTraceGenHelper trace_gen_helper;
-    tracegen::TraceContainer trace = trace_gen_helper.generate_precomputed_columns();
-
-    auto polynomials = AVM_TRACK_TIME_V("proving/prove:compute_polynomials", constraining::compute_polynomials(trace));
+    auto polynomials =
+        AVM_TRACK_TIME_V("proving/prove:compute_polynomials", constraining::compute_polynomials(precomputed_trace));
     auto proving_key = AVM_TRACK_TIME_V("proving/prove:proving_key", create_proving_key(polynomials));
     auto verification_key =
         AVM_TRACK_TIME_V("proving/prove:verification_key", std::make_shared<AvmVerifier::VerificationKey>(proving_key));

@@ -14,14 +14,13 @@
 #include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
+#include "barretenberg/vm2/avm_api.hpp"
 #include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/constraining/recursion/goblin_avm_recursive_verifier.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_flavor.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_verifier.hpp"
-#include "barretenberg/vm2/proving_helper.hpp"
-#include "barretenberg/vm2/tracegen_helper.hpp"
 
 #include <cstddef>
 
@@ -66,11 +65,11 @@ void create_dummy_vkey_and_proof(Builder& builder,
     //      (Flavor::NUM_ALL_ENTITIES + 1) * Flavor::NUM_FRS_FR - Flavor::NUM_FRS_COM) /
     //     (Flavor::NUM_FRS_COM + Flavor::NUM_FRS_FR * (Flavor::BATCHED_RELATION_PARTIAL_LENGTH + 1));
 
-    auto vk = bb::avm2::AvmProvingHelper::generate_verification_key();
-    const auto vk_data = vk->to_field_elements();
+    avm2::AvmAPI avm;
+    const auto vk_data_fields = many_from_buffer<avm2::AvmFlavorSettings::FF>(avm.get_verification_key());
 
-    for (size_t i = 0; i < vk_data.size(); i++) {
-        builder.set_variable(key_fields[i].witness_index, vk_data[i]);
+    for (size_t i = 0; i < vk_data_fields.size(); i++) {
+        builder.set_variable(key_fields[i].witness_index, vk_data_fields[i]);
     }
 
     // This routine is adding some placeholders for avm proof and avm vk in the case where witnesses are not present.
