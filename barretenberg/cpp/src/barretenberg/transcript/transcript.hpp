@@ -471,16 +471,14 @@ template <typename TranscriptParams> class BaseTranscript {
     }
 
     /**
-     * @brief Hashes the independent hash buffer and adds the result to the hash buffer.
+     * @brief Hashes the independent hash buffer and clears it.
      *
-     * @param label Human-readable name for the challenge.
      * @return Fr The hash of the independent hash buffer.
      */
-    DataType hash_independent_buffer(const std::string& label)
+    DataType hash_independent_buffer()
     {
         DataType buffer_hash = TranscriptParams::hash(independent_hash_buffer);
         independent_hash_buffer.clear();
-        add_to_hash_buffer(label, buffer_hash);
         return buffer_hash;
     }
 
