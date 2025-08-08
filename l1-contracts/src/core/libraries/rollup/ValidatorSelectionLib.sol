@@ -339,7 +339,6 @@ library ValidatorSelectionLib {
 
   function canProposeAtTime(Timestamp _ts, bytes32 _headerHash, address _who) internal returns (Slot, uint256) {
     Slot slot = _ts.slotFromTimestamp();
-    RollupStore storage rollupStore = STFLib.getStorage();
 
     uint256 pendingBlockNumber = STFLib.getEffectivePendingBlockNumber(_ts);
 

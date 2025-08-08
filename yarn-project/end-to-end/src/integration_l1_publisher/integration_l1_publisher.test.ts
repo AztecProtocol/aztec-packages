@@ -407,7 +407,7 @@ describe('L1Publisher integration', () => {
           deployerAccount.address,
         );
 
-        await publisher.enqueueProposeL2Block(block);
+        await publisher.enqueueProposeL2Block(block, new Fr(0n));
         await publisher.sendRequests();
 
         const logs = await l1Client.getLogs({
@@ -519,7 +519,7 @@ describe('L1Publisher integration', () => {
     });
 
     const expectPublishBlock = async (block: L2Block, attestations: CommitteeAttestation[]) => {
-      await publisher.enqueueProposeL2Block(block, attestations);
+      await publisher.enqueueProposeL2Block(block, new Fr(0n), attestations);
       const result = await publisher.sendRequests();
       expect(result!.successfulActions).toEqual(['propose']);
       expect(result!.failedActions).toEqual([]);
@@ -549,7 +549,7 @@ describe('L1Publisher integration', () => {
       expect(canPropose?.slot).toEqual(block.header.getSlot());
       await publisher.validateBlockHeader(block.header.toPropose());
 
-      await expect(publisher.enqueueProposeL2Block(block, attestations)).rejects.toThrow(
+      await expect(publisher.enqueueProposeL2Block(block, new Fr(0n), attestations)).rejects.toThrow(
         /ValidatorSelection__InvalidCommitteeCommitment/,
       );
     });
@@ -606,7 +606,7 @@ describe('L1Publisher integration', () => {
       // Invalidate and propose
       logger.warn('Enqueuing requests to invalidate and propose the block');
       publisher.enqueueInvalidateBlock(invalidateRequest);
-      await publisher.enqueueProposeL2Block(block, attestations, undefined, { forcePendingBlockNumber });
+      await publisher.enqueueProposeL2Block(block, new Fr(0n), attestations, undefined, { forcePendingBlockNumber });
       const result = await publisher.sendRequests();
       expect(result!.successfulActions).toEqual(['invalidate-by-insufficient-attestations', 'propose']);
       expect(result!.failedActions).toEqual([]);
@@ -622,7 +622,7 @@ describe('L1Publisher integration', () => {
       const block = await buildSingleBlock();
       publisher.registerSlashPayloadGetter(() => Promise.resolve(EthAddress.random()));
 
-      await publisher.enqueueProposeL2Block(block);
+      await publisher.enqueueProposeL2Block(block, new Fr(0n));
       await publisher.enqueueCastSignal(
         block.header.getSlot(),
         block.header.globalVariables.timestamp,
@@ -646,7 +646,7 @@ describe('L1Publisher integration', () => {
 
       // Expect the simulation to fail
       const loggerErrorSpy = jest.spyOn((publisher as any).log, 'error');
-      await expect(publisher.enqueueProposeL2Block(block)).rejects.toThrow(/Rollup__InvalidInHash/);
+      await expect(publisher.enqueueProposeL2Block(block, new Fr(0n))).rejects.toThrow(/Rollup__InvalidInHash/);
       expect(loggerErrorSpy).toHaveBeenNthCalledWith(
         2,
         expect.stringMatching('Rollup__InvalidInHash'),

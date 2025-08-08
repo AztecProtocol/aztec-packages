@@ -380,8 +380,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // );
 
     // Skip L1 validation for genesis case (no previous block to validate against)
-    if (syncedTo.block) {
-      const chainTipHeaderHash = syncedTo.block.header.toPropose().hash();
+    const chainTipHeaderHash = syncedTo.block ? syncedTo.block.header.toPropose().hash() : Fr.ZERO;
+    if (chainTipHeaderHash !== Fr.ZERO) {
       const canProposeCheck = await this.publisher.canProposeAtNextEthBlock(
         chainTipHeaderHash,
         proposerAddress,
@@ -472,6 +472,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         block = await this.buildBlockAndEnqueuePublish(
           pendingTxs,
           proposalHeader,
+          chainTipHeaderHash,
           newGlobalVariables,
           proposerInNextSlot,
           invalidateBlock,
@@ -604,12 +605,16 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    * @param newGlobalVariables - The global variables for the new block
    * @param proposerAddress - The address of the proposer
    */
-  @trackSpan('Sequencer.buildBlockAndEnqueuePublish', (_validTxs, _proposalHeader, newGlobalVariables) => ({
-    [Attributes.BLOCK_NUMBER]: newGlobalVariables.blockNumber,
-  }))
+  @trackSpan(
+    'Sequencer.buildBlockAndEnqueuePublish',
+    (_validTxs, _proposalHeader, _parentHeaderHash, newGlobalVariables) => ({
+      [Attributes.BLOCK_NUMBER]: newGlobalVariables.blockNumber,
+    }),
+  )
   private async buildBlockAndEnqueuePublish(
     pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
     proposalHeader: ProposedBlockHeader,
+    parentHeaderHash: Fr,
     newGlobalVariables: GlobalVariables,
     proposerAddress: EthAddress | undefined,
     invalidateBlock: InvalidateBlockRequest | undefined,
@@ -679,7 +684,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         this.log.verbose(`Collected ${attestations.length} attestations`, { blockHash, blockNumber });
       }
 
-      await this.enqueuePublishL2Block(block, attestations, txHashes, invalidateBlock);
+      await this.enqueuePublishL2Block(block, attestations, txHashes, parentHeaderHash, invalidateBlock);
       this.metrics.recordBuiltBlock(blockBuildDuration, publicGas.l2Gas);
       return block;
     } catch (err) {
@@ -807,6 +812,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     block: L2Block,
     attestations: CommitteeAttestation[] | undefined,
     txHashes: TxHash[],
+    parentHeaderHash: Fr,
     invalidateBlock: InvalidateBlockRequest | undefined,
   ): Promise<void> {
     // Publishes new block to the network and awaits the tx to be mined
@@ -816,7 +822,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const slot = block.header.globalVariables.slotNumber.toNumber();
     const txTimeoutAt = new Date((this.getSlotStartBuildTimestamp(slot) + this.aztecSlotDuration) * 1000);
 
-    const enqueued = await this.publisher.enqueueProposeL2Block(block, attestations, txHashes, {
+    const enqueued = await this.publisher.enqueueProposeL2Block(block, parentHeaderHash, attestations, txHashes, {
       txTimeoutAt,
       forcePendingBlockNumber: invalidateBlock?.forcePendingBlockNumber,
     });

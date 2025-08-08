@@ -46,6 +46,8 @@ import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
 type L1ProcessArgs = {
   /** The L2 block header. */
   header: ProposedBlockHeader;
+  /** The parent header hash. */
+  parentHeaderHash: Fr;
   /** State reference after the L2 block is applied. */
   stateReference: StateReference;
   /** L2 block blobs containing all tx effects. */
@@ -660,6 +662,7 @@ export class SequencerPublisher {
    */
   public async enqueueProposeL2Block(
     block: L2Block,
+    parentHeaderHash: Fr,
     attestations?: CommitteeAttestation[],
     txHashes?: TxHash[],
     opts: { txTimeoutAt?: Date; forcePendingBlockNumber?: number } = {},
@@ -678,6 +681,7 @@ export class SequencerPublisher {
       blobs,
       attestations,
       txHashes: txHashes ?? [],
+      parentHeaderHash,
     };
 
     let ts: bigint;
@@ -802,6 +806,7 @@ export class SequencerPublisher {
           feeAssetPriceModifier: 0n,
         },
         txHashes,
+        parentHeaderHash: encodedData.parentHeaderHash.toString(),
       },
       RollupContract.packAttestations(attestations),
       signers ?? [],

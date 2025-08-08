@@ -192,7 +192,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
           ProposeArgs({
             header: b.header,
             stateReference: EMPTY_STATE_REFERENCE,
-            oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier})
+            oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier}),
+            parentHeaderHash: bytes32(0)
           }),
           SignatureLib.packAttestations(b.attestations),
           b.signers,
@@ -282,7 +283,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
           ProposeArgs({
             header: b.header,
             stateReference: EMPTY_STATE_REFERENCE,
-            oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier})
+            oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier}),
+            parentHeaderHash: bytes32(0)
           }),
           SignatureLib.packAttestations(b.attestations),
           b.signers,

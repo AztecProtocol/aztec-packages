@@ -333,7 +333,8 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
     ProposeArgs memory proposeArgs = ProposeArgs({
       header: header,
       stateReference: EMPTY_STATE_REFERENCE,
-      oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier})
+      oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier}),
+      parentHeaderHash: bytes32(0)
     });
 
     CommitteeAttestation[] memory attestations;

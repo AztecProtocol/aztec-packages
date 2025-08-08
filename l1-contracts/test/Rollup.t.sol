@@ -233,8 +233,12 @@ contract RollupTest is RollupBase {
     bytes32[] memory blobHashes = new bytes32[](1);
     blobHashes[0] = bytes32(uint256(1));
     vm.blobhashes(blobHashes);
-    ProposeArgs memory args =
-      ProposeArgs({header: data.header, stateReference: EMPTY_STATE_REFERENCE, oracleInput: OracleInput(0)});
+    ProposeArgs memory args = ProposeArgs({
+      header: data.header,
+      stateReference: EMPTY_STATE_REFERENCE,
+      oracleInput: OracleInput(0),
+      parentHeaderHash: bytes32(0)
+    });
     bytes32 realBlobHash = this.getBlobHashes(data.blobCommitments)[0];
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlobHash.selector, blobHashes[0], realBlobHash));
     rollup.propose(args, SignatureLib.packAttestations(attestations), signers, data.blobCommitments);
@@ -313,8 +317,12 @@ contract RollupTest is RollupBase {
     skipBlobCheck(address(rollup));
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NonZeroDaFee.selector));
-    ProposeArgs memory args =
-      ProposeArgs({header: header, stateReference: EMPTY_STATE_REFERENCE, oracleInput: OracleInput(0)});
+    ProposeArgs memory args = ProposeArgs({
+      header: header,
+      stateReference: EMPTY_STATE_REFERENCE,
+      oracleInput: OracleInput(0),
+      parentHeaderHash: bytes32(0)
+    });
     rollup.propose(args, SignatureLib.packAttestations(attestations), signers, data.blobCommitments);
   }
 
@@ -335,8 +343,12 @@ contract RollupTest is RollupBase {
 
     // When not canonical, we expect the fee to be 0
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidManaBaseFee.selector, expectedFee, 1));
-    ProposeArgs memory args =
-      ProposeArgs({header: header, stateReference: EMPTY_STATE_REFERENCE, oracleInput: OracleInput(0)});
+    ProposeArgs memory args = ProposeArgs({
+      header: header,
+      stateReference: EMPTY_STATE_REFERENCE,
+      oracleInput: OracleInput(0),
+      parentHeaderHash: bytes32(0)
+    });
     rollup.propose(args, SignatureLib.packAttestations(attestations), signers, data.blobCommitments);
   }
 
@@ -437,8 +449,12 @@ contract RollupTest is RollupBase {
       interim.feeAmount = interim.manaUsed * interim.baseFee + interim.portalBalance;
 
       // Assert that balance have NOT been increased by proposing the block
-      ProposeArgs memory args =
-        ProposeArgs({header: header, stateReference: EMPTY_STATE_REFERENCE, oracleInput: OracleInput(0)});
+      ProposeArgs memory args = ProposeArgs({
+        header: header,
+        stateReference: EMPTY_STATE_REFERENCE,
+        oracleInput: OracleInput(0),
+        parentHeaderHash: bytes32(0)
+      });
       rollup.propose(args, SignatureLib.packAttestations(attestations), signers, data.blobCommitments);
       assertEq(testERC20.balanceOf(header.coinbase), 0, "invalid coinbase balance");
     }
@@ -651,8 +667,12 @@ contract RollupTest is RollupBase {
 
     skipBlobCheck(address(rollup));
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidTimestamp.selector, realTs, badTs));
-    ProposeArgs memory args =
-      ProposeArgs({header: header, stateReference: EMPTY_STATE_REFERENCE, oracleInput: OracleInput(0)});
+    ProposeArgs memory args = ProposeArgs({
+      header: header,
+      stateReference: EMPTY_STATE_REFERENCE,
+      oracleInput: OracleInput(0),
+      parentHeaderHash: bytes32(0)
+    });
     rollup.propose(args, SignatureLib.packAttestations(attestations), signers, new bytes(144));
   }
 
@@ -669,8 +689,12 @@ contract RollupTest is RollupBase {
 
     skipBlobCheck(address(rollup));
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidCoinbase.selector));
-    ProposeArgs memory args =
-      ProposeArgs({header: header, stateReference: EMPTY_STATE_REFERENCE, oracleInput: OracleInput(0)});
+    ProposeArgs memory args = ProposeArgs({
+      header: header,
+      stateReference: EMPTY_STATE_REFERENCE,
+      oracleInput: OracleInput(0),
+      parentHeaderHash: bytes32(0)
+    });
     rollup.propose(args, SignatureLib.packAttestations(attestations), signers, new bytes(144));
   }
 

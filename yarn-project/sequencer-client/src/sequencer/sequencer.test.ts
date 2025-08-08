@@ -137,7 +137,7 @@ describe('sequencer', () => {
 
   const expectPublisherProposeL2Block = (txHashes: TxHash[]) => {
     expect(publisher.enqueueProposeL2Block).toHaveBeenCalledTimes(1);
-    expect(publisher.enqueueProposeL2Block).toHaveBeenCalledWith(block, getSignatures(), txHashes, {
+    expect(publisher.enqueueProposeL2Block).toHaveBeenCalledWith(block, new Fr(0n), getSignatures(), txHashes, {
       txTimeoutAt: expect.any(Date),
     });
   };

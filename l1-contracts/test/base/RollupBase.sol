@@ -174,7 +174,8 @@ contract RollupBase is DecoderBase {
     ProposeArgs memory args = ProposeArgs({
       header: full.block.header,
       stateReference: EMPTY_STATE_REFERENCE,
-      oracleInput: OracleInput(0)
+      oracleInput: OracleInput(0),
+      parentHeaderHash: bytes32(0)
     });
 
     if (_revertMsg.length > 0) {

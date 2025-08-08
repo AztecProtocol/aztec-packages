@@ -24,6 +24,7 @@ struct ProposeArgs {
   StateReference stateReference;
   OracleInput oracleInput;
   ProposedHeader header;
+  bytes32 parentHeaderHash;
 }
 
 struct ProposePayload {
@@ -104,17 +105,13 @@ library ProposeLib {
     // see comment in BlobLib.sol -> validateBlobs().
     (v.blobHashes, v.blobsHashesCommitment, v.blobCommitments) = BlobLib.validateBlobs(_blobsInput, _checkBlob);
 
-    ProposedHeader memory header = _args.header;
     v.headerHash = ProposedHeaderLib.hash(_args.header);
 
     v.currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
     ValidatorSelectionLib.setupEpoch(v.currentEpoch);
 
-    ManaBaseFeeComponents memory components;
-    if (v.isTxsEnabled) {
-      // Since ignition have no TX's, we need not waste gas computing the fee components
-      components = getManaBaseFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
-    }
+    uint256 manaBaseFee =
+      v.isTxsEnabled ? FeeLib.summedBaseFee(getManaBaseFeeComponentsAt(Timestamp.wrap(block.timestamp), true)) : 0;
 
     v.payloadDigest = digest(
       ProposePayload({stateReference: _args.stateReference, oracleInput: _args.oracleInput, headerHash: v.headerHash})
@@ -122,53 +119,60 @@ library ProposeLib {
 
     validateHeader(
       ValidateHeaderArgs({
-        header: header,
+        header: _args.header,
         digest: v.payloadDigest,
-        manaBaseFee: FeeLib.summedBaseFee(components),
+        manaBaseFee: manaBaseFee,
         blobsHashesCommitment: v.blobsHashesCommitment,
         flags: BlockHeaderValidationFlags({ignoreDA: false})
       })
     );
 
-    ValidatorSelectionLib.verifyProposer(header.slotNumber, v.currentEpoch, _attestations, _signers, v.payloadDigest);
+    ValidatorSelectionLib.verifyProposer(
+      _args.header.slotNumber, v.currentEpoch, _attestations, _signers, v.payloadDigest
+    );
 
-    RollupStore storage rollupStore = STFLib.getStorage();
-    CompressedChainTips tips = rollupStore.tips;
+    CompressedChainTips tips = STFLib.getStorage().tips;
 
     uint256 blockNumber = tips.getPendingBlockNumber() + 1;
+
+    // Parent is the current tip's header hash (we're proposing blockNumber = tip+1)
+    require(
+      _args.parentHeaderHash == STFLib.getHeaderHash(blockNumber - 1),
+      Errors.Rollup__InvalidParentHeaderHash(STFLib.getHeaderHash(blockNumber - 1), _args.parentHeaderHash)
+    );
+
     tips = tips.updatePendingBlockNumber(blockNumber);
 
     // Blob commitments are collected and proven per root rollup proof (=> per epoch), so we need to know whether we are
     // at the epoch start:
     v.isFirstBlockOfEpoch = v.currentEpoch > STFLib.getEpochForBlock(blockNumber - 1) || blockNumber == 1;
-    bytes32 blobCommitmentsHash = BlobLib.calculateBlobCommitmentsHash(
-      STFLib.getBlobCommitmentsHash(blockNumber - 1), v.blobCommitments, v.isFirstBlockOfEpoch
-    );
-
     FeeHeader memory feeHeader;
     if (v.isTxsEnabled) {
       // Since ignition have no TX's, we need not waste gas deriving the fee header
+      ManaBaseFeeComponents memory feeComponents = getManaBaseFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
       feeHeader = FeeLib.computeFeeHeader(
         blockNumber,
         _args.oracleInput.feeAssetPriceModifier,
-        header.totalManaUsed,
-        components.congestionCost,
-        components.proverCost
+        _args.header.totalManaUsed,
+        feeComponents.congestionCost,
+        feeComponents.proverCost
       );
     }
 
     // Compute attestationsHash from the attestations
     v.attestationsHash = keccak256(abi.encode(_attestations));
 
-    rollupStore.tips = tips;
+    STFLib.getStorage().tips = tips;
     STFLib.setTempBlockLog(
       blockNumber,
       TempBlockLog({
         headerHash: v.headerHash,
-        blobCommitmentsHash: blobCommitmentsHash,
+        blobCommitmentsHash: BlobLib.calculateBlobCommitmentsHash(
+          STFLib.getBlobCommitmentsHash(blockNumber - 1), v.blobCommitments, v.isFirstBlockOfEpoch
+        ),
         attestationsHash: v.attestationsHash,
         payloadDigest: v.payloadDigest,
-        slotNumber: header.slotNumber,
+        slotNumber: _args.header.slotNumber,
         feeHeader: feeHeader
       })
     );
@@ -179,18 +183,17 @@ library ProposeLib {
       // Since the inbox is async, it must enforce its own check to not try to insert if ignition.
 
       // @note  The block number here will always be >=1 as the genesis block is at 0
-      v.inHash = rollupStore.config.inbox.consume(blockNumber);
+      RollupStore storage rollupStore2 = STFLib.getStorage();
+      v.inHash = rollupStore2.config.inbox.consume(blockNumber);
       require(
-        header.contentCommitment.inHash == v.inHash,
-        Errors.Rollup__InvalidInHash(v.inHash, header.contentCommitment.inHash)
+        _args.header.contentCommitment.inHash == v.inHash,
+        Errors.Rollup__InvalidInHash(v.inHash, _args.header.contentCommitment.inHash)
       );
 
-      rollupStore.config.outbox.insert(blockNumber, header.contentCommitment.outHash);
+      rollupStore2.config.outbox.insert(blockNumber, _args.header.contentCommitment.outHash);
     }
 
-    bytes32 parentHeaderHash = STFLib.getHeaderHash(blockNumber - 1);
-
-    emit IRollupCore.L2BlockProposed(blockNumber, v.headerHash, parentHeaderHash, v.blobHashes);
+    emit IRollupCore.L2BlockProposed(blockNumber, v.headerHash, STFLib.getHeaderHash(blockNumber - 1), v.blobHashes);
   }
 
   function validateHeader(ValidateHeaderArgs memory _args) internal view {

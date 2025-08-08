@@ -440,7 +440,12 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       header.gasFees.feePerL2Gas = manaBaseFee;
     }
 
-    ree.proposeArgs = ProposeArgs({header: header, stateReference: EMPTY_STATE_REFERENCE, oracleInput: OracleInput(0)});
+    ree.proposeArgs = ProposeArgs({
+      header: header,
+      stateReference: EMPTY_STATE_REFERENCE,
+      oracleInput: OracleInput(0),
+      parentHeaderHash: bytes32(0)
+    });
 
     skipBlobCheck(address(rollup));
 
