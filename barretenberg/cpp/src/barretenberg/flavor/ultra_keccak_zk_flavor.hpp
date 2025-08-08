@@ -21,26 +21,28 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
     static_assert(BATCHED_RELATION_PARTIAL_LENGTH == Curve::LIBRA_UNIVARIATES_LENGTH,
                   "LIBRA_UNIVARIATES_LENGTH must be equal to UltraKeccakZKFlavor::BATCHED_RELATION_PARTIAL_LENGTH");
 
-    // Proof length formula
-    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
-        /* 1. NUM_WITNESS_ENTITIES commitments */ (NUM_WITNESS_ENTITIES * num_elements_comm) +
-        /* 2. Libra concatenation commitment*/ (num_elements_comm) +
-        /* 3. Libra sum */ (num_elements_fr) +
-        /* 4. CONST_PROOF_SIZE_LOG_N sumcheck univariates */
-        (CONST_PROOF_SIZE_LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * num_elements_fr) +
-        /* 5. NUM_ALL_ENTITIES sumcheck evaluations*/ (NUM_ALL_ENTITIES * num_elements_fr) +
-        /* 6. Libra claimed evaluation */ (num_elements_fr) +
-        /* 7. Libra grand sum commitment */ (num_elements_comm) +
-        /* 8. Libra quotient commitment */ (num_elements_comm) +
-        /* 9. Gemini masking commitment */ (num_elements_comm) +
-        /* 10. Gemini masking evaluation */ (num_elements_fr) +
-        /* 11. CONST_PROOF_SIZE_LOG_N - 1 Gemini Fold commitments */
-        ((CONST_PROOF_SIZE_LOG_N - 1) * num_elements_comm) +
-        /* 12. CONST_PROOF_SIZE_LOG_N Gemini a evaluations */
-        (CONST_PROOF_SIZE_LOG_N * num_elements_fr) +
-        /* 13. NUM_SMALL_IPA_EVALUATIONS libra evals */ (NUM_SMALL_IPA_EVALUATIONS * num_elements_fr) +
-        /* 14. Shplonk Q commitment */ (num_elements_comm) +
-        /* 15. KZG W commitment */ (num_elements_comm);
+    // Proof length formula method
+    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N)
+    {
+        return /* 1. NUM_WITNESS_ENTITIES commitments */ (NUM_WITNESS_ENTITIES * num_elements_comm) +
+               /* 2. Libra concatenation commitment*/ (num_elements_comm) +
+               /* 3. Libra sum */ (num_elements_fr) +
+               /* 4. virtual_log_n sumcheck univariates */
+               (virtual_log_n * BATCHED_RELATION_PARTIAL_LENGTH * num_elements_fr) +
+               /* 5. NUM_ALL_ENTITIES sumcheck evaluations*/ (NUM_ALL_ENTITIES * num_elements_fr) +
+               /* 6. Libra claimed evaluation */ (num_elements_fr) +
+               /* 7. Libra grand sum commitment */ (num_elements_comm) +
+               /* 8. Libra quotient commitment */ (num_elements_comm) +
+               /* 9. Gemini masking commitment */ (num_elements_comm) +
+               /* 10. Gemini masking evaluation */ (num_elements_fr) +
+               /* 11. virtual_log_n - 1 Gemini Fold commitments */
+               ((virtual_log_n - 1) * num_elements_comm) +
+               /* 12. virtual_log_n Gemini a evaluations */
+               (virtual_log_n * num_elements_fr) +
+               /* 13. NUM_SMALL_IPA_EVALUATIONS libra evals */ (NUM_SMALL_IPA_EVALUATIONS * num_elements_fr) +
+               /* 14. Shplonk Q commitment */ (num_elements_comm) +
+               /* 15. KZG W commitment */ (num_elements_comm);
+    }
 
     /**
      * @brief Derived class that defines proof structure for Ultra zero knowledge proofs, as well as supporting
@@ -84,7 +86,7 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
          * proof.
          *
          */
-        void deserialize_full_transcript(size_t public_input_size)
+        void deserialize_full_transcript(size_t public_input_size, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N)
         {
             // take current proof and put them into the struct
             size_t num_frs_read = 0;
@@ -105,7 +107,7 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
                 Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             libra_sum = Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
 
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+            for (size_t i = 0; i < virtual_log_n; ++i) {
                 zk_sumcheck_univariates.push_back(
                     Base::template deserialize_from_buffer<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
                         proof_data, num_frs_read));
@@ -117,11 +119,11 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
             libra_quotient_commitment = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             hiding_polynomial_commitment = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             hiding_polynomial_eval = Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
+            for (size_t i = 0; i < virtual_log_n - 1; ++i) {
                 this->gemini_fold_comms.push_back(
                     Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read));
             }
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+            for (size_t i = 0; i < virtual_log_n; ++i) {
                 this->gemini_fold_evals.push_back(Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read));
             }
             libra_concatenation_eval = Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
@@ -139,7 +141,7 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
          * modified.
          *
          */
-        void serialize_full_transcript()
+        void serialize_full_transcript(size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N)
         {
             auto& proof_data = this->proof_data;
             size_t old_proof_length = proof_data.size();
@@ -158,7 +160,7 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
             Base::template serialize_to_buffer(libra_concatenation_commitment, proof_data);
             Base::template serialize_to_buffer(libra_sum, proof_data);
 
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+            for (size_t i = 0; i < virtual_log_n; ++i) {
                 Base::template serialize_to_buffer(zk_sumcheck_univariates[i], proof_data);
             }
             Base::template serialize_to_buffer(libra_claimed_evaluation, proof_data);
@@ -168,10 +170,10 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
             Base::template serialize_to_buffer(libra_quotient_commitment, proof_data);
             Base::template serialize_to_buffer(hiding_polynomial_commitment, proof_data);
             Base::template serialize_to_buffer(hiding_polynomial_eval, proof_data);
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
+            for (size_t i = 0; i < virtual_log_n - 1; ++i) {
                 Base::template serialize_to_buffer(this->gemini_fold_comms[i], proof_data);
             }
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+            for (size_t i = 0; i < virtual_log_n; ++i) {
                 Base::template serialize_to_buffer(this->gemini_fold_evals[i], proof_data);
             }
             Base::template serialize_to_buffer(libra_concatenation_eval, proof_data);

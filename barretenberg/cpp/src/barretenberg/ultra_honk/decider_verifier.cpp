@@ -48,13 +48,15 @@ template <typename Flavor> typename DeciderVerifier_<Flavor>::Output DeciderVeri
 
     const size_t log_circuit_size = static_cast<size_t>(accumulator->vk->log_circuit_size);
 
-    std::vector<FF> padding_indicator_array(CONST_PROOF_SIZE_LOG_N);
+    const size_t virtual_log_n = Flavor::USE_PADDING ? CONST_PROOF_SIZE_LOG_N : log_circuit_size;
 
-    for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
+    std::vector<FF> padding_indicator_array(virtual_log_n);
+
+    for (size_t idx = 0; idx < virtual_log_n; idx++) {
         padding_indicator_array[idx] = (idx < log_circuit_size) ? FF{ 1 } : FF{ 0 };
     }
 
-    SumcheckVerifier<Flavor> sumcheck(transcript, accumulator->alphas, CONST_PROOF_SIZE_LOG_N, accumulator->target_sum);
+    SumcheckVerifier<Flavor> sumcheck(transcript, accumulator->alphas, virtual_log_n, accumulator->target_sum);
     // For MegaZKFlavor: receive commitments to Libra masking polynomials
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
     if constexpr (Flavor::HasZK) {

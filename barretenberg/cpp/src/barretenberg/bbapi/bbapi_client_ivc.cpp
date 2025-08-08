@@ -84,6 +84,7 @@ ClientIvcProve::Response ClientIvcProve::execute(BBApiRequest& request) &&
 
     // We verify this proof. Another bb call to verify has some overhead of loading VK/proof/SRS,
     // and it is mysterious if this transaction fails later in the lifecycle.
+    info("ClientIvcProve - verifying the generated proof as a sanity check");
     if (!request.ivc_in_progress->verify(proof)) {
         throw_or_abort("Failed to verify the generated proof!");
     }

@@ -58,7 +58,7 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     static constexpr size_t IPA_CLAIM_SIZE = stdlib::recursion::honk::RollupIO::IpaClaim::PUBLIC_INPUTS_SIZE;
 
     // Set vkey->circuit_size correctly based on the proof size
-    BB_ASSERT_EQ(proof_size, NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
+    BB_ASSERT_EQ(proof_size, NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS());
     // a lambda that adds dummy commitments (libra and gemini)
     auto set_dummy_commitment = [&](size_t& offset) {
         auto comm = curve::BN254::AffineElement::one() * fr::random_element();

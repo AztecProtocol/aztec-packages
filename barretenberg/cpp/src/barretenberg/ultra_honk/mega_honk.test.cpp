@@ -121,7 +121,7 @@ TYPED_TEST(MegaHonkTests, ProofLengthCheck)
     auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
     UltraProver_<Flavor> prover(proving_key, verification_key);
     HonkProof mega_proof = prover.construct_proof();
-    EXPECT_EQ(mega_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + DefaultIO::PUBLIC_INPUTS_SIZE);
+    EXPECT_EQ(mega_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS() + DefaultIO::PUBLIC_INPUTS_SIZE);
 }
 
 /**
@@ -521,5 +521,40 @@ TYPED_TEST(MegaHonkTests, PolySwap)
         auto proof = prover.construct_proof();
         bool result = verifier.template verify_proof<DefaultIO>(proof).result;
         EXPECT_FALSE(result);
+    }
+}
+
+/**
+ * @brief To ensure the Merge proof sent to the rollup is ZK we have to randomise the commitments and evaluation of
+ * column polynomials. We achieve this by adding some randomness to the op queue via random ops in builders. As we
+ * produce a MegaHonk proof for such builders, this test ensure random ops do not alter the correctness of such proof
+ * (which only asserts that the data in ecc_op_wires has been compied correctly from the other wires).
+ *
+ */
+TYPED_TEST(MegaHonkTests, OpQueueWithRandomValues)
+{
+    using Flavor = TypeParam;
+    using Builder = Flavor::CircuitBuilder;
+
+    // Test for randomness added at the beginning
+    {
+        Builder builder;
+        GoblinMockCircuits::randomise_op_queue(builder);
+        GoblinMockCircuits::construct_simple_circuit(builder);
+
+        // Construct and verify Honk proof
+        bool honk_verified = this->construct_and_verify_honk_proof(builder);
+        EXPECT_TRUE(honk_verified);
+    }
+
+    // Test for randomness added at the end
+    {
+        Builder builder;
+        GoblinMockCircuits::construct_simple_circuit(builder);
+        GoblinMockCircuits::randomise_op_queue(builder);
+
+        // Construct and verify Honk proof
+        bool honk_verified = this->construct_and_verify_honk_proof(builder);
+        EXPECT_TRUE(honk_verified);
     }
 }
