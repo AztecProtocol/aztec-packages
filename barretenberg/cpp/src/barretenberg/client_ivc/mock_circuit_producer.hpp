@@ -161,6 +161,7 @@ class PrivateFunctionExecutionMockCircuitProducer {
             }
         }
         if (is_kernel) {
+            info("calling complete_kernel_circuit_logic in create simple circuit");
             ivc.complete_kernel_circuit_logic(circuit);
         } else {
             stdlib::recursion::PairingPoints<ClientCircuit>::add_default_to_public_inputs(circuit);
@@ -184,7 +185,8 @@ class PrivateFunctionExecutionMockCircuitProducer {
         if (is_kernel) {
             GoblinMockCircuits::construct_mock_folding_kernel(circuit); // construct mock base logic
             mock_databus.populate_kernel_databus(circuit);              // populate databus inputs/outputs
-            ivc.complete_kernel_circuit_logic(circuit);                 // complete with recursive verifiers etc
+            info("completing the kernel circuit in create next circuit");
+            ivc.complete_kernel_circuit_logic(circuit); // complete with recursive verifiers etc
         } else {
             bool use_large_circuit = large_first_app && (circuit_counter == 1);         // first circuit is size 2^19
             GoblinMockCircuits::construct_mock_app_circuit(circuit, use_large_circuit); // construct mock app
@@ -234,6 +236,7 @@ class PrivateFunctionExecutionMockCircuitProducer {
         // create a builder from the goblin op_queue
         ClientIVC::ClientCircuit circuit{ ivc.goblin.op_queue };
         // complete the hiding kernel logic
+        info("completing the hiding kernel in mock circuit producer");
         ivc.complete_kernel_circuit_logic(circuit);
     }
 };

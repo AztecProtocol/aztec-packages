@@ -534,6 +534,7 @@ void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
     }
 
     // Complete the kernel circuit with all required recursive verifications, databus consistency checks etc.
+    info("calling complete_kernel logic in acir_format");
     ivc->complete_kernel_circuit_logic(builder);
 
     // Note: we can't easily track the gate contribution from each individual ivc_recursion_constraint since they

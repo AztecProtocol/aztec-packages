@@ -64,52 +64,37 @@ void write_standalone_vk(const std::string& output_format,
     }
 }
 
-void write_civc_vk(const std::string& output_format,
-                   size_t num_public_inputs_in_final_circuit,
-                   const std::filesystem::path& output_dir)
+std::vector<uint8_t> write_civc_vk(const std::string& output_format,
+                                   std::vector<uint8_t> bytecode,
+                                   const std::filesystem::path& output_dir)
 {
     if (output_format != "bytes") {
         throw_or_abort("Unsupported output format for ClientIVC vk: " + output_format);
     }
-
-    // Since we need to specify the number of public inputs but ClientIvcComputeIvcVk derives it from bytecode,
-    // we need to create a mock circuit with the correct number of public inputs
-    // For now, we'll use the compute_civc_vk function directly as it was designed for this purpose
-    bbapi::BBApiRequest request;
-    auto vk = bbapi::compute_civc_vk(request, num_public_inputs_in_final_circuit);
-    const auto buf = to_buffer(vk);
-
-    const bool output_to_stdout = output_dir == "-";
-
-    if (output_to_stdout) {
-        write_bytes_to_stdout(buf);
-    } else {
-        write_file(output_dir / "vk", buf);
-    }
-}
-
-void write_civc_vk(const std::string& output_data_type,
-                   const std::string& bytecode_path,
-                   const std::filesystem::path& output_dir)
-{
-    if (output_data_type != "bytes") {
-        throw_or_abort("Unsupported output format for ClientIVC vk: " + output_data_type);
-    }
-
-    auto bytecode = get_bytecode(bytecode_path);
-
-    auto response = bbapi::ClientIvcComputeIvcVk{
-        .circuit = { .name = "final_circuit", .bytecode = std::move(bytecode) }
-    }.execute();
+    // compute the hiding kernel's vk
+    auto response =
+        bbapi::ClientIvcComputeStandaloneVk{ .circuit{ .name = "standalone_circuit", .bytecode = bytecode } }.execute();
+    auto response_bytes = response.bytes;
+    auto response_fields = response.fields;
+    // now we generate the other elements in civc vk
+    auto eccvm_vk = std::make_shared<ClientIVC::ECCVMVerificationKey>();
+    auto eccvm_vk_bytes = to_buffer(eccvm_vk);
+    auto translator_vk = std::make_shared<ClientIVC::TranslatorVerificationKey>();
+    auto translatoir_vk_bytes = to_buffer(translator_vk);
+    auto all_vk_bytes = response_bytes;
+    all_vk_bytes.insert(all_vk_bytes.end(), eccvm_vk_bytes.begin(), eccvm_vk_bytes.end());
+    all_vk_bytes.insert(all_vk_bytes.end(), translatoir_vk_bytes.begin(), translatoir_vk_bytes.end());
 
     const bool output_to_stdout = output_dir == "-";
     if (output_to_stdout) {
-        write_bytes_to_stdout(response.bytes);
+        write_bytes_to_stdout(all_vk_bytes);
     } else {
-        write_file(output_dir / "vk", response.bytes);
+        write_file(output_dir / "vk", all_vk_bytes);
     }
-}
-} // anonymous namespace
+    return all_vk_bytes;
+} // annonymus namespace
+
+} // namespace
 
 void ClientIVCAPI::prove(const Flags& flags,
                          const std::filesystem::path& input_path,
@@ -121,7 +106,6 @@ void ClientIVCAPI::prove(const Flags& flags,
 
     bbapi::ClientIvcStart{ .num_circuits = raw_steps.size() - 1 }.execute(request);
 
-    size_t loaded_circuit_public_inputs_size = 0;
     for (size_t i = 0; i < raw_steps.size() - 1; ++i) {
         const auto& step = raw_steps[i];
         bbapi::ClientIvcLoad{
@@ -129,7 +113,6 @@ void ClientIVCAPI::prove(const Flags& flags,
         }.execute(request);
 
         // NOLINTNEXTLINE(bugprone-unchecked-optional-access): we know the optional has been set here.
-        loaded_circuit_public_inputs_size = request.loaded_circuit_constraints->public_inputs.size();
         info("ClientIVC: accumulating " + step.function_name);
         bbapi::ClientIvcAccumulate{ .witness = step.witness }.execute(request);
     }
@@ -140,6 +123,7 @@ void ClientIVCAPI::prove(const Flags& flags,
     }.execute(request);
     bbapi::ClientIvcHidingKernel{ .witness = step.witness }.execute(request);
 
+    auto expected_vk = request.ivc_in_progress->get_vk();
     auto proof = bbapi::ClientIvcProve{}.execute(request).proof;
 
     // We'd like to use the `write` function that UltraHonkAPI uses, but there are missing functions for creating
@@ -161,7 +145,9 @@ void ClientIVCAPI::prove(const Flags& flags,
 
     if (flags.write_vk) {
         vinfo("writing ClientIVC vk in directory ", output_dir);
-        write_civc_vk("bytes", loaded_circuit_public_inputs_size, output_dir);
+        auto vk_buf = write_civc_vk("bytes", step.bytecode, output_dir);
+        auto vk = from_buffer<ClientIVC::VerificationKey>(vk_buf);
+        msgpack::msgpack_check_eq(vk.mega, expected_vk.mega, const std::string_view& error_message)
     }
 }
 
@@ -238,7 +224,8 @@ void ClientIVCAPI::write_vk(const Flags& flags,
 {
 
     if (flags.verifier_type == "ivc") {
-        write_civc_vk(flags.output_format, bytecode_path, output_path);
+        auto bytecode = get_bytecode(bytecode_path);
+        write_civc_vk(flags.output_format, bytecode, output_path);
     } else if (flags.verifier_type == "standalone") {
         write_standalone_vk(flags.output_format, bytecode_path, output_path);
     } else {

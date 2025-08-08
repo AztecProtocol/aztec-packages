@@ -159,7 +159,7 @@ ClientIVC::VerificationKey compute_civc_vk(const BBApiRequest& request, size_t n
                                                         .log2_num_gates = SMALL_ARBITRARY_LOG_CIRCUIT_SIZE,
                                                     });
     ivc.accumulate(circuit_1, vk_1);
-
+    info("computing the verification key and constructing the hiding circuit vk");
     circuit_producer.construct_hiding_kernel(ivc);
     // Construct the hiding circuit proving and verification key
     auto hiding_decider_pk = ivc.compute_hiding_circuit_proving_key();

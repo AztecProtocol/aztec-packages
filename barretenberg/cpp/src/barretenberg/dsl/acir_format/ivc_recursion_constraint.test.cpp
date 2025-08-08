@@ -221,6 +221,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
 
         if (ivc->num_circuits_accumulated == ivc->get_num_circuits()) {
             Builder circuit{ ivc->goblin.op_queue };
+            info("completing the hiding circuit in recusion constraints test");
             ivc->complete_kernel_circuit_logic(circuit);
         }
     }
