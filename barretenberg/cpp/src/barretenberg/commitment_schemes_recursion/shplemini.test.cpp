@@ -6,7 +6,6 @@
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/commitment_schemes/utils/mock_witness_generator.hpp"
-#include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
@@ -18,459 +17,256 @@
 
 using namespace bb;
 
-template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typename PCS::Curve::NativeCurve> {};
-
-numeric::RNG& shplemini_engine = numeric::get_debug_randomness();
-
-/**
- * @brief Test full recursive verification for 2 multilinear polynomials and a shift of one of them including pairing
- * check and ensure that regardless of circuit size, recursive Shplemini produces the same number of gates.
- *
- */
-TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
-{
-    // Define some useful type aliases
-    using Builder = UltraCircuitBuilder;
-    using Curve = typename stdlib::bn254<Builder>;
+template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typename PCS::Curve::NativeCurve> {
+  public:
+    using Builder = typename PCS::Builder;
+    using Curve = typename PCS::Curve;
     using NativeCurve = typename Curve::NativeCurve;
     using Commitment = typename Curve::AffineElement;
-    using NativeCurve = typename Curve::NativeCurve;
-    using NativePCS = std::conditional_t<std::same_as<NativeCurve, curve::BN254>, KZG<NativeCurve>, IPA<NativeCurve>>;
+    using NativePCS = typename PCS::PCSImpl;
     using CommitmentKey = typename NativePCS::CK;
     using ShpleminiProver = ShpleminiProver_<NativeCurve>;
     using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
     using Fr = typename Curve::ScalarField;
-    using NativeFr = typename Curve::NativeCurve::ScalarField;
+    using NativeFr = typename NativeCurve::ScalarField;
+    using NativeCommitment = typename NativeCurve::AffineElement;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
-    using ClaimBatch = ClaimBatcher::Batch;
+    using ClaimBatch = typename ClaimBatcher::Batch;
     using MockClaimGen = MockClaimGenerator<NativeCurve>;
     using StdlibProof = bb::stdlib::Proof<Builder>;
 
-    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
-    auto run_shplemini = [](size_t log_circuit_size) {
-        using diff_t = std::vector<NativeFr>::difference_type;
+    static std::vector<Fr> convert_elements_to_witnesses(Builder& builder, const std::vector<NativeFr>& elements)
+    {
+        std::vector<Fr> out(elements.size());
+        std::transform(elements.begin(), elements.end(), out.begin(), [&builder](const NativeFr& e) {
+            return Fr::from_witness(&builder, e);
+        });
+        return out;
+    }
+
+    static std::vector<Commitment> convert_commitments_to_witnesses(
+        Builder& builder, const std::vector<NativeCommitment>& native_commitments)
+    {
+        std::vector<Commitment> out(native_commitments.size());
+        std::transform(native_commitments.begin(),
+                       native_commitments.end(),
+                       out.begin(),
+                       [&builder](const NativeCommitment& c) { return Commitment::from_witness(&builder, c); });
+        return out;
+    }
+
+    static std::vector<NativeFr> random_challenge_vector(size_t size)
+    {
+        std::vector<NativeFr> out;
+        out.reserve(size);
+        for (size_t i = 0; i < size; ++i) {
+            out.emplace_back(NativeFr::random_element());
+        }
+        return out;
+    }
+
+    static std::vector<std::string> generate_labels(std::string prefix, size_t count)
+    {
+        std::vector<std::string> labels(count);
+        for (size_t i = 0; i < count; ++i) {
+            labels[i] = prefix + std::to_string(i);
+        }
+        return labels;
+    }
+
+    template <size_t num_polys, size_t num_shifted> void run_shplemini_full_scalars(size_t log_circuit_size)
+    {
+        run_shplemini_generic<num_polys, num_shifted>(log_circuit_size, false);
+    }
+
+    template <size_t num_polys, size_t num_shifted> void run_shplemini_short_scalars(size_t log_circuit_size)
+    {
+        run_shplemini_generic<num_polys, num_shifted>(log_circuit_size, true);
+    }
+
+  private:
+    template <size_t num_polys, size_t num_shifted>
+    size_t run_shplemini_generic(size_t log_circuit_size, bool short_scalars)
+    {
+        using diff_t = typename std::vector<NativeFr>::difference_type;
 
         size_t N = 1 << log_circuit_size;
         const auto padding_indicator_array =
             stdlib::compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(log_circuit_size);
-        constexpr size_t NUM_POLYS = 5;
-        constexpr size_t NUM_SHIFTED = 2;
-        constexpr size_t NUM_RIGHT_SHIFTED_BY_K = 1;
 
         CommitmentKey commitment_key(16384);
+        std::vector<NativeFr> u_challenge = random_challenge_vector(CONST_PROOF_SIZE_LOG_N);
 
-        std::vector<NativeFr> u_challenge;
-        u_challenge.reserve(CONST_PROOF_SIZE_LOG_N);
-        for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
-            u_challenge.emplace_back(NativeFr::random_element(&shplemini_engine));
-        };
-
-        // Truncate to real size to create mock claims.
         std::vector<NativeFr> truncated_u_challenge(u_challenge.begin(),
                                                     u_challenge.begin() + static_cast<diff_t>(log_circuit_size));
-        // Construct mock multivariate polynomial opening claims
-        MockClaimGen mock_claims(
-            N, NUM_POLYS, NUM_SHIFTED, NUM_RIGHT_SHIFTED_BY_K, truncated_u_challenge, commitment_key);
 
-        // Initialize an empty NativeTranscript
+        MockClaimGen mock_claims(N, num_polys, num_shifted, 0, truncated_u_challenge, commitment_key);
         auto prover_transcript = NativeTranscript::prover_init_empty();
-        auto prover_opening_claims =
-            ShpleminiProver::prove(N, mock_claims.polynomial_batcher, u_challenge, commitment_key, prover_transcript);
-        KZG<NativeCurve>::compute_opening_proof(commitment_key, prover_opening_claims, prover_transcript);
-        Builder builder;
-        StdlibProof stdlib_proof(builder, prover_transcript->export_proof());
-        auto stdlib_verifier_transcript = std::make_shared<Transcript>();
-        stdlib_verifier_transcript->load_proof(stdlib_proof);
-        [[maybe_unused]] auto _ = stdlib_verifier_transcript->template receive_from_prover<Fr>("Init");
-
-        // Execute Verifier protocol without the need for vk prior the final check
-        const auto commitments_to_witnesses = [&builder](const auto& commitments) {
-            std::vector<Commitment> commitments_in_biggroup(commitments.size());
-            std::transform(commitments.begin(),
-                           commitments.end(),
-                           commitments_in_biggroup.begin(),
-                           [&builder](const auto& native_commitment) {
-                               return Commitment::from_witness(&builder, native_commitment);
-                           });
-            return commitments_in_biggroup;
-        };
-        const auto elements_to_witness = [&](const auto& elements) {
-            std::vector<Fr> elements_in_circuit(elements.size());
-            std::transform(
-                elements.begin(), elements.end(), elements_in_circuit.begin(), [&builder](const auto& native_element) {
-                    return Fr::from_witness(&builder, native_element);
-                });
-            return elements_in_circuit;
-        };
-        auto stdlib_unshifted_commitments =
-            commitments_to_witnesses(mock_claims.claim_batcher.get_unshifted().commitments);
-        auto stdlib_to_be_shifted_commitments =
-            commitments_to_witnesses(mock_claims.claim_batcher.get_shifted().commitments);
-        auto stdlib_to_be_right_shifted_commitments =
-            commitments_to_witnesses(mock_claims.claim_batcher.get_right_shifted_by_k().commitments);
-        auto stdlib_unshifted_evaluations = elements_to_witness(mock_claims.claim_batcher.get_unshifted().evaluations);
-        auto stdlib_shifted_evaluations = elements_to_witness(mock_claims.claim_batcher.get_shifted().evaluations);
-        auto stdlib_right_shifted_evaluations =
-            elements_to_witness(mock_claims.claim_batcher.get_right_shifted_by_k().evaluations);
-
-        std::vector<Fr> u_challenge_in_circuit;
-        u_challenge_in_circuit.reserve(CONST_PROOF_SIZE_LOG_N);
-
-        for (auto u : u_challenge) {
-            u_challenge_in_circuit.emplace_back(Fr::from_witness(&builder, u));
-        }
-
-        ClaimBatcher claim_batcher{
-            .unshifted = ClaimBatch{ RefVector(stdlib_unshifted_commitments), RefVector(stdlib_unshifted_evaluations) },
-            .shifted = ClaimBatch{ RefVector(stdlib_to_be_shifted_commitments), RefVector(stdlib_shifted_evaluations) },
-            .right_shifted_by_k = ClaimBatch{ RefVector(stdlib_to_be_right_shifted_commitments),
-                                              RefVector(stdlib_right_shifted_evaluations) },
-            .k_shift_magnitude = MockClaimGen::k_magnitude
-        };
-
-        const auto opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
-                                                                                  claim_batcher,
-                                                                                  u_challenge_in_circuit,
-                                                                                  Commitment::one(&builder),
-                                                                                  stdlib_verifier_transcript);
-        auto pairing_points = KZG<Curve>::reduce_verify_batch_opening_claim(opening_claim, stdlib_verifier_transcript);
-        EXPECT_TRUE(CircuitChecker::check(builder));
-
-        VerifierCommitmentKey<NativeCurve> vk;
-        EXPECT_EQ(vk.pairing_check(pairing_points[0].get_value(), pairing_points[1].get_value()), true);
-
-        // Return finalised number of gates;
-        return builder.num_gates;
-    };
-
-    size_t num_gates_6 = run_shplemini(6);
-    size_t num_gates_13 = run_shplemini(13);
-    EXPECT_EQ(num_gates_6, num_gates_13);
-}
-
-TEST(ShpleminiRecursionTest, GoblinProveAndVerifyShortScalars)
-{
-    // Define some useful type aliases
-    using Builder = MegaCircuitBuilder;
-    using Curve = typename stdlib::bn254<Builder>;
-    using NativeCurve = typename Curve::NativeCurve;
-    using Commitment = typename Curve::AffineElement;
-    using NativeCurve = typename Curve::NativeCurve;
-    using NativePCS = KZG<NativeCurve>;
-    using CommitmentKey = typename NativePCS::CK;
-    using ShpleminiProver = ShpleminiProver_<NativeCurve>;
-    using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
-    using Fr = typename Curve::ScalarField;
-    using NativeFr = typename Curve::NativeCurve::ScalarField;
-    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
-    using ClaimBatcher = ClaimBatcher_<Curve>;
-    using ClaimBatch = ClaimBatcher::Batch;
-    // using PolynomialBatcher = ShpleminiProver::PolynomialBatcher;
-    using MockClaimGen = MockClaimGenerator<NativeCurve>;
-    using StdlibProof = bb::stdlib::Proof<Builder>;
-
-    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
-    auto run_shplemini = [](size_t log_circuit_size) {
-        using diff_t = std::vector<NativeFr>::difference_type;
-
-        size_t N = 1 << log_circuit_size;
-        const auto padding_indicator_array =
-            stdlib::compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(log_circuit_size);
-        constexpr size_t NUM_POLYS = 3000;
-        constexpr size_t NUM_SHIFTED = 300;
-        constexpr size_t NUM_RIGHT_SHIFTED_BY_K = 0;
-
-        CommitmentKey commitment_key(16384);
-
-        std::vector<NativeFr> u_challenge;
-        u_challenge.reserve(CONST_PROOF_SIZE_LOG_N);
-        for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
-            u_challenge.emplace_back(NativeFr::random_element(&shplemini_engine));
-        };
-
-        // Truncate to real size to create mock claims.
-        std::vector<NativeFr> truncated_u_challenge(u_challenge.begin(),
-                                                    u_challenge.begin() + static_cast<diff_t>(log_circuit_size));
-        // Construct mock multivariate polynomial opening claims
-        MockClaimGen mock_claims(
-            N, NUM_POLYS, NUM_SHIFTED, NUM_RIGHT_SHIFTED_BY_K, truncated_u_challenge, commitment_key);
-
-        // Initialize an empty NativeTranscript
-        auto prover_transcript = NativeTranscript::prover_init_empty();
-
-        std::array<std::string, NUM_POLYS - 1> unshifted_batching_challenge_labels;
-        std::array<std::string, NUM_SHIFTED> shifted_batching_challenge_labels;
-
-        // --------------- New short scalar batching logic
-        size_t idx = 0;
-        for (auto& challenge_label : unshifted_batching_challenge_labels) {
-            challenge_label = "rho_" + std::to_string(idx++);
-        }
-        for (auto& challenge_label : shifted_batching_challenge_labels) {
-            challenge_label = "rho_" + std::to_string(idx++);
-        }
-        std::array<NativeFr, NUM_POLYS - 1> unshifted_batching_challenges =
-            prover_transcript->template get_challenges<NativeFr>(unshifted_batching_challenge_labels);
-
-        std::array<NativeFr, NUM_SHIFTED> shifted_batching_challenges =
-            prover_transcript->template get_challenges<NativeFr>(shifted_batching_challenge_labels);
-
-        // squash unshifted polys and their evals
+        // Initialize polys outside of `if` as they are used inside RefVectors
         Polynomial<NativeFr> squashed_unshifted(N);
-        squashed_unshifted += mock_claims.polynomial_batcher.unshifted[0];
-        for (size_t idx = 0; idx < NUM_POLYS - 1; idx++) {
-            auto poly = mock_claims.polynomial_batcher.unshifted[idx + 1];
-            squashed_unshifted.add_scaled(poly, unshifted_batching_challenges[idx]);
-        }
-
         Polynomial<NativeFr> squashed_shifted(Polynomial<NativeFr>::shiftable(N));
-        idx = 0;
-        for (auto& poly : mock_claims.polynomial_batcher.to_be_shifted_by_one) {
-            squashed_shifted.add_scaled(poly, shifted_batching_challenges[idx++]);
+        std::array<std::string, num_polys - 1> unshifted_batching_challenge_labels;
+        std::array<std::string, num_shifted> shifted_batching_challenge_labels;
+        if (short_scalars) {
+
+            size_t idx = 0;
+            for (auto& label : unshifted_batching_challenge_labels) {
+                label = "rho_" + std::to_string(idx++);
+            }
+            for (auto& label : shifted_batching_challenge_labels) {
+                label = "rho_" + std::to_string(idx++);
+            }
+
+            std::array<NativeFr, num_polys - 1> unshifted_challenges =
+                prover_transcript->template get_challenges<NativeFr>(unshifted_batching_challenge_labels);
+            std::array<NativeFr, num_shifted> shifted_challenges =
+                prover_transcript->template get_challenges<NativeFr>(shifted_batching_challenge_labels);
+
+            squashed_unshifted += mock_claims.polynomial_batcher.unshifted[0];
+            for (size_t i = 0; i < unshifted_challenges.size(); ++i) {
+                squashed_unshifted.add_scaled(mock_claims.polynomial_batcher.unshifted[i + 1], unshifted_challenges[i]);
+            }
+
+            for (size_t i = 0; i < shifted_challenges.size(); ++i) {
+                squashed_shifted.add_scaled(mock_claims.polynomial_batcher.to_be_shifted_by_one[i],
+                                            shifted_challenges[i]);
+            }
+
+            mock_claims.polynomial_batcher.unshifted = RefVector{ squashed_unshifted };
+            mock_claims.polynomial_batcher.to_be_shifted_by_one = RefVector{ squashed_shifted };
         }
 
-        mock_claims.polynomial_batcher.unshifted = RefVector{ squashed_unshifted };
-        mock_claims.polynomial_batcher.to_be_shifted_by_one = RefVector{ squashed_shifted };
-
-        // -------------- Run ShpleminiProver as before
         auto prover_opening_claims =
             ShpleminiProver::prove(N, mock_claims.polynomial_batcher, u_challenge, commitment_key, prover_transcript);
+
         KZG<NativeCurve>::compute_opening_proof(commitment_key, prover_opening_claims, prover_transcript);
+
         Builder builder;
         StdlibProof stdlib_proof(builder, prover_transcript->export_proof());
         auto stdlib_verifier_transcript = std::make_shared<Transcript>();
         stdlib_verifier_transcript->load_proof(stdlib_proof);
         [[maybe_unused]] auto _ = stdlib_verifier_transcript->template receive_from_prover<Fr>("Init");
 
-        // Execute Verifier protocol without the need for vk prior the final check
-        const auto commitments_to_witnesses = [&builder](const auto& commitments) {
-            std::vector<Commitment> commitments_in_biggroup(commitments.size());
-            std::transform(commitments.begin(),
-                           commitments.end(),
-                           commitments_in_biggroup.begin(),
-                           [&builder](const auto& native_commitment) {
-                               return Commitment::from_witness(&builder, native_commitment);
-                           });
-            return commitments_in_biggroup;
-        };
-        const auto elements_to_witness = [&](const auto& elements) {
-            std::vector<Fr> elements_in_circuit(elements.size());
-            std::transform(
-                elements.begin(), elements.end(), elements_in_circuit.begin(), [&builder](const auto& native_element) {
-                    return Fr::from_witness(&builder, native_element);
-                });
-            return elements_in_circuit;
-        };
         auto stdlib_unshifted_commitments =
-            commitments_to_witnesses(mock_claims.claim_batcher.get_unshifted().commitments);
-        auto stdlib_to_be_shifted_commitments =
-            commitments_to_witnesses(mock_claims.claim_batcher.get_shifted().commitments);
+            convert_commitments_to_witnesses(builder, mock_claims.claim_batcher.get_unshifted().commitments);
+        auto stdlib_shifted_commitments =
+            convert_commitments_to_witnesses(builder, mock_claims.claim_batcher.get_shifted().commitments);
 
-        auto stdlib_unshifted_evaluations = elements_to_witness(mock_claims.claim_batcher.get_unshifted().evaluations);
-        auto stdlib_shifted_evaluations = elements_to_witness(mock_claims.claim_batcher.get_shifted().evaluations);
+        auto stdlib_unshifted_evaluations =
+            convert_elements_to_witnesses(builder, mock_claims.claim_batcher.get_unshifted().evaluations);
+        auto stdlib_shifted_evaluations =
+            convert_elements_to_witnesses(builder, mock_claims.claim_batcher.get_shifted().evaluations);
 
-        std::vector<Fr> u_challenge_in_circuit;
-        u_challenge_in_circuit.reserve(CONST_PROOF_SIZE_LOG_N);
-
-        for (auto u : u_challenge) {
-            u_challenge_in_circuit.emplace_back(Fr::from_witness(&builder, u));
-        }
+        std::vector<Fr> u_challenge_in_circuit = convert_elements_to_witnesses(builder, u_challenge);
 
         ClaimBatcher claim_batcher{
             .unshifted = ClaimBatch{ RefVector(stdlib_unshifted_commitments), RefVector(stdlib_unshifted_evaluations) },
-            .shifted = ClaimBatch{ RefVector(stdlib_to_be_shifted_commitments), RefVector(stdlib_shifted_evaluations) }
+            .shifted = ClaimBatch{ RefVector(stdlib_shifted_commitments), RefVector(stdlib_shifted_evaluations) }
         };
 
-        // ------------------ Model Verifier short scalar logic -------------------
+        ClaimBatcher squashed_claim_batcher;
+        Commitment squashed_unshifted_comm;
+        Commitment squashed_shifted_comm;
+        Fr squashed_unshifted_eval;
+        Fr squashed_shifted_eval;
+        if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
+            if (short_scalars) {
+                std::vector<Fr> unshifted_challenges(num_polys);
+                unshifted_challenges[0] = Fr(1);
+                auto tail =
+                    stdlib_verifier_transcript->template get_challenges<Fr>(unshifted_batching_challenge_labels);
+                std::copy(tail.begin(), tail.end(), unshifted_challenges.begin() + 1);
+                auto shifted_challenges =
+                    stdlib_verifier_transcript->template get_challenges<Fr>(shifted_batching_challenge_labels);
+                std::vector<Fr> shifted_challenges_vector(num_shifted);
+                std::copy(shifted_challenges.begin(), shifted_challenges.end(), shifted_challenges_vector.begin());
 
-        std::array<Fr, NUM_POLYS - 1> verifier_unshifted_batching_challenges =
-            stdlib_verifier_transcript->template get_challenges<Fr>(unshifted_batching_challenge_labels);
+                size_t num_rows_before_msm = builder.op_queue->get_num_rows();
+                squashed_unshifted_comm =
+                    Commitment::batch_mul(claim_batcher.get_unshifted().commitments, unshifted_challenges);
 
-        std::vector<Fr> unshifted_batching_challenges_padded(NUM_POLYS);
-        unshifted_batching_challenges_padded[0] = 1;
+                size_t num_rows_after_msm = builder.op_queue->get_num_rows();
+                // Since the first coefficient is 1, we subtract 1.
+                size_t ceil = (num_polys - 1 + 3) / 4;
 
-        // UGGH
-        std::copy(verifier_unshifted_batching_challenges.begin(),
-                  verifier_unshifted_batching_challenges.end(),
-                  unshifted_batching_challenges_padded.begin() + 1);
+                EXPECT_EQ(num_rows_after_msm - num_rows_before_msm, 33 * ceil + 31);
 
-        std::array<Fr, NUM_SHIFTED> verifier_shifted_batching_challenges =
-            stdlib_verifier_transcript->template get_challenges<Fr>(shifted_batching_challenge_labels);
-        std::vector<Fr> shifted_batching_challenges_v(NUM_SHIFTED);
-        std::copy(verifier_shifted_batching_challenges.begin(),
-                  verifier_shifted_batching_challenges.end(),
-                  shifted_batching_challenges_v.begin());
+                num_rows_before_msm = num_rows_after_msm;
 
-        // squash unshifted poly commitments and their evals
-        Commitment squashed_unshifted_comm =
-            Commitment::batch_mul(claim_batcher.get_unshifted().commitments, unshifted_batching_challenges_padded);
-        Fr squashed_unshifted_eval = std::inner_product(unshifted_batching_challenges_padded.begin(),
-                                                        unshifted_batching_challenges_padded.end(),
-                                                        claim_batcher.get_unshifted().evaluations.begin(),
-                                                        Fr(0));
+                squashed_shifted_comm =
+                    Commitment::batch_mul(claim_batcher.get_shifted().commitments, shifted_challenges_vector);
+                num_rows_after_msm = builder.op_queue->get_num_rows();
+                EXPECT_EQ(num_rows_after_msm - num_rows_before_msm, 33 * ((num_shifted + 3) / 4) + 31);
+                squashed_unshifted_eval = std::inner_product(unshifted_challenges.begin(),
+                                                             unshifted_challenges.end(),
+                                                             claim_batcher.get_unshifted().evaluations.begin(),
+                                                             Fr(0));
+                squashed_shifted_eval = std::inner_product(shifted_challenges.begin(),
+                                                           shifted_challenges.end(),
+                                                           claim_batcher.get_shifted().evaluations.begin(),
+                                                           Fr(0));
 
-        // squash shifted poly commitments and their evals
-        Commitment squashed_shifted_comm =
-            Commitment::batch_mul(claim_batcher.get_shifted().commitments, shifted_batching_challenges_v);
-
-        Fr squashed_shifted_eval = std::inner_product(verifier_shifted_batching_challenges.begin(),
-                                                      verifier_shifted_batching_challenges.end(),
-                                                      claim_batcher.get_shifted().evaluations.begin(),
-                                                      Fr(0));
-
-        ClaimBatcher squashed_claim_batcher{
-            .unshifted = ClaimBatch{ RefVector(squashed_unshifted_comm), RefVector(squashed_unshifted_eval) },
-            .shifted = ClaimBatch(RefVector(squashed_shifted_comm), RefVector(squashed_shifted_eval))
-        };
+                squashed_claim_batcher = ClaimBatcher{
+                    .unshifted = ClaimBatch{ RefVector(squashed_unshifted_comm), RefVector(squashed_unshifted_eval) },
+                    .shifted = ClaimBatch{ RefVector(squashed_shifted_comm), RefVector(squashed_shifted_eval) }
+                };
+            }
+        } else {
+            squashed_claim_batcher = claim_batcher;
+        }
 
         const auto opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
                                                                                   squashed_claim_batcher,
                                                                                   u_challenge_in_circuit,
                                                                                   Commitment::one(&builder),
                                                                                   stdlib_verifier_transcript);
+
         auto pairing_points = KZG<Curve>::reduce_verify_batch_opening_claim(opening_claim, stdlib_verifier_transcript);
         EXPECT_TRUE(CircuitChecker::check(builder));
 
         VerifierCommitmentKey<NativeCurve> vk;
         EXPECT_EQ(vk.pairing_check(pairing_points[0].get_value(), pairing_points[1].get_value()), true);
 
-        info("NUM GATES ", builder.num_gates);
+        if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
+            info("eccvm rows ", builder.op_queue->get_num_rows());
+        }
+        info("builder num gates ", builder.get_estimated_num_finalized_gates());
 
-        info("ECCVM NUM msm rows ", builder.op_queue->get_num_msm_rows());
-        info("ECCVM num rows ", builder.op_queue->get_num_rows());
-
-        // Return finalised number of gates;
         return builder.num_gates;
-    };
+    }
+};
 
-    [[maybe_unused]] size_t num_gates_13 = run_shplemini(10);
+struct ShpleminiUltraPCS {
+    using Builder = UltraCircuitBuilder;
+    using Curve = stdlib::bn254<Builder>;
+    using PCSImpl = std::conditional_t<std::same_as<typename Curve::NativeCurve, curve::BN254>,
+                                       KZG<typename Curve::NativeCurve>,
+                                       IPA<typename Curve::NativeCurve>>;
+};
+
+struct ShpleminiMegaPCS {
+    using Builder = MegaCircuitBuilder;
+    using Curve = stdlib::bn254<Builder>;
+    using PCSImpl = KZG<typename Curve::NativeCurve>;
+};
+
+using ShpleminiUltraTest = ShpleminiRecursionTest<ShpleminiUltraPCS>;
+using ShpleminiMegaTest = ShpleminiRecursionTest<ShpleminiMegaPCS>;
+
+TEST_F(ShpleminiUltraTest, ProveAndVerifySingleFullScalars)
+{
+    run_shplemini_full_scalars<13, 5>(10);
 }
 
-TEST(ShpleminiRecursionTest, GoblinProveAndVerifyFullScalars)
+TEST_F(ShpleminiMegaTest, ProveAndVerifySingleFullScalars)
 {
-    // Define some useful type aliases
-    using Builder = MegaCircuitBuilder;
-    using Curve = typename stdlib::bn254<Builder>;
-    using NativeCurve = typename Curve::NativeCurve;
-    using Commitment = typename Curve::AffineElement;
-    using NativeCurve = typename Curve::NativeCurve;
-    using NativePCS = KZG<NativeCurve>;
-    using CommitmentKey = typename NativePCS::CK;
-    using ShpleminiProver = ShpleminiProver_<NativeCurve>;
-    using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
-    using Fr = typename Curve::ScalarField;
-    using NativeFr = typename Curve::NativeCurve::ScalarField;
-    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
-    using ClaimBatcher = ClaimBatcher_<Curve>;
-    using ClaimBatch = ClaimBatcher::Batch;
-    // using PolynomialBatcher = ShpleminiProver::PolynomialBatcher;
-    using MockClaimGen = MockClaimGenerator<NativeCurve>;
-    using StdlibProof = bb::stdlib::Proof<Builder>;
-    using ECCVMBuilder = ECCVMFlavor::CircuitBuilder;
+    run_shplemini_full_scalars<13, 5>(10);
+}
 
-    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
-    auto run_shplemini = [](size_t log_circuit_size) {
-        using diff_t = std::vector<NativeFr>::difference_type;
-
-        size_t N = 1 << log_circuit_size;
-        const auto padding_indicator_array =
-            stdlib::compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(log_circuit_size);
-        constexpr size_t NUM_POLYS = 3000;
-        constexpr size_t NUM_SHIFTED = 300;
-        constexpr size_t NUM_RIGHT_SHIFTED_BY_K = 0;
-
-        CommitmentKey commitment_key(16384);
-
-        std::vector<NativeFr> u_challenge;
-        u_challenge.reserve(CONST_PROOF_SIZE_LOG_N);
-        for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
-            u_challenge.emplace_back(NativeFr::random_element(&shplemini_engine));
-        };
-
-        // Truncate to real size to create mock claims.
-        std::vector<NativeFr> truncated_u_challenge(u_challenge.begin(),
-                                                    u_challenge.begin() + static_cast<diff_t>(log_circuit_size));
-        // Construct mock multivariate polynomial opening claims
-        MockClaimGen mock_claims(
-            N, NUM_POLYS, NUM_SHIFTED, NUM_RIGHT_SHIFTED_BY_K, truncated_u_challenge, commitment_key);
-
-        // Initialize an empty NativeTranscript
-        auto prover_transcript = NativeTranscript::prover_init_empty();
-
-        std::array<std::string, NUM_POLYS - 1> unshifted_batching_challenge_labels;
-        std::array<std::string, NUM_SHIFTED> shifted_batching_challenge_labels;
-
-        // -------------- Run ShpleminiProver as before
-        auto prover_opening_claims =
-            ShpleminiProver::prove(N, mock_claims.polynomial_batcher, u_challenge, commitment_key, prover_transcript);
-        KZG<NativeCurve>::compute_opening_proof(commitment_key, prover_opening_claims, prover_transcript);
-        Builder builder;
-        StdlibProof stdlib_proof(builder, prover_transcript->export_proof());
-        auto stdlib_verifier_transcript = std::make_shared<Transcript>();
-        stdlib_verifier_transcript->load_proof(stdlib_proof);
-        [[maybe_unused]] auto _ = stdlib_verifier_transcript->template receive_from_prover<Fr>("Init");
-
-        // Execute Verifier protocol without the need for vk prior the final check
-        const auto commitments_to_witnesses = [&builder](const auto& commitments) {
-            std::vector<Commitment> commitments_in_biggroup(commitments.size());
-            std::transform(commitments.begin(),
-                           commitments.end(),
-                           commitments_in_biggroup.begin(),
-                           [&builder](const auto& native_commitment) {
-                               return Commitment::from_witness(&builder, native_commitment);
-                           });
-            return commitments_in_biggroup;
-        };
-        const auto elements_to_witness = [&](const auto& elements) {
-            std::vector<Fr> elements_in_circuit(elements.size());
-            std::transform(
-                elements.begin(), elements.end(), elements_in_circuit.begin(), [&builder](const auto& native_element) {
-                    return Fr::from_witness(&builder, native_element);
-                });
-            return elements_in_circuit;
-        };
-        auto stdlib_unshifted_commitments =
-            commitments_to_witnesses(mock_claims.claim_batcher.get_unshifted().commitments);
-        auto stdlib_to_be_shifted_commitments =
-            commitments_to_witnesses(mock_claims.claim_batcher.get_shifted().commitments);
-
-        auto stdlib_unshifted_evaluations = elements_to_witness(mock_claims.claim_batcher.get_unshifted().evaluations);
-        auto stdlib_shifted_evaluations = elements_to_witness(mock_claims.claim_batcher.get_shifted().evaluations);
-
-        std::vector<Fr> u_challenge_in_circuit;
-        u_challenge_in_circuit.reserve(CONST_PROOF_SIZE_LOG_N);
-
-        for (auto u : u_challenge) {
-            u_challenge_in_circuit.emplace_back(Fr::from_witness(&builder, u));
-        }
-
-        ClaimBatcher claim_batcher{
-            .unshifted = ClaimBatch{ RefVector(stdlib_unshifted_commitments), RefVector(stdlib_unshifted_evaluations) },
-            .shifted = ClaimBatch{ RefVector(stdlib_to_be_shifted_commitments), RefVector(stdlib_shifted_evaluations) }
-        };
-
-        const auto opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
-                                                                                  claim_batcher,
-                                                                                  u_challenge_in_circuit,
-                                                                                  Commitment::one(&builder),
-                                                                                  stdlib_verifier_transcript);
-        auto pairing_points = KZG<Curve>::reduce_verify_batch_opening_claim(opening_claim, stdlib_verifier_transcript);
-        EXPECT_TRUE(CircuitChecker::check(builder));
-
-        VerifierCommitmentKey<NativeCurve> vk;
-        EXPECT_EQ(vk.pairing_check(pairing_points[0].get_value(), pairing_points[1].get_value()), true);
-
-        info("NUM GATES ", builder.num_gates);
-
-        info("ECCVM NUM msm rows ", builder.op_queue->get_num_msm_rows());
-        info("ECCVM num rows ", builder.op_queue->get_num_rows());
-
-        [[maybe_unused]] ECCVMBuilder eccvm_prover(builder.op_queue);
-
-        // Return finalised number of gates;
-        return builder.num_gates;
-    };
-
-    [[maybe_unused]] size_t num_gates_13 = run_shplemini(10);
+TEST_F(ShpleminiMegaTest, GoblinProveAndVerifyShortScalars)
+{
+    run_shplemini_short_scalars<13, 5>(10);
+    run_shplemini_short_scalars<14, 6>(10);
+    run_shplemini_short_scalars<15, 7>(10);
 }
