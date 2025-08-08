@@ -10,7 +10,7 @@
 #include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_zk_contract.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/honk/types/aggregation_object_type.hpp"
+#include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include <iomanip>
 #include <optional>
@@ -69,8 +69,7 @@ void write_proof_outputs(const bbapi::CircuitProve::Response& prove_response,
         info("Proof fields saved to ", output_dir / "proof_fields.json");
     }
 }
-
-} // anonymous namespace
+} // namespace
 
 bool UltraHonkAPI::check([[maybe_unused]] const Flags& flags,
                          [[maybe_unused]] const std::filesystem::path& bytecode_path,

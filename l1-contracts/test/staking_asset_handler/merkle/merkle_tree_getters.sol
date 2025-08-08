@@ -37,10 +37,7 @@ contract MerkleTreeGetters is Test {
     return proof;
   }
 
-  function getAddressAndProof(uint256 index)
-    internal
-    returns (address addr, bytes32[] memory proof)
-  {
+  function getAddressAndProof(uint256 index) internal returns (address addr, bytes32[] memory proof) {
     string[] memory inputs = new string[](3);
     inputs[0] = "node";
     inputs[1] = "test/staking_asset_handler/merkle/get-address-and-proof.js";

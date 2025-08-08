@@ -9,7 +9,23 @@ import {StakingLib} from "./StakingLib.sol";
 import {InvalidateLib} from "./InvalidateLib.sol";
 import {ValidatorSelectionLib} from "./ValidatorSelectionLib.sol";
 import {CommitteeAttestations} from "@aztec/shared/libraries/SignatureLib.sol";
+import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
+/**
+ * @title ExtRollupLib2 - External Rollup Library (Staking Functions)
+ * @author Aztec Labs
+ * @notice External library containing staking-related functions for the Rollup contract to avoid exceeding max contract
+ * size.
+ *
+ * @dev This library serves as an external library for the Rollup contract, splitting off staking-related
+ *      functionality to keep the main contract within the maximum contract size limit. The library contains
+ *      external functions primarily focused on:
+ *      - Validator staking operations (deposit, withdraw, queue management)
+ *      - Validator selection and committee setup
+ *      - Block attestation invalidation
+ *      - Slashing mechanism integration
+ *      - Epoch and proposer management
+ */
 library ExtRollupLib2 {
   using TimeLib for Timestamp;
 
@@ -21,8 +37,17 @@ library ExtRollupLib2 {
     StakingLib.vote(_proposalId);
   }
 
-  function deposit(address _attester, address _withdrawer, bool _moveWithLatestRollup) external {
-    StakingLib.deposit(_attester, _withdrawer, _moveWithLatestRollup);
+  function deposit(
+    address _attester,
+    address _withdrawer,
+    G1Point memory _publicKeyInG1,
+    G2Point memory _publicKeyInG2,
+    G1Point memory _proofOfPossession,
+    bool _moveWithLatestRollup
+  ) external {
+    StakingLib.deposit(
+      _attester, _withdrawer, _publicKeyInG1, _publicKeyInG2, _proofOfPossession, _moveWithLatestRollup
+    );
   }
 
   function flushEntryQueue(uint256 _maxAddableValidators) external {
@@ -76,10 +101,7 @@ library ExtRollupLib2 {
     return StakingLib.trySlash(_attester, _amount);
   }
 
-  function canProposeAtTime(Timestamp _ts, bytes32 _archive, address _who)
-    external
-    returns (Slot, uint256)
-  {
+  function canProposeAtTime(Timestamp _ts, bytes32 _archive, address _who) external returns (Slot, uint256) {
     return ValidatorSelectionLib.canProposeAtTime(_ts, _archive, _who);
   }
 

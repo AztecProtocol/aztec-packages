@@ -1,15 +1,15 @@
 ---
 title: Getting Started
 sidebar_position: 0
-tags: [sandbox. testnet]
+tags: [sandbox, testnet]
 ---
 
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
 Get started on your local environment using the sandbox. If you'd rather jump into testnet, read the [getting started on testnet guide](./guides/getting_started_on_testnet.md).
-     
-The Sandbox is an local development Aztec network running fully on your machine, and interacting with a development Ethereum node. You can develop and deploy on it just like on a testnet or mainnet (when the time comes). The sandbox makes it faster and easier to develop and test your Aztec applications.
+
+The Sandbox is a local development Aztec network running fully on your machine, and interacting with a development Ethereum node. You can develop and deploy on it just like on a testnet or mainnet (when the time comes). The sandbox makes it faster and easier to develop and test your Aztec applications.
 
 What's included in the sandbox:
 
@@ -18,7 +18,7 @@ What's included in the sandbox:
 - A set of test accounts with some test tokens to pay fees
 - Development tools to compile contracts and interact with the network (`aztec-nargo` and `aztec-wallet`)
 
-All of this comes packages in a Docker container to make it easy to install and run.
+All of this comes packaged in a Docker container to make it easy to install and run.
 
 This guide will teach you how to install the Aztec sandbox, run it using the Aztec CLI, and interact with contracts using the wallet CLI. To jump right into the testnet instead, click the `Testnet` tab.
 
@@ -106,7 +106,7 @@ aztec-wallet create-account -a my-wallet --payment method=fee_juice,feePayer=tes
 
 This will create a new wallet with an account and give it the alias `my-wallet`. Accounts can be referenced with `accounts:<alias>`. You will see logs telling you the address, public key, secret key, and more.
 
-On successful depoyment of the account, you should see something like this:
+On successful deployment of the account, you should see something like this:
 
 ```bash
 New account:
@@ -211,7 +211,7 @@ Simulation result:  100n
 
 ## Playing with hybrid state and private functions
 
-In the following steps, we'll moving some tokens from public to private state, and check our private and public balance.
+In the following steps, we'll move some tokens from public to private state, and check our private and public balance.
 
 ```bash
 aztec-wallet send transfer_to_private --from accounts:test0 --contract-address testtoken --args accounts:test0 25

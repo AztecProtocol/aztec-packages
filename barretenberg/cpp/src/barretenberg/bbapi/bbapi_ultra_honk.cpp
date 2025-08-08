@@ -11,13 +11,6 @@
 #include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_zk_contract.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
-#include "barretenberg/flavor/ultra_flavor.hpp"
-#include "barretenberg/flavor/ultra_keccak_flavor.hpp"
-#include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
-#include "barretenberg/flavor/ultra_rollup_flavor.hpp"
-#include "barretenberg/flavor/ultra_zk_flavor.hpp"
-#include "barretenberg/honk/types/aggregation_object_type.hpp"
-#include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -81,6 +74,8 @@ CircuitProve::Response _prove(std::vector<uint8_t>&& bytecode,
                               std::vector<uint8_t>&& witness,
                               std::vector<uint8_t>&& vk_bytes)
 {
+    static constexpr size_t IPA_CLAIM_SIZE = stdlib::recursion::honk::RollupIO::IpaClaim::PUBLIC_INPUTS_SIZE;
+
     auto proving_key = _compute_proving_key<Flavor>(bytecode, witness);
     std::shared_ptr<typename Flavor::VerificationKey> vk;
     if (vk_bytes.empty()) {
@@ -203,7 +198,7 @@ CircuitProve::Response CircuitProve::execute(BB_UNUSED const BBApiRequest& reque
 CircuitComputeVk::Response CircuitComputeVk::execute(BB_UNUSED const BBApiRequest& request) &&
 {
     std::vector<uint8_t> vk_bytes;
-    std::vector<fr> vk_fields;
+    std::vector<uint256_t> vk_fields;
     std::vector<uint8_t> vk_hash_bytes;
 
     // Helper lambda to compute VK, fields, and hash for a given flavor

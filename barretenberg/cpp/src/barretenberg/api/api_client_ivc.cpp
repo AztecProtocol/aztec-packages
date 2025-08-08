@@ -2,7 +2,6 @@
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/api/get_bytecode.hpp"
 #include "barretenberg/api/log.hpp"
-#include "barretenberg/api/write_prover_output.hpp"
 #include "barretenberg/bbapi/bbapi.hpp"
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/client_ivc/mock_circuit_producer.hpp"
@@ -177,6 +176,9 @@ bool ClientIVCAPI::prove_and_verify(const std::filesystem::path& input_path)
     steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
 
     std::shared_ptr<ClientIVC> ivc = steps.accumulate();
+    // Construct the hiding kernel as the final step of the IVC
+    ClientIVC::ClientCircuit circuit{ ivc->goblin.op_queue };
+    ivc->complete_kernel_circuit_logic(circuit);
     const bool verified = ivc->prove_and_verify();
     return verified;
 }
@@ -289,8 +291,7 @@ void write_arbitrary_valid_client_ivc_proof_and_vk_to_file(const std::filesystem
     // Construct and accumulate a series of mocked private function execution circuits
     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        auto circuit = circuit_producer.create_next_circuit(ivc);
-        ivc.accumulate(circuit);
+        circuit_producer.construct_and_accumulate_next_circuit(ivc);
     }
 
     ClientIVC::Proof proof = ivc.prove();

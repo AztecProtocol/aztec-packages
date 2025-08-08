@@ -11,6 +11,8 @@ import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import type { DateProvider } from '@aztec/foundation/timer';
 import { SlashFactoryAbi } from '@aztec/l1-artifacts';
+import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
+import { type Offense, bigIntToOffense } from '@aztec/stdlib/slashing';
 
 import {
   type GetContractEventsReturnType,
@@ -21,14 +23,7 @@ import {
   getContract,
 } from 'viem';
 
-import {
-  Offense,
-  type SlasherConfig,
-  WANT_TO_SLASH_EVENT,
-  type WantToSlashArgs,
-  type Watcher,
-  bigIntToOffense,
-} from './config.js';
+import { WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher } from './config.js';
 
 type MonitoredSlashPayload = {
   payloadAddress: EthAddress;
@@ -92,7 +87,20 @@ export class SlasherClient {
       client: l1Client,
     });
 
-    return new SlasherClient(config, slashFactoryContract, slashingProposer, l1TxUtils, watchers, dateProvider);
+    const slasherClient = new SlasherClient(
+      config,
+      slashFactoryContract,
+      slashingProposer,
+      l1TxUtils,
+      watchers,
+      dateProvider,
+    );
+    rollup.listenToSlasherChanged(async () => {
+      const newSlashingProposer = await rollup.getSlashingProposer();
+      await slasherClient.setSlashingProposer(newSlashingProposer);
+    });
+
+    return slasherClient;
   }
 
   constructor(
@@ -158,22 +166,31 @@ export class SlasherClient {
     this.monitoredPayloads = [];
   }
 
+  public async setSlashingProposer(slashingProposer: SlashingProposerContract) {
+    this.log.info('Slashing proposer changed');
+    // remove the old listeners
+    await this.stop();
+    this.slashingProposer = slashingProposer;
+    // start the new listeners
+    await this.start();
+  }
+
   /**
    * Update the config of the slasher client
    *
-   * @param config - the new config. Can only update the following fields:
-   * - slashOverridePayload
-   * - slashPayloadTtlSeconds
-   * - slashProposerRoundPollingIntervalSeconds
+   * @param config - the new config. Cannot update the slasher private key.
    */
   public updateConfig(config: Partial<SlasherConfig>) {
-    const newConfig: SlasherConfig = {
+    const { slasherPrivateKey: _doNotUpdate, ...configWithoutPrivateKey } = config;
+
+    const newConfig: Omit<SlasherConfig, 'slasherPrivateKey'> = {
       ...this.config,
-      slashOverridePayload: config.slashOverridePayload ?? this.config.slashOverridePayload,
-      slashPayloadTtlSeconds: config.slashPayloadTtlSeconds ?? this.config.slashPayloadTtlSeconds,
-      slashProposerRoundPollingIntervalSeconds:
-        config.slashProposerRoundPollingIntervalSeconds ?? this.config.slashProposerRoundPollingIntervalSeconds,
+      ...configWithoutPrivateKey,
     };
+
+    // We keep this separate flag to tell us if we should be signal for the override payload: after the override payload is executed,
+    // the slasher goes back to using the monitored payloads to inform the sequencer publisher what payload to signal for.
+    // So we only want to flip back "on" the voting for override payload if config we just passed in re-set the override payload.
     this.overridePayloadActive = config.slashOverridePayload !== undefined && !config.slashOverridePayload.isZero();
     this.config = newConfig;
   }

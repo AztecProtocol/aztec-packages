@@ -158,8 +158,8 @@ pub fn derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_u
 pub struct AES128 {}
 
 impl LogEncryption for AES128 {
-    fn encrypt_log<let PLAINTEXT_LEN: u32>(
-        plaintext: [Field; PLAINTEXT_LEN],
+    fn encrypt_log<let PlaintextLen: u32>(
+        plaintext: [Field; PlaintextLen],
         recipient: AztecAddress,
     ) -> [Field; PRIVATE_LOG_CIPHERTEXT_LEN] {
         // AES 128 operates on bytes, not fields, so we need to convert the fields to bytes.
@@ -208,7 +208,7 @@ impl LogEncryption for AES128 {
         //      = |full_pt| + 16 - (|full_pt| - 16 * (|full_pt| // 16))
         //      = 16 + 16 * (|full_pt| // 16)
         //      = 16 * (1 + |full_pt| // 16)
-        assert(ciphertext_bytes.len() == 16 * (1 + (PLAINTEXT_LEN * 32) / 16));
+        assert(ciphertext_bytes.len() == 16 * (1 + (PlaintextLen * 32) / 16));
 
         // *****************************************************************************
         // Compute the header ciphertext
@@ -233,12 +233,12 @@ impl LogEncryption for AES128 {
         // *****************************************************************************
 
         let mut log_bytes_padding_to_mult_31 =
-            get_arr_of_size__log_bytes_padding__from_PT::<PLAINTEXT_LEN * 32>();
+            get_arr_of_size__log_bytes_padding__from_PT::<PlaintextLen * 32>();
         // Safety: this randomness won't be constrained to be random. It's in the
         // interest of the executor of this fn to encrypt with random bytes.
         log_bytes_padding_to_mult_31 = unsafe { get_random_bytes() };
 
-        let mut log_bytes = get_arr_of_size__log_bytes__from_PT::<PLAINTEXT_LEN * 32>();
+        let mut log_bytes = get_arr_of_size__log_bytes__from_PT::<PlaintextLen * 32>();
 
         assert(
             log_bytes.len() % 31 == 0,
@@ -393,15 +393,15 @@ mod test {
 
             // Mock random values for deterministic test
             let eph_sk = 0x1358d15019d4639393d62b97e1588c095957ce74a1c32d6ec7d62fe6705d9538;
-            let _ = OracleMock::mock("getRandomField").returns(eph_sk).times(1);
+            let _ = OracleMock::mock("utilityGetRandomField").returns(eph_sk).times(1);
 
             let randomness = 0x0101010101010101010101010101010101010101010101010101010101010101;
-            let _ = OracleMock::mock("getRandomField").returns(randomness).times(1000000);
+            let _ = OracleMock::mock("utilityGetRandomField").returns(randomness).times(1000000);
 
-            let _ = OracleMock::mock("getIndexedTaggingSecretAsSender").returns(
+            let _ = OracleMock::mock("utilityGetIndexedTaggingSecretAsSender").returns(
                 IndexedTaggingSecret::deserialize([69420, 1337]),
             );
-            let _ = OracleMock::mock("incrementAppTaggingSecretIndexAsSender").returns(());
+            let _ = OracleMock::mock("privateIncrementAppTaggingSecretIndexAsSender").returns(());
 
             // Encrypt the log
             let encrypted_log = BoundedVec::from_array(AES128::encrypt_log(plaintext, recipient));
@@ -411,7 +411,7 @@ mod test {
                 EmbeddedCurveScalar::from_field(eph_sk),
                 recipient,
             );
-            let _ = OracleMock::mock("getSharedSecret").returns(shared_secret);
+            let _ = OracleMock::mock("utilityGetSharedSecret").returns(shared_secret);
 
             // Decrypt the log
             let decrypted = AES128::decrypt_log(encrypted_log, recipient);

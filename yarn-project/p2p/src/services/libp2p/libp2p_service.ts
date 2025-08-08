@@ -6,7 +6,7 @@ import { RunningPromise } from '@aztec/foundation/running-promise';
 import { Timer } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import type { L2BlockSource } from '@aztec/stdlib/block';
+import type { EthAddress, L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { ClientProtocolCircuitVerifier, PeerInfo, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -41,7 +41,7 @@ import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap } from '@libp2p/bootstrap';
 import { identify } from '@libp2p/identify';
-import { type Message, type PeerId, TopicValidatorResult } from '@libp2p/interface';
+import { type Message, type MultiaddrConnection, type PeerId, TopicValidatorResult } from '@libp2p/interface';
 import type { ConnectionManager } from '@libp2p/interface-internal';
 import '@libp2p/kad-dht';
 import { mplex } from '@libp2p/mplex';
@@ -258,16 +258,14 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       )
     ).filter(peer => peer !== undefined);
 
-    if (directPeers.length > 0) {
-      logger.info(`Setting up direct peer connections to: ${directPeers.map(peer => peer.id.toString()).join(', ')}`);
-    }
+    const announceTcpMultiaddr = config.p2pIp ? [convertToMultiaddr(config.p2pIp, p2pPort, 'tcp')] : [];
 
     const node = await createLibp2p({
       start: false,
       peerId,
       addresses: {
         listen: [bindAddrTcp],
-        announce: [], // announce is handled by the peer discovery service
+        announce: announceTcpMultiaddr,
       },
       transports: [
         tcp({
@@ -303,9 +301,32 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
         maxPeerAddrsToDial: 5,
         maxIncomingPendingConnections: 5,
       },
+      connectionGater: {
+        denyInboundConnection: (maConn: MultiaddrConnection) => {
+          const allowed = peerManager.isNodeAllowedToConnect(maConn.remoteAddr.nodeAddress().address);
+          if (allowed) {
+            return false;
+          }
+
+          logger.debug(`Connection gater: Denying inbound connection from ${maConn.remoteAddr.toString()}`);
+          return true;
+        },
+        denyInboundEncryptedConnection: (peerId: PeerId, _maConn: MultiaddrConnection) => {
+          //NOTE: it is not necessary to check address here because this was already done by
+          // denyInboundConnection
+          const allowed = peerManager.isNodeAllowedToConnect(peerId);
+          if (allowed) {
+            return false;
+          }
+
+          logger.debug(`Connection gater: Denying inbound encrypted connection from ${peerId.toString()}`);
+          return true;
+        },
+      },
       services: {
         identify: identify({
           protocolPrefix: 'aztec',
+          runOnConnectionOpen: true,
         }),
         pubsub: gossipsub({
           directPeers,
@@ -508,6 +529,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     validator?: ReqRespSubProtocolValidators[ReqRespSubProtocol],
   ): Promise<void> {
     return this.reqresp.addSubProtocol(subProtocol, handler, validator);
+  }
+
+  public registerThisValidatorAddresses(address: EthAddress[]): void {
+    this.peerManager.registerThisValidatorAddresses(address);
   }
 
   public getPeers(includePending?: boolean): PeerInfo[] {

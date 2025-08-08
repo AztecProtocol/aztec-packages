@@ -77,11 +77,14 @@ ClientIvcProve::Response ClientIvcProve::execute(BBApiRequest& request) &&
     }
 
     info("ClientIvcProve - generating proof for ", request.ivc_stack_depth, " accumulated circuits");
-
+    // Construct the hiding kernel to finalise the IVC steps
+    ClientIVC::ClientCircuit circuit{ request.ivc_in_progress->goblin.op_queue };
+    request.ivc_in_progress->complete_kernel_circuit_logic(circuit);
     ClientIVC::Proof proof = request.ivc_in_progress->prove();
 
     // We verify this proof. Another bb call to verify has some overhead of loading VK/proof/SRS,
     // and it is mysterious if this transaction fails later in the lifecycle.
+    info("ClientIvcProve - verifying the generated proof as a sanity check");
     if (!request.ivc_in_progress->verify(proof)) {
         throw_or_abort("Failed to verify the generated proof!");
     }
@@ -117,23 +120,31 @@ static std::shared_ptr<ClientIVC::DeciderProvingKey> get_acir_program_decider_pr
 ClientIVC::VerificationKey compute_civc_vk(const BBApiRequest& request, size_t num_public_inputs_in_final_circuit)
 {
     ClientIVC ivc{ /* num_circuits */ 2, request.trace_settings };
-    ClientIVCMockCircuitProducer circuit_producer;
+    PrivateFunctionExecutionMockCircuitProducer circuit_producer;
 
     // Initialize the IVC with an arbitrary circuit
     // We segfault if we only call accumulate once
     static constexpr size_t SMALL_ARBITRARY_LOG_CIRCUIT_SIZE{ 5 };
-    MegaCircuitBuilder circuit_0 = circuit_producer.create_next_circuit(ivc, SMALL_ARBITRARY_LOG_CIRCUIT_SIZE);
-    ivc.accumulate(circuit_0);
+    auto [circuit_0, vk_0] =
+        circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = SMALL_ARBITRARY_LOG_CIRCUIT_SIZE });
+    ivc.accumulate(circuit_0, vk_0);
 
     // Create another circuit and accumulate
-    MegaCircuitBuilder circuit_1 =
-        circuit_producer.create_next_circuit(ivc, SMALL_ARBITRARY_LOG_CIRCUIT_SIZE, num_public_inputs_in_final_circuit);
-    ivc.accumulate(circuit_1);
+    auto [circuit_1, vk_1] =
+        circuit_producer.create_next_circuit_and_vk(ivc,
+                                                    {
+                                                        .num_public_inputs = num_public_inputs_in_final_circuit,
+                                                        .log2_num_gates = SMALL_ARBITRARY_LOG_CIRCUIT_SIZE,
+                                                    });
+    ivc.accumulate(circuit_1, vk_1);
 
-    // Construct the hiding circuit and its VK (stored internally in the IVC)
-    ivc.construct_hiding_circuit_key();
-
-    return ivc.get_vk();
+    circuit_producer.construct_hiding_kernel(ivc);
+    // Construct the hiding circuit proving and verification key
+    auto hiding_decider_pk = ivc.compute_hiding_circuit_proving_key();
+    auto hiding_honk_vk = std::make_shared<ClientIVC::MegaZKVerificationKey>(hiding_decider_pk->get_precomputed());
+    return { hiding_honk_vk,
+             std::make_shared<ClientIVC::ECCVMVerificationKey>(),
+             std::make_shared<ClientIVC::TranslatorVerificationKey>() };
 }
 
 ClientIvcComputeStandaloneVk::Response ClientIvcComputeStandaloneVk::execute(BB_UNUSED const BBApiRequest& request) &&

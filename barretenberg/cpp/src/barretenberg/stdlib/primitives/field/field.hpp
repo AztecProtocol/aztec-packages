@@ -14,8 +14,12 @@
 namespace bb::stdlib {
 
 template <typename Builder> class bool_t;
-template <typename Builder> class field_t {
+template <typename Builder_> class field_t {
   public:
+    using Builder = Builder_;
+
+    static constexpr size_t PUBLIC_INPUTS_SIZE = FR_PUBLIC_INPUTS_SIZE;
+
     mutable Builder* context = nullptr;
 
     /**
@@ -371,6 +375,11 @@ template <typename Builder> class field_t {
         return result;
     }
 
+    static field_t reconstruct_from_public(const std::span<const field_t, PUBLIC_INPUTS_SIZE>& limbs)
+    {
+        return limbs[0];
+    }
+
     /**
      * Fix a witness. The value of a witness is constrained with a selector.
      * This means that any attempt to change the value of a fixed witness would lead to changing the q_c selector and
@@ -407,13 +416,6 @@ template <typename Builder> class field_t {
      * @return uint32_t
      */
     uint32_t get_normalized_witness_index() const { return normalize().witness_index; }
-
-    std::vector<bool_t<Builder>> decompose_into_bits(
-        const size_t num_bits = 256,
-        std::function<witness_t<Builder>(Builder* ctx, uint64_t, uint256_t)> get_bit =
-            [](Builder* ctx, uint64_t j, const uint256_t& val) {
-                return witness_t<Builder>(ctx, val.get_bit(j));
-            }) const;
 
     /**
      * @brief Return (a < b) as bool circuit type.

@@ -13,7 +13,6 @@
 #include "barretenberg/flavor/repeated_commitments_data.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/honk/library/grand_product_library.hpp"
-#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
@@ -109,19 +108,26 @@ class UltraFlavor {
 
     static constexpr size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Commitment>();
     static constexpr size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<FF>();
-    // Proof length formula
+
+    // Proof length formula methods
     static constexpr size_t OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS =
         /* 1. NUM_WITNESS_ENTITIES commitments */ (NUM_WITNESS_ENTITIES * num_frs_comm);
-    static constexpr size_t DECIDER_PROOF_LENGTH =
-        /* 2. CONST_PROOF_SIZE_LOG_N sumcheck univariates */
-        (CONST_PROOF_SIZE_LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr) +
-        /* 3. NUM_ALL_ENTITIES sumcheck evaluations */ (NUM_ALL_ENTITIES * num_frs_fr) +
-        /* 4. CONST_PROOF_SIZE_LOG_N - 1 Gemini Fold commitments */ ((CONST_PROOF_SIZE_LOG_N - 1) * num_frs_comm) +
-        /* 5. CONST_PROOF_SIZE_LOG_N Gemini a evaluations */ (CONST_PROOF_SIZE_LOG_N * num_frs_fr) +
-        /* 6. Shplonk Q commitment */ (num_frs_comm) +
-        /* 7. KZG W commitment */ (num_frs_comm);
-    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
-        OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS + DECIDER_PROOF_LENGTH;
+
+    static constexpr size_t DECIDER_PROOF_LENGTH(size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N)
+    {
+        return /* 2. virtual_log_n sumcheck univariates */
+            (virtual_log_n * BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr) +
+            /* 3. NUM_ALL_ENTITIES sumcheck evaluations */ (NUM_ALL_ENTITIES * num_frs_fr) +
+            /* 4. virtual_log_n - 1 Gemini Fold commitments */ ((virtual_log_n - 1) * num_frs_comm) +
+            /* 5. virtual_log_n Gemini a evaluations */ (virtual_log_n * num_frs_fr) +
+            /* 6. Shplonk Q commitment */ (num_frs_comm) +
+            /* 7. KZG W commitment */ (num_frs_comm);
+    }
+
+    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N)
+    {
+        return OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS + DECIDER_PROOF_LENGTH(virtual_log_n);
+    }
 
     template <size_t NUM_KEYS>
     using ProtogalaxyTupleOfTuplesOfUnivariatesNoOptimisticSkipping =
@@ -382,7 +388,7 @@ class UltraFlavor {
          * proof.
          *
          */
-        void deserialize_full_transcript(size_t public_input_size)
+        void deserialize_full_transcript(size_t public_input_size, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N)
         {
             // take current proof and put them into the struct
             auto& proof_data = this->proof_data;
@@ -398,18 +404,18 @@ class UltraFlavor {
             w_4_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             lookup_inverses_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             z_perm_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+            for (size_t i = 0; i < virtual_log_n; ++i) {
                 sumcheck_univariates.push_back(
                     Base::template deserialize_from_buffer<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
                         proof_data, num_frs_read));
             }
             sumcheck_evaluations =
                 Base::template deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(proof_data, num_frs_read);
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
+            for (size_t i = 0; i < virtual_log_n - 1; ++i) {
                 gemini_fold_comms.push_back(
                     Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read));
             }
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+            for (size_t i = 0; i < virtual_log_n; ++i) {
                 gemini_fold_evals.push_back(Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read));
             }
             shplonk_q_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
@@ -423,34 +429,34 @@ class UltraFlavor {
          * modified.
          *
          */
-        void serialize_full_transcript()
+        void serialize_full_transcript(size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N)
         {
             auto& proof_data = this->proof_data;
             size_t old_proof_length = proof_data.size();
             proof_data.clear(); // clear proof_data so the rest of the function can replace it
             for (const auto& public_input : public_inputs) {
-                Base::template serialize_to_buffer(public_input, proof_data);
+                Base::serialize_to_buffer(public_input, proof_data);
             }
-            Base::template serialize_to_buffer(w_l_comm, proof_data);
-            Base::template serialize_to_buffer(w_r_comm, proof_data);
-            Base::template serialize_to_buffer(w_o_comm, proof_data);
-            Base::template serialize_to_buffer(lookup_read_counts_comm, proof_data);
-            Base::template serialize_to_buffer(lookup_read_tags_comm, proof_data);
-            Base::template serialize_to_buffer(w_4_comm, proof_data);
-            Base::template serialize_to_buffer(lookup_inverses_comm, proof_data);
-            Base::template serialize_to_buffer(z_perm_comm, proof_data);
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
-                Base::template serialize_to_buffer(sumcheck_univariates[i], proof_data);
+            Base::serialize_to_buffer(w_l_comm, proof_data);
+            Base::serialize_to_buffer(w_r_comm, proof_data);
+            Base::serialize_to_buffer(w_o_comm, proof_data);
+            Base::serialize_to_buffer(lookup_read_counts_comm, proof_data);
+            Base::serialize_to_buffer(lookup_read_tags_comm, proof_data);
+            Base::serialize_to_buffer(w_4_comm, proof_data);
+            Base::serialize_to_buffer(lookup_inverses_comm, proof_data);
+            Base::serialize_to_buffer(z_perm_comm, proof_data);
+            for (size_t i = 0; i < virtual_log_n; ++i) {
+                Base::serialize_to_buffer(sumcheck_univariates[i], proof_data);
             }
-            Base::template serialize_to_buffer(sumcheck_evaluations, proof_data);
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
-                Base::template serialize_to_buffer(gemini_fold_comms[i], proof_data);
+            Base::serialize_to_buffer(sumcheck_evaluations, proof_data);
+            for (size_t i = 0; i < virtual_log_n - 1; ++i) {
+                Base::serialize_to_buffer(gemini_fold_comms[i], proof_data);
             }
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
-                Base::template serialize_to_buffer(gemini_fold_evals[i], proof_data);
+            for (size_t i = 0; i < virtual_log_n; ++i) {
+                Base::serialize_to_buffer(gemini_fold_evals[i], proof_data);
             }
-            Base::template serialize_to_buffer(shplonk_q_comm, proof_data);
-            Base::template serialize_to_buffer(kzg_w_comm, proof_data);
+            Base::serialize_to_buffer(shplonk_q_comm, proof_data);
+            Base::serialize_to_buffer(kzg_w_comm, proof_data);
 
             // sanity check to make sure we generate the same length of proof as before.
             BB_ASSERT_EQ(proof_data.size(), old_proof_length);
