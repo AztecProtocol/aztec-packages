@@ -1,3 +1,4 @@
+import { RollupContract } from '@aztec/ethereum';
 import { timesParallel } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -18,6 +19,7 @@ import {
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { type BlockHeader, type Tx, TxHash } from '@aztec/stdlib/tx';
+import { L1Metrics } from '@aztec/telemetry-client';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -27,6 +29,7 @@ import type { EpochProvingJob } from './job/epoch-proving-job.js';
 import { EpochMonitor } from './monitors/epoch-monitor.js';
 import type { ProverNodePublisher } from './prover-node-publisher.js';
 import { ProverNode } from './prover-node.js';
+import { ProverPublisherFactory } from './prover-publisher-factory.js';
 
 describe('prover-node', () => {
   // Prover node dependencies
@@ -40,6 +43,9 @@ describe('prover-node', () => {
   let txProvider: MockProxy<TxProvider>;
   let epochMonitor: MockProxy<EpochMonitor>;
   let config: SpecificProverNodeConfig;
+  let rollupContract: MockProxy<RollupContract>;
+  let publisherFactory: MockProxy<ProverPublisherFactory>;
+  let l1Metrics: MockProxy<L1Metrics>;
 
   // L1 genesis time
   let l1GenesisTime: number;
@@ -61,13 +67,15 @@ describe('prover-node', () => {
   const createProverNode = () =>
     new TestProverNode(
       prover,
-      publisher,
+      publisherFactory,
       l2BlockSource,
       l1ToL2MessageSource,
       contractDataSource,
       worldState,
       p2p,
       epochMonitor,
+      l1Metrics,
+      rollupContract,
       config,
     );
 
@@ -82,6 +90,11 @@ describe('prover-node', () => {
     worldState = mock<WorldStateSynchronizer>();
     epochMonitor = mock<EpochMonitor>();
     txProvider = mock<TxProvider>();
+    l1Metrics = mock<L1Metrics>();
+
+    rollupContract = mock<RollupContract>();
+    publisherFactory = mock<ProverPublisherFactory>();
+    publisherFactory.create.mockResolvedValue(publisher);
 
     p2p = mock<P2PClient>();
     p2p.getTxProvider.mockReturnValue(txProvider);
