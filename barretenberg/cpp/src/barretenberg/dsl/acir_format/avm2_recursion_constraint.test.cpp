@@ -4,13 +4,16 @@
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_format_mocks.hpp"
 #include "barretenberg/dsl/acir_format/avm2_recursion_constraint.hpp"
+#include "barretenberg/dsl/acir_format/avm2_recursion_constraint_mock.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/ultra_honk/decider_keys.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include "barretenberg/vm2/common/avm_inputs.hpp"
+#include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/constraining/prover.hpp"
+#include "barretenberg/vm2/constraining/recursion/goblin_avm_recursive_verifier.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_flavor.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_verifier.hpp"
 #include "barretenberg/vm2/constraining/verifier.hpp"
@@ -43,6 +46,8 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
 
     using OuterVerificationKey = OuterFlavor::VerificationKey;
     using OuterBuilder = UltraCircuitBuilder;
+
+    using MegaVerificationKey = bb::ClientIVC::MegaVerificationKey;
 
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
@@ -116,6 +121,40 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
 
         return program;
     }
+
+    static std::shared_ptr<MegaVerificationKey> construct_inner_recursive_verification_circuit_key(
+        Builder& builder, RecursionConstraint& avm_constraint, bool has_valid_witness_assignments)
+    {
+        using field_ct = stdlib::field_t<Builder>;
+        using RecursiveVerifier = bb::avm2::AvmGoblinRecursiveVerifier;
+
+        auto fields_from_witnesses = [&builder](const std::vector<uint32_t>& input) {
+            std::vector<field_ct> result;
+            result.reserve(input.size());
+            for (const auto& idx : input) {
+                result.emplace_back(field_ct::from_witness_index(&builder, idx));
+            }
+            return result;
+        };
+
+        // Construct in-circuit representations of the verification key, proof and public inputs
+        const auto key_fields = fields_from_witnesses(avm_constraint.key);
+        const auto proof_fields = fields_from_witnesses(avm_constraint.proof);
+        const auto public_inputs_flattened = fields_from_witnesses(avm_constraint.public_inputs);
+
+        if (!has_valid_witness_assignments) {
+            // Create dummy data
+            create_dummy_vkey_and_proof(
+                builder, avm_constraint.proof.size(), avm_constraint.public_inputs.size(), key_fields, proof_fields);
+        }
+
+        RecursiveVerifier verifier(builder, key_fields);
+
+        auto inner_circuit_output = verifier.construct_and_prove_inner_recursive_verification_circuit(
+            proof_fields, bb::avm2::PublicInputs::flat_to_columns(public_inputs_flattened));
+
+        return inner_circuit_output.mega_vk;
+    }
 };
 
 TEST_F(AcirAvm2RecursionConstraint, TestBasicSingleAvm2RecursionConstraint)
@@ -141,6 +180,60 @@ TEST_F(AcirAvm2RecursionConstraint, TestBasicSingleAvm2RecursionConstraint)
     VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
     OuterVerifier verifier(verification_key, ipa_verification_key);
     EXPECT_EQ(verifier.verify_proof(proof, proving_key->ipa_proof), true);
+}
+
+/**
+ * @brief Test that the vk of the inner circuit in the GoblinAvmRecursiveVerifier is independent of the witness data
+ *
+ */
+TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKInnerCircuit)
+{
+
+    // Generate AVM proof, verification key and public inputs
+    InnerCircuitData avm_prover_output = create_inner_circuit_data();
+
+    // First, construct an AVM2 recursive verifier circuit VK by providing a valid program witness
+    std::shared_ptr<MegaVerificationKey> expected_vk;
+    {
+        AcirProgram avm_verifier_program = construct_avm_verifier_program({ avm_prover_output });
+        const ProgramMetadata metadata{ .honk_recursion = 2 };
+        BB_ASSERT_EQ(avm_verifier_program.constraints.avm_recursion_constraints.size(),
+                     1U,
+                     "This test is built only for a single AVM constraint");
+
+        Builder builder{ metadata.size_hint,
+                         avm_verifier_program.witness,
+                         avm_verifier_program.constraints.public_inputs,
+                         avm_verifier_program.constraints.varnum,
+                         metadata.recursive };
+
+        expected_vk = construct_inner_recursive_verification_circuit_key(
+            builder, avm_verifier_program.constraints.avm_recursion_constraints[0], true);
+    }
+
+    // Now, construct the AVM2 recursive verifier circuit VK by providing the program without a witness
+    std::shared_ptr<MegaVerificationKey> actual_vk;
+    {
+        AcirProgram avm_verifier_program = construct_avm_verifier_program({ avm_prover_output });
+        const ProgramMetadata metadata{ .honk_recursion = 2 };
+        BB_ASSERT_EQ(avm_verifier_program.constraints.avm_recursion_constraints.size(),
+                     1U,
+                     "This test is built only for a single AVM constraint");
+
+        avm_verifier_program.witness.clear(); // Clear the witness
+
+        Builder builder{ metadata.size_hint,
+                         avm_verifier_program.witness,
+                         avm_verifier_program.constraints.public_inputs,
+                         avm_verifier_program.constraints.varnum,
+                         metadata.recursive };
+
+        actual_vk = construct_inner_recursive_verification_circuit_key(
+            builder, avm_verifier_program.constraints.avm_recursion_constraints[0], false);
+    }
+
+    // Compare the VKs
+    EXPECT_EQ(*actual_vk.get(), *expected_vk.get());
 }
 
 /**
