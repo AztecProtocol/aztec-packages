@@ -76,13 +76,13 @@ class ClientIVCTests : public ::testing::Test {
  */
 TEST_F(ClientIVCTests, Basic)
 {
-    ClientIVC ivc{ /*num_circuits=*/2 };
-    TestSettings settings{ .log2_num_gates = MEDIUM_LOG_2_NUM_GATES };
+    ClientIVC ivc{ /*num_circuits=*/3 };
+
     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
     // Initialize the IVC with an arbitrary circuit
-    circuit_producer.construct_and_accumulate_next_circuit(ivc, settings);
-    // Create another circuit and accumulate
-    circuit_producer.construct_and_accumulate_next_circuit(ivc, settings);
+    circuit_producer.construct_and_accumulate_next_circuit(ivc, { .log2_num_gates = MEDIUM_LOG_2_NUM_GATES });
+    circuit_producer.construct_and_accumulate_next_circuit(ivc, { .log2_num_gates = MEDIUM_LOG_2_NUM_GATES });
+    circuit_producer.construct_and_accumulate_next_circuit(ivc, { .log2_num_gates = MEDIUM_LOG_2_NUM_GATES });
 
     EXPECT_TRUE(ivc.prove_and_verify());
 };
@@ -92,7 +92,7 @@ TEST_F(ClientIVCTests, Basic)
  * @details When accumulating only four circuits, we execute all the functionality of a full ClientIVC run.
  *
  */
-TEST_F(ClientIVCTests, BasicFour)
+a TEST_F(ClientIVCTests, BasicFour)
 {
     ClientIVC ivc{ /*num_circuits=*/4 };
 

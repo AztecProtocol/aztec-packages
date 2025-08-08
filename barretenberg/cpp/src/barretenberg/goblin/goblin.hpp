@@ -71,7 +71,8 @@ class Goblin {
      *
      * @param transcript
      */
-    void prove_merge(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+    void prove_merge(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
+                     const MergeSettings merge_settings = MergeSettings::PREPEND);
 
     /**
      * @brief Construct an ECCVM proof and the translation polynomial evaluations
@@ -103,7 +104,8 @@ class Goblin {
     std::pair<PairingPoints, RecursiveTableCommitments> recursively_verify_merge(
         MegaBuilder& builder,
         const RecursiveMergeCommitments& merge_commitments,
-        const std::shared_ptr<RecursiveTranscript>& transcript);
+        const std::shared_ptr<RecursiveTranscript>& transcript,
+        const MergeSettings merge_settings = MergeSettings::PREPEND);
 
     /**
      * @brief Verify a full Goblin proof (ECCVM, Translator, merge)

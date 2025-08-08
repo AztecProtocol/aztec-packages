@@ -33,7 +33,8 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const StdlibProof&
                                                               const MergeCommitments& merge_commitments)
 {
     // Verify the final merge step
-    MergeVerifier merge_verifier{ builder, MergeSettings::PREPEND, transcript };
+    // Ensure this doesn't cause problems for AVM (it shouldn't)
+    MergeVerifier merge_verifier{ builder, MergeSettings::APPEND, transcript };
     auto [merge_pairing_points, merged_table_commitments] =
         merge_verifier.verify_proof(proof.merge_proof, merge_commitments);
 
