@@ -307,11 +307,7 @@ export class EpochProvingJob implements Traceable {
   }
 
   private getTxs(block: L2Block): Tx[] {
-    const txHashes = block.body.txEffects.map(tx => tx.txHash.toBigInt());
-    const txsAndHashes = this.txs.map(tx => ({ tx, hash: tx.getTxHash() }));
-    return txsAndHashes
-      .filter(txAndHash => txHashes.includes(txAndHash.hash.toBigInt()))
-      .map(txAndHash => txAndHash.tx);
+    return block.body.txEffects.map(txEffect => this.txs.find(tx => tx.getTxHash().equals(txEffect.txHash))!);
   }
 
   private getL1ToL2Messages(block: L2Block) {
