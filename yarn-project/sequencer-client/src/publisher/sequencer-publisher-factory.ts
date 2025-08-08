@@ -1,17 +1,13 @@
 import { EthAddress } from '@aztec/aztec.js';
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import type { EpochCache } from '@aztec/epoch-cache';
-import type {
-  GovernanceProposerContract,
-  PublisherManager,
-  RollupContract,
-  SlashingProposerContract,
-} from '@aztec/ethereum';
+import type { PublisherManager } from '@aztec/ethereum';
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 
 import type { SequencerClientConfig } from '../config.js';
+import type { SequencerContracts } from '../sequencer/config.js';
 import { SequencerPublisher } from './sequencer-publisher.js';
 
 export type AttestorPublisherPair = {
@@ -28,9 +24,7 @@ export class SequencerPublisherFactory {
       blobSinkClient?: BlobSinkClientInterface;
       dateProvider: DateProvider;
       epochCache: EpochCache;
-      rollupContract: RollupContract;
-      governanceProposerContract: GovernanceProposerContract;
-      slashingProposerContract: SlashingProposerContract;
+      l1Contracts: SequencerContracts;
     },
   ) {}
   /**
@@ -44,10 +38,10 @@ export class SequencerPublisherFactory {
       l1TxUtils: l1Publisher,
       telemetry: this.deps.telemetry,
       blobSinkClient: this.deps.blobSinkClient,
-      rollupContract: this.deps.rollupContract,
+      rollupContract: this.deps.l1Contracts.rollupContract,
       epochCache: this.deps.epochCache,
-      governanceProposerContract: this.deps.governanceProposerContract,
-      slashingProposerContract: this.deps.slashingProposerContract,
+      governanceProposerContract: this.deps.l1Contracts.governanceProposerContract,
+      slashingProposerContract: this.deps.l1Contracts.slashingProposerContract,
       dateProvider: this.deps.dateProvider,
     });
     const attestorAddress = validatorAddress ?? EthAddress.ZERO;

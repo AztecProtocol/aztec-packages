@@ -25,7 +25,7 @@ import type { ValidatorClient } from '@aztec/validator-client';
 import type { SequencerClientConfig } from '../config.js';
 import { GlobalVariableBuilder } from '../global_variable_builder/index.js';
 import { SequencerPublisherFactory } from '../publisher/sequencer-publisher-factory.js';
-import { Sequencer, type SequencerConfig } from '../sequencer/index.js';
+import { Sequencer, type SequencerConfig, type SequencerContracts } from '../sequencer/index.js';
 
 /**
  * Encapsulates the full sequencer and publisher.
@@ -112,15 +112,19 @@ export class SequencerClient {
         { dateProvider: deps.dateProvider },
       ));
 
+    const l1Contracts: SequencerContracts = {
+      rollupContract,
+      governanceProposerContract,
+      slashingProposerContract,
+    };
+
     const publisherFactory =
       deps.publisherFactory ??
       new SequencerPublisherFactory(config, {
         telemetry: telemetryClient,
         blobSinkClient: deps.blobSinkClient,
-        rollupContract,
         epochCache,
-        governanceProposerContract,
-        slashingProposerContract,
+        l1Contracts,
         dateProvider: deps.dateProvider,
         publisherManager,
       });
@@ -165,9 +169,7 @@ export class SequencerClient {
       l1Constants,
       deps.dateProvider,
       epochCache,
-      rollupContract,
-      governanceProposerContract,
-      slashingProposerContract,
+      l1Contracts,
       { ...config, maxL1TxInclusionTimeIntoSlot, maxL2BlockGas: sequencerManaLimit },
       telemetryClient,
     );

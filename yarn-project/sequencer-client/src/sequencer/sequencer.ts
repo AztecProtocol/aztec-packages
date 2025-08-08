@@ -1,14 +1,7 @@
 import type { L2Block } from '@aztec/aztec.js';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
-import {
-  FormattedViemError,
-  GovernanceProposerContract,
-  type IEmpireBase,
-  NoCommitteeError,
-  RollupContract,
-  SlashingProposerContract,
-} from '@aztec/ethereum';
+import { FormattedViemError, type IEmpireBase, NoCommitteeError } from '@aztec/ethereum';
 import { omit, pick } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -56,7 +49,7 @@ import {
   type SequencerPublisher,
   SignalType,
 } from '../publisher/sequencer-publisher.js';
-import type { SequencerConfig } from './config.js';
+import type { SequencerConfig, SequencerContracts } from './config.js';
 import { SequencerMetrics } from './metrics.js';
 import { SequencerTimetable, SequencerTooSlowError } from './timetable.js';
 import { SequencerState, type SequencerStateWithSlot } from './utils.js';
@@ -130,16 +123,20 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     protected l1Constants: SequencerRollupConstants,
     protected dateProvider: DateProvider,
     protected epochCache: EpochCache,
-    protected rollupContract: RollupContract,
-    protected governanceProposerContract: GovernanceProposerContract,
-    protected slashingProposerContract: SlashingProposerContract,
+    protected l1Contracts: SequencerContracts,
     protected config: SequencerConfig,
     protected telemetry: TelemetryClient = getTelemetryClient(),
     protected log = createLogger('sequencer'),
   ) {
     super();
 
-    this.metrics = new SequencerMetrics(telemetry, () => this.state, this.coinbase, this.rollupContract, 'Sequencer');
+    this.metrics = new SequencerMetrics(
+      telemetry,
+      () => this.state,
+      this.coinbase,
+      this.l1Contracts.rollupContract,
+      'Sequencer',
+    );
 
     // Initialize config
     this.updateConfig(this.config);
@@ -232,14 +229,14 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       if (!this.governanceProposerPayload) {
         return undefined;
       }
-      return { payload: this.governanceProposerPayload, base: this.governanceProposerContract };
+      return { payload: this.governanceProposerPayload, base: this.l1Contracts.governanceProposerContract };
     } else if (signalType === SignalType.SLASHING) {
       const slashPayload = await this.slasherClient.getSlashPayload(slotNumber);
       if (!slashPayload) {
         return undefined;
       }
       this.log.info(`Slash payload: ${slashPayload}`);
-      return { payload: slashPayload, base: this.slashingProposerContract };
+      return { payload: slashPayload, base: this.l1Contracts.slashingProposerContract };
     } else {
       const _: never = signalType;
       throw new Error('Unreachable: Invalid signal type');
