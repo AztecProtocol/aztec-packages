@@ -10,6 +10,7 @@
 #include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_zk_contract.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include <iomanip>
@@ -134,8 +135,8 @@ bool UltraHonkAPI::verify(const Flags& flags,
                           const std::filesystem::path& vk_path)
 {
     // Read input files
-    auto public_inputs = many_from_buffer<bb::fr>(read_file(public_inputs_path));
-    auto proof = many_from_buffer<bb::fr>(read_file(proof_path));
+    auto public_inputs = many_from_buffer<uint256_t>(read_file(public_inputs_path));
+    auto proof = many_from_buffer<uint256_t>(read_file(proof_path));
     auto vk_bytes = read_file(vk_path);
 
     // Convert flags to ProofSystemSettings
@@ -295,7 +296,9 @@ void write_recursion_inputs_ultra_honk(const std::string& bytecode_path,
                               .execute();
 
     // Reconstruct full proof with public inputs
-    std::vector<bb::fr> proof = prove_response.public_inputs;
+    std::vector<uint256_t> proof;
+    proof.reserve(prove_response.public_inputs.size() + prove_response.proof.size());
+    proof.insert(proof.end(), prove_response.public_inputs.begin(), prove_response.public_inputs.end());
     proof.insert(proof.end(), prove_response.proof.begin(), prove_response.proof.end());
 
     // Deserialize VK for ProofSurgeon
@@ -303,7 +306,7 @@ void write_recursion_inputs_ultra_honk(const std::string& bytecode_path,
         from_buffer<typename Flavor::VerificationKey>(vk_response.bytes));
 
     // Generate TOML content
-    const std::string toml_content = acir_format::ProofSurgeon::construct_recursion_inputs_toml_data(
+    const std::string toml_content = acir_format::ProofSurgeon<uint256_t>::construct_recursion_inputs_toml_data(
         proof, verification_key, settings.ipa_accumulation);
 
     // Write to file

@@ -11,6 +11,10 @@
 #include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_zk_contract.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/flavor/ultra_flavor.hpp"
+#include "barretenberg/flavor/ultra_rollup_flavor.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -74,7 +78,7 @@ CircuitProve::Response _prove(std::vector<uint8_t>&& bytecode,
                               std::vector<uint8_t>&& witness,
                               std::vector<uint8_t>&& vk_bytes)
 {
-    static constexpr size_t IPA_CLAIM_SIZE = stdlib::recursion::honk::RollupIO::IpaClaim::PUBLIC_INPUTS_SIZE;
+    using Proof = typename Flavor::Transcript::Proof;
 
     auto proving_key = _compute_proving_key<Flavor>(bytecode, witness);
     std::shared_ptr<typename Flavor::VerificationKey> vk;
@@ -88,50 +92,64 @@ CircuitProve::Response _prove(std::vector<uint8_t>&& bytecode,
 
     UltraProver_<Flavor> prover{ proving_key, vk };
 
-    HonkProof concat_pi_and_proof = prover.construct_proof();
-    size_t num_inner_public_inputs = prover.proving_key->num_public_inputs();
-    // Loose check that the public inputs contain a pairing point accumulator, doesn't catch everything.
-    BB_ASSERT_GTE(prover.proving_key->num_public_inputs(),
-                  PAIRING_POINTS_SIZE,
-                  "Public inputs should contain a pairing point accumulator.");
-    num_inner_public_inputs -= PAIRING_POINTS_SIZE;
-    if constexpr (HasIPAAccumulator<Flavor>) {
-        BB_ASSERT_GTE(num_inner_public_inputs, IPA_CLAIM_SIZE, "Public inputs should contain an IPA claim.");
-        num_inner_public_inputs -= IPA_CLAIM_SIZE;
-    }
+    Proof concat_pi_and_proof = prover.construct_proof();
+    // Compute number of inner public inputs. Perform loose checks that the public inputs contain enough data.
+    auto num_inner_public_inputs = [&]() {
+        size_t num_public_inputs = prover.proving_key->num_public_inputs();
+        if constexpr (HasIPAAccumulator<Flavor>) {
+            BB_ASSERT_GTE(num_public_inputs,
+                          RollupIO::PUBLIC_INPUTS_SIZE,
+                          "Public inputs should contain a pairing point accumulator and an IPA claim.");
+            return num_public_inputs - RollupIO::PUBLIC_INPUTS_SIZE;
+        } else {
+            BB_ASSERT_GTE(num_public_inputs,
+                          DefaultIO::PUBLIC_INPUTS_SIZE,
+                          "Public inputs should contain a pairing point accumulator.");
+            return num_public_inputs - DefaultIO::PUBLIC_INPUTS_SIZE;
+        }
+    }();
+
     // We split the inner public inputs, which are stored at the front of the proof, from the rest of the proof. Now,
     // the "proof" refers to everything except the inner public inputs.
-    return { PublicInputsVector(concat_pi_and_proof.begin(),
-                                concat_pi_and_proof.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs)),
-             HonkProof(concat_pi_and_proof.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs),
-                       concat_pi_and_proof.end()) };
+    return { std::vector<uint256_t>{ concat_pi_and_proof.begin(),
+                                     concat_pi_and_proof.begin() +
+                                         static_cast<std::ptrdiff_t>(num_inner_public_inputs) },
+             std::vector<uint256_t>{ concat_pi_and_proof.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs),
+                                     concat_pi_and_proof.end() } };
 }
 
 template <typename Flavor>
 bool _verify(const bool ipa_accumulation,
              const std::vector<uint8_t>& vk_bytes,
-             const PublicInputsVector& public_inputs,
-             const HonkProof& proof)
+             const std::vector<uint256_t>& public_inputs,
+             const std::vector<uint256_t>& proof)
 {
     using VerificationKey = typename Flavor::VerificationKey;
     using Verifier = UltraVerifier_<Flavor>;
+    using Transcript = typename Flavor::Transcript;
+    using DataType = typename Transcript::DataType;
+    using Proof = typename Transcript::Proof;
 
     std::shared_ptr<VerificationKey> vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_bytes));
 
     // concatenate public inputs and proof
-    std::vector<fr> complete_proof = public_inputs;
+    std::vector<DataType> complete_proof;
+    complete_proof.reserve(public_inputs.size() + proof.size());
+    complete_proof.insert(complete_proof.end(), public_inputs.begin(), public_inputs.end());
     complete_proof.insert(complete_proof.end(), proof.begin(), proof.end());
 
     VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key;
-    if (ipa_accumulation) {
-        ipa_verification_key = VerifierCommitmentKey<curve::Grumpkin>(1 << CONST_ECCVM_LOG_N);
+    if constexpr (HasIPAAccumulator<Flavor>) {
+        if (ipa_accumulation) {
+            ipa_verification_key = VerifierCommitmentKey<curve::Grumpkin>(1 << CONST_ECCVM_LOG_N);
+        }
     }
 
     Verifier verifier{ vk, ipa_verification_key };
 
-    bool verified;
-    if (ipa_accumulation) {
-        const size_t HONK_PROOF_LENGTH = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH;
+    bool verified = false;
+    if constexpr (HasIPAAccumulator<Flavor>) {
+        const size_t HONK_PROOF_LENGTH = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS() - IPA_PROOF_LENGTH;
         const size_t num_public_inputs = static_cast<size_t>(vk->num_public_inputs);
         // The extra calculation is for the IPA proof length.
         BB_ASSERT_EQ(complete_proof.size(),
@@ -139,12 +157,12 @@ bool _verify(const bool ipa_accumulation,
                      "Honk proof has incorrect length while verifying.");
         const std::ptrdiff_t honk_proof_with_pub_inputs_length =
             static_cast<std::ptrdiff_t>(HONK_PROOF_LENGTH + num_public_inputs);
-        auto ipa_proof = HonkProof(complete_proof.begin() + honk_proof_with_pub_inputs_length, complete_proof.end());
+        auto ipa_proof = Proof(complete_proof.begin() + honk_proof_with_pub_inputs_length, complete_proof.end());
         auto tube_honk_proof =
-            HonkProof(complete_proof.begin(), complete_proof.begin() + honk_proof_with_pub_inputs_length);
-        verified = verifier.verify_proof(complete_proof, ipa_proof);
+            Proof(complete_proof.begin(), complete_proof.begin() + honk_proof_with_pub_inputs_length);
+        verified = verifier.template verify_proof<RollupIO>(complete_proof, ipa_proof).result;
     } else {
-        verified = verifier.verify_proof(complete_proof);
+        verified = verifier.template verify_proof<DefaultIO>(complete_proof).result;
     }
 
     if (verified) {
@@ -206,8 +224,14 @@ CircuitComputeVk::Response CircuitComputeVk::execute(BB_UNUSED const BBApiReques
         auto proving_key = _compute_proving_key<Flavor>(circuit.bytecode, {});
         auto vk = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
         vk_bytes = to_buffer(*vk);
-        vk_fields = vk->to_field_elements();
-        vk_hash_bytes = to_buffer(vk->hash());
+        if constexpr (IsAnyOf<Flavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
+            vk_fields = vk->to_field_elements();
+        } else {
+            // For other flavors, we use field elements
+            auto uint256_elements = vk->to_field_elements();
+            vk_fields.reserve(uint256_elements.size());
+            vk_fields.insert(vk_fields.end(), uint256_elements.begin(), uint256_elements.end());
+        }
     };
 
     if (settings.ipa_accumulation) {

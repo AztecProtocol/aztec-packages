@@ -9,6 +9,7 @@
 #include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/common/named_union.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include <map>
 #include <vector>
@@ -38,8 +39,8 @@ struct CircuitProve {
     struct Response {
         static constexpr const char* MSGPACK_SCHEMA_NAME = "CircuitProveResponse";
 
-        PublicInputsVector public_inputs;
-        HonkProof proof;
+        std::vector<uint256_t> public_inputs;
+        std::vector<uint256_t> proof;
         MSGPACK_FIELDS(public_inputs, proof);
         bool operator==(const Response&) const = default;
     };
@@ -58,9 +59,9 @@ struct CircuitComputeVk {
     struct Response {
         static constexpr const char* MSGPACK_SCHEMA_NAME = "CircuitComputeVkResponse";
 
-        std::vector<uint8_t> bytes; // Serialized verification key
-        std::vector<fr> fields;     // VK as field elements
-        std::vector<uint8_t> hash;  // The VK hash
+        std::vector<uint8_t> bytes;    // Serialized verification key
+        std::vector<uint256_t> fields; // VK as field elements (unless keccak, then just uint256_t's)
+        std::vector<uint8_t> hash;     // The VK hash
         MSGPACK_FIELDS(bytes, fields, hash);
         bool operator==(const Response&) const = default;
     };
@@ -115,8 +116,8 @@ struct CircuitVerify {
     };
 
     std::vector<uint8_t> verification_key;
-    PublicInputsVector public_inputs;
-    HonkProof proof;
+    std::vector<uint256_t> public_inputs;
+    std::vector<uint256_t> proof;
     ProofSystemSettings settings;
     MSGPACK_FIELDS(verification_key, public_inputs, proof, settings);
     Response execute(const BBApiRequest& request = {}) &&;
