@@ -97,7 +97,6 @@ last = sel * (1 - sel');
  *  Temporality group 1: Bytecode retrieval (unconditional)
  **************************************************************************************************/
 
-pol commit bytecode_id;
 pol commit sel_bytecode_retrieval_failure;
 
 // TODO(dbanks12): since this lookup is no longer active for all rows,
