@@ -56,7 +56,7 @@ export async function deployL1Contracts(
   if (json) {
     log(
       JSON.stringify(
-        Object.fromEntries(Object.entries(l1ContractAddresses).map(([k, v]) => [k, v.toString()])),
+        Object.fromEntries(Object.entries(l1ContractAddresses).map(([k, v]) => [k, v?.toString() ?? 'Not deployed'])),
         null,
         2,
       ),
