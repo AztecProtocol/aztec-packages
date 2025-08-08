@@ -36,11 +36,11 @@ In general, the notation $\zq$ and $\zr$ refers to the additive abelian groups; 
 
 ## Bird's eye overview/motivation
 
-In a nutshell, the ECCVM is a simple virtual machine to facilitate the verification native elliptic curve computations. In our setting, this means that given an `op_queue` of BN-254 operations, the ECCVM compiles the execution of these operations into an _execution trace representation_ over $\fq$, the _field of definition_ (a.k.a. base field) of BN-254 and the _scalar field_ of Grumpkin.
+In a nutshell, the ECCVM is a simple virtual machine to facilitate the verification native elliptic curve computations. In our setting, this means that given an `op_queue` of BN-254 operations, the ECCVM compiles the execution of these operations into an _execution trace representation_ over $\fq$, the _field of definition_ (a.k.a. base field) of BN-254. (This field is also the _scalar field_ of Grumpkin.)
 
 In a bit more detail, the ECCVM is an compiler that takes a sequence of operations (in BN-254) and produces a table of numbers, such that the correct evaluation of the sequence of operations precisely corresponds to polynomial constraints vanishing on the rows of this table of numbers. Moreover, this polynomial constraints are independent of the specific sequence of operations. The core complication in the ECCVM comes from the _efficient_ handling of multi-scalar multiplications (MSMs).
 
-In fact, due to our MSM optimizations, we produce _three_ tables, where each table has it's own set of multivariate polynomials, such that the correct evaluation of the operations corresponds to each table's multivariates evaluating to zero on each row. These tables will "communicate" with each other via lookup arguments and multiset-equality checks.
+In fact, due to our MSM optimizations, we morally produce _three_ tables, where each table has it's own set of multivariate polynomials, such that the correct evaluation of the operations corresponds to each table's multivariates evaluating to zero on each row. These tables will "communicate" with each other via lookup arguments and multiset-equality checks.
 
 ## Op Queue
 
@@ -110,21 +110,35 @@ struct ECCVMOperation {
 
 From the perspective of the ECCVM, the `ECCOpQueue` just contains a list of `ECCVMOperation`s, i.e., it is just an Input Trace. It is worth noting that the `ECCOpQueue` class indeed contains more moving parts, to link together the ECCVM with the rest of the Goblin protocol.
 
+### State Machine and the execution trace
+
+An alternative perspective: the `ECCOpQueue` corresponds to a one-register finite state machine whose primitives are a set of operations on our elliptic curve.
+
+From this perspective, the goal of the ECCVM is to compile the execution of this state machine into something we can SNARK. The ECCVM takes in an `ECCOpQueue`, which corresponds to the execution of a list of operations in BN-254, and constructs three tables, together with a collection of multivariate polynomials for each table, along with some lookups and multiset constraints. (The number of variables of a polynomial associated with a table is precisely the number of columns of that table.) Then the key claim is that if (1) the polynomials associated to each table vanish on every row, (2) the lookups are satisfied, and some multi-set equivalences hold (which mediate _between_ tables), then the tables corresponds to the correct execution of the `ECCOpQueue`, i.e., to the correct execution of the one-register elliptic curve state machine.
+
+Breaking abstraction, the _reason_ we choose this model of witnessing the computation is that it is straightforward to SNARK.
+
 ## Tables and the Straus algorithm
 
-As explained in the introduction, the ECCVM takes in an `ECCOpQueue`, which corresponds to the execution of a list of operations in BN-254, and constructs three tables, together with a collection of multivariate polynomials for each table, along with some lookup constraints. (The number of variables of a polynomial associated with a table is precisely the number of columns of that table.) Then the key claim is that if (1) the polynomials associated to each table vanish on every row, (2) the lookups are satisfied, and some multi-set equivalences hold (which mediate _between_ tables), then the tables corresponds to the correct execution of the `ECCOpQueue`, i.e., to the correct execution of the one-register elliptic curve state machine.
+In trying to build the execution trace of `ECCOpQueue`, the `mul` opcode is the only one that is non-trivial to evaluate, especially efficieintly. One straightforward way to encode the `mul` operation is to break up the scalar into its bit representation and use a double-and-add procedure. We opt for the Straus MSM algorithm with $w=4$, which requires more precomputing but is significantly more efficient.
 
-The `mul` opcode is the only one that is non-trivial to evaluate, especially efficieintly. One straightforward way to encode the `mul` operation is to break up the scalar into its bit representation and use a double-and-add procedure. We opt for the Straus MSM algorithm with $w=4$, which requires more precomputing but is significantly more efficient.
+### High level summary of the operation of the VM
 
-### Straus Algorithm.
+Before we dive into the Straus algorithm, here is the high-level organization. We go "row by row" in the `ECCOpQueue`; if it is a `mul` operation, it is _automatically_ part of an MSM (potentially one of length 1), and we defer evaluation to the Straus mechanism (which involves two separate tables: an `msm` table and a `precomputed` table). Otherwise, the `transcript` table handles the logic. (This includes `add` op codes.) Eventually, at the _end_ of an MSM (i.e., if an op is a `mul` and the next op is not), the Transcript Columns will pick up the claimed evaluation from the MSM tables and continue along its merry way.
+
+To do this in a moderately efficient manner is quite complicated; we include logic for skipping computations when we can. For instance, if we have a `mul` operation with the base point $P=\NeutralElt$, then we will have a column that bears witness to this fact and skip the explicit scalar multiplication. Analogously, if the scalar is 0 in a `mul` operation, we also encode skipping the explicit scalar multiplication. This intelligent computation, together with the delegation of work to multiple tables, itself required by the Straus algorithm, results in a tangled assortment columns.
+
+However, at least some of this complexity is forced on us; in Barretenberg, we represent the $\NeutralElt$ of an elliptic curve in Weierstrass form as $(0, 0)$ for efficiency. (Note that $\NeutralElt$ is always chosen to be the point-at-infinity, and in particular it has no "affine representation". Note further that $(0, 0)$ is not a point on our elliptic curve!) These issues are worth keeping in mind when examining the ECCVM.
+
+## Straus Algorithm for MSM
 
 Recall, our goal is to compute $$\displaystyle \sum_{i=0}^{m-1} s_i P_i,$$ where $s_i\in \fr$ and $P_i$ are points on BN-254, i.e., we want to evaluate a multi-scalar multiplication of length $m$. We set $w=4$, as this is our main use-case. (In the code, this is represented as `static constexpr size_t NUM_WNAF_DIGIT_BITS = 4;`.) We have seen about that, setting $P'_i:=\varphi(P_i) = \lambda P_i$, we may write $s_iP_i = z_{i, 1}P_i + z_{i, 2}P'_i$, where $z_{i,j}$ has no more than 128 bits. We therefore assume that our scalars have no greater than 128 bits.
 
-#### wNAF
+### wNAF
 
 The first thing to specify is our windowed non-adjacent form (wNAF). This is an optimization for computing scalar multiplication. Moreover, the fact that we are working with an elliptic curve in Weierstrauss form effectively halves the number of precomputes we need to perform.
 
-$\textcolor{orange}{\textsf{Warning}}$: our implementation is _not_ what is usually called wNAF. To avoid confusion, we simply avoid discussion on traditional (w)NAF.
+$\textcolor{orange}{\textbf{Warning}}$: our implementation is _not_ what is usually called wNAF. To avoid confusion, we simply avoid discussion on traditional (w)NAF.
 
 Here is the key mathematical claim: for a 128-bit positive number $s$, we can uniquely write:
 $$s = \sum_{j=0}^{31} a_j 2^{4j} + \text{skew},$$
@@ -139,20 +153,20 @@ The above decomposition is referred to in the code as the wNAF representation. E
 
 We will come shortly to the algorithm, but as for the motivation: in our implementation, the neutral point of the group (i.e., point-at-infinity) poses some technical challenges for us. $\textcolor{red}{\text{explain why?}}$ It is therefore advantageous to avoid having to extraneously perform operations involving this, especially when we are implementing the recursive ECCVM verifier.
 
-#### Straus
+### Straus
 
 Here is the problem: efficiently compute $$\displaystyle \sum_i s_i P_i,$$ where the $s_i$ are 128-bit numbers and $P_i$ are points in BN-254. (Recall that we reduce to the case of 128-bit scalars by decomposing, as explained above.)
 
 To do this, we break up our computation into steps.
 
-##### Precomputation
+#### Precomputation
 
 For each $s_i$, we expand it in wNAF form:$s_i = \sum_{j=0}^{31} a_{i, j} 2^{4j} + \text{skew}_i$.
 
 For every $P_i$, precompute and store the multiples: $$\{-15P_i, -13P_i, \ldots, 13P_i, 15P_i\}$$
 as well as $2P_i$. Note that, $E$ is represented in Weierstrauss form, $nP$ and $-nP$ have the same affine $y$-coordinate and the $x$-coordinates differ by a sign.
 
-##### Algorithm
+#### Algorithm
 
 There is one important static variable we require: `static constexpr size_t ADDITIONS_PER_ROW = 4;`. This says that we can do 4 primitive EC additions per "row" of the virtual machine. It is a happy convenience that `ADDITIONS_PER_ROW == NUM_WNAF_DIGIT_BITS`, i.e., that both are 4.
 
@@ -166,20 +180,22 @@ There is one important static variable we require: `static constexpr size_t ADDI
       1. Set $A\leftarrow A + \text{skew}_{4k, j}P_{4k} + \text{skew}_{4k+1, j}P_{4k+1} + \text{skew}_{4k+2, j}P_{4k+2} + \text{skew}_{4k+3, j}P_{4k+3}$, where the individual scalar multiples are _looked up_.
 4. Return $A$.
 
-### Tables
+We picture this algorithm as follows. We build a table, the $i^{\text{th}}$ row of which is the wNAF expansion of $s_i$. We work column by column (this is the $j$-loop); for every vertical chunk of 4 elements, we accumulate looked up values corresponding to the digit/base-point pair. (Looking forward, a "row" of the MSM table in the ECCVM can handle 4 such additions). We do this until we exhaust the column. We then multiply the accumulator by $16$ and go to the next column. Finally, at the end we handle the `skew` digit.
+
+## Tables
 
 We have three tables that mediate the computation. As explained above, all of the computations are easy except for scalar multiplications. We process the computation and chunk what looks like scalar multiplications into MSMs. Here is the brief outline.
 
 - `transcript_builder`. The transcript columns organize and process all of the computations _except for the scalar multiplications_. In particular, the Transcript Columns _do not bear witness_ to the intermediate computations necessary for MSMs. However, they still "access" the results of these computations.
-- `precomputed_tables_builder`. The precomputed columns are: for every $P$ that occurs in an MSM (which was syntactically pulled out by the `transcript_builder`)
-- `msm_builder` actually computes/constrains the MSMs.
+- `precomputed_tables_builder`. The precomputed columns are: for every $P$ that occurs in an MSM (which was syntactically pulled out by the `transcript_builder`), we compute/store $\{P, 3P, \ldots, 15P, 2P\}$.
+- `msm_builder` actually computes/constrains the MSMs via the Straus algorithm.
 
 A final note: apart from three Lagrange columns, all columns are either 1. part of the input trace; or 2. witness columns committed to by the Prover.
 
 In the following tables, each column has a defined "value range". If the range is not
 $\fq$, the column must be range constrained, either with an explicit range check or implicitly through range constraints placed on other columns that define relations over the target column.
 
-#### Transcript Columns
+### Transcript Columns
 
 | column name                                | builder name                    | value range        | computation                                                                                                                          | description                                                                                                                                                                                                        |
 | ------------------------------------------ | ------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -191,11 +207,11 @@ $\fq$, the column must be range constrained, either with an explicit range check
 | transcript_eq                              | q_eq                            | $\{0, 1\}$         |                                                                                                                                      | is opcode                                                                                                                                                                                                          |
 | transcript_reset_accumulator               | q_reset_accumulator             | $\{0, 1 \}$        |                                                                                                                                      | does opcode reset accumulator?                                                                                                                                                                                     |
 | transcript_msm_transition                  | msm_transition                  | $\{0, 1\}$         | `msm_transition = is_mul && next_not_msm && (state.count + num_muls > 0);`                                                           | are we at the end of an msm? i.e., is current transcript row the final `mul` opcode of a MSM                                                                                                                       |
-| transcript_pc                              | pc                              | $\mathbb{F}_q$     | `updated_state.pc = state.pc - num_muls;`                                                                                            | _decreasing_ program counter                                                                                                                                                                                       |
+| transcript_pc                              | pc                              | $\mathbb{F}_q$     | `updated_state.pc = state.pc - num_muls;`                                                                                            | _decreasing_ program counter. Only takes into count `mul` operations, not `add` operations.                                                                                                                        |
 | transcript_msm_count                       | msm_count                       | $\mathbb{F}_q$     | `updated_state.count = current_ongoing_msm ? state.count + num_muls : 0;`                                                            | Number of muls so far in the \*current\* MSM (NOT INCLUDING the current step)                                                                                                                                      |
-| transcript_msm_count_zero_at_transition    | msm_count_zero_at_transition    | $\{0, 1\}$         | `((state.count + num_muls) == 0) && entry.op_code.mul && next_not_msm;`                                                              | is the number of scalar muls we have completed at the end of our "MSM block" zero?                                                                                                                                 |
-| transcript_Px                              | base_x                          | $\mathbb{F}_q$     |                                                                                                                                      | (input trace) x-coordinate of base point $P$                                                                                                                                                                       |
-| transcript_Py                              | base_y                          | $\mathbb{F}_q$     |                                                                                                                                      | (input trace) y-coordinate of base point $P$                                                                                                                                                                       |
+| transcript_msm_count_zero_at_transition    | msm_count_zero_at_transition    | $\{0, 1\}$         | `((state.count + num_muls) == 0) && entry.op_code.mul && next_not_msm;`                                                              | is the number of scalar muls we have completed at the end of our "MSM block" zero? (note that from the definition, if this variable is non-zero, then `msm_transition == 0`.)                                      |
+| transcript_Px                              | base_x                          | $\mathbb{F}_q$     |                                                                                                                                      | (input trace) $x$-coordinate of base point $P$                                                                                                                                                                     |
+| transcript_Py                              | base_y                          | $\mathbb{F}_q$     |                                                                                                                                      | (input trace) $y$-coordinate of base point $P$                                                                                                                                                                     |
 | transcript_base_infinity                   | base_infinity                   | $\{0, 1\}$         |                                                                                                                                      | is $P=\NeutralElt$?                                                                                                                                                                                                |
 | transcript_z1                              | z1                              | $[0,2^{128})$      |                                                                                                                                      | (input trace) first part of decomposed scalar                                                                                                                                                                      |
 | transcript_z2                              | z2                              | $[0,2^{128})$      |                                                                                                                                      | (input trace) second part of decomposed scalar                                                                                                                                                                     |
@@ -209,7 +225,6 @@ $\fq$, the column must be range constrained, either with an explicit range check
 | transcript_msm_y                           | msm_output_y                    | $\in \mathbb{F}_q$ |                                                                                                                                      | if we are at the end of an MSM, (output of MSM) + `offset_generator()` = `(msm_output_x, msm_output_y)`, else 0                                                                                                    |
 | transcript_msm_intermediate_x              | transcript_msm_intermediate_x   | $\in \mathbb{F}_q$ |                                                                                                                                      | if we are at the end of an MSM, (output of MSM) = `(transcript_msm_intermediate_x, transcript_msm_intermediate_y)`, else 0                                                                                         |
 | transcript_msm_intermediate_y              | transcript_msm_intermediate_y   | $\in \mathbb{F}_q$ |                                                                                                                                      | if we are at the end of an MSM, (output of MSM) = `(transcript_msm_intermediate_x, transcript_msm_intermediate_y)`, else 0                                                                                         |
-| transcript_msm_intermediate_y              | transcript_msm_intermediate_y   | $\in \mathbb{F}_q$ |                                                                                                                                      | if we are at the end of an MSM, (output of MSM) = `(transcript_msm_intermediate_x, transcript_msm_intermediate_y)`, else 0                                                                                         |
 | transcript_add_x_equal                     | transcript_add_x_equal          | $\{0, 1\}$         | `(vm_x == accumulator_x) or (vm_infinity && accumulator_infinity);`                                                                  | do the accumulator and the point we are adding have the same $x$-value? (here, the two point we are adding is either part of an `add` instruction or the output of an MSM). 0 if we are not accumulating anything. |
 | transcript_add_y_equal                     | transcript_add_y_equal          | $\{0, 1\}$         | `(vm_y == accumulator_y) or (vm_infinity && accumulator_infinity);`                                                                  | do the accumulator and the point we are adding have the same $y$-value? 0 if we are not accumulating anything.                                                                                                     |
 | transcript_base_x_inverse                  | base_x_inverse                  | $\in \mathbb{F}_q$ |                                                                                                                                      | if adding a point to the accumulator and the $x$ values are not equal, the inverse of the difference of the $x$ values. (witnesses `transcript_add_x_equal == 0`                                                   |
@@ -218,7 +233,69 @@ $\fq$, the column must be range constrained, either with an explicit range check
 | transcript_msm_x_inverse                   | transcript_msm_x_inverse        | $\in \mathbb{F}_q$ |                                                                                                                                      | used to validate transcript_msm_infinity correct $\textcolor{red}{\text{TODO:??}}$                                                                                                                                 |
 | transcript_msm_count_at_transition_inverse | msm_count_at_transition_inverse | $\in \mathbb{F}_q$ |                                                                                                                                      | used to validate transcript_msm_count_zero_at_transition                                                                                                                                                           |
 
-#### Precomputed Columns
+### Transcript description and algorithm
+
+In the above table, we have a reference what the transcript columns are. Here, we provide a natural-language summary of witness-generation, which in turn directly implies what the constraints should look like. Some of the apparent complexity comes from the fact that, for efficiency, we do operations in _projective coordinates_ and then normalize them all at the end. (This requires fewer field-inversions.)
+
+$\newcommand{\transcriptmsminfinity}{{\color{purple}\mathrm{transcript\_msm\_infinity}}}$
+$\newcommand{\transcriptaccumulatornotempty}{{\color{purple}\mathrm{transcript\_accumulator\_not\_empty}}}$
+$\newcommand{\transcriptadd}{{\color{purple}\mathrm{transcript\_add}}}$
+$\newcommand{\transcriptmul}{{\color{purple}\mathrm{transcript\_mul}}}$
+$\newcommand{\transcripteq}{{\color{purple}\mathrm{transcript\_eq}}}$
+$\newcommand{\transcriptresetaccumulator}{{\color{purple}\mathrm{transcript\_reset\_accumulator}}}$
+$\newcommand{\transcriptmsmtransition}{{\color{purple}\mathrm{transcript\_msm\_transition}}}$
+$\newcommand{\transcriptpc}{{\mathrm{transcript\_pc}}}$
+$\newcommand{\transcriptmsmcount}{{\mathrm{transcript\_msm\_count}}}$
+$\newcommand{\transcriptmsmcountzeroattransition}{{\color{purple}\mathrm{transcript\_msm\_count\_zero\_at\_transition}}}$
+$\newcommand{\transcriptpx}{{\mathrm{transcript\_Px}}}$
+$\newcommand{\transcriptpy}{{\mathrm{transcript\_Py}}}$
+$\newcommand{\transcriptbaseinfinity}{{\color{purple}\mathrm{transcript\_base\_infinity}}}$
+$\newcommand{\transcriptzone}{{\mathrm{transcript\_z1}}}$
+$\newcommand{\transcriptztwo}{{\mathrm{transcript\_z2}}}$
+$\newcommand{\transcriptzonezero}{{\color{purple}\mathrm{transcript\_z1zero}}}$
+$\newcommand{\transcriptztwozero}{{\color{purple}\mathrm{transcript\_z2zero}}}$
+$\newcommand{\transcriptop}{{\mathrm{transcript\_op}}}$
+$\newcommand{\transcriptaccumulatorx}{{\mathrm{transcript\_accumulator\_x}}}$
+$\newcommand{\transcriptaccumulatory}{{\mathrm{transcript\_accumulator\_y}}}$
+$\newcommand{\transcriptmsmx}{{\mathrm{transcript\_msm\_x}}}$
+$\newcommand{\transcriptmsmy}{{\mathrm{transcript\_msm\_y}}}$
+$\newcommand{\transcriptmsmintermediatex}{{\mathrm{transcript\_msm\_intermediate\_x}}}$
+$\newcommand{\transcriptmsmintermediatey}{{\mathrm{transcript\_msm\_intermediate\_y}}}$
+$\newcommand{\transcriptaddxequal}{{\color{purple}\mathrm{transcript\_add\_x\_equal}}}$
+$\newcommand{\transcriptaddyequal}{{\color{purple}\mathrm{transcript\_add\_y\_equal}}}$
+$\newcommand{\transcriptbasexinverse}{{\mathrm{transcript\_base\_x\_inverse}}}$
+$\newcommand{\transcriptbaseyinverse}{{\mathrm{transcript\_base\_y\_inverse}}}$
+$\newcommand{\transcriptaddlambda}{{\mathrm{transcript\_add\_lambda}}}$
+$\newcommand{\transcriptmsmxinverse}{{\mathrm{transcript\_msm\_x\_inverse}}}$
+$\newcommand{\transcriptmsmcountattransitioninverse}{{\mathrm{transcript\_msm\_count\_at\_transition\_inverse}}}$
+
+We start our top row with $\transcriptmsmcount = 0$ and $\transcriptaccumulatornotempty = 0$. This corresponds to saying "there are no active multiplications in our MSM" and "the accumulator is $\NeutralElt$".
+
+We process each `op`.
+
+If the `op` is an `add`, we process the addition as follows. We have an accumulated value $A$ and a point $P$ to add. If $\transcriptbaseinfinity = 1$, we don't need to do anything: $P=\NeutralElt$. Similarly, if $\transcriptaccumulatornotempty = 0$, then we just (potentially) need to change $\transcriptaccumulatornotempty$, $\transcriptaccumulatorx$ and $\transcriptaccumulatory$. Otherwise, we need to check $\transcriptaddxequal$: the formula for point addition requires dividing by $\Delta x$, and in particular is not well-constrained either when adding points that are negative of each other or adding the same point to itself. (These two cases may be easily distinguished by examining $\transcriptaddyequal$). If we are _not_ in this case, we need the help of of $\transcriptaddlambda$, which is the slope between the points $P$ and $A$. (This slope will happily not be $\infty$, as we have ruled out the only occasions it had to be.)
+
+The value $A\leftarrow A + P$ will of course involve different $\transcriptaccumulatorx$ and $\transcriptaccumulatory$, but may also cause $\transcriptaccumulatornotempty$ to flip.
+
+We emphasize: we _do not_ modify $\transcriptpc$ in this case. Indeed, that variable is only modified based on the number of small scalar `mul`s we are doing.
+
+If the `op` is `eq`, we process the op as follows. We have an accumulated value $A$ and a point $P$. Due to our non-uniform representation of $\NeutralElt$, we must break up into cases.
+
+- Both are $\NeutralElt$ (i.e., $\transcriptaccumulatornotempty = 0$ and $\transcriptbaseinfinity=1$). Then accept!
+- Neither is equal to $\NeutralElt$. Then we linearly compare $\transcriptaccumulatorx-\transcriptpx$ and $\transcriptaccumulatory-\transcriptpy$ and accept if both are $0$.
+- Exactly one is equal to $\NeutralElt$. Then reject!
+
+If our `op` is `eq_reset`, we do the same as for `eq`, but we also set $\transcriptaccumulatornotempty\leftarrow 0$.
+
+If our `op` is a `mul`, with scalars `z1` and `z2`, the situation is more complicated. Now we have to update auxiliary wires. As explained, _every_ `mul` operation is understood to be part of an MSM.
+
+- $\transcriptmsmcount$ counts the number of active short-scalar multiplications _up to and not including_ the current `mul` op. The value of this column at the _next_ row increments by $2 - \transcriptzonezero - \transcriptztwozero$.
+- In other words, we simply avoid computations if $\transcriptzonezero = 1$ and/or $\transcriptztwozero = 1$.
+- Similarly, $\transcriptpc$ _decrements_ by $2 - \transcriptzonezero - \transcriptztwozero$. We use a decreasing program counter (only counting short `mul`s) for efficiency reasons, as it allows for cheaper commitments.
+- If the next `op` is not a `mul`, and the total number of active `mul` operations (which is $\transcriptmsmcount + (2 - \transcriptzonezero - \transcriptztwozero)$) is non-zero, set the $\transcriptmsmtransition = 1$. Else, set $\transcriptmsmcountzeroattransition = 1$. Either way, the current `mul` then represents the end of an MSM. This is where $\transcriptmsmcountattransitioninverse$ is used.
+- If $\transcriptmsmtransition = 0$, then $\transcriptmsmx$, $\transcriptmsmy$, $\transcriptmsmintermediatex$, and $\transcriptmsmintermediatey$ are all $0$. Otherwise, we call $\transcriptmsmx$ and $\transcriptmsmy$ from the multiset argument, i.e., from the MSM table as follows: $\textcolor{red}{\text{TODO}}$: check this. Then the values of $\transcriptmsmintermediatex$ and $\transcriptmsmintermediatey$ are obtained by subtracting off the `OFFSET`.
+
+### Precomputed Columns
 
 As the set of precomputed columns is smaller, we include the code snippet.
 
@@ -245,7 +322,7 @@ As the set of precomputed columns is smaller, we include the code snippet.
 
 ```
 
-As discussed ($\textcolor{red}{\text{TODO}}$(RAJU): ADD HYPERLINK), our scalars have 128 bits and we may expand them in $w=4$ wNAF:
+As discussed in [Decomposing Scalars](#decomposing-scalars), our scalars have 128 bits and we may expand them in $w=4$ [wNAF](#wnaf):
 
 $$s = \sum_{j=0}^{31} a_j 2^{4j} + \text{skew},$$
 where
@@ -276,7 +353,7 @@ The following is one row in the Precomputed table; there are `NUM_WNAF_DIGITS_PE
 | precompute_tx, precompute_ty | precompute_accumulator | $E(\fq)\subset \fq\times \fq$ | | $(15-2i)P$ |
 | precompute_dx, precompute_dy | precompute_double | $E(\fq)\subset \fq\times \fq$ | | $2P$ |
 
-#### MSM columns
+### MSM columns
 
 This table is the most complicated and responsible for the efficiently handling of MSMs.
 
@@ -353,64 +430,3 @@ struct alignas(64) MSMRow {
 | msm_collision_x4  | add_state[3].collision_inverse | $\mathbb{F}_q$ |                                      | if add_state[3].add == 1, the difference of the $x$ values of the accumulator and the point being added.                                                                                 |
 | msm_accumulator_x | accumulator_x                  | $\mathbb{F}_q$ |                                      | (accumulator_x, accumulator_y) = $A$ is the accumulated point                                                                                                                            |
 | msm_accumulator_y | accumulator_y                  | $\mathbb{F}_q$ |                                      | (accumulator_x, accumulator_y) = $A$ is the accumulated point                                                                                                                            |
-
-## Multiset Equality Checks
-
-As explained, the multiset equality checks allow us to check compatibility between the different tables.
-
-## Relations
-
-We explain first the relations that must be satisfied _inside_ each table, and then the relations that must be satisfied _between_ tables. We will finally specify lookups.
-
-### Inside Transcript Columns
-
-For convenience, here are the column names. The purple names are those constrained to be boolean.
-
-- $\textcolor{purple}{\text{transcript\_msm\_infinity}}$
-- $\textcolor{purple}{\text{transcript\_accumulator\_not\_empty}}$
-- $\textcolor{purple}{\text{transcript\_add}}$
-  - $\textcolor{purple}{\text{transcript\_add}}()$ blah
-  - REPEAT: check `op` is valid
-- $\textcolor{purple}{\text{transcript\_mul}}$
-  - REPEAT: check `op` is valid
-- $\textcolor{purple}{\text{transcript\_eq}}$
-  - REPEAT: check `op` is valid
-- $\textcolor{purple}{\text{transcript\_reset\_accumulator}}$
-  - REPEAT: check `op` is valid
-- $\textcolor{purple}{\text{transcript\_msm\_transition}}$
-- $\text{transcript\_pc}$
-  - Decrement `transcript_pc` correctly (via `z1zero` and `z2zero`):
-    $$\text{transcript\_pc} - \textbf{shift}(\text{transcript\_pc}) = 2 - \textcolor{purple}{\text{transcript\_z1zero}} - \textcolor{purple}{\text{transcript\_z2zero}}$$
-- $\text{transcript\_msm\_count}$
-- $\textcolor{purple}{\text{transcript\_msm\_count\_zero\_at\_transition}}$
-- $\text{transcript\_Px}$
-- $\text{transcript\_Py}$
-- $\textcolor{purple}{\text{transcript\_base\_infinity}}$
-- $\text{transcript\_z1}$
-  - check (weak) compatibility of `z1zero` and `z1`:
-    $$\textcolor{purple}{\text{transcript\_z1zero}} \times \text{transcript\_z1} == 0$$
-- $\text{transcript\_z2}$
-  - check (weak) compatibility of `z2zero` and `z2`:
-    $$\textcolor{purple}{\text{transcript\_z2zero}} \times \text{transcript\_z2} == 0$$
-- $\textcolor{purple}{\text{transcript\_z1zero}}$
-  - REPEAT: check (weak) compatibility of `z1zero` and `z1`
-  - REPEAT: Decrement `transcript_pc` correctly (via `z1zero` and `z2zero`)
-- $\textcolor{purple}{\text{transcript\_z2zero}}$
-  - REPEAT: check (weak) compatibility of `z2zero` and `z2`
-  - REPEAT: Decrement `transcript_pc` correctly (via `z1zero` and `z2zero`)
-- $\text{transcript\_op}$
-  - check `op` is valid:
-    $$\text{transcript\_op} = \textcolor{purple}{\text{transcript\_reset\_accumulator}} + 2 \textcolor{purple}{\text{transcript\_eq}} + 4\textcolor{purple}{\text{transcript\_add}} + 8 \textcolor{purple}{\text{transcript\_mul}}$$
-- $\text{transcript\_accumulator\_x}$
-- $\text{transcript\_accumulator\_y}$
-- $\text{transcript\_msm\_x}$
-- $\text{transcript\_msm\_y}$
-- $\text{transcript\_msm\_intermediate\_x}$
-- $\text{transcript\_msm\_intermediate\_y}$
-- $\textcolor{purple}{\text{transcript\_add\_x\_equal}}$
-- $\textcolor{purple}{\text{transcript\_add\_y\_equal}}$
-- $\text{transcript\_base\_x\_inverse}$
-- $\text{transcript\_base\_y\_inverse}$
-- $\text{transcript\_add\_lambda}$
-- $\text{transcript\_msm\_x\_inverse}$
-- $\text{transcript\_msm\_count\_at\_transition\_inverse}$
