@@ -52,14 +52,14 @@ Aztec uses account abstraction, which means:
 
 - All accounts are smart contracts (no EOAs)
 - Account signature schemes are private
-- Accounts only need deployment if they interact with public components
-- Private contract interactions don't require account deployment
+- Accounts only need to be published if they interact with public components
+- Private contract interactions don't require account publication
 
 0. Set some variables that we need:
 
 ```bash
 export NODE_URL=https://aztec-alpha-testnet-fullnode.zkv.xyz
-export SPONSORED_FPC_ADDRESS=0x1260a43ecf03e985727affbbe3e483e60b836ea821b6305bea1c53398b986047
+export SPONSORED_FPC_ADDRESS=0x19b5539ca1b104d4c3705de94e4555c9630def411f025e023a13189d0c56f8f2
 ```
 
 1. Create a new account:
