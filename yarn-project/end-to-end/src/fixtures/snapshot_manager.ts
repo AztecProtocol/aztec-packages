@@ -26,7 +26,6 @@ import {
   createExtendedL1Client,
   deployMulticall3,
   getL1ContractsConfigEnvVars,
-  getPublicClient,
 } from '@aztec/ethereum';
 import { EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
 import { asyncMap } from '@aztec/foundation/async-map';
