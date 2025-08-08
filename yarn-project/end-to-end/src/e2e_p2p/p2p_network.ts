@@ -14,6 +14,7 @@ import {
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
 import { ChainMonitor } from '@aztec/ethereum/test';
+import { SecretValue } from '@aztec/foundation/config';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RollupAbi, SlashFactoryAbi, SlasherAbi, SlashingProposerAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
@@ -207,7 +208,7 @@ export class P2PNetworkTest {
       validators.push({
         attester: EthAddress.fromString(attester.address),
         withdrawer: EthAddress.fromString(attester.address),
-        bn254SecretKey: Fr.random().toBigInt(),
+        bn254SecretKey: new SecretValue(Fr.random().toBigInt()),
       });
 
       this.logger.info(`Adding attester ${attester.address} as validator`);
@@ -265,7 +266,7 @@ export class P2PNetworkTest {
         const gseContract = new GSEContract(deployL1ContractsValues.l1Client, gseAddress.toString());
 
         const makeValidatorTuples = async (validator: Operator) => {
-          const registrationTuple = await gseContract.makeRegistrationTuple(validator.bn254SecretKey);
+          const registrationTuple = await gseContract.makeRegistrationTuple(validator.bn254SecretKey.getValue());
           return {
             attester: validator.attester.toString() as `0x${string}`,
             withdrawer: validator.withdrawer.toString() as `0x${string}`,

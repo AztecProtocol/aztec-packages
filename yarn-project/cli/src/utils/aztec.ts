@@ -12,6 +12,7 @@ import {
   type Operator,
   RollupContract,
 } from '@aztec/ethereum';
+import { SecretValue } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/fields';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import type { NoirPackageConfig } from '@aztec/foundation/noir';
@@ -124,7 +125,7 @@ export async function deployNewRollupContracts(
         attester: amin,
         withdrawer: amin,
         // No secrets here. The actual keys are not currently used.
-        bn254SecretKey: Fr.fromHexString(aminAddressString).toBigInt(),
+        bn254SecretKey: new SecretValue(Fr.fromHexString(aminAddressString).toBigInt()),
       },
     ];
     logger.info('Initializing new rollup with old attesters', { initialValidators });
