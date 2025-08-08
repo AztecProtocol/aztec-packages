@@ -109,10 +109,7 @@ export class SequencerPublisher {
   public epochCache: EpochCache;
 
   protected governanceLog = createLogger('sequencer:publisher:governance');
-  private governancePayload: EthAddress = EthAddress.ZERO;
-
   protected slashingLog = createLogger('sequencer:publisher:slashing');
-  protected slashingProposerAddress?: EthAddress;
 
   private myLastSignals: Record<SignalType, bigint> = {
     [SignalType.GOVERNANCE]: 0n,
@@ -154,6 +151,7 @@ export class SequencerPublisher {
       slashFactoryContract: SlashFactoryContract;
       epochCache: EpochCache;
       dateProvider: DateProvider;
+      metrics: SequencerPublisherMetrics;
     },
   ) {
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
@@ -163,7 +161,7 @@ export class SequencerPublisher {
       deps.blobSinkClient ?? createBlobSinkClient(config, { logger: createLogger('sequencer:blob-sink:client') });
 
     const telemetry = deps.telemetry ?? getTelemetryClient();
-    this.metrics = new SequencerPublisherMetrics(telemetry, 'SequencerPublisher');
+    this.metrics = deps.metrics ?? new SequencerPublisherMetrics(telemetry, 'SequencerPublisher');
     this.l1TxUtils = deps.l1TxUtils;
 
     this.rollupContract = deps.rollupContract;
@@ -184,15 +182,7 @@ export class SequencerPublisher {
   }
 
   public getSenderAddress() {
-    return EthAddress.fromString(this.l1TxUtils.getSenderAddress());
-  }
-
-  public getGovernancePayload() {
-    return this.governancePayload;
-  }
-
-  public setGovernancePayload(payload: EthAddress) {
-    this.governancePayload = payload;
+    return this.l1TxUtils.getSenderAddress();
   }
 
   public addRequest(request: RequestWithExpiry) {
@@ -283,7 +273,10 @@ export class SequencerPublisher {
       return undefined;
     } finally {
       try {
-        this.metrics.recordSenderBalance(await this.l1TxUtils.getSenderBalance(), this.l1TxUtils.getSenderAddress());
+        this.metrics.recordSenderBalance(
+          await this.l1TxUtils.getSenderBalance(),
+          this.l1TxUtils.getSenderAddress().toString(),
+        );
       } catch (err) {
         this.log.warn(`Failed to record balance after sending tx: ${err}`);
       }
@@ -364,6 +357,7 @@ export class SequencerPublisher {
 
     // use sender balance to simulate
     const balance = await this.l1TxUtils.getSenderBalance();
+    this.log.debug(`Simulating validateHeader with balance: ${balance}`);
     await this.l1TxUtils.simulate(
       {
         to: this.rollupContract.address,
@@ -376,6 +370,7 @@ export class SequencerPublisher {
         ...(await this.rollupContract.makePendingBlockNumberOverride(opts?.forcePendingBlockNumber)),
       ],
     );
+    this.log.debug(`Simulated validateHeader`);
   }
 
   /**
@@ -623,6 +618,7 @@ export class SequencerPublisher {
    * @returns True if the signal was successfully enqueued, false otherwise.
    */
   public enqueueGovernanceCastSignal(
+    governancePayload: EthAddress,
     slotNumber: bigint,
     timestamp: bigint,
     signerAddress: EthAddress,
@@ -632,7 +628,7 @@ export class SequencerPublisher {
       slotNumber,
       timestamp,
       SignalType.GOVERNANCE,
-      this.governancePayload,
+      governancePayload,
       this.govProposerContract,
       signerAddress,
       signer,
@@ -910,15 +906,12 @@ export class SequencerPublisher {
     timestamp: bigint,
     options: { forcePendingBlockNumber?: number },
   ) {
-    if (!this.l1TxUtils.client.account) {
-      throw new Error('L1 TX utils needs to be initialized with an account wallet.');
-    }
     const kzg = Blob.getViemKzgInstance();
     const blobInput = Blob.getPrefixedEthBlobCommitments(encodedData.blobs);
     this.log.debug('Validating blob input', { blobInput });
     const blobEvaluationGas = await this.l1TxUtils
       .estimateGas(
-        this.l1TxUtils.client.account,
+        this.getSenderAddress().toString(),
         {
           to: this.rollupContract.address,
           data: encodeFunctionData({

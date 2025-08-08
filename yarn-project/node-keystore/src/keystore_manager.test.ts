@@ -1,6 +1,7 @@
 /**
  * Tests for KeystoreManager
  */
+import { getAddressFromPrivateKey } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
@@ -860,7 +861,9 @@ describe('KeystoreManager', () => {
       const manager = new KeystoreManager(keystore);
       const signers = manager.createProverSigners();
 
-      expect(signers).toHaveLength(1);
+      expect(signers).toBeDefined();
+      expect(signers!.signers).toHaveLength(1);
+      expect(signers!.id).toBeUndefined();
     });
 
     it('should return raw slasher config via getter', () => {
@@ -899,6 +902,31 @@ describe('KeystoreManager', () => {
       expect(prover).toBeDefined();
       expect(typeof prover).toBe('object');
       expect((prover as any).id).toBe('0x1234567890123456789012345678901234567890');
+    });
+
+    it('should return prover signers via getter', () => {
+      const keystore: KeyStore = {
+        schemaVersion: 1,
+        prover: {
+          id: '0x1234567890123456789012345678901234567890' as any,
+          publisher: ['0x1234567890123456789012345678901234567890123456789012345678901234' as any],
+        },
+      };
+
+      const manager = new KeystoreManager(keystore);
+      const proverSigners = manager.createProverSigners();
+      expect(proverSigners).toBeDefined();
+      expect(Array.isArray(proverSigners!.signers)).toBe(true);
+      expect(proverSigners!.signers.length).toBe(1);
+      expect(proverSigners!.id).toBeDefined();
+      expect(proverSigners!.id!.toChecksumString()).toBe(
+        EthAddress.fromString('0x1234567890123456789012345678901234567890').toChecksumString(),
+      );
+
+      const expectedAddress = getAddressFromPrivateKey(
+        '0x1234567890123456789012345678901234567890123456789012345678901234',
+      );
+      expect(proverSigners!.signers[0].address.toChecksumString()).toBe(expectedAddress);
     });
   });
 

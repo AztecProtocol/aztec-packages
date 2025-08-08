@@ -14,7 +14,7 @@ import {
 } from 'viem';
 
 import type { L1ContractAddresses } from '../l1_contract_addresses.js';
-import { L1TxUtils } from '../l1_tx_utils.js';
+import { createL1TxUtilsFromViemWallet } from '../l1_tx_utils.js';
 import { type ExtendedViemWalletClient, type ViemClient, isExtendedClient } from '../types.js';
 
 export type L1GovernanceContractAddresses = Pick<
@@ -184,7 +184,7 @@ export class GovernanceContract extends ReadOnlyGovernanceContract {
     retries: number;
     logger: Logger;
   }) {
-    const l1TxUtils = new L1TxUtils(this.client, logger);
+    const l1TxUtils = createL1TxUtilsFromViemWallet(this.client, logger);
     const retryDelaySeconds = 12;
 
     voteAmount = voteAmount ?? (await this.getPower());
@@ -241,7 +241,7 @@ export class GovernanceContract extends ReadOnlyGovernanceContract {
     retries: number;
     logger: Logger;
   }) {
-    const l1TxUtils = new L1TxUtils(this.client, logger);
+    const l1TxUtils = createL1TxUtilsFromViemWallet(this.client, logger);
     const retryDelaySeconds = 12;
     let success = false;
     for (let i = 0; i < retries; i++) {

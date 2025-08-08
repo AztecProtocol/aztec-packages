@@ -25,16 +25,15 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
   if (options.sandbox) {
     const cliVersion = getCliVersion();
     const sandboxOptions = extractNamespacedOptions(options, 'sandbox');
-    const nodeOptions = extractNamespacedOptions(options, 'node');
     sandboxOptions.testAccounts = true;
     userLog(`${splash}\n${github}\n\n`);
     userLog(`Setting up Aztec Sandbox ${cliVersion}, please stand by...`);
 
     const { node, pxe, stop } = await createSandbox(
       {
-        l1Mnemonic: options.l1Mnemonic,
+        l1Mnemonic: sandboxOptions.l1Mnemonic,
         l1RpcUrls: options.l1RpcUrls,
-        l1Salt: nodeOptions.deployAztecContractsSalt,
+        deployAztecContractsSalt: sandboxOptions.deployAztecContractsSalt,
         noPXE: sandboxOptions.noPXE,
         testAccounts: sandboxOptions.testAccounts,
         realProofs: false,

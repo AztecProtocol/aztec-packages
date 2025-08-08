@@ -62,6 +62,7 @@
     ]
   },
   "dependencies": {
+    "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/stdlib": "workspace:^",
     "@ethersproject/wallet": "^5.7.0",
