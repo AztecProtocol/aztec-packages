@@ -1,4 +1,14 @@
-import { type AztecAddress, EthAddress, ProvenTx, Tx, TxReceipt, TxStatus, waitForProven } from '@aztec/aztec.js';
+import type { AztecNodeService } from '@aztec/aztec-node';
+import {
+  type AztecAddress,
+  EthAddress,
+  MerkleTreeId,
+  ProvenTx,
+  Tx,
+  TxReceipt,
+  TxStatus,
+  waitForProven,
+} from '@aztec/aztec.js';
 import { type ExtendedViemWalletClient, RollupContract } from '@aztec/ethereum';
 import { parseBooleanEnv } from '@aztec/foundation/config';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
@@ -128,6 +138,15 @@ describe('full_prover', () => {
       const epoch = await cheatCodes.rollup.getEpoch();
       logger.info(`Advancing from epoch ${epoch} to next epoch`);
       await cheatCodes.rollup.advanceToNextEpoch();
+
+      // Get the epoch info
+      const l2Tips = await t.aztecNode.getL2Tips();
+      const previousEpochLastBlock = l2Tips.proven.number;
+
+      const snapshot = (t.aztecNode as AztecNodeService)['worldStateSynchronizer'].getSnapshot(previousEpochLastBlock);
+      const archiveTreeInfo = await snapshot.getTreeInfo(MerkleTreeId.ARCHIVE);
+      const realArchive = `0x${archiveTreeInfo.root.toString('hex').replace('0x', '')}` as `0x${string}`;
+      await t.cheatCodes.rollup.markAsProven(previousEpochLastBlock, realArchive);
 
       const rewardsBeforeCoinbase = await rollup.getSequencerRewards(COINBASE_ADDRESS);
       const rewardsBeforeProver = await rollup.getSpecificProverRewardsForEpoch(epoch, t.proverAddress);

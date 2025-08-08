@@ -60,13 +60,20 @@ describe('smoke test', () => {
     const rollupContract = new RollupContract(publicClient, info.l1ContractAddresses.rollupAddress);
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const [pendingBlockNum, pendingArchive, provenBlockNum, provenArchive, myArchive, provenEpochNumber] =
-      await rollupContract.status(60n);
-    // console.log('pendingBlockNum', pendingBlockNum.toString());
-    // console.log('pendingArchive', pendingArchive.toString());
-    // console.log('provenBlockNum', provenBlockNum.toString());
+    const status = await rollupContract.status(60n);
+    // const {
+    //   pendingBlockNumber,
+    //   pendingHeaderHash,
+    //   provenBlockNumber,
+    //   provenArchive,
+    //   headerHashOfMyBlock,
+    //   provenEpochNumber,
+    // } = status;
+    // console.log('pendingBlockNumber', pendingBlockNumber.toString());
+    // console.log('pendingArchive', pendingHeaderHash.toString());
+    // console.log('provenBlockNum', provenBlockNumber.toString());
     // console.log('provenArchive', provenArchive.toString());
-    // console.log('myArchive', myArchive.toString());
+    // console.log('myArchive', headerHashOfMyBlock.toString());
     // console.log('provenEpochNumber', provenEpochNumber.toString());
   });
 });

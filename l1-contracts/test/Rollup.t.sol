@@ -235,9 +235,9 @@ contract RollupTest is RollupBase {
     vm.blobhashes(blobHashes);
     ProposeArgs memory args = ProposeArgs({
       header: data.header,
-      archive: data.archive,
       stateReference: EMPTY_STATE_REFERENCE,
-      oracleInput: OracleInput(0)
+      oracleInput: OracleInput(0),
+      parentHeaderHash: bytes32(0)
     });
     bytes32 realBlobHash = this.getBlobHashes(data.blobCommitments)[0];
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlobHash.selector, blobHashes[0], realBlobHash));
@@ -319,9 +319,9 @@ contract RollupTest is RollupBase {
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NonZeroDaFee.selector));
     ProposeArgs memory args = ProposeArgs({
       header: header,
-      archive: data.archive,
       stateReference: EMPTY_STATE_REFERENCE,
-      oracleInput: OracleInput(0)
+      oracleInput: OracleInput(0),
+      parentHeaderHash: bytes32(0)
     });
     rollup.propose(args, SignatureLib.packAttestations(attestations), signers, data.blobCommitments);
   }
@@ -345,9 +345,9 @@ contract RollupTest is RollupBase {
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidManaBaseFee.selector, expectedFee, 1));
     ProposeArgs memory args = ProposeArgs({
       header: header,
-      archive: data.archive,
       stateReference: EMPTY_STATE_REFERENCE,
-      oracleInput: OracleInput(0)
+      oracleInput: OracleInput(0),
+      parentHeaderHash: bytes32(0)
     });
     rollup.propose(args, SignatureLib.packAttestations(attestations), signers, data.blobCommitments);
   }
@@ -451,9 +451,9 @@ contract RollupTest is RollupBase {
       // Assert that balance have NOT been increased by proposing the block
       ProposeArgs memory args = ProposeArgs({
         header: header,
-        archive: data.archive,
         stateReference: EMPTY_STATE_REFERENCE,
-        oracleInput: OracleInput(0)
+        oracleInput: OracleInput(0),
+        parentHeaderHash: bytes32(0)
       });
       rollup.propose(args, SignatureLib.packAttestations(attestations), signers, data.blobCommitments);
       assertEq(testERC20.balanceOf(header.coinbase), 0, "invalid coinbase balance");
@@ -656,7 +656,6 @@ contract RollupTest is RollupBase {
   function testRevertInvalidTimestamp() public setUpFor("empty_block_1") {
     DecoderBase.Data memory data = load("empty_block_1").block;
     ProposedHeader memory header = data.header;
-    bytes32 archive = data.archive;
 
     Timestamp realTs = header.timestamp;
     Timestamp badTs = realTs + Timestamp.wrap(1);
@@ -670,9 +669,9 @@ contract RollupTest is RollupBase {
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidTimestamp.selector, realTs, badTs));
     ProposeArgs memory args = ProposeArgs({
       header: header,
-      archive: archive,
       stateReference: EMPTY_STATE_REFERENCE,
-      oracleInput: OracleInput(0)
+      oracleInput: OracleInput(0),
+      parentHeaderHash: bytes32(0)
     });
     rollup.propose(args, SignatureLib.packAttestations(attestations), signers, new bytes(144));
   }
@@ -680,7 +679,6 @@ contract RollupTest is RollupBase {
   function testRevertInvalidCoinbase() public setUpFor("empty_block_1") {
     DecoderBase.Data memory data = load("empty_block_1").block;
     ProposedHeader memory header = data.header;
-    bytes32 archive = data.archive;
 
     Timestamp realTs = header.timestamp;
 
@@ -693,9 +691,9 @@ contract RollupTest is RollupBase {
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidCoinbase.selector));
     ProposeArgs memory args = ProposeArgs({
       header: header,
-      archive: archive,
       stateReference: EMPTY_STATE_REFERENCE,
-      oracleInput: OracleInput(0)
+      oracleInput: OracleInput(0),
+      parentHeaderHash: bytes32(0)
     });
     rollup.propose(args, SignatureLib.packAttestations(attestations), signers, new bytes(144));
   }

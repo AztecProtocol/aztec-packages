@@ -367,7 +367,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   @trackSpan('p2pClient.broadcastProposal', async proposal => ({
     [Attributes.BLOCK_NUMBER]: proposal.blockNumber,
     [Attributes.SLOT_NUMBER]: proposal.slotNumber.toNumber(),
-    [Attributes.BLOCK_ARCHIVE]: proposal.archive.toString(),
+    [Attributes.BLOCK_HEADER_HASH]: proposal.payload.header.hash().toString(),
     [Attributes.P2P_ID]: (await proposal.p2pMessageIdentifier()).toString(),
   }))
   public broadcastProposal(proposal: BlockProposal): Promise<void> {

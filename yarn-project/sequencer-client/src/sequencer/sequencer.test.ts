@@ -95,7 +95,7 @@ describe('sequencer', () => {
   const createBlockProposal = () => {
     const consensusPayload = ConsensusPayload.fromBlock(block);
     const txHashes = block.body.txEffects.map(tx => tx.txHash);
-    return new BlockProposal(block.header.globalVariables.blockNumber, consensusPayload, mockedSig, txHashes);
+    return new BlockProposal(block.header.globalVariables.blockNumber, consensusPayload, mockedSig, Fr.ZERO, txHashes);
   };
 
   const processTxs = async (txs: Tx[]) => {
@@ -137,7 +137,7 @@ describe('sequencer', () => {
 
   const expectPublisherProposeL2Block = (txHashes: TxHash[]) => {
     expect(publisher.enqueueProposeL2Block).toHaveBeenCalledTimes(1);
-    expect(publisher.enqueueProposeL2Block).toHaveBeenCalledWith(block, getSignatures(), txHashes, {
+    expect(publisher.enqueueProposeL2Block).toHaveBeenCalledWith(block, new Fr(0n), getSignatures(), txHashes, {
       txTimeoutAt: expect.any(Date),
     });
   };
