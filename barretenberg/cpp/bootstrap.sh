@@ -238,12 +238,11 @@ function build_bench {
   set -eu
   if ! cache_download barretenberg-benchmarks-$hash.zst; then
     # Run builds in parallel with different targets per preset
-    # bb_cli_bench is later used in yarn-project.
     parallel --line-buffered denoise ::: \
-      "build_preset $native_preset --target ultra_honk_bench --target client_ivc_bench --target bb_cli_bench --target honk_solidity_proof_gen" \
-      "build_preset wasm-threads --target ultra_honk_bench --target client_ivc_bench --target bb_cli_bench"
+      "build_preset $native_preset --target ultra_honk_bench --target client_ivc_bench --target bb --target honk_solidity_proof_gen" \
+      "build_preset wasm-threads --target ultra_honk_bench --target client_ivc_bench --target bb"
     cache_upload barretenberg-benchmarks-$hash.zst \
-      {build,build-wasm-threads}/bin/{ultra_honk_bench,client_ivc_bench,bb_cli_bench}
+      {build,build-wasm-threads}/bin/{ultra_honk_bench,client_ivc_bench,bb}
   fi
 }
 
@@ -291,7 +290,7 @@ case "$cmd" in
   bench_ivc)
     # Intended only for dev usage. For CI usage, we run yarn-project/end-to-end/bootstrap.sh bench.
     # Sample usage (CI=1 required for bench results to be visible; exclude NO_WASM=1 to run wasm benchmarks):
-    # CI=1 NO_WASM=1 NATIVE_PRESET=op-count-time ./barretenberg/cpp/bootstrap.sh bench_ivc transfer_0_recursions+sponsored_fpc
+    # CI=1 NO_WASM=1 ./barretenberg/cpp/bootstrap.sh bench_ivc transfer_0_recursions+sponsored_fpc
     git fetch origin next
 
     flow_filter="${1:-}"               # optional string-match filter for flow names
@@ -299,10 +298,10 @@ case "$cmd" in
 
     # Build both native and wasm benchmark binaries
     builds=(
-      "build_preset $native_preset --target bb_cli_bench --target bb"
+      "build_preset $native_preset --target bb"
     )
     if [[ "${NO_WASM:-}" != "1" ]]; then
-      builds+=("build_preset wasm-threads --target bb_cli_bench")
+      builds+=("build_preset wasm-threads --target bb")
     fi
     parallel --line-buffered --tag -v denoise ::: "${builds[@]}"
 
