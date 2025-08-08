@@ -225,6 +225,94 @@ TEST(AvmSimulationAluTest, MulOverflowU128)
     EXPECT_THAT(events, ElementsAre(AluEvent{ .operation = AluOperation::MUL, .a = a, .b = b, .c = c }));
 }
 
+TEST(AvmSimulationAluTest, Div)
+{
+    EventEmitter<AluEvent> alu_event_emitter;
+    StrictMock<MockGreaterThan> gt;
+    StrictMock<MockFieldGreaterThan> field_gt;
+    StrictMock<MockRangeCheck> range_check;
+    Alu alu(gt, field_gt, range_check, alu_event_emitter);
+
+    auto a = MemoryValue::from<uint32_t>(6);
+    auto b = MemoryValue::from<uint32_t>(3);
+
+    EXPECT_CALL(gt, gt(b, MemoryValue::from<uint32_t>(0))).WillOnce(Return(true));
+
+    auto c = alu.div(a, b);
+
+    EXPECT_EQ(c, MemoryValue::from<uint32_t>(2));
+
+    auto events = alu_event_emitter.dump_events();
+    EXPECT_THAT(events, ElementsAre(AluEvent{ .operation = AluOperation::DIV, .a = a, .b = b, .c = c }));
+}
+
+TEST(AvmSimulationAluTest, DivU128)
+{
+    EventEmitter<AluEvent> alu_event_emitter;
+    StrictMock<MockGreaterThan> gt;
+    StrictMock<MockFieldGreaterThan> field_gt;
+    StrictMock<MockRangeCheck> range_check;
+    Alu alu(gt, field_gt, range_check, alu_event_emitter);
+
+    uint128_t max = static_cast<uint128_t>(get_tag_max_value(MemoryTag::U128));
+
+    auto a = MemoryValue::from<uint128_t>(max);
+    auto b = MemoryValue::from<uint128_t>(2);
+
+    EXPECT_CALL(gt, gt(b, MemoryValue::from<uint128_t>(1))).WillOnce(Return(true));
+
+    // For u128s, we range check c_lo, c_hi, b_lo, b_hi:
+    EXPECT_CALL(range_check, assert_range(_, 64)).Times(4);
+
+    auto c = alu.div(a, b);
+
+    EXPECT_EQ(c, MemoryValue::from<uint128_t>(max >> 1));
+
+    auto events = alu_event_emitter.dump_events();
+    EXPECT_THAT(events, ElementsAre(AluEvent{ .operation = AluOperation::DIV, .a = a, .b = b, .c = c }));
+}
+
+TEST(AvmSimulationAluTest, DivByZero)
+{
+    EventEmitter<AluEvent> alu_event_emitter;
+    StrictMock<MockGreaterThan> gt;
+    StrictMock<MockFieldGreaterThan> field_gt;
+    StrictMock<MockRangeCheck> range_check;
+    Alu alu(gt, field_gt, range_check, alu_event_emitter);
+
+    auto a = MemoryValue::from<uint32_t>(6);
+    auto b = MemoryValue::from<uint32_t>(0);
+
+    EXPECT_THROW(alu.div(a, b), AluException);
+
+    auto events = alu_event_emitter.dump_events();
+    EXPECT_THAT(
+        events,
+        ElementsAre(AluEvent{ .operation = AluOperation::DIV, .a = a, .b = b, .error = AluError::DIV_0_ERROR }));
+}
+
+TEST(AvmSimulationAluTest, DivFFTag)
+{
+    EventEmitter<AluEvent> alu_event_emitter;
+    StrictMock<MockGreaterThan> gt;
+    StrictMock<MockFieldGreaterThan> field_gt;
+    StrictMock<MockRangeCheck> range_check;
+    Alu alu(gt, field_gt, range_check, alu_event_emitter);
+
+    auto a = MemoryValue::from<FF>(2);
+    auto b = MemoryValue::from<FF>(2);
+
+    EXPECT_THROW(alu.div(a, b), AluException);
+
+    auto events = alu_event_emitter.dump_events();
+    EXPECT_THAT(events,
+                ElementsAre(AluEvent{ .operation = AluOperation::DIV,
+                                      .a = a,
+                                      .b = b,
+                                      .c = MemoryValue::from_tag(static_cast<MemoryTag>(0), 0),
+                                      .error = AluError::TAG_ERROR }));
+}
+
 TEST(AvmSimulationAluTest, LT)
 {
     EventEmitter<AluEvent> alu_event_emitter;
@@ -527,7 +615,7 @@ TEST(AvmSimulationAluTest, TruncateGreater128Bits)
     Alu alu(gt, field_gt, range_check, alu_event_emitter);
 
     FF a = (static_cast<uint256_t>(176) << 175) + (static_cast<uint256_t>(234) << 32) + 123456789;
-    U256Decomposition decomposition_a = { .lo = (uint128_t(234) << 32) + 123456789, .hi = 176 };
+    U256Decomposition decomposition_a = { .lo = (static_cast<uint128_t>(234) << 32) + 123456789, .hi = 176 };
 
     EXPECT_CALL(range_check, assert_range(234, 96)).Times(1);
     EXPECT_CALL(field_gt, canon_dec(a)).Times(1).WillOnce(Return(decomposition_a));
