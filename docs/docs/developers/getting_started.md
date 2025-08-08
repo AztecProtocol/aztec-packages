@@ -1,7 +1,7 @@
 ---
 title: Getting Started
 sidebar_position: 0
-tags: [sandbox. testnet]
+tags: [sandbox, testnet]
 ---
 
 import Tabs from '@theme/Tabs';
@@ -113,7 +113,7 @@ The `--payment` parameter specifies how to pay for the account deployment:
 
 The `--prover none` parameter is used to disable the prover. Generating proofs is not required for the sandbox.
 
-On successful depoyment of the account, you should see something like this:
+On successful deployment of the account, you should see something like this:
 
 ```bash
 New account:
@@ -220,7 +220,7 @@ Simulation result:  100n
 
 ## Playing with hybrid state and private functions
 
-In the following steps, we'll be moving some tokens from public to private state, and check our private and public balance.
+In the following steps, we'll move some tokens from public to private state, and check our private and public balance.
 
 Aztec supports hybrid state, where contracts can have both public state (visible to everyone) and private state (encrypted and only visible to authorized users). When you transfer tokens from public to private, you're moving them from the publicly visible balance to an encrypted private balance that only you can access. You can see how this works in the [token contract's transfer_to_private function](https://github.com/AztecProtocol/aztec-packages/blob/next/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr).
 
