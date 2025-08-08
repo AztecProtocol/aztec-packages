@@ -86,6 +86,7 @@ This creates a new project, skips running the sandbox (`-s`), and clones the con
 ```bash
 cd token_contract
 aztec-nargo compile
+aztec-compile-contract
 ```
 
 Great, our contract is ready to deploy with our TouchID wallet:

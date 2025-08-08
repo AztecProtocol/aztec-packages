@@ -23,6 +23,7 @@ Compile the contract:
 
 ```bash
 aztec-nargo compile
+aztec-compile-contract
 ```
 
 Generate the typescript class:

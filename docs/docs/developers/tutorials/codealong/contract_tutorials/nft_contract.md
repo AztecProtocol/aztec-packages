@@ -350,6 +350,7 @@ Run the following command in the directory where your `Nargo.toml` file is locat
 
 ```bash
 aztec-nargo compile
+aztec-compile-contract
 ```
 
 Once your contract is compiled, optionally generate a typescript interface with the following command:
