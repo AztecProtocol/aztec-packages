@@ -66,7 +66,6 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     return verify_proof(stdlib_proof, public_inputs_ct);
 }
 
-// TODO(#991): (see https://github.com/AztecProtocol/barretenberg/issues/991)
 // TODO(#14234)[Unconditional PIs validation]: rename stdlib_proof_with_pi_flag to stdlib_proof
 AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     const stdlib::Proof<Builder>& stdlib_proof_with_pi_flag, const std::vector<std::vector<FF>>& public_inputs)
