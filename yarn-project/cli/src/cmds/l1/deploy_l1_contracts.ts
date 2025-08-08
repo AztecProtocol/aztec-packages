@@ -1,6 +1,6 @@
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
-import type { EthAddress } from '@aztec/aztec.js';
-import { type Operator, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
+import { type EthAddress, Fr } from '@aztec/aztec.js';
+import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
@@ -33,7 +33,8 @@ export async function deployL1Contracts(
   const initialValidatorOperators = initialValidators.map(a => ({
     attester: a,
     withdrawer: a,
-  })) as Operator[];
+    bn254SecretKey: Fr.random().toBigInt(),
+  }));
 
   const { l1ContractAddresses } = await deployAztecContracts(
     rpcUrls,
