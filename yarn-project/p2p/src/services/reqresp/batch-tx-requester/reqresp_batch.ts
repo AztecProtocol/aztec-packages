@@ -2,6 +2,7 @@ import { chunk } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 import { Semaphore } from '@aztec/foundation/queue';
 import { sleep } from '@aztec/foundation/sleep';
+import { DateProvider } from '@aztec/foundation/timer';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import { type TxArray, TxHash } from '@aztec/stdlib/tx';
 
@@ -33,7 +34,8 @@ export class BatchTxRequester {
     private readonly timeoutMs: number,
     private readonly reqresp: ReqRespInterface,
     private readonly connectionSampler: ConnectionSampler,
-    private logger = createLogger('p2p:reqresp_batch'),
+    private readonly logger = createLogger('p2p:reqresp_batch'),
+    private readonly dateProvider: DateProvider = new DateProvider(),
   ) {
     this.txsMetadata = new MissingTxMetadataCollection(
       missingTxs.map(txHash => [txHash.toString(), new MissingTxMetadata(txHash)]),
@@ -46,7 +48,7 @@ export class BatchTxRequester {
       this.peers.markPeerInFlight(this.pinnedPeer);
     }
 
-    this.deadline = Date.now() + this.timeoutMs;
+    this.deadline = this.dateProvider.now() + this.timeoutMs;
   }
 
   public async run() {
@@ -108,7 +110,7 @@ export class BatchTxRequester {
     };
 
     const workers = Array.from(
-      { length: Math.min(DUMB_PEERS_TO_QUERY_IN_PARALLEL, this.peers.getAllPeers().size) },
+      { length: Math.min(SMART_PEERS_TO_QUERY_IN_PARALLEL, this.peers.getAllPeers().size) },
       () => this.workerLoop(nextPeer, makeRequest, 'smart'),
     );
 
@@ -135,7 +137,7 @@ export class BatchTxRequester {
         return undefined;
       }
 
-      const txs = txChunks()[idx].map(t => TxHash.fromString(t));
+      const txs = txsChunks[idx].map(t => TxHash.fromString(t));
       console.log(`Dumb batch index: ${idx}, batches count: ${txsChunks.length}`);
       txs.forEach(tx => this.txsMetadata.markRequested(tx));
       return { blockRequest: BlockTxsRequest.fromBlockProposalAndMissingTxs(this.blockProposal, txs), txs };
@@ -222,12 +224,15 @@ export class BatchTxRequester {
       console.log(`Peer ${peerId.toString()}\n${err}`);
       await this.handleFailResponseFromPeer(peerId, ReqRespStatus.UNKNOWN);
     } finally {
-      this.peers.unMarkPeerInFlight(peerId);
+      // Don't mark pinned peer as not in flight
+      if (!this.pinnedPeer?.equals(peerId)) {
+        this.peers.unMarkPeerInFlight(peerId);
+      }
     }
   }
 
   private handleSuccessResponseFromPeer(peerId: PeerId, response: BlockTxsResponse) {
-    this.peers.markPeerAsBad(peerId);
+    this.peers.unMarkPeerAsBad(peerId);
     this.logger.debug(`Received txs: ${response.txs.length} from peer ${peerId.toString()} `);
     this.handleReceivedTxs(peerId, response.txs);
 
@@ -320,6 +325,6 @@ export class BatchTxRequester {
 
   //TODO: abort signal here?
   private shouldStop() {
-    return this.txsMetadata.size === 0 || this.fetchedAllTxs() || Date.now() > this.deadline;
+    return this.txsMetadata.size === 0 || this.fetchedAllTxs() || this.dateProvider.now() > this.deadline;
   }
 }

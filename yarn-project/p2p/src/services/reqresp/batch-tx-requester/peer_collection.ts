@@ -1,6 +1,6 @@
 import type { PeerId } from '@libp2p/interface';
 
-const BADE_PEER_THRESHOLD = 3;
+const BAD_PEER_THRESHOLD = 3;
 
 export class PeerCollection {
   private readonly peers;
@@ -45,7 +45,7 @@ export class PeerCollection {
     return new Set(
       this.badPeers
         .entries()
-        .filter(([_k, v]) => v > BADE_PEER_THRESHOLD)
+        .filter(([_k, v]) => v > BAD_PEER_THRESHOLD)
         .map(([k]) => k),
     );
   }
