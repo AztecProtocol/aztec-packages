@@ -113,7 +113,7 @@ ClientIvcProve::Response ClientIvcProve::execute(BBApiRequest& request) &&
         throw_or_abort("Failed to verify the generated proof!");
     }
 
-    // request.ivc_in_progress.reset();
+    request.ivc_in_progress.reset();
     request.ivc_stack_depth = 0;
 
     Response response;
@@ -171,7 +171,7 @@ ClientIVC::VerificationKey compute_civc_vk(const BBApiRequest& request, size_t n
              std::make_shared<ClientIVC::TranslatorVerificationKey>() };
 }
 
-ClientIvcComputeStandaloneVk::Response ClientIvcComputeStandaloneVk::execute(BB_UNUSED const BBApiRequest& request) &&
+ClientIvcComputeStandaloneVk::Response ClientIvcComputeStandaloneVk::execute(const BBApiRequest& request) &&
 {
     info("ClientIvcComputeStandaloneVk - deriving VK for circuit '", circuit.name, "'");
 

@@ -73,25 +73,25 @@ std::vector<uint8_t> write_civc_vk(const std::string& output_format,
     }
     // compute the hiding kernel's vk
     auto response =
-        bbapi::ClientIvcComputeStandaloneVk{ .circuit{ .name = "standalone_circuit", .bytecode = bytecode } }.execute();
-    auto response_bytes = response.bytes;
-    auto response_fields = response.fields;
+        bbapi::ClientIvcComputeStandaloneVk{ .circuit{ .name = "standalone_circuit", .bytecode = bytecode } }.execute(
+            { .trace_settings = {} });
+    auto mega_vk = from_buffer<ClientIVC::MegaVerificationKey>(response.bytes);
     // now we generate the other elements in civc vk
     auto eccvm_vk = std::make_shared<ClientIVC::ECCVMVerificationKey>();
-    auto eccvm_vk_bytes = to_buffer(eccvm_vk);
     auto translator_vk = std::make_shared<ClientIVC::TranslatorVerificationKey>();
-    auto translatoir_vk_bytes = to_buffer(translator_vk);
-    auto all_vk_bytes = response_bytes;
-    all_vk_bytes.insert(all_vk_bytes.end(), eccvm_vk_bytes.begin(), eccvm_vk_bytes.end());
-    all_vk_bytes.insert(all_vk_bytes.end(), translatoir_vk_bytes.begin(), translatoir_vk_bytes.end());
+    ClientIVC::VerificationKey civc_vk{ .mega = std::make_shared<ClientIVC::MegaVerificationKey>(mega_vk),
+                                        .eccvm = std::make_shared<ClientIVC::ECCVMVerificationKey>(),
+                                        .translator = std::make_shared<ClientIVC::TranslatorVerificationKey>() };
+
+    auto civc_vk_bytes = to_buffer(civc_vk);
 
     const bool output_to_stdout = output_dir == "-";
     if (output_to_stdout) {
-        write_bytes_to_stdout(all_vk_bytes);
+        write_bytes_to_stdout(civc_vk_bytes);
     } else {
-        write_file(output_dir / "vk", all_vk_bytes);
+        write_file(output_dir / "vk", civc_vk_bytes);
     }
-    return all_vk_bytes;
+    return civc_vk_bytes;
 } // annonymus namespace
 
 } // namespace
@@ -124,8 +124,6 @@ void ClientIVCAPI::prove(const Flags& flags,
     bbapi::ClientIvcHidingKernel{ .witness = step.witness }.execute(request);
 
     auto proof = bbapi::ClientIvcProve{}.execute(request).proof;
-    auto expected_vk = request.ivc_in_progress->get_vk();
-    info("expected for hiding number of public inputs", expected_vk.mega->num_public_inputs);
 
     // We'd like to use the `write` function that UltraHonkAPI uses, but there are missing functions for creating
     // std::string representations of vks that don't feel worth implementing
@@ -148,10 +146,6 @@ void ClientIVCAPI::prove(const Flags& flags,
         vinfo("writing ClientIVC vk in directory ", output_dir);
         auto vk_buf = write_civc_vk("bytes", step.bytecode, output_dir);
         auto vk = from_buffer<ClientIVC::VerificationKey>(vk_buf);
-        info("number of public inputs in the hiding circuit vk:", vk.mega->num_public_inputs);
-        ASSERT(msgpack::msgpack_check_eq(*vk.mega, *expected_vk.mega, "mega doesn't match"));
-        ASSERT(msgpack::msgpack_check_eq(*vk.eccvm, *expected_vk.eccvm, "eccvm doesn't match"));
-        ASSERT(msgpack::msgpack_check_eq(*vk.translator, *expected_vk.translator, "translator doesn't match"));
     }
 }
 
