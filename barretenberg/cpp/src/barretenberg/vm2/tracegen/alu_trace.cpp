@@ -22,8 +22,9 @@ namespace {
 // TODO(MW): Rename to something useful! Helper fn to get operation specific values.
 std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEvent& event)
 {
-    bool is_ff = event.a.get_tag() == ValueTag::FF;
-    bool no_tag_err = !event.error.has_value() || event.error != simulation::AluError::TAG_ERROR;
+    bool is_ff = event.a.get_tag() == MemoryTag::FF;
+    bool is_u128 = event.a.get_tag() == MemoryTag::U128;
+    bool no_tag_err = event.error != simulation::AluError::TAG_ERROR;
     switch (event.operation) {
     case simulation::AluOperation::ADD:
         return { { Column::alu_sel_op_add, 1 },
@@ -36,7 +37,6 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
                  { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::SUB).subtrace_operation_id },
                  { Column::alu_cf, event.a.as_ff() - event.b.as_ff() != event.c.as_ff() } };
     case simulation::AluOperation::MUL: {
-        bool is_u128 = event.a.get_tag() == ValueTag::U128;
         uint256_t a_int = static_cast<uint256_t>(event.a.as_ff());
         uint256_t b_int = static_cast<uint256_t>(event.b.as_ff());
         // Columns shared for all tags in a MUL:
@@ -59,6 +59,7 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
             res.insert(res.end(),
                        {
                            { Column::alu_sel_mul_u128, 1 },
+                           { Column::alu_sel_mul_div_u128, 1 },
                            { Column::alu_a_lo, a_decomp.lo },
                            { Column::alu_a_hi, a_decomp.hi },
                            { Column::alu_b_lo, b_decomp.lo },
@@ -70,6 +71,43 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
             // For non-u128s, we just take the top bits of a*b:
             res.insert(res.end(),
                        { { Column::alu_c_hi, is_ff ? 0 : (a_int * b_int) >> get_tag_bits(event.a.get_tag()) } });
+        }
+        return res;
+    }
+    case simulation::AluOperation::DIV: {
+        bool div_0_error = event.error == simulation::AluError::DIV_0_ERROR;
+        auto remainder = no_tag_err ? event.a - event.b * event.c : MemoryValue::from_tag(event.a.get_tag(), 0);
+        // Columns shared for all tags in a DIV:
+        std::vector<std::pair<Column, FF>> res = {
+            { Column::alu_sel_op_div, 1 },
+            { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::DIV).subtrace_operation_id },
+            { Column::alu_helper1, remainder },
+            { Column::alu_constant_64, 64 },
+            { Column::alu_sel_is_ff, is_ff },
+            { Column::alu_tag_ff_diff_inv,
+              is_ff
+                  ? 0
+                  : (FF(static_cast<uint8_t>(event.a.get_tag())) - FF(static_cast<uint8_t>(MemoryTag::FF))).invert() },
+            { Column::alu_sel_is_u128, is_u128 },
+            { Column::alu_tag_u128_diff_inv,
+              is_u128 ? 0
+                      : (FF(static_cast<uint8_t>(event.a.get_tag())) - FF(static_cast<uint8_t>(MemoryTag::U128)))
+                            .invert() },
+            { Column::alu_b_inv, div_0_error ? 0 : event.b.as_ff().invert() },
+            { Column::alu_sel_div_no_0_err, div_0_error ? 0 : 1 },
+        };
+        if (is_u128) {
+            // For u128s, we decompose c and b into 64 bit chunks:
+            auto c_decomp = simulation::decompose(static_cast<uint128_t>(event.c.as_ff()));
+            auto b_decomp = simulation::decompose(static_cast<uint128_t>(event.b.as_ff()));
+            res.insert(res.end(),
+                       {
+                           { Column::alu_sel_mul_div_u128, 1 },
+                           { Column::alu_a_lo, c_decomp.lo },
+                           { Column::alu_a_hi, c_decomp.hi },
+                           { Column::alu_b_lo, b_decomp.lo },
+                           { Column::alu_b_hi, b_decomp.hi },
+                       });
         }
         return res;
     }
@@ -125,7 +163,7 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
     case simulation::AluOperation::TRUNCATE: {
         const uint256_t value = static_cast<uint256_t>(event.a.as_ff());
         const MemoryTag dst_tag = static_cast<MemoryTag>(static_cast<uint8_t>(event.b.as_ff()));
-        bool is_trivial = dst_tag == ValueTag::FF || value <= get_tag_max_value(dst_tag);
+        bool is_trivial = dst_tag == MemoryTag::FF || value <= get_tag_max_value(dst_tag);
         bool is_lt_128 = !is_trivial && value < (static_cast<uint256_t>(1) << 128);
         bool is_gte_128 = !is_trivial && !is_lt_128;
         const uint256_t lo_128 = is_trivial ? 0 : value & ((static_cast<uint256_t>(1) << 128) - 1);
@@ -151,6 +189,38 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
     }
 }
 
+std::vector<std::pair<Column, FF>> get_tag_error_columns(const simulation::AluEvent& event)
+{
+    const MemoryTag a_tag = event.a.get_tag();
+    const FF a_tag_ff = static_cast<FF>(static_cast<uint8_t>(a_tag));
+    const MemoryTag b_tag = event.b.get_tag();
+    const FF b_tag_ff = static_cast<FF>(static_cast<uint8_t>(b_tag));
+    // Tag errors currently have cases:
+    // 1. Input tagged as a field for NOT or DIV operations
+    // 2. Mismatched tags for inputs a and b for all opcodes apart from TRUNC
+
+    // Case 1:
+    bool ff_tag_err = (event.a.get_tag() == MemoryTag::FF) && (event.operation == simulation::AluOperation::NOT ||
+                                                               event.operation == simulation::AluOperation::DIV);
+    // Case 2:
+    bool ab_tags_mismatch = (a_tag_ff != b_tag_ff) && (event.operation != simulation::AluOperation::TRUNCATE);
+    // Note: both cases can occur at the same time. Case 1 only requires sel_tag_error to be on, so we
+    // check ab_tags_mismatch first:
+    if (ab_tags_mismatch) {
+        return { { Column::alu_sel_tag_err, 1 },
+                 { Column::alu_sel_ab_tag_mismatch, 1 },
+                 { Column::alu_ab_tags_diff_inv, (a_tag_ff - b_tag_ff).invert() } };
+    }
+    if (ff_tag_err) {
+        // Note: There is no 'alu_sel_ff_tag_err' because we can handle this with existing selectors:
+        // (sel_op_div + sel_op_not) * sel_is_ff
+        return { { Column::alu_sel_tag_err, 1 } };
+    }
+    // We shouldn't have emitted an event with a tag error when one doesn't exist:
+    assert(false && "ALU Event emitted with tag error, but none exists");
+    return {};
+}
+
 } // namespace
 
 void AluTraceBuilder::process(const simulation::EventEmitterInterface<simulation::AluEvent>::Container& events,
@@ -166,20 +236,19 @@ void AluTraceBuilder::process(const simulation::EventEmitterInterface<simulation
         const uint8_t a_tag_u8 = event.operation == simulation::AluOperation::TRUNCATE
                                      ? static_cast<uint8_t>(event.b.as_ff())
                                      : static_cast<uint8_t>(event.a.get_tag());
-        const FF a_tag = static_cast<FF>(a_tag_u8);
         const FF b_tag = static_cast<FF>(static_cast<uint8_t>(event.b.get_tag()));
         const FF c_tag = static_cast<FF>(static_cast<uint8_t>(event.c.get_tag()));
         bool tag_check_failed = event.error.has_value() && event.error == AluError::TAG_ERROR;
-        FF alu_ab_tags_diff_inv = 0;
-
         if (tag_check_failed) {
-            // Tag error for NOT means that the tag of a is FF.
-            if (event.operation != simulation::AluOperation::NOT) {
-                // We shouldn't have emitted an event with a tag error when one doesn't exist, currently (ADD, LT) the
-                // definition of a tag error is when there is a disallowed diff between tags:
-                assert((a_tag - b_tag) != 0 && "ALU Event emitted with tag error, but none exists");
-                alu_ab_tags_diff_inv = (a_tag - b_tag).invert();
-            }
+            // Tag error specific columns:
+            trace.set(row, get_tag_error_columns(event));
+        }
+        bool div_0_error = event.error.has_value() && event.error == AluError::DIV_0_ERROR;
+        if (div_0_error) {
+            // TODO(MW): Below needed?
+            // Should not emit a divide by 0 error if we are not in DIV or FDIV or have no 0 divisor:
+            assert((event.b.as_ff() == FF(0)) && (event.operation == simulation::AluOperation::DIV) &&
+                   "ALU Event emitted with divide by zero error, but none exists");
         }
 
         // Operation specific columns:
@@ -196,8 +265,8 @@ void AluTraceBuilder::process(const simulation::EventEmitterInterface<simulation
                       { C::alu_ic_tag, c_tag },
                       { C::alu_max_bits, get_tag_bits(static_cast<MemoryTag>(a_tag_u8)) },
                       { C::alu_max_value, get_tag_max_value(static_cast<MemoryTag>(a_tag_u8)) },
-                      { C::alu_sel_tag_err, tag_check_failed ? 1 : 0 },
-                      { C::alu_ab_tags_diff_inv, alu_ab_tags_diff_inv },
+                      { C::alu_sel_div_0_err, div_0_error ? 1 : 0 },
+                      { C::alu_sel_err, tag_check_failed || div_0_error ? 1 : 0 },
                   } });
 
         row++;
@@ -209,6 +278,7 @@ const InteractionDefinition AluTraceBuilder::interactions =
         .add<lookup_alu_tag_max_bits_value_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_alu_ff_gt_settings, InteractionType::LookupGeneric>()
         .add<lookup_alu_int_gt_settings, InteractionType::LookupGeneric>()
+        .add<lookup_alu_gt_div_remainder_settings, InteractionType::LookupGeneric>()
         .add<lookup_alu_range_check_mul_u128_a_lo_settings, InteractionType::LookupGeneric>()
         .add<lookup_alu_range_check_mul_u128_a_hi_settings, InteractionType::LookupGeneric>()
         .add<lookup_alu_range_check_mul_u128_b_lo_settings, InteractionType::LookupGeneric>()
