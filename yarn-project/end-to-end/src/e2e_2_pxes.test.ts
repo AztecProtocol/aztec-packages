@@ -66,7 +66,7 @@ describe('e2e_2_pxes', () => {
     const transferAmount1 = 654n;
     const transferAmount2 = 323n;
 
-    const token = await deployToken(walletA, initialBalance, logger);
+    const token = await deployToken(walletA, accountAAddress, initialBalance, logger);
 
     // Add token to PXE B (PXE A already has it because it was deployed through it)
     await pxeB.registerContract(token);
@@ -140,7 +140,7 @@ describe('e2e_2_pxes', () => {
     const userABalance = 100n;
     const userBBalance = 150n;
 
-    const token = await deployToken(walletA, userABalance, logger);
+    const token = await deployToken(walletA, accountAAddress, userABalance, logger);
 
     // Add token to PXE B (PXE A already has it because it was deployed through it)
     await pxeB.registerContract(token);
@@ -164,7 +164,7 @@ describe('e2e_2_pxes', () => {
     const initialBalance = 987n;
     const transferAmount1 = 654n;
 
-    const token = await deployToken(walletA, initialBalance, logger);
+    const token = await deployToken(walletA, accountAAddress, initialBalance, logger);
 
     // Check initial balances are as expected
     await expectTokenBalance(walletA, token, accountAAddress, initialBalance, logger);
@@ -205,7 +205,7 @@ describe('e2e_2_pxes', () => {
     await sharedWalletOnB.registerSender(sharedAccountAddress);
 
     // deploy the contract on PXE A
-    const token = await deployToken(walletA, initialBalance, logger);
+    const token = await deployToken(walletA, accountAAddress, initialBalance, logger);
 
     // Transfer funds from A to Shared Wallet via PXE A
     const contractWithWalletA = await TokenContract.at(token.address, walletA);

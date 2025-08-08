@@ -124,7 +124,7 @@ describe('e2e_sandbox_example', () => {
 
     const initialSupply = 1_000_000n;
 
-    const tokenContractAlice = await deployToken(aliceWallet, initialSupply, logger);
+    const tokenContractAlice = await deployToken(aliceWallet, alice, initialSupply, logger);
     // docs:end:Deployment
 
     // ensure that token contract is registered in PXE

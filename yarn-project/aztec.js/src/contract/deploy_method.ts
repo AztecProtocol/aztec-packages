@@ -148,7 +148,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * Adds this contract to the PXE and returns the Contract object.
    * @param options - Deployment options.
    */
-  public async register(options: DeployOptions): Promise<TContract> {
+  public async register(options: Omit<DeployOptions, 'from'> = {}): Promise<TContract> {
     const instance = await this.getInstance(options);
     await this.wallet.registerContract({ artifact: this.artifact, instance });
     return this.postDeployCtor(instance.address, this.wallet);

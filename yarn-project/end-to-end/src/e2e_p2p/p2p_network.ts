@@ -1,7 +1,7 @@
 import { getSchnorrWalletWithSecretKey } from '@aztec/accounts/schnorr';
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import { type AccountWalletWithSecretKey, EthAddress } from '@aztec/aztec.js';
+import { type AccountWalletWithSecretKey, AztecAddress, EthAddress } from '@aztec/aztec.js';
 import {
   type ExtendedViemWalletClient,
   L1TxUtils,
@@ -70,6 +70,7 @@ export class P2PNetworkTest {
   public prefilledPublicData: PublicDataTreeLeaf[] = [];
   // The re-execution test needs a wallet and a spam contract
   public wallet?: AccountWalletWithSecretKey;
+  public defaultAccountAddress?: AztecAddress;
   public spamContract?: SpamContract;
 
   public bootstrapNode?: BootstrapNode;
@@ -287,6 +288,7 @@ export class P2PNetworkTest {
         this.deployedAccounts = deployedAccounts;
         const [account] = deployedAccounts;
         this.wallet = await getSchnorrWalletWithSecretKey(pxe, account.secret, account.signingKey, account.salt);
+        this.defaultAccountAddress = this.wallet.getAddress();
       },
     );
   }
@@ -299,7 +301,9 @@ export class P2PNetworkTest {
           throw new Error('Call snapshot t.setupAccount before deploying account contract');
         }
 
-        const spamContract = await SpamContract.deploy(this.wallet).send().deployed();
+        const spamContract = await SpamContract.deploy(this.wallet)
+          .send({ from: this.defaultAccountAddress! })
+          .deployed();
         return { contractAddress: spamContract.address };
       },
       async ({ contractAddress }) => {

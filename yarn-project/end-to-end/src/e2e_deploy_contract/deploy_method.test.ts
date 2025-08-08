@@ -119,7 +119,7 @@ describe('e2e_deploy_contract deploy method', () => {
     logger.debug(`Initializing deploy method`);
     const deployMethod = StatefulTestContract.deploy(wallet, owner, 42);
     logger.debug(`Registering the not-yet-deployed contract to batch calls to`);
-    const contract = await deployMethod.register({ from: defaultAccountAddress });
+    const contract = await deployMethod.register();
 
     // Batch registration, deployment, and public call into same TX
     logger.debug(`Creating public calls to run in same batch as deployment`);
@@ -137,7 +137,7 @@ describe('e2e_deploy_contract deploy method', () => {
     logger.debug('Creating request/calls to register and deploy contract');
     const deployTx = new BatchCall(wallet, [deployMethod]);
     logger.debug('Registering the not-yet-deployed contract to batch calls to');
-    const contract = await deployMethod.register({ from: defaultAccountAddress });
+    const contract = await deployMethod.register();
 
     logger.debug('Creating public call to run in same block as deployment');
     const publicCall = contract.methods.increment_public_value(owner, 84);

@@ -1,6 +1,7 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import {
+  AztecAddress,
   type AztecNode,
   ContractDeployer,
   EthAddress,
@@ -35,6 +36,7 @@ describe('e2e_multi_validator_node', () => {
   let validatorAddresses: `0x${string}`[];
   let teardown: () => Promise<void>;
   let owner: Wallet;
+  let ownerAddress: AztecAddress;
   let aztecNode: AztecNode;
   let config: AztecNodeConfig;
   let logger: Logger;
@@ -67,6 +69,7 @@ describe('e2e_multi_validator_node', () => {
       teardown,
       logger,
       wallets: [owner],
+      accounts: [ownerAddress],
       aztecNode,
       config,
       deployL1ContractsValues,
@@ -107,10 +110,10 @@ describe('e2e_multi_validator_node', () => {
   it('should build blocks & attest with multiple validator keys', async () => {
     const deployer = new ContractDeployer(artifact, owner);
 
-    const ownerAddress = owner.getCompleteAddress().address;
     const sender = ownerAddress;
     logger.info(`Deploying contract from ${sender}`);
     const provenTx = await deployer.deploy(ownerAddress, sender, 1).prove({
+      from: ownerAddress,
       contractAddressSalt: new Fr(BigInt(1)),
       skipClassPublication: true,
       skipInstancePublication: true,
@@ -163,12 +166,12 @@ describe('e2e_multi_validator_node', () => {
     expect(committee?.length).toBe(COMMITTEE_SIZE);
 
     // new aztec transaction
-    const ownerAddress = owner.getCompleteAddress().address;
     const sender = ownerAddress;
 
     logger.info(`Deploying contract from ${sender}`);
     const deployer = new ContractDeployer(artifact, owner);
     const provenTx = await deployer.deploy(ownerAddress, sender, 1).prove({
+      from: ownerAddress,
       contractAddressSalt: new Fr(BigInt(1)),
       skipClassPublication: true,
       skipInstancePublication: true,

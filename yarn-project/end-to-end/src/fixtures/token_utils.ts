@@ -3,21 +3,20 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 // docs:start:token_utils
 
-export async function deployToken(adminWallet: Wallet, initialAdminBalance: bigint, logger: Logger) {
+export async function deployToken(
+  adminWallet: Wallet,
+  deployerAddress: AztecAddress,
+  initialAdminBalance: bigint,
+  logger: Logger,
+) {
   logger.info(`Deploying Token contract...`);
-  const contract = await TokenContract.deploy(adminWallet, adminWallet.getAddress(), 'TokenName', 'TokenSymbol', 18)
-    .send({ from: adminWallet.getAddress() })
+  const contract = await TokenContract.deploy(adminWallet, deployerAddress, 'TokenName', 'TokenSymbol', 18)
+    .send({ from: deployerAddress })
     .deployed();
 
   if (initialAdminBalance > 0n) {
     // Minter is minting to herself so contract as minter is the same as contract as recipient
-    await mintTokensToPrivate(
-      contract,
-      adminWallet.getAddress(),
-      adminWallet,
-      adminWallet.getAddress(),
-      initialAdminBalance,
-    );
+    await mintTokensToPrivate(contract, deployerAddress, adminWallet, deployerAddress, initialAdminBalance);
   }
 
   logger.info('L2 contract deployed');
