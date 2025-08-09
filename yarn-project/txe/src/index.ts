@@ -1,19 +1,15 @@
 import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
-import {
-  AztecAddress,
-  type ContractInstanceWithAddress,
-  Fr,
-  type NoirCompiledContract,
-  PublicKeys,
-  deriveKeys,
-  getContractInstanceFromInstantiationParams,
-  loadContractArtifact,
-} from '@aztec/aztec.js';
+import { Fr } from '@aztec/foundation/fields';
 import { createSafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
 import type { Logger } from '@aztec/foundation/log';
 import { type ProtocolContract, protocolContractNames } from '@aztec/protocol-contracts';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
+import { loadContractArtifact } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { type ContractInstanceWithAddress, getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import { computeArtifactHash } from '@aztec/stdlib/contract';
+import { PublicKeys, deriveKeys } from '@aztec/stdlib/keys';
+import type { NoirCompiledContract } from '@aztec/stdlib/noir';
 import type { ApiSchemaFor, ZodFor } from '@aztec/stdlib/schemas';
 
 import { createHash } from 'crypto';

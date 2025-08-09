@@ -1,5 +1,6 @@
-import { type ContractArtifact, Fr } from '@aztec/aztec.js';
+import { Fr } from '@aztec/foundation/fields';
 import { ContractDataProvider } from '@aztec/pxe/server';
+import type { ContractArtifact } from '@aztec/stdlib/abi';
 
 export type ContractArtifactWithHash = ContractArtifact & { artifactHash: Fr };
 
