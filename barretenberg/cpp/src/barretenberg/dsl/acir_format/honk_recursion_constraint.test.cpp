@@ -108,7 +108,6 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
             .range_constraints = { range_a, range_b },
             .aes128_constraints = {},
             .sha256_compression = {},
-
             .ecdsa_k1_constraints = {},
             .ecdsa_r1_constraints = {},
             .blake2s_constraints = {},
@@ -120,9 +119,6 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
             .honk_recursion_constraints = {},
             .avm_recursion_constraints = {},
             .ivc_recursion_constraints = {},
-            .bigint_from_le_bytes_constraints = {},
-            .bigint_to_le_bytes_constraints = {},
-            .bigint_operations = {},
             .assert_equalities = {},
             .poly_triple_constraints = { expr_a, expr_b, expr_c, expr_d },
             .quad_constraints = {},
