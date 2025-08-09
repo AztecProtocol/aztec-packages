@@ -447,6 +447,7 @@ case "$cmd" in
     fi
     build
     release
+    docs/bootstrap.sh release-docs
     ;;
   "ci-docs")
     export CI=1
