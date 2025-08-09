@@ -51,7 +51,7 @@ import { TxEffect } from '../tx/tx_effect.js';
 import { TxHash } from '../tx/tx_hash.js';
 import { TxReceipt } from '../tx/tx_receipt.js';
 import type { TxValidationResult } from '../tx/validator/tx_validator.js';
-import type { ValidatorsStats } from '../validators/types.js';
+import type { SingleValidatorStats, ValidatorsStats } from '../validators/types.js';
 import { MAX_RPC_LEN } from './api_limit.js';
 import { type AztecNode, AztecNodeApiSchema } from './aztec-node.js';
 import type { SequencerConfig } from './configs.js';
@@ -367,6 +367,51 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toEqual(handler.validatorStats);
   });
 
+  it('getValidatorStats', async () => {
+      const validatorAddress = EthAddress.random();
+      handler.singleValidatorStats = {
+          validator: {
+              address: validatorAddress,
+              totalSlots: 5,
+              missedAttestations: { currentStreak: 0, count: 0 },
+              missedProposals: { currentStreak: 0, count: 0 },
+              history: [{ slot: 1n, status: 'block-mined' }],
+          },
+          provenPerformance: [],
+          lastProcessedSlot: 10n,
+          initialSlot: 1n,
+          slotWindow: 100,
+      };
+
+      const response = await context.client.getValidatorStats(validatorAddress.toString());
+      expect(response).toEqual(handler.singleValidatorStats);
+  });
+
+  it('getValidatorStats(non-existent)', async () => {
+      const response = await context.client.getValidatorStats(EthAddress.random().toString());
+      expect(response).toBeUndefined();
+  });
+
+  it('getValidatorStats(with-time-range)', async () => {
+      const validatorAddress = EthAddress.random();
+      handler.singleValidatorStats = {
+          validator: {
+              address: validatorAddress,
+              totalSlots: 3,
+              missedAttestations: { currentStreak: 0, count: 0 },
+              missedProposals: { currentStreak: 0, count: 0 },
+              history: [{ slot: 5n, status: 'attestation-sent' }],
+          },
+          provenPerformance: [],
+          lastProcessedSlot: 10n,
+          initialSlot: 5n,
+          slotWindow: 5,
+      };
+
+      const response = await context.client.getValidatorStats(validatorAddress.toString(), 5n, 10n);
+      expect(response).toEqual(handler.singleValidatorStats);
+  });
+
   it('simulatePublicCalls', async () => {
     const response = await context.client.simulatePublicCalls(Tx.random());
     expect(response).toBeInstanceOf(PublicSimulationOutput);
@@ -419,6 +464,7 @@ describe('AztecNodeApiSchema', () => {
 
 class MockAztecNode implements AztecNode {
   public validatorStats: ValidatorsStats | undefined;
+  public singleValidatorStats: SingleValidatorStats | undefined;
 
   constructor(private artifact: ContractArtifact) {}
 
@@ -654,6 +700,16 @@ class MockAztecNode implements AztecNode {
   }
   getValidatorsStats(): Promise<ValidatorsStats> {
     return Promise.resolve(this.validatorStats!);
+  }
+  getValidatorStats(validatorAddress: string, fromSlot?: bigint, toSlot?: bigint): Promise<SingleValidatorStats | undefined> {
+      expect(typeof validatorAddress).toBe('string');
+      if (fromSlot !== undefined) {
+        expect(typeof fromSlot).toBe('bigint');
+      }
+      if (toSlot !== undefined) {
+        expect(typeof toSlot).toBe('bigint');
+      }
+      return Promise.resolve(this.singleValidatorStats);
   }
   simulatePublicCalls(tx: Tx, _enforceFeePayment = false): Promise<PublicSimulationOutput> {
     expect(tx).toBeInstanceOf(Tx);
