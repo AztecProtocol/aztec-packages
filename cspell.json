@@ -28,9 +28,14 @@
     "bbfree",
     "bbmalloc",
     "benesjan",
+    "bignum",
     "Bincode",
     "bincoded",
     "bleurgh",
+    "blobbasefee",
+    "blobhash",
+    "Blobhashes",
+    "blobshash",
     "bodyparser",
     "bootnode",
     "bootnodes",
@@ -49,6 +54,7 @@
     "cbind",
     "cbinds",
     "Celestia",
+    "chainid",
     "chainsafe",
     "cheatcode",
     "cheatcodes",
@@ -143,6 +149,7 @@
     "hasher",
     "headstart",
     "herskind",
+    "hevm",
     "homomorphic",
     "ierc",
     "IGSE",
@@ -269,6 +276,7 @@
     "reentrancy",
     "reexecute",
     "reexecution",
+    "reinitialise",
     "repr",
     "Reserialize",
     "retag",
@@ -389,5 +397,9 @@
     "lib",
     "*.cmake"
   ],
-  "flagWords": ["anonymous", "offence", "offences"]
+  "flagWords": [
+    "anonymous",
+    "offence",
+    "offences"
+  ]
 }
