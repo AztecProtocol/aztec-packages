@@ -298,6 +298,7 @@ bool smt_timer(smt_solver::Solver* s)
 {
     auto start = std::chrono::high_resolution_clock::now();
     bool res = s->check();
+    info("HERE ", res);
     auto stop = std::chrono::high_resolution_clock::now();
     uint32_t duration_secs = static_cast<uint32_t>(duration_cast<std::chrono::seconds>(stop - start).count());
     info("Time elapsed: ", duration_secs / 60, " min ", duration_secs % 60, " sec");
@@ -346,9 +347,9 @@ void fix_range_lists(bb::UltraCircuitBuilder& builder)
     for (auto list : builder.range_lists) {
         uint64_t num_multiples_of_three = (list.first / bb::UltraCircuitBuilder::DEFAULT_PLOOKUP_RANGE_STEP_SIZE);
         for (uint64_t i = 0; i <= num_multiples_of_three; i++) {
-            builder.variables[list.second.variable_indices[i]] =
-                i * bb::UltraCircuitBuilder::DEFAULT_PLOOKUP_RANGE_STEP_SIZE;
+            builder.set_variable(list.second.variable_indices[i],
+                                 i * bb::UltraCircuitBuilder::DEFAULT_PLOOKUP_RANGE_STEP_SIZE);
         }
-        builder.variables[list.second.variable_indices[num_multiples_of_three + 1]] = list.first;
+        builder.set_variable(list.second.variable_indices[num_multiples_of_three + 1], list.first);
     }
 }

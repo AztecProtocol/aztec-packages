@@ -9,13 +9,12 @@
 #include "barretenberg/smt_verification/terms/data_structures.hpp"
 #include "barretenberg/smt_verification/terms/term.hpp"
 
-#include "subcircuits.hpp"
+#include "barretenberg/smt_verification/circuit/circuit_schema.hpp"
 
 namespace smt_circuit {
 using namespace smt_solver;
 using namespace smt_terms;
 using namespace smt_circuit_schema;
-using namespace smt_subcircuits;
 
 enum class SubcircuitType { XOR, AND, RANGE, ROR, SHL, SHR };
 
@@ -38,9 +37,6 @@ class CircuitBase {
     std::unordered_map<uint32_t, bool> optimized; // keeps track of the variables that were excluded from symbolic
                                                   // circuit during optimizations
     bool enable_optimizations;                    // flags to turn on circuit optimizations
-    std::unordered_map<SubcircuitType, std::unordered_map<size_t, CircuitProps>>
-        cached_subcircuits; // caches subcircuits during optimization
-                            // No need to recompute them each time
     std::unordered_map<uint32_t, std::vector<bb::fr>>
         post_process; // Values idxs that should be post processed after the solver returns a witness.
                       // Basically it affects only optimized out variables.
