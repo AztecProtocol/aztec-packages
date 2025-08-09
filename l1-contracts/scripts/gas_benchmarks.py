@@ -206,15 +206,19 @@ def calculate_eip7623_calldata_gas(calldata_size: int, total_gas_cost: int) -> i
     Calculate calldata gas cost under EIP-7623.
     https://eips.ethereum.org/EIPS/eip-7623
 
-    For simplicity, we assume that there are no zero bytes.
+    For simplicity, we assume that all bytes are nonzero (worst case scenario).
+    This gives us the maximum possible calldata gas cost.
     """
 
+    # Since we don't have access to the actual calldata content,
+    # we assume all bytes are nonzero (worst case scenario)
     nonzero_bytes = calldata_size
-    zero_bytes = calldata_size - nonzero_bytes
+    zero_bytes = 0  # Explicitly set to 0 since we assume no zero bytes
 
-    # Standard calldata cost
+    # Standard calldata cost: 4 gas per zero byte, 16 gas per nonzero byte
     standard_calldata_cost = 4 * (4 * nonzero_bytes + zero_bytes)
 
+    # Floor price: 10 gas per byte total
     floor_price = 10 * (4 * nonzero_bytes + zero_bytes)
 
     if total_gas_cost >= floor_price:
