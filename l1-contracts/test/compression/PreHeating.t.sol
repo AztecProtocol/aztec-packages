@@ -9,11 +9,11 @@ import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {
-  SignatureLib,
+  AttestationLib,
   Signature,
   CommitteeAttestation,
   CommitteeAttestations
-} from "@aztec/shared/libraries/SignatureLib.sol";
+} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
@@ -230,10 +230,10 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
 
         // Store the attestations for the current block number
         uint256 currentBlockNumber = rollup.getPendingBlockNumber() + 1;
-        blockAttestations[currentBlockNumber] = SignatureLib.packAttestations(b.attestations);
+        blockAttestations[currentBlockNumber] = AttestationLib.packAttestations(b.attestations);
 
         vm.prank(proposer);
-        rollup.propose(b.proposeArgs, SignatureLib.packAttestations(b.attestations), b.signers, b.blobInputs);
+        rollup.propose(b.proposeArgs, AttestationLib.packAttestations(b.attestations), b.signers, b.blobInputs);
 
         nextSlot = nextSlot + Slot.wrap(1);
       }

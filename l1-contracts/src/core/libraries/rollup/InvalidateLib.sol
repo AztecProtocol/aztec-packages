@@ -6,11 +6,11 @@ import {IRollupCore, RollupStore} from "@aztec/core/interfaces/IRollup.sol";
 import {CompressedTempBlockLog} from "@aztec/core/libraries/compressed-data/BlockLog.sol";
 import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {Signature, AttestationLib, CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
-import {CommitteeAttestations, SignatureLib, Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {ECDSA} from "@oz/utils/cryptography/ECDSA.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 
@@ -55,7 +55,7 @@ library InvalidateLib {
   using TimeLib for Slot;
   using TimeLib for Epoch;
   using ChainTipsLib for CompressedChainTips;
-  using SignatureLib for CommitteeAttestations;
+  using AttestationLib for CommitteeAttestations;
   using MessageHashUtils for bytes32;
   using CompressedTimeMath for CompressedSlot;
 

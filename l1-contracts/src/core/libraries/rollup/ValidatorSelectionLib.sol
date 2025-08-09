@@ -6,10 +6,11 @@ import {RollupStore} from "@aztec/core/interfaces/IRollup.sol";
 import {ValidatorSelectionStorage} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {SampleLib} from "@aztec/core/libraries/crypto/SampleLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {AttestationLib, CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {StakingLib} from "@aztec/core/libraries/rollup/StakingLib.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
-import {SignatureLib, Signature, CommitteeAttestations} from "@aztec/shared/libraries/SignatureLib.sol";
+import {SignatureLib, Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {ECDSA} from "@oz/utils/cryptography/ECDSA.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
@@ -97,7 +98,7 @@ library ValidatorSelectionLib {
   using TransientSlot for *;
   using SlotDerivation for string;
   using SlotDerivation for bytes32;
-  using SignatureLib for CommitteeAttestations;
+  using AttestationLib for CommitteeAttestations;
 
   /**
    * @dev Stack struct used in verifyAttestations to avoid stack too deep errors

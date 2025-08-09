@@ -6,7 +6,6 @@ import {DecoderBase} from "./DecoderBase.sol";
 import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
 import {IRollup, BlockLog, SubmitEpochRootProofArgs, PublicInputArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {CommitteeAttestations} from "@aztec/shared/libraries/SignatureLib.sol";
 import {Strings} from "@oz/utils/Strings.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
@@ -16,7 +15,10 @@ import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {BlobLib} from "@aztec/core/libraries/rollup/BlobLib.sol";
 import {ProposeArgs, OracleInput, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
-import {CommitteeAttestation, CommitteeAttestations, SignatureLib} from "@aztec/shared/libraries/SignatureLib.sol";
+import {
+  CommitteeAttestation, CommitteeAttestations, AttestationLib
+} from "@aztec/core/libraries/rollup/AttestationLib.sol";
+
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 
@@ -181,7 +183,7 @@ contract RollupBase is DecoderBase {
     if (_revertMsg.length > 0) {
       vm.expectRevert(_revertMsg);
     }
-    rollup.propose(args, SignatureLib.packAttestations(attestations), signers, blobCommitments);
+    rollup.propose(args, AttestationLib.packAttestations(attestations), signers, blobCommitments);
 
     if (_revertMsg.length > 0) {
       return;
