@@ -63,8 +63,6 @@ export enum SignalType {
   SLASHING,
 }
 
-type GetSlashPayloadCallBack = (slotNumber: bigint) => Promise<EthAddress | undefined>;
-
 const Actions = [
   'propose',
   'governance-signal',
@@ -103,10 +101,8 @@ export class SequencerPublisher {
   public epochCache: EpochCache;
 
   protected governanceLog = createLogger('sequencer:publisher:governance');
-  private governancePayload: EthAddress = EthAddress.ZERO;
 
   protected slashingLog = createLogger('sequencer:publisher:slashing');
-  private getSlashPayload?: GetSlashPayloadCallBack = undefined;
 
   private myLastSignals: Record<SignalType, bigint> = {
     [SignalType.GOVERNANCE]: 0n,
@@ -174,20 +170,8 @@ export class SequencerPublisher {
     return this.rollupContract;
   }
 
-  public registerSlashPayloadGetter(callback: GetSlashPayloadCallBack) {
-    this.getSlashPayload = callback;
-  }
-
   public getSenderAddress() {
     return EthAddress.fromString(this.l1TxUtils.getSenderAddress());
-  }
-
-  public getGovernancePayload() {
-    return this.governancePayload;
-  }
-
-  public setGovernancePayload(payload: EthAddress) {
-    this.governancePayload = payload;
   }
 
   public addRequest(request: RequestWithExpiry) {
@@ -610,28 +594,6 @@ export class SequencerPublisher {
     return true;
   }
 
-  private async getSignalConfig(
-    slotNumber: bigint,
-    signalType: SignalType,
-  ): Promise<{ payload: EthAddress; base: IEmpireBase } | undefined> {
-    if (signalType === SignalType.GOVERNANCE) {
-      return { payload: this.governancePayload, base: this.govProposerContract };
-    } else if (signalType === SignalType.SLASHING) {
-      if (!this.getSlashPayload) {
-        return undefined;
-      }
-      const slashPayload = await this.getSlashPayload(slotNumber);
-      if (!slashPayload) {
-        return undefined;
-      }
-      this.log.info(`Slash payload: ${slashPayload}`);
-      return { payload: slashPayload, base: this.slashingProposerContract };
-    } else {
-      const _: never = signalType;
-      throw new Error('Unreachable: Invalid signal type');
-    }
-  }
-
   /**
    * Enqueues a castSignal transaction to cast a signal for a given slot number.
    * @param slotNumber - The slot number to cast a signal for.
@@ -639,17 +601,14 @@ export class SequencerPublisher {
    * @param signalType - The type of signal to cast.
    * @returns True if the signal was successfully enqueued, false otherwise.
    */
-  public async enqueueCastSignal(
+  public enqueueCastSignal(
     slotNumber: bigint,
     timestamp: bigint,
     signalType: SignalType,
     signerAddress: EthAddress,
+    signalConfig: { payload: EthAddress; base: IEmpireBase },
     signer: (msg: TypedDataDefinition) => Promise<`0x${string}`>,
   ): Promise<boolean> {
-    const signalConfig = await this.getSignalConfig(slotNumber, signalType);
-    if (!signalConfig) {
-      return false;
-    }
     const { payload, base } = signalConfig;
     return this.enqueueCastSignalHelper(slotNumber, timestamp, signalType, payload, base, signerAddress, signer);
   }

@@ -213,7 +213,6 @@ describe('SequencerPublisher', () => {
     expect(await publisher.enqueueProposeL2Block(l2Block)).toEqual(true);
     const govPayload = EthAddress.random();
     const voteSig = Signature.random();
-    publisher.setGovernancePayload(govPayload);
     governanceProposerContract.getRoundInfo.mockResolvedValue({
       lastSignalSlot: 1n,
       payloadWithMostSignals: govPayload.toString(),
@@ -234,6 +233,7 @@ describe('SequencerPublisher', () => {
         1n,
         SignalType.GOVERNANCE,
         EthAddress.fromString(testHarnessPrivateKey.address),
+        { payload: govPayload, base: governanceProposerContract },
         msg => testHarnessPrivateKey.signTypedData(msg),
       ),
     ).toEqual(true);
