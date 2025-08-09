@@ -190,6 +190,8 @@ aztec start --node --network alpha-testnet
 - `--tel.otel-export-timeout-ms <value>`: The timeout for exporting metrics (default: 30000).
 - `--tel.otel-exclude-metrics <value>`: A list of metric prefixes to exclude from export.
 
+note: To setup telementry with aztec node follow this [guide](../../../the_aztec_network/guides/run_nodes/how_to_setup_monitoring.md)
+
 #### PXE Options
 
 - `--pxe`: Starts Aztec PXE with options.
