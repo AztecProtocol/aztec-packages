@@ -7,6 +7,7 @@ import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { IndexedTaggingSecret } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
+import { UtilityContextWithoutContractAddress } from '@aztec/stdlib/oracle';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, NodeStats } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
@@ -231,6 +232,14 @@ export interface ExecutionDataProvider {
    * @returns The chain id.
    */
   getVersion(): Promise<number>;
+
+  /**
+   * Fetches the current utility context without the contract address.
+   * @dev PXE uses this along with the locally stored contract address to construct the full UtilityContext when
+   * processing the utilityGetUtilityContext oracle.
+   * @returns The utility context containing block number, timestamp, version and chain ID.
+   */
+  getUtilityContextWithoutContractAddress(): Promise<UtilityContextWithoutContractAddress>;
 
   /**
    * Returns the tagging secret for a given sender and recipient pair. For this to work, the ivsk_m of the sender must be known.
