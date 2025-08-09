@@ -27,6 +27,8 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
       blockNumber: number;
       vkTreeRoot: Fr;
       protocolContractTreeRoot: Fr;
+      // Flag to enable sandbox mode for more relaxed timestamp validation
+      sandboxMode?: boolean;
     },
   ) {}
 
@@ -89,7 +91,12 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
     // function in `noir-projects/noir-protocol-circuits/crates/rollup-lib/src/base/components/validation_requests.nr`.
     const buildingBlock1 = this.values.blockNumber === 1;
 
-    if (!buildingBlock1 && includeByTimestamp < this.values.timestamp) {
+    // In sandbox mode, add a buffer to handle L1/L2 timestamp desynchronization
+    // This fixes issues with DelayedPublicMutable transactions in local development
+    const sandboxBuffer = this.values.sandboxMode ? 300n : 0n; // 5 minutes buffer in sandbox
+    const effectiveTimestamp = this.values.timestamp + sandboxBuffer;
+
+    if (!buildingBlock1 && includeByTimestamp < effectiveTimestamp) {
       if (tx.data.constants.historicalHeader.globalVariables.blockNumber === 0) {
         this.#log.warn(
           `A tx built against a genesis block failed to be included in block 1 which is the only block in which txs built against a genesis block are allowed to be included.`,
@@ -98,7 +105,7 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
       this.#log.verbose(
         `Rejecting tx ${getTxHash(tx)} for low expiration timestamp. Tx expiration timestamp: ${includeByTimestamp}, timestamp: ${
           this.values.timestamp
-        }.`,
+        }${this.values.sandboxMode ? ` (sandbox mode, effective timestamp with buffer: ${effectiveTimestamp})` : ''}.`,
       );
       return false;
     } else {
