@@ -186,7 +186,29 @@ TEST(Sha256ConstrainingTest, Interaction)
                       lookup_sha256_range_rhs_e_25_settings,
                       lookup_sha256_range_rhs_a_2_settings,
                       lookup_sha256_range_rhs_a_13_settings,
-                      lookup_sha256_range_rhs_a_22_settings>(trace);
+                      lookup_sha256_range_rhs_a_22_settings,
+                      lookup_sha256_range_comp_w_lhs_settings,
+                      lookup_sha256_range_comp_w_rhs_settings,
+                      lookup_sha256_range_comp_next_a_lhs_settings,
+                      lookup_sha256_range_comp_next_a_rhs_settings,
+                      lookup_sha256_range_comp_next_e_lhs_settings,
+                      lookup_sha256_range_comp_next_e_rhs_settings,
+                      lookup_sha256_range_comp_a_lhs_settings,
+                      lookup_sha256_range_comp_a_rhs_settings,
+                      lookup_sha256_range_comp_b_lhs_settings,
+                      lookup_sha256_range_comp_b_rhs_settings,
+                      lookup_sha256_range_comp_c_lhs_settings,
+                      lookup_sha256_range_comp_c_rhs_settings,
+                      lookup_sha256_range_comp_d_lhs_settings,
+                      lookup_sha256_range_comp_d_rhs_settings,
+                      lookup_sha256_range_comp_e_lhs_settings,
+                      lookup_sha256_range_comp_e_rhs_settings,
+                      lookup_sha256_range_comp_f_lhs_settings,
+                      lookup_sha256_range_comp_f_rhs_settings,
+                      lookup_sha256_range_comp_g_lhs_settings,
+                      lookup_sha256_range_comp_g_rhs_settings,
+                      lookup_sha256_range_comp_h_lhs_settings,
+                      lookup_sha256_range_comp_h_rhs_settings>(trace);
 
     check_relation<sha256>(trace);
 }

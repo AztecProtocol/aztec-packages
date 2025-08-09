@@ -521,6 +521,7 @@ void Sha256TraceBuilder::process(
                           { C::sha256_space_id, event.space_id },
                           { C::sha256_output_addr, output_addr },
                           { C::sha256_u32_tag, static_cast<uint8_t>(MemoryTag::U32) },
+                          { C::sha256_two_pow_32, 1UL << 32 },
                           // For round selectors
                           { C::sha256_xor_sel, 2 },
                           { C::sha256_perform_round, 1 },
@@ -579,6 +580,7 @@ void Sha256TraceBuilder::process(
                       { C::sha256_sel_mem_state_or_output, 1 },
                       { C::sha256_rw, 1 }, // Writing output
                       { C::sha256_u32_tag, static_cast<uint8_t>(MemoryTag::U32) },
+                      { C::sha256_two_pow_32, 1UL << 32 },
                       { C::sha256_output_addr, output_addr },
                       // Output Addresses
                       { C::sha256_memory_address_0_, output_addr },
@@ -661,6 +663,29 @@ const InteractionDefinition Sha256TraceBuilder::interactions =
         .add<lookup_sha256_range_rhs_e_25_settings, InteractionType::LookupGeneric>()
         .add<lookup_sha256_range_rhs_a_2_settings, InteractionType::LookupGeneric>()
         .add<lookup_sha256_range_rhs_a_13_settings, InteractionType::LookupGeneric>()
-        .add<lookup_sha256_range_rhs_a_22_settings, InteractionType::LookupGeneric>();
+        .add<lookup_sha256_range_rhs_a_22_settings, InteractionType::LookupGeneric>()
+        // Range Checks for modulo add
+        .add<lookup_sha256_range_comp_w_lhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_w_rhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_next_a_lhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_next_a_rhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_next_e_lhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_next_e_rhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_a_lhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_a_rhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_b_lhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_b_rhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_c_lhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_c_rhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_d_lhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_d_rhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_e_lhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_e_rhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_f_lhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_f_rhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_g_lhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_g_rhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_h_lhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_h_rhs_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen

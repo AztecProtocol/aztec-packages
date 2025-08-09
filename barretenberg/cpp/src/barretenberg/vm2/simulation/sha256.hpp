@@ -41,8 +41,9 @@ class Sha256 : public Sha256Interface {
                      MemoryAddress output_addr) override;
 
   private:
-    MemoryValue shr(MemoryValue x, uint32_t shift);
-    MemoryValue ror(MemoryValue x, uint32_t shift);
+    MemoryValue shr(const MemoryValue& x, uint32_t shift);
+    MemoryValue ror(const MemoryValue& x, uint32_t shift);
+    MemoryValue modulo_sum(std::span<const MemoryValue> values);
 
     ExecutionIdGetterInterface& execution_id_manager;
     BitwiseInterface& bitwise;
