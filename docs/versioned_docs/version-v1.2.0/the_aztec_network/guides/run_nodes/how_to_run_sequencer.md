@@ -246,7 +246,6 @@ If you would like to run in a docker compose, you can use a configuration like t
 name: aztec-node
 services:
   node:
-    network_mode: host # Optional, run with host networking
     image: aztecprotocol/aztec:latest
     environment:
       ETHEREUM_HOSTS: ""
@@ -263,7 +262,7 @@ services:
       - 8080:8080
 
     volumes:
-      - /home/my-node/node:/data # Local directory
+      - ./data/aztec:/data
 ```
 
 ## Troubleshooting
