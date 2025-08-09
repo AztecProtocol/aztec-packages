@@ -18,4 +18,4 @@ WORKDIR "/usr/src/yarn-project"
 ARG VERSION
 RUN echo '{".": "'$VERSION'"}' > /usr/src/.release-please-manifest.json
 
-ENTRYPOINT ["/bin/bash", "-c", "node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js"]
+ENTRYPOINT ["node", "--no-warnings", "/usr/src/yarn-project/aztec/dest/bin/index.js"]
