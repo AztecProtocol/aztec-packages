@@ -359,7 +359,7 @@ describe('P2P Client', () => {
       blockSource.removeBlocks(10);
       await client.sync();
       expect(txPool.deleteTxs).toHaveBeenCalledWith([badTx.getTxHash()]);
-      expect(txPool.markMinedAsPending).toHaveBeenCalledWith([goodTx.getTxHash()]);
+      expect(txPool.markMinedAsPending).toHaveBeenCalledWith([goodTx.getTxHash()], expect.any(Number));
       await client.stop();
     });
   });

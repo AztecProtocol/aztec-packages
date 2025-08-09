@@ -1,40 +1,43 @@
+import { insertIntoSortedArray } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
-import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap, AztecAsyncSingleton } from '@aztec/kv-store';
-import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { GasFees } from '@aztec/stdlib/gas';
-import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ReadonlyWorldStateAccess } from '@aztec/stdlib/interfaces/server';
 import { ClientIvcProof } from '@aztec/stdlib/proofs';
 import type { TxAddedToPoolStats } from '@aztec/stdlib/stats';
-import { DatabasePublicStateSource } from '@aztec/stdlib/trees';
 import { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import assert from 'assert';
 import EventEmitter from 'node:events';
 
-import { ArchiveCache } from '../../msg_validators/tx_validator/archive_cache.js';
-import { GasTxValidator } from '../../msg_validators/tx_validator/gas_validator.js';
 import { PoolInstrumentation, PoolName, type PoolStatsCallback } from '../instrumentation.js';
+import { EvictionManager } from './eviction/eviction_manager.js';
+import type { PendingTxInfo, TxBlockReference, TxPoolOperations } from './eviction/eviction_strategy.js';
+import { InsufficientFeePayerBalanceRule } from './eviction/insufficient_fee_payer_balance_rule.js';
+import { InvalidTxsAfterMiningRule } from './eviction/invalid_txs_after_mining_rule.js';
+import { InvalidTxsAfterReorgRule } from './eviction/invalid_txs_after_reorg_rule.js';
+import { LowPriorityEvictionRule } from './eviction/low_priority_eviction_rule.js';
 import { getPendingTxPriority } from './priority.js';
 import type { TxPool, TxPoolEvents, TxPoolOptions } from './tx_pool.js';
 
 /**
  * KV implementation of the Transaction Pool.
  */
-export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<TxPoolEvents>) implements TxPool {
+export class AztecKVTxPool
+  extends (EventEmitter as new () => TypedEventEmitter<TxPoolEvents>)
+  implements TxPool, TxPoolOperations
+{
   #store: AztecAsyncKVStore;
 
   /** Our tx pool, stored as a Map, with K: tx hash and V: the transaction. */
   #txs: AztecAsyncMap<string, Buffer>;
 
-  /** The maximum cumulative tx size that the pending txs in the pool take up. */
-  #maxTxPoolSize: number = 0;
-
-  /** The tx evicion logic will kick after pool size is greater than maxTxPoolSize * txPoolOverflowFactor */
-  txPoolOverflowFactor: number = 1;
+  /** Holds the historical block for each tx */
+  #txHistoricalBlock: AztecAsyncMap<string, string>;
 
   /** Index from tx hash to the block number in which they were mined, filtered by mined txs. */
   #minedTxHashToBlock: AztecAsyncMap<string, number>;
@@ -42,14 +45,8 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
   /** Index from tx priority (stored as hex) to its tx hash, filtered by pending txs. */
   #pendingTxPriorityToHash: AztecAsyncMultiMap<string, string>;
 
-  /** Index from tx hash to its tx size (in bytes), filtered by pending txs. */
-  #pendingTxHashToSize: AztecAsyncMap<string, number>;
-
-  /** Index from tx hash to its header hash, filtered by pending txs. */
-  #pendingTxHashToHeaderHash: AztecAsyncMap<string, string>;
-
-  /** The cumulative tx size in bytes that the pending txs in the pool take up. */
-  #pendingTxSize: AztecAsyncSingleton<number>;
+  #historicalHeaderToTxHash: AztecAsyncMultiMap<string, string>;
+  #feePayerToTxHash: AztecAsyncMultiMap<string, string>;
 
   /** In-memory mapping of pending tx hashes to the hydrated pending tx in the pool. */
   #pendingTxs: Map<string, Tx>;
@@ -69,12 +66,12 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
   /** Number of txs to archive. */
   #archivedTxLimit: number = 0;
 
-  /** The world state synchronizer used in the node. */
-  #worldStateSynchronizer: WorldStateSynchronizer;
-
   #log: Logger;
 
   #metrics: PoolInstrumentation<Tx>;
+
+  #evictionManager: EvictionManager;
+  #maxSizeEvictionRule: LowPriorityEvictionRule;
 
   /**
    * Class constructor for KV TxPool. Initiates our transaction pool as an AztecMap.
@@ -87,7 +84,7 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
   constructor(
     store: AztecAsyncKVStore,
     archive: AztecAsyncKVStore,
-    worldStateSynchronizer: WorldStateSynchronizer,
+    worldState: ReadonlyWorldStateAccess,
     telemetry: TelemetryClient = getTelemetryClient(),
     config: TxPoolOptions = {},
     log = createLogger('p2p:tx_pool'),
@@ -98,11 +95,11 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
     this.updateConfig(config);
 
     this.#txs = store.openMap('txs');
+    this.#txHistoricalBlock = store.openMap('txHistoricalBlock');
     this.#minedTxHashToBlock = store.openMap('txHashToBlockMined');
     this.#pendingTxPriorityToHash = store.openMultiMap('pendingTxFeeToHash');
-    this.#pendingTxHashToSize = store.openMap('pendingTxHashToSize');
-    this.#pendingTxHashToHeaderHash = store.openMap('pendingTxHashToHeaderHash');
-    this.#pendingTxSize = store.openSingleton('pendingTxSize');
+    this.#historicalHeaderToTxHash = store.openMultiMap('historicalHeaderToPendingTxHash');
+    this.#feePayerToTxHash = store.openMultiMap('feePayerToPendingTxHash');
 
     this.#pendingTxs = new Map<string, Tx>();
     this.#nonEvictableTxs = new Set<string>();
@@ -112,8 +109,16 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
 
     this.#store = store;
     this.#archive = archive;
-    this.#worldStateSynchronizer = worldStateSynchronizer;
     this.#metrics = new PoolInstrumentation(telemetry, PoolName.TX_POOL, this.countTxs, () => store.estimateSize());
+
+    this.#maxSizeEvictionRule = new LowPriorityEvictionRule({
+      maxPoolSize: config.maxTxPoolSize ?? 0,
+    });
+    this.#evictionManager = new EvictionManager(this);
+    this.#evictionManager.registerRule(this.#maxSizeEvictionRule);
+    this.#evictionManager.registerRule(new InvalidTxsAfterMiningRule());
+    this.#evictionManager.registerRule(new InvalidTxsAfterReorgRule(worldState));
+    this.#evictionManager.registerRule(new InsufficientFeePayerBalanceRule(worldState));
   }
 
   private countTxs: PoolStatsCallback = async () => {
@@ -145,11 +150,10 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
       return Promise.resolve();
     }
 
-    const minedNullifiers = new Set<string>();
-    const minedFeePayers = new Set<string>();
+    const minedNullifiers: Fr[] = [];
+    const minedFeePayers: AztecAddress[] = [];
 
     await this.#store.transactionAsync(async () => {
-      let pendingTxSize = (await this.#pendingTxSize.getAsync()) ?? 0;
       for (const hash of txHashes) {
         const key = hash.toString();
         await this.#minedTxHashToBlock.set(key, blockHeader.globalVariables.blockNumber);
@@ -157,28 +161,35 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
         const tx = await this.getPendingTxByHash(hash);
         if (tx) {
           const nullifiers = tx.data.getNonEmptyNullifiers();
-          nullifiers.forEach(nullifier => minedNullifiers.add(nullifier.toString()));
-          minedFeePayers.add(tx.data.feePayer.toString());
-          pendingTxSize -= tx.getSize();
+
+          nullifiers.forEach(nullifier => insertIntoSortedArray(minedNullifiers, nullifier, Fr.cmp, false));
+          insertIntoSortedArray(minedFeePayers, tx.data.feePayer, (a, b) => a.toField().cmp(b.toField()), false);
+
           await this.removePendingTxIndices(tx, key);
         }
       }
-      await this.#pendingTxSize.set(pendingTxSize);
-
-      await this.evictInvalidTxsAfterMining(txHashes, blockHeader, minedNullifiers, minedFeePayers);
     });
-    // We update this after the transaction above. This ensures that the non-evictable transactions are not evicted
-    // until any that have been mined are marked as such.
-    // The non-evictable set is not considered when evicting transactions that are invalid after a block is mined.
+
+    await this.#store.transactionAsync(async () => {
+      try {
+        await this.#evictionManager.evictAfterNewBlock(blockHeader, minedNullifiers, minedFeePayers);
+      } catch (err) {
+        this.#log.warn('Unexpected error running evictAfterNewBlock', { err });
+      }
+    });
+
+    // Clear the non-evictable set after completing the DB updates above.
+    // This ensures pinned (non-evictable) txs are protected while we mark mined txs,
+    // but they won't remain pinned indefinitely across blocks. Note that eviction rules
+    // (including post-mining invalidation) respect the non-evictable flag while it is set.
     this.#nonEvictableTxs.clear();
   }
 
-  public async markMinedAsPending(txHashes: TxHash[]): Promise<void> {
+  public async markMinedAsPending(txHashes: TxHash[], blockNumber: number): Promise<void> {
     if (txHashes.length === 0) {
       return Promise.resolve();
     }
     await this.#store.transactionAsync(async () => {
-      let pendingTxSize = (await this.#pendingTxSize.getAsync()) ?? 0;
       for (const hash of txHashes) {
         const key = hash.toString();
         await this.#minedTxHashToBlock.delete(key);
@@ -187,20 +198,72 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
         const tx = await this.getPendingTxByHash(hash);
         if (tx) {
           await this.addPendingTxIndices(tx, key);
-          pendingTxSize += tx.getSize();
         }
       }
-
-      await this.#pendingTxSize.set(pendingTxSize);
     });
 
-    await this.evictInvalidTxsAfterReorg(txHashes);
-    await this.evictLowPriorityTxs(txHashes);
+    await this.#store.transactionAsync(async () => {
+      try {
+        await this.#evictionManager.evictAfterChainPrune(blockNumber);
+      } catch (err) {
+        this.#log.warn('Unexpected error running evictAfterChainPrune', { err });
+      }
+    });
   }
 
   public async getPendingTxHashes(): Promise<TxHash[]> {
     const vals = await toArray(this.#pendingTxPriorityToHash.valuesAsync({ reverse: true }));
     return vals.map(x => TxHash.fromString(x));
+  }
+
+  public async getPendingTxs(): Promise<PendingTxInfo[]> {
+    const vals = await toArray(this.#pendingTxPriorityToHash.valuesAsync());
+    return Promise.all(vals.map(val => this.getTxInfo(TxHash.fromString(val))));
+  }
+
+  private async getTxInfo(txHash: TxHash): Promise<PendingTxInfo> {
+    let historicalBlockHash = await this.#txHistoricalBlock.getAsync(txHash.toString());
+    // Not all tx might have this index created.
+    if (!historicalBlockHash) {
+      const tx = await this.getTxByHash(txHash);
+      if (!tx) {
+        throw new Error(`Tx ${txHash} not found`);
+      }
+
+      historicalBlockHash = (await tx.data.constants.historicalHeader.hash()).toString();
+    }
+
+    return {
+      txHash,
+      blockHash: Fr.fromString(historicalBlockHash),
+      isEvictable: !this.#nonEvictableTxs.has(txHash.toString()),
+    };
+  }
+
+  public async getPendingTxsReferencingBlocks(blockHashes: Fr[]): Promise<TxBlockReference[]> {
+    const result: TxBlockReference[] = [];
+    for (const blockHash of blockHashes) {
+      const chunk = await toArray(this.#historicalHeaderToTxHash.getValuesAsync(blockHash.toString()));
+      result.push(
+        ...chunk.map(txHash => ({
+          txHash: TxHash.fromString(txHash),
+          blockHash,
+          isEvictable: !this.#nonEvictableTxs.has(txHash),
+        })),
+      );
+    }
+
+    return result;
+  }
+
+  public async getPendingTxsWithFeePayer(feePayers: AztecAddress[]): Promise<PendingTxInfo[]> {
+    const result: PendingTxInfo[] = [];
+    for (const feePayer of feePayers) {
+      const chunk = await toArray(this.#feePayerToTxHash.getValuesAsync(feePayer.toString()));
+      result.push(...(await Promise.all(chunk.map(txHash => this.getTxInfo(TxHash.fromString(txHash))))));
+    }
+
+    return result;
   }
 
   public async getMinedTxHashes(): Promise<[TxHash, number][]> {
@@ -209,7 +272,7 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
   }
 
   public async getPendingTxCount(): Promise<number> {
-    return (await this.#pendingTxHashToHeaderHash.sizeAsync()) ?? 0;
+    return (await this.#pendingTxPriorityToHash.sizeAsync()) ?? 0;
   }
 
   public async getMinedTxCount(): Promise<number> {
@@ -284,7 +347,6 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
     const addedTxs: Tx[] = [];
     const hashesAndStats = txs.map(tx => ({ txHash: tx.getTxHash(), txStats: tx.getStats() }));
     await this.#store.transactionAsync(async () => {
-      let pendingTxSize = (await this.#pendingTxSize.getAsync()) ?? 0;
       await Promise.all(
         txs.map(async (tx, i) => {
           const { txHash, txStats } = hashesAndStats[i];
@@ -301,17 +363,22 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
 
           await this.#txs.set(key, tx.toBuffer());
           addedTxs.push(tx as Tx);
+          await this.#txHistoricalBlock.set(key, (await tx.data.constants.historicalHeader.hash()).toString());
 
           if (!(await this.#minedTxHashToBlock.hasAsync(key))) {
-            pendingTxSize += tx.getSize();
             await this.addPendingTxIndices(tx, key);
             this.#metrics.recordSize(tx);
           }
         }),
       );
+    });
 
-      await this.#pendingTxSize.set(pendingTxSize);
-      await this.evictLowPriorityTxs(hashesAndStats.map(({ txHash }) => txHash));
+    await this.#store.transactionAsync(async () => {
+      try {
+        await this.#evictionManager.evictAfterNewTxs(addedTxs.map(({ txHash }) => txHash));
+      } catch (err) {
+        this.#log.warn('Unexpected error running evictAfterNewTxs', { err });
+      }
     });
 
     if (addedTxs.length > 0) {
@@ -331,7 +398,6 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
     }
     const deletedTxs: Tx[] = [];
     const poolDbTx = this.#store.transactionAsync(async () => {
-      let pendingTxSize = (await this.#pendingTxSize.getAsync()) ?? 0;
       for (const hash of txHashes) {
         const key = hash.toString();
         const tx = await this.getTxByHash(hash);
@@ -339,7 +405,6 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
         if (tx) {
           const isMined = await this.#minedTxHashToBlock.hasAsync(key);
           if (!isMined) {
-            pendingTxSize -= tx.getSize();
             await this.removePendingTxIndices(tx, key);
           }
 
@@ -348,11 +413,10 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
           }
 
           await this.#txs.delete(key);
+          await this.#txHistoricalBlock.delete(key);
           await this.#minedTxHashToBlock.delete(key);
         }
       }
-
-      await this.#pendingTxSize.set(pendingTxSize);
     });
     this.#log.debug(`Deleted ${txHashes.length} txs from pool`, { txHashes });
     return this.#archivedTxLimit ? poolDbTx.then(() => this.archiveTxs(deletedTxs)) : poolDbTx;
@@ -380,51 +444,20 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
     return vals.map(x => TxHash.fromString(x));
   }
 
-  public updateConfig({ maxTxPoolSize, txPoolOverflowFactor, archivedTxLimit }: TxPoolOptions): void {
-    if (typeof maxTxPoolSize === 'number') {
-      assert(maxTxPoolSize >= 0, 'maxTxPoolSize must be greater or equal to 0');
-      this.#maxTxPoolSize = maxTxPoolSize;
-
-      if (maxTxPoolSize === 0) {
-        this.#log.info(`Disabling maximum tx mempool size. Tx eviction stopped`);
-      } else {
-        this.#log.info(`Setting maximum tx mempool size`, { maxTxPoolSize });
-      }
-    }
-
-    if (typeof txPoolOverflowFactor === 'number') {
-      assert(txPoolOverflowFactor >= 1, 'txPoolOveflowFactor must be greater or equal to 1');
-      this.txPoolOverflowFactor = txPoolOverflowFactor;
-      this.#log.info(`Allowing tx pool size to grow above limit`, { maxTxPoolSize, txPoolOverflowFactor });
-    }
-
+  public updateConfig({ maxTxPoolSize, archivedTxLimit }: TxPoolOptions): void {
     if (typeof archivedTxLimit === 'number') {
       assert(archivedTxLimit >= 0, 'archivedTxLimit must be greater or equal to 0');
       this.#archivedTxLimit = archivedTxLimit;
+    }
+
+    if (this.#maxSizeEvictionRule) {
+      this.#maxSizeEvictionRule.updateConfig({ maxPoolSize: maxTxPoolSize });
     }
   }
 
   public markTxsAsNonEvictable(txHashes: TxHash[]): Promise<void> {
     txHashes.forEach(txHash => this.#nonEvictableTxs.add(txHash.toString()));
     return Promise.resolve();
-  }
-
-  /**
-   * Creates a GasTxValidator instance.
-   * @param db - DB for the validator to use
-   * @returns A GasTxValidator instance
-   */
-  protected createGasTxValidator(db: MerkleTreeReadOperations): GasTxValidator {
-    return new GasTxValidator(new DatabasePublicStateSource(db), ProtocolContractAddress.FeeJuice, GasFees.empty());
-  }
-
-  /**
-   * Creates an ArchiveCache instance.
-   * @param db - DB for the cache to use
-   * @returns An ArchiveCache instance
-   */
-  protected createArchiveCache(db: MerkleTreeReadOperations): ArchiveCache {
-    return new ArchiveCache(db);
   }
 
   /**
@@ -501,183 +534,43 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
     }
   }
 
-  /**
-   * Evicts pending txs with the lowest priority fees from the pool to accomodate the max tx count and cumulative max tx size
-   * after new txs are added.
-   *
-   * @param newTxHashes - The tx hashes of the new txs added to the pool.
-   * @returns The total number of txs evicted from the pool and the number of new txs that were evicted.
-   */
-  private async evictLowPriorityTxs(
-    newTxHashes: TxHash[],
-  ): Promise<{ numLowPriorityTxsEvicted: number; numNewTxsEvicted: number }> {
-    if (this.#maxTxPoolSize === undefined || this.#maxTxPoolSize === 0) {
-      return { numLowPriorityTxsEvicted: 0, numNewTxsEvicted: 0 };
-    }
-
-    let numNewTxsEvicted = 0;
-    const txsToEvict: TxHash[] = [];
-
-    let pendingTxsSize = (await this.#pendingTxSize.getAsync()) ?? 0;
-    if (pendingTxsSize > this.#maxTxPoolSize * this.txPoolOverflowFactor) {
-      for await (const txHash of this.#pendingTxPriorityToHash.valuesAsync()) {
-        if (this.#nonEvictableTxs.has(txHash.toString())) {
-          continue;
-        }
-        const txSize =
-          (await this.#pendingTxHashToSize.getAsync(txHash.toString())) ??
-          (await this.getPendingTxByHash(txHash))?.getSize();
-
-        this.#log.verbose(`Evicting tx ${txHash} from pool due to low priority to satisfy max tx size limit`, {
-          txHash,
-          txSize,
-        });
-
-        txsToEvict.push(TxHash.fromString(txHash));
-
-        if (txSize) {
-          pendingTxsSize -= txSize;
-          if (pendingTxsSize <= this.#maxTxPoolSize) {
-            break;
-          }
-        }
-      }
-      numNewTxsEvicted += newTxHashes.filter(txHash => txsToEvict.includes(txHash)).length;
-    }
-
-    if (txsToEvict.length > 0) {
-      await this.deleteTxs(txsToEvict, true);
-    }
-    return {
-      numLowPriorityTxsEvicted: txsToEvict.length,
-      numNewTxsEvicted,
-    };
-  }
-
-  /**
-   * Evicts invalid pending txs from the pool after a txs from a block are mined.
-   * Eviction criteria includes:
-   *   - txs with nullifiers that are already included in the mined block
-   *   - txs with an insufficient fee payer balance
-   *   - txs with an expiration timestamp lower than that of the mined block
-   *
-   * @param minedTxHashes - The tx hashes of the txs mined in the block.
-   * @param blockHeader - The header of the mined block.
-   * @returns The total number of txs evicted from the pool.
-   */
-  private async evictInvalidTxsAfterMining(
-    minedTxHashes: TxHash[],
-    blockHeader: BlockHeader,
-    minedNullifiers: Set<string>,
-    minedFeePayers: Set<string>,
-  ): Promise<number> {
-    if (minedTxHashes.length === 0) {
-      return 0;
-    }
-
-    const { blockNumber, timestamp } = blockHeader.globalVariables;
-
-    // Wait for world state to be synced to at least the mined block number
-    await this.#worldStateSynchronizer.syncImmediate(blockNumber);
-
-    const db = this.#worldStateSynchronizer.getCommitted();
-    const gasTxValidator = this.createGasTxValidator(db);
-
-    const txsToEvict: TxHash[] = [];
-    for await (const txHash of this.#pendingTxPriorityToHash.valuesAsync()) {
-      const tx = await this.getPendingTxByHash(txHash);
-      if (!tx) {
-        continue;
-      }
-
-      // Evict pending txs that share nullifiers with mined txs
-      const txNullifiers = tx.data.getNonEmptyNullifiers();
-      if (txNullifiers.some(nullifier => minedNullifiers.has(nullifier.toString()))) {
-        this.#log.verbose(`Evicting tx ${txHash} from pool due to a duplicate nullifier with a mined tx`);
-        txsToEvict.push(TxHash.fromString(txHash));
-        continue;
-      }
-
-      // Evict pending txs with an insufficient fee payer balance
-      if (
-        minedFeePayers.has(tx.data.feePayer.toString()) &&
-        (await gasTxValidator.validateTxFee(tx)).result === 'invalid'
-      ) {
-        this.#log.verbose(`Evicting tx ${txHash} from pool due to an insufficient fee payer balance`);
-        txsToEvict.push(TxHash.fromString(txHash));
-        continue;
-      }
-
-      // Evict pending txs with an expiration timestamp less than or equal to the mined block timestamp
-      const includeByTimestamp = tx.data.includeByTimestamp;
-      if (includeByTimestamp <= timestamp) {
-        this.#log.verbose(
-          `Evicting tx ${txHash} from pool due to the tx being expired (includeByTimestamp: ${includeByTimestamp}, mined block timestamp: ${timestamp})`,
-        );
-        txsToEvict.push(TxHash.fromString(txHash));
-        continue;
-      }
-    }
-
-    if (txsToEvict.length > 0) {
-      await this.deleteTxs(txsToEvict, true);
-    }
-    return txsToEvict.length;
-  }
-
-  /**
-   * Evicts pending txs that no longer have valid archive roots or fee payer balances from the pool after a reorg.
-   *
-   * @param txHashes - The tx hashes of the txs that were moved from mined to pending.
-   * @returns The total number of txs evicted from the pool.
-   */
-  private async evictInvalidTxsAfterReorg(txHashes: TxHash[]): Promise<number> {
-    if (txHashes.length === 0) {
-      return 0;
-    }
-
-    await this.#worldStateSynchronizer.syncImmediate();
-    const db = this.#worldStateSynchronizer.getCommitted();
-    const archiveCache = this.createArchiveCache(db);
-    const gasTxValidator = this.createGasTxValidator(db);
-
-    const txsToEvict: TxHash[] = [];
-
-    for await (const [txHash, headerHash] of this.#pendingTxHashToHeaderHash.entriesAsync()) {
-      const tx = await this.getPendingTxByHash(txHash);
-      if (!tx) {
-        continue;
-      }
-
-      const [index] = await archiveCache.getArchiveIndices([Fr.fromString(headerHash)]);
-      if (index === undefined) {
-        this.#log.verbose(`Evicting tx ${txHash} from pool due to an invalid archive root`);
-        txsToEvict.push(TxHash.fromString(txHash));
-        continue;
-      }
-
-      if ((await gasTxValidator.validateTxFee(tx)).result === 'invalid') {
-        this.#log.verbose(`Evicting tx ${txHash} from pool due to an insufficient fee payer balance`);
-        txsToEvict.push(TxHash.fromString(txHash));
-      }
-    }
-
-    if (txsToEvict.length > 0) {
-      await this.deleteTxs(txsToEvict, true);
-    }
-    return txsToEvict.length;
-  }
-
   private async addPendingTxIndices(tx: Tx, txHash: string): Promise<void> {
-    await this.#pendingTxPriorityToHash.set(getPendingTxPriority(tx), txHash);
-    await this.#pendingTxHashToSize.set(txHash, tx.getSize());
-    await this.#pendingTxHashToHeaderHash.set(txHash, (await tx.data.constants.historicalHeader.hash()).toString());
+    return await this.#store.transactionAsync(async () => {
+      await this.#pendingTxPriorityToHash.set(getPendingTxPriority(tx), txHash);
+      await this.#historicalHeaderToTxHash.set((await tx.data.constants.historicalHeader.hash()).toString(), txHash);
+      await this.#feePayerToTxHash.set(tx.data.feePayer.toString(), txHash);
+    });
   }
 
   private async removePendingTxIndices(tx: Tx, txHash: string): Promise<void> {
-    await this.#pendingTxPriorityToHash.deleteValue(getPendingTxPriority(tx), txHash);
-    await this.#pendingTxHashToSize.delete(txHash);
-    await this.#pendingTxHashToHeaderHash.delete(txHash);
-    this.#pendingTxs.delete(txHash);
+    return await this.#store.transactionAsync(async () => {
+      await this.#pendingTxPriorityToHash.deleteValue(getPendingTxPriority(tx), txHash);
+      this.#pendingTxs.delete(txHash);
+      await this.#historicalHeaderToTxHash.deleteValue(
+        (await tx.data.constants.historicalHeader.hash()).toString(),
+        txHash,
+      );
+      await this.#feePayerToTxHash.deleteValue(tx.data.feePayer.toString(), txHash);
+    });
+  }
+
+  /**
+   * Returns up to `limit` lowest-priority evictable pending tx hashes without hydrating transactions.
+   * Iterates the priority index in ascending order and skips non-evictable txs.
+   */
+  public async getLowestPriorityEvictable(limit: number): Promise<TxHash[]> {
+    const result: TxHash[] = [];
+    if (limit <= 0) {
+      return result;
+    }
+    for await (const txHashStr of this.#pendingTxPriorityToHash.valuesAsync()) {
+      if (!this.#nonEvictableTxs.has(txHashStr)) {
+        result.push(TxHash.fromString(txHashStr));
+        if (result.length >= limit) {
+          break;
+        }
+      }
+    }
+    return result;
   }
 }

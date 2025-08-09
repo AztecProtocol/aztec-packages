@@ -25,7 +25,7 @@ export function describeTxPool(getTxPool: () => TxPool) {
   });
 
   it('adds txs to the pool as pending', async () => {
-    const tx1 = await mockTx();
+    const tx1 = await mockTx(1);
 
     await pool.addTxs([tx1]);
     const poolTx = await pool.getTxByHash(tx1.getTxHash());
@@ -36,9 +36,9 @@ export function describeTxPool(getTxPool: () => TxPool) {
   });
 
   it('emits txs-added event with new txs', async () => {
-    const tx1 = await mockTx(); // existing and pending
-    const tx2 = await mockTx(); // mined but not known
-    const tx3 = await mockTx(); // brand new
+    const tx1 = await mockTx(1); // existing and pending
+    const tx2 = await mockTx(2); // mined but not known
+    const tx3 = await mockTx(3); // brand new
 
     await pool.addTxs([tx1]);
     await pool.markAsMined([tx2.getTxHash()], minedBlockHeader);
@@ -55,7 +55,7 @@ export function describeTxPool(getTxPool: () => TxPool) {
   });
 
   it('removes txs from the pool', async () => {
-    const tx1 = await mockTx();
+    const tx1 = await mockTx(1);
 
     await pool.addTxs([tx1]);
     await pool.deleteTxs([tx1.getTxHash()]);
@@ -86,7 +86,7 @@ export function describeTxPool(getTxPool: () => TxPool) {
     await pool.addTxs([tx1, tx2]);
     await pool.markAsMined([tx1.getTxHash()], minedBlockHeader);
 
-    await pool.markMinedAsPending([tx1.getTxHash()]);
+    await pool.markMinedAsPending([tx1.getTxHash()], 1);
     await expect(pool.getMinedTxHashes()).resolves.toEqual([]);
     const pending = await pool.getPendingTxHashes();
     expect(pending).toHaveLength(2);
@@ -110,7 +110,7 @@ export function describeTxPool(getTxPool: () => TxPool) {
     );
 
     // reorg: both txs should now become available again
-    await pool.markMinedAsPending([tx1.getTxHash(), someTxHashThatThisPeerDidNotSee]);
+    await pool.markMinedAsPending([tx1.getTxHash(), someTxHashThatThisPeerDidNotSee], 1);
     await expect(pool.getMinedTxHashes()).resolves.toEqual([]);
     await expect(pool.getPendingTxHashes()).resolves.toEqual([tx1.getTxHash()]); // tx2 is not in the pool
     await expect(pool.getPendingTxCount()).resolves.toEqual(1);

@@ -821,7 +821,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     }
 
     this.log.info(`Moving ${txsToMoveToPending.length} mined txs back to pending`);
-    await this.txPool.markMinedAsPending(txsToMoveToPending);
+    await this.txPool.markMinedAsPending(txsToMoveToPending, latestBlock);
 
     await this.synchedLatestBlockNumber.set(latestBlock);
     // no need to update block hashes, as they will be updated as new blocks are added

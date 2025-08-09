@@ -27,10 +27,9 @@ describe('e2e_mempool_limit', () => {
 
   it('should evict txs if there are too many', async () => {
     const tx1 = await token.methods.transfer_in_public(wallet.getAddress(), await AztecAddress.random(), 1, 0).prove();
-    const txSize = tx1.getSize();
 
     // set a min tx greater than the mempool so that the sequencer doesn't all of a sudden build a block
-    await aztecNodeAdmin!.setConfig({ maxTxPoolSize: Math.floor(2.5 * txSize), minTxsPerBlock: 4 });
+    await aztecNodeAdmin!.setConfig({ maxTxPoolSize: 2, minTxsPerBlock: 4 });
 
     const tx2 = await token.methods.transfer_in_public(wallet.getAddress(), await AztecAddress.random(), 1, 0).prove();
     const tx3 = await token.methods.transfer_in_public(wallet.getAddress(), await AztecAddress.random(), 1, 0).prove();
