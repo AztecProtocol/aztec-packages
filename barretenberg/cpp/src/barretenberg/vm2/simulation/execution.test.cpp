@@ -35,6 +35,7 @@
 #include "barretenberg/vm2/simulation/testing/mock_keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_poseidon2.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_sha256.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_to_radix.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 
@@ -92,12 +93,14 @@ class ExecutionSimulationTest : public ::testing::Test {
     StrictMock<MockToRadix> to_radix;
     StrictMock<MockEmitUnencryptedLog> emit_unencrypted_log;
     StrictMock<MockBytecodeManager> bytecode_manager;
+    StrictMock<MockSha256> sha256;
     TestingExecution execution = TestingExecution(alu,
                                                   bitwise,
                                                   data_copy,
                                                   poseidon2,
                                                   ecc,
                                                   to_radix,
+                                                  sha256,
                                                   execution_components,
                                                   context_provider,
                                                   instruction_info_db,
@@ -1055,6 +1058,19 @@ TEST_F(ExecutionSimulationTest, SendL2ToL1MsgLimitReached)
 
     EXPECT_THROW_WITH_MESSAGE(execution.send_l2_to_l1_msg(context, recipient_addr, content_addr),
                               "SENDL2TOL1MSG: Maximum number of L2 to L1 messages reached");
+}
+
+TEST_F(ExecutionSimulationTest, Sha256Compression)
+{
+    MemoryAddress state_address = 10;
+    MemoryAddress input_address = 20;
+    MemoryAddress dst_address = 50;
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+    EXPECT_CALL(sha256, compression(_, state_address, input_address, dst_address));
+
+    execution.sha256_compression(context, dst_address, state_address, input_address);
 }
 
 } // namespace

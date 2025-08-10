@@ -1,11 +1,14 @@
 include "precomputed.pil";
+include "gt.pil";
+include "constants_gen.pil";
+include "sha256_mem.pil";
 
 namespace sha256;
 
-    // Memory ops
-    pol commit state_offset;
-    pol commit input_offset;
-    pol commit output_offset;
+    #[skippable_if]
+    sel = 0; // from sha256_mem.pil
+
+    pol SEL_NO_ERR = sel * (1 - err);
 
     // Initial state values loaded from state_offset;
     pol commit init_a;
@@ -38,16 +41,6 @@ namespace sha256;
     pol commit output_h_rhs;
 
 
-    // Control flow
-    pol commit clk;
-
-    // Selector for Sha256Compression Operation
-    pol commit sel;
-    sel * (1 - sel) = 0;
-
-    #[skippable_if]
-    sel = 0;
-
     // These are needed while we can't use constant values in lookups.
     // For the XOR lookups
     pol commit xor_sel;
@@ -56,33 +49,20 @@ namespace sha256;
     pol commit and_sel;
     and_sel = 0;
 
-    // Start Row
-    pol commit start;
-    start * (1 - start) = 0;
-    // If the current row is latched (or the first row) and the next row is "on", the next row is the start of the new computation
-    // We add the first row conditions so we dont need to latch the first row.
-    // TODO: Revisit this condition once we agree on how to handle the first_row <> latch interaction
-    start' - ((latch + precomputed.first_row)  * sel') = 0;
-
-    // Selector to stop after 64 rounds
-    pol commit latch;
-    latch * (1 - latch) = 0;
-
-    // We perform a compression operation if we are not at a latched row
+    // We perform a compression operation if we are not at a latched row, or there is not an err
     pol commit perform_round;
-    perform_round - (sel * (1 - latch)) = 0;
-
-    pol LAST = sel * latch;
+    perform_round = (1 - latch) * SEL_NO_ERR;
+    pol LAST = SEL_NO_ERR * latch;
 
     // Counter
     pol NUM_ROUNDS = 64;
     pol commit rounds_remaining;
     start * (rounds_remaining - NUM_ROUNDS) + perform_round * (rounds_remaining - rounds_remaining' - 1) = 0;
     pol commit round_count;
-    sel * (round_count - (NUM_ROUNDS - rounds_remaining)) = 0;
+    SEL_NO_ERR * (round_count - (NUM_ROUNDS - rounds_remaining)) = 0;
     pol commit rounds_remaining_inv;
     // latch == 1 when the rounds_remaining == 0
-    sel * (rounds_remaining * (latch * (1 - rounds_remaining_inv) + rounds_remaining_inv) - 1 + latch) = 0;
+    SEL_NO_ERR * (rounds_remaining * (latch * (1 - rounds_remaining_inv) + rounds_remaining_inv) - 1 + latch) = 0;
 
     // Hash Values
     pol commit a;

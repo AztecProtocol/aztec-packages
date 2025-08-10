@@ -24,6 +24,7 @@ enum class SubtraceSel : uint8_t {
     KECCAKF1600,
     GETCONTRACTINSTANCE,
     EMITUNENCRYPTEDLOG,
+    SHA256COMPRESSION
 };
 
 struct SubtraceInfo {

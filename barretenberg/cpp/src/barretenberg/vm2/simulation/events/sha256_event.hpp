@@ -6,14 +6,21 @@
 
 namespace bb::avm2::simulation {
 
+struct Sha256CompressionException : public std::runtime_error {
+    Sha256CompressionException(const std::string& message)
+        : std::runtime_error("Sha256CompressionException: " + message)
+    {}
+};
+
 struct Sha256CompressionEvent {
     uint32_t execution_clk;
+    uint32_t space_id;
     MemoryAddress state_addr;
     MemoryAddress input_addr;
     MemoryAddress output_addr;
-    std::array<uint32_t, 8> state;
-    std::array<uint32_t, 16> input;
-    std::array<uint32_t, 8> output;
+    std::array<MemoryValue, 8> state;
+    std::vector<MemoryValue> input;
+    std::array<MemoryValue, 8> output;
 };
 
 } // namespace bb::avm2::simulation
