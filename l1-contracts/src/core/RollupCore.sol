@@ -13,7 +13,7 @@ import {IValidatorSelectionCore} from "@aztec/core/interfaces/IValidatorSelectio
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {CommitteeAttestations} from "@aztec/shared/libraries/SignatureLib.sol";
+import {CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {ExtRollupLib} from "@aztec/core/libraries/rollup/ExtRollupLib.sol";
 import {ExtRollupLib2} from "@aztec/core/libraries/rollup/ExtRollupLib2.sol";

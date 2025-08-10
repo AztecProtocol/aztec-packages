@@ -9,7 +9,7 @@ import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Timestamp, TimeLib, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {BlobLib} from "./BlobLib.sol";
 import {EpochProofLib} from "./EpochProofLib.sol";
-import {SignatureLib} from "@aztec/shared/libraries/SignatureLib.sol";
+import {AttestationLib} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {
   ProposeLib, ProposeArgs, CommitteeAttestations, ValidateHeaderArgs, ValidatorSelectionLib
 } from "./ProposeLib.sol";
@@ -31,7 +31,7 @@ import {
 library ExtRollupLib {
   using TimeLib for Timestamp;
   using TimeLib for Slot;
-  using SignatureLib for CommitteeAttestations;
+  using AttestationLib for CommitteeAttestations;
 
   function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) external {
     EpochProofLib.submitEpochRootProof(_args);
