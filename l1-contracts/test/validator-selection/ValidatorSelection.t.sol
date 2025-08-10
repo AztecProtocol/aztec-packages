@@ -9,8 +9,8 @@ import {
   Signature,
   CommitteeAttestation,
   CommitteeAttestations,
-  SignatureLib
-} from "@aztec/shared/libraries/SignatureLib.sol";
+  AttestationLib
+} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Timestamp, Epoch} from "@aztec/core/libraries/TimeLib.sol";
@@ -203,7 +203,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     uint256 blockNumber = rollup.getPendingBlockNumber();
 
     _proveBlocks(
-      "mixed_block_", blockNumber - 1, blockNumber, SignatureLib.packAttestations(ree2.attestations), NO_REVERT
+      "mixed_block_", blockNumber - 1, blockNumber, AttestationLib.packAttestations(ree2.attestations), NO_REVERT
     );
   }
 
@@ -216,7 +216,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       "mixed_block_",
       blockNumber - 1,
       blockNumber,
-      SignatureLib.packAttestations(ree1.attestations),
+      AttestationLib.packAttestations(ree1.attestations),
       Errors.Rollup__InvalidAttestations.selector
     );
   }
@@ -377,7 +377,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
   function _invalidateByAttestationCount(ProposeTestData memory ree, bytes4 _revertData) internal {
     uint256 blockNumber = rollup.getPendingBlockNumber();
-    CommitteeAttestations memory attestations = SignatureLib.packAttestations(ree.attestations);
+    CommitteeAttestations memory attestations = AttestationLib.packAttestations(ree.attestations);
     if (_revertData != NO_REVERT) {
       vm.expectPartialRevert(_revertData);
     }
@@ -400,7 +400,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     uint256 _blockToInvalidate
   ) internal {
     uint256 blockNumber = rollup.getPendingBlockNumber();
-    CommitteeAttestations memory attestations = SignatureLib.packAttestations(ree.attestations);
+    CommitteeAttestations memory attestations = AttestationLib.packAttestations(ree.attestations);
     if (_revertData != NO_REVERT) {
       vm.expectPartialRevert(_revertData);
     }
@@ -519,7 +519,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
     vm.prank(ree.sender);
     rollup.propose(
-      ree.proposeArgs, SignatureLib.packAttestations(ree.attestations), ree.signers, full.block.blobCommitments
+      ree.proposeArgs, AttestationLib.packAttestations(ree.attestations), ree.signers, full.block.blobCommitments
     );
 
     if (_revertData != NO_REVERT) {
