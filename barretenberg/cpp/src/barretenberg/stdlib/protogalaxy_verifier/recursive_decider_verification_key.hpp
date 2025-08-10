@@ -36,6 +36,7 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
     std::shared_ptr<VKAndHash> vk_and_hash;
 
     bool is_accumulator = false;
+    // bool is_complete = false; // whether this instance has been "oinked"
 
     // An array {1, α₁, …, αₖ}, where k = NUM_SUBRELATIONS - 1.
     SubrelationSeparators alphas;
@@ -117,6 +118,7 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
 
         NativeDeciderVerificationKey decider_vk(native_honk_vk);
         decider_vk.is_accumulator = is_accumulator;
+        // decider_vk.is_complete = is_complete;
 
         for (auto [alpha, inst_alpha] : zip_view(alphas, decider_vk.alphas)) {
             inst_alpha = alpha.get_value();

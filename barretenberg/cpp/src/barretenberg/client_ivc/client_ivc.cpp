@@ -335,9 +335,6 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
         oink_prover.prove();
         HonkProof oink_proof = oink_prover.export_proof();
         vinfo("oink proof constructed");
-        proving_key->is_accumulator = true; // indicate to PG that it should not run oink on this key
-        // Initialize the gate challenges to zero for use in first round of folding
-        proving_key->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
 
         fold_output.accumulator = proving_key; // initialize the prover accum with the completed key
 
