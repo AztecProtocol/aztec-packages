@@ -8,12 +8,22 @@ import type { ABIParameter, AbiType, StructType } from '@aztec/stdlib/abi';
  * @returns An object in the ABI struct type's format.
  */
 export function parseStructString(str: string, abiType: StructType) {
-  // Assign string bytes to struct fields.
   const buf = Buffer.from(str.replace(/^0x/i, ''), 'hex');
+
+  const expectedBytes = abiType.fields.length * 32;
+  if (buf.length !== expectedBytes) {
+    throw new Error(
+      `Invalid struct string length. Expected ${expectedBytes} bytes for ${abiType.fields.length} fields, got ${buf.length}.`
+    );
+  }
+
   const struct: any = {};
   let byteIndex = 0;
   let argIndex = 0;
   while (byteIndex < buf.length) {
+    if (argIndex >= abiType.fields.length) {
+      throw new Error(`Too many bytes provided for struct ${JSON.stringify(abiType)}`);
+    }
     const { name } = abiType.fields[argIndex];
     struct[name] = Fr.fromBuffer(buf.subarray(byteIndex, byteIndex + 32));
     byteIndex += 32;
@@ -86,9 +96,7 @@ function encodeArg(arg: string, abiType: AbiType, name: string): any {
     }
     const res: any = {};
     for (const field of abiType.fields) {
-      // Remove field name from list as it's present
-      const arg = obj[field.name];
-      if (!arg) {
+      if (!Object.prototype.hasOwnProperty.call(obj, field.name)) {
         throw Error(`Expected field ${field.name} not found in struct ${name}.`);
       }
       res[field.name] = encodeArg(obj[field.name], field.type, field.name);
