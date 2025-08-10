@@ -4,7 +4,7 @@ include "bitwise.pil";
 include "memory.pil";
 include "keccakf1600.pil";
 include "precomputed.pil";
-include "sha256.pil";
+include "sha256_mem.pil";
 include "ecc_mem.pil";
 include "poseidon2_mem.pil";
 include "scalar_mul.pil";
@@ -412,6 +412,7 @@ pol commit sel_execute_data_copy;
 pol commit sel_execute_keccakf1600;
 pol commit sel_execute_get_contract_instance;
 pol commit sel_execute_emit_unencrypted_log;
+pol commit sel_execute_sha256_compression;
 sel_execute_alu * (1 - sel_execute_alu) = 0;
 sel_execute_bitwise * (1 - sel_execute_bitwise) = 0;
 sel_execute_cast * (1 - sel_execute_cast) = 0;
@@ -424,6 +425,7 @@ sel_execute_data_copy * (1 - sel_execute_data_copy) = 0;
 sel_execute_keccakf1600 * (1 - sel_execute_keccakf1600) = 0;
 sel_execute_get_contract_instance * (1 - sel_execute_get_contract_instance) = 0;
 sel_execute_emit_unencrypted_log * (1 - sel_execute_emit_unencrypted_log) = 0;
+sel_execute_sha256_compression * (1 - sel_execute_sha256_compression) = 0;
 
 #[SUBTRACE_ID_DECOMPOSITION]
 sel_execute_execution * constants.AVM_SUBTRACE_ID_EXECUTION +
@@ -437,7 +439,8 @@ sel_execute_ecc_add * constants.AVM_SUBTRACE_ID_ECC +
 sel_execute_keccakf1600 * constants.AVM_SUBTRACE_ID_KECCAKF1600 +
 sel_execute_data_copy * constants.AVM_SUBTRACE_ID_DATA_COPY +
 sel_execute_get_contract_instance * constants.AVM_SUBTRACE_ID_GETCONTRACTINSTANCE +
-sel_execute_emit_unencrypted_log * constants.AVM_SUBTRACE_ID_EMITUNENCRYPTEDLOG
+sel_execute_emit_unencrypted_log * constants.AVM_SUBTRACE_ID_EMITUNENCRYPTEDLOG +
+sel_execute_sha256_compression * constants.AVM_SUBTRACE_ID_SHA256_COMPRESSION
 // We force the selectors to be 0 if we are not executing an opcode.
 = sel_should_execute_opcode * subtrace_id;
 
