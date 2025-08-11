@@ -37,10 +37,9 @@ describe('e2e_escrow_contract', () => {
       teardown,
       pxe,
       wallets: [wallet, recipientWallet],
+      accounts: [owner, recipient],
       logger,
     } = await setup(2));
-    owner = wallet.getAddress();
-    recipient = recipientWallet.getAddress();
 
     // Generate private key for escrow contract, register key in pxe service, and deploy
     // Note that we need to register it first if we want to emit an encrypted note for it in the constructor
@@ -49,13 +48,13 @@ describe('e2e_escrow_contract', () => {
     const escrowDeployment = EscrowContract.deployWithPublicKeys(escrowPublicKeys, wallet, owner);
     const escrowInstance = await escrowDeployment.getInstance();
     await pxe.registerAccount(escrowSecretKey, await computePartialAddress(escrowInstance));
-    escrowContract = await escrowDeployment.send().deployed();
+    escrowContract = await escrowDeployment.send({ from: owner }).deployed();
     logger.info(`Escrow contract deployed at ${escrowContract.address}`);
 
     // Deploy Token contract and mint funds for the escrow contract
-    token = await TokenContract.deploy(wallet, owner, 'TokenName', 'TokenSymbol', 18).send().deployed();
+    token = await TokenContract.deploy(wallet, owner, 'TokenName', 'TokenSymbol', 18).send({ from: owner }).deployed();
 
-    await mintTokensToPrivate(token, wallet, escrowContract.address, 100n);
+    await mintTokensToPrivate(token, owner, wallet, escrowContract.address, 100n);
 
     logger.info(`Token contract deployed at ${token.address}`);
   });
@@ -68,7 +67,7 @@ describe('e2e_escrow_contract', () => {
     await expectTokenBalance(wallet, token, escrowContract.address, 100n, logger);
 
     logger.info(`Withdrawing funds from token contract to ${recipient}`);
-    await escrowContract.methods.withdraw(token.address, 30, recipient).send().wait();
+    await escrowContract.methods.withdraw(token.address, 30, recipient).send({ from: owner }).wait();
 
     await expectTokenBalance(wallet, token, owner, 0n, logger);
     await expectTokenBalance(wallet, token, recipient, 30n, logger);
@@ -77,7 +76,10 @@ describe('e2e_escrow_contract', () => {
 
   it('refuses to withdraw funds as a non-owner', async () => {
     await expect(
-      escrowContract.withWallet(recipientWallet).methods.withdraw(token.address, 30, recipient).simulate(),
+      escrowContract
+        .withWallet(recipientWallet)
+        .methods.withdraw(token.address, 30, recipient)
+        .simulate({ from: recipient }),
     ).rejects.toThrow();
   });
 
@@ -85,7 +87,7 @@ describe('e2e_escrow_contract', () => {
     logger.info(`Minting funds in token contract to ${owner}`);
     const mintAmount = 50n;
 
-    await mintTokensToPrivate(token, wallet, owner, mintAmount);
+    await mintTokensToPrivate(token, owner, wallet, owner, mintAmount);
 
     await expectTokenBalance(wallet, token, owner, 50n, logger);
 
@@ -93,7 +95,7 @@ describe('e2e_escrow_contract', () => {
       token.methods.transfer(recipient, 10),
       escrowContract.methods.withdraw(token.address, 20, recipient),
     ])
-      .send()
+      .send({ from: owner })
       .wait();
     await expectTokenBalance(wallet, token, recipient, 30n, logger);
   });
