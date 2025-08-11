@@ -82,8 +82,9 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
     }
 
     // Get eta challenges; used in RAM/ROM memory records and log derivative lookup argument
-    auto [eta, eta_two, eta_three] = transcript->template get_challenges<FF>(
-        domain_separator + "eta", domain_separator + "eta_two", domain_separator + "eta_three");
+    const std::array<std::string, 3> eta_challenge_labels(
+        { domain_separator + "eta", domain_separator + "eta_two", domain_separator + "eta_three" });
+    auto [eta, eta_two, eta_three] = transcript->template get_challenges<FF>(eta_challenge_labels);
 
     // Get commitments to lookup argument polynomials and fourth wire
     commitments.lookup_read_counts =
@@ -93,8 +94,9 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
     commitments.w_4 = transcript->template receive_from_prover<Commitment>(domain_separator + labels.w_4);
 
     // Get permutation challenges
-    auto [beta, gamma] = transcript->template get_challenges<FF>(domain_separator + "beta", domain_separator + "gamma");
-
+    const std::array<std::string, 2> grand_product_challenge_labels{ domain_separator + "beta",
+                                                                     domain_separator + "gamma" };
+    auto [beta, gamma] = transcript->template get_challenges<FF>(grand_product_challenge_labels);
     commitments.lookup_inverses =
         transcript->template receive_from_prover<Commitment>(domain_separator + labels.lookup_inverses);
 

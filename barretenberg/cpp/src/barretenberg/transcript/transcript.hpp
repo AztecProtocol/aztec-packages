@@ -365,20 +365,22 @@ template <typename TranscriptParams> class BaseTranscript {
      * @param labels human-readable names for the challenges for the manifest
      * @return std::array<Fr, num_challenges> challenges for this round.
      */
-    template <typename ChallengeType, typename... Strings>
-    std::array<ChallengeType, sizeof...(Strings)> get_challenges(const Strings&... labels)
+    template <typename ChallengeType> std::vector<ChallengeType> get_challenges(std::span<const std::string> labels)
     {
-        constexpr size_t num_challenges = sizeof...(Strings);
+        const size_t num_challenges = labels.size();
 
         if (use_manifest) {
             // Add challenge labels for current round to the manifest
-            manifest.add_challenge(round_number, labels...);
+            for (const auto& label : labels) {
+                manifest.add_challenge(round_number, label);
+            }
         }
 
         // Compute the new challenge buffer from which we derive the challenges.
 
         // Create challenges from Frs.
-        std::array<ChallengeType, num_challenges> challenges{};
+        std::vector<ChallengeType> challenges;
+        challenges.resize(num_challenges);
 
         // Generate the challenges by iteratively hashing over the previous challenge.
         for (size_t i = 0; i < num_challenges / 2; i += 1) {
@@ -418,17 +420,14 @@ template <typename TranscriptParams> class BaseTranscript {
      * @param array of labels human-readable names for the challenges for the manifest
      * @return std::array<Fr, num_challenges> challenges for this round.
      */
-    template <typename ChallengeType, typename String, size_t NumChallenges>
-    std::array<ChallengeType, NumChallenges> get_challenges(const std::array<String, NumChallenges> labels)
+    template <typename ChallengeType, size_t N>
+    std::array<ChallengeType, N> get_challenges(const std::array<std::string, N>& labels)
     {
-        auto call_get_challenges = [&] {
-            auto call_fn_with_expanded_parameters =
-                [&]<size_t... Indices>([[maybe_unused]] std::index_sequence<Indices...>) {
-                    return get_challenges<ChallengeType>(std::get<Indices>(labels)...);
-                };
-            return call_fn_with_expanded_parameters(std::make_index_sequence<NumChallenges>());
-        };
-        return call_get_challenges();
+        std::span<const std::string> labels_span{ labels.data(), labels.size() };
+        auto vec = get_challenges<ChallengeType>(labels_span); // calls the const-span overload
+        std::array<ChallengeType, N> out{};
+        std::move(vec.begin(), vec.end(), out.begin());
+        return out;
     }
 
     /**
@@ -648,12 +647,13 @@ template <typename TranscriptParams> class BaseTranscript {
 
     template <typename ChallengeType> ChallengeType get_challenge(const std::string& label)
     {
-        ChallengeType result = get_challenges<ChallengeType>(label)[0];
+        std::span<const std::string> label_span(&label, 1);
+        auto result = get_challenges<ChallengeType>(label_span);
 #if defined LOG_CHALLENGES || defined LOG_INTERACTIONS
-        info("challenge: ", label, ": ", result);
+        info("challenge: ", label, ": ", result[0]);
 #endif
         DEBUG_LOG(label, result);
-        return result;
+        return result[0];
     }
 
     [[nodiscard]] TranscriptManifest get_manifest() const { return manifest; };

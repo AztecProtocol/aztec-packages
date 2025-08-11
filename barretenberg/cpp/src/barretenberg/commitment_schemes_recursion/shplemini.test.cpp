@@ -1,18 +1,13 @@
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.test.hpp"
-#include "barretenberg/commitment_schemes/gemini/gemini.hpp"
-#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
-#include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/commitment_schemes/utils/mock_witness_generator.hpp"
+#include "barretenberg/eccvm/eccvm_prover.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
-#include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 #include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
-#include "barretenberg/stdlib/transcript/transcript.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <gtest/gtest.h>
 
 using namespace bb;
@@ -37,6 +32,12 @@ template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typena
     using StdlibProof = bb::stdlib::Proof<Builder>;
 
     static constexpr size_t log_circuit_size = 10;
+
+    ClaimBatcher squashed_claim_batcher;
+    Commitment squashed_unshifted_comm;
+    Commitment squashed_shifted_comm;
+    Fr squashed_unshifted_eval;
+    Fr squashed_shifted_eval;
 
     static std::vector<Fr> convert_elements_to_witnesses(Builder& builder, const std::vector<NativeFr>& elements)
     {
@@ -68,18 +69,44 @@ template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typena
         return out;
     }
 
-    template <size_t num_polys, size_t num_shifted> void run_shplemini_full_scalars()
+    void validate_num_eccvm_rows(size_t num_polys, size_t num_shifted, bool short_scalars, Builder* builder)
     {
-        run_shplemini_generic<num_polys, num_shifted, false>();
+        size_t total_num_msm_rows = builder->op_queue->get_num_rows();
+
+        BB_ASSERT_LTE(total_num_msm_rows, 1UL << CONST_ECCVM_LOG_N, "ECCVM/Goblin: Too many ops in ecc op queue");
+
+        if (short_scalars) {
+
+            const size_t num_non_trivial_scalars_gemini_and_shplonk =
+                /* shifted + unshifted */ 2 + /* fold comms */ (log_circuit_size - 1) +
+                /* identity comm */ 1 + /*kzg comm */ 1;
+
+            const size_t num_msm_rows_unshifted = 33 * ((num_polys - 1 + 3) / 4) + 31;
+            const size_t num_msm_rows_shifted = 33 * ((num_shifted + 3) / 4) + 31;
+
+            EXPECT_EQ(total_num_msm_rows - num_msm_rows_shifted - num_msm_rows_unshifted,
+                      33 * ((num_non_trivial_scalars_gemini_and_shplonk + 1) / 2) + 33);
+        } else {
+            const size_t num_non_trivial_scalars_gemini_and_shplonk =
+                /* fold comms */ (log_circuit_size - 1) +
+                /* identity comm */ 1 + /*kzg comm */ 1;
+
+            EXPECT_EQ(33 * ((num_polys + num_shifted + num_non_trivial_scalars_gemini_and_shplonk + 1) / 2) + 33,
+                      total_num_msm_rows);
+        }
     }
 
-    template <size_t num_polys, size_t num_shifted> void run_shplemini_short_scalars()
+    void run_shplemini_full_scalars(size_t num_polys, size_t num_shifted, bool prove_eccvm = false)
     {
-        run_shplemini_generic<num_polys, num_shifted, true>();
+        run_shplemini_generic(num_polys, num_shifted, false, prove_eccvm);
+    }
+    void run_shplemini_short_scalars(size_t num_polys, size_t num_shifted, bool prove_eccvm = false)
+    {
+        run_shplemini_generic(num_polys, num_shifted, true, prove_eccvm);
     }
 
   private:
-    template <size_t num_polys, size_t num_shifted, bool short_scalars> void run_shplemini_generic()
+    void run_shplemini_generic(size_t num_polys, size_t num_shifted, bool short_scalars, bool prove_eccvm)
     {
         size_t N = 1 << log_circuit_size;
 
@@ -95,21 +122,23 @@ template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typena
         Polynomial<NativeFr> squashed_unshifted(N);
         Polynomial<NativeFr> squashed_shifted(Polynomial<NativeFr>::shiftable(N));
         // Labels are shared by Prover and Verifier
-        std::array<std::string, num_polys - 1> unshifted_batching_challenge_labels;
-        std::array<std::string, num_shifted> shifted_batching_challenge_labels;
-        size_t idx = 0;
-        for (auto& label : unshifted_batching_challenge_labels) {
-            label = "rho_" + std::to_string(idx++);
+        std::vector<std::string> unshifted_batching_challenge_labels;
+        unshifted_batching_challenge_labels.reserve(num_polys - 1);
+        std::vector<std::string> shifted_batching_challenge_labels;
+        shifted_batching_challenge_labels.reserve(num_shifted);
+
+        for (size_t idx = 0; idx < num_polys - 1; idx++) {
+            unshifted_batching_challenge_labels.emplace_back("rho_" + std::to_string(idx++));
         }
-        for (auto& label : shifted_batching_challenge_labels) {
-            label = "rho_" + std::to_string(idx++);
+        for (size_t idx = 0; idx < num_shifted; idx++) {
+            shifted_batching_challenge_labels.emplace_back("rho_" + std::to_string(idx++));
         }
 
-        if constexpr (short_scalars) {
+        if (short_scalars) {
 
-            std::array<NativeFr, num_polys - 1> unshifted_challenges =
+            auto unshifted_challenges =
                 prover_transcript->template get_challenges<NativeFr>(unshifted_batching_challenge_labels);
-            std::array<NativeFr, num_shifted> shifted_challenges =
+            auto shifted_challenges =
                 prover_transcript->template get_challenges<NativeFr>(shifted_batching_challenge_labels);
 
             squashed_unshifted += mock_claims.polynomial_batcher.unshifted[0];
@@ -154,16 +183,11 @@ template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typena
             .shifted = ClaimBatch{ RefVector(stdlib_shifted_commitments), RefVector(stdlib_shifted_evaluations) }
         };
 
-        ClaimBatcher squashed_claim_batcher;
-        Commitment squashed_unshifted_comm;
-        Commitment squashed_shifted_comm;
-        Fr squashed_unshifted_eval;
-        Fr squashed_shifted_eval;
-        if constexpr (short_scalars) {
+        if (short_scalars) {
 
             // Helper that produces the vectors of batching challenges that will be fed to `batch_mul`
-            auto get_batching_challenges = [&](const std::array<std::string, num_polys - 1>& unshifted_labels,
-                                               const std::array<std::string, num_shifted>& shifted_labels) {
+            auto get_batching_challenges = [&](std::span<const std::string> unshifted_labels,
+                                               std::span<const std::string> shifted_labels) {
                 // `batch_mul` expects a vector of scalars.
                 std::vector<Fr> unshifted_challenges(num_polys);
                 // Except for the first commitment, each one of them is multiplied by a challenge, which is <= 128
@@ -174,8 +198,7 @@ template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typena
                 std::copy(tail.begin(), tail.end(), unshifted_challenges.begin() + 1);
 
                 // Get `num_shifted` short challenges to batch all shifted commitments
-                auto shifted = stdlib_verifier_transcript->template get_challenges<Fr>(shifted_labels);
-                std::vector<Fr> shifted_challenges(shifted.begin(), shifted.end());
+                auto shifted_challenges = stdlib_verifier_transcript->template get_challenges<Fr>(shifted_labels);
 
                 return std::pair{ std::move(unshifted_challenges), std::move(shifted_challenges) };
             };
@@ -220,28 +243,13 @@ template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typena
         EXPECT_EQ(vk.pairing_check(pairing_points[0].get_value(), pairing_points[1].get_value()), true);
 
         if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
-            size_t total_num_msm_rows = builder.op_queue->get_num_rows();
+            validate_num_eccvm_rows(num_polys, num_shifted, short_scalars, &builder);
+            if (prove_eccvm) {
+                std::shared_ptr<NativeTranscript> eccvm_transcript = std::make_shared<NativeTranscript>();
 
-            BB_ASSERT_LTE(total_num_msm_rows, 1UL << CONST_ECCVM_LOG_N, "ECCVM/Goblin: Too many ops in ecc op queue");
-
-            if constexpr (short_scalars) {
-
-                const size_t num_non_trivial_scalars_gemini_and_shplonk =
-                    /* shifted + unshifted */ 2 + /* fold comms */ (log_circuit_size - 1) +
-                    /* identity comm */ 1 + /*kzg comm */ 1;
-
-                const size_t num_msm_rows_unshifted = 33 * ((num_polys - 1 + 3) / 4) + 31;
-                const size_t num_msm_rows_shifted = 33 * ((num_shifted + 3) / 4) + 31;
-
-                EXPECT_EQ(total_num_msm_rows - num_msm_rows_shifted - num_msm_rows_unshifted,
-                          33 * ((num_non_trivial_scalars_gemini_and_shplonk + 1) / 2) + 33);
-            } else {
-                const size_t num_non_trivial_scalars_gemini_and_shplonk =
-                    /* fold comms */ (log_circuit_size - 1) +
-                    /* identity comm */ 1 + /*kzg comm */ 1;
-
-                EXPECT_EQ(33 * ((num_polys + num_shifted + num_non_trivial_scalars_gemini_and_shplonk + 1) / 2) + 33,
-                          total_num_msm_rows);
+                ECCVMCircuitBuilder eccvm_builder(builder.op_queue);
+                ECCVMProver prover(eccvm_builder, eccvm_transcript);
+                prover.construct_proof();
             }
         } else {
             info("builder num gates ", builder.get_estimated_num_finalized_gates());
@@ -252,9 +260,7 @@ template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typena
 struct ShpleminiUltraPCS {
     using Builder = UltraCircuitBuilder;
     using Curve = stdlib::bn254<Builder>;
-    using PCSImpl = std::conditional_t<std::same_as<typename Curve::NativeCurve, curve::BN254>,
-                                       KZG<typename Curve::NativeCurve>,
-                                       IPA<typename Curve::NativeCurve>>;
+    using PCSImpl = KZG<typename Curve::NativeCurve>;
 };
 
 struct ShpleminiMegaPCS {
@@ -268,32 +274,53 @@ using ShpleminiMegaTest = ShpleminiRecursionTest<ShpleminiMegaPCS>;
 
 TEST_F(ShpleminiUltraTest, ProveAndVerifySingleFullScalars)
 {
-    run_shplemini_full_scalars<bb::UltraFlavor::NUM_ALL_ENTITIES - bb::UltraFlavor::NUM_WITNESS_ENTITIES, 0>();
+    // In UltraRecursiveVerifier instantiations, we remove the scalar muls against the commitments to shifts.
+    run_shplemini_full_scalars(bb::UltraFlavor::NUM_ALL_ENTITIES, 0);
 }
 
 TEST_F(ShpleminiUltraTest, ProveAndVerifySingleShortScalars)
 {
-    // We don't hit any edge cases here, because all commitments are random.
-    run_shplemini_short_scalars<bb::UltraFlavor::NUM_ALL_ENTITIES, bb::UltraFlavor::NUM_WITNESS_ENTITIES>();
+    // We don't hit any edge cases here, because all commitments are random. Note that we are paying for the shifts
+    // here.
+    run_shplemini_short_scalars(bb::UltraFlavor::NUM_ALL_ENTITIES, bb::UltraFlavor::NUM_WITNESS_ENTITIES);
 }
 
 TEST_F(ShpleminiMegaTest, ProveAndVerifySingleFullScalars)
 {
-    run_shplemini_full_scalars<101, 5>();
-    run_shplemini_full_scalars<102, 6>();
-    run_shplemini_full_scalars<103, 7>();
+    size_t num_polys = 100;
+    size_t num_shifted = 5;
+
+    for (size_t idx = 0; idx < 4; idx++) {
+        run_shplemini_full_scalars(num_polys + idx, num_shifted + idx);
+    }
 }
 
-TEST_F(ShpleminiMegaTest, FullScalarsMaxCapacity)
+TEST_F(ShpleminiMegaTest, FullScalarsManyCommitments)
 {
-    run_shplemini_full_scalars<101, 5>();
+    size_t num_polys = 3500;
+    size_t num_shifted = 350;
+
+    run_shplemini_full_scalars(num_polys, num_shifted);
 }
 
 TEST_F(ShpleminiMegaTest, GoblinProveAndVerifyShortScalars)
 {
-    run_shplemini_short_scalars<13, 5>();
-    run_shplemini_short_scalars<14, 6>();
-    run_shplemini_short_scalars<15, 7>();
-    run_shplemini_short_scalars<16, 8>();
-    run_shplemini_short_scalars<3100, 300>();
+    size_t num_polys = 100;
+    size_t num_shifted = 5;
+
+    for (size_t idx = 0; idx < 4; idx++) {
+        run_shplemini_short_scalars(num_polys + idx, num_shifted + idx);
+    }
+}
+TEST_F(ShpleminiMegaTest, ShortScalarsManyCommitments)
+{
+    size_t num_polys = 7000;
+    size_t num_shifted = 700;
+
+    run_shplemini_short_scalars(num_polys, num_shifted);
+}
+TEST_F(ShpleminiMegaTest, ManyCommitmentsWithECCVMProving)
+{
+    run_shplemini_full_scalars(3500, 350, true);
+    run_shplemini_short_scalars(3500, 350, true);
 }

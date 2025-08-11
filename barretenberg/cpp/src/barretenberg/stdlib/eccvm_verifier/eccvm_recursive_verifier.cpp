@@ -70,7 +70,8 @@ ECCVMRecursiveVerifier::IpaClaimAndProof ECCVMRecursiveVerifier::verify_proof(co
     }
 
     // Get challenge for sorted list batching and wire four memory records
-    const auto [beta, gamma] = transcript->template get_challenges<FF>("beta", "gamma");
+    const std::array<std::string, 2> challenge_labels{ "alpha, beta" };
+    const auto [beta, gamma] = transcript->template get_challenges<FF>(challenge_labels);
 
     auto beta_sqr = beta * beta;
 
