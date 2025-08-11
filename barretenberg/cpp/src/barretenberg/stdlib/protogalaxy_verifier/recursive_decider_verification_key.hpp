@@ -40,7 +40,7 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
     // An array {1, α₁, …, αₖ}, where k = NUM_SUBRELATIONS - 1.
     SubrelationSeparators alphas;
     RelationParameters<FF> relation_parameters;
-    std::vector<FF> gate_challenges;
+    std::vector<FF> gate_challenges_new;
     // The target sum, which is typically nonzero for a ProtogalaxyProver's accmumulator
     FF target_sum{ 0 };
 
@@ -79,9 +79,9 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
             }
             target_sum = FF::from_witness(builder, verification_key->target_sum);
             size_t challenge_idx = 0;
-            gate_challenges = std::vector<FF>(verification_key->gate_challenges.size());
-            for (auto& challenge : gate_challenges) {
-                challenge = FF::from_witness(builder, verification_key->gate_challenges[challenge_idx]);
+            gate_challenges_new = std::vector<FF>(verification_key->gate_challenges_new.size());
+            for (auto& challenge : gate_challenges_new) {
+                challenge = FF::from_witness(builder, verification_key->gate_challenges_new[challenge_idx]);
                 challenge_idx++;
             }
             relation_parameters.eta = FF::from_witness(builder, verification_key->relation_parameters.eta);
@@ -128,8 +128,8 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
         }
         decider_vk.target_sum = target_sum.get_value();
 
-        decider_vk.gate_challenges = std::vector<NativeFF>(gate_challenges.size());
-        for (auto [challenge, inst_challenge] : zip_view(gate_challenges, decider_vk.gate_challenges)) {
+        decider_vk.gate_challenges_new = std::vector<NativeFF>(gate_challenges_new.size());
+        for (auto [challenge, inst_challenge] : zip_view(gate_challenges_new, decider_vk.gate_challenges_new)) {
             inst_challenge = challenge.get_value();
         }
 

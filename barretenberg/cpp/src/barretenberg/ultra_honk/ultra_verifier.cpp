@@ -35,7 +35,7 @@ UltraVerifier_<Flavor>::UltraVerifierOutput UltraVerifier_<Flavor>::verify_proof
     const uint64_t log_n = Flavor::USE_PADDING ? CONST_PROOF_SIZE_LOG_N : verification_key->vk->log_circuit_size;
 
     for (size_t idx = 0; idx < log_n; idx++) {
-        verification_key->gate_challenges.emplace_back(
+        verification_key->gate_challenges_new.emplace_back(
             transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx)));
     }
 

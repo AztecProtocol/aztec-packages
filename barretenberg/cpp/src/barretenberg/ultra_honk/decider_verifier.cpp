@@ -63,7 +63,7 @@ template <typename Flavor> typename DeciderVerifier_<Flavor>::Output DeciderVeri
         libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
     }
     SumcheckOutput<Flavor> sumcheck_output =
-        sumcheck.verify(accumulator->relation_parameters, accumulator->gate_challenges, padding_indicator_array);
+        sumcheck.verify(accumulator->relation_parameters, accumulator->gate_challenges_new, padding_indicator_array);
 
     // For MegaZKFlavor: the sumcheck output contains claimed evaluations of the Libra polynomials
     if constexpr (Flavor::HasZK) {

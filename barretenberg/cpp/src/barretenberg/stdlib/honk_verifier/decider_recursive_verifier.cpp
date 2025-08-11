@@ -50,7 +50,7 @@ DeciderRecursiveVerifier_<Flavor>::PairingPoints DeciderRecursiveVerifier_<Flavo
 
     Sumcheck sumcheck(transcript, accumulator->alphas, CONST_PROOF_SIZE_LOG_N, accumulator->target_sum);
     SumcheckOutput<Flavor> output =
-        sumcheck.verify(accumulator->relation_parameters, accumulator->gate_challenges, padding_indicator_array);
+        sumcheck.verify(accumulator->relation_parameters, accumulator->gate_challenges_new, padding_indicator_array);
 
     // Execute Shplemini rounds.
     ClaimBatcher claim_batcher{

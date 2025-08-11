@@ -25,7 +25,7 @@ void ProtogalaxyRecursiveVerifier_<DeciderVerificationKeys>::run_oink_verifier_o
         OinkRecursiveVerifier_<Flavor> oink_verifier{ builder, key, transcript, domain_separator + '_' };
         oink_verifier.verify();
         key->target_sum = 0;
-        key->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
+        key->gate_challenges_new = std::vector<FF>(CONST_PG_LOG_N, 0);
     }
 
     key = keys_to_fold[1];
@@ -174,7 +174,8 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
     accumulator->target_sum =
         perturbator_evaluation * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
 
-    accumulator->gate_challenges = update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
+    accumulator->gate_challenges_new =
+        update_gate_challenges(perturbator_challenge, accumulator->gate_challenges_new, deltas);
 
     // Set the accumulator circuit size data based on the max of the keys being accumulated
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Invalid out of circuit max operation
