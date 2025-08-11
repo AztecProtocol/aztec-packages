@@ -22,7 +22,7 @@ void ProtogalaxyVerifier_<DeciderVerificationKeys>::run_oink_verifier_on_each_in
     if (!key->is_complete) {
         OinkVerifier<Flavor> oink_verifier{ key, transcript, domain_separator + '_' };
         oink_verifier.verify();
-        key->gate_challenges_new = std::vector<FF>(CONST_PG_LOG_N, 0);
+        key->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
     }
 
     key = keys_to_fold[1];
@@ -109,8 +109,8 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
         compute_vanishing_polynomial_and_lagrange_evaluations<FF, NUM_KEYS>(combiner_challenge);
     accumulator->target_sum =
         perturbator_evaluation * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_evaluation;
-    accumulator->gate_challenges_new = // note: known already in previous round
-        update_gate_challenges(perturbator_challenge, accumulator->gate_challenges_new, deltas);
+    accumulator->gate_challenges = // note: known already in previous round
+        update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
 
     // // Fold the commitments
     for (auto [combination, to_combine] :

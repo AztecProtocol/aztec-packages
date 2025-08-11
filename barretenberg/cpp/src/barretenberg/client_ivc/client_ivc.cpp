@@ -141,7 +141,7 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
         // Extract native verifier accumulator from the stdlib accum for use on the next round
         verifier_accumulator = std::make_shared<DeciderVerificationKey>(verifier_accum->get_value());
         // Initialize the gate challenges to zero for use in first round of folding
-        verifier_accumulator->gate_challenges_new = std::vector<FF>(CONST_PG_LOG_N, 0);
+        verifier_accumulator->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
 
         witness_commitments = std::move(verifier_accum->witness_commitments);
         public_inputs = std::move(verifier.public_inputs);

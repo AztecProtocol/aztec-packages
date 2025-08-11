@@ -32,7 +32,7 @@ template <IsUltraOrMegaHonk Flavor> class DeciderVerificationKey_ {
 
     SubrelationSeparators alphas; // a challenge for each subrelation
     RelationParameters<FF> relation_parameters;
-    std::vector<FF> gate_challenges_new;
+    std::vector<FF> gate_challenges;
     // The target sum, which is typically nonzero for a ProtogalaxyProver's accumulator
     FF target_sum{ 0 };
 
@@ -44,6 +44,6 @@ template <IsUltraOrMegaHonk Flavor> class DeciderVerificationKey_ {
         : vk(vk)
     {}
 
-    MSGPACK_FIELDS(vk, relation_parameters, alphas, is_complete, gate_challenges_new, target_sum, witness_commitments);
+    MSGPACK_FIELDS(vk, relation_parameters, alphas, is_complete, gate_challenges, target_sum, witness_commitments);
 };
 } // namespace bb
