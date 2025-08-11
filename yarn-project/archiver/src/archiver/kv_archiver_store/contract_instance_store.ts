@@ -9,7 +9,19 @@ import {
 } from '@aztec/stdlib/contract';
 import type { UInt64 } from '@aztec/stdlib/types';
 
-type ContractInstanceUpdateKey = [string, string] | [string, string, number];
+type ContractInstanceUpdateKey = [string, string] | [string, string, string];
+
+// Fixed-width paddings to preserve numeric ordering when keys are serialized as strings
+const U64_DECIMAL_WIDTH = 20; // max 18446744073709551615
+const LOG_INDEX_WIDTH = 10; // supports up to 9,999,999,999 entries per timestamp
+
+function padUInt64Decimal(value: bigint): string {
+  return value.toString().padStart(U64_DECIMAL_WIDTH, '0');
+}
+
+function padLogIndex(value: number): string {
+  return value.toString().padStart(LOG_INDEX_WIDTH, '0');
+}
 
 /**
  * LMDB implementation of the ArchiverDataStore interface.
@@ -43,10 +55,11 @@ export class ContractInstanceStore {
   }
 
   getUpdateKey(contractAddress: AztecAddress, timestamp: UInt64, logIndex?: number): ContractInstanceUpdateKey {
+    const ts = padUInt64Decimal(timestamp);
     if (logIndex === undefined) {
-      return [contractAddress.toString(), timestamp.toString()];
+      return [contractAddress.toString(), ts];
     } else {
-      return [contractAddress.toString(), timestamp.toString(), logIndex];
+      return [contractAddress.toString(), ts, padLogIndex(logIndex)];
     }
   }
 
