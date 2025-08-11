@@ -530,8 +530,8 @@ describe('public_tx_simulator', () => {
     const numPublicDataWrites = 3;
     expect(countAccumulatedItems(output.accumulatedData.publicDataWrites)).toBe(numPublicDataWrites);
     expect(output.accumulatedData.publicDataWrites.slice(0, numPublicDataWrites)).toEqual([
-      new PublicDataWrite(await computePublicDataTreeLeafSlot(contractAddress, contractSlotA), fr(0x103)), // 0x101 replaced with 0x103
       new PublicDataWrite(await computePublicDataTreeLeafSlot(contractAddress, contractSlotB), fr(0x151)),
+      new PublicDataWrite(await computePublicDataTreeLeafSlot(contractAddress, contractSlotA), fr(0x103)), // 0x101 replaced with 0x103
       new PublicDataWrite(await computePublicDataTreeLeafSlot(contractAddress, contractSlotC), fr(0x152)), // 0x201 replaced with 0x102 and then 0x152
     ]);
   });

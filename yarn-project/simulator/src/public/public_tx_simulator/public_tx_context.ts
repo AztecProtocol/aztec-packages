@@ -317,18 +317,35 @@ export class PublicTxContext {
     const finalPublicLogs = avmPublicLogs;
 
     // We squash public data writes.
-    // Maps slot to value. Maps in TS are iterable in insertion order, which is exactly what we want for
-    // squashing "to the left", where the first occurrence of a slot uses the value of the last write to it,
-    // and the rest occurrences are omitted.
+    // Squashing "to the right" is performed, meaning we keep the last occurrence of a slot write.
     // Note: you can't write public state from private, so we only squash what we got from the AVM.
     const finalPublicDataWrites = (() => {
-      const squashedPublicDataWrites: Map<bigint, Fr> = new Map();
-      for (const publicDataWrite of avmPublicDataWrites) {
-        squashedPublicDataWrites.set(publicDataWrite.leafSlot.toBigInt(), publicDataWrite.newValue);
+      // Maps slot to index of last occurrence.
+      const lastIndices: Map<bigint, number> = new Map();
+      avmPublicDataWrites.forEach((publicDataWrite, i) => {
+        console.log('Unsquashed write', {
+          leafSlot: publicDataWrite.leafSlot.toString(),
+          value: publicDataWrite.newValue.toString(),
+          index: i,
+        });
+        lastIndices.set(publicDataWrite.leafSlot.toBigInt(), i);
+      });
+
+      // Final squashed public data writes.
+      const squashedPublicDataWrites: PublicDataWrite[] = [];
+      for (let i = 0; i < avmPublicDataWrites.length; i++) {
+        const publicDataUpdate = avmPublicDataWrites[i];
+        const lastIndex = lastIndices.get(publicDataUpdate.leafSlot.toBigInt());
+        // If the current write is the last occurrence of the slot, we keep it.
+        if (lastIndex === i) {
+          console.log('Squashed write', {
+            leafSlot: publicDataUpdate.leafSlot.toString(),
+            value: publicDataUpdate.newValue.toString(),
+          });
+          squashedPublicDataWrites.push(new PublicDataWrite(publicDataUpdate.leafSlot, publicDataUpdate.newValue));
+        }
       }
-      return Array.from(squashedPublicDataWrites.entries()).map(
-        ([slot, value]) => new PublicDataWrite(new Fr(slot), value),
-      );
+      return squashedPublicDataWrites;
     })();
 
     // Count before padding.
