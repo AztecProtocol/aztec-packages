@@ -368,48 +368,48 @@ describe('AztecNodeApiSchema', () => {
   });
 
   it('getValidatorStats', async () => {
-      const validatorAddress = EthAddress.random();
-      handler.singleValidatorStats = {
-          validator: {
-              address: validatorAddress,
-              totalSlots: 5,
-              missedAttestations: { currentStreak: 0, count: 0 },
-              missedProposals: { currentStreak: 0, count: 0 },
-              history: [{ slot: 1n, status: 'block-mined' }],
-          },
-          provenPerformance: [],
-          lastProcessedSlot: 10n,
-          initialSlot: 1n,
-          slotWindow: 100,
-      };
+    const validatorAddress = EthAddress.random();
+    handler.singleValidatorStats = {
+      validator: {
+        address: validatorAddress,
+        totalSlots: 5,
+        missedAttestations: { currentStreak: 0, count: 0 },
+        missedProposals: { currentStreak: 0, count: 0 },
+        history: [{ slot: 1n, status: 'block-mined' }],
+      },
+      allTimeProvenPerformance: [],
+      lastProcessedSlot: 10n,
+      initialSlot: 1n,
+      slotWindow: 100,
+    };
 
-      const response = await context.client.getValidatorStats(validatorAddress.toString());
-      expect(response).toEqual(handler.singleValidatorStats);
+    const response = await context.client.getValidatorStats(validatorAddress);
+    expect(response).toEqual(handler.singleValidatorStats);
   });
 
   it('getValidatorStats(non-existent)', async () => {
-      const response = await context.client.getValidatorStats(EthAddress.random().toString());
-      expect(response).toBeUndefined();
+    const response = await context.client.getValidatorStats(EthAddress.random());
+    expect(response).toBeUndefined();
   });
 
   it('getValidatorStats(with-time-range)', async () => {
-      const validatorAddress = EthAddress.random();
-      handler.singleValidatorStats = {
-          validator: {
-              address: validatorAddress,
-              totalSlots: 3,
-              missedAttestations: { currentStreak: 0, count: 0 },
-              missedProposals: { currentStreak: 0, count: 0 },
-              history: [{ slot: 5n, status: 'attestation-sent' }],
-          },
-          provenPerformance: [],
-          lastProcessedSlot: 10n,
-          initialSlot: 5n,
-          slotWindow: 5,
-      };
+    const validatorAddress = EthAddress.random();
+    handler.singleValidatorStats = {
+      validator: {
+        address: validatorAddress,
+        totalSlots: 3,
+        missedAttestations: { currentStreak: 0, count: 0 },
+        missedProposals: { currentStreak: 0, count: 0 },
+        history: [{ slot: 5n, status: 'attestation-sent' }],
+      },
+      allTimeProvenPerformance: [],
+      lastProcessedSlot: 10n,
+      initialSlot: 5n,
+      slotWindow: 5,
+    };
 
-      const response = await context.client.getValidatorStats(validatorAddress.toString(), 5n, 10n);
-      expect(response).toEqual(handler.singleValidatorStats);
+    const response = await context.client.getValidatorStats(validatorAddress, 5n, 10n);
+    expect(response).toEqual(handler.singleValidatorStats);
   });
 
   it('simulatePublicCalls', async () => {
@@ -701,15 +701,19 @@ class MockAztecNode implements AztecNode {
   getValidatorsStats(): Promise<ValidatorsStats> {
     return Promise.resolve(this.validatorStats!);
   }
-  getValidatorStats(validatorAddress: string, fromSlot?: bigint, toSlot?: bigint): Promise<SingleValidatorStats | undefined> {
-      expect(typeof validatorAddress).toBe('string');
-      if (fromSlot !== undefined) {
-        expect(typeof fromSlot).toBe('bigint');
-      }
-      if (toSlot !== undefined) {
-        expect(typeof toSlot).toBe('bigint');
-      }
-      return Promise.resolve(this.singleValidatorStats);
+  getValidatorStats(
+    validatorAddress: EthAddress,
+    fromSlot?: bigint,
+    toSlot?: bigint,
+  ): Promise<SingleValidatorStats | undefined> {
+    expect(validatorAddress).toBeInstanceOf(EthAddress);
+    if (fromSlot !== undefined) {
+      expect(typeof fromSlot).toBe('bigint');
+    }
+    if (toSlot !== undefined) {
+      expect(typeof toSlot).toBe('bigint');
+    }
+    return Promise.resolve(this.singleValidatorStats);
   }
   simulatePublicCalls(tx: Tx, _enforceFeePayment = false): Promise<PublicSimulationOutput> {
     expect(tx).toBeInstanceOf(Tx);

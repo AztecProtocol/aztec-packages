@@ -7,6 +7,7 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
 import { type L1ContractAddresses, L1ContractAddressesSchema } from '@aztec/ethereum/l1-contract-addresses';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
 import { createSafeJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
 import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
@@ -398,7 +399,11 @@ export interface AztecNode
   getValidatorsStats(): Promise<ValidatorsStats>;
 
   /** Returns stats for a single validator if enabled. */
-  getValidatorStats(validatorAddress: string, fromSlot?: bigint, toSlot?: bigint): Promise<SingleValidatorStats | undefined>;
+  getValidatorStats(
+    validatorAddress: EthAddress,
+    fromSlot?: bigint,
+    toSlot?: bigint,
+  ): Promise<SingleValidatorStats | undefined>;
 
   /**
    * Simulates the public part of a transaction with the current state.
@@ -582,7 +587,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getValidatorStats: z
     .function()
-    .args(z.string(), optional(schemas.BigInt), optional(schemas.BigInt))
+    .args(schemas.EthAddress, optional(schemas.BigInt), optional(schemas.BigInt))
     .returns(SingleValidatorStatsSchema.optional()),
 
   simulatePublicCalls: z.function().args(Tx.schema, optional(z.boolean())).returns(PublicSimulationOutput.schema),

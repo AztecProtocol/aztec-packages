@@ -234,6 +234,53 @@ describe('sentinel', () => {
     });
   });
 
+  describe('slot range validation', () => {
+    let validator: EthAddress;
+
+    beforeEach(() => {
+      validator = EthAddress.random();
+      jest.spyOn(store, 'getHistoryLength').mockReturnValue(10);
+      jest.spyOn(store, 'getHistory').mockResolvedValue([
+        { slot: 1n, status: 'block-mined' },
+        { slot: 2n, status: 'attestation-sent' },
+      ]);
+      jest.spyOn(store, 'getHistories').mockResolvedValue({
+        [validator.toString()]: [
+          { slot: 1n, status: 'block-mined' },
+          { slot: 2n, status: 'attestation-sent' },
+        ],
+      });
+    });
+
+    describe('getValidatorStats', () => {
+      it('should throw when slot range exceeds history length', async () => {
+        await expect(sentinel.getValidatorStats(validator, 1n, 16n)).rejects.toThrow(
+          'Slot range (15) exceeds history length (10). Requested range: 1 to 16.',
+        );
+      });
+
+      it('should not throw when slot range equals history length', async () => {
+        await expect(sentinel.getValidatorStats(validator, 1n, 11n)).resolves.toBeDefined();
+      });
+
+      it('should not throw when slot range is less than history length', async () => {
+        await expect(sentinel.getValidatorStats(validator, 1n, 6n)).resolves.toBeDefined();
+      });
+
+      it('should return undefined when validator has no history', async () => {
+        jest.spyOn(store, 'getHistory').mockResolvedValue(undefined);
+        const result = await sentinel.getValidatorStats(validator, 1n, 6n);
+        expect(result).toBeUndefined();
+      });
+
+      it('should return undefined when validator has empty history', async () => {
+        jest.spyOn(store, 'getHistory').mockResolvedValue([]);
+        const result = await sentinel.getValidatorStats(validator, 1n, 6n);
+        expect(result).toBeUndefined();
+      });
+    });
+  });
+
   describe('handleChainProven', () => {
     it('calls inactivity watcher with performance data', async () => {
       const blockNumber = 15;
