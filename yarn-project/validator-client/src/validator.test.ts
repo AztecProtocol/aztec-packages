@@ -52,13 +52,9 @@ describe('ValidatorClient', () => {
     p2pClient.getAttestationsForSlot.mockImplementation(() => Promise.resolve([]));
     p2pClient.handleAuthRequestFromPeer.mockResolvedValue(StatusMessage.random());
     blockBuilder = mock<IFullNodeBlockBuilder>();
-    blockBuilder.getConfig.mockReturnValue({
-      l1GenesisTime: 1n,
-      slotDuration: 24,
-      l1ChainId: 1,
-      rollupVersion: 1,
-    });
+    blockBuilder.getConfig.mockReturnValue({ l1GenesisTime: 1n, slotDuration: 24, l1ChainId: 1, rollupVersion: 1 });
     epochCache = mock<EpochCache>();
+    epochCache.filterInCommittee.mockImplementation((_slot, addresses) => Promise.resolve(addresses));
     blockSource = mock<L2BlockSource>();
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
     txProvider = mock<TxProvider>();
@@ -293,7 +289,7 @@ describe('ValidatorClient', () => {
         {
           validator: proposer,
           amount: config.slashInvalidBlockPenalty,
-          offense: Offense.INVALID_BLOCK,
+          offense: Offense.BROADCASTED_INVALID_BLOCK_PROPOSAL,
         },
       ]);
 
@@ -302,7 +298,7 @@ describe('ValidatorClient', () => {
         validatorClient.shouldSlash({
           validator: EthAddress.fromString(proposer.toString()), // create a copy of the EthAddress
           amount: config.slashInvalidBlockMaxPenalty,
-          offense: Offense.INVALID_BLOCK,
+          offense: Offense.BROADCASTED_INVALID_BLOCK_PROPOSAL,
         }),
       ).resolves.toBe(true);
 
@@ -311,7 +307,7 @@ describe('ValidatorClient', () => {
         validatorClient.shouldSlash({
           validator: EthAddress.fromString(proposer.toString()),
           amount: config.slashInvalidBlockMaxPenalty + 1n,
-          offense: Offense.INVALID_BLOCK,
+          offense: Offense.BROADCASTED_INVALID_BLOCK_PROPOSAL,
         }),
       ).resolves.toBe(false);
     });

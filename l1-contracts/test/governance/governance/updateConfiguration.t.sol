@@ -23,9 +23,7 @@ contract UpdateConfigurationTest is GovernanceBase {
   function test_WhenCallerIsNotSelf() external {
     // it revert
     vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.Governance__CallerNotSelf.selector, address(this), address(governance)
-      )
+      abi.encodeWithSelector(Errors.Governance__CallerNotSelf.selector, address(this), address(governance))
     );
     governance.updateConfiguration(config);
   }
@@ -38,213 +36,122 @@ contract UpdateConfigurationTest is GovernanceBase {
     _;
   }
 
-  function test_WhenQuorumLtMinOrGtMax(uint256 _val)
-    external
-    whenCallerIsSelf
-    whenConfigurationIsInvalid
-  {
+  function test_WhenQuorumLtMinOrGtMax(uint256 _val) external whenCallerIsSelf whenConfigurationIsInvalid {
     // it revert
     config.quorum = bound(_val, 0, ConfigurationLib.QUORUM_LOWER - 1);
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Governance__ConfigurationLib__QuorumTooSmall.selector)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.Governance__ConfigurationLib__QuorumTooSmall.selector));
 
     vm.prank(address(governance));
     governance.updateConfiguration(config);
 
     config.quorum = bound(_val, ConfigurationLib.QUORUM_UPPER + 1, type(uint256).max);
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Governance__ConfigurationLib__QuorumTooBig.selector)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.Governance__ConfigurationLib__QuorumTooBig.selector));
 
     vm.prank(address(governance));
     governance.updateConfiguration(config);
   }
 
-  function test_WhenDifferentialLtMinOrGtMax(uint256 _val)
-    external
-    whenCallerIsSelf
-    whenConfigurationIsInvalid
-  {
+  function test_WhenDifferentialLtMinOrGtMax(uint256 _val) external whenCallerIsSelf whenConfigurationIsInvalid {
     // it revert
-    config.requiredYeaMargin =
-      bound(_val, ConfigurationLib.REQUIRED_YEA_MARGIN_UPPER + 1, type(uint256).max);
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Governance__ConfigurationLib__RequiredYeaMarginTooBig.selector)
-    );
+    config.requiredYeaMargin = bound(_val, ConfigurationLib.REQUIRED_YEA_MARGIN_UPPER + 1, type(uint256).max);
+    vm.expectRevert(abi.encodeWithSelector(Errors.Governance__ConfigurationLib__RequiredYeaMarginTooBig.selector));
 
     vm.prank(address(governance));
     governance.updateConfiguration(config);
   }
 
-  function test_WhenMinimumVotesLtMin(uint256 _val)
-    external
-    whenCallerIsSelf
-    whenConfigurationIsInvalid
-  {
+  function test_WhenMinimumVotesLtMin(uint256 _val) external whenCallerIsSelf whenConfigurationIsInvalid {
     // it revert
     config.minimumVotes = bound(_val, 0, ConfigurationLib.VOTES_LOWER - 1);
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Governance__ConfigurationLib__InvalidMinimumVotes.selector)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.Governance__ConfigurationLib__InvalidMinimumVotes.selector));
 
     vm.prank(address(governance));
     governance.updateConfiguration(config);
   }
 
-  function test_WhenLockAmountLtMin(uint256 _val)
-    external
-    whenCallerIsSelf
-    whenConfigurationIsInvalid
-  {
+  function test_WhenLockAmountLtMin(uint256 _val) external whenCallerIsSelf whenConfigurationIsInvalid {
     // it revert
     config.proposeConfig.lockAmount = bound(_val, 0, ConfigurationLib.VOTES_LOWER - 1);
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Governance__ConfigurationLib__LockAmountTooSmall.selector)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.Governance__ConfigurationLib__LockAmountTooSmall.selector));
 
     vm.prank(address(governance));
     governance.updateConfiguration(config);
   }
 
-  function test_WhenLockDelayLtMinOrGtMax(uint256 _val)
-    external
-    whenCallerIsSelf
-    whenConfigurationIsInvalid
-  {
+  function test_WhenLockDelayLtMinOrGtMax(uint256 _val) external whenCallerIsSelf whenConfigurationIsInvalid {
     // it revert
+    config.proposeConfig.lockDelay = Timestamp.wrap(bound(_val, 0, Timestamp.unwrap(ConfigurationLib.TIME_LOWER) - 1));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Governance__ConfigurationLib__TimeTooSmall.selector, "LockDelay"));
+    vm.prank(address(governance));
+    governance.updateConfiguration(config);
+
     config.proposeConfig.lockDelay =
-      Timestamp.wrap(bound(_val, 0, Timestamp.unwrap(ConfigurationLib.TIME_LOWER) - 1));
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.Governance__ConfigurationLib__TimeTooSmall.selector, "LockDelay"
-      )
-    );
-    vm.prank(address(governance));
-    governance.updateConfiguration(config);
-
-    config.proposeConfig.lockDelay = Timestamp.wrap(
-      bound(_val, Timestamp.unwrap(ConfigurationLib.TIME_UPPER) + 1, type(uint256).max)
-    );
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Governance__ConfigurationLib__TimeTooBig.selector, "LockDelay")
-    );
+      Timestamp.wrap(bound(_val, Timestamp.unwrap(ConfigurationLib.TIME_UPPER) + 1, type(uint256).max));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Governance__ConfigurationLib__TimeTooBig.selector, "LockDelay"));
     vm.prank(address(governance));
     governance.updateConfiguration(config);
   }
 
-  function test_WhenVotingDelayLtMinOrGtMax(uint256 _val)
-    external
-    whenCallerIsSelf
-    whenConfigurationIsInvalid
-  {
+  function test_WhenVotingDelayLtMinOrGtMax(uint256 _val) external whenCallerIsSelf whenConfigurationIsInvalid {
     // it revert
+
+    config.votingDelay = Timestamp.wrap(bound(_val, 0, Timestamp.unwrap(ConfigurationLib.TIME_LOWER) - 1));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Governance__ConfigurationLib__TimeTooSmall.selector, "VotingDelay"));
+    vm.prank(address(governance));
+    governance.updateConfiguration(config);
 
     config.votingDelay =
-      Timestamp.wrap(bound(_val, 0, Timestamp.unwrap(ConfigurationLib.TIME_LOWER) - 1));
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.Governance__ConfigurationLib__TimeTooSmall.selector, "VotingDelay"
-      )
-    );
-    vm.prank(address(governance));
-    governance.updateConfiguration(config);
-
-    config.votingDelay = Timestamp.wrap(
-      bound(_val, Timestamp.unwrap(ConfigurationLib.TIME_UPPER) + 1, type(uint256).max)
-    );
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.Governance__ConfigurationLib__TimeTooBig.selector, "VotingDelay"
-      )
-    );
+      Timestamp.wrap(bound(_val, Timestamp.unwrap(ConfigurationLib.TIME_UPPER) + 1, type(uint256).max));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Governance__ConfigurationLib__TimeTooBig.selector, "VotingDelay"));
     vm.prank(address(governance));
     governance.updateConfiguration(config);
   }
 
-  function test_WhenVotingDurationLtMinOrGtMax(uint256 _val)
-    external
-    whenCallerIsSelf
-    whenConfigurationIsInvalid
-  {
+  function test_WhenVotingDurationLtMinOrGtMax(uint256 _val) external whenCallerIsSelf whenConfigurationIsInvalid {
     // it revert
+
+    config.votingDuration = Timestamp.wrap(bound(_val, 0, Timestamp.unwrap(ConfigurationLib.TIME_LOWER) - 1));
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.Governance__ConfigurationLib__TimeTooSmall.selector, "VotingDuration")
+    );
+    vm.prank(address(governance));
+    governance.updateConfiguration(config);
 
     config.votingDuration =
-      Timestamp.wrap(bound(_val, 0, Timestamp.unwrap(ConfigurationLib.TIME_LOWER) - 1));
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.Governance__ConfigurationLib__TimeTooSmall.selector, "VotingDuration"
-      )
-    );
-    vm.prank(address(governance));
-    governance.updateConfiguration(config);
-
-    config.votingDuration = Timestamp.wrap(
-      bound(_val, Timestamp.unwrap(ConfigurationLib.TIME_UPPER) + 1, type(uint256).max)
-    );
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.Governance__ConfigurationLib__TimeTooBig.selector, "VotingDuration"
-      )
-    );
+      Timestamp.wrap(bound(_val, Timestamp.unwrap(ConfigurationLib.TIME_UPPER) + 1, type(uint256).max));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Governance__ConfigurationLib__TimeTooBig.selector, "VotingDuration"));
     vm.prank(address(governance));
     governance.updateConfiguration(config);
   }
 
-  function test_WhenExecutionDelayLtMinOrGtMax(uint256 _val)
-    external
-    whenCallerIsSelf
-    whenConfigurationIsInvalid
-  {
+  function test_WhenExecutionDelayLtMinOrGtMax(uint256 _val) external whenCallerIsSelf whenConfigurationIsInvalid {
     // it revert
+
+    config.executionDelay = Timestamp.wrap(bound(_val, 0, Timestamp.unwrap(ConfigurationLib.TIME_LOWER) - 1));
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.Governance__ConfigurationLib__TimeTooSmall.selector, "ExecutionDelay")
+    );
+    vm.prank(address(governance));
+    governance.updateConfiguration(config);
 
     config.executionDelay =
-      Timestamp.wrap(bound(_val, 0, Timestamp.unwrap(ConfigurationLib.TIME_LOWER) - 1));
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.Governance__ConfigurationLib__TimeTooSmall.selector, "ExecutionDelay"
-      )
-    );
-    vm.prank(address(governance));
-    governance.updateConfiguration(config);
-
-    config.executionDelay = Timestamp.wrap(
-      bound(_val, Timestamp.unwrap(ConfigurationLib.TIME_UPPER) + 1, type(uint256).max)
-    );
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.Governance__ConfigurationLib__TimeTooBig.selector, "ExecutionDelay"
-      )
-    );
+      Timestamp.wrap(bound(_val, Timestamp.unwrap(ConfigurationLib.TIME_UPPER) + 1, type(uint256).max));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Governance__ConfigurationLib__TimeTooBig.selector, "ExecutionDelay"));
     vm.prank(address(governance));
     governance.updateConfiguration(config);
   }
 
-  function test_WhenGracePeriodLtMinOrGtMax(uint256 _val)
-    external
-    whenCallerIsSelf
-    whenConfigurationIsInvalid
-  {
+  function test_WhenGracePeriodLtMinOrGtMax(uint256 _val) external whenCallerIsSelf whenConfigurationIsInvalid {
     // it revert
 
-    config.gracePeriod =
-      Timestamp.wrap(bound(_val, 0, Timestamp.unwrap(ConfigurationLib.TIME_LOWER) - 1));
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.Governance__ConfigurationLib__TimeTooSmall.selector, "GracePeriod"
-      )
-    );
+    config.gracePeriod = Timestamp.wrap(bound(_val, 0, Timestamp.unwrap(ConfigurationLib.TIME_LOWER) - 1));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Governance__ConfigurationLib__TimeTooSmall.selector, "GracePeriod"));
     vm.prank(address(governance));
     governance.updateConfiguration(config);
 
-    config.gracePeriod = Timestamp.wrap(
-      bound(_val, Timestamp.unwrap(ConfigurationLib.TIME_UPPER) + 1, type(uint256).max)
-    );
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.Governance__ConfigurationLib__TimeTooBig.selector, "GracePeriod"
-      )
-    );
+    config.gracePeriod =
+      Timestamp.wrap(bound(_val, Timestamp.unwrap(ConfigurationLib.TIME_UPPER) + 1, type(uint256).max));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Governance__ConfigurationLib__TimeTooBig.selector, "GracePeriod"));
     vm.prank(address(governance));
     governance.updateConfiguration(config);
   }
@@ -274,8 +181,7 @@ contract UpdateConfigurationTest is GovernanceBase {
     assertEq(config.withdrawalDelay(), fresh.withdrawalDelay());
     assertEq(
       config.withdrawalDelay(),
-      Timestamp.wrap(Timestamp.unwrap(fresh.votingDelay) / 5) + fresh.votingDuration
-        + fresh.executionDelay
+      Timestamp.wrap(Timestamp.unwrap(fresh.votingDelay) / 5) + fresh.votingDuration + fresh.executionDelay
     );
     assertEq(config.proposeConfig.lockAmount, fresh.proposeConfig.lockAmount);
     assertEq(config.proposeConfig.lockDelay, fresh.proposeConfig.lockDelay);
@@ -285,17 +191,12 @@ contract UpdateConfigurationTest is GovernanceBase {
       old.executionDelay == fresh.executionDelay && old.gracePeriod == fresh.gracePeriod
         && old.minimumVotes == fresh.minimumVotes && old.quorum == fresh.quorum
         && old.requiredYeaMargin == fresh.requiredYeaMargin && old.votingDelay == fresh.votingDelay
-        && old.votingDuration == fresh.votingDuration
-        && old.proposeConfig.lockAmount == fresh.proposeConfig.lockAmount
+        && old.votingDuration == fresh.votingDuration && old.proposeConfig.lockAmount == fresh.proposeConfig.lockAmount
         && old.proposeConfig.lockDelay == fresh.proposeConfig.lockDelay
     );
   }
 
-  function test_WhenQuorumGeMinAndLeMax(uint256 _val)
-    external
-    whenCallerIsSelf
-    whenConfigurationIsValid
-  {
+  function test_WhenQuorumGeMinAndLeMax(uint256 _val) external whenCallerIsSelf whenConfigurationIsValid {
     // it updates the configuration
     // it emits {ConfigurationUpdated} event
 
@@ -305,11 +206,7 @@ contract UpdateConfigurationTest is GovernanceBase {
     config.quorum = val;
   }
 
-  function test_WhenRequiredYeaMarginGeMinAndLeMax(uint256 _val)
-    external
-    whenCallerIsSelf
-    whenConfigurationIsValid
-  {
+  function test_WhenRequiredYeaMarginGeMinAndLeMax(uint256 _val) external whenCallerIsSelf whenConfigurationIsValid {
     // it updates the configuration
     // it emits {ConfigurationUpdated} event
 
@@ -319,11 +216,7 @@ contract UpdateConfigurationTest is GovernanceBase {
     config.requiredYeaMargin = val;
   }
 
-  function test_WhenMinimumVotesGeMin(uint256 _val)
-    external
-    whenCallerIsSelf
-    whenConfigurationIsValid
-  {
+  function test_WhenMinimumVotesGeMin(uint256 _val) external whenCallerIsSelf whenConfigurationIsValid {
     // it updates the configuration
     // it emits {ConfigurationUpdated} event
 
@@ -333,111 +226,67 @@ contract UpdateConfigurationTest is GovernanceBase {
     config.minimumVotes = val;
   }
 
-  function test_WhenLockAmountGeMin(uint256 _val)
-    external
-    whenCallerIsSelf
-    whenConfigurationIsValid
-  {
+  function test_WhenLockAmountGeMin(uint256 _val) external whenCallerIsSelf whenConfigurationIsValid {
     // it updates the configuration
     // it emits {ConfigurationUpdated} event
 
-    uint256 val = bound(_val, ConfigurationLib.VOTES_LOWER, type(uint256).max);
+    uint256 val = bound(_val, ConfigurationLib.LOCK_AMOUNT_LOWER, type(uint256).max);
 
     vm.assume(val != config.proposeConfig.lockAmount);
     config.proposeConfig.lockAmount = val;
   }
 
-  function test_WhenLockDelayGeMinAndLeMax(uint256 _val)
-    external
-    whenCallerIsSelf
-    whenConfigurationIsValid
-  {
+  function test_WhenLockDelayGeMinAndLeMax(uint256 _val) external whenCallerIsSelf whenConfigurationIsValid {
     // it updates the configuration
     // it emits {ConfigurationUpdated} event
     Timestamp val = Timestamp.wrap(
-      bound(
-        _val,
-        Timestamp.unwrap(ConfigurationLib.TIME_LOWER),
-        Timestamp.unwrap(ConfigurationLib.TIME_UPPER)
-      )
+      bound(_val, Timestamp.unwrap(ConfigurationLib.TIME_LOWER), Timestamp.unwrap(ConfigurationLib.TIME_UPPER))
     );
 
     vm.assume(val != config.proposeConfig.lockDelay);
     config.proposeConfig.lockDelay = val;
   }
 
-  function test_WhenVotingDelayGeMinAndLeMax(uint256 _val)
-    external
-    whenCallerIsSelf
-    whenConfigurationIsValid
-  {
+  function test_WhenVotingDelayGeMinAndLeMax(uint256 _val) external whenCallerIsSelf whenConfigurationIsValid {
     // it updates the configuration
     // it emits {ConfigurationUpdated} event
     Timestamp val = Timestamp.wrap(
-      bound(
-        _val,
-        Timestamp.unwrap(ConfigurationLib.TIME_LOWER),
-        Timestamp.unwrap(ConfigurationLib.TIME_UPPER)
-      )
+      bound(_val, Timestamp.unwrap(ConfigurationLib.TIME_LOWER), Timestamp.unwrap(ConfigurationLib.TIME_UPPER))
     );
 
     vm.assume(val != config.votingDelay);
     config.votingDelay = val;
   }
 
-  function test_WhenVotingDurationGeMinAndLeMax(uint256 _val)
-    external
-    whenCallerIsSelf
-    whenConfigurationIsValid
-  {
+  function test_WhenVotingDurationGeMinAndLeMax(uint256 _val) external whenCallerIsSelf whenConfigurationIsValid {
     // it updates the configuration
     // it emits {ConfigurationUpdated} event
     Timestamp val = Timestamp.wrap(
-      bound(
-        _val,
-        Timestamp.unwrap(ConfigurationLib.TIME_LOWER),
-        Timestamp.unwrap(ConfigurationLib.TIME_UPPER)
-      )
+      bound(_val, Timestamp.unwrap(ConfigurationLib.TIME_LOWER), Timestamp.unwrap(ConfigurationLib.TIME_UPPER))
     );
 
     vm.assume(val != config.votingDuration);
     config.votingDuration = val;
   }
 
-  function test_WhenExecutionDelayGeMinAndLeMax(uint256 _val)
-    external
-    whenCallerIsSelf
-    whenConfigurationIsValid
-  {
+  function test_WhenExecutionDelayGeMinAndLeMax(uint256 _val) external whenCallerIsSelf whenConfigurationIsValid {
     // it updates the configuration
     // it emits {ConfigurationUpdated} event
 
     Timestamp val = Timestamp.wrap(
-      bound(
-        _val,
-        Timestamp.unwrap(ConfigurationLib.TIME_LOWER),
-        Timestamp.unwrap(ConfigurationLib.TIME_UPPER)
-      )
+      bound(_val, Timestamp.unwrap(ConfigurationLib.TIME_LOWER), Timestamp.unwrap(ConfigurationLib.TIME_UPPER))
     );
 
     vm.assume(val != config.executionDelay);
     config.executionDelay = val;
   }
 
-  function test_WhenGracePeriodGeMinAndLeMax(uint256 _val)
-    external
-    whenCallerIsSelf
-    whenConfigurationIsValid
-  {
+  function test_WhenGracePeriodGeMinAndLeMax(uint256 _val) external whenCallerIsSelf whenConfigurationIsValid {
     // it updates the configuration
     // it emits {ConfigurationUpdated} event
 
     Timestamp val = Timestamp.wrap(
-      bound(
-        _val,
-        Timestamp.unwrap(ConfigurationLib.TIME_LOWER),
-        Timestamp.unwrap(ConfigurationLib.TIME_UPPER)
-      )
+      bound(_val, Timestamp.unwrap(ConfigurationLib.TIME_LOWER), Timestamp.unwrap(ConfigurationLib.TIME_UPPER))
     );
 
     vm.assume(val != config.gracePeriod);

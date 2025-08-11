@@ -10,11 +10,11 @@ import {Multicall3} from "./Multicall3.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {
-  SignatureLib,
+  AttestationLib,
   Signature,
   CommitteeAttestation,
   CommitteeAttestations
-} from "@aztec/shared/libraries/SignatureLib.sol";
+} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
@@ -41,12 +41,7 @@ import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {ProposedHeaderLib} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
-import {
-  ProposeArgs,
-  ProposePayload,
-  OracleInput,
-  ProposeLib
-} from "@aztec/core/libraries/rollup/ProposeLib.sol";
+import {ProposeArgs, ProposePayload, OracleInput, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {
   FeeLib,
@@ -57,10 +52,7 @@ import {
   ManaBaseFeeComponents
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {
-  FeeModelTestPoints,
-  TestPoint,
-  FeeHeaderModel,
-  ManaBaseFeeComponentsModel
+  FeeModelTestPoints, TestPoint, FeeHeaderModel, ManaBaseFeeComponentsModel
 } from "test/fees/FeeModelTestPoints.t.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
@@ -73,6 +65,7 @@ import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.so
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
+import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 // solhint-disable comprehensive-interface
 
@@ -155,18 +148,24 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       address attester = vm.addr(attesterPrivateKey);
       attesterPrivateKeys[attester] = attesterPrivateKey;
 
-      initialValidators[i - 1] = CheatDepositArgs({attester: attester, withdrawer: address(this)});
+      initialValidators[i - 1] = CheatDepositArgs({
+        attester: attester,
+        withdrawer: address(this),
+        publicKeyInG1: BN254Lib.g1Zero(),
+        publicKeyInG2: BN254Lib.g2Zero(),
+        proofOfPossession: BN254Lib.g1Zero()
+      });
     }
 
     StakingQueueConfig memory stakingQueueConfig = TestConstants.getStakingQueueConfig();
     stakingQueueConfig.normalFlushSizeMin = _validatorCount;
 
-    RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost)
-      .setManaTarget(MANA_TARGET).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION)
-      .setMintFeeAmount(1e30).setValidators(initialValidators).setTargetCommitteeSize(
-      _noValidators ? 0 : TARGET_COMMITTEE_SIZE
-    ).setStakingQueueConfig(stakingQueueConfig).setSlashingQuorum(VOTING_ROUND_SIZE)
-      .setSlashingRoundSize(VOTING_ROUND_SIZE);
+    RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost).setManaTarget(
+      MANA_TARGET
+    ).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION).setMintFeeAmount(1e30).setValidators(
+      initialValidators
+    ).setTargetCommitteeSize(_noValidators ? 0 : TARGET_COMMITTEE_SIZE).setStakingQueueConfig(stakingQueueConfig)
+      .setSlashingQuorum(VOTING_ROUND_SIZE).setSlashingRoundSize(VOTING_ROUND_SIZE);
     builder.deploy();
 
     asset = builder.getConfig().testERC20;
@@ -250,8 +249,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
     Timestamp ts = rollup.getTimestampForSlot(slotNumber);
 
-    uint128 manaBaseFee =
-      SafeCast.toUint128(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true));
+    uint128 manaBaseFee = SafeCast.toUint128(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true));
     uint256 manaSpent = point.block_header.mana_spent;
 
     address proposer = rollup.getCurrentProposer();
@@ -331,11 +329,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     });
   }
 
-  function createAttestation(address _signer, bytes32 _digest)
-    internal
-    view
-    returns (CommitteeAttestation memory)
-  {
+  function createAttestation(address _signer, bytes32 _digest) internal view returns (CommitteeAttestation memory) {
     uint256 privateKey = attesterPrivateKeys[_signer];
 
     bytes32 digest = _digest.toEthSignedMessageHash();
@@ -346,12 +340,9 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     return CommitteeAttestation({addr: _signer, signature: signature});
   }
 
-  // This is used for attestations that are not signed - we include their address to help reconstruct the committee commitment
-  function createEmptyAttestation(address _signer)
-    internal
-    pure
-    returns (CommitteeAttestation memory)
-  {
+  // This is used for attestations that are not signed - we include their address to help reconstruct the committee
+  // commitment
+  function createEmptyAttestation(address _signer) internal pure returns (CommitteeAttestation memory) {
     Signature memory emptySignature = Signature({v: 0, r: 0, s: 0});
     return CommitteeAttestation({addr: _signer, signature: emptySignature});
   }
@@ -410,7 +401,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
         // Store the attestations for the current block number
         uint256 currentBlockNumber = rollup.getPendingBlockNumber() + 1;
-        blockAttestations[currentBlockNumber] = SignatureLib.packAttestations(b.attestations);
+        blockAttestations[currentBlockNumber] = AttestationLib.packAttestations(b.attestations);
 
         if (_slashing) {
           Signature memory sig = createSignalSignature(proposer, slashPayload, round);
@@ -418,8 +409,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
           calls[0] = Multicall3.Call3({
             target: address(rollup),
             callData: abi.encodeCall(
-              rollup.propose,
-              (b.proposeArgs, SignatureLib.packAttestations(b.attestations), b.signers, b.blobInputs)
+              rollup.propose, (b.proposeArgs, AttestationLib.packAttestations(b.attestations), b.signers, b.blobInputs)
             ),
             allowFailure: false
           });
@@ -430,7 +420,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
           });
           multicall.aggregate3(calls);
         } else {
-          CommitteeAttestations memory attestations = SignatureLib.packAttestations(b.attestations);
+          CommitteeAttestations memory attestations = AttestationLib.packAttestations(b.attestations);
 
           // Emit calldata size for propose
           bytes memory proposeCalldata =

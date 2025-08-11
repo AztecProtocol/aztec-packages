@@ -81,6 +81,8 @@ const std::unordered_map<ExecutionOpCode, SubtraceInfo> SUBTRACE_INFO_MAP = {
     // Hashes
     { ExecutionOpCode::KECCAKF1600, { .subtrace_selector = SubtraceSel::KECCAKF1600, .subtrace_operation_id = 0 } },
     { ExecutionOpCode::POSEIDON2PERM, { .subtrace_selector = SubtraceSel::POSEIDON2PERM, .subtrace_operation_id = 0 } },
+    { ExecutionOpCode::SHA256COMPRESSION,
+      { .subtrace_selector = SubtraceSel::SHA256COMPRESSION, .subtrace_operation_id = 0 } },
     // Tree operations
     { ExecutionOpCode::SLOAD,
       { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_SLOAD } },
@@ -105,6 +107,8 @@ const std::unordered_map<ExecutionOpCode, SubtraceInfo> SUBTRACE_INFO_MAP = {
     // Side effects
     { ExecutionOpCode::EMITUNENCRYPTEDLOG,
       { .subtrace_selector = SubtraceSel::EMITUNENCRYPTEDLOG, .subtrace_operation_id = 0 } },
+    { ExecutionOpCode::SENDL2TOL1MSG,
+      { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_SENDL2TOL1MSG } },
 };
 
 FF get_subtrace_id(SubtraceSel subtrace_sel)
@@ -134,6 +138,8 @@ FF get_subtrace_id(SubtraceSel subtrace_sel)
         return AVM_SUBTRACE_ID_GETCONTRACTINSTANCE;
     case SubtraceSel::EMITUNENCRYPTEDLOG:
         return AVM_SUBTRACE_ID_EMITUNENCRYPTEDLOG;
+    case SubtraceSel::SHA256COMPRESSION:
+        return AVM_SUBTRACE_ID_SHA256_COMPRESSION;
     }
 
     // clangd will complain if we miss a case.
@@ -170,6 +176,8 @@ Column get_subtrace_selector(SubtraceSel subtrace_sel)
         return C::execution_sel_execute_get_contract_instance;
     case SubtraceSel::EMITUNENCRYPTEDLOG:
         return C::execution_sel_execute_emit_unencrypted_log;
+    case SubtraceSel::SHA256COMPRESSION:
+        return C::execution_sel_execute_sha256_compression;
     }
 
     // clangd will complain if we miss a case.

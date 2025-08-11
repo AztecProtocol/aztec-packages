@@ -7,22 +7,25 @@ use dep::types::{
     },
     constants::{
         CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, CONTRACT_CLASS_LOGS_PREFIX, L2_L1_MSGS_PREFIX,
-        MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
-        MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX, MAX_PUBLIC_LOGS_PER_TX,
-        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTES_PREFIX, NULLIFIERS_PREFIX,
-        PRIVATE_LOG_SIZE_IN_FIELDS, PRIVATE_LOGS_PREFIX, PUBLIC_DATA_UPDATE_REQUESTS_PREFIX,
-        PUBLIC_LOG_SIZE_IN_FIELDS, PUBLIC_LOGS_PREFIX, REVERT_CODE_PREFIX, TX_FEE_PREFIX,
-        TX_START_PREFIX,
+        MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSG_SUBTREES_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
+        MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
+        MAX_PUBLIC_LOGS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTES_PREFIX,
+        NULLIFIERS_PREFIX, PRIVATE_LOG_SIZE_IN_FIELDS, PRIVATE_LOGS_PREFIX,
+        PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, PUBLIC_LOG_SIZE_IN_FIELDS, PUBLIC_LOGS_PREFIX,
+        REVERT_CODE_PREFIX, TX_FEE_PREFIX, TX_START_PREFIX,
     },
     hash::compute_contract_class_log_hash,
-    merkle_tree::VariableMerkleTree,
+    merkle_tree::UnbalancedMerkleTree,
     traits::ToField,
     utils::arrays::{array_length, array_length_until, array_padded_with},
 };
 
 pub fn compute_kernel_out_hash(l2_to_l1_msgs: [Field; MAX_L2_TO_L1_MSGS_PER_TX]) -> Field {
     let non_empty_items = array_length(l2_to_l1_msgs);
-    let merkle_tree = VariableMerkleTree::new_sha(l2_to_l1_msgs, non_empty_items);
+    let merkle_tree = UnbalancedMerkleTree::new_sha::<MAX_L2_TO_L1_MSGS_PER_TX, MAX_L2_TO_L1_MSG_SUBTREES_PER_TX>(
+        l2_to_l1_msgs,
+        non_empty_items,
+    );
     merkle_tree.get_root()
 }
 

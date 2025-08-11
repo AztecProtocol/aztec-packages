@@ -5,17 +5,14 @@ pragma solidity >=0.8.27;
 import {Test} from "forge-std/Test.sol";
 
 import {Governance} from "@aztec/governance/Governance.sol";
-import {
-  Proposal, Configuration, ProposalState
-} from "@aztec/governance/interfaces/IGovernance.sol";
+import {Proposal, Configuration, ProposalState} from "@aztec/governance/interfaces/IGovernance.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
-import {RegisterNewRollupVersionPayload} from
-  "../test/governance/scenario/RegisterNewRollupVersionPayload.sol";
+import {RegisterNewRollupVersionPayload} from "../test/governance/scenario/RegisterNewRollupVersionPayload.sol";
 import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {Fakerollup} from "../test/governance/governance-proposer/mocks/Fakerollup.sol";
@@ -33,12 +30,10 @@ contract GovScript is Test {
   address internal constant ME = address(0xf8d7d601759CBcfB78044bA7cA9B0c0D6301A54f);
 
   Governance public constant governance = Governance(0xEE63E102E35F24c34b9eA09B597ACFb491c94e78);
-  GovernanceProposer public constant governanceProposer =
-    GovernanceProposer(0xF4bf5dF1c3B2dd67A0525Fc600E98ca51143a67D);
+  GovernanceProposer public constant governanceProposer = GovernanceProposer(0xF4bf5dF1c3B2dd67A0525Fc600E98ca51143a67D);
   TestERC20 public constant stakingAsset = TestERC20(0x5C30c66847866A184ccb5197cBE31Fce7A92eB26);
   TestERC20 public constant feeAsset = TestERC20(0x487Ff89A8bDAEFeA2Ad10D3e23727ccdA8F845B9);
-  FeeAssetHandler public constant feeAssetHandler =
-    FeeAssetHandler(0x80d848Dc9F52DF56789e2d62Ce66F19555FF1019);
+  FeeAssetHandler public constant feeAssetHandler = FeeAssetHandler(0x80d848Dc9F52DF56789e2d62Ce66F19555FF1019);
   StakingAssetHandler public constant stakingAssetHandler =
     StakingAssetHandler(0xF739D03e98e23A7B65940848aBA8921fF3bAc4b2);
   IRegistry public constant registry = IRegistry(0x4d2cC1d5fb6BE65240e0bFC8154243e69c0Fb19E);
@@ -81,10 +76,8 @@ contract GovScript is Test {
     emit log_named_address("\tOwner", Ownable(address(rollup)).owner());
     emit log_named_uint("\tPending block number", rollup.getPendingBlockNumber());
     emit log_named_uint("\tProven block number ", rollup.getProvenBlockNumber());
-    emit log_named_uint(
-      "\tNumber of attestors ", IStaking(address(rollup)).getActiveAttesterCount()
-    );
-    emit log_named_decimal_uint("\tMinimum stake", IStaking(address(rollup)).getDepositAmount(), 18);
+    emit log_named_uint("\tNumber of attestors ", IStaking(address(rollup)).getActiveAttesterCount());
+    emit log_named_decimal_uint("\tMinimum stake", IStaking(address(rollup)).getActivationThreshold(), 18);
 
     emit log_named_address("# Governance", address(governance));
     Configuration memory config = governance.getConfiguration();
@@ -124,8 +117,7 @@ contract GovScript is Test {
 
     for (uint256 i = lowerLimit; i <= currentRound; i++) {
       RoundAccounting memory r = governanceProposer.getRoundData(address(rollup), i);
-      uint256 signalCount =
-        governanceProposer.signalCount(address(rollup), i, r.payloadWithMostSignals);
+      uint256 signalCount = governanceProposer.signalCount(address(rollup), i, r.payloadWithMostSignals);
 
       emit log_named_uint("Proposal at round", i);
       emit log_named_uint("\tsignalCount", signalCount);
@@ -158,9 +150,7 @@ contract GovScript is Test {
     emit log_named_decimal_uint("yeaCount         ", proposal.summedBallot.yea, 18);
     emit log_named_decimal_uint("nayCount         ", proposal.summedBallot.nay, 18);
 
-    Timestamp ts = Timestamp.wrap(block.timestamp) < pendingThrough
-      ? Timestamp.wrap(block.timestamp)
-      : pendingThrough;
+    Timestamp ts = Timestamp.wrap(block.timestamp) < pendingThrough ? Timestamp.wrap(block.timestamp) : pendingThrough;
 
     emit log_named_decimal_uint("power            ", governance.powerAt(ME, ts), 18);
   }
@@ -180,24 +170,19 @@ contract GovScript is Test {
   /* -------------------------------------------------------------------------- */
 
   function fundRewardDistributor() public {
-    RewardDistributor rewardDistributor =
-      RewardDistributor(address(registry.getRewardDistributor()));
+    RewardDistributor rewardDistributor = RewardDistributor(address(registry.getRewardDistributor()));
 
     TestERC20 asset = TestERC20(address(rewardDistributor.ASSET()));
     IRollup canonicalRollup = IRollup(address(registry.getCanonicalRollup()));
     uint256 blockReward = canonicalRollup.getBlockReward();
 
-    emit log_named_decimal_uint(
-      "Reward distributor balance", asset.balanceOf(address(rewardDistributor)), 18
-    );
+    emit log_named_decimal_uint("Reward distributor balance", asset.balanceOf(address(rewardDistributor)), 18);
 
     vm.startBroadcast(ME);
-    asset.mint(address(rewardDistributor), 200000 * blockReward);
+    asset.mint(address(rewardDistributor), 200_000 * blockReward);
     vm.stopBroadcast();
 
-    emit log_named_decimal_uint(
-      "Reward distributor balance", asset.balanceOf(address(rewardDistributor)), 18
-    );
+    emit log_named_decimal_uint("Reward distributor balance", asset.balanceOf(address(rewardDistributor)), 18);
   }
 
   // This should only be called if we figure that we are minting too little fee asset
@@ -264,9 +249,7 @@ contract GovScript is Test {
     Ownable(address(registry)).transferOwnership(address(governance));
     vm.stopBroadcast();
     assertEq(Ownable(address(registry)).owner(), address(governance));
-    emit log_named_address(
-      "Passed ownership of registry to governance", Ownable(address(registry)).owner()
-    );
+    emit log_named_address("Passed ownership of registry to governance", Ownable(address(registry)).owner());
   }
 
   // Deposit enough funds to be able to pass a vote
@@ -305,8 +288,7 @@ contract GovScript is Test {
     emit log_named_address("deploying payload to add instance", _instance);
 
     vm.startBroadcast(ME);
-    RegisterNewRollupVersionPayload payload =
-      new RegisterNewRollupVersionPayload(registry, IInstance(_instance));
+    RegisterNewRollupVersionPayload payload = new RegisterNewRollupVersionPayload(registry, IInstance(_instance));
     vm.stopBroadcast();
 
     lookAtPayload(address(payload));

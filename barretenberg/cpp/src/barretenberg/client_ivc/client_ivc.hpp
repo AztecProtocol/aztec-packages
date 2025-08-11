@@ -136,7 +136,7 @@ class ClientIVC {
         MSGPACK_FIELDS(mega, eccvm, translator);
     };
 
-    enum class QUEUE_TYPE { OINK, PG, PG_FINAL }; // for specifying type of proof in the verification queue
+    enum class QUEUE_TYPE { OINK, PG, PG_FINAL, PG_TAIL }; // for specifying type of proof in the verification queue
 
     // An entry in the native verification queue
     struct VerifierInputs {
@@ -167,6 +167,8 @@ class ClientIVC {
 
     // Transcript to be shared across the folding of K_{i-1} (kernel), A_{i,1} (app), .., A_{i, n}
     std::shared_ptr<Transcript> accumulation_transcript = std::make_shared<Transcript>();
+
+    std::unique_ptr<ClientCircuit> hiding_circuit;
 
     size_t num_circuits; // total number of circuits to be accumulated in the IVC
   public:
@@ -225,15 +227,14 @@ class ClientIVC {
      * set using the proving key produced from `circuit` in order to pass some assertions in the Oink prover.
      * @param mock_vk A boolean to say whether the precomputed vk should have its metadata set.
      */
-    void accumulate(ClientCircuit& circuit,
-                    const std::shared_ptr<MegaVerificationKey>& precomputed_vk = nullptr,
-                    const bool mock_vk = false);
+    void accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& precomputed_vk);
 
     Proof prove();
 
     std::shared_ptr<ClientIVC::DeciderZKProvingKey> construct_hiding_circuit_key();
+    std::shared_ptr<ClientIVC::DeciderZKProvingKey> compute_hiding_circuit_proving_key();
     static void hide_op_queue_accumulation_result(ClientCircuit& circuit);
-    HonkProof construct_and_prove_hiding_circuit();
+    HonkProof prove_hiding_circuit();
 
     static bool verify(const Proof& proof, const VerificationKey& vk);
 

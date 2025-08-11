@@ -25,7 +25,7 @@ async function showPrivateBalances(pxe) {
 
   for (const account of accounts) {
     // highlight-next-line:showPrivateBalances
-    const balance = await token.methods.balance_of_private(account.address).simulate();
+    const balance = await token.methods.balance_of_private(account.address).simulate({ from: account.address });
     console.log(`Balance of ${account.address}: ${balance}`);
   }
 }
@@ -40,7 +40,10 @@ async function mintPrivateFunds(pxe) {
 
   // We mint tokens to the owner
   const mintAmount = 20n;
-  await token.methods.mint_to_private(ownerWallet.getAddress(), mintAmount).send().wait();
+  await token.methods
+    .mint_to_private(ownerWallet.getAddress(), mintAmount)
+    .send({ from: ownerWallet.getAddress() })
+    .wait();
 
   await showPrivateBalances(pxe);
 }
@@ -53,7 +56,7 @@ async function transferPrivateFunds(pxe) {
 
   await showPrivateBalances(pxe);
   console.log(`Sending transaction, awaiting transaction to be mined`);
-  const receipt = await token.methods.transfer(recipient.getAddress(), 1).send().wait();
+  const receipt = await token.methods.transfer(recipient.getAddress(), 1).send({ from: owner.getAddress() }).wait();
 
   console.log(`Transaction ${receipt.txHash} has been mined on block ${receipt.blockNumber}`);
   await showPrivateBalances(pxe);
@@ -69,7 +72,7 @@ async function showPublicBalances(pxe) {
 
   for (const account of accounts) {
     // highlight-next-line:showPublicBalances
-    const balance = await token.methods.balance_of_public(account.address).simulate();
+    const balance = await token.methods.balance_of_public(account.address).simulate({ from: account.address });
     console.log(`Balance of ${account.address}: ${balance}`);
   }
 }
@@ -83,7 +86,7 @@ async function mintPublicFunds(pxe) {
   await showPublicBalances(pxe);
 
   console.log(`Sending transaction, awaiting transaction to be mined`);
-  const receipt = await token.methods.mint_to_public(owner.getAddress(), 100).send().wait();
+  const receipt = await token.methods.mint_to_public(owner.getAddress(), 100).send({ from: owner.getAddress() }).wait();
   console.log(`Transaction ${receipt.txHash} has been mined on block ${receipt.blockNumber}`);
 
   await showPublicBalances(pxe);
@@ -92,7 +95,9 @@ async function mintPublicFunds(pxe) {
   const blockNumber = await pxe.getBlockNumber();
   const logs = (await pxe.getPublicLogs({ fromBlock: blockNumber - 1 })).logs;
   const textLogs = logs.map(extendedLog => extendedLog.toHumanReadable().slice(0, 200));
-  for (const log of textLogs) console.log(`Log emitted: ${log}`);
+  for (const log of textLogs) {
+    console.log(`Log emitted: ${log}`);
+  }
   // docs:end:showLogs
 }
 // docs:end:mintPublicFunds
@@ -115,7 +120,6 @@ async function main() {
 
 // Execute main only if run directly
 if (process.argv[1].replace(/\/index\.m?js$/, '') === fileURLToPath(import.meta.url).replace(/\/index\.m?js$/, '')) {
-  // eslint-disable-next-line @typescript-eslint/no-floating-promises
   main()
     .then(() => process.exit(0))
     .catch(err => {
