@@ -248,7 +248,7 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
         if (is_tail_kernel) {
             // Add a no-op at the beginning of the tail kernel (the last circuit whose ecc ops subtable is prepended) to
             // ensure the wires representing the op queue in translator circuit are shiftable polynomials, i.e. their
-            // 0th coefficient is equal to 0.
+            // 0th coefficient is 0.
             circuit.queue_ecc_no_op();
         }
         circuit.queue_ecc_eq();
