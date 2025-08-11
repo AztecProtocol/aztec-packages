@@ -286,7 +286,7 @@ export class AztecClientBackend {
     await this.instantiate();
     const circuitSizes: number[] = [];
     for (const buf of this.acirBuf) {
-      const gates = await this.api.ClientIvcStats({
+      const gates = await this.api.clientIvcStats({
         circuit: {
           name: 'circuit',
           bytecode: buf,

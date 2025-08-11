@@ -146,7 +146,7 @@ export class Barretenberg extends BarretenbergApi {
   }
 
   async ClientIvcStats(command: ClientIvcStats) {
-    return this.bbApi.ClientIvcStats(command);
+    return this.bbApi.clientIvcStats(command);
   }
 
   // Wrap circuit methods used by BbApiUltraHonkBackend
