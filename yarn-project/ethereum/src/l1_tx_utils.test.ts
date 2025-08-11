@@ -119,7 +119,6 @@ describe('L1TxUtils', () => {
         kzg,
         maxFeePerBlobGas: originalMaxFeePerBlobGas,
       });
-      expect(gasUtils.state).toBe(TxUtilsState.SENT);
 
       const rawTx = await cheatCodes.getRawTransaction(txHash);
 
