@@ -186,9 +186,12 @@ impl<T> PublicImmutable<T, &mut PublicContext> {
     /// Reads the value stored in this PublicImmutable without checking if the value
     /// is initialized.
     ///
-    /// This function bypasses the initialization check and directly reads from storage.
-    /// If the PublicImmutable has not been initialized, this will return whatever
-    /// value is currently stored (likely empty/default values).
+    /// This function bypasses the initialization check and directly reads from
+    /// storage.
+    /// If the PublicImmutable has not been initialized, this will return a
+    /// zeroed value.
+    /// However, if the variable is _known_ to be initialized, this is cheaper
+    /// to call than `read`.
     ///
     /// # Returns
     ///
@@ -235,8 +238,8 @@ impl<T> PublicImmutable<T, UtilityContext> {
 }
 
 impl<T> PublicImmutable<T, &mut PrivateContext> {
-    /// Reads the permanent value stored in this PublicImmutable from a historical
-    /// snapshot of public state.
+    /// Reads the permanent value stored in this PublicImmutable from the anchor
+    /// block.
     ///
     /// Private functions execute asynchronously and offchain. When a user begins
     /// private execution, their view of the chain 'branches off' from the current

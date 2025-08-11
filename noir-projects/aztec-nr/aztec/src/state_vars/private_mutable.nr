@@ -41,7 +41,7 @@ use crate::state_vars::storage::Storage;
 ///
 /// The PrivateMutable type operates over notes. A PrivateMutable state variable is
 /// initialized by inserting a very first note. Subsequently, the PrivateMutable
-/// can make changes to the state variable's value by reading the current note,
+/// can make changes to the state variable's value by nullifying the current note
 /// and inserting a replacement note.
 ///
 /// The methods of PrivateMutable are:
@@ -51,7 +51,7 @@ use crate::state_vars::storage::Storage;
 /// - `get_note`
 /// (see the methods' own doc comments for more info).
 ///
-/// ## Example.
+/// ## Example
 ///
 /// A user's account nonce can be represented as a PrivateMutable<NonceNote>.
 /// The "current value" of the user's nonce is the value contained within the
@@ -87,8 +87,8 @@ use crate::state_vars::storage::Storage;
 ///
 /// However, there is one important privacy consideration: the `initialize` method
 /// creates an "initialization nullifier" that can leak information about which
-/// storage slot was initialized. See the `compute_initialization_nullifier` method
-/// documentation for more details.
+/// storage slot was initialized. See the `initialize` method documentation for
+/// more details, and for a concrete example.
 ///
 /// The design of the Note impacts the privacy of the state variable: the note
 /// should contain a `randomness` field so that, when hashed, the contents are
@@ -153,26 +153,6 @@ impl<Note, Context> PrivateMutable<Note, Context> {
     /// `initialize_or_replace` methods, but may also be useful for contracts that
     /// need to check if a PrivateMutable has been initialized.
     ///
-    /// **IMPORTANT PRIVACY CONSIDERATION:**
-    /// This computation is intentionally leaky and can compromise privacy. When the
-    /// initialization nullifier is emitted during the `initialize` call, an observer
-    /// could perform a dictionary or rainbow attack to learn the storage slot and
-    /// contract address.
-    ///
-    /// For applications where revealing that a particular state variable has been
-    /// initialized is unacceptable, developers should consider alternative approaches
-    /// or avoid using PrivateMutable.
-    ///
-    /// This is especially dangerous for initial assignments to elements of a
-    /// `Map<AztecAddress, PrivateMutable>`, because the storage slot often identifies
-    /// a specific user. For example, `my_map.at(msg.sender).initialize(note)` will
-    /// leak: `msg.sender`; the fact that this map element was assigned for the first
-    /// time; and the contract address.
-    ///
-    /// See https://github.com/AztecProtocol/aztec-packages/issues/15568 for ideas to
-    /// improve this privacy footgun in future.
-    ///
-    ///
     /// ## Returns
     ///
     /// * `Field` - The nullifier that will be emitted when this PrivateMutable is
@@ -209,6 +189,30 @@ where
     /// This is conceptually similar to setting an initial value for a variable in
     /// Ethereum smart contracts, except that in Aztec the "value" is represented
     /// as a private note.
+    ///
+    /// ## IMPORTANT PRIVACY CONSIDERATION
+    ///
+    /// This computation is leaky and can compromise privacy under certain
+    /// circumstances.
+    ///
+    /// When the initialization nullifier is emitted during this call, an observer
+    /// could perform a dictionary or rainbow attack to learn the storage slot and
+    /// contract address.
+    ///
+    /// For applications where revealing that a particular state variable has been
+    /// initialized is unacceptable, developers should consider alternative approaches
+    /// or avoid using PrivateMutable.
+    ///
+    /// This is especially dangerous for initial assignments to elements of a
+    /// `Map<AztecAddress, PrivateMutable>`, because the storage slot often identifies
+    /// a specific user. For example, `my_map.at(msg.sender).initialize(note)` will
+    /// leak:
+    /// - `msg.sender`;
+    /// - the fact that this map element was assigned for the first time;
+    /// - and the contract's address.
+    ///
+    /// See https://github.com/AztecProtocol/aztec-packages/issues/15568 for ideas to
+    /// improve this privacy footgun in future.
     ///
     /// ## Arguments
     ///

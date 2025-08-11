@@ -17,7 +17,7 @@ use crate::state_vars::storage::Storage;
 /// PrivateImmutable
 ///
 /// PrivateImmutable is a private state variable type for values that are set once
-/// during initialization and remain permanently unchanged.
+/// and remain permanently unchanged.
 ///
 /// You can declare a state variable of type PrivateImmutable within your contract's
 /// #[storage] struct:
@@ -189,6 +189,10 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
 
     /// Reads the permanent note of a PrivateImmutable state variable instance.
     ///
+    /// If this PrivateImmutable state variable has not yet been initialized,
+    /// no note will exist: the call will fail and the transaction will not
+    /// be provable.
+    ///
     /// # Returns
     ///
     /// * `Note` - The permanent note stored in this PrivateImmutable.
@@ -229,9 +233,6 @@ where
     Note: NoteType + NoteHash + Eq,
 {
     /// Checks whether this PrivateImmutable has been initialized.
-    ///
-    /// Notice that this function is executable only within a UtilityContext, which
-    /// is an unconstrained environment on the user's local device.
     ///
     /// # Returns
     ///

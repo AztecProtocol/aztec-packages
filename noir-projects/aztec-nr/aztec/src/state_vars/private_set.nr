@@ -59,8 +59,8 @@ mod test;
 ///
 /// This is similar to a physical wallet containing five $10 notes: the owner's
 /// wallet balance is the sum of all those $10 notes: $50.
-/// To spend $5, they can get one $10 note, nullify it, and insert one $5 note as
-/// change. Their new wallet balance will then be interpreted as the new summation: $45.
+/// To spend $2, they can get one $10 note, nullify it, and insert one $8 note as
+/// change. Their new wallet balance will then be interpreted as the new summation: $48.
 ///
 /// The interpretation doesn't always have to be a "summation of values". When
 /// `get_notes` is called, PrivateSet does not attempt to interpret the notes at all;
@@ -71,6 +71,13 @@ mod test;
 /// collapsible into a single statistic: it could be a disjoint collection of NFTs
 /// which are housed under the same "storage slot".
 ///
+/// It's worth noting that a user can prove existence of _at least_ some subset
+/// of notes in a PrivateSet, but they cannot prove existence of _all_ notes
+/// in a PrivateSet.
+/// The physical wallet is a good example: a user can prove that there are five
+/// $10 notes in their wallet by furnishing those notes. But because we cannot
+/// _see_ the entirety of their wallet, they might have many more notes that
+/// they're choosing to not showing us.
 ///
 /// ## When to choose PrivateSet vs PrivateMutable:
 ///
@@ -228,7 +235,7 @@ where
     /// - Augment the note with a `note_type_id`, so that it can be correctly filed-
     ///   away when it is eventually discovered, decrypted, and processed by its
     ///   intended recipient.
-    ///   (The note_type_id is usually allocated by the #[storage] macro).
+    ///   (The note_type_id is usually allocated by the #[note] macro).
     /// - Provide the contents of the (augmented) note to the PXE, so that it can
     ///   store all notes created by the user executing this function.
     ///   - The note is also kept in the PXE's memory during execution, in case this
@@ -367,8 +374,6 @@ where
     /// `pop_notes`, as `pop_notes` results in significantly fewer constraints,
     /// due to avoiding an extra hash and read request check.
     ///
-    /// QUESTION: why would you ever `get_notes`, if `pop_notes` exists?
-    ///
     /// # Arguments
     ///
     /// - `retrieved_note` - A note which -- earlier in the calling function's
@@ -409,12 +414,17 @@ where
     /// Returns a collection of which belong to this PrivateSet.
     ///
     /// DANGER: the returned notes do not get nullified within this `get_notes`
-    /// function, and so they cannot necessarily be considered "current" notes. I.e.
-    /// you might be reading notes that have already been nullified. It is this
-    /// which distinguishes `get_notes` from `pop_notes`.
+    /// function, and so they cannot necessarily be considered "current" notes.
+    /// I.e. you might be reading notes that have already been nullified. It is
+    /// this which distinguishes `get_notes` from `pop_notes`.
     ///
-    /// Note that if you later on remove the note it's much better to use `pop_notes` as `pop_notes` results
-    /// in significantly fewer constrains due to avoiding 1 read request check.
+    /// Note that if you later on remove the note it's much better to use
+    /// `pop_notes` as `pop_notes` results in significantly fewer constrains
+    /// due to avoiding 1 read request check.
+    /// If you need for your app to see the notes before it can decide which to
+    /// nullify (which ideally would not be the case, and you'd be able to rely
+    /// on the filter and preprocessor to do this), then you have no resort but
+    /// to call `get_notes` and then `remove`.
     ///
     /// Notes will be selected from the PXE's database, via an oracle call, according
     /// to the filtering `options` provided.

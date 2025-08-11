@@ -29,9 +29,9 @@ For those already used to ("Vanilla") Noir:
 | Can write Aztec smart contracts?  | No | Yes |
 | What language do I write my smart contract in? | n/a | You write your contract logic in Noir. It's just you'll be heavily using the imported annotations, structs and functions from this aztec-nr framework. So all of the logic relating to: declaring state variables; declaring functions; managing state; emitting events, will look clean and readable. The bodies of your functions will still be vanilla Noir. |
 | # programs (provable functions) | 1 program per Noir package | An entire collection of programs (smart contract functions), collected into a "contract" scope, that can operate on Aztec state. |
-| Can manage state variables?  | Not without basically re-writing all of Aztec.nr. | Yes - abstracts-away state management. (You don't need to design and implement your own state trees, for example -- you just plug into Aztec's state trees. |
+| Can manage state variables?  | Not without basically re-writing all of Aztec.nr. | Yes - abstracts-away state management. (You don't need to design and implement your own state trees, for example -- you just plug into Aztec's state trees). |
 | How is a proof verified? | Pass the proof to a NoirJS verifier, or a Solidity verifier. | Send the proof to the Aztec network. |
-| Code compiles to... | ACIR | ACIR (for private functions), Brillig (for unconstrained functions), AVM bytecode (for public functions) |
+| Code compiles to... | ACIR | ACIR (for private functions), Brillig (for utility functions), AVM bytecode (for public functions) |
 | Public Inputs | Can be anything. | Behind-the-scenes, the public inputs rigidly adhere to the Aztec protocol spec. |
 
 A smart contract is essentially some persistent state variables, and a collection of functions which may edit those state variables. But it needs to be able to read and write data to the Aztec network, and the behind-the-scenes nature of how that works is very complex.
@@ -104,7 +104,7 @@ Aztec has two kinds of state:
 
 ### Public State
 
-Public state is similar to Ethereum smart contract state. Public state can be mutated by making calls to `public` functions as part of a transaction.
+Public state is similar to Ethereum smart contract state. Public state can be mutated by making calls to `#[public]` functions as part of a transaction.
 
 > The public functions of a transaction are executed by the current Proposer.
 > A Proposer is a node on the network with the temporary power to build blocks filled with transactions. This block-building power is randomly changed regularly between a set of Validators.
@@ -140,7 +140,7 @@ See the relevant files for explanations of their properties, and when to use whi
 
 Private state is fundamentally different from Ethereum smart contract state.
 
-Private state can only be modified by a user who is _privy_ to that private state, to ensure that the user's secrets stay safe on their device. Any changes to private state are executed within `private` functions.
+Private state can only be modified by a user who is _privy_ to that private state, to ensure that the user's secrets stay safe on their device. Any changes to private state are executed within `#[private]` functions.
 
 > Advanced: Each private function execution is proven to be correct with a zero-knowledge proof, which enables private data to be operated on without leaking that data. But generating a proof of a function execution takes slightly longer than conventional native execution of function.
 
@@ -185,7 +185,6 @@ It's a weird model, but `aztec-nr` provides some neat abstractions that seek to 
   - `get_notes`
 
 See the relevant files for explanations of their properties, and when to use which.
-
 
 ### Container state
 

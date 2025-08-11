@@ -148,10 +148,21 @@ impl PublicContext {
     ///
     /// Whilst nullifiers are primarily intended as a _privacy-preserving_
     /// record of a one-time action, they can also be used to efficiently
-    /// record _public_ one-time actions too. Hence why you're seeing this
-    /// function within the PublicContext.
-    /// An example is to check whether a contract has been published: we emit
-    /// a nullifier that is deterministic, but whose preimage is _not_ private.
+    /// record _public_ one-time actions too. An example is to check
+    /// whether a contract has been published: we emit a nullifier that is
+    /// deterministic, but whose preimage is _not_ private. This is more
+    /// efficient than using mutable storage, and can be done directly
+    /// from a private function.
+    ///
+    /// Nullifiers can be tested for non-existence in public, which is not the
+    /// case in private. Because private functions do not have access to
+    /// the tip of the blockchain (but only the anchor block they are built
+    /// at) they can only prove nullifier non-existence in the past. But between
+    /// an anchor block and the block in which a tx is included, the nullifier
+    /// might have been inserted into the nullifier tree by some other
+    /// transaction.
+    /// Public functions _do_ have access to the tip of the state, and so
+    /// this pattern is safe.
     ///
     /// # Arguments
     /// * `unsiloed_nullifier` - The raw nullifier value (before siloing with
@@ -393,7 +404,7 @@ impl PublicContext {
         unsafe { emit_nullifier(nullifier) };
     }
 
-    /// Gets the address of the current contract being executed.
+    /// Returns the address of the current contract being executed.
     ///
     /// This is equivalent to `address(this)` in Solidity (hence the name).
     /// Use this to identify the current contract's address, commonly needed for
@@ -410,7 +421,7 @@ impl PublicContext {
         }
     }
 
-    /// Gets the contract address that initiated this function call.
+    /// Returns the contract address that initiated this function call.
     ///
     /// This is similar to `msg.sender` in Solidity (hence the name).
     ///
@@ -448,7 +459,7 @@ impl PublicContext {
         }
     }
 
-    /// Gets the function selector of the currently-executing function.
+    /// Returns the function selector of the currently-executing function.
     ///
     /// This is similar to `msg.sig` in Solidity, returning the first 4
     /// bytes of the function signature.
@@ -467,7 +478,7 @@ impl PublicContext {
         FunctionSelector::from_field(raw_selector[0])
     }
 
-    /// Gets the hash of the arguments passed to the current function.
+    /// Returns the hash of the arguments passed to the current function.
     ///
     /// Very low-level function: The #[public] macro uses this internally.
     /// Smart contract developers typically won't need to access this
@@ -484,7 +495,7 @@ impl PublicContext {
         self.args_hash.unwrap_unchecked()
     }
 
-    /// Gets the "transaction fee" for the current transaction.
+    /// Returns the "transaction fee" for the current transaction.
     /// This is the final tx fee that will be deducted from the fee_payer's
     /// "fee-juice" balance (in the protocol's Base Rollup circuit).
     ///
@@ -513,7 +524,7 @@ impl PublicContext {
         }
     }
 
-    /// Gets the chain ID of the current network.
+    /// Returns the chain ID of the current network.
     ///
     /// This is similar to `block.chainid` in Solidity. Returns the unique
     /// identifier for the blockchain network this transaction is executing on.
@@ -550,7 +561,7 @@ impl PublicContext {
             version()
         }
     }
-    /// Gets the current block number.
+    /// Returns the current block number.
     ///
     /// This is similar to `block.number` in Solidity.
     ///
@@ -577,7 +588,7 @@ impl PublicContext {
         }
     }
 
-    /// Gets the timestamp of the current block.
+    /// Returns the timestamp of the current block.
     ///
     /// This is similar to `block.timestamp` in Solidity.
     ///
@@ -604,7 +615,7 @@ impl PublicContext {
         }
     }
 
-    /// Gets the fee per unit of L2 gas for this transaction (aka the "L2 gas
+    /// Returns the fee per unit of L2 gas for this transaction (aka the "L2 gas
     /// price"), as chosen by the user.
     ///
     /// L2 gas covers the cost of executing public functions and handling
@@ -634,7 +645,7 @@ impl PublicContext {
         }
     }
 
-    /// Gets the fee per unit of DA (Data Availability) gas (aka the "DA gas
+    /// Returns the fee per unit of DA (Data Availability) gas (aka the "DA gas
     /// price").
     ///
     /// DA gas covers the cost of making transaction data available on L1.
@@ -651,7 +662,7 @@ impl PublicContext {
         }
     }
 
-    /// Gets the remaining L2 gas available for this transaction.
+    /// Returns the remaining L2 gas available for this transaction.
     ///
     /// Different AVM opcodes consume different amounts of gas.
     ///
@@ -665,7 +676,7 @@ impl PublicContext {
         }
     }
 
-    /// Gets the remaining DA (Data Availability) gas available for this
+    /// Returns the remaining DA (Data Availability) gas available for this
     /// transaction.
     ///
     /// DA gas is consumed when emitting data that needs to be made available
