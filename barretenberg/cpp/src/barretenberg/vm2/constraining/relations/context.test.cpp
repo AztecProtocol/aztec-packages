@@ -30,117 +30,127 @@ TEST(ContextConstrainingTest, EmptyRow)
 // This test currently does a lot, consider splitting up the various exit call conditions
 TEST(ContextConstrainingTest, ContextSwitchingCallReturn)
 {
-    TestTraceContainer trace({ {
-                                   { C::execution_next_context_id, 0 },
-                                   { C::precomputed_first_row, 1 },
-                                   // Context Stack Rows
-                                   { C::context_stack_sel, 1 },
-                                   { C::context_stack_entered_context_id, 2 },
-                                   { C::context_stack_context_id, 1 },
-                                   { C::context_stack_parent_id, 0 },
-                                   { C::context_stack_next_pc, 2 },
-                                   { C::context_stack_msg_sender, 0 },
-                                   { C::context_stack_contract_address, 0 },
-                                   { C::context_stack_is_static, 0 },
-                                   { C::context_stack_parent_calldata_addr, 0 },
-                                   { C::context_stack_parent_calldata_size, 0 },
-                                   { C::context_stack_parent_l2_gas_limit, 2000 },
-                                   { C::context_stack_parent_da_gas_limit, 4000 },
-                                   { C::context_stack_parent_l2_gas_used, 500 },
-                                   { C::context_stack_parent_da_gas_used, 1500 },
-                                   { C::context_stack_parent_calldata_addr, 0 },
-                                   { C::context_stack_parent_calldata_size, 0 },
-                               },
-                               // First Row of execution
-                               {
-                                   { C::execution_sel, 1 },
-                                   { C::execution_pc, 0 },
-                                   { C::execution_next_pc, 1 },
-                                   { C::execution_context_id, 1 },
-                                   { C::execution_next_context_id, 2 },
-                                   { C::execution_parent_l2_gas_limit, 2000 },
-                                   { C::execution_parent_da_gas_limit, 4000 },
-                                   { C::execution_parent_l2_gas_used, 500 },
-                                   { C::execution_parent_da_gas_used, 1500 },
-                               },
-                               // CALL
-                               {
-                                   { C::execution_sel, 1 },
-                                   { C::execution_pc, 1 },
-                                   { C::execution_next_pc, 2 },
-                                   { C::execution_sel_execute_call, 1 },
-                                   { C::execution_sel_enter_call, 1 },
-                                   { C::execution_context_id, 1 },
-                                   { C::execution_next_context_id, 2 },
-                                   { C::execution_rop_3_, /*cd offset=*/10 },
-                                   { C::execution_rop_4_, /*cd size=*/1 },
-                                   { C::execution_register_2_, /*contract address=*/0xdeadbeef },
-                                   { C::execution_parent_l2_gas_limit, 2000 },
-                                   { C::execution_parent_da_gas_limit, 4000 },
-                                   { C::execution_parent_l2_gas_used, 500 },
-                                   { C::execution_parent_da_gas_used, 1500 },
-                               },
-                               // First Row in new context
-                               {
-                                   { C::execution_sel, 1 },
-                                   { C::execution_pc, 0 }, // pc=0 because it is after a CALL
-                                   { C::execution_next_pc, 20 },
-                                   { C::execution_context_id, 2 },      // Previous row next_context_id
-                                   { C::execution_next_context_id, 3 }, // Incremented due to previous call
-                                   { C::execution_parent_id, 1 },       // Previous row context id
-                                   { C::execution_is_parent_id_inv, 1 },
-                                   { C::execution_has_parent_ctx, 1 },
-                                   { C::execution_contract_address, 0xdeadbeef },
-                                   { C::execution_parent_calldata_addr, 10 },
-                                   { C::execution_parent_calldata_size, 1 },
-                               },
-                               // Return Row
-                               {
-                                   { C::execution_sel, 1 },
-                                   { C::execution_pc, 20 },
-                                   { C::execution_next_pc, 30 },
-                                   { C::execution_sel_execute_return, 1 },
-                                   { C::execution_rop_0_, 500 },      // Return data size offset
-                                   { C::execution_rop_1_, 600 },      // Return data offset
-                                   { C::execution_register_0_, 200 }, // Return data size
-                                   { C::execution_sel_exit_call, 1 },
-                                   { C::execution_nested_exit_call, 1 },
-                                   { C::execution_nested_return, 1 },
-                                   { C::execution_context_id, 2 },
-                                   { C::execution_next_context_id, 3 },
-                                   { C::execution_parent_id, 1 },
-                                   { C::execution_is_parent_id_inv, 1 },
-                                   { C::execution_has_parent_ctx, 1 },
-                                   { C::execution_contract_address, 0xdeadbeef },
-                                   { C::execution_parent_calldata_addr, 10 },
-                                   { C::execution_parent_calldata_size, 1 },
-                               },
-                               {
-                                   { C::execution_sel, 1 },
-                                   { C::execution_next_context_id, 3 },
-                                   { C::execution_context_id, 1 },
-                                   { C::execution_parent_id, 0 },
-                                   { C::execution_pc, 2 }, // Based on next_pc of CALL step
-                                   { C::execution_msg_sender, 0 },
-                                   { C::execution_contract_address, 0 },
-                                   { C::execution_is_static, 0 },
-                                   { C::execution_parent_calldata_addr, 0 },
-                                   { C::execution_parent_calldata_size, 0 },
-                                   { C::execution_last_child_returndata_size, 200 }, // Return data size
-                                   { C::execution_last_child_returndata_addr, 600 }, // Return data offset
-                                   { C::execution_parent_l2_gas_limit, 2000 },
-                                   { C::execution_parent_da_gas_limit, 4000 },
-                                   { C::execution_parent_l2_gas_used, 500 },
-                                   { C::execution_parent_da_gas_used, 1500 },
-                                   { C::execution_parent_calldata_addr, 0 },
-                                   { C::execution_parent_calldata_size, 0 },
-                                   { C::execution_last_child_returndata_size, 200 }, // Return data size
-                                   { C::execution_last_child_returndata_addr, 600 }, // Return data offset
-                               },
-                               {
-                                   { C::execution_sel, 0 },
-                                   { C::execution_last, 1 },
-                               } });
+    constexpr uint32_t top_bytecode_id = 0x12345678;
+    constexpr uint32_t nested_bytecode_id = 0x456789ab;
+
+    TestTraceContainer trace(
+        { {
+              { C::execution_next_context_id, 0 },
+              { C::precomputed_first_row, 1 },
+              // Context Stack Rows
+              { C::context_stack_sel, 1 },
+              { C::context_stack_entered_context_id, 2 },
+              { C::context_stack_context_id, 1 },
+              { C::context_stack_parent_id, 0 },
+              { C::context_stack_next_pc, 2 },
+              { C::context_stack_msg_sender, 0 },
+              { C::context_stack_contract_address, 0 },
+              { C::context_stack_bytecode_id, top_bytecode_id },
+              { C::context_stack_is_static, 0 },
+              { C::context_stack_parent_calldata_addr, 0 },
+              { C::context_stack_parent_calldata_size, 0 },
+              { C::context_stack_parent_l2_gas_limit, 2000 },
+              { C::context_stack_parent_da_gas_limit, 4000 },
+              { C::context_stack_parent_l2_gas_used, 500 },
+              { C::context_stack_parent_da_gas_used, 1500 },
+              { C::context_stack_parent_calldata_addr, 0 },
+              { C::context_stack_parent_calldata_size, 0 },
+          },
+          // First Row of execution
+          {
+              { C::execution_sel, 1 },
+              { C::execution_pc, 0 },
+              { C::execution_next_pc, 1 },
+              { C::execution_context_id, 1 },
+              { C::execution_next_context_id, 2 },
+              { C::execution_bytecode_id, top_bytecode_id },
+              { C::execution_parent_l2_gas_limit, 2000 },
+              { C::execution_parent_da_gas_limit, 4000 },
+              { C::execution_parent_l2_gas_used, 500 },
+              { C::execution_parent_da_gas_used, 1500 },
+          },
+          // CALL
+          {
+              { C::execution_sel, 1 },
+              { C::execution_pc, 1 },
+              { C::execution_next_pc, 2 },
+              { C::execution_sel_execute_call, 1 },
+              { C::execution_sel_enter_call, 1 },
+              { C::execution_context_id, 1 },
+              { C::execution_next_context_id, 2 },
+              { C::execution_bytecode_id, top_bytecode_id }, // Same as previous row (propagated)
+              { C::execution_rop_3_, /*cd offset=*/10 },
+              { C::execution_rop_4_, /*cd size=*/1 },
+              { C::execution_register_2_, /*contract address=*/0xdeadbeef },
+              { C::execution_parent_l2_gas_limit, 2000 },
+              { C::execution_parent_da_gas_limit, 4000 },
+              { C::execution_parent_l2_gas_used, 500 },
+              { C::execution_parent_da_gas_used, 1500 },
+          },
+          // First Row in new context
+          {
+              { C::execution_sel, 1 },
+              { C::execution_pc, 0 }, // pc=0 because it is after a CALL
+              { C::execution_next_pc, 20 },
+              { C::execution_context_id, 2 },      // Previous row next_context_id
+              { C::execution_next_context_id, 3 }, // Incremented due to previous call
+              { C::execution_parent_id, 1 },       // Previous row context id
+              { C::execution_is_parent_id_inv, 1 },
+              { C::execution_has_parent_ctx, 1 },
+              { C::execution_contract_address, 0xdeadbeef },
+              { C::execution_bytecode_id, nested_bytecode_id }, // New bytecode_id on entering new context
+              { C::execution_parent_calldata_addr, 10 },
+              { C::execution_parent_calldata_size, 1 },
+          },
+          // Return Row
+          {
+              { C::execution_sel, 1 },
+              { C::execution_pc, 20 },
+              { C::execution_next_pc, 30 },
+              { C::execution_sel_execute_return, 1 },
+              { C::execution_rop_0_, 500 },      // Return data size offset
+              { C::execution_rop_1_, 600 },      // Return data offset
+              { C::execution_register_0_, 200 }, // Return data size
+              { C::execution_sel_exit_call, 1 },
+              { C::execution_nested_exit_call, 1 },
+              { C::execution_nested_return, 1 },
+              { C::execution_context_id, 2 },
+              { C::execution_next_context_id, 3 },
+              { C::execution_parent_id, 1 },
+              { C::execution_is_parent_id_inv, 1 },
+              { C::execution_has_parent_ctx, 1 },
+              { C::execution_contract_address, 0xdeadbeef },
+              { C::execution_bytecode_id, nested_bytecode_id }, // Propagated within same context
+              { C::execution_parent_calldata_addr, 10 },
+              { C::execution_parent_calldata_size, 1 },
+          },
+          {
+              { C::execution_sel, 1 },
+              { C::execution_next_context_id, 3 },
+              { C::execution_context_id, 1 },
+              { C::execution_parent_id, 0 },
+              { C::execution_pc, 2 }, // Based on next_pc of CALL step
+              { C::execution_msg_sender, 0 },
+              { C::execution_contract_address, 0 },
+              { C::execution_bytecode_id, top_bytecode_id }, // Restored from context stack
+              { C::execution_is_static, 0 },
+              { C::execution_parent_calldata_addr, 0 },
+              { C::execution_parent_calldata_size, 0 },
+              { C::execution_last_child_returndata_size, 200 }, // Return data size
+              { C::execution_last_child_returndata_addr, 600 }, // Return data offset
+              { C::execution_parent_l2_gas_limit, 2000 },
+              { C::execution_parent_da_gas_limit, 4000 },
+              { C::execution_parent_l2_gas_used, 500 },
+              { C::execution_parent_da_gas_used, 1500 },
+              { C::execution_parent_calldata_addr, 0 },
+              { C::execution_parent_calldata_size, 0 },
+              { C::execution_last_child_returndata_size, 200 }, // Return data size
+              { C::execution_last_child_returndata_addr, 600 }, // Return data offset
+          },
+          {
+              { C::execution_sel, 0 },
+              { C::execution_last, 1 },
+          } });
 
     check_relation<context>(trace);
 
@@ -472,6 +482,31 @@ TEST(ContextConstrainingTest, SideEffectStateContinuity)
     trace.set(C::execution_prev_num_l2_to_l1_messages, 2, 100);
     EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY),
                               "NUM_L2_TO_L1_MESSAGES_CONTINUITY");
+}
+
+TEST(ContextConstrainingTest, BytecodeIdPropagation)
+{
+    TestTraceContainer trace({ // First row - setup
+                               {
+                                   { C::precomputed_first_row, 1 },
+                                   { C::execution_sel, 1 },
+                                   { C::execution_context_id, 1 },
+                                   { C::execution_next_context_id, 1 },
+                                   { C::execution_bytecode_id, 42 }, // Initial bytecode_id
+                               },
+                               // Second row - should propagate bytecode_id
+                               {
+                                   { C::execution_sel, 1 },
+                                   { C::execution_context_id, 1 },
+                                   { C::execution_next_context_id, 1 },
+                                   { C::execution_bytecode_id, 42 }, // Same bytecode_id (propagated)
+                               } });
+
+    check_relation<context>(trace);
+    // mutate the bytecode_id and confirm that it is a violation
+    trace.set(C::execution_bytecode_id, 1, 99);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_BYTECODE_ID_NEXT_ROW),
+                              "BYTECODE_ID_NEXT_ROW"); // Should fail constraint
 }
 
 } // namespace

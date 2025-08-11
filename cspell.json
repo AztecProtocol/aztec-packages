@@ -4,6 +4,7 @@
     "accum",
     "acir",
     "acvm",
+    "addmod",
     "addrs",
     "alphanet",
     "anytype",
@@ -190,7 +191,9 @@
     "mplex",
     "msgpack",
     "msgpackr",
+    "mstore",
     "muldiv",
+    "mulmod",
     "multiaddr",
     "multiaddrs",
     "multiarch",
@@ -386,9 +389,5 @@
     "lib",
     "*.cmake"
   ],
-  "flagWords": [
-    "anonymous",
-    "offence",
-    "offences"
-  ]
+  "flagWords": ["anonymous", "offence", "offences"]
 }

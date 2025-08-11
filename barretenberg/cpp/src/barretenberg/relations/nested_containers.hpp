@@ -5,8 +5,8 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/tuple.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
-#include <tuple>
 
 namespace bb {
 
@@ -35,7 +35,7 @@ struct TupleOfContainersOverArray<InnerContainer,
                                   domain_start,
                                   skip_count,
                                   std::index_sequence<I...>> {
-    using type = std::tuple<InnerContainer<ValueType, domain_end[I], domain_start, skip_count>...>;
+    using type = flat_tuple::tuple<InnerContainer<ValueType, domain_end[I], domain_start, skip_count>...>;
 };
 
 // Helpers

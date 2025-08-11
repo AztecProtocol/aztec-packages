@@ -22,6 +22,7 @@ import {
   countAccumulatedItems,
 } from '@aztec/stdlib/kernel';
 import { ContractClassLogFields, PrivateLog } from '@aztec/stdlib/logs';
+import type { ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
 import { ClientIvcProof } from '@aztec/stdlib/proofs';
 import {
   BlockHeader,
@@ -39,10 +40,12 @@ export type TestPrivateInsertions = {
   revertible?: {
     nullifiers?: Fr[];
     noteHashes?: Fr[];
+    l2ToL1Msgs?: ScopedL2ToL1Message[];
   };
   nonRevertible?: {
     nullifiers?: Fr[];
     noteHashes?: Fr[];
+    l2ToL1Msgs?: ScopedL2ToL1Message[];
   };
 };
 
@@ -82,6 +85,12 @@ export async function createTxForPublicCalls(
       forPublic.nonRevertibleAccumulatedData.noteHashes[i] = privateInsertions.nonRevertible.noteHashes[i];
     }
   }
+  if (privateInsertions.nonRevertible.l2ToL1Msgs) {
+    for (let i = 0; i < privateInsertions.nonRevertible.l2ToL1Msgs.length; i++) {
+      assert(i < forPublic.nonRevertibleAccumulatedData.l2ToL1Msgs.length, 'L2 to L1 message index out of bounds');
+      forPublic.nonRevertibleAccumulatedData.l2ToL1Msgs[i] = privateInsertions.nonRevertible.l2ToL1Msgs[i];
+    }
+  }
 
   // Revertible private insertions
   if (privateInsertions.revertible) {
@@ -95,6 +104,12 @@ export async function createTxForPublicCalls(
       for (let i = 0; i < privateInsertions.revertible.nullifiers.length; i++) {
         assert(i < forPublic.revertibleAccumulatedData.nullifiers.length, 'Nullifier index out of bounds');
         forPublic.revertibleAccumulatedData.nullifiers[i] = privateInsertions.revertible.nullifiers[i];
+      }
+    }
+    if (privateInsertions.revertible.l2ToL1Msgs) {
+      for (let i = 0; i < privateInsertions.revertible.l2ToL1Msgs.length; i++) {
+        assert(i < forPublic.revertibleAccumulatedData.l2ToL1Msgs.length, 'L2 to L1 message index out of bounds');
+        forPublic.revertibleAccumulatedData.l2ToL1Msgs[i] = privateInsertions.revertible.l2ToL1Msgs[i];
       }
     }
   }

@@ -11,6 +11,7 @@ import {
   deployL1Contracts,
 } from '@aztec/ethereum';
 import { EthCheatCodes, RollupCheatCodes, startAnvil } from '@aztec/ethereum/test';
+import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -19,6 +20,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import { SlashFactoryAbi } from '@aztec/l1-artifacts/SlashFactoryAbi';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
+import { Offense } from '@aztec/stdlib/slashing';
 
 import type { Anvil } from '@viem/anvil';
 import EventEmitter from 'node:events';
@@ -28,7 +30,6 @@ import { foundry } from 'viem/chains';
 
 import {
   DefaultSlasherConfig,
-  Offense,
   WANT_TO_SLASH_EVENT,
   type WantToSlashArgs,
   type Watcher,
@@ -93,6 +94,7 @@ describe('SlasherClient', () => {
         {
           attester: EthAddress.fromString(slasherL1Client.account.address),
           withdrawer: EthAddress.fromString(slasherL1Client.account.address),
+          bn254SecretKey: new SecretValue(Fr.random().toBigInt()),
         },
       ],
       realVerifier: false,

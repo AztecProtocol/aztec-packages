@@ -393,15 +393,15 @@ mod test {
 
             // Mock random values for deterministic test
             let eph_sk = 0x1358d15019d4639393d62b97e1588c095957ce74a1c32d6ec7d62fe6705d9538;
-            let _ = OracleMock::mock("getRandomField").returns(eph_sk).times(1);
+            let _ = OracleMock::mock("utilityGetRandomField").returns(eph_sk).times(1);
 
             let randomness = 0x0101010101010101010101010101010101010101010101010101010101010101;
-            let _ = OracleMock::mock("getRandomField").returns(randomness).times(1000000);
+            let _ = OracleMock::mock("utilityGetRandomField").returns(randomness).times(1000000);
 
-            let _ = OracleMock::mock("getIndexedTaggingSecretAsSender").returns(
+            let _ = OracleMock::mock("utilityGetIndexedTaggingSecretAsSender").returns(
                 IndexedTaggingSecret::deserialize([69420, 1337]),
             );
-            let _ = OracleMock::mock("incrementAppTaggingSecretIndexAsSender").returns(());
+            let _ = OracleMock::mock("privateIncrementAppTaggingSecretIndexAsSender").returns(());
 
             // Encrypt the log
             let encrypted_log = BoundedVec::from_array(AES128::encrypt_log(plaintext, recipient));
@@ -411,7 +411,7 @@ mod test {
                 EmbeddedCurveScalar::from_field(eph_sk),
                 recipient,
             );
-            let _ = OracleMock::mock("getSharedSecret").returns(shared_secret);
+            let _ = OracleMock::mock("utilityGetSharedSecret").returns(shared_secret);
 
             // Decrypt the log
             let decrypted = AES128::decrypt_log(encrypted_log, recipient);

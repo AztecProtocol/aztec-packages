@@ -8,6 +8,7 @@
 
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/common/thread.hpp"
+#include "barretenberg/common/tuple.hpp"
 
 #include <span>
 #include <typeinfo>

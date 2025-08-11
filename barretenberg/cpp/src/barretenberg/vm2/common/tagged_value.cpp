@@ -70,6 +70,16 @@ struct less_than_equal {
     }
 };
 
+struct checked_divides {
+    template <typename T> auto operator()(T&& a, T&& b) const
+    {
+        if (b == static_cast<T>(0)) {
+            throw DivisionByZero("Dividing numeric value by zero");
+        }
+        return std::forward<T>(a) / std::forward<T>(b);
+    }
+};
+
 template <typename Op>
 constexpr bool is_bitwise_operation_v =
     std::is_same_v<Op, std::bit_and<>> || std::is_same_v<Op, std::bit_or<>> || std::is_same_v<Op, std::bit_xor<>> ||
@@ -272,7 +282,7 @@ TaggedValue TaggedValue::operator*(const TaggedValue& other) const
 
 TaggedValue TaggedValue::operator/(const TaggedValue& other) const
 {
-    return std::visit(BinaryOperationVisitor<std::divides<>>(), value, other.value);
+    return std::visit(BinaryOperationVisitor<checked_divides>(), value, other.value);
 }
 
 // Bitwise operators

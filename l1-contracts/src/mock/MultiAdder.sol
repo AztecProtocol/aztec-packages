@@ -3,11 +3,15 @@
 pragma solidity >=0.8.27;
 
 import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
+import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
 struct CheatDepositArgs {
   address attester;
   address withdrawer;
+  G1Point publicKeyInG1;
+  G2Point publicKeyInG2;
+  G1Point proofOfPossession;
 }
 
 interface IMultiAdder {
@@ -31,7 +35,14 @@ contract MultiAdder is IMultiAdder {
   function addValidators(CheatDepositArgs[] memory _args) external override(IMultiAdder) {
     require(msg.sender == OWNER, NotOwner());
     for (uint256 i = 0; i < _args.length; i++) {
-      STAKING.deposit(_args[i].attester, _args[i].withdrawer, true);
+      STAKING.deposit(
+        _args[i].attester,
+        _args[i].withdrawer,
+        _args[i].publicKeyInG1,
+        _args[i].publicKeyInG2,
+        _args[i].proofOfPossession,
+        true
+      );
     }
     STAKING.flushEntryQueue();
   }

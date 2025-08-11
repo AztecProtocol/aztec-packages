@@ -12,6 +12,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import type { DateProvider } from '@aztec/foundation/timer';
 import { SlashFactoryAbi } from '@aztec/l1-artifacts';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
+import { type Offense, bigIntToOffense } from '@aztec/stdlib/slashing';
 
 import {
   type GetContractEventsReturnType,
@@ -22,7 +23,7 @@ import {
   getContract,
 } from 'viem';
 
-import { Offense, WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher, bigIntToOffense } from './config.js';
+import { WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher } from './config.js';
 
 type MonitoredSlashPayload = {
   payloadAddress: EthAddress;
@@ -86,7 +87,20 @@ export class SlasherClient {
       client: l1Client,
     });
 
-    return new SlasherClient(config, slashFactoryContract, slashingProposer, l1TxUtils, watchers, dateProvider);
+    const slasherClient = new SlasherClient(
+      config,
+      slashFactoryContract,
+      slashingProposer,
+      l1TxUtils,
+      watchers,
+      dateProvider,
+    );
+    rollup.listenToSlasherChanged(async () => {
+      const newSlashingProposer = await rollup.getSlashingProposer();
+      await slasherClient.setSlashingProposer(newSlashingProposer);
+    });
+
+    return slasherClient;
   }
 
   constructor(
@@ -150,6 +164,15 @@ export class SlasherClient {
   public clearMonitoredPayloads() {
     this.log.warn('Clearing monitored payloads', this.monitoredPayloads);
     this.monitoredPayloads = [];
+  }
+
+  public async setSlashingProposer(slashingProposer: SlashingProposerContract) {
+    this.log.info('Slashing proposer changed');
+    // remove the old listeners
+    await this.stop();
+    this.slashingProposer = slashingProposer;
+    // start the new listeners
+    await this.start();
   }
 
   /**

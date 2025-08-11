@@ -1,5 +1,7 @@
 #include "barretenberg/vm2/tracegen/sha256_trace.hpp"
 
+#include <algorithm>
+#include <any>
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
@@ -8,6 +10,8 @@
 #include <stdexcept>
 
 #include "barretenberg/vm2/generated/relations/lookups_sha256.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_sha256_mem.hpp"
+#include "barretenberg/vm2/generated/relations/perms_sha256_mem.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/sha256_event.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
@@ -273,21 +277,221 @@ void Sha256TraceBuilder::process(
     using C = Column;
 
     for (const auto& event : events) {
-        std::array<uint32_t, 16> prev_w_helpers = event.input;
-        std::array<uint32_t, 8> round_state = event.state;
+
+        /////////////////////////////////////////////////////
+        // Memory Components of SHA-256 Compression Function
+        /////////////////////////////////////////////////////
+        // Upcast addresses to uint64_t to avoid overflow issues
+        uint64_t state_addr = static_cast<uint64_t>(event.state_addr);
+        uint64_t input_addr = static_cast<uint64_t>(event.input_addr);
+        uint64_t output_addr = static_cast<uint64_t>(event.output_addr);
+
+        uint64_t max_state_addr = state_addr + 7;   // State is 8 elements
+        uint64_t max_input_addr = input_addr + 15;  // Input is 16 elements
+        uint64_t max_output_addr = output_addr + 7; // Output is 8 elements
+
+        // These are unconditional values that must always be set at the start
+        trace.set(row,
+                  { {
+                      { C::sha256_sel, 1 },
+                      { C::sha256_start, 1 },
+                      { C::sha256_execution_clk, event.execution_clk },
+                      { C::sha256_space_id, event.space_id },
+                      { C::sha256_u32_tag, static_cast<uint8_t>(MemoryTag::U32) },
+                      // Operand Addresses
+                      { C::sha256_state_addr, state_addr },
+                      { C::sha256_input_addr, input_addr },
+                      { C::sha256_output_addr, output_addr },
+                      // Helpers
+                      { C::sha256_max_mem_addr, AVM_HIGHEST_MEM_ADDRESS },
+                      { C::sha256_max_state_addr, max_state_addr },
+                      { C::sha256_max_input_addr, max_input_addr },
+                      { C::sha256_max_output_addr, max_output_addr },
+                      { C::sha256_input_rounds_rem, 16 }, // Number of inputs
+                      { C::sha256_sel_is_input_round, 1 },
+                      { C::sha256_rounds_remaining, 64 }, // Number of Sha256 Rounds
+                  } });
+
+        //////////////////////////////////////
+        // Error Handling - Memory Out of Range
+        //////////////////////////////////////
+        bool state_out_of_range = max_state_addr > AVM_HIGHEST_MEM_ADDRESS;
+        bool input_out_of_range = max_input_addr > AVM_HIGHEST_MEM_ADDRESS;
+        bool output_out_of_range = max_output_addr > AVM_HIGHEST_MEM_ADDRESS;
+
+        bool out_of_range_err = output_out_of_range || input_out_of_range || state_out_of_range;
+        if (out_of_range_err) {
+            trace.set(row,
+                      { {
+                          // Error flags
+                          { C::sha256_sel_state_out_of_range_err, state_out_of_range ? 1 : 0 },
+                          { C::sha256_sel_input_out_of_range_err, input_out_of_range ? 1 : 0 },
+                          { C::sha256_sel_output_out_of_range_err, output_out_of_range ? 1 : 0 },
+                          { C::sha256_mem_out_of_range_err, 1 },
+                          { C::sha256_err, 1 },   // Set the error flag
+                          { C::sha256_latch, 1 }, // Latch is set on error
+                      } });
+            row++;
+            continue; // Skip to the next event if we have an out of range error
+        }
+
+        //////////////////////////////////////
+        // Load Initial State from Memory
+        //////////////////////////////////////
+        // If we get here we are safe to load the memory, we need to split this up between the parallel and sequential
+        // loading. State is loaded in parallel, whilst inputs are loaded sequential.
+
+        // Since we treat them as separate temporality groups, if there is an error in the state loading, we will not
+        // load the input
+        trace.set(row,
+                  { {
+                      // State Loading Selectors
+                      { C::sha256_sel_mem_state_or_output, 1 },
+                      // State Addresses
+                      { C::sha256_memory_address_0_, state_addr },
+                      { C::sha256_memory_address_1_, state_addr + 1 },
+                      { C::sha256_memory_address_2_, state_addr + 2 },
+                      { C::sha256_memory_address_3_, state_addr + 3 },
+                      { C::sha256_memory_address_4_, state_addr + 4 },
+                      { C::sha256_memory_address_5_, state_addr + 5 },
+                      { C::sha256_memory_address_6_, state_addr + 6 },
+                      { C::sha256_memory_address_7_, state_addr + 7 },
+                      // State Values
+                      { C::sha256_memory_register_0_, event.state[0].as_ff() },
+                      { C::sha256_memory_register_1_, event.state[1].as_ff() },
+                      { C::sha256_memory_register_2_, event.state[2].as_ff() },
+                      { C::sha256_memory_register_3_, event.state[3].as_ff() },
+                      { C::sha256_memory_register_4_, event.state[4].as_ff() },
+                      { C::sha256_memory_register_5_, event.state[5].as_ff() },
+                      { C::sha256_memory_register_6_, event.state[6].as_ff() },
+                      { C::sha256_memory_register_7_, event.state[7].as_ff() },
+                      // Values need to match initial state of sha256 compression
+                      { C::sha256_init_a, event.state[0].as_ff() },
+                      { C::sha256_init_b, event.state[1].as_ff() },
+                      { C::sha256_init_c, event.state[2].as_ff() },
+                      { C::sha256_init_d, event.state[3].as_ff() },
+                      { C::sha256_init_e, event.state[4].as_ff() },
+                      { C::sha256_init_f, event.state[5].as_ff() },
+                      { C::sha256_init_g, event.state[6].as_ff() },
+                      { C::sha256_init_h, event.state[7].as_ff() },
+                      // State Memory Tags
+                      { C::sha256_memory_tag_0_, static_cast<uint8_t>(event.state[0].get_tag()) },
+                      { C::sha256_memory_tag_1_, static_cast<uint8_t>(event.state[1].get_tag()) },
+                      { C::sha256_memory_tag_2_, static_cast<uint8_t>(event.state[2].get_tag()) },
+                      { C::sha256_memory_tag_3_, static_cast<uint8_t>(event.state[3].get_tag()) },
+                      { C::sha256_memory_tag_4_, static_cast<uint8_t>(event.state[4].get_tag()) },
+                      { C::sha256_memory_tag_5_, static_cast<uint8_t>(event.state[5].get_tag()) },
+                      { C::sha256_memory_tag_6_, static_cast<uint8_t>(event.state[6].get_tag()) },
+                      { C::sha256_memory_tag_7_, static_cast<uint8_t>(event.state[7].get_tag()) },
+                  } });
+
+        //////////////////////////////////////
+        // Check for Tag Errors in State
+        //////////////////////////////////////
+        bool invalid_state_tag_err = std::ranges::any_of(
+            event.state, [](const MemoryValue& state) { return state.get_tag() != MemoryTag::U32; });
+
+        if (invalid_state_tag_err) {
+            // This is the more efficient batched tag check we perform in the circuit
+            uint64_t batched_check = 0;
+            // Batch the state tag checks
+            for (uint32_t i = 0; i < event.state.size(); i++) {
+                batched_check |=
+                    (static_cast<uint64_t>(event.state[i].get_tag()) - static_cast<uint64_t>(MemoryTag::U32))
+                    << (i * 3);
+            }
+            trace.set(row,
+                      { {
+                          { C::sha256_sel_invalid_state_tag_err, 1 },
+                          { C::sha256_batch_tag_inv, FF(batched_check).invert() },
+                          { C::sha256_latch, 1 },
+                          { C::sha256_err, 1 }, // Set the error flag
+                      } });
+
+            row++;
+            continue; // Skip to the next event if we have an invalid state tag error
+        }
+
+        /////////////////////////////////////////////
+        // Load Hash inputs and check for tag errors
+        ////////////////////////////////////////////
+        // The inputs vector is expected to 16 elements and each element is expected to be a 32-bit value
+        // If during simulation we encounter an invalid tag, it will have been the last element we retrieved
+        // before we threw an error - so it will be the last element in the input vector.
+        // Therefore, it is just sufficient to check the tag of the last element
+        bool invalid_tag_err = event.input.back().get_tag() != MemoryTag::U32;
+
+        // Note that if we encountered an invalid tag error, the row that loaded the invalid tag needs to contain
+        // sel_invalid_input_ROW_tag_err. And all the rows before need to contain sel_invalid_input_tag_err.
+        // The former is used to constrain the specific error, while the latter is used to propagate the error
+        // to the start row (to communicate back to execution) and to turn off any computation constraints.
+        for (uint32_t i = 0; i < event.input.size(); i++) {
+            uint32_t input_rounds_rem = 16 - i;
+            FF input_rounds_rem_inv = input_rounds_rem == 0 ? 0 : FF(input_rounds_rem).invert();
+
+            MemoryValue round_input = event.input[i];
+            FF input_tag = FF(static_cast<uint8_t>(round_input.get_tag()));
+            FF expected_tag = FF(static_cast<uint8_t>(MemoryTag::U32));
+            FF input_tag_diff = input_tag - expected_tag;
+            FF input_tag_diff_inv = input_tag_diff == 0 ? 0 : input_tag_diff.invert();
+
+            bool is_last = (i == event.input.size() - 1);
+            trace.set(row + i,
+                      { {
+                          { C::sha256_sel, 1 },
+                          // Propagated Fields
+                          { C::sha256_execution_clk, event.execution_clk },
+                          { C::sha256_space_id, event.space_id },
+                          { C::sha256_output_addr, output_addr },
+                          { C::sha256_sel_is_input_round, 1 },
+                          { C::sha256_u32_tag, expected_tag },
+                          { C::sha256_sel_read_input_from_memory, 1 },
+                          // Input Rounds Control Flow
+                          { C::sha256_input_rounds_rem, input_rounds_rem },
+                          { C::sha256_input_rounds_rem_inv, input_rounds_rem_inv },
+                          { C::sha256_input_addr, input_addr + i },
+                          { C::sha256_input, round_input.as_ff() },
+                          { C::sha256_input_tag, input_tag },
+                          { C::sha256_input_tag_diff_inv, input_tag_diff_inv },
+                          // Set input value
+                          { C::sha256_w, round_input.as_ff() },
+                          // Error Columns
+                          // Propagated tag error columns
+                          { C::sha256_sel_invalid_input_tag_err, invalid_tag_err ? 1 : 0 },
+                          // Invalid Row Tag Error Columns
+                          { C::sha256_sel_invalid_input_row_tag_err, (is_last && invalid_tag_err) ? 1 : 0 },
+                          { C::sha256_err, invalid_tag_err ? 1 : 0 },
+                          { C::sha256_latch, (is_last && invalid_tag_err) ? 1 : 0 },
+                      } });
+        }
+
+        if (invalid_tag_err) {
+            // We need to increment the row counter for the next event (since we may have added rows for input loading)
+            row += event.input.size();
+            continue;
+        }
+
+        // If we get to this point, we are safe to proceed with the SHA-256 compression function
+        // and we won't encounter any more errors
+
+        /////////////////////////////////////////
+        // Execute SHA-256 Compression Function
+        /////////////////////////////////////////
+        std::array<uint32_t, 8> state;
+        std::ranges::transform(event.state.begin(), event.state.end(), state.begin(), [](const MemoryValue& val) {
+            return val.as<uint32_t>();
+        });
+
+        std::array<uint32_t, 16> prev_w_helpers;
+        std::ranges::transform(event.input.begin(),
+                               event.input.end(),
+                               prev_w_helpers.begin(),
+                               [](const MemoryValue& val) { return val.as<uint32_t>(); });
+        std::array<uint32_t, 8> round_state = state;
 
         // Each event results in 65 rows in the trace.
         // 64 rows for the 64 rounds of the SHA-256 compression function
         // 1 row for the final state
-
-        // In the first row we also set up memory addresses and initial state values
-        trace.set(row,
-                  { {
-                      { C::sha256_start, 1 },
-                      { C::sha256_input_offset, event.input_addr },
-                      { C::sha256_state_offset, event.state_addr },
-                      { C::sha256_output_offset, event.output_addr },
-                  } });
 
         // Begin the rounds loop
         for (size_t i = 0; i < 64; i++) {
@@ -297,8 +501,13 @@ void Sha256TraceBuilder::process(
             FF inv = FF(64 - i).invert();
             trace.set(row,
                       { {
-                          { C::sha256_clk, event.execution_clk },
                           { C::sha256_sel, 1 },
+                          // Propagated Fields
+                          { C::sha256_execution_clk, event.execution_clk },
+                          { C::sha256_space_id, event.space_id },
+                          { C::sha256_output_addr, output_addr },
+                          { C::sha256_u32_tag, static_cast<uint8_t>(MemoryTag::U32) },
+                          // For round selectors
                           { C::sha256_xor_sel, 2 },
                           { C::sha256_perform_round, 1 },
                           { C::sha256_is_input_round, is_an_input_round },
@@ -320,7 +529,7 @@ void Sha256TraceBuilder::process(
             }
 
             // Set the init state columns - propagated down
-            set_init_state_cols(event.state, trace);
+            set_init_state_cols(state, trace);
             // Set the state columns
             set_state_cols(round_state, trace);
             // Set the round columns
@@ -342,7 +551,6 @@ void Sha256TraceBuilder::process(
         // Set the final row
         trace.set(row,
                   { {
-                      { C::sha256_clk, event.execution_clk },
                       { C::sha256_latch, 1 },
                       { C::sha256_sel, 1 },
                       { C::sha256_xor_sel, 2 },
@@ -350,19 +558,77 @@ void Sha256TraceBuilder::process(
                   } });
 
         // Set the init state columns - propagated down
-        set_init_state_cols(event.state, trace);
+        set_init_state_cols(state, trace);
         // Set the state column
         set_state_cols(round_state, trace);
         // Set the round columns
         set_helper_cols(prev_w_helpers, trace);
         // Compute the output from the final round state
-        compute_sha256_output(round_state, event.state, trace);
+        compute_sha256_output(round_state, state, trace);
+
+        /////////////////////////////////////////
+        // Write output memory
+        /////////////////////////////////////////
+        trace.set(row,
+                  { {
+                      // Memory Fields
+                      { C::sha256_execution_clk, event.execution_clk },
+                      { C::sha256_space_id, event.space_id },
+                      { C::sha256_sel_mem_state_or_output, 1 },
+                      { C::sha256_rw, 1 }, // Writing output
+                      { C::sha256_u32_tag, static_cast<uint8_t>(MemoryTag::U32) },
+                      { C::sha256_output_addr, output_addr },
+                      // Output Addresses
+                      { C::sha256_memory_address_0_, output_addr },
+                      { C::sha256_memory_address_1_, output_addr + 1 },
+                      { C::sha256_memory_address_2_, output_addr + 2 },
+                      { C::sha256_memory_address_3_, output_addr + 3 },
+                      { C::sha256_memory_address_4_, output_addr + 4 },
+                      { C::sha256_memory_address_5_, output_addr + 5 },
+                      { C::sha256_memory_address_6_, output_addr + 6 },
+                      { C::sha256_memory_address_7_, output_addr + 7 },
+                      // Output Values
+                      { C::sha256_memory_register_0_, round_state[0] + state[0] },
+                      { C::sha256_memory_register_1_, round_state[1] + state[1] },
+                      { C::sha256_memory_register_2_, round_state[2] + state[2] },
+                      { C::sha256_memory_register_3_, round_state[3] + state[3] },
+                      { C::sha256_memory_register_4_, round_state[4] + state[4] },
+                      { C::sha256_memory_register_5_, round_state[5] + state[5] },
+                      { C::sha256_memory_register_6_, round_state[6] + state[6] },
+                      { C::sha256_memory_register_7_, round_state[7] + state[7] },
+                      // Output Memory Tags
+                      { C::sha256_memory_tag_0_, static_cast<uint8_t>(MemoryTag::U32) },
+                      { C::sha256_memory_tag_1_, static_cast<uint8_t>(MemoryTag::U32) },
+                      { C::sha256_memory_tag_2_, static_cast<uint8_t>(MemoryTag::U32) },
+                      { C::sha256_memory_tag_3_, static_cast<uint8_t>(MemoryTag::U32) },
+                      { C::sha256_memory_tag_4_, static_cast<uint8_t>(MemoryTag::U32) },
+                      { C::sha256_memory_tag_5_, static_cast<uint8_t>(MemoryTag::U32) },
+                      { C::sha256_memory_tag_6_, static_cast<uint8_t>(MemoryTag::U32) },
+                      { C::sha256_memory_tag_7_, static_cast<uint8_t>(MemoryTag::U32) },
+                  } });
 
         row++;
     }
 }
 
 const InteractionDefinition Sha256TraceBuilder::interactions =
-    InteractionDefinition().add<lookup_sha256_round_constant_settings, InteractionType::LookupIntoIndexedByClk>();
+    InteractionDefinition()
+        .add<lookup_sha256_round_constant_settings, InteractionType::LookupIntoIndexedByClk>()
+        // Memory Interactions
+        .add<lookup_sha256_mem_check_state_addr_in_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_mem_check_input_addr_in_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_mem_check_output_addr_in_range_settings, InteractionType::LookupGeneric>()
+        // These should be permutations
+        .add<lookup_sha256_mem_mem_op_0_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_mem_mem_op_1_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_mem_mem_op_2_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_mem_mem_op_3_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_mem_mem_op_4_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_mem_mem_op_5_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_mem_mem_op_6_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_mem_mem_op_7_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_mem_mem_input_read_settings, InteractionType::LookupGeneric>()
+        // Dispatch Permutation
+        .add<perm_sha256_mem_dispatch_sha256_settings, InteractionType::Permutation>();
 
 } // namespace bb::avm2::tracegen

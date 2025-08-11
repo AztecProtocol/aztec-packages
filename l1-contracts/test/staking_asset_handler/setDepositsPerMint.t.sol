@@ -4,6 +4,7 @@ pragma solidity >=0.8.27;
 import {StakingAssetHandlerBase} from "./base.t.sol";
 import {StakingAssetHandler, IStakingAssetHandler} from "@aztec/mock/StakingAssetHandler.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
+import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 // solhint-disable comprehensive-interface
 // solhint-disable func-name-mixedcase
@@ -66,7 +67,9 @@ contract SetDepositsPerMintTest is StakingAssetHandlerBase {
       vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
       emit IStakingAssetHandler.ValidatorAdded(address(staking), validators[i], WITHDRAWER);
       vm.prank(caller);
-      stakingAssetHandler.addValidator(validators[i], validMerkleProof, realProof);
+      stakingAssetHandler.addValidator(
+        validators[i], validMerkleProof, realProof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
+      );
 
       // Increase the unique identifier in our zkpassport proof such that the nullifier for each validator is different.
       mockZKPassportVerifier.incrementUniqueIdentifier();
@@ -80,7 +83,9 @@ contract SetDepositsPerMintTest is StakingAssetHandlerBase {
       abi.encodeWithSelector(IStakingAssetHandler.ValidatorQuotaFilledUntil.selector, lastMintTimestamp + mintInterval)
     );
     vm.prank(caller);
-    stakingAssetHandler.addValidator(address(0xbeefdeef), validMerkleProof, realProof);
+    stakingAssetHandler.addValidator(
+      address(0xbeefdeef), validMerkleProof, realProof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
+    );
 
     emit log_named_uint("balance", stakingAsset.balanceOf(address(stakingAssetHandler)));
   }

@@ -8,7 +8,6 @@
 
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
-#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 
@@ -30,6 +29,8 @@ class PairingPoints {
     using VerifierCK = VerifierCommitmentKey<curve::BN254>;
 
   public:
+    static constexpr size_t PUBLIC_INPUTS_SIZE = PAIRING_POINTS_SIZE;
+
     Point P0 = Point::infinity();
     Point P1 = Point::infinity();
 
@@ -43,10 +44,13 @@ class PairingPoints {
      * @brief Reconstruct the pairing points from limbs stored on the public inputs.
      *
      */
-    static PairingPoints reconstruct_from_public(const std::span<const Fr, PAIRING_POINTS_SIZE>& limbs_in)
+    static PairingPoints reconstruct_from_public(const std::span<const Fr, PUBLIC_INPUTS_SIZE>& limbs_in)
     {
-        Point P0 = Point::reconstruct_from_public(limbs_in.subspan(0, 2 * FQ_PUBLIC_INPUT_SIZE));
-        Point P1 = Point::reconstruct_from_public(limbs_in.subspan(2 * FQ_PUBLIC_INPUT_SIZE, 2 * FQ_PUBLIC_INPUT_SIZE));
+        const std::span<const bb::fr, Point::PUBLIC_INPUTS_SIZE> P0_limbs(limbs_in.data(), Point::PUBLIC_INPUTS_SIZE);
+        const std::span<const bb::fr, Point::PUBLIC_INPUTS_SIZE> P1_limbs(limbs_in.data() + Point::PUBLIC_INPUTS_SIZE,
+                                                                          Point::PUBLIC_INPUTS_SIZE);
+        Point P0 = Point::reconstruct_from_public(P0_limbs);
+        Point P1 = Point::reconstruct_from_public(P1_limbs);
 
         return PairingPoints{ P0, P1 };
     }

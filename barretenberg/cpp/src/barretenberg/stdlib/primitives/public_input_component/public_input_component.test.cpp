@@ -3,9 +3,10 @@
 
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
+#include "barretenberg/public_input_component/public_input_component.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
+#include "barretenberg/stdlib/primitives/public_input_component/public_input_component.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
-#include "public_input_component.hpp"
 
 using namespace bb;
 
@@ -17,7 +18,7 @@ auto& engine = bb::numeric::get_debug_randomness();
  * @brief A test demonstrating the functionality set and reconstruct methods on a GolbinBigGroup object
  *
  */
-TEST(PublicInputsTest, GoblinBigGroup)
+TEST(PublicInputComponentTest, GoblinBigGroup)
 {
     using Builder = MegaCircuitBuilder;
     using Curve = stdlib::bn254<Builder>;
@@ -26,6 +27,7 @@ TEST(PublicInputsTest, GoblinBigGroup)
     using AffineElementNative = Curve::GroupNative::affine_element;
     using FrNative = Curve::ScalarFieldNative;
     using PublicPoint = stdlib::PublicInputComponent<G1>;
+    using PublicPointNative = bb::PublicInputComponent<AffineElementNative>;
 
     AffineElementNative point_value = AffineElementNative::random_element();
 
@@ -72,5 +74,14 @@ TEST(PublicInputsTest, GoblinBigGroup)
 
         // Ensure the reconstructed point matches the original point
         EXPECT_EQ(point_value, reconstructed_point.get_value());
+    }
+
+    // Reconstruct from native public inputs
+    {
+        // Reconstruct the point from the native public inputs and the public component key
+        AffineElementNative reconstructed_point = PublicPointNative::reconstruct(public_inputs, public_point_key);
+
+        // Ensure the reconstructed point matches the original point
+        EXPECT_EQ(point_value, reconstructed_point);
     }
 }

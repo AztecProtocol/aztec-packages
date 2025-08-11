@@ -12,7 +12,6 @@ using byte_array = stdlib::byte_array<Builder>;
 using public_witness_t = stdlib::public_witness_t<Builder>;
 using field_ct = stdlib::field_t<Builder>;
 using witness_ct = stdlib::witness_t<Builder>;
-using uint32_ct = stdlib::uint32<Builder>;
 
 namespace {
 auto& engine = numeric::get_debug_randomness();
@@ -160,10 +159,8 @@ TEST(stdlib_keccak, test_format_input_lanes)
         byte_array input_arr(&builder, input_v);
         byte_array input_padded_arr(&builder, input_padded_v);
 
-        auto num_bytes_native = static_cast<uint32_t>(i);
-        uint32_ct num_bytes(witness_ct(&builder, num_bytes_native));
-        std::vector<field_ct> result = stdlib::keccak<Builder>::format_input_lanes(input_padded_arr, num_bytes);
-        std::vector<field_ct> expected = stdlib::keccak<Builder>::format_input_lanes(input_arr, num_bytes_native);
+        std::vector<field_ct> result = stdlib::keccak<Builder>::format_input_lanes(input_padded_arr);
+        std::vector<field_ct> expected = stdlib::keccak<Builder>::format_input_lanes(input_arr);
 
         EXPECT_GT(result.size(), expected.size() - 1);
 
@@ -223,62 +220,6 @@ TEST(stdlib_keccak, test_double_block)
     EXPECT_EQ(proof_result, true);
 }
 
-TEST(stdlib_keccak, test_double_block_variable_length)
-{
-    GTEST_SKIP() << "Bug in constant case?";
-
-    Builder builder = Builder();
-    std::string input = "";
-    for (size_t i = 0; i < 200; ++i) {
-        input += "a";
-    }
-    std::vector<uint8_t> input_v(input.begin(), input.end());
-
-    // add zero padding
-    std::vector<uint8_t> input_v_padded(input_v);
-    for (size_t i = 0; i < 51; ++i) {
-        input_v_padded.push_back(0);
-    }
-    byte_array input_arr(&builder, input_v_padded);
-
-    uint32_ct length(witness_ct(&builder, 200));
-    byte_array output = stdlib::keccak<Builder>::hash(input_arr, length);
-
-    std::vector<uint8_t> expected = stdlib::keccak<Builder>::hash_native(input_v);
-
-    EXPECT_EQ(output.get_value(), expected);
-
-    bool proof_result = CircuitChecker::check(builder);
-    EXPECT_EQ(proof_result, true);
-}
-
-TEST(stdlib_keccak, test_variable_length_nonzero_input_greater_than_byte_array_size)
-
-{
-    Builder builder = Builder();
-    std::string input = "";
-    size_t target_length = 2;
-    size_t byte_array_length = 200;
-    for (size_t i = 0; i < target_length; ++i) {
-        input += "a";
-    }
-    std::vector<uint8_t> input_expected(input.begin(), input.end());
-    std::vector<uint8_t> expected = stdlib::keccak<Builder>::hash_native(input_expected);
-    for (size_t i = target_length; i < byte_array_length; ++i) {
-        input += "a";
-    }
-    std::vector<uint8_t> input_v(input.begin(), input.end());
-
-    byte_array input_arr(&builder, input_v);
-
-    uint32_ct length(witness_ct(&builder, 2));
-    byte_array output = stdlib::keccak<Builder>::hash(input_arr, length);
-
-    EXPECT_EQ(output.get_value(), expected);
-    bool proof_result = CircuitChecker::check(builder);
-    EXPECT_EQ(proof_result, true);
-}
-
 TEST(stdlib_keccak, test_permutation_opcode_single_block)
 {
     Builder builder = Builder();
@@ -286,8 +227,7 @@ TEST(stdlib_keccak, test_permutation_opcode_single_block)
     std::vector<uint8_t> input_v(input.begin(), input.end());
 
     byte_array input_arr(&builder, input_v);
-    byte_array output =
-        stdlib::keccak<Builder>::hash_using_permutation_opcode(input_arr, static_cast<uint32_t>(input.size()));
+    byte_array output = stdlib::keccak<Builder>::hash_using_permutation_opcode(input_arr);
 
     std::vector<uint8_t> expected = stdlib::keccak<Builder>::hash_native(input_v);
 
@@ -309,8 +249,7 @@ TEST(stdlib_keccak, test_permutation_opcode_double_block)
     std::vector<uint8_t> input_v(input.begin(), input.end());
 
     byte_array input_arr(&builder, input_v);
-    byte_array output =
-        stdlib::keccak<Builder>::hash_using_permutation_opcode(input_arr, static_cast<uint32_t>(input.size()));
+    byte_array output = stdlib::keccak<Builder>::hash_using_permutation_opcode(input_arr);
 
     std::vector<uint8_t> expected = stdlib::keccak<Builder>::hash_native(input_v);
 

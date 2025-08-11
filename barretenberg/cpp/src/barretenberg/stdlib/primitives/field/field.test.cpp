@@ -949,74 +949,6 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_EQ(result, true);
     }
 
-    /**
-     * @brief Test success and failure cases for decompose_into_bits.
-     *
-     * @details The target function constructs `sum` from a supplied collection of bits and compares it with a value
-     * `val_256`. We supply bit vectors to test some failure cases.
-     */
-
-    static void test_decompose_into_bits()
-    {
-        using witness_supplier_type = std::function<witness_ct(Builder * ctx, uint64_t, uint256_t)>;
-
-        // check that constraints are satisfied for a variety of inputs
-        auto run_success_test = [&](size_t num_bits) {
-            Builder builder = Builder();
-
-            uint256_t random_val(engine.get_random_uint256());
-            // For big values (num_bits>=254), ensure that they can't overflow by shifting by 4 bits.
-            uint256_t scalar_raw = (num_bits < 254) ? random_val >> (256 - num_bits) : random_val >> 4;
-            field_ct a = witness_ct(&builder, scalar_raw);
-            std::vector<bool_ct> c = a.decompose_into_bits(num_bits);
-            uint256_t bit_sum = 0;
-            for (size_t i = 0; i < c.size(); i++) {
-                uint256_t scaling_factor_value(uint256_t(1) << i);
-                bit_sum += fr(c[i].get_value()) * scaling_factor_value;
-            }
-            EXPECT_EQ(bit_sum, scalar_raw);
-
-            ASSERT_TRUE(CircuitChecker::check(builder));
-        };
-
-        // Now try to supply unintended witness values and test for failure.
-        // Fr::modulus is equivalent to zero in Fr, but this should be forbidden by a range constraint.
-        witness_supplier_type supply_modulus_bits = [](Builder* ctx, uint64_t j, uint256_t val_256) {
-            ignore_unused(val_256);
-            // use this to get `sum` to be fr::modulus.
-            return witness_ct(ctx, fr::modulus.get_bit(j));
-        };
-
-        // design a bit vector that will pass all range constraints, but it fails the copy constraint.
-        witness_supplier_type supply_half_modulus_bits = [](Builder* ctx, uint64_t j, uint256_t val_256) {
-            // use this to fit y_hi into 128 bits
-            if (j > 127) {
-                return witness_ct(ctx, val_256.get_bit(j));
-            };
-
-            return witness_ct(ctx, (fr::modulus).get_bit(j));
-        };
-
-        auto run_failure_test = [&](witness_supplier_type witness_supplier, std::string err_msg) {
-            Builder builder = Builder();
-
-            fr a_expected = 0;
-            field_ct a = witness_ct(&builder, a_expected);
-            std::vector<bool_ct> c = a.decompose_into_bits(256, witness_supplier);
-
-            bool verified = CircuitChecker::check(builder);
-            ASSERT_FALSE(verified);
-            EXPECT_TRUE(err_msg == builder.err());
-        };
-
-        for (size_t idx = 1; idx <= 256; idx++) {
-            run_success_test(idx);
-        }
-
-        run_failure_test(supply_modulus_bits, "field_t: bit decomposition fails: y_hi is too large.");
-        run_failure_test(supply_half_modulus_bits, "field_t: bit decomposition_fails: copy constraint");
-    }
-
     static void test_assert_is_in_set()
     {
         Builder builder = Builder();
@@ -1422,13 +1354,6 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_EQ(split_data.first.get_origin_tag(), submitted_value_origin_tag);
         EXPECT_EQ(split_data.second.get_origin_tag(), submitted_value_origin_tag);
 
-        // Decomposition preserves tags
-
-        auto decomposed_bits = a.decompose_into_bits();
-        for (const auto& bit : decomposed_bits) {
-            EXPECT_EQ(bit.get_origin_tag(), submitted_value_origin_tag);
-        }
-
         // Conversions
 
         auto o = field_ct(witness_ct(&builder, 1));
@@ -1522,10 +1447,6 @@ TYPED_TEST(stdlib_field, test_copy_as_new_witness)
 TYPED_TEST(stdlib_field, test_create_range_constraint)
 {
     TestFixture::create_range_constraint();
-}
-TYPED_TEST(stdlib_field, test_decompose_into_bits)
-{
-    TestFixture::test_decompose_into_bits();
 }
 TYPED_TEST(stdlib_field, test_div)
 {

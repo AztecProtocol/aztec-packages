@@ -78,7 +78,8 @@ export class Barretenberg extends BarretenbergApi {
   }
 
   async initSRSForCircuitSize(circuitSize: number): Promise<void> {
-    const crs = await Crs.new(circuitSize + 1, this.options.crsPath, this.options.logger);
+    const minSRSSize = 2 ** 9; // 2**9 is the dyadic size for the SmallSubgroupIPA MSM.
+    const crs = await Crs.new(Math.max(circuitSize, minSRSSize) + 1, this.options.crsPath, this.options.logger);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1129): Do slab allocator initialization?
     // await this.commonInitSlabAllocator(circuitSize);
     await this.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));

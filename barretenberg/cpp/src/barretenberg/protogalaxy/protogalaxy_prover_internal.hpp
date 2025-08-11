@@ -369,6 +369,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         using ThreadAccumulators = TupleOfTuplesOfUnivariates;
 
         // Construct univariate accumulator containers; one per thread
+        // Note: std::vector will trigger {}-initialization of the contents. Therefore no need to zero the univariates.
         std::vector<ThreadAccumulators> thread_univariate_accumulators(num_threads);
 
         // Distribute the execution trace rows across threads so that each handles an equal number of active rows
@@ -376,8 +377,6 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
         // Accumulate the contribution from each sub-relation
         parallel_for(num_threads, [&](size_t thread_idx) {
-            // Initialize the thread accumulator to 0
-            RelationUtils::zero_univariates(thread_univariate_accumulators[thread_idx]);
             // Construct extended univariates containers; one per thread
             ExtendedUnivariatesType extended_univariates;
 
@@ -419,7 +418,8 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                                                          const UnivariateRelationParameters& relation_parameters,
                                                          const UnivariateSubrelationSeparators& alphas)
     {
-        TupleOfTuplesOfUnivariates accumulators;
+        // Note: {} is required to initialize the tuple contents. Otherwise the univariates contain garbage.
+        TupleOfTuplesOfUnivariates accumulators{};
         return compute_combiner(keys, gate_separators, relation_parameters, alphas, accumulators);
     }
 
@@ -443,7 +443,8 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
             element = element_with_skipping.convert();
         };
 
-        TupleOfTuplesOfUnivariatesNoOptimisticSkipping result;
+        // Note: {} is required to initialize the tuple contents. Otherwise the univariates contain garbage.
+        TupleOfTuplesOfUnivariatesNoOptimisticSkipping result{};
         RelationUtils::template apply_to_tuple_of_tuples(result, deoptimise);
         return result;
     }

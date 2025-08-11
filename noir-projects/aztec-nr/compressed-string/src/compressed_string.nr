@@ -4,6 +4,7 @@ use dep::aztec::protocol_types::{traits::{Deserialize, Serialize}, utils::field:
 // Compresses M bytes into N fields.
 // Can be used for longer strings that don't fit in a single field.
 // Each field can store 31 characters, so N should be M/31 rounded up.
+#[derive(Deserialize, Eq)]
 pub struct CompressedString<let N: u32, let M: u32> {
     value: [Field; N],
 }
@@ -46,25 +47,14 @@ impl<let N: u32, let M: u32> CompressedString<N, M> {
     }
 }
 
-impl<let N: u32, let M: u32> Eq for CompressedString<N, M> {
-    fn eq(self, other: CompressedString<N, M>) -> bool {
-        self.value == other.value
-    }
-}
-
+// TODO: Replace this with the derived version. Not done yet as this uncovered a bug in the AVM. See the discussion
+// below for more details:
+// https://aztecprotocol.slack.com/archives/C02M7VC7TN0/p1754463522334449
 impl<let N: u32, let M: u32> Serialize for CompressedString<N, M> {
     let N: u32 = N;
 
     fn serialize(self) -> [Field; Self::N] {
         self.value
-    }
-}
-
-impl<let N: u32, let M: u32> Deserialize for CompressedString<N, M> {
-    let N: u32 = N;
-
-    fn deserialize(input: [Field; Self::N]) -> Self {
-        Self { value: input }
     }
 }
 

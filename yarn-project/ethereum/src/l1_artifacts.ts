@@ -40,6 +40,8 @@ import {
   RollupLinkReferences,
   SlashFactoryAbi,
   SlashFactoryBytecode,
+  SlasherAbi,
+  SlasherBytecode,
   StakingAssetHandlerAbi,
   StakingAssetHandlerBytecode,
   TestERC20Abi,
@@ -139,6 +141,12 @@ export const GovernanceArtifact = {
   name: 'Governance',
   contractAbi: GovernanceAbi,
   contractBytecode: GovernanceBytecode as Hex,
+};
+
+export const SlasherArtifact = {
+  name: 'Slasher',
+  contractAbi: SlasherAbi,
+  contractBytecode: SlasherBytecode as Hex,
 };
 
 export const SlashFactoryArtifact = {

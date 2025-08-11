@@ -140,12 +140,12 @@ contract WithdrawTest is WithGSE {
     {
       assertEq(gse.isRegistered(BONUS_ADDRESS, _attester), true);
       assertEq(gse.getDelegatee(BONUS_ADDRESS, _attester), BONUS_ADDRESS);
-      assertEq(gse.getConfig(BONUS_ADDRESS, _attester).withdrawer, WITHDRAWER);
+      assertEq(gse.getConfig(_attester).withdrawer, WITHDRAWER);
 
       amount = bound(_amount, balance - gse.EJECTION_THRESHOLD() + 1, balance);
     }
 
-    // He will be removed entirely
+    // He will be removed entirely (excluding his configuration)
     {
       vm.prank(_instance);
       (uint256 amountWithdrawn, bool isRemoved, uint256 withdrawalId) = gse.withdraw(_attester, amount);
@@ -162,8 +162,8 @@ contract WithdrawTest is WithGSE {
     {
       assertEq(gse.isRegistered(BONUS_ADDRESS, _attester), false);
       assertEq(gse.getDelegatee(BONUS_ADDRESS, _attester), address(0));
-      assertEq(gse.getConfig(BONUS_ADDRESS, _attester).withdrawer, address(0));
       assertEq(gse.balanceOf(BONUS_ADDRESS, _attester), 0);
+      assertEq(gse.getConfig(_attester).withdrawer, WITHDRAWER);
     }
   }
 
@@ -188,7 +188,7 @@ contract WithdrawTest is WithGSE {
     {
       assertEq(gse.isRegistered(BONUS_ADDRESS, _attester), true);
       assertEq(gse.getDelegatee(BONUS_ADDRESS, _attester), BONUS_ADDRESS);
-      assertEq(gse.getConfig(BONUS_ADDRESS, _attester).withdrawer, WITHDRAWER);
+      assertEq(gse.getConfig(_attester).withdrawer, WITHDRAWER);
 
       amount = bound(_amount, 0, balance - gse.EJECTION_THRESHOLD());
     }
@@ -210,7 +210,7 @@ contract WithdrawTest is WithGSE {
     {
       assertEq(gse.isRegistered(BONUS_ADDRESS, _attester), true);
       assertEq(gse.getDelegatee(BONUS_ADDRESS, _attester), BONUS_ADDRESS);
-      assertEq(gse.getConfig(BONUS_ADDRESS, _attester).withdrawer, WITHDRAWER);
+      assertEq(gse.getConfig(_attester).withdrawer, WITHDRAWER);
       assertEq(gse.balanceOf(BONUS_ADDRESS, _attester), balance - amount);
     }
   }
@@ -265,12 +265,12 @@ contract WithdrawTest is WithGSE {
     {
       assertEq(gse.isRegistered(_instance, _attester), true);
       assertEq(gse.getDelegatee(_instance, _attester), _instance);
-      assertEq(gse.getConfig(_instance, _attester).withdrawer, WITHDRAWER);
+      assertEq(gse.getConfig(_attester).withdrawer, WITHDRAWER);
 
       amount = bound(_amount, balance - gse.EJECTION_THRESHOLD() + 1, balance);
     }
 
-    // He will be removed entirely
+    // He will be removed entirely (excluding his configuration)
     {
       vm.prank(_instance);
       (uint256 amountWithdrawn, bool isRemoved, uint256 withdrawalId) = gse.withdraw(_attester, amount);
@@ -287,8 +287,8 @@ contract WithdrawTest is WithGSE {
     {
       assertEq(gse.isRegistered(_instance, _attester), false);
       assertEq(gse.getDelegatee(_instance, _attester), address(0));
-      assertEq(gse.getConfig(_instance, _attester).withdrawer, address(0));
       assertEq(gse.balanceOf(_instance, _attester), 0);
+      assertEq(gse.getConfig(_attester).withdrawer, WITHDRAWER);
     }
   }
 
@@ -311,7 +311,7 @@ contract WithdrawTest is WithGSE {
     {
       assertEq(gse.isRegistered(_instance, _attester), true);
       assertEq(gse.getDelegatee(_instance, _attester), _instance);
-      assertEq(gse.getConfig(_instance, _attester).withdrawer, WITHDRAWER);
+      assertEq(gse.getConfig(_attester).withdrawer, WITHDRAWER);
 
       amount = bound(_amount, 0, balance - gse.EJECTION_THRESHOLD());
     }
@@ -333,7 +333,7 @@ contract WithdrawTest is WithGSE {
     {
       assertEq(gse.isRegistered(_instance, _attester), true);
       assertEq(gse.getDelegatee(_instance, _attester), _instance);
-      assertEq(gse.getConfig(_instance, _attester).withdrawer, WITHDRAWER);
+      assertEq(gse.getConfig(_attester).withdrawer, WITHDRAWER);
       assertEq(gse.balanceOf(_instance, _attester), balance - amount);
     }
   }

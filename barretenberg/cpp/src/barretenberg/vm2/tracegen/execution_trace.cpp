@@ -20,6 +20,7 @@
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_addressing.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_alu.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_context.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_emit_notehash.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_emit_nullifier.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_execution.hpp"
@@ -422,7 +423,7 @@ void ExecutionTraceBuilder::process(
                 { C::execution_num_l2_to_l1_messages,
                   ex_event.after_context_event.side_effect_states.numL2ToL1Messages },
                 // Other.
-                { C::execution_bytecode_id, ex_event.bytecode_id },
+                { C::execution_bytecode_id, ex_event.before_context_event.bytecode_id },
                 // Helpers for identifying parent context
                 { C::execution_has_parent_ctx, has_parent ? 1 : 0 },
                 { C::execution_is_parent_id_inv, cached_parent_id_inv },
@@ -445,7 +446,7 @@ void ExecutionTraceBuilder::process(
                   { {
                       { C::execution_sel_bytecode_retrieval_failure, bytecode_retrieval_failed ? 1 : 0 },
                       { C::execution_sel_bytecode_retrieval_success, !bytecode_retrieval_failed ? 1 : 0 },
-                      { C::execution_bytecode_id, ex_event.bytecode_id },
+                      { C::execution_bytecode_id, ex_event.before_context_event.bytecode_id },
                   } });
 
         /**************************************************************************************************
@@ -1177,6 +1178,10 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_execution_check_radix_gt_256_settings, InteractionType::LookupGeneric>()
         .add<lookup_execution_get_p_limbs_settings, InteractionType::LookupGeneric>()
         .add<lookup_execution_get_max_limbs_settings, InteractionType::LookupGeneric>()
+        // Context Stack
+        .add<lookup_context_ctx_stack_call_settings, InteractionType::LookupGeneric>()
+        .add<lookup_context_ctx_stack_rollback_settings, InteractionType::LookupGeneric>()
+        .add<lookup_context_ctx_stack_return_settings, InteractionType::LookupGeneric>()
         // External Call
         .add<lookup_external_call_call_allocated_left_l2_range_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_external_call_call_allocated_left_da_range_settings, InteractionType::LookupIntoIndexedByClk>()

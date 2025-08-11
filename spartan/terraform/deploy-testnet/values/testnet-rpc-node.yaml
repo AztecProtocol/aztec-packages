@@ -35,6 +35,8 @@ replicaCount: 1
 hostNetwork: true
 
 node:
+  env:
+    OTEL_SERVICE_NAME: "rpc-node"
   resources:
     requests:
       cpu: "3"

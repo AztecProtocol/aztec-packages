@@ -15,6 +15,7 @@ import {GSE, IGSECore} from "@aztec/governance/GSE.sol";
 import {StakingQueueLib} from "@aztec/core/libraries/StakingQueue.sol";
 import {StakingQueueConfig, StakingQueueConfigLib} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {Rollup} from "@aztec/core/Rollup.sol";
+import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 contract FlushEntryQueueTest is StakingBase {
   function test_GivenTheQueueHasAlreadyBeenFlushedThisEpoch() external {
@@ -152,10 +153,10 @@ contract FlushEntryQueueTest is StakingBase {
     // it emits a {FailedDeposit} event for each failed deposit
     // it refunds the withdrawer if the deposit fails
 
-    _activeAttesterCount = bound(_activeAttesterCount, 0, 1000);
+    _activeAttesterCount = bound(_activeAttesterCount, 0, 500);
     _numNewValidators = bound(_numNewValidators, 0, 5 * _activeAttesterCount);
-    _normalFlushSizeMin = bound(_normalFlushSizeMin, 1, 1000);
-    _normalFlushSizeQuotient = bound(_normalFlushSizeQuotient, 1, 1000);
+    _normalFlushSizeMin = bound(_normalFlushSizeMin, 1, 500);
+    _normalFlushSizeQuotient = bound(_normalFlushSizeQuotient, 1, 500);
     uint256 effectiveFlushSize = Math.max(_normalFlushSizeMin, _activeAttesterCount / _normalFlushSizeQuotient);
     effectiveFlushSize = Math.min(effectiveFlushSize, StakingQueueLib.MAX_QUEUE_FLUSH_SIZE);
 
@@ -188,7 +189,14 @@ contract FlushEntryQueueTest is StakingBase {
     stakingAsset.approve(address(staking), ACTIVATION_THRESHOLD);
     uint256 balance = stakingAsset.balanceOf(address(staking));
 
-    staking.deposit({_attester: _attester, _withdrawer: _withdrawer, _moveWithLatestRollup: _moveWithLatestRollup});
+    staking.deposit({
+      _attester: _attester,
+      _withdrawer: _withdrawer,
+      _publicKeyInG1: BN254Lib.g1Zero(),
+      _publicKeyInG2: BN254Lib.g2Zero(),
+      _proofOfPossession: BN254Lib.g1Zero(),
+      _moveWithLatestRollup: _moveWithLatestRollup
+    });
 
     assertEq(stakingAsset.balanceOf(address(staking)), balance + ACTIVATION_THRESHOLD, "invalid balance");
   }
@@ -227,14 +235,16 @@ contract FlushEntryQueueTest is StakingBase {
           bytes(string("something bad happened"))
         );
         vm.expectEmit(true, true, true, true);
-        emit IStakingCore.FailedDeposit(attester, withdrawer);
+        emit IStakingCore.FailedDeposit(attester, withdrawer, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero());
       } else {
         if (onCanonical) {
           onCanonicalCount++;
         }
         depositCount++;
         vm.expectEmit(true, true, true, true);
-        emit IStakingCore.Deposit(attester, withdrawer, ACTIVATION_THRESHOLD);
+        emit IStakingCore.Deposit(
+          attester, withdrawer, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), ACTIVATION_THRESHOLD
+        );
       }
     }
 

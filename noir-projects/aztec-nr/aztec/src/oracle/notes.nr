@@ -1,7 +1,4 @@
-use crate::note::{
-    note_interface::NoteType,
-    retrieved_note::{RETRIEVED_NOTE_OVERHEAD, RetrievedNote, unpack_retrieved_note},
-};
+use crate::note::{note_interface::NoteType, retrieved_note::RetrievedNote};
 
 use dep::protocol_types::{
     address::AztecAddress, indexed_tagging_secret::IndexedTaggingSecret, traits::Packable,
@@ -55,7 +52,7 @@ unconstrained fn notify_created_note_oracle_wrapper<let N: u32>(
     notify_created_note_oracle(storage_slot, note_type_id, packed_note, note_hash, counter);
 }
 
-#[oracle(notifyCreatedNote)]
+#[oracle(privateNotifyCreatedNote)]
 unconstrained fn notify_created_note_oracle<let N: u32>(
     _storage_slot: Field,
     _note_type_id: Field,
@@ -72,18 +69,18 @@ unconstrained fn notify_nullified_note_oracle_wrapper(
     notify_nullified_note_oracle(nullifier, note_hash, counter);
 }
 
-#[oracle(notifyNullifiedNote)]
+#[oracle(privateNotifyNullifiedNote)]
 unconstrained fn notify_nullified_note_oracle(_nullifier: Field, _note_hash: Field, _counter: u32) {}
 
 unconstrained fn notify_created_nullifier_oracle_wrapper(nullifier: Field) {
     notify_created_nullifier_oracle(nullifier);
 }
 
-#[oracle(notifyCreatedNullifier)]
+#[oracle(privateNotifyCreatedNullifier)]
 unconstrained fn notify_created_nullifier_oracle(_nullifier: Field) {}
 
-#[oracle(getNotes)]
-unconstrained fn get_notes_oracle<let NotePckdLen: u32, let M: u32, let MaxNotes: u32>(
+#[oracle(utilityGetNotes)]
+unconstrained fn get_notes_oracle<Note, let M: u32, let MaxNotes: u32>(
     _storage_slot: Field,
     _num_selects: u8,
     _select_by_indexes: [u8; M],
@@ -100,12 +97,16 @@ unconstrained fn get_notes_oracle<let NotePckdLen: u32, let M: u32, let MaxNotes
     _status: u8,
     // This is always set to MAX_NOTES. We need to pass it to TS in order to correctly construct the BoundedVec
     _max_notes: u32,
-    // This is always set to NotePckdLen + RETRIEVED_NOTE_OVERHEAD. We need to pass it to TS in order to be able to
+    // This is always set to <RetrievedNote<Note> as Packable>::N. We need to pass it to TS in order to be able to
     // correctly construct the BoundedVec there.
     _packed_retrieved_note_length: u32,
-) -> BoundedVec<[Field; NotePckdLen + RETRIEVED_NOTE_OVERHEAD], MaxNotes> {}
+) -> BoundedVec<[Field; <RetrievedNote<Note> as Packable>::N], MaxNotes>
+where
+    // TODO(https://github.com/noir-lang/noir/issues/9399): `Note: Packable` should work here.
+    RetrievedNote<Note>: Packable,
+{}
 
-pub unconstrained fn get_notes<Note, let NotePckdLen: u32, let M: u32, let MaxNotes: u32>(
+pub unconstrained fn get_notes<Note, let M: u32, let MaxNotes: u32>(
     storage_slot: Field,
     num_selects: u8,
     select_by_indexes: [u8; M],
@@ -122,10 +123,10 @@ pub unconstrained fn get_notes<Note, let NotePckdLen: u32, let M: u32, let MaxNo
     status: u8,
 ) -> [Option<RetrievedNote<Note>>; MaxNotes]
 where
-    Note: NoteType + Packable<N = NotePckdLen>,
+    Note: NoteType + Packable,
 {
-    let packed_retrieved_notes: BoundedVec<[Field; NotePckdLen + RETRIEVED_NOTE_OVERHEAD], MaxNotes>
-         = get_notes_oracle(
+    let packed_retrieved_notes: BoundedVec<[Field; <RetrievedNote<Note> as Packable>::N], MaxNotes>
+         = get_notes_oracle::<Note, M, MaxNotes>(
             storage_slot,
             num_selects,
             select_by_indexes,
@@ -141,12 +142,12 @@ where
             offset,
             status,
             MaxNotes,
-            NotePckdLen + RETRIEVED_NOTE_OVERHEAD,
+            <RetrievedNote<Note> as Packable>::N,
         );
 
     let mut notes = BoundedVec::<_, MaxNotes>::new();
     for i in 0..packed_retrieved_notes.len() {
-        let retrieved_note = unpack_retrieved_note(packed_retrieved_notes.get(i));
+        let retrieved_note = RetrievedNote::unpack(packed_retrieved_notes.get(i));
         notes.push(retrieved_note);
     }
 
@@ -185,7 +186,7 @@ pub unconstrained fn check_nullifier_exists(inner_nullifier: Field) -> bool {
     check_nullifier_exists_oracle(inner_nullifier)
 }
 
-#[oracle(checkNullifierExists)]
+#[oracle(utilityCheckNullifierExists)]
 unconstrained fn check_nullifier_exists_oracle(_inner_nullifier: Field) -> bool {}
 
 // TODO: Oracles below are generic private log oracles and are not specific to notes. Move them somewhere else.
@@ -196,7 +197,7 @@ pub unconstrained fn get_app_tag_as_sender(sender: AztecAddress, recipient: Azte
     get_indexed_tagging_secret_as_sender_oracle(sender, recipient).compute_tag(recipient)
 }
 
-#[oracle(getIndexedTaggingSecretAsSender)]
+#[oracle(utilityGetIndexedTaggingSecretAsSender)]
 unconstrained fn get_indexed_tagging_secret_as_sender_oracle(
     _sender: AztecAddress,
     _recipient: AztecAddress,
@@ -222,7 +223,7 @@ unconstrained fn increment_app_tagging_secret_index_as_sender_wrapper(
     increment_app_tagging_secret_index_as_sender_oracle(sender, recipient);
 }
 
-#[oracle(incrementAppTaggingSecretIndexAsSender)]
+#[oracle(privateIncrementAppTaggingSecretIndexAsSender)]
 unconstrained fn increment_app_tagging_secret_index_as_sender_oracle(
     _sender: AztecAddress,
     _recipient: AztecAddress,
@@ -240,7 +241,7 @@ pub unconstrained fn get_sender_for_tags() -> Option<AztecAddress> {
     get_sender_for_tags_oracle()
 }
 
-#[oracle(getSenderForTags)]
+#[oracle(privateGetSenderForTags)]
 unconstrained fn get_sender_for_tags_oracle() -> Option<AztecAddress> {}
 
 /// Sets the sender for tags.
@@ -256,5 +257,5 @@ pub unconstrained fn set_sender_for_tags(sender_for_tags: AztecAddress) {
     set_sender_for_tags_oracle(sender_for_tags);
 }
 
-#[oracle(setSenderForTags)]
+#[oracle(privateSetSenderForTags)]
 unconstrained fn set_sender_for_tags_oracle(_sender_for_tags: AztecAddress) {}

@@ -4,6 +4,7 @@ pragma solidity >=0.8.27;
 import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {IMintableERC20} from "@aztec/shared/interfaces/IMintableERC20.sol";
+import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {MerkleProof} from "@oz/utils/cryptography/MerkleProof.sol";
 import {ZKPassportVerifier, ProofVerificationParams} from "@zkpassport/ZKPassportVerifier.sol";
@@ -57,9 +58,20 @@ interface IStakingAssetHandler {
   error MerkleProofInvalid();
 
   // Add validator methods
-  function addValidator(address _attester, bytes32[] memory _merkleProof, ProofVerificationParams memory _params)
-    external;
-  function reenterExitedValidator(address _attester) external;
+  function addValidator(
+    address _attester,
+    bytes32[] memory _merkleProof,
+    ProofVerificationParams memory _params,
+    G1Point memory _publicKeyG1,
+    G2Point memory _publicKeyG2,
+    G1Point memory _signature
+  ) external;
+  function reenterExitedValidator(
+    address _attester,
+    G1Point calldata _publicKeyG1,
+    G2Point calldata _publicKeyG2,
+    G1Point calldata _signature
+  ) external;
 
   // Admin methods
   function setMintInterval(uint256 _interval) external;
@@ -157,10 +169,14 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
    *
    * @param _attester - the validator's attester address
    */
-  function addValidator(address _attester, bytes32[] memory _merkleProof, ProofVerificationParams calldata _params)
-    external
-    override(IStakingAssetHandler)
-  {
+  function addValidator(
+    address _attester,
+    bytes32[] memory _merkleProof,
+    ProofVerificationParams calldata _params,
+    G1Point calldata _publicKeyG1,
+    G2Point calldata _publicKeyG2,
+    G1Point calldata _signature
+  ) external override(IStakingAssetHandler) {
     IStaking rollup = IStaking(address(REGISTRY.getCanonicalRollup()));
     uint256 activationThreshold = rollup.getActivationThreshold();
 
@@ -169,7 +185,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     if (isUnhinged[msg.sender]) {
       STAKING_ASSET.mint(address(this), activationThreshold);
 
-      _triggerDeposit(rollup, activationThreshold, _attester);
+      _triggerDeposit(rollup, activationThreshold, _attester, _publicKeyG1, _publicKeyG2, _signature);
     } else {
       _topUpIfRequired(activationThreshold);
 
@@ -178,7 +194,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
       _validatePassportProof(_attester, _params);
 
       // If the attester is currently exiting, we finalize the exit for him.
-      _triggerDeposit(rollup, activationThreshold, _attester);
+      _triggerDeposit(rollup, activationThreshold, _attester, _publicKeyG1, _publicKeyG2, _signature);
     }
   }
 
@@ -188,7 +204,12 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
    *
    * @param _attester - the validator's attester address
    */
-  function reenterExitedValidator(address _attester) external override(IStakingAssetHandler) {
+  function reenterExitedValidator(
+    address _attester,
+    G1Point calldata _publicKeyG1,
+    G2Point calldata _publicKeyG2,
+    G1Point calldata _signature
+  ) external override(IStakingAssetHandler) {
     // Check that the validator has an associated nullifier
     bytes32 nullifier = attesterToNullifier[_attester];
     require(nullifier != bytes32(0), AttesterDoesNotExist(_attester));
@@ -198,7 +219,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     uint256 activationThreshold = rollup.getActivationThreshold();
 
     _topUpIfRequired(activationThreshold);
-    _triggerDeposit(rollup, activationThreshold, _attester);
+    _triggerDeposit(rollup, activationThreshold, _attester, _publicKeyG1, _publicKeyG2, _signature);
   }
 
   function setMintInterval(uint256 _interval) external override(IStakingAssetHandler) onlyOwner {
@@ -316,14 +337,21 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
    * @param _activationThreshold - the deposit amount
    * @param _attester - the validator's attester address
    */
-  function _triggerDeposit(IStaking _rollup, uint256 _activationThreshold, address _attester) internal {
+  function _triggerDeposit(
+    IStaking _rollup,
+    uint256 _activationThreshold,
+    address _attester,
+    G1Point memory _publicKeyG1,
+    G2Point memory _publicKeyG2,
+    G1Point memory _signature
+  ) internal {
     // If the attester is currently exiting, we finalize the exit for them.
     if (_rollup.getExit(_attester).exists) {
       _rollup.finaliseWithdraw(_attester);
     }
 
     STAKING_ASSET.approve(address(_rollup), _activationThreshold);
-    _rollup.deposit(_attester, withdrawer, true);
+    _rollup.deposit(_attester, withdrawer, _publicKeyG1, _publicKeyG2, _signature, true);
     emit ValidatorAdded(address(_rollup), _attester, withdrawer);
 
     // Try to flush the entry queue, but don't let it revert the deposit

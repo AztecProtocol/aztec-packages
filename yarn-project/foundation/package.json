@@ -104,7 +104,7 @@
   "dependencies": {
     "@aztec/bb.js": "portal:../../barretenberg/ts",
     "@koa/cors": "^5.0.0",
-    "@noble/curves": "^1.2.0",
+    "@noble/curves": "=1.7.0",
     "bn.js": "^5.2.1",
     "colorette": "^2.0.20",
     "detect-node": "^2.1.0",

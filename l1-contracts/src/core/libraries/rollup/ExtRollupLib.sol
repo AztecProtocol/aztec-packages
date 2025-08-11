@@ -9,17 +9,29 @@ import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Timestamp, TimeLib, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {BlobLib} from "./BlobLib.sol";
 import {EpochProofLib} from "./EpochProofLib.sol";
-import {SignatureLib} from "@aztec/shared/libraries/SignatureLib.sol";
+import {AttestationLib} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {
   ProposeLib, ProposeArgs, CommitteeAttestations, ValidateHeaderArgs, ValidatorSelectionLib
 } from "./ProposeLib.sol";
 
-// We are using this library such that we can more easily "link" just a larger external library
-// instead of a few smaller ones.
+/**
+ * @title ExtRollupLib - External Rollup Library (Proposal Functions)
+ * @author Aztec Labs
+ * @notice External library containing proposal-related functions for the Rollup contract to avoid exceeding max
+ * contract size.
+ *
+ * @dev This library serves as an external library for the Rollup contract, splitting off proposal-related
+ *      functionality to keep the main contract within the maximum contract size limit. The library contains
+ *      external functions primarily focused on:
+ *      - Block proposal submission and validation
+ *      - Epoch proof submission and verification
+ *      - Blob validation and commitment management
+ *      - Chain pruning operations
+ */
 library ExtRollupLib {
   using TimeLib for Timestamp;
   using TimeLib for Slot;
-  using SignatureLib for CommitteeAttestations;
+  using AttestationLib for CommitteeAttestations;
 
   function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) external {
     EpochProofLib.submitEpochRootProof(_args);

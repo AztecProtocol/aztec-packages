@@ -3,6 +3,7 @@ include "execution.pil";
 include "precomputed.pil";
 include "trees/note_hash_tree_check.pil";
 include "poseidon2_hash.pil";
+include "tx_context.pil";
 
 // Refer to https://excalidraw.com/#json=XcT7u7Ak5rZhWqT51KwTW,VPI-Q1D7hW8_lYhf6V4bNg for a visual guide to the tx trace.
 // The tx trace manages the various phases that a transaction will undergo while it is being executed.
@@ -22,13 +23,29 @@ namespace tx;
     #[skippable_if]
     sel = 0;
 
+    // Lifecycle constraints: we want all executions of the AVM to have exactly one run of the tx trace
+    // and no extraneous rows in the tx trace
+
+    // Can only turn on sel after the first row
+    #[NO_EXTRANEOUS_ROWS]
+    (1 - sel) * sel' * (1 - precomputed.first_row) = 0;
+    // You MUST turn on sel after the first row
+    #[SEL_ON_FIRST_ROW]
+    precomputed.first_row * (1 - sel') = 0;
+
+    // Sel can only become off after the last phase (fee collection)
+    #[NO_EARLY_END]
+    sel * (1 - sel') * (1 - is_collect_fee) = 0;
+
     pol commit phase_value;
-    // is is_padded = 1, this is a padded row
+    // if is_padded = 1, this is a padded row
     // A padded row exists for a phase (refer to a to f above for the phases) that is unused for this transaction
     // This means that the length of values to read for it is 0. We still need to perform some check to prevent
     // malicious skipping of valid phases.
     pol commit is_padded;
     is_padded * (1 - is_padded) = 0;
+    // A padded row can't revert
+    is_padded * reverted = 0;
 
     pol commit start_phase;
     start_phase * (1 - start_phase) = 0;
@@ -58,14 +75,16 @@ namespace tx;
     pol commit discard;
 
     // Control flow
-    pol commit read_pi_offset; // index in public inputs to read data from
-    pol commit write_pi_offset; // index in public inputs to write data to
+    pol commit read_pi_offset; // index in public inputs to read data from -> Revisit!
     pol commit read_pi_length_offset; // index in public inputs to read lengths from
+    pol commit write_pi_offset; // index in public inputs to write data to: Constrain in the phases that need it.
 
     pol commit remaining_phase_inv;
     pol commit remaining_phase_counter;
     pol commit remaining_phase_minus_one_inv;
     // If remaining_phase_counter == 0, is_padded = 1
+    // Leaves end_phase unconstrained but the prover has no choice since if he doesn't activate end_phase
+    // remaining_phase_counter will become p-1 and he'll never be able to complete a run.
     #[REM_COUNT_IS_ZERO]
     sel * (remaining_phase_counter * (is_padded * (1 - remaining_phase_inv) + remaining_phase_inv) - 1 + is_padded) = 0;
 
@@ -74,39 +93,51 @@ namespace tx;
     #[REM_COUNT_IS_ONE]
     sel * (1 - is_padded) * (REM_COUNT_MINUS_1 * (end_phase * (1 - remaining_phase_minus_one_inv) + remaining_phase_minus_one_inv) - 1 + end_phase) = 0;
 
+    // TODO: Add constraints to propagate down the things read from precomputed
+    // while NOT_PHASE_END
     #[READ_PHASE_TABLE]
     start_phase {
         phase_value,
         is_public_call_request,
-        is_l2_l1_msg_phase,
         /* Tree Padding Phase */
         is_collect_fee,
 
         is_revertible,
         read_pi_offset,
         read_pi_length_offset,
-        write_pi_offset,
         sel_non_revertible_append_note_hash,
         sel_non_revertible_append_nullifier,
+        sel_non_revertible_append_l2_l1_msg,
         sel_revertible_append_note_hash,
-        sel_revertible_append_nullifier
+        sel_revertible_append_nullifier,
+        sel_revertible_append_l2_l1_msg,
+        sel_can_emit_note_hash,
+        sel_can_emit_nullifier,
+        sel_can_write_public_data,
+        sel_can_emit_unencrypted_log,
+        sel_can_emit_l2_l1_msg
     }
     in
     precomputed.sel_phase {
         precomputed.phase_value,
         precomputed.is_public_call_request_phase,
-        precomputed.is_l2_l1_message_phase,
         /* Tree Padding Phase */
         precomputed.sel_collect_fee,
 
         precomputed.is_revertible,
         precomputed.read_public_input_offset,
         precomputed.read_public_input_length_offset,
-        precomputed.write_public_input_offset,
         precomputed.sel_non_revertible_append_note_hash,
         precomputed.sel_non_revertible_append_nullifier,
+        precomputed.sel_non_revertible_append_l2_l1_msg,
         precomputed.sel_revertible_append_note_hash,
-        precomputed.sel_revertible_append_nullifier
+        precomputed.sel_revertible_append_nullifier,
+        precomputed.sel_revertible_append_l2_l1_msg,
+        precomputed.sel_can_emit_note_hash,
+        precomputed.sel_can_emit_nullifier,
+        precomputed.sel_can_write_public_data,
+        precomputed.sel_can_emit_unencrypted_log,
+        precomputed.sel_can_emit_l2_l1_msg
     };
 
     // If a phase reverts (when it is allowed to), it jumps to a known next phase
@@ -116,12 +147,20 @@ namespace tx;
 
     // === Phase Lengths ===
     // Read the number of steps in the phase from public inputs
+
+    pol IS_ONE_SHOT_PHASE = is_collect_fee;
+
     pol commit sel_read_phase_length;
+    // Read length if start phase and not one shot phase
     #[READ_PI_LENGTH_SEL]
-    sel * (sel_read_phase_length - start_phase * (1 - is_collect_fee)) = 0;
+    sel * (sel_read_phase_length - start_phase * (1 - IS_ONE_SHOT_PHASE)) = 0;
     #[READ_PHASE_LENGTH]
     sel_read_phase_length { read_pi_length_offset, remaining_phase_counter } in
     public_inputs.sel { precomputed.clk, public_inputs.cols[0] };
+
+    // In one shot phases, remaining phase counter has to be 1
+    #[ONE_SHOT_REMAINING_PHASE_COUNTER_ONE]
+    IS_ONE_SHOT_PHASE * (remaining_phase_counter - 1) = 0;
 
     // Phase events decrement at each row
     #[DECR_REM_PHASE_EVENTS]
@@ -165,6 +204,14 @@ namespace tx;
     pol commit next_l2_gas_used_sent_to_enqueued_call;
     pol commit next_da_gas_used_sent_to_enqueued_call;
 
+    // prev_gas_used_sent_to_enqueued_call = is_teardown_phase ? 0 : prev_gas_used
+    is_public_call_request * ((0 - prev_l2_gas_used) * is_teardown_phase + prev_l2_gas_used - prev_l2_gas_used_sent_to_enqueued_call) = 0;
+    is_public_call_request * ((0 - prev_da_gas_used) * is_teardown_phase + prev_da_gas_used - prev_da_gas_used_sent_to_enqueued_call) = 0;
+    // next_gas_used = is_teardown_gas_phase ? prev_gas_used : next_gas_used_sent_to_enqueued_call
+    // In the teardown phase, next_gas_used_sent_to_enqueued_call is unconstrained on purpose: we don't care about gas usage in teardown
+    is_public_call_request * ((prev_l2_gas_used - next_l2_gas_used_sent_to_enqueued_call) * is_teardown_phase + next_l2_gas_used_sent_to_enqueued_call - next_l2_gas_used) = 0;
+    is_public_call_request * ((prev_da_gas_used - next_da_gas_used_sent_to_enqueued_call) * is_teardown_phase + next_da_gas_used_sent_to_enqueued_call - next_da_gas_used) = 0;
+
     // TODO: Constrain the evolution of the gas limits in the trace
 
     // Public Call Requests are dispatch to the execution trace
@@ -188,6 +235,7 @@ namespace tx;
     //     prev_public_data_tree_size,
     //     prev_written_public_data_slots_tree_root,
     //     prev_written_public_data_slots_tree_size,
+    //     l1_l2_tree_root,
     //     // Side Effect States
     //     prev_num_unencrypted_logs,
     //     prev_num_l2_to_l1_messages,
@@ -214,6 +262,7 @@ namespace tx;
     //     execution.prev_public_data_tree_size,
     //     execution.prev_written_public_data_slots_tree_root,
     //     execution.prev_written_public_data_slots_tree_size,
+    //     execution.l1_l2_tree_root,
     //     // Side Effect States
     //     execution.prev_num_unencrypted_logs,
     //     execution.prev_num_l2_to_l1_messages,
@@ -242,7 +291,7 @@ namespace tx;
     //    next_public_data_tree_size,
     //    next_written_public_data_slots_tree_root,
     //    next_written_public_data_slots_tree_size,
-    //    next_l1_l2_tree_root,
+    //    l1_l2_tree_root,
     //    // Side Effect States
     //    next_num_unencrypted_logs,
     //    next_num_l2_to_l1_messages,
@@ -274,23 +323,40 @@ namespace tx;
     //    execution.da_gas_used_sent_to_enqueued_call
     //};
 
-    // === Tree Insertion Options for tree ===
+    // === PRIVATE SIDE EFFECT INSERTIONS ===
     pol commit sel_revertible_append_note_hash;
     pol commit sel_non_revertible_append_note_hash;
     pol commit sel_revertible_append_nullifier;
     pol commit sel_non_revertible_append_nullifier;
+    pol commit sel_revertible_append_l2_l1_msg;
+    pol commit sel_non_revertible_append_l2_l1_msg;
     // A tree selector means we need to get the tree value
     pol commit is_tree_insert_phase;
     is_tree_insert_phase  = sel_revertible_append_note_hash + sel_non_revertible_append_note_hash + sel_revertible_append_nullifier + sel_non_revertible_append_nullifier;
     pol commit leaf_value;
+    // Shared column to track the inverse of the remaining side effects for note hashes, nullifiers and l2 to l1 messages
+    pol commit remaining_side_effects_inv;
 
+    // TODO: Maybe unify with other public inputs reads?
     // Read the tree value from public inputs
     #[READ_TREE_INSERT_VALUE]
     is_tree_insert_phase { read_pi_offset, leaf_value } in
     public_inputs.sel { precomputed.clk, public_inputs.cols[0] };
 
+    // ===== NOTE HASHES =====
+    pol commit should_try_note_hash_append;
+    should_try_note_hash_append = sel * (1 - is_padded) * (sel_revertible_append_note_hash + sel_non_revertible_append_note_hash);
+
+    // If we are at the maximum emitted note hashes, we must revert
+    pol REMAINING_NOTE_HASH_WRITES = constants.MAX_NOTE_HASHES_PER_TX -
+        prev_num_note_hashes_emitted;
+    // Revert if remaining note hashes is 0
+    #[MAX_NOTE_HASH_WRITES_REACHED]
+    should_try_note_hash_append * (REMAINING_NOTE_HASH_WRITES * (reverted * (1 - remaining_side_effects_inv) + remaining_side_effects_inv) - 1 + reverted) = 0;
+
+    // Commited since it's used in the lookup
     pol commit should_note_hash_append;
-    should_note_hash_append = sel * (1 - is_padded) * (sel_revertible_append_note_hash + sel_non_revertible_append_note_hash);
+    should_try_note_hash_append * ((1 - reverted) - should_note_hash_append) = 0;
 
     #[NOTE_HASH_APPEND]
     should_note_hash_append {
@@ -313,14 +379,28 @@ namespace tx;
         note_hash_tree_check.discard,
         note_hash_tree_check.next_root
     };
+
+    // If reverted, next state is unconstrained. This should be ok since we are going to restore the end of setup or fail proving.
     should_note_hash_append * (prev_note_hash_tree_size + 1 - next_note_hash_tree_size) = 0;
     should_note_hash_append * (prev_num_note_hashes_emitted + 1 - next_num_note_hashes_emitted) = 0;
 
-    // Note hash appends can't fail
-    should_note_hash_append * reverted = 0;
+    // ===== NULLIFIERS =====
+    pol commit should_try_nullifier_append;
+    should_try_nullifier_append = sel * (1 - is_padded) * (sel_revertible_append_nullifier + sel_non_revertible_append_nullifier);
 
+    // Commited since it's used in the lookup
     pol commit should_nullifier_append;
-    should_nullifier_append = sel * (1 - is_padded) * (sel_revertible_append_nullifier + sel_non_revertible_append_nullifier);
+    pol NULLIFIER_LIMIT_ERROR = 1 - should_nullifier_append;
+
+    // If we are at the maximum emitted nullifiers, we must disable the lookup
+    pol REMAINING_NULLIFIER_WRITES = constants.MAX_NULLIFIERS_PER_TX -
+        prev_num_nullifiers_emitted;
+    // Disable the lookup if remaining nullifiers is 0
+    #[MAX_NULLIFIER_WRITES_REACHED]
+    should_try_nullifier_append * (REMAINING_NULLIFIER_WRITES * (NULLIFIER_LIMIT_ERROR * (1 - remaining_side_effects_inv) + remaining_side_effects_inv) - 1 + NULLIFIER_LIMIT_ERROR) = 0;
+
+    // If over the limit, reverted=1, else, reverted is constrained by the lookup
+    should_try_nullifier_append * NULLIFIER_LIMIT_ERROR * (1 - reverted) = 0;
 
     #[NULLIFIER_APPEND]
     should_nullifier_append {
@@ -344,68 +424,42 @@ namespace tx;
         nullifier_check.should_silo
     };
 
-    should_nullifier_append * ((prev_nullifier_tree_size + 1 - reverted) - next_nullifier_tree_size) = 0;
-    should_nullifier_append * ((prev_num_nullifiers_emitted + 1 - reverted) - next_num_nullifiers_emitted) = 0;
+    // If reverted, next state is unconstrained. This should be ok since we are going to restore the end of setup or fail proving.
+    should_nullifier_append * (1 - reverted) * (prev_nullifier_tree_size + 1 - next_nullifier_tree_size) = 0;
+    should_nullifier_append * (1 - reverted) * (prev_num_nullifiers_emitted + 1 - next_num_nullifiers_emitted) = 0;
 
-    // Previous Tree State
-    pol commit prev_note_hash_tree_root;
-    pol commit prev_note_hash_tree_size;
-    pol commit prev_num_note_hashes_emitted;
+    // ===== L2 - L1 Messages =====
+    pol commit should_try_l2_l1_msg_append;
+    should_try_l2_l1_msg_append = sel * (1 - is_padded) * (sel_revertible_append_l2_l1_msg + sel_non_revertible_append_l2_l1_msg);
 
-    pol commit prev_nullifier_tree_root;
-    pol commit prev_nullifier_tree_size;
-    pol commit prev_num_nullifiers_emitted;
-
-    pol commit prev_public_data_tree_root;
-    pol commit prev_public_data_tree_size;
-
-    pol commit prev_written_public_data_slots_tree_root;
-    pol commit prev_written_public_data_slots_tree_size;
-
-    pol commit prev_l1_l2_tree_root;
-
-    // Next Tree State
-    pol commit next_note_hash_tree_root;
-    pol commit next_note_hash_tree_size;
-    pol commit next_num_note_hashes_emitted;
-
-    pol commit next_nullifier_tree_root;
-    pol commit next_nullifier_tree_size;
-    pol commit next_num_nullifiers_emitted;
-
-    pol commit next_public_data_tree_root;
-    pol commit next_public_data_tree_size;
-
-    pol commit next_written_public_data_slots_tree_root;
-    pol commit next_written_public_data_slots_tree_size;
-
-    pol commit next_l1_l2_tree_root;
-
-    // Prev side effect states
-    pol commit prev_num_unencrypted_logs;
-    pol commit prev_num_l2_to_l1_messages;
-    // Next side effect states
-    pol commit next_num_unencrypted_logs;
-    pol commit next_num_l2_to_l1_messages;
-
-    // L2 - L1 Messages
-    pol commit is_l2_l1_msg_phase;
     pol commit l2_l1_msg_contract_address;
     pol commit l2_l1_msg_recipient;
     pol commit l2_l1_msg_content;
-    pol commit num_l2_l1_msg_emitted;
 
     #[READ_L2_L1_MSG]
-    is_l2_l1_msg_phase { read_pi_offset, l2_l1_msg_recipient, l2_l1_msg_content, l2_l1_msg_contract_address } in
+    should_try_l2_l1_msg_append { read_pi_offset, l2_l1_msg_recipient, l2_l1_msg_content, l2_l1_msg_contract_address } in
     public_inputs.sel { precomputed.clk, public_inputs.cols[0], public_inputs.cols[1], public_inputs.cols[2] };
 
-    pol commit successful_msg_emit;
-    // A msg emit phase must be successful if it didnt revert or isnt a padded row
-    sel * ((1 - reverted - is_padded) * is_l2_l1_msg_phase - successful_msg_emit) = 0;
+    // If we are at the maximum emitted messages, we must revert
+    pol REMAINING_L2_TO_L1_MSG_WRITES = constants.MAX_L2_TO_L1_MSGS_PER_TX -
+        prev_num_l2_to_l1_messages;
+    // Revert if REMAINING_L2_TO_L1_MSG_WRITES is 0
+    #[MAX_L2_L1_MSG_WRITES_REACHED]
+    should_try_l2_l1_msg_append * (1 - is_padded) * (REMAINING_L2_TO_L1_MSG_WRITES * (reverted * (1 - remaining_side_effects_inv) + remaining_side_effects_inv) - 1 + reverted) = 0;
+
+    pol commit should_l2_l1_msg_append;
+    // A msg emit must be written to PI if it didn't revert, and is not discard.
+    should_try_l2_l1_msg_append * ((1 - reverted) * (1 - discard) - should_l2_l1_msg_append) = 0;
+
+    should_l2_l1_msg_append * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX + prev_num_l2_to_l1_messages - write_pi_offset) = 0;
 
     #[WRITE_L2_L1_MSG]
-    successful_msg_emit { write_pi_offset, l2_l1_msg_recipient, l2_l1_msg_content, l2_l1_msg_contract_address } in
+    should_l2_l1_msg_append { write_pi_offset, l2_l1_msg_recipient, l2_l1_msg_content, l2_l1_msg_contract_address } in
     public_inputs.sel { precomputed.clk, public_inputs.cols[0], public_inputs.cols[1], public_inputs.cols[2] };
+
+    // If reverted, next count is unconstrained. This should be ok since we are going to restore the end of setup or fail proving.
+    #[UPDATE_NUM_L2_TO_L1_MSGS]
+    should_try_l2_l1_msg_append * (1 - reverted) * (prev_num_l2_to_l1_messages + 1 - next_num_l2_to_l1_messages) = 0;
 
     // Collect Gas
     pol commit is_collect_fee;
@@ -511,6 +565,8 @@ namespace tx;
     //     public_data_check.clk
     // };
 
+    is_collect_fee * (constants.AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX - write_pi_offset) = 0;
+
     // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
     // #[WRITE_FEE_PUBLIC_INPUTS]
     // is_collect_fee { write_pi_offset, fee }
@@ -531,28 +587,6 @@ namespace tx;
     //     public_inputs.cols[0],
     //     public_inputs.cols[1]
     // };
-
-    // Gas Info
-    // TODO: Constrain first row read from PI
-    pol commit prev_l2_gas_used;
-    pol commit prev_da_gas_used;
-
-    pol commit next_l2_gas_used;
-    pol commit next_da_gas_used;
-
-    // prev_gas_used_sent_to_enqueued_call = is_teardown_phase ? 0 : prev_gas_used
-    is_public_call_request * ((0 - prev_l2_gas_used) * is_teardown_phase + prev_l2_gas_used - prev_l2_gas_used_sent_to_enqueued_call) = 0;
-    is_public_call_request * ((0 - prev_da_gas_used) * is_teardown_phase + prev_da_gas_used - prev_da_gas_used_sent_to_enqueued_call) = 0;
-    // next_gas_used = is_teardown_gas_phase ? prev_gas_used : next_gas_used_sent_to_enqueued_call
-    // In the teardown phase, next_gas_used_sent_to_enqueued_call is unconstrained on purpose: we don't care about gas usage in teardown
-    is_public_call_request * ((prev_l2_gas_used - next_l2_gas_used_sent_to_enqueued_call) * is_teardown_phase + next_l2_gas_used_sent_to_enqueued_call - next_l2_gas_used) = 0;
-    is_public_call_request * ((prev_da_gas_used - next_da_gas_used_sent_to_enqueued_call) * is_teardown_phase + next_da_gas_used_sent_to_enqueued_call - next_da_gas_used) = 0;
-
-    // Collect fee is currently the last phase, so we don't need to propagate gas used further.
-    #[PROPAGATE_L2_GAS_USED]
-    sel * (1 - is_collect_fee) * (next_l2_gas_used - prev_l2_gas_used') = 0;
-    #[PROPAGATE_DA_GAS_USED]
-    sel * (1 - is_collect_fee) * (next_da_gas_used - prev_da_gas_used') = 0;
 
     // TODO: Constrain evolution: Needs to be read from PI on the first row, then teardown can update
     pol commit l2_gas_limit;

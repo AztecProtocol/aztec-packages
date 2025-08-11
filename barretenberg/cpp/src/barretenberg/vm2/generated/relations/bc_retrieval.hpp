@@ -14,7 +14,7 @@ template <typename FF_> class bc_retrievalImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 5> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 4, 4, 3 };
+    static constexpr std::array<size_t, 7> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 4, 4, 4, 4 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -48,24 +48,38 @@ template <typename FF_> class bc_retrievalImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - in.get(C::bc_retrieval_sel)) * in.get(C::bc_retrieval_sel_shift) *
-                       in.get(C::bc_retrieval_bytecode_id);
-            tmp *= scaling_factor;
-            std::get<2>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-            auto tmp = in.get(C::bc_retrieval_sel) * in.get(C::bc_retrieval_sel_shift) *
-                       (in.get(C::bc_retrieval_bytecode_id_shift) - in.get(C::bc_retrieval_bytecode_id));
-            tmp *= scaling_factor;
-            std::get<3>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
             auto tmp = (in.get(C::bc_retrieval_error) -
                         in.get(C::bc_retrieval_sel) * (FF(1) - in.get(C::bc_retrieval_instance_exists)));
             tmp *= scaling_factor;
+            std::get<2>(evals) += typename Accumulator::View(tmp);
+        }
+        { // CURRENT_CLASS_ID_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST
+            using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
+            auto tmp = in.get(C::bc_retrieval_sel) * (FF(1) - in.get(C::bc_retrieval_instance_exists)) *
+                       in.get(C::bc_retrieval_current_class_id);
+            tmp *= scaling_factor;
+            std::get<3>(evals) += typename Accumulator::View(tmp);
+        }
+        { // ARTIFACT_HASH_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST
+            using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
+            auto tmp = in.get(C::bc_retrieval_sel) * (FF(1) - in.get(C::bc_retrieval_instance_exists)) *
+                       in.get(C::bc_retrieval_artifact_hash);
+            tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
+        }
+        { // PRIVATE_FUNCTION_ROOT_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST
+            using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
+            auto tmp = in.get(C::bc_retrieval_sel) * (FF(1) - in.get(C::bc_retrieval_instance_exists)) *
+                       in.get(C::bc_retrieval_private_function_root);
+            tmp *= scaling_factor;
+            std::get<5>(evals) += typename Accumulator::View(tmp);
+        }
+        { // BYTECODE_ID_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST
+            using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
+            auto tmp = in.get(C::bc_retrieval_sel) * (FF(1) - in.get(C::bc_retrieval_instance_exists)) *
+                       in.get(C::bc_retrieval_bytecode_id);
+            tmp *= scaling_factor;
+            std::get<6>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -79,12 +93,24 @@ template <typename FF> class bc_retrieval : public Relation<bc_retrievalImpl<FF>
         switch (index) {
         case 1:
             return "TRACE_CONTINUITY";
+        case 3:
+            return "CURRENT_CLASS_ID_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST";
+        case 4:
+            return "ARTIFACT_HASH_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST";
+        case 5:
+            return "PRIVATE_FUNCTION_ROOT_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST";
+        case 6:
+            return "BYTECODE_ID_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST";
         }
         return std::to_string(index);
     }
 
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_TRACE_CONTINUITY = 1;
+    static constexpr size_t SR_CURRENT_CLASS_ID_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST = 3;
+    static constexpr size_t SR_ARTIFACT_HASH_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST = 4;
+    static constexpr size_t SR_PRIVATE_FUNCTION_ROOT_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST = 5;
+    static constexpr size_t SR_BYTECODE_ID_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST = 6;
 };
 
 } // namespace bb::avm2

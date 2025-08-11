@@ -20,10 +20,6 @@ contract RegisterNewRollupVersionPayload is IPayload {
     ROLLUP = _rollup;
   }
 
-  function getURI() external view override(IPayload) returns (string memory) {
-    return "RegisterNewRollupVersionPayload";
-  }
-
   function getActions() external view override(IPayload) returns (IPayload.Action[] memory) {
     IPayload.Action[] memory res = new IPayload.Action[](2);
 
@@ -36,5 +32,9 @@ contract RegisterNewRollupVersionPayload is IPayload {
     });
 
     return res;
+  }
+
+  function getURI() external pure override(IPayload) returns (string memory) {
+    return "RegisterNewRollupVersionPayload";
   }
 }

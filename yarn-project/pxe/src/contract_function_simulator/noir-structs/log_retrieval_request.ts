@@ -3,7 +3,7 @@ import { FieldReader } from '@aztec/foundation/serialize';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 /**
- * Intermediate struct used to perform batch log retrieval by PXE. The `bulkRetrieveLogs` oracle expects values of this
+ * Intermediate struct used to perform batch log retrieval by PXE. The `utilityBulkRetrieveLogs` oracle expects values of this
  * type to be stored in a `CapsuleArray`.
  */
 export class LogRetrievalRequest {

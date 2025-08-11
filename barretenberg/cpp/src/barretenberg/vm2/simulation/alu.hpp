@@ -13,6 +13,7 @@ class AluInterface {
     virtual MemoryValue add(const MemoryValue& a, const MemoryValue& b) = 0;
     virtual MemoryValue sub(const MemoryValue& a, const MemoryValue& b) = 0;
     virtual MemoryValue mul(const MemoryValue& a, const MemoryValue& b) = 0;
+    virtual MemoryValue div(const MemoryValue& a, const MemoryValue& b) = 0;
     virtual MemoryValue eq(const MemoryValue& a, const MemoryValue& b) = 0;
     virtual MemoryValue lt(const MemoryValue& a, const MemoryValue& b) = 0;
     virtual MemoryValue lte(const MemoryValue& a, const MemoryValue& b) = 0;
@@ -35,6 +36,7 @@ class Alu : public AluInterface {
     MemoryValue add(const MemoryValue& a, const MemoryValue& b) override;
     MemoryValue sub(const MemoryValue& a, const MemoryValue& b) override;
     MemoryValue mul(const MemoryValue& a, const MemoryValue& b) override;
+    MemoryValue div(const MemoryValue& a, const MemoryValue& b) override;
     MemoryValue eq(const MemoryValue& a, const MemoryValue& b) override;
     MemoryValue lt(const MemoryValue& a, const MemoryValue& b) override;
     MemoryValue lte(const MemoryValue& a, const MemoryValue& b) override;

@@ -4,6 +4,7 @@ pragma solidity >=0.8.27;
 import {StakingAssetHandlerBase} from "./base.t.sol";
 import {StakingAssetHandler, IStakingAssetHandler} from "@aztec/mock/StakingAssetHandler.sol";
 import {MerkleTreeGetters} from "./merkle/merkle_tree_getters.sol";
+import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 // solhint-disable comprehensive-interface
 // solhint-disable func-name-mixedcase
@@ -36,7 +37,9 @@ contract MerkleCheck is StakingAssetHandlerBase, MerkleTreeGetters {
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ValidatorAdded(address(staking), addr, WITHDRAWER);
     vm.prank(addr);
-    stakingAssetHandler.addValidator(addr, merkleProof, realProof);
+    stakingAssetHandler.addValidator(
+      addr, merkleProof, realProof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
+    );
   }
 
   /// forge-config: default.fuzz.runs = 10
@@ -49,6 +52,6 @@ contract MerkleCheck is StakingAssetHandlerBase, MerkleTreeGetters {
 
     vm.expectRevert(abi.encodeWithSelector(IStakingAssetHandler.MerkleProofInvalid.selector));
     vm.prank(addr);
-    stakingAssetHandler.addValidator(addr, proof, realProof);
+    stakingAssetHandler.addValidator(addr, proof, realProof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero());
   }
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
+#include "barretenberg/common/tuple.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/flavor/relation_definitions.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
@@ -18,10 +19,10 @@
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/flavor_variables.hpp"
 
-// Metaprogramming to concatenate tuple types.
-template <typename... input_t> using tuple_cat_t = decltype(std::tuple_cat(std::declval<input_t>()...));
-
 namespace bb::avm2 {
+
+// Metaprogramming to concatenate tuple types.
+template <typename... input_t> using tuple_cat_t = decltype(flat_tuple::tuple_cat(std::declval<input_t>()...));
 
 class AvmFlavor {
   public:
