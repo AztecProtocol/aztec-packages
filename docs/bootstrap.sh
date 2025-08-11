@@ -2,7 +2,7 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
-echo $(find docs versioned_docs -type f -name "*.md*" -exec grep '^#include_code' {} \; | grep noir)
+
 # We search the docs/*.md files to find included code, and use those as our rebuild dependencies.
 # We prefix the results with ^ to make them "not a file", otherwise they'd be interpreted as pattern files.
 hash=$(

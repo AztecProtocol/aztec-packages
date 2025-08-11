@@ -80,5 +80,5 @@ if [[ "${1:-}" == "--update_fast" ]]; then
 else
   parallel -v --line-buffer --tag check_circuit_vks {} ::: $(ls "$inputs_tmp_dir") \
     && echo "No VK changes detected. Short hash is: ${pinned_short_hash}" \
-    || echo "VK changes detected. Please re-run the script with --update_fast or --update_inputs"
+    || (echo "VK changes detected. Please re-run the script with --update_fast or --update_inputs" && exit 1)
 fi
