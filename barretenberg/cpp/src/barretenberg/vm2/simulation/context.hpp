@@ -282,7 +282,7 @@ class NestedContext : public BaseContext {
                   SideEffectStates side_effect_states,
                   ContextInterface& parent_context,
                   MemoryAddress cd_offset_address, /* This is a direct mem address */
-                  MemoryAddress cd_size)
+                  uint32_t cd_size)
         : BaseContext(context_id,
                       address,
                       msg_sender,

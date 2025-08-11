@@ -9,8 +9,11 @@ namespace execution;
     #[skippable_if]
     sel = 0;
 
-    pol SWITCH_CALL_ID = sel_execute_internal_call + sel_execute_internal_return;
+    pol SWITCH_CALL_ID = sel_execute_internal_call + sel_execute_internal_return + sel_enter_call + sel_exit_call;
     pol PROPAGATE_CALL_ID = (1 - SWITCH_CALL_ID) * (1 - enqueued_call_start);
+
+    // Revisit this...
+    pol NEXT_ROW_NEW_CALL_ID = (sel_execute_internal_return + sel_enter_call + sel_exit_call + enqueued_call_start') - ((sel_execute_internal_return + sel_enter_call + sel_exit_call) * enqueued_call_start');
 
     // =============================
     // === Internal Call Pointer ===
@@ -47,9 +50,11 @@ namespace execution;
     pol commit next_internal_call_id;
     #[NEXT_CALL_ID_STARTS_TWO]
     enqueued_call_start * (next_internal_call_id - 2) = 0;
+    sel_enter_call * (next_internal_call_id' - 2) = 0 ;
     // If we encounter a sel_execute_internal_call, we increment the next next_internal_call_id
+    // unless the next row has a new context
     #[INCR_NEXT_INT_CALL_ID]
-    NOT_LAST_EXEC * (next_internal_call_id' - (next_internal_call_id + sel_execute_internal_call)) = 0;
+    NOT_LAST_EXEC * (1 - NEXT_ROW_NEW_CALL_ID) * (next_internal_call_id' - (next_internal_call_id + sel_execute_internal_call)) = 0;
 
     // =============================
     // === Error Handling ====

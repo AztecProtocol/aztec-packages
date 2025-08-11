@@ -117,7 +117,7 @@ void DataCopy::cd_copy(ContextInterface& context,
 
         // Check that we will not access out of bounds memory.
         // todo(ilyas): think of a way to not need to leak enqueued/nested context information here.
-        uint64_t max_read_addr = context.has_parent() ? max_read_index + context.get_parent_cd_addr() : 0;
+        uint64_t max_read_addr = context.get_parent_id() != 0 ? max_read_index + context.get_parent_cd_addr() : 0;
         uint64_t max_write_addr = static_cast<uint64_t>(dst_addr) + copy_size;
 
         // Need all of this to happen regardless

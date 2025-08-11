@@ -106,14 +106,14 @@ pol commit sel_bytecode_retrieval_failure;
 sel_first_row_in_context {
     bytecode_id,
     contract_address,
-    // prev_nullifier_tree_root, // from context.pil
-    // prev_public_data_tree_root, // from context.pil
+    prev_nullifier_tree_root, // from context.pil
+    prev_public_data_tree_root, // from context.pil
     sel_bytecode_retrieval_failure
 } in bc_retrieval.sel {
     bc_retrieval.bytecode_id,
     bc_retrieval.address,
-    // bc_retrieval.nullifier_tree_root,
-    // bc_retrieval.public_data_tree_root,
+    bc_retrieval.nullifier_tree_root,
+    bc_retrieval.public_data_tree_root,
     bc_retrieval.error
 };
 
