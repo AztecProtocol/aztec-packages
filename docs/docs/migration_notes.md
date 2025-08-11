@@ -9,6 +9,15 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+## [Aztec.js] Mandatory `from`
+
+As we prepare for a bigger `Wallet` interface refactor and the upcoming `WalletSDK`, a new parameter has been added to contract interactions, which now should indicate *explicitly* the address of the entrypoint (usually the account contract) that will be used to authenticate the request. This will be checked in runtime against the current `this.wallet.getAddress()` value, to ensure consistent behavior while the rest of the API is reworked.
+
+```diff
+- await contract.methods.my_func(arg).send().wait();
++ await contract.methods.my_func(arg).send({ from: account1Address }).wait();
+```
+
 ## [Aztec.nr]
 
 ### Contract functions can no longer be `pub` or `pub(crate)`
