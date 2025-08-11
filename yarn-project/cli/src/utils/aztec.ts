@@ -12,7 +12,8 @@ import {
   type Operator,
   RollupContract,
 } from '@aztec/ethereum';
-import type { Fr } from '@aztec/foundation/fields';
+import { SecretValue } from '@aztec/foundation/config';
+import { Fr } from '@aztec/foundation/fields';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import type { NoirPackageConfig } from '@aztec/foundation/noir';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
@@ -116,8 +117,17 @@ export async function deployNewRollupContracts(
 
   if (!initialValidators || initialValidators.length === 0) {
     // initialize the new rollup with Amin's validator address.
-    const amin = EthAddress.fromString('0x3b218d0F26d15B36C715cB06c949210a0d630637');
-    initialValidators = [{ attester: amin, withdrawer: amin }];
+    const aminAddressString = '0x3b218d0F26d15B36C715cB06c949210a0d630637';
+    const amin = EthAddress.fromString(aminAddressString);
+
+    initialValidators = [
+      {
+        attester: amin,
+        withdrawer: amin,
+        // No secrets here. The actual keys are not currently used.
+        bn254SecretKey: new SecretValue(Fr.fromHexString(aminAddressString).toBigInt()),
+      },
+    ];
     logger.info('Initializing new rollup with old attesters', { initialValidators });
   }
 

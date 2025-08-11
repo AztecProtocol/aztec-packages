@@ -23,31 +23,25 @@ contract StaticTest is WithGSE {
     {
       cheat_deposit(_instances[0], _attester, _withdrawer, false);
 
-      (address actualWithdrawer, bool exists, address instance) = gse.getWithdrawer(_instances[0], _attester);
+      address actualWithdrawer = gse.getWithdrawer(_attester);
 
       assertEq(actualWithdrawer, _withdrawer, "invalid withdrawer");
-      assertTrue(exists, "withdrawer should exist");
-      assertEq(instance, _instances[0], "invalid instance");
     }
 
     // Add an attester to instance[1], but on bonus
     {
       cheat_deposit(_instances[1], _attester, _withdrawer, true);
 
-      (address actualWithdrawer, bool exists, address instance) = gse.getWithdrawer(_instances[1], _attester);
+      address actualWithdrawer = gse.getWithdrawer(_attester);
 
       assertEq(actualWithdrawer, _withdrawer, "invalid withdrawer");
-      assertTrue(exists, "withdrawer should exist");
-      assertEq(instance, gse.getBonusInstanceAddress(), "invalid instance");
     }
 
     // Withdrawer is not an attester, so should not be able to get a withdrawer
     {
-      (address actualWithdrawer, bool exists, address instance) = gse.getWithdrawer(_instances[1], _withdrawer);
+      address actualWithdrawer = gse.getWithdrawer(_withdrawer);
 
       assertEq(actualWithdrawer, address(0), "invalid withdrawer");
-      assertFalse(exists, "withdrawer should not exist");
-      assertEq(instance, address(0), "invalid instance");
     }
   }
 

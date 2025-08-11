@@ -24,7 +24,8 @@ const AZTEC_SLOT_DURATION = 16;
 const TXS_PER_BLOCK = 1;
 const ROUND_SIZE = 2;
 const QUORUM_SIZE = 2;
-const COMMITTEE_SIZE = 48;
+// Can't use 48 without chunking the addValidators call.
+const COMMITTEE_SIZE = 36;
 
 describe('e2e_gov_proposal', () => {
   let logger: Logger;
@@ -48,8 +49,8 @@ describe('e2e_gov_proposal', () => {
     ({ teardown, logger, wallet, aztecNodeAdmin, deployL1ContractsValues, cheatCodes, dateProvider, accounts } =
       await setup(1, {
         anvilAccounts: 100,
-        aztecTargetCommitteeSize: 48,
-        initialValidators: validators,
+        aztecTargetCommitteeSize: COMMITTEE_SIZE,
+        initialValidators: validators.map(v => ({ ...v, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) })),
         validatorPrivateKeys: new SecretValue(validators.map(v => v.privateKey)), // sequencer runs with all validator keys
         governanceProposerRoundSize: ROUND_SIZE,
         governanceProposerQuorum: QUORUM_SIZE,

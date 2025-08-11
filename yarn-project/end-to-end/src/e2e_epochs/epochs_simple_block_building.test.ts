@@ -1,8 +1,9 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { EthAddress, type Logger } from '@aztec/aztec.js';
+import { EthAddress, Fr, type Logger } from '@aztec/aztec.js';
 import type { Operator } from '@aztec/ethereum';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { times, timesAsync } from '@aztec/foundation/collection';
+import { SecretValue } from '@aztec/foundation/config';
 import { bufferToHex } from '@aztec/foundation/string';
 import { executeTimeout } from '@aztec/foundation/timer';
 import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
@@ -34,7 +35,7 @@ describe('e2e_epochs/epochs_simple_block_building', () => {
     validators = times(NODE_COUNT, i => {
       const privateKey = bufferToHex(getPrivateKeyFromIndex(i + 3)!);
       const attester = EthAddress.fromString(privateKeyToAccount(privateKey).address);
-      return { attester, withdrawer: attester, privateKey };
+      return { attester, withdrawer: attester, privateKey, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) };
     });
 
     // Setup context with the given set of validators, no reorgs, mocked gossip sub network, and no anvil test watcher.
