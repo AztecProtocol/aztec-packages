@@ -21,7 +21,7 @@ void ProtogalaxyRecursiveVerifier_<DeciderVerificationKeys>::run_oink_verifier_o
     transcript->load_proof(proof);
     auto key = keys_to_fold[0];
     auto domain_separator = std::to_string(0);
-    if (!key->is_accumulator) {
+    if (!key->is_complete) {
         OinkRecursiveVerifier_<Flavor> oink_verifier{ builder, key, transcript, domain_separator + '_' };
         oink_verifier.verify();
         key->target_sum = 0;
@@ -171,7 +171,6 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
     output_sum.y.assert_equal(folded_sum.y);
 
     // Compute next folding parameters
-    accumulator->is_accumulator = true;
     accumulator->target_sum =
         perturbator_evaluation * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
 

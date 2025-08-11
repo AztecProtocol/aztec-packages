@@ -28,8 +28,7 @@ template <IsUltraOrMegaHonk Flavor> class DeciderVerificationKey_ {
 
     std::shared_ptr<VerificationKey> vk;
 
-    bool is_accumulator = false;
-    // bool is_complete = false; // whether this instance has been "oinked"
+    bool is_complete = false; // whether this instance has been "oinked"
 
     SubrelationSeparators alphas; // a challenge for each subrelation
     RelationParameters<FF> relation_parameters;
@@ -45,6 +44,6 @@ template <IsUltraOrMegaHonk Flavor> class DeciderVerificationKey_ {
         : vk(vk)
     {}
 
-    MSGPACK_FIELDS(vk, relation_parameters, alphas, is_accumulator, gate_challenges, target_sum, witness_commitments);
+    MSGPACK_FIELDS(vk, relation_parameters, alphas, is_complete, gate_challenges, target_sum, witness_commitments);
 };
 } // namespace bb

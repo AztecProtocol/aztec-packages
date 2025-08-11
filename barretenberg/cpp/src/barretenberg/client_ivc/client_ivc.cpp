@@ -137,7 +137,6 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
         // Perform oink recursive verification to complete the initial verifier accumulator
         OinkRecursiveVerifier verifier{ &circuit, verifier_accum, accumulation_recursive_transcript };
         verifier.verify_proof(verifier_inputs.proof);
-        verifier_accum->is_accumulator = true; // indicate to PG that it should not run oink
 
         // Extract native verifier accumulator from the stdlib accum for use on the next round
         verifier_accumulator = std::make_shared<DeciderVerificationKey>(verifier_accum->get_value());

@@ -19,7 +19,7 @@ void ProtogalaxyVerifier_<DeciderVerificationKeys>::run_oink_verifier_on_each_in
     transcript->load_proof(proof);
     auto key = keys_to_fold[0];
     auto domain_separator = std::to_string(0);
-    if (!key->is_accumulator) {
+    if (!key->is_complete) {
         OinkVerifier<Flavor> oink_verifier{ key, transcript, domain_separator + '_' };
         oink_verifier.verify();
         key->target_sum = 0;
@@ -102,7 +102,7 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
 
     auto next_accumulator = std::make_shared<DeciderVK>();
     next_accumulator->vk = std::make_shared<VerificationKey>(*accumulator->vk);
-    next_accumulator->is_accumulator = true;
+    next_accumulator->is_complete = true;
 
     // Set the accumulator circuit size data based on the max of the keys being accumulated
     const size_t accumulator_log_circuit_size = keys_to_fold.get_max_log_circuit_size();
