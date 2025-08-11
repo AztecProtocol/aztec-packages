@@ -17,7 +17,7 @@ import { getGenesisValues } from '@aztec/world-state/testing';
 import type { ChildProcess } from 'child_process';
 import omit from 'lodash.omit';
 
-import { getInitialTestAccounts } from '../../../aztec.js/src/wallet/testing/index.js';
+import { getInitialTestAccountsData } from '../../../aztec.js/src/wallet/testing/index.js';
 import { isK8sConfig, rollAztecPods, setupEnvironment, startPortForward } from './utils.js';
 
 const config = setupEnvironment(process.env);
@@ -77,7 +77,7 @@ describe('spartan_upgrade_rollup_version', () => {
       const chain = createEthereumChain(ETHEREUM_HOSTS, nodeInfo.l1ChainId);
       const l1Client = createExtendedL1Client(ETHEREUM_HOSTS, config.L1_ACCOUNT_MNEMONIC, chain.chainInfo);
       debugLogger.info(`L1 Client address: ${l1Client.account.address}`);
-      const initialTestAccounts = await getInitialTestAccounts();
+      const initialTestAccounts = await getInitialTestAccountsData();
 
       const { genesisArchiveRoot, fundingNeeded } = await getGenesisValues(initialTestAccounts.map(a => a.address));
 

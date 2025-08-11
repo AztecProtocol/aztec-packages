@@ -512,7 +512,13 @@ describe('L1Publisher integration', () => {
       validators = [new Secp256k1Signer(Buffer32.fromString(sequencerPK)), ...times(2, Secp256k1Signer.random)];
       await setup({
         aztecTargetCommitteeSize: 3,
-        initialValidators: validators.map(v => v.address).map(address => ({ attester: address, withdrawer: address })),
+        initialValidators: validators
+          .map(v => v.address)
+          .map(address => ({
+            attester: address,
+            withdrawer: address,
+            bn254SecretKey: new SecretValue(Fr.random().toBigInt()),
+          })),
       });
     });
 

@@ -17,7 +17,7 @@ import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
-import { getInitialTestAccounts } from '../../../../aztec.js/src/wallet/testing/index.js';
+import { getInitialTestAccountsData } from '../../../../aztec.js/src/wallet/testing/index.js';
 import { createAztecNode, deployContractsToL1 } from '../../sandbox/index.js';
 import { getL1Config } from '../get_l1_config.js';
 import {
@@ -56,7 +56,7 @@ export async function startNode(
 
   await preloadCrsDataForVerifying(nodeConfig, userLog);
 
-  const testAccounts = nodeConfig.testAccounts ? (await getInitialTestAccounts()).map(a => a.address) : [];
+  const testAccounts = nodeConfig.testAccounts ? (await getInitialTestAccountsData()).map(a => a.address) : [];
   const sponsoredFPCAccounts = nodeConfig.sponsoredFPC ? [await getSponsoredFPCAddress()] : [];
   const initialFundedAccounts = testAccounts.concat(sponsoredFPCAccounts);
 

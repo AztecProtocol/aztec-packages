@@ -4,7 +4,8 @@ pragma solidity >=0.8.27;
 
 import {DecoderBase} from "../base/DecoderBase.sol";
 
-import {Signature, CommitteeAttestation} from "@aztec/shared/libraries/SignatureLib.sol";
+import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
+import {CommitteeAttestation} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
@@ -25,6 +26,7 @@ import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
 import {Slot} from "@aztec/core/libraries/TimeLib.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
+import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 import {TimeCheater} from "../staking/TimeCheater.sol";
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
@@ -126,6 +128,12 @@ contract ValidatorSelectionTestBase is DecoderBase {
     address attester = vm.addr(attesterPrivateKey);
     attesterPrivateKeys[attester] = attesterPrivateKey;
 
-    return CheatDepositArgs({attester: attester, withdrawer: address(this)});
+    return CheatDepositArgs({
+      attester: attester,
+      withdrawer: address(this),
+      publicKeyInG1: BN254Lib.g1Zero(),
+      publicKeyInG2: BN254Lib.g2Zero(),
+      proofOfPossession: BN254Lib.g1Zero()
+    });
   }
 }

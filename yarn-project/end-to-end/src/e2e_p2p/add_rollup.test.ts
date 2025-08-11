@@ -39,7 +39,7 @@ import { type Hex, decodeEventLog, encodeFunctionData, getAddress, getContract }
 import {
   type InitialAccountData,
   deployFundedSchnorrAccount,
-  getInitialTestAccounts,
+  getInitialTestAccountsData,
 } from '../../../aztec.js/src/wallet/testing/index.js';
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
@@ -144,7 +144,7 @@ describe('e2e_p2p_add_rollup', () => {
     await t.ctx.cheatCodes.eth.warp(Number(nextRoundTimestamp));
 
     // Now that we have passed on the registry, we can deploy the new rollup.
-    const initialTestAccounts = await getInitialTestAccounts();
+    const initialTestAccounts = await getInitialTestAccountsData();
     const { genesisArchiveRoot, fundingNeeded, prefilledPublicData } = await getGenesisValues(
       initialTestAccounts.map(a => a.address),
     );

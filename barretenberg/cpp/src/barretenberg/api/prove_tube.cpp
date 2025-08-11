@@ -99,7 +99,7 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
 
     // Break up the tube proof into the honk portion and the ipa portion
     const size_t HONK_PROOF_LENGTH_WITHOUT_INNER_PUB_INPUTS =
-        UltraRollupFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + RollupIO::PUBLIC_INPUTS_SIZE;
+        UltraRollupFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS() + RollupIO::PUBLIC_INPUTS_SIZE;
     // The extra calculation is for the IPA proof length.
     BB_ASSERT_EQ(tube_proof.size(),
                  HONK_PROOF_LENGTH_WITHOUT_INNER_PUB_INPUTS + num_inner_public_inputs,
@@ -109,7 +109,7 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
         HONK_PROOF_LENGTH_WITHOUT_INNER_PUB_INPUTS - IPA_PROOF_LENGTH + num_inner_public_inputs);
     auto ipa_proof = HonkProof(tube_proof.begin() + honk_proof_with_pub_inputs_length, tube_proof.end());
     auto tube_honk_proof = HonkProof(tube_proof.begin(), tube_proof.end() + honk_proof_with_pub_inputs_length);
-    bool verified = tube_verifier.verify_proof(tube_honk_proof, ipa_proof);
+    bool verified = tube_verifier.template verify_proof<bb::RollupIO>(tube_honk_proof, ipa_proof).result;
     info("Tube proof verification: ", verified);
 }
 

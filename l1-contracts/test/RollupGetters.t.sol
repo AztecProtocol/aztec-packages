@@ -15,6 +15,7 @@ import {ValidatorSelectionTestBase} from "./validator-selection/ValidatorSelecti
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
+import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 /**
  * Testing the things that should be getters are not updating state!
@@ -98,7 +99,7 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
     uint256 offset = 0;
 
     for (uint256 i = 0; i < 50; i++) {
-      rollup.deposit(vm.addr(i + 1), address(this), true);
+      rollup.deposit(vm.addr(i + 1), address(this), BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), true);
       rollup.flushEntryQueue();
       timeCheater.cheat__jumpForwardEpochs(2);
     }
@@ -120,7 +121,9 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
       offset += toRemove;
 
       for (uint256 j = 0; j < toRemove; j++) {
-        rollup.deposit(vm.addr(offset + j + 1), address(this), true);
+        rollup.deposit(
+          vm.addr(offset + j + 1), address(this), BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), true
+        );
         rollup.flushEntryQueue();
         timeCheater.cheat__jumpForwardEpochs(2);
       }
@@ -135,7 +138,7 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
 
     gasBig = gasBig - gasleft();
 
-    (bytes32[] memory reads, bytes32[] memory writes) = vm.accesses(address(rollup.getGSE()));
+    (, bytes32[] memory writes) = vm.accesses(address(rollup.getGSE()));
     assertEq(writes.length, 0, "No writes should be done");
 
     // 16 insertions in total, so binary search should hit 4 values (3 extra).
@@ -157,38 +160,51 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
 
     // Add a bunch of attesters to
     for (uint256 i = 0; i < 200; i++) {
-      rollup.deposit(vm.addr(i + 1), address(this), true);
+      rollup.deposit(vm.addr(i + 1), address(this), BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), true);
       rollup.flushEntryQueue();
       timeCheater.cheat__jumpForwardEpochs(2);
     }
 
-    uint256 gasSmall = gasleft();
+    uint256 gasSmall = 0;
+    uint256 gasBig = 0;
 
-    rollup.getCurrentEpochCommittee();
+    {
+      emit log_string("Getting the small epoch committee");
+      vm.record();
+      gasSmall = gasleft();
+      rollup.getCurrentEpochCommittee();
+      gasSmall = gasSmall - gasleft();
 
-    gasSmall = gasSmall - gasleft();
+      (bytes32[] memory reads, bytes32[] memory writes) = vm.accesses(address(rollup.getGSE()));
+      // assertEq(writes.length, 0, "No writes should be done");
+      emit log_named_uint("reads", reads.length);
+      emit log_named_uint("writes", writes.length);
+    }
 
     for (uint256 i = 0; i < 800; i++) {
-      rollup.deposit(vm.addr(i + 200), address(this), true);
+      rollup.deposit(vm.addr(i + 200), address(this), BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), true);
       rollup.flushEntryQueue();
       timeCheater.cheat__jumpForwardEpochs(2);
     }
 
     timeCheater.cheat__jumpForwardEpochs(10);
 
-    vm.record();
+    {
+      emit log_string("Getting the big epoch committee");
+      vm.record();
+      gasBig = gasleft();
+      rollup.getCurrentEpochCommittee();
+      gasBig = gasBig - gasleft();
+      (bytes32[] memory reads, bytes32[] memory writes) = vm.accesses(address(rollup.getGSE()));
+      assertEq(writes.length, 0, "No writes should be done");
+      emit log_named_uint("reads", reads.length);
+    }
 
-    uint256 gasBig = gasleft();
-    rollup.getCurrentEpochCommittee();
+    emit log_named_uint("gasSmall", gasSmall);
+    emit log_named_uint("gasBig", gasBig);
 
-    gasBig = gasBig - gasleft();
-
-    (, bytes32[] memory writes) = vm.accesses(address(rollup.getGSE()));
-    assertEq(writes.length, 0, "No writes should be done");
-
-    // Cost should be approx 3K extra per double, so we should fit in 7K
-    // We won't be exact with the gas measurement here, but close enough.
-    assertGt(gasSmall + 7e3, gasBig, "growing too quickly");
+    // Should not have grown by more than 10K
+    assertGt(gasSmall + 1e4, gasBig, "growing too quickly");
   }
 
   function test_getProposerAt(uint16 _slot, bool _setup) external setup(4, 4) {

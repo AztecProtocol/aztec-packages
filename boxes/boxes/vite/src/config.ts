@@ -1,4 +1,4 @@
-import { getInitialTestAccounts } from "@aztec/accounts/testing/lazy";
+import { getInitialTestAccountsData } from "@aztec/accounts/testing/lazy";
 import { getSchnorrAccount } from "@aztec/accounts/schnorr/lazy";
 import {
   AccountWalletWithSecretKey,
@@ -30,7 +30,7 @@ export class PrivateEnv {
       l1Contracts,
     } as PXEServiceConfig;
     this.pxe = await createPXEService(aztecNode, configWithContracts);
-    const [accountData] = await getInitialTestAccounts();
+    const [accountData] = await getInitialTestAccountsData();
     const account = await getSchnorrAccount(
       this.pxe,
       accountData.secret,

@@ -16,9 +16,9 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/honk/proving_key_inspector.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/verifier_commitment_key.hpp"
-#include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
+#include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -421,24 +421,22 @@ process_honk_recursion_constraints(Builder& builder,
     size_t idx = 0;
     for (auto& constraint : constraint_system.honk_recursion_constraints) {
         if (constraint.proof_type == HONK_ZK) {
-            auto [pairing_points, _ipa_claim, _ipa_proof, _ecc_op_tables] =
-                create_honk_recursion_constraints<UltraZKRecursiveFlavor_<Builder>>(
-                    builder, constraint, has_valid_witness_assignments);
+            auto honk_recursion_constraint = create_honk_recursion_constraints<UltraZKRecursiveFlavor_<Builder>>(
+                builder, constraint, has_valid_witness_assignments);
 
             if (output.points_accumulator.has_data) {
-                output.points_accumulator.aggregate(pairing_points);
+                output.points_accumulator.aggregate(honk_recursion_constraint.points_accumulator);
             } else {
-                output.points_accumulator = pairing_points;
+                output.points_accumulator = honk_recursion_constraint.points_accumulator;
             }
 
         } else if (constraint.proof_type == HONK) {
-            auto [pairing_points, _ipa_claim, _ipa_proof, _ecc_op_tables] =
-                create_honk_recursion_constraints<UltraRecursiveFlavor_<Builder>>(
-                    builder, constraint, has_valid_witness_assignments);
+            auto honk_recursion_constraint = create_honk_recursion_constraints<UltraRecursiveFlavor_<Builder>>(
+                builder, constraint, has_valid_witness_assignments);
             if (output.points_accumulator.has_data) {
-                output.points_accumulator.aggregate(pairing_points);
+                output.points_accumulator.aggregate(honk_recursion_constraint.points_accumulator);
             } else {
-                output.points_accumulator = pairing_points;
+                output.points_accumulator = honk_recursion_constraint.points_accumulator;
             }
         } else if (constraint.proof_type == ROLLUP_HONK || constraint.proof_type == ROOT_ROLLUP_HONK) {
             if constexpr (!IsUltraBuilder<Builder>) {
@@ -447,16 +445,16 @@ process_honk_recursion_constraints(Builder& builder,
                 if (constraint.proof_type == ROOT_ROLLUP_HONK) {
                     output.is_root_rollup = true;
                 }
-                auto [pairing_points, ipa_claim, ipa_proof, _ecc_op_tables] =
+                auto honk_recursion_constraint =
                     create_honk_recursion_constraints<UltraRollupRecursiveFlavor_<Builder>>(
                         builder, constraint, has_valid_witness_assignments);
                 if (output.points_accumulator.has_data) {
-                    output.points_accumulator.aggregate(pairing_points);
+                    output.points_accumulator.aggregate(honk_recursion_constraint.points_accumulator);
                 } else {
-                    output.points_accumulator = pairing_points;
+                    output.points_accumulator = honk_recursion_constraint.points_accumulator;
                 }
-                output.nested_ipa_claims.push_back(ipa_claim);
-                output.nested_ipa_proofs.push_back(ipa_proof);
+                output.nested_ipa_claims.push_back(honk_recursion_constraint.ipa_claim);
+                output.nested_ipa_proofs.push_back(honk_recursion_constraint.ipa_proof);
             }
         } else {
             throw_or_abort("Invalid Honk proof type");
@@ -604,11 +602,8 @@ template <> MegaCircuitBuilder create_circuit(AcirProgram& program, const Progra
 
     auto op_queue = (metadata.ivc == nullptr) ? std::make_shared<ECCOpQueue>() : metadata.ivc->goblin.op_queue;
 
-    // If the incoming program is a kernel, it will have at least one ivc_recursion_constraint.
-    bool is_kernel = !constraints.ivc_recursion_constraints.empty();
-
     // Construct a builder using the witness and public input data from acir and with the goblin-owned op_queue
-    auto builder = MegaCircuitBuilder{ op_queue, witness, constraints.public_inputs, constraints.varnum, is_kernel };
+    auto builder = MegaCircuitBuilder{ op_queue, witness, constraints.public_inputs, constraints.varnum };
 
     // Populate constraints in the builder via the data in constraint_system
     build_constraints(builder, program, metadata);

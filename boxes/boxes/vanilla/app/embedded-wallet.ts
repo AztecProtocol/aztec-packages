@@ -16,8 +16,11 @@ import { getEcdsaRAccount } from '@aztec/accounts/ecdsa/lazy';
 import { getSchnorrAccount } from '@aztec/accounts/schnorr/lazy';
 import { getPXEServiceConfig } from '@aztec/pxe/config';
 import { createPXEService } from '@aztec/pxe/client/lazy';
-import { type ContractArtifact, getDefaultInitializer } from '@aztec/stdlib/abi';
-import { getInitialTestAccounts } from '@aztec/accounts/testing';
+import {
+  type ContractArtifact,
+  getDefaultInitializer,
+} from '@aztec/stdlib/abi';
+import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 
 const PROVER_ENABLED = true;
 
@@ -76,9 +79,14 @@ export class EmbeddedWallet {
   }
 
   async connectTestAccount(index: number) {
-    const testAccounts = await getInitialTestAccounts();
+    const testAccounts = await getInitialTestAccountsData();
     const account = testAccounts[index];
-    const schnorrAccount = await getSchnorrAccount(this.pxe, account.secret, account.signingKey, account.salt);
+    const schnorrAccount = await getSchnorrAccount(
+      this.pxe,
+      account.secret,
+      account.signingKey,
+      account.salt
+    );
 
     await schnorrAccount.register();
     const wallet = await schnorrAccount.getWallet();
@@ -174,12 +182,15 @@ export class EmbeddedWallet {
     deploymentSalt: Fr,
     constructorArgs: any[]
   ) {
-    const instance = await getContractInstanceFromInstantiationParams(artifact, {
-      constructorArtifact: getDefaultInitializer(artifact),
-      constructorArgs: constructorArgs,
-      deployer: deployer,
-      salt: deploymentSalt,
-    });
+    const instance = await getContractInstanceFromInstantiationParams(
+      artifact,
+      {
+        constructorArtifact: getDefaultInitializer(artifact),
+        constructorArgs: constructorArgs,
+        deployer: deployer,
+        salt: deploymentSalt,
+      }
+    );
 
     await this.pxe.registerContract({
       instance,

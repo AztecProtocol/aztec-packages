@@ -106,7 +106,13 @@ void AvmProver::execute_relation_check_rounds()
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
-    Sumcheck sumcheck(key->circuit_size, prover_polynomials, transcript, alpha, gate_challenges, relation_parameters);
+    Sumcheck sumcheck(key->circuit_size,
+                      prover_polynomials,
+                      transcript,
+                      alpha,
+                      gate_challenges,
+                      relation_parameters,
+                      CONST_PROOF_SIZE_LOG_N);
 
     sumcheck_output = sumcheck.prove();
 }

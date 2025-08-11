@@ -1,5 +1,5 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { getDeployedTestAccountsWallets, getInitialTestAccounts } from '@aztec/accounts/testing';
+import { getDeployedTestAccountsWallets, getInitialTestAccountsData } from '@aztec/accounts/testing';
 import {
   type AccountWallet,
   AztecAddress,
@@ -141,7 +141,7 @@ export class BotFactory {
       this.log.info(`Using funded test account: ${wallet.getAddress()}`);
     } else {
       this.log.info('Registering funded test account');
-      const [account] = await getInitialTestAccounts();
+      const [account] = await getInitialTestAccountsData();
       const manager = await getSchnorrAccount(this.pxe, account.secret, account.signingKey, account.salt);
       wallet = await manager.register();
       this.log.info(`Funded test account registered: ${wallet.getAddress()}`);

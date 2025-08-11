@@ -54,6 +54,7 @@ void perform_ivc_accumulation_rounds(size_t NUM_CIRCUITS,
 
         ivc.accumulate(circuit, precomputed_vks[circuit_idx]);
     }
+    circuit_producer.construct_hiding_kernel(ivc);
 }
 
 std::vector<std::shared_ptr<typename MegaFlavor::VerificationKey>> mock_vks(const size_t num_circuits,

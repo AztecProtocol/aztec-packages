@@ -3,7 +3,7 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
-import { getInitialTestAccounts } from '../../../../aztec.js/src/wallet/testing/index.js';
+import { getInitialTestAccountsData } from '../../../../aztec.js/src/wallet/testing/index.js';
 import { deployNewRollupContracts } from '../../utils/aztec.js';
 import { getSponsoredFPCAddress } from '../../utils/setup_contracts.js';
 
@@ -25,7 +25,7 @@ export async function deployNewRollup(
 ) {
   const config = getL1ContractsConfigEnvVars();
 
-  const initialAccounts = testAccounts ? await getInitialTestAccounts() : [];
+  const initialAccounts = testAccounts ? await getInitialTestAccountsData() : [];
   const sponsoredFPCAddress = sponsoredFPC ? await getSponsoredFPCAddress() : [];
   const initialFundedAccounts = initialAccounts.map(a => a.address).concat(sponsoredFPCAddress);
   const { genesisArchiveRoot, fundingNeeded } = await getGenesisValues(initialFundedAccounts);

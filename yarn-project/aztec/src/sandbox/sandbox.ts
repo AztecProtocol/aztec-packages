@@ -33,7 +33,7 @@ import { type HDAccount, type PrivateKeyAccount, createPublicClient, fallback, h
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
-import { deployFundedSchnorrAccounts, getInitialTestAccounts } from '../../../aztec.js/src/wallet/testing/index.js';
+import { deployFundedSchnorrAccounts, getInitialTestAccountsData } from '../../../aztec.js/src/wallet/testing/index.js';
 import { createAccountLogs } from '../cli/util.js';
 import { DefaultMnemonic } from '../mnemonic.js';
 import { AnvilTestWatcher } from '../testing/anvil_test_watcher.js';
@@ -141,7 +141,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
         userLog(`Not setting up test accounts as we are connecting to a network`);
       } else {
         userLog(`Setting up test accounts`);
-        return await getInitialTestAccounts();
+        return await getInitialTestAccountsData();
       }
     }
     return [];

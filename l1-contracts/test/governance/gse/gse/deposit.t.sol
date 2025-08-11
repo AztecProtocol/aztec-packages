@@ -4,6 +4,7 @@ pragma solidity >=0.8.27;
 import {WithGSE} from "./base.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {IGSECore} from "@aztec/governance/GSE.sol";
+import {BN254Lib} from "@aztec/shared/libraries/BN254Lib.sol";
 
 contract DepositTest is WithGSE {
   address internal caller;
@@ -16,7 +17,7 @@ contract DepositTest is WithGSE {
 
     vm.prank(_instance);
     vm.expectRevert(abi.encodeWithSelector(Errors.GSE__NotRollup.selector, _instance));
-    gse.deposit(address(0), address(0), onBonus);
+    gse.deposit(address(0), address(0), BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), onBonus);
   }
 
   modifier whenCallerIsRegisteredRollup(address _instance) {
@@ -44,7 +45,7 @@ contract DepositTest is WithGSE {
 
     vm.prank(_instance1);
     vm.expectRevert(abi.encodeWithSelector(Errors.GSE__NotLatestRollup.selector, _instance1));
-    gse.deposit(address(0), address(0), onBonus);
+    gse.deposit(address(0), address(0), BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), onBonus);
   }
 
   modifier givenCallerIsLatest() {
@@ -65,12 +66,12 @@ contract DepositTest is WithGSE {
 
     vm.startPrank(_instance);
     stakingAsset.approve(address(gse), activationThreshold);
-    gse.deposit(_attester, _withdrawer, false);
+    gse.deposit(_attester, _withdrawer, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), false);
     vm.stopPrank();
 
     vm.prank(_instance);
     vm.expectRevert(abi.encodeWithSelector(Errors.GSE__AlreadyRegistered.selector, _instance, _attester));
-    gse.deposit(_attester, _withdrawer, onBonus);
+    gse.deposit(_attester, _withdrawer, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), onBonus);
   }
 
   function test_GivenAttesterAlreadyRegisteredOnBonus(address _instance, address _attester, address _withdrawer)
@@ -88,14 +89,14 @@ contract DepositTest is WithGSE {
 
     vm.startPrank(_instance);
     stakingAsset.approve(address(gse), activationThreshold);
-    gse.deposit(_attester, _withdrawer, true);
+    gse.deposit(_attester, _withdrawer, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), true);
     vm.stopPrank();
 
     address bonus = gse.BONUS_INSTANCE_ADDRESS();
 
     vm.prank(_instance);
     vm.expectRevert(abi.encodeWithSelector(Errors.GSE__AlreadyRegistered.selector, bonus, _attester));
-    gse.deposit(_attester, _withdrawer, onBonus);
+    gse.deposit(_attester, _withdrawer, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), onBonus);
   }
 
   function test_GivenAttesterNotRegisteredAnywhere(address _instance, address _attester, address _withdrawer)
@@ -129,7 +130,7 @@ contract DepositTest is WithGSE {
     vm.expectEmit(true, true, true, true);
     emit IGSECore.Deposit(instance, _attester, _withdrawer);
     vm.prank(_instance);
-    gse.deposit(_attester, _withdrawer, onBonus);
+    gse.deposit(_attester, _withdrawer, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), onBonus);
 
     assertEq(stakingAsset.balanceOf(address(gse.getGovernance())), activationThreshold);
     assertEq(stakingAsset.balanceOf(address(gse)), 0);
@@ -138,7 +139,7 @@ contract DepositTest is WithGSE {
     assertEq(gse.isRegistered(_instance, _attester), false);
     assertEq(gse.getDelegatee(instance, _attester), gse.BONUS_INSTANCE_ADDRESS());
     assertEq(gse.getDelegatee(_instance, _attester), address(0));
-    assertEq(gse.getConfig(instance, _attester).withdrawer, _withdrawer);
+    assertEq(gse.getConfig(_attester).withdrawer, _withdrawer);
     assertEq(gse.balanceOf(instance, _attester), activationThreshold);
     assertEq(gse.balanceOf(_instance, _attester), 0);
     assertEq(gse.effectiveBalanceOf(instance, _attester), activationThreshold);
@@ -171,12 +172,12 @@ contract DepositTest is WithGSE {
 
     vm.startPrank(_instance);
     stakingAsset.approve(address(gse), activationThreshold);
-    gse.deposit(_attester, _withdrawer, false);
+    gse.deposit(_attester, _withdrawer, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), false);
     vm.stopPrank();
 
     vm.prank(_instance);
     vm.expectRevert(abi.encodeWithSelector(Errors.GSE__AlreadyRegistered.selector, _instance, _attester));
-    gse.deposit(_attester, _withdrawer, onBonus);
+    gse.deposit(_attester, _withdrawer, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), onBonus);
   }
 
   function test_GivenCallerIsLatestAndAttesterRegisteredOnBonus(
@@ -195,14 +196,14 @@ contract DepositTest is WithGSE {
 
     vm.startPrank(_instance);
     stakingAsset.approve(address(gse), activationThreshold);
-    gse.deposit(_attester, _withdrawer, true);
+    gse.deposit(_attester, _withdrawer, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), true);
     vm.stopPrank();
 
     address bonus = gse.BONUS_INSTANCE_ADDRESS();
 
     vm.prank(_instance);
     vm.expectRevert(abi.encodeWithSelector(Errors.GSE__AlreadyRegistered.selector, bonus, _attester));
-    gse.deposit(_attester, _withdrawer, onBonus);
+    gse.deposit(_attester, _withdrawer, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), onBonus);
   }
 
   modifier givenAttesterNotRegisteredOnSpecificInstance() {
@@ -239,7 +240,7 @@ contract DepositTest is WithGSE {
     vm.expectEmit(true, true, true, true);
     emit IGSECore.Deposit(_instance, _attester, _withdrawer);
     vm.prank(_instance);
-    gse.deposit(_attester, _withdrawer, onBonus);
+    gse.deposit(_attester, _withdrawer, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), onBonus);
 
     assertEq(stakingAsset.balanceOf(address(gse.getGovernance())), activationThreshold);
     assertEq(stakingAsset.balanceOf(address(gse)), 0);
@@ -248,7 +249,7 @@ contract DepositTest is WithGSE {
     assertEq(gse.isRegistered(bonus, _attester), false);
     assertEq(gse.getDelegatee(_instance, _attester), _instance);
     assertEq(gse.getDelegatee(bonus, _attester), address(0));
-    assertEq(gse.getConfig(_instance, _attester).withdrawer, _withdrawer);
+    assertEq(gse.getConfig(_attester).withdrawer, _withdrawer);
     assertEq(gse.balanceOf(_instance, _attester), activationThreshold);
     assertEq(gse.balanceOf(bonus, _attester), 0);
     assertEq(gse.effectiveBalanceOf(_instance, _attester), activationThreshold);
@@ -292,7 +293,7 @@ contract DepositTest is WithGSE {
     vm.expectEmit(true, true, true, true);
     emit IGSECore.Deposit(_instance, _attester, _withdrawer);
     vm.prank(_instance);
-    gse.deposit(_attester, _withdrawer, onBonus);
+    gse.deposit(_attester, _withdrawer, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), onBonus);
 
     assertEq(stakingAsset.balanceOf(address(gse.getGovernance())), activationThreshold);
     assertEq(stakingAsset.balanceOf(address(gse)), 0);
@@ -301,7 +302,7 @@ contract DepositTest is WithGSE {
     assertEq(gse.isRegistered(bonus, _attester), false);
     assertEq(gse.getDelegatee(_instance, _attester), _instance);
     assertEq(gse.getDelegatee(bonus, _attester), address(0));
-    assertEq(gse.getConfig(_instance, _attester).withdrawer, _withdrawer);
+    assertEq(gse.getConfig(_attester).withdrawer, _withdrawer);
     assertEq(gse.balanceOf(_instance, _attester), activationThreshold);
     assertEq(gse.balanceOf(bonus, _attester), 0);
     assertEq(gse.effectiveBalanceOf(_instance, _attester), activationThreshold);

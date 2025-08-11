@@ -6,7 +6,7 @@ import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import {
   type InitialAccountData,
   deployFundedSchnorrAccounts,
-  getInitialTestAccounts,
+  getInitialTestAccountsData,
 } from '../../../../aztec.js/src/wallet/testing/index.js';
 import { setupSponsoredFPC } from '../../utils/setup_contracts.js';
 
@@ -37,7 +37,7 @@ export async function setupL2Contracts(
   let deployedAccounts: InitialAccountData[] = [];
   if (testAccounts) {
     log('setupL2Contracts: Deploying test accounts...');
-    deployedAccounts = await getInitialTestAccounts();
+    deployedAccounts = await getInitialTestAccountsData();
     await deployFundedSchnorrAccounts(pxe, deployedAccounts, waitOpts);
   }
 

@@ -18,7 +18,7 @@ import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { mnemonicToAccount } from 'viem/accounts';
 
-import { getInitialTestAccounts } from '../../../../aztec.js/src/wallet/testing/index.js';
+import { getInitialTestAccountsData } from '../../../../aztec.js/src/wallet/testing/index.js';
 import { getL1Config } from '../get_l1_config.js';
 import { extractRelevantOptions, preloadCrsDataForVerifying, setupUpdateMonitor } from '../util.js';
 import { getVersions } from '../versioning.js';
@@ -32,12 +32,6 @@ export async function startProverNode(
 ): Promise<{ config: ProverNodeConfig }> {
   if (options.node || options.sequencer || options.pxe || options.p2pBootstrap || options.txe) {
     userLog(`Starting a prover-node with --node, --sequencer, --pxe, --p2p-bootstrap, or --txe is not supported.`);
-    process.exit(1);
-  }
-
-  // Check if running on ARM and fast-fail if so.
-  if (process.arch.startsWith('arm')) {
-    userLog(`Prover node is not supported on ARM architecture (detected: ${process.arch}). Exiting.`);
     process.exit(1);
   }
 
@@ -76,7 +70,7 @@ export async function startProverNode(
   proverConfig.l1Contracts = addresses;
   proverConfig = { ...proverConfig, ...config };
 
-  const testAccounts = proverConfig.testAccounts ? (await getInitialTestAccounts()).map(a => a.address) : [];
+  const testAccounts = proverConfig.testAccounts ? (await getInitialTestAccountsData()).map(a => a.address) : [];
   const sponsoredFPCAccounts = proverConfig.sponsoredFPC ? [await getSponsoredFPCAddress()] : [];
   const initialFundedAccounts = testAccounts.concat(sponsoredFPCAccounts);
 

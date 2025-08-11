@@ -7,7 +7,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type ContractInstanceWithAddress, getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import type { PXE } from '@aztec/stdlib/interfaces/client';
 
-import { type InitialAccountData, getInitialTestAccounts } from '../../../aztec.js/src/wallet/testing/index.js';
+import { type InitialAccountData, getInitialTestAccountsData } from '../../../aztec.js/src/wallet/testing/index.js';
 
 const BANANA_COIN_SALT = new Fr(0);
 const bananaCoinArgs = {
@@ -64,7 +64,7 @@ export async function setupBananaFPC(initialAccounts: InitialAccountData[], depl
 }
 
 export async function getDeployedBananaCoinAddress(pxe: PXE) {
-  const initialAccounts = await getInitialTestAccounts();
+  const initialAccounts = await getInitialTestAccountsData();
   const bananaCoin = await getBananaCoinAddress(initialAccounts);
   const contracts = await pxe.getContracts();
   if (!contracts.find(c => c.equals(bananaCoin))) {
@@ -74,7 +74,7 @@ export async function getDeployedBananaCoinAddress(pxe: PXE) {
 }
 
 export async function getDeployedBananaFPCAddress(pxe: PXE) {
-  const initialAccounts = await getInitialTestAccounts();
+  const initialAccounts = await getInitialTestAccountsData();
   const fpc = await getBananaFPCInstance(initialAccounts);
   const contracts = await pxe.getContracts();
   if (!contracts.find(c => c.equals(fpc.address))) {

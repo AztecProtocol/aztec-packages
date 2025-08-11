@@ -5,7 +5,7 @@
 #include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
-#include "barretenberg/stdlib/pairing_points.hpp"
+#include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -39,6 +39,7 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
     using Prover = UltraProver_<Flavor>;
     using Verifier = UltraVerifier_<Flavor>;
     using Proof = typename Flavor::Transcript::Proof;
+    using IO = std::conditional_t<HasIPAAccumulator<Flavor>, RollupIO, DefaultIO>;
 
     /**
      * @brief Construct a manifest for a Ultra Honk proof
@@ -51,9 +52,11 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
      *
      * @return TranscriptManifest
      */
-    TranscriptManifest construct_ultra_honk_manifest()
+    TranscriptManifest construct_ultra_honk_manifest(const size_t& log_n)
     {
         TranscriptManifest manifest_expected;
+
+        const size_t virtual_log_n = Flavor::USE_PADDING ? CONST_PROOF_SIZE_LOG_N : log_n;
 
         size_t MAX_PARTIAL_RELATION_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
         size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
@@ -110,7 +113,7 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         manifest_expected.add_challenge(round, alpha_labels);
         round++;
 
-        for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
+        for (size_t i = 0; i < virtual_log_n; i++) {
             std::string label = "Sumcheck:gate_challenge_" + std::to_string(i);
             manifest_expected.add_challenge(round, label);
             round++;
@@ -123,7 +126,7 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
             round++;
         }
 
-        for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+        for (size_t i = 0; i < virtual_log_n; ++i) {
             std::string idx = std::to_string(i);
             manifest_expected.add_entry(round, "Sumcheck:univariate_" + idx, frs_per_uni);
             std::string label = "Sumcheck:u_" + idx;
@@ -144,13 +147,13 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         manifest_expected.add_challenge(round, "rho");
 
         round++;
-        for (size_t i = 1; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+        for (size_t i = 1; i < virtual_log_n; ++i) {
             std::string idx = std::to_string(i);
             manifest_expected.add_entry(round, "Gemini:FOLD_" + idx, data_types_per_G);
         }
         manifest_expected.add_challenge(round, "Gemini:r");
         round++;
-        for (size_t i = 1; i <= CONST_PROOF_SIZE_LOG_N; ++i) {
+        for (size_t i = 1; i <= virtual_log_n; ++i) {
             std::string idx = std::to_string(i);
             manifest_expected.add_entry(round, "Gemini:a_" + idx, data_types_per_Frs);
         }
@@ -207,7 +210,7 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
     Proof export_serialized_proof(Prover prover, const size_t num_public_inputs)
     {
         // reset internal variables needed for exporting the proof
-        prover.transcript->num_frs_written = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + num_public_inputs;
+        prover.transcript->num_frs_written = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS() + num_public_inputs;
         prover.transcript->proof_start = 0;
         return prover.export_proof();
     }
@@ -233,7 +236,7 @@ TYPED_TEST(UltraTranscriptTests, ProverManifestConsistency)
     auto proof = prover.construct_proof();
 
     // Check that the prover generated manifest agrees with the manifest hard coded in this suite
-    auto manifest_expected = TestFixture::construct_ultra_honk_manifest();
+    auto manifest_expected = TestFixture::construct_ultra_honk_manifest(prover.proving_key->log_dyadic_size());
     auto prover_manifest = prover.transcript->get_manifest();
     // Note: a manifest can be printed using manifest.print()
     manifest_expected.print();
@@ -276,7 +279,7 @@ TYPED_TEST(UltraTranscriptTests, VerifierManifestConsistency)
     typename TestFixture::Proof ipa_proof;
     if constexpr (HasIPAAccumulator<TypeParam>) {
         verifier.ipa_verification_key = VerifierCommitmentKey<curve::Grumpkin>(1 << CONST_ECCVM_LOG_N);
-        const size_t HONK_PROOF_LENGTH = TypeParam::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH;
+        const size_t HONK_PROOF_LENGTH = TypeParam::PROOF_LENGTH_WITHOUT_PUB_INPUTS() - IPA_PROOF_LENGTH;
         const size_t num_public_inputs = static_cast<uint32_t>(verification_key->num_public_inputs);
         // The extra calculation is for the IPA proof length.
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1182): Handle in ProofSurgeon.
@@ -290,7 +293,7 @@ TYPED_TEST(UltraTranscriptTests, VerifierManifestConsistency)
     } else {
         honk_proof = proof;
     }
-    verifier.verify_proof(honk_proof, ipa_proof);
+    [[maybe_unused]] auto _ = verifier.template verify_proof<typename TestFixture::IO>(honk_proof, ipa_proof);
 
     // Check consistency between the manifests generated by the prover and verifier
     auto prover_manifest = prover.transcript->get_manifest();
@@ -337,7 +340,7 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
     using Commitment = Flavor::Commitment;
     // Construct a simple circuit of size n = 8 (i.e. the minimum circuit size)
     auto builder = typename TestFixture::Builder();
-    if constexpr (IsAnyOf<TypeParam, UltraRollupFlavor>) {
+    if constexpr (IsAnyOf<TypeParam, UltraRollupFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
         GTEST_SKIP() << "Not built for this parameter";
     }
     TestFixture::generate_test_circuit(builder);
@@ -348,28 +351,42 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
     typename TestFixture::Prover prover(proving_key, verification_key);
     auto proof = prover.construct_proof();
     typename TestFixture::Verifier verifier(verification_key);
-    EXPECT_TRUE(verifier.verify_proof(proof));
+    {
+        bool result = verifier.template verify_proof<typename TestFixture::IO>(proof).result;
+        EXPECT_TRUE(result);
+    }
+
+    const size_t virtual_log_n = Flavor::USE_PADDING ? CONST_PROOF_SIZE_LOG_N : proving_key->log_dyadic_size();
 
     // try deserializing and serializing with no changes and check proof is still valid
-    prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs);
-    prover.transcript->serialize_full_transcript();
+    prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs, virtual_log_n);
+    prover.transcript->serialize_full_transcript(virtual_log_n);
     // reset verifier's transcript
     verifier.transcript = std::make_shared<typename Flavor::Transcript>();
 
     proof = TestFixture::export_serialized_proof(prover, proving_key->num_public_inputs());
-    EXPECT_TRUE(verifier.verify_proof(proof)); // we have changed nothing so proof is still valid
+    {
+        bool result = verifier.template verify_proof<typename TestFixture::IO>(proof).result;
+        EXPECT_TRUE(result); // we have changed nothing so proof is still valid
+    }
 
     Commitment one_group_val = Commitment::one();
     FF rand_val = FF::random_element();
     prover.transcript->z_perm_comm = one_group_val * rand_val;             // choose random object to modify
     verifier.transcript = std::make_shared<typename Flavor::Transcript>(); // reset verifier's transcript
     proof = TestFixture::export_serialized_proof(prover, proving_key->num_public_inputs());
-    EXPECT_TRUE(verifier.verify_proof(proof)); // we have not serialized it back to the proof so it should still be fine
+    {
+        bool result = verifier.template verify_proof<typename TestFixture::IO>(proof).result;
+        EXPECT_TRUE(result); // we have not serialized it back to the proof so it should still be fine
+    }
 
     prover.transcript->serialize_full_transcript();
     verifier.transcript = std::make_shared<typename Flavor::Transcript>(); // reset verifier's transcript
     proof = TestFixture::export_serialized_proof(prover, proving_key->num_public_inputs());
-    EXPECT_FALSE(verifier.verify_proof(proof)); // the proof is now wrong after serializing it
+    {
+        bool result = verifier.template verify_proof<typename TestFixture::IO>(proof).result;
+        EXPECT_FALSE(result); // the proof is now wrong after serializing it
+    }
 
     prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs);
     EXPECT_EQ(static_cast<Commitment>(prover.transcript->z_perm_comm), one_group_val * rand_val);

@@ -6,7 +6,7 @@ import type { SequencerClient } from '@aztec/sequencer-client';
 import { jest } from '@jest/globals';
 import 'jest-extended';
 
-import { getInitialTestAccounts } from '../../aztec.js/src/wallet/testing/index.js';
+import { getInitialTestAccountsData } from '../../aztec.js/src/wallet/testing/index.js';
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_sequencer_config', () => {
@@ -27,7 +27,7 @@ describe('e2e_sequencer_config', () => {
     // Sane targets < 64 bits.
     const manaTarget = 21e10;
     beforeAll(async () => {
-      const initialFundedAccounts = await getInitialTestAccounts();
+      const initialFundedAccounts = await getInitialTestAccountsData();
       ({ teardown, sequencer, pxe, logger } = await setup(1, {
         maxL2BlockGas: manaTarget * 2,
         manaTarget: BigInt(manaTarget),
