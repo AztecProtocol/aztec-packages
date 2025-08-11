@@ -18,6 +18,7 @@
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       },
       "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithAssert",
         "TARGET_ARCH": "skylake"
       }
     },
@@ -111,15 +112,6 @@
       }
     },
     {
-      "name": "clang18-pic-assert",
-      "displayName": "Release build with Position Independent Code and asserts",
-      "description": "Build with globally installed Clang-18 using Position Independent Code and asserts",
-      "inherits": "clang18-pic",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "RelWithAssert"
-      }
-    },
-    {
       "name": "clang18-dbg",
       "displayName": "Debugging build with Clang-18",
       "description": "Build with globally installed Clang-18 in debug mode",
@@ -140,7 +132,7 @@
       "name": "tracy-memory",
       "displayName": "Release build with tracy with memory tracking",
       "description": "Release build with tracy with memory tracking",
-      "inherits": "clang18-assert",
+      "inherits": "clang18",
       "binaryDir": "build-tracy-memory",
       "cacheVariables": {
         "ENABLE_TRACY": "ON",
@@ -158,7 +150,7 @@
       "displayName": "Build for tracy time profiling via instrumentation",
       "description": "Build for tracy time profiling via instrumentation",
       "binaryDir": "build-tracy-time-instrumented",
-      "inherits": "clang18-assert",
+      "inherits": "clang18",
       "cacheVariables": {
         "ENABLE_TRACY_TIME_INSTRUMENTED": "ON"
       }
@@ -168,7 +160,7 @@
       "displayName": "Build for tracy time profiling via sampling",
       "description": "Build for tracy time profiling via sampling",
       "binaryDir": "build-tracy-time-sampled",
-      "inherits": "clang18-assert",
+      "inherits": "clang18",
       "environment": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
         "CFLAGS": "-g -fno-omit-frame-pointer",
@@ -231,16 +223,6 @@
       "binaryDir": "build-debug-fast-circuit-check-traces",
       "cacheVariables": {
         "CHECK_CIRCUIT_STACKTRACES": "ON"
-      }
-    },
-    {
-      "name": "clang18-assert",
-      "binaryDir": "build",
-      "displayName": "Build with Clang-18 using RelWithAssert",
-      "description": "Build with globally installed Clang-18 in release with ASSERTs mode",
-      "inherits": "clang18",
-      "environment": {
-        "CMAKE_BUILD_TYPE": "RelWithAssert"
       }
     },
     {
@@ -319,9 +301,6 @@
       "cacheVariables": {
         "FUZZING": "ON",
         "DISABLE_AZTEC_VM": "ON"
-      },
-      "environment": {
-        "CMAKE_BUILD_TYPE": "RelWithAssert"
       }
     },
     {
@@ -351,9 +330,6 @@
         "DISABLE_AZTEC_VM": "ON",
         "ENABLE_ASAN": "ON",
         "DISABLE_ASM": "ON"
-      },
-      "environment": {
-        "CMAKE_BUILD_TYPE": "RelWithAssert"
       }
     },
     {
@@ -368,8 +344,7 @@
         "DISABLE_AZTEC_VM": "ON"
       },
       "environment": {
-        "CXXFLAGS": "-fprofile-instr-generate -fcoverage-mapping",
-        "CMAKE_BUILD_TYPE": "RelWithAssert"
+        "CXXFLAGS": "-fprofile-instr-generate -fcoverage-mapping"
       }
     },
     {
@@ -506,16 +481,6 @@
       }
     },
     {
-      "name": "wasm-threads-assert",
-      "displayName": "Build for WASM with multithreading and asserts",
-      "binaryDir": "build-wasm-threads-assert",
-      "description": "Build with wasi-sdk with asserts",
-      "inherits": "wasm-threads",
-      "environment": {
-        "CMAKE_BUILD_TYPE": "RelWithAssert"
-      }
-    },
-    {
       "name": "xray",
       "displayName": "Build with multi-threaded XRay Profiling",
       "description": "Build with Clang and enable multi-threaded LLVM XRay for profiling",
@@ -614,11 +579,6 @@
       "configurePreset": "clang18-pic"
     },
     {
-      "name": "clang18-pic-assert",
-      "inherits": "default",
-      "configurePreset": "clang18-pic-assert"
-    },
-    {
       "name": "default-pic",
       "inherits": "default",
       "configurePreset": "default-pic"
@@ -637,11 +597,6 @@
       "name": "clang18-dbg-fast-circuit-check-traces",
       "inherits": "clang18-dbg-fast",
       "configurePreset": "clang18-dbg-fast-circuit-check-traces"
-    },
-    {
-      "name": "clang18-assert",
-      "inherits": "default",
-      "configurePreset": "clang18-assert"
     },
     {
       "name": "asan-fast",
@@ -734,13 +689,6 @@
     {
       "name": "wasm-threads-dbg",
       "configurePreset": "wasm-threads-dbg",
-      "inheritConfigureEnvironment": true,
-      "jobs": 0,
-      "targets": ["barretenberg.wasm", "bb"]
-    },
-    {
-      "name": "wasm-threads-assert",
-      "configurePreset": "wasm-threads-assert",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
       "targets": ["barretenberg.wasm", "bb"]
