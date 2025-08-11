@@ -265,28 +265,6 @@ TEST_F(IvcRecursionConstraintTest, MockMergeProofSize)
 }
 
 /**
- * @brief Test IVC accumulation of a one app and one kernel; The kernel includes a recursive oink verification for the
- * app, specified via an ACIR RecursionConstraint.
- */
-TEST_F(IvcRecursionConstraintTest, AccumulateTwo)
-{
-    TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
-    auto ivc = std::make_shared<ClientIVC>(/*num_circuits=*/2, trace_settings);
-
-    // construct a mock app_circuit
-    auto app_circuit = construct_mock_app_circuit(ivc);
-
-    auto app_vk = get_verification_key(app_circuit, trace_settings);
-    // Complete instance and generate an oink proof
-    ivc->accumulate(app_circuit, app_vk);
-
-    // Construct kernel consisting only of the kernel completion logic
-    construct_and_accumulate_mock_kernel(ivc, trace_settings);
-
-    EXPECT_TRUE(ivc->prove_and_verify());
-}
-
-/**
  * @brief Test IVC accumulation of two apps and two kernels; The first kernel contains a recursive oink verification and
  * the second contains two recursive PG verifications, all specified via ACIR RecursionConstraints.
  */

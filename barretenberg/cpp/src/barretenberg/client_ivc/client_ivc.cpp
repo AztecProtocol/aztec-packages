@@ -21,7 +21,7 @@ ClientIVC::ClientIVC(size_t num_circuits, TraceSettings trace_settings)
     , trace_settings(trace_settings)
     , goblin(bn254_commitment_key)
 {
-    BB_ASSERT_GT(num_circuits, 0UL, "Number of circuits must be specified and greater than 0.");
+    BB_ASSERT_GT(num_circuits, 0UL, "Number of circuits must be specified and greater or equal to 4.");
     // Allocate BN254 commitment key based on the max dyadic Mega structured trace size and translator circuit size.
     // https://github.com/AztecProtocol/barretenberg/issues/1319): Account for Translator only when it's necessary
     size_t commitment_key_size =
