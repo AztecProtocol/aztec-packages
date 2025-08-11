@@ -408,7 +408,6 @@ describe('e2e_block_building', () => {
     let testContract: TestContract;
     let ownerWallet: AccountWallet;
     let ownerAddress: AztecAddress;
-    let owner: InitialAccountData;
 
     beforeAll(async () => {
       ({
@@ -417,7 +416,6 @@ describe('e2e_block_building', () => {
         logger,
         wallet: ownerWallet,
         accounts: [ownerAddress],
-        initialFundedAccounts: [owner],
       } = await setup(1));
 
       logger.info(`Deploying test contract`);
