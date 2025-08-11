@@ -91,6 +91,7 @@ For example, if you want to flamegraph the `cast_vote` function [aztec-starter](
 
 ```bash
 aztec-nargo compile
+aztec-compile-contract
 aztec flamegraph target/easy_private_voting_contract-EasyPrivateVoting.json cast_vote
 ```
 

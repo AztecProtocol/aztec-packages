@@ -229,13 +229,13 @@ function build {
     noir-projects
     l1-contracts
     yarn-project
+    release-image
   )
   # These projects can be built in parallel.
   parallel_cmds=(
     boxes/bootstrap.sh
     playground/bootstrap.sh
     docs/bootstrap.sh
-    release-image/bootstrap.sh
     spartan/bootstrap.sh
     aztec-up/bootstrap.sh
   )
