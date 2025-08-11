@@ -30,7 +30,7 @@ While we talk about “arbitrary verification logic” describing the intuition 
 
 On Aztec, there is no limitation on the complexity of verification logic (what does it mean for the transaction to be valid). Whatever conditions it checks, the proof (that the sequencer needs to verify) is independent of its complexity.
 
-This unlocks a whole universe of new use cases and optimization of existing ones. Whenever the dapp can benefit from moving expensive computations off-chain, Aztec will provide a unique chance for an optimization. That is to say, on traditional chains users pay for each executed opcode, hence more complex operations (e.g. alternative signature verification) are quite expensive. In the case of Aztec, it can be moved off-chain so that it becomes almost free. The user pays for the operations in terms of client-side prover time. However, this refers to Aztec's client-side proving feature and not directly AA.
+This unlocks a whole universe of new use cases and optimization of existing ones. Whenever the dapp can benefit from moving expensive computations off-chain, Aztec will provide a unique chance for optimization. That is to say, on traditional chains users pay for each executed opcode, hence more complex operations (e.g. alternative signature verification) are quite expensive. In the case of Aztec, it can be moved off-chain so that it becomes almost free. The user pays for the operations in terms of client-side prover time. However, this refers to Aztec's client-side proving feature and not directly AA.
 
 Couple of examples:
 
@@ -108,7 +108,7 @@ Users will need to pay transaction fees in order to deploy their account contrac
 
 ## What is an account address
 
-Address is derived from the [address keys](keys.md#address-keys). While the AddressPublicKey is an elliptic curve point of the form (x,y) on the [Grumpkin elliptic curve](https://github.com/AztecProtocol/aztec-connect/blob/9374aae687ec5ea01adeb651e7b9ab0d69a1b33b/markdown/specs/aztec-connect/src/primitives.md), the address is its x coordinate. The corresponding y coordinate can be derived if needed. For x to be a legitimate address, address there should exist a corresponding y that satisfies the curve equation. Any field element cannot work as an address.
+Address is derived from the [address keys](keys.md#address-keys). While the AddressPublicKey is an elliptic curve point of the form (x,y) on the [Grumpkin elliptic curve](https://github.com/AztecProtocol/aztec-connect/blob/9374aae687ec5ea01adeb651e7b9ab0d69a1b33b/markdown/specs/aztec-connect/src/primitives.md), the address is its x coordinate. The corresponding y coordinate can be derived if needed. For x to be a legitimate address, there should exist a corresponding y that satisfies the curve equation. Any field element cannot work as an address.
 
 ### Complete address
 
