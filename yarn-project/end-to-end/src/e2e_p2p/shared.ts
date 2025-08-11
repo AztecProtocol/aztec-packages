@@ -1,6 +1,7 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import {
+  AztecAddress,
   Fr,
   type Logger,
   ProvenTx,
@@ -28,6 +29,7 @@ import { submitTxsTo } from '../shared/submit-transactions.js';
 // submits a set of transactions to the provided Private eXecution Environment (PXE)
 export const submitComplexTxsTo = async (
   logger: Logger,
+  from: AztecAddress,
   spamContract: SpamContract,
   numTxs: number,
   opts: { callPublic?: boolean } = {},
@@ -37,7 +39,7 @@ export const submitComplexTxsTo = async (
   const seed = 1234n;
   const spamCount = 15;
   for (let i = 0; i < numTxs; i++) {
-    const tx = spamContract.methods.spam(seed + BigInt(i * spamCount), spamCount, !!opts.callPublic).send();
+    const tx = spamContract.methods.spam(seed + BigInt(i * spamCount), spamCount, !!opts.callPublic).send({ from });
     const txHash = await tx.getTxHash();
 
     logger.info(`Tx sent with hash ${txHash.toString()}`);
@@ -97,7 +99,7 @@ export async function createPXEServiceAndPrepareTransactions(
   const contract = await TestContract.at(testContractInstance.address, wallet);
 
   const txs = await timesAsync(numTxs, async () => {
-    const tx = await contract.methods.emit_nullifier(Fr.random()).prove();
+    const tx = await contract.methods.emit_nullifier(Fr.random()).prove({ from: account.getAddress() });
     const txHash = tx.getTxHash();
     logger.info(`Tx prepared with hash ${txHash}`);
     return tx;

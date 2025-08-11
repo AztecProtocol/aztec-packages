@@ -29,16 +29,19 @@ describe('docs_examples', () => {
     const newAccount = await getSchnorrAccount(pxe, secretKey, signingPrivateKey);
     await newAccount.deploy({ deployWallet: wallet }).wait();
     const newWallet = await newAccount.getWallet();
+    const newAccountAddress = newWallet.getAddress();
     // docs:end:create_wallet
+
+    const defaultAccountAddress = wallet.getAddress();
 
     const deployedContract = await TokenContract.deploy(
       wallet, // wallet instance
-      wallet.getAddress(), // account
+      defaultAccountAddress, // account
       'TokenName', // constructor arg1
       'TokenSymbol', // constructor arg2
       18,
     )
-      .send()
+      .send({ from: defaultAccountAddress })
       .deployed();
 
     // docs:start:get_contract
@@ -47,11 +50,16 @@ describe('docs_examples', () => {
     // docs:end:full_deploy
 
     // docs:start:send_transaction
-    const _tx = await contract.methods.mint_to_public(newWallet.getAddress(), 1).send().wait();
+    const _tx = await contract.methods
+      .mint_to_public(newWallet.getAddress(), 1)
+      .send({ from: newAccountAddress })
+      .wait();
     // docs:end:send_transaction
 
     // docs:start:simulate_function
-    const balance = await contract.methods.balance_of_public(newWallet.getAddress()).simulate();
+    const balance = await contract.methods
+      .balance_of_public(newWallet.getAddress())
+      .simulate({ from: newAccountAddress });
     expect(balance).toEqual(1n);
     // docs:end:simulate_function
   });

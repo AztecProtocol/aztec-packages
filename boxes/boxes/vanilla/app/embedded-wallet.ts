@@ -118,6 +118,7 @@ export class EmbeddedWallet {
     const deployMethod = await ecdsaAccount.getDeployMethod();
     const sponsoredPFCContract = await this.#getSponsoredPFCContract();
     const deployOpts = {
+      from: AztecAddress.ZERO,
       contractAddressSalt: Fr.fromString(ecdsaAccount.salt.toString()),
       fee: {
         paymentMethod: await ecdsaAccount.getSelfPaymentMethod(
@@ -202,6 +203,7 @@ export class EmbeddedWallet {
   async sendTransaction(interaction: ContractFunctionInteraction) {
     const sponsoredPFCContract = await this.#getSponsoredPFCContract();
     const provenInteraction = await interaction.prove({
+      from: this.connectedAccount.getAddress(),
       fee: {
         paymentMethod: new SponsoredFeePaymentMethod(
           sponsoredPFCContract.address
@@ -214,7 +216,9 @@ export class EmbeddedWallet {
 
   // Simulate a transaction
   async simulateTransaction(interaction: ContractFunctionInteraction) {
-    const res = await interaction.simulate();
+    const res = await interaction.simulate({
+      from: this.connectedAccount.getAddress(),
+    });
     return res;
   }
 }

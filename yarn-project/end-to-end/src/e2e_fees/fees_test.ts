@@ -397,39 +397,4 @@ export class FeesTest {
       () => Promise.resolve(),
     );
   }
-
-  public async applySetupSubscription() {
-    await this.snapshotManager.snapshot(
-      'setup_subscription',
-      async () => {
-        const counterContract = await CounterContract.deploy(this.wallet, 0, this.bobAddress)
-          .send({ from: this.bobAddress })
-          .deployed();
-
-        // Deploy subscription contract, that allows subscriptions for SUBSCRIPTION_AMOUNT of bananas
-        const subscriptionContract = await AppSubscriptionContract.deploy(
-          this.wallet,
-          counterContract.address,
-          this.bobAddress,
-          this.bananaCoin.address,
-          this.SUBSCRIPTION_AMOUNT,
-          this.APP_SPONSORED_TX_GAS_LIMIT,
-        )
-          .send({ from: this.bobAddress })
-          .deployed();
-
-        // Mint some Fee Juice to the subscription contract
-        // Could also use bridgeFromL1ToL2 from the harness, but this is more direct
-        await this.mintAndBridgeFeeJuice(this.bobAddress, subscriptionContract.address, FEE_FUNDING_FOR_TESTER_ACCOUNT);
-        return {
-          counterContractAddress: counterContract.address,
-          subscriptionContractAddress: subscriptionContract.address,
-        };
-      },
-      async ({ counterContractAddress, subscriptionContractAddress }) => {
-        this.counterContract = await CounterContract.at(counterContractAddress, this.wallet);
-        this.subscriptionContract = await AppSubscriptionContract.at(subscriptionContractAddress, this.wallet);
-      },
-    );
-  }
 }

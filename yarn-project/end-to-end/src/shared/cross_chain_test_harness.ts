@@ -244,7 +244,7 @@ export class CrossChainTestHarness {
   }
 
   async mintTokensPrivateOnL2(amount: bigint) {
-    await mintTokensToPrivate(this.l2Token, this.wallet, this.ownerAddress, this.ownerAddress, amount);
+    await mintTokensToPrivate(this.l2Token, this.ownerAddress, this.ownerAddress, amount);
   }
 
   async sendL2PublicTransfer(transferAmount: bigint, receiverAddress: AztecAddress) {
