@@ -61,7 +61,7 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
     HonkProof ipa_proof; // utilized only for UltraRollupFlavor
 
     bool is_accumulator = false; // whether this instance the result of a Protogalaxy folding
-    bool is_complete = false;    // whether this instance has been "oinked"
+    bool is_complete = false;    // whether this instance has been completely populated
     std::vector<uint32_t> memory_read_records;
     std::vector<uint32_t> memory_write_records;
 

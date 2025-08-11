@@ -28,7 +28,7 @@ template <IsUltraOrMegaHonk Flavor> class DeciderVerificationKey_ {
 
     std::shared_ptr<VerificationKey> vk;
 
-    bool is_complete = false; // whether this instance has been "oinked"
+    bool is_complete = false; // whether this instance has been completely populated
 
     SubrelationSeparators alphas; // a challenge for each subrelation
     RelationParameters<FF> relation_parameters;
