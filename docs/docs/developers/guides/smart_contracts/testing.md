@@ -176,7 +176,7 @@ For example:
 
 ## Logging
 
-You can use `aztec.nr`'s oracles as usual for debug logging, as explained [here](../local_env/debugging/index.md)
+You can use `aztec.nr`'s oracles as usual for debug logging, as explained [here](../local_env/how_to_debug.md)
 
 
 :::warning
