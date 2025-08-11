@@ -156,7 +156,7 @@ async function bridgeL1FeeJuice(
 
   // docs:start:bridge_fee_juice
   const portal = await L1FeeJuicePortalManager.new(pxe, l1Client, log);
-  const claim = await portal.bridgeTokensPublic(recipient, amount, true /* mint */);
+  const claim = await portal.bridgeTokensFromFaucet(recipient);
   // docs:end:bridge_fee_juice
 
   const isSynced = async () => await pxe.isL1ToL2MessageSynced(Fr.fromHexString(claim.messageHash));
