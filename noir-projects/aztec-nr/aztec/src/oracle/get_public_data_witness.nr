@@ -6,7 +6,7 @@ pub struct PublicDataWitness {
     pub path: [Field; PUBLIC_DATA_TREE_HEIGHT],
 }
 
-#[oracle(getPublicDataWitness)]
+#[oracle(utilityGetPublicDataWitness)]
 unconstrained fn get_public_data_witness_oracle(
     _block_number: u32,
     _public_data_tree_index: Field,

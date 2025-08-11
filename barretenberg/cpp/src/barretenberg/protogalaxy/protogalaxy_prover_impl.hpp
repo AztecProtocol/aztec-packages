@@ -94,7 +94,8 @@ ProtogalaxyProver_<Flavor, NUM_KEYS>::combiner_quotient_round(const std::vector<
     const UnivariateRelationParameters relation_parameters =
         PGInternal::template compute_extended_relation_parameters<UnivariateRelationParameters>(keys);
 
-    TupleOfTuplesOfUnivariates accumulators;
+    // Note: {} is required to initialize the tuple contents. Otherwise the univariates contain garbage.
+    TupleOfTuplesOfUnivariates accumulators{};
     auto combiner = pg_internal.compute_combiner(keys, gate_separators, relation_parameters, alphas, accumulators);
 
     const FF perturbator_evaluation = perturbator.evaluate(perturbator_challenge);
@@ -172,7 +173,6 @@ void ProtogalaxyProver_<Flavor, NUM_KEYS>::update_target_sum_and_fold(
 
 template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS> FoldingResult<Flavor> ProtogalaxyProver_<Flavor, NUM_KEYS>::prove()
 {
-
     PROFILE_THIS_NAME("ProtogalaxyProver::prove");
 
     // Ensure keys are all of the same size

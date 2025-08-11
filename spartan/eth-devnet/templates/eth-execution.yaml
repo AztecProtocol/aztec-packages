@@ -1,0 +1,121 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "eth-devnet.fullname" . }}-eth-execution
+  labels:
+    {{- include "eth-devnet.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  serviceName: {{ include "eth-devnet.fullname" . }}-eth-execution
+  selector:
+    matchLabels:
+      {{- include "eth-devnet.selectorLabels" . | nindent 6 }}
+      app: eth-execution
+  template:
+    metadata:
+      labels:
+        {{- include "eth-devnet.selectorLabels" . | nindent 8 }}
+        app: eth-execution
+    spec:
+      {{- if .Values.ethereum.execution.nodeSelector }}
+      nodeSelector:
+        {{- toYaml .Values.ethereum.execution.nodeSelector | nindent 8 }}
+      {{- end }}
+      {{- if .Values.ethereum.execution.hostNetwork }}
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      {{- end }}
+      containers:
+        - name: ethereum
+          image: "
+            {{- if eq .Values.ethereum.execution.client "geth" -}}
+              {{ .Values.images.geth.image }}
+            {{- else if eq .Values.ethereum.execution.client "nethermind" -}}
+              {{ .Values.images.nethermind.image }}
+            {{- else -}}
+              {{ .Values.images.reth.image }}
+            {{- end -}}"
+          imagePullPolicy: {{ .Values.images.reth.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              exec /entrypoints/eth-execution.sh {{ .Values.ethereum.execution.client }}
+          env:
+            - name: K8S_MODE
+              value: "true"
+            - name: HTTP_PORT
+              value: "{{ .Values.ethereum.execution.service.port }}"
+            - name: WS_PORT
+              value: "{{ .Values.ethereum.execution.service.wsPort }}"
+            - name: MAX_TX_INPUT_SIZE_BYTES
+              value: "{{ .Values.ethereum.maxTxInputSizeBytes }}"
+          ports:
+            - containerPort: {{ .Values.ethereum.execution.service.port }}
+              name: eth-execution
+            - containerPort: {{ .Values.ethereum.execution.service.wsPort }}
+              name: eth-exec-ws
+          volumeMounts:
+            - name: genesis
+              mountPath: /genesis
+            - name: shared-volume
+              mountPath: /data
+            - name: entrypoint-scripts
+              mountPath: /entrypoints
+          resources:
+            {{- toYaml .Values.ethereum.execution.resources | nindent 12 }}
+      volumes:
+        - name: shared-volume
+          persistentVolumeClaim:
+            claimName: shared-volume
+        - name: genesis
+          configMap:
+            name: {{ include "eth-devnet.fullname" . }}-eth-execution-genesis
+        - name: entrypoint-scripts
+          configMap:
+            name: {{ include "eth-devnet.fullname" . }}-entrypoint-scripts
+            defaultMode: 0755
+  volumeClaimTemplates:
+  - metadata:
+      name: shared-volume
+      labels:
+        {{- include "eth-devnet.labels" . | nindent 8 }}
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: {{ .Values.ethereum.execution.storageSize }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "eth-devnet.fullname" . }}-eth-execution
+  labels:
+    {{- include "eth-devnet.labels" . | nindent 4 }}
+    app: eth-execution
+  {{- if .Values.ethereum.execution.service.annotations }}
+  annotations:
+    {{- toYaml .Values.ethereum.execution.service.annotations | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.ethereum.execution.service.type }}
+  {{- if .Values.ethereum.execution.service.loadBalancerIP }}
+  loadBalancerIP: {{ .Values.ethereum.execution.service.loadBalancerIP }}
+  {{- end }}
+  selector:
+    {{- include "eth-devnet.selectorLabels" . | nindent 4 }}
+    app: eth-execution
+  ports:
+    - name: jsonrpc
+      protocol: TCP
+      port: {{ .Values.ethereum.execution.service.port }}
+      targetPort: {{ .Values.ethereum.execution.service.targetPort }}
+    - name: ws
+      protocol: TCP
+      port: {{ .Values.ethereum.execution.service.wsPort }}
+      targetPort: {{ .Values.ethereum.execution.service.wsTargetPort }}
+    # Engine Api
+    - name: engine
+      protocol: TCP
+      port: 8551
+      targetPort: 8551
+---

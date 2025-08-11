@@ -19,6 +19,7 @@ namespace bb::avm2::constraining {
 namespace {
 
 using testing::random_bytes;
+using testing::random_contract_class;
 using tracegen::BytecodeTraceBuilder;
 using tracegen::TestTraceContainer;
 

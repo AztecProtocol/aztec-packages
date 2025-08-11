@@ -663,6 +663,8 @@ void keccak<Builder>::sponge_absorb_with_permutation_opcode(keccak_state& intern
             }
         } else {
             for (size_t j = 0; j < LIMBS_PER_BLOCK; ++j) {
+                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1494): potential issue with usage of
+                // `create_logic_constraint`?
                 internal.state[j] = stdlib::logic<Builder>::create_logic_constraint(
                     internal.state[j], input_buffer[i * LIMBS_PER_BLOCK + j], 64, true);
             }

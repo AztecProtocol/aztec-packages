@@ -216,11 +216,11 @@ class TXEDispatcher {
     }
 
     switch (functionName) {
-      case 'deploy': {
+      case 'txeDeploy': {
         await this.#processDeployInputs(callData);
         break;
       }
-      case 'addAccount': {
+      case 'txeAddAccount': {
         await this.#processAddAccountInputs(callData);
         break;
       }
