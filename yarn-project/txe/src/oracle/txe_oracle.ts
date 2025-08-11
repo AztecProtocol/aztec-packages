@@ -1,4 +1,3 @@
-import { type AztecNode, Body, L2Block, Note } from '@aztec/aztec.js';
 import {
   DEFAULT_GAS_LIMIT,
   DEFAULT_TEARDOWN_GAS_LIMIT,
@@ -61,6 +60,7 @@ import {
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { Body, L2Block } from '@aztec/stdlib/block';
 import type { ContractInstance, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import {
@@ -72,7 +72,7 @@ import {
   siloNoteHash,
   siloNullifier,
 } from '@aztec/stdlib/hash';
-import type { MerkleTreeReadOperations, MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import type { AztecNode, MerkleTreeReadOperations, MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import {
   type KeyValidationRequest,
   PartialPrivateTailPublicInputsForPublic,
@@ -82,6 +82,7 @@ import {
   PublicCallRequest,
 } from '@aztec/stdlib/kernel';
 import { ContractClassLog, IndexedTaggingSecret, PrivateLog, type PublicLog } from '@aztec/stdlib/logs';
+import { Note } from '@aztec/stdlib/note';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { ClientIvcProof } from '@aztec/stdlib/proofs';
 import {
@@ -1036,7 +1037,7 @@ export class TXE {
 
     const contractsDB = new PublicContractsDB(new TXEPublicContractDataSource(this));
     const guardedMerkleTrees = new GuardedMerkleTreeOperations(this.baseFork);
-    const simulator = new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, true, true);
+    const simulator = new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, true, true, true);
     const processor = new PublicProcessor(globals, guardedMerkleTrees, contractsDB, simulator, new TestDateProvider());
 
     const tx = await Tx.create({
