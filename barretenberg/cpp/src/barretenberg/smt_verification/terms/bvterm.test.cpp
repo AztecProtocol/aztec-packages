@@ -2,7 +2,7 @@
 #include <unordered_map>
 
 #include "barretenberg/smt_verification/util/smt_util.hpp"
-#include "barretenberg/stdlib/primitives/uint/uint.hpp"
+#include "barretenberg/stdlib/primitives/logic/logic.hpp"
 #include "term.hpp"
 
 #include <gtest/gtest.h>
@@ -14,16 +14,14 @@ auto& engine = bb::numeric::get_randomness();
 using namespace bb;
 using Builder = UltraCircuitBuilder;
 using witness_ct = stdlib::witness_t<Builder>;
-using uint_ct = stdlib::uint32<Builder>;
 
 using namespace smt_terms;
 
 TEST(BVTerm, addition)
 {
-    Builder builder;
-    uint_ct a = witness_ct(&builder, engine.get_random_uint32());
-    uint_ct b = witness_ct(&builder, engine.get_random_uint32());
-    uint_ct c = a + b;
+    uint32_t a = engine.get_random_uint32();
+    uint32_t b = engine.get_random_uint32();
+    uint32_t c = a + b;
 
     uint32_t modulus_base = 16;
     uint32_t bitvector_size = 32;
@@ -36,20 +34,19 @@ TEST(BVTerm, addition)
     STerm y = BVVar("y", &s);
     STerm z = x + y;
 
-    z == c.get_value();
-    x == a.get_value();
+    z == c;
+    x == a;
     ASSERT_TRUE(s.check());
 
     bb::fr yvals = string_to_fr(s[y], /*base=*/2, /*is_signed=*/false);
-    ASSERT_EQ(b.get_value(), yvals);
+    ASSERT_EQ(bb::fr(b), yvals);
 }
 
 TEST(BVTerm, subtraction)
 {
-    Builder builder;
-    uint_ct a = witness_ct(&builder, engine.get_random_uint32());
-    uint_ct b = witness_ct(&builder, engine.get_random_uint32());
-    uint_ct c = a - b;
+    uint32_t a = engine.get_random_uint32();
+    uint32_t b = engine.get_random_uint32();
+    uint32_t c = a - b;
 
     uint32_t modulus_base = 16;
     uint32_t bitvector_size = 32;
@@ -62,20 +59,19 @@ TEST(BVTerm, subtraction)
     STerm y = BVVar("y", &s);
     STerm z = x - y;
 
-    z == c.get_value();
-    x == a.get_value();
+    z == c;
+    x == a;
     ASSERT_TRUE(s.check());
 
     bb::fr yvals = string_to_fr(s[y], /*base=*/2, /*is_signed=*/false);
-    ASSERT_EQ(b.get_value(), yvals);
+    ASSERT_EQ(bb::fr(b), yvals);
 }
 
 TEST(BVTerm, xor)
 {
-    Builder builder;
-    uint_ct a = witness_ct(&builder, engine.get_random_uint32());
-    uint_ct b = witness_ct(&builder, engine.get_random_uint32());
-    uint_ct c = a ^ b;
+    uint32_t a = engine.get_random_uint32();
+    uint32_t b = engine.get_random_uint32();
+    uint32_t c = a ^ b;
 
     uint32_t modulus_base = 16;
     uint32_t bitvector_size = 32;
@@ -88,19 +84,18 @@ TEST(BVTerm, xor)
     STerm y = BVVar("y", &s);
     STerm z = x ^ y;
 
-    z == c.get_value();
-    x == a.get_value();
+    z == c;
+    x == a;
     ASSERT_TRUE(s.check());
 
     bb::fr yvals = string_to_fr(s[y], /*base=*/2, /*is_signed=*/false);
-    ASSERT_EQ(b.get_value(), yvals);
+    ASSERT_EQ(bb::fr(b), yvals);
 }
 
 TEST(BVTerm, rotr)
 {
-    Builder builder;
-    uint_ct a = witness_ct(&builder, engine.get_random_uint32());
-    uint_ct b = a.ror(10);
+    uint32_t a = engine.get_random_uint32();
+    uint32_t b = (a >> 10) | (a << 22);
 
     uint32_t modulus_base = 16;
     uint32_t bitvector_size = 32;
@@ -112,18 +107,17 @@ TEST(BVTerm, rotr)
     STerm x = BVVar("x", &s);
     STerm y = x.rotr(10);
 
-    y == b.get_value();
+    y == b;
     ASSERT_TRUE(s.check());
 
     bb::fr xvals = string_to_fr(s[x], /*base=*/2, /*is_signed=*/false);
-    ASSERT_EQ(a.get_value(), xvals);
+    ASSERT_EQ(bb::fr(a), xvals);
 }
 
 TEST(BVTerm, rotl)
 {
-    Builder builder;
-    uint_ct a = witness_ct(&builder, engine.get_random_uint32());
-    uint_ct b = a.rol(10);
+    uint32_t a = engine.get_random_uint32();
+    uint32_t b = (a << 10) | (a >> 22);
 
     uint32_t modulus_base = 16;
     uint32_t bitvector_size = 32;
@@ -135,20 +129,20 @@ TEST(BVTerm, rotl)
     STerm x = BVVar("x", &s);
     STerm y = x.rotl(10);
 
-    y == b.get_value();
+    y == b;
     ASSERT_TRUE(s.check());
 
     bb::fr xvals = string_to_fr(s[x], /*base=*/2, /*is_signed=*/false);
-    ASSERT_EQ(a.get_value(), xvals);
+    ASSERT_EQ(bb::fr(a), xvals);
 }
 
 // non bijective operators
 TEST(BVTerm, mul)
 {
     Builder builder;
-    uint_ct a = witness_ct(&builder, engine.get_random_uint32());
-    uint_ct b = witness_ct(&builder, engine.get_random_uint32());
-    uint_ct c = a * b;
+    uint32_t a = engine.get_random_uint32();
+    uint32_t b = engine.get_random_uint32();
+    uint32_t c = a * b;
 
     uint32_t modulus_base = 16;
     uint32_t bitvector_size = 32;
@@ -161,21 +155,20 @@ TEST(BVTerm, mul)
     STerm y = BVVar("y", &s);
     STerm z = x * y;
 
-    x == a.get_value();
-    y == b.get_value();
+    x == a;
+    y == b;
 
     ASSERT_TRUE(s.check());
 
     bb::fr xvals = string_to_fr(s[z], /*base=*/2, /*is_signed=*/false);
-    ASSERT_EQ(c.get_value(), xvals);
+    ASSERT_EQ(bb::fr(c), xvals);
 }
 
 TEST(BVTerm, and)
 {
-    Builder builder;
-    uint_ct a = witness_ct(&builder, engine.get_random_uint32());
-    uint_ct b = witness_ct(&builder, engine.get_random_uint32());
-    uint_ct c = a & b;
+    uint32_t a = engine.get_random_uint32();
+    uint32_t b = engine.get_random_uint32();
+    uint32_t c = a & b;
 
     uint32_t modulus_base = 16;
     uint32_t bitvector_size = 32;
@@ -188,21 +181,20 @@ TEST(BVTerm, and)
     STerm y = BVVar("y", &s);
     STerm z = x & y;
 
-    x == a.get_value();
-    y == b.get_value();
+    x == a;
+    y == b;
 
     ASSERT_TRUE(s.check());
 
     bb::fr xvals = string_to_fr(s[z], /*base=*/2, /*is_signed=*/false);
-    ASSERT_EQ(c.get_value(), xvals);
+    ASSERT_EQ(bb::fr(c), xvals);
 }
 
 TEST(BVTerm, or)
 {
-    Builder builder;
-    uint_ct a = witness_ct(&builder, engine.get_random_uint32());
-    uint_ct b = witness_ct(&builder, engine.get_random_uint32());
-    uint_ct c = a | b;
+    uint32_t a = engine.get_random_uint32();
+    uint32_t b = engine.get_random_uint32();
+    uint32_t c = a | b;
 
     uint32_t modulus_base = 16;
     uint32_t bitvector_size = 32;
@@ -215,21 +207,20 @@ TEST(BVTerm, or)
     STerm y = BVVar("y", &s);
     STerm z = x | y;
 
-    x == a.get_value();
-    y == b.get_value();
+    x == a;
+    y == b;
 
     ASSERT_TRUE(s.check());
 
     bb::fr xvals = string_to_fr(s[z], /*base=*/2, /*is_signed=*/false);
-    ASSERT_EQ(c.get_value(), xvals);
+    ASSERT_EQ(bb::fr(c), xvals);
 }
 
 TEST(BVTerm, div)
 {
-    Builder builder;
-    uint_ct a = witness_ct(&builder, engine.get_random_uint32());
-    uint_ct b = witness_ct(&builder, engine.get_random_uint32());
-    uint_ct c = a / b;
+    uint32_t a = engine.get_random_uint32();
+    uint32_t b = engine.get_random_uint32();
+    uint32_t c = a / b;
 
     uint32_t modulus_base = 16;
     uint32_t bitvector_size = 32;
@@ -242,20 +233,19 @@ TEST(BVTerm, div)
     STerm y = BVVar("y", &s);
     STerm z = x / y;
 
-    x == a.get_value();
-    y == b.get_value();
+    x == a;
+    y == b;
 
     ASSERT_TRUE(s.check());
 
     bb::fr xvals = string_to_fr(s[z], /*base=*/2, /*is_signed=*/false);
-    ASSERT_EQ(c.get_value(), xvals);
+    ASSERT_EQ(bb::fr(c), xvals);
 }
 
 TEST(BVTerm, shr)
 {
-    Builder builder;
-    uint_ct a = witness_ct(&builder, engine.get_random_uint32());
-    uint_ct b = a >> 5;
+    uint32_t a = engine.get_random_uint32();
+    uint32_t b = a >> 5;
 
     uint32_t modulus_base = 16;
     uint32_t bitvector_size = 32;
@@ -267,19 +257,18 @@ TEST(BVTerm, shr)
     STerm x = BVVar("x", &s);
     STerm y = x >> 5;
 
-    x == a.get_value();
+    x == a;
 
     ASSERT_TRUE(s.check());
 
     bb::fr xvals = string_to_fr(s[y], /*base=*/2, /*is_signed=*/false);
-    ASSERT_EQ(b.get_value(), xvals);
+    ASSERT_EQ(bb::fr(b), xvals);
 }
 
 TEST(BVTerm, shl)
 {
-    Builder builder;
-    uint_ct a = witness_ct(&builder, engine.get_random_uint32());
-    uint_ct b = a << 5;
+    uint32_t a = engine.get_random_uint32();
+    uint32_t b = a << 5;
 
     uint32_t modulus_base = 16;
     uint32_t bitvector_size = 32;
@@ -291,20 +280,19 @@ TEST(BVTerm, shl)
     STerm x = BVVar("x", &s);
     STerm y = x << 5;
 
-    x == a.get_value();
+    x == a;
 
     ASSERT_TRUE(s.check());
 
     bb::fr xvals = string_to_fr(s[y], /*base=*/2, /*is_signed=*/false);
-    ASSERT_EQ(b.get_value(), xvals);
+    ASSERT_EQ(bb::fr(b), xvals);
 }
 
 TEST(BVTerm, truncate)
 {
-    Builder builder;
-    uint_ct a = witness_ct(&builder, engine.get_random_uint32());
+    uint32_t a = engine.get_random_uint32();
     unsigned int mask = (1 << 10) - 1;
-    uint_ct b = a & mask;
+    uint32_t b = a & mask;
 
     uint32_t modulus_base = 16;
     uint32_t bitvector_size = 32;
@@ -316,20 +304,19 @@ TEST(BVTerm, truncate)
     STerm x = BVVar("x", &s);
     STerm y = x.truncate(9);
 
-    x == a.get_value();
+    x == a;
 
     ASSERT_TRUE(s.check());
 
     bb::fr xvals = string_to_fr(s[y], /*base=*/2, /*is_signed=*/false);
-    ASSERT_EQ(b.get_value(), xvals);
+    ASSERT_EQ(bb::fr(b), xvals);
 }
 
 TEST(BVTerm, extract_bit)
 {
-    Builder builder;
-    uint_ct a = witness_ct(&builder, engine.get_random_uint32());
+    uint32_t a = engine.get_random_uint32();
     unsigned int mask = (1 << 10);
-    uint_ct b = a & mask;
+    uint32_t b = a & mask;
     b >>= 10;
 
     uint32_t modulus_base = 16;
@@ -342,10 +329,10 @@ TEST(BVTerm, extract_bit)
     STerm x = BVVar("x", &s);
     STerm y = x.extract_bit(10);
 
-    x == a.get_value();
+    x == a;
 
     ASSERT_TRUE(s.check());
 
     bb::fr xvals = string_to_fr(s[y], /*base=*/2, /*is_signed=*/false);
-    ASSERT_EQ(b.get_value(), xvals);
+    ASSERT_EQ(bb::fr(b), xvals);
 }

@@ -12,7 +12,6 @@
 #include "barretenberg/stdlib/primitives/logic/logic.hpp"
 #include "barretenberg/stdlib/primitives/memory/ram_table.hpp"
 #include "barretenberg/stdlib/primitives/memory/rom_table.hpp"
-#include "barretenberg/stdlib/primitives/uint/uint.hpp"
 
 #include "barretenberg/smt_verification/circuit/ultra_circuit.hpp"
 #include "barretenberg/smt_verification/util/smt_util.hpp"
@@ -33,7 +32,6 @@ using pub_witness_t = stdlib::public_witness_t<UltraCircuitBuilder>;
 
 using field_t = stdlib::field_t<UltraCircuitBuilder>;
 using bigfield_t = bb::stdlib::bigfield<Builder, bb::Bn254FqParams>;
-using uint_t = stdlib::uint32<UltraCircuitBuilder>;
 using rom_table_t = bb::stdlib::rom_table<Builder>;
 using ram_table_t = bb::stdlib::ram_table<Builder>;
 using cycle_group_t = bb::stdlib::cycle_group<Builder>;
@@ -196,7 +194,8 @@ TEST(UltraCircuitSMT, OptimizedDeltaRangeRelation)
 {
     UltraCircuitBuilder builder;
 
-    uint_t a(witness_t(&builder, engine.get_random_uint32()));
+    field_t a(witness_t(&builder, engine.get_random_uint32()));
+    a.create_range_constraint(32);
     builder.set_variable_name(a.get_witness_index(), "a");
     builder.finalize_circuit(/*ensure_nonzero=*/false); // No need to add nonzero gates if we're not proving
 
@@ -241,16 +240,16 @@ TEST(UltraCircuitSMT, LookupRelation2)
 {
     UltraCircuitBuilder builder;
 
-    uint_t a(witness_t(&builder, engine.get_random_uint32()));
-    uint_t b(witness_t(&builder, engine.get_random_uint32()));
-    uint_t c = a ^ b;
+    field_t a(witness_t(&builder, engine.get_random_uint32()));
+    field_t b(witness_t(&builder, engine.get_random_uint32()));
+    field_t c = bb::stdlib::logic<Builder>::create_logic_constraint(a, b, /*num_bits=*/32, /*is_xor_gate=*/true);
     builder.set_variable_name(a.get_witness_index(), "a");
     builder.set_variable_name(b.get_witness_index(), "b");
     builder.set_variable_name(c.get_witness_index(), "c");
     builder.finalize_circuit(/*ensure_nonzero=*/false); // No need to add nonzero gates if we're not proving
 
     auto circuit_info = unpack_from_buffer(builder.export_circuit());
-    Solver s(circuit_info.modulus, ultra_solver_config, /*base=*/16, /*bvsize=*/32);
+    Solver s(circuit_info.modulus, ultra_solver_config, /*base=*/16, /*bvsize=*/256);
     UltraCircuit cir(circuit_info, &s, TermType::BVTerm);
     ASSERT_EQ(cir.get_num_gates(), builder.get_estimated_num_finalized_gates());
 
@@ -462,16 +461,16 @@ TEST(UltraCircuitSMT, RAMTablesRelaxed)
 TEST(UltraCircuitSMT, XorOptimization)
 {
     UltraCircuitBuilder builder;
-    uint_t a(witness_t(&builder, engine.get_random_uint32()));
+    field_t a(witness_t(&builder, engine.get_random_uint32()));
     builder.set_variable_name(a.get_witness_index(), "a");
-    uint_t b(witness_t(&builder, engine.get_random_uint32()));
+    field_t b(witness_t(&builder, engine.get_random_uint32()));
     builder.set_variable_name(b.get_witness_index(), "b");
-    uint_t c = a ^ b;
+    field_t c = bb::stdlib::logic<Builder>::create_logic_constraint(a, b, /*num_bits=*/32, /*is_xor_gate=*/true);
     builder.set_variable_name(c.get_witness_index(), "c");
 
     CircuitSchema circuit_info = unpack_from_buffer(builder.export_circuit());
     uint32_t modulus_base = 16;
-    uint32_t bvsize = 35;
+    uint32_t bvsize = 256;
     Solver s(circuit_info.modulus, ultra_solver_config, modulus_base, bvsize);
 
     UltraCircuit circuit(circuit_info, &s, TermType::BVTerm);
@@ -492,16 +491,16 @@ TEST(UltraCircuitSMT, XorOptimization)
 TEST(UltraCircuitSMT, AndOptimization)
 {
     UltraCircuitBuilder builder;
-    uint_t a(witness_t(&builder, engine.get_random_uint32()));
+    field_t a(witness_t(&builder, engine.get_random_uint32()));
     builder.set_variable_name(a.get_witness_index(), "a");
-    uint_t b(witness_t(&builder, engine.get_random_uint32()));
+    field_t b(witness_t(&builder, engine.get_random_uint32()));
     builder.set_variable_name(b.get_witness_index(), "b");
-    uint_t c = a & b;
+    field_t c = bb::stdlib::logic<Builder>::create_logic_constraint(a, b, /*num_bits=*/32, /*is_xor_gate=*/false);
     builder.set_variable_name(c.get_witness_index(), "c");
 
     CircuitSchema circuit_info = unpack_from_buffer(builder.export_circuit());
     uint32_t modulus_base = 16;
-    uint32_t bvsize = 35;
+    uint32_t bvsize = 256;
     Solver s(circuit_info.modulus, ultra_solver_config, modulus_base, bvsize);
 
     UltraCircuit circuit(circuit_info, &s, TermType::BVTerm);
