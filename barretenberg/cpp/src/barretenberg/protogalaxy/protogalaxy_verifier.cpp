@@ -22,7 +22,6 @@ void ProtogalaxyVerifier_<DeciderVerificationKeys>::run_oink_verifier_on_each_in
     if (!key->is_complete) {
         OinkVerifier<Flavor> oink_verifier{ key, transcript, domain_separator + '_' };
         oink_verifier.verify();
-        key->target_sum = 0;
         key->gate_challenges_new = std::vector<FF>(CONST_PG_LOG_N, 0);
     }
 

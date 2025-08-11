@@ -24,7 +24,6 @@ void ProtogalaxyRecursiveVerifier_<DeciderVerificationKeys>::run_oink_verifier_o
     if (!key->is_complete) {
         OinkRecursiveVerifier_<Flavor> oink_verifier{ builder, key, transcript, domain_separator + '_' };
         oink_verifier.verify();
-        key->target_sum = 0;
         key->gate_challenges_new = std::vector<FF>(CONST_PG_LOG_N, 0);
     }
 

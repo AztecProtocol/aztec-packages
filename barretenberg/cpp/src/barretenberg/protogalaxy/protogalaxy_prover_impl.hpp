@@ -35,7 +35,6 @@ void ProtogalaxyProver_<Flavor, NUM_KEYS>::run_oink_prover_on_each_incomplete_ke
     auto& vk = vks_to_fold[0];
     if (!key->is_complete) {
         run_oink_prover_on_one_incomplete_key(key, vk, domain_separator);
-        key->target_sum = 0;
     }
 
     idx++;
