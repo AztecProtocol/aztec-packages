@@ -107,23 +107,21 @@ use dep::protocol_types::{
 ///   - New nullifiers
 ///   - Private logs (for sending encrypted note contents or encrypted events)
 ///   - New L2->L1 messages.
-/// - Requests work to be done by the protocol's kernel circuits:
-///   - Insertion of new state.
-///   - Execution of requested function calls.
-///   - Publishing of private logs to Ethereum's blobs.
-///   - Key Validation Requests. Private functions are not allowed to see master
-///     secret keys, because we do not trust them. They are instead given "app-
-///     siloed" secret keys with a claim that they relate to a master public key.
-///     They can then request validation of this claim, by making a "key
-///     validation request" to the protocol's kernel circuits (which _are_
-///     allowed to see certain master secret keys).
 /// - Provides args to the private function (handled by the #[private] macro).
 /// - Returns the return values of this private function (handled by the
 ///   #[private] macro).
+/// - Makes Key Validation Requests.
+///   - Private functions are not allowed to see master secret keys, because we
+///     do not trust them. They are instead given "app-siloed" secret keys with
+///     a claim that they relate to a master public key. They can then request
+///     validation of this claim, by making a "key validation request" to the
+///     protocol's kernel circuits (which _are_ allowed to see certain master
+///     secret keys).
 ///
 /// ## Advanced Responsibilities
+///
 /// - Ultimately, the PrivateContext is responsible for constructing the
-///   `PrivateCircuitPublicInputs` of the private function being executed.
+///   PrivateCircuitPublicInputs of the private function being executed.
 ///   All private functions on Aztec must have public inputs which adhere
 ///   to the rigid layout of the PrivateCircuitPublicInputs, in order to be
 ///   compatible with the protocol's kernel circuits.
@@ -203,7 +201,6 @@ pub struct PrivateContext {
     pub last_key_validation_requests: [Option<KeyValidationRequest>; NUM_KEY_TYPES],
 }
 
-// TODO: rearrange functions into clearer categories. They're all higgledy-piggledy at the moment, and so are difficult to navigate.
 impl PrivateContext {
     pub fn new(inputs: PrivateContextInputs, args_hash: Field) -> PrivateContext {
         PrivateContext {
@@ -230,14 +227,14 @@ impl PrivateContext {
         }
     }
 
-    /// Gets the contract address that initiated this function call.
+    /// Returns the contract address that initiated this function call.
     ///
     /// This is similar to `msg.sender` in Solidity (hence the name).
     ///
     /// Important Note: Since Aztec doesn't have a concept of an EoA (
     /// Externally-owned Account), the msg_sender is "undefined" for the first
     /// function call of every transaction. A value of `-1` is returned in such
-    /// cases, and is enforced by the protocol's kernel circuits.
+    /// cases.
     /// The first function call of a tx is likely to be a call to the user's
     /// account contract, so this quirk will most often be handled by account
     /// contract developers.
@@ -255,7 +252,7 @@ impl PrivateContext {
         self.inputs.call_context.msg_sender
     }
 
-    /// Gets the contract address of the current function being executed.
+    /// Returns the contract address of the current function being executed.
     ///
     /// This is equivalent to `address(this)` in Solidity (hence the name).
     /// Use this to identify the current contract's address, commonly needed for
@@ -269,7 +266,7 @@ impl PrivateContext {
         self.inputs.call_context.contract_address
     }
 
-    /// Gets the chain ID of the current network.
+    /// Returns the chain ID of the current network.
     ///
     /// This is similar to `block.chainid` in Solidity. Returns the unique
     /// identifier for the blockchain network this transaction is executing on.
@@ -301,7 +298,7 @@ impl PrivateContext {
         self.inputs.tx_context.version
     }
 
-    /// Gets the gas settings for the current transaction.
+    /// Returns the gas settings for the current transaction.
     ///
     /// This provides information about gas limits and pricing for the
     /// transaction, similar to `tx.gasprice` and gas limits in Ethereum.
@@ -315,7 +312,7 @@ impl PrivateContext {
         self.inputs.tx_context.gas_settings
     }
 
-    /// Gets the function selector of the currently executing function.
+    /// Returns the function selector of the currently executing function.
     ///
     /// Low-level function: Ordinarily, smart contract developers will not need
     /// to access this.
@@ -340,7 +337,7 @@ impl PrivateContext {
         self.inputs.call_context.function_selector
     }
 
-    /// Gets the hash of the arguments passed to the current function.
+    /// Returns the hash of the arguments passed to the current function.
     ///
     /// Very low-level function: You shouldn't need to call this. The #[private]
     /// macro calls this, and it makes the arguments neatly available to the
@@ -418,7 +415,7 @@ impl PrivateContext {
     /// Usually, a nullifier will be emitted to "spend" a note (a piece of
     /// private state), without revealing which specific note is being spent.
     ///
-    /// (Important: in such cases, use the below `push_nullifier_for_note_hash).
+    /// (Important: in such cases, use the below `push_nullifier_for_note_hash`).
     ///
     /// Sometimes, a nullifier might be emitted completely unrelated to any
     /// notes. Examples include initialization of a new contract; initialization
@@ -486,7 +483,7 @@ impl PrivateContext {
     /// Returns the anchor block header - the historical block header that this
     /// private function is reading from.
     ///
-    /// Recall, a private function CANNOT read from the "current" block header,
+    /// A private function CANNOT read from the "current" block header,
     /// but must read from some historical block header, because as soon as
     /// private function execution begins (asynchronously, on a user's device),
     /// the public state of the chain (the "current state") will have progressed
@@ -501,7 +498,7 @@ impl PrivateContext {
     ///   is at most 24 hours beyond the timestamp of the tx's chosen anchor
     ///   block header. This enables the network's nodes to safely prune old txs
     ///   from the mempool. Therefore, the chosen block header _must_ be one
-    ///   from "earlier today".
+    ///   from within the last 24 hours.
     ///
     pub fn get_block_header(self) -> BlockHeader {
         self.historical_header
@@ -513,6 +510,9 @@ impl PrivateContext {
     /// This enables private contracts to access information from even older
     /// blocks than the anchor block header.
     ///
+    /// Useful for time-based contract logic that needs to compare against
+    /// multiple historical points.
+    ///
     /// # Arguments
     /// * `block_number` - The block number to retrieve (must be <= anchor
     ///                    block number)
@@ -521,10 +521,29 @@ impl PrivateContext {
     /// * `BlockHeader` - The header of the requested historical block
     ///
     /// # Advanced
-    /// This function uses an oracle to fetch block header data from the client.
-    /// It's more expensive than using the default historical header, so use it
-    /// sparingly. Useful for time-based contract logic that needs to compare
-    /// against multiple historical points.
+    /// This function uses an oracle to fetch block header data from the user's
+    /// PXE. Depending on how much blockchain data the user's PXE has been set
+    /// up to store, this might require a query from the PXE to another Aztec
+    /// node to get the data.
+    /// > This is generally true of all oracle getters (see `../oracle`).
+    ///
+    /// Each block header gets hashed and stored as a leaf in the protocol's
+    /// Archive Tree. In fact, the i-th block header gets stored at the i-th
+    /// leaf index of the Archive Tree. Behind the scenes, this
+    /// `get_block_header_at` function will add Archive Tree merkle-membership
+    /// constraints (~3k) to your smart contract function's circuit, to prove
+    /// existence of the block header in the Archive Tree.
+    ///
+    /// Note: we don't do any caching, so avoid making duplicate calls for the
+    /// same block header, because each call will add duplicate constraints.
+    ///
+    /// Calling this function is more expensive (constraint-wise) than getting
+    /// the anchor block header (via `get_block_header`). This is because the
+    /// anchor block's merkle membership proof is handled by Aztec's protocol
+    /// circuits, and is only performed once for the entire tx because all
+    /// private functions of a tx share a common anchor block header. Therefore,
+    /// the cost (constraint-wise) of calling `get_block_header` is effectively
+    /// free.
     ///
     pub fn get_block_header_at(self, block_number: u32) -> BlockHeader {
         get_block_header_at(block_number, self)
@@ -618,12 +637,11 @@ impl PrivateContext {
     /// function, you might have noticed that _public_ functions can also
     /// execute within the setup phase. This is because any public function
     /// calls which were enqueued _within the setup phase_ by a private
-    /// function, are considered part of the setup phase.
+    /// function are considered part of the setup phase.
     ///
     /// # Advanced
     /// * Sets the minimum revertible side effect counter of this tx to be the
     /// PrivateContext's _current_ side effect counter.
-    /// * The oracle notification optimizes transaction processing.
     ///
     pub fn end_setup(&mut self) {
         // dep::protocol_types::debug_log::debug_log_format(
@@ -634,18 +652,24 @@ impl PrivateContext {
         notify_set_min_revertible_side_effect_counter(self.min_revertible_side_effect_counter);
     }
 
-    /// Sets a deadline for when this transaction must be included in a block.
+    /// Sets a deadline (an "include-by timestamp") for when this transaction
+    /// must be included in a block.
     ///
-    /// You can think of it like a "tx expiry timestamp".
+    /// Other functions in this tx might call this setter with differing
+    /// values for the include-by timestamp. To ensure that all functions'
+    /// deadlines are met, the _minimum_ of all these include-by timestamps will
+    /// be exposed when this tx is submitted to the network.
     ///
-    /// If the transaction is not included in a block by the specified timestamp,
-    /// it becomes invalid, and it will never be included.
+    /// If the transaction is not included in a block by its include-by
+    /// timestamp, it becomes invalid and it will never be included.
     ///
     /// This expiry timestamp is publicly visible. See the "Advanced" section
     /// for privacy concerns.
     ///
     /// # Arguments
-    /// * `include_by_timestamp` - Unix timestamp (seconds) deadline for inclusion
+    /// * `include_by_timestamp` - Unix timestamp (seconds) deadline for inclusion.
+    ///                            The include-by timestamp of this tx will be
+    ///                            _at most_ the timestamp specified.
     ///
     /// # Advanced
     /// * If multiple functions set differing `include_by_timestamp`s, the
@@ -657,13 +681,16 @@ impl PrivateContext {
     ///   mempool pruning.
     /// * The DelayedPublicMutable design makes heavy use of this functionality,
     ///   to enable private functions to read public state.
-    /// * A sophisticated Wallet SHOULD cleverly set an expiry timestamp
-    ///   within the user's account contract, to improve the user's privacy.
-    ///   Otherwise, an observer might infer which function has been executed,
-    ///   based on the expiry timestamp that has been publicly emitted.
-    ///   * Ideally, all Wallets SHOULD standardise on an approach, so that all
-    ///     txs leak an expiry timestamp which conforms to a standardised
-    ///     anonymity set.
+    /// * A sophisticated Wallet should cleverly set an include-by timestamp
+    ///   to improve the privacy of the user and the network as a whole.
+    ///   For example, if a contract interaction sets include-by to some
+    ///   publicly-known value (e.g. the time when a contract upgrades), then
+    ///   the wallet might wish to set an even lower one to avoid revealing that
+    ///   this tx is interacting with said contract.
+    ///   Ideally, all wallets should standardise on an approach in order to
+    ///   provide users with a large anonymity set -- although the exact apprach
+    ///   will need to be discussed. Wallets that deviate from a standard might
+    ///   accidentally reveal which wallet each transaction originates from.
     ///
     // docs:start:include-by-timestamp
     pub fn set_include_by_timestamp(&mut self, include_by_timestamp: u64) {
@@ -675,8 +702,14 @@ impl PrivateContext {
     /// Makes a request to the protocol's kernel circuit to ensure a note_hash
     /// actually exists.
     ///
-    /// Read requests are used to prove that a note hash exists without
+    /// "Read requests" are used to prove that a note hash exists without
     /// revealing which specific note was read.
+    ///
+    /// This can be used to prove existence of both settled notes (created in
+    /// prior transactions) and transient notes (created in the current
+    /// transaction).
+    /// If you need to prove existence of a settled note _at a specific block
+    /// number_, use `note_inclusion::prove_note_inclusion`.
     ///
     /// Low-level function. Ordinarily, smart contract developers will not need
     /// to call this directly. Aztec-nr's state variables (see `../state_vars/`)
@@ -726,6 +759,12 @@ impl PrivateContext {
     /// Nullifier read requests are used to prove that a nullifier exists without
     /// revealing which specific nullifier preimage was read.
     ///
+    /// This can be used to prove existence of both settled nullifiers (created in
+    /// prior transactions) and transient nullifiers (created in the current
+    /// transaction).
+    /// If you need to prove existence of a settled nullifier _at a specific block
+    /// number_, use `nullifier_inclusion::prove_nullifier_inclusion`.
+    ///
     /// Low-level function. Ordinarily, smart contract developers will not need
     /// to call this directly. Aztec-nr's state variables (see `../state_vars/`)
     /// are designed to understand when to create and push new nullifier read
@@ -751,10 +790,19 @@ impl PrivateContext {
     /// Advanced function: Only needed if you're designing your own notes and/or
     /// nullifiers.
     ///
-    /// The secret key is "app-siloed", because we do not trust apps with a
-    /// user's master secret keys, nor with each others' app-siloed secret keys.
-    ///
-    /// See `request_nsk_app` for more details.
+    /// Contracts are not allowed to compute nullifiers for other contracts, as
+    /// that would let them read parts of their private state. Because of this,
+    /// a contract is only given an "app-siloed secret key", which is
+    /// constructed by hashing the user's master nullifier secret key with the
+    /// contract's address.
+    /// However, because contracts cannot be trusted with a user's master
+    /// nullifier secret key (because we don't know which contracts are honest
+    /// or malicious), the PXE refuses to provide any master secret keys to
+    /// any app smart contract function. This means app functions are unable to
+    /// prove that the derivation of an app-siloed nullifier secret key has been
+    /// computed correctly. Instead, an app function can request to the kernel
+    /// (via `request_nsk_app`) that it validates the siloed derivation, since
+    /// the kernel has been vetted to not leak any master secret keys.
     ///
     /// A common nullification scheme is to inject a nullifier secret key into
     /// the preimage of a nullifier, to make the nullifier deterministic but
@@ -1050,6 +1098,8 @@ impl PrivateContext {
     }
 
     /// Calls a private function on another contract (or the same contract).
+    ///
+    /// Very low-level function.
     ///
     /// # Arguments
     /// * `contract_address` - Address of the contract containing the function
