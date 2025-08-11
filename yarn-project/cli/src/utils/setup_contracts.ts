@@ -1,4 +1,5 @@
 import {
+  AztecAddress,
   DefaultWaitOpts,
   Fr,
   type PXE,
@@ -41,6 +42,7 @@ export async function setupSponsoredFPC(
   const deployer = new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(chainId, rollupVersion));
 
   const deployTx = SponsoredFPCContract.deploy(deployer).send({
+    from: AztecAddress.ZERO,
     contractAddressSalt: new Fr(SPONSORED_FPC_SALT),
     universalDeploy: true,
     fee: { paymentMethod },

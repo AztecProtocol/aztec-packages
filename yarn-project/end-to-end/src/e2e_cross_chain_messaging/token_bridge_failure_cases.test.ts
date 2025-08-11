@@ -11,13 +11,22 @@ describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
   const t = new CrossChainMessagingTest('token_bridge_failure_cases');
   let version: number = 1;
 
-  let { crossChainTestHarness, ethAccount, l2Bridge, user1Wallet, user2Wallet, ownerAddress } = t;
+  let {
+    crossChainTestHarness,
+    ethAccount,
+    l2Bridge,
+    user1Wallet,
+    user2Wallet,
+    ownerAddress,
+    user1Address,
+    user2Address,
+  } = t;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     await t.setup();
     // Have to destructure again to ensure we have latest refs.
-    ({ crossChainTestHarness, user1Wallet, user2Wallet } = t);
+    ({ crossChainTestHarness, user1Wallet, user2Wallet, user1Address, user2Address, ownerAddress } = t);
     ethAccount = crossChainTestHarness.ethAccount;
     l2Bridge = crossChainTestHarness.l2Bridge;
     ownerAddress = crossChainTestHarness.ownerAddress;
@@ -44,7 +53,7 @@ describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
       l2Bridge
         .withWallet(user1Wallet)
         .methods.exit_to_l1_public(ethAccount, withdrawAmount, EthAddress.ZERO, authwitNonce)
-        .simulate(),
+        .simulate({ from: user1Address }),
     ).rejects.toThrow(/unauthorized/);
   }, 60_000);
 
@@ -77,7 +86,7 @@ describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
       l2Bridge
         .withWallet(user2Wallet)
         .methods.claim_private(ownerAddress, wrongBridgeAmount, claim.claimSecret, claim.messageLeafIndex)
-        .simulate(),
+        .simulate({ from: user2Address }),
     ).rejects.toThrow(`No L1 to L2 message found for message hash ${wrongMessage.hash().toString()}`);
   }, 60_000);
 
@@ -98,7 +107,7 @@ describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
       l2Bridge
         .withWallet(user2Wallet)
         .methods.claim_public(ownerAddress, bridgeAmount, Fr.random(), claim.messageLeafIndex)
-        .simulate(),
+        .simulate({ from: ownerAddress }),
     ).rejects.toThrow(NO_L1_TO_L2_MSG_ERROR);
   });
 });

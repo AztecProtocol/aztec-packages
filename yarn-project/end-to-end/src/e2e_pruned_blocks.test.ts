@@ -54,7 +54,7 @@ describe('e2e_pruned_blocks', () => {
     [adminWallet, senderWallet] = wallets;
     [admin, sender, recipient] = wallets.map(a => a.getAddress());
 
-    token = await TokenContract.deploy(adminWallet, admin, 'TEST', '$TST', 18).send().deployed();
+    token = await TokenContract.deploy(adminWallet, admin, 'TEST', '$TST', 18).send({ from: admin }).deployed();
     logger.info(`L2 token contract deployed at ${token.address}`);
   });
 
@@ -63,7 +63,7 @@ describe('e2e_pruned_blocks', () => {
   async function waitBlocks(blocks: number): Promise<void> {
     logger.warn(`Awaiting ${blocks} blocks to be mined`);
     for (let i = 0; i < blocks; i++) {
-      await token.methods.private_get_name().send().wait();
+      await token.methods.private_get_name().send({ from: admin }).wait();
       logger.warn(`Mined ${i + 1}/${blocks} blocks`);
     }
   }
@@ -80,7 +80,7 @@ describe('e2e_pruned_blocks', () => {
     const firstMintReceipt = await token
       .withWallet(adminWallet)
       .methods.mint_to_private(sender, MINT_AMOUNT / 2n)
-      .send()
+      .send({ from: admin })
       .wait();
     const firstMintTxEffect = await aztecNode.getTxEffect(firstMintReceipt.txHash);
 
@@ -125,12 +125,12 @@ describe('e2e_pruned_blocks', () => {
     await token
       .withWallet(adminWallet)
       .methods.mint_to_private(sender, MINT_AMOUNT / 2n)
-      .send()
+      .send({ from: admin })
       .wait();
 
-    await token.withWallet(senderWallet).methods.transfer(recipient, MINT_AMOUNT).send().wait();
+    await token.withWallet(senderWallet).methods.transfer(recipient, MINT_AMOUNT).send({ from: sender }).wait();
 
-    expect(await token.methods.balance_of_private(recipient).simulate()).toEqual(MINT_AMOUNT);
-    expect(await token.methods.balance_of_private(sender).simulate()).toEqual(0n);
+    expect(await token.methods.balance_of_private(recipient).simulate({ from: recipient })).toEqual(MINT_AMOUNT);
+    expect(await token.methods.balance_of_private(sender).simulate({ from: sender })).toEqual(0n);
   });
 });

@@ -1,4 +1,4 @@
-import { type AccountWallet, type FieldLike, Fr, type Logger, type PXE } from '@aztec/aztec.js';
+import { type AccountWallet, AztecAddress, type FieldLike, Fr, type Logger, type PXE } from '@aztec/aztec.js';
 import { type OrderCreated, type OrderFulfilled, OrderbookContract } from '@aztec/noir-contracts.js/Orderbook';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 
@@ -24,6 +24,10 @@ describe('Orderbook', () => {
   let maker: AccountWallet;
   let taker: AccountWallet;
 
+  let adminAddress: AztecAddress;
+  let makerAddress: AztecAddress;
+  let takerAddress: AztecAddress;
+
   let token0: TokenContract;
   let token1: TokenContract;
   let orderbook: OrderbookContract;
@@ -36,17 +40,20 @@ describe('Orderbook', () => {
       pxe,
       teardown,
       wallets: [adminWallet, maker, taker],
+      accounts: [adminAddress, makerAddress, takerAddress],
       logger,
     } = await setup(3));
 
-    token0 = await deployToken(adminWallet, 0n, logger);
-    token1 = await deployToken(adminWallet, 0n, logger);
+    token0 = await deployToken(adminWallet, adminAddress, 0n, logger);
+    token1 = await deployToken(adminWallet, adminAddress, 0n, logger);
 
-    orderbook = await OrderbookContract.deploy(adminWallet, token0.address, token1.address).send().deployed();
+    orderbook = await OrderbookContract.deploy(adminWallet, token0.address, token1.address)
+      .send({ from: adminAddress })
+      .deployed();
 
     // Mint tokens to maker and taker
-    await mintTokensToPrivate(token0, adminWallet, maker.getAddress(), bidAmount);
-    await mintTokensToPrivate(token1, adminWallet, taker.getAddress(), askAmount);
+    await mintTokensToPrivate(token0, adminAddress, adminWallet, makerAddress, bidAmount);
+    await mintTokensToPrivate(token1, adminAddress, adminWallet, takerAddress, askAmount);
   });
 
   afterAll(() => teardown());
@@ -68,7 +75,7 @@ describe('Orderbook', () => {
         .withWallet(maker)
         .methods.create_order(token0.address, token1.address, bidAmount, askAmount, nonceForAuthwits)
         .with({ authWitnesses: [makerAuthwit] })
-        .send()
+        .send({ from: makerAddress })
         .wait();
 
       const orderCreatedEvents = await pxe.getPublicEvents<OrderCreated>(OrderbookContract.events.OrderCreated, 0, 100);
@@ -81,7 +88,7 @@ describe('Orderbook', () => {
       orderId = orderCreatedEvents[0].order_id;
 
       // Get order from orderbook and verify details
-      const [order, isFulfilled] = await orderbook.methods.get_order(orderId).simulate();
+      const [order, isFulfilled] = await orderbook.methods.get_order(orderId).simulate({ from: adminAddress });
       expect(order.bid_amount).toEqual(bidAmount);
       expect(order.ask_amount).toEqual(askAmount);
       expect(order.bid_token_is_zero).toBeTrue();
@@ -89,8 +96,14 @@ describe('Orderbook', () => {
 
       // At this point, bidAmount of token0 should be transferred to the public balance of the orderbook and maker
       // should have 0.
-      const orderbookBalances0 = await token0.withWallet(maker).methods.balance_of_public(orderbook.address).simulate();
-      const makerBalances0 = await token0.withWallet(maker).methods.balance_of_private(maker.getAddress()).simulate();
+      const orderbookBalances0 = await token0
+        .withWallet(maker)
+        .methods.balance_of_public(orderbook.address)
+        .simulate({ from: makerAddress });
+      const makerBalances0 = await token0
+        .withWallet(maker)
+        .methods.balance_of_private(maker.getAddress())
+        .simulate({ from: makerAddress });
       expect(orderbookBalances0).toEqual(bidAmount);
       expect(makerBalances0).toEqual(0n);
     });
@@ -103,7 +116,7 @@ describe('Orderbook', () => {
       const takerAuthwit = await taker.createAuthWit({
         caller: orderbook.address,
         action: token1.methods.finalize_transfer_to_private_from_private(
-          taker.getAddress(),
+          takerAddress,
           { commitment: orderId }, // makerPartialNote
           askAmount,
           nonceForAuthwits,
@@ -115,7 +128,7 @@ describe('Orderbook', () => {
         .withWallet(taker)
         .methods.fulfill_order(orderId, nonceForAuthwits)
         .with({ authWitnesses: [takerAuthwit] })
-        .send()
+        .send({ from: takerAddress })
         .wait();
 
       // Verify order was fulfilled by checking events
@@ -128,10 +141,22 @@ describe('Orderbook', () => {
       expect(orderFulfilledEvents[0].order_id).toEqual(orderId);
 
       // Verify balances after order fulfillment
-      const makerBalances0 = await token0.withWallet(maker).methods.balance_of_private(maker.getAddress()).simulate();
-      const makerBalances1 = await token1.withWallet(maker).methods.balance_of_private(maker.getAddress()).simulate();
-      const takerBalances0 = await token0.withWallet(taker).methods.balance_of_private(taker.getAddress()).simulate();
-      const takerBalances1 = await token1.withWallet(taker).methods.balance_of_private(taker.getAddress()).simulate();
+      const makerBalances0 = await token0
+        .withWallet(maker)
+        .methods.balance_of_private(maker.getAddress())
+        .simulate({ from: makerAddress });
+      const makerBalances1 = await token1
+        .withWallet(maker)
+        .methods.balance_of_private(maker.getAddress())
+        .simulate({ from: makerAddress });
+      const takerBalances0 = await token0
+        .withWallet(taker)
+        .methods.balance_of_private(taker.getAddress())
+        .simulate({ from: takerAddress });
+      const takerBalances1 = await token1
+        .withWallet(taker)
+        .methods.balance_of_private(taker.getAddress())
+        .simulate({ from: takerAddress });
 
       // Full maker token 0 balance should be transferred to taker and hence maker should have 0
       expect(makerBalances0).toEqual(0n);
@@ -143,7 +168,7 @@ describe('Orderbook', () => {
       expect(takerBalances1).toEqual(0n);
 
       // Verify that the order is fulfilled
-      const [_, isFulfilled] = await orderbook.methods.get_order(orderId).simulate();
+      const [_, isFulfilled] = await orderbook.methods.get_order(orderId).simulate({ from: adminAddress });
       expect(isFulfilled).toBeTrue();
     });
   });

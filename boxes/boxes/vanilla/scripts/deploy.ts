@@ -43,14 +43,10 @@ async function setupPXE() {
     ...config,
   };
 
-  const pxe = await createPXEService(
-    aztecNode,
-    configWithContracts,
-    {
-      store,
-      useLogSuffix: true,
-    }
-  );
+  const pxe = await createPXEService(aztecNode, configWithContracts, {
+    store,
+    useLogSuffix: true,
+  });
   return pxe;
 }
 
@@ -74,6 +70,7 @@ async function createAccount(pxe: PXE) {
   const deployMethod = await ecdsaAccount.getDeployMethod();
   const sponsoredPFCContract = await getSponsoredPFCContract();
   const deployOpts = {
+    from: AztecAddress.ZERO,
     contractAddressSalt: Fr.fromString(ecdsaAccount.salt.toString()),
     fee: {
       paymentMethod: await ecdsaAccount.getSelfPaymentMethod(
@@ -124,6 +121,7 @@ async function deployContract(pxe: PXE, deployer: Wallet) {
   const sponsoredPFCContract = await getSponsoredPFCContract();
 
   const provenInteraction = await deployMethod.prove({
+    from: deployer.getAddress(),
     contractAddressSalt: salt,
     fee: {
       paymentMethod: new SponsoredFeePaymentMethod(
@@ -175,7 +173,7 @@ async function createAccountAndDeployContract() {
   });
 
   // Create a new account
-  const { wallet, /* signingKey */ } = await createAccount(pxe);
+  const { wallet /* signingKey */ } = await createAccount(pxe);
 
   // // Save the wallet info
   // const walletInfo = {

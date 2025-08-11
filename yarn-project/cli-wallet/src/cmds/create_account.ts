@@ -1,4 +1,4 @@
-import type { DeployAccountOptions, PXE } from '@aztec/aztec.js';
+import { AztecAddress, type DeployAccountOptions, type PXE } from '@aztec/aztec.js';
 import { prettyPrintJSON } from '@aztec/cli/cli-utils';
 import { Fr } from '@aztec/foundation/fields';
 import type { LogFn, Logger } from '@aztec/foundation/log';
@@ -90,7 +90,12 @@ export async function createAccount(
     const deployMethod = await account.getDeployMethod(deployOpts.deployWallet);
 
     if (feeOpts.estimateOnly) {
-      const gas = await deployMethod.estimateGas({ ...deployOpts, universalDeploy: true, contractAddressSalt: salt });
+      const gas = await deployMethod.estimateGas({
+        ...deployOpts,
+        from: AztecAddress.ZERO,
+        universalDeploy: true,
+        contractAddressSalt: salt,
+      });
       if (json) {
         out.fee = {
           gasLimits: {
@@ -106,7 +111,12 @@ export async function createAccount(
         printGasEstimates(feeOpts, gas, log);
       }
     } else {
-      const provenTx = await deployMethod.prove({ ...deployOpts, universalDeploy: true, contractAddressSalt: salt });
+      const provenTx = await deployMethod.prove({
+        ...deployOpts,
+        from: AztecAddress.ZERO,
+        universalDeploy: true,
+        contractAddressSalt: salt,
+      });
       if (verbose) {
         printProfileResult(provenTx.stats!, log);
       }

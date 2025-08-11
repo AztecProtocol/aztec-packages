@@ -5,6 +5,7 @@ import {
   type AccountContract,
   AccountManager,
   AccountWallet,
+  AztecAddress,
   FeeJuicePaymentMethod,
   Fr,
   GrumpkinScalar,
@@ -27,6 +28,7 @@ const itShouldBehaveLikeAnAccountContract = (
     let logger: Logger;
     let teardown: () => Promise<void>;
     let wallet: Wallet;
+    let address: AztecAddress;
     let child: ChildContract;
 
     beforeAll(async () => {
@@ -34,7 +36,7 @@ const itShouldBehaveLikeAnAccountContract = (
       const salt = Fr.random();
       const signingKey = deriveSigningKey(secret);
       const accountContract = getAccountContract(signingKey);
-      const address = await getAccountContractAddress(accountContract, secret, salt);
+      address = await getAccountContractAddress(accountContract, secret, salt);
       const accountData = {
         secret,
         signingKey,
@@ -54,19 +56,19 @@ const itShouldBehaveLikeAnAccountContract = (
       }
 
       wallet = await account.getWallet();
-      child = await ChildContract.deploy(wallet).send().deployed();
+      child = await ChildContract.deploy(wallet).send({ from: address }).deployed();
     });
 
     afterAll(() => teardown());
 
     it('calls a private function', async () => {
       logger.info('Calling private function...');
-      await child.methods.value(42).send().wait({ interval: 0.1 });
+      await child.methods.value(42).send({ from: address }).wait({ interval: 0.1 });
     });
 
     it('calls a public function', async () => {
       logger.info('Calling public function...');
-      await child.methods.pub_inc_value(42).send().wait({ interval: 0.1 });
+      await child.methods.pub_inc_value(42).send({ from: address }).wait({ interval: 0.1 });
       const storedValue = await pxe.getPublicStorageAt(child.address, new Fr(1));
       expect(storedValue).toEqual(new Fr(42n));
     });
@@ -78,7 +80,9 @@ const itShouldBehaveLikeAnAccountContract = (
       const entrypoint = randomContract.getInterface(accountAddress, nodeInfo);
       const invalidWallet = new AccountWallet(pxe, entrypoint);
       const childWithInvalidWallet = await ChildContract.at(child.address, invalidWallet);
-      await expect(childWithInvalidWallet.methods.value(42).simulate()).rejects.toThrow('Cannot satisfy constraint');
+      await expect(childWithInvalidWallet.methods.value(42).simulate({ from: address })).rejects.toThrow(
+        'Cannot satisfy constraint',
+      );
     });
   });
 };

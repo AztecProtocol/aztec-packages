@@ -2,13 +2,13 @@ import { NestedContractTest } from './nested_contract_test.js';
 
 describe('e2e_nested_contract manual', () => {
   const t = new NestedContractTest('manual');
-  let { parentContract, childContract } = t;
+  let { parentContract, childContract, defaultAccountAddress } = t;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     await t.applyManualSnapshots();
     await t.setup();
-    ({ parentContract, childContract } = t);
+    ({ parentContract, childContract, defaultAccountAddress } = t);
   });
 
   afterAll(async () => {
@@ -18,7 +18,7 @@ describe('e2e_nested_contract manual', () => {
   it('performs nested calls', async () => {
     await parentContract.methods
       .entry_point(childContract.address, await childContract.methods.value.selector())
-      .send()
+      .send({ from: defaultAccountAddress })
       .wait();
   });
 
@@ -26,7 +26,7 @@ describe('e2e_nested_contract manual', () => {
     await expect(
       parentContract.methods
         .entry_point(childContract.address, await (childContract.methods as any).value_internal.selector())
-        .simulate(),
+        .simulate({ from: defaultAccountAddress }),
     ).rejects.toThrow(/Assertion failed: Function value_internal can only be called internally/);
   });
 });

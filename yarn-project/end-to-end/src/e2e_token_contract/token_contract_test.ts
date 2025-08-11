@@ -1,5 +1,5 @@
 import { getSchnorrWallet } from '@aztec/accounts/schnorr';
-import { type AccountWallet, type AztecNode, type CompleteAddress, type Logger, createLogger } from '@aztec/aztec.js';
+import { type AccountWallet, AztecAddress, type AztecNode, type Logger, createLogger } from '@aztec/aztec.js';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { InvalidAccountContract } from '@aztec/noir-test-contracts.js/InvalidAccount';
 
@@ -23,12 +23,17 @@ export class TokenContractTest {
   static TOKEN_DECIMALS = 18n;
   private snapshotManager: ISnapshotManager;
   logger: Logger;
-  wallets: AccountWallet[] = [];
-  accounts: CompleteAddress[] = [];
   asset!: TokenContract;
   tokenSim!: TokenSimulator;
-  badAccount!: InvalidAccountContract;
   node!: AztecNode;
+
+  badAccount!: InvalidAccountContract;
+  admin!: AccountWallet;
+  adminAddress!: AztecAddress;
+  account1!: AccountWallet;
+  account1Address!: AztecAddress;
+  account2!: AccountWallet;
+  account2Address!: AztecAddress;
 
   constructor(testName: string) {
     this.logger = createLogger(`e2e:e2e_token_contract:${testName}`);
@@ -51,8 +56,9 @@ export class TokenContractTest {
       deployAccounts(3, this.logger),
       async ({ deployedAccounts }, { pxe, aztecNode }) => {
         this.node = aztecNode;
-        this.wallets = await Promise.all(deployedAccounts.map(a => getSchnorrWallet(pxe, a.address, a.signingKey)));
-        this.accounts = this.wallets.map(w => w.getCompleteAddress());
+        const wallets = await Promise.all(deployedAccounts.map(a => getSchnorrWallet(pxe, a.address, a.signingKey)));
+        [this.admin, this.account1, this.account2] = wallets;
+        [this.adminAddress, this.account1Address, this.account2Address] = wallets.map(w => w.getAddress());
       },
     );
 
@@ -62,42 +68,42 @@ export class TokenContractTest {
         // Create the token contract state.
         // Move this account thing to addAccounts above?
         this.logger.verbose(`Public deploy accounts...`);
-        await publicDeployAccounts(this.wallets[0], this.accounts.slice(0, 2));
+        await publicDeployAccounts(this.admin, [this.adminAddress, this.account1Address]);
 
         this.logger.verbose(`Deploying TokenContract...`);
         const asset = await TokenContract.deploy(
-          this.wallets[0],
-          this.accounts[0],
+          this.admin,
+          this.adminAddress,
           TokenContractTest.TOKEN_NAME,
           TokenContractTest.TOKEN_SYMBOL,
           TokenContractTest.TOKEN_DECIMALS,
         )
-          .send()
+          .send({ from: this.adminAddress })
           .deployed();
         this.logger.verbose(`Token deployed to ${asset.address}`);
 
         this.logger.verbose(`Deploying bad account...`);
-        this.badAccount = await InvalidAccountContract.deploy(this.wallets[0]).send().deployed();
+        this.badAccount = await InvalidAccountContract.deploy(this.admin).send({ from: this.adminAddress }).deployed();
         this.logger.verbose(`Deployed to ${this.badAccount.address}.`);
 
         return { tokenContractAddress: asset.address, badAccountAddress: this.badAccount.address };
       },
       async ({ tokenContractAddress, badAccountAddress }) => {
         // Restore the token contract state.
-        this.asset = await TokenContract.at(tokenContractAddress, this.wallets[0]);
+        this.asset = await TokenContract.at(tokenContractAddress, this.admin);
         this.logger.verbose(`Token contract address: ${this.asset.address}`);
 
-        this.tokenSim = new TokenSimulator(
-          this.asset,
-          this.wallets[0],
-          this.logger,
-          this.accounts.map(a => a.address),
-        );
+        this.tokenSim = new TokenSimulator(this.asset, this.admin, this.adminAddress, this.logger, [
+          this.adminAddress,
+          this.account1Address,
+        ]);
 
-        this.badAccount = await InvalidAccountContract.at(badAccountAddress, this.wallets[0]);
+        this.badAccount = await InvalidAccountContract.at(badAccountAddress, this.admin);
         this.logger.verbose(`Bad account address: ${this.badAccount.address}`);
 
-        expect(await this.asset.methods.get_admin().simulate()).toBe(this.accounts[0].address.toBigInt());
+        expect(await this.asset.methods.get_admin().simulate({ from: this.adminAddress })).toBe(
+          this.adminAddress.toBigInt(),
+        );
       },
     );
 
@@ -125,36 +131,32 @@ export class TokenContractTest {
     await this.snapshotManager.snapshot(
       'mint',
       async () => {
-        const { asset, wallets } = this;
+        const { asset, admin, adminAddress } = this;
         const amount = 10000n;
 
         this.logger.verbose(`Minting ${amount} publicly...`);
-        await asset.methods.mint_to_public(wallets[0].getAddress(), amount).send().wait();
+        await asset.methods.mint_to_public(adminAddress, amount).send({ from: adminAddress }).wait();
 
         this.logger.verbose(`Minting ${amount} privately...`);
-        await mintTokensToPrivate(asset, wallets[0], wallets[0].getAddress(), amount);
+        await mintTokensToPrivate(asset, adminAddress, admin, adminAddress, amount);
         this.logger.verbose(`Minting complete.`);
 
         return { amount };
       },
       async ({ amount }) => {
-        const {
-          asset,
-          accounts: [{ address }],
-          tokenSim,
-        } = this;
-        tokenSim.mintPublic(address, amount);
+        const { asset, adminAddress, tokenSim } = this;
+        tokenSim.mintPublic(adminAddress, amount);
 
-        const publicBalance = await asset.methods.balance_of_public(address).simulate();
+        const publicBalance = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
         this.logger.verbose(`Public balance of wallet 0: ${publicBalance}`);
-        expect(publicBalance).toEqual(this.tokenSim.balanceOfPublic(address));
+        expect(publicBalance).toEqual(this.tokenSim.balanceOfPublic(adminAddress));
 
-        tokenSim.mintPrivate(address, amount);
-        const privateBalance = await asset.methods.balance_of_private(address).simulate();
+        tokenSim.mintPrivate(adminAddress, amount);
+        const privateBalance = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
         this.logger.verbose(`Private balance of wallet 0: ${privateBalance}`);
-        expect(privateBalance).toEqual(tokenSim.balanceOfPrivate(address));
+        expect(privateBalance).toEqual(tokenSim.balanceOfPrivate(adminAddress));
 
-        const totalSupply = await asset.methods.total_supply().simulate();
+        const totalSupply = await asset.methods.total_supply().simulate({ from: adminAddress });
         this.logger.verbose(`Total supply: ${totalSupply}`);
         expect(totalSupply).toEqual(tokenSim.totalSupply);
 

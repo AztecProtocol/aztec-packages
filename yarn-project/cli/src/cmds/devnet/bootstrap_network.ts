@@ -60,6 +60,7 @@ export async function bootstrapNetwork(
   await accountManager.register();
 
   const wallet = await accountManager.getWallet();
+  const defaultAccountAddress = wallet.getAddress();
 
   const l1Client = createExtendedL1Client(
     l1Urls,
@@ -73,16 +74,16 @@ export async function bootstrapNetwork(
 
   const { erc20Address, portalAddress } = await deployERC20(l1Client);
 
-  const { token, bridge } = await deployToken(wallet, portalAddress);
+  const { token, bridge } = await deployToken(wallet, defaultAccountAddress, portalAddress);
 
   await initPortal(pxe, l1Client, erc20Address, portalAddress, bridge.address);
 
   const fpcAdmin = wallet.getAddress();
-  const fpc = await deployFPC(wallet, token.address, fpcAdmin);
+  const fpc = await deployFPC(wallet, defaultAccountAddress, token.address, fpcAdmin);
 
-  const counter = await deployCounter(wallet);
+  const counter = await deployCounter(wallet, defaultAccountAddress);
 
-  await fundFPC(pxe, counter.address, wallet, l1Client, fpc.address, debugLog);
+  await fundFPC(pxe, counter.address, wallet, defaultAccountAddress, l1Client, fpc.address, debugLog);
 
   if (json) {
     log(
@@ -168,6 +169,7 @@ async function deployERC20(l1Client: ExtendedViemWalletClient) {
  */
 async function deployToken(
   wallet: Wallet,
+  defaultAccountAddress: AztecAddress,
   l1Portal: EthAddress,
 ): Promise<{ token: ContractDeploymentInfo; bridge: ContractDeploymentInfo }> {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -176,18 +178,18 @@ async function deployToken(
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
   const { TokenBridgeContract } = await import('@aztec/noir-contracts.js/TokenBridge');
-  const devCoin = await TokenContract.deploy(wallet, wallet.getAddress(), 'DevCoin', 'DEV', 18)
-    .send({ universalDeploy: true })
+  const devCoin = await TokenContract.deploy(wallet, defaultAccountAddress, 'DevCoin', 'DEV', 18)
+    .send({ from: defaultAccountAddress, universalDeploy: true })
     .deployed(waitOpts);
   const bridge = await TokenBridgeContract.deploy(wallet, devCoin.address, l1Portal)
-    .send({ universalDeploy: true })
+    .send({ from: defaultAccountAddress, universalDeploy: true })
     .deployed(waitOpts);
 
   await new BatchCall(wallet, [
     devCoin.methods.set_minter(bridge.address, true),
     devCoin.methods.set_admin(bridge.address),
   ])
-    .send()
+    .send({ from: defaultAccountAddress })
     .wait(waitOpts);
 
   return {
@@ -232,13 +234,16 @@ async function initPortal(
 
 async function deployFPC(
   wallet: Wallet,
+  defaultAccountAddress: AztecAddress,
   tokenAddress: AztecAddress,
   admin: AztecAddress,
 ): Promise<ContractDeploymentInfo> {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
   const { FPCContract } = await import('@aztec/noir-contracts.js/FPC');
-  const fpc = await FPCContract.deploy(wallet, tokenAddress, admin).send({ universalDeploy: true }).deployed(waitOpts);
+  const fpc = await FPCContract.deploy(wallet, tokenAddress, admin)
+    .send({ from: defaultAccountAddress, universalDeploy: true })
+    .deployed(waitOpts);
   const info: ContractDeploymentInfo = {
     address: fpc.address,
     initHash: fpc.instance.initializationHash,
@@ -247,12 +252,12 @@ async function deployFPC(
   return info;
 }
 
-async function deployCounter(wallet: Wallet): Promise<ContractDeploymentInfo> {
+async function deployCounter(wallet: Wallet, defaultAccountAddress: AztecAddress): Promise<ContractDeploymentInfo> {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
   const { CounterContract } = await import('@aztec/noir-test-contracts.js/Counter');
-  const counter = await CounterContract.deploy(wallet, 1, wallet.getAddress())
-    .send({ universalDeploy: true })
+  const counter = await CounterContract.deploy(wallet, 1, defaultAccountAddress)
+    .send({ from: defaultAccountAddress, universalDeploy: true })
     .deployed(waitOpts);
   const info: ContractDeploymentInfo = {
     address: counter.address,
@@ -267,6 +272,7 @@ async function fundFPC(
   pxe: PXE,
   counterAddress: AztecAddress,
   wallet: Wallet,
+  defaultAccountAddress: AztecAddress,
   l1Client: ExtendedViemWalletClient,
   fpcAddress: AztecAddress,
   debugLog: Logger,
@@ -299,14 +305,14 @@ async function fundFPC(
 
   // TODO (alexg) remove this once sequencer builds blocks continuously
   // advance the chain
-  await counter.methods.increment(wallet.getAddress()).send().wait(waitOpts);
-  await counter.methods.increment(wallet.getAddress()).send().wait(waitOpts);
+  await counter.methods.increment(wallet.getAddress()).send({ from: defaultAccountAddress }).wait(waitOpts);
+  await counter.methods.increment(wallet.getAddress()).send({ from: defaultAccountAddress }).wait(waitOpts);
 
   debugLog.info('Claiming FPC');
 
   const receipt = await feeJuiceContract.methods
     .claim(fpcAddress, claimAmount, claimSecret, messageLeafIndex)
-    .send()
+    .send({ from: defaultAccountAddress })
     .wait({ ...waitOpts });
 
   await waitForProven(pxe, receipt, provenWaitOpts);

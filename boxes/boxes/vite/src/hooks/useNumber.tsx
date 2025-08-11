@@ -1,7 +1,7 @@
-import { useState } from 'react';
-import { Contract } from '@aztec/aztec.js';
-import { toast } from 'react-toastify';
-import { deployerEnv } from '../config';
+import { useState } from "react";
+import { Contract } from "@aztec/aztec.js";
+import { toast } from "react-toastify";
+import { deployerEnv } from "../config";
 
 export function useNumber({ contract }: { contract: Contract }) {
   const [wait, setWait] = useState(false);
@@ -11,7 +11,9 @@ export function useNumber({ contract }: { contract: Contract }) {
 
     setWait(true);
     const deployerWallet = await deployerEnv.getWallet();
-    const viewTxReceipt = await contract!.methods.getNumber(deployerWallet.getCompleteAddress().address).simulate();
+    const viewTxReceipt = await contract!.methods
+      .getNumber(deployerWallet.getCompleteAddress().address)
+      .simulate({ from: deployerWallet.getAddress() });
     toast(`Number is: ${viewTxReceipt.value}`);
     setWait(false);
   };
@@ -19,7 +21,9 @@ export function useNumber({ contract }: { contract: Contract }) {
   const setNumber = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    const el = e.currentTarget.elements.namedItem('numberToSet') as HTMLInputElement;
+    const el = e.currentTarget.elements.namedItem(
+      "numberToSet",
+    ) as HTMLInputElement;
     if (el) {
       setWait(true);
 
@@ -28,16 +32,13 @@ export function useNumber({ contract }: { contract: Contract }) {
 
       await toast.promise(
         contract!.methods
-          .setNumber(
-            value,
-            deployerWallet.getCompleteAddress().address,
-          )
-          .send()
+          .setNumber(value, deployerWallet.getCompleteAddress().address)
+          .send({ from: deployerWallet.getAddress() })
           .wait(),
         {
-          pending: 'Setting number...',
+          pending: "Setting number...",
           success: `Number set to: ${value}`,
-          error: 'Error setting number',
+          error: "Error setting number",
         },
       );
       setWait(false);

@@ -96,7 +96,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
     try {
       const copyCatWallet = await CopyCatAccountWallet.create(pxe, wallet);
       const call = contract.withWallet(copyCatWallet).methods[fnName](...parameters);
-      result = await call.simulate({ skipFeeEnforcement: true });
+      result = await call.simulate({ from: wallet.getAddress(), skipFeeEnforcement: true });
       const stringResult = JSON.stringify(result, (key, value) => {
         if (typeof value === 'bigint') {
           return value.toString();

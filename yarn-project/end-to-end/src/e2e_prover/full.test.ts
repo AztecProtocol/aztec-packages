@@ -85,12 +85,12 @@ describe('full_prover', () => {
       );
 
       // Create the two transactions
-      const privateBalance = await provenAssets[0].methods.balance_of_private(sender).simulate();
+      const privateBalance = await provenAssets[0].methods.balance_of_private(sender).simulate({ from: sender });
       const privateSendAmount = privateBalance / 10n;
       expect(privateSendAmount).toBeGreaterThan(0n);
       const privateInteraction = provenAssets[0].methods.transfer(recipient, privateSendAmount);
 
-      const publicBalance = await provenAssets[1].methods.balance_of_public(sender).simulate();
+      const publicBalance = await provenAssets[1].methods.balance_of_public(sender).simulate({ from: sender });
       const publicSendAmount = publicBalance / 10n;
       expect(publicSendAmount).toBeGreaterThan(0n);
       const publicInteraction = provenAssets[1].methods.transfer_in_public(sender, recipient, publicSendAmount, 0);
@@ -98,8 +98,8 @@ describe('full_prover', () => {
       // Prove them
       logger.info(`Proving txs`);
       const [publicProvenTx, privateProvenTx] = await Promise.all([
-        publicInteraction.prove(),
-        privateInteraction.prove(),
+        publicInteraction.prove({ from: sender }),
+        privateInteraction.prove({ from: sender }),
       ]);
 
       // Verify them
@@ -176,12 +176,12 @@ describe('full_prover', () => {
       return;
     }
     // Create the two transactions
-    const privateBalance = await provenAssets[0].methods.balance_of_private(sender).simulate();
+    const privateBalance = await provenAssets[0].methods.balance_of_private(sender).simulate({ from: sender });
     const privateSendAmount = privateBalance / 20n;
     expect(privateSendAmount).toBeGreaterThan(0n);
     const firstPrivateInteraction = provenAssets[0].methods.transfer(recipient, privateSendAmount);
 
-    const publicBalance = await provenAssets[1].methods.balance_of_public(sender).simulate();
+    const publicBalance = await provenAssets[1].methods.balance_of_public(sender).simulate({ from: sender });
     const publicSendAmount = publicBalance / 10n;
     expect(publicSendAmount).toBeGreaterThan(0n);
     const publicInteraction = provenAssets[1].methods.transfer_in_public(sender, recipient, publicSendAmount, 0);
@@ -189,8 +189,8 @@ describe('full_prover', () => {
     // Prove them
     logger.info(`Proving txs`);
     const [publicProvenTx, firstPrivateProvenTx] = await Promise.all([
-      publicInteraction.prove(),
-      firstPrivateInteraction.prove(),
+      publicInteraction.prove({ from: sender }),
+      firstPrivateInteraction.prove({ from: sender }),
     ]);
 
     // Sends the txs to node and awaits them to be mined separately, so they land on different blocks,
@@ -207,7 +207,7 @@ describe('full_prover', () => {
       provenAssets[0].methods.set_admin(sender),
       provenAssets[1].methods.transfer_in_public(sender, recipient, publicSendAmount, 0),
     ];
-    const secondBlockProvenTxs = await Promise.all(secondBlockInteractions.map(p => p.prove()));
+    const secondBlockProvenTxs = await Promise.all(secondBlockInteractions.map(p => p.prove({ from: sender })));
     const secondBlockTxs = await Promise.all(secondBlockProvenTxs.map(p => p.send()));
     await Promise.all(secondBlockTxs.map(t => t.wait({ timeout: 300, interval: 10 })));
 
@@ -268,8 +268,8 @@ describe('full_prover', () => {
     const privateInteraction = t.fakeProofsAsset.methods.transfer(recipient, 1n);
     const publicInteraction = t.fakeProofsAsset.methods.transfer_in_public(sender, recipient, 1n, 0);
 
-    const sentPrivateTx = privateInteraction.send();
-    const sentPublicTx = publicInteraction.send();
+    const sentPrivateTx = privateInteraction.send({ from: sender });
+    const sentPublicTx = publicInteraction.send({ from: sender });
 
     const results = await Promise.allSettled([
       sentPrivateTx.wait({ timeout: 10, interval: 0.1 }),
@@ -294,7 +294,7 @@ describe('full_prover', () => {
       logger.info(`Creating and proving tx`);
       const sendAmount = 1n;
       const interaction = provenAssets[0].methods.transfer(recipient, sendAmount);
-      const provenTx = await interaction.prove();
+      const provenTx = await interaction.prove({ from: sender });
       const wallet = (provenTx as any).wallet;
 
       // Verify the tx proof

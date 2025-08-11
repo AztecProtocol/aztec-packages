@@ -22,7 +22,7 @@ import { getContract } from 'viem';
 export interface IGasBridgingTestHarness {
   getL1FeeJuiceBalance(address: EthAddress): Promise<bigint>;
   prepareTokensOnL1(bridgeAmount: bigint, owner: AztecAddress): Promise<L2AmountClaim>;
-  bridgeFromL1ToL2(bridgeAmount: bigint, owner: AztecAddress): Promise<void>;
+  bridgeFromL1ToL2(bridgeAmount: bigint, owner: AztecAddress, claimer: AztecAddress): Promise<void>;
   feeJuice: FeeJuiceContract;
   l1FeeJuiceAddress: EthAddress;
 }
@@ -141,14 +141,14 @@ export class GasBridgingTestHarness implements IGasBridgingTestHarness {
     return this.feeJuicePortalManager.bridgeTokensPublic(l2Address, bridgeAmount, false);
   }
 
-  async consumeMessageOnAztecAndClaimPrivately(owner: AztecAddress, claim: L2AmountClaim) {
+  async consumeMessageOnAztecAndClaimPrivately(owner: AztecAddress, claimer: AztecAddress, claim: L2AmountClaim) {
     this.logger.info('Consuming messages on L2 Privately');
     const { claimAmount, claimSecret, messageLeafIndex } = claim;
-    await this.feeJuice.methods.claim(owner, claimAmount, claimSecret, messageLeafIndex).send().wait();
+    await this.feeJuice.methods.claim(owner, claimAmount, claimSecret, messageLeafIndex).send({ from: claimer }).wait();
   }
 
   async getL2PublicBalanceOf(owner: AztecAddress) {
-    return await this.feeJuice.methods.balance_of_public(owner).simulate();
+    return await this.feeJuice.methods.balance_of_public(owner).simulate({ from: owner });
   }
 
   async expectPublicBalanceOnL2(owner: AztecAddress, expectedBalance: bigint) {
@@ -170,12 +170,12 @@ export class GasBridgingTestHarness implements IGasBridgingTestHarness {
     return claim;
   }
 
-  async bridgeFromL1ToL2(bridgeAmount: bigint, owner: AztecAddress) {
+  async bridgeFromL1ToL2(bridgeAmount: bigint, owner: AztecAddress, claimer: AztecAddress) {
     // Prepare the tokens on the L1 side
     const claim = await this.prepareTokensOnL1(bridgeAmount, owner);
 
     // Consume L1 -> L2 message and claim tokens privately on L2
-    await this.consumeMessageOnAztecAndClaimPrivately(owner, claim);
+    await this.consumeMessageOnAztecAndClaimPrivately(owner, claimer, claim);
   }
 
   private async advanceL2Block() {
