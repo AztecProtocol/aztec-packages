@@ -133,7 +133,7 @@ function test_cmds {
     # Enable real proofs in prover-client integration tests only on CI full.
     if [[ "$test" =~ ^prover-client/src/test/ ]]; then
       if [ "$CI_FULL" -eq 1 ]; then
-        prefix+=":CPUS=16:MEM=96g"
+        prefix+=":CPUS=16:MEM=96g:TIMEOUT=15m"
         cmd_env+=" LOG_LEVEL=verbose"
       else
         cmd_env+=" FAKE_PROOFS=1"
