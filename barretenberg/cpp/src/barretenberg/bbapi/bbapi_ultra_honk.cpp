@@ -232,6 +232,7 @@ CircuitComputeVk::Response CircuitComputeVk::execute(BB_UNUSED const BBApiReques
             vk_fields.reserve(uint256_elements.size());
             vk_fields.insert(vk_fields.end(), uint256_elements.begin(), uint256_elements.end());
         }
+        vk_hash_bytes = to_buffer(vk->hash());
     };
 
     if (settings.ipa_accumulation) {

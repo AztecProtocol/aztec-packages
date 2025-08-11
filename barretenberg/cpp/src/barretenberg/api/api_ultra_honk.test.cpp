@@ -13,6 +13,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <gtest/gtest.h>
+#include <math.h>
 #include <sstream>
 #include <string_view>
 
@@ -106,7 +107,7 @@ TEST_F(ApiUltraHonkTest, ProveWithWriteVk)
     auto [bytecode_path, witness_path] = create_test_circuit_files(test_dir);
 
     API::Flags flags;
-    flags.output_format = "bytes";
+    flags.output_format = "bytes_and_fields"; // Test both output formats
     flags.oracle_hash_type = "poseidon2";
     flags.write_vk = true;
 
@@ -122,6 +123,8 @@ TEST_F(ApiUltraHonkTest, ProveWithWriteVk)
     EXPECT_TRUE(std::filesystem::exists(proof_output_dir / "public_inputs"));
     EXPECT_TRUE(std::filesystem::exists(proof_output_dir / "vk"));
     EXPECT_TRUE(std::filesystem::exists(proof_output_dir / "vk_hash"));
+    EXPECT_TRUE(std::filesystem::exists(proof_output_dir / "vk_fields.json"));
+    EXPECT_TRUE(std::filesystem::exists(proof_output_dir / "vk_hash_fields.json"));
 
     // Verify the proof
     bool verified =
