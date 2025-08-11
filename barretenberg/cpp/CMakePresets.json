@@ -264,28 +264,6 @@
       }
     },
     {
-      "name": "gcc10",
-      "displayName": "Build with GCC-10",
-      "description": "Build with globally installed GCC-10",
-      "inherits": "default",
-      "environment": {
-        "CC": "gcc-10",
-        "CXX": "g++-10",
-        "CXXFLAGS": "-Wno-missing-field-initializers"
-      }
-    },
-    {
-      "name": "gcc13",
-      "displayName": "Build with GCC-13",
-      "description": "Build with globally installed GCC-13",
-      "inherits": "default",
-      "environment": {
-        "CC": "gcc-13",
-        "CXX": "g++-13",
-        "CXXFLAGS": "-Wno-missing-field-initializers"
-      }
-    },
-    {
       "name": "bench",
       "displayName": "Build benchmarks",
       "description": "Build default preset but with a special benchmark directory",
@@ -492,28 +470,6 @@
         "LDFLAGS": "-fxray-instrument -fxray-instruction-threshold=500 -DXRAY=1"
       },
       "binaryDir": "build-xray"
-    },
-    {
-      "name": "xray-verbose",
-      "displayName": "Build with detailed XRay Profiling",
-      "description": "Build with Clang and enable detailed LLVM XRay for profiling",
-      "inherits": "xray",
-      "environment": {
-        "CFLAGS": "-fxray-instrument -fxray-instruction-threshold=100 -finline-max-stacksize=150 -DXRAY=1",
-        "CXXFLAGS": "-fxray-instrument -fxray-instruction-threshold=100 -finline-max-stacksize=150 -DXRAY=1",
-        "LDFLAGS": "-fxray-instrument -fxray-instruction-threshold=100 -finline-max-stacksize=150 -DXRAY=1"
-      },
-      "binaryDir": "build-xray-verbose"
-    },
-    {
-      "name": "xray-1thread",
-      "displayName": "Build with single-threaded XRay Profiling",
-      "description": "Build with Clang and enable single-threaded LLVM XRay for profiling",
-      "inherits": "xray",
-      "cacheVariables": {
-        "MULTITHREADING": "OFF"
-      },
-      "binaryDir": "build-xray-1thread"
     }
   ],
   "buildPresets": [
@@ -614,16 +570,6 @@
       "configurePreset": "gcc"
     },
     {
-      "name": "gcc10",
-      "inherits": "default",
-      "configurePreset": "gcc10"
-    },
-    {
-      "name": "gcc13",
-      "inherits": "default",
-      "configurePreset": "gcc13"
-    },
-    {
       "name": "bench",
       "inherits": "clang18",
       "configurePreset": "bench"
@@ -704,16 +650,6 @@
       "name": "xray",
       "configurePreset": "xray",
       "inherits": "default"
-    },
-    {
-      "name": "xray-verbose",
-      "configurePreset": "xray-verbose",
-      "inherits": "default"
-    },
-    {
-      "name": "xray-1thread",
-      "configurePreset": "xray-1thread",
-      "inherits": "default"
     }
   ],
   "testPresets": [
@@ -746,16 +682,6 @@
       "name": "gcc",
       "inherits": "default",
       "configurePreset": "gcc"
-    },
-    {
-      "name": "gcc10",
-      "inherits": "default",
-      "configurePreset": "gcc10"
-    },
-    {
-      "name": "gcc13",
-      "inherits": "default",
-      "configurePreset": "gcc13"
     },
     {
       "name": "bench",
