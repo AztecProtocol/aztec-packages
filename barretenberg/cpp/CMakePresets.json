@@ -112,7 +112,7 @@
       }
     },
     {
-      "name": "clang18-dbg",
+      "name": "debug",
       "displayName": "Debugging build with Clang-18",
       "description": "Build with globally installed Clang-18 in debug mode",
       "inherits": "clang18",
@@ -183,10 +183,10 @@
       }
     },
     {
-      "name": "clang18-dbg-fast",
+      "name": "debug-fast",
       "displayName": "Optimized debug build with Clang-18",
       "description": "Build with globally installed Clang-18 in optimized debug mode",
-      "inherits": "clang18-dbg",
+      "inherits": "debug",
       "binaryDir": "build-debug-fast",
       "environment": {
         "CMAKE_BUILD_TYPE": "Debug",
@@ -206,20 +206,20 @@
       }
     },
     {
-      "name": "clang18-dbg-no-avm",
+      "name": "debug-no-avm",
       "displayName": "Optimized debug build with Clang-18 (no AVM)",
       "description": "Build with globally installed Clang-18 in debug mode excluding the Aztec VM",
-      "inherits": "clang18-dbg",
+      "inherits": "debug",
       "binaryDir": "build-debug-no-avm",
       "cacheVariables": {
         "DISABLE_AZTEC_VM": "ON"
       }
     },
     {
-      "name": "clang18-dbg-fast-circuit-check-traces",
+      "name": "debug-fast-circuit-check-traces",
       "displayName": "Optimized debug build with Clang-18 with stack traces for failing circuit checks",
       "description": "Build with globally installed Clang-18 in optimized debug mode with stack traces for failing circuit checks",
-      "inherits": "clang18-dbg-fast",
+      "inherits": "debug-fast",
       "binaryDir": "build-debug-fast-circuit-check-traces",
       "cacheVariables": {
         "CHECK_CIRCUIT_STACKTRACES": "ON"
@@ -229,7 +229,7 @@
       "name": "asan-fast",
       "displayName": "Debugging build with address sanitizer on Clang-18 in optimized debug mode",
       "description": "Build with address sanitizer on clang18 in optimized debug mode",
-      "inherits": "clang18-dbg-fast",
+      "inherits": "debug-fast",
       "binaryDir": "build-asan-fast",
       "cacheVariables": {
         "ENABLE_ASAN": "ON",
@@ -241,7 +241,7 @@
       "name": "asan",
       "displayName": "Debugging build with address sanitizer on Clang-18",
       "description": "Build with address sanitizer on clang18 with debugging information",
-      "inherits": "clang18-dbg",
+      "inherits": "debug",
       "binaryDir": "build-asan",
       "environment": {
         "CMAKE_BUILD_TYPE": "Debug"
@@ -322,7 +322,7 @@
       "name": "fuzzing-asan",
       "displayName": "Build with fuzzing",
       "description": "Build default preset but with fuzzing and asan enabled",
-      "inherits": "clang18-dbg",
+      "inherits": "debug",
       "binaryDir": "build-fuzzing-asan",
       "cacheVariables": {
         "FUZZING": "ON",
@@ -361,7 +361,7 @@
       "name": "tsan",
       "displayName": "Debugging build with thread sanitizer on Clang-18",
       "description": "Build with thread sanitizer on clang18 with debugging information",
-      "inherits": "clang18-dbg",
+      "inherits": "debug",
       "binaryDir": "build-tsan",
       "cacheVariables": {
         "HAVE_STD_REGEX": "ON"
@@ -376,7 +376,7 @@
       "name": "ubsan",
       "displayName": "Debugging build with undefined behaviour sanitizer on Clang-18",
       "description": "Build with undefined behaviour sanitizer on clang18 with debugging information",
-      "inherits": "clang18-dbg",
+      "inherits": "debug",
       "binaryDir": "build-ubsan",
       "generator": "Unix Makefiles",
       "environment": {
@@ -389,7 +389,7 @@
       "name": "msan",
       "displayName": "Debugging build with memory sanitizer on Clang-18",
       "description": "Build with thread sanitizer on clang18 with debugging information",
-      "inherits": "clang18-dbg",
+      "inherits": "debug",
       "binaryDir": "build-msan",
       "environment": {
         "CFLAGS": "-fsanitize=memory",
@@ -544,9 +544,9 @@
       "configurePreset": "darwin-amd64"
     },
     {
-      "name": "clang18-dbg",
+      "name": "debug",
       "inherits": "default",
-      "configurePreset": "clang18-dbg"
+      "configurePreset": "debug"
     },
     {
       "name": "clang18-no-avm",
@@ -554,9 +554,9 @@
       "configurePreset": "clang18-no-avm"
     },
     {
-      "name": "clang18-dbg-no-avm",
+      "name": "debug-no-avm",
       "inherits": "default",
-      "configurePreset": "clang18-dbg-no-avm"
+      "configurePreset": "debug-no-avm"
     },
     {
       "name": "tracy-memory",
@@ -589,14 +589,14 @@
       "configurePreset": "tracy-gates"
     },
     {
-      "name": "clang18-dbg-fast",
+      "name": "debug-fast",
       "inherits": "default",
-      "configurePreset": "clang18-dbg-fast"
+      "configurePreset": "debug-fast"
     },
     {
-      "name": "clang18-dbg-fast-circuit-check-traces",
-      "inherits": "clang18-dbg-fast",
-      "configurePreset": "clang18-dbg-fast-circuit-check-traces"
+      "name": "debug-fast-circuit-check-traces",
+      "inherits": "debug-fast",
+      "configurePreset": "debug-fast-circuit-check-traces"
     },
     {
       "name": "asan-fast",
@@ -635,7 +635,7 @@
     },
     {
       "name": "fuzzing-asan",
-      "inherits": "clang18-dbg",
+      "inherits": "debug",
       "configurePreset": "fuzzing-asan"
     },
     {
@@ -670,7 +670,7 @@
     },
     {
       "name": "clang18-coverage",
-      "inherits": "clang18-dbg-fast",
+      "inherits": "debug-fast",
       "configurePreset": "clang18-coverage"
     },
     {
@@ -733,9 +733,9 @@
       "configurePreset": "clang18"
     },
     {
-      "name": "clang18-dbg",
+      "name": "debug",
       "inherits": "default",
-      "configurePreset": "clang18-dbg"
+      "configurePreset": "debug"
     },
     {
       "name": "asan",
@@ -769,7 +769,7 @@
     },
     {
       "name": "fuzzing-asan",
-      "inherits": "clang18-dbg",
+      "inherits": "debug",
       "configurePreset": "fuzzing-asan"
     },
     {
