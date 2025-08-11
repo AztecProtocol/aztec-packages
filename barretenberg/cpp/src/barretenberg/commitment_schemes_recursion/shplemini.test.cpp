@@ -36,6 +36,8 @@ template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typena
     using MockClaimGen = MockClaimGenerator<NativeCurve>;
     using StdlibProof = bb::stdlib::Proof<Builder>;
 
+    static constexpr size_t log_circuit_size = 10;
+
     static std::vector<Fr> convert_elements_to_witnesses(Builder& builder, const std::vector<NativeFr>& elements)
     {
         std::vector<Fr> out(elements.size());
@@ -66,35 +68,28 @@ template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typena
         return out;
     }
 
-    template <size_t num_polys, size_t num_shifted> void run_shplemini_full_scalars(size_t log_circuit_size)
+    template <size_t num_polys, size_t num_shifted> void run_shplemini_full_scalars()
     {
-        run_shplemini_generic<num_polys, num_shifted, false>(log_circuit_size);
+        run_shplemini_generic<num_polys, num_shifted, false>();
     }
 
-    template <size_t num_polys, size_t num_shifted>
-    void run_shplemini_short_scalars(size_t log_circuit_size)
-        requires std::is_same_v<Builder, MegaCircuitBuilder>
+    template <size_t num_polys, size_t num_shifted> void run_shplemini_short_scalars()
     {
-        run_shplemini_generic<num_polys, num_shifted, true>(log_circuit_size);
+        run_shplemini_generic<num_polys, num_shifted, true>();
     }
 
   private:
-    template <size_t num_polys, size_t num_shifted, bool short_scalars>
-    size_t run_shplemini_generic(size_t log_circuit_size)
+    template <size_t num_polys, size_t num_shifted, bool short_scalars> void run_shplemini_generic()
     {
-        using diff_t = typename std::vector<NativeFr>::difference_type;
-
         size_t N = 1 << log_circuit_size;
+
         const auto padding_indicator_array =
-            stdlib::compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(log_circuit_size);
+            stdlib::compute_padding_indicator_array<Curve, log_circuit_size>(log_circuit_size);
 
         CommitmentKey commitment_key(16384);
-        std::vector<NativeFr> u_challenge = random_challenge_vector(CONST_PROOF_SIZE_LOG_N);
+        std::vector<NativeFr> u_challenge = random_challenge_vector(log_circuit_size);
 
-        std::vector<NativeFr> truncated_u_challenge(u_challenge.begin(),
-                                                    u_challenge.begin() + static_cast<diff_t>(log_circuit_size));
-
-        MockClaimGen mock_claims(N, num_polys, num_shifted, 0, truncated_u_challenge, commitment_key);
+        MockClaimGen mock_claims(N, num_polys, num_shifted, 0, u_challenge, commitment_key);
         auto prover_transcript = NativeTranscript::prover_init_empty();
         // Initialize polys outside of `if` as they are used inside RefVector ClaimBatcher members.
         Polynomial<NativeFr> squashed_unshifted(N);
@@ -188,25 +183,11 @@ template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typena
             auto [unshifted_challenges, shifted_challenges] =
                 get_batching_challenges(unshifted_batching_challenge_labels, shifted_batching_challenge_labels);
 
-            // Track the number of ECCVM rows being added by a `batch_mul` call.
-            size_t num_rows_before_msm = builder.op_queue->get_num_rows();
-
             squashed_unshifted_comm =
-                Commitment::batch_mul(claim_batcher.get_unshifted().commitments, unshifted_challenges);
+                Commitment::batch_mul(claim_batcher.get_unshifted().commitments, unshifted_challenges, 128);
 
-            size_t num_rows_after_msm = builder.op_queue->get_num_rows();
-            // Since the first coefficient is 1, we subtract 1.
-            size_t ceil = (num_polys - 1 + 3) / 4;
-            // Check that the number of new rows is as expected.
-            EXPECT_EQ(num_rows_after_msm - num_rows_before_msm, 33 * ceil + 31);
-
-            // Track the number of ECCVM rows added by batching all shifted commitments
-            num_rows_before_msm = num_rows_after_msm;
-
-            squashed_shifted_comm = Commitment::batch_mul(claim_batcher.get_shifted().commitments, shifted_challenges);
-            num_rows_after_msm = builder.op_queue->get_num_rows();
-            // Check that the number of new rows is as expected.
-            EXPECT_EQ(num_rows_after_msm - num_rows_before_msm, 33 * ((num_shifted + 3) / 4) + 31);
+            squashed_shifted_comm =
+                Commitment::batch_mul(claim_batcher.get_shifted().commitments, shifted_challenges, 128);
 
             // Compute claimed evaluations
             squashed_unshifted_eval = std::inner_product(unshifted_challenges.begin(),
@@ -239,11 +220,32 @@ template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typena
         EXPECT_EQ(vk.pairing_check(pairing_points[0].get_value(), pairing_points[1].get_value()), true);
 
         if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
-            info("eccvm rows ", builder.op_queue->get_num_rows());
-        }
-        info("builder num gates ", builder.get_estimated_num_finalized_gates());
+            size_t total_num_msm_rows = builder.op_queue->get_num_rows();
 
-        return builder.num_gates;
+            BB_ASSERT_LTE(total_num_msm_rows, 1UL << CONST_ECCVM_LOG_N, "ECCVM/Goblin: Too many ops in ecc op queue");
+
+            if constexpr (short_scalars) {
+
+                const size_t num_non_trivial_scalars_gemini_and_shplonk =
+                    /* shifted + unshifted */ 2 + /* fold comms */ (log_circuit_size - 1) +
+                    /* identity comm */ 1 + /*kzg comm */ 1;
+
+                const size_t num_msm_rows_unshifted = 33 * ((num_polys - 1 + 3) / 4) + 31;
+                const size_t num_msm_rows_shifted = 33 * ((num_shifted + 3) / 4) + 31;
+
+                EXPECT_EQ(total_num_msm_rows - num_msm_rows_shifted - num_msm_rows_unshifted,
+                          33 * ((num_non_trivial_scalars_gemini_and_shplonk + 1) / 2) + 33);
+            } else {
+                const size_t num_non_trivial_scalars_gemini_and_shplonk =
+                    /* fold comms */ (log_circuit_size - 1) +
+                    /* identity comm */ 1 + /*kzg comm */ 1;
+
+                EXPECT_EQ(33 * ((num_polys + num_shifted + num_non_trivial_scalars_gemini_and_shplonk + 1) / 2) + 33,
+                          total_num_msm_rows);
+            }
+        } else {
+            info("builder num gates ", builder.get_estimated_num_finalized_gates());
+        }
     }
 };
 
@@ -266,18 +268,32 @@ using ShpleminiMegaTest = ShpleminiRecursionTest<ShpleminiMegaPCS>;
 
 TEST_F(ShpleminiUltraTest, ProveAndVerifySingleFullScalars)
 {
-    run_shplemini_full_scalars<13, 5>(10);
+    run_shplemini_full_scalars<bb::UltraFlavor::NUM_ALL_ENTITIES - bb::UltraFlavor::NUM_WITNESS_ENTITIES, 0>();
+}
+
+TEST_F(ShpleminiUltraTest, ProveAndVerifySingleShortScalars)
+{
+    // We don't hit any edge cases here, because all commitments are random.
+    run_shplemini_short_scalars<bb::UltraFlavor::NUM_ALL_ENTITIES, bb::UltraFlavor::NUM_WITNESS_ENTITIES>();
 }
 
 TEST_F(ShpleminiMegaTest, ProveAndVerifySingleFullScalars)
 {
-    run_shplemini_full_scalars<13, 5>(10);
+    run_shplemini_full_scalars<101, 5>();
+    run_shplemini_full_scalars<102, 6>();
+    run_shplemini_full_scalars<103, 7>();
+}
+
+TEST_F(ShpleminiMegaTest, FullScalarsMaxCapacity)
+{
+    run_shplemini_full_scalars<101, 5>();
 }
 
 TEST_F(ShpleminiMegaTest, GoblinProveAndVerifyShortScalars)
 {
-    run_shplemini_short_scalars<13, 5>(10);
-    run_shplemini_short_scalars<14, 6>(10);
-    run_shplemini_short_scalars<15, 7>(10);
-    run_shplemini_short_scalars<16, 8>(10);
+    run_shplemini_short_scalars<13, 5>();
+    run_shplemini_short_scalars<14, 6>();
+    run_shplemini_short_scalars<15, 7>();
+    run_shplemini_short_scalars<16, 8>();
+    run_shplemini_short_scalars<3100, 300>();
 }
