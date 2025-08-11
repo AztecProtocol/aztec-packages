@@ -118,6 +118,7 @@ export class EmbeddedWallet {
     const deployMethod = await ecdsaAccount.getDeployMethod();
     const sponsoredPFCContract = await this.#getSponsoredPFCContract();
     const deployOpts = {
+      from: AztecAddress.ZERO,
       contractAddressSalt: Fr.fromString(ecdsaAccount.salt.toString()),
       fee: {
         paymentMethod: await ecdsaAccount.getSelfPaymentMethod(

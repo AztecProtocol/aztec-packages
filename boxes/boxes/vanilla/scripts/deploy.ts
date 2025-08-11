@@ -70,6 +70,7 @@ async function createAccount(pxe: PXE) {
   const deployMethod = await ecdsaAccount.getDeployMethod();
   const sponsoredPFCContract = await getSponsoredPFCContract();
   const deployOpts = {
+    from: AztecAddress.ZERO,
     contractAddressSalt: Fr.fromString(ecdsaAccount.salt.toString()),
     fee: {
       paymentMethod: await ecdsaAccount.getSelfPaymentMethod(
