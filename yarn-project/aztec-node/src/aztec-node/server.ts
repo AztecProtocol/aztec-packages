@@ -1125,7 +1125,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return this.validatorsSentinel?.computeStats() ?? Promise.resolve({ stats: {}, slotWindow: 0 });
   }
 
-  public getValidatorStats(validatorAddress: string, fromSlot?: bigint, toSlot?: bigint): Promise<SingleValidatorStats | undefined> {
+  public getValidatorStats(
+    validatorAddress: EthAddress,
+    fromSlot?: bigint,
+    toSlot?: bigint,
+  ): Promise<SingleValidatorStats | undefined> {
     return this.validatorsSentinel?.getValidatorStats(validatorAddress, fromSlot, toSlot) ?? Promise.resolve(undefined);
   }
 
