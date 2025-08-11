@@ -347,7 +347,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     // We try to invalidate the count, but it got sufficient, so tx should revert
     _invalidateByAttestationCount(ree, Errors.ValidatorSelection__InsufficientAttestations.selector);
 
-    // We try to invalidate the wrong attestation, but it ends up reverting
+    // We now invalidate the wrong attestation, no revert
     // https://www.youtube.com/watch?v=glN0W8WogK8
     _invalidateByAttestationSig(ree, ree.invalidAttestationIndex, NO_REVERT);
 
