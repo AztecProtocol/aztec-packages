@@ -80,24 +80,44 @@ function prep_vars {
 
 case "$cmd" in
   "fast")
+    # Check CI cache first
+    if $ci3/check_ci_cache; then
+      echo "✅ CI skipped due to cache hit"
+      exit 0
+    fi
     # Spin up ec2 instance and run the fast flow.
     export JOB_ID="x1-fast"
-    exec bootstrap_ec2 "./bootstrap.sh ci-fast"
+    exec bootstrap_ec2 "./bootstrap.sh ci-fast && $ci3/store_ci_cache"
     ;;
   "full")
+    # Check CI cache first
+    if $ci3/check_ci_cache; then
+      echo "✅ CI skipped due to cache hit"
+      exit 0
+    fi
     # Spin up ec2 instance and run the full flow.
     export JOB_ID="x1-full"
-    exec bootstrap_ec2 "./bootstrap.sh ci-full"
+    exec bootstrap_ec2 "./bootstrap.sh ci-full && $ci3/store_ci_cache"
     ;;
   "docs")
+    # Check CI cache first
+    if $ci3/check_ci_cache; then
+      echo "✅ CI skipped due to cache hit"
+      exit 0
+    fi
     # Spin up ec2 instance and run docs-only CI.
     export JOB_ID="x1-docs"
-    exec bootstrap_ec2 "./bootstrap.sh ci-docs"
+    exec bootstrap_ec2 "./bootstrap.sh ci-docs && $ci3/store_ci_cache"
     ;;
   "barretenberg")
+    # Check CI cache first
+    if $ci3/check_ci_cache; then
+      echo "✅ CI skipped due to cache hit"
+      exit 0
+    fi
     # Spin up ec2 instance and run barretenberg-only CI.
     export JOB_ID="x1-barretenberg"
-    exec bootstrap_ec2 "./bootstrap.sh ci-barretenberg"
+    exec bootstrap_ec2 "./bootstrap.sh ci-barretenberg && $ci3/store_ci_cache"
     ;;
   "grind")
     # Spin up ec2 instance and run the merge-queue flow.

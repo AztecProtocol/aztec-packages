@@ -27,6 +27,7 @@ function enable_auto_merge {
   fi
 
   echo "Enabling auto-merge for PR #$pr_number"
+  # Use regular merge instead of squash to maintain commit history
   gh pr merge "$pr_number" --auto --merge
 }
 
