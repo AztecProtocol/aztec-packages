@@ -1,4 +1,4 @@
-import { type InitialAccountData, deployFundedSchnorrAccount } from '@aztec/accounts/testing';
+import { deployFundedSchnorrAccount } from '@aztec/accounts/testing';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import {
   type AccountWallet,
