@@ -107,17 +107,16 @@ describe('ValidatorClient', () => {
   describe('createBlockProposal', () => {
     it('should create a valid block proposal without txs', async () => {
       const header = makeHeader();
-      const archive = Fr.random();
       const txs = await Promise.all([1, 2, 3, 4, 5].map(() => mockTx()));
 
       const blockProposal = await validatorClient.createBlockProposal(
         header.globalVariables.blockNumber,
         header.toPropose(),
-        archive,
         header.state,
         txs,
         EthAddress.fromString(validatorAccounts[0].address),
         { publishFullTxs: false },
+        Fr.random(),
       );
 
       expect(blockProposal).toBeDefined();
@@ -142,19 +141,22 @@ describe('ValidatorClient', () => {
       const attestor1 = Secp256k1Signer.random();
       const attestor2 = Secp256k1Signer.random();
 
-      const archive = Fr.random();
+      const header = makeHeader();
       const txHashes = [0, 1, 2, 3, 4, 5].map(() => TxHash.random());
 
-      const proposal = makeBlockProposal({ signer, archive, txHashes });
+      const proposal = makeBlockProposal({ signer, header, txHashes });
 
       // Mock the attestations to be returned
       const expectedAttestations = [
-        makeBlockAttestation({ signer, archive, txHashes }),
-        makeBlockAttestation({ signer: attestor1, archive, txHashes }),
-        makeBlockAttestation({ signer: attestor2, archive, txHashes }),
+        makeBlockAttestation({ signer, header, txHashes }),
+        makeBlockAttestation({ signer: attestor1, header, txHashes }),
+        makeBlockAttestation({ signer: attestor2, header, txHashes }),
       ];
       p2pClient.getAttestationsForSlot.mockImplementation((slot, proposalId) => {
-        if (slot === proposal.payload.header.slotNumber.toBigInt() && proposalId === proposal.archive.toString()) {
+        if (
+          slot === proposal.payload.header.slotNumber.toBigInt() &&
+          proposalId === proposal.payload.header.hash().toString()
+        ) {
           return Promise.resolve(expectedAttestations);
         }
         return Promise.resolve([]);
@@ -190,6 +192,7 @@ describe('ValidatorClient', () => {
     let proposal: BlockProposal;
     let sender: PeerId;
     let blockBuildResult: BuildBlockResult;
+    let contentCommitment: ContentCommitment;
 
     const makeTxFromHash = (txHash: TxHash) => ({ getTxHash: () => txHash, txHash }) as Tx;
 
@@ -200,8 +203,12 @@ describe('ValidatorClient', () => {
 
     beforeEach(async () => {
       const emptyInHash = await computeInHashFromL1ToL2Messages([]);
-      const contentCommitment = new ContentCommitment(Fr.random(), emptyInHash, Fr.random());
-      proposal = makeBlockProposal({ header: makeHeader(1, 100, 100, { contentCommitment }) });
+      const parentHeader = makeHeader(1, 100, 100);
+      contentCommitment = new ContentCommitment(Fr.random(), emptyInHash, Fr.random());
+      proposal = makeBlockProposal(
+        { header: makeHeader(1, 100, 100, { contentCommitment }) },
+        parentHeader.toPropose().hash(),
+      );
       // Set the current time to the start of the slot of the proposal
       const genesisTime = 1n;
       const slotTime = genesisTime + proposal.slotNumber.toBigInt() * BigInt(blockBuilder.getConfig().slotDuration);
@@ -230,6 +237,7 @@ describe('ValidatorClient', () => {
 
       blockSource.getBlock.mockResolvedValue({
         archive: new AppendOnlyTreeSnapshot(proposal.payload.header.lastArchiveRoot, proposal.blockNumber),
+        header: parentHeader,
       } as L2Block);
       blockSource.syncImmediate.mockImplementation(() => Promise.resolve());
 
@@ -244,7 +252,7 @@ describe('ValidatorClient', () => {
         block: {
           header: makeHeader(),
           body: { txEffects: times(proposal.txHashes.length, () => ({})) },
-          archive: new AppendOnlyTreeSnapshot(proposal.archive, proposal.blockNumber),
+          archive: new AppendOnlyTreeSnapshot(Fr.ZERO, proposal.blockNumber),
         } as L2Block,
       };
     });
@@ -268,6 +276,8 @@ describe('ValidatorClient', () => {
     });
 
     it('should re-execute and attest to proposal', async () => {
+      blockBuildResult.block.header = makeHeader(1, 100, 100, { contentCommitment });
+
       enableReexecution();
       const attestations = await validatorClient.attestToProposal(proposal, sender);
       expect(attestations?.length).toBeGreaterThan(0);

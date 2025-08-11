@@ -148,6 +148,7 @@ export class ProverNodePublisher {
   }
 
   private async validateEpochProofSubmission(args: {
+    epochNumber: number;
     fromBlock: number;
     toBlock: number;
     publicInputs: RootRollupPublicInputs;
@@ -155,7 +156,7 @@ export class ProverNodePublisher {
     batchedBlobInputs: BatchedBlob;
     attestations: ViemCommitteeAttestation[];
   }) {
-    const { fromBlock, toBlock, publicInputs, batchedBlobInputs } = args;
+    const { epochNumber, fromBlock, toBlock, publicInputs, batchedBlobInputs } = args;
 
     // Check that the block numbers match the expected epoch to be proven
     const { pendingBlockNumber: pending, provenBlockNumber: proven } = await this.rollupContract.getTips();
@@ -169,19 +170,18 @@ export class ProverNodePublisher {
     }
 
     // Check the archive for the immediate block before the epoch
+    // If we're on the first epoch, we can't perform this check
     const blockLog = await this.rollupContract.getBlock(BigInt(fromBlock - 1));
-    if (publicInputs.previousArchiveRoot.toString() !== blockLog.archive) {
+    if (epochNumber > 1 && publicInputs.previousArchiveRoot.toString() !== blockLog.archive) {
       throw new Error(
         `Previous archive root mismatch: ${publicInputs.previousArchiveRoot.toString()} !== ${blockLog.archive}`,
       );
     }
 
-    // Check the archive for the last block in the epoch
+    // Check the header has for the last block in the epoch (no archive committed for this block until proof is submitted)
     const endBlockLog = await this.rollupContract.getBlock(BigInt(toBlock));
-    if (publicInputs.endArchiveRoot.toString() !== endBlockLog.archive) {
-      throw new Error(
-        `End archive root mismatch: ${publicInputs.endArchiveRoot.toString()} !== ${endBlockLog.archive}`,
-      );
+    if (publicInputs.proposedBlockHeaderHashes[toBlock - fromBlock]?.toString() !== endBlockLog.headerHash) {
+      throw new Error(`End header hash mismatch: ${publicInputs.endArchiveRoot.toString()} !== ${endBlockLog.archive}`);
     }
 
     // Check the batched blob inputs from the root rollup against the batched blob computed in ts

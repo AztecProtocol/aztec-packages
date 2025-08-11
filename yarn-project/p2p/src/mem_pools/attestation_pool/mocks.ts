@@ -1,5 +1,4 @@
 import type { Secp256k1Signer } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
 import {
   BlockAttestation,
   ConsensusPayload,
@@ -7,6 +6,7 @@ import {
   getHashedSignaturePayloadEthSignedMessage,
 } from '@aztec/stdlib/p2p';
 import { makeHeader } from '@aztec/stdlib/testing';
+import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import { type LocalAccount, generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
@@ -26,17 +26,13 @@ export const generateAccount = (): LocalAccount => {
  * @param slot The slot number the attestation is for
  * @returns A Block Attestation
  */
-export const mockAttestation = (
-  signer: Secp256k1Signer,
-  slot: number = 0,
-  archive: Fr = Fr.random(),
-): BlockAttestation => {
+export const mockAttestation = (signer: Secp256k1Signer, slot: number = 0, header?: BlockHeader): BlockAttestation => {
   // Use arbitrary numbers for all other than slot
-  const header = makeHeader(1, 2, slot);
-  const payload = new ConsensusPayload(header.toPropose(), archive, header.state);
+  const headerToUse = header ?? makeHeader(1, 2, slot);
+  const payload = new ConsensusPayload(headerToUse.toPropose(), headerToUse.state);
 
   const hash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockAttestation);
   const signature = signer.sign(hash);
 
-  return new BlockAttestation(header.globalVariables.blockNumber, payload, signature);
+  return new BlockAttestation(headerToUse.globalVariables.blockNumber, payload, signature);
 };

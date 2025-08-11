@@ -37,7 +37,7 @@ import { type ProposedBlockHeader, StateReference, TxHash } from '@aztec/stdlib/
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
-import { type TransactionReceipt, type TypedDataDefinition, encodeFunctionData, toHex } from 'viem';
+import { type TransactionReceipt, type TypedDataDefinition, encodeFunctionData } from 'viem';
 
 import type { PublisherConfig, TxSenderConfig } from './config.js';
 import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
@@ -46,8 +46,8 @@ import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
 type L1ProcessArgs = {
   /** The L2 block header. */
   header: ProposedBlockHeader;
-  /** A root of the archive tree after the L2 block is applied. */
-  archive: Buffer;
+  /** The parent header hash. */
+  parentHeaderHash: Fr;
   /** State reference after the L2 block is applied. */
   stateReference: StateReference;
   /** L2 block blobs containing all tx effects. */
@@ -310,11 +310,13 @@ export class SequencerPublisher {
 
   /**
    * @notice  Will call `canProposeAtNextEthBlock` to make sure that it is possible to propose
-   * @param tipArchive - The archive to check
+   * @param lastHeaderHash - The hash of the last header that we expect to be current state
+   * @param msgSender - The address of the proposer
+   * @param opts - Optional options to force the pending block number
    * @returns The slot and block number if it is possible to propose, undefined otherwise
    */
   public canProposeAtNextEthBlock(
-    tipArchive: Fr,
+    lastHeaderHash: Fr,
     msgSender: EthAddress,
     opts: { forcePendingBlockNumber?: number } = {},
   ) {
@@ -322,7 +324,7 @@ export class SequencerPublisher {
     const ignoredErrors = ['SlotAlreadyInChain', 'InvalidProposer', 'InvalidArchive'];
 
     return this.rollupContract
-      .canProposeAtNextEthBlock(tipArchive.toBuffer(), msgSender.toString(), this.ethereumSlotDuration, opts)
+      .canProposeAtNextEthBlock(lastHeaderHash.toBuffer(), msgSender.toString(), this.ethereumSlotDuration, opts)
       .catch(err => {
         if (err instanceof FormattedViemError && ignoredErrors.find(e => err.message.includes(e))) {
           this.log.warn(`Failed canProposeAtTime check with ${ignoredErrors.find(e => err.message.includes(e))}`, {
@@ -497,6 +499,7 @@ export class SequencerPublisher {
         CommitteeAttestation.fromAddress(committeeMember),
       );
     }
+    // @note - should we be verifying attestations here against the digest?
 
     const blobs = await Blob.getBlobsPerBlock(block.body.toBlobFields());
     const blobInput = Blob.getPrefixedEthBlobCommitments(blobs);
@@ -509,7 +512,6 @@ export class SequencerPublisher {
     const args = [
       {
         header: block.header.toPropose().toViem(),
-        archive: toHex(block.archive.root.toBuffer()),
         stateReference: block.header.state.toViem(),
         txHashes: block.body.txEffects.map(txEffect => txEffect.txHash.toString()),
         oracleInput: {
@@ -662,6 +664,7 @@ export class SequencerPublisher {
    */
   public async enqueueProposeL2Block(
     block: L2Block,
+    parentHeaderHash: Fr,
     attestations?: CommitteeAttestation[],
     txHashes?: TxHash[],
     opts: { txTimeoutAt?: Date; forcePendingBlockNumber?: number } = {},
@@ -674,12 +677,13 @@ export class SequencerPublisher {
     const blobs = await Blob.getBlobsPerBlock(block.body.toBlobFields());
     const proposeTxArgs = {
       header: proposedBlockHeader,
-      archive: block.archive.root.toBuffer(),
+      // archive: block.archive.root.toBuffer(),
       stateReference: block.header.state,
       body: block.body.toBuffer(),
       blobs,
       attestations,
       txHashes: txHashes ?? [],
+      parentHeaderHash,
     };
 
     let ts: bigint;
@@ -798,13 +802,13 @@ export class SequencerPublisher {
     const args = [
       {
         header: encodedData.header.toViem(),
-        archive: toHex(encodedData.archive),
         stateReference: encodedData.stateReference.toViem(),
         oracleInput: {
           // We are currently not modifying these. See #9963
           feeAssetPriceModifier: 0n,
         },
         txHashes,
+        parentHeaderHash: encodedData.parentHeaderHash.toString(),
       },
       RollupContract.packAttestations(attestations),
       signers ?? [],
@@ -826,7 +830,6 @@ export class SequencerPublisher {
     args: readonly [
       {
         readonly header: ViemHeader;
-        readonly archive: `0x${string}`;
         readonly stateReference: ViemStateReference;
         readonly txHashes: `0x${string}`[];
         readonly oracleInput: {
