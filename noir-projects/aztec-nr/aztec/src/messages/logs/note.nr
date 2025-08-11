@@ -1,5 +1,6 @@
 use crate::{
     context::PrivateContext,
+    event::event_interface::PrivateLogContent,
     messages::{
         encoding::encode_message,
         encryption::{aes128::AES128, log_encryption::LogEncryption},
@@ -8,7 +9,10 @@ use crate::{
         offchain_messages::emit_offchain_message,
     },
     note::{note_emission::NoteEmission, note_interface::NoteType},
-    utils::{array::subarray::subarray, remove_constraints::remove_constraints},
+    utils::{
+        array::subarray::subarray,
+        remove_constraints::{remove_constraints, remove_constraints_if},
+    },
 };
 use protocol_types::{
     abis::note_hash::NoteHash,
@@ -79,6 +83,78 @@ where
 
     log
 }
+
+/// Emits a note in a private log, encrypting it such that only `recipient` will learn of its contents. The log will
+/// be tagged using a shared secret between `sender` and `recipient`, so that `recipient` can efficiently find the log.
+///
+/// The `constraints` value determines what parts of this computation will be constrained. See the documentation for
+/// each value in `PrivateLogContentConstraintsEnum` to learn more about the different variants.
+pub fn emit_note_in_private_log<Note>(
+    note_emission: NoteEmission<Note>,
+    context: &mut PrivateContext,
+    recipient: AztecAddress,
+    constraints: u8,
+)
+where
+    Note: NoteType + Packable,
+{
+    // This function relies on `constraints` being a constant in order to reduce circuit constraints when unconstrained
+    // usage is requested. If `constraints` were a runtime value then performance would suffer.
+    assert_constant(constraints);
+
+    let note = note_emission.note;
+    let storage_slot = note_emission.storage_slot;
+    let note_hash_counter = note_emission.note_hash_counter;
+
+    assert_note_exists(*context, note_hash_counter);
+
+    let encrypted_log = remove_constraints_if(
+        constraints == PrivateLogContent.NO_CONSTRAINTS,
+        || compute_note_log(note, storage_slot, recipient),
+    );
+
+    // Regardless of the original note size `N`, the log is padded with random bytes up to
+    // `PRIVATE_LOG_SIZE_IN_FIELDS` to prevent leaking information about the actual size.
+    let length = encrypted_log.len();
+    context.emit_raw_note_log(encrypted_log, length, note_hash_counter);
+}
+
+/// Emits a note as an offchain message. Similar to private log emission but uses offchain message mechanism instead.
+///
+/// Unlike private log emission, encryption here is always unconstrained. This design choice stems from the nature of
+/// offchain messages - they lack guaranteed delivery, unlike private logs. Without delivery guarantees, smart
+/// contracts cannot make assumptions about a message being delivered, making constrained encryption unnecessary.
+/// However, message integrity remains protected through cryptographic commitments in the note hash tree.
+/// For guaranteed delivery, use `emit_note_in_private_log` with private logs instead.
+pub fn emit_note_as_offchain_message<Note>(
+    note_emission: NoteEmission<Note>,
+    context: &mut PrivateContext,
+    recipient: AztecAddress,
+)
+where
+    Note: NoteType + Packable,
+{
+    let note = note_emission.note;
+    let storage_slot = note_emission.storage_slot;
+    let note_hash_counter = note_emission.note_hash_counter;
+
+    assert_note_exists(*context, note_hash_counter);
+
+    // Safety: this function does not constrain the encryption of the log, as explained above.
+    let encrypted_log =
+        unsafe { remove_constraints(|| compute_note_log(note, storage_slot, recipient)) };
+
+    // Remove the tag from the log
+    let message_ciphertext: [_; PRIVATE_LOG_CIPHERTEXT_LEN] = subarray(encrypted_log, 1);
+
+    // Safety: Offchain effects are by definition unconstrained. They are emitted via an oracle
+    // which we don't use for anything besides its side effects, therefore this is safe to call.
+    unsafe {
+        emit_offchain_message(message_ciphertext, recipient);
+    }
+}
+
+// ############### What follows is the old API that is to be nuked ############### //
 
 /// Sends an encrypted message to `recipient` with the content of the note, which they will discover when processing
 /// private logs.
