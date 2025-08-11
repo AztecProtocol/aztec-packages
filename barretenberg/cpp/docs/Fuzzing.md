@@ -33,6 +33,7 @@ The `run.sh` script supports several configuration options:
 - `-t, --timeout <seconds>`: Set maximum fuzzing time (default: 2592000 = 1 month)
 - `-v, --verbose`: Enable verbose output from the fuzzer
 - `-m, --mode <mode>`: Set operation mode - either `fuzzing` or `coverage` (default: fuzzing)
+- `-a, --asm  <mode>`: Enable/disable asm - either `on` or `off` (default: on)
 - `-c, --cpus <count>`: Set number of CPUs for the container (default: 8)
 - `--mem <size>`: Set memory limit for the container (default: 16G)
 - `--show-fuzzers`: List all available fuzzers
