@@ -46,6 +46,7 @@ The `run.sh` script supports several configuration options:
 To build with standard clang:
 
 ```bash
+sudo apt-get install libclang-rt-18-dev
 cmake --preset fuzzing
 cmake --build --preset fuzzing
 ```

@@ -5,8 +5,8 @@ set -eu
 cd $(dirname $0)/..
 
 # Configure and build.
-cmake --preset clang16
-cmake --build --preset clang16
+cmake --preset clang18
+cmake --build --preset clang18
 
 cd build
 
