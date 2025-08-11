@@ -5,7 +5,7 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 // docs:end:imports
 
-const { PXE_URL = 'http://localhost:8080', ETHEREUM_HOSTS = 'http://localhost:8545' } = process.env;
+const { PXE_URL = 'http://localhost:8080' } = process.env;
 
 // Note: To run this test you need to spin up Aztec sandbox. Build the aztec image (or pull it with aztec-up if on
 // master) and then run this test as usual (yarn test src/sample-dapp/index.test.mjs).
@@ -22,7 +22,7 @@ describe('token', () => {
     token = await TokenContract.deploy(owner, owner.getAddress(), 'TokenName', 'TokenSymbol', 18)
       .send({ from: owner.getAddress() })
       .deployed();
-    await token.methods.mint_to_private(owner.getAddress(), initialBalance).send().wait();
+    await token.methods.mint_to_private(owner.getAddress(), initialBalance).send({ from: owner.getAddress() }).wait();
   }, 120_000);
   // docs:end:setup
 
