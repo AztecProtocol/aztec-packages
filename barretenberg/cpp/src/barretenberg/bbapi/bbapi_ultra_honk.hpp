@@ -74,12 +74,12 @@ struct CircuitComputeVk {
 };
 
 /**
- * @struct CircuitGates
+ * @struct CircuitStats
  * @brief Consolidated command for retrieving circuit information.
  * Combines gate count, circuit size, and other metadata into a single command.
  */
-struct CircuitGates {
-    static constexpr const char* MSGPACK_SCHEMA_NAME = "CircuitGates";
+struct CircuitStats {
+    static constexpr const char* MSGPACK_SCHEMA_NAME = "CircuitStats";
 
     struct Response {
         static constexpr const char* MSGPACK_SCHEMA_NAME = "CircuitInfoResponse";
@@ -97,7 +97,7 @@ struct CircuitGates {
     ProofSystemSettings settings;
     MSGPACK_FIELDS(circuit, include_gates_per_opcode, settings);
     Response execute(const BBApiRequest& request = {}) &&;
-    bool operator==(const CircuitGates&) const = default;
+    bool operator==(const CircuitStats&) const = default;
 };
 
 /**

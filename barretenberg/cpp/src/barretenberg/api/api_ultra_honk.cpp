@@ -204,8 +204,8 @@ void UltraHonkAPI::gates([[maybe_unused]] const Flags& flags,
                                          .oracle_hash_type = flags.oracle_hash_type,
                                          .disable_zk = flags.disable_zk };
 
-    // Execute CircuitGates command
-    auto response = bbapi::CircuitGates{ .circuit = { .name = "circuit", .bytecode = bytecode, .verification_key = {} },
+    // Execute CircuitStats command
+    auto response = bbapi::CircuitStats{ .circuit = { .name = "circuit", .bytecode = bytecode, .verification_key = {} },
                                          .include_gates_per_opcode = flags.include_gates_per_opcode,
                                          .settings = settings }
                         .execute();
@@ -225,7 +225,7 @@ void UltraHonkAPI::gates([[maybe_unused]] const Flags& flags,
         }
     }
 
-    // For now, we'll use the CircuitGates response which includes circuit statistics
+    // For now, we'll use the CircuitStats response which includes circuit statistics
     // The num_acir_opcodes is not directly available from bytecode alone
     auto result_string = format(
         "{\n        \"acir_opcodes\": ",

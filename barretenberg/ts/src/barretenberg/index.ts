@@ -8,7 +8,7 @@ import { RawBuffer } from '../types/raw_buffer.js';
 import { fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
 import { createDebugLogger } from '../log/index.js';
 import { AsyncApi } from '../cbind/generated/async.js';
-import { BbApiBase, CircuitComputeVk, CircuitProve, CircuitVerify, ClientIvcAccumulate, ClientIvcComputeIvcVk, ClientIvcGates, ClientIvcLoad, ClientIvcProve, ClientIvcStart, ClientIvcVerify, VkAsFields } from '../cbind/generated/api_types.js';
+import { BbApiBase, CircuitComputeVk, CircuitProve, CircuitVerify, ClientIvcAccumulate, ClientIvcComputeIvcVk, ClientIvcStats, ClientIvcLoad, ClientIvcProve, ClientIvcStart, ClientIvcVerify, VkAsFields } from '../cbind/generated/api_types.js';
 
 export { BarretenbergVerifier } from './verifier.js';
 export { UltraHonkBackend, AztecClientBackend } from './backend.js';
@@ -145,8 +145,8 @@ export class Barretenberg extends BarretenbergApi {
     return this.bbApi.clientIvcComputeIvcVk(command);
   }
 
-  async clientIvcGates(command: ClientIvcGates) {
-    return this.bbApi.clientIvcGates(command);
+  async ClientIvcStats(command: ClientIvcStats) {
+    return this.bbApi.ClientIvcStats(command);
   }
 
   // Wrap circuit methods used by BbApiUltraHonkBackend

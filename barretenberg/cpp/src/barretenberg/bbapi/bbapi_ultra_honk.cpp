@@ -258,14 +258,14 @@ CircuitComputeVk::Response CircuitComputeVk::execute(BB_UNUSED const BBApiReques
     return { .bytes = std::move(vk_bytes), .fields = std::move(vk_fields), .hash = std::move(vk_hash_bytes) };
 }
 
-CircuitGates::Response CircuitGates::execute(BB_UNUSED const BBApiRequest& request) &&
+CircuitStats::Response CircuitStats::execute(BB_UNUSED const BBApiRequest& request) &&
 {
     // Parse the circuit to get gate count information
     auto constraint_system = acir_format::circuit_buf_to_acir_format(std::vector<uint8_t>(circuit.bytecode));
 
     acir_format::ProgramMetadata metadata = _create_program_metadata<UltraCircuitBuilder>();
     metadata.collect_gates_per_opcode = include_gates_per_opcode;
-    CircuitGates::Response response;
+    CircuitStats::Response response;
     response.num_acir_opcodes = static_cast<uint32_t>(constraint_system.num_acir_opcodes);
 
     acir_format::AcirProgram program{ std::move(constraint_system) };

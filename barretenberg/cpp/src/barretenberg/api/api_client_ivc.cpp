@@ -256,7 +256,7 @@ void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per
     bbapi::BBApiRequest request{ .trace_settings = { AZTEC_TRACE_STRUCTURE } };
 
     auto bytecode = get_bytecode(bytecode_path);
-    auto response = bbapi::ClientIvcGates{ .circuit = { .name = "ivc_circuit", .bytecode = std::move(bytecode) },
+    auto response = bbapi::ClientIvcStats{ .circuit = { .name = "ivc_circuit", .bytecode = std::move(bytecode) },
                                            .include_gates_per_opcode = include_gates_per_opcode }
                         .execute(request);
 

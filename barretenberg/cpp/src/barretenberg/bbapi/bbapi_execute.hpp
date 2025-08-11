@@ -10,7 +10,7 @@ namespace bb::bbapi {
 
 using Command = NamedUnion<CircuitProve,
                            CircuitComputeVk,
-                           CircuitGates,
+                           CircuitStats,
                            CircuitVerify,
                            ClientIvcComputeStandaloneVk,
                            ClientIvcComputeIvcVk,
@@ -22,11 +22,11 @@ using Command = NamedUnion<CircuitProve,
                            VkAsFields,
                            CircuitWriteSolidityVerifier,
                            ClientIvcCheckPrecomputedVk,
-                           ClientIvcGates>;
+                           ClientIvcStats>;
 
 using CommandResponse = NamedUnion<CircuitProve::Response,
                                    CircuitComputeVk::Response,
-                                   CircuitGates::Response,
+                                   CircuitStats::Response,
                                    CircuitVerify::Response,
                                    ClientIvcComputeStandaloneVk::Response,
                                    ClientIvcComputeIvcVk::Response,
@@ -38,7 +38,7 @@ using CommandResponse = NamedUnion<CircuitProve::Response,
                                    VkAsFields::Response,
                                    CircuitWriteSolidityVerifier::Response,
                                    ClientIvcCheckPrecomputedVk::Response,
-                                   ClientIvcGates::Response>;
+                                   ClientIvcStats::Response>;
 
 /**
  * @brief Executes a command by visiting a variant of all possible commands.

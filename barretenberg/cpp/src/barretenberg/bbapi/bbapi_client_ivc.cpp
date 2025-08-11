@@ -201,7 +201,7 @@ ClientIvcCheckPrecomputedVk::Response ClientIvcCheckPrecomputedVk::execute(const
     return response;
 }
 
-ClientIvcGates::Response ClientIvcGates::execute(BBApiRequest& request) &&
+ClientIvcStats::Response ClientIvcStats::execute(BBApiRequest& request) &&
 {
     Response response;
 
@@ -233,7 +233,7 @@ ClientIvcGates::Response ClientIvcGates::execute(BBApiRequest& request) &&
     }
 
     // Log circuit details
-    info("ClientIvcGates - circuit: ",
+    info("ClientIvcStats - circuit: ",
          circuit.name,
          ", acir_opcodes: ",
          response.acir_opcodes,
