@@ -3,15 +3,20 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 // docs:start:token_utils
 
-export async function deployToken(adminWallet: Wallet, initialAdminBalance: bigint, logger: Logger) {
+export async function deployToken(
+  adminWallet: Wallet,
+  deployerAddress: AztecAddress,
+  initialAdminBalance: bigint,
+  logger: Logger,
+) {
   logger.info(`Deploying Token contract...`);
-  const contract = await TokenContract.deploy(adminWallet, adminWallet.getAddress(), 'TokenName', 'TokenSymbol', 18)
-    .send()
+  const contract = await TokenContract.deploy(adminWallet, deployerAddress, 'TokenName', 'TokenSymbol', 18)
+    .send({ from: deployerAddress })
     .deployed();
 
   if (initialAdminBalance > 0n) {
     // Minter is minting to herself so contract as minter is the same as contract as recipient
-    await mintTokensToPrivate(contract, adminWallet, adminWallet.getAddress(), initialAdminBalance);
+    await mintTokensToPrivate(contract, deployerAddress, adminWallet, deployerAddress, initialAdminBalance);
   }
 
   logger.info('L2 contract deployed');
@@ -21,12 +26,13 @@ export async function deployToken(adminWallet: Wallet, initialAdminBalance: bigi
 
 export async function mintTokensToPrivate(
   token: TokenContract,
+  minter: AztecAddress,
   minterWallet: Wallet,
   recipient: AztecAddress,
   amount: bigint,
 ) {
   const tokenAsMinter = await TokenContract.at(token.address, minterWallet);
-  await tokenAsMinter.methods.mint_to_private(recipient, amount).send().wait();
+  await tokenAsMinter.methods.mint_to_private(recipient, amount).send({ from: minter }).wait();
 }
 // docs:end:token_utils
 
@@ -46,6 +52,7 @@ export async function expectTokenBalance(
 
 export async function mintNotes(
   sender: Wallet,
+  minter: AztecAddress,
   recipient: AztecAddress,
   asset: TokenContract,
   noteAmounts: bigint[],
@@ -56,7 +63,7 @@ export async function mintNotes(
   for (let mintedNotes = 0; mintedNotes < noteAmounts.length; mintedNotes += notesPerIteration) {
     const toMint = noteAmounts.slice(mintedNotes, mintedNotes + notesPerIteration);
     const actions = toMint.map(amt => asset.methods.mint_to_private(recipient, amt));
-    await new BatchCall(sender, actions).send().wait();
+    await new BatchCall(sender, actions).send({ from: minter }).wait();
   }
 
   return noteAmounts.reduce((prev, curr) => prev + curr, 0n);

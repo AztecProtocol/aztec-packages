@@ -71,6 +71,7 @@ contract DepositBN254Test is WithGSE {
     address _withdrawer,
     bool _moveWithLatestRollup
   ) external whenCallerIsRegisteredRollup(_instance) {
+    vm.assume(_attester1 != _attester2);
     // it adds the keys if they are new
     uint256 activationThreshold = gse.ACTIVATION_THRESHOLD();
 

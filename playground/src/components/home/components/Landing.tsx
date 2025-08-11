@@ -388,6 +388,7 @@ export function Landing() {
 
       const deployMethod = await accountManager.getDeployMethod();
       const opts = {
+        from: accountWallet.getAddress(),
         contractAddressSalt: salt,
         fee: {
           paymentMethod: await accountManager.getSelfPaymentMethod(feePaymentMethod),

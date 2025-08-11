@@ -54,6 +54,7 @@
 #include "relations/scalar_mul.hpp"
 #include "relations/send_l2_to_l1_msg.hpp"
 #include "relations/sha256.hpp"
+#include "relations/sha256_mem.hpp"
 #include "relations/sload.hpp"
 #include "relations/sstore.hpp"
 #include "relations/to_radix.hpp"
@@ -106,6 +107,7 @@
 #include "relations/lookups_scalar_mul.hpp"
 #include "relations/lookups_send_l2_to_l1_msg.hpp"
 #include "relations/lookups_sha256.hpp"
+#include "relations/lookups_sha256_mem.hpp"
 #include "relations/lookups_sload.hpp"
 #include "relations/lookups_sstore.hpp"
 #include "relations/lookups_to_radix.hpp"
@@ -118,16 +120,17 @@
 #include "relations/perms_keccakf1600.hpp"
 #include "relations/perms_poseidon2_mem.hpp"
 #include "relations/perms_public_data_check.hpp"
+#include "relations/perms_sha256_mem.hpp"
 #include "relations/perms_to_radix_mem.hpp"
 
 namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 131;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2680;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 300;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2868;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 306;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3111;
+    static constexpr size_t NUM_ALL_ENTITIES = 3305;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -183,6 +186,7 @@ struct AvmFlavorVariables {
         avm2::scalar_mul<FF_>,
         avm2::send_l2_to_l1_msg<FF_>,
         avm2::sha256<FF_>,
+        avm2::sha256_mem<FF_>,
         avm2::sload<FF_>,
         avm2::sstore<FF_>,
         avm2::to_radix<FF_>,
@@ -504,7 +508,69 @@ struct AvmFlavorVariables {
         lookup_scalar_mul_double_relation<FF_>,
         lookup_scalar_mul_to_radix_relation<FF_>,
         lookup_send_l2_to_l1_msg_write_l2_to_l1_msg_relation<FF_>,
+        lookup_sha256_ch_and_0_relation<FF_>,
+        lookup_sha256_ch_and_1_relation<FF_>,
+        lookup_sha256_ch_xor_relation<FF_>,
+        lookup_sha256_maj_and_0_relation<FF_>,
+        lookup_sha256_maj_and_1_relation<FF_>,
+        lookup_sha256_maj_and_2_relation<FF_>,
+        lookup_sha256_maj_xor_0_relation<FF_>,
+        lookup_sha256_maj_xor_1_relation<FF_>,
+        lookup_sha256_mem_check_input_addr_in_range_relation<FF_>,
+        lookup_sha256_mem_check_output_addr_in_range_relation<FF_>,
+        lookup_sha256_mem_check_state_addr_in_range_relation<FF_>,
+        lookup_sha256_mem_mem_input_read_relation<FF_>,
+        lookup_sha256_mem_mem_op_0_relation<FF_>,
+        lookup_sha256_mem_mem_op_1_relation<FF_>,
+        lookup_sha256_mem_mem_op_2_relation<FF_>,
+        lookup_sha256_mem_mem_op_3_relation<FF_>,
+        lookup_sha256_mem_mem_op_4_relation<FF_>,
+        lookup_sha256_mem_mem_op_5_relation<FF_>,
+        lookup_sha256_mem_mem_op_6_relation<FF_>,
+        lookup_sha256_mem_mem_op_7_relation<FF_>,
+        lookup_sha256_range_comp_a_lhs_relation<FF_>,
+        lookup_sha256_range_comp_a_rhs_relation<FF_>,
+        lookup_sha256_range_comp_b_lhs_relation<FF_>,
+        lookup_sha256_range_comp_b_rhs_relation<FF_>,
+        lookup_sha256_range_comp_c_lhs_relation<FF_>,
+        lookup_sha256_range_comp_c_rhs_relation<FF_>,
+        lookup_sha256_range_comp_d_lhs_relation<FF_>,
+        lookup_sha256_range_comp_d_rhs_relation<FF_>,
+        lookup_sha256_range_comp_e_lhs_relation<FF_>,
+        lookup_sha256_range_comp_e_rhs_relation<FF_>,
+        lookup_sha256_range_comp_f_lhs_relation<FF_>,
+        lookup_sha256_range_comp_f_rhs_relation<FF_>,
+        lookup_sha256_range_comp_g_lhs_relation<FF_>,
+        lookup_sha256_range_comp_g_rhs_relation<FF_>,
+        lookup_sha256_range_comp_h_lhs_relation<FF_>,
+        lookup_sha256_range_comp_h_rhs_relation<FF_>,
+        lookup_sha256_range_comp_next_a_lhs_relation<FF_>,
+        lookup_sha256_range_comp_next_a_rhs_relation<FF_>,
+        lookup_sha256_range_comp_next_e_lhs_relation<FF_>,
+        lookup_sha256_range_comp_next_e_rhs_relation<FF_>,
+        lookup_sha256_range_comp_w_lhs_relation<FF_>,
+        lookup_sha256_range_comp_w_rhs_relation<FF_>,
+        lookup_sha256_range_rhs_a_13_relation<FF_>,
+        lookup_sha256_range_rhs_a_2_relation<FF_>,
+        lookup_sha256_range_rhs_a_22_relation<FF_>,
+        lookup_sha256_range_rhs_e_11_relation<FF_>,
+        lookup_sha256_range_rhs_e_25_relation<FF_>,
+        lookup_sha256_range_rhs_e_6_relation<FF_>,
+        lookup_sha256_range_rhs_w_10_relation<FF_>,
+        lookup_sha256_range_rhs_w_17_relation<FF_>,
+        lookup_sha256_range_rhs_w_18_relation<FF_>,
+        lookup_sha256_range_rhs_w_19_relation<FF_>,
+        lookup_sha256_range_rhs_w_3_relation<FF_>,
+        lookup_sha256_range_rhs_w_7_relation<FF_>,
         lookup_sha256_round_constant_relation<FF_>,
+        lookup_sha256_s_0_xor_0_relation<FF_>,
+        lookup_sha256_s_0_xor_1_relation<FF_>,
+        lookup_sha256_s_1_xor_0_relation<FF_>,
+        lookup_sha256_s_1_xor_1_relation<FF_>,
+        lookup_sha256_w_s_0_xor_0_relation<FF_>,
+        lookup_sha256_w_s_0_xor_1_relation<FF_>,
+        lookup_sha256_w_s_1_xor_0_relation<FF_>,
+        lookup_sha256_w_s_1_xor_1_relation<FF_>,
         lookup_sload_storage_read_relation<FF_>,
         lookup_sstore_record_written_storage_slot_relation<FF_>,
         lookup_sstore_storage_write_relation<FF_>,
@@ -553,6 +619,7 @@ struct AvmFlavorVariables {
         perm_keccakf1600_write_to_slice_relation<FF_>,
         perm_poseidon2_mem_dispatch_exec_pos2_relation<FF_>,
         perm_public_data_check_squashing_relation<FF_>,
+        perm_sha256_mem_dispatch_sha256_relation<FF_>,
         perm_to_radix_mem_dispatch_exec_to_radix_relation<FF_>>;
 };
 
