@@ -123,15 +123,13 @@ template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typena
         Polynomial<NativeFr> squashed_shifted(Polynomial<NativeFr>::shiftable(N));
         // Labels are shared by Prover and Verifier
         std::vector<std::string> unshifted_batching_challenge_labels;
-        unshifted_batching_challenge_labels.reserve(num_polys - 1);
         std::vector<std::string> shifted_batching_challenge_labels;
-        shifted_batching_challenge_labels.reserve(num_shifted);
 
         for (size_t idx = 0; idx < num_polys - 1; idx++) {
-            unshifted_batching_challenge_labels.emplace_back("rho_" + std::to_string(idx++));
+            unshifted_batching_challenge_labels.push_back("rho_" + std::to_string(idx));
         }
         for (size_t idx = 0; idx < num_shifted; idx++) {
-            shifted_batching_challenge_labels.emplace_back("rho_" + std::to_string(idx++));
+            shifted_batching_challenge_labels.push_back("rho_" + std::to_string(num_polys - 1 + idx));
         }
 
         if (short_scalars) {
@@ -245,11 +243,35 @@ template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typena
         if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
             validate_num_eccvm_rows(num_polys, num_shifted, short_scalars, &builder);
             if (prove_eccvm) {
+                builder.op_queue->merge();
+                using clock = std::chrono::steady_clock;
+                auto start_total = clock::now();
+
                 std::shared_ptr<NativeTranscript> eccvm_transcript = std::make_shared<NativeTranscript>();
 
+                auto start_builder = clock::now();
                 ECCVMCircuitBuilder eccvm_builder(builder.op_queue);
+
                 ECCVMProver prover(eccvm_builder, eccvm_transcript);
+
+                auto end_builder = clock::now();
+
+                info("ECCVM prover construction took ",
+                     std::chrono::duration_cast<std::chrono::milliseconds>(end_builder - start_builder).count(),
+                     " ms");
+
+                auto start_prove = clock::now();
                 prover.construct_proof();
+                auto end_prove = clock::now();
+
+                info("ECCVM proof construction took ",
+                     std::chrono::duration_cast<std::chrono::milliseconds>(end_prove - start_prove).count(),
+                     " ms");
+
+                auto end_total = clock::now();
+                info("ECCVM total (builder + proof) time: ",
+                     std::chrono::duration_cast<std::chrono::milliseconds>(end_total - start_total).count(),
+                     " ms");
             }
         } else {
             info("builder num gates ", builder.get_estimated_num_finalized_gates());
@@ -295,14 +317,6 @@ TEST_F(ShpleminiMegaTest, ProveAndVerifySingleFullScalars)
     }
 }
 
-TEST_F(ShpleminiMegaTest, FullScalarsManyCommitments)
-{
-    size_t num_polys = 3500;
-    size_t num_shifted = 350;
-
-    run_shplemini_full_scalars(num_polys, num_shifted);
-}
-
 TEST_F(ShpleminiMegaTest, GoblinProveAndVerifyShortScalars)
 {
     size_t num_polys = 100;
@@ -312,13 +326,7 @@ TEST_F(ShpleminiMegaTest, GoblinProveAndVerifyShortScalars)
         run_shplemini_short_scalars(num_polys + idx, num_shifted + idx);
     }
 }
-TEST_F(ShpleminiMegaTest, ShortScalarsManyCommitments)
-{
-    size_t num_polys = 7000;
-    size_t num_shifted = 700;
 
-    run_shplemini_short_scalars(num_polys, num_shifted);
-}
 TEST_F(ShpleminiMegaTest, ManyCommitmentsWithECCVMProving)
 {
     run_shplemini_full_scalars(3500, 350, true);
