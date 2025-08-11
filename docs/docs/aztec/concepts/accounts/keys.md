@@ -88,7 +88,7 @@ Since signatures are fully abstracted, how the public key is stored in the contr
 
 #### Using a private note​
 
-Storing the signing public key in a private note makes it accessible from the `entrypoint` function, which is required to be a private function, and allows for rotating the key when needed. However, keep in mind that reading a private note requires nullifying it to ensure it is up-to-date, so each transaction you send will destroy and recreate the public key so the protocol circuits can be sure that the notes are not stale. This incurs cost for every transaction.
+Storing the signing public key in a private note makes it accessible from the `entrypoint` function, which is required to be a private function, and allows for rotating the key when needed. However, keep in mind that reading a private note requires nullifying it to ensure it is up-to-date, so each transaction you send will destroy and recreate the public key so the protocol circuits can be sure that the notes are not stale. This incurs a cost for every transaction.
 
 #### Using an immutable private note​
 
