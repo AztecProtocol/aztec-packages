@@ -356,6 +356,10 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     this.publisher = publisher;
 
+    if (!this.config.coinbase) {
+      this._coinbase = attestorAddress;
+    }
+
     this.log.info(
       `Using publisher with address ${publisher.getSenderAddress().toString()} for attestor ${attestorAddress.toString()}`,
     );
