@@ -56,10 +56,7 @@ async function transferPrivateFunds(pxe) {
 
   await showPrivateBalances(pxe);
   console.log(`Sending transaction, awaiting transaction to be mined`);
-  const receipt = await token.methods
-    .transfer(recipient.getAddress(), 1)
-    .send({ from: ownerWallet.getAddress() })
-    .wait();
+  const receipt = await token.methods.transfer(recipient.getAddress(), 1).send({ from: owner.getAddress() }).wait();
 
   console.log(`Transaction ${receipt.txHash} has been mined on block ${receipt.blockNumber}`);
   await showPrivateBalances(pxe);
