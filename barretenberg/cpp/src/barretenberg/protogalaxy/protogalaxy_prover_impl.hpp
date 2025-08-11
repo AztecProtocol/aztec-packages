@@ -36,7 +36,6 @@ void ProtogalaxyProver_<Flavor, NUM_KEYS>::run_oink_prover_on_each_incomplete_ke
     if (!key->is_complete) {
         run_oink_prover_on_one_incomplete_key(key, vk, domain_separator);
         key->target_sum = 0;
-        key->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
     }
 
     idx++;
