@@ -11,7 +11,7 @@ import { type P2P, P2PClientState } from '@aztec/p2p';
 import type { SlasherClient } from '@aztec/slasher';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { CommitteeAttestation, type L2BlockSource } from '@aztec/stdlib/block';
+import { CommitteeAttestation, L2BlockHeader, type L2BlockSource } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
 import {
@@ -122,7 +122,7 @@ describe('sequencer', () => {
   const makeBlock = async (txs: Tx[]) => {
     const processedTxs = await processTxs(txs);
     const body = new Body(processedTxs.map(tx => tx.txEffect));
-    const header = BlockHeader.empty({ globalVariables: globalVariables });
+    const header = L2BlockHeader.empty({ globalVariables: globalVariables });
     const archive = makeAppendOnlyTreeSnapshot(newBlockNumber + 1);
 
     block = new L2Block(archive, header, body);

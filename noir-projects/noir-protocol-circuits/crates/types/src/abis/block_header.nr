@@ -82,6 +82,6 @@ fn hash_of_empty_block_header_match_typescript() {
     let hash = header.hash();
 
     // Value from header.test.ts "computes empty hash" test
-    let test_data_empty_hash = 0x1c97ed6fbc35f8b400d31bd38ce5cc938921e0cf2e20159d316f8c7011f9f42c;
+    let test_data_empty_hash = 0x2c920b5fcfe68d413eab3e0022eb918d64d62ca44d195d5c32b8b9c68bff2dfe;
     assert_eq(hash, test_data_empty_hash);
 }

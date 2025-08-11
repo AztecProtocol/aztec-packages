@@ -7,12 +7,8 @@ import cKzg from 'c-kzg';
 
 import { Blob } from './blob.js';
 import { BatchedBlob } from './blob_batching.js';
-import {
-  BlobAccumulatorPublicInputs,
-  BlockBlobPublicInputs,
-  FinalBlobAccumulatorPublicInputs,
-} from './blob_batching_public_inputs.js';
-import { makeBatchedBlobAccumulator, makeBlockBlobPublicInputs } from './testing.js';
+import { BlobAccumulatorPublicInputs, FinalBlobAccumulatorPublicInputs } from './blob_batching_public_inputs.js';
+import { makeBatchedBlobAccumulator } from './testing.js';
 
 try {
   cKzg.loadTrustedSetup();
@@ -25,20 +21,6 @@ try {
     throw new Error(error);
   }
 }
-
-describe('BlockBlobPublicInputs', () => {
-  let blobPI: BlockBlobPublicInputs;
-
-  beforeAll(() => {
-    blobPI = makeBlockBlobPublicInputs(randomInt(1000));
-  });
-
-  it('serializes to buffer and deserializes it back', () => {
-    const buffer = blobPI.toBuffer();
-    const res = BlockBlobPublicInputs.fromBuffer(buffer);
-    expect(res).toEqual(blobPI);
-  });
-});
 
 describe('BlobAccumulatorPublicInputs', () => {
   let blobPI: BlobAccumulatorPublicInputs;

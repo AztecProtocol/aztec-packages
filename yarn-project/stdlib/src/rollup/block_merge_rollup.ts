@@ -2,17 +2,19 @@ import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
-import { PreviousRollupBlockData } from './previous_rollup_block_data.js';
+import { ProofData } from '../proofs/index.js';
+import { BlockRollupPublicInputs } from './block_rollup_public_inputs.js';
+import type { RollupProofData } from './rollup_proof_data.js';
 
 /**
  * Represents inputs of the block merge rollup circuit.
  */
-export class BlockMergeRollupInputs {
+export class BlockMergeRollupPrivateInputs {
   constructor(
     /**
      * Previous rollup data from the 2 block merge or block root rollup circuits that preceded this merge rollup circuit.
      */
-    public previousRollupData: [PreviousRollupBlockData, PreviousRollupBlockData],
+    public previousRollups: [RollupProofData<BlockRollupPublicInputs>, RollupProofData<BlockRollupPublicInputs>],
   ) {}
 
   /**
@@ -20,7 +22,7 @@ export class BlockMergeRollupInputs {
    * @returns The inputs serialized to a buffer.
    */
   toBuffer() {
-    return serializeToBuffer(this.previousRollupData);
+    return serializeToBuffer(this.previousRollups);
   }
 
   /**
@@ -34,23 +36,23 @@ export class BlockMergeRollupInputs {
   /**
    * Deserializes the inputs from a buffer.
    * @param buffer - The buffer to deserialize from.
-   * @returns A new BlockMergeRollupInputs instance.
+   * @returns A new BlockMergeRollupPrivateInputs instance.
    */
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new BlockMergeRollupInputs([
-      reader.readObject(PreviousRollupBlockData),
-      reader.readObject(PreviousRollupBlockData),
+    return new BlockMergeRollupPrivateInputs([
+      ProofData.fromBuffer(reader, BlockRollupPublicInputs),
+      ProofData.fromBuffer(reader, BlockRollupPublicInputs),
     ]);
   }
 
   /**
    * Deserializes the inputs from a hex string.
    * @param str - A hex string to deserialize from.
-   * @returns A new BlockMergeRollupInputs instance.
+   * @returns A new BlockMergeRollupPrivateInputs instance.
    */
   static fromString(str: string) {
-    return BlockMergeRollupInputs.fromBuffer(hexToBuffer(str));
+    return BlockMergeRollupPrivateInputs.fromBuffer(hexToBuffer(str));
   }
 
   /** Returns a hex representation for JSON serialization. */
@@ -60,6 +62,6 @@ export class BlockMergeRollupInputs {
 
   /** Creates an instance from a hex string. */
   static get schema() {
-    return bufferSchemaFor(BlockMergeRollupInputs);
+    return bufferSchemaFor(BlockMergeRollupPrivateInputs);
   }
 }

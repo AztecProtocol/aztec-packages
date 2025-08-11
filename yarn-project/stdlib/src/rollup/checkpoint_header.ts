@@ -13,11 +13,10 @@ import { z } from 'zod';
 import { AztecAddress } from '../aztec-address/index.js';
 import { GasFees } from '../gas/index.js';
 import { schemas } from '../schemas/index.js';
+import { ContentCommitment } from '../tx/index.js';
 import type { UInt64 } from '../types/shared.js';
-import { ContentCommitment } from './content_commitment.js';
 
-/** The proposed values of an L2 block. */
-export class ProposedBlockHeader {
+export class CheckpointHeader {
   constructor(
     /** Root of the archive tree before this block is added. */
     public lastArchiveRoot: Fr,
@@ -37,7 +36,7 @@ export class ProposedBlockHeader {
     public totalManaUsed: Fr,
   ) {}
 
-  static get schema(): ZodFor<ProposedBlockHeader> {
+  static get schema(): ZodFor<CheckpointHeader> {
     return z
       .object({
         lastArchiveRoot: schemas.Fr,
@@ -49,10 +48,10 @@ export class ProposedBlockHeader {
         gasFees: GasFees.schema,
         totalManaUsed: schemas.Fr,
       })
-      .transform(ProposedBlockHeader.from);
+      .transform(CheckpointHeader.from);
   }
 
-  static getFields(fields: FieldsOf<ProposedBlockHeader>) {
+  static getFields(fields: FieldsOf<CheckpointHeader>) {
     return [
       fields.lastArchiveRoot,
       fields.contentCommitment,
@@ -65,14 +64,14 @@ export class ProposedBlockHeader {
     ] as const;
   }
 
-  static from(fields: FieldsOf<ProposedBlockHeader>) {
-    return new ProposedBlockHeader(...ProposedBlockHeader.getFields(fields));
+  static from(fields: FieldsOf<CheckpointHeader>) {
+    return new CheckpointHeader(...CheckpointHeader.getFields(fields));
   }
 
-  static fromBuffer(buffer: Buffer | BufferReader): ProposedBlockHeader {
+  static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
 
-    return new ProposedBlockHeader(
+    return new CheckpointHeader(
       reader.readObject(Fr),
       reader.readObject(ContentCommitment),
       Fr.fromBuffer(reader),
@@ -102,8 +101,8 @@ export class ProposedBlockHeader {
     return sha256ToField([this.toBuffer()]);
   }
 
-  static empty(fields: Partial<FieldsOf<ProposedBlockHeader>> = {}): ProposedBlockHeader {
-    return ProposedBlockHeader.from({
+  static empty(fields: Partial<FieldsOf<CheckpointHeader>> = {}) {
+    return CheckpointHeader.from({
       lastArchiveRoot: Fr.ZERO,
       contentCommitment: ContentCommitment.empty(),
       slotNumber: Fr.ZERO,
@@ -137,12 +136,12 @@ export class ProposedBlockHeader {
     return bufferToHex(this.toBuffer());
   }
 
-  static fromString(str: string): ProposedBlockHeader {
-    return ProposedBlockHeader.fromBuffer(hexToBuffer(str));
+  static fromString(str: string) {
+    return CheckpointHeader.fromBuffer(hexToBuffer(str));
   }
 
   static fromViem(header: ViemHeader) {
-    return new ProposedBlockHeader(
+    return new CheckpointHeader(
       Fr.fromString(header.lastArchiveRoot),
       ContentCommitment.fromViem(header.contentCommitment),
       new Fr(header.slotNumber),

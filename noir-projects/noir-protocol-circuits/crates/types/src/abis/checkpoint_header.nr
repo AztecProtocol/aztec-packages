@@ -10,7 +10,7 @@ use std::meta::derive;
 
 #[derive(Deserialize, Eq, Serialize)]
 pub struct CheckpointHeader {
-    pub previous_archive_root: Field,
+    pub last_archive_root: Field,
     pub content_commitment: ContentCommitment,
     pub slot_number: Field,
     // The timestamp of the slot. All blocks in the checkpoint must have a timestamp less than or equal to this value.
@@ -24,7 +24,7 @@ pub struct CheckpointHeader {
 impl Empty for CheckpointHeader {
     fn empty() -> Self {
         Self {
-            previous_archive_root: 0,
+            last_archive_root: 0,
             content_commitment: ContentCommitment::empty(),
             slot_number: 0,
             timestamp: 0,
@@ -40,7 +40,7 @@ impl CheckpointHeader {
     pub fn to_be_bytes(self) -> [u8; PROPOSED_BLOCK_HEADER_LENGTH_BYTES] {
         let mut bytes = [0; PROPOSED_BLOCK_HEADER_LENGTH_BYTES];
 
-        let previous_archive_root_bytes: [u8; 32] = self.previous_archive_root.to_be_bytes();
+        let last_archive_root_bytes: [u8; 32] = self.last_archive_root.to_be_bytes();
         let blobs_hash_bytes: [u8; 32] = self.content_commitment.blobs_hash.to_be_bytes();
         let in_hash_bytes: [u8; 32] = self.content_commitment.in_hash.to_be_bytes();
         let out_hash_bytes: [u8; 32] = self.content_commitment.out_hash.to_be_bytes();
@@ -54,7 +54,7 @@ impl CheckpointHeader {
         let total_mana_used_bytes: [u8; 32] = self.total_mana_used.to_be_bytes();
 
         for i in 0..32 {
-            bytes[i] = previous_archive_root_bytes[i];
+            bytes[i] = last_archive_root_bytes[i];
             bytes[i + 32] = blobs_hash_bytes[i];
             bytes[i + 64] = in_hash_bytes[i];
             bytes[i + 96] = out_hash_bytes[i];
@@ -97,7 +97,7 @@ impl Hash for CheckpointHeader {
 #[test]
 fn serde() {
     let item = CheckpointHeader {
-        previous_archive_root: 123,
+        last_archive_root: 123,
         content_commitment: ContentCommitment::empty(),
         slot_number: 1234,
         timestamp: 5678,
@@ -114,7 +114,7 @@ fn serde() {
 }
 
 #[test]
-fn hash_of_empty_proposed_block_header_match_typescript() {
+fn hash_of_empty_checkpoint_header_match_typescript() {
     let header = CheckpointHeader::empty();
     let hash = header.hash();
 

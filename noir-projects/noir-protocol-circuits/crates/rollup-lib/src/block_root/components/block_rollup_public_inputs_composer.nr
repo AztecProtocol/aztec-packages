@@ -2,7 +2,7 @@ use crate::{
     abis::{BaseOrMergeRollupPublicInputs, BlockRollupPublicInputs},
     merge::utils::merge_rollups::merge_rollups,
 };
-use parity_lib::parity_public_inputs::ParityPublicInputs;
+use parity_lib::ParityPublicInputs;
 use types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, block_header::BlockHeader,
@@ -38,34 +38,34 @@ pub struct BlockRollupPublicInputsComposer {
 }
 
 impl BlockRollupPublicInputsComposer {
-    pub fn new_from_previous_block(
-        previous_block: BlockRollupPublicInputs,
+    pub fn new_from_no_rollups(
+        previous_block_header: BlockHeader,
+        previous_archive: AppendOnlyTreeSnapshot,
         constants: CheckpointConstantData,
+        start_sponge_blob: SpongeBlob,
     ) -> Self {
-        let start_sponge_blob = previous_block.end_sponge_blob;
-
         let block_end_marker = Self::create_block_end_marker(0 /* num_txs */);
         let mut end_sponge_blob = start_sponge_blob;
         end_sponge_blob.absorb([block_end_marker], 1 /* num_fields */);
 
         Self {
             constants,
-            previous_archive: previous_block.new_archive,
-            previous_l1_to_l2: previous_block.end_state.l1_to_l2_message_tree,
+            previous_archive,
+            previous_l1_to_l2: previous_block_header.state.l1_to_l2_message_tree,
             // The state remains the same since there are no tx effects in this block.
-            start_partial_state: previous_block.end_state.partial,
-            end_partial_state: previous_block.end_state.partial,
+            start_partial_state: previous_block_header.state.partial,
+            end_partial_state: previous_block_header.state.partial,
             start_sponge_blob,
             end_sponge_blob,
             // The timestamp of the next block is the timestamp of the previous block + 1.
-            timestamp: previous_block.end_timestamp + 1,
+            timestamp: previous_block_header.global_variables.timestamp + 1,
             // The followings are 0 since there are no tx effects in this block.
             out_hash: 0,
             accumulated_fees: 0,
             accumulated_mana_used: 0,
             // The followings are set/updated only if `with_l1_to_l2_roots` is called explicitly.
             in_hash: 0,
-            new_l1_to_l2: previous_block.end_state.l1_to_l2_message_tree,
+            new_l1_to_l2: previous_block_header.state.l1_to_l2_message_tree,
         }
     }
 

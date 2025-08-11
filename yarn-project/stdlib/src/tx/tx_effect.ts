@@ -14,6 +14,7 @@ import {
   PUBLIC_LOGS_PREFIX,
   REVERT_CODE_PREFIX,
   TX_FEE_PREFIX,
+  TX_START_PREFIX,
 } from '@aztec/constants';
 import { type FieldsOf, makeTuple, makeTupleAsync } from '@aztec/foundation/array';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
@@ -38,8 +39,6 @@ import { PrivateLog } from '../logs/private_log.js';
 import { PublicLog } from '../logs/public_log.js';
 import { TxHash } from './tx_hash.js';
 
-// This will appear as 0x74785f7374617274 in logs
-export const TX_START_PREFIX = 8392562855083340404n;
 // These are helper constants to decode tx effects from blob encoded fields
 export const TX_START_PREFIX_BYTES_LENGTH = TX_START_PREFIX.toString(16).length / 2;
 // 7 bytes for: | 0 | txlen[0] | txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revertCode |

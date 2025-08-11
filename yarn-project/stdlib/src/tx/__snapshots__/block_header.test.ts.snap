@@ -1,5 +1,5 @@
 // Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
-exports[`BlockHeader computes empty hash 1`] = `Fr<0x1c97ed6fbc35f8b400d31bd38ce5cc938921e0cf2e20159d316f8c7011f9f42c>`;
+exports[`BlockHeader computes empty hash 1`] = `Fr<0x2c920b5fcfe68d413eab3e0022eb918d64d62ca44d195d5c32b8b9c68bff2dfe>`;
 
-exports[`BlockHeader computes hash 1`] = `Fr<0x0a35746766055ed74164df0f4f400c07f464b621391a09d2faed58a54783c013>`;
+exports[`BlockHeader computes hash 1`] = `Fr<0x29cfd0e4f70c6d3a59f0934f1afc67d349fad471f5927af754a32ed1219bab36>`;

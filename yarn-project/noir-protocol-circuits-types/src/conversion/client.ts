@@ -100,6 +100,8 @@ import {
   mapAztecAddressFromNoir,
   mapAztecAddressToNoir,
   mapBigIntFromNoir,
+  mapBlockHeaderFromNoir,
+  mapBlockHeaderToNoir,
   mapClaimedLengthArrayFromNoir,
   mapClaimedLengthArrayToNoir,
   mapCountedL2ToL1MessageToNoir,
@@ -110,8 +112,6 @@ import {
   mapFunctionSelectorToNoir,
   mapGasFromNoir,
   mapGrumpkinScalarToNoir,
-  mapHeaderFromNoir,
-  mapHeaderToNoir,
   mapMembershipWitnessToNoir,
   mapNullifierLeafPreimageToNoir,
   mapNumberFromNoir,
@@ -509,7 +509,7 @@ export function mapPrivateCircuitPublicInputsToNoir(
     ),
     start_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.startSideEffectCounter),
     end_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.endSideEffectCounter),
-    historical_header: mapHeaderToNoir(privateCircuitPublicInputs.historicalHeader),
+    historical_header: mapBlockHeaderToNoir(privateCircuitPublicInputs.historicalHeader),
     tx_context: mapTxContextToNoir(privateCircuitPublicInputs.txContext),
     min_revertible_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.minRevertibleSideEffectCounter),
     is_fee_payer: privateCircuitPublicInputs.isFeePayer,
@@ -592,7 +592,7 @@ export function mapPrivateCallDataToNoir(privateCallData: PrivateCallData): Priv
 
 function mapTxConstantDataFromNoir(data: TxConstantDataNoir) {
   return new TxConstantData(
-    mapHeaderFromNoir(data.historical_header),
+    mapBlockHeaderFromNoir(data.historical_header),
     mapTxContextFromNoir(data.tx_context),
     mapFieldFromNoir(data.vk_tree_root),
     mapFieldFromNoir(data.protocol_contract_tree_root),
@@ -601,7 +601,7 @@ function mapTxConstantDataFromNoir(data: TxConstantDataNoir) {
 
 function mapTxConstantDataToNoir(data: TxConstantData): TxConstantDataNoir {
   return {
-    historical_header: mapHeaderToNoir(data.historicalHeader),
+    historical_header: mapBlockHeaderToNoir(data.historicalHeader),
     tx_context: mapTxContextToNoir(data.txContext),
     vk_tree_root: mapFieldToNoir(data.vkTreeRoot),
     protocol_contract_tree_root: mapFieldToNoir(data.protocolContractTreeRoot),

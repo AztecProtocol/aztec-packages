@@ -47,7 +47,7 @@ pub global MAX_CONTRACT_CLASS_LOGS_PER_CALL: u32 = 1;
 
 // TREES RELATED CONSTANTS
 pub global ARCHIVE_HEIGHT: u32 = 29;
-pub global VK_TREE_HEIGHT: u32 = 6;
+pub global VK_TREE_HEIGHT: u32 = 7;
 pub global PROTOCOL_CONTRACT_TREE_HEIGHT: u32 = 3;
 pub global FUNCTION_TREE_HEIGHT: u32 = 5;
 pub global NOTE_HASH_TREE_HEIGHT: u32 = 40;
@@ -143,9 +143,9 @@ pub global AZTEC_MAX_EPOCH_DURATION: u32 = 48;
 pub global MAX_INCLUDE_BY_TIMESTAMP_DURATION: u64 = 86400; // 1 day
 // The genesis values are taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees
 pub global GENESIS_BLOCK_HEADER_HASH: Field =
-    0x0e40440ea6abb9b58877d3aea6628cc6b14b6bc2148ce2be6f46db23360a6aba;
+    0x1946c22774242c1aae3d73ff44bd250fa7c0d1a83b55c8a5d3642a518c530ffb;
 pub global GENESIS_ARCHIVE_ROOT: Field =
-    0x1f9c798be7975bb34c3e605a4c92c75796eae7b9a08644bc9a6a55354ed470be;
+    0x2a5d53da0a767a07c6e731af7ac9dad7f3bf4f19feea9ad7d177711f19a34cbe;
 // Last 4 bytes of the Poseidon2 hash of 'public_dispatch(Field)'.
 pub global PUBLIC_DISPATCH_SELECTOR: Field = 0xd5441b0d;
 
