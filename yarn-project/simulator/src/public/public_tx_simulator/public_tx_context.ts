@@ -323,11 +323,6 @@ export class PublicTxContext {
       // Maps slot to index of last occurrence.
       const lastIndices: Map<bigint, number> = new Map();
       avmPublicDataWrites.forEach((publicDataWrite, i) => {
-        console.log('Unsquashed write', {
-          leafSlot: publicDataWrite.leafSlot.toString(),
-          value: publicDataWrite.newValue.toString(),
-          index: i,
-        });
         lastIndices.set(publicDataWrite.leafSlot.toBigInt(), i);
       });
 
@@ -338,10 +333,6 @@ export class PublicTxContext {
         const lastIndex = lastIndices.get(publicDataUpdate.leafSlot.toBigInt());
         // If the current write is the last occurrence of the slot, we keep it.
         if (lastIndex === i) {
-          console.log('Squashed write', {
-            leafSlot: publicDataUpdate.leafSlot.toString(),
-            value: publicDataUpdate.newValue.toString(),
-          });
           squashedPublicDataWrites.push(new PublicDataWrite(publicDataUpdate.leafSlot, publicDataUpdate.newValue));
         }
       }
