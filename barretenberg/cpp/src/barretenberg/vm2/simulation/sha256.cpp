@@ -24,22 +24,59 @@ constexpr std::array<uint32_t, 64> round_constants{
     0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
 };
 
-// Don't worry about any weird edge cases since we have fixed non-zero shifts
-MemoryValue ror(MemoryValue x, uint32_t shift)
-{
-    auto val = x.as<uint32_t>();
-    uint32_t result = (val >> (shift & 31U)) | (val << (32U - (shift & 31U)));
-    return MemoryValue::from<uint32_t>(result);
-}
-
-MemoryValue shr(MemoryValue x, uint32_t shift)
-{
-    auto val = x.as<uint32_t>();
-    uint32_t result = val >> (shift & 31U);
-    return MemoryValue::from<uint32_t>(result);
-}
-
 } // namespace
+
+// Don't worry about any weird edge cases since we have fixed non-zero shifts
+MemoryValue Sha256::ror(const MemoryValue& x, uint32_t shift)
+{
+    auto val = x.as<uint32_t>();
+    // In a rotation, we decompose into a lhs and rhs (or hi and lo) part.
+    uint32_t lo = val & ((1U << shift) - 1);
+    uint32_t hi = val >> shift;
+    uint32_t result = lo << (32U - (shift & 31U)) | hi;
+
+    // Do this outside of an assert, in case this gets built without assert
+    bool lo_in_range = gt.gt(1UL << shift, lo); // Ensure the lower bits are in range
+    (void)lo_in_range;                          // To please GCC.
+    assert(lo_in_range && "Low Value in ROR out of range");
+    return MemoryValue::from<uint32_t>(result);
+}
+
+// Don't need to worry about edge cases with shifts since we know we only shift by 3 and 10 for sha256
+MemoryValue Sha256::shr(const MemoryValue& x, uint32_t shift)
+{
+    uint32_t input = x.as<uint32_t>();
+    // Get the lower shift bits
+    uint32_t lo = input & ((1UL << shift) - 1);
+    uint32_t hi = input >> shift;
+
+    // Do this outside of an assert, in case this gets built without assert
+    bool lo_in_range = gt.gt(1UL << shift, lo); // Ensure the lower bits are in range
+    (void)lo_in_range;                          // To please GCC.
+    assert(lo_in_range && "Low Value in SHR out of range");
+
+    return MemoryValue::from<uint32_t>(hi);
+}
+
+// This function is used to sum the values in the vector and return the result modulo 2^32.
+MemoryValue Sha256::modulo_sum(std::span<const MemoryValue> values)
+{
+    uint64_t sum = 0;
+    for (const auto& value : values) {
+        // This is safe, since we've already checked that the values are of tag U32
+        sum += value.as<uint32_t>();
+    }
+    uint32_t lo = static_cast<uint32_t>(sum);
+    uint32_t hi = sum >> 32;
+
+    // Do these outside of an assert, in case this gets built without assert
+    bool lo_in_range = gt.gt(1UL << 32, lo); // Ensure the lower bits are in range
+    bool hi_in_range = gt.gt(1UL << 32, hi); // Ensure the upper bits are in range
+    (void)lo_in_range;                       // To please GCC.
+    (void)hi_in_range;                       // To please GCC.
+    assert(lo_in_range && hi_in_range && "Sum in MODULO_SUM out of range");
+    return MemoryValue::from<uint32_t>(lo);
+}
 
 void Sha256::compression(MemoryInterface& memory,
                          MemoryAddress state_addr,
@@ -102,7 +139,10 @@ void Sha256::compression(MemoryInterface& memory,
         for (size_t i = 16; i < 64; ++i) {
             MemoryValue s0 = bitwise.xor_op(bitwise.xor_op(ror(w[i - 15], 7), ror(w[i - 15], 18)), shr(w[i - 15], 3));
             MemoryValue s1 = bitwise.xor_op(bitwise.xor_op(ror(w[i - 2], 17), ror(w[i - 2], 19)), shr(w[i - 2], 10));
-            w[i] = w[i - 16] + w[i - 7] + s0 + s1;
+            // Could be explicit with an std::initializer_list<uint32_t> here, the array overload is more readable imo.
+            // std::spans are annoying to construct from literals
+            // (https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2022/p2447r2.html)
+            w[i] = modulo_sum({ { w[i - 16], w[i - 7], s0, s1 } });
         }
 
         // Initialize round variables with previous block output
@@ -119,26 +159,28 @@ void Sha256::compression(MemoryInterface& memory,
         for (size_t i = 0; i < 64; ++i) {
             MemoryValue S1 = bitwise.xor_op(bitwise.xor_op(ror(e, 6U), ror(e, 11U)), ror(e, 25U));
             MemoryValue ch = bitwise.xor_op(bitwise.and_op(e, f), bitwise.and_op(~e, g));
-            MemoryValue temp1 = h + S1 + ch + MemoryValue::from<uint32_t>(round_constants[i]) + w[i];
             MemoryValue S0 = bitwise.xor_op(bitwise.xor_op(ror(a, 2U), ror(a, 13U)), ror(a, 22U));
             MemoryValue maj =
                 bitwise.xor_op(bitwise.xor_op(bitwise.and_op(a, b), bitwise.and_op(a, c)), bitwise.and_op(b, c));
-            MemoryValue temp2 = S0 + maj;
 
+            auto prev_h = h; // Need to store the previous h value before updating it so we can use it in the modulo sum
             h = g;
             g = f;
             f = e;
-            e = d + temp1;
+            // e = d + temp1;
+            e = modulo_sum({ { d, prev_h, S1, ch, MemoryValue::from<uint32_t>(round_constants[i]), w[i] } });
             d = c;
             c = b;
             b = a;
-            a = temp1 + temp2;
+            // a = temp1 + temp2;
+            a = modulo_sum({ { prev_h, S1, ch, MemoryValue::from<uint32_t>(round_constants[i]), w[i], S0, maj } });
         }
 
         // Add into previous block output and return
         std::array<MemoryValue, 8> output = {
-            a + state[0], b + state[1], c + state[2], d + state[3],
-            e + state[4], f + state[5], g + state[6], h + state[7],
+            modulo_sum({ { a, state[0] } }), modulo_sum({ { b, state[1] } }), modulo_sum({ { c, state[2] } }),
+            modulo_sum({ { d, state[3] } }), modulo_sum({ { e, state[4] } }), modulo_sum({ { f, state[5] } }),
+            modulo_sum({ { g, state[6] } }), modulo_sum({ { h, state[7] } }),
         };
 
         // Write the output back to memory.

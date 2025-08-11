@@ -108,7 +108,7 @@ namespace sha256;
     // Control flow
     ////////////////////////////////////////////////
     pol commit start;
-    start * (1 - start) = 0;
+    start * (1 - sel) = 0;
 
     // Selector to indicate end of this chunk of sha256
     pol commit latch;
