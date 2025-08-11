@@ -54,7 +54,7 @@ class GoblinRecursiveVerifierTests : public testing::Test {
         Goblin goblin_final;
         goblin_final.op_queue = goblin.op_queue;
         MegaCircuitBuilder builder{ goblin_final.op_queue };
-        GoblinMockCircuits::construct_simple_circuit(builder, true);
+        GoblinMockCircuits::construct_simple_circuit(builder, /*last_circuit=*/true);
 
         // Merge the ecc ops from the newly constructed circuit
         goblin_final.op_queue->merge();

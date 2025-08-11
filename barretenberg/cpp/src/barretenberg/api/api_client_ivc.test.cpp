@@ -37,6 +37,8 @@ std::filesystem::path get_test_dir(const std::string_view& test_name)
     return temp_dir / test_name;
 }
 
+// TODO(): expand these test to accomodate a more realistic CIVC flow in order to re-enable the ProveAndVerify* tests in
+// this file
 void create_test_private_execution_steps(const std::filesystem::path& output_path)
 {
     using namespace acir_format;

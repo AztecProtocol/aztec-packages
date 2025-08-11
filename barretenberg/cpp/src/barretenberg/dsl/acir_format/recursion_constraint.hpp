@@ -19,6 +19,7 @@ enum PROOF_TYPE { PLONK, HONK, OINK, PG, AVM, ROLLUP_HONK, ROOT_ROLLUP_HONK, HON
 
 /**
  * @brief RecursionConstraint struct contains information required to recursively verify a proof!
+ *
  * @details The recursive verifier algorithm produces an 'aggregation object' representing 2 G1 points, expressed as 16
  * witness values. The smart contract Verifier must be aware of this aggregation object in order to complete the full
  * recursive verification. If the circuit verifies more than 1 proof, the recursion algorithm will update a pre-existing

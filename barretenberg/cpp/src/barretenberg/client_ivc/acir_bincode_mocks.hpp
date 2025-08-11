@@ -91,63 +91,12 @@ inline std::vector<uint8_t> create_simple_kernel(size_t vk_size, bool is_init_ke
                                                             .key_hash = key_hash,
                                                             .proof_type = is_init_kernel
                                                                               ? acir_format::PROOF_TYPE::OINK
-                                                                              : acir_format::PROOF_TYPE::PG_TAIL };
+                                                                              : acir_format::PROOF_TYPE::PG };
 
     Acir::BlackBoxFuncCall black_box_call;
     black_box_call.value = recursion;
 
     circuit.opcodes.push_back(Acir::Opcode{ Acir::Opcode::BlackBoxFuncCall{ black_box_call } });
-    circuit.current_witness_index = static_cast<uint32_t>(total_num_witnesses);
-    circuit.expression_width = Acir::ExpressionWidth{ Acir::ExpressionWidth::Bounded{ 3 } };
-
-    // Create the program with the circuit
-    Acir::Program program;
-    program.functions = { circuit };
-    // Serialize the program using bincode
-    return program.bincodeSerialize();
-}
-
-inline std::vector<uint8_t> create_inner_kernel(size_t vk_size)
-{
-    Acir::Circuit circuit;
-    // Create witnesses equal to size of a mega VK in fields.
-
-    std::vector<Acir::FunctionInput> kernel_vk_inputs;
-    for (uint32_t i = 0; i < vk_size; i++) {
-        Acir::FunctionInput input{ { Acir::ConstantOrWitnessEnum::Witness{ i } }, BIT_COUNT };
-        kernel_vk_inputs.push_back(input);
-    }
-    Acir::FunctionInput kernel_key_hash{ { Acir::ConstantOrWitnessEnum::Witness{ static_cast<uint32_t>(vk_size) } },
-                                         BIT_COUNT };
-
-    std::vector<Acir::FunctionInput> app_vk_inputs;
-    for (uint32_t i = 0; i < vk_size; i++) {
-        Acir::FunctionInput input{ { Acir::ConstantOrWitnessEnum::Witness{ i } }, BIT_COUNT };
-        app_vk_inputs.push_back(input);
-    }
-    Acir::FunctionInput app_key_hash{ { Acir::ConstantOrWitnessEnum::Witness{ static_cast<uint32_t>(vk_size) } },
-                                      BIT_COUNT };
-    size_t total_num_witnesses = /* vk */ 2 * vk_size + /* key_hash */ 2;
-
-    Acir::BlackBoxFuncCall::RecursiveAggregation recursion1{ .verification_key = kernel_vk_inputs,
-                                                             .proof = {},
-                                                             .public_inputs = {},
-                                                             .key_hash = kernel_key_hash,
-                                                             .proof_type = acir_format::PROOF_TYPE::PG };
-
-    Acir::BlackBoxFuncCall::RecursiveAggregation recursion2{ .verification_key = app_vk_inputs,
-                                                             .proof = {},
-                                                             .public_inputs = {},
-                                                             .key_hash = app_key_hash,
-                                                             .proof_type = acir_format::PROOF_TYPE::PG };
-
-    Acir::BlackBoxFuncCall black_box_call1;
-    black_box_call1.value = recursion1;
-    Acir::BlackBoxFuncCall black_box_call2;
-    black_box_call2.value = recursion2;
-
-    circuit.opcodes.push_back(Acir::Opcode{ Acir::Opcode::BlackBoxFuncCall{ black_box_call1 } });
-    circuit.opcodes.push_back(Acir::Opcode{ Acir::Opcode::BlackBoxFuncCall{ black_box_call2 } });
     circuit.current_witness_index = static_cast<uint32_t>(total_num_witnesses);
     circuit.expression_width = Acir::ExpressionWidth{ Acir::ExpressionWidth::Bounded{ 3 } };
 
@@ -176,38 +125,6 @@ inline std::vector<uint8_t> create_kernel_witness(const std::vector<bb::fr>& app
     ss << crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(app_vk_fields);
     kernel_witness.stack.back().witness.value[Witnesses::Witness{ static_cast<uint32_t>(app_vk_fields.size()) }] =
         ss.str();
-
-    return kernel_witness.bincodeSerialize();
-}
-
-inline std::vector<uint8_t> create_inner_kernel_witness(const std::vector<bb::fr>& kernel_vk_fields,
-                                                        const std::vector<bb::fr>& app_vk_fields)
-{
-    Witnesses::WitnessStack kernel_witness;
-    kernel_witness.stack.push_back({});
-
-    // Handle first vector (kernel_vk_fields)
-    for (uint32_t i = 0; i < kernel_vk_fields.size(); i++) {
-        std::stringstream ss1;
-        ss1 << kernel_vk_fields[i];
-        kernel_witness.stack.back().witness.value[Witnesses::Witness{ i }] = ss1.str();
-    }
-    std::stringstream ss1;
-    ss1 << crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(kernel_vk_fields);
-    kernel_witness.stack.back().witness.value[Witnesses::Witness{ static_cast<uint32_t>(kernel_vk_fields.size()) }] =
-        ss1.str();
-
-    // Handle second vector (app_vk_fields)
-    uint32_t offset = static_cast<uint32_t>(kernel_vk_fields.size()) + 1;
-    for (uint32_t i = 0; i < app_vk_fields.size(); i++) {
-        std::stringstream ss2;
-        ss2 << app_vk_fields[i];
-        kernel_witness.stack.back().witness.value[Witnesses::Witness{ offset + i }] = ss2.str();
-    }
-    std::stringstream ss2;
-    ss2 << crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(app_vk_fields);
-    kernel_witness.stack.back()
-        .witness.value[Witnesses::Witness{ offset + static_cast<uint32_t>(app_vk_fields.size()) }] = ss2.str();
 
     return kernel_witness.bincodeSerialize();
 }

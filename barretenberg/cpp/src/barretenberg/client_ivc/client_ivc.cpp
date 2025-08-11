@@ -21,7 +21,7 @@ ClientIVC::ClientIVC(size_t num_circuits, TraceSettings trace_settings)
     , trace_settings(trace_settings)
     , goblin(bn254_commitment_key)
 {
-    BB_ASSERT_GT(num_circuits, 0UL, "Number of circuits must be specified and greater or equal to 4.");
+    BB_ASSERT_GT(num_circuits, 0UL, "Number of circuits must be specified and greater than 0.");
     // Allocate BN254 commitment key based on the max dyadic Mega structured trace size and translator circuit size.
     // https://github.com/AztecProtocol/barretenberg/issues/1319): Account for Translator only when it's necessary
     size_t commitment_key_size =
@@ -111,8 +111,6 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
     switch (verifier_inputs.type) {
     case QUEUE_TYPE::PG_TAIL:
     case QUEUE_TYPE::PG: {
-        circuit.queue_ecc_eq();
-
         // Construct stdlib verifier accumulator from the native counterpart computed on a previous round
         auto stdlib_verifier_accum = std::make_shared<RecursiveDeciderVerificationKey>(&circuit, verifier_accumulator);
 
@@ -132,8 +130,6 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
     }
 
     case QUEUE_TYPE::OINK: {
-        circuit.queue_ecc_eq();
-
         // Construct an incomplete stdlib verifier accumulator from the corresponding stdlib verification key
         auto verifier_accum =
             std::make_shared<RecursiveDeciderVerificationKey>(&circuit, verifier_inputs.honk_vk_and_hash);
@@ -240,11 +236,19 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 
     bool is_hiding_kernel =
         stdlib_verification_queue.size() == 1 && (stdlib_verification_queue.front().type == QUEUE_TYPE::PG_FINAL);
+
     bool is_tail_kernel = std::any_of(stdlib_verification_queue.begin(),
                                       stdlib_verification_queue.end(),
                                       [](const auto& entry) { return entry.type == QUEUE_TYPE::PG_TAIL; });
+
+    // If the incoming circuit is a kernel, start its subtable with an eq and reset operation to ensure a
+    // neighbouring misconfigured subtable coming from an app cannot affect the operations in the
+    // current subtable. We don't do this for the hiding kernel as it succeeds another kernel.
     if (!is_hiding_kernel) {
         if (is_tail_kernel) {
+            // Add a no-op at the beginning of the tail kernel (the last circuit whose ecc ops subtable is prepended) to
+            // ensure the wires representing the op queue in translator circuit are shiftable polynomials, i.e. their
+            // 0th coefficient is equal to 0.
             circuit.queue_ecc_no_op();
         }
         circuit.queue_ecc_eq();
@@ -285,10 +289,6 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 
         kernel_output.set_public();
     }
-
-    // Transcript to be shared across folding of K_{i} (kernel) (the current kernel), A_{i+1,1} (app), .., A_{i+1,
-    // n} (app)
-    accumulation_transcript = std::make_shared<Transcript>();
 }
 
 /**
@@ -415,10 +415,6 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::comp
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1453): Investigate whether Decider/PG/Merge need to
     // share a transcript
     std::shared_ptr<RecursiveTranscript> pg_merge_transcript = std::make_shared<RecursiveTranscript>();
-
-    // Add a no-op at the beginning of the hiding circuit to ensure the wires representing the op queue in translator
-    // circuit are shiftable polynomials, i.e. their 0th coefficient is equal to 0.
-    // circuit.queue_ecc_no_op();
 
     hide_op_queue_accumulation_result(circuit);
 
