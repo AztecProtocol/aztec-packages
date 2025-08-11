@@ -178,6 +178,8 @@ class Execution : public ExecutionInterface {
                             MemoryAddress output_addr,
                             MemoryAddress state_addr,
                             MemoryAddress input_addr);
+    void shr(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress c_addr);
+    void shl(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress c_addr);
 
   protected:
     // Only here for testing. TODO(fcarreiro): try to improve.

@@ -955,6 +955,44 @@ void Execution::sha256_compression(ContextInterface& context,
     }
 }
 
+void Execution::shr(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress c_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::SHR;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(a_addr);
+    MemoryValue b = memory.get(b_addr);
+    set_and_validate_inputs(opcode, { a, b });
+
+    get_gas_tracker().consume_gas();
+
+    try {
+        MemoryValue c = alu.shr(a, b);
+        memory.set(c_addr, c);
+        set_output(opcode, c);
+    } catch (const AluException& e) {
+        throw OpcodeExecutionException("SHR Exception: " + std::string(e.what()));
+    }
+}
+
+void Execution::shl(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress c_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::SHL;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(a_addr);
+    MemoryValue b = memory.get(b_addr);
+    set_and_validate_inputs(opcode, { a, b });
+
+    get_gas_tracker().consume_gas();
+
+    try {
+        MemoryValue c = alu.shl(a, b);
+        memory.set(c_addr, c);
+        set_output(opcode, c);
+    } catch (const AluException& e) {
+        throw OpcodeExecutionException("SHL Exception: " + std::string(e.what()));
+    }
+}
+
 // This context interface is a top-level enqueued one.
 // NOTE: For the moment this trace is not returning the context back.
 ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_call_context)
@@ -1265,6 +1303,12 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::SHA256COMPRESSION:
         call_with_operands(&Execution::sha256_compression, context, resolved_operands);
+        break;
+    case ExecutionOpCode::SHR:
+        call_with_operands(&Execution::shr, context, resolved_operands);
+        break;
+    case ExecutionOpCode::SHL:
+        call_with_operands(&Execution::shl, context, resolved_operands);
         break;
     default:
         // NOTE: Keep this a `std::runtime_error` so that the main loop panics.

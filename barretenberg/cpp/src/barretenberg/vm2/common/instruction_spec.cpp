@@ -674,7 +674,22 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
         ExecutionOpCode::SHA256COMPRESSION,
         { .num_addresses = 3,
           .gas_cost = { .opcode_gas = AVM_SHA256COMPRESSION_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 } },
-    }
+    },
+
+    { ExecutionOpCode::SHR,
+      { .num_addresses = 3,
+        .gas_cost = { .opcode_gas = AVM_SHR_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo()
+                             .add_inputs({ /*a*/ RegisterInfo::ANY_TAG,
+                                           /*b*/ RegisterInfo::ANY_TAG })
+                             .add_output(/*c*/) } },
+    { ExecutionOpCode::SHL,
+      { .num_addresses = 3,
+        .gas_cost = { .opcode_gas = AVM_SHL_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo()
+                             .add_inputs({ /*a*/ RegisterInfo::ANY_TAG,
+                                           /*b*/ RegisterInfo::ANY_TAG })
+                             .add_output(/*c*/) } },
 };
 
 } // namespace bb::avm2
