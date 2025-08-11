@@ -199,7 +199,7 @@ describe('Contract Class', () => {
       from: account.address,
     });
     expect(wallet.simulateUtility).toHaveBeenCalledTimes(1);
-    expect(wallet.simulateUtility).toHaveBeenCalledWith('qux', [123n], contractAddress, [], account.address);
+    expect(wallet.simulateUtility).toHaveBeenCalledWith('qux', [123n], contractAddress, []);
     expect(result).toBe(mockUtilityResultValue.result);
   });
 
