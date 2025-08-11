@@ -448,16 +448,6 @@
       }
     },
     {
-      "name": "op-count",
-      "displayName": "Release build with operation counts",
-      "description": "Build with op counting",
-      "inherits": "clang16-assert",
-      "binaryDir": "build-op-count",
-      "environment": {
-        "CXXFLAGS": "-DBB_USE_OP_COUNT_TRACK_ONLY"
-      }
-    },
-    {
       "name": "clang16-coverage",
       "displayName": "Build with coverage",
       "description": "Build clang16 preset but with coverage enabled",
@@ -602,11 +592,6 @@
       "name": "clang16",
       "inherits": "default",
       "configurePreset": "clang16"
-    },
-    {
-      "name": "op-count",
-      "inherits": "default",
-      "configurePreset": "op-count"
     },
     {
       "name": "darwin-arm64",

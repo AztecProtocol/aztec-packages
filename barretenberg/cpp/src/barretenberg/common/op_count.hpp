@@ -22,11 +22,7 @@
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define BB_OP_COUNT_TRACK_NAME(name) (void)0
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define BB_OP_COUNT_CYCLES_NAME(name) (void)0
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define BB_OP_COUNT_TIME_NAME(name) (void)0
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define BB_OP_COUNT_CYCLES() (void)0
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define BB_OP_COUNT_TIME() (void)0
 #else
@@ -66,7 +62,6 @@ template <std::size_t N> struct OperationLabel {
 struct OpStats {
     std::size_t count = 0;
     std::size_t time = 0;
-    std::size_t cycles = 0;
 };
 
 // Contains all statically known op counts
@@ -105,52 +100,26 @@ template <OperationLabel Op> struct GlobalOpCount {
     }
     static constexpr void increment_op_count()
     {
-#ifdef BB_USE_OP_COUNT_TRACK_ONLY
         if (std::is_constant_evaluated()) {
             // We do nothing if the compiler tries to run this
             return;
         }
         ensure_stats();
         stats->count++;
-#endif
-    }
-    static constexpr void add_cycle_time(std::size_t cycles)
-    {
-#ifndef BB_USE_OP_COUNT_TRACK_ONLY
-        if (std::is_constant_evaluated()) {
-            // We do nothing if the compiler tries to run this
-            return;
-        }
-        ensure_stats();
-        stats->cycles += cycles;
-#else
-        static_cast<void>(cycles);
-#endif
     }
     static constexpr void add_clock_time(std::size_t time)
     {
-#ifndef BB_USE_OP_COUNT_TRACK_ONLY
         if (std::is_constant_evaluated()) {
             // We do nothing if the compiler tries to run this
             return;
         }
         ensure_stats();
         stats->time += time;
-#else
-        static_cast<void>(time);
-#endif
     }
 };
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 template <OperationLabel Op> thread_local std::shared_ptr<OpStats> GlobalOpCount<Op>::stats;
 
-// NOLINTNEXTLINE(cppcoreguidelines-special-member-functions)
-struct OpCountCycleReporter {
-    OpStats* stats;
-    std::size_t cycles;
-    OpCountCycleReporter(OpStats* stats);
-    ~OpCountCycleReporter();
-};
 // NOLINTNEXTLINE(cppcoreguidelines-special-member-functions)
 struct OpCountTimeReporter {
     OpStats* stats;
@@ -164,11 +133,6 @@ struct OpCountTimeReporter {
 #define BB_OP_COUNT_TRACK_NAME(name) bb::detail::GlobalOpCount<name>::increment_op_count()
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define BB_OP_COUNT_TRACK() BB_OP_COUNT_TRACK_NAME(__func__)
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define BB_OP_COUNT_CYCLES_NAME(name)                                                                                  \
-    bb::detail::OpCountCycleReporter __bb_op_count_cyles(bb::detail::GlobalOpCount<name>::ensure_stats())
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define BB_OP_COUNT_CYCLES() BB_OP_COUNT_CYCLES_NAME(__func__)
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define BB_OP_COUNT_TIME_NAME(name)                                                                                    \
     std::optional<bb::detail::OpCountTimeReporter> __bb_op_count_time;                                                 \
