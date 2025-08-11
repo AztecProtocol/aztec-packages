@@ -27,6 +27,7 @@ function build_and_deploy {
   fi
   echo_header "build bb docs"
   if cache_download bb-docs-$hash.tar.gz; then
+    echo "Skipping deployment - no bb doc changes compared to cache."
     return
   fi
   denoise "yarn install && yarn build"

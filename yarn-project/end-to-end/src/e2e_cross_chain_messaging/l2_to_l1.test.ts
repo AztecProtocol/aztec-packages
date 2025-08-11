@@ -1,4 +1,4 @@
-import { BatchCall, EthAddress, Fr, type Wallet } from '@aztec/aztec.js';
+import { AztecAddress, BatchCall, EthAddress, Fr, type Wallet } from '@aztec/aztec.js';
 import { RollupContract } from '@aztec/ethereum';
 import { OutboxAbi } from '@aztec/l1-artifacts';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
@@ -24,6 +24,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
   let aztecNodeAdmin: AztecNodeAdmin;
   let msgSender: EthAddress;
   let user1Wallet: Wallet;
+  let user1Address: AztecAddress;
   let outbox: any;
 
   let version: number = 1;
@@ -32,7 +33,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     await t.setup();
-    ({ crossChainTestHarness, aztecNode, aztecNodeAdmin, user1Wallet } = t);
+    ({ crossChainTestHarness, aztecNode, aztecNodeAdmin, user1Wallet, user1Address } = t);
 
     msgSender = EthAddress.fromString(t.deployL1ContractsValues.l1Client.account.address);
 
@@ -49,7 +50,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
       ).getVersion(),
     );
 
-    contract = await TestContract.deploy(user1Wallet).send().deployed();
+    contract = await TestContract.deploy(user1Wallet).send({ from: user1Address }).deployed();
   }, 300_000);
 
   afterAll(async () => {
@@ -66,8 +67,14 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
 
       // We create the L2 -> L1 message using the test contract
       const l2TxReceipt = isPrivate
-        ? await contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(content, recipient).send().wait()
-        : await contract.methods.create_l2_to_l1_message_arbitrary_recipient_public(content, recipient).send().wait();
+        ? await contract.methods
+            .create_l2_to_l1_message_arbitrary_recipient_private(content, recipient)
+            .send({ from: user1Address })
+            .wait()
+        : await contract.methods
+            .create_l2_to_l1_message_arbitrary_recipient_public(content, recipient)
+            .send({ from: user1Address })
+            .wait();
 
       // Since the outbox is only consumable when the block is proven, we need to set the block to be proven.
       await t.assumeProven();
@@ -91,8 +98,11 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
 
     // Send the 2 txs.
     const [noMessageReceipt, withMessageReceipt] = await Promise.all([
-      contract.methods.emit_nullifier(Fr.random()).send().wait(),
-      contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(content, recipient).send().wait(),
+      contract.methods.emit_nullifier(Fr.random()).send({ from: user1Address }).wait(),
+      contract.methods
+        .create_l2_to_l1_message_arbitrary_recipient_private(content, recipient)
+        .send({ from: user1Address })
+        .wait(),
     ]);
 
     // Check that the 2 txs are in the same block.
@@ -113,7 +123,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     await aztecNodeAdmin.setConfig({ minTxsPerBlock: 1 });
 
     const call = createBatchCall(user1Wallet, recipients, contents);
-    const txReceipt = await call.send().wait();
+    const txReceipt = await call.send({ from: user1Address }).wait();
 
     // Check that the block contains the 2 messages.
     const blockNumber = txReceipt.blockNumber!;
@@ -136,7 +146,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     await aztecNodeAdmin.setConfig({ minTxsPerBlock: 1 });
 
     const call = createBatchCall(user1Wallet, recipients, contents);
-    const txReceipt = await call.send().wait();
+    const txReceipt = await call.send({ from: user1Address }).wait();
 
     // Check that the block contains all the messages.
     const blockNumber = txReceipt.blockNumber!;
@@ -174,7 +184,10 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     const call0 = createBatchCall(user1Wallet, tx0.recipients, tx0.contents);
     const call1 = createBatchCall(user1Wallet, tx1.recipients, tx1.contents);
 
-    const [l2TxReceipt0, l2TxReceipt1] = await Promise.all([call0.send().wait(), call1.send().wait()]);
+    const [l2TxReceipt0, l2TxReceipt1] = await Promise.all([
+      call0.send({ from: user1Address }).wait(),
+      call1.send({ from: user1Address }).wait(),
+    ]);
 
     // Check that the 2 txs are in the same block.
     const blockNumber = l2TxReceipt0.blockNumber!;
@@ -238,9 +251,9 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     const call2 = createBatchCall(user1Wallet, tx2.recipients, tx2.contents);
 
     const [l2TxReceipt0, l2TxReceipt1, l2TxReceipt2] = await Promise.all([
-      call0.send().wait(),
-      call1.send().wait(),
-      call2.send().wait(),
+      call0.send({ from: user1Address }).wait(),
+      call1.send({ from: user1Address }).wait(),
+      call2.send({ from: user1Address }).wait(),
     ]);
 
     // Check that all txs are in the same block.
