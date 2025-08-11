@@ -90,7 +90,7 @@ class Goblin {
      *
      * @return Proof
      */
-    GoblinProof prove();
+    GoblinProof prove(const MergeSettings merge_settings = MergeSettings::PREPEND);
 
     /**
      * @brief Recursively verify the next merge proof in the merge verification queue.
@@ -120,7 +120,8 @@ class Goblin {
      */
     static bool verify(const GoblinProof& proof,
                        const MergeCommitments& merge_commitments,
-                       const std::shared_ptr<Transcript>& transcript);
+                       const std::shared_ptr<Transcript>& transcript,
+                       const MergeSettings merge_settings = MergeSettings::PREPEND);
 };
 
 } // namespace bb

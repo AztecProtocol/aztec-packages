@@ -16,10 +16,11 @@ namespace bb::stdlib::recursion::honk {
  *
  */
 GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof& proof,
-                                                              const MergeCommitments& merge_commitments)
+                                                              const MergeCommitments& merge_commitments,
+                                                              const MergeSettings merge_settings)
 {
     StdlibProof stdlib_proof(*builder, proof);
-    return verify(stdlib_proof, merge_commitments);
+    return verify(stdlib_proof, merge_commitments, merge_settings);
 }
 
 /**
@@ -30,11 +31,11 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof&
  *
  */
 GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const StdlibProof& proof,
-                                                              const MergeCommitments& merge_commitments)
+                                                              const MergeCommitments& merge_commitments,
+                                                              const MergeSettings merge_settings)
 {
     // Verify the final merge step
-    // Ensure this doesn't cause problems for AVM (it shouldn't)
-    MergeVerifier merge_verifier{ builder, MergeSettings::APPEND, transcript };
+    MergeVerifier merge_verifier{ builder, merge_settings, transcript };
     auto [merge_pairing_points, merged_table_commitments] =
         merge_verifier.verify_proof(proof.merge_proof, merge_commitments);
 

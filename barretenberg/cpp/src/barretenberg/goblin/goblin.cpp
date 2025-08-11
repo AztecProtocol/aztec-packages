@@ -47,11 +47,11 @@ void Goblin::prove_translator()
     goblin_proof.translator_proof = translator_prover.construct_proof();
 }
 
-GoblinProof Goblin::prove()
+GoblinProof Goblin::prove(const MergeSettings merge_settings)
 {
     PROFILE_THIS_NAME("Goblin::prove");
 
-    prove_merge(transcript, MergeSettings::APPEND); // Use shared transcript for merge proving
+    prove_merge(transcript, merge_settings); // Use shared transcript for merge proving
     info("Constructing a Goblin proof with num ultra ops = ", op_queue->get_ultra_ops_table_num_rows());
 
     BB_ASSERT_EQ(merge_verification_queue.size(),
@@ -96,9 +96,10 @@ std::pair<Goblin::PairingPoints, Goblin::RecursiveTableCommitments> Goblin::recu
 
 bool Goblin::verify(const GoblinProof& proof,
                     const MergeCommitments& merge_commitments,
-                    const std::shared_ptr<Transcript>& transcript)
+                    const std::shared_ptr<Transcript>& transcript,
+                    const MergeSettings merge_settings)
 {
-    MergeVerifier merge_verifier(MergeSettings::APPEND, transcript);
+    MergeVerifier merge_verifier(merge_settings, transcript);
     auto [merge_verified, merged_table_commitments] = merge_verifier.verify_proof(proof.merge_proof, merge_commitments);
 
     ECCVMVerifier eccvm_verifier(transcript);
