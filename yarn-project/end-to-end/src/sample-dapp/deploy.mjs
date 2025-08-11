@@ -21,7 +21,7 @@ async function main() {
   const ownerAddress = ownerWallet.getAddress();
 
   const token = await Contract.deploy(ownerWallet, TokenContractArtifact, [ownerAddress, 'TokenName', 'TKN', 18])
-    .send()
+    .send({ from: ownerAddress })
     .deployed();
 
   console.log(`Token deployed at ${token.address.toString()}`);

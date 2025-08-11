@@ -19,18 +19,28 @@ describe('token', () => {
     [owner, recipient] = await getDeployedTestAccountsWallets(pxe);
 
     const initialBalance = 69;
-    token = await TokenContract.deploy(owner, owner.getAddress(), 'TokenName', 'TokenSymbol', 18).send().deployed();
+    token = await TokenContract.deploy(owner, owner.getAddress(), 'TokenName', 'TokenSymbol', 18)
+      .send({ from: owner.getAddress() })
+      .deployed();
     await token.methods.mint_to_private(owner.getAddress(), initialBalance).send().wait();
   }, 120_000);
   // docs:end:setup
 
   // docs:start:test
   it('increases recipient funds on transfer', async () => {
-    expect(await token.withWallet(recipient).methods.balance_of_private(recipient.getAddress()).simulate()).toEqual(0n);
-    await token.methods.transfer(recipient.getAddress(), 20).send().wait();
-    expect(await token.withWallet(recipient).methods.balance_of_private(recipient.getAddress()).simulate()).toEqual(
-      20n,
-    );
+    expect(
+      await token
+        .withWallet(recipient)
+        .methods.balance_of_private(recipient.getAddress())
+        .simulate({ from: recipient.getAddress() }),
+    ).toEqual(0n);
+    await token.methods.transfer(recipient.getAddress(), 20).send({ from: owner.getAddress() }).wait();
+    expect(
+      await token
+        .withWallet(recipient)
+        .methods.balance_of_private(recipient.getAddress())
+        .simulate({ from: recipient.getAddress() }),
+    ).toEqual(20n);
   }, 30_000);
   // docs:end:test
 });

@@ -25,7 +25,7 @@ async function showPrivateBalances(pxe) {
 
   for (const account of accounts) {
     // highlight-next-line:showPrivateBalances
-    const balance = await token.methods.balance_of_private(account.address).simulate();
+    const balance = await token.methods.balance_of_private(account.address).simulate({ from: account.address });
     console.log(`Balance of ${account.address}: ${balance}`);
   }
 }
@@ -40,7 +40,10 @@ async function mintPrivateFunds(pxe) {
 
   // We mint tokens to the owner
   const mintAmount = 20n;
-  await token.methods.mint_to_private(ownerWallet.getAddress(), mintAmount).send().wait();
+  await token.methods
+    .mint_to_private(ownerWallet.getAddress(), mintAmount)
+    .send({ from: ownerWallet.getAddress() })
+    .wait();
 
   await showPrivateBalances(pxe);
 }
@@ -53,7 +56,10 @@ async function transferPrivateFunds(pxe) {
 
   await showPrivateBalances(pxe);
   console.log(`Sending transaction, awaiting transaction to be mined`);
-  const receipt = await token.methods.transfer(recipient.getAddress(), 1).send().wait();
+  const receipt = await token.methods
+    .transfer(recipient.getAddress(), 1)
+    .send({ from: ownerWallet.getAddress() })
+    .wait();
 
   console.log(`Transaction ${receipt.txHash} has been mined on block ${receipt.blockNumber}`);
   await showPrivateBalances(pxe);
@@ -69,7 +75,7 @@ async function showPublicBalances(pxe) {
 
   for (const account of accounts) {
     // highlight-next-line:showPublicBalances
-    const balance = await token.methods.balance_of_public(account.address).simulate();
+    const balance = await token.methods.balance_of_public(account.address).simulate({ from: account.address });
     console.log(`Balance of ${account.address}: ${balance}`);
   }
 }
@@ -83,7 +89,10 @@ async function mintPublicFunds(pxe) {
   await showPublicBalances(pxe);
 
   console.log(`Sending transaction, awaiting transaction to be mined`);
-  const receipt = await token.methods.mint_to_public(owner.getAddress(), 100).send().wait();
+  const receipt = await token.methods
+    .mint_to_public(owner.getAddress(), 100)
+    .send({ from: ownerWallet.getAddress() })
+    .wait();
   console.log(`Transaction ${receipt.txHash} has been mined on block ${receipt.blockNumber}`);
 
   await showPublicBalances(pxe);
