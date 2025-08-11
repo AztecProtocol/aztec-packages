@@ -47,9 +47,20 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
     using OuterVerificationKey = OuterFlavor::VerificationKey;
     using OuterBuilder = UltraCircuitBuilder;
 
+    using field_ct = stdlib::field_t<Builder>;
     using MegaVerificationKey = bb::ClientIVC::MegaVerificationKey;
 
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
+
+    static std::vector<field_ct> fields_from_witnesses(Builder& builder, const std::vector<uint32_t>& input)
+    {
+        std::vector<field_ct> result;
+        result.reserve(input.size());
+        for (const auto& idx : input) {
+            result.emplace_back(field_ct::from_witness_index(&builder, idx));
+        }
+        return result;
+    };
 
     static InnerCircuitData create_inner_circuit_data()
     {
@@ -125,22 +136,12 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
     static std::shared_ptr<MegaVerificationKey> construct_inner_recursive_verification_circuit_key(
         Builder& builder, RecursionConstraint& avm_constraint, bool has_valid_witness_assignments)
     {
-        using field_ct = stdlib::field_t<Builder>;
         using RecursiveVerifier = bb::avm2::AvmGoblinRecursiveVerifier;
 
-        auto fields_from_witnesses = [&builder](const std::vector<uint32_t>& input) {
-            std::vector<field_ct> result;
-            result.reserve(input.size());
-            for (const auto& idx : input) {
-                result.emplace_back(field_ct::from_witness_index(&builder, idx));
-            }
-            return result;
-        };
-
         // Construct in-circuit representations of the verification key, proof and public inputs
-        const auto key_fields = fields_from_witnesses(avm_constraint.key);
-        const auto proof_fields = fields_from_witnesses(avm_constraint.proof);
-        const auto public_inputs_flattened = fields_from_witnesses(avm_constraint.public_inputs);
+        const auto key_fields = fields_from_witnesses(builder, avm_constraint.key);
+        const auto proof_fields = fields_from_witnesses(builder, avm_constraint.proof);
+        const auto public_inputs_flattened = fields_from_witnesses(builder, avm_constraint.public_inputs);
 
         if (!has_valid_witness_assignments) {
             // Create dummy data
@@ -159,15 +160,10 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
 
 TEST_F(AcirAvm2RecursionConstraint, TestBasicSingleAvm2RecursionConstraint)
 {
-    // Skip this test since it is redundant with the one below (which also does proving and verification for the AVM
-    // recursive verifier circuit) and both are expensive to run. It would be nice to reinstate this as a standalone in
-    // the future if possible.
-    GTEST_SKIP();
-
     std::vector<InnerCircuitData> layer_1_circuits;
     layer_1_circuits.push_back(create_inner_circuit_data());
     AcirProgram avm_verifier_program = construct_avm_verifier_program(layer_1_circuits);
-    const ProgramMetadata metadata{ .honk_recursion = 1 };
+    const ProgramMetadata metadata{ .honk_recursion = 2 };
     auto layer_2_circuit = create_circuit(avm_verifier_program, metadata);
 
     info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
@@ -253,38 +249,48 @@ TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
     {
         AcirProgram avm_verifier_program = construct_avm_verifier_program({ avm_prover_output });
         const ProgramMetadata metadata{ .honk_recursion = 2 };
-        auto layer_2_circuit = create_circuit(avm_verifier_program, metadata);
 
-        info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
+        BB_ASSERT_EQ(avm_verifier_program.constraints.avm_recursion_constraints.size(),
+                     1U,
+                     "This test is built only for a single AVM constraint");
 
-        auto proving_key = std::make_shared<OuterDeciderProvingKey>(layer_2_circuit);
+        Builder builder{ metadata.size_hint,
+                         avm_verifier_program.witness,
+                         avm_verifier_program.constraints.public_inputs,
+                         avm_verifier_program.constraints.varnum,
+                         metadata.recursive };
+
+        [[maybe_unused]] auto _ = create_avm2_recursion_constraints_goblin(
+            builder, avm_verifier_program.constraints.avm_recursion_constraints[0], true);
+
+        auto proving_key = std::make_shared<OuterDeciderProvingKey>(builder);
         expected_vk = std::make_shared<OuterVerificationKey>(proving_key->get_precomputed());
-        OuterProver prover(proving_key, expected_vk);
-        info("prover gates = ", proving_key->dyadic_size());
-
-        // Construct and verify a proof of the outer AVM verifier circuits
-        auto proof = prover.construct_proof();
-        VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
-        OuterVerifier verifier(expected_vk, ipa_verification_key);
-        EXPECT_TRUE(verifier.verify_proof(proof, proving_key->ipa_proof));
     }
 
     // Now, construct the AVM2 recursive verifier circuit VK by providing the program without a witness
     std::shared_ptr<OuterVerificationKey> actual_vk;
     {
         AcirProgram avm_verifier_program = construct_avm_verifier_program({ avm_prover_output });
+        const ProgramMetadata metadata{ .honk_recursion = 2 };
+
+        BB_ASSERT_EQ(avm_verifier_program.constraints.avm_recursion_constraints.size(),
+                     1U,
+                     "This test is built only for a single AVM constraint");
 
         // Clear the program witness then construct the bberg circuit as normal
         avm_verifier_program.witness.clear();
-        const ProgramMetadata metadata{ .honk_recursion = 2 };
-        auto layer_2_circuit = create_circuit(avm_verifier_program, metadata);
 
-        info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
+        Builder builder{ metadata.size_hint,
+                         avm_verifier_program.witness,
+                         avm_verifier_program.constraints.public_inputs,
+                         avm_verifier_program.constraints.varnum,
+                         metadata.recursive };
 
-        auto proving_key = std::make_shared<OuterDeciderProvingKey>(layer_2_circuit);
+        [[maybe_unused]] auto _ = create_avm2_recursion_constraints_goblin(
+            builder, avm_verifier_program.constraints.avm_recursion_constraints[0], false);
+
+        auto proving_key = std::make_shared<OuterDeciderProvingKey>(builder);
         actual_vk = std::make_shared<OuterVerificationKey>(proving_key->get_precomputed());
-        OuterProver prover(proving_key, actual_vk);
-        info("prover gates = ", proving_key->dyadic_size());
     }
 
     // Compare the VK constructed via running the IVC with the one constructed via mocking
