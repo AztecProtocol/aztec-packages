@@ -17,7 +17,7 @@ class BytecodeHashingInterface {
 
 class BytecodeHasher : public BytecodeHashingInterface {
   public:
-    BytecodeHasher(Poseidon2& hasher, EventEmitterInterface<BytecodeHashingEvent>& events)
+    BytecodeHasher(Poseidon2Interface& hasher, EventEmitterInterface<BytecodeHashingEvent>& events)
         : events(events)
         , hasher(hasher)
     {}

@@ -61,7 +61,7 @@ Set the required environment variables:
 
 ```bash
 export NODE_URL=https://aztec-alpha-testnet-fullnode.zkv.xyz
-export SPONSORED_FPC_ADDRESS=0x1260a43ecf03e985727affbbe3e483e60b836ea821b6305bea1c53398b986047
+export SPONSORED_FPC_ADDRESS=0x19b5539ca1b104d4c3705de94e4555c9630def411f025e023a13189d0c56f8f2
 ```
 
 ### Step 2: Create and deploy an account
@@ -167,6 +167,7 @@ import { createAztecNodeClient } from "@aztec/aztec.js";
 import { getPXEServiceConfig } from "@aztec/pxe/server";
 import { createStore } from "@aztec/kv-store/lmdb";
 
+const NODE_URL = "https://aztec-alpha-testnet-fullnode.zkv.xyz";
 const node = createAztecNodeClient(NODE_URL);
 const l1Contracts = await node.getL1ContractAddresses();
 const config = getPXEServiceConfig();

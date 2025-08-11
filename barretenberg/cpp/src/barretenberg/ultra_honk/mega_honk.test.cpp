@@ -44,7 +44,7 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
         Prover prover(proving_key, verification_key);
         Verifier verifier(verification_key);
         auto proof = prover.construct_proof();
-        bool verified = std::get<0>(verifier.verify_proof(proof));
+        bool verified = verifier.template verify_proof<DefaultIO>(proof).result;
 
         return verified;
     }
@@ -66,7 +66,7 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
         Prover prover(proving_key, verification_key);
         Verifier verifier(verification_key);
         auto proof = prover.construct_proof();
-        bool verified = std::get<0>(verifier.verify_proof(proof));
+        bool verified = verifier.template verify_proof<DefaultIO>(proof).result;
 
         return verified;
     }
@@ -121,7 +121,7 @@ TYPED_TEST(MegaHonkTests, ProofLengthCheck)
     auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
     UltraProver_<Flavor> prover(proving_key, verification_key);
     HonkProof mega_proof = prover.construct_proof();
-    EXPECT_EQ(mega_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + DefaultIO::PUBLIC_INPUTS_SIZE);
+    EXPECT_EQ(mega_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS() + DefaultIO::PUBLIC_INPUTS_SIZE);
 }
 
 /**
@@ -194,7 +194,8 @@ TYPED_TEST(MegaHonkTests, BasicStructured)
 
     RelationChecker<Flavor>::check_all(proving_key->polynomials, proving_key->relation_parameters);
 
-    EXPECT_TRUE(std::get<0>(verifier.verify_proof(proof)));
+    bool result = verifier.template verify_proof<DefaultIO>(proof).result;
+    EXPECT_TRUE(result);
 }
 
 /**
@@ -246,13 +247,15 @@ TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
     auto proof = prover.construct_proof();
 
     RelationChecker<Flavor>::check_all(proving_key->polynomials, proving_key->relation_parameters);
-    EXPECT_TRUE(std::get<0>(verifier.verify_proof(proof)));
+    bool result = verifier.template verify_proof<DefaultIO>(proof).result;
+    EXPECT_TRUE(result);
 
     Verifier verifier_copy(verification_key_copy);
     auto proof_copy = prover_copy.construct_proof();
 
     RelationChecker<Flavor>::check_all(proving_key->polynomials, proving_key->relation_parameters);
-    EXPECT_TRUE(std::get<0>(verifier_copy.verify_proof(proof_copy)));
+    bool result_copy = verifier_copy.template verify_proof<DefaultIO>(proof_copy).result;
+    EXPECT_TRUE(result_copy);
 }
 
 /**
@@ -506,7 +509,8 @@ TYPED_TEST(MegaHonkTests, PolySwap)
         typename TestFixture::Prover prover(proving_key_1, verification_key);
         typename TestFixture::Verifier verifier(verification_key);
         auto proof = prover.construct_proof();
-        EXPECT_TRUE(std::get<0>(verifier.verify_proof(proof)));
+        bool result = verifier.template verify_proof<DefaultIO>(proof).result;
+        EXPECT_TRUE(result);
     }
 
     { // Verification based on pkey 2 should fail
@@ -515,6 +519,42 @@ TYPED_TEST(MegaHonkTests, PolySwap)
         typename TestFixture::Prover prover(proving_key_2, verification_key);
         typename TestFixture::Verifier verifier(verification_key);
         auto proof = prover.construct_proof();
-        EXPECT_FALSE(std::get<0>(verifier.verify_proof(proof)));
+        bool result = verifier.template verify_proof<DefaultIO>(proof).result;
+        EXPECT_FALSE(result);
+    }
+}
+
+/**
+ * @brief To ensure the Merge proof sent to the rollup is ZK we have to randomise the commitments and evaluation of
+ * column polynomials. We achieve this by adding some randomness to the op queue via random ops in builders. As we
+ * produce a MegaHonk proof for such builders, this test ensure random ops do not alter the correctness of such proof
+ * (which only asserts that the data in ecc_op_wires has been compied correctly from the other wires).
+ *
+ */
+TYPED_TEST(MegaHonkTests, OpQueueWithRandomValues)
+{
+    using Flavor = TypeParam;
+    using Builder = Flavor::CircuitBuilder;
+
+    // Test for randomness added at the beginning
+    {
+        Builder builder;
+        GoblinMockCircuits::randomise_op_queue(builder);
+        GoblinMockCircuits::construct_simple_circuit(builder);
+
+        // Construct and verify Honk proof
+        bool honk_verified = this->construct_and_verify_honk_proof(builder);
+        EXPECT_TRUE(honk_verified);
+    }
+
+    // Test for randomness added at the end
+    {
+        Builder builder;
+        GoblinMockCircuits::construct_simple_circuit(builder);
+        GoblinMockCircuits::randomise_op_queue(builder);
+
+        // Construct and verify Honk proof
+        bool honk_verified = this->construct_and_verify_honk_proof(builder);
+        EXPECT_TRUE(honk_verified);
     }
 }

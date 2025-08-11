@@ -99,6 +99,25 @@ void Execution::mul(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     }
 }
 
+void Execution::div(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::DIV;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(a_addr);
+    MemoryValue b = memory.get(b_addr);
+    set_and_validate_inputs(opcode, { a, b });
+
+    get_gas_tracker().consume_gas();
+
+    try {
+        MemoryValue c = alu.div(a, b);
+        memory.set(dst_addr, c);
+        set_output(opcode, c);
+    } catch (AluException& e) {
+        throw OpcodeExecutionException("Alu div operation failed");
+    }
+}
+
 void Execution::eq(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
 {
     constexpr auto opcode = ExecutionOpCode::EQ;
@@ -922,6 +941,20 @@ void Execution::send_l2_to_l1_msg(ContextInterface& context, MemoryAddress recip
     context.set_side_effect_states(side_effects_states_before);
 }
 
+void Execution::sha256_compression(ContextInterface& context,
+                                   MemoryAddress output_addr,
+                                   MemoryAddress state_addr,
+                                   MemoryAddress input_addr)
+{
+    get_gas_tracker().consume_gas();
+
+    try {
+        sha256.compression(context.get_memory(), state_addr, input_addr, output_addr);
+    } catch (const Sha256CompressionException& e) {
+        throw OpcodeExecutionException("Sha256 Compression failed: " + std::string(e.what()));
+    }
+}
+
 // This context interface is a top-level enqueued one.
 // NOTE: For the moment this trace is not returning the context back.
 ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_call_context)
@@ -945,7 +978,9 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
             //// Temporality group 1 starts ////
 
             // We try to get the bytecode id. This can throw if the contract is not deployed.
-            ex_event.bytecode_id = context.get_bytecode_manager().get_bytecode_id();
+            // Note: bytecode_id is tracked in context events, not in the top-level execution event.
+            // It is already included in the before_context_event (defaulting to 0 on error/not-found).
+            context.get_bytecode_manager().get_bytecode_id();
 
             //// Temporality group 2 starts ////
 
@@ -971,7 +1006,6 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
         catch (const BytecodeNotFoundError& e) {
             vinfo("Bytecode not found: ", e.what());
             ex_event.error = ExecutionError::BYTECODE_NOT_FOUND;
-            ex_event.bytecode_id = e.bytecode_id;
             handle_exceptional_halt(context);
         } catch (const InstructionFetchingError& e) {
             vinfo("Instruction fetching error: ", e.what());
@@ -1030,10 +1064,11 @@ void Execution::handle_enter_call(ContextInterface& parent_context, std::unique_
     ctx_stack_events.emit(
         { .id = parent_context.get_context_id(),
           .parent_id = parent_context.get_parent_id(),
-          .entered_context_id = context_provider.get_next_context_id(),
+          .entered_context_id = child_context->get_context_id(), // gets the context id of the child!
           .next_pc = parent_context.get_next_pc(),
           .msg_sender = parent_context.get_msg_sender(),
           .contract_addr = parent_context.get_address(),
+          .bytecode_id = parent_context.get_bytecode_manager().try_get_bytecode_id().value_or(FF(0)),
           .is_static = parent_context.get_is_static(),
           .parent_gas_used = parent_context.get_parent_gas_used(),
           .parent_gas_limit = parent_context.get_parent_gas_limit(),
@@ -1111,6 +1146,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::MUL:
         call_with_operands(&Execution::mul, context, resolved_operands);
+        break;
+    case ExecutionOpCode::DIV:
+        call_with_operands(&Execution::div, context, resolved_operands);
         break;
     case ExecutionOpCode::EQ:
         call_with_operands(&Execution::eq, context, resolved_operands);
@@ -1224,6 +1262,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::SENDL2TOL1MSG:
         call_with_operands(&Execution::send_l2_to_l1_msg, context, resolved_operands);
+        break;
+    case ExecutionOpCode::SHA256COMPRESSION:
+        call_with_operands(&Execution::sha256_compression, context, resolved_operands);
         break;
     default:
         // NOTE: Keep this a `std::runtime_error` so that the main loop panics.

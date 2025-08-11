@@ -10,11 +10,11 @@ import {Multicall3} from "./Multicall3.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {
-  SignatureLib,
+  AttestationLib,
   Signature,
   CommitteeAttestation,
   CommitteeAttestations
-} from "@aztec/shared/libraries/SignatureLib.sol";
+} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
@@ -401,7 +401,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
         // Store the attestations for the current block number
         uint256 currentBlockNumber = rollup.getPendingBlockNumber() + 1;
-        blockAttestations[currentBlockNumber] = SignatureLib.packAttestations(b.attestations);
+        blockAttestations[currentBlockNumber] = AttestationLib.packAttestations(b.attestations);
 
         if (_slashing) {
           Signature memory sig = createSignalSignature(proposer, slashPayload, round);
@@ -409,7 +409,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
           calls[0] = Multicall3.Call3({
             target: address(rollup),
             callData: abi.encodeCall(
-              rollup.propose, (b.proposeArgs, SignatureLib.packAttestations(b.attestations), b.signers, b.blobInputs)
+              rollup.propose, (b.proposeArgs, AttestationLib.packAttestations(b.attestations), b.signers, b.blobInputs)
             ),
             allowFailure: false
           });
@@ -420,7 +420,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
           });
           multicall.aggregate3(calls);
         } else {
-          CommitteeAttestations memory attestations = SignatureLib.packAttestations(b.attestations);
+          CommitteeAttestations memory attestations = AttestationLib.packAttestations(b.attestations);
 
           // Emit calldata size for propose
           bytes memory proposeCalldata =

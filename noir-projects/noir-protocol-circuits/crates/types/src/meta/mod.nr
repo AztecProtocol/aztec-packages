@@ -157,13 +157,18 @@ pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
         })
         .join(quote {+});
 
-    // Generates serialization code for each struct member that:
-    // 1. Serializes the member
-    // 2. Copies serialized fields into result array at correct offset
-    // 3. Updates offset for next member
-    let serialization_of_struct_members = params
-        .map(|(param_name, param_type, _): (Quoted, Type, Quoted)| {
-            quote {
+    // For structs containing a single member, we can enhance performance by directly returning the serialized member,
+    // bypassing the need for loop-based array construction. While this optimization yields significant benefits in
+    // Brillig where the loops are expected to not be optimized, it is not relevant in ACIR where the loops are
+    // expected to be optimized away.
+    let function_body = if params.len() > 1 {
+        // For multiple struct members, generate serialization code that:
+        // 1. Serializes each member
+        // 2. Copies the serialized fields into the result array at the correct offset
+        // 3. Updates the offset for the next member
+        let serialization_of_struct_members = params
+            .map(|(param_name, param_type, _): (Quoted, Type, Quoted)| {
+                quote {
                 let serialized_member = $crate::traits::Serialize::serialize(self.$param_name);
                 let serialized_member_len = <$param_type as $crate::traits::Serialize>::N;
                 for i in 0..serialized_member_len {
@@ -171,8 +176,23 @@ pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
                 }
                 offset += serialized_member_len;
             }
-        })
-        .join(quote {});
+            })
+            .join(quote {});
+
+        quote {
+            let mut result = [0; _];
+            let mut offset = 0;
+
+            $serialization_of_struct_members
+
+            result
+        }
+    } else {
+        let param_name = params[0].0;
+        quote {
+            $crate::traits::Serialize::serialize(self.$param_name)
+        }
+    };
 
     quote {
         impl$generics_declarations $crate::traits::Serialize for $typ
@@ -182,12 +202,7 @@ pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
 
             #[inline_always]
             fn serialize(self) -> [Field; Self::N] {
-                let mut result = [0; _];
-                let mut offset = 0;
-
-                $serialization_of_struct_members
-
-                result
+                $function_body
             }
         }
     }
@@ -257,25 +272,44 @@ pub(crate) comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
         })
         .join(quote {+});
 
-    // This generates deserialization code for each struct member and concatenates them together.
-    let deserialization_of_struct_members = params
-        .map(|(param_name, param_type, _): (Quoted, Type, Quoted)| {
-            quote {
-                let mut member_fields = [0; <$param_type as Deserialize>::N];
-                for i in 0..<$param_type as Deserialize>::N {
-                    member_fields[i] = serialized[i + offset];
+    // For structs containing a single member, we can enhance performance by directly deserializing the input array,
+    // bypassing the need for loop-based array construction. While this optimization yields significant benefits in
+    // Brillig where the loops are expected to not be optimized, it is not relevant in ACIR where the loops are
+    // expected to be optimized away.
+    let function_body = if params.len() > 1 {
+        // This generates deserialization code for each struct member and concatenates them together.
+        let deserialization_of_struct_members = params
+            .map(|(param_name, param_type, _): (Quoted, Type, Quoted)| {
+                quote {
+                    let mut member_fields = [0; <$param_type as Deserialize>::N];
+                    for i in 0..<$param_type as Deserialize>::N {
+                        member_fields[i] = serialized[i + offset];
+                    }
+                    let $param_name = <$param_type as Deserialize>::deserialize(member_fields);
+                    offset += <$param_type as Deserialize>::N;
                 }
-                let $param_name = <$param_type as Deserialize>::deserialize(member_fields);
-                offset += <$param_type as Deserialize>::N;
-            }
-        })
-        .join(quote {});
+            })
+            .join(quote {});
 
-    // We join the struct member names with a comma to be used in the `Self { ... }` syntax
-    // This will give us e.g. `a, b, c` for a struct with three fields named `a`, `b`, and `c`.
-    let struct_members = params
-        .map(|(param_name, _, _): (Quoted, Type, Quoted)| quote { $param_name })
-        .join(quote {,});
+        // We join the struct member names with a comma to be used in the `Self { ... }` syntax
+        // This will give us e.g. `a, b, c` for a struct with three fields named `a`, `b`, and `c`.
+        let struct_members = params
+            .map(|(param_name, _, _): (Quoted, Type, Quoted)| quote { $param_name })
+            .join(quote {,});
+
+        quote {
+            let mut offset = 0;
+
+            $deserialization_of_struct_members
+
+            Self { $struct_members }
+        }
+    } else {
+        let param_name = params[0].0;
+        quote {
+            Self { $param_name: $crate::traits::Deserialize::deserialize(serialized) }
+        }
+    };
 
     quote {
         impl$generics_declarations $crate::traits::Deserialize for $typ
@@ -285,11 +319,7 @@ pub(crate) comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
 
             #[inline_always]
             fn deserialize(serialized: [Field; Self::N]) -> Self {
-                let mut offset = 0;
-
-                $deserialization_of_struct_members
-
-                Self { $struct_members }
+                $function_body
             }
         }
     }
@@ -379,41 +409,81 @@ pub comptime fn derive_packable(s: TypeDefinition) -> Quoted {
         })
         .join(quote {+});
 
-    // Generates packing code for each struct member that:
-    // 1. Packs the member
-    // 2. Copies packed fields into result array at correct offset
-    // 3. Updates offset for next member
-    let packing_of_struct_members = params
-        .map(|(param_name, param_type, _): (Quoted, Type, Quoted)| {
-            quote {
-                let packed_member = $crate::traits::Packable::pack(self.$param_name);
-                let packed_member_len = <$param_type as $crate::traits::Packable>::N;
-                for i in 0..packed_member_len {
-                    result[i + offset] = packed_member[i];
+    // For structs containing a single member, we can enhance performance by directly returning the packed member,
+    // bypassing the need for loop-based array construction. While this optimization yields significant benefits in
+    // Brillig where the loops are expected to not be optimized, it is not relevant in ACIR where the loops are
+    // expected to be optimized away.
+    let pack_function_body = if params.len() > 1 {
+        // For multiple struct members, generate packing code that:
+        // 1. Packs each member
+        // 2. Copies the packed fields into the result array at the correct offset
+        // 3. Updates the offset for the next member
+        let packing_of_struct_members = params
+            .map(|(param_name, param_type, _): (Quoted, Type, Quoted)| {
+                quote {
+                    let packed_member = $crate::traits::Packable::pack(self.$param_name);
+                    let packed_member_len = <$param_type as $crate::traits::Packable>::N;
+                    for i in 0..packed_member_len {
+                        result[i + offset] = packed_member[i];
+                    }
+                    offset += packed_member_len;
                 }
-                offset += packed_member_len;
-            }
-        })
-        .join(quote {});
+            })
+            .join(quote {});
 
-    // This generates unpacking code for each struct member and concatenates them together.
-    let unpacking_of_struct_members = params
-        .map(|(param_name, param_type, _): (Quoted, Type, Quoted)| {
-            quote {
-                let mut member_fields = [0; <$param_type as $crate::traits::Packable>::N];
-                for i in 0..<$param_type as $crate::traits::Packable>::N {
-                    member_fields[i] = packed[i + offset];
+        quote {
+            let mut result = [0; Self::N];
+            let mut offset = 0;
+
+            $packing_of_struct_members
+
+            result
+        }
+    } else {
+        let param_name = params[0].0;
+        quote {
+            $crate::traits::Packable::pack(self.$param_name)
+        }
+    };
+
+    // For structs containing a single member, we can enhance performance by directly unpacking the input array,
+    // bypassing the need for loop-based array construction. While this optimization yields significant benefits in
+    // Brillig where the loops are expected to not be optimized, it is not relevant in ACIR where the loops are
+    // expected to be optimized away.
+    let unpack_function_body = if params.len() > 1 {
+        // For multiple struct members, generate unpacking code that:
+        // 1. Unpacks each member
+        // 2. Copies packed fields into member array at correct offset
+        // 3. Updates offset for next member
+        let unpacking_of_struct_members = params
+            .map(|(param_name, param_type, _): (Quoted, Type, Quoted)| {
+                quote {
+                    let mut member_fields = [0; <$param_type as $crate::traits::Packable>::N];
+                    for i in 0..<$param_type as $crate::traits::Packable>::N {
+                        member_fields[i] = packed[i + offset];
+                    }
+                    let $param_name = <$param_type as $crate::traits::Packable>::unpack(member_fields);
+                    offset += <$param_type as $crate::traits::Packable>::N;
                 }
-                let $param_name = <$param_type as $crate::traits::Packable>::unpack(member_fields);
-                offset += <$param_type as $crate::traits::Packable>::N;
-            }
-        })
-        .join(quote {});
+            })
+            .join(quote {});
 
-    // We join the struct member names with a comma to be used in the `Self { ... }` syntax
-    let struct_members = params
-        .map(|(param_name, _, _): (Quoted, Type, Quoted)| quote { $param_name })
-        .join(quote {,});
+        // We join the struct member names with a comma to be used in the `Self { ... }` syntax
+        let struct_members = params
+            .map(|(param_name, _, _): (Quoted, Type, Quoted)| quote { $param_name })
+            .join(quote {,});
+
+        quote {
+            let mut offset = 0;
+            $unpacking_of_struct_members
+            Self { $struct_members }
+        }
+    } else {
+        let param_name = params[0].0;
+        quote {
+            Self { $param_name: $crate::traits::Packable::unpack(packed) }
+        }
+    };
 
     quote {
         impl$generics_declarations $crate::traits::Packable for $typ
@@ -422,20 +492,11 @@ pub comptime fn derive_packable(s: TypeDefinition) -> Quoted {
             let N: u32 = $right_hand_side_of_definition_of_n;
 
             fn pack(self) -> [Field; Self::N] {
-                let mut result = [0; Self::N];
-                let mut offset = 0;
-
-                $packing_of_struct_members
-
-                result
+                $pack_function_body
             }
 
             fn unpack(packed: [Field; Self::N]) -> Self {
-                let mut offset = 0;
-
-                $unpacking_of_struct_members
-
-                Self { $struct_members }
+                $unpack_function_body
             }
         }
     }
