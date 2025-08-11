@@ -96,8 +96,7 @@ export abstract class BaseContractInteraction {
   // docs:start:estimateGas
   /**
    * Estimates gas for a given tx request and returns gas limits for it.
-   * @param opts - Options.
-   * @param pad - Percentage to pad the suggested gas limits by, if empty, defaults to 10%.
+   * @param options - Options.
    * @returns Gas limits.
    */
   public async estimateGas(

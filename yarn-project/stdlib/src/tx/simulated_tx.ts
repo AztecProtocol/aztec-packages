@@ -4,7 +4,6 @@ import type { FieldsOf } from '@aztec/foundation/types';
 import { z } from 'zod';
 
 import { type ContractArtifact, ContractArtifactSchema } from '../abi/abi.js';
-import { AztecAddress } from '../aztec-address/index.js';
 import {
   type ContractInstanceWithAddress,
   ContractInstanceWithAddressSchema,

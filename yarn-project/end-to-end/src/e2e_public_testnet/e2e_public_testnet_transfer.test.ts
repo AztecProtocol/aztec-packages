@@ -12,7 +12,6 @@ import { setup } from '../fixtures/utils.js';
 
 describe(`deploys and transfers a private only token`, () => {
   let deployerWallet: AccountWalletWithSecretKey;
-  let recipientWallet: AccountWalletWithSecretKey;
 
   let deployerAddress: AztecAddress;
   let recipientAddress: AztecAddress;
@@ -36,7 +35,7 @@ describe(`deploys and transfers a private only token`, () => {
       chain,
     ));
 
-    [deployerWallet, recipientWallet] = wallets;
+    [deployerWallet] = wallets;
     [deployerAddress, recipientAddress] = accounts;
   }, 600_000);
 

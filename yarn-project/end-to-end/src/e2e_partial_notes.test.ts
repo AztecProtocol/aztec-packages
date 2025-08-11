@@ -16,7 +16,6 @@ describe('partial notes', () => {
   let logger: Logger;
 
   let adminWallet: AccountWallet;
-  let liquidityProvider: AccountWallet;
 
   let adminAddress: AztecAddress;
   let liquidityProviderAddress: AztecAddress;
@@ -28,7 +27,7 @@ describe('partial notes', () => {
   beforeAll(async () => {
     ({
       teardown,
-      wallets: [adminWallet, liquidityProvider],
+      wallets: [adminWallet],
       accounts: [adminAddress, liquidityProviderAddress],
       logger,
     } = await setup(2));

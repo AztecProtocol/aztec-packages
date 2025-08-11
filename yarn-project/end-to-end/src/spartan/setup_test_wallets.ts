@@ -9,7 +9,6 @@ import {
   Fr,
   L1FeeJuicePortalManager,
   type PXE,
-  ProvenTx,
   SponsoredFeePaymentMethod,
   createAztecNodeClient,
   createCompatibleClient,

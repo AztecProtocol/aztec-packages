@@ -1,4 +1,4 @@
-import { type AztecAddress, BatchCall, Fr, type Wallet, toBigIntBE } from '@aztec/aztec.js';
+import { type AztecAddress, BatchCall, Fr, toBigIntBE } from '@aztec/aztec.js';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { NestedContractTest } from './nested_contract_test.js';

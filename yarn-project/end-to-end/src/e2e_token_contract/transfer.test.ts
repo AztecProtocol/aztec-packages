@@ -5,13 +5,13 @@ import { TokenContractTest } from './token_contract_test.js';
 
 describe('e2e_token_contract transfer private', () => {
   const t = new TokenContractTest('transfer_private');
-  let { asset, admin, adminAddress, account1, account1Address, tokenSim } = t;
+  let { asset, adminAddress, account1, account1Address, tokenSim } = t;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     await t.applyMintSnapshot();
     await t.setup();
-    ({ asset, admin, adminAddress, account1, account1Address, tokenSim } = t);
+    ({ asset, adminAddress, account1, account1Address, tokenSim } = t);
   });
 
   afterAll(async () => {

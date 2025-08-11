@@ -268,7 +268,7 @@ describe('e2e_block_building', () => {
         owner,
         deployerInstance.address,
         TokenContract.artifact.functions.find(x => x.name === 'set_minter')!,
-        [minter.getCompleteAddress(), true],
+        [minterAddress, true],
       );
 
       const deployerTx = await deployer.prove({ from: ownerAddress });

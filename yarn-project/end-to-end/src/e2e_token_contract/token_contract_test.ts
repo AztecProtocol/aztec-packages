@@ -1,12 +1,5 @@
 import { getSchnorrWallet } from '@aztec/accounts/schnorr';
-import {
-  type AccountWallet,
-  AztecAddress,
-  type AztecNode,
-  type CompleteAddress,
-  type Logger,
-  createLogger,
-} from '@aztec/aztec.js';
+import { type AccountWallet, AztecAddress, type AztecNode, type Logger, createLogger } from '@aztec/aztec.js';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { InvalidAccountContract } from '@aztec/noir-test-contracts.js/InvalidAccount';
 
