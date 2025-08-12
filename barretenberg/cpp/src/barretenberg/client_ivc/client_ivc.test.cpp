@@ -276,13 +276,9 @@ TEST_F(ClientIVCTests, WrongProofComponentFailure)
 TEST_F(ClientIVCTests, VKIndependenceTest)
 {
 
-<<<<<<< HEAD
-    // Folding more than 20 circuits requires to double the number of gates in Translator.
-    const size_t MAX_NUM_CIRCUITS = 20;
-=======
     // An upper bound chosen for this test, in reality we can support more than 10 circuits
     const size_t MAX_NUM_CIRCUITS = 10;
->>>>>>> origin/merge-train/barretenberg
+
     const TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
 
     auto generate_vk = [&](size_t num_circuits) {

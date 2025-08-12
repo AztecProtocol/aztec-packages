@@ -89,7 +89,7 @@ TEST_F(TranslatorRelationCorrectnessTests, TranslatorExtraRelationsCorrectness)
     ProverPolynomials prover_polynomials;
     constexpr size_t mini_circuit_size = Flavor::MINI_CIRCUIT_SIZE;
     // Fill in lagrange even polynomial
-    for (size_t i = 2; i < mini_circuit_size - 1; i += 2) {
+    for (size_t i = 6; i < mini_circuit_size - 1; i += 2) {
         prover_polynomials.lagrange_even_in_minicircuit.at(i) = 1;
         prover_polynomials.lagrange_odd_in_minicircuit.at(i + 1) = 1;
     }
@@ -600,7 +600,8 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgePermutation)
 
     const size_t full_circuit_size = Flavor::MINI_CIRCUIT_SIZE * Flavor::INTERLEAVING_GROUP_SIZE;
     auto& engine = numeric::get_debug_randomness();
-    const size_t full_masking_offset = NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE;
+    const size_t full_masking_offset =
+        Flavor::NUM_MASKING_OPS * Flavor::NUM_ROWS_PER_ULTRA_OP * Flavor::INTERLEAVING_GROUP_SIZE;
 
     TranslatorProvingKey key{};
     key.proving_key = std::make_shared<typename Flavor::ProvingKey>();
@@ -613,10 +614,14 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgePermutation)
     // Populate the group polynomials with appropriate values and also enough random values to mask their commitment
     // and evaluation
     auto fill_polynomial_with_random_14_bit_values = [&](auto& polynomial) {
-        for (size_t i = polynomial.start_index(); i < polynomial.end_index() - NUM_DISABLED_ROWS_IN_SUMCHECK; i++) {
+        for (size_t i = polynomial.start_index();
+             i < polynomial.end_index() - Flavor::NUM_MASKING_OPS * Flavor::NUM_ROWS_PER_ULTRA_OP;
+             i++) {
             polynomial.at(i) = engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
         }
-        for (size_t i = polynomial.end_index() - NUM_DISABLED_ROWS_IN_SUMCHECK; i < polynomial.end_index(); i++) {
+        for (size_t i = polynomial.end_index() - Flavor::NUM_MASKING_OPS * Flavor::NUM_ROWS_PER_ULTRA_OP;
+             i < polynomial.end_index();
+             i++) {
             polynomial.at(i) = FF::random_element();
         }
     };
@@ -660,7 +665,8 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgeDeltaRange)
     key.proving_key = std::make_shared<typename Flavor::ProvingKey>();
     ProverPolynomials& prover_polynomials = key.proving_key->polynomials;
 
-    const size_t full_masking_offset = NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE;
+    const size_t full_masking_offset =
+        Flavor::NUM_MASKING_OPS * Flavor::NUM_ROWS_PER_ULTRA_OP * Flavor::INTERLEAVING_GROUP_SIZE;
     const size_t dyadic_circuit_size_without_masking = key.dyadic_circuit_size - full_masking_offset;
 
     // Construct lagrange polynomials that are needed for Translator's DeltaRangeConstraint Relation
