@@ -195,10 +195,6 @@ class TranslatorFlavor {
         /* 16. Shplonk Q commitment */ (num_frs_comm) +
         /* 17. KZG W commitment */ (num_frs_comm);
 
-    // define the containers for storing the contributions from each relation in Sumcheck
-    using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
-    using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
-
     /**
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
      * @details Used to build the proving key and verification key.

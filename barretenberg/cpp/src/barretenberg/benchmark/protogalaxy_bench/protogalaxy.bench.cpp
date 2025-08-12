@@ -17,7 +17,7 @@ using FF = typename Flavor::FF;
 
 void vector_of_evaluations(State& state) noexcept
 {
-    using RelationEvaluations = typename Flavor::TupleOfArraysOfValues;
+    using RelationEvaluations = decltype(create_tuple_of_arrays_of_values<typename Flavor::Relations>());
 
     for (auto _ : state) {
         std::vector<RelationEvaluations> evals(1 << state.range(0));
