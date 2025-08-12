@@ -1,3 +1,4 @@
+# Used also by bb_cli_bench
 barretenberg_module(
     bb-cli-lib
     barretenberg
@@ -6,8 +7,6 @@ barretenberg_module(
     circuit_checker
     ${TRACY_LIBS}
     libdeflate::libdeflate_static)
-
-target_link_libraries(bb-cli-lib_objects PRIVATE benchmark::benchmark)
 
 if(NOT DISABLE_AZTEC_VM)
     add_dependencies(bb-cli-lib vm2)
@@ -23,7 +22,6 @@ if (NOT(FUZZING))
         PRIVATE
         bb-cli-lib
         tracy_mem
-        benchmark::benchmark
     )
     if(CHECK_CIRCUIT_STACKTRACES)
         target_link_libraries(

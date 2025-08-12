@@ -21,16 +21,12 @@
 #include "barretenberg/api/gate_count.hpp"
 #include "barretenberg/api/prove_tube.hpp"
 #include "barretenberg/bb/cli11_formatter.hpp"
-#include "barretenberg/bb/deps/cli11.hpp"
 #include "barretenberg/bbapi/bbapi.hpp"
 #include "barretenberg/bbapi/c_bind.hpp"
-#include "barretenberg/common/op_count.hpp"
-#include "barretenberg/common/op_count_google_bench.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/srs/factories/native_crs_factory.hpp"
 #include "barretenberg/srs/global_crs.hpp"
-#include "benchmark/benchmark.h"
 #include <fstream>
 #include <iostream>
 
@@ -84,100 +80,6 @@ void print_subcommand_options(const CLI::App* sub)
     }
 }
 
-namespace {
-
-// Keep *all* subcommands/option storage that run() touches.
-struct CLIContext {
-    // Core
-    CLI::App app;
-    API::Flags flags{};
-
-    std::filesystem::path bytecode_path{ "./target/program.json" };
-    std::filesystem::path witness_path{ "./target/witness.gz" };
-    std::filesystem::path ivc_inputs_path{ "./ivc-inputs.msgpack" };
-    std::filesystem::path output_path{ "./out" };
-    std::filesystem::path public_inputs_path{ "./target/public_inputs" };
-    std::filesystem::path proof_path{ "./target/proof" };
-    std::filesystem::path vk_path{ "./target/vk" };
-
-    // Top-level common subcommands
-    CLI::App* check{ nullptr };
-    CLI::App* gates{ nullptr };
-    CLI::App* prove{ nullptr };
-    CLI::App* write_vk{ nullptr };
-    CLI::App* verify{ nullptr };
-    CLI::App* write_solidity_verifier{ nullptr };
-
-    // OLD_API group
-    CLI::App* OLD_API{ nullptr };
-    CLI::App* OLD_API_gates_for_ivc{ nullptr };
-    CLI::App* OLD_API_gates_mega_honk{ nullptr };
-    CLI::App* OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file{ nullptr };
-    CLI::App* OLD_API_write_recursion_inputs_ultra_honk{ nullptr };
-    CLI::App* OLD_API_gates{ nullptr };
-    CLI::App* OLD_API_verify{ nullptr };
-    CLI::App* OLD_API_prove_and_verify{ nullptr };
-    std::string arbitrary_valid_proof_path{ "./proofs/proof" };
-    std::string recursion_inputs_output_path{ "./target" };
-
-    // AVM
-    CLI::App* avm_prove_command{ nullptr };
-    CLI::App* avm_check_circuit_command{ nullptr };
-    CLI::App* avm_verify_command{ nullptr };
-    std::filesystem::path avm_inputs_path{ "./target/avm_inputs.bin" };
-    std::filesystem::path avm_public_inputs_path{ "./target/avm_public_inputs.bin" };
-    std::filesystem::path avm_prove_output_path{ "./proofs" };
-
-    // TUBE
-    CLI::App* prove_tube_command{ nullptr };
-    CLI::App* verify_tube_command{ nullptr };
-    std::string prove_tube_output_path{ "./target" };
-    // doesn't make sense that this is set by -o but that's how it was
-    std::string tube_proof_and_vk_path{ "./target" };
-
-    // Msgpack
-    CLI::App* msgpack_command{ nullptr };
-    CLI::App* msgpack_schema_command{ nullptr };
-    CLI::App* msgpack_run_command{ nullptr };
-    std::string msgpack_input_file;
-};
-
-} // namespace
-
-int run(CLIContext& ctx);
-
-namespace {
-
-// This is used to suppress the default output of Google Benchmark.
-// This is useful to run this benchmark without altering the stdout result of our simulated bb cli command.
-// We instead use the `--benchmark_out` flag to output the results to a file.
-class ConsoleNoOutputReporter : public benchmark::BenchmarkReporter {
-  public:
-    // We return `true` here to indicate "keep running" if there are multiple benchmark suites.
-    bool ReportContext(const Context&) override { return true; }
-
-    // Called once for each run. We just do nothing here.
-    void ReportRuns(const std::vector<Run>&) override {}
-
-    // Called at the end. Also do nothing.
-    void Finalize() override {}
-};
-
-void run_as_benchmark(benchmark::State& state, CLIContext* ctx)
-{
-    for (auto _ : state) {
-        BB_REPORT_OP_COUNT_IN_BENCH(state);
-
-        // Call the main function with the parsed arguments
-        int result = run(*ctx);
-        if (result != 0) {
-            exit(result);
-        }
-    }
-}
-
-} // namespace
-
 /**
  * @brief Parse command line arguments and run the corresponding command.
  *
@@ -212,9 +114,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
 #else
     name += "\nStarknet Garaga Extensions: disabled";
 #endif
-    CLIContext ctx{ .app = CLI::App{ name } };
-    CLI::App& app = ctx.app;
-
+    CLI::App app{ name };
     argv = app.ensure_utf8(argv);
     app.formatter(std::make_shared<Formatter>());
 
@@ -227,7 +127,17 @@ int parse_and_run_cli_command(int argc, char* argv[])
     // prevent two or more subcommands being executed
     app.require_subcommand(0, 1);
 
-    API::Flags& flags = ctx.flags;
+    API::Flags flags{};
+    // Some paths, with defaults, that may or may not be set by commands
+    std::filesystem::path bytecode_path{ "./target/program.json" };
+    std::filesystem::path witness_path{ "./target/witness.gz" };
+    std::filesystem::path ivc_inputs_path{ "./ivc-inputs.msgpack" };
+    std::filesystem::path output_path{
+        "./out"
+    }; // sometimes a directory where things will be written, sometimes the path of a file to be written
+    std::filesystem::path public_inputs_path{ "./target/public_inputs" };
+    std::filesystem::path proof_path{ "./target/proof" };
+    std::filesystem::path vk_path{ "./target/vk" };
     flags.scheme = "";
     flags.oracle_hash_type = "poseidon2";
     flags.output_format = "bytes";
@@ -323,34 +233,33 @@ int parse_and_run_cli_command(int argc, char* argv[])
     };
 
     const auto add_bytecode_path_option = [&](CLI::App* subcommand) {
-        subcommand->add_option("--bytecode_path, -b", ctx.bytecode_path, "Path to ACIR bytecode generated by Noir.")
+        subcommand->add_option("--bytecode_path, -b", bytecode_path, "Path to ACIR bytecode generated by Noir.")
             /* ->check(CLI::ExistingFile) OR stdin indicator - */;
     };
 
     const auto add_witness_path_option = [&](CLI::App* subcommand) {
-        subcommand->add_option("--witness_path, -w", ctx.witness_path, "Path to partial witness generated by Noir.")
+        subcommand->add_option("--witness_path, -w", witness_path, "Path to partial witness generated by Noir.")
             /* ->check(CLI::ExistingFile) OR stdin indicator - */;
     };
 
     const auto add_ivc_inputs_path_options = [&](CLI::App* subcommand) {
         subcommand->add_option(
-            "--ivc_inputs_path", ctx.ivc_inputs_path, "For IVC, path to input stack with bytecode and witnesses.")
+            "--ivc_inputs_path", ivc_inputs_path, "For IVC, path to input stack with bytecode and witnesses.")
             /* ->check(CLI::ExistingFile) OR stdin indicator - */;
     };
 
     const auto add_public_inputs_path_option = [&](CLI::App* subcommand) {
-        return subcommand->add_option("--public_inputs_path, -i",
-                                      ctx.public_inputs_path,
-                                      "Path to public inputs.") /* ->check(CLI::ExistingFile) */;
+        return subcommand->add_option(
+            "--public_inputs_path, -i", public_inputs_path, "Path to public inputs.") /* ->check(CLI::ExistingFile) */;
     };
 
     const auto add_proof_path_option = [&](CLI::App* subcommand) {
         return subcommand->add_option(
-            "--proof_path, -p", ctx.proof_path, "Path to a proof.") /* ->check(CLI::ExistingFile) */;
+            "--proof_path, -p", proof_path, "Path to a proof.") /* ->check(CLI::ExistingFile) */;
     };
 
     const auto add_vk_path_option = [&](CLI::App* subcommand) {
-        return subcommand->add_option("--vk_path, -k", ctx.vk_path, "Path to a verification key.")
+        return subcommand->add_option("--vk_path, -k", vk_path, "Path to a verification key.")
             /* ->check(CLI::ExistingFile) */;
     };
 
@@ -390,16 +299,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
         return subcommand->add_flag("--update_inputs", flags.update_inputs, "Update inputs if vk check fails.");
     };
 
-    std::string benchmark_out;
-    const auto add_benchmark_out_option = [&](CLI::App* subcommand) {
-        return subcommand->add_option("--benchmark_out", benchmark_out, "File to report benchmark.");
-    };
-
-    bool print_benchmark = false;
-    const auto add_print_benchmark_flag = [&](CLI::App* subcommand) {
-        return subcommand->add_flag("--print_benchmark", print_benchmark, "Report benchmark in console.");
-    };
-
     /***************************************************************************************************************
      * Top-level flags
      ***************************************************************************************************************/
@@ -415,10 +314,10 @@ int parse_and_run_cli_command(int argc, char* argv[])
     /***************************************************************************************************************
      * Subcommand: check
      ***************************************************************************************************************/
-    CLI::App* check = ctx.check = app.add_subcommand(
+    CLI::App* check = app.add_subcommand(
         "check",
         "A debugging tool to quickly check whether a witness satisfies a circuit The "
-        "function constructx.the execution trace and iterates through it row by row, applying the "
+        "function constructs the execution trace and iterates through it row by row, applying the "
         "polynomial relations defining the gate types. For client IVC, we check the VKs in the folding stack.");
 
     add_scheme_option(check);
@@ -430,10 +329,9 @@ int parse_and_run_cli_command(int argc, char* argv[])
     /***************************************************************************************************************
      * Subcommand: gates
      ***************************************************************************************************************/
-    CLI::App* gates = ctx.gates =
-        app.add_subcommand("gates",
-                           "Construct a circuit from the given bytecode (in particular, expand black box "
-                           "functions) and return the gate count information.");
+    CLI::App* gates = app.add_subcommand("gates",
+                                         "Construct a circuit from the given bytecode (in particular, expand black box "
+                                         "functions) and return the gate count information.");
 
     add_scheme_option(gates);
     add_verbose_flag(gates);
@@ -444,12 +342,12 @@ int parse_and_run_cli_command(int argc, char* argv[])
     /***************************************************************************************************************
      * Subcommand: prove
      ***************************************************************************************************************/
-    CLI::App* prove = ctx.prove = app.add_subcommand("prove", "Generate a proof.");
+    CLI::App* prove = app.add_subcommand("prove", "Generate a proof.");
 
     add_scheme_option(prove);
     add_bytecode_path_option(prove);
     add_witness_path_option(prove);
-    add_output_path_option(prove, ctx.output_path);
+    add_output_path_option(prove, output_path);
     add_ivc_inputs_path_options(prove);
     add_vk_path_option(prove);
 
@@ -465,15 +363,13 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_recursive_flag(prove);
     add_honk_recursion_option(prove);
     add_slow_low_memory_flag(prove);
-    add_benchmark_out_option(prove);
-    add_print_benchmark_flag(prove);
 
     prove->add_flag("--verify", "Verify the proof natively, resulting in a boolean output. Useful for testing.");
 
     /***************************************************************************************************************
      * Subcommand: write_vk
      ***************************************************************************************************************/
-    CLI::App* write_vk = ctx.write_vk =
+    CLI::App* write_vk =
         app.add_subcommand("write_vk",
                            "Write the verification key of a circuit. The circuit is constructed using "
                            "quickly generated but invalid witnesses (which must be supplied in Barretenberg in order "
@@ -481,7 +377,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
 
     add_scheme_option(write_vk);
     add_bytecode_path_option(write_vk);
-    add_output_path_option(write_vk, ctx.output_path);
+    add_output_path_option(write_vk, output_path);
     add_ivc_inputs_path_options(write_vk);
 
     add_verbose_flag(write_vk);
@@ -499,7 +395,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     /***************************************************************************************************************
      * Subcommand: verify
      ***************************************************************************************************************/
-    CLI::App* verify = ctx.verify = app.add_subcommand("verify", "Verify a proof.");
+    CLI::App* verify = app.add_subcommand("verify", "Verify a proof.");
 
     add_public_inputs_path_option(verify);
     add_proof_path_option(verify);
@@ -519,7 +415,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     /***************************************************************************************************************
      * Subcommand: write_solidity_verifier
      ***************************************************************************************************************/
-    CLI::App* write_solidity_verifier = ctx.write_solidity_verifier =
+    CLI::App* write_solidity_verifier =
         app.add_subcommand("write_solidity_verifier",
                            "Write a Solidity smart contract suitable for verifying proofs of circuit "
                            "satisfiability for the circuit with verification key at vk_path. Not all "
@@ -527,7 +423,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
 
     add_scheme_option(write_solidity_verifier);
     add_vk_path_option(write_solidity_verifier);
-    add_output_path_option(write_solidity_verifier, ctx.output_path);
+    add_output_path_option(write_solidity_verifier, output_path);
 
     add_verbose_flag(write_solidity_verifier);
     remove_zk_option(write_solidity_verifier);
@@ -536,12 +432,12 @@ int parse_and_run_cli_command(int argc, char* argv[])
     /***************************************************************************************************************
      * Subcommand: OLD_API
      ***************************************************************************************************************/
-    CLI::App* OLD_API = ctx.OLD_API = app.add_subcommand("OLD_API", "Access some old API commands");
+    CLI::App* OLD_API = app.add_subcommand("OLD_API", "Access some old API commands");
 
     /***************************************************************************************************************
      * Subcommand: OLD_API gates_for_ivc
      ***************************************************************************************************************/
-    CLI::App* OLD_API_gates_for_ivc = ctx.OLD_API_gates_for_ivc = OLD_API->add_subcommand("gates_for_ivc", "");
+    CLI::App* OLD_API_gates_for_ivc = OLD_API->add_subcommand("gates_for_ivc", "");
     add_verbose_flag(OLD_API_gates_for_ivc);
     add_debug_flag(OLD_API_gates_for_ivc);
     add_crs_path_option(OLD_API_gates_for_ivc);
@@ -550,7 +446,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     /***************************************************************************************************************
      * Subcommand: OLD_API gates_mega_honk
      ***************************************************************************************************************/
-    CLI::App* OLD_API_gates_mega_honk = ctx.OLD_API_gates_mega_honk = OLD_API->add_subcommand("gates_mega_honk", "");
+    CLI::App* OLD_API_gates_mega_honk = OLD_API->add_subcommand("gates_mega_honk", "");
     add_verbose_flag(OLD_API_gates_mega_honk);
     add_debug_flag(OLD_API_gates_mega_honk);
     add_crs_path_option(OLD_API_gates_mega_honk);
@@ -562,23 +458,23 @@ int parse_and_run_cli_command(int argc, char* argv[])
      * Subcommand: OLD_API write_arbitrary_valid_client_ivc_proof_and_vk_to_file
      ***************************************************************************************************************/
     CLI::App* OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file =
-        ctx.OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file =
-            OLD_API->add_subcommand("write_arbitrary_valid_client_ivc_proof_and_vk_to_file", "");
+        OLD_API->add_subcommand("write_arbitrary_valid_client_ivc_proof_and_vk_to_file", "");
     add_verbose_flag(OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file);
     add_debug_flag(OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file);
     add_crs_path_option(OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file);
-    add_output_path_option(OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file,
-                           ctx.arbitrary_valid_proof_path);
+    std::string arbitrary_valid_proof_path{ "./proofs/proof" };
+    add_output_path_option(OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file, arbitrary_valid_proof_path);
 
     /***************************************************************************************************************
      * Subcommand: OLD_API write_recursion_inputs_ultra_honk
      ***************************************************************************************************************/
-    CLI::App* OLD_API_write_recursion_inputs_ultra_honk = ctx.OLD_API_write_recursion_inputs_ultra_honk =
+    CLI::App* OLD_API_write_recursion_inputs_ultra_honk =
         OLD_API->add_subcommand("write_recursion_inputs_ultra_honk", "");
     add_verbose_flag(OLD_API_write_recursion_inputs_ultra_honk);
     add_debug_flag(OLD_API_write_recursion_inputs_ultra_honk);
     add_crs_path_option(OLD_API_write_recursion_inputs_ultra_honk);
-    add_output_path_option(OLD_API_write_recursion_inputs_ultra_honk, ctx.recursion_inputs_output_path);
+    std::string recursion_inputs_output_path{ "./target" };
+    add_output_path_option(OLD_API_write_recursion_inputs_ultra_honk, recursion_inputs_output_path);
     add_ipa_accumulation_flag(OLD_API_write_recursion_inputs_ultra_honk);
     add_recursive_flag(OLD_API_write_recursion_inputs_ultra_honk);
     add_bytecode_path_option(OLD_API_write_recursion_inputs_ultra_honk);
@@ -586,7 +482,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     /***************************************************************************************************************
      * Subcommand: OLD_API gates
      ***************************************************************************************************************/
-    CLI::App* OLD_API_gates = ctx.OLD_API_gates = OLD_API->add_subcommand("gates", "");
+    CLI::App* OLD_API_gates = OLD_API->add_subcommand("gates", "");
     add_verbose_flag(OLD_API_gates);
     add_debug_flag(OLD_API_gates);
     add_crs_path_option(OLD_API_gates);
@@ -597,7 +493,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     /***************************************************************************************************************
      * Subcommand: OLD_API verify
      ***************************************************************************************************************/
-    CLI::App* OLD_API_verify = ctx.OLD_API_verify = OLD_API->add_subcommand("verify", "");
+    CLI::App* OLD_API_verify = OLD_API->add_subcommand("verify", "");
     add_verbose_flag(OLD_API_verify);
     add_debug_flag(OLD_API_verify);
     add_crs_path_option(OLD_API_verify);
@@ -609,35 +505,38 @@ int parse_and_run_cli_command(int argc, char* argv[])
     /***************************************************************************************************************
      * Subcommand: OLD_API prove_and_verify
      ***************************************************************************************************************/
-    CLI::App* OLD_API_prove_and_verify = ctx.OLD_API_prove_and_verify = OLD_API->add_subcommand("prove_and_verify", "");
+    CLI::App* OLD_API_prove_and_verify = OLD_API->add_subcommand("prove_and_verify", "");
     add_verbose_flag(OLD_API_prove_and_verify);
     add_debug_flag(OLD_API_prove_and_verify);
     add_crs_path_option(OLD_API_prove_and_verify);
     add_recursive_flag(OLD_API_prove_and_verify);
     add_bytecode_path_option(OLD_API_prove_and_verify);
 
+    std::filesystem::path avm_inputs_path{ "./target/avm_inputs.bin" };
     const auto add_avm_inputs_option = [&](CLI::App* subcommand) {
-        return subcommand->add_option("--avm-inputs", ctx.avm_inputs_path, "");
+        return subcommand->add_option("--avm-inputs", avm_inputs_path, "");
     };
+    std::filesystem::path avm_public_inputs_path{ "./target/avm_public_inputs.bin" };
     const auto add_avm_public_inputs_option = [&](CLI::App* subcommand) {
-        return subcommand->add_option("--avm-public-inputs", ctx.avm_public_inputs_path, "");
+        return subcommand->add_option("--avm-public-inputs", avm_public_inputs_path, "");
     };
 
     /***************************************************************************************************************
      * Subcommand: avm_prove
      ***************************************************************************************************************/
-    CLI::App* avm_prove_command = ctx.avm_prove_command = app.add_subcommand("avm_prove", "");
+    CLI::App* avm_prove_command = app.add_subcommand("avm_prove", "");
     avm_prove_command->group(""); // hide from list of subcommands
     add_verbose_flag(avm_prove_command);
     add_debug_flag(avm_prove_command);
     add_crs_path_option(avm_prove_command);
-    add_output_path_option(avm_prove_command, ctx.avm_prove_output_path);
+    std::filesystem::path avm_prove_output_path{ "./proofs" };
+    add_output_path_option(avm_prove_command, avm_prove_output_path);
     add_avm_inputs_option(avm_prove_command);
 
     /***************************************************************************************************************
      * Subcommand: avm_check_circuit
      ***************************************************************************************************************/
-    CLI::App* avm_check_circuit_command = ctx.avm_check_circuit_command = app.add_subcommand("avm_check_circuit", "");
+    CLI::App* avm_check_circuit_command = app.add_subcommand("avm_check_circuit", "");
     avm_check_circuit_command->group(""); // hide from list of subcommands
     add_verbose_flag(avm_check_circuit_command);
     add_debug_flag(avm_check_circuit_command);
@@ -647,7 +546,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     /***************************************************************************************************************
      * Subcommand: avm_verify
      ***************************************************************************************************************/
-    CLI::App* avm_verify_command = ctx.avm_verify_command = app.add_subcommand("avm_verify", "");
+    CLI::App* avm_verify_command = app.add_subcommand("avm_verify", "");
     avm_verify_command->group(""); // hide from list of subcommands
     add_verbose_flag(avm_verify_command);
     add_debug_flag(avm_verify_command);
@@ -659,40 +558,44 @@ int parse_and_run_cli_command(int argc, char* argv[])
     /***************************************************************************************************************
      * Subcommand: msgpack
      ***************************************************************************************************************/
-    CLI::App* msgpack_command = ctx.msgpack_command = app.add_subcommand("msgpack", "Msgpack API interface.");
+    CLI::App* msgpack_command = app.add_subcommand("msgpack", "Msgpack API interface.");
 
     // Subcommand: msgpack schema
-    CLI::App* msgpack_schema_command = ctx.msgpack_schema_command =
+    CLI::App* msgpack_schema_command =
         msgpack_command->add_subcommand("schema", "Output a msgpack schema encoded as JSON to stdout.");
     add_verbose_flag(msgpack_schema_command);
 
     // Subcommand: msgpack run
-    CLI::App* msgpack_run_command = ctx.msgpack_run_command =
+    CLI::App* msgpack_run_command =
         msgpack_command->add_subcommand("run", "Execute msgpack API commands from stdin or file.");
     add_verbose_flag(msgpack_run_command);
+    std::string msgpack_input_file;
     msgpack_run_command->add_option(
-        "-i,--input", ctx.msgpack_input_file, "Input file containing msgpack buffers (defaults to stdin)");
+        "-i,--input", msgpack_input_file, "Input file containing msgpack buffers (defaults to stdin)");
 
     /***************************************************************************************************************
      * Subcommand: prove_tube
      ***************************************************************************************************************/
-    CLI ::App* prove_tube_command = ctx.prove_tube_command = app.add_subcommand("prove_tube", "");
+    CLI ::App* prove_tube_command = app.add_subcommand("prove_tube", "");
     prove_tube_command->group(""); // hide from list of subcommands
     add_verbose_flag(prove_tube_command);
     add_debug_flag(prove_tube_command);
     add_crs_path_option(prove_tube_command);
     add_vk_path_option(prove_tube_command);
-    add_output_path_option(prove_tube_command, ctx.prove_tube_output_path);
+    std::string prove_tube_output_path{ "./target" };
+    add_output_path_option(prove_tube_command, prove_tube_output_path);
 
     /***************************************************************************************************************
      * Subcommand: verify_tube
      ***************************************************************************************************************/
-    CLI::App* verify_tube_command = ctx.verify_tube_command = app.add_subcommand("verify_tube", "");
+    CLI::App* verify_tube_command = app.add_subcommand("verify_tube", "");
     verify_tube_command->group(""); // hide from list of subcommands
     add_verbose_flag(verify_tube_command);
     add_debug_flag(verify_tube_command);
     add_crs_path_option(verify_tube_command);
-    add_output_path_option(verify_tube_command, ctx.tube_proof_and_vk_path);
+    // doesn't make sense that this is set by -o but that's how it was
+    std::string tube_proof_and_vk_path{ "./target" };
+    add_output_path_option(verify_tube_command, tube_proof_and_vk_path);
 
     /***************************************************************************************************************
      * Build the CLI11 App
@@ -702,47 +605,14 @@ int parse_and_run_cli_command(int argc, char* argv[])
     // Immediately after parsing, we can init the global CRS factory. Note this does not yet read or download any
     // points; that is done on-demand.
     srs::init_net_crs_factory(flags.crs_path);
-    if ((prove->parsed() || write_vk->parsed()) && ctx.output_path != "-") {
+    if ((prove->parsed() || write_vk->parsed()) && output_path != "-") {
         // If writing to an output folder, make sure it exists.
-        std::filesystem::create_directories(ctx.output_path);
+        std::filesystem::create_directories(output_path);
     }
     debug_logging = flags.debug;
     verbose_logging = debug_logging || flags.verbose;
     slow_low_memory = flags.slow_low_memory;
-#ifndef __wasm__
-    detail::use_op_count_time = !benchmark_out.empty();
-#endif
 
-    if (benchmark_out.empty() && !print_benchmark) {
-        return run(ctx);
-    }
-
-    // Allocate the strings dynamically so the char* pointers remain valid
-    std::string bb = "bb";
-    benchmark_out = "--benchmark_out=" + benchmark_out;
-
-    // NOLINTNEXTLINE
-    char* args[] = { const_cast<char*>(bb.c_str()), const_cast<char*>(benchmark_out.c_str()) };
-    int num_args = 2;
-
-    benchmark::RegisterBenchmark(bb, run_as_benchmark, &ctx)->Unit(benchmark::kMillisecond);
-    benchmark::Initialize(&num_args, args);
-    ASSERT(!benchmark::ReportUnrecognizedArguments(num_args, args));
-    if (print_benchmark) {
-        benchmark::RunSpecifiedBenchmarks();
-    } else {
-        ConsoleNoOutputReporter reporter;
-        benchmark::RunSpecifiedBenchmarks(&reporter);
-    }
-    benchmark::Shutdown();
-
-    return 0;
-}
-
-int run(CLIContext& ctx)
-{
-    CLI::App& app = ctx.app;
-    const API::Flags& flags = ctx.flags;
     print_active_subcommands(app);
     info("Scheme is: ", flags.scheme, ", num threads: ", get_num_cpus());
     if (CLI::App* deepest = find_deepest_subcommand(&app)) {
@@ -752,25 +622,25 @@ int run(CLIContext& ctx)
     // TODO(AD): it is inflexible that CIVC shares an API command (prove) with UH this way. The base API class is a
     // poor fit. It would be better to have a separate handling for each scheme with subcommands to prove.
     const auto execute_non_prove_command = [&](API& api) {
-        if (ctx.check->parsed()) {
-            api.check(flags, ctx.bytecode_path, ctx.witness_path);
+        if (check->parsed()) {
+            api.check(flags, bytecode_path, witness_path);
             return 0;
         }
-        if (ctx.gates->parsed()) {
-            api.gates(flags, ctx.bytecode_path);
+        if (gates->parsed()) {
+            api.gates(flags, bytecode_path);
             return 0;
         }
-        if (ctx.write_vk->parsed()) {
-            api.write_vk(flags, ctx.bytecode_path, ctx.output_path);
+        if (write_vk->parsed()) {
+            api.write_vk(flags, bytecode_path, output_path);
             return 0;
         }
-        if (ctx.verify->parsed()) {
-            const bool verified = api.verify(flags, ctx.public_inputs_path, ctx.proof_path, ctx.vk_path);
+        if (verify->parsed()) {
+            const bool verified = api.verify(flags, public_inputs_path, proof_path, vk_path);
             vinfo("verified: ", verified);
             return verified ? 0 : 1;
         }
-        if (ctx.write_solidity_verifier->parsed()) {
-            api.write_solidity_verifier(flags, ctx.output_path, ctx.vk_path);
+        if (write_solidity_verifier->parsed()) {
+            api.write_solidity_verifier(flags, output_path, vk_path);
             return 0;
         }
         auto subcommands = app.get_subcommands();
@@ -781,62 +651,62 @@ int run(CLIContext& ctx)
 
     try {
         // MSGPACK
-        if (ctx.msgpack_schema_command->parsed()) {
+        if (msgpack_schema_command->parsed()) {
             std::cout << bbapi::get_msgpack_schema_as_json() << std::endl;
             return 0;
         }
-        if (ctx.msgpack_run_command->parsed()) {
-            return execute_msgpack_run(ctx.msgpack_input_file);
+        if (msgpack_run_command->parsed()) {
+            return execute_msgpack_run(msgpack_input_file);
         }
         // TUBE
-        if (ctx.prove_tube_command->parsed()) {
+        if (prove_tube_command->parsed()) {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1201): Potentially remove this extra logic.
-            prove_tube(ctx.prove_tube_output_path, ctx.vk_path);
-        } else if (ctx.verify_tube_command->parsed()) {
+            prove_tube(prove_tube_output_path, vk_path);
+        } else if (verify_tube_command->parsed()) {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1322): Remove verify_tube logic.
-            auto tube_public_inputs_path = ctx.tube_proof_and_vk_path + "/public_inputs";
-            auto tube_proof_path = ctx.tube_proof_and_vk_path + "/proof";
-            auto tube_vk_path = ctx.tube_proof_and_vk_path + "/vk";
+            auto tube_public_inputs_path = tube_proof_and_vk_path + "/public_inputs";
+            auto tube_proof_path = tube_proof_and_vk_path + "/proof";
+            auto tube_vk_path = tube_proof_and_vk_path + "/vk";
             UltraHonkAPI api;
             return api.verify({ .ipa_accumulation = true }, tube_public_inputs_path, tube_proof_path, tube_vk_path) ? 0
                                                                                                                     : 1;
         }
         // AVM
 #ifndef DISABLE_AZTEC_VM
-        else if (ctx.avm_prove_command->parsed()) {
+        else if (avm_prove_command->parsed()) {
             // This outputs both files: proof and vk, under the given directory.
-            avm_prove(ctx.avm_inputs_path, ctx.avm_prove_output_path);
-        } else if (ctx.avm_check_circuit_command->parsed()) {
-            avm_check_circuit(ctx.avm_inputs_path);
-        } else if (ctx.avm_verify_command->parsed()) {
-            return avm_verify(ctx.proof_path, ctx.avm_public_inputs_path, ctx.vk_path) ? 0 : 1;
+            avm_prove(avm_inputs_path, avm_prove_output_path);
+        } else if (avm_check_circuit_command->parsed()) {
+            avm_check_circuit(avm_inputs_path);
+        } else if (avm_verify_command->parsed()) {
+            return avm_verify(proof_path, avm_public_inputs_path, vk_path) ? 0 : 1;
         }
 #else
-        else if (ctx.avm_prove_command->parsed()) {
+        else if (avm_prove_command->parsed()) {
             throw_or_abort("The Aztec Virtual Machine (AVM) is disabled in this environment!");
-        } else if (ctx.avm_check_circuit_command->parsed()) {
+        } else if (avm_check_circuit_command->parsed()) {
             throw_or_abort("The Aztec Virtual Machine (AVM) is disabled in this environment!");
-        } else if (ctx.avm_verify_command->parsed()) {
+        } else if (avm_verify_command->parsed()) {
             throw_or_abort("The Aztec Virtual Machine (AVM) is disabled in this environment!");
         }
 #endif
         // CLIENT IVC EXTRA COMMAND
-        else if (ctx.OLD_API_gates_for_ivc->parsed()) {
-            gate_count_for_ivc(ctx.bytecode_path, true);
-        } else if (ctx.OLD_API_gates_mega_honk->parsed()) {
-            gate_count<MegaCircuitBuilder>(ctx.bytecode_path, flags.recursive, flags.honk_recursion, true);
-        } else if (ctx.OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file->parsed()) {
-            write_arbitrary_valid_client_ivc_proof_and_vk_to_file(ctx.arbitrary_valid_proof_path);
+        else if (OLD_API_gates_for_ivc->parsed()) {
+            gate_count_for_ivc(bytecode_path, true);
+        } else if (OLD_API_gates_mega_honk->parsed()) {
+            gate_count<MegaCircuitBuilder>(bytecode_path, flags.recursive, flags.honk_recursion, true);
+        } else if (OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file->parsed()) {
+            write_arbitrary_valid_client_ivc_proof_and_vk_to_file(arbitrary_valid_proof_path);
             return 0;
         }
         // ULTRA HONK EXTRA COMMANDS
-        else if (ctx.OLD_API_write_recursion_inputs_ultra_honk->parsed()) {
+        else if (OLD_API_write_recursion_inputs_ultra_honk->parsed()) {
             if (flags.ipa_accumulation) {
                 write_recursion_inputs_ultra_honk<UltraRollupFlavor>(
-                    ctx.bytecode_path, ctx.witness_path, ctx.recursion_inputs_output_path);
+                    bytecode_path, witness_path, recursion_inputs_output_path);
             } else {
                 write_recursion_inputs_ultra_honk<UltraFlavor>(
-                    ctx.bytecode_path, ctx.witness_path, ctx.recursion_inputs_output_path);
+                    bytecode_path, witness_path, recursion_inputs_output_path);
             }
         }
         // NEW STANDARD API
@@ -844,26 +714,26 @@ int run(CLIContext& ctx)
         // different
         else if (flags.scheme == "client_ivc") {
             ClientIVCAPI api;
-            if (ctx.prove->parsed()) {
-                if (!std::filesystem::exists(ctx.ivc_inputs_path)) {
+            if (prove->parsed()) {
+                if (!std::filesystem::exists(ivc_inputs_path)) {
                     throw_or_abort("The prove command for ClientIVC expect a valid file passed with --ivc_inputs_path "
                                    "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
                 }
-                api.prove(flags, ctx.ivc_inputs_path, ctx.output_path);
+                api.prove(flags, ivc_inputs_path, output_path);
                 return 0;
             }
-            if (ctx.check->parsed()) {
-                if (!std::filesystem::exists(ctx.ivc_inputs_path)) {
+            if (check->parsed()) {
+                if (!std::filesystem::exists(ivc_inputs_path)) {
                     throw_or_abort("The check command for ClientIVC expect a valid file passed with --ivc_inputs_path "
                                    "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
                 }
-                return api.check_precomputed_vks(flags, ctx.ivc_inputs_path) ? 0 : 1;
+                return api.check_precomputed_vks(flags, ivc_inputs_path) ? 0 : 1;
             }
             return execute_non_prove_command(api);
         } else if (flags.scheme == "ultra_honk") {
             UltraHonkAPI api;
-            if (ctx.prove->parsed()) {
-                api.prove(flags, ctx.bytecode_path, ctx.witness_path, ctx.vk_path, ctx.output_path);
+            if (prove->parsed()) {
+                api.prove(flags, bytecode_path, witness_path, vk_path, output_path);
                 return 0;
             }
             return execute_non_prove_command(api);
@@ -879,5 +749,4 @@ int run(CLIContext& ctx)
     }
     return 0;
 }
-
 } // namespace bb
