@@ -201,11 +201,10 @@ export class BlockStore {
    */
   async *getBlockHeaders(start: number, limit: number): AsyncIterableIterator<BlockHeader> {
     for await (const [blockNumber, blockStorage] of this.getBlockStorages(start, limit)) {
-      const block = await this.getBlockFromBlockStorage(blockNumber, blockStorage);
-      const header = block?.block.getBlockHeader();
-      if (header?.getBlockNumber() !== blockNumber) {
+      const header = L2BlockHeader.fromBuffer(blockStorage.header).toBlockHeader();
+      if (header.getBlockNumber() !== blockNumber) {
         throw new Error(
-          `Block number mismatch when retrieving block header from archive (expected ${blockNumber} but got ${header?.getBlockNumber()})`,
+          `Block number mismatch when retrieving block header from archive (expected ${blockNumber} but got ${header.getBlockNumber()})`,
         );
       }
       yield header;

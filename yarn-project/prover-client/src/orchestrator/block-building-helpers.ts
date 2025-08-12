@@ -329,14 +329,14 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
     const outHash = txOutHashes.length === 0 ? Fr.ZERO : new Fr(computeUnbalancedMerkleTreeRoot(txOutHashes));
 
     const parityShaRoot = await computeInHashFromL1ToL2Messages(l1ToL2Messages);
-    const blobsHash = getBlobsHashFromBlobs(await Blob.getBlobsPerBlock(body.toBlobFields()));
+    const blobFields = body.toBlobFields();
+    const blobsHash = getBlobsHashFromBlobs(await Blob.getBlobsPerBlock(blobFields));
 
     const contentCommitment = new ContentCommitment(blobsHash, parityShaRoot, outHash);
 
     const fees = txEffects.reduce((acc, tx) => acc.add(tx.transactionFee), Fr.ZERO);
     const manaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.billedGas.l2Gas)), Fr.ZERO);
 
-    const blobFields = getBlockBlobFields(txs.map(tx => tx.txEffect));
     const endSpongeBlob = startSpongeBlob?.clone() ?? SpongeBlob.init(blobFields.length);
     await endSpongeBlob.absorb(blobFields);
     const spongeBlobHash = await endSpongeBlob.squeeze();

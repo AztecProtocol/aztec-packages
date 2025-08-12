@@ -133,7 +133,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
 
   async getBlockHeadersForEpoch(epochNumber: bigint): Promise<BlockHeader[]> {
     const blocks = await this.getBlocksForEpoch(epochNumber);
-    return await Promise.all(blocks.map(b => b.getBlockHeader()));
+    return blocks.map(b => b.getBlockHeader());
   }
 
   /**

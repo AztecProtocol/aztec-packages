@@ -14,7 +14,7 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { Body, CommitteeAttestation, L2Block, L2BlockHeader, getBlockBlobFields } from '@aztec/stdlib/block';
+import { Body, CommitteeAttestation, L2Block, L2BlockHeader } from '@aztec/stdlib/block';
 import { Proof } from '@aztec/stdlib/proofs';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
@@ -78,7 +78,7 @@ export async function retrievedBlockToPublishedL2Block(retrievedBlock: Retrieved
 
   // This works when there's only one block in the checkpoint.
   // If there's more than one block, we need to build the spongeBlob from the endSpongeBlob of the previous block.
-  const blobFields = getBlockBlobFields(body.txEffects);
+  const blobFields = body.toBlobFields();
   const spongeBlob = SpongeBlob.init(blobFields.length);
   await spongeBlob.absorb(blobFields);
   const spongeBlobHash = await spongeBlob.squeeze();
