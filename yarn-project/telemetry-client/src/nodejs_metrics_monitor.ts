@@ -123,10 +123,10 @@ export class NodejsMetricsMonitor {
   private measureMemoryUsage = (observer: BatchObservableResult) => {
     const mem = process.memoryUsage();
 
-    observer.observe(this.memoryGauges.heapUsed, Math.floor(mem.heapUsed) | 0);
-    observer.observe(this.memoryGauges.heapTotal, Math.floor(mem.heapTotal) | 0);
-    observer.observe(this.memoryGauges.arrayBuffers, Math.floor(mem.arrayBuffers) | 0);
-    observer.observe(this.memoryGauges.external, Math.floor(mem.external) | 0);
+    observer.observe(this.memoryGauges.heapUsed, Math.floor(mem.heapUsed));
+    observer.observe(this.memoryGauges.heapTotal, Math.floor(mem.heapTotal));
+    observer.observe(this.memoryGauges.arrayBuffers, Math.floor(mem.arrayBuffers));
+    observer.observe(this.memoryGauges.external, Math.floor(mem.external));
   };
 
   private measureEventLoopDelay = (obs: BatchObservableResult): void => {
