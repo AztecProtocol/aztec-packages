@@ -3,12 +3,12 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
-#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
-#include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
+#include "barretenberg/stdlib/primitives/pairing_points.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
@@ -64,10 +64,12 @@ template <typename Flavor> class UltraHonkTests : public ::testing::Test {
         if constexpr (HasIPAAccumulator<Flavor>) {
             VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
             Verifier verifier(verification_key, ipa_verification_key);
-            EXPECT_EQ(verifier.verify_proof(proof, proving_key->ipa_proof), expected_result);
+            bool result = verifier.template verify_proof<RollupIO>(proof, proving_key->ipa_proof).result;
+            EXPECT_EQ(result, expected_result);
         } else {
             Verifier verifier(verification_key);
-            EXPECT_EQ(verifier.verify_proof(proof), expected_result);
+            bool result = verifier.template verify_proof<DefaultIO>(proof).result;
+            EXPECT_EQ(result, expected_result);
         }
     };
 
@@ -102,18 +104,21 @@ TYPED_TEST_SUITE(UltraHonkTests, FlavorTypes);
 TYPED_TEST(UltraHonkTests, ProofLengthCheck)
 {
     using Flavor = TypeParam;
+    using Builder = Flavor::CircuitBuilder;
+    using IO = std::conditional_t<HasIPAAccumulator<Flavor>,
+                                  stdlib::recursion::honk::RollupIO,
+                                  stdlib::recursion::honk::DefaultIO<Builder>>;
+    using Proof = typename Flavor::Transcript::Proof;
 
-    auto builder = typename Flavor::CircuitBuilder{};
-    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
+    auto builder = Builder{};
+    IO::add_default(builder);
     // Construct a UH proof and ensure its size matches expectation; if not, the constant may need to be updated
     auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
     auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
     UltraProver_<Flavor> prover(proving_key, verification_key);
-    HonkProof ultra_proof = prover.construct_proof();
-    size_t expected_proof_length = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + PAIRING_POINTS_SIZE;
-    if (HasIPAAccumulator<Flavor>) {
-        expected_proof_length += IPA_CLAIM_SIZE;
-    }
+    Proof ultra_proof = prover.construct_proof();
+    const size_t virtual_log_n = Flavor::USE_PADDING ? CONST_PROOF_SIZE_LOG_N : proving_key->log_dyadic_size();
+    size_t expected_proof_length = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n) + IO::PUBLIC_INPUTS_SIZE;
     EXPECT_EQ(ultra_proof.size(), expected_proof_length);
 }
 

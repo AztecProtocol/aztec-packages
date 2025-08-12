@@ -62,6 +62,7 @@ ContextEvent EnqueuedCallContext::serialize_context_event()
         .pc = get_pc(),
         .msg_sender = get_msg_sender(),
         .contract_addr = get_address(),
+        .bytecode_id = get_bytecode_manager().try_get_bytecode_id().value_or(FF(0)),
         .transaction_fee = get_transaction_fee(),
         .is_static = get_is_static(),
         .parent_cd_addr = 0,
@@ -77,9 +78,11 @@ ContextEvent EnqueuedCallContext::serialize_context_event()
         .internal_call_id = get_internal_call_stack_manager().get_call_id(),
         .internal_call_return_id = get_internal_call_stack_manager().get_return_call_id(),
         .next_internal_call_id = get_internal_call_stack_manager().get_next_call_id(),
-        // Tree states
+        // Tree States
         .tree_states = merkle_db.get_tree_state(),
         .written_public_data_slots_tree_snapshot = written_public_data_slots_tree.snapshot(),
+        // Side Effects
+        .side_effect_states = get_side_effect_states(),
     };
 };
 
@@ -115,6 +118,7 @@ ContextEvent NestedContext::serialize_context_event()
         .pc = get_pc(),
         .msg_sender = get_msg_sender(),
         .contract_addr = get_address(),
+        .bytecode_id = get_bytecode_manager().try_get_bytecode_id().value_or(FF(0)),
         .transaction_fee = get_transaction_fee(),
         .is_static = get_is_static(),
         .parent_cd_addr = parent_cd_addr,

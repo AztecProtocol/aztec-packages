@@ -11,7 +11,8 @@ import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
  * Errors are prefixed with the contract name to make it easy to identify where the error originated
  * when there are multiple contracts that could have thrown the error.
  *
- * Sigs are provided for easy reference, but don't trust; verify! run `forge inspect src/core/libraries/Errors.sol:Errors errors`
+ * Sigs are provided for easy reference, but don't trust; verify! run `forge inspect
+ * src/core/libraries/Errors.sol:Errors errors`
  */
 library Errors {
   // DEVNET related
@@ -25,6 +26,7 @@ library Errors {
   error Inbox__ContentTooLarge(bytes32 content); // 0x47452014
   error Inbox__SecretHashTooLarge(bytes32 secretHash); // 0xecde7e2c
   error Inbox__MustBuildBeforeConsume(); // 0xc4901999
+  error Inbox__Ignition();
 
   // Outbox
   error Outbox__Unauthorized(); // 0x2c9490c2

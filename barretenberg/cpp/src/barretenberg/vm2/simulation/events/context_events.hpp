@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -16,6 +17,7 @@ struct ContextEvent {
     uint32_t pc;
     AztecAddress msg_sender;
     AztecAddress contract_addr;
+    BytecodeId bytecode_id;
     FF transaction_fee;
     bool is_static;
 
@@ -40,9 +42,12 @@ struct ContextEvent {
     InternalCallId internal_call_return_id = 0;
     InternalCallId next_internal_call_id = 0;
 
-    // Tree State
+    // Tree States
     TreeStates tree_states;
     AppendOnlyTreeSnapshot written_public_data_slots_tree_snapshot;
+
+    // Side Effects
+    SideEffectStates side_effect_states;
 };
 
 struct ContextStackEvent {
@@ -54,6 +59,7 @@ struct ContextStackEvent {
     uint32_t next_pc;
     AztecAddress msg_sender;
     AztecAddress contract_addr;
+    BytecodeId bytecode_id;
     bool is_static;
 
     // Calldata info from parent context
@@ -64,8 +70,12 @@ struct ContextStackEvent {
     Gas parent_gas_used;
     Gas parent_gas_limit;
 
-    // Tree State
-    // TreeSnapshots tree_state;
+    // Tree States
+    TreeStates tree_states;
+    AppendOnlyTreeSnapshot written_public_data_slots_tree_snapshot;
+
+    // Side Effect States
+    SideEffectStates side_effect_states;
 };
 
 } // namespace bb::avm2::simulation

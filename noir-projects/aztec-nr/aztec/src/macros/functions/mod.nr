@@ -7,8 +7,14 @@ pub(crate) mod stub_registry;
 pub(crate) mod auth_registry;
 pub(crate) mod utils;
 
+use crate::macros::{
+    functions::{
+        abi_export::create_fn_abi_export,
+        utils::{transform_private, transform_public, transform_utility},
+    },
+    utils::{is_fn_private, is_fn_public, is_fn_utility, module_has_initializer},
+};
 use auth_registry::AUTHORIZE_ONCE_REGISTRY;
-use utils::{transform_private, transform_public, transform_utility};
 
 // Functions can have multiple attributes applied to them, e.g. a single function can have #[public], #[view] and
 // #[internal]. However. the order in which these will be evaluated is unknown, which makes combining them tricky.
@@ -48,8 +54,15 @@ use utils::{transform_private, transform_public, transform_utility};
 /// any time. Contracts that do have initializers can also make some of their functions available prior to
 /// initialization by marking them with the `#[noinitcheck]` attribute - though any contract state initialization will
 /// of course not have taken place.
-pub comptime fn initializer(_f: FunctionDefinition) {
-    // Marker attribute: see the note above
+pub comptime fn initializer(f: FunctionDefinition) {
+    // Marker attribute - see the comment above
+
+    if !is_fn_private(f) & !is_fn_public(f) {
+        let name = f.name();
+        panic(
+            f"The #[initializer] attribute can only be applied to #[private] or #[public] functions - {name} is neither",
+        );
+    }
 }
 
 /// Functions with this attribute can be called even if none of the `#[initializer]` functions have been called - though
@@ -58,8 +71,21 @@ pub comptime fn initializer(_f: FunctionDefinition) {
 ///
 /// Contracts that have no initializer functions do not require this attribute, as all of their functions behave as if
 /// they implicitly had it.
-pub comptime fn noinitcheck(_f: FunctionDefinition) {
-    // Marker attribute: see the note above
+pub comptime fn noinitcheck(f: FunctionDefinition) {
+    // Marker attribute - see the comment above
+
+    if !is_fn_private(f) & !is_fn_public(f) {
+        let name = f.name();
+        panic(
+            f"The #[noinitcheck] attribute can only be applied to #[private] or #[public] functions - {name} is neither",
+        );
+    }
+
+    if !module_has_initializer(f.module()) {
+        panic(
+            f"The #[noinitcheck] attribute is unnecessary for contracts with no #[initializer] functions",
+        );
+    }
 }
 
 /// Internal contract functions can only be called by the same contract, either by having it privately call itself, or
@@ -84,8 +110,15 @@ pub comptime fn noinitcheck(_f: FunctionDefinition) {
 /// public whitelist would enqueue a call to an internal public function that simply adds the requested user to the
 /// whitelist, as it expects for the check to have already been carried out in private. This requires that the public
 /// function be protected from external callers, as otherwise they'd be able to bypass the private check.
-pub comptime fn internal(_f: FunctionDefinition) {
-    // Marker attribute: see the note above
+pub comptime fn internal(f: FunctionDefinition) {
+    // Marker attribute - see the comment above
+
+    if !is_fn_private(f) & !is_fn_public(f) {
+        let name = f.name();
+        panic(
+            f"The #[internal] attribute can only be applied to #[private] or #[public] functions - {name} is neither",
+        );
+    }
 }
 
 /// View functions cannot modify state in any way, including performing contract calls that would in turn modify state.
@@ -105,8 +138,15 @@ pub comptime fn internal(_f: FunctionDefinition) {
 /// method in a `CallInterface` or by calling the `static_call` family of functions in `PrivateContext` and
 /// `PublicContext` respectively. Any contract call performed by a view function is automatically made a static call -
 /// it is not possible to perform a non-static call from a view function.
-pub comptime fn view(_f: FunctionDefinition) {
-    // Marker attribute: see the note above
+pub comptime fn view(f: FunctionDefinition) {
+    // Marker attribute - see the comment above
+
+    if !is_fn_private(f) & !is_fn_public(f) {
+        let name = f.name();
+        panic(
+            f"The #[view] attribute can only be applied to #[private] or #[public] functions - {name} is neither",
+        );
+    }
 }
 
 /// Restricts access to a `#[private]` or `#[public]` function so that it can only be called by an authorized account.
@@ -133,6 +173,13 @@ pub comptime fn authorize_once(
     from_arg_name: CtString,
     nonce_arg_name: CtString,
 ) {
+    if !is_fn_private(f) & !is_fn_public(f) {
+        let name = f.name();
+        panic(
+            f"The #[authorize_once] attribute can only be applied to #[private] or #[public] functions - {name} is neither",
+        );
+    }
+
     AUTHORIZE_ONCE_REGISTRY.insert(f, (from_arg_name, nonce_arg_name));
 }
 
@@ -162,7 +209,34 @@ pub comptime fn authorize_once(
 ///  deduce whether `A` or `B` were called by looking at the enqueued public call and number of nullifiers (assuming no
 ///  other contracts were called in the same transaction), even if the underlying contents remain hidden.
 pub comptime fn private(f: FunctionDefinition) -> Quoted {
-    transform_private(f)
+    if is_fn_public(f) | is_fn_utility(f) {
+        let name = f.name();
+        panic(
+            f"A function marked as #[private] cannot also be #[public] or #[utility] - {name} is more than one of these",
+        );
+    }
+
+    let visibility = f.visibility();
+    if visibility != quote {} {
+        let name = f.name();
+        panic(
+            f"A function marked as #[private] must not have public Noir visibility - {name}'s visibility is '{visibility}'",
+        );
+    }
+
+    if f.is_unconstrained() {
+        let name = f.name();
+        panic(
+            f"#[private] functions must not be unconstrained - {name} is",
+        );
+    }
+
+    // The abi export function is expected to be executed before the function is transformed.
+    let fn_abi_export = create_fn_abi_export(f);
+
+    transform_private(f);
+
+    fn_abi_export
 }
 
 /// Contract public functions are executed by the sequencer in public, with zero privacy guarantees. All details about
@@ -173,7 +247,32 @@ pub comptime fn public(f: FunctionDefinition) -> Quoted {
     if f.name() == quote { public_dispatch } {
         quote {}
     } else {
-        transform_public(f)
+        if is_fn_private(f) | is_fn_utility(f) {
+            let name = f.name();
+            panic(
+                f"A function marked as #[public] cannot also be #[private] or #[utility] - {name} is more than one of these",
+            );
+        }
+
+        let visibility = f.visibility();
+        if visibility != quote {} {
+            let name = f.name();
+            panic(
+                f"A function marked as #[public] must not have public Noir visibility - {name}'s visibility is '{visibility}'",
+            );
+        }
+
+        if f.is_unconstrained() {
+            let name = f.name();
+            panic(f"#[public] functions must not be unconstrained - {name} is");
+        }
+
+        // The abi export function is expected to be executed before the function is transformed.
+        let fn_abi_export = create_fn_abi_export(f);
+
+        transform_public(f);
+
+        fn_abi_export
     }
 }
 
@@ -195,5 +294,30 @@ pub comptime fn public(f: FunctionDefinition) -> Quoted {
 /// correct execution of an utility function, but it _is_ possible to verify that the utility bytecode is correct, since
 /// contract classes include a commitment to them. They are therefore safe to call by an honest client.
 pub comptime fn utility(f: FunctionDefinition) -> Quoted {
-    transform_utility(f)
+    if is_fn_private(f) | is_fn_public(f) {
+        let name = f.name();
+        panic(
+            f"A function marked as #[utility] cannot also be #[private] or #[public] - {name} is more than one of these",
+        );
+    }
+
+    let visibility = f.visibility();
+    if visibility != quote {} {
+        let name = f.name();
+        panic(
+            f"A function marked as #[utility] must not have public Noir visibility - {name}'s visibility is '{visibility}'",
+        );
+    }
+
+    if !f.is_unconstrained() {
+        let name = f.name();
+        panic(f"#[utility] must be unconstrained - {name} isn't");
+    }
+
+    // The abi export function is expected to be executed before the function is transformed.
+    let fn_abi_export = create_fn_abi_export(f);
+
+    transform_utility(f);
+
+    fn_abi_export
 }

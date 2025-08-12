@@ -20,7 +20,6 @@ import { SnappyTransform } from '../encoding.js';
 import type { PeerScoring } from '../peer-manager/peer_scoring.js';
 import {
   DEFAULT_INDIVIDUAL_REQUEST_TIMEOUT_MS,
-  DEFAULT_OVERALL_REQUEST_TIMEOUT_MS,
   DEFAULT_REQRESP_DIAL_TIMEOUT_MS,
   type P2PReqRespConfig,
 } from './config.js';
@@ -62,7 +61,6 @@ import { ReqRespStatus, ReqRespStatusError, parseStatusChunk, prettyPrintReqResp
  * see: https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#the-reqresp-domain
  */
 export class ReqResp implements ReqRespInterface {
-  private overallRequestTimeoutMs: number = DEFAULT_OVERALL_REQUEST_TIMEOUT_MS;
   private individualRequestTimeoutMs: number = DEFAULT_INDIVIDUAL_REQUEST_TIMEOUT_MS;
   private dialTimeoutMs: number = DEFAULT_REQRESP_DIAL_TIMEOUT_MS;
 
@@ -102,10 +100,6 @@ export class ReqResp implements ReqRespInterface {
   }
 
   public updateConfig(config: Partial<P2PReqRespConfig>): void {
-    if (typeof config.overallRequestTimeoutMs === 'number') {
-      this.overallRequestTimeoutMs = config.overallRequestTimeoutMs;
-    }
-
     if (typeof config.individualRequestTimeoutMs === 'number') {
       this.individualRequestTimeoutMs = config.individualRequestTimeoutMs;
     }
@@ -562,7 +556,9 @@ export class ReqResp implements ReqRespInterface {
           ? 'Protocol error sent successfully.'
           : 'Stream already closed or poisoned, not sending error response.';
 
-        const level = err.status === ReqRespStatus.RATE_LIMIT_EXCEEDED ? 'debug' : 'warn';
+        const isRateLimit = err.status === ReqRespStatus.RATE_LIMIT_EXCEEDED;
+
+        const level = isRateLimit ? 'debug' : 'warn';
         this.logger[level](logMessage + ` Status: ${ReqRespStatus[err.status]}`, {
           protocol,
           err,
@@ -572,7 +568,11 @@ export class ReqResp implements ReqRespInterface {
       } else {
         // In erroneous case we abort the stream, this will signal the peer that something went wrong
         // and that this stream should be dropped
-        this.logger.warn('Unknown stream error while handling the stream, aborting', {
+        const isMessageToNotWarn =
+          err instanceof Error &&
+          ['stream reset', 'Cannot push value onto an ended pushable'].some(msg => err.message.includes(msg));
+        const level = isMessageToNotWarn ? 'debug' : 'warn';
+        this.logger[level]('Unknown stream error while handling the stream, aborting', {
           protocol,
           err,
         });

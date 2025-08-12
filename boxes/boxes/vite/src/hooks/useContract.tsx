@@ -23,6 +23,7 @@ export function useContract() {
       Fr.random(),
       wallet.getCompleteAddress().address,
     ).send({
+      from: wallet.getAddress(),
       contractAddressSalt: salt,
     });
     const contract = await toast.promise(tx.deployed(), {

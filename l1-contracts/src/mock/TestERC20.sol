@@ -14,10 +14,7 @@ contract TestERC20 is ERC20, IMintableERC20, Ownable2Step {
     _;
   }
 
-  constructor(string memory _name, string memory _symbol, address _owner)
-    ERC20(_name, _symbol)
-    Ownable(_owner)
-  {
+  constructor(string memory _name, string memory _symbol, address _owner) ERC20(_name, _symbol) Ownable(_owner) {
     minters[_owner] = true;
     emit MinterAdded(_owner);
   }

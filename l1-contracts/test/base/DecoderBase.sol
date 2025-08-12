@@ -5,11 +5,7 @@ pragma solidity >=0.8.27;
 import {TestBase} from "../base/Base.sol";
 
 import {Timestamp, Slot} from "@aztec/core/libraries/TimeLib.sol";
-import {
-  ProposedHeader,
-  ContentCommitment,
-  GasFees
-} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
+import {ProposedHeader, ContentCommitment, GasFees} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {ProposedHeaderLib} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 
 // Many of the structs in here match what you see in `header` but with very important exceptions!
@@ -62,9 +58,11 @@ contract DecoderBase is TestBase {
 
   struct Data {
     bytes32 archive;
-    // Note: batchedBlobInputs is usually per epoch, rather than per block. For testing, these batchedBlobInputs assume that
+    // Note: batchedBlobInputs is usually per epoch, rather than per block. For testing, these batchedBlobInputs assume
+    // that
     // an epoch contains blobs including and up to the 'current' block.
-    // e.g. mixed_block_2's batchedBlobInputs assumes that the epoch consists of 2 blocks, mixed_block_1 and mixed_block_2, and their blobs.
+    // e.g. mixed_block_2's batchedBlobInputs assumes that the epoch consists of 2 blocks, mixed_block_1 and
+    // mixed_block_2, and their blobs.
     // e.g. mixed_block_1's batchedBlobInputs assumes the epoch contains only mixed_block_1 and its blob(s).
     bytes batchedBlobInputs; // EVM point evaluation precompile inputs for verifying an epoch's batch of blobs
     bytes blobCommitments; // [numBlobs, ...blobCommitments], used in proposing blocks
@@ -96,11 +94,7 @@ contract DecoderBase is TestBase {
   }
 
   // Decode does not support the custom types
-  function fromAlphabeticalToNormal(AlphabeticalFull memory full)
-    internal
-    pure
-    returns (Full memory)
-  {
+  function fromAlphabeticalToNormal(AlphabeticalFull memory full) internal pure returns (Full memory) {
     Full memory result = Full({
       block: Data({
         archive: full.block.archive,
@@ -129,9 +123,7 @@ contract DecoderBase is TestBase {
       populate: full.populate
     });
 
-    assertEq(
-      result.block.headerHash, result.block.header.hash(), "headerHash mismatch when loading"
-    );
+    assertEq(result.block.headerHash, result.block.header.hash(), "headerHash mismatch when loading");
 
     return result;
   }

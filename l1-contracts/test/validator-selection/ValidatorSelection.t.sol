@@ -9,8 +9,8 @@ import {
   Signature,
   CommitteeAttestation,
   CommitteeAttestations,
-  SignatureLib
-} from "@aztec/shared/libraries/SignatureLib.sol";
+  AttestationLib
+} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Timestamp, Epoch} from "@aztec/core/libraries/TimeLib.sol";
@@ -20,12 +20,7 @@ import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 import {ProposedHeaderLib} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
-import {
-  ProposeArgs,
-  OracleInput,
-  ProposeLib,
-  ProposePayload
-} from "@aztec/core/libraries/rollup/ProposeLib.sol";
+import {ProposeArgs, OracleInput, ProposeLib, ProposePayload} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 
 import {DecoderBase} from "../base/DecoderBase.sol";
 
@@ -37,9 +32,13 @@ import {GSE} from "@aztec/governance/GSE.sol";
 import {ValidatorSelectionTestBase} from "./ValidatorSelectionBase.sol";
 
 import {NaiveMerkle} from "../merkle/Naive.sol";
+import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 import {
-  BlockLog, PublicInputArgs, SubmitEpochRootProofArgs
+  BlockLog,
+  PublicInputArgs,
+  SubmitEpochRootProofArgs,
+  BlockHeaderValidationFlags
 } from "@aztec/core/interfaces/IRollup.sol";
 
 // solhint-disable comprehensive-interface
@@ -57,27 +56,39 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     bool proposerAttestationNotProvided;
     bool invalidAttestation;
     bool invalidSigners;
+    bool invalidAddressAttestation;
   }
 
   TestFlags NO_FLAGS = TestFlags({
     senderIsNotProposer: false,
     proposerAttestationNotProvided: false,
     invalidAttestation: false,
-    invalidSigners: false
+    invalidSigners: false,
+    invalidAddressAttestation: false
   });
 
   TestFlags INVALID_ATTESTATION = TestFlags({
     senderIsNotProposer: false,
     proposerAttestationNotProvided: false,
     invalidAttestation: true,
-    invalidSigners: false
+    invalidSigners: false,
+    invalidAddressAttestation: false
   });
 
   TestFlags INVALID_SIGNERS = TestFlags({
     senderIsNotProposer: false,
     proposerAttestationNotProvided: false,
     invalidAttestation: false,
-    invalidSigners: true
+    invalidSigners: true,
+    invalidAddressAttestation: false
+  });
+
+  TestFlags INVALID_ADDRESS_ATTESTATION = TestFlags({
+    senderIsNotProposer: false,
+    proposerAttestationNotProvided: false,
+    invalidAttestation: false,
+    invalidSigners: false,
+    invalidAddressAttestation: true
   });
 
   bytes4 NO_REVERT = bytes4(0);
@@ -108,21 +119,18 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
   function testProposerForNonSetupEpoch(uint8 _epochsToJump) public setup(4, 4) progressEpochs(2) {
     Epoch pre = rollup.getCurrentEpoch();
-    vm.warp(
-      block.timestamp
-        + uint256(_epochsToJump) * rollup.getEpochDuration() * rollup.getSlotDuration()
-    );
+    vm.warp(block.timestamp + uint256(_epochsToJump) * rollup.getEpochDuration() * rollup.getSlotDuration());
     Epoch post = rollup.getCurrentEpoch();
     assertEq(pre + Epoch.wrap(_epochsToJump), post, "Invalid epoch");
 
     address expectedProposer = rollup.getCurrentProposer();
 
     // Add a validator which will also setup the epoch
-    uint256 depositAmount = rollup.getDepositAmount();
+    uint256 activationThreshold = rollup.getActivationThreshold();
     vm.prank(testERC20.owner());
-    testERC20.mint(address(this), depositAmount);
-    testERC20.approve(address(rollup), depositAmount);
-    rollup.deposit(address(0xdead), address(0xdead), true);
+    testERC20.mint(address(this), activationThreshold);
+    testERC20.approve(address(rollup), activationThreshold);
+    rollup.deposit(address(0xdead), address(0xdead), BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), true);
 
     address actualProposer = rollup.getCurrentProposer();
     assertEq(expectedProposer, actualProposer, "Invalid proposer");
@@ -130,17 +138,13 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
   function testCommitteeForNonSetupEpoch(uint8 _epochsToJump) public setup(4, 4) progressEpochs(2) {
     Epoch pre = rollup.getCurrentEpoch();
-    vm.warp(
-      block.timestamp
-        + uint256(_epochsToJump) * rollup.getEpochDuration() * rollup.getSlotDuration()
-    );
+    vm.warp(block.timestamp + uint256(_epochsToJump) * rollup.getEpochDuration() * rollup.getSlotDuration());
 
     Epoch post = rollup.getCurrentEpoch();
 
     uint256 validatorSetSize = rollup.getAttesters().length;
     uint256 targetCommitteeSize = rollup.getTargetCommitteeSize();
-    uint256 expectedSize =
-      validatorSetSize > targetCommitteeSize ? targetCommitteeSize : validatorSetSize;
+    uint256 expectedSize = validatorSetSize > targetCommitteeSize ? targetCommitteeSize : validatorSetSize;
 
     address[] memory preCommittee = rollup.getEpochCommittee(pre);
     address[] memory postCommittee = rollup.getEpochCommittee(post);
@@ -167,11 +171,11 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     vm.warp(ts2);
 
     // add a new validator
-    uint256 depositAmount = rollup.getDepositAmount();
+    uint256 activationThreshold = rollup.getActivationThreshold();
     vm.prank(testERC20.owner());
-    testERC20.mint(address(this), depositAmount);
-    testERC20.approve(address(rollup), depositAmount);
-    rollup.deposit(address(0xdead), address(0xdead), true);
+    testERC20.mint(address(this), activationThreshold);
+    testERC20.approve(address(rollup), activationThreshold);
+    rollup.deposit(address(0xdead), address(0xdead), BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), true);
     rollup.flushEntryQueue();
 
     assertEq(rollup.getCurrentEpoch(), epoch);
@@ -185,28 +189,23 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
   // NOTE: this must be run with --isolate as transient storage gets thrashed when working out the proposer.
   // This also changes the committee which is calculated within each call.
-  // TODO(https://github.com/AztecProtocol/aztec-packages/issues/14275): clear out transient storage used by the sample lib - we cannot afford to have a malicious proposer
+  // TODO(https://github.com/AztecProtocol/aztec-packages/issues/14275): clear out transient storage used by the sample
+  // lib - we cannot afford to have a malicious proposer
   // change the committee committment to something unpredictable.
 
   /// forge-config: default.isolate = true
-  function testValidatorSetLargerThanCommittee(bool _insufficientSigs)
-    public
-    setup(100, 48)
-    progressEpochs(2)
-  {
+  function testValidatorSetLargerThanCommittee(bool _insufficientSigs) public setup(100, 48) progressEpochs(2) {
     uint256 committeeSize = rollup.getTargetCommitteeSize();
     uint256 signatureCount = committeeSize * 2 / 3 + (_insufficientSigs ? 0 : 1);
     assertGt(rollup.getAttesters().length, committeeSize, "Not enough validators");
 
-    ProposeTestData memory ree =
-      _testBlock("mixed_block_1", NO_REVERT, signatureCount, committeeSize, NO_FLAGS);
+    ProposeTestData memory ree = _testBlock("mixed_block_1", NO_REVERT, signatureCount, committeeSize, NO_FLAGS);
 
     assertEq(ree.committee.length, rollup.getTargetCommitteeSize(), "Invalid committee size");
 
     // Test we can invalidate the block by insufficient attestations if sigs were insufficient
     _invalidateByAttestationCount(
-      ree,
-      _insufficientSigs ? NO_REVERT : Errors.ValidatorSelection__InsufficientAttestations.selector
+      ree, _insufficientSigs ? NO_REVERT : Errors.ValidatorSelection__InsufficientAttestations.selector
     );
   }
 
@@ -221,11 +220,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     uint256 blockNumber = rollup.getPendingBlockNumber();
 
     _proveBlocks(
-      "mixed_block_",
-      blockNumber - 1,
-      blockNumber,
-      SignatureLib.packAttestations(ree2.attestations),
-      NO_REVERT
+      "mixed_block_", blockNumber - 1, blockNumber, AttestationLib.packAttestations(ree2.attestations), NO_REVERT
     );
   }
 
@@ -238,7 +233,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       "mixed_block_",
       blockNumber - 1,
       blockNumber,
-      SignatureLib.packAttestations(ree1.attestations),
+      AttestationLib.packAttestations(ree1.attestations),
       Errors.Rollup__InvalidAttestations.selector
     );
   }
@@ -300,7 +295,8 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
         senderIsNotProposer: true,
         proposerAttestationNotProvided: false,
         invalidAttestation: false,
-        invalidSigners: false
+        invalidSigners: false,
+        invalidAddressAttestation: false
       })
     );
   }
@@ -315,7 +311,8 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
         senderIsNotProposer: true,
         proposerAttestationNotProvided: true,
         invalidAttestation: false,
-        invalidSigners: false
+        invalidSigners: false,
+        invalidAddressAttestation: false
       })
     );
   }
@@ -330,7 +327,8 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
         senderIsNotProposer: true,
         proposerAttestationNotProvided: false,
         invalidAttestation: false,
-        invalidSigners: true
+        invalidSigners: true,
+        invalidAddressAttestation: false
       })
     );
   }
@@ -341,6 +339,27 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     // the invalid attestation is the first one
     _invalidateByAttestationSig(ree, 1, Errors.Rollup__AttestationsAreValid.selector);
     _invalidateByAttestationSig(ree, 0, NO_REVERT);
+  }
+
+  function testInvalidAddressAttestation() public setup(4, 4) progressEpochs(2) {
+    ProposeTestData memory ree = _testBlock("mixed_block_1", NO_REVERT, 3, 4, INVALID_ADDRESS_ATTESTATION);
+
+    // We try to invalidate the count, but it got sufficient, so tx should revert
+    _invalidateByAttestationCount(ree, Errors.ValidatorSelection__InsufficientAttestations.selector);
+
+    // We now invalidate the wrong attestation, no revert
+    // https://www.youtube.com/watch?v=glN0W8WogK8
+    _invalidateByAttestationSig(ree, ree.invalidAttestationIndex, NO_REVERT);
+
+    // Try to prove to show that it can explode at this point, and we could not do anything before it.
+    // This should revert but won't if we did not invalidate
+    _proveBlocks(
+      "mixed_block_",
+      1,
+      1,
+      AttestationLib.packAttestations(ree.attestations),
+      Errors.Rollup__InvalidBlockNumber.selector
+    );
   }
 
   function testInsufficientSignatures() public setup(4, 4) progressEpochs(2) {
@@ -363,11 +382,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     _invalidateByAttestationSig(ree, 0, NO_REVERT);
 
     _testBlock("mixed_block_1", NO_REVERT, 3, 4, NO_FLAGS);
-    assertEq(
-      rollup.getPendingBlockNumber(),
-      initialBlockNumber + 1,
-      "Failed to propose block after invalidate"
-    );
+    assertEq(rollup.getPendingBlockNumber(), initialBlockNumber + 1, "Failed to propose block after invalidate");
   }
 
   function testCannotProposeIfAllValidatorsHaveMoved() public setup(4, 4) progressEpochs(2) {
@@ -396,14 +411,15 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
         senderIsNotProposer: false,
         proposerAttestationNotProvided: false,
         invalidAttestation: false,
-        invalidSigners: false
+        invalidSigners: false,
+        invalidAddressAttestation: false
       })
     );
   }
 
   function _invalidateByAttestationCount(ProposeTestData memory ree, bytes4 _revertData) internal {
     uint256 blockNumber = rollup.getPendingBlockNumber();
-    CommitteeAttestations memory attestations = SignatureLib.packAttestations(ree.attestations);
+    CommitteeAttestations memory attestations = AttestationLib.packAttestations(ree.attestations);
     if (_revertData != NO_REVERT) {
       vm.expectPartialRevert(_revertData);
     }
@@ -415,11 +431,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     );
   }
 
-  function _invalidateByAttestationSig(
-    ProposeTestData memory ree,
-    uint256 _index,
-    bytes4 _revertData
-  ) internal {
+  function _invalidateByAttestationSig(ProposeTestData memory ree, uint256 _index, bytes4 _revertData) internal {
     _invalidateByAttestationSig(ree, _index, _revertData, rollup.getPendingBlockNumber());
   }
 
@@ -430,7 +442,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     uint256 _blockToInvalidate
   ) internal {
     uint256 blockNumber = rollup.getPendingBlockNumber();
-    CommitteeAttestations memory attestations = SignatureLib.packAttestations(ree.attestations);
+    CommitteeAttestations memory attestations = AttestationLib.packAttestations(ree.attestations);
     if (_revertData != NO_REVERT) {
       vm.expectPartialRevert(_revertData);
     }
@@ -464,8 +476,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     ree.sender = ree.proposer;
 
     {
-      uint128 manaBaseFee =
-        SafeCast.toUint128(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true));
+      uint128 manaBaseFee = SafeCast.toUint128(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true));
       bytes32 inHash = inbox.getRoot(full.block.blockNumber);
       header.contentCommitment.inHash = inHash;
       header.gasFees.feePerL2Gas = manaBaseFee;
@@ -532,6 +543,31 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       ree.attestations[0] = _createAttestation(invalidAttester, digest);
     }
 
+    if (_flags.invalidAddressAttestation) {
+      // By using this function we end up caching the correct proposer so we can skip the check in the real submission
+      // Only works in the same tx.
+      rollup.validateHeaderWithAttestations(
+        ree.proposeArgs.header,
+        AttestationLib.packAttestations(ree.attestations),
+        ree.signers,
+        digest,
+        bytes32(0),
+        BlockHeaderValidationFlags({ignoreDA: true})
+      );
+
+      // Change the last element in the committee (since it don't need a sig as we have enough earlier)
+      // to be a random address instead of the expected one.
+      address invalidAddress = address(uint160(uint256(keccak256(abi.encode("invalid", block.timestamp)))));
+      // We need to find an attestation that is empty, and replace it
+      for (uint256 i = 0; i < ree.attestationsCount; i++) {
+        if (ree.attestations[i].signature.r == 0) {
+          ree.attestations[i] = _createEmptyAttestation(invalidAddress);
+          ree.invalidAttestationIndex = i;
+          break;
+        }
+      }
+    }
+
     if (_flags.invalidSigners) {
       // Change the first element in the signers to a random address
       uint256 invalidSignerKey = uint256(keccak256(abi.encode("invalid", block.timestamp)));
@@ -550,10 +586,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
     vm.prank(ree.sender);
     rollup.propose(
-      ree.proposeArgs,
-      SignatureLib.packAttestations(ree.attestations),
-      ree.signers,
-      full.block.blobCommitments
+      ree.proposeArgs, AttestationLib.packAttestations(ree.attestations), ree.signers, full.block.blobCommitments
     );
 
     if (_revertData != NO_REVERT) {
@@ -605,9 +638,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     uint256 version = rollup.getVersion();
     for (uint256 i = 0; i < _contents.length; i++) {
       vm.prank(_sender);
-      inbox.sendL2Message(
-        DataStructures.L2Actor({actor: _recipient, version: version}), _contents[i], bytes32(0)
-      );
+      inbox.sendL2Message(DataStructures.L2Actor({actor: _recipient, version: version}), _contents[i], bytes32(0));
     }
   }
 
@@ -631,11 +662,8 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     BlockLog memory parentBlockLog = rollup.getBlock(startBlockNumber - 1);
     address prover = address(0xcafe);
 
-    PublicInputArgs memory args = PublicInputArgs({
-      previousArchive: parentBlockLog.archive,
-      endArchive: endFull.block.archive,
-      proverId: prover
-    });
+    PublicInputArgs memory args =
+      PublicInputArgs({previousArchive: parentBlockLog.archive, endArchive: endFull.block.archive, proverId: prover});
 
     bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);
 
@@ -656,11 +684,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     );
   }
 
-  function _createAttestation(address _signer, bytes32 _digest)
-    internal
-    view
-    returns (CommitteeAttestation memory)
-  {
+  function _createAttestation(address _signer, bytes32 _digest) internal view returns (CommitteeAttestation memory) {
     uint256 privateKey = attesterPrivateKeys[_signer];
 
     bytes32 digest = _digest.toEthSignedMessageHash();
@@ -670,11 +694,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     return CommitteeAttestation({addr: _signer, signature: signature});
   }
 
-  function _createEmptyAttestation(address _signer)
-    internal
-    pure
-    returns (CommitteeAttestation memory)
-  {
+  function _createEmptyAttestation(address _signer) internal pure returns (CommitteeAttestation memory) {
     Signature memory emptySignature = Signature({v: 0, r: 0, s: 0});
     return CommitteeAttestation({addr: _signer, signature: emptySignature});
   }

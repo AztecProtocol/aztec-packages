@@ -3,12 +3,7 @@ pragma solidity >=0.8.27;
 
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {GovernanceBase} from "./base.t.sol";
-import {
-  IGovernance,
-  Configuration,
-  Proposal,
-  ProposalState
-} from "@aztec/governance/interfaces/IGovernance.sol";
+import {IGovernance, Configuration, Proposal, ProposalState} from "@aztec/governance/interfaces/IGovernance.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 
@@ -18,7 +13,7 @@ contract ProposeWithLockTest is GovernanceBase {
     Configuration memory config = governance.getConfiguration();
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.Governance__InsufficientPower.selector,
+        Errors.Governance__CheckpointedUintLib__InsufficientValue.selector,
         address(this),
         0,
         config.proposeConfig.lockAmount
