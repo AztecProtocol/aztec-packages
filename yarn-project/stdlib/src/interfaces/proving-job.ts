@@ -17,20 +17,22 @@ import { RootParityInputs } from '../parity/root_parity_inputs.js';
 import { ProvingRequestType } from '../proofs/proving_request_type.js';
 import { RecursiveProof } from '../proofs/recursive_proof.js';
 import { BaseOrMergeRollupPublicInputs } from '../rollup/base_or_merge_rollup_public_inputs.js';
+import { BlockMergeRollupPrivateInputs } from '../rollup/block_merge_rollup.js';
+import { BlockRollupPublicInputs } from '../rollup/block_rollup_public_inputs.js';
 import {
-  BlockMergeRollupPrivateInputs,
-  BlockRollupPublicInputs,
   BlockRootEmptyTxFirstRollupPrivateInputs,
   BlockRootFirstRollupPrivateInputs,
   BlockRootRollupPrivateInputs,
   BlockRootSingleTxFirstRollupPrivateInputs,
   BlockRootSingleTxRollupPrivateInputs,
-  CheckpointMergeRollupPrivateInputs,
+} from '../rollup/block_root_rollup.js';
+import { CheckpointMergeRollupPrivateInputs } from '../rollup/checkpoint_merge_rollup.js';
+import { CheckpointRollupPublicInputs } from '../rollup/checkpoint_rollup_public_inputs.js';
+import {
   CheckpointPaddingRollupPrivateInputs,
-  CheckpointRollupPublicInputs,
   CheckpointRootRollupPrivateInputs,
   CheckpointRootSingleBlockRollupPrivateInputs,
-} from '../rollup/index.js';
+} from '../rollup/checkpoint_root_rollup.js';
 import { MergeRollupInputs } from '../rollup/merge_rollup.js';
 import { PrivateBaseRollupInputs } from '../rollup/private_base_rollup_inputs.js';
 import { PublicBaseRollupInputs } from '../rollup/public_base_rollup_inputs.js';

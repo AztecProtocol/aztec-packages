@@ -43,9 +43,9 @@ export class LightweightBlockFactory implements IBlockFactory {
   async startNewBlock(
     globalVariables: GlobalVariables,
     l1ToL2Messages: Fr[],
-    // Temporary hack to generate the correct spongeBlobHash in the block header.
+    // Must be provided to generate the correct spongeBlobHash for the block header if there's more than one block in the checkpoint.
     startSpongeBlob?: SpongeBlob,
-    // Temporary hack to only insert l1 to l2 messages for the first block in a checkpoint.
+    // Only insert l1 to l2 messages for the first block in a checkpoint.
     isFirstBlock = true,
   ): Promise<void> {
     this.logger.debug('Starting new block', { globalVariables: globalVariables.toInspect(), l1ToL2Messages });
@@ -78,14 +78,12 @@ export class LightweightBlockFactory implements IBlockFactory {
       this.globalVariables!,
       this.l1ToL2Messages!,
       this.db,
+      this.startSpongeBlob,
     );
-    if (this.startSpongeBlob) {
-      header.setStartSpongeBlob(this.startSpongeBlob);
-    }
 
     header.state.validate();
 
-    const blockHeader = await header.toBlockHeader(body.txEffects);
+    const blockHeader = header.toBlockHeader();
     await this.db.updateArchive(blockHeader);
     const newArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, this.db);
 

@@ -1,4 +1,3 @@
-import { SpongeBlob } from '@aztec/blob-lib';
 import { Fr } from '@aztec/foundation/fields';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
@@ -8,10 +7,9 @@ import type { FieldsOf } from '@aztec/foundation/types';
 import { inspect } from 'util';
 import { z } from 'zod';
 
-import { CheckpointHeader } from '../rollup/index.js';
+import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
-import { BlockHeader, ContentCommitment, GlobalVariables, StateReference, TxEffect } from '../tx/index.js';
-import { getBlockBlobFields } from './body.js';
+import { BlockHeader, ContentCommitment, GlobalVariables, StateReference } from '../tx/index.js';
 
 /**
  * TO BE DELETED
@@ -21,10 +19,6 @@ import { getBlockBlobFields } from './body.js';
  * This works for now because we only have one block per checkpoint.
  */
 export class L2BlockHeader {
-  // Temporary hack to allow manually setting this value in order to compute the correct spongeBlobHash for the block
-  // header if there is more than 1 block in a checkpoint.
-  private startSpongeBlob: SpongeBlob | undefined;
-
   constructor(
     /** Snapshot of archive before the block is applied. */
     public lastArchive: AppendOnlyTreeSnapshot,
@@ -38,6 +32,8 @@ export class L2BlockHeader {
     public totalFees: Fr,
     /** Total mana used in the block, computed by the root rollup circuit */
     public totalManaUsed: Fr,
+    /** Hash of the sponge blob of the block. */
+    public spongeBlobHash: Fr,
   ) {}
 
   static get schema(): ZodFor<L2BlockHeader> {
@@ -49,6 +45,7 @@ export class L2BlockHeader {
         globalVariables: GlobalVariables.schema,
         totalFees: schemas.Fr,
         totalManaUsed: schemas.Fr,
+        spongeBlobHash: schemas.Fr,
       })
       .transform(L2BlockHeader.from);
   }
@@ -61,6 +58,7 @@ export class L2BlockHeader {
       fields.globalVariables,
       fields.totalFees,
       fields.totalManaUsed,
+      fields.spongeBlobHash,
     ] as const;
   }
 
@@ -83,7 +81,8 @@ export class L2BlockHeader {
       this.state.getSize() +
       this.globalVariables.getSize() +
       this.totalFees.size +
-      this.totalManaUsed.size
+      this.totalManaUsed.size +
+      this.spongeBlobHash.size
     );
   }
 
@@ -109,6 +108,7 @@ export class L2BlockHeader {
       reader.readObject(GlobalVariables),
       reader.readObject(Fr),
       reader.readObject(Fr),
+      reader.readObject(Fr),
     );
   }
 
@@ -122,6 +122,7 @@ export class L2BlockHeader {
       GlobalVariables.fromFields(reader),
       reader.readField(),
       reader.readField(),
+      reader.readField(),
     );
   }
 
@@ -133,6 +134,7 @@ export class L2BlockHeader {
       globalVariables: GlobalVariables.empty(),
       totalFees: Fr.ZERO,
       totalManaUsed: Fr.ZERO,
+      spongeBlobHash: Fr.ZERO,
       ...fields,
     });
   }
@@ -144,7 +146,8 @@ export class L2BlockHeader {
       this.state.isEmpty() &&
       this.globalVariables.isEmpty() &&
       this.totalFees.isZero() &&
-      this.totalManaUsed.isZero()
+      this.totalManaUsed.isZero() &&
+      this.spongeBlobHash.isZero()
     );
   }
 
@@ -160,29 +163,6 @@ export class L2BlockHeader {
     return L2BlockHeader.fromBuffer(hexToBuffer(str));
   }
 
-  setStartSpongeBlob(startSpongeBlob: SpongeBlob) {
-    this.startSpongeBlob = startSpongeBlob;
-  }
-
-  async toBlockHeader(txEffects: TxEffect[], startSpongeBlob = this.startSpongeBlob) {
-    const blobFields = getBlockBlobFields(txEffects);
-    if (!startSpongeBlob) {
-      startSpongeBlob = SpongeBlob.init(blobFields.length);
-    }
-    const endSpongeBlob = startSpongeBlob.clone();
-    await endSpongeBlob.absorb(blobFields);
-    const spongeBlobHash = await endSpongeBlob.squeeze();
-
-    return new BlockHeader(
-      this.lastArchive,
-      this.state,
-      spongeBlobHash,
-      this.globalVariables,
-      this.totalFees,
-      this.totalManaUsed,
-    );
-  }
-
   toCheckpointHeader() {
     return new CheckpointHeader(
       this.lastArchive.root,
@@ -196,6 +176,17 @@ export class L2BlockHeader {
     );
   }
 
+  toBlockHeader() {
+    return new BlockHeader(
+      this.lastArchive,
+      this.state,
+      this.spongeBlobHash,
+      this.globalVariables,
+      this.totalFees,
+      this.totalManaUsed,
+    );
+  }
+
   toInspect() {
     return {
       lastArchive: this.lastArchive.root.toString(),
@@ -204,6 +195,7 @@ export class L2BlockHeader {
       globalVariables: this.globalVariables.toInspect(),
       totalFees: this.totalFees.toBigInt(),
       totalManaUsed: this.totalManaUsed.toBigInt(),
+      spongeBlobHash: this.spongeBlobHash.toString(),
     };
   }
 
@@ -220,6 +212,7 @@ export class L2BlockHeader {
   globalVariables: ${inspect(this.globalVariables)},
   totalFees: ${this.totalFees},
   totalManaUsed: ${this.totalManaUsed},
+  spongeBlobHash: ${this.spongeBlobHash},
 }`;
   }
 
@@ -230,7 +223,8 @@ export class L2BlockHeader {
       this.globalVariables.equals(other.globalVariables) &&
       this.totalFees.equals(other.totalFees) &&
       this.totalManaUsed.equals(other.totalManaUsed) &&
-      this.lastArchive.equals(other.lastArchive)
+      this.lastArchive.equals(other.lastArchive) &&
+      this.spongeBlobHash.equals(other.spongeBlobHash)
     );
   }
 }

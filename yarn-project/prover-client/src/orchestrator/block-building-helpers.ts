@@ -1,4 +1,4 @@
-import { BatchedBlobAccumulator, Blob, type SpongeBlob } from '@aztec/blob-lib';
+import { BatchedBlobAccumulator, Blob, SpongeBlob } from '@aztec/blob-lib';
 import {
   ARCHIVE_HEIGHT,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
@@ -299,8 +299,6 @@ export const buildHeaderFromCircuitOutputs = runInSpan(
   },
 );
 
-// TO BE DELETED.
-// NOTE: This only works when there's only one block in the checkpoint.
 export const buildHeaderAndBodyFromTxs = runInSpan(
   'BlockBuilderHelpers',
   'buildHeaderAndBodyFromTxs',
@@ -310,6 +308,7 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
     globalVariables: GlobalVariables,
     l1ToL2Messages: Fr[],
     db: MerkleTreeReadOperations,
+    startSpongeBlob?: SpongeBlob,
   ) => {
     span.setAttribute(Attributes.BLOCK_NUMBER, globalVariables.blockNumber);
     const stateReference = new StateReference(
@@ -337,6 +336,11 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
     const fees = txEffects.reduce((acc, tx) => acc.add(tx.transactionFee), Fr.ZERO);
     const manaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.billedGas.l2Gas)), Fr.ZERO);
 
+    const blobFields = getBlockBlobFields(txs.map(tx => tx.txEffect));
+    const endSpongeBlob = startSpongeBlob?.clone() ?? SpongeBlob.init(blobFields.length);
+    await endSpongeBlob.absorb(blobFields);
+    const spongeBlobHash = await endSpongeBlob.squeeze();
+
     const header = new L2BlockHeader(
       previousArchive,
       contentCommitment,
@@ -344,6 +348,7 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
       globalVariables,
       fees,
       manaUsed,
+      spongeBlobHash,
     );
 
     return { header, body };

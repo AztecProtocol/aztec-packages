@@ -138,7 +138,7 @@ export class EpochProvingJob implements Traceable {
         const globalVariables = block.header.globalVariables;
         const txs = this.getTxs(block);
         const l1ToL2Messages = this.getL1ToL2Messages(block);
-        const previousHeader = await this.getBlockHeader(block.number - 1)!;
+        const previousHeader = this.getBlockHeader(block.number - 1)!;
 
         this.log.verbose(`Starting processing block ${block.number}`, {
           number: block.number,
@@ -192,7 +192,7 @@ export class EpochProvingJob implements Traceable {
         });
 
         // Mark block as completed to pad it
-        const expectedBlockHeader = await block.getBlockHeader();
+        const expectedBlockHeader = block.getBlockHeader();
         await this.prover.setBlockCompleted(block.number, expectedBlockHeader);
       });
 
@@ -319,10 +319,10 @@ export class EpochProvingJob implements Traceable {
   }
 
   /* Returns the header for the given block number based on the epoch proving job data. */
-  private async getBlockHeader(blockNumber: number) {
+  private getBlockHeader(blockNumber: number) {
     const block = this.blocks.find(b => b.number === blockNumber);
     if (block) {
-      return await block.getBlockHeader();
+      return block.getBlockHeader();
     }
 
     if (blockNumber === Number(this.data.previousBlockHeader.getBlockNumber())) {

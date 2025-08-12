@@ -44,7 +44,7 @@ describe('Synchronizer', () => {
     await synchronizer.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
 
     const obtainedHeader = await syncDataProvider.getBlockHeader();
-    expect(obtainedHeader).toEqual(await block.block.getBlockHeader());
+    expect(obtainedHeader).toEqual(block.block.getBlockHeader());
   });
 
   it('removes notes from db on a reorg', async () => {

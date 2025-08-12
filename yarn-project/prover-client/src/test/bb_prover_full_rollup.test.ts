@@ -99,7 +99,7 @@ describe('prover/bb_prover/full-rollup', () => {
 
         log.info(`Updating world state with new block`);
         const block = await buildBlockWithCleanDB(processed, globals, l1ToL2Messages, await context.worldState.fork());
-        previousBlockHeader = await block.getBlockHeader();
+        previousBlockHeader = block.getBlockHeader();
         await context.worldState.handleL2BlockAndMessages(block, l1ToL2Messages);
       }
 

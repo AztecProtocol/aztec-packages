@@ -209,8 +209,7 @@ export class TestContext {
     await this.setTreeRoots(txs);
 
     const block = await buildBlockWithCleanDB(txs, globalVariables, msgs, db);
-    const blockHeader = await block.getBlockHeader();
-    this.headers.set(blockNum, blockHeader);
+    this.headers.set(blockNum, block.getBlockHeader());
     await this.worldState.handleL2BlockAndMessages(block, msgs);
     return { block, txs, msgs };
   }
@@ -257,7 +256,7 @@ export class TestContext {
       const blockMsgs = isFirstBlock ? l1ToL2Messages : [];
       const block = await buildBlockWithCleanDB(txs, globalVariables, blockMsgs, fork, spongeBlobState, isFirstBlock);
 
-      const header = await block.getBlockHeader();
+      const header = block.getBlockHeader();
       this.headers.set(blockNumber, header);
 
       await this.worldState.handleL2BlockAndMessages(block, blockMsgs, isFirstBlock);

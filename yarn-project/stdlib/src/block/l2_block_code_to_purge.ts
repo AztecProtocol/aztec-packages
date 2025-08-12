@@ -28,6 +28,7 @@ export function makeL2BlockHeader(
     }),
     new Fr(seed + 0x800),
     new Fr(seed + 0x900),
+    new Fr(seed + 0xa00),
   );
 }
 

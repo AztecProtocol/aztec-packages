@@ -11,20 +11,22 @@ import type { BaseParityInputs } from '../parity/base_parity_inputs.js';
 import type { ParityPublicInputs } from '../parity/parity_public_inputs.js';
 import type { RootParityInputs } from '../parity/root_parity_inputs.js';
 import type { BaseOrMergeRollupPublicInputs } from '../rollup/base_or_merge_rollup_public_inputs.js';
+import type { BlockMergeRollupPrivateInputs } from '../rollup/block_merge_rollup.js';
 import type { BlockRollupPublicInputs } from '../rollup/block_rollup_public_inputs.js';
 import type {
-  BlockMergeRollupPrivateInputs,
   BlockRootEmptyTxFirstRollupPrivateInputs,
   BlockRootFirstRollupPrivateInputs,
   BlockRootRollupPrivateInputs,
   BlockRootSingleTxFirstRollupPrivateInputs,
   BlockRootSingleTxRollupPrivateInputs,
-  CheckpointMergeRollupPrivateInputs,
+} from '../rollup/block_root_rollup.js';
+import type { CheckpointMergeRollupPrivateInputs } from '../rollup/checkpoint_merge_rollup.js';
+import type { CheckpointRollupPublicInputs } from '../rollup/checkpoint_rollup_public_inputs.js';
+import type {
   CheckpointPaddingRollupPrivateInputs,
-  CheckpointRollupPublicInputs,
   CheckpointRootRollupPrivateInputs,
   CheckpointRootSingleBlockRollupPrivateInputs,
-} from '../rollup/index.js';
+} from '../rollup/checkpoint_root_rollup.js';
 import type { MergeRollupInputs } from '../rollup/merge_rollup.js';
 import type { PrivateBaseRollupInputs } from '../rollup/private_base_rollup_inputs.js';
 import type { PublicBaseRollupInputs } from '../rollup/public_base_rollup_inputs.js';

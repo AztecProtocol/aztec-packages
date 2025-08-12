@@ -1,4 +1,4 @@
-import { Blob, BlobDeserializationError } from '@aztec/blob-lib';
+import { Blob, BlobDeserializationError, SpongeBlob } from '@aztec/blob-lib';
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import type {
   EpochProofPublicInputArgs,
@@ -14,7 +14,7 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { Body, CommitteeAttestation, L2Block, L2BlockHeader } from '@aztec/stdlib/block';
+import { Body, CommitteeAttestation, L2Block, L2BlockHeader, getBlockBlobFields } from '@aztec/stdlib/block';
 import { Proof } from '@aztec/stdlib/proofs';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
@@ -47,7 +47,7 @@ export type RetrievedL2Block = {
   attestations: CommitteeAttestation[];
 };
 
-export function retrievedBlockToPublishedL2Block(retrievedBlock: RetrievedL2Block): PublishedL2Block {
+export async function retrievedBlockToPublishedL2Block(retrievedBlock: RetrievedL2Block): Promise<PublishedL2Block> {
   const {
     l2BlockNumber,
     archiveRoot,
@@ -76,6 +76,13 @@ export function retrievedBlockToPublishedL2Block(retrievedBlock: RetrievedL2Bloc
     gasFees: checkpointHeader.gasFees,
   });
 
+  // This works when there's only one block in the checkpoint.
+  // If there's more than one block, we need to build the spongeBlob from the endSpongeBlob of the previous block.
+  const blobFields = getBlockBlobFields(body.txEffects);
+  const spongeBlob = SpongeBlob.init(blobFields.length);
+  await spongeBlob.absorb(blobFields);
+  const spongeBlobHash = await spongeBlob.squeeze();
+
   const header = L2BlockHeader.from({
     lastArchive: new AppendOnlyTreeSnapshot(checkpointHeader.lastArchiveRoot, l2BlockNumber),
     contentCommitment: checkpointHeader.contentCommitment,
@@ -83,6 +90,7 @@ export function retrievedBlockToPublishedL2Block(retrievedBlock: RetrievedL2Bloc
     globalVariables,
     totalFees: body.txEffects.reduce((accum, txEffect) => accum.add(txEffect.transactionFee), Fr.ZERO),
     totalManaUsed: checkpointHeader.totalManaUsed,
+    spongeBlobHash,
   });
 
   const block = new L2Block(archive, header, body);

@@ -2,7 +2,7 @@ import type { BatchedBlob, FinalBlobBatchingChallenges } from '@aztec/blob-lib';
 import type { Fr } from '@aztec/foundation/fields';
 
 import type { Proof } from '../proofs/proof.js';
-import type { CheckpointConstantData } from '../rollup/index.js';
+import type { CheckpointConstantData } from '../rollup/checkpoint_constant_data.js';
 import type { RootRollupPublicInputs } from '../rollup/root_rollup.js';
 import type { BlockHeader } from '../tx/block_header.js';
 import type { Tx } from '../tx/tx.js';

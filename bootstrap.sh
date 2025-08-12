@@ -150,7 +150,7 @@ function sort_by_cpus {
 function test_cmds {
   if [ "$#" -eq 0 ]; then
     # Ordered with longest running first, to ensure they get scheduled earliest.
-    set -- spartan yarn-project/end-to-end aztec-up yarn-project noir-projects barretenberg l1-contracts noir docs
+    set -- spartan yarn-project/end-to-end aztec-up yarn-project noir-projects boxes playground barretenberg l1-contracts noir docs
   fi
   parallel -k --line-buffer './{}/bootstrap.sh test_cmds' ::: $@ | filter_test_cmds | sort_by_cpus
 }
@@ -232,6 +232,8 @@ function build {
   )
   # These projects can be built in parallel.
   parallel_cmds=(
+    boxes/bootstrap.sh
+    playground/bootstrap.sh
     docs/bootstrap.sh
     release-image/bootstrap.sh
     spartan/bootstrap.sh
@@ -359,7 +361,9 @@ function release {
     l1-contracts
     noir-projects/aztec-nr
     yarn-project
+    boxes
     aztec-up
+    playground
     # docs # released as part of ci
     release-image
   )

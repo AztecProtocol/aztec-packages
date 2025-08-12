@@ -8,8 +8,8 @@ import { encodeAbiParameters, parseAbiParameters } from 'viem';
 import { z } from 'zod';
 
 import type { L2Block } from '../block/l2_block.js';
-import { CheckpointHeader } from '../rollup/index.js';
-import { StateReference } from '../tx/index.js';
+import { CheckpointHeader } from '../rollup/checkpoint_header.js';
+import { StateReference } from '../tx/state_reference.js';
 import type { Signable, SignatureDomainSeparator } from './signature_utils.js';
 
 export class ConsensusPayload implements Signable {

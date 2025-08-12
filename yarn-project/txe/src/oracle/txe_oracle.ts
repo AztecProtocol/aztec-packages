@@ -660,6 +660,7 @@ export class TXE {
       makeGlobalVariables(),
       Fr.ZERO,
       Fr.ZERO,
+      Fr.random(),
     );
 
     header.globalVariables.blockNumber = blockNumber;
@@ -671,7 +672,7 @@ export class TXE {
 
     l2Block.header = header;
 
-    await fork.updateArchive(await l2Block.getBlockHeader());
+    await fork.updateArchive(l2Block.getBlockHeader());
 
     await this.stateMachine.handleL2Block(l2Block);
 
@@ -1111,13 +1112,14 @@ export class TXE {
       globals,
       Fr.ZERO,
       Fr.ZERO,
+      Fr.random(),
     );
 
     header.globalVariables.blockNumber = this.blockNumber;
 
     l2Block.header = header;
 
-    await fork.updateArchive(await l2Block.getBlockHeader());
+    await fork.updateArchive(l2Block.getBlockHeader());
 
     await this.stateMachine.handleL2Block(l2Block);
 
@@ -1283,13 +1285,14 @@ export class TXE {
       globals,
       Fr.ZERO,
       Fr.ZERO,
+      Fr.random(),
     );
 
     header.globalVariables.blockNumber = this.blockNumber;
 
     l2Block.header = header;
 
-    await fork.updateArchive(await l2Block.getBlockHeader());
+    await fork.updateArchive(l2Block.getBlockHeader());
 
     await this.stateMachine.handleL2Block(l2Block);
 

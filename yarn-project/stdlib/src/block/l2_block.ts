@@ -121,8 +121,7 @@ export class L2Block {
    */
   public async hash(): Promise<Fr> {
     if (this.blockHash === undefined) {
-      const blockHeader = await this.getBlockHeader();
-      this.blockHash = await blockHeader.hash();
+      this.blockHash = await this.getBlockHeader().hash();
     }
     return this.blockHash;
   }
@@ -132,8 +131,8 @@ export class L2Block {
   }
 
   // Temporary helper to get the actual block header.
-  public async getBlockHeader(): Promise<BlockHeader> {
-    return await this.header.toBlockHeader(this.body.txEffects);
+  public getBlockHeader(): BlockHeader {
+    return this.header.toBlockHeader();
   }
 
   /**

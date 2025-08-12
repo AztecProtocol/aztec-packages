@@ -136,18 +136,17 @@ import { makeRecursiveProof } from '../proofs/recursive_proof.js';
 import { AvmProofData } from '../rollup/avm_proof_data.js';
 import { BaseOrMergeRollupPublicInputs } from '../rollup/base_or_merge_rollup_public_inputs.js';
 import { PrivateBaseRollupHints, PublicBaseRollupHints } from '../rollup/base_rollup_hints.js';
-import { EpochConstantData } from '../rollup/epoch_constant_data.js';
+import { BlockConstantData } from '../rollup/block_constant_data.js';
+import { BlockMergeRollupPrivateInputs } from '../rollup/block_merge_rollup.js';
+import { BlockRollupPublicInputs } from '../rollup/block_rollup_public_inputs.js';
 import {
-  BlockConstantData,
-  BlockMergeRollupPrivateInputs,
-  BlockRollupPublicInputs,
   BlockRootFirstRollupPrivateInputs,
   BlockRootSingleTxRollupPrivateInputs,
-  CheckpointConstantData,
-  CheckpointHeader,
-  CheckpointRollupPublicInputs,
-  FeeRecipient,
-} from '../rollup/index.js';
+} from '../rollup/block_root_rollup.js';
+import { CheckpointConstantData } from '../rollup/checkpoint_constant_data.js';
+import { CheckpointHeader } from '../rollup/checkpoint_header.js';
+import { CheckpointRollupPublicInputs, FeeRecipient } from '../rollup/checkpoint_rollup_public_inputs.js';
+import { EpochConstantData } from '../rollup/epoch_constant_data.js';
 import { MergeRollupInputs } from '../rollup/merge_rollup.js';
 import { PreviousRollupData } from '../rollup/previous_rollup_data.js';
 import { PrivateBaseRollupInputs } from '../rollup/private_base_rollup_inputs.js';
@@ -890,6 +889,7 @@ export function makeL2BlockHeader(
     }),
     new Fr(seed + 0x800),
     new Fr(seed + 0x900),
+    new Fr(seed + 0xa00),
   );
 }
 
