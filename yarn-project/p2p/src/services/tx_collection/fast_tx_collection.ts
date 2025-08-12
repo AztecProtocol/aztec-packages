@@ -19,7 +19,7 @@ import type { TxCollectionSink } from './tx_collection_sink.js';
 import type { TxSource } from './tx_source.js';
 
 export class FastTxCollection {
-  /** Fast collection requests */
+  // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
   protected requests: Set<FastCollectionRequest> = new Set();
 
   constructor(

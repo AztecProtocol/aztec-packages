@@ -5,8 +5,9 @@ import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { L2TipsMemoryStore, type L2TipsStore } from '@aztec/kv-store/stores';
 import type { P2PClient } from '@aztec/p2p';
+import { Offense } from '@aztec/slasher';
 import type { SlasherConfig, WantToSlashArgs, Watcher, WatcherEmitter } from '@aztec/slasher/config';
-import { Offense, WANT_TO_SLASH_EVENT } from '@aztec/slasher/config';
+import { WANT_TO_SLASH_EVENT } from '@aztec/slasher/config';
 import {
   type L2BlockSource,
   L2BlockStream,
@@ -57,6 +58,10 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     this.l2TipsStore = new L2TipsMemoryStore();
     const interval = (epochCache.getL1Constants().ethereumSlotDuration * 1000) / 4;
     this.runningPromise = new RunningPromise(this.work.bind(this), logger, interval);
+  }
+
+  public updateConfig(config: Partial<SlasherConfig>) {
+    this.config = { ...this.config, ...config };
   }
 
   public async start() {

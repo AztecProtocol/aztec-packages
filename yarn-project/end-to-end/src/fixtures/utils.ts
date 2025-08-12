@@ -33,14 +33,15 @@ import { GENESIS_ARCHIVE_ROOT, SPONSORED_FPC_SALT } from '@aztec/constants';
 import {
   type DeployL1ContractsArgs,
   type DeployL1ContractsReturnType,
+  FeeAssetArtifact,
   NULL_KEY,
   type Operator,
+  RollupContract,
   createExtendedL1Client,
   deployL1Contracts,
   deployMulticall3,
   getL1ContractsConfigEnvVars,
   isAnvilTestChain,
-  l1Artifacts,
 } from '@aztec/ethereum';
 import { DelayedTxUtils, EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
 import { SecretValue } from '@aztec/foundation/config';
@@ -256,8 +257,9 @@ async function setupWithRemoteEnvironment(
     deployL1ContractsValues,
     config,
     initialFundedAccounts,
+    wallets,
     wallet: wallets[0],
-    wallets: wallets.slice(0, numberOfAccounts),
+    accounts: wallets.slice(0, numberOfAccounts).map(w => w.getAddress()),
     logger,
     cheatCodes,
     prefilledPublicData: undefined,
@@ -312,6 +314,8 @@ export type SetupOptions = {
   automineL1Setup?: boolean;
   /** How many accounts to seed and unlock in anvil. */
   anvilAccounts?: number;
+  /** Port to start anvil (defaults to 8545) */
+  anvilPort?: number;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
@@ -332,10 +336,12 @@ export type EndToEndContext = {
   config: AztecNodeConfig;
   /** The data for the initial funded accounts. */
   initialFundedAccounts: InitialAccountData[];
+  /* Wallets created for the initial funded accounts, with secret keys. */
+  wallets: AccountWalletWithSecretKey[];
   /** The first wallet to be used. */
   wallet: AccountWalletWithSecretKey;
-  /** The wallets to be used. */
-  wallets: AccountWalletWithSecretKey[];
+  /** The accounts to be used. */
+  accounts: AztecAddress[];
   /** Logger instance named as the current test. */
   logger: Logger;
   /** The cheat codes. */
@@ -403,7 +409,11 @@ export async function setup(
         );
       }
 
-      const res = await startAnvil({ l1BlockTime: opts.ethereumSlotDuration, accounts: opts.anvilAccounts });
+      const res = await startAnvil({
+        l1BlockTime: opts.ethereumSlotDuration,
+        accounts: opts.anvilAccounts,
+        port: opts.anvilPort,
+      });
       anvil = res.anvil;
       config.l1RpcUrls = [res.rpcUrl];
     }
@@ -483,22 +493,24 @@ export async function setup(
     if (opts.fundRewardDistributor) {
       // Mints block rewards for 10000 blocks to the rewardDistributor contract
 
-      const rewardDistributor = getContract({
-        address: deployL1ContractsValues.l1ContractAddresses.rewardDistributorAddress.toString(),
-        abi: l1Artifacts.rewardDistributor.contractAbi,
-        client: deployL1ContractsValues.l1Client,
-      });
+      const rollup = new RollupContract(
+        deployL1ContractsValues.l1Client,
+        deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+      );
 
-      const blockReward = await rewardDistributor.read.BLOCK_REWARD();
+      const blockReward = await rollup.getBlockReward();
       const mintAmount = 10_000n * (blockReward as bigint);
 
       const feeJuice = getContract({
         address: deployL1ContractsValues.l1ContractAddresses.feeJuiceAddress.toString(),
-        abi: l1Artifacts.feeAsset.contractAbi,
+        abi: FeeAssetArtifact.contractAbi,
         client: deployL1ContractsValues.l1Client,
       });
 
-      const rewardDistributorMintTxHash = await feeJuice.write.mint([rewardDistributor.address, mintAmount], {} as any);
+      const rewardDistributorMintTxHash = await feeJuice.write.mint(
+        [deployL1ContractsValues.l1ContractAddresses.rewardDistributorAddress.toString(), mintAmount],
+        {} as any,
+      );
       await deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: rewardDistributorMintTxHash });
       logger.info(`Funding rewardDistributor in ${rewardDistributorMintTxHash}`);
     }
@@ -701,8 +713,9 @@ export async function setup(
       sequencer: sequencerClient,
       teardown,
       telemetryClient: telemetry,
-      wallet: wallets[0],
       wallets,
+      wallet: wallets[0],
+      accounts: wallets.map(w => w.getAddress()),
       watcher,
     };
   } catch (err) {
@@ -741,11 +754,13 @@ export async function ensureAccountContractsPublished(sender: Wallet, accountsTo
   ).map(contractMetadata => contractMetadata.contractInstance);
   const contractClass = await getContractClassFromArtifact(SchnorrAccountContractArtifact);
   if (!(await sender.getContractClassMetadata(contractClass.id, true)).isContractClassPubliclyRegistered) {
-    await (await publishContractClass(sender, SchnorrAccountContractArtifact)).send().wait();
+    await (await publishContractClass(sender, SchnorrAccountContractArtifact))
+      .send({ from: accountsToDeploy[0].getAddress() })
+      .wait();
   }
   const requests = await Promise.all(instances.map(async instance => await publishInstance(sender, instance!)));
   const batch = new BatchCall(sender, requests);
-  await batch.send().wait();
+  await batch.send({ from: accountsToDeploy[0].getAddress() }).wait();
 }
 // docs:end:public_deploy_accounts
 
@@ -785,11 +800,12 @@ export type BalancesFn = ReturnType<typeof getBalancesFn>;
 export function getBalancesFn(
   symbol: string,
   method: ContractMethod,
+  from: AztecAddress,
   logger: any,
 ): (...addresses: (AztecAddress | { address: AztecAddress })[]) => Promise<bigint[]> {
   const balances = async (...addressLikes: (AztecAddress | { address: AztecAddress })[]) => {
     const addresses = addressLikes.map(addressLike => ('address' in addressLike ? addressLike.address : addressLike));
-    const b = await Promise.all(addresses.map(address => method(address).simulate()));
+    const b = await Promise.all(addresses.map(address => method(address).simulate({ from })));
     const debugString = `${symbol} balances: ${addresses.map((address, i) => `${address}: ${b[i]}`).join(', ')}`;
     logger.verbose(debugString);
     return b;
@@ -900,7 +916,7 @@ export function createAndSyncProverNode(
 
     // Creating temp store and archiver for simulated prover node
     const archiverConfig = { ...aztecNodeConfig, dataDirectory: proverNodeConfig.dataDirectory };
-    const archiver = await createArchiver(archiverConfig, blobSinkClient, { blockUntilSync: true });
+    const archiver = await createArchiver(archiverConfig, { blobSinkClient }, { blockUntilSync: true });
 
     // Prover node config is for simulated proofs
     const proverConfig: ProverNodeConfig = {

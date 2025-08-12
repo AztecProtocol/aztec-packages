@@ -26,7 +26,7 @@ describe("BoxReact Contract Tests", () => {
       Fr.random(),
       accountCompleteAddress.address,
     )
-      .send({ contractAddressSalt: salt })
+      .send({ from: wallet.getAddress(), contractAddressSalt: salt })
       .deployed();
 
     logger.info(`L2 contract deployed at ${contract.address}`);
@@ -35,14 +35,14 @@ describe("BoxReact Contract Tests", () => {
   test("Can set a number", async () => {
     await contract.methods
       .setNumber(numberToSet, accountCompleteAddress.address)
-      .send()
+      .send({ from: wallet.getAddress() })
       .wait();
   }, 40000);
 
   test("Can read a number", async () => {
     const viewTxReceipt = await contract.methods
       .getNumber(accountCompleteAddress.address)
-      .simulate();
+      .simulate({ from: wallet.getAddress() });
     expect(numberToSet.toBigInt()).toEqual(viewTxReceipt.value);
   }, 40000);
 });

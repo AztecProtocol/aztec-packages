@@ -35,7 +35,7 @@ unconstrained fn transfer_to_public_and_prepare_private_balance_increase_and_fin
     );
 
     // Impersonate the AMM and initiate the transfer
-    let partial_note = env.call_private(amm_contract, transfer_call_interface).return_value;
+    let partial_note = env.call_private(amm_contract, transfer_call_interface);
 
     // Check balances before the partial note is finalized
     utils::check_private_balance(
@@ -50,7 +50,7 @@ unconstrained fn transfer_to_public_and_prepare_private_balance_increase_and_fin
     // --> this should send the `change_amount` from AMM's public balance to liquidity provider's private balance
     let change_amount = deposit_amount / (2 as u128);
 
-    let _ = env.call_public(
+    env.call_public(
         amm_contract,
         Token::at(token_contract_address).finalize_transfer_to_private(change_amount, partial_note),
     );
@@ -112,14 +112,15 @@ unconstrained fn transfer_to_public_and_prepare_private_balance_increase_failure
         utils::setup_and_mint_to_private(/* with_account_contracts */ true);
 
     let transfer_amount = mint_amount / (10 as u128);
-    let transfer_call_interface = Token::at(token_contract_address)
-        .transfer_to_public_and_prepare_private_balance_increase(
+
+    // Try executing transfer without approval
+    let _ = env.call_private(
+        recipient,
+        Token::at(token_contract_address).transfer_to_public_and_prepare_private_balance_increase(
             sender,
             recipient,
             transfer_amount,
             1,
-        );
-
-    // Try executing transfer without approval
-    let _ = env.call_private(recipient, transfer_call_interface);
+        ),
+    );
 }

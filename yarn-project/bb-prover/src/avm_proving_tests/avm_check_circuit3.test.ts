@@ -76,14 +76,16 @@ describe.skip('AVM WitGen & Circuit – check circuit', () => {
     },
     TIMEOUT,
   );
-  it(
-    'a nested exceptional halt is recovered from in caller',
-    async () => {
-      await tester.simProveVerifyAppLogic(
-        { address: avmTestContractInstance.address, fnName: 'external_call_to_divide_by_zero_recovers', args: [] },
-        /*expectRevert=*/ false,
-      );
-    },
-    TIMEOUT,
-  );
+
+  // TODO(#16099): Re-enable this test
+  // it(
+  //   'a nested exceptional halt is recovered from in caller',
+  //   async () => {
+  //     await tester.simProveVerifyAppLogic(
+  //       { address: avmTestContractInstance.address, fnName: 'external_call_to_divide_by_zero_recovers', args: [] },
+  //       /*expectRevert=*/ false,
+  //     );
+  //   },
+  //   TIMEOUT,
+  // );
 });

@@ -8,101 +8,190 @@
 
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/honk/execution_trace/execution_trace_block.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 
 namespace bb {
 
+class UltraTraceBlock : public ExecutionTraceBlock<fr, 4> {
+  public:
+    virtual Selector<fr>& q_lookup_type() { return zero_selectors[0]; };
+    virtual Selector<fr>& q_arith() { return zero_selectors[1]; }
+    virtual Selector<fr>& q_delta_range() { return zero_selectors[2]; }
+    virtual Selector<fr>& q_elliptic() { return zero_selectors[3]; }
+    virtual Selector<fr>& q_memory() { return zero_selectors[4]; }
+    virtual Selector<fr>& q_nnf() { return zero_selectors[5]; }
+    virtual Selector<fr>& q_poseidon2_external() { return zero_selectors[6]; }
+    virtual Selector<fr>& q_poseidon2_internal() { return zero_selectors[7]; }
+
+    RefVector<Selector<fr>> get_selectors() override
+    {
+        return RefVector{ q_m(),
+                          q_c(),
+                          q_1(),
+                          q_2(),
+                          q_3(),
+                          q_4(),
+                          q_lookup_type(),
+                          q_arith(),
+                          q_delta_range(),
+                          q_elliptic(),
+                          q_memory(),
+                          q_nnf(),
+                          q_poseidon2_external(),
+                          q_poseidon2_internal() };
+    }
+
+  private:
+    std::array<ZeroSelector<fr>, 8> zero_selectors;
+};
+
+class UltraTracePublicInputBlock : public UltraTraceBlock {};
+
+class UltraTraceLookupBlock : public UltraTraceBlock {
+  public:
+    SelectorType& q_lookup_type() override { return gate_selector; }
+
+  private:
+    SlabVectorSelector<fr> gate_selector;
+};
+
+class UltraTraceArithmeticBlock : public UltraTraceBlock {
+  public:
+    SelectorType& q_arith() override { return gate_selector; }
+
+  private:
+    SlabVectorSelector<fr> gate_selector;
+};
+
+class UltraTraceDeltaRangeBlock : public UltraTraceBlock {
+  public:
+    SelectorType& q_delta_range() override { return gate_selector; }
+
+  private:
+    SlabVectorSelector<fr> gate_selector;
+};
+
+class UltraTraceEllipticBlock : public UltraTraceBlock {
+  public:
+    SelectorType& q_elliptic() override { return gate_selector; }
+
+  private:
+    SlabVectorSelector<fr> gate_selector;
+};
+
+class UltraTraceMemoryBlock : public UltraTraceBlock {
+  public:
+    SelectorType& q_memory() override { return gate_selector; }
+
+  private:
+    SlabVectorSelector<fr> gate_selector;
+};
+
+class UltraTraceNonNativeFieldBlock : public UltraTraceBlock {
+  public:
+    SelectorType& q_nnf() override { return gate_selector; }
+
+  private:
+    SlabVectorSelector<fr> gate_selector;
+};
+
+class UltraTracePoseidon2ExternalBlock : public UltraTraceBlock {
+  public:
+    SelectorType& q_poseidon2_external() override { return gate_selector; }
+
+  private:
+    SlabVectorSelector<fr> gate_selector;
+};
+
+class UltraTracePoseidon2InternalBlock : public UltraTraceBlock {
+  public:
+    SelectorType& q_poseidon2_internal() override { return gate_selector; }
+
+  private:
+    SlabVectorSelector<fr> gate_selector;
+};
+
+class UltraTraceOverflowBlock : public UltraTraceBlock {
+  public:
+    SelectorType& q_lookup_type() override { return gate_selectors[0]; };
+    SelectorType& q_arith() override { return gate_selectors[1]; }
+    SelectorType& q_delta_range() override { return gate_selectors[2]; }
+    SelectorType& q_elliptic() override { return gate_selectors[3]; }
+    SelectorType& q_memory() override { return gate_selectors[4]; }
+    SelectorType& q_nnf() override { return gate_selectors[5]; }
+    SelectorType& q_poseidon2_external() override { return gate_selectors[6]; }
+    SelectorType& q_poseidon2_internal() override { return gate_selectors[7]; }
+
+  private:
+    std::array<SlabVectorSelector<fr>, 8> gate_selectors;
+};
+
 /**
  * @brief Defines the circuit block types for the Ultra arithmetization
- * @note Its useful to define this as a template since it is used to actually store gate data (T = UltraTraceBlock)
- * but also to store corresponding block sizes (T = uint32_t) for the structured trace or dynamic block size
- * tracking in ClientIvc.
- *
- * @tparam T
  */
-template <typename T> struct UltraTraceBlockData {
-    T pub_inputs; // Has to be the first block
-    T lookup;
-    T arithmetic;
-    T delta_range;
-    T elliptic;
-    T memory;
-    T nnf;
-    T poseidon2_external;
-    T poseidon2_internal;
-    T overflow;
+struct UltraTraceBlockData {
+    UltraTracePublicInputBlock pub_inputs; // Has to be the first block
+    UltraTraceLookupBlock lookup;
+    UltraTraceArithmeticBlock arithmetic;
+    UltraTraceDeltaRangeBlock delta_range;
+    UltraTraceEllipticBlock elliptic;
+    UltraTraceMemoryBlock memory;
+    UltraTraceNonNativeFieldBlock nnf;
+    UltraTracePoseidon2ExternalBlock poseidon2_external;
+    UltraTracePoseidon2InternalBlock poseidon2_internal;
+    UltraTraceOverflowBlock overflow;
 
     auto get()
     {
-        return RefArray{ pub_inputs, lookup, arithmetic,         delta_range,        elliptic,
-                         memory,     nnf,    poseidon2_external, poseidon2_internal, overflow };
+        return RefArray(std::array<UltraTraceBlock*, 10>{ &pub_inputs,
+                                                          &lookup,
+                                                          &arithmetic,
+                                                          &delta_range,
+                                                          &elliptic,
+                                                          &memory,
+                                                          &nnf,
+                                                          &poseidon2_external,
+                                                          &poseidon2_internal,
+                                                          &overflow });
     }
 
     auto get() const
     {
-        return RefArray{ pub_inputs, lookup, arithmetic,         delta_range,        elliptic,
-                         memory,     nnf,    poseidon2_external, poseidon2_internal, overflow };
+        return RefArray(std::array<const UltraTraceBlock*, 10>{ &pub_inputs,
+                                                                &lookup,
+                                                                &arithmetic,
+                                                                &delta_range,
+                                                                &elliptic,
+                                                                &memory,
+                                                                &nnf,
+                                                                &poseidon2_external,
+                                                                &poseidon2_internal,
+                                                                &overflow });
     }
 
     auto get_gate_blocks() const
     {
-        return RefArray{
-            lookup, arithmetic, delta_range, elliptic, memory, nnf, poseidon2_external, poseidon2_internal
-        };
+        return RefArray(std::array<const UltraTraceBlock*, 8>{
+            &lookup,
+            &arithmetic,
+            &delta_range,
+            &elliptic,
+            &memory,
+            &nnf,
+            &poseidon2_external,
+            &poseidon2_internal,
+        });
     }
 
     bool operator==(const UltraTraceBlockData& other) const = default;
 };
 
-class UltraTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4, /*NUM_SELECTORS_*/ 14> {
-    using SelectorType = ExecutionTraceBlock<fr, 4, 14>::SelectorType;
-
-  public:
-    void populate_wires(const uint32_t& idx_1, const uint32_t& idx_2, const uint32_t& idx_3, const uint32_t& idx_4)
-    {
-#ifdef CHECK_CIRCUIT_STACKTRACES
-        this->stack_traces.populate();
-#endif
-        this->tracy_gate();
-        this->wires[0].emplace_back(idx_1);
-        this->wires[1].emplace_back(idx_2);
-        this->wires[2].emplace_back(idx_3);
-        this->wires[3].emplace_back(idx_4);
-    }
-
-    auto& w_l() { return std::get<0>(this->wires); };
-    auto& w_r() { return std::get<1>(this->wires); };
-    auto& w_o() { return std::get<2>(this->wires); };
-    auto& w_4() { return std::get<3>(this->wires); };
-
-    auto& q_m() { return this->selectors[0]; };
-    auto& q_c() { return this->selectors[1]; };
-    auto& q_1() { return this->selectors[2]; };
-    auto& q_2() { return this->selectors[3]; };
-    auto& q_3() { return this->selectors[4]; };
-    auto& q_4() { return this->selectors[5]; };
-    auto& q_lookup_type() { return this->selectors[6]; };
-    auto& q_arith() { return this->selectors[7]; };
-    auto& q_delta_range() { return this->selectors[8]; };
-    auto& q_elliptic() { return this->selectors[9]; };
-    auto& q_memory() { return this->selectors[10]; };
-    auto& q_nnf() { return this->selectors[11]; };
-    auto& q_poseidon2_external() { return this->selectors[12]; };
-    auto& q_poseidon2_internal() { return this->selectors[13]; };
-
-    RefVector<SelectorType> get_gate_selectors()
-    {
-        return { q_lookup_type(), q_arith(), q_delta_range(),        q_elliptic(),
-                 q_memory(),      q_nnf(),   q_poseidon2_external(), q_poseidon2_internal() };
-    }
-};
-
-class UltraExecutionTraceBlocks : public UltraTraceBlockData<UltraTraceBlock> {
+class UltraExecutionTraceBlocks : public UltraTraceBlockData {
 
   public:
     static constexpr size_t NUM_WIRES = UltraTraceBlock::NUM_WIRES;
-    static constexpr size_t NUM_SELECTORS = UltraTraceBlock::NUM_SELECTORS;
     using FF = fr;
 
     bool has_overflow = false;
@@ -149,7 +238,7 @@ class UltraExecutionTraceBlocks : public UltraTraceBlockData<UltraTraceBlock> {
     size_t get_structured_dyadic_size()
     {
         size_t total_size = 1; // start at 1 because the 0th row is unused for selectors for Honk
-        for (auto block : this->get()) {
+        for (auto& block : this->get()) {
             total_size += block.get_fixed_size();
         }
 
