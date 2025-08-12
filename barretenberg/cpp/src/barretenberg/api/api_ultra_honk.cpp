@@ -103,30 +103,24 @@ void UltraHonkAPI::prove(const Flags& flags,
     // Handle VK
     std::vector<uint8_t> vk_bytes;
 
-    if (flags.write_vk) {
-        info("WARNING: computing verification key while proving due to write_vk. Precompute the VK and don't pass "
-             "--write_vk for better performance.");
-        auto vk_response =
-            bbapi::CircuitComputeVk{ .circuit = { .name = "circuit", .bytecode = bytecode }, .settings = settings }
-                .execute();
-
-        // Write VK outputs separately
-        write_vk_outputs(vk_response, flags.output_format, output_dir);
-        vk_bytes = std::move(vk_response.bytes);
-    } else {
+    if (!vk_path.empty()) {
         vk_bytes = read_file(vk_path);
     }
 
     // Prove
-    auto prove_response = bbapi::CircuitProve{ .circuit = { .name = "circuit",
-                                                            .bytecode = std::move(bytecode),
-                                                            .verification_key = std::move(vk_bytes) },
-                                               .witness = std::move(witness),
-                                               .settings = std::move(settings) }
-                              .execute();
+    auto response = bbapi::CircuitProve{ .circuit = { .name = "circuit",
+                                                      .bytecode = std::move(bytecode),
+                                                      .verification_key = std::move(vk_bytes) },
+                                         .witness = std::move(witness),
+                                         .settings = std::move(settings),
+                                         .compute_vk = flags.write_vk }
+                        .execute();
 
     // Write proof outputs (not VK - that's handled above)
-    write_proof_outputs(prove_response, flags.output_format, output_dir);
+    write_proof_outputs(response, flags.output_format, output_dir);
+    if (flags.write_vk) {
+        write_vk_outputs(response.vk, flags.output_format, output_dir);
+    }
 }
 
 bool UltraHonkAPI::verify(const Flags& flags,

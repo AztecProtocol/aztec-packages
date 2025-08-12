@@ -18,6 +18,7 @@
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
+#include <type_traits>
 #ifdef STARKNET_GARAGA_FLAVORS
 #include "barretenberg/flavor/ultra_starknet_flavor.hpp"
 #include "barretenberg/flavor/ultra_starknet_zk_flavor.hpp"
@@ -46,41 +47,40 @@ template <typename Flavor> acir_format::ProgramMetadata _create_program_metadata
 }
 
 template <typename Flavor, typename Circuit = typename Flavor::CircuitBuilder>
-Circuit _compute_circuit(const std::vector<uint8_t>& bytecode, const std::vector<uint8_t>& witness)
+Circuit _compute_circuit(std::vector<uint8_t>&& bytecode, std::vector<uint8_t>&& witness)
 {
     const acir_format::ProgramMetadata metadata = _create_program_metadata<Flavor>();
-    acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(std::vector<uint8_t>(bytecode)) };
+    acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(std::move(bytecode)) };
 
     if (!witness.empty()) {
-        program.witness = acir_format::witness_buf_to_witness_data(std::vector<uint8_t>(witness));
+        program.witness = acir_format::witness_buf_to_witness_data(std::move(witness));
     }
     return acir_format::create_circuit<Circuit>(program, metadata);
 }
 
 template <typename Flavor>
-std::shared_ptr<DeciderProvingKey_<Flavor>> _compute_proving_key(const std::vector<uint8_t>& bytecode,
-                                                                 const std::vector<uint8_t>& witness)
+std::shared_ptr<DeciderProvingKey_<Flavor>> _compute_proving_key(std::vector<uint8_t>&& bytecode,
+                                                                 std::vector<uint8_t>&& witness)
 {
-    typename Flavor::CircuitBuilder builder = _compute_circuit<Flavor>(bytecode, witness);
+    // Measure function time and debug print
+    auto initial_time = std::chrono::high_resolution_clock::now();
+    typename Flavor::CircuitBuilder builder = _compute_circuit<Flavor>(std::move(bytecode), std::move(witness));
     auto decider_proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
+    auto final_time = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(final_time - initial_time);
+    info("CircuitProve: Proving key computed in ", duration.count(), " ms");
     return decider_proving_key;
-}
-
-template <typename Flavor> std::vector<uint8_t> _compute_vk(const std::vector<uint8_t>& bytecode)
-{
-    auto proving_key = _compute_proving_key<Flavor>(bytecode, {});
-    auto vk = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
-    return to_buffer(*vk);
 }
 
 template <typename Flavor>
 CircuitProve::Response _prove(std::vector<uint8_t>&& bytecode,
                               std::vector<uint8_t>&& witness,
-                              std::vector<uint8_t>&& vk_bytes)
+                              std::vector<uint8_t>&& vk_bytes,
+                              bool compute_vk)
 {
     using Proof = typename Flavor::Transcript::Proof;
 
-    auto proving_key = _compute_proving_key<Flavor>(bytecode, witness);
+    auto proving_key = _compute_proving_key<Flavor>(std::move(bytecode), std::move(witness));
     std::shared_ptr<typename Flavor::VerificationKey> vk;
     if (vk_bytes.empty()) {
         info("WARNING: computing verification key while proving. Pass in a precomputed vk for better performance.");
@@ -108,14 +108,31 @@ CircuitProve::Response _prove(std::vector<uint8_t>&& bytecode,
             return num_public_inputs - DefaultIO::PUBLIC_INPUTS_SIZE;
         }
     }();
+    CircuitComputeVk::Response vk_response;
+    // Optimization over calling CircuitComputeVk separately.
+    if (compute_vk) {
+        auto vk_fields_direct = vk->to_field_elements();
+        std::vector<uint256_t> vk_fields;
+        // Handle discrepancy in type of 'to_field_elements'
+        if constexpr (std::is_same_v<decltype(vk_fields_direct), std::vector<uint256_t>>) {
+            vk_fields = std::move(vk_fields_direct);
+        } else {
+            vk_fields = std::vector<uint256_t>(vk_fields_direct.begin(), vk_fields_direct.end());
+        }
+        vk_response = { .bytes = vk_bytes.empty() ? to_buffer(vk) : vk_bytes,
+                        .fields = std::move(vk_fields),
+                        .hash = to_buffer(vk->hash()) };
+    }
 
     // We split the inner public inputs, which are stored at the front of the proof, from the rest of the proof. Now,
     // the "proof" refers to everything except the inner public inputs.
-    return { std::vector<uint256_t>{ concat_pi_and_proof.begin(),
-                                     concat_pi_and_proof.begin() +
-                                         static_cast<std::ptrdiff_t>(num_inner_public_inputs) },
-             std::vector<uint256_t>{ concat_pi_and_proof.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs),
-                                     concat_pi_and_proof.end() } };
+    return { .public_inputs = std::vector<uint256_t>{ concat_pi_and_proof.begin(),
+                                                      concat_pi_and_proof.begin() +
+                                                          static_cast<std::ptrdiff_t>(num_inner_public_inputs) },
+             .proof = std::vector<uint256_t>{ concat_pi_and_proof.begin() +
+                                                  static_cast<std::ptrdiff_t>(num_inner_public_inputs),
+                                              concat_pi_and_proof.end() },
+             .vk = std::move(vk_response) };
 }
 
 template <typename Flavor>
@@ -221,7 +238,7 @@ CircuitComputeVk::Response CircuitComputeVk::execute(BB_UNUSED const BBApiReques
 
     // Helper lambda to compute VK, fields, and hash for a given flavor
     auto compute_vk_and_fields = [&]<typename Flavor>() {
-        auto proving_key = _compute_proving_key<Flavor>(circuit.bytecode, {});
+        auto proving_key = _compute_proving_key<Flavor>(std::move(circuit.bytecode), {});
         auto vk = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
         vk_bytes = to_buffer(*vk);
         if constexpr (IsAnyOf<Flavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {

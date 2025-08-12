@@ -11,47 +11,11 @@
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include <cstdint>
 #include <map>
 #include <vector>
 
 namespace bb::bbapi {
-
-// CircuitInput, CircuitInputNoVK, and ProofSystemSettings are defined in bbapi_shared.hpp
-
-/**
- * @struct CircuitProve
- * @brief Represents a request to generate a proof.
- * Currently, UltraHonk is the only proving system supported by BB (after plonk was deprecated and removed).
- * This is used for one-shot proving, not our "IVC" scheme, ClientIVC-honk. For that, use the ClientIVC* commands.
- *
- * This structure is used to encapsulate all necessary parameters for generating a proof
- * for a specific circuit, including the circuit bytecode, verification key, witness data, and options for the proving
- * process.
- */
-struct CircuitProve {
-    static constexpr const char* MSGPACK_SCHEMA_NAME = "CircuitProve";
-
-    /**
-     * @brief Contains proof and public inputs.
-     * Both are given as vectors of fields. To be used for verification.
-     * Example uses of this Response would be verification in native BB, WASM BB, solidity or recursively through Noir.
-     */
-    struct Response {
-        static constexpr const char* MSGPACK_SCHEMA_NAME = "CircuitProveResponse";
-
-        std::vector<uint256_t> public_inputs;
-        std::vector<uint256_t> proof;
-        MSGPACK_FIELDS(public_inputs, proof);
-        bool operator==(const Response&) const = default;
-    };
-
-    CircuitInput circuit;
-    std::vector<uint8_t> witness;
-    ProofSystemSettings settings;
-    MSGPACK_FIELDS(circuit, witness, settings);
-    Response execute(const BBApiRequest& request = {}) &&;
-    bool operator==(const CircuitProve&) const = default;
-};
 
 struct CircuitComputeVk {
     static constexpr const char* MSGPACK_SCHEMA_NAME = "CircuitComputeVk";
@@ -74,6 +38,39 @@ struct CircuitComputeVk {
 };
 
 /**
+ * @struct CircuitProve
+ * @brief Represents a request to generate a proof.
+ * Currently, UltraHonk is the only proving system supported by BB (after plonk was deprecated and removed).
+ * This is used for one-shot proving, not our "IVC" scheme, ClientIVC-honk. For that, use the ClientIVC* commands.
+ */
+struct CircuitProve {
+    static constexpr const char* MSGPACK_SCHEMA_NAME = "CircuitProve";
+
+    /**
+     * @brief Contains proof and public inputs.
+     * Both are given as vectors of fields. To be used for verification.
+     * Example uses of this Response would be verification in native BB, WASM BB, solidity or recursively through Noir.
+     */
+    struct Response {
+        static constexpr const char* MSGPACK_SCHEMA_NAME = "CircuitProveResponse";
+
+        std::vector<uint256_t> public_inputs;
+        std::vector<uint256_t> proof;
+        CircuitComputeVk::Response vk;
+        MSGPACK_FIELDS(public_inputs, proof);
+        bool operator==(const Response&) const = default;
+    };
+
+    CircuitInput circuit;
+    std::vector<uint8_t> witness;
+    ProofSystemSettings settings;
+    bool compute_vk{};
+    MSGPACK_FIELDS(circuit, witness, settings, compute_vk);
+    Response execute(const BBApiRequest& request = {}) &&;
+    bool operator==(const CircuitProve&) const = default;
+};
+
+/**
  * @struct CircuitStats
  * @brief Consolidated command for retrieving circuit information.
  * Combines gate count, circuit size, and other metadata into a single command.
@@ -84,9 +81,9 @@ struct CircuitStats {
     struct Response {
         static constexpr const char* MSGPACK_SCHEMA_NAME = "CircuitInfoResponse";
 
-        uint32_t num_gates;
-        uint32_t num_gates_dyadic;
-        uint32_t num_acir_opcodes;
+        uint32_t num_gates{};
+        uint32_t num_gates_dyadic{};
+        uint32_t num_acir_opcodes{};
         std::vector<size_t> gates_per_opcode;
         MSGPACK_FIELDS(num_gates, num_gates_dyadic, num_acir_opcodes, gates_per_opcode);
         bool operator==(const Response&) const = default;

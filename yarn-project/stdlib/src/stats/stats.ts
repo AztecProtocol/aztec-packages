@@ -75,14 +75,6 @@ export type NodeSyncedChainHistoryStats = {
   dbSize: number;
 };
 
-export type ClientCircuitName =
-  | 'private-kernel-init'
-  | 'private-kernel-inner'
-  | 'private-kernel-reset'
-  | 'private-kernel-tail'
-  | 'private-kernel-tail-to-public'
-  | 'app-circuit';
-
 export type ServerCircuitName =
   | 'base-parity'
   | 'root-parity'
@@ -98,7 +90,7 @@ export type ServerCircuitName =
   | 'avm-circuit'
   | 'tube-circuit';
 
-export type CircuitName = ClientCircuitName | ServerCircuitName;
+export type CircuitName = 'ClientIVC' | ServerCircuitName;
 
 /** Stats for circuit simulation. */
 export type CircuitSimulationStats = {

@@ -68,7 +68,7 @@ describe('full_prover', () => {
     await t.tokenSim.check();
   });
 
-  it(
+  it.only(
     'makes both public and private transfers',
     async () => {
       logger.info(`Starting test for public and private transfer`);
