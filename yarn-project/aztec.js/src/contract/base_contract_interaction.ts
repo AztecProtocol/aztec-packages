@@ -51,6 +51,11 @@ export abstract class BaseContractInteraction {
    */
   public async prove(options: SendMethodOptions): Promise<ProvenTx> {
     // docs:end:prove
+    if (!options.from.equals(this.wallet.getAddress())) {
+      throw new Error(
+        `The address provided as from does not match the wallet address. Expected ${this.wallet.getAddress().toString()}, got ${options.from.toString()}.`,
+      );
+    }
     const txProvingResult = await this.proveInternal(options);
     return new ProvenTx(
       this.wallet,

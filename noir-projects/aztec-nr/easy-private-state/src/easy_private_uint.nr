@@ -7,6 +7,16 @@ use dep::aztec::{
 };
 use dep::value_note::{balance_utils, filter::filter_notes_min_sum, value_note::ValueNote};
 
+/// @deprecated (soon) (https://github.com/AztecProtocol/aztec-packages/issues/15959) because:
+/// - Its functionality is a subset of `BalanceSet`
+/// - The "Easy" naming has been criticized.
+/// - It is not a wrapper around a Uint; bur rather around a Field.
+/// - It's weird to have a state variable be defined at the top-level of aztecnr,
+///   whilst all other state variables are defined _within_ aztecnr.
+///
+/// An example private state variable, representing a `Field` that can be:
+/// - Incremented by anyone
+/// - Decremented by the owner of the private state.
 pub struct EasyPrivateUint<Context> {
     context: Context,
     set: PrivateSet<ValueNote, Context>,
@@ -19,7 +29,6 @@ impl<Context> HasStorageSlot<1> for EasyPrivateUint<Context> {
     }
 }
 
-// Holds a note that can act similarly to an int.
 impl<Context> EasyPrivateUint<Context> {
     pub fn new(context: Context, storage_slot: Field) -> Self {
         EasyPrivateUint { context, set: PrivateSet::new(context, storage_slot) }

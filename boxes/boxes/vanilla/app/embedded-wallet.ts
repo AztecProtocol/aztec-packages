@@ -1,4 +1,4 @@
-import {
+∫import {
   Fr,
   createLogger,
   createAztecNodeClient,
