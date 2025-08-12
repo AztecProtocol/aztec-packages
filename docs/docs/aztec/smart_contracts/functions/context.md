@@ -84,11 +84,11 @@ The private context provides access to the transaction context as well, which ar
 
 To allow for flexibility in the number of arguments supported by Aztec functions, all function inputs are reduced to a singular value which can be proven from within the application.
 
-The `args_hash` is the result of pedersen hashing all of a function's inputs.
+The `args_hash` is the result of Pedersen hashing all of a function's inputs.
 
 ### Return Values
 
-The return values are a set of values that are returned from an applications execution to be passed to other functions through the kernel. Developers do not need to worry about passing their function return values to the `context` directly as `Aztec.nr` takes care of it for you. See the documentation surrounding `Aztec.nr` [macro expansion](./attributes.md#after-expansion) for more details.
+The return values are a set of values that are returned from an application's execution to be passed to other functions through the kernel. Developers do not need to worry about passing their function return values to the `context` directly as `Aztec.nr` takes care of it for you. See the documentation surrounding `Aztec.nr` [macro expansion](./attributes.md#after-expansion) for more details.
 
 ```rust
 return_values : BoundedVec\<Field, RETURN_VALUES_LENGTH\>,
