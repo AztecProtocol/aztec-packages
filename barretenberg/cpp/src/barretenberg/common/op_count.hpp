@@ -80,6 +80,7 @@ struct GlobalOpCountContainer {
     void clear();
     void add_entry(const char* key, const std::shared_ptr<OpStats>& count);
     std::map<std::string, std::size_t> get_aggregate_counts() const;
+    void print_aggregate_counts() const;
 };
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)

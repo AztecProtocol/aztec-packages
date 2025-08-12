@@ -57,6 +57,20 @@ std::map<std::string, std::size_t> GlobalOpCountContainer::get_aggregate_counts(
     return aggregate_counts;
 }
 
+void GlobalOpCountContainer::print_aggregate_counts() const
+{
+    std::cout << '{';
+    bool first = true;
+    for (const auto& [key, value] : get_aggregate_counts()) {
+        if (!first) {
+            std::cout << ',';
+        }
+        std::cout << '"' << key << "\":" << value;
+        first = false;
+    }
+    std::cout << '}' << std::endl;
+}
+
 void GlobalOpCountContainer::clear()
 {
     std::unique_lock<std::mutex> lock(mutex);

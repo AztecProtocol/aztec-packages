@@ -23,6 +23,7 @@
 #include "barretenberg/bb/cli11_formatter.hpp"
 #include "barretenberg/bbapi/bbapi.hpp"
 #include "barretenberg/bbapi/c_bind.hpp"
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/srs/factories/native_crs_factory.hpp"
@@ -299,6 +300,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
         return subcommand->add_flag("--update_inputs", flags.update_inputs, "Update inputs if vk check fails.");
     };
 
+    bool print_op_counts = false;
+    const auto add_print_op_counts_flag = [&](CLI::App* subcommand) {
+        return subcommand->add_flag("--print_op_counts", print_op_counts, "Print op counts to json on one line.");
+    };
+
     /***************************************************************************************************************
      * Top-level flags
      ***************************************************************************************************************/
@@ -363,6 +369,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_recursive_flag(prove);
     add_honk_recursion_option(prove);
     add_slow_low_memory_flag(prove);
+    add_print_op_counts_flag(prove);
 
     prove->add_flag("--verify", "Verify the proof natively, resulting in a boolean output. Useful for testing.");
 
@@ -612,6 +619,10 @@ int parse_and_run_cli_command(int argc, char* argv[])
     debug_logging = flags.debug;
     verbose_logging = debug_logging || flags.verbose;
     slow_low_memory = flags.slow_low_memory;
+    if (print_op_counts) {
+        bb::detail::GLOBAL_OP_COUNTS.clear();
+        bb::detail::use_op_count_time = true;
+    }
 
     print_active_subcommands(app);
     info("Scheme is: ", flags.scheme, ", num threads: ", get_num_cpus());
@@ -720,6 +731,10 @@ int parse_and_run_cli_command(int argc, char* argv[])
                                    "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
                 }
                 api.prove(flags, ivc_inputs_path, output_path);
+
+                if (print_op_counts) {
+                    bb::detail::GLOBAL_OP_COUNTS.print_aggregate_counts();
+                }
                 return 0;
             }
             if (check->parsed()) {
@@ -734,6 +749,9 @@ int parse_and_run_cli_command(int argc, char* argv[])
             UltraHonkAPI api;
             if (prove->parsed()) {
                 api.prove(flags, bytecode_path, witness_path, vk_path, output_path);
+                if (print_op_counts) {
+                    bb::detail::GLOBAL_OP_COUNTS.print_aggregate_counts();
+                }
                 return 0;
             }
             return execute_non_prove_command(api);
