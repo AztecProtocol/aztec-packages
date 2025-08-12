@@ -64,7 +64,7 @@ The mechanisms for bridging is the same as any other token. For more on this con
 
 ### Payment methods
 
-An account with fee-juice can pay for its transactions, including deployment of a new account, if fee juice has been bridged the that address at which the account will be deployed.
+An account with fee-juice can pay for its transactions, including deployment of a new account, if fee juice has been bridged to the that address at which the account will be deployed.
 
 An account making a transaction can also refer to "fee-paying contracts" (FPCs) to pay for its transactions. FPCs are contracts that accept a token and pay for transactions in fee juice. This means a user doesn't need to hold fee juice, they only need the token that the FPC accepts. FPCs can contain arbitrary logic to determine how they want to authorize transaction fee payments. They can be used for paying transaction fees privately or publicly.
 
