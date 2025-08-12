@@ -112,7 +112,7 @@ void AvmProver::execute_relation_check_rounds()
                       alpha,
                       gate_challenges,
                       relation_parameters,
-                      CONST_PROOF_SIZE_LOG_N);
+                      MAX_AVM_TRACE_LOG_SIZE);
 
     sumcheck_output = sumcheck.prove();
 }

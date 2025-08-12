@@ -24,7 +24,7 @@ void AvmFlavor::Transcript::deserialize_full_transcript()
         commitment = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
     }
 
-    for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+    for (size_t i = 0; i < MAX_AVM_TRACE_LOG_SIZE; ++i) {
         sumcheck_univariates.emplace_back(deserialize_from_buffer<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
             Transcript::proof_data, num_frs_read));
     }
@@ -32,11 +32,11 @@ void AvmFlavor::Transcript::deserialize_full_transcript()
     sumcheck_evaluations =
         deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(Transcript::proof_data, num_frs_read);
 
-    for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
+    for (size_t i = 0; i < MAX_AVM_TRACE_LOG_SIZE - 1; ++i) {
         gemini_fold_comms.push_back(deserialize_from_buffer<Commitment>(proof_data, num_frs_read));
     }
 
-    for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+    for (size_t i = 0; i < MAX_AVM_TRACE_LOG_SIZE; ++i) {
         gemini_fold_evals.push_back(deserialize_from_buffer<FF>(proof_data, num_frs_read));
     }
 
@@ -56,17 +56,17 @@ void AvmFlavor::Transcript::serialize_full_transcript()
         serialize_to_buffer(commitment, Transcript::proof_data);
     }
 
-    for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+    for (size_t i = 0; i < MAX_AVM_TRACE_LOG_SIZE; ++i) {
         serialize_to_buffer(sumcheck_univariates[i], Transcript::proof_data);
     }
 
     serialize_to_buffer(sumcheck_evaluations, Transcript::proof_data);
 
-    for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
+    for (size_t i = 0; i < MAX_AVM_TRACE_LOG_SIZE - 1; ++i) {
         serialize_to_buffer(gemini_fold_comms[i], proof_data);
     }
 
-    for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+    for (size_t i = 0; i < MAX_AVM_TRACE_LOG_SIZE; ++i) {
         serialize_to_buffer(gemini_fold_evals[i], proof_data);
     }
 

@@ -65,7 +65,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
     //     (proof_size - Flavor::NUM_WITNESS_ENTITIES * Flavor::NUM_FRS_COM -
     //      (Flavor::NUM_ALL_ENTITIES + 1) * Flavor::NUM_FRS_FR - Flavor::NUM_FRS_COM) /
     //     (Flavor::NUM_FRS_COM + Flavor::NUM_FRS_FR * (Flavor::BATCHED_RELATION_PARTIAL_LENGTH + 1));
-    const auto log_circuit_size = numeric::get_msb(avm2::CIRCUIT_SUBGROUP_SIZE);
+    const auto log_circuit_size = avm2::MAX_AVM_TRACE_LOG_SIZE;
 
     // First key field is log circuit size
     builder.set_variable(key_fields[0].witness_index, log_circuit_size);
