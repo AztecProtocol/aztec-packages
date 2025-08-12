@@ -1,5 +1,5 @@
 import { getSchnorrWallet } from '@aztec/accounts/schnorr';
-import { type AccountWallet, type CompleteAddress, type Logger, type PXE, createLogger } from '@aztec/aztec.js';
+import { type AccountWallet, AztecAddress, type Logger, type PXE, createLogger } from '@aztec/aztec.js';
 import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
 import { ParentContract } from '@aztec/noir-test-contracts.js/Parent';
 
@@ -16,8 +16,8 @@ const { E2E_DATA_PATH: dataPath } = process.env;
 export class NestedContractTest {
   private snapshotManager: ISnapshotManager;
   logger: Logger;
-  wallets: AccountWallet[] = [];
-  accounts: CompleteAddress[] = [];
+  wallet!: AccountWallet;
+  defaultAccountAddress!: AztecAddress;
   pxe!: PXE;
 
   parentContract!: ParentContract;
@@ -41,9 +41,10 @@ export class NestedContractTest {
       'accounts',
       deployAccounts(this.numberOfAccounts, this.logger),
       async ({ deployedAccounts }, { pxe }) => {
-        this.wallets = await Promise.all(deployedAccounts.map(a => getSchnorrWallet(pxe, a.address, a.signingKey)));
-        this.accounts = await pxe.getRegisteredAccounts();
-        this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
+        const wallets = await Promise.all(deployedAccounts.map(a => getSchnorrWallet(pxe, a.address, a.signingKey)));
+        wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
+        [this.wallet] = wallets;
+        this.defaultAccountAddress = this.wallet.getAddress();
         this.pxe = pxe;
       },
     );
@@ -53,7 +54,7 @@ export class NestedContractTest {
       async () => {},
       async () => {
         this.logger.verbose(`Public deploy accounts...`);
-        await publicDeployAccounts(this.wallets[0], this.accounts.slice(0, 2));
+        await publicDeployAccounts(this.wallet, [this.defaultAccountAddress]);
       },
     );
   }
@@ -76,13 +77,17 @@ export class NestedContractTest {
     await this.snapshotManager.snapshot(
       'manual',
       async () => {
-        const parentContract = await ParentContract.deploy(this.wallets[0]).send().deployed();
-        const childContract = await ChildContract.deploy(this.wallets[0]).send().deployed();
+        const parentContract = await ParentContract.deploy(this.wallet)
+          .send({ from: this.defaultAccountAddress })
+          .deployed();
+        const childContract = await ChildContract.deploy(this.wallet)
+          .send({ from: this.defaultAccountAddress })
+          .deployed();
         return { parentContractAddress: parentContract.address, childContractAddress: childContract.address };
       },
       async ({ parentContractAddress, childContractAddress }) => {
-        this.parentContract = await ParentContract.at(parentContractAddress, this.wallets[0]);
-        this.childContract = await ChildContract.at(childContractAddress, this.wallets[0]);
+        this.parentContract = await ParentContract.at(parentContractAddress, this.wallet);
+        this.childContract = await ChildContract.at(childContractAddress, this.wallet);
       },
     );
   }
