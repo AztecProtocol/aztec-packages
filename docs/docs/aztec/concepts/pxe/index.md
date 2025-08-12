@@ -78,12 +78,12 @@ The PXE handles access rights by:
 3. contract
 4. account
 
-For example, uniswap.com (**domain**) can query (**action**, involves execution that has access to an accounts' private state) on these five token **contracts** for these two **accounts** of mine, that are registered in the PXE.
+For example, uniswap.com (**domain**) can query (**action**, involves execution that has access to an account's private state) on these five token **contracts** for these two **accounts** of mine, that are registered in the PXE.
 
 Available actions include:
 
 - Seeing that the accounts exist in the PXE
-- Running queries, simulations, accessing logs, registering contracts, etc at a given a contract address
+- Running queries, simulations, accessing logs, registering contracts, etc at a given contract address
 - Manually adding notes
 
 Providing an application with an empty scopes array (e.g. `scopes: []`) to the PXE means that no information can be accessed, but no scopes (e.g. `scopes: undefined`) defaults to _all_ scopes being available.
