@@ -1,15 +1,14 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { hexToBuffer } from '@aztec/foundation/string';
 import { type ContractArtifact, ContractArtifactSchema } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type ContractInstanceWithAddress, ContractInstanceWithAddressSchema } from '@aztec/stdlib/contract';
 
 import { z } from 'zod';
 
-export type ForeignCallSingle = string;
+export type ForeignCallSingle = Uint8Array<ArrayBuffer>;
 
-export type ForeignCallArray = string[];
+export type ForeignCallArray = Uint8Array<ArrayBuffer>[];
 
 export type ForeignCallArgs = (ForeignCallSingle | ForeignCallArray | ContractArtifact | ContractInstanceWithAddress)[];
 
@@ -18,7 +17,7 @@ export type ForeignCallResult = {
 };
 
 export function fromSingle(obj: ForeignCallSingle) {
-  return Fr.fromBuffer(Buffer.from(obj, 'hex'));
+  return Fr.fromBuffer(Buffer.from(obj));
 }
 
 export function addressFromSingle(obj: ForeignCallSingle) {
@@ -26,7 +25,7 @@ export function addressFromSingle(obj: ForeignCallSingle) {
 }
 
 export function fromArray(obj: ForeignCallArray) {
-  return obj.map(str => Fr.fromBuffer(hexToBuffer(str)));
+  return obj.map(elem => Fr.fromBuffer(Buffer.from(elem)));
 }
 
 /**
@@ -39,7 +38,7 @@ export function fromUintArray(obj: ForeignCallArray, uintBitSize: number): Buffe
     throw new Error(`u${uintBitSize} is not a supported type in Noir`);
   }
   const uintByteSize = uintBitSize / 8;
-  return Buffer.concat(obj.map(str => hexToBuffer(str).slice(-uintByteSize)));
+  return Buffer.concat(obj.map(elem => Buffer.from(elem).slice(-uintByteSize)));
 }
 
 /**
@@ -57,7 +56,7 @@ export function fromUintBoundedVec(storage: ForeignCallArray, length: ForeignCal
   }
   const uintByteSize = uintBitSize / 8;
   const boundedStorage = storage.slice(0, fromSingle(length).toNumber());
-  return Buffer.concat(boundedStorage.map(str => hexToBuffer(str).slice(-uintByteSize)));
+  return Buffer.concat(boundedStorage.map(elem => Buffer.from(elem).slice(-uintByteSize)));
 }
 
 // Just like toACVMField in yarn-project/simulator/src/private/acvm/serialize.ts but returns a ForeignCallSingle
@@ -75,11 +74,11 @@ export function toSingle(
   } else {
     valueAsField = value;
   }
-  return valueAsField.toString().slice(2);
+  return Uint8Array.from(valueAsField.toBuffer());
 }
 
 export function toArray(objs: Fr[]): ForeignCallArray {
-  return objs.map(obj => obj.toString());
+  return objs.map(obj => Uint8Array.from(obj.toBuffer()));
 }
 
 export function toSingleOrArray(value: Fr | Fr[]) {
@@ -149,13 +148,24 @@ export function arrayOfArraysToBoundedVecOfArrays(
   return [flattenedStorageWithPadding, len];
 }
 
+// TODO: handle this more cleanly, this is a hack for compatibility.
+export function stringsToBuffers(obj: (string | string[])[]): (ForeignCallSingle | ForeignCallArray)[] {
+  return obj.map(elem => {
+    if (typeof elem === 'string') {
+      return toSingle(Fr.fromString(elem));
+    } else {
+      return elem.map(innerElem => toSingle(Fr.fromString(innerElem)));
+    }
+  });
+}
+
 export function toForeignCallResult(obj: (ForeignCallSingle | ForeignCallArray)[]) {
   return { values: obj };
 }
 
-export const ForeignCallSingleSchema = z.string();
+export const ForeignCallSingleSchema = z.instanceof(Uint8Array<ArrayBuffer>);
 
-export const ForeignCallArraySchema = z.array(z.string());
+export const ForeignCallArraySchema = z.array(z.instanceof(Uint8Array<ArrayBuffer>));
 
 export const ForeignCallArgsSchema = z.array(
   z.union([ForeignCallSingleSchema, ForeignCallArraySchema, ContractArtifactSchema, ContractInstanceWithAddressSchema]),
