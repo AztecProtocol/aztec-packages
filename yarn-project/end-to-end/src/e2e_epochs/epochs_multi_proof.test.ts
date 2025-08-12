@@ -45,7 +45,7 @@ describe('e2e_epochs/epochs_multi_proof', () => {
         const origFinaliseEpoch = epochProver.finaliseEpoch.bind(epochProver);
         epochProver.finaliseEpoch = async () => {
           const result = await origFinaliseEpoch();
-          const sleepTime = index * 100 * test.constants.ethereumSlotDuration;
+          const sleepTime = index * 1000 * test.constants.ethereumSlotDuration;
           logger.warn(`Delaying finaliseEpoch for prover node ${index} by ${sleepTime}ms`);
           await sleep(sleepTime);
           return result;
