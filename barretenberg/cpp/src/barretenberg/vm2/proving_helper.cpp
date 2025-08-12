@@ -41,17 +41,9 @@ std::shared_ptr<AvmVerifier::VerificationKey> AvmProvingHelper::create_verificat
     using VerificationKey = AvmVerifier::VerificationKey;
     std::vector<fr> vk_as_fields = many_from_buffer<AvmFlavorSettings::FF>(vk_data);
 
-    auto log_circuit_size = static_cast<uint64_t>(vk_as_fields[0]);
-    auto num_public_inputs = static_cast<uint64_t>(vk_as_fields[1]);
     std::span vk_span(vk_as_fields);
 
-    uint64_t circuit_size = 1UL << log_circuit_size;
     vinfo("vk fields size: ", vk_as_fields.size());
-    vinfo("dyadic circuit size: ", circuit_size);
-
-    // WARNING: The number of public inputs in the verification key is always 0!
-    // Apparently we use some other mechanism to check the public inputs.
-    vinfo("num of pub inputs: ", num_public_inputs);
 
     std::array<VerificationKey::Commitment, VerificationKey::NUM_PRECOMPUTED_COMMITMENTS> precomputed_cmts;
     for (size_t i = 0; i < VerificationKey::NUM_PRECOMPUTED_COMMITMENTS; i++) {
