@@ -51,6 +51,7 @@ for key in to_keep:
         time_ms = bench[key] / 1e6
     print(f"{key:<{max_label_length}}{time_ms:>8.0f}  {time_ms/sum_of_kept_times_ms:>8.2%}")
 
+# There may not be "real_time" if this is from bb cli.
 if "real_time" in bench:
     # Validate that kept times account for most of the total measured time.
     total_time_ms = bench["real_time"]

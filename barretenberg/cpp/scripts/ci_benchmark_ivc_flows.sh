@@ -48,7 +48,7 @@ function run_bb_cli_bench {
 
   if [[ "$runtime" == "native" ]]; then
     memusage "./$native_build_dir/bin/bb" $args \
-      --benchmark_out=$output/op-counts.json || {
+      --op_counts_out=$output/op-counts.json || {
       echo "bb native failed with args: $args"
       exit 1
     }
