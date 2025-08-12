@@ -22,7 +22,7 @@ Processing this transaction first claims bridged fee juice then is paid for from
 
 A fee paying contract (FPC) is created and nominates a token that it accepts to then pay for transactions in fee juice. So a user doesn't need to hold fee juice, they only need the token that the FPC accepts.
 
-The FPC can also decide to refund users in cases of overpayment. For private FPCs, this incurrs a substantial gate count (proving time) and DA costs so in some cases it might be cheaper to not get the refund. The sample FPCs we show here refund the users but a FPC deployer or user should think carefully if asking for refunds is a smart option.
+The FPC can also decide to refund users in cases of overpayment. For private FPCs, this incurs a substantial gate count (proving time) and DA costs so in some cases it might be cheaper to not get the refund. The sample FPCs we show here refund the users but a FPC deployer or user should think carefully if asking for refunds is a smart option.
 
 The most straightforward way to pay for a transaction is via the sponsored fee payment method, bootstrapping some transactions by skipping the need to bridge fee juice to the account. This method uses a type of fee paying contract configured to pay for a number of transactions without requiring payment, but also requires that there is a sponsor to pay for the transactions. **This only exists on the sandbox as a convenience to get started quickly, though you could deploy it on testnet too for your own use case**
 

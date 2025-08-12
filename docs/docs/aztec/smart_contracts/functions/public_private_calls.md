@@ -22,7 +22,7 @@ On this page, you’ll learn:
 
 ### Objectives
 
-The goal for L2 communication is to setup the most simple mechanism that will support
+The goal for L2 communication is to set up the most simple mechanism that will support
 
 - _private_ and _public_ functions
 - _private_ functions that can call _private_ or _public_ functions

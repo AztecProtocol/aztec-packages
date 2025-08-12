@@ -7,7 +7,7 @@ This page talks about the architecture of a wallet in Aztec. Wallets expose to d
 
 ## Overview
 
-Architecture-wise, a wallet is an instance of an **Private Execution Environment (PXE)** which manages user keys and private state.
+Architecture-wise, a wallet is an instance of a **Private Execution Environment (PXE)** which manages user keys and private state.
 The PXE also communicates with an **Aztec Node** for retrieving public information or broadcasting transactions.
 Note that the PXE requires a local database for keeping private state, and is also expected to be continuously syncing new blocks for trial-decryption of user notes.
 

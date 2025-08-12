@@ -18,7 +18,7 @@ real_storage_slot = H(contract_address, logical_storage_slot)
 
 The siloing is performed by the [Kernel circuits](../circuits/kernels/private_kernel.md).
 
-For structs and arrays, we are logically using a similar storage slot computation to ethereum, e.g., as a struct with 3 fields would be stored in 3 consecutive slots. However, because the "actual" storage slot is computed as a hash of the contract address and the logical storage slot, the actual storage slot is not consecutive.
+For structs and arrays, we are logically using a similar storage slot computation to Ethereum, e.g., as a struct with 3 fields would be stored in 3 consecutive slots. However, because the "actual" storage slot is computed as a hash of the contract address and the logical storage slot, the actual storage slot is not consecutive.
 
 ## Private State Slots
 

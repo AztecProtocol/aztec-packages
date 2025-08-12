@@ -37,7 +37,7 @@ Note: It is easy for private functions to be written in a detrimentally unoptimi
 
 ### Aztec Virtual Machine (AVM)
 
-Public functions are executed by the Aztec Virtual Machine (AVM), which is conceptually similar to the Ethereum Virtual Machine (EVM). As such, writing efficient public functions follow the same intuition as gas-efficient solidity contracts.
+Public functions are executed by the Aztec Virtual Machine (AVM), which is conceptually similar to the Ethereum Virtual Machine (EVM). As such, writing efficient public functions follows the same intuition as gas-efficient solidity contracts.
 
 The PXE is unaware of the Public VM. And the Public VM is unaware of the PXE. They are completely separate execution environments. This means:
 
