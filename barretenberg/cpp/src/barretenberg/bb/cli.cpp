@@ -625,12 +625,14 @@ int parse_and_run_cli_command(int argc, char* argv[])
     debug_logging = flags.debug;
     verbose_logging = debug_logging || flags.verbose;
     slow_low_memory = flags.slow_low_memory;
+#ifndef __wasm__
     if (print_op_counts || !op_counts_out.empty()) {
         bb::detail::use_op_count_time = true;
     }
     if (bb::detail::use_op_count_time) {
         bb::detail::GLOBAL_OP_COUNTS.clear();
     }
+#endif
 
     print_active_subcommands(app);
     info("Scheme is: ", flags.scheme, ", num threads: ", get_num_cpus());
@@ -739,7 +741,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
                                    "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
                 }
                 api.prove(flags, ivc_inputs_path, output_path);
-
+#ifndef __wasm__
                 if (print_op_counts) {
                     bb::detail::GLOBAL_OP_COUNTS.print_aggregate_counts(std::cout, 0);
                 }
@@ -747,6 +749,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
                     std::ofstream file(op_counts_out);
                     bb::detail::GLOBAL_OP_COUNTS.print_aggregate_counts(file, 2);
                 }
+#endif
                 return 0;
             }
             if (check->parsed()) {
@@ -761,6 +764,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
             UltraHonkAPI api;
             if (prove->parsed()) {
                 api.prove(flags, bytecode_path, witness_path, vk_path, output_path);
+#ifndef __wasm__
                 if (print_op_counts) {
                     bb::detail::GLOBAL_OP_COUNTS.print_aggregate_counts(std::cout, 0);
                 }
@@ -768,6 +772,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
                     std::ofstream file(op_counts_out);
                     bb::detail::GLOBAL_OP_COUNTS.print_aggregate_counts(file, 2);
                 }
+#endif
                 return 0;
             }
             return execute_non_prove_command(api);
