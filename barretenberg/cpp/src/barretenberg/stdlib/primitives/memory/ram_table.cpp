@@ -22,7 +22,6 @@ namespace bb::stdlib {
  */
 template <typename Builder> ram_table<Builder>::ram_table(Builder* builder, const size_t table_size)
 {
-    static_assert(HasPlookup<Builder>);
     _context = builder;
     _length = table_size;
     _index_initialized.resize(table_size);
@@ -44,7 +43,6 @@ template <typename Builder> ram_table<Builder>::ram_table(Builder* builder, cons
  */
 template <typename Builder> ram_table<Builder>::ram_table(const std::vector<field_pt>& table_entries)
 {
-    static_assert(HasPlookup<Builder>);
     // get the builder _context
     for (const auto& entry : table_entries) {
         if (entry.get_context() != nullptr) {
