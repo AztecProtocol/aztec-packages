@@ -53,7 +53,7 @@ Measuring the gate count across a private function can be seen at the end of the
 
 ### L2 Data costs
 
-Of the L2 costs, the public/private data being updated is most significant. As L2 functions create notes, nullifiers, encrypted logs, all of this get posted into blobs on ethereum and will be quite expensive
+Of the L2 costs, the public/private data being updated is most significant. As L2 functions create notes, nullifiers, encrypted logs, all of this get posted into blobs on Ethereum and will be quite expensive
 
 ### L1 Limits
 
@@ -110,7 +110,7 @@ comptime global TWO_POW_32: Field = 2.pow_32(16);
 
 When comparing the flamegraph of the two functions, the inefficient shift example has a section of gates not present in the multiplication example. This difference equates to a saving of 60 gates.
 
-In the same vein bitwise `AND`/`OR`, and inequality relational operators (`>`, `<`) are expensive. Try avoid these in your circuits.
+In the same vein bitwise `AND`/`OR`, and inequality relational operators (`>`, `<`) are expensive. Try to avoid these in your circuits.
 
 For example, use boolean equality effectively instead of `>=`:
 
