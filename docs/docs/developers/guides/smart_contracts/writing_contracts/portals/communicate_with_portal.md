@@ -138,7 +138,7 @@ bytes memory message abi.encodeWithSignature(
 
 ### Error Handling
 
-Handling error when moving cross chain can quickly get tricky. Since the L1 and L2 calls are async and independent of each other, the L1 part of a deposit might execute just fine, with the L2 part failing. If this is not handled well, the funds may be lost forever! Developers should consider ways their application can fail cross chain, and handle all cases explicitly.
+Handling error when moving cross-chain can quickly get tricky. Since the L1 and L2 calls are async and independent of each other, the L1 part of a deposit might execute just fine, with the L2 part failing. If this is not handled well, the funds may be lost forever! Developers should consider ways their application can fail cross-chain, and handle all cases explicitly.
 
 First, entries in the outboxes **SHOULD** only be consumed if the execution is successful. For an L2 -> L1 call, the L1 execution can revert the transaction completely if anything fails. As the tx is atomic, the failure also reverts consumption.
 
@@ -147,7 +147,7 @@ If it is possible to enter a state where the second part of the execution fails 
 Generally it is good practice to keep cross-chain calls simple to avoid too many edge cases and state reversions.
 
 :::info
-Error handling for cross chain messages is handled by the application contract and not the protocol. The protocol only delivers the messages, it does not ensure that they are executed successfully.
+Error handling for cross-chain messages is handled by the application contract and not the protocol. The protocol only delivers the messages, it does not ensure that they are executed successfully.
 :::
 
 ### Designated caller
