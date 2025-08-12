@@ -56,7 +56,7 @@ function run_bb_cli_bench {
     export WASMTIME_ALLOWED_DIRS="--dir=$flow_folder --dir=$output"
     # TODO support wasm op count time preset
     memusage scripts/wasmtime.sh $WASMTIME_ALLOWED_DIRS ./build-wasm-threads/bin/bb $args \
-      --benchmark_out=$output/op-counts.json || {
+      --op_counts_out=$output/op-counts.json || {
       echo "bb wasm failed with args: $args"
       exit 1
     }
