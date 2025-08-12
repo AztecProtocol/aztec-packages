@@ -43,7 +43,7 @@ import {
   getL1ContractsConfigEnvVars,
   isAnvilTestChain,
 } from '@aztec/ethereum';
-import { DelayedTxUtils, EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
+import { DelayedTxUtils, EthCheatCodes, EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
 import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -236,6 +236,7 @@ async function setupWithRemoteEnvironment(
     l1Client,
     rollupVersion,
   };
+  const ethCheatCodes = new EthCheatCodes(config.l1RpcUrls);
   const cheatCodes = await CheatCodes.create(config.l1RpcUrls, pxeClient!);
   const teardown = () => Promise.resolve();
 
@@ -262,6 +263,7 @@ async function setupWithRemoteEnvironment(
     accounts: wallets.slice(0, numberOfAccounts).map(w => w.getAddress()),
     logger,
     cheatCodes,
+    ethCheatCodes,
     prefilledPublicData: undefined,
     mockGossipSubNetwork: undefined,
     watcher: undefined,
@@ -316,6 +318,8 @@ export type SetupOptions = {
   anvilAccounts?: number;
   /** Port to start anvil (defaults to 8545) */
   anvilPort?: number;
+  /** Key to use for publishing L1 contracts */
+  l1PublisherKey?: SecretValue<`0x${string}`>;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
@@ -346,6 +350,8 @@ export type EndToEndContext = {
   logger: Logger;
   /** The cheat codes. */
   cheatCodes: CheatCodes;
+  /** The cheat codes for L1 */
+  ethCheatCodes: EthCheatCodes;
   /** The anvil test watcher (undefined if connected to remote environment) */
   watcher: AnvilTestWatcher | undefined;
   /** Allows tweaking current system time, used by the epoch cache only (undefined if connected to remote environment) */
@@ -438,9 +444,16 @@ export async function setup(
     let publisherPrivKey = undefined;
     let publisherHdAccount = undefined;
 
-    if (config.publisherPrivateKey && config.publisherPrivateKey.getValue() != NULL_KEY) {
+    if (opts.l1PublisherKey && opts.l1PublisherKey.getValue() && opts.l1PublisherKey.getValue() != NULL_KEY) {
+      publisherHdAccount = privateKeyToAccount(opts.l1PublisherKey.getValue());
+    } else if (
+      config.publisherPrivateKeys &&
+      config.publisherPrivateKeys.length > 0 &&
+      config.publisherPrivateKeys[0].getValue() != NULL_KEY
+    ) {
+      publisherHdAccount = privateKeyToAccount(config.publisherPrivateKeys[0].getValue());
+    } else if (config.publisherPrivateKey && config.publisherPrivateKey.getValue() != NULL_KEY) {
       publisherHdAccount = privateKeyToAccount(config.publisherPrivateKey.getValue());
-      config.coinbase = EthAddress.fromString(publisherHdAccount.address);
     } else if (!MNEMONIC) {
       throw new Error(`Mnemonic not provided and no publisher private key`);
     } else {
@@ -448,8 +461,9 @@ export async function setup(
       const publisherPrivKeyRaw = publisherHdAccount.getHdKey().privateKey;
       publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
       config.publisherPrivateKey = new SecretValue(`0x${publisherPrivKey!.toString('hex')}` as const);
-      config.coinbase = EthAddress.fromString(publisherHdAccount.address);
     }
+
+    config.coinbase = EthAddress.fromString(publisherHdAccount.address);
 
     if (PXE_URL) {
       // we are setting up against a remote environment, l1 contracts are assumed to already be deployed
@@ -689,8 +703,9 @@ export async function setup(
           await bbConfig.cleanup();
         }
 
-        await tryStop(anvil, logger);
         await tryStop(watcher, logger);
+        await tryStop(anvil, logger);
+
         await tryStop(blobSink, logger);
         await tryRmDir(directoryToCleanup, logger);
       } catch (err) {
@@ -703,6 +718,7 @@ export async function setup(
       aztecNodeAdmin: aztecNode,
       blobSink,
       cheatCodes,
+      ethCheatCodes,
       config,
       dateProvider,
       deployL1ContractsValues,

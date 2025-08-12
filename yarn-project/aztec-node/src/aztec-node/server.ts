@@ -345,10 +345,20 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     if (!config.disableValidator) {
       // This shouldn't happen, validators need a publisher private key.
-      const { publisherPrivateKey } = config;
-      if (!publisherPrivateKey?.getValue() || publisherPrivateKey?.getValue() === NULL_KEY) {
-        throw new Error('A publisher private key is required to run a validator');
+      const { publisherPrivateKeys, publisherPrivateKey } = config;
+      if (
+        publisherPrivateKeys.length === 0 ||
+        !publisherPrivateKey?.getValue() ||
+        publisherPrivateKeys[0]?.getValue() === NULL_KEY
+      ) {
+        if (!publisherPrivateKey?.getValue() || publisherPrivateKey?.getValue() === NULL_KEY) {
+          throw new Error('A publisher private key is required to run a validator');
+        }
+        publisherPrivateKeys.push(publisherPrivateKey);
       }
+      // if (!publisherPrivateKey?.getValue() || publisherPrivateKey?.getValue() === NULL_KEY) {
+      //   throw new Error('A publisher private key is required to run a validator');
+      // }
 
       // We create a slasher only if we have a sequencer, since all slashing actions go through the sequencer publisher
       // as they are executed when the node is selected as proposer.
@@ -362,12 +372,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       );
       await slasherClient.start();
 
-      const l1Client = createExtendedL1Client(
-        config.l1RpcUrls,
-        publisherPrivateKey.getValue(),
-        ethereumChain.chainInfo,
-      );
-      const l1TxUtils = new L1TxUtilsWithBlobs(l1Client, log, dateProvider, config);
+      const l1TxUtils = publisherPrivateKeys.map(publisherPrivateKey => {
+        return new L1TxUtilsWithBlobs(
+          createExtendedL1Client(config.l1RpcUrls, publisherPrivateKey.getValue(), ethereumChain.chainInfo),
+          log,
+          dateProvider,
+          config,
+        );
+      });
 
       sequencer = await SequencerClient.new(config, {
         // if deps were provided, they should override the defaults,

@@ -577,7 +577,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
 
   private set state(state: TxUtilsState) {
     this.txUtilsState = state;
-    this.logger?.debug(`L1TxUtils state changed to ${TxUtilsState[state]} for sender: ${this.getSenderAddress()}`);
+    this.logger?.info(`L1TxUtils state changed to ${TxUtilsState[state]} for sender: ${this.getSenderAddress()}`);
   }
 
   public getSenderAddress() {
@@ -642,7 +642,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       }
       this.state = stateChange;
       const cleanGasConfig = pickBy(gasConfig, (_, key) => key in l1TxUtilsConfigMappings);
-      this.logger?.verbose(`Sent L1 transaction ${txHash}`, {
+      this.logger?.info(`Sent L1 transaction ${txHash}`, {
         gasLimit,
         maxFeePerGas: formatGwei(gasPrice.maxFeePerGas),
         maxPriorityFeePerGas: formatGwei(gasPrice.maxPriorityFeePerGas),
@@ -958,7 +958,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       previousGasPrice,
     );
 
-    this.logger?.debug(`Attempting to cancel L1 transaction ${currentTxHash} with nonce ${nonce}`, {
+    this.logger?.info(`Attempting to cancel L1 transaction ${currentTxHash} with nonce ${nonce}`, {
       maxFeePerGas: formatGwei(cancelGasPrice.maxFeePerGas),
       maxPriorityFeePerGas: formatGwei(cancelGasPrice.maxPriorityFeePerGas),
     });
@@ -978,7 +978,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
 
     this.state = TxUtilsState.CANCELLED;
 
-    this.logger?.debug(`Sent cancellation tx ${cancelTxHash} for timed out tx ${currentTxHash}`, { nonce });
+    this.logger?.info(`Sent cancellation tx ${cancelTxHash} for timed out tx ${currentTxHash}`, { nonce });
 
     const receipt = await this.monitorTransaction(
       request,

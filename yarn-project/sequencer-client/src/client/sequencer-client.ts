@@ -65,7 +65,7 @@ export class SequencerClient {
       blobSinkClient?: BlobSinkClientInterface;
       dateProvider: DateProvider;
       epochCache?: EpochCache;
-      l1TxUtils?: L1TxUtilsWithBlobs;
+      l1TxUtils?: L1TxUtilsWithBlobs[];
     },
   ) {
     const {
@@ -78,13 +78,14 @@ export class SequencerClient {
       l1ToL2MessageSource,
       telemetry: telemetryClient,
     } = deps;
-    const { l1RpcUrls: rpcUrls, l1ChainId: chainId, publisherPrivateKey } = config;
+    const { l1RpcUrls: rpcUrls, l1ChainId: chainId, publisherPrivateKey, publisherPrivateKeys } = config;
+    const firstKey = publisherPrivateKeys.length > 0 ? publisherPrivateKeys[0] : publisherPrivateKey;
     const chain = createEthereumChain(rpcUrls, chainId);
     const log = createLogger('sequencer-client');
     const publicClient = getPublicClient(config);
-    const l1Client = createExtendedL1Client(rpcUrls, publisherPrivateKey.getValue(), chain.chainInfo);
-    const l1TxUtils = deps.l1TxUtils ?? new L1TxUtilsWithBlobs(l1Client, log, deps.dateProvider, config);
-    const publisherManager = new PublisherManager([l1TxUtils]);
+    const l1Client = createExtendedL1Client(rpcUrls, firstKey.getValue(), chain.chainInfo);
+    const l1TxUtils = deps.l1TxUtils ?? [new L1TxUtilsWithBlobs(l1Client, log, deps.dateProvider, config)];
+    const publisherManager = new PublisherManager(l1TxUtils);
     const rollupContract = new RollupContract(l1Client, config.l1Contracts.rollupAddress.toString());
     const [l1GenesisTime, slotDuration] = await Promise.all([
       rollupContract.getL1GenesisTime(),
@@ -178,7 +179,7 @@ export class SequencerClient {
     await sequencer.init();
 
     const l1Metrics = new L1Metrics(telemetryClient.getMeter('SequencerL1Metrics'), publicClient, [
-      EthAddress.fromString(l1TxUtils.getSenderAddress()),
+      EthAddress.fromString(l1TxUtils[0].getSenderAddress()),
     ]);
     return new SequencerClient(publisherManager, sequencer, validatorClient, l1Metrics);
   }
