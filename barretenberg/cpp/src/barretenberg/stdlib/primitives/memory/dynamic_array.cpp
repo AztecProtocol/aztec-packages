@@ -31,7 +31,6 @@ DynamicArray<Builder>::DynamicArray(Builder* builder, const size_t maximum_size)
     , _max_size(maximum_size)
     , _length(0)
 {
-    static_assert(HasPlookup<Builder>);
     ASSERT(_context != nullptr);
     _inner_table = ram_table(_context, maximum_size);
     // Initialize the ram table with all zeroes
