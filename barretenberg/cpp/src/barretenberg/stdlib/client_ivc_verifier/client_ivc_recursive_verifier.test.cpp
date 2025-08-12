@@ -204,10 +204,10 @@ TEST_F(ClientIVCRecursionTests, TubeVKIndependentOfInputCircuits)
         return { tube_builder->blocks, tube_vk };
     };
 
-    auto [blocks_2, verification_key_2] = get_blocks(4);
-    auto [blocks_4, verification_key_4] = get_blocks(5);
+    auto [blocks_4, verification_key_4] = get_blocks(4);
+    auto [blocks_5, verification_key_5] = get_blocks(5);
 
-    compare_ultra_blocks_and_verification_keys<NativeFlavor>({ blocks_2, blocks_4 },
-                                                             { verification_key_2, verification_key_4 });
+    compare_ultra_blocks_and_verification_keys<NativeFlavor>({ blocks_4, blocks_5 },
+                                                             { verification_key_4, verification_key_5 });
 }
 } // namespace bb::stdlib::recursion::honk
