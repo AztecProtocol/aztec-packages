@@ -72,19 +72,10 @@ std::vector<uint8_t> write_civc_vk(const std::string& output_format,
         throw_or_abort("Unsupported output format for ClientIVC vk: " + output_format);
     }
     // compute the hiding kernel's vk
-    auto response =
-        bbapi::ClientIvcComputeStandaloneVk{ .circuit{ .name = "standalone_circuit", .bytecode = bytecode } }.execute(
-            { .trace_settings = {} });
-    auto mega_vk = from_buffer<ClientIVC::MegaVerificationKey>(response.bytes);
-    // now we generate the other elements in civc vk
-    auto eccvm_vk = std::make_shared<ClientIVC::ECCVMVerificationKey>();
-    auto translator_vk = std::make_shared<ClientIVC::TranslatorVerificationKey>();
-    ClientIVC::VerificationKey civc_vk{ .mega = std::make_shared<ClientIVC::MegaVerificationKey>(mega_vk),
-                                        .eccvm = std::make_shared<ClientIVC::ECCVMVerificationKey>(),
-                                        .translator = std::make_shared<ClientIVC::TranslatorVerificationKey>() };
-
-    auto civc_vk_bytes = to_buffer(civc_vk);
-
+    auto response = bbapi::ClientIvcComputeIvcVk{
+        .circuit{ .name = "standalone_circuit", .bytecode = std::move(bytecode) }
+    }.execute({ .trace_settings = {} });
+    auto civc_vk_bytes = response.bytes;
     const bool output_to_stdout = output_dir == "-";
     if (output_to_stdout) {
         write_bytes_to_stdout(civc_vk_bytes);

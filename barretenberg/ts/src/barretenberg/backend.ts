@@ -238,7 +238,7 @@ export class AztecClientBackend {
     await this.instantiate();
 
     // Queue IVC start with the number of circuits
-    this.api.clientIvcStart({ numCircuits: this.acirBuf.length });
+    this.api.clientIvcStart({ numCircuits: this.acirBuf.length - 1 });
 
     // Queue load and accumulate for each circuit
     for (let i = 0; i < this.acirBuf.length; i++) {
@@ -276,7 +276,7 @@ export class AztecClientBackend {
     const proof = new Encoder({useRecords: false}).encode(fromClientIVCProof(proveResult.proof));
     // Generate the VK
     const vkResult = await this.api.clientIvcComputeIvcVk({ circuit: {
-      name: 'tail',
+      name: 'hiding',
       bytecode: this.acirBuf[this.acirBuf.length - 1],
     } });
 

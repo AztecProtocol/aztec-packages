@@ -186,16 +186,22 @@ ClientIvcComputeStandaloneVk::Response ClientIvcComputeStandaloneVk::execute(con
     return response;
 }
 
-ClientIvcComputeIvcVk::Response ClientIvcComputeIvcVk::execute(const BBApiRequest& request) &&
+ClientIvcComputeIvcVk::Response ClientIvcComputeIvcVk::execute(BB_UNUSED const BBApiRequest& request) &&
 {
     info("ClientIvcComputeIvcVk - deriving IVC VK for circuit '", circuit.name, "'");
 
-    auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
+    auto standalone_vk_response = bbapi::ClientIvcComputeStandaloneVk{
+        .circuit{ .name = "standalone_circuit", .bytecode = std::move(circuit.bytecode) }
+    }.execute({ .trace_settings = {} });
 
-    auto vk = compute_civc_vk(request, constraint_system.public_inputs.size());
-
+    auto mega_vk = from_buffer<ClientIVC::MegaVerificationKey>(standalone_vk_response.bytes);
+    auto eccvm_vk = std::make_shared<ClientIVC::ECCVMVerificationKey>();
+    auto translator_vk = std::make_shared<ClientIVC::TranslatorVerificationKey>();
+    ClientIVC::VerificationKey civc_vk{ .mega = std::make_shared<ClientIVC::MegaVerificationKey>(mega_vk),
+                                        .eccvm = std::make_shared<ClientIVC::ECCVMVerificationKey>(),
+                                        .translator = std::make_shared<ClientIVC::TranslatorVerificationKey>() };
     Response response;
-    response.bytes = to_buffer(vk);
+    response.bytes = to_buffer(civc_vk);
 
     info("ClientIvcComputeIvcVk - IVC VK derived, size: ", response.bytes.size(), " bytes");
 
