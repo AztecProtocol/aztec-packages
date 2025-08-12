@@ -355,7 +355,8 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
             RelationParameters<FF> relation_parameters;
             // Temporary accumulator to compute the sumcheck on the second key
             // Note: {} is required to initialize the tuple contents. Otherwise the values contain garbage.
-            typename Flavor::TupleOfArraysOfValues temporary_accumulator{};
+            using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<typename Flavor::Relations>());
+            TupleOfArraysOfValues temporary_accumulator{};
 
             // Accumulate arithmetic relation over 2 rows on the second key
             for (size_t i = 0; i < 2; i++) {
@@ -391,7 +392,7 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
             // Compute the sum for each index separately, treating each extended key independently
             for (size_t idx = 0; idx < UNIVARIATE_LENGTH; idx++) {
                 // Note: {} is required to initialize the tuple contents. Otherwise the values contain garbage.
-                typename Flavor::TupleOfArraysOfValues accumulator{};
+                TupleOfArraysOfValues accumulator{};
                 if (idx < NUM_KEYS) {
                     for (size_t i = 0; i < 2; i++) {
                         UltraArithmeticRelation::accumulate(std::get<0>(accumulator),

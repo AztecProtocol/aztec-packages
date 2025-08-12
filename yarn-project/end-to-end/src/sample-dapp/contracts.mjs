@@ -7,7 +7,7 @@ import { readFileSync } from 'fs';
 const TokenContractArtifact = TokenContract.artifact;
 
 // docs:start:get-tokens
-export async function getToken(wallet) {
+export function getToken(wallet) {
   const addresses = JSON.parse(readFileSync('addresses.json'));
   return Contract.at(AztecAddress.fromString(addresses.token), TokenContractArtifact, wallet);
 }

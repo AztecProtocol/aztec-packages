@@ -237,6 +237,9 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     bool is_hiding_kernel =
         stdlib_verification_queue.size() == 1 && (stdlib_verification_queue.front().type == QUEUE_TYPE::PG_FINAL);
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1511): this should check the queue is of size one and
+    // contains an entry of type PG_TAIL, currently it might contain several entries in case it's a minimal transaction
+    // produced by our tests which is not exactly realistic
     bool is_tail_kernel = std::any_of(stdlib_verification_queue.begin(),
                                       stdlib_verification_queue.end(),
                                       [](const auto& entry) { return entry.type == QUEUE_TYPE::PG_TAIL; });
@@ -509,7 +512,12 @@ ClientIVC::Proof ClientIVC::prove()
     // A transcript is shared between the Hiding circuit prover and the Goblin prover
     goblin.transcript = transcript;
 
-    // Prove ECCVM and Translator
+    // Returns a proof for the hiding circuit and the Goblin proof. The latter consists of Translator and ECCVM proof
+    // for the whole ecc op table and the merge proof for appending the subtable coming from the hiding circuit. The
+    // final merging is done via appending to facilitate creating a zero-knowledge merge proof. This enables us to add
+    // randomness to the beginning of the tail kernel and the end of the hiding kernel, hiding the commitments and
+    // evaluations of both the previous table and the incoming subtable.
+    // https://github.com/AztecProtocol/barretenberg/issues/1360
     return { mega_proof, goblin.prove(MergeSettings::APPEND) };
 };
 

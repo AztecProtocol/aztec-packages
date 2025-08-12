@@ -182,7 +182,7 @@ describe('Contract Class', () => {
     const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
     const param0 = 12;
     const param1 = 345n;
-    const sentTx = fooContract.methods.bar(param0, param1).send();
+    const sentTx = fooContract.methods.bar(param0, param1).send({ from: account.address });
     const txHash = await sentTx.getTxHash();
     const receipt = await sentTx.getReceipt();
 
@@ -199,7 +199,7 @@ describe('Contract Class', () => {
       from: account.address,
     });
     expect(wallet.simulateUtility).toHaveBeenCalledTimes(1);
-    expect(wallet.simulateUtility).toHaveBeenCalledWith('qux', [123n], contractAddress, [], account.address);
+    expect(wallet.simulateUtility).toHaveBeenCalledWith('qux', [123n], contractAddress, []);
     expect(result).toBe(mockUtilityResultValue.result);
   });
 

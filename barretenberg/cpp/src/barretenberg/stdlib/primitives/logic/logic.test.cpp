@@ -122,27 +122,25 @@ TYPED_TEST(LogicTest, DifferentWitnessSameResult)
 
     STDLIB_TYPE_ALIASES
     auto builder = Builder();
-    if (HasPlookup<Builder>) {
-        uint256_t a = 3758096391;
-        uint256_t b = 2147483649;
-        field_ct x = witness_ct(&builder, uint256_t(a));
-        field_ct y = witness_ct(&builder, uint256_t(b));
+    uint256_t a = 3758096391;
+    uint256_t b = 2147483649;
+    field_ct x = witness_ct(&builder, uint256_t(a));
+    field_ct y = witness_ct(&builder, uint256_t(b));
 
-        uint256_t xor_expected = a ^ b;
-        const std::function<std::pair<uint256_t, uint256_t>(uint256_t, uint256_t, size_t)>& get_bad_chunk =
-            [](uint256_t left, uint256_t right, size_t chunk_size) {
-                (void)left;
-                (void)right;
-                (void)chunk_size;
-                auto left_chunk = uint256_t(2684354565);
-                auto right_chunk = uint256_t(3221225475);
-                return std::make_pair(left_chunk, right_chunk);
-            };
+    uint256_t xor_expected = a ^ b;
+    const std::function<std::pair<uint256_t, uint256_t>(uint256_t, uint256_t, size_t)>& get_bad_chunk =
+        [](uint256_t left, uint256_t right, size_t chunk_size) {
+            (void)left;
+            (void)right;
+            (void)chunk_size;
+            auto left_chunk = uint256_t(2684354565);
+            auto right_chunk = uint256_t(3221225475);
+            return std::make_pair(left_chunk, right_chunk);
+        };
 
-        field_ct xor_result = stdlib::logic<Builder>::create_logic_constraint(x, y, 32, true, get_bad_chunk);
-        EXPECT_EQ(uint256_t(xor_result.get_value()), xor_expected);
+    field_ct xor_result = stdlib::logic<Builder>::create_logic_constraint(x, y, 32, true, get_bad_chunk);
+    EXPECT_EQ(uint256_t(xor_result.get_value()), xor_expected);
 
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, false);
-    }
+    bool result = CircuitChecker::check(builder);
+    EXPECT_EQ(result, false);
 }

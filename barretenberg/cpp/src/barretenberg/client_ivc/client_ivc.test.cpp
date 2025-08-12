@@ -17,6 +17,8 @@ using namespace bb;
 
 static constexpr size_t MAX_NUM_KERNELS = 15;
 static constexpr size_t SMALL_LOG_2_NUM_GATES = 5;
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1511): The CIVC class should enforce the minimum number of
+// circuits in a test flow.
 static constexpr size_t MIN_NUM_CIRCUITS = 4;
 
 class ClientIVCTests : public ::testing::Test {
@@ -274,8 +276,13 @@ TEST_F(ClientIVCTests, WrongProofComponentFailure)
 TEST_F(ClientIVCTests, VKIndependenceTest)
 {
 
+<<<<<<< HEAD
     // Folding more than 20 circuits requires to double the number of gates in Translator.
     const size_t MAX_NUM_CIRCUITS = 20;
+=======
+    // An upper bound chosen for this test, in reality we can support more than 10 circuits
+    const size_t MAX_NUM_CIRCUITS = 10;
+>>>>>>> origin/merge-train/barretenberg
     const TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
 
     auto generate_vk = [&](size_t num_circuits) {
