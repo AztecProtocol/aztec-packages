@@ -190,8 +190,8 @@ export class CheckpointProvingState {
     }
 
     const blobFields = this.blocks.flatMap(b => b!.getBlockBlobFields());
-    this.startBlobAccumulator = startBlobAccumulator;
     this.endBlobAccumulator = await accumulateBlobs(blobFields, startBlobAccumulator);
+    this.startBlobAccumulator = startBlobAccumulator;
 
     return this.endBlobAccumulator;
   }
@@ -205,22 +205,19 @@ export class CheckpointProvingState {
   }
 
   public getBlockMergeRollupInputs(mergeLocation: TreeNodeLocation) {
-    const [left, right] = this.blockProofs.getChildren(mergeLocation);
-    if (!left?.provingOutput || !right?.provingOutput) {
-      throw new Error('At lease one child is not ready.');
+    const [left, right] = this.blockProofs.getChildren(mergeLocation).map(c => c?.provingOutput);
+    if (!left || !right) {
+      throw new Error('At least one child is not ready for the block merge rollup.');
     }
 
-    return new BlockMergeRollupPrivateInputs([
-      toRollupProofData(left.provingOutput),
-      toRollupProofData(right.provingOutput),
-    ]);
+    return new BlockMergeRollupPrivateInputs([toRollupProofData(left), toRollupProofData(right)]);
   }
 
   public async getCheckpointRootRollupTypeAndInputs() {
     const proofs = this.#getChildProofsForRoot();
     const nonEmptyProofs = proofs.filter(p => !!p);
     if (proofs.length !== nonEmptyProofs.length) {
-      throw new Error('At lease one child is not ready.');
+      throw new Error('At least one child is not ready for the checkpoint root rollup.');
     }
 
     const blobFields = this.blocks.flatMap(b => b!.getBlockBlobFields());
@@ -255,7 +252,7 @@ export class CheckpointProvingState {
   }
 
   public isReadyForBlockMerge(location: TreeNodeLocation) {
-    return this.blockProofs.getSibling(location) !== undefined;
+    return !!this.blockProofs.getSibling(location)?.provingOutput;
   }
 
   public isReadyForCheckpointRoot() {

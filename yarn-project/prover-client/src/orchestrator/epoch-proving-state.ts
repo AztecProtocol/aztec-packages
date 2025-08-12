@@ -241,21 +241,18 @@ export class EpochProvingState {
   }
 
   public getCheckpointMergeRollupInputs(mergeLocation: TreeNodeLocation) {
-    const [left, right] = this.checkpointProofs.getChildren(mergeLocation);
-    if (!left?.provingOutput || !right?.provingOutput) {
-      throw new Error('At lease one child is not ready.');
+    const [left, right] = this.checkpointProofs.getChildren(mergeLocation).map(c => c?.provingOutput);
+    if (!left || !right) {
+      throw new Error('At least one child is not ready for the checkpoint merge rollup.');
     }
 
-    return new CheckpointMergeRollupPrivateInputs([
-      toRollupProofData(left.provingOutput),
-      toRollupProofData(right.provingOutput),
-    ]);
+    return new CheckpointMergeRollupPrivateInputs([toRollupProofData(left), toRollupProofData(right)]);
   }
 
   public getRootRollupInputs() {
     const [left, right] = this.#getChildProofsForRoot();
     if (!left || !right) {
-      throw new Error('At lease one child is not ready.');
+      throw new Error('At least one child is not ready for the root rollup.');
     }
 
     return RootRollupPrivateInputs.from({
@@ -282,7 +279,7 @@ export class EpochProvingState {
   }
 
   public isReadyForCheckpointMerge(location: TreeNodeLocation) {
-    return this.checkpointProofs.getSibling(location) !== undefined;
+    return !!this.checkpointProofs.getSibling(location)?.provingOutput;
   }
 
   // Returns true if we have sufficient inputs to execute the block root rollup

@@ -243,21 +243,18 @@ export class BlockProvingState {
   }
 
   public getMergeRollupInputs(mergeLocation: TreeNodeLocation) {
-    const [left, right] = this.baseOrMergeProofs.getChildren(mergeLocation);
-    if (!left?.provingOutput || !right?.provingOutput) {
-      throw new Error('At lease one child is not ready.');
+    const [left, right] = this.baseOrMergeProofs.getChildren(mergeLocation).map(c => c?.provingOutput);
+    if (!left || !right) {
+      throw new Error('At least one child is not ready for the merge rollup.');
     }
 
-    return new MergeRollupInputs([
-      this.#getPreviousRollupData(left.provingOutput),
-      this.#getPreviousRollupData(right.provingOutput),
-    ]);
+    return new MergeRollupInputs([this.#getPreviousRollupData(left), this.#getPreviousRollupData(right)]);
   }
 
   public async getBlockRootRollupTypeAndInputs() {
     const provingOutputs = this.#getChildProvingOutputsForBlockRoot();
     if (!provingOutputs.every(p => !!p)) {
-      throw new Error('At lease one child is not ready for the block root.');
+      throw new Error('At least one child is not ready for the block root rollup.');
     }
 
     const previousRollups = await Promise.all(provingOutputs.map(p => toRollupProofData(p)));
@@ -349,13 +346,13 @@ export class BlockProvingState {
   }
 
   public isReadyForMergeRollup(location: TreeNodeLocation) {
-    return this.baseOrMergeProofs.getSibling(location)?.provingOutput !== undefined;
+    return !!this.baseOrMergeProofs.getSibling(location)?.provingOutput;
   }
 
   // Returns true if we have sufficient inputs to execute the block root rollup
   public isReadyForBlockRootRollup() {
     const childProofs = this.#getChildProvingOutputsForBlockRoot();
-    return (!this.isFirstBlock || this.rootParityProof?.provingOutput !== undefined) && childProofs.every(p => !!p);
+    return (!this.isFirstBlock || !!this.rootParityProof?.provingOutput) && childProofs.every(p => !!p);
   }
 
   // Returns true if we have sufficient root parity inputs to execute the root parity circuit
