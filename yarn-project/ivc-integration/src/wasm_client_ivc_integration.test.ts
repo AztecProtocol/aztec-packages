@@ -8,6 +8,7 @@ import { ungzip } from 'pako';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+import MockHidingVk from '../artifacts/keys/mock_hiding.vk.data.json' with { type: 'json' };
 import { getWorkingDirectory } from './bb_working_directory.js';
 import {
   MOCK_MAX_COMMITMENTS_PER_TX,
@@ -15,6 +16,7 @@ import {
   MockAppCreatorVk,
   MockAppReaderCircuit,
   MockAppReaderVk,
+  MockHidingCircuit,
   MockPrivateKernelInitCircuit,
   MockPrivateKernelInitVk,
   MockPrivateKernelInnerCircuit,
@@ -26,6 +28,7 @@ import {
   generate3FunctionTestingIVCStack,
   getVkAsFields,
   witnessGenCreatorAppMockCircuit,
+  witnessGenMockHidingCircuit,
   witnessGenMockPrivateKernelInitCircuit,
   witnessGenMockPrivateKernelInnerCircuit,
   witnessGenMockPrivateKernelResetCircuit,
@@ -102,7 +105,7 @@ describe('Client IVC Integration', () => {
   // 4. Run the inner kernel to process the second app run
   // 5. Run the reset kernel to process the read request emitted by the reader app
   // 6. Run the tail kernel to finish the client IVC chain
-  it('Should generate a verifiable client IVC proof from a complex mock tx', async () => {
+  it.only('Should generate a verifiable client IVC proof from a complex mock tx', async () => {
     const tx = {
       number_of_calls: '0x2',
     };
@@ -138,6 +141,11 @@ describe('Client IVC Integration', () => {
       kernel_vk: await getVkAsFields(MockPrivateKernelResetVk),
     });
 
+    const hidingWitnessGenResult = await witnessGenMockHidingCircuit({
+      prev_kernel_public_inputs: tailWitnessGenResult.publicInputs,
+      kernel_vk: await getVkAsFields(MockPrivateKernelTailVk),
+    });
+
     // Create client IVC proof
     const bytecodes = [
       MockAppCreatorCircuit.bytecode,
@@ -146,6 +154,7 @@ describe('Client IVC Integration', () => {
       MockPrivateKernelInnerCircuit.bytecode,
       MockPrivateKernelResetCircuit.bytecode,
       MockPrivateKernelTailCircuit.bytecode,
+      MockHidingCircuit.bytecode,
     ];
     const witnessStack = [
       creatorAppWitnessGenResult.witness,
@@ -154,6 +163,7 @@ describe('Client IVC Integration', () => {
       innerWitnessGenResult.witness,
       resetWitnessGenResult.witness,
       tailWitnessGenResult.witness,
+      hidingWitnessGenResult.witness,
     ];
 
     const precomputedVks = [
@@ -163,6 +173,7 @@ describe('Client IVC Integration', () => {
       MockPrivateKernelInnerVk.keyAsBytes,
       MockPrivateKernelResetVk.keyAsBytes,
       MockPrivateKernelTailVk.keyAsBytes,
+      MockHidingVk.keyAsBytes,
     ];
     const verifyResult = await proveThenVerifyAztecClient(bytecodes, witnessStack, precomputedVks);
     logger.info(`generated then verified proof. result: ${verifyResult}`);
