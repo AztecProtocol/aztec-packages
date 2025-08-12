@@ -148,6 +148,16 @@ export function arrayOfArraysToBoundedVecOfArrays(
   return [flattenedStorageWithPadding, len];
 }
 
+export function stringsToBuffers(obj: (string | string[])[]): (ForeignCallSingle | ForeignCallArray)[] {
+  return obj.map(elem => {
+    if (typeof elem === 'string') {
+      return Uint8Array.from(Buffer.from(elem, 'hex'));
+    } else {
+      return elem.map(innerElem => Uint8Array.from(Buffer.from(innerElem, 'hex')));
+    }
+  });
+}
+
 export function toForeignCallResult(obj: (ForeignCallSingle | ForeignCallArray)[]) {
   return { values: obj };
 }

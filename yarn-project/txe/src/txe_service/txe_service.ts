@@ -21,6 +21,7 @@ import {
   fromSingle,
   fromUintArray,
   fromUintBoundedVec,
+  stringsToBuffers,
   toArray,
   toForeignCallResult,
   toSingle,
@@ -329,7 +330,7 @@ export class TXEService {
     if (!witness) {
       throw new Error(`Public data witness not found for slot ${parsedLeafSlot} at block ${parsedBlockNumber}.`);
     }
-    return toForeignCallResult(witness.toNoirRepresentation());
+    return toForeignCallResult(stringsToBuffers(witness.toNoirRepresentation()));
   }
 
   async utilityGetNotes(
@@ -527,7 +528,7 @@ export class TXEService {
     if (!witness) {
       throw new Error(`Nullifier membership witness not found at block ${parsedBlockNumber}.`);
     }
-    return toForeignCallResult(witness.toNoirRepresentation());
+    return toForeignCallResult(stringsToBuffers(witness.toNoirRepresentation()));
   }
 
   async utilityGetAuthWitness(messageHash: ForeignCallSingle) {
@@ -637,7 +638,7 @@ export class TXEService {
     if (!witness) {
       throw new Error(`Low nullifier witness not found for nullifier ${nullifier} at block ${parsedBlockNumber}.`);
     }
-    return toForeignCallResult(witness.toNoirRepresentation());
+    return toForeignCallResult(stringsToBuffers(witness.toNoirRepresentation()));
   }
 
   async utilityGetIndexedTaggingSecretAsSender(sender: ForeignCallSingle, recipient: ForeignCallSingle) {
