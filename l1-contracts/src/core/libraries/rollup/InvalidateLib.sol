@@ -60,11 +60,12 @@ library InvalidateLib {
   using CompressedTimeMath for CompressedSlot;
 
   /**
-   * @notice Invalidates a block containing an invalid attestation signature from a committee member
+   * @notice Invalidates a block containing an invalid attestation
    * @dev Anyone can call this function to remove blocks with invalid attestations.
    *
-   *      The function verifies that the signature at the specified index is invalid,
-   *      i.e., it doesn't recover to the expected committee member's address
+   *      There are two cases where an individual attestation might be invalid:
+   *      1. The attestation is a signature that does not recover to the address from the committee
+   *      2. The attestation is an address, that does not match the address from the committee
    *
    *      Upon successful validation of the invalid attestation, the block and all subsequent pending
    *      blocks are removed from the chain by resetting the pending tip to the previous valid block.
@@ -90,21 +91,20 @@ library InvalidateLib {
   ) internal {
     (bytes32 digest,) = _validateInvalidationInputs(_blockNumber, _attestations, _committee);
 
-    // Verify that the attestation at invalidIndex is actually invalid
-    // Check if there's a signature at the invalid index
-    if (_attestations.isSignature(_invalidIndex)) {
-      // Extract the signature and verify it does NOT match the expected committee member at the given index
-      Signature memory signature = _attestations.getSignature(_invalidIndex);
-      address recovered = ECDSA.recover(digest, signature.v, signature.r, signature.s);
+    address recovered;
 
-      // The signature is invalid if the recovered address doesn't match the committee member
-      require(recovered != _committee[_invalidIndex], Errors.Rollup__AttestationsAreValid());
+    // Verify that the attestation at invalidIndex does not match the the expected attestation
+    // i.e., either recover the address directly from the attestations if no signature
+    // or recover the address from the signature if there is a signature.
+    // Then take the recovered address and check it against the committee
+    if (!_attestations.isSignature(_invalidIndex)) {
+      recovered = _attestations.getAddress(_invalidIndex);
     } else {
-      // If it's an address attestation, we need to ensure it's marked as invalid
-      // This would typically mean the address doesn't match what's expected
-      // For now, we'll revert as address attestations are assumed valid
-      revert Errors.Rollup__AttestationsAreValid();
+      Signature memory signature = _attestations.getSignature(_invalidIndex);
+      recovered = ECDSA.recover(digest, signature.v, signature.r, signature.s);
     }
+
+    require(recovered != _committee[_invalidIndex], Errors.Rollup__AttestationsAreValid());
 
     _invalidateBlock(_blockNumber);
   }
