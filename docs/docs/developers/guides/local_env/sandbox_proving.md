@@ -7,7 +7,7 @@ The Sandbox does not have client-side proving in the PXE enabled by default. Thi
 
 You may want to enable client-side proving in the Sandbox to better understand how long it takes to execute Aztec transactions. There are 2 ways of doing this:
 
-1. Run the sandbox in proving mode (every transaction wil be proved) or
+1. Run the sandbox in proving mode (every transaction will be proved) or
 2. Use `aztec-wallet` cli to prove a one-off transaction
 
 :::note
