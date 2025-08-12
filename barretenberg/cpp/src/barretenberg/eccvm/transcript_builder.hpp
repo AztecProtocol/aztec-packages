@@ -39,11 +39,13 @@ class ECCVMTranscriptBuilder {
         FF base_x = 0; // [P] = (base_x, base_y)
         FF base_y = 0; // [P] = (base_x, base_y)
         bool base_infinity = false; // is [P] == neutral element?
-        uint256_t z1 = 0;           // `scalar` = z1 + \zeta_3 * z2
-        uint256_t z2 = 0;           // `scalar` = z1 + \zeta_3 * z2
-        bool z1_zero = false;       // `z1 == 0`
-        bool z2_zero = false;       // `z2 == 0`
-        uint32_t opcode = 0; // opcode value, in {0, .., 15}, given by 8 * q_add + 4 * q_mul + 2 * q_eq + q_reset.
+        uint256_t z1 = 0; // `scalar` = z1 - \lambda * z2 = z1 + \zeta * z2, where $\zeta$ is a primitive sixth root of
+                          // unity and \lambda is -\zeta.
+        uint256_t z2 = 0; // `scalar` = z1 - \lambda * z2 = z1 + \zeta * z2, where $\zeta$ is a primitive sixth root of
+                          // unity and \lambda is -\zeta.
+        bool z1_zero = false; // `z1 == 0`
+        bool z2_zero = false; // `z2 == 0`
+        uint32_t opcode = 0;  // opcode value, in {0, .., 15}, given by 8 * q_add + 4 * q_mul + 2 * q_eq + q_reset.
 
         /////////////////////////////////////
         // These fields are populated after converting projective to affine coordinates

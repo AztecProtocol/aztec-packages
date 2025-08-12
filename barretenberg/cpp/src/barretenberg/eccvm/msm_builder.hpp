@@ -220,20 +220,21 @@ class ECCVMMSMMBuilder {
         // The execution trace data for the MSM columns requires knowledge of intermediate values from *affine* point
         // addition. The naive solution to compute this data requires 2 field inversions per in-circuit group addition
         // evaluation. This is bad! To avoid this, we split the witness computation algorithm into 3 steps.
-        //   Step 1: compute the execution trace group operations in *projective* coordinates
-        //   Step 2: use batch inversion trick to convert all points into affine coordinates
-        //   Step 3: populate the full execution trace, including the intermediate values from affine group operations
+        //  Step 1: compute the execution trace group operations in *projective* coordinates. (these will be stored in
+        //   `p1_trace`, `p2_trace`, and `p3_trace`)
+        //  Step 2: use batch inversion trick to convert all points into affine coordinates
+        //  Step 3: populate the full execution trace, including the intermediate values from affine group
+        //   operations
         // This section sets up the data structures we need to store all intermediate ECC operations in projective form
 
         const size_t num_point_adds_and_doubles =
             (num_msm_rows - 2) * 4; // `num_msm_rows - 2` is the actual number of rows in the table required to compute
                                     // the MSM; the msm table itself has a dummy row at the beginning and an extra row
-                                    // with the answer at the end. We multiply by 4 because each "row" of the VM
-                                    // processes 4 point-additions (and the fact that w = 4 means we must interleave
-                                    // with 4 doublings). This "corresponds" to the fact that `MSMROW.add_state` has 4
-                                    // entries.
-                                    // Question: what is the final row? (I.e., I guess it contains the
-                                    // accumulated value?)
+                                    // with the `x` and `y` coordinates of the accumulator at the end. (In general, the
+                                    // output of the accumulator from the computation at row `i` is present on row
+                                    // `i+1`. We multiply by 4 because each "row" of the VM processes 4 point-additions
+                                    // (and the fact that w = 4 means we must interleave with 4 doublings). This
+                                    // "corresponds" to the fact that `MSMROW.add_state` has 4 entries.
         const size_t num_accumulators = num_msm_rows - 1; // for every row after the first row, we have an accumulator.
         // In what follows, either p1 + p2 = p3, or p1.dbl() = p3
         // We create 1 vector to store the entire point trace. We split into multiple containers using std::span
@@ -459,8 +460,8 @@ class ECCVMMSMMBuilder {
                     msm_row_index++;
                 }
 
-                // if digit_idx <  NUM_WNAF_DIGITS_PER_SCALAR - 1 we have not finished executing our
-                // double-and-add algorithm
+                // if digit_idx <  NUM_WNAF_DIGITS_PER_SCALAR - 1 we have to fill out our doubling row (which in fact
+                // amounts to 4 doublings)
                 if (digit_idx < NUM_WNAF_DIGITS_PER_SCALAR - 1) {
                     MSMRow& row = msm_rows[msm_row_index];
                     const Element& normalized_accumulator = accumulator_trace[accumulator_index];
@@ -470,9 +471,9 @@ class ECCVMMSMMBuilder {
                     row.accumulator_y = acc_y;
                     for (size_t point_idx = 0; point_idx < ADDITIONS_PER_ROW; ++point_idx) {
                         auto& add_state = row.add_state[point_idx];
-                        add_state.collision_inverse = 0;
+                        add_state.collision_inverse = 0; // no notion of "different x values" for a point doubling
                         const FF& dx = p1_trace[trace_index].x;
-                        const FF& inverse = inverse_trace[trace_index];
+                        const FF& inverse = inverse_trace[trace_index]; // here, 2y
                         add_state.lambda = ((dx + dx + dx) * dx) * inverse;
                         trace_index++;
                     }
@@ -509,9 +510,8 @@ class ECCVMMSMMBuilder {
         }
 
         // populate the final row in the MSM execution trace.
-        // we always require 1 extra row at the end of the trace, because the accumulator x/y coordinates for row
-        // `i` are present at row `i+1`
-        // TODO(RAJU): flesh this out more.
+        // we always require 1 extra row at the end of the trace, because the x and y coordinates of the accumulator for
+        // row `i` are present at row `i+1`
         Element final_accumulator(accumulator_trace.back());
         MSMRow& final_row = msm_rows.back();
         final_row.pc = static_cast<uint32_t>(pc_values.back());

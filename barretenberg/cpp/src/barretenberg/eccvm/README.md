@@ -1,10 +1,3 @@
-$\newcommand{\radd}{{\ \textcolor{lightgreen}{+} \ }}$
-$\newcommand{\rsub}{{\ \textcolor{lightgreen}{-} \ }}$
-$\newcommand{\rmul}{{\ \textcolor{lightgreen}{*} \ }}$
-$\newcommand{\padd}{{\ \textcolor{red}{+} \ }}$
-$\newcommand{\pmul}{{\ \textcolor{red}{*} \ }}$
-$\newcommand{\const}[1]{\textcolor{gray}{#1}}$
-$\renewcommand{\prime}[1]{#1_{\textsf{prime}}}$
 $\newcommand{\fq}{\mathbb F_q}$
 $\newcommand{\fr}{\mathbb F_r}$
 $\newcommand{\zr}{\mathbb Z/r\mathbb Z}$
@@ -19,12 +12,17 @@ $\newcommand{\qreset}{q_{\text{reset}}}$
 
 > $\textcolor{orange}{\textsf{Warning}}$: This document is intended to provide an overview of the ECCVM in barretenberg. It is not a complete specification and does not cover all edge cases or optimizations. The source code should be consulted for a complete understanding of the implementation.
 
+## Punchline
+
+The ECCVM efficiently proves the correct execution of accumulated elliptic curve operations. It does this by witnessing the correct execution into a table of numbers (in the same field as the base field of the elliptic curve) and applying polynomial constraints, multiset equality-checks, and lookup arguments.
+
 ## Notation
 
 - $\fq$ is the prime field of size $q= 21888242871839275222246405745257275088696311157297823662689037894645226208583$.
 - $\fr$ is the prime field of size $r = 21888242871839275222246405745257275088548364400416034343698204186575808495617$.
-- $E/\fq$ is the elliptic curve whose Weierstrauss equation is: $y^2 = x^3 + 3$. This is known as the _BN-254_ curve.
-- $C/\fr$ is the elliptic curve whose Weierstrauss equation is: $y^2 = x^3 - 17$. This is known as the _Grumpkin_ curve.
+- $E/\fq$ is the elliptic curve whose Weierstrass equation is: $y^2 = x^3 + 3$. This is known as the _BN-254_ curve.
+- The element $\NeutralElt$ refers to the neutral element of $E$, i.e., the point at infinity. We internally represent it in affine coordinates as $(0, 0)$ for efficiency, although $(0, 0)$ is indeed not a point on the curve!
+- $C/\fr$ is the elliptic curve whose Weierstrass equation is: $y^2 = x^3 - 17$. This is known as the _Grumpkin_ curve.
 
 We have the following facts:
 
@@ -34,17 +32,24 @@ We have the following facts:
 
 In general, the notation $\zq$ and $\zr$ refers to the additive abelian groups; we use $\fq$ and $\fr$ when we require the multiplicative structure. We unfortunately do not strictly abide by this convention, as this is indeed not usual in cryptography, but we think it is nonetheless helpful for disambiguating what we are using.
 
+We also use the following constants:
+
+- $w=\texttt{NUM\_WNAF\_DIGIT\_BITS} = 4$
+- $\texttt{NUM\_SCALAR\_BITS} = 128$
+- $\texttt{NUM\_WNAF\_DIGITS\_PER\_SCALAR = NUM\_SCALAR\_BITS / NUM\_WNAF\_DIGIT\_BITS} = 32$
+- $\texttt{ADDITIONS\_PER\_ROW} = 4$
+
 ## Bird's eye overview/motivation
 
-In a nutshell, the ECCVM is a simple virtual machine to facilitate the verification native elliptic curve computations. In our setting, this means that given an `op_queue` of BN-254 operations, the ECCVM compiles the execution of these operations into an _execution trace representation_ over $\fq$, the _field of definition_ (a.k.a. base field) of BN-254. (This field is also the _scalar field_ of Grumpkin.)
+In a nutshell, the ECCVM is a simple virtual machine to facilitate the verification of native elliptic curve computations. In our setting, this means that given an `op_queue` of BN-254 operations, the ECCVM compiles the execution of these operations into an _execution trace representation_ over $\fq$, the _field of definition_ (a.k.a. base field) of BN-254. (This field is also the _scalar field_ of Grumpkin.)
 
-In a bit more detail, the ECCVM is an compiler that takes a sequence of operations (in BN-254) and produces a table of numbers, such that the correct evaluation of the sequence of operations precisely corresponds to polynomial constraints vanishing on the rows of this table of numbers. Moreover, this polynomial constraints are independent of the specific sequence of operations. The core complication in the ECCVM comes from the _efficient_ handling of multi-scalar multiplications (MSMs).
+In a bit more detail, the ECCVM is an compiler that takes a sequence of operations (in BN-254) and produces a table of numbers, such that the correct evaluation of the sequence of operations precisely corresponds to polynomial constraints vanishing on the rows of this table of numbers. Moreover, these polynomial constraints are independent of the specific sequence of operations. The core complication in the ECCVM comes from the _efficient_ handling of scalar multiplications.
 
-In fact, due to our MSM optimizations, we morally produce _three_ tables, where each table has it's own set of multivariate polynomials, such that the correct evaluation of the operations corresponds to each table's multivariates evaluating to zero on each row. These tables will "communicate" with each other via (strict) lookup arguments and multiset-equality checks.
+In fact, due to our MSM optimizations, we morally produce _three_ tables, where each table has its own set of multivariate polynomials, such that the correct evaluation of the operations corresponds to each table's multivariates evaluating to zero on each row. These tables will "communicate" with each other via (strict) lookup arguments and multiset-equality checks.
 
 ## Op Queue
 
-To understand what the OpQueue is, we first need to understand `EccOpCode` and what the VM operations are. Loosely, the OpQueue is a list of operations on a fixed elliptic curve, which in particular admit an accumulator which propages from instruction to instruction. It may therefore be seen as a finite state machine with a single register.
+We first need to understand what the allowable operations are; the OpQueue is a roughly list of operations on a fixed elliptic curve, including a running accumulator which propagates from instruction to instruction. It may therefore be seen as a finite state machine processing simple elliptic curve operations with a single memory register.
 
 ### Operations
 
@@ -75,10 +80,10 @@ _Decomposing scalars_ is an important optimization for (multi)scalar multiplicat
 Note that both $\fr$ and $\fq$ have a non-trivial cube roots of unity. (Their orders are both $1\mod(3)$.) We fix $\beta\in\fq$ to be a primitive cube root of unity. Note that $\beta$ induces an order 6 automorphism $\varphi$ of BN-254, defined on the level of points as:
 $$\varphi\colon (x, y)\mapsto (\beta x, -y).$$
 
-As $E(\fq)\cong \zr$, and the natural map $\fr\rightarrow \text{End}_{\text{ab. gp}}(\zr)$ is an isomorphism, it follows that $\varphi$ corresponds to an element $\lambda\in \fr$. Then $\lambda$ satisfies a quadratic equation: $$\lambda^2 - \lambda + 1,$$
-(and indeed $\varphi$ satisfies the same equation when considered as an endomorphism). In particular, $\lambda^2$ is a cube root of unity in $\fr$.
+As $E(\fq)\cong \zr$, and the natural map $\fr\rightarrow \text{End}_{\text{ab. gp}}(\zr)$ is an isomorphism, it follows that $\varphi$ corresponds to an element $\zeta\in \fr$. Then $\zeta$ satisfies a quadratic equation: $$\zeta^2 - \zeta + 1 = 0,$$
+(and indeed $\varphi$ satisfies the same equation when considered as an endomorphism). In particular, $\lambda:=-\zeta$ is a cube root of unity in $\fr$ and satisfies $\lambda^2 + \lambda + 1 = 0$.
 
-Now, given $s\in \zr$, we wish to write $s = z_1 + \lambda z_2$ where $z_i$ are "small". This follows from some lattice theory. Indeed, we consider the lattice $L:=\text{ker}\big( \mathbb Z^2 \rightarrow \zr\big)$, given by $(a, b)\mapsto a + \lambda b$. The discriminant of this lattice is $3r$; then there is a unique choice of $z_1$ and $z_2$ in any given fundamental domain. One can argue that the fundamental domain around the origin lies in the box with side length $B:=\frac{\sqrt{3r}}{2}$. Plugging in numbers, we see $B< 2^{128}$, and the result follows.
+Now, given $s\in \zr$, we wish to write $s = z_1 - \lambda z_2 = z_1 + \zeta z_2$ where $z_i$ are "small". This follows from some lattice theory. Indeed, we consider the lattice $L:=\text{ker}\big( \mathbb Z^2 \rightarrow \zr\big)$, given by $(a, b)\mapsto a + \zeta b$. Then there is a unique choice of $z_1$ and $z_2$ in any given fundamental domain. One can argue, via the Euclidean algorithm, that the fundamental domain around the origin lies in the box with side length $B:=\frac{\sqrt{3r}}{2}$. Plugging in numbers, we see $B< 2^{128}$, and the result follows. For more details, see the documentation around the `split_into_endomorphism_scalars` method in the field module.
 
 ### Column representation (a.k.a. the Input Trace)
 
@@ -86,7 +91,7 @@ An operation in the OpQueue may be entered into a table as follows:
 
 | `op` | `X` | `Y` | `z_1` | `z_2` | `mul_scalar_full` |
 
-Here, `op` is the value of the operation, $(X, Y)$ are the _affine_ coordinates of $P$, `mul_scalar_full` stands for "full scalar if the operation is `mul`" (so is an element of $\fr$), and `z_1` and `z_2` are a decomposition of `mul_scalar_full` as explained above. In particular, `z_1` and `z_2` may each be represented by 128 bits.
+Here, `op` is the value of the operation, $(X, Y)$ are the _affine_ coordinates of $P$, `mul_scalar_full` stands for "full scalar if the operation is `mul`" (so is an element of $\fr$), and `z_1` and `z_2` are a decomposition of `mul_scalar_full` as explained [above](#decomposing-scalars). In particular, `z_1` and `z_2` may each be represented by 128 bits.
 
 ### VM operations
 
@@ -112,31 +117,31 @@ From the perspective of the ECCVM, the `ECCOpQueue` just contains a list of `ECC
 
 ### State Machine and the execution trace
 
-An alternative perspective: the `ECCOpQueue` corresponds to a one-register finite state machine whose primitives are a set of operations on our elliptic curve.
+As explained, the `ECCOpQueue` corresponds to a one-register finite state machine whose primitives are a set of operations on our elliptic curve.
 
 From this perspective, the goal of the ECCVM is to compile the execution of this state machine. The ECCVM takes in an `ECCOpQueue`, which corresponds to the execution of a list of operations in BN-254, and constructs three tables, together with a collection of multivariate polynomials for each table, along with some lookups and multiset constraints. (The number of variables of a polynomial associated with a table is precisely the number of columns of that table.) Then the key claim is that if (1) the polynomials associated to each table vanish on every row, (2) the lookups are satisfied, and some multi-set equivalences hold (which mediate _between_ tables), then the tables corresponds to the correct execution of the `ECCOpQueue`, i.e., to the correct execution of the one-register elliptic curve state machine.
 
 Breaking abstraction, the _reason_ we choose this model of witnessing the computation is that it is straightforward to SNARK.
 
-## Architecture and the Straus algorithm
+## Architecture
 
 In trying to build the execution trace of `ECCOpQueue`, the `mul` opcode is the only one that is non-trivial to evaluate, especially efficieintly. One straightforward way to encode the `mul` operation is to break up the scalar into its bit representation and use a double-and-add procedure. We opt for the Straus MSM algorithm with $w=4$, which requires more precomputing but is significantly more efficient.
 
 ### High level summary of the operation of the VM
 
-Before we dive into the Straus algorithm, here is the high-level organization. We go "row by row" in the `ECCOpQueue`; if it is a `mul` operation, it is _automatically_ part of an MSM (potentially one of length 1), and we defer evaluation to the Straus mechanism (which involves two separate tables: an `MSM` table and a `Precomputed` table). Otherwise, the `Transcript` table handles the logic. (This includes `add` op codes.) Eventually, at the _end_ of an MSM (i.e., if an op is a `mul` and the next op is not), the Transcript Columns will pick up the claimed evaluation from the MSM tables and continue along their merry way.
+Before we dive into the Straus algorithm, here is the high-level organization. We go "row by row" in the `ECCOpQueue`; if the instruction is _not_ a `mul`, the `Transcript` tabel handles it. If it is a `mul` operation, it is _automatically_ part of an MSM (potentially one of length 1), and we defer evaluation to the Straus mechanism (which involves two separate tables: an `MSM` table and a `Precomputed` table). Eventually, at the _end_ of an MSM (i.e., if an op is a `mul` and the next op is not), the Transcript Columns will pick up the claimed evaluation from the MSM tables and continue along their merry way.
 
-To do this in a moderately efficient manner is quite complicated; we include logic for skipping computations when we can. For instance, if we have a `mul` operation with the base point $P=\NeutralElt$, then we will have a column that bears witness to this fact and skip the explicit scalar multiplication. Analogously, if the scalar is 0 in a `mul` operation, we also encode skipping the explicit scalar multiplication. This intelligent computation, together with the delegation of work to multiple tables, itself required by the Straus algorithm, results in somewhat complicated column structure.
+To do this in a moderately efficient manner is involved; we include logic for skipping computations when we can. For instance, if we have a `mul` operation with the base point $P=\NeutralElt$, then we will have a column that bears witness to this fact and skip the explicit scalar multiplication. Analogously, if the scalar is 0 in a `mul` operation, we also encode skipping the explicit scalar multiplication. This intelligent computation, together with the delegation of work to multiple tables, itself required by the Straus algorithm, results in somewhat complicated column structure.
 
-However, at least some of this complexity is forced on us; in Barretenberg, we represent the $\NeutralElt$ of an elliptic curve in Weierstrass form as $(0, 0)$ for efficiency. (Note that $\NeutralElt$ is always chosen to be the point-at-infinity, and in particular it has no "affine representation". Note further that $(0, 0)$ is not a point on our elliptic curve!) These issues are worth keeping in mind when examining the ECCVM.
+However, at least some of this complexity is forced on us; in Barretenberg, we represent the $\NeutralElt$ of an elliptic curve in Weierstrass form as $(0, 0)$ for efficiency. (Note that $\NeutralElt$ is always chosen to be the point-at-infinity and in particular it has no "affine representation". Note further that $(0, 0)$ is indeed not a point on our elliptic curve!) These issues are worth keeping in mind when examining the ECCVM.
 
 ## Straus Algorithm for MSM
 
-Recall, our goal is to compute $$\displaystyle \sum_{i=0}^{m-1} s_i P_i,$$ where $s_i\in \fr$ and $P_i$ are points on BN-254, i.e., we want to evaluate a multi-scalar multiplication of length $m$. We set $w=4$, as this is our main use-case. (In the code, this is represented as `static constexpr size_t NUM_WNAF_DIGIT_BITS = 4;`.) We have seen about that, setting $P'_i:=\varphi(P_i) = \lambda P_i$, we may write $s_iP_i = z_{i, 1}P_i + z_{i, 2}P'_i$, where $z_{i,j}$ has no more than 128 bits. We therefore assume that our scalars have no greater than 128 bits.
+Recall, our high-level goal is to compute $$\displaystyle \sum_{i=0}^{m-1} s_i P_i,$$ where $s_i\in \fr$ and $P_i$ are points on BN-254, i.e., we want to evaluate a multi-scalar multiplication of length $m$. We set $w=4$, as this is our main use-case. (In the code, this is represented as `static constexpr size_t NUM_WNAF_DIGIT_BITS = 4;`.) We have seen about that, setting $P'_i:=\varphi(P_i) = \lambda P_i$, we may write $s_iP_i = z_{i, 1}P_i - z_{i, 2}P'_i$, where $z_{i,j}$ has no more than 128 bits. We therefore assume that our scalars have no greater than 128 bits.
 
 ### wNAF
 
-The first thing to specify is our windowed non-adjacent form (wNAF). This is an optimization for computing scalar multiplication. Moreover, the fact that we are working with an elliptic curve in Weierstrauss form effectively halves the number of precomputes we need to perform.
+The first thing to specify is our windowed non-adjacent form (wNAF). This is an optimization for computing scalar multiplication. Moreover, the fact that we are working with an elliptic curve in Weierstrass form effectively halves the number of precomputes we need to perform.
 
 $\textcolor{orange}{\textbf{Warning}}$: our implementation is _not_ what is usually called wNAF. To avoid confusion, we simply avoid discussion on traditional (w)NAF.
 
@@ -147,7 +152,7 @@ where
 - each $a_j\in \{-2^{4}+1, -2^{4}+3,\ldots, 2^{4}-1\}$
 - $\text{skew}\in\{0, 1\}$.
 
-In our implementation, we force $a_{31}>0$ to guarantee that $s$ is positive.
+In our implementation, we force $a_{31}>0$ to guarantee that $s$ is positive. Note that the exponent in the range of the digits $a_j$ is determined by $w=\texttt{NUM\_WNAF\_DIGIT\_BITS} = 4$. The existence of the `skew` bit is to ensure that we can represent _even_ numbers.
 
 The above decomposition is referred to in the code as the wNAF representation. Each $a_i$ is referred to either as a wNAF slice or digit.
 
@@ -155,7 +160,7 @@ We will come shortly to the algorithm, but as for the motivation: in our impleme
 
 ### Straus
 
-Here is the problem: efficiently compute $$\displaystyle \sum_i s_i P_i,$$ where the $s_i$ are 128-bit numbers and $P_i$ are points in BN-254. (Recall that we reduce to the case of 128-bit scalars by decomposing, as explained above.)
+Here is the problem: efficiently compute $$\displaystyle \sum_i s_i P_i,$$ where the $s_i$ are 128-bit numbers and $P_i$ are points in BN-254. (Recall that we reduce to the case of 128-bit scalars by decomposing, as explained [above](#decomposing-scalars).)
 
 To do this, we break up our computation into steps.
 
@@ -164,23 +169,29 @@ To do this, we break up our computation into steps.
 For each $s_i$, we expand it in wNAF form:$s_i = \sum_{j=0}^{31} a_{i, j} 2^{4j} + \text{skew}_i$.
 
 For every $P_i$, precompute and store the multiples: $$\{-15P_i, -13P_i, \ldots, 13P_i, 15P_i\}$$
-as well as $2P_i$. Note that, $E$ is represented in Weierstrauss form, $nP$ and $-nP$ have the same affine $y$-coordinate and the $x$-coordinates differ by a sign.
+as well as $2P_i$. Note that, $E$ is represented in Weierstrass form, $nP$ and $-nP$ have the same affine $y$-coordinate and the $x$-coordinates differ by a sign.
 
 #### Algorithm
 
-There is one important static variable we require: `static constexpr size_t ADDITIONS_PER_ROW = 4;`. This says that we can do 4 primitive EC additions per "row" of the virtual machine. It is a happy convenience that `ADDITIONS_PER_ROW == NUM_WNAF_DIGIT_BITS`, i.e., that both are 4.
+Here are the static variables we need.
+
+- `NUM_WNAF_DIGITS_PER_SCALAR=32`.
+- `NUM_WNAF_DIGIT_BITS = 4`.
+- `ADDITIONS_PER_ROW = 4`. This says that we can do 4 primitive EC additions per "row" of the virtual machine.
 
 1. Set $A = \NeutralElt$ to be the neutral element of the group.
 2. For $j\in [0, \ldots, 31]$, do:
-   1. Set $A\leftarrow 2^w A= 16 A$
-   2. For $k\in [0,\ldots, \lceil \frac{m-1}{4}\rceil]$ (here, $k$ is the "row" in the VM), do:
-      1. Set $A\leftarrow A + a_{4k, j}P_{4k} + a_{4k+1, j}P_{4k+1} + a_{4k+2, j}P_{4k+2} + a_{4k+3, j}P_{4k+3}$, where the individual scalar multiples are _looked up_. (No accumulations if the points $P_{4k+j}$ don't exist, which can potentially hold for $k=\lceil \frac{m-1}{4}\rceil$ and some $j$.)
+   1. For $k\in [0,\ldots, \lceil \frac{m-1}{4}\rceil]$ (here, $k$ is the "row" in the VM), do:
+      1. Set $A\leftarrow A + a_{4k, 31-j}P_{4k} + a_{4k+1, 31-j}P_{4k+1} + a_{4k+2, 31-j}P_{4k+2} + a_{4k+3, 31-j}P_{4k+3}$, where the individual scalar multiples are _looked up_ from the precomputed tables indicated in [precomputation](#precomputation). (No accumulations if the points $P_{4k+j}$ don't exist, which can potentially hold for $k=\lceil \frac{m-1}{4}\rceil$ and some $j$.)
+   2. If $j\neq 31$, set $A\leftarrow 2^w A= 16 A$.
 3. For $j = 32$, do:
    1. For $k\in [0,\ldots, \lceil \frac{m-1}{4}\rceil]$, do:
-      1. Set $A\leftarrow A + \text{skew}_{4k, j}P_{4k} + \text{skew}_{4k+1, j}P_{4k+1} + \text{skew}_{4k+2, j}P_{4k+2} + \text{skew}_{4k+3, j}P_{4k+3}$, where the individual scalar multiples are _looked up_.
+      1. Set $A\leftarrow A + \text{skew}_{4k}P_{4k} + \text{skew}_{4k+1}P_{4k+1} + \text{skew}_{4k+2}P_{4k+2} + \text{skew}_{4k+3}P_{4k+3}$.
 4. Return $A$.
 
-We picture this algorithm as follows. We build a table, the $i^{\text{th}}$ row of which is the wNAF expansion of $s_i$. We work column by column (this is the $j$-loop); for every vertical chunk of 4 elements, we accumulate looked up values corresponding to the digit/base-point pair. (Looking forward, a "row" of the MSM table in the ECCVM can handle 4 such additions). We do this until we exhaust the column. We then multiply the accumulator by $16$ and go to the next column. Finally, at the end we handle the `skew` digit.
+We picture this algorithm as follows. We build a table, the $i^{\text{th}}$ row of which is the wNAF expansion of $s_i$ in most-significant to least-significant order. This means that the first column corresponds to the most significant digit ($a_{-, 31}$).
+
+We work column by column (this is the $j$-loop); for every vertical chunk of 4 elements, we accumulate (i.e., add to an accumulator $A$) looked up values corresponding to the digit/base-point pair. In the pseudo-code, we have an index $31-j$ because we want to proceed in decreasing order of significant digits. (Looking forward, a "row" of the MSM table in the ECCVM can handle 4 such additions.) We do this until we exhaust the column. We then multiply the accumulator by $16$ (as long as we are not at the last digit) and go to the next column. Finally, at the end we handle the `skew` digit.
 
 ## Tables
 
@@ -230,7 +241,7 @@ $\fq$, the column must be range constrained, either with an explicit range check
 | transcript_base_x_inverse                  | base_x_inverse                  | $\fq$         |                                                                                                                                      | if adding a point to the accumulator and the $x$ values are not equal, the inverse of the difference of the $x$ values. (witnesses `transcript_add_x_equal == 0`                                                   |
 | transcript_base_y_inverse                  | base_y_inverse                  | $\fq$         |                                                                                                                                      | if adding a point to the accumulator and the $y$ values are not equal, the inverse of the difference of the $y$ values. (witnesses `transcript_add_y_equal == 0`                                                   |
 | transcript_add_lambda                      | transcript_add_lambda           | $\fq$         |                                                                                                                                      | if adding a point into the accumulator, contains the lambda gradient: the slope of the line between $A$ and $P$                                                                                                    |
-| transcript_msm_x_inverse                   | transcript_msm_x_inverse        | $\fq$         |                                                                                                                                      | used to validate transcript_msm_infinity correct $\textcolor{red}{\text{TODO:??}}$                                                                                                                                 |
+| transcript_msm_x_inverse                   | transcript_msm_x_inverse        | $\fq$         |                                                                                                                                      | used to validate transcript_msm_infinity correct; if the former is zero, this is the inverse of the $x$ coordinate of the (non-shifted) output of the MSM                                                          |
 | transcript_msm_count_at_transition_inverse | msm_count_at_transition_inverse | $\fq$         |                                                                                                                                      | used to validate transcript_msm_count_zero_at_transition                                                                                                                                                           |
 
 ### Transcript description and algorithm
@@ -293,7 +304,7 @@ If our `op` is a `mul`, with scalars `z1` and `z2`, the situation is more compli
 - In other words, we simply avoid (our deferred) computations if $\transcriptzonezero = 1$ and/or $\transcriptztwozero = 1$.
 - Similarly, $\transcriptpc$ _decrements_ by $2 - \transcriptzonezero - \transcriptztwozero$. We use a decreasing program counter (only counting short `mul`s) for efficiency reasons, as it allows for cheaper commitments.
 - If the next `op` is not a `mul`, and the total number of active `mul` operations (which is $\transcriptmsmcount + (2 - \transcriptzonezero - \transcriptztwozero)$) is non-zero, set the $\transcriptmsmtransition = 1$. Else, set $\transcriptmsmcountzeroattransition = 1$. Either way, the current `mul` then represents the end of an MSM. This is where $\transcriptmsmcountattransitioninverse$ is used.
-- If $\transcriptmsmtransition = 0$, then $\transcriptmsmx$, $\transcriptmsmy$, $\transcriptmsmintermediatex$, and $\transcriptmsmintermediatey$ are all $0$. Otherwise, we call $\transcriptmsmx$ and $\transcriptmsmy$ from the multiset argument, i.e., from the MSM table as follows: $\textcolor{red}{\text{TODO}}$: check this. Then the values of $\transcriptmsmintermediatex$ and $\transcriptmsmintermediatey$ are obtained by subtracting off the `OFFSET`.
+- If $\transcriptmsmtransition = 0$, then $\transcriptmsmx$, $\transcriptmsmy$, $\transcriptmsmintermediatex$, and $\transcriptmsmintermediatey$ are all $0$. Otherwise, we call $\transcriptmsmx$ and $\transcriptmsmy$ from the multiset argument, i.e., from the MSM table. Then the values of $\transcriptmsmintermediatex$ and $\transcriptmsmintermediatey$ are obtained by subtracting off the `OFFSET`.
 
 #### Transcript size
 
@@ -428,11 +439,11 @@ The constraints are straightforward.
 
 ### Precomputed Size
 
-For every _non-trivial_ short scalar `mul`, we fill in 8 non-trivial rows to the MSM table. Here, non-trivial means: $P\neq \NeutralElt$ and $z\neq 0$, where $z$ is the short (128-bit) scalar we are multiplying by.
+For every _non-trivial_ short scalar `mul`, we fill in $8$ non-trivial rows to the precomputed table. Here, non-trivial means: $P\neq \NeutralElt$ and $z\neq 0$, where $z$ is the short (128-bit) scalar we are multiplying by. This means that for $m$ (non-trivial) short scalar `mul` operations, we add $8m$ rows to the precomputed table.
 
 ### MSM columns
 
-This table is the most involved and responsible for the efficiently handling of MSMs.
+This table is the most algorithmically involved.
 
 ```
 struct alignas(64) MSMRow {
@@ -567,7 +578,7 @@ There is one other quirk we should explicate before entering the algorithm. In g
 
 This indeed breaks completeness, inasmuch as there are valid `EccOpQueue`s which will not be able to be compiled into a valid execution trace. However, this is vanishingly unlikely, in the course of any normal operations.
 
-Finally, we may describe the algorithm. We implicitly organize our data in the following type of table. Each row of our table corresponds to a scalar multiplication: the elements of the row are the wNAF digits (including the `skew` bit). In other words, the columns of our table correspond to wNAF digits. Our algorithm will proceed column by column, processing one verticle chunk of four elements after another. To emphasize: this table syntactically encoding our MSM is _not_ what we refer to as the MSM table of the VM, which witnesses the correct execution of the MSM.
+Finally, we may describe the algorithm. We implicitly organize our data in the following type of table (as indicated in the [Straus Section](#straus)). Each row of our table corresponds to a scalar multiplication: the elements of the row are the wNAF digits (including the `skew` bit). In other words, the columns of our table correspond to wNAF digits. Our algorithm will proceed column by column, from most significant to least significant digit, processing one vertical chunk of four elements after another. To emphasize: this table syntactically encoding our MSM is _not_ what we refer to as the MSM table of the VM, which rather witnesses the correct execution of the MSM.
 
 1. Set the first row of the MSM table (of our VM) to be 0.
 2. Initialize lookup table read counts: `point_table_read_counts[0]` and `point_table_read_counts[1]` to track the positive and negative lookups corresponding to $kP$, where $n\in \{-15, -13, \ldots, 13, 15\}$. Each table will have size `total_number_of_muls * 8` (since `POINT_TABLE_SIZE/2 = 8`).
@@ -586,7 +597,7 @@ We deviate from the witness generation algorithm here. In the code, in order to 
 
          1. Get the up-until-now value of the accumulator and set into $(\msmaccumulatorx, \msmaccumulatory)$. For the first row of an MSM, this is `offset_generator`, for a non-first row of an MSM this involves processing the previous row of the MSM table.
          2. Set $\msmadd = 1$, $\msmdouble = 0$, and $\msmskew = 0$.
-         3. Set the booleans $\msmaddone$, $\msmaddtwo$, $\msmaddthree$, and $\msmaddfour$ to the correct values (all should be one if we haven't yet exhuasted the column, if we are at the end of a column and $m$ is not divisible by 4, only the first $m\text{ mod} 4$ should be turned on).
+         3. Set the booleans $\msmaddone$, $\msmaddtwo$, $\msmaddthree$, and $\msmaddfour$ to the correct values (all should be one if we haven't yet exhausted the column, if we are at the end of a column and $m$ is not divisible by 4, only the first $m\text{ mod} 4$ should be turned on).
          4. For each point that is "on", record the following (which all correspond to members of `AddState`):
             1. the slice a.k.a. digit value. (This has values in $\{0,\ldots,15\}$ and corresponds to the elements $\{-15, -13, \ldots, 13, 15\}$.) These are filled in $\msmsliceone$, $\msmslicetwo$, $\msmslicethree$, and $\msmslicefour$.
             2. The precomputed value of the slice/digit times the corresponding base point. These are filled in $\msmxone$, $\msmyone$, $\msmxtwo$, $\msmytwo$, $\msmxthree$, $\msmythree$, and $\msmxfour$, $\msmyfour$. Note that, as we are proceeding vertically, the base points corresponding to $\msmsliceone$, $\msmslicetwo$, $\msmslicethree$, and $\msmslicefour$ may very well all be different.
@@ -596,8 +607,9 @@ We deviate from the witness generation algorithm here. In the code, in order to 
       3. Process the 4 doublings, as long as we are not at the last wnaf digit. This involves adding a _single_ row to the MSM table.
          1. Set $\msmadd = 0$, $\msmdouble = 1$, and $\msmskew = 0$.
          2. Get the value of $\msmaccumulatorx$ and $\msmaccumulatory$ from the last row.
-         3. The values: $\msmcount$, $\msmtransition$, $\msmsliceone$, $\msmslicetwo$, $\msmslicethree$, $\msmslicefour$, $\msmxone$, $\msmyone$, $\msmxtwo$, $\msmytwo$, $\msmxthree$, $\msmythree$, $\msmxfour$, $\msmyfour$, $\msmlambdaone$, $\msmlambdatwo$, $\msmlambdathree$, $\msmlambdafour$, $\msmcollisionxone$, $\msmcollisionxtwo$, $\msmcollisionxthree$, and $\msmcollisionxfour$ are all set to $0$.
-      4. Process the skew digit in an analogous way.
+         3. The values: $\msmcount$, $\msmtransition$, $\msmsliceone$, $\msmslicetwo$, $\msmslicethree$, $\msmslicefour$, $\msmxone$, $\msmyone$, $\msmxtwo$, $\msmytwo$, $\msmxthree$, $\msmythree$, $\msmxfour$, $\msmyfour$, $\msmcollisionxone$, $\msmcollisionxtwo$, $\msmcollisionxthree$, and $\msmcollisionxfour$ are all set to $0$.
+         4. We set $\msmlambdaone$, $\msmlambdatwo$, $\msmlambdathree$, and $\msmlambdafour$ correctly: they are each the slope of the line passing through the current _intermediate_ accumulator tangent to $E$. For instance, $\msmlambdaone$ is the slope of the line through $A$, $\msmlambdatwo$ is the slope through $2A$, etc.
+      4. Process the skew digit in an analogous way to the processing of the additions.
 
 ### MSM size
 
@@ -605,3 +617,5 @@ Suppose we have an MSM of short scalars of size $m$. Then the number of rows we 
 
 $$(\texttt{NUM-WNAF-DIGITS-PER-SCALAR + 1})\lceil \frac{m}{\texttt{ADDITIONS-PER-ROW}}\rceil + (\texttt{NUM-WNAF-DIGITS-PER-SCALAR} - 1) = 33\frac{m}{4} + 31.$$
 Indeed, there are $\lceil \frac{m}{\texttt{ADDITIONS-PER-ROW}}\rceil$ `add`-rows per digit, and there are $\texttt{NUM-WNAF-DIGITS-PER-SCALAR + 1}$ digits per scalar (where the last digit is the `skew` digit). Finally, the last term comes from the doublings.
+
+Note that in the regime where we have a few long MSMs, this is asymptotic to $8.25m$, which is comparable to the $8m$ we get from the precomputed columns. On the other hand, if we have many very short MSMs, the size of this table dominates what was produced by the precomputed columns.
