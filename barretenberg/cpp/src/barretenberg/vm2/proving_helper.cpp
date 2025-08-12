@@ -23,15 +23,12 @@ namespace {
 // TODO: This doesn't need to be a shared_ptr, but BB requires it.
 std::shared_ptr<AvmProver::ProvingKey> create_proving_key(AvmProver::ProverPolynomials& polynomials)
 {
-    // TODO: Why is num_public_inputs 0?
-    auto proving_key = std::make_shared<AvmProver::ProvingKey>(MAX_AVM_TRACE_SIZE, /*num_public_inputs=*/0);
+    auto proving_key = std::make_shared<AvmProver::ProvingKey>();
 
     for (auto [key_poly, prover_poly] : zip_view(proving_key->get_all(), polynomials.get_unshifted())) {
         BB_ASSERT_EQ(flavor_get_label(*proving_key, key_poly), flavor_get_label(polynomials, prover_poly));
         key_poly = std::move(prover_poly);
     }
-
-    proving_key->commitment_key = AvmProver::PCSCommitmentKey(MAX_AVM_TRACE_SIZE);
 
     return proving_key;
 }
@@ -63,7 +60,7 @@ std::shared_ptr<AvmVerifier::VerificationKey> AvmProvingHelper::create_verificat
             vk_span.subspan(AvmFlavor::NUM_FRS_COM * i + 2, AvmFlavor::NUM_FRS_COM));
     }
 
-    return std::make_shared<VerificationKey>(circuit_size, num_public_inputs, precomputed_cmts);
+    return std::make_shared<VerificationKey>(precomputed_cmts);
 }
 
 std::pair<AvmProvingHelper::Proof, AvmProvingHelper::VkData> AvmProvingHelper::prove(tracegen::TraceContainer&& trace)

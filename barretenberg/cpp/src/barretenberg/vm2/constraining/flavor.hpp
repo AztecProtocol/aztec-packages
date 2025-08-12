@@ -220,17 +220,12 @@ class AvmFlavor {
         using FF = typename Polynomial::FF;
         DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>);
 
-        ProvingKey() = default;
-        ProvingKey(const size_t circuit_size, const size_t num_public_inputs);
+        size_t circuit_size = MAX_AVM_TRACE_SIZE;
+        size_t log_circuit_size = MAX_AVM_TRACE_LOG_SIZE;
 
-        size_t circuit_size = 0;
-        size_t log_circuit_size = 0;
-        size_t num_public_inputs = 0;
+        ProvingKey();
 
         CommitmentKey commitment_key;
-
-        // Offset off the public inputs from the start of the execution trace
-        size_t pub_inputs_offset = 0;
 
         // The number of public inputs has to be the same for all instances because they are
         // folded element by element.
@@ -249,19 +244,17 @@ class AvmFlavor {
         VerificationKey() = default;
 
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
-            : NativeVerificationKey_(proving_key->circuit_size, static_cast<size_t>(proving_key->num_public_inputs))
         {
+            this->log_circuit_size = MAX_AVM_TRACE_LOG_SIZE;
             for (auto [polynomial, commitment] :
                  zip_view(proving_key->get_precomputed_polynomials(), this->get_all())) {
                 commitment = proving_key->commitment_key.commit(polynomial);
             }
         }
 
-        VerificationKey(const size_t circuit_size,
-                        const size_t num_public_inputs,
-                        std::array<Commitment, NUM_PRECOMPUTED_COMMITMENTS> const& precomputed_cmts)
-            : NativeVerificationKey_(circuit_size, num_public_inputs)
+        VerificationKey(std::array<Commitment, NUM_PRECOMPUTED_COMMITMENTS> const& precomputed_cmts)
         {
+            this->log_circuit_size = MAX_AVM_TRACE_LOG_SIZE;
             for (auto [vk_cmt, cmt] : zip_view(this->get_all(), precomputed_cmts)) {
                 vk_cmt = cmt;
             }

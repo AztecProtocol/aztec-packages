@@ -9,6 +9,7 @@
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
+#include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/tooling/stats.hpp"
 
 namespace bb::avm2 {
@@ -36,7 +37,7 @@ AvmProver::AvmProver(std::shared_ptr<Flavor::ProvingKey> input_key, const PCSCom
  */
 void AvmProver::execute_preamble_round()
 {
-    const auto circuit_size = static_cast<uint32_t>(key->circuit_size);
+    const auto circuit_size = MAX_AVM_TRACE_SIZE;
 
     transcript->send_to_verifier("circuit_size", circuit_size);
 }
@@ -68,7 +69,7 @@ void AvmProver::execute_log_derivative_inverse_round()
         tasks.push_back([&]() {
             AVM_TRACK_TIME(std::string("prove/log_derivative_inverse_round/") + std::string(Relation::NAME),
                            (compute_logderivative_inverse<FF, Relation>(
-                               prover_polynomials, relation_parameters, key->circuit_size)));
+                               prover_polynomials, relation_parameters, MAX_AVM_TRACE_SIZE)));
         });
     });
 
@@ -100,13 +101,13 @@ void AvmProver::execute_relation_check_rounds()
     // Multiply each linearly independent subrelation contribution by `alpha^i` for i = 0, ..., NUM_SUBRELATIONS - 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
-    std::vector<FF> gate_challenges(numeric::get_msb(key->circuit_size));
+    std::vector<FF> gate_challenges(MAX_AVM_TRACE_LOG_SIZE);
 
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
-    Sumcheck sumcheck(key->circuit_size,
+    Sumcheck sumcheck(MAX_AVM_TRACE_SIZE,
                       prover_polynomials,
                       transcript,
                       alpha,
@@ -122,12 +123,12 @@ void AvmProver::execute_pcs_rounds()
     using OpeningClaim = ProverOpeningClaim<Curve>;
     using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
 
-    PolynomialBatcher polynomial_batcher(key->circuit_size);
+    PolynomialBatcher polynomial_batcher(MAX_AVM_TRACE_SIZE);
     polynomial_batcher.set_unshifted(prover_polynomials.get_unshifted());
     polynomial_batcher.set_to_be_shifted_by_one(prover_polynomials.get_to_be_shifted());
 
     const OpeningClaim prover_opening_claim = ShpleminiProver_<Curve>::prove(
-        key->circuit_size, polynomial_batcher, sumcheck_output.challenge, commitment_key, transcript);
+        MAX_AVM_TRACE_SIZE, polynomial_batcher, sumcheck_output.challenge, commitment_key, transcript);
 
     PCS::compute_opening_proof(commitment_key, prover_opening_claim, transcript);
 }
