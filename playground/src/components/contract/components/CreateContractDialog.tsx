@@ -124,6 +124,7 @@ export function CreateContractDialog({
           initializer?.name,
         );
         opts = {
+          from: wallet.getAddress(),
           contractAddressSalt: salt,
           fee: { paymentMethod: feePaymentMethod },
         };
