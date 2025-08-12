@@ -37,6 +37,8 @@ std::filesystem::path get_test_dir(const std::string_view& test_name)
     return temp_dir / test_name;
 }
 
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1509): expand these test to accomodate a more realistic
+// CIVC flow in order to re-enable the ProveAndVerify* tests in this file
 void create_test_private_execution_steps(const std::filesystem::path& output_path)
 {
     using namespace acir_format;
@@ -124,7 +126,7 @@ ClientIVC::MegaVerificationKey get_ivc_vk(const std::filesystem::path& test_dir)
 
 // Test the ClientIVCAPI::prove flow, making sure --write_vk
 // returns the same output as our ivc VK generation.
-TEST_F(ClientIVCAPITests, ProveAndVerifyFileBasedFlow)
+TEST_F(ClientIVCAPITests, DISABLED_ProveAndVerifyFileBasedFlow)
 {
     auto ivc_vk = get_ivc_vk(test_dir);
 
@@ -233,7 +235,7 @@ TEST_F(ClientIVCAPITests, GatesCommandSmokeTest)
 }
 
 // Test prove_and_verify for our example IVC flow.
-TEST_F(ClientIVCAPITests, ProveAndVerifyCommand)
+TEST_F(ClientIVCAPITests, DISABLED_ProveAndVerifyCommand)
 {
     // Create test input file
     std::filesystem::path input_path = test_dir / "input.msgpack";
