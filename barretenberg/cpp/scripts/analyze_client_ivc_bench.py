@@ -30,7 +30,7 @@ to_keep = [
 
 with open(PREFIX / IVC_BENCH_JSON, "r") as read_file:
     read_result = json.load(read_file)
-    for _bench in read_result["benchmarks"]:
+    for _bench in read_result.get("benchmarks", [read_result]):
         if BENCHMARK == "" or _bench["name"] == BENCHMARK:
             bench = _bench
 
@@ -92,7 +92,7 @@ def print_contributions(prefix, ivc_bench_json, bench_name, components):
     try:
         with open(prefix / ivc_bench_json, "r") as read_file:
             read_result = json.load(read_file)
-            bench = next((_bench for _bench in read_result["benchmarks"] if bench_name == "" or _bench["name"] == bench_name), None)
+            bench = next((_bench for _bench in read_result.get("benchmarks", [read_result]) if bench_name == "" or _bench["name"] == bench_name), None)
             if not bench:
                 raise ValueError(f"Benchmark '{bench_name}' not found in the JSON file.")
     except FileNotFoundError:
