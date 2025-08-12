@@ -120,7 +120,7 @@ There are two kernel circuits in Aztec, the private kernel and the public kernel
 
 A transaction is built up by generating proofs for multiple recursive iterations of kernel circuits. Each call in the call stack is modeled as new iteration of the kernel circuit and are managed by a [FIFO](<https://en.wikipedia.org/wiki/FIFO_(computing_and_electronics)>) queue containing pending function calls. There are two call stacks, one for private calls and one for public calls.
 
-One iteration of a kernel circuit will pop a call off of the stack and execute the call. If the call triggers subsequent contract calls, these are pushed onto the stack.
+One iteration of a kernel circuit will pop a call of the stack and execute the call. If the call triggers subsequent contract calls, these are pushed onto the stack.
 
 Private kernel proofs are generated first. The transaction is ready to move to the next phase when the private call stack is empty.
 
