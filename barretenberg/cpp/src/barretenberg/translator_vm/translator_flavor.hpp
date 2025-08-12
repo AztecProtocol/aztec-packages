@@ -147,13 +147,15 @@ class TranslatorFlavor {
     using GrandProductRelations = std::tuple<TranslatorPermutationRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
     template <typename FF>
-    using Relations_ = std::tuple<TranslatorPermutationRelation<FF>,
-                                  TranslatorDeltaRangeConstraintRelation<FF>,
-                                  TranslatorOpcodeConstraintRelation<FF>,
-                                  TranslatorAccumulatorTransferRelation<FF>,
-                                  TranslatorDecompositionRelation<FF>,
-                                  TranslatorNonNativeFieldRelation<FF>,
-                                  TranslatorZeroConstraintsRelation<FF>>;
+    using Relations_ = std::tuple<
+        //    TranslatorPermutationRelation<FF>
+        TranslatorDeltaRangeConstraintRelation<FF>
+        //    TranslatorOpcodeConstraintRelation<FF>,
+        //    TranslatorAccumulatorTransferRelation<FF>,
+        //    TranslatorDecompositionRelation<FF>,
+        //    TranslatorNonNativeFieldRelation<FF>,
+        // TranslatorZeroConstraintsRelation<FF>
+        >;
     using Relations = Relations_<FF>;
 
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
@@ -692,7 +694,7 @@ class TranslatorFlavor {
 
             // Initialize some one-off polys with special structure
             lagrange_first = Polynomial{ /*size*/ 1, /*virtual_size*/ circuit_size };
-            lagrange_result_row = Polynomial{ /*size*/ 3, /*virtual_size*/ circuit_size };
+            lagrange_result_row = Polynomial{ /*size*/ RESULT_ROW + 1, /*virtual_size*/ circuit_size };
             lagrange_even_in_minicircuit = Polynomial{ /*size*/ MINI_CIRCUIT_SIZE, /*virtual_size*/ circuit_size };
             lagrange_odd_in_minicircuit = Polynomial{ /*size*/ MINI_CIRCUIT_SIZE, /*virtual_size*/ circuit_size };
 

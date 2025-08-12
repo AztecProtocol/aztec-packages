@@ -500,6 +500,9 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
 
     // Generate random EccOpQueue actions
 
+    op_queue->no_op_ultra_only();
+    op_queue->no_op_ultra_only();
+    op_queue->no_op_ultra_only();
     for (size_t i = 0; i < ((mini_circuit_size >> 1) - 2); i++) {
         switch (engine.get_random_uint8() & 3) {
         case 0:
@@ -516,6 +519,8 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
             break;
         }
     }
+    op_queue->no_op_ultra_only();
+    op_queue->no_op_ultra_only();
     op_queue->merge();
     const auto batching_challenge_v = BF::random_element(&engine);
     const auto evaluation_input_x = BF::random_element(&engine);
