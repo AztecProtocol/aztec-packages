@@ -87,6 +87,8 @@ TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
     // Add the same operations to the ECC op queue; the native computation is performed under the hood.
     auto op_queue = std::make_shared<ECCOpQueue>();
     op_queue->no_op_ultra_only();
+    op_queue->no_op_ultra_only();
+    op_queue->no_op_ultra_only();
     op_queue->add_accumulate(P1);
     op_queue->mul_accumulate(P2, z);
     Fq op_accumulator = 0;
@@ -97,7 +99,9 @@ TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
     Fq batching_challenge = fq::random_element();
 
     op_queue->eq_and_reset();
-    op_queue->empty_row_for_testing();
+    op_queue->no_op_ultra_only();
+    op_queue->no_op_ultra_only();
+
     op_queue->merge();
 
     // Sample the evaluation input x
@@ -106,7 +110,7 @@ TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
     Fq x_inv = x.invert();
     // Compute the batched evaluation of polynomials (multiplying by inverse to go from lower to higher)
     const auto& ultra_ops = op_queue->get_ultra_ops();
-    for (size_t i = 1; i < ultra_ops.size(); i++) {
+    for (size_t i = 3; i < ultra_ops.size() - 2; i++) {
         const auto& ecc_op = ultra_ops[i];
         op_accumulator = op_accumulator * x_inv + ecc_op.op_code.value();
         const auto [x_u256, y_u256] = ecc_op.get_base_point_standard_form();
@@ -116,15 +120,16 @@ TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
         z_2_accumulator = z_2_accumulator * x_inv + uint256_t(ecc_op.z_2);
     }
     // The degree is ultra_ops.size() - 2 as we ignore the first no-op in computation
-    Fq x_pow = x.pow(ultra_ops.size() - 2);
+    Fq x_pow = x.pow(ultra_ops.size() - 6);
 
     // Multiply by an appropriate power of x to get rid of the inverses
-    Fq result = ((((z_2_accumulator * batching_challenge + z_1_accumulator) * batching_challenge + p_y_accumulator) *
-                      batching_challenge +
-                  p_x_accumulator) *
-                     batching_challenge +
-                 op_accumulator) *
-                x_pow;
+    [[maybe_unused]] Fq result =
+        ((((z_2_accumulator * batching_challenge + z_1_accumulator) * batching_challenge + p_y_accumulator) *
+              batching_challenge +
+          p_x_accumulator) *
+             batching_challenge +
+         op_accumulator) *
+        x_pow;
 
     // Create circuit builder and feed the queue inside
     auto circuit_builder = TranslatorCircuitBuilder(batching_challenge, x, op_queue);

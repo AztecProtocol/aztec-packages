@@ -528,18 +528,19 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     // add two zeros for consistency.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1360): We'll also have to eventually process random
     // data in the merge protocol (added for zero knowledge)/
-    populate_wires_from_ultra_op(ultra_ops[0]);
-    for (auto& wire : wires) {
-        if (wire.empty()) {
-            wire.push_back(zero_idx);
-            wire.push_back(zero_idx);
+
+    for (size_t i = 0; i < NUM_SKIPPED_OPS + NUM_MASKING_OPS; i++) {
+        populate_wires_from_ultra_op(ultra_ops[i]);
+        for (size_t j = 4; j < wires.size(); j++) {
+            wires[j].push_back(zero_idx);
+            wires[j].push_back(zero_idx);
         }
     }
-    num_gates += 2;
+    num_gates = (NUM_SKIPPED_OPS + NUM_MASKING_OPS) * NUM_ROWS_PER_ULTRA_OP;
 
-    // We need to precompute the accumulators at each step, because in the actual circuit we compute the values starting
-    // from the later indices. We need to know the previous accumulator to create the gate
-    for (size_t i = 1; i < ultra_ops.size(); i++) {
+    // We need to precompute the accumulators at each step, because in the actual circuit we compute the values
+    // starting from the later indices. We need to know the previous accumulator to create the gate
+    for (size_t i = 3; i < ultra_ops.size() - 2; i++) {
         const auto& ultra_op = ultra_ops[ultra_ops.size() - i];
         current_accumulator *= evaluation_input_x;
         const auto [x_256, y_256] = ultra_op.get_base_point_standard_form();
@@ -556,7 +557,7 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     accumulator_trace.pop_back();
 
     // Generate witness values from all the UltraOps
-    for (size_t i = 1; i < ultra_ops.size(); i++) {
+    for (size_t i = 3; i < ultra_ops.size() - NUM_MASKING_OPS; i++) {
         const auto& ultra_op = ultra_ops[i];
         Fq previous_accumulator = 0;
         // Pop the last value from accumulator trace and use it as previous accumulator
@@ -571,5 +572,15 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         // And put them into the wires
         create_accumulation_gate(one_accumulation_step);
     }
+
+    for (size_t i = ultra_ops.size() - NUM_MASKING_OPS; i < ultra_ops.size(); i++) {
+
+        populate_wires_from_ultra_op(ultra_ops[i]);
+        for (size_t j = 4; j < wires.size(); j++) {
+            wires[j].push_back(zero_idx);
+            wires[j].push_back(zero_idx);
+        }
+    }
+    num_gates += NUM_ROWS_PER_ULTRA_OP * NUM_MASKING_OPS;
 }
 } // namespace bb

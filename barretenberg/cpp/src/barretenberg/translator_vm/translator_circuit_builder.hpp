@@ -77,6 +77,10 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     static constexpr size_t NUM_WIRES = 81;
     static constexpr size_t NUM_SELECTORS = 0;
 
+    static constexpr size_t NUM_ROWS_PER_ULTRA_OP = 2;
+    static constexpr size_t NUM_MASKING_OPS = 2;
+    static constexpr size_t NUM_SKIPPED_OPS = 1;
+
     /**
      * We won't need these standard gates that are defined as virtual in circuit builder base
      *
@@ -239,7 +243,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     static constexpr auto MAX_HIGH_WIDE_LIMB_SIZE = (uint256_t(1) << (NUM_LIMB_BITS + NUM_LAST_LIMB_BITS)) - 1;
 
     // Index at which the evaluation result is stored in the circuit
-    static constexpr size_t RESULT_ROW = 2;
+    static constexpr size_t RESULT_ROW = 6;
 
     // How much you'd need to multiply a value by to perform a shift to a higher binary limb
     static constexpr auto SHIFT_1 = uint256_t(1) << NUM_LIMB_BITS;

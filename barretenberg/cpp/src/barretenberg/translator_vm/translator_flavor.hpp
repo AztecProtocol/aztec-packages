@@ -78,6 +78,10 @@ class TranslatorFlavor {
     // Number of wires
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
 
+    static constexpr size_t NUM_ROWS_PER_ULTRA_OP = CircuitBuilder::NUM_ROWS_PER_ULTRA_OP;
+    static constexpr size_t NUM_MASKING_OPS = CircuitBuilder::NUM_MASKING_OPS;
+    static constexpr size_t NUM_SKIPPED_OPS = CircuitBuilder::NUM_SKIPPED_OPS;
+
     // The result of evaluating the polynomials in the nonnative form in translator circuit, stored as limbs and
     // referred to as accumulated_result. This is reconstructed in it's base field form and sent to the verifier
     // responsible for checking it against the evaluations received from ECCVM.
