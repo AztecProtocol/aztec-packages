@@ -145,7 +145,7 @@ export class Barretenberg extends BarretenbergApi {
     return this.bbApi.clientIvcComputeIvcVk(command);
   }
 
-  async ClientIvcStats(command: ClientIvcStats) {
+  async clientIvcStats(command: ClientIvcStats) {
     return this.bbApi.clientIvcStats(command);
   }
 
