@@ -15,10 +15,12 @@ global I64_PACKED_LEN: u32 = 1;
 impl Packable for bool {
     let N: u32 = BOOL_PACKED_LEN;
 
+    #[inline_always]
     fn pack(self) -> [Field; Self::N] {
         [self as Field]
     }
 
+    #[inline_always]
     fn unpack(fields: [Field; Self::N]) -> bool {
         (fields[0] as u1) != 0
     }
@@ -27,10 +29,12 @@ impl Packable for bool {
 impl Packable for u8 {
     let N: u32 = U8_PACKED_LEN;
 
+    #[inline_always]
     fn pack(self) -> [Field; Self::N] {
         [self as Field]
     }
 
+    #[inline_always]
     fn unpack(fields: [Field; Self::N]) -> Self {
         fields[0] as u8
     }
@@ -39,10 +43,12 @@ impl Packable for u8 {
 impl Packable for u16 {
     let N: u32 = U16_PACKED_LEN;
 
+    #[inline_always]
     fn pack(self) -> [Field; Self::N] {
         [self as Field]
     }
 
+    #[inline_always]
     fn unpack(fields: [Field; Self::N]) -> Self {
         fields[0] as u16
     }
@@ -51,10 +57,12 @@ impl Packable for u16 {
 impl Packable for u32 {
     let N: u32 = U32_PACKED_LEN;
 
+    #[inline_always]
     fn pack(self) -> [Field; Self::N] {
         [self as Field]
     }
 
+    #[inline_always]
     fn unpack(fields: [Field; Self::N]) -> Self {
         fields[0] as u32
     }
@@ -63,10 +71,12 @@ impl Packable for u32 {
 impl Packable for u64 {
     let N: u32 = U64_PACKED_LEN;
 
+    #[inline_always]
     fn pack(self) -> [Field; Self::N] {
         [self as Field]
     }
 
+    #[inline_always]
     fn unpack(fields: [Field; Self::N]) -> Self {
         fields[0] as u64
     }
@@ -75,10 +85,12 @@ impl Packable for u64 {
 impl Packable for u128 {
     let N: u32 = U128_PACKED_LEN;
 
+    #[inline_always]
     fn pack(self) -> [Field; Self::N] {
         [self as Field]
     }
 
+    #[inline_always]
     fn unpack(fields: [Field; Self::N]) -> Self {
         fields[0] as u128
     }
@@ -87,10 +99,12 @@ impl Packable for u128 {
 impl Packable for Field {
     let N: u32 = FIELD_PACKED_LEN;
 
+    #[inline_always]
     fn pack(self) -> [Field; Self::N] {
         [self]
     }
 
+    #[inline_always]
     fn unpack(fields: [Field; Self::N]) -> Self {
         fields[0]
     }
@@ -99,10 +113,12 @@ impl Packable for Field {
 impl Packable for i8 {
     let N: u32 = I8_PACKED_LEN;
 
+    #[inline_always]
     fn pack(self) -> [Field; Self::N] {
         [self as u8 as Field]
     }
 
+    #[inline_always]
     fn unpack(fields: [Field; Self::N]) -> Self {
         fields[0] as u8 as i8
     }
@@ -111,10 +127,12 @@ impl Packable for i8 {
 impl Packable for i16 {
     let N: u32 = I16_PACKED_LEN;
 
+    #[inline_always]
     fn pack(self) -> [Field; Self::N] {
         [self as u16 as Field]
     }
 
+    #[inline_always]
     fn unpack(fields: [Field; Self::N]) -> Self {
         fields[0] as u16 as i16
     }
@@ -123,10 +141,12 @@ impl Packable for i16 {
 impl Packable for i32 {
     let N: u32 = I32_PACKED_LEN;
 
+    #[inline_always]
     fn pack(self) -> [Field; Self::N] {
         [self as u32 as Field]
     }
 
+    #[inline_always]
     fn unpack(fields: [Field; Self::N]) -> Self {
         fields[0] as u32 as i32
     }
@@ -135,10 +155,12 @@ impl Packable for i32 {
 impl Packable for i64 {
     let N: u32 = I64_PACKED_LEN;
 
+    #[inline_always]
     fn pack(self) -> [Field; Self::N] {
         [self as u64 as Field]
     }
 
+    #[inline_always]
     fn unpack(fields: [Field; Self::N]) -> Self {
         fields[0] as u64 as i64
     }
@@ -150,6 +172,7 @@ where
 {
     let N: u32 = M * <T as Packable>::N;
 
+    #[inline_always]
     fn pack(self) -> [Field; Self::N] {
         let mut result: [Field; Self::N] = std::mem::zeroed();
         for i in 0..M {
@@ -161,6 +184,7 @@ where
         result
     }
 
+    #[inline_always]
     fn unpack(fields: [Field; Self::N]) -> Self {
         let mut reader = crate::utils::reader::Reader::new(fields);
         let mut result: [T; M] = std::mem::zeroed();
