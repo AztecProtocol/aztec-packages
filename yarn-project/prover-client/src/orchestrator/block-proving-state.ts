@@ -30,6 +30,7 @@ import {
 import type { CircuitName } from '@aztec/stdlib/stats';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { type BlockHeader, GlobalVariables } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 import { VkData } from '@aztec/stdlib/vks';
 
 import { buildHeaderFromCircuitOutputs, toRollupProofData } from './block-building-helpers.js';
@@ -68,6 +69,7 @@ export class BlockProvingState {
     public readonly blockNumber: number,
     public readonly totalNumTxs: number,
     private readonly constants: CheckpointConstantData,
+    private readonly timestamp: UInt64,
     public readonly lastArchiveTreeSnapshot: AppendOnlyTreeSnapshot,
     private readonly lastArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     public readonly lastL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
@@ -208,15 +210,12 @@ export class BlockProvingState {
     }
 
     const constants = this.constants;
-    // A block with no txs will have a timestamp of the previous block + 1.
-    // This must match the implementation in `BlockRollupPublicInputsComposer::new_from_no_rollups`.
-    const timestamp = this.headerOfLastBlockInPreviousCheckpoint.globalVariables.timestamp + 1n;
     return GlobalVariables.from({
       chainId: constants.chainId,
       version: constants.version,
       blockNumber: this.blockNumber,
       slotNumber: constants.slotNumber,
-      timestamp,
+      timestamp: this.timestamp,
       coinbase: constants.coinbase,
       feeRecipient: constants.feeRecipient,
       gasFees: constants.gasFees,
@@ -292,10 +291,11 @@ export class BlockProvingState {
         rollupType: 'block-root-empty-tx-first-rollup' satisfies CircuitName,
         inputs: new BlockRootEmptyTxFirstRollupPrivateInputs(
           l1ToL2Roots,
-          this.headerOfLastBlockInPreviousCheckpoint,
           this.lastArchiveTreeSnapshot,
+          this.headerOfLastBlockInPreviousCheckpoint.state,
           this.constants,
           this.startSpongeBlob,
+          this.timestamp,
           this.lastL1ToL2MessageSubtreeSiblingPath,
           this.lastArchiveSiblingPath,
         ),

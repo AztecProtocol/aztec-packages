@@ -369,10 +369,11 @@ describe('LightBlockBuilder', () => {
       });
       const inputs = BlockRootEmptyTxFirstRollupPrivateInputs.from({
         l1ToL2Roots,
-        previousBlockHeader,
+        previousState: previousBlockHeader.state,
         previousArchive: lastArchive,
         constants,
         startSpongeBlob,
+        timestamp: globalVariables.timestamp,
         newArchiveSiblingPath,
         newL1ToL2MessageSubtreeSiblingPath,
       });

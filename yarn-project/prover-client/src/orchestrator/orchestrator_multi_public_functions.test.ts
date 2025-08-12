@@ -108,7 +108,11 @@ describe('prover/orchestrator/public-functions', () => {
           blobFields.length,
           context.getPreviousBlockHeader(),
         );
-        await context.orchestrator.startNewBlock(context.blockNumber, processed.length);
+        await context.orchestrator.startNewBlock(
+          context.blockNumber,
+          context.globalVariables.timestamp,
+          processed.length,
+        );
 
         await context.orchestrator.addTxs(processed);
 

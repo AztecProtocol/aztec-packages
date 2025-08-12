@@ -31,7 +31,7 @@ describe('prover/orchestrator/mixed-blocks', () => {
       blobFields.length,
       context.getPreviousBlockHeader(),
     );
-    await context.orchestrator.startNewBlock(1, txs.length);
+    await context.orchestrator.startNewBlock(context.blockNumber, context.globalVariables.timestamp, txs.length);
 
     await context.orchestrator.addTxs(txs);
 

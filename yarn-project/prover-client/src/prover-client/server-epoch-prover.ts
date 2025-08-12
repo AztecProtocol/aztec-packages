@@ -4,6 +4,7 @@ import type { EpochProver } from '@aztec/stdlib/interfaces/server';
 import type { Proof } from '@aztec/stdlib/proofs';
 import type { CheckpointConstantData, RootRollupPublicInputs } from '@aztec/stdlib/rollup';
 import type { BlockHeader, ProcessedTx, Tx } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 
 import type { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
 import type { BrokerCircuitProverFacade } from '../proving_broker/broker_prover_facade.js';
@@ -57,8 +58,8 @@ export class ServerEpochProver implements EpochProver {
     await this.facade.stop();
     await this.orchestrator.stop();
   }
-  startNewBlock(blockNumber: number, totalNumTxs: number): Promise<void> {
-    return this.orchestrator.startNewBlock(blockNumber, totalNumTxs);
+  startNewBlock(blockNumber: number, timestamp: UInt64, totalNumTxs: number): Promise<void> {
+    return this.orchestrator.startNewBlock(blockNumber, timestamp, totalNumTxs);
   }
   addTxs(txs: ProcessedTx[]): Promise<void> {
     return this.orchestrator.addTxs(txs);

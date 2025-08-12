@@ -177,7 +177,7 @@ export class EpochProvingJob implements Traceable {
         );
 
         // Start block proving
-        await this.prover.startNewBlock(block.number, txs.length);
+        await this.prover.startNewBlock(block.number, globalVariables.timestamp, txs.length);
 
         // Process public fns
         const db = await this.dbProvider.fork(block.number - 1);

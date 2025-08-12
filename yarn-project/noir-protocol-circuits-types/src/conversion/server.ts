@@ -929,10 +929,11 @@ export function mapBlockRootEmptyTxFirstRollupPrivateInputsToNoir(
 ): BlockRootEmptyTxFirstRollupPrivateInputsNoir {
   return {
     parity_root: mapProofDataToNoir(inputs.l1ToL2Roots, mapParityPublicInputsToNoir),
-    previous_block_header: mapBlockHeaderToNoir(inputs.previousBlockHeader),
     previous_archive: mapAppendOnlyTreeSnapshotToNoir(inputs.previousArchive),
+    previous_state: mapStateReferenceToNoir(inputs.previousState),
     constants: mapCheckpointConstantDataToNoir(inputs.constants),
     start_sponge_blob: mapSpongeBlobToNoir(inputs.startSpongeBlob),
+    timestamp: mapU64ToNoir(inputs.timestamp),
     new_l1_to_l2_message_subtree_sibling_path: mapTuple(inputs.newL1ToL2MessageSubtreeSiblingPath, mapFieldToNoir),
     new_archive_sibling_path: mapTuple(inputs.newArchiveSiblingPath, mapFieldToNoir),
   };

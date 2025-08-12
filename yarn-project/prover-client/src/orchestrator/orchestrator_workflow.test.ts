@@ -85,7 +85,7 @@ describe('prover/orchestrator', () => {
           blobFields.length,
           context.getPreviousBlockHeader(),
         );
-        await orchestrator.startNewBlock(context.blockNumber, 1);
+        await orchestrator.startNewBlock(context.blockNumber, context.globalVariables.timestamp, 1);
 
         // the prover broker deduplicates jobs, so the base parity proof
         // for the three sets empty messages is called only once. so total
@@ -126,7 +126,7 @@ describe('prover/orchestrator', () => {
           blobFields.length,
           context.getPreviousBlockHeader(),
         );
-        await orchestrator.startNewBlock(context.blockNumber, txs.length);
+        await orchestrator.startNewBlock(context.blockNumber, context.globalVariables.timestamp, txs.length);
         await context.setTreeRoots(txs);
         await orchestrator.addTxs(txs);
 
@@ -166,7 +166,7 @@ describe('prover/orchestrator', () => {
         expect(getTubeSpy).toHaveBeenCalledTimes(2);
         getTubeSpy.mockReset();
 
-        await orchestrator.startNewBlock(context.blockNumber, processedTxs.length);
+        await orchestrator.startNewBlock(context.blockNumber, context.globalVariables.timestamp, processedTxs.length);
         await context.setTreeRoots(processedTxs);
         await orchestrator.addTxs(processedTxs);
         await orchestrator.setBlockCompleted(context.blockNumber);

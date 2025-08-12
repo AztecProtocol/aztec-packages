@@ -45,7 +45,7 @@ describe('prover/orchestrator/errors', () => {
         blobFields.length,
         context.getPreviousBlockHeader(),
       );
-      await orchestrator.startNewBlock(context.blockNumber, txs.length);
+      await orchestrator.startNewBlock(context.blockNumber, context.globalVariables.timestamp, txs.length);
       await orchestrator.addTxs(txs);
 
       await expect(async () => await orchestrator.addTxs(txs)).rejects.toThrow(
@@ -67,13 +67,14 @@ describe('prover/orchestrator/errors', () => {
         blobFields.length,
         context.getPreviousBlockHeader(),
       );
-      await orchestrator.startNewBlock(context.blockNumber, 1);
+      await orchestrator.startNewBlock(context.blockNumber, context.globalVariables.timestamp, txs.length);
       await orchestrator.addTxs(txs);
       await orchestrator.setBlockCompleted(context.blockNumber);
 
-      await expect(async () => await orchestrator.startNewBlock(context.blockNumber, 1)).rejects.toThrow(
-        'Checkpoint not accepting further blocks',
-      );
+      await expect(
+        async () =>
+          await orchestrator.startNewBlock(context.blockNumber, context.globalVariables.timestamp, txs.length),
+      ).rejects.toThrow('Checkpoint not accepting further blocks');
     });
 
     it('throws if adding a transaction before starting epoch', async () => {
@@ -119,7 +120,7 @@ describe('prover/orchestrator/errors', () => {
         emptyBlockBlobFields.length,
         context.getPreviousBlockHeader(),
       );
-      await orchestrator.startNewBlock(context.blockNumber, 1);
+      await orchestrator.startNewBlock(context.blockNumber, context.globalVariables.timestamp, 1);
       orchestrator.cancel();
 
       await expect(async () => await context.orchestrator.addTxs([await context.makeProcessedTx()])).rejects.toThrow(

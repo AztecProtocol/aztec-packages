@@ -30,6 +30,7 @@ import {
 import type { CircuitName } from '@aztec/stdlib/stats';
 import type { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import type { BlockHeader } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 
 import { accumulateBlobs, buildBlobHints, toRollupProofData } from './block-building-helpers.js';
 import { BlockProvingState, type ProofState } from './block-proving-state.js';
@@ -75,6 +76,7 @@ export class CheckpointProvingState {
 
   public startNewBlock(
     blockNumber: number,
+    timestamp: UInt64,
     totalNumTxs: number,
     lastArchiveTreeSnapshot: AppendOnlyTreeSnapshot,
     lastArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
@@ -105,6 +107,7 @@ export class CheckpointProvingState {
       blockNumber,
       totalNumTxs,
       this.constants,
+      timestamp,
       lastArchiveTreeSnapshot,
       lastArchiveSiblingPath,
       lastL1ToL2MessageTreeSnapshot,

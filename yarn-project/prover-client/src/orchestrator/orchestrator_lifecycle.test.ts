@@ -51,7 +51,7 @@ describe('prover/orchestrator/lifecycle', () => {
         blobFields.length,
         context.getPreviousBlockHeader(),
       );
-      await orchestrator.startNewBlock(context.blockNumber, 0);
+      await orchestrator.startNewBlock(context.blockNumber, context.globalVariables.timestamp, 0);
 
       await sleep(1);
 

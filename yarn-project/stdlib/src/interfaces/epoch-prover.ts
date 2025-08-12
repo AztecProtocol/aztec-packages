@@ -6,6 +6,7 @@ import type { CheckpointConstantData } from '../rollup/index.js';
 import type { RootRollupPublicInputs } from '../rollup/root_rollup.js';
 import type { BlockHeader } from '../tx/block_header.js';
 import type { Tx } from '../tx/tx.js';
+import type { UInt64 } from '../types/index.js';
 import type { IBlockFactory } from './block-builder.js';
 
 /** Coordinates the proving of an entire epoch. */
@@ -41,9 +42,10 @@ export interface EpochProver extends Omit<IBlockFactory, 'setBlockCompleted' | '
   /**
    * Starts a new block.
    * @param blockNumber - The block number.
+   * @param timestamp - The timestamp of the block.
    * @param totalNumTxs - The total number of txs in the block.
    */
-  startNewBlock(blockNumber: number, totalNumTxs: number): Promise<void>;
+  startNewBlock(blockNumber: number, timestamp: UInt64, totalNumTxs: number): Promise<void>;
 
   /**
    * Kickstarts tube circuits for the specified txs. These will be used during epoch proving.

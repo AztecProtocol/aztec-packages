@@ -40,6 +40,7 @@ import {
 import type { CircuitName } from '@aztec/stdlib/stats';
 import { type AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
 import type { BlockHeader, ProcessedTx, Tx } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 import {
   Attributes,
   type TelemetryClient,
@@ -188,12 +189,14 @@ export class ProvingOrchestrator implements EpochProver {
   /**
    * Starts off a new block
    * @param blockNumber - The block number
+   * @param timestamp - The timestamp of the block. This is only required for constructing the private inputs for the
+   * block that doesn't have any txs.
    * @param totalNumTxs - The total number of txs in the block
    */
   @trackSpan('ProvingOrchestrator.startNewBlock', blockNumber => ({
     [Attributes.BLOCK_NUMBER]: blockNumber,
   }))
-  public async startNewBlock(blockNumber: number, totalNumTxs: number) {
+  public async startNewBlock(blockNumber: number, timestamp: UInt64, totalNumTxs: number) {
     if (!this.provingState) {
       throw new Error('Empty epoch proving state. Call startNewEpoch before starting a block.');
     }
@@ -224,6 +227,7 @@ export class ProvingOrchestrator implements EpochProver {
 
     const blockProvingState = checkpointProvingState.startNewBlock(
       blockNumber,
+      timestamp,
       totalNumTxs,
       lastArchiveTreeSnapshot,
       lastArchiveSiblingPath,

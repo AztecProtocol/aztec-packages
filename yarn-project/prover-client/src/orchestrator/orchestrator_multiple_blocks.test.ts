@@ -50,7 +50,7 @@ describe('prover/orchestrator/multi-block', () => {
           context.getPreviousBlockHeader(block.number),
         );
 
-        await context.orchestrator.startNewBlock(block.number, txs.length);
+        await context.orchestrator.startNewBlock(block.number, block.header.globalVariables.timestamp, txs.length);
         await context.orchestrator.addTxs(txs);
         await context.orchestrator.setBlockCompleted(block.number);
       }
@@ -87,7 +87,7 @@ describe('prover/orchestrator/multi-block', () => {
               context.getPreviousBlockHeader(block.number),
             );
 
-            await context.orchestrator.startNewBlock(block.number, txs.length);
+            await context.orchestrator.startNewBlock(block.number, block.header.globalVariables.timestamp, txs.length);
             await context.orchestrator.addTxs(txs);
             await context.orchestrator.setBlockCompleted(block.number);
           }),
@@ -133,7 +133,11 @@ describe('prover/orchestrator/multi-block', () => {
                 context.getPreviousBlockHeader(block.number),
               );
 
-              await context.orchestrator.startNewBlock(block.number, txs.length);
+              await context.orchestrator.startNewBlock(
+                block.number,
+                block.header.globalVariables.timestamp,
+                txs.length,
+              );
               await context.orchestrator.addTxs(txs);
               await context.orchestrator.setBlockCompleted(block.number);
             }),

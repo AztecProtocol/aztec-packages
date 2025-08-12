@@ -48,8 +48,8 @@ describe('prover/orchestrator/blocks', () => {
       );
 
       for (const block of blocks) {
-        const blockNumber = block.header.globalVariables.blockNumber;
-        await context.orchestrator.startNewBlock(blockNumber, block.txs.length);
+        const { blockNumber, timestamp } = block.header.globalVariables;
+        await context.orchestrator.startNewBlock(blockNumber, timestamp, block.txs.length);
         if (block.txs.length > 0) {
           await context.orchestrator.addTxs(block.txs);
         }
@@ -94,8 +94,8 @@ describe('prover/orchestrator/blocks', () => {
       );
 
       for (const block of blocks) {
-        const blockNumber = block.header.globalVariables.blockNumber;
-        await context.orchestrator.startNewBlock(blockNumber, block.txs.length);
+        const { blockNumber, timestamp } = block.header.globalVariables;
+        await context.orchestrator.startNewBlock(blockNumber, timestamp, block.txs.length);
         await context.orchestrator.addTxs(block.txs);
         await context.orchestrator.setBlockCompleted(blockNumber);
       }

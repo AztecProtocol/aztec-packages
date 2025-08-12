@@ -91,7 +91,7 @@ describe('prover/bb_prover/full-rollup', () => {
           blockBlobFields[blockNum].length,
           previousBlockHeader,
         );
-        await context.orchestrator.startNewBlock(blockNum, processed.length);
+        await context.orchestrator.startNewBlock(blockNum, globals.timestamp, processed.length);
         await context.orchestrator.addTxs(processed);
 
         log.info(`Setting block as completed`);
@@ -153,13 +153,13 @@ describe('prover/bb_prover/full-rollup', () => {
 
     context.orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
     await context.orchestrator.startNewCheckpoint(
-      makeCheckpointConstants(1),
+      context.checkpointConstants,
       l1ToL2Messages,
       1,
       blobFields.length,
       context.getPreviousBlockHeader(),
     );
-    await context.orchestrator.startNewBlock(1, processed.length);
+    await context.orchestrator.startNewBlock(context.blockNumber, context.globalVariables.timestamp, processed.length);
 
     await context.orchestrator.addTxs(processed);
 

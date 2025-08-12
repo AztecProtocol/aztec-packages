@@ -39,10 +39,11 @@ pub struct BlockRollupPublicInputsComposer {
 
 impl BlockRollupPublicInputsComposer {
     pub fn new_from_no_rollups(
-        previous_block_header: BlockHeader,
         previous_archive: AppendOnlyTreeSnapshot,
+        previous_state: StateReference,
         constants: CheckpointConstantData,
         start_sponge_blob: SpongeBlob,
+        timestamp: u64,
     ) -> Self {
         let block_end_marker = Self::create_block_end_marker(0 /* num_txs */);
         let mut end_sponge_blob = start_sponge_blob;
@@ -51,21 +52,20 @@ impl BlockRollupPublicInputsComposer {
         Self {
             constants,
             previous_archive,
-            previous_l1_to_l2: previous_block_header.state.l1_to_l2_message_tree,
+            previous_l1_to_l2: previous_state.l1_to_l2_message_tree,
             // The state remains the same since there are no tx effects in this block.
-            start_partial_state: previous_block_header.state.partial,
-            end_partial_state: previous_block_header.state.partial,
+            start_partial_state: previous_state.partial,
+            end_partial_state: previous_state.partial,
             start_sponge_blob,
             end_sponge_blob,
-            // The timestamp of the next block is the timestamp of the previous block + 1.
-            timestamp: previous_block_header.global_variables.timestamp + 1,
+            timestamp,
             // The followings are 0 since there are no tx effects in this block.
             out_hash: 0,
             accumulated_fees: 0,
             accumulated_mana_used: 0,
             // The followings are set/updated only if `with_l1_to_l2_roots` is called explicitly.
             in_hash: 0,
-            new_l1_to_l2: previous_block_header.state.l1_to_l2_message_tree,
+            new_l1_to_l2: previous_state.l1_to_l2_message_tree,
         }
     }
 

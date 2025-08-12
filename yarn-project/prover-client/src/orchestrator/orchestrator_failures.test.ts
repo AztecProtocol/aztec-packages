@@ -52,7 +52,7 @@ describe('prover/orchestrator/failures', () => {
         );
         // these operations could fail if the target circuit fails before adding all blocks or txs
         try {
-          await orchestrator.startNewBlock(block.number, txs.length);
+          await orchestrator.startNewBlock(block.number, block.header.globalVariables.timestamp, txs.length);
           let allTxsAdded = true;
           try {
             await orchestrator.addTxs(txs);

@@ -34,7 +34,7 @@ describe('prover/orchestrator/blocks', () => {
         blobFields.length,
         context.getPreviousBlockHeader(),
       );
-      await context.orchestrator.startNewBlock(context.blockNumber, 0);
+      await context.orchestrator.startNewBlock(context.blockNumber, context.globalVariables.timestamp, 0);
 
       const header = await context.orchestrator.setBlockCompleted(context.blockNumber);
       await context.orchestrator.finaliseEpoch();
@@ -58,7 +58,7 @@ describe('prover/orchestrator/blocks', () => {
         blobFields.length,
         context.getPreviousBlockHeader(),
       );
-      await context.orchestrator.startNewBlock(context.blockNumber, txs.length);
+      await context.orchestrator.startNewBlock(context.blockNumber, context.globalVariables.timestamp, txs.length);
 
       await context.orchestrator.addTxs(txs);
 
@@ -84,7 +84,7 @@ describe('prover/orchestrator/blocks', () => {
         blobFields.length,
         context.getPreviousBlockHeader(),
       );
-      await context.orchestrator.startNewBlock(context.blockNumber, txs.length);
+      await context.orchestrator.startNewBlock(context.blockNumber, context.globalVariables.timestamp, txs.length);
 
       await context.orchestrator.addTxs(txs);
 
