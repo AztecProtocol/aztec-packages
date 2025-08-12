@@ -124,8 +124,6 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
 
         // Extract native verifier accumulator from the stdlib accum for use on the next round
         recursive_verifier_accumulator = std::make_shared<DeciderVerificationKey>(verifier_accum->get_value());
-        info("first selector comm of recursive_verifier_accumulator: ",
-             recursive_verifier_accumulator->vk->get_all()[0]);
 
         witness_commitments = std::move(verifier.keys_to_fold[1]->witness_commitments);
         public_inputs = std::move(verifier.public_inputs);
@@ -145,8 +143,6 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
 
         // Extract native verifier accumulator from the stdlib accum for use on the next round
         recursive_verifier_accumulator = std::make_shared<DeciderVerificationKey>(verifier_accum->get_value());
-        info("first selector comm of recursive_verifier_accumulator: ",
-             recursive_verifier_accumulator->vk->get_all()[0]);
         // Initialize the gate challenges to zero for use in first round of folding
         recursive_verifier_accumulator->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
 
@@ -348,8 +344,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
         fold_output.accumulator = proving_key; // initialize the prover accum with the completed key
 
         auto decider_vk = std::make_shared<DeciderVerificationKey>(honk_vk);
-        auto oink_verifier_transcript =
-            Transcript::convert_prover_transcript_to_verifier_transcript(prover_accumulation_transcript);
+        auto oink_verifier_transcript = std::make_shared<Transcript>();
         oink_verifier_transcript->load_proof(oink_proof);
         OinkVerifier<Flavor> oink_verifier{ decider_vk, oink_verifier_transcript };
         oink_verifier.verify();
@@ -363,8 +358,13 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
         vinfo("computing folding proof");
         auto vk = std::make_shared<DeciderVerificationKey_<Flavor>>(honk_vk);
         // make a copy of the prover_accumulation_transcript for the verifier to use
-        auto verifier_accumulation_transcript =
-            Transcript::convert_prover_transcript_to_verifier_transcript(prover_accumulation_transcript);
+        BB_ASSERT_EQ(prover_accumulation_transcript->num_frs_written, static_cast<size_t>(0), "Expected to be empty");
+        auto verifier_accumulation_transcript = std::make_shared<Transcript>(*prover_accumulation_transcript);
+        verifier_accumulation_transcript->num_frs_read =
+            static_cast<size_t>(verifier_accumulation_transcript->proof_start);
+        verifier_accumulation_transcript->proof_start = 0;
+        // auto verifier_accumulation_transcript =
+        //     Transcript::convert_prover_transcript_to_verifier_transcript(prover_accumulation_transcript);
 
         FoldingProver folding_prover({ fold_output.accumulator, proving_key },
                                      { native_verifier_accumulator, vk },
