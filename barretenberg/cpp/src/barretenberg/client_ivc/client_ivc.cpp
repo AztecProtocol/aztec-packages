@@ -332,6 +332,8 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
     if (num_circuits_accumulated == 0) { // First circuit in the IVC
         BB_ASSERT_EQ(queue_entry.is_kernel, false, "First circuit accumulated is always be an app");
         // For first circuit in the IVC, use oink to complete the decider proving key and generate an oink proof
+        auto oink_verifier_transcript =
+            Transcript::convert_prover_transcript_to_verifier_transcript(prover_accumulation_transcript);
         MegaOinkProver oink_prover{ proving_key, honk_vk, prover_accumulation_transcript };
         vinfo("computing oink proof...");
         oink_prover.prove();
@@ -344,7 +346,6 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
         fold_output.accumulator = proving_key; // initialize the prover accum with the completed key
 
         auto decider_vk = std::make_shared<DeciderVerificationKey>(honk_vk);
-        auto oink_verifier_transcript = std::make_shared<Transcript>();
         oink_verifier_transcript->load_proof(oink_proof);
         OinkVerifier<Flavor> oink_verifier{ decider_vk, oink_verifier_transcript };
         oink_verifier.verify();
@@ -358,13 +359,8 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
         vinfo("computing folding proof");
         auto vk = std::make_shared<DeciderVerificationKey_<Flavor>>(honk_vk);
         // make a copy of the prover_accumulation_transcript for the verifier to use
-        BB_ASSERT_EQ(prover_accumulation_transcript->num_frs_written, static_cast<size_t>(0), "Expected to be empty");
-        auto verifier_accumulation_transcript = std::make_shared<Transcript>(*prover_accumulation_transcript);
-        verifier_accumulation_transcript->num_frs_read =
-            static_cast<size_t>(verifier_accumulation_transcript->proof_start);
-        verifier_accumulation_transcript->proof_start = 0;
-        // auto verifier_accumulation_transcript =
-        //     Transcript::convert_prover_transcript_to_verifier_transcript(prover_accumulation_transcript);
+        auto verifier_accumulation_transcript =
+            Transcript::convert_prover_transcript_to_verifier_transcript(prover_accumulation_transcript);
 
         FoldingProver folding_prover({ fold_output.accumulator, proving_key },
                                      { native_verifier_accumulator, vk },
