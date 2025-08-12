@@ -236,7 +236,12 @@ template <typename Flavor> class SumcheckProver {
         GateSeparatorPolynomial<FF> gate_separators(gate_challenges, multivariate_d);
 
         multivariate_challenge.reserve(virtual_log_n);
-        FF scaling_factor = FF(1UL << (virtual_log_n - multivariate_d));
+        FF scaling_factor(1);
+        // Precompute tail = ∏_{j=d}^{n} (1 + beta_j)
+        for (size_t j = multivariate_d; j < virtual_log_n; ++j) {
+            scaling_factor *= (FF(1) + gate_separators.betas[j]);
+        }
+
         // In the first round, we compute the first univariate polynomial and populate the book-keeping table of
         // #partially_evaluated_polynomials, which has \f$ n/2 \f$ rows and \f$ N \f$ columns.
         auto round_univariate =
@@ -283,16 +288,24 @@ template <typename Flavor> class SumcheckProver {
         vinfo("completed ", multivariate_d, " rounds of sumcheck");
 
         // Zero univariates are used to pad the proof to the fixed size virtual_log_n.
-        auto zero_univariate =
-            bb::Univariate<FF, Flavor::BATCHED_RELATION_PARTIAL_LENGTH>(round_univariate.evaluate(round_challenge));
-        zero_univariate = zero_univariate * (scaling_factor / FF(2));
+        const auto final_eval_scaled = round_univariate.evaluate(round_challenge);
 
-        for (size_t idx = multivariate_d; idx < virtual_log_n; idx++) {
+        for (size_t idx = multivariate_d; idx < virtual_log_n; ++idx) {
 
-            transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(idx), zero_univariate);
-            FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(idx));
+            const FF beta = gate_challenges[idx];
+            const FF factor = FF(1) + beta;
+            scaling_factor /= factor;
+            bb::Univariate<FF, 2> linear_pow({ FF(1), beta }); // {f(0), f(1)}
+            auto pow_extended = linear_pow.template extend_to<BATCHED_RELATION_PARTIAL_LENGTH>();
+
+            auto poly_to_send = pow_extended * (scaling_factor * final_eval_scaled);
+            transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(idx), poly_to_send);
+            // Get u_idx and proceed as before
+            round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(idx));
             multivariate_challenge.emplace_back(round_challenge);
-            zero_univariate = zero_univariate * (FF(1) / FF(2));
+            FF non_const_factor = FF(1) + (round_challenge * (beta - FF(1)));
+
+            scaling_factor = scaling_factor * non_const_factor;
         }
 
         // Claimed evaluations of Prover polynomials are extracted and added to the transcript. When Flavor has ZK, the

@@ -254,7 +254,9 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 
         std::vector<FF> prover_gate_challenges(virtual_log_n);
         for (size_t idx = 0; idx < virtual_log_n; idx++) {
-            prover_gate_challenges[idx] = 1;
+            prover_gate_challenges[idx] =
+                prover_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
+            ;
         }
 
         SumcheckProver<Flavor> sumcheck_prover(multivariate_n,
@@ -284,7 +286,9 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 
         std::vector<FF> verifier_gate_challenges(virtual_log_n);
         for (size_t idx = 0; idx < virtual_log_n; idx++) {
-            verifier_gate_challenges[idx] = 1;
+            verifier_gate_challenges[idx] =
+                verifier_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
+            ;
         }
         std::vector<FF> padding_indicator_array(virtual_log_n);
         std::ranges::fill(padding_indicator_array, FF{ 1 });
