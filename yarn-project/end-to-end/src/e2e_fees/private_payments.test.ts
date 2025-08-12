@@ -100,6 +100,7 @@ describe('e2e_fees private_payment', () => {
     const transferAmount = 5n;
     const interaction = bananaCoin.methods.transfer(bobAddress, transferAmount);
     const settings = {
+      from: aliceAddress,
       fee: {
         gasSettings,
         paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet),
@@ -164,6 +165,7 @@ describe('e2e_fees private_payment', () => {
     const tx = await bananaCoin.methods
       .mint_to_private(aliceAddress, newlyMintedBananas)
       .send({
+        from: aliceAddress,
         fee: {
           gasSettings,
           paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet),
@@ -212,6 +214,7 @@ describe('e2e_fees private_payment', () => {
     const tx = await bananaCoin.methods
       .transfer_to_private(aliceAddress, amountTransferredToPrivate)
       .send({
+        from: aliceAddress,
         fee: {
           gasSettings,
           paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet),
@@ -266,6 +269,7 @@ describe('e2e_fees private_payment', () => {
       bananaCoin.methods.transfer_to_private(aliceAddress, amountTransferredToPrivate),
     ])
       .send({
+        from: aliceAddress,
         fee: {
           gasSettings,
           paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet),
@@ -297,7 +301,9 @@ describe('e2e_fees private_payment', () => {
 
   it('rejects txs that dont have enough balance to cover gas costs', async () => {
     // deploy a copy of bananaFPC but don't fund it!
-    const bankruptFPC = await FPCContract.deploy(aliceWallet, bananaCoin.address, aliceAddress).send().deployed();
+    const bankruptFPC = await FPCContract.deploy(aliceWallet, bananaCoin.address, aliceAddress)
+      .send({ from: aliceAddress })
+      .deployed();
 
     await expectMapping(t.getGasBalanceFn, [bankruptFPC.address], [0n]);
 
@@ -305,6 +311,7 @@ describe('e2e_fees private_payment', () => {
       bananaCoin.methods
         .mint_to_private(aliceAddress, 10)
         .send({
+          from: aliceAddress,
           fee: {
             gasSettings,
             paymentMethod: new PrivateFeePaymentMethod(bankruptFPC.address, aliceWallet),
@@ -319,6 +326,7 @@ describe('e2e_fees private_payment', () => {
     // We call arbitrary `private_get_name(...)` function just to check the correct error is triggered.
     await expect(
       bananaCoin.methods.private_get_name().simulate({
+        from: aliceAddress,
         fee: {
           gasSettings: t.gasSettings,
           paymentMethod: new PrivateFeePaymentMethod(

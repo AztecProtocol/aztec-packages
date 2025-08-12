@@ -14,16 +14,24 @@ describe('Logs', () => {
   let testLogContract: TestLogContract;
   jest.setTimeout(TIMEOUT);
 
-  let wallets: AccountWalletWithSecretKey[];
+  let wallet1: AccountWalletWithSecretKey;
+  let wallet2: AccountWalletWithSecretKey;
+
+  let account1Address: AztecAddress;
+  let account2Address: AztecAddress;
 
   let teardown: () => Promise<void>;
 
   beforeAll(async () => {
-    ({ teardown, wallets } = await setup(2));
+    ({
+      teardown,
+      wallets: [wallet1, wallet2],
+      accounts: [account1Address, account2Address],
+    } = await setup(2));
 
-    await ensureAccountContractsPublished(wallets[0], wallets.slice(0, 2));
+    await ensureAccountContractsPublished(wallet1, [wallet1, wallet2]);
 
-    testLogContract = await TestLogContract.deploy(wallets[0]).send().deployed();
+    testLogContract = await TestLogContract.deploy(wallet1).send({ from: account1Address }).deployed();
   });
 
   afterAll(() => teardown());
@@ -34,7 +42,10 @@ describe('Logs', () => {
 
       const txs = await Promise.all(
         preimages.map(preimage =>
-          testLogContract.methods.emit_encrypted_events(wallets[1].getAddress(), preimage).send().wait(),
+          testLogContract.methods
+            .emit_encrypted_events(account2Address, preimage)
+            .send({ from: account1Address })
+            .wait(),
         ),
       );
 
@@ -44,31 +55,31 @@ describe('Logs', () => {
 
       // Each emit_encrypted_events call emits 2 ExampleEvent0s and 1 ExampleEvent1
       // So with 5 calls we expect 10 ExampleEvent0s and 5 ExampleEvent1s
-      const collectedEvent0s = await wallets[0].getPrivateEvents<ExampleEvent0>(
+      const collectedEvent0s = await wallet1.getPrivateEvents<ExampleEvent0>(
         testLogContract.address,
         TestLogContract.events.ExampleEvent0,
         firstBlockNumber,
         numBlocks,
-        [wallets[0].getAddress(), wallets[1].getAddress()],
+        [account1Address, account2Address],
       );
 
-      const collectedEvent1s = await wallets[0].getPrivateEvents<ExampleEvent1>(
+      const collectedEvent1s = await wallet1.getPrivateEvents<ExampleEvent1>(
         testLogContract.address,
         TestLogContract.events.ExampleEvent1,
         firstBlockNumber,
         numBlocks,
-        [wallets[0].getAddress(), wallets[1].getAddress()],
+        [account1Address, account2Address],
       );
 
       expect(collectedEvent0s.length).toBe(10); // 2 events per tx * 5 txs
       expect(collectedEvent1s.length).toBe(5); // 1 event per tx * 5 txs
 
-      const emptyEvent1s = await wallets[0].getPrivateEvents<ExampleEvent1>(
+      const emptyEvent1s = await wallet1.getPrivateEvents<ExampleEvent1>(
         testLogContract.address,
         TestLogContract.events.ExampleEvent1,
         firstBlockNumber,
         numBlocks,
-        [wallets[0].getAddress()],
+        [account1Address],
       );
 
       expect(emptyEvent1s.length).toBe(5); // Events sent to msg_sender()
@@ -97,17 +108,25 @@ describe('Logs', () => {
       const preimage = makeTuple(5, makeTuple.bind(undefined, 4, Fr.random)) as Tuple<Tuple<Fr, 4>, 5>;
 
       let i = 0;
-      const firstTx = await testLogContract.methods.emit_unencrypted_events(preimage[i]).send().wait();
-      await timesParallel(3, () => testLogContract.methods.emit_unencrypted_events(preimage[++i]).send().wait());
-      const lastTx = await testLogContract.methods.emit_unencrypted_events(preimage[++i]).send().wait();
+      const firstTx = await testLogContract.methods
+        .emit_unencrypted_events(preimage[i])
+        .send({ from: account1Address })
+        .wait();
+      await timesParallel(3, () =>
+        testLogContract.methods.emit_unencrypted_events(preimage[++i]).send({ from: account1Address }).wait(),
+      );
+      const lastTx = await testLogContract.methods
+        .emit_unencrypted_events(preimage[++i])
+        .send({ from: account1Address })
+        .wait();
 
-      const collectedEvent0s = await wallets[0].getPublicEvents<ExampleEvent0>(
+      const collectedEvent0s = await wallet1.getPublicEvents<ExampleEvent0>(
         TestLogContract.events.ExampleEvent0,
         firstTx.blockNumber!,
         lastTx.blockNumber! - firstTx.blockNumber! + 1,
       );
 
-      const collectedEvent1s = await wallets[0].getPublicEvents<ExampleEvent1>(
+      const collectedEvent1s = await wallet1.getPublicEvents<ExampleEvent1>(
         TestLogContract.events.ExampleEvent1,
         firstTx.blockNumber!,
         lastTx.blockNumber! - firstTx.blockNumber! + 1,
