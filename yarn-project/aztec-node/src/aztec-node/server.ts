@@ -77,6 +77,7 @@ import {
   type ProverConfig,
   type SequencerConfig,
   type Service,
+  type SlasherConfig,
   type WorldStateSyncStatus,
   type WorldStateSynchronizer,
   tryStop,
@@ -1075,9 +1076,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return await validator.validateTx(tx);
   }
 
-  public async setConfig(config: Partial<SequencerConfig & ProverConfig>): Promise<void> {
+  public async setConfig(config: Partial<SequencerConfig & ProverConfig & SlasherConfig>): Promise<void> {
     const newConfig = { ...this.config, ...config };
     this.sequencer?.updateSequencerConfig(config);
+    this.slasherClient?.updateConfig(config);
     // this.blockBuilder.updateConfig(config); // TODO: Spyros has a PR to add the builder to `this`, so we can do this
     await this.p2pClient.updateP2PConfig(config);
 

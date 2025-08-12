@@ -5,7 +5,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { L2TipsMemoryStore, type L2TipsStore } from '@aztec/kv-store/stores';
 import type { P2PClient } from '@aztec/p2p';
-import type { SlasherConfig, WantToSlashArgs, Watcher, WatcherEmitter } from '@aztec/slasher/config';
+import type { WantToSlashArgs, Watcher, WatcherEmitter } from '@aztec/slasher/config';
 import { Offense, WANT_TO_SLASH_EVENT } from '@aztec/slasher/config';
 import {
   type L2BlockSource,
@@ -15,6 +15,7 @@ import {
   getAttestationsFromPublishedL2Block,
 } from '@aztec/stdlib/block';
 import { getEpochAtSlot, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
+import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
 import type {
   ValidatorStats,
   ValidatorStatusHistory,
@@ -176,7 +177,13 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       offense: Offense.INACTIVITY,
     }));
 
-    this.logger.info(`Criminals: ${criminals.length}`, { args });
+    this.logger.info(`Criminals to slash: ${criminals.length}`, {
+      validators: args.map(({ validator, amount, offense }) => ({
+        validator,
+        amount,
+        offense: Offense[offense],
+      })),
+    });
 
     if (criminals.length > 0) {
       this.emit(WANT_TO_SLASH_EVENT, args);

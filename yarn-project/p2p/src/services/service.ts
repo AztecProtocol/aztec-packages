@@ -6,6 +6,7 @@ import type { ENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
 import type EventEmitter from 'events';
 
+import type { P2PReqRespConfig } from './reqresp/config.js';
 import type { ReqRespSubProtocol, SubProtocolMap } from './reqresp/interface.js';
 
 export enum PeerDiscoveryState {
@@ -76,6 +77,8 @@ export interface P2PService {
   getPeers(includePending?: boolean): PeerInfo[];
 
   validate(txs: Tx[]): Promise<void>;
+
+  updateConfig(config: Partial<P2PReqRespConfig>): void;
 }
 
 /**

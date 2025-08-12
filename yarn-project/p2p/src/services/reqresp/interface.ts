@@ -4,6 +4,7 @@ import { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 
+import type { P2PReqRespConfig } from './config.js';
 import { StatusMessage } from './protocols/status.js';
 import type { ReqRespStatus } from './status.js';
 
@@ -209,4 +210,6 @@ export interface ReqRespInterface {
     payload: Buffer,
     dialTimeout?: number,
   ): Promise<ReqRespResponse>;
+
+  updateConfig(config: Partial<P2PReqRespConfig>): void;
 }

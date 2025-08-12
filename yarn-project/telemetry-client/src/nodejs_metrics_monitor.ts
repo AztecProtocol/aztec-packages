@@ -123,10 +123,10 @@ export class NodejsMetricsMonitor {
   private measureMemoryUsage = (observer: BatchObservableResult) => {
     const mem = process.memoryUsage();
 
-    observer.observe(this.memoryGauges.heapUsed, mem.heapUsed);
-    observer.observe(this.memoryGauges.heapTotal, mem.heapTotal);
-    observer.observe(this.memoryGauges.arrayBuffers, mem.arrayBuffers);
-    observer.observe(this.memoryGauges.external, mem.external);
+    observer.observe(this.memoryGauges.heapUsed, Math.floor(mem.heapUsed) | 0);
+    observer.observe(this.memoryGauges.heapTotal, Math.floor(mem.heapTotal) | 0);
+    observer.observe(this.memoryGauges.arrayBuffers, Math.floor(mem.arrayBuffers) | 0);
+    observer.observe(this.memoryGauges.external, Math.floor(mem.external) | 0);
   };
 
   private measureEventLoopDelay = (obs: BatchObservableResult): void => {
@@ -142,16 +142,16 @@ export class NodejsMetricsMonitor {
     // - https://youtu.be/WetXnEPraYM
     obs.observe(this.eventLoopUilization, delta.utilization);
 
-    this.eventLoopTime.add(Math.floor(delta.idle), { [Attributes.NODEJS_EVENT_LOOP_STATE]: 'idle' });
-    this.eventLoopTime.add(Math.floor(delta.active), { [Attributes.NODEJS_EVENT_LOOP_STATE]: 'active' });
+    this.eventLoopTime.add(Math.floor(delta.idle) | 0, { [Attributes.NODEJS_EVENT_LOOP_STATE]: 'idle' });
+    this.eventLoopTime.add(Math.floor(delta.active) | 0, { [Attributes.NODEJS_EVENT_LOOP_STATE]: 'active' });
 
-    obs.observe(this.eventLoopDelayGauges.min, Math.floor(this.eventLoopDelay.min));
-    obs.observe(this.eventLoopDelayGauges.mean, Math.floor(this.eventLoopDelay.mean));
-    obs.observe(this.eventLoopDelayGauges.max, Math.floor(this.eventLoopDelay.max));
-    obs.observe(this.eventLoopDelayGauges.stddev, Math.floor(this.eventLoopDelay.stddev));
-    obs.observe(this.eventLoopDelayGauges.p50, Math.floor(this.eventLoopDelay.percentile(50)));
-    obs.observe(this.eventLoopDelayGauges.p90, Math.floor(this.eventLoopDelay.percentile(90)));
-    obs.observe(this.eventLoopDelayGauges.p99, Math.floor(this.eventLoopDelay.percentile(99)));
+    obs.observe(this.eventLoopDelayGauges.min, Math.floor(this.eventLoopDelay.min) | 0);
+    obs.observe(this.eventLoopDelayGauges.mean, Math.floor(this.eventLoopDelay.mean) | 0);
+    obs.observe(this.eventLoopDelayGauges.max, Math.floor(this.eventLoopDelay.max) | 0);
+    obs.observe(this.eventLoopDelayGauges.stddev, Math.floor(this.eventLoopDelay.stddev) | 0);
+    obs.observe(this.eventLoopDelayGauges.p50, Math.floor(this.eventLoopDelay.percentile(50)) | 0);
+    obs.observe(this.eventLoopDelayGauges.p90, Math.floor(this.eventLoopDelay.percentile(90)) | 0);
+    obs.observe(this.eventLoopDelayGauges.p99, Math.floor(this.eventLoopDelay.percentile(99)) | 0);
 
     this.eventLoopDelay.reset();
   };

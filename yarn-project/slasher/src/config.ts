@@ -7,6 +7,7 @@ import {
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
+import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
 
 export enum Offense {
   UNKNOWN = 0,
@@ -63,25 +64,6 @@ export type Watcher = WatcherEmitter & {
   start?: () => Promise<void>;
   stop?: () => Promise<void>;
 };
-
-export interface SlasherConfig {
-  // New configurations based on design doc
-  slashOverridePayload?: EthAddress;
-  slashPayloadTtlSeconds: number; // TTL for payloads, in seconds
-  slashPruneEnabled: boolean;
-  slashPrunePenalty: bigint;
-  slashPruneMaxPenalty: bigint;
-  slashInvalidBlockEnabled: boolean;
-  slashInvalidBlockPenalty: bigint;
-  slashInvalidBlockMaxPenalty: bigint;
-  slashInactivityEnabled: boolean;
-  slashInactivityCreateTargetPercentage: number; // 0-1, 0.9 means 90%. Must be greater than 0
-  slashInactivitySignalTargetPercentage: number; // 0-1, 0.6 means 60%. Must be greater than 0
-  slashInactivityCreatePenalty: bigint;
-  slashInactivityMaxPenalty: bigint;
-  slashProposerRoundPollingIntervalSeconds: number;
-  // Consider adding: slashInactivityCreateEnabled: boolean;
-}
 
 export const DefaultSlasherConfig: SlasherConfig = {
   slashPayloadTtlSeconds: 60 * 60 * 24, // 1 day
