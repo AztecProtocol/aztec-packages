@@ -360,13 +360,29 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     let sequencer: SequencerClient | undefined;
     if (!config.disableValidator) {
       // This shouldn't happen, validators need a publisher private key.
-      const { publisherPrivateKey } = config;
-      if (!publisherPrivateKey?.getValue() || publisherPrivateKey?.getValue() === NULL_KEY) {
-        throw new Error('A publisher private key is required to run a validator');
+      const { publisherPrivateKeys, publisherPrivateKey } = config;
+      if (
+        publisherPrivateKeys.length === 0 ||
+        !publisherPrivateKey?.getValue() ||
+        publisherPrivateKeys[0]?.getValue() === NULL_KEY
+      ) {
+        if (!publisherPrivateKey?.getValue() || publisherPrivateKey?.getValue() === NULL_KEY) {
+          throw new Error('A publisher private key is required to run a validator');
+        }
+        publisherPrivateKeys.push(publisherPrivateKey);
       }
+      // if (!publisherPrivateKey?.getValue() || publisherPrivateKey?.getValue() === NULL_KEY) {
+      //   throw new Error('A publisher private key is required to run a validator');
+      // }
 
-      const l1Client = createExtendedL1Client(l1RpcUrls, publisherPrivateKey.getValue(), ethereumChain.chainInfo);
-      const l1TxUtils = new L1TxUtilsWithBlobs(l1Client, log, dateProvider, config);
+      const l1TxUtils = publisherPrivateKeys.map(publisherPrivateKey => {
+        return new L1TxUtilsWithBlobs(
+          createExtendedL1Client(l1RpcUrls, publisherPrivateKey.getValue(), ethereumChain.chainInfo),
+          log,
+          dateProvider,
+          config,
+        );
+      });
 
       sequencer = await SequencerClient.new(config, {
         // if deps were provided, they should override the defaults,

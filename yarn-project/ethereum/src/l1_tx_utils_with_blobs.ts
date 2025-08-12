@@ -33,7 +33,7 @@ export class L1TxUtilsWithBlobs extends L1TxUtils {
       previousGasPrice,
     );
 
-    this.logger?.debug(`Attempting to cancel blob L1 transaction ${currentTxHash} with nonce ${nonce}`, {
+    this.logger?.info(`Attempting to cancel blob L1 transaction ${currentTxHash} with nonce ${nonce}`, {
       maxFeePerGas: formatGwei(cancelGasPrice.maxFeePerGas),
       maxPriorityFeePerGas: formatGwei(cancelGasPrice.maxPriorityFeePerGas),
       maxFeePerBlobGas:
@@ -80,7 +80,7 @@ export class L1TxUtilsWithBlobs extends L1TxUtils {
         maxPriorityFeePerGas: cancelGasPrice.maxPriorityFeePerGas,
       });
 
-      this.logger?.debug(`Sent cancellation tx ${cancelTxHash} for timed out tx ${currentTxHash}`);
+      this.logger?.info(`Sent cancellation tx ${cancelTxHash} for timed out tx ${currentTxHash}`);
 
       const receipt = await this.monitorTransaction(
         request,

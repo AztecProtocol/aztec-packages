@@ -30,18 +30,17 @@ export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
 
     const sortedPublishers = publishersWithBalance.sort((a, b) => {
       const stateComparison = sortOrder.indexOf(a.publisher.state) - sortOrder.indexOf(b.publisher.state);
-      const balanceComparison = Number(b.balance - a.balance);
-      const lastUsedComparison = Number(
-        (a.publisher.lastMinedAtBlockNumber ?? 0n) - (b.publisher.lastMinedAtBlockNumber ?? 0n),
-      );
-
       if (stateComparison !== 0) {
         return stateComparison;
       }
-      if (lastUsedComparison !== 0) {
-        return lastUsedComparison;
+      const balanceComparison = Number(b.balance - a.balance);
+      if (balanceComparison !== 0) {
+        return balanceComparison;
       }
-      return balanceComparison;
+      const lastUsedComparison = Number(
+        (a.publisher.lastMinedAtBlockNumber ?? 0n) - (b.publisher.lastMinedAtBlockNumber ?? 0n),
+      );
+      return lastUsedComparison;
     });
 
     return sortedPublishers[0].publisher;

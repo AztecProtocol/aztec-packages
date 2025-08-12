@@ -23,6 +23,8 @@ export type TxSenderConfig = L1ReaderConfig & {
    */
   publisherPrivateKey: SecretValue<`0x${string}`>;
 
+  publisherPrivateKeys: SecretValue<`0x${string}`>[];
+
   /**
    * The address of the custom forwarder contract.
    */
@@ -54,6 +56,13 @@ export const getTxSenderConfigMappings: (
     env: scope === 'PROVER' ? `PROVER_PUBLISHER_PRIVATE_KEY` : `SEQ_PUBLISHER_PRIVATE_KEY`,
     description: 'The private key to be used by the publisher.',
     ...secretValueConfigHelper(val => (val ? `0x${val.replace('0x', '')}` : NULL_KEY)),
+  },
+  publisherPrivateKeys: {
+    env: `SEQUENCER_PUBLISHER_PRIVATE_KEYS`,
+    description: 'The private keys to be used by the sequencer publisher.',
+    parseEnv: (val: string) => val.split(',').map(key => `0x${key.replace('0x', '')}`),
+    defaultValue: [],
+    fallback: ['SEQ_PUBLISHER_PRIVATE_KEY'],
   },
 });
 
