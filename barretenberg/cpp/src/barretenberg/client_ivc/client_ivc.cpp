@@ -400,6 +400,7 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::comp
     const std::shared_ptr<RecursiveVKAndHash>& stdlib_vk_and_hash,
     ClientCircuit& circuit)
 {
+    info("now construction the hiding circuit");
     using MergeCommitments = Goblin::MergeRecursiveVerifier::InputCommitments;
     trace_usage_tracker.print();
 
@@ -419,7 +420,6 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::comp
 
     // Propagate the public inputs of the tail kernel by converting them to public inputs of the hiding circuit.
     auto num_public_inputs = static_cast<size_t>(honk_vk->num_public_inputs);
-    info("number of public inputs in complete kernel circuit", num_public_inputs);
     num_public_inputs -= KernelIO::PUBLIC_INPUTS_SIZE; // exclude fixed kernel_io public inputs
     for (size_t i = 0; i < num_public_inputs; i++) {
         stdlib_proof[i].set_public();
@@ -465,6 +465,10 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::comp
  */
 std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::compute_hiding_circuit_proving_key()
 {
+    // ASSERT(hiding_circuit != nullptr);
+    if (hiding_circuit == nullptr) {
+        info("the hiding circuit is not constructed");
+    }
     auto hiding_decider_pk =
         std::make_shared<DeciderZKProvingKey>(*hiding_circuit, TraceSettings(), bn254_commitment_key);
     return hiding_decider_pk;
@@ -498,6 +502,7 @@ ClientIVC::Proof ClientIVC::prove()
 {
     // deallocate the protogalaxy accumulator
     fold_output.accumulator = nullptr;
+    info("we're past deallocation in IVC prove");
 
     auto mega_proof = prove_hiding_circuit();
 

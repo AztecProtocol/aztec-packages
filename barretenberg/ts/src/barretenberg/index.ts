@@ -137,6 +137,10 @@ export class Barretenberg extends BarretenbergApi {
     return this.bbApi.clientIvcAccumulate(command);
   }
 
+  async clientIvcHidingCircuit(command: Parameters<BbApiBase['clientIvcHidingCircuit']>[0]) {
+    return this.bbApi.clientIvcHidingCircuit(command);
+  }
+
   async clientIvcProve(command: Parameters<BbApiBase['clientIvcProve']>[0]) {
     return this.bbApi.clientIvcProve(command);
   }

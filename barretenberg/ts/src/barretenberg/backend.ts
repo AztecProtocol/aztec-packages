@@ -255,12 +255,19 @@ export class AztecClientBackend {
           verificationKey: Buffer.from(vk),
         }
       });
-
-      // Accumulate with witness
-      this.api.clientIvcAccumulate({
-        witness: Buffer.from(witness),
-      });
+      if (i != this.acirBuf.length){
+        // Accumulate with witness
+        this.api.clientIvcAccumulate({
+          witness: Buffer.from(witness),
+        });
+      } else{
+        this.api.clientIvcHidingCircuit({
+          witness: Buffer.from(witness),
+        });
+      }
     }
+
+
 
     // Generate the proof (and wait for all previous steps to finish)
     const proveResult = await this.api.clientIvcProve({});

@@ -101,9 +101,8 @@ ClientIvcProve::Response ClientIvcProve::execute(BBApiRequest& request) &&
     }
 
     info("ClientIvcProve - generating proof for ", request.ivc_stack_depth, " accumulated circuits");
-
+    info("here we are");
     ClientIVC::Proof proof = request.ivc_in_progress->prove();
-
     // We verify this proof. Another bb call to verify has some overhead of loading VK/proof/SRS,
     // and it is mysterious if this transaction fails later in the lifecycle.
     if (!request.ivc_in_progress->verify(proof)) {
