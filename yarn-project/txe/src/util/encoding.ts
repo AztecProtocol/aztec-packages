@@ -152,9 +152,9 @@ export function arrayOfArraysToBoundedVecOfArrays(
 export function stringsToBuffers(obj: (string | string[])[]): (ForeignCallSingle | ForeignCallArray)[] {
   return obj.map(elem => {
     if (typeof elem === 'string') {
-      return Uint8Array.from(Fr.fromString(elem).toBuffer());
+      return toSingle(Fr.fromString(elem));
     } else {
-      return elem.map(innerElem => Uint8Array.from(Fr.fromString(innerElem).toBuffer()));
+      return elem.map(innerElem => toSingle(Fr.fromString(innerElem)));
     }
   });
 }
