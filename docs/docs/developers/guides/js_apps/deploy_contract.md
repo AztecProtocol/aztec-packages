@@ -4,7 +4,7 @@ tags: [contracts]
 sidebar_position: 1
 ---
 
-Once you have [compiled](../smart_contracts/how_to_compile_contract.md) your contracts you can proceed to deploying them using Aztec.js.
+Once you have [compiled](../smart_contracts/how_to_compile_contract.md) your contracts you can proceed to deploy them using Aztec.js.
 
 You can use this method to deploy your contracts to the sandbox or to a remote network.
 
