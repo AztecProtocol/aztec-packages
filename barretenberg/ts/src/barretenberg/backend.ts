@@ -261,7 +261,7 @@ export class AztecClientBackend {
           witness: Buffer.from(witness),
         });
       } else{
-        this.api.clientIvcHidingCircuit({
+        this.api.clientIvcHidingKernel({
           witness: Buffer.from(witness),
         });
       }
