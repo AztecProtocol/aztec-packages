@@ -55,7 +55,6 @@ template <class FF> class GrandProductTests : public testing::Test {
             .beta = beta,
             .gamma = gamma,
             .public_input_delta = 1,
-            .lookup_grand_product_delta = 1,
         };
 
         compute_grand_product<Flavor, typename bb::UltraPermutationRelation<FF>>(prover_polynomials, params);

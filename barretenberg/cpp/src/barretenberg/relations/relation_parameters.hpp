@@ -21,15 +21,14 @@ template <typename T> struct RelationParameters {
     static constexpr int NUM_BINARY_LIMBS_IN_GOBLIN_TRANSLATOR = 4;
     static constexpr int NUM_NATIVE_LIMBS_IN_GOBLIN_TRANSLATOR = 1;
     static constexpr int NUM_CHALLENGE_POWERS_IN_GOBLIN_TRANSLATOR = 4;
-    static constexpr int NUM_TO_FOLD = 7;
+    static constexpr int NUM_TO_FOLD = 6;
 
-    T eta{ 0 };                        // Lookup + Aux Memory
-    T eta_two{ 0 };                    // Lookup + Aux Memory
-    T eta_three{ 0 };                  // Lookup + Aux Memory
-    T beta{ 0 };                       // Permutation + Lookup
-    T gamma{ 0 };                      // Permutation + Lookup
-    T public_input_delta{ 0 };         // Permutation
-    T lookup_grand_product_delta{ 0 }; // Lookup
+    T eta{ 0 };                // Lookup + Aux Memory
+    T eta_two{ 0 };            // Lookup + Aux Memory
+    T eta_three{ 0 };          // Lookup + Aux Memory
+    T beta{ 0 };               // Permutation + Lookup
+    T gamma{ 0 };              // Permutation + Lookup
+    T public_input_delta{ 0 }; // Permutation
     T beta_sqr{ 0 };
     T beta_cube{ 0 };
     // eccvm_set_permutation_delta is used in the set membership gadget in eccvm/ecc_set_relation.hpp
@@ -48,12 +47,12 @@ template <typename T> struct RelationParameters {
 
     RefArray<T, NUM_TO_FOLD> get_to_fold()
     {
-        return RefArray{ eta, eta_two, eta_three, beta, gamma, public_input_delta, lookup_grand_product_delta };
+        return RefArray{ eta, eta_two, eta_three, beta, gamma, public_input_delta };
     }
 
     RefArray<const T, NUM_TO_FOLD> get_to_fold() const
     {
-        return RefArray{ eta, eta_two, eta_three, beta, gamma, public_input_delta, lookup_grand_product_delta };
+        return RefArray{ eta, eta_two, eta_three, beta, gamma, public_input_delta };
     }
 
     static RelationParameters get_random()
@@ -67,7 +66,6 @@ template <typename T> struct RelationParameters {
         result.beta_cube = result.beta_sqr * result.beta;
         result.gamma = T::random_element();
         result.public_input_delta = T::random_element();
-        result.lookup_grand_product_delta = T::random_element();
         result.eccvm_set_permutation_delta = result.gamma * (result.gamma + result.beta_sqr) *
                                              (result.gamma + result.beta_sqr + result.beta_sqr) *
                                              (result.gamma + result.beta_sqr + result.beta_sqr + result.beta_sqr);
@@ -92,6 +90,6 @@ template <typename T> struct RelationParameters {
         return result;
     }
 
-    MSGPACK_FIELDS(eta, eta_two, eta_three, beta, gamma, public_input_delta, lookup_grand_product_delta);
+    MSGPACK_FIELDS(eta, eta_two, eta_three, beta, gamma, public_input_delta);
 };
 } // namespace bb
