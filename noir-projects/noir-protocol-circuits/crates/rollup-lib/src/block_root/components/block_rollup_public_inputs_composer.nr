@@ -167,6 +167,7 @@ impl BlockRollupPublicInputsComposer {
         }
     }
 
+    /// Demarcates the end of a block in a checkpoint's blobs.
     fn create_block_end_marker(num_txs: u32) -> Field {
         // BLOCK_END_PREFIX | num_txs (2 bytes)
         (BLOCK_END_PREFIX * 256 * 256) + num_txs as Field

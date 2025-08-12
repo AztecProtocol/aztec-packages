@@ -1,10 +1,10 @@
-use crate::{abis::CheckpointRollupPublicInputs, merge::assert_rollups_filled_from_left};
+use crate::{abis::CheckpointRollupPublicInputs, merge::assert_rollups_filled_greedily};
 
 pub fn validate_consecutive_checkpoint_rollups(
     left: CheckpointRollupPublicInputs,
     right: CheckpointRollupPublicInputs,
 ) {
-    assert_rollups_filled_from_left(left.num_checkpoints(), right.num_checkpoints());
+    assert_rollups_filled_greedily(left.num_checkpoints(), right.num_checkpoints());
     assert_equal_constants(left, right);
     assert_rollups_follow_on_from_each_other(left, right);
 }

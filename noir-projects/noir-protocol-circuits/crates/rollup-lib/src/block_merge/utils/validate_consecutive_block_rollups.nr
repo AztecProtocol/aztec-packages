@@ -1,10 +1,10 @@
-use crate::{abis::BlockRollupPublicInputs, merge::assert_rollups_filled_from_left};
+use crate::{abis::BlockRollupPublicInputs, merge::assert_rollups_filled_greedily};
 
 pub fn validate_consecutive_block_rollups(
     left: BlockRollupPublicInputs,
     right: BlockRollupPublicInputs,
 ) {
-    assert_rollups_filled_from_left(left.num_blocks(), right.num_blocks());
+    assert_rollups_filled_greedily(left.num_blocks(), right.num_blocks());
     assert_equal_constants(left, right);
     assert_prev_block_rollups_follow_on_from_each_other(left, right);
 }
