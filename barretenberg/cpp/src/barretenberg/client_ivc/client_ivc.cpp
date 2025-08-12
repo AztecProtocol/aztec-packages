@@ -148,12 +148,11 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
         public_inputs = std::move(verifier.public_inputs);
 
         // T_prev = 0 in the first recursive verification
-        merge_commitments.T_prev_commitments = HidingKernelIO::empty_ecc_op_tables(circuit);
+        merge_commitments.T_prev_commitments = stdlib::recursion::honk::empty_ecc_op_tables(circuit);
 
         break;
     }
     case QUEUE_TYPE::PG_FINAL: {
-        info("now constructing the hiding circuit");
         BB_ASSERT_EQ(stdlib_verification_queue.size(), size_t(1));
         BB_ASSERT_EQ(num_circuits_accumulated,
                      num_circuits,
@@ -164,7 +163,6 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
         // Return early since the hiding circuit method performs merge and public inputs handling
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1501): we should remove the code duplication for
         // the consistency checks at some point
-        info("construction of hiding circuit completed");
         return { pairing_points, merged_table_commitments };
     }
     default: {
@@ -467,10 +465,8 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::comp
  */
 std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::compute_hiding_circuit_proving_key()
 {
-
     auto hiding_decider_pk =
         std::make_shared<DeciderZKProvingKey>(*hiding_circuit, TraceSettings(), bn254_commitment_key);
-
     return hiding_decider_pk;
 }
 
@@ -484,7 +480,6 @@ HonkProof ClientIVC::prove_hiding_circuit()
 {
     ASSERT(hiding_circuit != nullptr, "hiding circuit should have been constructed before attempted to create its key");
     auto hiding_decider_pk = compute_hiding_circuit_proving_key();
-    vinfo("creating the proving key for the hiding circuit");
     honk_vk = std::make_shared<MegaZKVerificationKey>(hiding_decider_pk->get_precomputed());
     auto& hiding_circuit_vk = honk_vk;
     // Hiding circuit is proven by a MegaZKProver
@@ -501,9 +496,8 @@ HonkProof ClientIVC::prove_hiding_circuit()
  */
 ClientIVC::Proof ClientIVC::prove()
 {
-    vinfo("proving the clientIVC");
     // deallocate the protogalaxy accumulator
-    // fold_output.accumulator = nullptr;
+    fold_output.accumulator = nullptr;
 
     auto mega_proof = prove_hiding_circuit();
 
@@ -524,8 +518,7 @@ bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
     // Verify the hiding circuit proof
     info("creating the mega verifier");
     MegaZKVerifier verifier{ vk.mega, /*ipa_verification_key=*/{}, civc_verifier_transcript };
-    info("verifying the mega proof");
-    auto [mega_verified, T_prev_commitments] = verifier.verify_proof(proof.mega_proof);
+    auto [mega_verified, T_prev_commitments] = verifier.template verify_proof<bb::HidingKernelIO>(proof.mega_proof);
     vinfo("Mega verified: ", mega_verified);
 
     // Extract the commitments to the subtable corresponding to the incoming circuit

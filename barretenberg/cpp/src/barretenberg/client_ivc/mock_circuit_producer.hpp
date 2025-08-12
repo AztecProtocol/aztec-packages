@@ -161,7 +161,6 @@ class PrivateFunctionExecutionMockCircuitProducer {
             }
         }
         if (is_kernel) {
-            info("calling complete_kernel_circuit_logic in create simple circuit");
             ivc.complete_kernel_circuit_logic(circuit);
         } else {
             stdlib::recursion::PairingPoints<ClientCircuit>::add_default_to_public_inputs(circuit);
@@ -236,7 +235,6 @@ class PrivateFunctionExecutionMockCircuitProducer {
         // create a builder from the goblin op_queue
         ClientIVC::ClientCircuit circuit{ ivc.goblin.op_queue };
         // complete the hiding kernel logic
-        info("completing the hiding kernel in mock circuit producer");
         ivc.complete_kernel_circuit_logic(circuit);
     }
 };

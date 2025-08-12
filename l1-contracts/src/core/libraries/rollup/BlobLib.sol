@@ -7,6 +7,32 @@ import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Vm} from "forge-std/Vm.sol";
 
+/**
+ * @title BlobLib - Blob Management and Validation Library
+ * @author Aztec Labs
+ * @notice Core library for handling blob operations, validation, and commitment management in the Aztec rollup.
+ *
+ * @dev This library provides functionality for managing blobs:
+ *      - Blob hash retrieval and validation against EIP-4844 specifications
+ *      - Blob commitment verification and batched blob proof validation
+ *      - Blob base fee retrieval for transaction cost calculations
+ *      - Accumulated blob commitments hash calculation for epoch proofs
+ *
+ *      VM_ADDRESS:
+ *      The VM_ADDRESS (0x7109709ECfa91a80626fF3989D68f67F5b1DD12D) is a special address used to detect
+ *      when the contract is running in a Foundry test environment. This address is derived from
+ *      keccak256("hevm cheat code") and corresponds to Foundry's VM contract that provides testing utilities.
+ *      When VM_ADDRESS.code.length > 0, it indicates we're in a test environment, allowing the library to:
+ *      - Use Foundry's getBlobBaseFee() cheatcode instead of block.blobbasefee
+ *      - Use Foundry's getBlobhashes() cheatcode instead of the blobhash() opcode
+ *      This enables comprehensive testing of blob functionality without requiring actual blob transactions.
+ *
+ *      Blob Validation Flow:
+ *      1. validateBlobs() processes L2 block blob data, extracting commitments and validating against real blobs
+ *      2. calculateBlobCommitmentsHash() accumulates commitments across an epoch for rollup circuit validation
+ *      3. validateBatchedBlob() verifies batched blob proofs using the EIP-4844 point evaluation precompile
+ *      4. calculateBlobHash() computes versioned hashes from commitments following EIP-4844 specification
+ */
 library BlobLib {
   address public constant VM_ADDRESS = address(uint160(uint256(keccak256("hevm cheat code"))));
   uint256 internal constant VERSIONED_HASH_VERSION_KZG =

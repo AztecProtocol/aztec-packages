@@ -101,14 +101,11 @@ ClientIvcProve::Response ClientIvcProve::execute(BBApiRequest& request) &&
     }
 
     info("ClientIvcProve - generating proof for ", request.ivc_stack_depth, " accumulated circuits");
-    // // Construct the hiding kernel to finalise the IVC steps
-    // ClientIVC::ClientCircuit circuit{ request.ivc_in_progress->goblin.op_queue };
-    // request.ivc_in_progress->complete_kernel_circuit_logic(circuit);
+
     ClientIVC::Proof proof = request.ivc_in_progress->prove();
 
     // We verify this proof. Another bb call to verify has some overhead of loading VK/proof/SRS,
     // and it is mysterious if this transaction fails later in the lifecycle.
-    info("the number of public inputs in prove:", request.ivc_in_progress->get_vk().mega->num_public_inputs);
     if (!request.ivc_in_progress->verify(proof)) {
         throw_or_abort("Failed to verify the generated proof!");
     }

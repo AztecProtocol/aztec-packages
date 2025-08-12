@@ -74,6 +74,7 @@
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/common/std_array.hpp"
 #include "barretenberg/common/std_vector.hpp"
+#include "barretenberg/common/tuple.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
@@ -401,11 +402,11 @@ constexpr auto create_protogalaxy_tuple_of_tuples_of_univariates()
     constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
     return []<size_t... I>(std::index_sequence<I...>) {
         if constexpr (optimised) {
-            return std::make_tuple(
+            return flat_tuple::make_tuple(
                 typename std::tuple_element_t<I, Tuple>::template ProtogalaxyTupleOfUnivariatesOverSubrelations<
                     NUM_KEYS>{}...);
         } else {
-            return std::make_tuple(
+            return flat_tuple::make_tuple(
                 typename std::tuple_element_t<I, Tuple>::
                     template ProtogalaxyTupleOfUnivariatesOverSubrelationsNoOptimisticSkipping<NUM_KEYS>{}...);
         }
@@ -418,17 +419,12 @@ constexpr auto create_protogalaxy_tuple_of_tuples_of_univariates()
  * tuple of univariates whose size is equal to the number of subrelations of the relation. The length of a
  * univariate in an inner tuple is determined by the corresponding subrelation length.
  */
-template <typename Tuple, bool ZK = false> constexpr auto create_sumcheck_tuple_of_tuples_of_univariates()
+template <typename RelationsTuple> constexpr auto create_sumcheck_tuple_of_tuples_of_univariates()
 {
-    constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
+    constexpr auto seq = std::make_index_sequence<std::tuple_size_v<RelationsTuple>>();
     return []<size_t... I>(std::index_sequence<I...>) {
-        if constexpr (ZK) {
-            return std::make_tuple(
-                typename std::tuple_element_t<I, Tuple>::ZKSumcheckTupleOfUnivariatesOverSubrelations{}...);
-        } else {
-            return std::make_tuple(
-                typename std::tuple_element_t<I, Tuple>::SumcheckTupleOfUnivariatesOverSubrelations{}...);
-        }
+        return flat_tuple::make_tuple(
+            typename std::tuple_element_t<I, RelationsTuple>::SumcheckTupleOfUnivariatesOverSubrelations{}...);
     }(seq);
 }
 
@@ -437,11 +433,12 @@ template <typename Tuple, bool ZK = false> constexpr auto create_sumcheck_tuple_
  * @details Container for storing value of each identity in each relation. Each Relation contributes an array of
  * length num-identities.
  */
-template <typename Tuple> constexpr auto create_tuple_of_arrays_of_values()
+template <typename RelationsTuple> constexpr auto create_tuple_of_arrays_of_values()
 {
-    constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
+    constexpr auto seq = std::make_index_sequence<std::tuple_size_v<RelationsTuple>>();
     return []<size_t... I>(std::index_sequence<I...>) {
-        return std::make_tuple(typename std::tuple_element_t<I, Tuple>::SumcheckArrayOfValuesOverSubrelations{}...);
+        return flat_tuple::make_tuple(
+            typename std::tuple_element_t<I, RelationsTuple>::SumcheckArrayOfValuesOverSubrelations{}...);
     }(seq);
 }
 
