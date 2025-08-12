@@ -2,6 +2,7 @@
 #pragma once
 
 #include <memory>
+#include <ostream>
 #include <tracy/Tracy.hpp>
 
 #ifdef TRACY_INSTRUMENTED
@@ -80,7 +81,7 @@ struct GlobalOpCountContainer {
     void clear();
     void add_entry(const char* key, const std::shared_ptr<OpStats>& count);
     std::map<std::string, std::size_t> get_aggregate_counts() const;
-    void print_aggregate_counts() const;
+    void print_aggregate_counts(std::ostream&, size_t) const;
 };
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
