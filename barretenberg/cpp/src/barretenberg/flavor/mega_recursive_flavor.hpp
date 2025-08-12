@@ -179,6 +179,20 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
             }
             return VerificationKey(builder, vk_fields);
         }
+
+        /**
+         * @brief Fixes witnesses of VK to be constants.
+         *
+         */
+        void fix_witness()
+        {
+            this->log_circuit_size.fix_witness();
+            this->num_public_inputs.fix_witness();
+            this->pub_inputs_offset.fix_witness();
+            for (Commitment& commitment : this->get_all()) {
+                commitment.fix_witness();
+            }
+        }
     };
 
     /**

@@ -4,6 +4,7 @@
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
 
+#include "barretenberg/numeric/bitop/get_msb.hpp"
 #ifndef DISABLE_AZTEC_VM
 
 #include "avm2_recursion_constraint.hpp"
@@ -16,6 +17,7 @@
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/constraining/recursion/goblin_avm_recursive_verifier.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_flavor.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_verifier.hpp"
@@ -63,7 +65,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
     //     (proof_size - Flavor::NUM_WITNESS_ENTITIES * Flavor::NUM_FRS_COM -
     //      (Flavor::NUM_ALL_ENTITIES + 1) * Flavor::NUM_FRS_FR - Flavor::NUM_FRS_COM) /
     //     (Flavor::NUM_FRS_COM + Flavor::NUM_FRS_FR * (Flavor::BATCHED_RELATION_PARTIAL_LENGTH + 1));
-    const auto log_circuit_size = CONST_PROOF_SIZE_LOG_N;
+    const auto log_circuit_size = numeric::get_msb(avm2::CIRCUIT_SUBGROUP_SIZE);
 
     // First key field is log circuit size
     builder.set_variable(key_fields[0].witness_index, log_circuit_size);
