@@ -2,6 +2,7 @@
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <list>
+#include <optional>
 #include <set>
 #include <typeinfo>
 #include <unordered_map>
@@ -51,10 +52,12 @@ struct KeyEquals {
 struct ConnectedComponent {
     std::vector<uint32_t> variable_indices;
     bool is_range_list_cc;
+    bool is_finalize_cc;
     ConnectedComponent() = default;
     ConnectedComponent(const std::vector<uint32_t>& vector)
         : variable_indices(vector)
-        , is_range_list_cc(false){};
+        , is_range_list_cc(false)
+        , is_finalize_cc(false){};
     size_t size() const { return variable_indices.size(); }
     const std::vector<uint32_t>& vars() const { return variable_indices; }
 };
@@ -94,7 +97,7 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     {
         return circuit_builder.real_variable_index[variable_index];
     }
-    size_t find_block_index(const auto& block);
+    std::optional<size_t> find_block_index(const auto& block);
     void process_gate_variables(std::vector<uint32_t>& gate_variables, size_t gate_index, size_t blk_idx);
     std::unordered_map<uint32_t, size_t> get_variables_gate_counts() const { return this->variables_gate_counts; };
 
@@ -120,6 +123,7 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
                             std::unordered_set<uint32_t>& is_used,
                             std::vector<uint32_t>& connected_component);
     void mark_range_list_connected_components();
+    void mark_finalize_connected_components();
     std::vector<ConnectedComponent> find_connected_components(bool return_all_connected_components = false);
     bool check_vertex_in_connected_component(const std::vector<uint32_t>& connected_component,
                                              const uint32_t& var_index);
