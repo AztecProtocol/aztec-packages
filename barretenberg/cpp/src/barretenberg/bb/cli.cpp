@@ -741,11 +741,10 @@ int parse_and_run_cli_command(int argc, char* argv[])
                 api.prove(flags, ivc_inputs_path, output_path);
 
                 if (print_op_counts) {
-                    bb::detail::GLOBAL_OP_COUNTS.print_aggregate_counts(std::cout, 0);
+                    bb::detail::GLOBAL_OP_COUNTS.print_aggregate_counts();
                 }
                 if (!op_counts_out.empty()) {
-                    std::ofstream file(op_counts_out);
-                    bb::detail::GLOBAL_OP_COUNTS.print_aggregate_counts(file, 2);
+                    bb::detail::GLOBAL_OP_COUNTS.write_aggregate_counts(op_counts_out);
                 }
                 return 0;
             }
@@ -762,11 +761,10 @@ int parse_and_run_cli_command(int argc, char* argv[])
             if (prove->parsed()) {
                 api.prove(flags, bytecode_path, witness_path, vk_path, output_path);
                 if (print_op_counts) {
-                    bb::detail::GLOBAL_OP_COUNTS.print_aggregate_counts(std::cout, 0);
+                    bb::detail::GLOBAL_OP_COUNTS.print_aggregate_counts();
                 }
                 if (!op_counts_out.empty()) {
-                    std::ofstream file(op_counts_out);
-                    bb::detail::GLOBAL_OP_COUNTS.print_aggregate_counts(file, 2);
+                    bb::detail::GLOBAL_OP_COUNTS.write_aggregate_counts(op_counts_out);
                 }
                 return 0;
             }

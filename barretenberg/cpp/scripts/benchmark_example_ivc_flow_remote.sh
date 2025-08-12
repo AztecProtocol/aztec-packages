@@ -17,7 +17,7 @@ scp $BB_SSH_KEY ../../yarn-project/end-to-end/example-app-ivc-inputs-out/$FLOW/i
 # Measure the benchmarks with ops time counting
 ./scripts/benchmark_remote.sh "$TARGET"\
                               "./$TARGET prove -o output --ivc_inputs_path ivc-inputs.msgpack --scheme client_ivc\
-                              --benchmark_out=$TARGET.json"\
+                              --op_counts_out=$TARGET.json"\
                               clang16-assert\
                               "$BUILD_DIR"
 

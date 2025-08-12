@@ -1,9 +1,7 @@
 
-#include "barretenberg/common/log.hpp"
-#include <cstddef>
-#include <ostream>
 #ifndef __wasm__
 #include "op_count.hpp"
+#include <fstream>
 #include <iostream>
 #include <sstream>
 #include <thread>
@@ -58,24 +56,44 @@ std::map<std::string, std::size_t> GlobalOpCountContainer::get_aggregate_counts(
     return aggregate_counts;
 }
 
-void GlobalOpCountContainer::print_aggregate_counts(std::ostream& os, size_t indent) const
+void GlobalOpCountContainer::print_aggregate_counts() const
 {
-    os << '{';
+    std::cout << "{\"benchmarks\":[{";
     bool first = true;
     for (const auto& [key, value] : get_aggregate_counts()) {
         if (!first) {
-            os << ',';
+            std::cout << ",";
         }
-        if (indent > 0) {
-            os << std::endl << std::string(indent, ' ');
-        }
-        os << '"' << key << "\":" << value;
+        std::cout << "\"" << key << "\":" << value;
         first = false;
     }
-    if (indent > 0) {
-        os << std::endl;
+    std::cout << "}]}" << std::endl;
+}
+
+void GlobalOpCountContainer::write_aggregate_counts(const std::string& filename) const
+{
+    std::ofstream os(filename);
+    auto print_indent = [&](size_t level) { os << std::string(level * 2, ' '); };
+
+    os << "{\n";
+    print_indent(1);
+    os << "\"benchmarks\": [\n";
+    print_indent(2);
+    os << "{\n";
+    size_t count = 0;
+    std::map<std::string, size_t> data = get_aggregate_counts();
+    for (auto it = data.begin(); it != data.end(); ++it, ++count) {
+        print_indent(3);
+        os << "\"" << it->first << "\": " << it->second;
+        if (std::next(it) != data.end())
+            os << ",";
+        os << "\n";
     }
-    os << '}' << std::endl;
+    print_indent(2);
+    os << "}\n";
+    print_indent(1);
+    os << "]\n";
+    os << "}" << std::endl;
 }
 
 void GlobalOpCountContainer::clear()
