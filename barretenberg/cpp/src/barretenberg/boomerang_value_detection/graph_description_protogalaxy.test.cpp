@@ -138,6 +138,9 @@ class BoomerangProtogalaxyRecursiveTests : public testing::Test {
         std::shared_ptr<RecursiveDeciderVerificationKey> accumulator;
         for (size_t idx = 0; idx < num_verifiers; idx++) {
             verifier.transcript->enable_manifest();
+            if (idx == num_verifiers - 1) {
+                info("STOP HERE!");
+            }
             accumulator = verifier.verify_folding_proof(stdlib_proof);
             if (idx < num_verifiers - 1) { // else the transcript is null in the test below
                 auto recursive_vk_and_hash = std::make_shared<RecursiveVKAndHash>(folding_circuit, decider_vk_1->vk);
@@ -167,12 +170,25 @@ class BoomerangProtogalaxyRecursiveTests : public testing::Test {
             ASSERT(verified);
         }
 
-        auto graph = cdg::MegaStaticAnalyzer(folding_circuit, false);
+        auto graph = cdg::MegaStaticAnalyzer(folding_circuit);
         auto variables_in_one_gate = graph.get_variables_in_one_gate();
         EXPECT_EQ(variables_in_one_gate.size(), 0);
         if (variables_in_one_gate.size() > 0) {
             for (const auto& elem : variables_in_one_gate) {
                 info("elem == ", elem);
+            }
+        }
+        auto connected_components = graph.find_connected_components();
+        EXPECT_EQ(connected_components.size(), 1);
+        if (connected_components.size() > 1) {
+            for (const auto& cc : connected_components) {
+                info("size of the connected component == ", cc.size());
+                if (cc.size() < 20) {
+                    for (const auto& v : cc.vars()) {
+                        info("elem == ", v);
+                    }
+                }
+                info("--------------");
             }
         }
     }
@@ -238,12 +254,27 @@ class BoomerangProtogalaxyRecursiveTests : public testing::Test {
                 pairing_points.P0.y.fix_witness();
                 pairing_points.P1.x.fix_witness();
                 pairing_points.P1.y.fix_witness(); */
-        auto graph = cdg::MegaStaticAnalyzer(decider_circuit, false);
+        auto graph = cdg::MegaStaticAnalyzer(decider_circuit);
         auto variables_in_one_gate = graph.get_variables_in_one_gate();
         EXPECT_EQ(variables_in_one_gate.size(), 0);
         if (variables_in_one_gate.size() > 0) {
             auto fst_var_idx = std::vector<uint32_t>(variables_in_one_gate.cbegin(), variables_in_one_gate.cend())[0];
             graph.print_variable_in_one_gate(fst_var_idx);
+        }
+        auto connected_components = graph.find_connected_components();
+        EXPECT_EQ(connected_components.size(), 1);
+        if (connected_components.size() > 1) {
+            for (const auto& cc : connected_components) {
+                info("size of the connected component == ", cc.size());
+            }
+            /*             for (size_t i = 0; i < connected_components.size(); i++) {
+                            if (connected_components[i].size() != 151295) {
+                                info("print connected component with index == ", i);
+                                for (const auto& v : connected_components[i].vars()) {
+                                    info("elem == ", v);
+                                }
+                            }
+                        } */
         }
     };
 };

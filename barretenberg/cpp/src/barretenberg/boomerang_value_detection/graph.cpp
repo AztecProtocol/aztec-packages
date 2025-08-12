@@ -3,6 +3,8 @@
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <algorithm>
 #include <array>
+#include <memory>
+#include <optional>
 #include <stack>
 
 using namespace bb::plookup;
@@ -18,17 +20,15 @@ namespace cdg {
  * @return size_t index of the found block
  */
 template <typename FF, typename CircuitBuilder>
-size_t StaticAnalyzer_<FF, CircuitBuilder>::find_block_index(const auto& block)
+std::optional<size_t> StaticAnalyzer_<FF, CircuitBuilder>::find_block_index(const auto& block)
 {
-    auto blocks_data = circuit_builder.blocks.get();
-    size_t index = 0;
+    const auto& blocks_data = circuit_builder.blocks.get();
     for (size_t i = 0; i < blocks_data.size(); i++) {
-        if ((void*)(&blocks_data[i]) == (void*)(&block)) {
-            index = i;
-            break;
+        if (std::addressof(blocks_data[i]) == std::addressof(block)) {
+            return i;
         }
     }
-    return index;
+    return std::nullopt;
 }
 
 /**
@@ -481,49 +481,44 @@ template <typename FF, typename CircuitBuilder>
 inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_rom_table_connected_component(
     const bb::RomTranscript& rom_array)
 {
-    size_t block_index = find_block_index(ultra_builder, ultra_builder.blocks.memory);
-    BB_ASSERT_EQ(block_index, 5U);
-
-    // Every RomTranscript data structure has 2 main components that are interested for static analyzer:
-    // 1) records contains values that were put in the gate, we can use them to create connections between variables
-    // 2) states contains values witness indexes that we can find in the ROM record in the RomTrascript, so we can
-    // ignore state of the ROM transcript, because we still can connect all variables using variables from records.
     std::vector<uint32_t> rom_table_variables;
+    if (std::optional<size_t> blk_idx = find_block_index(circuit_builder.blocks.aux); blk_idx) {
+        // Every RomTranscript data structure has 2 main components that are interested for static analyzer:
+        // 1) records contains values that were put in the gate, we can use them to create connections between variables
+        // 2) states contains values witness indexes that we can find in the ROM record in the RomTrascript, so we can
+        // ignore state of the ROM transcript, because we still can connect all variables using variables from records.
+        for (const auto& record : rom_array.records) {
+            std::vector<uint32_t> gate_variables;
+            size_t gate_index = record.gate_index;
 
-    for (const auto& record : rom_array.records) {
-        std::vector<uint32_t> gate_variables;
-        size_t gate_index = record.gate_index;
+            auto q_1 = ultra_builder.blocks.memory.q_1()[gate_index];
+            auto q_2 = ultra_builder.blocks.memory.q_2()[gate_index];
+            auto q_3 = ultra_builder.blocks.memory.q_3()[gate_index];
+            auto q_4 = ultra_builder.blocks.memory.q_4()[gate_index];
+            auto q_m = ultra_builder.blocks.memory.q_m()[gate_index];
+            auto q_c = ultra_builder.blocks.memory.q_c()[gate_index];
 
-        auto q_1 = ultra_builder.blocks.memory.q_1()[gate_index];
-        auto q_2 = ultra_builder.blocks.memory.q_2()[gate_index];
-        auto q_3 = ultra_builder.blocks.memory.q_3()[gate_index];
-        auto q_4 = ultra_builder.blocks.memory.q_4()[gate_index];
-        auto q_m = ultra_builder.blocks.memory.q_m()[gate_index];
-        auto q_c = ultra_builder.blocks.memory.q_c()[gate_index];
+            auto index_witness = record.index_witness;
+            auto vc1_witness = record.value_column1_witness; // state[0] from RomTranscript
+            auto vc2_witness = record.value_column2_witness; // state[1] from RomTranscript
+            auto record_witness = record.record_witness;
 
-        auto index_witness = record.index_witness;
-        auto vc1_witness = record.value_column1_witness; // state[0] from RomTranscript
-        auto vc2_witness = record.value_column2_witness; // state[1] from RomTranscript
-        auto record_witness = record.record_witness;
-
-        if (q_1 == FF::one() && q_m == FF::one() && q_2.is_zero() && q_3.is_zero() && q_4.is_zero() && q_c.is_zero()) {
-            // By default ROM read gate uses variables (w_1, w_2, w_3, w_4) = (index_witness, vc1_witness, vc2_witness,
-            // record_witness) So we can update all of them
-            gate_variables.emplace_back(index_witness);
-            if (vc1_witness != circuit_builder.zero_idx) {
-                gate_variables.emplace_back(vc1_witness);
+            if (q_1 == FF::one() && q_m == FF::one() && q_2.is_zero() && q_3.is_zero() && q_4.is_zero() &&
+                q_c.is_zero()) {
+                // By default ROM read gate uses variables (w_1, w_2, w_3, w_4) = (index_witness, vc1_witness,
+                // vc2_witness, record_witness) So we can update all of them
+                gate_variables.emplace_back(index_witness);
+                if (vc1_witness != circuit_builder.zero_idx) {
+                    gate_variables.emplace_back(vc1_witness);
+                }
+                gate_variables = to_real(gate_variables);
+                process_gate_variables(gate_variables, gate_index, *blk_idx);
+                // after process_gate_variables function gate_variables constists of real variables indexes, so we can
+                // add all this variables in the final vector to connect all of them
+                if (!gate_variables.empty()) {
+                    rom_table_variables.insert(rom_table_variables.end(), gate_variables.begin(), gate_variables.end());
+                }
             }
-            if (vc2_witness != circuit_builder.zero_idx) {
-                gate_variables.emplace_back(vc2_witness);
-            }
-            gate_variables.emplace_back(record_witness);
-        }
-        gate_variables = to_real(gate_variables);
-        process_gate_variables(gate_variables, gate_index, block_index);
-        // after process_gate_variables function gate_variables constists of real variables indexes, so we can add all
-        // this variables in the final vector to connect all of them
-        if (!gate_variables.empty()) {
-            rom_table_variables.insert(rom_table_variables.end(), gate_variables.begin(), gate_variables.end());
         }
     }
     return rom_table_variables;
@@ -540,43 +535,44 @@ template <typename FF, typename CircuitBuilder>
 inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_ram_table_connected_component(
     const bb::RamTranscript& ram_array)
 {
-    size_t block_index = find_block_index(ultra_builder, ultra_builder.blocks.memory);
-    BB_ASSERT_EQ(block_index, 5U);
     std::vector<uint32_t> ram_table_variables;
-    for (const auto& record : ram_array.records) {
-        std::vector<uint32_t> gate_variables;
-        size_t gate_index = record.gate_index;
+    if (std::optional<size_t> blk_idx = find_block_index(circuit_builder.blocks.aux); blk_idx) {
+        for (const auto& record : ram_array.records) {
+            std::vector<uint32_t> gate_variables;
+            size_t gate_index = record.gate_index;
 
-        auto q_1 = ultra_builder.blocks.memory.q_1()[gate_index];
-        auto q_2 = ultra_builder.blocks.memory.q_2()[gate_index];
-        auto q_3 = ultra_builder.blocks.memory.q_3()[gate_index];
-        auto q_4 = ultra_builder.blocks.memory.q_4()[gate_index];
-        auto q_m = ultra_builder.blocks.memory.q_m()[gate_index];
-        auto q_c = ultra_builder.blocks.memory.q_c()[gate_index];
+            auto q_1 = circuit_builder.blocks.memory.q_1()[gate_index];
+            auto q_2 = circuit_builder.blocks.memory.q_2()[gate_index];
+            auto q_3 = circuit_builder.blocks.memory.q_3()[gate_index];
+            auto q_4 = circuit_builder.blocks.memory.q_4()[gate_index];
+            auto q_m = circuit_builder.blocks.memory.q_m()[gate_index];
+            auto q_arith = circuit_builder.blocks.memory.q_arith()[gate_index];
+            auto q_c = circuit_builder.blocks.memory.q_c()[gate_index];
 
-        auto index_witness = record.index_witness;
-        auto timestamp_witness = record.timestamp_witness;
-        auto value_witness = record.value_witness;
-        auto record_witness = record.record_witness;
+            auto index_witness = record.index_witness;
+            auto timestamp_witness = record.timestamp_witness;
+            auto value_witness = record.value_witness;
+            auto record_witness = record.record_witness;
 
-        if (q_1 == FF::one() && q_m == FF::one() && q_2.is_zero() && q_3.is_zero() && q_4.is_zero() &&
-            (q_c.is_zero() || q_c == FF::one())) {
-            // By default RAM read/write gate uses variables (w_1, w_2, w_3, w_4) = (index_witness, timestamp_witness,
-            // value_witness, record_witness) So we can update all of them
-            gate_variables.emplace_back(index_witness);
-            if (timestamp_witness != circuit_builder.zero_idx) {
-                gate_variables.emplace_back(timestamp_witness);
+            if (q_1 == FF::one() && q_m == FF::one() && q_2.is_zero() && q_3.is_zero() && q_4.is_zero() &&
+                q_arith.is_zero() && (q_c.is_zero() || q_c == FF::one())) {
+                // By default RAM read/write gate uses variables (w_1, w_2, w_3, w_4) = (index_witness,
+                // timestamp_witness, value_witness, record_witness) So we can update all of them
+                gate_variables.emplace_back(index_witness);
+                if (timestamp_witness != circuit_builder.zero_idx) {
+                    gate_variables.emplace_back(timestamp_witness);
+                }
+                if (value_witness != circuit_builder.zero_idx) {
+                    gate_variables.emplace_back(value_witness);
+                }
+                gate_variables.emplace_back(record_witness);
             }
-            if (value_witness != circuit_builder.zero_idx) {
-                gate_variables.emplace_back(value_witness);
-            }
-            gate_variables.emplace_back(record_witness);
+            gate_variables = to_real(gate_variables);
+            process_gate_variables(gate_variables, gate_index, *blk_idx);
+            // after process_gate_variables function gate_variables constists of real variables indexes, so we
+            // can add all these variables in the final vector to connect all of them
+            ram_table_variables.insert(ram_table_variables.end(), gate_variables.begin(), gate_variables.end());
         }
-        gate_variables = to_real(gate_variables);
-        process_gate_variables(gate_variables, gate_index, block_index);
-        // after process_gate_variables function gate_variables constists of real variables indexes, so we can add all
-        // these variables in the final vector to connect all of them
-        ram_table_variables.insert(ram_table_variables.end(), gate_variables.begin(), gate_variables.end());
     }
     return ram_table_variables;
 }
@@ -603,8 +599,8 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_eccop_part
     std::vector<uint32_t> gate_variables;
     std::vector<uint32_t> first_row_variables;
     std::vector<uint32_t> second_row_variables;
-    auto w1 = blk.w_l()[index]; // get opcode of operation, because function get_ecc_op_idx returns type uint32_t and it
-                                // adds as w1
+    auto w1 = blk.w_l()[index]; // get opcode of operation, because function get_ecc_op_idx returns type
+                                // uint32_t and it adds as w1
     if (w1 != circuit_builder.zero_idx) {
         // this is opcode and start of the UltraOp element
         first_row_variables.insert(
@@ -681,8 +677,8 @@ template <typename FF, typename CircuitBuilder> void StaticAnalyzer_<FF, Circuit
                 connect_all_variables_in_vector(delta_range_variables);
             }
             if constexpr (std::is_same_v<CircuitBuilder, bb::MegaCircuitBuilder>) {
-                // If type of CircuitBuilder is MegaCircuitBuilder, we'll try to process blocks like they can be databus
-                // or eccop
+                // If type of CircuitBuilder is MegaCircuitBuilder, we'll try to process blocks like they can be
+                // databus or eccop
                 auto databus_variables = get_databus_connected_component(gate_idx, blk_idx, block_data[blk_idx]);
                 if (connect_variables) {
                     connect_all_variables_in_vector(databus_variables);
@@ -690,11 +686,12 @@ template <typename FF, typename CircuitBuilder> void StaticAnalyzer_<FF, Circuit
                 auto eccop_gate_variables = get_eccop_part_connected_component(gate_idx, blk_idx, block_data[blk_idx]);
                 if (connect_variables) {
                     if (!eccop_gate_variables.empty()) {
-                        // The gotten vector of variables contains all variables from UltraOp element of the table
+                        // The gotten vector of variables contains all variables from UltraOp element of the
+                        // table
                         eccop_variables.insert(
                             eccop_variables.end(), eccop_gate_variables.begin(), eccop_gate_variables.end());
-                        // if a current opcode is responsible for equality and reset, we have to connect all variables
-                        // in global vector and clear it for the next parts
+                        // if a current opcode is responsible for equality and reset, we have to connect all
+                        // variables in global vector and clear it for the next parts
                         if (eccop_gate_variables[0] == circuit_builder.equality_op_idx) {
                             connect_all_variables_in_vector(eccop_variables);
                             eccop_variables.clear();
@@ -872,8 +869,8 @@ void StaticAnalyzer_<FF, CircuitBuilder>::depth_first_search(const uint32_t& var
 /**
  * @brief this methond finds all connected components in the graph described by adjacency lists
  * @tparam FF
- * @return std::vector<std::vector<uint32_t>> list of connected components where each component is a vector of variable
- * indices
+ * @return std::vector<std::vector<uint32_t>> list of connected components where each component is a vector of
+ * variable indices
  */
 
 template <typename FF, typename CircuitBuilder>
@@ -895,10 +892,11 @@ std::vector<ConnectedComponent> StaticAnalyzer_<FF, CircuitBuilder>::find_connec
         }
     }
     mark_range_list_connected_components();
+    mark_finalize_connected_components();
     if (!return_all_connected_components) {
         std::vector<ConnectedComponent> main_connected_components;
         for (const auto& cc : connected_components) {
-            if (!cc.is_range_list_cc) {
+            if (!cc.is_range_list_cc && !cc.is_finalize_cc) {
                 main_connected_components.emplace_back(cc);
             }
         }
@@ -927,14 +925,26 @@ void StaticAnalyzer_<FF, CircuitBuilder>::mark_range_list_connected_components()
     }
 }
 
+template <typename FF, typename CircuitBuilder>
+void StaticAnalyzer_<FF, CircuitBuilder>::mark_finalize_connected_components()
+{
+    const auto& finalize_witnesses = circuit_builder.finalize_witnesses;
+    for (auto& cc : connected_components) {
+        const auto& vars = cc.vars();
+        cc.is_finalize_cc = std::all_of(vars.begin(), vars.end(), [&finalize_witnesses](uint32_t var_idx) {
+            return finalize_witnesses.contains(var_idx);
+        });
+    }
+}
+
 /**
  * @brief this method removes variables that were created in a function decompose_into_default_range
  * because they are false cases and don't give any useful information about security of the circuit.
  * decompose_into_default_range function creates addition gates with shifts for intermediate variables,
  * i.e. variables from left, right and output wires. They have variable gates count = 1 or 2, but they are not
- * dangerous. so, we have to remove these variables from the analyzer. The situation is dangerous, if first variable
- * from accumulators have variables gate count = 1. It means that it was used only in decompose gate, and it's not
- * properly constrained.
+ * dangerous. so, we have to remove these variables from the analyzer. The situation is dangerous, if first
+ * variable from accumulators have variables gate count = 1. It means that it was used only in decompose gate,
+ * and it's not properly constrained.
  * @tparam FF
  * @param ultra_circuit_constructor
  * @param variables_in_one_gate
@@ -950,8 +960,8 @@ inline size_t StaticAnalyzer_<FF, CircuitBuilder>::process_current_decompose_cha
     size_t current_index = index;
     std::vector<uint32_t> accumulators_indices;
     while (true) {
-        // we have to remove left, right and output wires of the current gate, cause they'are new_limbs, and they are
-        // useless for the analyzer
+        // we have to remove left, right and output wires of the current gate, cause they'are new_limbs, and
+        // they are useless for the analyzer
         auto fourth_idx = arithmetic_block.w_4()[current_index];
         accumulators_indices.emplace_back(this->to_real(fourth_idx));
         auto left_idx = arithmetic_block.w_l()[current_index];
@@ -975,16 +985,17 @@ inline size_t StaticAnalyzer_<FF, CircuitBuilder>::process_current_decompose_cha
     }
     for (size_t i = 0; i < accumulators_indices.size(); i++) {
         if (i == 0) {
-            // the first variable in accumulators is the variable which decompose was created. So, we have to decrement
-            // variable_gate_counts for this variable
+            // the first variable in accumulators is the variable which decompose was created. So, we have to
+            // decrement variable_gate_counts for this variable
             variables_gate_counts[accumulators_indices[i]] -= 1;
         } else {
-            // next accumulators are useless variables that are not interested for the analyzer. So, for these variables
-            // we can nullify variables_gate_counts
+            // next accumulators are useless variables that are not interested for the analyzer. So, for these
+            // variables we can nullify variables_gate_counts
             variables_gate_counts[accumulators_indices[i]] = 0;
         }
     }
-    // we don't want to make variables_gate_counts for intermediate variables negative, so, can go to the next gates
+    // we don't want to make variables_gate_counts for intermediate variables negative, so, can go to the next
+    // gates
     return current_index;
 }
 
@@ -1060,13 +1071,13 @@ void StaticAnalyzer_<FF, CircuitBuilder>::remove_unnecessary_range_constrains_va
     }
     for (uint32_t real_index = 0; real_index < real_variable_tags.size(); real_index++) {
         if (variables_in_one_gate.contains(real_index)) {
-            // this if helps us to remove variables from delta_range_constraints when finalize_circuit() function was
-            // called
+            // this if helps us to remove variables from delta_range_constraints when finalize_circuit()
+            // function was called
             if (range_lists_tau_tags.contains(real_variable_tags[real_index])) {
                 variables_in_one_gate.erase(real_index);
             }
-            // this if helps us to remove variables from range_constraints when range_constraint_into_two_limbs function
-            // was called
+            // this if helps us to remove variables from range_constraints when range_constraint_into_two_limbs
+            // function was called
             if (range_lists_range_tags.contains(real_variable_tags[real_index])) {
                 variables_in_one_gate.erase(real_index);
             }
@@ -1253,35 +1264,37 @@ inline void StaticAnalyzer_<FF, CircuitBuilder>::remove_unnecessary_plookup_vari
 template <typename FF, typename CircuitBuilder>
 inline void StaticAnalyzer_<FF, CircuitBuilder>::remove_record_witness_variables()
 {
-    auto block_data = ultra_builder.blocks.get();
-    size_t blk_idx = find_block_index(ultra_builder, ultra_builder.blocks.memory);
-    std::vector<uint32_t> to_remove;
-    BB_ASSERT_EQ(blk_idx, 5U);
-    for (const auto& var_idx : variables_in_one_gate) {
-        KeyPair key = { var_idx, blk_idx };
-        if (auto search = variable_gates.find(key); search != variable_gates.end()) {
-            std::vector<size_t> gate_indexes = variable_gates[key];
-            BB_ASSERT_EQ(gate_indexes.size(), 1U);
-            size_t gate_idx = gate_indexes[0];
-            auto q_1 = block_data[blk_idx].q_1()[gate_idx];
-            auto q_2 = block_data[blk_idx].q_2()[gate_idx];
-            auto q_3 = block_data[blk_idx].q_3()[gate_idx];
-            auto q_4 = block_data[blk_idx].q_4()[gate_idx];
-            auto q_m = block_data[blk_idx].q_m()[gate_idx];
-            auto q_arith = block_data[blk_idx].q_arith()[gate_idx];
-            if (q_1 == FF::one() && q_m == FF::one() && q_2.is_zero() && q_3.is_zero() && q_4.is_zero() &&
-                q_arith.is_zero()) {
-                // record witness can be in both ROM and RAM gates, so we can ignore q_c
-                // record witness is written as 4th variable in RAM/ROM read/write gate, so we can get 4th wire value
-                // and check it with our variable
-                if (this->to_real(block_data[blk_idx].w_4()[gate_idx]) == var_idx) {
-                    to_remove.emplace_back(var_idx);
+    auto block_data = circuit_builder.blocks.get();
+    if (std::optional<size_t> blk_idx = find_block_index(circuit_builder.blocks.aux); blk_idx) {
+        std::vector<uint32_t> to_remove;
+        for (const auto& var_idx : variables_in_one_gate) {
+            KeyPair key = { var_idx, *blk_idx };
+            if (auto search = variable_gates.find(key); search != variable_gates.end()) {
+                std::vector<size_t> gate_indexes = variable_gates[key];
+                ASSERT(gate_indexes.size() == 1);
+                size_t gate_idx = gate_indexes[0];
+                auto q_1 = block_data[*blk_idx].q_1()[gate_idx];
+                auto q_2 = block_data[*blk_idx].q_2()[gate_idx];
+                auto q_3 = block_data[*blk_idx].q_3()[gate_idx];
+                auto q_4 = block_data[*blk_idx].q_4()[gate_idx];
+                auto q_m = block_data[*blk_idx].q_m()[gate_idx];
+                auto q_arith = block_data[*blk_idx].q_arith()[gate_idx];
+                if (q_1 == FF::one() && q_m == FF::one() && q_2.is_zero() && q_3.is_zero() && q_4.is_zero() &&
+                    q_arith.is_zero()) {
+                    // record witness can be in both ROM and RAM gates, so we can ignore q_c
+                    // record witness is written as 4th variable in RAM/ROM read/write gate, so we can get 4th
+                    // wire value and check it with our variable
+                    if (this->to_real(block_data[*blk_idx].w_4()[gate_idx]) == var_idx) {
+                        to_remove.emplace_back(var_idx);
+                    }
                 }
             }
         }
-    }
-    for (const auto& elem : to_remove) {
-        variables_in_one_gate.erase(elem);
+        for (const auto& elem : to_remove) {
+            variables_in_one_gate.erase(elem);
+        }
+    } else {
+        return;
     }
 }
 
