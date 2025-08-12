@@ -237,26 +237,13 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     bool is_hiding_kernel =
         stdlib_verification_queue.size() == 1 && (stdlib_verification_queue.front().type == QUEUE_TYPE::PG_FINAL);
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1511): this should check the queue is of size one and
-    // contains an entry of type PG_TAIL, currently it might contain several entries in case it's a minimal transaction
-    // produced by our tests which is not exactly realistic
-    bool is_tail_kernel = std::any_of(stdlib_verification_queue.begin(),
-                                      stdlib_verification_queue.end(),
-                                      [](const auto& entry) { return entry.type == QUEUE_TYPE::PG_TAIL; });
-
     // If the incoming circuit is a kernel, start its subtable with an eq and reset operation to ensure a
     // neighbouring misconfigured subtable coming from an app cannot affect the operations in the
-    // current subtable. We don't do this for the hiding kernel as it succeeds another kernel.
+    // current subtable. We don't do this for the hiding kernel as it succeeds another kernel and because the hiding
+    // kernel has to start with a no-op for the correct functioning of translator.
     if (!is_hiding_kernel) {
-        if (is_tail_kernel) {
-            // Add a no-op at the beginning of the tail kernel (the last circuit whose ecc ops subtable is prepended) to
-            // ensure the wires representing the op queue in translator circuit are shiftable polynomials, i.e. their
-            // 0th coefficient is 0.
-            circuit.queue_ecc_no_op();
-        }
         circuit.queue_ecc_eq();
     }
-
     // Perform Oink/PG and Merge recursive verification + databus consistency checks for each entry in the queue
     PairingPoints points_accumulator;
     while (!stdlib_verification_queue.empty()) {
@@ -419,6 +406,10 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::comp
     // share a transcript
     std::shared_ptr<RecursiveTranscript> pg_merge_transcript = std::make_shared<RecursiveTranscript>();
 
+    // Add a no-op at the beginning of the hiding circuit to ensure the wires representing the op queue in translator
+    // circuit are shiftable polynomials, i.e. their 0th coefficient is equal to 0.
+    circuit.queue_ecc_no_op();
+
     hide_op_queue_accumulation_result(circuit);
 
     // Construct stdlib accumulator, decider vkey and folding proof
@@ -512,13 +503,8 @@ ClientIVC::Proof ClientIVC::prove()
     // A transcript is shared between the Hiding circuit prover and the Goblin prover
     goblin.transcript = transcript;
 
-    // Returns a proof for the hiding circuit and the Goblin proof. The latter consists of Translator and ECCVM proof
-    // for the whole ecc op table and the merge proof for appending the subtable coming from the hiding circuit. The
-    // final merging is done via appending to facilitate creating a zero-knowledge merge proof. This enables us to add
-    // randomness to the beginning of the tail kernel and the end of the hiding kernel, hiding the commitments and
-    // evaluations of both the previous table and the incoming subtable.
-    // https://github.com/AztecProtocol/barretenberg/issues/1360
-    return { mega_proof, goblin.prove(MergeSettings::APPEND) };
+    // Prove ECCVM and Translator
+    return { mega_proof, goblin.prove() };
 };
 
 bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
@@ -535,8 +521,8 @@ bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
     TableCommitments t_commitments = verifier.verification_key->witness_commitments.get_ecc_op_wires().get_copy();
 
     // Goblin verification (final merge, eccvm, translator)
-    bool goblin_verified = Goblin::verify(
-        proof.goblin_proof, { t_commitments, T_prev_commitments }, civc_verifier_transcript, MergeSettings::APPEND);
+    bool goblin_verified =
+        Goblin::verify(proof.goblin_proof, { t_commitments, T_prev_commitments }, civc_verifier_transcript);
     vinfo("Goblin verified: ", goblin_verified);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1396): State tracking in CIVC verifiers.
@@ -585,6 +571,7 @@ bool ClientIVC::prove_and_verify()
     start = end;
     const bool verified = verify(proof);
     end = std::chrono::steady_clock::now();
+
     diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     vinfo("time to verify ClientIVC proof: ", diff.count(), " ms.");
 

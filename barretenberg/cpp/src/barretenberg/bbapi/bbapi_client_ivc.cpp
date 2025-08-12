@@ -119,27 +119,26 @@ static std::shared_ptr<ClientIVC::DeciderProvingKey> get_acir_program_decider_pr
 
 ClientIVC::VerificationKey compute_civc_vk(const BBApiRequest& request, size_t num_public_inputs_in_final_circuit)
 {
-    const size_t MIN_NUM_CIRCUITS = 4;
-    ClientIVC ivc{ /* num_circuits */ MIN_NUM_CIRCUITS, request.trace_settings };
+    ClientIVC ivc{ /* num_circuits */ 2, request.trace_settings };
     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
 
     // Initialize the IVC with an arbitrary circuit
     // We segfault if we only call accumulate once
     static constexpr size_t SMALL_ARBITRARY_LOG_CIRCUIT_SIZE{ 5 };
+    auto [circuit_0, vk_0] =
+        circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = SMALL_ARBITRARY_LOG_CIRCUIT_SIZE });
+    ivc.accumulate(circuit_0, vk_0);
 
-    for (size_t idx = 0; idx < MIN_NUM_CIRCUITS - 1; ++idx) {
-        circuit_producer.construct_and_accumulate_next_circuit(ivc,
-                                                               { .log2_num_gates = SMALL_ARBITRARY_LOG_CIRCUIT_SIZE });
-    }
+    // Create another circuit and accumulate
+    auto [circuit_1, vk_1] =
+        circuit_producer.create_next_circuit_and_vk(ivc,
+                                                    {
+                                                        .num_public_inputs = num_public_inputs_in_final_circuit,
+                                                        .log2_num_gates = SMALL_ARBITRARY_LOG_CIRCUIT_SIZE,
+                                                    });
+    ivc.accumulate(circuit_1, vk_1);
 
-    // Create and accumulate a fake last circuit with public inputs specified
-    circuit_producer.construct_and_accumulate_next_circuit(ivc,
-                                                           {
-                                                               .num_public_inputs = num_public_inputs_in_final_circuit,
-                                                               .log2_num_gates = SMALL_ARBITRARY_LOG_CIRCUIT_SIZE,
-                                                           });
-
-    PrivateFunctionExecutionMockCircuitProducer::construct_hiding_kernel(ivc);
+    circuit_producer.construct_hiding_kernel(ivc);
     // Construct the hiding circuit proving and verification key
     auto hiding_decider_pk = ivc.compute_hiding_circuit_proving_key();
     auto hiding_honk_vk = std::make_shared<ClientIVC::MegaZKVerificationKey>(hiding_decider_pk->get_precomputed());
