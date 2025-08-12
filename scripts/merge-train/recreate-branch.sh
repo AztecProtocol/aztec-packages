@@ -23,7 +23,7 @@ fi
 
 MT="$1"           # merge-train/* branch that was just merged
 BASE="$2"         # base branch (usually next)
-MERGE_COMMIT="$3" # the merge commit in the base branch
+MERGE_COMMIT="$3" # the commit in the base branch containing our squashed changes
 HEAD_COMMIT="$4"  # the head commit SHA of the pre-merge PR
 
 # Ensure required token is set
@@ -40,8 +40,7 @@ git fetch origin "$MERGE_COMMIT" || exit 1
 echo "Creating backup of branch '$MT' as '${MT}-previous'"
 git push --force origin "refs/remotes/origin/$MT:refs/heads/${MT}-previous" 2>/dev/null || echo "Warning: Failed to create backup (branch may not exist)"
 
-# Rebuild merge-train branch from the merge commit
-# This preserves the full history since we're using regular merges
+# Rebuild merge-train branch
 git checkout -B "$MT" "$MERGE_COMMIT"
 git commit --allow-empty -m "[empty] Start merge-train. Choo choo."
 git push -f origin "$MT"
@@ -74,8 +73,28 @@ for PR_DATA in $PR_LIST; do
     continue
   fi
 
-  # With regular merges, we don't need complex rebase instructions
-  # PRs targeting the merge train will automatically have the latest changes
-  echo "✓ PR #$PR_NUM targets $MT branch"
+  # Check if branch has commits from the old merge-train
+  PR_BASE=$(git merge-base "$MERGE_COMMIT" "$HEAD_COMMIT")
+  # Check: Has this PR already pulled in commits that were on the old merge-train?
+  #
+  # 1.  List all commit-ids that are in the PR but not in $BASE
+  # 2.  For each of those commit-ids, ask: "is that commit reachable from $BR?" if so, we have history from the old merge-train.
+  if git log --format=%H "$PR_BASE..$HEAD_COMMIT" | grep -qFf <(git log --format=%H "$BR"); then
+    # Branch has commits from the old merge-train, add comment
+    TIPS="This had commits from $MT but it has now been squashed.
+Consider running the following commands to rebase onto the new $MT:
+\`\`\`
+# Merge the old PR head before recreation.
+# If you currently have conflicts, you will resolve them here.
+git merge $HEAD_COMMIT
+# Rebase onto $BASE, ignoring commits received from the old $MT.
+git rebase --onto \$(git merge-base $HEAD_COMMIT $BASE) $MERGE_COMMIT
+\`\`\`"
+
+    gh pr comment "$PR_NUM" --body "$TIPS"
+    echo "✓ Added rebase instructions comment to PR #$PR_NUM"
+  else
+    echo "✓ PR #$PR_NUM does not contain commits from old $MT, no comment needed"
+  fi
 
 done
