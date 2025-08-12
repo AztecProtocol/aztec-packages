@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.2.2](https://github.com/AztecProtocol/aztec-packages/compare/v1.2.1...v1.2.2) (2025-08-12)
+
+
+### Miscellaneous
+
+* backport 16220 ([#16237](https://github.com/AztecProtocol/aztec-packages/issues/16237)) ([6f16471](https://github.com/AztecProtocol/aztec-packages/commit/6f16471f35d08298f0e3adef9a502fda0a8dfe33)), closes [#16220](https://github.com/AztecProtocol/aztec-packages/issues/16220)
+* **backport-to-master:** chore(docs): update testnet version and add PXE URL in guides ([#16219](https://github.com/AztecProtocol/aztec-packages/issues/16219)) ([#16242](https://github.com/AztecProtocol/aztec-packages/issues/16242)) ([eb34a63](https://github.com/AztecProtocol/aztec-packages/commit/eb34a63367a2e18ab57b496cfdbb9f9f6a1949ae))
+* **docs:** update master with changes from 16163 ([#16168](https://github.com/AztecProtocol/aztec-packages/issues/16168)) ([126cbf5](https://github.com/AztecProtocol/aztec-packages/commit/126cbf57162d91f9063c1498490293a65dded9fe))
+
+
+### Documentation
+
+* aztec-nr doc comments ([#16316](https://github.com/AztecProtocol/aztec-packages/issues/16316)) ([b401cf0](https://github.com/AztecProtocol/aztec-packages/commit/b401cf08f78362d7c4ccbbe4bbbe7902d5706ff1))
+
 ## [1.2.1](https://github.com/AztecProtocol/aztec-packages/compare/v1.2.0...v1.2.1) (2025-07-31)
 
 
