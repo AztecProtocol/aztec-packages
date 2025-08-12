@@ -616,6 +616,22 @@ template <typename TranscriptParams> class BaseTranscript {
     }
 
     /**
+     * @brief Convert a prover transcript to a verifier transcript
+     *
+     * @param prover_transcript The prover transcript to convert
+     * @return std::shared_ptr<BaseTranscript> The verifier transcript
+     */
+    static std::shared_ptr<BaseTranscript> convert_prover_transcript_to_verifier_transcript(
+        const std::shared_ptr<BaseTranscript>& prover_transcript)
+    {
+        // We expect this function to only be used when the transcript has just been exported.
+        BB_ASSERT_EQ(prover_transcript->num_frs_written, static_cast<size_t>(0), "Expected to be empty");
+        auto verifier_transcript = std::make_shared<BaseTranscript>(*prover_transcript);
+        verifier_transcript->num_frs_read = static_cast<size_t>(verifier_transcript->proof_start);
+        verifier_transcript->proof_start = 0;
+        return verifier_transcript;
+    }
+    /**
      * @brief For testing: initializes transcript with some arbitrary data so that a challenge can be generated
      * after initialization. Only intended to be used by Prover.
      *
