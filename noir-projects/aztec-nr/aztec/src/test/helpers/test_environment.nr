@@ -1,5 +1,7 @@
 use protocol_types::{
-    abis::function_selector::FunctionSelector, address::AztecAddress, traits::Deserialize,
+    abis::function_selector::FunctionSelector,
+    address::AztecAddress,
+    traits::{Deserialize, Packable},
 };
 
 use crate::{
@@ -9,8 +11,25 @@ use crate::{
         ReturnsHash, UtilityCallInterface, UtilityContext,
     },
     hash::hash_args,
+    messages::{
+        discovery::{
+            ComputeNoteHashAndNullifier, NoteHashAndNullifier,
+            process_message::do_process_message_plaintext,
+        },
+        encoding::{encode_message, MAX_MESSAGE_LEN},
+        msg_type::PRIVATE_NOTE_MSG_TYPE_ID,
+        processing::{message_context::MessageContext, validate_enqueued_notes_and_events},
+    },
+    note::{
+        note_emission::NoteEmission,
+        note_interface::{NoteHash, NoteType},
+        note_metadata::SettledNoteMetadata,
+        retrieved_note::RetrievedNote,
+        utils::compute_note_hash_for_nullify,
+    },
     oracle::{execution::{get_block_number, get_timestamp}, execution_cache},
     test::helpers::{txe_oracles, utils::ContractDeployment},
+    utils::array::subarray,
 };
 
 mod test;
@@ -644,4 +663,75 @@ impl TestEnvironment {
         let returns: T = ReturnsHash::new(returns_hash).get_preimage();
         returns
     }
+
+    pub unconstrained fn discover_notes<Note>(self: Self, emission: NoteEmission<Note>)
+    where
+        Note: Packable + NoteType + NoteHash,
+    {
+        let message_plaintext = encode_note_emission(emission);
+
+        let (tx_hash, unique_note_hashes_in_tx, nullifiers_in_tx) =
+            txe_oracles::get_last_tx_effects();
+        let message_context = MessageContext {
+            tx_hash,
+            unique_note_hashes_in_tx,
+            first_nullifier_in_tx: nullifiers_in_tx.get(0),
+            recipient: AztecAddress::zero(),
+        };
+
+        self.utility_context(|context| {
+            let compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<_> = |packed_note, storage_slot, note_type_id, contract_address, note_nonce| {
+                assert_eq(note_type_id, Note::get_id());
+                assert_eq(packed_note.len(), <Note as Packable>::N);
+
+                let note = Note::unpack(subarray(packed_note.storage(), 0));
+
+                let note_hash = note.compute_note_hash(storage_slot);
+                let note_hash_for_nullify = compute_note_hash_for_nullify(
+                    RetrievedNote {
+                        note,
+                        contract_address,
+                        metadata: SettledNoteMetadata::new(note_nonce).into(),
+                    },
+                    storage_slot,
+                );
+
+                let inner_nullifier = note.compute_nullifier_unconstrained(note_hash_for_nullify);
+
+                Option::some(NoteHashAndNullifier { note_hash, inner_nullifier })
+            };
+
+            do_process_message_plaintext(
+                context.this_address(), // is this ok
+                compute_note_hash_and_nullifier,
+                message_plaintext,
+                message_context,
+            );
+
+            validate_enqueued_notes_and_events(context.this_address());
+        });
+    }
+}
+
+unconstrained fn encode_note_emission<Note>(
+    emission: NoteEmission<Note>,
+) -> BoundedVec<Field, MAX_MESSAGE_LEN>
+where
+    Note: NoteType + Packable,
+{
+    let packed_note = emission.note.pack();
+
+    // A note message's content is the storage slot followed by the packed note representation
+    let mut msg_content = [0; 1 + <Note as Packable>::N];
+    msg_content[0] = emission.storage_slot;
+    for i in 0..packed_note.len() {
+        msg_content[1 + i] = packed_note[i];
+    }
+
+    BoundedVec::from_array(encode_message(
+        PRIVATE_NOTE_MSG_TYPE_ID,
+        // Notes use the note type id for metadata
+        Note::get_id() as u64,
+        msg_content,
+    ))
 }

@@ -1,5 +1,9 @@
 import { type ContractInstanceWithAddress, Fr, Point } from '@aztec/aztec.js';
-import { CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS } from '@aztec/constants';
+import {
+  CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
+} from '@aztec/constants';
 import type { Logger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { ProtocolContract } from '@aztec/protocol-contracts';
@@ -265,6 +269,19 @@ export class TXEService {
 
     const timestamp = await this.txe.txeGetLastBlockTimestamp();
     return toForeignCallResult([toSingle(new Fr(timestamp))]);
+  }
+
+  async txeGetLastTxEffects() {
+    if (this.contextChecksEnabled && this.context != TXEContext.TOP_LEVEL) {
+      throw new Error(`Attempted to call txeGetLastTxEffects while in context ${TXEContext[this.context]}`);
+    }
+
+    const txEffects = await this.txe.txeGetLastTxEffects();
+    return toForeignCallResult([
+      toSingle(txEffects.txHash.hash),
+      ...arrayToBoundedVec(toArray(txEffects.noteHashes), MAX_NOTE_HASHES_PER_TX),
+      ...arrayToBoundedVec(toArray(txEffects.nullifiers), MAX_NULLIFIERS_PER_TX),
+    ]);
   }
 
   // Since the argument is a slice, noir automatically adds a length field to oracle call.

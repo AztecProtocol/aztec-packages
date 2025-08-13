@@ -59,7 +59,7 @@ pub struct NoteHashAndNullifier {
 ///     };
 /// }
 /// ```
-type ComputeNoteHashAndNullifier<Env> = unconstrained fn[Env](/* packed_note */BoundedVec<Field, MAX_NOTE_PACKED_LEN>, /* storage_slot */ Field, /* note_type_id */ Field, /* contract_address */ AztecAddress, /* note nonce */ Field) -> Option<NoteHashAndNullifier>;
+pub type ComputeNoteHashAndNullifier<Env> = unconstrained fn[Env](/* packed_note */BoundedVec<Field, MAX_NOTE_PACKED_LEN>, /* storage_slot */ Field, /* note_type_id */ Field, /* contract_address */ AztecAddress, /* note nonce */ Field) -> Option<NoteHashAndNullifier>;
 
 /// Performs the message discovery process, in which private are downloaded and inspected to find new private notes,
 /// partial notes and events, etc., and pending partial notes are processed to search for their completion logs.

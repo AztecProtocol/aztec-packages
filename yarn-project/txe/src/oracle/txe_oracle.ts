@@ -371,6 +371,22 @@ export class TXE {
     return this.getBlockTimestamp(this.blockNumber - 1);
   }
 
+  async txeGetLastTxEffects() {
+    const block = await this.stateMachine.archiver.getBlock(this.blockNumber - 1);
+    if (!block) {
+      throw new Error(`Got no block for the expected last block, number ${this.blockNumber - 1}`);
+    }
+
+    if (block.body.txEffects.length != 1) {
+      // Note that calls like env.mine() will result in blocks with no transactions, hitting this
+      throw new Error(`Expected a single transaction in the last block, found ${block.body.txEffects.length}`);
+    }
+
+    const txEffects = block.body.txEffects[0];
+
+    return { txHash: txEffects.txHash, noteHashes: txEffects.noteHashes, nullifiers: txEffects.nullifiers };
+  }
+
   utilityGetContractAddress() {
     return Promise.resolve(this.contractAddress);
   }
