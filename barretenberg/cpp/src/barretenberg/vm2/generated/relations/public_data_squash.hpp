@@ -14,7 +14,7 @@ template <typename FF_> class public_data_squashImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 9> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 3, 5, 4, 3, 3, 3 };
+    static constexpr std::array<size_t, 11> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 3, 5, 4, 3, 3, 3, 3, 4 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -33,10 +33,14 @@ template <typename FF_> class public_data_squashImpl {
 
         PROFILE_THIS_NAME("accumulate/public_data_squash");
 
+        const auto public_data_squash_START =
+            in.get(C::public_data_squash_sel_shift) * (FF(1) - in.get(C::public_data_squash_sel));
         const auto public_data_squash_END =
             in.get(C::public_data_squash_sel) * (FF(1) - in.get(C::public_data_squash_sel_shift));
         const auto public_data_squash_NOT_END =
             in.get(C::public_data_squash_sel) * in.get(C::public_data_squash_sel_shift);
+        const auto public_data_squash_LEAF_SLOT_END =
+            in.get(C::public_data_squash_leaf_slot_increase) + public_data_squash_END;
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -46,8 +50,7 @@ template <typename FF_> class public_data_squashImpl {
         }
         { // START_CONDITION
             using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = in.get(C::public_data_squash_sel_shift) * (FF(1) - in.get(C::public_data_squash_sel)) *
-                       (FF(1) - in.get(C::precomputed_first_row));
+            auto tmp = public_data_squash_START * (FF(1) - in.get(C::precomputed_first_row));
             tmp *= scaling_factor;
             std::get<1>(evals) += typename Accumulator::View(tmp);
         }
@@ -95,10 +98,24 @@ template <typename FF_> class public_data_squashImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::public_data_squash_write_to_public_inputs) -
-                        (in.get(C::public_data_squash_leaf_slot_increase) + public_data_squash_END));
+            auto tmp = (in.get(C::public_data_squash_write_to_public_inputs_shift) -
+                        (in.get(C::public_data_squash_leaf_slot_increase) + public_data_squash_START));
             tmp *= scaling_factor;
             std::get<8>(evals) += typename Accumulator::View(tmp);
+        }
+        { // FINAL_VALUE_PROPAGATION
+            using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
+            auto tmp = in.get(C::public_data_squash_check_clock) *
+                       (in.get(C::public_data_squash_final_value) - in.get(C::public_data_squash_final_value_shift));
+            tmp *= scaling_factor;
+            std::get<9>(evals) += typename Accumulator::View(tmp);
+        }
+        { // FINAL_VALUE_CHECK
+            using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
+            auto tmp = public_data_squash_LEAF_SLOT_END *
+                       (in.get(C::public_data_squash_final_value) - in.get(C::public_data_squash_value));
+            tmp *= scaling_factor;
+            std::get<10>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -114,6 +131,10 @@ template <typename FF> class public_data_squash : public Relation<public_data_sq
             return "START_CONDITION";
         case 4:
             return "CHECK_SAME_LEAF_SLOT";
+        case 9:
+            return "FINAL_VALUE_PROPAGATION";
+        case 10:
+            return "FINAL_VALUE_CHECK";
         }
         return std::to_string(index);
     }
@@ -121,6 +142,8 @@ template <typename FF> class public_data_squash : public Relation<public_data_sq
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_START_CONDITION = 1;
     static constexpr size_t SR_CHECK_SAME_LEAF_SLOT = 4;
+    static constexpr size_t SR_FINAL_VALUE_PROPAGATION = 9;
+    static constexpr size_t SR_FINAL_VALUE_CHECK = 10;
 };
 
 } // namespace bb::avm2
