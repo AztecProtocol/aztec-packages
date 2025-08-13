@@ -36,7 +36,7 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
 
     std::shared_ptr<VKAndHash> vk_and_hash;
 
-    bool is_accumulator = false;
+    bool is_complete = false; // whether this instance has been completely populated
 
     // An array {1, α₁, …, αₖ}, where k = NUM_SUBRELATIONS - 1.
     SubrelationSeparators alphas;
@@ -66,8 +66,8 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
     RecursiveDeciderVerificationKey_(Builder* builder, std::shared_ptr<NativeDeciderVerificationKey> verification_key)
         : RecursiveDeciderVerificationKey_(builder, verification_key->vk)
     {
-        is_accumulator = verification_key->is_accumulator;
-        if (is_accumulator) {
+        is_complete = verification_key->is_complete;
+        if (is_complete) {
             for (size_t alpha_idx = 0; alpha_idx < Flavor::NUM_SUBRELATIONS - 1; alpha_idx++) {
                 alphas[alpha_idx] = FF::from_witness(builder, verification_key->alphas[alpha_idx]);
             }
@@ -117,7 +117,7 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
         }
 
         NativeDeciderVerificationKey decider_vk(native_honk_vk);
-        decider_vk.is_accumulator = is_accumulator;
+        decider_vk.is_complete = is_complete;
 
         for (auto [alpha, inst_alpha] : zip_view(alphas, decider_vk.alphas)) {
             inst_alpha = alpha.get_value();
