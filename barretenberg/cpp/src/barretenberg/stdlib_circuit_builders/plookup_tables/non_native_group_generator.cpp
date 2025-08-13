@@ -85,18 +85,6 @@ template <typename G1> void ecc_generator_table<G1>::init_generator_tables()
     init = true;
 }
 
-// map 0 to 255 into 0 to 510 in steps of two
-// actual naf value = (position * 2) - 255
-template <typename G1> size_t ecc_generator_table<G1>::convert_position_to_shifted_naf(const size_t position)
-{
-    return (position * 2);
-}
-
-template <typename G1> size_t ecc_generator_table<G1>::convert_shifted_naf_to_position(const size_t shifted_naf)
-{
-    return shifted_naf / 2;
-}
-
 /**
  * Get 2 low 68-bit limbs of x-coordinate
  **/
