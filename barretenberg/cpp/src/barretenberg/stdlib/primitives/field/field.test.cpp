@@ -218,8 +218,9 @@ template <typename Builder> class stdlib_field : public testing::Test {
                 if (!predicate.is_constant()) {
                     // If the witness index and constants of lhs and lhs do coincide, no gates are added
                     if (!same_elt) {
+                        int num_witnesses = static_cast<int>(!rhs.is_constant()) + static_cast<int>(!lhs.is_constant());
                         // If lhs or rhs is a constant field element, `lhs - rhs` does not create an extra gate
-                        expected_num_gates += 1 + static_cast<size_t>(!rhs.is_constant() && !lhs.is_constant());
+                        expected_num_gates += static_cast<size_t>(num_witnesses);
                     }
                 }
 
@@ -349,6 +350,77 @@ template <typename Builder> class stdlib_field : public testing::Test {
         run_test(true, false);
     }
 
+    void test_assert_equal_with_gate_count()
+    {
+        Builder builder;
+
+        // Constant == constant
+        {
+            field_ct a(&builder, 5);
+            field_ct b(&builder, 5);
+            EXPECT_NO_THROW(a.assert_equal(b));
+        }
+
+        // Constant != constant
+        {
+            field_ct a(&builder, 3);
+            field_ct b(&builder, 7);
+            EXPECT_THROW_OR_ABORT(a.assert_equal(b), "field_t::assert_equal: constants are not equal");
+        }
+
+        // Constant == witness
+        {
+            Builder builder;
+            size_t num_gates_start = builder.get_estimated_num_finalized_gates();
+            field_ct a(&builder, 9);
+            field_ct b = field_ct::from_witness(&builder, 9);
+            a.assert_equal(b);
+            EXPECT_TRUE(CircuitChecker::check(builder));
+            // 1 gate is needed to fix the constant
+            EXPECT_EQ(builder.get_estimated_num_finalized_gates() - num_gates_start, 1);
+        }
+
+        // Witness == constant
+        {
+            Builder builder;
+            size_t num_gates_start = builder.get_estimated_num_finalized_gates();
+            field_ct a = field_ct::from_witness(&builder, 42);
+            field_ct b(&builder, 42);
+            a.assert_equal(b);
+            EXPECT_TRUE(CircuitChecker::check(builder));
+            // 1 gate is needed to fix the constant
+            EXPECT_EQ(builder.get_estimated_num_finalized_gates() - num_gates_start, 1);
+        }
+
+        // Witness == witness (equal values)
+        {
+            Builder builder;
+            size_t num_gates_start = builder.get_estimated_num_finalized_gates();
+
+            field_ct a = field_ct::from_witness(&builder, 11);
+            field_ct b = field_ct::from_witness(&builder, 11);
+            a.assert_equal(b);
+            EXPECT_TRUE(CircuitChecker::check(builder));
+            // Both witnesses are normalized, no gates are created, only a copy constraint
+            EXPECT_EQ(builder.get_estimated_num_finalized_gates() - num_gates_start, 0);
+        }
+
+        // Witness != witness (both are not normalized)
+        {
+            Builder builder;
+            size_t num_gates_start = builder.get_estimated_num_finalized_gates();
+            field_ct a = field_ct::from_witness(&builder, 10);
+            a += 13;
+            field_ct b = field_ct::from_witness(&builder, 15);
+            b += 1;
+            a.assert_equal(b);
+            EXPECT_FALSE(CircuitChecker::check(builder));
+            // Both witnesses are not normalized, we use a single `add_gate` to ensure they are equal
+            EXPECT_EQ(builder.get_estimated_num_finalized_gates() - num_gates_start, 1);
+            EXPECT_EQ(builder.err(), "field_t::assert_equal");
+        }
+    }
+
     static void test_add_mul_with_constants()
     {
         Builder builder = Builder();
@@ -453,6 +525,22 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_TRUE((b.multiplicative_constant == 1) && (b.additive_constant == 0));
         // Check that the result is correct
         EXPECT_TRUE(a.get_value() * b.get_value() == 1);
+    }
+
+    static void test_invert_zero()
+    {
+        Builder builder = Builder();
+
+        field_ct a(witness_ct(&builder, 0));
+        {
+            a.invert();
+            // Check that the result is constant and correct
+            EXPECT_FALSE(CircuitChecker::check(builder));
+            EXPECT_EQ(builder.err(), "field_t::invert denominator is 0");
+        }
+
+        a = 0;
+        EXPECT_THROW_OR_ABORT(a.invert(), "field_t::invert denominator is constant 0");
     }
     static void test_postfix_increment()
     {
@@ -732,6 +820,46 @@ template <typename Builder> class stdlib_field : public testing::Test {
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
+    static void test_madd_add_two_gate_count()
+    {
+
+        auto make_constant = [](Builder& builder, int val) { return field_ct(&builder, bb::fr(val)); };
+        auto make_witness = [](Builder& builder, int val) { return field_ct(witness_ct(&builder, bb::fr(val))); };
+
+        struct Case {
+            bool a_const;
+            bool b_const;
+            bool c_const;
+            bool expect_gate;
+        };
+
+        std::vector<Case> cases = {
+            { true, true, true, false },  { true, true, false, false },  { true, false, true, false },
+            { false, true, true, false }, { true, false, false, true },  { false, true, false, true },
+            { false, false, true, true }, { false, false, false, true },
+        };
+
+        for (const auto& [a_const, b_const, c_const, expect_gate] : cases) {
+            Builder builder;
+
+            auto a = a_const ? make_constant(builder, 1) : make_witness(builder, 1);
+            auto b = b_const ? make_constant(builder, 2) : make_witness(builder, 2);
+            auto c = c_const ? make_constant(builder, 3) : make_witness(builder, 3);
+
+            size_t before = builder.get_estimated_num_finalized_gates();
+            a.madd(b, c);
+            size_t after = builder.get_estimated_num_finalized_gates();
+            bool gate_added = (after - before == 1);
+            EXPECT_EQ(gate_added, expect_gate);
+
+            before = builder.get_estimated_num_finalized_gates();
+            a.add_two(b, c);
+            after = builder.get_estimated_num_finalized_gates();
+
+            gate_added = (after - before == 1);
+            EXPECT_EQ(gate_added, expect_gate);
+        }
+    }
     static void test_conditional_negate()
     {
         Builder builder = Builder();
@@ -752,7 +880,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
             // Check that `result` is constant if and only if both the predicate and (*this) are constant.
             EXPECT_TRUE(result.is_constant() == predicate.is_constant());
             // A gate is only added if the predicate is a witness
-            EXPECT_TRUE(builder.get_estimated_num_finalized_gates() - num_gates_before == predicate_is_witness);
+            EXPECT_TRUE(builder.get_estimated_num_finalized_gates() - num_gates_before == 0);
 
             // Conditionally negate a witness
             num_gates_before = builder.get_estimated_num_finalized_gates();
@@ -790,74 +918,6 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
-    }
-
-    static void test_slice()
-    {
-        Builder builder = Builder();
-        // 0b11110110101001011
-        //         ^      ^
-        //        msb    lsb
-        //        10      3
-        // hi=0x111101, lo=0x011, slice=0x10101001
-        //
-        field_ct a(witness_ct(&builder, fr(126283)));
-        auto slice_data = a.slice(10, 3);
-        EXPECT_EQ(slice_data[0].get_value(), fr(3));
-        EXPECT_EQ(slice_data[1].get_value(), fr(169));
-        EXPECT_EQ(slice_data[2].get_value(), fr(61));
-
-        EXPECT_TRUE(CircuitChecker::check(builder));
-    }
-
-    static void test_slice_equal_msb_lsb()
-    {
-        Builder builder = Builder();
-        // 0b11110110101001011
-        //             ^
-        //         msb = lsb
-        //             6
-        // hi=0b1111011010, lo=0b001011, slice=0b1
-        //
-        field_ct a(witness_ct(&builder, fr(126283)));
-        auto slice_data = a.slice(6, 6);
-
-        EXPECT_EQ(slice_data[0].get_value(), fr(11));
-        EXPECT_EQ(slice_data[1].get_value(), fr(1));
-        EXPECT_EQ(slice_data[2].get_value(), fr(986));
-
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, true);
-    }
-
-    static void test_slice_random()
-    {
-        Builder builder = Builder();
-
-        uint8_t lsb = 106;
-        uint8_t msb = 189;
-        fr a_ = fr(engine.get_random_uint256() && ((uint256_t(1) << 252) - 1));
-        field_ct a(witness_ct(&builder, a_));
-        auto slice = a.slice(msb, lsb);
-
-        const uint256_t expected0 = uint256_t(a_) & ((uint256_t(1) << lsb) - 1);
-        const uint256_t expected1 = (uint256_t(a_) >> lsb) & ((uint256_t(1) << (msb - lsb + 1)) - 1);
-        const uint256_t expected2 = (uint256_t(a_) >> (msb + 1)) & ((uint256_t(1) << (252 - msb - 1)) - 1);
-
-        EXPECT_EQ(slice[0].get_value(), fr(expected0));
-        EXPECT_EQ(slice[1].get_value(), fr(expected1));
-        EXPECT_EQ(slice[2].get_value(), fr(expected2));
-
-        EXPECT_TRUE(CircuitChecker::check(builder));
-
-        // Check that attempting to slice a full uint256_t value leads to a circuit failure.
-        while (static_cast<uint256_t>(a.get_value()).get_msb() < grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH + 1) {
-            a = witness_ct(&builder, engine.get_random_uint256());
-        }
-        info(static_cast<uint256_t>(a.get_value()).get_msb());
-        slice = a.slice(msb, lsb);
-        EXPECT_FALSE(CircuitChecker::check(builder));
-        EXPECT_TRUE(builder.err() == "slice: hi value too large.");
     }
 
     static void test_split_at()
@@ -1220,6 +1280,26 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_EQ(check_result, true);
     }
 
+    static void test_ranged_less_than_max_num_bits()
+    {
+        Builder builder;
+
+        field_ct a = witness_ct(&builder, 2);
+        field_ct b = witness_ct(&builder, 4);
+
+        constexpr uint256_t modulus = bb::fr::modulus;
+        constexpr size_t max_valid_num_bits = modulus.get_msb() - 1;
+
+        // ---------- VALID CASE ----------
+        {
+            constexpr size_t num_bits = max_valid_num_bits;
+            EXPECT_NO_THROW({
+                auto result = a.template ranged_less_than<num_bits>(b);
+                EXPECT_EQ(result.get_value(), true);
+            });
+        }
+    }
+
     static void test_add_two()
     {
         Builder builder = Builder();
@@ -1342,12 +1422,6 @@ template <typename Builder> class stdlib_field : public testing::Test {
             elements.pop_back();
         }
 
-        // Slice preserves tags
-        auto n = a.slice(1, 0);
-        for (const auto& element : n) {
-            EXPECT_EQ(element.get_origin_tag(), submitted_value_origin_tag);
-        }
-
         // Split preserves tags
         const size_t num_bits = uint256_t(a.get_value()).get_msb() + 1;
         auto split_data = a.split_at(num_bits / 2, num_bits);
@@ -1374,8 +1448,118 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_THROW(q + q, std::runtime_error);
 #endif
     }
-};
 
+    void test_validate_context()
+    {
+        using bb::stdlib::validate_context;
+
+        Builder builder1;
+        Builder builder2;
+
+        auto null = static_cast<Builder*>(nullptr);
+
+        // Case 1: All nullptr
+        {
+            Builder* result = validate_context(null, null, null);
+            EXPECT_EQ(result, nullptr);
+        }
+
+        // Case 2: One non-nullptr
+        {
+            Builder* result = validate_context(&builder1);
+            EXPECT_EQ(result, &builder1);
+        }
+
+        // Case 3: Leading nullptrs
+        {
+            Builder* result = validate_context(null, null, &builder1);
+            EXPECT_EQ(result, &builder1);
+        }
+
+        // Case 4: One non-null followed by nullptrs
+        {
+            Builder* result = validate_context(&builder1, null, null);
+            EXPECT_EQ(result, &builder1);
+        }
+
+        // Case 5: All same non-nullptr
+        {
+            Builder* result = validate_context(&builder1, &builder1, &builder1);
+            EXPECT_EQ(result, &builder1);
+        }
+
+        // Case 6: Conflict between two different non-nullptrs
+        {
+            EXPECT_THROW_OR_ABORT(validate_context(&builder1, &builder2),
+                                  "Pointers refer to different builder objects!");
+        }
+
+        // Case 7: Conflict between first and last non-null
+        {
+            EXPECT_THROW_OR_ABORT(validate_context(&builder1, null, null, &builder2),
+                                  "Pointers refer to different builder objects!");
+        }
+
+        // Case 8: First null, two same non-null later
+        {
+            Builder* result = validate_context(null, &builder1, &builder1);
+            EXPECT_EQ(result, &builder1);
+        }
+
+        // Case 9: Interleaved nulls and same pointer
+        {
+            Builder* result = validate_context(&builder1, null, &builder1, null);
+            EXPECT_EQ(result, &builder1);
+        }
+    }
+
+    void test_validate_container_context()
+    {
+        // Case 1: Empty container returns nullptr
+        {
+            std::vector<field_ct> empty;
+            Builder* ctx = validate_context<Builder>(empty);
+            EXPECT_EQ(ctx, nullptr);
+        }
+
+        // Case 2: Same context
+        {
+            Builder builder;
+            std::vector<field_ct> fields = {
+                field_ct(&builder, 1),
+                field_ct(&builder, 2),
+                field_ct(&builder, 3),
+            };
+            Builder* ctx = validate_context<Builder>(fields);
+            EXPECT_EQ(ctx, &builder);
+        }
+
+        // Case 3: Some nullptr contexts
+        {
+            Builder builder;
+            field_ct null_field; // context is nullptr
+            field_ct a(&builder, 1);
+            field_ct b(&builder, 2);
+            std::vector<field_ct> fields = { null_field, a, b };
+            Builder* ctx = validate_context<Builder>(fields);
+            EXPECT_EQ(ctx, &builder);
+        }
+
+        // Case 4: Mismatched contexts should throw/abort
+        {
+            Builder builder1;
+            Builder builder2;
+            std::vector<field_ct> fields = {
+                field_ct(&builder1, 1),
+                field_ct(&builder1, 1),
+                field_ct(1),
+                field_ct(&builder2, 2),
+            };
+
+            EXPECT_THROW_OR_ABORT(validate_context<Builder>(fields), "Pointers refer to different builder objects!");
+        }
+    }
+};
 using CircuitTypes = testing::Types<bb::UltraCircuitBuilder>;
 
 TYPED_TEST_SUITE(stdlib_field, CircuitTypes);
@@ -1399,6 +1583,10 @@ TYPED_TEST(stdlib_field, test_add_two)
 TYPED_TEST(stdlib_field, test_assert_equal)
 {
     TestFixture::test_assert_equal();
+}
+TYPED_TEST(stdlib_field, test_assert_equal_gate_count)
+{
+    TestFixture::test_assert_equal_with_gate_count();
 }
 TYPED_TEST(stdlib_field, test_assert_is_in_set)
 {
@@ -1484,6 +1672,10 @@ TYPED_TEST(stdlib_field, test_invert)
 {
     TestFixture::test_invert();
 }
+TYPED_TEST(stdlib_field, test_invert_zero)
+{
+    TestFixture::test_invert_zero();
+}
 TYPED_TEST(stdlib_field, test_is_zero)
 {
     TestFixture::test_is_zero();
@@ -1495,6 +1687,10 @@ TYPED_TEST(stdlib_field, test_larger_circuit)
 TYPED_TEST(stdlib_field, test_madd)
 {
     TestFixture::test_madd();
+}
+TYPED_TEST(stdlib_field, test_madd_add_two_gate_count)
+{
+    TestFixture::test_madd_add_two_gate_count();
 }
 TYPED_TEST(stdlib_field, test_multiplicative_constant_regression)
 {
@@ -1524,17 +1720,9 @@ TYPED_TEST(stdlib_field, test_ranged_less_than)
 {
     TestFixture::test_ranged_less_than();
 }
-TYPED_TEST(stdlib_field, test_slice)
+TYPED_TEST(stdlib_field, test_ranged_less_than_max_num_bits)
 {
-    TestFixture::test_slice();
-}
-TYPED_TEST(stdlib_field, test_slice_equal_msb_lsb)
-{
-    TestFixture::test_slice_equal_msb_lsb();
-}
-TYPED_TEST(stdlib_field, test_slice_random)
-{
-    TestFixture::test_slice_random();
+    TestFixture::test_ranged_less_than_max_num_bits();
 }
 TYPED_TEST(stdlib_field, test_split_at)
 {
@@ -1547,4 +1735,12 @@ TYPED_TEST(stdlib_field, test_three_bit_table)
 TYPED_TEST(stdlib_field, test_two_bit_table)
 {
     TestFixture::test_two_bit_table();
+}
+TYPED_TEST(stdlib_field, test_validate_context)
+{
+    TestFixture::test_validate_context();
+}
+TYPED_TEST(stdlib_field, test_validate_container_context)
+{
+    TestFixture::test_validate_container_context();
 }
