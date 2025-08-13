@@ -28,6 +28,7 @@ template <class Fr> class UnivariateConcept {
     // Utility methods
     virtual bool is_zero() const = 0;
     virtual std::vector<uint8_t> to_buffer() const = 0;
+    virtual std::unique_ptr<UnivariateConcept<Fr>> clone() const = 0;
 
     // Arithmetic operations (returning self)
     virtual UnivariateConcept& operator+=(const UnivariateConcept& other) = 0;
@@ -62,11 +63,20 @@ template <class Fr, class UnivariateImpl> class UnivariateModel : public Univari
         : impl_(std::move(impl))
     {}
 
+    // Copy constructor
+    UnivariateModel(const UnivariateModel& other)
+        : impl_(other.impl_)
+    {}
+
     Fr& value_at(size_t i) override { return impl_.value_at(i); }
     const Fr& value_at(size_t i) const override { return impl_.value_at(i); }
     size_t size() const override { return impl_.size(); }
     bool is_zero() const override { return impl_.is_zero(); }
     std::vector<uint8_t> to_buffer() const override { return impl_.to_buffer(); }
+    std::unique_ptr<UnivariateConcept<Fr>> clone() const override
+    {
+        return std::make_unique<UnivariateModel<Fr, UnivariateImpl>>(UnivariateImpl(impl_));
+    }
 
     UnivariateModel& operator+=(const UnivariateConcept<Fr>& other) override
     {
@@ -182,6 +192,11 @@ template <class Fr> class ErasedUnivariate {
     ErasedUnivariate(UnivariateImpl&& impl)
         requires(std::remove_cvref_t<UnivariateImpl>::__IS_UNIVARIATE__::value)
         : impl_(std::make_unique<detail::UnivariateModel<Fr, UnivariateImpl>>(std::forward<UnivariateImpl>(impl)))
+    {}
+
+    // Copy constructor
+    ErasedUnivariate(const ErasedUnivariate& other)
+        : impl_(other.impl_->clone())
     {}
 
     // Core access methods
