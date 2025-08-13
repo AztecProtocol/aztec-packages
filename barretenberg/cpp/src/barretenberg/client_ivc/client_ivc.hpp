@@ -221,7 +221,7 @@ class ClientIVC {
     // Complete the logic of the hiding circuit, which includes PG, decider and merge recursive verification
     std::pair<PairingPoints, TableCommitments> complete_hiding_circuit_logic(
         const StdlibProof& stdlib_proof,
-        const std::shared_ptr<RecursiveVKAndHash>& stdlib_vk_and_hash,
+        const std::shared_ptr<RecursiveDeciderVerificationKey>& verifier_instance,
         ClientCircuit& circuit);
 
     /**

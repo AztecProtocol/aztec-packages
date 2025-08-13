@@ -45,6 +45,15 @@ template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveDeciderVerific
         }
     }
 
+    RecursiveDeciderVerificationKeys_(Builder* builder,
+                                      const std::shared_ptr<DeciderVK>& accumulator,
+                                      const std::shared_ptr<DeciderVK>& incoming_instance)
+        : builder(builder)
+    {
+        _data[0] = accumulator;
+        _data[1] = incoming_instance;
+    }
+
     /**
      * @brief Get the max log circuit size from the set of decider verification keys
      *
