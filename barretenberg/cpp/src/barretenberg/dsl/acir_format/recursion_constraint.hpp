@@ -15,7 +15,7 @@ namespace acir_format {
 // ACIR
 // Keep this enum values in sync with their noir counterpart constants defined in
 // noir-protocol-circuits/crates/types/src/constants.nr
-enum PROOF_TYPE { PLONK, HONK, OINK, PG, AVM, ROLLUP_HONK, ROOT_ROLLUP_HONK, HONK_ZK, PG_FINAL, PG_TAIL };
+enum PROOF_TYPE { PLONK, HONK, OINK, PG, AVM, ROLLUP_HONK, ROOT_ROLLUP_HONK, HONK_ZK, PG_FINAL, PG_TAIL, CIVC };
 
 /**
  * @brief RecursionConstraint struct contains information required to recursively verify a proof!
@@ -54,9 +54,6 @@ enum PROOF_TYPE { PLONK, HONK, OINK, PG, AVM, ROLLUP_HONK, ROOT_ROLLUP_HONK, HON
  * TODO(https://github.com/AztecProtocol/barretenberg/issues/996): Create similar comments for Honk.
  */
 struct RecursionConstraint {
-    // An aggregation state is represented by two G1 affine elements. Each G1 point has
-    // two field element coordinates (x, y). Thus, four field elements
-    static constexpr size_t NUM_AGGREGATION_ELEMENTS = 4;
     std::vector<uint32_t> key;
     std::vector<uint32_t> proof;
     std::vector<uint32_t> public_inputs;
