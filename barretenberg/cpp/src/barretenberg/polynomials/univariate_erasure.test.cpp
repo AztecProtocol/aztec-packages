@@ -41,6 +41,15 @@ TEST(UnivariateErasureTest, Assignment)
     EXPECT_EQ(uni.value_at(2), fr(3));
 }
 
+TEST(UnivariateErasureTest, MoveConstructor)
+{
+    ErasedUnivariate<fr> uni = Univariate<fr, 3>{ { 1, 2, 3 } };
+    ErasedUnivariate<fr> uni2(std::move(uni));
+    EXPECT_EQ(uni2.value_at(0), fr(1));
+    EXPECT_EQ(uni2.value_at(1), fr(2));
+    EXPECT_EQ(uni2.value_at(2), fr(3));
+}
+
 TEST(UnivariateErasureTest, Evaluation)
 {
     {

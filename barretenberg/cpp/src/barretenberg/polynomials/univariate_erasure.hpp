@@ -205,10 +205,14 @@ template <class Fr> class ErasedUnivariate {
         : impl_(std::make_unique<detail::UnivariateModel<Fr, UnivariateImpl>>(std::forward<UnivariateImpl>(impl)))
     {}
 
-    // Copy constructor
     ErasedUnivariate(const ErasedUnivariate& other)
         : impl_(other.impl_->clone())
     {}
+    ErasedUnivariate(ErasedUnivariate&& other)
+        : impl_(std::move(other.impl_))
+    {
+        // TODO: should probably make "other" still valid.
+    }
 
     ErasedUnivariate& operator=(const ErasedUnivariate& other)
     {
