@@ -29,7 +29,7 @@ template <class Fr> class UnivariateConcept {
     virtual bool is_zero() const = 0;
     virtual std::vector<uint8_t> to_buffer() const = 0;
 
-    // Arithmetic operations
+    // Arithmetic operations (returning self)
     virtual UnivariateConcept& operator+=(const UnivariateConcept& other) = 0;
     virtual UnivariateConcept& operator-=(const UnivariateConcept& other) = 0;
     virtual UnivariateConcept& operator*=(const UnivariateConcept& other) = 0;
@@ -37,6 +37,14 @@ template <class Fr> class UnivariateConcept {
     virtual UnivariateConcept& operator-=(const Fr& scalar) = 0;
     virtual UnivariateConcept& operator*=(const Fr& scalar) = 0;
     virtual UnivariateConcept& self_sqr() = 0;
+
+    // Arithmetic operations (returning new object)
+    // virtual UnivariateConcept operator+(const UnivariateConcept& other) const = 0;
+    // virtual UnivariateConcept operator-(const UnivariateConcept& other) const = 0;
+    // virtual UnivariateConcept operator*(const UnivariateConcept& other) const = 0;
+    virtual std::unique_ptr<UnivariateConcept<Fr>> operator+(const Fr& scalar) const = 0;
+    virtual std::unique_ptr<UnivariateConcept<Fr>> operator-(const Fr& scalar) const = 0;
+    virtual std::unique_ptr<UnivariateConcept<Fr>> operator*(const Fr& scalar) const = 0;
 
     // Evaluation
     virtual Fr evaluate(const Fr& u) const = 0;
@@ -103,6 +111,22 @@ template <class Fr, class UnivariateImpl> class UnivariateModel : public Univari
     {
         impl_.self_sqr();
         return *this;
+    }
+
+    std::unique_ptr<UnivariateConcept<Fr>> operator+(const Fr& scalar) const override
+    {
+        auto result_impl = impl_ + scalar;
+        return std::make_unique<UnivariateModel<Fr, UnivariateImpl>>(std::move(result_impl));
+    }
+    std::unique_ptr<UnivariateConcept<Fr>> operator-(const Fr& scalar) const override
+    {
+        auto result_impl = impl_ - scalar;
+        return std::make_unique<UnivariateModel<Fr, UnivariateImpl>>(std::move(result_impl));
+    }
+    std::unique_ptr<UnivariateConcept<Fr>> operator*(const Fr& scalar) const override
+    {
+        auto result_impl = impl_ * scalar;
+        return std::make_unique<UnivariateModel<Fr, UnivariateImpl>>(std::move(result_impl));
     }
 
     Fr evaluate(const Fr& u) const override { return impl_.evaluate(u); }
@@ -180,6 +204,22 @@ template <class Fr> class ErasedUnivariate {
         return *this;
     }
 
+    ErasedUnivariate operator+(const Fr& scalar) const
+    {
+        auto new_impl = impl_->operator+(scalar);
+        return ErasedUnivariate(std::move(new_impl));
+    }
+    ErasedUnivariate operator-(const Fr& scalar) const
+    {
+        auto new_impl = impl_->operator-(scalar);
+        return ErasedUnivariate(std::move(new_impl));
+    }
+    ErasedUnivariate operator*(const Fr& scalar) const
+    {
+        auto new_impl = impl_->operator*(scalar);
+        return ErasedUnivariate(std::move(new_impl));
+    }
+
     // Evaluation
     Fr evaluate(const Fr& u) const { return impl_->evaluate(u); }
 
@@ -190,6 +230,10 @@ template <class Fr> class ErasedUnivariate {
     const Fr* end() const { return impl_->end(); }
 
   private:
+    explicit ErasedUnivariate(std::unique_ptr<detail::UnivariateConcept<Fr>> impl)
+        : impl_(std::move(impl))
+    {}
+
     std::unique_ptr<detail::UnivariateConcept<Fr>> impl_;
 };
 
