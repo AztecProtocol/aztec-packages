@@ -137,6 +137,7 @@ RUN apt update && \
         clang-format-18 \
         libc++-18-dev \
         libomp-18-dev \
+        libclang-rt-18-dev \
         doxygen \
         nodejs \
         # Python (clang bindings for wasm bindgen.)
