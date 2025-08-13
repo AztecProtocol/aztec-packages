@@ -655,7 +655,7 @@ template <typename Flavor> class SumcheckProverRound {
     {
         // 1) Relation evaluations on Ω: e_j = C_k * Φ( v · α_k · (1 - ξ_j) )
         std::array<FF, BATCHED_RELATION_PARTIAL_LENGTH> rel_evals{};
-        info("=================");
+
         for (size_t j = 0; j < BATCHED_RELATION_PARTIAL_LENGTH; ++j) {
             const FF s = st.alphak * (FF(1) - FF(j));
 
@@ -665,7 +665,6 @@ template <typename Flavor> class SumcheckProverRound {
             }
 
             rel_evals[j] = compute_full_relation_eval(row_j, relation_parameters, alphas, /*partial_pow_beta=*/st.Ck);
-            info("virt round eval at ", j, "  ", rel_evals[j]);
         }
 
         // 2) Multiply by ĝ_k(ξ) on the grid: 1 + (β_k - 1)·ξ
