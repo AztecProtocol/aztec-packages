@@ -163,14 +163,16 @@ describe('Transfer benchmark', () => {
 
               /*
                * We should have created the following nullifiers:
-               * - One per created note
-               * - One for the transaction
+               * - One per minted note
+               * - One because the transaction is cancellable
                * - One for the private event commitment (note transfer for the recipient)
-               * - One for the fee note, another one for the partial note validity commitment and an
+               *  - Private FPC: One for the fee note, another one for the partial note validity commitment and an
                *   extra for the authwit invalidation if we're using a private fpc
+               *  - Any other payment method: kernel-injected non revertible nullifier due to abscence of nullifiers
+               *   during the setup phase of the tx
                */
               expect(txEffects!.data.nullifiers.length).toBe(
-                notesToCreate + 1 + 1 + (benchmarkingPaymentMethod === 'private_fpc' ? 3 : 0),
+                notesToCreate + 1 + 1 + (benchmarkingPaymentMethod === 'private_fpc' ? 3 : 1),
               );
               /**
                * We should have created 4 new notes,
