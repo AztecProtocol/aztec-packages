@@ -101,10 +101,10 @@ ClientIvcProve::Response ClientIvcProve::execute(BBApiRequest& request) &&
     }
 
     info("ClientIvcProve - generating proof for ", request.ivc_stack_depth, " accumulated circuits");
-    info("here we are");
     ClientIVC::Proof proof = request.ivc_in_progress->prove();
     // We verify this proof. Another bb call to verify has some overhead of loading VK/proof/SRS,
     // and it is mysterious if this transaction fails later in the lifecycle.
+    info("ClientIvcProve - verifying the generated proof as a sanity check");
     if (!request.ivc_in_progress->verify(proof)) {
         throw_or_abort("Failed to verify the generated proof!");
     }
@@ -137,6 +137,8 @@ static std::shared_ptr<ClientIVC::DeciderProvingKey> get_acir_program_decider_pr
     return std::make_shared<ClientIVC::DeciderProvingKey>(builder, request.trace_settings);
 }
 
+// TODO(): since we have moved the hiding circuit construction to Noir we get the CIVC vk from the bytecode so ideally
+// we should remove this method all together
 ClientIVC::VerificationKey compute_civc_vk(const BBApiRequest& request, size_t num_public_inputs_in_final_circuit)
 {
     ClientIVC ivc{ /* num_circuits */ 2, request.trace_settings };
@@ -157,7 +159,6 @@ ClientIVC::VerificationKey compute_civc_vk(const BBApiRequest& request, size_t n
                                                         .log2_num_gates = SMALL_ARBITRARY_LOG_CIRCUIT_SIZE,
                                                     });
     ivc.accumulate(circuit_1, vk_1);
-    info("computing the verification key and constructing the hiding circuit vk");
     circuit_producer.construct_hiding_kernel(ivc);
     // Construct the hiding circuit proving and verification key
     auto hiding_decider_pk = ivc.compute_hiding_circuit_proving_key();

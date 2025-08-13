@@ -154,7 +154,6 @@ bool ClientIVCAPI::verify([[maybe_unused]] const Flags& flags,
 // WORKTODO(bbapi) remove this
 bool ClientIVCAPI::prove_and_verify(const std::filesystem::path& input_path)
 {
-    info("this is the flow being called in the API");
     PrivateExecutionSteps steps;
     steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
 
