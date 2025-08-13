@@ -105,7 +105,7 @@ function test_cmds {
   for test in !(end-to-end|kv-store|aztec)/src/**/*.test.ts; do
     # If AVM is disabled, filter out avm_proving_tests/*.test.ts and avm_integration.test.ts
     # Also must filter out rollup_ivc_integration.test.ts as it includes AVM proving.
-    if [ $avm_flag == "no-avm" ] && [[ "$test" =~ (avm_proving_tests|avm_integration|rollup_ivc_integration) ]]; then
+    if [[ $avm_flag == "no-avm" && "$test" =~ (avm_proving_tests|avm_integration|rollup_ivc_integration) ]]; then
       continue
     fi
 
