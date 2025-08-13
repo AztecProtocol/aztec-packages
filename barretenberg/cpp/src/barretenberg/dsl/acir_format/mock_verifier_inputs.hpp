@@ -19,6 +19,9 @@ template <typename Flavor> bb::HonkProof create_mock_decider_proof();
 template <typename Flavor, class PublicInputs> bb::HonkProof create_mock_honk_proof();
 template <typename Flavor, class PublicInputs> bb::HonkProof create_mock_pg_proof();
 bb::Goblin::MergeProof create_mock_merge_proof();
+bb::HonkProof create_mock_pre_ipa_proof();
+bb::HonkProof create_mock_ipa_proof();
+bb::HonkProof create_mock_translator_proof();
 
 template <typename Flavor, class PublicInputs>
 std::shared_ptr<typename Flavor::VerificationKey> create_mock_honk_vk(const size_t dyadic_size,

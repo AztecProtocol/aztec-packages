@@ -190,6 +190,222 @@ Goblin::MergeProof create_mock_merge_proof()
 }
 
 /**
+ * @brief Create a mock pre-ipa proof which has the correct structure but is not necessarily valid
+ *
+ * @return HonkProof
+ */
+HonkProof create_mock_pre_ipa_proof()
+{
+    using FF = ECCVMFlavor::FF;
+    HonkProof proof;
+
+    // 1. NUM_WITNESS_ENTITIES commitments
+    for (size_t idx = 0; idx < ECCVMFlavor::NUM_WITNESS_ENTITIES; idx++) {
+        proof.emplace_back(FF::random_element());
+    }
+
+    // 2. Libra concatenation commitment
+    populate_field_elements_for_mock_commitments(proof, /*num_commitments*/ 1);
+
+    // 3. Libra sum
+    proof.emplace_back(FF::random_element());
+
+    // 4. Sumcheck univariates commitments
+    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/CONST_ECCVM_LOG_N);
+
+    // 5. Sumcheck univariate evaluations
+    for (size_t idx = 0; idx < 2 * CONST_ECCVM_LOG_N; idx++) {
+        proof.emplace_back(FF::random_element());
+    }
+
+    // 6. ALL_ENTITIES sumcheck evaluations
+    for (size_t idx = 0; idx < ECCVMFlavor::NUM_ALL_ENTITIES; idx++) {
+        proof.emplace_back(FF::random_element());
+    }
+
+    // 7. Libra evaluation
+    proof.emplace_back(FF::random_element());
+
+    // 8. Libra grand sum commitment
+    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/CONST_ECCVM_LOG_N);
+
+    // 9. Libra quotient commitment
+    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/CONST_ECCVM_LOG_N);
+
+    // 10. Gemini masking commitment
+    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/CONST_ECCVM_LOG_N);
+
+    // 11. Gemini masking evaluations
+    proof.emplace_back(FF::random_element());
+
+    // 12. Gemini fold commitments
+    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/CONST_ECCVM_LOG_N - 1);
+
+    // 13. Gemini evaluations
+    for (size_t idx = 0; idx < CONST_ECCVM_LOG_N; idx++) {
+        proof.emplace_back(FF::random_element());
+    }
+
+    // 14. NUM_SMALL_IPA_EVALUATIONS libra evals
+    for (size_t idx = 0; idx < NUM_SMALL_IPA_EVALUATIONS; idx++) {
+        proof.emplace_back(FF::random_element());
+    }
+
+    // 15. Shplonk
+    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/1);
+
+    // 16. Translator concatenated masking term commitment
+    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/1);
+
+    // 17. Translator op evaluation
+    proof.emplace_back(FF::random_element());
+
+    // 18. Translator Px evaluation
+    proof.emplace_back(FF::random_element());
+
+    // 19. Translator Py evaluation
+    proof.emplace_back(FF::random_element());
+
+    // 20. Translator z1 evaluation
+    proof.emplace_back(FF::random_element());
+
+    // 21. Translator z2 evaluation
+    proof.emplace_back(FF::random_element());
+
+    // 22. Translator concatenated masking term evaluation
+    proof.emplace_back(FF::random_element());
+
+    // 23. Translator grand sum commitment
+    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/1);
+
+    // 24. Translator quotient commitment
+    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/1);
+
+    // 25. Translator concatenation evaluation
+    proof.emplace_back(FF::random_element());
+
+    // 26. Translator grand sum shift evaluation
+    proof.emplace_back(FF::random_element());
+
+    // 27. Translator grand sum evaluation
+    proof.emplace_back(FF::random_element());
+
+    // 28. Translator quotient evaluation
+    proof.emplace_back(FF::random_element());
+
+    // 29. Shplonk
+    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/1);
+
+    BB_ASSERT_EQ(proof.size(), ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH);
+
+    return proof;
+}
+
+/**
+ * @brief Create a mock ipa proof which has the correct structure but is not necessarily valid
+ *
+ * @return HonkProof
+ */
+HonkProof create_mock_ipa_proof()
+{
+    HonkProof proof;
+
+    // Commitments to L and R for CONST_ECCVM_LOG_N round
+    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/2 * CONST_ECCVM_LOG_N);
+
+    // Commitment to G_0
+    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/1);
+
+    // a_0 evaluation
+    proof.emplace_back(fr::random_element());
+
+    BB_ASSERT_EQ(proof.size(), IPA_PROOF_LENGTH);
+
+    return proof;
+}
+
+/**
+ * @brief Create a mock translator proof which has the correct structure but is not necessarily valid
+ *
+ * @return HonkProof
+ */
+HonkProof create_mock_translator_proof()
+{
+    using FF = TranslatorFlavor::FF;
+
+    HonkProof proof;
+
+    // 1. Accumulated result
+    proof.emplace_back(FF::random_element());
+
+    // 1. NUM_WITNESS_ENTITIES commitments
+    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/TranslatorFlavor::NUM_WITNESS_ENTITIES);
+
+    // 2. Libra concatenation commitment
+    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/1);
+
+    // 3. Libra sum
+    proof.emplace_back(FF::random_element());
+
+    // 4. sumcheck univariates
+    for (size_t idx = 0;
+         idx < TranslatorFlavor::CONST_TRANSLATOR_LOG_N * TranslatorFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
+         idx++) {
+        proof.emplace_back(FF::random_element());
+    }
+
+    // 5. NUM_ALL_ENTITIES sumcheck evaluations
+    for (size_t idx = 0; idx < TranslatorFlavor::NUM_ALL_ENTITIES; idx++) {
+        proof.emplace_back(FF::random_element());
+    }
+
+    // 6. Libra claimed evaluation
+    proof.emplace_back(FF::random_element());
+
+    // 7. Libra grand sum commitment
+    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/1);
+
+    // 8. Libra quotient commitment
+    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/1);
+
+    // 9. Gemini masking commitment
+    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/1);
+
+    // 10. Gemini masking evaluation
+    proof.emplace_back(FF::random_element());
+
+    // 11. CONST_TRANSLATOR_LOG_N - 1 Gemini fold commitments
+    populate_field_elements_for_mock_commitments(proof,
+                                                 /*num_commitments=*/TranslatorFlavor::CONST_TRANSLATOR_LOG_N - 1);
+
+    // 12. CONST_TRANSLATOR_LOG_N Gemini evaluations
+    for (size_t idx = 0; idx < TranslatorFlavor::CONST_TRANSLATOR_LOG_N; idx++) {
+        proof.emplace_back(FF::random_element());
+    }
+
+    // 13. Gemini P pos evaluation
+    proof.emplace_back(FF::random_element());
+
+    // 14. Gemini P neg evaluation
+    proof.emplace_back(FF::random_element());
+
+    // 15. NUM_SMALL_IPA_EVALUATIONS libra evals
+    for (size_t idx = 0; idx < NUM_SMALL_IPA_EVALUATIONS; idx++) {
+        proof.emplace_back(FF::random_element());
+    }
+
+    // 16. Shplonk
+    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/1);
+
+    // 17. KZG
+    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/1);
+
+    BB_ASSERT_EQ(proof.size(), TranslatorFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
+
+    return proof;
+}
+
+/**
  * @brief Create a mock MegaHonk VK that has the correct structure
  *
  */
