@@ -25,4 +25,13 @@ bool MemoryEvent::operator<(MemoryEvent const& other) const
     return mode < other.mode;
 }
 
+bool memory_event_ptr_less(const MemoryEvent* lhs, const MemoryEvent* rhs)
+{
+    if (lhs == nullptr || rhs == nullptr) {
+        ASSERT(false, "Memory event pointer is null");
+    }
+
+    return lhs->operator<(*rhs);
+}
+
 } // namespace bb::avm2::simulation

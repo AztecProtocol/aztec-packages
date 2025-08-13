@@ -25,4 +25,9 @@ struct MemoryEvent {
     bool operator<(MemoryEvent const& other) const;
 };
 
+/**
+ * @brief Comparator pointer counterpart to MemoryEvent::operator<().
+ */
+bool memory_event_ptr_less(const MemoryEvent* lhs, const MemoryEvent* rhs);
+
 } // namespace bb::avm2::simulation
