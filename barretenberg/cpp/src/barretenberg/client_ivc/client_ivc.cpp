@@ -508,16 +508,12 @@ ClientIVC::Proof ClientIVC::prove()
 
 bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
 {
-    info("verifying the IVC");
     using TableCommitments = Goblin::TableCommitments;
     // Create a transcript to be shared by MegaZK-, Merge-, ECCVM-, and Translator- Verifiers.
-    info("creating goblin transcript");
     std::shared_ptr<Goblin::Transcript> civc_verifier_transcript = std::make_shared<Goblin::Transcript>();
     // Verify the hiding circuit proof
-    info("creating the mega verifier");
     MegaZKVerifier verifier{ vk.mega, /*ipa_verification_key=*/{}, civc_verifier_transcript };
     auto [mega_verified, T_prev_commitments] = verifier.template verify_proof<bb::HidingKernelIO>(proof.mega_proof);
-    vinfo("Mega verified: ", mega_verified);
 
     // Extract the commitments to the subtable corresponding to the incoming circuit
     TableCommitments t_commitments = verifier.verification_key->witness_commitments.get_ecc_op_wires().get_copy();
