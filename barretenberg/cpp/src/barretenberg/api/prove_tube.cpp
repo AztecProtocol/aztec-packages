@@ -29,7 +29,7 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
 
     auto builder = std::make_shared<Builder>();
 
-    ClientIVCRecursiveVerifier verifier{ builder, vk };
+    ClientIVCRecursiveVerifier verifier{ builder, vk.mega };
 
     StdlibProof stdlib_proof(*builder, proof);
     ClientIVCRecursiveVerifier::Output client_ivc_rec_verifier_output = verifier.verify(stdlib_proof);

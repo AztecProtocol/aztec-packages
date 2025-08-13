@@ -75,7 +75,7 @@ TEST_F(ClientIVCRecursionTests, Basic)
 
     // Construct the ClientIVC recursive verifier
     auto builder = std::make_shared<Builder>();
-    ClientIVCVerifier verifier{ builder, ivc_vk };
+    ClientIVCVerifier verifier{ builder, ivc_vk.mega };
 
     // Generate the recursive verification circuit
     StdlibProof stdlib_proof(*builder, proof);
@@ -101,7 +101,7 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
 
     // Construct the ClientIVC recursive verifier
     auto tube_builder = std::make_shared<Builder>();
-    ClientIVCVerifier verifier{ tube_builder, ivc_vk };
+    ClientIVCVerifier verifier{ tube_builder, ivc_vk.mega };
 
     // Generate the recursive verification circuit
     StdlibProof stdlib_proof(*tube_builder, proof);
@@ -179,7 +179,7 @@ TEST_F(ClientIVCRecursionTests, TubeVKIndependentOfInputCircuits)
         auto [proof, ivc_vk] = construct_client_ivc_prover_output(ivc);
 
         auto tube_builder = std::make_shared<Builder>();
-        ClientIVCVerifier verifier{ tube_builder, ivc_vk };
+        ClientIVCVerifier verifier{ tube_builder, ivc_vk.mega };
 
         StdlibProof stdlib_proof(*tube_builder, proof);
         auto client_ivc_rec_verifier_output = verifier.verify(stdlib_proof);
