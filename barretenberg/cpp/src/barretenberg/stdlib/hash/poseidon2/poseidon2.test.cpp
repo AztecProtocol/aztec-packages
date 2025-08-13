@@ -77,33 +77,6 @@ template <typename Builder> class StdlibPoseidon2 : public testing::Test {
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
-    /**
-     * @brief Call poseidon2 hash_buffer on a vector of bytes
-     *
-     * @param num_input_bytes
-     */
-    static void test_hash_byte_array(size_t num_input_bytes)
-    {
-        Builder builder;
-
-        std::vector<uint8_t> input;
-        input.reserve(num_input_bytes);
-        for (size_t i = 0; i < num_input_bytes; ++i) {
-            input.push_back(engine.get_random_uint8());
-        }
-
-        fr expected = native_poseidon2::hash_buffer(input);
-
-        byte_array_ct circuit_input(&builder, input);
-        auto result = poseidon2::hash_buffer(builder, circuit_input);
-
-        EXPECT_EQ(result.get_value(), expected);
-
-        info("num gates = ", builder.get_estimated_num_finalized_gates());
-
-        bool proof_result = CircuitChecker::check(builder);
-        EXPECT_EQ(proof_result, true);
-    }
 
     static void test_hash_zeros(size_t num_inputs)
     {
@@ -140,13 +113,9 @@ template <typename Builder> class StdlibPoseidon2 : public testing::Test {
             }
         }
 
-        fr expected = native_poseidon2::hash(inputs);
-        auto result = poseidon2::hash(builder, witness_inputs);
-
-        EXPECT_EQ(result.get_value(), expected);
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1413): Investigate why this fails. Sees like we
-        // don't allow poseidon2 to take in constants.
-        EXPECT_FALSE(CircuitChecker::check(builder));
+        native_poseidon2::hash(inputs);
+        EXPECT_THROW_OR_ABORT(poseidon2::hash(builder, witness_inputs),
+                              ".*Sponge inputs should not be stdlib constants.*");
     }
 };
 
@@ -173,16 +142,6 @@ TYPED_TEST(StdlibPoseidon2, TestHashRepeatedPairs)
 {
     TestFixture::test_hash_repeated_pairs(256);
 }
-
-TYPED_TEST(StdlibPoseidon2, TestHashByteArraySmall)
-{
-    TestFixture::test_hash_byte_array(351);
-};
-
-TYPED_TEST(StdlibPoseidon2, TestHashByteArrayLarge)
-{
-    TestFixture::test_hash_byte_array(31000);
-};
 
 TYPED_TEST(StdlibPoseidon2, TestHashConstants)
 {
