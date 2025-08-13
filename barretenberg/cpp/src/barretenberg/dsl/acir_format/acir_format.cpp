@@ -10,6 +10,7 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/dsl/acir_format/civc_recursion_constraints.hpp"
 #include "barretenberg/dsl/acir_format/honk_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
@@ -598,6 +599,29 @@ void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
     // are handled simultaneously in the above function call; instead we track the total contribution
     gate_counter.track_diff(constraints.gates_per_opcode,
                             constraints.original_opcode_indices.ivc_recursion_constraints.at(0));
+}
+
+[[nodiscard("IPA claim and Pairing points should be accumulated")]] HonkRecursionConstraintsOutput<Builder>
+process_civc_recursion_constraints(Builder& builder,
+                                   AcirFormat& constraint_system,
+                                   bool has_valid_witness_assignments,
+                                   GateCounter<Builder>& gate_counter)
+{
+    HonkRecursionConstraintsOutput<Builder> output;
+    // Add recursion constraints
+    size_t idx = 0;
+    for (auto& constraint : constraint_system.civc_recursion_constraints) {
+        HonkRecursionConstraintOutput<Builder> honk_output =
+            create_civc_recursion_constraints(builder, constraint, has_valid_witness_assignments);
+
+        // Update the output
+        output.update(honk_output, /*has_ipa_data=*/true);
+
+        gate_counter.track_diff(constraint_system.gates_per_opcode,
+                                constraint_system.original_opcode_indices.civc_recursion_constraints.at(idx++));
+    }
+
+    return output;
 }
 
 #ifndef DISABLE_AZTEC_VM
