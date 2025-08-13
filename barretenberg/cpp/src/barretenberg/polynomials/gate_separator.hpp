@@ -67,6 +67,13 @@ template <typename FF> struct GateSeparatorPolynomial {
     GateSeparatorPolynomial(const std::vector<FF>& betas)
         : betas(betas)
     {}
+    GateSeparatorPolynomial(const std::vector<FF>& betas, const std::vector<FF>& challenge)
+        : betas(betas)
+    {
+        for (const auto& u_k : challenge) {
+            partially_evaluate(u_k);
+        }
+    }
 
     /**
      * @brief Retruns the element in #beta_products at place #idx.
