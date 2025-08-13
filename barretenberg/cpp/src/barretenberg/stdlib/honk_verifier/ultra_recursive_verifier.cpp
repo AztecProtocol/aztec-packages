@@ -78,8 +78,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     // Execute Sumcheck Verifier and extract multivariate opening point u = (u_0, ..., u_{d-1}) and purported
     // multivariate evaluations at u
 
-    const auto padding_indicator_array =
-        compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(key->vk_and_hash->vk->log_circuit_size);
+    const std::vector<FF> padding_indicator_array(CONST_PROOF_SIZE_LOG_N, 1);
 
     Sumcheck sumcheck(transcript, key->alphas, CONST_PROOF_SIZE_LOG_N);
 
