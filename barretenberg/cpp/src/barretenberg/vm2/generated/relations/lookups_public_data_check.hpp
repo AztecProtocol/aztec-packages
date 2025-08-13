@@ -351,7 +351,7 @@ struct lookup_public_data_check_write_public_data_to_public_inputs_settings_ {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::public_data_check_write_idx,
         ColumnAndShifts::public_data_check_leaf_slot,
-        ColumnAndShifts::public_data_check_value
+        ColumnAndShifts::public_data_check_final_value
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_, ColumnAndShifts::public_inputs_cols_1_
