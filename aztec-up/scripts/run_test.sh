@@ -23,7 +23,7 @@ docker save aztecprotocol/aztec:latest | docker exec -i $1 \
       sleep 3
       cat /tmp/dockerd.log
     done
-    chmod 777 /var/run/docker.sock
+    chown root:ubuntu /var/run/docker.sock && chmod 660 /var/run/docker.sock
     echo 'Loading image...'
     docker load
   "
