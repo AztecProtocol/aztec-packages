@@ -24,6 +24,10 @@ void ProtogalaxyVerifier_<DeciderVerificationKeys>::run_oink_verifier_on_each_in
         oink_verifier.verify();
         key->target_sum = 0;
         key->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
+    } else {
+        // Fiat-Shamir the verifier accumulator
+        FF accum_hash = key->add_hash_to_transcript("", *transcript);
+        info("Accumulator hash in PG verifier: ", accum_hash);
     }
 
     key = keys_to_fold[1];
