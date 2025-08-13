@@ -97,7 +97,7 @@ And we can't use the normal flow to create a transaction fee refund note for Ali
 So we define a new type of note with its `compute_partial_commitment` defined as:
 
 $$
-\text{amount}*G_{amount} + \text{address}*G_{address} + \text{randomness}*G_{randomness} + \text{slot}*G_{slot}
+\text{amount} \cdot G_\text{amount} + \text{address} \cdot G_\text{address} + \text{randomness} \cdot G_\text{randomness} + \text{slot} \cdot G_\text{slot}
 $$
 
 Suppose Alice is willing to pay up to a set amount in stablecoins for her transaction. (Note, this amount gets passed into public so that when `transaction_fee` is known the FPC can verify that it isn't losing money. Wallets are expected to choose common values here, e.g. powers of 10).
@@ -105,7 +105,7 @@ Suppose Alice is willing to pay up to a set amount in stablecoins for her transa
 Then we can subtract the set amount from Alice's balance of private stablecoins, and create a point in private like:
 
 $$
-P_a' := \text{alice address}*G_{address} + \text{rand}_a*G_{randomness} + \text{Alice note slot}*G_{slot}
+P_a' := \text{alice address} \cdot G_\text{address} + \text{rand}_a \cdot G_\text{randomness} + \text{Alice note slot} \cdot G_\text{slot}
 $$
 
 We also need to create a point for the owner of the FPC (whom we call Bob) to receive the transaction fee, which will also need randomness.
@@ -117,7 +117,7 @@ We need to use different randomness for Bob's note here to avoid potential priva
 :::
 
 $$
-P_b' := \text{bob address}*G_{address} + \text{rand}_b*G_{randomness} + \text{Bob note slot}*G_{slot}
+P_b' := \text{bob address} \cdot G_\text{address} + \text{rand}_b \cdot G_\text{randomness} + \text{Bob note slot} \cdot G_\text{slot}
 $$
 
 Here, the $P'$s "partially encode" the notes that we are _going to create_ for Alice and Bob. So we can use points as "Partial Notes".
@@ -127,11 +127,11 @@ We pass these points and the funded amount to public, and at the end of public e
 Then, we arrive at the point that corresponds to the complete note by
 
 $$
-P_a := P_a'+P_{refund} = (\text{funded amount} - \text{transaction fee})*G_{amount} + \text{alice address}*G_{address} +\text{rand}_a*G_{randomness} + \text{Alice note slot}*G_{slot}
+P_a := P_a'+P_\text{refund} = (\text{funded amount} - \text{transaction fee}) \cdot G_\text{amount} + \text{alice address} \cdot G_\text{address} + \text{rand}_a \cdot G_\text{randomness} + \text{Alice note slot} \cdot G_\text{slot}
 $$
 
 $$
-P_b := P_b'+P_{fee} = (\text{transaction fee})*G_{amount} + \text{bob address}*G_{address} +\text{rand}_b*G_{randomness} + \text{Bob note slot}*G_{slot}
+P_b := P_b'+P_\text{fee} = (\text{transaction fee}) \cdot G_\text{amount} + \text{bob address} \cdot G_\text{address} + \text{rand}_b \cdot G_\text{randomness} + \text{Bob note slot} \cdot G_\text{slot}
 $$
 
 Then we just emit `P_a.x` and `P_b.x` as a note hashes, and we're done!

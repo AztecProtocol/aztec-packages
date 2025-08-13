@@ -1,6 +1,6 @@
 {
-    "position": 2,
+    "position": 0,
     "collapsible": true,
     "collapsed": true,
-    "label": "Development Environment"
+    "label": "Setting up for Local Development"
 }

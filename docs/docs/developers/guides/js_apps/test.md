@@ -62,7 +62,7 @@ This debug information will be populated in the transaction receipt. You can log
 
 #include_code debug /yarn-project/end-to-end/src/e2e_token_contract/private_transfer_recursion.test.ts typescript
 
-You can also log directly from Aztec contracts. Read [this guide](../../reference/debugging/index.md#logging-in-aztecnr) for some more information.
+You can also log directly from Aztec contracts. Read [this guide](../local_env/how_to_debug.md#in-aztecnr-contracts) for some more information.
 
 ### Examples
 

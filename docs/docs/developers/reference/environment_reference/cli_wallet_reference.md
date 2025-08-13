@@ -51,7 +51,7 @@ Many options can be set using environment variables. For example:
 
 ### Proving transactions
 
-You can prove a transaction using the aztec-wallet with a running sandbox. Follow the guide [here](../../guides/local_env/sandbox_proving.md#proving-with-aztec-wallet). Proving transactions is required when interacting with the testnet.
+You can prove a transaction using the aztec-wallet with a running sandbox. Follow the guide [here](../../guides/local_env/sandbox.md#proving-with-aztec-wallet). Proving transactions is required when interacting with the testnet.
 
 ## Aliases
 

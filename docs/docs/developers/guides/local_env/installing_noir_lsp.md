@@ -1,5 +1,5 @@
 ---
-title: Installing the Noir LSP
+title: Noir VSCode Extension
 sidebar_position: 1
 tags: [sandbox]
 ---

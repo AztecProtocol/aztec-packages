@@ -1,7 +1,7 @@
 ---
-title: Updating the Sandbox
+title: Run Aztec in a Sandbox
 sidebar_position: 0
-tags: [sandbox]
+tags: [sandbox, PXE]
 ---
 
 - Current version: `#include_aztec_version`
@@ -13,6 +13,8 @@ On this page you will find
 - [How to automatically update Aztec sandbox and aztec-nargo](#updating)
 - [How to update Aztec.nr packages](#updating-aztecnr-packages)
 - [How to update Aztec.js packages](#updating-aztecjs-packages)
+- [How to enable client-side proving](#sandbox-pxe-proving)
+- [How to run multiple PXEs](#running-multiple-pxes-in-the-sandbox)
 
 ## Versions
 
@@ -155,3 +157,88 @@ To update Aztec.js packages, go to your `package.json` and replace the versions 
 -"@aztec/noir-contracts.js": "0.35.1",
 +"@aztec/accounts": "#include_aztec_version",
 ```
+
+## Sandbox PXE Proving
+
+The Sandbox does not have client-side proving in the PXE enabled by default. This reduces testing times and increases development speed by allowing for rapid iteration.
+
+You may want to enable client-side proving in the Sandbox to better understand how long it takes to execute Aztec transactions. There are 2 ways of doing this:
+
+1. Run the sandbox in proving mode (every transaction wil be proved) or
+2. Use `aztec-wallet` cli to prove a one-off transaction
+
+:::note
+Proving is much slower and should only be used sparingly to analyze real proving times of executing private functions of a contract.
+:::
+
+### Sandbox in Proving Mode
+
+Here every transaction, contract deployment will be proved. If you want to just prove a single transaction, follow [proving with aztec-wallet cli](#proving-with-aztec-wallet).
+
+#### Usage
+
+To enable client-side proving:
+
+```bash
+PXE_PROVER_ENABLED=1 aztec start --sandbox
+```
+
+The sandbox will take much longer to start. The first time it starts, it will need to download a large crs file, which can take several minutes even on a fast internet connection. This is a one-time operation, you will not need to download it again until you update to a new Aztec version.
+
+The sandbox will also deploy 3 Schnorr account contracts on startup. The sandbox will need to generate transaction proofs for deployment, which will take additional time.
+
+Once everything has been set up, you will see that the PXE is listening on `localhost:8080` as you would see with the sandbox running in the default mode. At this point you can use the sandbox as you would without client-side proving enabled.
+
+### Proving with `aztec-wallet`
+
+You can enable proving on a per-transaction basis using the `aztec-wallet` CLI by setting the `PXE_PROVER_ENABLED` environment variable to `1`. This will use your local `bb` binary to prove the transaction.
+
+```bash
+PXE_PROVER_ENABLED=1 aztec-wallet create-account -a test
+```
+
+Check the [Quickstart](../../getting_started.md) for a refresher on how to send transactions using `aztec-wallet` or check the [reference here](../../reference/environment_reference/cli_wallet_reference.md)
+
+Note that you do not need to restart the sandbox in order to start sending proven transactions. You can optionally set this for one-off transactions.
+
+If this is the first time you are sending transactions with proving enabled, it will take a while to download a CRS file (which is several MBs) that is required for proving.
+
+:::note
+You can also profile your transactions to get gate count, if you don't want to prove your transactions but check how many constraints it is. Follow the [guide here](../../guides/smart_contracts/profiling_transactions.md)
+:::
+
+## Running Multiple PXEs in the Sandbox
+
+When you run the sandbox, the Aztec node and PXE have their own http server. This makes it possible to run two PXEs on your local machine, which can be useful for testing that notes are accurately stored and remaining private in their respective PXEs.
+
+We are working on a better solution for this so expect an update soon, but currently you can follow this guide.
+
+### Run the sandbox in one terminal
+
+Rather than use the usual command, run:
+
+```bash
+NO_PXE=true aztec start --sandbox
+```
+
+This removes any other arguments, allowing you to ensure an isolated environment for the sandbox so it doesn't interfere with another PXE. By default, the sandbox will run on port `8080`.
+
+### Run PXE mode in another terminal
+
+In another terminal, run:
+
+```bash
+aztec start --port 8081 --pxe --pxe.nodeUrl=http://localhost:8080/
+```
+
+This command uses the default ports, so they might need to be changed depending on your configuration. It will run the PXE on port `8081`.
+
+You should see something like this:
+
+```bash
+[14:01:53.181] INFO: pxe:data:lmdb Starting data store with maxReaders 16
+[14:01:53.677] INFO: pxe:service Started PXE connected to chain 31337 version 1
+[14:01:53.681] INFO: cli Aztec Server listening on port 8081 {"l1ChainId":31337,"l2ChainVersion":1,"l2ProtocolContractsTreeRoot":"0x093cc9324e5a7b44883f515ac490e7294ef8cb1e6d2d8c503255b1b3a9409262","l2CircuitsVkTreeRoot":"0x007c3b32ae1b8b3ed235f158e554d92710b5f126a8b2ed38a0874f6294299b95"}
+```
+
+You can learn more about custom commands in the [sandbox reference](../../reference/environment_reference/sandbox-reference.md).
