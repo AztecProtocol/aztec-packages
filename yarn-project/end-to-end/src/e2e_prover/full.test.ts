@@ -16,8 +16,6 @@ import { type GetContractReturnType, getContract } from 'viem';
 
 import { FullProverTest } from '../fixtures/e2e_prover_test.js';
 
-process.env.AZTEC_GENERATE_TEST_DATA = '1';
-
 // Set a very long 20 minute timeout.
 const TIMEOUT = 1_200_000;
 
@@ -25,8 +23,7 @@ const TIMEOUT = 1_200_000;
 process.env.AVM_PROVING_STRICT = '1';
 
 describe('full_prover', () => {
-  // const REAL_PROOFS = !parseBooleanEnv(process.env.FAKE_PROOFS);
-  const REAL_PROOFS = false;
+  const REAL_PROOFS = !parseBooleanEnv(process.env.FAKE_PROOFS);
   const COINBASE_ADDRESS = EthAddress.random();
   const t = new FullProverTest('full_prover', 1, COINBASE_ADDRESS, REAL_PROOFS);
 
@@ -174,7 +171,7 @@ describe('full_prover', () => {
     TIMEOUT,
   );
 
-  it.only('generates sample Prover.toml files if generate test data is on', async () => {
+  it('generates sample Prover.toml files if generate test data is on', async () => {
     if (!isGenerateTestDataEnabled() || REAL_PROOFS) {
       return;
     }
