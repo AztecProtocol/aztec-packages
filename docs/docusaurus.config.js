@@ -53,7 +53,7 @@ const config = {
       /** @type {import('@docusaurus/preset-classic').Options} */
       {
         docs: {
-          path: "docs",
+          path: "processed-docs",
           sidebarPath: "./sidebars.js",
           editUrl: (params) => {
             return (
