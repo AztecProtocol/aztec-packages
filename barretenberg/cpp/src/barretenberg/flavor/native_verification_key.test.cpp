@@ -79,7 +79,7 @@ TYPED_TEST(NativeVerificationKeyTests, VKHashingConsistency)
     for (const auto& field_element : vk_field_elements) {
         transcript.add_to_independent_hash_buffer("vk_element", field_element);
     }
-    fr vkey_hash_1 = transcript.hash_independent_buffer("vk_hash");
+    fr vkey_hash_1 = transcript.hash_independent_buffer();
     // Second method of hashing: using hash().
     fr vkey_hash_2 = vk.hash();
     EXPECT_EQ(vkey_hash_1, vkey_hash_2);

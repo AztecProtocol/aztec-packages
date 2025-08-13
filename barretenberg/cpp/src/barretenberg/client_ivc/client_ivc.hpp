@@ -10,6 +10,7 @@
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/honk/execution_trace/execution_trace_usage_tracker.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
+#include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
 #include "barretenberg/stdlib/honk_verifier/decider_recursive_verifier.hpp"
 #include "barretenberg/stdlib/honk_verifier/oink_recursive_verifier.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
@@ -53,6 +54,7 @@ class ClientIVC {
     using DeciderProvingKeys = DeciderProvingKeys_<Flavor>;
     using FoldingProver = ProtogalaxyProver_<Flavor>;
     using DeciderVerificationKeys = DeciderVerificationKeys_<Flavor>;
+    using FoldingVerifier = ProtogalaxyVerifier_<DeciderVerificationKeys>;
     using ECCVMVerificationKey = bb::ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
     using MegaProver = UltraProver_<Flavor>;
@@ -166,7 +168,7 @@ class ClientIVC {
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
     // Transcript to be shared across the folding of K_{i-1} (kernel), A_{i,1} (app), .., A_{i, n}
-    std::shared_ptr<Transcript> accumulation_transcript = std::make_shared<Transcript>();
+    std::shared_ptr<Transcript> prover_accumulation_transcript = std::make_shared<Transcript>();
 
     std::unique_ptr<ClientCircuit> hiding_circuit;
 
@@ -178,7 +180,10 @@ class ClientIVC {
     HonkProof decider_proof;      // decider proof to be verified in the hiding circuit
     HonkProof mega_proof;         // proof of the hiding circuit
 
-    std::shared_ptr<DeciderVerificationKey> verifier_accumulator; // verifier accumulator
+    std::shared_ptr<DeciderVerificationKey>
+        recursive_verifier_native_accum; // native verifier accumulator used in recursive folding
+    std::shared_ptr<DeciderVerificationKey>
+        native_verifier_accum;                    //  native verifier accumulator used in prover folding
     std::shared_ptr<MegaVerificationKey> honk_vk; // honk vk to be completed and folded into the accumulator
 
     // Set of tuples {proof, verification_key, type (Oink/PG)} to be recursively verified

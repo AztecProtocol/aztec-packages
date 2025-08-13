@@ -313,9 +313,9 @@ class ProtogalaxyRecursiveTests : public testing::Test {
                                                   { recursive_vk_and_hash_2 },
                                                   std::make_shared<typename FoldingRecursiveVerifier::Transcript>() };
         verifier.transcript->enable_manifest();
-        auto recursive_verifier_accumulator = verifier.verify_folding_proof(stdlib_proof);
+        auto recursive_verifier_native_accum = verifier.verify_folding_proof(stdlib_proof);
         auto native_verifier_acc =
-            std::make_shared<InnerDeciderVerificationKey>(recursive_verifier_accumulator->get_value());
+            std::make_shared<InnerDeciderVerificationKey>(recursive_verifier_native_accum->get_value());
         info("Folding Recursive Verifier: num gates = ", folding_circuit.get_estimated_num_finalized_gates());
 
         // Check for a failure flag in the recursive verifier circuit
@@ -479,7 +479,7 @@ class ProtogalaxyRecursiveTests : public testing::Test {
                                           recursive_decider_vk_1,
                                           { recursive_vk_and_hash_2 },
                                           std::make_shared<typename FoldingRecursiveVerifier::Transcript>() };
-            auto recursive_verifier_accumulator = verifier.verify_folding_proof(stdlib_proof);
+            auto recursive_verifier_native_accum = verifier.verify_folding_proof(stdlib_proof);
 
             return { fold_result.proof, verifier_circuit };
         };

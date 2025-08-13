@@ -77,7 +77,7 @@ TYPED_TEST(StdlibVerificationKeyTests, VKHashingConsistency)
     for (const auto& field_element : vk_field_elements) {
         transcript.add_to_independent_hash_buffer("vk_element", field_element);
     }
-    FF vkey_hash_1 = transcript.hash_independent_buffer("vk_hash");
+    FF vkey_hash_1 = transcript.hash_independent_buffer();
     // Second method of hashing: using hash().
     FF vkey_hash_2 = vk.hash(outer_builder);
     EXPECT_EQ(vkey_hash_1.get_value(), vkey_hash_2.get_value());

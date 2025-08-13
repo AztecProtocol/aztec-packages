@@ -32,11 +32,15 @@ void ProtogalaxyProver_<Flavor, NUM_KEYS>::run_oink_prover_on_each_incomplete_ke
     size_t idx = 0;
     auto& key = keys_to_fold[0];
     auto domain_separator = std::to_string(idx);
-    auto& vk = vks_to_fold[0];
+    auto& verifier_accum = vks_to_fold[0];
     if (!key->is_accumulator) {
-        run_oink_prover_on_one_incomplete_key(key, vk, domain_separator);
+        run_oink_prover_on_one_incomplete_key(key, verifier_accum, domain_separator);
         key->target_sum = 0;
         key->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
+    } else {
+        // Fiat-Shamir the verifier accumulator
+        FF accum_hash = verifier_accum->add_hash_to_transcript("", *transcript);
+        info("Accumulator hash in PG prover: ", accum_hash);
     }
 
     idx++;
