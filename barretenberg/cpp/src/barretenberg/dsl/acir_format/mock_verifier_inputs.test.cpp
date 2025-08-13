@@ -32,6 +32,33 @@ TEST(MockVerifierInputsTest, MockMergeProofSize)
 }
 
 /**
+ * @brief Check that the size of a mock pre-ipa proof matches expectation
+ */
+TEST(MockVerifierInputsTest, MockPreIpaProofSize)
+{
+    HonkProof pre_ipa_proof = create_mock_pre_ipa_proof();
+    EXPECT_EQ(pre_ipa_proof.size(), ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH);
+}
+
+/**
+ * @brief Check that the size of a mock ipa proof matches expectation
+ */
+TEST(MockVerifierInputsTest, MockIPAProofSize)
+{
+    HonkProof ipa_proof = create_mock_ipa_proof();
+    EXPECT_EQ(ipa_proof.size(), IPA_PROOF_LENGTH);
+}
+
+/**
+ * @brief Check that the size of a mock translator proof matches expectation
+ */
+TEST(MockVerifierInputsTest, MockTranslatorProofSize)
+{
+    HonkProof translator_proof = create_mock_translator_proof();
+    EXPECT_EQ(translator_proof.size(), TranslatorFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
+}
+
+/**
  * @brief Check that the size of a mock Oink proof matches expectation for MegaFlavor
  *
  */
