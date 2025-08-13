@@ -1,5 +1,6 @@
 import {
   AuthWitness,
+  AztecAddress,
   FeeJuicePaymentMethod,
   type SendMethodOptions,
   SentTx,
@@ -23,6 +24,7 @@ export abstract class BaseBot {
   protected constructor(
     public readonly pxe: PXE,
     public readonly wallet: Wallet,
+    public readonly defaultAccountAddress: AztecAddress,
     public config: BotConfig,
   ) {}
 
@@ -70,9 +72,8 @@ export abstract class BaseBot {
   }
 
   protected getSendMethodOpts(...authWitnesses: AuthWitness[]): SendMethodOptions {
-    const sender = this.wallet.getAddress();
     const { l2GasLimit, daGasLimit } = this.config;
-    const paymentMethod = new FeeJuicePaymentMethod(sender);
+    const paymentMethod = new FeeJuicePaymentMethod(this.defaultAccountAddress);
 
     let gasSettings, estimateGas;
     if (l2GasLimit !== undefined && l2GasLimit > 0 && daGasLimit !== undefined && daGasLimit > 0) {
@@ -84,6 +85,10 @@ export abstract class BaseBot {
       this.log.verbose(`Estimating gas for transaction`);
     }
     const baseFeePadding = 2; // Send 3x the current base fee
-    return { fee: { estimateGas, paymentMethod, gasSettings, baseFeePadding }, authWitnesses };
+    return {
+      from: this.defaultAccountAddress,
+      fee: { estimateGas, paymentMethod, gasSettings, baseFeePadding },
+      authWitnesses,
+    };
   }
 }

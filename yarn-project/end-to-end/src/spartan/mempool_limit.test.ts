@@ -116,12 +116,12 @@ describe('mempool limiter test', () => {
 
     const tokenMeta = await pxe.getContractMetadata(token.address);
     if (!tokenMeta.isContractInitialized) {
-      await tokenDeploy.send({ contractAddressSalt: Fr.ONE, fee }).wait();
+      await tokenDeploy.send({ from: wallet.getAddress(), contractAddressSalt: Fr.ONE, fee }).wait();
       debugLogger.info(`Deployed token contract: ${tokenContractAddress}`);
 
       await token.methods
         .mint_to_public(wallet.getAddress(), 10n ** 18n)
-        .send({ fee })
+        .send({ from: wallet.getAddress(), fee })
         .wait();
       debugLogger.info(`Minted tokens`);
     } else {
@@ -132,7 +132,7 @@ describe('mempool limiter test', () => {
 
     const proventx = await token.methods
       .transfer_in_public(wallet.getAddress(), await AztecAddress.random(), 1, 0)
-      .prove({ fee });
+      .prove({ from: wallet.getAddress(), fee });
     sampleTx = proventx;
     const sampleTxSize = sampleTx.getSize();
     const maxTxPoolSize = TX_MEMPOOL_LIMIT * sampleTxSize;

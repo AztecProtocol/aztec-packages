@@ -100,6 +100,34 @@ library AttestationLib {
   }
 
   /**
+   * @notice Gets the address at the given index
+   * @param _attestations - The committee attestations
+   * @param _index - The index of the address to get
+   */
+  function getAddress(CommitteeAttestations memory _attestations, uint256 _index) internal pure returns (address) {
+    bytes memory signaturesOrAddresses = _attestations.signaturesOrAddresses;
+    require(!isSignature(_attestations, _index), "A signature at this index");
+
+    uint256 dataPtr;
+    assembly {
+      // Skip length
+      dataPtr := add(signaturesOrAddresses, 0x20)
+    }
+
+    // Move to the start of the signature
+    for (uint256 i = 0; i < _index; ++i) {
+      dataPtr += isSignature(_attestations, i) ? SIGNATURE_LENGTH : ADDRESS_LENGTH;
+    }
+
+    address addr;
+    assembly {
+      addr := shr(96, mload(dataPtr))
+    }
+
+    return addr;
+  }
+
+  /**
    * Returns the addresses from the CommitteeAttestations, using the array of signers to populate where there are
    * signatures.
    * Indices with signatures will have a zero address.

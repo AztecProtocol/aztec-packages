@@ -7,13 +7,13 @@ import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 describe('e2e_cross_chain_messaging l1_to_l2', () => {
   const t = new CrossChainMessagingTest('l1_to_l2');
 
-  let { crossChainTestHarness, aztecNode, user1Wallet } = t;
+  let { crossChainTestHarness, aztecNode, user1Wallet, user1Address } = t;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     await t.setup();
     // Have to destructure again to ensure we have latest refs.
-    ({ crossChainTestHarness, user1Wallet } = t);
+    ({ crossChainTestHarness, user1Wallet, user1Address } = t);
 
     aztecNode = crossChainTestHarness.aztecNode;
   }, 300_000);
@@ -27,7 +27,7 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
   it.each([true, false])(
     'can send an L1 -> L2 message from a non-registered portal address consumed from private or public and then sends and claims exactly the same message again',
     async (isPrivate: boolean) => {
-      const testContract = await TestContract.deploy(user1Wallet).send().deployed();
+      const testContract = await TestContract.deploy(user1Wallet).send({ from: user1Address }).deployed();
 
       const consumeMethod = isPrivate
         ? testContract.methods.consume_message_from_arbitrary_sender_private
@@ -42,7 +42,9 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
       expect(actualMessage1Index.toBigInt()).toBe(message1Index);
 
       // Finally, we consume the L1 -> L2 message using the test contract either from private or public
-      await consumeMethod(message.content, secret, crossChainTestHarness.ethAccount, message1Index).send().wait();
+      await consumeMethod(message.content, secret, crossChainTestHarness.ethAccount, message1Index)
+        .send({ from: user1Address })
+        .wait();
 
       // We send and consume the exact same message the second time to test that oracles correctly return the new
       // non-nullified message
@@ -57,7 +59,9 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
 
       // Now we consume the message again. Everything should pass because oracle should return the duplicate message
       // which is not nullified
-      await consumeMethod(message.content, secret, crossChainTestHarness.ethAccount, message2Index).send().wait();
+      await consumeMethod(message.content, secret, crossChainTestHarness.ethAccount, message2Index)
+        .send({ from: user1Address })
+        .wait();
     },
     120_000,
   );

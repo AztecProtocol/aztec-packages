@@ -25,25 +25,26 @@ function build_and_deploy {
     echo "Not building bb docs for arm64 in CI."
     return
   fi
-  echo_header "build docs"
-  if ! cache_download bb-docs-$hash.tar.gz; then
-    denoise "yarn install && yarn build"
-    cache_upload bb-docs-$hash.tar.gz build
+  echo_header "build bb docs"
+  if cache_download bb-docs-$hash.tar.gz; then
+    echo "Skipping deployment - no bb doc changes compared to cache."
+    return
   fi
+  denoise "yarn install && yarn build"
 
   if [ "${CI:-0}" -eq 1 ] && [ "$(arch)" == "amd64" ]; then
     if [ "$REF_NAME" == "next" ]; then
       echo_header "deploying to production"
-      denoise "yarn install && yarn build"
       do_or_dryrun yarn netlify deploy --site barretenberg --prod
     else
       echo_header "deploying preview for branch: $REF_NAME"
-      denoise "yarn install && yarn build"
       do_or_dryrun yarn netlify deploy --site barretenberg
     fi
   else
     echo "Skipping deployment - only deploy in CI on amd64."
   fi
+
+  cache_upload bb-docs-$hash.tar.gz build
 }
 
 function test_cmds {

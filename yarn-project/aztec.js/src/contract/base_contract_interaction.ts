@@ -47,7 +47,7 @@ export abstract class BaseContractInteraction {
    * @param options - optional arguments to be used in the creation of the transaction
    * @returns The proving result.
    */
-  protected async proveInternal(options: SendMethodOptions = {}): Promise<TxProvingResult> {
+  protected async proveInternal(options: SendMethodOptions): Promise<TxProvingResult> {
     const txRequest = await this.create(options);
     return await this.wallet.proveTx(txRequest);
   }
@@ -58,8 +58,13 @@ export abstract class BaseContractInteraction {
    * @param options - optional arguments to be used in the creation of the transaction
    * @returns The resulting transaction
    */
-  public async prove(options: SendMethodOptions = {}): Promise<ProvenTx> {
+  public async prove(options: SendMethodOptions): Promise<ProvenTx> {
     // docs:end:prove
+    if (!options.from.equals(this.wallet.getAddress())) {
+      throw new Error(
+        `The address provided as from does not match the wallet address. Expected ${this.wallet.getAddress().toString()}, got ${options.from.toString()}.`,
+      );
+    }
     const txProvingResult = await this.proveInternal(options);
     return new ProvenTx(
       this.wallet,
@@ -79,7 +84,7 @@ export abstract class BaseContractInteraction {
    * the AztecAddress of the sender. If not provided, the default address is used.
    * @returns A SentTx instance for tracking the transaction status and information.
    */
-  public send(options: SendMethodOptions = {}): SentTx {
+  public send(options: SendMethodOptions): SentTx {
     // docs:end:send
     const sendTx = async () => {
       const txProvingResult = await this.proveInternal(options);
@@ -91,15 +96,14 @@ export abstract class BaseContractInteraction {
   // docs:start:estimateGas
   /**
    * Estimates gas for a given tx request and returns gas limits for it.
-   * @param opts - Options.
-   * @param pad - Percentage to pad the suggested gas limits by, if empty, defaults to 10%.
+   * @param options - Options.
    * @returns Gas limits.
    */
   public async estimateGas(
-    opts?: Omit<SendMethodOptions, 'estimateGas'>,
+    options: Omit<SendMethodOptions, 'estimateGas'>,
   ): Promise<Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>> {
     // docs:end:estimateGas
-    const txRequest = await this.create({ ...opts, fee: { ...opts?.fee, estimateGas: false } });
+    const txRequest = await this.create({ ...options, fee: { ...options?.fee, estimateGas: false } });
     const simulationResult = await this.wallet.simulateTx(
       txRequest,
       true /*simulatePublic*/,
@@ -108,7 +112,7 @@ export abstract class BaseContractInteraction {
     );
     const { totalGas: gasLimits, teardownGas: teardownGasLimits } = getGasLimits(
       simulationResult,
-      opts?.fee?.estimatedGasPadding,
+      options?.fee?.estimatedGasPadding,
     );
     return { gasLimits, teardownGasLimits };
   }

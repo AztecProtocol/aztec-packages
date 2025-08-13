@@ -163,7 +163,9 @@ case ${1:-} in
 
       RESTART_CODES="1 78 79"  # ERROR, ROLLUP_UPGRADE, VERSION_UPGRADE
 
-      echo "Starting supervised Aztec application..."
+      if [ "$SUPERVISED" == "1" ]; then
+        echo "Starting supervised Aztec application..."
+      fi
       set +e
       while true; do
         $(dirname $0)/.aztec-run aztec-start \

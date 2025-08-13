@@ -15,19 +15,20 @@ export class Bot extends BaseBot {
   protected constructor(
     pxe: PXE,
     wallet: Wallet,
+    defaultAccountAddress: AztecAddress,
     public readonly token: TokenContract | EasyPrivateTokenContract,
     public readonly recipient: AztecAddress,
     config: BotConfig,
   ) {
-    super(pxe, wallet, config);
+    super(pxe, wallet, defaultAccountAddress, config);
   }
 
   static async create(
     config: BotConfig,
     dependencies: { pxe?: PXE; node?: AztecNode; nodeAdmin?: AztecNodeAdmin },
   ): Promise<Bot> {
-    const { pxe, wallet, token, recipient } = await new BotFactory(config, dependencies).setup();
-    return new Bot(pxe, wallet, token, recipient, config);
+    const { pxe, wallet, defaultAccountAddress, token, recipient } = await new BotFactory(config, dependencies).setup();
+    return new Bot(pxe, wallet, defaultAccountAddress, token, recipient, config);
   }
 
   public updateConfig(config: Partial<BotConfig>) {
@@ -38,7 +39,6 @@ export class Bot extends BaseBot {
   protected async createAndSendTx(logCtx: object): Promise<SentTx> {
     const { privateTransfersPerTx, publicTransfersPerTx, feePaymentMethod } = this.config;
     const { token, recipient, wallet } = this;
-    const sender = wallet.getAddress();
 
     this.log.verbose(
       `Preparing tx with ${feePaymentMethod} fee with ${privateTransfersPerTx} private and ${publicTransfersPerTx} public transfers`,
@@ -48,15 +48,19 @@ export class Bot extends BaseBot {
     const calls = isStandardTokenContract(token)
       ? [
           times(privateTransfersPerTx, () => token.methods.transfer(recipient, TRANSFER_AMOUNT)),
-          times(publicTransfersPerTx, () => token.methods.transfer_in_public(sender, recipient, TRANSFER_AMOUNT, 0)),
+          times(publicTransfersPerTx, () =>
+            token.methods.transfer_in_public(this.defaultAccountAddress, recipient, TRANSFER_AMOUNT, 0),
+          ),
         ].flat()
-      : times(privateTransfersPerTx, () => token.methods.transfer(TRANSFER_AMOUNT, sender, recipient));
+      : times(privateTransfersPerTx, () =>
+          token.methods.transfer(TRANSFER_AMOUNT, this.defaultAccountAddress, recipient),
+        );
 
     const opts = this.getSendMethodOpts();
     const batch = new BatchCall(wallet, calls);
 
     this.log.verbose(`Simulating transaction with ${calls.length}`, logCtx);
-    await batch.simulate();
+    await batch.simulate({ from: this.defaultAccountAddress });
 
     this.log.verbose(`Proving transaction`, logCtx);
     const provenTx = await batch.prove(opts);
@@ -66,13 +70,13 @@ export class Bot extends BaseBot {
   public async getBalances() {
     if (isStandardTokenContract(this.token)) {
       return {
-        sender: await getBalances(this.token, this.wallet.getAddress()),
+        sender: await getBalances(this.token, this.defaultAccountAddress),
         recipient: await getBalances(this.token, this.recipient),
       };
     } else {
       return {
         sender: {
-          privateBalance: await getPrivateBalance(this.token, this.wallet.getAddress()),
+          privateBalance: await getPrivateBalance(this.token, this.defaultAccountAddress),
           publicBalance: 0n,
         },
         recipient: {

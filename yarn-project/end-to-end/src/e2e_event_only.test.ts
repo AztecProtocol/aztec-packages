@@ -1,4 +1,4 @@
-import { type AccountWalletWithSecretKey, Fr } from '@aztec/aztec.js';
+import { type AccountWalletWithSecretKey, AztecAddress, Fr } from '@aztec/aztec.js';
 import { EventOnlyContract, type TestEvent } from '@aztec/noir-test-contracts.js/EventOnly';
 
 import { jest } from '@jest/globals';
@@ -12,27 +12,35 @@ describe('EventOnly', () => {
   let eventOnlyContract: EventOnlyContract;
   jest.setTimeout(TIMEOUT);
 
-  let wallets: AccountWalletWithSecretKey[];
+  let wallet: AccountWalletWithSecretKey;
+  let defaultAccountAddress: AztecAddress;
   let teardown: () => Promise<void>;
 
   beforeAll(async () => {
-    ({ teardown, wallets } = await setup(2));
-    await ensureAccountContractsPublished(wallets[0], wallets.slice(0, 2));
-    eventOnlyContract = await EventOnlyContract.deploy(wallets[0]).send().deployed();
+    ({
+      teardown,
+      wallet,
+      accounts: [defaultAccountAddress],
+    } = await setup(2));
+    await ensureAccountContractsPublished(wallet, [wallet]);
+    eventOnlyContract = await EventOnlyContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed();
   });
 
   afterAll(() => teardown());
 
   it('emits and retrieves a private event for a contract with no notes', async () => {
     const value = Fr.random();
-    const tx = await eventOnlyContract.methods.emit_event_for_msg_sender(value).send().wait();
+    const tx = await eventOnlyContract.methods
+      .emit_event_for_msg_sender(value)
+      .send({ from: defaultAccountAddress })
+      .wait();
 
-    const events = await wallets[0].getPrivateEvents<TestEvent>(
+    const events = await wallet.getPrivateEvents<TestEvent>(
       eventOnlyContract.address,
       EventOnlyContract.events.TestEvent,
       tx.blockNumber!,
       1,
-      [wallets[0].getAddress()],
+      [defaultAccountAddress],
     );
 
     expect(events.length).toBe(1);

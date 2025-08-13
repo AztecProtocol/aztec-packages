@@ -491,10 +491,12 @@ pub comptime fn derive_packable(s: TypeDefinition) -> Quoted {
         {
             let N: u32 = $right_hand_side_of_definition_of_n;
 
+            #[inline_always]
             fn pack(self) -> [Field; Self::N] {
                 $pack_function_body
             }
 
+            #[inline_always]
             fn unpack(packed: [Field; Self::N]) -> Self {
                 $unpack_function_body
             }

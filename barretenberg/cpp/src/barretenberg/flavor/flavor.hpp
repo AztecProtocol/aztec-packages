@@ -226,7 +226,9 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
             transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
         }
 
-        return transcript.hash_independent_buffer(domain_separator + "vk_hash");
+        fr vk_hash = transcript.hash_independent_buffer();
+        transcript.add_to_hash_buffer(domain_separator + "vk_hash", vk_hash);
+        return vk_hash;
     };
 };
 
@@ -316,8 +318,9 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
         for (const Commitment& commitment : this->get_all()) {
             transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
         }
-
-        return transcript.hash_independent_buffer(domain_separator + "vk_hash");
+        FF vk_hash = transcript.hash_independent_buffer();
+        transcript.add_to_hash_buffer(domain_separator + "vk_hash", vk_hash);
+        return vk_hash;
     };
 };
 

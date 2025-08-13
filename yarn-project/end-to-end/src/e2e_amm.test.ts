@@ -1,4 +1,4 @@
-import { type AccountWallet, Fr, type Logger, type Wallet } from '@aztec/aztec.js';
+import { type AccountWallet, AztecAddress, Fr, type Logger, type Wallet } from '@aztec/aztec.js';
 import { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 
@@ -21,6 +21,11 @@ describe('AMM', () => {
   let otherLiquidityProvider: AccountWallet;
   let swapper: AccountWallet;
 
+  let adminAddress: AztecAddress;
+  let liquidityProviderAddress: AztecAddress;
+  let otherLiquidityProviderAddress: AztecAddress;
+  let swapperAddress: AztecAddress;
+
   let token0: TokenContract;
   let token1: TokenContract;
   let liquidityToken: TokenContract;
@@ -36,30 +41,43 @@ describe('AMM', () => {
     ({
       teardown,
       wallets: [adminWallet, liquidityProvider, otherLiquidityProvider, swapper],
+      accounts: [adminAddress, liquidityProviderAddress, otherLiquidityProviderAddress, swapperAddress],
       logger,
     } = await setup(4));
 
-    token0 = await deployToken(adminWallet, 0n, logger);
-    token1 = await deployToken(adminWallet, 0n, logger);
-    liquidityToken = await deployToken(adminWallet, 0n, logger);
+    token0 = await deployToken(adminWallet, adminAddress, 0n, logger);
+    token1 = await deployToken(adminWallet, adminAddress, 0n, logger);
+    liquidityToken = await deployToken(adminWallet, adminAddress, 0n, logger);
 
     amm = await AMMContract.deploy(adminWallet, token0.address, token1.address, liquidityToken.address)
-      .send()
+      .send({ from: adminAddress })
       .deployed();
 
     // TODO(#9480): consider deploying the token by some factory when the AMM is deployed, and making the AMM be the
     // minter there.
-    await liquidityToken.methods.set_minter(amm.address, true).send().wait();
+    await liquidityToken.methods.set_minter(amm.address, true).send({ from: adminAddress }).wait();
 
     // We mint the tokens to both liquidity providers and the swapper
-    await mintTokensToPrivate(token0, adminWallet, liquidityProvider.getAddress(), INITIAL_TOKEN_BALANCE);
-    await mintTokensToPrivate(token1, adminWallet, liquidityProvider.getAddress(), INITIAL_TOKEN_BALANCE);
+    await mintTokensToPrivate(token0, adminAddress, adminWallet, liquidityProvider.getAddress(), INITIAL_TOKEN_BALANCE);
+    await mintTokensToPrivate(token1, adminAddress, adminWallet, liquidityProvider.getAddress(), INITIAL_TOKEN_BALANCE);
 
-    await mintTokensToPrivate(token0, adminWallet, otherLiquidityProvider.getAddress(), INITIAL_TOKEN_BALANCE);
-    await mintTokensToPrivate(token1, adminWallet, otherLiquidityProvider.getAddress(), INITIAL_TOKEN_BALANCE);
+    await mintTokensToPrivate(
+      token0,
+      adminAddress,
+      adminWallet,
+      otherLiquidityProvider.getAddress(),
+      INITIAL_TOKEN_BALANCE,
+    );
+    await mintTokensToPrivate(
+      token1,
+      adminAddress,
+      adminWallet,
+      otherLiquidityProvider.getAddress(),
+      INITIAL_TOKEN_BALANCE,
+    );
 
     // Note that the swapper only holds token0, not token1
-    await mintTokensToPrivate(token0, adminWallet, swapper.getAddress(), INITIAL_TOKEN_BALANCE);
+    await mintTokensToPrivate(token0, adminAddress, adminWallet, swapper.getAddress(), INITIAL_TOKEN_BALANCE);
   });
 
   afterAll(() => teardown());
@@ -75,15 +93,21 @@ describe('AMM', () => {
 
     async function getAmmBalances(): Promise<Balance> {
       return {
-        token0: await token0.methods.balance_of_public(amm.address).simulate(),
-        token1: await token1.methods.balance_of_public(amm.address).simulate(),
+        token0: await token0.methods.balance_of_public(amm.address).simulate({ from: adminAddress }),
+        token1: await token1.methods.balance_of_public(amm.address).simulate({ from: adminAddress }),
       };
     }
 
     async function getWalletBalances(lp: Wallet): Promise<Balance> {
       return {
-        token0: await token0.withWallet(lp).methods.balance_of_private(lp.getAddress()).simulate(),
-        token1: await token1.withWallet(lp).methods.balance_of_private(lp.getAddress()).simulate(),
+        token0: await token0
+          .withWallet(lp)
+          .methods.balance_of_private(lp.getAddress())
+          .simulate({ from: lp.getAddress() }),
+        token1: await token1
+          .withWallet(lp)
+          .methods.balance_of_private(lp.getAddress())
+          .simulate({ from: lp.getAddress() }),
       };
     }
 
@@ -128,7 +152,7 @@ describe('AMM', () => {
         .withWallet(liquidityProvider)
         .methods.add_liquidity(amount0Max, amount1Max, amount0Min, amount1Min, nonceForAuthwits)
         .with({ authWitnesses: [token0Authwit, token1Authwit] });
-      await addLiquidityInteraction.send().wait();
+      await addLiquidityInteraction.send({ from: liquidityProviderAddress }).wait();
 
       const ammBalancesAfter = await getAmmBalances();
       const lpBalancesAfter = await getWalletBalances(liquidityProvider);
@@ -140,10 +164,14 @@ describe('AMM', () => {
 
       // Liquidity tokens should also be minted for the liquidity provider, as well as locked at the zero address.
       const expectedLiquidityTokens = (INITIAL_AMM_TOTAL_SUPPLY * 99n) / 100n;
-      expect(await liquidityToken.methods.balance_of_private(liquidityProvider.getAddress()).simulate()).toEqual(
-        expectedLiquidityTokens,
+      expect(
+        await liquidityToken.methods
+          .balance_of_private(liquidityProvider.getAddress())
+          .simulate({ from: adminAddress }),
+      ).toEqual(expectedLiquidityTokens);
+      expect(await liquidityToken.methods.total_supply().simulate({ from: adminAddress })).toEqual(
+        INITIAL_AMM_TOTAL_SUPPLY,
       );
-      expect(await liquidityToken.methods.total_supply().simulate()).toEqual(INITIAL_AMM_TOTAL_SUPPLY);
     });
 
     it('add liquidity from another lp', async () => {
@@ -153,7 +181,7 @@ describe('AMM', () => {
       const ammBalancesBefore = await getAmmBalances();
       const lpBalancesBefore = await getWalletBalances(otherLiquidityProvider);
 
-      const liquidityTokenSupplyBefore = await liquidityToken.methods.total_supply().simulate();
+      const liquidityTokenSupplyBefore = await liquidityToken.methods.total_supply().simulate({ from: adminAddress });
 
       // The pool currently has the same number of tokens for token0 and token1, since that is the ratio the first
       // liquidity provider used. Our maximum values have a different ratio (6:5 instead of 1:1), so we will end up
@@ -183,7 +211,7 @@ describe('AMM', () => {
       const token2Authwit = await otherLiquidityProvider.createAuthWit({
         caller: amm.address,
         action: token1.methods.transfer_to_public_and_prepare_private_balance_increase(
-          otherLiquidityProvider.getAddress(),
+          otherLiquidityProviderAddress,
           amm.address,
           amount1Max,
           nonceForAuthwits,
@@ -193,7 +221,7 @@ describe('AMM', () => {
       await amm
         .withWallet(otherLiquidityProvider)
         .methods.add_liquidity(amount0Max, amount1Max, amount0Min, amount1Min, nonceForAuthwits)
-        .send({ authWitnesses: [token1Authwit, token2Authwit] })
+        .send({ from: otherLiquidityProviderAddress, authWitnesses: [token1Authwit, token2Authwit] })
         .wait();
 
       const ammBalancesAfter = await getAmmBalances();
@@ -207,10 +235,12 @@ describe('AMM', () => {
         (liquidityTokenSupplyBefore * (ammBalancesBefore.token0 + expectedAmount0)) / ammBalancesBefore.token0;
       const expectedLiquidityTokens = expectedTotalSupply - INITIAL_AMM_TOTAL_SUPPLY;
 
-      expect(await liquidityToken.methods.total_supply().simulate()).toEqual(expectedTotalSupply);
-      expect(await liquidityToken.methods.balance_of_private(otherLiquidityProvider.getAddress()).simulate()).toEqual(
-        expectedLiquidityTokens,
-      );
+      expect(await liquidityToken.methods.total_supply().simulate({ from: adminAddress })).toEqual(expectedTotalSupply);
+      expect(
+        await liquidityToken.methods
+          .balance_of_private(otherLiquidityProviderAddress)
+          .simulate({ from: otherLiquidityProviderAddress }),
+      ).toEqual(expectedLiquidityTokens);
     });
 
     it('swap exact tokens in', async () => {
@@ -232,13 +262,13 @@ describe('AMM', () => {
       // just pass the exact value. Of course any lower value would also suffice.
       const amountOutMin = await amm.methods
         .get_amount_out_for_exact_in(ammBalancesBefore.token0, ammBalancesBefore.token1, amountIn)
-        .simulate();
+        .simulate({ from: swapperAddress });
 
       const swapExactTokensInteraction = amm
         .withWallet(swapper)
         .methods.swap_exact_tokens_for_tokens(token0.address, token1.address, amountIn, amountOutMin, nonceForAuthwits)
         .with({ authWitnesses: [swapAuthwit] });
-      await swapExactTokensInteraction.send().wait();
+      await swapExactTokensInteraction.send({ from: swapperAddress }).wait();
 
       // We know exactly how many tokens we're supposed to get because we know nobody else interacted with the AMM
       // before we did.
@@ -258,7 +288,7 @@ describe('AMM', () => {
       // in this test environment since there's nobody else interacting with the AMM.
       const amountOut = await amm.methods
         .get_amount_out_for_exact_in(ammBalancesBefore.token1, ammBalancesBefore.token0, swapperBalancesBefore.token1)
-        .simulate();
+        .simulate({ from: swapperAddress });
       const amountInMax = swapperBalancesBefore.token1;
 
       // Swaps also transfer tokens into the AMM, so we provide an authwit for the full amount in (any change will be
@@ -277,7 +307,7 @@ describe('AMM', () => {
       await amm
         .withWallet(swapper)
         .methods.swap_tokens_for_exact_tokens(token1.address, token0.address, amountOut, amountInMax, nonceForAuthwits)
-        .send({ authWitnesses: [swapAuthwit] })
+        .send({ from: swapperAddress, authWitnesses: [swapAuthwit] })
         .wait();
 
       // Because nobody else interacted with the AMM, we know the amount in will be the maximum (i.e. the value the
@@ -296,7 +326,7 @@ describe('AMM', () => {
       const liquidityTokenBalance = await liquidityToken
         .withWallet(otherLiquidityProvider)
         .methods.balance_of_private(otherLiquidityProvider.getAddress())
-        .simulate();
+        .simulate({ from: otherLiquidityProviderAddress });
 
       // Because private burning requires first transferring the tokens into the AMM, we again need to provide an
       // authwit.
@@ -319,7 +349,7 @@ describe('AMM', () => {
       await amm
         .withWallet(otherLiquidityProvider)
         .methods.remove_liquidity(liquidityTokenBalance, amount0Min, amount1Min, nonceForAuthwits)
-        .send({ authWitnesses: [liquidityAuthwit] })
+        .send({ from: otherLiquidityProviderAddress, authWitnesses: [liquidityAuthwit] })
         .wait();
 
       // The liquidity provider should have no remaining liquidity tokens, and should have recovered the value they
@@ -328,7 +358,7 @@ describe('AMM', () => {
         await liquidityToken
           .withWallet(otherLiquidityProvider)
           .methods.balance_of_private(otherLiquidityProvider.getAddress())
-          .simulate(),
+          .simulate({ from: otherLiquidityProviderAddress }),
       ).toEqual(0n);
 
       // We now assert that the liquidity provider ended up with more tokens than they began with. These extra tokens

@@ -83,7 +83,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
     using TupleOfTuplesOfUnivariatesNoOptimisticSkipping =
         typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariatesNoOptimisticSkipping<DeciderPKs::NUM>;
 
-    using RelationEvaluations = typename Flavor::TupleOfArraysOfValues;
+    using RelationEvaluations = decltype(create_tuple_of_arrays_of_values<typename Flavor::Relations>());
 
     static constexpr size_t NUM_SUBRELATIONS = DeciderPKs::NUM_SUBRELATIONS;
 

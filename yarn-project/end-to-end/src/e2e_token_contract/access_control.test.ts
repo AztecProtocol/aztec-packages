@@ -17,30 +17,38 @@ describe('e2e_token_contract access control', () => {
   });
 
   it('Set admin', async () => {
-    await t.asset.methods.set_admin(t.accounts[1].address).send().wait();
-    expect(await t.asset.methods.get_admin().simulate()).toBe(t.accounts[1].address.toBigInt());
+    await t.asset.methods.set_admin(t.account1Address).send({ from: t.adminAddress }).wait();
+    expect(await t.asset.methods.get_admin().simulate({ from: t.adminAddress })).toBe(t.account1Address.toBigInt());
   });
 
   it('Add minter as admin', async () => {
-    await t.asset.withWallet(t.wallets[1]).methods.set_minter(t.accounts[1].address, true).send().wait();
-    expect(await t.asset.methods.is_minter(t.accounts[1].address).simulate()).toBe(true);
+    await t.asset
+      .withWallet(t.account1)
+      .methods.set_minter(t.account1Address, true)
+      .send({ from: t.account1Address })
+      .wait();
+    expect(await t.asset.methods.is_minter(t.account1Address).simulate({ from: t.adminAddress })).toBe(true);
   });
 
   it('Revoke minter as admin', async () => {
-    await t.asset.withWallet(t.wallets[1]).methods.set_minter(t.accounts[1].address, false).send().wait();
-    expect(await t.asset.methods.is_minter(t.accounts[1].address).simulate()).toBe(false);
+    await t.asset
+      .withWallet(t.account1)
+      .methods.set_minter(t.account1Address, false)
+      .send({ from: t.account1Address })
+      .wait();
+    expect(await t.asset.methods.is_minter(t.account1Address).simulate({ from: t.adminAddress })).toBe(false);
   });
 
   describe('failure cases', () => {
     it('Set admin (not admin)', async () => {
-      await expect(t.asset.methods.set_admin(t.accounts[0].address).simulate()).rejects.toThrow(
+      await expect(t.asset.methods.set_admin(t.adminAddress).simulate({ from: t.adminAddress })).rejects.toThrow(
         'Assertion failed: caller is not admin',
       );
     });
     it('Revoke minter not as admin', async () => {
-      await expect(t.asset.methods.set_minter(t.accounts[0].address, false).simulate()).rejects.toThrow(
-        'Assertion failed: caller is not admin',
-      );
+      await expect(
+        t.asset.methods.set_minter(t.adminAddress, false).simulate({ from: t.adminAddress }),
+      ).rejects.toThrow('Assertion failed: caller is not admin');
     });
   });
 });

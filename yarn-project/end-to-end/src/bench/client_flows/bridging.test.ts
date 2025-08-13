@@ -80,6 +80,7 @@ describe('Bridging benchmark', () => {
           // 3. Consume L1 -> L2 message and mint private tokens on L2
           const paymentMethod = t.paymentMethods[benchmarkingPaymentMethod];
           const options: SimulateMethodOptions = {
+            from: benchysWallet.getAddress(),
             fee: { paymentMethod: await paymentMethod.forWallet(benchysWallet) },
           };
 

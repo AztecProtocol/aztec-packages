@@ -1,5 +1,13 @@
 import { CopyCatAccountWallet } from '@aztec/accounts/copy-cat';
-import { type AccountWallet, CallAuthorizationRequest, Fr, type Logger, type PXE, type Wallet } from '@aztec/aztec.js';
+import {
+  type AccountWallet,
+  AztecAddress,
+  CallAuthorizationRequest,
+  Fr,
+  type Logger,
+  type PXE,
+  type Wallet,
+} from '@aztec/aztec.js';
 import { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import { type TokenContract, TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { type AbiDecoded, decodeFromAbi, getFunctionArtifact } from '@aztec/stdlib/abi';
@@ -21,6 +29,9 @@ describe('Kernelless simulation', () => {
   let adminWallet: AccountWallet;
   let liquidityProvider: AccountWallet;
 
+  let adminAddress: AztecAddress;
+  let liquidityProviderAddress: AztecAddress;
+
   let token0: TokenContract;
   let token1: TokenContract;
   let liquidityToken: TokenContract;
@@ -36,22 +47,23 @@ describe('Kernelless simulation', () => {
       pxe,
       teardown,
       wallets: [adminWallet, liquidityProvider],
+      accounts: [adminAddress, liquidityProviderAddress],
       logger,
     } = await setup(2));
 
-    token0 = await deployToken(adminWallet, 0n, logger);
-    token1 = await deployToken(adminWallet, 0n, logger);
-    liquidityToken = await deployToken(adminWallet, 0n, logger);
+    token0 = await deployToken(adminWallet, adminAddress, 0n, logger);
+    token1 = await deployToken(adminWallet, adminAddress, 0n, logger);
+    liquidityToken = await deployToken(adminWallet, adminAddress, 0n, logger);
 
     amm = await AMMContract.deploy(adminWallet, token0.address, token1.address, liquidityToken.address)
-      .send()
+      .send({ from: adminAddress })
       .deployed();
 
-    await liquidityToken.methods.set_minter(amm.address, true).send().wait();
+    await liquidityToken.methods.set_minter(amm.address, true).send({ from: adminAddress }).wait();
 
     // We mint the tokens to the liquidity provider
-    await mintTokensToPrivate(token0, adminWallet, liquidityProvider.getAddress(), INITIAL_TOKEN_BALANCE);
-    await mintTokensToPrivate(token1, adminWallet, liquidityProvider.getAddress(), INITIAL_TOKEN_BALANCE);
+    await mintTokensToPrivate(token0, adminAddress, adminWallet, liquidityProviderAddress, INITIAL_TOKEN_BALANCE);
+    await mintTokensToPrivate(token1, adminAddress, adminWallet, liquidityProviderAddress, INITIAL_TOKEN_BALANCE);
   });
 
   afterAll(() => teardown());
@@ -62,17 +74,17 @@ describe('Kernelless simulation', () => {
       token1: bigint;
     };
 
-    async function getWalletBalances(lp: Wallet): Promise<Balance> {
+    async function getWalletBalances(lp: Wallet, lpAddress: AztecAddress): Promise<Balance> {
       return {
-        token0: await token0.withWallet(lp).methods.balance_of_private(lp.getAddress()).simulate(),
-        token1: await token1.withWallet(lp).methods.balance_of_private(lp.getAddress()).simulate(),
+        token0: await token0.withWallet(lp).methods.balance_of_private(lp.getAddress()).simulate({ from: lpAddress }),
+        token1: await token1.withWallet(lp).methods.balance_of_private(lp.getAddress()).simulate({ from: lpAddress }),
       };
     }
 
     it('adds liquidity without authwits', async () => {
       const copyCat = await CopyCatAccountWallet.create(pxe, liquidityProvider);
 
-      const lpBalancesBefore = await getWalletBalances(copyCat);
+      const lpBalancesBefore = await getWalletBalances(copyCat, liquidityProviderAddress);
 
       const amount0Max = lpBalancesBefore.token0;
       const amount0Min = lpBalancesBefore.token0 / 2n;
@@ -89,7 +101,10 @@ describe('Kernelless simulation', () => {
         .withWallet(copyCat)
         .methods.add_liquidity(amount0Max, amount1Max, amount0Min, amount1Min, nonceForAuthwits);
 
-      const { offchainEffects } = await addLiquidityInteraction.simulate({ includeMetadata: true });
+      const { offchainEffects } = await addLiquidityInteraction.simulate({
+        from: liquidityProviderAddress,
+        includeMetadata: true,
+      });
 
       expect(offchainEffects.length).toBe(2);
 
@@ -118,7 +133,7 @@ describe('Kernelless simulation', () => {
       ) as AbiDecoded[];
 
       expect(token0CallArgs).toHaveLength(4);
-      expect(token0CallArgs[0]).toEqual(liquidityProvider.getAddress());
+      expect(token0CallArgs[0]).toEqual(liquidityProviderAddress);
       expect(token0CallArgs[1]).toEqual(amm.address);
       expect(token0CallArgs[2]).toEqual(amount0Max);
       expect(token0CallArgs[3]).toEqual(nonceForAuthwits.toBigInt());
@@ -129,7 +144,7 @@ describe('Kernelless simulation', () => {
       ) as AbiDecoded[];
 
       expect(token1CallArgs).toHaveLength(4);
-      expect(token1CallArgs[0]).toEqual(liquidityProvider.getAddress());
+      expect(token1CallArgs[0]).toEqual(liquidityProviderAddress);
       expect(token1CallArgs[1]).toEqual(amm.address);
       expect(token1CallArgs[2]).toEqual(amount1Max);
       expect(token1CallArgs[3]).toEqual(nonceForAuthwits.toBigInt());
@@ -138,7 +153,7 @@ describe('Kernelless simulation', () => {
       const token0Authwit = await liquidityProvider.createAuthWit({
         caller: amm.address,
         action: token0.methods.transfer_to_public_and_prepare_private_balance_increase(
-          liquidityProvider.getAddress(),
+          liquidityProviderAddress,
           amm.address,
           amount0Max,
           nonceForAuthwits,
@@ -148,7 +163,7 @@ describe('Kernelless simulation', () => {
       const token1Authwit = await liquidityProvider.createAuthWit({
         caller: amm.address,
         action: token1.methods.transfer_to_public_and_prepare_private_balance_increase(
-          liquidityProvider.getAddress(),
+          liquidityProviderAddress,
           amm.address,
           amount1Max,
           nonceForAuthwits,
