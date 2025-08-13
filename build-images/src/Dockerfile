@@ -133,6 +133,10 @@ RUN apt update && \
         clang-format-16 \
         libc++-dev \
         libomp-dev \
+        clang-18 \
+        clang-format-18 \
+        libc++-18-dev \
+        libomp-18-dev \
         doxygen \
         nodejs \
         # Python (clang bindings for wasm bindgen.)
@@ -209,6 +213,7 @@ RUN apt update && \
     apt install -y \
         cgroup-tools \
         clangd-16 \
+        clangd-18 \
         fzf \
         gnupg \
         htop \
