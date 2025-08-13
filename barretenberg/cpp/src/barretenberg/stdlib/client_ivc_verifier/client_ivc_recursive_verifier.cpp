@@ -18,8 +18,6 @@ ClientIVCRecursiveVerifier::Output ClientIVCRecursiveVerifier::verify(const Stdl
 {
     using MergeCommitments = GoblinVerifier::MergeVerifier::InputCommitments;
     std::shared_ptr<Transcript> civc_rec_verifier_transcript(std::make_shared<Transcript>());
-    // Construct stdlib Mega verification key
-    auto stdlib_mega_vk_and_hash = std::make_shared<RecursiveVKAndHash>(*builder, ivc_verification_key.mega);
 
     // Perform recursive decider verification
     MegaVerifier verifier{ builder.get(), stdlib_mega_vk_and_hash, civc_rec_verifier_transcript };
