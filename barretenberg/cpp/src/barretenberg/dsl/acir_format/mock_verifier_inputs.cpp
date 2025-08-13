@@ -224,7 +224,7 @@ template <typename Flavor> std::shared_ptr<DeciderVerificationKey_<Flavor>> crea
         create_mock_honk_vk<Flavor, stdlib::recursion::honk::DefaultIO<typename Flavor::CircuitBuilder>>(
             0, 0); // metadata does not need to be accurate
     decider_verification_key->vk = vk;
-    decider_verification_key->is_accumulator = true;
+    decider_verification_key->is_complete = true;
     decider_verification_key->gate_challenges = std::vector<FF>(static_cast<size_t>(CONST_PG_LOG_N), 0);
 
     for (auto& commitment : decider_verification_key->witness_commitments.get_all()) {

@@ -139,7 +139,6 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
         // Perform oink recursive verification to complete the initial verifier accumulator
         OinkRecursiveVerifier verifier{ &circuit, verifier_accum, accumulation_recursive_transcript };
         verifier.verify_proof(verifier_inputs.proof);
-        verifier_accum->is_accumulator = true; // indicate to PG that it should not run oink
 
         // Extract native verifier accumulator from the stdlib accum for use on the next round
         recursive_verifier_native_accum = std::make_shared<DeciderVerificationKey>(verifier_accum->get_value());
@@ -339,9 +338,6 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
         oink_prover.prove();
         HonkProof oink_proof = oink_prover.export_proof();
         vinfo("oink proof constructed");
-        proving_key->is_accumulator = true; // indicate to PG that it should not run oink on this key
-        // Initialize the gate challenges to zero for use in first round of folding
-        proving_key->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
 
         fold_output.accumulator = proving_key; // initialize the prover accum with the completed key
 
@@ -350,7 +346,6 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
         OinkVerifier<Flavor> oink_verifier{ decider_vk, oink_verifier_transcript };
         oink_verifier.verify();
         native_verifier_accum = decider_vk;
-        native_verifier_accum->is_accumulator = true;
         native_verifier_accum->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
 
         queue_entry.type = QUEUE_TYPE::OINK;

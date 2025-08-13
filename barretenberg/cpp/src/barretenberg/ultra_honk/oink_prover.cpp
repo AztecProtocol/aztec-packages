@@ -67,6 +67,8 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::prove()
     // Free the commitment key
     proving_key->commitment_key = CommitmentKey();
     // #endif
+
+    proving_key->is_complete = true;
 }
 
 /**

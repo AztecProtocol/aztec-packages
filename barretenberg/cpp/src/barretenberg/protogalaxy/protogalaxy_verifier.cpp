@@ -19,10 +19,9 @@ void ProtogalaxyVerifier_<DeciderVerificationKeys>::run_oink_verifier_on_each_in
     transcript->load_proof(proof);
     auto key = keys_to_fold[0];
     auto domain_separator = std::to_string(0);
-    if (!key->is_accumulator) {
+    if (!key->is_complete) {
         OinkVerifier<Flavor> oink_verifier{ key, transcript, domain_separator + '_' };
         oink_verifier.verify();
-        key->target_sum = 0;
         key->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
     } else {
         // Fiat-Shamir the verifier accumulator
@@ -73,8 +72,11 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
 {
     static constexpr size_t BATCHED_EXTENDED_LENGTH = DeciderVerificationKeys::BATCHED_EXTENDED_LENGTH;
     static constexpr size_t NUM_KEYS = DeciderVerificationKeys::NUM;
+    // The degree of the combiner quotient (K in the paper) is dk - k - 1 = k(d - 1) - 1.
+    // Hence we need  k(d - 1) evaluations to represent it.
+    static constexpr size_t COMBINER_LENGTH = BATCHED_EXTENDED_LENGTH - NUM_KEYS;
 
-    const std::shared_ptr<const DeciderVK>& accumulator = keys_to_fold[0];
+    const std::shared_ptr<DeciderVK>& accumulator = keys_to_fold[0];
 
     run_oink_verifier_on_each_incomplete_key(proof);
 
@@ -92,9 +94,7 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
     const Polynomial<FF> perturbator(perturbator_coeffs);
     const FF perturbator_evaluation = perturbator.evaluate(perturbator_challenge);
 
-    std::array<FF, BATCHED_EXTENDED_LENGTH - NUM_KEYS>
-        combiner_quotient_evals; // The degree of the combiner quotient (K in the paper) is dk - k - 1 = k(d - 1) - 1.
-                                 // Hence we need  k(d - 1) evaluations to represent it.
+    std::array<FF, COMBINER_LENGTH> combiner_quotient_evals;
     for (size_t idx = DeciderVerificationKeys::NUM; auto& val : combiner_quotient_evals) {
         val = transcript->template receive_from_prover<FF>("combiner_quotient_" + std::to_string(idx++));
     }
@@ -104,42 +104,38 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
     const Univariate<FF, BATCHED_EXTENDED_LENGTH, NUM_KEYS> combiner_quotient(combiner_quotient_evals);
     const FF combiner_quotient_evaluation = combiner_quotient.evaluate(combiner_challenge);
 
-    auto next_accumulator = std::make_shared<DeciderVK>();
-    next_accumulator->vk = std::make_shared<VerificationKey>(*accumulator->vk);
-    next_accumulator->is_accumulator = true;
-
     // Set the accumulator circuit size data based on the max of the keys being accumulated
     const size_t accumulator_log_circuit_size = keys_to_fold.get_max_log_circuit_size();
-    next_accumulator->vk->log_circuit_size = accumulator_log_circuit_size;
+    accumulator->vk->log_circuit_size = accumulator_log_circuit_size;
 
     // Compute next folding parameters
     const auto [vanishing_polynomial_at_challenge, lagranges] =
         compute_vanishing_polynomial_and_lagrange_evaluations<FF, NUM_KEYS>(combiner_challenge);
-    next_accumulator->target_sum =
+    accumulator->target_sum =
         perturbator_evaluation * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_evaluation;
-    next_accumulator->gate_challenges = // note: known already in previous round
+    accumulator->gate_challenges = // note: known already in previous round
         update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
 
     // // Fold the commitments
     for (auto [combination, to_combine] :
-         zip_view(next_accumulator->vk->get_all(), keys_to_fold.get_precomputed_commitments())) {
+         zip_view(accumulator->vk->get_all(), keys_to_fold.get_precomputed_commitments())) {
         combination = batch_mul_native(to_combine, lagranges);
     }
     for (auto [combination, to_combine] :
-         zip_view(next_accumulator->witness_commitments.get_all(), keys_to_fold.get_witness_commitments())) {
+         zip_view(accumulator->witness_commitments.get_all(), keys_to_fold.get_witness_commitments())) {
         combination = batch_mul_native(to_combine, lagranges);
     }
 
     // Fold the relation parameters
-    for (auto [combination, to_combine] : zip_view(next_accumulator->alphas, keys_to_fold.get_alphas())) {
+    for (auto [combination, to_combine] : zip_view(accumulator->alphas, keys_to_fold.get_alphas())) {
         combination = linear_combination(to_combine, lagranges);
     }
     for (auto [combination, to_combine] :
-         zip_view(next_accumulator->relation_parameters.get_to_fold(), keys_to_fold.get_relation_parameters())) {
+         zip_view(accumulator->relation_parameters.get_to_fold(), keys_to_fold.get_relation_parameters())) {
         combination = linear_combination(to_combine, lagranges);
     }
 
-    return next_accumulator;
+    return accumulator;
 }
 
 template class ProtogalaxyVerifier_<DeciderVerificationKeys_<MegaFlavor, 2>>;

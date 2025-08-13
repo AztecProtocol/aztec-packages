@@ -21,10 +21,9 @@ void ProtogalaxyRecursiveVerifier_<DeciderVerificationKeys>::run_oink_verifier_o
     transcript->load_proof(proof);
     auto key = keys_to_fold[0];
     auto domain_separator = std::to_string(0);
-    if (!key->is_accumulator) {
+    if (!key->is_complete) {
         OinkRecursiveVerifier_<Flavor> oink_verifier{ builder, key, transcript, domain_separator + '_' };
         oink_verifier.verify();
-        key->target_sum = 0;
         key->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
     } else {
         // Fiat-Shamir the accumulator.
@@ -47,11 +46,13 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
 {
     static constexpr size_t BATCHED_EXTENDED_LENGTH = DeciderVerificationKeys::BATCHED_EXTENDED_LENGTH;
     static constexpr size_t NUM_KEYS = DeciderVerificationKeys::NUM;
+    // The degree of the combiner quotient (K in the paper) is dk - k - 1 = k(d - 1) - 1.
+    // Hence we need  k(d - 1) evaluations to represent it.
     static constexpr size_t COMBINER_LENGTH = BATCHED_EXTENDED_LENGTH - NUM_KEYS;
 
     run_oink_verifier_on_each_incomplete_key(proof);
 
-    std::shared_ptr<DeciderVK> accumulator = keys_to_fold[0];
+    const std::shared_ptr<DeciderVK>& accumulator = keys_to_fold[0];
 
     // Perturbator round
     const FF delta = transcript->template get_challenge<FF>("delta");
@@ -66,9 +67,7 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
     perturbator_coeffs[0] = accumulator->target_sum;
     const FF perturbator_evaluation = evaluate_perturbator(perturbator_coeffs, perturbator_challenge);
 
-    std::array<FF, COMBINER_LENGTH>
-        combiner_quotient_evals; // The degree of the combiner quotient (K in the paper) is dk - k - 1 = k(d - 1)
-                                 // - 1. Hence we need  k(d - 1) evaluations to represent it.
+    std::array<FF, COMBINER_LENGTH> combiner_quotient_evals;
     for (size_t idx = 0; idx < COMBINER_LENGTH; idx++) {
         combiner_quotient_evals[idx] =
             transcript->template receive_from_prover<FF>("combiner_quotient_" + std::to_string(idx + NUM_KEYS));
@@ -177,7 +176,6 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
     output_sum.y.assert_equal(folded_sum.y);
 
     // Compute next folding parameters
-    accumulator->is_accumulator = true;
     accumulator->target_sum =
         perturbator_evaluation * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
 
