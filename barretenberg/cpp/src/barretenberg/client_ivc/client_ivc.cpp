@@ -346,7 +346,6 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
         OinkVerifier<Flavor> oink_verifier{ decider_vk, oink_verifier_transcript };
         oink_verifier.verify();
         native_verifier_accum = decider_vk;
-        native_verifier_accum->is_accumulator = true;
         native_verifier_accum->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
 
         queue_entry.type = QUEUE_TYPE::OINK;
