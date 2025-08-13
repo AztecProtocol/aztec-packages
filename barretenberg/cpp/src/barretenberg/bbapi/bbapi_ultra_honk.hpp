@@ -57,7 +57,7 @@ struct CircuitProve {
         std::vector<uint256_t> public_inputs;
         std::vector<uint256_t> proof;
         CircuitComputeVk::Response vk;
-        MSGPACK_FIELDS(public_inputs, proof);
+        MSGPACK_FIELDS(public_inputs, proof, vk);
         bool operator==(const Response&) const = default;
     };
 
