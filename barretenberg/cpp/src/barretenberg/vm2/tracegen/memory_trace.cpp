@@ -10,10 +10,13 @@ namespace bb::avm2::tracegen {
 void MemoryTraceBuilder::process(const simulation::EventEmitterInterface<simulation::MemoryEvent>::Container& events,
                                  TraceContainer& trace)
 {
+    auto sorted_events = events;
+    std::sort(sorted_events.begin(), sorted_events.end());
+
     using C = Column;
 
     uint32_t row = 0;
-    for (const auto& event : events) {
+    for (const auto& event : sorted_events) {
         trace.set(row,
                   { {
                       { C::memory_sel, 1 },
