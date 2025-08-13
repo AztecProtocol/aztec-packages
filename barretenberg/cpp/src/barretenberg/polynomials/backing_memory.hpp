@@ -14,7 +14,7 @@
 #include <fcntl.h>
 #include <filesystem>
 #include <memory>
-#ifndef __wasm__
+#ifndef _WASI_EMULATED_PROCESS_CLOCKS
 #include <sys/mman.h>
 #endif
 
@@ -23,7 +23,7 @@ extern bool slow_low_memory;
 
 template <typename T> class AlignedMemory;
 
-#ifndef __wasm__
+#ifndef _WASI_EMULATED_PROCESS_CLOCKS
 template <typename T> class FileBackedMemory;
 #endif
 
@@ -41,7 +41,7 @@ template <typename Fr> class BackingMemory {
 
     static std::shared_ptr<BackingMemory<Fr>> allocate(size_t size)
     {
-#ifndef __wasm__
+#ifndef _WASI_EMULATED_PROCESS_CLOCKS
         if (slow_low_memory) {
             return std::shared_ptr<BackingMemory<Fr>>(new FileBackedMemory<Fr>(size));
         }
@@ -69,7 +69,7 @@ template <typename T> class AlignedMemory : public BackingMemory<T> {
     friend BackingMemory<T>;
 };
 
-#ifndef __wasm__
+#ifndef _WASI_EMULATED_PROCESS_CLOCKS
 template <typename T> class FileBackedMemory : public BackingMemory<T> {
   public:
     FileBackedMemory(const FileBackedMemory&) = delete;            // delete copy constructor
