@@ -55,7 +55,7 @@ namespace execution;
     #[NEXT_CALL_ID_STARTS_TWO]
     RESET_NEXT_CALL_ID * (next_internal_call_id' - 2) = 0;
     // If we encounter a sel_execute_internal_call, we increment the next next_internal_call_id, unless we are changing context
-    pol CONTEXT_CHANGE = RESET_NEXT_CALL_ID + sel_exit_call;
+    pol CONTEXT_CHANGE = (RESET_NEXT_CALL_ID + sel_exit_call) - (RESET_NEXT_CALL_ID * sel_exit_call) ;
     #[INCR_NEXT_INT_CALL_ID]
     NOT_LAST_EXEC * (1 - CONTEXT_CHANGE) * (next_internal_call_id' - (next_internal_call_id + sel_execute_internal_call)) = 0;
 

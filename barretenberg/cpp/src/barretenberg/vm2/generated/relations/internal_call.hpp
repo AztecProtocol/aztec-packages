@@ -14,7 +14,7 @@ template <typename FF_> class internal_callImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 10> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 6, 3, 3, 6, 3, 5, 5 };
+    static constexpr std::array<size_t, 10> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 6, 3, 3, 6, 3, 6, 5 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -41,7 +41,8 @@ template <typename FF_> class internal_callImpl {
                 (FF(1) - in.get(C::execution_sel_error)) +
             in.get(C::execution_sel_exit_call);
         const auto execution_PROPAGATE_CALL_ID = ((FF(1) - execution_RESET_NEXT_CALL_ID) - execution_NEW_NEXT_CALL_ID);
-        const auto execution_CONTEXT_CHANGE = execution_RESET_NEXT_CALL_ID + in.get(C::execution_sel_exit_call);
+        const auto execution_CONTEXT_CHANGE = ((execution_RESET_NEXT_CALL_ID + in.get(C::execution_sel_exit_call)) -
+                                               execution_RESET_NEXT_CALL_ID * in.get(C::execution_sel_exit_call));
 
         { // CALL_ID_STARTS_ONE
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
