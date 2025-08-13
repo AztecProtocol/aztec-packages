@@ -225,7 +225,7 @@ template <typename FF_> class contextImpl {
         {
             using Accumulator = typename std::tuple_element_t<23, ContainerOverSubrelations>;
             auto tmp = execution_NOT_LAST_EXEC * in.get(C::execution_sel_enter_call) *
-                       (in.get(C::execution_parent_calldata_addr_shift) - in.get(C::execution_rop_3_));
+                       (in.get(C::execution_parent_calldata_addr_shift) - in.get(C::execution_rop_4_));
             tmp *= scaling_factor;
             std::get<23>(evals) += typename Accumulator::View(tmp);
         }
@@ -239,7 +239,7 @@ template <typename FF_> class contextImpl {
         {
             using Accumulator = typename std::tuple_element_t<25, ContainerOverSubrelations>;
             auto tmp = execution_NOT_LAST_EXEC * in.get(C::execution_sel_enter_call) *
-                       (in.get(C::execution_parent_calldata_size_shift) - in.get(C::execution_rop_4_));
+                       (in.get(C::execution_parent_calldata_size_shift) - in.get(C::execution_register_3_));
             tmp *= scaling_factor;
             std::get<25>(evals) += typename Accumulator::View(tmp);
         }

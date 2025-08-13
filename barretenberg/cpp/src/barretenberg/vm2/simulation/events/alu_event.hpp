@@ -19,6 +19,8 @@ enum class AluOperation {
     LTE,
     NOT,
     TRUNCATE,
+    SHR,
+    SHL,
 };
 
 enum class AluError {

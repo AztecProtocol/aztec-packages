@@ -757,7 +757,7 @@ TEST_F(ExecutionSimulationTest, NullifierExists)
 
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
-    EXPECT_CALL(merkle_db, nullifier_exists(nullifier.as<FF>(), address.as<FF>())).WillOnce(Return(true));
+    EXPECT_CALL(merkle_db, nullifier_exists(address.as_ff(), nullifier.as_ff())).WillOnce(Return(true));
 
     EXPECT_CALL(memory, set(exists_offset, MemoryValue::from<uint1_t>(1)));
 
@@ -780,7 +780,7 @@ TEST_F(ExecutionSimulationTest, EmitNullifier)
 
     EXPECT_CALL(context, get_is_static).WillOnce(Return(false));
     EXPECT_CALL(merkle_db, get_tree_state).WillOnce(Return(tree_state));
-    EXPECT_CALL(merkle_db, nullifier_write(address, nullifier.as<FF>())).WillOnce(Return(true)); // success
+    EXPECT_CALL(merkle_db, nullifier_write(address, nullifier.as_ff())).WillOnce(Return(true)); // success
 
     execution.emit_nullifier(context, nullifier_addr);
 }

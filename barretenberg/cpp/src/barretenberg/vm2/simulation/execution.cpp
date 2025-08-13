@@ -313,9 +313,47 @@ void Execution::call(ContextInterface& context,
                                                                /*msg_sender=*/context.get_address(),
                                                                /*transaction_fee=*/context.get_transaction_fee(),
                                                                /*parent_context=*/context,
-                                                               /*cd_offset_addr=*/cd_offset,
-                                                               /*cd_size_addr=*/cd_size.as<uint32_t>(),
+                                                               /*cd_offset_address=*/cd_offset,
+                                                               /*cd_size=*/cd_size.as<uint32_t>(),
                                                                /*is_static=*/false,
+                                                               /*gas_limit=*/gas_limit,
+                                                               /*side_effect_states=*/context.get_side_effect_states());
+
+    // We do not recurse. This context will be use on the next cycle of execution.
+    handle_enter_call(context, std::move(nested_context));
+}
+
+void Execution::static_call(ContextInterface& context,
+                            MemoryAddress l2_gas_offset,
+                            MemoryAddress da_gas_offset,
+                            MemoryAddress addr,
+                            MemoryAddress cd_size_offset,
+                            MemoryAddress cd_offset)
+{
+    constexpr auto opcode = ExecutionOpCode::CALL;
+    auto& memory = context.get_memory();
+
+    // NOTE: these reads cannot fail due to addressing guarantees.
+    const auto& allocated_l2_gas_read = memory.get(l2_gas_offset);
+    const auto& allocated_da_gas_read = memory.get(da_gas_offset);
+    const auto& contract_address = memory.get(addr);
+    // Cd offset loads are deferred to calldatacopy
+    const auto& cd_size = memory.get(cd_size_offset);
+
+    set_and_validate_inputs(opcode, { allocated_l2_gas_read, allocated_da_gas_read, contract_address, cd_size });
+
+    get_gas_tracker().consume_gas(); // Base gas.
+    Gas gas_limit = get_gas_tracker().compute_gas_limit_for_call(
+        Gas{ allocated_l2_gas_read.as<uint32_t>(), allocated_da_gas_read.as<uint32_t>() });
+
+    // Tag check contract address + cd_size
+    auto nested_context = context_provider.make_nested_context(contract_address,
+                                                               /*msg_sender=*/context.get_address(),
+                                                               /*transaction_fee=*/context.get_transaction_fee(),
+                                                               /*parent_context=*/context,
+                                                               /*cd_offset_address=*/cd_offset,
+                                                               /*cd_size=*/cd_size.as<uint32_t>(),
+                                                               /*is_static=*/true,
                                                                /*gas_limit=*/gas_limit,
                                                                /*side_effect_states=*/context.get_side_effect_states());
 
@@ -678,7 +716,7 @@ void Execution::nullifier_exists(ContextInterface& context,
 
     // Check nullifier existence via MerkleDB
     // (this also tag checks address and nullifier as FFs)
-    auto exists = merkle_db.nullifier_exists(nullifier.as_ff(), address.as_ff());
+    auto exists = merkle_db.nullifier_exists(address.as_ff(), nullifier.as_ff());
 
     // Write result to memory
     // (assigns tag u1 to result)
@@ -765,7 +803,7 @@ void Execution::l1_to_l2_message_exists(ContextInterface& context,
                                         MemoryAddress leaf_index_addr,
                                         MemoryAddress dst_addr)
 {
-    constexpr auto opcode = ExecutionOpCode::NOTEHASHEXISTS;
+    constexpr auto opcode = ExecutionOpCode::L1TOL2MSGEXISTS;
 
     auto& memory = context.get_memory();
     auto msg_hash = memory.get(msg_hash_addr);
@@ -952,6 +990,44 @@ void Execution::sha256_compression(ContextInterface& context,
         sha256.compression(context.get_memory(), state_addr, input_addr, output_addr);
     } catch (const Sha256CompressionException& e) {
         throw OpcodeExecutionException("Sha256 Compression failed: " + std::string(e.what()));
+    }
+}
+
+void Execution::shr(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress c_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::SHR;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(a_addr);
+    MemoryValue b = memory.get(b_addr);
+    set_and_validate_inputs(opcode, { a, b });
+
+    get_gas_tracker().consume_gas();
+
+    try {
+        MemoryValue c = alu.shr(a, b);
+        memory.set(c_addr, c);
+        set_output(opcode, c);
+    } catch (const AluException& e) {
+        throw OpcodeExecutionException("SHR Exception: " + std::string(e.what()));
+    }
+}
+
+void Execution::shl(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress c_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::SHL;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(a_addr);
+    MemoryValue b = memory.get(b_addr);
+    set_and_validate_inputs(opcode, { a, b });
+
+    get_gas_tracker().consume_gas();
+
+    try {
+        MemoryValue c = alu.shl(a, b);
+        memory.set(c_addr, c);
+        set_output(opcode, c);
+    } catch (const AluException& e) {
+        throw OpcodeExecutionException("SHL Exception: " + std::string(e.what()));
     }
 }
 
@@ -1177,6 +1253,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
     case ExecutionOpCode::CALL:
         call_with_operands(&Execution::call, context, resolved_operands);
         break;
+    case ExecutionOpCode::STATICCALL:
+        call_with_operands(&Execution::static_call, context, resolved_operands);
+        break;
     case ExecutionOpCode::RETURN:
         call_with_operands(&Execution::ret, context, resolved_operands);
         break;
@@ -1265,6 +1344,12 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::SHA256COMPRESSION:
         call_with_operands(&Execution::sha256_compression, context, resolved_operands);
+        break;
+    case ExecutionOpCode::SHR:
+        call_with_operands(&Execution::shr, context, resolved_operands);
+        break;
+    case ExecutionOpCode::SHL:
+        call_with_operands(&Execution::shl, context, resolved_operands);
         break;
     default:
         // NOTE: Keep this a `std::runtime_error` so that the main loop panics.

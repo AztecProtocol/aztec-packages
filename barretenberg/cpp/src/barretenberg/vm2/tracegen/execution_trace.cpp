@@ -549,7 +549,6 @@ void ExecutionTraceBuilder::process(
 
         bool should_execute_opcode = should_check_gas && !oog;
         bool opcode_execution_failed = ex_event.error == ExecutionError::OPCODE_EXECUTION;
-        prev_row_was_enter_call = sel_enter_call;
         if (should_execute_opcode) {
             // At this point we can assume instruction fetching succeeded, so this should never fail.
             const auto& dispatch_to_subtrace = SUBTRACE_INFO_MAP.at(*exec_opcode);
@@ -600,6 +599,7 @@ void ExecutionTraceBuilder::process(
                               { C::execution_sel_execute_return, is_return ? 1 : 0 },
                               { C::execution_sel_execute_revert, is_revert ? 1 : 0 },
                               { C::execution_sel_exit_call, sel_exit_call ? 1 : 0 },
+                              { C::execution_nested_return, is_return && has_parent ? 1 : 0 },
                               // Enqueued or nested exit dependent on if we are a child context
                               { C::execution_enqueued_call_end, !has_parent ? 1 : 0 },
                               { C::execution_nested_exit_call, has_parent ? 1 : 0 },
@@ -1183,8 +1183,8 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_context_ctx_stack_rollback_settings, InteractionType::LookupGeneric>()
         .add<lookup_context_ctx_stack_return_settings, InteractionType::LookupGeneric>()
         // External Call
-        .add<lookup_external_call_call_allocated_left_l2_range_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_external_call_call_allocated_left_da_range_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_external_call_call_allocated_left_l2_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_external_call_call_allocated_left_da_range_settings, InteractionType::LookupGeneric>()
         // Dispatch to gadget sub-traces
         .add<perm_execution_dispatch_keccakf1600_settings, InteractionType::Permutation>()
         // GetEnvVar opcode

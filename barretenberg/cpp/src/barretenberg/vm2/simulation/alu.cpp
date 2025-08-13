@@ -187,4 +187,30 @@ MemoryValue Alu::truncate(const FF& a, MemoryTag dst_tag)
     return c;
 }
 
+MemoryValue Alu::shr(const MemoryValue& a, const MemoryValue& b)
+{
+    // todo: Tag checks need to change to ensure LHS == RHS, this is in the ShiftVisitor in tagged value
+    try {
+        MemoryValue c = a >> b;
+        events.emit({ .operation = AluOperation::SHR, .a = a, .b = b, .c = c });
+        return c;
+    } catch (const std::exception& e) {
+        events.emit({ .operation = AluOperation::SHR, .a = a, .b = b, .error = AluError::TAG_ERROR });
+        throw AluException("SHR, " + std::string(e.what()));
+    }
+}
+
+MemoryValue Alu::shl(const MemoryValue& a, const MemoryValue& b)
+{
+    // todo: Tag checks need to change to ensure LHS == RHS, this is in the ShiftVisitor in tagged value
+    try {
+        MemoryValue c = a << b;
+        events.emit({ .operation = AluOperation::SHL, .a = a, .b = b, .c = c });
+        return c;
+    } catch (const std::exception& e) {
+        events.emit({ .operation = AluOperation::SHL, .a = a, .b = b, .error = AluError::TAG_ERROR });
+        throw AluException("SHL, " + std::string(e.what()));
+    }
+}
+
 } // namespace bb::avm2::simulation
