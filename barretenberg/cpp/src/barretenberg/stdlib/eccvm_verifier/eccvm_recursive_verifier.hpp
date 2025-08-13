@@ -33,6 +33,8 @@ class ECCVMRecursiveVerifier {
         StdlibPreIpaProof pre_ipa_proof;
         StdlibIpaProof ipa_proof;
 
+        StdlibProof() = default;
+
         StdlibProof(Builder& builder, const ECCVMProof& eccvm_proof)
             : pre_ipa_proof(builder, eccvm_proof.pre_ipa_proof)
             , ipa_proof(builder, eccvm_proof.ipa_proof)
