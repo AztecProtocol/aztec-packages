@@ -48,6 +48,8 @@ class GoblinRecursiveVerifier {
         StdlibEccvmProof eccvm_proof; // contains pre-IPA and IPA proofs
         StdlibHonkProof translator_proof;
 
+        StdlibProof() = default;
+
         StdlibProof(Builder& builder, const GoblinProof& goblin_proof)
             : merge_proof(builder, goblin_proof.merge_proof)
             , eccvm_proof(builder,
