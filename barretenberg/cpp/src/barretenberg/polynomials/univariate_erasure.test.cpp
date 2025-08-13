@@ -28,6 +28,19 @@ TEST(UnivariateErasureTest, CopyConstructor)
     EXPECT_EQ(uni2.value_at(2), fr(3));
 }
 
+TEST(UnivariateErasureTest, Assignment)
+{
+    ErasedUnivariate<fr> uni = Univariate<fr, 3>{ { 1, 2, 3 } };
+    ErasedUnivariate<fr> uni2 = Univariate<fr, 3>{ { 4, 5, 6 } };
+    uni2 = uni;
+    EXPECT_EQ(uni2.value_at(0), fr(1));
+    EXPECT_EQ(uni2.value_at(1), fr(2));
+    EXPECT_EQ(uni2.value_at(2), fr(3));
+    EXPECT_EQ(uni.value_at(0), fr(1));
+    EXPECT_EQ(uni.value_at(1), fr(2));
+    EXPECT_EQ(uni.value_at(2), fr(3));
+}
+
 TEST(UnivariateErasureTest, Evaluation)
 {
     {
