@@ -634,6 +634,60 @@ template <typename Flavor> class SumcheckProverRound {
             return libra_round_univariate.template extend_to<SumcheckRoundUnivariate::LENGTH>();
         }
     }
+    struct VirtualRoundState {
+        FF Ck;     // C_k = ∏_{j<d} ĝ_j(u_j) · ∏_{j=d}^{k-1} ĝ_j(u_j)
+        FF alphak; // α_k = ∏_{j=d}^{k-1} (1 - u_j)
+    };
+
+    static void update_virtual_round_state(VirtualRoundState& st, const FF& u_k, const FF& beta_k)
+    {
+        const FF gk = FF(1) + u_k * (beta_k - FF(1)); // ĝ_k(u_k)
+        st.Ck *= gk;
+        st.alphak *= (FF(1) - u_k);
+    }
+
+    static bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH> compute_virtual_round_univariate(
+        const Flavor::AllValues& base_row_at_u_lt_d, // snapshot once
+        const bb::RelationParameters<FF>& relation_parameters,
+        const SubrelationSeparators& alphas,
+        const FF& beta_k,            // current gate beta
+        const VirtualRoundState& st) // C_k, α_k
+    {
+        // 1) Relation evaluations on Ω: e_j = C_k * Φ( v · α_k · (1 - ξ_j) )
+        std::array<FF, BATCHED_RELATION_PARTIAL_LENGTH> rel_evals{};
+        info("=================");
+        for (size_t j = 0; j < BATCHED_RELATION_PARTIAL_LENGTH; ++j) {
+            const FF s = st.alphak * (FF(1) - FF(j));
+
+            auto row_j = base_row_at_u_lt_d;
+            for (auto& eval : row_j.get_all()) {
+                eval *= s;
+            }
+
+            rel_evals[j] = compute_full_relation_eval(row_j, relation_parameters, alphas, /*partial_pow_beta=*/st.Ck);
+            info("virt round eval at ", j, "  ", rel_evals[j]);
+        }
+
+        // 2) Multiply by ĝ_k(ξ) on the grid: 1 + (β_k - 1)·ξ
+        bb::Univariate<FF, 2> linear_pow({ FF(1), beta_k });
+        auto pow_extended = linear_pow.template extend_to<BATCHED_RELATION_PARTIAL_LENGTH>();
+
+        bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH> rel_vals(rel_evals);
+        return (pow_extended * rel_vals); // entry-wise product
+    }
+    static FF compute_full_relation_eval(const Flavor::AllValues& purported_evaluations,
+                                         const bb::RelationParameters<FF>& relation_parameters,
+                                         const SubrelationSeparators& alphas,
+                                         const FF& gate_separators_partial_eval)
+    {
+        typename Flavor::TupleOfArraysOfValues relation_evaluations;
+        Utils::zero_elements(relation_evaluations);
+
+        Utils::template accumulate_relation_evaluations_without_skipping<>(
+            purported_evaluations, relation_evaluations, relation_parameters, gate_separators_partial_eval);
+
+        return Utils::scale_and_batch_elements(relation_evaluations, alphas);
+    }
 
   private:
     /**
