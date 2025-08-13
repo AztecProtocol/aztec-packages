@@ -16,7 +16,6 @@ class ClientIVCRecursiveVerifier {
     using RecursiveDeciderVerificationKeys = RecursiveDeciderVerificationKeys_<RecursiveFlavor, 2>;
     using RecursiveDeciderVerificationKey = RecursiveDeciderVerificationKeys::DeciderVK;
     using RecursiveVerificationKey = RecursiveDeciderVerificationKeys::VerificationKey;
-    using RecursiveVKAndHash = RecursiveDeciderVerificationKeys::VKAndHash;
     using FoldingVerifier = ProtogalaxyRecursiveVerifier_<RecursiveDeciderVerificationKeys>;
     using MegaVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
     using GoblinVerifier = GoblinRecursiveVerifier;
@@ -27,6 +26,8 @@ class ClientIVCRecursiveVerifier {
   public:
     using GoblinVerificationKey = Goblin::VerificationKey;
     using Output = GoblinRecursiveVerifierOutput;
+    using RecursiveVKAndHash = RecursiveDeciderVerificationKeys::VKAndHash;
+    using RecursiveVK = RecursiveFlavor::VerificationKey;
 
     struct StdlibProof {
         using StdlibHonkProof = bb::stdlib::Proof<Builder>;
@@ -40,20 +41,18 @@ class ClientIVCRecursiveVerifier {
         {}
     };
 
-    ClientIVCRecursiveVerifier(const std::shared_ptr<Builder>& builder,
-                               const std::shared_ptr<VerificationKey>& native_mega_vk)
+    ClientIVCRecursiveVerifier(Builder* builder, const std::shared_ptr<VerificationKey>& native_mega_vk)
         : builder(builder)
         , stdlib_mega_vk_and_hash(std::make_shared<RecursiveVKAndHash>(builder, native_mega_vk)){};
 
-    ClientIVCRecursiveVerifier(const std::shared_ptr<Builder>& builder,
-                               const std::shared_ptr<RecursiveVKAndHash>& stdlib_mega_vk_and_hash)
+    ClientIVCRecursiveVerifier(Builder* builder, const std::shared_ptr<RecursiveVKAndHash>& stdlib_mega_vk_and_hash)
         : builder(builder)
         , stdlib_mega_vk_and_hash(stdlib_mega_vk_and_hash){};
 
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] Output verify(const StdlibProof&);
 
   private:
-    std::shared_ptr<Builder> builder;
+    Builder* builder;
     // VK and hash of the hiding kernel
     std::shared_ptr<RecursiveVKAndHash> stdlib_mega_vk_and_hash;
 };
