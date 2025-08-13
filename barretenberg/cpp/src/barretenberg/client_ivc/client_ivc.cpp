@@ -371,17 +371,8 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
     }
     verification_queue.push_back(queue_entry);
 
-    auto decider_vk = std::make_shared<DeciderVerificationKey>(queue_entry.honk_vk);
-    if (queue_entry.type == QUEUE_TYPE::OINK) {
-        verifier_transcript->load_proof(queue_entry.proof);
-        OinkVerifier<Flavor> oink_verifier{ decider_vk, verifier_transcript };
-        oink_verifier.verify();
-        native_verifier_accum = decider_vk;
-        native_verifier_accum->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
-    } else {
-        FoldingVerifier folding_verifier({ native_verifier_accum, decider_vk }, verifier_transcript);
-        native_verifier_accum = folding_verifier.verify_folding_proof(queue_entry.proof);
-    }
+    // Update the native verifier accumulator to be hashed by the prover in the next round
+    update_native_verifier_accumulator(queue_entry, verifier_transcript);
 
     // Construct merge proof for the present circuit
     goblin.prove_merge(prover_accumulation_transcript);
@@ -668,6 +659,22 @@ ClientIVC::Proof ClientIVC::Proof::from_file_msgpack(const std::string& filename
 ClientIVC::VerificationKey ClientIVC::get_vk() const
 {
     return { honk_vk, std::make_shared<ECCVMVerificationKey>(), std::make_shared<TranslatorVerificationKey>() };
+}
+
+void ClientIVC::update_native_verifier_accumulator(const VerifierInputs& queue_entry,
+                                                   const std::shared_ptr<Transcript>& verifier_transcript)
+{
+    auto decider_vk = std::make_shared<DeciderVerificationKey>(queue_entry.honk_vk);
+    if (queue_entry.type == QUEUE_TYPE::OINK) {
+        verifier_transcript->load_proof(queue_entry.proof);
+        OinkVerifier<Flavor> oink_verifier{ decider_vk, verifier_transcript };
+        oink_verifier.verify();
+        native_verifier_accum = decider_vk;
+        native_verifier_accum->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
+    } else {
+        FoldingVerifier folding_verifier({ native_verifier_accum, decider_vk }, verifier_transcript);
+        native_verifier_accum = folding_verifier.verify_folding_proof(queue_entry.proof);
+    }
 }
 
 } // namespace bb
