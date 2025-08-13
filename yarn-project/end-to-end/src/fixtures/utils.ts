@@ -43,7 +43,13 @@ import {
   getL1ContractsConfigEnvVars,
   isAnvilTestChain,
 } from '@aztec/ethereum';
-import { DelayedTxUtils, EthCheatCodes, EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
+import {
+  DelayedTxUtils,
+  EthCheatCodes,
+  EthCheatCodesWithState,
+  createDelayedL1TxUtilsFromViemWallet,
+  startAnvil,
+} from '@aztec/ethereum/test';
 import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -981,7 +987,7 @@ function createDelayedL1TxUtils(
   const l1Client = createExtendedL1Client(aztecNodeConfig.l1RpcUrls, privateKey, foundry);
 
   const log = createLogger(logName);
-  const l1TxUtils = new DelayedTxUtils(l1Client, log, dateProvider, aztecNodeConfig);
+  const l1TxUtils = createDelayedL1TxUtilsFromViemWallet(l1Client, log, dateProvider, aztecNodeConfig);
   l1TxUtils.enableDelayer(aztecNodeConfig.ethereumSlotDuration);
   return l1TxUtils;
 }

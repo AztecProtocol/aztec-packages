@@ -1,4 +1,9 @@
+import { type Logger, createLogger } from '@aztec/foundation/log';
+import { DateProvider } from '@aztec/foundation/timer';
+
+import { type L1TxUtilsConfig, createViemSigner } from '../l1_tx_utils.js';
 import { L1TxUtilsWithBlobs } from '../l1_tx_utils_with_blobs.js';
+import type { ExtendedViemWalletClient } from '../types.js';
 import { type Delayer, withDelayer } from './tx_delayer.js';
 
 export class DelayedTxUtils extends L1TxUtilsWithBlobs {
@@ -21,4 +26,22 @@ export class DelayedTxUtils extends L1TxUtilsWithBlobs {
     this.delayer = delayer;
     this.client = client;
   }
+}
+
+export function createDelayedL1TxUtilsFromViemWallet(
+  client: ExtendedViemWalletClient,
+  logger: Logger = createLogger('L1TxUtils'),
+  dateProvider: DateProvider = new DateProvider(),
+  config?: Partial<L1TxUtilsConfig>,
+  debugMaxGasLimit: boolean = false,
+) {
+  return new DelayedTxUtils(
+    client,
+    client.account.address,
+    createViemSigner(client),
+    logger,
+    dateProvider,
+    config,
+    debugMaxGasLimit,
+  );
 }
