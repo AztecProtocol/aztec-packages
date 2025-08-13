@@ -262,15 +262,21 @@ namespace public_data_check;
     // If this is a read or a discarded write, write to public inputs must be zero
     (1 - nondiscaded_write) * should_write_to_public_inputs = 0;
 
+    pol commit final_value;
+
     #[SQUASHING]
     nondiscaded_write {
         leaf_slot,
         clk,
-        should_write_to_public_inputs
+        should_write_to_public_inputs,
+        value,
+        final_value
     } is public_data_squash.sel {
         public_data_squash.leaf_slot,
         public_data_squash.clk,
-        public_data_squash.write_to_public_inputs
+        public_data_squash.write_to_public_inputs,
+        public_data_squash.value,
+        public_data_squash.final_value
     };
 
     // We need to increment the write index by one so the next write will be looked up in the next index of the PI public data writes vector.
@@ -282,7 +288,7 @@ namespace public_data_check;
     should_write_to_public_inputs {
         write_idx,
         leaf_slot,
-        value
+        final_value
     }in public_inputs.sel {
         precomputed.clk,
         public_inputs.cols[0],
