@@ -278,7 +278,6 @@ TEST_F(ClientIVCTests, VKIndependenceTest)
 
     // An upper bound chosen for this test, in reality we can support more than 10 circuits
     const size_t MAX_NUM_CIRCUITS = 10;
-
     const TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
 
     auto generate_vk = [&](size_t num_circuits) {
