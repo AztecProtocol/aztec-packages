@@ -4,7 +4,6 @@ import { type Archiver, createArchiver } from '@aztec/archiver';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
   AccountManager,
-  AccountWithSecretKey,
   AztecAddress,
   type AztecNode,
   BatchCall,
@@ -42,7 +41,7 @@ import { DelayedTxUtils, EthCheatCodesWithState, startAnvil } from '@aztec/ether
 import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
+import { Fq, Fr } from '@aztec/foundation/fields';
 import { tryRmDir } from '@aztec/foundation/fs';
 import { withLogNameSuffix } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -71,6 +70,7 @@ import {
 } from '@aztec/stdlib/contract';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
+import { deriveSigningKey } from '@aztec/stdlib/keys';
 import type { P2PClientType } from '@aztec/stdlib/p2p';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import {
@@ -971,4 +971,34 @@ function createDelayedL1TxUtils(
   const l1TxUtils = new DelayedTxUtils(l1Client, log, dateProvider, aztecNodeConfig);
   l1TxUtils.enableDelayer(aztecNodeConfig.ethereumSlotDuration);
   return l1TxUtils;
+}
+
+export async function createSchnorrAccount(
+  wallet: TestWallet,
+  secret: Fr,
+  salt: Fr,
+  signingKey?: Fq,
+): Promise<AccountManager> {
+  signingKey ? signingKey : deriveSigningKey(secret);
+  const accountData = {
+    secret,
+    salt,
+    contract: new SchnorrAccountContract(signingKey!),
+  };
+  return wallet.createAccount(accountData);
+}
+
+export async function createEcdsaAccount(
+  wallet: TestWallet,
+  secret: Fr,
+  salt: Fr,
+  signingKey?: Fq,
+): Promise<AccountManager> {
+  signingKey ? signingKey : deriveSigningKey(secret);
+  const accountData = {
+    secret,
+    salt,
+    contract: new SchnorrAccountContract(signingKey!),
+  };
+  return wallet.createAccount(accountData);
 }

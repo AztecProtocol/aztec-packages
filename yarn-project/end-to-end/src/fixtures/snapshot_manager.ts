@@ -62,6 +62,7 @@ import { setupL1Contracts } from './setup_l1_contracts.js';
 import {
   type SetupOptions,
   createAndSyncProverNode,
+  createSchnorrAccount,
   getLogger,
   getPrivateKeyFromIndex,
   getSponsoredFPCAddress,
@@ -635,12 +636,12 @@ export const deployAccounts =
     const deployedAccounts = initialFundedAccounts.slice(0, numberOfAccounts);
     // Serial due to https://github.com/AztecProtocol/aztec-packages/issues/12045
     for (let i = 0; i < deployedAccounts.length; i++) {
-      const accountData = {
-        secret: deployedAccounts[i].secret,
-        salt: deployedAccounts[i].salt,
-        contract: new SchnorrAccountContract(deployedAccounts[i].signingKey),
-      };
-      const accountManager = await wallet.createAccount(accountData);
+      const accountManager = await createSchnorrAccount(
+        wallet,
+        deployedAccounts[i].secret,
+        deployedAccounts[i].salt,
+        deployedAccounts[i].signingKey,
+      );
       await accountManager
         .deploy({
           skipClassPublication: i !== 0, // Publish the contract class at most once.

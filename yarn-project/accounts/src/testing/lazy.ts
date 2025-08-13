@@ -5,7 +5,7 @@
  *
  * @packageDocumentation
  */
-import { Fr, type PXE, getAccountContractAddress } from '@aztec/aztec.js';
+import { Fr, type PXE } from '@aztec/aztec.js';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 
 import { getSchnorrAccountContractAddress } from '../schnorr/lazy.js';
@@ -19,9 +19,6 @@ import {
 
 export { INITIAL_TEST_ACCOUNT_SALTS, INITIAL_TEST_SECRET_KEYS } from './configuration.js';
 
-/**
- * Gets the basic information for initial test accounts.
- */
 /**
  * Gets the basic information for initial test accounts.
  */

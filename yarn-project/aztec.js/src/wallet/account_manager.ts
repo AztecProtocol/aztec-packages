@@ -126,6 +126,14 @@ export class AccountManager {
   }
 
   /**
+   * Returns the account contract that backs this account.
+   * @returns The account contract
+   */
+  public getAccountContract(): AccountContract {
+    return this.accountContract;
+  }
+
+  /**
    * Add this account in the PXE Service and returns the associated wallet. Adding
    * the account to the PXE Service is required for managing private state associated with it.
    * Use the returned wallet to create Contract instances to be interacted with from this account.
