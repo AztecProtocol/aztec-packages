@@ -64,8 +64,7 @@ struct CircuitProve {
     CircuitInput circuit;
     std::vector<uint8_t> witness;
     ProofSystemSettings settings;
-    bool compute_vk{};
-    MSGPACK_FIELDS(circuit, witness, settings, compute_vk);
+    MSGPACK_FIELDS(circuit, witness, settings);
     Response execute(const BBApiRequest& request = {}) &&;
     bool operator==(const CircuitProve&) const = default;
 };

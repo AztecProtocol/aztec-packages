@@ -95,25 +95,18 @@ void UltraHonkAPI::prove(const Flags& flags,
     bbapi::ProofSystemSettings settings{ .ipa_accumulation = flags.ipa_accumulation,
                                          .oracle_hash_type = flags.oracle_hash_type,
                                          .disable_zk = flags.disable_zk };
-
-    // Read input files
-    auto bytecode = get_bytecode(bytecode_path);
-    auto witness = get_bytecode(witness_path);
-
     // Handle VK
     std::vector<uint8_t> vk_bytes;
-
-    if (!vk_path.empty()) {
+    if (!vk_path.empty() && !flags.write_vk) {
         vk_bytes = read_file(vk_path);
     }
 
     // Prove
     auto response = bbapi::CircuitProve{ .circuit = { .name = "circuit",
-                                                      .bytecode = std::move(bytecode),
+                                                      .bytecode = get_bytecode(bytecode_path),
                                                       .verification_key = std::move(vk_bytes) },
-                                         .witness = std::move(witness),
-                                         .settings = std::move(settings),
-                                         .compute_vk = flags.write_vk }
+                                         .witness = get_bytecode(witness_path),
+                                         .settings = std::move(settings) }
                         .execute();
 
     // Write proof outputs (not VK - that's handled above)
