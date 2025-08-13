@@ -164,4 +164,21 @@ library Errors {
 
   // RewardBooster
   error RewardBooster__OnlyRollup(address caller);
+
+  // ConsensusSlashingProposer
+  error ConsensusSlashingProposer__InvalidSignature();
+  error ConsensusSlashingProposer__InvalidVoteLength(uint256 expected, uint256 actual);
+  error ConsensusSlashingProposer__RoundAlreadyExecuted(uint256 round);
+  error ConsensusSlashingProposer__InvalidNumberOfCommittees(uint256 expected, uint256 actual);
+  error ConsensusSlashingProposer__RoundNotComplete(uint256 round);
+  error ConsensusSlashingProposer__InvalidCommitteeSize(uint256 expected, uint256 actual);
+  error ConsensusSlashingProposer__InvalidCommitteeCommitment();
+  error ConsensusSlashingProposer__QuorumMustBeGreaterThanZero();
+  error ConsensusSlashingProposer__SlashingUnitMustBeGreaterThanZero();
+  error ConsensusSlashingProposer__LifetimeMustBeGreaterThanExecutionDelay(uint256 lifetime, uint256 executionDelay);
+  error ConsensusSlashingProposer__SlashAmountTooLarge();
+  error ConsensusSlashingProposer__ProposerAlreadyVotedInSlot();
+  error ConsensusSlashingProposer__MaxVotesReached();
+  error ConsensusSlashingProposer__VoteAlreadyCastInCurrentSlot(Slot slot);
+  error ConsensusSlashingProposer__RoundOutOfRange(uint256 round, uint256 currentRound);
 }

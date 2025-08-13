@@ -10,16 +10,17 @@ import {EmpireBase} from "@aztec/governance/proposer/EmpireBase.sol";
 /**
  * @notice  A SlashingProposer implementation following the empire model
  */
-contract SlashingProposer is IEmpire, EmpireBase {
+contract EmpireSlashingProposer is IEmpire, EmpireBase {
   address public immutable INSTANCE;
   ISlasher public immutable SLASHER;
 
   /**
-   * @notice Constructor for the SlashingProposer contract.
+   * @notice Constructor for the EmpireSlashingProposer contract.
    *
    * @param _instance - The specific rollup that the proposer will be used for
    * @param _slasher - The entity that can slash on the _instance
-   *                    The SlashingProposer `address(this)` should be able to use the slasher for this contract to
+   *                    The EmpireSlashingProposer `address(this)` should be able to use the slasher for this contract
+   * to
    *                    make sense.
    * @param _slashingQuorum The number of signals needed in a round for a slash to pass.
    * @param _roundSize The number of signals that can be cast in a round.

@@ -3,11 +3,11 @@
 pragma solidity >=0.8.27;
 
 import {ISlasher} from "@aztec/core/interfaces/ISlasher.sol";
-import {SlashingProposer} from "@aztec/core/slashing/SlashingProposer.sol";
+import {EmpireSlashingProposer} from "@aztec/core/slashing/EmpireSlashingProposer.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 
 contract Slasher is ISlasher {
-  SlashingProposer public immutable PROPOSER;
+  address public immutable PROPOSER;
   address public immutable VETOER;
 
   mapping(address payload => bool vetoed) public vetoedPayloads;
@@ -25,7 +25,9 @@ contract Slasher is ISlasher {
     uint256 _executionDelayInRounds,
     address _vetoer
   ) {
-    PROPOSER = new SlashingProposer(_rollup, this, _quorumSize, _roundSize, _lifetimeInRounds, _executionDelayInRounds);
+    PROPOSER = address(
+      new EmpireSlashingProposer(_rollup, this, _quorumSize, _roundSize, _lifetimeInRounds, _executionDelayInRounds)
+    );
     VETOER = _vetoer;
   }
 
@@ -36,7 +38,7 @@ contract Slasher is ISlasher {
   }
 
   function slash(IPayload _payload) external override(ISlasher) returns (bool) {
-    require(msg.sender == address(PROPOSER), Slasher__CallerNotProposer(msg.sender, address(PROPOSER)));
+    require(msg.sender == PROPOSER, Slasher__CallerNotProposer(msg.sender, PROPOSER));
 
     require(!vetoedPayloads[address(_payload)], Slasher__PayloadVetoed(address(_payload)));
 
