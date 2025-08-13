@@ -30,6 +30,8 @@ function build {
     echo "Skipping deployment - no bb doc changes compared to cache."
     return
   fi
+  denoise "yarn install && yarn build"
+  cache_upload bb-docs-$hash.tar.gz build
 }
 
 function test_cmds {
