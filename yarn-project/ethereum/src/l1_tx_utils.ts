@@ -7,6 +7,7 @@ import {
   getDefaultConfig,
   numberConfigHelper,
 } from '@aztec/foundation/config';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemTransactionSignature } from '@aztec/foundation/eth-signature';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
@@ -1021,7 +1022,10 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
 }
 
 export function createViemSigner(client: WalletClient) {
-  const signer: Signer = async (tx: TransactionSerializable): Promise<ViemTransactionSignature> => {
+  const signer: Signer = async (
+    tx: TransactionSerializable,
+    _address: EthAddress,
+  ): Promise<ViemTransactionSignature> => {
     // Let viem handle everything - it knows how to deal with the transaction
     const signedTx = await client.signTransaction(tx as any);
 

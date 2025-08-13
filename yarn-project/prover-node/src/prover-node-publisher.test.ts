@@ -28,6 +28,7 @@ describe('prover-node-publisher', () => {
       l1ChainId: 1,
       l1RpcUrls: ['http://localhost:8545'],
       publisherPrivateKey: new SecretValue('0x1234'),
+      publisherPrivateKeys: [new SecretValue('0x1234')],
       l1PublishRetryIntervalMS: 1000,
       viemPollingIntervalMS: 1000,
       customForwarderContractAddress: EthAddress.random(),

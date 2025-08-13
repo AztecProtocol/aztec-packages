@@ -5,11 +5,11 @@ import { type AccountWalletWithSecretKey, EthAddress, Fr } from '@aztec/aztec.js
 import {
   type ExtendedViemWalletClient,
   GSEContract,
-  L1TxUtils,
   MultiAdderArtifact,
   type Operator,
   RollupContract,
   type ViemClient,
+  createL1TxUtilsFromViemWallet,
   deployL1Contract,
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';

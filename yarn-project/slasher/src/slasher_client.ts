@@ -138,7 +138,7 @@ export class SlasherClient {
     }
 
     this.log.info(
-      `Started Slasher client${this.l1TxUtils ? ` with publisher address ${this.l1TxUtils.client.account.address}` : ''}`,
+      `Started Slasher client${this.l1TxUtils ? ` with publisher address ${this.l1TxUtils.getSenderAddress()}` : ''}`,
     );
   }
 
