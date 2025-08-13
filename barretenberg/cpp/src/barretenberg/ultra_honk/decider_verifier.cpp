@@ -53,7 +53,7 @@ template <typename Flavor> typename DeciderVerifier_<Flavor>::Output DeciderVeri
     std::vector<FF> padding_indicator_array(virtual_log_n);
 
     for (size_t idx = 0; idx < virtual_log_n; idx++) {
-        padding_indicator_array[idx] = (idx < log_circuit_size) ? FF{ 1 } : FF{ 0 };
+        padding_indicator_array[idx] = 1;
     }
 
     SumcheckVerifier<Flavor> sumcheck(transcript, accumulator->alphas, virtual_log_n, accumulator->target_sum);
