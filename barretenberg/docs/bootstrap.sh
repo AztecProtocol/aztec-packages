@@ -8,9 +8,11 @@ cmd=${1:-}
 hash=$(
   cache_content_hash \
     .rebuild_patterns \
-    $(find docs versioned_docs -type f -name "*.md*" -exec grep '^#include_code' {} \; | \
+    $(find docs versioned_docs -type f -name "*.md*" -exec grep '^#include_code' {} \; 2>/dev/null | \
       awk '{ gsub("^/", "", $3); print "^" $3 }' | sort -u)
 )
+
+echo "hash=$hash"
 
 if semver check $REF_NAME; then
   # Ensure that released versions don't use cache from non-released versions (they will have incorrect links to master)
@@ -18,51 +20,46 @@ if semver check $REF_NAME; then
   export COMMIT_TAG=$REF_NAME
 fi
 
-function build_docs {
+function build {
   if [ "${CI:-0}" -eq 1 ] && [ $(arch) == arm64 ]; then
-    echo "Not building docs for arm64 in CI."
+    echo "Not building bb docs for arm64 in CI."
     return
   fi
-  echo_header "build docs"
-  npm_install_deps
-  if cache_download docs-$hash.tar.gz; then
+  echo_header "build bb docs"
+  if cache_download bb-docs-$hash.tar.gz; then
+    echo "Skipping deployment - no bb doc changes compared to cache."
     return
   fi
-  denoise "yarn build"
-  cache_upload docs-$hash.tar.gz build
+  denoise "yarn install && yarn build"
+  cache_upload bb-docs-$hash.tar.gz build
 }
 
 function test_cmds {
-  if [ "${CI:-0}" -eq 1 ] && [ $(arch) == arm64 ]; then
-    # Not running docs tests for arm64 in CI.
-    return
-  fi
-
-  local test_hash=$hash
-  echo "$test_hash cd docs && yarn spellcheck"
+  echo "$hash barretenberg/docs/bootstrap.sh test"
 }
 
 function test {
-  echo_header "docs test"
-  test_cmds | parallelise
+  echo_header "test docs"
+
+  denoise "yarn install"
+  denoise "yarn test"
 }
 
 case "$cmd" in
   "clean")
     git clean -fdx
     ;;
-  "ci")
-    build_docs
-    test
-    ;;
-  ""|"full"|"fast")
-    build_docs
+  ""|"full"|"fast"|"ci")
+    build
     ;;
   "hash")
     echo "$hash"
     ;;
-  test|test_cmds)
-    $cmd
+  "test_cmds")
+    test_cmds
+    ;;
+  "test")
+    test
     ;;
   *)
     echo "Unknown command: $cmd"
