@@ -106,8 +106,7 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
     std::vector<StdlibFF> public_inputs;
 
     // Input commitments to be passed to the merge recursive verification
-    MergeCommitments merge_commitments;
-    merge_commitments.T_prev_commitments = T_prev_commitments;
+    MergeCommitments merge_commitments{ .T_prev_commitments = T_prev_commitments };
 
     switch (verifier_inputs.type) {
     case QUEUE_TYPE::PG_TAIL:
@@ -147,9 +146,6 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
 
         witness_commitments = std::move(verifier_accum->witness_commitments);
         public_inputs = std::move(verifier.public_inputs);
-
-        // T_prev = 0 in the first recursive verification
-        merge_commitments.T_prev_commitments = stdlib::recursion::honk::empty_ecc_op_tables(circuit);
 
         break;
     }
@@ -228,7 +224,7 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     auto accumulation_recursive_transcript = std::make_shared<RecursiveTranscript>();
 
     // Commitment to the previous state of the op_queue in the recursive verification
-    TableCommitments T_prev_commitments;
+    TableCommitments T_prev_commitments = stdlib::recursion::honk::empty_ecc_op_tables(circuit);
 
     // Instantiate stdlib verifier inputs from their native counterparts
     if (stdlib_verification_queue.empty()) {
