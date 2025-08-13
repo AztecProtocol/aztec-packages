@@ -58,7 +58,7 @@ describe('e2e_p2p_governance_proposer', () => {
     await t.applyBaseSnapshots();
     await t.setup();
 
-    l1TxUtils = new L1TxUtils(t.ctx.deployL1ContractsValues.l1Client);
+    l1TxUtils = createL1TxUtilsFromViemWallet(t.ctx.deployL1ContractsValues.l1Client);
   });
 
   afterEach(async () => {

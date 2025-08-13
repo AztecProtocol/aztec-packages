@@ -9,6 +9,7 @@ import {
   type ViemPublicClient,
   createEthereumChain,
   createExtendedL1Client,
+  createL1TxUtilsFromViemWallet,
 } from '@aztec/ethereum';
 import { pick } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -85,7 +86,7 @@ export async function createProverNode(
 
   const rollupContract = new RollupContract(l1Client, config.l1Contracts.rollupAddress.toString());
 
-  const l1TxUtils = deps.l1TxUtils ?? new L1TxUtils(l1Client, log, deps.dateProvider, config);
+  const l1TxUtils = deps.l1TxUtils ?? createL1TxUtilsFromViemWallet(l1Client, log, deps.dateProvider, config);
 
   const publisherFactory =
     deps.publisherFactory ??

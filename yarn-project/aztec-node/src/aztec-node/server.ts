@@ -17,9 +17,10 @@ import {
   RollupContract,
   createEthereumChain,
   createExtendedL1Client,
+  createL1TxUtilsFromViemWallet,
   getPublicClient,
 } from '@aztec/ethereum';
-import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { createL1TxUtilsWithBlobsFromViemWallet } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { compactArray, pick } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -373,7 +374,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       await slasherClient.start();
 
       const l1TxUtils = publisherPrivateKeys.map(publisherPrivateKey => {
-        return new L1TxUtilsWithBlobs(
+        return createL1TxUtilsWithBlobsFromViemWallet(
           createExtendedL1Client(config.l1RpcUrls, publisherPrivateKey.getValue(), ethereumChain.chainInfo),
           log,
           dateProvider,

@@ -1,8 +1,11 @@
 import { Blob } from '@aztec/blob-lib';
+import { type Logger, createLogger } from '@aztec/foundation/log';
+import { DateProvider } from '@aztec/foundation/timer';
 
 import { type Hex, formatGwei } from 'viem';
 
-import { type GasPrice, L1TxUtils } from './l1_tx_utils.js';
+import { type GasPrice, L1TxUtils, type L1TxUtilsConfig, createViemSigner } from './l1_tx_utils.js';
+import type { ExtendedViemWalletClient } from './types.js';
 
 export class L1TxUtilsWithBlobs extends L1TxUtils {
   /**
@@ -19,8 +22,6 @@ export class L1TxUtilsWithBlobs extends L1TxUtils {
     previousGasPrice?: GasPrice,
     attempts = 0,
   ) {
-    const account = this.client.account;
-
     // Get gas price with higher priority fee for cancellation
     const cancelGasPrice = await this.getGasPrice(
       {
@@ -40,19 +41,22 @@ export class L1TxUtilsWithBlobs extends L1TxUtils {
         cancelGasPrice.maxFeePerBlobGas === undefined ? undefined : formatGwei(cancelGasPrice.maxFeePerBlobGas),
     });
     const request = {
-      to: account.address,
+      to: this.getSenderAddress(),
       value: 0n,
     };
 
     // Send 0-value tx to self with higher gas price
     if (!isBlobTx) {
-      const cancelTxHash = await this.client.sendTransaction({
+      const txData = {
         ...request,
         nonce,
         gas: 21_000n, // Standard ETH transfer gas
         maxFeePerGas: cancelGasPrice.maxFeePerGas,
         maxPriorityFeePerGas: cancelGasPrice.maxPriorityFeePerGas,
-      });
+      };
+      const signedRequest = await this.prepareSignedTransaction(txData);
+      const cancelTxHash = await this.client.sendRawTransaction({ serializedTransaction: signedRequest });
+
       const receipt = await this.monitorTransaction(
         request,
         cancelTxHash,
@@ -71,14 +75,16 @@ export class L1TxUtilsWithBlobs extends L1TxUtils {
         kzg,
         maxFeePerBlobGas: cancelGasPrice.maxFeePerBlobGas!,
       };
-      const cancelTxHash = await this.client.sendTransaction({
+      const txData = {
         ...request,
         ...blobInputs,
         nonce,
         gas: 21_000n,
         maxFeePerGas: cancelGasPrice.maxFeePerGas,
         maxPriorityFeePerGas: cancelGasPrice.maxPriorityFeePerGas,
-      });
+      };
+      const signedRequest = await this.prepareSignedTransaction(txData);
+      const cancelTxHash = await this.client.sendRawTransaction({ serializedTransaction: signedRequest });
 
       this.logger?.info(`Sent cancellation tx ${cancelTxHash} for timed out tx ${currentTxHash}`);
 
@@ -94,4 +100,22 @@ export class L1TxUtilsWithBlobs extends L1TxUtils {
       return receipt.transactionHash;
     }
   }
+}
+
+export function createL1TxUtilsWithBlobsFromViemWallet(
+  client: ExtendedViemWalletClient,
+  logger: Logger = createLogger('L1TxUtils'),
+  dateProvider: DateProvider = new DateProvider(),
+  config?: Partial<L1TxUtilsConfig>,
+  debugMaxGasLimit: boolean = false,
+) {
+  return new L1TxUtilsWithBlobs(
+    client,
+    client.account.address,
+    createViemSigner(client),
+    logger,
+    dateProvider,
+    config,
+    debugMaxGasLimit,
+  );
 }

@@ -54,7 +54,7 @@ import {
   RollupContract,
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
-import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { createL1TxUtilsWithBlobsFromViemWallet } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Timer } from '@aztec/foundation/timer';
@@ -403,7 +403,12 @@ describe('e2e_synching', () => {
 
     const sequencerPK: `0x${string}` = `0x${getPrivateKeyFromIndex(0)!.toString('hex')}`;
 
-    const l1TxUtils = new L1TxUtilsWithBlobs(deployL1ContractsValues.l1Client, logger, dateProvider!, config);
+    const l1TxUtils = createL1TxUtilsWithBlobsFromViemWallet(
+      deployL1ContractsValues.l1Client,
+      logger,
+      dateProvider!,
+      config,
+    );
     const rollupAddress = deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString();
     const rollupContract = new RollupContract(deployL1ContractsValues.l1Client, rollupAddress);
     const governanceProposerContract = new GovernanceProposerContract(
@@ -426,6 +431,7 @@ describe('e2e_synching', () => {
         l1RpcUrls: config.l1RpcUrls,
         l1Contracts: deployL1ContractsValues.l1ContractAddresses,
         publisherPrivateKey: new SecretValue(sequencerPK),
+        publisherPrivateKeys: [new SecretValue(sequencerPK)],
         l1PublishRetryIntervalMS: 100,
         l1ChainId: 31337,
         viemPollingIntervalMS: 100,

@@ -15,7 +15,7 @@ import {
   createEthereumChain,
   createExtendedL1Client,
 } from '@aztec/ethereum';
-import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { createL1TxUtilsWithBlobsFromViemWallet } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { EthCheatCodesWithState, RollupCheatCodes, startAnvil } from '@aztec/ethereum/test';
 import { range } from '@aztec/foundation/array';
 import { Buffer32 } from '@aztec/foundation/buffer';
@@ -203,7 +203,7 @@ describe('L1Publisher integration', () => {
     await worldStateSynchronizer.start();
 
     const sequencerL1Client = createExtendedL1Client(config.l1RpcUrls, sequencerPK, foundry);
-    const l1TxUtils = new L1TxUtilsWithBlobs(sequencerL1Client, logger, dateProvider, config);
+    const l1TxUtils = createL1TxUtilsWithBlobsFromViemWallet(sequencerL1Client, logger, dateProvider, config);
     const rollupContract = new RollupContract(sequencerL1Client, l1ContractAddresses.rollupAddress.toString());
     const slashingProposerAddress = await rollupContract.getSlashingProposerAddress();
     const slashingProposerContract = new EmpireSlashingProposerContract(

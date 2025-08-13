@@ -13,8 +13,14 @@ import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { createExtendedL1Client, getPublicClient } from './client.js';
-import { type L1TxRequest, L1TxUtils, ReadOnlyL1TxUtils, TxUtilsState, defaultL1TxUtilsConfig } from './l1_tx_utils.js';
-import { L1TxUtilsWithBlobs } from './l1_tx_utils_with_blobs.js';
+import {
+  type L1TxRequest,
+  ReadOnlyL1TxUtils,
+  TxUtilsState,
+  createL1TxUtilsFromViemWallet,
+  defaultL1TxUtilsConfig,
+} from './l1_tx_utils.js';
+import { L1TxUtilsWithBlobs, createL1TxUtilsWithBlobsFromViemWallet } from './l1_tx_utils_with_blobs.js';
 import { EthCheatCodes } from './test/eth_cheat_codes.js';
 import { startAnvil } from './test/start_anvil.js';
 import type { ExtendedViemWalletClient, ViemClient } from './types.js';
@@ -69,7 +75,7 @@ describe('L1TxUtils', () => {
     let gasUtils: L1TxUtilsWithBlobs;
 
     beforeEach(() => {
-      gasUtils = new L1TxUtilsWithBlobs(l1Client, logger, dateProvider, {
+      gasUtils = createL1TxUtilsWithBlobsFromViemWallet(l1Client, logger, dateProvider, {
         gasLimitBufferPercentage: 20,
         maxGwei: 500n,
         maxAttempts: 3,
@@ -188,7 +194,7 @@ describe('L1TxUtils', () => {
       await cheatCodes.evmMine();
 
       // First deploy without any buffer
-      const baselineGasUtils = new L1TxUtilsWithBlobs(l1Client, logger, dateProvider, {
+      const baselineGasUtils = createL1TxUtilsWithBlobsFromViemWallet(l1Client, logger, dateProvider, {
         gasLimitBufferPercentage: 0,
         maxGwei: 500n,
         maxAttempts: 5,
@@ -207,7 +213,7 @@ describe('L1TxUtils', () => {
       });
 
       // Now deploy with 20% buffer
-      const bufferedGasUtils = new L1TxUtilsWithBlobs(l1Client, logger, dateProvider, {
+      const bufferedGasUtils = createL1TxUtilsWithBlobsFromViemWallet(l1Client, logger, dateProvider, {
         gasLimitBufferPercentage: 20,
         maxGwei: 500n,
         maxAttempts: 3,
@@ -274,7 +280,7 @@ describe('L1TxUtils', () => {
     });
 
     it('respects minimum gas price bump for replacements', async () => {
-      const gasUtils = new L1TxUtilsWithBlobs(l1Client, logger, dateProvider, {
+      const gasUtils = createL1TxUtilsWithBlobsFromViemWallet(l1Client, logger, dateProvider, {
         ...defaultL1TxUtilsConfig,
         priorityFeeRetryBumpPercentage: 5, // Set lower than minimum 10%
       });
@@ -776,7 +782,7 @@ describe('L1TxUtils', () => {
     });
 
     it('L1TxUtils can be instantiated with wallet client and has write methods', () => {
-      const l1TxUtils = new L1TxUtils(walletClient, logger);
+      const l1TxUtils = createL1TxUtilsFromViemWallet(walletClient, logger);
       expect(l1TxUtils).toBeDefined();
       expect(l1TxUtils.client).toBe(walletClient);
 
@@ -789,7 +795,7 @@ describe('L1TxUtils', () => {
     });
 
     it('L1TxUtils inherits all read-only methods from ReadOnlyL1TxUtils', () => {
-      const l1TxUtils = new L1TxUtils(walletClient, logger);
+      const l1TxUtils = createL1TxUtilsFromViemWallet(walletClient, logger);
 
       // Verify all read-only methods are available
       expect(l1TxUtils.getBlock).toBeDefined();
@@ -803,7 +809,7 @@ describe('L1TxUtils', () => {
 
     it('L1TxUtils cannot be instantiated with public client', () => {
       expect(() => {
-        new L1TxUtils(publicClient as any, logger);
+        createL1TxUtilsFromViemWallet(publicClient as any, logger);
       }).toThrow();
     });
   });

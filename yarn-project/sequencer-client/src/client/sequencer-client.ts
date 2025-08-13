@@ -9,7 +9,7 @@ import {
   getPublicClient,
   isAnvilTestChain,
 } from '@aztec/ethereum';
-import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { L1TxUtilsWithBlobs, createL1TxUtilsWithBlobsFromViemWallet } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
@@ -84,7 +84,9 @@ export class SequencerClient {
     const log = createLogger('sequencer-client');
     const publicClient = getPublicClient(config);
     const l1Client = createExtendedL1Client(rpcUrls, firstKey.getValue(), chain.chainInfo);
-    const l1TxUtils = deps.l1TxUtils ?? [new L1TxUtilsWithBlobs(l1Client, log, deps.dateProvider, config)];
+    const l1TxUtils = deps.l1TxUtils ?? [
+      createL1TxUtilsWithBlobsFromViemWallet(l1Client, log, deps.dateProvider, config),
+    ];
     const publisherManager = new PublisherManager(l1TxUtils);
     const rollupContract = new RollupContract(l1Client, config.l1Contracts.rollupAddress.toString());
     const [l1GenesisTime, slotDuration] = await Promise.all([
