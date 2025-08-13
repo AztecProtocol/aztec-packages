@@ -192,8 +192,8 @@ TYPED_TEST(GeminiTest, SoundnessRegression)
     fold_1.at(2) = -(Fr(1) - u[1]) * fold_1.at(1) * u[1].invert(); // fold₁[2] = -(1 - u₁) ⋅ fold₁[1] / u₁
     fold_1.at(3) = Fr(0);
 
-    prover_transcript->template send_to_verifier("Gemini:FOLD_1", this->ck.commit(fold_1));
-    prover_transcript->template send_to_verifier("Gemini:FOLD_2", this->ck.commit(fold_2));
+    prover_transcript->send_to_verifier("Gemini:FOLD_1", this->ck.commit(fold_1));
+    prover_transcript->send_to_verifier("Gemini:FOLD_2", this->ck.commit(fold_2));
 
     // Get Gemini evaluation challenge
     const Fr gemini_r = prover_transcript->template get_challenge<Fr>("Gemini:r");
@@ -207,9 +207,9 @@ TYPED_TEST(GeminiTest, SoundnessRegression)
     // Compute honest evaluations fold₁(-r²) and fold₂(-r⁴)
     fold_evals.emplace_back(fold_1.evaluate(-r_squares[1]));
     fold_evals.emplace_back(fold_2.evaluate(-r_squares[2]));
-    prover_transcript->template send_to_verifier("Gemini:a_1", fold_evals[0]);
-    prover_transcript->template send_to_verifier("Gemini:a_2", fold_evals[1]);
-    prover_transcript->template send_to_verifier("Gemini:a_3", fold_evals[2]);
+    prover_transcript->send_to_verifier("Gemini:a_1", fold_evals[0]);
+    prover_transcript->send_to_verifier("Gemini:a_2", fold_evals[1]);
+    prover_transcript->send_to_verifier("Gemini:a_3", fold_evals[2]);
 
     // Compute the powers of r used by the verifier. It is an artifact of the const proof size logic.
     const std::vector<Fr> gemini_eval_challenge_powers = gemini::powers_of_evaluation_challenge(gemini_r, log_n);

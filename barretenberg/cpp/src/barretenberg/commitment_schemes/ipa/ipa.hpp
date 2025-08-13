@@ -168,9 +168,9 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         //      calling the `send_to_verifier` method, as the verifier knows them.
 
         const auto commitment = ck.commit(polynomial);
-        transcript->template add_to_hash_buffer("IPA:commitment", commitment);
-        transcript->template add_to_hash_buffer("IPA:challenge", opening_claim.opening_pair.challenge);
-        transcript->template add_to_hash_buffer("IPA:evaluation", opening_claim.opening_pair.evaluation);
+        transcript->add_to_hash_buffer("IPA:commitment", commitment);
+        transcript->add_to_hash_buffer("IPA:challenge", opening_claim.opening_pair.challenge);
+        transcript->add_to_hash_buffer("IPA:evaluation", opening_claim.opening_pair.evaluation);
 
 
         // Step 2.
@@ -336,9 +336,9 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     {
         // Step 1.
         // Add the commitment, challenge, and evaluation to the hash buffer.
-        transcript->template add_to_hash_buffer("IPA:commitment", opening_claim.commitment);
-        transcript->template add_to_hash_buffer("IPA:challenge", opening_claim.opening_pair.challenge);
-        transcript->template add_to_hash_buffer("IPA:evaluation", opening_claim.opening_pair.evaluation);
+        transcript->add_to_hash_buffer("IPA:commitment", opening_claim.commitment);
+        transcript->add_to_hash_buffer("IPA:challenge", opening_claim.opening_pair.challenge);
+        transcript->add_to_hash_buffer("IPA:evaluation", opening_claim.opening_pair.evaluation);
 
         // Step 2.
         // Receive generator challenge u and compute auxiliary generator
@@ -444,9 +444,9 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     {
         // Step 1.
         // Add the commitment, challenge, and evaluation to the hash buffer.
-        transcript->template add_to_hash_buffer("IPA:commitment", opening_claim.commitment);
-        transcript->template add_to_hash_buffer("IPA:challenge", opening_claim.opening_pair.challenge);
-        transcript->template add_to_hash_buffer("IPA:evaluation", opening_claim.opening_pair.evaluation);
+        transcript->add_to_hash_buffer("IPA:commitment", opening_claim.commitment);
+        transcript->add_to_hash_buffer("IPA:challenge", opening_claim.opening_pair.challenge);
+        transcript->add_to_hash_buffer("IPA:evaluation", opening_claim.opening_pair.evaluation);
 
         // Step 2.
         // Receive generator challenge u and compute auxiliary generator
@@ -592,9 +592,9 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     {
         // Step 1.
         // Add the commitment, challenge, and evaluation to the hash buffer.
-        transcript->template add_to_hash_buffer("IPA:commitment", opening_claim.commitment);
-        transcript->template add_to_hash_buffer("IPA:challenge", opening_claim.opening_pair.challenge);
-        transcript->template add_to_hash_buffer("IPA:evaluation", opening_claim.opening_pair.evaluation);
+        transcript->add_to_hash_buffer("IPA:commitment", opening_claim.commitment);
+        transcript->add_to_hash_buffer("IPA:challenge", opening_claim.opening_pair.challenge);
+        transcript->add_to_hash_buffer("IPA:evaluation", opening_claim.opening_pair.evaluation);
 
         // Step 2.
         // Receive generator challenge u and compute auxiliary generator

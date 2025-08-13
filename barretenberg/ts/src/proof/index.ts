@@ -62,7 +62,7 @@ function flattenUint8Arrays(arrays: Uint8Array[]): Uint8Array {
   return result;
 }
 
-function uint8ArrayToHex(buffer: Uint8Array): string {
+export function uint8ArrayToHex(buffer: Uint8Array): string {
   const hex: string[] = [];
 
   buffer.forEach(function (i) {
@@ -76,7 +76,7 @@ function uint8ArrayToHex(buffer: Uint8Array): string {
   return '0x' + hex.join('');
 }
 
-function hexToUint8Array(hex: string): Uint8Array {
+export function hexToUint8Array(hex: string): Uint8Array {
   const sanitisedHex = BigInt(hex).toString(16).padStart(64, '0');
 
   const len = sanitisedHex.length / 2;

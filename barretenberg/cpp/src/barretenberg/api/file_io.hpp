@@ -1,12 +1,14 @@
 #pragma once
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/try_catch_shim.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include <cstdint>
 #include <cstring>
 #include <fcntl.h>
 #include <fstream>
 #include <ios>
 #include <iostream>
+#include <sstream>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <vector>
@@ -83,5 +85,19 @@ inline void write_file(const std::string& filename, std::vector<uint8_t> const& 
         file.write(reinterpret_cast<const char*>(data.data()), static_cast<std::streamsize>(data.size()));
         file.close();
     }
+}
+
+template <typename Fr> inline std::string field_elements_to_json(const std::vector<Fr>& fields)
+{
+    std::stringstream ss;
+    ss << "[";
+    for (size_t i = 0; i < fields.size(); ++i) {
+        ss << '"' << fields[i] << '"';
+        if (i != fields.size() - 1) {
+            ss << ",";
+        }
+    }
+    ss << "]";
+    return ss.str();
 }
 } // namespace bb
