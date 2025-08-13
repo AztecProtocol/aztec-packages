@@ -14,7 +14,7 @@ template <typename FF_> class internal_callImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 11> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 6, 3, 3, 6, 3, 3, 6, 5 };
+    static constexpr std::array<size_t, 10> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 6, 3, 3, 6, 3, 5, 5 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -34,21 +34,18 @@ template <typename FF_> class internal_callImpl {
         PROFILE_THIS_NAME("accumulate/internal_call");
 
         const auto execution_NOT_LAST_EXEC = in.get(C::execution_sel) * in.get(C::execution_sel_shift);
-        const auto execution_SWITCH_CALL_ID = in.get(C::execution_sel_execute_internal_call) +
-                                              in.get(C::execution_sel_execute_internal_return) +
-                                              in.get(C::execution_sel_enter_call) + in.get(C::execution_sel_exit_call);
-        const auto execution_PROPAGATE_CALL_ID =
-            (FF(1) - execution_SWITCH_CALL_ID) * (FF(1) - in.get(C::execution_enqueued_call_start));
-        const auto execution_NEXT_ROW_NEW_CALL_ID =
-            ((in.get(C::execution_sel_execute_internal_return) + in.get(C::execution_sel_enter_call) +
-              in.get(C::execution_sel_exit_call) + in.get(C::execution_enqueued_call_start_shift)) -
-             (in.get(C::execution_sel_execute_internal_return) + in.get(C::execution_sel_enter_call) +
-              in.get(C::execution_sel_exit_call)) *
-                 in.get(C::execution_enqueued_call_start_shift));
+        const auto execution_RESET_NEXT_CALL_ID =
+            in.get(C::execution_sel_enter_call) + in.get(C::execution_enqueued_call_start_shift);
+        const auto execution_NEW_NEXT_CALL_ID =
+            (in.get(C::execution_sel_execute_internal_call) + in.get(C::execution_sel_execute_internal_return)) *
+                (FF(1) - in.get(C::execution_sel_error)) +
+            in.get(C::execution_sel_exit_call);
+        const auto execution_PROPAGATE_CALL_ID = ((FF(1) - execution_RESET_NEXT_CALL_ID) - execution_NEW_NEXT_CALL_ID);
+        const auto execution_CONTEXT_CHANGE = execution_RESET_NEXT_CALL_ID + in.get(C::execution_sel_exit_call);
 
         { // CALL_ID_STARTS_ONE
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_enqueued_call_start) * (in.get(C::execution_internal_call_id) - FF(1));
+            auto tmp = execution_RESET_NEXT_CALL_ID * (in.get(C::execution_internal_call_id_shift) - FF(1));
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
         }
@@ -75,7 +72,7 @@ template <typename FF_> class internal_callImpl {
         }
         { // RET_ID_STARTS_ZERO
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_enqueued_call_start) * in.get(C::execution_internal_call_return_id);
+            auto tmp = execution_RESET_NEXT_CALL_ID * in.get(C::execution_internal_call_return_id_shift);
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
         }
@@ -96,26 +93,20 @@ template <typename FF_> class internal_callImpl {
         }
         { // NEXT_CALL_ID_STARTS_TWO
             using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_enqueued_call_start) * (in.get(C::execution_next_internal_call_id) - FF(2));
+            auto tmp = execution_RESET_NEXT_CALL_ID * (in.get(C::execution_next_internal_call_id_shift) - FF(2));
             tmp *= scaling_factor;
             std::get<7>(evals) += typename Accumulator::View(tmp);
         }
-        {
-            using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_enter_call) * (in.get(C::execution_next_internal_call_id_shift) - FF(2));
-            tmp *= scaling_factor;
-            std::get<8>(evals) += typename Accumulator::View(tmp);
-        }
         { // INCR_NEXT_INT_CALL_ID
-            using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
-            auto tmp = execution_NOT_LAST_EXEC * (FF(1) - execution_NEXT_ROW_NEW_CALL_ID) *
+            using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
+            auto tmp = execution_NOT_LAST_EXEC * (FF(1) - execution_CONTEXT_CHANGE) *
                        (in.get(C::execution_next_internal_call_id_shift) -
                         (in.get(C::execution_next_internal_call_id) + in.get(C::execution_sel_execute_internal_call)));
             tmp *= scaling_factor;
-            std::get<9>(evals) += typename Accumulator::View(tmp);
+            std::get<8>(evals) += typename Accumulator::View(tmp);
         }
         { // INTERNAL_RET_ERROR
-            using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_sel_execute_internal_return) *
                        ((in.get(C::execution_internal_call_return_id) *
                              (in.get(C::execution_sel_opcode_error) *
@@ -124,7 +115,7 @@ template <typename FF_> class internal_callImpl {
                          FF(1)) +
                         in.get(C::execution_sel_opcode_error));
             tmp *= scaling_factor;
-            std::get<10>(evals) += typename Accumulator::View(tmp);
+            std::get<9>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -152,9 +143,9 @@ template <typename FF> class internal_call : public Relation<internal_callImpl<F
             return "DEFAULT_PROPAGATE_RET_ID";
         case 7:
             return "NEXT_CALL_ID_STARTS_TWO";
-        case 9:
+        case 8:
             return "INCR_NEXT_INT_CALL_ID";
-        case 10:
+        case 9:
             return "INTERNAL_RET_ERROR";
         }
         return std::to_string(index);
@@ -169,8 +160,8 @@ template <typename FF> class internal_call : public Relation<internal_callImpl<F
     static constexpr size_t SR_NEW_RETURN_ID_ON_CALL = 5;
     static constexpr size_t SR_DEFAULT_PROPAGATE_RET_ID = 6;
     static constexpr size_t SR_NEXT_CALL_ID_STARTS_TWO = 7;
-    static constexpr size_t SR_INCR_NEXT_INT_CALL_ID = 9;
-    static constexpr size_t SR_INTERNAL_RET_ERROR = 10;
+    static constexpr size_t SR_INCR_NEXT_INT_CALL_ID = 8;
+    static constexpr size_t SR_INTERNAL_RET_ERROR = 9;
 };
 
 } // namespace bb::avm2
