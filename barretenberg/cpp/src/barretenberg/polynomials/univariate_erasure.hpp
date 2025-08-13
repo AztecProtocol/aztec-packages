@@ -39,9 +39,9 @@ template <class Fr> class UnivariateConcept {
     virtual UnivariateConcept& self_sqr() = 0;
 
     // Arithmetic operations (returning new object)
-    // virtual UnivariateConcept operator+(const UnivariateConcept& other) const = 0;
-    // virtual UnivariateConcept operator-(const UnivariateConcept& other) const = 0;
-    // virtual UnivariateConcept operator*(const UnivariateConcept& other) const = 0;
+    virtual std::unique_ptr<UnivariateConcept<Fr>> operator+(const UnivariateConcept& other) const = 0;
+    virtual std::unique_ptr<UnivariateConcept<Fr>> operator-(const UnivariateConcept& other) const = 0;
+    virtual std::unique_ptr<UnivariateConcept<Fr>> operator*(const UnivariateConcept& other) const = 0;
     virtual std::unique_ptr<UnivariateConcept<Fr>> operator+(const Fr& scalar) const = 0;
     virtual std::unique_ptr<UnivariateConcept<Fr>> operator-(const Fr& scalar) const = 0;
     virtual std::unique_ptr<UnivariateConcept<Fr>> operator*(const Fr& scalar) const = 0;
@@ -113,6 +113,27 @@ template <class Fr, class UnivariateImpl> class UnivariateModel : public Univari
         return *this;
     }
 
+    std::unique_ptr<UnivariateConcept<Fr>> operator+(const UnivariateConcept<Fr>& other) const override
+    {
+        auto* other_model = dynamic_cast<const UnivariateModel<Fr, UnivariateImpl>*>(&other);
+        assert(other_model != nullptr);
+        auto result_impl = impl_ + other_model->impl_;
+        return std::make_unique<UnivariateModel<Fr, UnivariateImpl>>(std::move(result_impl));
+    }
+    std::unique_ptr<UnivariateConcept<Fr>> operator-(const UnivariateConcept<Fr>& other) const override
+    {
+        auto* other_model = dynamic_cast<const UnivariateModel<Fr, UnivariateImpl>*>(&other);
+        assert(other_model != nullptr);
+        auto result_impl = impl_ - other_model->impl_;
+        return std::make_unique<UnivariateModel<Fr, UnivariateImpl>>(std::move(result_impl));
+    }
+    std::unique_ptr<UnivariateConcept<Fr>> operator*(const UnivariateConcept<Fr>& other) const override
+    {
+        auto* other_model = dynamic_cast<const UnivariateModel<Fr, UnivariateImpl>*>(&other);
+        assert(other_model != nullptr);
+        auto result_impl = impl_ * other_model->impl_;
+        return std::make_unique<UnivariateModel<Fr, UnivariateImpl>>(std::move(result_impl));
+    }
     std::unique_ptr<UnivariateConcept<Fr>> operator+(const Fr& scalar) const override
     {
         auto result_impl = impl_ + scalar;
@@ -204,6 +225,21 @@ template <class Fr> class ErasedUnivariate {
         return *this;
     }
 
+    ErasedUnivariate operator+(const ErasedUnivariate& other) const
+    {
+        auto new_impl = impl_->operator+(*other.impl_);
+        return ErasedUnivariate(std::move(new_impl));
+    }
+    ErasedUnivariate operator-(const ErasedUnivariate& other) const
+    {
+        auto new_impl = impl_->operator-(*other.impl_);
+        return ErasedUnivariate(std::move(new_impl));
+    }
+    ErasedUnivariate operator*(const ErasedUnivariate& other) const
+    {
+        auto new_impl = impl_->operator*(*other.impl_);
+        return ErasedUnivariate(std::move(new_impl));
+    }
     ErasedUnivariate operator+(const Fr& scalar) const
     {
         auto new_impl = impl_->operator+(scalar);
