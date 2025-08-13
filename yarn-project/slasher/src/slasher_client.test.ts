@@ -8,6 +8,7 @@ import {
   SlashingProposerContract,
   type ViemClient,
   createExtendedL1Client,
+  createL1TxUtilsFromViemWallet,
   deployL1Contracts,
 } from '@aztec/ethereum';
 import { EthCheatCodes, RollupCheatCodes, startAnvil } from '@aztec/ethereum/test';
@@ -108,7 +109,7 @@ describe('SlasherClient', () => {
     ethCheatCodes = new EthCheatCodes([rpcUrl]);
     await cheatCodes.advanceToEpoch(2n);
 
-    l1TxUtils = new L1TxUtils(testHarnessL1Client, logger);
+    l1TxUtils = createL1TxUtilsFromViemWallet(testHarnessL1Client, logger);
 
     dummyWatcher = new DummyWatcher();
 
@@ -122,7 +123,7 @@ describe('SlasherClient', () => {
         slashPayloadTtlSeconds: 100,
       },
       deployed.l1ContractAddresses,
-      new L1TxUtils(slasherL1Client, logger),
+      createL1TxUtilsFromViemWallet(slasherL1Client, logger),
       slasherL1Client,
       [dummyWatcher],
       new DateProvider(),

@@ -1,9 +1,9 @@
 import {
   GSEContract,
-  L1TxUtils,
   RollupContract,
   createEthereumChain,
   createExtendedL1Client,
+  createL1TxUtilsFromViemWallet,
   getL1ContractsConfigEnvVars,
   getPublicClient,
   isAnvilTestChain,
@@ -96,7 +96,7 @@ export async function addL1Validator({
 
   const registrationTuple = await gse.makeRegistrationTuple(blsSecretKey);
 
-  const l1TxUtils = new L1TxUtils(l1Client, debugLogger);
+  const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client, debugLogger);
   const proofParamsObj = ZkPassportProofParams.fromBuffer(proofParams);
   const merkleProofArray = merkleProof.map(proof => addLeadingHex(proof));
 
@@ -145,7 +145,7 @@ export async function removeL1Validator({
   const account = getAccount(privateKey, mnemonic);
   const chain = createEthereumChain(rpcUrls, chainId);
   const l1Client = createExtendedL1Client(rpcUrls, account, chain.chainInfo);
-  const l1TxUtils = new L1TxUtils(l1Client, debugLogger);
+  const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client, debugLogger);
 
   dualLog(`Removing validator ${validatorAddress.toString()} from rollup ${rollupAddress.toString()}`);
   const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
@@ -172,7 +172,7 @@ export async function pruneRollup({
   const account = getAccount(privateKey, mnemonic);
   const chain = createEthereumChain(rpcUrls, chainId);
   const l1Client = createExtendedL1Client(rpcUrls, account, chain.chainInfo);
-  const l1TxUtils = new L1TxUtils(l1Client, debugLogger);
+  const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client, debugLogger);
 
   dualLog(`Trying prune`);
   const { receipt } = await l1TxUtils.sendAndMonitorTransaction({

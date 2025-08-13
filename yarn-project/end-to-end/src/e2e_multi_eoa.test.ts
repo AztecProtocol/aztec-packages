@@ -1,4 +1,4 @@
-import { ContractDeployer, EthAddress, Fr, type Logger, TxStatus, type Wallet, retryUntil } from '@aztec/aztec.js';
+import { ContractDeployer, EthAddress, Fr, type Logger, TxStatus, type Wallet } from '@aztec/aztec.js';
 import { EthCheatCodes } from '@aztec/aztec/testing';
 import type { GasPrice, L1BlobInputs, L1GasConfig, L1TxRequest, PublisherManager, TxUtilsState } from '@aztec/ethereum';
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
@@ -136,6 +136,17 @@ describe('e2e_block_building', () => {
         transactionHashToDrop = received.txHash;
         logger.info(`Dropping tx: ${transactionHashToDrop} from Anvil`);
         await ethCheatCodes.dropTransaction(transactionHashToDrop);
+
+        try {
+          await ethCheatCodes.publicClient.getTransaction({
+            hash: transactionHashToDrop!,
+          });
+          logger.error(`Failed to drop transaction ${transactionHashToDrop} from Anvil!!`);
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        } catch (_) {
+          // Should always get here
+        }
+
         await enableMining();
         return received;
       };
@@ -160,6 +171,17 @@ describe('e2e_block_building', () => {
         cancelTransactionHashToDrop = received;
         logger.info(`Dropping cancel tx: ${cancelTransactionHashToDrop} from Anvil`);
         await ethCheatCodes.dropTransaction(cancelTransactionHashToDrop);
+
+        try {
+          await ethCheatCodes.publicClient.getTransaction({
+            hash: transactionHashToDrop!,
+          });
+          logger.error(`Failed to drop transaction ${cancelTransactionHashToDrop} from Anvil!!`);
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        } catch (_) {
+          // Should always get here
+        }
+
         await enableMining();
         return received;
       };

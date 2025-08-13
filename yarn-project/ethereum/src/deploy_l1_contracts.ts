@@ -59,6 +59,7 @@ import {
   type L1TxRequest,
   L1TxUtils,
   type L1TxUtilsConfig,
+  createL1TxUtilsFromViemWallet,
   getL1TxUtilsConfigEnvVars,
 } from './l1_tx_utils.js';
 import type { ExtendedViemWalletClient } from './types.js';
@@ -1000,7 +1001,7 @@ export class L1Deployer {
     private txUtilsConfig?: L1TxUtilsConfig,
   ) {
     this.salt = maybeSalt ? padHex(numberToHex(maybeSalt), { size: 32 }) : undefined;
-    this.l1TxUtils = new L1TxUtils(
+    this.l1TxUtils = createL1TxUtilsFromViemWallet(
       this.client,
       this.logger,
       dateProvider,
@@ -1082,7 +1083,7 @@ export async function deployL1Contract(
 
   if (!l1TxUtils) {
     const config = getL1TxUtilsConfigEnvVars();
-    l1TxUtils = new L1TxUtils(extendedClient, logger, undefined, config, acceleratedTestDeployments);
+    l1TxUtils = createL1TxUtilsFromViemWallet(extendedClient, logger, undefined, config, acceleratedTestDeployments);
   }
 
   if (libraries) {

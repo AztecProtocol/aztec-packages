@@ -12,16 +12,16 @@ import {
 import { EpochCache, type EpochCacheInterface } from '@aztec/epoch-cache';
 import {
   type L1ContractAddresses,
-  L1TxUtils,
   NULL_KEY,
   RegistryContract,
   RollupContract,
   createEthereumChain,
   createExtendedL1Client,
+  createL1TxUtilsFromViemWallet,
   getPublicClient,
   isExtendedClient,
 } from '@aztec/ethereum';
-import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { createL1TxUtilsWithBlobsFromViemWallet } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { compactArray, pick } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -343,7 +343,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         ? createExtendedL1Client(l1RpcUrls, slasherPrivateKeyString, ethereumChain.chainInfo)
         : getPublicClient(config);
     const slasherL1TxUtils = isExtendedClient(slasherL1Client)
-      ? new L1TxUtils(slasherL1Client, log, dateProvider, config)
+      ? createL1TxUtilsFromViemWallet(slasherL1Client, log, dateProvider, config)
       : undefined;
 
     const slasherClient = await SlasherClient.new(
@@ -376,7 +376,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       // }
 
       const l1TxUtils = publisherPrivateKeys.map(publisherPrivateKey => {
-        return new L1TxUtilsWithBlobs(
+        return createL1TxUtilsWithBlobsFromViemWallet(
           createExtendedL1Client(l1RpcUrls, publisherPrivateKey.getValue(), ethereumChain.chainInfo),
           log,
           dateProvider,
