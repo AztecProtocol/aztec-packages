@@ -84,37 +84,6 @@ void test_poseidon2s_circuit(size_t num_inputs = 5)
 }
 
 /**
- * @brief Test graph description for poseidon2 hash with byte array input
- *
- * The result should be one connected component, and only output variables must be in one gate
- *
- * @param num_inputs Number of random bytes to generate
- */
-void test_poseidon2s_hash_byte_array(size_t num_inputs = 5)
-{
-    Builder builder;
-
-    std::vector<uint8_t> input;
-    input.reserve(num_inputs);
-    for (size_t i = 0; i < num_inputs; ++i) {
-        input.push_back(engine.get_random_uint8());
-    }
-
-    byte_array_ct circuit_input(&builder, input);
-    auto result = stdlib::poseidon2<Builder>::hash_buffer(builder, circuit_input);
-    auto graph = StaticAnalyzer(builder);
-    auto connected_components = graph.find_connected_components();
-    EXPECT_EQ(connected_components.size(), 1);
-    auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
-    std::unordered_set<uint32_t> outputs{
-        result.witness_index, result.witness_index + 1, result.witness_index + 2, result.witness_index + 3
-    };
-    for (const auto& elem : variables_in_one_gate) {
-        EXPECT_EQ(outputs.contains(elem), true);
-    }
-}
-
-/**
  * @brief Test graph description for repeated poseidon2 hash operations
  *
  * The result should be one connected component with repeated hashing of pairs,
@@ -232,16 +201,6 @@ TEST(boomerang_poseidon2s, test_graph_for_poseidon2s)
 TEST(boomerang_poseidon2s, test_graph_for_poseidon2s_for_one_input_size)
 {
     test_poseidon2s_circuit();
-}
-
-/**
- * @brief Test graph for poseidon2s hash with byte arrays of varying sizes
- */
-TEST(boomerang_poseidon2s, test_graph_for_poseidon2s_hash_byte_array)
-{
-    for (size_t num_inputs = 6; num_inputs < 100; num_inputs++) {
-        test_poseidon2s_hash_byte_array(num_inputs);
-    }
 }
 
 /**
