@@ -12,6 +12,34 @@
 #include <functional>
 
 namespace bb::stdlib {
+// Base case: only one pointer
+template <typename T> T* validate_context(T* ptr)
+{
+    return ptr;
+}
+
+// Variadic version: compare first with the rest
+template <typename T, typename... Ts> T* validate_context(T* first, Ts*... rest)
+{
+    T* tail = validate_context(rest...);
+    if (!first) {
+        return tail; // first is null, rely on tail
+    }
+    if (!tail) {
+        return first; // tail is null, use first
+    }
+    ASSERT(first == tail && "Pointers refer to different builder objects!");
+    return first;
+}
+
+template <typename T, typename Container> T* validate_context(const Container& elements)
+{
+    T* result = nullptr;
+    for (const auto& element : elements) {
+        result = validate_context<T>(result, element.get_context());
+    }
+    return result;
+}
 
 template <typename Builder> class bool_t;
 template <typename Builder_> class field_t {
@@ -270,7 +298,26 @@ template <typename Builder_> class field_t {
         return this_before_operation;
     };
 
-    field_t invert() const { return field_t(fr::one()) / *this; }
+    /**
+     * Compute 1 / (*this)
+     */
+    field_t invert() const
+    {
+        // Since the numerator is a constant 1, the constraint
+        //      (this.v * this.mul + this.add) * inverse.v == 1;
+        // created by applying `assert_is_not_zero` to `*this` coincides with the constraint created by
+        // `divide_no_zero_check`, hence we can safely apply the latter instead of `/` operator.
+        auto* ctx = get_context();
+        if (is_constant()) {
+            ASSERT(!get_value().is_zero(), "field_t::invert denominator is constant 0");
+        }
+
+        if (get_value().is_zero() && !ctx->failed()) {
+            ctx->failure("field_t::invert denominator is 0");
+        }
+
+        return field_t(fr::one()).divide_no_zero_check(*this);
+    }
 
     field_t operator-() const
     {
@@ -341,8 +388,6 @@ template <typename Builder_> class field_t {
 
     Builder* get_context() const { return context; }
 
-    std::array<field_t, 3> slice(uint8_t msb, uint8_t lsb) const;
-
     std::pair<field_t<Builder>, field_t<Builder>> split_at(
         const size_t lsb_index, const size_t num_bits = grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH) const;
 
@@ -352,7 +397,15 @@ template <typename Builder_> class field_t {
     void assert_is_not_zero(std::string const& msg = "field_t::assert_is_not_zero") const;
     void assert_is_zero(std::string const& msg = "field_t::assert_is_zero") const;
     bool is_constant() const { return witness_index == IS_CONSTANT; }
-    uint32_t set_public() const { return context->set_public_input(normalize().witness_index); }
+    bool is_normalized() const
+    {
+        return (is_constant() || ((multiplicative_constant == bb::fr::one()) && (additive_constant == bb::fr::zero())));
+    };
+    uint32_t set_public() const
+    {
+        ASSERT(!is_constant());
+        return context->set_public_input(get_normalized_witness_index());
+    }
 
     /**
      * Create a witness from a constant. This way the value of the witness is fixed and public (public, because the
@@ -419,28 +472,36 @@ template <typename Builder_> class field_t {
 
     /**
      * @brief Return (a < b) as bool circuit type.
-     *        This method *assumes* that both a and b are < 2^{num_bits} - 1
+     *        This method *assumes* that both a and b are < 2^{num_bits}
      *        i.e. it is not checked here, we assume this has been done previously
      *
      */
     template <size_t num_bits> bool_t<Builder> ranged_less_than(const field_t<Builder>& other) const
     {
+
         const auto& a = (*this);
         const auto& b = other;
-        auto* ctx = a.context ? a.context : b.context;
+        auto* ctx = validate_context(a.context, b.context);
         if (a.is_constant() && b.is_constant()) {
             return uint256_t(a.get_value()) < uint256_t(b.get_value());
         }
 
         // Let q = (a < b)
-        // Assume both a and b are < K where K = 2^{num_bits} - 1
+        // Assume both a and b are < K where K = 2^{num_bits}
         //    q == 1 <=>  0 < b - a - 1     < K
         //    q == 0 <=>  0 < b - a + K - 1 < K
         // i.e. for any bool value of q:
         //    (b - a - 1) * q + (b - a + K - 1) * (1 - q) = r < K
         //     q * (b - a - b + a) + b - a + K - 1 - (K - 1) * q - q = r < K
         //     b - a + (K - 1) - K * q = r < K
+
         static constexpr uint256_t range_constant = (uint256_t(1) << num_bits);
+        // Since in the worst case scenario
+        //     r = K - 1 + (K - 1) = 2 * K - 2,
+        // to ensure that it never wraps around the field modulus, we impose that it's smaller than half the modulus
+        static_assert(range_constant < bb::fr::modulus >> 1,
+                      "ranged_less_than: 2^num_bits must be less than half the field modulus.");
+
         bool predicate_witness = uint256_t(a.get_value()) < uint256_t(b.get_value());
         bool_t<Builder> predicate(witness_t<Builder>(ctx, predicate_witness));
         field_t predicate_valid = b.add_two(-(a) + range_constant - 1, -field_t(predicate) * range_constant);
@@ -459,15 +520,5 @@ template <typename Builder_> class field_t {
 template <typename Builder> inline std::ostream& operator<<(std::ostream& os, field_t<Builder> const& v)
 {
     return os << v.get_value();
-}
-// Recursive helper to determine first non-null ptr to avoid sequential ternary choices.
-template <typename T> T* first_non_null(T* ptr)
-{
-    return ptr;
-}
-
-template <typename T, typename... Ts> T* first_non_null(T* first, Ts*... rest)
-{
-    return first ? first : first_non_null(rest...);
 }
 } // namespace bb::stdlib

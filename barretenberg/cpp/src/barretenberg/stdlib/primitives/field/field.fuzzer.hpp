@@ -73,14 +73,6 @@ FastRandom VarianceRNG(0);
                   << value1 << preposition3 << value2 << std::flush;                                                   \
     }
 
-#define PRINT_SLICE(first_index, lsb, msb, vector)                                                                     \
-    {                                                                                                                  \
-        std::cout << "Slice:"                                                                                          \
-                  << " " << (vector[first_index].field.is_constant() ? "constant(" : "witness(")                       \
-                  << vector[first_index].field.get_value() << ") at " << first_index << " "                            \
-                  << "(" << (size_t)lsb << ":" << (size_t)msb << ")" << std::flush;                                    \
-    }
-
 #define PRINT_RESULT(prefix, action, index, value)                                                                     \
     {                                                                                                                  \
         std::cout << "  result(" << value.field.get_value() << ")" << action << index << std::endl << std::flush;      \
@@ -99,8 +91,6 @@ FastRandom VarianceRNG(0);
 #define PRINT_THREE_ARG_INSTRUCTION(                                                                                   \
     first_index, second_index, third_index, vector, operation_name, preposition1, preposition2)
 #define PRINT_RESULT(prefix, action, index, value)
-
-#define PRINT_SLICE(first_index, lsb, msb, vector)
 #endif
 
 #define OPERATION_TYPE_SIZE 1
@@ -108,7 +98,6 @@ FastRandom VarianceRNG(0);
 #define ELEMENT_SIZE (sizeof(bb::fr) + 1)
 #define TWO_IN_ONE_OUT 3
 #define THREE_IN_ONE_OUT 4
-#define SLICE_ARGS_SIZE 6
 
 #define MSUB_DIV_MINIMUM_MUL_PAIRS 1
 #define MSUB_DIV_MAXIMUM_MUL_PAIRS 8
@@ -155,7 +144,6 @@ template <typename Builder> class FieldBase {
             ASSERT_NOT_EQUAL,
             ASSERT_ZERO,
             ASSERT_NOT_ZERO,
-            SLICE,
             RANDOMSEED,
             COND_NEGATE,
             COND_SELECT,
@@ -239,7 +227,7 @@ template <typename Builder> class FieldBase {
         {
             // Choose which instruction we are going to generate
             OPCODE instruction_opcode = static_cast<OPCODE>(rng.next() % (OPCODE::_LAST));
-            uint8_t in1, in2, in3, lsb, msb, out, out1, out2, out3, mask_size;
+            uint8_t in1, in2, in3, out, mask_size;
             uint256_t mask, temp;
 
             // Depending on instruction
@@ -302,18 +290,6 @@ template <typename Builder> class FieldBase {
                 return { .id = instruction_opcode,
                          .arguments.fourArgs{ .in1 = in1, .in2 = in2, .in3 = in3, .out = out } };
                 break;
-            case OPCODE::SLICE:
-                // For the slice instruction we just randomly pick each argument and generate an instruction
-                // accordingly
-                in1 = static_cast<uint8_t>(rng.next() & 0xff);
-                lsb = static_cast<uint8_t>(rng.next() & 0xff);
-                msb = static_cast<uint8_t>(rng.next() & 0xff);
-                out1 = static_cast<uint8_t>(rng.next() & 0xff);
-                out2 = static_cast<uint8_t>(rng.next() & 0xff);
-                out3 = static_cast<uint8_t>(rng.next() & 0xff);
-                return { .id = instruction_opcode,
-                         .arguments.sliceArgs = {
-                             .in1 = in1, .lsb = lsb, .msb = msb, .out1 = out1, .out2 = out2, .out3 = out3 } };
             case OPCODE::RANDOMSEED:
                 return { .id = instruction_opcode, .arguments.randomseed = rng.next() };
                 break;
@@ -485,15 +461,6 @@ template <typename Builder> class FieldBase {
                 PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.fourArgs.in3)
                 PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.fourArgs.out)
                 break;
-            case OPCODE::SLICE:
-                // Randomly sample each of the arguments with 50% probability
-                PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.sliceArgs.in1)
-                PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.sliceArgs.lsb)
-                PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.sliceArgs.msb)
-                PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.sliceArgs.out1)
-                PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.sliceArgs.out2)
-                PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.sliceArgs.out3)
-                break;
             case OPCODE::RANDOMSEED:
                 instruction.arguments.randomseed = rng.next();
                 break;
@@ -529,7 +496,6 @@ template <typename Builder> class FieldBase {
         static constexpr size_t MADD = 4;
         static constexpr size_t SUBTRACT_WITH_CONSTRAINT = static_cast<size_t>(-1);
         static constexpr size_t DIVIDE_WITH_CONSTRAINTS = static_cast<size_t>(-1);
-        static constexpr size_t SLICE = 6;
         static constexpr size_t RANDOMSEED = sizeof(uint32_t);
         static constexpr size_t COND_NEGATE = 3;
         static constexpr size_t COND_SELECT = 4;
@@ -564,7 +530,6 @@ template <typename Builder> class FieldBase {
         static constexpr size_t MADD = 2;
         static constexpr size_t SUBTRACT_WITH_CONSTRAINT = 0;
         static constexpr size_t DIVIDE_WITH_CONSTRAINTS = 0;
-        static constexpr size_t SLICE = 1;
         static constexpr size_t RANDOMSEED = 0;
         static constexpr size_t COND_NEGATE = 0;
         static constexpr size_t COND_SELECT = 0;
@@ -623,15 +588,6 @@ template <typename Builder> class FieldBase {
                 return { .id = static_cast<typename Instruction::OPCODE>(opcode),
                          .arguments.fourArgs = {
                              .in1 = *Data, .in2 = *(Data + 1), .in3 = *(Data + 2), .out = *(Data + 3) } };
-            }
-            if constexpr (opcode == Instruction::OPCODE::SLICE) {
-                return Instruction{ .id = static_cast<typename Instruction::OPCODE>(opcode),
-                                    .arguments.sliceArgs = { .in1 = *Data,
-                                                             .lsb = *(Data + 1),
-                                                             .msb = *(Data + 2),
-                                                             .out1 = *(Data + 3),
-                                                             .out2 = *(Data + 4),
-                                                             .out3 = *(Data + 5) } };
             }
             if constexpr (opcode == Instruction::OPCODE::RANDOMSEED) {
                 uint32_t randomseed;
@@ -693,15 +649,6 @@ template <typename Builder> class FieldBase {
                 *(Data + 2) = instruction.arguments.fourArgs.in2;
                 *(Data + 3) = instruction.arguments.fourArgs.in3;
                 *(Data + 4) = instruction.arguments.fourArgs.out;
-            }
-            if constexpr (instruction_opcode == Instruction::OPCODE::SLICE) {
-                *Data = instruction.id;
-                *(Data + 1) = instruction.arguments.sliceArgs.in1;
-                *(Data + 2) = instruction.arguments.sliceArgs.lsb;
-                *(Data + 3) = instruction.arguments.sliceArgs.msb;
-                *(Data + 4) = instruction.arguments.sliceArgs.out1;
-                *(Data + 5) = instruction.arguments.sliceArgs.out2;
-                *(Data + 6) = instruction.arguments.sliceArgs.out3;
             }
             if constexpr (instruction_opcode == Instruction::OPCODE::RANDOMSEED) {
 
@@ -891,23 +838,6 @@ template <typename Builder> class FieldBase {
         {
 
             return ExecutionHandler(this->base * other1.base + other2.base, this->f().madd(other1.f(), { other2.f() }));
-        }
-        std::array<ExecutionHandler, 3> slice(uint8_t lsb, uint8_t msb)
-        {
-            const auto msb_plus_one = uint32_t(msb) + 1;
-            const auto hi_mask = ((uint256_t(1) << (256 - uint32_t(msb))) - 1);
-            const auto hi_base = (uint256_t(this->base) >> msb_plus_one) & hi_mask;
-
-            const auto lo_mask = (uint256_t(1) << lsb) - 1;
-            const auto lo_base = (uint256_t)(this->base) & lo_mask;
-
-            const auto slice_mask = ((uint256_t(1) << (uint32_t(msb - lsb) + 1)) - 1);
-            const auto slice_base = (uint256_t(this->base) >> lsb) & slice_mask;
-
-            auto lo_slice_hi_suint_array = this->f().slice(msb, lsb);
-            return std::array<ExecutionHandler, 3>{ ExecutionHandler(lo_base, std::move(lo_slice_hi_suint_array[0])),
-                                                    ExecutionHandler(slice_base, std::move(lo_slice_hi_suint_array[1])),
-                                                    ExecutionHandler(hi_base, std::move(lo_slice_hi_suint_array[2])) };
         }
         void assert_equal(ExecutionHandler& other)
         {
@@ -1507,57 +1437,6 @@ template <typename Builder> class FieldBase {
             }
             return 0;
         };
-
-        /**
-         * @brief Execute the slice instruction
-         *
-         * @param builder
-         * @param stack
-         * @param instruction
-         * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
-        size_t
-         */
-        static inline size_t execute_SLICE(Builder* builder,
-                                           std::vector<ExecutionHandler>& stack,
-                                           Instruction& instruction)
-        {
-            (void)builder;
-            if (stack.size() == 0) {
-                return 1;
-            }
-            size_t first_index = instruction.arguments.sliceArgs.in1 % stack.size();
-            uint8_t lsb = instruction.arguments.sliceArgs.lsb;
-            uint8_t msb = instruction.arguments.sliceArgs.msb;
-            size_t second_index = instruction.arguments.sliceArgs.out1;
-            size_t third_index = instruction.arguments.sliceArgs.out2;
-            size_t output_index = instruction.arguments.sliceArgs.out3;
-            PRINT_SLICE(first_index, lsb, msb, stack)
-            // Check assert conditions
-            if ((lsb > msb) || (msb >= bb::grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH) ||
-                (static_cast<uint256_t>(stack[first_index].f().get_value()) >=
-                 (static_cast<uint256_t>(1) << bb::grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH))) {
-                return 0;
-            }
-            PRINT_SLICE(first_index, lsb, msb, stack)
-            auto slices = stack[first_index].slice(lsb, msb);
-            std::array<std::pair<ExecutionHandler, size_t>, 3> what_where = { std::make_pair(slices[0], second_index),
-                                                                              std::make_pair(slices[1], third_index),
-                                                                              std::make_pair(slices[2], output_index) };
-            for (auto& x : what_where) {
-                auto suints_count = stack.size();
-                if (x.second >= suints_count) {
-
-                    PRINT_RESULT("\t", "pushed to ", stack.size(), x.first)
-                    stack.push_back(x.first);
-                } else {
-
-                    PRINT_RESULT("\t", "saved to ", x.second, x.first)
-                    stack[x.second] = x.first;
-                }
-            }
-
-            return 0;
-        }
 
         /**
          * @brief Execute the RANDOMSEED instruction
