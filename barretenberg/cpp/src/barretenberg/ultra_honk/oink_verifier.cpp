@@ -49,11 +49,13 @@ template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_preamble_
     FF vkey_hash = verification_key->vk->add_hash_to_transcript(domain_separator, *transcript);
     vinfo("vk hash in Oink verifier: ", vkey_hash);
 
+    std::vector<FF> public_inputs;
     for (size_t i = 0; i < verification_key->vk->num_public_inputs; ++i) {
         auto public_input_i =
             transcript->template receive_from_prover<FF>(domain_separator + "public_input_" + std::to_string(i));
         public_inputs.emplace_back(public_input_i);
     }
+    verification_key->public_inputs = std::move(public_inputs);
 }
 
 /**
@@ -133,7 +135,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_log_deriv
  */
 template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_grand_product_computation_round()
 {
-    const FF public_input_delta = compute_public_input_delta<Flavor>(public_inputs,
+    const FF public_input_delta = compute_public_input_delta<Flavor>(verification_key->public_inputs,
                                                                      relation_parameters.beta,
                                                                      relation_parameters.gamma,
                                                                      verification_key->vk->log_circuit_size,

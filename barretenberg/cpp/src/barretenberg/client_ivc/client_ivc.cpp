@@ -101,10 +101,6 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
 {
     using MergeCommitments = Goblin::MergeRecursiveVerifier::InputCommitments;
 
-    // Witness commitments and public inputs corresponding to the incoming instance
-    WitnessCommitments witness_commitments;
-    std::vector<StdlibFF> public_inputs;
-
     // Input commitments to be passed to the merge recursive verification
     MergeCommitments merge_commitments{ .T_prev_commitments = T_prev_commitments };
 
@@ -161,8 +157,8 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
     recursive_verifier_native_accum = std::make_shared<DeciderVerificationKey>(updated_verifier_accum->get_value());
 
     // Extract the witness commitments and public inputs from the incoming verifier instance
-    witness_commitments = std::move(verifier_instance->witness_commitments);
-    public_inputs = std::move(verifier_instance->public_inputs);
+    WitnessCommitments witness_commitments = std::move(verifier_instance->witness_commitments);
+    std::vector<StdlibFF> public_inputs = std::move(verifier_instance->public_inputs);
 
     PairingPoints nested_pairing_points; // to be extracted from public inputs of app or kernel proof just verified
     if (verifier_inputs.is_kernel) {
@@ -429,7 +425,7 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::comp
     verification_queue.clear();
 
     // Get the completed decider verification key corresponding to the tail kernel from the folding verifier
-    const std::vector<StdlibFF>& public_inputs = folding_verifier.public_inputs;
+    const std::vector<StdlibFF>& public_inputs = folding_verifier.keys_to_fold[1]->public_inputs;
     WitnessCommitments& witness_commitments = folding_verifier.keys_to_fold[1]->witness_commitments;
 
     // Reconstruct the KernelIO from the public inputs of the tail kernel and perform databus consistency checks
