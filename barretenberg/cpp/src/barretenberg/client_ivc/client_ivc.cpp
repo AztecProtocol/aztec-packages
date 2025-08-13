@@ -224,6 +224,7 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
 void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 {
 
+    info("ClientIVC: Completing kernel circuit logic.");
     // Transcript to be shared shared across recursive verification of the folding of K_{i-1} (kernel), A_{i,1} (app),
     // .., A_{i, n} (app) (all circuits accumulated between the previous kernel and current one)
     auto accumulation_recursive_transcript = std::make_shared<RecursiveTranscript>();
