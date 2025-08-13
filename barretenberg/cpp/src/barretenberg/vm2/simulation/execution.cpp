@@ -941,6 +941,20 @@ void Execution::send_l2_to_l1_msg(ContextInterface& context, MemoryAddress recip
     context.set_side_effect_states(side_effects_states_before);
 }
 
+void Execution::sha256_compression(ContextInterface& context,
+                                   MemoryAddress output_addr,
+                                   MemoryAddress state_addr,
+                                   MemoryAddress input_addr)
+{
+    get_gas_tracker().consume_gas();
+
+    try {
+        sha256.compression(context.get_memory(), state_addr, input_addr, output_addr);
+    } catch (const Sha256CompressionException& e) {
+        throw OpcodeExecutionException("Sha256 Compression failed: " + std::string(e.what()));
+    }
+}
+
 // This context interface is a top-level enqueued one.
 // NOTE: For the moment this trace is not returning the context back.
 ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_call_context)
@@ -1248,6 +1262,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::SENDL2TOL1MSG:
         call_with_operands(&Execution::send_l2_to_l1_msg, context, resolved_operands);
+        break;
+    case ExecutionOpCode::SHA256COMPRESSION:
+        call_with_operands(&Execution::sha256_compression, context, resolved_operands);
         break;
     default:
         // NOTE: Keep this a `std::runtime_error` so that the main loop panics.

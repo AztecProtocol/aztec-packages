@@ -137,8 +137,6 @@ class UltraFlavor {
         decltype(create_protogalaxy_tuple_of_tuples_of_univariates<Relations,
                                                                    NUM_KEYS,
                                                                    /*optimised=*/true>());
-    using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
-    using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
     // Whether or not the first row of the execution trace is reserved for 0s to enable shifts
     static constexpr bool has_zero_row = true;
@@ -435,28 +433,28 @@ class UltraFlavor {
             size_t old_proof_length = proof_data.size();
             proof_data.clear(); // clear proof_data so the rest of the function can replace it
             for (const auto& public_input : public_inputs) {
-                Base::template serialize_to_buffer(public_input, proof_data);
+                Base::serialize_to_buffer(public_input, proof_data);
             }
-            Base::template serialize_to_buffer(w_l_comm, proof_data);
-            Base::template serialize_to_buffer(w_r_comm, proof_data);
-            Base::template serialize_to_buffer(w_o_comm, proof_data);
-            Base::template serialize_to_buffer(lookup_read_counts_comm, proof_data);
-            Base::template serialize_to_buffer(lookup_read_tags_comm, proof_data);
-            Base::template serialize_to_buffer(w_4_comm, proof_data);
-            Base::template serialize_to_buffer(lookup_inverses_comm, proof_data);
-            Base::template serialize_to_buffer(z_perm_comm, proof_data);
+            Base::serialize_to_buffer(w_l_comm, proof_data);
+            Base::serialize_to_buffer(w_r_comm, proof_data);
+            Base::serialize_to_buffer(w_o_comm, proof_data);
+            Base::serialize_to_buffer(lookup_read_counts_comm, proof_data);
+            Base::serialize_to_buffer(lookup_read_tags_comm, proof_data);
+            Base::serialize_to_buffer(w_4_comm, proof_data);
+            Base::serialize_to_buffer(lookup_inverses_comm, proof_data);
+            Base::serialize_to_buffer(z_perm_comm, proof_data);
             for (size_t i = 0; i < virtual_log_n; ++i) {
-                Base::template serialize_to_buffer(sumcheck_univariates[i], proof_data);
+                Base::serialize_to_buffer(sumcheck_univariates[i], proof_data);
             }
-            Base::template serialize_to_buffer(sumcheck_evaluations, proof_data);
+            Base::serialize_to_buffer(sumcheck_evaluations, proof_data);
             for (size_t i = 0; i < virtual_log_n - 1; ++i) {
-                Base::template serialize_to_buffer(gemini_fold_comms[i], proof_data);
+                Base::serialize_to_buffer(gemini_fold_comms[i], proof_data);
             }
             for (size_t i = 0; i < virtual_log_n; ++i) {
-                Base::template serialize_to_buffer(gemini_fold_evals[i], proof_data);
+                Base::serialize_to_buffer(gemini_fold_evals[i], proof_data);
             }
-            Base::template serialize_to_buffer(shplonk_q_comm, proof_data);
-            Base::template serialize_to_buffer(kzg_w_comm, proof_data);
+            Base::serialize_to_buffer(shplonk_q_comm, proof_data);
+            Base::serialize_to_buffer(kzg_w_comm, proof_data);
 
             // sanity check to make sure we generate the same length of proof as before.
             BB_ASSERT_EQ(proof_data.size(), old_proof_length);

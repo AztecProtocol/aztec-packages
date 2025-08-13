@@ -55,10 +55,8 @@ function build_code {
 export -f build_code generate_vks build_sol
 
 function build {
-    echo_header "barretenberg/sol building"
-    build_code
-
-    echo "Targets built, you are good to go!"
+  echo_header "barretenberg/sol building"
+  build_code
 }
 
 function bench_cmds {
@@ -82,7 +80,7 @@ function bench {
 
   # Parse the JSON output to extract median gas values
   jq '[
-    .[] | 
+    .[] |
     select(.functions."verify(bytes,bytes32[])" != null) |
     {
       name: (.contract | split(":")[1]),
@@ -101,7 +99,7 @@ function bench {
 
     # Display summary
     echo "Generated $(jq length bench-out/verifier.bench.json) benchmark entries"
-    
+
     # Display gas report
     echo -e "\nGas Report:"
     jq -r '.[] | "\(.name): \(.value) gas"' bench-out/verifier.bench.json

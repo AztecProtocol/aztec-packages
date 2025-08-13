@@ -25,6 +25,12 @@ void ProtogalaxyRecursiveVerifier_<DeciderVerificationKeys>::run_oink_verifier_o
         OinkRecursiveVerifier_<Flavor> oink_verifier{ builder, key, transcript, domain_separator + '_' };
         oink_verifier.verify();
         key->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
+    } else {
+        // Fiat-Shamir the accumulator.
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1390): assert_equal on accumulator hash with public
+        // input hash.
+        FF accum_hash = key->add_hash_to_transcript("", *transcript);
+        info("Accumulator hash in PG rec verifier: ", accum_hash);
     }
 
     key = keys_to_fold[1];
@@ -97,13 +103,13 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
         (1 - combiner_challenge).[A] + combiner_challenge.[B] == [C]
 
 
-        This reduces the relation to 3 large MSMs where each commitment requires 3 size-128bit scalar multiplications
-        For a flavor with 53 instance/witness commitments, this is 53 * 24 rows
+        This reduces the relation to 3 large MSMs where each commitment requires 3 size-128bit scalar
+       multiplications For a flavor with 53 instance/witness commitments, this is 53 * 24 rows
 
-        Note: there are more efficient ways to evaluate this relationship if one solely wants to reduce number of scalar
-       muls, however we must also consider the number of ECCVM operations being executed, as each operation incurs a
-       cost in the translator circuit Each ECCVM opcode produces 5 rows in the translator circuit, which is approx.
-       equivalent to 9 ECCVM rows. Something to pay attention to
+        Note: there are more efficient ways to evaluate this relationship if one solely wants to reduce number of
+       scalar muls, however we must also consider the number of ECCVM operations being executed, as each operation
+       incurs a cost in the translator circuit Each ECCVM opcode produces 5 rows in the translator circuit, which is
+       approx. equivalent to 9 ECCVM rows. Something to pay attention to
     */
 
     // New transcript for challenge generation

@@ -246,7 +246,7 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
 
     // Create witness indices for the proof with public inputs reinserted
     std::vector<uint32_t> proof_indices =
-        ProofSurgeon::create_indices_for_reconstructed_proof(input.proof, input.public_inputs);
+        ProofSurgeon<uint256_t>::create_indices_for_reconstructed_proof(input.proof, input.public_inputs);
     proof_fields.reserve(proof_indices.size());
     for (const auto& idx : proof_indices) {
         auto field = field_ct<Builder>::from_witness_index(&builder, idx);

@@ -50,12 +50,6 @@ jobs:
           git config --global user.name AztecBot
           git config --global user.email tech@aztecprotocol.com
 
-      - name: Build dependencies
-        run: |
-          for project in noir barretenberg l1-contracts yarn-project; do
-            CI=1 $project/bootstrap.sh
-          done
-
       - name: Query new version
         id: version
         run: |
@@ -87,7 +81,6 @@ jobs:
           git add .
           git commit -m "chore(docs): cut new aztec docs version for tag ${{ steps.version.outputs.semver }}"
           git push
-
 
       - name: Cut Barretenberg Docs version
         working-directory: ./barretenberg/docs
