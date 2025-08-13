@@ -290,7 +290,7 @@ void ECCVMProver::compute_translation_opening_claims()
     for (auto [eval, poly, label] :
          zip_view(translation_evaluations.get_all(), translation_polynomials, translation_evaluations.labels)) {
         eval = poly.evaluate(evaluation_challenge_x);
-        transcript->template send_to_verifier(label, eval);
+        transcript->send_to_verifier(label, eval);
     }
 
     // Get another challenge to batch the evaluations of the transcript polynomials

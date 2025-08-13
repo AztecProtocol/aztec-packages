@@ -151,7 +151,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
 
         // Construct witness indices for each component in the constraint; populate the witness array
         auto [key_indices, key_hash_index, proof_indices, public_inputs_indices] =
-            ProofSurgeon::populate_recursion_witness_data(
+            ProofSurgeon<FF>::populate_recursion_witness_data(
                 witness, proof_witnesses, key_witnesses, key_hash_witness, /*num_public_inputs_to_extract=*/0);
 
         // The proof type can be either Oink or PG or PG_FINAL

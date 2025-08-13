@@ -2,7 +2,6 @@
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/api/get_bytecode.hpp"
 #include "barretenberg/api/log.hpp"
-#include "barretenberg/api/write_prover_output.hpp"
 #include "barretenberg/bbapi/bbapi.hpp"
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/client_ivc/mock_circuit_producer.hpp"
@@ -257,7 +256,7 @@ void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per
     bbapi::BBApiRequest request{ .trace_settings = { AZTEC_TRACE_STRUCTURE } };
 
     auto bytecode = get_bytecode(bytecode_path);
-    auto response = bbapi::ClientIvcGates{ .circuit = { .name = "ivc_circuit", .bytecode = std::move(bytecode) },
+    auto response = bbapi::ClientIvcStats{ .circuit = { .name = "ivc_circuit", .bytecode = std::move(bytecode) },
                                            .include_gates_per_opcode = include_gates_per_opcode }
                         .execute(request);
 

@@ -92,19 +92,7 @@ struct ProofSystemSettings {
      */
     bool disable_zk = false;
 
-    /**
-     * @brief Honk recursion setting.
-     * 0 = no recursion, 1 = UltraHonk recursion, 2 = UltraRollupHonk recursion.
-     * Controls whether pairing point accumulators and IPA claims are added to public inputs.
-     */
-    uint32_t honk_recursion = 0;
-
-    /**
-     * @brief Flag to indicate if this circuit will be recursively verified.
-     */
-    bool recursive = false;
-
-    MSGPACK_FIELDS(ipa_accumulation, oracle_hash_type, disable_zk, honk_recursion, recursive);
+    MSGPACK_FIELDS(ipa_accumulation, oracle_hash_type, disable_zk);
     bool operator==(const ProofSystemSettings& other) const = default;
 };
 
