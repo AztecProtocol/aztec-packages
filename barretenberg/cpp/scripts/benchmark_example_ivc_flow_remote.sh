@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 set -eu
 
-TARGET=${1:-"bb"}
+TARGET=${1:-"bb_cli_bench"}
 #FLOW=${2:-"ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc"}
 #FLOW=${2:-"ecdsar1+transfer_1_recursions+private_fpc"}
 #FLOW=${2:-"ecdsar1+transfer_1_recursions+sponsored_fpc"}
 #FLOW=${2:-"ecdsar1+transfer_1_recursions+sponsored_fpc"}
 FLOW=${2:-"schnorr+deploy_tokenContract_with_registration+sponsored_fpc"}
-BUILD_DIR="build"
+BUILD_DIR="build-op-count-time"
 
 # Move above script dir.
 cd $(dirname $0)/..
@@ -16,9 +16,10 @@ scp $BB_SSH_KEY ../../yarn-project/end-to-end/example-app-ivc-inputs-out/$FLOW/i
 
 # Measure the benchmarks with ops time counting
 ./scripts/benchmark_remote.sh "$TARGET"\
-                              "./$TARGET prove -o output --ivc_inputs_path ivc-inputs.msgpack --scheme client_ivc\
-                              --op_counts_out=$TARGET.json"\
-                              clang16-assert\
+                              "MAIN_ARGS='prove -o output --ivc_inputs_path ivc-inputs.msgpack --scheme client_ivc'\
+                              ./$TARGET --benchmark_out=$TARGET.json\
+                                        --benchmark_out_format=json"\
+                              op-count-time\
                               "$BUILD_DIR"
 
 # Retrieve output from benching instance

@@ -2,7 +2,7 @@
 #pragma once
 #include <benchmark/benchmark.h>
 
-#ifdef __wasm__
+#ifndef BB_USE_OP_COUNT
 namespace bb {
 struct GoogleBenchOpCountReporter {
     GoogleBenchOpCountReporter(::benchmark::State& state)
