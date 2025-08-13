@@ -526,7 +526,7 @@ TEST(TaggedValueTest, ShiftOperationsWithDifferentTypes)
     auto u1_amount = TaggedValue::from<uint1_t>(1);
     auto result_shl_u1 = u1_amount << shift_val;
     ASSERT_EQ(result_shl_u1.get_tag(), ValueTag::U1);
-    EXPECT_EQ(static_cast<uint8_t>(result_shl_u1.as<uint1_t>()), 0); // 1 << 3 = 0 with overflow
+    EXPECT_EQ(result_shl_u1.as<uint1_t>(), static_cast<uint1_t>(0)); // 1 << 3 = 0 with overflow
 }
 
 // Test boundary cases for all types
