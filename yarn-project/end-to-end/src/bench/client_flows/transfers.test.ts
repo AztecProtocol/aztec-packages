@@ -167,7 +167,7 @@ describe('Transfer benchmark', () => {
                * - One because the transaction is cancellable
                * - One for the private event commitment (note transfer for the recipient)
                *  - Private FPC: One for the fee note, another one for the partial note validity commitment and an
-               *   extra for the authwit invalidation if we're using a private fpc
+               *   extra for the authwit invalidation
                *  - Any other payment method: kernel-injected non revertible nullifier due to abscence of nullifiers
                *   during the setup phase of the tx
                */
