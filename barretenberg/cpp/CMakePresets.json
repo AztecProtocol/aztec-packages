@@ -448,29 +448,6 @@
       }
     },
     {
-      "name": "op-count",
-      "displayName": "Release build with operation counts",
-      "description": "Build with op counting",
-      "inherits": "clang16-assert",
-      "binaryDir": "build-op-count",
-      "environment": {
-        "CXXFLAGS": "-DBB_USE_OP_COUNT -DBB_USE_OP_COUNT_TRACK_ONLY"
-      }
-    },
-    {
-      "name": "op-count-time",
-      "displayName": "Release build with time and clock counts",
-      "description": "Build with op counting",
-      "inherits": "clang16-assert",
-      "binaryDir": "build-op-count-time",
-      "cacheVariables": {
-        "DISABLE_AZTEC_VM": "ON"
-      },
-      "environment": {
-        "CXXFLAGS": "-DBB_USE_OP_COUNT -DBB_USE_OP_COUNT_TIME_ONLY"
-      }
-    },
-    {
       "name": "clang16-coverage",
       "displayName": "Build with coverage",
       "description": "Build clang16 preset but with coverage enabled",
@@ -615,16 +592,6 @@
       "name": "clang16",
       "inherits": "default",
       "configurePreset": "clang16"
-    },
-    {
-      "name": "op-count-time",
-      "inherits": "default",
-      "configurePreset": "op-count-time"
-    },
-    {
-      "name": "op-count",
-      "inherits": "default",
-      "configurePreset": "op-count"
     },
     {
       "name": "darwin-arm64",
@@ -799,14 +766,14 @@
       "configurePreset": "wasm-threads-dbg",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": ["barretenberg.wasm", "bb_cli_bench"]
+      "targets": ["barretenberg.wasm", "bb"]
     },
     {
       "name": "wasm-threads-assert",
       "configurePreset": "wasm-threads-assert",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": ["barretenberg.wasm", "bb_cli_bench"]
+      "targets": ["barretenberg.wasm", "bb"]
     },
     {
       "name": "wasm-threads",
