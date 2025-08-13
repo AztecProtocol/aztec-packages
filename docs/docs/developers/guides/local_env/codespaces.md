@@ -1,6 +1,6 @@
 ---
-title: Codespaces
-sidebar_position: 1
+title: Use a Codespace
+sidebar_position: 0
 draft: true
 ---
 
@@ -12,7 +12,7 @@ Choose a boilerplate and click "create new codespace":
 
 [![One-Click React Starter](/img/codespaces_badges/react_cta_badge.svg)](https://codespaces.new/AztecProtocol/aztec-packages?devcontainer_path=.devcontainer%2Freact%2Fdevcontainer.json) [![One-Click HTML/TS Starter](/img/codespaces_badges/vanilla_cta_badge.svg)](https://codespaces.new/AztecProtocol/aztec-packages?devcontainer_path=.devcontainer%2Fvanilla%2Fdevcontainer.json) [![One-Click Token Starter](/img/codespaces_badges/token_cta_badge.svg)](https://codespaces.new/AztecProtocol/aztec-packages?devcontainer_path=.devcontainer%2Ftoken%2Fdevcontainer.json)
 
-This creates a codespace with a prebuilt image containing one of the "Aztec Boxes" and a development network (sandbox). 
+This creates a codespace with a prebuilt image containing one of the "Aztec Boxes" and a development network (sandbox).
 - You can develop directly on the codespace, push it to a repo, make yourself at home.
 - You can also just use the sandbox that comes with it. The URL will be logged, you just need to use it as your `PXE_URL`.
 
