@@ -3,7 +3,7 @@ NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
 ci_log_id=$1
 
-if [[ "$TARGET_BRANCH" == "merge-train/barretenberg" ]]; then
+if [[ "$REF_NAME" == "ad/slack-notify" ]]; then
   commit_title=$(git log -1 --pretty=format:'%s')
   commit_author=$(git log -1 --pretty=format:'%an')
 
