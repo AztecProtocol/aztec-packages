@@ -43,14 +43,22 @@ void populate_field_elements_for_mock_commitments(std::vector<fr>& fields, const
  * @brief Helper to populate a field buffer with some number of field elements
  *
  * @param fields field buffer to append field elements to
- * @param num_commitments number of mock commitments to append
+ * @param num_elements number of mock commitments to append
  */
 template <class FF = curve::BN254::ScalarField>
-void populate_field_elements(std::vector<fr>& fields, const size_t& num_elements)
+void populate_field_elements(std::vector<fr>& fields,
+                             const size_t& num_elements,
+                             std::optional<uint32_t> value = std::nullopt)
 {
-    for (size_t i = 0; i < num_elements; ++i) {
-        for (auto& val : field_conversion::convert_to_bn254_frs(FF::random_element())) {
-            fields.emplace_back(val);
+    if (value.has_value()) {
+        for (size_t i = 0; i < num_elements; ++i) {
+            fields.emplace_back(fr{ value.value() });
+        }
+    } else {
+        for (size_t i = 0; i < num_elements; ++i) {
+            for (auto& val : field_conversion::convert_to_bn254_frs(FF::random_element())) {
+                fields.emplace_back(val);
+            }
         }
     }
 }
@@ -83,20 +91,14 @@ template <typename Flavor, class PublicInputs> HonkProof create_mock_oink_proof(
  */
 template <typename Flavor> HonkProof create_mock_decider_proof()
 {
-    using FF = typename Flavor::FF;
-
     HonkProof proof;
 
     // Sumcheck univariates
     const size_t TOTAL_SIZE_SUMCHECK_UNIVARIATES = CONST_PROOF_SIZE_LOG_N * Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
-    for (size_t i = 0; i < TOTAL_SIZE_SUMCHECK_UNIVARIATES; ++i) {
-        proof.emplace_back(FF::random_element());
-    }
+    populate_field_elements(proof, TOTAL_SIZE_SUMCHECK_UNIVARIATES);
 
     // Sumcheck multilinear evaluations
-    for (size_t i = 0; i < Flavor::NUM_ALL_ENTITIES; ++i) {
-        proof.emplace_back(FF::random_element());
-    }
+    populate_field_elements(proof, Flavor::NUM_ALL_ENTITIES);
 
     // Gemini fold commitments
     const size_t NUM_GEMINI_FOLD_COMMITMENTS = CONST_PROOF_SIZE_LOG_N - 1;
@@ -104,9 +106,7 @@ template <typename Flavor> HonkProof create_mock_decider_proof()
 
     // Gemini fold evaluations
     const size_t NUM_GEMINI_FOLD_EVALUATIONS = CONST_PROOF_SIZE_LOG_N;
-    for (size_t i = 0; i < NUM_GEMINI_FOLD_EVALUATIONS; ++i) {
-        proof.emplace_back(FF::random_element());
-    }
+    populate_field_elements(proof, NUM_GEMINI_FOLD_EVALUATIONS);
 
     // Shplonk batched quotient commitment
     populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/1);
@@ -142,15 +142,12 @@ template <typename Flavor, class PublicInputs> HonkProof create_mock_pg_proof()
     HonkProof proof = create_mock_oink_proof<Flavor, PublicInputs>();
 
     // Populate mock perturbator coefficients
-    for (size_t idx = 1; idx <= CONST_PG_LOG_N; idx++) {
-        proof.emplace_back(0);
-    }
+    populate_field_elements(proof, CONST_PG_LOG_N, /*value=*/0);
 
     // Populate mock combiner quotient coefficients
-    for (size_t idx = DeciderProvingKeys_<Flavor>::NUM; idx < DeciderProvingKeys_<Flavor>::BATCHED_EXTENDED_LENGTH;
-         idx++) {
-        proof.emplace_back(0);
-    }
+    size_t NUM_COEFF_COMBINER_QUOTIENT =
+        DeciderProvingKeys_<Flavor>::BATCHED_EXTENDED_LENGTH - DeciderProvingKeys_<Flavor>::NUM;
+    populate_field_elements(proof, NUM_COEFF_COMBINER_QUOTIENT, /*value=*/0);
 
     return proof;
 }
@@ -162,18 +159,13 @@ template <typename Flavor, class PublicInputs> HonkProof create_mock_pg_proof()
  */
 Goblin::MergeProof create_mock_merge_proof()
 {
-    using Flavor = MegaFlavor;
-    using FF = Flavor::FF;
-
-    std::vector<FF> proof;
+    Goblin::MergeProof proof;
     proof.reserve(MERGE_PROOF_SIZE);
 
-    FF mock_val(5);
-    auto mock_commitment = curve::BN254::AffineElement::one();
-    std::vector<FF> mock_commitment_frs = field_conversion::convert_to_bn254_frs(mock_commitment);
+    uint32_t mock_shift_size = 5;
 
-    // Populate mock subtable size
-    proof.emplace_back(mock_val);
+    // Populate mock shift size
+    populate_field_elements(proof, 1, /*value=*/mock_shift_size);
 
     // There are 8 entities in the merge protocol (4 columns x 2 components: T_j, g_j(X) = X^{l-1} t_j(X))
     // and 8 evaluations (4 columns x 2 components: g_j(kappa), t_j(1/kappa))
@@ -181,25 +173,16 @@ Goblin::MergeProof create_mock_merge_proof()
     const size_t NUM_TRANSCRIPT_EVALUATIONS = 8;
 
     // Transcript poly commitments
-    for (size_t i = 0; i < NUM_TRANSCRIPT_ENTITIES; ++i) {
-        for (const FF& val : mock_commitment_frs) {
-            proof.emplace_back(val);
-        }
-    }
+    populate_field_elements_for_mock_commitments(proof, NUM_TRANSCRIPT_ENTITIES);
+
     // Transcript poly evaluations
-    for (size_t i = 0; i < NUM_TRANSCRIPT_EVALUATIONS; ++i) {
-        proof.emplace_back(mock_val);
-    }
+    populate_field_elements(proof, NUM_TRANSCRIPT_EVALUATIONS);
 
     // Shplonk proof: commitment to the quotient
-    for (const FF& val : mock_commitment_frs) {
-        proof.emplace_back(val);
-    }
+    populate_field_elements_for_mock_commitments(proof, 1);
 
     // KZG proof: commitment to W
-    for (const FF& val : mock_commitment_frs) {
-        proof.emplace_back(val);
-    }
+    populate_field_elements_for_mock_commitments(proof, 1);
 
     BB_ASSERT_EQ(proof.size(), MERGE_PROOF_SIZE);
 
@@ -250,7 +233,8 @@ HonkProof create_mock_pre_ipa_proof()
     populate_field_elements<FF>(proof, 1);
 
     // 12. Gemini fold commitments
-    populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, /*num_commitments=*/CONST_ECCVM_LOG_N - 1);
+    populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof,
+                                                                  /*num_commitments=*/CONST_ECCVM_LOG_N - 1);
 
     // 13. Gemini evaluations
     populate_field_elements<FF>(proof, CONST_ECCVM_LOG_N);
