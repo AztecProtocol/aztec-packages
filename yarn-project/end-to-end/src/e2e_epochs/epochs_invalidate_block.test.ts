@@ -38,7 +38,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     validators = times(VALIDATOR_COUNT, i => {
       const privateKey = bufferToHex(getPrivateKeyFromIndex(i + 3)!);
       const attester = EthAddress.fromString(privateKeyToAccount(privateKey).address);
-      return { attester, withdrawer: attester, privateKey, bn254SecretKey: Fr.random().toBigInt() };
+      return { attester, withdrawer: attester, privateKey, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) };
     });
 
     // Setup context with the given set of validators, mocked gossip sub network, and no anvil test watcher.
@@ -97,7 +97,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
 
     // Send a transaction so the sequencer builds a block
     logger.warn('Sending transaction to trigger block building');
-    const sentTx = contract.methods.spam(1, 1n, false).send();
+    const sentTx = contract.methods.spam(1, 1n, false).send({ from: context.accounts[0] });
 
     // Disable skipCollectingAttestations after the first block is mined
     test.monitor.once('l2-block', ({ l2BlockNumber }) => {

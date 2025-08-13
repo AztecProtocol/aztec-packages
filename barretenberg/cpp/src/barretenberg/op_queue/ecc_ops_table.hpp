@@ -21,21 +21,36 @@ namespace bb {
 enum MergeSettings { PREPEND, APPEND };
 
 /**
- * @brief Defines the opcodes for ECC operations used in both the Ultra and ECCVM formats. There are four opcodes:
+ * @brief Defines the opcodes for ECC operations used in both the Ultra and ECCVM formats. There are three opcodes that
+ * are reflected in both ultra ops and eccvm table and so, that lead to actual operations in the ECCVM :
  * - addition: add = true, value() = 8
  * - multiplication: mul = true, value() = 4
  * - equality abd reset: eq = true, reset = true,  value() = 3
- * - no operation: all false, value() = 0
+ * On top of that, we see two more opcodes reflected only in the ultra ops table
+ * - no operation: all false, value() = 0 - The ultra ops table is seen as 4 column polynomials in the merge protocol
+ * and translator. We need to be able to shift these polynomials in translator and so they will have to start with
+ * zeroes
+ * - random operation: value() should never be called on this - To randomise the commitment and evaluations of the op
+ * column polynomial in merge protocol and translator we have to add sufficient randomness. We do this via a "random op"
+ * in which case two indices of the op column will be populated with random scalars.
  */
 struct EccOpCode {
+    using Fr = curve::BN254::ScalarField;
     bool add = false;
     bool mul = false;
     bool eq = false;
     bool reset = false;
     bool operator==(const EccOpCode& other) const = default;
 
+    bool is_random_op = false;
+    Fr random_value_1 = Fr(0);
+    Fr random_value_2 = Fr(0);
+
     [[nodiscard]] uint32_t value() const
     {
+        if (is_random_op) {
+            throw_or_abort("EccOpCode::value() should not be called on a random op");
+        }
         auto res = static_cast<uint32_t>(add);
         res += res;
         res += static_cast<uint32_t>(mul);
@@ -282,12 +297,13 @@ class UltraEccOpsTable {
         for (size_t subtable_idx = subtable_start_idx; subtable_idx < subtable_end_idx; ++subtable_idx) {
             const auto& subtable = table.get()[subtable_idx];
             for (const auto& op : subtable) {
-                column_polynomials[0].at(i) = op.op_code.value();
+                column_polynomials[0].at(i) = !op.op_code.is_random_op ? op.op_code.value() : op.op_code.random_value_1;
                 column_polynomials[1].at(i) = op.x_lo;
                 column_polynomials[2].at(i) = op.x_hi;
                 column_polynomials[3].at(i) = op.y_lo;
                 i++;
-                column_polynomials[0].at(i) = 0; // only the first 'op' field is utilized
+                column_polynomials[0].at(i) = !op.op_code.is_random_op ? 0 : op.op_code.random_value_2;
+                // only the first 'op' field is utilized
                 column_polynomials[1].at(i) = op.y_hi;
                 column_polynomials[2].at(i) = op.z_1;
                 column_polynomials[3].at(i) = op.z_2;

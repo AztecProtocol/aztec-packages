@@ -445,6 +445,13 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
                              .add_inputs({ /*a*/ RegisterInfo::ANY_TAG,
                                            /*b*/ RegisterInfo::ANY_TAG })
                              .add_output(/*c*/) } },
+    { ExecutionOpCode::DIV,
+      { .num_addresses = 3,
+        .gas_cost = { .opcode_gas = AVM_DIV_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo()
+                             .add_inputs({ /*a*/ RegisterInfo::ANY_TAG,
+                                           /*b*/ RegisterInfo::ANY_TAG })
+                             .add_output(/*c*/) } },
     { ExecutionOpCode::EQ,
       { .num_addresses = 3,
         .gas_cost = { .opcode_gas = AVM_EQ_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
@@ -663,6 +670,11 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
                       .dyn_da = 0 },
         .register_info = RegisterInfo().add_inputs({ /* recipient */ ValueTag::FF, /* content */ ValueTag::FF }) } },
 
+    {
+        ExecutionOpCode::SHA256COMPRESSION,
+        { .num_addresses = 3,
+          .gas_cost = { .opcode_gas = AVM_SHA256COMPRESSION_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 } },
+    }
 };
 
 } // namespace bb::avm2
