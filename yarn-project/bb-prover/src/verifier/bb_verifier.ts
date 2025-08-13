@@ -2,7 +2,7 @@ import { runInDirectory } from '@aztec/foundation/fs';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ServerCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
-import type { ClientProtocolArtifact, ServerProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
+import type { ServerProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
 import type { ClientProtocolCircuitVerifier, IVCProofVerificationResult } from '@aztec/stdlib/interfaces/server';
 import type { Proof } from '@aztec/stdlib/proofs';
 import type { CircuitVerificationStats } from '@aztec/stdlib/stats';
