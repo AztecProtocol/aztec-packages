@@ -137,37 +137,6 @@ static std::shared_ptr<ClientIVC::DeciderProvingKey> get_acir_program_decider_pr
     return std::make_shared<ClientIVC::DeciderProvingKey>(builder, request.trace_settings);
 }
 
-// TODO(): since we have moved the hiding circuit construction to Noir we get the CIVC vk from the bytecode so ideally
-// we should remove this method all together
-ClientIVC::VerificationKey compute_civc_vk(const BBApiRequest& request, size_t num_public_inputs_in_final_circuit)
-{
-    ClientIVC ivc{ /* num_circuits */ 2, request.trace_settings };
-    PrivateFunctionExecutionMockCircuitProducer circuit_producer;
-
-    // Initialize the IVC with an arbitrary circuit
-    // We segfault if we only call accumulate once
-    static constexpr size_t SMALL_ARBITRARY_LOG_CIRCUIT_SIZE{ 5 };
-    auto [circuit_0, vk_0] =
-        circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = SMALL_ARBITRARY_LOG_CIRCUIT_SIZE });
-    ivc.accumulate(circuit_0, vk_0);
-
-    // Create another circuit and accumulate
-    auto [circuit_1, vk_1] =
-        circuit_producer.create_next_circuit_and_vk(ivc,
-                                                    {
-                                                        .num_public_inputs = num_public_inputs_in_final_circuit,
-                                                        .log2_num_gates = SMALL_ARBITRARY_LOG_CIRCUIT_SIZE,
-                                                    });
-    ivc.accumulate(circuit_1, vk_1);
-    circuit_producer.construct_hiding_kernel(ivc);
-    // Construct the hiding circuit proving and verification key
-    auto hiding_decider_pk = ivc.compute_hiding_circuit_proving_key();
-    auto hiding_honk_vk = std::make_shared<ClientIVC::MegaZKVerificationKey>(hiding_decider_pk->get_precomputed());
-    return { hiding_honk_vk,
-             std::make_shared<ClientIVC::ECCVMVerificationKey>(),
-             std::make_shared<ClientIVC::TranslatorVerificationKey>() };
-}
-
 ClientIvcComputeStandaloneVk::Response ClientIvcComputeStandaloneVk::execute(const BBApiRequest& request) &&
 {
     info("ClientIvcComputeStandaloneVk - deriving VK for circuit '", circuit.name, "'");

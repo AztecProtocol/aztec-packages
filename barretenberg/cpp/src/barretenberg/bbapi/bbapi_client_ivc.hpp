@@ -16,14 +16,6 @@
 namespace bb::bbapi {
 
 /**
- * @brief Helper function to compute verification key for IVC
- * @param request The API request context
- * @param num_public_inputs_in_final_circuit Number of public inputs in the final circuit
- * @return The computed IVC verification key
- */
-ClientIVC::VerificationKey compute_civc_vk(const BBApiRequest& request, size_t num_public_inputs_in_final_circuit);
-
-/**
  * @struct ClientIvcStart
  * @brief Initialize a new ClientIVC instance for incremental proof accumulation
  *
