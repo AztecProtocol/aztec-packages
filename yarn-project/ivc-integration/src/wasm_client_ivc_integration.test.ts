@@ -8,33 +8,14 @@ import { ungzip } from 'pako';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-import MockHidingVk from '../artifacts/keys/mock_hiding.vk.data.json' with { type: 'json' };
 import { getWorkingDirectory } from './bb_working_directory.js';
 import {
-  MOCK_MAX_COMMITMENTS_PER_TX,
   MockAppCreatorCircuit,
-  MockAppCreatorVk,
-  MockAppReaderCircuit,
-  MockAppReaderVk,
   MockHidingCircuit,
   MockPrivateKernelInitCircuit,
-  MockPrivateKernelInitVk,
-  MockPrivateKernelInnerCircuit,
-  MockPrivateKernelInnerVk,
-  MockPrivateKernelResetCircuit,
-  MockPrivateKernelResetVk,
   MockPrivateKernelTailCircuit,
-  MockPrivateKernelTailVk,
   generate3FunctionTestingIVCStack,
   generate6FunctionTestingIVCStack,
-  getVkAsFields,
-  witnessGenCreatorAppMockCircuit,
-  witnessGenMockHidingCircuit,
-  witnessGenMockPrivateKernelInitCircuit,
-  witnessGenMockPrivateKernelInnerCircuit,
-  witnessGenMockPrivateKernelResetCircuit,
-  witnessGenMockPrivateKernelTailCircuit,
-  witnessGenReaderAppMockCircuit,
 } from './index.js';
 import { proveClientIVC as proveClientIVCNative } from './prove_native.js';
 import { proveClientIVC as proveClientIVCWasm, proveThenVerifyAztecClient } from './prove_wasm.js';
@@ -83,6 +64,7 @@ describe('Client IVC Integration', () => {
       MockAppCreatorCircuit.bytecode,
       MockPrivateKernelInitCircuit.bytecode,
       MockPrivateKernelTailCircuit.bytecode,
+      MockHidingCircuit.bytecode,
     ];
 
     // Initialize AztecClientBackend with the given bytecodes
@@ -106,7 +88,7 @@ describe('Client IVC Integration', () => {
   // 4. Run the inner kernel to process the second app run
   // 5. Run the reset kernel to process the read request emitted by the reader app
   // 6. Run the tail kernel to finish the client IVC chain
-  it.only('Should generate a verifiable client IVC proof from a complex mock tx', async () => {
+  it('Should generate a verifiable client IVC proof from a complex mock tx', async () => {
     const [bytecodes, witnessStack, _, vks] = await generate6FunctionTestingIVCStack();
     const verifyResult = await proveThenVerifyAztecClient(bytecodes, witnessStack, vks);
     logger.info(`generated then verified proof. result: ${verifyResult}`);
