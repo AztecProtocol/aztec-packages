@@ -138,8 +138,6 @@ ClientIVC::VerificationKey compute_civc_vk(const BBApiRequest& request, size_t n
                                                                .num_public_inputs = num_public_inputs_in_final_circuit,
                                                                .log2_num_gates = SMALL_ARBITRARY_LOG_CIRCUIT_SIZE,
                                                            });
-
-    PrivateFunctionExecutionMockCircuitProducer::construct_hiding_kernel(ivc);
     // Construct the hiding circuit proving and verification key
     auto hiding_decider_pk = ivc.compute_hiding_circuit_proving_key();
     auto hiding_honk_vk = std::make_shared<ClientIVC::MegaZKVerificationKey>(hiding_decider_pk->get_precomputed());

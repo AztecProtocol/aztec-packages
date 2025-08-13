@@ -196,6 +196,31 @@ TEST_F(ClientIVCAPITests, WriteVkFieldsSmokeTest)
     EXPECT_NE(vk_str.find(']'), std::string::npos);
 }
 
+TEST_F(ClientIVCAPITests, WriteIVCVkSmokeTest)
+{
+    // Create a simple circuit bytecode
+    auto [bytecode, witness_data] = acir_bincode_mocks::create_simple_circuit_bytecode();
+
+    // Compress and write bytecode to file
+    std::filesystem::path bytecode_path = test_dir / "circuit.acir";
+    write_file(bytecode_path, bb::compress(bytecode));
+
+    // Set flags for VK generation
+    ClientIVCAPI::Flags flags;
+    flags.verifier_type = "ivc";
+    flags.output_format = "bytes";
+
+    // Call write_vk
+    ClientIVCAPI api;
+    api.write_vk(flags, bytecode_path, test_dir);
+
+    // Check that VK file exists and is non-empty
+    std::filesystem::path vk_path = test_dir / "vk";
+    ASSERT_TRUE(std::filesystem::exists(vk_path));
+    auto vk_data = read_file(vk_path);
+    ASSERT_FALSE(vk_data.empty());
+}
+
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1461): Make this test actually test # gates
 TEST_F(ClientIVCAPITests, GatesCommandSmokeTest)
 {
