@@ -383,7 +383,7 @@ export function mapVerificationKeyToNoir<N extends number>(
   hash: string;
 } {
   if (len !== vk.key.length) {
-    throw new Error('Verification key length does not match expected length');
+    throw new Error(`Verification key length ${len} does not match expected length ${vk.key.length}`);
   }
   return {
     key: vk.key.map(field => field.toString()) as FixedLengthArray<string, N>,

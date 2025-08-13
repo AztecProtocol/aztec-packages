@@ -100,7 +100,7 @@ export type ServerCircuitName =
   | 'avm-circuit'
   | 'tube-circuit';
 
-export type CircuitName = ClientCircuitName | ServerCircuitName;
+export type CircuitName = 'ClientIVC' | ServerCircuitName;
 
 /** Stats for circuit simulation. */
 export type CircuitSimulationStats = {

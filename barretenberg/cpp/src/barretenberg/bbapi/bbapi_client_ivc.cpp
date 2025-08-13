@@ -147,13 +147,7 @@ ClientIvcComputeStandaloneVk::Response ClientIvcComputeStandaloneVk::execute(con
     std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key = get_acir_program_decider_proving_key(request, program);
     auto verification_key = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->get_precomputed());
 
-    Response response;
-    response.bytes = to_buffer(*verification_key);
-    response.fields = verification_key->to_field_elements();
-
-    info("ClientIvcComputeStandaloneVk - VK derived, size: ", response.bytes.size(), " bytes");
-
-    return response;
+    return { .bytes = to_buffer(*verification_key), .fields = verification_key->to_field_elements() };
 }
 
 ClientIvcComputeIvcVk::Response ClientIvcComputeIvcVk::execute(BB_UNUSED const BBApiRequest& request) &&
@@ -203,7 +197,7 @@ ClientIvcCheckPrecomputedVk::Response ClientIvcCheckPrecomputedVk::execute(const
     return response;
 }
 
-ClientIvcGates::Response ClientIvcGates::execute(BBApiRequest& request) &&
+ClientIvcStats::Response ClientIvcStats::execute(BBApiRequest& request) &&
 {
     Response response;
 
@@ -235,7 +229,7 @@ ClientIvcGates::Response ClientIvcGates::execute(BBApiRequest& request) &&
     }
 
     // Log circuit details
-    info("ClientIvcGates - circuit: ",
+    info("ClientIvcStats - circuit: ",
          circuit.name,
          ", acir_opcodes: ",
          response.acir_opcodes,

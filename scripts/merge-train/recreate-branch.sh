@@ -78,7 +78,7 @@ for PR_DATA in $PR_LIST; do
   # Check: Has this PR already pulled in commits that were on the old merge-train?
   #
   # 1.  List all commit-ids that are in the PR but not in $BASE
-  # 2.  For each of those commit-ids, ask: “is that commit reachable from $BR?” if so, we have history from the old merge-train.
+  # 2.  For each of those commit-ids, ask: "is that commit reachable from $BR?" if so, we have history from the old merge-train.
   if git log --format=%H "$PR_BASE..$HEAD_COMMIT" | grep -qFf <(git log --format=%H "$BR"); then
     # Branch has commits from the old merge-train, add comment
     TIPS="This had commits from $MT but it has now been squashed.
