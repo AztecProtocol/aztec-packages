@@ -18,5 +18,5 @@ EOF
   curl -X POST https://slack.com/api/chat.postMessage \
     -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
     -H "Content-type: application/json" \
-    --data "$data" &>/dev/null
+    --data "$data"
 fi
