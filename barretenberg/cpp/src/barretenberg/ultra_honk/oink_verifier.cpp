@@ -29,13 +29,9 @@ template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::verify()
 {
     // Execute the Verifier rounds
     execute_preamble_round();
-    info("execute_wire_commitments_round");
     execute_wire_commitments_round();
-    info("execute_sorted_list_accumulator_round");
     execute_sorted_list_accumulator_round();
-    info("execute_log_derivative_inverse_round");
     execute_log_derivative_inverse_round();
-    info("execute_grand_product_computation_round");
     execute_grand_product_computation_round();
 
     verification_key->witness_commitments = witness_comms;
@@ -57,7 +53,6 @@ template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_preamble_
             transcript->template receive_from_prover<FF>(domain_separator + "public_input_" + std::to_string(i));
         public_inputs.emplace_back(public_input_i);
     }
-    info("finished execute_preamble_round");
 }
 
 /**

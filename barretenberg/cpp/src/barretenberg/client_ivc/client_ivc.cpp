@@ -356,7 +356,6 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
         if (num_circuits_accumulated == num_circuits - 1) {
             // we are folding in the "Tail" kernel, so the verification_queue entry should have type PG_FINAL
             queue_entry.type = QUEUE_TYPE::PG_FINAL;
-            info("CIVC: queue_type is PG_FINAL");
             decider_proof = decider_prove();
             vinfo("constructed decider proof");
         } else if (num_circuits_accumulated == num_circuits - 2) {
@@ -367,7 +366,6 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
         }
         queue_entry.proof = fold_output.proof;
     }
-    // info("the type of the queue_entry is:", queue_entry.type);
     verification_queue.push_back(queue_entry);
 
     // Construct merge proof for the present circuit
@@ -400,7 +398,6 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::comp
     const std::shared_ptr<RecursiveVKAndHash>& stdlib_vk_and_hash,
     ClientCircuit& circuit)
 {
-    info("now construction the hiding circuit");
     using MergeCommitments = Goblin::MergeRecursiveVerifier::InputCommitments;
     trace_usage_tracker.print();
 
@@ -414,6 +411,7 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::comp
     circuit.queue_ecc_no_op();
 
     hide_op_queue_accumulation_result(circuit);
+
     // Construct stdlib accumulator, decider vkey and folding proof
     auto stdlib_verifier_accumulator =
         std::make_shared<RecursiveDeciderVerificationKey>(&circuit, verifier_accumulator);
@@ -450,6 +448,7 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::comp
     // Perform recursive verification of the last merge proof
     auto [points_accumulator, merged_table_commitments] =
         goblin.recursively_verify_merge(circuit, merge_commitments, pg_merge_transcript);
+
     points_accumulator.aggregate(kernel_input.pairing_inputs);
 
     // Perform recursive decider verification
@@ -465,10 +464,6 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::comp
  */
 std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::compute_hiding_circuit_proving_key()
 {
-    // ASSERT(hiding_circuit != nullptr);
-    if (hiding_circuit == nullptr) {
-        info("the hiding circuit is not constructed");
-    }
     auto hiding_decider_pk =
         std::make_shared<DeciderZKProvingKey>(*hiding_circuit, TraceSettings(), bn254_commitment_key);
     return hiding_decider_pk;
@@ -502,8 +497,6 @@ ClientIVC::Proof ClientIVC::prove()
 {
     // deallocate the protogalaxy accumulator
     fold_output.accumulator = nullptr;
-    info("we're past deallocation in IVC prove");
-
     auto mega_proof = prove_hiding_circuit();
 
     // A transcript is shared between the Hiding circuit prover and the Goblin prover
