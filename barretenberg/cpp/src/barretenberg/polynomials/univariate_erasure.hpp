@@ -171,11 +171,16 @@ template <class Fr, class UnivariateImpl> class UnivariateModel : public Univari
 template <class Fr> class ErasedUnivariate {
   public:
     using value_type = Fr;
-    // using View = ???;
+    using View = ErasedUnivariate<Fr>;
+
+    template <class UnivariateImpl>
+    explicit ErasedUnivariate(Fr value)
+        : impl_(std::make_unique<detail::UnivariateModel<Fr, UnivariateImpl>>(std::move(value)))
+    {}
 
     template <class UnivariateImpl>
     ErasedUnivariate(UnivariateImpl&& impl)
-        requires(!std::is_same_v<std::remove_cvref_t<UnivariateImpl>, ErasedUnivariate>)
+        requires(std::remove_cvref_t<UnivariateImpl>::__IS_UNIVARIATE__::value)
         : impl_(std::make_unique<detail::UnivariateModel<Fr, UnivariateImpl>>(std::forward<UnivariateImpl>(impl)))
     {}
 

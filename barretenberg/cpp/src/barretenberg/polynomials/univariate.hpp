@@ -39,6 +39,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     using View = UnivariateView<Fr, domain_end, domain_start, skip_count>;
     static constexpr size_t MONOMIAL_LENGTH = LENGTH > 1 ? 2 : 1;
     using CoefficientAccumulator = UnivariateCoefficientBasis<Fr, MONOMIAL_LENGTH, true>;
+    using __IS_UNIVARIATE__ = std::true_type;
 
     using value_type = Fr; // used to get the type of the elements consistently with std::array
 

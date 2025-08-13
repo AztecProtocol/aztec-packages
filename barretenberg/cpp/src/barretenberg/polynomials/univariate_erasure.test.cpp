@@ -79,6 +79,20 @@ TEST(UnivariateErasureTest, PlusScalarReturnsNew)
     EXPECT_EQ(g.value_at(2), fr(13));
 }
 
+TEST(UnivariateErasureTest, PlusScalarConvertsToFr)
+{
+    ErasedUnivariate<fr> f(Univariate<fr, 3>{ { 1, 2, 3 } });
+    auto g = f + 10;
+    // original unchanged
+    EXPECT_EQ(f.value_at(0), fr(1));
+    EXPECT_EQ(f.value_at(1), fr(2));
+    EXPECT_EQ(f.value_at(2), fr(3));
+    // new has +10
+    EXPECT_EQ(g.value_at(0), fr(11));
+    EXPECT_EQ(g.value_at(1), fr(12));
+    EXPECT_EQ(g.value_at(2), fr(13));
+}
+
 TEST(UnivariateErasureTest, SelfSubtraction)
 {
     ErasedUnivariate<fr> f1(Univariate<fr, 3>{ { 10, 20, 30 } });
