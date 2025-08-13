@@ -303,7 +303,7 @@ class NestedContext : public BaseContext {
     {}
 
     uint32_t get_parent_id() const override { return parent_context.get_context_id(); }
-    bool has_parent() const override { return false; }
+    bool has_parent() const override { return true; }
 
     Gas get_parent_gas_used() const override { return parent_context.get_gas_used(); }
     Gas get_parent_gas_limit() const override { return parent_context.get_gas_limit(); }

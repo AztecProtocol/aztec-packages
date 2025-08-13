@@ -55,10 +55,10 @@ class NestedCdCopySimulationTest : public DataCopySimulationTest {
         for (uint32_t i = 0; i < parent_cd_size; ++i) {
             mem.set(parent_cd_addr + i, MemoryValue::from(calldata[i]));
         }
-        EXPECT_CALL(context, get_parent_cd_addr()).WillOnce(Return(parent_cd_addr));
+        EXPECT_CALL(context, get_parent_cd_addr()).Times(2);
         EXPECT_CALL(context, get_parent_cd_size()).WillRepeatedly(Return(parent_cd_size));
-        EXPECT_CALL(context, get_parent_id()).Times(2).WillRepeatedly(Return(0));
-        EXPECT_CALL(context, has_parent()).WillOnce(Return(true));
+        EXPECT_CALL(context, get_parent_id());
+        EXPECT_CALL(context, has_parent()).Times(2).WillRepeatedly(Return(true));
     }
 
     std::vector<FF> calldata = { 1, 2, 3, 4, 5, 6, 7, 8 };
