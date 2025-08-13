@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/common/assert.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -29,9 +30,9 @@ template <class Fr> class UnivariateConcept {
     virtual std::vector<uint8_t> to_buffer() const = 0;
 
     // Arithmetic operations
-    // virtual UnivariateConcept& operator+=(const UnivariateConcept& other) = 0;
-    // virtual UnivariateConcept& operator-=(const UnivariateConcept& other) = 0;
-    // virtual UnivariateConcept& operator*=(const UnivariateConcept& other) = 0;
+    virtual UnivariateConcept& operator+=(const UnivariateConcept& other) = 0;
+    virtual UnivariateConcept& operator-=(const UnivariateConcept& other) = 0;
+    virtual UnivariateConcept& operator*=(const UnivariateConcept& other) = 0;
     virtual UnivariateConcept& operator+=(const Fr& scalar) = 0;
     virtual UnivariateConcept& operator-=(const Fr& scalar) = 0;
     virtual UnivariateConcept& operator*=(const Fr& scalar) = 0;
@@ -59,21 +60,30 @@ template <class Fr, class UnivariateImpl> class UnivariateModel : public Univari
     bool is_zero() const override { return impl_.is_zero(); }
     std::vector<uint8_t> to_buffer() const override { return impl_.to_buffer(); }
 
-    // UnivariateModel& operator+=(const UnivariateConcept<Fr>& other) override
-    // {
-    //     impl_.operator+=(other);
-    //     return *this;
-    // }
-    // UnivariateModel& operator-=(const UnivariateConcept<Fr>& other) override
-    // {
-    //     impl_.operator-=(other);
-    //     return *this;
-    // }
-    // UnivariateModel& operator*=(const UnivariateConcept<Fr>& other) override
-    // {
-    //     impl_.operator*=(other);
-    //     return *this;
-    // }
+    UnivariateModel& operator+=(const UnivariateConcept<Fr>& other) override
+    {
+        assert(impl_.size() == other.size());
+        auto* other_model = dynamic_cast<const UnivariateModel<Fr, UnivariateImpl>*>(&other);
+        assert(other_model != nullptr);
+        impl_ += other_model->impl_;
+        return *this;
+    }
+    UnivariateModel& operator-=(const UnivariateConcept<Fr>& other) override
+    {
+        assert(impl_.size() == other.size());
+        auto* other_model = dynamic_cast<const UnivariateModel<Fr, UnivariateImpl>*>(&other);
+        assert(other_model != nullptr);
+        impl_ -= other_model->impl_;
+        return *this;
+    }
+    UnivariateModel& operator*=(const UnivariateConcept<Fr>& other) override
+    {
+        assert(impl_.size() == other.size());
+        auto* other_model = dynamic_cast<const UnivariateModel<Fr, UnivariateImpl>*>(&other);
+        assert(other_model != nullptr);
+        impl_ *= other_model->impl_;
+        return *this;
+    }
     UnivariateModel& operator+=(const Fr& scalar) override
     {
         impl_.operator+=(scalar);
@@ -134,21 +144,21 @@ template <class Fr> class ErasedUnivariate {
     std::vector<uint8_t> to_buffer() const { return impl_->to_buffer(); }
 
     // Arithmetic operations
-    // ErasedUnivariate operator+=(const ErasedUnivariate& other)
-    // {
-    //     impl_->operator+=(other);
-    //     return *this;
-    // }
-    // ErasedUnivariate operator-=(const ErasedUnivariate& other)
-    // {
-    //     impl_->operator-=(other);
-    //     return *this;
-    // }
-    // ErasedUnivariate operator*=(const ErasedUnivariate& other)
-    // {
-    //     impl_->operator*=(other);
-    //     return *this;
-    // }
+    ErasedUnivariate& operator+=(const ErasedUnivariate& other)
+    {
+        impl_->operator+=(*other.impl_);
+        return *this;
+    }
+    ErasedUnivariate& operator-=(const ErasedUnivariate& other)
+    {
+        impl_->operator-=(*other.impl_);
+        return *this;
+    }
+    ErasedUnivariate& operator*=(const ErasedUnivariate& other)
+    {
+        impl_->operator*=(*other.impl_);
+        return *this;
+    }
     ErasedUnivariate& operator+=(const Fr& scalar)
     {
         impl_->operator+=(scalar);

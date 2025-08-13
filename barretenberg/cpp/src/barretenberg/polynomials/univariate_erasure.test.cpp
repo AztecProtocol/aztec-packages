@@ -41,13 +41,32 @@ TEST(UnivariateErasureTest, ScalarAddition)
     EXPECT_EQ(uni.value_at(2), fr(7));
 }
 
-// TEST(UnivariateErasureTest, Addition)
-// {
-//     ErasedUnivariate<fr> f1(Univariate<fr, 2>{ { 1, 2 } });
-//     ErasedUnivariate<fr> f2(Univariate<fr, 2>{ { 3, 4 } });
-//     // output should be {4, 6}
-//     ErasedUnivariate<fr> expected_result(Univariate<fr, 2>{ { 4, 6 } });
-//     // auto f1f2 = f1 + f2;
-//     f1 += f2;
-//     EXPECT_EQ(f1, expected_result);
-// }
+TEST(UnivariateErasureTest, SelfAddition)
+{
+    ErasedUnivariate<fr> f1(Univariate<fr, 2>{ { 1, 2 } });
+    ErasedUnivariate<fr> f2(Univariate<fr, 2>{ { 3, 4 } });
+    // output should be {4, 6}
+    f1 += f2;
+    EXPECT_EQ(f1.value_at(0), fr(4));
+    EXPECT_EQ(f1.value_at(1), fr(6));
+}
+
+TEST(UnivariateErasureTest, SelfSubtraction)
+{
+    ErasedUnivariate<fr> f1(Univariate<fr, 3>{ { 10, 20, 30 } });
+    ErasedUnivariate<fr> f2(Univariate<fr, 3>{ { 1, 2, 3 } });
+    f1 -= f2;
+    EXPECT_EQ(f1.value_at(0), fr(9));
+    EXPECT_EQ(f1.value_at(1), fr(18));
+    EXPECT_EQ(f1.value_at(2), fr(27));
+}
+
+TEST(UnivariateErasureTest, SelfMultiplication)
+{
+    ErasedUnivariate<fr> f1(Univariate<fr, 3>{ { 10, 20, 30 } });
+    ErasedUnivariate<fr> f2(Univariate<fr, 3>{ { 1, 2, 3 } });
+    f1 *= f2;
+    EXPECT_EQ(f1.value_at(0), fr(10));
+    EXPECT_EQ(f1.value_at(1), fr(40));
+    EXPECT_EQ(f1.value_at(2), fr(90));
+}
