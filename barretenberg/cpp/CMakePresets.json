@@ -279,6 +279,9 @@
       "cacheVariables": {
         "FUZZING": "ON",
         "DISABLE_AZTEC_VM": "ON"
+      },
+      "environment": {
+        "CMAKE_BUILD_TYPE": "RelWithAssert"
       }
     },
     {
@@ -291,6 +294,9 @@
         "FUZZING": "ON",
         "DISABLE_AZTEC_VM": "ON",
         "DISABLE_ASM": "ON"
+      },
+      "environment": {
+        "CMAKE_BUILD_TYPE": "RelWithAssert"
       }
     },
     {
@@ -305,6 +311,9 @@
         "DISABLE_AZTEC_VM": "ON",
         "ENABLE_ASAN": "ON",
         "DISABLE_ASM": "ON"
+      },
+      "environment": {
+        "CMAKE_BUILD_TYPE": "RelWithAssert"
       }
     },
     {
@@ -319,7 +328,8 @@
         "DISABLE_AZTEC_VM": "ON"
       },
       "environment": {
-        "CXXFLAGS": "-fprofile-instr-generate -fcoverage-mapping"
+        "CXXFLAGS": "-fprofile-instr-generate -fcoverage-mapping",
+        "CMAKE_BUILD_TYPE": "RelWithAssert"
       }
     },
     {
