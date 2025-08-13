@@ -43,8 +43,6 @@ template <typename G1> class ecc_generator_table {
 
     static void init_generator_tables();
 
-    static size_t convert_position_to_shifted_naf(const size_t position);
-    static size_t convert_shifted_naf_to_position(const size_t shifted_naf);
     static std::array<fr, 2> get_xlo_endo_values(const std::array<uint64_t, 2> key);
     static std::array<fr, 2> get_xhi_endo_values(const std::array<uint64_t, 2> key);
     static std::array<fr, 2> get_xlo_values(const std::array<uint64_t, 2> key);
