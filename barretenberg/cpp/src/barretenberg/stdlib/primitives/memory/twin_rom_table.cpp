@@ -16,6 +16,7 @@ namespace bb::stdlib {
 template <typename Builder>
 twin_rom_table<Builder>::twin_rom_table(const std::vector<std::array<field_pt, 2>>& table_entries)
 {
+    static_assert(HasPlookup<Builder>);
     // get the builder context
     for (const auto& entry : table_entries) {
         if (entry[0].get_context() != nullptr) {

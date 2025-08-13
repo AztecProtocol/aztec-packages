@@ -15,6 +15,7 @@ namespace bb::stdlib {
 
 template <typename Builder> rom_table<Builder>::rom_table(const std::vector<field_pt>& table_entries)
 {
+    static_assert(HasPlookup<Builder>);
     // get the builder context
     for (const auto& entry : table_entries) {
         if (entry.get_context() != nullptr) {
