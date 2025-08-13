@@ -22,7 +22,6 @@ class ClientIVCRecursiveVerifier {
     using GoblinVerifier = GoblinRecursiveVerifier;
     using Flavor = RecursiveFlavor::NativeFlavor;
     using VerificationKey = Flavor::VerificationKey;
-    using IVCVerificationKey = ClientIVC::VerificationKey;
     using Transcript = GoblinRecursiveVerifier::Transcript;
 
   public:
@@ -41,14 +40,21 @@ class ClientIVCRecursiveVerifier {
         {}
     };
 
-    ClientIVCRecursiveVerifier(const std::shared_ptr<Builder>& builder, IVCVerificationKey& ivc_verification_key)
+    ClientIVCRecursiveVerifier(const std::shared_ptr<Builder>& builder,
+                               const std::shared_ptr<VerificationKey>& native_mega_vk)
         : builder(builder)
-        , ivc_verification_key(ivc_verification_key) {};
+        , stdlib_mega_vk_and_hash(std::make_shared<RecursiveVKAndHash>(builder, native_mega_vk)){};
+
+    ClientIVCRecursiveVerifier(const std::shared_ptr<Builder>& builder,
+                               const std::shared_ptr<RecursiveVKAndHash>& stdlib_mega_vk_and_hash)
+        : builder(builder)
+        , stdlib_mega_vk_and_hash(stdlib_mega_vk_and_hash){};
 
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] Output verify(const StdlibProof&);
 
   private:
     std::shared_ptr<Builder> builder;
-    IVCVerificationKey ivc_verification_key;
+    // VK and hash of the hiding kernel
+    std::shared_ptr<RecursiveVKAndHash> stdlib_mega_vk_and_hash;
 };
 } // namespace bb::stdlib::recursion::honk
