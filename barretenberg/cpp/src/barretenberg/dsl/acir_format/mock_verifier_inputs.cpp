@@ -27,12 +27,29 @@ using namespace bb;
  * @param fields field buffer to append mock commitment values to
  * @param num_commitments number of mock commitments to append
  */
+template <class Curve = curve::BN254>
 void populate_field_elements_for_mock_commitments(std::vector<fr>& fields, const size_t& num_commitments)
 {
-    auto mock_commitment = curve::BN254::AffineElement::one();
+    auto mock_commitment = Curve::AffineElement::one();
     std::vector<fr> mock_commitment_frs = field_conversion::convert_to_bn254_frs(mock_commitment);
     for (size_t i = 0; i < num_commitments; ++i) {
         for (const fr& val : mock_commitment_frs) {
+            fields.emplace_back(val);
+        }
+    }
+}
+
+/**
+ * @brief Helper to populate a field buffer with some number of field elements
+ *
+ * @param fields field buffer to append field elements to
+ * @param num_commitments number of mock commitments to append
+ */
+template <class FF = curve::BN254::ScalarField>
+void populate_field_elements(std::vector<fr>& fields, const size_t& num_elements)
+{
+    for (size_t i = 0; i < num_elements; ++i) {
+        for (auto& val : field_conversion::convert_to_bn254_frs(FF::random_element())) {
             fields.emplace_back(val);
         }
     }
@@ -200,101 +217,91 @@ HonkProof create_mock_pre_ipa_proof()
     HonkProof proof;
 
     // 1. NUM_WITNESS_ENTITIES commitments
-    for (size_t idx = 0; idx < ECCVMFlavor::NUM_WITNESS_ENTITIES; idx++) {
-        proof.emplace_back(FF::random_element());
-    }
+    populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, ECCVMFlavor::NUM_WITNESS_ENTITIES);
 
     // 2. Libra concatenation commitment
-    populate_field_elements_for_mock_commitments(proof, /*num_commitments*/ 1);
+    populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, /*num_commitments*/ 1);
 
     // 3. Libra sum
-    proof.emplace_back(FF::random_element());
+    populate_field_elements<FF>(proof, 1);
 
     // 4. Sumcheck univariates commitments
-    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/CONST_ECCVM_LOG_N);
+    populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, /*num_commitments=*/CONST_ECCVM_LOG_N);
 
     // 5. Sumcheck univariate evaluations
-    for (size_t idx = 0; idx < 2 * CONST_ECCVM_LOG_N; idx++) {
-        proof.emplace_back(FF::random_element());
-    }
+    populate_field_elements<FF>(proof, CONST_ECCVM_LOG_N + CONST_ECCVM_LOG_N);
 
     // 6. ALL_ENTITIES sumcheck evaluations
-    for (size_t idx = 0; idx < ECCVMFlavor::NUM_ALL_ENTITIES; idx++) {
-        proof.emplace_back(FF::random_element());
-    }
+    populate_field_elements<FF>(proof, ECCVMFlavor::NUM_ALL_ENTITIES);
 
     // 7. Libra evaluation
-    proof.emplace_back(FF::random_element());
+    populate_field_elements<FF>(proof, 1);
 
     // 8. Libra grand sum commitment
-    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/CONST_ECCVM_LOG_N);
+    populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, /*num_commitments=*/1);
 
     // 9. Libra quotient commitment
-    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/CONST_ECCVM_LOG_N);
+    populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, /*num_commitments=*/1);
 
     // 10. Gemini masking commitment
-    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/CONST_ECCVM_LOG_N);
+    populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, /*num_commitments=*/1);
 
     // 11. Gemini masking evaluations
-    proof.emplace_back(FF::random_element());
+    populate_field_elements<FF>(proof, 1);
 
     // 12. Gemini fold commitments
-    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/CONST_ECCVM_LOG_N - 1);
+    populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, /*num_commitments=*/CONST_ECCVM_LOG_N - 1);
 
     // 13. Gemini evaluations
-    for (size_t idx = 0; idx < CONST_ECCVM_LOG_N; idx++) {
-        proof.emplace_back(FF::random_element());
-    }
+    populate_field_elements<FF>(proof, CONST_ECCVM_LOG_N);
 
     // 14. NUM_SMALL_IPA_EVALUATIONS libra evals
-    for (size_t idx = 0; idx < NUM_SMALL_IPA_EVALUATIONS; idx++) {
-        proof.emplace_back(FF::random_element());
-    }
+    populate_field_elements<FF>(proof, NUM_SMALL_IPA_EVALUATIONS);
 
     // 15. Shplonk
-    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/1);
+    populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, /*num_commitments=*/1);
 
     // 16. Translator concatenated masking term commitment
-    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/1);
+    populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, /*num_commitments=*/1);
 
     // 17. Translator op evaluation
-    proof.emplace_back(FF::random_element());
+    populate_field_elements<FF>(proof, 1);
 
     // 18. Translator Px evaluation
-    proof.emplace_back(FF::random_element());
+    populate_field_elements<FF>(proof, 1);
 
     // 19. Translator Py evaluation
-    proof.emplace_back(FF::random_element());
+    populate_field_elements<FF>(proof, 1);
 
     // 20. Translator z1 evaluation
-    proof.emplace_back(FF::random_element());
+    populate_field_elements<FF>(proof, 1);
 
     // 21. Translator z2 evaluation
-    proof.emplace_back(FF::random_element());
+    populate_field_elements<FF>(proof, 1);
 
     // 22. Translator concatenated masking term evaluation
-    proof.emplace_back(FF::random_element());
+    populate_field_elements<FF>(proof, 1);
 
     // 23. Translator grand sum commitment
-    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/1);
+    populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, /*num_commitments=*/1);
 
     // 24. Translator quotient commitment
-    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/1);
+    populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, /*num_commitments=*/1);
 
     // 25. Translator concatenation evaluation
-    proof.emplace_back(FF::random_element());
+    populate_field_elements<FF>(proof, 1);
 
     // 26. Translator grand sum shift evaluation
-    proof.emplace_back(FF::random_element());
+    populate_field_elements<FF>(proof, 1);
 
     // 27. Translator grand sum evaluation
-    proof.emplace_back(FF::random_element());
+    populate_field_elements<FF>(proof, 1);
 
     // 28. Translator quotient evaluation
-    proof.emplace_back(FF::random_element());
+    populate_field_elements<FF>(proof, 1);
 
     // 29. Shplonk
-    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/1);
+    populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, /*num_commitments=*/1);
 
     BB_ASSERT_EQ(proof.size(), ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH);
 
@@ -311,12 +318,14 @@ HonkProof create_mock_ipa_proof()
     HonkProof proof;
 
     // Commitments to L and R for CONST_ECCVM_LOG_N round
-    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/2 * CONST_ECCVM_LOG_N);
+    populate_field_elements_for_mock_commitments<curve::Grumpkin>(
+        proof, /*num_commitments=*/CONST_ECCVM_LOG_N + CONST_ECCVM_LOG_N);
 
     // Commitment to G_0
-    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/1);
+    populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, /*num_commitments=*/1);
 
-    // a_0 evaluation
+    // a_0 evaluation (a_0 is in the base field of BN254)
+    proof.emplace_back(fr::random_element());
     proof.emplace_back(fr::random_element());
 
     BB_ASSERT_EQ(proof.size(), IPA_PROOF_LENGTH);
@@ -332,73 +341,68 @@ HonkProof create_mock_ipa_proof()
 HonkProof create_mock_translator_proof()
 {
     using FF = TranslatorFlavor::FF;
+    using BF = TranslatorFlavor::BF;
+    using Curve = TranslatorFlavor::Curve;
 
     HonkProof proof;
 
     // 1. Accumulated result
-    proof.emplace_back(FF::random_element());
+    populate_field_elements<BF>(proof, 1);
 
     // 1. NUM_WITNESS_ENTITIES commitments
-    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/TranslatorFlavor::NUM_WITNESS_ENTITIES);
+    populate_field_elements_for_mock_commitments<Curve>(proof,
+                                                        /*num_commitments=*/TranslatorFlavor::NUM_WITNESS_ENTITIES - 4);
 
     // 2. Libra concatenation commitment
-    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/1);
+    populate_field_elements_for_mock_commitments<Curve>(proof, /*num_commitments=*/1);
 
     // 3. Libra sum
-    proof.emplace_back(FF::random_element());
+    populate_field_elements<FF>(proof, 1);
 
     // 4. sumcheck univariates
-    for (size_t idx = 0;
-         idx < TranslatorFlavor::CONST_TRANSLATOR_LOG_N * TranslatorFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
-         idx++) {
-        proof.emplace_back(FF::random_element());
-    }
+    populate_field_elements<FF>(
+        proof, TranslatorFlavor::CONST_TRANSLATOR_LOG_N * TranslatorFlavor::BATCHED_RELATION_PARTIAL_LENGTH);
 
     // 5. NUM_ALL_ENTITIES sumcheck evaluations
-    for (size_t idx = 0; idx < TranslatorFlavor::NUM_ALL_ENTITIES; idx++) {
-        proof.emplace_back(FF::random_element());
-    }
+    populate_field_elements<FF>(proof, TranslatorFlavor::NUM_ALL_ENTITIES);
 
     // 6. Libra claimed evaluation
-    proof.emplace_back(FF::random_element());
+    populate_field_elements<FF>(proof, 1);
 
     // 7. Libra grand sum commitment
-    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/1);
+    populate_field_elements_for_mock_commitments<Curve>(proof, /*num_commitments=*/1);
 
     // 8. Libra quotient commitment
-    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/1);
+    populate_field_elements_for_mock_commitments<Curve>(proof, /*num_commitments=*/1);
 
     // 9. Gemini masking commitment
-    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/1);
+    populate_field_elements_for_mock_commitments<Curve>(proof, /*num_commitments=*/1);
 
     // 10. Gemini masking evaluation
-    proof.emplace_back(FF::random_element());
+    populate_field_elements<FF>(proof, 1);
 
     // 11. CONST_TRANSLATOR_LOG_N - 1 Gemini fold commitments
-    populate_field_elements_for_mock_commitments(proof,
-                                                 /*num_commitments=*/TranslatorFlavor::CONST_TRANSLATOR_LOG_N - 1);
+    populate_field_elements_for_mock_commitments<Curve>(proof,
+                                                        /*num_commitments=*/TranslatorFlavor::CONST_TRANSLATOR_LOG_N -
+                                                            1);
 
     // 12. CONST_TRANSLATOR_LOG_N Gemini evaluations
-    for (size_t idx = 0; idx < TranslatorFlavor::CONST_TRANSLATOR_LOG_N; idx++) {
-        proof.emplace_back(FF::random_element());
-    }
+    populate_field_elements<FF>(proof, TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
 
     // 13. Gemini P pos evaluation
-    proof.emplace_back(FF::random_element());
+    populate_field_elements<FF>(proof, 1);
 
     // 14. Gemini P neg evaluation
-    proof.emplace_back(FF::random_element());
+    populate_field_elements<FF>(proof, 1);
 
     // 15. NUM_SMALL_IPA_EVALUATIONS libra evals
-    for (size_t idx = 0; idx < NUM_SMALL_IPA_EVALUATIONS; idx++) {
-        proof.emplace_back(FF::random_element());
-    }
+    populate_field_elements<FF>(proof, NUM_SMALL_IPA_EVALUATIONS);
 
     // 16. Shplonk
-    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/1);
+    populate_field_elements_for_mock_commitments<Curve>(proof, /*num_commitments=*/1);
 
     // 17. KZG
-    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/1);
+    populate_field_elements_for_mock_commitments<Curve>(proof, /*num_commitments=*/1);
 
     BB_ASSERT_EQ(proof.size(), TranslatorFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
 
