@@ -85,11 +85,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     // If virtual_log_n >= log_n, pad the fold commitments with dummy group elements [1]_1.
     for (size_t l = 0; l < virtual_log_n - 1; l++) {
         std::string label = "Gemini:FOLD_" + std::to_string(l + 1);
-        if (l < log_n - 1) {
-            transcript->send_to_verifier(label, commitment_key.commit(fold_polynomials[l]));
-        } else {
-            transcript->send_to_verifier(label, Commitment::one());
-        }
+        transcript->send_to_verifier(label, commitment_key.commit(fold_polynomials[l]));
     }
     const Fr r_challenge = transcript->template get_challenge<Fr>("Gemini:r");
 
@@ -104,18 +100,14 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
 
     // Compute polynomials A₀₊(X) = F(X) + G(X)/r and A₀₋(X) = F(X) - G(X)/r
     auto [A_0_pos, A_0_neg] = polynomial_batcher.compute_partially_evaluated_batch_polynomials(r_challenge);
+    info("num fold polys ", fold_polynomials.size());
     // Construct claims for the d + 1 univariate evaluations A₀₊(r), A₀₋(-r), and Foldₗ(−r^{2ˡ}), l = 1, ..., d-1
     std::vector<Claim> claims = construct_univariate_opening_claims(
-        log_n, std::move(A_0_pos), std::move(A_0_neg), std::move(fold_polynomials), r_challenge);
+        virtual_log_n, std::move(A_0_pos), std::move(A_0_neg), std::move(fold_polynomials), r_challenge);
 
-    // If virtual_log_n >= log_n, pad the negative fold evaluations with zeroes.
     for (size_t l = 1; l <= virtual_log_n; l++) {
         std::string label = "Gemini:a_" + std::to_string(l);
-        if (l <= log_n) {
-            transcript->send_to_verifier(label, claims[l].opening_pair.evaluation);
-        } else {
-            transcript->send_to_verifier(label, Fr::zero());
-        }
+        transcript->send_to_verifier(label, claims[l].opening_pair.evaluation);
     }
 
     // If running Gemini for the Translator VM polynomials, A₀(r) = A₀₊(r) + P₊(rˢ) and A₀(-r) = A₀₋(-r) + P₋(rˢ)
@@ -148,12 +140,16 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
     const size_t log_n, std::span<const Fr> multilinear_challenge, const Polynomial& A_0)
 {
     const size_t num_threads = get_num_cpus_pow2();
+
+    const size_t virtual_log_n = multilinear_challenge.size();
+    info("virt_log_n ", virtual_log_n);
+    info("log_n, ", log_n);
     constexpr size_t efficient_operations_per_thread = 64; // A guess of the number of operation for which there
                                                            // would be a point in sending them to a separate thread
 
     // Reserve and allocate space for m-1 Fold polynomials, the foldings of the full batched polynomial A₀
     std::vector<Polynomial> fold_polynomials;
-    fold_polynomials.reserve(log_n - 1);
+    fold_polynomials.reserve(virtual_log_n - 1);
     for (size_t l = 0; l < log_n - 1; ++l) {
         // size of the previous polynomial/2
         const size_t n_l = 1 << (log_n - l - 1);
@@ -196,6 +192,22 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
         });
         // set Aₗ₊₁ = Aₗ for the next iteration
         A_l = A_l_fold;
+    }
+    const auto& last = fold_polynomials.back();
+    info("last size ", last.size());
+    const Fr u_last = multilinear_challenge[log_n - 1];
+    const Fr final_eval = last.at(0) + u_last * (last.at(1) - last.at(0));
+    Polynomial const_fold(1);
+    const_fold.at(0) = final_eval;
+    fold_polynomials.emplace_back(const_fold);
+
+    // FOLD_{log_n+1}, ..., FOLD_{d_v-1}
+    Fr tail = Fr(1);
+    for (size_t k = log_n; k < virtual_log_n - 1; ++k) {
+        tail *= (Fr(1) - multilinear_challenge[k]); // multiply by (1 - u_k)
+        Polynomial next_const(1);
+        next_const.at(0) = final_eval * tail;
+        fold_polynomials.emplace_back(next_const);
     }
 
     return fold_polynomials;
