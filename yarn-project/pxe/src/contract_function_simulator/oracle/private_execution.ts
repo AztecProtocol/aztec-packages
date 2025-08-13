@@ -72,7 +72,7 @@ export async function executePrivateFunction(
   // TODO (alexg) estimate this size
   const initialWitnessSize = witnessMapToFields(initialWitness).length * Fr.SIZE_IN_BYTES;
   log.debug(`Ran external function ${contractAddress.toString()}:${functionSelector}`, {
-    circuitName: 'app-circuit',
+    circuitName: 'ClientIVC',
     duration,
     eventName: 'circuit-witness-generation',
     inputSize: initialWitnessSize,

@@ -127,6 +127,7 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
         RelationParameters<FF>{ eta, eta_two, eta_three, beta, gamma, public_input_delta };
     decider_vk->witness_commitments = std::move(commitments);
     decider_vk->alphas = std::move(alphas);
+    decider_vk->is_complete = true; // instance has been completely populated
 }
 
 template class OinkRecursiveVerifier_<bb::UltraRecursiveFlavor_<UltraCircuitBuilder>>;
