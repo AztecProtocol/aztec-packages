@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/constants.hpp"
 #include <span>
 namespace bb {
 
@@ -25,7 +26,7 @@ template <typename Flavor>
 typename Flavor::FF compute_public_input_delta(std::span<const typename Flavor::FF> public_inputs,
                                                const typename Flavor::FF& beta,
                                                const typename Flavor::FF& gamma,
-                                               const typename Flavor::FF& log_domain_size,
+                                               [[maybe_unused]] const typename Flavor::FF& log_domain_size,
                                                const typename Flavor::FF& offset = 0)
 {
     using Field = typename Flavor::FF;
@@ -57,7 +58,7 @@ typename Flavor::FF compute_public_input_delta(std::span<const typename Flavor::
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1158): Ensure correct construction of public input
     // delta in the face of increases to virtual size caused by execution trace overflow
-    Field domain_size = Field(2).pow(log_domain_size);
+    Field domain_size = Field(2).pow(CONST_PROOF_SIZE_LOG_N);
     Field numerator_acc = gamma + (beta * (domain_size + offset));
     Field denominator_acc = gamma - beta * (offset + 1);
 

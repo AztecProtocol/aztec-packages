@@ -225,9 +225,10 @@ template <typename Flavor>
 void compute_honk_style_permutation_lagrange_polynomials_from_mapping(
     const RefSpan<typename Flavor::Polynomial>& permutation_polynomials,
     const std::array<Mapping, Flavor::NUM_WIRES>& permutation_mappings,
-    const size_t dyadic_size,
+    [[maybe_unused]] const size_t dyadic_size,
     ActiveRegionData& active_region_data)
 {
+    static constexpr size_t virtual_size = 1UL << CONST_PROOF_SIZE_LOG_N;
     using FF = typename Flavor::FF;
 
     size_t domain_size = active_region_data.size();
@@ -256,14 +257,14 @@ void compute_honk_style_permutation_lagrange_polynomials_from_mapping(
                     // These indices are chosen so they can easily be computed by the verifier. They can expect
                     // the running product to be equal to the "public input delta" that is computed
                     // in <honk/utils/grand_product_delta.hpp>
-                    current_permutation_poly.at(poly_idx) = -FF(current_row_idx + 1 + dyadic_size * current_col_idx);
+                    current_permutation_poly.at(poly_idx) = -FF(current_row_idx + 1 + virtual_size * current_col_idx);
                 } else if (current_is_tag) {
                     // Set evaluations to (arbitrary) values disjoint from non-tag values
-                    current_permutation_poly.at(poly_idx) = dyadic_size * Flavor::NUM_WIRES + current_row_idx;
+                    current_permutation_poly.at(poly_idx) = virtual_size * Flavor::NUM_WIRES + current_row_idx;
                 } else {
                     // For the regular permutation we simply point to the next location by setting the
                     // evaluation to its idx
-                    current_permutation_poly.at(poly_idx) = FF(current_row_idx + dyadic_size * current_col_idx);
+                    current_permutation_poly.at(poly_idx) = FF(current_row_idx + virtual_size * current_col_idx);
                 }
             }
         });
@@ -287,7 +288,7 @@ void compute_permutation_argument_polynomials(const typename Flavor::CircuitBuil
                                               ActiveRegionData& active_region_data)
 {
     constexpr bool generalized = IsUltraOrMegaHonk<Flavor>;
-    const size_t dyadic_size = polynomials.get_polynomial_size();
+    const size_t dyadic_size = 1UL << CONST_PROOF_SIZE_LOG_N;
     auto mapping = compute_permutation_mapping<Flavor, generalized>(circuit, dyadic_size, copy_cycles);
 
     // Compute Honk-style sigma and ID polynomials from the corresponding mappings
