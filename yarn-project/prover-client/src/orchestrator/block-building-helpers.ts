@@ -412,40 +412,6 @@ export async function getEmptyBlockBlobsHash(): Promise<Fr> {
   return sha256ToField(blobHash);
 }
 
-// Validate that the roots of all local trees match the output of the root circuit simulation
-// TODO: does this get called?
-export async function validateBlockRootOutput(
-  blockRootOutput: BlockRollupPublicInputs,
-  blockHeader: BlockHeader,
-  db: MerkleTreeReadOperations,
-) {
-  await Promise.all([
-    validateState(blockHeader.state, db),
-    validateSimulatedTree(await getTreeSnapshot(MerkleTreeId.ARCHIVE, db), blockRootOutput.newArchive, 'Archive'),
-  ]);
-}
-
-export const validateState = runInSpan(
-  'BlockBuilderHelpers',
-  'validateState',
-  async (_span, state: StateReference, db: MerkleTreeReadOperations) => {
-    const promises = [MerkleTreeId.NOTE_HASH_TREE, MerkleTreeId.NULLIFIER_TREE, MerkleTreeId.PUBLIC_DATA_TREE].map(
-      async (id: MerkleTreeId) => {
-        return { key: id, value: await getTreeSnapshot(id, db) };
-      },
-    );
-    const snapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot> = new Map(
-      (await Promise.all(promises)).map(obj => [obj.key, obj.value]),
-    );
-    validatePartialState(state.partial, snapshots);
-    validateSimulatedTree(
-      await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db),
-      state.l1ToL2MessageTree,
-      'L1ToL2MessageTree',
-    );
-  },
-);
-
 export async function getLastSiblingPath<TID extends MerkleTreeId>(treeId: TID, db: MerkleTreeReadOperations) {
   const { size } = await db.getTreeInfo(treeId);
   const path = await db.getSiblingPath(treeId, size - 1n);

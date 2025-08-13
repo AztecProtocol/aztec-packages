@@ -6,7 +6,7 @@ import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/s
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import type { FieldsOf } from '@aztec/foundation/types';
 
-import { ProofData } from '../proofs/index.js';
+import { ProofData } from '../proofs/proof_data.js';
 import { BlockHeader } from '../tx/block_header.js';
 import { BlockRollupPublicInputs } from './block_rollup_public_inputs.js';
 import type { RollupProofData } from './rollup_proof_data.js';

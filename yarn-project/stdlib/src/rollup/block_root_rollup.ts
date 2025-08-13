@@ -5,10 +5,10 @@ import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, type Tuple, bigintToUInt64BE, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
-import { ParityPublicInputs } from '../parity/index.js';
-import { ProofData } from '../proofs/index.js';
-import { AppendOnlyTreeSnapshot } from '../trees/index.js';
-import { StateReference } from '../tx/index.js';
+import { ParityPublicInputs } from '../parity/parity_public_inputs.js';
+import { ProofData } from '../proofs/proof_data.js';
+import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
+import { StateReference } from '../tx/state_reference.js';
 import type { UInt64 } from '../types/shared.js';
 import { BaseOrMergeRollupPublicInputs } from './base_or_merge_rollup_public_inputs.js';
 import { CheckpointConstantData } from './checkpoint_constant_data.js';

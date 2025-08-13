@@ -7,7 +7,7 @@ import { BufferReader, type Tuple, serializeToBuffer, serializeToFields } from '
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import type { FieldsOf } from '@aztec/foundation/types';
 
-import { ProofData } from '../proofs/index.js';
+import { ProofData } from '../proofs/proof_data.js';
 import { CheckpointRollupPublicInputs, FeeRecipient } from './checkpoint_rollup_public_inputs.js';
 import { EpochConstantData } from './epoch_constant_data.js';
 import type { RollupProofData } from './rollup_proof_data.js';

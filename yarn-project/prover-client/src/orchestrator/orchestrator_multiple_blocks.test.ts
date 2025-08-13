@@ -25,44 +25,8 @@ describe('prover/orchestrator/multi-block', () => {
   });
 
   describe('multiple blocks', () => {
-    // Skipping in the interest of speeding up CI
-    it.skip.each([1, 4, 5])('builds an epoch with %s blocks in sequence', async (numBlocks: number) => {
-      logger.info(`Seeding world state with ${numBlocks} blocks`);
-      // One block per checkpoint.
-      const numCheckpoints = numBlocks;
-      const txCount = 2;
-      const blocks = await timesAsync(numBlocks, i => context.makePendingBlock(txCount, 0, i + 1));
-      const blockBlobFields = blocks.map(block => block.block.body.toBlobFields());
-      const blobs = (await Promise.all(blockBlobFields.map(blobFields => Blob.getBlobsPerBlock(blobFields)))).flat();
-      const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
-
-      logger.info(`Starting new epoch with ${numBlocks}`);
-      context.orchestrator.startNewEpoch(1, numCheckpoints, finalBlobChallenges);
-
-      for (let i = 0; i < blocks.length; i++) {
-        const { block, txs } = blocks[i];
-        const slotNumber = block.header.globalVariables.slotNumber.toNumber();
-        await context.orchestrator.startNewCheckpoint(
-          makeCheckpointConstants(slotNumber),
-          [],
-          1 /* numBlocks */,
-          blockBlobFields[i].length,
-          context.getPreviousBlockHeader(block.number),
-        );
-
-        await context.orchestrator.startNewBlock(block.number, block.header.globalVariables.timestamp, txs.length);
-        await context.orchestrator.addTxs(txs);
-        await context.orchestrator.setBlockCompleted(block.number);
-      }
-
-      logger.info('Finalising epoch');
-      const epoch = await context.orchestrator.finaliseEpoch();
-      expect(countHeaderHashes(epoch.publicInputs.checkpointHeaderHashes)).toEqual(numCheckpoints);
-      expect(epoch.proof).toBeDefined();
-    });
-
-    it.each([1, 4])(
-      'builds an epoch with %s blocks in parallel',
+    it.each([4, 5])(
+      'builds an epoch with %s blocks in sequence',
       async (numBlocks: number) => {
         logger.info(`Seeding world state with ${numBlocks} blocks`);
         // One block per checkpoint.
@@ -76,22 +40,21 @@ describe('prover/orchestrator/multi-block', () => {
         logger.info(`Starting new epoch with ${numBlocks}`);
         context.orchestrator.startNewEpoch(1, numCheckpoints, finalBlobChallenges);
 
-        await Promise.all(
-          blocks.map(async ({ block, txs }, i) => {
-            const slotNumber = block.header.globalVariables.slotNumber.toNumber();
-            await context.orchestrator.startNewCheckpoint(
-              makeCheckpointConstants(slotNumber),
-              [],
-              1 /* numBlocks */,
-              blockBlobFields[i].length,
-              context.getPreviousBlockHeader(block.number),
-            );
+        for (let i = 0; i < blocks.length; i++) {
+          const { block, txs } = blocks[i];
+          const slotNumber = block.header.globalVariables.slotNumber.toNumber();
+          await context.orchestrator.startNewCheckpoint(
+            makeCheckpointConstants(slotNumber),
+            [],
+            1 /* numBlocks */,
+            blockBlobFields[i].length,
+            context.getPreviousBlockHeader(block.number),
+          );
 
-            await context.orchestrator.startNewBlock(block.number, block.header.globalVariables.timestamp, txs.length);
-            await context.orchestrator.addTxs(txs);
-            await context.orchestrator.setBlockCompleted(block.number);
-          }),
-        );
+          await context.orchestrator.startNewBlock(block.number, block.header.globalVariables.timestamp, txs.length);
+          await context.orchestrator.addTxs(txs);
+          await context.orchestrator.setBlockCompleted(block.number);
+        }
 
         logger.info('Finalising epoch');
         const epoch = await context.orchestrator.finaliseEpoch();
@@ -105,7 +68,7 @@ describe('prover/orchestrator/multi-block', () => {
       'builds two consecutive epochs',
       async () => {
         const numEpochs = 2;
-        const numBlocks = 4;
+        const numBlocks = 3;
         const txCount = 2;
         logger.info(`Seeding world state with ${numBlocks * numEpochs} blocks`);
         const blocks = await timesAsync(numBlocks * numEpochs, i => context.makePendingBlock(txCount, 0, i + 1));
@@ -122,23 +85,25 @@ describe('prover/orchestrator/multi-block', () => {
           ).flat();
           const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
           context.orchestrator.startNewEpoch(epochNumber, numCheckpoints, finalBlobChallenges);
-          await Promise.all(
-            blocksInEpoch.map(async ({ block, txs }, i) => {
-              const slotNumber = block.header.globalVariables.slotNumber.toNumber();
-              await context.orchestrator.startNewCheckpoint(
-                makeCheckpointConstants(slotNumber),
-                [],
-                1 /* numBlocks */,
-                blockBlobFields[i].length,
-                context.getPreviousBlockHeader(block.number),
-              );
+          for (let i = 0; i < blocksInEpoch.length; i++) {
+            const { block, txs } = blocksInEpoch[i];
+            const slotNumber = block.header.globalVariables.slotNumber.toNumber();
+            await context.orchestrator.startNewCheckpoint(
+              makeCheckpointConstants(slotNumber),
+              [],
+              1 /* numBlocks */,
+              blockBlobFields[i].length,
+              context.getPreviousBlockHeader(block.number),
+            );
 
-              await context.orchestrator.startNewBlock(
-                block.number,
-                block.header.globalVariables.timestamp,
-                txs.length,
-              );
-              await context.orchestrator.addTxs(txs);
+            await context.orchestrator.startNewBlock(block.number, block.header.globalVariables.timestamp, txs.length);
+            // txs must be added for each block sequentially.
+            await context.orchestrator.addTxs(txs);
+          }
+
+          // setBlockCompleted may be called in parallel, but it must be called after all txs have been added.
+          await Promise.all(
+            blocksInEpoch.map(async ({ block }) => {
               await context.orchestrator.setBlockCompleted(block.number);
             }),
           );

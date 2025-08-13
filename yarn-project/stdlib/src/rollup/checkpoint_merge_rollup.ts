@@ -2,7 +2,7 @@ import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
-import { ProofData } from '../proofs/index.js';
+import { ProofData } from '../proofs/proof_data.js';
 import { CheckpointRollupPublicInputs } from './checkpoint_rollup_public_inputs.js';
 import type { RollupProofData } from './rollup_proof_data.js';
 

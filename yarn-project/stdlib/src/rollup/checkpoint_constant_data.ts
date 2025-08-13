@@ -4,7 +4,7 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
 import { AztecAddress } from '../aztec-address/index.js';
-import { GasFees } from '../gas/index.js';
+import { GasFees } from '../gas/gas_fees.js';
 
 /**
  * Constants that are the same for the entire checkpoint.

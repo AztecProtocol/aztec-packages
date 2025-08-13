@@ -687,6 +687,7 @@ function proofTypeComparator(a: ProvingRequestType, b: ProvingRequestType): -1 |
 export const PROOF_TYPES_IN_PRIORITY_ORDER: ProvingRequestType[] = [
   ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP,
   ProvingRequestType.BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP,
+  ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP,
   ProvingRequestType.BLOCK_ROOT_ROLLUP,
   ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP,
   ProvingRequestType.BLOCK_MERGE_ROLLUP,
@@ -702,5 +703,4 @@ export const PROOF_TYPES_IN_PRIORITY_ORDER: ProvingRequestType[] = [
   ProvingRequestType.TUBE_PROOF,
   ProvingRequestType.ROOT_PARITY,
   ProvingRequestType.BASE_PARITY,
-  ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP,
 ];

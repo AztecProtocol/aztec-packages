@@ -199,7 +199,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
         WorldStateMessageType.SYNC_BLOCK,
         {
           blockNumber: l2Block.number,
-          blockHeaderHash: await l2Block.hash(),
+          blockHeaderHash: await l2Block.getBlockHeader().hash(),
           paddedL1ToL2Messages: paddedL1ToL2Messages.map(serializeLeaf),
           paddedNoteHashes: paddedNoteHashes.map(serializeLeaf),
           paddedNullifiers: paddedNullifiers.map(serializeLeaf),

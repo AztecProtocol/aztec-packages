@@ -5,7 +5,7 @@ import { BufferReader, bigintToUInt64BE, serializeToBuffer } from '@aztec/founda
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
-import { StateReference } from '../tx/index.js';
+import { StateReference } from '../tx/state_reference.js';
 import type { UInt64 } from '../types/shared.js';
 import { CheckpointConstantData } from './checkpoint_constant_data.js';
 

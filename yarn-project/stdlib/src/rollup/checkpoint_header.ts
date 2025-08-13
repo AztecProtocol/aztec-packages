@@ -13,7 +13,7 @@ import { z } from 'zod';
 import { AztecAddress } from '../aztec-address/index.js';
 import { GasFees } from '../gas/index.js';
 import { schemas } from '../schemas/index.js';
-import { ContentCommitment } from '../tx/index.js';
+import { ContentCommitment } from '../tx/content_commitment.js';
 import type { UInt64 } from '../types/shared.js';
 
 export class CheckpointHeader {

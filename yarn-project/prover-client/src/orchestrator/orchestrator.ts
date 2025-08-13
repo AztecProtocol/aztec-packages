@@ -369,9 +369,15 @@ export class ProvingOrchestrator implements EpochProver {
       throw new Error(`Block proving state for ${blockNumber} not found`);
     }
 
+    // Abort with specific error for the block if there's one.
     const error = provingState.getError();
     if (error) {
       throw new Error(`Block proving failed: ${error}`);
+    }
+
+    // Abort if the proving state is not valid due to errors occurred elsewhere.
+    if (!provingState.verifyState()) {
+      throw new Error(`Invalid proving state when completing block ${blockNumber}.`);
     }
 
     if (provingState.isAcceptingTxs()) {
@@ -390,7 +396,7 @@ export class ProvingOrchestrator implements EpochProver {
   }
 
   private async buildL2BlockHeader(provingState: BlockProvingState, expectedHeader?: BlockHeader) {
-    // Collect all new nullifiers, commitments, and contracts from all txs in this block to build body
+    // Collect all txs in this block to build the header. The function calling this has made sure that all txs have been added.
     const txs = provingState.getProcessedTxs();
 
     const startSpongeBlob = provingState.getStartSpongeBlob();
@@ -460,6 +466,17 @@ export class ProvingOrchestrator implements EpochProver {
       provingState.reject(`New archive mismatch.`);
       return;
     }
+
+    // TODO(palla/prover): This closes the fork only on the happy path. If this epoch orchestrator
+    // is aborted and never reaches this point, it will leak the fork. We need to add a global cleanup,
+    // but have to make sure it only runs once all operations are completed, otherwise some function here
+    // will attempt to access the fork after it was closed.
+    logger.debug(`Cleaning up world state fork for ${blockNumber}`);
+    void this.dbs
+      .get(blockNumber)
+      ?.close()
+      .then(() => this.dbs.delete(blockNumber))
+      .catch(err => logger.error(`Error closing db for block ${blockNumber}`, err));
   }
 
   /**
@@ -783,25 +800,12 @@ export class ProvingOrchestrator implements EpochProver {
     }
     provingState.startProvingBlockRoot();
 
-    const blockNumber = provingState.blockNumber;
-
-    // TODO(palla/prover): This closes the fork only on the happy path. If this epoch orchestrator
-    // is aborted and never reaches this point, it will leak the fork. We need to add a global cleanup,
-    // but have to make sure it only runs once all operations are completed, otherwise some function here
-    // will attempt to access the fork after it was closed.
-    logger.debug(`Cleaning up world state fork for ${blockNumber}`);
-    void this.dbs
-      .get(blockNumber)
-      ?.close()
-      .then(() => this.dbs.delete(blockNumber))
-      .catch(err => logger.error(`Error closing db for block ${blockNumber}`, err));
-
     // The checkpoint has received a new block. Now try to accumulate as far as we can:
     await provingState.parentCheckpoint.parentEpoch.setBlobAccumulators();
 
     const { rollupType, inputs } = await provingState.getBlockRootRollupTypeAndInputs();
 
-    logger.debug(`Enqueuing ${rollupType} for block ${blockNumber}.`);
+    logger.debug(`Enqueuing ${rollupType} for block ${provingState.blockNumber}.`);
 
     this.deferredProving(
       provingState,
@@ -826,9 +830,8 @@ export class ProvingOrchestrator implements EpochProver {
         },
       ),
       async result => {
-        // If the proofs were slower than the block building, then we need to try validating the block header hashes here.
+        // If the proofs were slower than the block header building, then we need to try validating the block header hashes here.
         await this.verifyBuiltBlockAgainstSyncedState(provingState);
-        // validatePartialState(result.inputs.end, tx.treeSnapshots); // TODO(palla/prover)
 
         logger.debug(`Completed ${rollupType} proof for block ${provingState.blockNumber}`);
 

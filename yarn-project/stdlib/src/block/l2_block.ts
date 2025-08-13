@@ -5,7 +5,7 @@ import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { z } from 'zod';
 
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
-import type { BlockHeader } from '../tx/index.js';
+import type { BlockHeader } from '../tx/block_header.js';
 import { Body } from './body.js';
 import { makeAppendOnlyTreeSnapshot, makeL2BlockHeader } from './l2_block_code_to_purge.js';
 import { L2BlockHeader } from './l2_block_header.js';
