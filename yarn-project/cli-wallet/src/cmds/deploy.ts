@@ -1,4 +1,10 @@
-import { type AccountWalletWithSecretKey, ContractDeployer, type DeployOptions, Fr } from '@aztec/aztec.js';
+import {
+  type AccountWalletWithSecretKey,
+  AztecAddress,
+  ContractDeployer,
+  type DeployOptions,
+  Fr,
+} from '@aztec/aztec.js';
 import { encodeArgs, getContractArtifact } from '@aztec/cli/utils';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { getAllFunctionAbis, getInitializer } from '@aztec/stdlib/abi';
@@ -10,6 +16,7 @@ import { DEFAULT_TX_TIMEOUT_S } from '../utils/pxe_wrapper.js';
 
 export async function deploy(
   wallet: AccountWalletWithSecretKey,
+  deployer: AztecAddress | undefined,
   artifactPath: string,
   json: boolean,
   publicKeys: PublicKeys | undefined,
@@ -19,7 +26,6 @@ export async function deploy(
   skipInstancePublication: boolean,
   skipClassPublication: boolean,
   skipInitialization: boolean | undefined,
-  universalDeploy: boolean | undefined,
   wait: boolean,
   feeOpts: IFeeOpts,
   verbose: boolean,
@@ -35,7 +41,12 @@ export async function deploy(
 
   // TODO(#12081): Add contractArtifact.noirVersion and check here (via Noir.lock)?
 
-  const deployer = new ContractDeployer(contractArtifact, wallet, publicKeys ?? PublicKeys.default(), initializer);
+  const contractDeployer = new ContractDeployer(
+    contractArtifact,
+    wallet,
+    publicKeys ?? PublicKeys.default(),
+    initializer,
+  );
 
   let args = [];
   if (rawArgs.length > 0) {
@@ -47,11 +58,12 @@ export async function deploy(
     debugLogger.debug(`Encoded arguments: ${args.join(', ')}`);
   }
 
-  const deploy = deployer.deploy(...args);
+  const deploy = contractDeployer.deploy(...args);
   const deployOpts: DeployOptions = {
     ...(await feeOpts.toDeployAccountOpts(wallet)),
+    from: deployer ?? AztecAddress.ZERO,
     contractAddressSalt: salt,
-    universalDeploy,
+    universalDeploy: !deployer,
     skipClassPublication,
     skipInitialization,
     skipInstancePublication,

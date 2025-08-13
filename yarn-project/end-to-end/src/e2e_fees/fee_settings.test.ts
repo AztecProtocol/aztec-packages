@@ -31,7 +31,7 @@ describe('e2e_fees fee settings', () => {
 
     ({ aliceAddress, aliceWallet, gasSettings, cheatCodes, aztecNode } = await t.setup());
 
-    testContract = await TestContract.deploy(aliceWallet).send().deployed();
+    testContract = await TestContract.deploy(aliceWallet).send({ from: aliceAddress }).deployed();
     gasSettings = { ...gasSettings, maxFeesPerGas: undefined };
     paymentMethod = new FeeJuicePaymentMethod(aliceAddress);
   }, 60_000);
@@ -64,7 +64,7 @@ describe('e2e_fees fee settings', () => {
       t.logger.info(`Preparing tx to be sent with base fee padding ${baseFeePadding}`);
       const tx = await testContract.methods
         .emit_nullifier_public(Fr.random())
-        .prove({ fee: { gasSettings, paymentMethod, baseFeePadding } });
+        .prove({ from: aliceAddress, fee: { gasSettings, paymentMethod, baseFeePadding } });
       const { maxFeesPerGas } = tx.data.constants.txContext.gasSettings;
       t.logger.info(`Tx with hash ${tx.getTxHash().toString()} ready with max fees ${inspect(maxFeesPerGas)}`);
       return tx;
