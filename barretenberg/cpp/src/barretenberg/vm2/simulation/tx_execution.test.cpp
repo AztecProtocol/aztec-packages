@@ -73,27 +73,25 @@ TEST_F(TxExecutionTest, simulateTx)
         .publicDataTree = { .tree = dummy_snapshot, .counter = 0 },
     };
     ON_CALL(merkle_db, get_tree_state()).WillByDefault([&]() { return tree_state; });
-    SideEffectStates side_effect_states = SideEffectStates{ .numUnencryptedLogs = 0, .numL2ToL1Messages = 0 };
     ON_CALL(merkle_db, siloed_nullifier_write(_)).WillByDefault(Return(true));
     // Number of Enqueued Calls in the transaction : 1 setup, 1 app logic, and 1 teardown
 
     auto setup_context = std::make_unique<NiceMock<MockContext>>();
     ON_CALL(*setup_context, halted()).WillByDefault(Return(true)); // dont do any actual
-    EXPECT_CALL(*setup_context, get_side_effect_states()).WillOnce(ReturnRef(side_effect_states));
 
     auto app_logic_context = std::make_unique<NiceMock<MockContext>>();
     ON_CALL(*app_logic_context, halted()).WillByDefault(Return(true));
-    EXPECT_CALL(*app_logic_context, get_side_effect_states()).WillOnce(ReturnRef(side_effect_states));
 
     auto teardown_context = std::make_unique<NiceMock<MockContext>>();
     ON_CALL(*teardown_context, halted()).WillByDefault(Return(true));
-    EXPECT_CALL(*teardown_context, get_side_effect_states()).WillOnce(ReturnRef(side_effect_states));
 
     EXPECT_CALL(context_provider, make_enqueued_context)
         .WillOnce(Return(std::move(setup_context)))
         .WillOnce(Return(std::move(app_logic_context)))
         .WillOnce(Return(std::move(teardown_context)));
     EXPECT_CALL(merkle_db, create_checkpoint()).Times(1);
+
+    EXPECT_CALL(merkle_db, pad_trees()).Times(1);
 
     tx_execution.simulate(tx);
 

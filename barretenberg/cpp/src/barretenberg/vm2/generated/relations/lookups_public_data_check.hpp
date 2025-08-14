@@ -364,4 +364,28 @@ template <typename FF_>
 using lookup_public_data_check_write_public_data_to_public_inputs_relation =
     lookup_relation_base<FF_, lookup_public_data_check_write_public_data_to_public_inputs_settings>;
 
+/////////////////// lookup_public_data_check_write_writes_length_to_public_inputs ///////////////////
+
+struct lookup_public_data_check_write_writes_length_to_public_inputs_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_PUBLIC_DATA_CHECK_WRITE_WRITES_LENGTH_TO_PUBLIC_INPUTS";
+    static constexpr std::string_view RELATION_NAME = "public_data_check";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::public_data_check_end;
+    static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
+    static constexpr Column COUNTS = Column::lookup_public_data_check_write_writes_length_to_public_inputs_counts;
+    static constexpr Column INVERSES = Column::lookup_public_data_check_write_writes_length_to_public_inputs_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::public_data_check_length_pi_idx, ColumnAndShifts::public_data_check_public_data_writes_length
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_
+    };
+};
+
+using lookup_public_data_check_write_writes_length_to_public_inputs_settings =
+    lookup_settings<lookup_public_data_check_write_writes_length_to_public_inputs_settings_>;
+template <typename FF_>
+using lookup_public_data_check_write_writes_length_to_public_inputs_relation =
+    lookup_relation_base<FF_, lookup_public_data_check_write_writes_length_to_public_inputs_settings>;
+
 } // namespace bb::avm2
