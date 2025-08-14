@@ -231,12 +231,15 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       }
       return { payload: this.governanceProposerPayload, base: this.l1Contracts.governanceProposerContract };
     } else if (signalType === SignalType.SLASHING) {
+      if (!this.publisher) {
+        return undefined;
+      }
       const slashPayload = await this.slasherClient.getSlashPayload(slotNumber);
       if (!slashPayload) {
         return undefined;
       }
       this.log.info(`Slash payload: ${slashPayload}`);
-      return { payload: slashPayload, base: this.l1Contracts.slashingProposerContract };
+      return { payload: slashPayload, base: this.publisher.getSlashProposerContract() };
     } else {
       const _: never = signalType;
       throw new Error('Unreachable: Invalid signal type');

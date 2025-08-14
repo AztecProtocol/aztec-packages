@@ -142,6 +142,7 @@ export class SequencerPublisher {
       governanceProposerContract: GovernanceProposerContract;
       epochCache: EpochCache;
       dateProvider: DateProvider;
+      metrics: SequencerPublisherMetrics;
     },
   ) {
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
@@ -151,23 +152,21 @@ export class SequencerPublisher {
       deps.blobSinkClient ?? createBlobSinkClient(config, { logger: createLogger('sequencer:blob-sink:client') });
 
     const telemetry = deps.telemetry ?? getTelemetryClient();
-    this.metrics = new SequencerPublisherMetrics(telemetry, 'SequencerPublisher');
+    this.metrics = deps.metrics ?? new SequencerPublisherMetrics(telemetry, 'SequencerPublisher');
     this.l1TxUtils = deps.l1TxUtils;
 
     this.rollupContract = deps.rollupContract;
 
     this.govProposerContract = deps.governanceProposerContract;
     this.slashingProposerContract = deps.slashingProposerContract;
-
-    this.rollupContract.listenToSlasherChanged(async () => {
-      this.log.info('Slashing proposer changed');
-      const newSlashingProposer = await this.rollupContract.getSlashingProposer();
-      this.slashingProposerContract = newSlashingProposer;
-    });
   }
 
   public getRollupContract(): RollupContract {
     return this.rollupContract;
+  }
+
+  public getSlashProposerContract(): SlashingProposerContract {
+    return this.slashingProposerContract;
   }
 
   public getSenderAddress() {
