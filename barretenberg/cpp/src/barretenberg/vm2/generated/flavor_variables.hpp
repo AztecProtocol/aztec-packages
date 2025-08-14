@@ -119,6 +119,7 @@
 #include "relations/lookups_tx_context.hpp"
 #include "relations/lookups_update_check.hpp"
 #include "relations/lookups_written_public_data_slots_tree_check.hpp"
+#include "relations/perms_data_copy.hpp"
 #include "relations/perms_ecc_mem.hpp"
 #include "relations/perms_execution.hpp"
 #include "relations/perms_keccakf1600.hpp"
@@ -131,10 +132,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 133;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2919;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2924;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 316;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3368;
+    static constexpr size_t NUM_ALL_ENTITIES = 3373;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -634,6 +635,8 @@ struct AvmFlavorVariables {
         lookup_written_public_data_slots_tree_check_new_leaf_poseidon2_relation<FF_>,
         lookup_written_public_data_slots_tree_check_silo_poseidon2_relation<FF_>,
         lookup_written_public_data_slots_tree_check_updated_low_leaf_poseidon2_relation<FF_>,
+        perm_data_copy_dispatch_cd_copy_relation<FF_>,
+        perm_data_copy_dispatch_rd_copy_relation<FF_>,
         perm_ecc_mem_dispatch_exec_ecc_add_relation<FF_>,
         perm_execution_dispatch_get_contract_instance_relation<FF_>,
         perm_execution_dispatch_keccakf1600_relation<FF_>,

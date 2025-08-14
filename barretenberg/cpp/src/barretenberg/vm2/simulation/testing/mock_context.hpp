@@ -29,6 +29,7 @@ class MockContext : public ContextInterface {
 
     MOCK_METHOD(uint32_t, get_context_id, (), (const, override));
     MOCK_METHOD(uint32_t, get_parent_id, (), (const, override));
+    MOCK_METHOD(uint32_t, get_last_child_id, (), (const, override));
     MOCK_METHOD(bool, has_parent, (), (const, override));
 
     // Environment.

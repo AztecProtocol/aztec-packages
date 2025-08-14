@@ -37,6 +37,7 @@ namespace execution;
     pol commit parent_calldata_addr;
     pol commit parent_calldata_size;
 
+    pol commit last_child_id;
     pol commit last_child_returndata_addr;
     pol commit last_child_returndata_size;
     pol commit last_child_success; // Careful with this for now...
