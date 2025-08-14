@@ -39,7 +39,8 @@ library ExtRollupLib3 {
     uint256 _executionDelayInRounds,
     uint256 _slashingUnit,
     uint256 _committeeSize,
-    uint256 _epochDuration
+    uint256 _epochDuration,
+    uint256 _slashOffsetInRounds
   ) external returns (ISlasher) {
     Slasher slasher = new Slasher(
       _rollup,
@@ -51,7 +52,8 @@ library ExtRollupLib3 {
       _executionDelayInRounds,
       _slashingUnit,
       _committeeSize,
-      _epochDuration
+      _epochDuration,
+      _slashOffsetInRounds
     );
     return ISlasher(address(slasher));
   }
