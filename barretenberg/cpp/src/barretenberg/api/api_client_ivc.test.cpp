@@ -124,50 +124,49 @@ ClientIVC::MegaVerificationKey get_ivc_vk(const std::filesystem::path& test_dir)
 
 // Test the ClientIVCAPI::prove flow, making sure --write_vk
 // returns the same output as our ivc VK generation.
-// TEST_F(ClientIVCAPITests, ProveAndVerifyFileBasedFlow)
-// {
-//     auto ivc_vk = get_ivc_vk(test_dir);
+TEST_F(ClientIVCAPITests, DISABLED_ProveAndVerifyFileBasedFlow)
+{
+    auto ivc_vk = get_ivc_vk(test_dir);
 
-//     // Create test input file
-//     std::filesystem::path input_path = test_dir / "input.msgpack";
-//     create_test_private_execution_steps(input_path);
+    // Create test input file
+    std::filesystem::path input_path = test_dir / "input.msgpack";
+    create_test_private_execution_steps(input_path);
 
-//     std::filesystem::path output_dir = test_dir / "output";
-//     std::filesystem::create_directories(output_dir);
+    std::filesystem::path output_dir = test_dir / "output";
+    std::filesystem::create_directories(output_dir);
 
-//     // Helper lambda to create proof and VK files
-//     auto create_proof_and_vk = [&]() {
-//         ClientIVCAPI::Flags flags;
-//         flags.write_vk = true;
-//         ClientIVCAPI api;
-//         api.prove(flags, input_path, output_dir);
-//     };
+    // Helper lambda to create proof and VK files
+    auto create_proof_and_vk = [&]() {
+        ClientIVCAPI::Flags flags;
+        flags.write_vk = true;
+        ClientIVCAPI api;
+        api.prove(flags, input_path, output_dir);
+    };
 
-//     // Helper lambda to verify VK equivalence
-//     auto verify_vk_equivalence = [&](const std::filesystem::path& vk1_path, const ClientIVC::MegaVerificationKey&
-//     vk2) {
-//         auto vk1_data = read_file(vk1_path);
-//         auto vk1 = from_buffer<ClientIVC::MegaVerificationKey>(vk1_data);
-//         ASSERT_TRUE(msgpack::msgpack_check_eq(vk1, vk2, "VK from prove should match VK from write_vk"));
-//     };
+    // Helper lambda to verify VK equivalence
+    auto verify_vk_equivalence = [&](const std::filesystem::path& vk1_path, const ClientIVC::MegaVerificationKey& vk2) {
+        auto vk1_data = read_file(vk1_path);
+        auto vk1 = from_buffer<ClientIVC::MegaVerificationKey>(vk1_data);
+        ASSERT_TRUE(msgpack::msgpack_check_eq(vk1, vk2, "VK from prove should match VK from write_vk"));
+    };
 
-//     // Helper lambda to verify proof
-//     auto verify_proof = [&]() {
-//         std::filesystem::path proof_path = output_dir / "proof";
-//         std::filesystem::path vk_path = output_dir / "vk";
-//         std::filesystem::path public_inputs_path; // Not used for ClientIVC
+    // Helper lambda to verify proof
+    auto verify_proof = [&]() {
+        std::filesystem::path proof_path = output_dir / "proof";
+        std::filesystem::path vk_path = output_dir / "vk";
+        std::filesystem::path public_inputs_path; // Not used for ClientIVC
 
-//         ClientIVCAPI::Flags flags;
-//         ClientIVCAPI verify_api;
-//         return verify_api.verify(flags, public_inputs_path, proof_path, vk_path);
-//     };
+        ClientIVCAPI::Flags flags;
+        ClientIVCAPI verify_api;
+        return verify_api.verify(flags, public_inputs_path, proof_path, vk_path);
+    };
 
-//     // Execute test steps
-//     create_proof_and_vk();
-//     verify_vk_equivalence(output_dir / "vk", ivc_vk);
-//     // Test verify command
-//     EXPECT_TRUE(verify_proof());
-// }
+    // Execute test steps
+    create_proof_and_vk();
+    verify_vk_equivalence(output_dir / "vk", ivc_vk);
+    // Test verify command
+    EXPECT_TRUE(verify_proof());
+}
 
 // WORKTODO(bbapi): Expand on this.
 TEST_F(ClientIVCAPITests, WriteVkFieldsSmokeTest)

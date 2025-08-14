@@ -82,9 +82,9 @@ std::vector<uint8_t> write_civc_vk(const std::string& output_format,
         write_file(output_dir / "vk", civc_vk_bytes);
     }
     return civc_vk_bytes;
-} // annonymus namespace
+}
 
-} // namespace
+} // anonymous namespace
 
 void ClientIVCAPI::prove(const Flags& flags,
                          const std::filesystem::path& input_path,
