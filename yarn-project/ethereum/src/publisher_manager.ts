@@ -15,7 +15,7 @@ export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
 
   public async getAvailablePublisher(filter: (utils: UtilsType) => boolean = () => true): Promise<UtilsType> {
     const validPublishers = this.publishers.filter(
-      (pub: UtilsType) => filter(pub) && !invalidStates.includes(pub.state),
+      (pub: UtilsType) => !invalidStates.includes(pub.state) && filter(pub),
     );
 
     if (validPublishers.length === 0) {

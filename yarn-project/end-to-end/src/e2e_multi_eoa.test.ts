@@ -33,8 +33,8 @@ const createPublisherKeysAndAddresses = () => {
   });
 };
 
-describe('e2e_block_building', () => {
-  jest.setTimeout(20 * 60 * 1000); // 20 minutes
+describe('e2e_multi_eoa', () => {
+  jest.setTimeout(5 * 60 * 1000); // 5 minutes
 
   let pxe: PXE;
   let logger: Logger;
@@ -105,6 +105,11 @@ describe('e2e_block_building', () => {
       logger.info('Enabled Mining');
     };
 
+    // This executes a test of publisher account rotation.
+    // We try and publish a block with the expected publisher account.
+    // We intercept the transaction and delete it from Anvil.
+    // We also do the same for any cancel transactions.
+    // We should then see that another block is published but this time with a different expected account
     const testAccountRotation = async (expectedFirstSender: number, expectedSecondSender: number) => {
       // the L2 tx we are going to try and execute
       const deployer = new ContractDeployer(artifact, owner);
@@ -117,6 +122,7 @@ describe('e2e_block_building', () => {
 
       const l1Utils: L1TxUtilsWithBlobs[] = (publisherManager as any).publishers;
 
+      // Intercept the required transactions
       let transactionHashToDrop: Hex | undefined;
       let transactionHashToKeep: Hex | undefined;
       let cancelTransactionHashToDrop: Hex | undefined;
@@ -234,6 +240,7 @@ describe('e2e_block_building', () => {
     };
 
     it('publishers are rotated by the sequencer', async () => {
+      // Helpers to identify which accounts are expected to be used
       const getSortedAddressesByBalance = async (addressAndKeys: { address: `0x${string}` }[]) => {
         const addressesWithBalance = await Promise.all(
           addressAndKeys.map(async ka => {

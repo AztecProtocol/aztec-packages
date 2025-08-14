@@ -12,7 +12,6 @@ import {
   createL1TxUtilsFromViemWallet,
 } from '@aztec/ethereum';
 import { pick } from '@aztec/foundation/collection';
-import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
@@ -145,7 +144,7 @@ export async function createProverNode(
   const l1Metrics = new L1Metrics(
     telemetry.getMeter('ProverNodeL1Metrics'),
     l1TxUtils.client as unknown as ViemPublicClient,
-    [EthAddress.fromString(l1TxUtils.getSenderAddress())],
+    [l1TxUtils.getSenderAddress()],
   );
 
   return new ProverNode(
