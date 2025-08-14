@@ -73,6 +73,8 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
     auto transcript_accumulator_y_shift = View(in.transcript_accumulator_y_shift);
     auto transcript_accumulator_x = View(in.transcript_accumulator_x);
     auto transcript_accumulator_y = View(in.transcript_accumulator_y);
+    auto msm_count_zero_at_transition = View(in.transcript_msm_count_zero_at_transition);
+    auto msm_count_at_transition_inverse = View(in.transcript_msm_count_at_transition_inverse);
     auto transcript_msm_x = View(in.transcript_msm_intermediate_x);
     auto transcript_msm_y = View(in.transcript_msm_intermediate_y);
     auto transcript_Px = View(in.transcript_Px);
@@ -113,7 +115,6 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      * @brief Validate `op` opcode is well formed.
      * `op` is defined to be q_reset_accumulator + 2 * q_eq + 4 * q_mul + 8 * q_add,
      * where q_reset_accumulator, q_eq, q_mul, q_add are all boolean
-     * (TODO: bool constrain these efficiently #2223)
      */
     auto tmp = q_add + q_add;
     tmp += q_mul;
@@ -127,53 +128,79 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      * @brief Validate `pc` is updated correctly.
      * pc stands for Point Counter. It decrements by 1 for every 128-bit multiplication operation.
      * If q_mul = 1, pc decrements by !z1_zero + !z2_zero, else pc decrements by 0
-     * @note pc starts out at its max value and decrements down to 0. This keeps the degree of the pc polynomial smol
+     * @note pc starts out at its max value and decrements down to 0. This keeps the degree of the pc polynomial small.
+     * we check that the last value is 0 later.
      */
     Accumulator pc_delta = pc - pc_shift;
     auto num_muls_in_row = ((-z1_zero + 1) + (-z2_zero + 1)) * (-transcript_Pinfinity + 1);
+    // note that the value of `pc` in the first row is 0 because `pc` is shiftable. It is the second row where it starts
+    // out at its maximum value.
     std::get<3>(accumulator) += is_not_first_row * (pc_delta - q_mul * num_muls_in_row) * scaling_factor; // degree 4
+
+    /**
+     * @brief Validate `msm_transition_zero_at_transition` is well-formed enough to bear witness to a correct
+     * computation.
+     *
+     * If the current row is the last `mul` instruction in a multiscalar multiplication (i.e., if the next row is not a
+     * `mul` instruction), then check that `msm_transition_zero_at_transition` is constrained as follows: if it is 0,
+     * then `msm_count + num_muls_in_row != 0` and is in fact the inverse of the (forced-to-be nonzero
+     * value of) `msm_count_at_transition_inverse`.
+     *
+     * @note this does _not_ constrain `msm_transition_zero_at_transition` to vanish outside of syntactic
+     * transitions (meaning when current row is a `mul` and next row is not a `mul`). similarly,
+     * `msm_count_at_transition_inverse` is not forced to vanish away from syntactic transitions. However, neither of
+     * these is necessary to witness a valid computation: the values away from syntactic transitions may be arbitrary,
+     * as the values of these two wires are only used to validate computations _at syntactic transitions_.
+     */
+
+    // `msm_transition_check` is a _syntactic_ check that we could be in a transition.
+    // `msm_count_total` is the total number of (short) multiplications, _including_ the multiplications to be processed
+    // in this row.
+    auto msm_transition_check = q_mul * (-q_mul_shift + 1); // degree 2
+    auto msm_count_total = msm_count + num_muls_in_row;     // degree 2
+
+    // `msm_count_at_transition_check` witnesses the claim that if `msm_count_zero_at_transition == 1`, then
+    // `msm_count_total == 0` and if `msm_count_zero_at_transition == 0` and we are at a syntactic transition, then
+    // `msm_count_total is invertible`. The way it does this is `msm_count_at_transition_inverse` is supposed to vanish
+    // *except* possibly at a syntactic transition.
+    auto msm_count_zero_at_transition_check = msm_count_zero_at_transition * msm_count_total;
+    msm_count_zero_at_transition_check +=
+        (msm_count_total * msm_count_at_transition_inverse - 1) * (-msm_count_zero_at_transition + 1); // degree 4
+    // forces that `msm_count_zero_at_transition` to have the following property at a syntactic transition: if
+    // `msm_count_zero_at_transition == 1`, then `msm_count_total == 0`. else if `msm_count_zero_at_transition == 0`,
+    // then `msm_count_total != 0` and is in fact the inverse of `msm_count_at_transition_inverse` (which is a witness
+    // column).
+    std::get<4>(accumulator) += msm_transition_check * msm_count_zero_at_transition_check * scaling_factor; // degree 6
 
     /**
      * @brief Validate `msm_transition` is well-formed.
      *
-     * If the current row is the last mul instruction in a multiscalar multiplication, msm_transition = 1.
-     * i.e. if q_mul == 1 and q_mul_shift == 0, msm_transition = 1, else is 0
-     * We also require that `msm_count + [current msm number] > 0`
+     * If the current row is the last `mul` instruction in a multiscalar multiplication, and if the putative MSM will
+     * have a positive number of terms, then msm_transition = 1. i.e., if q_mul == 1 and q_mul_shift == 0, and
+     * `msm_count_total:= msm_count + num_muls_in_row > 0`, then `msm_transition` = 1, else 0.
      */
-    auto msm_transition_check = q_mul * (-q_mul_shift + 1); // degree 2
-    // auto num_muls_total = msm_count + num_muls_in_row;
-    auto msm_count_zero_at_transition = View(in.transcript_msm_count_zero_at_transition);
-    auto msm_count_at_transition_inverse = View(in.transcript_msm_count_at_transition_inverse);
-
-    auto msm_count_total = msm_count + num_muls_in_row; // degree 3
-
-    auto msm_count_zero_at_transition_check = msm_count_zero_at_transition * msm_count_total;
-    msm_count_zero_at_transition_check +=
-        (msm_count_total * msm_count_at_transition_inverse - 1) * (-msm_count_zero_at_transition + 1);
-    std::get<4>(accumulator) += msm_transition_check * msm_count_zero_at_transition_check * scaling_factor; // degree 3
-
-    // Validate msm_transition_msm_count is correct
-    // ensure msm_transition is zero if count is zero
     std::get<5>(accumulator) +=
         (msm_transition - msm_transition_check * (-msm_count_zero_at_transition + 1)) * scaling_factor; // degree 3
 
     /**
      * @brief Validate `msm_count` resets when we end a multiscalar multiplication.
      * msm_count tracks the number of scalar muls in the current active multiscalar multiplication.
-     * (if no msm active, msm_count == 0)
+     * (if no msm active, `msm_count == 0`)
      * If current row ends an MSM, `msm_count_shift = 0` (msm_count value at next row)
      */
+
+    // RAJU: to be 100% the below correctly constrains `msm_count`, should replace `msm_transition` by the linear
+    // factor: `-q_mul_shift + 1`.
     std::get<6>(accumulator) += (msm_transition * msm_count_shift) * scaling_factor; // degree 2
 
     /**
      * @brief Validate `msm_count` updates correctly for mul operations.
-     * msm_count updates by (!z1_zero + !z2_zero) if current op is a mul instruction (and msm is not terminating at next
-     * row).
+     * msm_count updates by (!z1_zero + !z2_zero) if current op is a mul instruction with the point _not_ the
+     * point-at-infinity and msm is not terminating at next row.
      */
-    auto msm_count_delta = msm_count_shift - msm_count; // degree 4
-    auto num_counts = ((-z1_zero + 1) + (-z2_zero + 1)) * (-transcript_Pinfinity + 1);
-    std::get<7>(accumulator) +=
-        is_not_first_row * (-msm_transition + 1) * (msm_count_delta - q_mul * (num_counts)) * scaling_factor;
+    auto msm_count_delta = msm_count_shift - msm_count;
+    std::get<7>(accumulator) += is_not_first_row * (-msm_transition + 1) * (msm_count_delta - q_mul * num_muls_in_row) *
+                                scaling_factor; // degree 5
 
     /**
      * @brief Opcode exclusion tests. We have the following assertions:
@@ -192,31 +219,31 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      * IF lhs and rhs are not at infinity THEN lhs == rhs
      * ELSE lhs and rhs are BOTH points at infinity
      **/
-    auto both_infinity = transcript_Pinfinity * is_accumulator_empty;
-    auto both_not_infinity = (-transcript_Pinfinity + 1) * (-is_accumulator_empty + 1);
-    auto infinity_exclusion_check = transcript_Pinfinity + is_accumulator_empty - both_infinity - both_infinity;
-    auto eq_x_diff = transcript_Px - transcript_accumulator_x;
-    auto eq_y_diff = transcript_Py - transcript_accumulator_y;
+    auto both_infinity = transcript_Pinfinity * is_accumulator_empty;                   // degree 2
+    auto both_not_infinity = (-transcript_Pinfinity + 1) * (-is_accumulator_empty + 1); // degree 2
+    auto infinity_exclusion_check =
+        transcript_Pinfinity + is_accumulator_empty - both_infinity - both_infinity;             // degree 2
+    auto eq_x_diff = transcript_Px - transcript_accumulator_x;                                   // degree 1
+    auto eq_y_diff = transcript_Py - transcript_accumulator_y;                                   // degree 1
     auto eq_x_diff_relation = q_eq * (eq_x_diff * both_not_infinity + infinity_exclusion_check); // degree 4
     auto eq_y_diff_relation = q_eq * (eq_y_diff * both_not_infinity + infinity_exclusion_check); // degree 4
     std::get<9>(accumulator) += eq_x_diff_relation * scaling_factor;                             // degree 4
     std::get<10>(accumulator) += eq_y_diff_relation * scaling_factor;                            // degree 4
 
     /**
-     * @brief Initial condition check on 1st row.
-     * We require the following values are 0 on 1st row:
+     * @brief Boundary conditions.
+     * The first "content" row is the _second_ row of the table. We demand that the following values are present:
      * is_accumulator_empty = 1
      * msm_count = 0
-     * note...actually second row? bleurgh
-     * NOTE: we want pc = 0 at lagrange_last :o
      */
     std::get<11>(accumulator) += lagrange_second * (-is_accumulator_empty + 1) * scaling_factor; // degree 2
     std::get<12>(accumulator) += lagrange_second * msm_count * scaling_factor;                   // degree 2
 
     /**
      * @brief On-curve validation checks.
-     * If q_mul = 1 OR q_add = 1 OR q_eq = 1, require (transcript_Px, transcript_Py) is valid ecc point
-     * q_mul/q_add/q_eq mutually exclusive, can represent as sum of 3
+     * If q_mul = 1 OR q_add = 1 OR q_eq = 1, require (transcript_Px, transcript_Py) is valid ecc point as long as the
+     * point-at-infinity flag is off. As q_mul, q_add, and q_eq are pairwise mutually exclusive, the value `q_add +
+     * q_mul + q_eq` is boolean.
      */
     const auto validate_on_curve = q_add + q_mul + q_eq;
     const auto on_curve_check =
@@ -228,29 +255,47 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      *
      */
     {
+        // in the following, LHS is the new elliptic curve point and RHS is the accumulator. LHS can either be the
+        // explicit point in an `add` op or the result of an MSM at the end of an MSM. RHS is often referred to as A.
         Accumulator transcript_lambda_relation(0);
-        auto is_double = transcript_add_x_equal * transcript_add_y_equal;
-        auto is_add = (-transcript_add_x_equal + 1);
+        auto is_double = transcript_add_x_equal * transcript_add_y_equal; // degree 2
+        // `is_add == 1` iff the op_code is `add` and the x-value of the point-to-add and the accumulator are _not_
+        // equal. this ensures that it is not a double and that the result is not the point-at-infinity.
+        auto is_add = -transcript_add_x_equal + 1; // degree 1
+        // `add_result_is_infinity == 1` iff the op_code is `add`, the x-value of the point-to-add and the accumulator
+        // are equal, and the y-values are unequal. then the result of the accumulation is of course the
+        // point-at-infinity.
         auto add_result_is_infinity = transcript_add_x_equal * (-transcript_add_y_equal + 1); // degree 2
-        auto rhs_x = transcript_accumulator_x;
-        auto rhs_y = transcript_accumulator_y;
-        auto out_x = transcript_accumulator_x_shift;
-        auto out_y = transcript_accumulator_y_shift;
-        auto lambda = transcript_add_lambda;
-        auto lhs_x = transcript_Px * q_add + transcript_msm_x * msm_transition;
-        auto lhs_y = transcript_Py * q_add + transcript_msm_y * msm_transition;
-        auto lhs_infinity = transcript_Pinfinity * q_add + transcript_msm_infinity * msm_transition;
-        auto rhs_infinity = is_accumulator_empty;
-        auto result_is_lhs = rhs_infinity * (-lhs_infinity + 1);                                      // degree 2
-        auto result_is_rhs = (-rhs_infinity + 1) * lhs_infinity;                                      // degree 2
-        auto result_infinity_from_inputs = lhs_infinity * rhs_infinity;                               // degree 2
+        auto rhs_x = transcript_accumulator_x;                                                // degree 1
+        auto rhs_y = transcript_accumulator_y;                                                // degree 1
+        auto out_x = transcript_accumulator_x_shift;                                          // degree 1
+        auto out_y = transcript_accumulator_y_shift;                                          // degree 1
+        auto lambda = transcript_add_lambda;                                                  // degree 1
+        // note that `msm_transition` and `q_add` are mutually exclusive booleans. (they can also both be off.)
+        // therefore `(lhs_x, lhs_y)` is either the point in the `add` VM instruction _or_ the output of the
+        // just-completed MSM.
+        auto lhs_x = transcript_Px * q_add + transcript_msm_x * msm_transition; // degree 2
+        auto lhs_y = transcript_Py * q_add + transcript_msm_y * msm_transition; // degree 2
+        // `lhs_infinity == 1` iff the point being added to the accumulator is the point-at-infinity.
+        auto lhs_infinity = transcript_Pinfinity * q_add + transcript_msm_infinity * msm_transition; // degree 2
+        auto rhs_infinity = is_accumulator_empty;                                                    // degree 1
+        // `result_is_lhs == 1` iff the output of the operation is the LHS and is _not_ the point-at-infinity.
+        // `result_is_rhs == 1` iff the output of the operation is the RHS and is _not_ the point-at-infinity.
+        auto result_is_lhs = rhs_infinity * (-lhs_infinity + 1); // degree 2
+        auto result_is_rhs = (-rhs_infinity + 1) * lhs_infinity; // degree 2
+        // `result_infinity_from_inputs` checks if both the LHS && RHS are the point-at-infinity. this means that the
+        // result is the point-at-infinity from "pure-thought" reasons from the inputs.
+        auto result_infinity_from_inputs = lhs_infinity * rhs_infinity; // degree 2
+        // `result_infinity_from_operation` tests if the operation is non-trivial and the output is the
+        // point-at-infinity. note we are using that our EC has no non-trivial rational 2-torsion.
         auto result_infinity_from_operation = transcript_add_x_equal * (-transcript_add_y_equal + 1); // degree 2
-        // infinity_from_inputs and infinity_from_operation mutually exclusive so we can perform an OR by adding
-        // (mutually exclusive because if result_infinity_from_inputs then transcript_add_y_equal = 1 (both y are 0)
+        // `result_infinity_from_inputs` and `result_infinity_from_operation` are mutually exclusive (i.e., cannot both
+        // be 1), so we can perform an OR by adding. (they are mutually exclusive because if
+        // `result_infinity_from_inputs` then `transcript_add_y_equal == 1`.)
         auto result_is_infinity = result_infinity_from_inputs + result_infinity_from_operation; // degree 2
-        auto any_add_is_active = q_add + msm_transition;
+        auto any_add_is_active = q_add + msm_transition;                                        // degree 1
 
-        // Valdiate `transcript_add_lambda` is well formed if we are adding msm output into accumulator
+        // Valdiate `transcript_add_lambda` is well formed if we are adding MSM output into accumulator
         {
             Accumulator transcript_msm_lambda_relation(0);
             auto msm_x = transcript_msm_x;
@@ -270,18 +315,25 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
                 transcript_msm_lambda_relation += lambda_relation * is_double;         // degree 4
             }
             auto transcript_add_or_dbl_from_msm_output_is_valid =
-                (-transcript_msm_infinity + 1) * (-is_accumulator_empty + 1);                 // degree 2
+                (-transcript_msm_infinity + 1) * (-is_accumulator_empty + 1); // degree 2
+            // zero-out the value of `transcript_msm_lambda_relation` if output of MSM is point-at-infinity or the
+            // accumulator is point-at-infinity. (this case cannot be handled uniformly and will be handled by the
+            // following logic.)
             transcript_msm_lambda_relation *= transcript_add_or_dbl_from_msm_output_is_valid; // degree 6
             // No group operation because of points at infinity
             {
+                // `lambda_relation_invalid != 0` means that lambda does not enter into our calculation for
+                // point-at-infinity reasons. in this case, `lambda` is constrained to be 0.
                 auto lambda_relation_invalid =
                     (transcript_msm_infinity + is_accumulator_empty + add_result_is_infinity); // degree 2
                 auto lambda_relation = lambda * lambda_relation_invalid;                       // degree 4
-                transcript_msm_lambda_relation += lambda_relation;                             // (still degree 6)
+                transcript_msm_lambda_relation += lambda_relation;                             // degree 6
             }
+            // relation is only touched if we are at an msm_transition
             transcript_lambda_relation = transcript_msm_lambda_relation * msm_transition; // degree 7
         }
         // Valdiate `transcript_add_lambda` is well formed if we are adding base point into accumulator
+        // very similar to the above code for adding an MSM output.
         {
             Accumulator transcript_add_lambda_relation(0);
             auto add_x = transcript_Px;
@@ -305,11 +357,14 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
             transcript_add_lambda_relation *= transcript_add_or_dbl_from_add_output_is_valid; // degree 6
             // No group operation because of points at infinity
             {
+                // `lambda_relation_invalid != 0` means that lambda does not enter into our calculation for
+                // point-at-infinity reasons. in this case, `lambda` is constrained to be 0.
                 auto lambda_relation_invalid =
                     (transcript_Pinfinity + is_accumulator_empty + add_result_is_infinity); // degree 2
                 auto lambda_relation = lambda * lambda_relation_invalid;                    // degree 4
-                transcript_add_lambda_relation += lambda_relation;                          // (still degree 6)
+                transcript_add_lambda_relation += lambda_relation;                          // degree 6
             }
+            // relation is only touched if we are at an `add` instruction.
             transcript_lambda_relation += transcript_add_lambda_relation * q_add;
             std::get<14>(accumulator) += transcript_lambda_relation * scaling_factor; // degree 7
         }
@@ -439,6 +494,14 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
         auto y_constant = transcript_add_y_equal - 1;
         auto transcript_add_y_equal_check_relation = (y_diff * y_product + y_constant) * any_add_is_active;
         std::get<24>(accumulator) += transcript_add_y_equal_check_relation * scaling_factor; // degree 5
+
+        /**
+         * @brief check that the last `pc` is 0
+         *
+         * our `pc` is non-increasing for optimization reasons. therefore our boundary condition for `pc` is that the
+         * last row has value 0.
+         */
+        std::get<25>(accumulator) += lagrange_last * pc * scaling_factor;
     }
 }
 } // namespace bb
