@@ -15,7 +15,7 @@ import {
   createEthereumChain,
   createExtendedL1Client,
 } from '@aztec/ethereum';
-import { L1TxUtilsWithBlobs, createL1TxUtilsWithBlobsFromViemWallet } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { createL1TxUtilsWithBlobsFromViemWallet } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { EthCheatCodesWithState, RollupCheatCodes, startAnvil } from '@aztec/ethereum/test';
 import { range } from '@aztec/foundation/array';
 import { Buffer32 } from '@aztec/foundation/buffer';
