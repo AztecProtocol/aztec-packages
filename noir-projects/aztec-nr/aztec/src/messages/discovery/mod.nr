@@ -8,7 +8,9 @@ pub mod process_message;
 
 use crate::{
     messages::{
-        discovery::{private_notes::MAX_NOTE_PACKED_LEN, process_message::do_process_message},
+        discovery::{
+            private_notes::MAX_NOTE_PACKED_LEN, process_message::process_message_ciphertext,
+        },
         processing::{
             get_private_logs, pending_tagged_log::PendingTaggedLog,
             validate_enqueued_notes_and_events,
@@ -85,7 +87,7 @@ pub unconstrained fn discover_new_messages<Env>(
         // We remove the tag from the pending tagged log and process the message ciphertext contained in it.
         let message_ciphertext = array::subbvec(pending_tagged_log.log, 1);
 
-        do_process_message(
+        process_message_ciphertext(
             contract_address,
             compute_note_hash_and_nullifier,
             message_ciphertext,

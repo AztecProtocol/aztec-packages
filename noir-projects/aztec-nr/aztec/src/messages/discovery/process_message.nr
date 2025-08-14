@@ -29,13 +29,13 @@ use protocol_types::{
 ///
 /// Events are processed by computing an event commitment from the serialized event data and its randomness field, then
 /// enqueueing the event data and commitment for validation.
-pub unconstrained fn do_process_message<Env>(
+pub unconstrained fn process_message_ciphertext<Env>(
     contract_address: AztecAddress,
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
     message_ciphertext: BoundedVec<Field, PRIVATE_LOG_CIPHERTEXT_LEN>,
     message_context: MessageContext,
 ) {
-    do_process_message_plaintext(
+    process_message_plaintext(
         contract_address,
         compute_note_hash_and_nullifier,
         AES128::decrypt_log(message_ciphertext, message_context.recipient),
@@ -43,7 +43,7 @@ pub unconstrained fn do_process_message<Env>(
     );
 }
 
-pub unconstrained fn do_process_message_plaintext<Env>(
+pub unconstrained fn process_message_plaintext<Env>(
     contract_address: AztecAddress,
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
     message_plaintext: BoundedVec<Field, MAX_MESSAGE_LEN>,

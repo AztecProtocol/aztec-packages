@@ -100,7 +100,7 @@ unconstrained fn insert_and_get_settled() {
         state_var.insert(note)
     });
 
-    env.discover_notes(emission);
+    env.discover_note(emission);
 
     env.private_context(|context| {
         let state_var = in_private(context);
@@ -153,7 +153,7 @@ unconstrained fn insert_and_pop_settled() {
         state_var.insert(note)
     });
 
-    env.discover_notes(emission);
+    env.discover_note(emission);
 
     env.private_context(|context| {
         let state_var = in_private(context);
@@ -199,7 +199,7 @@ unconstrained fn insert_and_remove_settled() {
         state_var.insert(note)
     });
 
-    env.discover_notes(emission);
+    env.discover_note(emission);
 
     env.private_context(|context| {
         let state_var = in_private(context);
@@ -243,7 +243,7 @@ unconstrained fn insert_pop_and_read_again_settled() {
         state_var.insert(note)
     });
 
-    env.discover_notes(emission);
+    env.discover_note(emission);
 
     env.private_context(|context| {
         let state_var = in_private(context);
@@ -287,7 +287,7 @@ unconstrained fn insert_remove_and_read_again_settled() {
         state_var.insert(note)
     });
 
-    env.discover_notes(emission);
+    env.discover_note(emission);
 
     env.private_context(|context| {
         let state_var = in_private(context);

@@ -15,6 +15,8 @@ use crate::note::retrieved_note::RetrievedNote;
 use crate::oracle::notes::check_nullifier_exists;
 use crate::state_vars::storage::HasStorageSlot;
 
+mod test;
+
 /// # PrivateMutable
 ///
 /// PrivateMutable is a private state variable type, which enables you to read, mutate,
@@ -107,8 +109,6 @@ pub struct PrivateMutable<Note, Context> {
     storage_slot: Field,
 }
 // docs:end:struct
-
-mod test;
 
 // Private storage slots are not really 'slots' but rather a value in the note hash preimage, so there is no notion of a
 // value spilling over multiple slots. For this reason PrivateMutable (and all other private state variables) needs just
