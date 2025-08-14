@@ -3,7 +3,7 @@ name: Merge-Train Recreate
 on:
   pull_request:
     types: [closed]
-≈
+
 jobs:
   recreate:
     if: ${{ github.event_name == 'workflow_dispatch' || (github.event.pull_request.merged && startsWith(github.event.pull_request.head.ref, 'merge-train/')) }}
