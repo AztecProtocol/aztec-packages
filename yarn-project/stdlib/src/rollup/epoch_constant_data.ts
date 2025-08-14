@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
 /**
@@ -7,6 +7,14 @@ import type { FieldsOf } from '@aztec/foundation/types';
  */
 export class EpochConstantData {
   constructor(
+    /**
+     * ChainId of the rollup.
+     */
+    public chainId: Fr,
+    /**
+     * Version of the rollup.
+     */
+    public version: Fr,
     /**
      * Root of the verification key tree.
      */
@@ -25,20 +33,36 @@ export class EpochConstantData {
     return new EpochConstantData(...EpochConstantData.getFields(fields));
   }
 
+  static getFields(fields: FieldsOf<EpochConstantData>) {
+    return [
+      fields.chainId,
+      fields.version,
+      fields.vkTreeRoot,
+      fields.protocolContractTreeRoot,
+      fields.proverId,
+    ] as const;
+  }
+
+  toFields(): Fr[] {
+    return serializeToFields(...EpochConstantData.getFields(this));
+  }
+
   static fromBuffer(buffer: Buffer | BufferReader): EpochConstantData {
     const reader = BufferReader.asReader(buffer);
-    return new EpochConstantData(Fr.fromBuffer(reader), Fr.fromBuffer(reader), Fr.fromBuffer(reader));
-  }
-
-  static getFields(fields: FieldsOf<EpochConstantData>) {
-    return [fields.vkTreeRoot, fields.protocolContractTreeRoot, fields.proverId] as const;
-  }
-
-  static empty() {
-    return new EpochConstantData(Fr.ZERO, Fr.ZERO, Fr.ZERO);
+    return new EpochConstantData(
+      Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
+    );
   }
 
   toBuffer() {
     return serializeToBuffer(...EpochConstantData.getFields(this));
+  }
+
+  static empty() {
+    return new EpochConstantData(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO);
   }
 }

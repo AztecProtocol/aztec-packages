@@ -955,10 +955,6 @@ bb::fr WorldState::compute_initial_block_header_hash(const StateReference& initi
                               // last archive - which, at genesis, is all 0s
                               0, // root
                               0, // next_available_leaf_index
-                              // content commitment - all 0s
-                              0, // blobs_hash
-                              0, // in_hash
-                              0, // out_hash
                               // state reference - the initial state for all the trees (accept the archive tree)
                               initial_state_ref.at(MerkleTreeId::L1_TO_L2_MESSAGE_TREE).first,
                               initial_state_ref.at(MerkleTreeId::L1_TO_L2_MESSAGE_TREE).second,
@@ -968,6 +964,7 @@ bb::fr WorldState::compute_initial_block_header_hash(const StateReference& initi
                               initial_state_ref.at(MerkleTreeId::NULLIFIER_TREE).second,
                               initial_state_ref.at(MerkleTreeId::PUBLIC_DATA_TREE).first,
                               initial_state_ref.at(MerkleTreeId::PUBLIC_DATA_TREE).second,
+                              0, // sponge_blob_hash
                               // global variables
                               0, // chain_id
                               0, // version

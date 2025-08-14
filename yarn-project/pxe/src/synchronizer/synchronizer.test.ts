@@ -44,7 +44,7 @@ describe('Synchronizer', () => {
     await synchronizer.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
 
     const obtainedHeader = await syncDataProvider.getBlockHeader();
-    expect(obtainedHeader).toEqual(block.block.header);
+    expect(obtainedHeader).toEqual(block.block.getBlockHeader());
   });
 
   it('removes notes from db on a reorg', async () => {
@@ -57,8 +57,8 @@ describe('Synchronizer', () => {
     const resetNoteSyncData = jest
       .spyOn(taggingDataProvider, 'resetNoteSyncData')
       .mockImplementation(() => Promise.resolve());
-    aztecNode.getBlockHeader.mockImplementation(
-      async blockNumber => (await L2Block.random(blockNumber as number)).header,
+    aztecNode.getBlockHeader.mockImplementation(async blockNumber =>
+      (await L2Block.random(blockNumber as number)).getBlockHeader(),
     );
 
     await synchronizer.handleBlockStreamEvent({

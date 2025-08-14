@@ -61,6 +61,7 @@ import {
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { L2BlockHeader } from '@aztec/stdlib/block';
 import type { ContractInstance, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import {
@@ -88,7 +89,7 @@ import {
   makeAppendOnlyTreeSnapshot,
   makeContentCommitment,
   makeGlobalVariables,
-  makeHeader,
+  makeL2BlockHeader,
 } from '@aztec/stdlib/testing';
 import {
   AppendOnlyTreeSnapshot,
@@ -616,7 +617,7 @@ export class TXE {
 
     const l2Block = new L2Block(
       makeAppendOnlyTreeSnapshot(blockNumber + 1),
-      makeHeader(0, blockNumber, blockNumber),
+      makeL2BlockHeader(0, blockNumber, blockNumber),
       body,
     );
 
@@ -652,13 +653,14 @@ export class TXE {
 
     const stateReference = await fork.getStateReference();
     const archiveInfo = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);
-    const header = new BlockHeader(
+    const header = new L2BlockHeader(
       new AppendOnlyTreeSnapshot(new Fr(archiveInfo.root), Number(archiveInfo.size)),
       makeContentCommitment(),
       stateReference,
       makeGlobalVariables(),
       Fr.ZERO,
       Fr.ZERO,
+      Fr.random(),
     );
 
     header.globalVariables.blockNumber = blockNumber;
@@ -670,7 +672,7 @@ export class TXE {
 
     l2Block.header = header;
 
-    await fork.updateArchive(l2Block.header);
+    await fork.updateArchive(l2Block.getBlockHeader());
 
     await this.stateMachine.handleL2Block(l2Block);
 
@@ -1093,7 +1095,7 @@ export class TXE {
 
     const l2Block = new L2Block(
       makeAppendOnlyTreeSnapshot(this.blockNumber + 1),
-      makeHeader(0, this.blockNumber, this.blockNumber),
+      makeL2BlockHeader(0, this.blockNumber, this.blockNumber),
       body,
     );
 
@@ -1103,20 +1105,21 @@ export class TXE {
     const stateReference = await fork.getStateReference();
     const archiveInfo = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);
 
-    const header = new BlockHeader(
+    const header = new L2BlockHeader(
       new AppendOnlyTreeSnapshot(new Fr(archiveInfo.root), Number(archiveInfo.size)),
       makeContentCommitment(),
       stateReference,
       globals,
       Fr.ZERO,
       Fr.ZERO,
+      Fr.random(),
     );
 
     header.globalVariables.blockNumber = this.blockNumber;
 
     l2Block.header = header;
 
-    await fork.updateArchive(l2Block.header);
+    await fork.updateArchive(l2Block.getBlockHeader());
 
     await this.stateMachine.handleL2Block(l2Block);
 
@@ -1265,7 +1268,7 @@ export class TXE {
 
     const l2Block = new L2Block(
       makeAppendOnlyTreeSnapshot(this.blockNumber + 1),
-      makeHeader(0, this.blockNumber, this.blockNumber),
+      makeL2BlockHeader(0, this.blockNumber, this.blockNumber),
       body,
     );
 
@@ -1275,20 +1278,21 @@ export class TXE {
     const stateReference = await fork.getStateReference();
     const archiveInfo = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);
 
-    const header = new BlockHeader(
+    const header = new L2BlockHeader(
       new AppendOnlyTreeSnapshot(new Fr(archiveInfo.root), Number(archiveInfo.size)),
       makeContentCommitment(),
       stateReference,
       globals,
       Fr.ZERO,
       Fr.ZERO,
+      Fr.random(),
     );
 
     header.globalVariables.blockNumber = this.blockNumber;
 
     l2Block.header = header;
 
-    await fork.updateArchive(l2Block.header);
+    await fork.updateArchive(l2Block.getBlockHeader());
 
     await this.stateMachine.handleL2Block(l2Block);
 

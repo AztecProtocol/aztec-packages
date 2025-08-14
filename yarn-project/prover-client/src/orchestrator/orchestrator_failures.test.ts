@@ -34,21 +34,25 @@ describe('prover/orchestrator/failures', () => {
       // We generate them and add them as part of the pending chain
       const blocks = await timesAsync(3, i => context.makePendingBlock(3, 1, i + 1, j => ({ privateOnly: j === 1 })));
 
-      const blobs = (
-        await Promise.all(blocks.map(block => Blob.getBlobsPerBlock(block.block.body.toBlobFields())))
-      ).flat();
+      const blockBlobFields = blocks.map(block => block.block.body.toBlobFields());
+      const blobs = (await Promise.all(blockBlobFields.map(blobFields => Blob.getBlobsPerBlock(blobFields)))).flat();
       const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
 
-      orchestrator.startNewEpoch(1, 1, 3, finalBlobChallenges);
+      const numCheckpoints = blocks.length;
+      orchestrator.startNewEpoch(1, numCheckpoints, finalBlobChallenges);
 
-      for (const { block, txs, msgs } of blocks) {
+      for (let i = 0; i < blocks.length; i++) {
+        const { block, txs, msgs } = blocks[i];
+        await orchestrator.startNewCheckpoint(
+          context.checkpointConstants,
+          msgs,
+          1,
+          blockBlobFields[i].length,
+          context.getPreviousBlockHeader(block.number),
+        );
         // these operations could fail if the target circuit fails before adding all blocks or txs
         try {
-          await orchestrator.startNewBlock(
-            block.header.globalVariables,
-            msgs,
-            context.getPreviousBlockHeader(block.number),
-          );
+          await orchestrator.startNewBlock(block.number, block.header.globalVariables.timestamp, txs.length);
           let allTxsAdded = true;
           try {
             await orchestrator.addTxs(txs);
@@ -90,12 +94,16 @@ describe('prover/orchestrator/failures', () => {
       ],
       ['Merge Rollup Failed', (msg: string) => jest.spyOn(prover, 'getMergeRollupProof').mockRejectedValue(msg)],
       [
-        'Block Root Rollup Failed',
-        (msg: string) => jest.spyOn(prover, 'getBlockRootRollupProof').mockRejectedValue(msg),
+        'Block Root First Rollup Failed',
+        (msg: string) => jest.spyOn(prover, 'getBlockRootFirstRollupProof').mockRejectedValue(msg),
       ],
       [
-        'Block Merge Rollup Failed',
-        (msg: string) => jest.spyOn(prover, 'getBlockMergeRollupProof').mockRejectedValue(msg),
+        'Checkpoint Root Single Block Rollup Failed',
+        (msg: string) => jest.spyOn(prover, 'getCheckpointRootSingleBlockRollupProof').mockRejectedValue(msg),
+      ],
+      [
+        'Checkpoint Merge Rollup Failed',
+        (msg: string) => jest.spyOn(prover, 'getCheckpointMergeRollupProof').mockRejectedValue(msg),
       ],
       ['Root Rollup Failed', (msg: string) => jest.spyOn(prover, 'getRootRollupProof').mockRejectedValue(msg)],
       ['Base Parity Failed', (msg: string) => jest.spyOn(prover, 'getBaseParityProof').mockRejectedValue(msg)],

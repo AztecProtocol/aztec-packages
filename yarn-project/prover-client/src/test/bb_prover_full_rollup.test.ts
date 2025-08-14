@@ -9,12 +9,13 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { writeTestData } from '@aztec/foundation/testing/files';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import { getBlockBlobFields } from '@aztec/stdlib/block';
 import { mockTx } from '@aztec/stdlib/testing';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { buildBlockWithCleanDB } from '../block-factory/light.js';
-import { makeGlobals } from '../mocks/fixtures.js';
+import { makeCheckpointConstants, makeGlobals } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';
 
 describe('prover/bb_prover/full-rollup', () => {
@@ -46,10 +47,12 @@ describe('prover/bb_prover/full-rollup', () => {
   ])(
     'proves a private-only epoch with %i/%i blocks with %i/%i non-empty txs each',
     async (blockCount, totalBlocks, nonEmptyTxs, totalTxs) => {
+      const numCheckpoints = totalBlocks;
       log.info(`Proving epoch with ${blockCount}/${totalBlocks} blocks with ${nonEmptyTxs}/${totalTxs} non-empty txs`);
 
       const initialHeader = context.getBlockHeader(0);
       const processedTxs = [];
+      const blockBlobFields = [];
       const blobs = [];
       for (let blockNum = 1; blockNum <= blockCount; blockNum++) {
         const txs = await timesParallel(nonEmptyTxs, async (i: number) => {
@@ -65,20 +68,30 @@ describe('prover/bb_prover/full-rollup', () => {
         expect(processed.length).toBe(nonEmptyTxs);
         expect(failed.length).toBe(0);
         processedTxs[blockNum] = processed;
-        blobs.push(await Blob.getBlobsPerBlock(processed.flatMap(tx => tx.txEffect.toBlobFields())));
+        blockBlobFields[blockNum] = getBlockBlobFields(processed.flatMap(tx => tx.txEffect));
+        blobs.push(await Blob.getBlobsPerBlock(blockBlobFields[blockNum]));
       }
 
       const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs.flat());
-      context.orchestrator.startNewEpoch(1, 1, totalBlocks, finalBlobChallenges);
+      context.orchestrator.startNewEpoch(1, numCheckpoints, finalBlobChallenges);
 
       for (let blockNum = 1; blockNum <= blockCount; blockNum++) {
-        const globals = makeGlobals(blockNum);
+        const slotNumber = blockNum;
+        const checkpointConstants = makeCheckpointConstants(slotNumber);
+        const globals = makeGlobals(blockNum, slotNumber);
         const l1ToL2Messages = makeTuple(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.random);
         const processed = processedTxs[blockNum];
 
         log.info(`Starting new block #${blockNum}`);
 
-        await context.orchestrator.startNewBlock(globals, l1ToL2Messages, previousBlockHeader);
+        await context.orchestrator.startNewCheckpoint(
+          checkpointConstants,
+          l1ToL2Messages,
+          1,
+          blockBlobFields[blockNum].length,
+          previousBlockHeader,
+        );
+        await context.orchestrator.startNewBlock(blockNum, globals.timestamp, processed.length);
         await context.orchestrator.addTxs(processed);
 
         log.info(`Setting block as completed`);
@@ -86,7 +99,7 @@ describe('prover/bb_prover/full-rollup', () => {
 
         log.info(`Updating world state with new block`);
         const block = await buildBlockWithCleanDB(processed, globals, l1ToL2Messages, await context.worldState.fork());
-        previousBlockHeader = block.header;
+        previousBlockHeader = block.getBlockHeader();
         await context.worldState.handleL2BlockAndMessages(block, l1ToL2Messages);
       }
 
@@ -134,12 +147,19 @@ describe('prover/bb_prover/full-rollup', () => {
     expect(processed.length).toBe(numTransactions);
     expect(failed.length).toBe(0);
 
-    const blobs = await Blob.getBlobsPerBlock(processed.map(tx => tx.txEffect.toBlobFields()).flat());
+    const blobFields = processed.map(tx => tx.txEffect.toBlobFields()).flat();
+    const blobs = await Blob.getBlobsPerBlock(blobFields);
     const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
 
-    context.orchestrator.startNewEpoch(1, 1, 1, finalBlobChallenges);
-
-    await context.orchestrator.startNewBlock(context.globalVariables, l1ToL2Messages, context.getPreviousBlockHeader());
+    context.orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
+    await context.orchestrator.startNewCheckpoint(
+      context.checkpointConstants,
+      l1ToL2Messages,
+      1,
+      blobFields.length,
+      context.getPreviousBlockHeader(),
+    );
+    await context.orchestrator.startNewBlock(context.blockNumber, context.globalVariables.timestamp, processed.length);
 
     await context.orchestrator.addTxs(processed);
 

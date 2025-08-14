@@ -377,7 +377,7 @@ describe('L1Publisher integration', () => {
         const totalManaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.totalGas.l2Gas)), Fr.ZERO);
         expect(totalManaUsed.toBigInt()).toEqual(block.header.totalManaUsed.toBigInt());
 
-        prevHeader = block.header;
+        prevHeader = block.getBlockHeader();
         blockSource.getL1ToL2Messages.mockResolvedValueOnce(currentL1ToL2Messages);
 
         const l2ToL1MsgsArray = block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
@@ -446,7 +446,7 @@ describe('L1Publisher integration', () => {
           functionName: 'propose',
           args: [
             {
-              header: block.header.toPropose().toViem(),
+              header: block.getCheckpointHeader().toViem(),
               archive: `0x${block.archive.root.toBuffer().toString('hex')}`,
               stateReference: block.header.state.toViem(),
               oracleInput: {
@@ -537,7 +537,7 @@ describe('L1Publisher integration', () => {
 
       const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
       expect(canPropose?.slot).toEqual(block.header.getSlot());
-      await publisher.validateBlockHeader(block.header.toPropose());
+      await publisher.validateBlockHeader(block.getCheckpointHeader());
 
       await expectPublishBlock(block, attestations);
     });
@@ -551,7 +551,7 @@ describe('L1Publisher integration', () => {
 
       const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
       expect(canPropose?.slot).toEqual(block.header.getSlot());
-      await publisher.validateBlockHeader(block.header.toPropose());
+      await publisher.validateBlockHeader(block.getCheckpointHeader());
 
       await expect(publisher.enqueueProposeL2Block(block, attestations)).rejects.toThrow(
         /ValidatorSelection__InvalidCommitteeCommitment/,
@@ -605,8 +605,10 @@ describe('L1Publisher integration', () => {
 
       // Same for validation
       logger.warn('Checking validate block header');
-      await expect(publisher.validateBlockHeader(block.header.toPropose())).rejects.toThrow(/Rollup__InvalidArchive/);
-      await publisher.validateBlockHeader(block.header.toPropose(), { forcePendingBlockNumber });
+      await expect(publisher.validateBlockHeader(block.getCheckpointHeader())).rejects.toThrow(
+        /Rollup__InvalidArchive/,
+      );
+      await publisher.validateBlockHeader(block.getCheckpointHeader(), { forcePendingBlockNumber });
 
       // Invalidate and propose
       logger.warn('Enqueuing requests to invalidate and propose the block');

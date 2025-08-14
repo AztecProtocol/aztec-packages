@@ -5,10 +5,13 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import type { Logger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type CircuitSimulator, NativeACVMSimulator, WASMSimulatorWithBlobs } from '@aztec/simulator/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import { CheckpointConstantData } from '@aztec/stdlib/rollup';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { ProcessedTx } from '@aztec/stdlib/tx';
 import { GlobalVariables } from '@aztec/stdlib/tx';
@@ -103,15 +106,30 @@ export const updateExpectedTreesFromTxs = async (db: MerkleTreeWriteOperations, 
   }
 };
 
-export const makeGlobals = (blockNumber: number) => {
+export const makeGlobals = (blockNumber: number, slotNumber = blockNumber) => {
+  const checkpointConstants = makeCheckpointConstants(slotNumber);
   return new GlobalVariables(
-    Fr.ZERO,
-    Fr.ZERO,
+    checkpointConstants.chainId,
+    checkpointConstants.version,
     blockNumber /** block number */,
-    new Fr(blockNumber) /** slot number */,
+    new Fr(slotNumber) /** slot number */,
     BigInt(blockNumber) /** block number as pseudo-timestamp for testing */,
-    EthAddress.ZERO,
-    AztecAddress.ZERO,
-    GasFees.empty(),
+    checkpointConstants.coinbase,
+    checkpointConstants.feeRecipient,
+    checkpointConstants.gasFees,
   );
+};
+
+export const makeCheckpointConstants = (slotNumber: number) => {
+  return CheckpointConstantData.from({
+    chainId: Fr.ZERO,
+    version: Fr.ZERO,
+    vkTreeRoot: getVKTreeRoot(),
+    protocolContractTreeRoot,
+    proverId: Fr.ZERO,
+    slotNumber: new Fr(slotNumber),
+    coinbase: EthAddress.ZERO,
+    feeRecipient: AztecAddress.ZERO,
+    gasFees: GasFees.empty(),
+  });
 };

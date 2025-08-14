@@ -9,14 +9,14 @@ import { mapFunctionDataFromNoir, mapFunctionDataToNoir } from './client.js';
 import {
   mapAztecAddressFromNoir,
   mapAztecAddressToNoir,
+  mapBlockHeaderFromNoir,
+  mapBlockHeaderToNoir,
   mapEthAddressFromNoir,
   mapEthAddressToNoir,
   mapFieldFromNoir,
   mapFieldToNoir,
   mapFunctionSelectorFromNoir,
   mapFunctionSelectorToNoir,
-  mapHeaderFromNoir,
-  mapHeaderToNoir,
   mapPointFromNoir,
   mapPointToNoir,
 } from './common.js';
@@ -58,7 +58,7 @@ describe('Noir<>stdlib type conversion test suite', () => {
 
     it('should map block header', () => {
       const header = makeHeader(35, undefined);
-      expect(mapHeaderFromNoir(mapHeaderToNoir(header))).toEqual(header);
+      expect(mapBlockHeaderFromNoir(mapBlockHeaderToNoir(header))).toEqual(header);
     });
   });
 });

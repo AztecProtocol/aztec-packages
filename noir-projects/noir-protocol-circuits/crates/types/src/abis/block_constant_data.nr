@@ -12,6 +12,7 @@ pub struct BlockConstantData {
     pub last_l1_to_l2: AppendOnlyTreeSnapshot,
     pub vk_tree_root: Field,
     pub protocol_contract_tree_root: Field,
+    pub prover_id: Field,
     pub global_variables: GlobalVariables,
 }
 
@@ -22,6 +23,7 @@ impl Empty for BlockConstantData {
             last_l1_to_l2: AppendOnlyTreeSnapshot::empty(),
             vk_tree_root: 0,
             protocol_contract_tree_root: 0,
+            prover_id: 0,
             global_variables: GlobalVariables::empty(),
         }
     }
@@ -46,6 +48,7 @@ mod test {
             last_l1_to_l2: AppendOnlyTreeSnapshot { root: 789, next_available_leaf_index: 101112 },
             vk_tree_root: 131415,
             protocol_contract_tree_root: 161718,
+            prover_id: 192021,
             global_variables: GlobalVariables {
                 version: 1,
                 chain_id: 2,

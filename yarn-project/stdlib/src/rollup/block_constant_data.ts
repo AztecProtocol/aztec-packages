@@ -20,6 +20,8 @@ export class BlockConstantData {
     public protocolContractTreeRoot: Fr,
     /** Global variables for the block. */
     public globalVariables: GlobalVariables,
+    /** Identifier of the prover. */
+    public proverId: Fr,
   ) {}
 
   static from(fields: FieldsOf<BlockConstantData>): BlockConstantData {
@@ -34,6 +36,7 @@ export class BlockConstantData {
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       reader.readObject(GlobalVariables),
+      Fr.fromBuffer(reader),
     );
   }
 
@@ -44,6 +47,7 @@ export class BlockConstantData {
       fields.vkTreeRoot,
       fields.protocolContractTreeRoot,
       fields.globalVariables,
+      fields.proverId,
     ] as const;
   }
 
@@ -54,6 +58,7 @@ export class BlockConstantData {
       Fr.ZERO,
       Fr.ZERO,
       GlobalVariables.empty(),
+      Fr.ZERO,
     );
   }
 

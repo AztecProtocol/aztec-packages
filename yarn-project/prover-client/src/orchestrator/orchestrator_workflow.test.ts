@@ -5,6 +5,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
+import { createBlockEndMarker, getBlockBlobFields } from '@aztec/stdlib/block';
 import {
   type PublicInputsAndRecursiveProof,
   type ServerCircuitProver,
@@ -13,7 +14,7 @@ import {
 import type { ParityPublicInputs } from '@aztec/stdlib/parity';
 import { ClientIvcProof, makeRecursiveProof } from '@aztec/stdlib/proofs';
 import { makeParityPublicInputs } from '@aztec/stdlib/testing';
-import type { BlockHeader, GlobalVariables, Tx } from '@aztec/stdlib/tx';
+import type { Tx } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -26,8 +27,6 @@ const logger = createLogger('prover-client:test:orchestrator-workflow');
 describe('prover/orchestrator', () => {
   describe('workflow', () => {
     let orchestrator: ProvingOrchestrator;
-    let globalVariables: GlobalVariables;
-    let previousBlockHeader: BlockHeader;
     let context: TestContext;
 
     describe('with mock prover', () => {
@@ -36,8 +35,7 @@ describe('prover/orchestrator', () => {
       beforeEach(async () => {
         mockProver = mock<ServerCircuitProver>();
         context = await TestContext.new(logger, 4, () => Promise.resolve(mockProver));
-        ({ orchestrator, globalVariables } = context);
-        previousBlockHeader = context.getPreviousBlockHeader();
+        ({ orchestrator } = context);
       });
 
       it('calls root parity circuit only when ready', async () => {
@@ -75,10 +73,19 @@ describe('prover/orchestrator', () => {
           }
         });
 
-        const emptyChallenges = await BatchedBlob.precomputeEmptyBatchedBlobChallenges();
+        const blobFields = [createBlockEndMarker(0)];
+        const blobs = await Blob.getBlobsPerBlock(blobFields);
+        const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
 
-        orchestrator.startNewEpoch(1, 1, 1, emptyChallenges);
-        await orchestrator.startNewBlock(globalVariables, [message], previousBlockHeader);
+        orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
+        await orchestrator.startNewCheckpoint(
+          context.checkpointConstants,
+          [message],
+          1,
+          blobFields.length,
+          context.getPreviousBlockHeader(),
+        );
+        await orchestrator.startNewBlock(context.blockNumber, context.globalVariables.timestamp, 1);
 
         // the prover broker deduplicates jobs, so the base parity proof
         // for the three sets empty messages is called only once. so total
@@ -103,16 +110,23 @@ describe('prover/orchestrator', () => {
 
       beforeEach(async () => {
         context = await TestContext.new(logger);
-        ({ prover, orchestrator, globalVariables } = context);
-        previousBlockHeader = context.getPreviousBlockHeader();
+        ({ prover, orchestrator } = context);
       });
 
       it('waits for block to be completed before enqueueing block root proof', async () => {
         const txs = await Promise.all([context.makeProcessedTx(1), context.makeProcessedTx(2)]);
-        const blobs = await Blob.getBlobsPerBlock(txs.map(tx => tx.txEffect.toBlobFields()).flat());
+        const blobFields = getBlockBlobFields(txs.flatMap(tx => tx.txEffect));
+        const blobs = await Blob.getBlobsPerBlock(blobFields);
         const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
-        orchestrator.startNewEpoch(1, 1, 1, finalBlobChallenges);
-        await orchestrator.startNewBlock(globalVariables, [], previousBlockHeader);
+        orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
+        await orchestrator.startNewCheckpoint(
+          context.checkpointConstants,
+          [],
+          1,
+          blobFields.length,
+          context.getPreviousBlockHeader(),
+        );
+        await orchestrator.startNewBlock(context.blockNumber, context.globalVariables.timestamp, txs.length);
         await context.setTreeRoots(txs);
         await orchestrator.addTxs(txs);
 
@@ -129,9 +143,17 @@ describe('prover/orchestrator', () => {
       it('can start tube proofs before adding processed txs', async () => {
         const getTubeSpy = jest.spyOn(prover, 'getTubeProof');
         const processedTxs = await Promise.all([context.makeProcessedTx(1), context.makeProcessedTx(2)]);
-        const blobs = await Blob.getBlobsPerBlock(processedTxs.map(tx => tx.txEffect.toBlobFields()).flat());
+        const blobFields = getBlockBlobFields(processedTxs.flatMap(tx => tx.txEffect));
+        const blobs = await Blob.getBlobsPerBlock(blobFields);
         const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
-        orchestrator.startNewEpoch(1, 1, 1, finalBlobChallenges);
+        orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
+        await orchestrator.startNewCheckpoint(
+          context.checkpointConstants,
+          [],
+          1,
+          blobFields.length,
+          context.getPreviousBlockHeader(),
+        );
 
         processedTxs.forEach((tx, i) => (tx.clientIvcProof = ClientIvcProof.fake(i + 1)));
         // TODO(AD): we shouldn't be mocking complex objects like tx this way - easy to hit issues (I had to update to add data field)
@@ -144,7 +166,7 @@ describe('prover/orchestrator', () => {
         expect(getTubeSpy).toHaveBeenCalledTimes(2);
         getTubeSpy.mockReset();
 
-        await orchestrator.startNewBlock(globalVariables, [], previousBlockHeader);
+        await orchestrator.startNewBlock(context.blockNumber, context.globalVariables.timestamp, processedTxs.length);
         await context.setTreeRoots(processedTxs);
         await orchestrator.addTxs(processedTxs);
         await orchestrator.setBlockCompleted(context.blockNumber);

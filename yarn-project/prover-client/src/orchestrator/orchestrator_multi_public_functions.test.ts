@@ -7,6 +7,7 @@ import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import type { TestEnqueuedCall } from '@aztec/simulator/public/fixtures';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { getBlockBlobFields } from '@aztec/stdlib/block';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import { Tx } from '@aztec/stdlib/tx';
@@ -96,17 +97,29 @@ describe('prover/orchestrator/public-functions', () => {
         expect(processed.length).toBe(numTransactions);
         expect(failed.length).toBe(0);
 
-        const blobs = await Blob.getBlobsPerBlock(processed.map(tx => tx.txEffect.toBlobFields()).flat());
+        const blobFields = getBlockBlobFields(processed.flatMap(tx => tx.txEffect));
+        const blobs = await Blob.getBlobsPerBlock(blobFields);
         const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
-        context.orchestrator.startNewEpoch(1, 1, 1, finalBlobChallenges);
-        await context.orchestrator.startNewBlock(context.globalVariables, [], context.getPreviousBlockHeader());
+        context.orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
+        await context.orchestrator.startNewCheckpoint(
+          context.checkpointConstants,
+          [],
+          1,
+          blobFields.length,
+          context.getPreviousBlockHeader(),
+        );
+        await context.orchestrator.startNewBlock(
+          context.blockNumber,
+          context.globalVariables.timestamp,
+          processed.length,
+        );
 
         await context.orchestrator.addTxs(processed);
 
-        const block = await context.orchestrator.setBlockCompleted(context.blockNumber);
+        const header = await context.orchestrator.setBlockCompleted(context.blockNumber);
         await context.orchestrator.finaliseEpoch();
 
-        expect(block.number).toEqual(context.blockNumber);
+        expect(header.getBlockNumber()).toEqual(context.blockNumber);
       },
     );
 

@@ -239,6 +239,7 @@ describe('full_prover', () => {
       }),
     );
 
+    // For the commented out circuits, run the tests in orchestrator_single_checkpoint.test.ts to generate the sample inputs.
     [
       'private-kernel-init',
       'private-kernel-inner',
@@ -248,12 +249,21 @@ describe('full_prover', () => {
       'rollup-base-private',
       'rollup-base-public',
       'rollup-merge',
-      'rollup-block-root',
-      'rollup-block-merge',
+      'rollup-block-root-first',
+      'rollup-block-root-first-single-tx',
+      // 'rollup-block-root-first-empty-tx',
+      // 'rollup-block-root',
+      // 'rollup-block-root-single-tx',
+      // 'rollup-block-merge',
+      // 'rollup-checkpoint-root',
+      'rollup-checkpoint-root-single-block',
+      'rollup-checkpoint-merge',
       'rollup-root',
     ].forEach(circuitName => {
       const data = getTestData(circuitName);
-      if (data) {
+      if (!data) {
+        logger.warn(`No test data found for ${circuitName}.`);
+      } else {
         updateProtocolCircuitSampleInputs(circuitName, TOML.stringify(data[0] as any));
       }
     });

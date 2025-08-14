@@ -1,118 +1,57 @@
 use crate::{
-    abis::{block_root_rollup_data::BlockRootRollupData, previous_rollup_data::PreviousRollupData},
+    abis::{BaseOrMergeRollupPublicInputs, ParityRootProofData, RollupProofData},
     merge::utils::validate_consecutive_rollups::validate_consecutive_rollups,
 };
-use types::{
-    abis::{block_constant_data::BlockConstantData, sponge_blob::SpongeBlob},
-    merkle_tree::membership::check_membership,
-    proof::traits::Verifiable,
-    traits::Hash,
-};
+use types::constants::{PROOF_TYPE_HONK, PROOF_TYPE_ROLLUP_HONK, ROOT_PARITY_INDEX};
 
-pub struct BlockRootRollupInputsValidator<let NUM_ROLLUPS: u32, let N: u32> {
-    previous_rollups: [PreviousRollupData; NUM_ROLLUPS],
-    allowed_vk_indices: [u32; N],
-    data: BlockRootRollupData,
+pub fn validate_previous_rollups<let NumPreviousRollups: u32, let NumVkIndices: u32>(
+    previous_rollups: [RollupProofData<BaseOrMergeRollupPublicInputs>; NumPreviousRollups],
+    allowed_previous_vk_indices: [u32; NumVkIndices],
+) {
+    if !dep::std::runtime::is_unconstrained() {
+        let vk_tree_root = previous_rollups[0].public_inputs.constants.vk_tree_root;
+        for i in 0..NumPreviousRollups {
+            previous_rollups[i].verify(PROOF_TYPE_ROLLUP_HONK);
+            previous_rollups[i].vk_data.validate_allowed_in_vk_tree(
+                vk_tree_root,
+                allowed_previous_vk_indices,
+            );
+        }
+    }
+
+    // If there is more than one previous rollup, validate that they are consecutive.
+    for i in 1..NumPreviousRollups {
+        validate_consecutive_rollups(
+            previous_rollups[i - 1].public_inputs,
+            previous_rollups[i].public_inputs,
+        );
+    }
+
+    // Check that the block number matches the next available leaf index in the archive, ensuring the hash of the block
+    // header will be inserted at the correct position.
+    let constants = previous_rollups[0].public_inputs.constants;
+    assert_eq(
+        constants.global_variables.block_number,
+        constants.last_archive.next_available_leaf_index,
+        "The block number must match the index at which the block header hash is inserted into the archive",
+    );
 }
 
-impl<let NUM_ROLLUPS: u32, let N: u32> BlockRootRollupInputsValidator<NUM_ROLLUPS, N> {
-    pub fn new(
-        previous_rollups: [PreviousRollupData; NUM_ROLLUPS],
-        allowed_vk_indices: [u32; N],
-        data: BlockRootRollupData,
-    ) -> Self {
-        BlockRootRollupInputsValidator { previous_rollups, data, allowed_vk_indices }
-    }
+/// Verify the parity root proof and vk, and check that its vk tree root equals the one in the rollup's constants.
+pub fn validate_parity_root(data: ParityRootProofData, vk_tree_root: Field) {
+    if !dep::std::runtime::is_unconstrained() {
+        data.verify(PROOF_TYPE_HONK);
 
-    pub fn validate(self) {
-        assert(NUM_ROLLUPS != 0);
+        assert(data.vk_data.leaf_index == ROOT_PARITY_INDEX);
 
-        self.validate_root_parity_proof_and_vk();
-        self.validate_rollup_proofs_and_vks();
-        self.validate_first_rollup();
-
-        let constants = self.previous_rollups[0].base_or_merge_rollup_public_inputs.constants;
-        self.validate_with_previous_block(constants);
-
-        if NUM_ROLLUPS == 1 {
-            assert_eq(
-                self.previous_rollups[0].base_or_merge_rollup_public_inputs.num_txs,
-                1,
-                "single-tx block root must contain only 1 tx",
-            );
-        }
-
-        for i in 1..NUM_ROLLUPS {
-            validate_consecutive_rollups(
-                self.previous_rollups[i - 1].base_or_merge_rollup_public_inputs,
-                self.previous_rollups[i].base_or_merge_rollup_public_inputs,
-            );
-        }
-    }
-
-    pub fn validate_without_previous_rollups(self, constants: BlockConstantData) {
-        assert(NUM_ROLLUPS == 0);
-        self.validate_root_parity_proof_and_vk();
-        self.validate_with_previous_block(constants);
-    }
-
-    fn validate_root_parity_proof_and_vk(self) {
-        if !dep::std::runtime::is_unconstrained() {
-            self.data.l1_to_l2_roots.verify();
-            self.data.l1_to_l2_roots.validate_vk_in_vk_tree();
-        }
-    }
-
-    fn validate_rollup_proofs_and_vks(self) {
-        if !dep::std::runtime::is_unconstrained() {
-            for i in 0..NUM_ROLLUPS {
-                self.previous_rollups[i].verify();
-                self.previous_rollups[i].validate_vk_in_vk_tree(self.allowed_vk_indices);
-            }
-        }
-    }
-
-    fn validate_first_rollup(self) {
-        let first_rollup = self.previous_rollups[0].base_or_merge_rollup_public_inputs;
-
+        // Check that the `vk_tree_root` in the public inputs matches the one in the rollup's constants, as it was used
+        // to verify the vk of the base parity proofs.
         assert_eq(
-            first_rollup.start,
-            self.data.previous_block_header.state.partial,
-            "the start state of the block's first tx does not match the state in previous header",
+            data.public_inputs.vk_tree_root,
+            vk_tree_root,
+            "The vk tree root of the parity root does not match the rollup's vk tree root",
         );
 
-        // Asserts that the first sponge blob was empty to begin with.
-        // This prevents injecting unchecked tx effects in the first base of a rollup.
-        let expected_sponge_blob = SpongeBlob::new(first_rollup.start_sponge_blob.expected_fields);
-        assert(
-            first_rollup.start_sponge_blob.eq(expected_sponge_blob),
-            "block's first blob sponge was not empty",
-        );
-    }
-
-    fn validate_with_previous_block(self, constants: BlockConstantData) {
-        let previous_block_header = self.data.previous_block_header;
-
-        // Validate last_archive.
-        // Makes sure the hash of the previous block header is the last leaf in the previous archive.
-        let last_archive = constants.last_archive;
-        let last_leaf_index = last_archive.next_available_leaf_index - 1;
-        let previous_block_hash = previous_block_header.hash();
-        assert(
-            check_membership(
-                previous_block_hash,
-                last_leaf_index as Field,
-                self.data.previous_archive_sibling_path,
-                last_archive.root,
-            ),
-            "hash of the previous block header is not the last leaf in the archive tree",
-        );
-
-        // Validate last_l1_to_l2.
-        assert_eq(
-            constants.last_l1_to_l2,
-            previous_block_header.state.l1_to_l2_message_tree,
-            "last_l1_to_l2 in constants does not match the value in the previous block header",
-        );
+        data.vk_data.validate_in_vk_tree(vk_tree_root);
     }
 }
