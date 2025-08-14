@@ -3,6 +3,8 @@ source $(git rev-parse --show-toplevel)/ci3/source
 
 cd ../acir_tests/$1
 
+export HARDWARE_CONCURRENCY=8
+
 bb=$(../../../cpp/scripts/find-bb)
 
 # Build base flags

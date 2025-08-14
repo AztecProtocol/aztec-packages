@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source
 
+export HARDWARE_CONCURRENCY=8
+
 cd ../acir_tests/$1
 
 mkdir -p output-$$

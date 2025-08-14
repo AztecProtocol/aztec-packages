@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source
 
-test_name=$1
-browser_type=$2
+cd ../acir_tests/$1
+export HARDWARE_CONCURRENCY=8
+
+export BROWSER=$2
 
 # Launch browser server
-../../ci3/dump_fail \
-  "cd browser-test-app && ../node_modules/.bin/serve -n -L -p 8080 -c ../serve.json dest" > /dev/null &
+dump_fail \
+  "cd ../../browser-test-app && ../node_modules/.bin/serve -n -L -p 8080 -c ../serve.json dest" > /dev/null &
 while ! nc -z localhost 8080 &>/dev/null; do sleep 1; done;
-
-cd ../acir_tests/$test_name
 
 # Use the browser binary for the test
 browser_bin="../../headless-test/bb.js.browser"
@@ -27,13 +27,13 @@ mkdir -p output-$$
 trap "rm -rf output-$$" EXIT
 
 # Generate VK
-node $browser_bin write_vk $flags -b target/program.json -o output-$$
+$browser_bin write_vk $flags -b target/program.json -o output-$$
 
 # Prove
-node $browser_bin prove $flags -b target/program.json -k output-$$/vk -o output-$$
+$browser_bin prove $flags -b target/program.json -k output-$$/vk -o output-$$
 
 # Verify
-node $browser_bin verify $flags \
+$browser_bin verify $flags \
     -k output-$$/vk \
     -p output-$$/proof \
     -i output-$$/public_inputs

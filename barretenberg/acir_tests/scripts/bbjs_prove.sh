@@ -3,6 +3,8 @@ source $(git rev-parse --show-toplevel)/ci3/source
 
 cd ../acir_tests/$1
 
+export HARDWARE_CONCURRENCY=8
+
 mkdir -p output-$$
 trap "rm -rf output-$$" EXIT
 

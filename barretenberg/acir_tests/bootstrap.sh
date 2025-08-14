@@ -190,7 +190,8 @@ function test_cmds {
   echo "$tests_hash $scripts/bb_prove.sh assert_statement --oracle_hash keccak"
   # If starknet enabled:
   #echo "$tests_hash $scripts/bb_prove.sh assert_statement --oracle_hash starknet"
-  echo "$tests_hash $scripts/bb_prove.sh verify_rollup_honk_proof"
+  # Test rollup verification (rollup uses --ipa_accumulation)
+  echo "$tests_hash $scripts/bb_prove.sh verify_rollup_honk_proof --ipa_accumulation"
   # Run the assert_statement test with ZK disabled.
   echo "$tests_hash $scripts/bb_prove.sh assert_statement --disable_zk"
 
