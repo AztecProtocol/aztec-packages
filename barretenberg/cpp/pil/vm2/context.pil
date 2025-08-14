@@ -179,18 +179,18 @@ namespace execution;
     NOT_LAST_EXEC * sel_enter_call  * (is_static' - sel_execute_static_call) = 0;
 
     // nested_exit_call = 1 ==> constraints come from lookup
-    // sel_enter_call   = 1 ==> parent_calldata_addr' = rop[3] (resolved operand 4 from execution trace)
+    // sel_enter_call   = 1 ==> parent_calldata_addr' = rop[4] (resolved operand 5 from execution trace)
     // otherwise        = 0 ==> parent_calldata_addr' = parent_calldata_addr
     #[CD_OFFSET_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_calldata_addr' - parent_calldata_addr) = 0;
-    NOT_LAST_EXEC * sel_enter_call  * (parent_calldata_addr' - rop[3]) = 0;
+    NOT_LAST_EXEC * sel_enter_call  * (parent_calldata_addr' - rop[4]) = 0;
 
     // nested_exit_call = 1 ==> constraints come from lookup
-    // sel_enter_call   = 1 ==> parent_calldata_size' = rop[4] (resolved operand 5 from execution trace)
-    // otherwise        = 0 ==> parent_calldata_siz' = parent_calldata_size
+    // sel_enter_call   = 1 ==> parent_calldata_size' = register[3] (register 4 from execution trace)
+    // otherwise        = 0 ==> parent_calldata_size' = parent_calldata_size
     #[CD_SIZE_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_calldata_size' - parent_calldata_size) = 0;
-    NOT_LAST_EXEC * sel_enter_call  * (parent_calldata_size' - rop[4]) = 0;
+    NOT_LAST_EXEC * sel_enter_call  * (parent_calldata_size' - register[3]) = 0;
 
     pol NESTED_RET_REV_ONLY = nested_exit_call * (1 - sel_error);
     // NESTED_RET_REV_ONLY = 1 ==> rop[1] (resolved operand 2 from execution trace)

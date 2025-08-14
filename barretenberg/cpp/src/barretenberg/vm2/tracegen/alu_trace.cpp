@@ -183,6 +183,18 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
             { Column::alu_mid_bits, is_trivial ? 0 : 128 - dst_bits },
         };
     }
+    case simulation::AluOperation::SHL: {
+        return {
+            { Column::alu_sel_op_shl, 1 },
+            { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::SHL).subtrace_operation_id },
+        };
+    }
+    case simulation::AluOperation::SHR: {
+        return {
+            { Column::alu_sel_op_shr, 1 },
+            { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::SHR).subtrace_operation_id },
+        };
+    }
     default:
         throw std::runtime_error("Unknown ALU operation");
         break;

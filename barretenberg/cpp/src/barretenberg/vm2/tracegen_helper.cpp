@@ -442,7 +442,7 @@ void AvmTraceGenHelper::fill_trace_columns(TraceContainer& trace,
                 } });
 
         AVM_TRACK_TIME("tracegen/traces", execute_jobs(jobs));
-    } // namespace bb::avm2
+    }
 }
 
 void AvmTraceGenHelper::fill_trace_interactions(TraceContainer& trace)

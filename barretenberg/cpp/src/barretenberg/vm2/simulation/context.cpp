@@ -137,6 +137,8 @@ ContextEvent NestedContext::serialize_context_event()
         // Tree states
         .tree_states = merkle_db.get_tree_state(),
         .written_public_data_slots_tree_snapshot = written_public_data_slots_tree.snapshot(),
+        // Side Effect
+        .side_effect_states = get_side_effect_states(),
     };
 };
 

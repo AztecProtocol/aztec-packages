@@ -76,7 +76,7 @@ void DataCopyTraceBuilder::process(
                                                : static_cast<uint64_t>(event.data_size) - (data_offset + copy_size);
 
         // Additions done over uint64_t to avoid overflow issues
-        uint64_t max_read_addr = (max_read_size + event.data_addr) * (event.is_nested ? 1 : 0); // 0 if enqueued call
+        uint64_t max_read_addr = (max_read_size + event.data_addr) * (!is_top_level ? 1 : 0); // 0 if enqueued call
         uint64_t max_write_addr = static_cast<uint64_t>(event.dst_addr) + copy_size;
 
         bool read_address_overflow = max_read_addr > MAX_MEM_ADDR;
