@@ -22,7 +22,7 @@ describe('PublisherManager', () => {
     });
   });
 
-  describe('getAvailablePublisher', () => {
+  describe('get available publisher', () => {
     let addresses: EthAddress[];
     beforeEach(() => {
       addresses = Array.from({ length: 3 }, () => EthAddress.random());
@@ -47,7 +47,7 @@ describe('PublisherManager', () => {
       await expect(publisherManager.getAvailablePublisher()).rejects.toThrow('Failed to find an available publisher.');
     });
 
-    it('should return publisher with highest priority (IDLE state)', async () => {
+    it('should return publisher with best state', async () => {
       mockPublishers[0]['state'] = TxUtilsState.MINED;
       mockPublishers[1]['state'] = TxUtilsState.IDLE;
       mockPublishers[2]['state'] = TxUtilsState.MINED;
@@ -115,7 +115,7 @@ describe('PublisherManager', () => {
       expect(result).toBe(mockPublishers[1]); // First valid after filtering
     });
 
-    it('should handle complex sorting scenario', async () => {
+    it('should handle many publishers in varying states', async () => {
       const ethAddresses = Array.from({ length: 5 }, () => EthAddress.random());
       mockPublishers = createMockPublishers(5, ethAddresses);
       publisherManager = new PublisherManager(mockPublishers);

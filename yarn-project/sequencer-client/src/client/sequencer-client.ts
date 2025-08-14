@@ -181,7 +181,7 @@ export class SequencerClient {
     await sequencer.init();
 
     const l1Metrics = new L1Metrics(telemetryClient.getMeter('SequencerL1Metrics'), publicClient, [
-      EthAddress.fromString(l1TxUtils[0].getSenderAddress()),
+      l1TxUtils[0].getSenderAddress(),
     ]);
     return new SequencerClient(publisherManager, sequencer, validatorClient, l1Metrics);
   }
@@ -209,13 +209,6 @@ export class SequencerClient {
     this.publisherManager.interrupt();
     this.l1Metrics?.stop();
   }
-
-  /**
-   * Restarts the sequencer after being stopped.
-   */
-  // public resume() {
-  //   this.sequencer.resume();
-  // }
 
   public getSequencer(): Sequencer {
     return this.sequencer;

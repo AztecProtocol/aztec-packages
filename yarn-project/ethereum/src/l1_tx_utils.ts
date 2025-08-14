@@ -591,7 +591,9 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
 
   private set state(state: TxUtilsState) {
     this.txUtilsState = state;
-    this.logger?.info(`L1TxUtils state changed to ${TxUtilsState[state]} for sender: ${this.getSenderAddress()}`);
+    this.logger?.info(
+      `L1TxUtils state changed to ${TxUtilsState[state]} for sender: ${this.getSenderAddress().toString()}`,
+    );
   }
 
   public getSenderAddress() {
@@ -943,7 +945,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     const call: any = {
       to: request.to!,
       data: request.data,
-      from: request.from ?? this.getSenderAddress(),
+      from: request.from ?? this.getSenderAddress().toString(),
       maxFeePerGas: gasPrice.maxFeePerGas,
       maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
       gas: request.gas ?? LARGE_GAS_LIMIT,
