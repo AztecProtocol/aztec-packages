@@ -91,7 +91,7 @@ class ClientIVCRecursiveVerifier {
 
     ClientIVCRecursiveVerifier(Builder* builder, const std::shared_ptr<VerificationKey>& native_mega_vk)
         : builder(builder)
-        , stdlib_mega_vk_and_hash(std::make_shared<RecursiveVKAndHash>(builder, native_mega_vk)){};
+        , stdlib_mega_vk_and_hash(std::make_shared<RecursiveVKAndHash>(*builder, native_mega_vk)){};
 
     ClientIVCRecursiveVerifier(Builder* builder, const std::shared_ptr<RecursiveVKAndHash>& stdlib_mega_vk_and_hash)
         : builder(builder)

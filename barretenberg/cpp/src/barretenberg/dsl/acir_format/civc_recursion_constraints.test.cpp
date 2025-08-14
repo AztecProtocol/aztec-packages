@@ -112,10 +112,10 @@ class CivcRecursionConstraintTest : public ::testing::Test {
 
 TEST_F(CivcRecursionConstraintTest, GenerateRecursiveCivcVerifierVKFromConstraints)
 {
-    using VerificationKey = TestFixture::VerificationKey;
-    using ClientIVCData = TestFixture::ClientIVCData;
+    using VerificationKey = CivcRecursionConstraintTest::VerificationKey;
+    using ClientIVCData = CivcRecursionConstraintTest::ClientIVCData;
 
-    ClientIVCData civc_data = TestFixture::get_civc_data(TraceSettings());
+    ClientIVCData civc_data = CivcRecursionConstraintTest::get_civc_data(TraceSettings());
 
     std::shared_ptr<VerificationKey> actual_vk;
     {
