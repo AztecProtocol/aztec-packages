@@ -105,7 +105,7 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
     const FF combiner_quotient_evaluation = combiner_quotient.evaluate(combiner_challenge);
 
     // Set the accumulator circuit size data based on the max of the keys being accumulated
-    const size_t accumulator_log_circuit_size = keys_to_fold.get_max_log_circuit_size();
+    const size_t accumulator_log_circuit_size = MegaFlavor::LOG_N;
     accumulator->vk->log_circuit_size = accumulator_log_circuit_size;
 
     // Compute next folding parameters
