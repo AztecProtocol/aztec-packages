@@ -14,9 +14,10 @@ template <typename FF_> class tx_contextImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 40> SUBRELATION_PARTIAL_LENGTHS = { 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 4, 5, 5, 3,
-                                                                            4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
-                                                                            4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4 };
+    static constexpr std::array<size_t, 72> SUBRELATION_PARTIAL_LENGTHS = {
+        3, 3, 2, 3, 3, 3, 2, 3, 3, 3, 2, 3, 3, 3, 3, 2, 3, 3, 2, 3, 3, 2, 3, 3, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 4, 5,
+        5, 3, 4, 4, 5, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 3, 3, 3
+    };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -35,275 +36,291 @@ template <typename FF_> class tx_contextImpl {
 
         PROFILE_THIS_NAME("accumulate/tx_context");
 
+        const auto constants_AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX = FF(8);
+        const auto constants_AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX = FF(9);
+        const auto constants_AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX = FF(10);
+        const auto constants_AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX = FF(11);
+        const auto constants_AVM_PUBLIC_INPUTS_START_GAS_USED_ROW_IDX = FF(12);
+        const auto constants_AVM_PUBLIC_INPUTS_GAS_SETTINGS_GAS_LIMITS_ROW_IDX = FF(13);
+        const auto constants_AVM_PUBLIC_INPUTS_GAS_SETTINGS_TEARDOWN_GAS_LIMITS_ROW_IDX = FF(14);
+        const auto constants_AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX = FF(365);
+        const auto constants_AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX = FF(366);
+        const auto constants_AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX = FF(367);
+        const auto constants_AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX = FF(368);
+        const auto constants_AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX = FF(369);
+        const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX = FF(370);
+        const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX = FF(371);
+        const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX = FF(372);
+        const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_LOGS_ROW_IDX = FF(373);
+        const auto constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_ROOT = FF(
+            uint256_t{ 18071747219918308973UL, 16614632998898105071UL, 15723772623334795496UL, 2914032580688149866UL });
+        const auto constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE = FF(1);
         const auto tx_NOT_LAST_ROW = in.get(C::tx_sel) * in.get(C::tx_sel_shift);
 
-        { // NOTE_HASH_ROOT_CONTINUITY
+        {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
-                       (in.get(C::tx_next_note_hash_tree_root) - in.get(C::tx_prev_note_hash_tree_root_shift));
+            auto tmp =
+                in.get(C::tx_start_tx) * (constants_AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX -
+                                          in.get(C::tx_note_hash_pi_offset));
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
         }
-        { // NOTE_HASH_TREE_SIZE_CONTINUITY
+        {
             using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
-                       (in.get(C::tx_next_note_hash_tree_size) - in.get(C::tx_prev_note_hash_tree_size_shift));
+            auto tmp =
+                in.get(C::tx_is_cleanup) * (constants_AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX -
+                                            in.get(C::tx_note_hash_pi_offset));
             tmp *= scaling_factor;
             std::get<1>(evals) += typename Accumulator::View(tmp);
         }
-        { // NUM_NOTE_HASHES_EMITTED_CONTINUITY
+        {
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
-                       (in.get(C::tx_next_num_note_hashes_emitted) - in.get(C::tx_prev_num_note_hashes_emitted_shift));
+            auto tmp = (in.get(C::tx_should_read_note_hash_tree) - (in.get(C::tx_start_tx) + in.get(C::tx_is_cleanup)));
             tmp *= scaling_factor;
             std::get<2>(evals) += typename Accumulator::View(tmp);
         }
-        { // NULLIFIER_TREE_ROOT_CONTINUITY
+        {
             using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-            auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
-                       (in.get(C::tx_next_nullifier_tree_root) - in.get(C::tx_prev_nullifier_tree_root_shift));
+            auto tmp = in.get(C::tx_start_tx) * in.get(C::tx_prev_num_note_hashes_emitted);
             tmp *= scaling_factor;
             std::get<3>(evals) += typename Accumulator::View(tmp);
         }
-        { // NULLIFIER_TREE_SIZE_CONTINUITY
+        {
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
-                       (in.get(C::tx_next_nullifier_tree_size) - in.get(C::tx_prev_nullifier_tree_size_shift));
+            auto tmp =
+                in.get(C::tx_start_tx) * (constants_AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX -
+                                          in.get(C::tx_nullifier_pi_offset));
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
         }
-        { // NUM_NULLIFIERS_EMITTED_CONTINUITY
+        {
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
-                       (in.get(C::tx_next_num_nullifiers_emitted) - in.get(C::tx_prev_num_nullifiers_emitted_shift));
+            auto tmp =
+                in.get(C::tx_is_cleanup) * (constants_AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX -
+                                            in.get(C::tx_nullifier_pi_offset));
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
         }
-        { // PUBLIC_DATA_TREE_ROOT_CONTINUITY
+        {
             using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
-            auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
-                       (in.get(C::tx_next_public_data_tree_root) - in.get(C::tx_prev_public_data_tree_root_shift));
+            auto tmp = (in.get(C::tx_should_read_nullifier_tree) - (in.get(C::tx_start_tx) + in.get(C::tx_is_cleanup)));
             tmp *= scaling_factor;
             std::get<6>(evals) += typename Accumulator::View(tmp);
         }
-        { // PUBLIC_DATA_TREE_SIZE_CONTINUITY
+        {
             using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
-            auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
-                       (in.get(C::tx_next_public_data_tree_size) - in.get(C::tx_prev_public_data_tree_size_shift));
+            auto tmp = in.get(C::tx_start_tx) * in.get(C::tx_prev_num_nullifiers_emitted);
             tmp *= scaling_factor;
             std::get<7>(evals) += typename Accumulator::View(tmp);
         }
-        { // WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY
+        {
             using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
-            auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
-                       (in.get(C::tx_next_written_public_data_slots_tree_root) -
-                        in.get(C::tx_prev_written_public_data_slots_tree_root_shift));
+            auto tmp =
+                in.get(C::tx_start_tx) * (constants_AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX -
+                                          in.get(C::tx_public_data_pi_offset));
             tmp *= scaling_factor;
             std::get<8>(evals) += typename Accumulator::View(tmp);
         }
-        { // WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY
+        {
             using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
-            auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
-                       (in.get(C::tx_next_written_public_data_slots_tree_size) -
-                        in.get(C::tx_prev_written_public_data_slots_tree_size_shift));
+            auto tmp =
+                in.get(C::tx_is_cleanup) * (constants_AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX -
+                                            in.get(C::tx_public_data_pi_offset));
             tmp *= scaling_factor;
             std::get<9>(evals) += typename Accumulator::View(tmp);
         }
-        { // L1_L2_TREE_ROOT_CONTINUITY
+        {
             using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
-            auto tmp = tx_NOT_LAST_ROW * (in.get(C::tx_l1_l2_tree_root) - in.get(C::tx_l1_l2_tree_root_shift));
+            auto tmp =
+                (in.get(C::tx_should_read_public_data_tree) - (in.get(C::tx_start_tx) + in.get(C::tx_is_cleanup)));
             tmp *= scaling_factor;
             std::get<10>(evals) += typename Accumulator::View(tmp);
         }
-        { // NUM_UNENCRYPTED_LOGS_CONTINUITY
+        {
             using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
-            auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
-                       (in.get(C::tx_next_num_unencrypted_logs) - in.get(C::tx_prev_num_unencrypted_logs_shift));
+            auto tmp = in.get(C::tx_start_tx) * (constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_ROOT -
+                                                 in.get(C::tx_prev_written_public_data_slots_tree_root));
             tmp *= scaling_factor;
             std::get<11>(evals) += typename Accumulator::View(tmp);
         }
-        { // NUM_L2_TO_L1_MESSAGES_CONTINUITY
+        {
             using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
-            auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
-                       (in.get(C::tx_next_num_l2_to_l1_messages) - in.get(C::tx_prev_num_l2_to_l1_messages_shift));
+            auto tmp = in.get(C::tx_start_tx) * (constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE -
+                                                 in.get(C::tx_prev_written_public_data_slots_tree_size));
             tmp *= scaling_factor;
             std::get<12>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_sel) * (FF(4) - in.get(C::tx_setup_phase_value));
+            auto tmp = in.get(C::tx_start_tx) *
+                       (constants_AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX -
+                        in.get(C::tx_l1_l2_pi_offset));
             tmp *= scaling_factor;
             std::get<13>(evals) += typename Accumulator::View(tmp);
         }
-        { // NOTE_HASH_ROOT_IMMUTABILITY
+        {
             using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_emit_note_hash)) *
-                       (in.get(C::tx_prev_note_hash_tree_root) - in.get(C::tx_next_note_hash_tree_root));
+            auto tmp = in.get(C::tx_is_cleanup) *
+                       (constants_AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX -
+                        in.get(C::tx_l1_l2_pi_offset));
             tmp *= scaling_factor;
             std::get<14>(evals) += typename Accumulator::View(tmp);
         }
-        { // NOTE_HASH_SIZE_IMMUTABILITY
+        {
             using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_emit_note_hash)) *
-                       (in.get(C::tx_prev_note_hash_tree_size) - in.get(C::tx_next_note_hash_tree_size));
+            auto tmp = (in.get(C::tx_should_read_l1_l2_tree) - (in.get(C::tx_start_tx) + in.get(C::tx_is_cleanup)));
             tmp *= scaling_factor;
             std::get<15>(evals) += typename Accumulator::View(tmp);
         }
-        { // NOTE_HASH_COUNT_IMMUTABILITY
+        {
             using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_emit_note_hash)) *
-                       (in.get(C::tx_prev_num_note_hashes_emitted) - in.get(C::tx_next_num_note_hashes_emitted));
+            auto tmp = in.get(C::tx_start_tx) *
+                       (constants_AVM_PUBLIC_INPUTS_START_GAS_USED_ROW_IDX - in.get(C::tx_gas_used_pi_offset));
             tmp *= scaling_factor;
             std::get<16>(evals) += typename Accumulator::View(tmp);
         }
-        { // NULLIFIER_ROOT_IMMUTABILITY
+        {
             using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_emit_nullifier)) *
-                       (in.get(C::tx_prev_nullifier_tree_root) - in.get(C::tx_next_nullifier_tree_root));
+            auto tmp = in.get(C::tx_is_cleanup) *
+                       (constants_AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX - in.get(C::tx_gas_used_pi_offset));
             tmp *= scaling_factor;
             std::get<17>(evals) += typename Accumulator::View(tmp);
         }
-        { // NULLIFIER_SIZE_IMMUTABILITY
+        {
             using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_emit_nullifier)) *
-                       (in.get(C::tx_prev_nullifier_tree_size) - in.get(C::tx_next_nullifier_tree_size));
+            auto tmp = (in.get(C::tx_should_read_gas_used) - (in.get(C::tx_start_tx) + in.get(C::tx_is_cleanup)));
             tmp *= scaling_factor;
             std::get<18>(evals) += typename Accumulator::View(tmp);
         }
-        { // NULLIFIER_COUNT_IMMUTABILITY
+        {
             using Accumulator = typename std::tuple_element_t<19, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_emit_nullifier)) *
-                       (in.get(C::tx_prev_num_nullifiers_emitted) - in.get(C::tx_next_num_nullifiers_emitted));
+            auto tmp = in.get(C::tx_start_tx) * (constants_AVM_PUBLIC_INPUTS_GAS_SETTINGS_GAS_LIMITS_ROW_IDX -
+                                                 in.get(C::tx_gas_limit_pi_offset));
             tmp *= scaling_factor;
             std::get<19>(evals) += typename Accumulator::View(tmp);
         }
-        { // PUBLIC_DATA_ROOT_IMMUTABILITY
+        {
             using Accumulator = typename std::tuple_element_t<20, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_write_public_data)) *
-                       (in.get(C::tx_prev_public_data_tree_root) - in.get(C::tx_next_public_data_tree_root));
+            auto tmp = in.get(C::tx_is_teardown_phase) *
+                       (constants_AVM_PUBLIC_INPUTS_GAS_SETTINGS_TEARDOWN_GAS_LIMITS_ROW_IDX -
+                        in.get(C::tx_gas_limit_pi_offset));
             tmp *= scaling_factor;
             std::get<20>(evals) += typename Accumulator::View(tmp);
         }
-        { // PUBLIC_DATA_SIZE_IMMUTABILITY
+        {
             using Accumulator = typename std::tuple_element_t<21, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_write_public_data)) *
-                       (in.get(C::tx_prev_public_data_tree_size) - in.get(C::tx_next_public_data_tree_size));
+            auto tmp =
+                (in.get(C::tx_should_read_gas_limit) - (in.get(C::tx_start_tx) + in.get(C::tx_is_teardown_phase)));
             tmp *= scaling_factor;
             std::get<21>(evals) += typename Accumulator::View(tmp);
         }
-        { // WRITTEN_PUBLIC_DATA_SLOTS_ROOT_IMMUTABILITY
+        {
             using Accumulator = typename std::tuple_element_t<22, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_write_public_data)) *
-                       (in.get(C::tx_prev_written_public_data_slots_tree_root) -
-                        in.get(C::tx_next_written_public_data_slots_tree_root));
+            auto tmp = in.get(C::tx_start_tx) * in.get(C::tx_prev_num_unencrypted_logs);
             tmp *= scaling_factor;
             std::get<22>(evals) += typename Accumulator::View(tmp);
         }
-        { // WRITTEN_PUBLIC_DATA_SLOTS_SIZE_IMMUTABILITY
+        {
             using Accumulator = typename std::tuple_element_t<23, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_write_public_data)) *
-                       (in.get(C::tx_prev_written_public_data_slots_tree_size) -
-                        in.get(C::tx_next_written_public_data_slots_tree_size));
+            auto tmp = in.get(C::tx_start_tx) * in.get(C::tx_prev_num_l2_to_l1_messages);
             tmp *= scaling_factor;
             std::get<23>(evals) += typename Accumulator::View(tmp);
         }
-        { // UNENCRYPTED_LOG_COUNT_IMMUTABILITY
+        { // NOTE_HASH_ROOT_CONTINUITY
             using Accumulator = typename std::tuple_element_t<24, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_emit_unencrypted_log)) *
-                       (in.get(C::tx_prev_num_unencrypted_logs) - in.get(C::tx_next_num_unencrypted_logs));
+            auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
+                       (in.get(C::tx_next_note_hash_tree_root) - in.get(C::tx_prev_note_hash_tree_root_shift));
             tmp *= scaling_factor;
             std::get<24>(evals) += typename Accumulator::View(tmp);
         }
-        { // L2_TO_L1_MESSAGE_COUNT_IMMUTABILITY
+        { // NOTE_HASH_TREE_SIZE_CONTINUITY
             using Accumulator = typename std::tuple_element_t<25, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_emit_l2_l1_msg)) *
-                       (in.get(C::tx_prev_num_l2_to_l1_messages) - in.get(C::tx_next_num_l2_to_l1_messages));
+            auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
+                       (in.get(C::tx_next_note_hash_tree_size) - in.get(C::tx_prev_note_hash_tree_size_shift));
             tmp *= scaling_factor;
             std::get<25>(evals) += typename Accumulator::View(tmp);
         }
-        { // NOTE_HASH_ROOT_PADDED_IMMUTABILITY
+        { // NUM_NOTE_HASHES_EMITTED_CONTINUITY
             using Accumulator = typename std::tuple_element_t<26, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
-                       (in.get(C::tx_prev_note_hash_tree_root) - in.get(C::tx_next_note_hash_tree_root));
+            auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
+                       (in.get(C::tx_next_num_note_hashes_emitted) - in.get(C::tx_prev_num_note_hashes_emitted_shift));
             tmp *= scaling_factor;
             std::get<26>(evals) += typename Accumulator::View(tmp);
         }
-        { // NOTE_HASH_SIZE_PADDED_IMMUTABILITY
+        { // NULLIFIER_TREE_ROOT_CONTINUITY
             using Accumulator = typename std::tuple_element_t<27, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
-                       (in.get(C::tx_prev_note_hash_tree_size) - in.get(C::tx_next_note_hash_tree_size));
+            auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
+                       (in.get(C::tx_next_nullifier_tree_root) - in.get(C::tx_prev_nullifier_tree_root_shift));
             tmp *= scaling_factor;
             std::get<27>(evals) += typename Accumulator::View(tmp);
         }
-        { // NOTE_HASH_COUNT_PADDED_IMMUTABILITY
+        { // NULLIFIER_TREE_SIZE_CONTINUITY
             using Accumulator = typename std::tuple_element_t<28, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
-                       (in.get(C::tx_prev_num_note_hashes_emitted) - in.get(C::tx_next_num_note_hashes_emitted));
+            auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
+                       (in.get(C::tx_next_nullifier_tree_size) - in.get(C::tx_prev_nullifier_tree_size_shift));
             tmp *= scaling_factor;
             std::get<28>(evals) += typename Accumulator::View(tmp);
         }
-        { // NULLIFIER_ROOT_PADDED_IMMUTABILITY
+        { // NUM_NULLIFIERS_EMITTED_CONTINUITY
             using Accumulator = typename std::tuple_element_t<29, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
-                       (in.get(C::tx_prev_nullifier_tree_root) - in.get(C::tx_next_nullifier_tree_root));
+            auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
+                       (in.get(C::tx_next_num_nullifiers_emitted) - in.get(C::tx_prev_num_nullifiers_emitted_shift));
             tmp *= scaling_factor;
             std::get<29>(evals) += typename Accumulator::View(tmp);
         }
-        { // NULLIFIER_SIZE_PADDED_IMMUTABILITY
+        { // PUBLIC_DATA_TREE_ROOT_CONTINUITY
             using Accumulator = typename std::tuple_element_t<30, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
-                       (in.get(C::tx_prev_nullifier_tree_size) - in.get(C::tx_next_nullifier_tree_size));
+            auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
+                       (in.get(C::tx_next_public_data_tree_root) - in.get(C::tx_prev_public_data_tree_root_shift));
             tmp *= scaling_factor;
             std::get<30>(evals) += typename Accumulator::View(tmp);
         }
-        { // NULLIFIER_COUNT_PADDED_IMMUTABILITY
+        { // PUBLIC_DATA_TREE_SIZE_CONTINUITY
             using Accumulator = typename std::tuple_element_t<31, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
-                       (in.get(C::tx_prev_num_nullifiers_emitted) - in.get(C::tx_next_num_nullifiers_emitted));
+            auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
+                       (in.get(C::tx_next_public_data_tree_size) - in.get(C::tx_prev_public_data_tree_size_shift));
             tmp *= scaling_factor;
             std::get<31>(evals) += typename Accumulator::View(tmp);
         }
-        { // PUBLIC_DATA_ROOT_PADDED_IMMUTABILITY
+        { // WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY
             using Accumulator = typename std::tuple_element_t<32, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
-                       (in.get(C::tx_prev_public_data_tree_root) - in.get(C::tx_next_public_data_tree_root));
+            auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
+                       (in.get(C::tx_next_written_public_data_slots_tree_root) -
+                        in.get(C::tx_prev_written_public_data_slots_tree_root_shift));
             tmp *= scaling_factor;
             std::get<32>(evals) += typename Accumulator::View(tmp);
         }
-        { // PUBLIC_DATA_SIZE_PADDED_IMMUTABILITY
+        { // WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY
             using Accumulator = typename std::tuple_element_t<33, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
-                       (in.get(C::tx_prev_public_data_tree_size) - in.get(C::tx_next_public_data_tree_size));
+            auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
+                       (in.get(C::tx_next_written_public_data_slots_tree_size) -
+                        in.get(C::tx_prev_written_public_data_slots_tree_size_shift));
             tmp *= scaling_factor;
             std::get<33>(evals) += typename Accumulator::View(tmp);
         }
-        { // WRITTEN_PUBLIC_DATA_SLOTS_ROOT_PADDED_IMMUTABILITY
+        { // L1_L2_TREE_ROOT_CONTINUITY
             using Accumulator = typename std::tuple_element_t<34, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
-                       (in.get(C::tx_prev_written_public_data_slots_tree_root) -
-                        in.get(C::tx_next_written_public_data_slots_tree_root));
+            auto tmp = tx_NOT_LAST_ROW * (in.get(C::tx_l1_l2_tree_root) - in.get(C::tx_l1_l2_tree_root_shift));
             tmp *= scaling_factor;
             std::get<34>(evals) += typename Accumulator::View(tmp);
         }
-        { // WRITTEN_PUBLIC_DATA_SLOTS_SIZE_PADDED_IMMUTABILITY
+        { // NUM_UNENCRYPTED_LOGS_CONTINUITY
             using Accumulator = typename std::tuple_element_t<35, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
-                       (in.get(C::tx_prev_written_public_data_slots_tree_size) -
-                        in.get(C::tx_next_written_public_data_slots_tree_size));
+            auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
+                       (in.get(C::tx_next_num_unencrypted_logs) - in.get(C::tx_prev_num_unencrypted_logs_shift));
             tmp *= scaling_factor;
             std::get<35>(evals) += typename Accumulator::View(tmp);
         }
-        { // UNENCRYPTED_LOG_COUNT_PADDED_IMMUTABILITY
+        { // NUM_L2_TO_L1_MESSAGES_CONTINUITY
             using Accumulator = typename std::tuple_element_t<36, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
-                       (in.get(C::tx_prev_num_unencrypted_logs) - in.get(C::tx_next_num_unencrypted_logs));
+            auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
+                       (in.get(C::tx_next_num_l2_to_l1_messages) - in.get(C::tx_prev_num_l2_to_l1_messages_shift));
             tmp *= scaling_factor;
             std::get<36>(evals) += typename Accumulator::View(tmp);
         }
-        { // L2_TO_L1_MESSAGE_COUNT_PADDED_IMMUTABILITY
+        {
             using Accumulator = typename std::tuple_element_t<37, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
-                       (in.get(C::tx_prev_num_l2_to_l1_messages) - in.get(C::tx_next_num_l2_to_l1_messages));
+            auto tmp = in.get(C::tx_sel) * (FF(4) - in.get(C::tx_setup_phase_value));
             tmp *= scaling_factor;
             std::get<37>(evals) += typename Accumulator::View(tmp);
         }
@@ -319,6 +336,238 @@ template <typename FF_> class tx_contextImpl {
             tmp *= scaling_factor;
             std::get<39>(evals) += typename Accumulator::View(tmp);
         }
+        { // PROPAGATE_L2_GAS_LIMIT
+            using Accumulator = typename std::tuple_element_t<40, ContainerOverSubrelations>;
+            auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_is_teardown_phase_shift)) *
+                       (in.get(C::tx_l2_gas_limit) - in.get(C::tx_l2_gas_limit_shift));
+            tmp *= scaling_factor;
+            std::get<40>(evals) += typename Accumulator::View(tmp);
+        }
+        { // PROPAGATE_DA_GAS_LIMIT
+            using Accumulator = typename std::tuple_element_t<41, ContainerOverSubrelations>;
+            auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_is_teardown_phase_shift)) *
+                       (in.get(C::tx_da_gas_limit) - in.get(C::tx_da_gas_limit_shift));
+            tmp *= scaling_factor;
+            std::get<41>(evals) += typename Accumulator::View(tmp);
+        }
+        { // NOTE_HASH_ROOT_IMMUTABILITY
+            using Accumulator = typename std::tuple_element_t<42, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_emit_note_hash)) *
+                       (in.get(C::tx_prev_note_hash_tree_root) - in.get(C::tx_next_note_hash_tree_root));
+            tmp *= scaling_factor;
+            std::get<42>(evals) += typename Accumulator::View(tmp);
+        }
+        { // NOTE_HASH_SIZE_IMMUTABILITY
+            using Accumulator = typename std::tuple_element_t<43, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_emit_note_hash)) *
+                       (in.get(C::tx_prev_note_hash_tree_size) - in.get(C::tx_next_note_hash_tree_size));
+            tmp *= scaling_factor;
+            std::get<43>(evals) += typename Accumulator::View(tmp);
+        }
+        { // NOTE_HASH_COUNT_IMMUTABILITY
+            using Accumulator = typename std::tuple_element_t<44, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_emit_note_hash)) *
+                       (in.get(C::tx_prev_num_note_hashes_emitted) - in.get(C::tx_next_num_note_hashes_emitted));
+            tmp *= scaling_factor;
+            std::get<44>(evals) += typename Accumulator::View(tmp);
+        }
+        { // NULLIFIER_ROOT_IMMUTABILITY
+            using Accumulator = typename std::tuple_element_t<45, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_emit_nullifier)) *
+                       (in.get(C::tx_prev_nullifier_tree_root) - in.get(C::tx_next_nullifier_tree_root));
+            tmp *= scaling_factor;
+            std::get<45>(evals) += typename Accumulator::View(tmp);
+        }
+        { // NULLIFIER_SIZE_IMMUTABILITY
+            using Accumulator = typename std::tuple_element_t<46, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_emit_nullifier)) *
+                       (in.get(C::tx_prev_nullifier_tree_size) - in.get(C::tx_next_nullifier_tree_size));
+            tmp *= scaling_factor;
+            std::get<46>(evals) += typename Accumulator::View(tmp);
+        }
+        { // NULLIFIER_COUNT_IMMUTABILITY
+            using Accumulator = typename std::tuple_element_t<47, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_emit_nullifier)) *
+                       (in.get(C::tx_prev_num_nullifiers_emitted) - in.get(C::tx_next_num_nullifiers_emitted));
+            tmp *= scaling_factor;
+            std::get<47>(evals) += typename Accumulator::View(tmp);
+        }
+        { // PUBLIC_DATA_ROOT_IMMUTABILITY
+            using Accumulator = typename std::tuple_element_t<48, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_write_public_data)) *
+                       (in.get(C::tx_prev_public_data_tree_root) - in.get(C::tx_next_public_data_tree_root));
+            tmp *= scaling_factor;
+            std::get<48>(evals) += typename Accumulator::View(tmp);
+        }
+        { // PUBLIC_DATA_SIZE_IMMUTABILITY
+            using Accumulator = typename std::tuple_element_t<49, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_write_public_data)) *
+                       (in.get(C::tx_prev_public_data_tree_size) - in.get(C::tx_next_public_data_tree_size));
+            tmp *= scaling_factor;
+            std::get<49>(evals) += typename Accumulator::View(tmp);
+        }
+        { // WRITTEN_PUBLIC_DATA_SLOTS_ROOT_IMMUTABILITY
+            using Accumulator = typename std::tuple_element_t<50, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_write_public_data)) *
+                       (in.get(C::tx_prev_written_public_data_slots_tree_root) -
+                        in.get(C::tx_next_written_public_data_slots_tree_root));
+            tmp *= scaling_factor;
+            std::get<50>(evals) += typename Accumulator::View(tmp);
+        }
+        { // WRITTEN_PUBLIC_DATA_SLOTS_SIZE_IMMUTABILITY
+            using Accumulator = typename std::tuple_element_t<51, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_write_public_data)) *
+                       (in.get(C::tx_prev_written_public_data_slots_tree_size) -
+                        in.get(C::tx_next_written_public_data_slots_tree_size));
+            tmp *= scaling_factor;
+            std::get<51>(evals) += typename Accumulator::View(tmp);
+        }
+        { // UNENCRYPTED_LOG_COUNT_IMMUTABILITY
+            using Accumulator = typename std::tuple_element_t<52, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_emit_unencrypted_log)) *
+                       (in.get(C::tx_prev_num_unencrypted_logs) - in.get(C::tx_next_num_unencrypted_logs));
+            tmp *= scaling_factor;
+            std::get<52>(evals) += typename Accumulator::View(tmp);
+        }
+        { // L2_TO_L1_MESSAGE_COUNT_IMMUTABILITY
+            using Accumulator = typename std::tuple_element_t<53, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_emit_l2_l1_msg)) *
+                       (in.get(C::tx_prev_num_l2_to_l1_messages) - in.get(C::tx_next_num_l2_to_l1_messages));
+            tmp *= scaling_factor;
+            std::get<53>(evals) += typename Accumulator::View(tmp);
+        }
+        { // NOTE_HASH_ROOT_PADDED_IMMUTABILITY
+            using Accumulator = typename std::tuple_element_t<54, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
+                       (in.get(C::tx_prev_note_hash_tree_root) - in.get(C::tx_next_note_hash_tree_root));
+            tmp *= scaling_factor;
+            std::get<54>(evals) += typename Accumulator::View(tmp);
+        }
+        { // NOTE_HASH_SIZE_PADDED_IMMUTABILITY
+            using Accumulator = typename std::tuple_element_t<55, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
+                       (in.get(C::tx_prev_note_hash_tree_size) - in.get(C::tx_next_note_hash_tree_size));
+            tmp *= scaling_factor;
+            std::get<55>(evals) += typename Accumulator::View(tmp);
+        }
+        { // NOTE_HASH_COUNT_PADDED_IMMUTABILITY
+            using Accumulator = typename std::tuple_element_t<56, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
+                       (in.get(C::tx_prev_num_note_hashes_emitted) - in.get(C::tx_next_num_note_hashes_emitted));
+            tmp *= scaling_factor;
+            std::get<56>(evals) += typename Accumulator::View(tmp);
+        }
+        { // NULLIFIER_ROOT_PADDED_IMMUTABILITY
+            using Accumulator = typename std::tuple_element_t<57, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
+                       (in.get(C::tx_prev_nullifier_tree_root) - in.get(C::tx_next_nullifier_tree_root));
+            tmp *= scaling_factor;
+            std::get<57>(evals) += typename Accumulator::View(tmp);
+        }
+        { // NULLIFIER_SIZE_PADDED_IMMUTABILITY
+            using Accumulator = typename std::tuple_element_t<58, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
+                       (in.get(C::tx_prev_nullifier_tree_size) - in.get(C::tx_next_nullifier_tree_size));
+            tmp *= scaling_factor;
+            std::get<58>(evals) += typename Accumulator::View(tmp);
+        }
+        { // NULLIFIER_COUNT_PADDED_IMMUTABILITY
+            using Accumulator = typename std::tuple_element_t<59, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
+                       (in.get(C::tx_prev_num_nullifiers_emitted) - in.get(C::tx_next_num_nullifiers_emitted));
+            tmp *= scaling_factor;
+            std::get<59>(evals) += typename Accumulator::View(tmp);
+        }
+        { // PUBLIC_DATA_ROOT_PADDED_IMMUTABILITY
+            using Accumulator = typename std::tuple_element_t<60, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
+                       (in.get(C::tx_prev_public_data_tree_root) - in.get(C::tx_next_public_data_tree_root));
+            tmp *= scaling_factor;
+            std::get<60>(evals) += typename Accumulator::View(tmp);
+        }
+        { // PUBLIC_DATA_SIZE_PADDED_IMMUTABILITY
+            using Accumulator = typename std::tuple_element_t<61, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
+                       (in.get(C::tx_prev_public_data_tree_size) - in.get(C::tx_next_public_data_tree_size));
+            tmp *= scaling_factor;
+            std::get<61>(evals) += typename Accumulator::View(tmp);
+        }
+        { // WRITTEN_PUBLIC_DATA_SLOTS_ROOT_PADDED_IMMUTABILITY
+            using Accumulator = typename std::tuple_element_t<62, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
+                       (in.get(C::tx_prev_written_public_data_slots_tree_root) -
+                        in.get(C::tx_next_written_public_data_slots_tree_root));
+            tmp *= scaling_factor;
+            std::get<62>(evals) += typename Accumulator::View(tmp);
+        }
+        { // WRITTEN_PUBLIC_DATA_SLOTS_SIZE_PADDED_IMMUTABILITY
+            using Accumulator = typename std::tuple_element_t<63, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
+                       (in.get(C::tx_prev_written_public_data_slots_tree_size) -
+                        in.get(C::tx_next_written_public_data_slots_tree_size));
+            tmp *= scaling_factor;
+            std::get<63>(evals) += typename Accumulator::View(tmp);
+        }
+        { // UNENCRYPTED_LOG_COUNT_PADDED_IMMUTABILITY
+            using Accumulator = typename std::tuple_element_t<64, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
+                       (in.get(C::tx_prev_num_unencrypted_logs) - in.get(C::tx_next_num_unencrypted_logs));
+            tmp *= scaling_factor;
+            std::get<64>(evals) += typename Accumulator::View(tmp);
+        }
+        { // L2_TO_L1_MESSAGE_COUNT_PADDED_IMMUTABILITY
+            using Accumulator = typename std::tuple_element_t<65, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
+                       (in.get(C::tx_prev_num_l2_to_l1_messages) - in.get(C::tx_next_num_l2_to_l1_messages));
+            tmp *= scaling_factor;
+            std::get<65>(evals) += typename Accumulator::View(tmp);
+        }
+        { // L2_GAS_USED_IMMUTABILITY
+            using Accumulator = typename std::tuple_element_t<66, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_should_process_call_request)) *
+                       (in.get(C::tx_prev_l2_gas_used) - in.get(C::tx_next_l2_gas_used));
+            tmp *= scaling_factor;
+            std::get<66>(evals) += typename Accumulator::View(tmp);
+        }
+        { // DA_GAS_USED_IMMUTABILITY
+            using Accumulator = typename std::tuple_element_t<67, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_should_process_call_request)) *
+                       (in.get(C::tx_prev_da_gas_used) - in.get(C::tx_next_da_gas_used));
+            tmp *= scaling_factor;
+            std::get<67>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<68, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_is_cleanup) *
+                       (constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX -
+                        in.get(C::tx_array_length_note_hashes_pi_offset));
+            tmp *= scaling_factor;
+            std::get<68>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<69, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_is_cleanup) *
+                       (constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX -
+                        in.get(C::tx_array_length_nullifiers_pi_offset));
+            tmp *= scaling_factor;
+            std::get<69>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<70, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_is_cleanup) *
+                       (constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX -
+                        in.get(C::tx_array_length_l2_to_l1_messages_pi_offset));
+            tmp *= scaling_factor;
+            std::get<70>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<71, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_is_cleanup) *
+                       (constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_LOGS_ROW_IDX -
+                        in.get(C::tx_array_length_unencrypted_logs_pi_offset));
+            tmp *= scaling_factor;
+            std::get<71>(evals) += typename Accumulator::View(tmp);
+        }
     }
 };
 
@@ -329,128 +578,140 @@ template <typename FF> class tx_context : public Relation<tx_contextImpl<FF>> {
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
-        case 0:
-            return "NOTE_HASH_ROOT_CONTINUITY";
-        case 1:
-            return "NOTE_HASH_TREE_SIZE_CONTINUITY";
-        case 2:
-            return "NUM_NOTE_HASHES_EMITTED_CONTINUITY";
-        case 3:
-            return "NULLIFIER_TREE_ROOT_CONTINUITY";
-        case 4:
-            return "NULLIFIER_TREE_SIZE_CONTINUITY";
-        case 5:
-            return "NUM_NULLIFIERS_EMITTED_CONTINUITY";
-        case 6:
-            return "PUBLIC_DATA_TREE_ROOT_CONTINUITY";
-        case 7:
-            return "PUBLIC_DATA_TREE_SIZE_CONTINUITY";
-        case 8:
-            return "WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY";
-        case 9:
-            return "WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY";
-        case 10:
-            return "L1_L2_TREE_ROOT_CONTINUITY";
-        case 11:
-            return "NUM_UNENCRYPTED_LOGS_CONTINUITY";
-        case 12:
-            return "NUM_L2_TO_L1_MESSAGES_CONTINUITY";
-        case 14:
-            return "NOTE_HASH_ROOT_IMMUTABILITY";
-        case 15:
-            return "NOTE_HASH_SIZE_IMMUTABILITY";
-        case 16:
-            return "NOTE_HASH_COUNT_IMMUTABILITY";
-        case 17:
-            return "NULLIFIER_ROOT_IMMUTABILITY";
-        case 18:
-            return "NULLIFIER_SIZE_IMMUTABILITY";
-        case 19:
-            return "NULLIFIER_COUNT_IMMUTABILITY";
-        case 20:
-            return "PUBLIC_DATA_ROOT_IMMUTABILITY";
-        case 21:
-            return "PUBLIC_DATA_SIZE_IMMUTABILITY";
-        case 22:
-            return "WRITTEN_PUBLIC_DATA_SLOTS_ROOT_IMMUTABILITY";
-        case 23:
-            return "WRITTEN_PUBLIC_DATA_SLOTS_SIZE_IMMUTABILITY";
         case 24:
-            return "UNENCRYPTED_LOG_COUNT_IMMUTABILITY";
+            return "NOTE_HASH_ROOT_CONTINUITY";
         case 25:
-            return "L2_TO_L1_MESSAGE_COUNT_IMMUTABILITY";
+            return "NOTE_HASH_TREE_SIZE_CONTINUITY";
         case 26:
-            return "NOTE_HASH_ROOT_PADDED_IMMUTABILITY";
+            return "NUM_NOTE_HASHES_EMITTED_CONTINUITY";
         case 27:
-            return "NOTE_HASH_SIZE_PADDED_IMMUTABILITY";
+            return "NULLIFIER_TREE_ROOT_CONTINUITY";
         case 28:
-            return "NOTE_HASH_COUNT_PADDED_IMMUTABILITY";
+            return "NULLIFIER_TREE_SIZE_CONTINUITY";
         case 29:
-            return "NULLIFIER_ROOT_PADDED_IMMUTABILITY";
+            return "NUM_NULLIFIERS_EMITTED_CONTINUITY";
         case 30:
-            return "NULLIFIER_SIZE_PADDED_IMMUTABILITY";
+            return "PUBLIC_DATA_TREE_ROOT_CONTINUITY";
         case 31:
-            return "NULLIFIER_COUNT_PADDED_IMMUTABILITY";
+            return "PUBLIC_DATA_TREE_SIZE_CONTINUITY";
         case 32:
-            return "PUBLIC_DATA_ROOT_PADDED_IMMUTABILITY";
+            return "WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY";
         case 33:
-            return "PUBLIC_DATA_SIZE_PADDED_IMMUTABILITY";
+            return "WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY";
         case 34:
-            return "WRITTEN_PUBLIC_DATA_SLOTS_ROOT_PADDED_IMMUTABILITY";
+            return "L1_L2_TREE_ROOT_CONTINUITY";
         case 35:
-            return "WRITTEN_PUBLIC_DATA_SLOTS_SIZE_PADDED_IMMUTABILITY";
+            return "NUM_UNENCRYPTED_LOGS_CONTINUITY";
         case 36:
-            return "UNENCRYPTED_LOG_COUNT_PADDED_IMMUTABILITY";
-        case 37:
-            return "L2_TO_L1_MESSAGE_COUNT_PADDED_IMMUTABILITY";
+            return "NUM_L2_TO_L1_MESSAGES_CONTINUITY";
         case 38:
             return "PROPAGATE_L2_GAS_USED";
         case 39:
             return "PROPAGATE_DA_GAS_USED";
+        case 40:
+            return "PROPAGATE_L2_GAS_LIMIT";
+        case 41:
+            return "PROPAGATE_DA_GAS_LIMIT";
+        case 42:
+            return "NOTE_HASH_ROOT_IMMUTABILITY";
+        case 43:
+            return "NOTE_HASH_SIZE_IMMUTABILITY";
+        case 44:
+            return "NOTE_HASH_COUNT_IMMUTABILITY";
+        case 45:
+            return "NULLIFIER_ROOT_IMMUTABILITY";
+        case 46:
+            return "NULLIFIER_SIZE_IMMUTABILITY";
+        case 47:
+            return "NULLIFIER_COUNT_IMMUTABILITY";
+        case 48:
+            return "PUBLIC_DATA_ROOT_IMMUTABILITY";
+        case 49:
+            return "PUBLIC_DATA_SIZE_IMMUTABILITY";
+        case 50:
+            return "WRITTEN_PUBLIC_DATA_SLOTS_ROOT_IMMUTABILITY";
+        case 51:
+            return "WRITTEN_PUBLIC_DATA_SLOTS_SIZE_IMMUTABILITY";
+        case 52:
+            return "UNENCRYPTED_LOG_COUNT_IMMUTABILITY";
+        case 53:
+            return "L2_TO_L1_MESSAGE_COUNT_IMMUTABILITY";
+        case 54:
+            return "NOTE_HASH_ROOT_PADDED_IMMUTABILITY";
+        case 55:
+            return "NOTE_HASH_SIZE_PADDED_IMMUTABILITY";
+        case 56:
+            return "NOTE_HASH_COUNT_PADDED_IMMUTABILITY";
+        case 57:
+            return "NULLIFIER_ROOT_PADDED_IMMUTABILITY";
+        case 58:
+            return "NULLIFIER_SIZE_PADDED_IMMUTABILITY";
+        case 59:
+            return "NULLIFIER_COUNT_PADDED_IMMUTABILITY";
+        case 60:
+            return "PUBLIC_DATA_ROOT_PADDED_IMMUTABILITY";
+        case 61:
+            return "PUBLIC_DATA_SIZE_PADDED_IMMUTABILITY";
+        case 62:
+            return "WRITTEN_PUBLIC_DATA_SLOTS_ROOT_PADDED_IMMUTABILITY";
+        case 63:
+            return "WRITTEN_PUBLIC_DATA_SLOTS_SIZE_PADDED_IMMUTABILITY";
+        case 64:
+            return "UNENCRYPTED_LOG_COUNT_PADDED_IMMUTABILITY";
+        case 65:
+            return "L2_TO_L1_MESSAGE_COUNT_PADDED_IMMUTABILITY";
+        case 66:
+            return "L2_GAS_USED_IMMUTABILITY";
+        case 67:
+            return "DA_GAS_USED_IMMUTABILITY";
         }
         return std::to_string(index);
     }
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_NOTE_HASH_ROOT_CONTINUITY = 0;
-    static constexpr size_t SR_NOTE_HASH_TREE_SIZE_CONTINUITY = 1;
-    static constexpr size_t SR_NUM_NOTE_HASHES_EMITTED_CONTINUITY = 2;
-    static constexpr size_t SR_NULLIFIER_TREE_ROOT_CONTINUITY = 3;
-    static constexpr size_t SR_NULLIFIER_TREE_SIZE_CONTINUITY = 4;
-    static constexpr size_t SR_NUM_NULLIFIERS_EMITTED_CONTINUITY = 5;
-    static constexpr size_t SR_PUBLIC_DATA_TREE_ROOT_CONTINUITY = 6;
-    static constexpr size_t SR_PUBLIC_DATA_TREE_SIZE_CONTINUITY = 7;
-    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY = 8;
-    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY = 9;
-    static constexpr size_t SR_L1_L2_TREE_ROOT_CONTINUITY = 10;
-    static constexpr size_t SR_NUM_UNENCRYPTED_LOGS_CONTINUITY = 11;
-    static constexpr size_t SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY = 12;
-    static constexpr size_t SR_NOTE_HASH_ROOT_IMMUTABILITY = 14;
-    static constexpr size_t SR_NOTE_HASH_SIZE_IMMUTABILITY = 15;
-    static constexpr size_t SR_NOTE_HASH_COUNT_IMMUTABILITY = 16;
-    static constexpr size_t SR_NULLIFIER_ROOT_IMMUTABILITY = 17;
-    static constexpr size_t SR_NULLIFIER_SIZE_IMMUTABILITY = 18;
-    static constexpr size_t SR_NULLIFIER_COUNT_IMMUTABILITY = 19;
-    static constexpr size_t SR_PUBLIC_DATA_ROOT_IMMUTABILITY = 20;
-    static constexpr size_t SR_PUBLIC_DATA_SIZE_IMMUTABILITY = 21;
-    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_ROOT_IMMUTABILITY = 22;
-    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_SIZE_IMMUTABILITY = 23;
-    static constexpr size_t SR_UNENCRYPTED_LOG_COUNT_IMMUTABILITY = 24;
-    static constexpr size_t SR_L2_TO_L1_MESSAGE_COUNT_IMMUTABILITY = 25;
-    static constexpr size_t SR_NOTE_HASH_ROOT_PADDED_IMMUTABILITY = 26;
-    static constexpr size_t SR_NOTE_HASH_SIZE_PADDED_IMMUTABILITY = 27;
-    static constexpr size_t SR_NOTE_HASH_COUNT_PADDED_IMMUTABILITY = 28;
-    static constexpr size_t SR_NULLIFIER_ROOT_PADDED_IMMUTABILITY = 29;
-    static constexpr size_t SR_NULLIFIER_SIZE_PADDED_IMMUTABILITY = 30;
-    static constexpr size_t SR_NULLIFIER_COUNT_PADDED_IMMUTABILITY = 31;
-    static constexpr size_t SR_PUBLIC_DATA_ROOT_PADDED_IMMUTABILITY = 32;
-    static constexpr size_t SR_PUBLIC_DATA_SIZE_PADDED_IMMUTABILITY = 33;
-    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_ROOT_PADDED_IMMUTABILITY = 34;
-    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_SIZE_PADDED_IMMUTABILITY = 35;
-    static constexpr size_t SR_UNENCRYPTED_LOG_COUNT_PADDED_IMMUTABILITY = 36;
-    static constexpr size_t SR_L2_TO_L1_MESSAGE_COUNT_PADDED_IMMUTABILITY = 37;
+    static constexpr size_t SR_NOTE_HASH_ROOT_CONTINUITY = 24;
+    static constexpr size_t SR_NOTE_HASH_TREE_SIZE_CONTINUITY = 25;
+    static constexpr size_t SR_NUM_NOTE_HASHES_EMITTED_CONTINUITY = 26;
+    static constexpr size_t SR_NULLIFIER_TREE_ROOT_CONTINUITY = 27;
+    static constexpr size_t SR_NULLIFIER_TREE_SIZE_CONTINUITY = 28;
+    static constexpr size_t SR_NUM_NULLIFIERS_EMITTED_CONTINUITY = 29;
+    static constexpr size_t SR_PUBLIC_DATA_TREE_ROOT_CONTINUITY = 30;
+    static constexpr size_t SR_PUBLIC_DATA_TREE_SIZE_CONTINUITY = 31;
+    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY = 32;
+    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY = 33;
+    static constexpr size_t SR_L1_L2_TREE_ROOT_CONTINUITY = 34;
+    static constexpr size_t SR_NUM_UNENCRYPTED_LOGS_CONTINUITY = 35;
+    static constexpr size_t SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY = 36;
     static constexpr size_t SR_PROPAGATE_L2_GAS_USED = 38;
     static constexpr size_t SR_PROPAGATE_DA_GAS_USED = 39;
+    static constexpr size_t SR_PROPAGATE_L2_GAS_LIMIT = 40;
+    static constexpr size_t SR_PROPAGATE_DA_GAS_LIMIT = 41;
+    static constexpr size_t SR_NOTE_HASH_ROOT_IMMUTABILITY = 42;
+    static constexpr size_t SR_NOTE_HASH_SIZE_IMMUTABILITY = 43;
+    static constexpr size_t SR_NOTE_HASH_COUNT_IMMUTABILITY = 44;
+    static constexpr size_t SR_NULLIFIER_ROOT_IMMUTABILITY = 45;
+    static constexpr size_t SR_NULLIFIER_SIZE_IMMUTABILITY = 46;
+    static constexpr size_t SR_NULLIFIER_COUNT_IMMUTABILITY = 47;
+    static constexpr size_t SR_PUBLIC_DATA_ROOT_IMMUTABILITY = 48;
+    static constexpr size_t SR_PUBLIC_DATA_SIZE_IMMUTABILITY = 49;
+    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_ROOT_IMMUTABILITY = 50;
+    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_SIZE_IMMUTABILITY = 51;
+    static constexpr size_t SR_UNENCRYPTED_LOG_COUNT_IMMUTABILITY = 52;
+    static constexpr size_t SR_L2_TO_L1_MESSAGE_COUNT_IMMUTABILITY = 53;
+    static constexpr size_t SR_NOTE_HASH_ROOT_PADDED_IMMUTABILITY = 54;
+    static constexpr size_t SR_NOTE_HASH_SIZE_PADDED_IMMUTABILITY = 55;
+    static constexpr size_t SR_NOTE_HASH_COUNT_PADDED_IMMUTABILITY = 56;
+    static constexpr size_t SR_NULLIFIER_ROOT_PADDED_IMMUTABILITY = 57;
+    static constexpr size_t SR_NULLIFIER_SIZE_PADDED_IMMUTABILITY = 58;
+    static constexpr size_t SR_NULLIFIER_COUNT_PADDED_IMMUTABILITY = 59;
+    static constexpr size_t SR_PUBLIC_DATA_ROOT_PADDED_IMMUTABILITY = 60;
+    static constexpr size_t SR_PUBLIC_DATA_SIZE_PADDED_IMMUTABILITY = 61;
+    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_ROOT_PADDED_IMMUTABILITY = 62;
+    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_SIZE_PADDED_IMMUTABILITY = 63;
+    static constexpr size_t SR_UNENCRYPTED_LOG_COUNT_PADDED_IMMUTABILITY = 64;
+    static constexpr size_t SR_L2_TO_L1_MESSAGE_COUNT_PADDED_IMMUTABILITY = 65;
+    static constexpr size_t SR_L2_GAS_USED_IMMUTABILITY = 66;
+    static constexpr size_t SR_DA_GAS_USED_IMMUTABILITY = 67;
 };
 
 } // namespace bb::avm2

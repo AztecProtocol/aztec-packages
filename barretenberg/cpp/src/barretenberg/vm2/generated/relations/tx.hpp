@@ -14,10 +14,10 @@ template <typename FF_> class txImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 49> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 4, 3, 3, 3, 3, 4, 7, 6, 3, 5,
-                                                                            6, 4, 3, 6, 6, 3, 4, 4, 4, 4, 2, 4, 5,
-                                                                            3, 3, 3, 4, 5, 4, 4, 4, 4, 6, 4, 3, 4,
-                                                                            2, 4, 4, 4, 3, 3, 3, 3, 3, 2 };
+    static constexpr std::array<size_t, 56> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 4, 3, 3, 3, 3, 3, 4, 7, 6, 3, 5,
+                                                                            6, 4, 3, 6, 6, 3, 3, 4, 4, 4, 4, 2, 4, 5,
+                                                                            3, 3, 3, 4, 5, 4, 4, 4, 4, 6, 4, 3, 4, 2,
+                                                                            4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -42,13 +42,13 @@ template <typename FF_> class txImpl {
         const auto constants_FEE_JUICE_ADDRESS = FF(5);
         const auto constants_FEE_JUICE_BALANCES_SLOT = FF(1);
         const auto constants_AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX = FF(18);
-        const auto constants_AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX = FF(369);
         const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX = FF(503);
         const auto constants_AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX = FF(679);
         const auto tx_NOT_LAST = in.get(C::tx_sel_shift) * in.get(C::tx_sel);
         const auto tx_NOT_PHASE_END = tx_NOT_LAST * (FF(1) - in.get(C::tx_end_phase));
         const auto tx_REM_COUNT_MINUS_1 = (in.get(C::tx_remaining_phase_counter) - FF(1));
-        const auto tx_IS_ONE_SHOT_PHASE = in.get(C::tx_is_collect_fee);
+        const auto tx_IS_ONE_SHOT_PHASE =
+            in.get(C::tx_is_collect_fee) + in.get(C::tx_is_tree_padding) + in.get(C::tx_is_cleanup);
         const auto tx_REMAINING_NOTE_HASH_WRITES =
             (constants_MAX_NOTE_HASHES_PER_TX - in.get(C::tx_prev_num_note_hashes_emitted));
         const auto tx_NULLIFIER_LIMIT_ERROR = (FF(1) - in.get(C::tx_should_nullifier_append));
@@ -78,64 +78,70 @@ template <typename FF_> class txImpl {
         }
         { // NO_EARLY_END
             using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_shift)) * (FF(1) - in.get(C::tx_is_collect_fee));
+            auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_shift)) * (FF(1) - in.get(C::tx_is_cleanup));
             tmp *= scaling_factor;
             std::get<3>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // START_WITH_SEL
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_is_padded) * (FF(1) - in.get(C::tx_is_padded));
+            auto tmp = (in.get(C::tx_start_tx_shift) - (FF(1) - in.get(C::tx_sel)) * in.get(C::tx_sel_shift));
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_is_padded) * in.get(C::tx_reverted);
+            auto tmp = in.get(C::tx_is_padded) * (FF(1) - in.get(C::tx_is_padded));
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_start_phase) * (FF(1) - in.get(C::tx_start_phase));
+            auto tmp = in.get(C::tx_is_padded) * in.get(C::tx_reverted);
             tmp *= scaling_factor;
             std::get<6>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_end_phase) * (FF(1) - in.get(C::tx_end_phase));
+            auto tmp = in.get(C::tx_start_phase) * (FF(1) - in.get(C::tx_start_phase));
             tmp *= scaling_factor;
             std::get<7>(evals) += typename Accumulator::View(tmp);
         }
-        { // START_FOLLOWS_END
+        {
             using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
-            auto tmp = tx_NOT_LAST *
-                       (in.get(C::tx_start_phase_shift) - (in.get(C::tx_end_phase) + in.get(C::precomputed_first_row)));
+            auto tmp = in.get(C::tx_end_phase) * (FF(1) - in.get(C::tx_end_phase));
             tmp *= scaling_factor;
             std::get<8>(evals) += typename Accumulator::View(tmp);
         }
-        { // PHASE_VALUE_CONTINUITY
+        { // START_FOLLOWS_END
             using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
+            auto tmp = tx_NOT_LAST *
+                       (in.get(C::tx_start_phase_shift) - (in.get(C::tx_end_phase) + in.get(C::precomputed_first_row)));
+            tmp *= scaling_factor;
+            std::get<9>(evals) += typename Accumulator::View(tmp);
+        }
+        { // PHASE_VALUE_CONTINUITY
+            using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
             auto tmp = tx_NOT_PHASE_END * (FF(1) - in.get(C::tx_reverted)) *
                        (FF(1) - in.get(C::precomputed_first_row)) *
                        (in.get(C::tx_phase_value_shift) - in.get(C::tx_phase_value));
             tmp *= scaling_factor;
-            std::get<9>(evals) += typename Accumulator::View(tmp);
+            std::get<10>(evals) += typename Accumulator::View(tmp);
         }
         { // INCR_PHASE_VALUE_ON_END
-            using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
             auto tmp = tx_NOT_LAST * (FF(1) - in.get(C::tx_reverted)) * in.get(C::tx_end_phase) *
                        (in.get(C::tx_phase_value_shift) - (in.get(C::tx_phase_value) + FF(1)));
             tmp *= scaling_factor;
-            std::get<10>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_reverted) * (FF(1) - in.get(C::tx_is_revertible));
-            tmp *= scaling_factor;
             std::get<11>(evals) += typename Accumulator::View(tmp);
         }
-        { // REM_COUNT_IS_ZERO
+        {
             using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_reverted) * (FF(1) - in.get(C::tx_is_revertible));
+            tmp *= scaling_factor;
+            std::get<12>(evals) += typename Accumulator::View(tmp);
+        }
+        { // REM_COUNT_IS_ZERO
+            using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
             auto tmp =
                 in.get(C::tx_sel) * ((in.get(C::tx_remaining_phase_counter) *
                                           (in.get(C::tx_is_padded) * (FF(1) - in.get(C::tx_remaining_phase_inv)) +
@@ -143,10 +149,10 @@ template <typename FF_> class txImpl {
                                       FF(1)) +
                                      in.get(C::tx_is_padded));
             tmp *= scaling_factor;
-            std::get<12>(evals) += typename Accumulator::View(tmp);
+            std::get<13>(evals) += typename Accumulator::View(tmp);
         }
         { // REM_COUNT_IS_ONE
-            using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
             auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_is_padded)) *
                        ((tx_REM_COUNT_MINUS_1 *
                              (in.get(C::tx_end_phase) * (FF(1) - in.get(C::tx_remaining_phase_minus_one_inv)) +
@@ -154,99 +160,106 @@ template <typename FF_> class txImpl {
                          FF(1)) +
                         in.get(C::tx_end_phase));
             tmp *= scaling_factor;
-            std::get<13>(evals) += typename Accumulator::View(tmp);
+            std::get<14>(evals) += typename Accumulator::View(tmp);
         }
         { // READ_PI_LENGTH_SEL
-            using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
             auto tmp = in.get(C::tx_sel) * (in.get(C::tx_sel_read_phase_length) -
                                             in.get(C::tx_start_phase) * (FF(1) - tx_IS_ONE_SHOT_PHASE));
             tmp *= scaling_factor;
-            std::get<14>(evals) += typename Accumulator::View(tmp);
-        }
-        { // ONE_SHOT_REMAINING_PHASE_COUNTER_ONE
-            using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
-            auto tmp = tx_IS_ONE_SHOT_PHASE * (in.get(C::tx_remaining_phase_counter) - FF(1));
-            tmp *= scaling_factor;
             std::get<15>(evals) += typename Accumulator::View(tmp);
         }
-        { // DECR_REM_PHASE_EVENTS
+        { // ONE_SHOT_REMAINING_PHASE_COUNTER_ONE
             using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - in.get(C::precomputed_first_row)) * tx_NOT_PHASE_END *
-                       (in.get(C::tx_remaining_phase_counter_shift) - (in.get(C::tx_remaining_phase_counter) - FF(1)));
+            auto tmp = tx_IS_ONE_SHOT_PHASE * (in.get(C::tx_remaining_phase_counter) - FF(1));
             tmp *= scaling_factor;
             std::get<16>(evals) += typename Accumulator::View(tmp);
         }
-        { // INCR_READ_PI_OFFSET
+        { // DECR_REM_PHASE_EVENTS
             using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
             auto tmp = (FF(1) - in.get(C::precomputed_first_row)) * tx_NOT_PHASE_END *
-                       (in.get(C::tx_read_pi_offset_shift) - (in.get(C::tx_read_pi_offset) + FF(1)));
+                       (in.get(C::tx_remaining_phase_counter_shift) - (in.get(C::tx_remaining_phase_counter) - FF(1)));
             tmp *= scaling_factor;
             std::get<17>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // INCR_READ_PI_OFFSET
             using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_is_teardown_phase) * (FF(1) - in.get(C::tx_is_teardown_phase));
+            auto tmp = (FF(1) - in.get(C::precomputed_first_row)) * tx_NOT_PHASE_END *
+                       (in.get(C::tx_read_pi_offset_shift) - (in.get(C::tx_read_pi_offset) + FF(1)));
             tmp *= scaling_factor;
             std::get<18>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<19, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_is_public_call_request) *
-                       (((FF(0) - in.get(C::tx_prev_l2_gas_used)) * in.get(C::tx_is_teardown_phase) +
-                         in.get(C::tx_prev_l2_gas_used)) -
-                        in.get(C::tx_prev_l2_gas_used_sent_to_enqueued_call));
+            auto tmp = (in.get(C::tx_should_process_call_request) -
+                        in.get(C::tx_is_public_call_request) * (FF(1) - in.get(C::tx_is_padded)));
             tmp *= scaling_factor;
             std::get<19>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<20, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_is_public_call_request) *
-                       (((FF(0) - in.get(C::tx_prev_da_gas_used)) * in.get(C::tx_is_teardown_phase) +
-                         in.get(C::tx_prev_da_gas_used)) -
-                        in.get(C::tx_prev_da_gas_used_sent_to_enqueued_call));
+            auto tmp = in.get(C::tx_is_teardown_phase) * (FF(1) - in.get(C::tx_is_teardown_phase));
             tmp *= scaling_factor;
             std::get<20>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<21, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_is_public_call_request) *
-                       (((in.get(C::tx_prev_l2_gas_used) - in.get(C::tx_next_l2_gas_used_sent_to_enqueued_call)) *
-                             in.get(C::tx_is_teardown_phase) +
-                         in.get(C::tx_next_l2_gas_used_sent_to_enqueued_call)) -
-                        in.get(C::tx_next_l2_gas_used));
+            auto tmp = in.get(C::tx_should_process_call_request) *
+                       (((FF(0) - in.get(C::tx_prev_l2_gas_used)) * in.get(C::tx_is_teardown_phase) +
+                         in.get(C::tx_prev_l2_gas_used)) -
+                        in.get(C::tx_prev_l2_gas_used_sent_to_enqueued_call));
             tmp *= scaling_factor;
             std::get<21>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<22, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_is_public_call_request) *
-                       (((in.get(C::tx_prev_da_gas_used) - in.get(C::tx_next_da_gas_used_sent_to_enqueued_call)) *
-                             in.get(C::tx_is_teardown_phase) +
-                         in.get(C::tx_next_da_gas_used_sent_to_enqueued_call)) -
-                        in.get(C::tx_next_da_gas_used));
+            auto tmp = in.get(C::tx_should_process_call_request) *
+                       (((FF(0) - in.get(C::tx_prev_da_gas_used)) * in.get(C::tx_is_teardown_phase) +
+                         in.get(C::tx_prev_da_gas_used)) -
+                        in.get(C::tx_prev_da_gas_used_sent_to_enqueued_call));
             tmp *= scaling_factor;
             std::get<22>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<23, ContainerOverSubrelations>;
-            auto tmp =
-                (in.get(C::tx_is_tree_insert_phase) -
-                 (in.get(C::tx_sel_revertible_append_note_hash) + in.get(C::tx_sel_non_revertible_append_note_hash) +
-                  in.get(C::tx_sel_revertible_append_nullifier) + in.get(C::tx_sel_non_revertible_append_nullifier)));
+            auto tmp = in.get(C::tx_should_process_call_request) *
+                       (((in.get(C::tx_prev_l2_gas_used) - in.get(C::tx_next_l2_gas_used_sent_to_enqueued_call)) *
+                             in.get(C::tx_is_teardown_phase) +
+                         in.get(C::tx_next_l2_gas_used_sent_to_enqueued_call)) -
+                        in.get(C::tx_next_l2_gas_used));
             tmp *= scaling_factor;
             std::get<23>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<24, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_should_process_call_request) *
+                       (((in.get(C::tx_prev_da_gas_used) - in.get(C::tx_next_da_gas_used_sent_to_enqueued_call)) *
+                             in.get(C::tx_is_teardown_phase) +
+                         in.get(C::tx_next_da_gas_used_sent_to_enqueued_call)) -
+                        in.get(C::tx_next_da_gas_used));
+            tmp *= scaling_factor;
+            std::get<24>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<25, ContainerOverSubrelations>;
+            auto tmp =
+                (in.get(C::tx_is_tree_insert_phase) -
+                 (in.get(C::tx_sel_revertible_append_note_hash) + in.get(C::tx_sel_non_revertible_append_note_hash) +
+                  in.get(C::tx_sel_revertible_append_nullifier) + in.get(C::tx_sel_non_revertible_append_nullifier)));
+            tmp *= scaling_factor;
+            std::get<25>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<26, ContainerOverSubrelations>;
             auto tmp =
                 (in.get(C::tx_should_try_note_hash_append) - in.get(C::tx_sel) * (FF(1) - in.get(C::tx_is_padded)) *
                                                                  (in.get(C::tx_sel_revertible_append_note_hash) +
                                                                   in.get(C::tx_sel_non_revertible_append_note_hash)));
             tmp *= scaling_factor;
-            std::get<24>(evals) += typename Accumulator::View(tmp);
+            std::get<26>(evals) += typename Accumulator::View(tmp);
         }
         { // MAX_NOTE_HASH_WRITES_REACHED
-            using Accumulator = typename std::tuple_element_t<25, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<27, ContainerOverSubrelations>;
             auto tmp = in.get(C::tx_should_try_note_hash_append) *
                        ((tx_REMAINING_NOTE_HASH_WRITES *
                              (in.get(C::tx_reverted) * (FF(1) - in.get(C::tx_remaining_side_effects_inv)) +
@@ -254,40 +267,40 @@ template <typename FF_> class txImpl {
                          FF(1)) +
                         in.get(C::tx_reverted));
             tmp *= scaling_factor;
-            std::get<25>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<26, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_should_try_note_hash_append) *
-                       ((FF(1) - in.get(C::tx_reverted)) - in.get(C::tx_should_note_hash_append));
-            tmp *= scaling_factor;
-            std::get<26>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<27, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_should_note_hash_append) *
-                       ((in.get(C::tx_prev_note_hash_tree_size) + FF(1)) - in.get(C::tx_next_note_hash_tree_size));
-            tmp *= scaling_factor;
             std::get<27>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<28, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_should_note_hash_append) * ((in.get(C::tx_prev_num_note_hashes_emitted) + FF(1)) -
-                                                                in.get(C::tx_next_num_note_hashes_emitted));
+            auto tmp = in.get(C::tx_should_try_note_hash_append) *
+                       ((FF(1) - in.get(C::tx_reverted)) - in.get(C::tx_should_note_hash_append));
             tmp *= scaling_factor;
             std::get<28>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<29, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_should_note_hash_append) *
+                       ((in.get(C::tx_prev_note_hash_tree_size) + FF(1)) - in.get(C::tx_next_note_hash_tree_size));
+            tmp *= scaling_factor;
+            std::get<29>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<30, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_should_note_hash_append) * ((in.get(C::tx_prev_num_note_hashes_emitted) + FF(1)) -
+                                                                in.get(C::tx_next_num_note_hashes_emitted));
+            tmp *= scaling_factor;
+            std::get<30>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<31, ContainerOverSubrelations>;
             auto tmp =
                 (in.get(C::tx_should_try_nullifier_append) - in.get(C::tx_sel) * (FF(1) - in.get(C::tx_is_padded)) *
                                                                  (in.get(C::tx_sel_revertible_append_nullifier) +
                                                                   in.get(C::tx_sel_non_revertible_append_nullifier)));
             tmp *= scaling_factor;
-            std::get<29>(evals) += typename Accumulator::View(tmp);
+            std::get<31>(evals) += typename Accumulator::View(tmp);
         }
         { // MAX_NULLIFIER_WRITES_REACHED
-            using Accumulator = typename std::tuple_element_t<30, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<32, ContainerOverSubrelations>;
             auto tmp = in.get(C::tx_should_try_nullifier_append) *
                        ((tx_REMAINING_NULLIFIER_WRITES *
                              (tx_NULLIFIER_LIMIT_ERROR * (FF(1) - in.get(C::tx_remaining_side_effects_inv)) +
@@ -295,41 +308,41 @@ template <typename FF_> class txImpl {
                          FF(1)) +
                         tx_NULLIFIER_LIMIT_ERROR);
             tmp *= scaling_factor;
-            std::get<30>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<31, ContainerOverSubrelations>;
-            auto tmp =
-                in.get(C::tx_should_try_nullifier_append) * tx_NULLIFIER_LIMIT_ERROR * (FF(1) - in.get(C::tx_reverted));
-            tmp *= scaling_factor;
-            std::get<31>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<32, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_should_nullifier_append) * (FF(1) - in.get(C::tx_reverted)) *
-                       ((in.get(C::tx_prev_nullifier_tree_size) + FF(1)) - in.get(C::tx_next_nullifier_tree_size));
-            tmp *= scaling_factor;
             std::get<32>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<33, ContainerOverSubrelations>;
             auto tmp =
-                in.get(C::tx_should_nullifier_append) * (FF(1) - in.get(C::tx_reverted)) *
-                ((in.get(C::tx_prev_num_nullifiers_emitted) + FF(1)) - in.get(C::tx_next_num_nullifiers_emitted));
+                in.get(C::tx_should_try_nullifier_append) * tx_NULLIFIER_LIMIT_ERROR * (FF(1) - in.get(C::tx_reverted));
             tmp *= scaling_factor;
             std::get<33>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<34, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_should_nullifier_append) * (FF(1) - in.get(C::tx_reverted)) *
+                       ((in.get(C::tx_prev_nullifier_tree_size) + FF(1)) - in.get(C::tx_next_nullifier_tree_size));
+            tmp *= scaling_factor;
+            std::get<34>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<35, ContainerOverSubrelations>;
+            auto tmp =
+                in.get(C::tx_should_nullifier_append) * (FF(1) - in.get(C::tx_reverted)) *
+                ((in.get(C::tx_prev_num_nullifiers_emitted) + FF(1)) - in.get(C::tx_next_num_nullifiers_emitted));
+            tmp *= scaling_factor;
+            std::get<35>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<36, ContainerOverSubrelations>;
             auto tmp =
                 (in.get(C::tx_should_try_l2_l1_msg_append) - in.get(C::tx_sel) * (FF(1) - in.get(C::tx_is_padded)) *
                                                                  (in.get(C::tx_sel_revertible_append_l2_l1_msg) +
                                                                   in.get(C::tx_sel_non_revertible_append_l2_l1_msg)));
             tmp *= scaling_factor;
-            std::get<34>(evals) += typename Accumulator::View(tmp);
+            std::get<36>(evals) += typename Accumulator::View(tmp);
         }
         { // MAX_L2_L1_MSG_WRITES_REACHED
-            using Accumulator = typename std::tuple_element_t<35, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<37, ContainerOverSubrelations>;
             auto tmp = in.get(C::tx_should_try_l2_l1_msg_append) * (FF(1) - in.get(C::tx_is_padded)) *
                        ((tx_REMAINING_L2_TO_L1_MSG_WRITES *
                              (in.get(C::tx_reverted) * (FF(1) - in.get(C::tx_remaining_side_effects_inv)) +
@@ -337,102 +350,141 @@ template <typename FF_> class txImpl {
                          FF(1)) +
                         in.get(C::tx_reverted));
             tmp *= scaling_factor;
-            std::get<35>(evals) += typename Accumulator::View(tmp);
+            std::get<37>(evals) += typename Accumulator::View(tmp);
         }
         {
-            using Accumulator = typename std::tuple_element_t<36, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<38, ContainerOverSubrelations>;
             auto tmp = in.get(C::tx_should_try_l2_l1_msg_append) *
                        ((FF(1) - in.get(C::tx_reverted)) * (FF(1) - in.get(C::tx_discard)) -
                         in.get(C::tx_should_l2_l1_msg_append));
-            tmp *= scaling_factor;
-            std::get<36>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<37, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_should_l2_l1_msg_append) *
-                       ((constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX +
-                         in.get(C::tx_prev_num_l2_to_l1_messages)) -
-                        in.get(C::tx_write_pi_offset));
-            tmp *= scaling_factor;
-            std::get<37>(evals) += typename Accumulator::View(tmp);
-        }
-        { // UPDATE_NUM_L2_TO_L1_MSGS
-            using Accumulator = typename std::tuple_element_t<38, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_should_try_l2_l1_msg_append) * (FF(1) - in.get(C::tx_reverted)) *
-                       ((in.get(C::tx_prev_num_l2_to_l1_messages) + FF(1)) - in.get(C::tx_next_num_l2_to_l1_messages));
             tmp *= scaling_factor;
             std::get<38>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<39, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::tx_fee_payer_pi_offset) -
-                        in.get(C::tx_is_collect_fee) * constants_AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX);
+            auto tmp = in.get(C::tx_should_l2_l1_msg_append) *
+                       ((constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX +
+                         in.get(C::tx_prev_num_l2_to_l1_messages)) -
+                        in.get(C::tx_write_pi_offset));
             tmp *= scaling_factor;
             std::get<39>(evals) += typename Accumulator::View(tmp);
         }
-        { // COMPUTE_FEE
+        { // UPDATE_NUM_L2_TO_L1_MSGS
             using Accumulator = typename std::tuple_element_t<40, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_should_try_l2_l1_msg_append) * (FF(1) - in.get(C::tx_reverted)) *
+                       ((in.get(C::tx_prev_num_l2_to_l1_messages) + FF(1)) - in.get(C::tx_next_num_l2_to_l1_messages));
+            tmp *= scaling_factor;
+            std::get<40>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<41, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::tx_fee_payer_pi_offset) -
+                        in.get(C::tx_is_collect_fee) * constants_AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX);
+            tmp *= scaling_factor;
+            std::get<41>(evals) += typename Accumulator::View(tmp);
+        }
+        { // COMPUTE_FEE
+            using Accumulator = typename std::tuple_element_t<42, ContainerOverSubrelations>;
             auto tmp = in.get(C::tx_is_collect_fee) *
                        ((in.get(C::tx_effective_fee_per_da_gas) * in.get(C::tx_prev_da_gas_used) +
                          in.get(C::tx_effective_fee_per_l2_gas) * in.get(C::tx_prev_l2_gas_used)) -
                         in.get(C::tx_fee));
             tmp *= scaling_factor;
-            std::get<40>(evals) += typename Accumulator::View(tmp);
+            std::get<42>(evals) += typename Accumulator::View(tmp);
         }
         { // TEARDOWN_GETS_FEE
-            using Accumulator = typename std::tuple_element_t<41, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<43, ContainerOverSubrelations>;
             auto tmp = in.get(C::tx_is_teardown_phase) * (FF(1) - in.get(C::tx_is_padded)) *
                        (in.get(C::tx_fee_shift) - in.get(C::tx_fee));
             tmp *= scaling_factor;
-            std::get<41>(evals) += typename Accumulator::View(tmp);
-        }
-        { // FEE_ZERO_UNLESS_COLLECT_FEE_OR_TEARDOWN
-            using Accumulator = typename std::tuple_element_t<42, ContainerOverSubrelations>;
-            auto tmp =
-                (FF(1) - in.get(C::tx_is_collect_fee)) * (FF(1) - in.get(C::tx_is_teardown_phase)) * in.get(C::tx_fee);
-            tmp *= scaling_factor;
-            std::get<42>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<43, ContainerOverSubrelations>;
-            auto tmp =
-                in.get(C::tx_is_collect_fee) * (constants_FEE_JUICE_ADDRESS - in.get(C::tx_fee_juice_contract_address));
-            tmp *= scaling_factor;
             std::get<43>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // FEE_ZERO_UNLESS_COLLECT_FEE_OR_TEARDOWN
             using Accumulator = typename std::tuple_element_t<44, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_is_collect_fee) *
-                       (constants_FEE_JUICE_BALANCES_SLOT - in.get(C::tx_fee_juice_balances_slot));
+            auto tmp =
+                (FF(1) - in.get(C::tx_is_collect_fee)) * (FF(1) - in.get(C::tx_is_teardown_phase)) * in.get(C::tx_fee);
             tmp *= scaling_factor;
             std::get<44>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<45, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_is_collect_fee) *
-                       ((in.get(C::tx_fee_payer_balance) - in.get(C::tx_fee)) - in.get(C::tx_fee_payer_new_balance));
+            auto tmp =
+                in.get(C::tx_is_collect_fee) * (constants_FEE_JUICE_ADDRESS - in.get(C::tx_fee_juice_contract_address));
             tmp *= scaling_factor;
             std::get<45>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<46, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_is_collect_fee) * (in.get(C::tx_uint32_max) - FF(4294967295UL));
+            auto tmp = in.get(C::tx_is_collect_fee) *
+                       (constants_FEE_JUICE_BALANCES_SLOT - in.get(C::tx_fee_juice_balances_slot));
             tmp *= scaling_factor;
             std::get<46>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<47, ContainerOverSubrelations>;
             auto tmp = in.get(C::tx_is_collect_fee) *
-                       (constants_AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX - in.get(C::tx_write_pi_offset));
+                       ((in.get(C::tx_fee_payer_balance) - in.get(C::tx_fee)) - in.get(C::tx_fee_payer_new_balance));
             tmp *= scaling_factor;
             std::get<47>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<48, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::tx_end_gas_used_pi_offset) -
-                        in.get(C::tx_is_collect_fee) * constants_AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX);
+            auto tmp = in.get(C::tx_is_collect_fee) * (in.get(C::tx_uint32_max) - FF(4294967295UL));
             tmp *= scaling_factor;
             std::get<48>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<49, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_is_collect_fee) *
+                       (constants_AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX - in.get(C::tx_write_pi_offset));
+            tmp *= scaling_factor;
+            std::get<49>(evals) += typename Accumulator::View(tmp);
+        }
+        { // NOTE_HASH_TREE_ROOT_IMMUTABLE_IN_PADDING
+            using Accumulator = typename std::tuple_element_t<50, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_is_tree_padding) *
+                       (in.get(C::tx_prev_note_hash_tree_root) - in.get(C::tx_next_note_hash_tree_root));
+            tmp *= scaling_factor;
+            std::get<50>(evals) += typename Accumulator::View(tmp);
+        }
+        { // PAD_NOTE_HASH_TREE
+            using Accumulator = typename std::tuple_element_t<51, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_is_tree_padding) *
+                       (((in.get(C::tx_prev_note_hash_tree_size) + constants_MAX_NOTE_HASHES_PER_TX) -
+                         in.get(C::tx_prev_num_note_hashes_emitted)) -
+                        in.get(C::tx_next_note_hash_tree_size));
+            tmp *= scaling_factor;
+            std::get<51>(evals) += typename Accumulator::View(tmp);
+        }
+        { // NOTE_HASHES_EMITTED_IMMUTABLE_IN_PADDING
+            using Accumulator = typename std::tuple_element_t<52, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_is_tree_padding) *
+                       (in.get(C::tx_prev_num_note_hashes_emitted) - in.get(C::tx_next_num_note_hashes_emitted));
+            tmp *= scaling_factor;
+            std::get<52>(evals) += typename Accumulator::View(tmp);
+        }
+        { // NULLIFIER_TREE_ROOT_IMMUTABLE_IN_PADDING
+            using Accumulator = typename std::tuple_element_t<53, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_is_tree_padding) *
+                       (in.get(C::tx_prev_nullifier_tree_root) - in.get(C::tx_next_nullifier_tree_root));
+            tmp *= scaling_factor;
+            std::get<53>(evals) += typename Accumulator::View(tmp);
+        }
+        { // PAD_NULLIFIER_TREE
+            using Accumulator = typename std::tuple_element_t<54, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_is_tree_padding) *
+                       (((in.get(C::tx_prev_nullifier_tree_size) + constants_MAX_NULLIFIERS_PER_TX) -
+                         in.get(C::tx_prev_num_nullifiers_emitted)) -
+                        in.get(C::tx_next_nullifier_tree_size));
+            tmp *= scaling_factor;
+            std::get<54>(evals) += typename Accumulator::View(tmp);
+        }
+        { // NULLIFIERS_EMITTED_IMMUTABLE_IN_PADDING
+            using Accumulator = typename std::tuple_element_t<55, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_is_tree_padding) *
+                       (in.get(C::tx_prev_num_nullifiers_emitted) - in.get(C::tx_next_num_nullifiers_emitted));
+            tmp *= scaling_factor;
+            std::get<55>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -450,38 +502,52 @@ template <typename FF> class tx : public Relation<txImpl<FF>> {
             return "SEL_ON_FIRST_ROW";
         case 3:
             return "NO_EARLY_END";
-        case 8:
-            return "START_FOLLOWS_END";
+        case 4:
+            return "START_WITH_SEL";
         case 9:
-            return "PHASE_VALUE_CONTINUITY";
+            return "START_FOLLOWS_END";
         case 10:
+            return "PHASE_VALUE_CONTINUITY";
+        case 11:
             return "INCR_PHASE_VALUE_ON_END";
-        case 12:
-            return "REM_COUNT_IS_ZERO";
         case 13:
-            return "REM_COUNT_IS_ONE";
+            return "REM_COUNT_IS_ZERO";
         case 14:
-            return "READ_PI_LENGTH_SEL";
+            return "REM_COUNT_IS_ONE";
         case 15:
-            return "ONE_SHOT_REMAINING_PHASE_COUNTER_ONE";
+            return "READ_PI_LENGTH_SEL";
         case 16:
-            return "DECR_REM_PHASE_EVENTS";
+            return "ONE_SHOT_REMAINING_PHASE_COUNTER_ONE";
         case 17:
+            return "DECR_REM_PHASE_EVENTS";
+        case 18:
             return "INCR_READ_PI_OFFSET";
-        case 25:
+        case 27:
             return "MAX_NOTE_HASH_WRITES_REACHED";
-        case 30:
+        case 32:
             return "MAX_NULLIFIER_WRITES_REACHED";
-        case 35:
+        case 37:
             return "MAX_L2_L1_MSG_WRITES_REACHED";
-        case 38:
-            return "UPDATE_NUM_L2_TO_L1_MSGS";
         case 40:
-            return "COMPUTE_FEE";
-        case 41:
-            return "TEARDOWN_GETS_FEE";
+            return "UPDATE_NUM_L2_TO_L1_MSGS";
         case 42:
+            return "COMPUTE_FEE";
+        case 43:
+            return "TEARDOWN_GETS_FEE";
+        case 44:
             return "FEE_ZERO_UNLESS_COLLECT_FEE_OR_TEARDOWN";
+        case 50:
+            return "NOTE_HASH_TREE_ROOT_IMMUTABLE_IN_PADDING";
+        case 51:
+            return "PAD_NOTE_HASH_TREE";
+        case 52:
+            return "NOTE_HASHES_EMITTED_IMMUTABLE_IN_PADDING";
+        case 53:
+            return "NULLIFIER_TREE_ROOT_IMMUTABLE_IN_PADDING";
+        case 54:
+            return "PAD_NULLIFIER_TREE";
+        case 55:
+            return "NULLIFIERS_EMITTED_IMMUTABLE_IN_PADDING";
         }
         return std::to_string(index);
     }
@@ -490,22 +556,29 @@ template <typename FF> class tx : public Relation<txImpl<FF>> {
     static constexpr size_t SR_NO_EXTRANEOUS_ROWS = 1;
     static constexpr size_t SR_SEL_ON_FIRST_ROW = 2;
     static constexpr size_t SR_NO_EARLY_END = 3;
-    static constexpr size_t SR_START_FOLLOWS_END = 8;
-    static constexpr size_t SR_PHASE_VALUE_CONTINUITY = 9;
-    static constexpr size_t SR_INCR_PHASE_VALUE_ON_END = 10;
-    static constexpr size_t SR_REM_COUNT_IS_ZERO = 12;
-    static constexpr size_t SR_REM_COUNT_IS_ONE = 13;
-    static constexpr size_t SR_READ_PI_LENGTH_SEL = 14;
-    static constexpr size_t SR_ONE_SHOT_REMAINING_PHASE_COUNTER_ONE = 15;
-    static constexpr size_t SR_DECR_REM_PHASE_EVENTS = 16;
-    static constexpr size_t SR_INCR_READ_PI_OFFSET = 17;
-    static constexpr size_t SR_MAX_NOTE_HASH_WRITES_REACHED = 25;
-    static constexpr size_t SR_MAX_NULLIFIER_WRITES_REACHED = 30;
-    static constexpr size_t SR_MAX_L2_L1_MSG_WRITES_REACHED = 35;
-    static constexpr size_t SR_UPDATE_NUM_L2_TO_L1_MSGS = 38;
-    static constexpr size_t SR_COMPUTE_FEE = 40;
-    static constexpr size_t SR_TEARDOWN_GETS_FEE = 41;
-    static constexpr size_t SR_FEE_ZERO_UNLESS_COLLECT_FEE_OR_TEARDOWN = 42;
+    static constexpr size_t SR_START_WITH_SEL = 4;
+    static constexpr size_t SR_START_FOLLOWS_END = 9;
+    static constexpr size_t SR_PHASE_VALUE_CONTINUITY = 10;
+    static constexpr size_t SR_INCR_PHASE_VALUE_ON_END = 11;
+    static constexpr size_t SR_REM_COUNT_IS_ZERO = 13;
+    static constexpr size_t SR_REM_COUNT_IS_ONE = 14;
+    static constexpr size_t SR_READ_PI_LENGTH_SEL = 15;
+    static constexpr size_t SR_ONE_SHOT_REMAINING_PHASE_COUNTER_ONE = 16;
+    static constexpr size_t SR_DECR_REM_PHASE_EVENTS = 17;
+    static constexpr size_t SR_INCR_READ_PI_OFFSET = 18;
+    static constexpr size_t SR_MAX_NOTE_HASH_WRITES_REACHED = 27;
+    static constexpr size_t SR_MAX_NULLIFIER_WRITES_REACHED = 32;
+    static constexpr size_t SR_MAX_L2_L1_MSG_WRITES_REACHED = 37;
+    static constexpr size_t SR_UPDATE_NUM_L2_TO_L1_MSGS = 40;
+    static constexpr size_t SR_COMPUTE_FEE = 42;
+    static constexpr size_t SR_TEARDOWN_GETS_FEE = 43;
+    static constexpr size_t SR_FEE_ZERO_UNLESS_COLLECT_FEE_OR_TEARDOWN = 44;
+    static constexpr size_t SR_NOTE_HASH_TREE_ROOT_IMMUTABLE_IN_PADDING = 50;
+    static constexpr size_t SR_PAD_NOTE_HASH_TREE = 51;
+    static constexpr size_t SR_NOTE_HASHES_EMITTED_IMMUTABLE_IN_PADDING = 52;
+    static constexpr size_t SR_NULLIFIER_TREE_ROOT_IMMUTABLE_IN_PADDING = 53;
+    static constexpr size_t SR_PAD_NULLIFIER_TREE = 54;
+    static constexpr size_t SR_NULLIFIERS_EMITTED_IMMUTABLE_IN_PADDING = 55;
 };
 
 } // namespace bb::avm2
