@@ -87,7 +87,7 @@ function compile {
     local write_vk_cmd="write_vk --scheme ultra_honk --oracle_hash keccak"
   else
     local proto="ultra_honk"
-    local write_vk_cmd="write_vk --scheme ultra_honk --init_kzg_accumulator --honk_recursion 1"
+    local write_vk_cmd="write_vk --scheme ultra_honk --honk_recursion 1"
   fi
   # No vks needed for simulated circuits.
   [[ "$name" == *"simulated"* ]] && return
