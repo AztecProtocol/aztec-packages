@@ -1,4 +1,5 @@
 import { Blob } from '@aztec/blob-lib';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 
@@ -41,7 +42,7 @@ export class L1TxUtilsWithBlobs extends L1TxUtils {
         cancelGasPrice.maxFeePerBlobGas === undefined ? undefined : formatGwei(cancelGasPrice.maxFeePerBlobGas),
     });
     const request = {
-      to: this.getSenderAddress(),
+      to: this.getSenderAddress().toString(),
       value: 0n,
     };
 
@@ -111,7 +112,7 @@ export function createL1TxUtilsWithBlobsFromViemWallet(
 ) {
   return new L1TxUtilsWithBlobs(
     client,
-    client.account.address,
+    EthAddress.fromString(client.account.address),
     createViemSigner(client),
     logger,
     dateProvider,

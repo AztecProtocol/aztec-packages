@@ -103,12 +103,12 @@ describe('PublisherManager', () => {
       mockPublishers[2].getSenderBalance.mockResolvedValue(1000n);
 
       // The first publisher would normally be selected as it is idle but we filter it out
-      mockPublishers[0].getSenderAddress.mockReturnValue(addresses[0].toString());
-      mockPublishers[1].getSenderAddress.mockReturnValue(addresses[1].toString());
-      mockPublishers[2].getSenderAddress.mockReturnValue(addresses[2].toString());
+      mockPublishers[0].getSenderAddress.mockReturnValue(addresses[0]);
+      mockPublishers[1].getSenderAddress.mockReturnValue(addresses[1]);
+      mockPublishers[2].getSenderAddress.mockReturnValue(addresses[2]);
 
       const filter = (publisher: L1TxUtils) => {
-        return publisher.getSenderAddress() !== addresses[0].toString(); // Filter out the first publisher
+        return !publisher.getSenderAddress().equals(addresses[0]); // Filter out the first publisher
       };
 
       const result = await publisherManager.getAvailablePublisher(filter);
