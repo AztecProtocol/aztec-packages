@@ -195,8 +195,8 @@ function test_cmds {
   echo "$tests_hash $scripts/bb_prove.sh assert_statement --disable_zk"
 
   # prove and verify using bb.js classes
-  echo "$tests_hash $scripts/bbjs_prove_verify.sh a_1_mul"
-  echo "$tests_hash $scripts/bbjs_prove_verify.sh assert_statement"
+  echo "$tests_hash $scripts/bbjs_prove.sh a_1_mul"
+  echo "$tests_hash $scripts/bbjs_prove.sh assert_statement"
 
   # prove with bb.js and verify with bb cli
   echo "$tests_hash $scripts/bbjs_prove_bb_verify.sh a_1_mul"
