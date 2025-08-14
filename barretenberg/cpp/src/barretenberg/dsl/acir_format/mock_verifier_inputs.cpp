@@ -238,6 +238,24 @@ Goblin::MergeProof create_mock_merge_proof()
     return proof;
 }
 
+template <typename Builder> HonkProof create_mock_civc_proof(const size_t inner_public_inputs_size)
+{
+    HonkProof proof;
+
+    HonkProof mega_proof = create_mock_honk_proof<MegaZKFlavor, stdlib::recursion::honk::HidingKernelIO<Builder>>();
+    Goblin::MergeProof merge_proof = create_mock_merge_proof();
+    ECCVMProof eccvm_proof{ create_mock_pre_ipa_proof(), create_mock_ipa_proof() };
+    HonkProof translator_proof = create_mock_translator_proof();
+
+    proof.insert(proof.end(), mega_proof.begin(), mega_proof.end());
+    proof.insert(proof.end(), merge_proof.begin(), merge_proof.end());
+    proof.insert(proof.end(), eccvm_proof.pre_ipa_proof.begin(), eccvm_proof.pre_ipa_proof.end());
+    proof.insert(proof.end(), eccvm_proof.ipa_proof.begin(), eccvm_proof.ipa_proof.end());
+    proof.insert(proof.end(), translator_proof.begin(), translator_proof.end());
+
+    return proof;
+}
+
 /**
  * @brief Create a mock pre-ipa proof which has the correct structure but is not necessarily valid
  *
@@ -486,6 +504,9 @@ template HonkProof create_mock_honk_proof<UltraRollupFlavor, stdlib::recursion::
 template HonkProof create_mock_pg_proof<MegaFlavor, stdlib::recursion::honk::AppIO>();
 template HonkProof create_mock_pg_proof<MegaFlavor, stdlib::recursion::honk::KernelIO>();
 template HonkProof create_mock_pg_proof<MegaFlavor, stdlib::recursion::honk::HidingKernelIO<MegaCircuitBuilder>>();
+
+template HonkProof create_mock_civc_proof<UltraCircuitBuilder>(const size_t);
+template HonkProof create_mock_civc_proof<MegaCircuitBuilder>(const size_t);
 
 template std::shared_ptr<MegaFlavor::VerificationKey> create_mock_honk_vk<MegaFlavor, stdlib::recursion::honk::AppIO>(
     const size_t, const size_t, const size_t);
