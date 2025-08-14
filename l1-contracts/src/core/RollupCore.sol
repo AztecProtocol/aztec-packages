@@ -52,7 +52,7 @@ import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
  *      - Slots are grouped into epochs (configurable size, e.g., 32 slots)
  *      - Each slot has one designated proposer from the validator set
  *      - Each block is expected to include attestations from committee members
- *      - Committees remain stable throughout an epoch
+ *      - There is one committee per epoch
  *
  *      Key invariants:
  *      - The L2 chain is linear (no forks) but can be rolled back
@@ -73,8 +73,8 @@ import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
  *         purposes:
  *         - Attest to data availability for transaction data not posted on L1, which is required by provers to generate
  *           epoch proofs
- *         - Re-execute everything and attest to the resulting state root, acting as training wheels for the proving
- *           system
+ *         - Re-execute everything and attest to the resulting state root, acting as training wheels for the public
+ *           part of the system (proving systems used in public and AVM)
  *
  *      3) Proposers: Drafted from the validator set (currently proposers are part of the committee for the epoch,
  *         though this may change). They have exclusive rights to propose a block at a given slot, ensuring orderly
@@ -135,7 +135,7 @@ import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
  *        `prune()` manually, or automatically on the next proposal.
  *      - The committee for the epoch is expected to disseminate transaction data to allow proving, so a prune is
  *        considered a slashable offense, that causes validators to vote for slashing the committee of the unproven
- * epoch.
+ *        epoch.
  *      - When the pending chain is pruned, all unproven blocks are removed from the pending chain, and the chain
  *        resumes from the last proven block.
  *
@@ -199,7 +199,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
   bool public isRewardsClaimable = false;
 
   /**
-   * @notice Initializes the Aztec rollup with all required configuration
+   * @notice Initializes the Aztec rollup with all required configurations
    * @dev Sets up time parameters, deploys auxiliary contracts (slasher, reward booster),
    *      initializes staking, validator selection, and creates inbox/outbox contracts
    * @param _feeAsset The ERC20 token used for transaction fees
@@ -236,7 +236,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     StakingLib.initialize(_stakingAsset, _gse, exitDelay, address(slasher), _config.stakingQueueConfig);
     ExtRollupLib2.initializeValidatorSelection(_config.targetCommitteeSize);
 
-    // If no booster specifically provided deploy one.
+    // If no booster is specifically provided, deploy one.
     if (address(_config.rewardConfig.booster) == address(0)) {
       _config.rewardConfig.booster = ExtRollupLib3.deployRewardBooster(_config.rewardBoostConfig);
     }
@@ -520,12 +520,22 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
 
   /**
    * @notice Sets up validator selection for the current epoch
-   * @dev Can be called by anyone at the start of an epoch. Samples the committee
-   *      and determines proposers for all slots in the epoch. Also stores a seed
-   *      that is used for future sampling. Automatically called during `propose`.
-   *      External mainly for testing and to setup an epoch if there were no block proposals.
+   * @dev Can be called by anyone at the start of an epoch. Samples the committee and determines proposers for all
+   *      slots in the epoch. Also stores a seed that is used for future sampling. The corresponding library
+   *      functionality is automatically called when `RollupCore.propose(...)` is called (via the
+   *      `ExtRollupLib.propose(...)` -> `ProposeLib.propose(...)` -> `ValidatorSelectionLib.setupEpoch(...)`).
+   *
+   *      If there are missed proposals then setupEpoch does not get called automatically. Since the next committee
+   *      selection is computed based on the latest stored seed and the epoch number, we would only fail to get a
+   *      fresh seed if:
+   *      1. All the proposals in the epoch were missed
+   *      2. Nobody called setupEpoch on the Rollup contract
+   *
+   *      While an attacker might theoretically benefit from preventing a fresh seed (e.g. by DoSing all proposers),
+   *      preventing anyone from calling this function directly is not really feasible. This makes attacks on seed
+   *      generation impractical.
    */
-  function setupEpoch() public override(IValidatorSelectionCore) {
+  function setupEpoch() external override(IValidatorSelectionCore) {
     ExtRollupLib2.setupEpoch();
   }
 
