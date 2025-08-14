@@ -193,7 +193,7 @@ export function convertHidingKernelToRollupInputsToWitnessMapWithAbi(
   return abiEncode(abi, mapped);
 }
 
-export function convertHidingKernelToPublicInputsToWitnessMapWithAbi(
+export function convertHidingKernelPublicInputsToWitnessMapWithAbi(
   inputs: HidingKernelToPublicPrivateInputs,
   abi: Abi,
 ): WitnessMap {

@@ -1,6 +1,6 @@
 import { createLogger } from '@aztec/foundation/log';
 import {
-  convertHidingKernelToPublicInputsToWitnessMapWithAbi,
+  convertHidingKernelPublicInputsToWitnessMapWithAbi,
   convertHidingKernelToRollupInputsToWitnessMapWithAbi,
   convertPrivateKernelInitInputsToWitnessMapWithAbi,
   convertPrivateKernelInitOutputsFromWitnessMapWithAbi,
@@ -171,7 +171,7 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
     return await this.generateCircuitOutput(
       inputs,
       'HidingKernelToPublic',
-      convertHidingKernelToPublicInputsToWitnessMapWithAbi,
+      convertHidingKernelPublicInputsToWitnessMapWithAbi,
       convertPrivateKernelTailForPublicOutputsFromWitnessMapWithAbi,
     );
   }
