@@ -2,7 +2,7 @@ import { runInDirectory } from '@aztec/foundation/fs';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ServerCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
-import type { ServerProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
+import type { ClientProtocolArtifact, ServerProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
 import type { ClientProtocolCircuitVerifier, IVCProofVerificationResult } from '@aztec/stdlib/interfaces/server';
 import type { Proof } from '@aztec/stdlib/proofs';
 import type { CircuitVerificationStats } from '@aztec/stdlib/stats';
@@ -96,10 +96,19 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
     try {
       const totalTimer = new Timer();
       let verificationDuration = 0;
+      // TODO(#7370) The verification keys should be supplied separately and based on the expectedCircuit
+      // rather than read from the tx object itself. We also need the vks for the translator and ecc, which
+      // are not being saved along the other vks yet. Reuse the 'verifyProofForCircuit' method above once
+      // we have all the verification keys available.
+      const expectedCircuit: ClientProtocolArtifact = tx.data.forPublic
+        ? 'PrivateKernelTailToPublicArtifact'
+        : 'PrivateKernelTailArtifact';
+      const circuit = 'ClientIVC';
+
       // Block below is almost copy-pasted from verifyProofForCircuit
       const operation = async (bbWorkingDirectory: string) => {
         const logFunction = (message: string) => {
-          this.logger.debug(`ClientIVC BB out - ${message}`);
+          this.logger.debug(`${circuit} BB out - ${message}`);
         };
 
         await writeClientIVCProofToOutputDirectory(tx.clientIvcProof, bbWorkingDirectory);
@@ -114,12 +123,12 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
         verificationDuration = timer.ms();
 
         if (result.status === BB_RESULT.FAILURE) {
-          const errorMessage = `Failed to verify ClientIVC proof!`;
+          const errorMessage = `Failed to verify ${circuit} proof for ${expectedCircuit}!`;
           throw new Error(errorMessage);
         }
 
-        this.logger.debug(`ClientIVC verification successful`, {
-          circuitName: 'ClientIVC',
+        this.logger.debug(`${circuit} verification successful`, {
+          circuitName: mapProtocolArtifactNameToCircuitName(expectedCircuit),
           duration: result.durationMs,
           eventName: 'circuit-verification',
           proofType: 'client-ivc',
