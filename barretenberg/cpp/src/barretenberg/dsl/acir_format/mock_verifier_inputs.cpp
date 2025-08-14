@@ -49,24 +49,21 @@ void populate_field_elements_for_mock_commitments(std::vector<fr>& fields, const
 template <class FF = curve::BN254::ScalarField>
 void populate_field_elements(std::vector<fr>& fields,
                              const size_t& num_elements,
-                             std::optional<uint32_t> value = std::nullopt)
+                             std::optional<FF> value = std::nullopt)
 {
-    if (value.has_value()) {
-        for (size_t i = 0; i < num_elements; ++i) {
-            fields.emplace_back(fr{ value.value() });
-        }
-    } else {
-        for (size_t i = 0; i < num_elements; ++i) {
-            for (auto& val : field_conversion::convert_to_bn254_frs(FF::random_element())) {
-                fields.emplace_back(val);
-            }
-        }
+
+    for (size_t i = 0; i < num_elements; ++i) {
+        std::vector<fr> field_elements = value.has_value()
+                                             ? field_conversion::convert_to_bn254_frs(value.value())
+                                             : field_conversion::convert_to_bn254_frs(FF::random_element());
+        fields.insert(fields.end(), field_elements.begin(), field_elements.end());
     }
 }
 
 /**
  * @brief Create a mock oink proof that has the correct structure but is not in general valid
  *
+ * @param inner_public_inputs_size Number of public inputs coming from the ACIR constraints
  */
 template <typename Flavor, class PublicInputs> HonkProof create_mock_oink_proof(const size_t inner_public_inputs_size)
 {
@@ -78,10 +75,10 @@ template <typename Flavor, class PublicInputs> HonkProof create_mock_oink_proof(
     typename PublicInputs::Builder builder;
     PublicInputs::add_default(builder);
 
-    for (size_t idx = 0; idx < inner_public_inputs_size; idx++) {
-        proof.emplace_back(FF::random_element());
-    }
+    // Populate the proof with as many public inputs as required from the ACIR constraints
+    populate_field_elements<FF>(proof, inner_public_inputs_size);
 
+    // Populate the proof with the public inputs added from barretenberg
     for (const auto& pub : builder.public_inputs()) {
         proof.emplace_back(builder.get_variable(pub));
     }
@@ -156,6 +153,7 @@ template <typename Flavor> HonkProof create_mock_decider_proof()
 /**
  * @brief Create a mock honk proof that has the correct structure but is not in general valid
  *
+ * @param inner_public_inputs_size Number of public inputs coming from the ACIR constraints
  */
 template <typename Flavor, class PublicInputs> HonkProof create_mock_honk_proof(const size_t inner_public_inputs_size)
 {
@@ -184,12 +182,12 @@ template <typename Flavor, class PublicInputs> HonkProof create_mock_pg_proof()
     HonkProof proof = create_mock_oink_proof<Flavor, PublicInputs>();
 
     // Populate mock perturbator coefficients
-    populate_field_elements(proof, CONST_PG_LOG_N, /*value=*/0);
+    populate_field_elements<fr>(proof, CONST_PG_LOG_N, /*value=*/fr::zero());
 
     // Populate mock combiner quotient coefficients
     size_t NUM_COEFF_COMBINER_QUOTIENT =
         DeciderProvingKeys_<Flavor>::BATCHED_EXTENDED_LENGTH - DeciderProvingKeys_<Flavor>::NUM;
-    populate_field_elements(proof, NUM_COEFF_COMBINER_QUOTIENT, /*value=*/0);
+    populate_field_elements<fr>(proof, NUM_COEFF_COMBINER_QUOTIENT, /*value=*/fr::zero());
 
     return proof;
 }
@@ -207,7 +205,7 @@ Goblin::MergeProof create_mock_merge_proof()
     uint32_t mock_shift_size = 5; // Must be smaller than 32, otherwise pow raises an error
 
     // Populate mock shift size
-    populate_field_elements(proof, 1, /*value=*/mock_shift_size);
+    populate_field_elements<fr>(proof, 1, /*value=*/fr{ mock_shift_size });
 
     // There are 8 entities in the merge protocol (4 columns x 2 components: T_j, g_j(X) = X^{l-1} t_j(X))
     // and 8 evaluations (4 columns x 2 components: g_j(kappa), t_j(1/kappa))
@@ -438,6 +436,9 @@ HonkProof create_mock_translator_proof()
 /**
  * @brief Create a mock MegaHonk VK that has the correct structure
  *
+ * @param dyadic_size Dyadic size of the circuit for which we generate a vk
+ * @param pub_inputs_offest Indicating whether the circuit has a first zero row
+ * @param inner_public_inputs_size Number of public inputs coming from the ACIR constraints
  */
 template <typename Flavor, class PublicInputs>
 std::shared_ptr<typename Flavor::VerificationKey> create_mock_honk_vk(const size_t dyadic_size,
