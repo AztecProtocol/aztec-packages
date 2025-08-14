@@ -154,6 +154,7 @@ export class SequencerPublisher {
       slashFactoryContract: SlashFactoryContract;
       epochCache: EpochCache;
       dateProvider: DateProvider;
+      metrics: SequencerPublisherMetrics;
     },
   ) {
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
@@ -163,7 +164,7 @@ export class SequencerPublisher {
       deps.blobSinkClient ?? createBlobSinkClient(config, { logger: createLogger('sequencer:blob-sink:client') });
 
     const telemetry = deps.telemetry ?? getTelemetryClient();
-    this.metrics = new SequencerPublisherMetrics(telemetry, 'SequencerPublisher');
+    this.metrics = deps.metrics ?? new SequencerPublisherMetrics(telemetry, 'SequencerPublisher');
     this.l1TxUtils = deps.l1TxUtils;
 
     this.rollupContract = deps.rollupContract;

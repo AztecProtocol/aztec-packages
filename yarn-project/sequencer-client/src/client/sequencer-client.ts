@@ -98,7 +98,6 @@ export class SequencerClient {
       l1Client,
       config.l1Contracts.governanceProposerAddress.toString(),
     );
-    const slashingProposerContract = await rollupContract.getSlashingProposer();
     const epochCache =
       deps.epochCache ??
       (await EpochCache.create(
@@ -126,7 +125,6 @@ export class SequencerClient {
         blobSinkClient: deps.blobSinkClient,
         epochCache,
         governanceProposerContract,
-        slashingProposerContract,
         slashFactoryContract,
         rollupContract,
         dateProvider: deps.dateProvider,
