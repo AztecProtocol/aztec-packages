@@ -227,7 +227,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
                                                           read_data[plookup::ColumnIdx::C2],
                                                           read_data[plookup::ColumnIdx::C3] };
     for (const auto& column : parse_read_data) {
-        update_vector_used_witnesses(column);
+        update_used_witnesses(column);
         update_finalize_witnesses(column);
     }
 

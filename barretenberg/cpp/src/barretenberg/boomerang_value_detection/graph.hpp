@@ -110,7 +110,8 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     std::vector<uint32_t> get_plookup_gate_connected_component(size_t index, size_t block_idx, auto& blk);
     std::vector<uint32_t> get_sort_constraint_connected_component(size_t index, size_t block_idx, auto& blk);
     std::vector<uint32_t> get_poseido2s_gate_connected_component(size_t index, size_t block_idx, auto& blk);
-    std::vector<uint32_t> get_auxiliary_gate_connected_component(size_t index, size_t block_idx, auto& blk);
+    std::vector<uint32_t> get_non_native_field_gate_connected_component(size_t index, size_t block_idx, auto& blk);
+    std::vector<uint32_t> get_memory_gate_connected_component(size_t index, size_t block_idx, auto& blk);
     std::vector<uint32_t> get_rom_table_connected_component(const bb::RomTranscript& rom_array);
     std::vector<uint32_t> get_ram_table_connected_component(const bb::RamTranscript& ram_array);
     // functions for MegaCircuitBuilder
