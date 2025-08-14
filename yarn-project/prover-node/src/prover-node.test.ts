@@ -183,6 +183,11 @@ describe('prover-node', () => {
     expect(proverNode.totalJobCount).toEqual(1);
   });
 
+  it('requests a publisher for each epoch', async () => {
+    await proverNode.handleEpochReadyToProve(10n);
+    expect(publisherFactory.create).toHaveBeenCalledTimes(1);
+  });
+
   it('does not start a proof if there are no blocks in the epoch', async () => {
     l2BlockSource.getBlocksForEpoch.mockResolvedValue([]);
     await proverNode.handleEpochReadyToProve(10n);
