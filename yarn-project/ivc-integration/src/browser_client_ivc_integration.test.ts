@@ -3,8 +3,8 @@ import { createLogger } from '@aztec/foundation/log';
 import { jest } from '@jest/globals';
 import { type Browser, type Page, chromium } from /* firefox, webkit */ 'playwright';
 
-import { generate3FunctionTestingIVCStack, generate6FunctionTestingIVCStack } from './index.js';
 import { proveThenVerifyAztecClient } from './prove_wasm.js';
+import { generateTestingIVCStack } from './witgen.js';
 
 const logger = createLogger('aztec:ivc-test');
 
@@ -48,8 +48,9 @@ describe.skip('Client IVC Integration', () => {
   // 1. Run a mock app that creates two commitments
   // 2. Run the init kernel to process the app run
   // 3. Run the tail kernel to finish the client IVC chain.
+  // 4. Run the hiding kernel.
   it.skip('Should generate a verifiable client IVC proof from a simple mock tx via bb.js', async () => {
-    const [bytecodes, witnessStack] = await generate3FunctionTestingIVCStack();
+    const [bytecodes, witnessStack] = await generateTestingIVCStack(1, 0);
 
     logger.info(`calling prove then verify...`);
     const verifyResult = await proveThenVerifyAztecClientBrowser(page, bytecodes, witnessStack);
@@ -65,8 +66,9 @@ describe.skip('Client IVC Integration', () => {
   // 4. Run the inner kernel to process the second app run
   // 5. Run the reset kernel to process the read request emitted by the reader app
   // 6. Run the tail kernel to finish the client IVC chain
+  // 7. Run the hiding kernel.
   it.skip('Should generate a verifiable client IVC proof from a simple mock tx via bb.js', async () => {
-    const [bytecodes, witnessStack] = await generate6FunctionTestingIVCStack();
+    const [bytecodes, witnessStack] = await generateTestingIVCStack(1, 1);
 
     logger.info(`calling prove then verify...`);
     const verifyResult = await proveThenVerifyAztecClientBrowser(page, bytecodes, witnessStack);

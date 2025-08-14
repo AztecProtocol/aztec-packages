@@ -59,12 +59,15 @@ template <typename FF_> class aluImpl {
         const auto alu_TAG_U128_DIFF = (in.get(C::alu_ia_tag) - constants_MEM_TAG_U128);
         const auto alu_EXPECTED_C_TAG =
             (in.get(C::alu_sel_op_add) + in.get(C::alu_sel_op_sub) + in.get(C::alu_sel_op_mul) +
-             in.get(C::alu_sel_op_div) + in.get(C::alu_sel_op_truncate)) *
+             in.get(C::alu_sel_op_div) + in.get(C::alu_sel_op_truncate) + in.get(C::alu_sel_op_shr) +
+             in.get(C::alu_sel_op_shl)) *
                 in.get(C::alu_ia_tag) +
             (in.get(C::alu_sel_op_eq) + in.get(C::alu_sel_op_lt) + in.get(C::alu_sel_op_lte)) * constants_MEM_TAG_U1;
         const auto alu_FF_TAG_ERR = (in.get(C::alu_sel_op_div) + in.get(C::alu_sel_op_not)) * in.get(C::alu_sel_is_ff);
         const auto alu_CHECK_AB_TAGS =
-            ((FF(1) - in.get(C::alu_sel_op_not) * in.get(C::alu_sel_is_ff)) - in.get(C::alu_sel_op_truncate));
+            ((((FF(1) - in.get(C::alu_sel_op_not) * in.get(C::alu_sel_is_ff)) - in.get(C::alu_sel_op_truncate)) -
+              in.get(C::alu_sel_op_shr)) -
+             in.get(C::alu_sel_op_shl));
         const auto alu_AB_TAGS_EQ = (FF(1) - in.get(C::alu_sel_ab_tag_mismatch));
         const auto alu_TWO_POW_64 = FF(uint256_t{ 0UL, 1UL, 0UL, 0UL });
         const auto alu_DECOMPOSED_A = in.get(C::alu_sel_mul_u128) * in.get(C::alu_ia) +

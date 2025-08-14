@@ -19,16 +19,16 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { getWorkingDirectory } from './bb_working_directory.js';
+import { proveAvm, proveClientIVC, proveRollupHonk, proveTube } from './prove_native.js';
+import type { KernelPublicInputs } from './types/index.js';
 import {
   MockRollupBasePublicCircuit,
-  generate3FunctionTestingIVCStack,
+  generateTestingIVCStack,
   mapAvmProofToNoir,
   mapRecursiveProofToNoir,
   mapVerificationKeyToNoir,
   witnessGenMockPublicBaseCircuit,
-} from './index.js';
-import { proveAvm, proveClientIVC, proveRollupHonk, proveTube } from './prove_native.js';
-import type { KernelPublicInputs } from './types/index.js';
+} from './witgen.js';
 
 // Auto-generated types from noir are not in camel case.
 /* eslint-disable camelcase */
@@ -86,7 +86,7 @@ describe('AVM Integration', () => {
   beforeAll(async () => {
     const clientIVCProofPath = await getWorkingDirectory('bb-avm-integration-client-ivc-');
     bbBinaryPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../../barretenberg/cpp/build/bin', 'bb');
-    const [bytecodes, witnessStack, tailPublicInputs, vks] = await generate3FunctionTestingIVCStack();
+    const [bytecodes, witnessStack, tailPublicInputs, vks] = await generateTestingIVCStack(1, 0);
     clientIVCPublicInputs = tailPublicInputs;
     const proof = await proveClientIVC(bbBinaryPath, clientIVCProofPath, witnessStack, bytecodes, vks, logger);
     await writeClientIVCProofToOutputDirectory(proof, clientIVCProofPath);
