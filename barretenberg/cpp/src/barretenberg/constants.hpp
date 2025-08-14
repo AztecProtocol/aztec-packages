@@ -1,4 +1,5 @@
 #pragma once
+#include <cstddef>
 #include <cstdint>
 
 namespace bb {
@@ -49,5 +50,5 @@ static constexpr uint32_t NUM_INTERLEAVING_CLAIMS = 2;
 // When we branch a transcript, we want to clearly distinguish between what happened before and after the branching. We
 // increase the `round_index` of the original transcript by `BRANCHING_JUMP`, so that there is a gap of `BRANCHING_JUMP`
 // round indices between what happened before and after the branching. This constant is arbitrary.
-static constexpr std::size_t BRANCHING_JUMP = 5;
+static constexpr size_t BRANCHING_JUMP = 5;
 } // namespace bb
