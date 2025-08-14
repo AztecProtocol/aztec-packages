@@ -8,7 +8,7 @@ export HARDWARE_CONCURRENCY=8
 bb=$(../../../cpp/scripts/find-bb)
 
 # Build base flags
-flags="${VERBOSE:+-v} --scheme ultra_honk"
+flags="-v --scheme ultra_honk"
 
 # Add any additional arguments passed from command line
 shift
@@ -41,4 +41,4 @@ VERIFIER_PATH="output-$$/Verifier.sol" \
 TEST_PATH="../../sol-test/HonkTest.sol" \
 HAS_ZK="$has_zk" \
 TEST_NAME=$(basename output-$$) \
-node ../../sol-test/src/index.js
+  node ../../sol-test/src/index.js

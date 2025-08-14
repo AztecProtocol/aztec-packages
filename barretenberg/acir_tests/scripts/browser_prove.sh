@@ -9,4 +9,4 @@ dump_fail \
 while ! nc -z localhost 8080 &>/dev/null; do sleep 1; done;
 
 # Use the browser binary for the test
-../../headless-test/bb.js.browser prove_and_verify -b target/program.json ${VERBOSE:+-v}}
+../../headless-test/bb.js.browser prove_and_verify -b target/program.json -v

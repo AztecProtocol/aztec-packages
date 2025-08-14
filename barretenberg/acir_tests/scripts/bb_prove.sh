@@ -9,7 +9,7 @@ bb=$(../../../cpp/scripts/find-bb)
 
 shift
 # Base flags + our commandline args
-flags="${VERBOSE:+-v} --scheme ultra_honk $*"
+flags="-v --scheme ultra_honk $*"
 
 mkdir -p output-$$
 trap "rm -rf output-$$" EXIT
