@@ -89,13 +89,13 @@ goblin_element<C, Fq, Fr, G> goblin_element<C, Fq, Fr, G>::batch_mul(const std::
             auto beta = G::Fr::cube_root_of_unity();
             scalar.assert_equal(z_1 - z_2 * beta);
         }
-        builder->update_vector_used_witnesses(
+        builder->update_used_witnesses(
             { op_tuple.x_lo, op_tuple.x_hi, op_tuple.y_lo, op_tuple.y_hi, op_tuple.z_1, op_tuple.z_2 });
     }
 
     // Populate equality gates based on the internal accumulator point
     auto op_tuple = builder->queue_ecc_eq();
-    builder->update_vector_used_witnesses({ op_tuple.z_1, op_tuple.z_2 });
+    builder->update_used_witnesses({ op_tuple.z_1, op_tuple.z_2 });
     // Reconstruct the result of the batch mul using indices into the variables array
     auto x_lo = Fr::from_witness_index(builder, op_tuple.x_lo);
     auto x_hi = Fr::from_witness_index(builder, op_tuple.x_hi);

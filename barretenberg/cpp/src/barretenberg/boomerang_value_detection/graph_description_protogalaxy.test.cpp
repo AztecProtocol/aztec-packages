@@ -3,14 +3,12 @@
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
-#include "barretenberg/protogalaxy/prover_verifier_shared.hpp"
 #include "barretenberg/stdlib/hash/blake3s/blake3s.hpp"
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 #include "barretenberg/stdlib/honk_verifier/decider_recursive_verifier.hpp"
 #include "barretenberg/stdlib/protogalaxy_verifier/protogalaxy_recursive_verifier.hpp"
-#include "barretenberg/ultra_honk/decider_keys.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/decider_prover.hpp"
-#include "barretenberg/ultra_honk/decider_verifier.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -89,7 +87,7 @@ class BoomerangProtogalaxyRecursiveTests : public testing::Test {
         }
         pedersen_hash<InnerBuilder>::hash({ a, b });
         byte_array_ct to_hash(&builder, "nonsense test data");
-        blake3s(to_hash);
+        stdlib::Blake3s<InnerBuilder>::hash(to_hash);
 
         fr bigfield_data = fr::random_element(&engine);
         fr bigfield_data_a{ bigfield_data.data[0], bigfield_data.data[1], 0, 0 };
@@ -105,7 +103,7 @@ class BoomerangProtogalaxyRecursiveTests : public testing::Test {
 
     static void test_recursive_folding(const size_t num_verifiers = 1)
     {
-        // Create two arbitrary circuits for the first round of folding
+
         InnerBuilder builder1;
         create_function_circuit(builder1);
         InnerBuilder builder2;
@@ -149,13 +147,11 @@ class BoomerangProtogalaxyRecursiveTests : public testing::Test {
             }
         }
         info("Folding Recursive Verifier: num gates unfinalized = ", folding_circuit.num_gates);
-        EXPECT_EQ(folding_circuit.failed(), false) << folding_circuit.err();
-
         // Check for a failure flag in the recursive verifier circuit
         {
-            stdlib::recursion::PairingPoints<OuterBuilder>::add_default_to_public_inputs(folding_circuit);
+            stdlib::recursion::honk::DefaultIO<OuterBuilder>::add_default(folding_circuit);
             // inefficiently check finalized size
-            // folding_circuit.finalize_circuit(/* ensure_nonzero= */ true);
+            folding_circuit.finalize_circuit(/* ensure_nonzero= */ true);
             info("Folding Recursive Verifier: num gates finalized = ", folding_circuit.num_gates);
             auto decider_pk = std::make_shared<OuterDeciderProvingKey>(folding_circuit);
             info("Dyadic size of verifier circuit: ", decider_pk->dyadic_size());
@@ -163,18 +159,16 @@ class BoomerangProtogalaxyRecursiveTests : public testing::Test {
             OuterProver prover(decider_pk, honk_vk);
             OuterVerifier verifier(honk_vk);
             auto proof = prover.construct_proof();
-            bool verified = verifier.verify_proof(proof);
-            ASSERT(verified);
-        }
+            bool verified = verifier.template verify_proof<bb::DefaultIO>(proof).result;
 
-        auto graph = cdg::MegaStaticAnalyzer(folding_circuit, false);
+            ASSERT_TRUE(verified);
+        }
+        EXPECT_EQ(folding_circuit.failed(), false) << folding_circuit.err();
+        auto graph = cdg::MegaStaticAnalyzer(folding_circuit);
         auto variables_in_one_gate = graph.get_variables_in_one_gate();
         EXPECT_EQ(variables_in_one_gate.size(), 0);
-        if (variables_in_one_gate.size() > 0) {
-            for (const auto& elem : variables_in_one_gate) {
-                info("elem == ", elem);
-            }
-        }
+        auto connected_components = graph.find_connected_components();
+        EXPECT_EQ(connected_components.size(), 1);
     }
 
     /**
@@ -190,6 +184,7 @@ class BoomerangProtogalaxyRecursiveTests : public testing::Test {
         create_function_circuit(builder1);
         InnerBuilder builder2;
         builder2.add_public_variable(FF(1));
+
         create_function_circuit(builder2);
 
         auto decider_pk_1 = std::make_shared<InnerDeciderProvingKey>(builder1);
@@ -218,10 +213,6 @@ class BoomerangProtogalaxyRecursiveTests : public testing::Test {
         auto recursive_verifier_accumulator = verifier.verify_folding_proof(stdlib_proof);
         auto native_verifier_acc =
             std::make_shared<InnerDeciderVerificationKey>(recursive_verifier_accumulator->get_value());
-        info("Folding Recursive Verifier: num gates = ", folding_circuit.get_estimated_num_finalized_gates());
-
-        // Check for a failure flag in the recursive verifier circuit
-        EXPECT_EQ(folding_circuit.failed(), false) << folding_circuit.err();
 
         InnerDeciderProver decider_prover(folding_proof.accumulator);
         decider_prover.construct_proof();
@@ -230,21 +221,17 @@ class BoomerangProtogalaxyRecursiveTests : public testing::Test {
         OuterBuilder decider_circuit;
         DeciderRecursiveVerifier decider_verifier{ &decider_circuit, native_verifier_acc };
         auto pairing_points = decider_verifier.verify_proof(decider_proof);
+
+        // IO
         pairing_points.set_public();
         info("Decider Recursive Verifier: num gates = ", decider_circuit.num_gates);
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(decider_circuit.failed(), false) << decider_circuit.err();
-        /*         pairing_points.P0.x.fix_witness();
-                pairing_points.P0.y.fix_witness();
-                pairing_points.P1.x.fix_witness();
-                pairing_points.P1.y.fix_witness(); */
-        auto graph = cdg::MegaStaticAnalyzer(decider_circuit, false);
+        auto graph = cdg::MegaStaticAnalyzer(decider_circuit);
         auto variables_in_one_gate = graph.get_variables_in_one_gate();
         EXPECT_EQ(variables_in_one_gate.size(), 0);
-        if (variables_in_one_gate.size() > 0) {
-            auto fst_var_idx = std::vector<uint32_t>(variables_in_one_gate.cbegin(), variables_in_one_gate.cend())[0];
-            graph.print_variable_in_one_gate(fst_var_idx);
-        }
+        auto connected_components = graph.find_connected_components();
+        EXPECT_EQ(connected_components.size(), 1);
     };
 };
 

@@ -47,19 +47,19 @@ template <typename FF> void MegaCircuitBuilder_<FF>::add_mega_gates_to_ensure_al
     add_public_calldata(this->add_variable(BusVector::DEFAULT_VALUE));    // add one entry in calldata
     auto raw_read_idx = static_cast<uint32_t>(get_calldata().size()) - 1; // read data that was just added
     auto read_idx = this->add_variable(raw_read_idx);
-    read_calldata(read_idx);
+    update_finalize_witnesses({ read_idx, read_calldata(read_idx) });
 
     // Create an arbitrary secondary_calldata read gate
     add_public_secondary_calldata(this->add_variable(BusVector::DEFAULT_VALUE)); // add one entry in secondary_calldata
     raw_read_idx = static_cast<uint32_t>(get_secondary_calldata().size()) - 1;   // read data that was just added
     read_idx = this->add_variable(raw_read_idx);
-    read_secondary_calldata(read_idx);
+    update_finalize_witnesses({ read_idx, read_secondary_calldata(read_idx) });
 
     // Create an arbitrary return data read gate
     add_public_return_data(this->add_variable(BusVector::DEFAULT_VALUE)); // add one entry in return data
     raw_read_idx = static_cast<uint32_t>(get_return_data().size()) - 1;   // read data that was just added
     read_idx = this->add_variable(raw_read_idx);
-    read_return_data(read_idx);
+    update_finalize_witnesses({ read_idx, read_return_data(read_idx) });
 
     // add dummy mul accum op and an equality op
     this->queue_ecc_mul_accum(bb::g1::affine_element::one(), 2, /*in_finalize=*/true);
@@ -186,6 +186,13 @@ ecc_op_tuple MegaCircuitBuilder_<FF>::populate_ecc_op_wires(const UltraOp& ultra
     this->blocks.ecc_op.populate_wires(op_val_idx_2, op_tuple.y_hi, op_tuple.z_1, op_tuple.z_2);
     for (auto& selector : this->blocks.ecc_op.get_selectors()) {
         selector.emplace_back(0);
+    }
+
+    if (in_finalize) {
+        update_used_witnesses(
+            { op_tuple.op, op_tuple.x_lo, op_tuple.x_hi, op_tuple.y_lo, op_tuple.y_hi, op_tuple.z_1, op_tuple.z_2 });
+        update_finalize_witnesses(
+            { op_tuple.op, op_tuple.x_lo, op_tuple.x_hi, op_tuple.y_lo, op_tuple.y_hi, op_tuple.z_1, op_tuple.z_2 });
     }
 
     return op_tuple;

@@ -613,10 +613,10 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     std::vector<uint32_t> get_used_witnesses() const { return used_witnesses; }
 
     void update_used_witnesses(uint32_t var_idx) { used_witnesses.emplace_back(var_idx); }
-    void update_vector_used_witnesses(const std::vector<uint32_t>& used_indices)
+    void update_used_witnesses(const std::vector<uint32_t>& used_indices)
     {
         for (const auto& it : used_indices) {
-            update_used_witnesses(it);
+            used_witnesses.emplace_back(it);
         }
     }
 
