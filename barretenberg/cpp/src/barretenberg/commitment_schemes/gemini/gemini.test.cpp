@@ -15,8 +15,9 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
 
   public:
     static constexpr size_t log_n = 4;
+    static constexpr size_t n = 1UL << log_n;
+
     static constexpr size_t virtual_log_n = 6;
-    static constexpr size_t n = 1UL << virtual_log_n;
 
     using CK = CommitmentKey<Curve>;
     using VK = VerifierCommitmentKey<Curve>;
@@ -93,25 +94,21 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
         auto u = this->random_evaluation_point(virtual_log_n);
 
         Polynomial<Fr> poly((1UL << log_n));
-        Polynomial<Fr> test(1UL << virtual_log_n);
 
         poly.at(0) = 1;
         poly.at(1) = 2;
         poly.at(2) = 3;
-        test += poly;
 
         typename GeminiProver::PolynomialBatcher poly_batcher(1UL << log_n);
         poly_batcher.set_unshifted(RefVector(poly));
+
+        // As we are opening `poly` extended by zero from `log_n` dimensions to `virtual_log_n` dimensions, it needs to
+        // be multiplied by appropriate scalars.
         Fr eval = poly.evaluate_mle(std::span(u).subspan(0, log_n)) * (Fr(1) - u[virtual_log_n - 1]) *
                   (Fr(1) - u[virtual_log_n - 2]);
-        Fr test_eval = test.evaluate_mle(u);
-
-        info(eval);
-        info(test_eval);
-        // info(test_eval / (1 - u[virtual_log_n - 1]) / (1 - u[virtual_log_n - 2]));
-        info("???");
         auto comm = ck.commit(poly);
         auto claim_batcher = ClaimBatcher{ .unshifted = ClaimBatch{ RefVector(comm), RefVector(eval) } };
+
         // Compute:
         // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
         // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
@@ -125,7 +122,7 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
         // Fold^i(r^{2^i}) for i = 1, ..., d-1
         const size_t total_num_claims = 2 * virtual_log_n;
         prover_claims_with_pos_evals.reserve(total_num_claims);
-        size_t idx = 0;
+
         for (auto& claim : prover_output) {
             if (claim.gemini_fold) {
                 if (claim.gemini_fold) {
@@ -133,16 +130,11 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
                     const Fr evaluation_challenge = -claim.opening_pair.challenge;
                     // Fold^(i) at r^{2^i} for i=1, ..., d-1
                     const Fr pos_evaluation = claim.polynomial.evaluate(evaluation_challenge);
-                    info(" ============ ", idx++, "============");
-                    // for (size_t idx = 0; idx < claim.polynomial.size(); idx++) {
-                    //     info(claim.polynomial.at(idx));
-                    // }
-                    info("pos eval ", pos_evaluation);
+
                     // Add the positive Fold claims to the vector of claims
                     ProverOpeningClaim<Curve> pos_fold_claim = { .polynomial = claim.polynomial,
                                                                  .opening_pair = { .challenge = evaluation_challenge,
                                                                                    .evaluation = pos_evaluation } };
-                    info("neg eval ", claim.polynomial.evaluate(-evaluation_challenge));
                     prover_claims_with_pos_evals.emplace_back(pos_fold_claim);
                 }
             }
@@ -159,11 +151,10 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
         // - 2 partially evaluated Fold polynomial commitments [Fold_{r}^(0)] and [Fold_{-r}^(0)]
         // Aggregate: 2d opening pairs and 2d Fold poly commitments into verifier claim
         auto verifier_claims = GeminiVerifier::reduce_verification(u, claim_batcher, verifier_transcript);
-        size_t counter = 0;
         // Check equality of the opening pairs computed by prover and verifier
         for (auto [prover_claim, verifier_claim] : zip_view(prover_claims_with_pos_evals, verifier_claims)) {
             this->verify_opening_claim(verifier_claim, prover_claim.polynomial, ck);
-            info(counter++, "   ", prover_claim.opening_pair == verifier_claim.opening_pair);
+            ASSERT_EQ(prover_claim.opening_pair, verifier_claim.opening_pair);
         }
     }
 }

@@ -318,7 +318,7 @@ template <typename Curve> class GeminiProver_ {
     static std::vector<Polynomial> compute_fold_polynomials(const size_t log_n,
                                                             std::span<const Fr> multilinear_challenge,
                                                             const Polynomial& A_0,
-                                                            const bool has_zk);
+                                                            const bool& has_zk = false);
 
     static std::pair<Polynomial, Polynomial> compute_partially_evaluated_batch_polynomials(
         const size_t log_n,

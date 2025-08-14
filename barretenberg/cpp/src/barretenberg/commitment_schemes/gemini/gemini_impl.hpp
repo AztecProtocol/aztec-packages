@@ -137,7 +137,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
  */
 template <typename Curve>
 std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::compute_fold_polynomials(
-    const size_t log_n, std::span<const Fr> multilinear_challenge, const Polynomial& A_0, const bool has_zk)
+    const size_t log_n, std::span<const Fr> multilinear_challenge, const Polynomial& A_0, const bool& has_zk)
 {
     const size_t num_threads = get_num_cpus_pow2();
 
