@@ -22,7 +22,7 @@ class ContextProviderInterface {
                                                                   FF transaction_fee,
                                                                   ContextInterface& parent_context,
                                                                   MemoryAddress cd_offset_address,
-                                                                  MemoryAddress cd_size_address,
+                                                                  uint32_t cd_size,
                                                                   bool is_static,
                                                                   Gas gas_limit,
                                                                   SideEffectStates side_effect_states) = 0;

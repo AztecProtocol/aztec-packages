@@ -79,9 +79,9 @@ TEST(ContextConstrainingTest, ContextSwitchingCallReturn)
               { C::execution_context_id, 1 },
               { C::execution_next_context_id, 2 },
               { C::execution_bytecode_id, top_bytecode_id }, // Same as previous row (propagated)
-              { C::execution_rop_3_, /*cd offset=*/10 },
-              { C::execution_rop_4_, /*cd size=*/1 },
+              { C::execution_rop_4_, /*cd offset=*/10 },
               { C::execution_register_2_, /*contract address=*/0xdeadbeef },
+              { C::execution_register_3_, /*cd size=*/1 },
               { C::execution_parent_l2_gas_limit, 2000 },
               { C::execution_parent_da_gas_limit, 4000 },
               { C::execution_parent_l2_gas_used, 500 },

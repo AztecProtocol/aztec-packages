@@ -131,8 +131,10 @@ class AvmGoblinRecursiveVerifier {
         // Recursively verify the Mega proof \pi_M in the Ultra circuit
         // All verifier components share a single transcript
         auto transcript = std::make_shared<MegaRecursiveFlavor::Transcript>();
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1305): Mega + Goblin VKs must be circuit constants.
         auto mega_vk_and_hash = std::make_shared<MegaRecursiveVKAndHash>(ultra_builder, inner_output.mega_vk);
+        // Fix the inner mega vk and vk hash to be constants in the outer circuit.
+        mega_vk_and_hash->vk->fix_witness();
+        mega_vk_and_hash->hash.fix_witness();
         MegaRecursiveVerifier mega_verifier(&ultra_builder, mega_vk_and_hash, transcript);
         stdlib::Proof<UltraBuilder> mega_proof(ultra_builder, inner_output.mega_proof);
         auto mega_verifier_output = mega_verifier.template verify_proof<IO>(mega_proof);
