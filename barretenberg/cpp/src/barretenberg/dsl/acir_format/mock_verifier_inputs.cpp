@@ -68,13 +68,19 @@ void populate_field_elements(std::vector<fr>& fields,
  * @brief Create a mock oink proof that has the correct structure but is not in general valid
  *
  */
-template <typename Flavor, class PublicInputs> HonkProof create_mock_oink_proof()
+template <typename Flavor, class PublicInputs> HonkProof create_mock_oink_proof(const size_t inner_public_inputs_size)
 {
+    using FF = Flavor::FF;
+
     HonkProof proof;
 
     // Populate mock public inputs
-    typename Flavor::CircuitBuilder builder;
+    typename PublicInputs::Builder builder;
     PublicInputs::add_default(builder);
+
+    for (size_t idx = 0; idx < inner_public_inputs_size; idx++) {
+        proof.emplace_back(FF::random_element());
+    }
 
     for (const auto& pub : builder.public_inputs()) {
         proof.emplace_back(builder.get_variable(pub));
@@ -151,10 +157,10 @@ template <typename Flavor> HonkProof create_mock_decider_proof()
  * @brief Create a mock honk proof that has the correct structure but is not in general valid
  *
  */
-template <typename Flavor, class PublicInputs> HonkProof create_mock_honk_proof()
+template <typename Flavor, class PublicInputs> HonkProof create_mock_honk_proof(const size_t inner_public_inputs_size)
 {
     // Construct a Honk proof as the concatenation of an Oink proof and a Decider proof
-    HonkProof oink_proof = create_mock_oink_proof<Flavor, PublicInputs>();
+    HonkProof oink_proof = create_mock_oink_proof<Flavor, PublicInputs>(inner_public_inputs_size);
     HonkProof decider_proof = create_mock_decider_proof<Flavor>();
     HonkProof proof;
     proof.reserve(oink_proof.size() + decider_proof.size());
@@ -435,12 +441,13 @@ HonkProof create_mock_translator_proof()
  */
 template <typename Flavor, class PublicInputs>
 std::shared_ptr<typename Flavor::VerificationKey> create_mock_honk_vk(const size_t dyadic_size,
-                                                                      const size_t pub_inputs_offset)
+                                                                      const size_t pub_inputs_offset,
+                                                                      const size_t inner_public_inputs_size)
 {
     // Set relevant VK metadata and commitments
     auto honk_verification_key = std::make_shared<typename Flavor::VerificationKey>();
     honk_verification_key->log_circuit_size = bb::numeric::get_msb(dyadic_size);
-    honk_verification_key->num_public_inputs = PublicInputs::PUBLIC_INPUTS_SIZE;
+    honk_verification_key->num_public_inputs = inner_public_inputs_size + PublicInputs::PUBLIC_INPUTS_SIZE;
     honk_verification_key->pub_inputs_offset = pub_inputs_offset; // must be set correctly
 
     for (auto& commitment : honk_verification_key->get_all()) {
@@ -475,39 +482,70 @@ template <typename Flavor> std::shared_ptr<DeciderVerificationKey_<Flavor>> crea
 }
 
 // Explicitly instantiate template functions
-template HonkProof create_mock_oink_proof<MegaFlavor, stdlib::recursion::honk::AppIO>();
-template HonkProof create_mock_oink_proof<MegaFlavor, stdlib::recursion::honk::KernelIO>();
-template HonkProof create_mock_oink_proof<MegaFlavor, stdlib::recursion::honk::HidingKernelIO<MegaCircuitBuilder>>();
+template HonkProof create_mock_oink_proof<MegaFlavor, stdlib::recursion::honk::AppIO>(const size_t);
+template HonkProof create_mock_oink_proof<MegaFlavor, stdlib::recursion::honk::KernelIO>(const size_t);
+template HonkProof create_mock_oink_proof<MegaFlavor, stdlib::recursion::honk::HidingKernelIO<MegaCircuitBuilder>>(
+    const size_t);
 
-template HonkProof create_mock_oink_proof<UltraFlavor, stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>();
-template HonkProof create_mock_oink_proof<UltraZKFlavor, stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>();
-template HonkProof create_mock_oink_proof<UltraRollupFlavor, stdlib::recursion::honk::RollupIO>();
+template HonkProof create_mock_oink_proof<UltraFlavor, stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(
+    const size_t);
+template HonkProof create_mock_oink_proof<UltraZKFlavor, stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(
+    const size_t);
+template HonkProof create_mock_oink_proof<UltraFlavor, stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>(
+    const size_t);
+template HonkProof create_mock_oink_proof<UltraZKFlavor, stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>(
+    const size_t);
+template HonkProof create_mock_oink_proof<UltraRollupFlavor, stdlib::recursion::honk::RollupIO>(const size_t);
 
 template HonkProof create_mock_decider_proof<MegaFlavor>();
 template HonkProof create_mock_decider_proof<UltraFlavor>();
 template HonkProof create_mock_decider_proof<UltraZKFlavor>();
 template HonkProof create_mock_decider_proof<UltraRollupFlavor>();
 
-template HonkProof create_mock_honk_proof<MegaFlavor, stdlib::recursion::honk::AppIO>();
-template HonkProof create_mock_honk_proof<MegaFlavor, stdlib::recursion::honk::KernelIO>();
-template HonkProof create_mock_honk_proof<MegaFlavor, stdlib::recursion::honk::HidingKernelIO<MegaCircuitBuilder>>();
+template HonkProof create_mock_honk_proof<MegaFlavor, stdlib::recursion::honk::AppIO>(const size_t);
+template HonkProof create_mock_honk_proof<MegaFlavor, stdlib::recursion::honk::KernelIO>(const size_t);
+template HonkProof create_mock_honk_proof<MegaFlavor, stdlib::recursion::honk::HidingKernelIO<MegaCircuitBuilder>>(
+    const size_t);
 
-template HonkProof create_mock_honk_proof<UltraFlavor, stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>();
-template HonkProof create_mock_honk_proof<UltraZKFlavor, stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>();
-template HonkProof create_mock_honk_proof<UltraRollupFlavor, stdlib::recursion::honk::RollupIO>();
+template HonkProof create_mock_honk_proof<UltraFlavor, stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(
+    const size_t);
+template HonkProof create_mock_honk_proof<UltraZKFlavor, stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(
+    const size_t);
+template HonkProof create_mock_honk_proof<UltraFlavor, stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>(
+    const size_t);
+template HonkProof create_mock_honk_proof<UltraZKFlavor, stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>(
+    const size_t);
+template HonkProof create_mock_honk_proof<UltraRollupFlavor, stdlib::recursion::honk::RollupIO>(const size_t);
 
 template HonkProof create_mock_pg_proof<MegaFlavor, stdlib::recursion::honk::AppIO>();
 template HonkProof create_mock_pg_proof<MegaFlavor, stdlib::recursion::honk::KernelIO>();
 template HonkProof create_mock_pg_proof<MegaFlavor, stdlib::recursion::honk::HidingKernelIO<MegaCircuitBuilder>>();
 
 template std::shared_ptr<MegaFlavor::VerificationKey> create_mock_honk_vk<MegaFlavor, stdlib::recursion::honk::AppIO>(
-    const size_t, const size_t);
+    const size_t, const size_t, const size_t);
 template std::shared_ptr<MegaFlavor::VerificationKey> create_mock_honk_vk<MegaFlavor,
                                                                           stdlib::recursion::honk::KernelIO>(
-    const size_t, const size_t);
+    const size_t, const size_t, const size_t);
 template std::shared_ptr<MegaFlavor::VerificationKey> create_mock_honk_vk<
     MegaFlavor,
-    stdlib::recursion::honk::HidingKernelIO<MegaCircuitBuilder>>(const size_t, const size_t);
+    stdlib::recursion::honk::HidingKernelIO<MegaCircuitBuilder>>(const size_t, const size_t, const size_t);
+
+template std::shared_ptr<UltraFlavor::VerificationKey> create_mock_honk_vk<
+    UltraFlavor,
+    stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(const size_t, const size_t, const size_t);
+template std::shared_ptr<UltraZKFlavor::VerificationKey> create_mock_honk_vk<
+    UltraZKFlavor,
+    stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(const size_t, const size_t, const size_t);
+template std::shared_ptr<UltraFlavor::VerificationKey> create_mock_honk_vk<
+    UltraFlavor,
+    stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>(const size_t, const size_t, const size_t);
+template std::shared_ptr<UltraZKFlavor::VerificationKey> create_mock_honk_vk<
+    UltraZKFlavor,
+    stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>(const size_t, const size_t, const size_t);
+template std::shared_ptr<UltraRollupFlavor::VerificationKey> create_mock_honk_vk<UltraRollupFlavor,
+                                                                                 stdlib::recursion::honk::RollupIO>(
+    const size_t, const size_t, const size_t);
+
 template std::shared_ptr<DeciderVerificationKey_<MegaFlavor>> create_mock_decider_vk<MegaFlavor>();
 
 } // namespace acir_format
