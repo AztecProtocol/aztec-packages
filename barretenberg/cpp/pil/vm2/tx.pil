@@ -4,6 +4,7 @@ include "precomputed.pil";
 include "trees/note_hash_tree_check.pil";
 include "poseidon2_hash.pil";
 include "tx_context.pil";
+include "tx_discard.pil";
 
 // Refer to https://excalidraw.com/#json=XcT7u7Ak5rZhWqT51KwTW,VPI-Q1D7hW8_lYhf6V4bNg for a visual guide to the tx trace.
 // The tx trace manages the various phases that a transaction will undergo while it is being executed.
@@ -74,9 +75,6 @@ namespace tx;
 
     // If reverted == 1, is_revertible must be 1
     reverted * (1 - is_revertible) = 0;
-
-    // TODO: Constrain
-    pol commit discard;
 
     // Control flow
     pol commit read_pi_offset; // index in public inputs to read data from -> Revisit!
@@ -228,6 +226,7 @@ namespace tx;
     // should_process_call_request {
     //     context_id,
     //     next_context_id,
+    //     discard,
     //     msg_sender,
     //     contract_addr,
     //     fee,
@@ -255,6 +254,7 @@ namespace tx;
     // execution.enqueued_call_start {
     //     execution.context_id,
     //     execution.next_context_id,
+    //     execution.discard,
     //     execution.msg_sender,
     //     execution.contract_address,
     //     execution.transaction_fee,
@@ -287,6 +287,7 @@ namespace tx;
     //    context_id,
     //    next_context_id,
     //    reverted,
+    //    discard,
     //    // Tree State
     //    next_note_hash_tree_root,
     //    next_note_hash_tree_size,
@@ -310,6 +311,7 @@ namespace tx;
     //    execution.context_id,
     //    execution.next_context_id,
     //    execution.sel_error,
+    //    execution.discard,
     //    // Tree State
     //    execution.note_hash_tree_root,
     //    execution.note_hash_tree_size,
@@ -373,7 +375,7 @@ namespace tx;
         precomputed.zero,
         sel_revertible_append_note_hash,
         prev_num_note_hashes_emitted,
-        discard,
+        discard, // from tx_discard.pil virtual trace
         next_note_hash_tree_root
     } in
     note_hash_tree_check.write {
@@ -416,7 +418,7 @@ namespace tx;
         prev_nullifier_tree_root,
         next_nullifier_tree_root,
         prev_nullifier_tree_size,
-        discard,
+        discard, // from tx_discard.pil virtual trace
         prev_num_nullifiers_emitted,
         precomputed.zero
     } in
@@ -457,6 +459,7 @@ namespace tx;
     pol commit should_l2_l1_msg_append;
     // A msg emit must be written to PI if it didn't revert, and is not discard.
     should_try_l2_l1_msg_append * ((1 - reverted) * (1 - discard) - should_l2_l1_msg_append) = 0;
+    // discard is from tx_discard.pil virtual trace
 
     should_l2_l1_msg_append * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX + prev_num_l2_to_l1_messages - write_pi_offset) = 0;
 

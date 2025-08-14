@@ -85,6 +85,16 @@ TEST_F(TxExecutionTest, simulateTx)
     auto teardown_context = std::make_unique<NiceMock<MockContext>>();
     ON_CALL(*teardown_context, halted()).WillByDefault(Return(true));
 
+    // Configure mock execution to return successful results
+    ExecutionResult successful_result = {
+        .rd_offset = 0,
+        .rd_size = 0,
+        .gas_used = Gas{ 100, 100 },
+        .side_effect_states = SideEffectStates{},
+        .success = true // This is the key - mark execution as successful
+    };
+    ON_CALL(execution, execute(_)).WillByDefault(Return(successful_result));
+
     EXPECT_CALL(context_provider, make_enqueued_context)
         .WillOnce(Return(std::move(setup_context)))
         .WillOnce(Return(std::move(app_logic_context)))
@@ -181,7 +191,7 @@ TEST_F(TxExecutionTest, NoteHashLimitReached)
         return true;
     });
 
-    EXPECT_CALL(merkle_db, create_checkpoint()).Times(1);
+    EXPECT_CALL(merkle_db, create_checkpoint()).Times(2); // once at start, once after app-logic revert
 
     tx_execution.simulate(tx);
 
@@ -276,7 +286,7 @@ TEST_F(TxExecutionTest, NullifierLimitReached)
         return true;
     });
 
-    EXPECT_CALL(merkle_db, create_checkpoint()).Times(1);
+    EXPECT_CALL(merkle_db, create_checkpoint()).Times(2); // once at start, once after app-logic revert
 
     tx_execution.simulate(tx);
 
@@ -372,7 +382,7 @@ TEST_F(TxExecutionTest, L2ToL1MessageLimitReached)
         return true;
     });
 
-    EXPECT_CALL(merkle_db, create_checkpoint()).Times(1);
+    EXPECT_CALL(merkle_db, create_checkpoint()).Times(2); // once at start, once after app-logic revert
 
     tx_execution.simulate(tx);
 

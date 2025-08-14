@@ -1,8 +1,12 @@
-// Discarding on error in execution
-
-// This is a virtual gadget, which is part of the execution trace.
-// This subtrace is focused on managing the changes to the discard and dying_context_id columns.
-namespace execution;
+/**
+ * Discarding on error in execution.
+ *
+ * Design Document: https://docs.google.com/document/d/1xz5sZSxTu841K8uvnT8U-nO2X5ZjY8o0TjOYKfT9b6o
+ *
+ * This subtrace is focused on managing the changes to the discard and dying_context_id columns.
+ * It is a virtual gadget, which is part of the execution trace.
+ */
+namespace execution; // virtual to execution.pil
 
     // No relations will be checked if this identity is satisfied.
     #[skippable_if]
