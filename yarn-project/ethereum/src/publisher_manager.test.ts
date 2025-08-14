@@ -115,7 +115,7 @@ describe('PublisherManager', () => {
       expect(result).toBe(mockPublishers[1]); // First valid after filtering
     });
 
-    it('should handle many publishers in varying states', async () => {
+    it('should prioritise same state publishers based on balance and then least recently used', async () => {
       const ethAddresses = Array.from({ length: 5 }, () => EthAddress.random());
       mockPublishers = createMockPublishers(5, ethAddresses);
       publisherManager = new PublisherManager(mockPublishers);
@@ -131,7 +131,7 @@ describe('PublisherManager', () => {
       mockPublishers[1].getSenderBalance.mockResolvedValue(300n);
       mockPublishers[1]['lastMinedAtBlockNumber'] = undefined;
 
-      // The best candidate in terms of state and last block, but it's filtered out
+      // The best candidate in terms of state and balance, but it's filtered out
       mockPublishers[2]['state'] = TxUtilsState.IDLE;
       mockPublishers[2].getSenderBalance.mockResolvedValue(10000000000n);
       mockPublishers[2]['lastMinedAtBlockNumber'] = 0n;
@@ -140,6 +140,7 @@ describe('PublisherManager', () => {
       mockPublishers[3].getSenderBalance.mockResolvedValue(800n);
       mockPublishers[3]['lastMinedAtBlockNumber'] = 100n;
 
+      // The best candidate based on state and balance
       mockPublishers[4]['state'] = TxUtilsState.IDLE;
       mockPublishers[4].getSenderBalance.mockResolvedValue(600n);
       mockPublishers[4]['lastMinedAtBlockNumber'] = 50n;
@@ -148,15 +149,15 @@ describe('PublisherManager', () => {
 
       // IDLE state has priority, and among IDLE publishers, least recently used wins
       expect(result).toBeDefined();
-      expect(result!.getSenderAddress()).toEqual(mockPublishers[1].getSenderAddress());
+      expect(result!.getSenderAddress()).toEqual(mockPublishers[4].getSenderAddress());
 
-      // Set this publisher to be the same last mined block
-      mockPublishers[1]['lastMinedAtBlockNumber'] = 50n;
+      // Set this publisher to have the same balance as publisher index 1
+      mockPublishers[4].getSenderBalance.mockResolvedValue(300n);
 
-      // Priority should now go to the one with the highest balance
+      // Priority should now go to the one that is least recently used, index 1
       const result2 = await publisherManager.getAvailablePublisher(filter);
       expect(result2).toBeDefined();
-      expect(result2!.getSenderAddress()).toEqual(mockPublishers[4].getSenderAddress());
+      expect(result2!.getSenderAddress()).toEqual(mockPublishers[1].getSenderAddress());
     });
   });
 
