@@ -1,3 +1,4 @@
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 
@@ -37,7 +38,7 @@ export function createDelayedL1TxUtilsFromViemWallet(
 ) {
   return new DelayedTxUtils(
     client,
-    client.account.address,
+    EthAddress.fromString(client.account.address),
     createViemSigner(client),
     logger,
     dateProvider,

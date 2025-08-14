@@ -7,7 +7,7 @@ import {
   getDefaultConfig,
   numberConfigHelper,
 } from '@aztec/foundation/config';
-import type { EthAddress } from '@aztec/foundation/eth-address';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemTransactionSignature } from '@aztec/foundation/eth-signature';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
@@ -553,7 +553,10 @@ export class ReadOnlyL1TxUtils {
   }
 }
 
-export type Signer = (transaction: TransactionSerializable) => Promise<ViemTransactionSignature>;
+export type Signer = (
+  transaction: TransactionSerializable,
+  signingAddress: EthAddress,
+) => Promise<ViemTransactionSignature>;
 
 export class L1TxUtils extends ReadOnlyL1TxUtils {
   private txUtilsState: TxUtilsState = TxUtilsState.IDLE;
@@ -561,7 +564,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
 
   constructor(
     public override client: ViemClient,
-    public address: Hex,
+    public address: EthAddress,
     private signer: Signer,
     protected override logger: Logger = createLogger('L1TxUtils'),
     dateProvider: DateProvider = new DateProvider(),
@@ -597,12 +600,12 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
 
   public getSenderBalance(): Promise<bigint> {
     return this.client.getBalance({
-      address: this.getSenderAddress(),
+      address: this.getSenderAddress().toString(),
     });
   }
 
   private async signTransaction(txRequest: TransactionSerializable): Promise<`0x${string}`> {
-    const signature = await this.signer(txRequest);
+    const signature = await this.signer(txRequest, this.getSenderAddress());
     return serializeTransaction(txRequest, signature);
   }
 
@@ -625,7 +628,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
   ): Promise<{ txHash: Hex; gasLimit: bigint; gasPrice: GasPrice }> {
     try {
       const gasConfig = { ...this.config, ..._gasConfig };
-      const account = this.getSenderAddress();
+      const account = this.getSenderAddress().toString();
 
       let gasLimit: bigint;
       if (this.debugMaxGasLimit) {
@@ -703,7 +706,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
   ): Promise<TransactionReceipt> {
     const isBlobTx = !!_blobInputs;
     const gasConfig = { ...this.config, ..._gasConfig };
-    const account = this.getSenderAddress();
+    const account = this.getSenderAddress().toString();
 
     const blobInputs = _blobInputs || {};
     const makeGetTransactionBackoff = () =>
@@ -989,7 +992,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       maxPriorityFeePerGas: formatGwei(cancelGasPrice.maxPriorityFeePerGas),
     });
     const request = {
-      to: this.getSenderAddress(),
+      to: this.getSenderAddress().toString(),
       value: 0n,
     };
 
@@ -1051,7 +1054,7 @@ export function createL1TxUtilsFromViemWallet(
 ) {
   return new L1TxUtils(
     client,
-    client.account.address,
+    EthAddress.fromString(client.account.address),
     createViemSigner(client),
     logger,
     dateProvider,
