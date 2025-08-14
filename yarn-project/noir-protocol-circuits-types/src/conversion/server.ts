@@ -29,13 +29,7 @@ import {
   PublicDataHint,
   RevertCode,
 } from '@aztec/stdlib/avm';
-import {
-  type PrivateToAvmAccumulatedData,
-  type PrivateToAvmAccumulatedDataArrayLengths,
-  type PrivateToPublicAccumulatedData,
-  type PrivateToPublicKernelCircuitPublicInputs,
-  PrivateToRollupKernelCircuitPublicInputs,
-} from '@aztec/stdlib/kernel';
+import type { PrivateToAvmAccumulatedData, PrivateToAvmAccumulatedDataArrayLengths } from '@aztec/stdlib/kernel';
 import { BaseParityInputs, ParityPublicInputs, type RootParityInput, RootParityInputs } from '@aztec/stdlib/parity';
 import type { RecursiveProof } from '@aztec/stdlib/proofs';
 import {
@@ -63,7 +57,7 @@ import {
   RootRollupPublicInputs,
   type SingleTxBlockRootRollupInputs,
 } from '@aztec/stdlib/rollup';
-import { TreeSnapshots, TxConstantData } from '@aztec/stdlib/tx';
+import { TreeSnapshots } from '@aztec/stdlib/tx';
 
 import type {
   AvmAccumulatedDataArrayLengths as AvmAccumulatedDataArrayLengthsNoir,
@@ -100,9 +94,6 @@ import type {
   PrivateBaseStateDiffHints as PrivateBaseStateDiffHintsNoir,
   PrivateToAvmAccumulatedDataArrayLengths as PrivateToAvmAccumulatedDataArrayLengthsNoir,
   PrivateToAvmAccumulatedData as PrivateToAvmAccumulatedDataNoir,
-  PrivateToPublicAccumulatedData as PrivateToPublicAccumulatedDataNoir,
-  PrivateToPublicKernelCircuitPublicInputs as PrivateToPublicKernelCircuitPublicInputsNoir,
-  PrivateToRollupKernelCircuitPublicInputs as PrivateToRollupKernelCircuitPublicInputsNoir,
   PrivateTubeData as PrivateTubeDataNoir,
   PublicBaseRollupInputs as PublicBaseRollupInputsNoir,
   PublicDataHint as PublicDataHintNoir,
@@ -114,26 +105,21 @@ import type {
   SingleTxBlockRootRollupInputs as SingleTxBlockRootRollupInputsNoir,
   SpongeBlob as SpongeBlobNoir,
   TreeSnapshots as TreeSnapshotsNoir,
-  TxConstantData as TxConstantDataNoir,
 } from '../types/index.js';
 import {
   mapAppendOnlyTreeSnapshotFromNoir,
   mapAppendOnlyTreeSnapshotToNoir,
-  mapAztecAddressFromNoir,
   mapAztecAddressToNoir,
-  mapBigIntFromNoir,
   mapEthAddressFromNoir,
   mapEthAddressToNoir,
   mapFieldArrayToNoir,
   mapFieldFromNoir,
   mapFieldToNoir,
   mapGasFeesToNoir,
-  mapGasFromNoir,
   mapGasSettingsToNoir,
   mapGasToNoir,
   mapGlobalVariablesFromNoir,
   mapGlobalVariablesToNoir,
-  mapHeaderFromNoir,
   mapHeaderToNoir,
   mapMembershipWitnessToNoir,
   mapNullifierLeafPreimageToNoir,
@@ -141,20 +127,15 @@ import {
   mapNumberToNoir,
   mapPartialStateReferenceFromNoir,
   mapPartialStateReferenceToNoir,
-  mapPrivateLogToNoir,
-  mapPrivateToRollupAccumulatedDataFromNoir,
-  mapPrivateToRollupAccumulatedDataToNoir,
+  mapPrivateToPublicKernelCircuitPublicInputsToNoir,
+  mapPrivateToRollupKernelCircuitPublicInputsToNoir,
   mapPublicCallRequestArrayLengthsToNoir,
   mapPublicCallRequestToNoir,
   mapPublicDataTreePreimageToNoir,
   mapPublicDataWriteToNoir,
   mapPublicLogToNoir,
   mapScopedL2ToL1MessageToNoir,
-  mapScopedLogHashToNoir,
   mapTupleFromNoir,
-  mapTxContextFromNoir,
-  mapTxContextToNoir,
-  mapU64ToNoir,
   mapVerificationKeyToNoir,
   mapVkDataToNoir,
 } from './common.js';
@@ -520,37 +501,6 @@ export function mapTreeSnapshotsToNoir(snapshots: TreeSnapshots): TreeSnapshotsN
   };
 }
 
-export function mapPrivateToPublicAccumulatedDataToNoir(
-  data: PrivateToPublicAccumulatedData,
-): PrivateToPublicAccumulatedDataNoir {
-  return {
-    note_hashes: mapTuple(data.noteHashes, mapFieldToNoir),
-    nullifiers: mapTuple(data.nullifiers, mapFieldToNoir),
-    l2_to_l1_msgs: mapTuple(data.l2ToL1Msgs, mapScopedL2ToL1MessageToNoir),
-    private_logs: mapTuple(data.privateLogs, mapPrivateLogToNoir),
-    contract_class_logs_hashes: mapTuple(data.contractClassLogsHashes, mapScopedLogHashToNoir),
-    public_call_requests: mapTuple(data.publicCallRequests, mapPublicCallRequestToNoir),
-  };
-}
-
-function mapTxConstantDataFromNoir(txConstantData: TxConstantDataNoir): TxConstantData {
-  return new TxConstantData(
-    mapHeaderFromNoir(txConstantData.historical_header),
-    mapTxContextFromNoir(txConstantData.tx_context),
-    mapFieldFromNoir(txConstantData.vk_tree_root),
-    mapFieldFromNoir(txConstantData.protocol_contract_tree_root),
-  );
-}
-
-function mapTxConstantDataToNoir(data: TxConstantData): TxConstantDataNoir {
-  return {
-    historical_header: mapHeaderToNoir(data.historicalHeader),
-    tx_context: mapTxContextToNoir(data.txContext),
-    vk_tree_root: mapFieldToNoir(data.vkTreeRoot),
-    protocol_contract_tree_root: mapFieldToNoir(data.protocolContractTreeRoot),
-  };
-}
-
 function mapEpochConstantDataFromNoir(data: EpochConstantDataNoir) {
   return new EpochConstantData(
     mapFieldFromNoir(data.vk_tree_root),
@@ -564,32 +514,6 @@ function mapEpochConstantDataToNoir(data: EpochConstantData): EpochConstantDataN
     vk_tree_root: mapFieldToNoir(data.vkTreeRoot),
     protocol_contract_tree_root: mapFieldToNoir(data.protocolContractTreeRoot),
     prover_id: mapFieldToNoir(data.proverId),
-  };
-}
-
-export function mapPrivateToPublicKernelCircuitPublicInputsToNoir(
-  inputs: PrivateToPublicKernelCircuitPublicInputs,
-): PrivateToPublicKernelCircuitPublicInputsNoir {
-  return {
-    constants: mapTxConstantDataToNoir(inputs.constants),
-    non_revertible_accumulated_data: mapPrivateToPublicAccumulatedDataToNoir(inputs.nonRevertibleAccumulatedData),
-    revertible_accumulated_data: mapPrivateToPublicAccumulatedDataToNoir(inputs.revertibleAccumulatedData),
-    public_teardown_call_request: mapPublicCallRequestToNoir(inputs.publicTeardownCallRequest),
-    gas_used: mapGasToNoir(inputs.gasUsed),
-    fee_payer: mapAztecAddressToNoir(inputs.feePayer),
-    include_by_timestamp: mapU64ToNoir(inputs.includeByTimestamp),
-  };
-}
-
-export function mapPrivateToRollupKernelCircuitPublicInputsToNoir(
-  inputs: PrivateToRollupKernelCircuitPublicInputs,
-): PrivateToRollupKernelCircuitPublicInputsNoir {
-  return {
-    constants: mapTxConstantDataToNoir(inputs.constants),
-    end: mapPrivateToRollupAccumulatedDataToNoir(inputs.end),
-    gas_used: mapGasToNoir(inputs.gasUsed),
-    fee_payer: mapAztecAddressToNoir(inputs.feePayer),
-    include_by_timestamp: mapU64ToNoir(inputs.includeByTimestamp),
   };
 }
 
@@ -963,16 +887,4 @@ export function mapRevertCodeFromNoir(revertCode: NoirField): RevertCode {
 
 export function mapRevertCodeToNoir(revertCode: RevertCode): NoirField {
   return mapFieldToNoir(revertCode.toField());
-}
-
-export function mapPrivateToRollupKernelCircuitPublicInputsFromNoir(
-  inputs: PrivateToRollupKernelCircuitPublicInputsNoir,
-) {
-  return new PrivateToRollupKernelCircuitPublicInputs(
-    mapTxConstantDataFromNoir(inputs.constants),
-    mapPrivateToRollupAccumulatedDataFromNoir(inputs.end),
-    mapGasFromNoir(inputs.gas_used),
-    mapAztecAddressFromNoir(inputs.fee_payer),
-    mapBigIntFromNoir(inputs.include_by_timestamp),
-  );
 }

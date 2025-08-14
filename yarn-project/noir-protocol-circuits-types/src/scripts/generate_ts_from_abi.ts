@@ -15,6 +15,8 @@ const circuits = [
   'private_kernel_reset',
   'private_kernel_tail',
   'private_kernel_tail_to_public',
+  'hiding_kernel_to_rollup',
+  'hiding_kernel_to_public',
   'rollup_base_private',
   'rollup_base_public',
   'rollup_merge',

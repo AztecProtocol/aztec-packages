@@ -8,6 +8,8 @@ export type ClientProtocolArtifact =
   | 'PrivateKernelInnerArtifact'
   | 'PrivateKernelTailArtifact'
   | 'PrivateKernelTailToPublicArtifact'
+  | 'HidingKernelToRollup'
+  | 'HidingKernelToPublic'
   | PrivateResetArtifact;
 
 // These are all circuits that should generate proofs with the `recursive` flag.

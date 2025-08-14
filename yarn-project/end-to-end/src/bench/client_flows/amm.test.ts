@@ -151,7 +151,8 @@ describe('AMM benchmark', () => {
                 2 + // Account verify_private_authwit + kernel inner
                 2 + // Token prepare_private_balance_increase + kernel inner (liquidity token mint)
                 1 + // Kernel reset
-                1, // Kernel tail
+                1 + // Kernel tail
+                1, // Kernel hiding
             );
 
             if (process.env.SANITY_CHECKS) {
