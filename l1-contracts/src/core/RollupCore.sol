@@ -230,11 +230,15 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     Timestamp exitDelay = Timestamp.wrap(_config.exitDelaySeconds);
     ISlasher slasher = ExtRollupLib3.deploySlasher(
       address(this),
+      _config.slashingVetoer,
+      _config.slasherFlavor,
       _config.slashingQuorum,
       _config.slashingRoundSize,
       _config.slashingLifetimeInRounds,
       _config.slashingExecutionDelayInRounds,
-      _config.slashingVetoer
+      _config.slashingUnit,
+      _config.targetCommitteeSize,
+      _config.aztecEpochDuration
     );
 
     StakingLib.initialize(_stakingAsset, _gse, exitDelay, address(slasher), _config.stakingQueueConfig);

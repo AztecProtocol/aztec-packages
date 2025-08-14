@@ -9,7 +9,7 @@ import {
   IBoosterCore,
   IValidatorSelection
 } from "@aztec/core/reward-boost/RewardBooster.sol";
-import {Slasher, ISlasher} from "@aztec/core/slashing/Slasher.sol";
+import {Slasher, ISlasher, SlasherFlavor} from "@aztec/core/slashing/Slasher.sol";
 
 /**
  * @title ExtRollupLib3 - External Rollup Library (Deployment Functions)
@@ -31,19 +31,27 @@ library ExtRollupLib3 {
 
   function deploySlasher(
     address _rollup,
-    uint256 _slashingQuorum,
-    uint256 _slashingRoundSize,
-    uint256 _slashingLifetimeInRounds,
-    uint256 _slashingExecutionDelayInRounds,
-    address _slashingVetoer
+    address _vetoer,
+    SlasherFlavor _flavor,
+    uint256 _quorumSize,
+    uint256 _roundSize,
+    uint256 _lifetimeInRounds,
+    uint256 _executionDelayInRounds,
+    uint256 _slashingUnit,
+    uint256 _committeeSize,
+    uint256 _epochDuration
   ) external returns (ISlasher) {
     Slasher slasher = new Slasher(
       _rollup,
-      _slashingQuorum,
-      _slashingRoundSize,
-      _slashingLifetimeInRounds,
-      _slashingExecutionDelayInRounds,
-      _slashingVetoer
+      _vetoer,
+      _flavor,
+      _quorumSize,
+      _roundSize,
+      _lifetimeInRounds,
+      _executionDelayInRounds,
+      _slashingUnit,
+      _committeeSize,
+      _epochDuration
     );
     return ISlasher(address(slasher));
   }

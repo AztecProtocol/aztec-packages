@@ -3,6 +3,7 @@
 pragma solidity >=0.8.27;
 
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
+import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
 import {ISlasher} from "@aztec/core/interfaces/ISlasher.sol";
 import {IEmperor} from "@aztec/governance/interfaces/IEmpire.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
@@ -19,15 +20,15 @@ import {SlashPayload} from "@aztec/periphery/SlashPayload.sol";
 /**
  * @notice A SlashingProposer implementation based on consensus voting
  */
-contract ConsensusSlashingProposer {
+contract ConsensusSlashingProposer is EIP712 {
   using SignatureLib for Signature;
-  using TimeLib for Slot;
-  using TimeLib for Epoch;
-  using TimeLib for SlashRound;
   using CompressedTimeMath for CompressedSlot;
   using CompressedTimeMath for CompressedSlashRound;
   using CompressedTimeMath for Slot;
   using CompressedTimeMath for SlashRound;
+
+  // EIP-712 type hash for the Vote struct
+  bytes32 public constant VOTE_TYPEHASH = keccak256("Vote(uint256 slot,bytes votes)");
 
   struct RoundData {
     SlashRound roundNumber; // The actual round number (for staleness check)
@@ -80,24 +81,28 @@ contract ConsensusSlashingProposer {
   constructor(
     address _instance,
     ISlasher _slasher,
-    uint256 _slashingUnit,
     uint256 _quorum,
     uint256 _roundSize,
-    uint256 _committeeSize,
-    uint256 _roundSizeInEpochs,
     uint256 _lifetimeInRounds,
-    uint256 _executionDelayInRounds
-  ) {
+    uint256 _executionDelayInRounds,
+    uint256 _slashingUnit,
+    uint256 _committeeSize,
+    uint256 _epochDuration
+  ) EIP712("ConsensusSlashingProposer", "1") {
     INSTANCE = _instance;
     SLASHER = _slasher;
     SLASHING_UNIT = _slashingUnit;
     QUORUM = _quorum;
     ROUND_SIZE = _roundSize;
-    ROUND_SIZE_IN_EPOCHS = _roundSizeInEpochs;
+    ROUND_SIZE_IN_EPOCHS = _roundSize / _epochDuration;
     COMMITTEE_SIZE = _committeeSize;
     LIFETIME_IN_ROUNDS = _lifetimeInRounds;
     EXECUTION_DELAY_IN_ROUNDS = _executionDelayInRounds;
 
+    require(
+      ROUND_SIZE_IN_EPOCHS * _epochDuration == ROUND_SIZE,
+      Errors.ConsensusSlashingProposer__RoundSizeMustBeMultipleOfEpochDuration(ROUND_SIZE, _epochDuration)
+    );
     require(QUORUM > 0, Errors.ConsensusSlashingProposer__QuorumMustBeGreaterThanZero());
     require(ROUND_SIZE > 1, Errors.ConsensusSlashingProposer__InvalidQuorumAndRoundSize(QUORUM, ROUND_SIZE));
     require(QUORUM > ROUND_SIZE / 2, Errors.ConsensusSlashingProposer__InvalidQuorumAndRoundSize(QUORUM, ROUND_SIZE));
@@ -135,10 +140,9 @@ contract ConsensusSlashingProposer {
     // Get the current proposer from the rollup - only they can submit votes
     address proposer = getCurrentProposer();
 
-    // Verify signature includes slot to prevent replay attacks across slots and rounds
-    // The proposer must sign the specific combination of slot + votes
-    bytes32 voteHash = keccak256(abi.encodePacked(Slot.unwrap(slot), _votes));
-    require(_sig.verify(proposer, voteHash), Errors.ConsensusSlashingProposer__InvalidSignature());
+    // Verify EIP-712 signature (which includes slot to prevent replay attacks)
+    bytes32 digest = getVoteSignatureDigest(_votes, slot);
+    require(_sig.verify(proposer, digest), Errors.ConsensusSlashingProposer__InvalidSignature());
 
     // Each byte encodes 2 validators (4 bits each), so we need half the total validators in bytes
     uint256 expectedLength = COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS / 2;
@@ -389,8 +393,8 @@ contract ConsensusSlashingProposer {
    */
   function getCommitteeCommitment(SlashRound _round, uint256 _epochIndex) internal returns (bytes32) {
     IValidatorSelection rollup = IValidatorSelection(INSTANCE);
-    Timestamp timestamp = Epoch.wrap(SlashRound.unwrap(_round) * ROUND_SIZE_IN_EPOCHS + _epochIndex).toTimestamp();
-    (bytes32 commitment,) = rollup.getCommitteeCommitmentAt(timestamp);
+    Epoch epoch = Epoch.wrap(SlashRound.unwrap(_round) * ROUND_SIZE_IN_EPOCHS + _epochIndex);
+    (bytes32 commitment,) = rollup.getEpochCommitteeCommitment(epoch);
 
     return commitment;
   }
@@ -464,22 +468,8 @@ contract ConsensusSlashingProposer {
   function getCommitteesForRound(SlashRound _round) internal returns (address[][] memory committees) {
     committees = new address[][](ROUND_SIZE_IN_EPOCHS);
 
-    // Calculate the first slot of the round
-    uint256 firstSlotOfRound = SlashRound.unwrap(_round) * ROUND_SIZE;
-
-    // Calculate slots per epoch (ROUND_SIZE divided by ROUND_SIZE_IN_EPOCHS)
-    uint256 slotsPerEpoch = ROUND_SIZE / ROUND_SIZE_IN_EPOCHS;
-
-    // Load committee for each epoch in the round
     for (uint256 epochIndex = 0; epochIndex < ROUND_SIZE_IN_EPOCHS; epochIndex++) {
-      // Calculate the first slot of this epoch within the round
-      uint256 slotOfEpoch = firstSlotOfRound + (epochIndex * slotsPerEpoch);
-
-      // Convert slot to epoch
-      Slot slot = Slot.wrap(slotOfEpoch);
-      Epoch epoch = slot.epochFromSlot();
-
-      // Get the committee for this epoch from the rollup
+      Epoch epoch = Epoch.wrap(SlashRound.unwrap(_round) * ROUND_SIZE_IN_EPOCHS + epochIndex);
       IValidatorSelection rollup = IValidatorSelection(INSTANCE);
       committees[epochIndex] = rollup.getEpochCommittee(epoch);
     }
@@ -563,5 +553,15 @@ contract ConsensusSlashingProposer {
     // Hash the committee addresses to create a commitment for verification
     // Duplicated from ValidatorSelectionLib.sol
     return keccak256(abi.encode(_committee));
+  }
+
+  /**
+   * @notice Generate the EIP-712 signature digest for a vote
+   * @param _slot The slot number
+   * @param _votes The vote data to be signed
+   * @return The EIP-712 signature digest
+   */
+  function getVoteSignatureDigest(bytes calldata _votes, Slot _slot) public view returns (bytes32) {
+    return _hashTypedDataV4(keccak256(abi.encode(VOTE_TYPEHASH, keccak256(_votes), Slot.unwrap(_slot))));
   }
 }

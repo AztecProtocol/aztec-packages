@@ -184,4 +184,5 @@ library Errors {
   error ConsensusSlashingProposer__SlashAmountTooLarge();
   error ConsensusSlashingProposer__VoteAlreadyCastInCurrentSlot(Slot slot);
   error ConsensusSlashingProposer__RoundOutOfRange(SlashRound round, SlashRound currentRound);
+  error ConsensusSlashingProposer__RoundSizeMustBeMultipleOfEpochDuration(uint256 roundSize, uint256 epochDuration);
 }
