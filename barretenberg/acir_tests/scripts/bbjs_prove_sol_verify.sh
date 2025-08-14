@@ -32,6 +32,7 @@ done
 $bb write_solidity_verifier --scheme ultra_honk -k output-$$/vk -o output-$$/Verifier.sol
 
 # Verify the proof using the solidity verifier
+PROOF="output-$$/proof" \
 PROOF_AS_FIELDS="output-$$/proof_fields.json" \
 PUBLIC_INPUTS_AS_FIELDS="output-$$/public_inputs_fields.json" \
 VERIFIER_PATH="output-$$/Verifier.sol" \

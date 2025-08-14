@@ -32,6 +32,7 @@ $bb write_solidity_verifier $flags -k output-$$/vk -o output-$$/Verifier.sol
 # Use solcjs to compile the generated key contract with the template verifier and test contract
 # index.js will start an anvil, on a random port
 # Deploy the verifier then send a test transaction
+PROOF="output-$$/proof" \
 PROOF_AS_FIELDS="output-$$/proof_fields.json" \
 PUBLIC_INPUTS_AS_FIELDS="output-$$/public_inputs_fields.json" \
 VERIFIER_PATH="output-$$/Verifier.sol" \
