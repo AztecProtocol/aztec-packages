@@ -12,7 +12,7 @@
 
 namespace acir_format {
 
-using Builder = bb::UltraCircuitBuilder;
+using Builder = bb::UltraCircuitBuilder; // Builder is always Ultra
 
 using namespace bb;
 

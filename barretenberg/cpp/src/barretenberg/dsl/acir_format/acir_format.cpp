@@ -276,6 +276,16 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
 
     // RecursionConstraints
     if constexpr (IsMegaBuilder<Builder>) {
+        // We shouldn't have both honk recursion constraints and ivc recursion constraints.
+        BB_ASSERT_EQ(constraint_system.honk_recursion_constraints.empty() ||
+                         constraint_system.ivc_recursion_constraints.empty(),
+                     true,
+                     "Invalid circuit: both honk and ivc recursion constraints present.");
+        // We shouldn't recursively verify a ClientIVC proof with a MegaBuilder
+        BB_ASSERT_EQ(constraint_system.civc_recursion_constraints.empty(),
+                     true,
+                     "Invalid circuit: ClientIVC recursion constraints are present with MegaBuilder.");
+
         if (!constraint_system.honk_recursion_constraints.empty()) {
             HonkRecursionConstraintsOutput<Builder> output = process_honk_recursion_constraints(
                 builder, constraint_system, has_valid_witness_assignments, gate_counter);
@@ -289,10 +299,6 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
                 builder, constraint_system, metadata.ivc, has_valid_witness_assignments, gate_counter);
         }
 
-        // We shouldn't have both honk recursion constraints and ivc recursion constraints.
-        ASSERT(constraint_system.honk_recursion_constraints.empty() ||
-                   constraint_system.ivc_recursion_constraints.empty(),
-               "Invalid circuit: both honk and ivc recursion constraints present.");
         // If its an app circuit that has no recursion constraints, add default pairing points to public inputs.
         if (constraint_system.honk_recursion_constraints.empty() &&
             constraint_system.ivc_recursion_constraints.empty()) {
