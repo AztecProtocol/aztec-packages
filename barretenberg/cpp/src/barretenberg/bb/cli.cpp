@@ -326,16 +326,19 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_output_path_option(prove, output_path);
     add_ivc_inputs_path_options(prove);
     add_vk_path_option(prove);
-
+    const auto add_ipa_accumulation_flag = [&](CLI::App* subcommand) {
+        return subcommand->add_flag(
+            "--ipa_accumulation", flags.ipa_accumulation, "Accumulate/Aggregate IPA (Inner Product Argument) claims");
+    };
     add_verbose_flag(prove);
     add_debug_flag(prove);
     add_crs_path_option(prove);
     add_oracle_hash_option(prove);
     add_output_format_option(prove);
     add_write_vk_flag(prove);
+    add_ipa_accumulation_flag(prove);
     remove_zk_option(prove);
-    add_recursive_flag(prove);
-    add_honk_recursion_option(prove);
+    add_slow_low_memory_flag(prove);
 
     prove->add_flag("--verify", "Verify the proof natively, resulting in a boolean output. Useful for testing.");
 
@@ -359,7 +362,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_crs_path_option(write_vk);
     add_oracle_hash_option(write_vk);
     add_ipa_accumulation_flag(write_vk);
-    add_recursive_flag(write_vk);
     add_verifier_type_option(write_vk)->default_val("standalone");
     remove_zk_option(write_vk);
 
@@ -379,7 +381,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_oracle_hash_option(verify);
     remove_zk_option(verify);
     add_ipa_accumulation_flag(verify);
-    add_recursive_flag(verify);
 
     /***************************************************************************************************************
      * Subcommand: write_solidity_verifier
@@ -421,7 +422,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_verbose_flag(OLD_API_gates);
     add_debug_flag(OLD_API_gates);
     add_crs_path_option(OLD_API_gates);
-    add_recursive_flag(OLD_API_gates);
     add_bytecode_path_option(OLD_API_gates);
 
     /***************************************************************************************************************
@@ -434,7 +434,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_bytecode_path_option(OLD_API_verify);
     add_proof_path_option(OLD_API_verify);
     add_vk_path_option(OLD_API_verify);
-    add_recursive_flag(OLD_API_verify);
 
     /***************************************************************************************************************
      * Subcommand: OLD_API prove_and_verify
@@ -443,7 +442,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_verbose_flag(OLD_API_prove_and_verify);
     add_debug_flag(OLD_API_prove_and_verify);
     add_crs_path_option(OLD_API_prove_and_verify);
-    add_recursive_flag(OLD_API_prove_and_verify);
     add_bytecode_path_option(OLD_API_prove_and_verify);
 
     std::filesystem::path avm_inputs_path{ "./target/avm_inputs.bin" };
