@@ -123,7 +123,6 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
 
         break;
     }
-
     case QUEUE_TYPE::OINK: {
         // Perform oink recursive verification to complete the initial verifier instance
         OinkRecursiveVerifier verifier{ &circuit, verifier_instance, accumulation_recursive_transcript };
@@ -425,8 +424,8 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::comp
     verification_queue.clear();
 
     // Get the completed decider verification key corresponding to the tail kernel from the folding verifier
-    const std::vector<StdlibFF>& public_inputs = folding_verifier.keys_to_fold[1]->public_inputs;
-    WitnessCommitments& witness_commitments = folding_verifier.keys_to_fold[1]->witness_commitments;
+    const std::vector<StdlibFF>& public_inputs = verifier_instance->public_inputs;
+    WitnessCommitments& witness_commitments = verifier_instance->witness_commitments;
 
     // Reconstruct the KernelIO from the public inputs of the tail kernel and perform databus consistency checks
     KernelIO kernel_input; // pairing points, databus return data commitments
