@@ -1291,6 +1291,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
     case ExecutionOpCode::RETURN:
         call_with_operands(&Execution::ret, context, resolved_operands);
         break;
+    case ExecutionOpCode::REVERT:
+        call_with_operands(&Execution::revert, context, resolved_operands);
+        break;
     case ExecutionOpCode::JUMP:
         call_with_operands(&Execution::jump, context, resolved_operands);
         break;
