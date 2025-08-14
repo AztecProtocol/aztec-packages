@@ -58,9 +58,6 @@ std::map<std::string, std::size_t> GlobalOpCountContainer::get_aggregate_counts(
 void GlobalOpCountContainer::print_aggregate_counts(std::ostream& os, size_t indent) const
 {
     os << '{';
-    if (indent > 0) {
-        os << std::endl << std::string(indent, ' ');
-    }
     bool first = true;
     for (const auto& [key, value] : get_aggregate_counts()) {
         if (!first) {

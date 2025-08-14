@@ -19,10 +19,6 @@
 #ifdef __wasm__
 // require a semicolon to appease formatters
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define BB_OP_COUNT_TRACK() (void)0
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define BB_OP_COUNT_TRACK_NAME(name) (void)0
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define BB_OP_COUNT_TIME_NAME(name) (void)0
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define BB_OP_COUNT_TIME() (void)0
@@ -131,10 +127,6 @@ struct OpCountTimeReporter {
 };
 } // namespace bb::detail
 
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define BB_OP_COUNT_TRACK_NAME(name) bb::detail::GlobalOpCount<name>::increment_op_count()
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define BB_OP_COUNT_TRACK() BB_OP_COUNT_TRACK_NAME(__func__)
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define BB_OP_COUNT_TIME_NAME(name)                                                                                    \
     std::optional<bb::detail::OpCountTimeReporter> __bb_op_count_time;                                                 \

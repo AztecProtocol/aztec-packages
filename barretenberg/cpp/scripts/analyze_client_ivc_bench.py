@@ -115,23 +115,6 @@ def print_contributions(prefix, ivc_bench_json, bench_name, components):
         percentage = time_ms / sum_of_kept_times_ms if sum_of_kept_times_ms > 0 else 0
         print(f"{key:<{max_label_length}}{time_ms:>8.0f}  {percentage:>8.2%}")
 
-relations = [
-    "Arithmetic::accumulate(t)",
-    "Permutation::accumulate(t)",
-    "Lookup::accumulate(t)",
-    "DeltaRange::accumulate(t)",
-    "Elliptic::accumulate(t)",
-    "Memory::accumulate(t)",
-    "NonNativeField::accumulate(t)",
-    "EccOp::accumulate(t)",
-    "DatabusRead::accumulate(t)",
-    "PoseidonExt::accumulate(t)",
-    "PoseidonInt::accumulate(t)",
-]
-
-print('\nRelation contributions (times to be interpreted relatively):')
-print_contributions(PREFIX, IVC_BENCH_JSON, BENCHMARK, relations)
-
 commitments = [
     "COMMIT::wires(t)",
     "COMMIT::z_perm(t)",
