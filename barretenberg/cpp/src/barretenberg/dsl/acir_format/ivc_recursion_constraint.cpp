@@ -57,14 +57,14 @@ std::shared_ptr<ClientIVC> create_mock_ivc_from_constraints(const std::vector<Re
 
     // Case: RESET kernel; single PG recursive verification of a kernel
     if (constraints.size() == 1 && constraints[0].proof_type == pg_type) {
-        ivc->verifier_accumulator = create_mock_decider_vk<ClientIVC::Flavor>();
+        ivc->recursive_verifier_native_accum = create_mock_decider_vk<ClientIVC::Flavor>();
         mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG, /*is_kernel=*/true);
         return ivc;
     }
 
     // Case: TAIL kernel; single PG recursive verification of a kernel
     if (constraints.size() == 1 && constraints[0].proof_type == pg_tail_type) {
-        ivc->verifier_accumulator = create_mock_decider_vk<ClientIVC::Flavor>();
+        ivc->recursive_verifier_native_accum = create_mock_decider_vk<ClientIVC::Flavor>();
         mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG_TAIL, /*is_kernel=*/true);
         return ivc;
     }
@@ -73,7 +73,7 @@ std::shared_ptr<ClientIVC> create_mock_ivc_from_constraints(const std::vector<Re
     if (constraints.size() == 2) {
         BB_ASSERT_EQ(constraints[0].proof_type, pg_type);
         BB_ASSERT_EQ(constraints[1].proof_type, pg_type);
-        ivc->verifier_accumulator = create_mock_decider_vk<ClientIVC::Flavor>();
+        ivc->recursive_verifier_native_accum = create_mock_decider_vk<ClientIVC::Flavor>();
         mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG, /*is_kernel=*/true);
         mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG, /*is_kernel=*/false);
         return ivc;
@@ -81,12 +81,12 @@ std::shared_ptr<ClientIVC> create_mock_ivc_from_constraints(const std::vector<Re
 
     // Case: HIDING kernel; single PG_FINAL recursive verification of a kernel
     if (constraints.size() == 1 && constraints[0].proof_type == pg_final_type) {
-        ivc->verifier_accumulator = create_mock_decider_vk<ClientIVC::Flavor>();
+        ivc->recursive_verifier_native_accum = create_mock_decider_vk<ClientIVC::Flavor>();
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): We need to set the log circuit size here due
         // to an invalid out of circuit max operation in the PG recursive verifier. Once that is resolved this should
         // not be necessary.
-        ivc->verifier_accumulator->vk->log_circuit_size = 18;
+        ivc->recursive_verifier_native_accum->vk->log_circuit_size = 18;
         mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG_FINAL, /*is_kernel=*/true);
         return ivc;
     }

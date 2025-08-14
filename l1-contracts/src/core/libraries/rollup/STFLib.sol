@@ -35,7 +35,7 @@ import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/Compre
  *      - The temporary block logs use a circular storage pattern where blocks are stored at index (blockNumber %
  *        roundaboutSize).
  *        This reuses storage slots for old blocks that have been proven or pruned.
- *        The roundabout size is calculated as maxPrunableBlocks() + 1 to ensure at least the last provable block
+ *        The roundabout size is calculated as maxPrunableBlocks() + 1 to ensure at least the last proven block
  *        remains accessible even after pruning operations. This saves gas costs by minimizing storage writes to fresh
  *        slots.
  *
@@ -195,7 +195,7 @@ library STFLib {
     uint256 pending = tips.getPendingBlockNumber();
 
     // @note  We are not deleting the blocks, but we are "winding back" the pendingTip to the last block that was
-    // proven.
+    //        proven.
     //        We can do because any new block proposed will overwrite a previous block in the block log,
     //        so no values should "survive".
     //        People must therefore read the chain using the pendingTip as a boundary.
@@ -221,7 +221,7 @@ library STFLib {
    * @return The number of slots in the circular storage buffer
    */
   function roundaboutSize() internal view returns (uint256) {
-    // Must be ensured to contain at least the last provable even after a prune.
+    // Must be ensured to contain at least the last proven block even after a prune.
     return TimeLib.maxPrunableBlocks() + 1;
   }
 
@@ -392,8 +392,9 @@ library STFLib {
    *          The deadline is the point in time where it is no longer acceptable, (if you touch the line you die)
    *      - If epoch(_ts) >= epoch N + Proof submission window + 1, pruning is allowed
    *
-   *      This mechanism ensures rollup liveness by preventing indefinite stalling on unproven blocks
-   *      while providing sufficient time for proof generation and submission.
+   *      This mechanism ensures rollup liveness by preventing indefinite stalling on unprovable blocks (e.g due to
+   *      the committee failing to disseminate the data) while providing sufficient time for proof generation and
+   *      submission.
    *
    * @param _ts The current timestamp to check against
    * @return True if pruning is allowed at the given timestamp, false otherwise

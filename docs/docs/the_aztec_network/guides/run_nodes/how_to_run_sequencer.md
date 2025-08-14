@@ -184,7 +184,7 @@ aztec start --node --archiver --sequencer \
 
 :::tip
 
-For a full overview of all available commands, check out the [CLI reference sheet](./cli_reference.md).
+For a full overview of all available commands, check out the [CLI reference sheet](../../reference/cli_reference.md).
 :::
 
 :::tip
@@ -216,7 +216,7 @@ You may see a warning when trying to register as a validator. To maintain networ
 
 ### Using Environment Variables
 
-Every flag in the `aztec start` command corresponds to an environment variable. You can see the variable names by running `aztec start --help`. A reference is provided [here](./cli_reference.md).
+Every flag in the `aztec start` command corresponds to an environment variable. You can see the variable names by running `aztec start --help`. A reference is provided [here](../../reference/cli_reference.md).
 
 For example:
 

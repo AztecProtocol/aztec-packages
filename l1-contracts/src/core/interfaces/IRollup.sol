@@ -84,7 +84,8 @@ struct RollupConfig {
 struct RollupStore {
   CompressedChainTips tips; // put first such that the struct slot structure is easy to follow for cheatcodes
   mapping(uint256 blockNumber => bytes32 archive) archives;
-  mapping(uint256 blockNumber => CompressedTempBlockLog temp) tempBlockLogs;
+  // The following represents a circular buffer. Key is `blockNumber % size`.
+  mapping(uint256 circularIndex => CompressedTempBlockLog temp) tempBlockLogs;
   RollupConfig config;
 }
 

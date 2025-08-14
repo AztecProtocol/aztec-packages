@@ -98,9 +98,14 @@ export class SchemaCompiler {
   processSchema(schema: Schema): TypeInfo {
     const key = this.getSchemaKey(schema);
     if (this.typeCache.has(key)) {
-      return this.typeCache.get(key)!;
+      const ret = this.typeCache.get(key)!;
+      if (ret.typeName === 'unknown') {
+        throw new Error(`Recursive schema detected at ${key}, please check your schema for circular references.`);
+      }
+      return ret;
     }
 
+    this.typeCache.set(key, { typeName: 'unknown', msgpackTypeName: '' });
     const typeInfo = this.generateTypeInfo(schema);
     this.typeCache.set(key, typeInfo);
     return typeInfo;
@@ -314,13 +319,7 @@ export class SchemaCompiler {
         const tupleTypes: string[] = [];
 
         for (const [name, schemaOrName] of namedTypes) {
-          let typeInfo: TypeInfo;
-          if (typeof schemaOrName === 'string') {
-            const typeName = pascalCase(schemaOrName);
-            typeInfo = this.getOrCreateEmptyType(typeName);
-          } else {
-            typeInfo = this.processSchema(schemaOrName);
-          }
+          let typeInfo = this.processSchema(schemaOrName);
           // Track usage of the type
           this.trackTypeUsage(typeInfo.typeName);
           tupleTypes.push(`["${name}", ${typeInfo.typeName}]`);
@@ -570,7 +569,9 @@ ${conversions}
 
       if (neededImports.size > 0) {
         const sortedImports = Array.from(neededImports).sort();
-        imports.push(`import { ${sortedImports.join(', ')} } from './api_types.js';`);
+        // Remove duplicates
+        const uniqueImports = sortedImports.filter((item, index) => sortedImports.indexOf(item) === index);
+        imports.push(`import { ${uniqueImports.join(', ')} } from './api_types.js';`);
       }
     }
 
