@@ -2,6 +2,7 @@ import { sha256 } from '@aztec/foundation/crypto';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import type { AvmCircuitInputs, AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
+import type { VerificationKeyData } from '@aztec/stdlib/vks';
 
 import * as proc from 'child_process';
 import { promises as fs } from 'fs';
@@ -217,6 +218,7 @@ export async function generateProof(
   workingDirectory: string,
   circuitName: string,
   bytecode: Buffer,
+  verificationKey: VerificationKeyData,
   inputWitnessFile: string,
   flavor: UltraHonkFlavor,
   log: Logger,
@@ -230,6 +232,7 @@ export async function generateProof(
 
   // The bytecode is written to e.g. /workingDirectory/BaseParityArtifact-bytecode
   const bytecodePath = `${workingDirectory}/${circuitName}-bytecode`;
+  const vkPath = `${workingDirectory}/${circuitName}-vk`;
 
   // The proof is written to e.g. /workingDirectory/ultra_honk/proof
   const outputPath = `${workingDirectory}`;
@@ -243,18 +246,18 @@ export async function generateProof(
   }
 
   try {
-    // Write the bytecode to the working directory
-    await fs.writeFile(bytecodePath, bytecode);
-    // TODO(#15043): Avoid write_vk flag here.
+    // Write the bytecode and vk to the working directory
+    await Promise.all([fs.writeFile(bytecodePath, bytecode), fs.writeFile(vkPath, verificationKey.keyAsBytes)]);
     const args = getArgs(flavor).concat([
       '--disable_zk',
       '--output_format',
       'bytes_and_fields',
-      '--write_vk',
       '-o',
       outputPath,
       '-b',
       bytecodePath,
+      '-k',
+      vkPath,
       '-w',
       inputWitnessFile,
       '-v',
