@@ -79,20 +79,20 @@ UltraCircuit::UltraCircuit(CircuitSchema& circuit_info,
  */
 size_t UltraCircuit::handle_arithmetic_relation(size_t cursor)
 {
-    bb::fr q_m = this->selectors[BlockType::ARITHMETIC][cursor][0];
-    bb::fr q_l = this->selectors[BlockType::ARITHMETIC][cursor][1];
-    bb::fr q_r = this->selectors[BlockType::ARITHMETIC][cursor][2];
-    bb::fr q_o = this->selectors[BlockType::ARITHMETIC][cursor][3];
-    bb::fr q_4 = this->selectors[BlockType::ARITHMETIC][cursor][4];
-    bb::fr q_c = this->selectors[BlockType::ARITHMETIC][cursor][5];
-    bb::fr q_arith = this->selectors[BlockType::ARITHMETIC][cursor][6];
+    bb::fr q_m = this->selectors[BlockType::ARITHMETIC][cursor][SelectorType::q_m];
+    bb::fr q_l = this->selectors[BlockType::ARITHMETIC][cursor][SelectorType::q_1];
+    bb::fr q_r = this->selectors[BlockType::ARITHMETIC][cursor][SelectorType::q_2];
+    bb::fr q_o = this->selectors[BlockType::ARITHMETIC][cursor][SelectorType::q_3];
+    bb::fr q_4 = this->selectors[BlockType::ARITHMETIC][cursor][SelectorType::q_4];
+    bb::fr q_c = this->selectors[BlockType::ARITHMETIC][cursor][SelectorType::q_c];
+    bb::fr q_arith = this->selectors[BlockType::ARITHMETIC][cursor][SelectorType::q_arith];
 
-    uint32_t w_l_idx = this->wires_idxs[BlockType::ARITHMETIC][cursor][0];
-    uint32_t w_r_idx = this->wires_idxs[BlockType::ARITHMETIC][cursor][1];
-    uint32_t w_o_idx = this->wires_idxs[BlockType::ARITHMETIC][cursor][2];
-    uint32_t w_4_idx = this->wires_idxs[BlockType::ARITHMETIC][cursor][3];
-    uint32_t w_l_shift_idx = this->wires_idxs[BlockType::ARITHMETIC][cursor][4];
-    uint32_t w_4_shift_idx = this->wires_idxs[BlockType::ARITHMETIC][cursor][7];
+    uint32_t w_l_idx = this->wires_idxs[BlockType::ARITHMETIC][cursor][WireType::w_l];
+    uint32_t w_r_idx = this->wires_idxs[BlockType::ARITHMETIC][cursor][WireType::w_r];
+    uint32_t w_o_idx = this->wires_idxs[BlockType::ARITHMETIC][cursor][WireType::w_o];
+    uint32_t w_4_idx = this->wires_idxs[BlockType::ARITHMETIC][cursor][WireType::w_4];
+    uint32_t w_l_shift_idx = this->wires_idxs[BlockType::ARITHMETIC][cursor][WireType::w_l_shift];
+    uint32_t w_4_shift_idx = this->wires_idxs[BlockType::ARITHMETIC][cursor][WireType::w_4_shift];
 
     STerm w_l = this->symbolic_vars[w_l_idx];
     STerm w_r = this->symbolic_vars[w_r_idx];
@@ -151,6 +151,7 @@ size_t UltraCircuit::handle_arithmetic_relation(size_t cursor)
         optimized[w_r_idx] = false;
         optimized[w_o_idx] = false;
         optimized[w_4_idx] = false;
+        optimized[w_4_shift_idx] = false;
     }
 
     if (q_arith * (q_arith - 1) * (q_arith - 2) != 0) {
@@ -210,22 +211,22 @@ void UltraCircuit::process_new_table(uint32_t table_idx)
  */
 size_t UltraCircuit::handle_lookup_relation(size_t cursor)
 {
-    bb::fr q_m = this->selectors[BlockType::LOOKUP][cursor][0];
-    bb::fr q_r = this->selectors[BlockType::LOOKUP][cursor][2];
-    bb::fr q_o = this->selectors[BlockType::LOOKUP][cursor][3];
-    bb::fr q_c = this->selectors[BlockType::LOOKUP][cursor][5];
-    bb::fr q_lookup = this->selectors[BlockType::LOOKUP][cursor][11];
+    bb::fr q_m = this->selectors[BlockType::LOOKUP][cursor][SelectorType::q_m];
+    bb::fr q_r = this->selectors[BlockType::LOOKUP][cursor][SelectorType::q_2];
+    bb::fr q_o = this->selectors[BlockType::LOOKUP][cursor][SelectorType::q_3];
+    bb::fr q_c = this->selectors[BlockType::LOOKUP][cursor][SelectorType::q_c];
+    bb::fr q_lookup = this->selectors[BlockType::LOOKUP][cursor][SelectorType::q_lookup];
 
     if (q_lookup.is_zero()) {
         return cursor + 1;
     }
 
-    uint32_t w_l_idx = this->wires_idxs[BlockType::LOOKUP][cursor][0];
-    uint32_t w_r_idx = this->wires_idxs[BlockType::LOOKUP][cursor][1];
-    uint32_t w_o_idx = this->wires_idxs[BlockType::LOOKUP][cursor][2];
-    uint32_t w_l_shift_idx = this->wires_idxs[BlockType::LOOKUP][cursor][4];
-    uint32_t w_r_shift_idx = this->wires_idxs[BlockType::LOOKUP][cursor][5];
-    uint32_t w_o_shift_idx = this->wires_idxs[BlockType::LOOKUP][cursor][6];
+    uint32_t w_l_idx = this->wires_idxs[BlockType::LOOKUP][cursor][WireType::w_l];
+    uint32_t w_r_idx = this->wires_idxs[BlockType::LOOKUP][cursor][WireType::w_r];
+    uint32_t w_o_idx = this->wires_idxs[BlockType::LOOKUP][cursor][WireType::w_o];
+    uint32_t w_l_shift_idx = this->wires_idxs[BlockType::LOOKUP][cursor][WireType::w_l_shift];
+    uint32_t w_r_shift_idx = this->wires_idxs[BlockType::LOOKUP][cursor][WireType::w_r_shift];
+    uint32_t w_o_shift_idx = this->wires_idxs[BlockType::LOOKUP][cursor][WireType::w_o_shift];
 
     optimized[w_l_idx] = false;
     optimized[w_r_idx] = false;
@@ -304,19 +305,19 @@ size_t UltraCircuit::handle_lookup_relation(size_t cursor)
  */
 size_t UltraCircuit::handle_elliptic_relation(size_t cursor)
 {
-    bb::fr q_is_double = this->selectors[BlockType::ELLIPTIC][cursor][0];
-    bb::fr q_sign = this->selectors[BlockType::ELLIPTIC][cursor][1];
-    bb::fr q_elliptic = this->selectors[BlockType::ELLIPTIC][cursor][8];
+    bb::fr q_is_double = this->selectors[BlockType::ELLIPTIC][cursor][SelectorType::q_m];
+    bb::fr q_sign = this->selectors[BlockType::ELLIPTIC][cursor][SelectorType::q_1];
+    bb::fr q_elliptic = this->selectors[BlockType::ELLIPTIC][cursor][SelectorType::q_elliptic];
     if (q_elliptic.is_zero()) {
         return cursor + 1;
     }
 
-    uint32_t w_r_idx = this->wires_idxs[BlockType::ELLIPTIC][cursor][1];
-    uint32_t w_o_idx = this->wires_idxs[BlockType::ELLIPTIC][cursor][2];
-    uint32_t w_l_shift_idx = this->wires_idxs[BlockType::ELLIPTIC][cursor][4];
-    uint32_t w_r_shift_idx = this->wires_idxs[BlockType::ELLIPTIC][cursor][5];
-    uint32_t w_o_shift_idx = this->wires_idxs[BlockType::ELLIPTIC][cursor][6];
-    uint32_t w_4_shift_idx = this->wires_idxs[BlockType::ELLIPTIC][cursor][7];
+    uint32_t w_r_idx = this->wires_idxs[BlockType::ELLIPTIC][cursor][WireType::w_r];
+    uint32_t w_o_idx = this->wires_idxs[BlockType::ELLIPTIC][cursor][WireType::w_o];
+    uint32_t w_l_shift_idx = this->wires_idxs[BlockType::ELLIPTIC][cursor][WireType::w_l_shift];
+    uint32_t w_r_shift_idx = this->wires_idxs[BlockType::ELLIPTIC][cursor][WireType::w_r_shift];
+    uint32_t w_o_shift_idx = this->wires_idxs[BlockType::ELLIPTIC][cursor][WireType::w_o_shift];
+    uint32_t w_4_shift_idx = this->wires_idxs[BlockType::ELLIPTIC][cursor][WireType::w_4_shift];
     optimized[w_r_idx] = false;
     optimized[w_o_idx] = false;
     optimized[w_l_shift_idx] = false;
@@ -373,16 +374,16 @@ size_t UltraCircuit::handle_elliptic_relation(size_t cursor)
  */
 size_t UltraCircuit::handle_delta_range_relation(size_t cursor)
 {
-    bb::fr q_delta_range = this->selectors[BlockType::DELTA_RANGE][cursor][7];
+    bb::fr q_delta_range = this->selectors[BlockType::DELTA_RANGE][cursor][SelectorType::q_delta_range];
     if (q_delta_range == 0) {
         return cursor + 1;
     }
 
-    uint32_t w_l_idx = this->wires_idxs[BlockType::DELTA_RANGE][cursor][0];
-    uint32_t w_r_idx = this->wires_idxs[BlockType::DELTA_RANGE][cursor][1];
-    uint32_t w_o_idx = this->wires_idxs[BlockType::DELTA_RANGE][cursor][2];
-    uint32_t w_4_idx = this->wires_idxs[BlockType::DELTA_RANGE][cursor][3];
-    uint32_t w_l_shift_idx = this->wires_idxs[BlockType::DELTA_RANGE][cursor][4];
+    uint32_t w_l_idx = this->wires_idxs[BlockType::DELTA_RANGE][cursor][WireType::w_l];
+    uint32_t w_r_idx = this->wires_idxs[BlockType::DELTA_RANGE][cursor][WireType::w_r];
+    uint32_t w_o_idx = this->wires_idxs[BlockType::DELTA_RANGE][cursor][WireType::w_o];
+    uint32_t w_4_idx = this->wires_idxs[BlockType::DELTA_RANGE][cursor][WireType::w_4];
+    uint32_t w_l_shift_idx = this->wires_idxs[BlockType::DELTA_RANGE][cursor][WireType::w_l_shift];
 
     STerm w_1 = this->symbolic_vars[w_l_idx];
     STerm w_2 = this->symbolic_vars[w_r_idx];
@@ -456,19 +457,19 @@ void UltraCircuit::handle_range_constraints()
 
 size_t UltraCircuit::handle_nnf_relation(size_t cursor)
 {
-    bb::fr q_nnf = this->selectors[BlockType::NNF][cursor][9]; // Magic 9?
+    bb::fr q_nnf = this->selectors[BlockType::NNF][cursor][SelectorType::q_nnf];
     if (q_nnf == 0) {
         return cursor + 1;
     }
 
-    uint32_t w_l_idx = this->wires_idxs[BlockType::NNF][cursor][0];
-    uint32_t w_r_idx = this->wires_idxs[BlockType::NNF][cursor][1];
-    uint32_t w_o_idx = this->wires_idxs[BlockType::NNF][cursor][2];
-    uint32_t w_4_idx = this->wires_idxs[BlockType::NNF][cursor][3];
-    uint32_t w_l_shift_idx = this->wires_idxs[BlockType::NNF][cursor][4];
-    uint32_t w_r_shift_idx = this->wires_idxs[BlockType::NNF][cursor][5];
-    uint32_t w_o_shift_idx = this->wires_idxs[BlockType::NNF][cursor][6];
-    uint32_t w_4_shift_idx = this->wires_idxs[BlockType::NNF][cursor][7];
+    uint32_t w_l_idx = this->wires_idxs[BlockType::NNF][cursor][WireType::w_l];
+    uint32_t w_r_idx = this->wires_idxs[BlockType::NNF][cursor][WireType::w_r];
+    uint32_t w_o_idx = this->wires_idxs[BlockType::NNF][cursor][WireType::w_o];
+    uint32_t w_4_idx = this->wires_idxs[BlockType::NNF][cursor][WireType::w_4];
+    uint32_t w_l_shift_idx = this->wires_idxs[BlockType::NNF][cursor][WireType::w_l_shift];
+    uint32_t w_r_shift_idx = this->wires_idxs[BlockType::NNF][cursor][WireType::w_r_shift];
+    uint32_t w_o_shift_idx = this->wires_idxs[BlockType::NNF][cursor][WireType::w_o_shift];
+    uint32_t w_4_shift_idx = this->wires_idxs[BlockType::NNF][cursor][WireType::w_4_shift];
 
     STerm w_1 = this->symbolic_vars[w_l_idx];
     STerm w_2 = this->symbolic_vars[w_r_idx];
@@ -479,11 +480,10 @@ size_t UltraCircuit::handle_nnf_relation(size_t cursor)
     STerm w_3_shift = this->symbolic_vars[w_o_shift_idx];
     STerm w_4_shift = this->symbolic_vars[w_4_shift_idx];
 
-    bb::fr q_m = this->selectors[BlockType::NNF][cursor][0];
-    // bb::fr q_1 = this->selectors[BlockType::NNF][cursor][1];
-    bb::fr q_2 = this->selectors[BlockType::NNF][cursor][2];
-    bb::fr q_3 = this->selectors[BlockType::NNF][cursor][3];
-    bb::fr q_4 = this->selectors[BlockType::NNF][cursor][4];
+    bb::fr q_m = this->selectors[BlockType::NNF][cursor][SelectorType::q_m];
+    bb::fr q_2 = this->selectors[BlockType::NNF][cursor][SelectorType::q_2];
+    bb::fr q_3 = this->selectors[BlockType::NNF][cursor][SelectorType::q_3];
+    bb::fr q_4 = this->selectors[BlockType::NNF][cursor][SelectorType::q_4];
 
     bb::fr LIMB_SIZE(uint256_t(1) << 68);
     bb::fr SUBLIMB_SHIFT(uint256_t(1) << 14);

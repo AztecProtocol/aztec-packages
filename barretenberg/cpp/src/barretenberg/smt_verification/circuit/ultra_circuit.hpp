@@ -17,6 +17,33 @@ struct BlockType {
     static const size_t NNF = 6;
 };
 
+struct SelectorType {
+    static const size_t q_m = 0;
+    static const size_t q_1 = 1;
+    static const size_t q_2 = 2;
+    static const size_t q_3 = 3;
+    static const size_t q_4 = 4;
+    static const size_t q_c = 5;
+    static const size_t q_arith = 6;
+    static const size_t q_delta_range = 7;
+    static const size_t q_elliptic = 8;
+    static const size_t q_memory = 9;
+    static const size_t q_nnf = 10;
+    static const size_t q_lookup = 11;
+    static const size_t curve_b = 12;
+};
+
+struct WireType {
+    static const size_t w_l = 0;
+    static const size_t w_r = 1;
+    static const size_t w_o = 2;
+    static const size_t w_4 = 3;
+    static const size_t w_l_shift = 4;
+    static const size_t w_r_shift = 5;
+    static const size_t w_o_shift = 6;
+    static const size_t w_4_shift = 7;
+};
+
 /**
  * @brief Symbolic Circuit class for Standard Circuit Builder.
  *
@@ -90,7 +117,7 @@ class UltraCircuit : public CircuitBase {
 
     void rom_table_read(uint32_t rom_array_idx, uint32_t index_idx, uint32_t value1_idx, uint32_t value2_idx);
     void ram_table_read(uint32_t ram_array_idx, uint32_t index_idx, uint32_t value_idx);
-    void ram_table_write(uint32_t rom_array_idx, uint32_t index_idx, uint32_t value_idx);
+    void ram_table_write(uint32_t ram_array_idx, uint32_t ram_index_idx, uint32_t read_from_value_idx);
     void handle_rom_tables();
     void handle_ram_tables();
 
