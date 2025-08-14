@@ -184,7 +184,7 @@ export class SequencerPublisher {
   }
 
   public getSenderAddress() {
-    return EthAddress.fromString(this.l1TxUtils.getSenderAddress());
+    return this.l1TxUtils.getSenderAddress();
   }
 
   public addRequest(request: RequestWithExpiry) {
@@ -275,7 +275,10 @@ export class SequencerPublisher {
       return undefined;
     } finally {
       try {
-        this.metrics.recordSenderBalance(await this.l1TxUtils.getSenderBalance(), this.l1TxUtils.getSenderAddress());
+        this.metrics.recordSenderBalance(
+          await this.l1TxUtils.getSenderBalance(),
+          this.l1TxUtils.getSenderAddress().toString(),
+        );
       } catch (err) {
         this.log.warn(`Failed to record balance after sending tx: ${err}`);
       }
