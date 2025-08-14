@@ -130,7 +130,7 @@ TEST(ClassIdDerivationPoseidonTest, WithRetrievalInteraction)
     class_id_derivation.assert_derivation(class_id, klass);
     builder.process({ { .class_id = class_id, .klass = klass } }, trace);
 
-    bc_trace_builder.process_retrieval({ { .bytecode_id = 0,
+    bc_trace_builder.process_retrieval({ { .bytecode_id = klass.public_bytecode_commitment,
                                            .address = 1,
                                            .current_class_id = class_id,
                                            .contract_class = klass,

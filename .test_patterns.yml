@@ -50,6 +50,10 @@ tests:
     owners:
       - *adam
   - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
+    error_regex: "Failed to fetch"
+    owners:
+      - *adam
+  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
     error_regex: "RuntimeError: Out of bounds memory access"
     owners:
       - *adam
@@ -135,6 +139,10 @@ tests:
     owners:
       - *palla
   - regex: "src/e2e_p2p/preferred_gossip_network.test.ts"
+    owners:
+      - *palla
+  - regex: "src/e2e_p2p/gossip_network.test.ts"
+    error_regex: "Block 5 not yet synced"
     owners:
       - *palla
   - regex: "src/e2e_fees/private_payments"

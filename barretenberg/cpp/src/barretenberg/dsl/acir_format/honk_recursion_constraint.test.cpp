@@ -1,6 +1,7 @@
 #include "honk_recursion_constraint.hpp"
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -189,7 +190,7 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
             }();
 
             auto [key_indices, key_hash_index, proof_indices, inner_public_inputs] =
-                ProofSurgeon::populate_recursion_witness_data(
+                ProofSurgeon<fr>::populate_recursion_witness_data(
                     witness, proof_witnesses, key_witnesses, key_hash_witness, num_public_inputs_to_extract);
 
             RecursionConstraint honk_recursion_constraint{
@@ -222,16 +223,6 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
         AcirProgram program{ constraint_system, witness };
         BuilderType outer_circuit = create_circuit<BuilderType>(program, metadata);
 
-        // If BuilderType = Mega, then the proof of outer_circuit will be a Mega proof, and thus will be verified with
-        // a MegaVerifier = UltraVerifier<MegaFlavor>. By design, the MegaVerifier expects the public inputs to be the
-        // ones of the HidingKernel, so we mock the missing part: ecc_op_tables
-        if constexpr (IsMegaBuilder<BuilderType>) {
-            for (auto& commitment :
-                 stdlib::recursion::honk::HidingKernelIO<BuilderType>::default_ecc_op_tables(outer_circuit)) {
-                commitment.set_public();
-            }
-        }
-
         return outer_circuit;
     }
 
@@ -239,19 +230,20 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
                       const std::shared_ptr<OuterVerificationKey>& verification_key,
                       const HonkProof& proof)
     {
-        if constexpr (IsMegaFlavor<OuterFlavor>) {
-            OuterVerifier verifier(verification_key);
-            return std::get<0>(verifier.verify_proof(proof));
+        using IO = std::conditional_t<HasIPAAccumulator<RecursiveFlavor>, RollupIO, DefaultIO>;
+
+        bool result = false;
+
+        if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
+            VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
+            OuterVerifier verifier(verification_key, ipa_verification_key);
+            result = verifier.template verify_proof<IO>(proof, proving_key->ipa_proof).result;
         } else {
-            if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
-                VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
-                OuterVerifier verifier(verification_key, ipa_verification_key);
-                return verifier.verify_proof(proof, proving_key->ipa_proof);
-            } else {
-                OuterVerifier verifier(verification_key);
-                return verifier.verify_proof(proof);
-            }
+            OuterVerifier verifier(verification_key);
+            result = verifier.template verify_proof<IO>(proof).result;
         }
+
+        return result;
     }
 
   protected:

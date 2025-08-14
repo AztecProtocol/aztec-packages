@@ -31,6 +31,7 @@
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 #include "barretenberg/vm2/simulation/memory.hpp"
+#include "barretenberg/vm2/simulation/sha256.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -57,6 +58,7 @@ class Execution : public ExecutionInterface {
               Poseidon2Interface& poseidon2,
               EccInterface& ecc,
               ToRadixInterface& to_radix,
+              Sha256Interface& sha256,
               ExecutionComponentsProviderInterface& execution_components,
               ContextProviderInterface& context_provider,
               const InstructionInfoDBInterface& instruction_info_db,
@@ -75,6 +77,7 @@ class Execution : public ExecutionInterface {
         , poseidon2(poseidon2)
         , embedded_curve(ecc)
         , to_radix(to_radix)
+        , sha256(sha256)
         , context_provider(context_provider)
         , execution_id_manager(execution_id_manager)
         , data_copy(data_copy)
@@ -93,6 +96,8 @@ class Execution : public ExecutionInterface {
     void add(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void sub(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void mul(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
+    void div(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
+    void fdiv(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void eq(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void lt(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void lte(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
@@ -109,6 +114,12 @@ class Execution : public ExecutionInterface {
               MemoryAddress addr,
               MemoryAddress cd_size_offset,
               MemoryAddress cd_offset);
+    void static_call(ContextInterface& context,
+                     MemoryAddress l2_gas_offset,
+                     MemoryAddress da_gas_offset,
+                     MemoryAddress addr,
+                     MemoryAddress cd_size_offset,
+                     MemoryAddress cd_offset);
     void ret(ContextInterface& context, MemoryAddress ret_size_offset, MemoryAddress ret_offset);
     void revert(ContextInterface& context, MemoryAddress rev_size_offset, MemoryAddress rev_offset);
     void cd_copy(ContextInterface& context,
@@ -170,6 +181,12 @@ class Execution : public ExecutionInterface {
                      MemoryAddress dst_addr);
     void emit_unencrypted_log(ContextInterface& context, MemoryAddress log_offset, MemoryAddress log_size_offset);
     void send_l2_to_l1_msg(ContextInterface& context, MemoryAddress recipient_addr, MemoryAddress content_addr);
+    void sha256_compression(ContextInterface& context,
+                            MemoryAddress output_addr,
+                            MemoryAddress state_addr,
+                            MemoryAddress input_addr);
+    void shr(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress c_addr);
+    void shl(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress c_addr);
 
   protected:
     // Only here for testing. TODO(fcarreiro): try to improve.
@@ -206,6 +223,7 @@ class Execution : public ExecutionInterface {
     Poseidon2Interface& poseidon2;
     EccInterface& embedded_curve;
     ToRadixInterface& to_radix;
+    Sha256Interface& sha256;
     ContextProviderInterface& context_provider;
     ExecutionIdManagerInterface& execution_id_manager;
     DataCopyInterface& data_copy;

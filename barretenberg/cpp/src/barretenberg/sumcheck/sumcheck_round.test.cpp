@@ -1,4 +1,5 @@
 #include "sumcheck_round.hpp"
+#include "barretenberg/common/tuple.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/relations/utils.hpp"
 
@@ -23,7 +24,8 @@ TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
     const size_t MAX_LENGTH = 5;
 
     // Construct a tuple of tuples of the form { {univariate_1}, {univariate_2, univariate_3} }
-    auto tuple_of_tuples = std::make_tuple(std::make_tuple(univariate_1), std::make_tuple(univariate_2, univariate_3));
+    auto tuple_of_tuples = flat_tuple::make_tuple(flat_tuple::make_tuple(univariate_1),
+                                                  flat_tuple::make_tuple(univariate_2, univariate_3));
 
     // Use scale_univariate_accumulators to scale by challenge powers
     SubrelationSeparators challenge = {};
@@ -72,7 +74,7 @@ TEST(SumcheckRound, TuplesOfEvaluationArrays)
     std::array<FF, 2> evaluations_2 = { 6, 2 };
 
     // Construct a tuple
-    auto tuple_of_arrays = std::make_tuple(evaluations_1, evaluations_2);
+    auto tuple_of_arrays = flat_tuple::make_tuple(evaluations_1, evaluations_2);
 
     // Use scale_and_batch_elements to scale by challenge powers
     SubrelationSeparators challenge{ 5, 25, 125 };
@@ -117,10 +119,10 @@ TEST(SumcheckRound, AddTuplesOfTuplesOfUnivariates)
     Univariate<FF, 3> expected_sum_3 = univariate_3 + univariate_6;
 
     // Construct two tuples of tuples of univariates
-    auto tuple_of_tuples_1 =
-        std::make_tuple(std::make_tuple(univariate_1), std::make_tuple(univariate_2, univariate_3));
-    auto tuple_of_tuples_2 =
-        std::make_tuple(std::make_tuple(univariate_4), std::make_tuple(univariate_5, univariate_6));
+    auto tuple_of_tuples_1 = flat_tuple::make_tuple(flat_tuple::make_tuple(univariate_1),
+                                                    flat_tuple::make_tuple(univariate_2, univariate_3));
+    auto tuple_of_tuples_2 = flat_tuple::make_tuple(flat_tuple::make_tuple(univariate_4),
+                                                    flat_tuple::make_tuple(univariate_5, univariate_6));
 
     RelationUtils<Flavor>::add_nested_tuples(tuple_of_tuples_1, tuple_of_tuples_2);
 

@@ -1,8 +1,18 @@
 import base from '@aztec/foundation/eslint';
 
+import globals from 'globals';
+
 export default [
   ...base,
   {
-    ignores: ['**/*.mjs'],
+    files: ['**/*.mjs'],
+    languageOptions: {
+      globals: {
+        ...globals.jest,
+      },
+    },
+    rules: {
+      'no-console': 'off',
+    },
   },
 ];

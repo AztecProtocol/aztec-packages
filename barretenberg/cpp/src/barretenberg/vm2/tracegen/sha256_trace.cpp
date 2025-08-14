@@ -1,5 +1,7 @@
 #include "barretenberg/vm2/tracegen/sha256_trace.hpp"
 
+#include <algorithm>
+#include <any>
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
@@ -8,6 +10,8 @@
 #include <stdexcept>
 
 #include "barretenberg/vm2/generated/relations/lookups_sha256.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_sha256_mem.hpp"
+#include "barretenberg/vm2/generated/relations/perms_sha256_mem.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/sha256_event.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
@@ -117,12 +121,15 @@ uint32_t Sha256TraceBuilder::compute_w_with_witness(const std::array<uint32_t, 1
     // Compute ror(w[i - 15], 7)
     uint32_t rot_7 =
         ror_with_witness(prev_w_helpers[1], 7, C::sha256_w_15_rotr_7, C::sha256_lhs_w_7, C::sha256_rhs_w_7, trace);
+    trace.set(C::sha256_two_pow_7, row, 128); // Store 2^7 for reference
     // Compute ror(w[i - 15], 18)
     uint32_t rot_18 =
         ror_with_witness(prev_w_helpers[1], 18, C::sha256_w_15_rotr_18, C::sha256_lhs_w_18, C::sha256_rhs_w_18, trace);
+    trace.set(C::sha256_two_pow_18, row, 262144); // Store 2^18 for reference
     // Compute (w[i - 15] >> 3)
     uint32_t shift_3 =
         shr_with_witness(prev_w_helpers[1], 3, C::sha256_w_15_rshift_3, C::sha256_lhs_w_3, C::sha256_rhs_w_3, trace);
+    trace.set(C::sha256_two_pow_3, row, 8); // Store 2^3 for reference
 
     // Compute ror(w[i - 15], 7) ^ ror(w[i - 15], 18)
     trace.set(C::sha256_w_15_rotr_7_xor_w_15_rotr_18, row, rot_7 ^ rot_18);
@@ -134,12 +141,15 @@ uint32_t Sha256TraceBuilder::compute_w_with_witness(const std::array<uint32_t, 1
     // Compute ror(w[i - 2], 17)
     uint32_t rot_17 =
         ror_with_witness(prev_w_helpers[14], 17, C::sha256_w_2_rotr_17, C::sha256_lhs_w_17, C::sha256_rhs_w_17, trace);
+    trace.set(C::sha256_two_pow_17, row, 131072); // Store 2^17 for reference
     // Compute ror(wi - 2, 19)
     uint32_t rot_19 =
         ror_with_witness(prev_w_helpers[14], 19, C::sha256_w_2_rotr_19, C::sha256_lhs_w_19, C::sha256_rhs_w_19, trace);
+    trace.set(C::sha256_two_pow_19, row, 524288); // Store 2^19 for reference
     // Compute (w[i - 2] >> 10)
     uint32_t shift_10 = shr_with_witness(
         prev_w_helpers[14], 10, C::sha256_w_2_rshift_10, C::sha256_lhs_w_10, C::sha256_rhs_w_10, trace);
+    trace.set(C::sha256_two_pow_10, row, 1024); // Store 2^10 for reference
 
     // Compute ror(w[i - 2], 17) ^ ror(w[i - 2], 19)
     trace.set(C::sha256_w_2_rotr_17_xor_w_2_rotr_19, row, rot_17 ^ rot_19);
@@ -169,12 +179,15 @@ std::array<uint32_t, 8> Sha256TraceBuilder::compute_compression_with_witness(con
     // Compute S1 := ror(e, 6U) ^ ror(e, 11U) ^ ror(e, 25U);
     // Compute ror(e, 6)
     uint32_t rot_6 = ror_with_witness(state[4], 6, C::sha256_e_rotr_6, C::sha256_lhs_e_6, C::sha256_rhs_e_6, trace);
+    trace.set(C::sha256_two_pow_6, row, 64); // Store 2^6 for reference
     // Compute ror(e, 11)
     uint32_t rot_11 =
         ror_with_witness(state[4], 11, C::sha256_e_rotr_11, C::sha256_lhs_e_11, C::sha256_rhs_e_11, trace);
+    trace.set(C::sha256_two_pow_11, row, 2048); // Store 2^11 for reference
     // Compute ror(e, 25)
     uint32_t rot_25 =
         ror_with_witness(state[4], 25, C::sha256_e_rotr_25, C::sha256_lhs_e_25, C::sha256_rhs_e_25, trace);
+    trace.set(C::sha256_two_pow_25, row, 33554432); // Store 2^25 for reference
 
     // Compute ror(e, 6) ^ ror(e, 11)
     trace.set(C::sha256_e_rotr_6_xor_e_rotr_11, row, rot_6 ^ rot_11);
@@ -199,12 +212,15 @@ std::array<uint32_t, 8> Sha256TraceBuilder::compute_compression_with_witness(con
     // Compute S0 := ror(a, 2U) ^ ror(a, 13U) ^ ror(a, 22U);
     // Compute ror(a, 2)
     uint32_t rot_2 = ror_with_witness(state[0], 2, C::sha256_a_rotr_2, C::sha256_lhs_a_2, C::sha256_rhs_a_2, trace);
+    trace.set(C::sha256_two_pow_2, row, 4); // Store 2^2 for reference
     // Compute ror(a, 13)
     uint32_t rot_13 =
         ror_with_witness(state[0], 13, C::sha256_a_rotr_13, C::sha256_lhs_a_13, C::sha256_rhs_a_13, trace);
+    trace.set(C::sha256_two_pow_13, row, 8192); // Store 2^13 for reference
     // Compute ror(a, 22)
     uint32_t rot_22 =
         ror_with_witness(state[0], 22, C::sha256_a_rotr_22, C::sha256_lhs_a_22, C::sha256_rhs_a_22, trace);
+    trace.set(C::sha256_two_pow_22, row, 4194304); // Store 2^22 for reference
 
     // Compute ror(a, 2) ^ ror(a, 13)
     trace.set(C::sha256_a_rotr_2_xor_a_rotr_13, row, rot_2 ^ rot_13);
@@ -273,21 +289,221 @@ void Sha256TraceBuilder::process(
     using C = Column;
 
     for (const auto& event : events) {
-        std::array<uint32_t, 16> prev_w_helpers = event.input;
-        std::array<uint32_t, 8> round_state = event.state;
+
+        /////////////////////////////////////////////////////
+        // Memory Components of SHA-256 Compression Function
+        /////////////////////////////////////////////////////
+        // Upcast addresses to uint64_t to avoid overflow issues
+        uint64_t state_addr = static_cast<uint64_t>(event.state_addr);
+        uint64_t input_addr = static_cast<uint64_t>(event.input_addr);
+        uint64_t output_addr = static_cast<uint64_t>(event.output_addr);
+
+        uint64_t max_state_addr = state_addr + 7;   // State is 8 elements
+        uint64_t max_input_addr = input_addr + 15;  // Input is 16 elements
+        uint64_t max_output_addr = output_addr + 7; // Output is 8 elements
+
+        // These are unconditional values that must always be set at the start
+        trace.set(row,
+                  { {
+                      { C::sha256_sel, 1 },
+                      { C::sha256_start, 1 },
+                      { C::sha256_execution_clk, event.execution_clk },
+                      { C::sha256_space_id, event.space_id },
+                      { C::sha256_u32_tag, static_cast<uint8_t>(MemoryTag::U32) },
+                      // Operand Addresses
+                      { C::sha256_state_addr, state_addr },
+                      { C::sha256_input_addr, input_addr },
+                      { C::sha256_output_addr, output_addr },
+                      // Helpers
+                      { C::sha256_max_mem_addr, AVM_HIGHEST_MEM_ADDRESS },
+                      { C::sha256_max_state_addr, max_state_addr },
+                      { C::sha256_max_input_addr, max_input_addr },
+                      { C::sha256_max_output_addr, max_output_addr },
+                      { C::sha256_input_rounds_rem, 16 }, // Number of inputs
+                      { C::sha256_sel_is_input_round, 1 },
+                      { C::sha256_rounds_remaining, 64 }, // Number of Sha256 Rounds
+                  } });
+
+        //////////////////////////////////////
+        // Error Handling - Memory Out of Range
+        //////////////////////////////////////
+        bool state_out_of_range = max_state_addr > AVM_HIGHEST_MEM_ADDRESS;
+        bool input_out_of_range = max_input_addr > AVM_HIGHEST_MEM_ADDRESS;
+        bool output_out_of_range = max_output_addr > AVM_HIGHEST_MEM_ADDRESS;
+
+        bool out_of_range_err = output_out_of_range || input_out_of_range || state_out_of_range;
+        if (out_of_range_err) {
+            trace.set(row,
+                      { {
+                          // Error flags
+                          { C::sha256_sel_state_out_of_range_err, state_out_of_range ? 1 : 0 },
+                          { C::sha256_sel_input_out_of_range_err, input_out_of_range ? 1 : 0 },
+                          { C::sha256_sel_output_out_of_range_err, output_out_of_range ? 1 : 0 },
+                          { C::sha256_mem_out_of_range_err, 1 },
+                          { C::sha256_err, 1 },   // Set the error flag
+                          { C::sha256_latch, 1 }, // Latch is set on error
+                      } });
+            row++;
+            continue; // Skip to the next event if we have an out of range error
+        }
+
+        //////////////////////////////////////
+        // Load Initial State from Memory
+        //////////////////////////////////////
+        // If we get here we are safe to load the memory, we need to split this up between the parallel and sequential
+        // loading. State is loaded in parallel, whilst inputs are loaded sequential.
+
+        // Since we treat them as separate temporality groups, if there is an error in the state loading, we will not
+        // load the input
+        trace.set(row,
+                  { {
+                      // State Loading Selectors
+                      { C::sha256_sel_mem_state_or_output, 1 },
+                      // State Addresses
+                      { C::sha256_memory_address_0_, state_addr },
+                      { C::sha256_memory_address_1_, state_addr + 1 },
+                      { C::sha256_memory_address_2_, state_addr + 2 },
+                      { C::sha256_memory_address_3_, state_addr + 3 },
+                      { C::sha256_memory_address_4_, state_addr + 4 },
+                      { C::sha256_memory_address_5_, state_addr + 5 },
+                      { C::sha256_memory_address_6_, state_addr + 6 },
+                      { C::sha256_memory_address_7_, state_addr + 7 },
+                      // State Values
+                      { C::sha256_memory_register_0_, event.state[0].as_ff() },
+                      { C::sha256_memory_register_1_, event.state[1].as_ff() },
+                      { C::sha256_memory_register_2_, event.state[2].as_ff() },
+                      { C::sha256_memory_register_3_, event.state[3].as_ff() },
+                      { C::sha256_memory_register_4_, event.state[4].as_ff() },
+                      { C::sha256_memory_register_5_, event.state[5].as_ff() },
+                      { C::sha256_memory_register_6_, event.state[6].as_ff() },
+                      { C::sha256_memory_register_7_, event.state[7].as_ff() },
+                      // Values need to match initial state of sha256 compression
+                      { C::sha256_init_a, event.state[0].as_ff() },
+                      { C::sha256_init_b, event.state[1].as_ff() },
+                      { C::sha256_init_c, event.state[2].as_ff() },
+                      { C::sha256_init_d, event.state[3].as_ff() },
+                      { C::sha256_init_e, event.state[4].as_ff() },
+                      { C::sha256_init_f, event.state[5].as_ff() },
+                      { C::sha256_init_g, event.state[6].as_ff() },
+                      { C::sha256_init_h, event.state[7].as_ff() },
+                      // State Memory Tags
+                      { C::sha256_memory_tag_0_, static_cast<uint8_t>(event.state[0].get_tag()) },
+                      { C::sha256_memory_tag_1_, static_cast<uint8_t>(event.state[1].get_tag()) },
+                      { C::sha256_memory_tag_2_, static_cast<uint8_t>(event.state[2].get_tag()) },
+                      { C::sha256_memory_tag_3_, static_cast<uint8_t>(event.state[3].get_tag()) },
+                      { C::sha256_memory_tag_4_, static_cast<uint8_t>(event.state[4].get_tag()) },
+                      { C::sha256_memory_tag_5_, static_cast<uint8_t>(event.state[5].get_tag()) },
+                      { C::sha256_memory_tag_6_, static_cast<uint8_t>(event.state[6].get_tag()) },
+                      { C::sha256_memory_tag_7_, static_cast<uint8_t>(event.state[7].get_tag()) },
+                  } });
+
+        //////////////////////////////////////
+        // Check for Tag Errors in State
+        //////////////////////////////////////
+        bool invalid_state_tag_err = std::ranges::any_of(
+            event.state, [](const MemoryValue& state) { return state.get_tag() != MemoryTag::U32; });
+
+        if (invalid_state_tag_err) {
+            // This is the more efficient batched tag check we perform in the circuit
+            uint64_t batched_check = 0;
+            // Batch the state tag checks
+            for (uint32_t i = 0; i < event.state.size(); i++) {
+                batched_check |=
+                    (static_cast<uint64_t>(event.state[i].get_tag()) - static_cast<uint64_t>(MemoryTag::U32))
+                    << (i * 3);
+            }
+            trace.set(row,
+                      { {
+                          { C::sha256_sel_invalid_state_tag_err, 1 },
+                          { C::sha256_batch_tag_inv, FF(batched_check).invert() },
+                          { C::sha256_latch, 1 },
+                          { C::sha256_err, 1 }, // Set the error flag
+                      } });
+
+            row++;
+            continue; // Skip to the next event if we have an invalid state tag error
+        }
+
+        /////////////////////////////////////////////
+        // Load Hash inputs and check for tag errors
+        ////////////////////////////////////////////
+        // The inputs vector is expected to 16 elements and each element is expected to be a 32-bit value
+        // If during simulation we encounter an invalid tag, it will have been the last element we retrieved
+        // before we threw an error - so it will be the last element in the input vector.
+        // Therefore, it is just sufficient to check the tag of the last element
+        bool invalid_tag_err = event.input.back().get_tag() != MemoryTag::U32;
+
+        // Note that if we encountered an invalid tag error, the row that loaded the invalid tag needs to contain
+        // sel_invalid_input_ROW_tag_err. And all the rows before need to contain sel_invalid_input_tag_err.
+        // The former is used to constrain the specific error, while the latter is used to propagate the error
+        // to the start row (to communicate back to execution) and to turn off any computation constraints.
+        for (uint32_t i = 0; i < event.input.size(); i++) {
+            uint32_t input_rounds_rem = 16 - i;
+            FF input_rounds_rem_inv = input_rounds_rem == 0 ? 0 : FF(input_rounds_rem).invert();
+
+            MemoryValue round_input = event.input[i];
+            FF input_tag = FF(static_cast<uint8_t>(round_input.get_tag()));
+            FF expected_tag = FF(static_cast<uint8_t>(MemoryTag::U32));
+            FF input_tag_diff = input_tag - expected_tag;
+            FF input_tag_diff_inv = input_tag_diff == 0 ? 0 : input_tag_diff.invert();
+
+            bool is_last = (i == event.input.size() - 1);
+            trace.set(row + i,
+                      { {
+                          { C::sha256_sel, 1 },
+                          // Propagated Fields
+                          { C::sha256_execution_clk, event.execution_clk },
+                          { C::sha256_space_id, event.space_id },
+                          { C::sha256_output_addr, output_addr },
+                          { C::sha256_sel_is_input_round, 1 },
+                          { C::sha256_u32_tag, expected_tag },
+                          { C::sha256_sel_read_input_from_memory, 1 },
+                          // Input Rounds Control Flow
+                          { C::sha256_input_rounds_rem, input_rounds_rem },
+                          { C::sha256_input_rounds_rem_inv, input_rounds_rem_inv },
+                          { C::sha256_input_addr, input_addr + i },
+                          { C::sha256_input, round_input.as_ff() },
+                          { C::sha256_input_tag, input_tag },
+                          { C::sha256_input_tag_diff_inv, input_tag_diff_inv },
+                          // Set input value
+                          { C::sha256_w, round_input.as_ff() },
+                          // Error Columns
+                          // Propagated tag error columns
+                          { C::sha256_sel_invalid_input_tag_err, invalid_tag_err ? 1 : 0 },
+                          // Invalid Row Tag Error Columns
+                          { C::sha256_sel_invalid_input_row_tag_err, (is_last && invalid_tag_err) ? 1 : 0 },
+                          { C::sha256_err, invalid_tag_err ? 1 : 0 },
+                          { C::sha256_latch, (is_last && invalid_tag_err) ? 1 : 0 },
+                      } });
+        }
+
+        if (invalid_tag_err) {
+            // We need to increment the row counter for the next event (since we may have added rows for input loading)
+            row += event.input.size();
+            continue;
+        }
+
+        // If we get to this point, we are safe to proceed with the SHA-256 compression function
+        // and we won't encounter any more errors
+
+        /////////////////////////////////////////
+        // Execute SHA-256 Compression Function
+        /////////////////////////////////////////
+        std::array<uint32_t, 8> state;
+        std::ranges::transform(event.state.begin(), event.state.end(), state.begin(), [](const MemoryValue& val) {
+            return val.as<uint32_t>();
+        });
+
+        std::array<uint32_t, 16> prev_w_helpers;
+        std::ranges::transform(event.input.begin(),
+                               event.input.end(),
+                               prev_w_helpers.begin(),
+                               [](const MemoryValue& val) { return val.as<uint32_t>(); });
+        std::array<uint32_t, 8> round_state = state;
 
         // Each event results in 65 rows in the trace.
         // 64 rows for the 64 rounds of the SHA-256 compression function
         // 1 row for the final state
-
-        // In the first row we also set up memory addresses and initial state values
-        trace.set(row,
-                  { {
-                      { C::sha256_start, 1 },
-                      { C::sha256_input_offset, event.input_addr },
-                      { C::sha256_state_offset, event.state_addr },
-                      { C::sha256_output_offset, event.output_addr },
-                  } });
 
         // Begin the rounds loop
         for (size_t i = 0; i < 64; i++) {
@@ -295,32 +511,28 @@ void Sha256TraceBuilder::process(
             bool is_an_input_round = i < 16;
             // Used to check we non-zero rounds remaining
             FF inv = FF(64 - i).invert();
+            uint32_t round_w =
+                is_an_input_round ? event.input[i].as<uint32_t>() : compute_w_with_witness(prev_w_helpers, trace);
             trace.set(row,
                       { {
-                          { C::sha256_clk, event.execution_clk },
                           { C::sha256_sel, 1 },
+                          // Propagated Fields
+                          { C::sha256_execution_clk, event.execution_clk },
+                          { C::sha256_space_id, event.space_id },
+                          { C::sha256_output_addr, output_addr },
+                          { C::sha256_u32_tag, static_cast<uint8_t>(MemoryTag::U32) },
+                          { C::sha256_two_pow_32, 1UL << 32 },
+                          // For round selectors
                           { C::sha256_xor_sel, 2 },
                           { C::sha256_perform_round, 1 },
-                          { C::sha256_is_input_round, is_an_input_round },
                           { C::sha256_round_count, i },
                           { C::sha256_rounds_remaining, 64 - i },
                           { C::sha256_rounds_remaining_inv, inv },
+                          { C::sha256_w, round_w },
+                          { C::sha256_sel_compute_w, is_an_input_round ? 0 : 1 },
                       } });
-
-            // Computing W
-            // TODO: we currently perform the w computation even for the input round
-            // This might not be what we want to do when we end up solving the xors (since it will involve lookups)
-            uint32_t round_w = compute_w_with_witness(prev_w_helpers, trace);
-            // W is set based on if we are still using the input values
-            if (is_an_input_round) {
-                trace.set(C::sha256_w, row, prev_w_helpers[0]);
-                round_w = prev_w_helpers[0];
-            } else {
-                trace.set(C::sha256_w, row, round_w);
-            }
-
             // Set the init state columns - propagated down
-            set_init_state_cols(event.state, trace);
+            set_init_state_cols(state, trace);
             // Set the state columns
             set_state_cols(round_state, trace);
             // Set the round columns
@@ -342,7 +554,6 @@ void Sha256TraceBuilder::process(
         // Set the final row
         trace.set(row,
                   { {
-                      { C::sha256_clk, event.execution_clk },
                       { C::sha256_latch, 1 },
                       { C::sha256_sel, 1 },
                       { C::sha256_xor_sel, 2 },
@@ -350,19 +561,131 @@ void Sha256TraceBuilder::process(
                   } });
 
         // Set the init state columns - propagated down
-        set_init_state_cols(event.state, trace);
+        set_init_state_cols(state, trace);
         // Set the state column
         set_state_cols(round_state, trace);
         // Set the round columns
         set_helper_cols(prev_w_helpers, trace);
         // Compute the output from the final round state
-        compute_sha256_output(round_state, event.state, trace);
+        compute_sha256_output(round_state, state, trace);
+
+        /////////////////////////////////////////
+        // Write output memory
+        /////////////////////////////////////////
+        trace.set(row,
+                  { {
+                      // Memory Fields
+                      { C::sha256_execution_clk, event.execution_clk },
+                      { C::sha256_space_id, event.space_id },
+                      { C::sha256_sel_mem_state_or_output, 1 },
+                      { C::sha256_rw, 1 }, // Writing output
+                      { C::sha256_u32_tag, static_cast<uint8_t>(MemoryTag::U32) },
+                      { C::sha256_two_pow_32, 1UL << 32 },
+                      { C::sha256_output_addr, output_addr },
+                      // Output Addresses
+                      { C::sha256_memory_address_0_, output_addr },
+                      { C::sha256_memory_address_1_, output_addr + 1 },
+                      { C::sha256_memory_address_2_, output_addr + 2 },
+                      { C::sha256_memory_address_3_, output_addr + 3 },
+                      { C::sha256_memory_address_4_, output_addr + 4 },
+                      { C::sha256_memory_address_5_, output_addr + 5 },
+                      { C::sha256_memory_address_6_, output_addr + 6 },
+                      { C::sha256_memory_address_7_, output_addr + 7 },
+                      // Output Values
+                      { C::sha256_memory_register_0_, round_state[0] + state[0] },
+                      { C::sha256_memory_register_1_, round_state[1] + state[1] },
+                      { C::sha256_memory_register_2_, round_state[2] + state[2] },
+                      { C::sha256_memory_register_3_, round_state[3] + state[3] },
+                      { C::sha256_memory_register_4_, round_state[4] + state[4] },
+                      { C::sha256_memory_register_5_, round_state[5] + state[5] },
+                      { C::sha256_memory_register_6_, round_state[6] + state[6] },
+                      { C::sha256_memory_register_7_, round_state[7] + state[7] },
+                      // Output Memory Tags
+                      { C::sha256_memory_tag_0_, static_cast<uint8_t>(MemoryTag::U32) },
+                      { C::sha256_memory_tag_1_, static_cast<uint8_t>(MemoryTag::U32) },
+                      { C::sha256_memory_tag_2_, static_cast<uint8_t>(MemoryTag::U32) },
+                      { C::sha256_memory_tag_3_, static_cast<uint8_t>(MemoryTag::U32) },
+                      { C::sha256_memory_tag_4_, static_cast<uint8_t>(MemoryTag::U32) },
+                      { C::sha256_memory_tag_5_, static_cast<uint8_t>(MemoryTag::U32) },
+                      { C::sha256_memory_tag_6_, static_cast<uint8_t>(MemoryTag::U32) },
+                      { C::sha256_memory_tag_7_, static_cast<uint8_t>(MemoryTag::U32) },
+                  } });
 
         row++;
     }
 }
 
 const InteractionDefinition Sha256TraceBuilder::interactions =
-    InteractionDefinition().add<lookup_sha256_round_constant_settings, InteractionType::LookupIntoIndexedByClk>();
+    InteractionDefinition()
+        .add<lookup_sha256_round_constant_settings, InteractionType::LookupIntoIndexedByClk>()
+        // GT Interactions
+        .add<lookup_sha256_mem_check_state_addr_in_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_mem_check_input_addr_in_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_mem_check_output_addr_in_range_settings, InteractionType::LookupGeneric>()
+        // Memory Interactions (These should be permutations)
+        .add<lookup_sha256_mem_mem_op_0_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_mem_mem_op_1_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_mem_mem_op_2_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_mem_mem_op_3_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_mem_mem_op_4_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_mem_mem_op_5_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_mem_mem_op_6_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_mem_mem_op_7_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_mem_mem_input_read_settings, InteractionType::LookupGeneric>()
+        // Dispatch Permutation
+        .add<perm_sha256_mem_dispatch_sha256_settings, InteractionType::Permutation>()
+        // Bitwise operations
+        .add<lookup_sha256_w_s_0_xor_0_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_w_s_0_xor_1_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_w_s_1_xor_0_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_w_s_1_xor_1_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_s_1_xor_0_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_s_1_xor_1_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_ch_and_0_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_ch_and_1_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_ch_xor_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_s_0_xor_0_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_s_0_xor_1_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_maj_and_0_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_maj_and_1_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_maj_and_2_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_maj_xor_0_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_maj_xor_1_settings, InteractionType::LookupGeneric>()
+        // Range Checks for Rotations and Shifts
+        .add<lookup_sha256_range_rhs_w_7_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_rhs_w_18_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_rhs_w_3_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_rhs_w_17_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_rhs_w_19_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_rhs_w_10_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_rhs_e_6_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_rhs_e_11_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_rhs_e_25_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_rhs_a_2_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_rhs_a_13_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_rhs_a_22_settings, InteractionType::LookupGeneric>()
+        // Range Checks for modulo add
+        .add<lookup_sha256_range_comp_w_lhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_w_rhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_next_a_lhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_next_a_rhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_next_e_lhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_next_e_rhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_a_lhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_a_rhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_b_lhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_b_rhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_c_lhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_c_rhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_d_lhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_d_rhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_e_lhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_e_rhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_f_lhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_f_rhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_g_lhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_g_rhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_h_lhs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_range_comp_h_rhs_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen

@@ -217,10 +217,32 @@ class ECCOpQueue {
      */
     UltraOp no_op_ultra_only()
     {
-        EccOpCode op_code{};
+        UltraOp no_op{};
+        ultra_ops_table.push(no_op);
+        return no_op;
+    }
 
-        // Construct and store the operation in the ultra op format
-        return construct_and_populate_ultra_ops(op_code, accumulator);
+    /**
+     * @brief Writes randomness to the ultra ops table but adds no eccvm operations.
+     *
+     * @details This method is used to add randomness to the ultra ops table with the aim of randomising the commitment
+     * and evaluations of its corresponding columns
+     * @return UltraOp
+     */
+    UltraOp random_op_ultra_only()
+    {
+        UltraOp random_op{ .op_code = EccOpCode{ .is_random_op = true,
+                                                 .random_value_1 = Fr::random_element(),
+                                                 .random_value_2 = Fr::random_element() },
+                           .x_lo = Fr::random_element(),
+                           .x_hi = Fr::random_element(),
+                           .y_lo = Fr::random_element(),
+                           .y_hi = Fr::random_element(),
+                           .z_1 = Fr::random_element(),
+                           .z_2 = Fr::random_element(),
+                           .return_is_infinity = false };
+        ultra_ops_table.push(random_op);
+        return random_op;
     }
 
     /**

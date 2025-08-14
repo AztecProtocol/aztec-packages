@@ -243,7 +243,9 @@ describe('e2e_p2p_add_rollup', () => {
         aliceAccount.salt,
       );
 
-      const testContract = await TestContract.deploy(alice).send().deployed();
+      const aliceAddress = alice.getAddress();
+
+      const testContract = await TestContract.deploy(alice).send({ from: aliceAddress }).deployed();
 
       const [secret, secretHash] = await generateClaimSecret();
 
@@ -266,12 +268,12 @@ describe('e2e_p2p_add_rollup', () => {
 
         l2OutgoingReceipt = await testContract.methods
           .create_l2_to_l1_message_arbitrary_recipient_private(contentOutFromRollup, ethRecipient)
-          .send()
+          .send({ from: aliceAddress })
           .wait();
 
         await testContract.methods
           .create_l2_to_l1_message_arbitrary_recipient_private(contentOutFromRollup, ethRecipient)
-          .send()
+          .send({ from: aliceAddress })
           .wait();
       };
 
@@ -283,7 +285,7 @@ describe('e2e_p2p_add_rollup', () => {
 
       await testContract.methods
         .consume_message_from_arbitrary_sender_private(message.content, secret, ethRecipient, message1Index)
-        .send()
+        .send({ from: aliceAddress })
         .wait();
 
       // Then we consume the L2 -> L1 message

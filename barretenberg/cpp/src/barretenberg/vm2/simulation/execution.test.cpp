@@ -35,6 +35,7 @@
 #include "barretenberg/vm2/simulation/testing/mock_keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_poseidon2.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_sha256.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_to_radix.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 
@@ -66,6 +67,7 @@ class ExecutionSimulationTest : public ::testing::Test {
     ExecutionSimulationTest()
     {
         ON_CALL(context, get_memory).WillByDefault(ReturnRef(memory));
+        ON_CALL(context, get_bytecode_manager).WillByDefault(ReturnRef(bytecode_manager));
         execution.set_gas_tracker(gas_tracker);
     }
 
@@ -90,12 +92,15 @@ class ExecutionSimulationTest : public ::testing::Test {
     StrictMock<MockEcc> ecc;
     StrictMock<MockToRadix> to_radix;
     StrictMock<MockEmitUnencryptedLog> emit_unencrypted_log;
+    StrictMock<MockBytecodeManager> bytecode_manager;
+    StrictMock<MockSha256> sha256;
     TestingExecution execution = TestingExecution(alu,
                                                   bitwise,
                                                   data_copy,
                                                   poseidon2,
                                                   ecc,
                                                   to_radix,
+                                                  sha256,
                                                   execution_components,
                                                   context_provider,
                                                   instruction_info_db,
@@ -108,6 +113,9 @@ class ExecutionSimulationTest : public ::testing::Test {
                                                   emit_unencrypted_log,
                                                   merkle_db);
 };
+
+// NOTE: MemoryAddresses x, y used in the below tests like: execution.fn(context, x, y, ..) are just unchecked arbitrary
+// addresses. We test the MemoryValues and destination addresses.
 
 TEST_F(ExecutionSimulationTest, Add)
 {
@@ -150,6 +158,34 @@ TEST_F(ExecutionSimulationTest, Mul)
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
     execution.mul(context, 1, 2, 3);
+}
+
+TEST_F(ExecutionSimulationTest, Div)
+{
+    auto a = MemoryValue::from<uint128_t>(6);
+    auto b = MemoryValue::from<uint128_t>(3);
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, get).Times(2).WillOnce(ReturnRef(a)).WillOnce(ReturnRef(b));
+    EXPECT_CALL(alu, div(a, b)).WillOnce(Return(MemoryValue::from<uint128_t>(2)));
+    EXPECT_CALL(memory, set(3, MemoryValue::from<uint128_t>(2)));
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    execution.div(context, 1, 2, 3);
+}
+
+TEST_F(ExecutionSimulationTest, FDiv)
+{
+    auto a = MemoryValue::from<FF>(FF::modulus - 4);
+    auto b = MemoryValue::from<FF>(2);
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, get).Times(2).WillOnce(ReturnRef(a)).WillOnce(ReturnRef(b));
+    EXPECT_CALL(alu, fdiv(a, b)).WillOnce(Return(MemoryValue::from<FF>(FF::modulus - 2)));
+    EXPECT_CALL(memory, set(3, MemoryValue::from<FF>(FF::modulus - 2)));
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    execution.fdiv(context, 1, 2, 3);
 }
 
 // TODO(MW): Add alu tests here for other ops
@@ -206,6 +242,8 @@ TEST_F(ExecutionSimulationTest, Call)
     // Context snapshotting
     EXPECT_CALL(context, get_context_id);
     EXPECT_CALL(context, get_parent_id);
+    EXPECT_CALL(context, get_bytecode_manager).WillOnce(ReturnRef(bytecode_manager));
+    EXPECT_CALL(bytecode_manager, try_get_bytecode_id);
     EXPECT_CALL(context, get_next_pc);
     EXPECT_CALL(context, get_is_static);
     EXPECT_CALL(context, get_msg_sender).WillOnce(ReturnRef(parent_address));
@@ -736,7 +774,7 @@ TEST_F(ExecutionSimulationTest, NullifierExists)
 
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
-    EXPECT_CALL(merkle_db, nullifier_exists(nullifier.as<FF>(), address.as<FF>())).WillOnce(Return(true));
+    EXPECT_CALL(merkle_db, nullifier_exists(address.as_ff(), nullifier.as_ff())).WillOnce(Return(true));
 
     EXPECT_CALL(memory, set(exists_offset, MemoryValue::from<uint1_t>(1)));
 
@@ -759,7 +797,7 @@ TEST_F(ExecutionSimulationTest, EmitNullifier)
 
     EXPECT_CALL(context, get_is_static).WillOnce(Return(false));
     EXPECT_CALL(merkle_db, get_tree_state).WillOnce(Return(tree_state));
-    EXPECT_CALL(merkle_db, nullifier_write(address, nullifier.as<FF>())).WillOnce(Return(true)); // success
+    EXPECT_CALL(merkle_db, nullifier_write(address, nullifier.as_ff())).WillOnce(Return(true)); // success
 
     execution.emit_nullifier(context, nullifier_addr);
 }
@@ -1037,6 +1075,19 @@ TEST_F(ExecutionSimulationTest, SendL2ToL1MsgLimitReached)
 
     EXPECT_THROW_WITH_MESSAGE(execution.send_l2_to_l1_msg(context, recipient_addr, content_addr),
                               "SENDL2TOL1MSG: Maximum number of L2 to L1 messages reached");
+}
+
+TEST_F(ExecutionSimulationTest, Sha256Compression)
+{
+    MemoryAddress state_address = 10;
+    MemoryAddress input_address = 20;
+    MemoryAddress dst_address = 50;
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+    EXPECT_CALL(sha256, compression(_, state_address, input_address, dst_address));
+
+    execution.sha256_compression(context, dst_address, state_address, input_address);
 }
 
 } // namespace

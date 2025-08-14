@@ -57,19 +57,22 @@ describe('transaction benchmarks', () => {
     [sender, recipient] = accounts.map(a => a.address);
 
     // Create the two transactions
-    const privateBalance = await provenAssets[0].methods.balance_of_private(sender).simulate();
+    const privateBalance = await provenAssets[0].methods.balance_of_private(sender).simulate({ from: sender });
     const privateSendAmount = privateBalance / 10n;
     expect(privateSendAmount).toBeGreaterThan(0n);
     const privateInteraction = provenAssets[0].methods.transfer(recipient, privateSendAmount);
 
-    const publicBalance = await provenAssets[1].methods.balance_of_public(sender).simulate();
+    const publicBalance = await provenAssets[1].methods.balance_of_public(sender).simulate({ from: sender });
     const publicSendAmount = publicBalance / 10n;
     expect(publicSendAmount).toBeGreaterThan(0n);
     const publicInteraction = provenAssets[1].methods.transfer_in_public(sender, recipient, publicSendAmount, 0);
 
     // Prove them
     logger.info(`Proving txs`);
-    const [publicTx, privateTx] = await Promise.all([publicInteraction.prove(), privateInteraction.prove()]);
+    const [publicTx, privateTx] = await Promise.all([
+      publicInteraction.prove({ from: sender }),
+      privateInteraction.prove({ from: sender }),
+    ]);
 
     publicProvenTx = publicTx;
     privateProvenTx = privateTx;

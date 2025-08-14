@@ -193,7 +193,6 @@ void BytecodeTraceBuilder::process_retrieval(
                       // Contract class for bytecode operations
                       { C::bc_retrieval_artifact_hash, event.contract_class.artifact_hash },
                       { C::bc_retrieval_private_function_root, event.contract_class.private_function_root },
-                      { C::bc_retrieval_public_bytecode_commitment, event.contract_class.public_bytecode_commitment },
 
                   } });
         row++;

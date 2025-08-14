@@ -130,15 +130,7 @@ const sidebar = {
     },
     {
       type: "doc",
-      id: "try_testnet",
-    },
-    {
-      type: "doc",
       id: "migration_notes",
-    },
-    {
-      type: "doc",
-      id: "sandbox_to_testnet_guide",
     },
   ],
 
@@ -420,6 +412,4 @@ const protocolSpecSidebar = [
 ];
 
 /** @type {import('@docusaurus/plugin-content-docs').SidebarsConfig} */
-module.exports = process.env.PROTOCOL_SPECS
-  ? { ...sidebar, protocolSpecSidebar }
-  : sidebar;
+module.exports = sidebar;

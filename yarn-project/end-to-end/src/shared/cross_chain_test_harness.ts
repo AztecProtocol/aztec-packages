@@ -75,22 +75,26 @@ export async function deployAndInitializeTokenAndBridgeContracts(
   });
 
   // deploy l2 token
-  const token = await TokenContract.deploy(wallet, owner, 'TokenName', 'TokenSymbol', 18).send().deployed();
+  const token = await TokenContract.deploy(wallet, owner, 'TokenName', 'TokenSymbol', 18)
+    .send({ from: owner })
+    .deployed();
 
   // deploy l2 token bridge and attach to the portal
-  const bridge = await TokenBridgeContract.deploy(wallet, token.address, tokenPortalAddress).send().deployed();
+  const bridge = await TokenBridgeContract.deploy(wallet, token.address, tokenPortalAddress)
+    .send({ from: owner })
+    .deployed();
 
-  if ((await token.methods.get_admin().simulate()) !== owner.toBigInt()) {
+  if ((await token.methods.get_admin().simulate({ from: owner })) !== owner.toBigInt()) {
     throw new Error(`Token admin is not ${owner}`);
   }
 
-  if (!(await bridge.methods.get_config().simulate()).token.equals(token.address)) {
+  if (!(await bridge.methods.get_config().simulate({ from: owner })).token.equals(token.address)) {
     throw new Error(`Bridge token is not ${token.address}`);
   }
 
   // make the bridge a minter on the token:
-  await token.methods.set_minter(bridge.address, true).send().wait();
-  if ((await token.methods.is_minter(bridge.address).simulate()) === 1n) {
+  await token.methods.set_minter(bridge.address, true).send({ from: owner }).wait();
+  if ((await token.methods.is_minter(bridge.address).simulate({ from: owner })) === 1n) {
     throw new Error(`Bridge is not a minter`);
   }
 
@@ -131,6 +135,7 @@ export class CrossChainTestHarness {
     pxeService: PXE,
     l1Client: ExtendedViemWalletClient,
     wallet: AccountWallet,
+    ownerAddress: AztecAddress,
     logger: Logger,
     underlyingERC20Address: EthAddress,
   ): Promise<CrossChainTestHarness> {
@@ -160,13 +165,12 @@ export class CrossChainTestHarness {
       l1Client,
       l1ContractAddresses,
       wallet,
+      ownerAddress,
     );
   }
 
   private readonly l1TokenManager: L1TokenManager;
   private readonly l1TokenPortalManager: L1TokenPortalManager;
-
-  public readonly ownerAddress: AztecAddress;
 
   constructor(
     /** Aztec node instance. */
@@ -196,6 +200,9 @@ export class CrossChainTestHarness {
 
     /** Wallet of the owner. */
     public readonly ownerWallet: AccountWallet,
+
+    /** Owner of the l2 token and bridge */
+    public readonly ownerAddress: AztecAddress,
   ) {
     this.l1TokenPortalManager = new L1TokenPortalManager(
       this.tokenPortalAddress,
@@ -235,16 +242,19 @@ export class CrossChainTestHarness {
 
   async mintTokensPublicOnL2(amount: bigint) {
     this.logger.info('Minting tokens on L2 publicly');
-    await this.l2Token.methods.mint_to_public(this.ownerAddress, amount).send().wait();
+    await this.l2Token.methods.mint_to_public(this.ownerAddress, amount).send({ from: this.ownerAddress }).wait();
   }
 
   async mintTokensPrivateOnL2(amount: bigint) {
-    await mintTokensToPrivate(this.l2Token, this.ownerWallet, this.ownerAddress, amount);
+    await mintTokensToPrivate(this.l2Token, this.ownerAddress, this.ownerWallet, this.ownerAddress, amount);
   }
 
   async sendL2PublicTransfer(transferAmount: bigint, receiverAddress: AztecAddress) {
     // send a transfer tx to force through rollup with the message included
-    await this.l2Token.methods.transfer_in_public(this.ownerAddress, receiverAddress, transferAmount, 0).send().wait();
+    await this.l2Token.methods
+      .transfer_in_public(this.ownerAddress, receiverAddress, transferAmount, 0)
+      .send({ from: this.ownerAddress })
+      .wait();
   }
 
   async consumeMessageOnAztecAndMintPrivately(
@@ -254,7 +264,7 @@ export class CrossChainTestHarness {
     const { recipient, claimAmount, claimSecret: secretForL2MessageConsumption, messageLeafIndex } = claim;
     await this.l2Bridge.methods
       .claim_private(recipient, claimAmount, secretForL2MessageConsumption, messageLeafIndex)
-      .send()
+      .send({ from: this.ownerAddress })
       .wait();
   }
 
@@ -265,7 +275,7 @@ export class CrossChainTestHarness {
     const { claimAmount, claimSecret, messageLeafIndex } = claim;
     await this.l2Bridge.methods
       .claim_public(this.ownerAddress, claimAmount, claimSecret, messageLeafIndex)
-      .send()
+      .send({ from: this.ownerAddress })
       .wait();
   }
 
@@ -276,7 +286,7 @@ export class CrossChainTestHarness {
   ): Promise<FieldsOf<TxReceipt>> {
     const withdrawReceipt = await this.l2Bridge.methods
       .exit_to_l1_private(this.l2Token.address, this.ethAccount, withdrawAmount, EthAddress.ZERO, authwitNonce)
-      .send({ authWitnesses: [authWitness] })
+      .send({ authWitnesses: [authWitness], from: this.ownerAddress })
       .wait();
 
     return withdrawReceipt;
@@ -285,7 +295,7 @@ export class CrossChainTestHarness {
   async withdrawPublicFromAztecToL1(withdrawAmount: bigint, authwitNonce: Fr = Fr.ZERO): Promise<FieldsOf<TxReceipt>> {
     const withdrawReceipt = await this.l2Bridge.methods
       .exit_to_l1_public(this.ethAccount, withdrawAmount, EthAddress.ZERO, authwitNonce)
-      .send()
+      .send({ from: this.ownerAddress })
       .wait();
 
     return withdrawReceipt;
@@ -302,7 +312,7 @@ export class CrossChainTestHarness {
   }
 
   async getL2PublicBalanceOf(owner: AztecAddress) {
-    return await this.l2Token.methods.balance_of_public(owner).simulate();
+    return await this.l2Token.methods.balance_of_public(owner).simulate({ from: this.ownerAddress });
   }
 
   async expectPublicBalanceOnL2(owner: AztecAddress, expectedBalance: bigint) {
@@ -336,14 +346,17 @@ export class CrossChainTestHarness {
 
   async transferToPrivateOnL2(shieldAmount: bigint) {
     this.logger.info('Transferring to private on L2');
-    await this.l2Token.methods.transfer_to_private(this.ownerAddress, shieldAmount).send().wait();
+    await this.l2Token.methods
+      .transfer_to_private(this.ownerAddress, shieldAmount)
+      .send({ from: this.ownerAddress })
+      .wait();
   }
 
   async transferToPublicOnL2(amount: bigint, authwitNonce = Fr.ZERO) {
     this.logger.info('Transferring tokens to public');
     await this.l2Token.methods
       .transfer_to_public(this.ownerAddress, this.ownerAddress, amount, authwitNonce)
-      .send()
+      .send({ from: this.ownerAddress })
       .wait();
   }
 

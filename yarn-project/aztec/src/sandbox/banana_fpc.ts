@@ -51,10 +51,10 @@ export async function setupBananaFPC(initialAccounts: InitialAccountData[], depl
   const admin = getBananaAdmin(initialAccounts);
   const [bananaCoin, fpc] = await Promise.all([
     TokenContract.deploy(deployer, admin, bananaCoinArgs.name, bananaCoinArgs.symbol, bananaCoinArgs.decimal)
-      .send({ contractAddressSalt: BANANA_COIN_SALT, universalDeploy: true })
+      .send({ from: admin, contractAddressSalt: BANANA_COIN_SALT, universalDeploy: true })
       .deployed(),
     FPCContract.deploy(deployer, bananaCoinAddress, admin)
-      .send({ contractAddressSalt: BANANA_FPC_SALT, universalDeploy: true })
+      .send({ from: admin, contractAddressSalt: BANANA_FPC_SALT, universalDeploy: true })
       .deployed(),
   ]);
 

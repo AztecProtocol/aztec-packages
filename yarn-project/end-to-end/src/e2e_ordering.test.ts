@@ -1,5 +1,5 @@
 // Test suite for testing proper ordering of side effects
-import { Fr, type FunctionSelector, type PXE, type Wallet, toBigIntBE } from '@aztec/aztec.js';
+import { AztecAddress, Fr, type FunctionSelector, type PXE, type Wallet, toBigIntBE } from '@aztec/aztec.js';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
 import { ParentContract } from '@aztec/noir-test-contracts.js/Parent';
@@ -17,6 +17,7 @@ describe('e2e_ordering', () => {
 
   let pxe: PXE;
   let wallet: Wallet;
+  let defaultAccountAddress: AztecAddress;
   let teardown: () => Promise<void>;
 
   const expectLogsFromLastBlockToBe = async (logMessages: bigint[]) => {
@@ -35,7 +36,12 @@ describe('e2e_ordering', () => {
   };
 
   beforeEach(async () => {
-    ({ teardown, pxe, wallet } = await setup());
+    ({
+      teardown,
+      pxe,
+      wallet,
+      accounts: [defaultAccountAddress],
+    } = await setup());
   }, TIMEOUT);
 
   afterEach(() => teardown());
@@ -46,8 +52,8 @@ describe('e2e_ordering', () => {
     let pubSetValueSelector: FunctionSelector;
 
     beforeEach(async () => {
-      parent = await ParentContract.deploy(wallet).send().deployed();
-      child = await ChildContract.deploy(wallet).send().deployed();
+      parent = await ParentContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed();
+      child = await ChildContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed();
       pubSetValueSelector = await child.methods.pub_set_value.selector();
     }, TIMEOUT);
 
@@ -65,7 +71,7 @@ describe('e2e_ordering', () => {
         async method => {
           const expectedOrder = expectedOrders[method];
           const action = parent.methods[method](child.address, pubSetValueSelector);
-          const tx = await action.prove();
+          const tx = await action.prove({ from: defaultAccountAddress });
 
           await tx.send().wait();
 
@@ -110,7 +116,7 @@ describe('e2e_ordering', () => {
       ] as const)('orders public state updates in %s (and ensures final state value is correct)', async method => {
         const expectedOrder = expectedOrders[method];
 
-        await child.methods[method]().send().wait();
+        await child.methods[method]().send({ from: defaultAccountAddress }).wait();
 
         const value = await pxe.getPublicStorageAt(child.address, new Fr(1));
         expect(value.toBigInt()).toBe(expectedOrder[expectedOrder.length - 1]); // final state should match last value set
@@ -123,7 +129,7 @@ describe('e2e_ordering', () => {
       ] as const)('orders public logs in %s', async method => {
         const expectedOrder = expectedOrders[method];
 
-        await child.methods[method]().send().wait();
+        await child.methods[method]().send({ from: defaultAccountAddress }).wait();
 
         // Logs are emitted in the expected order
         await expectLogsFromLastBlockToBe(expectedOrder);

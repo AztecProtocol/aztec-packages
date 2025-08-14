@@ -345,6 +345,21 @@
       }
     },
     {
+      "name": "fuzzing-noasm",
+      "displayName": "Build with fuzzing and ASM disabled",
+      "description": "Build default preset but with fuzzing enabled and ASM disabled",
+      "inherits": "clang16",
+      "binaryDir": "build-fuzzing-noasm",
+      "cacheVariables": {
+        "FUZZING": "ON",
+        "DISABLE_AZTEC_VM": "ON",
+        "DISABLE_ASM": "ON"
+      },
+      "environment": {
+        "CMAKE_BUILD_TYPE": "RelWithAssert"
+      }
+    },
+    {
       "name": "fuzzing-asan",
       "displayName": "Build with fuzzing",
       "description": "Build default preset but with fuzzing and asan enabled",

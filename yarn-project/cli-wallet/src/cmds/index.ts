@@ -256,6 +256,7 @@ export function injectCommands(
 
     const address = await deploy(
       wallet,
+      universal ? undefined : wallet.getAddress(),
       artifactPath,
       json,
       publicKey,
@@ -265,7 +266,6 @@ export function injectCommands(
       !publicDeployment,
       !classRegistration,
       typeof init === 'string' ? false : init,
-      universal,
       wait,
       await FeeOpts.fromCli(options, client, log, db),
       timeout,
@@ -576,7 +576,16 @@ export function injectCommands(
       const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
       const wallet = await account.getWallet();
       const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
-      await authorizeAction(wallet, functionName, caller, args, artifactPath, contractAddress, log);
+      await authorizeAction(
+        wallet,
+        wallet.getAddress(),
+        functionName,
+        caller,
+        args,
+        artifactPath,
+        contractAddress,
+        log,
+      );
     });
 
   program

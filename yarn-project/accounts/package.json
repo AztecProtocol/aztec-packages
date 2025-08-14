@@ -5,7 +5,6 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    "./dapp": "./dest/dapp/index.js",
     "./defaults": "./dest/defaults/index.js",
     "./ecdsa": "./dest/ecdsa/index.js",
     "./ecdsa/lazy": "./dest/ecdsa/lazy.js",

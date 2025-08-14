@@ -58,8 +58,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
 
     VerifierCommitments commitments{ key };
 
-    const auto circuit_size = transcript->template receive_from_prover<uint32_t>("circuit_size");
-    if (circuit_size != (1 << key->log_circuit_size)) {
+    const uint64_t circuit_size = transcript->template receive_from_prover<uint32_t>("circuit_size");
+    if (circuit_size != (static_cast<uint64_t>(1) << key->log_circuit_size)) {
         vinfo("Circuit size mismatch: expected", (1 << key->log_circuit_size), " got ", circuit_size);
         return false;
     }

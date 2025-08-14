@@ -3,7 +3,6 @@ mod previous_kernel_validator_hints;
 use dep::types::{
     abis::{private_kernel_data::PrivateKernelData, side_effect::{Ordered, OrderedValue}},
     address::AztecAddress,
-    proof::traits::Verifiable,
     traits::Empty,
 };
 

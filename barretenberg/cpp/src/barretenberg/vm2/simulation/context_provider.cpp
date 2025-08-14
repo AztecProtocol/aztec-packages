@@ -10,7 +10,7 @@ std::unique_ptr<ContextInterface> ContextProvider::make_nested_context(AztecAddr
                                                                        FF transaction_fee,
                                                                        ContextInterface& parent_context,
                                                                        MemoryAddress cd_offset_address,
-                                                                       MemoryAddress cd_size_address,
+                                                                       uint32_t cd_size,
                                                                        bool is_static,
                                                                        Gas gas_limit,
                                                                        SideEffectStates side_effect_states)
@@ -33,7 +33,7 @@ std::unique_ptr<ContextInterface> ContextProvider::make_nested_context(AztecAddr
         side_effect_states,
         parent_context,
         cd_offset_address,
-        cd_size_address);
+        cd_size);
 }
 
 std::unique_ptr<ContextInterface> ContextProvider::make_enqueued_context(AztecAddress address,

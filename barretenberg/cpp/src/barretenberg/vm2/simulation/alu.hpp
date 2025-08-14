@@ -13,11 +13,15 @@ class AluInterface {
     virtual MemoryValue add(const MemoryValue& a, const MemoryValue& b) = 0;
     virtual MemoryValue sub(const MemoryValue& a, const MemoryValue& b) = 0;
     virtual MemoryValue mul(const MemoryValue& a, const MemoryValue& b) = 0;
+    virtual MemoryValue div(const MemoryValue& a, const MemoryValue& b) = 0;
+    virtual MemoryValue fdiv(const MemoryValue& a, const MemoryValue& b) = 0;
     virtual MemoryValue eq(const MemoryValue& a, const MemoryValue& b) = 0;
     virtual MemoryValue lt(const MemoryValue& a, const MemoryValue& b) = 0;
     virtual MemoryValue lte(const MemoryValue& a, const MemoryValue& b) = 0;
     virtual MemoryValue op_not(const MemoryValue& a) = 0;
     virtual MemoryValue truncate(const FF& a, MemoryTag dst_tag) = 0;
+    virtual MemoryValue shr(const MemoryValue& a, const MemoryValue& b) = 0;
+    virtual MemoryValue shl(const MemoryValue& a, const MemoryValue& b) = 0;
 };
 
 class Alu : public AluInterface {
@@ -35,11 +39,15 @@ class Alu : public AluInterface {
     MemoryValue add(const MemoryValue& a, const MemoryValue& b) override;
     MemoryValue sub(const MemoryValue& a, const MemoryValue& b) override;
     MemoryValue mul(const MemoryValue& a, const MemoryValue& b) override;
+    MemoryValue div(const MemoryValue& a, const MemoryValue& b) override;
+    MemoryValue fdiv(const MemoryValue& a, const MemoryValue& b) override;
     MemoryValue eq(const MemoryValue& a, const MemoryValue& b) override;
     MemoryValue lt(const MemoryValue& a, const MemoryValue& b) override;
     MemoryValue lte(const MemoryValue& a, const MemoryValue& b) override;
     MemoryValue op_not(const MemoryValue& a) override;
     MemoryValue truncate(const FF& a, MemoryTag dst_tag) override;
+    MemoryValue shr(const MemoryValue& a, const MemoryValue& b) override;
+    MemoryValue shl(const MemoryValue& a, const MemoryValue& b) override;
 
   private:
     GreaterThanInterface& greater_than;

@@ -22,7 +22,8 @@ struct EventWithDiscard {
 };
 
 void process_public_data_tree_check_trace(const std::vector<EventWithDiscard>& events_with_metadata,
-                                          const std::unordered_map<FF, uint32_t>& last_nondiscarded_writes,
+                                          const std::unordered_map<FF, uint32_t>& first_write_per_slot,
+                                          const std::unordered_map<FF, FF>& last_value_per_slot,
                                           TraceContainer& trace)
 {
     using C = Column;
@@ -51,7 +52,8 @@ void process_public_data_tree_check_trace(const std::vector<EventWithDiscard>& e
         bool should_insert = !exists && write;
         bool nondiscarded_write = write && !discard;
         bool should_write_to_public_inputs =
-            nondiscarded_write && last_nondiscarded_writes.at(event.leaf_slot) == event.execution_id;
+            nondiscarded_write && first_write_per_slot.at(event.leaf_slot) == event.execution_id;
+        FF final_value = nondiscarded_write ? last_value_per_slot.at(event.leaf_slot) : 0;
 
         FF intermediate_root = 0;
         PublicDataTreeLeafPreimage updated_low_leaf = PublicDataTreeLeafPreimage::empty();
@@ -113,6 +115,7 @@ void process_public_data_tree_check_trace(const std::vector<EventWithDiscard>& e
                       { C::public_data_check_write_idx, write_idx },
                       { C::public_data_check_nondiscaded_write, nondiscarded_write },
                       { C::public_data_check_should_write_to_public_inputs, should_write_to_public_inputs },
+                      { C::public_data_check_final_value, final_value },
                       { C::public_data_check_public_data_writes_length, public_data_writes_length },
                       { C::public_data_check_length_pi_idx,
                         AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_DATA_WRITES_ROW_IDX },
@@ -125,6 +128,8 @@ void process_public_data_tree_check_trace(const std::vector<EventWithDiscard>& e
 }
 
 void process_squashing_trace(const std::vector<PublicDataTreeReadWriteEvent>& nondiscarded_writes,
+                             const std::unordered_map<FF, uint32_t>& first_write_per_slot,
+                             const std::unordered_map<FF, FF>& last_value_per_slot,
                              TraceContainer& trace)
 {
     using C = Column;
@@ -157,18 +162,21 @@ void process_squashing_trace(const std::vector<PublicDataTreeReadWriteEvent>& no
             }
         }
 
-        bool should_write_to_public_inputs = leaf_slot_increase || end;
+        bool should_write_to_public_inputs = first_write_per_slot.at(event.leaf_slot) == event.execution_id;
+        FF final_value = last_value_per_slot.at(event.leaf_slot);
 
         trace.set(row,
                   { {
                       { C::public_data_squash_sel, 1 },
                       { C::public_data_squash_leaf_slot, event.leaf_slot },
+                      { C::public_data_squash_value, event.value },
                       { C::public_data_squash_clk, clk },
                       { C::public_data_squash_write_to_public_inputs, should_write_to_public_inputs },
                       { C::public_data_squash_leaf_slot_increase, leaf_slot_increase },
                       { C::public_data_squash_check_clock, check_clock },
                       { C::public_data_squash_clk_diff, clk_diff },
                       { C::public_data_squash_constant_32, 32 },
+                      { C::public_data_squash_final_value, final_value },
                   } });
         row++;
     }
@@ -182,13 +190,17 @@ void PublicDataTreeTraceBuilder::process(
 {
 
     std::vector<EventWithDiscard> events_with_metadata;
-    std::unordered_map<FF, uint32_t> last_nondiscarded_writes;
+    std::unordered_map<FF, uint32_t> first_write_per_slot;
+    std::unordered_map<FF, FF> last_value_per_slot;
 
     events_with_metadata.reserve(events.size());
     process_with_discard(events, [&](const simulation::PublicDataTreeReadWriteEvent& event, bool discard) {
         events_with_metadata.push_back({ event, discard });
         if (!discard && event.write_data.has_value()) {
-            last_nondiscarded_writes[event.leaf_slot] = event.execution_id;
+            if (!first_write_per_slot.contains(event.leaf_slot)) {
+                first_write_per_slot[event.leaf_slot] = event.execution_id;
+            }
+            last_value_per_slot[event.leaf_slot] = event.value;
         }
     });
 
@@ -199,7 +211,7 @@ void PublicDataTreeTraceBuilder::process(
                   return a.event.execution_id < b.event.execution_id;
               });
 
-    process_public_data_tree_check_trace(events_with_metadata, last_nondiscarded_writes, trace);
+    process_public_data_tree_check_trace(events_with_metadata, first_write_per_slot, last_value_per_slot, trace);
 
     std::vector<PublicDataTreeReadWriteEvent> nondiscarded_writes;
     nondiscarded_writes.reserve(events_with_metadata.size());
@@ -220,7 +232,7 @@ void PublicDataTreeTraceBuilder::process(
                   return static_cast<uint256_t>(a.leaf_slot) < static_cast<uint256_t>(b.leaf_slot);
               });
 
-    process_squashing_trace(nondiscarded_writes, trace);
+    process_squashing_trace(nondiscarded_writes, first_write_per_slot, last_value_per_slot, trace);
 }
 
 const InteractionDefinition PublicDataTreeTraceBuilder::interactions =

@@ -1,0 +1,29 @@
+name: Squashed PR Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+  merge_group:
+
+jobs:
+  check-squashed:
+    runs-on: ubuntu-latest
+    # Only run if PR doesn't have ci-no-squash label AND is targeting 'next' branch
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'ci-no-squash') && github.event.pull_request.base.ref == 'next' }}
+    
+    steps:
+      - name: Check if PR is squashed
+        run: |
+          # Get number of commits from the event payload
+          commit_count=${{ github.event.pull_request.commits }}
+          
+          echo "PR has $commit_count commits"
+          
+          # Fail if PR has more than 1 commit
+          if [ "$commit_count" -gt 1 ]; then
+            echo "::error::This PR has $commit_count commits but must be squashed to a single commit."
+            echo "::error::Either squash your commits or add the 'ci-no-squash' label if multiple commits are intentional."
+            exit 1
+          fi
+          
+          echo "✅ PR is properly squashed with $commit_count commit"

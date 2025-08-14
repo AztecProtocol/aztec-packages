@@ -26,6 +26,13 @@ class InvalidOperationTag : public std::runtime_error {
     {}
 };
 
+class DivisionByZero : public std::runtime_error {
+  public:
+    DivisionByZero(const std::string& msg)
+        : std::runtime_error("Division by zero: " + msg)
+    {}
+};
+
 enum class ValueTag {
     FF = MEM_TAG_FF,
     U1 = MEM_TAG_U1,

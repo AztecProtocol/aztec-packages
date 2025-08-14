@@ -53,7 +53,7 @@ describe('e2e_fees gas_estimation', () => {
     Promise.all(
       [true, false].map(estimateGas =>
         makeTransferRequest()
-          .send({ fee: { estimateGas, gasSettings, paymentMethod, estimatedGasPadding: 0 } })
+          .send({ from: aliceAddress, fee: { estimateGas, gasSettings, paymentMethod, estimatedGasPadding: 0 } })
           .wait(),
       ),
     );
@@ -67,6 +67,7 @@ describe('e2e_fees gas_estimation', () => {
   it('estimates gas with Fee Juice payment method', async () => {
     const paymentMethod = new FeeJuicePaymentMethod(aliceAddress);
     const estimatedGas = await makeTransferRequest().estimateGas({
+      from: aliceAddress,
       fee: { gasSettings, paymentMethod, estimatedGasPadding: 0 },
     });
     logGasEstimate(estimatedGas);
@@ -99,6 +100,7 @@ describe('e2e_fees gas_estimation', () => {
 
     const teardownFixedFee = gasSettings.teardownGasLimits.computeFee(gasSettings.maxFeesPerGas).toBigInt();
     const estimatedGas = await makeTransferRequest().estimateGas({
+      from: aliceAddress,
       fee: { gasSettings, paymentMethod, estimatedGasPadding: 0 },
     });
     logGasEstimate(estimatedGas);
@@ -127,6 +129,7 @@ describe('e2e_fees gas_estimation', () => {
     const paymentMethod = new FeeJuicePaymentMethod(aliceAddress);
     const deployMethod = () => BananaCoin.deploy(aliceWallet, aliceAddress, 'TKN', 'TKN', 8);
     const deployOpts = (estimateGas = false) => ({
+      from: aliceAddress,
       fee: { gasSettings, paymentMethod, estimateGas, estimatedGasPadding: 0 },
       skipClassPublication: true,
     });

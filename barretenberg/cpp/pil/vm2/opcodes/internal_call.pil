@@ -9,22 +9,29 @@ namespace execution;
     #[skippable_if]
     sel = 0;
 
-    pol SWITCH_CALL_ID = sel_execute_internal_call + sel_execute_internal_return;
-    pol PROPAGATE_CALL_ID = (1 - SWITCH_CALL_ID) * (1 - enqueued_call_start);
+    // sel_enter_call && enqueued_call_start' are mutually exclusive. sel_enter_call is constrained to be non-erroring, therefore the next row cannot be enqueued call start
+    // When we encounter this case, the internal call information is reset on the next row (i.e. internal_call_id = 1, return_id = 0 and next_internal_call_id = 2)
+    pol RESET_NEXT_CALL_ID =  sel_enter_call + enqueued_call_start';
+
+    // sel_exit_call includes the error case, so we gate sel_execute_internal_call and sel_execute_internal_return by (1 - sel_error). This makes them all mututally exclusive.
+    // When we encounter this case, the internal call information in the next row is constrained to change (incremented, unwound, etc)
+    pol NEW_NEXT_CALL_ID = (sel_execute_internal_call + sel_execute_internal_return) * (1 - sel_error) + sel_exit_call;
+
+    pol PROPAGATE_CALL_ID = 1 - RESET_NEXT_CALL_ID - NEW_NEXT_CALL_ID;
 
     // =============================
     // === Internal Call Pointer ===
     // =============================
     // The following is grouped together as the Internal Call Pointer struct in the simulator
 
-    // The current call id, constrained to be 1 at the start of an enqueued call
+    // The current call id, constrained to be 1 at the start of a new context
     pol commit internal_call_id;
     #[CALL_ID_STARTS_ONE]
-    enqueued_call_start * (internal_call_id - 1) = 0;
+    RESET_NEXT_CALL_ID * (internal_call_id' - 1) = 0;
     // If we encounter a sel_execute_internal_call, the next internal_call_id is the current next_internal_call_id
     #[NEW_CALL_ID_ON_CALL]
     sel_execute_internal_call * (internal_call_id' - next_internal_call_id) = 0;
-    // If we encounter a sel_return_call, the next internal call id is the current inter_call_return_id
+    // If we encounter a sel_return_call, the next internal_call_id is the current internal_call_return_id
     #[RESTORE_INTERNAL_ID_ON_RETURN]
     sel_execute_internal_return * (internal_call_id' - internal_call_return_id) = 0;
     // Otherwise it's propagated down
@@ -34,7 +41,7 @@ namespace execution;
     // The call id when the next internal return is invoked, constrained to be 0 at the start of an enqueued call
     pol commit internal_call_return_id;
     #[RET_ID_STARTS_ZERO]
-    enqueued_call_start * internal_call_return_id = 0;
+    RESET_NEXT_CALL_ID * internal_call_return_id' = 0;
     // If we encounter a sel_execute_internal_call, the next internal_call_return_id is the current internal_call_id
     #[NEW_RETURN_ID_ON_CALL]
     sel_execute_internal_call * (internal_call_return_id' - internal_call_id) = 0;
@@ -46,10 +53,11 @@ namespace execution;
     // Constrained to start at 2 at the start of an enqueued call
     pol commit next_internal_call_id;
     #[NEXT_CALL_ID_STARTS_TWO]
-    enqueued_call_start * (next_internal_call_id - 2) = 0;
-    // If we encounter a sel_execute_internal_call, we increment the next next_internal_call_id
+    RESET_NEXT_CALL_ID * (next_internal_call_id' - 2) = 0;
+    // If we encounter a sel_execute_internal_call, we increment the next next_internal_call_id, unless we are changing context
+    pol CONTEXT_CHANGE = (RESET_NEXT_CALL_ID + sel_exit_call) - (RESET_NEXT_CALL_ID * sel_exit_call) ;
     #[INCR_NEXT_INT_CALL_ID]
-    NOT_LAST_EXEC * (next_internal_call_id' - (next_internal_call_id + sel_execute_internal_call)) = 0;
+    NOT_LAST_EXEC * (1 - CONTEXT_CHANGE) * (next_internal_call_id' - (next_internal_call_id + sel_execute_internal_call)) = 0;
 
     // =============================
     // === Error Handling ====

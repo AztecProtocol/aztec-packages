@@ -11,6 +11,7 @@ import {
   deployL1Contracts,
 } from '@aztec/ethereum';
 import { EthCheatCodes, RollupCheatCodes, startAnvil } from '@aztec/ethereum/test';
+import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -93,7 +94,7 @@ describe('SlasherClient', () => {
         {
           attester: EthAddress.fromString(slasherL1Client.account.address),
           withdrawer: EthAddress.fromString(slasherL1Client.account.address),
-          bn254SecretKey: Fr.random().toBigInt(),
+          bn254SecretKey: new SecretValue(Fr.random().toBigInt()),
         },
       ],
       realVerifier: false,

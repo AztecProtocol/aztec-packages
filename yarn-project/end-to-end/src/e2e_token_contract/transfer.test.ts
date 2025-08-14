@@ -5,13 +5,13 @@ import { TokenContractTest } from './token_contract_test.js';
 
 describe('e2e_token_contract transfer private', () => {
   const t = new TokenContractTest('transfer_private');
-  let { asset, accounts, tokenSim, wallets } = t;
+  let { asset, adminAddress, account1, account1Address, tokenSim } = t;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     await t.applyMintSnapshot();
     await t.setup();
-    ({ asset, accounts, tokenSim, wallets } = t);
+    ({ asset, adminAddress, account1, account1Address, tokenSim } = t);
   });
 
   afterAll(async () => {
@@ -23,57 +23,57 @@ describe('e2e_token_contract transfer private', () => {
   });
 
   it('transfer less than balance', async () => {
-    const balance0 = await asset.methods.balance_of_private(accounts[0].address).simulate();
+    const balance0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
     const amount = balance0 / 2n;
     expect(amount).toBeGreaterThan(0n);
 
-    const tx = await asset.methods.transfer(accounts[1].address, amount).send().wait();
-    tokenSim.transferPrivate(accounts[0].address, accounts[1].address, amount);
+    const tx = await asset.methods.transfer(account1Address, amount).send({ from: adminAddress }).wait();
+    tokenSim.transferPrivate(adminAddress, account1Address, amount);
 
-    const events = await wallets[1].getPrivateEvents<Transfer>(
+    const events = await account1.getPrivateEvents<Transfer>(
       asset.address,
       TokenContract.events.Transfer,
       tx.blockNumber!,
       1,
-      [wallets[1].getAddress()],
+      [account1.getAddress()],
     );
 
     expect(events[0]).toEqual({
-      from: accounts[0].address,
-      to: accounts[1].address,
+      from: adminAddress,
+      to: account1Address,
       amount: amount,
     });
   });
 
   it('transfer less than balance to non-deployed account', async () => {
-    const balance0 = await asset.methods.balance_of_private(accounts[0].address).simulate();
+    const balance0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
     const amount = balance0 / 2n;
     expect(amount).toBeGreaterThan(0n);
 
     const nonDeployed = await CompleteAddress.random();
 
-    await asset.methods.transfer(nonDeployed.address, amount).send().wait();
+    await asset.methods.transfer(nonDeployed.address, amount).send({ from: adminAddress }).wait();
 
     // Add the account as balance we should change, but since we don't have the key,
     // we cannot decrypt, and instead we simulate a transfer to address(0)
     tokenSim.addAccount(nonDeployed.address);
-    tokenSim.transferPrivate(accounts[0].address, AztecAddress.ZERO, amount);
+    tokenSim.transferPrivate(adminAddress, AztecAddress.ZERO, amount);
   });
 
   it('transfer to self', async () => {
-    const balance0 = await asset.methods.balance_of_private(accounts[0].address).simulate();
+    const balance0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
     const amount = balance0 / 2n;
     expect(amount).toBeGreaterThan(0n);
-    await asset.methods.transfer(accounts[0].address, amount).send().wait();
-    tokenSim.transferPrivate(accounts[0].address, accounts[0].address, amount);
+    await asset.methods.transfer(adminAddress, amount).send({ from: adminAddress }).wait();
+    tokenSim.transferPrivate(adminAddress, adminAddress, amount);
   });
 
   describe('failure cases', () => {
     it('transfer more than balance', async () => {
-      const balance0 = await asset.methods.balance_of_private(accounts[0].address).simulate();
+      const balance0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
       const amount = balance0 + 1n;
       expect(amount).toBeGreaterThan(0n);
-      await expect(asset.methods.transfer(accounts[1].address, amount).simulate()).rejects.toThrow(
+      await expect(asset.methods.transfer(account1Address, amount).simulate({ from: adminAddress })).rejects.toThrow(
         'Assertion failed: Balance too low',
       );
     });

@@ -301,7 +301,7 @@ export function convertProfileToGHBenchmark(benchmark: ClientFlowBenchmark): Git
 export async function captureProfile(
   label: string,
   interaction: ContractFunctionInteraction | DeployMethod,
-  opts?: Omit<ProfileMethodOptions & DeployOptions, 'profileMode'>,
+  opts: Omit<ProfileMethodOptions & DeployOptions, 'profileMode'>,
   expectedSteps?: number,
 ) {
   // Make sure the proxy logger starts from a clean slate

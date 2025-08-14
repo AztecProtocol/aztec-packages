@@ -1,7 +1,7 @@
 import { getSchnorrWalletWithSecretKey } from '@aztec/accounts/schnorr';
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import { type AccountWalletWithSecretKey, EthAddress, Fr } from '@aztec/aztec.js';
+import { type AccountWalletWithSecretKey, AztecAddress, EthAddress, Fr } from '@aztec/aztec.js';
 import {
   type ExtendedViemWalletClient,
   GSEContract,
@@ -14,6 +14,7 @@ import {
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
 import { ChainMonitor } from '@aztec/ethereum/test';
+import { SecretValue } from '@aztec/foundation/config';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RollupAbi, SlashFactoryAbi, SlasherAbi, SlashingProposerAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
@@ -71,6 +72,7 @@ export class P2PNetworkTest {
   public prefilledPublicData: PublicDataTreeLeaf[] = [];
   // The re-execution test needs a wallet and a spam contract
   public wallet?: AccountWalletWithSecretKey;
+  public defaultAccountAddress?: AztecAddress;
   public spamContract?: SpamContract;
 
   public bootstrapNode?: BootstrapNode;
@@ -207,7 +209,7 @@ export class P2PNetworkTest {
       validators.push({
         attester: EthAddress.fromString(attester.address),
         withdrawer: EthAddress.fromString(attester.address),
-        bn254SecretKey: Fr.random().toBigInt(),
+        bn254SecretKey: new SecretValue(Fr.random().toBigInt()),
       });
 
       this.logger.info(`Adding attester ${attester.address} as validator`);
@@ -265,7 +267,7 @@ export class P2PNetworkTest {
         const gseContract = new GSEContract(deployL1ContractsValues.l1Client, gseAddress.toString());
 
         const makeValidatorTuples = async (validator: Operator) => {
-          const registrationTuple = await gseContract.makeRegistrationTuple(validator.bn254SecretKey);
+          const registrationTuple = await gseContract.makeRegistrationTuple(validator.bn254SecretKey.getValue());
           return {
             attester: validator.attester.toString() as `0x${string}`,
             withdrawer: validator.withdrawer.toString() as `0x${string}`,
@@ -298,6 +300,7 @@ export class P2PNetworkTest {
         this.deployedAccounts = deployedAccounts;
         const [account] = deployedAccounts;
         this.wallet = await getSchnorrWalletWithSecretKey(pxe, account.secret, account.signingKey, account.salt);
+        this.defaultAccountAddress = this.wallet.getAddress();
       },
     );
   }
@@ -310,7 +313,9 @@ export class P2PNetworkTest {
           throw new Error('Call snapshot t.setupAccount before deploying account contract');
         }
 
-        const spamContract = await SpamContract.deploy(this.wallet).send().deployed();
+        const spamContract = await SpamContract.deploy(this.wallet)
+          .send({ from: this.defaultAccountAddress! })
+          .deployed();
         return { contractAddress: spamContract.address };
       },
       async ({ contractAddress }) => {

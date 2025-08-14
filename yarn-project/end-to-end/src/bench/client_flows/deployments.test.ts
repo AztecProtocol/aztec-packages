@@ -56,6 +56,7 @@ describe('Deployment benchmark', () => {
           it(`${accountType} contract deploys a TokenContract, pays using ${benchmarkingPaymentMethod}`, async () => {
             const paymentMethod = t.paymentMethods[benchmarkingPaymentMethod];
             const options: SimulateMethodOptions = {
+              from: benchysWallet.getAddress(),
               fee: { paymentMethod: await paymentMethod.forWallet(benchysWallet) },
             };
 

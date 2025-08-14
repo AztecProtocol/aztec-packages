@@ -16,6 +16,7 @@ FF BytecodeHasher::compute_public_bytecode_commitment([[maybe_unused]] const Byt
 
     FF hash = hasher.hash(inputs);
 
+    // TODO(dbanks12): re-enable once C++ and PIL use standard poseidon2 hashing for bytecode commitments.
     // events.emit({ .bytecode_id = bytecode_id,
     //               .bytecode_length = bytecode_length_in_bytes,
     //               .bytecode_fields = std::move(bytecode_as_fields) });

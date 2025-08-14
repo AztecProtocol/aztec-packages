@@ -86,7 +86,7 @@ TYPED_TEST(MockVerifierInputsTest, MockDeciderProofSize)
     using Flavor = TypeParam;
 
     HonkProof honk_proof = create_mock_decider_proof<Flavor>();
-    EXPECT_EQ(honk_proof.size(), Flavor::DECIDER_PROOF_LENGTH);
+    EXPECT_EQ(honk_proof.size(), Flavor::DECIDER_PROOF_LENGTH());
 }
 
 /**
@@ -102,21 +102,21 @@ TEST(MockVerifierInputsTest, MockMegaHonkProofSize)
         // AppIO
         const size_t NUM_PUBLIC_INPUTS = stdlib::recursion::honk::AppIO::PUBLIC_INPUTS_SIZE;
         HonkProof honk_proof = create_mock_honk_proof<Flavor, stdlib::recursion::honk::AppIO>();
-        EXPECT_EQ(honk_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + NUM_PUBLIC_INPUTS);
+        EXPECT_EQ(honk_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS() + NUM_PUBLIC_INPUTS);
     }
 
     {
         // KernelIO
         const size_t NUM_PUBLIC_INPUTS = stdlib::recursion::honk::KernelIO::PUBLIC_INPUTS_SIZE;
         HonkProof honk_proof = create_mock_honk_proof<Flavor, stdlib::recursion::honk::KernelIO>();
-        EXPECT_EQ(honk_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + NUM_PUBLIC_INPUTS);
+        EXPECT_EQ(honk_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS() + NUM_PUBLIC_INPUTS);
     }
 
     {
         // HidingKernelIO
         const size_t NUM_PUBLIC_INPUTS = stdlib::recursion::honk::HidingKernelIO<Builder>::PUBLIC_INPUTS_SIZE;
         HonkProof honk_proof = create_mock_honk_proof<Flavor, stdlib::recursion::honk::HidingKernelIO<Builder>>();
-        EXPECT_EQ(honk_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + NUM_PUBLIC_INPUTS);
+        EXPECT_EQ(honk_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS() + NUM_PUBLIC_INPUTS);
     }
 }
 
@@ -132,5 +132,5 @@ TEST(MockVerifierInputsTest, MockHonkProofSize)
     // DefaultIO
     const size_t NUM_PUBLIC_INPUTS = stdlib::recursion::honk::DefaultIO<Builder>::PUBLIC_INPUTS_SIZE;
     HonkProof honk_proof = create_mock_honk_proof<Flavor, stdlib::recursion::honk::DefaultIO<Builder>>();
-    EXPECT_EQ(honk_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + NUM_PUBLIC_INPUTS);
+    EXPECT_EQ(honk_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS() + NUM_PUBLIC_INPUTS);
 }

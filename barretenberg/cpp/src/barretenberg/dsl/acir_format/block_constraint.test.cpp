@@ -34,7 +34,8 @@ class MegaHonk : public ::testing::Test {
 
         Verifier verifier{ verification_key };
 
-        return std::get<0>(verifier.verify_proof(proof));
+        bool result = verifier.template verify_proof<DefaultIO>(proof).result;
+        return result;
     }
 
   protected:

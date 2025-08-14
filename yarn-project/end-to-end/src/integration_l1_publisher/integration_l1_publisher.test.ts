@@ -517,7 +517,7 @@ describe('L1Publisher integration', () => {
           .map(address => ({
             attester: address,
             withdrawer: address,
-            bn254SecretKey: Fr.random().toBigInt(),
+            bn254SecretKey: new SecretValue(Fr.random().toBigInt()),
           })),
       });
     });

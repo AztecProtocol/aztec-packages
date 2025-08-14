@@ -4,6 +4,7 @@ fuzzer=''
 verbosity='0'
 timeout='2592000' # 1 month
 mode='fuzzing'
+asm='on'
 cpus='8'
 mem="16G"
 jobs_="$cpus"
@@ -23,6 +24,7 @@ show_help() {
     echo "  -j, --jobs <N>              Set the amount of processes to run (default: $jobs_)"
     echo "  -w, --workers <N>           Set the amount of subprocesses per job (default: $workers)"
     echo "  -m, --mode <mode>           Set the mode of operation (fuzzing, coverage or regress-only) (default: $mode)"
+    echo "  -a, --asm <mode>            Set the flag to enable/disable asm instrucitons (on/off) (default: $asm)"
     echo "  -h, --help                  Display this help and exit"
     echo "  --show-fuzzers              Display the available fuzzers"
     echo ""
@@ -59,6 +61,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -m|--mode)
             mode="$2";
+            shift 2;
+            ;;
+        -a|--asm)
+            asm="$2";
             shift 2;
             ;;
         -c|--cpus)
@@ -128,6 +134,7 @@ if [[ $verbosity == '1' ]]; then
         --verbose                                               \
         --fuzzer "$fuzzer"                                      \
         --mode "$mode"                                          \
+        --asm "$asm"                                            \
         --timeout "$timeout"                                    \
         --workers "$workers"                                    \
         --jobs "$jobs_"
@@ -143,6 +150,7 @@ else
         "$image_name"                                           \
         --fuzzer "$fuzzer"                                      \
         --mode "$mode"                                          \
+        --asm "$asm"                                            \
         --timeout "$timeout"                                    \
         --workers "$workers"                                    \
         --jobs "$jobs_"
