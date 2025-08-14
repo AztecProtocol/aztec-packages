@@ -452,7 +452,7 @@ class MegaFlavor {
 
         void set_metadata(const MetaData& metadata)
         {
-            this->log_circuit_size = LOG_N;
+            this->log_circuit_size = numeric::get_msb(metadata.dyadic_size);
             this->num_public_inputs = metadata.num_public_inputs;
             this->pub_inputs_offset = metadata.pub_inputs_offset;
         }

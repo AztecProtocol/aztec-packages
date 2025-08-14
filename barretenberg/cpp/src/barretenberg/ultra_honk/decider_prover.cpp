@@ -35,9 +35,6 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::execute_relatio
 {
     size_t virtual_log_n = Flavor::USE_PADDING ? Flavor::LOG_N : proving_key->log_dyadic_size();
 
-    if constexpr (IsMegaFlavor<Flavor>) {
-        virtual_log_n = 20;
-    }
     using Sumcheck = SumcheckProver<Flavor>;
     size_t polynomial_size = proving_key->dyadic_size();
     Sumcheck sumcheck(polynomial_size,
