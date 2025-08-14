@@ -187,6 +187,10 @@
     to = "/the_aztec_network/guides/run_nodes"
 
 [[redirects]]
+    from = "/the_aztec_network/guides/run_nodes/how_to_run_full_node"
+    to = "/the_aztec_network"
+
+[[redirects]]
     from = "/developers/tutorials/codealong/contract_tutorials/uniswap/*"
     to = "/developers/tutorials/codealong/js_tutorials/uniswap"
 
