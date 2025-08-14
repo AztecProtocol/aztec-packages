@@ -63,7 +63,7 @@ template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveDeciderVerific
                 max_key = key.get();
             }
         }
-        return max_key->vk_and_hash->vk->log_circuit_size;
+        return FF(20);
     }
 
     /**
