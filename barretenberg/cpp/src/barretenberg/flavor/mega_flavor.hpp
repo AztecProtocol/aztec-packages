@@ -101,7 +101,7 @@ class MegaFlavor {
     static constexpr size_t OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS =
         /* 1. NUM_WITNESS_ENTITIES commitments */ (NUM_WITNESS_ENTITIES * num_frs_comm);
 
-    static constexpr size_t DECIDER_PROOF_LENGTH(size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N)
+    static constexpr size_t DECIDER_PROOF_LENGTH(size_t virtual_log_n = LOG_N)
     {
         return /* 2. virtual_log_n sumcheck univariates */
             (virtual_log_n * BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr) +
@@ -112,7 +112,7 @@ class MegaFlavor {
             /* 7. KZG W commitment */ (num_frs_comm);
     }
 
-    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N)
+    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = LOG_N)
     {
         return OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS + DECIDER_PROOF_LENGTH(virtual_log_n);
     }

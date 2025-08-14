@@ -69,22 +69,21 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     const std::vector<FF>& public_inputs = oink_verifier.public_inputs;
 
     VerifierCommitments commitments{ key->vk_and_hash->vk, key->witness_commitments };
-
-    auto gate_challenges = std::vector<FF>(CONST_PROOF_SIZE_LOG_N);
-    for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
+    static constexpr size_t LOG_N = Flavor::NativeFlavor::LOG_N;
+    auto gate_challenges = std::vector<FF>(LOG_N);
+    for (size_t idx = 0; idx < LOG_N; idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
     // Execute Sumcheck Verifier and extract multivariate opening point u = (u_0, ..., u_{d-1}) and purported
     // multivariate evaluations at u
 
-    std::vector<FF> padding_indicator_array(CONST_PROOF_SIZE_LOG_N, 1);
+    std::vector<FF> padding_indicator_array(LOG_N, 1);
     if constexpr (Flavor::HasZK) {
-        padding_indicator_array =
-            compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(key->vk_and_hash->vk->log_circuit_size);
+        padding_indicator_array = compute_padding_indicator_array<Curve, LOG_N>(key->vk_and_hash->vk->log_circuit_size);
     }
 
-    Sumcheck sumcheck(transcript, key->alphas, CONST_PROOF_SIZE_LOG_N);
+    Sumcheck sumcheck(transcript, key->alphas, LOG_N);
 
     // Receive commitments to Libra masking polynomials
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
