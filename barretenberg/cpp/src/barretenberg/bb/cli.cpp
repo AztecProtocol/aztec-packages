@@ -154,6 +154,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
      * Subcommand: Adders for options that we will create for more than one subcommand
      ***************************************************************************************************************/
 
+    const auto add_ipa_accumulation_flag = [&](CLI::App* subcommand) {
+        return subcommand->add_flag(
+            "--ipa_accumulation", flags.ipa_accumulation, "Accumulate/Aggregate IPA (Inner Product Argument) claims");
+    };
+
     const auto add_scheme_option = [&](CLI::App* subcommand) {
         return subcommand
             ->add_option(
@@ -326,10 +331,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_output_path_option(prove, output_path);
     add_ivc_inputs_path_options(prove);
     add_vk_path_option(prove);
-    const auto add_ipa_accumulation_flag = [&](CLI::App* subcommand) {
-        return subcommand->add_flag(
-            "--ipa_accumulation", flags.ipa_accumulation, "Accumulate/Aggregate IPA (Inner Product Argument) claims");
-    };
     add_verbose_flag(prove);
     add_debug_flag(prove);
     add_crs_path_option(prove);
