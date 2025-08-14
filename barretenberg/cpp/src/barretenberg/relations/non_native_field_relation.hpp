@@ -51,7 +51,6 @@ template <typename FF_> class NonNativeFieldRelationImpl {
                                   [[maybe_unused]] const Parameters& params,
                                   const FF& scaling_factor)
     {
-        PROFILE_THIS_NAME("NonNativeField::accumulate");
         // all accumulators are of the same length, so we set our accumulator type to (arbitrarily) be the first one.
         // if there were one that were shorter, we could also profitably use a `ShortAccumulator` type. however,
         // that is not the case here.

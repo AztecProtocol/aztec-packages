@@ -6,7 +6,7 @@ from pathlib import Path
 parser = argparse.ArgumentParser(description="Analyze benchmark JSON data.")
 parser.add_argument("--json", type=Path, default=Path("client_ivc_bench.json"), help="Benchmark JSON file name.")
 parser.add_argument("--benchmark", type=str, default="ClientIVCBench/Full/6", help="Benchmark name to analyze.")
-parser.add_argument("--prefix", type=Path, default=Path("build-op-count-time"), help="Prefix path for benchmark files.")
+parser.add_argument("--prefix", type=Path, default=Path("build"), help="Prefix path for benchmark files.")
 args = parser.parse_args()
 
 IVC_BENCH_JSON = args.json
@@ -30,8 +30,8 @@ to_keep = [
 
 with open(PREFIX / IVC_BENCH_JSON, "r") as read_file:
     read_result = json.load(read_file)
-    for _bench in read_result["benchmarks"]:
-        if _bench["name"] == BENCHMARK or BENCHMARK == "":
+    for _bench in read_result.get("benchmarks", [read_result]):
+        if BENCHMARK == "" or _bench["name"] == BENCHMARK:
             bench = _bench
 
 bench_components = dict(filter(lambda x: x[0] in to_keep, bench.items()))
@@ -51,12 +51,14 @@ for key in to_keep:
         time_ms = bench[key] / 1e6
     print(f"{key:<{max_label_length}}{time_ms:>8.0f}  {time_ms/sum_of_kept_times_ms:>8.2%}")
 
-# Validate that kept times account for most of the total measured time.
-total_time_ms = bench["real_time"]
-totals = '\nTotal time accounted for: {:.0f}ms/{:.0f}ms = {:.2%}'
-totals = totals.format(
-    sum_of_kept_times_ms, total_time_ms, sum_of_kept_times_ms/total_time_ms)
-print(totals)
+# There may not be "real_time" if this is from bb cli.
+if "real_time" in bench:
+    # Validate that kept times account for most of the total measured time.
+    total_time_ms = bench["real_time"]
+    totals = '\nTotal time accounted for: {:.0f}ms/{:.0f}ms = {:.2%}'
+    totals = totals.format(
+        sum_of_kept_times_ms, total_time_ms, sum_of_kept_times_ms/total_time_ms)
+    print(totals)
 
 print("\nMajor contributors:")
 print(
@@ -91,7 +93,7 @@ def print_contributions(prefix, ivc_bench_json, bench_name, components):
     try:
         with open(prefix / ivc_bench_json, "r") as read_file:
             read_result = json.load(read_file)
-            bench = next((_bench for _bench in read_result["benchmarks"] if _bench["name"] == bench_name or bench_name == ""), None)
+            bench = next((_bench for _bench in read_result.get("benchmarks", [read_result]) if bench_name == "" or _bench["name"] == bench_name), None)
             if not bench:
                 raise ValueError(f"Benchmark '{bench_name}' not found in the JSON file.")
     except FileNotFoundError:
@@ -112,23 +114,6 @@ def print_contributions(prefix, ivc_bench_json, bench_name, components):
         time_ms = bench_components.get(key, 0) / 1e6
         percentage = time_ms / sum_of_kept_times_ms if sum_of_kept_times_ms > 0 else 0
         print(f"{key:<{max_label_length}}{time_ms:>8.0f}  {percentage:>8.2%}")
-
-relations = [
-    "Arithmetic::accumulate(t)",
-    "Permutation::accumulate(t)",
-    "Lookup::accumulate(t)",
-    "DeltaRange::accumulate(t)",
-    "Elliptic::accumulate(t)",
-    "Memory::accumulate(t)",
-    "NonNativeField::accumulate(t)",
-    "EccOp::accumulate(t)",
-    "DatabusRead::accumulate(t)",
-    "PoseidonExt::accumulate(t)",
-    "PoseidonInt::accumulate(t)",
-]
-
-print('\nRelation contributions (times to be interpreted relatively):')
-print_contributions(PREFIX, IVC_BENCH_JSON, BENCHMARK, relations)
 
 commitments = [
     "COMMIT::wires(t)",

@@ -174,7 +174,7 @@ container_script=$(
   case \$code in
     155) ;;
     0) log_ci_run PASSED \$ci_log_id ;;
-    *) log_ci_run FAILED \$ci_log_id ;;
+    *) log_ci_run FAILED \$ci_log_id && merge_train_failure_slack_notify \$ci_log_id ;;
   esac
   exit \$code
 EOF
