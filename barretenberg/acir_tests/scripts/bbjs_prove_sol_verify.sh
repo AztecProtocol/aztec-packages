@@ -3,6 +3,16 @@ source $(git rev-parse --show-toplevel)/ci3/source
 
 cd ../acir_tests/$1
 
+mkdir -p output-$$
+trap "rm -rf output-$$" EXIT
+
+# Generate the proof and VK
+node ../../bbjs-test prove \
+  -b target/program.json \
+  -w target/witness.gz \
+  -o output-$$ \
+  --oracle-hash $oracle_hash
+
 bb=$(../../../cpp/scripts/find-bb)
 
 # Default to keccakZK for solidity compatibility
@@ -17,16 +27,6 @@ for arg in "$@"; do
         oracle_hash="keccak"
     fi
 done
-
-mkdir -p output-$$
-trap "rm -rf output-$$" EXIT
-
-# Generate the proof and VK
-node ../../bbjs-test prove \
-  -b target/program.json \
-  -w target/witness.gz \
-  -o output-$$ \
-  --oracle-hash $oracle_hash
 
 # Use the BB CLI to write the solidity verifier - this can also be done with bb.js
 $bb write_solidity_verifier --scheme ultra_honk -k output-$$/vk -o output-$$/Verifier.sol

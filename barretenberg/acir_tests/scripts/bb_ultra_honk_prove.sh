@@ -5,17 +5,9 @@ cd ../acir_tests/$1
 
 bb=$(../../../cpp/scripts/find-bb)
 
-# Build base flags
-flags="${VERBOSE:+-v} --scheme ultra_honk --oracle_hash ${HASH:-poseidon2}"
-
-# Handle special cases for specific test programs
-if [[ $1 == *"rollup"* ]]; then
-    flags+=" --ipa_accumulation"
-fi
-
-# Add any additional arguments passed from command line
 shift
-flags+=" $*"
+# Base flags + our commandline args
+flags="${VERBOSE:+-v} --scheme ultra_honk --oracle_hash ${HASH:-poseidon2} $*"
 
 mkdir -p output-$$
 trap "rm -rf output-$$" EXIT

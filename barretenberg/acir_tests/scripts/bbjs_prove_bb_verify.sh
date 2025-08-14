@@ -3,8 +3,6 @@ source $(git rev-parse --show-toplevel)/ci3/source
 
 cd ../acir_tests/$1
 
-bb=$(../../../cpp/scripts/find-bb)
-
 mkdir -p output-$$
 trap "rm -rf output-$$" EXIT
 
@@ -26,6 +24,7 @@ done
 echo -n $proof_bytes | xxd -r -p > output-$$/proof
 echo -n $public_inputs_bytes | xxd -r -p > output-$$/public_inputs
 
+bb=$(../../../cpp/scripts/find-bb)
 # Verify the proof with bb cli
 $bb verify \
   --scheme ultra_honk \
