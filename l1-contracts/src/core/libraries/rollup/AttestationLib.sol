@@ -14,8 +14,7 @@ enum SignatureDomainSeparator {
 
 // A committee attestation can be made up of a signature and an address.
 // Committee members that have attested will produce a signature, and if they have not attested, the signature will be
-// empty and
-// an address provided.
+// empty and an address provided.
 struct CommitteeAttestation {
   address addr;
   Signature signature;
@@ -128,11 +127,14 @@ library AttestationLib {
   }
 
   /**
-   * Returns the addresses from the CommitteeAttestations, using the array of signers to populate where there are
-   * signatures.
-   * Indices with signatures will have a zero address.
+   * Recovers the committee from the addresses in the attestations and signers.
+   *
    * @param _attestations - The committee attestations
+   * @param _signers The addresses of the committee members that signed the attestations. Provided in order to not have
+   * to recover them from their attestations' signatures (and hence save gas). The addresses of the non-signing
+   * committee members are directly included in the attestations.
    * @param _length - The number of addresses to return, should match the number of committee members
+   * @return The addresses of the committee members.
    */
   function reconstructCommitteeFromSigners(
     CommitteeAttestations memory _attestations,

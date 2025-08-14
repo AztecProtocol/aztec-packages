@@ -419,7 +419,7 @@ library StakingLib {
     uint256 activeAttesterCount = getAttesterCountAtTime(Timestamp.wrap(block.timestamp));
     uint256 queueSize = store.entryQueue.length();
 
-    // Only if there is bootstrap values configured will we look into boostrap or growth phases.
+    // Only if there is bootstrap values configured will we look into bootstrap or growth phases.
     if (config.bootstrapValidatorSetSize > 0) {
       // If bootstrap:
       if (activeAttesterCount == 0 && queueSize < config.bootstrapValidatorSetSize) {
