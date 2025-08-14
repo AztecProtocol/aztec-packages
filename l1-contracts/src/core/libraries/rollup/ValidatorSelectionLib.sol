@@ -52,14 +52,17 @@ import {TransientSlot} from "@oz/utils/TransientSlot.sol";
  *         - Attestations serve dual purpose: data availability and state validation
  *         - Blocks require >2/3 committee signatures to be considered valid
  *         - Signatures are verified against expected committee members using ECDSA recovery
- *         - Mixed signature/address format allows optimization (addresses for non-signing members)
+ *         - Mixed signature/address format allows optimization (addresses included only for non-signing members,
+ *           addresses for signing members can be recovered from the signatures and hence are not needed for DA
+ *           purposes)
  *         - Signature verification is delayed until proof submission to save gas
  *
  *      4. Seed Management:
  *         - Sample seeds determine committee and proposer selection for each epoch
  *         - Seeds use prevrandao from L1 blocks combined with epoch number for unpredictability
  *         - Seeds are set 2 epochs in advance to prevent last-minute manipulation and provide L1-reorg resistance
- *         - First two epochs use maximum seed values (type(uint224).max) for bootstrap
+ *         - First two epochs use maximum seed values (type(uint224).max) for bootstrap (this results in the committee
+ *           being predictable in the first 2 epochs which is considered acceptable when bootstrapping the network)
  *
  *      5. Caching and Optimization:
  *         - Transient storage caches proposer computations within the same transaction
@@ -178,11 +181,15 @@ library ValidatorSelectionLib {
    *      The attestation is checked by reconstructing the committee commitment from the attestations and signers,
    *      and then ensuring it matches the stored commitment for the epoch.
    *
-   *      Uses transient storage caching to avoid recomputation within the same transaction.
+   *      Uses transient storage caching to avoid recomputation within the same transaction. (This caching mechanism is
+   *      commonly used when a proposer signals in governance and submits a proposal within the same transaction - then
+   *      `getProposerAt` function is called).
    * @param _slot The slot of the block being proposed
    * @param _epochNumber The epoch number of the block
    * @param _attestations The committee attestations for the block proposal
-   * @param _signers The addresses of the signers from the attestations
+   * @param _signers The addresses of the committee members that signed the attestations. Provided in order to not have
+   * to recover them from their attestations' signatures (and hence save gas). The addresses of the non-signing
+   * committee members are directly included in the attestations.
    * @param _digest The digest of the block being proposed
    * @custom:reverts Errors.ValidatorSelection__InvalidCommitteeCommitment if reconstructed committee doesn't match
    * stored commitment
@@ -204,7 +211,9 @@ library ValidatorSelectionLib {
       // Load the committee commitment for the epoch
       (bytes32 committeeCommitment, uint256 committeeSize) = getCommitteeCommitmentAt(_epochNumber);
 
-      // If the target committee size is 0, we skip the validation
+      // If the rollup is *deployed* with a target committee size of 0, we skip the validation.
+      // Note: This generally only happens in test setups; In production, the target committee is non-zero,
+      // and one can see in `sampleValidators` that we will revert if the target committee size is not met.
       if (committeeSize == 0) {
         return;
       }
@@ -212,7 +221,7 @@ library ValidatorSelectionLib {
       // Reconstruct the committee from the attestations and signers
       address[] memory committee = _attestations.reconstructCommitteeFromSigners(_signers, committeeSize);
 
-      // Check it matches the expected one
+      // Check reconstructed committee commitment matches the expected one for the epoch
       bytes32 reconstructedCommitment = computeCommitteeCommitment(committee);
       if (reconstructedCommitment != committeeCommitment) {
         revert Errors.ValidatorSelection__InvalidCommitteeCommitment(reconstructedCommitment, committeeCommitment);
@@ -226,7 +235,8 @@ library ValidatorSelectionLib {
       setCachedProposer(_slot, proposer, proposerIndex);
     }
 
-    // Check if the proposer has signed, if not, fail
+    // We check that the proposer agrees with the proposal by checking that he attested to it. If we fail to get
+    // the proposer's attestation signature or if we fail to verify it, we revert.
     bool hasProposerSignature = _attestations.isSignature(proposerIndex);
     if (!hasProposerSignature) {
       revert Errors.ValidatorSelection__MissingProposerSignature(proposer, proposerIndex);
@@ -363,7 +373,8 @@ library ValidatorSelectionLib {
    *      Computation involves sampling validator indices and selecting based on slot.
    * @param _slot The slot to get the proposer for
    * @return proposer The address of the proposer for the slot
-   * @return proposerIndex The index of the proposer within the committee
+   * @return proposerIndex The index of the proposer within the committee, zero address and index if committee size is
+   * 0 (ie test configuration).
    */
   function getProposerAt(Slot _slot) internal returns (address, uint256) {
     (address cachedProposer, uint256 cachedProposerIndex) = getCachedProposer(_slot);
@@ -424,7 +435,8 @@ library ValidatorSelectionLib {
 
     committeeCommitment = store.committeeCommitments[_epochNumber];
     if (committeeCommitment == 0) {
-      // If no committee has been stored, then we need to setup the epoch
+      // This is an edge case that can happen if `setupEpoch` has not been called (see documentation of
+      // `RollupCore.setupEpoch` for details), so we compute the commitment again to guarantee that we get a real value.
       committeeCommitment = computeCommitteeCommitment(sampleValidators(_epochNumber, getSampleSeed(_epochNumber)));
     }
 
@@ -461,7 +473,7 @@ library ValidatorSelectionLib {
       return;
     }
 
-    // If the most recently stored seed is less than the epoch we are querying, then we need to compute it's seed for
+    // If the most recently stored seed is less than the epoch we are querying, then we need to compute its seed for
     // later use
     if (mostRecentSeedEpoch < epoch) {
       // Compute the sample seed for the next epoch
@@ -489,6 +501,7 @@ library ValidatorSelectionLib {
     Slot slot = _ts.slotFromTimestamp();
     RollupStore storage rollupStore = STFLib.getStorage();
 
+    // Pending chain tip
     uint256 pendingBlockNumber = STFLib.getEffectivePendingBlockNumber(_ts);
 
     Slot lastSlot = STFLib.getSlotNumber(pendingBlockNumber);
@@ -572,6 +585,8 @@ library ValidatorSelectionLib {
    * @notice Computes the committee index of the proposer for a specific slot
    * @dev Uses keccak256 hash of epoch, slot, and seed to deterministically select a committee member.
    *      The result is modulo committee size to ensure valid index.
+   *      The result being modulo biased is not a problem here as the validators in the committee were chosen randomly
+   *      and are not ordered.
    * @param _epoch The epoch containing the slot
    * @param _slot The specific slot to compute proposer for
    * @param _seed The epoch's sample seed for randomness
