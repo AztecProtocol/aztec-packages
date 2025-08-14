@@ -7,7 +7,6 @@ namespace bb::avm2::simulation {
 struct TxContextEvent {
     // Gas
     Gas gas_used;
-    Gas gas_limit;
 
     // Tree State
     TreeStates tree_states;
