@@ -167,16 +167,11 @@ class RdCopySimulationTest : public DataCopySimulationTest {
         // Set up the parent context address
         EXPECT_CALL(context, get_last_rd_addr()).Times(2);
         EXPECT_CALL(context, get_last_rd_size()).WillRepeatedly(Return(parent_rd_size));
-        EXPECT_CALL(context, get_child_context())
-            .WillOnce(ReturnRef(*child_context));      // Mock the child context to be used in the test.
-        EXPECT_CALL(*child_context, get_context_id()); // Mock child context ID.
         EXPECT_CALL(context, has_parent()).WillRepeatedly(Return(true));
+        EXPECT_CALL(context, get_last_child_id()).WillRepeatedly(Return(2));
     }
     std::vector<FF> returndata = { 9, 10, 11, 12 }; // Example returndata to be copied.
     uint32_t parent_rd_size = static_cast<uint32_t>(returndata.size());
-    std::unique_ptr<NiceMock<MockContext>> child_context =
-        std::make_unique<NiceMock<MockContext>>(); // Mock child context.
-
     uint32_t parent_rd_addr = 200; // Address where the parent returndata is stored.
 };
 

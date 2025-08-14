@@ -3,6 +3,7 @@ include "calldata.pil";
 include "precomputed.pil";
 include "constants_gen.pil";
 include "range_check.pil";
+include "context.pil";
 
 /** This trace handles CALLDATACOPY and RETURNDATACOPY
  * The data_copy gadget handles CALLDATACOPY (both enqueued and nested) and RETURNDATACOPY
@@ -21,22 +22,42 @@ include "range_check.pil";
  * padding rows are constrained to have the value = 0.
  *
  * It is memory aware and so is expected to call the memory subtrace directly
- * Example: Lookup to execution trace
- *  execution.sel_data_copy {
- *      clk, context_id,
- *      context_id, parent_id
- *      reg1, mem_tag1, reg2, mem_tag2, rop3
- *      parent_callsrc_data_size, parent_calloffset,
- *      gadget_id
- *  }
- *  in
- *  sel_data_copy {
- *      clk, context_id,
- *      src_context_id, dst_context_id,
- *      copy_size, copy_size_mem_tag, offset, offset_mem_tag, dst_address
- *      src_data_size, src_addr,
- *      operation_id
- *  }
+ *
+ * Note that there are two ways that this subtrace is invoked from the execution trace: CD_COPY or RD_COPY
+ * This requires two permutations because they operate on different execution trace cols (parent vs child)
+ * CD COPY
+ * execution.sel_calldata_copy {
+ *     clk,
+ *     parent_id, context_id,
+ *     reg[0], reg[1], rop[2],
+ *     parent_calldata_addr, parent_calldata_size,
+ *     sel_calldata_copy, sel_opcode_error
+ * }
+ * in
+ * sel_start {
+ *     clk,
+ *     src_context_id, dst_context_id,
+ *     copy_size, offset, dst_addr,
+ *     src_addr, src_data_size,
+ *     sel_cd_copy, err
+ * }
+ *
+ * RD COPY
+ * execution.sel_returndata_copy {
+ *     clk,
+ *     last_child_id, context_id,
+ *     reg[0], reg[1], rop[2],
+ *     last_child_returndata_addr, last_child_returndata_size,
+ *     sel_returndata_copy, sel_opcode_error
+ * }
+ * is
+ * sel_rd_copy_start {
+ *     clk,
+ *     src_context_id, dst_context_id,
+ *     copy_size, offset, dst_addr,
+ *     src_addr, src_data_size,
+ *     sel_rd_copy, err
+ * };
  *
  * Reading from calldata column
  * Calldata Trace
@@ -47,12 +68,12 @@ include "range_check.pil";
  * |   1 |   200 |     2 |          1 |
  * |   1 |   300 |     3 |          1 |
  * +-----+-------+-------+------------+
- * Execution Trace                          (cd_size)  (cd_offset)
- * +-----+-----+------------+-----------+------------+------------+
- * | clk | sel | context_id | parent_id | register_1 | register_2 |
- * +-----+-----+------------+-----------+------------+------------+
- * |   1 |   1 |          1 |         0 |          3 |          0 |
- * +-----+-----+------------+-----------+------------+------------+
+ * Execution Trace                         (dst_addr)      (cd_size)   (cd_offset)
+ * +-----+-----+------------+-----------+---------------+------------+------------+
+ * | clk | sel | context_id | parent_id | resolved_op_2 | register_0 | register_1 |
+ * +-----+-----+------------+-----------+---------------+------------+------------+
+ * |   1 |   1 |          1 |         0 |       0       |     3      |     0      |
+ * +-----+-----+------------+-----------+---------------+------------+------------+
  * DataCopy Trace
  * +-------------+------------+------------+-----------+------------------+----------+-------+------------+
  * | sel_cd_copy | src_ctx_id | dst_ctx_id | copy_size | cd_copy_col_read | cd_index | value |  dst_addr  |
@@ -61,7 +82,7 @@ include "range_check.pil";
  * |           1 |          0 |          1 |         2 |                1 |        2 |   200 |          6 |
  * |           1 |          0 |          1 |         1 |                1 |        3 |   300 |          7 |
  * +-------------+------------+------------+-----------+------------------+----------+-------+------------+
- */ 
+ */
 
 namespace data_copy;
 
@@ -77,11 +98,6 @@ namespace data_copy;
     pol commit sel_rd_copy;
     sel_rd_copy * (1 - sel_rd_copy) = 0;
 
-    // Gadget ID is supplied by the execution trace, if non-zero it can be 1 or 2 (instruction spec constrained)
-    // depending on if the operation is calldatacopy or returndatacopy respectively
-    pol commit operation_id;
-    // Bitwise decomposition
-    operation_id = sel_cd_copy + (2 ** 1) * sel_rd_copy;
     // Two varieties depending of if we gate by error
     pol SEL_NO_ERR = SEL * (1 - err);
 
@@ -171,7 +187,7 @@ namespace data_copy;
     // Memory Out of Range: If reading or writing would access an address outside of the AVM memory range
     // If there is an error, no data copy operation is performed
 
-    // Memory Out of Range, this section checks that the maximum number of reads ans writes do not 
+    // Memory Out of Range, this section checks that the maximum number of reads ans writes do not
     // If top level, we trivially succeed since there is no mem read i.e. we cannot have a src_out_of_range_err
     pol MAX_READ_ADDR = (src_addr + MAX_READ_INDEX) * (1 - is_top_level);
     pol commit abs_read_diff;
@@ -189,13 +205,13 @@ namespace data_copy;
     sel_start { abs_write_diff, thirty_two } in range_check.sel { range_check.value, range_check.rng_chk_bits };
 
     //////////////////////////////
-    // Control flow management 
+    // Control flow management
     //////////////////////////////
     pol commit sel_start_no_err;
     sel_start_no_err * (1 - sel_start_no_err) = 0;
     sel_start_no_err = sel_start * (1 - err);
 
-    // An active row succeeding sel_end has to be a sel_start 
+    // An active row succeeding sel_end has to be a sel_start
     #[START_AFTER_END]
     (sel_cd_copy' + sel_rd_copy') * sel_end * (sel_start' - 1) = 0;
 
@@ -224,7 +240,7 @@ namespace data_copy;
 
     // If sel_offset_gt_max_read = 1 (i.e. when offset > MAX_READ_INDEX, reads_left = 0)
     // otherwise, reads_left = MAX_READ_INDEX - offset
-    #[INIT_READS_LEFT] 
+    #[INIT_READS_LEFT]
     SEL * sel_start_no_err * (reads_left - OFFSET_LTE_MAX_READ * (1 - sel_offset_gt_max_read))  = 0;
 
     //////////////////////////////
@@ -254,7 +270,7 @@ namespace data_copy;
     #[INCR_READ_ADDR]
     SEL * (1 - padding) * (1 - sel_end) * (read_addr' - read_addr - 1) = 0;
 
-    // Read count decrements 
+    // Read count decrements
     #[DECR_READ_COUNT]
     SEL * (1 - padding) * (1 - sel_end) * (reads_left' - reads_left + 1) = 0;
     pol commit padding; // Padding = 1 if reads_left = 0
@@ -289,3 +305,48 @@ namespace data_copy;
     in
     calldata.sel { calldata.value, calldata.context_id, calldata.index };
 
+    ////////////////////////////////////////////////
+    // Dispatch Permutation
+    ////////////////////////////////////////////////
+    // Since these are permutations, we need to distinguish between the start
+    // of a cd_copy and rd_copy.
+    // Note that the value of sel_cd_copy and sel_rd_copy are constrained by their
+    // inclusion inside the permutation.
+
+    pol commit sel_cd_copy_start;
+    sel_cd_copy_start = sel_start * sel_cd_copy;
+    #[DISPATCH_CD_COPY]
+    execution.sel_execute_calldata_copy {
+        precomputed.clk,
+        execution.parent_id, execution.context_id,
+        execution.register[0], execution.register[1], execution.rop[2],
+        execution.parent_calldata_addr, execution.parent_calldata_size,
+        execution.sel_execute_calldata_copy/*=1*/, execution.sel_opcode_error
+    }
+    is
+    sel_cd_copy_start {
+        clk,
+        src_context_id, dst_context_id,
+        copy_size, offset, dst_addr,
+        src_addr, src_data_size,
+        sel_cd_copy, err
+    };
+
+    pol commit sel_rd_copy_start;
+    sel_rd_copy_start = sel_start * sel_rd_copy;
+    #[DISPATCH_RD_COPY]
+    execution.sel_execute_returndata_copy {
+        precomputed.clk,
+        execution.last_child_id, execution.context_id,
+        execution.register[0], execution.register[1], execution.rop[2],
+        execution.last_child_returndata_addr, execution.last_child_returndata_size,
+        execution.sel_execute_returndata_copy/*=1*/, execution.sel_opcode_error
+    }
+    is
+    sel_rd_copy_start {
+        clk,
+        src_context_id, dst_context_id,
+        copy_size, offset, dst_addr,
+        src_addr, src_data_size,
+        sel_rd_copy, err
+    };

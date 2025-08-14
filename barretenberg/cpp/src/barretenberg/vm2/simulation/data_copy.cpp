@@ -44,8 +44,8 @@ DataCopyEvent create_rd_event(ContextInterface& context,
                           .operation = DataCopyOperation::RD_COPY,
                           .calldata = returndata,
                           .write_context_id = context.get_context_id(),
-                          .read_context_id =
-                              context.get_child_context().get_context_id(), /* last returned child context */
+                          // This handles the case where there is no last child (i.e. new enqueued call)
+                          .read_context_id = context.get_last_child_id(),
                           .data_copy_size = rd_copy_size,
                           .data_offset = rd_offset,
                           .data_addr = context.get_last_rd_addr(),

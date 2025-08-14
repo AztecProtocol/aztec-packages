@@ -276,6 +276,8 @@ TEST_F(ExecutionSimulationTest, Call)
     EXPECT_CALL(context, get_is_static);
     EXPECT_CALL(context, get_msg_sender).WillOnce(ReturnRef(parent_address));
     EXPECT_CALL(context, get_transaction_fee).WillOnce(ReturnRef(zero));
+    EXPECT_CALL(context, get_parent_cd_addr);
+    EXPECT_CALL(context, get_parent_cd_size);
     EXPECT_CALL(context, get_parent_gas_used);
     EXPECT_CALL(context, get_parent_gas_limit);
     EXPECT_CALL(context, get_written_public_data_slots_tree_snapshot)
