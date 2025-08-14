@@ -55,7 +55,6 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
                            const Parameters&,
                            const FF& scaling_factor)
     {
-        PROFILE_THIS_NAME("PoseidonInt::accumulate");
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 

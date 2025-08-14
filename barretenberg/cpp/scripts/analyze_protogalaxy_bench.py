@@ -1,9 +1,9 @@
 import json
 from pathlib import Path
 
-PREFIX = Path("build-op-count-time")
+PREFIX = Path("build")
 PROTOGALAXY_BENCH_JSON = Path("protogalaxy_bench.json")
-BENCHMARK = "fold_k<MegaFlavor, 3>/16"
+BENCHMARK = "fold_k/16"
 
 # Single out an independent set of functions accounting for most of BENCHMARK's real_time
 to_keep = [
