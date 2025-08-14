@@ -97,7 +97,7 @@ template <typename Curve> struct MockClaimGenerator {
         if (has_virtual_rounds) {
             // The evaluation on the full domain can be obtain by scaling by extension-by-zero factor `ebz_factor`
             // computed below.
-            challenge = std::span<const Fr>(mle_opening_point).subspan(log_size);
+            challenge = std::span<const Fr>(mle_opening_point).subspan(0, log_size);
         } else {
             challenge = std::span<const Fr>(mle_opening_point);
         }
