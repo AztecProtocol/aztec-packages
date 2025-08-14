@@ -489,6 +489,7 @@ TEST_P(AluDivTraceGenerationTest, TraceGenerationDiv)
             ROW_FIELD_EQ(alu_sel_div_no_0_err, div_0_error ? 0 : 1),
             ROW_FIELD_EQ(alu_sel_div_0_err, div_0_error ? 1 : 0),
             ROW_FIELD_EQ(alu_sel_tag_err, 0),
+            ROW_FIELD_EQ(alu_sel_err, div_0_error ? 1 : 0),
             ROW_FIELD_EQ(alu_ab_tags_diff_inv, 0))));
 }
 
@@ -629,6 +630,140 @@ TEST_F(AluTraceGenerationTest, TraceGenerationDivTagError)
                 ROW_FIELD_EQ(
                     alu_ab_tags_diff_inv,
                     FF(static_cast<uint8_t>(MemoryTag::FF) - static_cast<uint8_t>(MemoryTag::U128)).invert()))));
+}
+
+// FDIV TESTS
+
+// Note: The test framework below converts all inputs to FF values to allow for many happy path tests without adding
+// new vectors. Non-FF values are tested separately.
+const std::vector<MemoryValue> TEST_VALUES_FDIV_OUT = {
+    MemoryValue::from_tag(MemoryTag::FF, 0), // Dividing by zero, so expecting an error
+    MemoryValue::from_tag(MemoryTag::FF, 1),
+    MemoryValue::from_tag(MemoryTag::FF, 4),
+    MemoryValue::from_tag(MemoryTag::FF, FF("0x01e5d0e15e2a1a5bfd30530c2d3c49bd60f2fa0ce1a2e146f39a6e05cd2d2d2e")),
+    MemoryValue::from_tag(MemoryTag::FF, FF("0x1e980ebbc51694827ee20074ac28b250a037a43eb44b38e6aa367c57a05e6d48")),
+    MemoryValue::from_tag(MemoryTag::FF, FF("0x2147f0860ba1d62029c594e3f5aceb850f136498cea0446888431f547aadd073")),
+    MemoryValue::from_tag(MemoryTag::FF, FF("0x135b52945a13d9aa49b9b57c33cd568ba9ae5ce9ca4a2d06e7f3fbd4f9999998")),
+    MemoryValue::from_tag(MemoryTag::FF, FF("0x24cf2a710b7edf4a26671a904a58c669b3f0209955b8ae8fc6ebbaffdc413535")),
+    MemoryValue::from_tag(MemoryTag::FF, FF("0x135b52945a13d9aa49b9b57c33cd568ba9ae5ce9ca4a2d071b272f07f9999998")),
+    MemoryValue::from_tag(MemoryTag::FF, FF("0x0b4aa7141dd9de9dbb71b5c665b57fb2d51dbb57c3a94d1d4a4d490bf23d5d0d")),
+    MemoryValue::from_tag(MemoryTag::FF, FF("0x135b52945a13d9aa49b9b57c33cd568bdce1901cfd7d603a1b272f07f9999998")),
+    MemoryValue::from_tag(MemoryTag::FF, FF("0x27065734afd7f6d659d8a21b1823b65a575334117d9b1cb58b0a1af021960640")),
+    MemoryValue::from_tag(MemoryTag::FF, FF::modulus - 2),
+};
+
+const std::vector<ThreeOperandTestParams> TEST_VALUES_FDIV = zip_helper(TEST_VALUES_FDIV_OUT);
+
+class AluFDivTraceGenerationTest : public AluTraceGenerationTest,
+                                   public ::testing::WithParamInterface<ThreeOperandTestParams> {};
+
+INSTANTIATE_TEST_SUITE_P(AluTraceGenerationTest, AluFDivTraceGenerationTest, ::testing::ValuesIn(TEST_VALUES_FDIV));
+
+TEST_P(AluFDivTraceGenerationTest, TraceGenerationFDiv)
+{
+    auto [a, b, c] = GetParam();
+    a = MemoryValue::from_tag(MemoryTag::FF, a);
+    b = MemoryValue::from_tag(MemoryTag::FF, b);
+    c = MemoryValue::from_tag(MemoryTag::FF, c);
+    auto tag = a.get_tag();
+
+    bool div_0_error = b.as_ff() == FF(0);
+
+    builder.process(
+        {
+            { .operation = AluOperation::FDIV,
+              .a = a,
+              .b = b,
+              .c = c,
+              .error = div_0_error ? std::make_optional(simulation::AluError::DIV_0_ERROR) : std::nullopt },
+        },
+        trace);
+
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(AllOf(ROW_FIELD_EQ(alu_sel_op_fdiv, 1),
+                                  ROW_FIELD_EQ(alu_sel, 1),
+                                  ROW_FIELD_EQ(alu_op_id, AVM_EXEC_OP_ID_ALU_FDIV),
+                                  ROW_FIELD_EQ(alu_ia, a),
+                                  ROW_FIELD_EQ(alu_ib, b),
+                                  ROW_FIELD_EQ(alu_ic, c),
+                                  ROW_FIELD_EQ(alu_ia_tag, static_cast<uint8_t>(tag)),
+                                  ROW_FIELD_EQ(alu_ib_tag, static_cast<uint8_t>(tag)),
+                                  ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(tag)),
+                                  ROW_FIELD_EQ(alu_max_bits, get_tag_bits(tag)),
+                                  ROW_FIELD_EQ(alu_max_value, get_tag_max_value(tag)),
+                                  ROW_FIELD_EQ(alu_sel_is_u128, 0),
+                                  ROW_FIELD_EQ(alu_sel_is_ff, 1),
+                                  ROW_FIELD_EQ(alu_tag_ff_diff_inv, 0),
+                                  ROW_FIELD_EQ(alu_sel_div_0_err, div_0_error ? 1 : 0),
+                                  ROW_FIELD_EQ(alu_sel_tag_err, 0),
+                                  ROW_FIELD_EQ(alu_sel_err, div_0_error ? 1 : 0),
+                                  ROW_FIELD_EQ(alu_ab_tags_diff_inv, 0))));
+}
+
+TEST_F(AluTraceGenerationTest, TraceGenerationFDivTagError)
+{
+    // Tests two cases unique to FDIV:
+    // a. inputs are both matching non-FF => should have a tag error (FF_TAG_ERR)
+    // b. input a is non-FF, b is FF => should have a tag error with BOTH FF_TAG_ERR and ab_tag_mismatch
+    builder.process(
+        {
+            { .operation = AluOperation::FDIV,
+              .a = MemoryValue::from<uint128_t>(6),
+              .b = MemoryValue::from<uint128_t>(3),
+              .c = MemoryValue::from<uint128_t>(2),
+              .error = AluError::TAG_ERROR },
+            { .operation = AluOperation::FDIV,
+              .a = MemoryValue::from<uint64_t>(6),
+              .b = MemoryValue::from<FF>(3),
+              .c = MemoryValue::from<uint64_t>(2),
+              .error = AluError::TAG_ERROR },
+        },
+        trace);
+
+    auto u128_tag = static_cast<uint8_t>(MemoryTag::U128);
+    auto u64_tag = static_cast<uint8_t>(MemoryTag::U64);
+
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(AllOf(ROW_FIELD_EQ(alu_sel_op_fdiv, 1),
+                                  ROW_FIELD_EQ(alu_sel, 1),
+                                  ROW_FIELD_EQ(alu_op_id, AVM_EXEC_OP_ID_ALU_FDIV),
+                                  ROW_FIELD_EQ(alu_ia, 6),
+                                  ROW_FIELD_EQ(alu_ib, 3),
+                                  ROW_FIELD_EQ(alu_ic, 2),
+                                  ROW_FIELD_EQ(alu_ia_tag, u128_tag),
+                                  ROW_FIELD_EQ(alu_ib_tag, u128_tag),
+                                  ROW_FIELD_EQ(alu_ic_tag, u128_tag),
+                                  ROW_FIELD_EQ(alu_max_bits, get_tag_bits(MemoryTag::U128)),
+                                  ROW_FIELD_EQ(alu_max_value, get_tag_max_value(MemoryTag::U128)),
+                                  ROW_FIELD_EQ(alu_sel_is_ff, 0),
+                                  ROW_FIELD_EQ(alu_tag_ff_diff_inv,
+                                               FF(FF(u128_tag) - FF(static_cast<uint8_t>(MemoryTag::FF))).invert()),
+                                  ROW_FIELD_EQ(alu_sel_div_0_err, 0),
+                                  ROW_FIELD_EQ(alu_sel_tag_err, 1),
+                                  ROW_FIELD_EQ(alu_sel_err, 1),
+                                  ROW_FIELD_EQ(alu_sel_ab_tag_mismatch, 0),
+                                  ROW_FIELD_EQ(alu_ab_tags_diff_inv, 0)),
+                            AllOf(ROW_FIELD_EQ(alu_sel_op_fdiv, 1),
+                                  ROW_FIELD_EQ(alu_sel, 1),
+                                  ROW_FIELD_EQ(alu_op_id, AVM_EXEC_OP_ID_ALU_FDIV),
+                                  ROW_FIELD_EQ(alu_ia, 6),
+                                  ROW_FIELD_EQ(alu_ib, 3),
+                                  ROW_FIELD_EQ(alu_ic, 2),
+                                  ROW_FIELD_EQ(alu_helper1, 0),
+                                  ROW_FIELD_EQ(alu_ia_tag, u64_tag),
+                                  ROW_FIELD_EQ(alu_ib_tag, static_cast<uint8_t>(MemoryTag::FF)),
+                                  ROW_FIELD_EQ(alu_ic_tag, u64_tag),
+                                  ROW_FIELD_EQ(alu_max_bits, get_tag_bits(MemoryTag::U64)),
+                                  ROW_FIELD_EQ(alu_max_value, get_tag_max_value(MemoryTag::U64)),
+                                  ROW_FIELD_EQ(alu_sel_is_ff, 0),
+                                  ROW_FIELD_EQ(alu_tag_ff_diff_inv,
+                                               FF(FF(u64_tag) - FF(static_cast<uint8_t>(MemoryTag::FF))).invert()),
+                                  ROW_FIELD_EQ(alu_sel_div_0_err, 0),
+                                  ROW_FIELD_EQ(alu_sel_tag_err, 1),
+                                  ROW_FIELD_EQ(alu_sel_err, 1),
+                                  ROW_FIELD_EQ(alu_sel_ab_tag_mismatch, 1),
+                                  ROW_FIELD_EQ(alu_ab_tags_diff_inv,
+                                               FF(FF(u64_tag) - FF(static_cast<uint8_t>(MemoryTag::FF))).invert()))));
 }
 
 // EQ TESTS
