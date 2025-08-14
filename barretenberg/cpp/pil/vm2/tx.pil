@@ -33,9 +33,13 @@ namespace tx;
     #[SEL_ON_FIRST_ROW]
     precomputed.first_row * (1 - sel') = 0;
 
-    // Sel can only become off after the last phase (fee collection)
+    // Sel can only become off after the last phase (cleanup)
     #[NO_EARLY_END]
-    sel * (1 - sel') * (1 - is_collect_fee) = 0;
+    sel * (1 - sel') * (1 - is_cleanup) = 0;
+
+    pol commit start_tx;
+    #[START_WITH_SEL]
+    start_tx' = (1 - sel) * sel';
 
     pol commit phase_value;
     // if is_padded = 1, this is a padded row
@@ -99,8 +103,9 @@ namespace tx;
     start_phase {
         phase_value,
         is_public_call_request,
-        /* Tree Padding Phase */
         is_collect_fee,
+        is_tree_padding,
+        is_cleanup,
 
         is_revertible,
         read_pi_offset,
@@ -121,8 +126,9 @@ namespace tx;
     precomputed.sel_phase {
         precomputed.phase_value,
         precomputed.is_public_call_request_phase,
-        /* Tree Padding Phase */
         precomputed.sel_collect_fee,
+        precomputed.sel_tree_padding,
+        precomputed.sel_cleanup,
 
         precomputed.is_revertible,
         precomputed.read_public_input_offset,
@@ -148,7 +154,7 @@ namespace tx;
     // === Phase Lengths ===
     // Read the number of steps in the phase from public inputs
 
-    pol IS_ONE_SHOT_PHASE = is_collect_fee;
+    pol IS_ONE_SHOT_PHASE = is_collect_fee + is_tree_padding + is_cleanup;
 
     pol commit sel_read_phase_length;
     // Read length if start phase and not one shot phase
@@ -194,6 +200,9 @@ namespace tx;
         public_inputs.cols[3]
     };
 
+    pol commit should_process_call_request;
+    should_process_call_request = is_public_call_request * (1 - is_padded);
+
     pol commit context_id; // TODO: Constrain
     pol commit next_context_id; // TODO: Constrain
     pol commit is_teardown_phase; // TODO: Constrain
@@ -205,20 +214,18 @@ namespace tx;
     pol commit next_da_gas_used_sent_to_enqueued_call;
 
     // prev_gas_used_sent_to_enqueued_call = is_teardown_phase ? 0 : prev_gas_used
-    is_public_call_request * ((0 - prev_l2_gas_used) * is_teardown_phase + prev_l2_gas_used - prev_l2_gas_used_sent_to_enqueued_call) = 0;
-    is_public_call_request * ((0 - prev_da_gas_used) * is_teardown_phase + prev_da_gas_used - prev_da_gas_used_sent_to_enqueued_call) = 0;
+    should_process_call_request * ((0 - prev_l2_gas_used) * is_teardown_phase + prev_l2_gas_used - prev_l2_gas_used_sent_to_enqueued_call) = 0;
+    should_process_call_request * ((0 - prev_da_gas_used) * is_teardown_phase + prev_da_gas_used - prev_da_gas_used_sent_to_enqueued_call) = 0;
     // next_gas_used = is_teardown_gas_phase ? prev_gas_used : next_gas_used_sent_to_enqueued_call
     // In the teardown phase, next_gas_used_sent_to_enqueued_call is unconstrained on purpose: we don't care about gas usage in teardown
-    is_public_call_request * ((prev_l2_gas_used - next_l2_gas_used_sent_to_enqueued_call) * is_teardown_phase + next_l2_gas_used_sent_to_enqueued_call - next_l2_gas_used) = 0;
-    is_public_call_request * ((prev_da_gas_used - next_da_gas_used_sent_to_enqueued_call) * is_teardown_phase + next_da_gas_used_sent_to_enqueued_call - next_da_gas_used) = 0;
-
-    // TODO: Constrain the evolution of the gas limits in the trace
+    should_process_call_request * ((prev_l2_gas_used - next_l2_gas_used_sent_to_enqueued_call) * is_teardown_phase + next_l2_gas_used_sent_to_enqueued_call - next_l2_gas_used) = 0;
+    should_process_call_request * ((prev_da_gas_used - next_da_gas_used_sent_to_enqueued_call) * is_teardown_phase + next_da_gas_used_sent_to_enqueued_call - next_da_gas_used) = 0;
 
     // Public Call Requests are dispatch to the execution trace
     // We match the values to the start of an enqueued call in the execution trace
     // Commented out for now since we dont have enqueued call flags in execution set
     // #[DISPATCH_EXEC_START]
-    // is_public_call_request {
+    // should_process_call_request {
     //     context_id,
     //     next_context_id,
     //     msg_sender,
@@ -276,7 +283,7 @@ namespace tx;
     // We retrieve the return values at the end of an enqueued call in the execution trace
     // Commented out for now since we dont have enqueued call flags in execution set
     //#[DISPATCH_EXEC_GET_REVERT]
-    //is_public_call_request {
+    //should_process_call_request {
     //    context_id,
     //    next_context_id,
     //    reverted,
@@ -518,19 +525,18 @@ namespace tx;
 
     pol commit fee_payer_balance;
 
-    // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
-    // #[BALANCE_READ]
-    // is_collect_fee {
-    //    fee_payer_balance,
-    //    fee_juice_contract_address,
-    //    fee_juice_balance_slot,
-    //    prev_public_data_tree_root
-    // } in public_data_check.sel {
-    //    public_data_check.value,
-    //    public_data_check.address,
-    //    public_data_check.slot,
-    //    public_data_check.root
-    // };
+    #[BALANCE_READ]
+    is_collect_fee {
+       fee_payer_balance,
+       fee_juice_contract_address,
+       fee_juice_balance_slot,
+       prev_public_data_tree_root
+    } in public_data_check.sel {
+       public_data_check.value,
+       public_data_check.address,
+       public_data_check.slot,
+       public_data_check.root
+    };
 
     #[BALANCE_VALIDATION]
     is_collect_fee { fee, fee_payer_balance, precomputed.zero }
@@ -542,53 +548,51 @@ namespace tx;
     pol commit uint32_max;
     is_collect_fee * (uint32_max - 0xffffffff) = 0;
 
-    // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
     // TODO: Lookup for now: will need multipermutation
-    // #[BALANCE_UPDATE]
-    // is_collect_fee {
-    //     fee_payer_new_balance,
-    //     fee_juice_contract_address,
-    //     fee_juice_balance_slot,
-    //     prev_public_data_tree_root,
-    //     next_public_data_tree_root,
-    //     prev_public_data_tree_size,
-    //     next_public_data_tree_size,
-    //     uint32_max
-    // } in public_data_check.write {
-    //     public_data_check.value,
-    //     public_data_check.address,
-    //     public_data_check.slot,
-    //     public_data_check.root,
-    //     public_data_check.write_root,
-    //     public_data_check.tree_size_before_write,
-    //     public_data_check.tree_size_after_write,
-    //     public_data_check.clk
-    // };
+    #[BALANCE_UPDATE]
+    is_collect_fee {
+        fee_payer_new_balance,
+        fee_juice_contract_address,
+        fee_juice_balance_slot,
+        prev_public_data_tree_root,
+        next_public_data_tree_root,
+        prev_public_data_tree_size,
+        next_public_data_tree_size,
+        uint32_max
+    } in public_data_check.write {
+        public_data_check.value,
+        public_data_check.address,
+        public_data_check.slot,
+        public_data_check.root,
+        public_data_check.write_root,
+        public_data_check.tree_size_before_write,
+        public_data_check.tree_size_after_write,
+        public_data_check.clk
+    };
 
     is_collect_fee * (constants.AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX - write_pi_offset) = 0;
 
-    // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
-    // #[WRITE_FEE_PUBLIC_INPUTS]
-    // is_collect_fee { write_pi_offset, fee }
-    // in public_inputs.sel { precomputed.clk, public_inputs.cols[0] };
+    #[WRITE_FEE_PUBLIC_INPUTS]
+    is_collect_fee { write_pi_offset, fee }
+    in public_inputs.sel { precomputed.clk, public_inputs.cols[0] };
 
-    pol commit end_gas_used_pi_offset; // TODO: remove when we can use constants in lookups
-    end_gas_used_pi_offset = is_collect_fee * constants.AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX;
+    // ===== TREE PADDING =====
+    pol commit is_tree_padding;
 
-    // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
-    // #[WRITE_END_GAS_USED_PUBLIC_INPUTS]
-    // is_collect_fee {
-    //     end_gas_used_pi_offset,
-    //     prev_da_gas_used,
-    //     prev_l2_gas_used
-    // } in
-    // public_inputs.sel {
-    //     precomputed.clk,
-    //     public_inputs.cols[0],
-    //     public_inputs.cols[1]
-    // };
+    // Roots and num emitted don't change, only size changes.
+    // Necessary since we are allowed in this phase to change tree roots, sizes and emitted counts.
+    #[NOTE_HASH_TREE_ROOT_IMMUTABLE_IN_PADDING]
+    is_tree_padding * (prev_note_hash_tree_root - next_note_hash_tree_root) = 0;
+    #[PAD_NOTE_HASH_TREE]
+    is_tree_padding * ((prev_note_hash_tree_size + constants.MAX_NOTE_HASHES_PER_TX - prev_num_note_hashes_emitted) - next_note_hash_tree_size) = 0;
+    #[NOTE_HASHES_EMITTED_IMMUTABLE_IN_PADDING]
+    is_tree_padding * (prev_num_note_hashes_emitted - next_num_note_hashes_emitted) = 0;
+    #[NULLIFIER_TREE_ROOT_IMMUTABLE_IN_PADDING]
+    is_tree_padding * (prev_nullifier_tree_root - next_nullifier_tree_root) = 0;
+    #[PAD_NULLIFIER_TREE]
+    is_tree_padding * ((prev_nullifier_tree_size + constants.MAX_NULLIFIERS_PER_TX - prev_num_nullifiers_emitted) - next_nullifier_tree_size) = 0;
+    #[NULLIFIERS_EMITTED_IMMUTABLE_IN_PADDING]
+    is_tree_padding * (prev_num_nullifiers_emitted - next_num_nullifiers_emitted) = 0;
 
-    // TODO: Constrain evolution: Needs to be read from PI on the first row, then teardown can update
-    pol commit l2_gas_limit;
-    pol commit da_gas_limit;
-
+    // ===== CLEANUP =====
+    pol commit is_cleanup;
