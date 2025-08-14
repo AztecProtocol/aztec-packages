@@ -19,11 +19,13 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { getWorkingDirectory } from './bb_working_directory.js';
+import { proveAvm, proveClientIVC, proveRollupHonk, proveTube } from './prove_native.js';
+import type { KernelPublicInputs } from './types/index.js';
 import {
   MockRollupBasePrivateCircuit,
   MockRollupBasePublicCircuit,
   MockRollupMergeCircuit,
-  generate3FunctionTestingIVCStack,
+  generateTestingIVCStack,
   mapAvmProofToNoir,
   mapRecursiveProofToNoir,
   mapVerificationKeyToNoir,
@@ -31,9 +33,7 @@ import {
   witnessGenMockRollupBasePrivateCircuit,
   witnessGenMockRollupMergeCircuit,
   witnessGenMockRollupRootCircuit,
-} from './index.js';
-import { proveAvm, proveClientIVC, proveRollupHonk, proveTube } from './prove_native.js';
-import type { KernelPublicInputs } from './types/index.js';
+} from './witgen.js';
 
 /* eslint-disable camelcase */
 
@@ -57,7 +57,7 @@ describe('Rollup IVC Integration', () => {
 
     // Create a client IVC proof
     const clientIVCWorkingDirectory = await getWorkingDirectory('bb-rollup-ivc-integration-client-ivc-');
-    const [bytecodes, witnessStack, tailPublicInputs, vks] = await generate3FunctionTestingIVCStack();
+    const [bytecodes, witnessStack, tailPublicInputs, vks] = await generateTestingIVCStack(1, 0);
     clientIVCPublicInputs = tailPublicInputs;
     const proof = await proveClientIVC(bbBinaryPath, clientIVCWorkingDirectory, witnessStack, bytecodes, vks, logger);
     await writeClientIVCProofToOutputDirectory(proof, clientIVCWorkingDirectory);

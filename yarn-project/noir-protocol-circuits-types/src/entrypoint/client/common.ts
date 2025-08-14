@@ -9,6 +9,8 @@ export {
   convertPrivateKernelTailInputsToWitnessMapWithAbi,
   convertPrivateKernelTailOutputsFromWitnessMapWithAbi,
   convertPrivateKernelTailToPublicInputsToWitnessMapWithAbi,
+  convertHidingKernelToRollupInputsToWitnessMapWithAbi,
+  convertHidingKernelPublicInputsToWitnessMapWithAbi,
 } from '../../execution/client.js';
 
 export { getPrivateKernelResetArtifactName, updateResetCircuitSampleInputs } from '../../utils/private_kernel_reset.js';

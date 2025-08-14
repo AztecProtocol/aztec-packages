@@ -1,6 +1,8 @@
 import type { NoirCompiledCircuit, NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';
 import type { VerificationKeyData } from '@aztec/stdlib/vks';
 
+import HidingKernelToPublicJson from '../../../artifacts/hiding_kernel_to_public.json' with { type: 'json' };
+import HidingKernelToRollupJson from '../../../artifacts/hiding_kernel_to_rollup.json' with { type: 'json' };
 import PrivateKernelInitJson from '../../../artifacts/private_kernel_init.json' with { type: 'json' };
 import PrivateKernelInitSimulatedJson from '../../../artifacts/private_kernel_init_simulated.json' with { type: 'json' };
 import PrivateKernelInnerJson from '../../../artifacts/private_kernel_inner.json' with { type: 'json' };
@@ -18,6 +20,8 @@ export const ClientCircuitArtifacts: Record<ClientProtocolArtifact, NoirCompiled
   PrivateKernelInnerArtifact: PrivateKernelInnerJson as NoirCompiledCircuit,
   PrivateKernelTailArtifact: PrivateKernelTailJson as NoirCompiledCircuit,
   PrivateKernelTailToPublicArtifact: PrivateKernelTailToPublicJson as NoirCompiledCircuit,
+  HidingKernelToRollup: HidingKernelToRollupJson as NoirCompiledCircuit,
+  HidingKernelToPublic: HidingKernelToPublicJson as NoirCompiledCircuit,
   ...PrivateKernelResetArtifacts,
 };
 
@@ -26,6 +30,8 @@ export const SimulatedClientCircuitArtifacts: Record<ClientProtocolArtifact, Noi
   PrivateKernelInnerArtifact: PrivateKernelInnerSimulatedJson as NoirCompiledCircuit,
   PrivateKernelTailArtifact: PrivateKernelTailSimulatedJson as NoirCompiledCircuit,
   PrivateKernelTailToPublicArtifact: PrivateKernelTailToPublicSimulatedJson as NoirCompiledCircuit,
+  HidingKernelToRollup: HidingKernelToRollupJson as NoirCompiledCircuit,
+  HidingKernelToPublic: HidingKernelToPublicJson as NoirCompiledCircuit,
   ...PrivateKernelResetSimulatedArtifacts,
 };
 

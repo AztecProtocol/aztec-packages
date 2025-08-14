@@ -66,6 +66,30 @@ ClientIvcAccumulate::Response ClientIvcAccumulate::execute(BBApiRequest& request
     return Response{};
 }
 
+ClientIvcHidingKernel::Response ClientIvcHidingKernel::execute(BBApiRequest& request) &&
+{
+    if (!request.ivc_in_progress) {
+        throw_or_abort("ClientIVC not started. Call ClientIvcStart first.");
+    }
+
+    if (!request.loaded_circuit_constraints.has_value()) {
+        throw_or_abort("No circuit loaded. Call ClientIvcLoad first.");
+    }
+
+    acir_format::WitnessVector witness_data = acir_format::witness_buf_to_witness_data(std::move(witness));
+    acir_format::AcirProgram program{ std::move(request.loaded_circuit_constraints.value()), std::move(witness_data) };
+
+    const acir_format::ProgramMetadata metadata{ request.ivc_in_progress };
+    auto circuit = acir_format::create_circuit<ClientIVC::ClientCircuit>(program, metadata);
+
+    info("ClientIvcHidingKernel - we are processing the hiding circuit: '", request.loaded_circuit_name, "'");
+
+    request.loaded_circuit_constraints.reset();
+    request.loaded_circuit_vk.clear();
+
+    return Response{};
+}
+
 ClientIvcProve::Response ClientIvcProve::execute(BBApiRequest& request) &&
 {
     if (!request.ivc_in_progress) {
@@ -77,11 +101,7 @@ ClientIvcProve::Response ClientIvcProve::execute(BBApiRequest& request) &&
     }
 
     info("ClientIvcProve - generating proof for ", request.ivc_stack_depth, " accumulated circuits");
-    // Construct the hiding kernel to finalise the IVC steps
-    ClientIVC::ClientCircuit circuit{ request.ivc_in_progress->goblin.op_queue };
-    request.ivc_in_progress->complete_kernel_circuit_logic(circuit);
     ClientIVC::Proof proof = request.ivc_in_progress->prove();
-
     // We verify this proof. Another bb call to verify has some overhead of loading VK/proof/SRS,
     // and it is mysterious if this transaction fails later in the lifecycle.
     info("ClientIvcProve - verifying the generated proof as a sanity check");
@@ -117,37 +137,7 @@ static std::shared_ptr<ClientIVC::DeciderProvingKey> get_acir_program_decider_pr
     return std::make_shared<ClientIVC::DeciderProvingKey>(builder, request.trace_settings);
 }
 
-ClientIVC::VerificationKey compute_civc_vk(const BBApiRequest& request, size_t num_public_inputs_in_final_circuit)
-{
-    ClientIVC ivc{ /* num_circuits */ 2, request.trace_settings };
-    PrivateFunctionExecutionMockCircuitProducer circuit_producer;
-
-    // Initialize the IVC with an arbitrary circuit
-    // We segfault if we only call accumulate once
-    static constexpr size_t SMALL_ARBITRARY_LOG_CIRCUIT_SIZE{ 5 };
-    auto [circuit_0, vk_0] =
-        circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = SMALL_ARBITRARY_LOG_CIRCUIT_SIZE });
-    ivc.accumulate(circuit_0, vk_0);
-
-    // Create another circuit and accumulate
-    auto [circuit_1, vk_1] =
-        circuit_producer.create_next_circuit_and_vk(ivc,
-                                                    {
-                                                        .num_public_inputs = num_public_inputs_in_final_circuit,
-                                                        .log2_num_gates = SMALL_ARBITRARY_LOG_CIRCUIT_SIZE,
-                                                    });
-    ivc.accumulate(circuit_1, vk_1);
-
-    circuit_producer.construct_hiding_kernel(ivc);
-    // Construct the hiding circuit proving and verification key
-    auto hiding_decider_pk = ivc.compute_hiding_circuit_proving_key();
-    auto hiding_honk_vk = std::make_shared<ClientIVC::MegaZKVerificationKey>(hiding_decider_pk->get_precomputed());
-    return { hiding_honk_vk,
-             std::make_shared<ClientIVC::ECCVMVerificationKey>(),
-             std::make_shared<ClientIVC::TranslatorVerificationKey>() };
-}
-
-ClientIvcComputeStandaloneVk::Response ClientIvcComputeStandaloneVk::execute(BB_UNUSED const BBApiRequest& request) &&
+ClientIvcComputeStandaloneVk::Response ClientIvcComputeStandaloneVk::execute(const BBApiRequest& request) &&
 {
     info("ClientIvcComputeStandaloneVk - deriving VK for circuit '", circuit.name, "'");
 
@@ -160,16 +150,22 @@ ClientIvcComputeStandaloneVk::Response ClientIvcComputeStandaloneVk::execute(BB_
     return { .bytes = to_buffer(*verification_key), .fields = verification_key->to_field_elements() };
 }
 
-ClientIvcComputeIvcVk::Response ClientIvcComputeIvcVk::execute(const BBApiRequest& request) &&
+ClientIvcComputeIvcVk::Response ClientIvcComputeIvcVk::execute(BB_UNUSED const BBApiRequest& request) &&
 {
     info("ClientIvcComputeIvcVk - deriving IVC VK for circuit '", circuit.name, "'");
 
-    auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
+    auto standalone_vk_response = bbapi::ClientIvcComputeStandaloneVk{
+        .circuit{ .name = "standalone_circuit", .bytecode = std::move(circuit.bytecode) }
+    }.execute({ .trace_settings = {} });
 
-    auto vk = compute_civc_vk(request, constraint_system.public_inputs.size());
-
+    auto mega_vk = from_buffer<ClientIVC::MegaVerificationKey>(standalone_vk_response.bytes);
+    auto eccvm_vk = std::make_shared<ClientIVC::ECCVMVerificationKey>();
+    auto translator_vk = std::make_shared<ClientIVC::TranslatorVerificationKey>();
+    ClientIVC::VerificationKey civc_vk{ .mega = std::make_shared<ClientIVC::MegaVerificationKey>(mega_vk),
+                                        .eccvm = std::make_shared<ClientIVC::ECCVMVerificationKey>(),
+                                        .translator = std::make_shared<ClientIVC::TranslatorVerificationKey>() };
     Response response;
-    response.bytes = to_buffer(vk);
+    response.bytes = to_buffer(civc_vk);
 
     info("ClientIvcComputeIvcVk - IVC VK derived, size: ", response.bytes.size(), " bytes");
 
