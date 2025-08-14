@@ -2,7 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
+import {Timestamp, Slot, Epoch, SlashRound} from "@aztec/core/libraries/TimeLib.sol";
 
 /**
  * @title Errors Library
@@ -168,17 +168,20 @@ library Errors {
   // ConsensusSlashingProposer
   error ConsensusSlashingProposer__InvalidSignature();
   error ConsensusSlashingProposer__InvalidVoteLength(uint256 expected, uint256 actual);
-  error ConsensusSlashingProposer__RoundAlreadyExecuted(uint256 round);
+  error ConsensusSlashingProposer__RoundAlreadyExecuted(SlashRound round);
   error ConsensusSlashingProposer__InvalidNumberOfCommittees(uint256 expected, uint256 actual);
-  error ConsensusSlashingProposer__RoundNotComplete(uint256 round);
+  error ConsensusSlashingProposer__RoundNotComplete(SlashRound round);
   error ConsensusSlashingProposer__InvalidCommitteeSize(uint256 expected, uint256 actual);
   error ConsensusSlashingProposer__InvalidCommitteeCommitment();
+  error ConsensusSlashingProposer__InvalidQuorumAndRoundSize(uint256 quorum, uint256 roundSize);
   error ConsensusSlashingProposer__QuorumMustBeGreaterThanZero();
-  error ConsensusSlashingProposer__SlashingUnitMustBeGreaterThanZero();
+  error ConsensusSlashingProposer__SlashingUnitMustBeGreaterThanZero(uint256 slashingUnit);
   error ConsensusSlashingProposer__LifetimeMustBeGreaterThanExecutionDelay(uint256 lifetime, uint256 executionDelay);
+  error ConsensusSlashingProposer__LifetimeMustBeLessThanRoundabout(uint256 lifetime, uint256 roundabout);
+  error ConsensusSlashingProposer__RoundSizeInEpochsMustBeGreaterThanZero(uint256 roundSizeInEpochs);
+  error ConsensusSlashingProposer__RoundSizeTooLarge(uint256 roundSize, uint256 maxRoundSize);
+  error ConsensusSlashingProposer__CommitteeSizeMustBeGreaterThanZero(uint256 committeeSize);
   error ConsensusSlashingProposer__SlashAmountTooLarge();
-  error ConsensusSlashingProposer__ProposerAlreadyVotedInSlot();
-  error ConsensusSlashingProposer__MaxVotesReached();
   error ConsensusSlashingProposer__VoteAlreadyCastInCurrentSlot(Slot slot);
-  error ConsensusSlashingProposer__RoundOutOfRange(uint256 round, uint256 currentRound);
+  error ConsensusSlashingProposer__RoundOutOfRange(SlashRound round, SlashRound currentRound);
 }
