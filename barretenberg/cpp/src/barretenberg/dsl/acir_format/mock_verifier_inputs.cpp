@@ -242,7 +242,8 @@ template <typename Builder> HonkProof create_mock_civc_proof(const size_t inner_
 {
     HonkProof proof;
 
-    HonkProof mega_proof = create_mock_honk_proof<MegaZKFlavor, stdlib::recursion::honk::HidingKernelIO<Builder>>();
+    HonkProof mega_proof = create_mock_honk_proof<MegaZKFlavor, stdlib::recursion::honk::HidingKernelIO<Builder>>(
+        inner_public_inputs_size);
     Goblin::MergeProof merge_proof = create_mock_merge_proof();
     ECCVMProof eccvm_proof{ create_mock_pre_ipa_proof(), create_mock_ipa_proof() };
     HonkProof translator_proof = create_mock_translator_proof();

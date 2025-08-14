@@ -3,10 +3,6 @@
 // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
-
-#pragma once
-
-#include "barretenberg/dsl/acir_format/honk_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
 #include "barretenberg/stdlib/client_ivc_verifier/client_ivc_recursive_verifier.hpp"
@@ -15,8 +11,13 @@
 
 namespace acir_format {
 
+using namespace bb;
+
 using Builder = bb::UltraCircuitBuilder; // Builder is always Ultra
 using field_ct = stdlib::field_t<Builder>;
+
+template <typename Builder>
+using HonkRecursionConstraintOutput = bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<Builder>;
 
 using namespace bb;
 
@@ -112,9 +113,11 @@ create_civc_recursion_constraints(Builder& builder,
 
     // Recursively verify CIVC proof
     auto mega_vk = std::make_shared<VerificationKey>(builder, key_fields);
-    auto mega_vk_and_hash = std::make_shared<RecursiveVKAndHash>(builder, mega_vk, vk_hash);
+    auto mega_vk_and_hash = std::make_shared<RecursiveVKAndHash>(mega_vk, vk_hash);
+    ClientIVCRecursiveVerifier::StdlibProof stdlib_proof(proof_fields);
+
     ClientIVCRecursiveVerifier verifier(&builder, mega_vk_and_hash);
-    ClientIVCRecursiveVerifier::Output verification_output = verifier.verify(proof_fields);
+    ClientIVCRecursiveVerifier::Output verification_output = verifier.verify(stdlib_proof);
 
     // Construct output
     HonkRecursionConstraintOutput<Builder> output;
