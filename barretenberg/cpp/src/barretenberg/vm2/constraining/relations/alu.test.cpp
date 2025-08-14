@@ -855,6 +855,7 @@ TEST_P(AluDivConstrainingTest, AluDivTraceGen)
 {
     auto trace = process_div_with_tracegen(GetParam());
     check_all_interactions<AluTraceBuilder>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
     check_relation<alu>(trace);
 }
 
@@ -894,6 +895,7 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivU128Carry)
     auto trace = process_div_trace({ a, b, c });
 
     check_all_interactions<AluTraceBuilder>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
     check_relation<alu>(trace);
 
     // Check we cannot provide a c s.t. a - r = b * c over/underflows
@@ -924,6 +926,7 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivByZero)
     auto c = a / b;
     auto trace = process_div_trace({ a, b, c });
     check_all_interactions<AluTraceBuilder>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
     check_relation<alu>(trace);
 
     // Set b, b_inv to 0...
@@ -968,6 +971,7 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivFF)
     trace.set(Column::alu_sel_err, 0, 1);
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
 }
 
 TEST_F(AluDivConstrainingTest, NegativeAluDivByZeroFF)
@@ -988,6 +992,7 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivByZeroFF)
     trace.set(Column::alu_sel_div_no_0_err, 0, 0);
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
 }
 
 TEST_F(AluDivConstrainingTest, NegativeAluDivByZeroFFTagMismatch)
@@ -1016,6 +1021,210 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivByZeroFFTagMismatch)
     trace.set(Column::alu_sel_div_no_0_err, 0, 0);
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+}
+
+// FDIV TESTS
+
+// Note: The test framework below converts all inputs to FF values to allow for many happy path tests without adding
+// new vectors. Non-FF values are tested separately.
+const std::vector<MemoryValue> TEST_VALUES_FDIV_OUT = {
+    MemoryValue::from_tag(MemoryTag::FF, 0), // Dividing by zero, so expecting an error
+    MemoryValue::from_tag(MemoryTag::FF, 4),
+    MemoryValue::from_tag(MemoryTag::FF, FF("0x1e980ebbc51694827ee20074ac28b250a037a43eb44b38e6aa367c57a05e6d48")),
+    MemoryValue::from_tag(MemoryTag::FF, FF("0x135b52945a13d9aa49b9b57c33cd568ba9ae5ce9ca4a2d06e7f3fbd4f9999998")),
+    MemoryValue::from_tag(MemoryTag::FF, FF("0x135b52945a13d9aa49b9b57c33cd568ba9ae5ce9ca4a2d071b272f07f9999998")),
+    MemoryValue::from_tag(MemoryTag::FF, FF("0x135b52945a13d9aa49b9b57c33cd568bdce1901cfd7d603a1b272f07f9999998")),
+    MemoryValue::from_tag(MemoryTag::FF, FF::modulus - 2),
+};
+
+const std::vector<ThreeOperandTestParams> TEST_VALUES_FDIV = zip_helper(TEST_VALUES_FDIV_OUT);
+
+class AluFDivConstrainingTest : public AluConstrainingTest,
+                                public ::testing::WithParamInterface<ThreeOperandTestParams> {
+  public:
+    TestTraceContainer process_fdiv_trace(ThreeOperandTestParams params)
+    {
+        auto [a, b, c] = params;
+        a = MemoryValue::from_tag(MemoryTag::FF, a);
+        b = MemoryValue::from_tag(MemoryTag::FF, b);
+        c = MemoryValue::from_tag(MemoryTag::FF, c);
+        auto div_0_error = b.as_ff() == FF(0);
+
+        auto mem_tag = a.get_tag();
+        auto tag = static_cast<uint8_t>(mem_tag);
+
+        auto trace = TestTraceContainer::from_rows({
+            {
+                .alu_b_inv = div_0_error ? 0 : b.as_ff().invert(),
+                .alu_ia = a,
+                .alu_ia_tag = tag,
+                .alu_ib = b,
+                .alu_ib_tag = tag,
+                .alu_ic = c,
+                .alu_ic_tag = tag,
+                .alu_max_bits = get_tag_bits(mem_tag),
+                .alu_max_value = get_tag_max_value(mem_tag),
+                .alu_op_id = AVM_EXEC_OP_ID_ALU_FDIV,
+                .alu_sel = 1,
+                .alu_sel_div_0_err = div_0_error ? 1 : 0,
+                .alu_sel_err = div_0_error ? 1 : 0,
+                .alu_sel_is_ff = 1,
+                .alu_sel_op_fdiv = 1,
+                .execution_mem_tag_reg_0_ = tag,                            // = ia_tag
+                .execution_mem_tag_reg_1_ = tag,                            // = ib_tag
+                .execution_mem_tag_reg_2_ = tag,                            // = ic_tag
+                .execution_register_0_ = a,                                 // = ia
+                .execution_register_1_ = b,                                 // = ib
+                .execution_register_2_ = c,                                 // = ic
+                .execution_sel_execute_alu = 1,                             // = sel
+                .execution_sel_opcode_error = div_0_error ? 1 : 0,          // = sel_err
+                .execution_subtrace_operation_id = AVM_EXEC_OP_ID_ALU_FDIV, // = alu_op_id
+            },
+        });
+
+        precomputed_builder.process_misc(trace, NUM_OF_TAGS);
+        precomputed_builder.process_tag_parameters(trace);
+
+        return trace;
+    }
+
+    TestTraceContainer process_fdiv_with_tracegen(ThreeOperandTestParams params)
+    {
+        TestTraceContainer trace;
+        auto [a, b, c] = params;
+        a = MemoryValue::from_tag(MemoryTag::FF, a);
+        b = MemoryValue::from_tag(MemoryTag::FF, b);
+        c = MemoryValue::from_tag(MemoryTag::FF, c);
+        bool div_0_error = b.as_ff() == FF(0);
+
+        builder.process(
+            {
+                { .operation = simulation::AluOperation::FDIV,
+                  .a = a,
+                  .b = b,
+                  .c = c,
+                  .error = div_0_error ? std::make_optional(simulation::AluError::DIV_0_ERROR) : std::nullopt },
+            },
+            trace);
+
+        precomputed_builder.process_misc(trace, NUM_OF_TAGS);
+        precomputed_builder.process_tag_parameters(trace);
+
+        return trace;
+    }
+};
+
+INSTANTIATE_TEST_SUITE_P(AluConstrainingTest, AluFDivConstrainingTest, ::testing::ValuesIn(TEST_VALUES_FDIV));
+
+TEST_P(AluFDivConstrainingTest, AluFDiv)
+{
+    auto trace = process_fdiv_trace(GetParam());
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_relation<alu>(trace);
+}
+
+TEST_P(AluFDivConstrainingTest, AluFDivTraceGen)
+{
+    auto trace = process_fdiv_with_tracegen(GetParam());
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_relation<alu>(trace);
+}
+
+TEST_F(AluFDivConstrainingTest, NegativeAluFDivByZero)
+{
+    auto a = MemoryValue::from_tag(MemoryTag::FF, 2);
+    auto b = MemoryValue::from_tag(MemoryTag::FF, 5);
+    auto c = a / b;
+    auto trace = process_fdiv_trace({ a, b, c });
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_relation<alu>(trace);
+
+    // Set b, b_inv to 0...
+    trace.set(Column::alu_ib, 0, 0);
+    trace.set(Column::alu_b_inv, 0, 0);
+    // ...and since we haven't set the error correctly, we expect the below to fail:
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "DIV_0_ERR");
+    // We need to set the div_0_err and...
+    trace.set(Column::alu_sel_div_0_err, 0, 1);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ERR_CHECK");
+    // ...the overall sel_err:
+    trace.set(Column::alu_sel_err, 0, 1);
+    check_relation<alu>(trace);
+
+    // If we try and set b != 0 with div_0_err on, the below should fail:
+    trace.set(Column::alu_ib, 0, b);
+    trace.set(Column::alu_b_inv, 0, b.as_ff().invert());
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "DIV_0_ERR");
+}
+
+TEST_F(AluFDivConstrainingTest, NegativeAluFDivByZeroNonFFTagMismatch)
+{
+    auto a = MemoryValue::from_tag(MemoryTag::U8, 4);
+    auto b = MemoryValue::from_tag(MemoryTag::U8, 2);
+    // An incorrect c_tag fails the relation rather than throwing a tag error - we want to test the throw here, so
+    // setting c to be the correct tag:
+    auto c = MemoryValue::from_tag(MemoryTag::FF, 2);
+    auto tag = static_cast<uint8_t>(MemoryTag::U8);
+
+    auto trace = TestTraceContainer::from_rows({
+        {
+            .alu_b_inv = b.as_ff().invert(),
+            .alu_ia = a,
+            .alu_ia_tag = tag,
+            .alu_ib = b,
+            .alu_ib_tag = tag,
+            .alu_ic = c,
+            .alu_ic_tag = static_cast<uint8_t>(MemoryTag::FF),
+            .alu_max_bits = get_tag_bits(MemoryTag::U8),
+            .alu_max_value = get_tag_max_value(MemoryTag::U8),
+            .alu_op_id = AVM_EXEC_OP_ID_ALU_FDIV,
+            .alu_sel = 1,
+            .alu_sel_op_fdiv = 1,
+            .execution_mem_tag_reg_0_ = tag,                                 // = ia_tag
+            .execution_mem_tag_reg_1_ = tag,                                 // = ib_tag
+            .execution_mem_tag_reg_2_ = static_cast<uint8_t>(MemoryTag::FF), // = ic_tag
+            .execution_register_0_ = a,                                      // = ia
+            .execution_register_1_ = b,                                      // = ib
+            .execution_register_2_ = c,                                      // = ic
+            .execution_sel_execute_alu = 1,                                  // = sel
+            .execution_subtrace_operation_id = AVM_EXEC_OP_ID_ALU_FDIV,      // = alu_op_id
+        },
+    });
+
+    precomputed_builder.process_misc(trace, NUM_OF_TAGS);
+    precomputed_builder.process_tag_parameters(trace);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "TAG_IS_FF");
+    // We check sel_is_ff for FDIV so must correctly set the tag diff inverse:
+    trace.set(Column::alu_tag_ff_diff_inv, 0, FF(FF(tag) - FF(static_cast<uint8_t>(MemoryTag::FF))).invert());
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "TAG_ERR_CHECK");
+    // This case should be recoverable, so we set the tag err selectors:
+    trace.set(Column::alu_sel_tag_err, 0, 1);
+    trace.set(Column::alu_sel_err, 0, 1);
+    trace.set(Column::execution_sel_opcode_error, 0, 1);
+    check_relation<alu>(trace);
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+
+    // For FDIV, we can have both FF and dividing by zero errors:
+    trace.set(Column::alu_ib, 0, 0);
+    trace.set(Column::alu_b_inv, 0, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "DIV_0_ERR");
+    trace.set(Column::alu_sel_div_0_err, 0, 1);
+    check_relation<alu>(trace);
+    check_all_interactions<AluTraceBuilder>(trace);
+    trace.set(Column::execution_register_1_, 0, 0);
+    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+
+    // Setting b to u16 also creates a tag mismatch we can handle with the same selectors:
+    trace.set(Column::alu_ib_tag, 0, static_cast<uint8_t>(MemoryTag::U16));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");
+    trace.set(Column::alu_sel_ab_tag_mismatch, 0, 1);
+    trace.set(Column::alu_ab_tags_diff_inv, 0, (FF(tag) - FF(static_cast<uint8_t>(MemoryTag::U16))).invert());
+    check_relation<alu>(trace);
 }
 
 // EQ TESTS

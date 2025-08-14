@@ -97,6 +97,30 @@ MemoryValue Alu::div(const MemoryValue& a, const MemoryValue& b)
     }
 }
 
+MemoryValue Alu::fdiv(const MemoryValue& a, const MemoryValue& b)
+{
+    try {
+        MemoryValue c = a / b; // This will throw if the tags do not match or if we divide by 0.
+
+        if (a.get_tag() != MemoryTag::FF) {
+            // We cannot reach this case from execution because the tags are forced to be FF (see below*).
+            // TODO(MW): cleanup - It comes under the umbrella of tag errors (like NOT) but MemoryValue c = a / b does
+            // not throw, so I sin here and throw a not relevant error we know will create a TAG_ERROR:
+            throw TagMismatchException("Cannot perform field division on an integer");
+        }
+
+        events.emit({ .operation = AluOperation::FDIV, .a = a, .b = b, .c = c });
+        return c;
+    } catch (const TagMismatchException& e) {
+        // *This is unreachable from execution and exists to manage and test tag errors:
+        events.emit({ .operation = AluOperation::FDIV, .a = a, .b = b, .error = AluError::TAG_ERROR });
+        throw AluException("FDIV, " + std::string(e.what()));
+    } catch (const DivisionByZero& e) {
+        events.emit({ .operation = AluOperation::FDIV, .a = a, .b = b, .error = AluError::DIV_0_ERROR });
+        throw AluException("FDIV, " + std::string(e.what()));
+    }
+}
+
 MemoryValue Alu::eq(const MemoryValue& a, const MemoryValue& b)
 {
     // Brillig semantic enforces that tags match for EQ.
