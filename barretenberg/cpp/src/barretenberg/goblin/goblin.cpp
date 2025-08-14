@@ -80,6 +80,7 @@ std::pair<Goblin::PairingPoints, Goblin::RecursiveTableCommitments> Goblin::recu
     const std::shared_ptr<RecursiveTranscript>& transcript,
     const MergeSettings merge_settings)
 {
+    vinfo("Goblin::recursively_verify_merge");
     ASSERT(!merge_verification_queue.empty());
     // Recursively verify the next merge proof in the verification queue in a FIFO manner
     const MergeProof& merge_proof = merge_verification_queue.front();

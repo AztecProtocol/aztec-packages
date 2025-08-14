@@ -280,6 +280,7 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     // Set the kernel output data to be propagated via the public inputs
     if (is_hiding_kernel) {
         HidingKernelIO hiding_output{ points_accumulator, T_prev_commitments };
+
         hiding_output.set_public();
         // preserve the hiding circuit so a proof for it can be created
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1502): reconsider approach once integration is
@@ -473,11 +474,12 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::comp
         goblin.recursively_verify_merge(circuit, merge_commitments, pg_merge_transcript);
 
     points_accumulator.aggregate(kernel_input.pairing_inputs);
-
+    info("Before decider");
     // Perform recursive decider verification
     DeciderRecursiveVerifier decider{ &circuit, recursive_verifier_native_accum };
     BB_ASSERT_EQ(!decider_proof.empty(), true, "Decider proof is empty!");
     PairingPoints decider_pairing_points = decider.verify_proof(decider_proof);
+    vinfo("is it the decier aggregate ");
     points_accumulator.aggregate(decider_pairing_points);
     return { points_accumulator, merged_table_commitments };
 }
