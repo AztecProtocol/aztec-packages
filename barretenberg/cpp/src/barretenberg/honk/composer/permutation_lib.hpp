@@ -218,17 +218,16 @@ PermutationMapping<Flavor::NUM_WIRES, generalized> compute_permutation_mapping(
  *
  * @param permutation_polynomials sigma or ID poly
  * @param permutation_mappings
- * @param dyadic_size dyadic size of the execution trace
+ * @param evaluation_separator a fixed constant satisfying 1) n >= max_size(permutation_polynomials)
  * @param active_region_data specifies regions of execution trace with non-trivial values
  */
 template <typename Flavor>
 void compute_honk_style_permutation_lagrange_polynomials_from_mapping(
     const RefSpan<typename Flavor::Polynomial>& permutation_polynomials,
     const std::array<Mapping, Flavor::NUM_WIRES>& permutation_mappings,
-    [[maybe_unused]] const size_t dyadic_size,
+    const size_t evaluation_separator,
     ActiveRegionData& active_region_data)
 {
-    static constexpr size_t virtual_size = 1UL << CONST_PROOF_SIZE_LOG_N;
     using FF = typename Flavor::FF;
 
     size_t domain_size = active_region_data.size();
@@ -250,21 +249,23 @@ void compute_honk_style_permutation_lagrange_polynomials_from_mapping(
                 if (current_is_public_input) {
                     // We intentionally want to break the cycles of the public input variables.
                     // During the witness generation, the left and right wire polynomials at idx i contain the i-th
-                    // public input. The CyclicPermutation created for these variables always start with (i) -> (n+i),
-                    // followed by the indices of the variables in the "real" gates. We make i point to
-                    // -(i+1), so that the only way of repairing the cycle is add the mapping
+                    // public input. Let n = evaluation_separator. The CyclicPermutation created for these variables
+                    // always start with (i) -> (n+i), followed by the indices of the variables in the "real" gates. We
+                    // make i point to -(i+1), so that the only way of repairing the cycle is add the mapping
                     //  -(i+1) -> (n+i)
                     // These indices are chosen so they can easily be computed by the verifier. They can expect
                     // the running product to be equal to the "public input delta" that is computed
                     // in <honk/utils/grand_product_delta.hpp>
-                    current_permutation_poly.at(poly_idx) = -FF(current_row_idx + 1 + virtual_size * current_col_idx);
+                    current_permutation_poly.at(poly_idx) =
+                        -FF(current_row_idx + 1 + evaluation_separator * current_col_idx);
                 } else if (current_is_tag) {
                     // Set evaluations to (arbitrary) values disjoint from non-tag values
-                    current_permutation_poly.at(poly_idx) = virtual_size * Flavor::NUM_WIRES + current_row_idx;
+                    current_permutation_poly.at(poly_idx) = evaluation_separator * Flavor::NUM_WIRES + current_row_idx;
                 } else {
                     // For the regular permutation we simply point to the next location by setting the
                     // evaluation to its idx
-                    current_permutation_poly.at(poly_idx) = FF(current_row_idx + virtual_size * current_col_idx);
+                    current_permutation_poly.at(poly_idx) =
+                        FF(current_row_idx + evaluation_separator * current_col_idx);
                 }
             }
         });
@@ -288,8 +289,11 @@ void compute_permutation_argument_polynomials(const typename Flavor::CircuitBuil
                                               ActiveRegionData& active_region_data)
 {
     constexpr bool generalized = IsUltraOrMegaHonk<Flavor>;
-    const size_t dyadic_size = 1UL << CONST_PROOF_SIZE_LOG_N;
-    auto mapping = compute_permutation_mapping<Flavor, generalized>(circuit, dyadic_size, copy_cycles);
+    // Ensures that the evaluations of `id_i` (`sigma_i`) and `id_j`(`sigma_j`) polynomials on the boolean hypercube do
+    // not intersect for i != j.
+    const size_t evaluation_separator = 1UL << CONST_PROOF_SIZE_LOG_N; // Exceeds the size of the BN254 srs
+    BB_ASSERT_LT(polynomials.get_polynomial_size(), evaluation_separator);
+    auto mapping = compute_permutation_mapping<Flavor, generalized>(circuit, evaluation_separator, copy_cycles);
 
     // Compute Honk-style sigma and ID polynomials from the corresponding mappings
     {
@@ -297,14 +301,14 @@ void compute_permutation_argument_polynomials(const typename Flavor::CircuitBuil
         PROFILE_THIS_NAME("compute_honk_style_permutation_lagrange_polynomials_from_mapping");
 
         compute_honk_style_permutation_lagrange_polynomials_from_mapping<Flavor>(
-            polynomials.get_sigmas(), mapping.sigmas, dyadic_size, active_region_data);
+            polynomials.get_sigmas(), mapping.sigmas, evaluation_separator, active_region_data);
     }
     {
 
         PROFILE_THIS_NAME("compute_honk_style_permutation_lagrange_polynomials_from_mapping");
 
         compute_honk_style_permutation_lagrange_polynomials_from_mapping<Flavor>(
-            polynomials.get_ids(), mapping.ids, dyadic_size, active_region_data);
+            polynomials.get_ids(), mapping.ids, evaluation_separator, active_region_data);
     }
 }
 
