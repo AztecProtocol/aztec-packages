@@ -156,10 +156,10 @@ function test_cmds {
 
   # bb.js browser tests. Isolate because server.
   local prefix="$tests_hash:ISOLATE=1:NET=1:CPUS=8"
-  echo "$prefix:NAME=chrome_verify_honk_proof $scripts/browser.sh verify_honk_proof chrome"
-  echo "$prefix:NAME=chrome_a_1_mul $scripts/browser.sh a_1_mul chrome"
-  echo "$prefix:NAME=webkit_verify_honk_proof $scripts/browser.sh verify_honk_proof webkit"
-  echo "$prefix:NAME=webkit_a_1_mul $scripts/browser.sh a_1_mul webkit"
+  echo "$prefix:NAME=chrome_verify_honk_proof $scripts/browser_prove.sh verify_honk_proof chrome"
+  echo "$prefix:NAME=chrome_a_1_mul $scripts/browser_prove.sh a_1_mul chrome"
+  echo "$prefix:NAME=webkit_verify_honk_proof $scripts/browser_prove.sh verify_honk_proof webkit"
+  echo "$prefix:NAME=webkit_a_1_mul $scripts/browser_prove.sh a_1_mul webkit"
 
   # bb.js tests.
   local prefix=$tests_hash
