@@ -149,10 +149,13 @@ template <typename Flavor> class SumcheckProverRound {
                                                const bb::GateSeparatorPolynomial<FF>& gate_separators,
                                                const SubrelationSeparators& alphas)
     {
+        // NOTE: If you modify this you must benchmark AVM compilation. See PR #16376.
         if constexpr (specifiesUnivariateChunks<Flavor>) {
             return compute_univariate_with_chunking(polynomials, relation_parameters, gate_separators, alphas);
+        } else {
+            return compute_univariate_with_row_skipping(polynomials, relation_parameters, gate_separators, alphas);
         }
-        return compute_univariate_with_row_skipping(polynomials, relation_parameters, gate_separators, alphas);
+        __builtin_unreachable();
     }
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1484): should we more intelligently incorporate the two
     // `compute_univariate` types of functions?
