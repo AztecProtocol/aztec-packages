@@ -71,7 +71,7 @@ template <typename Flavor> HonkProof create_mock_decider_proof()
     HonkProof proof;
 
     // Sumcheck univariates
-    const size_t TOTAL_SIZE_SUMCHECK_UNIVARIATES = CONST_PROOF_SIZE_LOG_N * Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
+    const size_t TOTAL_SIZE_SUMCHECK_UNIVARIATES = Flavor::LOG_N * Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
     for (size_t i = 0; i < TOTAL_SIZE_SUMCHECK_UNIVARIATES; ++i) {
         proof.emplace_back(FF::random_element());
     }
@@ -82,11 +82,11 @@ template <typename Flavor> HonkProof create_mock_decider_proof()
     }
 
     // Gemini fold commitments
-    const size_t NUM_GEMINI_FOLD_COMMITMENTS = CONST_PROOF_SIZE_LOG_N - 1;
+    const size_t NUM_GEMINI_FOLD_COMMITMENTS = Flavor::LOG_N - 1;
     populate_field_elements_for_mock_commitments(proof, NUM_GEMINI_FOLD_COMMITMENTS);
 
     // Gemini fold evaluations
-    const size_t NUM_GEMINI_FOLD_EVALUATIONS = CONST_PROOF_SIZE_LOG_N;
+    const size_t NUM_GEMINI_FOLD_EVALUATIONS = Flavor::LOG_N;
     for (size_t i = 0; i < NUM_GEMINI_FOLD_EVALUATIONS; ++i) {
         proof.emplace_back(FF::random_element());
     }
