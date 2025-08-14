@@ -41,30 +41,6 @@ title: Build
   </Card>
 </div>
 
-## Clone a repo
-
-<Card shadow='tl' link='https://github.com/AztecProtocol/aztec-starter'>
-  <a href="https://github.com/AztecProtocol/aztec-starter" target="_blank" rel="noopener noreferrer">
-    <img
-      src="@site/static/img/logos/github_light_mode.svg"
-      style={{
-        width: '30px',
-        height: '30px',
-        marginLeft: '8px',
-        paddingLeft: '8px',
-        paddingTop: '10px'
-      }}
-      alt="GitHub Icon"
-    />
-  </a>
-  <CardHeader>
-    <h3>Full stack app on Aztec</h3>
-  </CardHeader>
-  <CardBody>
-    Learn how everything works together by building an app in JavaScript that connects to a contract
-  </CardBody>
-</Card>
-
 ## Get inspired
 
 <div className="card-container full-width">
