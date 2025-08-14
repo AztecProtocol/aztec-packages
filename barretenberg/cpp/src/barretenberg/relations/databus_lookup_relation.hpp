@@ -315,7 +315,6 @@ template <typename FF_> class DatabusLookupRelationImpl {
                                                      const Parameters& params,
                                                      const FF& scaling_factor)
     {
-        PROFILE_THIS_NAME("DatabusRead::accumulate");
         using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
         using ShortAccumulator = std::tuple_element_t<2, ContainerOverSubrelations>;
