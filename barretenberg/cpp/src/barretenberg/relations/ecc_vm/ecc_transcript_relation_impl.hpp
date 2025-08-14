@@ -183,15 +183,14 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
         (msm_transition - msm_transition_check * (-msm_count_zero_at_transition + 1)) * scaling_factor; // degree 3
 
     /**
-     * @brief Validate `msm_count` resets when we end a multiscalar multiplication.
+     * @brief Validate `msm_count` is 0 when we are not at a `mul` op.
      * msm_count tracks the number of scalar muls in the current active multiscalar multiplication.
      * (if no msm active, `msm_count == 0`)
-     * If current row ends an MSM, `msm_count_shift = 0` (msm_count value at next row)
+     *
+     * @note this in particular "resets" the msm_count when we are done with an msm.
      */
 
-    // RAJU: to be 100% the below correctly constrains `msm_count`, should replace `msm_transition` by the linear
-    // factor: `-q_mul_shift + 1`.
-    std::get<6>(accumulator) += (msm_transition * msm_count_shift) * scaling_factor; // degree 2
+    std::get<6>(accumulator) += ((-q_mul + 1) * msm_count) * scaling_factor; // degree 2
 
     /**
      * @brief Validate `msm_count` updates correctly for mul operations.
@@ -248,7 +247,7 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
     const auto validate_on_curve = q_add + q_mul + q_eq;
     const auto on_curve_check =
         transcript_Py * transcript_Py - transcript_Px * transcript_Px * transcript_Px - get_curve_b();
-    std::get<13>(accumulator) += validate_on_curve * on_curve_check * is_not_infinity * scaling_factor; // degree 6
+    std::get<13>(accumulator) += validate_on_curve * on_curve_check * is_not_infinity * scaling_factor; // degree 5
 
     /**
      * @brief Validate relations from ECC Group Operations are well formed
@@ -378,26 +377,32 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
          *        4. Is 0 (reset)
          *        5. all opcode values are 0
          */
-        auto propagate_transcript_accumulator = (q_mul) * (-msm_transition + 1) + (q_eq * (-q_reset_accumulator + 1));
+
+        // accumulator is propagated if we are at a `mul` and _not_ at an `msm_transition` OR we are at an `eq` and we
+        // don't reset the accumulator. note that if `msm_transition_check == 1` (i.e., we are at a syntactic
+        // transition) but the total number of muls is 0, then the accumulator should indeed be propagated.
+        auto propagate_transcript_accumulator =
+            (q_mul) * (-msm_transition + 1) + (q_eq * (-q_reset_accumulator + 1)); // degree 2
         {
             auto lambda_sqr = lambda * lambda;
-            // add relation that validates result_infinity_from_operation * result_is_infinity = 0
 
             // N.B. these relations rely on the fact that `lambda = 0` if we are not evaluating add/double formula
             // (i.e. one or both outputs are points at infinity, or produce a point at infinity)
             // This should be validated by the lambda_relation
             auto x3 = lambda_sqr - lhs_x - rhs_x;          // degree 2
+            auto y3 = lambda * (lhs_x - out_x) - lhs_y;    // degree 3
             x3 += result_is_lhs * (rhs_x + lhs_x + lhs_x); // degree 4
             x3 += result_is_rhs * (lhs_x + rhs_x + rhs_x); // degree 4
             x3 += result_is_infinity * (lhs_x + rhs_x);    // degree 4
-            auto y3 = lambda * (lhs_x - out_x) - lhs_y;    // degree 3
             y3 += result_is_lhs * (lhs_y + lhs_y);         // degree 4
             y3 += result_is_rhs * (lhs_y + rhs_y);         // degree 4
             y3 += result_is_infinity * lhs_y;              // degree 4
-
+            // internal to the Transcript columns, the point-at-infinity is encoded as `(0, 0)`.
+            // this is implicit in the subsequent computations: e.g. if `result_is_infinity`, then `(x3, y3) == (0, 0)`,
+            // or if `q_reset_accumulator == 1`, then `(out_x, out_y) == (0, 0)`.
             auto add_point_x_relation = (x3 - out_x) * any_add_is_active; // degree 5
             add_point_x_relation +=
-                propagate_transcript_accumulator * is_not_last_row * (out_x - transcript_accumulator_x);
+                propagate_transcript_accumulator * is_not_last_row * (out_x - transcript_accumulator_x); // degree 4
             // validate out_x = 0 if q_reset_accumulator = 1
             add_point_x_relation += (out_x * q_reset_accumulator);
             auto add_point_y_relation = (y3 - out_y) * any_add_is_active; // degree 5
@@ -406,17 +411,19 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
             // validate out_y = 0 if q_reset_accumulator = 1
             add_point_y_relation += (out_y * q_reset_accumulator);
             auto opcode_is_zero =
-                (is_not_first_row) * (-q_add + 1) * (-q_mul + 1) * (-q_reset_accumulator + 1) * (-q_eq + 1);
-            add_point_x_relation += (out_x * opcode_is_zero);
-            add_point_y_relation += (out_y * opcode_is_zero);
+                (is_not_first_row) * (-q_add + 1) * (-q_mul + 1) * (-q_reset_accumulator + 1) * (-q_eq + 1); // degree 5
+            add_point_x_relation += (out_x * opcode_is_zero);                                                // degree 6
+            add_point_y_relation += (out_y * opcode_is_zero);                                                // degree 6
 
-            std::get<15>(accumulator) += add_point_x_relation * scaling_factor; // degree 5
-            std::get<16>(accumulator) += add_point_y_relation * scaling_factor; // degree 5
+            std::get<15>(accumulator) += add_point_x_relation * scaling_factor; // degree 6
+            std::get<16>(accumulator) += add_point_y_relation * scaling_factor; // degree 6
         }
 
-        // step 1: subtract offset generator from msm_accumulator
-        // this might produce a point at infinity
+        // subtract offset generator from msm_accumulator. this might produce a point at infinity
         {
+            // the fundamental relation is: `(transcript_msm_x, transcript_msm_y) - offset ==
+            // `(transcript_msm_intermediate_x, transcript_msm_intermediate_y)`. in other words, `(transcript_msm_x,
+            // transcript_msm_y)` is the _shifted_ value of the MSM.
             const auto offset = offset_generator();
             const auto x1 = offset[0];
             const auto y1 = -offset[1];
@@ -428,11 +435,14 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
             // cases:
             // x2 == x1, y2 == y1
             // x2 != x1
-            // (x2 - x1)
             const auto x_term = (x3 + x2 + x1) * (x2 - x1) * (x2 - x1) - (y2 - y1) * (y2 - y1); // degree 3
             const auto y_term = (x1 - x3) * (y2 - y1) - (x2 - x1) * (y1 + y3);                  // degree 2
-            // IF msm_infinity = false, transcript_msm_intermediate_x/y is either the result of subtracting offset
-            // generator from msm_x/y IF msm_infinity = true, transcript_msm_intermediate_x/y is 0
+            // If `transcript_msm_infinity == 0`, then `(transcript_msm_intermediate_x, transcript_msm_intermediate_y)`
+            // is the result of subtracting offset generator from `(transcript_msm_x, transcript_msm_y)`. If
+            // `transcript_msm_infinity == 1`, then both `transcript_msm_intermediate_x ==0` and
+            // `transcript_msm_intermediate_y == 0`.
+            //
+            // again, point-at-infinity is represented internally in the Transcript columns by `(0, 0)`.
             const auto transcript_offset_generator_subtract_x =
                 x_term * (-transcript_msm_infinity + 1) + transcript_msm_infinity * x3; // degree 4
             const auto transcript_offset_generator_subtract_y =
@@ -442,13 +452,14 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
             std::get<18>(accumulator) +=
                 msm_transition * transcript_offset_generator_subtract_y * scaling_factor; // degree 5
 
-            // validate transcript_msm_infinity is correct
-            // if transcript_msm_infinity = 1, (x2 == x1) and (y2 + y1 == 0)
+            // validate `transcript_msm_infinity` is correct
+            // if `transcript_msm_infinity == 1`, then both `x2 == x1` and `y2 + y1 == 0`. (this is because `(x1, y1)`
+            // is the negative of the offset.)
             const auto x_diff = x2 - x1;
             const auto y_sum = y2 + y1;
             std::get<19>(accumulator) += msm_transition * transcript_msm_infinity * x_diff * scaling_factor; // degree 3
             std::get<20>(accumulator) += msm_transition * transcript_msm_infinity * y_sum * scaling_factor;  // degree 3
-            // if transcript_msm_infinity = 1, then x_diff must have an inverse
+            // if `transcript_msm_infinity == 0`, then `x_diff` must have an inverse
             const auto transcript_msm_x_inverse = View(in.transcript_msm_x_inverse);
             const auto inverse_term = (-transcript_msm_infinity + 1) * (x_diff * transcript_msm_x_inverse - 1);
             std::get<21>(accumulator) += msm_transition * inverse_term * scaling_factor; // degree 3
@@ -478,7 +489,8 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
          *        If lhs_x == rhs_x, transcript_add_x_equal = 1
          *        If transcript_add_x_equal = 0, a valid inverse must exist for (lhs_x - rhs_x)
          */
-        auto x_diff = lhs_x - rhs_x;                                                                        // degree 2
+        auto x_diff = lhs_x - rhs_x; // degree 2
+        // recall that transcript_Px_inverse is the claimed inverse of `x_diff`.
         auto x_product = transcript_Px_inverse * (-transcript_add_x_equal + 1) + transcript_add_x_equal;    // degree 2
         auto x_constant = transcript_add_x_equal - 1;                                                       // degree 1
         auto transcript_add_x_equal_check_relation = (x_diff * x_product + x_constant) * any_add_is_active; // degree 5
