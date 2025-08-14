@@ -44,7 +44,7 @@ class MegaFlavor {
     using TraceBlocks = MegaExecutionTraceBlocks;
     using Transcript = NativeTranscript;
 
-    static constexpr size_t LOG_N = 20;
+    static constexpr size_t LOG_N = CONST_PG_LOG_N;
     // indicates when evaluating sumcheck, edges can be left as degree-1 monomials
     static constexpr bool USE_SHORT_MONOMIALS = true;
     // Indicates that this flavor runs with non-ZK Sumcheck.
