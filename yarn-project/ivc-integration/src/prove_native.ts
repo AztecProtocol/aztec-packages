@@ -125,6 +125,7 @@ async function proveRollupCircuit<T extends UltraHonkFlavor, ProofLength extends
     workingDirectory,
     name,
     Buffer.from(circuit.bytecode, 'base64'),
+    Buffer.from(circuit.verificationKey, 'hex'),
     path.join(workingDirectory, 'witness.gz'),
     flavor,
     logger,

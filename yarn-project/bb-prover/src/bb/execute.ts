@@ -218,7 +218,7 @@ export async function generateProof(
   workingDirectory: string,
   circuitName: string,
   bytecode: Buffer,
-  verificationKey: VerificationKeyData,
+  verificationKey: Buffer,
   inputWitnessFile: string,
   flavor: UltraHonkFlavor,
   log: Logger,
@@ -247,7 +247,7 @@ export async function generateProof(
 
   try {
     // Write the bytecode and vk to the working directory
-    await Promise.all([fs.writeFile(bytecodePath, bytecode), fs.writeFile(vkPath, verificationKey.keyAsBytes)]);
+    await Promise.all([fs.writeFile(bytecodePath, bytecode), fs.writeFile(vkPath, verificationKey)]);
     const args = getArgs(flavor).concat([
       '--disable_zk',
       '--output_format',

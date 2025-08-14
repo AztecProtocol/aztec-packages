@@ -18,10 +18,13 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
+working_dir=${2:-}
+if [ -n "$working_dir" ]; then
+  cd "$working_dir"
+fi
 
 export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
 export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
-export PLATFORM_TAG=any
 
 export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
