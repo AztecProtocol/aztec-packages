@@ -49,6 +49,7 @@ template <class Fr> class UnivariateConcept {
     virtual std::unique_ptr<UnivariateConcept<Fr>> operator+(const Fr& scalar) const = 0;
     virtual std::unique_ptr<UnivariateConcept<Fr>> operator-(const Fr& scalar) const = 0;
     virtual std::unique_ptr<UnivariateConcept<Fr>> operator*(const Fr& scalar) const = 0;
+    virtual std::unique_ptr<UnivariateConcept<Fr>> operator-() const = 0;
 
     // Evaluation
     virtual Fr evaluate(const Fr& u) const = 0;
@@ -168,6 +169,11 @@ template <class Fr, class UnivariateImpl> class UnivariateModel : public Univari
     std::unique_ptr<UnivariateConcept<Fr>> operator*(const Fr& scalar) const override
     {
         auto result_impl = impl_ * scalar;
+        return std::make_unique<UnivariateModel<Fr, UnivariateImpl>>(std::move(result_impl));
+    }
+    std::unique_ptr<UnivariateConcept<Fr>> operator-() const override
+    {
+        auto result_impl = -impl_;
         return std::make_unique<UnivariateModel<Fr, UnivariateImpl>>(std::move(result_impl));
     }
 
@@ -297,6 +303,11 @@ template <class Fr> class ErasedUnivariate {
     ErasedUnivariate operator*(const Fr& scalar) const
     {
         auto new_impl = impl_->operator*(scalar);
+        return ErasedUnivariate(std::move(new_impl));
+    }
+    ErasedUnivariate operator-() const
+    {
+        auto new_impl = impl_->operator-();
         return ErasedUnivariate(std::move(new_impl));
     }
 

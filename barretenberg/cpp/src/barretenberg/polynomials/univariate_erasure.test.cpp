@@ -199,3 +199,17 @@ TEST(UnivariateErasureTest, MultiplicationByScalarReturnsNew)
     EXPECT_EQ(g.value_at(1), fr(20));
     EXPECT_EQ(g.value_at(2), fr(30));
 }
+
+TEST(UnivariateErasureTest, NegationReturnsNew)
+{
+    ErasedUnivariate<fr> f(Univariate<fr, 3>{ { 1, 2, 3 } });
+    auto g = -f;
+    // original unchanged
+    EXPECT_EQ(f.value_at(0), fr(1));
+    EXPECT_EQ(f.value_at(1), fr(2));
+    EXPECT_EQ(f.value_at(2), fr(3));
+    // new has -1, -2, -3
+    EXPECT_EQ(g.value_at(0), fr(-1));
+    EXPECT_EQ(g.value_at(1), fr(-2));
+    EXPECT_EQ(g.value_at(2), fr(-3));
+}
