@@ -5,7 +5,6 @@ Barretenberg is a C++ library that implements various Zero-Knowledge Succinct No
 ## Key Features
 
 - **Multiple Proof Systems**: Supports several zkSNARK implementations including:
-  - **UltraPlonk**: A legacy version of PLONK
   - **UltraHonk**: A newer, more efficient PLONKish proving system
   - **ClientIVC**: A proving scheme optimized for [Aztec](https://aztec.network) client-side smart contract execution
 
@@ -51,7 +50,7 @@ A versioning tool allowing to install arbitrary versions of Barretenberg, as wel
 The `bb` command line interface is the primary way to interact with Barretenberg directly. It provides commands for operations such as:
 
 - Proving and verifying circuits
-- Generating verification keys 
+- Generating verification keys
 - Creating Solidity verifiers for on-chain verification
 - Executing and verifying recursive proofs
 
@@ -66,7 +65,6 @@ bb.js is a TypeScript library that wraps the Barretenberg C++ implementation via
 UltraHonk is an advanced proof system that offers improvements over the legacy UltraPlonk:
 
 - More efficient proving times
-- Smaller proof sizes
 - Reduced memory usage
 - Enhanced recursive proving capabilities
 
