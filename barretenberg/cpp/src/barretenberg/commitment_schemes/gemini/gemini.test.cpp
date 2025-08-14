@@ -86,7 +86,7 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
         }
     }
 
-    void scaling_check()
+    void open_extension_by_zero()
     {
         auto prover_transcript = NativeTranscript::prover_init_empty();
 
@@ -230,9 +230,9 @@ TYPED_TEST(GeminiTest, DoubleWithShiftAndInterleaving)
     this->execute_gemini_and_verify_claims(u, mock_claims);
 }
 
-TYPED_TEST(GeminiTest, Scaling)
+TYPED_TEST(GeminiTest, OpenExtensionByZero)
 {
-    TestFixture::scaling_check();
+    TestFixture::open_extension_by_zero();
 }
 /**
  * @brief Implementation of the [attack described by Ariel](https://hackmd.io/zm5SDfBqTKKXGpI-zQHtpA?view).
