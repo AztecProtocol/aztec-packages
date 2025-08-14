@@ -13,21 +13,31 @@ export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
     this.publishers = publishers;
   }
 
+  // Finds and prioritises available publishers based on
+  // 1. Validity as per the provided filter function
+  // 2. Validity based on the state the publisher is in
+  // 3. Priority based on state as defined bu sortOrder
+  // 4. Then priority based on highest balance
+  // 5. Then priority based on least recently used
   public async getAvailablePublisher(filter: (utils: UtilsType) => boolean = () => true): Promise<UtilsType> {
+    // Extract the valid publishers
     const validPublishers = this.publishers.filter(
       (pub: UtilsType) => !invalidStates.includes(pub.state) && filter(pub),
     );
 
+    // Error if none found
     if (validPublishers.length === 0) {
       throw new Error(`Failed to find an available publisher.`);
     }
 
+    // Get the balances
     const publishersWithBalance = await Promise.all(
       validPublishers.map(async pub => {
         return { balance: await pub.getSenderBalance(), publisher: pub };
       }),
     );
 
+    // Sort based on state, then balance, then time since last use
     const sortedPublishers = publishersWithBalance.sort((a, b) => {
       const stateComparison = sortOrder.indexOf(a.publisher.state) - sortOrder.indexOf(b.publisher.state);
       if (stateComparison !== 0) {
