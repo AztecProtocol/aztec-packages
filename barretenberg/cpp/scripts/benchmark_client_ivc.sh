@@ -3,7 +3,7 @@ set -eu
 
 TARGET=${1:-"client_ivc_bench"}
 BENCHMARK="ClientIVCBench/Full/6"
-BUILD_DIR="build"
+BUILD_DIR="build-op-count-time"
 FILTER="${BENCHMARK}$" # '$' to ensure only specified bench is run
 
 # Move above script dir.
@@ -11,10 +11,10 @@ cd $(dirname $0)/..
 
 # Measure the benchmarks with ops time counting
 ./scripts/benchmark_remote.sh "$TARGET"\
-                              "BB_USE_OP_COUNT_TIME=1 ./$TARGET --benchmark_filter=$FILTER\
+                              "./$TARGET --benchmark_filter=$FILTER\
                                          --benchmark_out=$TARGET.json\
                                          --benchmark_out_format=json"\
-                              clang16-assert\
+                              op-count-time\
                               "$BUILD_DIR"
 
 # Retrieve output from benching instance
