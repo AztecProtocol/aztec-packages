@@ -153,64 +153,60 @@ function test_cmds {
     echo "$sol_prefix $scripts/bb_prove_sol_verify.sh $t --disable_zk"
     echo "$sol_prefix $scripts/bb_prove_sol_verify.sh $t"
   done
+  # prove with bb cli and verify with bb.js classes
+  echo "$sol_prefix $scripts/bb_prove_bbjs_verify.sh a_1_mul"
+  echo "$sol_prefix $scripts/bb_prove_bbjs_verify.sh assert_statement"
 
   # bb.js browser tests. Isolate because server.
-  local prefix="$tests_hash:ISOLATE=1:NET=1:CPUS=8"
-  echo "$prefix:NAME=chrome_verify_honk_proof $scripts/browser_prove.sh verify_honk_proof chrome"
-  echo "$prefix:NAME=chrome_a_1_mul $scripts/browser_prove.sh a_1_mul chrome"
-  echo "$prefix:NAME=webkit_verify_honk_proof $scripts/browser_prove.sh verify_honk_proof webkit"
-  echo "$prefix:NAME=webkit_a_1_mul $scripts/browser_prove.sh a_1_mul webkit"
+  local browser_prefix="$tests_hash:ISOLATE=1:NET=1:CPUS=8"
+  echo "$browser_prefix:NAME=chrome_verify_honk_proof $scripts/browser_prove.sh verify_honk_proof chrome"
+  echo "$browser_prefix:NAME=chrome_a_1_mul $scripts/browser_prove.sh a_1_mul chrome"
+  echo "$browser_prefix:NAME=webkit_verify_honk_proof $scripts/browser_prove.sh verify_honk_proof webkit"
+  echo "$browser_prefix:NAME=webkit_a_1_mul $scripts/browser_prove.sh a_1_mul webkit"
 
   # bb.js tests.
-  local prefix=$tests_hash
   # ecdsa_secp256r1_3x through bb.js on node to check 256k support.
-  echo "$prefix $scripts/bbjs_prove.sh ecdsa_secp256r1_3x"
+  echo "$tests_hash $scripts/bbjs_prove.sh ecdsa_secp256r1_3x"
   # the prove then verify flow for UltraHonk. This makes sure we have the same circuit for different witness inputs.
-  echo "$prefix $scripts/bbjs_prove.sh a_6_array"
+  echo "$tests_hash $scripts/bbjs_prove.sh a_6_array"
 
   # Fold and verify an ACIR program stack using ClientIVC, recursively verify as part of the Tube circuit and produce and verify a Honk proof
-  echo "$prefix $scripts/bb_tube_prove.sh a_6_array"
+  echo "$tests_hash $scripts/bb_tube_prove.sh a_6_array"
 
   for t in $non_recursive_tests; do
-    echo "$prefix $scripts/bb_ultra_honk_prove.sh $(basename $t)"
+    echo "$tests_hash $scripts/bb_prove.sh $(basename $t)"
   done
-  echo "$prefix $scripts/bb_ultra_honk_prove.sh assert_statement"
+  echo "$tests_hash $scripts/bb_prove.sh assert_statement"
   # Run the UH recursive verifier tests with ZK.
-  echo "$prefix $scripts/bb_ultra_honk_prove.sh verify_honk_proof"
-  echo "$prefix $scripts/bb_ultra_honk_prove.sh double_verify_honk_proof"
+  echo "$tests_hash $scripts/bb_prove.sh verify_honk_proof"
+  echo "$tests_hash $scripts/bb_prove.sh double_verify_honk_proof"
   # Run the UH recursive verifier tests without ZK.
-  echo "$prefix $scripts/bb_ultra_honk_prove.sh double_verify_honk_proof --disable_zk"
+  echo "$tests_hash $scripts/bb_prove.sh double_verify_honk_proof --disable_zk"
   # Run the ZK UH recursive verifier tests.
-  echo "$prefix $scripts/bb_ultra_honk_prove.sh double_verify_honk_zk_proof"
+  echo "$tests_hash $scripts/bb_prove.sh double_verify_honk_zk_proof"
   # Run the ZK UH recursive verifier tests without ZK.
-  echo "$prefix $scripts/bb_ultra_honk_prove.sh double_verify_honk_zk_proof --disable_zk"
+  echo "$tests_hash $scripts/bb_prove.sh double_verify_honk_zk_proof --disable_zk"
 
-  echo "$prefix $scripts/bb_ultra_honk_prove.sh assert_statement --oracle_hash keccak"
-  echo "$prefix $scripts/bb_ultra_honk_prove.sh verify_rollup_honk_proof"
+  echo "$tests_hash $scripts/bb_prove.sh assert_statement --oracle_hash keccak"
+  # If starknet enabled:
+  #echo "$tests_hash $scripts/bb_prove.sh assert_statement --oracle_hash starknet"
+  echo "$tests_hash $scripts/bb_prove.sh verify_rollup_honk_proof"
   # Run the assert_statement test with ZK disabled.
-  echo "$prefix $scripts/bb_ultra_honk_prove.sh assert_statement --disable_zk"
+  echo "$tests_hash $scripts/bb_prove.sh assert_statement --disable_zk"
 
   # prove and verify using bb.js classes
-  echo "$prefix $scripts/bbjs_prove_verify.sh a_1_mul"
-  echo "$prefix $scripts/bbjs_prove_verify.sh assert_statement"
-
-  # prove with bb.js and verify with solidity verifier
-  echo "$prefix $scripts/bbjs_prove_sol_verify.sh a_1_mul"
-  echo "$prefix $scripts/bbjs_prove_sol_verify.sh assert_statement"
-
-  # prove with bb cli and verify with bb.js classes
-  echo "$prefix $scripts/bb_prove_bbjs_verify.sh a_1_mul"
-  echo "$prefix $scripts/bb_prove_bbjs_verify.sh assert_statement"
+  echo "$tests_hash $scripts/bbjs_prove_verify.sh a_1_mul"
+  echo "$tests_hash $scripts/bbjs_prove_verify.sh assert_statement"
 
   # prove with bb.js and verify with bb cli
-  echo "$prefix $scripts/bbjs_prove_bb_verify.sh a_1_mul"
-  echo "$prefix $scripts/bbjs_prove_bb_verify.sh assert_statement"
+  echo "$tests_hash $scripts/bbjs_prove_bb_verify.sh a_1_mul"
+  echo "$tests_hash $scripts/bbjs_prove_bb_verify.sh assert_statement"
 }
 
 function bench_cmds {
   local dir=$(realpath --relative-to=$root .)
   echo "$tests_hash:CPUS=16 barretenberg/acir_tests/scripts/run_bench.sh ultra_honk_rec_wasm_memory" \
-    "'/scripts/$scripts/bbjs_prove.sh verify_honk_proof'"
+    "'scripts/bbjs_prove.sh verify_honk_proof'"
 }
 
 # TODO(https://github.com/AztecProtocol/barretenberg/issues/1254): More complete testing, including failure tests
