@@ -198,6 +198,11 @@ contract RollupBuilder is Test {
     return this;
   }
 
+  function setSlashingOffsetInRounds(uint256 _slashingOffsetInRounds) public returns (RollupBuilder) {
+    config.rollupConfigInput.slashingOffsetInRounds = _slashingOffsetInRounds;
+    return this;
+  }
+
   function setSlashingUnit(uint256 _slashingUnit) public returns (RollupBuilder) {
     config.rollupConfigInput.slashingUnit = _slashingUnit;
     return this;

@@ -28,7 +28,8 @@ contract Slasher is ISlasher {
     uint256 _executionDelayInRounds,
     uint256 _slashingUnit,
     uint256 _committeeSize,
-    uint256 _epochDuration
+    uint256 _epochDuration,
+    uint256 _slashOffsetInRounds
   ) {
     VETOER = _vetoer;
     PROPOSER = _flavor == SlasherFlavor.CONSENSUS
@@ -42,7 +43,8 @@ contract Slasher is ISlasher {
           _executionDelayInRounds,
           _slashingUnit,
           _committeeSize,
-          _epochDuration
+          _epochDuration,
+          _slashOffsetInRounds
         )
       )
       : address(

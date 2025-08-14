@@ -238,7 +238,8 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
       _config.slashingExecutionDelayInRounds,
       _config.slashingUnit,
       _config.targetCommitteeSize,
-      _config.aztecEpochDuration
+      _config.aztecEpochDuration,
+      _config.slashingOffsetInRounds
     );
 
     StakingLib.initialize(_stakingAsset, _gse, exitDelay, address(slasher), _config.stakingQueueConfig);

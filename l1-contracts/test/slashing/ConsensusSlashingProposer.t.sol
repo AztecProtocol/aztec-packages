@@ -4,30 +4,6 @@ pragma solidity >=0.8.27;
 
 /**
  * @title ConsensusSlashingProposer Test Suite
- * @notice Comprehensive tests for the ConsensusSlashingProposer contract
- *
- * @dev This test suite covers:
- *
- * WORKING TESTS (12 tests passing):
- * 1. Vote Function Tests (6 tests):
- *    - test_voteAsProposer: Current proposer can vote successfully
- *    - test_voteRevertAsNonProposer: Non-proposers cannot vote
- *    - test_voteRevertWithInvalidSignature: Invalid signature rejection
- *    - test_voteRevertWithWrongVoteLength: Wrong vote length rejection
- *    - test_voteOncePerSlot: Only one vote per slot allowed
- *    - test_voteAccumulatesAcrossSlots: Votes accumulate correctly
- *
- * 2. View Function Tests (4 tests):
- *    - test_getSlashRound: Returns correct status and vote count
- *    - test_getPayloadAddress: Predicts payload address correctly
- *    - test_getCurrentSlashRound: Calculates round from slot correctly
- *    - test_roundOutOfRange: Access outside valid range fails
- *
- * 3. Edge Cases (1 test):
- *    - test_circularStorageOverwrite: Old rounds overwritten correctly
- *
- * 4. Constructor Validation (1 test):
- *    - test_constructorValidation: Parameter validation works
  */
 import {Rollup} from "@aztec/core/Rollup.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
@@ -67,6 +43,7 @@ contract ConsensusSlashingProposerTest is TestBase {
   uint256 internal constant ROUND_SIZE_IN_EPOCHS = 2;
   uint256 internal constant LIFETIME_IN_ROUNDS = 5;
   uint256 internal constant EXECUTION_DELAY_IN_ROUNDS = 1;
+  uint256 internal constant SLASH_OFFSET_IN_ROUNDS = 2;
 
   // Test validator keys
   uint256[] internal validatorKeys;
@@ -393,6 +370,7 @@ contract ConsensusSlashingProposerTest is TestBase {
     uint256 targetSlot = (SlashRound.unwrap(targetSlashRound) + EXECUTION_DELAY_IN_ROUNDS + 1) * ROUND_SIZE;
     timeCheater.cheat__jumpToSlot(targetSlot);
 
+    // TODO(palla/slash): Check the numbers below, I believe they are not considering SLASH_OFFSET_IN_ROUNDS
     // Get committees for the round - calculate which epochs belong to this round
     // SlashRound 17 starts at slot 68 (17 * 4)
     // With ROUND_SIZE_IN_EPOCHS=2 and ROUND_SIZE=4, each epoch covers 2 slots
@@ -408,7 +386,7 @@ contract ConsensusSlashingProposerTest is TestBase {
       committees[i] = rollup.getEpochCommittee(Epoch.wrap(epochNumber));
     }
 
-    // Note: Target validator balance checks disabled due to disabled slashing in tests
+    // TODO(palla/slash): Check balance changes
     // address targetValidator = committees[0][0];
     // AttesterView memory initialView = rollup.getAttesterView(targetValidator);
     // uint256 initialBalance = initialView.effectiveBalance;
@@ -418,8 +396,7 @@ contract ConsensusSlashingProposerTest is TestBase {
     vm.prank(currentProposer);
     slashingProposer.executeRound(targetSlashRound, committees);
 
-    // Note: Slashing verification disabled due to authorization issues in test setup
-    // In a real deployment, the balance would be reduced by 5 * SLASHING_UNIT
+    // TODO(palla/slash): Check balance changes
     // AttesterView memory finalView = rollup.getAttesterView(targetValidator);
     // assertEq(finalView.effectiveBalance, initialBalance - (5 * SLASHING_UNIT));
 
@@ -663,7 +640,8 @@ contract ConsensusSlashingProposerTest is TestBase {
       EXECUTION_DELAY_IN_ROUNDS,
       SLASHING_UNIT,
       COMMITTEE_SIZE,
-      EPOCH_DURATION
+      EPOCH_DURATION,
+      SLASH_OFFSET_IN_ROUNDS
     );
 
     // Test slashing unit must be greater than zero
@@ -679,7 +657,8 @@ contract ConsensusSlashingProposerTest is TestBase {
       EXECUTION_DELAY_IN_ROUNDS,
       0, // Invalid slashing unit
       COMMITTEE_SIZE,
-      EPOCH_DURATION
+      EPOCH_DURATION,
+      SLASH_OFFSET_IN_ROUNDS
     );
 
     // Test lifetime must be greater than execution delay
@@ -695,7 +674,8 @@ contract ConsensusSlashingProposerTest is TestBase {
       2, // Execution delay longer than lifetime
       SLASHING_UNIT,
       COMMITTEE_SIZE,
-      EPOCH_DURATION
+      EPOCH_DURATION,
+      SLASH_OFFSET_IN_ROUNDS
     );
   }
 }
