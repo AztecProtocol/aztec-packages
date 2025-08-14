@@ -26,16 +26,16 @@ export function mapProtocolArtifactNameToCircuitName(artifact: ProtocolArtifact)
     case 'RootRollupArtifact':
       return 'root-rollup';
     case 'PrivateKernelInitArtifact':
-      return 'private-kernel-init';
+      return 'ClientIVC';
     case 'PrivateKernelInnerArtifact':
-      return 'private-kernel-inner';
+      return 'ClientIVC';
     case 'PrivateKernelTailArtifact':
-      return 'private-kernel-tail';
+      return 'ClientIVC';
     case 'PrivateKernelTailToPublicArtifact':
-      return 'private-kernel-tail-to-public';
+      return 'ClientIVC';
     default: {
       if (artifact.startsWith('PrivateKernelReset')) {
-        return 'private-kernel-reset';
+        return 'ClientIVC';
       }
       throw new Error(`Unknown circuit type: ${artifact}`);
     }

@@ -30,12 +30,12 @@ template <IsUltraOrMegaHonk Flavor> class DeciderVerificationKey_ {
 
     std::shared_ptr<VerificationKey> vk;
 
-    bool is_accumulator = false;
+    bool is_complete = false; // whether this instance has been completely populated
 
     SubrelationSeparators alphas; // a challenge for each subrelation
     RelationParameters<FF> relation_parameters;
     std::vector<FF> gate_challenges;
-    // The target sum, which is typically nonzero for a ProtogalaxyProver's accmumulator
+    // The target sum, which is typically nonzero for a ProtogalaxyProver's accumulator
     FF target_sum{ 0 };
 
     WitnessCommitments witness_commitments;
@@ -83,6 +83,6 @@ template <IsUltraOrMegaHonk Flavor> class DeciderVerificationKey_ {
         return decider_vk_hash;
     }
 
-    MSGPACK_FIELDS(vk, relation_parameters, alphas, is_accumulator, gate_challenges, target_sum, witness_commitments);
+    MSGPACK_FIELDS(vk, relation_parameters, alphas, is_complete, gate_challenges, target_sum, witness_commitments);
 };
 } // namespace bb
