@@ -118,6 +118,25 @@ void Execution::div(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     }
 }
 
+void Execution::fdiv(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::FDIV;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(a_addr);
+    MemoryValue b = memory.get(b_addr);
+    set_and_validate_inputs(opcode, { a, b });
+
+    get_gas_tracker().consume_gas();
+
+    try {
+        MemoryValue c = alu.fdiv(a, b);
+        memory.set(dst_addr, c);
+        set_output(opcode, c);
+    } catch (AluException& e) {
+        throw OpcodeExecutionException("Alu fdiv operation failed");
+    }
+}
+
 void Execution::eq(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
 {
     constexpr auto opcode = ExecutionOpCode::EQ;
@@ -1225,6 +1244,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::DIV:
         call_with_operands(&Execution::div, context, resolved_operands);
+        break;
+    case ExecutionOpCode::FDIV:
+        call_with_operands(&Execution::fdiv, context, resolved_operands);
         break;
     case ExecutionOpCode::EQ:
         call_with_operands(&Execution::eq, context, resolved_operands);
