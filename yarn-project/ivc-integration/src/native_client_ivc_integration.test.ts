@@ -6,8 +6,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { getWorkingDirectory } from './bb_working_directory.js';
-import { generate3FunctionTestingIVCStack, generate6FunctionTestingIVCStack } from './index.js';
 import { proveClientIVC } from './prove_native.js';
+import { generateTestingIVCStack } from './witgen.js';
 
 const logger = createLogger('ivc-integration:test:native');
 
@@ -29,7 +29,7 @@ describe('Client IVC Integration', () => {
   // 3. Run the tail kernel to finish the client IVC chain.
   // 4. Run the hiding kernel.
   it('Should generate a verifiable client IVC proof from a simple mock tx', async () => {
-    const [bytecodes, witnessStack, _, vks] = await generate3FunctionTestingIVCStack();
+    const [bytecodes, witnessStack, _, vks] = await generateTestingIVCStack(1, 0);
 
     const proof = await proveClientIVC(bbBinaryPath, bbWorkingDirectory, witnessStack, bytecodes, vks, logger);
     await writeClientIVCProofToOutputDirectory(proof, bbWorkingDirectory);
@@ -52,7 +52,7 @@ describe('Client IVC Integration', () => {
   // 6. Run the tail kernel to finish the client IVC chain
   // 7. Run the hiding kernel.
   it('Should generate a verifiable client IVC proof from a complex mock tx', async () => {
-    const [bytecodes, witnessStack, _, vks] = await generate6FunctionTestingIVCStack();
+    const [bytecodes, witnessStack, _, vks] = await generateTestingIVCStack(1, 1);
 
     const proof = await proveClientIVC(bbBinaryPath, bbWorkingDirectory, witnessStack, bytecodes, vks, logger);
     await writeClientIVCProofToOutputDirectory(proof, bbWorkingDirectory);

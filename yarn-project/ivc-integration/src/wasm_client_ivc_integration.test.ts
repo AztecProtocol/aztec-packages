@@ -3,22 +3,20 @@ import { AztecClientBackend } from '@aztec/bb.js';
 import { createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
-/* eslint-disable camelcase */
 import { ungzip } from 'pako';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { getWorkingDirectory } from './bb_working_directory.js';
+import { proveClientIVC as proveClientIVCNative } from './prove_native.js';
+import { proveClientIVC as proveClientIVCWasm, proveThenVerifyAztecClient } from './prove_wasm.js';
 import {
   MockAppCreatorCircuit,
   MockHidingCircuit,
   MockPrivateKernelInitCircuit,
   MockPrivateKernelTailCircuit,
-  generate3FunctionTestingIVCStack,
-  generate6FunctionTestingIVCStack,
-} from './index.js';
-import { proveClientIVC as proveClientIVCNative } from './prove_native.js';
-import { proveClientIVC as proveClientIVCWasm, proveThenVerifyAztecClient } from './prove_wasm.js';
+  generateTestingIVCStack,
+} from './witgen.js';
 
 const logger = createLogger('ivc-integration:test:wasm');
 
@@ -31,8 +29,9 @@ describe('Client IVC Integration', () => {
   // 1. Run a mock app that creates two commitments
   // 2. Run the init kernel to process the app run
   // 3. Run the tail kernel to finish the client IVC chain.
+  // 4. Run the hiding kernel.
   it('Should generate a verifiable client IVC proof from a simple mock tx via bb.js, verified by bb', async () => {
-    const [bytecodes, witnessStack, , vks] = await generate3FunctionTestingIVCStack();
+    const [bytecodes, witnessStack, , vks] = await generateTestingIVCStack(1, 0);
 
     // We use the bb binary for verification / writing out the VK
     const bbBinaryPath = path.join(
@@ -81,6 +80,7 @@ describe('Client IVC Integration', () => {
     // eyeball against logs to start... better is to make another test that actually pins the sizes since the mock protocol circuits are
     // intended not to change, though for sure there will be some friction, and such test should actually just be located in barretenberg/ts)
   });
+
   // This test will verify a client IVC proof of a more complex tx:
   // 1. Run a mock app that creates two commitments
   // 2. Run the init kernel to process the app run
@@ -88,8 +88,9 @@ describe('Client IVC Integration', () => {
   // 4. Run the inner kernel to process the second app run
   // 5. Run the reset kernel to process the read request emitted by the reader app
   // 6. Run the tail kernel to finish the client IVC chain
+  // 7. Run the hiding kernel.
   it('Should generate a verifiable client IVC proof from a complex mock tx', async () => {
-    const [bytecodes, witnessStack, _, vks] = await generate6FunctionTestingIVCStack();
+    const [bytecodes, witnessStack, _, vks] = await generateTestingIVCStack(1, 1);
     const verifyResult = await proveThenVerifyAztecClient(bytecodes, witnessStack, vks);
     logger.info(`generated then verified proof. result: ${verifyResult}`);
 

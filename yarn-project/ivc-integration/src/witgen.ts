@@ -3,6 +3,7 @@ import {
   AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
   MEGA_VK_LENGTH_IN_FIELDS,
 } from '@aztec/constants';
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { applyStringFormatting, createLogger } from '@aztec/foundation/log';
 import { type ForeignCallInput, type ForeignCallOutput, Noir } from '@aztec/noir-noir_js';
@@ -234,134 +235,130 @@ export async function witnessGenMockRollupRootCircuit(
   };
 }
 
-export async function generate3FunctionTestingIVCStack(): Promise<
-  [string[], Uint8Array[], KernelPublicInputs, string[]]
-> {
+export async function generateTestingIVCStack(
+  // A call to the creator app creates 1 commitment. A tx can have at most 2 commitments.
+  numCreatorAppCalls: number,
+  // A call to the reader app creates 1 read request. A reset kernel will be run if there are 2 read requests in the
+  // public inputs. All read requests must be cleared before running the tail kernel.
+  numReaderAppCalls: number,
+): Promise<[string[], Uint8Array[], KernelPublicInputs, string[]]> {
+  if (numCreatorAppCalls > 2) {
+    throw new Error('The creator app can only be called at most twice.');
+  }
+
   const tx = {
-    number_of_calls: '0x1',
+    number_of_calls: `0x${(numCreatorAppCalls + numReaderAppCalls).toString(16)}`,
   };
 
-  // Witness gen app and kernels
-  const appWitnessGenResult = await witnessGenCreatorAppMockCircuit({ commitments_to_create: ['0x1', '0x2'] });
-  log.debug('generated app mock circuit witness');
+  const witnessStack: Uint8Array[] = [];
+  const bytecodes: string[] = [];
+  const vks: string[] = [];
+  let previousKernel: {
+    publicInputs: PrivateKernelPublicInputs;
+    keyAsFields: string[];
+  };
 
-  const initWitnessGenResult = await witnessGenMockPrivateKernelInitCircuit({
-    app_inputs: appWitnessGenResult.publicInputs,
-    tx,
-    app_vk: await getVkAsFields(MockAppCreatorVk),
-  });
-  log.debug('generated mock private kernel init witness');
+  const createInit = async (appResult: WitnessGenResult<AppPublicInputs>, appVkAsFields: string[]) => {
+    const result = await witnessGenMockPrivateKernelInitCircuit({
+      app_inputs: appResult.publicInputs,
+      tx,
+      app_vk: await getVkAsFields({ keyAsFields: appVkAsFields }),
+    });
+    witnessStack.push(result.witness);
+    bytecodes.push(MockPrivateKernelInitCircuit.bytecode);
+    vks.push(MockPrivateKernelInitVk.keyAsBytes);
+    previousKernel = {
+      publicInputs: result.publicInputs,
+      keyAsFields: MockPrivateKernelInitVk.keyAsFields,
+    };
+  };
+
+  const createInner = async (appResult: WitnessGenResult<AppPublicInputs>, appVkAsFields: string[]) => {
+    const result = await witnessGenMockPrivateKernelInnerCircuit({
+      prev_kernel_public_inputs: previousKernel.publicInputs,
+      kernel_vk: await getVkAsFields(previousKernel),
+      app_inputs: appResult.publicInputs,
+      app_vk: await getVkAsFields({ keyAsFields: appVkAsFields }),
+    });
+    witnessStack.push(result.witness);
+    bytecodes.push(MockPrivateKernelInnerCircuit.bytecode);
+    vks.push(MockPrivateKernelInnerVk.keyAsBytes);
+    previousKernel = {
+      publicInputs: result.publicInputs,
+      keyAsFields: MockPrivateKernelInnerVk.keyAsFields,
+    };
+  };
+
+  const createReset = async (commitmentToReset: string[]) => {
+    const result = await witnessGenMockPrivateKernelResetCircuit({
+      prev_kernel_public_inputs: previousKernel.publicInputs,
+      kernel_vk: await getVkAsFields(previousKernel),
+      commitment_read_hints: padArrayEnd(
+        commitmentToReset.map(r => commitments.findIndex(c => c === r)!.toString(16)),
+        MOCK_MAX_COMMITMENTS_PER_TX.toString(),
+        4,
+      ),
+    });
+    witnessStack.push(result.witness);
+    bytecodes.push(MockPrivateKernelResetCircuit.bytecode);
+    vks.push(MockPrivateKernelResetVk.keyAsBytes);
+    previousKernel = {
+      publicInputs: result.publicInputs,
+      keyAsFields: MockPrivateKernelResetVk.keyAsFields,
+    };
+  };
+
+  const commitments = ['0x1', '0x2'];
+  for (let i = 0; i < numCreatorAppCalls; i++) {
+    const result = await witnessGenCreatorAppMockCircuit({ commitments_to_create: [commitments[i], '0x0'] });
+    witnessStack.push(result.witness);
+    bytecodes.push(MockAppCreatorCircuit.bytecode);
+    vks.push(MockAppCreatorVk.keyAsBytes);
+
+    if (i === 0) {
+      await createInit(result, MockAppCreatorVk.keyAsFields);
+    } else {
+      await createInner(result, MockAppCreatorVk.keyAsFields);
+    }
+  }
+
+  let commitmentToReset: string[] = [];
+  for (let i = 0; i < numReaderAppCalls; i++) {
+    const commitmentToRead = commitments[Math.min(i, numCreatorAppCalls) % 2];
+    const result = await witnessGenReaderAppMockCircuit({ commitments_to_read: [commitmentToRead, '0x0'] });
+    witnessStack.push(result.witness);
+    bytecodes.push(MockAppReaderCircuit.bytecode);
+    vks.push(MockAppReaderVk.keyAsBytes);
+    commitmentToReset.push(commitmentToRead);
+
+    if (i === 0 && !numCreatorAppCalls) {
+      await createInit(result, MockAppReaderVk.keyAsFields);
+    } else {
+      await createInner(result, MockAppReaderVk.keyAsFields);
+    }
+    if (i % 2 === 0 || i === numReaderAppCalls - 1) {
+      await createReset(commitmentToReset);
+      commitmentToReset = [];
+    }
+  }
 
   const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
-    prev_kernel_public_inputs: initWitnessGenResult.publicInputs,
-    kernel_vk: await getVkAsFields(MockPrivateKernelInitVk),
+    prev_kernel_public_inputs: previousKernel!.publicInputs,
+    kernel_vk: await getVkAsFields(previousKernel!),
   });
-  log.debug('generated mock private kernel tail witness');
+  witnessStack.push(tailWitnessGenResult.witness);
+  bytecodes.push(MockPrivateKernelTailCircuit.bytecode);
+  vks.push(MockPrivateKernelTailVk.keyAsBytes);
 
   const hidingWitnessGenResult = await witnessGenMockHidingCircuit({
     prev_kernel_public_inputs: tailWitnessGenResult.publicInputs,
     kernel_vk: await getVkAsFields(MockPrivateKernelTailVk),
   });
-  log.debug('generated mock hiding witness');
+  witnessStack.push(hidingWitnessGenResult.witness);
+  bytecodes.push(MockHidingCircuit.bytecode);
+  vks.push(MockHidingVk.keyAsBytes);
 
-  // Create client IVC proof
-  const bytecodes = [
-    MockAppCreatorCircuit.bytecode,
-    MockPrivateKernelInitCircuit.bytecode,
-    MockPrivateKernelTailCircuit.bytecode,
-    MockHidingCircuit.bytecode,
-  ];
-  const witnessStack = [
-    appWitnessGenResult.witness,
-    initWitnessGenResult.witness,
-    tailWitnessGenResult.witness,
-    hidingWitnessGenResult.witness,
-  ];
-
-  const precomputedVks = [
-    MockAppCreatorVk.keyAsBytes,
-    MockPrivateKernelInitVk.keyAsBytes,
-    MockPrivateKernelTailVk.keyAsBytes,
-    MockHidingVk.keyAsBytes,
-  ];
-
-  return [bytecodes, witnessStack, hidingWitnessGenResult.publicInputs, precomputedVks];
-}
-
-export async function generate6FunctionTestingIVCStack(): Promise<
-  [string[], Uint8Array[], KernelPublicInputs, string[]]
-> {
-  const tx = {
-    number_of_calls: '0x2',
-  };
-  // Witness gen app and kernels
-  const creatorAppWitnessGenResult = await witnessGenCreatorAppMockCircuit({ commitments_to_create: ['0x1', '0x2'] });
-  const readerAppWitnessGenResult = await witnessGenReaderAppMockCircuit({ commitments_to_read: ['0x2', '0x0'] });
-
-  const initWitnessGenResult = await witnessGenMockPrivateKernelInitCircuit({
-    app_inputs: creatorAppWitnessGenResult.publicInputs,
-    tx,
-    app_vk: await getVkAsFields(MockAppCreatorVk),
-  });
-  const innerWitnessGenResult = await witnessGenMockPrivateKernelInnerCircuit({
-    prev_kernel_public_inputs: initWitnessGenResult.publicInputs,
-    app_inputs: readerAppWitnessGenResult.publicInputs,
-    app_vk: await getVkAsFields(MockAppReaderVk),
-    kernel_vk: await getVkAsFields(MockPrivateKernelInitVk),
-  });
-
-  const resetWitnessGenResult = await witnessGenMockPrivateKernelResetCircuit({
-    prev_kernel_public_inputs: innerWitnessGenResult.publicInputs,
-    commitment_read_hints: [
-      '0x1', // Reader reads commitment 0x2, which is at index 1 of the created commitments
-      MOCK_MAX_COMMITMENTS_PER_TX.toString(), // Pad with no-ops
-      MOCK_MAX_COMMITMENTS_PER_TX.toString(),
-      MOCK_MAX_COMMITMENTS_PER_TX.toString(),
-    ],
-    kernel_vk: await getVkAsFields(MockPrivateKernelInnerVk),
-  });
-
-  const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
-    prev_kernel_public_inputs: resetWitnessGenResult.publicInputs,
-    kernel_vk: await getVkAsFields(MockPrivateKernelResetVk),
-  });
-
-  const hidingWitnessGenResult = await witnessGenMockHidingCircuit({
-    prev_kernel_public_inputs: tailWitnessGenResult.publicInputs,
-    kernel_vk: await getVkAsFields(MockPrivateKernelTailVk),
-  });
-
-  // Create client IVC proof
-  const bytecodes = [
-    MockAppCreatorCircuit.bytecode,
-    MockPrivateKernelInitCircuit.bytecode,
-    MockAppReaderCircuit.bytecode,
-    MockPrivateKernelInnerCircuit.bytecode,
-    MockPrivateKernelResetCircuit.bytecode,
-    MockPrivateKernelTailCircuit.bytecode,
-    MockHidingCircuit.bytecode,
-  ];
-  const witnessStack = [
-    creatorAppWitnessGenResult.witness,
-    initWitnessGenResult.witness,
-    readerAppWitnessGenResult.witness,
-    innerWitnessGenResult.witness,
-    resetWitnessGenResult.witness,
-    tailWitnessGenResult.witness,
-    hidingWitnessGenResult.witness,
-  ];
-
-  const precomputedVks = [
-    MockAppCreatorVk.keyAsBytes,
-    MockPrivateKernelInitVk.keyAsBytes,
-    MockAppReaderVk.keyAsBytes,
-    MockPrivateKernelInnerVk.keyAsBytes,
-    MockPrivateKernelResetVk.keyAsBytes,
-    MockPrivateKernelTailVk.keyAsBytes,
-    MockHidingVk.keyAsBytes,
-  ];
-
-  return [bytecodes, witnessStack, hidingWitnessGenResult.publicInputs, precomputedVks];
+  return [bytecodes, witnessStack, hidingWitnessGenResult.publicInputs, vks];
 }
 
 export function mapRecursiveProofToNoir<N extends number>(proof: RecursiveProof<N>): FixedLengthArray<string, N> {
