@@ -1,6 +1,6 @@
 [build]
   # Only build if changes are made in the docs directory
-  ignore = "git diff --quietorigin/next HEAD -- docs"
+  ignore = "git diff --quiet origin/next HEAD -- docs"
 
 [[redirects]]
     from = "/guides/smart_contracts/writing_contracts/initializers"
