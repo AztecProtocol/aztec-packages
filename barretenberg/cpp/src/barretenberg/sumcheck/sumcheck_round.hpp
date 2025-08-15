@@ -295,7 +295,6 @@ template <typename Flavor> class SumcheckProverRound {
 
     /**
      * @brief Helper struct that describes a block of non-zero unskippable rows
-     *
      */
     struct BlockOfContiguousRows {
         size_t starting_edge_idx;
@@ -305,18 +304,17 @@ template <typename Flavor> class SumcheckProverRound {
     /**
      * @brief Helper struct that will, given a vector of BlockOfContiguousRows, return the edge indices that correspond
      * to the nonzero rows
-     *
      */
     struct RowIterator {
-        std::shared_ptr<std::vector<BlockOfContiguousRows>> blocks;
+        const std::vector<BlockOfContiguousRows>* blocks;
         size_t current_block_index = 0;
         size_t current_block_count = 0;
         RowIterator(const std::vector<BlockOfContiguousRows>& _blocks, size_t starting_index = 0)
-            : blocks(std::make_shared<std::vector<BlockOfContiguousRows>>(_blocks))
+            : blocks(&_blocks)
         {
             size_t count = 0;
             for (size_t i = 0; i < blocks->size(); ++i) {
-                const BlockOfContiguousRows block = blocks.get()->at(i);
+                const BlockOfContiguousRows block = blocks->at(i);
                 if (count + (block.size / 2) > starting_index) {
                     current_block_index = i;
                     current_block_count = (starting_index - count) * 2;
@@ -328,8 +326,8 @@ template <typename Flavor> class SumcheckProverRound {
 
         size_t get_next_edge()
         {
-            BlockOfContiguousRows block = blocks.get()->at(current_block_index);
-            auto edge = block.starting_edge_idx + current_block_count;
+            const BlockOfContiguousRows& block = blocks->at(current_block_index);
+            size_t edge = block.starting_edge_idx + current_block_count;
             if (current_block_count + 2 >= block.size) {
                 current_block_index += 1;
                 current_block_count = 0;
@@ -376,7 +374,6 @@ template <typename Flavor> class SumcheckProverRound {
                         current_block_size += 2;
                     } else {
                         if (current_block_size > 0) {
-
                             thread_blocks.push_back(BlockOfContiguousRows{
                                 .starting_edge_idx = edge_idx - current_block_size, .size = current_block_size });
                             current_block_size = 0;
