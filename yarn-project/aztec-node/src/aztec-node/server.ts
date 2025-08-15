@@ -40,6 +40,7 @@ import {
   SequencerClient,
   type SequencerPublisher,
   createValidatorForAcceptingTxs,
+  getPublisherPrivateKeysFromConfig,
 } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import { AttestationsBlockWatcher, EpochPruneWatcher, SlasherClient, type Watcher } from '@aztec/slasher';
@@ -359,21 +360,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // Validator enabled, create/start relevant service
     let sequencer: SequencerClient | undefined;
     if (!config.disableValidator) {
-      // This shouldn't happen, validators need a publisher private key.
-      const { publisherPrivateKeys, publisherPrivateKey } = config;
-      if (
-        publisherPrivateKeys.length === 0 ||
-        !publisherPrivateKey?.getValue() ||
-        publisherPrivateKeys[0]?.getValue() === NULL_KEY
-      ) {
-        if (!publisherPrivateKey?.getValue() || publisherPrivateKey?.getValue() === NULL_KEY) {
-          throw new Error('A publisher private key is required to run a validator');
-        }
-        publisherPrivateKeys.push(publisherPrivateKey);
-      }
-      // if (!publisherPrivateKey?.getValue() || publisherPrivateKey?.getValue() === NULL_KEY) {
-      //   throw new Error('A publisher private key is required to run a validator');
-      // }
+      const publisherPrivateKeys = getPublisherPrivateKeysFromConfig(config);
 
       const l1TxUtils = publisherPrivateKeys.map(publisherPrivateKey => {
         return createL1TxUtilsWithBlobsFromViemWallet(
