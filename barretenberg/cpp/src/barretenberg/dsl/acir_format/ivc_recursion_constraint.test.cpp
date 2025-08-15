@@ -341,7 +341,7 @@ TEST_F(IvcRecursionConstraintTest, GenerateResetKernelVKFromConstraints)
     // First, construct the kernel VK by running the full IVC (accumulate one app and one kernel)
     std::shared_ptr<MegaFlavor::VerificationKey> expected_kernel_vk;
     {
-        auto ivc = std::make_shared<ClientIVC>(/*num_circuits=*/5, trace_settings);
+        auto ivc = std::make_shared<ClientIVC>(/*num_circuits=*/6, trace_settings);
 
         const ProgramMetadata metadata{ ivc };
 
@@ -361,9 +361,14 @@ TEST_F(IvcRecursionConstraintTest, GenerateResetKernelVKFromConstraints)
         // Construct and accumulate a mock inner kernel (PG recursion for kernel and app accumulation)
         construct_and_accumulate_mock_kernel(ivc, trace_settings);
         EXPECT_TRUE(ivc->verification_queue.size() == 1);
+        EXPECT_TRUE(ivc->verification_queue[0].type == bb::ClientIVC::QUEUE_TYPE::PG);
+
+        // Construct and accumulate a mock reset kernel (PG recursion for kernel and app accumulation)
+        construct_and_accumulate_mock_kernel(ivc, trace_settings);
+        EXPECT_TRUE(ivc->verification_queue.size() == 1);
         EXPECT_TRUE(ivc->verification_queue[0].type == bb::ClientIVC::QUEUE_TYPE::PG_TAIL);
 
-        // Construct and accumulate a mock RESET/TAIL kernel (PG recursion for kernel accumulation)
+        // Construct and accumulate a mock TAIL kernel (PG recursion for reset kernel accumulation)
         construct_and_accumulate_mock_kernel(ivc, trace_settings);
         expected_kernel_vk = ivc->verification_queue.back().honk_vk;
     }

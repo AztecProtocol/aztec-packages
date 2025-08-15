@@ -71,6 +71,7 @@ std::vector<uint8_t> write_civc_vk(const std::string& output_format,
         throw_or_abort("Unsupported output format for ClientIVC vk: " + output_format);
     }
     // compute the hiding kernel's vk
+    info("ClientIVC: computing IVC vk for hiding kernel circuit");
     auto response = bbapi::ClientIvcComputeIvcVk{
         .circuit{ .name = "standalone_circuit", .bytecode = std::move(bytecode) }
     }.execute({ .trace_settings = {} });
@@ -95,7 +96,7 @@ void ClientIVCAPI::prove(const Flags& flags,
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
     bbapi::ClientIvcStart{ .num_circuits = raw_steps.size() - 1 }.execute(request);
-
+    info("ClientIVC: starting with ", raw_steps.size(), " circuits");
     for (size_t i = 0; i < raw_steps.size() - 1; ++i) {
         const auto& step = raw_steps[i];
         bbapi::ClientIvcLoad{

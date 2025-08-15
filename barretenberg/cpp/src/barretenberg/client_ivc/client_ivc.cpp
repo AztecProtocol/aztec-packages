@@ -246,11 +246,15 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
                                       stdlib_verification_queue.end(),
                                       [](const auto& entry) { return entry.type == QUEUE_TYPE::PG_TAIL; });
 
+    info("ClientIVC: is_hiding_kernel = ", is_hiding_kernel);
+    info("ClientIVC: is_tail_kernel = ", is_tail_kernel);
     // If the incoming circuit is a kernel, start its subtable with an eq and reset operation to ensure a
     // neighbouring misconfigured subtable coming from an app cannot affect the operations in the
     // current subtable. We don't do this for the hiding kernel as it succeeds another kernel.
     if (!is_hiding_kernel) {
         if (is_tail_kernel) {
+            info("AM I HERE");
+            vinfo("AM I HERE");
             // Add a no-op at the beginning of the tail kernel (the last circuit whose ecc ops subtable is prepended) to
             // ensure the wires representing the op queue in translator circuit are shiftable polynomials, i.e. their
             // 0th coefficient is 0.
@@ -328,6 +332,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
     trace_usage_tracker.update(circuit);
 
     honk_vk = precomputed_vk;
+    // honk_vk = std::make_shared<MegaVerificationKey>(proving_key->get_precomputed());
 
     // We're acccumulating a kernel if the verification queue is empty (because the kernel circuit contains recursive
     // verifiers for all the entries previously present in the verification queue) and if it's not the first accumulate
@@ -400,6 +405,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
     goblin.prove_merge(prover_accumulation_transcript);
 
     num_circuits_accumulated++;
+    // info("satisfiable accumulator: ", decide_for_testing(fold_output.accumulator, native_verifier_accum));
 }
 
 /**
