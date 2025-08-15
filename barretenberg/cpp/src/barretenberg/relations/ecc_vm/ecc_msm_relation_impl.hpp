@@ -15,8 +15,9 @@ namespace bb {
  * @brief MSM relations that evaluate the Strauss multiscalar multiplication algorithm.
  *
  * @details
- * The Strauss algorithm for a size-k MSM takes scalars/points (a_i, [P_i]) for i = 0 to k-1.
- * The specific algoritm we use is the following:
+ * The Straus algorithm for a size-k MSM takes scalars/points (a_i, [P_i]) for i = 0 to k-1.
+ * The specific algorithm we use is may be found in the README in the `eccvm` directory. We briefly reprise the
+ * algorithm nonetheless.
  *
  * PHASE 1: Precomputation (performed in ecc_wnaf_relation.hpp, ecc_point_table_relation.hpp)
  * Each scalar a_i is split into 4-bit WNAF slices s_{j, i} for j = 0 to 31, and a skew bool skew_i
