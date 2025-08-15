@@ -50,6 +50,8 @@ void create_dummy_vkey_and_proof(Builder& builder,
                                  const std::vector<field_ct>& key_fields,
                                  const std::vector<field_ct>& proof_fields)
 {
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1514): restructure this function to use functions from
+    // mock_verifier_inputs
     using Flavor = avm2::AvmFlavor;
 
     // Relevant source for proof layout: AvmFlavor::Transcript::serialize_full_transcript()
