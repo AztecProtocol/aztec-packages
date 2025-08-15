@@ -8,14 +8,17 @@ You are working with the **Aztec Protocol Documentation** - a comprehensive docu
 
 ## Development Commands
 
+### Package Manager
+
+This project uses Yarn 4.5.2 as specified in the `packageManager` field of package.json. Make sure to use Yarn for all dependency management.
+
 ### Essential Commands
 
 - `yarn` - Install dependencies
-- `yarn dev` - Start development server with hot reload (remote/codespaces)
-- `yarn dev:local` - Start development server (localhost only)
-- `yarn build` - Build production site with full validation
-- `yarn build:with-specs` - Build with protocol specifications included
-- `yarn spellcheck` - Run spell checking with cspell
+- `yarn dev` - Start development server (defaults to HOST=0.0.0.0 for remote/codespaces access, override with HOST environment variable)
+- `yarn build` - Build production site with full validation (includes clean, preprocess, and move steps)
+- `yarn serve` - Serve the built static site
+- `yarn spellcheck` - Run spell checking with cspell on markdown files
 - `yarn clean` - Clean build artifacts and processed docs
 
 ### Development Workflow
@@ -29,21 +32,25 @@ The documentation uses a **preprocessing system** that:
 
 For development:
 
-- `yarn preprocess` - Run preprocessing once
-- `yarn preprocess:dev` - Watch mode for preprocessing
-- In development mode (`ENV=dev`), Docusaurus serves from `docs/` folder directly
-- For production builds, it serves from `processed-docs/`
+- `yarn preprocess` - Run preprocessing manually (uses dotenv for configuration)
+- `yarn preprocess:move` - Move processed docs to final location
+- `yarn dev` runs preprocessing once at startup and serves from `processed-docs/` folder
+- **Important**: Hot reloading is NOT available - you must restart the dev server to see changes
+- Changes to files in the `docs/` folder will NOT be reflected until you restart the dev server
 
 ## Documentation Architecture
 
 ### Key Directories
 
 - `docs/` - Main documentation source files
-- `processed-docs/` - Generated docs for production builds
+- `processed-docs/` - Generated docs for production builds (gitignored)
 - `versioned_docs/` - Version-specific documentation copies
+- `versioned_sidebars/` - Version-specific sidebar configurations
 - `src/preprocess/` - Preprocessing scripts and macro handlers
 - `src/components/` - React components for documentation
 - `static/img/` - Static images and assets
+- `internal_notes/` - Internal documentation notes
+- `scripts/` - Build and utility scripts
 
 ### Content Structure
 
@@ -56,9 +63,11 @@ For development:
 
 Uses Docusaurus versioning with:
 
-- Current version defined in `versions.json` (currently `v1.2.0`)
+- Versions listed in `versions.json`
 - `versioned_docs/version-X.X.X/` contains historical versions
-- Macros only work in source `docs/` folder, not in versioned copies
+- `versioned_sidebars/` contains version-specific sidebar configurations
+- Macros (`#include_code`, `#include_aztec_version`, etc.) only work in source `docs/` folder, not in versioned copies
+- Version dropdown shows: `Next`, `alpha-testnet`, and latest sandbox release versions
 
 ## Documentation Review Standards
 
@@ -198,14 +207,21 @@ For inline edits, use clear markers:
 
 ### Version Management
 
-- Current version: see ./versions.json
-- Version notation format: **v1.2.1**
+- Current versions: see `./versions.json`
+- Version notation format: **vX.X.X** (e.g., v0.86.0)
 
 ### External References
 
 Approved external documentation sources:
 
 - Noir: https://noir-lang.org/docs
+
+### Spell Checking Configuration
+
+- Uses cspell with custom dictionary at `docs-words.txt`
+- Checks files in `docs/`, `versioned_docs/`, `internal_notes/`, and snippet components
+- Ignores `node_modules`, `processed-docs`, `processed-docs-cache`
+- Imports additional configuration from `../cspell.json`
 
 ---
 
@@ -217,5 +233,5 @@ Approved external documentation sources:
 - Flag any content that might need subject matter expert review
 - Suggest improvements even if they go beyond pure editing
 
-Last updated: 2025-08-08
-Version: 1.0
+Last updated: 2025-15-08
+Version: 1.1
