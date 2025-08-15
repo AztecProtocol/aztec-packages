@@ -3,6 +3,11 @@
 #include <cstdint>
 
 namespace bb {
+
+// Arbitrarily large constant (> size of the BN254 srs) used to ensure that the evaluations on the hypercube of the
+// permutation argument polynomials (sigmas, ids) are unique, e.g. id[i][j] == id[m][n] iff (i == m && j == n)
+constexpr uint32_t PERMUTATION_ARGUMENT_VALUE_SEPARATOR = 1 << 28;
+
 // The log of the max circuit size assumed in order to achieve constant sized Honk proofs
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1046): Remove the need for const sized proofs
 static constexpr uint32_t CONST_PROOF_SIZE_LOG_N = 28;

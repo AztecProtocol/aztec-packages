@@ -55,13 +55,10 @@ typename Flavor::FF compute_public_input_delta(std::span<const typename Flavor::
     // initial zero row or Goblin-stlye ECC op gates. Accordingly, the indices i in the above formulas are given by i =
     // [0, m-1] + offset, i.e. i = offset, 1 + offset, …, m - 1 + offset.
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1158): Ensure correct construction of public input
-    // delta in the face of increases to virtual size caused by execution trace overflow
-    // Ensures that the evaluations of `id_i` (`sigma_i`) and `id_j`(`sigma_j`) polynomials on the boolean hypercube do
-    // not intersect for i != j. Needs to be compatible with the `evaluation_separator` used by the prover in
-    // `compute_permutation_argument_polynomials`.
-    const Field evaluation_separator = Field(1UL << CONST_PROOF_SIZE_LOG_N);
-    Field numerator_acc = gamma + (beta * (evaluation_separator + offset));
+    // Using n = SEPARATOR ensures that the evaluations of `id_i` (`sigma_i`) and `id_j`(`sigma_j`) polynomials on the
+    // boolean hypercube do not intersect for i != j.
+    const Field SEPARATOR(PERMUTATION_ARGUMENT_VALUE_SEPARATOR);
+    Field numerator_acc = gamma + (beta * (SEPARATOR + offset));
     Field denominator_acc = gamma - beta * (offset + 1);
 
     for (size_t i = 0; i < public_inputs.size(); i++) {
