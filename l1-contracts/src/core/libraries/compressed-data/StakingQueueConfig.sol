@@ -18,6 +18,10 @@ type CompressedStakingQueueConfig is uint256;
  * If the number of validators in the rollup is greater than or equal to `bootstrapValidatorSetSize`, then
  * `getEntryQueueFlushSize` will return Max( `normalFlushSizeMin`, `activeAttesterCount` / `normalFlushSizeQuotient`).
  *
+ * NOTE: If the normalFlushSizeMin is 0 and the validator set is empty, above will return max(0, 0) and it won't be
+ * possible to add validators. This can close the queue even if there are members in the validator set if a very high
+ * `normalFlushSizeQuotient` is used.
+ *
  * NOTE: We will NEVER flush more than `MAX_QUEUE_FLUSH_SIZE` validators: it is applied as a Max at the end of every
  * calculation.
  * This is to prevent a situation where flushing the queue would exceed the block gas limit.
