@@ -517,6 +517,9 @@ template std::shared_ptr<MegaFlavor::VerificationKey> create_mock_honk_vk<MegaFl
 template std::shared_ptr<MegaFlavor::VerificationKey> create_mock_honk_vk<
     MegaFlavor,
     stdlib::recursion::honk::HidingKernelIO<MegaCircuitBuilder>>(const size_t, const size_t, const size_t);
+template std::shared_ptr<MegaZKFlavor::VerificationKey> create_mock_honk_vk<
+    MegaZKFlavor,
+    stdlib::recursion::honk::HidingKernelIO<UltraCircuitBuilder>>(const size_t, const size_t, const size_t);
 
 template std::shared_ptr<UltraFlavor::VerificationKey> create_mock_honk_vk<
     UltraFlavor,
