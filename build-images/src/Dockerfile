@@ -21,11 +21,19 @@ RUN export DEBIAN_FRONTEND="noninteractive" \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
+# Install rust and cross-compilers. Noir specifically uses 1.85.0.
+# We give everyone write ownership so downstream boxes can write.
+ENV RUSTUP_HOME=/opt/rust/rustup
+ENV CARGO_HOME=/opt/rust/cargo
+ENV PATH="/opt/rust/cargo/bin:$PATH"
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.85.0 && \
+    rustup target add wasm32-unknown-unknown wasm32-wasip1 aarch64-apple-darwin && \
+    chmod -R a+w /opt/rust
+
 
 ########################################################################################################################
 # Build wasi-sdk.
 FROM base-build AS wasi-sdk
-RUN apt update && apt install cargo -y
 RUN git clone --depth 1 --recursive --branch wasi-sdk-22 https://github.com/WebAssembly/wasi-sdk.git \
     && mkdir -p /wasi-sdk/build/install/opt/wasi-sdk \
     && cd /wasi-sdk \
@@ -81,7 +89,6 @@ ENV RUSTUP_HOME=/opt/rust/rustup
 ENV CARGO_HOME=/opt/rust/cargo
 ENV PATH="/opt/rust/cargo/bin:$PATH"
 ENV RUSTFLAGS="-C target-cpu=generic"
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 RUN curl -L https://foundry.paradigm.xyz | bash \
     && $FOUNDRY_BIN_DIR/foundryup -i $FOUNDRY_VERSION \
     && mkdir -p /opt/foundry/bin \
@@ -155,15 +162,6 @@ COPY --from=wasi-sdk /opt/wasi-sdk /opt/wasi-sdk
 # Install foundry.
 COPY --from=foundry /opt/foundry /opt/foundry
 ENV PATH="/opt/foundry/bin:$PATH"
-
-# Install rust and cross-compilers. Noir specifically uses 1.85.0.
-# We give everyone write ownership so downstream boxes can write.
-ENV RUSTUP_HOME=/opt/rust/rustup
-ENV CARGO_HOME=/opt/rust/cargo
-ENV PATH="/opt/rust/cargo/bin:$PATH"
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.85.0 && \
-    rustup target add wasm32-unknown-unknown wasm32-wasip1 aarch64-apple-darwin && \
-    chmod -R a+w /opt/rust
 
 # Install corepack and yarn.
 RUN npm install --global corepack && corepack enable && corepack install --global yarn@4.5.2
