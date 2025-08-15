@@ -408,9 +408,6 @@ void perform_full_IPA_verification(Builder& builder,
         nested_ipa_claims.size(), nested_ipa_proofs.size(), "Mismatched number of nested IPA claims and proofs.");
     BB_ASSERT_EQ(nested_ipa_claims.size(), 2U, "Root rollup must have two nested IPA claims.");
 
-    OpeningClaim<stdlib::grumpkin<Builder>> final_ipa_claim;
-    HonkProof final_ipa_proof;
-
     auto [ipa_claim, ipa_proof] = handle_IPA_accumulation(builder, nested_ipa_claims, nested_ipa_proofs);
 
     // IPA verification
