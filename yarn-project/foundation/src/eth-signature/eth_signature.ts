@@ -14,6 +14,12 @@ export type ViemSignature = {
   v: number;
 };
 
+export type ViemTransactionSignature = {
+  r: `0x${string}`;
+  s: `0x${string}`;
+  yParity: 0 | 1;
+};
+
 /**
  * Contains a signature split into it's primary components (r,s,v)
  */

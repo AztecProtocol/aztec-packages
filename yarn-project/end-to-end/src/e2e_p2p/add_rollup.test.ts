@@ -10,6 +10,7 @@ import {
   L1TxUtils,
   RegistryContract,
   RollupContract,
+  createL1TxUtilsFromViemWallet,
   defaultL1TxUtilsConfig,
   deployL1Contract,
   deployRollupForUpgrade,
@@ -83,7 +84,7 @@ describe('e2e_p2p_add_rollup', () => {
     await t.setup();
     await t.removeInitialNode();
 
-    l1TxUtils = new L1TxUtils(t.ctx.deployL1ContractsValues.l1Client);
+    l1TxUtils = createL1TxUtilsFromViemWallet(t.ctx.deployL1ContractsValues.l1Client);
   });
 
   afterAll(async () => {

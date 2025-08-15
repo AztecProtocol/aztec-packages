@@ -12,16 +12,16 @@ import {
 import { EpochCache, type EpochCacheInterface } from '@aztec/epoch-cache';
 import {
   type L1ContractAddresses,
-  L1TxUtils,
   NULL_KEY,
   RegistryContract,
   RollupContract,
   createEthereumChain,
   createExtendedL1Client,
+  createL1TxUtilsFromViemWallet,
   getPublicClient,
   isExtendedClient,
 } from '@aztec/ethereum';
-import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { createL1TxUtilsWithBlobsFromViemWallet } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { compactArray, pick } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -41,6 +41,7 @@ import {
   type SequencerPublisher,
   createValidatorForAcceptingTxs,
 } from '@aztec/sequencer-client';
+import { getPublisherPrivateKeysFromConfig } from '@aztec/sequencer-client/config';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import { AttestationsBlockWatcher, EpochPruneWatcher, SlasherClient, type Watcher } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -343,7 +344,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         ? createExtendedL1Client(l1RpcUrls, slasherPrivateKeyString, ethereumChain.chainInfo)
         : getPublicClient(config);
     const slasherL1TxUtils = isExtendedClient(slasherL1Client)
-      ? new L1TxUtils(slasherL1Client, log, dateProvider, config)
+      ? createL1TxUtilsFromViemWallet(slasherL1Client, log, dateProvider, config)
       : undefined;
 
     const slasherClient = await SlasherClient.new(
@@ -359,14 +360,16 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // Validator enabled, create/start relevant service
     let sequencer: SequencerClient | undefined;
     if (!config.disableValidator) {
-      // This shouldn't happen, validators need a publisher private key.
-      const { publisherPrivateKey } = config;
-      if (!publisherPrivateKey?.getValue() || publisherPrivateKey?.getValue() === NULL_KEY) {
-        throw new Error('A publisher private key is required to run a validator');
-      }
+      const publisherPrivateKeys = getPublisherPrivateKeysFromConfig(config);
 
-      const l1Client = createExtendedL1Client(l1RpcUrls, publisherPrivateKey.getValue(), ethereumChain.chainInfo);
-      const l1TxUtils = new L1TxUtilsWithBlobs(l1Client, log, dateProvider, config);
+      const l1TxUtils = publisherPrivateKeys.map(publisherPrivateKey => {
+        return createL1TxUtilsWithBlobsFromViemWallet(
+          createExtendedL1Client(l1RpcUrls, publisherPrivateKey.getValue(), ethereumChain.chainInfo),
+          log,
+          dateProvider,
+          config,
+        );
+      });
 
       sequencer = await SequencerClient.new(config, {
         // if deps were provided, they should override the defaults,
@@ -1014,8 +1017,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
 
     // If sequencer is not initialized, we just set these values to zero for simulation.
-    const coinbase = this.sequencer?.coinbase || EthAddress.ZERO;
-    const feeRecipient = this.sequencer?.feeRecipient || AztecAddress.ZERO;
+    const coinbase = EthAddress.ZERO;
+    const feeRecipient = AztecAddress.ZERO;
 
     const newGlobalVariables = await this.globalVariableBuilder.buildGlobalVariables(
       blockNumber,

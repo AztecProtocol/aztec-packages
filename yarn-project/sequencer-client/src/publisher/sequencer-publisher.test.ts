@@ -36,6 +36,7 @@ import {
 import { privateKeyToAccount } from 'viem/accounts';
 
 import type { PublisherConfig, TxSenderConfig } from './config.js';
+import type { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
 import { SequencerPublisher, SignalType } from './sequencer-publisher.js';
 
 const mockRollupAddress = EthAddress.random().toString();
@@ -49,6 +50,7 @@ describe('SequencerPublisher', () => {
   let slashingProposerContract: MockProxy<SlashingProposerContract>;
   let governanceProposerContract: MockProxy<GovernanceProposerContract>;
   let l1TxUtils: MockProxy<L1TxUtilsWithBlobs>;
+  let l1Metrics: MockProxy<SequencerPublisherMetrics>;
   let forwardSpy: jest.SpiedFunction<typeof Multicall3.forward>;
 
   let proposeTxHash: `0x${string}`;
@@ -118,6 +120,8 @@ describe('SequencerPublisher', () => {
     (rollup as any).address = mockRollupAddress;
     forwardSpy = jest.spyOn(Multicall3, 'forward');
 
+    l1Metrics = mock<SequencerPublisherMetrics>();
+
     slashingProposerContract = mock<SlashingProposerContract>();
     governanceProposerContract = mock<GovernanceProposerContract>();
 
@@ -133,6 +137,7 @@ describe('SequencerPublisher', () => {
       slashingProposerContract,
       governanceProposerContract,
       dateProvider: new TestDateProvider(),
+      metrics: l1Metrics,
     });
 
     (publisher as any)['l1TxUtils'] = l1TxUtils;
@@ -213,7 +218,6 @@ describe('SequencerPublisher', () => {
     expect(await publisher.enqueueProposeL2Block(l2Block)).toEqual(true);
     const govPayload = EthAddress.random();
     const voteSig = Signature.random();
-    publisher.setGovernancePayload(govPayload);
     governanceProposerContract.getRoundInfo.mockResolvedValue({
       lastSignalSlot: 1n,
       payloadWithMostSignals: govPayload.toString(),
@@ -234,6 +238,7 @@ describe('SequencerPublisher', () => {
         1n,
         SignalType.GOVERNANCE,
         EthAddress.fromString(testHarnessPrivateKey.address),
+        { payload: govPayload, base: governanceProposerContract },
         msg => testHarnessPrivateKey.signTypedData(msg),
       ),
     ).toEqual(true);
