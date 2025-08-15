@@ -51,7 +51,6 @@
     "cspell": "^8.19.4",
     "dotenv": "^16.3.1",
     "netlify-cli": "^17.23.0",
-    "nodemon": "^3.0.1",
     "react-waypoint": "^10.3.0",
     "typescript": "^5.3.3"
   },
