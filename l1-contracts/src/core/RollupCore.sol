@@ -194,7 +194,6 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
 
   /**
    * @notice Flag controlling whether rewards can be claimed
-   * @dev Temporary mechanism, should not be deeply integrated into the rollup library
    */
   bool public isRewardsClaimable = false;
 
@@ -219,6 +218,11 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     GenesisState memory _genesisState,
     RollupConfigInput memory _config
   ) Ownable(_governance) {
+    // We do not allow the `normalFlushSizeMin` to be 0 when deployed as it would lock deposits (which is never desired
+    // from the onset). It might be updated later to 0 by governance in order to close the validator set for this
+    // instance. For details see `StakingLib.getEntryQueueFlushSize` function.
+    require(_config.stakingQueueConfig.normalFlushSizeMin > 0, Errors.Staking__InvalidStakingQueueConfig());
+
     TimeLib.initialize(
       block.timestamp, _config.aztecSlotDuration, _config.aztecEpochDuration, _config.aztecProofSubmissionEpochs
     );
@@ -406,8 +410,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    *      This helps maintain a controlled growth rate of the validator set.
    */
   function flushEntryQueue() external override(IStakingCore) {
-    uint256 maxAddableValidators = getEntryQueueFlushSize();
-    ExtRollupLib2.flushEntryQueue(maxAddableValidators);
+    ExtRollupLib2.flushEntryQueue();
   }
 
   /**

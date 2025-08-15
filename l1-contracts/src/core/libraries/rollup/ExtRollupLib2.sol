@@ -50,8 +50,8 @@ library ExtRollupLib2 {
     );
   }
 
-  function flushEntryQueue(uint256 _maxAddableValidators) external {
-    StakingLib.flushEntryQueue(_maxAddableValidators);
+  function flushEntryQueue() external {
+    StakingLib.flushEntryQueue();
   }
 
   function initiateWithdraw(address _attester, address _recipient) external returns (bool) {
