@@ -1,6 +1,6 @@
 [build]
   # Only build if changes are made in the docs directory
-  ignore = "git diff --quiet origin/next HEAD -- barretenberg/docs"
+  ignore = "git diff --quiet ${CACHED_COMMIT_REF:-origin/next} ${COMMIT_REF:-HEAD} -- barretenberg/docs"
 
 # Redirect root to /docs
 [[redirects]]
