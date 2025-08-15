@@ -4,7 +4,6 @@ import {
   GovernanceProposerContract,
   PublisherManager,
   RollupContract,
-  SlashingProposerContract,
   createEthereumChain,
   createExtendedL1Client,
   getPublicClient,

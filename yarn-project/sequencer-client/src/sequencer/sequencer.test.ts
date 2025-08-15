@@ -1,7 +1,7 @@
 import { Body, L2Block } from '@aztec/aztec.js';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
-import type { GovernanceProposerContract, RollupContract, SlashingProposerContract } from '@aztec/ethereum';
+import type { GovernanceProposerContract, RollupContract } from '@aztec/ethereum';
 import { timesParallel } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -60,7 +60,6 @@ describe('sequencer', () => {
 
   let rollupContract: MockProxy<RollupContract>;
   let governanceProposerContract: MockProxy<GovernanceProposerContract>;
-  let slashingProposerContract: MockProxy<SlashingProposerContract>;
 
   let dateProvider: TestDateProvider;
 
@@ -197,7 +196,6 @@ describe('sequencer', () => {
 
     rollupContract = mockDeep<RollupContract>();
     governanceProposerContract = mockDeep<GovernanceProposerContract>();
-    slashingProposerContract = mockDeep<SlashingProposerContract>();
 
     l1Contracts = {
       rollupContract,

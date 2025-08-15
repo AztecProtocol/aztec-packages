@@ -1,4 +1,4 @@
-import type { GovernanceProposerContract, RollupContract, SlashingProposerContract } from '@aztec/ethereum';
+import type { GovernanceProposerContract, RollupContract } from '@aztec/ethereum';
 
 export { type SequencerConfig } from '@aztec/stdlib/config';
 
