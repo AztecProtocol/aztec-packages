@@ -32,7 +32,7 @@ import { StandardTree } from '@aztec/merkle-tree';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { buildBlockWithCleanDB } from '@aztec/prover-client/block-factory';
-import { SequencerPublisher, SignalType } from '@aztec/sequencer-client';
+import { SequencerPublisher, SequencerPublisherMetrics, SignalType } from '@aztec/sequencer-client';
 import { type CommitteeAttestation, type L2Tips, PublishedL2Block } from '@aztec/stdlib/block';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { orderAttestations } from '@aztec/stdlib/p2p';
@@ -216,6 +216,7 @@ describe('L1Publisher integration', () => {
     );
     epochCache = await EpochCache.create(l1ContractAddresses.rollupAddress, config, { dateProvider });
     const blobSinkClient = createBlobSinkClient();
+    const sequencerPublisherMetrics: MockProxy<SequencerPublisherMetrics> = mock<SequencerPublisherMetrics>();
 
     publisher = new SequencerPublisher(
       {
@@ -237,6 +238,7 @@ describe('L1Publisher integration', () => {
         governanceProposerContract,
         slashingProposerContract,
         dateProvider,
+        metrics: sequencerPublisherMetrics,
       },
     );
 
