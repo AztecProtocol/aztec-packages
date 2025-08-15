@@ -1027,7 +1027,10 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
 }
 
 export function createViemSigner(client: WalletClient) {
-  const signer: Signer = async (tx: TransactionSerializable): Promise<ViemTransactionSignature> => {
+  const signer: Signer = async (
+    tx: TransactionSerializable,
+    _address: EthAddress,
+  ): Promise<ViemTransactionSignature> => {
     // Let viem handle everything - it knows how to deal with the transaction
     const signedTx = await client.signTransaction(tx as any);
 
