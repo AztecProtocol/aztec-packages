@@ -1,5 +1,5 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { Offense } from '@aztec/slasher';
+import { OffenseType } from '@aztec/slasher';
 
 import { jest } from '@jest/globals';
 import fs from 'fs';
@@ -160,7 +160,8 @@ describe('e2e_p2p_data_withholding_slash', () => {
     );
 
     await awaitCommitteeKicked({
-      offense: Offense.DATA_WITHHOLDING,
+      offense: OffenseType.DATA_WITHHOLDING,
+      epochOrSlot: 4n,
       rollup,
       cheatCodes: t.ctx.cheatCodes.rollup,
       committee,
