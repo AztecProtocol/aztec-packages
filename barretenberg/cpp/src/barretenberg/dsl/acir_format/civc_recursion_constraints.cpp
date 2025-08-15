@@ -97,7 +97,7 @@ create_civc_recursion_constraints(Builder& builder,
 
     // Reconstruct proof indices from proof and public inputs
     std::vector<uint32_t> proof_indices =
-        ProofSurgeon::create_indices_for_reconstructed_proof(input.proof, input.public_inputs);
+        ProofSurgeon<uint32_t>::create_indices_for_reconstructed_proof(input.proof, input.public_inputs);
 
     // Construct field elements from witness indices
     std::vector<field_ct> key_fields = RecursionConstraint::fields_from_witnesses(builder, input.key);
