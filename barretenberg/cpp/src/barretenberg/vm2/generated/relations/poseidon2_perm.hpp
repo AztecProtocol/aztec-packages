@@ -4,6 +4,7 @@
 #include <string_view>
 
 #include "barretenberg/common/op_count.hpp"
+#include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -50,358 +51,18 @@ template <typename FF_> class poseidon2_permImpl {
             FF(uint256_t{ 8072276821399088149UL, 12835106910674049377UL, 12882375598172350360UL, 23726925003953432UL });
         const auto poseidon2_params_MU_3 =
             FF(uint256_t{ 1422103134736368267UL, 5972060781611222310UL, 3327741120806881763UL, 2462344296021899375UL });
-        const auto poseidon2_params_C_0_0 =
-            FF(uint256_t{ 10018390284920759269UL, 196898842818127395UL, 5249540449481148995UL, 1853312570062057576UL });
-        const auto poseidon2_params_C_0_1 = FF(
-            uint256_t{ 12486221224710452438UL, 2372038863109147677UL, 8230667498854222355UL, 2764611904404804029UL });
-        const auto poseidon2_params_C_0_2 = FF(
-            uint256_t{ 4466505105966356650UL, 4686185096558265002UL, 16210260819355521378UL, 1844031548168280073UL });
-        const auto poseidon2_params_C_0_3 = FF(
-            uint256_t{ 15002325471271702008UL, 5581154705073500415UL, 1229208533183169201UL, 1549225070791782920UL });
-        const auto poseidon2_params_C_1_0 =
-            FF(uint256_t{ 18309653156114024706UL, 798761732958817262UL, 6904962453156279281UL, 3335412762186210716UL });
-        const auto poseidon2_params_C_1_1 =
-            FF(uint256_t{ 2824096028161810206UL, 14640933461146357672UL, 957840840567621315UL, 1024001058677493842UL });
-        const auto poseidon2_params_C_1_2 = FF(
-            uint256_t{ 14339023814126516630UL, 12239068001133297662UL, 428134084092645147UL, 2673682960814460689UL });
-        const auto poseidon2_params_C_1_3 = FF(
-            uint256_t{ 6214865908119297870UL, 17923963059035301363UL, 10985380589240272449UL, 1430464474809378870UL });
-        const auto poseidon2_params_C_2_0 =
-            FF(uint256_t{ 5109255232332580664UL, 11913027714091798733UL, 4449570166290740355UL, 864862123557185234UL });
-        const auto poseidon2_params_C_2_1 =
-            FF(uint256_t{ 2323272968957708806UL, 354488099726909104UL, 115174089281514891UL, 80808271106704719UL });
-        const auto poseidon2_params_C_2_2 =
-            FF(uint256_t{ 9646436663147525449UL, 3404572679246369876UL, 2350204275212843361UL, 1069216089054537871UL });
-        const auto poseidon2_params_C_2_3 =
-            FF(uint256_t{ 5059356740217174171UL, 4245857056683447103UL, 2426504795124362174UL, 350059533408463330UL });
-        const auto poseidon2_params_C_3_0 =
-            FF(uint256_t{ 14876286709841668328UL, 6932857857384975351UL, 7976037835777844091UL, 738350885205242785UL });
-        const auto poseidon2_params_C_3_1 = FF(
-            uint256_t{ 16522097747524989503UL, 4157368317794149558UL, 10343110624935622906UL, 2709590753056582169UL });
-        const auto poseidon2_params_C_3_2 = FF(
-            uint256_t{ 8805379462752425633UL, 8594508728147436821UL, 15629690186821248127UL, 2936193411053712582UL });
-        const auto poseidon2_params_C_3_3 = FF(
-            uint256_t{ 17046614324338172999UL, 14086280776151114414UL, 2804088968006330580UL, 728643340397380469UL });
-        const auto poseidon2_params_C_4_0 =
-            FF(uint256_t{ 12986735346000814543UL, 6140074342411686364UL, 6041575944194691717UL, 896092723329689904UL });
-        const auto poseidon2_params_C_4_1 = FF(0);
-        const auto poseidon2_params_C_4_2 = FF(0);
-        const auto poseidon2_params_C_4_3 = FF(0);
-        const auto poseidon2_params_C_5_0 = FF(
-            uint256_t{ 9573905030842087441UL, 12243211539080976096UL, 15287161151491266826UL, 1310836290481124728UL });
-        const auto poseidon2_params_C_5_1 = FF(0);
-        const auto poseidon2_params_C_5_2 = FF(0);
-        const auto poseidon2_params_C_5_3 = FF(0);
-        const auto poseidon2_params_C_6_0 =
-            FF(uint256_t{ 8865134002163281525UL, 6813849753829831047UL, 9066778847678578696UL, 2801725307463304665UL });
-        const auto poseidon2_params_C_6_1 = FF(0);
-        const auto poseidon2_params_C_6_2 = FF(0);
-        const auto poseidon2_params_C_6_3 = FF(0);
-        const auto poseidon2_params_C_7_0 = FF(
-            uint256_t{ 4931814869361681093UL, 13712769805002511750UL, 1776191062268299644UL, 2068661504023016414UL });
-        const auto poseidon2_params_C_7_1 = FF(0);
-        const auto poseidon2_params_C_7_2 = FF(0);
-        const auto poseidon2_params_C_7_3 = FF(0);
-        const auto poseidon2_params_C_8_0 =
-            FF(uint256_t{ 8161631444256445904UL, 3049786034047984668UL, 1021328518293651309UL, 2147500022207188878UL });
-        const auto poseidon2_params_C_8_1 = FF(0);
-        const auto poseidon2_params_C_8_2 = FF(0);
-        const auto poseidon2_params_C_8_3 = FF(0);
-        const auto poseidon2_params_C_9_0 =
-            FF(uint256_t{ 12766468767470212468UL, 926098071429114297UL, 17691598410912255471UL, 76565467953470566UL });
-        const auto poseidon2_params_C_9_1 = FF(0);
-        const auto poseidon2_params_C_9_2 = FF(0);
-        const auto poseidon2_params_C_9_3 = FF(0);
-        const auto poseidon2_params_C_10_0 = FF(
-            uint256_t{ 15547843034426617484UL, 13465733818561903358UL, 11157089789589945854UL, 3107062195097242290UL });
-        const auto poseidon2_params_C_10_1 = FF(0);
-        const auto poseidon2_params_C_10_2 = FF(0);
-        const auto poseidon2_params_C_10_3 = FF(0);
-        const auto poseidon2_params_C_11_0 = FF(
-            uint256_t{ 16908372174309343397UL, 17264932925429761530UL, 11508063480483774160UL, 2682419245684831641UL });
-        const auto poseidon2_params_C_11_1 = FF(0);
-        const auto poseidon2_params_C_11_2 = FF(0);
-        const auto poseidon2_params_C_11_3 = FF(0);
-        const auto poseidon2_params_C_12_0 =
-            FF(uint256_t{ 4870692136216401181UL, 17645600130793395310UL, 2758876031472241166UL, 874943362207641089UL });
-        const auto poseidon2_params_C_12_1 = FF(0);
-        const auto poseidon2_params_C_12_2 = FF(0);
-        const auto poseidon2_params_C_12_3 = FF(0);
-        const auto poseidon2_params_C_13_0 = FF(
-            uint256_t{ 4540479402638267003UL, 13477556963426049071UL, 6055112305493291757UL, 1810598527648098537UL });
-        const auto poseidon2_params_C_13_1 = FF(0);
-        const auto poseidon2_params_C_13_2 = FF(0);
-        const auto poseidon2_params_C_13_3 = FF(0);
-        const auto poseidon2_params_C_14_0 =
-            FF(uint256_t{ 7894770769272900997UL, 9595210915998428021UL, 7642295683223718917UL, 2210716392790471408UL });
-        const auto poseidon2_params_C_14_1 = FF(0);
-        const auto poseidon2_params_C_14_2 = FF(0);
-        const auto poseidon2_params_C_14_3 = FF(0);
-        const auto poseidon2_params_C_15_0 = FF(
-            uint256_t{ 10910178561156475899UL, 15811627963917441510UL, 16460518660187536520UL, 1698297851221778809UL });
-        const auto poseidon2_params_C_15_1 = FF(0);
-        const auto poseidon2_params_C_15_2 = FF(0);
-        const auto poseidon2_params_C_15_3 = FF(0);
-        const auto poseidon2_params_C_16_0 =
-            FF(uint256_t{ 7831732902708890908UL, 1464390598836302271UL, 8568564606321342514UL, 3007171090439369509UL });
-        const auto poseidon2_params_C_16_1 = FF(0);
-        const auto poseidon2_params_C_16_2 = FF(0);
-        const auto poseidon2_params_C_16_3 = FF(0);
-        const auto poseidon2_params_C_17_0 = FF(
-            uint256_t{ 12758232712903990792UL, 5937193763836963893UL, 4629415695575460109UL, 2476198378403296665UL });
-        const auto poseidon2_params_C_17_1 = FF(0);
-        const auto poseidon2_params_C_17_2 = FF(0);
-        const auto poseidon2_params_C_17_3 = FF(0);
-        const auto poseidon2_params_C_18_0 =
-            FF(uint256_t{ 16185652584871361881UL, 3161867062328690813UL, 8447947510117581907UL, 452436262606194895UL });
-        const auto poseidon2_params_C_18_1 = FF(0);
-        const auto poseidon2_params_C_18_2 = FF(0);
-        const auto poseidon2_params_C_18_3 = FF(0);
-        const auto poseidon2_params_C_19_0 = FF(
-            uint256_t{ 10531967515434376071UL, 5577695765815843856UL, 9164856352050088505UL, 1205339682110411496UL });
-        const auto poseidon2_params_C_19_1 = FF(0);
-        const auto poseidon2_params_C_19_2 = FF(0);
-        const auto poseidon2_params_C_19_3 = FF(0);
-        const auto poseidon2_params_C_20_0 = FF(
-            uint256_t{ 3898841196333713180UL, 14650521577519770525UL, 5736581618852866049UL, 1010789789328495026UL });
-        const auto poseidon2_params_C_20_1 = FF(0);
-        const auto poseidon2_params_C_20_2 = FF(0);
-        const auto poseidon2_params_C_20_3 = FF(0);
-        const auto poseidon2_params_C_21_0 = FF(
-            uint256_t{ 12103741763020280571UL, 14760208106156268938UL, 15246749619665902195UL, 1987439155030896717UL });
-        const auto poseidon2_params_C_21_1 = FF(0);
-        const auto poseidon2_params_C_21_2 = FF(0);
-        const auto poseidon2_params_C_21_3 = FF(0);
-        const auto poseidon2_params_C_22_0 = FF(
-            uint256_t{ 326429241861474059UL, 11335157279655967493UL, 16233357323017397007UL, 2124770605461456708UL });
-        const auto poseidon2_params_C_22_1 = FF(0);
-        const auto poseidon2_params_C_22_2 = FF(0);
-        const auto poseidon2_params_C_22_3 = FF(0);
-        const auto poseidon2_params_C_23_0 = FF(
-            uint256_t{ 13507610432344102875UL, 9765425316929074945UL, 10455054851855122687UL, 3371280263716451574UL });
-        const auto poseidon2_params_C_23_1 = FF(0);
-        const auto poseidon2_params_C_23_2 = FF(0);
-        const auto poseidon2_params_C_23_3 = FF(0);
-        const auto poseidon2_params_C_24_0 = FF(
-            uint256_t{ 9433430149246843174UL, 16916651192445074064UL, 12002862125451454299UL, 3293088726774108791UL });
-        const auto poseidon2_params_C_24_1 = FF(0);
-        const auto poseidon2_params_C_24_2 = FF(0);
-        const auto poseidon2_params_C_24_3 = FF(0);
-        const auto poseidon2_params_C_25_0 = FF(
-            uint256_t{ 15895963712096768440UL, 10975964170403460506UL, 7594578539046143282UL, 441635248990433378UL });
-        const auto poseidon2_params_C_25_1 = FF(0);
-        const auto poseidon2_params_C_25_2 = FF(0);
-        const auto poseidon2_params_C_25_3 = FF(0);
-        const auto poseidon2_params_C_26_0 =
-            FF(uint256_t{ 55564641555031451UL, 2316046008873247993UL, 6273091099984972305UL, 531938487375579818UL });
-        const auto poseidon2_params_C_26_1 = FF(0);
-        const auto poseidon2_params_C_26_2 = FF(0);
-        const auto poseidon2_params_C_26_3 = FF(0);
-        const auto poseidon2_params_C_27_0 = FF(
-            uint256_t{ 17845282940759944461UL, 6735239388814238924UL, 3181517889518583601UL, 2376846283559998361UL });
-        const auto poseidon2_params_C_27_1 = FF(0);
-        const auto poseidon2_params_C_27_2 = FF(0);
-        const auto poseidon2_params_C_27_3 = FF(0);
-        const auto poseidon2_params_C_28_0 = FF(
-            uint256_t{ 14097127963645492314UL, 1165420652731038559UL, 12527303660854712762UL, 2717289076364278965UL });
-        const auto poseidon2_params_C_28_1 = FF(0);
-        const auto poseidon2_params_C_28_2 = FF(0);
-        const auto poseidon2_params_C_28_3 = FF(0);
-        const auto poseidon2_params_C_29_0 = FF(
-            uint256_t{ 15600044695084040011UL, 255324662529267034UL, 11859356122961343981UL, 2571979992654075442UL });
-        const auto poseidon2_params_C_29_1 = FF(0);
-        const auto poseidon2_params_C_29_2 = FF(0);
-        const auto poseidon2_params_C_29_3 = FF(0);
-        const auto poseidon2_params_C_30_0 =
-            FF(uint256_t{ 1589817027469470176UL, 1086723465680833706UL, 6948011514366564799UL, 2482410610948543635UL });
-        const auto poseidon2_params_C_30_1 = FF(0);
-        const auto poseidon2_params_C_30_2 = FF(0);
-        const auto poseidon2_params_C_30_3 = FF(0);
-        const auto poseidon2_params_C_31_0 = FF(
-            uint256_t{ 6071201116374785253UL, 16554668458221199618UL, 16319484688832471879UL, 2792452762383364279UL });
-        const auto poseidon2_params_C_31_1 = FF(0);
-        const auto poseidon2_params_C_31_2 = FF(0);
-        const auto poseidon2_params_C_31_3 = FF(0);
-        const auto poseidon2_params_C_32_0 = FF(
-            uint256_t{ 13535048470209809113UL, 1831807297936988201UL, 16757520396573457190UL, 508291910620511162UL });
-        const auto poseidon2_params_C_32_1 = FF(0);
-        const auto poseidon2_params_C_32_2 = FF(0);
-        const auto poseidon2_params_C_32_3 = FF(0);
-        const auto poseidon2_params_C_33_0 = FF(
-            uint256_t{ 6946737468087619802UL, 14033399912488027565UL, 12701200401813783486UL, 1348363389498465135UL });
-        const auto poseidon2_params_C_33_1 = FF(0);
-        const auto poseidon2_params_C_33_2 = FF(0);
-        const auto poseidon2_params_C_33_3 = FF(0);
-        const auto poseidon2_params_C_34_0 = FF(
-            uint256_t{ 6788008051328210729UL, 13866524545426155292UL, 4317879914214157329UL, 2633928310905799638UL });
-        const auto poseidon2_params_C_34_1 = FF(0);
-        const auto poseidon2_params_C_34_2 = FF(0);
-        const auto poseidon2_params_C_34_3 = FF(0);
-        const auto poseidon2_params_C_35_0 = FF(
-            uint256_t{ 1183626302001490602UL, 10035686235057284266UL, 1656321729167440177UL, 1887128381037099784UL });
-        const auto poseidon2_params_C_35_1 = FF(0);
-        const auto poseidon2_params_C_35_2 = FF(0);
-        const auto poseidon2_params_C_35_3 = FF(0);
-        const auto poseidon2_params_C_36_0 = FF(
-            uint256_t{ 964566190254741199UL, 17650087760652370459UL, 14904592615785317921UL, 2929864473487096026UL });
-        const auto poseidon2_params_C_36_1 = FF(0);
-        const auto poseidon2_params_C_36_2 = FF(0);
-        const auto poseidon2_params_C_36_3 = FF(0);
-        const auto poseidon2_params_C_37_0 =
-            FF(uint256_t{ 13584300701347139198UL, 512534187550045064UL, 13489711551083721364UL, 41824696873363624UL });
-        const auto poseidon2_params_C_37_1 = FF(0);
-        const auto poseidon2_params_C_37_2 = FF(0);
-        const auto poseidon2_params_C_37_3 = FF(0);
-        const auto poseidon2_params_C_38_0 =
-            FF(uint256_t{ 17586611824788147557UL, 6430987250922925699UL, 9294838151373947091UL, 348446557360066429UL });
-        const auto poseidon2_params_C_38_1 = FF(0);
-        const auto poseidon2_params_C_38_2 = FF(0);
-        const auto poseidon2_params_C_38_3 = FF(0);
-        const auto poseidon2_params_C_39_0 = FF(
-            uint256_t{ 15025298913764434311UL, 14393211163878018166UL, 7154440178410267241UL, 3057088631006286899UL });
-        const auto poseidon2_params_C_39_1 = FF(0);
-        const auto poseidon2_params_C_39_2 = FF(0);
-        const auto poseidon2_params_C_39_3 = FF(0);
-        const auto poseidon2_params_C_40_0 = FF(
-            uint256_t{ 13451769229280519155UL, 17839347496757587523UL, 10553299811918798519UL, 2523373819901075642UL });
-        const auto poseidon2_params_C_40_1 = FF(0);
-        const auto poseidon2_params_C_40_2 = FF(0);
-        const auto poseidon2_params_C_40_3 = FF(0);
-        const auto poseidon2_params_C_41_0 = FF(
-            uint256_t{ 16267315463205810352UL, 13830706729545301172UL, 15413288900478726729UL, 287556136711008934UL });
-        const auto poseidon2_params_C_41_1 = FF(0);
-        const auto poseidon2_params_C_41_2 = FF(0);
-        const auto poseidon2_params_C_41_3 = FF(0);
-        const auto poseidon2_params_C_42_0 =
-            FF(uint256_t{ 4573780169675443044UL, 8758089751960064775UL, 2470295096511057988UL, 51551212240288730UL });
-        const auto poseidon2_params_C_42_1 = FF(0);
-        const auto poseidon2_params_C_42_2 = FF(0);
-        const auto poseidon2_params_C_42_3 = FF(0);
-        const auto poseidon2_params_C_43_0 = FF(
-            uint256_t{ 7093949836145798554UL, 12771428392262798771UL, 17021632567931004395UL, 1558106578814965657UL });
-        const auto poseidon2_params_C_43_1 = FF(0);
-        const auto poseidon2_params_C_43_2 = FF(0);
-        const auto poseidon2_params_C_43_3 = FF(0);
-        const auto poseidon2_params_C_44_0 = FF(
-            uint256_t{ 8205915653008540447UL, 10376314495036230740UL, 5774593793305666491UL, 2231830927015656581UL });
-        const auto poseidon2_params_C_44_1 = FF(0);
-        const auto poseidon2_params_C_44_2 = FF(0);
-        const auto poseidon2_params_C_44_3 = FF(0);
-        const auto poseidon2_params_C_45_0 = FF(
-            uint256_t{ 10783762484003267341UL, 10229708558604896492UL, 1831638669050696278UL, 2190429714552610800UL });
-        const auto poseidon2_params_C_45_1 = FF(0);
-        const auto poseidon2_params_C_45_2 = FF(0);
-        const auto poseidon2_params_C_45_3 = FF(0);
-        const auto poseidon2_params_C_46_0 = FF(
-            uint256_t{ 7310961803978392383UL, 12793746113455595394UL, 17036245927795997300UL, 3106081169494120044UL });
-        const auto poseidon2_params_C_46_1 = FF(0);
-        const auto poseidon2_params_C_46_2 = FF(0);
-        const auto poseidon2_params_C_46_3 = FF(0);
-        const auto poseidon2_params_C_47_0 =
-            FF(uint256_t{ 17421859032088162675UL, 7339791467855418851UL, 4622175020331968961UL, 590786792834928630UL });
-        const auto poseidon2_params_C_47_1 = FF(0);
-        const auto poseidon2_params_C_47_2 = FF(0);
-        const auto poseidon2_params_C_47_3 = FF(0);
-        const auto poseidon2_params_C_48_0 = FF(
-            uint256_t{ 14242884250645212438UL, 12806057845811725595UL, 7743423753614082490UL, 213381026777379804UL });
-        const auto poseidon2_params_C_48_1 = FF(0);
-        const auto poseidon2_params_C_48_2 = FF(0);
-        const auto poseidon2_params_C_48_3 = FF(0);
-        const auto poseidon2_params_C_49_0 = FF(
-            uint256_t{ 1110713325513004805UL, 8318407684973846516UL, 15952888485475298710UL, 1018983205230111328UL });
-        const auto poseidon2_params_C_49_1 = FF(0);
-        const auto poseidon2_params_C_49_2 = FF(0);
-        const auto poseidon2_params_C_49_3 = FF(0);
-        const auto poseidon2_params_C_50_0 =
-            FF(uint256_t{ 533883137631233338UL, 333001117808183237UL, 16968583542443855481UL, 329716098711096173UL });
-        const auto poseidon2_params_C_50_1 = FF(0);
-        const auto poseidon2_params_C_50_2 = FF(0);
-        const auto poseidon2_params_C_50_3 = FF(0);
-        const auto poseidon2_params_C_51_0 =
-            FF(uint256_t{ 4449676039486426793UL, 7760073051300251162UL, 5615103291054015906UL, 2516053143677338215UL });
-        const auto poseidon2_params_C_51_1 = FF(0);
-        const auto poseidon2_params_C_51_2 = FF(0);
-        const auto poseidon2_params_C_51_3 = FF(0);
-        const auto poseidon2_params_C_52_0 = FF(
-            uint256_t{ 16503526645482286870UL, 6358830762575712333UL, 12313512559299087688UL, 2716767262544184013UL });
-        const auto poseidon2_params_C_52_1 = FF(0);
-        const auto poseidon2_params_C_52_2 = FF(0);
-        const auto poseidon2_params_C_52_3 = FF(0);
-        const auto poseidon2_params_C_53_0 = FF(
-            uint256_t{ 5426798011730033104UL, 13085704829880126552UL, 6356732802364281819UL, 2175930396888807151UL });
-        const auto poseidon2_params_C_53_1 = FF(0);
-        const auto poseidon2_params_C_53_2 = FF(0);
-        const auto poseidon2_params_C_53_3 = FF(0);
-        const auto poseidon2_params_C_54_0 = FF(
-            uint256_t{ 8262282602783970021UL, 2576069526442506486UL, 14199683559983367515UL, 3432491072538425468UL });
-        const auto poseidon2_params_C_54_1 = FF(0);
-        const auto poseidon2_params_C_54_2 = FF(0);
-        const auto poseidon2_params_C_54_3 = FF(0);
-        const auto poseidon2_params_C_55_0 = FF(
-            uint256_t{ 14778817021916755205UL, 6110468871588391807UL, 2850248286812407967UL, 3411084787375678665UL });
-        const auto poseidon2_params_C_55_1 = FF(0);
-        const auto poseidon2_params_C_55_2 = FF(0);
-        const auto poseidon2_params_C_55_3 = FF(0);
-        const auto poseidon2_params_C_56_0 =
-            FF(uint256_t{ 4906200604739023933UL, 12096549814065429793UL, 5988343102643160344UL, 309820751832846301UL });
-        const auto poseidon2_params_C_56_1 = FF(0);
-        const auto poseidon2_params_C_56_2 = FF(0);
-        const auto poseidon2_params_C_56_3 = FF(0);
-        const auto poseidon2_params_C_57_0 = FF(
-            uint256_t{ 8709336210313678885UL, 10520000332606345601UL, 4756441214598660785UL, 2483744946546306397UL });
-        const auto poseidon2_params_C_57_1 = FF(0);
-        const auto poseidon2_params_C_57_2 = FF(0);
-        const auto poseidon2_params_C_57_3 = FF(0);
-        const auto poseidon2_params_C_58_0 =
-            FF(uint256_t{ 9617950371599090517UL, 6702332727289490762UL, 7078214601245292934UL, 215269160536524476UL });
-        const auto poseidon2_params_C_58_1 = FF(0);
-        const auto poseidon2_params_C_58_2 = FF(0);
-        const auto poseidon2_params_C_58_3 = FF(0);
-        const auto poseidon2_params_C_59_0 = FF(
-            uint256_t{ 14694170287735041964UL, 13462371741453101277UL, 7691247574208617782UL, 1078917709155142535UL });
-        const auto poseidon2_params_C_59_1 = FF(0);
-        const auto poseidon2_params_C_59_2 = FF(0);
-        const auto poseidon2_params_C_59_3 = FF(0);
-        const auto poseidon2_params_C_60_0 = FF(
-            uint256_t{ 17559938410729200952UL, 12326273425107991305UL, 8641129484519639030UL, 1699848340767391255UL });
-        const auto poseidon2_params_C_60_1 =
-            FF(uint256_t{ 3946956839294125797UL, 10123891284815211853UL, 3676846437799665248UL, 753827773683953838UL });
-        const auto poseidon2_params_C_60_2 = FF(
-            uint256_t{ 10815195850656127580UL, 17940782720817522247UL, 11666428030894512886UL, 2305765957929457259UL });
-        const auto poseidon2_params_C_60_3 =
-            FF(uint256_t{ 437280840171101279UL, 6885928680245806601UL, 6031863836827793624UL, 2698250255620259624UL });
-        const auto poseidon2_params_C_61_0 = FF(
-            uint256_t{ 16961604592822056794UL, 12516844188945734293UL, 2404426354458718742UL, 901141949721836097UL });
-        const auto poseidon2_params_C_61_1 = FF(
-            uint256_t{ 3152898413090790038UL, 16108523113696338432UL, 11492645026300260534UL, 1417477149741880787UL });
-        const auto poseidon2_params_C_61_2 = FF(
-            uint256_t{ 10578217394647568846UL, 6637113826221079930UL, 1364449097464563400UL, 2379869735503406314UL });
-        const auto poseidon2_params_C_61_3 = FF(
-            uint256_t{ 6332539588517624153UL, 17422837239624809585UL, 12296960536238467913UL, 2434905421004621494UL });
-        const auto poseidon2_params_C_62_0 =
-            FF(uint256_t{ 10311634121439582299UL, 2959376558854333994UL, 6697398963915560134UL, 417944321386245900UL });
-        const auto poseidon2_params_C_62_1 = FF(
-            uint256_t{ 16872849857899172004UL, 1640712307042701286UL, 16457516735210998920UL, 1084862449077757478UL });
-        const auto poseidon2_params_C_62_2 =
-            FF(uint256_t{ 10329879351081882815UL, 5178010365334480003UL, 7014208314719145622UL, 385149140585498380UL });
-        const auto poseidon2_params_C_62_3 = FF(
-            uint256_t{ 13199866221884806229UL, 10541991787372042848UL, 14909749656931548440UL, 708152185224876794UL });
-        const auto poseidon2_params_C_63_0 =
-            FF(uint256_t{ 1717216310632203061UL, 17455832130858697862UL, 5278085098799702411UL, 227655898188482835UL });
-        const auto poseidon2_params_C_63_1 = FF(
-            uint256_t{ 17164141620747686731UL, 16689913387728553544UL, 2568326884589391367UL, 3166155980659486882UL });
-        const auto poseidon2_params_C_63_2 = FF(
-            uint256_t{ 1233442753680249567UL, 15490006495937952898UL, 7249042245074469654UL, 2138985910652398451UL });
-        const auto poseidon2_params_C_63_3 =
-            FF(uint256_t{ 4115849303762846724UL, 2230284817967990783UL, 5095423606777193313UL, 1685862792723606183UL });
         const auto poseidon2_perm_EXT_LAYER_0 = in.get(C::poseidon2_perm_a_0) + in.get(C::poseidon2_perm_a_1);
         const auto poseidon2_perm_EXT_LAYER_1 = in.get(C::poseidon2_perm_a_2) + in.get(C::poseidon2_perm_a_3);
         const auto poseidon2_perm_EXT_LAYER_2 = FF(2) * in.get(C::poseidon2_perm_a_1) + poseidon2_perm_EXT_LAYER_1;
         const auto poseidon2_perm_EXT_LAYER_3 = FF(2) * in.get(C::poseidon2_perm_a_3) + poseidon2_perm_EXT_LAYER_0;
-        const auto poseidon2_perm_ARK_0_0 = in.get(C::poseidon2_perm_EXT_LAYER_6) + poseidon2_params_C_0_0;
-        const auto poseidon2_perm_ARK_0_1 = in.get(C::poseidon2_perm_EXT_LAYER_5) + poseidon2_params_C_0_1;
-        const auto poseidon2_perm_ARK_0_2 = in.get(C::poseidon2_perm_EXT_LAYER_7) + poseidon2_params_C_0_2;
-        const auto poseidon2_perm_ARK_0_3 = in.get(C::poseidon2_perm_EXT_LAYER_4) + poseidon2_params_C_0_3;
+        const auto poseidon2_perm_ARK_0_0 =
+            in.get(C::poseidon2_perm_EXT_LAYER_6) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[0][0];
+        const auto poseidon2_perm_ARK_0_1 =
+            in.get(C::poseidon2_perm_EXT_LAYER_5) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[0][1];
+        const auto poseidon2_perm_ARK_0_2 =
+            in.get(C::poseidon2_perm_EXT_LAYER_7) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[0][2];
+        const auto poseidon2_perm_ARK_0_3 =
+            in.get(C::poseidon2_perm_EXT_LAYER_4) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[0][3];
         const auto poseidon2_perm_A_0_0 = poseidon2_perm_ARK_0_0 * poseidon2_perm_ARK_0_0 * poseidon2_perm_ARK_0_0 *
                                           poseidon2_perm_ARK_0_0 * poseidon2_perm_ARK_0_0;
         const auto poseidon2_perm_A_0_1 = poseidon2_perm_ARK_0_1 * poseidon2_perm_ARK_0_1 * poseidon2_perm_ARK_0_1 *
@@ -414,10 +75,14 @@ template <typename FF_> class poseidon2_permImpl {
         const auto poseidon2_perm_T_0_1 = poseidon2_perm_A_0_2 + poseidon2_perm_A_0_3;
         const auto poseidon2_perm_T_0_2 = FF(2) * poseidon2_perm_A_0_1 + poseidon2_perm_T_0_1;
         const auto poseidon2_perm_T_0_3 = FF(2) * poseidon2_perm_A_0_3 + poseidon2_perm_T_0_0;
-        const auto poseidon2_perm_ARK_1_0 = in.get(C::poseidon2_perm_T_0_6) + poseidon2_params_C_1_0;
-        const auto poseidon2_perm_ARK_1_1 = in.get(C::poseidon2_perm_T_0_5) + poseidon2_params_C_1_1;
-        const auto poseidon2_perm_ARK_1_2 = in.get(C::poseidon2_perm_T_0_7) + poseidon2_params_C_1_2;
-        const auto poseidon2_perm_ARK_1_3 = in.get(C::poseidon2_perm_T_0_4) + poseidon2_params_C_1_3;
+        const auto poseidon2_perm_ARK_1_0 =
+            in.get(C::poseidon2_perm_T_0_6) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[1][0];
+        const auto poseidon2_perm_ARK_1_1 =
+            in.get(C::poseidon2_perm_T_0_5) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[1][1];
+        const auto poseidon2_perm_ARK_1_2 =
+            in.get(C::poseidon2_perm_T_0_7) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[1][2];
+        const auto poseidon2_perm_ARK_1_3 =
+            in.get(C::poseidon2_perm_T_0_4) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[1][3];
         const auto poseidon2_perm_A_1_0 = poseidon2_perm_ARK_1_0 * poseidon2_perm_ARK_1_0 * poseidon2_perm_ARK_1_0 *
                                           poseidon2_perm_ARK_1_0 * poseidon2_perm_ARK_1_0;
         const auto poseidon2_perm_A_1_1 = poseidon2_perm_ARK_1_1 * poseidon2_perm_ARK_1_1 * poseidon2_perm_ARK_1_1 *
@@ -430,10 +95,14 @@ template <typename FF_> class poseidon2_permImpl {
         const auto poseidon2_perm_T_1_1 = poseidon2_perm_A_1_2 + poseidon2_perm_A_1_3;
         const auto poseidon2_perm_T_1_2 = FF(2) * poseidon2_perm_A_1_1 + poseidon2_perm_T_1_1;
         const auto poseidon2_perm_T_1_3 = FF(2) * poseidon2_perm_A_1_3 + poseidon2_perm_T_1_0;
-        const auto poseidon2_perm_ARK_2_0 = in.get(C::poseidon2_perm_T_1_6) + poseidon2_params_C_2_0;
-        const auto poseidon2_perm_ARK_2_1 = in.get(C::poseidon2_perm_T_1_5) + poseidon2_params_C_2_1;
-        const auto poseidon2_perm_ARK_2_2 = in.get(C::poseidon2_perm_T_1_7) + poseidon2_params_C_2_2;
-        const auto poseidon2_perm_ARK_2_3 = in.get(C::poseidon2_perm_T_1_4) + poseidon2_params_C_2_3;
+        const auto poseidon2_perm_ARK_2_0 =
+            in.get(C::poseidon2_perm_T_1_6) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[2][0];
+        const auto poseidon2_perm_ARK_2_1 =
+            in.get(C::poseidon2_perm_T_1_5) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[2][1];
+        const auto poseidon2_perm_ARK_2_2 =
+            in.get(C::poseidon2_perm_T_1_7) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[2][2];
+        const auto poseidon2_perm_ARK_2_3 =
+            in.get(C::poseidon2_perm_T_1_4) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[2][3];
         const auto poseidon2_perm_A_2_0 = poseidon2_perm_ARK_2_0 * poseidon2_perm_ARK_2_0 * poseidon2_perm_ARK_2_0 *
                                           poseidon2_perm_ARK_2_0 * poseidon2_perm_ARK_2_0;
         const auto poseidon2_perm_A_2_1 = poseidon2_perm_ARK_2_1 * poseidon2_perm_ARK_2_1 * poseidon2_perm_ARK_2_1 *
@@ -446,10 +115,14 @@ template <typename FF_> class poseidon2_permImpl {
         const auto poseidon2_perm_T_2_1 = poseidon2_perm_A_2_2 + poseidon2_perm_A_2_3;
         const auto poseidon2_perm_T_2_2 = FF(2) * poseidon2_perm_A_2_1 + poseidon2_perm_T_2_1;
         const auto poseidon2_perm_T_2_3 = FF(2) * poseidon2_perm_A_2_3 + poseidon2_perm_T_2_0;
-        const auto poseidon2_perm_ARK_3_0 = in.get(C::poseidon2_perm_T_2_6) + poseidon2_params_C_3_0;
-        const auto poseidon2_perm_ARK_3_1 = in.get(C::poseidon2_perm_T_2_5) + poseidon2_params_C_3_1;
-        const auto poseidon2_perm_ARK_3_2 = in.get(C::poseidon2_perm_T_2_7) + poseidon2_params_C_3_2;
-        const auto poseidon2_perm_ARK_3_3 = in.get(C::poseidon2_perm_T_2_4) + poseidon2_params_C_3_3;
+        const auto poseidon2_perm_ARK_3_0 =
+            in.get(C::poseidon2_perm_T_2_6) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[3][0];
+        const auto poseidon2_perm_ARK_3_1 =
+            in.get(C::poseidon2_perm_T_2_5) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[3][1];
+        const auto poseidon2_perm_ARK_3_2 =
+            in.get(C::poseidon2_perm_T_2_7) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[3][2];
+        const auto poseidon2_perm_ARK_3_3 =
+            in.get(C::poseidon2_perm_T_2_4) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[3][3];
         const auto poseidon2_perm_A_3_0 = poseidon2_perm_ARK_3_0 * poseidon2_perm_ARK_3_0 * poseidon2_perm_ARK_3_0 *
                                           poseidon2_perm_ARK_3_0 * poseidon2_perm_ARK_3_0;
         const auto poseidon2_perm_A_3_1 = poseidon2_perm_ARK_3_1 * poseidon2_perm_ARK_3_1 * poseidon2_perm_ARK_3_1 *
@@ -462,626 +135,686 @@ template <typename FF_> class poseidon2_permImpl {
         const auto poseidon2_perm_T_3_1 = poseidon2_perm_A_3_2 + poseidon2_perm_A_3_3;
         const auto poseidon2_perm_T_3_2 = FF(2) * poseidon2_perm_A_3_1 + poseidon2_perm_T_3_1;
         const auto poseidon2_perm_T_3_3 = FF(2) * poseidon2_perm_A_3_3 + poseidon2_perm_T_3_0;
-        const auto poseidon2_perm_ARK_4_0 = in.get(C::poseidon2_perm_T_3_6) + poseidon2_params_C_4_0;
-        const auto poseidon2_perm_ARK_4_1 = in.get(C::poseidon2_perm_T_3_5) + poseidon2_params_C_4_1;
-        const auto poseidon2_perm_ARK_4_2 = in.get(C::poseidon2_perm_T_3_7) + poseidon2_params_C_4_2;
-        const auto poseidon2_perm_ARK_4_3 = in.get(C::poseidon2_perm_T_3_4) + poseidon2_params_C_4_3;
+        const auto poseidon2_perm_ARK_4_0 =
+            in.get(C::poseidon2_perm_T_3_6) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[4][0];
+        const auto poseidon2_perm_A_4_1 =
+            in.get(C::poseidon2_perm_T_3_5) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[4][1];
+        const auto poseidon2_perm_A_4_2 =
+            in.get(C::poseidon2_perm_T_3_7) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[4][2];
+        const auto poseidon2_perm_A_4_3 =
+            in.get(C::poseidon2_perm_T_3_4) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[4][3];
         const auto poseidon2_perm_A_4_0 = poseidon2_perm_ARK_4_0 * poseidon2_perm_ARK_4_0 * poseidon2_perm_ARK_4_0 *
                                           poseidon2_perm_ARK_4_0 * poseidon2_perm_ARK_4_0;
-        const auto poseidon2_perm_A_4_1 = poseidon2_perm_ARK_4_1;
-        const auto poseidon2_perm_A_4_2 = poseidon2_perm_ARK_4_2;
-        const auto poseidon2_perm_A_4_3 = poseidon2_perm_ARK_4_3;
         const auto poseidon2_perm_SUM_4 =
             poseidon2_perm_A_4_0 + poseidon2_perm_A_4_1 + poseidon2_perm_A_4_2 + poseidon2_perm_A_4_3;
-        const auto poseidon2_perm_ARK_5_0 = in.get(C::poseidon2_perm_B_4_0) + poseidon2_params_C_5_0;
-        const auto poseidon2_perm_ARK_5_1 = in.get(C::poseidon2_perm_B_4_1) + poseidon2_params_C_5_1;
-        const auto poseidon2_perm_ARK_5_2 = in.get(C::poseidon2_perm_B_4_2) + poseidon2_params_C_5_2;
-        const auto poseidon2_perm_ARK_5_3 = in.get(C::poseidon2_perm_B_4_3) + poseidon2_params_C_5_3;
+        const auto poseidon2_perm_ARK_5_0 =
+            in.get(C::poseidon2_perm_B_4_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[5][0];
+        const auto poseidon2_perm_A_5_1 =
+            in.get(C::poseidon2_perm_B_4_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[5][1];
+        const auto poseidon2_perm_A_5_2 =
+            in.get(C::poseidon2_perm_B_4_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[5][2];
+        const auto poseidon2_perm_A_5_3 =
+            in.get(C::poseidon2_perm_B_4_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[5][3];
         const auto poseidon2_perm_A_5_0 = poseidon2_perm_ARK_5_0 * poseidon2_perm_ARK_5_0 * poseidon2_perm_ARK_5_0 *
                                           poseidon2_perm_ARK_5_0 * poseidon2_perm_ARK_5_0;
-        const auto poseidon2_perm_A_5_1 = poseidon2_perm_ARK_5_1;
-        const auto poseidon2_perm_A_5_2 = poseidon2_perm_ARK_5_2;
-        const auto poseidon2_perm_A_5_3 = poseidon2_perm_ARK_5_3;
         const auto poseidon2_perm_SUM_5 =
             poseidon2_perm_A_5_0 + poseidon2_perm_A_5_1 + poseidon2_perm_A_5_2 + poseidon2_perm_A_5_3;
-        const auto poseidon2_perm_ARK_6_0 = in.get(C::poseidon2_perm_B_5_0) + poseidon2_params_C_6_0;
-        const auto poseidon2_perm_ARK_6_1 = in.get(C::poseidon2_perm_B_5_1) + poseidon2_params_C_6_1;
-        const auto poseidon2_perm_ARK_6_2 = in.get(C::poseidon2_perm_B_5_2) + poseidon2_params_C_6_2;
-        const auto poseidon2_perm_ARK_6_3 = in.get(C::poseidon2_perm_B_5_3) + poseidon2_params_C_6_3;
+        const auto poseidon2_perm_ARK_6_0 =
+            in.get(C::poseidon2_perm_B_5_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[6][0];
+        const auto poseidon2_perm_A_6_1 =
+            in.get(C::poseidon2_perm_B_5_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[6][1];
+        const auto poseidon2_perm_A_6_2 =
+            in.get(C::poseidon2_perm_B_5_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[6][2];
+        const auto poseidon2_perm_A_6_3 =
+            in.get(C::poseidon2_perm_B_5_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[6][3];
         const auto poseidon2_perm_A_6_0 = poseidon2_perm_ARK_6_0 * poseidon2_perm_ARK_6_0 * poseidon2_perm_ARK_6_0 *
                                           poseidon2_perm_ARK_6_0 * poseidon2_perm_ARK_6_0;
-        const auto poseidon2_perm_A_6_1 = poseidon2_perm_ARK_6_1;
-        const auto poseidon2_perm_A_6_2 = poseidon2_perm_ARK_6_2;
-        const auto poseidon2_perm_A_6_3 = poseidon2_perm_ARK_6_3;
         const auto poseidon2_perm_SUM_6 =
             poseidon2_perm_A_6_0 + poseidon2_perm_A_6_1 + poseidon2_perm_A_6_2 + poseidon2_perm_A_6_3;
-        const auto poseidon2_perm_ARK_7_0 = in.get(C::poseidon2_perm_B_6_0) + poseidon2_params_C_7_0;
-        const auto poseidon2_perm_ARK_7_1 = in.get(C::poseidon2_perm_B_6_1) + poseidon2_params_C_7_1;
-        const auto poseidon2_perm_ARK_7_2 = in.get(C::poseidon2_perm_B_6_2) + poseidon2_params_C_7_2;
-        const auto poseidon2_perm_ARK_7_3 = in.get(C::poseidon2_perm_B_6_3) + poseidon2_params_C_7_3;
+        const auto poseidon2_perm_ARK_7_0 =
+            in.get(C::poseidon2_perm_B_6_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[7][0];
+        const auto poseidon2_perm_A_7_1 =
+            in.get(C::poseidon2_perm_B_6_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[7][1];
+        const auto poseidon2_perm_A_7_2 =
+            in.get(C::poseidon2_perm_B_6_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[7][2];
+        const auto poseidon2_perm_A_7_3 =
+            in.get(C::poseidon2_perm_B_6_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[7][3];
         const auto poseidon2_perm_A_7_0 = poseidon2_perm_ARK_7_0 * poseidon2_perm_ARK_7_0 * poseidon2_perm_ARK_7_0 *
                                           poseidon2_perm_ARK_7_0 * poseidon2_perm_ARK_7_0;
-        const auto poseidon2_perm_A_7_1 = poseidon2_perm_ARK_7_1;
-        const auto poseidon2_perm_A_7_2 = poseidon2_perm_ARK_7_2;
-        const auto poseidon2_perm_A_7_3 = poseidon2_perm_ARK_7_3;
         const auto poseidon2_perm_SUM_7 =
             poseidon2_perm_A_7_0 + poseidon2_perm_A_7_1 + poseidon2_perm_A_7_2 + poseidon2_perm_A_7_3;
-        const auto poseidon2_perm_ARK_8_0 = in.get(C::poseidon2_perm_B_7_0) + poseidon2_params_C_8_0;
-        const auto poseidon2_perm_ARK_8_1 = in.get(C::poseidon2_perm_B_7_1) + poseidon2_params_C_8_1;
-        const auto poseidon2_perm_ARK_8_2 = in.get(C::poseidon2_perm_B_7_2) + poseidon2_params_C_8_2;
-        const auto poseidon2_perm_ARK_8_3 = in.get(C::poseidon2_perm_B_7_3) + poseidon2_params_C_8_3;
+        const auto poseidon2_perm_ARK_8_0 =
+            in.get(C::poseidon2_perm_B_7_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[8][0];
+        const auto poseidon2_perm_A_8_1 =
+            in.get(C::poseidon2_perm_B_7_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[8][1];
+        const auto poseidon2_perm_A_8_2 =
+            in.get(C::poseidon2_perm_B_7_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[8][2];
+        const auto poseidon2_perm_A_8_3 =
+            in.get(C::poseidon2_perm_B_7_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[8][3];
         const auto poseidon2_perm_A_8_0 = poseidon2_perm_ARK_8_0 * poseidon2_perm_ARK_8_0 * poseidon2_perm_ARK_8_0 *
                                           poseidon2_perm_ARK_8_0 * poseidon2_perm_ARK_8_0;
-        const auto poseidon2_perm_A_8_1 = poseidon2_perm_ARK_8_1;
-        const auto poseidon2_perm_A_8_2 = poseidon2_perm_ARK_8_2;
-        const auto poseidon2_perm_A_8_3 = poseidon2_perm_ARK_8_3;
         const auto poseidon2_perm_SUM_8 =
             poseidon2_perm_A_8_0 + poseidon2_perm_A_8_1 + poseidon2_perm_A_8_2 + poseidon2_perm_A_8_3;
-        const auto poseidon2_perm_ARK_9_0 = in.get(C::poseidon2_perm_B_8_0) + poseidon2_params_C_9_0;
-        const auto poseidon2_perm_ARK_9_1 = in.get(C::poseidon2_perm_B_8_1) + poseidon2_params_C_9_1;
-        const auto poseidon2_perm_ARK_9_2 = in.get(C::poseidon2_perm_B_8_2) + poseidon2_params_C_9_2;
-        const auto poseidon2_perm_ARK_9_3 = in.get(C::poseidon2_perm_B_8_3) + poseidon2_params_C_9_3;
+        const auto poseidon2_perm_ARK_9_0 =
+            in.get(C::poseidon2_perm_B_8_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[9][0];
+        const auto poseidon2_perm_A_9_1 =
+            in.get(C::poseidon2_perm_B_8_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[9][1];
+        const auto poseidon2_perm_A_9_2 =
+            in.get(C::poseidon2_perm_B_8_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[9][2];
+        const auto poseidon2_perm_A_9_3 =
+            in.get(C::poseidon2_perm_B_8_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[9][3];
         const auto poseidon2_perm_A_9_0 = poseidon2_perm_ARK_9_0 * poseidon2_perm_ARK_9_0 * poseidon2_perm_ARK_9_0 *
                                           poseidon2_perm_ARK_9_0 * poseidon2_perm_ARK_9_0;
-        const auto poseidon2_perm_A_9_1 = poseidon2_perm_ARK_9_1;
-        const auto poseidon2_perm_A_9_2 = poseidon2_perm_ARK_9_2;
-        const auto poseidon2_perm_A_9_3 = poseidon2_perm_ARK_9_3;
         const auto poseidon2_perm_SUM_9 =
             poseidon2_perm_A_9_0 + poseidon2_perm_A_9_1 + poseidon2_perm_A_9_2 + poseidon2_perm_A_9_3;
-        const auto poseidon2_perm_ARK_10_0 = in.get(C::poseidon2_perm_B_9_0) + poseidon2_params_C_10_0;
-        const auto poseidon2_perm_ARK_10_1 = in.get(C::poseidon2_perm_B_9_1) + poseidon2_params_C_10_1;
-        const auto poseidon2_perm_ARK_10_2 = in.get(C::poseidon2_perm_B_9_2) + poseidon2_params_C_10_2;
-        const auto poseidon2_perm_ARK_10_3 = in.get(C::poseidon2_perm_B_9_3) + poseidon2_params_C_10_3;
+        const auto poseidon2_perm_ARK_10_0 =
+            in.get(C::poseidon2_perm_B_9_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[10][0];
+        const auto poseidon2_perm_A_10_1 =
+            in.get(C::poseidon2_perm_B_9_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[10][1];
+        const auto poseidon2_perm_A_10_2 =
+            in.get(C::poseidon2_perm_B_9_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[10][2];
+        const auto poseidon2_perm_A_10_3 =
+            in.get(C::poseidon2_perm_B_9_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[10][3];
         const auto poseidon2_perm_A_10_0 = poseidon2_perm_ARK_10_0 * poseidon2_perm_ARK_10_0 * poseidon2_perm_ARK_10_0 *
                                            poseidon2_perm_ARK_10_0 * poseidon2_perm_ARK_10_0;
-        const auto poseidon2_perm_A_10_1 = poseidon2_perm_ARK_10_1;
-        const auto poseidon2_perm_A_10_2 = poseidon2_perm_ARK_10_2;
-        const auto poseidon2_perm_A_10_3 = poseidon2_perm_ARK_10_3;
         const auto poseidon2_perm_SUM_10 =
             poseidon2_perm_A_10_0 + poseidon2_perm_A_10_1 + poseidon2_perm_A_10_2 + poseidon2_perm_A_10_3;
-        const auto poseidon2_perm_ARK_11_0 = in.get(C::poseidon2_perm_B_10_0) + poseidon2_params_C_11_0;
-        const auto poseidon2_perm_ARK_11_1 = in.get(C::poseidon2_perm_B_10_1) + poseidon2_params_C_11_1;
-        const auto poseidon2_perm_ARK_11_2 = in.get(C::poseidon2_perm_B_10_2) + poseidon2_params_C_11_2;
-        const auto poseidon2_perm_ARK_11_3 = in.get(C::poseidon2_perm_B_10_3) + poseidon2_params_C_11_3;
+        const auto poseidon2_perm_ARK_11_0 =
+            in.get(C::poseidon2_perm_B_10_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[11][0];
+        const auto poseidon2_perm_A_11_1 =
+            in.get(C::poseidon2_perm_B_10_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[11][1];
+        const auto poseidon2_perm_A_11_2 =
+            in.get(C::poseidon2_perm_B_10_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[11][2];
+        const auto poseidon2_perm_A_11_3 =
+            in.get(C::poseidon2_perm_B_10_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[11][3];
         const auto poseidon2_perm_A_11_0 = poseidon2_perm_ARK_11_0 * poseidon2_perm_ARK_11_0 * poseidon2_perm_ARK_11_0 *
                                            poseidon2_perm_ARK_11_0 * poseidon2_perm_ARK_11_0;
-        const auto poseidon2_perm_A_11_1 = poseidon2_perm_ARK_11_1;
-        const auto poseidon2_perm_A_11_2 = poseidon2_perm_ARK_11_2;
-        const auto poseidon2_perm_A_11_3 = poseidon2_perm_ARK_11_3;
         const auto poseidon2_perm_SUM_11 =
             poseidon2_perm_A_11_0 + poseidon2_perm_A_11_1 + poseidon2_perm_A_11_2 + poseidon2_perm_A_11_3;
-        const auto poseidon2_perm_ARK_12_0 = in.get(C::poseidon2_perm_B_11_0) + poseidon2_params_C_12_0;
-        const auto poseidon2_perm_ARK_12_1 = in.get(C::poseidon2_perm_B_11_1) + poseidon2_params_C_12_1;
-        const auto poseidon2_perm_ARK_12_2 = in.get(C::poseidon2_perm_B_11_2) + poseidon2_params_C_12_2;
-        const auto poseidon2_perm_ARK_12_3 = in.get(C::poseidon2_perm_B_11_3) + poseidon2_params_C_12_3;
+        const auto poseidon2_perm_ARK_12_0 =
+            in.get(C::poseidon2_perm_B_11_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[12][0];
+        const auto poseidon2_perm_A_12_1 =
+            in.get(C::poseidon2_perm_B_11_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[12][1];
+        const auto poseidon2_perm_A_12_2 =
+            in.get(C::poseidon2_perm_B_11_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[12][2];
+        const auto poseidon2_perm_A_12_3 =
+            in.get(C::poseidon2_perm_B_11_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[12][3];
         const auto poseidon2_perm_A_12_0 = poseidon2_perm_ARK_12_0 * poseidon2_perm_ARK_12_0 * poseidon2_perm_ARK_12_0 *
                                            poseidon2_perm_ARK_12_0 * poseidon2_perm_ARK_12_0;
-        const auto poseidon2_perm_A_12_1 = poseidon2_perm_ARK_12_1;
-        const auto poseidon2_perm_A_12_2 = poseidon2_perm_ARK_12_2;
-        const auto poseidon2_perm_A_12_3 = poseidon2_perm_ARK_12_3;
         const auto poseidon2_perm_SUM_12 =
             poseidon2_perm_A_12_0 + poseidon2_perm_A_12_1 + poseidon2_perm_A_12_2 + poseidon2_perm_A_12_3;
-        const auto poseidon2_perm_ARK_13_0 = in.get(C::poseidon2_perm_B_12_0) + poseidon2_params_C_13_0;
-        const auto poseidon2_perm_ARK_13_1 = in.get(C::poseidon2_perm_B_12_1) + poseidon2_params_C_13_1;
-        const auto poseidon2_perm_ARK_13_2 = in.get(C::poseidon2_perm_B_12_2) + poseidon2_params_C_13_2;
-        const auto poseidon2_perm_ARK_13_3 = in.get(C::poseidon2_perm_B_12_3) + poseidon2_params_C_13_3;
+        const auto poseidon2_perm_ARK_13_0 =
+            in.get(C::poseidon2_perm_B_12_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[13][0];
+        const auto poseidon2_perm_A_13_1 =
+            in.get(C::poseidon2_perm_B_12_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[13][1];
+        const auto poseidon2_perm_A_13_2 =
+            in.get(C::poseidon2_perm_B_12_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[13][2];
+        const auto poseidon2_perm_A_13_3 =
+            in.get(C::poseidon2_perm_B_12_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[13][3];
         const auto poseidon2_perm_A_13_0 = poseidon2_perm_ARK_13_0 * poseidon2_perm_ARK_13_0 * poseidon2_perm_ARK_13_0 *
                                            poseidon2_perm_ARK_13_0 * poseidon2_perm_ARK_13_0;
-        const auto poseidon2_perm_A_13_1 = poseidon2_perm_ARK_13_1;
-        const auto poseidon2_perm_A_13_2 = poseidon2_perm_ARK_13_2;
-        const auto poseidon2_perm_A_13_3 = poseidon2_perm_ARK_13_3;
         const auto poseidon2_perm_SUM_13 =
             poseidon2_perm_A_13_0 + poseidon2_perm_A_13_1 + poseidon2_perm_A_13_2 + poseidon2_perm_A_13_3;
-        const auto poseidon2_perm_ARK_14_0 = in.get(C::poseidon2_perm_B_13_0) + poseidon2_params_C_14_0;
-        const auto poseidon2_perm_ARK_14_1 = in.get(C::poseidon2_perm_B_13_1) + poseidon2_params_C_14_1;
-        const auto poseidon2_perm_ARK_14_2 = in.get(C::poseidon2_perm_B_13_2) + poseidon2_params_C_14_2;
-        const auto poseidon2_perm_ARK_14_3 = in.get(C::poseidon2_perm_B_13_3) + poseidon2_params_C_14_3;
+        const auto poseidon2_perm_ARK_14_0 =
+            in.get(C::poseidon2_perm_B_13_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[14][0];
+        const auto poseidon2_perm_A_14_1 =
+            in.get(C::poseidon2_perm_B_13_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[14][1];
+        const auto poseidon2_perm_A_14_2 =
+            in.get(C::poseidon2_perm_B_13_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[14][2];
+        const auto poseidon2_perm_A_14_3 =
+            in.get(C::poseidon2_perm_B_13_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[14][3];
         const auto poseidon2_perm_A_14_0 = poseidon2_perm_ARK_14_0 * poseidon2_perm_ARK_14_0 * poseidon2_perm_ARK_14_0 *
                                            poseidon2_perm_ARK_14_0 * poseidon2_perm_ARK_14_0;
-        const auto poseidon2_perm_A_14_1 = poseidon2_perm_ARK_14_1;
-        const auto poseidon2_perm_A_14_2 = poseidon2_perm_ARK_14_2;
-        const auto poseidon2_perm_A_14_3 = poseidon2_perm_ARK_14_3;
         const auto poseidon2_perm_SUM_14 =
             poseidon2_perm_A_14_0 + poseidon2_perm_A_14_1 + poseidon2_perm_A_14_2 + poseidon2_perm_A_14_3;
-        const auto poseidon2_perm_ARK_15_0 = in.get(C::poseidon2_perm_B_14_0) + poseidon2_params_C_15_0;
-        const auto poseidon2_perm_ARK_15_1 = in.get(C::poseidon2_perm_B_14_1) + poseidon2_params_C_15_1;
-        const auto poseidon2_perm_ARK_15_2 = in.get(C::poseidon2_perm_B_14_2) + poseidon2_params_C_15_2;
-        const auto poseidon2_perm_ARK_15_3 = in.get(C::poseidon2_perm_B_14_3) + poseidon2_params_C_15_3;
+        const auto poseidon2_perm_ARK_15_0 =
+            in.get(C::poseidon2_perm_B_14_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[15][0];
+        const auto poseidon2_perm_A_15_1 =
+            in.get(C::poseidon2_perm_B_14_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[15][1];
+        const auto poseidon2_perm_A_15_2 =
+            in.get(C::poseidon2_perm_B_14_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[15][2];
+        const auto poseidon2_perm_A_15_3 =
+            in.get(C::poseidon2_perm_B_14_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[15][3];
         const auto poseidon2_perm_A_15_0 = poseidon2_perm_ARK_15_0 * poseidon2_perm_ARK_15_0 * poseidon2_perm_ARK_15_0 *
                                            poseidon2_perm_ARK_15_0 * poseidon2_perm_ARK_15_0;
-        const auto poseidon2_perm_A_15_1 = poseidon2_perm_ARK_15_1;
-        const auto poseidon2_perm_A_15_2 = poseidon2_perm_ARK_15_2;
-        const auto poseidon2_perm_A_15_3 = poseidon2_perm_ARK_15_3;
         const auto poseidon2_perm_SUM_15 =
             poseidon2_perm_A_15_0 + poseidon2_perm_A_15_1 + poseidon2_perm_A_15_2 + poseidon2_perm_A_15_3;
-        const auto poseidon2_perm_ARK_16_0 = in.get(C::poseidon2_perm_B_15_0) + poseidon2_params_C_16_0;
-        const auto poseidon2_perm_ARK_16_1 = in.get(C::poseidon2_perm_B_15_1) + poseidon2_params_C_16_1;
-        const auto poseidon2_perm_ARK_16_2 = in.get(C::poseidon2_perm_B_15_2) + poseidon2_params_C_16_2;
-        const auto poseidon2_perm_ARK_16_3 = in.get(C::poseidon2_perm_B_15_3) + poseidon2_params_C_16_3;
+        const auto poseidon2_perm_ARK_16_0 =
+            in.get(C::poseidon2_perm_B_15_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[16][0];
+        const auto poseidon2_perm_A_16_1 =
+            in.get(C::poseidon2_perm_B_15_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[16][1];
+        const auto poseidon2_perm_A_16_2 =
+            in.get(C::poseidon2_perm_B_15_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[16][2];
+        const auto poseidon2_perm_A_16_3 =
+            in.get(C::poseidon2_perm_B_15_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[16][3];
         const auto poseidon2_perm_A_16_0 = poseidon2_perm_ARK_16_0 * poseidon2_perm_ARK_16_0 * poseidon2_perm_ARK_16_0 *
                                            poseidon2_perm_ARK_16_0 * poseidon2_perm_ARK_16_0;
-        const auto poseidon2_perm_A_16_1 = poseidon2_perm_ARK_16_1;
-        const auto poseidon2_perm_A_16_2 = poseidon2_perm_ARK_16_2;
-        const auto poseidon2_perm_A_16_3 = poseidon2_perm_ARK_16_3;
         const auto poseidon2_perm_SUM_16 =
             poseidon2_perm_A_16_0 + poseidon2_perm_A_16_1 + poseidon2_perm_A_16_2 + poseidon2_perm_A_16_3;
-        const auto poseidon2_perm_ARK_17_0 = in.get(C::poseidon2_perm_B_16_0) + poseidon2_params_C_17_0;
-        const auto poseidon2_perm_ARK_17_1 = in.get(C::poseidon2_perm_B_16_1) + poseidon2_params_C_17_1;
-        const auto poseidon2_perm_ARK_17_2 = in.get(C::poseidon2_perm_B_16_2) + poseidon2_params_C_17_2;
-        const auto poseidon2_perm_ARK_17_3 = in.get(C::poseidon2_perm_B_16_3) + poseidon2_params_C_17_3;
+        const auto poseidon2_perm_ARK_17_0 =
+            in.get(C::poseidon2_perm_B_16_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[17][0];
+        const auto poseidon2_perm_A_17_1 =
+            in.get(C::poseidon2_perm_B_16_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[17][1];
+        const auto poseidon2_perm_A_17_2 =
+            in.get(C::poseidon2_perm_B_16_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[17][2];
+        const auto poseidon2_perm_A_17_3 =
+            in.get(C::poseidon2_perm_B_16_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[17][3];
         const auto poseidon2_perm_A_17_0 = poseidon2_perm_ARK_17_0 * poseidon2_perm_ARK_17_0 * poseidon2_perm_ARK_17_0 *
                                            poseidon2_perm_ARK_17_0 * poseidon2_perm_ARK_17_0;
-        const auto poseidon2_perm_A_17_1 = poseidon2_perm_ARK_17_1;
-        const auto poseidon2_perm_A_17_2 = poseidon2_perm_ARK_17_2;
-        const auto poseidon2_perm_A_17_3 = poseidon2_perm_ARK_17_3;
         const auto poseidon2_perm_SUM_17 =
             poseidon2_perm_A_17_0 + poseidon2_perm_A_17_1 + poseidon2_perm_A_17_2 + poseidon2_perm_A_17_3;
-        const auto poseidon2_perm_ARK_18_0 = in.get(C::poseidon2_perm_B_17_0) + poseidon2_params_C_18_0;
-        const auto poseidon2_perm_ARK_18_1 = in.get(C::poseidon2_perm_B_17_1) + poseidon2_params_C_18_1;
-        const auto poseidon2_perm_ARK_18_2 = in.get(C::poseidon2_perm_B_17_2) + poseidon2_params_C_18_2;
-        const auto poseidon2_perm_ARK_18_3 = in.get(C::poseidon2_perm_B_17_3) + poseidon2_params_C_18_3;
+        const auto poseidon2_perm_ARK_18_0 =
+            in.get(C::poseidon2_perm_B_17_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[18][0];
+        const auto poseidon2_perm_A_18_1 =
+            in.get(C::poseidon2_perm_B_17_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[18][1];
+        const auto poseidon2_perm_A_18_2 =
+            in.get(C::poseidon2_perm_B_17_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[18][2];
+        const auto poseidon2_perm_A_18_3 =
+            in.get(C::poseidon2_perm_B_17_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[18][3];
         const auto poseidon2_perm_A_18_0 = poseidon2_perm_ARK_18_0 * poseidon2_perm_ARK_18_0 * poseidon2_perm_ARK_18_0 *
                                            poseidon2_perm_ARK_18_0 * poseidon2_perm_ARK_18_0;
-        const auto poseidon2_perm_A_18_1 = poseidon2_perm_ARK_18_1;
-        const auto poseidon2_perm_A_18_2 = poseidon2_perm_ARK_18_2;
-        const auto poseidon2_perm_A_18_3 = poseidon2_perm_ARK_18_3;
         const auto poseidon2_perm_SUM_18 =
             poseidon2_perm_A_18_0 + poseidon2_perm_A_18_1 + poseidon2_perm_A_18_2 + poseidon2_perm_A_18_3;
-        const auto poseidon2_perm_ARK_19_0 = in.get(C::poseidon2_perm_B_18_0) + poseidon2_params_C_19_0;
-        const auto poseidon2_perm_ARK_19_1 = in.get(C::poseidon2_perm_B_18_1) + poseidon2_params_C_19_1;
-        const auto poseidon2_perm_ARK_19_2 = in.get(C::poseidon2_perm_B_18_2) + poseidon2_params_C_19_2;
-        const auto poseidon2_perm_ARK_19_3 = in.get(C::poseidon2_perm_B_18_3) + poseidon2_params_C_19_3;
+        const auto poseidon2_perm_ARK_19_0 =
+            in.get(C::poseidon2_perm_B_18_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[19][0];
+        const auto poseidon2_perm_A_19_1 =
+            in.get(C::poseidon2_perm_B_18_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[19][1];
+        const auto poseidon2_perm_A_19_2 =
+            in.get(C::poseidon2_perm_B_18_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[19][2];
+        const auto poseidon2_perm_A_19_3 =
+            in.get(C::poseidon2_perm_B_18_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[19][3];
         const auto poseidon2_perm_A_19_0 = poseidon2_perm_ARK_19_0 * poseidon2_perm_ARK_19_0 * poseidon2_perm_ARK_19_0 *
                                            poseidon2_perm_ARK_19_0 * poseidon2_perm_ARK_19_0;
-        const auto poseidon2_perm_A_19_1 = poseidon2_perm_ARK_19_1;
-        const auto poseidon2_perm_A_19_2 = poseidon2_perm_ARK_19_2;
-        const auto poseidon2_perm_A_19_3 = poseidon2_perm_ARK_19_3;
         const auto poseidon2_perm_SUM_19 =
             poseidon2_perm_A_19_0 + poseidon2_perm_A_19_1 + poseidon2_perm_A_19_2 + poseidon2_perm_A_19_3;
-        const auto poseidon2_perm_ARK_20_0 = in.get(C::poseidon2_perm_B_19_0) + poseidon2_params_C_20_0;
-        const auto poseidon2_perm_ARK_20_1 = in.get(C::poseidon2_perm_B_19_1) + poseidon2_params_C_20_1;
-        const auto poseidon2_perm_ARK_20_2 = in.get(C::poseidon2_perm_B_19_2) + poseidon2_params_C_20_2;
-        const auto poseidon2_perm_ARK_20_3 = in.get(C::poseidon2_perm_B_19_3) + poseidon2_params_C_20_3;
+        const auto poseidon2_perm_ARK_20_0 =
+            in.get(C::poseidon2_perm_B_19_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[20][0];
+        const auto poseidon2_perm_A_20_1 =
+            in.get(C::poseidon2_perm_B_19_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[20][1];
+        const auto poseidon2_perm_A_20_2 =
+            in.get(C::poseidon2_perm_B_19_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[20][2];
+        const auto poseidon2_perm_A_20_3 =
+            in.get(C::poseidon2_perm_B_19_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[20][3];
         const auto poseidon2_perm_A_20_0 = poseidon2_perm_ARK_20_0 * poseidon2_perm_ARK_20_0 * poseidon2_perm_ARK_20_0 *
                                            poseidon2_perm_ARK_20_0 * poseidon2_perm_ARK_20_0;
-        const auto poseidon2_perm_A_20_1 = poseidon2_perm_ARK_20_1;
-        const auto poseidon2_perm_A_20_2 = poseidon2_perm_ARK_20_2;
-        const auto poseidon2_perm_A_20_3 = poseidon2_perm_ARK_20_3;
         const auto poseidon2_perm_SUM_20 =
             poseidon2_perm_A_20_0 + poseidon2_perm_A_20_1 + poseidon2_perm_A_20_2 + poseidon2_perm_A_20_3;
-        const auto poseidon2_perm_ARK_21_0 = in.get(C::poseidon2_perm_B_20_0) + poseidon2_params_C_21_0;
-        const auto poseidon2_perm_ARK_21_1 = in.get(C::poseidon2_perm_B_20_1) + poseidon2_params_C_21_1;
-        const auto poseidon2_perm_ARK_21_2 = in.get(C::poseidon2_perm_B_20_2) + poseidon2_params_C_21_2;
-        const auto poseidon2_perm_ARK_21_3 = in.get(C::poseidon2_perm_B_20_3) + poseidon2_params_C_21_3;
+        const auto poseidon2_perm_ARK_21_0 =
+            in.get(C::poseidon2_perm_B_20_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[21][0];
+        const auto poseidon2_perm_A_21_1 =
+            in.get(C::poseidon2_perm_B_20_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[21][1];
+        const auto poseidon2_perm_A_21_2 =
+            in.get(C::poseidon2_perm_B_20_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[21][2];
+        const auto poseidon2_perm_A_21_3 =
+            in.get(C::poseidon2_perm_B_20_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[21][3];
         const auto poseidon2_perm_A_21_0 = poseidon2_perm_ARK_21_0 * poseidon2_perm_ARK_21_0 * poseidon2_perm_ARK_21_0 *
                                            poseidon2_perm_ARK_21_0 * poseidon2_perm_ARK_21_0;
-        const auto poseidon2_perm_A_21_1 = poseidon2_perm_ARK_21_1;
-        const auto poseidon2_perm_A_21_2 = poseidon2_perm_ARK_21_2;
-        const auto poseidon2_perm_A_21_3 = poseidon2_perm_ARK_21_3;
         const auto poseidon2_perm_SUM_21 =
             poseidon2_perm_A_21_0 + poseidon2_perm_A_21_1 + poseidon2_perm_A_21_2 + poseidon2_perm_A_21_3;
-        const auto poseidon2_perm_ARK_22_0 = in.get(C::poseidon2_perm_B_21_0) + poseidon2_params_C_22_0;
-        const auto poseidon2_perm_ARK_22_1 = in.get(C::poseidon2_perm_B_21_1) + poseidon2_params_C_22_1;
-        const auto poseidon2_perm_ARK_22_2 = in.get(C::poseidon2_perm_B_21_2) + poseidon2_params_C_22_2;
-        const auto poseidon2_perm_ARK_22_3 = in.get(C::poseidon2_perm_B_21_3) + poseidon2_params_C_22_3;
+        const auto poseidon2_perm_ARK_22_0 =
+            in.get(C::poseidon2_perm_B_21_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[22][0];
+        const auto poseidon2_perm_A_22_1 =
+            in.get(C::poseidon2_perm_B_21_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[22][1];
+        const auto poseidon2_perm_A_22_2 =
+            in.get(C::poseidon2_perm_B_21_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[22][2];
+        const auto poseidon2_perm_A_22_3 =
+            in.get(C::poseidon2_perm_B_21_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[22][3];
         const auto poseidon2_perm_A_22_0 = poseidon2_perm_ARK_22_0 * poseidon2_perm_ARK_22_0 * poseidon2_perm_ARK_22_0 *
                                            poseidon2_perm_ARK_22_0 * poseidon2_perm_ARK_22_0;
-        const auto poseidon2_perm_A_22_1 = poseidon2_perm_ARK_22_1;
-        const auto poseidon2_perm_A_22_2 = poseidon2_perm_ARK_22_2;
-        const auto poseidon2_perm_A_22_3 = poseidon2_perm_ARK_22_3;
         const auto poseidon2_perm_SUM_22 =
             poseidon2_perm_A_22_0 + poseidon2_perm_A_22_1 + poseidon2_perm_A_22_2 + poseidon2_perm_A_22_3;
-        const auto poseidon2_perm_ARK_23_0 = in.get(C::poseidon2_perm_B_22_0) + poseidon2_params_C_23_0;
-        const auto poseidon2_perm_ARK_23_1 = in.get(C::poseidon2_perm_B_22_1) + poseidon2_params_C_23_1;
-        const auto poseidon2_perm_ARK_23_2 = in.get(C::poseidon2_perm_B_22_2) + poseidon2_params_C_23_2;
-        const auto poseidon2_perm_ARK_23_3 = in.get(C::poseidon2_perm_B_22_3) + poseidon2_params_C_23_3;
+        const auto poseidon2_perm_ARK_23_0 =
+            in.get(C::poseidon2_perm_B_22_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[23][0];
+        const auto poseidon2_perm_A_23_1 =
+            in.get(C::poseidon2_perm_B_22_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[23][1];
+        const auto poseidon2_perm_A_23_2 =
+            in.get(C::poseidon2_perm_B_22_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[23][2];
+        const auto poseidon2_perm_A_23_3 =
+            in.get(C::poseidon2_perm_B_22_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[23][3];
         const auto poseidon2_perm_A_23_0 = poseidon2_perm_ARK_23_0 * poseidon2_perm_ARK_23_0 * poseidon2_perm_ARK_23_0 *
                                            poseidon2_perm_ARK_23_0 * poseidon2_perm_ARK_23_0;
-        const auto poseidon2_perm_A_23_1 = poseidon2_perm_ARK_23_1;
-        const auto poseidon2_perm_A_23_2 = poseidon2_perm_ARK_23_2;
-        const auto poseidon2_perm_A_23_3 = poseidon2_perm_ARK_23_3;
         const auto poseidon2_perm_SUM_23 =
             poseidon2_perm_A_23_0 + poseidon2_perm_A_23_1 + poseidon2_perm_A_23_2 + poseidon2_perm_A_23_3;
-        const auto poseidon2_perm_ARK_24_0 = in.get(C::poseidon2_perm_B_23_0) + poseidon2_params_C_24_0;
-        const auto poseidon2_perm_ARK_24_1 = in.get(C::poseidon2_perm_B_23_1) + poseidon2_params_C_24_1;
-        const auto poseidon2_perm_ARK_24_2 = in.get(C::poseidon2_perm_B_23_2) + poseidon2_params_C_24_2;
-        const auto poseidon2_perm_ARK_24_3 = in.get(C::poseidon2_perm_B_23_3) + poseidon2_params_C_24_3;
+        const auto poseidon2_perm_ARK_24_0 =
+            in.get(C::poseidon2_perm_B_23_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[24][0];
+        const auto poseidon2_perm_A_24_1 =
+            in.get(C::poseidon2_perm_B_23_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[24][1];
+        const auto poseidon2_perm_A_24_2 =
+            in.get(C::poseidon2_perm_B_23_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[24][2];
+        const auto poseidon2_perm_A_24_3 =
+            in.get(C::poseidon2_perm_B_23_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[24][3];
         const auto poseidon2_perm_A_24_0 = poseidon2_perm_ARK_24_0 * poseidon2_perm_ARK_24_0 * poseidon2_perm_ARK_24_0 *
                                            poseidon2_perm_ARK_24_0 * poseidon2_perm_ARK_24_0;
-        const auto poseidon2_perm_A_24_1 = poseidon2_perm_ARK_24_1;
-        const auto poseidon2_perm_A_24_2 = poseidon2_perm_ARK_24_2;
-        const auto poseidon2_perm_A_24_3 = poseidon2_perm_ARK_24_3;
         const auto poseidon2_perm_SUM_24 =
             poseidon2_perm_A_24_0 + poseidon2_perm_A_24_1 + poseidon2_perm_A_24_2 + poseidon2_perm_A_24_3;
-        const auto poseidon2_perm_ARK_25_0 = in.get(C::poseidon2_perm_B_24_0) + poseidon2_params_C_25_0;
-        const auto poseidon2_perm_ARK_25_1 = in.get(C::poseidon2_perm_B_24_1) + poseidon2_params_C_25_1;
-        const auto poseidon2_perm_ARK_25_2 = in.get(C::poseidon2_perm_B_24_2) + poseidon2_params_C_25_2;
-        const auto poseidon2_perm_ARK_25_3 = in.get(C::poseidon2_perm_B_24_3) + poseidon2_params_C_25_3;
+        const auto poseidon2_perm_ARK_25_0 =
+            in.get(C::poseidon2_perm_B_24_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[25][0];
+        const auto poseidon2_perm_A_25_1 =
+            in.get(C::poseidon2_perm_B_24_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[25][1];
+        const auto poseidon2_perm_A_25_2 =
+            in.get(C::poseidon2_perm_B_24_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[25][2];
+        const auto poseidon2_perm_A_25_3 =
+            in.get(C::poseidon2_perm_B_24_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[25][3];
         const auto poseidon2_perm_A_25_0 = poseidon2_perm_ARK_25_0 * poseidon2_perm_ARK_25_0 * poseidon2_perm_ARK_25_0 *
                                            poseidon2_perm_ARK_25_0 * poseidon2_perm_ARK_25_0;
-        const auto poseidon2_perm_A_25_1 = poseidon2_perm_ARK_25_1;
-        const auto poseidon2_perm_A_25_2 = poseidon2_perm_ARK_25_2;
-        const auto poseidon2_perm_A_25_3 = poseidon2_perm_ARK_25_3;
         const auto poseidon2_perm_SUM_25 =
             poseidon2_perm_A_25_0 + poseidon2_perm_A_25_1 + poseidon2_perm_A_25_2 + poseidon2_perm_A_25_3;
-        const auto poseidon2_perm_ARK_26_0 = in.get(C::poseidon2_perm_B_25_0) + poseidon2_params_C_26_0;
-        const auto poseidon2_perm_ARK_26_1 = in.get(C::poseidon2_perm_B_25_1) + poseidon2_params_C_26_1;
-        const auto poseidon2_perm_ARK_26_2 = in.get(C::poseidon2_perm_B_25_2) + poseidon2_params_C_26_2;
-        const auto poseidon2_perm_ARK_26_3 = in.get(C::poseidon2_perm_B_25_3) + poseidon2_params_C_26_3;
+        const auto poseidon2_perm_ARK_26_0 =
+            in.get(C::poseidon2_perm_B_25_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[26][0];
+        const auto poseidon2_perm_A_26_1 =
+            in.get(C::poseidon2_perm_B_25_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[26][1];
+        const auto poseidon2_perm_A_26_2 =
+            in.get(C::poseidon2_perm_B_25_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[26][2];
+        const auto poseidon2_perm_A_26_3 =
+            in.get(C::poseidon2_perm_B_25_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[26][3];
         const auto poseidon2_perm_A_26_0 = poseidon2_perm_ARK_26_0 * poseidon2_perm_ARK_26_0 * poseidon2_perm_ARK_26_0 *
                                            poseidon2_perm_ARK_26_0 * poseidon2_perm_ARK_26_0;
-        const auto poseidon2_perm_A_26_1 = poseidon2_perm_ARK_26_1;
-        const auto poseidon2_perm_A_26_2 = poseidon2_perm_ARK_26_2;
-        const auto poseidon2_perm_A_26_3 = poseidon2_perm_ARK_26_3;
         const auto poseidon2_perm_SUM_26 =
             poseidon2_perm_A_26_0 + poseidon2_perm_A_26_1 + poseidon2_perm_A_26_2 + poseidon2_perm_A_26_3;
-        const auto poseidon2_perm_ARK_27_0 = in.get(C::poseidon2_perm_B_26_0) + poseidon2_params_C_27_0;
-        const auto poseidon2_perm_ARK_27_1 = in.get(C::poseidon2_perm_B_26_1) + poseidon2_params_C_27_1;
-        const auto poseidon2_perm_ARK_27_2 = in.get(C::poseidon2_perm_B_26_2) + poseidon2_params_C_27_2;
-        const auto poseidon2_perm_ARK_27_3 = in.get(C::poseidon2_perm_B_26_3) + poseidon2_params_C_27_3;
+        const auto poseidon2_perm_ARK_27_0 =
+            in.get(C::poseidon2_perm_B_26_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[27][0];
+        const auto poseidon2_perm_A_27_1 =
+            in.get(C::poseidon2_perm_B_26_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[27][1];
+        const auto poseidon2_perm_A_27_2 =
+            in.get(C::poseidon2_perm_B_26_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[27][2];
+        const auto poseidon2_perm_A_27_3 =
+            in.get(C::poseidon2_perm_B_26_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[27][3];
         const auto poseidon2_perm_A_27_0 = poseidon2_perm_ARK_27_0 * poseidon2_perm_ARK_27_0 * poseidon2_perm_ARK_27_0 *
                                            poseidon2_perm_ARK_27_0 * poseidon2_perm_ARK_27_0;
-        const auto poseidon2_perm_A_27_1 = poseidon2_perm_ARK_27_1;
-        const auto poseidon2_perm_A_27_2 = poseidon2_perm_ARK_27_2;
-        const auto poseidon2_perm_A_27_3 = poseidon2_perm_ARK_27_3;
         const auto poseidon2_perm_SUM_27 =
             poseidon2_perm_A_27_0 + poseidon2_perm_A_27_1 + poseidon2_perm_A_27_2 + poseidon2_perm_A_27_3;
-        const auto poseidon2_perm_ARK_28_0 = in.get(C::poseidon2_perm_B_27_0) + poseidon2_params_C_28_0;
-        const auto poseidon2_perm_ARK_28_1 = in.get(C::poseidon2_perm_B_27_1) + poseidon2_params_C_28_1;
-        const auto poseidon2_perm_ARK_28_2 = in.get(C::poseidon2_perm_B_27_2) + poseidon2_params_C_28_2;
-        const auto poseidon2_perm_ARK_28_3 = in.get(C::poseidon2_perm_B_27_3) + poseidon2_params_C_28_3;
+        const auto poseidon2_perm_ARK_28_0 =
+            in.get(C::poseidon2_perm_B_27_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[28][0];
+        const auto poseidon2_perm_A_28_1 =
+            in.get(C::poseidon2_perm_B_27_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[28][1];
+        const auto poseidon2_perm_A_28_2 =
+            in.get(C::poseidon2_perm_B_27_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[28][2];
+        const auto poseidon2_perm_A_28_3 =
+            in.get(C::poseidon2_perm_B_27_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[28][3];
         const auto poseidon2_perm_A_28_0 = poseidon2_perm_ARK_28_0 * poseidon2_perm_ARK_28_0 * poseidon2_perm_ARK_28_0 *
                                            poseidon2_perm_ARK_28_0 * poseidon2_perm_ARK_28_0;
-        const auto poseidon2_perm_A_28_1 = poseidon2_perm_ARK_28_1;
-        const auto poseidon2_perm_A_28_2 = poseidon2_perm_ARK_28_2;
-        const auto poseidon2_perm_A_28_3 = poseidon2_perm_ARK_28_3;
         const auto poseidon2_perm_SUM_28 =
             poseidon2_perm_A_28_0 + poseidon2_perm_A_28_1 + poseidon2_perm_A_28_2 + poseidon2_perm_A_28_3;
-        const auto poseidon2_perm_ARK_29_0 = in.get(C::poseidon2_perm_B_28_0) + poseidon2_params_C_29_0;
-        const auto poseidon2_perm_ARK_29_1 = in.get(C::poseidon2_perm_B_28_1) + poseidon2_params_C_29_1;
-        const auto poseidon2_perm_ARK_29_2 = in.get(C::poseidon2_perm_B_28_2) + poseidon2_params_C_29_2;
-        const auto poseidon2_perm_ARK_29_3 = in.get(C::poseidon2_perm_B_28_3) + poseidon2_params_C_29_3;
+        const auto poseidon2_perm_ARK_29_0 =
+            in.get(C::poseidon2_perm_B_28_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[29][0];
+        const auto poseidon2_perm_A_29_1 =
+            in.get(C::poseidon2_perm_B_28_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[29][1];
+        const auto poseidon2_perm_A_29_2 =
+            in.get(C::poseidon2_perm_B_28_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[29][2];
+        const auto poseidon2_perm_A_29_3 =
+            in.get(C::poseidon2_perm_B_28_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[29][3];
         const auto poseidon2_perm_A_29_0 = poseidon2_perm_ARK_29_0 * poseidon2_perm_ARK_29_0 * poseidon2_perm_ARK_29_0 *
                                            poseidon2_perm_ARK_29_0 * poseidon2_perm_ARK_29_0;
-        const auto poseidon2_perm_A_29_1 = poseidon2_perm_ARK_29_1;
-        const auto poseidon2_perm_A_29_2 = poseidon2_perm_ARK_29_2;
-        const auto poseidon2_perm_A_29_3 = poseidon2_perm_ARK_29_3;
         const auto poseidon2_perm_SUM_29 =
             poseidon2_perm_A_29_0 + poseidon2_perm_A_29_1 + poseidon2_perm_A_29_2 + poseidon2_perm_A_29_3;
-        const auto poseidon2_perm_ARK_30_0 = in.get(C::poseidon2_perm_B_29_0) + poseidon2_params_C_30_0;
-        const auto poseidon2_perm_ARK_30_1 = in.get(C::poseidon2_perm_B_29_1) + poseidon2_params_C_30_1;
-        const auto poseidon2_perm_ARK_30_2 = in.get(C::poseidon2_perm_B_29_2) + poseidon2_params_C_30_2;
-        const auto poseidon2_perm_ARK_30_3 = in.get(C::poseidon2_perm_B_29_3) + poseidon2_params_C_30_3;
+        const auto poseidon2_perm_ARK_30_0 =
+            in.get(C::poseidon2_perm_B_29_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[30][0];
+        const auto poseidon2_perm_A_30_1 =
+            in.get(C::poseidon2_perm_B_29_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[30][1];
+        const auto poseidon2_perm_A_30_2 =
+            in.get(C::poseidon2_perm_B_29_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[30][2];
+        const auto poseidon2_perm_A_30_3 =
+            in.get(C::poseidon2_perm_B_29_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[30][3];
         const auto poseidon2_perm_A_30_0 = poseidon2_perm_ARK_30_0 * poseidon2_perm_ARK_30_0 * poseidon2_perm_ARK_30_0 *
                                            poseidon2_perm_ARK_30_0 * poseidon2_perm_ARK_30_0;
-        const auto poseidon2_perm_A_30_1 = poseidon2_perm_ARK_30_1;
-        const auto poseidon2_perm_A_30_2 = poseidon2_perm_ARK_30_2;
-        const auto poseidon2_perm_A_30_3 = poseidon2_perm_ARK_30_3;
         const auto poseidon2_perm_SUM_30 =
             poseidon2_perm_A_30_0 + poseidon2_perm_A_30_1 + poseidon2_perm_A_30_2 + poseidon2_perm_A_30_3;
-        const auto poseidon2_perm_ARK_31_0 = in.get(C::poseidon2_perm_B_30_0) + poseidon2_params_C_31_0;
-        const auto poseidon2_perm_ARK_31_1 = in.get(C::poseidon2_perm_B_30_1) + poseidon2_params_C_31_1;
-        const auto poseidon2_perm_ARK_31_2 = in.get(C::poseidon2_perm_B_30_2) + poseidon2_params_C_31_2;
-        const auto poseidon2_perm_ARK_31_3 = in.get(C::poseidon2_perm_B_30_3) + poseidon2_params_C_31_3;
+        const auto poseidon2_perm_ARK_31_0 =
+            in.get(C::poseidon2_perm_B_30_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[31][0];
+        const auto poseidon2_perm_A_31_1 =
+            in.get(C::poseidon2_perm_B_30_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[31][1];
+        const auto poseidon2_perm_A_31_2 =
+            in.get(C::poseidon2_perm_B_30_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[31][2];
+        const auto poseidon2_perm_A_31_3 =
+            in.get(C::poseidon2_perm_B_30_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[31][3];
         const auto poseidon2_perm_A_31_0 = poseidon2_perm_ARK_31_0 * poseidon2_perm_ARK_31_0 * poseidon2_perm_ARK_31_0 *
                                            poseidon2_perm_ARK_31_0 * poseidon2_perm_ARK_31_0;
-        const auto poseidon2_perm_A_31_1 = poseidon2_perm_ARK_31_1;
-        const auto poseidon2_perm_A_31_2 = poseidon2_perm_ARK_31_2;
-        const auto poseidon2_perm_A_31_3 = poseidon2_perm_ARK_31_3;
         const auto poseidon2_perm_SUM_31 =
             poseidon2_perm_A_31_0 + poseidon2_perm_A_31_1 + poseidon2_perm_A_31_2 + poseidon2_perm_A_31_3;
-        const auto poseidon2_perm_ARK_32_0 = in.get(C::poseidon2_perm_B_31_0) + poseidon2_params_C_32_0;
-        const auto poseidon2_perm_ARK_32_1 = in.get(C::poseidon2_perm_B_31_1) + poseidon2_params_C_32_1;
-        const auto poseidon2_perm_ARK_32_2 = in.get(C::poseidon2_perm_B_31_2) + poseidon2_params_C_32_2;
-        const auto poseidon2_perm_ARK_32_3 = in.get(C::poseidon2_perm_B_31_3) + poseidon2_params_C_32_3;
+        const auto poseidon2_perm_ARK_32_0 =
+            in.get(C::poseidon2_perm_B_31_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[32][0];
+        const auto poseidon2_perm_A_32_1 =
+            in.get(C::poseidon2_perm_B_31_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[32][1];
+        const auto poseidon2_perm_A_32_2 =
+            in.get(C::poseidon2_perm_B_31_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[32][2];
+        const auto poseidon2_perm_A_32_3 =
+            in.get(C::poseidon2_perm_B_31_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[32][3];
         const auto poseidon2_perm_A_32_0 = poseidon2_perm_ARK_32_0 * poseidon2_perm_ARK_32_0 * poseidon2_perm_ARK_32_0 *
                                            poseidon2_perm_ARK_32_0 * poseidon2_perm_ARK_32_0;
-        const auto poseidon2_perm_A_32_1 = poseidon2_perm_ARK_32_1;
-        const auto poseidon2_perm_A_32_2 = poseidon2_perm_ARK_32_2;
-        const auto poseidon2_perm_A_32_3 = poseidon2_perm_ARK_32_3;
         const auto poseidon2_perm_SUM_32 =
             poseidon2_perm_A_32_0 + poseidon2_perm_A_32_1 + poseidon2_perm_A_32_2 + poseidon2_perm_A_32_3;
-        const auto poseidon2_perm_ARK_33_0 = in.get(C::poseidon2_perm_B_32_0) + poseidon2_params_C_33_0;
-        const auto poseidon2_perm_ARK_33_1 = in.get(C::poseidon2_perm_B_32_1) + poseidon2_params_C_33_1;
-        const auto poseidon2_perm_ARK_33_2 = in.get(C::poseidon2_perm_B_32_2) + poseidon2_params_C_33_2;
-        const auto poseidon2_perm_ARK_33_3 = in.get(C::poseidon2_perm_B_32_3) + poseidon2_params_C_33_3;
+        const auto poseidon2_perm_ARK_33_0 =
+            in.get(C::poseidon2_perm_B_32_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[33][0];
+        const auto poseidon2_perm_A_33_1 =
+            in.get(C::poseidon2_perm_B_32_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[33][1];
+        const auto poseidon2_perm_A_33_2 =
+            in.get(C::poseidon2_perm_B_32_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[33][2];
+        const auto poseidon2_perm_A_33_3 =
+            in.get(C::poseidon2_perm_B_32_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[33][3];
         const auto poseidon2_perm_A_33_0 = poseidon2_perm_ARK_33_0 * poseidon2_perm_ARK_33_0 * poseidon2_perm_ARK_33_0 *
                                            poseidon2_perm_ARK_33_0 * poseidon2_perm_ARK_33_0;
-        const auto poseidon2_perm_A_33_1 = poseidon2_perm_ARK_33_1;
-        const auto poseidon2_perm_A_33_2 = poseidon2_perm_ARK_33_2;
-        const auto poseidon2_perm_A_33_3 = poseidon2_perm_ARK_33_3;
         const auto poseidon2_perm_SUM_33 =
             poseidon2_perm_A_33_0 + poseidon2_perm_A_33_1 + poseidon2_perm_A_33_2 + poseidon2_perm_A_33_3;
-        const auto poseidon2_perm_ARK_34_0 = in.get(C::poseidon2_perm_B_33_0) + poseidon2_params_C_34_0;
-        const auto poseidon2_perm_ARK_34_1 = in.get(C::poseidon2_perm_B_33_1) + poseidon2_params_C_34_1;
-        const auto poseidon2_perm_ARK_34_2 = in.get(C::poseidon2_perm_B_33_2) + poseidon2_params_C_34_2;
-        const auto poseidon2_perm_ARK_34_3 = in.get(C::poseidon2_perm_B_33_3) + poseidon2_params_C_34_3;
+        const auto poseidon2_perm_ARK_34_0 =
+            in.get(C::poseidon2_perm_B_33_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[34][0];
+        const auto poseidon2_perm_A_34_1 =
+            in.get(C::poseidon2_perm_B_33_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[34][1];
+        const auto poseidon2_perm_A_34_2 =
+            in.get(C::poseidon2_perm_B_33_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[34][2];
+        const auto poseidon2_perm_A_34_3 =
+            in.get(C::poseidon2_perm_B_33_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[34][3];
         const auto poseidon2_perm_A_34_0 = poseidon2_perm_ARK_34_0 * poseidon2_perm_ARK_34_0 * poseidon2_perm_ARK_34_0 *
                                            poseidon2_perm_ARK_34_0 * poseidon2_perm_ARK_34_0;
-        const auto poseidon2_perm_A_34_1 = poseidon2_perm_ARK_34_1;
-        const auto poseidon2_perm_A_34_2 = poseidon2_perm_ARK_34_2;
-        const auto poseidon2_perm_A_34_3 = poseidon2_perm_ARK_34_3;
         const auto poseidon2_perm_SUM_34 =
             poseidon2_perm_A_34_0 + poseidon2_perm_A_34_1 + poseidon2_perm_A_34_2 + poseidon2_perm_A_34_3;
-        const auto poseidon2_perm_ARK_35_0 = in.get(C::poseidon2_perm_B_34_0) + poseidon2_params_C_35_0;
-        const auto poseidon2_perm_ARK_35_1 = in.get(C::poseidon2_perm_B_34_1) + poseidon2_params_C_35_1;
-        const auto poseidon2_perm_ARK_35_2 = in.get(C::poseidon2_perm_B_34_2) + poseidon2_params_C_35_2;
-        const auto poseidon2_perm_ARK_35_3 = in.get(C::poseidon2_perm_B_34_3) + poseidon2_params_C_35_3;
+        const auto poseidon2_perm_ARK_35_0 =
+            in.get(C::poseidon2_perm_B_34_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[35][0];
+        const auto poseidon2_perm_A_35_1 =
+            in.get(C::poseidon2_perm_B_34_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[35][1];
+        const auto poseidon2_perm_A_35_2 =
+            in.get(C::poseidon2_perm_B_34_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[35][2];
+        const auto poseidon2_perm_A_35_3 =
+            in.get(C::poseidon2_perm_B_34_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[35][3];
         const auto poseidon2_perm_A_35_0 = poseidon2_perm_ARK_35_0 * poseidon2_perm_ARK_35_0 * poseidon2_perm_ARK_35_0 *
                                            poseidon2_perm_ARK_35_0 * poseidon2_perm_ARK_35_0;
-        const auto poseidon2_perm_A_35_1 = poseidon2_perm_ARK_35_1;
-        const auto poseidon2_perm_A_35_2 = poseidon2_perm_ARK_35_2;
-        const auto poseidon2_perm_A_35_3 = poseidon2_perm_ARK_35_3;
         const auto poseidon2_perm_SUM_35 =
             poseidon2_perm_A_35_0 + poseidon2_perm_A_35_1 + poseidon2_perm_A_35_2 + poseidon2_perm_A_35_3;
-        const auto poseidon2_perm_ARK_36_0 = in.get(C::poseidon2_perm_B_35_0) + poseidon2_params_C_36_0;
-        const auto poseidon2_perm_ARK_36_1 = in.get(C::poseidon2_perm_B_35_1) + poseidon2_params_C_36_1;
-        const auto poseidon2_perm_ARK_36_2 = in.get(C::poseidon2_perm_B_35_2) + poseidon2_params_C_36_2;
-        const auto poseidon2_perm_ARK_36_3 = in.get(C::poseidon2_perm_B_35_3) + poseidon2_params_C_36_3;
+        const auto poseidon2_perm_ARK_36_0 =
+            in.get(C::poseidon2_perm_B_35_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[36][0];
+        const auto poseidon2_perm_A_36_1 =
+            in.get(C::poseidon2_perm_B_35_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[36][1];
+        const auto poseidon2_perm_A_36_2 =
+            in.get(C::poseidon2_perm_B_35_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[36][2];
+        const auto poseidon2_perm_A_36_3 =
+            in.get(C::poseidon2_perm_B_35_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[36][3];
         const auto poseidon2_perm_A_36_0 = poseidon2_perm_ARK_36_0 * poseidon2_perm_ARK_36_0 * poseidon2_perm_ARK_36_0 *
                                            poseidon2_perm_ARK_36_0 * poseidon2_perm_ARK_36_0;
-        const auto poseidon2_perm_A_36_1 = poseidon2_perm_ARK_36_1;
-        const auto poseidon2_perm_A_36_2 = poseidon2_perm_ARK_36_2;
-        const auto poseidon2_perm_A_36_3 = poseidon2_perm_ARK_36_3;
         const auto poseidon2_perm_SUM_36 =
             poseidon2_perm_A_36_0 + poseidon2_perm_A_36_1 + poseidon2_perm_A_36_2 + poseidon2_perm_A_36_3;
-        const auto poseidon2_perm_ARK_37_0 = in.get(C::poseidon2_perm_B_36_0) + poseidon2_params_C_37_0;
-        const auto poseidon2_perm_ARK_37_1 = in.get(C::poseidon2_perm_B_36_1) + poseidon2_params_C_37_1;
-        const auto poseidon2_perm_ARK_37_2 = in.get(C::poseidon2_perm_B_36_2) + poseidon2_params_C_37_2;
-        const auto poseidon2_perm_ARK_37_3 = in.get(C::poseidon2_perm_B_36_3) + poseidon2_params_C_37_3;
+        const auto poseidon2_perm_ARK_37_0 =
+            in.get(C::poseidon2_perm_B_36_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[37][0];
+        const auto poseidon2_perm_A_37_1 =
+            in.get(C::poseidon2_perm_B_36_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[37][1];
+        const auto poseidon2_perm_A_37_2 =
+            in.get(C::poseidon2_perm_B_36_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[37][2];
+        const auto poseidon2_perm_A_37_3 =
+            in.get(C::poseidon2_perm_B_36_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[37][3];
         const auto poseidon2_perm_A_37_0 = poseidon2_perm_ARK_37_0 * poseidon2_perm_ARK_37_0 * poseidon2_perm_ARK_37_0 *
                                            poseidon2_perm_ARK_37_0 * poseidon2_perm_ARK_37_0;
-        const auto poseidon2_perm_A_37_1 = poseidon2_perm_ARK_37_1;
-        const auto poseidon2_perm_A_37_2 = poseidon2_perm_ARK_37_2;
-        const auto poseidon2_perm_A_37_3 = poseidon2_perm_ARK_37_3;
         const auto poseidon2_perm_SUM_37 =
             poseidon2_perm_A_37_0 + poseidon2_perm_A_37_1 + poseidon2_perm_A_37_2 + poseidon2_perm_A_37_3;
-        const auto poseidon2_perm_ARK_38_0 = in.get(C::poseidon2_perm_B_37_0) + poseidon2_params_C_38_0;
-        const auto poseidon2_perm_ARK_38_1 = in.get(C::poseidon2_perm_B_37_1) + poseidon2_params_C_38_1;
-        const auto poseidon2_perm_ARK_38_2 = in.get(C::poseidon2_perm_B_37_2) + poseidon2_params_C_38_2;
-        const auto poseidon2_perm_ARK_38_3 = in.get(C::poseidon2_perm_B_37_3) + poseidon2_params_C_38_3;
+        const auto poseidon2_perm_ARK_38_0 =
+            in.get(C::poseidon2_perm_B_37_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[38][0];
+        const auto poseidon2_perm_A_38_1 =
+            in.get(C::poseidon2_perm_B_37_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[38][1];
+        const auto poseidon2_perm_A_38_2 =
+            in.get(C::poseidon2_perm_B_37_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[38][2];
+        const auto poseidon2_perm_A_38_3 =
+            in.get(C::poseidon2_perm_B_37_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[38][3];
         const auto poseidon2_perm_A_38_0 = poseidon2_perm_ARK_38_0 * poseidon2_perm_ARK_38_0 * poseidon2_perm_ARK_38_0 *
                                            poseidon2_perm_ARK_38_0 * poseidon2_perm_ARK_38_0;
-        const auto poseidon2_perm_A_38_1 = poseidon2_perm_ARK_38_1;
-        const auto poseidon2_perm_A_38_2 = poseidon2_perm_ARK_38_2;
-        const auto poseidon2_perm_A_38_3 = poseidon2_perm_ARK_38_3;
         const auto poseidon2_perm_SUM_38 =
             poseidon2_perm_A_38_0 + poseidon2_perm_A_38_1 + poseidon2_perm_A_38_2 + poseidon2_perm_A_38_3;
-        const auto poseidon2_perm_ARK_39_0 = in.get(C::poseidon2_perm_B_38_0) + poseidon2_params_C_39_0;
-        const auto poseidon2_perm_ARK_39_1 = in.get(C::poseidon2_perm_B_38_1) + poseidon2_params_C_39_1;
-        const auto poseidon2_perm_ARK_39_2 = in.get(C::poseidon2_perm_B_38_2) + poseidon2_params_C_39_2;
-        const auto poseidon2_perm_ARK_39_3 = in.get(C::poseidon2_perm_B_38_3) + poseidon2_params_C_39_3;
+        const auto poseidon2_perm_ARK_39_0 =
+            in.get(C::poseidon2_perm_B_38_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[39][0];
+        const auto poseidon2_perm_A_39_1 =
+            in.get(C::poseidon2_perm_B_38_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[39][1];
+        const auto poseidon2_perm_A_39_2 =
+            in.get(C::poseidon2_perm_B_38_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[39][2];
+        const auto poseidon2_perm_A_39_3 =
+            in.get(C::poseidon2_perm_B_38_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[39][3];
         const auto poseidon2_perm_A_39_0 = poseidon2_perm_ARK_39_0 * poseidon2_perm_ARK_39_0 * poseidon2_perm_ARK_39_0 *
                                            poseidon2_perm_ARK_39_0 * poseidon2_perm_ARK_39_0;
-        const auto poseidon2_perm_A_39_1 = poseidon2_perm_ARK_39_1;
-        const auto poseidon2_perm_A_39_2 = poseidon2_perm_ARK_39_2;
-        const auto poseidon2_perm_A_39_3 = poseidon2_perm_ARK_39_3;
         const auto poseidon2_perm_SUM_39 =
             poseidon2_perm_A_39_0 + poseidon2_perm_A_39_1 + poseidon2_perm_A_39_2 + poseidon2_perm_A_39_3;
-        const auto poseidon2_perm_ARK_40_0 = in.get(C::poseidon2_perm_B_39_0) + poseidon2_params_C_40_0;
-        const auto poseidon2_perm_ARK_40_1 = in.get(C::poseidon2_perm_B_39_1) + poseidon2_params_C_40_1;
-        const auto poseidon2_perm_ARK_40_2 = in.get(C::poseidon2_perm_B_39_2) + poseidon2_params_C_40_2;
-        const auto poseidon2_perm_ARK_40_3 = in.get(C::poseidon2_perm_B_39_3) + poseidon2_params_C_40_3;
+        const auto poseidon2_perm_ARK_40_0 =
+            in.get(C::poseidon2_perm_B_39_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[40][0];
+        const auto poseidon2_perm_A_40_1 =
+            in.get(C::poseidon2_perm_B_39_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[40][1];
+        const auto poseidon2_perm_A_40_2 =
+            in.get(C::poseidon2_perm_B_39_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[40][2];
+        const auto poseidon2_perm_A_40_3 =
+            in.get(C::poseidon2_perm_B_39_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[40][3];
         const auto poseidon2_perm_A_40_0 = poseidon2_perm_ARK_40_0 * poseidon2_perm_ARK_40_0 * poseidon2_perm_ARK_40_0 *
                                            poseidon2_perm_ARK_40_0 * poseidon2_perm_ARK_40_0;
-        const auto poseidon2_perm_A_40_1 = poseidon2_perm_ARK_40_1;
-        const auto poseidon2_perm_A_40_2 = poseidon2_perm_ARK_40_2;
-        const auto poseidon2_perm_A_40_3 = poseidon2_perm_ARK_40_3;
         const auto poseidon2_perm_SUM_40 =
             poseidon2_perm_A_40_0 + poseidon2_perm_A_40_1 + poseidon2_perm_A_40_2 + poseidon2_perm_A_40_3;
-        const auto poseidon2_perm_ARK_41_0 = in.get(C::poseidon2_perm_B_40_0) + poseidon2_params_C_41_0;
-        const auto poseidon2_perm_ARK_41_1 = in.get(C::poseidon2_perm_B_40_1) + poseidon2_params_C_41_1;
-        const auto poseidon2_perm_ARK_41_2 = in.get(C::poseidon2_perm_B_40_2) + poseidon2_params_C_41_2;
-        const auto poseidon2_perm_ARK_41_3 = in.get(C::poseidon2_perm_B_40_3) + poseidon2_params_C_41_3;
+        const auto poseidon2_perm_ARK_41_0 =
+            in.get(C::poseidon2_perm_B_40_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[41][0];
+        const auto poseidon2_perm_A_41_1 =
+            in.get(C::poseidon2_perm_B_40_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[41][1];
+        const auto poseidon2_perm_A_41_2 =
+            in.get(C::poseidon2_perm_B_40_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[41][2];
+        const auto poseidon2_perm_A_41_3 =
+            in.get(C::poseidon2_perm_B_40_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[41][3];
         const auto poseidon2_perm_A_41_0 = poseidon2_perm_ARK_41_0 * poseidon2_perm_ARK_41_0 * poseidon2_perm_ARK_41_0 *
                                            poseidon2_perm_ARK_41_0 * poseidon2_perm_ARK_41_0;
-        const auto poseidon2_perm_A_41_1 = poseidon2_perm_ARK_41_1;
-        const auto poseidon2_perm_A_41_2 = poseidon2_perm_ARK_41_2;
-        const auto poseidon2_perm_A_41_3 = poseidon2_perm_ARK_41_3;
         const auto poseidon2_perm_SUM_41 =
             poseidon2_perm_A_41_0 + poseidon2_perm_A_41_1 + poseidon2_perm_A_41_2 + poseidon2_perm_A_41_3;
-        const auto poseidon2_perm_ARK_42_0 = in.get(C::poseidon2_perm_B_41_0) + poseidon2_params_C_42_0;
-        const auto poseidon2_perm_ARK_42_1 = in.get(C::poseidon2_perm_B_41_1) + poseidon2_params_C_42_1;
-        const auto poseidon2_perm_ARK_42_2 = in.get(C::poseidon2_perm_B_41_2) + poseidon2_params_C_42_2;
-        const auto poseidon2_perm_ARK_42_3 = in.get(C::poseidon2_perm_B_41_3) + poseidon2_params_C_42_3;
+        const auto poseidon2_perm_ARK_42_0 =
+            in.get(C::poseidon2_perm_B_41_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[42][0];
+        const auto poseidon2_perm_A_42_1 =
+            in.get(C::poseidon2_perm_B_41_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[42][1];
+        const auto poseidon2_perm_A_42_2 =
+            in.get(C::poseidon2_perm_B_41_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[42][2];
+        const auto poseidon2_perm_A_42_3 =
+            in.get(C::poseidon2_perm_B_41_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[42][3];
         const auto poseidon2_perm_A_42_0 = poseidon2_perm_ARK_42_0 * poseidon2_perm_ARK_42_0 * poseidon2_perm_ARK_42_0 *
                                            poseidon2_perm_ARK_42_0 * poseidon2_perm_ARK_42_0;
-        const auto poseidon2_perm_A_42_1 = poseidon2_perm_ARK_42_1;
-        const auto poseidon2_perm_A_42_2 = poseidon2_perm_ARK_42_2;
-        const auto poseidon2_perm_A_42_3 = poseidon2_perm_ARK_42_3;
         const auto poseidon2_perm_SUM_42 =
             poseidon2_perm_A_42_0 + poseidon2_perm_A_42_1 + poseidon2_perm_A_42_2 + poseidon2_perm_A_42_3;
-        const auto poseidon2_perm_ARK_43_0 = in.get(C::poseidon2_perm_B_42_0) + poseidon2_params_C_43_0;
-        const auto poseidon2_perm_ARK_43_1 = in.get(C::poseidon2_perm_B_42_1) + poseidon2_params_C_43_1;
-        const auto poseidon2_perm_ARK_43_2 = in.get(C::poseidon2_perm_B_42_2) + poseidon2_params_C_43_2;
-        const auto poseidon2_perm_ARK_43_3 = in.get(C::poseidon2_perm_B_42_3) + poseidon2_params_C_43_3;
+        const auto poseidon2_perm_ARK_43_0 =
+            in.get(C::poseidon2_perm_B_42_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[43][0];
+        const auto poseidon2_perm_A_43_1 =
+            in.get(C::poseidon2_perm_B_42_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[43][1];
+        const auto poseidon2_perm_A_43_2 =
+            in.get(C::poseidon2_perm_B_42_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[43][2];
+        const auto poseidon2_perm_A_43_3 =
+            in.get(C::poseidon2_perm_B_42_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[43][3];
         const auto poseidon2_perm_A_43_0 = poseidon2_perm_ARK_43_0 * poseidon2_perm_ARK_43_0 * poseidon2_perm_ARK_43_0 *
                                            poseidon2_perm_ARK_43_0 * poseidon2_perm_ARK_43_0;
-        const auto poseidon2_perm_A_43_1 = poseidon2_perm_ARK_43_1;
-        const auto poseidon2_perm_A_43_2 = poseidon2_perm_ARK_43_2;
-        const auto poseidon2_perm_A_43_3 = poseidon2_perm_ARK_43_3;
         const auto poseidon2_perm_SUM_43 =
             poseidon2_perm_A_43_0 + poseidon2_perm_A_43_1 + poseidon2_perm_A_43_2 + poseidon2_perm_A_43_3;
-        const auto poseidon2_perm_ARK_44_0 = in.get(C::poseidon2_perm_B_43_0) + poseidon2_params_C_44_0;
-        const auto poseidon2_perm_ARK_44_1 = in.get(C::poseidon2_perm_B_43_1) + poseidon2_params_C_44_1;
-        const auto poseidon2_perm_ARK_44_2 = in.get(C::poseidon2_perm_B_43_2) + poseidon2_params_C_44_2;
-        const auto poseidon2_perm_ARK_44_3 = in.get(C::poseidon2_perm_B_43_3) + poseidon2_params_C_44_3;
+        const auto poseidon2_perm_ARK_44_0 =
+            in.get(C::poseidon2_perm_B_43_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[44][0];
+        const auto poseidon2_perm_A_44_1 =
+            in.get(C::poseidon2_perm_B_43_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[44][1];
+        const auto poseidon2_perm_A_44_2 =
+            in.get(C::poseidon2_perm_B_43_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[44][2];
+        const auto poseidon2_perm_A_44_3 =
+            in.get(C::poseidon2_perm_B_43_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[44][3];
         const auto poseidon2_perm_A_44_0 = poseidon2_perm_ARK_44_0 * poseidon2_perm_ARK_44_0 * poseidon2_perm_ARK_44_0 *
                                            poseidon2_perm_ARK_44_0 * poseidon2_perm_ARK_44_0;
-        const auto poseidon2_perm_A_44_1 = poseidon2_perm_ARK_44_1;
-        const auto poseidon2_perm_A_44_2 = poseidon2_perm_ARK_44_2;
-        const auto poseidon2_perm_A_44_3 = poseidon2_perm_ARK_44_3;
         const auto poseidon2_perm_SUM_44 =
             poseidon2_perm_A_44_0 + poseidon2_perm_A_44_1 + poseidon2_perm_A_44_2 + poseidon2_perm_A_44_3;
-        const auto poseidon2_perm_ARK_45_0 = in.get(C::poseidon2_perm_B_44_0) + poseidon2_params_C_45_0;
-        const auto poseidon2_perm_ARK_45_1 = in.get(C::poseidon2_perm_B_44_1) + poseidon2_params_C_45_1;
-        const auto poseidon2_perm_ARK_45_2 = in.get(C::poseidon2_perm_B_44_2) + poseidon2_params_C_45_2;
-        const auto poseidon2_perm_ARK_45_3 = in.get(C::poseidon2_perm_B_44_3) + poseidon2_params_C_45_3;
+        const auto poseidon2_perm_ARK_45_0 =
+            in.get(C::poseidon2_perm_B_44_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[45][0];
+        const auto poseidon2_perm_A_45_1 =
+            in.get(C::poseidon2_perm_B_44_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[45][1];
+        const auto poseidon2_perm_A_45_2 =
+            in.get(C::poseidon2_perm_B_44_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[45][2];
+        const auto poseidon2_perm_A_45_3 =
+            in.get(C::poseidon2_perm_B_44_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[45][3];
         const auto poseidon2_perm_A_45_0 = poseidon2_perm_ARK_45_0 * poseidon2_perm_ARK_45_0 * poseidon2_perm_ARK_45_0 *
                                            poseidon2_perm_ARK_45_0 * poseidon2_perm_ARK_45_0;
-        const auto poseidon2_perm_A_45_1 = poseidon2_perm_ARK_45_1;
-        const auto poseidon2_perm_A_45_2 = poseidon2_perm_ARK_45_2;
-        const auto poseidon2_perm_A_45_3 = poseidon2_perm_ARK_45_3;
         const auto poseidon2_perm_SUM_45 =
             poseidon2_perm_A_45_0 + poseidon2_perm_A_45_1 + poseidon2_perm_A_45_2 + poseidon2_perm_A_45_3;
-        const auto poseidon2_perm_ARK_46_0 = in.get(C::poseidon2_perm_B_45_0) + poseidon2_params_C_46_0;
-        const auto poseidon2_perm_ARK_46_1 = in.get(C::poseidon2_perm_B_45_1) + poseidon2_params_C_46_1;
-        const auto poseidon2_perm_ARK_46_2 = in.get(C::poseidon2_perm_B_45_2) + poseidon2_params_C_46_2;
-        const auto poseidon2_perm_ARK_46_3 = in.get(C::poseidon2_perm_B_45_3) + poseidon2_params_C_46_3;
+        const auto poseidon2_perm_ARK_46_0 =
+            in.get(C::poseidon2_perm_B_45_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[46][0];
+        const auto poseidon2_perm_A_46_1 =
+            in.get(C::poseidon2_perm_B_45_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[46][1];
+        const auto poseidon2_perm_A_46_2 =
+            in.get(C::poseidon2_perm_B_45_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[46][2];
+        const auto poseidon2_perm_A_46_3 =
+            in.get(C::poseidon2_perm_B_45_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[46][3];
         const auto poseidon2_perm_A_46_0 = poseidon2_perm_ARK_46_0 * poseidon2_perm_ARK_46_0 * poseidon2_perm_ARK_46_0 *
                                            poseidon2_perm_ARK_46_0 * poseidon2_perm_ARK_46_0;
-        const auto poseidon2_perm_A_46_1 = poseidon2_perm_ARK_46_1;
-        const auto poseidon2_perm_A_46_2 = poseidon2_perm_ARK_46_2;
-        const auto poseidon2_perm_A_46_3 = poseidon2_perm_ARK_46_3;
         const auto poseidon2_perm_SUM_46 =
             poseidon2_perm_A_46_0 + poseidon2_perm_A_46_1 + poseidon2_perm_A_46_2 + poseidon2_perm_A_46_3;
-        const auto poseidon2_perm_ARK_47_0 = in.get(C::poseidon2_perm_B_46_0) + poseidon2_params_C_47_0;
-        const auto poseidon2_perm_ARK_47_1 = in.get(C::poseidon2_perm_B_46_1) + poseidon2_params_C_47_1;
-        const auto poseidon2_perm_ARK_47_2 = in.get(C::poseidon2_perm_B_46_2) + poseidon2_params_C_47_2;
-        const auto poseidon2_perm_ARK_47_3 = in.get(C::poseidon2_perm_B_46_3) + poseidon2_params_C_47_3;
+        const auto poseidon2_perm_ARK_47_0 =
+            in.get(C::poseidon2_perm_B_46_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[47][0];
+        const auto poseidon2_perm_A_47_1 =
+            in.get(C::poseidon2_perm_B_46_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[47][1];
+        const auto poseidon2_perm_A_47_2 =
+            in.get(C::poseidon2_perm_B_46_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[47][2];
+        const auto poseidon2_perm_A_47_3 =
+            in.get(C::poseidon2_perm_B_46_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[47][3];
         const auto poseidon2_perm_A_47_0 = poseidon2_perm_ARK_47_0 * poseidon2_perm_ARK_47_0 * poseidon2_perm_ARK_47_0 *
                                            poseidon2_perm_ARK_47_0 * poseidon2_perm_ARK_47_0;
-        const auto poseidon2_perm_A_47_1 = poseidon2_perm_ARK_47_1;
-        const auto poseidon2_perm_A_47_2 = poseidon2_perm_ARK_47_2;
-        const auto poseidon2_perm_A_47_3 = poseidon2_perm_ARK_47_3;
         const auto poseidon2_perm_SUM_47 =
             poseidon2_perm_A_47_0 + poseidon2_perm_A_47_1 + poseidon2_perm_A_47_2 + poseidon2_perm_A_47_3;
-        const auto poseidon2_perm_ARK_48_0 = in.get(C::poseidon2_perm_B_47_0) + poseidon2_params_C_48_0;
-        const auto poseidon2_perm_ARK_48_1 = in.get(C::poseidon2_perm_B_47_1) + poseidon2_params_C_48_1;
-        const auto poseidon2_perm_ARK_48_2 = in.get(C::poseidon2_perm_B_47_2) + poseidon2_params_C_48_2;
-        const auto poseidon2_perm_ARK_48_3 = in.get(C::poseidon2_perm_B_47_3) + poseidon2_params_C_48_3;
+        const auto poseidon2_perm_ARK_48_0 =
+            in.get(C::poseidon2_perm_B_47_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[48][0];
+        const auto poseidon2_perm_A_48_1 =
+            in.get(C::poseidon2_perm_B_47_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[48][1];
+        const auto poseidon2_perm_A_48_2 =
+            in.get(C::poseidon2_perm_B_47_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[48][2];
+        const auto poseidon2_perm_A_48_3 =
+            in.get(C::poseidon2_perm_B_47_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[48][3];
         const auto poseidon2_perm_A_48_0 = poseidon2_perm_ARK_48_0 * poseidon2_perm_ARK_48_0 * poseidon2_perm_ARK_48_0 *
                                            poseidon2_perm_ARK_48_0 * poseidon2_perm_ARK_48_0;
-        const auto poseidon2_perm_A_48_1 = poseidon2_perm_ARK_48_1;
-        const auto poseidon2_perm_A_48_2 = poseidon2_perm_ARK_48_2;
-        const auto poseidon2_perm_A_48_3 = poseidon2_perm_ARK_48_3;
         const auto poseidon2_perm_SUM_48 =
             poseidon2_perm_A_48_0 + poseidon2_perm_A_48_1 + poseidon2_perm_A_48_2 + poseidon2_perm_A_48_3;
-        const auto poseidon2_perm_ARK_49_0 = in.get(C::poseidon2_perm_B_48_0) + poseidon2_params_C_49_0;
-        const auto poseidon2_perm_ARK_49_1 = in.get(C::poseidon2_perm_B_48_1) + poseidon2_params_C_49_1;
-        const auto poseidon2_perm_ARK_49_2 = in.get(C::poseidon2_perm_B_48_2) + poseidon2_params_C_49_2;
-        const auto poseidon2_perm_ARK_49_3 = in.get(C::poseidon2_perm_B_48_3) + poseidon2_params_C_49_3;
+        const auto poseidon2_perm_ARK_49_0 =
+            in.get(C::poseidon2_perm_B_48_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[49][0];
+        const auto poseidon2_perm_A_49_1 =
+            in.get(C::poseidon2_perm_B_48_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[49][1];
+        const auto poseidon2_perm_A_49_2 =
+            in.get(C::poseidon2_perm_B_48_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[49][2];
+        const auto poseidon2_perm_A_49_3 =
+            in.get(C::poseidon2_perm_B_48_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[49][3];
         const auto poseidon2_perm_A_49_0 = poseidon2_perm_ARK_49_0 * poseidon2_perm_ARK_49_0 * poseidon2_perm_ARK_49_0 *
                                            poseidon2_perm_ARK_49_0 * poseidon2_perm_ARK_49_0;
-        const auto poseidon2_perm_A_49_1 = poseidon2_perm_ARK_49_1;
-        const auto poseidon2_perm_A_49_2 = poseidon2_perm_ARK_49_2;
-        const auto poseidon2_perm_A_49_3 = poseidon2_perm_ARK_49_3;
         const auto poseidon2_perm_SUM_49 =
             poseidon2_perm_A_49_0 + poseidon2_perm_A_49_1 + poseidon2_perm_A_49_2 + poseidon2_perm_A_49_3;
-        const auto poseidon2_perm_ARK_50_0 = in.get(C::poseidon2_perm_B_49_0) + poseidon2_params_C_50_0;
-        const auto poseidon2_perm_ARK_50_1 = in.get(C::poseidon2_perm_B_49_1) + poseidon2_params_C_50_1;
-        const auto poseidon2_perm_ARK_50_2 = in.get(C::poseidon2_perm_B_49_2) + poseidon2_params_C_50_2;
-        const auto poseidon2_perm_ARK_50_3 = in.get(C::poseidon2_perm_B_49_3) + poseidon2_params_C_50_3;
+        const auto poseidon2_perm_ARK_50_0 =
+            in.get(C::poseidon2_perm_B_49_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[50][0];
+        const auto poseidon2_perm_A_50_1 =
+            in.get(C::poseidon2_perm_B_49_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[50][1];
+        const auto poseidon2_perm_A_50_2 =
+            in.get(C::poseidon2_perm_B_49_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[50][2];
+        const auto poseidon2_perm_A_50_3 =
+            in.get(C::poseidon2_perm_B_49_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[50][3];
         const auto poseidon2_perm_A_50_0 = poseidon2_perm_ARK_50_0 * poseidon2_perm_ARK_50_0 * poseidon2_perm_ARK_50_0 *
                                            poseidon2_perm_ARK_50_0 * poseidon2_perm_ARK_50_0;
-        const auto poseidon2_perm_A_50_1 = poseidon2_perm_ARK_50_1;
-        const auto poseidon2_perm_A_50_2 = poseidon2_perm_ARK_50_2;
-        const auto poseidon2_perm_A_50_3 = poseidon2_perm_ARK_50_3;
         const auto poseidon2_perm_SUM_50 =
             poseidon2_perm_A_50_0 + poseidon2_perm_A_50_1 + poseidon2_perm_A_50_2 + poseidon2_perm_A_50_3;
-        const auto poseidon2_perm_ARK_51_0 = in.get(C::poseidon2_perm_B_50_0) + poseidon2_params_C_51_0;
-        const auto poseidon2_perm_ARK_51_1 = in.get(C::poseidon2_perm_B_50_1) + poseidon2_params_C_51_1;
-        const auto poseidon2_perm_ARK_51_2 = in.get(C::poseidon2_perm_B_50_2) + poseidon2_params_C_51_2;
-        const auto poseidon2_perm_ARK_51_3 = in.get(C::poseidon2_perm_B_50_3) + poseidon2_params_C_51_3;
+        const auto poseidon2_perm_ARK_51_0 =
+            in.get(C::poseidon2_perm_B_50_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[51][0];
+        const auto poseidon2_perm_A_51_1 =
+            in.get(C::poseidon2_perm_B_50_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[51][1];
+        const auto poseidon2_perm_A_51_2 =
+            in.get(C::poseidon2_perm_B_50_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[51][2];
+        const auto poseidon2_perm_A_51_3 =
+            in.get(C::poseidon2_perm_B_50_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[51][3];
         const auto poseidon2_perm_A_51_0 = poseidon2_perm_ARK_51_0 * poseidon2_perm_ARK_51_0 * poseidon2_perm_ARK_51_0 *
                                            poseidon2_perm_ARK_51_0 * poseidon2_perm_ARK_51_0;
-        const auto poseidon2_perm_A_51_1 = poseidon2_perm_ARK_51_1;
-        const auto poseidon2_perm_A_51_2 = poseidon2_perm_ARK_51_2;
-        const auto poseidon2_perm_A_51_3 = poseidon2_perm_ARK_51_3;
         const auto poseidon2_perm_SUM_51 =
             poseidon2_perm_A_51_0 + poseidon2_perm_A_51_1 + poseidon2_perm_A_51_2 + poseidon2_perm_A_51_3;
-        const auto poseidon2_perm_ARK_52_0 = in.get(C::poseidon2_perm_B_51_0) + poseidon2_params_C_52_0;
-        const auto poseidon2_perm_ARK_52_1 = in.get(C::poseidon2_perm_B_51_1) + poseidon2_params_C_52_1;
-        const auto poseidon2_perm_ARK_52_2 = in.get(C::poseidon2_perm_B_51_2) + poseidon2_params_C_52_2;
-        const auto poseidon2_perm_ARK_52_3 = in.get(C::poseidon2_perm_B_51_3) + poseidon2_params_C_52_3;
+        const auto poseidon2_perm_ARK_52_0 =
+            in.get(C::poseidon2_perm_B_51_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[52][0];
+        const auto poseidon2_perm_A_52_1 =
+            in.get(C::poseidon2_perm_B_51_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[52][1];
+        const auto poseidon2_perm_A_52_2 =
+            in.get(C::poseidon2_perm_B_51_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[52][2];
+        const auto poseidon2_perm_A_52_3 =
+            in.get(C::poseidon2_perm_B_51_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[52][3];
         const auto poseidon2_perm_A_52_0 = poseidon2_perm_ARK_52_0 * poseidon2_perm_ARK_52_0 * poseidon2_perm_ARK_52_0 *
                                            poseidon2_perm_ARK_52_0 * poseidon2_perm_ARK_52_0;
-        const auto poseidon2_perm_A_52_1 = poseidon2_perm_ARK_52_1;
-        const auto poseidon2_perm_A_52_2 = poseidon2_perm_ARK_52_2;
-        const auto poseidon2_perm_A_52_3 = poseidon2_perm_ARK_52_3;
         const auto poseidon2_perm_SUM_52 =
             poseidon2_perm_A_52_0 + poseidon2_perm_A_52_1 + poseidon2_perm_A_52_2 + poseidon2_perm_A_52_3;
-        const auto poseidon2_perm_ARK_53_0 = in.get(C::poseidon2_perm_B_52_0) + poseidon2_params_C_53_0;
-        const auto poseidon2_perm_ARK_53_1 = in.get(C::poseidon2_perm_B_52_1) + poseidon2_params_C_53_1;
-        const auto poseidon2_perm_ARK_53_2 = in.get(C::poseidon2_perm_B_52_2) + poseidon2_params_C_53_2;
-        const auto poseidon2_perm_ARK_53_3 = in.get(C::poseidon2_perm_B_52_3) + poseidon2_params_C_53_3;
+        const auto poseidon2_perm_ARK_53_0 =
+            in.get(C::poseidon2_perm_B_52_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[53][0];
+        const auto poseidon2_perm_A_53_1 =
+            in.get(C::poseidon2_perm_B_52_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[53][1];
+        const auto poseidon2_perm_A_53_2 =
+            in.get(C::poseidon2_perm_B_52_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[53][2];
+        const auto poseidon2_perm_A_53_3 =
+            in.get(C::poseidon2_perm_B_52_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[53][3];
         const auto poseidon2_perm_A_53_0 = poseidon2_perm_ARK_53_0 * poseidon2_perm_ARK_53_0 * poseidon2_perm_ARK_53_0 *
                                            poseidon2_perm_ARK_53_0 * poseidon2_perm_ARK_53_0;
-        const auto poseidon2_perm_A_53_1 = poseidon2_perm_ARK_53_1;
-        const auto poseidon2_perm_A_53_2 = poseidon2_perm_ARK_53_2;
-        const auto poseidon2_perm_A_53_3 = poseidon2_perm_ARK_53_3;
         const auto poseidon2_perm_SUM_53 =
             poseidon2_perm_A_53_0 + poseidon2_perm_A_53_1 + poseidon2_perm_A_53_2 + poseidon2_perm_A_53_3;
-        const auto poseidon2_perm_ARK_54_0 = in.get(C::poseidon2_perm_B_53_0) + poseidon2_params_C_54_0;
-        const auto poseidon2_perm_ARK_54_1 = in.get(C::poseidon2_perm_B_53_1) + poseidon2_params_C_54_1;
-        const auto poseidon2_perm_ARK_54_2 = in.get(C::poseidon2_perm_B_53_2) + poseidon2_params_C_54_2;
-        const auto poseidon2_perm_ARK_54_3 = in.get(C::poseidon2_perm_B_53_3) + poseidon2_params_C_54_3;
+        const auto poseidon2_perm_ARK_54_0 =
+            in.get(C::poseidon2_perm_B_53_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[54][0];
+        const auto poseidon2_perm_A_54_1 =
+            in.get(C::poseidon2_perm_B_53_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[54][1];
+        const auto poseidon2_perm_A_54_2 =
+            in.get(C::poseidon2_perm_B_53_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[54][2];
+        const auto poseidon2_perm_A_54_3 =
+            in.get(C::poseidon2_perm_B_53_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[54][3];
         const auto poseidon2_perm_A_54_0 = poseidon2_perm_ARK_54_0 * poseidon2_perm_ARK_54_0 * poseidon2_perm_ARK_54_0 *
                                            poseidon2_perm_ARK_54_0 * poseidon2_perm_ARK_54_0;
-        const auto poseidon2_perm_A_54_1 = poseidon2_perm_ARK_54_1;
-        const auto poseidon2_perm_A_54_2 = poseidon2_perm_ARK_54_2;
-        const auto poseidon2_perm_A_54_3 = poseidon2_perm_ARK_54_3;
         const auto poseidon2_perm_SUM_54 =
             poseidon2_perm_A_54_0 + poseidon2_perm_A_54_1 + poseidon2_perm_A_54_2 + poseidon2_perm_A_54_3;
-        const auto poseidon2_perm_ARK_55_0 = in.get(C::poseidon2_perm_B_54_0) + poseidon2_params_C_55_0;
-        const auto poseidon2_perm_ARK_55_1 = in.get(C::poseidon2_perm_B_54_1) + poseidon2_params_C_55_1;
-        const auto poseidon2_perm_ARK_55_2 = in.get(C::poseidon2_perm_B_54_2) + poseidon2_params_C_55_2;
-        const auto poseidon2_perm_ARK_55_3 = in.get(C::poseidon2_perm_B_54_3) + poseidon2_params_C_55_3;
+        const auto poseidon2_perm_ARK_55_0 =
+            in.get(C::poseidon2_perm_B_54_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[55][0];
+        const auto poseidon2_perm_A_55_1 =
+            in.get(C::poseidon2_perm_B_54_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[55][1];
+        const auto poseidon2_perm_A_55_2 =
+            in.get(C::poseidon2_perm_B_54_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[55][2];
+        const auto poseidon2_perm_A_55_3 =
+            in.get(C::poseidon2_perm_B_54_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[55][3];
         const auto poseidon2_perm_A_55_0 = poseidon2_perm_ARK_55_0 * poseidon2_perm_ARK_55_0 * poseidon2_perm_ARK_55_0 *
                                            poseidon2_perm_ARK_55_0 * poseidon2_perm_ARK_55_0;
-        const auto poseidon2_perm_A_55_1 = poseidon2_perm_ARK_55_1;
-        const auto poseidon2_perm_A_55_2 = poseidon2_perm_ARK_55_2;
-        const auto poseidon2_perm_A_55_3 = poseidon2_perm_ARK_55_3;
         const auto poseidon2_perm_SUM_55 =
             poseidon2_perm_A_55_0 + poseidon2_perm_A_55_1 + poseidon2_perm_A_55_2 + poseidon2_perm_A_55_3;
-        const auto poseidon2_perm_ARK_56_0 = in.get(C::poseidon2_perm_B_55_0) + poseidon2_params_C_56_0;
-        const auto poseidon2_perm_ARK_56_1 = in.get(C::poseidon2_perm_B_55_1) + poseidon2_params_C_56_1;
-        const auto poseidon2_perm_ARK_56_2 = in.get(C::poseidon2_perm_B_55_2) + poseidon2_params_C_56_2;
-        const auto poseidon2_perm_ARK_56_3 = in.get(C::poseidon2_perm_B_55_3) + poseidon2_params_C_56_3;
+        const auto poseidon2_perm_ARK_56_0 =
+            in.get(C::poseidon2_perm_B_55_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[56][0];
+        const auto poseidon2_perm_A_56_1 =
+            in.get(C::poseidon2_perm_B_55_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[56][1];
+        const auto poseidon2_perm_A_56_2 =
+            in.get(C::poseidon2_perm_B_55_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[56][2];
+        const auto poseidon2_perm_A_56_3 =
+            in.get(C::poseidon2_perm_B_55_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[56][3];
         const auto poseidon2_perm_A_56_0 = poseidon2_perm_ARK_56_0 * poseidon2_perm_ARK_56_0 * poseidon2_perm_ARK_56_0 *
                                            poseidon2_perm_ARK_56_0 * poseidon2_perm_ARK_56_0;
-        const auto poseidon2_perm_A_56_1 = poseidon2_perm_ARK_56_1;
-        const auto poseidon2_perm_A_56_2 = poseidon2_perm_ARK_56_2;
-        const auto poseidon2_perm_A_56_3 = poseidon2_perm_ARK_56_3;
         const auto poseidon2_perm_SUM_56 =
             poseidon2_perm_A_56_0 + poseidon2_perm_A_56_1 + poseidon2_perm_A_56_2 + poseidon2_perm_A_56_3;
-        const auto poseidon2_perm_ARK_57_0 = in.get(C::poseidon2_perm_B_56_0) + poseidon2_params_C_57_0;
-        const auto poseidon2_perm_ARK_57_1 = in.get(C::poseidon2_perm_B_56_1) + poseidon2_params_C_57_1;
-        const auto poseidon2_perm_ARK_57_2 = in.get(C::poseidon2_perm_B_56_2) + poseidon2_params_C_57_2;
-        const auto poseidon2_perm_ARK_57_3 = in.get(C::poseidon2_perm_B_56_3) + poseidon2_params_C_57_3;
+        const auto poseidon2_perm_ARK_57_0 =
+            in.get(C::poseidon2_perm_B_56_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[57][0];
+        const auto poseidon2_perm_A_57_1 =
+            in.get(C::poseidon2_perm_B_56_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[57][1];
+        const auto poseidon2_perm_A_57_2 =
+            in.get(C::poseidon2_perm_B_56_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[57][2];
+        const auto poseidon2_perm_A_57_3 =
+            in.get(C::poseidon2_perm_B_56_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[57][3];
         const auto poseidon2_perm_A_57_0 = poseidon2_perm_ARK_57_0 * poseidon2_perm_ARK_57_0 * poseidon2_perm_ARK_57_0 *
                                            poseidon2_perm_ARK_57_0 * poseidon2_perm_ARK_57_0;
-        const auto poseidon2_perm_A_57_1 = poseidon2_perm_ARK_57_1;
-        const auto poseidon2_perm_A_57_2 = poseidon2_perm_ARK_57_2;
-        const auto poseidon2_perm_A_57_3 = poseidon2_perm_ARK_57_3;
         const auto poseidon2_perm_SUM_57 =
             poseidon2_perm_A_57_0 + poseidon2_perm_A_57_1 + poseidon2_perm_A_57_2 + poseidon2_perm_A_57_3;
-        const auto poseidon2_perm_ARK_58_0 = in.get(C::poseidon2_perm_B_57_0) + poseidon2_params_C_58_0;
-        const auto poseidon2_perm_ARK_58_1 = in.get(C::poseidon2_perm_B_57_1) + poseidon2_params_C_58_1;
-        const auto poseidon2_perm_ARK_58_2 = in.get(C::poseidon2_perm_B_57_2) + poseidon2_params_C_58_2;
-        const auto poseidon2_perm_ARK_58_3 = in.get(C::poseidon2_perm_B_57_3) + poseidon2_params_C_58_3;
+        const auto poseidon2_perm_ARK_58_0 =
+            in.get(C::poseidon2_perm_B_57_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[58][0];
+        const auto poseidon2_perm_A_58_1 =
+            in.get(C::poseidon2_perm_B_57_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[58][1];
+        const auto poseidon2_perm_A_58_2 =
+            in.get(C::poseidon2_perm_B_57_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[58][2];
+        const auto poseidon2_perm_A_58_3 =
+            in.get(C::poseidon2_perm_B_57_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[58][3];
         const auto poseidon2_perm_A_58_0 = poseidon2_perm_ARK_58_0 * poseidon2_perm_ARK_58_0 * poseidon2_perm_ARK_58_0 *
                                            poseidon2_perm_ARK_58_0 * poseidon2_perm_ARK_58_0;
-        const auto poseidon2_perm_A_58_1 = poseidon2_perm_ARK_58_1;
-        const auto poseidon2_perm_A_58_2 = poseidon2_perm_ARK_58_2;
-        const auto poseidon2_perm_A_58_3 = poseidon2_perm_ARK_58_3;
         const auto poseidon2_perm_SUM_58 =
             poseidon2_perm_A_58_0 + poseidon2_perm_A_58_1 + poseidon2_perm_A_58_2 + poseidon2_perm_A_58_3;
-        const auto poseidon2_perm_ARK_59_0 = in.get(C::poseidon2_perm_B_58_0) + poseidon2_params_C_59_0;
-        const auto poseidon2_perm_ARK_59_1 = in.get(C::poseidon2_perm_B_58_1) + poseidon2_params_C_59_1;
-        const auto poseidon2_perm_ARK_59_2 = in.get(C::poseidon2_perm_B_58_2) + poseidon2_params_C_59_2;
-        const auto poseidon2_perm_ARK_59_3 = in.get(C::poseidon2_perm_B_58_3) + poseidon2_params_C_59_3;
+        const auto poseidon2_perm_ARK_59_0 =
+            in.get(C::poseidon2_perm_B_58_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[59][0];
+        const auto poseidon2_perm_A_59_1 =
+            in.get(C::poseidon2_perm_B_58_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[59][1];
+        const auto poseidon2_perm_A_59_2 =
+            in.get(C::poseidon2_perm_B_58_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[59][2];
+        const auto poseidon2_perm_A_59_3 =
+            in.get(C::poseidon2_perm_B_58_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[59][3];
         const auto poseidon2_perm_A_59_0 = poseidon2_perm_ARK_59_0 * poseidon2_perm_ARK_59_0 * poseidon2_perm_ARK_59_0 *
                                            poseidon2_perm_ARK_59_0 * poseidon2_perm_ARK_59_0;
-        const auto poseidon2_perm_A_59_1 = poseidon2_perm_ARK_59_1;
-        const auto poseidon2_perm_A_59_2 = poseidon2_perm_ARK_59_2;
-        const auto poseidon2_perm_A_59_3 = poseidon2_perm_ARK_59_3;
         const auto poseidon2_perm_SUM_59 =
             poseidon2_perm_A_59_0 + poseidon2_perm_A_59_1 + poseidon2_perm_A_59_2 + poseidon2_perm_A_59_3;
-        const auto poseidon2_perm_ARK_60_0 = in.get(C::poseidon2_perm_B_59_0) + poseidon2_params_C_60_0;
-        const auto poseidon2_perm_ARK_60_1 = in.get(C::poseidon2_perm_B_59_1) + poseidon2_params_C_60_1;
-        const auto poseidon2_perm_ARK_60_2 = in.get(C::poseidon2_perm_B_59_2) + poseidon2_params_C_60_2;
-        const auto poseidon2_perm_ARK_60_3 = in.get(C::poseidon2_perm_B_59_3) + poseidon2_params_C_60_3;
+        const auto poseidon2_perm_ARK_60_0 =
+            in.get(C::poseidon2_perm_B_59_0) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[60][0];
+        const auto poseidon2_perm_ARK_60_1 =
+            in.get(C::poseidon2_perm_B_59_1) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[60][1];
+        const auto poseidon2_perm_ARK_60_2 =
+            in.get(C::poseidon2_perm_B_59_2) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[60][2];
+        const auto poseidon2_perm_ARK_60_3 =
+            in.get(C::poseidon2_perm_B_59_3) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[60][3];
         const auto poseidon2_perm_A_60_0 = poseidon2_perm_ARK_60_0 * poseidon2_perm_ARK_60_0 * poseidon2_perm_ARK_60_0 *
                                            poseidon2_perm_ARK_60_0 * poseidon2_perm_ARK_60_0;
         const auto poseidon2_perm_A_60_1 = poseidon2_perm_ARK_60_1 * poseidon2_perm_ARK_60_1 * poseidon2_perm_ARK_60_1 *
@@ -1094,10 +827,14 @@ template <typename FF_> class poseidon2_permImpl {
         const auto poseidon2_perm_T_60_1 = poseidon2_perm_A_60_2 + poseidon2_perm_A_60_3;
         const auto poseidon2_perm_T_60_2 = FF(2) * poseidon2_perm_A_60_1 + poseidon2_perm_T_60_1;
         const auto poseidon2_perm_T_60_3 = FF(2) * poseidon2_perm_A_60_3 + poseidon2_perm_T_60_0;
-        const auto poseidon2_perm_ARK_61_0 = in.get(C::poseidon2_perm_T_60_6) + poseidon2_params_C_61_0;
-        const auto poseidon2_perm_ARK_61_1 = in.get(C::poseidon2_perm_T_60_5) + poseidon2_params_C_61_1;
-        const auto poseidon2_perm_ARK_61_2 = in.get(C::poseidon2_perm_T_60_7) + poseidon2_params_C_61_2;
-        const auto poseidon2_perm_ARK_61_3 = in.get(C::poseidon2_perm_T_60_4) + poseidon2_params_C_61_3;
+        const auto poseidon2_perm_ARK_61_0 =
+            in.get(C::poseidon2_perm_T_60_6) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[61][0];
+        const auto poseidon2_perm_ARK_61_1 =
+            in.get(C::poseidon2_perm_T_60_5) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[61][1];
+        const auto poseidon2_perm_ARK_61_2 =
+            in.get(C::poseidon2_perm_T_60_7) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[61][2];
+        const auto poseidon2_perm_ARK_61_3 =
+            in.get(C::poseidon2_perm_T_60_4) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[61][3];
         const auto poseidon2_perm_A_61_0 = poseidon2_perm_ARK_61_0 * poseidon2_perm_ARK_61_0 * poseidon2_perm_ARK_61_0 *
                                            poseidon2_perm_ARK_61_0 * poseidon2_perm_ARK_61_0;
         const auto poseidon2_perm_A_61_1 = poseidon2_perm_ARK_61_1 * poseidon2_perm_ARK_61_1 * poseidon2_perm_ARK_61_1 *
@@ -1110,10 +847,14 @@ template <typename FF_> class poseidon2_permImpl {
         const auto poseidon2_perm_T_61_1 = poseidon2_perm_A_61_2 + poseidon2_perm_A_61_3;
         const auto poseidon2_perm_T_61_2 = FF(2) * poseidon2_perm_A_61_1 + poseidon2_perm_T_61_1;
         const auto poseidon2_perm_T_61_3 = FF(2) * poseidon2_perm_A_61_3 + poseidon2_perm_T_61_0;
-        const auto poseidon2_perm_ARK_62_0 = in.get(C::poseidon2_perm_T_61_6) + poseidon2_params_C_62_0;
-        const auto poseidon2_perm_ARK_62_1 = in.get(C::poseidon2_perm_T_61_5) + poseidon2_params_C_62_1;
-        const auto poseidon2_perm_ARK_62_2 = in.get(C::poseidon2_perm_T_61_7) + poseidon2_params_C_62_2;
-        const auto poseidon2_perm_ARK_62_3 = in.get(C::poseidon2_perm_T_61_4) + poseidon2_params_C_62_3;
+        const auto poseidon2_perm_ARK_62_0 =
+            in.get(C::poseidon2_perm_T_61_6) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[62][0];
+        const auto poseidon2_perm_ARK_62_1 =
+            in.get(C::poseidon2_perm_T_61_5) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[62][1];
+        const auto poseidon2_perm_ARK_62_2 =
+            in.get(C::poseidon2_perm_T_61_7) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[62][2];
+        const auto poseidon2_perm_ARK_62_3 =
+            in.get(C::poseidon2_perm_T_61_4) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[62][3];
         const auto poseidon2_perm_A_62_0 = poseidon2_perm_ARK_62_0 * poseidon2_perm_ARK_62_0 * poseidon2_perm_ARK_62_0 *
                                            poseidon2_perm_ARK_62_0 * poseidon2_perm_ARK_62_0;
         const auto poseidon2_perm_A_62_1 = poseidon2_perm_ARK_62_1 * poseidon2_perm_ARK_62_1 * poseidon2_perm_ARK_62_1 *
@@ -1126,10 +867,14 @@ template <typename FF_> class poseidon2_permImpl {
         const auto poseidon2_perm_T_62_1 = poseidon2_perm_A_62_2 + poseidon2_perm_A_62_3;
         const auto poseidon2_perm_T_62_2 = FF(2) * poseidon2_perm_A_62_1 + poseidon2_perm_T_62_1;
         const auto poseidon2_perm_T_62_3 = FF(2) * poseidon2_perm_A_62_3 + poseidon2_perm_T_62_0;
-        const auto poseidon2_perm_ARK_63_0 = in.get(C::poseidon2_perm_T_62_6) + poseidon2_params_C_63_0;
-        const auto poseidon2_perm_ARK_63_1 = in.get(C::poseidon2_perm_T_62_5) + poseidon2_params_C_63_1;
-        const auto poseidon2_perm_ARK_63_2 = in.get(C::poseidon2_perm_T_62_7) + poseidon2_params_C_63_2;
-        const auto poseidon2_perm_ARK_63_3 = in.get(C::poseidon2_perm_T_62_4) + poseidon2_params_C_63_3;
+        const auto poseidon2_perm_ARK_63_0 =
+            in.get(C::poseidon2_perm_T_62_6) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[63][0];
+        const auto poseidon2_perm_ARK_63_1 =
+            in.get(C::poseidon2_perm_T_62_5) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[63][1];
+        const auto poseidon2_perm_ARK_63_2 =
+            in.get(C::poseidon2_perm_T_62_7) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[63][2];
+        const auto poseidon2_perm_ARK_63_3 =
+            in.get(C::poseidon2_perm_T_62_4) + crypto::Poseidon2Bn254ScalarFieldParams::round_constants[63][3];
         const auto poseidon2_perm_A_63_0 = poseidon2_perm_ARK_63_0 * poseidon2_perm_ARK_63_0 * poseidon2_perm_ARK_63_0 *
                                            poseidon2_perm_ARK_63_0 * poseidon2_perm_ARK_63_0;
         const auto poseidon2_perm_A_63_1 = poseidon2_perm_ARK_63_1 * poseidon2_perm_ARK_63_1 * poseidon2_perm_ARK_63_1 *
@@ -1143,12 +888,14 @@ template <typename FF_> class poseidon2_permImpl {
         const auto poseidon2_perm_T_63_2 = FF(2) * poseidon2_perm_A_63_1 + poseidon2_perm_T_63_1;
         const auto poseidon2_perm_T_63_3 = FF(2) * poseidon2_perm_A_63_3 + poseidon2_perm_T_63_0;
 
+        // Boolean
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) * (FF(1) - in.get(C::poseidon2_perm_sel));
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
         }
+        // External Matrix #1
         {
             using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
             auto tmp =
@@ -1181,6 +928,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 1 (Full Round) Start
         {
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -1209,6 +957,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<8>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 2 (Full Round)
         {
             using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -1237,6 +986,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<12>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 3 (Full Round)
         {
             using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -1265,6 +1015,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<16>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 4 (Full Round)
         {
             using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -1293,6 +1044,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<20>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 5 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<21, ContainerOverSubrelations>;
             auto tmp =
@@ -1325,6 +1077,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<24>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 6 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<25, ContainerOverSubrelations>;
             auto tmp =
@@ -1357,6 +1110,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<28>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 7 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<29, ContainerOverSubrelations>;
             auto tmp =
@@ -1389,6 +1143,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<32>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 8 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<33, ContainerOverSubrelations>;
             auto tmp =
@@ -1421,6 +1176,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<36>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 9 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<37, ContainerOverSubrelations>;
             auto tmp =
@@ -1453,6 +1209,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<40>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 10 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<41, ContainerOverSubrelations>;
             auto tmp =
@@ -1485,6 +1242,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<44>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 11 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<45, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -1517,6 +1275,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<48>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 12 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<49, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -1549,6 +1308,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<52>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 13 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<53, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -1581,6 +1341,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<56>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 14 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<57, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -1613,6 +1374,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<60>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 15 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<61, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -1645,6 +1407,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<64>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 16 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<65, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -1677,6 +1440,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<68>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 17 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<69, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -1709,6 +1473,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<72>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 18 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<73, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -1741,6 +1506,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<76>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 19 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<77, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -1773,6 +1539,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<80>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 20 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<81, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -1805,6 +1572,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<84>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 21 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<85, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -1837,6 +1605,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<88>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 22 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<89, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -1869,6 +1638,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<92>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 23 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<93, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -1901,6 +1671,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<96>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 24 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<97, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -1933,6 +1704,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<100>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 25 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<101, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -1965,6 +1737,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<104>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 26 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<105, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -1997,6 +1770,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<108>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 27 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<109, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -2029,6 +1803,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<112>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 28 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<113, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -2061,6 +1836,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<116>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 29 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<117, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -2093,6 +1869,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<120>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 30 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<121, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -2125,6 +1902,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<124>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 31 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<125, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -2157,6 +1935,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<128>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 32 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<129, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -2189,6 +1968,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<132>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 33 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<133, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -2221,6 +2001,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<136>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 34 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<137, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -2253,6 +2034,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<140>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 35 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<141, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -2285,6 +2067,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<144>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 36 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<145, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -2317,6 +2100,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<148>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 37 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<149, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -2349,6 +2133,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<152>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 38 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<153, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -2381,6 +2166,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<156>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 39 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<157, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -2413,6 +2199,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<160>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 40 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<161, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -2445,6 +2232,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<164>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 41 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<165, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -2477,6 +2265,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<168>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 42 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<169, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -2509,6 +2298,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<172>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 43 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<173, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -2541,6 +2331,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<176>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 44 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<177, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -2573,6 +2364,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<180>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 45 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<181, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -2605,6 +2397,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<184>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 46 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<185, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -2637,6 +2430,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<188>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 47 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<189, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -2669,6 +2463,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<192>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 48 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<193, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -2701,6 +2496,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<196>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 49 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<197, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -2733,6 +2529,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<200>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 50 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<201, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -2765,6 +2562,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<204>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 51 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<205, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -2797,6 +2595,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<208>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 52 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<209, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -2829,6 +2628,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<212>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 53 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<213, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -2861,6 +2661,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<216>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 54 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<217, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -2893,6 +2694,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<220>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 55 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<221, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -2925,6 +2727,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<224>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 56 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<225, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -2957,6 +2760,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<228>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 57 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<229, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -2989,6 +2793,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<232>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 58 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<233, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -3021,6 +2826,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<236>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 59 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<237, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -3053,6 +2859,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<240>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 60 (Partial Round)
         {
             using Accumulator = typename std::tuple_element_t<241, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -3085,6 +2892,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<244>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 61 (Full Round)
         {
             using Accumulator = typename std::tuple_element_t<245, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -3113,6 +2921,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<248>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 62 (Full Round)
         {
             using Accumulator = typename std::tuple_element_t<249, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -3141,6 +2950,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<252>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 63 (Full Round)
         {
             using Accumulator = typename std::tuple_element_t<253, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -3169,6 +2979,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<256>(evals) += typename Accumulator::View(tmp);
         }
+        // Round 64 (Full Round)
         {
             using Accumulator = typename std::tuple_element_t<257, ContainerOverSubrelations>;
             auto tmp = in.get(C::poseidon2_perm_sel) *
@@ -3197,6 +3008,7 @@ template <typename FF_> class poseidon2_permImpl {
             tmp *= scaling_factor;
             std::get<260>(evals) += typename Accumulator::View(tmp);
         }
+        // OUTPUT
         {
             using Accumulator = typename std::tuple_element_t<261, ContainerOverSubrelations>;
             auto tmp =
