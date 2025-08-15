@@ -45,7 +45,6 @@ describe('prover-node', () => {
   let config: SpecificProverNodeConfig;
   let rollupContract: MockProxy<RollupContract>;
   let publisherFactory: MockProxy<ProverPublisherFactory>;
-  let l1Metrics: MockProxy<L1Metrics>;
 
   // L1 genesis time
   let l1GenesisTime: number;
@@ -74,7 +73,6 @@ describe('prover-node', () => {
       worldState,
       p2p,
       epochMonitor,
-      l1Metrics,
       rollupContract,
       config,
     );
@@ -90,7 +88,6 @@ describe('prover-node', () => {
     worldState = mock<WorldStateSynchronizer>();
     epochMonitor = mock<EpochMonitor>();
     txProvider = mock<TxProvider>();
-    l1Metrics = mock<L1Metrics>();
 
     rollupContract = mock<RollupContract>();
     publisherFactory = mock<ProverPublisherFactory>();
