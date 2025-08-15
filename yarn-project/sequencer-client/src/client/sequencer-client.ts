@@ -35,6 +35,7 @@ export class SequencerClient {
     protected publisherManager: PublisherManager<L1TxUtilsWithBlobs>,
     protected sequencer: Sequencer,
     protected validatorClient?: ValidatorClient,
+    private l1Metrics?: L1Metrics,
   ) {}
 
   /**
@@ -91,7 +92,7 @@ export class SequencerClient {
       publicClient,
       l1TxUtils.map(x => x.getSenderAddress()),
     );
-    const publisherManager = new PublisherManager(l1TxUtils, l1Metrics);
+    const publisherManager = new PublisherManager(l1TxUtils);
     const rollupContract = new RollupContract(l1Client, config.l1Contracts.rollupAddress.toString());
     const [l1GenesisTime, slotDuration] = await Promise.all([
       rollupContract.getL1GenesisTime(),
@@ -182,7 +183,7 @@ export class SequencerClient {
 
     await sequencer.init();
 
-    return new SequencerClient(publisherManager, sequencer, validatorClient);
+    return new SequencerClient(publisherManager, sequencer, validatorClient, l1Metrics);
   }
 
   /**
@@ -197,6 +198,7 @@ export class SequencerClient {
   public async start() {
     await this.validatorClient?.start();
     this.sequencer.start();
+    this.l1Metrics?.start();
   }
 
   /**
@@ -205,6 +207,7 @@ export class SequencerClient {
   public async stop() {
     await this.sequencer.stop();
     this.publisherManager.interrupt();
+    this.l1Metrics?.stop();
   }
 
   public getSequencer(): Sequencer {

@@ -15,9 +15,6 @@
     },
     {
       "path": "../l1-artifacts"
-    },
-    {
-      "path": "../telemetry-client"
     }
   ]
 }

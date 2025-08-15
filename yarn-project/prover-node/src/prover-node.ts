@@ -75,6 +75,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     protected readonly p2pClient: Pick<P2PClient<P2PClientType.Prover>, 'getTxProvider'> & Partial<Service>,
     protected readonly epochsMonitor: EpochMonitor,
     protected readonly rollupContract: RollupContract,
+    protected readonly l1Metrics: L1Metrics,
     config: Partial<ProverNodeOptions> = {},
     protected readonly telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {
@@ -149,6 +150,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     this.epochsMonitor.start(this);
     this.publisher = await this.publisherFactory.create();
     await this.rewardsMetrics.start();
+    this.l1Metrics.start();
     this.log.info(`Started Prover Node with prover id ${this.prover.getProverId().toString()}`, this.config);
   }
 
@@ -165,6 +167,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     await Promise.all(Array.from(this.jobs.values()).map(job => job.stop()));
     await this.worldState.stop();
     this.rewardsMetrics.stop();
+    this.l1Metrics.stop();
     await this.telemetryClient.stop();
     this.log.info('Stopped ProverNode');
   }
