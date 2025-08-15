@@ -56,14 +56,12 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
 
     transcript->load_proof(proof);
 
+    // TODO(#15892): Fiat-Shamir the vk hash by uncommenting the line below.
+    FF vk_hash = key->hash();
+    // transcript->add_to_hash_buffer("avm_vk_hash", vk_hash);
+    info("AVM vk hash in verifier: ", vk_hash);
+
     VerifierCommitments commitments{ key };
-
-    const uint64_t circuit_size = transcript->template receive_from_prover<uint32_t>("circuit_size");
-    if (circuit_size != (static_cast<uint64_t>(1) << key->log_circuit_size)) {
-        vinfo("Circuit size mismatch: expected", (1 << key->log_circuit_size), " got ", circuit_size);
-        return false;
-    }
-
     // Get commitments to VM wires
     for (auto [comm, label] : zip_view(commitments.get_wires(), commitments.get_wires_labels())) {
         comm = transcript->template receive_from_prover<Commitment>(label);
@@ -79,7 +77,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     }
 
     // Execute Sumcheck Verifier
-    const size_t log_circuit_size = numeric::get_msb(circuit_size);
+    const size_t log_circuit_size = key->log_circuit_size;
 
     std::vector<FF> padding_indicator_array(CONST_PROOF_SIZE_LOG_N);
 
