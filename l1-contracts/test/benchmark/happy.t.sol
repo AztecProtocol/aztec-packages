@@ -158,7 +158,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     }
 
     StakingQueueConfig memory stakingQueueConfig = TestConstants.getStakingQueueConfig();
-    stakingQueueConfig.normalFlushSizeMin = _validatorCount;
+    stakingQueueConfig.normalFlushSizeMin = _validatorCount == 0 ? 1 : _validatorCount;
 
     RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost).setManaTarget(
       MANA_TARGET

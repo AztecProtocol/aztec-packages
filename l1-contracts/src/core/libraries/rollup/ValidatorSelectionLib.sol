@@ -86,7 +86,7 @@ import {TransientSlot} from "@oz/utils/TransientSlot.sol";
  *      Time-based Architecture:
  *      - Epochs define committee boundaries (committee stable within epoch)
  *      - Slots define proposer assignments (one proposer per slot)
- *      - Sample time uses epoch start minus one epoch to ensure validator set stability
+ *      - Sampling uses a lagging time for the epoch to ensure validator set stability
  *      - Validator set snapshots taken at deterministic timestamps for consistency
  */
 library ValidatorSelectionLib {
@@ -152,6 +152,12 @@ library ValidatorSelectionLib {
   function setupEpoch(Epoch _epochNumber) internal {
     ValidatorSelectionStorage storage store = getStorage();
 
+    bytes32 committeeCommitment = store.committeeCommitments[_epochNumber];
+    if (committeeCommitment != bytes32(0)) {
+      // We already have the commitment stored for the epoch meaning the epoch has already been setup.
+      return;
+    }
+
     //################ Seeds ################
     // Get the sample seed for this current epoch.
     uint256 sampleSeed = getSampleSeed(_epochNumber);
@@ -162,11 +168,8 @@ library ValidatorSelectionLib {
 
     //################ Committee ################
     // If the committee is not set for this epoch, we need to sample it
-    bytes32 committeeCommitment = store.committeeCommitments[_epochNumber];
-    if (committeeCommitment == bytes32(0)) {
-      address[] memory committee = sampleValidators(_epochNumber, sampleSeed);
-      store.committeeCommitments[_epochNumber] = computeCommitteeCommitment(committee);
-    }
+    address[] memory committee = sampleValidators(_epochNumber, sampleSeed);
+    store.committeeCommitments[_epochNumber] = computeCommitteeCommitment(committee);
   }
 
   /**

@@ -197,8 +197,8 @@ library StakingLib {
   /**
    * @notice Slashes a validator's stake as punishment for misbehavior
    * @dev Only callable by the authorized slasher contract. Handles slashing for both exiting and active validators.
-   *      For exiting validators, reduces their exit amount. For active validators, forces a withdrawal and optionally
-   *      creates an exit for any remaining stake.
+   *      For exiting validators, reduces their exit amount. For active validators, the balance will be reduced and
+   *      an exit will be created if the remaining stake falls below the ejection threshold.
    * @param _attester The address of the validator to slash
    * @param _amount The amount of stake to slash
    */
@@ -312,10 +312,10 @@ library StakingLib {
    *      The function approves the GSE contract to spend the total stake amount needed for all deposits,
    *      then revokes the approval after processing is complete.
    *
-   * @param _maxAddableValidators Maximum number of validators to process from the queue
    */
-  function flushEntryQueue(uint256 _maxAddableValidators) internal {
-    if (_maxAddableValidators == 0) {
+  function flushEntryQueue() internal {
+    uint256 maxAddableValidators = getEntryQueueFlushSize();
+    if (maxAddableValidators == 0) {
       return;
     }
 
@@ -326,7 +326,7 @@ library StakingLib {
     uint256 amount = store.gse.ACTIVATION_THRESHOLD();
 
     uint256 queueLength = store.entryQueue.length();
-    uint256 numToDequeue = Math.min(_maxAddableValidators, queueLength);
+    uint256 numToDequeue = Math.min(maxAddableValidators, queueLength);
     // Approve the GSE to spend the total stake amount needed for all deposits.
     store.stakingAsset.approve(address(store.gse), amount * numToDequeue);
     for (uint256 i = 0; i < numToDequeue; i++) {
@@ -517,6 +517,11 @@ library StakingLib {
    *
    *      The motivation for floodgates is that the whole system starts producing blocks with what is considered
    *      a sufficiently decentralized set of validators.
+   *
+   *      Note that Governance has the ability to close the validator set for this instance by setting
+   *      `normalFlushSizeMin` to zero and `normalFlushSizeQuotient` to a very high value. If this is done, this
+   *      function will always return zero and no new validator can enter.
+   *
    * @return - The maximum number of validators that could be flushed from the entry queue.
    */
   function getEntryQueueFlushSize() internal view returns (uint256) {
