@@ -19,7 +19,6 @@ const fs = require("fs");
 const macros = require("./src/katex-macros.js");
 const versions = require("./versions.json");
 
-/** @type {import('@docusaurus/types').Config} */
 const config = {
   title: "Privacy-first zkRollup | Aztec Documentation",
   tagline:

@@ -162,8 +162,6 @@ You can embed code snippets into a `.md`/`.mdx` file from code which lives elsew
   - `#include_code hello path/from/repo/root/to/file.ts typescript noTitle,noLineNumbers,noSourceLink`
 - Ironically, we can't show you a rendering of these examples, because this README.md file doesn't support the `#include_code` macro!
 
-> See [here](./src/components/GithubCode/index.js) for another way to include code, although this approach is flakier, so the above `#include_code` macro is preferred.
-
 ### `#include_aztec_version`
 
 This macros will be replaced inline with the current aztec packages tag, which is `v0.77.0` at the time of these writing. This value is sourced from `.release-please-manifest.json` on the project root.
