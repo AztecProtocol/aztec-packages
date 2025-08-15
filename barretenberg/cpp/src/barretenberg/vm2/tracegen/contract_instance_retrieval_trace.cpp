@@ -67,7 +67,7 @@ void ContractInstanceRetrievalTraceBuilder::process(
 const InteractionDefinition ContractInstanceRetrievalTraceBuilder::interactions =
     InteractionDefinition()
         .add<lookup_contract_instance_retrieval_deployment_nullifier_read_settings, InteractionType::LookupSequential>()
-        .add<lookup_contract_instance_retrieval_address_derivation_settings, InteractionType::LookupSequential>()
+        .add<lookup_contract_instance_retrieval_address_derivation_settings, InteractionType::LookupGeneric>()
         .add<lookup_contract_instance_retrieval_update_check_settings, InteractionType::LookupSequential>();
 
 } // namespace bb::avm2::tracegen
