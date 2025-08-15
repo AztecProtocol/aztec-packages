@@ -93,7 +93,7 @@ contract MoveTest is StakingBase {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.ValidatorSelection__InsufficientCommitteeSize.selector, 0, newRollup.getTargetCommitteeSize()
+        Errors.ValidatorSelection__InsufficientValidatorSetSize.selector, 0, newRollup.getTargetCommitteeSize()
       )
     );
     newRollup.getEpochCommittee(epoch);
@@ -113,7 +113,7 @@ contract MoveTest is StakingBase {
     assertEq(oldRollup.getEpochCommittee(epoch).length, oldRollup.getTargetCommitteeSize());
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.ValidatorSelection__InsufficientCommitteeSize.selector, 0, newRollup.getTargetCommitteeSize()
+        Errors.ValidatorSelection__InsufficientValidatorSetSize.selector, 0, newRollup.getTargetCommitteeSize()
       )
     );
     newRollup.getEpochCommittee(epoch);
