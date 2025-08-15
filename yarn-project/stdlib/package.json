@@ -33,6 +33,7 @@
     "./tx": "./dest/tx/index.js",
     "./fees": "./dest/fees/index.js",
     "./note": "./dest/note/index.js",
+    "./oracle": "./dest/oracle/index.js",
     "./p2p": "./dest/p2p/index.js",
     "./errors": "./dest/errors/index.js",
     "./stats": "./dest/stats/index.js",
