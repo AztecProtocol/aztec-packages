@@ -526,8 +526,8 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    *      `ExtRollupLib.propose(...)` -> `ProposeLib.propose(...)` -> `ValidatorSelectionLib.setupEpoch(...)`).
    *
    *      If there are missed proposals then setupEpoch does not get called automatically. Since the next committee
-   *      selection is computed based on the latest stored seed and the epoch number, we would only fail to get a
-   *      fresh seed if:
+   *      selection is computed based on the stored randao and the epoch number, failing to update the randao stored
+   *      will keep the committee predictable longer into the future. We would only fail to get a fresh randao if:
    *      1. All the proposals in the epoch were missed
    *      2. Nobody called setupEpoch on the Rollup contract
    *
@@ -540,13 +540,13 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
   }
 
   /**
-   * @notice Captures the seed for validator selection in the next epoch
-   * @dev Can be called by anyone. Takes a snapshot of the current state to ensure
-   *      unpredictable but deterministic validator selection. Automatically called
-   *      from setupEpoch.
+   * @notice Captures the randao for future validator selection
+   * @dev Can be called by anyone. Takes a snapshot of the current randao to ensure unpredictable but deterministic
+   *      validator selection. Automatically called from setupEpoch. Can be used as a cheaper alternative to
+   *      `setupEpoch` to update the randao checkpoints.
    */
-  function setupSeedSnapshotForNextEpoch() public override(IValidatorSelectionCore) {
-    ExtRollupLib2.setupSeedSnapshotForNextEpoch();
+  function checkpointRandao() public override(IValidatorSelectionCore) {
+    ExtRollupLib2.checkpointRandao();
   }
 
   /**
