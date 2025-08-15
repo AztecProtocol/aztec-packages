@@ -517,7 +517,7 @@ process_honk_recursion_constraints(Builder& builder,
         output.update(honk_recursion_constraint,
                       /*has_ipa_data=*/constraint.proof_type == ROLLUP_HONK ||
                           constraint.proof_type == ROOT_ROLLUP_HONK);
-        output.is_root_rollup &= constraint.proof_type == ROOT_ROLLUP_HONK;
+        output.is_root_rollup = constraint.proof_type == ROOT_ROLLUP_HONK;
 
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.honk_recursion_constraints.at(idx++));
