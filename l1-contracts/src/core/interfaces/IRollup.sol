@@ -63,6 +63,7 @@ struct RollupConfigInput {
   address slashingVetoer;
   uint256 manaTarget;
   uint256 exitDelaySeconds;
+  uint32 version;
   EthValue provingCostPerMana;
   RewardConfig rewardConfig;
   RewardBoostConfig rewardBoostConfig;
@@ -84,7 +85,8 @@ struct RollupConfig {
 struct RollupStore {
   CompressedChainTips tips; // put first such that the struct slot structure is easy to follow for cheatcodes
   mapping(uint256 blockNumber => bytes32 archive) archives;
-  mapping(uint256 blockNumber => CompressedTempBlockLog temp) tempBlockLogs;
+  // The following represents a circular buffer. Key is `blockNumber % size`.
+  mapping(uint256 circularIndex => CompressedTempBlockLog temp) tempBlockLogs;
   RollupConfig config;
 }
 
@@ -96,8 +98,6 @@ interface IRollupCore {
   event ManaTargetUpdated(uint256 indexed manaTarget);
   event PrunedPending(uint256 provenBlockNumber, uint256 pendingBlockNumber);
   event RewardsClaimableUpdated(bool isRewardsClaimable);
-
-  function preheatHeaders() external;
 
   function setRewardsClaimable(bool _isRewardsClaimable) external;
   function claimSequencerRewards(address _recipient) external returns (uint256);

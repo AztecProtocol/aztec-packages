@@ -1,0 +1,7 @@
+[package]
+name = "hiding_kernel_to_public"
+type = "bin"
+authors = [""]
+
+[dependencies]
+types = { path = "../types" }

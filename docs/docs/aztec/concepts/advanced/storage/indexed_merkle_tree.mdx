@@ -63,10 +63,10 @@ In routine nullifier insertions, a non membership check for a value is performed
 As it turns out, we can do better. [This paper](https://eprint.iacr.org/2021/1263.pdf) (page 6) introduces the idea of an indexed merkle tree. A Merkle Tree that allows us to perform efficient non-membership proofs. It achieves this by extending each node to include a specialized data structure. Each node not only stores some value $v \in \mathbb{F}_p$ but also some pointers to the leaf with the next higher value. The data structure is as follows:
 
 $$
-\textsf{leaf} = \{v, i_{\textsf{next}}, v_{\textsf{next}}\}.
+\textsf{leaf} = \{v, i_\textsf{next}, v_\textsf{next}\}.
 $$
 
-Based on the tree's insertion rules, we can assume that there are no leaves in the tree that exist between the range $(v, v_{\textsf{next}})$.
+Based on the tree's insertion rules, we can assume that there are no leaves in the tree that exist between the range $(v, v_\textsf{next})$.
 
 More simply put, the merkle tree pretty much becomes a linked list of increasing size, where once inserted the pointers at a leaf can change, but the nullifier value cannot.
 
@@ -79,45 +79,45 @@ The insertion protocol is described below:
 1. Look for a nullifier's corresponding low_nullifier where:
 
    $$
-   low\_nullifier_{\textsf{next\_value}} > new\_nullifier
+   low\_nullifier_\textsf{next\_value} > new\_nullifier
    $$
 
    > if $new\_nullifier$ is the largest use the leaf:
 
    $$
-   low\_nullifier_{\textsf{next\_value}} == 0
+   low\_nullifier_\textsf{next\_value} == 0
    $$
 
 2. Perform membership check of the low nullifier.
 3. Perform a range check on the low nullifier's value and next_value fields:
 
 $$
-new\_nullifier > low\_nullifier_{\textsf{value}} \: \&\&  \: ( new\_nullifier < low\_nullifier_{\textsf{next\_value}} \: || \:  low\_nullifier_{\textsf{next\_value}} == 0 )
+new\_nullifier > low\_nullifier_\textsf{value}} \: \&\&  \: ( new\_nullifier < low\_nullifier_\textsf{next\_value}} \: || \:  low\_nullifier_\textsf{next\_value}} == 0 )
 $$
 
 4. Update the low nullifier pointers
 
    $$
-   low\_nullifier_{\textsf{next\_index}} = new\_insertion\_index
+   low\_nullifier_\textsf{next\_index}} = new\_insertion\_index
    $$
 
    $$
-   low\_nullifier_{\textsf{next\_value}} = new\_nullifier
+   low\_nullifier_\textsf{next\_value}} = new\_nullifier
    $$
 
 5. Perform insertion of new updated low nullifier (yields new root)
 6. Update pointers on new leaf. Note: low_nullifier is from before update in step 4
 
 $$
-new\_nullifier\_leaf_{\textsf{value}} = new\_nullifier
+new\_nullifier\_leaf_\textsf{value}} = new\_nullifier
 $$
 
 $$
-new\_nullifier\_leaf_{\textsf{next\_value}} = low\_nullifier_{\textsf{next\_value}}
+new\_nullifier\_leaf_\textsf{next\_value}} = low\_nullifier_\textsf{next\_value}}
 $$
 
 $$
-new\_nullifier\_leaf_{\textsf{next\_index}} = low\_nullifier_{\textsf{next\_index}}
+new\_nullifier\_leaf_\textsf{next\_index}} = low\_nullifier_\textsf{next\_index}}
 $$
 
 7. Perform insertion of new leaf (yields new root)
@@ -130,7 +130,7 @@ $$
 - A handful of equality constraints.
 
 **Special cases**
-You'll notice at step 3 the $low\_nullifier_{\textsf{next\_value}}$ can be 0. This is a special case as if a value is the max, it will not point to anything larger (as it does not exist). Instead it points to zero. By doing so we close the loop, so we are always inserting into a ring, if we could insert outside the ring we could cause a split.
+You'll notice at step 3 the $low\_nullifier_\textsf{next\_value}}$ can be 0. This is a special case as if a value is the max, it will not point to anything larger (as it does not exist). Instead it points to zero. By doing so we close the loop, so we are always inserting into a ring, if we could insert outside the ring we could cause a split.
 
 A visual aid for insertion is presented below:
 
@@ -175,12 +175,12 @@ Suppose we want to show that the value `20` doesn't exist in the tree. We just r
 - hash the low nullifier: $low\_nullifier = h(10, 1, 30)$.
 - Prove the low leaf exists in the tree: `n` hashes.
 - Check the new value 'would have' belonged in the range given by the low leaf: `2` range checks.
-  - If ($low\_nullifier_{\textsf{next\_index}} == 0$):
+  - If ($low\_nullifier_\textsf{next\_index}} == 0$):
     - Special case, the low leaf is at the very end, so the new_value must be higher than all values in the tree:
-    - $assert(low\_nullifier_{\textsf{value}} < new\_value_{\textsf{value}})$
+    - $assert(low\_nullifier_\textsf{value}} < new\_value_\textsf{value}})$
   - Else:
-    - $assert(low\_nullifier_{\textsf{value}} < new\_value_{\textsf{value}})$
-    - $assert(low\_nullifier_{\textsf{next\_value}} > new\_value_{\textsf{value}})$
+    - $assert(low\_nullifier_\textsf{value}} < new\_value_\textsf{value}})$
+    - $assert(low\_nullifier_\textsf{next\_value}} > new\_value_\textsf{value}})$
 
 This is already a massive performance improvement, however we can go further, as this tree is not sparse. We can perform batch insertions.
 
