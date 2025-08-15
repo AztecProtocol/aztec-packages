@@ -281,7 +281,7 @@ export class RollupContract {
         args: [timestamp],
       })
       .catch(e => {
-        if (e instanceof Error && e.message.includes('ValidatorSelection__InsufficientCommitteeSize')) {
+        if (e instanceof Error && e.message.includes('ValidatorSelection__InsufficientValidatorSetSize')) {
           return { result: undefined };
         }
         throw e;
@@ -311,7 +311,7 @@ export class RollupContract {
         args: [],
       })
       .catch(e => {
-        if (e instanceof Error && e.message.includes('ValidatorSelection__InsufficientCommitteeSize')) {
+        if (e instanceof Error && e.message.includes('ValidatorSelection__InsufficientValidatorSetSize')) {
           return { result: undefined };
         }
         throw e;
