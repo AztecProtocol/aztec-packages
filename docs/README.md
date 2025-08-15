@@ -6,6 +6,8 @@ You can view the latest successful build here: https://docs.aztec.network
 
 ## Docusaurus
 
+test
+
 This website is built using [Docusaurus 3](https://docusaurus.io/), a modern static website generator.
 
 ### Files
