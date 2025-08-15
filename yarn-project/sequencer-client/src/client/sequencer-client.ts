@@ -118,7 +118,6 @@ export class SequencerClient {
     const l1Contracts: SequencerContracts = {
       rollupContract,
       governanceProposerContract,
-      slashingProposerContract,
     };
 
     const publisherFactory =

@@ -202,7 +202,6 @@ describe('sequencer', () => {
     l1Contracts = {
       rollupContract,
       governanceProposerContract,
-      slashingProposerContract,
     };
 
     globalVariableBuilder = mock<GlobalVariableBuilder>();
