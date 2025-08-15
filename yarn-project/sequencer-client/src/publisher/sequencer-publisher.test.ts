@@ -37,6 +37,7 @@ import {
 import { privateKeyToAccount } from 'viem/accounts';
 
 import type { PublisherConfig, TxSenderConfig } from './config.js';
+import type { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
 import { SequencerPublisher } from './sequencer-publisher.js';
 
 const mockRollupAddress = EthAddress.random().toString();
@@ -51,6 +52,7 @@ describe('SequencerPublisher', () => {
   let governanceProposerContract: MockProxy<GovernanceProposerContract>;
   let slashFactoryContract: MockProxy<SlashFactoryContract>;
   let l1TxUtils: MockProxy<L1TxUtilsWithBlobs>;
+  let l1Metrics: MockProxy<SequencerPublisherMetrics>;
   let forwardSpy: jest.SpiedFunction<typeof Multicall3.forward>;
 
   let proposeTxHash: `0x${string}`;
@@ -121,6 +123,8 @@ describe('SequencerPublisher', () => {
     forwardSpy = jest.spyOn(Multicall3, 'forward');
 
     slashingProposerContract = mock<EmpireSlashingProposerContract>();
+    l1Metrics = mock<SequencerPublisherMetrics>();
+
     governanceProposerContract = mock<GovernanceProposerContract>();
     slashFactoryContract = mock<SlashFactoryContract>();
 
@@ -137,6 +141,7 @@ describe('SequencerPublisher', () => {
       governanceProposerContract,
       slashFactoryContract,
       dateProvider: new TestDateProvider(),
+      metrics: l1Metrics,
     });
 
     (publisher as any)['l1TxUtils'] = l1TxUtils;

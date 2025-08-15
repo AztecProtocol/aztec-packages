@@ -63,13 +63,14 @@ import { SchnorrHardcodedAccountContract } from '@aztec/noir-contracts.js/Schnor
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import type { PXEService } from '@aztec/pxe/server';
-import { SequencerPublisher } from '@aztec/sequencer-client';
+import { SequencerPublisher, SequencerPublisherMetrics } from '@aztec/sequencer-client';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2Block } from '@aztec/stdlib/block';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
 import * as fs from 'fs';
+import { type MockProxy, mock } from 'jest-mock-extended';
 import { getContract } from 'viem';
 
 import { DEFAULT_BLOB_SINK_PORT } from './fixtures/fixtures.js';
@@ -426,6 +427,7 @@ describe('e2e_synching', () => {
       deployL1ContractsValues.l1ContractAddresses.slashFactoryAddress!.toString(),
     );
     const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, { dateProvider });
+    const sequencerPublisherMetrics: MockProxy<SequencerPublisherMetrics> = mock<SequencerPublisherMetrics>();
     const publisher = new SequencerPublisher(
       {
         l1RpcUrls: config.l1RpcUrls,
@@ -448,6 +450,7 @@ describe('e2e_synching', () => {
         slashFactoryContract,
         epochCache,
         dateProvider: dateProvider!,
+        metrics: sequencerPublisherMetrics,
       },
     );
 
