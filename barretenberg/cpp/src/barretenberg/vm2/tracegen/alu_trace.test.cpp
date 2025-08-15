@@ -472,7 +472,7 @@ TEST_P(AluDivTraceGenerationTest, TraceGenerationDiv)
             ROW_FIELD_EQ(alu_ia, a),
             ROW_FIELD_EQ(alu_ib, b),
             ROW_FIELD_EQ(alu_ic, c),
-            ROW_FIELD_EQ(alu_helper1, a - b * c),
+            ROW_FIELD_EQ(alu_helper1, div_0_error ? 0 : (a - b * c).as_ff()),
             ROW_FIELD_EQ(alu_ia_tag, static_cast<uint8_t>(tag)),
             ROW_FIELD_EQ(alu_ib_tag, static_cast<uint8_t>(tag)),
             ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(tag)),
