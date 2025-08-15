@@ -141,6 +141,33 @@ template <typename Builder_> struct PairingPoints {
     }
 
     /**
+     * @brief Generate default pairing points
+     *
+     * @param builder
+     */
+    static PairingPoints default_pairing_points(Builder& builder)
+    {
+        using field =
+            std::conditional_t<IsMegaBuilder<Builder>, goblin_field<Builder>, bigfield<Builder, bb::Bn254FqParams>>;
+
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): These are pairing points
+        // extracted from a valid proof. This is a workaround because we can't represent the point at
+        // infinity in biggroup yet.
+        field x0(fq("0x031e97a575e9d05a107acb64952ecab75c020998797da7842ab5d6d1986846cf"));
+        field y0(fq("0x178cbf4206471d722669117f9758a4c410db10a01750aebb5666547acf8bd5a4"));
+        field x1(fq("0x0f94656a2ca489889939f81e9c74027fd51009034b3357f0e91b8a11e7842c38"));
+        field y1(fq("0x1b52c2020d7464a0c80c0da527a08193fe27776f50224bd6fb128b46c1ddb67f"));
+
+        Group P0(x0, y0);
+        Group P1(x1, y1);
+
+        P0.convert_constant_to_fixed_witness(&builder);
+        P1.convert_constant_to_fixed_witness(&builder);
+
+        return { P0, P1 };
+    }
+
+    /**
      * @brief Adds default public inputs to the builder.
      * @details This should cost exactly 20 gates because there's 4 bigfield elements and each have 5 total
      * witnesses including the prime limb.
@@ -149,26 +176,10 @@ template <typename Builder_> struct PairingPoints {
      */
     static void add_default_to_public_inputs(Builder& builder)
     {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): These are pairing points extracted from a
-        // valid proof. This is a workaround because we can't represent the point at infinity in biggroup yet.
-        bigfield<Builder, bb::Bn254FqParams> x0(
-            fq("0x031e97a575e9d05a107acb64952ecab75c020998797da7842ab5d6d1986846cf"));
-        bigfield<Builder, bb::Bn254FqParams> y0(
-            fq("0x178cbf4206471d722669117f9758a4c410db10a01750aebb5666547acf8bd5a4"));
-        bigfield<Builder, bb::Bn254FqParams> x1(
-            fq("0x0f94656a2ca489889939f81e9c74027fd51009034b3357f0e91b8a11e7842c38"));
-        bigfield<Builder, bb::Bn254FqParams> y1(
-            fq("0x1b52c2020d7464a0c80c0da527a08193fe27776f50224bd6fb128b46c1ddb67f"));
+        auto [P0, P1, _] = default_pairing_points(builder);
 
-        x0.convert_constant_to_fixed_witness(&builder);
-        y0.convert_constant_to_fixed_witness(&builder);
-        x1.convert_constant_to_fixed_witness(&builder);
-        y1.convert_constant_to_fixed_witness(&builder);
-
-        x0.set_public();
-        y0.set_public();
-        x1.set_public();
-        y1.set_public();
+        P0.set_public();
+        P1.set_public();
     }
 };
 
