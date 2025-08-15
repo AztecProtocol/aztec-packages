@@ -78,8 +78,8 @@ const config = {
           ],
           versions: {
             current: {
-              label: 'dev',
-              path: 'dev',
+              label: "dev",
+              path: "dev",
             },
           },
         },
@@ -100,6 +100,21 @@ const config = {
     },
   ],
   plugins: [
+    [
+      "docusaurus-plugin-llms",
+      {
+        generateLLMsTxt: true,
+        generateLLMsFullTxt: true,
+        docsDir: `versioned_docs/version-${versions[0]}/`,
+        title: "Aztec Protocol Documentation",
+        excludeImports: true,
+        ignoreFiles: [`versioned_docs/**/protocol-specs/*`],
+        version: versions[0],
+        pathTransformation: {
+          ignorePaths: ["docs"],
+        },
+      },
+    ],
     [
       "@docusaurus/plugin-ideal-image",
       {

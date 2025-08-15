@@ -2,6 +2,7 @@
 id: index
 sidebar_position: 0
 title: Running a Full Node
+description: A guide about how to run a full node on the Aztec network.
 ---
 
 This guide will go over the steps required to run a full node on Aztec with a basic setup.
