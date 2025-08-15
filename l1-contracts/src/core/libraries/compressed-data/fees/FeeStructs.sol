@@ -73,10 +73,6 @@ library FeeStructsLib {
 library FeeHeaderLib {
   using SafeCast for uint256;
 
-  function isPreheated(CompressedFeeHeader _compressedFeeHeader) internal pure returns (bool) {
-    return (CompressedFeeHeader.unwrap(_compressedFeeHeader) >> 255) == 1;
-  }
-
   function getManaUsed(CompressedFeeHeader _compressedFeeHeader) internal pure returns (uint256) {
     // Reads the bits 224-256
     return CompressedFeeHeader.unwrap(_compressedFeeHeader) & 0xFFFFFFFF;

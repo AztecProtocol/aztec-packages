@@ -270,16 +270,6 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
   }
 
   /**
-   * @notice Preheats the block header cache to optimize gas costs for subsequent operations
-   * @dev This function loads recent block headers into memory to reduce gas costs for operations
-   *      that need to access historical block data. Should be called before gas-intensive operations.
-   *      Used for stabilizing benchmarks.
-   */
-  function preheatHeaders() external override(IRollupCore) {
-    STFLib.preheatHeaders();
-  }
-
-  /**
    * @notice Updates the reward configuration for sequencers and provers
    * @dev Only callable by the contract owner. Updates how rewards are calculated and distributed.
    * @param _config The new reward configuration including rates and booster settings

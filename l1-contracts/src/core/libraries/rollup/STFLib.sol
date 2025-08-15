@@ -126,54 +126,6 @@ library STFLib {
   }
 
   /**
-   * @notice Preheats the temporary block log storage with non-zero values to optimize gas costs for accurate
-   * benchmarking
-   * @dev Iterates through all slots in the circular storage and replaces zero values with 0x1
-   *      to avoid expensive SSTORE operations when transitioning from zero to non-zero values.
-   *      This is a gas optimization technique used primarily for benchmarking and testing.
-   *
-   *      Special handling for slot 0: The slot number remains 0 for the first slot as it's
-   *      used in "already in chain" checks where 0 has semantic meaning.
-   *
-   *      Reverts if storage has already been preheated to prevent double-initialization.
-   */
-  function preheatHeaders() internal {
-    // Need to ensure that we have not already heated everything!
-    uint256 size = roundaboutSize();
-    require(!getFeeHeader(size - 1).isPreheated(), Errors.FeeLib__AlreadyPreheated());
-
-    RollupStore storage store = getStorage();
-
-    for (uint256 i = 0; i < size; i++) {
-      TempBlockLog memory blockLog = store.tempBlockLogs[i].decompress();
-
-      // DO NOT PREHEAT slot for 0, because there the value 0 is actually meaningful.
-      // It is being used in the already in chain checks.
-      if (i > 0 && blockLog.slotNumber == Slot.wrap(0)) {
-        blockLog.slotNumber = Slot.wrap(1);
-      }
-
-      if (blockLog.headerHash == bytes32(0)) {
-        blockLog.headerHash = bytes32(uint256(0x1));
-      }
-
-      if (blockLog.blobCommitmentsHash == bytes32(0)) {
-        blockLog.blobCommitmentsHash = bytes32(uint256(0x1));
-      }
-
-      if (blockLog.attestationsHash == bytes32(0)) {
-        blockLog.attestationsHash = bytes32(uint256(0x1));
-      }
-
-      if (blockLog.payloadDigest == bytes32(0)) {
-        blockLog.payloadDigest = bytes32(uint256(0x1));
-      }
-
-      store.tempBlockLogs[i] = blockLog.compress();
-    }
-  }
-
-  /**
    * @notice Removes unproven blocks from the pending chain when proof submission window expires
    * @dev This function implements the pruning mechanism that maintains rollup liveness by removing
    *      blocks that cannot be proven within the configured time window. When called:
