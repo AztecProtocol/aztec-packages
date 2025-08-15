@@ -31,6 +31,7 @@ jobs:
         with:
           # The commit to checkout.  We want our actual commit, and not the result of merging the PR to the target.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
 
       # NOTE: in ci3.yml we just rely on draft mode not being mergable.
       # Here we are a little more careful than just skipping the worklfow, in case of an edge case allowing merge.
@@ -140,4 +141,4 @@ jobs:
             "${{ github.event.pull_request.base.ref }}" \
             "${{ github.event.pull_request.base.sha }}"
           gh pr edit "${{ github.event.pull_request.number }}" --remove-label "ci-squash-and-merge"
-          gh pr ready "${{ github.event.pull_request.number }}" || true
+          gh pr merge "${{ github.event.pull_request.number }}" --auto -m || true

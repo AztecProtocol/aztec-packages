@@ -134,7 +134,7 @@ function compile {
   vk_bytes=$(jq -r '.keyAsBytes' "$key_path")
   vk_fields=$(jq -r '.keyAsFields' "$key_path")
   local tmp_json="${json_path}.tmp"
-  jq --arg vk "$vk_bytes" --argjson vkf "$vk_fields" '. + {keyAsBytes: $vk, keyAsFields: $vkf}' "$json_path" > "$tmp_json"
+  jq --arg vk "$vk_bytes" --argjson vkf "$vk_fields" '. + {verificationKeyAsBytes: $vk, verificationKeyAsFields: $vkf}' "$json_path" > "$tmp_json"
   mv "$tmp_json" "$json_path"
   echo_stderr "Updated $json_path with VK information from cache"
 }

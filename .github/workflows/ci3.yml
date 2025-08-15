@@ -36,7 +36,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           # Fetch PR commits depth (we'll deepen by 1 in squash script if needed)
           fetch-depth: ${{ github.event.pull_request.commits || 0 }}
-          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          persist-credentials: false
 
       - name: CI Merge Queue Override (grind on PR)
         if: contains(github.event.pull_request.labels.*.name, 'ci-merge-queue')
@@ -165,7 +165,7 @@ jobs:
             "${{ github.event.pull_request.base.ref }}" \
             "${{ github.event.pull_request.base.sha }}"
           gh pr edit "${{ github.event.pull_request.number }}" --remove-label "ci-squash-and-merge"
-          gh pr ready "${{ github.event.pull_request.number }}" || true
+          gh pr merge "${{ github.event.pull_request.number }}" --auto -m || true
 
       - name: Download benchmarks
         if: github.event_name == 'merge_group' || env.CI_FULL == '1'
