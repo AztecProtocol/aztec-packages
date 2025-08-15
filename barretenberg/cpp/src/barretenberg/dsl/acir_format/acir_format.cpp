@@ -329,11 +329,8 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         }
     } else {
         BB_ASSERT_EQ(has_ivc_recursion_constraints,
-                     true,
+                     false,
                      "Invalid circuit: ivc recursion constraints are present with UltraBuilder.");
-        BB_ASSERT_EQ(has_honk_recursion_constraints || !has_avm_recursion_constraints,
-                     true,
-                     "Invalid circuit: avm constraints are present but honk constraints are not.");
 
         // Container for data to be propagated
         HonkRecursionConstraintsOutput<Builder> honk_output;
