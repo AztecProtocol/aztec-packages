@@ -46,7 +46,6 @@ namespace {
  */
 void create_dummy_vkey_and_proof(Builder& builder,
                                  [[maybe_unused]] size_t proof_size,
-                                 size_t public_inputs_size,
                                  const std::vector<field_ct>& key_fields,
                                  const std::vector<field_ct>& proof_fields)
 {
@@ -65,14 +64,9 @@ void create_dummy_vkey_and_proof(Builder& builder,
     //     (proof_size - Flavor::NUM_WITNESS_ENTITIES * Flavor::NUM_FRS_COM -
     //      (Flavor::NUM_ALL_ENTITIES + 1) * Flavor::NUM_FRS_FR - Flavor::NUM_FRS_COM) /
     //     (Flavor::NUM_FRS_COM + Flavor::NUM_FRS_FR * (Flavor::BATCHED_RELATION_PARTIAL_LENGTH + 1));
-    const auto log_circuit_size = numeric::get_msb(avm2::CIRCUIT_SUBGROUP_SIZE);
+    const auto log_circuit_size = avm2::MAX_AVM_TRACE_LOG_SIZE;
 
-    // First key field is log circuit size
-    builder.set_variable(key_fields[0].witness_index, log_circuit_size);
-    // Second key field is number of public inputs
-    builder.set_variable(key_fields[1].witness_index, public_inputs_size);
-
-    size_t offset = 2;
+    size_t offset = 0;
     for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; ++i) {
         auto comm = curve::BN254::AffineElement::one() * fr::random_element();
         auto frs = field_conversion::convert_to_bn254_frs(comm);
@@ -82,6 +76,8 @@ void create_dummy_vkey_and_proof(Builder& builder,
         builder.set_variable(key_fields[offset + 3].witness_index, frs[3]);
         offset += 4;
     }
+    info("key length: ", key_fields.size());
+    info("key offset: ", offset);
 
     // This routine is adding some placeholders for avm proof and avm vk in the case where witnesses are not present.
     // TODO(#14234)[Unconditional PIs validation]: Remove next line and use offset == 0 for subsequent line.
@@ -173,13 +169,14 @@ HonkRecursionConstraintOutput<Builder> create_avm2_recursion_constraints_goblin(
     };
 
     // Construct in-circuit representations of the verification key, proof and public inputs
+    info("avm input.key length: ", input.key.size());
     const auto key_fields = fields_from_witnesses(input.key);
     const auto proof_fields = fields_from_witnesses(input.proof);
     const auto public_inputs_flattened = fields_from_witnesses(input.public_inputs);
 
     // Populate the key fields and proof fields with dummy values to prevent issues (e.g. points must be on curve).
     if (!has_valid_witness_assignments) {
-        create_dummy_vkey_and_proof(builder, input.proof.size(), input.public_inputs.size(), key_fields, proof_fields);
+        create_dummy_vkey_and_proof(builder, input.proof.size(), key_fields, proof_fields);
     }
 
     // Execute the Goblin AVM2 recursive verifier

@@ -24,7 +24,7 @@ void AvmFlavor::Transcript::deserialize_full_transcript()
         commitment = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
     }
 
-    for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+    for (size_t i = 0; i < MAX_AVM_TRACE_LOG_SIZE; ++i) {
         sumcheck_univariates.emplace_back(deserialize_from_buffer<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
             Transcript::proof_data, num_frs_read));
     }
@@ -32,11 +32,11 @@ void AvmFlavor::Transcript::deserialize_full_transcript()
     sumcheck_evaluations =
         deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(Transcript::proof_data, num_frs_read);
 
-    for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
+    for (size_t i = 0; i < MAX_AVM_TRACE_LOG_SIZE - 1; ++i) {
         gemini_fold_comms.push_back(deserialize_from_buffer<Commitment>(proof_data, num_frs_read));
     }
 
-    for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+    for (size_t i = 0; i < MAX_AVM_TRACE_LOG_SIZE; ++i) {
         gemini_fold_evals.push_back(deserialize_from_buffer<FF>(proof_data, num_frs_read));
     }
 
@@ -56,17 +56,17 @@ void AvmFlavor::Transcript::serialize_full_transcript()
         serialize_to_buffer(commitment, Transcript::proof_data);
     }
 
-    for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+    for (size_t i = 0; i < MAX_AVM_TRACE_LOG_SIZE; ++i) {
         serialize_to_buffer(sumcheck_univariates[i], Transcript::proof_data);
     }
 
     serialize_to_buffer(sumcheck_evaluations, Transcript::proof_data);
 
-    for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
+    for (size_t i = 0; i < MAX_AVM_TRACE_LOG_SIZE - 1; ++i) {
         serialize_to_buffer(gemini_fold_comms[i], proof_data);
     }
 
-    for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+    for (size_t i = 0; i < MAX_AVM_TRACE_LOG_SIZE; ++i) {
         serialize_to_buffer(gemini_fold_evals[i], proof_data);
     }
 
@@ -95,12 +95,9 @@ AvmFlavor::PartiallyEvaluatedMultivariates::PartiallyEvaluatedMultivariates(cons
     }
 }
 
-AvmFlavor::ProvingKey::ProvingKey(const size_t circuit_size, const size_t num_public_inputs)
-    : circuit_size(circuit_size)
-    , log_circuit_size(numeric::get_msb(circuit_size))
-    , num_public_inputs(num_public_inputs)
+AvmFlavor::ProvingKey::ProvingKey()
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1420): pass commitment keys by value
-    , commitment_key(circuit_size + 1){
+    : commitment_key(this->circuit_size + 1){
         // The proving key's polynomials are not allocated here because they are later overwritten
         // AvmComposer::compute_witness(). We should probably refactor this flow.
     };
@@ -112,7 +109,7 @@ AvmFlavor::ProvingKey::ProvingKey(const size_t circuit_size, const size_t num_pu
  */
 std::vector<AvmFlavor::FF> AvmFlavor::VerificationKey::to_field_elements() const
 {
-    std::vector<FF> elements = { FF(log_circuit_size), FF(num_public_inputs) };
+    std::vector<FF> elements;
 
     for (auto const& comm : get_all()) {
         std::vector<FF> comm_as_fields = field_conversion::convert_to_bn254_frs(comm);

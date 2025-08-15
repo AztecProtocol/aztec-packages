@@ -13,6 +13,7 @@
 #include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/common/constants.hpp"
 
 namespace bb::avm2 {
 
@@ -31,11 +32,10 @@ AvmRecursiveVerifier::AvmRecursiveVerifier(Builder& builder, const std::shared_p
 AvmRecursiveVerifier::FF AvmRecursiveVerifier::evaluate_public_input_column(const std::vector<FF>& points,
                                                                             const std::vector<FF>& challenges)
 {
-    size_t circuit_size = 1 << static_cast<uint32_t>(key->log_circuit_size.get_value());
     auto coefficients = SharedShiftedVirtualZeroesArray<FF>{
         .start_ = 0,
         .end_ = points.size(),
-        .virtual_size_ = circuit_size,
+        .virtual_size_ = MAX_AVM_TRACE_SIZE,
         .backing_memory_ = BackingMemory<FF>::allocate(points.size()),
     };
 
@@ -93,11 +93,7 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     RelationParams relation_parameters;
     VerifierCommitments commitments{ key };
 
-    const auto circuit_size = transcript->template receive_from_prover<FF>("circuit_size");
-    uint32_t vk_circuit_size = 1 << static_cast<uint32_t>(key->log_circuit_size.get_value());
-    if (static_cast<uint32_t>(circuit_size.get_value()) != vk_circuit_size) {
-        throw_or_abort("AvmRecursiveVerifier::verify_proof: proof circuit size does not match verification key!");
-    }
+    transcript->template receive_from_prover<FF>("circuit_size");
 
     // Get commitments to VM wires
     for (auto [comm, label] : zip_view(commitments.get_wires(), commitments.get_wires_labels())) {
@@ -114,17 +110,19 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     }
 
     // unconstrained
-    const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(circuit_size.get_value()));
-    const auto padding_indicator_array =
-        stdlib::compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(FF(log_circuit_size));
+    FF one{ 1 };
+    one.convert_constant_to_fixed_witness(&builder);
+
+    std::vector<FF> padding_indicator_array(MAX_AVM_TRACE_LOG_SIZE);
+    std::ranges::fill(padding_indicator_array, one);
 
     // Multiply each linearly independent subrelation contribution by `alpha^i` for i = 0, ..., NUM_SUBRELATIONS - 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
-    SumcheckVerifier<Flavor> sumcheck(transcript, alpha, CONST_PROOF_SIZE_LOG_N);
+    SumcheckVerifier<Flavor> sumcheck(transcript, alpha, MAX_AVM_TRACE_LOG_SIZE);
 
-    auto gate_challenges = std::vector<FF>(log_circuit_size);
-    for (size_t idx = 0; idx < log_circuit_size; idx++) {
+    auto gate_challenges = std::vector<FF>(MAX_AVM_TRACE_LOG_SIZE);
+    for (size_t idx = 0; idx < MAX_AVM_TRACE_LOG_SIZE; idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
@@ -134,9 +132,6 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     vinfo("verified sumcheck: ", (output.verified));
 
     // Public columns evaluation checks
-    std::vector<FF> mle_challenge(output.challenge.begin(),
-                                  output.challenge.begin() + static_cast<int>(log_circuit_size));
-
     std::array<FF, AVM_NUM_PUBLIC_INPUT_COLUMNS> claimed_evaluations = {
         output.claimed_evaluations.public_inputs_cols_0_,
         output.claimed_evaluations.public_inputs_cols_1_,
@@ -147,7 +142,7 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     // TODO(#14234)[Unconditional PIs validation]: Inside of loop, replace pi_validation.must_imply() by
     // public_input_evaluation.assert_equal(claimed_evaluations[i]
     for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
-        FF public_input_evaluation = evaluate_public_input_column(public_inputs[i], mle_challenge);
+        FF public_input_evaluation = evaluate_public_input_column(public_inputs[i], output.challenge);
         vinfo("public_input_evaluation failed, public inputs col ", i);
         pi_validation.must_imply(public_input_evaluation == claimed_evaluations[i], "public_input_evaluation failed");
     }
