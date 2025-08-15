@@ -62,7 +62,8 @@ class ClientIVCRecursiveVerifier {
             // Mega proof
             std::ptrdiff_t start_idx = 0;
             std::ptrdiff_t end_idx = static_cast<std::ptrdiff_t>(
-                RecursiveFlavor::NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n));
+                RecursiveFlavor::NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n) +
+                HidingKernelIO<Builder>::PUBLIC_INPUTS_SIZE);
             mega_proof.insert(mega_proof.end(), it + start_idx, it + end_idx);
 
             // Merge proof
@@ -86,6 +87,10 @@ class ClientIVCRecursiveVerifier {
             start_idx = end_idx;
             end_idx += static_cast<std::ptrdiff_t>(TranslatorFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
             goblin_proof.translator_proof.insert(goblin_proof.translator_proof.end(), it + start_idx, it + end_idx);
+
+            BB_ASSERT_EQ(static_cast<uint32_t>(end_idx),
+                         PROOF_LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n) + HidingKernelIO<Builder>::PUBLIC_INPUTS_SIZE,
+                         "Reconstructed wrong ClientIVC proof from proof indices.");
         }
     };
 

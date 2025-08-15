@@ -97,17 +97,19 @@ class CivcRecursionConstraintTest : public ::testing::Test {
         return program;
     }
 
-    static std::shared_ptr<VerificationKey> get_civc_recursive_verifier_vk(AcirProgram& program)
+    static std::shared_ptr<DeciderProvingKey> get_civc_recursive_verifier_pk(AcirProgram& program)
     {
         // Build constraints
-        auto builder = create_circuit(program, { .honk_recursion = 2 });
+        Builder builder = create_circuit(program, { .honk_recursion = 2 });
 
         // Construct vk
         auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-        auto verification_key = std::make_shared<VerificationKey>(proving_key->get_precomputed());
 
-        return verification_key;
+        return proving_key;
     }
+
+  protected:
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
 TEST_F(CivcRecursionConstraintTest, GenerateRecursiveCivcVerifierVKFromConstraints)
@@ -120,14 +122,16 @@ TEST_F(CivcRecursionConstraintTest, GenerateRecursiveCivcVerifierVKFromConstrain
     std::shared_ptr<VerificationKey> actual_vk;
     {
         AcirProgram program = create_acir_program(civc_data);
-        actual_vk = get_civc_recursive_verifier_vk(program);
+        auto proving_key = get_civc_recursive_verifier_pk(program);
+        actual_vk = std::make_shared<VerificationKey>(proving_key->get_precomputed());
     }
 
     std::shared_ptr<VerificationKey> expected_vk;
     {
         AcirProgram program = create_acir_program(civc_data);
         program.witness.clear();
-        expected_vk = get_civc_recursive_verifier_vk(program);
+        auto proving_key = get_civc_recursive_verifier_pk(program);
+        expected_vk = std::make_shared<VerificationKey>(proving_key->get_precomputed());
     }
 
     EXPECT_EQ(*actual_vk, *expected_vk);

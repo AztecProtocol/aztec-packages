@@ -39,10 +39,11 @@ void create_dummy_vkey_and_proof(Builder& builder,
                                  const std::vector<field_ct>& key_fields,
                                  const std::vector<field_ct>& proof_fields)
 {
+    using ClientIVCRecursiveVerifier = stdlib::recursion::honk::ClientIVCRecursiveVerifier;
     using IO = stdlib::recursion::honk::HidingKernelIO<Builder>;
 
     // Set vkey->circuit_size correctly based on the proof size
-    BB_ASSERT_EQ(proof_size, MegaZKFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS());
+    BB_ASSERT_EQ(proof_size, ClientIVCRecursiveVerifier::StdlibProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS());
 
     size_t num_inner_public_inputs = public_inputs_size - IO::PUBLIC_INPUTS_SIZE;
     uint32_t pub_inputs_offset = MegaZKFlavor::has_zero_row ? 1 : 0;
@@ -55,8 +56,8 @@ void create_dummy_vkey_and_proof(Builder& builder,
     size_t offset = 0;
 
     // Set honk vk in builder
-    for (auto& proof_element : honk_vk->to_field_elements()) {
-        builder.set_variable(key_fields[offset].witness_index, proof_element);
+    for (auto& vk_element : honk_vk->to_field_elements()) {
+        builder.set_variable(key_fields[offset].witness_index, vk_element);
         offset++;
     }
 
