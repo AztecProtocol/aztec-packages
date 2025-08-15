@@ -34,6 +34,7 @@
     "@aztec/blob-lib": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
+    "@aztec/telemetry-client": "workspace:^",
     "@viem/anvil": "^0.0.10",
     "dotenv": "^16.0.3",
     "lodash.chunk": "^4.2.0",

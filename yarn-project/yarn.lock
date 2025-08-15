@@ -672,6 +672,7 @@ __metadata:
     "@aztec/blob-lib": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
+    "@aztec/telemetry-client": "workspace:^"
     "@jest/globals": "npm:^30.0.0"
     "@noble/curves": "npm:=1.7.0"
     "@types/jest": "npm:^30.0.0"
