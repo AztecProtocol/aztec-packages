@@ -825,7 +825,6 @@ template <typename Flavor> class SumcheckVerifierRound {
      *
      * @param gate_challenges
      */
-    // WORKTODO: kill?
     void pad_gate_challenges(std::vector<FF>& gate_challenges, const size_t virtual_log_n)
     {
 

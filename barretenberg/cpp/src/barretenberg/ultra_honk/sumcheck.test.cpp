@@ -155,8 +155,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     auto prover_transcript = Transcript::prover_init_empty();
     auto circuit_size = decider_pk->dyadic_size();
     auto log_circuit_size = numeric::get_msb(circuit_size);
-    info("log_circuit_size ", log_circuit_size);
-    size_t virtual_log_n = 18;
+    const size_t virtual_log_n = log_circuit_size + 2; // arbitrary but larger than genuine log n
 
     SubrelationSeparators prover_alphas;
     for (size_t idx = 0; idx < prover_alphas.size(); idx++) {
