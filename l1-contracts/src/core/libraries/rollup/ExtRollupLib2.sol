@@ -71,9 +71,9 @@ library ExtRollupLib2 {
     ValidatorSelectionLib.setupEpoch(currentEpoch);
   }
 
-  function setupSeedSnapshotForNextEpoch() external {
+  function checkpointRandao() external {
     Epoch currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
-    ValidatorSelectionLib.setSampleSeedForNextEpoch(currentEpoch);
+    ValidatorSelectionLib.checkpointRandao(currentEpoch);
   }
 
   function updateStakingQueueConfig(StakingQueueConfig memory _config) external {

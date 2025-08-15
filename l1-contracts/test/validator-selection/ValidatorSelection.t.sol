@@ -136,9 +136,10 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     assertEq(expectedProposer, actualProposer, "Invalid proposer");
   }
 
-  function testCommitteeForNonSetupEpoch(uint8 _epochsToJump) public setup(4, 4) progressEpochs(2) {
+  function testCommitteeForNonSetupEpoch() public setup(8, 4) progressEpochs(2) {
     Epoch pre = rollup.getCurrentEpoch();
-    vm.warp(block.timestamp + uint256(_epochsToJump) * rollup.getEpochDuration() * rollup.getSlotDuration());
+    // Jump 8 epochs into the future to ensure that it haven't been setup.
+    vm.warp(block.timestamp + 8 * rollup.getEpochDuration() * rollup.getSlotDuration());
 
     Epoch post = rollup.getCurrentEpoch();
 
@@ -151,8 +152,8 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     assertEq(preCommittee.length, expectedSize, "Invalid committee size");
     assertEq(postCommittee.length, expectedSize, "Invalid committee size");
 
-    // Elements in the committee should be the same
-    assertEq(preCommittee, postCommittee, "Committee elements have changed");
+    // Elements in the committee should **not** be the same, as the epoch is mixed into the seed
+    assertNotEq(preCommittee, postCommittee, "Committee elements have not changed");
   }
 
   function testStableCommittee(uint8 _timeToJump) public setup(4, 4) progressEpochs(2) {

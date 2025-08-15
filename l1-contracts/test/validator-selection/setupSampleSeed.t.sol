@@ -20,7 +20,7 @@ contract SetupSampleSeedTest is ValidatorSelectionTestBase {
     vm.warp(
       block.timestamp + (_epochToTest - 1) * TestConstants.AZTEC_EPOCH_DURATION * TestConstants.AZTEC_SLOT_DURATION
     );
-    rollup.setupSeedSnapshotForNextEpoch();
+    rollup.checkpointRandao();
 
     // The sample seed should have been updated
     uint256 newSampleSeed = rollup.getSampleSeedAt(Timestamp.wrap(block.timestamp + timejump));
