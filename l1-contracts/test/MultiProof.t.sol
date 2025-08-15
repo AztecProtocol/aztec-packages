@@ -159,10 +159,10 @@ contract MultiProofTest is RollupBase {
     {
       uint256 sequencerRewards = rollup.getSequencerRewards(sequencer);
       assertGt(sequencerRewards, 0, "Sequencer rewards is zero");
-      vm.prank(sequencer);
       uint256 sequencerRewardsClaimed = rollup.claimSequencerRewards(sequencer);
       assertEq(sequencerRewardsClaimed, sequencerRewards, "Sequencer rewards not claimed");
       assertEq(rollup.getSequencerRewards(sequencer), 0, "Sequencer rewards not zeroed");
+      assertEq(testERC20.balanceOf(sequencer), sequencerRewards, "Sequencer rewards not transferred");
     }
 
     Epoch[] memory epochs = new Epoch[](1);
@@ -180,18 +180,16 @@ contract MultiProofTest is RollupBase {
       Epoch deadline = TimeLib.toDeadlineEpoch(epochs[0]);
 
       vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NotPastDeadline.selector, deadline, Epoch.wrap(0)));
-      vm.prank(bob);
       rollup.claimProverRewards(bob, epochs);
 
       vm.warp(Timestamp.unwrap(rollup.getTimestampForSlot(deadline.toSlots())));
-      vm.prank(bob);
       uint256 bobRewardsClaimed = rollup.claimProverRewards(bob, epochs);
+      assertEq(testERC20.balanceOf(bob), bobRewardsClaimed, "Bob rewards not transferred");
 
       assertEq(bobRewardsClaimed, bobRewards, "Bob rewards not claimed");
       assertEq(rollup.getSpecificProverRewardsForEpoch(Epoch.wrap(0), bob), 0, "Bob rewards not zeroed");
 
       vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__AlreadyClaimed.selector, bob, Epoch.wrap(0)));
-      vm.prank(bob);
       rollup.claimProverRewards(bob, epochs);
     }
   }
