@@ -54,10 +54,6 @@ jobs:
         if: contains(github.event.pull_request.labels.*.name, 'ci-no-fail-fast')
         run: echo "NO_FAIL_FAST=1" >> $GITHUB_ENV
 
-      - name: Barretenberg CI Override
-        if: contains(github.event.pull_request.labels.*.name, 'ci-barretenberg')
-        run: echo "CI_BARRETENBERG=1" >> $GITHUB_ENV
-
       - name: Compute Target Branch
         id: target_branch
         run: |
@@ -160,6 +156,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
+          # Reauth the git repo with our GITHUB_TOKEN
+          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}
           # Get the base commit (merge-base) for the PR
           ./scripts/merge-train/squash-pr.sh \
             "${{ github.event.pull_request.number }}" \
