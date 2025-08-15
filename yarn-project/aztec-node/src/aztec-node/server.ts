@@ -40,8 +40,8 @@ import {
   SequencerClient,
   type SequencerPublisher,
   createValidatorForAcceptingTxs,
-  getPublisherPrivateKeysFromConfig,
 } from '@aztec/sequencer-client';
+import { getPublisherPrivateKeysFromConfig } from '@aztec/sequencer-client/config';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import { AttestationsBlockWatcher, EpochPruneWatcher, SlasherClient, type Watcher } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
