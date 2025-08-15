@@ -36,7 +36,7 @@ struct CompressedRoundAccounting {
  *
  * There are two primary implementations of this contract:
  * - The GovernanceProposer
- * - The SlashingProposer
+ * - The EmpireSlashingProposer
  *
  * The GovernanceProposer is used to signal support for payloads before they are submitted to the main Governance
  * contract,
@@ -44,9 +44,10 @@ struct CompressedRoundAccounting {
  * 1. Signal gathering (GovernanceProposer contract) - validators indicate support
  * 2. Formal governance (Governance contract) - actual voting and execution
  *
- * The SlashingProposer is used to signal support for payloads before they are submitted to a Rollup instance's Slasher,
+ * The EmpireSlashingProposer is used to signal support for payloads before they are submitted to a Rollup instance's
+ * Slasher,
  * resulting in a one-stage slashing process:
- * 1. Signal gathering (SlashingProposer contract) - validators indicate support
+ * 1. Signal gathering (EmpireSlashingProposer contract) - validators indicate support
  *
  * @dev KEY CONCEPTS:
  * **Payload**: A contract with a list of actions (contract calls) to perform.

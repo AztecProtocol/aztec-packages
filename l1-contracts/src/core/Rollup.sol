@@ -138,6 +138,18 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   /**
+   * @notice Get the committee commitment a the given epoch
+   *
+   * @param _epoch - The epoch to get the committee for
+   *
+   * @return The committee commitment for the given epoch
+   * @return The committee size for the given epoch
+   */
+  function getEpochCommitteeCommitment(Epoch _epoch) external override(IValidatorSelection) returns (bytes32, uint256) {
+    return ExtRollupLib2.getCommitteeCommitmentAt(_epoch);
+  }
+
+  /**
    * @notice  Get the proposer for the current slot
    *
    * @dev     Calls `getCurrentProposer(uint256)` with the current timestamp
