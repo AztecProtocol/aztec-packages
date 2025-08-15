@@ -2,6 +2,7 @@
 id: index
 sidebar_position: 0
 title: The Aztec Network
+description: Learn about Aztec Network governance, how to run validator and prover nodes, and contribute to network decentralization.
 ---
 
 In this section, you can explore how governance works on Aztec, the types of nodes that can be run, and how to contribute to decentralization on the Aztec Testnet.

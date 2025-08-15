@@ -2,6 +2,7 @@
 id: index
 sidebar_position: 0
 title: Run a Node, Sequencer, or Prover
+description: Learn how to participate in the Aztec Network by running different types of nodes including sequencers, full nodes, and provers.
 ---
 
 ## Running Aztec Nodes
