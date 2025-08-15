@@ -45,6 +45,7 @@ describe('prover-node', () => {
   let config: SpecificProverNodeConfig;
   let rollupContract: MockProxy<RollupContract>;
   let publisherFactory: MockProxy<ProverPublisherFactory>;
+  let l1Metrics: MockProxy<L1Metrics>;
 
   // L1 genesis time
   let l1GenesisTime: number;
@@ -74,6 +75,7 @@ describe('prover-node', () => {
       p2p,
       epochMonitor,
       rollupContract,
+      l1Metrics,
       config,
     );
 
@@ -92,6 +94,8 @@ describe('prover-node', () => {
     rollupContract = mock<RollupContract>();
     publisherFactory = mock<ProverPublisherFactory>();
     publisherFactory.create.mockResolvedValue(publisher);
+
+    l1Metrics = mock<L1Metrics>();
 
     p2p = mock<P2PClient>();
     p2p.getTxProvider.mockReturnValue(txProvider);

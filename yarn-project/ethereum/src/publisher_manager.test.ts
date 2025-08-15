@@ -1,5 +1,4 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
-import type { L1Metrics } from '@aztec/telemetry-client';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -10,7 +9,6 @@ import { PublisherManager } from './publisher_manager.js';
 describe('PublisherManager', () => {
   let mockPublishers: MockProxy<L1TxUtils>[];
   let publisherManager: PublisherManager<L1TxUtils>;
-  let l1Metrics: MockProxy<L1Metrics>;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -19,9 +17,8 @@ describe('PublisherManager', () => {
   describe('constructor', () => {
     it('should initialize with publishers', () => {
       mockPublishers = createMockPublishers(3);
-      l1Metrics = mock<L1Metrics>();
 
-      expect(() => new PublisherManager(mockPublishers, l1Metrics)).not.toThrow();
+      expect(() => new PublisherManager(mockPublishers)).not.toThrow();
     });
   });
 
@@ -30,12 +27,7 @@ describe('PublisherManager', () => {
     beforeEach(() => {
       addresses = Array.from({ length: 3 }, () => EthAddress.random());
       mockPublishers = createMockPublishers(3, addresses);
-      publisherManager = new PublisherManager(mockPublishers, l1Metrics);
-      publisherManager.start();
-    });
-
-    afterEach(() => {
-      publisherManager.stop();
+      publisherManager = new PublisherManager(mockPublishers);
     });
 
     it('should throw error when no valid publishers found', async () => {
@@ -126,7 +118,7 @@ describe('PublisherManager', () => {
     it('should prioritise same state publishers based on balance and then least recently used', async () => {
       const ethAddresses = Array.from({ length: 5 }, () => EthAddress.random());
       mockPublishers = createMockPublishers(5, ethAddresses);
-      publisherManager = new PublisherManager(mockPublishers, l1Metrics);
+      publisherManager = new PublisherManager(mockPublishers);
 
       const filter = (utils: L1TxUtils) => utils.getSenderAddress() !== mockPublishers[2].getSenderAddress(); // Filter out publisher in index 2
 
