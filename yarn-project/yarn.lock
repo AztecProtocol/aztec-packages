@@ -672,7 +672,6 @@ __metadata:
     "@aztec/blob-lib": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
-    "@aztec/telemetry-client": "workspace:^"
     "@jest/globals": "npm:^30.0.0"
     "@noble/curves": "npm:=1.7.0"
     "@types/jest": "npm:^30.0.0"
@@ -973,7 +972,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/noir-noir_codegen@portal:../noir/packages/noir_codegen::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@aztec/noir-types": "npm:1.0.0-beta.11"
+    "@aztec/noir-types": "npm:1.0.0-beta.10"
     glob: "npm:^11.0.2"
     ts-command-line-args: "npm:^2.5.1"
   bin:
@@ -982,14 +981,14 @@ __metadata:
   linkType: soft
 
 "@aztec/noir-noir_js@file:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
-  version: 1.0.0-beta.11
-  resolution: "@aztec/noir-noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=6deab3&locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  version: 1.0.0-beta.10
+  resolution: "@aztec/noir-noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=ef39fc&locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@aztec/noir-acvm_js": "npm:1.0.0-beta.11"
-    "@aztec/noir-noirc_abi": "npm:1.0.0-beta.11"
-    "@aztec/noir-types": "npm:1.0.0-beta.11"
+    "@aztec/noir-acvm_js": "npm:1.0.0-beta.10"
+    "@aztec/noir-noirc_abi": "npm:1.0.0-beta.10"
+    "@aztec/noir-types": "npm:1.0.0-beta.10"
     pako: "npm:^2.1.0"
-  checksum: 10/e6252a0b1812852a24db28a796fcecff7a726863342017e9da9d7a334c098c0c3918e77e42edfcd29c2401a15b6982fd0e43ecde2218c217e6c98b1d9234f74b
+  checksum: 10/36579d22f22a8c6675627aef0f68eff4ddf7564fd32e7615b45b23ce31220a25a6dc344acfaaa015e0effc69fa50adbd5cd4cdcf8f7e13e41003d4356903927f
   languageName: node
   linkType: hard
 
@@ -997,7 +996,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/noir-noirc_abi@portal:../noir/packages/noirc_abi::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@aztec/noir-types": "npm:1.0.0-beta.11"
+    "@aztec/noir-types": "npm:1.0.0-beta.10"
   languageName: node
   linkType: soft
 
