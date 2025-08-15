@@ -1,66 +1,46 @@
-# Acir Test Vector Runner
+# ACIR Tests
 
-The aim is to verify acir tests verify through a given backend binary. "Backend binaries" can include e.g.:
+- Copies test programs from Noir (in `acir_tests/`) and compiles them
+- The scripts/ folder assists bootstrap.sh in defining test scenarios involving compiled private Noir function artifacts (the bytecode being in ACIR format, hence the name of this module)
+- The bootstrap.sh script is the source of truth for which proving modes are tested, e.g. solidity-friendly ultra honk uses --oracle_hash keccak.
 
-- bb (native CLI)
-- bb.js (typescript CLI)
-- bb.js-dev (symlink in your PATH that runs the typescript CLI via ts-node)
-- bb.js.browser (script in `headless-test` that runs a test through bb.js in a browser instance via playwright)
+## Quick Start
 
-## Building the tests.
-
-To build all the tests:
-
-```
+```bash
+# Build all the test programs
 ./bootstrap.sh
-```
 
-This will clone the acir test vectors from the noir repo, removing any that are not relevent.
-It will then compile them all using local repo versions of nargo and bb (used for generating recursive inputs).
-
-## Running the tests.
-
-```
+# Run all tests
 ./bootstrap.sh test
 ```
 
-This will run all the tests as returned by `./bootstrap.sh test_cmds`.
+## Running Specific Tests
 
-To run a single test you can:
+The easiest way to find how to run specific test(s):
 
-```
-./run_test.sh <test name>
-```
+```bash
+# See all available test commands
+./bootstrap.sh test_cmds
 
-By default this will use the native binary `../cpp/build/bin/bb` and the `prove_and_verify` flow.
-
-You can substitute the backend binary using the `BIN` environment variable.
-You can turn on logging with `VERBOSE` environment variable.
-You can specify which proving system to use with the `SYS` variable (ultra_honk, ultra_rollup_honk, mega_honk).
-If not specified it defaults to plonk (TODO: Make explicit).
-
-```
-$ SYS=ultra_honk BIN=bb.js VERBOSE=1 ./run_test.sh a_1_mul
+# Find a specific test
+./bootstrap.sh test_cmds | grep assert_statement
 ```
 
-You can use a relative path to an executable. e.g. if bb.js-dev is not symlinked into your PATH:
-
+This will show you the exact commands used in CI. For example:
 ```
-$ BIN=../ts/bb.js-dev VERBOSE=1 ./run_test.sh a_1_mul
-```
-
-```
-$ BIN=./headless-test/bb.js.browser VERBOSE=1 ./run_test.sh a_1_mul
+c5f89...:ISOLATE=1 scripts/bb_prove_sol_verify.sh assert_statement --disable_zk
+c5f89...:ISOLATE=1 scripts/bb_prove_sol_verify.sh assert_statement
+c5f89... scripts/bb_prove_bbjs_verify.sh assert_statement
+c5f89... scripts/bb_prove.sh assert_statement
 ```
 
-You can specify a different testing "flow" with `FLOW` environment variable. Flows are in the `flows` dir.
-The default flow is `prove_and_verify`, which is the quickest way to... prove and verify. It's used to test the acir
-test vectors actually all pass in whichever version of the backend is being run.
-The `all_cmds` flow tests all the supported commands on the binary. Slower, but is there to test the cli.
-
-```
-$ FLOW=all_cmds ./run_acir_tests.sh a_1_mul
+You can run any of these commands directly (ignore the hash prefix):
+```bash
+scripts/bb_prove.sh assert_statement
 ```
 
-We currently have to use a separate flow script to run client_ivc scheme as opposed to just setting `SYS` due to
-how cli commands are handled non-uniformly.
+Programmatically, you can also do from root:
+
+```bash
+./barretenberg/acir_tests/bootstrap.sh test_cmds | grep assert_statement | ci3/parallelise
+```
