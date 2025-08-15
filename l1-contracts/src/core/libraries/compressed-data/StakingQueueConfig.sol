@@ -7,12 +7,10 @@ type CompressedStakingQueueConfig is uint256;
 
 /**
  * If the number of validators in the rollup is 0, and the number of validators in the queue is less than
- * `bootstrapValidatorSetSize`,
- * then `getEntryQueueFlushSize` will return 0.
+ * `bootstrapValidatorSetSize`, then `getEntryQueueFlushSize` will return 0.
  *
  * If the number of validators in the rollup is 0, and the number of validators in the queue is greater than or equal to
- * `bootstrapValidatorSetSize`,
- * then `getEntryQueueFlushSize` will return `bootstrapFlushSize`.
+ * `bootstrapValidatorSetSize`, then `getEntryQueueFlushSize` will return `bootstrapFlushSize`.
  *
  * If the number of validators in the rollup is greater than 0 and less than `bootstrapValidatorSetSize`, then
  * `getEntryQueueFlushSize` will return `bootstrapFlushSize`.

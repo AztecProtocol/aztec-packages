@@ -382,8 +382,8 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @dev The caller must have approved the staking asset. Validators enter a queue before becoming active.
    * @param _attester The address that will act as the validator (sign attestations)
    * @param _withdrawer The address that can withdraw the stake
-   * @param _publicKeyInG1 The G1 point for the BLS public key
-   * @param _publicKeyInG2 The G2 point for the BLS public key
+   * @param _publicKeyInG1 The G1 point for the BLS public key (used for efficient signature verification in GSE)
+   * @param _publicKeyInG2 The G2 point for the BLS public key (used for BLS aggregation and pairing operations in GSE)
    * @param _proofOfPossession The proof of possession to show that the keys in G1 and G2 share secret key
    * @param _moveWithLatestRollup Whether to follow the chain if governance migrates to a new rollup version
    */
