@@ -46,7 +46,7 @@ template <IsUltraOrMegaHonk Flavor> class DeciderVerificationKey_ {
         : vk(vk)
     {}
 
-    FF add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const
+    FF hash_through_transcript(const std::string& domain_separator, Transcript& transcript) const
     {
         transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_log_circuit_size",
                                                   this->vk->log_circuit_size);
@@ -78,9 +78,7 @@ template <IsUltraOrMegaHonk Flavor> class DeciderVerificationKey_ {
         transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_gate_challenges",
                                                   this->gate_challenges);
 
-        FF decider_vk_hash = transcript.hash_independent_buffer();
-        transcript.add_to_hash_buffer(domain_separator + "decider_vk_hash", decider_vk_hash);
-        return decider_vk_hash;
+        return transcript.hash_independent_buffer();
     }
 
     MSGPACK_FIELDS(vk, relation_parameters, alphas, is_complete, gate_challenges, target_sum, witness_commitments);

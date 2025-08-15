@@ -336,7 +336,8 @@ void Execution::call(ContextInterface& context,
                                                                /*cd_size=*/cd_size.as<uint32_t>(),
                                                                /*is_static=*/false,
                                                                /*gas_limit=*/gas_limit,
-                                                               /*side_effect_states=*/context.get_side_effect_states());
+                                                               /*side_effect_states=*/context.get_side_effect_states(),
+                                                               /*phase=*/context.get_phase());
 
     // We do not recurse. This context will be use on the next cycle of execution.
     handle_enter_call(context, std::move(nested_context));
@@ -374,7 +375,8 @@ void Execution::static_call(ContextInterface& context,
                                                                /*cd_size=*/cd_size.as<uint32_t>(),
                                                                /*is_static=*/true,
                                                                /*gas_limit=*/gas_limit,
-                                                               /*side_effect_states=*/context.get_side_effect_states());
+                                                               /*side_effect_states=*/context.get_side_effect_states(),
+                                                               /*phase=*/context.get_phase());
 
     // We do not recurse. This context will be use on the next cycle of execution.
     handle_enter_call(context, std::move(nested_context));
@@ -445,6 +447,7 @@ void Execution::ret(ContextInterface& context, MemoryAddress ret_size_offset, Me
     set_execution_result({ .rd_offset = ret_offset,
                            .rd_size = rd_size.as<uint32_t>(),
                            .gas_used = context.get_gas_used(),
+                           .side_effect_states = context.get_side_effect_states(),
                            .success = true });
 
     context.halt();
@@ -462,6 +465,7 @@ void Execution::revert(ContextInterface& context, MemoryAddress rev_size_offset,
     set_execution_result({ .rd_offset = rev_offset,
                            .rd_size = rev_size.as<uint32_t>(),
                            .gas_used = context.get_gas_used(),
+                           .side_effect_states = context.get_side_effect_states(),
                            .success = false });
 
     context.halt();
@@ -1200,7 +1204,7 @@ void Execution::handle_exit_call()
         // Safe since the nested context gas limit should be clamped to the available gas.
         parent_context.set_gas_used(result.gas_used + parent_context.get_gas_used());
         if (result.success) {
-            parent_context.set_side_effect_states(child_context->get_side_effect_states());
+            parent_context.set_side_effect_states(result.side_effect_states);
         }
         parent_context.set_child_context(std::move(child_context));
 
@@ -1220,7 +1224,13 @@ void Execution::handle_exceptional_halt(ContextInterface& context)
 {
     context.set_gas_used(context.get_gas_limit()); // Consume all gas.
     context.halt();
-    set_execution_result({ .rd_offset = 0, .rd_size = 0, .gas_used = context.get_gas_used(), .success = false });
+    set_execution_result({
+        .rd_offset = 0,
+        .rd_size = 0,
+        .gas_used = context.get_gas_used(),
+        .side_effect_states = context.get_side_effect_states(),
+        .success = false,
+    });
 }
 
 void Execution::dispatch_opcode(ExecutionOpCode opcode,
@@ -1280,6 +1290,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::RETURN:
         call_with_operands(&Execution::ret, context, resolved_operands);
+        break;
+    case ExecutionOpCode::REVERT:
+        call_with_operands(&Execution::revert, context, resolved_operands);
         break;
     case ExecutionOpCode::JUMP:
         call_with_operands(&Execution::jump, context, resolved_operands);

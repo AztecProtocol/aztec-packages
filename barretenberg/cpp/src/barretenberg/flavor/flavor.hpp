@@ -205,7 +205,7 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
     }
 
     /**
-     * @brief Adds the verification key hash to the transcript and returns the hash.
+     * @brief Hashes the vk using the transcript's independent buffer and returns the hash.
      * @details Needed to make sure the Origin Tag system works. We need to set the origin tags of the VK witnesses in
      * the transcript. If we instead did the hashing outside of the transcript and submitted just the hash, only the
      * origin tag of the hash would be set properly. We want to avoid backpropagating origin tags to the actual VK
@@ -216,7 +216,8 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      * @param transcript
      * @returns The hash of the verification key
      */
-    virtual fr add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const
+    virtual typename Transcript::DataType hash_through_transcript(const std::string& domain_separator,
+                                                                  Transcript& transcript) const
     {
         transcript.add_to_independent_hash_buffer(domain_separator + "vk_log_circuit_size", this->log_circuit_size);
         transcript.add_to_independent_hash_buffer(domain_separator + "vk_num_public_inputs", this->num_public_inputs);
@@ -226,10 +227,8 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
             transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
         }
 
-        fr vk_hash = transcript.hash_independent_buffer();
-        transcript.add_to_hash_buffer(domain_separator + "vk_hash", vk_hash);
-        return vk_hash;
-    };
+        return transcript.hash_independent_buffer();
+    }
 };
 
 /**
@@ -299,7 +298,7 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
     }
 
     /**
-     * @brief Adds the verification key hash to the transcript and returns the hash.
+     * @brief Hashes the vk using the transcript's independent buffer and returns the hash.
      * @details Needed to make sure the Origin Tag system works. We need to set the origin tags of the VK witnesses in
      * the transcript. If we instead did the hashing outside of the transcript and submitted just the hash, only the
      * origin tag of the hash would be set properly. We want to avoid backpropagating origin tags to the actual VK
@@ -310,7 +309,7 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
      * @param transcript
      * @returns The hash of the verification key
      */
-    virtual FF add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const
+    virtual FF hash_through_transcript(const std::string& domain_separator, Transcript& transcript) const
     {
         transcript.add_to_independent_hash_buffer(domain_separator + "vk_log_circuit_size", this->log_circuit_size);
         transcript.add_to_independent_hash_buffer(domain_separator + "vk_num_public_inputs", this->num_public_inputs);
@@ -318,10 +317,8 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
         for (const Commitment& commitment : this->get_all()) {
             transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
         }
-        FF vk_hash = transcript.hash_independent_buffer();
-        transcript.add_to_hash_buffer(domain_separator + "vk_hash", vk_hash);
-        return vk_hash;
-    };
+        return transcript.hash_independent_buffer();
+    }
 };
 
 template <typename FF, typename VerificationKey> class VKAndHash_ {
