@@ -231,12 +231,15 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
 
     /**
      * @brief Boundary conditions.
-     * The first "content" row is the _second_ row of the table. We demand that the following values are present:
-     * is_accumulator_empty = 1
-     * msm_count = 0
+     * The first "content" row is the _second_ row of the table.
+     *
+     * We demand that the following values are present in this first content row:
+     * `is_accumulator_empty == 1`; and
+     * `msm_count == 0`.
+     * We also demand that `pc == 0` at the last row.
      */
-    std::get<11>(accumulator) += lagrange_second * (-is_accumulator_empty + 1) * scaling_factor; // degree 2
-    std::get<12>(accumulator) += lagrange_second * msm_count * scaling_factor;                   // degree 2
+    std::get<11>(accumulator) += lagrange_second * (-is_accumulator_empty + 1) * scaling_factor;      // degree 2
+    std::get<12>(accumulator) += (lagrange_second * msm_count + lagrange_last * pc) * scaling_factor; // degree 2
 
     /**
      * @brief On-curve validation checks.
@@ -506,14 +509,6 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
         auto y_constant = transcript_add_y_equal - 1;
         auto transcript_add_y_equal_check_relation = (y_diff * y_product + y_constant) * any_add_is_active;
         std::get<24>(accumulator) += transcript_add_y_equal_check_relation * scaling_factor; // degree 5
-
-        /**
-         * @brief check that the last `pc` is 0
-         *
-         * our `pc` is non-increasing for optimization reasons. therefore our boundary condition for `pc` is that the
-         * last row has value 0.
-         */
-        std::get<25>(accumulator) += lagrange_last * pc * scaling_factor;
     }
 }
 } // namespace bb
