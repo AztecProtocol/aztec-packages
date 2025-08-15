@@ -70,10 +70,11 @@ std::pair<AvmProvingHelper::Proof, AvmProvingHelper::VkData> AvmProvingHelper::p
 {
     auto polynomials = AVM_TRACK_TIME_V("proving/prove:compute_polynomials", constraining::compute_polynomials(trace));
     auto proving_key = AVM_TRACK_TIME_V("proving/prove:proving_key", create_proving_key(polynomials));
-    auto prover =
-        AVM_TRACK_TIME_V("proving/prove:construct_prover", AvmProver(proving_key, proving_key->commitment_key));
+    // TODO(#15892): VK needs to be hardcoded. Computing it here is not efficient.
     auto verification_key =
         AVM_TRACK_TIME_V("proving/prove:verification_key", std::make_shared<AvmVerifier::VerificationKey>(proving_key));
+    auto prover = AVM_TRACK_TIME_V("proving/prove:construct_prover",
+                                   AvmProver(proving_key, verification_key, proving_key->commitment_key));
 
     auto proof = AVM_TRACK_TIME_V("proving/construct_proof", prover.construct_proof());
     auto serialized_vk = to_buffer(verification_key->to_field_elements());
