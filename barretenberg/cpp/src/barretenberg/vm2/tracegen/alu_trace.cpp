@@ -76,7 +76,8 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
     }
     case simulation::AluOperation::DIV: {
         bool div_0_error = event.error == simulation::AluError::DIV_0_ERROR;
-        auto remainder = no_tag_err ? event.a - event.b * event.c : MemoryValue::from_tag(event.a.get_tag(), 0);
+        auto remainder =
+            no_tag_err && !div_0_error ? event.a - event.b * event.c : MemoryValue::from_tag(event.a.get_tag(), 0);
         // Columns shared for all tags in a DIV:
         std::vector<std::pair<Column, FF>> res = {
             { Column::alu_sel_op_div, 1 },

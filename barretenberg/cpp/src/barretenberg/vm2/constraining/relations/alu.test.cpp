@@ -745,7 +745,7 @@ class AluDivConstrainingTest : public AluConstrainingTest,
             {
                 .alu_b_inv = div_0_error ? 0 : b.as_ff().invert(),
                 .alu_constant_64 = 64,
-                .alu_helper1 = remainder,
+                .alu_helper1 = div_0_error ? 0 : remainder.as_ff(),
                 .alu_ia = a,
                 .alu_ia_tag = tag,
                 .alu_ib = b,
