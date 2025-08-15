@@ -39,8 +39,8 @@ import {
   SequencerClient,
   type SequencerPublisher,
   createValidatorForAcceptingTxs,
-  getPublisherPrivateKeysFromConfig,
 } from '@aztec/sequencer-client';
+import { getPublisherPrivateKeysFromConfig } from '@aztec/sequencer-client/config';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import {
   AttestationsBlockWatcher,
