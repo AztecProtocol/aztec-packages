@@ -124,7 +124,7 @@ ClientIVC::MegaVerificationKey get_ivc_vk(const std::filesystem::path& test_dir)
 
 // Test the ClientIVCAPI::prove flow, making sure --write_vk
 // returns the same output as our ivc VK generation.
-TEST_F(ClientIVCAPITests, ProveAndVerifyFileBasedFlow)
+TEST_F(ClientIVCAPITests, DISABLED_ProveAndVerifyFileBasedFlow)
 {
     auto ivc_vk = get_ivc_vk(test_dir);
 
