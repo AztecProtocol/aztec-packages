@@ -63,6 +63,7 @@ struct RollupConfigInput {
   address slashingVetoer;
   uint256 manaTarget;
   uint256 exitDelaySeconds;
+  uint32 version;
   EthValue provingCostPerMana;
   RewardConfig rewardConfig;
   RewardBoostConfig rewardBoostConfig;
