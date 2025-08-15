@@ -41,6 +41,7 @@
     "l1-artifacts",
     "merkle-tree",
     "native",
+    "node-keystore",
     "node-lib",
     "noir-contracts.js",
     "noir-protocol-circuits-types",
