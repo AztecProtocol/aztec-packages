@@ -289,11 +289,13 @@ void compute_permutation_argument_polynomials(const typename Flavor::CircuitBuil
                                               ActiveRegionData& active_region_data)
 {
     constexpr bool generalized = IsUltraOrMegaHonk<Flavor>;
+    const size_t polynomial_size = polynomials.get_polynomial_size();
+    auto mapping = compute_permutation_mapping<Flavor, generalized>(circuit, polynomial_size, copy_cycles);
+
     // Ensures that the evaluations of `id_i` (`sigma_i`) and `id_j`(`sigma_j`) polynomials on the boolean hypercube do
     // not intersect for i != j.
     const size_t evaluation_separator = 1UL << CONST_PROOF_SIZE_LOG_N; // Exceeds the size of the BN254 srs
     BB_ASSERT_LT(polynomials.get_polynomial_size(), evaluation_separator);
-    auto mapping = compute_permutation_mapping<Flavor, generalized>(circuit, evaluation_separator, copy_cycles);
 
     // Compute Honk-style sigma and ID polynomials from the corresponding mappings
     {
