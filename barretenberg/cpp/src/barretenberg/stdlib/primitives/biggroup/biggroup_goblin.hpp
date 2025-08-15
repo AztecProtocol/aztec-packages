@@ -101,6 +101,19 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
         this->unset_free_witness_tag();
     }
 
+    /**
+     * Fix a witness. The value of the witness is constrained with a selector
+     **/
+    void fix_witness()
+    {
+        // Origin tags should be updated within
+        this->x.fix_witness();
+        this->y.fix_witness();
+
+        // This is now effectively a constant
+        unset_free_witness_tag();
+    }
+
     void validate_on_curve() const
     {
         // happens in goblin eccvm
