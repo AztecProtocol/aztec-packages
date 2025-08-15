@@ -195,10 +195,6 @@ class TranslatorFlavor {
         /* 16. Shplonk Q commitment */ (num_frs_comm) +
         /* 17. KZG W commitment */ (num_frs_comm);
 
-    // define the containers for storing the contributions from each relation in Sumcheck
-    using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
-    using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
-
     /**
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
      * @details Used to build the proving key and verification key.
@@ -712,7 +708,6 @@ class TranslatorFlavor {
          */
         [[nodiscard]] AllValues get_row(size_t row_idx) const
         {
-            PROFILE_THIS();
             AllValues result;
             for (auto [result_field, polynomial] : zip_view(result.get_all(), this->get_all())) {
                 result_field = polynomial[row_idx];
@@ -811,8 +806,8 @@ class TranslatorFlavor {
          * @param domain_separator
          * @param transcript
          */
-        fr add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
-                                  [[maybe_unused]] Transcript& transcript) const override
+        fr hash_through_transcript([[maybe_unused]] const std::string& domain_separator,
+                                   [[maybe_unused]] Transcript& transcript) const override
         {
             throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
         }

@@ -49,9 +49,6 @@ class AvmRecursiveFlavor {
     // and Shplemini
     static constexpr bool USE_PADDING = true;
 
-    // define the containers for storing the contributions from each relation in Sumcheck
-    using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
-
     /**
      * @brief A field element for each entity of the flavor. These entities represent the prover polynomials
      * evaluated at one point.
@@ -105,8 +102,8 @@ class AvmRecursiveFlavor {
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1466): Implement these functions.
         std::vector<FF> to_field_elements() const override { throw_or_abort("Not implemented yet!"); }
-        FF add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
-                                  [[maybe_unused]] Transcript& transcript) const override
+        FF hash_through_transcript([[maybe_unused]] const std::string& domain_separator,
+                                   [[maybe_unused]] Transcript& transcript) const override
         {
             throw_or_abort("Not implemented yet!");
         }

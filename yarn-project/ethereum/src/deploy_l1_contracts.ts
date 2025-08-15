@@ -1,4 +1,4 @@
-import { getActiveNetworkName } from '@aztec/foundation/config';
+import { SecretValue, getActiveNetworkName } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -73,7 +73,7 @@ const networkName = getActiveNetworkName();
 export type Operator = {
   attester: EthAddress;
   withdrawer: EthAddress;
-  bn254SecretKey: bigint;
+  bn254SecretKey: SecretValue<bigint>;
 };
 
 /**
@@ -772,7 +772,7 @@ export const addMultipleValidators = async (
       const multiAdder = await deployer.deploy(MultiAdderArtifact, [rollupAddress, deployer.client.account.address]);
 
       const makeValidatorTuples = async (validator: Operator) => {
-        const registrationTuple = await gseContract.makeRegistrationTuple(validator.bn254SecretKey);
+        const registrationTuple = await gseContract.makeRegistrationTuple(validator.bn254SecretKey.getValue());
         return {
           attester: getAddress(validator.attester.toString()),
           withdrawer: getAddress(validator.withdrawer.toString()),

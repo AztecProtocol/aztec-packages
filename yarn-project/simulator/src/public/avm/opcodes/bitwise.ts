@@ -79,32 +79,6 @@ export class Xor extends ThreeOperandBitwiseInstruction {
   }
 }
 
-export class Shl extends ThreeOperandBitwiseInstruction {
-  static readonly type: string = 'SHL';
-  static readonly opcode = Opcode.SHL_8; // FIXME: needed for gas.
-
-  protected override compute(a: IntegralValue, b: IntegralValue): IntegralValue {
-    return a.shl(b);
-  }
-  protected override checkTags(memory: TaggedMemoryInterface, aOffset: number, bOffset: number) {
-    TaggedMemory.checkIsIntegralTag(memory.getTag(aOffset));
-    memory.checkTag(TypeTag.UINT8, bOffset);
-  }
-}
-
-export class Shr extends ThreeOperandBitwiseInstruction {
-  static readonly type: string = 'SHR';
-  static readonly opcode = Opcode.SHR_8; // FIXME: needed for gas.
-
-  protected override compute(a: IntegralValue, b: IntegralValue): IntegralValue {
-    return a.shr(b);
-  }
-  protected override checkTags(memory: TaggedMemoryInterface, aOffset: number, bOffset: number) {
-    TaggedMemory.checkIsIntegralTag(memory.getTag(aOffset));
-    memory.checkTag(TypeTag.UINT8, bOffset);
-  }
-}
-
 export class Not extends Instruction {
   static readonly type: string = 'NOT';
   static readonly opcode = Opcode.NOT_8;

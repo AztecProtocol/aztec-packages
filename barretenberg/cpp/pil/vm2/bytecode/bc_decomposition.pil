@@ -20,6 +20,7 @@ sel = 0;
 pol WINDOW_SIZE = 37;
 
 // Internal bytecode identifier which is defined in bc_retrieval.pil
+// (it is the same as bytecode commitment)
 pol commit id;
 // pc counts from 0 to bytecode_length - 1.
 pol commit pc;

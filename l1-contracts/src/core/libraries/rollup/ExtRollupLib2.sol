@@ -8,7 +8,7 @@ import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQ
 import {StakingLib} from "./StakingLib.sol";
 import {InvalidateLib} from "./InvalidateLib.sol";
 import {ValidatorSelectionLib} from "./ValidatorSelectionLib.sol";
-import {CommitteeAttestations} from "@aztec/shared/libraries/SignatureLib.sol";
+import {CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 /**
@@ -50,8 +50,8 @@ library ExtRollupLib2 {
     );
   }
 
-  function flushEntryQueue(uint256 _maxAddableValidators) external {
-    StakingLib.flushEntryQueue(_maxAddableValidators);
+  function flushEntryQueue() external {
+    StakingLib.flushEntryQueue();
   }
 
   function initiateWithdraw(address _attester, address _recipient) external returns (bool) {
@@ -71,9 +71,9 @@ library ExtRollupLib2 {
     ValidatorSelectionLib.setupEpoch(currentEpoch);
   }
 
-  function setupSeedSnapshotForNextEpoch() external {
+  function checkpointRandao() external {
     Epoch currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
-    ValidatorSelectionLib.setSampleSeedForNextEpoch(currentEpoch);
+    ValidatorSelectionLib.checkpointRandao(currentEpoch);
   }
 
   function updateStakingQueueConfig(StakingQueueConfig memory _config) external {

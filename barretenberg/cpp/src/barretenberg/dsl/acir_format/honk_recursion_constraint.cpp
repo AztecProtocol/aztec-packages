@@ -58,7 +58,7 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     static constexpr size_t IPA_CLAIM_SIZE = stdlib::recursion::honk::RollupIO::IpaClaim::PUBLIC_INPUTS_SIZE;
 
     // Set vkey->circuit_size correctly based on the proof size
-    BB_ASSERT_EQ(proof_size, NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
+    BB_ASSERT_EQ(proof_size, NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS());
     // a lambda that adds dummy commitments (libra and gemini)
     auto set_dummy_commitment = [&](size_t& offset) {
         auto comm = curve::BN254::AffineElement::one() * fr::random_element();
@@ -246,7 +246,7 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
 
     // Create witness indices for the proof with public inputs reinserted
     std::vector<uint32_t> proof_indices =
-        ProofSurgeon::create_indices_for_reconstructed_proof(input.proof, input.public_inputs);
+        ProofSurgeon<uint256_t>::create_indices_for_reconstructed_proof(input.proof, input.public_inputs);
     proof_fields.reserve(proof_indices.size());
     for (const auto& idx : proof_indices) {
         auto field = field_ct<Builder>::from_witness_index(&builder, idx);

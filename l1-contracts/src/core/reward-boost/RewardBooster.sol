@@ -77,7 +77,7 @@ contract RewardBooster is IBooster {
     CompressedActivityScore storage store = activityScores[_prover];
     ActivityScore memory curr = _activityScoreAt(store, currentEpoch);
 
-    // If the score was alrady marked active in this epoch, ignore the addition.
+    // If the score was already marked active in this epoch, ignore the addition.
     if (curr.time != store.time.decompress()) {
       store.value = Math.min(curr.value + CONFIG_INCREMENT, CONFIG_MAX_SCORE).toUint32();
       store.time = curr.time.compress();

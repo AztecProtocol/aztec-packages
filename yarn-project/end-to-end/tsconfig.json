@@ -3,7 +3,8 @@
   "compilerOptions": {
     "outDir": "dest",
     "rootDir": "src",
-    "tsBuildInfoFile": ".tsbuildinfo"
+    "tsBuildInfoFile": ".tsbuildinfo",
+    "allowJs": true
   },
   "references": [
     {
@@ -106,6 +107,5 @@
       "path": "../world-state"
     }
   ],
-  "include": ["src"],
-  "exclude": ["*.mjs"]
+  "include": ["src"]
 }
