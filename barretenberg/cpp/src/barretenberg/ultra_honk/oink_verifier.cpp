@@ -46,8 +46,9 @@ template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::verify()
  */
 template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_preamble_round()
 {
-    FF vkey_hash = verification_key->vk->add_hash_to_transcript(domain_separator, *transcript);
-    vinfo("vk hash in Oink verifier: ", vkey_hash);
+    FF vk_hash = verification_key->vk->hash_through_transcript(domain_separator, *transcript);
+    transcript->add_to_hash_buffer(domain_separator + "vk_hash", vk_hash);
+    vinfo("vk hash in Oink verifier: ", vk_hash);
 
     for (size_t i = 0; i < verification_key->vk->num_public_inputs; ++i) {
         auto public_input_i =

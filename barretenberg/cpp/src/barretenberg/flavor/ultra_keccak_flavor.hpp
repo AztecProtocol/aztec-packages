@@ -93,25 +93,6 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
             }
         }
 
-        /**
-         * @brief Adds the verification key witnesses directly to the transcript.
-         * @details Needed to make sure the Origin Tag system works. See the base class function for
-         * more details.
-         *
-         * @param domain_separator
-         * @param transcript
-         *
-         * @returns The hash of the verification key
-         */
-        fr add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const override
-        {
-            // This hash contains a hash of the entire vk - including all of the elements
-            const fr hash = this->hash();
-
-            transcript.add_to_hash_buffer(domain_separator + "vk_hash", hash);
-            return hash;
-        }
-
         // Don't statically check for object completeness.
         using MSGPACK_NO_STATIC_CHECK = std::true_type;
 

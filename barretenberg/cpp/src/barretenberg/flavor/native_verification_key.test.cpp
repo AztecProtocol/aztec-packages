@@ -61,7 +61,7 @@ TYPED_TEST_SUITE(NativeVerificationKeyTests, FlavorTypes);
 
 /**
  * @brief Checks that the hash produced from calling to_field_elements and then add_to_independent_hash_buffer is the
- * same as the hash() call and also the same as the add_hash_to_transcript.
+ * same as the hash() call and also the same as the hash_through_transcript.
  *
  */
 TYPED_TEST(NativeVerificationKeyTests, VKHashingConsistency)
@@ -79,15 +79,15 @@ TYPED_TEST(NativeVerificationKeyTests, VKHashingConsistency)
     for (const auto& field_element : vk_field_elements) {
         transcript.add_to_independent_hash_buffer("vk_element", field_element);
     }
-    fr vkey_hash_1 = transcript.hash_independent_buffer();
+    fr vk_hash_1 = transcript.hash_independent_buffer();
     // Second method of hashing: using hash().
-    fr vkey_hash_2 = vk.hash();
-    EXPECT_EQ(vkey_hash_1, vkey_hash_2);
+    fr vk_hash_2 = vk.hash();
+    EXPECT_EQ(vk_hash_1, vk_hash_2);
     if constexpr (!IsAnyOf<Flavor, ECCVMFlavor, TranslatorFlavor>) {
-        // Third method of hashing: using add_hash_to_transcript.
+        // Third method of hashing: using hash_through_transcript.
         typename Flavor::Transcript transcript_2;
-        fr vkey_hash_3 = vk.add_hash_to_transcript("", transcript_2);
-        EXPECT_EQ(vkey_hash_2, vkey_hash_3);
+        fr vk_hash_3 = vk.hash_through_transcript("", transcript_2);
+        EXPECT_EQ(vk_hash_2, vk_hash_3);
     }
 }
 

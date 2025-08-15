@@ -29,7 +29,8 @@ void ProtogalaxyRecursiveVerifier_<DeciderVerificationKeys>::run_oink_verifier_o
         // Fiat-Shamir the accumulator.
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1390): assert_equal on accumulator hash with public
         // input hash.
-        FF accum_hash = key->add_hash_to_transcript("", *transcript);
+        FF accum_hash = key->hash_through_transcript(domain_separator + '_', *transcript);
+        transcript->add_to_hash_buffer(domain_separator + "_accum_hash", accum_hash);
         info("Accumulator hash in PG rec verifier: ", accum_hash);
     }
 
