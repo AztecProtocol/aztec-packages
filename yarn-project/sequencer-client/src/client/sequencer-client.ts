@@ -35,7 +35,6 @@ export class SequencerClient {
     protected publisherManager: PublisherManager<L1TxUtilsWithBlobs>,
     protected sequencer: Sequencer,
     protected validatorClient?: ValidatorClient,
-    protected l1Metrics?: L1Metrics,
   ) {}
 
   /**
@@ -87,7 +86,12 @@ export class SequencerClient {
     const l1TxUtils = deps.l1TxUtils ?? [
       createL1TxUtilsWithBlobsFromViemWallet(l1Client, log, deps.dateProvider, config),
     ];
-    const publisherManager = new PublisherManager(l1TxUtils);
+    const l1Metrics = new L1Metrics(
+      telemetryClient.getMeter('L1PublisherMetrics'),
+      publicClient,
+      l1TxUtils.map(x => x.getSenderAddress()),
+    );
+    const publisherManager = new PublisherManager(l1TxUtils, l1Metrics);
     const rollupContract = new RollupContract(l1Client, config.l1Contracts.rollupAddress.toString());
     const [l1GenesisTime, slotDuration] = await Promise.all([
       rollupContract.getL1GenesisTime(),
@@ -178,10 +182,7 @@ export class SequencerClient {
 
     await sequencer.init();
 
-    const l1Metrics = new L1Metrics(telemetryClient.getMeter('SequencerL1Metrics'), publicClient, [
-      l1TxUtils[0].getSenderAddress(),
-    ]);
-    return new SequencerClient(publisherManager, sequencer, validatorClient, l1Metrics);
+    return new SequencerClient(publisherManager, sequencer, validatorClient);
   }
 
   /**
@@ -196,7 +197,6 @@ export class SequencerClient {
   public async start() {
     await this.validatorClient?.start();
     this.sequencer.start();
-    this.l1Metrics?.start();
   }
 
   /**
@@ -205,7 +205,6 @@ export class SequencerClient {
   public async stop() {
     await this.sequencer.stop();
     this.publisherManager.interrupt();
-    this.l1Metrics?.stop();
   }
 
   public getSequencer(): Sequencer {

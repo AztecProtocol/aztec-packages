@@ -1,4 +1,5 @@
 import { createLogger } from '@aztec/foundation/log';
+import { L1Metrics } from '@aztec/telemetry-client';
 
 import { L1TxUtils, TxUtilsState } from './l1_tx_utils.js';
 
@@ -8,9 +9,20 @@ const invalidStates = [TxUtilsState.SENT, TxUtilsState.SPEED_UP, TxUtilsState.CA
 export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
   private log = createLogger('PublisherManager');
 
-  constructor(private publishers: UtilsType[]) {
+  constructor(
+    private publishers: UtilsType[],
+    private l1Metrics: L1Metrics,
+  ) {
     this.log.info(`PublisherManager initialized with ${publishers.length} publishers.`);
     this.publishers = publishers;
+  }
+
+  public start() {
+    this.l1Metrics.start();
+  }
+
+  public stop() {
+    this.l1Metrics.stop();
   }
 
   // Finds and prioritises available publishers based on

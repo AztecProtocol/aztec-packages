@@ -87,13 +87,24 @@ export async function createProverNode(
 
   const l1TxUtils = deps.l1TxUtils ?? createL1TxUtilsFromViemWallet(l1Client, log, deps.dateProvider, config);
 
-  const publisherFactory =
-    deps.publisherFactory ??
-    new ProverPublisherFactory(config, {
+  const getPublisherFactory = () => {
+    if (deps.publisherFactory) {
+      return deps.publisherFactory;
+    }
+    const l1Metrics = new L1Metrics(
+      telemetry.getMeter('ProverNodeL1Metrics'),
+      l1TxUtils.client as unknown as ViemPublicClient,
+      [l1TxUtils.getSenderAddress()],
+    );
+    const publisherManager = new PublisherManager([l1TxUtils], l1Metrics);
+    publisherManager.start();
+    return new ProverPublisherFactory(config, {
       rollupContract,
-      publisherManager: new PublisherManager([l1TxUtils]),
+      publisherManager,
       telemetry,
     });
+  };
+  const publisherFactory = getPublisherFactory();
 
   const proofVerifier = new QueuedIVCVerifier(
     config,
@@ -141,12 +152,6 @@ export async function createProverNode(
     telemetry,
   );
 
-  const l1Metrics = new L1Metrics(
-    telemetry.getMeter('ProverNodeL1Metrics'),
-    l1TxUtils.client as unknown as ViemPublicClient,
-    [l1TxUtils.getSenderAddress()],
-  );
-
   return new ProverNode(
     prover,
     publisherFactory,
@@ -156,7 +161,6 @@ export async function createProverNode(
     worldStateSynchronizer,
     p2pClient,
     epochMonitor,
-    l1Metrics,
     rollupContract,
     proverNodeConfig,
     telemetry,
