@@ -245,11 +245,11 @@ HonkProof create_mock_pre_ipa_proof()
     // 3. Libra sum
     populate_field_elements<FF>(proof, 1);
 
-    // 4. Sumcheck univariates commitments
-    populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, /*num_commitments=*/CONST_ECCVM_LOG_N);
-
-    // 5. Sumcheck univariate evaluations
-    populate_field_elements<FF>(proof, CONST_ECCVM_LOG_N + CONST_ECCVM_LOG_N);
+    // 4. Sumcheck univariates commitments + 5. Sumcheck univariate evaluations
+    for (size_t idx = 0; idx < CONST_ECCVM_LOG_N; idx++) {
+        populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, /*num_commitments=*/1);
+        populate_field_elements<FF>(proof, /*num_elements=*/2);
+    }
 
     // 6. ALL_ENTITIES sumcheck evaluations
     populate_field_elements<FF>(proof, ECCVMFlavor::NUM_ALL_ENTITIES);
