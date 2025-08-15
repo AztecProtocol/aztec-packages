@@ -115,6 +115,7 @@ describe('e2e_multi_eoa', () => {
       const deployer = new ContractDeployer(artifact, owner);
       const ownerAddress = owner.getCompleteAddress().address;
       const deployMethodTx = await deployer.deploy(ownerAddress, 0).prove({
+        from: ownerAddress,
         contractAddressSalt: Fr.random(),
         skipClassPublication: true,
         skipInstancePublication: true,
