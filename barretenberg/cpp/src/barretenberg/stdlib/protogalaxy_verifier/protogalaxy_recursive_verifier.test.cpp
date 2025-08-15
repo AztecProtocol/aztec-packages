@@ -234,7 +234,6 @@ class ProtogalaxyRecursiveTests : public testing::Test {
                                                      std::make_shared<typename InnerFoldingVerifier::Transcript>());
         native_folding_verifier.transcript->enable_manifest();
         std::shared_ptr<InnerDeciderVerificationKey> native_accumulator;
-        native_folding_verifier.verify_folding_proof(folding_proof.proof);
         for (size_t idx = 0; idx < num_verifiers; idx++) {
             native_accumulator = native_folding_verifier.verify_folding_proof(folding_proof.proof);
             if (idx < num_verifiers - 1) { // else the transcript is null in the test below

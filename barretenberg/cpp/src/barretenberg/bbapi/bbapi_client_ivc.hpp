@@ -237,18 +237,18 @@ struct ClientIvcCheckPrecomputedVk {
 };
 
 /**
- * @struct ClientIvcGates
+ * @struct ClientIvcStats
  * @brief Get gate counts for a circuit
  */
-struct ClientIvcGates {
-    static constexpr const char* MSGPACK_SCHEMA_NAME = "ClientIvcGates";
+struct ClientIvcStats {
+    static constexpr const char* MSGPACK_SCHEMA_NAME = "ClientIvcStats";
 
     /**
      * @struct Response
      * @brief Contains gate count information
      */
     struct Response {
-        static constexpr const char* MSGPACK_SCHEMA_NAME = "ClientIvcGatesResponse";
+        static constexpr const char* MSGPACK_SCHEMA_NAME = "ClientIvcStatsResponse";
 
         /** @brief Number of ACIR opcodes */
         uint32_t acir_opcodes;
@@ -266,7 +266,7 @@ struct ClientIvcGates {
     bool include_gates_per_opcode;
     Response execute(BBApiRequest& request) &&;
     MSGPACK_FIELDS(circuit, include_gates_per_opcode);
-    bool operator==(const ClientIvcGates&) const = default;
+    bool operator==(const ClientIvcStats&) const = default;
 };
 
 } // namespace bb::bbapi

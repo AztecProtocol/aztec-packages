@@ -97,6 +97,7 @@ class Execution : public ExecutionInterface {
     void sub(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void mul(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void div(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
+    void fdiv(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void eq(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void lt(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void lte(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
@@ -113,6 +114,12 @@ class Execution : public ExecutionInterface {
               MemoryAddress addr,
               MemoryAddress cd_size_offset,
               MemoryAddress cd_offset);
+    void static_call(ContextInterface& context,
+                     MemoryAddress l2_gas_offset,
+                     MemoryAddress da_gas_offset,
+                     MemoryAddress addr,
+                     MemoryAddress cd_size_offset,
+                     MemoryAddress cd_offset);
     void ret(ContextInterface& context, MemoryAddress ret_size_offset, MemoryAddress ret_offset);
     void revert(ContextInterface& context, MemoryAddress rev_size_offset, MemoryAddress rev_offset);
     void cd_copy(ContextInterface& context,
@@ -178,6 +185,8 @@ class Execution : public ExecutionInterface {
                             MemoryAddress output_addr,
                             MemoryAddress state_addr,
                             MemoryAddress input_addr);
+    void shr(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress c_addr);
+    void shl(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress c_addr);
 
   protected:
     // Only here for testing. TODO(fcarreiro): try to improve.
