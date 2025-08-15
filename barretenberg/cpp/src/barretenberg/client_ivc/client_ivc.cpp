@@ -223,6 +223,7 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
 void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 {
 
+    info("ClientIVC: Completing kernel circuit logic.");
     // Transcript to be shared shared across recursive verification of the folding of K_{i-1} (kernel), A_{i,1} (app),
     // .., A_{i, n} (app) (all circuits accumulated between the previous kernel and current one)
     auto accumulation_recursive_transcript = std::make_shared<RecursiveTranscript>();
@@ -238,13 +239,30 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     bool is_hiding_kernel =
         stdlib_verification_queue.size() == 1 && (stdlib_verification_queue.front().type == QUEUE_TYPE::PG_FINAL);
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1511): this should check the queue is of size one and
+    // contains an entry of type PG_TAIL, currently it might contain several entries in case it's a minimal transaction
+    // produced by our tests which is not exactly realistic
+    bool is_tail_kernel = std::any_of(stdlib_verification_queue.begin(),
+                                      stdlib_verification_queue.end(),
+                                      [](const auto& entry) { return entry.type == QUEUE_TYPE::PG_TAIL; });
+
+    info("ClientIVC: is_hiding_kernel = ", is_hiding_kernel);
+    info("ClientIVC: is_tail_kernel = ", is_tail_kernel);
     // If the incoming circuit is a kernel, start its subtable with an eq and reset operation to ensure a
     // neighbouring misconfigured subtable coming from an app cannot affect the operations in the
-    // current subtable. We don't do this for the hiding kernel as it succeeds another kernel and because the hiding
-    // kernel has to start with a no-op for the correct functioning of translator.
+    // current subtable. We don't do this for the hiding kernel as it succeeds another kernel.
     if (!is_hiding_kernel) {
+        if (is_tail_kernel) {
+            info("AM I HERE");
+            vinfo("AM I HERE");
+            // Add a no-op at the beginning of the tail kernel (the last circuit whose ecc ops subtable is prepended) to
+            // ensure the wires representing the op queue in translator circuit are shiftable polynomials, i.e. their
+            // 0th coefficient is 0.
+            circuit.queue_ecc_no_op();
+        }
         circuit.queue_ecc_eq();
     }
+
     // Perform Oink/PG and Merge recursive verification + databus consistency checks for each entry in the queue
     PairingPoints points_accumulator;
     while (!stdlib_verification_queue.empty()) {
@@ -266,6 +284,7 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     // Set the kernel output data to be propagated via the public inputs
     if (is_hiding_kernel) {
         HidingKernelIO hiding_output{ points_accumulator, T_prev_commitments };
+
         hiding_output.set_public();
         // preserve the hiding circuit so a proof for it can be created
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1502): reconsider approach once integration is
@@ -313,6 +332,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
     trace_usage_tracker.update(circuit);
 
     honk_vk = precomputed_vk;
+    // honk_vk = std::make_shared<MegaVerificationKey>(proving_key->get_precomputed());
 
     // We're acccumulating a kernel if the verification queue is empty (because the kernel circuit contains recursive
     // verifiers for all the entries previously present in the verification queue) and if it's not the first accumulate
@@ -385,6 +405,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
     goblin.prove_merge(prover_accumulation_transcript);
 
     num_circuits_accumulated++;
+    // info("satisfiable accumulator: ", decide_for_testing(fold_output.accumulator, native_verifier_accum));
 }
 
 /**
@@ -418,10 +439,6 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::comp
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1453): Investigate whether Decider/PG/Merge need to
     // share a transcript
     std::shared_ptr<RecursiveTranscript> pg_merge_transcript = std::make_shared<RecursiveTranscript>();
-
-    // Add a no-op at the beginning of the hiding circuit to ensure the wires representing the op queue in translator
-    // circuit are shiftable polynomials, i.e. their 0th coefficient is equal to 0.
-    circuit.queue_ecc_no_op();
 
     hide_op_queue_accumulation_result(circuit);
 
@@ -463,11 +480,12 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::comp
         goblin.recursively_verify_merge(circuit, merge_commitments, pg_merge_transcript);
 
     points_accumulator.aggregate(kernel_input.pairing_inputs);
-
+    info("Before decider");
     // Perform recursive decider verification
     DeciderRecursiveVerifier decider{ &circuit, recursive_verifier_native_accum };
     BB_ASSERT_EQ(!decider_proof.empty(), true, "Decider proof is empty!");
     PairingPoints decider_pairing_points = decider.verify_proof(decider_proof);
+    vinfo("is it the decier aggregate ");
     points_accumulator.aggregate(decider_pairing_points);
     return { points_accumulator, merged_table_commitments };
 }
@@ -515,8 +533,13 @@ ClientIVC::Proof ClientIVC::prove()
     // A transcript is shared between the Hiding circuit prover and the Goblin prover
     goblin.transcript = transcript;
 
-    // Prove ECCVM and Translator
-    return { mega_proof, goblin.prove() };
+    // Returns a proof for the hiding circuit and the Goblin proof. The latter consists of Translator and ECCVM proof
+    // for the whole ecc op table and the merge proof for appending the subtable coming from the hiding circuit. The
+    // final merging is done via appending to facilitate creating a zero-knowledge merge proof. This enables us to add
+    // randomness to the beginning of the tail kernel and the end of the hiding kernel, hiding the commitments and
+    // evaluations of both the previous table and the incoming subtable.
+    // https://github.com/AztecProtocol/barretenberg/issues/1360
+    return { mega_proof, goblin.prove(MergeSettings::APPEND) };
 };
 
 bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
@@ -532,8 +555,8 @@ bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
     TableCommitments t_commitments = verifier.verification_key->witness_commitments.get_ecc_op_wires().get_copy();
 
     // Goblin verification (final merge, eccvm, translator)
-    bool goblin_verified =
-        Goblin::verify(proof.goblin_proof, { t_commitments, T_prev_commitments }, civc_verifier_transcript);
+    bool goblin_verified = Goblin::verify(
+        proof.goblin_proof, { t_commitments, T_prev_commitments }, civc_verifier_transcript, MergeSettings::APPEND);
     vinfo("Goblin verified: ", goblin_verified);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1396): State tracking in CIVC verifiers.
@@ -582,7 +605,6 @@ bool ClientIVC::prove_and_verify()
     start = end;
     const bool verified = verify(proof);
     end = std::chrono::steady_clock::now();
-
     diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     vinfo("time to verify ClientIVC proof: ", diff.count(), " ms.");
 

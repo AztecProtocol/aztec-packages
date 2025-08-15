@@ -154,6 +154,7 @@ ClientIvcComputeIvcVk::Response ClientIvcComputeIvcVk::execute(BB_UNUSED const B
 {
     info("ClientIvcComputeIvcVk - deriving IVC VK for circuit '", circuit.name, "'");
 
+    // WORKTODO add comment
     auto standalone_vk_response = bbapi::ClientIvcComputeStandaloneVk{
         .circuit{ .name = "standalone_circuit", .bytecode = std::move(circuit.bytecode) }
     }.execute({ .trace_settings = {} });

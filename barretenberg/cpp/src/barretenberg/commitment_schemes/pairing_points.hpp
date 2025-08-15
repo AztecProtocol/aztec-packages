@@ -68,6 +68,7 @@ class PairingPoints {
         Fr aggregation_separator = Fr::random_element();
         P0 = P0 + other.P0 * aggregation_separator;
         P1 = P1 + other.P1 * aggregation_separator;
+        vinfo("Paring passes native ", check());
     }
 
     /**
