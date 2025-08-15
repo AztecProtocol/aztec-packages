@@ -328,11 +328,12 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
             stdlib::recursion::honk::AppIO::add_default(builder);
         }
     } else {
+        bool is_recursive_circuit = metadata.honk_recursion != 0;
         BB_ASSERT_EQ(has_ivc_recursion_constraints,
                      false,
                      "Invalid circuit: ivc recursion constraints are present with UltraBuilder.");
-        BB_ASSERT_EQ(has_honk_recursion_constraints || has_avm_recursion_constraints,
-                     metadata.honk_recursion != 0,
+        BB_ASSERT_EQ(!(has_honk_recursion_constraints || has_avm_recursion_constraints) || is_recursive_circuit,
+                     true,
                      "Invalid circuit: honk or avm recursion constraints present but the circuit is not recursive.");
 
         // Container for data to be propagated
