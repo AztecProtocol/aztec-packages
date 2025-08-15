@@ -136,6 +136,8 @@ function compile {
   local tmp_json="${json_path}.tmp"
   jq --arg vk "$vk_bytes" --argjson vkf "$vk_fields" '. + {verificationKeyAsBytes: $vk, verificationKeyAsFields: $vkf}' "$json_path" > "$tmp_json"
   mv "$tmp_json" "$json_path"
+  # remove temporary json file
+  rm $key_path
   echo_stderr "Updated $json_path with VK information from cache"
 }
 export -f compile

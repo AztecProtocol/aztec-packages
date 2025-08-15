@@ -15,12 +15,12 @@ function resolveRelativePath(relativePath: string) {
 
 async function generateFakeTubeVK(name: string) {
   const tubeVK = VerificationKeyData.makeFakeRollupHonk();
-  const tubeVKPath = resolveRelativePath(`../../artifacts/keys/${name}.vk.data.json`);
+  const tubeVKPath = resolveRelativePath(`../../artifacts/${name}.json`);
   await fs.writeFile(
     tubeVKPath,
     JSON.stringify({
-      keyAsBytes: tubeVK.keyAsBytes.toString('hex'),
-      keyAsFields: tubeVK.keyAsFields.key.map((field: Fr) => field.toString()),
+      verificationKeyAsBytes: tubeVK.keyAsBytes.toString('hex'),
+      verificationKeyAsFields: tubeVK.keyAsFields.key.map((field: Fr) => field.toString()),
     }),
   );
 }
@@ -31,10 +31,10 @@ const main = async () => {
   await generateFakeTubeVK('private_tube');
   await generateFakeTubeVK('public_tube');
 
-  const files = await fs.readdir(resolveRelativePath('../../artifacts/keys'));
+  const files = await fs.readdir(resolveRelativePath('../../artifacts'));
   for (const fileName of files) {
-    if (fileName.endsWith('.vk.data.json')) {
-      const keyPath = join(resolveRelativePath(`../../artifacts/keys`), fileName);
+    if (fileName.endsWith('.json')) {
+      const keyPath = join(resolveRelativePath(`../../artifacts`), fileName);
       const content = JSON.parse(await fs.readFile(keyPath, 'utf-8'));
       if (!content.vkHash) {
         const { keyAsFields } = content;

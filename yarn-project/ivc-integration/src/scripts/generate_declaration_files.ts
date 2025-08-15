@@ -9,11 +9,6 @@ const circuit: NoirCompiledCircuit;
 export = circuit;
 `;
 
-const vk = `\
-const vk: { keyAsBytes: string; keyAsFields: string[] };
-export = vk;
-`;
-
 async function generateDeclarationFor(target: string, content: string) {
   const files = await readdir(target);
   for (const file of files) {
@@ -28,6 +23,3 @@ async function generateDeclarationFor(target: string, content: string) {
 
 // Generate declaration files for contracts
 await generateDeclarationFor(fileURLToPath(new URL('../../artifacts', import.meta.url).href), contract);
-
-// Generate declaration files for vks
-await generateDeclarationFor(fileURLToPath(new URL('../../artifacts/keys', import.meta.url).href), vk);

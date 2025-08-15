@@ -26,7 +26,7 @@ function generateImports() {
   import type { NoirCompiledCircuit, NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';
   import type { ClientProtocolArtifact } from './artifacts/types.js';
   import { VerificationKeyData } from '@aztec/stdlib/vks';
-  import { keyJsonToVKData } from './utils/vk_json.js';
+  import { abiToVKData } from './utils/vk_json.js';
 `;
 }
 
@@ -88,8 +88,8 @@ function generateVkImportFunction() {
     // https://caniuse.com/mdn-javascript_statements_import_import_attributes_type_json
     // In the meantime, this lazy import is INCOMPATIBLE WITH NODEJS
     return `case '${artifactName}': {
-        const { default: keyData } = await import("../artifacts/keys/${artifactName}.vk.data.json");
-        return keyJsonToVKData(keyData);
+        const { default: keyData } = await import("../artifacts/${artifactName}.json");
+        return abiToVKData(keyData);
       }`;
   });
 

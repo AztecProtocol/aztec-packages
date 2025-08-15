@@ -7,15 +7,15 @@ import PrivateKernelInnerVkJson from '../../../artifacts/keys/private_kernel_inn
 import PrivateKernelTailVkJson from '../../../artifacts/keys/private_kernel_tail.vk.data.json' with { type: 'json' };
 import PrivateKernelTailToPublicVkJson from '../../../artifacts/keys/private_kernel_tail_to_public.vk.data.json' with { type: 'json' };
 import { PrivateKernelResetVks } from '../../private_kernel_reset_vks.js';
-import { keyJsonToVKData } from '../../utils/vk_json.js';
+import { abiToVKData } from '../../utils/vk_json.js';
 import type { ClientProtocolArtifact } from '../types.js';
 
 export const ClientCircuitVks: Record<ClientProtocolArtifact, VerificationKeyData> = {
-  PrivateKernelInitArtifact: keyJsonToVKData(PrivateKernelInitVkJson),
-  PrivateKernelInnerArtifact: keyJsonToVKData(PrivateKernelInnerVkJson),
-  PrivateKernelTailArtifact: keyJsonToVKData(PrivateKernelTailVkJson),
-  PrivateKernelTailToPublicArtifact: keyJsonToVKData(PrivateKernelTailToPublicVkJson),
-  HidingKernelToRollup: keyJsonToVKData(HidingKernelToRollupVkJson),
-  HidingKernelToPublic: keyJsonToVKData(HidingKernelToPublicVkJson),
+  PrivateKernelInitArtifact: abiToVKData(PrivateKernelInitVkJson),
+  PrivateKernelInnerArtifact: abiToVKData(PrivateKernelInnerVkJson),
+  PrivateKernelTailArtifact: abiToVKData(PrivateKernelTailVkJson),
+  PrivateKernelTailToPublicArtifact: abiToVKData(PrivateKernelTailToPublicVkJson),
+  HidingKernelToRollup: abiToVKData(HidingKernelToRollupVkJson),
+  HidingKernelToPublic: abiToVKData(HidingKernelToPublicVkJson),
   ...PrivateKernelResetVks,
 };
