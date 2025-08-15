@@ -331,6 +331,9 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         BB_ASSERT_EQ(has_ivc_recursion_constraints,
                      false,
                      "Invalid circuit: ivc recursion constraints are present with UltraBuilder.");
+        BB_ASSERT_EQ(has_honk_recursion_constraints || has_avm_recursion_constraints,
+                     metadata.honk_recursion != 0,
+                     "Invalid circuit: honk or avm recursion constraints present but the circuit is not recursive.");
 
         // Container for data to be propagated
         HonkRecursionConstraintsOutput<Builder> honk_output;
@@ -341,10 +344,8 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         }
 
 #ifndef DISABLE_AZTEC_VM
-        HonkRecursionConstraintsOutput<Builder> avm_output;
-
         if (has_avm_recursion_constraints) {
-            avm_output = process_avm_recursion_constraints(
+            HonkRecursionConstraintsOutput<Builder> avm_output = process_avm_recursion_constraints(
                 builder, constraint_system, has_valid_witness_assignments, gate_counter);
 
             // Update honk_output: append (potentially 0) ipa claims and proofs.
@@ -355,9 +356,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
 #endif
 
         // Handle IPA
-        if (honk_output.is_root_rollup) {
-            perform_full_IPA_verification(builder, honk_output.nested_ipa_claims, honk_output.nested_ipa_proofs);
-        } else if (metadata.honk_recursion == 2) {
+        if (metadata.honk_recursion == 2) {
             auto [ipa_claim, ipa_proof] =
                 handle_IPA_accumulation(builder, honk_output.nested_ipa_claims, honk_output.nested_ipa_proofs);
 
@@ -372,13 +371,17 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
             inputs.ipa_claim = ipa_claim;
             inputs.set_public();
         } else {
-            // We shouldn't accidentally have IPA proofs otherwise.
-            BB_ASSERT_EQ(
-                honk_output.nested_ipa_proofs.size(), static_cast<size_t>(0), "IPA proofs present when not expected.");
+            if (honk_output.is_root_rollup) {
+                perform_full_IPA_verification(builder, honk_output.nested_ipa_claims, honk_output.nested_ipa_proofs);
+            } else {
+                // We shouldn't accidentally have IPA proofs otherwise.
+                BB_ASSERT_EQ(honk_output.nested_ipa_proofs.size(),
+                             static_cast<size_t>(0),
+                             "IPA proofs present when not expected.");
+            }
 
             // If it is a recursive circuit, propagate pairing points
             if (metadata.honk_recursion == 1) {
-                // IO
                 bb::stdlib::recursion::honk::DefaultIO<Builder> inputs;
                 inputs.pairing_inputs = (has_honk_recursion_constraints || has_avm_recursion_constraints)
                                             ? honk_output.points_accumulator
