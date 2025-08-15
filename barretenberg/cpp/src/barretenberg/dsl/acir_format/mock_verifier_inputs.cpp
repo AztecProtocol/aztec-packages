@@ -92,57 +92,67 @@ template <typename Flavor, class PublicInputs> HonkProof create_mock_oink_proof(
  */
 template <typename Flavor> HonkProof create_mock_decider_proof(const size_t const_proof_log_n)
 {
+    using FF = Flavor::FF;
+    using Curve = Flavor::Curve;
     HonkProof proof;
 
     if constexpr (Flavor::HasZK) {
         // Libra concatenation commitment
-        populate_field_elements_for_mock_commitments(proof, 1);
+        populate_field_elements_for_mock_commitments<Curve>(proof, 1);
 
         // Libra sum
-        populate_field_elements(proof, 1);
+        populate_field_elements<FF>(proof, 1);
     }
 
     // Sumcheck univariates
     const size_t TOTAL_SIZE_SUMCHECK_UNIVARIATES = const_proof_log_n * Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
-    populate_field_elements(proof, TOTAL_SIZE_SUMCHECK_UNIVARIATES);
+    populate_field_elements<FF>(proof, TOTAL_SIZE_SUMCHECK_UNIVARIATES);
 
     // Sumcheck multilinear evaluations
-    populate_field_elements(proof, Flavor::NUM_ALL_ENTITIES);
+    populate_field_elements<FF>(proof, Flavor::NUM_ALL_ENTITIES);
 
     if constexpr (Flavor::HasZK) {
         // Libra claimed evaluation
-        populate_field_elements(proof, 1);
+        populate_field_elements<FF>(proof, 1);
 
         // Libra grand sum commitment
-        populate_field_elements_for_mock_commitments(proof, 1);
+        populate_field_elements_for_mock_commitments<Curve>(proof, 1);
 
         // Libra quotient commitment
-        populate_field_elements_for_mock_commitments(proof, 1);
+        populate_field_elements_for_mock_commitments<Curve>(proof, 1);
 
         // Gemini masking commitment
-        populate_field_elements_for_mock_commitments(proof, 1);
+        populate_field_elements_for_mock_commitments<Curve>(proof, 1);
 
         // Gemini masking evaluation
-        populate_field_elements(proof, 1);
+        populate_field_elements<FF>(proof, 1);
     }
 
     // Gemini fold commitments
     const size_t NUM_GEMINI_FOLD_COMMITMENTS = const_proof_log_n - 1;
-    populate_field_elements_for_mock_commitments(proof, NUM_GEMINI_FOLD_COMMITMENTS);
+    populate_field_elements_for_mock_commitments<Curve>(proof, NUM_GEMINI_FOLD_COMMITMENTS);
 
     // Gemini fold evaluations
     const size_t NUM_GEMINI_FOLD_EVALUATIONS = const_proof_log_n;
-    populate_field_elements(proof, NUM_GEMINI_FOLD_EVALUATIONS);
+    populate_field_elements<FF>(proof, NUM_GEMINI_FOLD_EVALUATIONS);
+
+    if constexpr (std::is_same_v<Flavor, TranslatorFlavor>) {
+        // Gemini P pos evaluation
+        populate_field_elements<FF>(proof, 1);
+
+        // Gemini P neg evaluation
+        populate_field_elements<FF>(proof, 1);
+    }
 
     if constexpr (Flavor::HasZK) {
         // NUM_SMALL_IPA_EVALUATIONS libra evals
-        populate_field_elements(proof, NUM_SMALL_IPA_EVALUATIONS);
+        populate_field_elements<FF>(proof, NUM_SMALL_IPA_EVALUATIONS);
     }
 
     // Shplonk batched quotient commitment
-    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/1);
+    populate_field_elements_for_mock_commitments<Curve>(proof, /*num_commitments=*/1);
     // KZG quotient commitment
-    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/1);
+    populate_field_elements_for_mock_commitments<Curve>(proof, /*num_commitments=*/1);
 
     return proof;
 }
