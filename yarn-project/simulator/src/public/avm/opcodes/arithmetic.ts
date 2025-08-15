@@ -105,12 +105,6 @@ export class Shl extends ThreeOperandArithmeticInstruction {
   protected override compute(a: IntegralValue, b: IntegralValue): IntegralValue {
     return a.shl(b);
   }
-
-  // This override can be removed once Shifts are required to have the same tag on both operands.
-  protected override checkTags(memory: TaggedMemoryInterface, aOffset: number, bOffset: number) {
-    TaggedMemory.checkIsIntegralTag(memory.getTag(aOffset));
-    memory.checkTag(TypeTag.UINT8, bOffset);
-  }
 }
 
 export class Shr extends ThreeOperandArithmeticInstruction {
@@ -119,11 +113,5 @@ export class Shr extends ThreeOperandArithmeticInstruction {
 
   protected override compute(a: IntegralValue, b: IntegralValue): IntegralValue {
     return a.shr(b);
-  }
-
-  // This override can be removed once Shifts are required to have the same tag on both operands.
-  protected override checkTags(memory: TaggedMemoryInterface, aOffset: number, bOffset: number) {
-    TaggedMemory.checkIsIntegralTag(memory.getTag(aOffset));
-    memory.checkTag(TypeTag.UINT8, bOffset);
   }
 }

@@ -7,7 +7,7 @@ use crate::{
     utils::arrays::get_sorted_tuple::get_sorted_tuple,
 };
 
-global PROTOCOL_CONTRACT_TREE_WIDTH: u32 = 1 << PROTOCOL_CONTRACT_TREE_HEIGHT as u8;
+global PROTOCOL_CONTRACT_TREE_WIDTH: u32 = 1 << PROTOCOL_CONTRACT_TREE_HEIGHT;
 global NUM_PROTOCOL_CONTRACTS_FOR_TESTING: u32 = 3;
 
 pub fn get_protocol_contract_tree() -> (MerkleTree<PROTOCOL_CONTRACT_TREE_WIDTH>, [ProtocolContractLeafPreimage; PROTOCOL_CONTRACT_TREE_WIDTH]) {
