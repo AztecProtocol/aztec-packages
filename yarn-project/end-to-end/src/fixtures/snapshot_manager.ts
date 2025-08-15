@@ -351,7 +351,7 @@ async function setupFromFresh(
   aztecNodeConfig.publisherPrivateKey = new SecretValue<`0x${string}`>(`0x${publisherPrivKey!.toString('hex')}`);
   aztecNodeConfig.publisherPrivateKeys = [new SecretValue<`0x${string}`>(`0x${publisherPrivKey!.toString('hex')}`)];
   aztecNodeConfig.validatorPrivateKeys = new SecretValue([`0x${validatorPrivKey!.toString('hex')}`]);
-  aztecNodeConfig.coinbase = EthAddress.fromString(`${hdAccount.address}`);
+  aztecNodeConfig.coinbase = opts.coinbase ?? EthAddress.fromString(`${hdAccount.address}`);
 
   const ethCheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls);
 

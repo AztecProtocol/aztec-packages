@@ -39,6 +39,7 @@ import {
   SequencerClient,
   type SequencerPublisher,
   createValidatorForAcceptingTxs,
+  getPublisherPrivateKeysFromConfig,
 } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import {
@@ -345,21 +346,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     let slasherClient: SlasherClientInterface | undefined;
 
     if (!config.disableValidator) {
-      // This shouldn't happen, validators need a publisher private key.
-      const { publisherPrivateKeys, publisherPrivateKey } = config;
-      if (
-        publisherPrivateKeys.length === 0 ||
-        !publisherPrivateKey?.getValue() ||
-        publisherPrivateKeys[0]?.getValue() === NULL_KEY
-      ) {
-        if (!publisherPrivateKey?.getValue() || publisherPrivateKey?.getValue() === NULL_KEY) {
-          throw new Error('A publisher private key is required to run a validator');
-        }
-        publisherPrivateKeys.push(publisherPrivateKey);
-      }
-      // if (!publisherPrivateKey?.getValue() || publisherPrivateKey?.getValue() === NULL_KEY) {
-      //   throw new Error('A publisher private key is required to run a validator');
-      // }
+      const publisherPrivateKeys = getPublisherPrivateKeysFromConfig(config);
 
       // We create a slasher only if we have a sequencer, since all slashing actions go through the sequencer publisher
       // as they are executed when the node is selected as proposer.

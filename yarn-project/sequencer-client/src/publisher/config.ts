@@ -58,11 +58,11 @@ export const getTxSenderConfigMappings: (
     ...secretValueConfigHelper(val => (val ? `0x${val.replace('0x', '')}` : NULL_KEY)),
   },
   publisherPrivateKeys: {
-    env: `SEQUENCER_PUBLISHER_PRIVATE_KEYS`,
-    description: 'The private keys to be used by the sequencer publisher.',
+    env: scope === 'PROVER' ? `PROVER_PUBLISHER_PRIVATE_KEYS` : `SEQ_PUBLISHER_PRIVATE_KEYS`,
+    description: 'The private keys to be used by the publisher.',
     parseEnv: (val: string) => val.split(',').map(key => `0x${key.replace('0x', '')}`),
     defaultValue: [],
-    fallback: ['SEQ_PUBLISHER_PRIVATE_KEY'],
+    fallback: scope === 'PROVER' ? ['PROVER_PUBLISHER_PRIVATE_KEY'] : ['SEQ_PUBLISHER_PRIVATE_KEY'],
   },
 });
 
@@ -85,4 +85,20 @@ export const getPublisherConfigMappings: (
 
 export function getPublisherConfigFromEnv(scope: 'PROVER' | 'SEQ'): PublisherConfig {
   return getConfigFromMappings(getPublisherConfigMappings(scope));
+}
+
+export function getPublisherPrivateKeysFromConfig(config: TxSenderConfig) {
+  const { publisherPrivateKeys, publisherPrivateKey } = config;
+  if (
+    publisherPrivateKeys.length === 0 ||
+    !publisherPrivateKey?.getValue() ||
+    publisherPrivateKeys[0]?.getValue() === NULL_KEY
+  ) {
+    // This shouldn't happen, validators need a publisher private key.
+    if (!publisherPrivateKey?.getValue() || publisherPrivateKey?.getValue() === NULL_KEY) {
+      throw new Error('A publisher private key is required');
+    }
+    return [publisherPrivateKey];
+  }
+  return [...publisherPrivateKeys];
 }
