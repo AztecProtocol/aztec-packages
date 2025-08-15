@@ -69,7 +69,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     const std::vector<FF>& public_inputs = oink_verifier.public_inputs;
 
     VerifierCommitments commitments{ key->vk_and_hash->vk, key->witness_commitments };
-    static constexpr size_t LOG_N = Flavor::NativeFlavor::LOG_N;
+    static constexpr size_t LOG_N = Flavor::NativeFlavor::VIRTUAL_LOG_N;
     auto gate_challenges = std::vector<FF>(LOG_N);
     for (size_t idx = 0; idx < LOG_N; idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));

@@ -36,7 +36,7 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
         using Commitment = typename Flavor::Commitment;
         TranscriptManifest manifest_expected;
 
-        const size_t virtual_log_n = Flavor::LOG_N;
+        const size_t virtual_log_n = Flavor::VIRTUAL_LOG_N;
 
         size_t NUM_PUBLIC_INPUTS =
             stdlib::recursion::honk::DefaultIO<typename Flavor::CircuitBuilder>::PUBLIC_INPUTS_SIZE;

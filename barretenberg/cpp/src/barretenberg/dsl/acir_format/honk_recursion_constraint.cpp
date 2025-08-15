@@ -75,8 +75,8 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
         offset++;
     };
 
-    // Note: this computation should always result in log_circuit_size = Flavor::LOG_N
-    auto log_circuit_size = Flavor::LOG_N;
+    // Note: this computation should always result in log_circuit_size = Flavor::VIRTUAL_LOG_N
+    auto log_circuit_size = Flavor::VIRTUAL_LOG_N;
     size_t offset = 0;
     // First key field is circuit size
     builder.set_variable(key_fields[offset++].witness_index, 1 << log_circuit_size);
@@ -129,7 +129,7 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
 
     // now the univariates, which can just be 0s (8*CONST_PROOF_SIZE_LOG_N Frs, where 8 is the maximum relation
     // degree)
-    for (size_t i = 0; i < Flavor::LOG_N * Flavor::BATCHED_RELATION_PARTIAL_LENGTH; i++) {
+    for (size_t i = 0; i < Flavor::VIRTUAL_LOG_N * Flavor::BATCHED_RELATION_PARTIAL_LENGTH; i++) {
         set_dummy_evaluation(offset);
     }
 
@@ -152,13 +152,13 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
         set_dummy_evaluation(offset);
     }
 
-    // now the gemini fold commitments which are Flavor::LOG_N - 1
-    for (size_t i = 1; i < Flavor::LOG_N; i++) {
+    // now the gemini fold commitments which are Flavor::VIRTUAL_LOG_N - 1
+    for (size_t i = 1; i < Flavor::VIRTUAL_LOG_N; i++) {
         set_dummy_commitment(offset);
     }
 
-    // the gemini fold evaluations which are also Flavor::LOG_N
-    for (size_t i = 1; i <= Flavor::LOG_N; i++) {
+    // the gemini fold evaluations which are also Flavor::VIRTUAL_LOG_N
+    for (size_t i = 1; i <= Flavor::VIRTUAL_LOG_N; i++) {
         set_dummy_evaluation(offset);
     }
 
