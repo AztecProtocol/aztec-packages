@@ -93,11 +93,7 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     RelationParams relation_parameters;
     VerifierCommitments commitments{ key };
 
-    const auto circuit_size = transcript->template receive_from_prover<FF>("circuit_size");
-    uint32_t vk_circuit_size = 1 << static_cast<uint32_t>(key->log_circuit_size.get_value());
-    if (static_cast<uint32_t>(circuit_size.get_value()) != vk_circuit_size) {
-        throw_or_abort("AvmRecursiveVerifier::verify_proof: proof circuit size does not match verification key!");
-    }
+    transcript->template receive_from_prover<FF>("circuit_size");
 
     // Get commitments to VM wires
     for (auto [comm, label] : zip_view(commitments.get_wires(), commitments.get_wires_labels())) {
