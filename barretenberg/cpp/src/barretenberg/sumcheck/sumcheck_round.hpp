@@ -526,6 +526,26 @@ template <typename Flavor> class SumcheckProverRound {
         return result;
     }
 
+    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
+    SumcheckRoundUnivariate compute_virtual_contribution(
+        ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
+        const bb::RelationParameters<FF>& relation_parameters,
+        const GateSeparatorPolynomial<FF>& gate_separator,
+        const SubrelationSeparators& alphas)
+    {
+        // Note: {} is required to initialize the tuple contents. Otherwise the univariates contain garbage.
+        SumcheckTupleOfTuplesOfUnivariates univariate_accumulator{};
+        ExtendedEdges extended_edges;
+
+        // In Round 0, we have to compute the contribution from 2 edges: (1, 1,..., 1) and (0, 1, ..., 1) (as points on
+        // (d-1) - dimensional Boolean hypercube).
+        size_t start_edge_idx = 0;
+
+        extend_edges(extended_edges, polynomials, start_edge_idx);
+        accumulate_relation_univariates(univariate_accumulator, extended_edges, relation_parameters, FF(1));
+
+        return batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulator, alphas, gate_separator);
+    };
     /**
      * @brief Given a tuple of tuples of extended per-relation contributions,  \f$ (t_0, t_1, \ldots,
      * t_{\text{NUM_SUBRELATIONS}-1}) \f$ and a challenge \f$ \alpha \f$, scale them by the relation separator

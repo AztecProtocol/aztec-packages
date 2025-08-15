@@ -97,10 +97,10 @@ TYPED_TEST(ScalarMultiplicationTest, GetScalarSlice)
 
         uint256_t acc = input_u256;
         for (size_t i = 0; i < num_slices; ++i) {
-            size_t mask = ((1 << slice_bits) - 1);
+            size_t mask = ((1 << slice_bits) - 1UL);
             size_t shift = slice_bits;
             if (i == 0) {
-                mask = ((1 << last_slice_bits) - 1);
+                mask = ((1UL << last_slice_bits) - 1UL);
                 shift = last_slice_bits;
             }
             slices[num_slices - 1 - i] = static_cast<uint32_t>((acc & mask).data[0]);

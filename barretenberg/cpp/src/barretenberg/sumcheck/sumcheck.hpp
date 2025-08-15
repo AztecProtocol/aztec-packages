@@ -276,16 +276,35 @@ template <typename Flavor> class SumcheckProver {
         }
         vinfo("completed ", multivariate_d, " rounds of sumcheck");
 
-        // Zero univariates are used to pad the proof to the fixed size virtual_log_n.
-        auto zero_univariate = bb::Univariate<FF, Flavor::BATCHED_RELATION_PARTIAL_LENGTH>::zero();
-        for (size_t idx = multivariate_d; idx < virtual_log_n; idx++) {
-            transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(idx), zero_univariate);
-            FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(idx));
-            multivariate_challenge.emplace_back(round_challenge);
+        // Run virtual rounds
+        ClaimedEvaluations claimed_evals = extract_claimed_evaluations(partially_evaluated_polynomials);
+
+        GateSeparatorPolynomial<FF> virtual_gate_separator(gate_challenges, multivariate_challenge);
+
+        ProverPolynomials virtual_polynomials;
+        size_t eval_idx = 0;
+        for (auto& poly : virtual_polynomials.get_all()) {
+            poly = Polynomial<FF>(2);
+            poly.at(0) = claimed_evals.get_all()[eval_idx++];
+            poly.at(1) = 0;
         }
 
-        // Claimed evaluations of Prover polynomials are extracted and added to the transcript. When Flavor has ZK, the
-        // evaluations of all witnesses are masked.
+        for (size_t k = multivariate_d; k < virtual_log_n; ++k) {
+
+            auto poly_to_send = round.compute_virtual_contribution(
+                partially_evaluated_polynomials, relation_parameters, virtual_gate_separator, alphas);
+
+            transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(k), poly_to_send);
+
+            const FF u_k = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(k));
+            multivariate_challenge.emplace_back(u_k);
+
+            for (auto& poly : partially_evaluated_polynomials.get_all()) {
+                poly.at(0) *= (FF(1) - u_k);
+            }
+            virtual_gate_separator.partially_evaluate(u_k);
+        }
+
         ClaimedEvaluations multivariate_evaluations = extract_claimed_evaluations(partially_evaluated_polynomials);
         transcript->send_to_verifier("Sumcheck:evaluations", multivariate_evaluations.get_all());
         // For ZK Flavors: the evaluations of Libra univariates are included in the Sumcheck Output

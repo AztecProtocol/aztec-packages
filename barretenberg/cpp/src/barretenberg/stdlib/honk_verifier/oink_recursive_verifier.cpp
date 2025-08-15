@@ -106,11 +106,8 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
         }
     }
 
-    const FF public_input_delta = compute_public_input_delta<Flavor>(public_inputs,
-                                                                     beta,
-                                                                     gamma,
-                                                                     decider_vk->vk_and_hash->vk->log_circuit_size,
-                                                                     decider_vk->vk_and_hash->vk->pub_inputs_offset);
+    const FF public_input_delta =
+        compute_public_input_delta<Flavor>(public_inputs, beta, gamma, decider_vk->vk_and_hash->vk->pub_inputs_offset);
 
     // Get commitment to permutation and lookup grand products
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(domain_separator + labels.z_perm);
