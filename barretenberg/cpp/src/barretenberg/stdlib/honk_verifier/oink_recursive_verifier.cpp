@@ -50,11 +50,12 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
     WitnessCommitments commitments;
     CommitmentLabels labels;
 
-    FF vkey_hash = decider_vk->vk_and_hash->vk->add_hash_to_transcript(domain_separator, *transcript);
-    vinfo("vk hash in Oink recursive verifier: ", vkey_hash);
+    FF vk_hash = decider_vk->vk_and_hash->vk->hash_through_transcript(domain_separator, *transcript);
+    transcript->add_to_hash_buffer(domain_separator + "vk_hash", vk_hash);
+    vinfo("vk hash in Oink recursive verifier: ", vk_hash);
     vinfo("expected vk hash: ", decider_vk->vk_and_hash->hash);
     // Check that the vk hash matches the hash of the verification key
-    decider_vk->vk_and_hash->hash.assert_equal(vkey_hash);
+    decider_vk->vk_and_hash->hash.assert_equal(vk_hash);
 
     size_t num_public_inputs =
         static_cast<size_t>(static_cast<uint32_t>(decider_vk->vk_and_hash->vk->num_public_inputs.get_value()));

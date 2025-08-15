@@ -274,7 +274,7 @@ class AvmFlavor {
         std::vector<fr> to_field_elements() const override;
 
         /**
-         * @brief Adds the verification key hash to the transcript and returns the hash.
+         * @brief Hashes the vk using the transcript's independent buffer and returns the hash.
          * @details Needed to make sure the Origin Tag system works. See the base class function for
          * more details.
          *
@@ -282,8 +282,8 @@ class AvmFlavor {
          * @param transcript
          * @returns The hash of the verification key
          */
-        fr add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
-                                  [[maybe_unused]] Transcript& transcript) const override
+        fr hash_through_transcript([[maybe_unused]] const std::string& domain_separator,
+                                   [[maybe_unused]] Transcript& transcript) const override
         {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1466): Implement this function.
             throw_or_abort("Not implemented yet!");

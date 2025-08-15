@@ -25,7 +25,8 @@ void ProtogalaxyVerifier_<DeciderVerificationKeys>::run_oink_verifier_on_each_in
         key->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
     } else {
         // Fiat-Shamir the verifier accumulator
-        FF accum_hash = key->add_hash_to_transcript("", *transcript);
+        FF accum_hash = key->hash_through_transcript(domain_separator + '_', *transcript);
+        transcript->add_to_hash_buffer(domain_separator + "_accum_hash", accum_hash);
         info("Accumulator hash in PG verifier: ", accum_hash);
     }
 
