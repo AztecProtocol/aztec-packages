@@ -255,10 +255,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     rollupStore.config.feeAsset = _feeAsset;
     rollupStore.config.epochProofVerifier = _epochProofVerifier;
 
-    // @todo handle case where L1 forks and chain ID is different
-    // @note Truncated to 32 bits to make simpler to deal with all the node changes at a separate time.
-    uint32 version =
-      uint32(uint256(keccak256(abi.encode(bytes("aztec_rollup"), block.chainid, address(this), _genesisState))));
+    uint32 version = _config.version;
     rollupStore.config.version = version;
 
     IInbox inbox = IInbox(address(new Inbox(address(this), _feeAsset, version, Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT)));
