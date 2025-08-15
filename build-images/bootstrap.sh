@@ -61,8 +61,8 @@ function build_ec2 {
     git remote add origin https://github.com/aztecprotocol/aztec-packages
     git fetch --depth 1 origin $current_commit
     git checkout FETCH_HEAD
-    ./build-images/bootstrap.sh || bash
-    ./build-images/bootstrap.sh push-images || bash
+    ./build-images/bootstrap.sh
+    ./build-images/bootstrap.sh push-images
   "
 }
 
