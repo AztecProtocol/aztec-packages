@@ -51,7 +51,6 @@ void populate_field_elements(std::vector<fr>& fields,
                              const size_t& num_elements,
                              std::optional<FF> value = std::nullopt)
 {
-
     for (size_t i = 0; i < num_elements; ++i) {
         std::vector<fr> field_elements = value.has_value()
                                              ? field_conversion::convert_to_bn254_frs(value.value())
@@ -67,8 +66,6 @@ void populate_field_elements(std::vector<fr>& fields,
  */
 template <typename Flavor, class PublicInputs> HonkProof create_mock_oink_proof(const size_t inner_public_inputs_size)
 {
-    using FF = Flavor::FF;
-
     HonkProof proof;
 
     // Populate mock public inputs
@@ -76,7 +73,7 @@ template <typename Flavor, class PublicInputs> HonkProof create_mock_oink_proof(
     PublicInputs::add_default(builder);
 
     // Populate the proof with as many public inputs as required from the ACIR constraints
-    populate_field_elements<FF>(proof, inner_public_inputs_size);
+    populate_field_elements<fr>(proof, inner_public_inputs_size);
 
     // Populate the proof with the public inputs added from barretenberg
     for (const auto& pub : builder.public_inputs()) {
@@ -97,7 +94,7 @@ template <typename Flavor> HonkProof create_mock_decider_proof()
 {
     HonkProof proof;
 
-    if (Flavor::HasZK) {
+    if constexpr (Flavor::HasZK) {
         // Libra concatenation commitment
         populate_field_elements_for_mock_commitments(proof, 1);
 
@@ -112,7 +109,7 @@ template <typename Flavor> HonkProof create_mock_decider_proof()
     // Sumcheck multilinear evaluations
     populate_field_elements(proof, Flavor::NUM_ALL_ENTITIES);
 
-    if (Flavor::HasZK) {
+    if constexpr (Flavor::HasZK) {
         // Libra claimed evaluation
         populate_field_elements(proof, 1);
 
@@ -137,7 +134,7 @@ template <typename Flavor> HonkProof create_mock_decider_proof()
     const size_t NUM_GEMINI_FOLD_EVALUATIONS = CONST_PROOF_SIZE_LOG_N;
     populate_field_elements(proof, NUM_GEMINI_FOLD_EVALUATIONS);
 
-    if (Flavor::HasZK) {
+    if constexpr (Flavor::HasZK) {
         // NUM_SMALL_IPA_EVALUATIONS libra evals
         populate_field_elements(proof, NUM_SMALL_IPA_EVALUATIONS);
     }
@@ -165,7 +162,7 @@ template <typename Flavor, class PublicInputs> HonkProof create_mock_honk_proof(
     proof.insert(proof.end(), oink_proof.begin(), oink_proof.end());
     proof.insert(proof.end(), decider_proof.begin(), decider_proof.end());
 
-    if (HasIPAAccumulator<Flavor>) {
+    if constexpr (HasIPAAccumulator<Flavor>) {
         HonkProof ipa_proof = create_mock_ipa_proof();
         proof.insert(proof.end(), ipa_proof.begin(), ipa_proof.end());
     }
@@ -349,8 +346,7 @@ HonkProof create_mock_ipa_proof()
     populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, /*num_commitments=*/1);
 
     // a_0 evaluation (a_0 is in the base field of BN254)
-    proof.emplace_back(fr::random_element());
-    proof.emplace_back(fr::random_element());
+    populate_field_elements<curve::BN254::BaseField>(proof, 1);
 
     BB_ASSERT_EQ(proof.size(), IPA_PROOF_LENGTH);
 
