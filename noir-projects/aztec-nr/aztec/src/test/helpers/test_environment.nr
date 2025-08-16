@@ -1,5 +1,7 @@
 use protocol_types::{
-    abis::function_selector::FunctionSelector, address::AztecAddress, traits::Deserialize,
+    abis::function_selector::FunctionSelector,
+    address::AztecAddress,
+    traits::{Deserialize, Packable},
 };
 
 use crate::{
@@ -9,8 +11,24 @@ use crate::{
         ReturnsHash, UtilityCallInterface, UtilityContext,
     },
     hash::hash_args,
+    messages::{
+        discovery::{
+            ComputeNoteHashAndNullifier, NoteHashAndNullifier,
+            process_message::process_message_plaintext,
+        },
+        logs::note::private_note_to_message_plaintext,
+        processing::{message_context::MessageContext, validate_enqueued_notes_and_events},
+    },
+    note::{
+        note_emission::NoteEmission,
+        note_interface::{NoteHash, NoteType},
+        note_metadata::SettledNoteMetadata,
+        retrieved_note::RetrievedNote,
+        utils::compute_note_hash_for_nullify,
+    },
     oracle::{execution::{get_block_number, get_timestamp}, execution_cache},
     test::helpers::{txe_oracles, utils::ContractDeployment},
+    utils::array::subarray,
 };
 
 mod test;
@@ -643,5 +661,129 @@ impl TestEnvironment {
         // This shouldn't be using ReturnsHash, but I don't think CalldataHash is right either in this context
         let returns: T = ReturnsHash::new(returns_hash).get_preimage();
         returns
+    }
+
+    /// Discovers a note wrapped in a `NoteEmission` value, which is expected to have been created in the last
+    /// transaction (typically via `private_context()`) so that it can be retrieved in later transactions. This mimics
+    /// the normal note discovery process that takes places automatically in contracts.
+    ///
+    /// `NoteEmission` values are typically returned by aztec-nr state variables that create notes and need to notify a
+    /// recipient of their existence. Instead of going through the message encoding, encryption and emission that would
+    /// regularly take place in a contract, `discover_note` simply takes the `NoteEmission` and processes it as needed
+    /// to discover the underlying note.
+    ///
+    /// See `discover_note_at` for a variant that allows specifying the contract address the note belongs to.
+    ///
+    /// ### Sample usage
+    ///
+    /// The most common way to invoke this function is to obtain an emission created during the execution of a
+    /// `private_context`:
+    ///
+    /// ```noir
+    /// let emission = env.private_context(|context| create_note(context, storage_slot, note));
+    ///
+    /// env.discover_note(emission);
+    ///
+    /// env.private_context(|context| { let (retrieved_note, _) = get_note::<MockNote>(context, storage_slot); });
+    /// ```
+    pub unconstrained fn discover_note<Note>(self: Self, emission: NoteEmission<Note>)
+    where
+        Note: Packable + NoteType + NoteHash,
+    {
+        // This function will emulate the message discovery and processing that would happen in a real contract, based
+        // on a message created from the received note emission.
+
+        // First we produce the message itself. We skip encryption/decryption since we're not interested in that here.
+        // Note that we need to convert the fixed-size array produced by the encoding functions into a BoundedVec, which
+        // is what the decoding functions expect (because they are built to manage protocol logs, which are arbitrarily
+        // sized).
+        let message_plaintext = BoundedVec::from_array(private_note_to_message_plaintext(
+            emission.note,
+            emission.storage_slot,
+        ));
+
+        // Then we fetch the transaction effects from the latest transaction, in which the note from the emission is
+        // expected to have been created. In a real contract this data would have either been supplied by the
+        // `process_message` caller, of retrieved along with the message from a tagged log.
+        let (tx_hash, unique_note_hashes_in_tx, nullifiers_in_tx) =
+            txe_oracles::get_last_tx_effects();
+
+        // Real messages would also have a recipient, a concept which does not translate to anything in
+        // `TestEnvironment` since it works with a single PXE with global scopes. We therefore simply set the zero
+        // address as the recipient, which PXE accepts as a note scope despite this not being a registered account.
+        let recipient = AztecAddress::zero();
+
+        let message_context = MessageContext {
+            tx_hash,
+            unique_note_hashes_in_tx,
+            first_nullifier_in_tx: nullifiers_in_tx.get(0),
+            recipient,
+        };
+
+        // We also need to provide an implementation for the `compute_note_hash_and_nullifier` function, which would
+        // typically be created by the macros for the different notes in a given contract. Here we build one specialized
+        // for `Note`.
+        let compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<_> = |packed_note, storage_slot, note_type_id, contract_address, note_nonce| {
+            assert_eq(note_type_id, Note::get_id());
+            assert_eq(packed_note.len(), <Note as Packable>::N);
+
+            let note = Note::unpack(subarray(packed_note.storage(), 0));
+
+            let note_hash = note.compute_note_hash(storage_slot);
+            let note_hash_for_nullify = compute_note_hash_for_nullify(
+                RetrievedNote {
+                    note,
+                    contract_address,
+                    metadata: SettledNoteMetadata::new(note_nonce).into(),
+                },
+                storage_slot,
+            );
+
+            let inner_nullifier = note.compute_nullifier_unconstrained(note_hash_for_nullify);
+
+            Option::some(NoteHashAndNullifier { note_hash, inner_nullifier })
+        };
+
+        // Both private and utility functions perform message processing and note discovery. We do it in an utility
+        // context here as that one is more lightweight and does not create new blocks, which also allows for
+        // `discover_notes` to be called repeatedly with multiple emissions from the same transaction.
+        self.utility_context(|context| {
+            process_message_plaintext(
+                context.this_address(),
+                compute_note_hash_and_nullifier,
+                message_plaintext,
+                message_context,
+            );
+
+            validate_enqueued_notes_and_events(context.this_address());
+        });
+    }
+
+    /// Variant of `discover_note` which allows specifying the contract address the note belongs to, which is required
+    /// when the note was not emitted in the default address used by `private_context`.
+    ///
+    /// ```noir
+    /// let emission = env.private_context_at(contract_address, |context| {
+    ///     create_note(context, storage_slot, note)
+    /// });
+    ///
+    /// env.discover_note_at(contract_address, emission);
+    ///
+    /// env.private_context_at(contract_address, |context| {
+    ///     let (retrieved_note, _) = get_note::<MockNote>(context, storage_slot);
+    /// });
+    /// ```
+    pub unconstrained fn discover_note_at<Note>(
+        self: Self,
+        addr: AztecAddress,
+        emission: NoteEmission<Note>,
+    )
+    where
+        Note: Packable + NoteType + NoteHash,
+    {
+        let pre = txe_oracles::get_contract_address();
+        txe_oracles::set_contract_address(addr);
+        self.discover_note(emission);
+        txe_oracles::set_contract_address(pre);
     }
 }

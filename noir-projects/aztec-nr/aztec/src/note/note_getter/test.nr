@@ -36,7 +36,7 @@ where
 }
 
 #[test]
-unconstrained fn processes_single_note() {
+unconstrained fn constrain_get_notes_processes_single_note() {
     let env = TestEnvironment::_new();
 
     env.private_context(|context| {
@@ -53,7 +53,7 @@ unconstrained fn processes_single_note() {
 }
 
 #[test]
-unconstrained fn processes_many_notes() {
+unconstrained fn constrain_get_notes_processes_many_notes() {
     let env = TestEnvironment::_new();
 
     env.private_context(|context| {
@@ -71,7 +71,7 @@ unconstrained fn processes_many_notes() {
 }
 
 #[test]
-unconstrained fn collapses_notes_at_the_beginning_of_the_array() {
+unconstrained fn constrain_get_notes_collapses_notes_at_the_beginning_of_the_array() {
     let env = TestEnvironment::_new();
 
     env.private_context(|context| {
@@ -100,7 +100,7 @@ unconstrained fn collapses_notes_at_the_beginning_of_the_array() {
 }
 
 #[test]
-unconstrained fn can_return_zero_notes() {
+unconstrained fn constrain_get_notes_can_return_zero_notes() {
     let env = TestEnvironment::_new();
 
     env.private_context(|context| {
@@ -114,7 +114,7 @@ unconstrained fn can_return_zero_notes() {
 }
 
 #[test(should_fail_with = "Got more notes than limit.")]
-unconstrained fn rejects_mote_notes_than_limit() {
+unconstrained fn constrain_get_notes_rejects_mote_notes_than_limit() {
     let env = TestEnvironment::_new();
 
     env.private_context(|context| {
@@ -130,7 +130,7 @@ unconstrained fn rejects_mote_notes_than_limit() {
 }
 
 #[test]
-unconstrained fn applies_filter_before_constraining() {
+unconstrained fn constrain_get_notes_applies_filter_before_constraining() {
     let env = TestEnvironment::_new();
 
     env.private_context(|context| {
@@ -166,7 +166,7 @@ unconstrained fn applies_filter_before_constraining() {
 }
 
 #[test(should_fail_with = "Note contract address mismatch.")]
-unconstrained fn rejects_mismatched_address() {
+unconstrained fn constrain_get_notes_rejects_mismatched_address() {
     let env = TestEnvironment::_new();
 
     env.private_context(|context| {
@@ -180,7 +180,7 @@ unconstrained fn rejects_mismatched_address() {
 }
 
 #[test(should_fail_with = "Mismatch return note field.")]
-unconstrained fn rejects_mismatched_selector() {
+unconstrained fn constrain_get_notes_rejects_mismatched_selector() {
     let env = TestEnvironment::_new();
 
     env.private_context(|context| {
@@ -202,7 +202,7 @@ unconstrained fn rejects_mismatched_selector() {
 }
 
 #[test(should_fail_with = "Return notes not sorted in descending order.")]
-unconstrained fn rejects_mismatched_desc_sort_order() {
+unconstrained fn constrain_get_notes_rejects_mismatched_desc_sort_order() {
     let env = TestEnvironment::_new();
 
     env.private_context(|context| {
@@ -219,7 +219,7 @@ unconstrained fn rejects_mismatched_desc_sort_order() {
 }
 
 #[test(should_fail_with = "Return notes not sorted in ascending order.")]
-unconstrained fn rejects_mismatched_asc_sort_order() {
+unconstrained fn constrain_get_notes_rejects_mismatched_asc_sort_order() {
     let env = TestEnvironment::_new();
 
     env.private_context(|context| {

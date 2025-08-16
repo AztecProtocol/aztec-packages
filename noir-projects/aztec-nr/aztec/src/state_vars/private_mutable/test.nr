@@ -68,10 +68,10 @@ unconstrained fn initialize_and_get_pending() {
         let nullifiers_pre_get = context.nullifiers.len();
         let note_hash_read_requests_pre_get = context.note_hash_read_requests.len();
 
-        let emission = state_var.get_note();
+        let get_emission = state_var.get_note();
 
-        assert_eq(emission.note, note);
-        assert_eq(emission.storage_slot, STORAGE_SLOT);
+        assert_eq(get_emission.note, note);
+        assert_eq(get_emission.storage_slot, STORAGE_SLOT);
 
         // Reading a PrivateMutable results in:
         // - a read request for the read value
@@ -80,6 +80,38 @@ unconstrained fn initialize_and_get_pending() {
         assert_eq(context.note_hash_read_requests.len(), note_hash_read_requests_pre_get + 1);
         assert_eq(context.nullifiers.len(), nullifiers_pre_get + 1);
         assert_eq(context.note_hashes.len(), note_hashes_pre_get + 1);
+    });
+}
+
+#[test]
+unconstrained fn initialize_and_get_settled() {
+    let env = TestEnvironment::_new();
+
+    let note = MockNote::new(VALUE).build_note();
+
+    let init_emission = env.private_context(|context| {
+        let state_var = in_private(context);
+
+        state_var.initialize(note)
+    });
+
+    env.discover_note(init_emission);
+
+    env.private_context(|context| {
+        let state_var = in_private(context);
+
+        let get_emission = state_var.get_note();
+
+        assert_eq(get_emission.note, note);
+        assert_eq(get_emission.storage_slot, STORAGE_SLOT);
+
+        // Reading a PrivateMutable results in:
+        // - a read request for the read value
+        // - a nullifier for the read note
+        // - a new note for the recreation of the read value
+        assert_eq(context.note_hash_read_requests.len(), 1);
+        assert_eq(context.nullifiers.len(), 1);
+        assert_eq(context.note_hashes.len(), 1);
     });
 }
 
@@ -100,10 +132,10 @@ unconstrained fn initialize_and_replace_pending() {
 
         let replacement_value = VALUE + 1;
         let replacement_note = MockNote::new(replacement_value).build_note();
-        let emission = state_var.replace(replacement_note);
+        let replace_emission = state_var.replace(replacement_note);
 
-        assert_eq(emission.note, replacement_note);
-        assert_eq(emission.storage_slot, STORAGE_SLOT);
+        assert_eq(replace_emission.note, replacement_note);
+        assert_eq(replace_emission.storage_slot, STORAGE_SLOT);
 
         // Replacing a PrivateMutable results in:
         // - a read request for the read value
@@ -112,6 +144,40 @@ unconstrained fn initialize_and_replace_pending() {
         assert_eq(context.note_hash_read_requests.len(), note_hash_read_requests_pre_replace + 1);
         assert_eq(context.nullifiers.len(), nullifiers_pre_replace + 1);
         assert_eq(context.note_hashes.len(), note_hashes_pre_replace + 1);
+    });
+}
+
+#[test]
+unconstrained fn initialize_and_replace_settled() {
+    let env = TestEnvironment::_new();
+
+    let note = MockNote::new(VALUE).build_note();
+
+    let init_emission = env.private_context(|context| {
+        let state_var = in_private(context);
+
+        state_var.initialize(note)
+    });
+
+    env.discover_note(init_emission);
+
+    env.private_context(|context| {
+        let state_var = in_private(context);
+
+        let replacement_value = VALUE + 1;
+        let replacement_note = MockNote::new(replacement_value).build_note();
+        let replace_emission = state_var.replace(replacement_note);
+
+        assert_eq(replace_emission.note, replacement_note);
+        assert_eq(replace_emission.storage_slot, STORAGE_SLOT);
+
+        // Replacing a PrivateMutable results in:
+        // - a read request for the read value
+        // - a nullifier for the read note
+        // - a new note for the replacement note
+        assert_eq(context.note_hash_read_requests.len(), 1);
+        assert_eq(context.nullifiers.len(), 1);
+        assert_eq(context.note_hashes.len(), 1);
     });
 }
 
@@ -140,23 +206,25 @@ unconstrained fn initialize_or_replace_uninitialized() {
 unconstrained fn initialize_or_replace_initialized_pending() {
     let env = TestEnvironment::_new();
 
-    env.private_context(|context| {
+    let init_emission = env.private_context(|context| {
         let state_var = in_private(context);
 
         let note = MockNote::new(VALUE).build_note();
 
-        let _ = state_var.initialize(note);
+        state_var.initialize(note)
+    });
 
-        let note_hash_read_requests_pre_replace = context.note_hash_read_requests.len();
-        let nullifiers_pre_replace = context.nullifiers.len();
-        let note_hashes_pre_replace = context.note_hashes.len();
+    env.discover_note(init_emission);
+
+    env.private_context(|context| {
+        let state_var = in_private(context);
 
         let replacement_value = VALUE + 1;
         let replacement_note = MockNote::new(replacement_value).build_note();
-        let emission = state_var.initialize_or_replace(replacement_note);
+        let init_or_replace_emission = state_var.initialize_or_replace(replacement_note);
 
-        assert_eq(emission.note, replacement_note);
-        assert_eq(emission.storage_slot, STORAGE_SLOT);
+        assert_eq(init_or_replace_emission.note, replacement_note);
+        assert_eq(init_or_replace_emission.storage_slot, STORAGE_SLOT);
 
         // Replacing a PrivateMutable results in:
         // - a read request for the read value
@@ -164,8 +232,8 @@ unconstrained fn initialize_or_replace_initialized_pending() {
         // - a new note for the replacement note
         // This would only succeed if the variable had already been initialized, as otherwise the read request would
         // fail.
-        assert_eq(context.note_hash_read_requests.len(), note_hash_read_requests_pre_replace + 1);
-        assert_eq(context.nullifiers.len(), nullifiers_pre_replace + 1);
-        assert_eq(context.note_hashes.len(), note_hashes_pre_replace + 1);
+        assert_eq(context.note_hash_read_requests.len(), 1);
+        assert_eq(context.nullifiers.len(), 1);
+        assert_eq(context.note_hashes.len(), 1);
     });
 }
