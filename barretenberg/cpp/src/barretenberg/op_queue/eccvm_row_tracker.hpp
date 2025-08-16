@@ -81,6 +81,7 @@ class EccvmRowTracker {
         return std::max(transcript_rows, std::max(msm_rows, precompute_rows));
     }
 
+    size_t get_num_transcript_rows() const { return num_transcript_rows; }
     /**
      * @brief Update cached_active_msm_count or update other row counts and reset cached_active_msm_count.
      * @details To the OpQueue, an MSM is a sequence of successive mul opcodes (note that mul might better be called
