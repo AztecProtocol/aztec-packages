@@ -22,10 +22,8 @@ void internal_callImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto execution_NEW_NEXT_CALL_ID =
         (in.get(C::execution_sel_execute_internal_call) + in.get(C::execution_sel_execute_internal_return)) *
             (FF(1) - in.get(C::execution_sel_error)) +
-        in.get(C::execution_sel_exit_call);
+        in.get(C::execution_sel_exit_call) * (FF(1) - in.get(C::execution_enqueued_call_start_shift));
     const auto execution_PROPAGATE_CALL_ID = ((FF(1) - execution_RESET_NEXT_CALL_ID) - execution_NEW_NEXT_CALL_ID);
-    const auto execution_CONTEXT_CHANGE = ((execution_RESET_NEXT_CALL_ID + in.get(C::execution_sel_exit_call)) -
-                                           execution_RESET_NEXT_CALL_ID * in.get(C::execution_sel_exit_call));
 
     { // CALL_ID_STARTS_ONE
         using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -80,16 +78,8 @@ void internal_callImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         tmp *= scaling_factor;
         std::get<7>(evals) += typename Accumulator::View(tmp);
     }
-    { // INCR_NEXT_INT_CALL_ID
-        using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
-        auto tmp = execution_NOT_LAST_EXEC * (FF(1) - execution_CONTEXT_CHANGE) *
-                   (in.get(C::execution_next_internal_call_id_shift) -
-                    (in.get(C::execution_next_internal_call_id) + in.get(C::execution_sel_execute_internal_call)));
-        tmp *= scaling_factor;
-        std::get<8>(evals) += typename Accumulator::View(tmp);
-    }
     { // INTERNAL_RET_ERROR
-        using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
         auto tmp =
             in.get(C::execution_sel_execute_internal_return) *
             ((in.get(C::execution_internal_call_return_id) *
@@ -98,7 +88,7 @@ void internal_callImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
               FF(1)) +
              in.get(C::execution_sel_opcode_error));
         tmp *= scaling_factor;
-        std::get<9>(evals) += typename Accumulator::View(tmp);
+        std::get<8>(evals) += typename Accumulator::View(tmp);
     }
 }
 

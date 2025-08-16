@@ -125,7 +125,7 @@ namespace execution;
 
     // The initial next_context_id = 2, in row = 1
     #[INCR_NEXT_CONTEXT_ID]
-    NOT_LAST_EXEC * (next_context_id' - (next_context_id + sel_enter_call)) = 0;
+    NOT_LAST_EXEC * (next_context_id' - (next_context_id + sel_enter_call + enqueued_call_start')) = 0;
 
     // nested_exit_call = 1 ==> context_id' = parent_id
     // sel_enter_call   = 1 ==> context_id' = next_context_id
