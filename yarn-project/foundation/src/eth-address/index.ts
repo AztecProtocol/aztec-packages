@@ -65,7 +65,7 @@ export class EthAddress {
     if (!/^(0x)?[0-9a-f]{40}$/i.test(address)) {
       // Does not have the basic requirements of an address.
       return false;
-    } else if (/^(0x|0X)?[0-9a-f]{40}$/.test(address) || /^(0x|0X)?[0-9A-F]{40}$/.test(address)) {
+    } else if (/^(0x)?([0-9a-f]{40}|[0-9A-F]{40})$/.test(address)) {
       // It's ALL lowercase or ALL uppercase.
       return true;
     } else {
