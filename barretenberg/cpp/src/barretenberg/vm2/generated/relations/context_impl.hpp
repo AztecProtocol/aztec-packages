@@ -92,7 +92,8 @@ void contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
         auto tmp =
             execution_NOT_LAST_EXEC * (in.get(C::execution_next_context_id_shift) -
-                                       (in.get(C::execution_next_context_id) + in.get(C::execution_sel_enter_call)));
+                                       (in.get(C::execution_next_context_id) + in.get(C::execution_sel_enter_call) +
+                                        in.get(C::execution_enqueued_call_start_shift)));
         tmp *= scaling_factor;
         std::get<7>(evals) += typename Accumulator::View(tmp);
     }

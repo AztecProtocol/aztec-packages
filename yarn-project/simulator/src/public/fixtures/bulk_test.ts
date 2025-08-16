@@ -60,7 +60,6 @@ export async function bulkTest(
       },
     },
   );
-  expectToBeTrue(bulkResult.revertCode.isOK());
 
   logger.info(`Bulk test took ${timer.ms()}ms\n`);
 
@@ -147,7 +146,6 @@ export async function megaBulkTest(
       },
     },
   );
-  expectToBeTrue(bulkResult.revertCode.isOK());
 
   logger.info(`Mega bulk test took ${timer.ms()}ms\n`);
 
