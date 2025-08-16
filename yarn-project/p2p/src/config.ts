@@ -34,6 +34,9 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig, TxCollectionCo
   /** DEBUG: Disable colocation penalty - for testing purposes only */
   debugDisableColocationPenalty: boolean;
 
+  /** A flag to enable sandbox mode for more relaxed timestamp validation. */
+  sandboxMode: boolean;
+
   /** The frequency in which to check for new peers. */
   peerCheckIntervalMS: number;
 
@@ -402,6 +405,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_DROP_TX_CHANCE',
     description: 'The probability that a transaction is discarded. - For testing purposes only',
     ...floatConfigHelper(0),
+  },
+  sandboxMode: {
+    env: 'P2P_SANDBOX_MODE',
+    description: 'A flag to enable sandbox mode for more relaxed timestamp validation.',
+    ...booleanConfigHelper(false),
   },
   ...p2pReqRespConfigMappings,
   ...chainConfigMappings,
