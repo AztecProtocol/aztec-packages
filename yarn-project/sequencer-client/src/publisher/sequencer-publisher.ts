@@ -63,8 +63,6 @@ export enum SignalType {
   SLASHING,
 }
 
-type GetSlashPayloadCallBack = (slotNumber: bigint) => Promise<EthAddress | undefined>;
-
 const Actions = [
   'propose',
   'governance-signal',
@@ -103,10 +101,8 @@ export class SequencerPublisher {
   public epochCache: EpochCache;
 
   protected governanceLog = createLogger('sequencer:publisher:governance');
-  private governancePayload: EthAddress = EthAddress.ZERO;
 
   protected slashingLog = createLogger('sequencer:publisher:slashing');
-  private getSlashPayload?: GetSlashPayloadCallBack = undefined;
 
   private myLastSignals: Record<SignalType, bigint> = {
     [SignalType.GOVERNANCE]: 0n,
@@ -146,6 +142,7 @@ export class SequencerPublisher {
       governanceProposerContract: GovernanceProposerContract;
       epochCache: EpochCache;
       dateProvider: DateProvider;
+      metrics: SequencerPublisherMetrics;
     },
   ) {
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
@@ -155,39 +152,25 @@ export class SequencerPublisher {
       deps.blobSinkClient ?? createBlobSinkClient(config, { logger: createLogger('sequencer:blob-sink:client') });
 
     const telemetry = deps.telemetry ?? getTelemetryClient();
-    this.metrics = new SequencerPublisherMetrics(telemetry, 'SequencerPublisher');
+    this.metrics = deps.metrics ?? new SequencerPublisherMetrics(telemetry, 'SequencerPublisher');
     this.l1TxUtils = deps.l1TxUtils;
 
     this.rollupContract = deps.rollupContract;
 
     this.govProposerContract = deps.governanceProposerContract;
     this.slashingProposerContract = deps.slashingProposerContract;
-
-    this.rollupContract.listenToSlasherChanged(async () => {
-      this.log.info('Slashing proposer changed');
-      const newSlashingProposer = await this.rollupContract.getSlashingProposer();
-      this.slashingProposerContract = newSlashingProposer;
-    });
   }
 
   public getRollupContract(): RollupContract {
     return this.rollupContract;
   }
 
-  public registerSlashPayloadGetter(callback: GetSlashPayloadCallBack) {
-    this.getSlashPayload = callback;
+  public getSlashProposerContract(): SlashingProposerContract {
+    return this.slashingProposerContract;
   }
 
   public getSenderAddress() {
-    return EthAddress.fromString(this.l1TxUtils.getSenderAddress());
-  }
-
-  public getGovernancePayload() {
-    return this.governancePayload;
-  }
-
-  public setGovernancePayload(payload: EthAddress) {
-    this.governancePayload = payload;
+    return this.l1TxUtils.getSenderAddress();
   }
 
   public addRequest(request: RequestWithExpiry) {
@@ -212,7 +195,7 @@ export class SequencerPublisher {
       return undefined;
     }
     const currentL2Slot = this.getCurrentL2Slot();
-    this.log.debug(`Sending requests on L2 slot ${currentL2Slot}`);
+    this.log.info(`Sending requests on L2 slot ${currentL2Slot}`);
     const validRequests = requestsToProcess.filter(request => request.lastValidL2Slot >= currentL2Slot);
     const validActions = validRequests.map(x => x.action);
     const expiredActions = requestsToProcess
@@ -261,7 +244,7 @@ export class SequencerPublisher {
     validRequests.sort((a, b) => compareActions(a.action, b.action));
 
     try {
-      this.log.debug('Forwarding transactions', { validRequests: validRequests.map(request => request.action) });
+      this.log.info('Forwarding transactions', { validRequests: validRequests.map(request => request.action) });
       const result = await Multicall3.forward(
         validRequests.map(request => request.request),
         this.l1TxUtils,
@@ -278,7 +261,10 @@ export class SequencerPublisher {
       return undefined;
     } finally {
       try {
-        this.metrics.recordSenderBalance(await this.l1TxUtils.getSenderBalance(), this.l1TxUtils.getSenderAddress());
+        this.metrics.recordSenderBalance(
+          await this.l1TxUtils.getSenderBalance(),
+          this.l1TxUtils.getSenderAddress().toString(),
+        );
       } catch (err) {
         this.log.warn(`Failed to record balance after sending tx: ${err}`);
       }
@@ -610,28 +596,6 @@ export class SequencerPublisher {
     return true;
   }
 
-  private async getSignalConfig(
-    slotNumber: bigint,
-    signalType: SignalType,
-  ): Promise<{ payload: EthAddress; base: IEmpireBase } | undefined> {
-    if (signalType === SignalType.GOVERNANCE) {
-      return { payload: this.governancePayload, base: this.govProposerContract };
-    } else if (signalType === SignalType.SLASHING) {
-      if (!this.getSlashPayload) {
-        return undefined;
-      }
-      const slashPayload = await this.getSlashPayload(slotNumber);
-      if (!slashPayload) {
-        return undefined;
-      }
-      this.log.info(`Slash payload: ${slashPayload}`);
-      return { payload: slashPayload, base: this.slashingProposerContract };
-    } else {
-      const _: never = signalType;
-      throw new Error('Unreachable: Invalid signal type');
-    }
-  }
-
   /**
    * Enqueues a castSignal transaction to cast a signal for a given slot number.
    * @param slotNumber - The slot number to cast a signal for.
@@ -639,17 +603,14 @@ export class SequencerPublisher {
    * @param signalType - The type of signal to cast.
    * @returns True if the signal was successfully enqueued, false otherwise.
    */
-  public async enqueueCastSignal(
+  public enqueueCastSignal(
     slotNumber: bigint,
     timestamp: bigint,
     signalType: SignalType,
     signerAddress: EthAddress,
+    signalConfig: { payload: EthAddress; base: IEmpireBase },
     signer: (msg: TypedDataDefinition) => Promise<`0x${string}`>,
   ): Promise<boolean> {
-    const signalConfig = await this.getSignalConfig(slotNumber, signalType);
-    if (!signalConfig) {
-      return false;
-    }
     const { payload, base } = signalConfig;
     return this.enqueueCastSignalHelper(slotNumber, timestamp, signalType, payload, base, signerAddress, signer);
   }

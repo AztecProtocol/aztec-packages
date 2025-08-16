@@ -2,6 +2,7 @@
 import { getSchnorrWallet } from '@aztec/accounts/schnorr';
 import { deployFundedSchnorrAccounts, getInitialTestAccounts } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
+import { EthAddress } from '@aztec/aztec.js';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import { setupSponsoredFPC } from '@aztec/cli/cli-utils';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
@@ -31,7 +32,7 @@ import {
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { type HDAccount, type PrivateKeyAccount, createPublicClient, fallback, http as httpViemTransport } from 'viem';
-import { mnemonicToAccount } from 'viem/accounts';
+import { mnemonicToAccount, privateKeyToAddress } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { createAccountLogs } from '../cli/util.js';
@@ -134,6 +135,9 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
     const privKey = account.getHdKey().privateKey;
     aztecNodeConfig.slasherPrivateKey = new SecretValue(`0x${Buffer.from(privKey!).toString('hex')}` as const);
   }
+  aztecNodeConfig.coinbase = EthAddress.fromString(
+    privateKeyToAddress(aztecNodeConfig.validatorPrivateKeys.getValue()[0]),
+  );
 
   const initialAccounts = await (async () => {
     if (config.testAccounts === true || config.testAccounts === undefined) {
