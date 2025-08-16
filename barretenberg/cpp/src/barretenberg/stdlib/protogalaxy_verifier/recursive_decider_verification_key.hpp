@@ -36,7 +36,8 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
 
     std::shared_ptr<VKAndHash> vk_and_hash;
 
-    bool is_complete = false; // whether this instance has been completely populated
+    bool is_complete = false;      // whether this instance has been completely populated
+    std::vector<FF> public_inputs; // to be extracted from the corresponding proof
 
     // An array {1, α₁, …, αₖ}, where k = NUM_SUBRELATIONS - 1.
     SubrelationSeparators alphas;
