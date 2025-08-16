@@ -632,6 +632,47 @@ TEST_F(AluTraceGenerationTest, TraceGenerationDivTagError)
                     FF(static_cast<uint8_t>(MemoryTag::FF) - static_cast<uint8_t>(MemoryTag::U128)).invert()))));
 }
 
+TEST_F(AluTraceGenerationTest, TraceGenerationDivByZeroError)
+{
+    builder.process(
+        {
+            { .operation = AluOperation::DIV,
+              .a = MemoryValue::from<uint64_t>(6),
+              .b = MemoryValue::from<uint64_t>(0), // c is optional
+              .error = AluError::DIV_0_ERROR },
+        },
+        trace);
+
+    auto tag = static_cast<uint8_t>(MemoryTag::U64);
+
+    EXPECT_THAT(
+        trace.as_rows(),
+        ElementsAre(AllOf(
+            ROW_FIELD_EQ(alu_sel_op_div, 1),
+            ROW_FIELD_EQ(alu_sel, 1),
+            ROW_FIELD_EQ(alu_op_id, AVM_EXEC_OP_ID_ALU_DIV),
+            ROW_FIELD_EQ(alu_ia, 6),
+            ROW_FIELD_EQ(alu_ib, 0),
+            ROW_FIELD_EQ(alu_helper1, 0),
+            ROW_FIELD_EQ(alu_ia_tag, tag),
+            ROW_FIELD_EQ(alu_ib_tag, tag),
+            ROW_FIELD_EQ(alu_max_bits, get_tag_bits(MemoryTag::U64)),
+            ROW_FIELD_EQ(alu_max_value, get_tag_max_value(MemoryTag::U64)),
+            ROW_FIELD_EQ(alu_constant_64, 64),
+            ROW_FIELD_EQ(alu_sel_is_u128, 0),
+            ROW_FIELD_EQ(alu_tag_u128_diff_inv,
+                         FF(static_cast<uint8_t>(MemoryTag::U64) - static_cast<uint8_t>(MemoryTag::U128)).invert()),
+            ROW_FIELD_EQ(alu_sel_is_ff, 0),
+            ROW_FIELD_EQ(alu_tag_ff_diff_inv,
+                         FF(static_cast<uint8_t>(MemoryTag::U64) - static_cast<uint8_t>(MemoryTag::FF)).invert()),
+            ROW_FIELD_EQ(alu_sel_mul_div_u128, 0),
+            ROW_FIELD_EQ(alu_sel_div_no_0_err, 0),
+            ROW_FIELD_EQ(alu_sel_div_0_err, 1),
+            ROW_FIELD_EQ(alu_sel_tag_err, 0),
+            ROW_FIELD_EQ(alu_sel_err, 1),
+            ROW_FIELD_EQ(alu_ab_tags_diff_inv, 0))));
+}
+
 // FDIV TESTS
 
 // Note: The test framework below converts all inputs to FF values to allow for many happy path tests without adding
@@ -764,6 +805,38 @@ TEST_F(AluTraceGenerationTest, TraceGenerationFDivTagError)
                                   ROW_FIELD_EQ(alu_sel_ab_tag_mismatch, 1),
                                   ROW_FIELD_EQ(alu_ab_tags_diff_inv,
                                                FF(FF(u64_tag) - FF(static_cast<uint8_t>(MemoryTag::FF))).invert()))));
+}
+
+TEST_F(AluTraceGenerationTest, TraceGenerationFDivByZeroError)
+{
+    builder.process(
+        {
+            { .operation = AluOperation::FDIV,
+              .a = MemoryValue::from<FF>(6),
+              .b = MemoryValue::from<FF>(0), // c is optional
+              .error = AluError::DIV_0_ERROR },
+        },
+        trace);
+
+    auto tag = static_cast<uint8_t>(MemoryTag::FF);
+
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(AllOf(ROW_FIELD_EQ(alu_sel_op_fdiv, 1),
+                                  ROW_FIELD_EQ(alu_sel, 1),
+                                  ROW_FIELD_EQ(alu_op_id, AVM_EXEC_OP_ID_ALU_FDIV),
+                                  ROW_FIELD_EQ(alu_ia, 6),
+                                  ROW_FIELD_EQ(alu_ib, 0),
+                                  ROW_FIELD_EQ(alu_ia_tag, tag),
+                                  ROW_FIELD_EQ(alu_ib_tag, tag),
+                                  ROW_FIELD_EQ(alu_max_bits, get_tag_bits(MemoryTag::FF)),
+                                  ROW_FIELD_EQ(alu_max_value, get_tag_max_value(MemoryTag::FF)),
+                                  ROW_FIELD_EQ(alu_sel_is_u128, 0),
+                                  ROW_FIELD_EQ(alu_sel_is_ff, 1),
+                                  ROW_FIELD_EQ(alu_tag_ff_diff_inv, 0),
+                                  ROW_FIELD_EQ(alu_sel_div_0_err, 1),
+                                  ROW_FIELD_EQ(alu_sel_tag_err, 0),
+                                  ROW_FIELD_EQ(alu_sel_err, 1),
+                                  ROW_FIELD_EQ(alu_ab_tags_diff_inv, 0))));
 }
 
 // EQ TESTS

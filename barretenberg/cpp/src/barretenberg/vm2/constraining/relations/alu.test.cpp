@@ -924,39 +924,42 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivByZero)
     auto a = MemoryValue::from_tag(MemoryTag::U32, 2);
     auto b = MemoryValue::from_tag(MemoryTag::U32, 5);
     auto c = a / b;
-    auto trace = process_div_trace({ a, b, c });
-    check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
-    check_relation<alu>(trace);
 
-    // Set b, b_inv to 0...
-    trace.set(Column::alu_ib, 0, 0);
-    trace.set(Column::alu_b_inv, 0, 0);
-    // ...and since we haven't set the error correctly, we expect the below to fail:
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "DIV_0_ERR");
-    // We need to set the div_0_err and...
-    trace.set(Column::alu_sel_div_0_err, 0, 1);
-    trace.set(Column::alu_sel_div_no_0_err, 0, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ERR_CHECK");
-    // ...the overall sel_err:
-    trace.set(Column::alu_sel_err, 0, 1);
-    check_relation<alu>(trace);
+    for (const bool with_tracegen : { false, true }) {
+        auto trace = with_tracegen ? process_div_with_tracegen({ a, b, c }) : process_div_trace({ a, b, c });
+        check_all_interactions<AluTraceBuilder>(trace);
+        check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+        check_relation<alu>(trace);
 
-    // If we try and have div_0_err on without doing a div, the below should fail:
-    trace.set(Column::alu_sel_op_div, 0, 0);
-    trace.set(Column::alu_sel_op_mul, 0, 1);
-    trace.set(Column::alu_op_id, 0, AVM_EXEC_OP_ID_ALU_MUL);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "DIV_0_ERR");
+        // Set b, b_inv to 0...
+        trace.set(Column::alu_ib, 0, 0);
+        trace.set(Column::alu_b_inv, 0, 0);
+        // ...and since we haven't set the error correctly, we expect the below to fail:
+        EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "DIV_0_ERR");
+        // We need to set the div_0_err and...
+        trace.set(Column::alu_sel_div_0_err, 0, 1);
+        trace.set(Column::alu_sel_div_no_0_err, 0, 0);
+        EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ERR_CHECK");
+        // ...the overall sel_err:
+        trace.set(Column::alu_sel_err, 0, 1);
+        check_relation<alu>(trace);
 
-    trace.set(Column::alu_sel_op_div, 0, 1);
-    trace.set(Column::alu_sel_op_mul, 0, 0);
-    trace.set(Column::alu_op_id, 0, AVM_EXEC_OP_ID_ALU_DIV);
-    check_relation<alu>(trace);
+        // If we try and have div_0_err on without doing a div, the below should fail:
+        trace.set(Column::alu_sel_op_div, 0, 0);
+        trace.set(Column::alu_sel_op_mul, 0, 1);
+        trace.set(Column::alu_op_id, 0, AVM_EXEC_OP_ID_ALU_MUL);
+        EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "DIV_0_ERR");
 
-    // If we try and set b != 0 with div_0_err on, the below should fail:
-    trace.set(Column::alu_ib, 0, b);
-    trace.set(Column::alu_b_inv, 0, b.as_ff().invert());
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "DIV_0_ERR");
+        trace.set(Column::alu_sel_op_div, 0, 1);
+        trace.set(Column::alu_sel_op_mul, 0, 0);
+        trace.set(Column::alu_op_id, 0, AVM_EXEC_OP_ID_ALU_DIV);
+        check_relation<alu>(trace);
+
+        // If we try and set b != 0 with div_0_err on, the below should fail:
+        trace.set(Column::alu_ib, 0, b);
+        trace.set(Column::alu_b_inv, 0, b.as_ff().invert());
+        EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "DIV_0_ERR");
+    }
 }
 
 TEST_F(AluDivConstrainingTest, NegativeAluDivFF)
