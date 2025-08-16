@@ -1,5 +1,6 @@
 ---
 title: Limitations
+description: Understand the current limitations of the Aztec network and its implications for developers.
 sidebar_position: 6
 ---
 

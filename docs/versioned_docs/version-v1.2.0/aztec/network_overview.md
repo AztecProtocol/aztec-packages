@@ -1,5 +1,6 @@
 ---
 title: Overview
+description: Get an overview of the Aztec network architecture, including its key components and how they interact.
 sidebar_position: 0
 tags: [protocol]
 draft: true

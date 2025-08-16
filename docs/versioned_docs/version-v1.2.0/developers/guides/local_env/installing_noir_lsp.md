@@ -1,5 +1,6 @@
 ---
 title: Installing the Noir LSP
+description: Learn how to install and configure the Noir Language Server for a better development experience.
 sidebar_position: 1
 tags: [sandbox]
 ---

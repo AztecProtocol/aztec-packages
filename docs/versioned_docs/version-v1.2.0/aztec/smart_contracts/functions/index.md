@@ -1,5 +1,6 @@
 ---
 title: Defining Functions
+description: Overview of Aztec contract functions, including private, public, and utility function types.
 sidebar_position: 3
 tags: [functions]
 ---

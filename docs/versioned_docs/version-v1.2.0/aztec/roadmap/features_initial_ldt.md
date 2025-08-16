@@ -1,5 +1,6 @@
 ---
 title: Sandbox Features Roadmap
+description: Explore the features planned for Aztec's initial Limited Deployment Testnet (LDT).
 sidebar_position: 0
 tags: [sandbox]
 ---

@@ -1,5 +1,6 @@
 ---
 title: "Contract Artifact Reference"
+description: Understand the structure and contents of Aztec smart contract artifacts.
 tags: [contracts]
 ---
 

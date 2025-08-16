@@ -1,5 +1,6 @@
 ---
 title: Contract Upgrades
+description: Understand contract upgrade patterns in Aztec and how to implement upgradeable contracts.
 sidebar_position: 2
 tags: [contracts]
 ---

@@ -1,5 +1,6 @@
 ---
 title: Contract Deployment
+description: Learn how to create and deploy smart contracts on Aztec, including compilation and deployment processes.
 sidebar_position: 1
 tags: [contracts, protocol]
 ---

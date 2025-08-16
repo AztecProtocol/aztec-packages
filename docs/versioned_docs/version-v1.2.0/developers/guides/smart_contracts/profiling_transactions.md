@@ -1,5 +1,6 @@
 ---
 title: Profiling Transactions
+description: Learn how to profile your Aztec transactions to optimize performance and gas usage.
 sidebar_position: 1
 tags: [contracts, profiling]
 ---
