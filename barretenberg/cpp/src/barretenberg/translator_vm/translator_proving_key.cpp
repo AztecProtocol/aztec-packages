@@ -113,7 +113,9 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
             auto current_offset = j * dyadic_mini_circuit_size_without_masking;
             ;
             // For each element in the polynomial
-            for (size_t k = group[j].start_index(); k < group[j].end_index() - NUM_DISABLED_ROWS_IN_SUMCHECK; k++) {
+            for (size_t k = group[j].start_index();
+                 k < group[j].end_index() - Flavor::NUM_ROWS_PER_ULTRA_OP * Flavor::NUM_MASKING_OPS;
+                 k++) {
 
                 // Put it it the target polynomial
                 if ((current_offset + k) < free_space_before_runway) {
@@ -187,13 +189,16 @@ void TranslatorProvingKey::split_interleaved_random_coefficients_to_ordered()
     auto ordered = proving_key->polynomials.get_ordered_range_constraints();
     const size_t num_ordered_polynomials = ordered.size();
 
-    const size_t total_num_random_values =
-        NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::NUM_INTERLEAVED_WIRES * Flavor::INTERLEAVING_GROUP_SIZE;
-    const size_t num_random_values_per_interleaved = NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE;
+    const size_t total_num_random_values = Flavor::NUM_ROWS_PER_ULTRA_OP * Flavor::NUM_MASKING_OPS *
+                                           Flavor::NUM_INTERLEAVED_WIRES * Flavor::INTERLEAVING_GROUP_SIZE;
+    const size_t num_random_values_per_interleaved =
+        Flavor::NUM_ROWS_PER_ULTRA_OP * Flavor::NUM_MASKING_OPS * Flavor::INTERLEAVING_GROUP_SIZE;
     const size_t num_random_values_per_ordered = total_num_random_values / num_ordered_polynomials;
     const size_t remaining_random_values = total_num_random_values % num_ordered_polynomials;
 
-    std::array<FF, NUM_DISABLED_ROWS_IN_SUMCHECK* Flavor::NUM_INTERLEAVED_WIRES* Flavor::INTERLEAVING_GROUP_SIZE>
+    std::array<FF,
+               Flavor::NUM_ROWS_PER_ULTRA_OP* Flavor::NUM_MASKING_OPS* Flavor::NUM_INTERLEAVED_WIRES* Flavor::
+                   INTERLEAVING_GROUP_SIZE>
         random_values = {};
 
     // Add the random values from all interleaved polynomials to an array
@@ -246,6 +251,13 @@ void TranslatorProvingKey::compute_lagrange_polynomials()
         proving_key->polynomials.lagrange_masking.at(i) = 1;
     }
 
+    size_t thing = (Flavor::NUM_MASKING_OPS + Flavor::NUM_SKIPPED_OPS) * Flavor::NUM_ROWS_PER_ULTRA_OP;
+
+    for (size_t i = 0; i < thing; i++) {
+        proving_key->polynomials.lagrange_masking.at(i) = 1;
+        proving_key->polynomials.lagrange_mini_masking.at(i) = 1;
+    }
+
     // Location of randomness for wires defined within the mini circuit
     for (size_t i = dyadic_mini_circuit_size_without_masking; i < mini_circuit_dyadic_size; i++) {
         proving_key->polynomials.lagrange_mini_masking.at(i) = 1;
@@ -254,7 +266,7 @@ void TranslatorProvingKey::compute_lagrange_polynomials()
     // Translator VM processes two rows of its execution trace at a time, establishing different relations between
     // polynomials at even and odd indices, as such we need corresponding lagranges for determining whic relations
     // should trigger at odd indices and which at even.
-    for (size_t i = 2; i < dyadic_mini_circuit_size_without_masking; i += 2) {
+    for (size_t i = thing; i < dyadic_mini_circuit_size_without_masking; i += 2) {
         proving_key->polynomials.lagrange_even_in_minicircuit.at(i) = 1;
         proving_key->polynomials.lagrange_odd_in_minicircuit.at(i + 1) = 1;
     }

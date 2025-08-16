@@ -31,9 +31,9 @@ class TranslatorProvingKey {
     // hiding of polynomial commitments and evaluation). Bound to change, but it has to be even as translator works two
     // rows at a time
     static constexpr size_t dyadic_mini_circuit_size_without_masking =
-        mini_circuit_dyadic_size - NUM_DISABLED_ROWS_IN_SUMCHECK;
+        mini_circuit_dyadic_size - Flavor::NUM_MASKING_OPS * Flavor::NUM_ROWS_PER_ULTRA_OP;
     static constexpr size_t dyadic_circuit_size_without_masking =
-        dyadic_circuit_size - NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE;
+        dyadic_circuit_size - Flavor::NUM_MASKING_OPS * Flavor::NUM_ROWS_PER_ULTRA_OP * Flavor::INTERLEAVING_GROUP_SIZE;
 
     std::shared_ptr<ProvingKey> proving_key;
 
@@ -49,7 +49,7 @@ class TranslatorProvingKey {
         PROFILE_THIS_NAME("TranslatorProvingKey(TranslatorCircuit&)");
         // Check that the Translator Circuit does not exceed the fixed upper bound, the current value amounts to
         // a number of EccOps sufficient for 10 rounds of folding (so 20 circuits)
-        if (circuit.num_gates > Flavor::MINI_CIRCUIT_SIZE - NUM_DISABLED_ROWS_IN_SUMCHECK) {
+        if (circuit.num_gates > Flavor::MINI_CIRCUIT_SIZE - Flavor::NUM_MASKING_OPS * Flavor::NUM_ROWS_PER_ULTRA_OP) {
             throw_or_abort("The Translator circuit size has exceeded the fixed upper bound");
         }
 
@@ -72,9 +72,12 @@ class TranslatorProvingKey {
 
         // Iterate over all circuit wire polynomials, except the ones representing the op queue, and add random values
         // at the end.
+
         for (size_t idx = Flavor::NUM_OP_QUEUE_WIRES; idx < wires.size(); idx++) {
             auto& wire = wires[idx];
-            for (size_t i = wire.end_index() - NUM_DISABLED_ROWS_IN_SUMCHECK; i < wire.end_index(); i++) {
+            for (size_t i = wire.end_index() - Flavor::NUM_MASKING_OPS * Flavor::NUM_ROWS_PER_ULTRA_OP;
+                 i < wire.end_index();
+                 i++) {
                 wire.at(i) = FF::random_element();
             }
         }
