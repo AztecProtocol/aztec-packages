@@ -1,5 +1,6 @@
 ---
 title: Migrating from Sandbox to Testnet
+description: Guide for transitioning your Aztec application from local sandbox to testnet deployment.
 tags: [sandbox, testnet]
 ---
 

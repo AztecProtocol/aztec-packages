@@ -1,6 +1,7 @@
 ---
 sidebar_position: 0
 title: What is a Deployment?
+description: Learn about the deployment process on the Aztec network.
 ---
 
 An Aztec deployment is a set of the following contracts:

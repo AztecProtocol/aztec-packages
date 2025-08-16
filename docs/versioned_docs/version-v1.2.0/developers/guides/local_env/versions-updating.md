@@ -1,5 +1,6 @@
 ---
 title: Updating the Sandbox
+description: Learn how to manage and update Aztec dependencies and versions in your local environment.
 sidebar_position: 0
 tags: [sandbox]
 ---

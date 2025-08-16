@@ -1,5 +1,6 @@
 ---
 title: Rollup Circuits
+description: Learn how Rollup Circuits compress thousands of transactions into a single SNARK proof using a binary tree topology for efficient verification on Ethereum.
 tags: [protocol, circuits]
 ---
 

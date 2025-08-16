@@ -1,5 +1,6 @@
 ---
 title: "Private & Public token contract"
+description: Code-along tutorial for creating a fungible token contract on Aztec.
 draft: true
 ---
 

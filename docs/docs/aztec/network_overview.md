@@ -3,6 +3,7 @@ title: Overview
 sidebar_position: 0
 tags: [protocol]
 draft: true
+description: Introduction to Aztec Network infrastructure including sequencers, sequencer selection processes, and other core network components.
 ---
 
 # Aztec Network Infrastructure

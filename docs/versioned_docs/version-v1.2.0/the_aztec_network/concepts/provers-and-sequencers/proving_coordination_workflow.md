@@ -1,6 +1,7 @@
 ---
 sidebar_position: 1
 title: Prover Coordination Workflow
+description: Learn about the proving coordination workflow on the Aztec network.
 draft: true
 ---
 

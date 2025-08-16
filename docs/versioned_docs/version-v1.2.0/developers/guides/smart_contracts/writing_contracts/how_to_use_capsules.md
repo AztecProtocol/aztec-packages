@@ -1,5 +1,6 @@
 ---
 title: Using Capsules
+description: Learn how to use capsules to pass data between private and public functions in your Aztec smart contracts.
 sidebar_position: 5
 tags: [functions, oracles]
 ---

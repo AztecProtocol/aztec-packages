@@ -1,5 +1,6 @@
 ---
 title: Testing Contracts
+description: Learn how to write and run tests for your Aztec smart contracts.
 tags: [contracts, tests, testing, txe]
 keywords: [tests, testing, txe]
 sidebar_position: 2
