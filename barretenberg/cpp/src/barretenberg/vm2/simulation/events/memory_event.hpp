@@ -17,6 +17,17 @@ struct MemoryEvent {
     MemoryAddress addr;
     MemoryValue value;
     uint32_t space_id;
+
+    /**
+     * @brief A comparator to be used by sorting algorithm (std::sort()). We sort first by
+     *        ascending space_id, followed by address, then by clk and finally read/write.
+     */
+    bool operator<(MemoryEvent const& other) const;
 };
+
+/**
+ * @brief Comparator pointer counterpart to MemoryEvent::operator<().
+ */
+bool memory_event_ptr_less(const MemoryEvent* lhs, const MemoryEvent* rhs);
 
 } // namespace bb::avm2::simulation
