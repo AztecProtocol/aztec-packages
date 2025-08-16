@@ -429,7 +429,7 @@ TEST_F(PublicDataTreeCheckConstrainingTest, PositiveSquashing)
 
     auto test_public_inputs = testing::PublicInputsBuilder()
                                   .set_accumulated_data(accumulated_data)
-                                  .set_accumulated_data_array_lengths({ .publicDataWrites = 1 })
+                                  .set_accumulated_data_array_lengths({ .publicDataWrites = 2 })
                                   .build();
 
     EventEmitter<MerkleCheckEvent> merkle_event_emitter;

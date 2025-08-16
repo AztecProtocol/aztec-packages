@@ -28,11 +28,12 @@ import {Math} from "@oz/utils/math/Math.sol";
 import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {Timestamp, TimeLib, Slot} from "@aztec/core/libraries/TimeLib.sol";
 import {STFLib, TempBlockLog} from "@aztec/core/libraries/rollup/STFLib.sol";
-import {GenesisState} from "@aztec/core/interfaces/IRollup.sol";
-
+import {GenesisState, RollupStore} from "@aztec/core/interfaces/IRollup.sol";
+import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 // The data types are slightly messed up here, the reason is that
 // we just want to use the same structs from the test points making
 // is simpler to compare etc.
+
 contract MinimalFeeModel {
   using FeeLib for OracleInput;
   using FeeLib for uint256;
@@ -42,6 +43,7 @@ contract MinimalFeeModel {
   using CompressedTimeMath for CompressedSlot;
   using CompressedTimeMath for Slot;
   using FeeStructsLib for CompressedL1FeeData;
+  using ChainTipsLib for CompressedChainTips;
 
   // This is to allow us to use the cheatcodes for blobbasefee as foundry does not play nice
   // with the block.blobbasefee value if using cheatcodes to alter it.
@@ -103,8 +105,12 @@ contract MinimalFeeModel {
   // The `_manaUsed` is all the data we needed to know to calculate the excess mana.
   function addSlot(OracleInput memory _oracleInput, uint256 _manaUsed) public {
     uint256 blockNumber = ++populatedThrough;
-    STFLib.setTempBlockLog(
-      blockNumber,
+
+    RollupStore storage rollupStore = STFLib.getStorage();
+    CompressedChainTips tips = rollupStore.tips;
+    rollupStore.tips = tips.updatePendingBlockNumber(blockNumber);
+
+    STFLib.addTempBlockLog(
       TempBlockLog({
         headerHash: bytes32(0),
         blobCommitmentsHash: bytes32(0),

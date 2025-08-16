@@ -250,9 +250,8 @@ const InteractionDefinition PublicDataTreeTraceBuilder::interactions =
         .add<lookup_public_data_check_new_leaf_poseidon2_1_settings, InteractionType::LookupGeneric>()
         .add<lookup_public_data_check_new_leaf_merkle_check_settings, InteractionType::LookupGeneric>()
         .add<perm_public_data_check_squashing_settings, InteractionType::Permutation>()
-        //      TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
-        // .add<lookup_public_data_check_write_writes_length_to_public_inputs_settings,
-        //      InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_public_data_check_write_writes_length_to_public_inputs_settings,
+             InteractionType::LookupIntoIndexedByClk>()
         //      TODO: Disabled sorting lookups
         //      .add<lookup_public_data_squash_leaf_slot_increase_ff_gt_settings, InteractionType::LookupGeneric>()
         //      .add<lookup_public_data_squash_clk_diff_range_settings, InteractionType::LookupGeneric>()

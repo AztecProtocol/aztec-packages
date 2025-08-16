@@ -108,7 +108,7 @@ library Errors {
   error ValidatorSelection__InvalidDeposit(address attester, address proposer); // 0x533169bd
   error ValidatorSelection__InsufficientAttestations(uint256 minimumNeeded, uint256 provided); // 0xaf47297f
   error ValidatorSelection__InvalidCommitteeCommitment(bytes32 reconstructed, bytes32 expected); // 0xca8d5954
-  error ValidatorSelection__InsufficientCommitteeSize(uint256 actual, uint256 expected); // 0x98673597
+  error ValidatorSelection__InsufficientValidatorSetSize(uint256 actual, uint256 expected); // 0x98673597
   error ValidatorSelection__ProposerIndexTooLarge(uint256 index);
 
   // Staking
@@ -143,6 +143,7 @@ library Errors {
   error Staking__IncorrectGovProposer(uint256);
   error Staking__GovernanceAlreadySet();
   error Staking__InsufficientBootstrapValidators(uint256 queueSize, uint256 bootstrapFlushSize);
+  error Staking__InvalidStakingQueueConfig();
 
   // Fee Juice Portal
   error FeeJuicePortal__AlreadyInitialized(); // 0xc7a172fe

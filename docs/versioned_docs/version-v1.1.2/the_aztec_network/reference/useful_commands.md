@@ -1,6 +1,6 @@
 ---
 sidebar_position: 5
-title: Useful commands
+title: Useful Commands
 description: Learn about useful commands for interacting with the Aztec network.
 ---
 

@@ -1,6 +1,6 @@
 [build]
   # Only build if changes are made in the docs directory
-  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF docs"
+  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF"
 
 [[redirects]]
     from = "/guides/smart_contracts/writing_contracts/initializers"
@@ -185,6 +185,10 @@
 [[redirects]]
     from = "/run_node/*"
     to = "/the_aztec_network/guides/run_nodes"
+
+[[redirects]]
+    from = "/the_aztec_network/guides/run_nodes/how_to_run_full_node"
+    to = "/the_aztec_network"
 
 [[redirects]]
     from = "/developers/tutorials/codealong/contract_tutorials/uniswap/*"

@@ -112,7 +112,7 @@ describe('Multicall3', () => {
     expect(result).toBeDefined();
     expect(result).toBeInstanceOf(FormattedViemError);
     const formattedError = result as FormattedViemError;
-    expect(formattedError.message).toContain('ValidatorSelection__InsufficientCommitteeSize');
+    expect(formattedError.message).toContain('ValidatorSelection__InsufficientValidatorSetSize');
   });
 
   it('should not revert by default if a single call fails', async () => {

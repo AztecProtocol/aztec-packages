@@ -100,6 +100,8 @@ class HighLevelMerkleDBInterface {
     virtual void revert_checkpoint() = 0;
     virtual uint32_t get_checkpoint_id() const = 0;
 
+    virtual void pad_trees() = 0;
+
     virtual LowLevelMerkleDBInterface& as_unconstrained() const = 0;
 };
 

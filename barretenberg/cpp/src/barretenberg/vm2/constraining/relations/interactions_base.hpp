@@ -2,6 +2,7 @@
 
 #include <cstddef>
 
+#include "barretenberg/common/tuple.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
 #include "barretenberg/relations/generic_permutation/generic_permutation_relation.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -38,12 +39,12 @@ template <typename Settings_> struct lookup_settings : public Settings_ {
     {
         return []<size_t... ISource, size_t... IDest>(
                    AllEntities&& in, std::index_sequence<ISource...>, std::index_sequence<IDest...>) {
-            return std::forward_as_tuple(in.get(static_cast<ColumnAndShifts>(Settings_::INVERSES)),
-                                         in.get(static_cast<ColumnAndShifts>(Settings_::COUNTS)),
-                                         in.get(static_cast<ColumnAndShifts>(Settings_::SRC_SELECTOR)),
-                                         in.get(static_cast<ColumnAndShifts>(Settings_::DST_SELECTOR)),
-                                         in.get(Settings_::SRC_COLUMNS[ISource])...,
-                                         in.get(Settings_::DST_COLUMNS[IDest])...);
+            return flat_tuple::forward_as_tuple(in.get(static_cast<ColumnAndShifts>(Settings_::INVERSES)),
+                                                in.get(static_cast<ColumnAndShifts>(Settings_::COUNTS)),
+                                                in.get(static_cast<ColumnAndShifts>(Settings_::SRC_SELECTOR)),
+                                                in.get(static_cast<ColumnAndShifts>(Settings_::DST_SELECTOR)),
+                                                in.get(Settings_::SRC_COLUMNS[ISource])...,
+                                                in.get(Settings_::DST_COLUMNS[IDest])...);
         }(std::forward<AllEntities>(in),
                std::make_index_sequence<Settings_::SRC_COLUMNS.size()>{},
                std::make_index_sequence<Settings_::DST_COLUMNS.size()>{});
@@ -102,12 +103,12 @@ template <typename Settings_> struct permutation_settings : public Settings_ {
             // 3.                       rhs selector
             // 4.. + columns per set.   lhs cols
             // 4 + columns per set      rhs cols
-            return std::forward_as_tuple(in.get(static_cast<ColumnAndShifts>(Settings_::INVERSES)),
-                                         in.get(static_cast<ColumnAndShifts>(Settings_::SRC_SELECTOR)),
-                                         in.get(static_cast<ColumnAndShifts>(Settings_::SRC_SELECTOR)),
-                                         in.get(static_cast<ColumnAndShifts>(Settings_::DST_SELECTOR)),
-                                         in.get(Settings_::SRC_COLUMNS[ISource])...,
-                                         in.get(Settings_::DST_COLUMNS[IDest])...);
+            return flat_tuple::forward_as_tuple(in.get(static_cast<ColumnAndShifts>(Settings_::INVERSES)),
+                                                in.get(static_cast<ColumnAndShifts>(Settings_::SRC_SELECTOR)),
+                                                in.get(static_cast<ColumnAndShifts>(Settings_::SRC_SELECTOR)),
+                                                in.get(static_cast<ColumnAndShifts>(Settings_::DST_SELECTOR)),
+                                                in.get(Settings_::SRC_COLUMNS[ISource])...,
+                                                in.get(Settings_::DST_COLUMNS[IDest])...);
         }(std::forward<AllEntities>(in),
                std::make_index_sequence<Settings_::SRC_COLUMNS.size()>{},
                std::make_index_sequence<Settings_::DST_COLUMNS.size()>{});

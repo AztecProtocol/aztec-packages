@@ -708,7 +708,6 @@ class TranslatorFlavor {
          */
         [[nodiscard]] AllValues get_row(size_t row_idx) const
         {
-            PROFILE_THIS();
             AllValues result;
             for (auto [result_field, polynomial] : zip_view(result.get_all(), this->get_all())) {
                 result_field = polynomial[row_idx];
@@ -807,8 +806,8 @@ class TranslatorFlavor {
          * @param domain_separator
          * @param transcript
          */
-        fr add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
-                                  [[maybe_unused]] Transcript& transcript) const override
+        fr hash_through_transcript([[maybe_unused]] const std::string& domain_separator,
+                                   [[maybe_unused]] Transcript& transcript) const override
         {
             throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
         }

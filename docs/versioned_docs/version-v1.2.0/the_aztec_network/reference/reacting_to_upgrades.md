@@ -1,6 +1,6 @@
 ---
 sidebar_position: 4
-title: Reacting to upgrades
+title: Reacting to Upgrades
 description: Learn how to react to upgrades on the Aztec network.
 ---
 

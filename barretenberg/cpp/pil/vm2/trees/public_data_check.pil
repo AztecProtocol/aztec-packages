@@ -310,12 +310,11 @@ namespace public_data_check;
     pol commit length_pi_idx;
     sel * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_DATA_WRITES_ROW_IDX - length_pi_idx) = 0;
 
-    // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
-    // #[WRITE_WRITES_LENGTH_TO_PUBLIC_INPUTS]
-    // end {
-    //     length_pi_idx,
-    //     public_data_writes_length
-    // }in public_inputs.sel {
-    //     precomputed.clk,
-    //     public_inputs.cols[0]
-    // };
+    #[WRITE_WRITES_LENGTH_TO_PUBLIC_INPUTS]
+    end {
+        length_pi_idx,
+        public_data_writes_length
+    }in public_inputs.sel {
+        precomputed.clk,
+        public_inputs.cols[0]
+    };

@@ -212,8 +212,6 @@ void init_slab_allocator(size_t circuit_subgroup_size)
 
 std::shared_ptr<void> get_mem_slab(size_t size)
 {
-    PROFILE_THIS();
-
     return allocator.get(size);
 }
 

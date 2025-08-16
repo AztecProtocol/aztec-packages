@@ -41,7 +41,7 @@ TYPED_TEST_SUITE(StdlibVerificationKeyTests, FlavorTypes);
 
 /**
  * @brief Checks that the hash produced from calling to_field_elements and then add_to_independent_hash_buffer is the
- * same as the hash() call and also the same as the add_hash_to_transcript.
+ * same as the hash() call and also the same as the hash_through_transcript.
  *
  */
 TYPED_TEST(StdlibVerificationKeyTests, VKHashingConsistency)
@@ -77,14 +77,14 @@ TYPED_TEST(StdlibVerificationKeyTests, VKHashingConsistency)
     for (const auto& field_element : vk_field_elements) {
         transcript.add_to_independent_hash_buffer("vk_element", field_element);
     }
-    FF vkey_hash_1 = transcript.hash_independent_buffer();
+    FF vk_hash_1 = transcript.hash_independent_buffer();
     // Second method of hashing: using hash().
-    FF vkey_hash_2 = vk.hash(outer_builder);
-    EXPECT_EQ(vkey_hash_1.get_value(), vkey_hash_2.get_value());
-    // Third method of hashing: using add_hash_to_transcript.
+    FF vk_hash_2 = vk.hash(outer_builder);
+    EXPECT_EQ(vk_hash_1.get_value(), vk_hash_2.get_value());
+    // Third method of hashing: using hash_through_transcript.
     if constexpr (!IsAnyOf<Flavor, TranslatorRecursiveFlavor, ECCVMRecursiveFlavor>) {
         StdlibTranscript transcript_2;
-        FF vkey_hash_3 = vk.add_hash_to_transcript("", transcript_2);
-        EXPECT_EQ(vkey_hash_2.get_value(), vkey_hash_3.get_value());
+        FF vk_hash_3 = vk.hash_through_transcript("", transcript_2);
+        EXPECT_EQ(vk_hash_2.get_value(), vk_hash_3.get_value());
     }
 }
