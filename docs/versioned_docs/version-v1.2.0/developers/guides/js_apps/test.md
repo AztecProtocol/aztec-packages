@@ -91,7 +91,7 @@ const txEffects = await node.getTxEffect(tx.txHash);
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v1.2.0/yarn-project/end-to-end/src/e2e_token_contract/private_transfer_recursion.test.ts#L25-L28" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_token_contract/private_transfer_recursion.test.ts#L25-L28</a></sub></sup>
 
 
-You can also log directly from Aztec contracts. Read [this guide](../../reference/debugging/index.md#logging-in-aztecnr) for some more information.
+You can also log directly from Aztec contracts. Read [this guide](../local_env/how_to_debug.md#in-aztecnr-contracts) for some more information.
 
 ### Examples
 

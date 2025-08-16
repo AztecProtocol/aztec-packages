@@ -1,6 +1,6 @@
 ---
-title: How to Compile a Contract
-sidebar_position: 3
+title: Compiling a Contract
+sidebar_position: 1
 tags: [contracts]
 ---
 

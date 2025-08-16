@@ -377,7 +377,7 @@ env.assert_public_call_fails(set_admin_call_interface);
 
 ### Logging
 
-You can use `aztec.nr`'s oracles as usual for debug logging, as explained [here](../../reference/debugging/index.md)
+You can use `aztec.nr`'s oracles as usual for debug logging, as explained [here](../local_env/how_to_debug.md)
 
 
 :::warning
