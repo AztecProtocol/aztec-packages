@@ -83,8 +83,7 @@ function compile {
     local write_vk_cmd="write_vk --scheme client_ivc --verifier_type standalone"
   elif echo "$name" | grep -qE "${rollup_honk_regex}"; then
     local proto="ultra_rollup_honk"
-    # --honk_recursion 2 injects a fake ipa claim
-    local write_vk_cmd="write_vk --scheme ultra_honk --ipa_accumulation --honk_recursion 2"
+    local write_vk_cmd="write_vk --scheme ultra_honk --ipa_accumulation"
   elif echo "$name" | grep -qE "rollup_root"; then
     local proto="ultra_keccak_honk"
     # the root rollup does not need to inject a fake ipa claim
@@ -92,7 +91,7 @@ function compile {
     local write_vk_cmd="write_vk --scheme ultra_honk --oracle_hash keccak"
   else
     local proto="ultra_honk"
-    local write_vk_cmd="write_vk --scheme ultra_honk --init_kzg_accumulator --honk_recursion 1"
+    local write_vk_cmd="write_vk --scheme ultra_honk"
   fi
   # No vks needed for simulated circuits.
   [[ "$name" == *"simulated"* ]] && return
@@ -210,11 +209,11 @@ function bench_cmds {
   for artifact in ./target/*.json; do
     [[ "$artifact" =~ _simulated ]] && continue
     if echo "$artifact" | grep -qEf <(printf '%s\n' "${ivc_patterns[@]}"); then
-      echo "$prefix $artifact client_ivc"
+      echo "$prefix $artifact --scheme client_ivc"
     elif echo "$artifact" | grep -qEf <(printf '%s\n' "${rollup_honk_patterns[@]}"); then
-      echo "$prefix $artifact ultra_honk 2"
+      echo "$prefix $artifact --scheme ultra_honk --ipa_accumulation"
     else
-      echo "$prefix $artifact ultra_honk 1"
+      echo "$prefix $artifact --scheme ultra_honk"
     fi
   done
 }

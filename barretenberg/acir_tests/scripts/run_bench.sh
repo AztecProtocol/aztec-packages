@@ -14,6 +14,7 @@ mkdir -p ./bench-out
 bash -c "$cmd" 2>&1 | \
   tee /dev/stderr |
   grep "mem: " |
-  tail -1 |
   sed -e 's/.*mem: \([0-9.]\+\).*/\1/' |
+  sort -un |
+  tail -n 1 |
   jq -n --arg name $name '[{name: $name, value: input, unit: "MiB"}]' > ./bench-out/$name.bench.json

@@ -217,7 +217,6 @@ export async function generateProof(
   workingDirectory: string,
   circuitName: string,
   bytecode: Buffer,
-  recursive: boolean,
   inputWitnessFile: string,
   flavor: UltraHonkFlavor,
   log: Logger,
@@ -260,9 +259,6 @@ export async function generateProof(
       inputWitnessFile,
       '-v',
     ]);
-    if (recursive) {
-      args.push('--init_kzg_accumulator');
-    }
     const loggingArg = log.level === 'debug' || log.level === 'trace' ? '-d' : log.level === 'verbose' ? '-v' : '';
     if (loggingArg !== '') {
       args.push(loggingArg);

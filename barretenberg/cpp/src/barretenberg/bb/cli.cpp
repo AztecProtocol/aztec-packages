@@ -19,7 +19,6 @@
 #include "barretenberg/api/api_msgpack.hpp"
 #include "barretenberg/api/api_ultra_honk.hpp"
 #include "barretenberg/api/file_io.hpp"
-#include "barretenberg/api/gate_count.hpp"
 #include "barretenberg/api/prove_tube.hpp"
 #include "barretenberg/bb/cli11_formatter.hpp"
 #include "barretenberg/bbapi/bbapi.hpp"
@@ -156,18 +155,9 @@ int parse_and_run_cli_command(int argc, char* argv[])
      * Subcommand: Adders for options that we will create for more than one subcommand
      ***************************************************************************************************************/
 
-    const auto add_recursive_flag = [&](CLI::App* subcommand) {
+    const auto add_ipa_accumulation_flag = [&](CLI::App* subcommand) {
         return subcommand->add_flag(
-            "--recursive", flags.recursive, "Do some things relating to recursive verification and KZG...");
-    };
-
-    const auto add_honk_recursion_option = [&](CLI::App* subcommand) {
-        return subcommand->add_option(
-            "--honk_recursion",
-            flags.honk_recursion,
-            "Instruct the prover that this circuit will be recursively verified with "
-            "UltraHonk (1) or with UltraRollupHonk (2). Ensures a pairing point accumulator "
-            "(and additionally an IPA claim when UltraRollupHonk) is added to the public inputs of the proof.");
+            "--ipa_accumulation", flags.ipa_accumulation, "Accumulate/Aggregate IPA (Inner Product Argument) claims");
     };
 
     const auto add_scheme_option = [&](CLI::App* subcommand) {
@@ -219,20 +209,10 @@ int parse_and_run_cli_command(int argc, char* argv[])
         return subcommand->add_flag("--write_vk", flags.write_vk, "Write the provided circuit's verification key");
     };
 
-    const auto add_ipa_accumulation_flag = [&](CLI::App* subcommand) {
-        return subcommand->add_flag(
-            "--ipa_accumulation", flags.ipa_accumulation, "Accumulate/Aggregate IPA (Inner Product Argument) claims");
-    };
-
     const auto remove_zk_option = [&](CLI::App* subcommand) {
         return subcommand->add_flag("--disable_zk",
                                     flags.disable_zk,
                                     "Use a non-zk version of --scheme. This flag is set to false by default.");
-    };
-
-    const auto add_init_kzg_accumulator_option = [&](CLI::App* subcommand) {
-        return subcommand->add_flag(
-            "--init_kzg_accumulator", flags.init_kzg_accumulator, "Initialize pairing point accumulator.");
     };
 
     const auto add_bytecode_path_option = [&](CLI::App* subcommand) {
@@ -349,7 +329,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_scheme_option(gates);
     add_verbose_flag(gates);
     add_bytecode_path_option(gates);
-    add_honk_recursion_option(gates);
     add_include_gates_per_opcode_flag(gates);
 
     /***************************************************************************************************************
@@ -363,18 +342,14 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_output_path_option(prove, output_path);
     add_ivc_inputs_path_options(prove);
     add_vk_path_option(prove);
-
     add_verbose_flag(prove);
     add_debug_flag(prove);
     add_crs_path_option(prove);
     add_oracle_hash_option(prove);
     add_output_format_option(prove);
     add_write_vk_flag(prove);
-    remove_zk_option(prove);
-    add_init_kzg_accumulator_option(prove);
     add_ipa_accumulation_flag(prove);
-    add_recursive_flag(prove);
-    add_honk_recursion_option(prove);
+    remove_zk_option(prove);
     add_slow_low_memory_flag(prove);
     add_print_op_counts_flag(prove);
     add_op_counts_out_option(prove);
@@ -399,11 +374,8 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_debug_flag(write_vk);
     add_output_format_option(write_vk);
     add_crs_path_option(write_vk);
-    add_init_kzg_accumulator_option(write_vk);
     add_oracle_hash_option(write_vk);
     add_ipa_accumulation_flag(write_vk);
-    add_honk_recursion_option(write_vk);
-    add_recursive_flag(write_vk);
     add_verifier_type_option(write_vk)->default_val("standalone");
     remove_zk_option(write_vk);
 
@@ -423,9 +395,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_oracle_hash_option(verify);
     remove_zk_option(verify);
     add_ipa_accumulation_flag(verify);
-    add_init_kzg_accumulator_option(verify);
-    add_honk_recursion_option(verify);
-    add_recursive_flag(verify);
 
     /***************************************************************************************************************
      * Subcommand: write_solidity_verifier
@@ -450,26 +419,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
     CLI::App* OLD_API = app.add_subcommand("OLD_API", "Access some old API commands");
 
     /***************************************************************************************************************
-     * Subcommand: OLD_API gates_for_ivc
-     ***************************************************************************************************************/
-    CLI::App* OLD_API_gates_for_ivc = OLD_API->add_subcommand("gates_for_ivc", "");
-    add_verbose_flag(OLD_API_gates_for_ivc);
-    add_debug_flag(OLD_API_gates_for_ivc);
-    add_crs_path_option(OLD_API_gates_for_ivc);
-    add_bytecode_path_option(OLD_API_gates_for_ivc);
-
-    /***************************************************************************************************************
-     * Subcommand: OLD_API gates_mega_honk
-     ***************************************************************************************************************/
-    CLI::App* OLD_API_gates_mega_honk = OLD_API->add_subcommand("gates_mega_honk", "");
-    add_verbose_flag(OLD_API_gates_mega_honk);
-    add_debug_flag(OLD_API_gates_mega_honk);
-    add_crs_path_option(OLD_API_gates_mega_honk);
-    add_recursive_flag(OLD_API_gates_mega_honk);
-    add_honk_recursion_option(OLD_API_gates_mega_honk);
-    add_bytecode_path_option(OLD_API_gates_mega_honk);
-
-    /***************************************************************************************************************
      * Subcommand: OLD_API write_arbitrary_valid_client_ivc_proof_and_vk_to_file
      ***************************************************************************************************************/
     CLI::App* OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file =
@@ -481,28 +430,12 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_output_path_option(OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file, arbitrary_valid_proof_path);
 
     /***************************************************************************************************************
-     * Subcommand: OLD_API write_recursion_inputs_ultra_honk
-     ***************************************************************************************************************/
-    CLI::App* OLD_API_write_recursion_inputs_ultra_honk =
-        OLD_API->add_subcommand("write_recursion_inputs_ultra_honk", "");
-    add_verbose_flag(OLD_API_write_recursion_inputs_ultra_honk);
-    add_debug_flag(OLD_API_write_recursion_inputs_ultra_honk);
-    add_crs_path_option(OLD_API_write_recursion_inputs_ultra_honk);
-    std::string recursion_inputs_output_path{ "./target" };
-    add_output_path_option(OLD_API_write_recursion_inputs_ultra_honk, recursion_inputs_output_path);
-    add_ipa_accumulation_flag(OLD_API_write_recursion_inputs_ultra_honk);
-    add_recursive_flag(OLD_API_write_recursion_inputs_ultra_honk);
-    add_bytecode_path_option(OLD_API_write_recursion_inputs_ultra_honk);
-
-    /***************************************************************************************************************
      * Subcommand: OLD_API gates
      ***************************************************************************************************************/
     CLI::App* OLD_API_gates = OLD_API->add_subcommand("gates", "");
     add_verbose_flag(OLD_API_gates);
     add_debug_flag(OLD_API_gates);
     add_crs_path_option(OLD_API_gates);
-    add_recursive_flag(OLD_API_gates);
-    add_honk_recursion_option(OLD_API_gates);
     add_bytecode_path_option(OLD_API_gates);
 
     /***************************************************************************************************************
@@ -515,7 +448,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_bytecode_path_option(OLD_API_verify);
     add_proof_path_option(OLD_API_verify);
     add_vk_path_option(OLD_API_verify);
-    add_recursive_flag(OLD_API_verify);
 
     /***************************************************************************************************************
      * Subcommand: OLD_API prove_and_verify
@@ -524,7 +456,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_verbose_flag(OLD_API_prove_and_verify);
     add_debug_flag(OLD_API_prove_and_verify);
     add_crs_path_option(OLD_API_prove_and_verify);
-    add_recursive_flag(OLD_API_prove_and_verify);
     add_bytecode_path_option(OLD_API_prove_and_verify);
 
     std::filesystem::path avm_inputs_path{ "./target/avm_inputs.bin" };
@@ -713,24 +644,9 @@ int parse_and_run_cli_command(int argc, char* argv[])
             throw_or_abort("The Aztec Virtual Machine (AVM) is disabled in this environment!");
         }
 #endif
-        // CLIENT IVC EXTRA COMMAND
-        else if (OLD_API_gates_for_ivc->parsed()) {
-            gate_count_for_ivc(bytecode_path, true);
-        } else if (OLD_API_gates_mega_honk->parsed()) {
-            gate_count<MegaCircuitBuilder>(bytecode_path, flags.recursive, flags.honk_recursion, true);
-        } else if (OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file->parsed()) {
+        else if (OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file->parsed()) {
             write_arbitrary_valid_client_ivc_proof_and_vk_to_file(arbitrary_valid_proof_path);
             return 0;
-        }
-        // ULTRA HONK EXTRA COMMANDS
-        else if (OLD_API_write_recursion_inputs_ultra_honk->parsed()) {
-            if (flags.ipa_accumulation) {
-                write_recursion_inputs_ultra_honk<UltraRollupFlavor>(
-                    bytecode_path, witness_path, recursion_inputs_output_path);
-            } else {
-                write_recursion_inputs_ultra_honk<UltraFlavor>(
-                    bytecode_path, witness_path, recursion_inputs_output_path);
-            }
         }
         // NEW STANDARD API
         // NOTE(AD): We likely won't really have a standard API if our main flavours are UH or CIVC, with CIVC so

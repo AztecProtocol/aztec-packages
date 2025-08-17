@@ -3,8 +3,6 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 export CRS_PATH=$HOME/.bb-crs
-native_build_dir=$(../cpp/scripts/native-preset-build-dir)
-export bb=$(realpath ../cpp/$native_build_dir/bin/bb)
 
 tests_tar=barretenberg-acir-tests-$(hash_str \
   $(../../noir/bootstrap.sh hash-tests) \
@@ -26,6 +24,8 @@ tests_hash=$(hash_str \
 # Generate inputs for a given recursively verifying program.
 function run_proof_generation {
   local program=$1
+  local native_build_dir=$(../cpp/scripts/native-preset-build-dir)
+  local bb=$(realpath ../cpp/$native_build_dir/bin/bb)
   local outdir=$(mktemp -d)
   trap "rm -rf $outdir" EXIT
   local adjustment=16
@@ -44,7 +44,7 @@ function run_proof_generation {
   if [[ $program == *"zk"* ]]; then
     disable_zk=""
   fi
-  local prove_cmd="$bb prove --scheme ultra_honk $disable_zk --init_kzg_accumulator $ipa_accumulation_flag --output_format fields --write_vk -o $outdir -b ./target/program.json -w ./target/witness.gz"
+  local prove_cmd="$bb prove --scheme ultra_honk $disable_zk $ipa_accumulation_flag --output_format fields --write_vk -o $outdir -b ./target/program.json -w ./target/witness.gz"
   echo_stderr "$prove_cmd"
   dump_fail "$prove_cmd"
 
@@ -81,11 +81,23 @@ function generate_toml {
 function regenerate_recursive_inputs {
   local program=$1
   # Compile the assert_statement test as it's used for the recursive tests.
-  COMPILE=2 ./scripts/run_test.sh assert_statement
+  cd ./acir_tests/assert_statement
+  local nargo=$(realpath ../../../../noir/noir-repo/target/release/nargo)
+  rm -rf target
+  $nargo compile --silence-warnings && $nargo execute
+  mv ./target/assert_statement.json ./target/program.json
+  mv ./target/assert_statement.gz ./target/witness.gz
+  cd ../..
   parallel 'run_proof_generation {}' ::: $(ls internal_test_programs)
 }
 
 export -f regenerate_recursive_inputs run_proof_generation generate_toml
+
+function compile {
+  echo_header "Compiling acir_tests"
+  local nargo=$(realpath ../../noir/noir-repo/target/release/nargo)
+  denoise "parallel --joblog joblog.txt --line-buffered 'cd {} && rm -rf target && $nargo compile --silence-warnings && $nargo execute && mv ./target/\$(basename {}).json ./target/program.json && mv ./target/\$(basename {}).gz ./target/witness.gz' ::: ./acir_tests/*"
+}
 
 function build {
   echo_header "acir_tests build"
@@ -107,9 +119,8 @@ function build {
     # Generates the Prover.toml files for the recursive tests from the assert_statement test.
     denoise regenerate_recursive_inputs
 
-    # COMPILE=2 only compiles the test.
-    denoise "parallel --joblog joblog.txt --line-buffered 'COMPILE=2 ./scripts/run_test.sh \$(basename {})' ::: ./acir_tests/*"
-
+    # Compile all tests
+    compile
     cache_upload $tests_tar acir_tests
   fi
 
@@ -127,85 +138,76 @@ function test {
 # Paths are all relative to the repository root.
 # this function is used to generate the commands for running the tests.
 function test_cmds {
+  # NOTE: client-ivc commands are tested in yarn-project/end-to-end bench due to circular dependencies.
+  # Locally, you can do ./bootstrap.sh bench_ivc to run the 'tests' (benches with validation)
+
   # non_recursive_tests include all of the non recursive test programs
   local non_recursive_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d | \
     grep -vE 'verify_honk_proof|verify_honk_zk_proof|verify_rollup_honk_proof')
-  local run_test=$(realpath --relative-to=$root ./scripts/run_test.sh)
-  local run_test_browser=$(realpath --relative-to=$root ./scripts/run_test_browser.sh)
-  local bbjs_bin="../ts/dest/node/main.js"
+  local scripts=$(realpath --relative-to=$root scripts)
 
+  local sol_prefix="$tests_hash:ISOLATE=1"
   # Solidity tests. Isolate because anvil.
-  local prefix="$tests_hash:ISOLATE=1"
-  echo "$prefix FLOW=sol_honk $run_test assert_statement"
-  echo "$prefix FLOW=sol_honk $run_test a_1_mul"
-  echo "$prefix FLOW=sol_honk $run_test slices"
-  echo "$prefix FLOW=sol_honk $run_test verify_honk_proof"
-  echo "$prefix FLOW=sol_honk_zk $run_test assert_statement"
-  echo "$prefix FLOW=sol_honk_zk $run_test a_1_mul"
-  echo "$prefix FLOW=sol_honk_zk $run_test slices"
-  echo "$prefix FLOW=sol_honk_zk $run_test verify_honk_proof"
+  # Test the solidity verifier with and without zk
+  for t in assert_statement a_1_mul slices verify_honk_proof; do
+    echo "$sol_prefix $scripts/bb_prove_sol_verify.sh $t --disable_zk"
+    echo "$sol_prefix $scripts/bb_prove_sol_verify.sh $t"
+  done
+  # prove with bb cli and verify with bb.js classes
+  echo "$sol_prefix $scripts/bb_prove_bbjs_verify.sh a_1_mul"
+  echo "$sol_prefix $scripts/bb_prove_bbjs_verify.sh assert_statement"
 
   # bb.js browser tests. Isolate because server.
-  local prefix="$tests_hash:ISOLATE=1:NET=1:CPUS=8"
-  echo "$prefix:NAME=chrome_verify_honk_proof BROWSER=chrome $run_test_browser verify_honk_proof"
-  echo "$prefix:NAME=chrome_a_1_mul BROWSER=chrome $run_test_browser a_1_mul"
-  echo "$prefix:NAME=webkit_verify_honk_proof BROWSER=webkit $run_test_browser verify_honk_proof"
-  echo "$prefix:NAME=webkit_a_1_mul BROWSER=webkit $run_test_browser a_1_mul"
+  local browser_prefix="$tests_hash:ISOLATE=1:NET=1:CPUS=8"
+  echo "$browser_prefix:NAME=chrome_verify_honk_proof $scripts/browser_prove.sh verify_honk_proof chrome"
+  echo "$browser_prefix:NAME=chrome_a_1_mul $scripts/browser_prove.sh a_1_mul chrome"
+  echo "$browser_prefix:NAME=webkit_verify_honk_proof $scripts/browser_prove.sh verify_honk_proof webkit"
+  echo "$browser_prefix:NAME=webkit_a_1_mul $scripts/browser_prove.sh a_1_mul webkit"
 
   # bb.js tests.
-  local prefix=$tests_hash
   # ecdsa_secp256r1_3x through bb.js on node to check 256k support.
-  echo "$prefix BIN=$bbjs_bin SYS=ultra_honk_deprecated FLOW=prove_then_verify $run_test ecdsa_secp256r1_3x"
+  echo "$tests_hash $scripts/bbjs_prove.sh ecdsa_secp256r1_3x"
   # the prove then verify flow for UltraHonk. This makes sure we have the same circuit for different witness inputs.
-  echo "$prefix BIN=$bbjs_bin SYS=ultra_honk_deprecated FLOW=prove_then_verify $run_test a_6_array"
+  echo "$tests_hash $scripts/bbjs_prove.sh a_6_array"
 
-  # barretenberg-acir-tests-bb:
   # Fold and verify an ACIR program stack using ClientIVC, recursively verify as part of the Tube circuit and produce and verify a Honk proof
-  echo "$prefix FLOW=prove_then_verify_tube $run_test a_6_array"
+  echo "$tests_hash $scripts/bb_tube_prove.sh a_6_array"
 
-  # barretenberg-acir-tests-bb-ultra-honk:
-  # SYS decides which scheme will be used for the test.
-  # FLOW decides which script (prove, verify, prove_then_verify, etc.) will be ran
   for t in $non_recursive_tests; do
-    echo "$prefix SYS=ultra_honk FLOW=prove_then_verify $run_test $(basename $t)"
+    echo "$tests_hash $scripts/bb_prove.sh $(basename $t)"
   done
-  echo "$prefix SYS=ultra_honk FLOW=prove_then_verify $run_test assert_statement"
+  echo "$tests_hash $scripts/bb_prove.sh assert_statement"
   # Run the UH recursive verifier tests with ZK.
-  echo "$prefix SYS=ultra_honk FLOW=prove_then_verify $run_test verify_honk_proof"
-  echo "$prefix SYS=ultra_honk FLOW=prove_then_verify $run_test double_verify_honk_proof"
+  echo "$tests_hash $scripts/bb_prove.sh verify_honk_proof"
+  echo "$tests_hash $scripts/bb_prove.sh double_verify_honk_proof"
   # Run the UH recursive verifier tests without ZK.
-  echo "$prefix SYS=ultra_honk FLOW=prove_then_verify DISABLE_ZK=true $run_test double_verify_honk_proof"
+  echo "$tests_hash $scripts/bb_prove.sh double_verify_honk_proof --disable_zk"
   # Run the ZK UH recursive verifier tests.
-  echo "$prefix SYS=ultra_honk FLOW=prove_then_verify $run_test double_verify_honk_zk_proof"
+  echo "$tests_hash $scripts/bb_prove.sh double_verify_honk_zk_proof"
   # Run the ZK UH recursive verifier tests without ZK.
-  echo "$prefix SYS=ultra_honk FLOW=prove_then_verify DISABLE_ZK=true $run_test double_verify_honk_zk_proof"
+  echo "$tests_hash $scripts/bb_prove.sh double_verify_honk_zk_proof --disable_zk"
 
-  echo "$prefix SYS=ultra_honk FLOW=prove_then_verify HASH=keccak $run_test assert_statement"
-  # echo "$prefix SYS=ultra_honk FLOW=prove_then_verify HASH=starknet $run_test assert_statement"
-  echo "$prefix SYS=ultra_honk FLOW=prove_then_verify ROLLUP=true $run_test verify_rollup_honk_proof"
-  # Run the assert_statement test with the --disable_zk flag.
-  echo "$prefix SYS=ultra_honk FLOW=prove_then_verify DISABLE_ZK=true $run_test assert_statement"
+  echo "$tests_hash $scripts/bb_prove.sh assert_statement --oracle_hash keccak"
+  # If starknet enabled:
+  #echo "$tests_hash $scripts/bb_prove.sh assert_statement --oracle_hash starknet"
+  # Test rollup verification (rollup uses --ipa_accumulation)
+  echo "$tests_hash $scripts/bb_prove.sh verify_rollup_honk_proof --ipa_accumulation"
+  # Run the assert_statement test with ZK disabled.
+  echo "$tests_hash $scripts/bb_prove.sh assert_statement --disable_zk"
 
   # prove and verify using bb.js classes
-  echo "$prefix SYS=ultra_honk FLOW=bbjs_prove_verify $run_test a_1_mul"
-  echo "$prefix SYS=ultra_honk FLOW=bbjs_prove_verify $run_test assert_statement"
-
-  # prove with bb.js and verify with solidity verifier
-  echo "$prefix SYS=ultra_honk FLOW=bbjs_prove_sol_verify $run_test a_1_mul"
-  echo "$prefix SYS=ultra_honk FLOW=bbjs_prove_sol_verify $run_test assert_statement"
-
-  # prove with bb cli and verify with bb.js classes
-  echo "$prefix SYS=ultra_honk FLOW=bb_prove_bbjs_verify $run_test a_1_mul"
-  echo "$prefix SYS=ultra_honk FLOW=bb_prove_bbjs_verify $run_test assert_statement"
+  echo "$tests_hash $scripts/bbjs_prove.sh a_1_mul"
+  echo "$tests_hash $scripts/bbjs_prove.sh assert_statement"
 
   # prove with bb.js and verify with bb cli
-  echo "$prefix SYS=ultra_honk FLOW=bbjs_prove_bb_verify $run_test a_1_mul"
-  echo "$prefix SYS=ultra_honk FLOW=bbjs_prove_bb_verify $run_test assert_statement"
+  echo "$tests_hash $scripts/bbjs_prove_bb_verify.sh a_1_mul"
+  echo "$tests_hash $scripts/bbjs_prove_bb_verify.sh assert_statement"
 }
 
 function bench_cmds {
+  local dir=$(realpath --relative-to=$root .)
   echo "$tests_hash:CPUS=16 barretenberg/acir_tests/scripts/run_bench.sh ultra_honk_rec_wasm_memory" \
-    "'BIN=../ts/dest/node/main.js SYS=ultra_honk_deprecated FLOW=prove_then_verify ./scripts/run_test.sh verify_honk_proof'"
+    "'scripts/bbjs_legacy_cli_prove.sh verify_honk_proof'"
 }
 
 # TODO(https://github.com/AztecProtocol/barretenberg/issues/1254): More complete testing, including failure tests
@@ -227,6 +229,9 @@ case "$cmd" in
     ;;
   "hash")
     echo $tests_hash
+    ;;
+  "compile")
+    compile
     ;;
   test|test_cmds|bench|bench_cmds)
     $cmd
