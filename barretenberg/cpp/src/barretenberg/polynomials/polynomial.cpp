@@ -125,6 +125,7 @@ Polynomial<Fr>::Polynomial(std::span<const Fr> interpolation_points,
 
 template <typename Fr> Polynomial<Fr>::Polynomial(std::span<const Fr> coefficients, size_t virtual_size)
 {
+    info("correct constructor?");
     allocate_backing_memory(coefficients.size(), virtual_size, 0);
 
     memcpy(static_cast<void*>(data()), static_cast<const void*>(coefficients.data()), sizeof(Fr) * coefficients.size());

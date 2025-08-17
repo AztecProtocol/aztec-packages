@@ -276,18 +276,7 @@ template <typename Flavor> class SumcheckProver {
         }
         vinfo("completed ", multivariate_d, " rounds of sumcheck");
 
-        // Run virtual rounds
-        ClaimedEvaluations claimed_evals = extract_claimed_evaluations(partially_evaluated_polynomials);
-
         GateSeparatorPolynomial<FF> virtual_gate_separator(gate_challenges, multivariate_challenge);
-
-        ProverPolynomials virtual_polynomials;
-        size_t eval_idx = 0;
-        for (auto& poly : virtual_polynomials.get_all()) {
-            poly = Polynomial<FF>(2);
-            poly.at(0) = claimed_evals.get_all()[eval_idx++];
-            poly.at(1) = 0;
-        }
 
         for (size_t k = multivariate_d; k < virtual_log_n; ++k) {
 
@@ -300,7 +289,9 @@ template <typename Flavor> class SumcheckProver {
             multivariate_challenge.emplace_back(u_k);
 
             for (auto& poly : partially_evaluated_polynomials.get_all()) {
-                poly.at(0) *= (FF(1) - u_k);
+                if (poly.size() > 0) {
+                    poly.at(0) *= (FF(1) - u_k);
+                }
             }
             virtual_gate_separator.partially_evaluate(u_k);
         }
