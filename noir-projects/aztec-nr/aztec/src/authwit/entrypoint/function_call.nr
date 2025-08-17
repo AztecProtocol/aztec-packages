@@ -8,6 +8,8 @@ use std::meta::derive;
 // 3 * 32 + 2
 global FUNCTION_CALL_SIZE_IN_BYTES: u32 = 98;
 
+// TODO: update to include a `pub hide_msg_sender: bool` item, for public
+// function calls.
 #[derive(Serialize)]
 pub struct FunctionCall {
     pub args_hash: Field, /* args_hash is calldata_hash if is_public is true */

@@ -57,7 +57,7 @@ pub contract Uniswap {
         // nonce for someone to call swap on sender's behalf
         _nonce_for_swap_approval: Field,
     ) {
-        if (!sender.eq(context.msg_sender())) {
+        if (!sender.eq(context.msg_sender().unwrap())) {
             assert_current_call_valid_authwit_public(&mut context, sender);
         }
 
@@ -144,7 +144,7 @@ pub contract Uniswap {
         // Transfer funds to this contract
         Token::at(input_asset)
             .transfer_to_public(
-                context.msg_sender(),
+                context.msg_sender().unwrap(),
                 context.this_address(),
                 input_amount,
                 nonce_for_transfer_to_public_approval,

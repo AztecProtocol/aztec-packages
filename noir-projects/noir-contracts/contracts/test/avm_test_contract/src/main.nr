@@ -394,7 +394,7 @@ pub contract AvmTest {
 
     #[public]
     fn get_sender() -> AztecAddress {
-        context.msg_sender()
+        context.msg_sender_unsafe()
     }
 
     #[public]
