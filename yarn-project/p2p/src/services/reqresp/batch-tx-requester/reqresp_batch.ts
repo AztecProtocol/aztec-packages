@@ -10,7 +10,7 @@ import type { PeerId } from '@libp2p/interface';
 import { peerIdFromString } from '@libp2p/peer-id';
 
 import type { ConnectionSampler } from '.././connection-sampler/connection_sampler.js';
-import { type ReqRespInterface, ReqRespSubProtocol } from '.././interface.js';
+import { type ReqRespInterface, ReqRespSubProtocol, type ReqRespSubProtocolValidators } from '.././interface.js';
 import { BlockTxsRequest, BlockTxsResponse } from '.././protocols/index.js';
 import { ReqRespStatus } from '.././status.js';
 import { MissingTxMetadata, MissingTxMetadataCollection, TX_BATCH_SIZE } from './missing_txs.js';
@@ -34,6 +34,7 @@ export class BatchTxRequester {
     private readonly timeoutMs: number,
     private readonly reqresp: ReqRespInterface,
     private readonly connectionSampler: ConnectionSampler,
+    private readonly txValidator: ReqRespSubProtocolValidators[ReqRespSubProtocol.TX],
     private readonly logger = createLogger('p2p:reqresp_batch'),
     private readonly dateProvider: DateProvider = new DateProvider(),
   ) {
@@ -90,10 +91,9 @@ export class BatchTxRequester {
 
   private async smartRequester() {
     const nextPeerIndex = this.makeRoundRobinIndexer();
-    const getPeers = () => this.peers.getSmartPeersToQuery();
 
     const nextPeer = () => {
-      const peers = getPeers();
+      const peers = this.peers.getSmartPeersToQuery();
       const idx = nextPeerIndex(() => peers.length);
       return idx === undefined ? undefined : peerIdFromString(peers[idx]);
     };
@@ -111,7 +111,7 @@ export class BatchTxRequester {
 
     const workers = Array.from(
       { length: Math.min(SMART_PEERS_TO_QUERY_IN_PARALLEL, this.peers.getAllPeers().size) },
-      () => this.workerLoop(nextPeer, makeRequest, 'smart'),
+      () => this.smartWorkerLoop(nextPeer, makeRequest),
     );
 
     await Promise.allSettled(workers);
@@ -131,14 +131,14 @@ export class BatchTxRequester {
       );
 
     const makeRequest = (_pid: PeerId) => {
-      const txsChunks = txChunks();
-      const idx = nextBatchIndex(() => txChunks().length);
+      const chunks = txChunks();
+      const idx = nextBatchIndex(() => chunks.length);
       if (idx === undefined) {
         return undefined;
       }
 
-      const txs = txsChunks[idx].map(t => TxHash.fromString(t));
-      console.log(`Dumb batch index: ${idx}, batches count: ${txsChunks.length}`);
+      const txs = chunks[idx].map(t => TxHash.fromString(t));
+      console.log(`Dumb batch index: ${idx}, batches count: ${chunks.length}`);
       txs.forEach(tx => this.txsMetadata.markRequested(tx));
       return { blockRequest: BlockTxsRequest.fromBlockProposalAndMissingTxs(this.blockProposal, txs), txs };
     };
@@ -151,55 +151,96 @@ export class BatchTxRequester {
 
     const workers = Array.from(
       { length: Math.min(DUMB_PEERS_TO_QUERY_IN_PARALLEL, this.peers.getAllPeers().size) },
-      () => this.workerLoop(nextPeer, makeRequest, 'dumb'),
+      () => this.dumbWorkerLoop(nextPeer, makeRequest),
     );
     await Promise.allSettled(workers);
   }
 
-  //TODO: cleanup the typeing here
-  // splitting this in workerLoopSmart and dumb probably makes sense
-  private async workerLoop(
+  private async dumbWorkerLoop(
     pickNextPeer: () => PeerId | undefined,
     request: (pid: PeerId) => { blockRequest: BlockTxsRequest | undefined; txs: TxHash[] } | undefined,
-    type: 'smart' | 'dumb',
   ) {
-    if (type === 'smart') {
-      await this.smartRequesterSemaphore.acquire();
-    }
-
     let count = 0;
     while (!this.shouldStop()) {
       count++;
       const peerId = pickNextPeer();
       const weRanOutOfPeersToQuery = peerId === undefined;
       if (weRanOutOfPeersToQuery) {
-        this.logger.debug(`Worker loop: ${type}: No more peers to query`);
-        console.log(`[${count}] Worker loop: ${type}: No more peers to query`);
+        this.logger.debug(`Worker loop dumb: No more peers to query`);
+        console.log(`[${count}] Worker loop dumb: No more peers to query`);
         return;
       }
 
       const nextBatchTxRequest = request(peerId);
       if (!nextBatchTxRequest) {
-        this.logger.warn(`Worker loop: ${type}: Could not create next batch request`);
+        this.logger.warn(`Worker loop dumb: Could not create next batch request`);
         // We retry with the next peer/batch
         continue;
       }
 
+      //TODO: check this, this should only happen in case something bad happened
       const { blockRequest, txs } = nextBatchTxRequest;
       if (blockRequest === undefined) {
         return;
       }
 
       console.log(
-        `[${count}] Worker type: ${type}: Requesting txs from peer ${peerId.toString()}: ${txs.map(tx => tx.toString()).join('\n')}`,
+        `[${count}] Worker type dumb: Requesting txs from peer ${peerId.toString()}: ${txs.map(tx => tx.toString()).join('\n')}`,
       );
 
       await this.requestTxBatch(peerId, blockRequest);
-      if (type === 'smart') {
-        txs.forEach(tx => {
-          this.txsMetadata.markNotInFlightBySmartPeer(tx);
-        });
+    }
+  }
+
+  private async smartWorkerLoop(
+    pickNextPeer: () => PeerId | undefined,
+    request: (pid: PeerId) => { blockRequest: BlockTxsRequest | undefined; txs: TxHash[] } | undefined,
+  ) {
+    let count = 0;
+    await this.smartRequesterSemaphore.acquire();
+
+    while (!this.shouldStop()) {
+      count++;
+      const peerId = pickNextPeer();
+      const weRanOutOfPeersToQuery = peerId === undefined;
+      if (weRanOutOfPeersToQuery) {
+        this.logger.debug(`Worker loop smart: No more no more peers to query`);
+        console.log(`[${count}] Worker loop smart: No more smart peers to query`);
+
+        //If there are no more dumb peers to query then none of our peers can become smart,
+        //thus we can simply exit this worker
+        const noMoreDumbPeersToQuery = this.peers.getDumbPeersToQuery().length === 0;
+        if (noMoreDumbPeersToQuery) {
+          return;
+        }
+
+        await this.smartRequesterSemaphore.acquire();
+        this.logger.debug(`Worker loop smart: acquired next smart peer`);
+        console.log(`[${count}] Worker loop smart: acquired next smart peer`);
+        continue;
       }
+
+      const nextBatchTxRequest = request(peerId);
+      if (!nextBatchTxRequest) {
+        this.logger.warn(`Worker loop smart: Could not create next batch request`);
+        // We retry with the next peer/batch
+        continue;
+      }
+
+      //TODO: check this, this should only happen in case something bad happened
+      const { blockRequest, txs } = nextBatchTxRequest;
+      if (blockRequest === undefined) {
+        return;
+      }
+
+      console.log(
+        `[${count}] Worker type smart : Requesting txs from peer ${peerId.toString()}: ${txs.map(tx => tx.toString()).join('\n')}`,
+      );
+
+      await this.requestTxBatch(peerId, blockRequest);
+      txs.forEach(tx => {
+        this.txsMetadata.markNotInFlightBySmartPeer(tx);
+      });
     }
   }
 
@@ -277,6 +318,7 @@ export class BatchTxRequester {
   private markTxsPeerHas(peerId: PeerId, response: BlockTxsResponse) {
     const txsPeerHas = this.extractHashesPeerHasFromResponse(response);
     console.log(`${peerId.toString()} has txs: ${txsPeerHas.map(tx => tx.toString()).join('\n')}`);
+    //TODO: validate txs
     this.txsMetadata.markPeerHas(peerId, txsPeerHas);
   }
 
