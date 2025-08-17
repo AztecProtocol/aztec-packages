@@ -2,7 +2,7 @@
 
 A diversified public key can be derived from Alice's keys, to enhance Alice's transaction privacy. If Alice's counterparties' databases are compromised, it enables Alice to retain privacy from such leakages. Diversified public keys are used for generating diversified addresses.
 
-Basically, Alice must personally derive and provide Bob and Charlie with random-looking addresses (for Alice). Because Alice is the one deriving these Diversified Addresses (they can _only_ be derived by Alice), if Bob and Charlie chose to later collude, they would not be able to convince each-other that they'd interacted with Alice.
+Basically, Alice must personally derive and provide Bob and Charlie with random-looking addresses (for Alice). Because Alice is the one deriving these Diversified Addresses (they can _only_ be derived by Alice), if Bob and Charlie choose to later collude, they would not be able to convince each other that they'd interacted with Alice.
 
 This is not to be confused with 'Stealth Addresses', which 'flip' who derives: Bob and Charlie would each derive a random-looking Stealth Address for Alice. Alice would then discover her new Stealth Addresses through decryption.
 
@@ -17,7 +17,7 @@ $\d$ | $\stackrel{rand}{\leftarrow} \mathbb{F}$ |diversifier |
 $\Gd$ | $\d \cdot G$ | diversified generator |
 $\Ivpkmd$ | $\ivskm \cdot \Gd$ | Diversified incoming viewing public key |
 
-> Notice: when $\d = 1$, $\Ivpkmd = \Ivpkm$. Often, it will be unncessary to diversify the below data, but we keep $\d$ around for the most generality.
+> Notice: when $\d = 1$, $\Ivpkmd = \Ivpkm$. Often, it will be unnecessary to diversify the below data, but we keep $\d$ around for the most generality.
 
 ## Deriving stealth public keys
 
@@ -49,7 +49,7 @@ $\hmencheader$ | $\text{pos2}(\text{``az\_enc\_key''}, \sharedsecret_{m,header})
 $\ciphertextheader$ | $\text{encrypt}^{\Ivpkm}_{\hmencheader}$(app\_address) | | TODO: diversify this? |
 $\payload$ | [ $\tagg_{m, i}^{Bob \rightarrow Alice}$, $\Epkd,_{header}$, $\ciphertextheader$, $\Epkd,_{stealth}$ ] |
 
-Alice can learn about her new Stealth Address as follows. First, she would identify the transaction has intended for her, either by observing $\tagg_{m, i}^{Bob \rightarrow Alice}$ on-chain herself (and then downloading the rest of the payload which accompanies the tag), or by making a privacy-preserving request to a server, to retrieve the payload which accompanies the tag. Assuming the $\payload$ has been identified as Alice's, we proceed:
+Alice can learn about her new Stealth Address as follows. First, she would identify the transaction is intended for her, either by observing $\tagg_{m, i}^{Bob \rightarrow Alice}$ on-chain herself (and then downloading the rest of the payload which accompanies the tag), or by making a privacy-preserving request to a server, to retrieve the payload which accompanies the tag. Assuming the $\payload$ has been identified as Alice's, we proceed:
 
 <!-- prettier-ignore -->
 | Thing | Derivation | Name |
