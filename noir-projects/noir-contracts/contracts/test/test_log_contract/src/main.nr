@@ -36,7 +36,7 @@ pub contract TestLog {
         emit_event_in_private_log(
             event0,
             &mut context,
-            context.msg_sender(),
+            context.msg_sender().unwrap(),
             PrivateLogContent.CONSTRAINED_ENCRYPTION,
         );
 
@@ -56,7 +56,7 @@ pub contract TestLog {
         emit_event_in_private_log(
             event1,
             &mut context,
-            context.msg_sender(),
+            context.msg_sender().unwrap(),
             PrivateLogContent.CONSTRAINED_ENCRYPTION,
         );
     }

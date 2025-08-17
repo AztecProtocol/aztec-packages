@@ -34,7 +34,7 @@ pub contract Auth {
     // docs:start:delayed_public_mutable_schedule
     #[public]
     fn set_authorized(authorized: AztecAddress) {
-        assert_eq(storage.admin.read(), context.msg_sender(), "caller is not admin");
+        assert_eq(storage.admin.read(), context.msg_sender().unwrap(), "caller is not admin");
         storage.authorized.schedule_value_change(authorized);
         // docs:end:delayed_public_mutable_schedule
     }
@@ -77,7 +77,7 @@ pub contract Auth {
         // docs:start:delayed_public_mutable_get_current_private
         let authorized = storage.authorized.get_current_value();
         // docs:end:delayed_public_mutable_get_current_private
-        assert_eq(authorized, context.msg_sender(), "caller is not authorized");
+        assert_eq(authorized, context.msg_sender().unwrap(), "caller is not authorized");
     }
 
     #[private]

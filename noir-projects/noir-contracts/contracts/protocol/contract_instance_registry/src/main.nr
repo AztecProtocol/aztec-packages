@@ -111,7 +111,7 @@ pub contract ContractInstanceRegistry {
         let deployer = if universal_deploy {
             AztecAddress::zero()
         } else {
-            context.msg_sender()
+            context.msg_sender().unwrap()
         };
 
         let partial_address =
@@ -148,7 +148,7 @@ pub contract ContractInstanceRegistry {
 
     #[public]
     fn update(new_contract_class_id: ContractClassId) {
-        let address = context.msg_sender();
+        let address = context.msg_sender().unwrap();
 
         assert(
             context.nullifier_exists(address.to_field(), context.this_address()),
@@ -182,7 +182,7 @@ pub contract ContractInstanceRegistry {
 
     #[public]
     fn set_update_delay(new_update_delay: u64) {
-        let address = context.msg_sender();
+        let address = context.msg_sender().unwrap();
 
         assert(
             context.nullifier_exists(address.to_field(), context.this_address()),
@@ -197,6 +197,6 @@ pub contract ContractInstanceRegistry {
     #[public]
     #[view]
     fn get_update_delay() -> u64 {
-        storage.updated_class_ids.at(context.msg_sender()).get_current_delay()
+        storage.updated_class_ids.at(context.msg_sender().unwrap()).get_current_delay()
     }
 }

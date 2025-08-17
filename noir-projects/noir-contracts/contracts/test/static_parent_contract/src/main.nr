@@ -51,7 +51,7 @@ pub contract StaticParent {
         target_selector: FunctionSelector,
         args: [Field; 1],
     ) {
-        context.call_public_function(target_contract, target_selector, args);
+        context.call_public_function(target_contract, target_selector, args, false);
     }
 
     #[private]
@@ -148,7 +148,7 @@ pub contract StaticParent {
         target_selector: FunctionSelector,
         args: [Field; 1],
     ) {
-        context.static_call_public_function(target_contract, target_selector, args);
+        context.static_call_public_function(target_contract, target_selector, args, false);
     }
 
     // Same as above but using a specific function from the interface

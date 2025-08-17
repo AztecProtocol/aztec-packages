@@ -42,7 +42,7 @@ pub contract Claim {
         );
         assert_eq(
             proof_retrieved_note.note.get_owner(),
-            context.msg_sender(),
+            context.msg_sender().unwrap(),
             "Note does not belong to the sender",
         );
 

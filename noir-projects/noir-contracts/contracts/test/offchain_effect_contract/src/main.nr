@@ -51,7 +51,11 @@ contract OffchainEffect {
 
     #[private]
     fn emit_event_as_offchain_message_for_msg_sender(a: u64, b: u64, c: u64) {
-        emit_event_as_offchain_message(TestEvent { a, b, c }, &mut context, context.msg_sender());
+        emit_event_as_offchain_message(
+            TestEvent { a, b, c },
+            &mut context,
+            context.msg_sender().unwrap(),
+        );
     }
 
     #[private]
@@ -61,7 +65,7 @@ contract OffchainEffect {
         storage.balances.at(owner).insert(note).emit(
             encode_and_encrypt_note_and_emit_as_offchain_message(
                 &mut context,
-                context.msg_sender(),
+                context.msg_sender().unwrap(),
             ),
         );
     }

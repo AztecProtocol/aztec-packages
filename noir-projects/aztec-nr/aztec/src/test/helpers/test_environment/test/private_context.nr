@@ -66,8 +66,11 @@ unconstrained fn public_calls_fails() {
     let env = TestEnvironment::new();
 
     env.private_context(|context| {
-        let _ =
-            context.call_public_function_no_args(AztecAddress::zero(), FunctionSelector::zero());
+        let _ = context.call_public_function_no_args(
+            AztecAddress::zero(),
+            FunctionSelector::zero(),
+            false,
+        );
     });
 }
 
@@ -80,6 +83,7 @@ unconstrained fn set_teardown_fails() {
             AztecAddress::zero(),
             FunctionSelector::zero(),
             [],
+            false,
         );
     });
 }

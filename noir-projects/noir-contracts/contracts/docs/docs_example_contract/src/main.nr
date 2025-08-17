@@ -84,7 +84,7 @@ pub contract DocsExample {
     // docs:start:initialize_public_immutable
     #[public]
     fn initialize_public_immutable(points: u8) {
-        let mut new_leader = Leader { account: context.msg_sender(), points };
+        let mut new_leader = Leader { account: context.msg_sender().unwrap(), points };
         storage.public_immutable.initialize(new_leader);
         // docs:end:initialize_public_immutable
     }
@@ -99,11 +99,11 @@ pub contract DocsExample {
     // docs:start:initialize-private-mutable
     #[private]
     fn initialize_private_immutable(points: u8) {
-        let new_card = CardNote::new(points, context.msg_sender());
+        let new_card = CardNote::new(points, context.msg_sender().unwrap());
 
         storage.private_immutable.initialize(new_card).emit(encode_and_encrypt_note(
             &mut context,
-            context.msg_sender(),
+            context.msg_sender().unwrap(),
         ));
     }
     // docs:end:initialize-private-mutable
@@ -124,12 +124,12 @@ pub contract DocsExample {
         let card = storage.legendary_card.get_note().note;
         // docs:end:state_vars-PrivateMutableGet
         let points = card.get_points() + 1;
-        let new_card = CardNote::new(points, context.msg_sender());
+        let new_card = CardNote::new(points, context.msg_sender().unwrap());
 
         // docs:start:state_vars-PrivateMutableReplace
         storage.legendary_card.replace(new_card).emit(encode_and_encrypt_note(
             &mut context,
-            context.msg_sender(),
+            context.msg_sender().unwrap(),
         ));
         // docs:end:state_vars-PrivateMutableReplace
     }
