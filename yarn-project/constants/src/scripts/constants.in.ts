@@ -582,7 +582,7 @@ function evaluateExpressions(expressions: [string, string][]): { [key: string]: 
         .replaceAll(' as u32', '')
         .replaceAll(' as u64', '')
         // Remove the 'AztecAddress::from_field(...)' pattern
-        .replace(/AztecAddress::from_field\((0x[a-fA-F0-9]+|[0-9]+)\)/g, '$1')
+        .replace(/AztecAddress::from_field\((0x[a-fA-F0-9_]+|[0-9]+)\)/g, '$1')
         // We make some space around the parentheses, so that constant numbers are still split.
         .replace(/\(/g, '( ')
         .replace(/\)/g, ' )')
