@@ -203,7 +203,7 @@ describe('SlasherClient', () => {
             'GovernanceProposer__OnlyProposerCanVote',
             '0xea36d1ac',
             'ValidatorSelection__InsufficientValidatorSetSize',
-            '0x98673597',
+            '0xf4f28e99',
           ];
           if (permissibleErrors.some(error => err.message.includes(error))) {
             return;
