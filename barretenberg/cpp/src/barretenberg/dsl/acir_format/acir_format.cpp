@@ -310,6 +310,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     bool has_honk_recursion_constraints = !constraint_system.honk_recursion_constraints.empty();
     bool has_avm_recursion_constraints = !constraint_system.avm_recursion_constraints.empty();
     bool has_ivc_recursion_constraints = !constraint_system.ivc_recursion_constraints.empty();
+    bool has_civc_recursion_constraints = !constraint_system.civc_recursion_constraints.empty();
 
     if constexpr (IsMegaBuilder<Builder>) {
         // We shouldn't have both honk recursion constraints and ivc recursion constraints.
@@ -339,18 +340,31 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         }
     } else {
         bool is_recursive_circuit = metadata.honk_recursion != 0;
+        bool has_pairing_points =
+            has_honk_recursion_constraints || has_civc_recursion_constraints || has_avm_recursion_constraints;
+
         BB_ASSERT_EQ(has_ivc_recursion_constraints,
                      false,
                      "Invalid circuit: ivc recursion constraints are present with UltraBuilder.");
-        BB_ASSERT_EQ(!(has_honk_recursion_constraints || has_avm_recursion_constraints) || is_recursive_circuit,
+        BB_ASSERT_EQ(!(has_honk_recursion_constraints && has_civc_recursion_constraints),
                      true,
-                     "Invalid circuit: honk or avm recursion constraints present but the circuit is not recursive.");
+                     "Invalid circuit: both honk and civc recursion constraints are present.");
+        BB_ASSERT_EQ(
+            !(has_honk_recursion_constraints || has_civc_recursion_constraints || has_avm_recursion_constraints) ||
+                is_recursive_circuit,
+            true,
+            "Invalid circuit: honk, civc, or avm recursion constraints present but the circuit is not recursive.");
 
         // Container for data to be propagated
         HonkRecursionConstraintsOutput<Builder> honk_output;
 
         if (has_honk_recursion_constraints) {
             honk_output = process_honk_recursion_constraints(
+                builder, constraint_system, has_valid_witness_assignments, gate_counter);
+        }
+
+        if (has_civc_recursion_constraints) {
+            honk_output = process_civc_recursion_constraints(
                 builder, constraint_system, has_valid_witness_assignments, gate_counter);
         }
 
@@ -370,7 +384,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
             // Proving with UltraRollupFlavor
 
             // Propagate pairing points
-            if (has_honk_recursion_constraints || has_avm_recursion_constraints) {
+            if (has_pairing_points) {
                 honk_output.points_accumulator.set_public();
             } else {
                 PairingPoints::add_default_to_public_inputs(builder);
@@ -390,7 +404,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
             if (metadata.honk_recursion == 1) {
                 using IO = bb::stdlib::recursion::honk::DefaultIO<Builder>;
 
-                if (has_honk_recursion_constraints || has_avm_recursion_constraints) {
+                if (has_pairing_points) {
                     IO inputs;
                     inputs.pairing_inputs = honk_output.points_accumulator;
                     inputs.set_public();
