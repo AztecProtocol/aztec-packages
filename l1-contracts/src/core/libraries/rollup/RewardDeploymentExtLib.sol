@@ -26,5 +26,4 @@ library RewardDeploymentExtLib {
     RewardBooster booster = new RewardBooster(IValidatorSelection(address(this)), _config);
     return IBoosterCore(address(booster));
   }
-
 }

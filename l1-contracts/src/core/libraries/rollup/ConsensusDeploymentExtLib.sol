@@ -30,7 +30,7 @@ library ConsensusDeploymentExtLib {
   ) external returns (ISlasher) {
     // Deploy slasher first
     Slasher slasher = new Slasher(_vetoer);
-    
+
     // Deploy proposer with slasher address
     ConsensusSlashingProposer proposer = new ConsensusSlashingProposer(
       _rollup,
@@ -44,10 +44,10 @@ library ConsensusDeploymentExtLib {
       _epochDuration,
       _slashOffsetInRounds
     );
-    
+
     // Initialize the slasher with the proposer address
     slasher.initializeProposer(address(proposer));
-    
+
     return ISlasher(address(slasher));
   }
 }

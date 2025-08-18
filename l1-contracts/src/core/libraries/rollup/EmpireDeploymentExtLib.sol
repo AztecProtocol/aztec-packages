@@ -27,20 +27,15 @@ library EmpireDeploymentExtLib {
   ) external returns (ISlasher) {
     // Deploy slasher first
     Slasher slasher = new Slasher(_vetoer);
-    
+
     // Deploy proposer with slasher address
     EmpireSlashingProposer proposer = new EmpireSlashingProposer(
-      _rollup,
-      ISlasher(address(slasher)),
-      _quorumSize,
-      _roundSize,
-      _lifetimeInRounds,
-      _executionDelayInRounds
+      _rollup, ISlasher(address(slasher)), _quorumSize, _roundSize, _lifetimeInRounds, _executionDelayInRounds
     );
-    
+
     // Initialize the slasher with the proposer address
     slasher.initializeProposer(address(proposer));
-    
+
     return ISlasher(address(slasher));
   }
 }

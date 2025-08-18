@@ -12,7 +12,6 @@ cd $(git rev-parse --show-toplevel)/yarn-project/l1-artifacts
 
 contracts=(
   "CoinIssuer"
-  "EmpireBase"
   "ConsensusSlashingProposer"
   "EmpireBase"
   "EmpireSlashingProposer"

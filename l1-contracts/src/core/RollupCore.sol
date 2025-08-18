@@ -231,10 +231,10 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     );
 
     Timestamp exitDelay = Timestamp.wrap(_config.exitDelaySeconds);
-    
+
     // Deploy slasher based on flavor
     ISlasher slasher;
-    
+
     if (_config.slasherFlavor == SlasherFlavor.CONSENSUS) {
       slasher = ConsensusDeploymentExtLib.deployConsensusSlasher(
         address(this),
@@ -535,7 +535,8 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @dev Can be called by anyone at the start of an epoch. Samples the committee and determines proposers for all
    *      slots in the epoch. Also stores a seed that is used for future sampling. The corresponding library
    *      functionality is automatically called when `RollupCore.propose(...)` is called (via the
-   *      `RollupOperationsExtLib.propose(...)` -> `ProposeLib.propose(...)` -> `ValidatorSelectionLib.setupEpoch(...)`).
+   *      `RollupOperationsExtLib.propose(...)` -> `ProposeLib.propose(...)` ->
+   *      `ValidatorSelectionLib.setupEpoch(...)`).
    *
    *      If there are missed proposals then setupEpoch does not get called automatically. Since the next committee
    *      selection is computed based on the stored randao and the epoch number, failing to update the randao stored
