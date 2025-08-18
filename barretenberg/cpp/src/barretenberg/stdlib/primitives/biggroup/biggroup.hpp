@@ -581,7 +581,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     struct batch_lookup_table_plookup {
         batch_lookup_table_plookup(const std::vector<element>& points)
             : num_points(points.size())
-            , num_sixes(0)
             , num_fives(num_points / 5)
         {
             // size-6 table is expensive and only benefits us if creating them reduces the number of total tables
@@ -660,7 +659,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
                 quad_tables.push_back(
                     quad_lookup_table({ points[offset], points[offset + 1], points[offset + 2], points[offset + 3] }));
             }
-
             if (has_triple) {
                 triple_tables.push_back(
                     triple_lookup_table({ points[offset], points[offset + 1], points[offset + 2] }));
@@ -668,7 +666,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
             if (has_twin) {
                 twin_tables.push_back(twin_lookup_table({ points[offset], points[offset + 1] }));
             }
-
             if (has_singleton) {
                 singletons.push_back(points[points.size() - 1]);
             }
@@ -817,7 +814,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
                 round_accumulator.push_back(quad_tables[0].get(
                     naf_entries[offset], naf_entries[offset + 1], naf_entries[offset + 2], naf_entries[offset + 3]));
             }
-
             if (has_triple) {
                 round_accumulator.push_back(
                     triple_tables[0].get(naf_entries[offset], naf_entries[offset + 1], naf_entries[offset + 2]));
@@ -856,7 +852,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         std::vector<element> singletons;
         size_t num_points;
 
-        size_t num_sixes;
+        size_t num_sixes = 0;
         size_t num_fives;
         bool has_quad;
         bool has_triple;
