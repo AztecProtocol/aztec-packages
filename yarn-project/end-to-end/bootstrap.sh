@@ -42,8 +42,6 @@ function test_cmds {
   tests=(
     src/composed/!(integration_proof_verification|e2e_persistence).test.ts
     src/guides/*.test.ts
-    src/sample-dapp/index
-    src/sample-dapp/ci/index
   )
   for test in "${tests[@]}"; do
     # We must set ONLY_TERM_PARENT=1 to allow the script to fully control cleanup process.

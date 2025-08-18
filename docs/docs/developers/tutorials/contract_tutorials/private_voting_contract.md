@@ -24,7 +24,7 @@ To keep things simple, we won't create ballots or allow for delegate voting.
 
 ## Prerequisites
 
-- You have followed the [quickstart](../../../getting_started.md) to install `aztec-nargo` and `aztec`.
+- You have followed the [quickstart](../../getting_started.md) to install `aztec-nargo` and `aztec`.
 - Running Aztec Sandbox
 
 ## Set up a project
@@ -185,7 +185,7 @@ Follow the crowdfunding contracts tutorial on the [next page](./crowdfunding_con
 
 ### Optional: Learn more about concepts mentioned here
 
-- [Utility functions](../../../../aztec/smart_contracts/functions/attributes.md#utility-functions-utility).
-- [Oracles](../../../../aztec/smart_contracts/oracles/index.md)
-- [Nullifier secrets](../../../../aztec/concepts/accounts/keys.md#nullifier-keys).
-- [How to deploy a contract to the sandbox](../../../guides/js_apps/deploy_contract.md)
+- [Utility functions](../../../aztec/smart_contracts/functions/attributes.md#utility-functions-utility).
+- [Oracles](../../../aztec/smart_contracts/oracles/index.md)
+- [Nullifier secrets](../../../aztec/concepts/accounts/keys.md#nullifier-keys).
+- [How to deploy a contract to the sandbox](../../guides/js_apps/deploy_contract.md)

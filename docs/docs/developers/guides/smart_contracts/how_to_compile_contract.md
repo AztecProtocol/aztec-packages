@@ -48,16 +48,6 @@ members = [
 The `aztec-postprocess-contract` command will process all contract artifacts it finds in `target` directories within the current directory tree.
 :::
 
-### Typescript Interfaces
-
-You can use the code generator to autogenerate type-safe typescript classes for each of your contracts. These classes define type-safe methods for deploying and interacting with your contract based on their artifact.
-
-```bash
-aztec codegen ./aztec-nargo/output/target/path -o src/artifacts
-```
-
-Read more about interacting with contracts using `aztec.js` [by following this tutorial](../../tutorials/codealong/js_tutorials/aztecjs-getting-started.md).
-
 ### Aztec.nr interfaces
 
 An Aztec.nr contract can [call a function](./writing_contracts/call_contracts.md) in another contract via `context.call_private_function` or `context.call_public_function`. However, this requires manually assembling the function selector and manually serializing the arguments, which is not type-safe.

@@ -12,9 +12,9 @@ This tutorial is compatible with the Aztec version `#include_aztec_version`. Ins
 
 ## Prerequisites
 
-- You have followed the [quickstart](../../../getting_started.md)
+- You have followed the [quickstart](../../getting_started.md)
 - Running Aztec Sandbox
-- Installed [Noir LSP](../../../guides/local_env/installing_noir_lsp.md) (optional)
+- Installed [Noir LSP](../../guides/local_env/installing_noir_lsp.md) (optional)
 
 ## Set up a project
 
@@ -113,7 +113,7 @@ The `increment` function works very similarly to the `constructor`, but instead 
 
 ## Prevent double spending
 
-Because our counters are private, the network can't directly verify if a note was spent or not, which could lead to double-spending. To solve this, we use a nullifier - a unique identifier generated from each spent note and its nullifier key. You can learn more about nullifiers and private state in the [Learn section](../../../../aztec/index.md#private-and-public-state).
+Because our counters are private, the network can't directly verify if a note was spent or not, which could lead to double-spending. To solve this, we use a nullifier - a unique identifier generated from each spent note and its nullifier key. You can learn more about nullifiers and private state in the [Learn section](../../../aztec/index.md#private-and-public-state).
 
 ## Getting a counter
 
@@ -164,7 +164,7 @@ SERVE=1 aztec flamegraph target/counter-Counter.json increment
 
 Note the total gate count at the bottom of the image. The image is interactive; you can hover over different parts of the graph to see the full function name of the execution step and its gate count. This tool also provides insight into the low-level operations that are performed in the private function. Don't worry about the details of the internals of the function right now, just be aware that the more complex the function, the more gates it will use and try out the flamegraph tool on your own functions.
 
-Read more about [profiling transactions with the flamegraph tool](../../../guides/smart_contracts/profiling_transactions.md).
+Read more about [profiling transactions with the flamegraph tool](../../guides/smart_contracts/profiling_transactions.md).
 
 For more information about writing efficient private functions, see [this page](https://noir-lang.org/docs/explainers/explainer-writing-noir) of the Noir documentation.
 
@@ -176,4 +176,4 @@ Follow the private voting contract tutorial on the [next page](./private_voting_
 
 ### Optional: Learn more about concepts mentioned here
 
-- [Functions and annotations like `#[private]`](../../../../aztec/smart_contracts/functions/function_transforms.md#private-functions)
+- [Functions and annotations like `#[private]`](../../../aztec/smart_contracts/functions/function_transforms.md#private-functions)
