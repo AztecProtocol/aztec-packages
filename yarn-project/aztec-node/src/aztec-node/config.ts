@@ -106,7 +106,7 @@ export function createKeyStoreForValidator(config: TxSenderConfig & ValidatorCli
   }
 
   if (!ethPrivateKeys.length) {
-    throw new Error(`No validator keys provided`);
+    return undefined;
   }
   const coinbase = config.coinbase ? config.coinbase.toString() : privateKeyToAddress(ethPrivateKeys[0]);
   const feeRecipient = config.feeRecipient ? config.feeRecipient.toString() : AztecAddress.ZERO.toString();

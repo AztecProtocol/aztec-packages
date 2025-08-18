@@ -203,11 +203,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       keyStoreManager = new KeystoreManager(mergeKeystores(keyStores));
     } else {
       const keyStore = createKeyStoreForValidator(config);
-      keyStoreManager = new KeystoreManager(keyStore);
+      if (keyStore) {
+        keyStoreManager = new KeystoreManager(keyStore);
+      }
     }
 
-    if (keyStoreManager === undefined) {
-      throw new Error('Failed to create key store');
+    if (keyStoreManager === undefined && !config.disableValidator) {
+      throw new Error('Failed to create key store, a requirement for running a validator');
     }
 
     // validate that the actual chain id matches that specified in configuration
@@ -375,7 +377,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // Validator enabled, create/start relevant service
     let sequencer: SequencerClient | undefined;
     if (!config.disableValidator) {
-      const l1TxUtils = keyStoreManager.createAllValidatorPublisherSigners().map((signer: EthSigner) => {
+      const l1TxUtils = keyStoreManager!.createAllValidatorPublisherSigners().map((signer: EthSigner) => {
         return createL1TxUtilsWithBlobsFromEthSigner(publicClient, signer, log, dateProvider, config);
       });
 
