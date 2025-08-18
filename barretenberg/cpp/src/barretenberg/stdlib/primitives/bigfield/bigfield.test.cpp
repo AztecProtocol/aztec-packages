@@ -1030,6 +1030,49 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         EXPECT_EQ(result, true);
     }
 
+    static void test_conditional_select(InputType a_type, InputType b_type, InputType predicate_type)
+    {
+        auto builder = Builder();
+        size_t num_repetitions = 1;
+        for (size_t i = 0; i < num_repetitions; ++i) {
+
+            auto [a_native, a_ct] = get_random_element(&builder, a_type); // fq, fq_ct
+            auto [b_native, b_ct] = get_random_element(&builder, b_type); // fq, fq_ct
+            a_ct.set_origin_tag(submitted_value_origin_tag);
+            b_ct.set_origin_tag(challenge_origin_tag);
+
+            bool_ct predicate_a;
+            if (predicate_type == InputType::WITNESS) {
+                predicate_a = bool_ct(witness_ct(&builder, true));
+            } else {
+                predicate_a = bool_ct(&builder, true);
+            }
+            predicate_a.set_origin_tag(next_challenge_tag);
+
+            fq_ct c = a_ct.conditional_select(b_ct, predicate_a);
+            fq_ct d = a_ct.conditional_select(b_ct, !predicate_a);
+
+            // Conditional select merges tags (even if predicate is a constant)
+            EXPECT_EQ(c.get_origin_tag(), first_second_third_merged_tag);
+            EXPECT_EQ(d.get_origin_tag(), first_second_third_merged_tag);
+
+            fq_ct e = c + d;
+            uint512_t c_out = c.get_value();
+            uint512_t d_out = d.get_value();
+            uint512_t e_out = e.get_value();
+
+            fq result_c(c_out.lo);
+            fq result_d(d_out.lo);
+            fq result_e(e_out.lo);
+
+            EXPECT_EQ(result_c, b_native);
+            EXPECT_EQ(result_d, a_native);
+            EXPECT_EQ(result_e, fq(a_native + b_native));
+        }
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, true);
+    }
+
     static void test_conditional_negate(InputType a_type, InputType predicate_type)
     {
         auto builder = Builder();
@@ -1831,6 +1874,19 @@ TYPED_TEST(stdlib_bigfield, conditional_assign_with_constants)
     TestFixture::test_conditional_assign(InputType::CONSTANT, InputType::WITNESS, InputType::WITNESS);   // c ? w : w
     TestFixture::test_conditional_assign(InputType::CONSTANT, InputType::WITNESS, InputType::CONSTANT);  // c ? w : c
     TestFixture::test_conditional_assign(InputType::CONSTANT, InputType::CONSTANT, InputType::CONSTANT); // c ? c : c
+}
+TYPED_TEST(stdlib_bigfield, conditional_select)
+{
+    TestFixture::test_conditional_select(InputType::WITNESS, InputType::WITNESS, InputType::WITNESS); // w ? w : w
+}
+TYPED_TEST(stdlib_bigfield, conditional_select_with_constants)
+{
+    TestFixture::test_conditional_select(InputType::WITNESS, InputType::WITNESS, InputType::CONSTANT);   // w ? w : c
+    TestFixture::test_conditional_select(InputType::WITNESS, InputType::CONSTANT, InputType::WITNESS);   // w ? c : w
+    TestFixture::test_conditional_select(InputType::WITNESS, InputType::CONSTANT, InputType::CONSTANT);  // w ? c : c
+    TestFixture::test_conditional_select(InputType::CONSTANT, InputType::WITNESS, InputType::WITNESS);   // c ? w : w
+    TestFixture::test_conditional_select(InputType::CONSTANT, InputType::WITNESS, InputType::CONSTANT);  // c ? w : c
+    TestFixture::test_conditional_select(InputType::CONSTANT, InputType::CONSTANT, InputType::CONSTANT); // c ? c : c
 }
 TYPED_TEST(stdlib_bigfield, msb_div_ctx_crash_regression)
 {
