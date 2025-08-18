@@ -31,7 +31,7 @@ import { type L1RollupConstants, getProofSubmissionDeadlineTimestamp } from '@az
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 
 import { join } from 'path';
-import type { Hex } from 'viem';
+import { type Hex, createWalletClient } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import {
@@ -243,6 +243,8 @@ export class EpochsTestContext {
       ),
     );
 
+    const l1Client = createExtendedL1Client(opts.l1RpcUrls!, opts.publisherPrivateKey!.getValue());
+
     // REFACTOR: We're getting too much into the internals of the sequencer here.
     // We should have a single method for constructing an aztec node that returns a TestAztecNodeService
     // which directly exposes the delayer and sets any test config.
@@ -252,7 +254,7 @@ export class EpochsTestContext {
       );
       const sequencer = node.getSequencer() as TestSequencerClient;
       const publisher = sequencer.sequencer.publisher;
-      const delayed = DelayedTxUtils.fromL1TxUtils(publisher.l1TxUtils, this.L1_BLOCK_TIME_IN_S);
+      const delayed = DelayedTxUtils.fromL1TxUtils(publisher.l1TxUtils, this.L1_BLOCK_TIME_IN_S, l1Client);
       delayed.delayer!.setMaxInclusionTimeIntoSlot(opts.txDelayerMaxInclusionTimeIntoSlot);
       publisher.l1TxUtils = delayed;
     }
