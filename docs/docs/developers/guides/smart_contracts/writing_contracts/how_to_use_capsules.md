@@ -2,6 +2,7 @@
 title: Using Capsules
 sidebar_position: 5
 tags: [functions, oracles]
+description: Learn how to use capsules to add data to the private execution environment for use in your Aztec smart contracts.
 ---
 
 Capsules are a per-contract non-volatile database.

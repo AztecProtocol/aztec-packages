@@ -1,6 +1,7 @@
 ---
 title: Rollup Circuits
 tags: [protocol, circuits]
+description: Learn how Rollup Circuits compress thousands of transactions into a single SNARK proof using a binary tree topology for efficient verification on Ethereum.
 ---
 
 The primary purpose of the Rollup Circuits is to 'squish' all of the many thousands of transactions in a rollup into a single SNARK, which can then be efficiently and verified on Ethereum.
