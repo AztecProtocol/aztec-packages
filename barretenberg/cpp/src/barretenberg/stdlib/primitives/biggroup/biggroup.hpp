@@ -581,8 +581,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     struct batch_lookup_table_plookup {
         batch_lookup_table_plookup(const std::vector<element>& points)
             : num_points(points.size())
-            , num_fives(num_points / 5)
             , num_sixes(0)
+            , num_fives(num_points / 5)
         {
             // size-6 table is expensive and only benefits us if creating them reduces the number of total tables
             if (num_points == 1) {
