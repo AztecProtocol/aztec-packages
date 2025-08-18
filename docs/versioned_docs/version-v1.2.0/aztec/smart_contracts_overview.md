@@ -1,5 +1,6 @@
 ---
 title: Smart Contracts
+description: Introduction to Aztec smart contracts, their unique features, and how they differ from traditional blockchain contracts.
 sidebar_position: 0
 tags: [contracts]
 ---

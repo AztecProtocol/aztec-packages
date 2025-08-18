@@ -2,6 +2,7 @@
 title: Implementing a note in Aztec.nr
 tags: [contracts, notes]
 keywords: [implementing note, note]
+description: Learn how to implement custom note types in your Aztec smart contracts.
 ---
 
 You may want to create your own note type if you need to use a specific type of private data or struct that is not already implemented in Aztec.nr, or if you want to experiment with custom note hashing and nullifier schemes. For custom hashing and nullifier schemes, use the `#[custom_note]` macro instead of `#[note]`, as it does not automatically derive the `NoteHash` trait.

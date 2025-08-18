@@ -2,6 +2,7 @@
 title: Run Aztec in a Sandbox
 sidebar_position: 0
 tags: [sandbox, PXE]
+description: Information about running the Aztec sandbox development environment.
 ---
 
 - Current version: `#include_aztec_version`

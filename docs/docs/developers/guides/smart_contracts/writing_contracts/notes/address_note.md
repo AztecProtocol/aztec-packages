@@ -1,6 +1,7 @@
 ---
 title: Using Address Note in Aztec.nr
 tags: [contracts, notes]
+description: Learn how to use address notes to store and manage addresses in your Aztec smart contracts.
 ---
 
 Address notes hold one main property of the type `AztecAddress`. It also holds `owner` and `randomness`, similar to other note types.

@@ -1,5 +1,6 @@
 ---
 title: Running Multiple PXEs in the Sandbox
+description: Learn how to run multiple PXE sandboxes for advanced testing and development scenarios.
 sidebar_position: 3
 tags: [PXE]
 ---

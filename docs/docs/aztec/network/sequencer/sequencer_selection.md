@@ -2,6 +2,7 @@
 title: Sequencer Selection
 tags: [protocol, sequencer]
 draft: true
+description: Learn about the sequencer selection mechanism in Aztec and how sequencers are chosen for block production.
 ---
 
 ## Fernet

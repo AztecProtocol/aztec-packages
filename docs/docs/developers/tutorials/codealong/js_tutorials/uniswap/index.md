@@ -1,5 +1,6 @@
 ---
 title: Swap on L1 from L2s
+description: Code-along tutorial for building a Uniswap-like decentralized exchange on Aztec.
 sidebar_position: 7
 ---
 

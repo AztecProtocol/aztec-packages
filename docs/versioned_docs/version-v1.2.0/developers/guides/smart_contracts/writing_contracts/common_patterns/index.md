@@ -1,5 +1,6 @@
 ---
 title: Common Patterns
+description: Explore common design patterns for writing secure and efficient Aztec smart contracts.
 sidebar_position: 7
 ---
 

@@ -2,6 +2,7 @@
 title: Defining Initializer Functions
 sidebar_position: 1
 tags: [functions, contracts]
+description: Learn how to write and use initializer functions in your Aztec smart contracts.
 ---
 
 This page explains how to write an initializer function, also known as a constructor.

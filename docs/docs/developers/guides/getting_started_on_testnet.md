@@ -2,6 +2,7 @@
 title: Setting up for Testnet
 sidebar_position: 1
 tags: [testnet]
+description: Guide for developers to get started with the Aztec testnet, including account creation and contract deployment.
 ---
 
 import { AztecTestnetVersion } from '@site/src/components/Snippets/general_snippets';

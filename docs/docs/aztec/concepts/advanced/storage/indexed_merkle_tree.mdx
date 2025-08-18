@@ -2,6 +2,7 @@
 title: Indexed Merkle Tree (Nullifier Tree)
 tags: [storage, concepts, advanced]
 sidebar_position: 2
+description: Learn about indexed merkle trees, an efficient data structure for nullifier trees that enables fast non-membership proofs and batch insertions in Aztec.
 ---
 
 import Image from "@theme/IdealImage";
@@ -183,7 +184,7 @@ Suppose we want to show that the value `20` doesn't exist in the tree. We just r
 - Prove the low leaf exists in the tree: `n` hashes.
 - Check the new value 'would have' belonged in the range given by the low leaf: `2` range checks.
   - If ($low\_nullifier_{\textsf{next\_index}} == 0$):
-    - Special case, the low leaf is at the very end, so the new\_value must be higher than all values in the tree:
+    - Special case, the low leaf is at the very end, so the new_value must be higher than all values in the tree:
     - $assert(low\_nullifier_{\textsf{value}} < new\_value_{\textsf{value}})$
   - Else:
     - $assert(low\_nullifier_{\textsf{value}} < new\_value_{\textsf{value}})$

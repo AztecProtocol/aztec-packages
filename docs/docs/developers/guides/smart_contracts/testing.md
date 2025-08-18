@@ -4,6 +4,7 @@ tags: [contracts, tests, testing, noir]
 keywords: [tests, testing, noir]
 sidebar_position: 2
 importance: 1
+description: Learn how to write and run tests for your Aztec smart contracts.
 ---
 
 Aztec contracts can be tested in a variety of ways depending on the needs of a particular application and the complexity of the interactions they must support.

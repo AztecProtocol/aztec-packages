@@ -2,6 +2,7 @@
 title: Getting Started
 sidebar_position: 0
 tags: [sandbox, testnet]
+description: Quick start guide for developers to set up their environment and begin building on Aztec.
 ---
 
 import Tabs from '@theme/Tabs';

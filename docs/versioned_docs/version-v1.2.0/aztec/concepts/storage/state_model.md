@@ -1,5 +1,6 @@
 ---
 title: State Model
+description: Learn about Aztec's hybrid state model that combines private UTXO-based state with public account-based state.
 sidebar_position: 4
 tags: [state]
 ---

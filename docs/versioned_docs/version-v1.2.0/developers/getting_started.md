@@ -1,5 +1,6 @@
 ---
 title: Getting Started
+description: Quick start guide for developers to set up their environment and begin building on Aztec.
 sidebar_position: 0
 tags: [sandbox. testnet]
 ---

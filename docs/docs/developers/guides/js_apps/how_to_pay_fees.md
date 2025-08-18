@@ -2,6 +2,7 @@
 title: How to Pay Fees
 tags: [fees, transactions, accounts, cli, contracts]
 sidebar_position: 3
+description: This guide shows you how to pay fees for transactions in Aztec using different payment methods.
 ---
 
 import { Fees, General, CLI_Fees, Gas_Settings, Gas_Settings_Components } from '@site/src/components/Snippets/general_snippets';

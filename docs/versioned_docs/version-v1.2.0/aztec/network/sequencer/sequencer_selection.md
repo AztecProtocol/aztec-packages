@@ -1,5 +1,6 @@
 ---
 title: Sequencer Selection
+description: Learn about the sequencer selection mechanism in Aztec and how sequencers are chosen for block production.
 tags: [protocol, sequencer]
 draft: true
 ---

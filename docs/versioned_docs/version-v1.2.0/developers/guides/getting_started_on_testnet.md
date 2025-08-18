@@ -1,5 +1,6 @@
 ---
 title: Getting Started on Testnet
+description: Guide for developers to get started with the Aztec testnet, including account creation and contract deployment.
 sidebar_position: 0
 tags: [testnet]
 ---
