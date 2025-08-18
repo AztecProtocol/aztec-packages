@@ -11,6 +11,7 @@ import {
 } from '@aztec/constants';
 import { EpochCache, type EpochCacheInterface } from '@aztec/epoch-cache';
 import {
+  type EthSigner,
   type L1ContractAddresses,
   NULL_KEY,
   RegistryContract,
@@ -21,10 +22,7 @@ import {
   getPublicClient,
   isExtendedClient,
 } from '@aztec/ethereum';
-import {
-  createL1TxUtilsWithBlobsFromEthSigner,
-  createL1TxUtilsWithBlobsFromViemWallet,
-} from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { createL1TxUtilsWithBlobsFromEthSigner } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { compactArray, pick } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -45,7 +43,6 @@ import {
   type SequencerPublisher,
   createValidatorForAcceptingTxs,
 } from '@aztec/sequencer-client';
-import { getPublisherPrivateKeysFromConfig } from '@aztec/sequencer-client/config';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import { AttestationsBlockWatcher, EpochPruneWatcher, SlasherClient, type Watcher } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -378,18 +375,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // Validator enabled, create/start relevant service
     let sequencer: SequencerClient | undefined;
     if (!config.disableValidator) {
-      //const publisherPrivateKeys = getPublisherPrivateKeysFromConfig(config);
-
-      // const l1TxUtils = publisherPrivateKeys.map(publisherPrivateKey => {
-      //   return createL1TxUtilsWithBlobsFromViemWallet(
-      //     createExtendedL1Client(l1RpcUrls, publisherPrivateKey.getValue(), ethereumChain.chainInfo),
-      //     log,
-      //     dateProvider,
-      //     config,
-      //   );
-      // });
-
-      const l1TxUtils = keyStoreManager.createAllValidatorPublisherSigners().map(signer => {
+      const l1TxUtils = keyStoreManager.createAllValidatorPublisherSigners().map((signer: EthSigner) => {
         return createL1TxUtilsWithBlobsFromEthSigner(publicClient, signer, log, dateProvider, config);
       });
 

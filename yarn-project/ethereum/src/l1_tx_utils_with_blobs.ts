@@ -3,7 +3,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 
-import { type Hex, type PublicClient, type TransactionSerializable, formatGwei } from 'viem';
+import { type Hex, type TransactionSerializable, formatGwei } from 'viem';
 
 import type { EthSigner } from './eth-signer/eth-signer.js';
 import {
@@ -13,7 +13,7 @@ import {
   type SigningCallback,
   createViemSigner,
 } from './l1_tx_utils.js';
-import type { ExtendedViemWalletClient } from './types.js';
+import type { ExtendedViemWalletClient, ViemClient } from './types.js';
 
 export class L1TxUtilsWithBlobs extends L1TxUtils {
   /**
@@ -129,15 +129,15 @@ export function createL1TxUtilsWithBlobsFromViemWallet(
 }
 
 export function createL1TxUtilsWithBlobsFromEthSigner(
-  client: PublicClient,
+  client: ViemClient,
   signer: EthSigner,
   logger: Logger = createLogger('L1TxUtils'),
   dateProvider: DateProvider = new DateProvider(),
   config?: Partial<L1TxUtilsConfig>,
   debugMaxGasLimit: boolean = false,
 ) {
-  const callback: SigningCallback = (transaction: TransactionSerializable, signingAddress) => {
-    return Promise.resolve(new ViemTransactionSignature());
+  const callback: SigningCallback = async (transaction: TransactionSerializable, _signingAddress) => {
+    return (await signer.signTransaction(transaction)).toViemTransactionSignature();
   };
   return new L1TxUtilsWithBlobs(client, signer.address, callback, logger, dateProvider, config, debugMaxGasLimit);
 }
