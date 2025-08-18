@@ -50,6 +50,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     element(const element& other);
     element(element&& other) noexcept;
 
+    ~element() = default;
+
     static std::array<fr, PUBLIC_INPUTS_SIZE> construct_dummy()
     {
         const typename NativeGroup::affine_element& native_val = NativeGroup::affine_element::one();
