@@ -123,15 +123,21 @@ class PrivateFunctionExecutionMockCircuitProducer {
 
     MockDatabusProducer mock_databus;
     bool large_first_app = true;
+    constexpr static size_t NUM_TRAILING_KERNELS = 3; // reset, tail, hiding
 
   public:
+    size_t total_num_circuits = 0;
+
     PrivateFunctionExecutionMockCircuitProducer(size_t num_app_circuits = 0,
                                                 size_t num_consecutive_kernels = 0,
                                                 bool large_first_app = true)
         : num_app_circuits(num_app_circuits)
         , num_consecutive_kernels(num_consecutive_kernels)
         , large_first_app(large_first_app)
-    {}
+    {
+        // One kernel per app plus a fixed number of final kernels
+        total_num_circuits = num_app_circuits * 2 + NUM_TRAILING_KERNELS;
+    }
 
     /**
      * @brief Precompute the verification key for the given circuit.
@@ -165,14 +171,10 @@ class PrivateFunctionExecutionMockCircuitProducer {
             construct_and_accumulate_next_circuit(ivc, setting);
             setting.log2_num_gates += size_adjustment;
         }
-        // now we add the additional kernels
-        for (size_t i = 0; i < num_consecutive_kernels; i++) {
+        // now we add the additional kernels (reset, tail, hiding)
+        for (size_t i = 0; i < NUM_TRAILING_KERNELS; i++) {
             construct_and_accumulate_next_circuit(ivc, setting);
         }
-        // now add the tail kernel
-        construct_and_accumulate_next_circuit(ivc, setting);
-        // add the hiding kernel
-        construct_and_accumulate_next_circuit(ivc, setting);
         // food for thought (Khashayar), should we return a vector of all circuits generated here?
     }
 
