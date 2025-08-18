@@ -5,8 +5,6 @@ import { ethers } from "ethers";
 import solc from "solc";
 
 // Size excluding number of public inputs
-const NUMBER_OF_FIELDS_IN_PLONK_PROOF = 93;
-
 const NUMBER_OF_ELEMENTS_IN_HONK_PROOF = 457;
 const NUMBER_OF_ELEMENTS_IN_HONK_ZK_PROOF = 508;
 
@@ -57,8 +55,6 @@ const [test, verifier] = await Promise.all([
   fsPromises.readFile(verifierPath, encoding),
 ]);
 
-// If testing honk is set, then we compile the honk test suite
-const testingHonk = getEnvVarCanBeUndefined("TESTING_HONK");
 const hasZK = getEnvVarCanBeUndefined("HAS_ZK");
 
 export const compilationInput = {
@@ -89,26 +85,9 @@ export const compilationInput = {
   },
 };
 
-const NUMBER_OF_FIELDS_IN_PROOF = testingHonk
-  ? hasZK
-    ? NUMBER_OF_ELEMENTS_IN_HONK_ZK_PROOF
-    : NUMBER_OF_ELEMENTS_IN_HONK_PROOF
-  : NUMBER_OF_FIELDS_IN_PLONK_PROOF;
-if (!testingHonk) {
-  const keyPath = getEnvVar("KEY_PATH");
-  const basePath = getEnvVar("BASE_PATH");
-  const [key, base] = await Promise.all([
-    fsPromises.readFile(keyPath, encoding),
-    fsPromises.readFile(basePath, encoding),
-  ]);
-
-  compilationInput.sources["BaseUltraVerifier.sol"] = {
-    content: base,
-  };
-  compilationInput.sources["Key.sol"] = {
-    content: key,
-  };
-}
+const NUMBER_OF_FIELDS_IN_PROOF = hasZK
+  ? NUMBER_OF_ELEMENTS_IN_HONK_ZK_PROOF
+  : NUMBER_OF_ELEMENTS_IN_HONK_PROOF;
 
 var output = JSON.parse(solc.compile(JSON.stringify(compilationInput)));
 
@@ -282,7 +261,7 @@ try {
   let finalBytecode = bytecode;
 
   // Deploy ZKTranscript library if needed and link it
-  if (testingHonk && hasZK) {
+  if (hasZK) {
     // Check if there's a library placeholder in the bytecode
     const libraryPlaceholder = /__\$[a-fA-F0-9]{34}\$__/;
     if (libraryPlaceholder.test(bytecode)) {
@@ -310,26 +289,22 @@ try {
   if (!result) throw new Error("Test failed");
 } catch (e) {
   console.error(testName, "failed");
-  if (testingHonk) {
-    var errorType = e.data;
-    switch (errorType) {
-      case WRONG_PROOF_LENGTH:
-        throw new Error(
-          "Proof length wrong. Possibile culprits: the NUMBER_OF_FIELDS_IN_* constants; number of public inputs; proof surgery; zk/non-zk discrepancy."
-        );
-      case WRONG_PUBLIC_INPUTS_LENGTH:
-        throw new Error("Number of inputs in the proof is wrong");
-      case SUMCHECK_FAILED:
-        throw new Error("Sumcheck round failed");
-      case SHPLEMINI_FAILED:
-        throw new Error("PCS round failed");
-      case CONSISTENCY_FAILED:
-        throw new Error("ZK contract: Subgroup IPA consistency check error");
-      case GEMINI_CHALLENGE_IN_SUBGROUP:
-        throw new Error("ZK contract: Gemini challenge error");
-      default:
-        throw e;
-    }
+  var errorType = e.data;
+  switch (errorType) {
+    case WRONG_PROOF_LENGTH:
+      throw new Error(
+        "Proof length wrong. Possibile culprits: the NUMBER_OF_FIELDS_IN_* constants; number of public inputs; proof surgery; zk/non-zk discrepancy."
+      );
+    case WRONG_PUBLIC_INPUTS_LENGTH:
+      throw new Error("Number of inputs in the proof is wrong");
+    case SUMCHECK_FAILED:
+      throw new Error("Sumcheck round failed");
+    case SHPLEMINI_FAILED:
+      throw new Error("PCS round failed");
+    case CONSISTENCY_FAILED:
+      throw new Error("ZK contract: Subgroup IPA consistency check error");
+    case GEMINI_CHALLENGE_IN_SUBGROUP:
+      throw new Error("ZK contract: Gemini challenge error");
   }
   throw e;
 } finally {

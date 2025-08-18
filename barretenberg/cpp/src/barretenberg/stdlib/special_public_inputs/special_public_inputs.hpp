@@ -135,8 +135,9 @@ class KernelIO {
  * @brief Manages the data that is propagated on the public inputs of an application/function circuit
  *
  */
-template <typename Builder> class DefaultIO {
+template <typename Builder_> class DefaultIO {
   public:
+    using Builder = Builder_;
     using Curve = stdlib::bn254<Builder>; // curve is always bn254
     using FF = Curve::ScalarField;
     using PairingInputs = stdlib::recursion::PairingPoints<Builder>;
