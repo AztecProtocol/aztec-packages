@@ -175,6 +175,7 @@ export class BatchTxRequester {
       if (!nextBatchTxRequest) {
         this.logger.warn(`Worker loop dumb: Could not create next batch request`);
         // We retry with the next peer/batch
+        console.log(`[${count}] Worker loop dumb: Could not create next batch request for peer ${peerId.toString()}`);
         continue;
       }
 

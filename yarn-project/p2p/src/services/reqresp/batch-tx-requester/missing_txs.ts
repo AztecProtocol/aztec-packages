@@ -72,7 +72,7 @@ export class MissingTxMetadataCollection extends Map<string, MissingTxMetadata> 
   }
 
   public isFetched(txHash: TxHash): boolean {
-    // If something went' wrong and we don't have txMeta for this hash
+    // If something went wrong and we don't have txMeta for this hash
     // We should not request it, so here we "pretend" that it was fetched
     return this.get(txHash.toString())?.fetched ?? true;
   }
