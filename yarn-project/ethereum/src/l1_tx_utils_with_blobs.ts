@@ -3,9 +3,10 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 
-import { type Hex, formatGwei } from 'viem';
+import { type Hex, type PublicClient, type TransactionSerializable, formatGwei } from 'viem';
 
-import { type GasPrice, L1TxUtils, type L1TxUtilsConfig, createViemSigner } from './l1_tx_utils.js';
+import type { EthSigner } from './eth-signer/eth-signer.js';
+import { type GasPrice, L1TxUtils, type L1TxUtilsConfig, type Signer, createViemSigner } from './l1_tx_utils.js';
 import type { ExtendedViemWalletClient } from './types.js';
 
 export class L1TxUtilsWithBlobs extends L1TxUtils {
@@ -119,4 +120,19 @@ export function createL1TxUtilsWithBlobsFromViemWallet(
     config,
     debugMaxGasLimit,
   );
+}
+
+export function createL1TxUtilsWithBlobsFromEthSigner(
+  client: PublicClient,
+  signer: EthSigner,
+  logger: Logger = createLogger('L1TxUtils'),
+  dateProvider: DateProvider = new DateProvider(),
+  config?: Partial<L1TxUtilsConfig>,
+  debugMaxGasLimit: boolean = false,
+) {
+  const callback: Signer = (_transaction: TransactionSerializable, _signingAddress) => {
+    return Promise.reject(new Error('Not implemented'));
+  };
+
+  return new L1TxUtilsWithBlobs(client, signer.address, callback, logger, dateProvider, config, debugMaxGasLimit);
 }

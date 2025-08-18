@@ -2,8 +2,9 @@ import type { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
 import { KeystoreManager, loadKeystoreFile } from '@aztec/node-keystore';
-import type { EthRemoteSignerConfig, Signer } from '@aztec/node-keystore';
+import type { EthRemoteSignerConfig } from '@aztec/node-keystore';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { EthSigner } from '@aztec/stdlib/eth-signer';
 import { InvalidValidatorPrivateKeyError } from '@aztec/stdlib/validators';
 
 import type { TypedDataDefinition } from 'viem';
@@ -15,10 +16,10 @@ type AddressHex = string;
 type ValidatorIndex = number;
 
 interface ValidatorCache {
-  attesters: Signer[];
-  publishers: Signer[];
-  all: Signer[];
-  byAddress: Map<AddressHex, Signer>; // all signers, any role
+  attesters: EthSigner[];
+  publishers: EthSigner[];
+  all: EthSigner[];
+  byAddress: Map<AddressHex, EthSigner>; // all signers, any role
   attesterSet: Set<AddressHex>; // attester addresses only
 }
 
@@ -28,7 +29,7 @@ export class NodeKeystoreAdapter implements ExtendedValidatorKeyStore {
   // Per-validator cache (lazy)
   private readonly validators = new Map<ValidatorIndex, ValidatorCache>();
 
-  private readonly addressIndex = new Map<AddressHex, { signer: Signer; validatorIndex: ValidatorIndex }>();
+  private readonly addressIndex = new Map<AddressHex, { signer: EthSigner; validatorIndex: ValidatorIndex }>();
 
   private constructor(keystoreManager: KeystoreManager) {
     this.keystoreManager = keystoreManager;
@@ -113,6 +114,10 @@ export class NodeKeystoreAdapter implements ExtendedValidatorKeyStore {
     return NodeKeystoreAdapter.fromKeystoreConfig(cfg);
   }
 
+  static fromKeyStoreManager(manager: KeystoreManager): NodeKeystoreAdapter {
+    return new NodeKeystoreAdapter(manager);
+  }
+
   /**
    * Normalize address keys to lowercase hex strings for map/set usage.
    */
@@ -136,7 +141,7 @@ export class NodeKeystoreAdapter implements ExtendedValidatorKeyStore {
     const publishers = this.keystoreManager.createPublisherSigners(validatorIndex);
 
     // Build 'all' + indices
-    const byAddress = new Map<AddressHex, Signer>();
+    const byAddress = new Map<AddressHex, EthSigner>();
     const attesterSet = new Set<AddressHex>();
 
     for (const s of attesters) {

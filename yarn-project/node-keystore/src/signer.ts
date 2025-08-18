@@ -7,6 +7,7 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
+import { EthSigner } from '@aztec/stdlib/eth-signer';
 
 import type { TypedDataDefinition } from 'viem';
 import { hashTypedData } from 'viem';
@@ -30,29 +31,12 @@ export class SignerError extends Error {
 }
 
 /**
- * Common interface for all signer implementations
- */
-/**
- * Abstraction for signing operations used by the node keystore.
- */
-export interface Signer {
-  /** The Ethereum address for this signer */
-  readonly address: EthAddress;
-
-  /** Sign a message using eth_sign (with Ethereum message prefix) */
-  signMessage(message: Buffer32): Promise<Signature>;
-
-  /** Sign typed data using EIP-712 */
-  signTypedData(typedData: TypedDataDefinition): Promise<Signature>;
-}
-
-/**
  * Local signer using in-memory private key
  */
 /**
  * Local signer that holds an in-memory Secp256k1 private key.
  */
-export class LocalSigner implements Signer {
+export class LocalSigner implements EthSigner {
   private readonly signer: Secp256k1Signer;
 
   constructor(privateKey: Buffer32) {
@@ -79,7 +63,7 @@ export class LocalSigner implements Signer {
 /**
  * Remote signer that proxies signing operations to a Web3Signer-compatible HTTP endpoint.
  */
-export class RemoteSigner implements Signer {
+export class RemoteSigner implements EthSigner {
   constructor(
     public readonly address: EthAddress,
     private readonly config: EthRemoteSignerConfig,

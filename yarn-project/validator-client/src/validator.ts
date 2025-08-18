@@ -7,6 +7,7 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
+import type { KeystoreManager } from '@aztec/node-keystore';
 import type { P2P, PeerId } from '@aztec/p2p';
 import { AuthRequest, AuthResponse, ReqRespSubProtocol, TxProvider } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
@@ -165,31 +166,30 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     blockSource: L2BlockSource,
     l1ToL2MessageSource: L1ToL2MessageSource,
     txProvider: TxProvider,
+    keyStoreManager: KeystoreManager,
     dateProvider: DateProvider = new DateProvider(),
     telemetry: TelemetryClient = getTelemetryClient(),
   ) {
-    let keyStore: ValidatorKeyStore;
-
     // Option 1: Transparent conversion - everything goes through NodeKeystoreAdapter
-    if (config.web3SignerUrl) {
-      // Build adapter directly from Web3Signer info
-      const addresses = config.web3SignerAddresses;
-      if (!addresses?.length) {
-        throw new Error('web3SignerAddresses is required when web3SignerUrl is provided');
-      }
-      keyStore = NodeKeystoreAdapter.fromWeb3Signer(config.web3SignerUrl, addresses);
-    } else if (config.validatorPrivateKeys?.getValue().length) {
-      // Build adapter directly from private keys
-      const privateKeys = config.validatorPrivateKeys.getValue();
-      keyStore = NodeKeystoreAdapter.fromPrivateKeys(privateKeys);
-    } else {
-      // No configuration provided - throw error (matches current behavior)
-      throw new InvalidValidatorPrivateKeyError();
-    }
+    // if (config.web3SignerUrl) {
+    //   // Build adapter directly from Web3Signer info
+    //   const addresses = config.web3SignerAddresses;
+    //   if (!addresses?.length) {
+    //     throw new Error('web3SignerAddresses is required when web3SignerUrl is provided');
+    //   }
+    //   keyStore = NodeKeystoreAdapter.fromWeb3Signer(config.web3SignerUrl, addresses);
+    // } else if (config.validatorPrivateKeys?.getValue().length) {
+    //   // Build adapter directly from private keys
+    //   const privateKeys = config.validatorPrivateKeys.getValue();
+    //   keyStore = NodeKeystoreAdapter.fromPrivateKeys(privateKeys);
+    // } else {
+    //   // No configuration provided - throw error (matches current behavior)
+    //   throw new InvalidValidatorPrivateKeyError();
+    // }
 
     const validator = new ValidatorClient(
       blockBuilder,
-      keyStore,
+      NodeKeystoreAdapter.fromKeyStoreManager(keyStoreManager),
       epochCache,
       p2pClient,
       blockSource,
