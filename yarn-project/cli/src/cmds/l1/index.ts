@@ -439,35 +439,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     });
 
   program
-    .command('deploy-l1-verifier')
-    .description('Deploys the rollup verifier contract')
-    .addOption(l1RpcUrlsOption)
-    .addOption(l1ChainIdOption)
-    .option('--l1-private-key <string>', 'The L1 private key to use for deployment', PRIVATE_KEY)
-    .option(
-      '-m, --mnemonic <string>',
-      'The mnemonic to use in deployment',
-      'test test test test test test test test test test test junk',
-    )
-    .option('-i, --mnemonic-index <number>', 'The index of the mnemonic to use in deployment', arg => parseInt(arg), 0)
-    .requiredOption('--verifier <verifier>', 'Either mock or real', 'real')
-    .action(async options => {
-      const { deployMockVerifier, deployUltraHonkVerifier } = await import('./deploy_l1_verifier.js');
-      if (options.verifier === 'mock') {
-        await deployMockVerifier(options.l1RpcUrls, options.l1ChainId, options.l1PrivateKey, options.mnemonic, log);
-      } else {
-        await deployUltraHonkVerifier(
-          options.l1RpcUrls,
-          options.l1ChainId,
-          options.l1PrivateKey,
-          options.mnemonic,
-          options.mnemonicIndex,
-          log,
-        );
-      }
-    });
-
-  program
     .command('bridge-erc20')
     .description('Bridges ERC20 tokens to L2.')
     .argument('<amount>', 'The amount of Fee Juice to mint and bridge.', parseBigint)
