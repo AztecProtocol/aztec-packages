@@ -79,6 +79,22 @@ template <typename Builder> struct HonkRecursionConstraintsOutput {
             }
         }
     }
+
+    void update(HonkRecursionConstraintsOutput<Builder>& other)
+    {
+        // Update points accumulator
+        if (this->points_accumulator.has_data) {
+            this->points_accumulator.aggregate(other.points_accumulator);
+        } else {
+            this->points_accumulator = other.points_accumulator;
+        }
+
+        // Update ipa proofs and claims (if other has no proofs/laims, we are not appending anything)
+        this->nested_ipa_proofs.insert(
+            this->nested_ipa_proofs.end(), other.nested_ipa_proofs.begin(), other.nested_ipa_proofs.end());
+        this->nested_ipa_claims.insert(
+            this->nested_ipa_claims.end(), other.nested_ipa_claims.begin(), other.nested_ipa_claims.end());
+    }
 };
 
 template <typename Builder>
