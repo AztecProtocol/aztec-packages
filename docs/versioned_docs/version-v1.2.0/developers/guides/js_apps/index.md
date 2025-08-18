@@ -1,5 +1,6 @@
 ---
 title: Aztec.js
+description: Comprehensive guide for building JavaScript applications on Aztec using the Aztec.js library.
 tags: [aztec.js, javascript, typescript]
 ---
 

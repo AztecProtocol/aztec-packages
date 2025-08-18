@@ -1,5 +1,6 @@
 ---
 title: Fees
+description: Learn about Aztec's fee system, including mana as a gas equivalent, fee-juice as payment currency, and various payment methods including fee-paying contracts.
 sidebar_position: 4
 tags: [fees]
 ---

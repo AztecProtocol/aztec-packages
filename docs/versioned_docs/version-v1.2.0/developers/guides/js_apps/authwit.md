@@ -1,5 +1,6 @@
 ---
 title: How to use authentication witnesses (authwit)
+description: Learn how to use authentication witnesses in your Aztec.js applications for secure, delegated transactions.
 tags: [accounts, authwit]
 sidebar_position: 5
 ---

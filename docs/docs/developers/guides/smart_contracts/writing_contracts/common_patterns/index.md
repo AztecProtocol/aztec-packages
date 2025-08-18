@@ -1,6 +1,7 @@
 ---
 title: Common Patterns
 sidebar_position: 7
+description: Explore common design patterns for writing secure and efficient Aztec smart contracts.
 ---
 
 There are many common patterns have been devised by the Aztec core engineering team and the work of the external community as we build Aztec.nr contracts internally (see some of them [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/noir-contracts)).

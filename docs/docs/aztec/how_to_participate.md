@@ -1,6 +1,7 @@
 ---
 title: How to Participate?
 sidebar_position: 4
+description: Learn how to participate in the Aztec network as a user, developer, or node operator.
 ---
 
 Decentralization is one of our core values, so we want to encourage participation as much as possible and in any way you can.

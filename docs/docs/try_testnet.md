@@ -3,6 +3,7 @@ title: Try Testnet
 keywords: [testnet, aztec, migration]
 tags: [testnet, migration]
 id: try_testnet
+description: "Connect to Aztec Alpha Testnet, explore the ecosystem, and start building with live network resources"
 ---
 
 ## Explore testnet

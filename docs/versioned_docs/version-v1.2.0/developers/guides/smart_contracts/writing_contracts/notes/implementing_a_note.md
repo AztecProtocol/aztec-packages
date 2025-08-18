@@ -1,5 +1,6 @@
 ---
 title: Implementing a note in Aztec.nr
+description: Learn how to implement custom note types in your Aztec smart contracts.
 tags: [contracts, notes]
 keywords: [implementing note, note]
 ---

@@ -33,6 +33,7 @@
     "@docusaurus/tsconfig": "3.6.0",
     "@tsconfig/docusaurus": "^1.0.5",
     "cspell": "^8.19.4",
+    "docusaurus-plugin-llms": "^0.1.5",
     "dotenv": "^16.3.1",
     "netlify-cli": "^17.23.0"
   },

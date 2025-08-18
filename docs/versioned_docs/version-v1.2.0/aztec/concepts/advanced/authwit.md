@@ -1,5 +1,6 @@
 ---
 title: Authentication Witness (Authwit)
+description: Learn about Authentication Witness, Aztec's scheme for authenticating third-party actions on behalf of users, enabling secure delegated transactions without traditional approve/allowance patterns.
 tags: [accounts, authwit]
 sidebar_position: 2
 keywords: [authwit, authentication witness, accounts]

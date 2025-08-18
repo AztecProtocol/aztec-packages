@@ -1,5 +1,6 @@
 ---
 title: Public Kernel Circuit
+description: Understand the Public Kernel Circuit executed by sequencers that manages public state transitions in Aztec.
 tags: [protocol, circuits]
 ---
 

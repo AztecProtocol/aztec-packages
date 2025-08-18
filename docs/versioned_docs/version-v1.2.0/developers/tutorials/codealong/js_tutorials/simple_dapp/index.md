@@ -1,5 +1,6 @@
 ---
 title: Node.js app that interacts with contracts
+description: Code-along tutorial for building a simple decentralized application (dApp) on Aztec.
 sidebar_position: 1
 ---
 

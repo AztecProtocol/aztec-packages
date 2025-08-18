@@ -1,3 +1,7 @@
+---
+description: "Create, compile, and deploy an Aztec smart contract using aztec-nargo and JavaScript deployment scripts"
+---
+
 # Contract Deployment
 
 To add contracts to your application, we'll start by creating a new `aztec-nargo` project. We'll then compile the contracts, and write a simple script to deploy them to our Sandbox.

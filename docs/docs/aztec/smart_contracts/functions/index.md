@@ -2,6 +2,7 @@
 title: Defining Functions
 sidebar_position: 3
 tags: [functions]
+description: Overview of Aztec contract functions, including private, public, and utility function types.
 ---
 
 Functions serve as the building blocks of smart contracts. Functions can be either **public**, ie they are publicly available for anyone to see and can directly interact with public state, or **private**, meaning they are executed completely client-side in the [PXE](../../concepts/pxe/index.md). Read more about how private functions work [here](./attributes.md#private-functions-private).

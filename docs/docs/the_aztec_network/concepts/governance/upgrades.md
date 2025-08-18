@@ -1,6 +1,7 @@
 ---
 sidebar_position: 4
 title: Upgrades
+description: Learn about the network upgrade process for the Aztec network.
 ---
 
 Upgrades involve transitioning the network to a new instance of the Rollup contract. They might fix vulnerabilities, introduce new features, or enhance performance.

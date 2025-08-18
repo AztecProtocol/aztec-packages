@@ -2,6 +2,7 @@
 title: Using the Archive Tree
 sidebar_position: 4
 tags: [contracts]
+description: Learn how to prove historical state transitions in your Aztec smart contracts.
 ---
 
 The Aztec Protocol uses an append-only Merkle tree to store hashes of the headers of all previous blocks in the chain as its leaves. This is known as the Archive tree.

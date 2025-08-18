@@ -1,5 +1,6 @@
 ---
 title: Keys
+description: Understand the key pairs used in Aztec accounts - nullifier keys, address keys, incoming viewing keys, and signing keys - and how they enable privacy and authentication.
 tags: [accounts, keys]
 ---
 

@@ -2,6 +2,7 @@
 title: Call Types
 sidebar_position: 6
 tags: [calls, contracts, execution]
+description: Understand the different types of contract calls in Aztec, including private and public execution modes, and how they compare to Ethereum's call types.
 ---
 
 ## What is a Call

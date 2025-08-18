@@ -1,5 +1,6 @@
 ---
 title: Aztec Overview
+description: Comprehensive overview of Aztec Protocol, a privacy-first Layer 2 on Ethereum with both private and public state.
 sidebar_position: 0
 tags: [protocol]
 ---

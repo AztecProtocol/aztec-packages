@@ -1,5 +1,6 @@
 ---
 title: Wallet Architecture
+description: Understand the architecture of Aztec wallets and how they interact with the PXE to manage accounts and transactions.
 tags: [protocol, accounts]
 ---
 

@@ -1,5 +1,6 @@
 ---
 title: Outbox
+description: Learn about the outbox mechanism in Aztec portals for sending messages to L1.
 tags: [portals, contracts]
 ---
 

@@ -1,5 +1,6 @@
 ---
 title: L2 Contracts (Aztec)
+description: L2 contract for the Uniswap on Aztec tutorial.
 sidebar_position: 1
 ---
 

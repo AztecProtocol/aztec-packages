@@ -1,5 +1,6 @@
 ---
 title: Public State
+description: Learn how to manage public state in your Aztec smart contracts.
 ---
 
 On this page we will look at how to manage public state in Aztec contracts. We will look at how to declare public state, how to read and write to it, and how to use it in your contracts.

@@ -1,5 +1,6 @@
 ---
 title: Glossary
+description: Comprehensive glossary of terms used throughout the Aztec documentation and protocol.
 tags: [protocol, glossary]
 ---
 

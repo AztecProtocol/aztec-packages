@@ -2,6 +2,7 @@
 title: Accounts
 sidebar_position: 1
 tags: [accounts]
+description: Learn about Aztec's native account abstraction, where every account is a smart contract, and how wallets interact with account contracts for authentication and transaction execution.
 ---
 
 Aztec has native account abstraction. Every account in Aztec is a smart contract.

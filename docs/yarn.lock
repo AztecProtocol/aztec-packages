@@ -8562,6 +8562,7 @@ __metadata:
     "@tsconfig/docusaurus": "npm:^1.0.5"
     clsx: "npm:^2.0.0"
     cspell: "npm:^8.19.4"
+    docusaurus-plugin-llms: "npm:^0.1.5"
     docusaurus-theme-search-typesense: "npm:0.23.0-0"
     dotenv: "npm:^16.3.1"
     netlify-cli: "npm:^17.23.0"
@@ -11630,6 +11631,18 @@ __metadata:
   dependencies:
     "@leichtgewicht/ip-codec": "npm:^2.0.1"
   checksum: 10c0/8948d3d03063fb68e04a1e386875f8c3bcc398fc375f535f2b438fad8f41bf1afa6f5e70893ba44f4ae884c089247e0a31045722fa6ff0f01d228da103f1811d
+  languageName: node
+  linkType: hard
+
+"docusaurus-plugin-llms@npm:^0.1.5":
+  version: 0.1.5
+  resolution: "docusaurus-plugin-llms@npm:0.1.5"
+  dependencies:
+    gray-matter: "npm:^4.0.3"
+    minimatch: "npm:^9.0.3"
+  peerDependencies:
+    "@docusaurus/core": ^3.0.0
+  checksum: 10c0/ffb86e1fcea8467b457a47bd86f6d10e0794ca3b16719fdeff2ac7224095c2e98ea7fcf11da1ee78f08d1d4382ccc15a3858db731c8cdd2b52398d00c5650a99
   languageName: node
   linkType: hard
 
@@ -17529,6 +17542,15 @@ __metadata:
   dependencies:
     brace-expansion: "npm:^2.0.1"
   checksum: 10c0/2c16f21f50e64922864e560ff97c587d15fd491f65d92a677a344e970fe62aafdbeafe648965fa96d33c061b4d0eabfe0213466203dd793367e7f28658cf6414
+  languageName: node
+  linkType: hard
+
+"minimatch@npm:^9.0.3":
+  version: 9.0.5
+  resolution: "minimatch@npm:9.0.5"
+  dependencies:
+    brace-expansion: "npm:^2.0.1"
+  checksum: 10c0/de96cf5e35bdf0eab3e2c853522f98ffbe9a36c37797778d2665231ec1f20a9447a7e567cb640901f89e4daaa95ae5d70c65a9e8aa2bb0019b6facbc3c0575ed
   languageName: node
   linkType: hard
 

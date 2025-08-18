@@ -1,5 +1,6 @@
 ---
 title: Storage
+description: Comprehensive guide to storage management in Aztec smart contracts.
 ---
 
 Smart contracts rely on storage, acting as the persistent memory on the blockchain. In Aztec, because of its hybrid, privacy-first architecture, the management of this storage is more complex than other blockchains like Ethereum.

@@ -1,5 +1,6 @@
 ---
 title: How to Create a New Account
+description: Guide to creating and managing user accounts in your Aztec.js applications.
 tags: [accounts]
 sidebar_position: 0
 ---

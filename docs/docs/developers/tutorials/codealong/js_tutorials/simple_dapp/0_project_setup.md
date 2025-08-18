@@ -1,3 +1,7 @@
+---
+description: "Set up a JavaScript Node.js project with Aztec.js dependencies to build your first Aztec dApp"
+---
+
 # Setting up your project
 
 Let's start by setting up a regular Javascript NodeJS project. Feel free to skip this part if you're already familiar with project setup and head directly to connecting to the Sandbox.

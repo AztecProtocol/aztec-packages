@@ -1,5 +1,6 @@
 ---
 title: How to Simulate a Function Call
+description: Learn how to call view functions in your Aztec.js applications to query public state from contracts.
 tags: [functions]
 sidebar_position: 2
 ---

@@ -1,6 +1,7 @@
 ---
 title: Aztec.js
 tags: [aztec.js, javascript, typescript]
+description: Complete guide to Aztec.js library for managing accounts and interacting with contracts on the Aztec network, including installation, importing, and core workflow functions.
 ---
 
 import DocCardList from "@theme/DocCardList";

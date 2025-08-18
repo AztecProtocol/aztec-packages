@@ -1,5 +1,6 @@
 ---
 title: Contract Interaction
+description: "Part 3 of the simple dApp tutorial: Interacting with the smart contract."
 ---
 
 In this section, we'll write the logic in our app that will interact with the contract we have previously deployed. We'll be using the accounts already seeded in the Sandbox.

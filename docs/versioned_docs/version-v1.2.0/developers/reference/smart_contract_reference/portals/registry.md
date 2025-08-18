@@ -1,5 +1,6 @@
 ---
 title: Registry
+description: Learn about the portal registry and how it manages L1-L2 contract mappings.
 tags: [portals, contracts]
 ---
 

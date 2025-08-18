@@ -1,5 +1,6 @@
 ---
 title: Building in Public
+description: Learn about Aztec's commitment to building in public and how to follow development progress.
 sidebar_position: 0
 id: building_in_public
 ---
