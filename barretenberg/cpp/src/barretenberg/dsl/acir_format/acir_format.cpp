@@ -68,7 +68,7 @@ template <typename Builder> struct HonkRecursionConstraintsOutput {
         }
     }
 
-    void update(HonkRecursionConstraintsOutput<Builder>& other, bool has_ipa_data)
+    void update(HonkRecursionConstraintsOutput<Builder>& other)
     {
         // Update points accumulator
         if (this->points_accumulator.has_data) {
@@ -77,13 +77,11 @@ template <typename Builder> struct HonkRecursionConstraintsOutput {
             this->points_accumulator = other.points_accumulator;
         }
 
-        if (has_ipa_data) {
-            // Update ipa proofs and claims
-            this->nested_ipa_proofs.insert(
-                this->nested_ipa_proofs.end(), other.nested_ipa_proofs.begin(), other.nested_ipa_proofs.end());
-            this->nested_ipa_claims.insert(
-                this->nested_ipa_claims.end(), other.nested_ipa_claims.begin(), other.nested_ipa_claims.end());
-        }
+        // Update ipa proofs and claims (if other has no proofs/laims, we are not appending anything)
+        this->nested_ipa_proofs.insert(
+            this->nested_ipa_proofs.end(), other.nested_ipa_proofs.begin(), other.nested_ipa_proofs.end());
+        this->nested_ipa_claims.insert(
+            this->nested_ipa_claims.end(), other.nested_ipa_claims.begin(), other.nested_ipa_claims.end());
     }
 };
 
@@ -352,36 +350,44 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
             // Update honk_output: append (potentially 0) ipa claims and proofs.
             // If honk output has points accumulator, aggregate it with the one coming from the avm. Otherwise, override
             // it with the avm's one.
-            honk_output.update(avm_output, /*has_ipa_data=*/!avm_output.nested_ipa_claims.empty());
+            honk_output.update(avm_output);
         }
 #endif
 
-        // Handle IPA
         if (metadata.honk_recursion == 2) {
-            // IO
-            bb::stdlib::recursion::honk::RollupIO inputs;
-            inputs.pairing_inputs = (has_honk_recursion_constraints || has_avm_recursion_constraints)
-                                        ? honk_output.points_accumulator
-                                        : PairingPoints::default_pairing_points(builder);
+            // Proving with UltraRollupFlavor
 
+            // Propagate pairing points
+            if (has_honk_recursion_constraints || has_avm_recursion_constraints) {
+                honk_output.points_accumulator.set_public();
+            } else {
+                PairingPoints::add_default_to_public_inputs(builder);
+            }
+
+            // Handle IPA
             auto [ipa_claim, ipa_proof] =
                 handle_IPA_accumulation(builder, honk_output.nested_ipa_claims, honk_output.nested_ipa_proofs);
 
             // Set proof
             builder.ipa_proof = ipa_proof;
 
-            inputs.ipa_claim = ipa_claim;
-            inputs.set_public();
+            // Propagate IPA claim
+            ipa_claim.set_public();
         } else {
             // If it is a recursive circuit, propagate pairing points
             if (metadata.honk_recursion == 1) {
-                bb::stdlib::recursion::honk::DefaultIO<Builder> inputs;
-                inputs.pairing_inputs = (has_honk_recursion_constraints || has_avm_recursion_constraints)
-                                            ? honk_output.points_accumulator
-                                            : PairingPoints::default_pairing_points(builder);
-                inputs.set_public();
+                using IO = bb::stdlib::recursion::honk::DefaultIO<Builder>;
+
+                if (has_honk_recursion_constraints || has_avm_recursion_constraints) {
+                    IO inputs;
+                    inputs.pairing_inputs = honk_output.points_accumulator;
+                    inputs.set_public();
+                } else {
+                    IO::add_default(builder);
+                }
             }
 
+            // Handle IPA
             if (honk_output.is_root_rollup) {
                 perform_full_IPA_verification(builder, honk_output.nested_ipa_claims, honk_output.nested_ipa_proofs);
             } else {

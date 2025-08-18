@@ -117,17 +117,17 @@ class KernelIO {
      */
     static void add_default(Builder& builder)
     {
-        KernelIO inputs;
-
-        inputs.pairing_inputs = PairingInputs::default_pairing_points(builder);
-        inputs.kernel_return_data = DataBusDepot<Builder>::construct_default_commitment(builder);
-        inputs.app_return_data = DataBusDepot<Builder>::construct_default_commitment(builder);
-        for (auto& table_commitment : inputs.ecc_op_tables) {
+        PairingInputs::add_default_to_public_inputs(builder);
+        G1 kernel_return_data = DataBusDepot<Builder>::construct_default_commitment(builder);
+        kernel_return_data.set_public();
+        G1 app_return_data = DataBusDepot<Builder>::construct_default_commitment(builder);
+        app_return_data.set_public();
+        TableCommitments ecc_op_tables;
+        for (auto& table_commitment : ecc_op_tables) {
             table_commitment = G1(DEFAULT_ECC_COMMITMENT);
             table_commitment.convert_constant_to_fixed_witness(&builder);
+            table_commitment.set_public();
         }
-
-        inputs.set_public();
     };
 };
 
@@ -135,8 +135,9 @@ class KernelIO {
  * @brief Manages the data that is propagated on the public inputs of an application/function circuit
  *
  */
-template <typename Builder> class DefaultIO {
+template <typename Builder_> class DefaultIO {
   public:
+    using Builder = Builder_;
     using Curve = stdlib::bn254<Builder>; // curve is always bn254
     using FF = Curve::ScalarField;
     using PairingInputs = stdlib::recursion::PairingPoints<Builder>;
@@ -177,13 +178,7 @@ template <typename Builder> class DefaultIO {
      * @brief Add default public inputs when they are not present
      *
      */
-    static void add_default(Builder& builder)
-    {
-        DefaultIO<Builder> inputs;
-        inputs.pairing_inputs = PairingInputs::default_pairing_points(builder);
-
-        inputs.set_public();
-    };
+    static void add_default(Builder& builder) { PairingInputs::add_default_to_public_inputs(builder); };
 };
 
 /**
@@ -310,12 +305,10 @@ template <class Builder_> class HidingKernelIO {
      */
     static void add_default(Builder& builder)
     {
-        HidingKernelIO<Builder> inputs;
-
-        inputs.pairing_inputs = PairingInputs::default_pairing_points(builder);
-        inputs.ecc_op_tables = default_ecc_op_tables(builder);
-
-        inputs.set_public();
+        PairingInputs::add_default_to_public_inputs(builder);
+        for (auto& table_commitment : default_ecc_op_tables(builder)) {
+            table_commitment.set_public();
+        }
     };
 };
 
@@ -372,16 +365,10 @@ class RollupIO {
      */
     static void add_default(Builder& builder)
     {
-        RollupIO inputs;
+        PairingInputs::add_default_to_public_inputs(builder);
         auto [stdlib_opening_claim, ipa_proof] = IPA<grumpkin<Builder>>::create_fake_ipa_claim_and_proof(builder);
-
-        // Add IPA proof
+        stdlib_opening_claim.set_public();
         builder.ipa_proof = ipa_proof;
-
-        inputs.pairing_inputs = PairingInputs::default_pairing_points(builder);
-        inputs.ipa_claim = stdlib_opening_claim;
-
-        inputs.set_public();
     };
 };
 
