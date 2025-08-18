@@ -58,3 +58,6 @@ bot:
     requests:
       memory: 15Gi
       cpu: 7
+
+web3signer:
+  enabled: true
