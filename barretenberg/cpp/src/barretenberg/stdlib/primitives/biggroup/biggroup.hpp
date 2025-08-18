@@ -589,26 +589,49 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
                 num_fives = 0;
                 num_sixes = 0;
             } else if (num_fives * 5 == (num_points - 1)) {
+                // last 6 points to be added as one 6-table
                 num_fives -= 1;
                 num_sixes = 1;
             } else if (num_fives * 5 == (num_points - 2) && num_fives >= 2) {
+                // last 12 points to be added as two 6-tables
                 num_fives -= 2;
                 num_sixes = 2;
             } else if (num_fives * 5 == (num_points - 3) && num_fives >= 3) {
+                // last 18 points to be added as three 6-tables
                 num_fives -= 3;
                 num_sixes = 3;
             }
 
-            has_quad = ((num_fives * 5 + num_sixes * 6) < num_points - 3) && (num_points >= 4);
+            // Calculate remaining points after allocating fives and sixes tables
+            size_t remaining_points = num_points - (num_fives * 5 + num_sixes * 6);
 
-            has_triple = ((num_fives * 5 + num_sixes * 6 + (size_t)has_quad * 4) < num_points - 2) && (num_points >= 3);
+            // Allocate one quad table if required (and update remaining points)
+            has_quad = (remaining_points >= 4) && (num_points >= 4);
+            if (has_quad) {
+                remaining_points -= 4;
+            }
 
-            has_twin =
-                ((num_fives * 5 + num_sixes * 6 + (size_t)has_quad * 4 + (size_t)has_triple * 3) < num_points - 1) &&
-                (num_points >= 2);
+            // Allocate one triple table if required (and update remaining points)
+            has_triple = (remaining_points >= 3) && (num_points >= 3);
+            if (has_triple) {
+                remaining_points -= 3;
+            }
 
-            has_singleton = num_points != ((num_fives * 5 + num_sixes * 6) + ((size_t)has_quad * 4) +
-                                           ((size_t)has_triple * 3) + ((size_t)has_twin * 2));
+            // Allocate one twin table if required (and update remaining points)
+            has_twin = (remaining_points >= 2) && (num_points >= 2);
+            if (has_twin) {
+                remaining_points -= 2;
+            }
+
+            // If there is anything remaining, allocate a singleton
+            has_singleton = (remaining_points != 0) && (num_points >= 1);
+
+            // Sanity check
+            BB_ASSERT_EQ(num_points,
+                         num_sixes * 6 + num_fives * 5 + static_cast<size_t>(has_quad) * 4 +
+                             static_cast<size_t>(has_triple) * 3 + static_cast<size_t>(has_twin) * 2 +
+                             static_cast<size_t>(has_singleton) * 1,
+                         "point allocation mismatch");
 
             size_t offset = 0;
             for (size_t i = 0; i < num_sixes; ++i) {
