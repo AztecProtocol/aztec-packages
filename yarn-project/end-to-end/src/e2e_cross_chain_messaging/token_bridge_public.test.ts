@@ -16,14 +16,16 @@ describe('e2e_cross_chain_messaging token_bridge_public', () => {
     l2Bridge,
     l2Token,
     user1Wallet,
+    user1Address,
     user2Wallet,
+    user2Address,
   } = t;
 
   beforeEach(async () => {
     await t.applyBaseSnapshots();
     await t.setup();
     // Have to destructure again to ensure we have latest refs.
-    ({ crossChainTestHarness, user1Wallet, user2Wallet } = t);
+    ({ crossChainTestHarness, user1Wallet, user1Address, user2Wallet, user1Address, user2Address } = t);
 
     ethAccount = crossChainTestHarness.ethAccount;
     aztecNode = crossChainTestHarness.aztecNode;
@@ -81,7 +83,7 @@ describe('e2e_cross_chain_messaging token_bridge_public', () => {
       },
       true,
     );
-    await validateActionInteraction.send().wait();
+    await validateActionInteraction.send({ from: user1Address }).wait();
 
     // 5. Withdraw owner's funds from L2 to L1
     logger.verbose('5. Withdraw owner funds from L2 to L1');
@@ -103,7 +105,7 @@ describe('e2e_cross_chain_messaging token_bridge_public', () => {
     await crossChainTestHarness.withdrawFundsFromBridgeOnL1(
       withdrawAmount,
       l2TxReceipt.blockNumber!,
-      l2ToL1MessageResult!.l2MessageIndex,
+      l2ToL1MessageResult!.leafIndex,
       l2ToL1MessageResult!.siblingPath,
     );
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount + withdrawAmount);
@@ -132,7 +134,7 @@ describe('e2e_cross_chain_messaging token_bridge_public', () => {
       l2Bridge
         .withWallet(user2Wallet)
         .methods.claim_public(user2Wallet.getAddress(), bridgeAmount, claim.claimSecret, messageLeafIndex)
-        .simulate(),
+        .simulate({ from: user2Address }),
     ).rejects.toThrow(NO_L1_TO_L2_MSG_ERROR);
 
     // user2 consumes owner's L1-> L2 message on bridge contract and mints public tokens on L2
@@ -140,7 +142,7 @@ describe('e2e_cross_chain_messaging token_bridge_public', () => {
     await l2Bridge
       .withWallet(user2Wallet)
       .methods.claim_public(ownerAddress, bridgeAmount, claim.claimSecret, messageLeafIndex)
-      .send()
+      .send({ from: user2Address })
       .wait();
 
     // ensure funds are gone to owner and not user2.

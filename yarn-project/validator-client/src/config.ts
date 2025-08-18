@@ -6,13 +6,14 @@ import {
   numberConfigHelper,
   secretValueConfigHelper,
 } from '@aztec/foundation/config';
+import { EthAddress } from '@aztec/foundation/eth-address';
 
 /**
  * The Validator Configuration
  */
 export interface ValidatorClientConfig {
   /** The private keys of the validators participating in attestation duties */
-  validatorPrivateKeys: SecretValue<`0x${string}`[]>;
+  validatorPrivateKeys?: SecretValue<`0x${string}`[]>;
 
   /** Do not run the validator */
   disableValidator: boolean;
@@ -25,6 +26,12 @@ export interface ValidatorClientConfig {
 
   /** Will re-execute until this many milliseconds are left in the slot */
   validatorReexecuteDeadlineMs: number;
+
+  /** URL of the Web3Signer instance */
+  web3SignerUrl?: string;
+
+  /** List of addresses of remote signers */
+  web3SignerAddresses?: EthAddress[];
 }
 
 export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientConfig> = {
@@ -34,6 +41,7 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
     ...secretValueConfigHelper<`0x${string}`[]>(val =>
       val ? val.split(',').map<`0x${string}`>(key => `0x${key.replace('0x', '')}`) : [],
     ),
+    fallback: ['VALIDATOR_PRIVATE_KEY'],
   },
   disableValidator: {
     env: 'VALIDATOR_DISABLED',
@@ -54,6 +62,16 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
     env: 'VALIDATOR_REEXECUTE_DEADLINE_MS',
     description: 'Will re-execute until this many milliseconds are left in the slot',
     ...numberConfigHelper(6000),
+  },
+  web3SignerUrl: {
+    env: 'WEB3_SIGNER_URL',
+    description: 'URL of the Web3Signer instance',
+    parseEnv: (val: string) => val.trim(),
+  },
+  web3SignerAddresses: {
+    env: 'WEB3_SIGNER_ADDRESSES',
+    description: 'List of addresses of remote signers',
+    parseEnv: (val: string) => val.split(',').map(address => EthAddress.fromString(address)),
   },
 };
 

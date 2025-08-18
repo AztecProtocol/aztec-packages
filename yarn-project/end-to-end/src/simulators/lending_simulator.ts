@@ -1,6 +1,6 @@
 // Convenience struct to hold an account's address and secret that can easily be passed around.
 import { AztecAddress, Fr } from '@aztec/aztec.js';
-import { CheatCodes } from '@aztec/aztec.js/testing';
+import { CheatCodes } from '@aztec/aztec/testing';
 import type { RollupContract } from '@aztec/ethereum';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import type { TestDateProvider } from '@aztec/foundation/timer';
@@ -183,14 +183,14 @@ export class LendingSimulator {
 
     expect(this.borrowed).toEqual(this.stableCoin.totalSupply - this.mintedOutside);
 
-    const asset = await this.lendingContract.methods.get_asset(0).simulate();
+    const asset = await this.lendingContract.methods.get_asset(0).simulate({ from: this.account.address });
 
     const interestAccumulator = asset['interest_accumulator'];
     expect(interestAccumulator).toEqual(this.accumulator);
     expect(asset['last_updated_ts']).toEqual(BigInt(this.time));
 
     for (const key of [this.account.address, AztecAddress.fromField(await this.account.key())]) {
-      const privatePos = await this.lendingContract.methods.get_position(key).simulate();
+      const privatePos = await this.lendingContract.methods.get_position(key).simulate({ from: key });
       expect(new Fr(privatePos['collateral'])).toEqual(this.collateral[key.toString()] ?? Fr.ZERO);
       expect(new Fr(privatePos['static_debt'])).toEqual(this.staticDebt[key.toString()] ?? Fr.ZERO);
       expect(privatePos['debt']).toEqual(

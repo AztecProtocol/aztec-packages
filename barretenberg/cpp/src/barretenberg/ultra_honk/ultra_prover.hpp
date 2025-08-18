@@ -30,6 +30,7 @@ template <IsUltraOrMegaHonk Flavor_> class UltraProver_ {
     using DeciderPK = DeciderProvingKey_<Flavor>;
     using HonkVK = typename Flavor::VerificationKey;
     using Transcript = typename Flavor::Transcript;
+    using Proof = typename Transcript::Proof;
 
     std::shared_ptr<DeciderPK> proving_key;
     std::shared_ptr<HonkVK> honk_vk;
@@ -58,12 +59,13 @@ template <IsUltraOrMegaHonk Flavor_> class UltraProver_ {
 
     BB_PROFILE void generate_gate_challenges();
 
-    HonkProof export_proof();
-    HonkProof construct_proof();
-    HonkProof prove() { return construct_proof(); };
+    Proof export_proof();
+    Proof construct_proof();
+    Proof prove() { return construct_proof(); };
 };
 
 using UltraProver = UltraProver_<UltraFlavor>;
+using UltraZKProver = UltraProver_<UltraZKFlavor>;
 using UltraKeccakProver = UltraProver_<UltraKeccakFlavor>;
 #ifdef STARKNET_GARAGA_FLAVORS
 using UltraStarknetProver = UltraProver_<UltraStarknetFlavor>;

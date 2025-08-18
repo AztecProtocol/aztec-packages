@@ -134,13 +134,14 @@ TEST_F(AcirAvm2RecursionConstraint, TestBasicSingleAvm2RecursionConstraint)
     info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 
     auto proving_key = std::make_shared<OuterDeciderProvingKey>(layer_2_circuit);
-    auto verification_key = std::make_shared<OuterVerificationKey>(proving_key->proving_key);
+    auto verification_key = std::make_shared<OuterVerificationKey>(proving_key->get_precomputed());
     OuterProver prover(proving_key, verification_key);
-    info("prover gates = ", proving_key->proving_key.circuit_size);
+    info("prover gates = ", proving_key->dyadic_size());
     auto proof = prover.construct_proof();
     VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
     OuterVerifier verifier(verification_key, ipa_verification_key);
-    EXPECT_EQ(verifier.verify_proof(proof, proving_key->proving_key.ipa_proof), true);
+    bool result = verifier.template verify_proof<bb::RollupIO>(proof, proving_key->ipa_proof).result;
+    EXPECT_TRUE(result);
 }
 
 /**
@@ -165,15 +166,17 @@ TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
         info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 
         auto proving_key = std::make_shared<OuterDeciderProvingKey>(layer_2_circuit);
-        expected_vk = std::make_shared<OuterVerificationKey>(proving_key->proving_key);
+        expected_vk = std::make_shared<OuterVerificationKey>(proving_key->get_precomputed());
         OuterProver prover(proving_key, expected_vk);
-        info("prover gates = ", proving_key->proving_key.circuit_size);
+        info("prover gates = ", proving_key->dyadic_size());
 
         // Construct and verify a proof of the outer AVM verifier circuits
         auto proof = prover.construct_proof();
         VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
         OuterVerifier verifier(expected_vk, ipa_verification_key);
-        EXPECT_TRUE(verifier.verify_proof(proof, proving_key->proving_key.ipa_proof));
+
+        bool result = verifier.template verify_proof<bb::RollupIO>(proof, proving_key->ipa_proof).result;
+        EXPECT_TRUE(result);
     }
 
     // Now, construct the AVM2 recursive verifier circuit VK by providing the program without a witness
@@ -189,9 +192,9 @@ TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
         info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 
         auto proving_key = std::make_shared<OuterDeciderProvingKey>(layer_2_circuit);
-        actual_vk = std::make_shared<OuterVerificationKey>(proving_key->proving_key);
+        actual_vk = std::make_shared<OuterVerificationKey>(proving_key->get_precomputed());
         OuterProver prover(proving_key, actual_vk);
-        info("prover gates = ", proving_key->proving_key.circuit_size);
+        info("prover gates = ", proving_key->dyadic_size());
     }
 
     // Compare the VK constructed via running the IVC with the one constructed via mocking

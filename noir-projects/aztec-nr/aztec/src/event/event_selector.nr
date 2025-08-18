@@ -3,29 +3,10 @@ use dep::protocol_types::{
     traits::{Deserialize, Empty, FromField, Serialize, ToField},
 };
 
+#[derive(Deserialize, Eq, Serialize)]
 pub struct EventSelector {
     // 1st 4-bytes (big-endian leftmost) of abi-encoding of an event.
-    // TODO(#2707): Consider making this a u64 as we already cast this to that when encoding the message. This would decrease
-    // the likelihood of collisions without any extra cost.
     inner: u32,
-}
-
-impl Eq for EventSelector {
-    fn eq(self, other: EventSelector) -> bool {
-        other.inner == self.inner
-    }
-}
-
-impl Serialize<1> for EventSelector {
-    fn serialize(self: Self) -> [Field; 1] {
-        [self.inner as Field]
-    }
-}
-
-impl Deserialize<1> for EventSelector {
-    fn deserialize(fields: [Field; 1]) -> Self {
-        Self { inner: fields[0] as u32 }
-    }
 }
 
 impl FromField for EventSelector {

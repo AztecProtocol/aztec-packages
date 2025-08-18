@@ -16,18 +16,19 @@ export class TxRequest {
   constructor(
     /** Sender. */
     public origin: AztecAddress,
-    /** Function data representing the function to call. */
-    public functionData: FunctionData,
     /** Pedersen hash of function arguments. */
     public argsHash: Fr,
     /** Transaction context. */
     public txContext: TxContext,
+    /** Function data representing the function to call. */
+    public functionData: FunctionData,
     /** A salt to make the hash difficult to predict. The hash is used as the first nullifier if there is no nullifier emitted throughout the tx. */
     public salt: Fr,
   ) {}
   // docs:end:constructor
+
   static getFields(fields: FieldsOf<TxRequest>) {
-    return [fields.origin, fields.functionData, fields.argsHash, fields.txContext, fields.salt] as const;
+    return [fields.origin, fields.argsHash, fields.txContext, fields.functionData, fields.salt] as const;
   }
 
   static from(fields: FieldsOf<TxRequest>): TxRequest {
@@ -59,9 +60,9 @@ export class TxRequest {
     const reader = BufferReader.asReader(buffer);
     return new TxRequest(
       reader.readObject(AztecAddress),
-      reader.readObject(FunctionData),
       Fr.fromBuffer(reader),
       reader.readObject(TxContext),
+      reader.readObject(FunctionData),
       Fr.fromBuffer(reader),
     );
   }
@@ -71,15 +72,15 @@ export class TxRequest {
   }
 
   static empty() {
-    return new TxRequest(AztecAddress.ZERO, FunctionData.empty(), Fr.zero(), TxContext.empty(), Fr.zero());
+    return new TxRequest(AztecAddress.ZERO, Fr.zero(), TxContext.empty(), FunctionData.empty(), Fr.zero());
   }
 
   isEmpty() {
     return (
       this.origin.isZero() &&
-      this.functionData.isEmpty() &&
       this.argsHash.isZero() &&
       this.txContext.isEmpty() &&
+      this.functionData.isEmpty() &&
       this.salt.isZero()
     );
   }

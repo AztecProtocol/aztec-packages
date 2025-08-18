@@ -5,7 +5,7 @@
 
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
-#include "barretenberg/vm2/generated/relations/execution_discard.hpp"
+#include "barretenberg/vm2/generated/relations/discard.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
@@ -17,7 +17,7 @@ namespace {
 using tracegen::TestTraceContainer;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
-using execution_discard = bb::avm2::execution_discard<FF>;
+using execution_discard = bb::avm2::discard<FF>;
 
 TEST(ExecutionDiscardConstrainingTest, EmptyRow)
 {
@@ -328,7 +328,7 @@ TEST(ExecutionDiscardConstrainingTest, DiscardDyingContextMustError)
           { C::execution_is_dying_context, 1 },
           { C::execution_sel_exit_call, 1 },
           { C::execution_sel_error, 1 },
-          { C::execution_sel_revert, 0 },
+          { C::execution_sel_execute_revert, 0 },
           { C::execution_sel_failure, 1 },
           { C::execution_dying_context_diff_inv, 0 } },
         { { C::execution_sel, 1 }, { C::execution_last, 1 } },
@@ -340,7 +340,7 @@ TEST(ExecutionDiscardConstrainingTest, DiscardDyingContextMustError)
     // Negative test: dying context exits without error
     trace.set(C::execution_sel_failure, 1, 0);
     trace.set(C::execution_sel_error, 1, 0);
-    trace.set(C::execution_sel_revert, 1, 0);
+    trace.set(C::execution_sel_execute_revert, 1, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<execution_discard>(trace, execution_discard::SR_DYING_CONTEXT_MUST_FAIL),
                               "DYING_CONTEXT_MUST_FAIL");
 }
@@ -392,7 +392,7 @@ TEST(ExecutionDiscardConstrainingTest, DiscardComplexScenario)
           { C::execution_is_dying_context, 1 },
           { C::execution_sel_exit_call, 1 },
           { C::execution_sel_error, 1 },
-          { C::execution_sel_revert, 0 },
+          { C::execution_sel_execute_revert, 0 },
           { C::execution_sel_failure, 1 },
           { C::execution_dying_context_diff_inv, 0 },
           { C::execution_has_parent_ctx, 1 },

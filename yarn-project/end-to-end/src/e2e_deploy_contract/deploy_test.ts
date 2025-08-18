@@ -11,7 +11,7 @@ import {
   type PublicKeys,
   type Wallet,
   createLogger,
-  getContractInstanceFromDeployParams,
+  getContractInstanceFromInstantiationParams,
 } from '@aztec/aztec.js';
 import type { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
@@ -22,11 +22,10 @@ const { E2E_DATA_PATH: dataPath } = process.env;
 
 export class DeployTest {
   private snapshotManager: ISnapshotManager;
-  private wallets: AccountWallet[] = [];
-
   public logger: Logger;
   public pxe!: PXE;
   public wallet!: AccountWallet;
+  public defaultAccountAddress!: AztecAddress;
   public aztecNode!: AztecNode;
   public aztecNodeAdmin!: AztecNodeAdmin;
 
@@ -52,9 +51,10 @@ export class DeployTest {
       'initial_account',
       deployAccounts(1, this.logger),
       async ({ deployedAccounts }, { pxe }) => {
-        this.wallets = await Promise.all(deployedAccounts.map(a => getSchnorrWallet(pxe, a.address, a.signingKey)));
-        this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
-        this.wallet = this.wallets[0];
+        const wallets = await Promise.all(deployedAccounts.map(a => getSchnorrWallet(pxe, a.address, a.signingKey)));
+        wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
+        this.wallet = wallets[0];
+        this.defaultAccountAddress = this.wallet.getAddress();
       },
     );
   }
@@ -71,7 +71,7 @@ export class DeployTest {
     } = {},
   ): Promise<T> {
     const { salt, publicKeys, initArgs, constructorName, deployer } = opts;
-    const instance = await getContractInstanceFromDeployParams(contractArtifact.artifact, {
+    const instance = await getContractInstanceFromInstantiationParams(contractArtifact.artifact, {
       constructorArgs: initArgs ?? [],
       constructorArtifact: constructorName,
       salt,

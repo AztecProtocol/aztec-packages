@@ -1,7 +1,8 @@
 use dep::aztec::{
     authwit::entrypoint::function_call::FunctionCall,
-    prelude::{AztecAddress, PrivateContext},
+    context::PrivateContext,
     protocol_types::{
+        address::AztecAddress,
         constants::GENERATOR_INDEX__SIGNATURE_PAYLOAD,
         hash::poseidon2_hash_with_separator,
         traits::{Hash, Serialize},
@@ -46,7 +47,7 @@ impl DAppPayload {
 
     // Executes all private and public calls
     // docs:start:entrypoint-execute-calls
-    fn execute_calls(self, context: &mut PrivateContext, target_address: AztecAddress) {
+    pub fn execute_calls(self, context: &mut PrivateContext, target_address: AztecAddress) {
         for i in 0..DAPP_MAX_CALLS {
             let call = self.function_calls[i];
             // whitelist the calls that the user can do only go to the expected Dapp contract

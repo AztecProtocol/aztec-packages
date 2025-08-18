@@ -5,17 +5,19 @@
 // =====================
 
 #include "honk_recursion_constraint.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/ultra_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_recursive_flavor.hpp"
-#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
-#include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
+#include "barretenberg/stdlib/primitives/pairing_points.hpp"
+#include "barretenberg/stdlib/proof/proof.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "proof_surgeon.hpp"
 #include "recursion_constraint.hpp"
 
@@ -52,20 +54,23 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
 {
     using Builder = typename Flavor::CircuitBuilder;
     using NativeFlavor = typename Flavor::NativeFlavor;
+
+    static constexpr size_t IPA_CLAIM_SIZE = stdlib::recursion::honk::RollupIO::IpaClaim::PUBLIC_INPUTS_SIZE;
+
     // Set vkey->circuit_size correctly based on the proof size
-    BB_ASSERT_EQ(proof_size, NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
-    // a lambda that adds dummy commitments (libra and gemini)
-    auto set_dummy_commitment = [&](size_t& offset) {
+    BB_ASSERT_EQ(proof_size, NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS());
+    // a lambda that sets dummy commitments
+    auto set_dummy_commitment = [&builder](const std::vector<typename Flavor::FF>& fields, size_t& offset) {
         auto comm = curve::BN254::AffineElement::one() * fr::random_element();
         auto frs = field_conversion::convert_to_bn254_frs(comm);
-        builder.set_variable(proof_fields[offset].witness_index, frs[0]);
-        builder.set_variable(proof_fields[offset + 1].witness_index, frs[1]);
-        builder.set_variable(proof_fields[offset + 2].witness_index, frs[2]);
-        builder.set_variable(proof_fields[offset + 3].witness_index, frs[3]);
+        builder.set_variable(fields[offset].witness_index, frs[0]);
+        builder.set_variable(fields[offset + 1].witness_index, frs[1]);
+        builder.set_variable(fields[offset + 2].witness_index, frs[2]);
+        builder.set_variable(fields[offset + 3].witness_index, frs[3]);
         offset += 4;
     };
-
-    auto set_dummy_evaluation = [&](size_t& offset) {
+    // a lambda that sets dummy evaluation in proof fields vector
+    auto set_dummy_evaluation_in_proof_fields = [&](size_t& offset) {
         builder.set_variable(proof_fields[offset].witness_index, fr::random_element());
         offset++;
     };
@@ -80,30 +85,18 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     // Third key field is the pub inputs offset
     uint32_t pub_inputs_offset = NativeFlavor::has_zero_row ? 1 : 0;
     builder.set_variable(key_fields[offset++].witness_index, pub_inputs_offset);
-    size_t num_inner_public_inputs = public_inputs_size - bb::PAIRING_POINTS_SIZE;
-    if constexpr (HasIPAAccumulator<Flavor>) {
-        num_inner_public_inputs -= bb::IPA_CLAIM_SIZE;
-    }
-
-    // We are making the assumption that the pairing point object is behind all the inner public inputs
-    builder.set_variable(key_fields[offset].witness_index, num_inner_public_inputs);
-    offset++;
-
-    if constexpr (HasIPAAccumulator<Flavor>) {
-        // We are making the assumption that the IPA claim is behind the inner public inputs and pairing point object
-        builder.set_variable(key_fields[offset].witness_index, num_inner_public_inputs + PAIRING_POINTS_SIZE);
-        offset++;
-    }
+    size_t num_inner_public_inputs = HasIPAAccumulator<Flavor> ? public_inputs_size - bb::RollupIO::PUBLIC_INPUTS_SIZE
+                                                               : public_inputs_size - bb::DefaultIO::PUBLIC_INPUTS_SIZE;
 
     for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; ++i) {
-        set_dummy_commitment(offset);
+        set_dummy_commitment(key_fields, offset);
     }
 
     offset = 0; // Reset offset for parsing proof fields
 
     // the inner public inputs
     for (size_t i = 0; i < num_inner_public_inputs; i++) {
-        set_dummy_evaluation(offset);
+        set_dummy_evaluation_in_proof_fields(offset);
     }
 
     // Get some values for a valid aggregation object and use them here to avoid divide by 0 or other issues.
@@ -117,75 +110,70 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     // IPA claim
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1392): Don't use random elements here.
     if constexpr (HasIPAAccumulator<Flavor>) {
-        for (size_t i = 0; i < bb::IPA_CLAIM_SIZE; i++) {
-            set_dummy_evaluation(offset);
+        for (size_t i = 0; i < IPA_CLAIM_SIZE; i++) {
+            set_dummy_evaluation_in_proof_fields(offset);
         }
     }
 
     // first NUM_WITNESS_ENTITIES witness commitments
     for (size_t i = 0; i < Flavor::NUM_WITNESS_ENTITIES; i++) {
-        set_dummy_commitment(offset);
+        set_dummy_commitment(proof_fields, offset);
     }
 
     if constexpr (Flavor::HasZK) {
         // Libra concatenation commitment
-        set_dummy_commitment(offset);
+        set_dummy_commitment(proof_fields, offset);
         // libra sum
-        set_dummy_evaluation(offset);
+        set_dummy_evaluation_in_proof_fields(offset);
     }
 
     // now the univariates, which can just be 0s (8*CONST_PROOF_SIZE_LOG_N Frs, where 8 is the maximum relation
     // degree)
     for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N * Flavor::BATCHED_RELATION_PARTIAL_LENGTH; i++) {
-        set_dummy_evaluation(offset);
+        set_dummy_evaluation_in_proof_fields(offset);
     }
 
     // now the sumcheck evaluations, which is just 44 0s
     for (size_t i = 0; i < Flavor::NUM_ALL_ENTITIES; i++) {
-        set_dummy_evaluation(offset);
+        set_dummy_evaluation_in_proof_fields(offset);
     }
 
     if constexpr (Flavor::HasZK) {
         // Libra claimed evaluation
-        set_dummy_evaluation(offset);
+        set_dummy_evaluation_in_proof_fields(offset);
         // Libra grand sum commitment
-
-        set_dummy_commitment(offset);
+        set_dummy_commitment(proof_fields, offset);
         // Libra quotient commitment
-        set_dummy_commitment(offset);
+        set_dummy_commitment(proof_fields, offset);
         // Gemini masking commitment
-        set_dummy_commitment(offset);
+        set_dummy_commitment(proof_fields, offset);
         // Gemini masking evaluation
-        set_dummy_evaluation(offset);
+        set_dummy_evaluation_in_proof_fields(offset);
     }
 
     // now the gemini fold commitments which are CONST_PROOF_SIZE_LOG_N - 1
     for (size_t i = 1; i < CONST_PROOF_SIZE_LOG_N; i++) {
-        set_dummy_commitment(offset);
+        set_dummy_commitment(proof_fields, offset);
     }
 
     // the gemini fold evaluations which are also CONST_PROOF_SIZE_LOG_N
     for (size_t i = 1; i <= CONST_PROOF_SIZE_LOG_N; i++) {
-        set_dummy_evaluation(offset);
+        set_dummy_evaluation_in_proof_fields(offset);
     }
 
     if constexpr (Flavor::HasZK) {
         // NUM_SMALL_IPA_EVALUATIONS libra evals
         for (size_t i = 0; i < NUM_SMALL_IPA_EVALUATIONS; i++) {
-            set_dummy_evaluation(offset);
+            set_dummy_evaluation_in_proof_fields(offset);
         }
     }
 
     // lastly the shplonk batched quotient commitment and kzg quotient commitment
     for (size_t i = 0; i < 2; i++) {
-        set_dummy_commitment(offset);
+        set_dummy_commitment(proof_fields, offset);
     }
     // IPA Proof
     if constexpr (HasIPAAccumulator<Flavor>) {
-        // Poly length
-        builder.set_variable(proof_fields[offset].witness_index, fr(1));
-        offset++;
-
         // Ls and Rs
         for (size_t i = 0; i < static_cast<size_t>(2) * CONST_ECCVM_LOG_N; i++) {
             auto comm = curve::Grumpkin::AffineElement::one() * fq::random_element();
@@ -226,14 +214,18 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
 template <typename Flavor>
 HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recursion_constraints(
     typename Flavor::CircuitBuilder& builder, const RecursionConstraint& input, bool has_valid_witness_assignments)
-    requires IsRecursiveFlavor<Flavor>
+    requires(IsRecursiveFlavor<Flavor> && IsUltraHonk<typename Flavor::NativeFlavor>)
 {
     using Builder = typename Flavor::CircuitBuilder;
     using RecursiveVerificationKey = Flavor::VerificationKey;
+    using RecursiveVKAndHash = Flavor::VKAndHash;
     using RecursiveVerifier = bb::stdlib::recursion::honk::UltraRecursiveVerifier_<Flavor>;
+    using IO = std::conditional_t<HasIPAAccumulator<Flavor>,
+                                  stdlib::recursion::honk::RollupIO,
+                                  stdlib::recursion::honk::DefaultIO<Builder>>;
 
     ASSERT(input.proof_type == HONK || input.proof_type == HONK_ZK || HasIPAAccumulator<Flavor>);
-    ASSERT((input.proof_type == ROLLUP_HONK || input.proof_type == ROOT_ROLLUP_HONK) == HasIPAAccumulator<Flavor>);
+    BB_ASSERT_EQ(input.proof_type == ROLLUP_HONK || input.proof_type == ROOT_ROLLUP_HONK, HasIPAAccumulator<Flavor>);
 
     // Construct an in-circuit representation of the verification key.
     // For now, the v-key is a circuit constant and is fixed for the circuit.
@@ -245,11 +237,14 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
         key_fields.emplace_back(field);
     }
 
-    std::vector<field_ct<Builder>> proof_fields;
+    // Create circuit type for vkey hash.
+    auto vk_hash = field_ct<Builder>::from_witness_index(&builder, input.key_hash);
+
+    stdlib::Proof<Builder> proof_fields;
 
     // Create witness indices for the proof with public inputs reinserted
     std::vector<uint32_t> proof_indices =
-        ProofSurgeon::create_indices_for_reconstructed_proof(input.proof, input.public_inputs);
+        ProofSurgeon<uint256_t>::create_indices_for_reconstructed_proof(input.proof, input.public_inputs);
     proof_fields.reserve(proof_indices.size());
     for (const auto& idx : proof_indices) {
         auto field = field_ct<Builder>::from_witness_index(&builder, idx);
@@ -260,14 +255,8 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     if (!has_valid_witness_assignments) {
         // In the constraint, the agg object public inputs are still contained in the proof. To get the 'raw' size of
         // the proof and public_inputs we subtract and add the corresponding amount from the respective sizes.
-        size_t size_of_proof_with_no_pub_inputs = input.proof.size() - bb::PAIRING_POINTS_SIZE;
-        if constexpr (HasIPAAccumulator<Flavor>) {
-            size_of_proof_with_no_pub_inputs -= bb::IPA_CLAIM_SIZE;
-        }
-        size_t total_num_public_inputs = input.public_inputs.size() + bb::PAIRING_POINTS_SIZE;
-        if constexpr (HasIPAAccumulator<Flavor>) {
-            total_num_public_inputs += bb::IPA_CLAIM_SIZE;
-        }
+        size_t size_of_proof_with_no_pub_inputs = input.proof.size() - IO::PUBLIC_INPUTS_SIZE;
+        size_t total_num_public_inputs = input.public_inputs.size() + IO::PUBLIC_INPUTS_SIZE;
 
         create_dummy_vkey_and_proof<Flavor>(
             builder, size_of_proof_with_no_pub_inputs, total_num_public_inputs, key_fields, proof_fields);
@@ -275,8 +264,9 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
 
     // Recursively verify the proof
     auto vkey = std::make_shared<RecursiveVerificationKey>(builder, key_fields);
-    RecursiveVerifier verifier(&builder, vkey);
-    UltraRecursiveVerifierOutput<Builder> verifier_output = verifier.verify_proof(proof_fields);
+    auto vk_and_hash = std::make_shared<RecursiveVKAndHash>(vkey, vk_hash);
+    RecursiveVerifier verifier(&builder, vk_and_hash);
+    UltraRecursiveVerifierOutput<Builder> verifier_output = verifier.template verify_proof<IO>(proof_fields);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/996): investigate whether assert_equal on public inputs
     // is important, like what the plonk recursion constraint does.
     return verifier_output;

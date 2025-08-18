@@ -1,3 +1,4 @@
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
 import type { Gossipable, PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
@@ -7,10 +8,13 @@ import type { PeerId } from '@libp2p/interface';
 import EventEmitter from 'events';
 
 import type { PeerManagerInterface } from './peer-manager/interface.js';
+import type { P2PReqRespConfig } from './reqresp/config.js';
+import { type AuthRequest, StatusMessage } from './reqresp/index.js';
 import type {
   ReqRespInterface,
   ReqRespResponse,
   ReqRespSubProtocol,
+  ReqRespSubProtocolHandler,
   ReqRespSubProtocolHandlers,
   ReqRespSubProtocolValidators,
   SubProtocolMap,
@@ -28,6 +32,8 @@ import {
  * A dummy implementation of the P2P Service.
  */
 export class DummyP2PService implements P2PService {
+  updateConfig(_config: Partial<P2PReqRespConfig>): void {}
+
   /** Returns an empty array for peers. */
   getPeers(): PeerInfo[] {
     return [];
@@ -105,6 +111,21 @@ export class DummyP2PService implements P2PService {
   validate(_txs: Tx[]): Promise<void> {
     return Promise.resolve();
   }
+
+  addReqRespSubProtocol(
+    _subProtocol: ReqRespSubProtocol,
+    _handler: ReqRespSubProtocolHandler,
+    _validator?: ReqRespSubProtocolValidators[ReqRespSubProtocol],
+  ): Promise<void> {
+    return Promise.resolve();
+  }
+
+  handleAuthRequestFromPeer(_authRequest: AuthRequest, _peerId: PeerId): Promise<StatusMessage> {
+    return Promise.resolve(StatusMessage.random());
+  }
+
+  //this is no-op
+  registerThisValidatorAddresses(_address: EthAddress[]): void {}
 }
 
 /**
@@ -181,17 +202,32 @@ export class DummyPeerManager implements PeerManagerInterface {
   public getPeerScore(_peerId: string): number {
     return 0;
   }
+
+  public shouldDisableP2PGossip(_peerId: string): boolean {
+    return false;
+  }
+
   public stop(): Promise<void> {
     return Promise.resolve();
   }
-  public heartbeat(): void {}
+  public heartbeat(): Promise<void> {
+    return Promise.resolve();
+  }
   public addTrustedPeer(_peerId: PeerId): void {}
   public addPrivatePeer(_peerId: PeerId): void {}
   public goodbyeReceived(_peerId: PeerId, _reason: GoodByeReason): void {}
   public penalizePeer(_peerId: PeerId, _penalty: PeerErrorSeverity): void {}
+  public addPreferredPeer(_peerId: PeerId): void {}
+  public handleAuthRequestFromPeer(_authRequest: AuthRequest, _peerId: PeerId): Promise<StatusMessage> {
+    return Promise.resolve(StatusMessage.random());
+  }
+
+  //this is no-op
+  registerThisValidatorAddresses(_address: EthAddress[]): void {}
 }
 
 export class DummyReqResp implements ReqRespInterface {
+  updateConfig(_config: Partial<P2PReqRespConfig>): void {}
   start(
     _subProtocolHandlers: ReqRespSubProtocolHandlers,
     _subProtocolValidators: ReqRespSubProtocolValidators,
@@ -209,13 +245,13 @@ export class DummyReqResp implements ReqRespInterface {
   }
   sendBatchRequest<SubProtocol extends ReqRespSubProtocol>(
     _subProtocol: SubProtocol,
-    requests: InstanceType<SubProtocolMap[SubProtocol]['request']>[],
+    _requests: InstanceType<SubProtocolMap[SubProtocol]['request']>[],
     _pinnedPeer: PeerId | undefined,
     _timeoutMs?: number,
     _maxPeers?: number,
     _maxRetryAttempts?: number,
-  ): Promise<(InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined)[]> {
-    return Promise.resolve(requests.map(() => undefined));
+  ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']>[]> {
+    return Promise.resolve([]);
   }
   public sendRequestToPeer(
     _peerId: PeerId,
@@ -224,5 +260,13 @@ export class DummyReqResp implements ReqRespInterface {
     _dialTimeout?: number,
   ): Promise<ReqRespResponse> {
     return Promise.resolve({ status: ReqRespStatus.SUCCESS, data: Buffer.from([]) });
+  }
+
+  addSubProtocol(
+    _subProtocol: ReqRespSubProtocol,
+    _handler: ReqRespSubProtocolHandler,
+    _validator?: ReqRespSubProtocolValidators[ReqRespSubProtocol],
+  ): Promise<void> {
+    return Promise.resolve();
   }
 }

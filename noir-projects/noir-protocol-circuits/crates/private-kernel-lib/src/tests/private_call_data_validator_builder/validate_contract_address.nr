@@ -3,7 +3,7 @@ use std::embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as deri
 use types::{
     address::AztecAddress,
     contract_class_id::ContractClassId,
-    shared_mutable::scheduled_value_change::ScheduledValueChange,
+    delayed_public_mutable::scheduled_value_change::ScheduledValueChange,
     tests::fixtures,
     traits::{FromField, ToField},
 };
@@ -38,7 +38,7 @@ impl PrivateCallDataValidatorBuilder {
     }
 }
 
-#[test(should_fail_with = "contract address cannot be zero")]
+#[test(should_fail_with = "computed contract address does not match expected one")]
 fn validate_contract_address_zero_address_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new_with_regular_contract();
 

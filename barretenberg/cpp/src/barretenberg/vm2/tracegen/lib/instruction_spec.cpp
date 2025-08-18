@@ -3,62 +3,43 @@
 #include <array>
 #include <cstdint>
 #include <unordered_map>
-#include <vector>
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
 
 namespace bb::avm2::tracegen {
 
-namespace {
-
-const uint16_t read_encoding = 0b01;
-const uint16_t write_encoding = 0b11;
-
-} // namespace
-
-RegisterMemInfo& RegisterMemInfo::has_inputs(uint16_t num_inputs)
-{
-    for (uint16_t i = 0; i < num_inputs; ++i) {
-        encoded_register_info |= (read_encoding << (i * 2));
-    }
-    write_index = num_inputs;
-    return *this;
-}
-
-RegisterMemInfo& RegisterMemInfo::has_outputs(uint16_t num_outputs)
-{
-    for (uint16_t i = 0; i < num_outputs; ++i) {
-        encoded_register_info |= (write_encoding << (write_index * 2));
-        write_index++;
-    }
-    return *this;
-}
-
-bool RegisterMemInfo::is_active(size_t index) const
-{
-    return ((encoded_register_info >> (2 * static_cast<uint8_t>(index))) & 1) == 1;
-}
-
-bool RegisterMemInfo::is_write(size_t index) const
-{
-    return ((encoded_register_info >> (2 * static_cast<uint8_t>(index) + 1)) & 1) == 1;
-}
-
 const std::unordered_map<ExecutionOpCode, SubtraceInfo> SUBTRACE_INFO_MAP = {
     // Map each ExecutionOpcode to a SubtraceInfo
-    { ExecutionOpCode::ADD, { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = 0 } },
-    { ExecutionOpCode::SUB, { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = 1 } },
-    { ExecutionOpCode::MUL, { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = 2 } },
-    { ExecutionOpCode::DIV, { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = 3 } },
-    { ExecutionOpCode::FDIV, { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = 4 } },
-    { ExecutionOpCode::EQ, { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = 5 } },
-    { ExecutionOpCode::LT, { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = 6 } },
-    { ExecutionOpCode::LTE, { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = 7 } },
-    // Bitwise
-    { ExecutionOpCode::AND, { .subtrace_selector = SubtraceSel::BITWISE, .subtrace_operation_id = 0 } },
-    { ExecutionOpCode::OR, { .subtrace_selector = SubtraceSel::BITWISE, .subtrace_operation_id = 1 } },
-    { ExecutionOpCode::XOR, { .subtrace_selector = SubtraceSel::BITWISE, .subtrace_operation_id = 2 } },
+    { ExecutionOpCode::ADD,
+      { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = AVM_EXEC_OP_ID_ALU_ADD } },
+    { ExecutionOpCode::SUB,
+      { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = AVM_EXEC_OP_ID_ALU_SUB } },
+    { ExecutionOpCode::MUL,
+      { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = AVM_EXEC_OP_ID_ALU_MUL } },
+    { ExecutionOpCode::DIV,
+      { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = AVM_EXEC_OP_ID_ALU_DIV } },
+    { ExecutionOpCode::FDIV,
+      { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = AVM_EXEC_OP_ID_ALU_FDIV } },
+    { ExecutionOpCode::EQ, { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = AVM_EXEC_OP_ID_ALU_EQ } },
+    { ExecutionOpCode::LT, { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = AVM_EXEC_OP_ID_ALU_LT } },
+    { ExecutionOpCode::LTE,
+      { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = AVM_EXEC_OP_ID_ALU_LTE } },
+    { ExecutionOpCode::NOT,
+      { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = AVM_EXEC_OP_ID_ALU_NOT } },
+    { ExecutionOpCode::SHL,
+      { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = AVM_EXEC_OP_ID_ALU_SHL } },
+    { ExecutionOpCode::SHR,
+      { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = AVM_EXEC_OP_ID_ALU_SHR } },
+    { ExecutionOpCode::CAST,
+      { .subtrace_selector = SubtraceSel::CAST, .subtrace_operation_id = AVM_EXEC_OP_ID_ALU_TRUNCATE } },
+    // Bitwise - note the bitwise subtrace operation id need to match the op id values in the bitwise precomputed table
+    { ExecutionOpCode::AND,
+      { .subtrace_selector = SubtraceSel::BITWISE, .subtrace_operation_id = AVM_BITWISE_AND_OP_ID } },
+    { ExecutionOpCode::OR,
+      { .subtrace_selector = SubtraceSel::BITWISE, .subtrace_operation_id = AVM_BITWISE_OR_OP_ID } },
+    { ExecutionOpCode::XOR,
+      { .subtrace_selector = SubtraceSel::BITWISE, .subtrace_operation_id = AVM_BITWISE_XOR_OP_ID } },
     // Toradixbe
     { ExecutionOpCode::TORADIXBE, { .subtrace_selector = SubtraceSel::TORADIXBE, .subtrace_operation_id = 0 } },
     // ECC
@@ -72,7 +53,7 @@ const std::unordered_map<ExecutionOpCode, SubtraceInfo> SUBTRACE_INFO_MAP = {
     { ExecutionOpCode::GETENVVAR,
       { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_GETENVVAR } },
     { ExecutionOpCode::SET,
-      { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_SET } },
+      { .subtrace_selector = SubtraceSel::SET, .subtrace_operation_id = AVM_EXEC_OP_ID_ALU_TRUNCATE } },
     { ExecutionOpCode::MOV,
       { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_MOV } },
     { ExecutionOpCode::JUMP,
@@ -93,28 +74,140 @@ const std::unordered_map<ExecutionOpCode, SubtraceInfo> SUBTRACE_INFO_MAP = {
       { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_REVERT } },
     { ExecutionOpCode::SUCCESSCOPY,
       { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_SUCCESSCOPY } },
-    // KeccakF1600
+    { ExecutionOpCode::RETURNDATASIZE,
+      { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_RETURNDATASIZE } },
+    { ExecutionOpCode::DEBUGLOG,
+      { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_DEBUGLOG } },
+    // Hashes
     { ExecutionOpCode::KECCAKF1600, { .subtrace_selector = SubtraceSel::KECCAKF1600, .subtrace_operation_id = 0 } },
+    { ExecutionOpCode::POSEIDON2PERM, { .subtrace_selector = SubtraceSel::POSEIDON2PERM, .subtrace_operation_id = 0 } },
+    { ExecutionOpCode::SHA256COMPRESSION,
+      { .subtrace_selector = SubtraceSel::SHA256COMPRESSION, .subtrace_operation_id = 0 } },
+    // Tree operations
+    { ExecutionOpCode::SLOAD,
+      { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_SLOAD } },
+    { ExecutionOpCode::SSTORE,
+      { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_SSTORE } },
+    { ExecutionOpCode::NOTEHASHEXISTS,
+      { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_NOTEHASH_EXISTS } },
+    { ExecutionOpCode::NULLIFIEREXISTS,
+      { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_NULLIFIER_EXISTS } },
+    { ExecutionOpCode::EMITNULLIFIER,
+      { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_EMIT_NULLIFIER } },
+    // Misc
+    { ExecutionOpCode::GETCONTRACTINSTANCE,
+      { .subtrace_selector = SubtraceSel::GETCONTRACTINSTANCE, .subtrace_operation_id = 0 } },
+    { ExecutionOpCode::EMITNOTEHASH,
+      { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_EMIT_NOTEHASH } },
+    { ExecutionOpCode::L1TOL2MSGEXISTS,
+      { .subtrace_selector = SubtraceSel::EXECUTION,
+        .subtrace_operation_id = AVM_EXEC_OP_ID_L1_TO_L2_MESSAGE_EXISTS } },
+    // EC
+    { ExecutionOpCode::ECADD, { .subtrace_selector = SubtraceSel::ECC, .subtrace_operation_id = 0 } },
+    // Side effects
+    { ExecutionOpCode::EMITUNENCRYPTEDLOG,
+      { .subtrace_selector = SubtraceSel::EMITUNENCRYPTEDLOG, .subtrace_operation_id = 0 } },
+    { ExecutionOpCode::SENDL2TOL1MSG,
+      { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_SENDL2TOL1MSG } },
 };
 
-// Maps Execution opcodes to their register + memory accesses
-// TODO: This will need to revisited, we will only be sure of the access patterns when we do the opcodes
-const std::unordered_map<ExecutionOpCode, RegisterMemInfo> REGISTER_INFO_MAP = { {
-    { ExecutionOpCode::ADD, RegisterMemInfo().has_inputs(2).has_outputs(1) },
-    { ExecutionOpCode::GETENVVAR, RegisterMemInfo().has_outputs(1) },
-    // TODO(dbanks12): try removing hack has_inputs(0)
-    { ExecutionOpCode::SET, RegisterMemInfo().has_inputs(0).has_outputs(1) },
-    { ExecutionOpCode::MOV, RegisterMemInfo().has_inputs(1).has_outputs(1) },
-    { ExecutionOpCode::CALL, RegisterMemInfo().has_inputs(4) },
-    { ExecutionOpCode::RETURN, RegisterMemInfo().has_inputs(1) },
-    { ExecutionOpCode::REVERT, RegisterMemInfo().has_inputs(1) },
-    { ExecutionOpCode::JUMP, RegisterMemInfo() },
-    { ExecutionOpCode::JUMPI, RegisterMemInfo().has_inputs(1) },
-    { ExecutionOpCode::CALLDATACOPY, RegisterMemInfo().has_inputs(2) },
-    { ExecutionOpCode::RETURNDATACOPY, RegisterMemInfo().has_inputs(2) },
-    { ExecutionOpCode::INTERNALCALL, RegisterMemInfo() },
-    { ExecutionOpCode::INTERNALRETURN, RegisterMemInfo() },
-    { ExecutionOpCode::KECCAKF1600, RegisterMemInfo() },
-} };
+FF get_subtrace_id(SubtraceSel subtrace_sel)
+{
+    switch (subtrace_sel) {
+    case SubtraceSel::ALU:
+        return AVM_SUBTRACE_ID_ALU;
+    case SubtraceSel::CAST:
+        return AVM_SUBTRACE_ID_CAST;
+    case SubtraceSel::SET:
+        return AVM_SUBTRACE_ID_SET;
+    case SubtraceSel::BITWISE:
+        return AVM_SUBTRACE_ID_BITWISE;
+    case SubtraceSel::TORADIXBE:
+        return AVM_SUBTRACE_ID_TO_RADIX;
+    case SubtraceSel::POSEIDON2PERM:
+        return AVM_SUBTRACE_ID_POSEIDON_PERM;
+    case SubtraceSel::ECC:
+        return AVM_SUBTRACE_ID_ECC;
+    case SubtraceSel::DATACOPY:
+        return AVM_SUBTRACE_ID_DATA_COPY;
+    case SubtraceSel::EXECUTION:
+        return AVM_SUBTRACE_ID_EXECUTION;
+    case SubtraceSel::KECCAKF1600:
+        return AVM_SUBTRACE_ID_KECCAKF1600;
+    case SubtraceSel::GETCONTRACTINSTANCE:
+        return AVM_SUBTRACE_ID_GETCONTRACTINSTANCE;
+    case SubtraceSel::EMITUNENCRYPTEDLOG:
+        return AVM_SUBTRACE_ID_EMITUNENCRYPTEDLOG;
+    case SubtraceSel::SHA256COMPRESSION:
+        return AVM_SUBTRACE_ID_SHA256_COMPRESSION;
+    }
+
+    // clangd will complain if we miss a case.
+    // This is just to please gcc.
+    __builtin_unreachable();
+}
+
+Column get_subtrace_selector(SubtraceSel subtrace_sel)
+{
+    using C = Column;
+
+    switch (subtrace_sel) {
+    case SubtraceSel::ALU:
+        return C::execution_sel_execute_alu;
+    case SubtraceSel::CAST:
+        return C::execution_sel_execute_cast;
+    case SubtraceSel::SET:
+        return C::execution_sel_execute_set;
+    case SubtraceSel::BITWISE:
+        return C::execution_sel_execute_bitwise;
+    case SubtraceSel::TORADIXBE:
+        return C::execution_sel_execute_to_radix;
+    case SubtraceSel::POSEIDON2PERM:
+        return C::execution_sel_execute_poseidon2_perm;
+    case SubtraceSel::ECC:
+        return C::execution_sel_execute_ecc_add;
+    case SubtraceSel::DATACOPY:
+        return C::execution_sel_execute_data_copy;
+    case SubtraceSel::EXECUTION:
+        return C::execution_sel_execute_execution;
+    case SubtraceSel::KECCAKF1600:
+        return C::execution_sel_execute_keccakf1600;
+    case SubtraceSel::GETCONTRACTINSTANCE:
+        return C::execution_sel_execute_get_contract_instance;
+    case SubtraceSel::EMITUNENCRYPTEDLOG:
+        return C::execution_sel_execute_emit_unencrypted_log;
+    case SubtraceSel::SHA256COMPRESSION:
+        return C::execution_sel_execute_sha256_compression;
+    }
+
+    // clangd will complain if we miss a case.
+    // This is just to please gcc.
+    __builtin_unreachable();
+}
+
+Column get_dyn_gas_selector(uint32_t dyn_gas_id)
+{
+    using C = Column;
+
+    switch (dyn_gas_id) {
+    case AVM_DYN_GAS_ID_CALLDATACOPY:
+        return C::execution_sel_gas_calldata_copy;
+    case AVM_DYN_GAS_ID_RETURNDATACOPY:
+        return C::execution_sel_gas_returndata_copy;
+    case AVM_DYN_GAS_ID_TORADIX:
+        return C::execution_sel_gas_to_radix;
+    case AVM_DYN_GAS_ID_BITWISE:
+        return C::execution_sel_gas_bitwise;
+    case AVM_DYN_GAS_ID_EMITUNENCRYPTEDLOG:
+        return C::execution_sel_gas_emit_unencrypted_log;
+    case AVM_DYN_GAS_ID_SSTORE:
+        return C::execution_sel_gas_sstore;
+    default:
+        assert(false && "Invalid dynamic gas id");
+    }
+
+    // This is just to please gcc.
+    __builtin_unreachable();
+}
 
 } // namespace bb::avm2::tracegen

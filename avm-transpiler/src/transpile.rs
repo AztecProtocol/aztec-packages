@@ -565,7 +565,7 @@ fn handle_foreign_call(
         "avmOpcodeRevert" => handle_revert(avm_instrs, destinations, inputs),
         "avmOpcodeStorageRead" => handle_storage_read(avm_instrs, destinations, inputs),
         "avmOpcodeStorageWrite" => handle_storage_write(avm_instrs, destinations, inputs),
-        "debugLog" => handle_debug_log(avm_instrs, destinations, inputs),
+        "utilityDebugLog" => handle_debug_log(avm_instrs, destinations, inputs),
         // Getters.
         _ if inputs.is_empty() && destinations.len() == 1 => {
             handle_getter_instruction(avm_instrs, function, destinations, inputs);
@@ -721,7 +721,7 @@ fn handle_emit_unencrypted_log(
         // The message array from Brillig is indirect.
         indirect: Some(
             AddressingModeBuilder::default()
-                .indirect_operand(&message_size_offset)
+                .indirect_operand(&message_offset)
                 .direct_operand(&message_size_offset)
                 .build(),
         ),
@@ -935,8 +935,8 @@ fn handle_getter_instruction(
         VERSION,
         BLOCKNUMBER,
         TIMESTAMP,
-        FEEPERL2GAS,
-        FEEPERDAGAS,
+        BASEFEEPERL2GAS,
+        BASEFEEPERDAGAS,
         ISSTATICCALL,
         L2GASLEFT,
         DAGASLEFT,
@@ -955,8 +955,8 @@ fn handle_getter_instruction(
     let var_idx = match function {
         "avmOpcodeAddress" => EnvironmentVariable::ADDRESS,
         "avmOpcodeSender" => EnvironmentVariable::SENDER,
-        "avmOpcodeFeePerL2Gas" => EnvironmentVariable::FEEPERL2GAS,
-        "avmOpcodeFeePerDaGas" => EnvironmentVariable::FEEPERDAGAS,
+        "avmOpcodeBaseFeePerL2Gas" => EnvironmentVariable::BASEFEEPERL2GAS,
+        "avmOpcodeBaseFeePerDaGas" => EnvironmentVariable::BASEFEEPERDAGAS,
         "avmOpcodeTransactionFee" => EnvironmentVariable::TRANSACTIONFEE,
         "avmOpcodeChainId" => EnvironmentVariable::CHAINID,
         "avmOpcodeVersion" => EnvironmentVariable::VERSION,

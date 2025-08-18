@@ -14,12 +14,13 @@
 #include "barretenberg/flavor/relation_definitions.hpp"
 #include "barretenberg/flavor/repeated_commitments_data.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
-#include "barretenberg/relations/auxiliary_relation.hpp"
 #include "barretenberg/relations/databus_lookup_relation.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/ecc_op_queue_relation.hpp"
 #include "barretenberg/relations/elliptic_relation.hpp"
 #include "barretenberg/relations/logderiv_lookup_relation.hpp"
+#include "barretenberg/relations/memory_relation.hpp"
+#include "barretenberg/relations/non_native_field_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/poseidon2_external_relation.hpp"
 #include "barretenberg/relations/poseidon2_internal_relation.hpp"
@@ -53,10 +54,10 @@ class MegaFlavor {
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
-    static constexpr size_t NUM_ALL_ENTITIES = 59;
+    static constexpr size_t NUM_ALL_ENTITIES = 60;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 30;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 31;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 24;
     // Total number of folded polynomials, which is just all polynomials except the shifts
@@ -75,7 +76,8 @@ class MegaFlavor {
                                   bb::LogDerivLookupRelation<FF>,
                                   bb::DeltaRangeConstraintRelation<FF>,
                                   bb::EllipticRelation<FF>,
-                                  bb::AuxiliaryRelation<FF>,
+                                  bb::MemoryRelation<FF>,
+                                  bb::NonNativeFieldRelation<FF>,
                                   bb::EccOpQueueRelation<FF>,
                                   bb::DatabusLookupRelation<FF>,
                                   bb::Poseidon2ExternalRelation<FF>,
@@ -93,22 +95,32 @@ class MegaFlavor {
 
     static constexpr size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Commitment>();
     static constexpr size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<FF>();
-    // Proof length formula
-    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
-        /* 1. NUM_WITNESS_ENTITIES commitments */ (NUM_WITNESS_ENTITIES * num_frs_comm) +
-        /* 2. CONST_PROOF_SIZE_LOG_N sumcheck univariates */
-        (CONST_PROOF_SIZE_LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr) +
-        /* 3. NUM_ALL_ENTITIES sumcheck evaluations */ (NUM_ALL_ENTITIES * num_frs_fr) +
-        /* 4. CONST_PROOF_SIZE_LOG_N - 1 Gemini Fold commitments */ ((CONST_PROOF_SIZE_LOG_N - 1) * num_frs_comm) +
-        /* 5. CONST_PROOF_SIZE_LOG_N Gemini a evaluations */ (CONST_PROOF_SIZE_LOG_N * num_frs_fr) +
-        /* 6. Shplonk Q commitment */ (num_frs_comm) +
-        /* 7. KZG W commitment */ (num_frs_comm);
+
+    // Proof length formula methods
+    static constexpr size_t OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS =
+        /* 1. NUM_WITNESS_ENTITIES commitments */ (NUM_WITNESS_ENTITIES * num_frs_comm);
+
+    static constexpr size_t DECIDER_PROOF_LENGTH(size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N)
+    {
+        return /* 2. virtual_log_n sumcheck univariates */
+            (virtual_log_n * BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr) +
+            /* 3. NUM_ALL_ENTITIES sumcheck evaluations */ (NUM_ALL_ENTITIES * num_frs_fr) +
+            /* 4. virtual_log_n - 1 Gemini Fold commitments */ ((virtual_log_n - 1) * num_frs_comm) +
+            /* 5. virtual_log_n Gemini a evaluations */ (virtual_log_n * num_frs_fr) +
+            /* 6. Shplonk Q commitment */ (num_frs_comm) +
+            /* 7. KZG W commitment */ (num_frs_comm);
+    }
+
+    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N)
+    {
+        return OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS + DECIDER_PROOF_LENGTH(virtual_log_n);
+    }
 
     // For instances of this flavour, used in folding, we need a unique sumcheck batching challenges for each
     // subrelation. This is because using powers of alpha would increase the degree of Protogalaxy polynomial $G$ (the
     // combiner) too much.
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
-    using RelationSeparator = std::array<FF, NUM_SUBRELATIONS - 1>;
+    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
 
     template <size_t NUM_KEYS>
     using ProtogalaxyTupleOfTuplesOfUnivariatesNoOptimisticSkipping =
@@ -119,8 +131,6 @@ class MegaFlavor {
         decltype(create_protogalaxy_tuple_of_tuples_of_univariates<Relations,
                                                                    NUM_KEYS,
                                                                    /*optimised=*/true>());
-    using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
-    using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
     // Whether or not the first row of the execution trace is reserved for 0s to enable shifts
     static constexpr bool has_zero_row = true;
@@ -144,25 +154,26 @@ class MegaFlavor {
                               q_arith,              // column 8
                               q_delta_range,        // column 9
                               q_elliptic,           // column 10
-                              q_aux,                // column 11
-                              q_poseidon2_external, // column 12
-                              q_poseidon2_internal, // column 13
-                              sigma_1,              // column 14
-                              sigma_2,              // column 15
-                              sigma_3,              // column 16
-                              sigma_4,              // column 17
-                              id_1,                 // column 18
-                              id_2,                 // column 19
-                              id_3,                 // column 20
-                              id_4,                 // column 21
-                              table_1,              // column 22
-                              table_2,              // column 23
-                              table_3,              // column 24
-                              table_4,              // column 25
-                              lagrange_first,       // column 26
-                              lagrange_last,        // column 27
-                              lagrange_ecc_op,      // column 28 // indicator poly for ecc op gates
-                              databus_id            // column 29 // id polynomial, i.e. id_i = i
+                              q_memory,             // column 11
+                              q_nnf,                // column 12
+                              q_poseidon2_external, // column 13
+                              q_poseidon2_internal, // column 14
+                              sigma_1,              // column 15
+                              sigma_2,              // column 16
+                              sigma_3,              // column 17
+                              sigma_4,              // column 18
+                              id_1,                 // column 19
+                              id_2,                 // column 20
+                              id_3,                 // column 21
+                              id_4,                 // column 22
+                              table_1,              // column 23
+                              table_2,              // column 24
+                              table_3,              // column 25
+                              table_4,              // column 26
+                              lagrange_first,       // column 27
+                              lagrange_last,        // column 28
+                              lagrange_ecc_op,      // column 29 // indicator poly for ecc op gates
+                              databus_id            // column 30 // id polynomial, i.e. id_i = i
         )
 
         static constexpr CircuitType CIRCUIT_TYPE = CircuitBuilder::CIRCUIT_TYPE;
@@ -176,10 +187,10 @@ class MegaFlavor {
                 q_arith,
                 q_delta_range,
                 q_elliptic,
-                q_aux,
+                q_memory,
+                q_nnf,
                 q_poseidon2_external,
                 q_poseidon2_internal,
-
             };
         }
         auto get_selectors() { return concatenate(get_non_gate_selectors(), get_gate_selectors()); }
@@ -375,7 +386,6 @@ class MegaFlavor {
         [[nodiscard]] size_t get_polynomial_size() const { return q_c.size(); }
         [[nodiscard]] AllValues get_row(size_t row_idx) const
         {
-            PROFILE_THIS_NAME("MegaFlavor::get_row");
             AllValues result;
             for (auto [result_field, polynomial] : zip_view(result.get_all(), this->get_all())) {
                 result_field = polynomial[row_idx];
@@ -413,27 +423,7 @@ class MegaFlavor {
         }
     };
 
-    /**
-     * @brief The proving key is responsible for storing the polynomials used by the prover.
-     *
-     */
-    class ProvingKey : public ProvingKey_<FF, CommitmentKey> {
-      public:
-        using Base = ProvingKey_<FF, CommitmentKey>;
-
-        ProvingKey() = default;
-        ProvingKey(const size_t circuit_size,
-                   const size_t num_public_inputs,
-                   CommitmentKey commitment_key = CommitmentKey())
-            : Base(circuit_size, num_public_inputs, std::move(commitment_key)){};
-
-        std::vector<uint32_t> memory_read_records;
-        std::vector<uint32_t> memory_write_records;
-        ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
-
-        // Data pertaining to transfer of databus return data via public inputs
-        DatabusPropagationData databus_propagation_data;
-    };
+    using PrecomputedData = PrecomputedData_<Polynomial, NUM_PRECOMPUTED_ENTITIES>;
 
     /**
      * @brief The verification key is responsible for storing the commitments to the precomputed (non-witness)
@@ -444,20 +434,13 @@ class MegaFlavor {
      * circuits.
      * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/876)
      */
-    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>> {
+    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
       public:
         // Serialized Verification Key length in fields
         static constexpr size_t VERIFICATION_KEY_LENGTH =
-            /* 1. Metadata (circuit_size, num_public_inputs, pub_inputs_offset) */ (3 * num_frs_fr) +
-            /* 2. Pairing point PI start index */ (1 * num_frs_fr) +
-            /* 3. Databus commitments PI start index */ (2 * num_frs_fr) +
-            /* 4. is_kernel bool */ (1 * num_frs_fr) +
-            /* 5. NUM_PRECOMPUTED_ENTITIES commitments */ (NUM_PRECOMPUTED_ENTITIES * num_frs_comm);
+            /* 1. Metadata (log_circuit_size, num_public_inputs, pub_inputs_offset) */ (3 * num_frs_fr) +
+            /* 2. NUM_PRECOMPUTED_ENTITIES commitments */ (NUM_PRECOMPUTED_ENTITIES * num_frs_comm);
 
-        // Data pertaining to transfer of databus return data via public inputs of the proof being recursively verified
-        DatabusPropagationData databus_propagation_data;
-
-        bool operator==(const VerificationKey&) const = default;
         VerificationKey() = default;
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
             : NativeVerificationKey_(circuit_size, num_public_inputs)
@@ -465,175 +448,28 @@ class MegaFlavor {
 
         VerificationKey(const VerificationKey& vk) = default;
 
-        void set_metadata(const ProvingKey& proving_key)
+        void set_metadata(const MetaData& metadata)
         {
-            this->circuit_size = proving_key.circuit_size;
-            this->log_circuit_size = numeric::get_msb(this->circuit_size);
-            this->num_public_inputs = proving_key.num_public_inputs;
-            this->pub_inputs_offset = proving_key.pub_inputs_offset;
-            this->pairing_inputs_public_input_key = proving_key.pairing_inputs_public_input_key;
-
-            // Databus commitment propagation data
-            this->databus_propagation_data = proving_key.databus_propagation_data;
+            this->log_circuit_size = numeric::get_msb(metadata.dyadic_size);
+            this->num_public_inputs = metadata.num_public_inputs;
+            this->pub_inputs_offset = metadata.pub_inputs_offset;
         }
 
-        VerificationKey(ProvingKey& proving_key)
+        VerificationKey(const PrecomputedData& precomputed)
         {
-            set_metadata(proving_key);
-            auto& ck = proving_key.commitment_key;
-            if (!ck.initialized() || ck.srs->get_monomial_size() < proving_key.circuit_size) {
-                ck = CommitmentKey(proving_key.circuit_size);
-            }
-            for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(), this->get_all())) {
-                commitment = ck.commit(polynomial);
+            set_metadata(precomputed.metadata);
+
+            CommitmentKey commitment_key{ precomputed.metadata.dyadic_size };
+            for (auto [polynomial, commitment] : zip_view(precomputed.polynomials, this->get_all())) {
+                commitment = commitment_key.commit(polynomial);
             }
         }
 
-        /**
-         * @brief Serialize verification key to field elements
-         */
-        std::vector<FF> to_field_elements() const override
-        {
-            using namespace bb::field_conversion;
-
-            auto serialize_to_field_buffer = [](const auto& input, std::vector<FF>& buffer) {
-                std::vector<FF> input_fields = convert_to_bn254_frs(input);
-                buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
-            };
-
-            std::vector<FF> elements;
-
-            serialize_to_field_buffer(this->circuit_size, elements);
-            serialize_to_field_buffer(this->num_public_inputs, elements);
-            serialize_to_field_buffer(this->pub_inputs_offset, elements);
-            serialize_to_field_buffer(this->pairing_inputs_public_input_key.start_idx, elements);
-
-            serialize_to_field_buffer(this->databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx,
-                                      elements);
-            serialize_to_field_buffer(
-                this->databus_propagation_data.kernel_return_data_commitment_pub_input_key.start_idx, elements);
-            serialize_to_field_buffer(this->databus_propagation_data.is_kernel, elements);
-
-            for (const Commitment& commitment : this->get_all()) {
-                serialize_to_field_buffer(commitment, elements);
-            }
-
-            BB_ASSERT_EQ(elements.size(),
-                         VERIFICATION_KEY_LENGTH,
-                         "Verification key length did not match expected length from formula.");
-
-            return elements;
-        }
-
-        /**
-         * @brief Adds the verification key witnesses directly to the transcript.
-         * @details Needed to make sure the Origin Tag system works. Rather than converting into a vector of fields
-         * and submitting that, we want to submit the values directly to the transcript.
-         *
-         * @param domain_separator
-         * @param transcript
-         */
-        void add_to_transcript(const std::string& domain_separator, Transcript& transcript)
-        {
-            transcript.add_to_hash_buffer(domain_separator + "vkey_circuit_size", this->circuit_size);
-            transcript.add_to_hash_buffer(domain_separator + "vkey_num_public_inputs", this->num_public_inputs);
-            transcript.add_to_hash_buffer(domain_separator + "vkey_pub_inputs_offset", this->pub_inputs_offset);
-            transcript.add_to_hash_buffer(domain_separator + "vkey_pairing_points_start_idx",
-                                          this->pairing_inputs_public_input_key.start_idx);
-            transcript.add_to_hash_buffer(
-                domain_separator + "vkey_app_return_data_commitment_start_idx",
-                this->databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx);
-            transcript.add_to_hash_buffer(
-                domain_separator + "vkey_kernel_return_data_commitment_start_idx",
-                this->databus_propagation_data.kernel_return_data_commitment_pub_input_key.start_idx);
-            transcript.add_to_hash_buffer(domain_separator + "vkey_is_kernel",
-                                          this->databus_propagation_data.is_kernel);
-            for (const Commitment& commitment : this->get_all()) {
-                transcript.add_to_hash_buffer(domain_separator + "vkey_commitment", commitment);
-            }
-        }
-
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/964): Clean the boilerplate up.
-        // Explicit constructor for msgpack serialization
-        VerificationKey(const size_t circuit_size,
-                        const size_t num_public_inputs,
-                        const size_t pub_inputs_offset,
-                        const PublicComponentKey& pairing_inputs_public_input_key,
-                        const DatabusPropagationData& databus_propagation_data,
-                        const Commitment& q_m,
-                        const Commitment& q_c,
-                        const Commitment& q_l,
-                        const Commitment& q_r,
-                        const Commitment& q_o,
-                        const Commitment& q_4,
-                        const Commitment& q_busread,
-                        const Commitment& q_lookup,
-                        const Commitment& q_arith,
-                        const Commitment& q_delta_range,
-                        const Commitment& q_elliptic,
-                        const Commitment& q_aux,
-                        const Commitment& q_poseidon2_external,
-                        const Commitment& q_poseidon2_internal,
-                        const Commitment& sigma_1,
-                        const Commitment& sigma_2,
-                        const Commitment& sigma_3,
-                        const Commitment& sigma_4,
-                        const Commitment& id_1,
-                        const Commitment& id_2,
-                        const Commitment& id_3,
-                        const Commitment& id_4,
-                        const Commitment& table_1,
-                        const Commitment& table_2,
-                        const Commitment& table_3,
-                        const Commitment& table_4,
-                        const Commitment& lagrange_first,
-                        const Commitment& lagrange_last,
-                        const Commitment& lagrange_ecc_op,
-                        const Commitment& databus_id)
-        {
-            this->circuit_size = circuit_size;
-            this->log_circuit_size = numeric::get_msb(this->circuit_size);
-            this->num_public_inputs = num_public_inputs;
-            this->pub_inputs_offset = pub_inputs_offset;
-            this->pairing_inputs_public_input_key = pairing_inputs_public_input_key;
-            this->databus_propagation_data = databus_propagation_data;
-            this->q_m = q_m;
-            this->q_c = q_c;
-            this->q_l = q_l;
-            this->q_r = q_r;
-            this->q_o = q_o;
-            this->q_4 = q_4;
-            this->q_busread = q_busread;
-            this->q_lookup = q_lookup;
-            this->q_arith = q_arith;
-            this->q_delta_range = q_delta_range;
-            this->q_elliptic = q_elliptic;
-            this->q_aux = q_aux;
-            this->q_poseidon2_external = q_poseidon2_external;
-            this->q_poseidon2_internal = q_poseidon2_internal;
-            this->sigma_1 = sigma_1;
-            this->sigma_2 = sigma_2;
-            this->sigma_3 = sigma_3;
-            this->sigma_4 = sigma_4;
-            this->id_1 = id_1;
-            this->id_2 = id_2;
-            this->id_3 = id_3;
-            this->id_4 = id_4;
-            this->table_1 = table_1;
-            this->table_2 = table_2;
-            this->table_3 = table_3;
-            this->table_4 = table_4;
-            this->lagrange_first = lagrange_first;
-            this->lagrange_last = lagrange_last;
-            this->lagrange_ecc_op = lagrange_ecc_op;
-            this->databus_id = databus_id;
-        }
-        MSGPACK_FIELDS(circuit_size,
-                       log_circuit_size,
+        // Don't statically check for object completeness.
+        using MSGPACK_NO_STATIC_CHECK = std::true_type;
+        MSGPACK_FIELDS(log_circuit_size,
                        num_public_inputs,
                        pub_inputs_offset,
-                       pairing_inputs_public_input_key,
-                       databus_propagation_data,
                        q_m,
                        q_c,
                        q_l,
@@ -645,7 +481,8 @@ class MegaFlavor {
                        q_arith,
                        q_delta_range,
                        q_elliptic,
-                       q_aux,
+                       q_memory,
+                       q_nnf,
                        q_poseidon2_external,
                        q_poseidon2_internal,
                        sigma_1,
@@ -759,7 +596,8 @@ class MegaFlavor {
             q_arith = "Q_ARITH";
             q_delta_range = "Q_SORT";
             q_elliptic = "Q_ELLIPTIC";
-            q_aux = "Q_AUX";
+            q_memory = "Q_MEMORY";
+            q_nnf = "Q_NNF";
             q_poseidon2_external = "Q_POSEIDON2_EXTERNAL";
             q_poseidon2_internal = "Q_POSEIDON2_INTERNAL";
             sigma_1 = "SIGMA_1";

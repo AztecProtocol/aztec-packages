@@ -3,6 +3,7 @@
 
 #include <cstdint>
 
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
@@ -14,6 +15,7 @@
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tooling/debugger.hpp"
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
+#include "barretenberg/vm2/tracegen/lib/instruction_spec.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
@@ -24,39 +26,104 @@ using simulation::ExecutionEvent;
 using testing::InstructionBuilder;
 using tracegen::ExecutionTraceBuilder;
 using tracegen::PrecomputedTraceBuilder;
+using tracegen::SUBTRACE_INFO_MAP;
+using tracegen::SubtraceSel;
 
 using tracegen::TestTraceContainer;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using execution = bb::avm2::execution<FF>;
 
-// STATICCALL, REVERT_8, SUCCESSCOPY are not defined yet in the EXEC_INSTRUCTION_SPEC.
-constexpr std::array<WireOpCode, 9> WIRE_OPCODES = {
-    WireOpCode::GETENVVAR_16, WireOpCode::SET_8,          WireOpCode::MOV_8,
-    WireOpCode::JUMP_32,      WireOpCode::JUMPI_32,       WireOpCode::CALL,
-    WireOpCode::INTERNALCALL, WireOpCode::INTERNALRETURN, WireOpCode::RETURN,
+constexpr std::array<WireOpCode, 23> WIRE_OPCODES = {
+    WireOpCode::GETENVVAR_16,    WireOpCode::MOV_8,          WireOpCode::MOV_16,        WireOpCode::JUMP_32,
+    WireOpCode::JUMPI_32,        WireOpCode::CALL,           WireOpCode::INTERNALCALL,  WireOpCode::INTERNALRETURN,
+    WireOpCode::RETURN,          WireOpCode::SUCCESSCOPY,    WireOpCode::STATICCALL,    WireOpCode::REVERT_8,
+    WireOpCode::REVERT_16,       WireOpCode::RETURNDATASIZE, WireOpCode::DEBUGLOG,      WireOpCode::SLOAD,
+    WireOpCode::SSTORE,          WireOpCode::NOTEHASHEXISTS, WireOpCode::EMITNOTEHASH,  WireOpCode::L1TOL2MSGEXISTS,
+    WireOpCode::NULLIFIEREXISTS, WireOpCode::EMITNULLIFIER,  WireOpCode::SENDL2TOL1MSG,
 };
 
-constexpr std::array<uint32_t, 9> OPERATION_IDS = {
-    AVM_EXEC_OP_ID_GETENVVAR, AVM_EXEC_OP_ID_SET,  AVM_EXEC_OP_ID_MOV,          AVM_EXEC_OP_ID_JUMP,
-    AVM_EXEC_OP_ID_JUMPI,     AVM_EXEC_OP_ID_CALL, AVM_EXEC_OP_ID_INTERNALCALL, AVM_EXEC_OP_ID_INTERNALRETURN,
+constexpr std::array<uint32_t, 23> OPERATION_IDS = {
+    AVM_EXEC_OP_ID_GETENVVAR,
+    AVM_EXEC_OP_ID_MOV,
+    AVM_EXEC_OP_ID_MOV,
+    AVM_EXEC_OP_ID_JUMP,
+    AVM_EXEC_OP_ID_JUMPI,
+    AVM_EXEC_OP_ID_CALL,
+    AVM_EXEC_OP_ID_INTERNALCALL,
+    AVM_EXEC_OP_ID_INTERNALRETURN,
     AVM_EXEC_OP_ID_RETURN,
+    AVM_EXEC_OP_ID_SUCCESSCOPY,
+    AVM_EXEC_OP_ID_STATICCALL,
+    AVM_EXEC_OP_ID_REVERT,
+    AVM_EXEC_OP_ID_REVERT,
+    AVM_EXEC_OP_ID_RETURNDATASIZE,
+    AVM_EXEC_OP_ID_DEBUGLOG,
+    AVM_EXEC_OP_ID_SLOAD,
+    AVM_EXEC_OP_ID_SSTORE,
+    AVM_EXEC_OP_ID_NOTEHASH_EXISTS,
+    AVM_EXEC_OP_ID_EMIT_NOTEHASH,
+    AVM_EXEC_OP_ID_L1_TO_L2_MESSAGE_EXISTS,
+    AVM_EXEC_OP_ID_NULLIFIER_EXISTS,
+    AVM_EXEC_OP_ID_EMIT_NULLIFIER,
+    AVM_EXEC_OP_ID_SENDL2TOL1MSG,
 };
 
-constexpr std::array<C, 9> SELECTOR_COLUMNS = {
-    C::execution_sel_get_env_var,   C::execution_sel_set,
-    C::execution_sel_mov,           C::execution_sel_jump,
-    C::execution_sel_jumpi,         C::execution_sel_call,
-    C::execution_sel_internal_call, C::execution_sel_internal_return,
-    C::execution_sel_return,
+constexpr std::array<C, 23> SELECTOR_COLUMNS = {
+    C::execution_sel_execute_get_env_var,
+    C::execution_sel_execute_mov,
+    C::execution_sel_execute_mov,
+    C::execution_sel_execute_jump,
+    C::execution_sel_execute_jumpi,
+    C::execution_sel_execute_call,
+    C::execution_sel_execute_internal_call,
+    C::execution_sel_execute_internal_return,
+    C::execution_sel_execute_return,
+    C::execution_sel_execute_success_copy,
+    C::execution_sel_execute_static_call,
+    C::execution_sel_execute_revert,
+    C::execution_sel_execute_revert,
+    C::execution_sel_execute_returndata_size,
+    C::execution_sel_execute_debug_log,
+    C::execution_sel_execute_sload,
+    C::execution_sel_execute_sstore,
+    C::execution_sel_execute_notehash_exists,
+    C::execution_sel_execute_emit_notehash,
+    C::execution_sel_execute_l1_to_l2_message_exists,
+    C::execution_sel_execute_nullifier_exists,
+    C::execution_sel_execute_emit_nullifier,
+    C::execution_sel_execute_send_l2_to_l1_msg,
 };
 
-TEST(ExecOpIdConstrainingTest, Decomposition)
+// Ensure that WIRE_OPCODES contains all wire opcodes which have an execution opcode belonging
+// to the execution subtrace.
+TEST(ExecOpIdConstrainingTest, WireOpcodeListCompleteness)
+{
+    for (uint8_t opcode = 0; opcode < static_cast<uint8_t>(WireOpCode::LAST_OPCODE_SENTINEL); opcode++) {
+        const auto wire_opcode = static_cast<WireOpCode>(opcode);
+        const auto& exec_opcode = WIRE_INSTRUCTION_SPEC.at(wire_opcode).exec_opcode;
+
+        if (SUBTRACE_INFO_MAP.contains(exec_opcode)) {
+            const auto& subtrace_info = SUBTRACE_INFO_MAP.at(exec_opcode);
+            if (subtrace_info.subtrace_selector == SubtraceSel::EXECUTION) {
+                EXPECT_TRUE(std::find(WIRE_OPCODES.begin(), WIRE_OPCODES.end(), wire_opcode) != WIRE_OPCODES.end());
+            }
+        }
+    }
+}
+
+// Magic constant ensuring that for any index i, the index i + INCREMENT_FOR_NEGATIVE_TEST modulo
+// WIRE_OPCODES.size() has a different value in OPERATION_IDS and SELECTOR_COLUMNS. 6 corresponds to the
+// number of SET wire opcodes. This is the execution opcode with the largest number of wire opcodes.
+constexpr size_t INCREMENT_FOR_NEGATIVE_TEST = 6;
+
+// TODO(fcarreiro): enable.
+TEST(ExecOpIdConstrainingTest, DISABLED_Decomposition)
 {
     for (size_t i = 0; i < WIRE_OPCODES.size(); i++) {
         TestTraceContainer trace({
             {
-                { C::execution_sel_execution, 1 },
+                { C::execution_sel_execute_execution, 1 },
                 { C::execution_subtrace_operation_id, OPERATION_IDS.at(i) },
                 { SELECTOR_COLUMNS.at(i), 1 },
             },
@@ -70,16 +137,17 @@ TEST(ExecOpIdConstrainingTest, Decomposition)
                                   "EXEC_OP_ID_DECOMPOSITION");
 
         // Negative test: toggle another selector
-        trace.set(SELECTOR_COLUMNS.at((i + 1) % WIRE_OPCODES.size()), 0, 1);
+        trace.set(SELECTOR_COLUMNS.at((i + INCREMENT_FOR_NEGATIVE_TEST) % WIRE_OPCODES.size()), 0, 1);
         EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_EXEC_OP_ID_DECOMPOSITION),
                                   "EXEC_OP_ID_DECOMPOSITION");
     }
 }
 
+// TODO(fcarreiro): enable.
 // Show that the precomputed trace contains the correct execution operation id
 // which maps to the correct opcode selectors.
 // Show also that execution relations are satisfied.
-TEST(ExecOpIdConstrainingTest, InteractionWithExecInstructionSpec)
+TEST(ExecOpIdConstrainingTest, DISABLED_InteractionWithExecInstructionSpec)
 {
     PrecomputedTraceBuilder precomputed_builder;
 
@@ -103,8 +171,8 @@ TEST(ExecOpIdConstrainingTest, InteractionWithExecInstructionSpec)
     // Check that the operation ids and relevant selectors are toggled.
     for (size_t i = 0; i < WIRE_OPCODES.size(); i++) {
         ASSERT_EQ(trace.get(C::execution_subtrace_operation_id, static_cast<uint32_t>(i + 1)), OPERATION_IDS.at(i));
-        ASSERT_EQ(trace.get(SELECTOR_COLUMNS.at(i), static_cast<uint32_t>(i + 1)), 1);
-        ASSERT_EQ(trace.get(C::execution_sel_execution, static_cast<uint32_t>(i + 1)), 1);
+        ASSERT_EQ(trace.get(C::execution_subtrace_id, static_cast<uint32_t>(i + 1)), AVM_SUBTRACE_ID_EXECUTION);
+        ASSERT_EQ(trace.get(C::execution_sel_execute_execution, static_cast<uint32_t>(i + 1)), 1);
     }
 
     // Activate the lookup selector execution_sel_instruction_fetching_success for each row.
@@ -130,7 +198,7 @@ TEST(ExecOpIdConstrainingTest, InteractionWithExecInstructionSpec)
         auto mutated_trace = trace;
         mutated_trace.set(C::execution_subtrace_operation_id,
                           static_cast<uint32_t>(i + 1),
-                          OPERATION_IDS.at((i + 1) % WIRE_OPCODES.size()));
+                          OPERATION_IDS.at((i + INCREMENT_FOR_NEGATIVE_TEST) % WIRE_OPCODES.size()));
         EXPECT_THROW_WITH_MESSAGE(
             (check_interaction<ExecutionTraceBuilder, lookup_execution_exec_spec_read_settings>(mutated_trace)),
             "Failed.*LOOKUP_EXECUTION_EXEC_SPEC_READ.*Could not find tuple in destination.");

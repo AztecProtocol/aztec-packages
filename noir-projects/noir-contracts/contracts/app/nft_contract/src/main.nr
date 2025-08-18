@@ -10,22 +10,19 @@ use aztec::macros::aztec;
 pub contract NFT {
     use crate::types::nft_note::{NFTNote, PartialNFTNote};
     use aztec::{
-        authwit::auth::{
-            assert_current_call_valid_authwit, assert_current_call_valid_authwit_public,
-            compute_authwit_nullifier,
-        },
+        authwit::auth::compute_authwit_nullifier,
+        context::{PrivateContext, PublicContext},
         macros::{
-            events::event,
-            functions::{initializer, internal, private, public, utility, view},
+            functions::{authorize_once, initializer, internal, private, public, utility, view},
             storage::storage,
         },
         messages::logs::note::encode_and_encrypt_note,
-        note::{constants::MAX_NOTES_PER_PAGE, note_interface::NoteProperties},
-        prelude::{
-            AztecAddress, Map, NoteGetterOptions, NoteViewerOptions, PrivateContext, PrivateSet,
-            PublicContext, PublicImmutable, PublicMutable,
+        note::{
+            constants::MAX_NOTES_PER_PAGE, note_getter_options::NoteGetterOptions,
+            note_interface::NoteProperties, note_viewer_options::NoteViewerOptions,
         },
-        protocol_types::traits::ToField,
+        protocol_types::{address::AztecAddress, traits::ToField},
+        state_vars::{Map, PrivateSet, PublicImmutable, PublicMutable},
         utils::comparison::Comparator,
     };
     use compressed_string::FieldCompressedString;
@@ -34,12 +31,12 @@ pub contract NFT {
 
     // TODO(#8467): Rename this to Transfer - calling this NFTTransfer to avoid export conflict with the Transfer event
     // in the Token contract.
-    #[event]
-    struct NFTTransfer {
-        from: AztecAddress,
-        to: AztecAddress,
-        token_id: Field,
-    }
+    // #[event]
+    // struct NFTTransfer {
+    //     from: AztecAddress,
+    //     to: AztecAddress,
+    //     token_id: Field,
+    // }
 
     // docs:start:storage_struct
     #[storage]
@@ -143,6 +140,7 @@ pub contract NFT {
     // docs:end:is_minter
 
     // docs:start:transfer_in_public
+    #[authorize_once("from", "authwit_nonce")]
     #[public]
     fn transfer_in_public(
         from: AztecAddress,
@@ -150,12 +148,6 @@ pub contract NFT {
         token_id: Field,
         authwit_nonce: Field,
     ) {
-        if (!from.eq(context.msg_sender())) {
-            assert_current_call_valid_authwit_public(&mut context, from);
-        } else {
-            assert(authwit_nonce == 0, "invalid authwit nonce");
-        }
-
         let public_owners_storage = storage.public_owners.at(token_id);
         assert(public_owners_storage.read().eq(from), "invalid owner");
 
@@ -199,16 +191,13 @@ pub contract NFT {
         context: &mut PrivateContext,
         storage: Storage<&mut PrivateContext>,
     ) -> PartialNFTNote {
-        let sender_and_completer = context.msg_sender();
-
         // We setup a partial note with unpopulated/zero token id for 'to'.
         let partial_note = NFTNote::partial(
             to,
             storage.private_nfts.at(to).storage_slot,
             context,
             to,
-            sender_and_completer,
-            sender_and_completer,
+            context.msg_sender(),
         );
 
         partial_note
@@ -294,6 +283,7 @@ pub contract NFT {
     // docs:end:cancel_authwit
 
     // docs:start:transfer_in_private
+    #[authorize_once("from", "authwit_nonce")]
     #[private]
     fn transfer_in_private(
         from: AztecAddress,
@@ -301,12 +291,6 @@ pub contract NFT {
         token_id: Field,
         authwit_nonce: Field,
     ) {
-        if (!from.eq(context.msg_sender())) {
-            assert_current_call_valid_authwit(&mut context, from);
-        } else {
-            assert(authwit_nonce == 0, "invalid authwit nonce");
-        }
-
         let nfts = storage.private_nfts;
 
         let notes = nfts.at(from).pop_notes(NoteGetterOptions::new()
@@ -316,11 +300,12 @@ pub contract NFT {
 
         let new_note = NFTNote::new(token_id, to);
 
-        nfts.at(to).insert(new_note).emit(encode_and_encrypt_note(&mut context, to, from));
+        nfts.at(to).insert(new_note).emit(encode_and_encrypt_note(&mut context, to));
     }
     // docs:end:transfer_in_private
 
     // docs:start:transfer_to_public
+    #[authorize_once("from", "authwit_nonce")]
     #[private]
     fn transfer_to_public(
         from: AztecAddress,
@@ -328,12 +313,6 @@ pub contract NFT {
         token_id: Field,
         authwit_nonce: Field,
     ) {
-        if (!from.eq(context.msg_sender())) {
-            assert_current_call_valid_authwit(&mut context, from);
-        } else {
-            assert(authwit_nonce == 0, "invalid authwit nonce");
-        }
-
         let notes = storage.private_nfts.at(from).pop_notes(NoteGetterOptions::new()
             .select(NFTNote::properties().token_id, Comparator.EQ, token_id)
             .set_limit(1));
@@ -377,7 +356,7 @@ pub contract NFT {
         let mut owned_nft_ids = [0; MAX_NOTES_PER_PAGE];
         for i in 0..options.limit {
             if i < notes.len() {
-                owned_nft_ids[i] = notes.get_unchecked(i).token_id;
+                owned_nft_ids[i] = notes.get_unchecked(i).get_token_id();
             }
         }
 

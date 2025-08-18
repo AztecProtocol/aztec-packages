@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source
 
+
 function bootstrap_all {
   # To run bb we need a crs.
   # Download ignition up front to ensure no race conditions at runtime.
@@ -9,10 +10,14 @@ function bootstrap_all {
   ./cpp/bootstrap.sh $@
   ./ts/bootstrap.sh $@
   ./acir_tests/bootstrap.sh $@
+  ./docs/bootstrap.sh $@
+  ./sol/bootstrap.sh $@
 }
 
 function hash {
-  cache_content_hash "^barretenberg"
+  hash_str \
+    $(cache_content_hash ^barretenberg) \
+    $(./cpp/bootstrap.sh hash) # yes, cpp src gets hashed twice, but this second call also takes DISABLE_AVM into account
 }
 
 cmd=${1:-}
@@ -23,6 +28,9 @@ case "$cmd" in
     ;;
   ""|clean|ci|fast|test|test_cmds|bench|bench_cmds|release)
     bootstrap_all $@
+    ;;
+  "release-preview")
+    ./docs/bootstrap.sh release-preview
     ;;
   bootstrap_e2e_hack)
     echo "WARNING: This assumes your PR only changes barretenberg and the rest of the repository is unchanged from master."
@@ -37,8 +45,10 @@ case "$cmd" in
       fi
     done
     ;;
+
   *)
     echo "Unknown command: $cmd"
     exit 1
   ;;
 esac
+

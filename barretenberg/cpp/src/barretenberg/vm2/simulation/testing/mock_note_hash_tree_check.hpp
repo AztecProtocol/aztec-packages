@@ -14,10 +14,11 @@ class MockNoteHashTreeCheck : public NoteHashTreeCheckInterface {
     MockNoteHashTreeCheck();
     ~MockNoteHashTreeCheck() override;
 
-    MOCK_METHOD(void,
-                assert_read,
-                (const FF& note_hash,
-                 index_t leaf_index,
+    MOCK_METHOD(bool,
+                note_hash_exists,
+                (const FF& unique_note_hash,
+                 const FF& leaf_value,
+                 uint64_t leaf_index,
                  std::span<const FF> sibling_path,
                  const AppendOnlyTreeSnapshot& snapshot),
                 (override));

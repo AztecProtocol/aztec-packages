@@ -8,11 +8,11 @@
 
 #include "../bigfield/bigfield.hpp"
 #include "../bigfield/goblin_field.hpp"
-#include "../byte_array/byte_array.hpp"
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../field/field.hpp"
 #include "../memory/rom_table.hpp"
 #include "../memory/twin_rom_table.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
 #include "barretenberg/ecc/curves/secp256r1/secp256r1.hpp"
@@ -43,7 +43,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
     using biggroup_tag = goblin_element; // Facilitates a constexpr check IsBigGroup
 
     // Number of bb::fr field elements used to represent a goblin element in the public inputs
-    static constexpr size_t PUBLIC_INPUTS_SIZE = Fq::PUBLIC_INPUTS_SIZE * 2;
+    static constexpr size_t PUBLIC_INPUTS_SIZE = BIGGROUP_PUBLIC_INPUTS_SIZE;
 
     goblin_element() = default;
     goblin_element(const typename NativeGroup::affine_element& input)
@@ -99,6 +99,19 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
         this->x.convert_constant_to_fixed_witness(builder);
         this->y.convert_constant_to_fixed_witness(builder);
         this->unset_free_witness_tag();
+    }
+
+    /**
+     * Fix a witness. The value of the witness is constrained with a selector
+     **/
+    void fix_witness()
+    {
+        // Origin tags should be updated within
+        this->x.fix_witness();
+        this->y.fix_witness();
+
+        // This is now effectively a constant
+        unset_free_witness_tag();
     }
 
     void validate_on_curve() const

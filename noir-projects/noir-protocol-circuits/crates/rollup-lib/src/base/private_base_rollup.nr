@@ -14,7 +14,8 @@ use crate::{
 use dep::types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, block_constant_data::BlockConstantData,
-        contract_class_log::ContractClassLog, log::Log, public_data_write::PublicDataWrite,
+        contract_class_log::ContractClassLog, log::Log,
+        partial_state_reference::PartialStateReference, public_data_write::PublicDataWrite,
         public_log::PublicLog, sponge_blob::SpongeBlob, tube::PrivateTubeData,
     },
     constants::{
@@ -27,7 +28,6 @@ use dep::types::{
     merkle_tree::{
         append_only_tree, calculate_empty_tree_root, calculate_subtree_root, MembershipWitness,
     },
-    partial_state_reference::PartialStateReference,
     traits::{Empty, Hash},
 };
 
@@ -166,7 +166,11 @@ impl PrivateBaseRollupInputs {
         read_hint.validate(self.start.public_data_tree.root);
 
         let balance = read_hint.value;
-        assert(read_hint.leaf_slot == leaf_slot, "Wrong leaf slot for Fee Juice balance read hint");
+        assert_eq(
+            read_hint.leaf_slot,
+            leaf_slot,
+            "Wrong leaf slot for Fee Juice balance read hint",
+        );
         assert(!balance.lt(tx_fee), "Not enough balance for fee payer to pay for transaction");
 
         let value = compute_public_data_tree_value(balance - tx_fee);
@@ -203,7 +207,8 @@ mod tests {
             append_only_tree_snapshot::AppendOnlyTreeSnapshot,
             block_constant_data::BlockConstantData, gas::Gas, gas_fees::GasFees,
             kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs,
-            nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,
+            nullifier_leaf_preimage::NullifierLeafPreimage,
+            partial_state_reference::PartialStateReference, public_data_write::PublicDataWrite,
             side_effect::OrderedValue, sponge_blob::SpongeBlob,
         },
         address::AztecAddress,
@@ -219,20 +224,16 @@ mod tests {
         },
         data::{public_data_hint::PublicDataHint, PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
         hash::{compute_contract_class_log_hash, silo_l2_to_l1_message},
-        merkle_tree::MembershipWitness,
-        partial_state_reference::PartialStateReference,
-        tests::{
-            fixture_builder::FixtureBuilder,
-            fixtures::{self, merkle_tree::generate_full_sha_tree},
-            merkle_tree_utils::NonEmptyMerkleTree,
-        },
+        merkle_tree::{MembershipWitness, MerkleTree},
+        tests::{fixture_builder::FixtureBuilder, fixtures, merkle_tree_utils::NonEmptyMerkleTree},
         traits::{Empty, FromField, Hash, ToField},
         utils::{
-            arrays::{array_concat, get_sorted_tuple::get_sorted_tuple},
+            arrays::get_sorted_tuple::get_sorted_tuple,
             field::{field_from_bytes, full_field_less_than},
         },
     };
 
+    #[derive(Eq)]
     struct NullifierInsertion {
         existing_index: u32,
         value: Field,
@@ -396,8 +397,7 @@ mod tests {
                 .map(|leaf_preimage: PublicDataTreeLeafPreimage| {
                     PublicDataWrite { leaf_slot: leaf_preimage.slot, value: leaf_preimage.value }
                 });
-            res.public_data_writes = array_concat(
-                all_public_data_update_requests,
+            res.public_data_writes = all_public_data_update_requests.concat(
                 [
                     PublicDataWrite::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
                         - PRE_EXISTING_PUBLIC_DATA_LEAVES
@@ -488,7 +488,7 @@ mod tests {
         // Exists separately to allow us to append correct log preimages and hashes
         unconstrained fn append_contract_class_log<let N: u32>(&mut self, log_fields: [Field; N]) {
             let padded_log_fields: [Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS] =
-                array_concat(log_fields, [0; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS - N]);
+                log_fields.concat([0; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS - N]);
             self.contract_class_log_fields.push(padded_log_fields);
 
             let log_hash = compute_contract_class_log_hash(padded_log_fields);
@@ -819,10 +819,15 @@ mod tests {
         //   - Public data write prefix
         //   - 1 public data write (2 fields)
         tx_effects[0] = field_from_bytes(
-            array_concat(
-                TX_START_PREFIX.to_be_bytes::<8>(),
-                [0, 0, tx_effects.len() as u8, 0, REVERT_CODE_PREFIX, 0, 0],
-            ),
+            TX_START_PREFIX.to_be_bytes::<8>().concat([
+                0,
+                0,
+                tx_effects.len() as u8,
+                0,
+                REVERT_CODE_PREFIX,
+                0,
+                0,
+            ]),
             true,
         );
 
@@ -832,7 +837,7 @@ mod tests {
         // Transaction fee.
         let transaction_fee = builder.compute_transaction_fee();
         tx_effects[2] = field_from_bytes(
-            array_concat([TX_FEE_PREFIX, 0], transaction_fee.to_be_bytes::<29>()),
+            [TX_FEE_PREFIX, 0].concat(transaction_fee.to_be_bytes::<29>()),
             true,
         );
 
@@ -898,10 +903,8 @@ mod tests {
         // tx hash
         reconstructed_tx_effects[1] = inputs.tube_data.public_inputs.hash();
         // tx fee
-        reconstructed_tx_effects[2] = field_from_bytes(
-            array_concat([TX_FEE_PREFIX, 0], tx_fee.to_be_bytes::<29>()),
-            true,
-        );
+        reconstructed_tx_effects[2] =
+            field_from_bytes([TX_FEE_PREFIX, 0].concat(tx_fee.to_be_bytes::<29>()), true);
         // notes
         let mut offset = 3;
         let notes_prefix = encode_blob_prefix(NOTES_PREFIX, NUM_NOTES);
@@ -977,10 +980,15 @@ mod tests {
         // revert code = 0
         let length_bytes = (offset as Field).to_be_bytes::<2>();
         reconstructed_tx_effects[0] = field_from_bytes(
-            array_concat(
-                TX_START_PREFIX.to_be_bytes::<8>(),
-                [0, length_bytes[0], length_bytes[1], 0, REVERT_CODE_PREFIX, 0, 0],
-            ),
+            TX_START_PREFIX.to_be_bytes::<8>().concat([
+                0,
+                length_bytes[0],
+                length_bytes[1],
+                0,
+                REVERT_CODE_PREFIX,
+                0,
+                0,
+            ]),
             true,
         );
 
@@ -1010,7 +1018,7 @@ mod tests {
         ));
 
         // Since we fill the tree completely, we know to expect a full tree as below
-        let expected_tree = generate_full_sha_tree(siloed_l2_to_l1_msgs.storage());
+        let expected_tree = MerkleTree::new_sha(siloed_l2_to_l1_msgs.storage());
         assert_eq(out_hash, expected_tree.get_root());
     }
 
@@ -1043,11 +1051,11 @@ mod tests {
         builder.fails();
     }
 
-    #[test(should_fail_with = "kernel include_by_timestamp is smaller than timestamp")]
+    #[test(should_fail_with = "tx include_by_timestamp is smaller than block timestamp")]
     unconstrained fn constants_dont_satisfy_smaller_include_by_timestamp() {
         let mut builder = PrivateBaseRollupInputsBuilder::new();
         builder.constants.global_variables.timestamp = 42;
-        builder.tube_data.set_include_by_timestamp(5);
+        builder.tube_data.include_by_timestamp = 5;
         builder.fails();
     }
 
@@ -1055,7 +1063,7 @@ mod tests {
     unconstrained fn constants_satisfy_equal_include_by_timestamp() {
         let mut builder = PrivateBaseRollupInputsBuilder::new();
         builder.constants.global_variables.timestamp = 42;
-        builder.tube_data.set_include_by_timestamp(42);
+        builder.tube_data.include_by_timestamp = 42;
         builder.succeeds();
     }
 
@@ -1063,7 +1071,7 @@ mod tests {
     unconstrained fn constants_satisfy_larger_include_by_timestamp() {
         let mut builder = PrivateBaseRollupInputsBuilder::new();
         builder.constants.global_variables.timestamp = 42;
-        builder.tube_data.set_include_by_timestamp(4294967295);
+        builder.tube_data.include_by_timestamp = 4294967295;
         builder.succeeds();
     }
 

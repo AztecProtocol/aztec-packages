@@ -9,17 +9,21 @@ import {
 } from '@aztec/constants';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
-import { type Tuple, assertLength, mapTuple } from '@aztec/foundation/serialize';
+import { type Serializable, type Tuple, assertLength, mapTuple } from '@aztec/foundation/serialize';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import type { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import {
+  ClaimedLengthArray,
   CountedLogHash,
   LogHash,
   OptionalNumber,
+  PrivateToPublicAccumulatedData,
+  PrivateToPublicKernelCircuitPublicInputs,
   PrivateToRollupAccumulatedData,
+  PrivateToRollupKernelCircuitPublicInputs,
   PublicCallRequest,
   PublicCallRequestArrayLengths,
   ScopedCountedLogHash,
@@ -42,16 +46,18 @@ import {
   BlockHeader,
   ContentCommitment,
   GlobalVariables,
-  IncludeByTimestamp,
   PartialStateReference,
   StateReference,
+  TxConstantData,
   TxContext,
 } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 import type { VerificationKeyAsFields, VkData } from '@aztec/stdlib/vks';
 
 import type {
   AppendOnlyTreeSnapshot as AppendOnlyTreeSnapshotNoir,
   BlockHeader as BlockHeaderNoir,
+  ClaimedLengthArray as ClaimedLengthArrayNoir,
   ContentCommitment as ContentCommitmentNoir,
   Counted,
   FixedLengthArray,
@@ -61,7 +67,6 @@ import type {
   GasSettings as GasSettingsNoir,
   GlobalVariables as GlobalVariablesNoir,
   EmbeddedCurveScalar as GrumpkinScalarNoir,
-  IncludeByTimestamp as IncludeByTimestampNoir,
   L2ToL1Message as L2ToL1MessageNoir,
   LogHash as LogHashNoir,
   Log as LogNoir,
@@ -73,7 +78,10 @@ import type {
   NullifierLeafPreimage as NullifierLeafPreimageNoir,
   Option as OptionalNumberNoir,
   PartialStateReference as PartialStateReferenceNoir,
+  PrivateToPublicAccumulatedData as PrivateToPublicAccumulatedDataNoir,
+  PrivateToPublicKernelCircuitPublicInputs as PrivateToPublicKernelCircuitPublicInputsNoir,
   PrivateToRollupAccumulatedData as PrivateToRollupAccumulatedDataNoir,
+  PrivateToRollupKernelCircuitPublicInputs as PrivateToRollupKernelCircuitPublicInputsNoir,
   ProtocolContractLeafPreimage as ProtocolContractLeafPreimageNoir,
   PublicCallRequestArrayLengths as PublicCallRequestArrayLengthsNoir,
   PublicCallRequest as PublicCallRequestNoir,
@@ -82,10 +90,11 @@ import type {
   PublicLog as PublicLogNoir,
   Scoped,
   StateReference as StateReferenceNoir,
+  TxConstantData as TxConstantDataNoir,
   TxContext as TxContextNoir,
+  u64 as U64Noir,
   VerificationKey as VerificationKeyNoir,
   VkData as VkDataNoir,
-  u64,
 } from '../types/index.js';
 
 /* eslint-disable camelcase */
@@ -134,6 +143,14 @@ export function mapWrappedFieldToNoir(field: Fr): { inner: NoirField } {
 /** Maps a noir wrapped field type (ie any type implemented as struct with an inner Field) to a typescript field. */
 export function mapWrappedFieldFromNoir(wrappedField: { inner: NoirField }): Fr {
   return mapFieldFromNoir(wrappedField.inner);
+}
+
+export function mapU64ToNoir(u64: UInt64): U64Noir {
+  return mapBigIntToNoir(u64);
+}
+
+export function mapU64FromNoir(u64: U64Noir): UInt64 {
+  return mapBigIntFromNoir(u64);
 }
 
 /**
@@ -339,6 +356,25 @@ export function mapFieldArrayToNoir<N extends number>(
   return mapTupleToNoir(assertLength(array, length), mapFieldToNoir);
 }
 
+export function mapClaimedLengthArrayFromNoir<T extends Serializable, N extends number, S>(
+  claimedLengthArray: ClaimedLengthArrayNoir<N, S>,
+  mapper: (item: S) => T,
+): ClaimedLengthArray<T, N> {
+  const array = mapTupleFromNoir(claimedLengthArray.array, claimedLengthArray.array.length, mapper) as Tuple<T, N>;
+  const claimedLength = mapNumberFromNoir(claimedLengthArray.length);
+  return new ClaimedLengthArray(array, claimedLength);
+}
+
+export function mapClaimedLengthArrayToNoir<T extends Serializable, N extends number, S>(
+  claimedLengthArray: ClaimedLengthArray<T, N>,
+  mapper: (item: T) => S,
+): ClaimedLengthArrayNoir<N, S> {
+  return {
+    array: mapTupleToNoir(claimedLengthArray.array, mapper),
+    length: mapNumberToNoir(claimedLengthArray.claimedLength),
+  };
+}
+
 /**
  * Maps a AOT snapshot to noir.
  * @param snapshot - The stdlib AOT snapshot.
@@ -419,28 +455,15 @@ export function mapHeaderFromNoir(header: BlockHeaderNoir): BlockHeader {
   );
 }
 
-export function mapOptionalNumberToNoir(option: OptionalNumber): OptionalNumberNoir<u64> {
+export function mapOptionalNumberToNoir(option: OptionalNumber): OptionalNumberNoir {
   return {
     _is_some: option.isSome,
     _value: mapNumberToNoir(option.value),
   };
 }
 
-export function mapOptionalNumberFromNoir(option: OptionalNumberNoir<u64>) {
+export function mapOptionalNumberFromNoir(option: OptionalNumberNoir) {
   return new OptionalNumber(option._is_some, mapNumberFromNoir(option._value));
-}
-
-export function mapIncludeByTimestampToNoir(includeByTimestamp: IncludeByTimestamp): IncludeByTimestampNoir {
-  return {
-    _opt: {
-      _is_some: includeByTimestamp.isSome,
-      _value: mapBigIntToNoir(includeByTimestamp.value),
-    },
-  };
-}
-
-export function mapIncludeByTimestampFromNoir(includeByTimestamp: IncludeByTimestampNoir): IncludeByTimestamp {
-  return new IncludeByTimestamp(includeByTimestamp._opt._is_some, mapBigIntFromNoir(includeByTimestamp._opt._value));
 }
 
 /**
@@ -832,6 +855,19 @@ export function mapPrivateToRollupAccumulatedDataFromNoir(
   );
 }
 
+function mapPrivateToPublicAccumulatedDataToNoir(
+  data: PrivateToPublicAccumulatedData,
+): PrivateToPublicAccumulatedDataNoir {
+  return {
+    note_hashes: mapTuple(data.noteHashes, mapFieldToNoir),
+    nullifiers: mapTuple(data.nullifiers, mapFieldToNoir),
+    l2_to_l1_msgs: mapTuple(data.l2ToL1Msgs, mapScopedL2ToL1MessageToNoir),
+    private_logs: mapTuple(data.privateLogs, mapPrivateLogToNoir),
+    contract_class_logs_hashes: mapTuple(data.contractClassLogsHashes, mapScopedLogHashToNoir),
+    public_call_requests: mapTuple(data.publicCallRequests, mapPublicCallRequestToNoir),
+  };
+}
+
 /**
  * Maps a tx context to a noir tx context.
  * @param txContext - The tx context.
@@ -856,4 +892,39 @@ export function mapTxContextFromNoir(txContext: TxContextNoir): TxContext {
     mapFieldFromNoir(txContext.version),
     mapGasSettingsFromNoir(txContext.gas_settings),
   );
+}
+
+export function mapTxConstantDataToNoir(data: TxConstantData): TxConstantDataNoir {
+  return {
+    historical_header: mapHeaderToNoir(data.historicalHeader),
+    tx_context: mapTxContextToNoir(data.txContext),
+    vk_tree_root: mapFieldToNoir(data.vkTreeRoot),
+    protocol_contract_tree_root: mapFieldToNoir(data.protocolContractTreeRoot),
+  };
+}
+
+export function mapPrivateToRollupKernelCircuitPublicInputsToNoir(
+  inputs: PrivateToRollupKernelCircuitPublicInputs,
+): PrivateToRollupKernelCircuitPublicInputsNoir {
+  return {
+    constants: mapTxConstantDataToNoir(inputs.constants),
+    end: mapPrivateToRollupAccumulatedDataToNoir(inputs.end),
+    gas_used: mapGasToNoir(inputs.gasUsed),
+    fee_payer: mapAztecAddressToNoir(inputs.feePayer),
+    include_by_timestamp: mapU64ToNoir(inputs.includeByTimestamp),
+  };
+}
+
+export function mapPrivateToPublicKernelCircuitPublicInputsToNoir(
+  inputs: PrivateToPublicKernelCircuitPublicInputs,
+): PrivateToPublicKernelCircuitPublicInputsNoir {
+  return {
+    constants: mapTxConstantDataToNoir(inputs.constants),
+    non_revertible_accumulated_data: mapPrivateToPublicAccumulatedDataToNoir(inputs.nonRevertibleAccumulatedData),
+    revertible_accumulated_data: mapPrivateToPublicAccumulatedDataToNoir(inputs.revertibleAccumulatedData),
+    public_teardown_call_request: mapPublicCallRequestToNoir(inputs.publicTeardownCallRequest),
+    gas_used: mapGasToNoir(inputs.gasUsed),
+    fee_payer: mapAztecAddressToNoir(inputs.feePayer),
+    include_by_timestamp: mapU64ToNoir(inputs.includeByTimestamp),
+  };
 }

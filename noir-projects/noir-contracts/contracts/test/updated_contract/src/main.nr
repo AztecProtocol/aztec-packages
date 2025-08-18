@@ -1,13 +1,14 @@
 use dep::aztec::macros::aztec;
 
+/// A contract to whose contract class the `Updatable` contract is updated to in `e2e_contract_updates.test.ts`.
 #[aztec]
 contract Updated {
     use aztec::macros::{functions::{private, public, utility}, storage::storage};
     use aztec::messages::logs::note::encode_and_encrypt_note;
-    use aztec::prelude::{PrivateMutable, PublicMutable};
+    use aztec::state_vars::{PrivateMutable, PublicMutable};
 
-    use aztec::protocol_types::constants::DEPLOYER_CONTRACT_ADDRESS;
-    use contract_instance_deployer::ContractInstanceDeployer;
+    use aztec::protocol_types::constants::CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS;
+    use contract_instance_registry::ContractInstanceRegistry;
     use value_note::value_note::ValueNote;
 
     #[storage]
@@ -25,21 +26,19 @@ contract Updated {
     fn set_private_value() {
         let owner = context.msg_sender();
         let new_note = ValueNote::new(27, owner);
-        storage.private_value.replace(new_note).emit(encode_and_encrypt_note(
-            &mut context,
-            owner,
-            owner,
-        ));
+        storage.private_value.replace(new_note).emit(encode_and_encrypt_note(&mut context, owner));
     }
 
     #[public]
     fn get_update_delay() -> u64 {
-        ContractInstanceDeployer::at(DEPLOYER_CONTRACT_ADDRESS).get_update_delay().view(&mut context)
+        ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
+            .get_update_delay()
+            .view(&mut context)
     }
 
     #[utility]
     unconstrained fn get_private_value() -> Field {
-        storage.private_value.view_note().value
+        storage.private_value.view_note().value()
     }
 
     #[utility]

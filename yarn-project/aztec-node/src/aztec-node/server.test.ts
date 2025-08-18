@@ -15,16 +15,13 @@ import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
-import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { L2LogsSource, MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { RollupValidationRequests } from '@aztec/stdlib/kernel';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { mockTx } from '@aztec/stdlib/testing';
 import { MerkleTreeId, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import {
   BlockHeader,
   GlobalVariables,
-  IncludeByTimestamp,
   TX_ERROR_DUPLICATE_NULLIFIER_IN_TX,
   TX_ERROR_INCORRECT_L1_CHAIN_ID,
   TX_ERROR_INCORRECT_ROLLUP_VERSION,
@@ -58,9 +55,10 @@ describe('aztec node', () => {
   let merkleTreeOps: MockProxy<MerkleTreeReadOperations>;
   let l2BlockSource: MockProxy<L2BlockSource>;
   let lastBlockNumber: number;
-  let node: AztecNode;
+  let node: AztecNodeService;
   let feePayer: AztecAddress;
   let epochCache: EpochCache;
+  let nodeConfig: AztecNodeConfig;
 
   const chainId = new Fr(12345);
   const rollupVersion = new Fr(1);
@@ -133,7 +131,20 @@ describe('aztec node', () => {
     // all txs use the same allowed FPC class
     const contractSource = mock<ContractDataSource>();
 
-    const aztecNodeConfig: AztecNodeConfig = getConfigEnvVars();
+    const nodeConfigFromEnvVars: AztecNodeConfig = getConfigEnvVars();
+    nodeConfig = {
+      ...nodeConfigFromEnvVars,
+      l1Contracts: {
+        ...nodeConfigFromEnvVars.l1Contracts,
+        rollupAddress: EthAddress.ZERO,
+        registryAddress: EthAddress.ZERO,
+        inboxAddress: EthAddress.ZERO,
+        outboxAddress: EthAddress.ZERO,
+      },
+    };
+
+    // Inject a spurious config value to test that the config is correctly picked up
+    (nodeConfig as any).nonExistingConfig = 'foo';
 
     // We never request any info from the rollup contract here, since only the `getEpochAndSlotInNextL1Slot` method
     // on the epoch cache is used so a simple mock will suffice.
@@ -142,16 +153,7 @@ describe('aztec node', () => {
     epochCache = new EpochCache(rollupContract, 0n, undefined, 0n, EmptyL1RollupConstants, new MockDateProvider());
 
     node = new AztecNodeService(
-      {
-        ...aztecNodeConfig,
-        l1Contracts: {
-          ...aztecNodeConfig.l1Contracts,
-          rollupAddress: EthAddress.ZERO,
-          registryAddress: EthAddress.ZERO,
-          inboxAddress: EthAddress.ZERO,
-          outboxAddress: EthAddress.ZERO,
-        },
-      },
+      nodeConfig,
       p2p,
       l2BlockSource,
       l2LogsSource,
@@ -182,6 +184,7 @@ describe('aztec node', () => {
 
       // We push a duplicate nullifier that was created in the same transaction
       doubleSpendTx.data.forRollup!.end.nullifiers[1] = doubleSpendTx.data.forRollup!.end.nullifiers[0];
+      await doubleSpendTx.recomputeHash();
 
       expect(await node.isValidTx(doubleSpendTx)).toEqual({
         result: 'invalid',
@@ -215,6 +218,7 @@ describe('aztec node', () => {
 
       // We make the chain id on the tx not equal to the configured chain id
       tx.data.constants.txContext.chainId = new Fr(1n + chainId.toBigInt());
+      await tx.recomputeHash();
 
       expect(await node.isValidTx(tx)).toEqual({ result: 'invalid', reason: [TX_ERROR_INCORRECT_L1_CHAIN_ID] });
     });
@@ -225,23 +229,21 @@ describe('aztec node', () => {
 
       // We make the chain id on the tx not equal to the configured chain id
       tx.data.constants.txContext.version = new Fr(1n + rollupVersion.toBigInt());
+      await tx.recomputeHash();
 
       expect(await node.isValidTx(tx)).toEqual({ result: 'invalid', reason: [TX_ERROR_INCORRECT_ROLLUP_VERSION] });
     });
 
     it('tests that the node correctly validates expiration timestamps', async () => {
-      const txs = await Promise.all([mockTxForRollup(0x10000), mockTxForRollup(0x20000), mockTxForRollup(0x30000)]);
-      const noIncludeByTimestampMetadata = txs[0];
-      const invalidIncludeByTimestampMetadata = txs[1];
-      const validIncludeByTimestampMetadata = txs[2];
+      const txs = await Promise.all([mockTxForRollup(0x10000), mockTxForRollup(0x20000)]);
+      const invalidIncludeByTimestampMetadata = txs[0];
+      const validIncludeByTimestampMetadata = txs[1];
 
-      invalidIncludeByTimestampMetadata.data.rollupValidationRequests = new RollupValidationRequests(
-        new IncludeByTimestamp(true, BigInt(NOW_S)),
-      );
+      invalidIncludeByTimestampMetadata.data.includeByTimestamp = BigInt(NOW_S);
+      await invalidIncludeByTimestampMetadata.recomputeHash();
 
-      validIncludeByTimestampMetadata.data.rollupValidationRequests = new RollupValidationRequests(
-        new IncludeByTimestamp(true, BigInt(NOW_S + 1)),
-      );
+      validIncludeByTimestampMetadata.data.includeByTimestamp = BigInt(NOW_S + 1);
+      await validIncludeByTimestampMetadata.recomputeHash();
 
       // We need to set the last block number to get this working properly because if it was set to 0, it would mean
       // that we are building block 1, and for block 1 the timestamp expiration check is skipped. For details on why
@@ -250,7 +252,6 @@ describe('aztec node', () => {
       lastBlockNumber = 1;
 
       // Default tx with no should be valid
-      expect(await node.isValidTx(noIncludeByTimestampMetadata)).toEqual({ result: 'valid' });
       // Tx with include by timestamp < current block number should be invalid
       expect(await node.isValidTx(invalidIncludeByTimestampMetadata)).toEqual({
         result: 'invalid',
@@ -262,6 +263,14 @@ describe('aztec node', () => {
   });
 
   describe('getters', () => {
+    describe('config', () => {
+      it('returns the correct config', async () => {
+        const config = await node.getConfig();
+        expect(config.maxTxPoolSize).toEqual(nodeConfig.maxTxPoolSize);
+        expect('nonExistingConfig' in config).toBe(false);
+      });
+    });
+
     describe('node info', () => {
       it('returns the correct node version', async () => {
         const releasePleaseVersionFile = readFileSync(

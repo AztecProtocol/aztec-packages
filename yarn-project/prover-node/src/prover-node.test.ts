@@ -4,20 +4,20 @@ import { Fr } from '@aztec/foundation/fields';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
+import type { P2PClient, TxProvider } from '@aztec/p2p';
 import type { PublicProcessorFactory } from '@aztec/simulator/server';
-import { L2Block, type L2BlockSource } from '@aztec/stdlib/block';
+import { CommitteeAttestation, L2Block, type L2BlockSource, PublishedL2Block } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import {
   type EpochProverManager,
   type EpochProvingJobState,
   type MerkleTreeWriteOperations,
-  type ProverCoordination,
   WorldStateRunningState,
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import type { BlockHeader, Tx } from '@aztec/stdlib/tx';
+import { type BlockHeader, type Tx, TxHash } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -36,8 +36,8 @@ describe('prover-node', () => {
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let contractDataSource: MockProxy<ContractDataSource>;
   let worldState: MockProxy<WorldStateSynchronizer>;
-  let coordination: ProverCoordination;
-  let mockCoordination: MockProxy<ProverCoordination>;
+  let p2p: MockProxy<P2PClient>;
+  let txProvider: MockProxy<TxProvider>;
   let epochMonitor: MockProxy<EpochMonitor>;
   let config: SpecificProverNodeConfig;
 
@@ -49,6 +49,7 @@ describe('prover-node', () => {
 
   // Blocks returned by the archiver
   let blocks: L2Block[];
+  let lastBlock: PublishedL2Block;
   let previousBlockHeader: BlockHeader;
 
   // Address of the publisher
@@ -65,7 +66,7 @@ describe('prover-node', () => {
       l1ToL2MessageSource,
       contractDataSource,
       worldState,
-      coordination,
+      p2p,
       epochMonitor,
       config,
     );
@@ -79,9 +80,11 @@ describe('prover-node', () => {
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
     contractDataSource = mock<ContractDataSource>();
     worldState = mock<WorldStateSynchronizer>();
-    mockCoordination = mock<ProverCoordination>();
     epochMonitor = mock<EpochMonitor>();
-    coordination = mockCoordination;
+    txProvider = mock<TxProvider>();
+
+    p2p = mock<P2PClient>();
+    p2p.getTxProvider.mockReturnValue(txProvider);
 
     config = {
       proverNodeMaxPendingJobs: 3,
@@ -91,6 +94,7 @@ describe('prover-node', () => {
       txGatheringBatchSize: 10,
       txGatheringMaxParallelRequestsPerNode: 5,
       proverNodeFailedEpochStore: undefined,
+      txGatheringTimeoutMs: 1000,
     };
 
     // World state returns a new mock db every time it is asked to fork
@@ -113,6 +117,7 @@ describe('prover-node', () => {
     // We create 3 fake blocks with 1 tx effect each
     blocks = await timesParallel(3, async i => await L2Block.random(i + 20, 1));
     previousBlockHeader = await L2Block.random(19).then(b => b.header);
+    lastBlock = { block: blocks.at(-1)!, attestations: [CommitteeAttestation.random()] } as PublishedL2Block;
 
     // Archiver returns a bunch of fake blocks
     l2BlockSource.getBlocks.mockImplementation((from, limit) => {
@@ -127,6 +132,7 @@ describe('prover-node', () => {
     l1GenesisTime = Math.floor(Date.now() / 1000) - 3600;
     l2BlockSource.getL1Constants.mockResolvedValue({ ...EmptyL1RollupConstants, l1GenesisTime: BigInt(l1GenesisTime) });
     l2BlockSource.getBlocksForEpoch.mockResolvedValue(blocks);
+    l2BlockSource.getPublishedBlocks.mockResolvedValue([lastBlock]);
     l2BlockSource.getL2Tips.mockResolvedValue({
       latest: { number: blocks.at(-1)!.number, hash: (await blocks.at(-1)!.hash()).toString() },
       proven: { number: 0, hash: undefined },
@@ -139,13 +145,15 @@ describe('prover-node', () => {
     // L1 to L2 message source returns no messages
     l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue([]);
 
-    // Coordination plays along and returns a tx whenever requested
-    mockCoordination.getTxsByHash.mockImplementation(hashes =>
-      Promise.resolve(hashes.map(hash => mock<Tx>({ getTxHash: () => Promise.resolve(hash) }))),
+    // Tx provider plays along and returns a tx whenever requested
+    txProvider.getTxsForBlock.mockImplementation(block =>
+      Promise.resolve({ txs: block.body.txEffects.map(tx => makeTx(tx.txHash)), missingTxs: [] }),
     );
 
     jobs = [];
   });
+
+  const makeTx = (txHash: TxHash): Tx => ({ getTxHash: () => txHash, txHash }) as Tx;
 
   afterEach(async () => {
     await proverNode.stop();
@@ -169,7 +177,7 @@ describe('prover-node', () => {
   });
 
   it('does not start a proof if there is a tx missing from coordinator', async () => {
-    mockCoordination.getTxsByHash.mockResolvedValue([]);
+    txProvider.getTxsForBlock.mockResolvedValue({ missingTxs: [TxHash.random()], txs: [] });
     await proverNode.handleEpochReadyToProve(10n);
     expect(proverNode.totalJobCount).toEqual(0);
   });

@@ -48,14 +48,25 @@ class ECCOpQueue {
     EccvmRowTracker eccvm_row_tracker;
 
   public:
-    // Constructor that instantiates an initial ECC op subtable
+    /**
+     * @brief Instantiate an initial ECC op subtable.
+     */
     ECCOpQueue() { initialize_new_subtable(); }
 
-    // Initialize a new subtable of ECCVM ops and Ultra ops corresponding to an individual circuit
+    /**
+     * @brief Initialize a new subtable for eccvm and ultra ops with the given merge settings.
+     *
+     */
     void initialize_new_subtable()
     {
         eccvm_ops_table.create_new_subtable();
         ultra_ops_table.create_new_subtable();
+    }
+
+    void merge(MergeSettings settings = MergeSettings::PREPEND)
+    {
+        eccvm_ops_table.merge(settings);
+        ultra_ops_table.merge(settings);
     }
 
     // Construct polynomials corresponding to the columns of the full aggregate ultra ecc ops table
@@ -84,6 +95,7 @@ class ECCOpQueue {
 
     size_t get_ultra_ops_table_num_rows() const { return ultra_ops_table.ultra_table_size(); }
     size_t get_current_ultra_ops_subtable_num_rows() const { return ultra_ops_table.current_ultra_subtable_size(); }
+    size_t get_previous_ultra_ops_table_num_rows() const { return ultra_ops_table.previous_ultra_table_size(); }
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1339): Consider making the ultra and eccvm ops getters
     // more memory efficient
@@ -145,7 +157,11 @@ class ECCOpQueue {
      * @warning This is for testing purposes only. Currently no valid use case.
      *
      */
-    void empty_row_for_testing() { append_eccvm_op(ECCVMOperation{ .base_point = point_at_infinity }); }
+    void empty_row_for_testing()
+    {
+        append_eccvm_op(ECCVMOperation{ .base_point = point_at_infinity });
+        accumulator.self_set_infinity();
+    }
 
     Point get_accumulator() { return accumulator; }
 
@@ -201,10 +217,32 @@ class ECCOpQueue {
      */
     UltraOp no_op_ultra_only()
     {
-        EccOpCode op_code{};
+        UltraOp no_op{};
+        ultra_ops_table.push(no_op);
+        return no_op;
+    }
 
-        // Construct and store the operation in the ultra op format
-        return construct_and_populate_ultra_ops(op_code, accumulator);
+    /**
+     * @brief Writes randomness to the ultra ops table but adds no eccvm operations.
+     *
+     * @details This method is used to add randomness to the ultra ops table with the aim of randomising the commitment
+     * and evaluations of its corresponding columns
+     * @return UltraOp
+     */
+    UltraOp random_op_ultra_only()
+    {
+        UltraOp random_op{ .op_code = EccOpCode{ .is_random_op = true,
+                                                 .random_value_1 = Fr::random_element(),
+                                                 .random_value_2 = Fr::random_element() },
+                           .x_lo = Fr::random_element(),
+                           .x_hi = Fr::random_element(),
+                           .y_lo = Fr::random_element(),
+                           .y_hi = Fr::random_element(),
+                           .z_1 = Fr::random_element(),
+                           .z_2 = Fr::random_element(),
+                           .return_is_infinity = false };
+        ultra_ops_table.push(random_op);
+        return random_op;
     }
 
     /**

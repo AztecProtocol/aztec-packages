@@ -9,9 +9,9 @@
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
-#include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
+#include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include <vector>
 
 namespace acir_format {
@@ -27,6 +27,6 @@ template <typename Flavor>
 create_honk_recursion_constraints(typename Flavor::CircuitBuilder& builder,
                                   const RecursionConstraint& input,
                                   bool has_valid_witness_assignments = false)
-    requires IsRecursiveFlavor<Flavor>;
+    requires(IsRecursiveFlavor<Flavor> && IsUltraHonk<typename Flavor::NativeFlavor>);
 
 } // namespace acir_format

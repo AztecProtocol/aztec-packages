@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
 #include "barretenberg/honk/execution_trace/ultra_execution_trace.hpp"
 #include "barretenberg/honk/types/circuit_type.hpp"
@@ -14,6 +15,7 @@
 
 // TODO(md): note that this has now been added
 #include "circuit_builder_base.hpp"
+#include "rom_ram_logic.hpp"
 #include <optional>
 #include <unordered_set>
 
@@ -21,26 +23,31 @@
 
 namespace bb {
 
-template <typename FF> struct non_native_field_witnesses {
+template <typename FF> struct non_native_multiplication_witnesses {
     // first 4 array elements = limbs
     std::array<uint32_t, 4> a;
     std::array<uint32_t, 4> b;
     std::array<uint32_t, 4> q;
     std::array<uint32_t, 4> r;
     std::array<FF, 4> neg_modulus;
-    FF modulus;
+};
+
+template <typename FF> struct non_native_partial_multiplication_witnesses {
+    // first 4 array elements = limbs
+    std::array<uint32_t, 4> a;
+    std::array<uint32_t, 4> b;
 };
 
 template <typename ExecutionTrace_>
 class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_::FF> {
   public:
     using ExecutionTrace = ExecutionTrace_;
-
     using FF = typename ExecutionTrace::FF;
+    using RomRamLogic = RomRamLogic_<ExecutionTrace>;
+
     static constexpr size_t NUM_WIRES = ExecutionTrace::NUM_WIRES;
     // Keeping NUM_WIRES, at least temporarily, for backward compatibility
     static constexpr size_t program_width = ExecutionTrace::NUM_WIRES;
-    static constexpr size_t num_selectors = ExecutionTrace::NUM_SELECTORS;
 
     static constexpr std::string_view NAME_STRING = "UltraCircuitBuilder";
     static constexpr CircuitType CIRCUIT_TYPE = CircuitType::ULTRA;
@@ -56,23 +63,26 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     static constexpr uint32_t UNINITIALIZED_MEMORY_RECORD = UINT32_MAX;
     static constexpr size_t NUMBER_OF_GATES_PER_RAM_ACCESS = 2;
     static constexpr size_t NUMBER_OF_ARITHMETIC_GATES_PER_RAM_ARRAY = 1;
-    static constexpr size_t NUM_RESERVED_GATES = 4;
     // number of gates created per non-native field operation in process_non_native_field_multiplications
     static constexpr size_t GATES_PER_NON_NATIVE_FIELD_MULTIPLICATION_ARITHMETIC = 7;
 
-    enum AUX_SELECTORS {
-        NONE,
-        LIMB_ACCUMULATE_1,
-        LIMB_ACCUMULATE_2,
-        NON_NATIVE_FIELD_1,
-        NON_NATIVE_FIELD_2,
-        NON_NATIVE_FIELD_3,
+    enum MEMORY_SELECTORS {
+        MEM_NONE,
         RAM_CONSISTENCY_CHECK,
         ROM_CONSISTENCY_CHECK,
         RAM_TIMESTAMP_CHECK,
         ROM_READ,
         RAM_READ,
         RAM_WRITE,
+    };
+
+    enum NNF_SELECTORS {
+        NNF_NONE,
+        LIMB_ACCUMULATE_1,
+        LIMB_ACCUMULATE_2,
+        NON_NATIVE_FIELD_1,
+        NON_NATIVE_FIELD_2,
+        NON_NATIVE_FIELD_3,
     };
 
     struct RangeList {
@@ -84,107 +94,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         {
             return target_range == other.target_range && range_tag == other.range_tag && tau_tag == other.tau_tag &&
                    variable_indices == other.variable_indices;
-        }
-    };
-
-    /**
-     * @brief A ROM memory record that can be ordered
-     *
-     *
-     */
-    struct RomRecord {
-        uint32_t index_witness = 0;
-        uint32_t value_column1_witness = 0;
-        uint32_t value_column2_witness = 0;
-        uint32_t index = 0;
-        uint32_t record_witness = 0;
-        size_t gate_index = 0;
-        bool operator<(const RomRecord& other) const { return index < other.index; }
-        bool operator==(const RomRecord& other) const noexcept
-        {
-            return index_witness == other.index_witness && value_column1_witness == other.value_column1_witness &&
-                   value_column2_witness == other.value_column2_witness && index == other.index &&
-                   record_witness == other.record_witness && gate_index == other.gate_index;
-        }
-    };
-
-    /**
-     * @brief A RAM memory record that can be ordered
-     *
-     *
-     */
-    struct RamRecord {
-        enum AccessType {
-            READ,
-            WRITE,
-        };
-        uint32_t index_witness = 0;
-        uint32_t timestamp_witness = 0;
-        uint32_t value_witness = 0;
-        uint32_t index = 0;
-        uint32_t timestamp = 0;
-        AccessType access_type = AccessType::READ; // read or write?
-        uint32_t record_witness = 0;
-        size_t gate_index = 0;
-        bool operator<(const RamRecord& other) const
-        {
-            bool index_test = (index) < (other.index);
-            return index_test || (index == other.index && timestamp < other.timestamp);
-        }
-        bool operator==(const RamRecord& other) const noexcept
-        {
-            return index_witness == other.index_witness && timestamp_witness == other.timestamp_witness &&
-                   value_witness == other.value_witness && index == other.index && timestamp == other.timestamp &&
-                   access_type == other.access_type && record_witness == other.record_witness &&
-                   gate_index == other.gate_index;
-        }
-    };
-
-    /**
-     * @brief Each ram array is an instance of memory transcript. It saves values and indexes for a particular memory
-     * array
-     *
-     *
-     */
-    struct RamTranscript {
-        // Contains the value of each index of the array
-        std::vector<uint32_t> state;
-
-        // A vector of records, each of which contains:
-        // + The constant witness with the index
-        // + The value in the memory slot
-        // + The actual index value
-        std::vector<RamRecord> records;
-
-        // used for RAM records, to compute the timestamp when performing a read/write
-        size_t access_count = 0;
-        // Used to check that the state hasn't changed in tests
-        bool operator==(const RamTranscript& other) const noexcept
-        {
-            return (state == other.state && records == other.records && access_count == other.access_count);
-        }
-    };
-
-    /**
-     * @brief Each rom array is an instance of memory transcript. It saves values and indexes for a particular memory
-     * array
-     *
-     *
-     */
-    struct RomTranscript {
-        // Contains the value of each index of the array
-        std::vector<std::array<uint32_t, 2>> state;
-
-        // A vector of records, each of which contains:
-        // + The constant witness with the index
-        // + The value in the memory slot
-        // + The actual index value
-        std::vector<RomRecord> records;
-
-        // Used to check that the state hasn't changed in tests
-        bool operator==(const RomTranscript& other) const noexcept
-        {
-            return (state == other.state && records == other.records);
         }
     };
 
@@ -301,29 +210,15 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     // The set of lookup tables used by the circuit, plus the gate data for the lookups from each table
     std::vector<plookup::BasicTable> lookup_tables;
 
-    std::map<uint64_t, RangeList> range_lists; // DOCTODO: explain this.
+    // Rom/Ram logic
+    RomRamLogic rom_ram_logic = RomRamLogic();
 
-    /**
-     * @brief Each entry in ram_arrays represents an independent RAM table.
-     * RamTranscript tracks the current table state,
-     * as well as the 'records' produced by each read and write operation.
-     * Used in `compute_proving_key` to generate consistency check gates required to validate the RAM read/write
-     * history
-     */
-    std::vector<RamTranscript> ram_arrays;
-
-    /**
-     * @brief Each entry in ram_arrays represents an independent ROM table.
-     * RomTranscript tracks the current table state,
-     * as well as the 'records' produced by each read operation.
-     * Used in `compute_proving_key` to generate consistency check gates required to validate the ROM read history
-     */
-    std::vector<RomTranscript> rom_arrays;
-
-    // Stores gate index of ROM and RAM reads (required by proving key)
+    // Stores gate index of ROM/RAM reads (required by proving key)
     std::vector<uint32_t> memory_read_records;
     // Stores gate index of RAM writes (required by proving key)
     std::vector<uint32_t> memory_write_records;
+    std::map<uint64_t, RangeList> range_lists; // DOCTODO: explain this.
+
     // Witnesses that can be in one gate, but that's intentional (used in boomerang catcher)
     std::vector<uint32_t> used_witnesses;
     std::vector<cached_partial_non_native_field_multiplication> cached_partial_non_native_field_multiplications;
@@ -369,8 +264,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
             this->add_variable(value);
         }
 
-        // Add the public_inputs from acir
-        this->public_inputs = public_inputs;
+        // Initialize the builder public_inputs directly from the acir public inputs.
+        this->initialize_public_inputs(public_inputs);
 
         // Add the const zero variable after the acir witness has been
         // incorporated into variables.
@@ -385,11 +280,10 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         , blocks(other.blocks)
         , constant_variable_indices(other.constant_variable_indices)
         , lookup_tables(other.lookup_tables)
-        , range_lists(other.range_lists)
-        , ram_arrays(other.ram_arrays)
-        , rom_arrays(other.rom_arrays)
+        , rom_ram_logic(other.rom_ram_logic)
         , memory_read_records(other.memory_read_records)
         , memory_write_records(other.memory_write_records)
+        , range_lists(other.range_lists)
         , cached_partial_non_native_field_multiplications(other.cached_partial_non_native_field_multiplications)
         , circuit_finalized(other.circuit_finalized)
         , ipa_proof(other.ipa_proof){};
@@ -402,8 +296,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
         lookup_tables = other.lookup_tables;
         range_lists = other.range_lists;
-        ram_arrays = other.ram_arrays;
-        rom_arrays = other.rom_arrays;
+        rom_ram_logic = other.rom_ram_logic;
         memory_read_records = other.memory_read_records;
         memory_write_records = other.memory_write_records;
         cached_partial_non_native_field_multiplications = other.cached_partial_non_native_field_multiplications;
@@ -413,8 +306,18 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     };
     ~UltraCircuitBuilder_() override = default;
 
-    bool operator==(const UltraCircuitBuilder_& other) const = default;
+    bool operator==(const UltraCircuitBuilder_& other) const
+    {
 
+        return blocks == other.blocks && constant_variable_indices == other.constant_variable_indices &&
+               lookup_tables == other.lookup_tables && memory_read_records == other.memory_read_records &&
+               memory_write_records == other.memory_write_records && range_lists == other.range_lists &&
+               cached_partial_non_native_field_multiplications ==
+                   other.cached_partial_non_native_field_multiplications &&
+               used_witnesses == other.used_witnesses && rom_ram_logic == other.rom_ram_logic &&
+               // Compare the base class
+               CircuitBuilderBase<FF>::operator==(other);
+    }
     /**
      * @brief Debug helper method for ensuring all selectors have the same size
      * @details Each gate construction method manually appends values to the selectors. Failing to update one of the
@@ -428,11 +331,13 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         // do nothing
 #else
         for (auto& block : blocks.get()) {
-            size_t nominal_size = block.selectors[0].size();
-            for (size_t idx = 1; idx < block.selectors.size(); ++idx) {
-                ASSERT(block.selectors[idx].size() == nominal_size);
+            const auto& block_selectors = block.get_selectors();
+            size_t nominal_size = block_selectors[0].size();
+            for (size_t idx = 1; idx < block_selectors.size(); ++idx) {
+                ASSERT_DEBUG(block_selectors[idx].size() == nominal_size);
             }
         }
+
 #endif // NDEBUG
     }
 
@@ -493,13 +398,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         }
     }
 
-    accumulator_triple_<FF> create_logic_constraint(const uint32_t a,
-                                                    const uint32_t b,
-                                                    const size_t num_bits,
-                                                    bool is_xor_gate);
-    accumulator_triple_<FF> create_and_constraint(const uint32_t a, const uint32_t b, const size_t num_bits);
-    accumulator_triple_<FF> create_xor_constraint(const uint32_t a, const uint32_t b, const size_t num_bits);
-
     uint32_t put_constant_variable(const FF& variable);
 
     size_t get_num_constant_gates() const override { return 0; }
@@ -522,14 +420,15 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         size_t& count, size_t& rangecount, size_t& romcount, size_t& ramcount, size_t& nnfcount) const
     {
         count = this->num_gates;
+
         // each ROM gate adds +1 extra gate due to the rom reads being copied to a sorted list set
-        for (size_t i = 0; i < rom_arrays.size(); ++i) {
-            for (size_t j = 0; j < rom_arrays[i].state.size(); ++j) {
-                if (rom_arrays[i].state[j][0] == UNINITIALIZED_MEMORY_RECORD) {
+        for (size_t i = 0; i < rom_ram_logic.rom_arrays.size(); ++i) {
+            for (size_t j = 0; j < rom_ram_logic.rom_arrays[i].state.size(); ++j) {
+                if (rom_ram_logic.rom_arrays[i].state[j][0] == UNINITIALIZED_MEMORY_RECORD) {
                     romcount += 2;
                 }
             }
-            romcount += (rom_arrays[i].records.size());
+            romcount += (rom_ram_logic.rom_arrays[i].records.size());
             romcount += 1; // we add an addition gate after procesing a rom array
         }
 
@@ -538,20 +437,21 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         std::vector<size_t> ram_timestamps;
         std::vector<size_t> ram_range_sizes;
         std::vector<size_t> ram_range_exists;
-        for (size_t i = 0; i < ram_arrays.size(); ++i) {
-            for (size_t j = 0; j < ram_arrays[i].state.size(); ++j) {
-                if (ram_arrays[i].state[j] == UNINITIALIZED_MEMORY_RECORD) {
+        for (size_t i = 0; i < rom_ram_logic.ram_arrays.size(); ++i) {
+            for (size_t j = 0; j < rom_ram_logic.ram_arrays[i].state.size(); ++j) {
+                if (rom_ram_logic.ram_arrays[i].state[j] == UNINITIALIZED_MEMORY_RECORD) {
                     ramcount += NUMBER_OF_GATES_PER_RAM_ACCESS;
                 }
             }
-            ramcount += (ram_arrays[i].records.size() * NUMBER_OF_GATES_PER_RAM_ACCESS);
+            ramcount += (rom_ram_logic.ram_arrays[i].records.size() * NUMBER_OF_GATES_PER_RAM_ACCESS);
             ramcount += NUMBER_OF_ARITHMETIC_GATES_PER_RAM_ARRAY; // we add an addition gate after procesing a ram array
 
             // there will be 'max_timestamp' number of range checks, need to calculate.
-            const auto max_timestamp = ram_arrays[i].access_count - 1;
+            const auto max_timestamp = rom_ram_logic.ram_arrays[i].access_count - 1;
 
             // if a range check of length `max_timestamp` already exists, we are double counting.
             // We record `ram_timestamps` to detect and correct for this error when we process range lists.
+
             ram_timestamps.push_back(max_timestamp);
             size_t padding = (NUM_WIRES - (max_timestamp % NUM_WIRES)) % NUM_WIRES;
             if (max_timestamp == NUM_WIRES) {
@@ -691,9 +591,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     size_t get_finalized_total_circuit_size() const
     {
         ASSERT(circuit_finalized);
-        auto minimum_circuit_size = get_tables_size() + get_lookups_size();
-        auto num_filled_gates = get_num_finalized_gates() + this->public_inputs.size();
-        return std::max(minimum_circuit_size, num_filled_gates) + NUM_RESERVED_GATES;
+        auto num_filled_gates = get_num_finalized_gates() + this->num_public_inputs();
+        return std::max(get_tables_size(), num_filled_gates);
     }
 
     /**
@@ -707,9 +606,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      */
     size_t get_estimated_total_circuit_size() const
     {
-        auto minimum_circuit_size = get_tables_size() + get_lookups_size();
-        auto num_filled_gates = get_estimated_num_finalized_gates() + this->public_inputs.size();
-        return std::max(minimum_circuit_size, num_filled_gates) + NUM_RESERVED_GATES;
+        auto num_filled_gates = get_estimated_num_finalized_gates() + this->num_public_inputs();
+        return std::max(get_tables_size(), num_filled_gates);
     }
 
     std::vector<uint32_t> get_used_witnesses() const { return used_witnesses; }
@@ -732,7 +630,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         size_t total = count + romcount + ramcount + rangecount;
         std::cout << "gates = " << total << " (arith " << count << ", rom " << romcount << ", ram " << ramcount
                   << ", range " << rangecount << ", non native field gates " << nnfcount
-                  << "), pubinp = " << this->public_inputs.size() << std::endl;
+                  << "), pubinp = " << this->num_public_inputs() << std::endl;
     }
 
     void assert_equal_constant(const uint32_t a_idx, const FF& b, std::string const& msg = "assert equal constant")
@@ -772,18 +670,52 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         const uint32_t variable_index,
         const size_t num_bits,
         std::string const& msg = "decompose_into_default_range_better_for_oddlimbnum");
-    void create_dummy_gate(auto& block, const uint32_t&, const uint32_t&, const uint32_t&, const uint32_t&);
+
+    /**
+     * @brief Create a gate with no constraints but with possibly non-trivial wire values
+     * @details A dummy gate can be used to provide wire values to be accessed via shifts by the gate that proceeds it.
+     * The dummy gate itself does not have to satisfy any constraints (all selectors are zero).
+     *
+     * @tparam ExecutionTrace
+     * @param block Execution trace block into which the dummy gate is to be placed
+     */
+    void create_dummy_gate(
+        auto& block, const uint32_t& idx_1, const uint32_t& idx_2, const uint32_t& idx_3, const uint32_t& idx_4)
+    {
+        block.populate_wires(idx_1, idx_2, idx_3, idx_4);
+        block.q_m().emplace_back(0);
+        block.q_1().emplace_back(0);
+        block.q_2().emplace_back(0);
+        block.q_3().emplace_back(0);
+        block.q_c().emplace_back(0);
+        block.q_arith().emplace_back(0);
+        block.q_4().emplace_back(0);
+        block.q_delta_range().emplace_back(0);
+        block.q_elliptic().emplace_back(0);
+        block.q_lookup_type().emplace_back(0);
+        block.q_memory().emplace_back(0);
+        block.q_nnf().emplace_back(0);
+        block.q_poseidon2_external().emplace_back(0);
+        block.q_poseidon2_internal().emplace_back(0);
+
+        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
+            block.pad_additional();
+        }
+        check_selector_length_consistency();
+        ++this->num_gates;
+    }
     void create_dummy_constraints(const std::vector<uint32_t>& variable_index);
     void create_sort_constraint(const std::vector<uint32_t>& variable_index);
     void create_sort_constraint_with_edges(const std::vector<uint32_t>& variable_index, const FF&, const FF&);
     void assign_tag(const uint32_t variable_index, const uint32_t tag)
     {
-        ASSERT(tag <= this->current_tag);
+        BB_ASSERT_LTE(tag, this->current_tag);
         // If we've already assigned this tag to this variable, return (can happen due to copy constraints)
         if (this->real_variable_tags[this->real_variable_index[variable_index]] == tag) {
             return;
         }
-        ASSERT(this->real_variable_tags[this->real_variable_index[variable_index]] == DUMMY_TAG);
+
+        BB_ASSERT_EQ(this->real_variable_tags[this->real_variable_index[variable_index]], DUMMY_TAG);
         this->real_variable_tags[this->real_variable_index[variable_index]] = tag;
     }
 
@@ -807,7 +739,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     /**
      * Custom Gate Selectors
      **/
-    void apply_aux_selectors(const AUX_SELECTORS type);
+    void apply_memory_selectors(const MEMORY_SELECTORS type);
+    void apply_nnf_selectors(const NNF_SELECTORS type);
 
     /**
      * Non Native Field Arithmetic
@@ -818,8 +751,10 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
                                    const size_t hi_limb_bits = DEFAULT_NON_NATIVE_FIELD_LIMB_BITS);
     std::array<uint32_t, 2> decompose_non_native_field_double_width_limb(
         const uint32_t limb_idx, const size_t num_limb_bits = (2 * DEFAULT_NON_NATIVE_FIELD_LIMB_BITS));
-    std::array<uint32_t, 2> evaluate_non_native_field_multiplication(const non_native_field_witnesses<FF>& input);
-    std::array<uint32_t, 2> queue_partial_non_native_field_multiplication(const non_native_field_witnesses<FF>& input);
+    std::array<uint32_t, 2> evaluate_non_native_field_multiplication(
+        const non_native_multiplication_witnesses<FF>& input);
+    std::array<uint32_t, 2> queue_partial_non_native_field_multiplication(
+        const non_native_partial_multiplication_witnesses<FF>& input);
     using scaled_witness = std::pair<uint32_t, FF>;
     using add_simple = std::tuple<scaled_witness, scaled_witness, FF>;
     std::array<uint32_t, 5> evaluate_non_native_field_subtraction(add_simple limb0,
@@ -837,35 +772,25 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      * Memory
      **/
 
-    // size_t create_RAM_array(const size_t array_size);
     size_t create_ROM_array(const size_t array_size);
-
     void set_ROM_element(const size_t rom_id, const size_t index_value, const uint32_t value_witness);
     void set_ROM_element_pair(const size_t rom_id,
                               const size_t index_value,
                               const std::array<uint32_t, 2>& value_witnesses);
+
     uint32_t read_ROM_array(const size_t rom_id, const uint32_t index_witness);
     std::array<uint32_t, 2> read_ROM_array_pair(const size_t rom_id, const uint32_t index_witness);
-    void create_ROM_gate(RomRecord& record);
-    void create_sorted_ROM_gate(RomRecord& record);
-    void process_ROM_array(const size_t rom_id);
-    void process_ROM_arrays();
-
-    void create_RAM_gate(RamRecord& record);
-    void create_sorted_RAM_gate(RamRecord& record);
-    void create_final_sorted_RAM_gate(RamRecord& record, const size_t ram_array_size);
 
     size_t create_RAM_array(const size_t array_size);
     void init_RAM_element(const size_t ram_id, const size_t index_value, const uint32_t value_witness);
+
     uint32_t read_RAM_array(const size_t ram_id, const uint32_t index_witness);
     void write_RAM_array(const size_t ram_id, const uint32_t index_witness, const uint32_t value_witness);
-    void process_RAM_array(const size_t ram_id);
-    void process_RAM_arrays();
+    // note that the `process_ROM_array` and `process_RAM_array` methods are controlled by `RomRamLogic` and hence are
+    // not present here.
 
     void create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in);
     void create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in);
-
-    uint256_t hash_circuit() const;
 
     msgpack::sbuffer export_circuit() override;
 };

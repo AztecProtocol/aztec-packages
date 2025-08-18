@@ -9,8 +9,8 @@ pub contract NoteGetter {
         note::note_interface::NoteProperties,
         // Macros
         macros::{functions::{private, utility}, storage::storage},
-        // Prelude types
-        prelude::{NoteViewerOptions, PrivateSet},
+        note::note_viewer_options::NoteViewerOptions,
+        state_vars::PrivateSet,
     };
 
     use value_note::value_note::ValueNote;
@@ -24,11 +24,7 @@ pub contract NoteGetter {
     fn insert_note(value: Field) {
         let note = ValueNote::new(value, context.msg_sender());
 
-        storage.set.insert(note).emit(encode_and_encrypt_note(
-            &mut context,
-            context.msg_sender(),
-            context.msg_sender(),
-        ));
+        storage.set.insert(note).emit(encode_and_encrypt_note(&mut context, context.msg_sender()));
     }
 
     #[utility]

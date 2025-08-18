@@ -30,9 +30,9 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProver_ {
     using PCS = typename Flavor::PCS;
     using DeciderPK = DeciderProvingKey_<Flavor>;
     using Transcript = typename Flavor::Transcript;
-    using RelationSeparator = typename Flavor::RelationSeparator;
     using ZKData = ZKSumcheckData<Flavor>;
     using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
+    using Proof = typename Flavor::Transcript::Proof;
 
   public:
     explicit DeciderProver_(const std::shared_ptr<DeciderPK>&,
@@ -41,7 +41,7 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProver_ {
     BB_PROFILE void execute_relation_check_rounds();
     BB_PROFILE void execute_pcs_rounds();
 
-    HonkProof export_proof();
+    Proof export_proof();
     void construct_proof();
 
     std::shared_ptr<DeciderPK> proving_key;

@@ -57,21 +57,21 @@ config:
 
     filter:
       metrics:
-        metric:
-          - 'not (HasPrefix(name, "aztec.validator") or HasPrefix(name, "aztec.tx_collector"))'
-          - 'resource.attributes["aztec.node_role"] != "sequencer"'
-          - 'resource.attributes["aztec.registry_address"] != "0x4d2cc1d5fb6be65240e0bfc8154243e69c0fb19e"'
+        metric: [] # placeholder
         datapoint:
           - 'metric.type == METRIC_DATA_TYPE_HISTOGRAM and Len(explicit_bounds) > 20'
+
+    resource:
+      attributes:
+        - pattern: "(k8s|os|telemetry|service|exported).*"
+          action: delete
 
     transform:
       metric_statements:
         - context: datapoint
           statements:
-          - set(attributes["service.instance.id"], resource.attributes["service.instance.id"])
-          - set(attributes["service.name"], resource.attributes["service.name"])
-          - set(attributes["service.namespace"], resource.attributes["service.namespace"])
           - set(attributes["aztec.node_role"], resource.attributes["aztec.node_role"])
+          - set(attributes["aztec.registry_address"], resource.attributes["aztec.registry_address"])
 
     batch: {}
 
@@ -97,6 +97,7 @@ config:
           - otlp
         processors:
           - memory_limiter
+          - resource
           - filter
           - transform
           - batch
@@ -148,7 +149,7 @@ ingress:
     kubernetes.io/ingress.allow-http: "true"
     kubernetes.io/ingress.class: gce
     kubernetes.io/ingress.global-static-ip-name: ""
-    cloud.google.com/health-check-port: "13133"
+    cloud.google.com/healthcheck-port: "13133"
     cloud.google.com/healthcheck-path: "/"
 
     # networking.gke.io/managed-certificates: null

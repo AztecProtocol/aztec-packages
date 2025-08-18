@@ -42,3 +42,25 @@ if ! command -v stern &> /dev/null; then
   # Clean up
   rm stern.tar.gz
 fi
+
+if ! command -v gcloud &> /dev/null; then
+  curl -Lo google-cloud-cli.tar.gz https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-$os-$(arch).tar.gz
+  tar -xzf google-cloud-cli.tar.gz
+  rm google-cloud-cli.tar.gz
+
+  sudo mkdir -p /opt
+  sudo mv ./google-cloud-sdk /opt/google-cloud-sdk
+  sudo /opt/google-cloud-sdk/install.sh --quiet --usage-reporting false
+
+  source /opt/google-cloud-sdk/completion.bash.inc
+fi
+
+# Install GKE auth plugin for kubectl
+if command -v gcloud &> /dev/null; then
+  if dpkg -l google-cloud-cli 2>/dev/null | grep -q "^ii"; then
+    sudo apt-get update
+    sudo apt-get install -y google-cloud-cli-gke-gcloud-auth-plugin
+  else
+    gcloud components install gke-gcloud-auth-plugin
+  fi
+fi

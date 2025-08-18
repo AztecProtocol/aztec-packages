@@ -6,8 +6,8 @@ pub contract StateVars {
     use aztec::{
         macros::{functions::{private, public, utility, view}, storage::{storage, storage_no_init}},
         messages::logs::note::encode_and_encrypt_note,
-        prelude::{AztecAddress, PrivateImmutable, PrivateMutable, PublicImmutable, PublicMutable},
-        protocol_types::traits::{Deserialize, Packable, Serialize},
+        protocol_types::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}},
+        state_vars::{PrivateImmutable, PrivateMutable, PublicImmutable, PublicMutable},
     };
 
     use value_note::value_note::ValueNote;
@@ -104,7 +104,6 @@ pub contract StateVars {
         storage.private_immutable.initialize(new_note).emit(encode_and_encrypt_note(
             &mut context,
             context.msg_sender(),
-            context.msg_sender(),
         ));
     }
 
@@ -114,7 +113,6 @@ pub contract StateVars {
 
         storage.private_mutable.initialize(private_mutable).emit(encode_and_encrypt_note(
             &mut context,
-            context.msg_sender(),
             context.msg_sender(),
         ));
     }
@@ -126,7 +124,6 @@ pub contract StateVars {
         storage.private_mutable.replace(new_note).emit(encode_and_encrypt_note(
             &mut context,
             context.msg_sender(),
-            context.msg_sender(),
         ));
     }
 
@@ -136,7 +133,7 @@ pub contract StateVars {
         let current = storage.private_mutable.get_note().note;
 
         // Increment value by 1
-        let new_value = current.value + 1;
+        let new_value = current.value() + 1;
 
         // Create new note with incremented value
         let new_note = ValueNote::new(new_value, context.msg_sender());
@@ -144,7 +141,6 @@ pub contract StateVars {
         // Replace existing note with new note
         storage.private_mutable.replace(new_note).emit(encode_and_encrypt_note(
             &mut context,
-            context.msg_sender(),
             context.msg_sender(),
         ));
     }

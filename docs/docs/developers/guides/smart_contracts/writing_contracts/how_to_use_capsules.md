@@ -20,13 +20,13 @@ The capsules module provides these main functions:
 
 Import the capsules module:
 
-#include_code import_capsules noir-projects/noir-contracts/contracts/protocol/contract_class_registerer_contract/src/main.nr rust
+#include_code import_capsules noir-projects/noir-contracts/contracts/protocol/contract_class_registry/src/main.nr rust
 
 ### 2. Store and load data
 
 You can store any type that implements `Serialize` and `Deserialize`:
 
-#include_code load_capsule noir-projects/noir-contracts/contracts/protocol/contract_class_registerer_contract/src/main.nr rust
+#include_code load_capsule noir-projects/noir-contracts/contracts/protocol/contract_class_registry/src/main.nr rust
 
 The data is stored per contract address and slot. When loading, you'll get back an `Option<T>` - `None` if no data exists at that slot.
 

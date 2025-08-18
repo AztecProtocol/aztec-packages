@@ -4,11 +4,11 @@ use std::ops::{Add, Sub};
 // Utility used to easily get a "id" for a private user that sits in the same
 // "space" as the public users.
 // It help us to have a single mapping for collateral that have both public and private users.
-pub fn compute_identifier(secret: Field, on_behalf_of: Field, self: Field) -> Field {
+pub fn compute_identifier(secret: Field, on_behalf_of: Field, this: Field) -> Field {
     // EITHER secret OR on_behalf_of MUST be set. But not both
     assert(!((secret == 0) as bool & (on_behalf_of == 0) as bool));
     if (secret != 0) {
-        pedersen_hash([self, secret], 0)
+        pedersen_hash([this, secret], 0)
     } else {
         on_behalf_of
     }
@@ -33,8 +33,8 @@ pub fn covered_by_collateral(
 }
 
 pub struct DebtReturn {
-    debt_value: u128,
-    static_debt: u128,
+    pub debt_value: u128,
+    pub static_debt: u128,
 }
 
 fn div_up(a: u128, b: u128) -> u128 {

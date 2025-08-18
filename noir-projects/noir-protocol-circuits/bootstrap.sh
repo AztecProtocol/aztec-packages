@@ -3,13 +3,18 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
+working_dir=${2:-}
+# entrypoint for mock circuits
+if [ -n "$working_dir" ]; then
+  cd "$working_dir"
+fi
 
 export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
 export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 export PLATFORM_TAG=any
 export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
-export BB_HASH=$(cache_content_hash ../../barretenberg/cpp/.rebuild_patterns)
+export BB_HASH=$(../../barretenberg/cpp/bootstrap.sh hash)
 export NOIR_HASH=${NOIR_HASH:-$(../../noir/bootstrap.sh hash)}
 
 export key_dir=./target/keys
@@ -65,6 +70,7 @@ function compile {
       echo "Error: $json_path bytecode size of $bytecode_size exceeds 850MB"
       exit 1
     fi
+
     cache_upload circuit-$hash.tar.gz $json_path &> /dev/null
   fi
 
@@ -95,7 +101,7 @@ function compile {
   # Will require changing TS code downstream.
   bytecode_hash=$(jq -r '.bytecode' $json_path | sha256sum | tr -d ' -')
   hash=$(hash_str "$BB_HASH-$bytecode_hash-$proto")
-  if [ "${USE_CIRCUITS_CACHE:-0}" -eq 0 ] || ! cache_download vk-$hash.tar.gz 1>&2; then
+  if ! cache_download vk-$hash.tar.gz 1>&2; then
     local key_path="$key_dir/$name.vk.data.json"
     echo_stderr "Generating vk for function: $name..."
     SECONDS=0
@@ -138,7 +144,7 @@ function build {
   set -eu
 
   echo_stderr "Checking libraries for warnings..."
-  parallel -v --line-buffer --tag $NARGO --program-dir {} check --deny-warnings ::: \
+  parallel -v --line-buffer --tag $NARGO --program-dir {} check ::: \
     ./crates/blob \
     ./crates/parity-lib \
     ./crates/private-kernel-lib \

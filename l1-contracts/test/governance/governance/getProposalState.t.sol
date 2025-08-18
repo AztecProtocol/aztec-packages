@@ -16,9 +16,7 @@ contract GetProposalStateTest is GovernanceBase {
   function test_WhenProposalIsOutOfBounds(uint256 _index) external {
     // it revert
     uint256 index = bound(_index, governance.proposalCount(), type(uint256).max);
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Governance__ProposalDoesNotExists.selector, index)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.Governance__ProposalDoesNotExists.selector, index));
     governance.getProposalState(index);
   }
 
@@ -30,42 +28,37 @@ contract GetProposalStateTest is GovernanceBase {
     _;
   }
 
-  function test_GivenStateIsExecuted(
-    address _voter,
-    uint256 _totalPower,
-    uint256 _votesCast,
-    uint256 _yeas
-  ) external whenValidProposalId givenStateIsStable {
-    // it return Executed
-    _stateExecutable("empty", _voter, _totalPower, _votesCast, _yeas);
-    governance.execute(proposalId);
-
-    assertEq(proposal.state, ProposalState.Pending);
-    assertEq(governance.getProposalState(proposalId), ProposalState.Executed);
-  }
-
-  function test_GivenStateIsDropped(address _governanceProposer)
+  function test_GivenStateIsExecuted(address _voter, uint256 _totalPower, uint256 _votesCast, uint256 _yeas)
     external
     whenValidProposalId
     givenStateIsStable
   {
-    // it return Dropped
-    _stateDropped("empty", _governanceProposer);
+    // it return Executed
+    _stateExecutable("empty", _voter, _totalPower, _votesCast, _yeas);
+    governance.execute(proposalId);
 
-    assertEq(proposal.state, ProposalState.Pending);
-    assertEq(governance.getProposalState(proposalId), ProposalState.Dropped);
+    assertEq(proposal.cachedState, ProposalState.Pending);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Executed);
+  }
+
+  function test_GivenStateIsDropped(address _governanceProposer) external whenValidProposalId givenStateIsStable {
+    // it return Dropped
+    _stateDroppable("empty", _governanceProposer);
+
+    assertEq(proposal.cachedState, ProposalState.Pending);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Droppable);
 
     governance.dropProposal(proposalId);
 
     Proposal memory fresh = governance.getProposal(proposalId);
-    assertEq(fresh.state, ProposalState.Dropped);
+    assertEq(fresh.cachedState, ProposalState.Dropped);
   }
 
   modifier givenStateIsUnstable() {
     _;
 
     Proposal memory fresh = governance.getProposal(proposalId);
-    assertEq(fresh.state, ProposalState.Pending);
+    assertEq(fresh.cachedState, ProposalState.Pending);
   }
 
   function test_GivenGovernanceProposerHaveChanged(address _governanceProposer)
@@ -74,10 +67,10 @@ contract GetProposalStateTest is GovernanceBase {
     givenStateIsUnstable
   {
     // it return Dropped
-    _stateDropped("empty", _governanceProposer);
+    _stateDroppable("empty", _governanceProposer);
 
-    assertEq(proposal.state, ProposalState.Pending);
-    assertEq(governance.getProposalState(proposalId), ProposalState.Dropped);
+    assertEq(proposal.cachedState, ProposalState.Pending);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Droppable);
   }
 
   modifier givenGovernanceProposerIsUnchanged() {
@@ -140,12 +133,7 @@ contract GetProposalStateTest is GovernanceBase {
     assertEq(governance.getProposalState(proposalId), ProposalState.Rejected);
   }
 
-  function test_GivenVoteTabulationIsInvalid(
-    address _voter,
-    uint256 _totalPower,
-    uint256 _votesCast,
-    uint256 _yeas
-  )
+  function test_GivenVoteTabulationIsInvalid(address _voter, uint256 _totalPower, uint256 _votesCast, uint256 _yeas)
     external
     whenValidProposalId
     givenStateIsUnstable
@@ -158,8 +146,9 @@ contract GetProposalStateTest is GovernanceBase {
 
     // We can overwrite the quorum to be 0 to hit an invalid case
     assertGt(governance.getProposal(proposalId).config.quorum, 0);
-    stdstore.target(address(governance)).sig("getProposal(uint256)").with_key(proposalId).depth(6)
-      .checked_write(uint256(0));
+    stdstore.target(address(governance)).sig("getProposal(uint256)").with_key(proposalId).depth(6).checked_write(
+      uint256(0)
+    );
     assertEq(governance.getProposal(proposalId).config.quorum, 0);
 
     uint256 totalPower = governance.totalPowerAt(Timestamp.wrap(block.timestamp));
@@ -170,12 +159,7 @@ contract GetProposalStateTest is GovernanceBase {
     assertEq(governance.getProposalState(proposalId), ProposalState.Rejected);
   }
 
-  modifier givenVoteTabulationIsAccepted(
-    address _voter,
-    uint256 _totalPower,
-    uint256 _votesCast,
-    uint256 _yeas
-  ) {
+  modifier givenVoteTabulationIsAccepted(address _voter, uint256 _totalPower, uint256 _votesCast, uint256 _yeas) {
     _stateQueued("empty", _voter, _totalPower, _votesCast, _yeas);
     _;
   }
@@ -230,12 +214,7 @@ contract GetProposalStateTest is GovernanceBase {
     assertEq(governance.getProposalState(proposalId), ProposalState.Executable);
   }
 
-  function test_GivenGracePeriodHavePassed(
-    address _voter,
-    uint256 _totalPower,
-    uint256 _votesCast,
-    uint256 _yeas
-  )
+  function test_GivenGracePeriodHavePassed(address _voter, uint256 _totalPower, uint256 _votesCast, uint256 _yeas)
     external
     whenValidProposalId
     givenStateIsUnstable

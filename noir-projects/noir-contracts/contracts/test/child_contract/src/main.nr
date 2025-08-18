@@ -3,12 +3,13 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract Child {
-    use dep::aztec::prelude::{AztecAddress, Map, PrivateSet, PublicMutable};
+    use dep::aztec::protocol_types::address::AztecAddress;
 
     use dep::aztec::{
         macros::{functions::{internal, private, public}, storage::storage},
         messages::logs::note::encode_and_encrypt_note,
         note::{note_getter_options::NoteGetterOptions, note_interface::NoteProperties},
+        state_vars::{Map, PrivateSet, PublicMutable},
         utils::comparison::Comparator,
     };
     // docs:start:import_valuenote
@@ -64,7 +65,6 @@ pub contract Child {
         storage.a_map_with_private_values.at(owner).insert(note).emit(encode_and_encrypt_note(
             &mut context,
             owner,
-            owner,
         ));
         new_value
     }
@@ -74,7 +74,7 @@ pub contract Child {
         let mut options = NoteGetterOptions::new();
         options = options.select(ValueNote::properties().value, Comparator.EQ, amount).set_limit(1);
         let retrieved_notes = storage.a_map_with_private_values.at(owner).get_notes(options);
-        retrieved_notes.get(0).note.value
+        retrieved_notes.get(0).note.value()
     }
 
     // Increments `current_value` by `new_value`

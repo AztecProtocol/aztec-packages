@@ -13,7 +13,7 @@ export async function getContractData(
   const {
     contractInstance: instance,
     isContractInitialized: isInitialized,
-    isContractPubliclyDeployed: isPubliclyDeployed,
+    isContractPublished: isPubliclyDeployed,
   } = await client.getContractMetadata(contractAddress);
   const contractClass =
     includeBytecode &&

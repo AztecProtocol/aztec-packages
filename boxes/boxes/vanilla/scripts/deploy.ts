@@ -5,7 +5,7 @@ import {
   createAztecNodeClient,
   DeployMethod,
   Fr,
-  getContractInstanceFromDeployParams,
+  getContractInstanceFromInstantiationParams,
   PublicKeys,
   type PXE,
   SponsoredFeePaymentMethod,
@@ -43,19 +43,15 @@ async function setupPXE() {
     ...config,
   };
 
-  const pxe = await createPXEService(
-    aztecNode,
-    configWithContracts,
-    {
-      store,
-      useLogSuffix: true,
-    }
-  );
+  const pxe = await createPXEService(aztecNode, configWithContracts, {
+    store,
+    useLogSuffix: true,
+  });
   return pxe;
 }
 
 async function getSponsoredPFCContract() {
-  const instance = await getContractInstanceFromDeployParams(
+  const instance = await getContractInstanceFromInstantiationParams(
     SponsoredFPCContractArtifact,
     {
       salt: new Fr(SPONSORED_FPC_SALT),
@@ -74,6 +70,7 @@ async function createAccount(pxe: PXE) {
   const deployMethod = await ecdsaAccount.getDeployMethod();
   const sponsoredPFCContract = await getSponsoredPFCContract();
   const deployOpts = {
+    from: AztecAddress.ZERO,
     contractAddressSalt: Fr.fromString(ecdsaAccount.salt.toString()),
     fee: {
       paymentMethod: await ecdsaAccount.getSelfPaymentMethod(
@@ -81,8 +78,8 @@ async function createAccount(pxe: PXE) {
       ),
     },
     universalDeploy: true,
-    skipClassRegistration: true,
-    skipPublicDeployment: true,
+    skipClassPublication: true,
+    skipInstancePublication: true,
   };
   const provenInteraction = await deployMethod.prove(deployOpts);
   await provenInteraction.send().wait({ timeout: 120 });
@@ -98,7 +95,7 @@ async function createAccount(pxe: PXE) {
 
 async function deployContract(pxe: PXE, deployer: Wallet) {
   const salt = Fr.random();
-  const contract = await getContractInstanceFromDeployParams(
+  const contract = await getContractInstanceFromInstantiationParams(
     EasyPrivateVotingContract.artifact,
     {
       publicKeys: PublicKeys.default(),
@@ -124,6 +121,7 @@ async function deployContract(pxe: PXE, deployer: Wallet) {
   const sponsoredPFCContract = await getSponsoredPFCContract();
 
   const provenInteraction = await deployMethod.prove({
+    from: deployer.getAddress(),
     contractAddressSalt: salt,
     fee: {
       paymentMethod: new SponsoredFeePaymentMethod(
@@ -175,7 +173,7 @@ async function createAccountAndDeployContract() {
   });
 
   // Create a new account
-  const { wallet, /* signingKey */ } = await createAccount(pxe);
+  const { wallet /* signingKey */ } = await createAccount(pxe);
 
   // // Save the wallet info
   // const walletInfo = {

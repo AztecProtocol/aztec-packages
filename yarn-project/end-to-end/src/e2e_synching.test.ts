@@ -45,7 +45,7 @@ import {
   createLogger,
   sleep,
 } from '@aztec/aztec.js';
-import { AnvilTestWatcher } from '@aztec/aztec.js/testing';
+import { AnvilTestWatcher } from '@aztec/aztec/testing';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
@@ -57,7 +57,7 @@ import {
 import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { TestDateProvider, Timer } from '@aztec/foundation/timer';
+import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { SchnorrHardcodedAccountContract } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -178,14 +178,19 @@ class TestVariant {
     if (this.txComplexity == TxComplexity.PublicTransfer) {
       await Promise.all(
         this.wallets.map(w =>
-          this.token.methods.mint_to_public(w.getAddress(), MINT_AMOUNT).send().wait({ timeout: 600 }),
+          this.token.methods
+            .mint_to_public(w.getAddress(), MINT_AMOUNT)
+            .send({ from: w.getAddress() })
+            .wait({ timeout: 600 }),
         ),
       );
     }
 
     // Mint tokens privately if needed
     if (this.txComplexity == TxComplexity.PrivateTransfer) {
-      await Promise.all(this.wallets.map((w, _) => mintTokensToPrivate(this.token, w, w.getAddress(), MINT_AMOUNT)));
+      await Promise.all(
+        this.wallets.map((w, _) => mintTokensToPrivate(this.token, w.getAddress(), w, w.getAddress(), MINT_AMOUNT)),
+      );
     }
   }
 
@@ -202,8 +207,8 @@ class TestVariant {
         this.contractAddresses.push(accountManager.getAddress());
         const tx = accountManager.deploy({
           deployWallet,
-          skipClassRegistration: true,
-          skipPublicDeployment: true,
+          skipClassPublication: true,
+          skipInstancePublication: true,
         });
         txs.push(tx);
       }
@@ -214,7 +219,7 @@ class TestVariant {
       for (let i = 0; i < this.txCount; i++) {
         const recipient = this.wallets[(i + 1) % this.txCount].getAddress();
         const tk = await TokenContract.at(this.token.address, this.wallets[i]);
-        txs.push(tk.methods.transfer(recipient, 1n).send());
+        txs.push(tk.methods.transfer(recipient, 1n).send({ from: this.wallets[i].getAddress() }));
       }
       return txs;
     } else if (this.txComplexity == TxComplexity.PublicTransfer) {
@@ -224,7 +229,7 @@ class TestVariant {
         const sender = this.wallets[i].getAddress();
         const recipient = this.wallets[(i + 1) % this.txCount].getAddress();
         const tk = await TokenContract.at(this.token.address, this.wallets[i]);
-        txs.push(tk.methods.transfer_in_public(sender, recipient, 1n, 0).send());
+        txs.push(tk.methods.transfer_in_public(sender, recipient, 1n, 0).send({ from: sender }));
       }
       return txs;
     } else if (this.txComplexity == TxComplexity.Spam) {
@@ -241,7 +246,7 @@ class TestVariant {
         ]);
 
         this.seed += 100n;
-        txs.push(batch.send());
+        txs.push(batch.send({ from: this.wallets[0].getAddress() }));
       }
       return txs;
     } else {
@@ -327,8 +332,10 @@ describe('e2e_synching', () => {
       variant.setPXE(pxe as PXEService);
 
       // Deploy a token, such that we could use it
-      const token = await TokenContract.deploy(wallet, wallet.getAddress(), 'TestToken', 'TST', 18n).send().deployed();
-      const spam = await SpamContract.deploy(wallet).send().deployed();
+      const token = await TokenContract.deploy(wallet, wallet.getAddress(), 'TestToken', 'TST', 18n)
+        .send({ from: wallet.getAddress() })
+        .deployed();
+      const spam = await SpamContract.deploy(wallet).send({ from: wallet.getAddress() }).deployed();
 
       variant.setToken(token);
       variant.setSpam(spam);
@@ -378,6 +385,7 @@ describe('e2e_synching', () => {
       pxe,
       blobSink,
       initialFundedAccounts,
+      dateProvider,
     } = await setup(0, {
       salt: SALT,
       l1StartTime: START_TIME,
@@ -395,7 +403,7 @@ describe('e2e_synching', () => {
 
     const sequencerPK: `0x${string}` = `0x${getPrivateKeyFromIndex(0)!.toString('hex')}`;
 
-    const l1TxUtils = new L1TxUtilsWithBlobs(deployL1ContractsValues.l1Client, logger, config);
+    const l1TxUtils = new L1TxUtilsWithBlobs(deployL1ContractsValues.l1Client, logger, dateProvider!, config);
     const rollupAddress = deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString();
     const rollupContract = new RollupContract(deployL1ContractsValues.l1Client, rollupAddress);
     const governanceProposerContract = new GovernanceProposerContract(
@@ -407,9 +415,7 @@ describe('e2e_synching', () => {
       deployL1ContractsValues.l1Client,
       slashingProposerAddress.toString(),
     );
-    const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, {
-      dateProvider: new TestDateProvider(),
-    });
+    const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, { dateProvider });
     const publisher = new SequencerPublisher(
       {
         l1RpcUrls: config.l1RpcUrls,
@@ -429,6 +435,7 @@ describe('e2e_synching', () => {
         governanceProposerContract,
         slashingProposerContract,
         epochCache,
+        dateProvider: dateProvider!,
       },
     );
 
@@ -522,11 +529,17 @@ describe('e2e_synching', () => {
             const wallet = (await variant.deployWallets(opts.initialFundedAccounts!.slice(0, 1)))[0];
 
             contracts.push(
-              await TokenContract.deploy(wallet, wallet.getAddress(), 'TestToken', 'TST', 18n).send().deployed(),
+              await TokenContract.deploy(wallet, wallet.getAddress(), 'TestToken', 'TST', 18n)
+                .send({ from: wallet.getAddress() })
+                .deployed(),
             );
-            contracts.push(await SchnorrHardcodedAccountContract.deploy(wallet).send().deployed());
             contracts.push(
-              await TokenContract.deploy(wallet, wallet.getAddress(), 'TestToken', 'TST', 18n).send().deployed(),
+              await SchnorrHardcodedAccountContract.deploy(wallet).send({ from: wallet.getAddress() }).deployed(),
+            );
+            contracts.push(
+              await TokenContract.deploy(wallet, wallet.getAddress(), 'TestToken', 'TST', 18n)
+                .send({ from: wallet.getAddress() })
+                .deployed(),
             );
 
             await watcher.stop();
@@ -537,9 +550,7 @@ describe('e2e_synching', () => {
           const blobSinkClient = createBlobSinkClient({
             blobSinkUrl: `http://localhost:${opts.blobSink?.port ?? DEFAULT_BLOB_SINK_PORT}`,
           });
-          const archiver = await createArchiver(opts.config!, blobSinkClient, {
-            blockUntilSync: true,
-          });
+          const archiver = await createArchiver(opts.config!, { blobSinkClient }, { blockUntilSync: true });
           const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
 
           const worldState = await createWorldStateSynchronizer(opts.config!, archiver);
@@ -554,7 +565,7 @@ describe('e2e_synching', () => {
           const blockLog = await rollup.read.getBlock([(await rollup.read.getProvenBlockNumber()) + 1n]);
           const timeJumpTo = await rollup.read.getTimestampForSlot([blockLog.slotNumber + timeliness]);
 
-          await opts.cheatCodes!.eth.warp(Number(timeJumpTo));
+          await opts.cheatCodes!.eth.warp(Number(timeJumpTo), { resetBlockInterval: true });
 
           expect(await archiver.getBlockNumber()).toBeGreaterThan(Number(provenThrough));
           const blockTip = (await archiver.getBlock(await archiver.getBlockNumber()))!;
@@ -638,7 +649,7 @@ describe('e2e_synching', () => {
           const blockLog = await rollup.read.getBlock([(await rollup.read.getProvenBlockNumber()) + 1n]);
           const timeJumpTo = await rollup.read.getTimestampForSlot([blockLog.slotNumber + timeliness]);
 
-          await opts.cheatCodes!.eth.warp(Number(timeJumpTo));
+          await opts.cheatCodes!.eth.warp(Number(timeJumpTo), { resetBlockInterval: true });
 
           const watcher = new AnvilTestWatcher(
             opts.cheatCodes!.eth,
@@ -698,7 +709,7 @@ describe('e2e_synching', () => {
           const blockLog = await rollup.read.getBlock([(await rollup.read.getProvenBlockNumber()) + 1n]);
           const timeJumpTo = await rollup.read.getTimestampForSlot([blockLog.slotNumber + timeliness]);
 
-          await opts.cheatCodes!.eth.warp(Number(timeJumpTo));
+          await opts.cheatCodes!.eth.warp(Number(timeJumpTo), { resetBlockInterval: true });
 
           await rollup.write.prune();
 

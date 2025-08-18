@@ -15,6 +15,8 @@ const circuits = [
   'private_kernel_reset',
   'private_kernel_tail',
   'private_kernel_tail_to_public',
+  'hiding_kernel_to_rollup',
+  'hiding_kernel_to_public',
   'rollup_base_private',
   'rollup_base_public',
   'rollup_merge',
@@ -24,6 +26,7 @@ const circuits = [
   'rollup_block_root_empty',
   'rollup_block_root_padding',
   'rollup_root',
+  'ts_types',
 ];
 
 const main = async () => {
@@ -52,18 +55,6 @@ const main = async () => {
   );
 
   code += `
-    // Types added manually.
-
-    export type L2ToL1Message = {
-      recipient: EthAddress;
-      content: Field;
-    }
-
-    export type LogHash = {
-      value: Field;
-      length: u32;
-    }
-
     export * from '../artifacts/types.js';
   `;
   await fs.writeFile('./src/types/index.ts', code);

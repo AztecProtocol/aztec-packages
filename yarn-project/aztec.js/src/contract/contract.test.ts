@@ -136,7 +136,6 @@ describe('Contract Class', () => {
     },
     fileMap: {},
     storageLayout: {},
-    notes: {},
   };
 
   beforeEach(async () => {
@@ -156,9 +155,9 @@ describe('Contract Class', () => {
       l1ContractAddresses: l1Addresses,
       enr: undefined,
       protocolContractAddresses: {
-        classRegisterer: await AztecAddress.random(),
+        classRegistry: await AztecAddress.random(),
         feeJuice: await AztecAddress.random(),
-        instanceDeployer: await AztecAddress.random(),
+        instanceRegistry: await AztecAddress.random(),
         multiCallEntrypoint: await AztecAddress.random(),
       },
     };
@@ -169,7 +168,7 @@ describe('Contract Class', () => {
     wallet.getContractMetadata.mockResolvedValue({
       contractInstance,
       isContractInitialized: true,
-      isContractPubliclyDeployed: true,
+      isContractPublished: true,
     });
     wallet.sendTx.mockResolvedValue(mockTxHash);
     wallet.simulateUtility.mockResolvedValue(mockUtilityResultValue);
@@ -183,7 +182,7 @@ describe('Contract Class', () => {
     const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
     const param0 = 12;
     const param1 = 345n;
-    const sentTx = fooContract.methods.bar(param0, param1).send();
+    const sentTx = fooContract.methods.bar(param0, param1).send({ from: account.address });
     const txHash = await sentTx.getTxHash();
     const receipt = await sentTx.getReceipt();
 
@@ -200,7 +199,7 @@ describe('Contract Class', () => {
       from: account.address,
     });
     expect(wallet.simulateUtility).toHaveBeenCalledTimes(1);
-    expect(wallet.simulateUtility).toHaveBeenCalledWith('qux', [123n], contractAddress, [], account.address);
+    expect(wallet.simulateUtility).toHaveBeenCalledWith('qux', [123n], contractAddress, []);
     expect(result).toBe(mockUtilityResultValue.result);
   });
 

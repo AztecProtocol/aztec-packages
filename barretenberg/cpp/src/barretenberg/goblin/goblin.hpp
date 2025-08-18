@@ -12,10 +12,12 @@
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/goblin/types.hpp"
 #include "barretenberg/stdlib/merge_verifier/merge_recursive_verifier.hpp"
+#include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/translator_vm/translator_circuit_builder.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "barretenberg/ultra_honk/merge_prover.hpp"
+#include "barretenberg/ultra_honk/merge_verifier.hpp"
 
 namespace bb {
 
@@ -36,6 +38,11 @@ class Goblin {
     using TranslatorVerificationKey = TranslatorFlavor::VerificationKey;
     using MergeRecursiveVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier_<MegaBuilder>;
     using PairingPoints = MergeRecursiveVerifier::PairingPoints;
+    using TableCommitments = MergeVerifier::TableCommitments;
+    using RecursiveTableCommitments = MergeRecursiveVerifier::TableCommitments;
+    using MergeCommitments = MergeVerifier::InputCommitments;
+    using RecursiveMergeCommitments = MergeRecursiveVerifier::InputCommitments;
+    using RecursiveCommitment = MergeRecursiveVerifier::Commitment;
     using RecursiveTranscript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<MegaBuilder>>;
 
     std::shared_ptr<OpQueue> op_queue = std::make_shared<OpQueue>();
@@ -89,20 +96,29 @@ class Goblin {
      * @details Proofs are verified in a FIFO manner
      *
      * @param builder The circuit in which the recursive verification will be performed.
-     * @param transcript The transcript to be passed to the MergeRecursiveVerifier
-     * @return PairingPoints
+     * @param inputs_commitments The commitment used by the Merge verifier
+     * @param transcript The transcript to be passed to the MergeRecursiveVerifier.
+     * @return Pair of PairingPoints and commitments to the merged tables as read from the proof by the Merge verifier
      */
-    PairingPoints recursively_verify_merge(MegaBuilder& builder,
-                                           const std::shared_ptr<RecursiveTranscript>& transcript);
+    std::pair<PairingPoints, RecursiveTableCommitments> recursively_verify_merge(
+        MegaBuilder& builder,
+        const RecursiveMergeCommitments& merge_commitments,
+        const std::shared_ptr<RecursiveTranscript>& transcript);
 
     /**
      * @brief Verify a full Goblin proof (ECCVM, Translator, merge)
      *
      * @param proof
-     * @return true
-     * @return false
+     * @param inputs_commitments The commitments used by the Merge verifier
+     * @param merged_table_commitment The commitment to the merged table as read from the proof
+     * @param transcript
+     *
+     * @return Pair of verification result and commitments to the merged tables as read from the proof by the Merge
+     * verifier
      */
-    static bool verify(const GoblinProof& proof, const std::shared_ptr<Transcript>& transcript);
+    static bool verify(const GoblinProof& proof,
+                       const MergeCommitments& merge_commitments,
+                       const std::shared_ptr<Transcript>& transcript);
 };
 
 } // namespace bb

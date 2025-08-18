@@ -6,22 +6,21 @@ use crate::{
         msg_type::PRIVATE_EVENT_MSG_TYPE_ID,
     },
     oracle::random::random,
-    prelude::AztecAddress,
 };
 use protocol_types::{
+    address::AztecAddress,
     constants::PRIVATE_LOG_CIPHERTEXT_LEN,
     traits::{Serialize, ToField},
-    utils::arrays::array_concat,
 };
 
 /// Creates an encrypted private event message (i.e. one of type `PRIVATE_EVENT_MSG_TYPE_ID`) by encoding the contents
 /// of the event and then encrypting them for `recipient`.
-pub fn to_encrypted_private_event_message<Event, let N: u32>(
+pub fn to_encrypted_private_event_message<Event>(
     event: Event,
     recipient: AztecAddress,
 ) -> ([Field; PRIVATE_LOG_CIPHERTEXT_LEN], Field)
 where
-    Event: EventInterface + Serialize<N>,
+    Event: EventInterface + Serialize,
 {
     // In private events, we automatically inject randomness to prevent event commitment preimage attacks and event
     // commitment collisions (the commitments are included in the nullifier tree and duplicate nullifiers are by
@@ -33,7 +32,7 @@ where
     let randomness = unsafe { random() };
 
     // TODO(#11571): with decryption happening in Noir we can now use the Packable trait instead.
-    let serialized_event_with_randomness = array_concat([randomness], event.serialize());
+    let serialized_event_with_randomness = [randomness].concat(event.serialize());
 
     // Private events are encoded by placing the event type id (which is expected to fit in 32 bits) in the metadata.
     let plaintext = encode_message(

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
+#include "barretenberg/common/tuple.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/flavor/relation_definitions.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
@@ -18,10 +19,10 @@
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/flavor_variables.hpp"
 
-// Metaprogramming to concatenate tuple types.
-template <typename... input_t> using tuple_cat_t = decltype(std::tuple_cat(std::declval<input_t>()...));
-
 namespace bb::avm2 {
+
+// Metaprogramming to concatenate tuple types.
+template <typename... input_t> using tuple_cat_t = decltype(flat_tuple::tuple_cat(std::declval<input_t>()...));
 
 class AvmFlavor {
   public:
@@ -37,7 +38,6 @@ class AvmFlavor {
     using CommitmentHandle = AvmFlavorSettings::CommitmentHandle;
     using CommitmentKey = AvmFlavorSettings::CommitmentKey;
     using VerifierCommitmentKey = AvmFlavorSettings::VerifierCommitmentKey;
-    using RelationSeparator = AvmFlavorSettings::RelationSeparator;
 
     // indicates when evaluating sumcheck, edges must be extended to be MAX_TOTAL_RELATION_LENGTH
     static constexpr bool USE_SHORT_MONOMIALS = false;
@@ -79,6 +79,10 @@ class AvmFlavor {
     template <typename FF_> using Relations_ = tuple_cat_t<MainRelations_<FF_>, LookupRelations_<FF_>>;
     using Relations = Relations_<FF>;
 
+    static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
+
+    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
+
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 
     static_assert(MAX_PARTIAL_RELATION_LENGTH < 8, "MAX_PARTIAL_RELATION_LENGTH must be less than 8");
@@ -88,9 +92,6 @@ class AvmFlavor {
     // length = 3
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
-
-    using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
-    using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
     static constexpr bool has_zero_row = true;
 
@@ -194,6 +195,25 @@ class AvmFlavor {
         const DataType& get(ColumnAndShifts c) const { return get_entity_by_column(*this, c); }
     };
 
+    class Transcript : public NativeTranscript {
+      public:
+        uint32_t circuit_size;
+
+        std::array<Commitment, NUM_WITNESS_ENTITIES> commitments;
+
+        std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
+        std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
+        std::vector<Commitment> gemini_fold_comms;
+        std::vector<FF> gemini_fold_evals;
+        Commitment shplonk_q_comm;
+        Commitment kzg_w_comm;
+
+        Transcript() = default;
+
+        void deserialize_full_transcript();
+        void serialize_full_transcript();
+    };
+
     class ProvingKey : public PrecomputedEntities<Polynomial>, public WitnessEntities<Polynomial> {
       public:
         using FF = typename Polynomial::FF;
@@ -202,10 +222,10 @@ class AvmFlavor {
         ProvingKey() = default;
         ProvingKey(const size_t circuit_size, const size_t num_public_inputs);
 
-        size_t circuit_size;
-        size_t log_circuit_size;
-        size_t num_public_inputs;
-        bb::EvaluationDomain<FF> evaluation_domain;
+        size_t circuit_size = 0;
+        size_t log_circuit_size = 0;
+        size_t num_public_inputs = 0;
+
         CommitmentKey commitment_key;
 
         // Offset off the public inputs from the start of the execution trace
@@ -221,7 +241,7 @@ class AvmFlavor {
         auto get_to_be_shifted() { return AvmFlavor::get_to_be_shifted<Polynomial>(*this); }
     };
 
-    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>> {
+    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
       public:
         static constexpr size_t NUM_PRECOMPUTED_COMMITMENTS = NUM_PRECOMPUTED_ENTITIES;
 
@@ -246,7 +266,16 @@ class AvmFlavor {
             }
         }
 
-        std::vector<FF> to_field_elements() const;
+        std::vector<fr> to_field_elements() const override;
+        /**
+         * @brief Unimplemented because AVM VK is hardcoded so hash does not need to be computed. Rather, we just add
+         * the provided VK hash directly to the transcript.
+         */
+        fr hash_through_transcript([[maybe_unused]] const std::string& domain_separator,
+                                   [[maybe_unused]] Transcript& transcript) const override
+        {
+            throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
+        }
     };
 
     // Used by sumcheck.
@@ -336,25 +365,6 @@ class AvmFlavor {
 
     // Native version of the verifier commitments
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
-
-    class Transcript : public NativeTranscript {
-      public:
-        uint32_t circuit_size;
-
-        std::array<Commitment, NUM_WITNESS_ENTITIES> commitments;
-
-        std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
-        std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
-        std::vector<Commitment> gemini_fold_comms;
-        std::vector<FF> gemini_fold_evals;
-        Commitment shplonk_q_comm;
-        Commitment kzg_w_comm;
-
-        Transcript() = default;
-
-        void deserialize_full_transcript();
-        void serialize_full_transcript();
-    };
 };
 
 } // namespace bb::avm2

@@ -1,9 +1,10 @@
 #pragma once
 #include "barretenberg/flavor/ultra_flavor.hpp"
-#include "barretenberg/relations/auxiliary_relation.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/ecc_op_queue_relation.hpp"
 #include "barretenberg/relations/elliptic_relation.hpp"
+#include "barretenberg/relations/memory_relation.hpp"
+#include "barretenberg/relations/non_native_field_relation.hpp"
 #include "barretenberg/relations/poseidon2_external_relation.hpp"
 #include "barretenberg/relations/poseidon2_internal_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
@@ -19,7 +20,8 @@ class UltraCircuitChecker {
     using FF = bb::fr;
     using Arithmetic = UltraArithmeticRelation<FF>;
     using Elliptic = EllipticRelation<FF>;
-    using Auxiliary = AuxiliaryRelation<FF>;
+    using Memory = MemoryRelation<FF>;
+    using NonNativeField = NonNativeFieldRelation<FF>;
     using DeltaRangeConstraint = DeltaRangeConstraintRelation<FF>;
     using PoseidonExternal = Poseidon2ExternalRelation<FF>;
     using PoseidonInternal = Poseidon2InternalRelation<FF>;
@@ -37,7 +39,7 @@ class UltraCircuitChecker {
      * @tparam Builder
      * @param builder
      */
-    template <typename Builder> static bool check(const Builder& builder);
+    template <typename Builder> static bool check(const Builder& builder_in);
 
   private:
     struct TagCheckData;           // Container for data pertaining to generalized permutation tag check
@@ -45,6 +47,11 @@ class UltraCircuitChecker {
     using Key = std::array<FF, 4>; // Key type for lookup table hash table
     struct HashFunction;           // Custom hash function for lookup table hash table
     using LookupHashTable = std::unordered_set<Key, HashFunction>;
+
+    /**
+     * @brief Copy the builder and finalize it before checking its validity
+     */
+    template <typename Builder> static Builder prepare_circuit(const Builder& builder_in);
 
     /**
      * @brief Checks that the provided witness satisfies all gates contained in a single execution trace block
@@ -64,7 +71,7 @@ class UltraCircuitChecker {
                             LookupHashTable& lookup_hash_table);
 
 #ifdef ULTRA_FUZZ
-    template <typename Builder> static bool relaxed_check_aux_relation(Builder& builder);
+    template <typename Builder> static bool relaxed_check_memory_relation(Builder& builder);
     template <typename Builder> static bool relaxed_check_delta_range_relation(Builder& builder);
 #endif
 

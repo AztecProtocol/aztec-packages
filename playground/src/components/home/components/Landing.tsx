@@ -388,13 +388,14 @@ export function Landing() {
 
       const deployMethod = await accountManager.getDeployMethod();
       const opts = {
+        from: accountWallet.getAddress(),
         contractAddressSalt: salt,
         fee: {
           paymentMethod: await accountManager.getSelfPaymentMethod(feePaymentMethod),
         },
         universalDeploy: true,
-        skipClassRegistration: true,
-        skipPublicDeployment: true,
+        skipClassPublication: true,
+        skipInstancePublication: true,
       };
 
       const txReceipt = await sendTx(`Deploy Account`, deployMethod, accountWallet.getAddress(), opts);

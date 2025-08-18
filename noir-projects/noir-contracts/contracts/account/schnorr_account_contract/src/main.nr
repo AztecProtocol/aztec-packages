@@ -12,14 +12,17 @@ pub contract SchnorrAccount {
             auth::{compute_authwit_message_hash, compute_authwit_nullifier},
             entrypoint::{app::AppPayload, fee::FeePayload},
         },
+        context::PrivateContext,
         hash::compute_siloed_nullifier,
         macros::{functions::{initializer, noinitcheck, private, utility, view}, storage::storage},
         messages::logs::note::encode_and_encrypt_note,
         oracle::{
             auth_witness::get_auth_witness,
             get_nullifier_membership_witness::get_low_nullifier_membership_witness,
+            notes::{get_sender_for_tags, set_sender_for_tags},
         },
-        prelude::{AztecAddress, PrivateContext, PrivateImmutable},
+        protocol_types::address::AztecAddress,
+        state_vars::PrivateImmutable,
     };
 
     use crate::public_key_note::PublicKeyNote;
@@ -37,11 +40,26 @@ pub contract SchnorrAccount {
     fn constructor(signing_pub_key_x: Field, signing_pub_key_y: Field) {
         let this = context.this_address();
         let pub_key_note = PublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this);
+
+        // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs.
+        // Since this value is only used for unconstrained tagging and not for any constrained logic,
+        // it is safe to load from an unconstrained context.
+        // TODO(#15752): Improve the sender_for_tags handling here when the original sender is undefined.
+        let original_sender = unsafe { get_sender_for_tags().unwrap_or(this) };
+
+        // We set the sender for tags to this contract because we don't want to force the user corresponding to this
+        // account to add the account deployer as a sender to their PXE. By setting it to this contract, user's PXE
+        // will manage to find the note even if the account deployer is not registered as a sender (i.e
+        // `pxe.registerSender(accountDeployer)` was not called)
+
+        // Safety: Comment from above applies here as well.
+        unsafe { set_sender_for_tags(this) };
         storage.signing_public_key.initialize(pub_key_note).emit(encode_and_encrypt_note(
             &mut context,
             this,
-            this,
         ));
+        // Safety: Comment from above applies here as well.
+        unsafe { set_sender_for_tags(original_sender) };
     }
 
     // Note: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts file
@@ -49,6 +67,11 @@ pub contract SchnorrAccount {
     #[private]
     #[noinitcheck]
     fn entrypoint(app_payload: AppPayload, fee_payload: FeePayload, cancellable: bool) {
+        // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs.
+        // Since this value is only used for unconstrained tagging and not for any constrained logic,
+        // it is safe to set from a constrained context.
+        unsafe { set_sender_for_tags(context.this_address()) };
+
         let actions = AccountActions::init(&mut context, is_valid_impl);
         actions.entrypoint(app_payload, fee_payload, cancellable);
     }

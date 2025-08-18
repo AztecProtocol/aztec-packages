@@ -39,9 +39,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     ecc_op_tuple queue_ecc_mul_accum(const g1::affine_element& point, const FF& scalar);
     ecc_op_tuple queue_ecc_eq();
     ecc_op_tuple queue_ecc_no_op();
-
-    // Metadata for propagating databus return data commitments via the public input mechanism
-    DatabusPropagationData databus_propagation_data;
+    void queue_ecc_random_op();
 
   private:
     ecc_op_tuple populate_ecc_op_wires(const UltraOp& ultra_op);
@@ -56,7 +54,8 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
         , op_queue(std::move(op_queue_in))
     {
         PROFILE_THIS();
-        // Instantiate the subtable to be populated with goblin ecc ops from this circuit
+        // Instantiate the subtable to be populated with goblin ecc ops from this circuit. The merge settings indicate
+        // whether the subtable should be prepended or appended to the existing subtables from prior circuits.
         op_queue->initialize_new_subtable();
 
         // Set indices to constants corresponding to Goblin ECC op codes
@@ -88,7 +87,8 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
         : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(/*size_hint=*/0, witness_values, public_inputs, varnum)
         , op_queue(std::move(op_queue_in))
     {
-        // Instantiate the subtable to be populated with goblin ecc ops from this circuit
+        // Instantiate the subtable to be populated with goblin ecc ops from this circuit. The merge settings indicate
+        // whether the subtable should be prepended or appended to the existing subtables from prior circuits.
         op_queue->initialize_new_subtable();
 
         // Set indices to constants corresponding to Goblin ECC op codes
@@ -177,7 +177,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
         size_t total = count + romcount + ramcount + rangecount + num_goblin_ecc_op_gates;
         std::cout << "gates = " << total << " (arith " << count << ", rom " << romcount << ", ram " << ramcount
                   << ", range " << rangecount << ", non native field gates " << nnfcount << ", goblin ecc op gates "
-                  << num_goblin_ecc_op_gates << "), pubinp = " << this->public_inputs.size() << std::endl;
+                  << num_goblin_ecc_op_gates << "), pubinp = " << this->num_public_inputs() << std::endl;
     }
 
     /**

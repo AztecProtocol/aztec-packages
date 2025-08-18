@@ -22,7 +22,9 @@ export async function benchmarkSetup(
   },
 ) {
   const context = await setup(1, { ...opts, telemetryConfig: { benchmark: true } });
-  const contract = await BenchmarkingContract.deploy(context.wallet).send().deployed();
+  const contract = await BenchmarkingContract.deploy(context.wallet)
+    .send({ from: context.wallet.getAddress() })
+    .deployed();
   context.logger.info(`Deployed benchmarking contract at ${contract.address}`);
   const sequencer = (context.aztecNode as AztecNodeService).getSequencer()!;
   const telemetry = context.telemetryClient! as BenchmarkTelemetryClient;
@@ -110,12 +112,11 @@ function makeCall(
   heavyPublicCompute: boolean,
 ) {
   const owner = context.wallet.getAddress();
-  const sender = owner;
   if (heavyPublicCompute) {
     return new BatchCall(context.wallet, [contract.methods.sha256_hash_2048(randomBytesAsBigInts(2048))]);
   } else {
     return new BatchCall(context.wallet, [
-      contract.methods.create_note(owner, sender, index + 1),
+      contract.methods.create_note(owner, index + 1),
       contract.methods.increment_balance(owner, index + 1),
     ]);
   }
@@ -138,7 +139,7 @@ export async function sendTxs(
 ): Promise<SentTx[]> {
   const calls = times(txCount, index => makeCall(index, context, contract, heavyPublicCompute));
   context.logger.info(`Creating ${txCount} txs`);
-  const provenTxs = await Promise.all(calls.map(call => call.prove()));
+  const provenTxs = await Promise.all(calls.map(call => call.prove({ from: context.wallet.getAddress() })));
   context.logger.info(`Sending ${txCount} txs`);
   return provenTxs.map(tx => tx.send());
 }
@@ -160,7 +161,7 @@ export async function createNewPXE(node: AztecNode, contract: BenchmarkingContra
   const l1Contracts = await node.getL1ContractAddresses();
   const { l1ChainId, rollupVersion } = await node.getNodeInfo();
   const pxeConfig = {
-    l2BlockBatchSize: 200,
+    l2BlockBatchSize: 50,
     l2BlockPollingIntervalMS: 100,
     dataDirectory: undefined,
     dataStoreMapSizeKB: 1024 * 1024,

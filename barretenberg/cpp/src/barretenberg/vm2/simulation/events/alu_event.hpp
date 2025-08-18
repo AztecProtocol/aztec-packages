@@ -5,21 +5,70 @@
 
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
+#include "barretenberg/vm2/common/uint1.hpp"
 
 namespace bb::avm2::simulation {
 
 enum class AluOperation {
     ADD,
+    SUB,
+    MUL,
+    DIV,
+    FDIV,
+    EQ,
+    LT,
+    LTE,
+    NOT,
+    TRUNCATE,
+    SHR,
+    SHL,
 };
 
+enum class AluError {
+    TAG_ERROR,
+    DIV_0_ERROR,
+};
+
+inline std::string to_string(AluError e)
+{
+    switch (e) {
+    case AluError::TAG_ERROR:
+        return "TAG_ERROR";
+    case AluError::DIV_0_ERROR:
+        return "DIV_0_ERROR";
+    }
+
+    // We should be catching all the cases above.
+    __builtin_unreachable();
+}
+
+class AluException : public std::runtime_error {
+  public:
+    explicit AluException(const std::string& message)
+        : std::runtime_error("ALU Exception: " + message)
+    {}
+};
+
+// Explanations on default values for b and c:
+// execution.register[X] == 0 and execution.mem_tag_reg[X] == 0 when we throw an error in execution, because
+// in the trace the default value is 0.
+// To have a correct lookup from Execution into ALU, we therefore need to set the default value to 0.
+// Note also that the default value for b allows to deduplicate events with only a being set. Otherwise, the key would
+// not be deterministic.
 struct AluEvent {
     AluOperation operation;
     MemoryValue a;
-    MemoryValue b;
-    MemoryValue c;
+    MemoryValue b = MemoryValue::from_tag(static_cast<ValueTag>(0),
+                                          0); // Avoid unitialized values for ALU ops with one input such as NOT,
+                                              // TRUNCATE. Otherwise, deduplication is not guaranteed.
+    MemoryValue c = MemoryValue::from_tag(static_cast<ValueTag>(0),
+                                          0); // Avoid unitialized values for ALU ops with one input and one output.
+    std::optional<AluError> error;
     // To be used with deduplicating event emitters.
     using Key = std::tuple<AluOperation, MemoryValue, MemoryValue>;
     Key get_key() const { return { operation, a, b }; }
+
+    bool operator==(const AluEvent& other) const = default;
 };
 
 } // namespace bb::avm2::simulation

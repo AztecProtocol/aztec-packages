@@ -487,7 +487,7 @@ describe('PXEOracleInterface', () => {
       );
 
       // Verify note was stored
-      const notes = await noteDataProvider.getNotes({ recipient: recipient.address });
+      const notes = await noteDataProvider.getNotes({ recipient: recipient.address, contractAddress });
       expect(notes).toHaveLength(1);
       expect(notes[0].noteHash.equals(noteHash)).toBe(true);
     });
@@ -537,7 +537,7 @@ describe('PXEOracleInterface', () => {
       );
 
       // Verify note was removed
-      const notes = await noteDataProvider.getNotes({ recipient: recipient.address });
+      const notes = await noteDataProvider.getNotes({ recipient: recipient.address, contractAddress });
       expect(notes).toHaveLength(0);
     });
 
@@ -607,13 +607,17 @@ describe('PXEOracleInterface', () => {
       );
 
       // Verify note was stored and not removed
-      const notes = await noteDataProvider.getNotes({ recipient: recipient.address, status: NoteStatus.ACTIVE });
+      const notes = await noteDataProvider.getNotes({
+        recipient: recipient.address,
+        contractAddress,
+        status: NoteStatus.ACTIVE,
+      });
       expect(notes).toHaveLength(1);
       expect(notes[0].noteHash.equals(noteHash)).toBe(true);
     });
   });
 
-  describe('bulkRetrieveLogs', () => {
+  describe('utilityBulkRetrieveLogs', () => {
     const unsiloedTag = Fr.random();
     const REQUEST_SLOT = Fr.random();
     const RESPONSE_SLOT = Fr.random();
@@ -823,7 +827,7 @@ describe('PXEOracleInterface', () => {
 
     beforeEach(async () => {
       // Check that there are no notes in the database
-      const notes = await noteDataProvider.getNotes({});
+      const notes = await noteDataProvider.getNotes({ contractAddress });
       expect(notes).toHaveLength(0);
 
       // Check that the expected number of accounts is present

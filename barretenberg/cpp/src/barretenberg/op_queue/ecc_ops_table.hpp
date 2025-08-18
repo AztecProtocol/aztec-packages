@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/eccvm/eccvm_builder_types.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
@@ -14,21 +15,42 @@
 namespace bb {
 
 /**
- * @brief Defines the opcodes for ECC operations used in both the Ultra and ECCVM formats. There are four opcodes:
+ * @brief The MergeSettings define whether an current subtable will be added at the beginning (PREPEND) or at the end
+ * (APPEND) of the EccOpQueue.
+ */
+enum MergeSettings { PREPEND, APPEND };
+
+/**
+ * @brief Defines the opcodes for ECC operations used in both the Ultra and ECCVM formats. There are three opcodes that
+ * are reflected in both ultra ops and eccvm table and so, that lead to actual operations in the ECCVM :
  * - addition: add = true, value() = 8
  * - multiplication: mul = true, value() = 4
  * - equality abd reset: eq = true, reset = true,  value() = 3
- * - no operation: all false, value() = 0
+ * On top of that, we see two more opcodes reflected only in the ultra ops table
+ * - no operation: all false, value() = 0 - The ultra ops table is seen as 4 column polynomials in the merge protocol
+ * and translator. We need to be able to shift these polynomials in translator and so they will have to start with
+ * zeroes
+ * - random operation: value() should never be called on this - To randomise the commitment and evaluations of the op
+ * column polynomial in merge protocol and translator we have to add sufficient randomness. We do this via a "random op"
+ * in which case two indices of the op column will be populated with random scalars.
  */
 struct EccOpCode {
+    using Fr = curve::BN254::ScalarField;
     bool add = false;
     bool mul = false;
     bool eq = false;
     bool reset = false;
     bool operator==(const EccOpCode& other) const = default;
 
+    bool is_random_op = false;
+    Fr random_value_1 = Fr(0);
+    Fr random_value_2 = Fr(0);
+
     [[nodiscard]] uint32_t value() const
     {
+        if (is_random_op) {
+            throw_or_abort("EccOpCode::value() should not be called on a random op");
+        }
         auto res = static_cast<uint32_t>(add);
         res += res;
         res += static_cast<uint32_t>(mul);
@@ -69,15 +91,17 @@ struct UltraOp {
     }
 };
 
-template <typename CycleGroup> struct VMOperation {
+struct ECCVMOperation {
+    using Curve = curve::BN254;
+    using AffineElement = Curve::Group::affine_element;
+    using Fr = Curve::ScalarField;
     EccOpCode op_code = {};
-    typename CycleGroup::affine_element base_point = typename CycleGroup::affine_element{ 0, 0 };
+    AffineElement base_point = { 0, 0 };
     uint256_t z1 = 0;
     uint256_t z2 = 0;
-    typename CycleGroup::Fr mul_scalar_full = 0;
-    bool operator==(const VMOperation<CycleGroup>& other) const = default;
+    Fr mul_scalar_full = 0;
+    bool operator==(const ECCVMOperation& other) const = default;
 };
-using ECCVMOperation = VMOperation<curve::BN254::Group>;
 
 /**
  * @brief A table of ECC operations
@@ -90,15 +114,18 @@ using ECCVMOperation = VMOperation<curve::BN254::Group>;
  */
 template <typename OpFormat> class EccOpsTable {
     using Subtable = std::vector<OpFormat>;
-    std::vector<Subtable> table;
-
+    std::deque<Subtable> table;
+    Subtable current_subtable; // used to store the current subtable before it is added to the table
   public:
     size_t size() const
     {
+        ASSERT(current_subtable.empty(),
+               "Current subtable should be merged before computing the size of the full table of ecc ops.");
         size_t total = 0;
         for (const auto& subtable : table) {
             total += subtable.size();
         }
+
         return total;
     }
 
@@ -106,23 +133,25 @@ template <typename OpFormat> class EccOpsTable {
 
     auto& get() const { return table; }
 
-    void push(const OpFormat& op) { table.front().push_back(op); }
+    void push(const OpFormat& op)
+    {
+        // Get the reference of the subtable to update
+
+        current_subtable.push_back(op);
+    }
 
     void create_new_subtable(size_t size_hint = 0)
     {
-        // If there is a single subtable and it is empty, dont create a new one
-        if (table.size() == 1 && table.front().empty()) {
-            return;
-        }
-        Subtable new_subtable;
-        new_subtable.reserve(size_hint);
-        table.insert(table.begin(), std::move(new_subtable));
+        ASSERT(current_subtable.empty(), "Cannot create a new subtable until the current subtable has been merged.");
+        current_subtable.reserve(size_hint);
     }
 
     // const version of operator[]
     const OpFormat& operator[](size_t index) const
     {
-        ASSERT(index < size());
+        ASSERT(current_subtable.empty(),
+               "Current subtable should be merged before attempting to index into the full table.");
+        BB_ASSERT_LT(index, size());
         // simple linear search to find the correct subtable
         for (const auto& subtable : table) {
             if (index < subtable.size()) {
@@ -136,6 +165,9 @@ template <typename OpFormat> class EccOpsTable {
     // highly inefficient copy-based reconstruction of the table for use in ECCVM/Translator
     std::vector<OpFormat> get_reconstructed() const
     {
+        ASSERT(current_subtable.empty(),
+               "current subtable should be merged before reconstructing the full table of operations.");
+
         std::vector<OpFormat> reconstructed_table;
         reconstructed_table.reserve(size());
         for (const auto& subtable : table) {
@@ -144,6 +176,23 @@ template <typename OpFormat> class EccOpsTable {
             }
         }
         return reconstructed_table;
+    }
+
+    void merge(MergeSettings settings = MergeSettings::PREPEND)
+    {
+        if (current_subtable.empty()) {
+            return; // nothing to merge
+        }
+
+        // Based on merge settings add the current subtable to either the beginning or end of the full table
+        if (settings == MergeSettings::PREPEND) {
+            table.push_front(std::move(current_subtable));
+        } else {
+            table.push_back(std::move(current_subtable));
+        }
+
+        current_subtable.clear(); // clear the current subtable after merging
+        ASSERT(current_subtable.empty(), "current subtable should be empty after merging. Check the merge logic.");
     }
 };
 
@@ -178,15 +227,22 @@ class UltraEccOpsTable {
     using TableView = std::array<std::span<Fr>, TABLE_WIDTH>;
     using ColumnPolynomials = std::array<Polynomial<Fr>, TABLE_WIDTH>;
 
+    size_t current_subtable_idx = 0; // index of the current subtable being constructed
     UltraOpsTable table;
 
   public:
     size_t size() const { return table.size(); }
     size_t ultra_table_size() const { return table.size() * NUM_ROWS_PER_OP; }
-    size_t current_ultra_subtable_size() const { return table.get()[0].size() * NUM_ROWS_PER_OP; }
+    size_t current_ultra_subtable_size() const { return table.get()[current_subtable_idx].size() * NUM_ROWS_PER_OP; }
     size_t previous_ultra_table_size() const { return (ultra_table_size() - current_ultra_subtable_size()); }
     void create_new_subtable(size_t size_hint = 0) { table.create_new_subtable(size_hint); }
     void push(const UltraOp& op) { table.push(op); }
+    void merge(MergeSettings settings = MergeSettings::PREPEND)
+    {
+        table.merge(settings);
+        current_subtable_idx = settings == MergeSettings::PREPEND ? 0 : table.num_subtables() - 1;
+    }
+
     std::vector<UltraOp> get_reconstructed() const { return table.get_reconstructed(); }
 
     // Construct the columns of the full ultra ecc ops table
@@ -202,19 +258,21 @@ class UltraEccOpsTable {
     // Construct the columns of the previous full ultra ecc ops table
     ColumnPolynomials construct_previous_table_columns() const
     {
+
         const size_t poly_size = previous_ultra_table_size();
-        const size_t subtable_start_idx = 1; // exclude the 0th subtable
-        const size_t subtable_end_idx = table.num_subtables();
+        const size_t subtable_start_idx = current_subtable_idx == 0 ? 1 : 0;
+        const size_t subtable_end_idx = current_subtable_idx == 0 ? table.num_subtables() : table.num_subtables() - 1;
 
         return construct_column_polynomials_from_subtables(poly_size, subtable_start_idx, subtable_end_idx);
     }
 
-    // Construct the columns of the current ultra ecc ops subtable
+    // Construct the columns of the current ultra ecc ops subtable which is either the first or the last one depening on
+    // whether it has been prepended or appended
     ColumnPolynomials construct_current_ultra_ops_subtable_columns() const
     {
         const size_t poly_size = current_ultra_subtable_size();
-        const size_t subtable_start_idx = 0;
-        const size_t subtable_end_idx = 1; // include only the 0th subtable
+        const size_t subtable_start_idx = current_subtable_idx;
+        const size_t subtable_end_idx = current_subtable_idx + 1;
 
         return construct_column_polynomials_from_subtables(poly_size, subtable_start_idx, subtable_end_idx);
     }
@@ -239,12 +297,13 @@ class UltraEccOpsTable {
         for (size_t subtable_idx = subtable_start_idx; subtable_idx < subtable_end_idx; ++subtable_idx) {
             const auto& subtable = table.get()[subtable_idx];
             for (const auto& op : subtable) {
-                column_polynomials[0].at(i) = op.op_code.value();
+                column_polynomials[0].at(i) = !op.op_code.is_random_op ? op.op_code.value() : op.op_code.random_value_1;
                 column_polynomials[1].at(i) = op.x_lo;
                 column_polynomials[2].at(i) = op.x_hi;
                 column_polynomials[3].at(i) = op.y_lo;
                 i++;
-                column_polynomials[0].at(i) = 0; // only the first 'op' field is utilized
+                column_polynomials[0].at(i) = !op.op_code.is_random_op ? 0 : op.op_code.random_value_2;
+                // only the first 'op' field is utilized
                 column_polynomials[1].at(i) = op.y_hi;
                 column_polynomials[2].at(i) = op.z_1;
                 column_polynomials[3].at(i) = op.z_2;

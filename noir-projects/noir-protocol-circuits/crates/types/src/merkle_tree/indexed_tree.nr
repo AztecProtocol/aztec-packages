@@ -7,7 +7,7 @@ use crate::{
         membership::{assert_check_membership, MembershipWitness},
         root::{calculate_empty_tree_root, calculate_subtree_root, root_from_sibling_path},
     },
-    traits::{Empty, is_empty},
+    traits::Empty,
     utils::arrays::check_permutation,
 };
 
@@ -36,12 +36,12 @@ where
 
     for i in 0..sorted_values.len() {
         let value = sorted_values[i];
-        if !is_empty(value) {
+        if !value.is_empty() {
             let low_leaf_preimage = low_leaf_preimages[i];
             let witness = low_leaf_membership_witnesses[i];
 
             // validate the low leaf
-            assert(!is_empty(low_leaf_preimage), "Empty low leaf");
+            assert(!low_leaf_preimage.is_empty(), "Empty low leaf");
             let value_key = value.get_key();
             let low_leaf_key = low_leaf_preimage.get_key();
             let low_leaf_next_key = low_leaf_preimage.get_next_key();
@@ -89,7 +89,7 @@ where
     }
 
     let empty_subtree_root = calculate_empty_tree_root(SubtreeHeight);
-    let leaf_index_subtree_depth = start_insertion_index >> (SubtreeHeight as u8);
+    let leaf_index_subtree_depth = start_insertion_index >> SubtreeHeight;
 
     assert_check_membership(
         empty_subtree_root,
@@ -103,7 +103,7 @@ where
 
     // Calculate the new root
     // We are inserting a subtree rather than a full tree here
-    let subtree_index = start_insertion_index >> (SubtreeHeight as u8);
+    let subtree_index = start_insertion_index >> SubtreeHeight;
     let new_root = root_from_sibling_path(
         subtree_root,
         subtree_index as Field,
@@ -128,7 +128,7 @@ where
     Leaf: IndexedTreeLeafPreimage<Value>,
 {
     // validate the low leaf
-    assert(!is_empty(low_leaf_preimage), "Empty low leaf");
+    assert(!low_leaf_preimage.is_empty(), "Empty low leaf");
     let value_key = value.get_key();
     let low_leaf_key = low_leaf_preimage.get_key();
     let low_leaf_next_key = low_leaf_preimage.get_next_key();

@@ -5,11 +5,11 @@ use std::meta::derive;
 global NUMBER_OF_PLAYERS: u32 = 2;
 global NUMBER_OF_CARDS_DECK: u32 = 2;
 
-#[derive(Deserialize, Eq)]
+#[derive(Deserialize, Eq, Packable)]
 pub struct PlayerEntry {
-    address: AztecAddress,
-    deck_strength: u32,
-    points: u64,
+    pub address: AztecAddress,
+    pub deck_strength: u32,
+    pub points: u64,
 }
 
 impl PlayerEntry {
@@ -18,15 +18,15 @@ impl PlayerEntry {
     }
 }
 
-global PLAYABLE_CARDS: u32 = 4;
+pub global PLAYABLE_CARDS: u32 = 4;
 
 #[derive(Packable)]
 pub struct Game {
     players: [PlayerEntry; NUMBER_OF_PLAYERS],
-    rounds_cards: [Card; PLAYABLE_CARDS],
+    pub rounds_cards: [Card; PLAYABLE_CARDS],
     started: bool,
     finished: bool,
-    claimed: bool,
+    pub claimed: bool,
     current_player: u32,
     current_round: u32,
 }

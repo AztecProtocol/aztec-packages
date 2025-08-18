@@ -56,6 +56,7 @@ describe('Deployment benchmark', () => {
           it(`${accountType} contract deploys a TokenContract, pays using ${benchmarkingPaymentMethod}`, async () => {
             const paymentMethod = t.paymentMethods[benchmarkingPaymentMethod];
             const options: SimulateMethodOptions = {
+              from: benchysWallet.getAddress(),
               fee: { paymentMethod: await paymentMethod.forWallet(benchysWallet) },
             };
 
@@ -70,11 +71,12 @@ describe('Deployment benchmark', () => {
               1 + // Account entrypoint
                 1 + // Kernel init
                 paymentMethod.circuits + // Payment method circuits
-                (isClassRegistered ? 0 : 2) + // ContractClassRegisterer register_contract_class + kernel inner
-                2 + // ContractClassRegisterer assert_class_id_is_registered + kernel inner
-                2 + // ContractInstanceDeployer deploy + kernel inner
+                (isClassRegistered ? 0 : 2) + // ContractClassRegistry register_contract_class + kernel inner
+                2 + // ContractClassRegistry assert_class_id_is_published + kernel inner
+                2 + // ContractInstanceRegistry publish + kernel inner
                 1 + // Kernel reset
-                1, // Kernel tail
+                1 + // Kernel tail
+                1, // Kernel hiding
             );
 
             if (process.env.SANITY_CHECKS) {

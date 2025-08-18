@@ -215,8 +215,8 @@
     },
     {
       "name": "clang16-no-avm",
-      "displayName": "Optimized debug build with Clang-16",
-      "description": "Build with globally installed Clang-16 in optimized debug mode",
+      "displayName": "Optimized build with Clang-16 (no AVM)",
+      "description": "Build with globally installed Clang-16 excluding the Aztec VM",
       "inherits": "clang16",
       "binaryDir": "build-no-avm",
       "cacheVariables": {
@@ -225,8 +225,8 @@
     },
     {
       "name": "clang16-dbg-no-avm",
-      "displayName": "Optimized debug build with Clang-16",
-      "description": "Build with globally installed Clang-16 in optimized debug mode",
+      "displayName": "Optimized debug build with Clang-16 (no AVM)",
+      "description": "Build with globally installed Clang-16 in debug mode excluding the Aztec VM",
       "inherits": "clang16-dbg",
       "binaryDir": "build-debug-no-avm",
       "cacheVariables": {
@@ -345,19 +345,50 @@
       }
     },
     {
+      "name": "fuzzing-noasm",
+      "displayName": "Build with fuzzing and ASM disabled",
+      "description": "Build default preset but with fuzzing enabled and ASM disabled",
+      "inherits": "clang16",
+      "binaryDir": "build-fuzzing-noasm",
+      "cacheVariables": {
+        "FUZZING": "ON",
+        "DISABLE_AZTEC_VM": "ON",
+        "DISABLE_ASM": "ON"
+      },
+      "environment": {
+        "CMAKE_BUILD_TYPE": "RelWithAssert"
+      }
+    },
+    {
       "name": "fuzzing-asan",
       "displayName": "Build with fuzzing",
-      "description": "Build default preset but with fuzzing enabled",
+      "description": "Build default preset but with fuzzing and asan enabled",
       "inherits": "clang16-dbg",
       "binaryDir": "build-fuzzing-asan",
       "cacheVariables": {
-        "SHOW_INFORMATION": "ON",
         "FUZZING": "ON",
+        "FUZZING_SHOW_INFORMATION": "ON",
         "DISABLE_AZTEC_VM": "ON",
         "ENABLE_ASAN": "ON",
         "DISABLE_ASM": "ON"
       },
       "environment": {
+        "CMAKE_BUILD_TYPE": "RelWithAssert"
+      }
+    },
+    {
+      "name": "fuzzing-coverage",
+      "displayName": "Build with coverage flags",
+      "description": "Build default preset but with fuzzing and coverage enabled",
+      "inherits": "clang16",
+      "binaryDir": "build-fuzzing-cov",
+      "cacheVariables": {
+        "FUZZING": "ON",
+        "DISABLE_ASM": "ON",
+        "DISABLE_AZTEC_VM": "ON"
+      },
+      "environment": {
+        "CXXFLAGS": "-fprofile-instr-generate -fcoverage-mapping",
         "CMAKE_BUILD_TYPE": "RelWithAssert"
       }
     },
@@ -414,26 +445,6 @@
         "HAVE_STD_REGEX": "ON",
         "CMAKE_CXX_FLAGS": "$env{MSAN_CFLAGS}",
         "CMAKE_EXE_LINKER_FLAGS": "$env{MSAN_LFLAGS}"
-      }
-    },
-    {
-      "name": "op-count",
-      "displayName": "Release build with operation counts",
-      "description": "Build with op counting",
-      "inherits": "clang16-assert",
-      "binaryDir": "build-op-count",
-      "environment": {
-        "CXXFLAGS": "-DBB_USE_OP_COUNT -DBB_USE_OP_COUNT_TRACK_ONLY"
-      }
-    },
-    {
-      "name": "op-count-time",
-      "displayName": "Release build with time and clock counts",
-      "description": "Build with op counting",
-      "inherits": "clang16-assert",
-      "binaryDir": "build-op-count-time",
-      "environment": {
-        "CXXFLAGS": "-DBB_USE_OP_COUNT -DBB_USE_OP_COUNT_TIME_ONLY"
       }
     },
     {
@@ -583,16 +594,6 @@
       "configurePreset": "clang16"
     },
     {
-      "name": "op-count-time",
-      "inherits": "default",
-      "configurePreset": "op-count-time"
-    },
-    {
-      "name": "op-count",
-      "inherits": "default",
-      "configurePreset": "op-count"
-    },
-    {
       "name": "darwin-arm64",
       "inherits": "default",
       "configurePreset": "darwin-arm64"
@@ -713,6 +714,11 @@
       "configurePreset": "fuzzing-asan"
     },
     {
+      "name": "fuzzing-coverage",
+      "inherits": "clang16",
+      "configurePreset": "fuzzing-coverage"
+    },
+    {
       "name": "gperftools",
       "inherits": "clang16",
       "configurePreset": "gperftools"
@@ -760,14 +766,14 @@
       "configurePreset": "wasm-threads-dbg",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": ["barretenberg.wasm", "bb_cli_bench"]
+      "targets": ["barretenberg.wasm", "bb"]
     },
     {
       "name": "wasm-threads-assert",
       "configurePreset": "wasm-threads-assert",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": ["barretenberg.wasm", "bb_cli_bench"]
+      "targets": ["barretenberg.wasm", "bb"]
     },
     {
       "name": "wasm-threads",

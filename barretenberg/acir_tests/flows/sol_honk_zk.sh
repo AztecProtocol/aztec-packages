@@ -26,7 +26,7 @@ $BIN write_solidity_verifier $FLAGS -k $VK -o $VERIFIER_CONTRACT
 export VERIFIER_PATH="$outdir/Verifier.sol"
 export TEST_PATH=$(realpath "../../sol-test/HonkTest.sol")
 export TESTING_HONK="true"
-export DISABLE_ZK="false"
+export HAS_ZK="true"
 
 # Use solcjs to compile the generated key contract with the template verifier and test contract
 # index.js will start an anvil, on a random port

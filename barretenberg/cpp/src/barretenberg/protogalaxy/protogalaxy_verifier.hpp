@@ -22,11 +22,13 @@ template <class DeciderVerificationKeys> class ProtogalaxyVerifier_ {
     using VerificationKey = typename Flavor::VerificationKey;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
-    using RelationSeparator = typename Flavor::RelationSeparator;
+    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
 
     static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
 
     DeciderVerificationKeys keys_to_fold;
+
+    std::vector<FF> public_inputs; // extracted from the incoming instance
 
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
@@ -35,11 +37,6 @@ template <class DeciderVerificationKeys> class ProtogalaxyVerifier_ {
         : keys_to_fold(DeciderVerificationKeys(keys))
         , transcript(transcript){};
     ~ProtogalaxyVerifier_() = default;
-
-    /**
-     * @brief Process the public data ϕ for the decider verification keys to be folded.
-     */
-    void run_oink_verifier_on_one_incomplete_key(const std::shared_ptr<DeciderVK>&, const std::string&);
 
     /**
      * @brief Instatiate the vks and the transcript.

@@ -21,22 +21,25 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
     using NativeFF = typename Flavor::Curve::ScalarFieldNative;
     using Commitment = typename Flavor::Commitment;
     using VerificationKey = typename Flavor::VerificationKey;
-    using NativeVerificationKey = typename Flavor::NativeVerificationKey;
+    using VKAndHash = typename Flavor::VKAndHash;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
-    using RelationSeparator = typename Flavor::RelationSeparator;
+    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
     using Builder = typename Flavor::CircuitBuilder;
     using NativeFlavor = typename Flavor::NativeFlavor;
-    using DeciderVerificationKey = bb::DeciderVerificationKey_<NativeFlavor>;
+    using NativeVerificationKey = typename Flavor::NativeFlavor::VerificationKey;
+    using NativeDeciderVerificationKey = bb::DeciderVerificationKey_<NativeFlavor>;
     using VerifierCommitmentKey = typename NativeFlavor::VerifierCommitmentKey;
+    using Transcript = typename Flavor::Transcript;
 
     Builder* builder;
 
-    std::shared_ptr<VerificationKey> verification_key;
+    std::shared_ptr<VKAndHash> vk_and_hash;
 
-    bool is_accumulator = false;
-    std::vector<FF> public_inputs;
-    RelationSeparator alphas; // a challenge for each subrelation
+    bool is_complete = false; // whether this instance has been completely populated
+
+    // An array {1, α₁, …, αₖ}, where k = NUM_SUBRELATIONS - 1.
+    SubrelationSeparators alphas;
     RelationParameters<FF> relation_parameters;
     std::vector<FF> gate_challenges;
     // The target sum, which is typically nonzero for a ProtogalaxyProver's accmumulator
@@ -48,26 +51,24 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
     RecursiveDeciderVerificationKey_(Builder* builder)
         : builder(builder){};
 
+    // Constructor from native vk
     RecursiveDeciderVerificationKey_(Builder* builder, std::shared_ptr<NativeVerificationKey> vk)
         : builder(builder)
-        , verification_key(std::make_shared<VerificationKey>(builder, vk)){};
-
-    // Constructor from stdlib vkey
-    RecursiveDeciderVerificationKey_(Builder* builder, std::shared_ptr<VerificationKey> vk)
-        : builder(builder)
-        , verification_key(vk)
+        , vk_and_hash(std::make_shared<VKAndHash>(std::make_shared<VerificationKey>(builder, vk),
+                                                  FF::from_witness(builder, vk->hash())))
     {}
 
-    RecursiveDeciderVerificationKey_(Builder* builder, const std::shared_ptr<DeciderVerificationKey>& verification_key)
-        : RecursiveDeciderVerificationKey_(builder, verification_key->verification_key)
-    {
-        is_accumulator = verification_key->is_accumulator;
-        if (is_accumulator) {
+    // Constructor from stdlib vk and hash
+    RecursiveDeciderVerificationKey_(Builder* builder, std::shared_ptr<VKAndHash> vk_and_hash)
+        : builder(builder)
+        , vk_and_hash(vk_and_hash){};
 
-            for (auto [native_public_input] : zip_view(verification_key->public_inputs)) {
-                public_inputs.emplace_back(FF::from_witness(builder, native_public_input));
-            }
-            for (size_t alpha_idx = 0; alpha_idx < alphas.size(); alpha_idx++) {
+    RecursiveDeciderVerificationKey_(Builder* builder, std::shared_ptr<NativeDeciderVerificationKey> verification_key)
+        : RecursiveDeciderVerificationKey_(builder, verification_key->vk)
+    {
+        is_complete = verification_key->is_complete;
+        if (is_complete) {
+            for (size_t alpha_idx = 0; alpha_idx < Flavor::NUM_SUBRELATIONS - 1; alpha_idx++) {
                 alphas[alpha_idx] = FF::from_witness(builder, verification_key->alphas[alpha_idx]);
             }
 
@@ -78,7 +79,6 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
                 comm_idx++;
             }
             target_sum = FF::from_witness(builder, verification_key->target_sum);
-
             size_t challenge_idx = 0;
             gate_challenges = std::vector<FF>(verification_key->gate_challenges.size());
             for (auto& challenge : gate_challenges) {
@@ -104,29 +104,20 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
      * RecursiveDeciderVerificationKey is tied to the builder in whose context it was created so in order to preserve
      * the accumulator values between several iterations we need to retrieve the native DeciderVerificationKey values.
      */
-    DeciderVerificationKey get_value()
+    NativeDeciderVerificationKey get_value()
     {
-        auto native_honk_vk = std::make_shared<NativeVerificationKey>(
-            static_cast<uint64_t>(verification_key->circuit_size.get_value()),
-            static_cast<uint64_t>(verification_key->num_public_inputs.get_value()));
-        native_honk_vk->pub_inputs_offset = static_cast<uint64_t>(verification_key->pub_inputs_offset.get_value());
-        native_honk_vk->pairing_inputs_public_input_key = verification_key->pairing_inputs_public_input_key;
-        if constexpr (IsMegaFlavor<Flavor>) {
-            native_honk_vk->databus_propagation_data = verification_key->databus_propagation_data;
-        }
+        using NativeVerificationKey = typename Flavor::NativeFlavor::VerificationKey;
+        auto native_honk_vk = std::make_shared<NativeVerificationKey>();
+        native_honk_vk->log_circuit_size = static_cast<uint64_t>(vk_and_hash->vk->log_circuit_size.get_value());
+        native_honk_vk->num_public_inputs = static_cast<uint64_t>(vk_and_hash->vk->num_public_inputs.get_value());
+        native_honk_vk->pub_inputs_offset = static_cast<uint64_t>(vk_and_hash->vk->pub_inputs_offset.get_value());
 
-        for (auto [vk, final_decider_vk] : zip_view(verification_key->get_all(), native_honk_vk->get_all())) {
+        for (auto [vk, final_decider_vk] : zip_view(vk_and_hash->vk->get_all(), native_honk_vk->get_all())) {
             final_decider_vk = vk.get_value();
         }
 
-        DeciderVerificationKey decider_vk(native_honk_vk);
-        decider_vk.is_accumulator = is_accumulator;
-
-        decider_vk.public_inputs = std::vector<NativeFF>(
-            static_cast<size_t>(static_cast<uint32_t>(verification_key->num_public_inputs.get_value())));
-        for (auto [public_input, inst_public_input] : zip_view(public_inputs, decider_vk.public_inputs)) {
-            inst_public_input = public_input.get_value();
-        }
+        NativeDeciderVerificationKey decider_vk(native_honk_vk);
+        decider_vk.is_complete = is_complete;
 
         for (auto [alpha, inst_alpha] : zip_view(alphas, decider_vk.alphas)) {
             inst_alpha = alpha.get_value();
@@ -152,6 +143,41 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
         decider_vk.relation_parameters.lookup_grand_product_delta =
             relation_parameters.lookup_grand_product_delta.get_value();
         return decider_vk;
+    }
+
+    FF hash_through_transcript(const std::string& domain_separator, Transcript& transcript) const
+    {
+        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_log_circuit_size",
+                                                  this->vk_and_hash->vk->log_circuit_size);
+        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_num_public_inputs",
+                                                  this->vk_and_hash->vk->num_public_inputs);
+        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_pub_inputs_offset",
+                                                  this->vk_and_hash->vk->pub_inputs_offset);
+
+        for (const Commitment& commitment : this->vk_and_hash->vk->get_all()) {
+            transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_precomputed_comm", commitment);
+        }
+        for (const Commitment& comm : witness_commitments.get_all()) {
+            transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_wit_comm", comm);
+        }
+        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_alphas", this->alphas);
+        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_eta", this->relation_parameters.eta);
+        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_eta_two",
+                                                  this->relation_parameters.eta_two);
+        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_eta_three",
+                                                  this->relation_parameters.eta_three);
+        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_beta", this->relation_parameters.beta);
+        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_gamma",
+                                                  this->relation_parameters.gamma);
+        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_public_input_delta",
+                                                  this->relation_parameters.public_input_delta);
+        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_lookup_grand_product_delta",
+                                                  this->relation_parameters.lookup_grand_product_delta);
+        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_target_sum", this->target_sum);
+        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_gate_challenges",
+                                                  this->gate_challenges);
+
+        return transcript.hash_independent_buffer();
     }
 };
 } // namespace bb::stdlib::recursion::honk

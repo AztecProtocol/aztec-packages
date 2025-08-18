@@ -1,5 +1,4 @@
-use crate::prelude::AztecAddress;
-use protocol_types::constants::PRIVATE_LOG_CIPHERTEXT_LEN;
+use protocol_types::{address::AztecAddress, constants::PRIVATE_LOG_CIPHERTEXT_LEN};
 
 // TODO(#12750): The global variables below should not be here as they are AES128 specific.
 // ciphertext_length (2) + 14 bytes pkcs#7 AES padding.
@@ -41,8 +40,8 @@ pub trait LogEncryption {
     ///
     /// # Returns
     /// Fixed-size array of encrypted Field elements representing the private log
-    fn encrypt_log<let PLAINTEXT_LEN: u32>(
-        plaintext: [Field; PLAINTEXT_LEN],
+    fn encrypt_log<let PlaintextLen: u32>(
+        plaintext: [Field; PlaintextLen],
         recipient: AztecAddress,
     ) -> [Field; PRIVATE_LOG_CIPHERTEXT_LEN];
 

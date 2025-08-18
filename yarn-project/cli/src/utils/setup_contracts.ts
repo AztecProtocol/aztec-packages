@@ -1,11 +1,12 @@
 import {
+  AztecAddress,
   DefaultWaitOpts,
   Fr,
   type PXE,
   SignerlessWallet,
   SponsoredFeePaymentMethod,
   type WaitForProvenOpts,
-  getContractInstanceFromDeployParams,
+  getContractInstanceFromInstantiationParams,
   waitForProven,
 } from '@aztec/aztec.js';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
@@ -21,7 +22,7 @@ async function getSponsoredFPCContract() {
 
 export async function getSponsoredFPCAddress() {
   const SponsoredFPCContract = await getSponsoredFPCContract();
-  const sponsoredFPCInstance = await getContractInstanceFromDeployParams(SponsoredFPCContract.artifact, {
+  const sponsoredFPCInstance = await getContractInstanceFromInstantiationParams(SponsoredFPCContract.artifact, {
     salt: new Fr(SPONSORED_FPC_SALT),
   });
   return sponsoredFPCInstance.address;
@@ -41,6 +42,7 @@ export async function setupSponsoredFPC(
   const deployer = new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(chainId, rollupVersion));
 
   const deployTx = SponsoredFPCContract.deploy(deployer).send({
+    from: AztecAddress.ZERO,
     contractAddressSalt: new Fr(SPONSORED_FPC_SALT),
     universalDeploy: true,
     fee: { paymentMethod },

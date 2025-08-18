@@ -5,6 +5,7 @@
 // =====================
 
 #include "mega_circuit_builder.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include <unordered_map>
@@ -166,18 +167,43 @@ template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::populate_ecc_op_wir
     op_tuple.z_1 = this->add_variable(ultra_op.z_1);
     op_tuple.z_2 = this->add_variable(ultra_op.z_2);
 
-    this->blocks.ecc_op.populate_wires(op_tuple.op, op_tuple.x_lo, op_tuple.x_hi, op_tuple.y_lo);
-    for (auto& selector : this->blocks.ecc_op.selectors) {
+    // Set the indices for the op values for each of the two rows
+    uint32_t op_val_idx_1 = op_tuple.op;    // genuine op code value
+    uint32_t op_val_idx_2 = this->zero_idx; // second row value always set to 0
+    // If this is a random operation, the op values are randomized
+    if (ultra_op.op_code.is_random_op) {
+        op_val_idx_1 = this->add_variable(ultra_op.op_code.random_value_1);
+        op_val_idx_2 = this->add_variable(ultra_op.op_code.random_value_2);
+    }
+
+    this->blocks.ecc_op.populate_wires(op_val_idx_1, op_tuple.x_lo, op_tuple.x_hi, op_tuple.y_lo);
+    for (auto& selector : this->blocks.ecc_op.get_selectors()) {
         selector.emplace_back(0);
     }
 
-    this->blocks.ecc_op.populate_wires(this->zero_idx, op_tuple.y_hi, op_tuple.z_1, op_tuple.z_2);
-    for (auto& selector : this->blocks.ecc_op.selectors) {
+    this->blocks.ecc_op.populate_wires(op_val_idx_2, op_tuple.y_hi, op_tuple.z_1, op_tuple.z_2);
+    for (auto& selector : this->blocks.ecc_op.get_selectors()) {
         selector.emplace_back(0);
     }
 
     return op_tuple;
 };
+
+/**
+ * @brief Mechanism for populating two rows with randomness.  This "operation" doesn't return a tuple representing the
+ * indices of the ecc op values because it should never be used in subsequent logic.
+ *
+ * @note All selectors are set to 0 since the ecc op selector is derived later based on the block size/location. The
+ * method does not return a tuple of variable indices as those should not be used in subsequent steps for random ops.
+ */
+template <typename FF> void MegaCircuitBuilder_<FF>::queue_ecc_random_op()
+{
+    // Add the operation to the op queue
+    auto ultra_op = op_queue->random_op_ultra_only();
+
+    // Add corresponding gates for the operation
+    (void)populate_ecc_op_wires(ultra_op);
+}
 
 template <typename FF> void MegaCircuitBuilder_<FF>::set_goblin_ecc_op_code_constant_variables()
 {
@@ -202,7 +228,7 @@ uint32_t MegaCircuitBuilder_<FF>::read_bus_vector(BusId bus_idx, const uint32_t&
     // Get the raw index into the databus column
     const uint32_t read_idx = static_cast<uint32_t>(uint256_t(this->get_variable(read_idx_witness_idx)));
 
-    ASSERT(read_idx < bus_vector.size()); // Ensure that the read index is valid
+    BB_ASSERT_LT(read_idx, bus_vector.size()); // Ensure that the read index is valid
 
     // Create a variable corresponding to the result of the read. Note that we do not in general connect reads from
     // databus via copy constraints (i.e. we create a unique variable for the result of each read)
@@ -263,7 +289,8 @@ template <typename FF> void MegaCircuitBuilder_<FF>::apply_databus_selectors(con
     block.q_4().emplace_back(0);
     block.q_lookup_type().emplace_back(0);
     block.q_elliptic().emplace_back(0);
-    block.q_aux().emplace_back(0);
+    block.q_memory().emplace_back(0);
+    block.q_nnf().emplace_back(0);
     block.q_poseidon2_external().emplace_back(0);
     block.q_poseidon2_internal().emplace_back(0);
 }

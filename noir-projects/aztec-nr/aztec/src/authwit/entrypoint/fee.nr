@@ -1,5 +1,4 @@
-use crate::authwit::entrypoint::function_call::FunctionCall;
-use crate::prelude::PrivateContext;
+use crate::{authwit::entrypoint::function_call::FunctionCall, context::PrivateContext};
 use dep::protocol_types::{
     constants::GENERATOR_INDEX__FEE_PAYLOAD,
     hash::poseidon2_hash_with_separator,

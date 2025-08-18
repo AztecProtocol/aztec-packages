@@ -68,6 +68,7 @@
     "@aztec/epoch-cache": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
+    "@aztec/node-keystore": "workspace:^",
     "@aztec/p2p": "workspace:^",
     "@aztec/prover-client": "workspace:^",
     "@aztec/slasher": "workspace:^",

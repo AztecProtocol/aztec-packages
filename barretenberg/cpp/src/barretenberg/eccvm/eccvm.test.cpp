@@ -61,9 +61,30 @@ ECCVMCircuitBuilder generate_circuit(numeric::RNG* engine = nullptr)
     op_queue->mul_accumulate(a, x);
     op_queue->mul_accumulate(b, x);
     op_queue->mul_accumulate(c, x);
+    op_queue->merge();
     ECCVMCircuitBuilder builder{ op_queue };
     return builder;
 }
+
+ECCVMCircuitBuilder generate_zero_circuit([[maybe_unused]] numeric::RNG* engine = nullptr)
+{
+    using Curve = curve::BN254;
+    using G1 = Curve::Element;
+    using Fr = Curve::ScalarField;
+
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
+    [[maybe_unused]] G1 a = G1::random_element(engine);
+
+    [[maybe_unused]] Fr x = Fr::random_element(engine);
+    for (auto i = 0; i < 8; i++) {
+        op_queue->mul_accumulate(Curve::Group::affine_point_at_infinity, 0);
+    }
+    op_queue->merge();
+
+    ECCVMCircuitBuilder builder{ op_queue };
+    return builder;
+}
+
 void complete_proving_key_for_test(bb::RelationParameters<FF>& relation_parameters,
                                    std::shared_ptr<PK>& pk,
                                    std::vector<FF>& gate_challenges)
@@ -92,6 +113,36 @@ void complete_proving_key_for_test(bb::RelationParameters<FF>& relation_paramete
         gate_challenges[idx] = FF::random_element();
     }
 }
+TEST_F(ECCVMTests, Zeroes)
+{
+    ECCVMCircuitBuilder builder = generate_zero_circuit(&engine);
+
+    std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
+    ECCVMProver prover(builder, prover_transcript);
+    ECCVMProof proof = prover.construct_proof();
+
+    std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
+    ECCVMVerifier verifier(verifier_transcript);
+    bool verified = verifier.verify_proof(proof);
+
+    ASSERT_TRUE(verified);
+}
+/**
+ * @brief Check that size of a ECCVM proof matches the corresponding constant
+ *@details If this test FAILS, then the following (non-exhaustive) list should probably be updated as well:
+ * - Proof length formula in eccvm_flavor.hpp, etc...
+ * - eccvm_transcript.test.cpp
+ * - constants in yarn-project in: constants.nr, constants.gen.ts, ConstantsGen.sol
+ */
+TEST_F(ECCVMTests, ProofLengthCheck)
+{
+    ECCVMCircuitBuilder builder = generate_circuit(&engine);
+
+    std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
+    ECCVMProver prover(builder, prover_transcript);
+    ECCVMProof proof = prover.construct_proof();
+    EXPECT_EQ(proof.size(), ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
+}
 
 TEST_F(ECCVMTests, BaseCaseFixedSize)
 {
@@ -113,6 +164,7 @@ TEST_F(ECCVMTests, EqFailsFixedSize)
     auto builder = generate_circuit(&engine);
     // Tamper with the eq op such that the expected value is incorect
     builder.op_queue->add_erroneous_equality_op_for_testing();
+    builder.op_queue->merge();
 
     std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
     ECCVMProver prover(builder, prover_transcript);
@@ -150,20 +202,25 @@ TEST_F(ECCVMTests, CommittedSumcheck)
     prover_transcript = std::make_shared<Transcript>();
 
     // Run Sumcheck on the ECCVM Prover polynomials
-    using SumcheckProver = SumcheckProver<ECCVMFlavor, CONST_ECCVM_LOG_N>;
-    SumcheckProver sumcheck_prover(pk->circuit_size, prover_transcript);
+    using SumcheckProver = SumcheckProver<ECCVMFlavor>;
+    SumcheckProver sumcheck_prover(pk->circuit_size,
+                                   pk->polynomials,
+                                   prover_transcript,
+                                   alpha,
+                                   gate_challenges,
+                                   relation_parameters,
+                                   CONST_ECCVM_LOG_N);
 
     ZKData zk_sumcheck_data = ZKData(CONST_ECCVM_LOG_N, prover_transcript);
 
-    auto prover_output =
-        sumcheck_prover.prove(pk->polynomials, relation_parameters, alpha, gate_challenges, zk_sumcheck_data);
+    auto prover_output = sumcheck_prover.prove(zk_sumcheck_data);
 
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
     verifier_transcript->load_proof(prover_transcript->export_proof());
 
     // Execute Sumcheck Verifier
-    SumcheckVerifier<Flavor, CONST_ECCVM_LOG_N> sumcheck_verifier(verifier_transcript);
-    SumcheckOutput<ECCVMFlavor> verifier_output = sumcheck_verifier.verify(relation_parameters, alpha, gate_challenges);
+    SumcheckVerifier<Flavor> sumcheck_verifier(verifier_transcript, alpha, CONST_ECCVM_LOG_N);
+    SumcheckOutput<ECCVMFlavor> verifier_output = sumcheck_verifier.verify(relation_parameters, gate_challenges);
 
     // Evaluate prover's round univariates at corresponding challenges and compare them with the claimed evaluations
     // computed by the verifier

@@ -1,3 +1,4 @@
+import type { Tx } from '@aztec/aztec.js';
 import { EpochCache } from '@aztec/epoch-cache';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
@@ -7,8 +8,9 @@ import {
   type L2BlockSourceEventEmitter,
   L2BlockSourceEvents,
 } from '@aztec/stdlib/block';
-import type { IFullNodeBlockBuilder, ITxCollector, MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import type { IFullNodeBlockBuilder, ITxProvider, MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { Offense } from '@aztec/stdlib/slashing';
 import {
   ReExFailedTxsError,
   ReExStateMismatchError,
@@ -18,7 +20,7 @@ import {
 
 import EventEmitter from 'node:events';
 
-import { Offense, WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher, type WatcherEmitter } from './config.js';
+import { WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher, type WatcherEmitter } from './config.js';
 
 /**
  * This watcher is responsible for detecting chain prunes and creating slashing arguments for the committee.
@@ -34,11 +36,14 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
   // Only keep track of the last N slashable epochs
   private maxSlashableEpochs = 100;
 
+  // Store bound function reference for proper listener removal
+  private boundHandlePruneL2Blocks = this.handlePruneL2Blocks.bind(this);
+
   constructor(
     private l2BlockSource: L2BlockSourceEventEmitter,
     private l1ToL2MessageSource: L1ToL2MessageSource,
     private epochCache: EpochCache,
-    private txCollector: ITxCollector,
+    private txProvider: Pick<ITxProvider, 'getAvailableTxs'>,
     private blockBuilder: IFullNodeBlockBuilder,
     private penalty: bigint,
     private maxPenalty: bigint,
@@ -48,12 +53,12 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
   }
 
   public start() {
-    this.l2BlockSource.on(L2BlockSourceEvents.L2PruneDetected, this.handlePruneL2Blocks.bind(this));
+    this.l2BlockSource.on(L2BlockSourceEvents.L2PruneDetected, this.boundHandlePruneL2Blocks);
     return Promise.resolve();
   }
 
   public stop() {
-    this.l2BlockSource.removeListener(L2BlockSourceEvents.L2PruneDetected, this.handlePruneL2Blocks.bind(this));
+    this.l2BlockSource.removeListener(L2BlockSourceEvents.L2PruneDetected, this.boundHandlePruneL2Blocks);
     return Promise.resolve();
   }
 
@@ -120,16 +125,18 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
   public async validateBlock(blockFromL1: L2Block, fork: MerkleTreeWriteOperations): Promise<void> {
     this.log.debug(`Validating pruned block ${blockFromL1.header.globalVariables.blockNumber}`);
     const txHashes = blockFromL1.body.txEffects.map(txEffect => txEffect.txHash);
-    const { txs, missing } = await this.txCollector.collectTransactions(
-      txHashes,
-      undefined, // ask from no one in particular
-    );
-    if (missing && missing.length > 0) {
-      throw new TransactionsNotAvailableError(missing);
+    // We load txs from the mempool directly, since the TxCollector running in the background has already been
+    // trying to fetch them from nodes or via reqresp. If we haven't managed to collect them by now,
+    // it's likely that they are not available in the network at all.
+    const { txs, missingTxs } = await this.txProvider.getAvailableTxs(txHashes);
+
+    if (missingTxs && missingTxs.length > 0) {
+      throw new TransactionsNotAvailableError(missingTxs);
     }
+
     const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(blockFromL1.number);
     const { block, failedTxs, numTxs } = await this.blockBuilder.buildBlock(
-      txs,
+      txs as Tx[],
       l1ToL2Messages,
       blockFromL1.header.globalVariables,
       {},

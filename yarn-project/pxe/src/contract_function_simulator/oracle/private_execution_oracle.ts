@@ -60,7 +60,8 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
   private noteHashNullifierCounterMap: Map<number, number> = new Map();
   private contractClassLogs: CountedContractClassLog[] = [];
   private offchainEffects: { data: Fr[] }[] = [];
-  private nestedExecutions: PrivateCallExecutionResult[] = [];
+  private nestedExecutionResults: PrivateCallExecutionResult[] = [];
+  private senderForTags?: AztecAddress;
 
   constructor(
     private readonly argsHash: Fr,
@@ -79,8 +80,10 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
     protected sideEffectCounter: number = 0,
     log = createLogger('simulator:client_execution_context'),
     scopes?: AztecAddress[],
+    senderForTags?: AztecAddress,
   ) {
     super(callContext.contractAddress, authWitnesses, capsules, executionDataProvider, log, scopes);
+    this.senderForTags = senderForTags;
   }
 
   // We still need this function until we can get user-defined ordering of structs for fn arguments
@@ -150,8 +153,38 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
   /**
    * Return the nested execution results during this execution.
    */
-  public getNestedExecutions() {
-    return this.nestedExecutions;
+  public getNestedExecutionResults() {
+    return this.nestedExecutionResults;
+  }
+
+  /**
+   * Get the sender for tags.
+   *
+   * This unconstrained value is used as the sender when computing an unconstrained shared secret
+   * for a tag in order to emit a log. Constrained tagging should not use this as there is no
+   * guarantee that the recipient knows about the sender, and hence about the shared secret.
+   *
+   * The value persists through nested calls, meaning all calls down the stack will use the same
+   * 'senderForTags' value (unless it is replaced).
+   */
+  public override privateGetSenderForTags(): Promise<AztecAddress | undefined> {
+    return Promise.resolve(this.senderForTags);
+  }
+
+  /**
+   * Set the sender for tags.
+   *
+   * This unconstrained value is used as the sender when computing an unconstrained shared secret
+   * for a tag in order to emit a log. Constrained tagging should not use this as there is no
+   * guarantee that the recipient knows about the sender, and hence about the shared secret.
+   *
+   * Account contracts typically set this value before calling other contracts. The value persists
+   * through nested calls, meaning all calls down the stack will use the same 'senderForTags'
+   * value (unless it is replaced by another call to this setter).
+   */
+  public override privateSetSenderForTags(senderForTags: AztecAddress): Promise<void> {
+    this.senderForTags = senderForTags;
+    return Promise.resolve();
   }
 
   /**
@@ -159,7 +192,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
    * @param values - Values to store.
    * @returns The hash of the values.
    */
-  public override storeInExecutionCache(values: Fr[], hash: Fr) {
+  public override privateStoreInExecutionCache(values: Fr[], hash: Fr) {
     return this.executionCache.store(values, hash);
   }
 
@@ -168,7 +201,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
    * @param hash - Hash of the values.
    * @returns The values.
    */
-  public override loadFromExecutionCache(hash: Fr): Promise<Fr[]> {
+  public override privateLoadFromExecutionCache(hash: Fr): Promise<Fr[]> {
     const preimage = this.executionCache.getPreimage(hash);
     if (!preimage) {
       throw new Error(`Preimage for hash ${hash.toString()} not found in cache`);
@@ -196,7 +229,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
    * @param status - The status of notes to fetch.
    * @returns Array of note data.
    */
-  public override async getNotes(
+  public override async utilityGetNotes(
     storageSlot: Fr,
     numSelects: number,
     selectByIndexes: number[],
@@ -274,7 +307,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
    * @param noteHash - A hash of the new note.
    * @returns
    */
-  public override notifyCreatedNote(
+  public override privateNotifyCreatedNote(
     storageSlot: Fr,
     noteTypeId: NoteSelector,
     noteItems: Fr[],
@@ -309,7 +342,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
    * @param innerNullifier - The pending nullifier to add in the list (not yet siloed by contract address).
    * @param noteHash - A hash of the new note.
    */
-  public override async notifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, counter: number) {
+  public override async privateNotifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, counter: number) {
     const nullifiedNoteHashCounter = await this.noteCache.nullifyNote(
       this.callContext.contractAddress,
       innerNullifier,
@@ -326,7 +359,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
    * @param innerNullifier - The pending nullifier to add in the list (not yet siloed by contract address).
    * @param noteHash - A hash of the new note.
    */
-  public override notifyCreatedNullifier(innerNullifier: Fr) {
+  public override privateNotifyCreatedNullifier(innerNullifier: Fr) {
     return this.noteCache.nullifierCreated(this.callContext.contractAddress, innerNullifier);
   }
 
@@ -337,21 +370,21 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
    * @param log - The contract class log to be emitted.
    * @param counter - The contract class log's counter.
    */
-  public override notifyCreatedContractClassLog(log: ContractClassLog, counter: number) {
+  public override privateNotifyCreatedContractClassLog(log: ContractClassLog, counter: number) {
     this.contractClassLogs.push(new CountedContractClassLog(log, counter));
     const text = log.toBuffer().toString('hex');
     this.log.verbose(
-      `Emitted log from ContractClassRegisterer: "${text.length > 100 ? text.slice(0, 100) + '...' : text}"`,
+      `Emitted log from ContractClassRegistry: "${text.length > 100 ? text.slice(0, 100) + '...' : text}"`,
     );
   }
 
   #checkValidStaticCall(childExecutionResult: PrivateCallExecutionResult) {
     if (
-      childExecutionResult.publicInputs.noteHashes.some(item => !item.isEmpty()) ||
-      childExecutionResult.publicInputs.nullifiers.some(item => !item.isEmpty()) ||
-      childExecutionResult.publicInputs.l2ToL1Msgs.some(item => !item.isEmpty()) ||
-      childExecutionResult.publicInputs.privateLogs.some(item => !item.isEmpty()) ||
-      childExecutionResult.publicInputs.contractClassLogsHashes.some(item => !item.isEmpty())
+      childExecutionResult.publicInputs.noteHashes.claimedLength > 0 ||
+      childExecutionResult.publicInputs.nullifiers.claimedLength > 0 ||
+      childExecutionResult.publicInputs.l2ToL1Msgs.claimedLength > 0 ||
+      childExecutionResult.publicInputs.privateLogs.claimedLength > 0 ||
+      childExecutionResult.publicInputs.contractClassLogsHashes.claimedLength > 0
     ) {
       throw new Error(`Static call cannot update the state, emit L2->L1 messages or generate logs`);
     }
@@ -366,7 +399,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
    * @param isStaticCall - Whether the call is a static call.
    * @returns The execution result.
    */
-  override async callPrivateFunction(
+  override async privateCallPrivateFunction(
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
     argsHash: Fr,
@@ -406,6 +439,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
       sideEffectCounter,
       this.log,
       this.scopes,
+      this.senderForTags,
     );
 
     const setupTime = simulatorSetupTimer.ms();
@@ -422,7 +456,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
       this.#checkValidStaticCall(childExecutionResult);
     }
 
-    this.nestedExecutions.push(childExecutionResult);
+    this.nestedExecutionResults.push(childExecutionResult);
 
     const publicInputs = childExecutionResult.publicInputs;
 
@@ -456,7 +490,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
    * @param sideEffectCounter - The side effect counter at the start of the call.
    * @param isStaticCall - Whether the call is a static call.
    */
-  public override notifyEnqueuedPublicFunctionCall(
+  public override privateNotifyEnqueuedPublicFunctionCall(
     _targetContractAddress: AztecAddress,
     calldataHash: Fr,
     _sideEffectCounter: number,
@@ -473,7 +507,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
    * @param sideEffectCounter - The side effect counter at the start of the call.
    * @param isStaticCall - Whether the call is a static call.
    */
-  public override notifySetPublicTeardownFunctionCall(
+  public override privateNotifySetPublicTeardownFunctionCall(
     _targetContractAddress: AztecAddress,
     calldataHash: Fr,
     _sideEffectCounter: number,
@@ -483,7 +517,9 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
     return Promise.resolve();
   }
 
-  public override notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number): Promise<void> {
+  public override privateNotifySetMinRevertibleSideEffectCounter(
+    minRevertibleSideEffectCounter: number,
+  ): Promise<void> {
     return this.noteCache.setMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter);
   }
 
@@ -511,17 +547,17 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
     return this.executionDataProvider.getDebugFunctionName(this.contractAddress, this.callContext.functionSelector);
   }
 
-  public override async incrementAppTaggingSecretIndexAsSender(sender: AztecAddress, recipient: AztecAddress) {
+  public override async privateIncrementAppTaggingSecretIndexAsSender(sender: AztecAddress, recipient: AztecAddress) {
     await this.executionDataProvider.incrementAppTaggingSecretIndexAsSender(this.contractAddress, sender, recipient);
   }
 
-  public override async fetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr) {
+  public override async utilityFetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr) {
     await this.executionDataProvider.syncTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot, this.scopes);
 
     await this.executionDataProvider.removeNullifiedNotes(this.contractAddress);
   }
 
-  public override emitOffchainEffect(data: Fr[]): Promise<void> {
+  public override utilityEmitOffchainEffect(data: Fr[]): Promise<void> {
     this.offchainEffects.push({ data });
     return Promise.resolve();
   }

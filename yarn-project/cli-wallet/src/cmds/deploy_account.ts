@@ -1,4 +1,4 @@
-import type { AccountManager, DeployAccountOptions } from '@aztec/aztec.js';
+import { type AccountManager, AztecAddress, type DeployAccountOptions } from '@aztec/aztec.js';
 import { prettyPrintJSON } from '@aztec/cli/cli-utils';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 
@@ -46,8 +46,8 @@ export async function deployAccount(
   let txReceipt;
 
   const deployOpts: DeployAccountOptions = {
-    skipPublicDeployment: !publicDeploy,
-    skipClassRegistration: !registerClass,
+    skipInstancePublication: !publicDeploy,
+    skipClassPublication: !registerClass,
     ...(await feeOpts.toDeployAccountOpts(wallet)),
   };
 
@@ -67,7 +67,12 @@ export async function deployAccount(
   const deployMethod = await account.getDeployMethod(deployOpts.deployWallet);
 
   if (feeOpts.estimateOnly) {
-    const gas = await deployMethod.estimateGas({ ...deployOpts, universalDeploy: true, contractAddressSalt: salt });
+    const gas = await deployMethod.estimateGas({
+      ...deployOpts,
+      from: AztecAddress.ZERO,
+      universalDeploy: true,
+      contractAddressSalt: salt,
+    });
     if (json) {
       out.fee = {
         gasLimits: {
@@ -83,14 +88,19 @@ export async function deployAccount(
       printGasEstimates(feeOpts, gas, log);
     }
   } else {
-    const provenTx = await deployMethod.prove({ ...deployOpts, universalDeploy: true, contractAddressSalt: salt });
+    const provenTx = await deployMethod.prove({
+      ...deployOpts,
+      from: AztecAddress.ZERO,
+      universalDeploy: true,
+      contractAddressSalt: salt,
+    });
     if (verbose) {
       printProfileResult(provenTx.stats!, log);
     }
     tx = provenTx.send();
 
     const txHash = await tx.getTxHash();
-    debugLogger.debug(`Account contract tx sent with hash ${txHash}`);
+    debugLogger.debug(`Account contract tx sent with hash ${txHash.toString()}`);
     out.txHash = txHash;
     if (wait) {
       if (!json) {
@@ -108,7 +118,7 @@ export async function deployAccount(
     log(prettyPrintJSON(out));
   } else {
     if (tx) {
-      log(`Deploy tx hash:  ${await tx.getTxHash()}`);
+      log(`Deploy tx hash:  ${(await tx.getTxHash()).toString()}`);
     }
     if (txReceipt) {
       log(`Deploy tx fee:   ${txReceipt.transactionFee}`);

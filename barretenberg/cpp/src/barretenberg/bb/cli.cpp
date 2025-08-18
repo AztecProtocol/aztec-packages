@@ -16,15 +16,22 @@
  */
 #include "barretenberg/api/api_avm.hpp"
 #include "barretenberg/api/api_client_ivc.hpp"
+#include "barretenberg/api/api_msgpack.hpp"
 #include "barretenberg/api/api_ultra_honk.hpp"
+#include "barretenberg/api/file_io.hpp"
 #include "barretenberg/api/gate_count.hpp"
 #include "barretenberg/api/prove_tube.hpp"
 #include "barretenberg/bb/cli11_formatter.hpp"
+#include "barretenberg/bbapi/bbapi.hpp"
+#include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
+#include "barretenberg/bbapi/c_bind.hpp"
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/flavor/ultra_rollup_flavor.hpp"
-#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/srs/factories/native_crs_factory.hpp"
 #include "barretenberg/srs/global_crs.hpp"
+#include <fstream>
+#include <iostream>
 
 namespace bb {
 // This is updated in-place by bootstrap.sh during the release process. This prevents
@@ -286,6 +293,25 @@ int parse_and_run_cli_command(int argc, char* argv[])
                                     "Include gates_per_opcode in the output of the gates command.");
     };
 
+    const auto add_slow_low_memory_flag = [&](CLI::App* subcommand) {
+        return subcommand->add_flag(
+            "--slow_low_memory", flags.slow_low_memory, "Enable low memory mode (can be 2x slower or more).");
+    };
+
+    const auto add_update_inputs_flag = [&](CLI::App* subcommand) {
+        return subcommand->add_flag("--update_inputs", flags.update_inputs, "Update inputs if vk check fails.");
+    };
+
+    bool print_op_counts = false;
+    const auto add_print_op_counts_flag = [&](CLI::App* subcommand) {
+        return subcommand->add_flag("--print_op_counts", print_op_counts, "Print op counts to json on one line.");
+    };
+
+    std::string op_counts_out;
+    const auto add_op_counts_out_option = [&](CLI::App* subcommand) {
+        return subcommand->add_option("--op_counts_out", op_counts_out, "Path to write the op counts in a json.");
+    };
+
     /***************************************************************************************************************
      * Top-level flags
      ***************************************************************************************************************/
@@ -311,6 +337,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_bytecode_path_option(check);
     add_witness_path_option(check);
     add_ivc_inputs_path_options(check);
+    add_update_inputs_flag(check);
 
     /***************************************************************************************************************
      * Subcommand: gates
@@ -348,6 +375,9 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_ipa_accumulation_flag(prove);
     add_recursive_flag(prove);
     add_honk_recursion_option(prove);
+    add_slow_low_memory_flag(prove);
+    add_print_op_counts_flag(prove);
+    add_op_counts_out_option(prove);
 
     prove->add_flag("--verify", "Verify the proof natively, resulting in a boolean output. Useful for testing.");
 
@@ -541,6 +571,24 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_vk_path_option(avm_verify_command);
 
     /***************************************************************************************************************
+     * Subcommand: msgpack
+     ***************************************************************************************************************/
+    CLI::App* msgpack_command = app.add_subcommand("msgpack", "Msgpack API interface.");
+
+    // Subcommand: msgpack schema
+    CLI::App* msgpack_schema_command =
+        msgpack_command->add_subcommand("schema", "Output a msgpack schema encoded as JSON to stdout.");
+    add_verbose_flag(msgpack_schema_command);
+
+    // Subcommand: msgpack run
+    CLI::App* msgpack_run_command =
+        msgpack_command->add_subcommand("run", "Execute msgpack API commands from stdin or file.");
+    add_verbose_flag(msgpack_run_command);
+    std::string msgpack_input_file;
+    msgpack_run_command->add_option(
+        "-i,--input", msgpack_input_file, "Input file containing msgpack buffers (defaults to stdin)");
+
+    /***************************************************************************************************************
      * Subcommand: prove_tube
      ***************************************************************************************************************/
     CLI ::App* prove_tube_command = app.add_subcommand("prove_tube", "");
@@ -572,12 +620,21 @@ int parse_and_run_cli_command(int argc, char* argv[])
     // Immediately after parsing, we can init the global CRS factory. Note this does not yet read or download any
     // points; that is done on-demand.
     srs::init_net_crs_factory(flags.crs_path);
-    if (prove->parsed() || write_vk->parsed()) {
+    if ((prove->parsed() || write_vk->parsed()) && output_path != "-") {
         // If writing to an output folder, make sure it exists.
         std::filesystem::create_directories(output_path);
     }
     debug_logging = flags.debug;
     verbose_logging = debug_logging || flags.verbose;
+    slow_low_memory = flags.slow_low_memory;
+#ifndef __wasm__
+    if (print_op_counts || !op_counts_out.empty()) {
+        bb::detail::use_op_count_time = true;
+    }
+    if (bb::detail::use_op_count_time) {
+        bb::detail::GLOBAL_OP_COUNTS.clear();
+    }
+#endif
 
     print_active_subcommands(app);
     info("Scheme is: ", flags.scheme, ", num threads: ", get_num_cpus());
@@ -616,6 +673,14 @@ int parse_and_run_cli_command(int argc, char* argv[])
     };
 
     try {
+        // MSGPACK
+        if (msgpack_schema_command->parsed()) {
+            std::cout << bbapi::get_msgpack_schema_as_json() << std::endl;
+            return 0;
+        }
+        if (msgpack_run_command->parsed()) {
+            return execute_msgpack_run(msgpack_input_file);
+        }
         // TUBE
         if (prove_tube_command->parsed()) {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1201): Potentially remove this extra logic.
@@ -678,6 +743,15 @@ int parse_and_run_cli_command(int argc, char* argv[])
                                    "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
                 }
                 api.prove(flags, ivc_inputs_path, output_path);
+#ifndef __wasm__
+                if (print_op_counts) {
+                    bb::detail::GLOBAL_OP_COUNTS.print_aggregate_counts(std::cout, 0);
+                }
+                if (!op_counts_out.empty()) {
+                    std::ofstream file(op_counts_out);
+                    bb::detail::GLOBAL_OP_COUNTS.print_aggregate_counts(file, 2);
+                }
+#endif
                 return 0;
             }
             if (check->parsed()) {
@@ -685,13 +759,22 @@ int parse_and_run_cli_command(int argc, char* argv[])
                     throw_or_abort("The check command for ClientIVC expect a valid file passed with --ivc_inputs_path "
                                    "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
                 }
-                return api.check_precomputed_vks(ivc_inputs_path) ? 0 : 1;
+                return api.check_precomputed_vks(flags, ivc_inputs_path) ? 0 : 1;
             }
             return execute_non_prove_command(api);
         } else if (flags.scheme == "ultra_honk") {
             UltraHonkAPI api;
             if (prove->parsed()) {
                 api.prove(flags, bytecode_path, witness_path, vk_path, output_path);
+#ifndef __wasm__
+                if (print_op_counts) {
+                    bb::detail::GLOBAL_OP_COUNTS.print_aggregate_counts(std::cout, 0);
+                }
+                if (!op_counts_out.empty()) {
+                    std::ofstream file(op_counts_out);
+                    bb::detail::GLOBAL_OP_COUNTS.print_aggregate_counts(file, 2);
+                }
+#endif
                 return 0;
             }
             return execute_non_prove_command(api);

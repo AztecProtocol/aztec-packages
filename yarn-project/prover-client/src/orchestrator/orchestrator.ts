@@ -248,18 +248,19 @@ export class ProvingOrchestrator implements EpochProver {
    * Note that if the tube circuits are not started this way, they will be started nontheless after processing.
    */
   @trackSpan('ProvingOrchestrator.startTubeCircuits')
-  public async startTubeCircuits(txs: Tx[]) {
+  public startTubeCircuits(txs: Tx[]) {
     if (!this.provingState?.verifyState()) {
       throw new Error(`Invalid proving state, call startNewEpoch before starting tube circuits`);
     }
     for (const tx of txs) {
-      const txHash = (await tx.getTxHash()).toString();
+      const txHash = tx.getTxHash().toString();
       const tubeInputs = new TubeInputs(!!tx.data.forPublic, tx.clientIvcProof);
       const tubeProof = promiseWithResolvers<ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>>();
       logger.debug(`Starting tube circuit for tx ${txHash}`);
       this.doEnqueueTube(txHash, tubeInputs, proof => tubeProof.resolve(proof));
       this.provingState?.cachedTubeProofs.set(txHash, tubeProof.promise);
     }
+    return Promise.resolve();
   }
 
   /**
@@ -996,6 +997,7 @@ export class ProvingOrchestrator implements EpochProver {
             );
 
             try {
+              this.metrics.incAvmFallback();
               const snapshotAvmPrivateInputs = readAvmMinimalPublicTxInputsFromFile();
               return await this.prover.getAvmProof(snapshotAvmPrivateInputs, true, signal, provingState.epochNumber);
             } catch (err) {

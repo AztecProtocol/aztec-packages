@@ -1,7 +1,7 @@
 import { createLogger } from '@aztec/foundation/log';
 
-import { generate3FunctionTestingIVCStack } from './index.js';
 import { proveThenVerifyAztecClient } from './prove_wasm.js';
+import { generateTestingIVCStack } from './witgen.js';
 
 const logger = createLogger('aztec:ivc-test');
 
@@ -88,9 +88,9 @@ document.addEventListener('DOMContentLoaded', function () {
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   button.addEventListener('click', async () => {
     logger.info(`generating circuit and witness...`);
-    const [bytecodes, witnessStack] = await generate3FunctionTestingIVCStack();
+    const [bytecodes, witnessStack, _publicInputs, precomputedVks] = await generateTestingIVCStack(1, 0);
     logger.info(`done. proving and verifying...`);
-    const verified = await proveThenVerifyAztecClient(bytecodes, witnessStack);
+    const verified = await proveThenVerifyAztecClient(bytecodes, witnessStack, precomputedVks);
     logger.info(`verified? ${verified}`);
   });
   document.body.appendChild(button);

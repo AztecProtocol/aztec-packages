@@ -1,4 +1,10 @@
-import { type AccountWalletWithSecretKey, ContractDeployer, type DeployOptions, Fr } from '@aztec/aztec.js';
+import {
+  type AccountWalletWithSecretKey,
+  AztecAddress,
+  ContractDeployer,
+  type DeployOptions,
+  Fr,
+} from '@aztec/aztec.js';
 import { encodeArgs, getContractArtifact } from '@aztec/cli/utils';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { getAllFunctionAbis, getInitializer } from '@aztec/stdlib/abi';
@@ -10,19 +16,20 @@ import { DEFAULT_TX_TIMEOUT_S } from '../utils/pxe_wrapper.js';
 
 export async function deploy(
   wallet: AccountWalletWithSecretKey,
+  deployer: AztecAddress | undefined,
   artifactPath: string,
   json: boolean,
   publicKeys: PublicKeys | undefined,
   rawArgs: any[],
   salt: Fr | undefined,
   initializer: string | undefined,
-  skipPublicDeployment: boolean,
-  skipClassRegistration: boolean,
+  skipInstancePublication: boolean,
+  skipClassPublication: boolean,
   skipInitialization: boolean | undefined,
-  universalDeploy: boolean | undefined,
   wait: boolean,
   feeOpts: IFeeOpts,
   verbose: boolean,
+  timeout: number = DEFAULT_TX_TIMEOUT_S,
   debugLogger: Logger,
   log: LogFn,
   logJson: (output: any) => void,
@@ -34,7 +41,12 @@ export async function deploy(
 
   // TODO(#12081): Add contractArtifact.noirVersion and check here (via Noir.lock)?
 
-  const deployer = new ContractDeployer(contractArtifact, wallet, publicKeys ?? PublicKeys.default(), initializer);
+  const contractDeployer = new ContractDeployer(
+    contractArtifact,
+    wallet,
+    publicKeys ?? PublicKeys.default(),
+    initializer,
+  );
 
   let args = [];
   if (rawArgs.length > 0) {
@@ -46,14 +58,15 @@ export async function deploy(
     debugLogger.debug(`Encoded arguments: ${args.join(', ')}`);
   }
 
-  const deploy = deployer.deploy(...args);
+  const deploy = contractDeployer.deploy(...args);
   const deployOpts: DeployOptions = {
     ...(await feeOpts.toDeployAccountOpts(wallet)),
+    from: deployer ?? AztecAddress.ZERO,
     contractAddressSalt: salt,
-    universalDeploy,
-    skipClassRegistration,
+    universalDeploy: !deployer,
+    skipClassPublication,
     skipInitialization,
-    skipPublicDeployment,
+    skipInstancePublication,
   };
 
   if (feeOpts.estimateOnly) {
@@ -70,9 +83,9 @@ export async function deploy(
   const tx = provenTx.send();
 
   const txHash = await tx.getTxHash();
-  debugLogger.debug(`Deploy tx sent with hash ${txHash}`);
+  debugLogger.debug(`Deploy tx sent with hash ${txHash.toString()}`);
   if (wait) {
-    const deployed = await tx.wait({ timeout: DEFAULT_TX_TIMEOUT_S });
+    const deployed = await tx.wait({ timeout });
     const { address, partialAddress, instance } = deployed.contract;
     if (json) {
       logJson({

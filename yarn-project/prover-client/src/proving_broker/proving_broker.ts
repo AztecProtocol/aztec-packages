@@ -672,7 +672,7 @@ function proofTypeComparator(a: ProvingRequestType, b: ProvingRequestType): -1 |
  * The aim is that this will speed up block proving as the closer we get to a block's root proof the more likely it
  * is to get picked up by agents
  */
-const PROOF_TYPES_IN_PRIORITY_ORDER: ProvingRequestType[] = [
+export const PROOF_TYPES_IN_PRIORITY_ORDER: ProvingRequestType[] = [
   ProvingRequestType.BLOCK_ROOT_ROLLUP,
   ProvingRequestType.SINGLE_TX_BLOCK_ROOT_ROLLUP,
   ProvingRequestType.BLOCK_MERGE_ROLLUP,

@@ -27,7 +27,7 @@ class SchnorrHardcodedKeyAccountContract extends DefaultAccountContract {
     return Promise.resolve(SchnorrHardcodedAccountContractArtifact);
   }
 
-  getDeploymentFunctionAndArgs() {
+  getInitializationFunctionAndArgs() {
     // This contract has no constructor
     return Promise.resolve(undefined);
   }
@@ -61,7 +61,7 @@ describe('guides/writing_an_account_contract', () => {
     const secretKey = Fr.random();
     const account = await AccountManager.create(pxe, secretKey, new SchnorrHardcodedKeyAccountContract());
 
-    if (await account.isDeployable()) {
+    if (await account.hasInitializer()) {
       // The account has no funds. Use a funded wallet to pay for the fee for the deployment.
       await account.deploy({ deployWallet: fundedWallet }).wait();
     } else {
@@ -75,17 +75,18 @@ describe('guides/writing_an_account_contract', () => {
     // docs:end:account-contract-deploy
     logger.info(`Deployed account contract at ${address}`);
 
+    const fundedWalletAddress = fundedWallet.getAddress();
+
     // docs:start:token-contract-deploy
-    const token = await TokenContract.deploy(fundedWallet, fundedWallet.getAddress(), 'TokenName', 'TokenSymbol', 18)
-      .send()
+    const token = await TokenContract.deploy(fundedWallet, fundedWalletAddress, 'TokenName', 'TokenSymbol', 18)
+      .send({ from: fundedWalletAddress })
       .deployed();
     logger.info(`Deployed token contract at ${token.address}`);
 
     const mintAmount = 50n;
-    const from = fundedWallet.getAddress(); // we are setting from here because we need a sender to calculate the tag
-    await token.methods.mint_to_private(from, address, mintAmount).send().wait();
+    await token.methods.mint_to_private(address, mintAmount).send({ from: fundedWalletAddress }).wait();
 
-    const balance = await token.methods.balance_of_private(address).simulate();
+    const balance = await token.methods.balance_of_private(address).simulate({ from: address });
     logger.info(`Balance of wallet is now ${balance}`);
     // docs:end:token-contract-deploy
     expect(balance).toEqual(50n);
@@ -98,7 +99,7 @@ describe('guides/writing_an_account_contract', () => {
     const tokenWithWrongWallet = token.withWallet(wrongWallet);
 
     try {
-      await tokenWithWrongWallet.methods.mint_to_public(address, 200).prove();
+      await tokenWithWrongWallet.methods.mint_to_public(address, 200).prove({ from: wrongWallet.getAddress() });
     } catch (err) {
       logger.info(`Failed to send tx: ${err}`);
     }

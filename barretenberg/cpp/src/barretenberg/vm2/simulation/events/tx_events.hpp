@@ -5,13 +5,14 @@
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/simulation/events/tx_context_event.hpp"
 
 namespace bb::avm2::simulation {
 
 struct TxStartupEvent {
-    Gas tx_gas_limit;
-    Gas private_gas_used;
-    TreeStates tree_state;
+    TxContextEvent state;
+    Gas gas_limit;
+    Gas teardown_gas_limit;
 };
 
 struct EnqueuedCallEvent {
@@ -20,9 +21,8 @@ struct EnqueuedCallEvent {
     FF transaction_fee;
     bool is_static;
     FF calldata_hash;
-    Gas prev_gas_used;
-    Gas gas_used;
-    Gas gas_limit;
+    Gas start_gas;
+    Gas end_gas;
     bool success;
 };
 
@@ -40,19 +40,26 @@ struct CollectGasFeeEvent {
     uint128_t effective_fee_per_l2_gas;
     AztecAddress fee_payer;
     FF fee_payer_balance;
+    FF fee_juice_balance_slot;
     FF fee;
 };
 
-using TxPhaseEventType =
-    std::variant<EnqueuedCallEvent, PrivateAppendTreeEvent, PrivateEmitL2L1MessageEvent, CollectGasFeeEvent>;
+struct PadTreesEvent {};
+
+struct CleanupEvent {};
+
+using TxPhaseEventType = std::variant<EnqueuedCallEvent,
+                                      PrivateAppendTreeEvent,
+                                      PrivateEmitL2L1MessageEvent,
+                                      CollectGasFeeEvent,
+                                      PadTreesEvent,
+                                      CleanupEvent>;
 
 struct TxPhaseEvent {
     TransactionPhase phase;
-    TreeStates prev_tree_state;
-    TreeStates next_tree_state;
-
+    TxContextEvent state_before;
+    TxContextEvent state_after;
     bool reverted;
-
     TxPhaseEventType event;
 };
 

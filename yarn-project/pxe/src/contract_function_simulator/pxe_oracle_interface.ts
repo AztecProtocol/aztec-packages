@@ -13,7 +13,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { InBlock, L2Block, L2BlockNumber } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier, siloPrivateLog } from '@aztec/stdlib/hash';
-import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import { type AztecNode, MAX_RPC_LEN } from '@aztec/stdlib/interfaces/client';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { computeAddressSecret, computeAppTaggingSecret } from '@aztec/stdlib/keys';
 import {
@@ -75,7 +75,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     if (!completeAddress) {
       throw new Error(
         `No public key registered for address ${account}.
-        Register it by calling pxe.registerAccount(...).\nSee docs for context: https://docs.aztec.network/developers/reference/debugging/aztecnr-errors#simulation-error-no-public-key-registered-for-address-0x0-register-it-by-calling-pxeregisterrecipient-or-pxeregisteraccount`,
+        Register it by calling pxe.addAccount(...).\nSee docs for context: https://docs.aztec.network/developers/reference/debugging/aztecnr-errors#simulation-error-no-public-key-registered-for-address-0x0-register-it-by-calling-pxeregisterrecipient-or-pxeregisteraccount`,
       );
     }
     return completeAddress;
@@ -500,6 +500,11 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
         // Fetch the private logs for the tags and iterate over them
         const logsByTags = await this.#getPrivateLogsByTags(tagsForTheWholeWindow);
+        this.log.debug(`Found ${logsByTags.filter(logs => logs.length > 0).length} logs as recipient ${recipient}`, {
+          recipient,
+          contractName,
+          contractAddress,
+        });
 
         for (let logIndex = 0; logIndex < logsByTags.length; logIndex++) {
           const logsByTag = logsByTags[logIndex];
@@ -519,13 +524,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
             // a new largest index have been found.
             const secretCorrespondingToLog = secretsForTheWholeWindow[logIndex];
             const initialIndex = initialIndexesMap[secretCorrespondingToLog.appTaggingSecret.toString()];
-
-            this.log.debug(`Found ${logsByTags.length} logs as recipient ${recipient}`, {
-              recipient,
-              secret: secretCorrespondingToLog.appTaggingSecret,
-              contractName,
-              contractAddress,
-            });
 
             if (
               secretCorrespondingToLog.index >= initialIndex &&
@@ -925,11 +923,24 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       }
 
       const nullifiersToCheck = currentNotesForRecipient.map(note => note.siloedNullifier);
-      const nullifierIndexes = await this.aztecNode.findLeavesIndexes(
-        syncedBlockNumber,
-        MerkleTreeId.NULLIFIER_TREE,
-        nullifiersToCheck,
+      const nullifierBatches = nullifiersToCheck.reduce(
+        (acc, nullifier) => {
+          if (acc[acc.length - 1].length < MAX_RPC_LEN) {
+            acc[acc.length - 1].push(nullifier);
+          } else {
+            acc.push([nullifier]);
+          }
+          return acc;
+        },
+        [[]] as Fr[][],
       );
+      const nullifierIndexes = (
+        await Promise.all(
+          nullifierBatches.map(batch =>
+            this.aztecNode.findLeavesIndexes(syncedBlockNumber, MerkleTreeId.NULLIFIER_TREE, batch),
+          ),
+        )
+      ).flat();
 
       const foundNullifiers = nullifiersToCheck
         .map((nullifier, i) => {

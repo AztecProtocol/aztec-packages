@@ -2,12 +2,12 @@
 pragma solidity >=0.8.27;
 
 import {StakingAssetHandlerBase} from "./base.t.sol";
-import {StakingAssetHandler, IStakingAssetHandler} from "@aztec/mock/StakingAssetHandler.sol";
-import {AttesterView, Exit, Status} from "@aztec/core/interfaces/IStaking.sol";
-import {IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
+import {IStakingAssetHandler} from "@aztec/mock/StakingAssetHandler.sol";
+import {AttesterView, Exit, Status, IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
 import {ProofVerificationParams} from "@zkpassport/ZKPassportVerifier.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
+import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 // solhint-disable comprehensive-interface
 // solhint-disable func-name-mixedcase
@@ -17,7 +17,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
   using stdStorage for StdStorage;
 
   address public unhinged = address(0xdead);
-  ProofVerificationParams private proof;
+  ProofVerificationParams private _proof;
 
   function setUp() public override {
     super.setUp();
@@ -34,8 +34,9 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     // If exiting, we need to create a sequencer that can be exited and exit it first.
     if (_isExiting) {
       vm.prank(unhinged);
-      stakingAssetHandler.addValidator(_attester, validMerkleProof, fakeProof);
-      staking.flushEntryQueue();
+      stakingAssetHandler.addValidator(
+        _attester, validMerkleProof, fakeProof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
+      );
 
       vm.prank(WITHDRAWER);
       staking.initiateWithdraw(_attester, address(this));
@@ -45,12 +46,13 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     }
 
     vm.prank(unhinged);
-    stakingAssetHandler.addValidator(_attester, validMerkleProof, fakeProof);
-    staking.flushEntryQueue();
+    stakingAssetHandler.addValidator(
+      _attester, validMerkleProof, fakeProof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
+    );
 
     AttesterView memory attesterView = staking.getAttesterView(_attester);
     assertEq(attesterView.config.withdrawer, WITHDRAWER);
-    assertEq(attesterView.effectiveBalance, DEPOSIT_AMOUNT);
+    assertEq(attesterView.effectiveBalance, ACTIVATION_THRESHOLD);
     assertTrue(attesterView.status == Status.VALIDATING);
   }
 
@@ -59,14 +61,14 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     _;
   }
 
-  modifier givenBalanceLTDepositamount() {
+  modifier givenBalanceLTactivationThreshold() {
     _;
   }
 
   function test_WhenInsufficientTimePassed(address _caller, address _attester)
     external
     whenCallerIsNotUnhinged(_caller)
-    givenBalanceLTDepositamount
+    givenBalanceLTactivationThreshold
     givenPassportProofIsValid
   {
     // it reverts
@@ -74,19 +76,17 @@ contract AddValidatorTest is StakingAssetHandlerBase {
 
     uint256 revertTimestamp = stakingAssetHandler.lastMintTimestamp() + mintInterval;
 
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        IStakingAssetHandler.ValidatorQuotaFilledUntil.selector, revertTimestamp
-      )
-    );
+    vm.expectRevert(abi.encodeWithSelector(IStakingAssetHandler.ValidatorQuotaFilledUntil.selector, revertTimestamp));
     vm.prank(_caller);
-    stakingAssetHandler.addValidator(_attester, validMerkleProof, realProof);
+    stakingAssetHandler.addValidator(
+      _attester, validMerkleProof, realProof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
+    );
   }
 
   function test_WhenSufficientTimePassed(address _caller, address _attester)
     external
     whenCallerIsNotUnhinged(_caller)
-    givenBalanceLTDepositamount
+    givenBalanceLTactivationThreshold
     givenPassportProofIsValid
   {
     // it adds the validator to the queue
@@ -102,68 +102,61 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     vm.warp(revertTimestamp);
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.ToppedUp(DEPOSIT_AMOUNT * depositsPerMint);
+    emit IStakingAssetHandler.ToppedUp(ACTIVATION_THRESHOLD * depositsPerMint);
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ValidatorAdded(address(staking), _attester, WITHDRAWER);
     vm.prank(_caller);
-    stakingAssetHandler.addValidator(_attester, validMerkleProof, realProof);
-
-    vm.prank(_caller);
-    staking.flushEntryQueue();
+    stakingAssetHandler.addValidator(
+      _attester, validMerkleProof, realProof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
+    );
 
     AttesterView memory attesterView = staking.getAttesterView(_attester);
     assertEq(attesterView.config.withdrawer, WITHDRAWER);
-    assertEq(attesterView.effectiveBalance, DEPOSIT_AMOUNT);
+    assertEq(attesterView.effectiveBalance, ACTIVATION_THRESHOLD);
     assertTrue(attesterView.status == Status.VALIDATING);
 
     assertEq(stakingAssetHandler.lastMintTimestamp(), block.timestamp);
   }
 
   modifier givenPassportProofIsValid() {
-    proof = realProof;
+    _proof = realProof;
 
     // Set the lastMintTimestamp to be the same as the current timestamp such that our proof will be valid
     // block.timestamp is overriden to be the time of the proof in ZKPassportBase constructor
-    stdstore.target(address(stakingAssetHandler)).sig("lastMintTimestamp()").checked_write(
-      block.timestamp
-    );
+    stdstore.target(address(stakingAssetHandler)).sig("lastMintTimestamp()").checked_write(block.timestamp);
     _;
   }
 
-  modifier givenBalanceGEDepositAmount() {
+  modifier givenBalanceGEactivationThreshold() {
     _;
   }
 
   function test_WhenUserIsNew(address _caller, address _attester)
     external
     whenCallerIsNotUnhinged(_caller)
-    givenBalanceGEDepositAmount
+    givenBalanceGEactivationThreshold
     givenPassportProofIsValid
   {
     // it exits the attester if needed
     // it deposits into the rollup
     // it emits a {ValidatorAdded} event
 
-    vm.assume(
-      _attester != address(0) && _caller != address(this) && _attester != address(this)
-        && _caller != unhinged
-    );
+    vm.assume(_attester != address(0) && _caller != address(this) && _attester != address(this) && _caller != unhinged);
     uint256 revertTimestamp = stakingAssetHandler.lastMintTimestamp() + mintInterval;
     vm.warp(revertTimestamp);
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.ToppedUp(DEPOSIT_AMOUNT * depositsPerMint);
+    emit IStakingAssetHandler.ToppedUp(ACTIVATION_THRESHOLD * depositsPerMint);
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ValidatorAdded(address(staking), _attester, WITHDRAWER);
     vm.prank(_caller);
-    stakingAssetHandler.addValidator(_attester, validMerkleProof, proof);
-
-    vm.prank(_caller);
-    staking.flushEntryQueue();
+    stakingAssetHandler.addValidator(
+      _attester, validMerkleProof, _proof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
+    );
 
     AttesterView memory attesterView = staking.getAttesterView(_attester);
     assertEq(attesterView.config.withdrawer, WITHDRAWER);
-    assertEq(attesterView.effectiveBalance, DEPOSIT_AMOUNT);
+    assertEq(attesterView.effectiveBalance, ACTIVATION_THRESHOLD);
     assertTrue(attesterView.status == Status.VALIDATING);
 
     assertEq(stakingAssetHandler.lastMintTimestamp(), block.timestamp);
@@ -172,14 +165,11 @@ contract AddValidatorTest is StakingAssetHandlerBase {
   function test_WhenPassportProofHasBeenUsed(address _caller, address _attester)
     external
     whenCallerIsNotUnhinged(_caller)
-    givenBalanceGEDepositAmount
+    givenBalanceGEactivationThreshold
     givenPassportProofIsValid
   {
     // it reverts
-    vm.assume(
-      _attester != address(0) && _caller != address(this) && _attester != address(this)
-        && _caller != unhinged
-    );
+    vm.assume(_attester != address(0) && _caller != address(this) && _attester != address(this) && _caller != unhinged);
 
     stakingAssetHandler.setDepositsPerMint(10);
 
@@ -189,44 +179,47 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ValidatorAdded(address(staking), _attester, WITHDRAWER);
     vm.prank(_caller);
-    stakingAssetHandler.addValidator(_attester, validMerkleProof, proof);
+    stakingAssetHandler.addValidator(
+      _attester, validMerkleProof, _proof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
+    );
 
-    uint256 uniqueIdentifierLocation = proof.publicInputs.length - 16 - 1;
+    uint256 uniqueIdentifierLocation = _proof.publicInputs.length - 1;
     vm.expectRevert(
-      abi.encodeWithSelector(
-        IStakingAssetHandler.SybilDetected.selector, proof.publicInputs[uniqueIdentifierLocation]
-      )
+      abi.encodeWithSelector(IStakingAssetHandler.SybilDetected.selector, _proof.publicInputs[uniqueIdentifierLocation])
     );
     // Call from somebody else
     vm.prank(_caller);
-    stakingAssetHandler.addValidator(_attester, validMerkleProof, proof);
+    stakingAssetHandler.addValidator(
+      _attester, validMerkleProof, _proof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
+    );
   }
 
   function test_WhenPassportProofIsInDevMode(address _caller, address _attester)
     external
     whenCallerIsNotUnhinged(_caller)
-    givenBalanceGEDepositAmount
+    givenBalanceGEactivationThreshold
     givenPassportProofIsValid
   {
     // it reverts
-    proof.devMode = true;
+    _proof.devMode = true;
 
     vm.assume(
-      _attester != address(0) && _caller != address(this) && _attester != address(this)
-        && _attester != unhinged
+      _attester != address(0) && _caller != address(this) && _attester != address(this) && _attester != unhinged
     );
     uint256 revertTimestamp = block.timestamp + mintInterval;
     vm.warp(revertTimestamp);
 
     vm.expectRevert(abi.encodeWithSelector(IStakingAssetHandler.InvalidProof.selector));
     vm.prank(_caller);
-    stakingAssetHandler.addValidator(_attester, validMerkleProof, proof);
+    stakingAssetHandler.addValidator(
+      _attester, validMerkleProof, _proof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
+    );
   }
 
   function test_WhenPassportProofIsInThePast(address _caller, uint16 _daysInFuture)
     external
     whenCallerIsNotUnhinged(_caller)
-    givenBalanceGEDepositAmount
+    givenBalanceGEactivationThreshold
     givenPassportProofIsValid
   {
     // it reverts
@@ -241,6 +234,61 @@ contract AddValidatorTest is StakingAssetHandlerBase {
 
     vm.expectRevert("Proof expired or date is invalid");
     vm.prank(_caller);
-    stakingAssetHandler.addValidator(attester, validMerkleProof, proof);
+    stakingAssetHandler.addValidator(
+      attester, validMerkleProof, _proof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
+    );
+  }
+
+  function test_WhenFlushEntryQueueReverts(address _caller, address _attester)
+    external
+    whenCallerIsNotUnhinged(_caller)
+    givenBalanceGEactivationThreshold
+    givenPassportProofIsValid
+  {
+    // it deposits into the rollup
+    // it emits a {ValidatorAdded} event
+    // it does not revert even though flushEntryQueue reverts
+    // it shows the validator was added to the queue
+
+    vm.assume(_attester != address(0) && _caller != address(this) && _attester != address(this) && _caller != unhinged);
+
+    uint256 revertTimestamp = stakingAssetHandler.lastMintTimestamp() + mintInterval;
+    vm.warp(revertTimestamp);
+
+    // Mock flushEntryQueue to revert
+    vm.mockCallRevert(
+      address(staking),
+      abi.encodeWithSelector(IStakingCore.flushEntryQueue.selector),
+      bytes(string("flushEntryQueue failed"))
+    );
+
+    uint256 queueLengthBefore = staking.getEntryQueueLength();
+
+    vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
+    emit IStakingAssetHandler.ToppedUp(ACTIVATION_THRESHOLD * depositsPerMint);
+    vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
+    emit IStakingAssetHandler.ValidatorAdded(address(staking), _attester, WITHDRAWER);
+    vm.prank(_caller);
+    stakingAssetHandler.addValidator(
+      _attester, validMerkleProof, _proof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
+    );
+
+    // Validator should be added to the queue
+    assertEq(staking.getEntryQueueLength(), queueLengthBefore + 1, "validator should be in queue");
+
+    // Validator should not be active yet since flushEntryQueue failed
+    AttesterView memory attesterView = staking.getAttesterView(_attester);
+    assertEq(attesterView.effectiveBalance, 0, "validator should not be active yet");
+    assertTrue(attesterView.status == Status.NONE, "validator should not be active yet");
+
+    // Clear the mock and manually flush the queue to verify the validator can be processed
+    vm.clearMockedCalls();
+    staking.flushEntryQueue();
+
+    // Now validator should be active
+    attesterView = staking.getAttesterView(_attester);
+    assertEq(attesterView.config.withdrawer, WITHDRAWER);
+    assertEq(attesterView.effectiveBalance, ACTIVATION_THRESHOLD);
+    assertTrue(attesterView.status == Status.VALIDATING);
   }
 }

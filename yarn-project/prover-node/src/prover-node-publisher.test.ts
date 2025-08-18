@@ -138,9 +138,18 @@ describe('prover-node-publisher', () => {
       rollup.getBlock.mockImplementation((blockNumber: bigint) =>
         Promise.resolve({
           archive: blocks[Number(blockNumber) - 1].endArchiveRoot.toString(),
+          attestationsHash: '0x', // unused,
+          payloadDigest: '0x', // unused,
           headerHash: '0x', // unused,
           blobCommitmentsHash: '0x', // unused,
           slotNumber: 0n, // unused,
+          feeHeader: {
+            excessMana: 0n, // unused
+            manaUsed: 0n, // unused
+            feeAssetPriceNumerator: 0n, // unused
+            congestionCost: 0n, // unused
+            proverCost: 0n, // unused
+          },
         }),
       );
 
@@ -170,6 +179,7 @@ describe('prover-node-publisher', () => {
           publicInputs: ourPublicInputs,
           proof: Proof.empty(),
           batchedBlobInputs: ourBatchedBlob,
+          attestations: [],
         })
         .then(() => 'Success')
         .catch(error => error.message);

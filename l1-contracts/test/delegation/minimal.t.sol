@@ -15,6 +15,7 @@ import {IGovernance} from "@aztec/governance/interfaces/IGovernance.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
 import {Fakerollup} from "../governance/governance-proposer/mocks/Fakerollup.sol";
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
+import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 struct Timestamps {
   uint256 ts1;
@@ -31,15 +32,15 @@ struct Timestamps {
 contract MinimalDelegationTest is GSEBase {
   using stdStorage for StdStorage;
 
-  address canonical;
-  uint256 depositAmount;
+  address bonus;
+  uint256 activationThreshold;
 
   function setUp() public override {
     super.setUp();
-    canonical = gse.getCanonicalMagicAddress();
-    depositAmount = ROLLUP.getDepositAmount();
+    bonus = gse.getBonusInstanceAddress();
+    activationThreshold = ROLLUP.getActivationThreshold();
 
-    vm.label(canonical, "canonical");
+    vm.label(bonus, "bonus");
   }
 
   function test_votingPower(bool _overwriteDelay, bool _claim, bool _updateRegistry) public {
@@ -50,13 +51,10 @@ contract MinimalDelegationTest is GSEBase {
     uint256 proposalId = governance.propose(IPayload(address(ROLLUP))); // Useless payload, just to get it in there.
 
     // Fake it till you make it
-    stdstore.target(proposer).sig("getProposalProposer(uint256)").with_key(proposalId).checked_write(
-      address(ROLLUP)
-    );
+    stdstore.target(proposer).sig("getProposalProposer(uint256)").with_key(proposalId).checked_write(address(ROLLUP));
     assertEq(GovernanceProposer(proposer).getProposalProposer(proposalId), address(ROLLUP));
 
-    uint256 votingTime =
-      Timestamp.unwrap(ProposalLib.pendingThroughMemory(governance.getProposal(0)));
+    uint256 votingTime = Timestamp.unwrap(ProposalLib.pendingThroughMemory(governance.getProposal(0)));
 
     Timestamps memory ts;
 
@@ -71,39 +69,37 @@ contract MinimalDelegationTest is GSEBase {
     ts.ts7 = ts.ts6 + EPOCH_DURATION_SECONDS;
 
     // Lets start
-    assertEq(gse.getVotingPower(canonical), 0, "votingPowerCanonical");
+    assertEq(gse.getVotingPower(bonus), 0, "votingPowerCanonical");
 
-    help__deposit(ATTESTER1, WITHDRAWER, true);
+    help__deposit(ATTESTER1, WITHDRAWER, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), true);
 
     vm.warp(ts.ts2);
 
-    help__deposit(ATTESTER2, WITHDRAWER, false);
+    help__deposit(ATTESTER2, WITHDRAWER, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), false);
 
     vm.warp(ts.ts3);
 
-    help__deposit(WITHDRAWER, WITHDRAWER, true);
+    help__deposit(WITHDRAWER, WITHDRAWER, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), true);
 
     vm.warp(ts.ts4);
 
-    _checkInstanceCanonical(address(ROLLUP), 0, depositAmount, Timestamp.wrap(ts.ts1));
-    _checkInstanceCanonical(address(ROLLUP), depositAmount, depositAmount, Timestamp.wrap(ts.ts2));
-    _checkInstanceCanonical(
-      address(ROLLUP), depositAmount, depositAmount * 2, Timestamp.wrap(ts.ts3)
-    );
+    _checkInstanceCanonical(address(ROLLUP), 0, activationThreshold, Timestamp.wrap(ts.ts1));
+    _checkInstanceCanonical(address(ROLLUP), activationThreshold, activationThreshold, Timestamp.wrap(ts.ts2));
+    _checkInstanceCanonical(address(ROLLUP), activationThreshold, activationThreshold * 2, Timestamp.wrap(ts.ts3));
 
     assertEq(gse.getVotingPower(ATTESTER1), 0, "voting power user");
     assertEq(gse.getVotingPower(ATTESTER2), 0, "voting power user");
     assertEq(gse.getVotingPower(WITHDRAWER), 0, "voting power user");
 
     vm.prank(WITHDRAWER);
-    gse.delegate(canonical, ATTESTER1, WITHDRAWER);
+    gse.delegate(bonus, ATTESTER1, WITHDRAWER);
 
     vm.warp(ts.ts5);
 
     Fakerollup dead = new Fakerollup();
     vm.label(address(dead), "fake rollup");
 
-    // From the view of the GSE we make a new version canonical.
+    // From the view of the GSE we make a new version latest.
     // Beware that the registry don't have the same, and that we are abusing this
     // since the governance proposer still believe the old rollup is canonical
     // This setup is contrived, but let us test a lot very concisely.
@@ -119,50 +115,48 @@ contract MinimalDelegationTest is GSEBase {
 
     vm.warp(ts.ts6);
 
-    assertEq(governance.totalPowerAt(Timestamp.wrap(ts.ts6)), depositAmount * 3);
+    assertEq(governance.totalPowerAt(Timestamp.wrap(ts.ts6)), activationThreshold * 3);
 
     if (_overwriteDelay) {
-      stdstore.target(address(ROLLUP)).sig("getExitDelay()").checked_write(5);
+      stdstore.enable_packed_slots().target(address(ROLLUP)).sig("getExitDelay()").checked_write(5);
     }
 
     vm.prank(WITHDRAWER);
     ROLLUP.initiateWithdraw(ATTESTER2, WITHDRAWER);
 
-    assertEq(governance.totalPowerAt(Timestamp.wrap(ts.ts6)), depositAmount * 2);
+    assertEq(governance.totalPowerAt(Timestamp.wrap(ts.ts6)), activationThreshold * 2);
 
     vm.warp(ts.ts7);
 
     // Check power at different points in time.
-    _checkInstanceCanonical(address(ROLLUP), 0, depositAmount, Timestamp.wrap(ts.ts1));
+    _checkInstanceCanonical(address(ROLLUP), 0, activationThreshold, Timestamp.wrap(ts.ts1));
     _checkInstanceNonCanonical(address(dead), 0, Timestamp.wrap(ts.ts1));
 
-    _checkInstanceCanonical(address(ROLLUP), depositAmount, depositAmount, Timestamp.wrap(ts.ts2));
+    _checkInstanceCanonical(address(ROLLUP), activationThreshold, activationThreshold, Timestamp.wrap(ts.ts2));
     _checkInstanceNonCanonical(address(dead), 0, Timestamp.wrap(ts.ts2));
 
-    _checkInstanceCanonical(
-      address(ROLLUP), depositAmount, depositAmount * 2, Timestamp.wrap(ts.ts3)
-    );
+    _checkInstanceCanonical(address(ROLLUP), activationThreshold, activationThreshold * 2, Timestamp.wrap(ts.ts3));
     _checkInstanceNonCanonical(address(dead), 0, Timestamp.wrap(ts.ts3));
 
-    _checkInstanceCanonical(address(ROLLUP), depositAmount, depositAmount, Timestamp.wrap(ts.ts4));
+    _checkInstanceCanonical(address(ROLLUP), activationThreshold, activationThreshold, Timestamp.wrap(ts.ts4));
     _checkInstanceNonCanonical(address(dead), 0, Timestamp.wrap(ts.ts4));
 
-    _checkInstanceNonCanonical(address(ROLLUP), depositAmount, Timestamp.wrap(ts.ts5));
-    _checkInstanceCanonical(address(dead), 0, depositAmount, Timestamp.wrap(ts.ts5));
+    _checkInstanceNonCanonical(address(ROLLUP), activationThreshold, Timestamp.wrap(ts.ts5));
+    _checkInstanceCanonical(address(dead), 0, activationThreshold, Timestamp.wrap(ts.ts5));
 
     _checkInstanceNonCanonical(address(ROLLUP), 0, Timestamp.wrap(ts.ts6));
-    _checkInstanceCanonical(address(dead), 0, depositAmount, Timestamp.wrap(ts.ts6));
+    _checkInstanceCanonical(address(dead), 0, activationThreshold, Timestamp.wrap(ts.ts6));
 
-    assertEq(gse.getVotingPower(WITHDRAWER), depositAmount, "voting power user");
+    assertEq(gse.getVotingPower(WITHDRAWER), activationThreshold, "voting power user");
 
     // Voting
     _checkPowerUsed(WITHDRAWER, 0, 0, votingTime);
-    _checkPowerUsed(address(ROLLUP), 0, depositAmount, votingTime);
-    _checkPowerUsed(canonical, 0, depositAmount * 2, votingTime);
+    _checkPowerUsed(address(ROLLUP), 0, activationThreshold, votingTime);
+    _checkPowerUsed(bonus, 0, activationThreshold * 2, votingTime);
 
     // Checking extra here just for sanity
     uint256 powerToVoteSelf = gse.getVotingPowerAt(address(ROLLUP), Timestamp.wrap(votingTime));
-    assertEq(powerToVoteSelf, depositAmount, "powerToVoteSelf");
+    assertEq(powerToVoteSelf, activationThreshold, "powerToVoteSelf");
 
     // We go to the rollup and have it vote.
     // If we did not update the registry, it and the governanceProposer still belive that the rollup is canonical
@@ -170,14 +164,12 @@ contract MinimalDelegationTest is GSEBase {
     // But if updated, we should instead break and explode!
 
     if (_updateRegistry) {
-      vm.expectRevert(
-        abi.encodeWithSelector(Errors.Staking__NotCanonical.selector, address(ROLLUP))
-      );
+      vm.expectRevert(abi.encodeWithSelector(Errors.Staking__NotCanonical.selector, address(ROLLUP)));
     } else {
       vm.expectEmit(true, true, true, true, address(governance));
-      emit IGovernance.VoteCast(proposalId, address(gse), true, depositAmount);
+      emit IGovernance.VoteCast(proposalId, address(gse), true, activationThreshold);
       vm.expectEmit(true, true, true, true, address(governance));
-      emit IGovernance.VoteCast(proposalId, address(gse), true, depositAmount * 2);
+      emit IGovernance.VoteCast(proposalId, address(gse), true, activationThreshold * 2);
     }
     ROLLUP.vote(proposalId);
 
@@ -187,34 +179,31 @@ contract MinimalDelegationTest is GSEBase {
     }
 
     assertEq(gse.getPowerUsed(WITHDRAWER, 0), 0, "power used");
-    assertEq(gse.getPowerUsed(address(ROLLUP), 0), depositAmount, "power used");
-    assertEq(gse.getPowerUsed(canonical, 0), depositAmount * 2, "power used");
+    assertEq(gse.getPowerUsed(address(ROLLUP), 0), activationThreshold, "power used");
+    assertEq(gse.getPowerUsed(bonus, 0), activationThreshold * 2, "power used");
 
     // Make sure we cannot double vote. Here we just bypass and try to make the rollup do it directly.
     vm.prank(address(ROLLUP));
     vm.expectRevert(
       abi.encodeWithSelector(
-        GovErrors.Delegation__InsufficientPower.selector,
-        address(ROLLUP),
-        depositAmount,
-        depositAmount * 2
+        GovErrors.Delegation__InsufficientPower.selector, address(ROLLUP), activationThreshold, activationThreshold * 2
       )
     );
     gse.vote(proposalId, powerToVoteSelf, true);
 
-    // Now make the same checks but with the canonical
-    powerToVoteSelf = gse.getVotingPowerAt(canonical, Timestamp.wrap(votingTime));
-    assertEq(powerToVoteSelf, depositAmount * 2, "powerToVoteSelf");
+    // Now make the same checks but with the bonus instance
+    powerToVoteSelf = gse.getVotingPowerAt(bonus, Timestamp.wrap(votingTime));
+    assertEq(powerToVoteSelf, activationThreshold * 2, "powerToVoteSelf");
     vm.prank(address(ROLLUP));
     vm.expectRevert(
       abi.encodeWithSelector(
         GovErrors.Delegation__InsufficientPower.selector,
-        address(canonical),
-        depositAmount * 2,
-        depositAmount * 4
+        address(bonus),
+        activationThreshold * 2,
+        activationThreshold * 4
       )
     );
-    gse.voteWithCanonical(proposalId, powerToVoteSelf, true);
+    gse.voteWithBonus(proposalId, powerToVoteSelf, true);
 
     {
       // Finalise the exit. We are doing it down here because the timetravel messes with voting
@@ -235,38 +224,30 @@ contract MinimalDelegationTest is GSEBase {
     }
     ROLLUP.finaliseWithdraw(ATTESTER2);
 
-    assertEq(governance.totalPowerAt(Timestamp.wrap(block.timestamp)), depositAmount * 2);
-    assertEq(stakingAsset.balanceOf(WITHDRAWER), depositAmount);
+    assertEq(governance.totalPowerAt(Timestamp.wrap(block.timestamp)), activationThreshold * 2);
+    assertEq(stakingAsset.balanceOf(WITHDRAWER), activationThreshold);
 
-    assertEq(governance.getProposal(proposalId).summedBallot.yea, depositAmount * 3, "yeas");
-    assertEq(governance.getProposal(proposalId).summedBallot.nea, 0, "neas");
+    assertEq(governance.getProposal(proposalId).summedBallot.yea, activationThreshold * 3, "yeas");
+    assertEq(governance.getProposal(proposalId).summedBallot.nay, 0, "nays");
   }
 
-  function _checkPowerUsed(address _delegatee, uint256 _used, uint256 _power, uint256 _votingTime)
-    internal
-    view
-  {
+  function _checkPowerUsed(address _delegatee, uint256 _used, uint256 _power, uint256 _votingTime) internal view {
     uint256 proposalId = 0;
     assertEq(gse.getPowerUsed(_delegatee, proposalId), _used, "power used");
     assertEq(gse.getVotingPowerAt(_delegatee, Timestamp.wrap(_votingTime)), _power, "voting power");
   }
 
-  function _checkInstanceCanonical(
-    address _instance,
-    uint256 _specific,
-    uint256 _canonical,
-    Timestamp _ts
-  ) internal view {
-    assertEq(gse.getVotingPowerAt(canonical, _ts), _canonical, "voting power canonical");
-    assertEq(gse.getVotingPowerAt(_instance, _ts), _specific, "voting power specific");
-    assertEq(_instance, gse.getCanonicalAt(_ts), "instance != canonical");
-  }
-
-  function _checkInstanceNonCanonical(address _instance, uint256 _specific, Timestamp _ts)
+  function _checkInstanceCanonical(address _instance, uint256 _specific, uint256 _canonical, Timestamp _ts)
     internal
     view
   {
+    assertEq(gse.getVotingPowerAt(bonus, _ts), _canonical, "voting power bonus");
     assertEq(gse.getVotingPowerAt(_instance, _ts), _specific, "voting power specific");
-    assertNotEq(_instance, gse.getCanonicalAt(_ts), "instance == canonical");
+    assertEq(_instance, gse.getLatestRollupAt(_ts), "instance != bonus");
+  }
+
+  function _checkInstanceNonCanonical(address _instance, uint256 _specific, Timestamp _ts) internal view {
+    assertEq(gse.getVotingPowerAt(_instance, _ts), _specific, "voting power specific");
+    assertNotEq(_instance, gse.getLatestRollupAt(_ts), "instance == canonical");
   }
 }

@@ -1,4 +1,5 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { SlashingProposerAbi } from '@aztec/l1-artifacts/SlashingProposerAbi';
 
@@ -7,14 +8,15 @@ import {
   type EncodeFunctionDataParameters,
   type GetContractReturnType,
   type Hex,
+  type TypedDataDefinition,
   encodeFunctionData,
   getContract,
 } from 'viem';
 
 import type { L1TxRequest, L1TxUtils } from '../l1_tx_utils.js';
-import type { ExtendedViemWalletClient, ViemClient } from '../types.js';
+import type { ViemClient } from '../types.js';
 import { FormattedViemError } from '../utils.js';
-import { type IEmpireBase, encodeVote, encodeVoteWithSignature, signVoteWithSig } from './empire_base.js';
+import { type IEmpireBase, encodeSignal, encodeSignalWithSignature, signSignalWithSig } from './empire_base.js';
 
 export class ProposalAlreadyExecutedError extends Error {
   constructor(round: bigint) {
@@ -23,6 +25,7 @@ export class ProposalAlreadyExecutedError extends Error {
 }
 
 export class SlashingProposerContract extends EventEmitter implements IEmpireBase {
+  private readonly logger = createLogger('SlashingProposerContract');
   private readonly proposer: GetContractReturnType<typeof SlashingProposerAbi, ViemClient>;
 
   constructor(
@@ -38,11 +41,23 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
   }
 
   public getQuorumSize() {
-    return this.proposer.read.N();
+    return this.proposer.read.QUORUM_SIZE();
   }
 
   public getRoundSize() {
-    return this.proposer.read.M();
+    return this.proposer.read.ROUND_SIZE();
+  }
+
+  public getLifetimeInRounds() {
+    return this.proposer.read.LIFETIME_IN_ROUNDS();
+  }
+
+  public getExecutionDelayInRounds() {
+    return this.proposer.read.EXECUTION_DELAY_IN_ROUNDS();
+  }
+
+  public getCurrentRound() {
+    return this.proposer.read.getCurrentRound();
   }
 
   public computeRound(slot: bigint): Promise<bigint> {
@@ -56,40 +71,46 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
   public async getRoundInfo(
     rollupAddress: Hex,
     round: bigint,
-  ): Promise<{ lastVote: bigint; leader: Hex; executed: boolean }> {
+  ): Promise<{ lastSignalSlot: bigint; payloadWithMostSignals: Hex; executed: boolean }> {
     return await this.proposer.read.getRoundData([rollupAddress, round]);
   }
 
-  public getProposalVotes(rollupAddress: Hex, round: bigint, proposal: Hex): Promise<bigint> {
-    return this.proposer.read.yeaCount([rollupAddress, round, proposal]);
+  public getPayloadSignals(rollupAddress: Hex, round: bigint, payload: Hex): Promise<bigint> {
+    return this.proposer.read.signalCount([rollupAddress, round, payload]);
   }
 
-  public createVoteRequest(payload: Hex): L1TxRequest {
+  public createSignalRequest(payload: Hex): L1TxRequest {
     return {
       to: this.address.toString(),
-      data: encodeVote(payload),
+      data: encodeSignal(payload),
     };
   }
 
-  public async createVoteRequestWithSignature(payload: Hex, wallet: ExtendedViemWalletClient): Promise<L1TxRequest> {
-    const nonce = await this.getNonce(wallet.account.address);
-    const signature = await signVoteWithSig(wallet, payload, nonce, this.address.toString(), wallet.chain.id);
+  public async createSignalRequestWithSignature(
+    payload: Hex,
+    round: bigint,
+    chainId: number,
+    signerAddress: Hex,
+    signer: (msg: TypedDataDefinition) => Promise<Hex>,
+  ): Promise<L1TxRequest> {
+    const nonce = await this.getNonce(signerAddress);
+    const signature = await signSignalWithSig(signer, payload, nonce, round, this.address.toString(), chainId);
     return {
       to: this.address.toString(),
-      data: encodeVoteWithSignature(payload, signature),
+      data: encodeSignalWithSignature(payload, signature),
     };
   }
 
-  public listenToExecutableProposals(callback: (args: { proposal: `0x${string}`; round: bigint }) => unknown) {
-    return this.proposer.watchEvent.ProposalExecutable(
+  public listenToSubmittablePayloads(callback: (args: { payload: `0x${string}`; round: bigint }) => unknown) {
+    return this.proposer.watchEvent.PayloadSubmittable(
       {},
       {
         onLogs: logs => {
           for (const payload of logs) {
             const args = payload.args;
-            if (args.proposal && args.round) {
+            if (args.payload && args.round) {
               // why compiler can't figure it out? no one knows
-              callback(args as { proposal: `0x${string}`; round: bigint });
+              callback(args as { payload: `0x${string}`; round: bigint });
             }
           }
         },
@@ -97,15 +118,15 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
     );
   }
 
-  public listenToProposalExecuted(callback: (args: { round: bigint; proposal: `0x${string}` }) => unknown) {
-    return this.proposer.watchEvent.ProposalExecuted(
+  public listenToPayloadSubmitted(callback: (args: { round: bigint; payload: `0x${string}` }) => unknown) {
+    return this.proposer.watchEvent.PayloadSubmitted(
       {},
       {
         onLogs: logs => {
           for (const payload of logs) {
             const args = payload.args;
-            if (args.round && args.proposal) {
-              callback(args as { round: bigint; proposal: `0x${string}` });
+            if (args.round && args.payload) {
+              callback(args as { round: bigint; payload: `0x${string}` });
             }
           }
         },
@@ -113,16 +134,26 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
     );
   }
 
-  public waitForRound(round: bigint, pollingIntervalSeconds: number = 1) {
+  /**
+   * Wait for a round to be reached.
+   *
+   * @param round - The round to wait for.
+   * @param pollingIntervalSeconds - The interval in seconds to poll for the round.
+   * @returns True if the round was reached, false otherwise.
+   */
+  public waitForRound(round: bigint, pollingIntervalSeconds: number = 1): Promise<boolean> {
     return retryUntil(
       async () => {
-        const currentRound = await this.proposer.read.getCurrentRound();
-        return currentRound >= round;
+        const currentRound = await this.proposer.read.getCurrentRound().catch(e => {
+          this.logger.error('Error getting current round', e);
+          return undefined;
+        });
+        return currentRound !== undefined && currentRound >= round;
       },
       `Waiting for round ${round} to be reached`,
       0, // no timeout
       pollingIntervalSeconds,
-    );
+    ).catch(() => false);
   }
 
   public async executeRound(
@@ -132,9 +163,9 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
     if (typeof round === 'number') {
       round = BigInt(round);
     }
-    const args: EncodeFunctionDataParameters<typeof SlashingProposerAbi, 'executeProposal'> = {
+    const args: EncodeFunctionDataParameters<typeof SlashingProposerAbi, 'submitRoundWinner'> = {
       abi: SlashingProposerAbi,
-      functionName: 'executeProposal',
+      functionName: 'submitRoundWinner',
       args: [round],
     };
     const data = encodeFunctionData(args);
@@ -147,7 +178,7 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
         {
           // Gas estimation is way off for this, likely because we are creating the contract/selector to call
           // for the actual slashing dynamically.
-          gasLimitBufferPercentage: 1000,
+          gasLimitBufferPercentage: 50, // +50% gas
         },
       )
       .catch(err => {
@@ -170,7 +201,9 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
       if (error?.includes('ProposalAlreadyExecuted')) {
         throw new ProposalAlreadyExecutedError(round);
       }
-      const errorMessage = `Failed to execute round ${round}, TxHash: ${response.receipt.transactionHash}, Error: ${error ?? 'Unknown error'}`;
+      const errorMessage = `Failed to execute round ${round}, TxHash: ${response.receipt.transactionHash}, Error: ${
+        error ?? 'Unknown error'
+      }`;
       throw new Error(errorMessage);
     }
     return response;

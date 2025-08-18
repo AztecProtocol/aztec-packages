@@ -1,53 +1,10 @@
+import { SecretValue, getActiveNetworkName } from '@aztec/foundation/config';
+import { keccak256String } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import {
-  CoinIssuerAbi,
-  CoinIssuerBytecode,
-  ExtRollupLib2Abi,
-  ExtRollupLib2Bytecode,
-  ExtRollupLibAbi,
-  ExtRollupLibBytecode,
-  FeeAssetHandlerAbi,
-  FeeAssetHandlerBytecode,
-  FeeJuicePortalAbi,
-  FeeJuicePortalBytecode,
-  GSEAbi,
-  GSEBytecode,
-  GovernanceAbi,
-  GovernanceBytecode,
-  GovernanceProposerAbi,
-  GovernanceProposerBytecode,
-  HonkVerifierAbi,
-  HonkVerifierBytecode,
-  InboxAbi,
-  InboxBytecode,
-  MockVerifierAbi,
-  MockVerifierBytecode,
-  MockZKPassportVerifierAbi,
-  MockZKPassportVerifierBytecode,
-  MultiAdderAbi,
-  MultiAdderBytecode,
-  OutboxAbi,
-  OutboxBytecode,
-  RegisterNewRollupVersionPayloadAbi,
-  RegisterNewRollupVersionPayloadBytecode,
-  RegistryAbi,
-  RegistryBytecode,
-  RewardDistributorAbi,
-  RewardDistributorBytecode,
-  RollupAbi,
-  RollupBytecode,
-  RollupLinkReferences,
-  SlashFactoryAbi,
-  SlashFactoryBytecode,
-  StakingAssetHandlerAbi,
-  StakingAssetHandlerBytecode,
-  TestERC20Abi,
-  TestERC20Bytecode,
-  ValidatorSelectionLibAbi,
-  ValidatorSelectionLibBytecode,
-} from '@aztec/l1-artifacts';
+import { DateProvider } from '@aztec/foundation/timer';
 
 import type { Abi, Narrow } from 'abitype';
 import {
@@ -69,13 +26,34 @@ import { foundry } from 'viem/chains';
 import { isAnvilTestChain } from './chain.js';
 import { createExtendedL1Client } from './client.js';
 import {
-  DefaultEntryQueueConfig,
-  DefaultRewardBoostConfig,
-  DefaultRewardConfig,
   type L1ContractsConfig,
+  getEntryQueueConfig,
+  getGSEConfiguration,
+  getGovernanceConfiguration,
+  getRewardBoostConfig,
+  getRewardConfig,
 } from './config.js';
+import { GSEContract } from './contracts/gse.js';
+import { deployMulticall3 } from './contracts/multicall.js';
 import { RegistryContract } from './contracts/registry.js';
 import { RollupContract } from './contracts/rollup.js';
+import {
+  CoinIssuerArtifact,
+  FeeAssetArtifact,
+  FeeAssetHandlerArtifact,
+  GSEArtifact,
+  GovernanceArtifact,
+  GovernanceProposerArtifact,
+  MultiAdderArtifact,
+  RegisterNewRollupVersionPayloadArtifact,
+  RegistryArtifact,
+  RollupArtifact,
+  SlashFactoryArtifact,
+  StakingAssetArtifact,
+  StakingAssetHandlerArtifact,
+  l1ArtifactsVerifiers,
+  mockVerifiers,
+} from './l1_artifacts.js';
 import type { L1ContractAddresses } from './l1_contract_addresses.js';
 import {
   type GasPrice,
@@ -86,13 +64,17 @@ import {
   getL1TxUtilsConfigEnvVars,
 } from './l1_tx_utils.js';
 import type { ExtendedViemWalletClient } from './types.js';
-import { ZK_PASSPORT_SCOPE, ZK_PASSPORT_SUB_SCOPE, ZK_PASSPORT_VERIFIER_ADDRESS } from './zkPassportVerifierAddress.js';
+import { formatViemError } from './utils.js';
+import { ZK_PASSPORT_DOMAIN, ZK_PASSPORT_SCOPE, ZK_PASSPORT_VERIFIER_ADDRESS } from './zkPassportVerifierAddress.js';
 
 export const DEPLOYER_ADDRESS: Hex = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
+
+const networkName = getActiveNetworkName();
 
 export type Operator = {
   attester: EthAddress;
   withdrawer: EthAddress;
+  bn254SecretKey: SecretValue<bigint>;
 };
 
 /**
@@ -126,6 +108,10 @@ export interface Libraries {
  */
 export interface ContractArtifacts {
   /**
+   * The contract name.
+   */
+  name: string;
+  /**
    * The contract abi.
    */
   contractAbi: Narrow<Abi | readonly unknown[]>;
@@ -138,112 +124,6 @@ export interface ContractArtifacts {
    */
   libraries?: Libraries;
 }
-
-export const l1Artifacts = {
-  registry: {
-    contractAbi: RegistryAbi,
-    contractBytecode: RegistryBytecode as Hex,
-  },
-  inbox: {
-    contractAbi: InboxAbi,
-    contractBytecode: InboxBytecode as Hex,
-  },
-  outbox: {
-    contractAbi: OutboxAbi,
-    contractBytecode: OutboxBytecode as Hex,
-  },
-  rollup: {
-    contractAbi: RollupAbi,
-    contractBytecode: RollupBytecode as Hex,
-    libraries: {
-      linkReferences: RollupLinkReferences,
-      libraryCode: {
-        ValidatorSelectionLib: {
-          contractAbi: ValidatorSelectionLibAbi,
-          contractBytecode: ValidatorSelectionLibBytecode as Hex,
-        },
-        ExtRollupLib: {
-          contractAbi: ExtRollupLibAbi,
-          contractBytecode: ExtRollupLibBytecode as Hex,
-        },
-        ExtRollupLib2: {
-          contractAbi: ExtRollupLib2Abi,
-          contractBytecode: ExtRollupLib2Bytecode as Hex,
-        },
-      },
-    },
-  },
-  stakingAsset: {
-    contractAbi: TestERC20Abi,
-    contractBytecode: TestERC20Bytecode as Hex,
-  },
-  feeAsset: {
-    contractAbi: TestERC20Abi,
-    contractBytecode: TestERC20Bytecode as Hex,
-  },
-  feeJuicePortal: {
-    contractAbi: FeeJuicePortalAbi,
-    contractBytecode: FeeJuicePortalBytecode as Hex,
-  },
-  rewardDistributor: {
-    contractAbi: RewardDistributorAbi,
-    contractBytecode: RewardDistributorBytecode as Hex,
-  },
-  coinIssuer: {
-    contractAbi: CoinIssuerAbi,
-    contractBytecode: CoinIssuerBytecode as Hex,
-  },
-  governanceProposer: {
-    contractAbi: GovernanceProposerAbi,
-    contractBytecode: GovernanceProposerBytecode as Hex,
-  },
-  governance: {
-    contractAbi: GovernanceAbi,
-    contractBytecode: GovernanceBytecode as Hex,
-  },
-  slashFactory: {
-    contractAbi: SlashFactoryAbi,
-    contractBytecode: SlashFactoryBytecode as Hex,
-  },
-  registerNewRollupVersionPayload: {
-    contractAbi: RegisterNewRollupVersionPayloadAbi,
-    contractBytecode: RegisterNewRollupVersionPayloadBytecode as Hex,
-  },
-  feeAssetHandler: {
-    contractAbi: FeeAssetHandlerAbi,
-    contractBytecode: FeeAssetHandlerBytecode as Hex,
-  },
-  stakingAssetHandler: {
-    contractAbi: StakingAssetHandlerAbi,
-    contractBytecode: StakingAssetHandlerBytecode as Hex,
-  },
-  multiAdder: {
-    contractAbi: MultiAdderAbi,
-    contractBytecode: MultiAdderBytecode as Hex,
-  },
-  gse: {
-    contractAbi: GSEAbi,
-    contractBytecode: GSEBytecode as Hex,
-  },
-};
-
-export const l1ArtifactsVerifiers = {
-  honkVerifier: {
-    contractAbi: HonkVerifierAbi,
-    contractBytecode: HonkVerifierBytecode as Hex,
-  },
-};
-
-const mockVerifiers = {
-  mockVerifier: {
-    contractAbi: MockVerifierAbi,
-    contractBytecode: MockVerifierBytecode as Hex,
-  },
-  mockZkPassportVerifier: {
-    contractAbi: MockZKPassportVerifierAbi,
-    contractBytecode: MockZKPassportVerifierBytecode as Hex,
-  },
-};
 
 export interface DeployL1ContractsArgs extends L1ContractsConfig {
   /** The vk tree root. */
@@ -271,10 +151,10 @@ export interface DeployL1ContractsArgs extends L1ContractsConfig {
 export interface ZKPassportArgs {
   /** Whether to use the mock zk passport verifier */
   mockZkPassportVerifier?: boolean;
-  /** The scope of the zk passport - domain (url) */
+  /** The domain of the zk passport (url) */
+  zkPassportDomain?: string;
+  /** The scope of the zk passport (personhood, etc) */
   zkPassportScope?: string;
-  /** The sub-scope of the zk passport - domain seperator (personhood, etc) */
-  zkPassportSubScope?: string;
 }
 
 export const deploySharedContracts = async (
@@ -283,35 +163,41 @@ export const deploySharedContracts = async (
   args: DeployL1ContractsArgs,
   logger: Logger,
 ) => {
+  logger.info(`Deploying shared contracts for network configration: ${networkName}`);
+
   const txHashes: Hex[] = [];
 
-  const feeAssetAddress = await deployer.deploy(l1Artifacts.feeAsset, [
+  const feeAssetAddress = await deployer.deploy(FeeAssetArtifact, [
     'FeeJuice',
     'FEE',
     l1Client.account.address.toString(),
   ]);
   logger.verbose(`Deployed Fee Asset at ${feeAssetAddress}`);
 
-  const stakingAssetAddress = await deployer.deploy(l1Artifacts.stakingAsset, [
+  const stakingAssetAddress = await deployer.deploy(StakingAssetArtifact, [
     'Staking',
     'STK',
     l1Client.account.address.toString(),
   ]);
   logger.verbose(`Deployed Staking Asset at ${stakingAssetAddress}`);
 
-  const gseAddress = await deployer.deploy(l1Artifacts.gse, [
+  const gseConfiguration = getGSEConfiguration(networkName);
+
+  const gseAddress = await deployer.deploy(GSEArtifact, [
     l1Client.account.address.toString(),
     stakingAssetAddress.toString(),
+    gseConfiguration.activationThreshold,
+    gseConfiguration.ejectionThreshold,
   ]);
   logger.verbose(`Deployed GSE at ${gseAddress}`);
 
-  const registryAddress = await deployer.deploy(l1Artifacts.registry, [
+  const registryAddress = await deployer.deploy(RegistryArtifact, [
     l1Client.account.address.toString(),
     feeAssetAddress.toString(),
   ]);
   logger.verbose(`Deployed Registry at ${registryAddress}`);
 
-  const governanceProposerAddress = await deployer.deploy(l1Artifacts.governanceProposer, [
+  const governanceProposerAddress = await deployer.deploy(GovernanceProposerArtifact, [
     registryAddress.toString(),
     gseAddress.toString(),
     args.governanceProposerQuorum,
@@ -321,10 +207,11 @@ export const deploySharedContracts = async (
 
   // @note @LHerskind the assets are expected to be the same at some point, but for better
   // configurability they are different for now.
-  const governanceAddress = await deployer.deploy(l1Artifacts.governance, [
+  const governanceAddress = await deployer.deploy(GovernanceArtifact, [
     stakingAssetAddress.toString(),
     governanceProposerAddress.toString(),
     gseAddress.toString(),
+    getGovernanceConfiguration(networkName),
   ]);
   logger.verbose(`Deployed Governance at ${governanceAddress}`);
 
@@ -336,7 +223,7 @@ export const deploySharedContracts = async (
   } else {
     const gseContract = getContract({
       address: getAddress(gseAddress.toString()),
-      abi: l1Artifacts.gse.contractAbi,
+      abi: GSEArtifact.contractAbi,
       client: l1Client,
     });
     const existingGovernance = await gseContract.read.getGovernance();
@@ -350,7 +237,7 @@ export const deploySharedContracts = async (
       {
         to: gseAddress.toString(),
         data: encodeFunctionData({
-          abi: l1Artifacts.gse.contractAbi,
+          abi: GSEArtifact.contractAbi,
           functionName: 'setGovernance',
           args: [governanceAddress.toString()],
         }),
@@ -362,7 +249,7 @@ export const deploySharedContracts = async (
     txHashes.push(txHash);
   }
 
-  const coinIssuerAddress = await deployer.deploy(l1Artifacts.coinIssuer, [
+  const coinIssuerAddress = await deployer.deploy(CoinIssuerArtifact, [
     feeAssetAddress.toString(),
     1n * 10n ** 18n, // @todo  #8084
     governanceAddress.toString(),
@@ -371,7 +258,7 @@ export const deploySharedContracts = async (
 
   const feeAsset = getContract({
     address: feeAssetAddress.toString(),
-    abi: l1Artifacts.feeAsset.contractAbi,
+    abi: FeeAssetArtifact.contractAbi,
     client: l1Client,
   });
 
@@ -383,7 +270,7 @@ export const deploySharedContracts = async (
       {
         to: feeAssetAddress.toString(),
         data: encodeFunctionData({
-          abi: l1Artifacts.feeAsset.contractAbi,
+          abi: FeeAssetArtifact.contractAbi,
           functionName: 'addMinter',
           args: [coinIssuerAddress.toString()],
         }),
@@ -394,16 +281,7 @@ export const deploySharedContracts = async (
     txHashes.push(txHash);
   }
 
-  const { txHash: setGovernanceTxHash } = await deployer.sendTransaction({
-    to: registryAddress.toString(),
-    data: encodeFunctionData({
-      abi: l1Artifacts.registry.contractAbi,
-      functionName: 'updateGovernance',
-      args: [governanceAddress.toString()],
-    }),
-  });
-
-  txHashes.push(setGovernanceTxHash);
+  // Registry ownership will be transferred to governance later, after rollup is added
 
   let feeAssetHandlerAddress: EthAddress | undefined = undefined;
   let stakingAssetHandlerAddress: EthAddress | undefined = undefined;
@@ -415,7 +293,7 @@ export const deploySharedContracts = async (
     /*                          CHEAT CODES START HERE                            */
     /* -------------------------------------------------------------------------- */
 
-    feeAssetHandlerAddress = await deployer.deploy(l1Artifacts.feeAssetHandler, [
+    feeAssetHandlerAddress = await deployer.deploy(FeeAssetHandlerArtifact, [
       l1Client.account.address,
       feeAssetAddress.toString(),
       BigInt(1e18),
@@ -425,7 +303,7 @@ export const deploySharedContracts = async (
     const { txHash } = await deployer.sendTransaction({
       to: feeAssetAddress.toString(),
       data: encodeFunctionData({
-        abi: l1Artifacts.feeAsset.contractAbi,
+        abi: FeeAssetArtifact.contractAbi,
         functionName: 'addMinter',
         args: [feeAssetHandlerAddress.toString()],
       }),
@@ -438,7 +316,7 @@ export const deploySharedContracts = async (
     if ([11155111, foundry.id].includes(l1Client.chain.id)) {
       const AMIN = EthAddress.fromString('0x3b218d0F26d15B36C715cB06c949210a0d630637');
       zkPassportVerifierAddress = await getZkPassportVerifierAddress(deployer, args);
-      const [scope, subscope] = getZkPassportScopes(args);
+      const [domain, scope] = getZkPassportScopes(args);
 
       const stakingAssetHandlerDeployArgs = {
         owner: l1Client.account.address,
@@ -451,22 +329,20 @@ export const deploySharedContracts = async (
         zkPassportVerifier: zkPassportVerifierAddress.toString(),
         unhinged: [AMIN.toString()], // isUnhinged,
         // Scopes
+        domain: domain,
         scope: scope,
-        subscope: subscope,
         // Skip checks
         skipBindCheck: args.zkPassportArgs?.mockZkPassportVerifier ?? false,
         skipMerkleCheck: true, // skip merkle check - needed for testing without generating proofs
       };
 
-      stakingAssetHandlerAddress = await deployer.deploy(l1Artifacts.stakingAssetHandler, [
-        stakingAssetHandlerDeployArgs,
-      ]);
+      stakingAssetHandlerAddress = await deployer.deploy(StakingAssetHandlerArtifact, [stakingAssetHandlerDeployArgs]);
       logger.verbose(`Deployed StakingAssetHandler at ${stakingAssetHandlerAddress}`);
 
       const { txHash: stakingMinterTxHash } = await deployer.sendTransaction({
         to: stakingAssetAddress.toString(),
         data: encodeFunctionData({
-          abi: l1Artifacts.stakingAsset.contractAbi,
+          abi: StakingAssetArtifact.contractAbi,
           functionName: 'addMinter',
           args: [stakingAssetHandlerAddress.toString()],
         }),
@@ -496,19 +372,13 @@ export const deploySharedContracts = async (
 
   const rewardDistributorAddress = await registry.getRewardDistributor();
 
-  const rewardDistributor = getContract({
-    address: rewardDistributorAddress.toString(),
-    abi: l1Artifacts.rewardDistributor.contractAbi,
-    client: l1Client,
-  });
-
-  const blockReward = await rewardDistributor.read.BLOCK_REWARD();
+  const blockReward = getRewardConfig(networkName).blockReward;
 
   const funding = blockReward * 200000n;
   const { txHash: fundRewardDistributorTxHash } = await deployer.sendTransaction({
     to: feeAssetAddress.toString(),
     data: encodeFunctionData({
-      abi: l1Artifacts.feeAsset.contractAbi,
+      abi: FeeAssetArtifact.contractAbi,
       functionName: 'mint',
       args: [rewardDistributorAddress.toString(), funding],
     }),
@@ -548,9 +418,9 @@ const getZkPassportVerifierAddress = async (deployer: L1Deployer, args: DeployL1
  * @returns The zk passport scopes
  */
 const getZkPassportScopes = (args: DeployL1ContractsArgs): [string, string] => {
+  const domain = args.zkPassportArgs?.zkPassportDomain ?? ZK_PASSPORT_DOMAIN;
   const scope = args.zkPassportArgs?.zkPassportScope ?? ZK_PASSPORT_SCOPE;
-  const subscope = args.zkPassportArgs?.zkPassportSubScope ?? ZK_PASSPORT_SUB_SCOPE;
-  return [scope, subscope];
+  return [domain, scope];
 };
 
 /**
@@ -565,13 +435,20 @@ export const deployRollupForUpgrade = async (
   extendedClient: ExtendedViemWalletClient,
   args: Omit<
     DeployL1ContractsArgs,
-    'governanceProposerQuorum' | 'governanceProposerRoundSize' | 'minimumStake' | 'depositAmount'
+    'governanceProposerQuorum' | 'governanceProposerRoundSize' | 'ejectionThreshold' | 'activationThreshold'
   >,
   registryAddress: EthAddress,
   logger: Logger,
   txUtilsConfig: L1TxUtilsConfig,
 ) => {
-  const deployer = new L1Deployer(extendedClient, args.salt, args.acceleratedTestDeployments, logger, txUtilsConfig);
+  const deployer = new L1Deployer(
+    extendedClient,
+    args.salt,
+    undefined,
+    args.acceleratedTestDeployments,
+    logger,
+    txUtilsConfig,
+  );
 
   const addresses = await RegistryContract.collectAddresses(extendedClient, registryAddress, 'canonical');
 
@@ -583,7 +460,7 @@ export const deployRollupForUpgrade = async (
 };
 
 export const deploySlashFactory = async (deployer: L1Deployer, rollupAddress: Hex, logger: Logger) => {
-  const slashFactoryAddress = await deployer.deploy(l1Artifacts.slashFactory, [rollupAddress]);
+  const slashFactoryAddress = await deployer.deploy(SlashFactoryArtifact, [rollupAddress]);
   logger.verbose(`Deployed SlashFactory at ${slashFactoryAddress}`);
   return slashFactoryAddress;
 };
@@ -592,7 +469,7 @@ export const deployUpgradePayload = async (
   deployer: L1Deployer,
   addresses: Pick<L1ContractAddresses, 'registryAddress' | 'rollupAddress'>,
 ) => {
-  const payloadAddress = await deployer.deploy(l1Artifacts.registerNewRollupVersionPayload, [
+  const payloadAddress = await deployer.deploy(RegisterNewRollupVersionPayloadArtifact, [
     addresses.registryAddress.toString(),
     addresses.rollupAddress.toString(),
   ]);
@@ -608,7 +485,7 @@ export const deployRollup = async (
   deployer: L1Deployer,
   args: Omit<
     DeployL1ContractsArgs,
-    'governanceProposerQuorum' | 'governanceProposerRoundSize' | 'minimumStake' | 'depositAmount'
+    'governanceProposerQuorum' | 'governanceProposerRoundSize' | 'ejectionThreshold' | 'activationThreshold'
   >,
   addresses: Pick<
     L1ContractAddresses,
@@ -619,6 +496,8 @@ export const deployRollup = async (
   if (!addresses.gseAddress) {
     throw new Error('GSE address is required when deploying');
   }
+
+  logger.info(`Deploying rollup using network configuration: ${networkName}`);
 
   const txHashes: Hex[] = [];
 
@@ -633,7 +512,7 @@ export const deployRollup = async (
   }
 
   const rewardConfig = {
-    ...DefaultRewardConfig,
+    ...getRewardConfig(networkName),
     rewardDistributor: addresses.rewardDistributorAddress.toString(),
   };
 
@@ -644,18 +523,33 @@ export const deployRollup = async (
     aztecProofSubmissionEpochs: args.aztecProofSubmissionEpochs,
     slashingQuorum: args.slashingQuorum,
     slashingRoundSize: args.slashingRoundSize,
+    slashingLifetimeInRounds: args.slashingLifetimeInRounds,
+    slashingExecutionDelayInRounds: args.slashingExecutionDelayInRounds,
+    slashingVetoer: args.slashingVetoer.toString(),
     manaTarget: args.manaTarget,
-    entryQueueFlushSizeMin: DefaultEntryQueueConfig.flushSizeMin,
-    entryQueueFlushSizeQuotient: DefaultEntryQueueConfig.flushSizeQuotient,
     provingCostPerMana: args.provingCostPerMana,
     rewardConfig: rewardConfig,
-    rewardBoostConfig: DefaultRewardBoostConfig,
+    version: 0,
+    rewardBoostConfig: getRewardBoostConfig(networkName),
+    stakingQueueConfig: getEntryQueueConfig(networkName),
+    exitDelaySeconds: args.exitDelaySeconds,
   };
   const genesisStateArgs = {
     vkTreeRoot: args.vkTreeRoot.toString(),
     protocolContractTreeRoot: args.protocolContractTreeRoot.toString(),
     genesisArchiveRoot: args.genesisArchiveRoot.toString(),
   };
+
+  // Until there is an actual chain-id for the version, we will just draw a random value.
+  // TODO(https://linear.app/aztec-labs/issue/TMNT-139/version-at-deployment)
+  rollupConfigArgs.version = Buffer.from(
+    keccak256String(
+      jsonStringify({
+        rollupConfigArgs,
+        genesisStateArgs,
+      }),
+    ),
+  ).readUint32BE(0);
   logger.verbose(`Rollup config args`, rollupConfigArgs);
 
   const rollupArgs = [
@@ -668,7 +562,7 @@ export const deployRollup = async (
     rollupConfigArgs,
   ];
 
-  const rollupAddress = await deployer.deploy(l1Artifacts.rollup, rollupArgs);
+  const rollupAddress = await deployer.deploy(RollupArtifact, rollupArgs);
   logger.verbose(`Deployed Rollup at ${rollupAddress}`, rollupConfigArgs);
 
   const rollupContract = new RollupContract(extendedClient, rollupAddress);
@@ -683,7 +577,7 @@ export const deployRollup = async (
     const { txHash: mintTxHash } = await deployer.sendTransaction({
       to: addresses.feeJuiceAddress.toString(),
       data: encodeFunctionData({
-        abi: l1Artifacts.feeAsset.contractAbi,
+        abi: FeeAssetArtifact.contractAbi,
         functionName: 'mint',
         args: [feeJuicePortalAddress.toString(), args.feeJuicePortalInitialBalance],
       }),
@@ -694,13 +588,13 @@ export const deployRollup = async (
     txHashes.push(mintTxHash);
   }
 
-  const slashFactoryAddress = await deployer.deploy(l1Artifacts.slashFactory, [rollupAddress.toString()]);
+  const slashFactoryAddress = await deployer.deploy(SlashFactoryArtifact, [rollupAddress.toString()]);
   logger.verbose(`Deployed SlashFactory at ${slashFactoryAddress}`);
 
   // We need to call a function on the registry to set the various contract addresses.
   const registryContract = getContract({
     address: getAddress(addresses.registryAddress.toString()),
-    abi: l1Artifacts.registry.contractAbi,
+    abi: RegistryArtifact.contractAbi,
     client: extendedClient,
   });
 
@@ -714,7 +608,7 @@ export const deployRollup = async (
       const { txHash: addRollupTxHash } = await deployer.sendTransaction({
         to: addresses.registryAddress.toString(),
         data: encodeFunctionData({
-          abi: l1Artifacts.registry.contractAbi,
+          abi: RegistryArtifact.contractAbi,
           functionName: 'addRollup',
           args: [getAddress(rollupContract.address)],
         }),
@@ -732,7 +626,7 @@ export const deployRollup = async (
   // We need to call a function on the registry to set the various contract addresses.
   const gseContract = getContract({
     address: getAddress(addresses.gseAddress.toString()),
-    abi: l1Artifacts.gse.contractAbi,
+    abi: GSEArtifact.contractAbi,
     client: extendedClient,
   });
   if ((await gseContract.read.owner()) === getAddress(extendedClient.account.address)) {
@@ -740,7 +634,7 @@ export const deployRollup = async (
       const { txHash: addRollupTxHash } = await deployer.sendTransaction({
         to: addresses.gseAddress.toString(),
         data: encodeFunctionData({
-          abi: l1Artifacts.gse.contractAbi,
+          abi: GSEArtifact.contractAbi,
           functionName: 'addRollup',
           args: [getAddress(rollupContract.address)],
         }),
@@ -760,6 +654,7 @@ export const deployRollup = async (
     await addMultipleValidators(
       extendedClient,
       deployer,
+      addresses.gseAddress.toString(),
       rollupAddress.toString(),
       addresses.stakingAssetAddress.toString(),
       args.initialValidators,
@@ -787,13 +682,13 @@ export const handoverToGovernance = async (
   // We need to call a function on the registry to set the various contract addresses.
   const registryContract = getContract({
     address: getAddress(registryAddress.toString()),
-    abi: l1Artifacts.registry.contractAbi,
+    abi: RegistryArtifact.contractAbi,
     client: extendedClient,
   });
 
   const gseContract = getContract({
     address: getAddress(gseAddress.toString()),
-    abi: l1Artifacts.gse.contractAbi,
+    abi: GSEArtifact.contractAbi,
     client: extendedClient,
   });
 
@@ -808,7 +703,7 @@ export const handoverToGovernance = async (
     const { txHash: transferOwnershipTxHash } = await deployer.sendTransaction({
       to: registryAddress.toString(),
       data: encodeFunctionData({
-        abi: l1Artifacts.registry.contractAbi,
+        abi: RegistryArtifact.contractAbi,
         functionName: 'transferOwnership',
         args: [getAddress(governanceAddress.toString())],
       }),
@@ -825,7 +720,7 @@ export const handoverToGovernance = async (
     const { txHash: transferOwnershipTxHash } = await deployer.sendTransaction({
       to: gseContract.address,
       data: encodeFunctionData({
-        abi: l1Artifacts.gse.contractAbi,
+        abi: GSEArtifact.contractAbi,
         functionName: 'transferOwnership',
         args: [getAddress(governanceAddress.toString())],
       }),
@@ -855,6 +750,7 @@ export const handoverToGovernance = async (
 export const addMultipleValidators = async (
   extendedClient: ExtendedViemWalletClient,
   deployer: L1Deployer,
+  gseAddress: Hex,
   rollupAddress: Hex,
   stakingAssetAddress: Hex,
   validators: Operator[],
@@ -862,7 +758,7 @@ export const addMultipleValidators = async (
   logger: Logger,
 ) => {
   const rollup = new RollupContract(extendedClient, rollupAddress);
-  const depositAmount = await rollup.getDepositAmount();
+  const activationThreshold = await rollup.getActivationThreshold();
   if (validators && validators.length > 0) {
     // Check if some of the initial validators are already registered, so we support idempotent deployments
     if (!acceleratedTestDeployments) {
@@ -885,22 +781,26 @@ export const addMultipleValidators = async (
     }
 
     if (validators.length > 0) {
-      const multiAdder = await deployer.deploy(l1Artifacts.multiAdder, [
-        rollupAddress,
-        deployer.client.account.address,
-      ]);
+      const gseContract = new GSEContract(extendedClient, gseAddress);
+      const multiAdder = await deployer.deploy(MultiAdderArtifact, [rollupAddress, deployer.client.account.address]);
 
-      const validatorsTuples = validators.map(v => ({
-        attester: getAddress(v.attester.toString()),
-        withdrawer: getAddress(v.withdrawer.toString()),
-      }));
+      const makeValidatorTuples = async (validator: Operator) => {
+        const registrationTuple = await gseContract.makeRegistrationTuple(validator.bn254SecretKey.getValue());
+        return {
+          attester: getAddress(validator.attester.toString()),
+          withdrawer: getAddress(validator.withdrawer.toString()),
+          ...registrationTuple,
+        };
+      };
+
+      const validatorsTuples = await Promise.all(validators.map(makeValidatorTuples));
 
       // Mint tokens, approve them, use cheat code to initialise validator set without setting up the epoch.
-      const stakeNeeded = depositAmount * BigInt(validators.length);
+      const stakeNeeded = activationThreshold * BigInt(validators.length);
       const { txHash } = await deployer.sendTransaction({
         to: stakingAssetAddress,
         data: encodeFunctionData({
-          abi: l1Artifacts.stakingAsset.contractAbi,
+          abi: StakingAssetArtifact.contractAbi,
           functionName: 'mint',
           args: [multiAdder.toString(), stakeNeeded],
         }),
@@ -913,7 +813,7 @@ export const addMultipleValidators = async (
 
       const addValidatorsTxHash = await deployer.client.writeContract({
         address: multiAdder.toString(),
-        abi: l1Artifacts.multiAdder.contractAbi,
+        abi: MultiAdderArtifact.contractAbi,
         functionName: 'addValidators',
         args: [validatorsTuples],
       });
@@ -945,7 +845,7 @@ export const cheat_initializeFeeAssetHandler = async (
   feeAssetHandlerAddress: EthAddress;
   txHash: Hex;
 }> => {
-  const feeAssetHandlerAddress = await deployer.deploy(l1Artifacts.feeAssetHandler, [
+  const feeAssetHandlerAddress = await deployer.deploy(FeeAssetHandlerArtifact, [
     extendedClient.account.address,
     feeAssetAddress.toString(),
     BigInt(1e18),
@@ -955,7 +855,7 @@ export const cheat_initializeFeeAssetHandler = async (
   const { txHash } = await deployer.sendTransaction({
     to: feeAssetAddress.toString(),
     data: encodeFunctionData({
-      abi: l1Artifacts.feeAsset.contractAbi,
+      abi: FeeAssetArtifact.contractAbi,
       functionName: 'addMinter',
       args: [feeAssetHandlerAddress.toString()],
     }),
@@ -983,6 +883,9 @@ export const deployL1Contracts = async (
 ): Promise<DeployL1ContractsReturnType> => {
   const l1Client = createExtendedL1Client(rpcUrls, account, chain);
 
+  // Deploy multicall3 if it does not exist in this network
+  await deployMulticall3(l1Client, logger);
+
   // We are assuming that you are running this on a local anvil node which have 1s block times
   // To align better with actual deployment, we update the block interval to 12s
 
@@ -1005,7 +908,15 @@ export const deployL1Contracts = async (
 
   logger.verbose(`Deploying contracts from ${account.address.toString()}`);
 
-  const deployer = new L1Deployer(l1Client, args.salt, args.acceleratedTestDeployments, logger, txUtilsConfig);
+  const dateProvider = new DateProvider();
+  const deployer = new L1Deployer(
+    l1Client,
+    args.salt,
+    dateProvider,
+    args.acceleratedTestDeployments,
+    logger,
+    txUtilsConfig,
+  );
 
   const {
     feeAssetAddress,
@@ -1014,6 +925,7 @@ export const deployL1Contracts = async (
     stakingAssetHandlerAddress,
     registryAddress,
     gseAddress,
+    governanceAddress,
     rewardDistributorAddress,
     zkPassportVerifierAddress,
   } = await deploySharedContracts(l1Client, deployer, args, logger);
@@ -1034,12 +946,23 @@ export const deployL1Contracts = async (
   logger.verbose('Waiting for rollup and slash factory to be deployed');
   await deployer.waitForDeployments();
 
+  // Now that the rollup has been deployed and added to the registry, transfer ownership to governance
+  await handoverToGovernance(
+    l1Client,
+    deployer,
+    registryAddress,
+    gseAddress,
+    governanceAddress,
+    logger,
+    args.acceleratedTestDeployments,
+  );
+
+  logger.info(`Handing over to governance complete`);
+
   logger.verbose(`All transactions for L1 deployment have been mined`);
   const l1Contracts = await RegistryContract.collectAddresses(l1Client, registryAddress, 'canonical');
 
   logger.info(`Aztec L1 contracts initialized`, l1Contracts);
-
-  logger.info(`Handing over to governance`);
 
   if (isAnvilTestChain(chain.id)) {
     // @note  We make a time jump PAST the very first slot to not have to deal with the edge case of the first slot.
@@ -1085,30 +1008,43 @@ export class L1Deployer {
   constructor(
     public readonly client: ExtendedViemWalletClient,
     maybeSalt: number | undefined,
+    dateProvider: DateProvider = new DateProvider(),
     private acceleratedTestDeployments: boolean = false,
     private logger: Logger = createLogger('L1Deployer'),
     private txUtilsConfig?: L1TxUtilsConfig,
   ) {
     this.salt = maybeSalt ? padHex(numberToHex(maybeSalt), { size: 32 }) : undefined;
-    this.l1TxUtils = new L1TxUtils(this.client, this.logger, this.txUtilsConfig, this.acceleratedTestDeployments);
+    this.l1TxUtils = new L1TxUtils(
+      this.client,
+      this.logger,
+      dateProvider,
+      this.txUtilsConfig,
+      this.acceleratedTestDeployments,
+    );
   }
 
   async deploy(params: ContractArtifacts, args: readonly unknown[] = []): Promise<EthAddress> {
-    const { txHash, address } = await deployL1Contract(
-      this.client,
-      params.contractAbi,
-      params.contractBytecode,
-      args,
-      this.salt,
-      params.libraries,
-      this.logger,
-      this.l1TxUtils,
-      this.acceleratedTestDeployments,
-    );
-    if (txHash) {
-      this.txHashes.push(txHash);
+    this.logger.debug(`Deploying ${params.name} contract`, { args });
+    try {
+      const { txHash, address } = await deployL1Contract(
+        this.client,
+        params.contractAbi,
+        params.contractBytecode,
+        args,
+        this.salt,
+        params.libraries,
+        this.logger,
+        this.l1TxUtils,
+        this.acceleratedTestDeployments,
+      );
+      if (txHash) {
+        this.txHashes.push(txHash);
+      }
+      this.logger.debug(`Deployed ${params.name} at ${address}`, { args });
+      return address;
+    } catch (error) {
+      throw new Error(`Failed to deploy ${params.name}`, { cause: formatViemError(error) });
     }
-    return address;
   }
 
   async waitForDeployments(): Promise<void> {
@@ -1160,7 +1096,7 @@ export async function deployL1Contract(
 
   if (!l1TxUtils) {
     const config = getL1TxUtilsConfigEnvVars();
-    l1TxUtils = new L1TxUtils(extendedClient, logger, config, acceleratedTestDeployments);
+    l1TxUtils = new L1TxUtils(extendedClient, logger, undefined, config, acceleratedTestDeployments);
   }
 
   if (libraries) {

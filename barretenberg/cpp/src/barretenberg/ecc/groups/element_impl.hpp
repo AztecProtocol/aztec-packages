@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/ecc/groups/element.hpp"
@@ -449,7 +450,6 @@ constexpr element<Fq, Fr, T> element<Fq, Fr, T>::operator+=(const element& other
 template <class Fq, class Fr, class T>
 constexpr element<Fq, Fr, T> element<Fq, Fr, T>::operator+(const element& other) const noexcept
 {
-    BB_OP_COUNT_TRACK_NAME("element::operator+");
     element result(*this);
     return (result += other);
 }
@@ -464,7 +464,6 @@ constexpr element<Fq, Fr, T> element<Fq, Fr, T>::operator-=(const element& other
 template <class Fq, class Fr, class T>
 constexpr element<Fq, Fr, T> element<Fq, Fr, T>::operator-(const element& other) const noexcept
 {
-    BB_OP_COUNT_TRACK();
     element result(*this);
     return (result -= other);
 }
@@ -726,7 +725,7 @@ void element<Fq, Fr, T>::batch_affine_add(const std::span<affine_element<Fq, Fr,
 {
     typedef affine_element<Fq, Fr, T> affine_element;
     const size_t num_points = first_group.size();
-    ASSERT(second_group.size() == first_group.size());
+    BB_ASSERT_EQ(second_group.size(), first_group.size());
 
     // Space for temporary values
     std::vector<Fq> scratch_space(num_points);

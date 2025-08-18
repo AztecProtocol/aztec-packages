@@ -438,7 +438,7 @@ TEST(TaggedValueTest, UnaryOperations)
 
     // Test that unary bitwise operations on FF throw exceptions
     auto ff_val = TaggedValue::from<FF>(123);
-    EXPECT_THROW(~ff_val, std::runtime_error);
+    EXPECT_THROW(~ff_val, InvalidOperationTag);
 }
 
 // Test edge cases with uint1_t
@@ -477,47 +477,57 @@ TEST(TaggedValueTest, ErrorCases)
     auto ff_val1 = TaggedValue::from<FF>(10);
     auto ff_val2 = TaggedValue::from<FF>(5);
 
-    EXPECT_THROW(ff_val1 & ff_val2, std::runtime_error);
-    EXPECT_THROW(ff_val1 | ff_val2, std::runtime_error);
-    EXPECT_THROW(ff_val1 ^ ff_val2, std::runtime_error);
-    EXPECT_THROW(~ff_val1, std::runtime_error);
+    EXPECT_THROW(ff_val1 & ff_val2, InvalidOperationTag);
+    EXPECT_THROW(ff_val1 | ff_val2, InvalidOperationTag);
+    EXPECT_THROW(ff_val1 ^ ff_val2, InvalidOperationTag);
+    EXPECT_THROW(~ff_val1, InvalidOperationTag);
 
     // Test mixed type operations
     auto u8_val1 = TaggedValue::from<uint8_t>(10);
     auto u16_val = TaggedValue::from<uint16_t>(5);
 
     // Binary operations with different types should throw
-    EXPECT_THROW(u8_val1 + u16_val, std::runtime_error);
-    EXPECT_THROW(u8_val1 - u16_val, std::runtime_error);
-    EXPECT_THROW(u8_val1 * u16_val, std::runtime_error);
-    EXPECT_THROW(u8_val1 / u16_val, std::runtime_error);
-    EXPECT_THROW(u8_val1 & u16_val, std::runtime_error);
-    EXPECT_THROW(u8_val1 | u16_val, std::runtime_error);
-    EXPECT_THROW(u8_val1 ^ u16_val, std::runtime_error);
+    EXPECT_THROW(u8_val1 + u16_val, TagMismatchException);
+    EXPECT_THROW(u8_val1 - u16_val, TagMismatchException);
+    EXPECT_THROW(u8_val1 * u16_val, TagMismatchException);
+    EXPECT_THROW(u8_val1 / u16_val, TagMismatchException);
+    EXPECT_THROW(u8_val1 & u16_val, TagMismatchException);
+    EXPECT_THROW(u8_val1 | u16_val, TagMismatchException);
+    EXPECT_THROW(u8_val1 ^ u16_val, TagMismatchException);
+
+    // Dividing by zero should throw (see checked_divides)
+    EXPECT_THROW(TaggedValue::from<uint1_t>(1) / TaggedValue::from<uint1_t>(0), DivisionByZero);
+    EXPECT_THROW(u8_val1 / TaggedValue::from<uint8_t>(0), DivisionByZero);
+    EXPECT_THROW(u16_val / TaggedValue::from<uint16_t>(0), DivisionByZero);
+    EXPECT_THROW(TaggedValue::from<uint32_t>(1) / TaggedValue::from<uint32_t>(0), DivisionByZero);
+    EXPECT_THROW(TaggedValue::from<uint64_t>(1) / TaggedValue::from<uint64_t>(0), DivisionByZero);
+    EXPECT_THROW(TaggedValue::from<uint128_t>(1) / TaggedValue::from<uint128_t>(0), DivisionByZero);
+    EXPECT_THROW(ff_val1 / TaggedValue::from<FF>(0), DivisionByZero);
 }
 
 // Test shift operations with different right-side types
 TEST(TaggedValueTest, ShiftOperationsWithDifferentTypes)
 {
-    auto u32_val = TaggedValue::from<uint32_t>(1);
-
-    // Shift with uint8_t
+    // Shift a uint8_t by shift_val
     auto u8_amount = TaggedValue::from<uint8_t>(3);
-    auto result_shl_u8 = u32_val << u8_amount;
-    EXPECT_EQ(result_shl_u8.get_tag(), ValueTag::U32);
-    EXPECT_EQ(result_shl_u8.as<uint32_t>(), 1 << 3);
+    auto shift_val = TaggedValue::from<uint8_t>(3);
+    auto result_shl_u8 = u8_amount << shift_val;
+    ASSERT_EQ(result_shl_u8.get_tag(), ValueTag::U8);
+    EXPECT_EQ(result_shl_u8.as<uint8_t>(), 3 << 3);
 
-    // Shift with uint16_t
+    // Shift a uint16_t by shift_val
     auto u16_amount = TaggedValue::from<uint16_t>(4);
-    auto result_shl_u16 = u32_val << u16_amount;
-    EXPECT_EQ(result_shl_u16.get_tag(), ValueTag::U32);
-    EXPECT_EQ(result_shl_u16.as<uint32_t>(), 1 << 4);
+    shift_val = TaggedValue::from<uint16_t>(3);
+    auto result_shl_u16 = u16_amount << shift_val;
+    ASSERT_EQ(result_shl_u16.get_tag(), ValueTag::U16);
+    EXPECT_EQ(result_shl_u16.as<uint16_t>(), 4 << 3);
 
-    // Shift with uint1_t
+    // Shift a uint32_t by shift_val
     auto u1_amount = TaggedValue::from<uint1_t>(1);
-    auto result_shl_u1 = u32_val << u1_amount;
-    EXPECT_EQ(result_shl_u1.get_tag(), ValueTag::U32);
-    EXPECT_EQ(result_shl_u1.as<uint32_t>(), 2);
+    shift_val = TaggedValue::from<uint1_t>(1);
+    auto result_shl_u1 = u1_amount << shift_val;
+    ASSERT_EQ(result_shl_u1.get_tag(), ValueTag::U1);
+    EXPECT_EQ(result_shl_u1.as<uint1_t>(), static_cast<uint1_t>(0)); // 1 << 1 = 0 with overflow
 }
 
 // Test boundary cases for all types
@@ -619,6 +629,72 @@ TEST(TaggedValueTest, BoundaryCases)
     auto ff_wrap = ff_large + ff_one;
     EXPECT_EQ(ff_wrap.get_tag(), ValueTag::FF);
     EXPECT_EQ(ff_wrap.as<FF>(), FF(0)); // Modular arithmetic wraps naturally
+}
+
+// Test comparison operations
+TEST(TaggedValueTest, ComparisonOperations)
+{
+    auto u1_val1 = TaggedValue::from<uint1_t>(0);
+    auto u1_val2 = TaggedValue::from<uint1_t>(1);
+    auto u1_val3 = TaggedValue::from<uint1_t>(0);
+    EXPECT_TRUE(u1_val1 < u1_val2);
+    EXPECT_TRUE(u1_val1 == u1_val3);
+    EXPECT_TRUE(u1_val1 <= u1_val3);
+    EXPECT_TRUE(u1_val1 != u1_val2);
+
+    auto u8_val1 = TaggedValue::from<uint8_t>(42);
+    auto u8_val2 = TaggedValue::from<uint8_t>(100);
+    auto u8_val3 = TaggedValue::from<uint8_t>(42);
+    EXPECT_TRUE(u8_val1 < u8_val2);
+    EXPECT_TRUE(u8_val1 == u8_val3);
+    EXPECT_TRUE(u8_val1 <= u8_val3);
+    EXPECT_TRUE(u8_val1 != u8_val2);
+
+    auto u16_val1 = TaggedValue::from<uint16_t>(1000);
+    auto u16_val2 = TaggedValue::from<uint16_t>(2000);
+    auto u16_val3 = TaggedValue::from<uint16_t>(1000);
+    EXPECT_TRUE(u16_val1 < u16_val2);
+    EXPECT_TRUE(u16_val1 == u16_val3);
+    EXPECT_TRUE(u16_val1 <= u16_val3);
+    EXPECT_TRUE(u16_val1 != u16_val2);
+
+    auto u32_val1 = TaggedValue::from<uint32_t>(100000);
+    auto u32_val2 = TaggedValue::from<uint32_t>(200000);
+    auto u32_val3 = TaggedValue::from<uint32_t>(100000);
+    EXPECT_TRUE(u32_val1 < u32_val2);
+    EXPECT_TRUE(u32_val1 == u32_val3);
+    EXPECT_TRUE(u32_val1 <= u32_val3);
+    EXPECT_TRUE(u32_val1 != u32_val2);
+
+    auto u64_val1 = TaggedValue::from<uint64_t>(1ULL << 40);
+    auto u64_val2 = TaggedValue::from<uint64_t>(1ULL << 41);
+    auto u64_val3 = TaggedValue::from<uint64_t>(1ULL << 40);
+    EXPECT_TRUE(u64_val1 < u64_val2);
+    EXPECT_TRUE(u64_val1 == u64_val3);
+    EXPECT_TRUE(u64_val1 <= u64_val3);
+    EXPECT_TRUE(u64_val1 != u64_val2);
+
+    auto u128_val1 = TaggedValue::from<uint128_t>(static_cast<uint128_t>(1) << 100);
+    auto u128_val2 = TaggedValue::from<uint128_t>(static_cast<uint128_t>(1) << 101);
+    auto u128_val3 = TaggedValue::from<uint128_t>(static_cast<uint128_t>(1) << 100);
+    EXPECT_TRUE(u128_val1 < u128_val2);
+    EXPECT_TRUE(u128_val1 == u128_val3);
+    EXPECT_TRUE(u128_val1 <= u128_val3);
+    EXPECT_TRUE(u128_val1 != u128_val2);
+
+    auto ff_val1 = TaggedValue::from<FF>(FF(42));
+    auto ff_val2 = TaggedValue::from<FF>(FF(100));
+    auto ff_val3 = TaggedValue::from<FF>(FF(42));
+    EXPECT_TRUE(ff_val1 < ff_val2);
+    EXPECT_TRUE(ff_val1 == ff_val3);
+    EXPECT_TRUE(ff_val1 <= ff_val3);
+    EXPECT_TRUE(ff_val1 != ff_val2);
+
+    // Comparisons on different types should return false
+    EXPECT_FALSE(u1_val1 < u8_val1);
+    EXPECT_FALSE(u8_val1 <= u16_val1);
+    EXPECT_FALSE(u16_val1 == u32_val1);
+    EXPECT_FALSE(u32_val1 != u64_val1);
 }
 
 } // namespace

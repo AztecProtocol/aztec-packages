@@ -1,61 +1,171 @@
-use crate::{
-    context::PrivateContext, oracle::execution::get_contract_address,
-    state_vars::private_mutable::PrivateMutable,
-};
+use crate::{context::PrivateContext, state_vars::private_mutable::PrivateMutable};
 use crate::test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote};
-use std::test::OracleMock;
 
-global storage_slot: Field = 17;
-
-unconstrained fn setup() -> TestEnvironment {
-    let mut env = TestEnvironment::new();
-    // Advance 1 block so we can read historic state from private
-    env.advance_block_by(1);
-    env
-}
+global STORAGE_SLOT: Field = 17;
+global VALUE: Field = 23;
 
 unconstrained fn in_private(
-    env: &mut TestEnvironment,
+    context: &mut PrivateContext,
 ) -> PrivateMutable<MockNote, &mut PrivateContext> {
-    let state_var = PrivateMutable::new(&mut env.private(), storage_slot);
+    PrivateMutable::new(context, STORAGE_SLOT)
+}
 
-    // This oracle is called for its side effects alone - it does not return anything.
-    let _ = OracleMock::mock("notifyCreatedNote").returns(());
+#[test(should_fail_with = "Failed to get a note")]
+unconstrained fn get_uninitialized() {
+    let env = TestEnvironment::_new();
 
-    state_var
+    env.private_context(|context| {
+        let state_var = in_private(context);
+        let _ = state_var.get_note();
+    });
+}
+
+#[test(should_fail_with = "Failed to get a note")]
+unconstrained fn replace_uninitialized() {
+    let env = TestEnvironment::_new();
+
+    env.private_context(|context| {
+        let state_var = in_private(context);
+
+        let note = MockNote::new(VALUE).build_note();
+        let _ = state_var.replace(note);
+    });
 }
 
 #[test]
-unconstrained fn test_initialize_or_replace_without_nullifier() {
-    let mut env = setup();
-    let state_var = in_private(&mut env);
+unconstrained fn initialize() {
+    let env = TestEnvironment::_new();
 
-    let value = 42;
-    let retrieved_note =
-        MockNote::new(value).contract_address(get_contract_address()).build_retrieved_note();
+    env.private_context(|context| {
+        let state_var = in_private(context);
 
-    let _ = OracleMock::mock("checkNullifierExists").returns(0);
-    state_var.initialize_or_replace(retrieved_note.note).discard();
+        let note = MockNote::new(VALUE).build_note();
 
-    // Since we reported there was no nullifier, we should initialize and see the following side-effects:
-    // - a new note being created
-    // - no notes being read
-    // - the initialization nullifier being emitted
-    assert_eq(state_var.context.note_hashes.len(), 1);
-    assert_eq(state_var.context.note_hash_read_requests.len(), 0);
-    assert_eq(state_var.context.nullifiers.len(), 1);
+        let emission = state_var.initialize(note);
 
-    // Note that if the oracle was wrong and the initialization nullifier did exist, this attempt to write it again
-    // would cause the sequencer to revert this transaction - we are therefore safe from bad oracles.
-    let nullifier = state_var.context.nullifiers.get(0);
-    assert_eq(nullifier.value, state_var.compute_initialization_nullifier());
-    assert_eq(nullifier.note_hash, 0);
+        // During initialization we both create the new note and emit the initialization nullifier
+        assert_eq(context.note_hashes.len(), 1);
+        assert_eq(context.nullifiers.len(), 1);
+        assert_eq(context.nullifiers.get(0).value, state_var.compute_initialization_nullifier());
+
+        assert_eq(emission.note, note);
+        assert_eq(emission.storage_slot, STORAGE_SLOT);
+    });
 }
 
 #[test]
-unconstrained fn test_initialize_or_replace_with_nullifier() {
-    // Here we'd want to test a scenario like the one above with the oracle indicating that the initialization
-    // nullifier does exist. Unfortunately that requires us to produce a valid oracle return value for getNotes,
-    // which is fairly involved as it deals with serialization of notes, and is relatively complicated to replicate
-    // in Noir.
+unconstrained fn initialize_and_get_pending() {
+    let env = TestEnvironment::_new();
+
+    env.private_context(|context| {
+        let state_var = in_private(context);
+
+        let note = MockNote::new(VALUE).build_note();
+
+        let _ = state_var.initialize(note);
+
+        let note_hashes_pre_get = context.note_hashes.len();
+        let nullifiers_pre_get = context.nullifiers.len();
+        let note_hash_read_requests_pre_get = context.note_hash_read_requests.len();
+
+        let emission = state_var.get_note();
+
+        assert_eq(emission.note, note);
+        assert_eq(emission.storage_slot, STORAGE_SLOT);
+
+        // Reading a PrivateMutable results in:
+        // - a read request for the read value
+        // - a nullifier for the read note
+        // - a new note for the recreation of the read value
+        assert_eq(context.note_hash_read_requests.len(), note_hash_read_requests_pre_get + 1);
+        assert_eq(context.nullifiers.len(), nullifiers_pre_get + 1);
+        assert_eq(context.note_hashes.len(), note_hashes_pre_get + 1);
+    });
+}
+
+#[test]
+unconstrained fn initialize_and_replace_pending() {
+    let env = TestEnvironment::_new();
+
+    env.private_context(|context| {
+        let state_var = in_private(context);
+
+        let note = MockNote::new(VALUE).build_note();
+
+        let _ = state_var.initialize(note);
+
+        let note_hash_read_requests_pre_replace = context.note_hash_read_requests.len();
+        let nullifiers_pre_replace = context.nullifiers.len();
+        let note_hashes_pre_replace = context.note_hashes.len();
+
+        let replacement_value = VALUE + 1;
+        let replacement_note = MockNote::new(replacement_value).build_note();
+        let emission = state_var.replace(replacement_note);
+
+        assert_eq(emission.note, replacement_note);
+        assert_eq(emission.storage_slot, STORAGE_SLOT);
+
+        // Replacing a PrivateMutable results in:
+        // - a read request for the read value
+        // - a nullifier for the read note
+        // - a new note for the replacement note
+        assert_eq(context.note_hash_read_requests.len(), note_hash_read_requests_pre_replace + 1);
+        assert_eq(context.nullifiers.len(), nullifiers_pre_replace + 1);
+        assert_eq(context.note_hashes.len(), note_hashes_pre_replace + 1);
+    });
+}
+
+#[test]
+unconstrained fn initialize_or_replace_uninitialized() {
+    let env = TestEnvironment::_new();
+
+    env.private_context(|context| {
+        let state_var = in_private(context);
+
+        let note = MockNote::new(VALUE).build_note();
+        let emission = state_var.initialize_or_replace(note);
+
+        assert_eq(emission.note, note);
+        assert_eq(emission.storage_slot, STORAGE_SLOT);
+
+        // During initialization we both create the new note and emit the initialization nullifier. This will only
+        // succeed if the initialization nullifier had not been already emitted.
+        assert_eq(context.note_hashes.len(), 1);
+        assert_eq(context.nullifiers.len(), 1);
+        assert_eq(context.nullifiers.get(0).value, state_var.compute_initialization_nullifier());
+    });
+}
+
+#[test]
+unconstrained fn initialize_or_replace_initialized_pending() {
+    let env = TestEnvironment::_new();
+
+    env.private_context(|context| {
+        let state_var = in_private(context);
+
+        let note = MockNote::new(VALUE).build_note();
+
+        let _ = state_var.initialize(note);
+
+        let note_hash_read_requests_pre_replace = context.note_hash_read_requests.len();
+        let nullifiers_pre_replace = context.nullifiers.len();
+        let note_hashes_pre_replace = context.note_hashes.len();
+
+        let replacement_value = VALUE + 1;
+        let replacement_note = MockNote::new(replacement_value).build_note();
+        let emission = state_var.initialize_or_replace(replacement_note);
+
+        assert_eq(emission.note, replacement_note);
+        assert_eq(emission.storage_slot, STORAGE_SLOT);
+
+        // Replacing a PrivateMutable results in:
+        // - a read request for the read value
+        // - a nullifier for the read note
+        // - a new note for the replacement note
+        // This would only succeed if the variable had already been initialized, as otherwise the read request would
+        // fail.
+        assert_eq(context.note_hash_read_requests.len(), note_hash_read_requests_pre_replace + 1);
+        assert_eq(context.nullifiers.len(), nullifiers_pre_replace + 1);
+        assert_eq(context.note_hashes.len(), note_hashes_pre_replace + 1);
+    });
 }

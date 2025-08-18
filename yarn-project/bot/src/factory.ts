@@ -74,22 +74,49 @@ export class BotFactory {
   public async setup() {
     const recipient = await this.registerRecipient();
     const wallet = await this.setupAccount();
-    const token = await this.setupToken(wallet);
-    await this.mintTokens(token);
-    return { wallet, token, pxe: this.pxe, recipient };
+    const defaultAccountAddress = wallet.getAddress();
+    const token = await this.setupToken(wallet, defaultAccountAddress);
+    await this.mintTokens(token, defaultAccountAddress);
+    return { wallet, defaultAccountAddress, token, pxe: this.pxe, recipient };
   }
 
   public async setupAmm() {
     const wallet = await this.setupAccount();
-    const token0 = await this.setupTokenContract(wallet, this.config.tokenSalt, 'BotToken0', 'BOT0');
-    const token1 = await this.setupTokenContract(wallet, this.config.tokenSalt, 'BotToken1', 'BOT1');
-    const liquidityToken = await this.setupTokenContract(wallet, this.config.tokenSalt, 'BotLPToken', 'BOTLP');
-    const amm = await this.setupAmmContract(wallet, this.config.tokenSalt, token0, token1, liquidityToken);
+    const defaultAccountAddress = wallet.getAddress();
+    const token0 = await this.setupTokenContract(
+      wallet,
+      wallet.getAddress(),
+      this.config.tokenSalt,
+      'BotToken0',
+      'BOT0',
+    );
+    const token1 = await this.setupTokenContract(
+      wallet,
+      wallet.getAddress(),
+      this.config.tokenSalt,
+      'BotToken1',
+      'BOT1',
+    );
+    const liquidityToken = await this.setupTokenContract(
+      wallet,
+      wallet.getAddress(),
+      this.config.tokenSalt,
+      'BotLPToken',
+      'BOTLP',
+    );
+    const amm = await this.setupAmmContract(
+      wallet,
+      wallet.getAddress(),
+      this.config.tokenSalt,
+      token0,
+      token1,
+      liquidityToken,
+    );
 
-    await this.fundAmm(wallet, amm, token0, token1, liquidityToken);
+    await this.fundAmm(wallet, wallet.getAddress(), amm, token0, token1, liquidityToken);
     this.log.info(`AMM initialized and funded`);
 
-    return { wallet, amm, token0, token1, pxe: this.pxe };
+    return { wallet, defaultAccountAddress, amm, token0, token1, pxe: this.pxe };
   }
 
   /**
@@ -128,10 +155,8 @@ export class BotFactory {
       const sentTx = account.deploy({ fee: { paymentMethod } });
       const txHash = await sentTx.getTxHash();
       // docs:end:claim_and_deploy
-      this.log.info(`Sent tx with hash ${txHash.toString()}`);
-      await this.tryFlushTxs();
-      this.log.verbose('Waiting for account deployment to settle');
-      await sentTx.wait({ timeout: this.config.txMinedWaitSeconds });
+      this.log.info(`Sent tx for account deployment with hash ${txHash.toString()}`);
+      await this.withNoMinTxsPerBlock(() => sentTx.wait({ timeout: this.config.txMinedWaitSeconds }));
       this.log.info(`Account deployed at ${address}`);
       return wallet;
     }
@@ -164,32 +189,37 @@ export class BotFactory {
    * @param wallet - Wallet to deploy the token contract from.
    * @returns The TokenContract instance.
    */
-  private async setupToken(wallet: AccountWallet): Promise<TokenContract | EasyPrivateTokenContract> {
+  private async setupToken(
+    wallet: AccountWallet,
+    sender: AztecAddress,
+  ): Promise<TokenContract | EasyPrivateTokenContract> {
     let deploy: DeployMethod<TokenContract | EasyPrivateTokenContract>;
-    const deployOpts: DeployOptions = { contractAddressSalt: this.config.tokenSalt, universalDeploy: true };
+    const deployOpts: DeployOptions = {
+      from: sender,
+      contractAddressSalt: this.config.tokenSalt,
+      universalDeploy: true,
+    };
     if (this.config.contract === SupportedTokenContracts.TokenContract) {
-      deploy = TokenContract.deploy(wallet, wallet.getAddress(), 'BotToken', 'BOT', 18);
+      deploy = TokenContract.deploy(wallet, sender, 'BotToken', 'BOT', 18);
     } else if (this.config.contract === SupportedTokenContracts.EasyPrivateTokenContract) {
-      deploy = EasyPrivateTokenContract.deploy(wallet, MINT_BALANCE, wallet.getAddress());
-      deployOpts.skipPublicDeployment = true;
-      deployOpts.skipClassRegistration = true;
+      deploy = EasyPrivateTokenContract.deploy(wallet, MINT_BALANCE, sender);
+      deployOpts.skipInstancePublication = true;
+      deployOpts.skipClassPublication = true;
       deployOpts.skipInitialization = false;
     } else {
       throw new Error(`Unsupported token contract type: ${this.config.contract}`);
     }
 
     const address = (await deploy.getInstance(deployOpts)).address;
-    if ((await this.pxe.getContractMetadata(address)).isContractPubliclyDeployed) {
+    if ((await this.pxe.getContractMetadata(address)).isContractPublished) {
       this.log.info(`Token at ${address.toString()} already deployed`);
       return deploy.register();
     } else {
       this.log.info(`Deploying token contract at ${address.toString()}`);
       const sentTx = deploy.send(deployOpts);
       const txHash = await sentTx.getTxHash();
-      this.log.info(`Sent tx with hash ${txHash.toString()}`);
-      await this.tryFlushTxs();
-      this.log.verbose('Waiting for token setup to settle');
-      return sentTx.deployed({ timeout: this.config.txMinedWaitSeconds });
+      this.log.info(`Sent tx for token setup with hash ${txHash.toString()}`);
+      return this.withNoMinTxsPerBlock(() => sentTx.deployed({ timeout: this.config.txMinedWaitSeconds }));
     }
   }
 
@@ -200,30 +230,32 @@ export class BotFactory {
    */
   private setupTokenContract(
     wallet: AccountWallet,
+    deployer: AztecAddress,
     contractAddressSalt: Fr,
     name: string,
     ticker: string,
     decimals = 18,
   ): Promise<TokenContract> {
-    const deployOpts: DeployOptions = { contractAddressSalt, universalDeploy: true };
-    const deploy = TokenContract.deploy(wallet, wallet.getAddress(), name, ticker, decimals);
+    const deployOpts: DeployOptions = { from: deployer, contractAddressSalt, universalDeploy: true };
+    const deploy = TokenContract.deploy(wallet, deployer, name, ticker, decimals);
     return this.registerOrDeployContract('Token - ' + name, deploy, deployOpts);
   }
 
   private async setupAmmContract(
     wallet: AccountWallet,
+    deployer: AztecAddress,
     contractAddressSalt: Fr,
     token0: TokenContract,
     token1: TokenContract,
     lpToken: TokenContract,
   ): Promise<AMMContract> {
-    const deployOpts: DeployOptions = { contractAddressSalt, universalDeploy: true };
+    const deployOpts: DeployOptions = { from: deployer, contractAddressSalt, universalDeploy: true };
     const deploy = AMMContract.deploy(wallet, token0.address, token1.address, lpToken.address);
     const amm = await this.registerOrDeployContract('AMM', deploy, deployOpts);
 
     this.log.info(`AMM deployed at ${amm.address}`);
-    const minterTx = lpToken.methods.set_minter(amm.address, true).send();
-    this.log.info(`Set LP token minter to AMM txHash=${await minterTx.getTxHash()}`);
+    const minterTx = lpToken.methods.set_minter(amm.address, true).send({ from: deployer });
+    this.log.info(`Set LP token minter to AMM txHash=${(await minterTx.getTxHash()).toString()}`);
     await minterTx.wait({ timeout: this.config.txMinedWaitSeconds });
     this.log.info(`Liquidity token initialized`);
 
@@ -232,6 +264,7 @@ export class BotFactory {
 
   private async fundAmm(
     wallet: AccountWallet,
+    liquidityProvider: AztecAddress,
     amm: AMMContract,
     token0: TokenContract,
     token1: TokenContract,
@@ -239,9 +272,9 @@ export class BotFactory {
   ): Promise<void> {
     const getPrivateBalances = () =>
       Promise.all([
-        token0.methods.balance_of_private(wallet.getAddress()).simulate(),
-        token1.methods.balance_of_private(wallet.getAddress()).simulate(),
-        lpToken.methods.balance_of_private(wallet.getAddress()).simulate(),
+        token0.methods.balance_of_private(liquidityProvider).simulate({ from: liquidityProvider }),
+        token1.methods.balance_of_private(liquidityProvider).simulate({ from: liquidityProvider }),
+        lpToken.methods.balance_of_private(liquidityProvider).simulate({ from: liquidityProvider }),
       ]);
 
     const authwitNonce = Fr.random();
@@ -255,14 +288,14 @@ export class BotFactory {
     const [t0Bal, t1Bal, lpBal] = await getPrivateBalances();
 
     this.log.info(
-      `Minting ${MINT_BALANCE} tokens of each BotToken0 and BotToken1. Current private balances of ${wallet.getAddress()}: token0=${t0Bal}, token1=${t1Bal}, lp=${lpBal}`,
+      `Minting ${MINT_BALANCE} tokens of each BotToken0 and BotToken1. Current private balances of ${liquidityProvider}: token0=${t0Bal}, token1=${t1Bal}, lp=${lpBal}`,
     );
 
     // Add authwitnesses for the transfers in AMM::add_liquidity function
     const token0Authwit = await wallet.createAuthWit({
       caller: amm.address,
       action: token0.methods.transfer_to_public_and_prepare_private_balance_increase(
-        wallet.getAddress(),
+        liquidityProvider,
         amm.address,
         amount0Max,
         authwitNonce,
@@ -271,7 +304,7 @@ export class BotFactory {
     const token1Authwit = await wallet.createAuthWit({
       caller: amm.address,
       action: token1.methods.transfer_to_public_and_prepare_private_balance_increase(
-        wallet.getAddress(),
+        liquidityProvider,
         amm.address,
         amount1Max,
         authwitNonce,
@@ -279,20 +312,21 @@ export class BotFactory {
     });
 
     const mintTx = new BatchCall(wallet, [
-      token0.methods.mint_to_private(wallet.getAddress(), wallet.getAddress(), MINT_BALANCE),
-      token1.methods.mint_to_private(wallet.getAddress(), wallet.getAddress(), MINT_BALANCE),
-    ]).send();
+      token0.methods.mint_to_private(liquidityProvider, MINT_BALANCE),
+      token1.methods.mint_to_private(liquidityProvider, MINT_BALANCE),
+    ]).send({ from: liquidityProvider });
 
-    this.log.info(`Sent mint tx: ${await mintTx.getTxHash()}`);
+    this.log.info(`Sent mint tx: ${(await mintTx.getTxHash()).toString()}`);
     await mintTx.wait({ timeout: this.config.txMinedWaitSeconds });
 
     const addLiquidityTx = amm.methods
       .add_liquidity(amount0Max, amount1Max, amount0Min, amount1Min, authwitNonce)
       .send({
+        from: liquidityProvider,
         authWitnesses: [token0Authwit, token1Authwit],
       });
 
-    this.log.info(`Sent tx to add liquidity to the AMM: ${await addLiquidityTx.getTxHash()}`);
+    this.log.info(`Sent tx to add liquidity to the AMM: ${(await addLiquidityTx.getTxHash()).toString()}`);
     await addLiquidityTx.wait({ timeout: this.config.txMinedWaitSeconds });
     this.log.info(`Liquidity added`);
 
@@ -308,17 +342,15 @@ export class BotFactory {
     deployOpts: DeployOptions,
   ): Promise<T> {
     const address = (await deploy.getInstance(deployOpts)).address;
-    if ((await this.pxe.getContractMetadata(address)).isContractPubliclyDeployed) {
+    if ((await this.pxe.getContractMetadata(address)).isContractPublished) {
       this.log.info(`Contract ${name} at ${address.toString()} already deployed`);
       return deploy.register();
     } else {
       this.log.info(`Deploying contract ${name} at ${address.toString()}`);
       const sentTx = deploy.send(deployOpts);
       const txHash = await sentTx.getTxHash();
-      this.log.info(`Sent tx with hash ${txHash.toString()}`);
-      await this.tryFlushTxs();
-      this.log.verbose(`Waiting for contract ${name} setup to settle`);
-      return sentTx.deployed({ timeout: this.config.txMinedWaitSeconds });
+      this.log.info(`Sent contract ${name} setup tx with hash ${txHash.toString()}`);
+      return this.withNoMinTxsPerBlock(() => sentTx.deployed({ timeout: this.config.txMinedWaitSeconds }));
     }
   }
 
@@ -326,43 +358,39 @@ export class BotFactory {
    * Mints private and public tokens for the sender if their balance is below the minimum.
    * @param token - Token contract.
    */
-  private async mintTokens(token: TokenContract | EasyPrivateTokenContract) {
-    const sender = token.wallet.getAddress();
+  private async mintTokens(token: TokenContract | EasyPrivateTokenContract, minter: AztecAddress) {
     const isStandardToken = isStandardTokenContract(token);
     let privateBalance = 0n;
     let publicBalance = 0n;
 
     if (isStandardToken) {
-      ({ privateBalance, publicBalance } = await getBalances(token, sender));
+      ({ privateBalance, publicBalance } = await getBalances(token, minter));
     } else {
-      privateBalance = await getPrivateBalance(token, sender);
+      privateBalance = await getPrivateBalance(token, minter);
     }
 
     const calls: ContractFunctionInteraction[] = [];
     if (privateBalance < MIN_BALANCE) {
-      this.log.info(`Minting private tokens for ${sender.toString()}`);
+      this.log.info(`Minting private tokens for ${minter.toString()}`);
 
-      const from = sender; // we are setting from to sender here because we need a sender to calculate the tag
       calls.push(
         isStandardToken
-          ? token.methods.mint_to_private(from, sender, MINT_BALANCE)
-          : token.methods.mint(MINT_BALANCE, sender),
+          ? token.methods.mint_to_private(minter, MINT_BALANCE)
+          : token.methods.mint(MINT_BALANCE, minter),
       );
     }
     if (isStandardToken && publicBalance < MIN_BALANCE) {
-      this.log.info(`Minting public tokens for ${sender.toString()}`);
-      calls.push(token.methods.mint_to_public(sender, MINT_BALANCE));
+      this.log.info(`Minting public tokens for ${minter.toString()}`);
+      calls.push(token.methods.mint_to_public(minter, MINT_BALANCE));
     }
     if (calls.length === 0) {
-      this.log.info(`Skipping minting as ${sender.toString()} has enough tokens`);
+      this.log.info(`Skipping minting as ${minter.toString()} has enough tokens`);
       return;
     }
-    const sentTx = new BatchCall(token.wallet, calls).send();
+    const sentTx = new BatchCall(token.wallet, calls).send({ from: minter });
     const txHash = await sentTx.getTxHash();
-    this.log.info(`Sent tx with hash ${txHash.toString()}`);
-    await this.tryFlushTxs();
-    this.log.verbose('Waiting for token mint to settle');
-    await sentTx.wait({ timeout: this.config.txMinedWaitSeconds });
+    this.log.info(`Sent token mint tx with hash ${txHash.toString()}`);
+    await this.withNoMinTxsPerBlock(() => sentTx.wait({ timeout: this.config.txMinedWaitSeconds }));
   }
 
   private async bridgeL1FeeJuice(recipient: AztecAddress) {
@@ -397,20 +425,23 @@ export class BotFactory {
     return claim;
   }
 
-  private async advanceL2Block() {
-    const initialBlockNumber = await this.node!.getBlockNumber();
-    await this.tryFlushTxs();
-    await retryUntil(async () => (await this.node!.getBlockNumber()) >= initialBlockNumber + 1);
+  private async withNoMinTxsPerBlock<T>(fn: () => Promise<T>): Promise<T> {
+    if (!this.nodeAdmin || !this.config.flushSetupTransactions) {
+      return fn();
+    }
+    const { minTxsPerBlock } = await this.nodeAdmin.getConfig();
+    await this.nodeAdmin.setConfig({ minTxsPerBlock: 0 });
+    try {
+      return await fn();
+    } finally {
+      await this.nodeAdmin.setConfig({ minTxsPerBlock });
+    }
   }
 
-  private async tryFlushTxs() {
-    if (this.config.flushSetupTransactions) {
-      this.log.verbose('Flushing transactions');
-      try {
-        await this.nodeAdmin!.flushTxs();
-      } catch (err) {
-        this.log.error(`Failed to flush transactions: ${err}`);
-      }
-    }
+  private async advanceL2Block() {
+    await this.withNoMinTxsPerBlock(async () => {
+      const initialBlockNumber = await this.node!.getBlockNumber();
+      await retryUntil(async () => (await this.node!.getBlockNumber()) >= initialBlockNumber + 1);
+    });
   }
 }

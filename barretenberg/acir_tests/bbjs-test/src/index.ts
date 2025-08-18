@@ -8,10 +8,6 @@ const logger = pino({
   name: "bbjs-test",
 });
 
-const UH_PROOF_FIELDS_LENGTH = 456;
-const BYTES_PER_FIELD = 32;
-const UH_PROOF_LENGTH_IN_BYTES = UH_PROOF_FIELDS_LENGTH * BYTES_PER_FIELD;
-
 const proofPath = (dir: string) => path.join(dir, "proof");
 const proofAsFieldsPath = (dir: string) => path.join(dir, "proof_fields.json");
 const publicInputsAsFieldsPath = (dir: string) =>
@@ -42,13 +38,9 @@ async function generateProof({
 
   const witness = await fs.readFile(witnessPath);
   const proof = await backend.generateProof(new Uint8Array(witness), {
-    keccak: oracleHash === "keccak",
-    starknet: oracleHash === "starknet",
+    keccakZK: oracleHash === "keccakZK",
+    starknetZK: oracleHash === "starknetZK",
   });
-  assert(
-    proof.proof.length === UH_PROOF_LENGTH_IN_BYTES,
-    `Unexpected proof length ${proof.proof.length} for ${bytecodePath}`
-  );
 
   await fs.writeFile(proofPath(outputDirectory), Buffer.from(proof.proof));
   logger.debug("Proof written to " + proofPath(outputDirectory));
@@ -67,8 +59,8 @@ async function generateProof({
   );
 
   const verificationKey = await backend.getVerificationKey({
-    keccak: oracleHash === "keccak",
-    starknet: oracleHash === "starknet",
+    keccakZK: oracleHash === "keccakZK",
+    starknetZK: oracleHash === "starknetZK",
   });
   await fs.writeFile(vkeyPath(outputDirectory), Buffer.from(verificationKey));
   logger.debug("Verification key written to " + vkeyPath(outputDirectory));
@@ -82,10 +74,6 @@ async function verifyProof({ directory }: { directory: string }) {
   const verifier = new BarretenbergVerifier();
 
   const proof = await fs.readFile(proofPath(directory));
-  assert(
-    proof.length === UH_PROOF_LENGTH_IN_BYTES,
-    `Unexpected proof length ${proof.length}, expected ${UH_PROOF_LENGTH_IN_BYTES}`
-  );
 
   const publicInputs = JSON.parse(
     await fs.readFile(publicInputsAsFieldsPath(directory), "utf8")

@@ -1,5 +1,5 @@
-import { readFieldCompressedString } from '@aztec/aztec.js';
-import { RollupCheatCodes } from '@aztec/aztec.js/testing';
+import { type PXE, SponsoredFeePaymentMethod, readFieldCompressedString } from '@aztec/aztec.js';
+import { RollupCheatCodes } from '@aztec/aztec/testing';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { createLogger } from '@aztec/foundation/log';
@@ -8,7 +8,13 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { jest } from '@jest/globals';
 import type { ChildProcess } from 'child_process';
 
-import { type TestWallets, deployTestWalletWithTokens, setupTestWalletsWithTokens } from './setup_test_wallets.js';
+import { getSponsoredFPCAddress } from '../fixtures/utils.js';
+import {
+  type TestWallets,
+  deploySponsoredTestWallets,
+  setupTestWalletsWithTokens,
+  startCompatiblePXE,
+} from './setup_test_wallets.js';
 import { isK8sConfig, setupEnvironment, startPortForward } from './utils.js';
 
 const config = setupEnvironment(process.env);
@@ -26,20 +32,18 @@ describe('token transfer test', () => {
   const ROUNDS = BigInt(l1Config.aztecEpochDuration * TEST_EPOCHS);
 
   let testWallets: TestWallets;
-  let PXE_URL: string;
   let ETHEREUM_HOSTS: string[];
   const forwardProcesses: ChildProcess[] = [];
+  let pxe: PXE;
+  let cleanup: undefined | (() => Promise<void>);
+
+  afterAll(async () => {
+    await cleanup?.();
+    forwardProcesses.forEach(p => p.kill());
+  });
 
   beforeAll(async () => {
     if (isK8sConfig(config)) {
-      const { process: pxeProcess, port: pxePort } = await startPortForward({
-        resource: `svc/${config.INSTANCE_NAME}-aztec-network-pxe`,
-        namespace: config.NAMESPACE,
-        containerPort: config.CONTAINER_PXE_PORT,
-      });
-      forwardProcesses.push(pxeProcess);
-      PXE_URL = `http://127.0.0.1:${pxePort}`;
-
       if (config.SEPOLIA_RUN !== 'true') {
         const { process: ethProcess, port: ethPort } = await startPortForward({
           resource: `svc/${config.INSTANCE_NAME}-aztec-network-eth-execution`,
@@ -63,18 +67,10 @@ describe('token transfer test', () => {
       forwardProcesses.push(sequencerProcess);
       const NODE_URL = `http://127.0.0.1:${sequencerPort}`;
 
-      const L1_ACCOUNT_MNEMONIC = config.L1_ACCOUNT_MNEMONIC;
-
-      testWallets = await deployTestWalletWithTokens(
-        PXE_URL,
-        NODE_URL,
-        ETHEREUM_HOSTS,
-        L1_ACCOUNT_MNEMONIC,
-        MINT_AMOUNT,
-        logger,
-      );
+      ({ pxe, cleanup } = await startCompatiblePXE(NODE_URL, ['1', 'true'].includes(config.AZTEC_REAL_PROOFS), logger));
+      testWallets = await deploySponsoredTestWallets(pxe, MINT_AMOUNT, logger);
     } else {
-      PXE_URL = config.PXE_URL;
+      const PXE_URL = config.PXE_URL;
       ETHEREUM_HOSTS = config.ETHEREUM_HOSTS.split(',');
       testWallets = await setupTestWalletsWithTokens(PXE_URL, MINT_AMOUNT, logger);
     }
@@ -88,7 +84,9 @@ describe('token transfer test', () => {
   });
 
   it('can get info', async () => {
-    const name = readFieldCompressedString(await testWallets.tokenAdminWallet.methods.private_get_name().simulate());
+    const name = readFieldCompressedString(
+      await testWallets.tokenAdminWallet.methods.private_get_name().simulate({ from: testWallets.tokenAdminAddress }),
+    );
     expect(name).toBe(testWallets.tokenName);
     logger.info(`Token name verified: ${name}`);
   });
@@ -103,34 +101,38 @@ describe('token transfer test', () => {
     const transferAmount = 1n;
 
     for (const w of testWallets.wallets) {
-      expect(MINT_AMOUNT).toBe(await testWallets.tokenAdminWallet.methods.balance_of_public(w.getAddress()).simulate());
+      expect(MINT_AMOUNT).toBe(
+        await testWallets.tokenAdminWallet.methods
+          .balance_of_public(w.getAddress())
+          .simulate({ from: testWallets.tokenAdminAddress }),
+      );
     }
 
     logger.info('Minted tokens');
 
-    expect(0n).toBe(await testWallets.tokenAdminWallet.methods.balance_of_public(recipient).simulate());
+    expect(0n).toBe(
+      await testWallets.tokenAdminWallet.methods
+        .balance_of_public(recipient)
+        .simulate({ from: testWallets.tokenAdminAddress }),
+    );
 
     // For each round, make both private and public transfers
     const startSlot = await rollupCheatCodes.getSlot();
     for (let i = 1n; i <= ROUNDS; i++) {
-      const interactions = await Promise.all([
-        ...testWallets.wallets.map(async w =>
-          (await TokenContract.at(testWallets.tokenAddress, w)).methods.transfer_in_public(
-            w.getAddress(),
-            recipient,
-            transferAmount,
-            0,
-          ),
-        ),
-      ]);
+      const txs = testWallets.wallets.map(async w =>
+        (await TokenContract.at(testWallets.tokenAddress, w)).methods
+          .transfer_in_public(w.getAddress(), recipient, transferAmount, 0)
+          .prove({
+            from: w.getAddress(),
+            fee: { paymentMethod: new SponsoredFeePaymentMethod(await getSponsoredFPCAddress()) },
+          }),
+      );
 
-      logger.info(`Created interactions ${interactions.length} for round ${i} of ${ROUNDS}`);
+      const provenTxs = await Promise.all(txs);
 
-      const txs = await Promise.all(interactions.map(async i => await i.prove()));
+      logger.info(`Proved ${provenTxs.length} in round ${i} of ${ROUNDS}`);
 
-      logger.info(`Proved ${txs.length} in round ${i} of ${ROUNDS}`);
-
-      await Promise.all(txs.map(t => t.send().wait({ timeout: 600 })));
+      await Promise.all(provenTxs.map(t => t.send().wait({ timeout: 600 })));
       const currentSlot = await rollupCheatCodes.getSlot();
       expect(currentSlot).toBeLessThanOrEqual(startSlot + i + MAX_MISSED_SLOTS);
       const startEpoch = await rollupCheatCodes.getEpoch();
@@ -143,12 +145,16 @@ describe('token transfer test', () => {
 
     for (const w of testWallets.wallets) {
       expect(MINT_AMOUNT - ROUNDS * transferAmount).toBe(
-        await testWallets.tokenAdminWallet.methods.balance_of_public(w.getAddress()).simulate(),
+        await testWallets.tokenAdminWallet.methods
+          .balance_of_public(w.getAddress())
+          .simulate({ from: testWallets.tokenAdminAddress }),
       );
     }
 
     expect(ROUNDS * transferAmount * BigInt(testWallets.wallets.length)).toBe(
-      await testWallets.tokenAdminWallet.methods.balance_of_public(recipient).simulate(),
+      await testWallets.tokenAdminWallet.methods
+        .balance_of_public(recipient)
+        .simulate({ from: testWallets.tokenAdminAddress }),
     );
   });
 });

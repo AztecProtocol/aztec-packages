@@ -45,6 +45,8 @@ export async function createAvmMinimalPublicTx(): Promise<PublicTxResult> {
         args: [],
       },
     ],
+    /*teardownCall=*/ undefined,
+    /*feePayer=*/ deployer,
   );
 }
 

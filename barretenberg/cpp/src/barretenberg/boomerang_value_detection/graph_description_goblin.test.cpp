@@ -22,11 +22,17 @@ class BoomerangGoblinRecursiveVerifierTests : public testing::Test {
     using OuterVerifier = UltraVerifier_<OuterFlavor>;
     using OuterDeciderProvingKey = DeciderProvingKey_<OuterFlavor>;
 
+    using Commitment = MergeVerifier::Commitment;
+    using MergeCommitments = MergeVerifier::InputCommitments;
+    using RecursiveCommitment = GoblinRecursiveVerifier::MergeVerifier::Commitment;
+    using RecursiveMergeCommitments = GoblinRecursiveVerifier::MergeVerifier::InputCommitments;
+
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     struct ProverOutput {
         GoblinProof proof;
-        Goblin::VerificationKey verfier_input;
+        Goblin::VerificationKey verifier_input;
+        MergeCommitments merge_commitments;
     };
 
     /**
@@ -51,9 +57,21 @@ class BoomerangGoblinRecursiveVerifierTests : public testing::Test {
         MegaCircuitBuilder builder{ goblin_final.op_queue };
         builder.queue_ecc_no_op();
         GoblinMockCircuits::construct_simple_circuit(builder);
+        goblin_final.op_queue->merge();
+        // Subtable values and commitments - needed for (Recursive)MergeVerifier
+        MergeCommitments merge_commitments;
+        auto t_current = goblin_final.op_queue->construct_current_ultra_ops_subtable_columns();
+        auto T_prev = goblin_final.op_queue->construct_previous_ultra_ops_table_columns();
+        CommitmentKey<curve::BN254> pcs_commitment_key(goblin_final.op_queue->get_ultra_ops_table_num_rows());
+        for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
+            merge_commitments.t_commitments[idx] = pcs_commitment_key.commit(t_current[idx]);
+            merge_commitments.T_prev_commitments[idx] = pcs_commitment_key.commit(T_prev[idx]);
+        }
 
         // Output is a goblin proof plus ECCVM/Translator verification keys
-        return { goblin_final.prove(), { std::make_shared<ECCVMVK>(), std::make_shared<TranslatorVK>() } };
+        return { goblin_final.prove(),
+                 { std::make_shared<ECCVMVK>(), std::make_shared<TranslatorVK>() },
+                 merge_commitments };
     }
 };
 
@@ -63,22 +81,32 @@ class BoomerangGoblinRecursiveVerifierTests : public testing::Test {
  */
 TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
 {
-    auto [proof, verifier_input] = create_goblin_prover_output();
+    auto [proof, verifier_input, merge_commitments] = create_goblin_prover_output();
 
     Builder builder;
+
+    // Merge commitments
+    RecursiveMergeCommitments recursive_merge_commitments;
+    for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
+        recursive_merge_commitments.t_commitments[idx] =
+            RecursiveCommitment::from_witness(&builder, merge_commitments.t_commitments[idx]);
+        recursive_merge_commitments.T_prev_commitments[idx] =
+            RecursiveCommitment::from_witness(&builder, merge_commitments.T_prev_commitments[idx]);
+    }
+
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-    GoblinRecursiveVerifierOutput output = verifier.verify(proof);
+    GoblinRecursiveVerifierOutput output = verifier.verify(proof, recursive_merge_commitments);
     output.points_accumulator.set_public();
     // Construct and verify a proof for the Goblin Recursive Verifier circuit
     {
         auto proving_key = std::make_shared<OuterDeciderProvingKey>(builder);
-        auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->proving_key);
+        auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->get_precomputed());
         OuterProver prover(proving_key, verification_key);
         OuterVerifier verifier(verification_key);
         auto proof = prover.construct_proof();
-        bool verified = verifier.verify_proof(proof);
+        bool verified = verifier.template verify_proof<bb::DefaultIO>(proof).result;
 
-        ASSERT(verified);
+        ASSERT_TRUE(verified);
     }
     auto translator_pairing_points = output.points_accumulator;
     translator_pairing_points.P0.x.fix_witness();

@@ -4,7 +4,6 @@ import type { FieldsOf } from '@aztec/foundation/types';
 import { z } from 'zod';
 
 import { type ContractArtifact, ContractArtifactSchema } from '../abi/abi.js';
-import { AztecAddress } from '../aztec-address/index.js';
 import {
   type ContractInstanceWithAddress,
   ContractInstanceWithAddressSchema,
@@ -37,10 +36,7 @@ export type ContractOverrides = Record<
  * set, it *must* be run without the kernel circuits, or validations will fail
  */
 export class SimulationOverrides {
-  constructor(
-    public contracts?: ContractOverrides,
-    public msgSender?: AztecAddress,
-  ) {}
+  constructor(public contracts?: ContractOverrides) {}
 
   static get schema() {
     return z
@@ -51,10 +47,9 @@ export class SimulationOverrides {
             z.object({ instance: ContractInstanceWithAddressSchema, artifact: ContractArtifactSchema }),
           ),
         ),
-        msgSender: optional(AztecAddress.schema),
       })
-      .transform(({ contracts, msgSender }) => {
-        return new SimulationOverrides(contracts, msgSender);
+      .transform(({ contracts }) => {
+        return new SimulationOverrides(contracts);
       });
   }
 }
@@ -69,16 +64,15 @@ export class PrivateSimulationResult {
     return accumulatePrivateReturnValues(this.privateExecutionResult);
   }
 
-  toSimulatedTx(): Tx {
+  async toSimulatedTx(): Promise<Tx> {
     const contractClassLogs = collectSortedContractClassLogs(this.privateExecutionResult);
 
-    const tx = new Tx(
-      this.publicInputs,
-      ClientIvcProof.empty(),
-      contractClassLogs,
-      this.privateExecutionResult.publicFunctionCalldata,
-    );
-    return tx;
+    return await Tx.create({
+      data: this.publicInputs,
+      clientIvcProof: ClientIvcProof.empty(),
+      contractClassLogFields: contractClassLogs,
+      publicFunctionCalldata: this.privateExecutionResult.publicFunctionCalldata,
+    });
   }
 }
 
@@ -146,7 +140,7 @@ export class TxSimulationResult {
     return new PrivateSimulationResult(this.privateExecutionResult, this.publicInputs).getPrivateReturnValues();
   }
 
-  toSimulatedTx(): Tx {
+  toSimulatedTx(): Promise<Tx> {
     return new PrivateSimulationResult(this.privateExecutionResult, this.publicInputs).toSimulatedTx();
   }
 
@@ -166,8 +160,8 @@ export function accumulatePrivateReturnValues(executionResult: PrivateExecutionR
     executionResult: PrivateCallExecutionResult,
   ): NestedProcessReturnValues => {
     const acc = new NestedProcessReturnValues(executionResult.returnValues);
-    acc.nested = executionResult.nestedExecutions.map(nestedExecution =>
-      collectPrivateReturnValuesRecursive(nestedExecution),
+    acc.nested = executionResult.nestedExecutionResults.map(nestedExecutionResult =>
+      collectPrivateReturnValuesRecursive(nestedExecutionResult),
     );
     return acc;
   };

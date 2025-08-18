@@ -6,9 +6,6 @@ import type Koa from 'koa';
 
 import type { ChainConfig } from '../config/chain-config.js';
 
-// REFACTOR: This file is not a circuit-type, but at the moment we don't have any other
-// package common to all components that we can use for this shared code.
-
 /** Fields that identify a version of the Aztec protocol. Any mismatch between these fields should signal an incompatibility between nodes. */
 export type ComponentsVersions = {
   l1ChainId: number;

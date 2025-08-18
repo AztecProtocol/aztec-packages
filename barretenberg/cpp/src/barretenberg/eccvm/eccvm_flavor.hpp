@@ -6,6 +6,7 @@
 
 #pragma once
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/std_array.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
@@ -44,8 +45,8 @@ class ECCVMFlavor {
     using Commitment = typename G1::affine_element;
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
-    using RelationSeparator = FF;
     using MSM = bb::eccvm::MSM<CycleGroup>;
+    using Transcript = NativeTranscript;
 
     // indicates when evaluating sumcheck, edges must be extended to be MAX_TOTAL_RELATION_LENGTH
     static constexpr bool USE_SHORT_MONOMIALS = false;
@@ -95,6 +96,9 @@ class ECCVMFlavor {
     using Relations = Relations_<FF>;
     using LookupRelation = ECCVMLookupRelation<FF>;
 
+    static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
+    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
+
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
@@ -105,16 +109,50 @@ class ECCVMFlavor {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 2;
     static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
 
-    // Instantiate the BarycentricData needed to extend each Relation Univariate
+    static constexpr size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Commitment>();
+    static constexpr size_t num_frs_fq = bb::field_conversion::calc_num_bn254_frs<FF>();
 
-    // define the containers for storing the contributions from each relation in Sumcheck
-    using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
+    // Proof length formula
+    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
+        /* 1. NUM_WITNESS_ENTITIES commitments */ (NUM_WITNESS_ENTITIES * num_frs_comm) +
+        /* 2. Libra concatenation commitment*/ (num_frs_comm) +
+        /* 3. Libra sum */ (num_frs_fq) +
+        /* 4. CONST_ECCVM_LOG_N sumcheck univariates commitments */
+        (CONST_ECCVM_LOG_N * num_frs_comm) +
+        /* 5. 2 * CONST_ECCVM_LOG_N sumcheck univariate evaluations */
+        (2 * CONST_ECCVM_LOG_N * num_frs_fq) +
+        /* 6. NUM_ALL_ENTITIES sumcheck evaluations*/ (NUM_ALL_ENTITIES * num_frs_fq) +
+        /* 7. Libra claimed evaluation */ (num_frs_fq) +
+        /* 8. Libra grand sum commitment */ (num_frs_comm) +
+        /* 9. Libra quotient commitment */ (num_frs_comm) +
+        /* 10. Gemini masking commitment */ (num_frs_comm) +
+        /* 11. Gemini masking evaluation */ (num_frs_fq) +
+        /* 12. CONST_ECCVM_LOG_N - 1 Gemini Fold commitments */
+        ((CONST_ECCVM_LOG_N - 1) * num_frs_comm) +
+        /* 13. CONST_ECCVM_LOG_N Gemini a evaluations */
+        (CONST_ECCVM_LOG_N * num_frs_fq) +
+        /* 14. NUM_SMALL_IPA_EVALUATIONS libra evals */ (NUM_SMALL_IPA_EVALUATIONS * num_frs_fq) +
+        /* 15. Shplonk Q commitment */ (num_frs_comm) +
+        /* 16. Translator concatenated masking term commitment */ (num_frs_comm) +
+        /* 17 Translator op evaluation */ (num_frs_fq) +
+        /* 18 Translator Px evaluation */ (num_frs_fq) +
+        /* 19 Translator Py evaluation */ (num_frs_fq) +
+        /* 20 Translator z1 evaluation */ (num_frs_fq) +
+        /* 21 Translator z2 evaluation */ (num_frs_fq) +
+        /* 22 Translator concatenated masking term evaluation */ (num_frs_fq) +
+        /* 23 Translator grand sum commitment */ (num_frs_comm) +
+        /* 24 Translator quotient commitment */ (num_frs_comm) +
+        /* 25 Translator concatenation eval */ (num_frs_fq) +
+        /* 26 Translator grand sum shift eval */ (num_frs_fq) +
+        /* 27 Translator grand sum eval */ (num_frs_fq) +
+        /* 28 Translator quotient eval */ (num_frs_fq) +
+        /* 29 Shplonk Q commitment */ (num_frs_comm) +
+        /* 30 IPA proof */ IPA_PROOF_LENGTH;
 
     // The sub-protocol `compute_translation_opening_claims` outputs an opening claim for the batched univariate
     // evaluation of `op`, `Px`, `Py`, `z1`, and `z2`, and an array of opening claims for the evaluations of the
     // SmallSubgroupIPA witness polynomials.
     static constexpr size_t NUM_TRANSLATION_OPENING_CLAIMS = NUM_SMALL_IPA_EVALUATIONS + 1;
-    using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/989): refine access specifiers in flavors, this is
     // public as it is also used in the recursive flavor but the two could possibly me unified eventually
@@ -247,9 +285,9 @@ class ECCVMFlavor {
     template <typename DataType> class WireToBeShiftedAccumulatorEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              transcript_accumulator_empty, // column 82
-                              transcript_accumulator_x,     // column 83
-                              transcript_accumulator_y)     // column 84
+                              transcript_accumulator_not_empty, // column 82
+                              transcript_accumulator_x,         // column 83
+                              transcript_accumulator_y)         // column 84
     };
 
     /**
@@ -288,64 +326,64 @@ class ECCVMFlavor {
     template <typename DataType> class ShiftedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              transcript_mul_shift,               // column 0
-                              transcript_msm_count_shift,         // column 1
-                              precompute_scalar_sum_shift,        // column 2
-                              precompute_s1hi_shift,              // column 3
-                              precompute_dx_shift,                // column 4
-                              precompute_dy_shift,                // column 5
-                              precompute_tx_shift,                // column 6
-                              precompute_ty_shift,                // column 7
-                              msm_transition_shift,               // column 8
-                              msm_add_shift,                      // column 9
-                              msm_double_shift,                   // column 10
-                              msm_skew_shift,                     // column 11
-                              msm_accumulator_x_shift,            // column 12
-                              msm_accumulator_y_shift,            // column 13
-                              msm_count_shift,                    // column 14
-                              msm_round_shift,                    // column 15
-                              msm_add1_shift,                     // column 16
-                              msm_pc_shift,                       // column 17
-                              precompute_pc_shift,                // column 18
-                              transcript_pc_shift,                // column 19
-                              precompute_round_shift,             // column 20
-                              precompute_select_shift,            // column 21
-                              transcript_accumulator_empty_shift, // column 22
-                              transcript_accumulator_x_shift,     // column 23
-                              transcript_accumulator_y_shift,     // column 24
-                              z_perm_shift);                      // column 25
+                              transcript_mul_shift,                   // column 0
+                              transcript_msm_count_shift,             // column 1
+                              precompute_scalar_sum_shift,            // column 2
+                              precompute_s1hi_shift,                  // column 3
+                              precompute_dx_shift,                    // column 4
+                              precompute_dy_shift,                    // column 5
+                              precompute_tx_shift,                    // column 6
+                              precompute_ty_shift,                    // column 7
+                              msm_transition_shift,                   // column 8
+                              msm_add_shift,                          // column 9
+                              msm_double_shift,                       // column 10
+                              msm_skew_shift,                         // column 11
+                              msm_accumulator_x_shift,                // column 12
+                              msm_accumulator_y_shift,                // column 13
+                              msm_count_shift,                        // column 14
+                              msm_round_shift,                        // column 15
+                              msm_add1_shift,                         // column 16
+                              msm_pc_shift,                           // column 17
+                              precompute_pc_shift,                    // column 18
+                              transcript_pc_shift,                    // column 19
+                              precompute_round_shift,                 // column 20
+                              precompute_select_shift,                // column 21
+                              transcript_accumulator_not_empty_shift, // column 22
+                              transcript_accumulator_x_shift,         // column 23
+                              transcript_accumulator_y_shift,         // column 24
+                              z_perm_shift);                          // column 25
     };
 
     template <typename DataType, typename PrecomputedAndWitnessEntitiesSuperset>
     static auto get_to_be_shifted(PrecomputedAndWitnessEntitiesSuperset& entities)
     {
         // NOTE: must match order of ShiftedEntities above!
-        return RefArray{ entities.transcript_mul,               // column 0
-                         entities.transcript_msm_count,         // column 1
-                         entities.precompute_scalar_sum,        // column 2
-                         entities.precompute_s1hi,              // column 3
-                         entities.precompute_dx,                // column 4
-                         entities.precompute_dy,                // column 5
-                         entities.precompute_tx,                // column 6
-                         entities.precompute_ty,                // column 7
-                         entities.msm_transition,               // column 8
-                         entities.msm_add,                      // column 9
-                         entities.msm_double,                   // column 10
-                         entities.msm_skew,                     // column 11
-                         entities.msm_accumulator_x,            // column 12
-                         entities.msm_accumulator_y,            // column 13
-                         entities.msm_count,                    // column 14
-                         entities.msm_round,                    // column 15
-                         entities.msm_add1,                     // column 16
-                         entities.msm_pc,                       // column 17
-                         entities.precompute_pc,                // column 18
-                         entities.transcript_pc,                // column 19
-                         entities.precompute_round,             // column 20
-                         entities.precompute_select,            // column 21
-                         entities.transcript_accumulator_empty, // column 22
-                         entities.transcript_accumulator_x,     // column 23
-                         entities.transcript_accumulator_y,     // column 24
-                         entities.z_perm };                     // column 25
+        return RefArray{ entities.transcript_mul,                   // column 0
+                         entities.transcript_msm_count,             // column 1
+                         entities.precompute_scalar_sum,            // column 2
+                         entities.precompute_s1hi,                  // column 3
+                         entities.precompute_dx,                    // column 4
+                         entities.precompute_dy,                    // column 5
+                         entities.precompute_tx,                    // column 6
+                         entities.precompute_ty,                    // column 7
+                         entities.msm_transition,                   // column 8
+                         entities.msm_add,                          // column 9
+                         entities.msm_double,                       // column 10
+                         entities.msm_skew,                         // column 11
+                         entities.msm_accumulator_x,                // column 12
+                         entities.msm_accumulator_y,                // column 13
+                         entities.msm_count,                        // column 14
+                         entities.msm_round,                        // column 15
+                         entities.msm_add1,                         // column 16
+                         entities.msm_pc,                           // column 17
+                         entities.precompute_pc,                    // column 18
+                         entities.transcript_pc,                    // column 19
+                         entities.precompute_round,                 // column 20
+                         entities.precompute_select,                // column 21
+                         entities.transcript_accumulator_not_empty, // column 22
+                         entities.transcript_accumulator_x,         // column 23
+                         entities.transcript_accumulator_y,         // column 24
+                         entities.z_perm };                         // column 25
     }
 
     /**
@@ -456,7 +494,7 @@ class ECCVMFlavor {
          *          transcript_accumulator_y: y-coordinate of eccvm accumulator register
          *          transcript_msm_x: x-coordinate of MSM output
          *          transcript_msm_y: y-coordinate of MSM output
-         *          transcript_accumulator_empty: if 1, transcript_accumulator = point at infinity
+         *          transcript_accumulator_not_empty: if 1, transcript_accumulator = point at infinity
          *          transcript_base_infinity: if 1, transcript_Px, transcript_Py is a point at infinity
          *          transcript_add_x_equal: if adding a point into the accumulator, is 1 if x-coordinates are equal
          *          transcript_add_y_equal: if adding a point into the accumulator, is 1 if y-coordinates are equal
@@ -571,7 +609,7 @@ class ECCVMFlavor {
             // compute polynomials for transcript columns
             parallel_for_range(transcript_rows.size(), [&](size_t start, size_t end) {
                 for (size_t i = start; i < end; i++) {
-                    transcript_accumulator_empty.set_if_valid_index(i, transcript_rows[i].accumulator_empty);
+                    transcript_accumulator_not_empty.set_if_valid_index(i, transcript_rows[i].accumulator_not_empty);
                     transcript_add.set_if_valid_index(i, transcript_rows[i].q_add);
                     transcript_mul.set_if_valid_index(i, transcript_rows[i].q_mul);
                     transcript_eq.set_if_valid_index(i, transcript_rows[i].q_eq);
@@ -608,21 +646,6 @@ class ECCVMFlavor {
                         i, transcript_rows[i].msm_count_at_transition_inverse);
                 }
             });
-
-            // TODO(@zac-williamson) if final opcode resets accumulator, all subsequent "is_accumulator_empty" row
-            // values must be 1. Ideally we find a way to tweak this so that empty rows that do nothing have column
-            // values that are all zero (issue #2217)
-            if (transcript_rows[transcript_rows.size() - 1].accumulator_empty) {
-                for (size_t i = transcript_rows.size(); i < unmasked_witness_size; ++i) {
-                    transcript_accumulator_empty.set_if_valid_index(i, 1);
-                }
-            }
-            // in addition, unless the accumulator is reset, it contains the value from the previous row so this
-            // must be propagated
-            for (size_t i = transcript_rows.size(); i < unmasked_witness_size; ++i) {
-                transcript_accumulator_x.set_if_valid_index(i, transcript_accumulator_x[i - 1]);
-                transcript_accumulator_y.set_if_valid_index(i, transcript_accumulator_y[i - 1]);
-            }
 
             parallel_for_range(point_table_rows.size(), [&](size_t start, size_t end) {
                 for (size_t i = start; i < end; i++) {
@@ -725,20 +748,20 @@ class ECCVMFlavor {
      * @brief The proving key is responsible for storing the polynomials used by the prover.
      *
      */
-    class ProvingKey : public ProvingKey_<FF, CommitmentKey> {
+    class ProvingKey {
       public:
-        // Expose constructors on the base class
-        using Base = ProvingKey_<FF, CommitmentKey>;
-        using Base::Base;
+        size_t circuit_size = ECCVM_FIXED_SIZE; // The circuit size is fixed for the ECCVM.
+        size_t log_circuit_size = CONST_ECCVM_LOG_N;
+
         // Used to amortize the commitment time if the `fixed size` > `real_size`.
         size_t real_size = 0;
 
         ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
+        CommitmentKey commitment_key;
 
         // Constructor for fixed size ProvingKey
         ProvingKey(const CircuitBuilder& builder)
-            : Base(ECCVM_FIXED_SIZE, 0)
-            , real_size(builder.get_circuit_subgroup_size(builder.get_estimated_num_finalized_gates()))
+            : real_size(builder.get_circuit_subgroup_size(builder.get_estimated_num_finalized_gates()))
             , polynomials(builder)
         {}
     };
@@ -751,8 +774,12 @@ class ECCVMFlavor {
      * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
      * portability of our circuits.
      */
-    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>> {
+    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
       public:
+        // Serialized Verification Key length in fields
+        static constexpr size_t VERIFICATION_KEY_LENGTH =
+            /* 1. NUM_PRECOMPUTED_ENTITIES commitments */ (NUM_PRECOMPUTED_ENTITIES * num_frs_comm);
+
         bool operator==(const VerificationKey&) const = default;
 
         // IPA verification key requires one more point.
@@ -777,10 +804,9 @@ class ECCVMFlavor {
 
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
         {
-            this->circuit_size = 1UL << CONST_ECCVM_LOG_N;
             this->log_circuit_size = CONST_ECCVM_LOG_N;
-            this->num_public_inputs = proving_key->num_public_inputs;
-            this->pub_inputs_offset = proving_key->pub_inputs_offset;
+            this->num_public_inputs = 0;
+            this->pub_inputs_offset = 0;
 
             for (auto [polynomial, commitment] :
                  zip_view(proving_key->polynomials.get_precomputed(), this->get_all())) {
@@ -803,26 +829,30 @@ class ECCVMFlavor {
             };
 
             std::vector<fr> elements;
-
-            serialize_to_field_buffer(this->circuit_size, elements);
-            serialize_to_field_buffer(this->num_public_inputs, elements);
-            serialize_to_field_buffer(this->pub_inputs_offset, elements);
-
             for (const Commitment& commitment : this->get_all()) {
                 serialize_to_field_buffer(commitment, elements);
             }
-
             return elements;
         }
+        /**
+         * @brief Unused function because vk is hardcoded in recursive verifier, so no transcript hashing is needed.
+         *
+         * @param domain_separator
+         * @param transcript
+         * @returns The hash of the verification key
+         */
+        fr hash_through_transcript([[maybe_unused]] const std::string& domain_separator,
+                                   [[maybe_unused]] Transcript& transcript) const override
+        {
+            throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
+        }
+
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and `log_circuit_size`
         // from MSGPACK and the verification key.
-        MSGPACK_FIELDS(circuit_size,
-                       log_circuit_size,
-                       num_public_inputs,
-                       pub_inputs_offset,
-                       lagrange_first,
-                       lagrange_second,
-                       lagrange_last);
+        // Don't statically check for object completeness.
+        using MSGPACK_NO_STATIC_CHECK = std::true_type;
+        MSGPACK_FIELDS(
+            log_circuit_size, num_public_inputs, pub_inputs_offset, lagrange_first, lagrange_second, lagrange_last);
     };
 
     /**
@@ -907,7 +937,7 @@ class ECCVMFlavor {
             Base::msm_slice2 = "MSM_SLICE2";
             Base::msm_slice3 = "MSM_SLICE3";
             Base::msm_slice4 = "MSM_SLICE4";
-            Base::transcript_accumulator_empty = "TRANSCRIPT_ACCUMULATOR_EMPTY";
+            Base::transcript_accumulator_not_empty = "TRANSCRIPT_ACCUMULATOR_NOT_EMPTY";
             Base::transcript_reset_accumulator = "TRANSCRIPT_RESET_ACCUMULATOR";
             Base::precompute_select = "PRECOMPUTE_SELECT";
             Base::lookup_read_counts_0 = "LOOKUP_READ_COUNTS_0";
@@ -925,6 +955,7 @@ class ECCVMFlavor {
             Base::transcript_msm_count_zero_at_transition = "TRANSCRIPT_MSM_COUNT_ZERO_AT_TRANSITION";
             Base::transcript_msm_count_at_transition_inverse = "TRANSCRIPT_MSM_COUNT_AT_TRANSITION_INVERSE";
             Base::z_perm = "Z_PERM";
+            Base::z_perm_shift = "Z_PERM_SHIFT";
             Base::lookup_inverses = "LOOKUP_INVERSES";
             // The ones beginning with "__" are only used for debugging
             Base::lagrange_first = "__LAGRANGE_FIRST";
@@ -984,20 +1015,54 @@ class ECCVMFlavor {
             size_t old_proof_length = NativeTranscript::proof_data.size();
             NativeTranscript::proof_data.clear();
 
-            NativeTranscript::template serialize_to_buffer(ipa_poly_degree, NativeTranscript::proof_data);
+            NativeTranscript::serialize_to_buffer(ipa_poly_degree, NativeTranscript::proof_data);
             for (size_t i = 0; i < CONST_ECCVM_LOG_N; ++i) {
-                NativeTranscript::template serialize_to_buffer(ipa_l_comms[i], NativeTranscript::proof_data);
-                NativeTranscript::template serialize_to_buffer(ipa_r_comms[i], NativeTranscript::proof_data);
+                NativeTranscript::serialize_to_buffer(ipa_l_comms[i], NativeTranscript::proof_data);
+                NativeTranscript::serialize_to_buffer(ipa_r_comms[i], NativeTranscript::proof_data);
             }
 
             serialize_to_buffer(ipa_G_0_eval, proof_data);
             serialize_to_buffer(ipa_a_0_eval, proof_data);
 
-            ASSERT(NativeTranscript::proof_data.size() == old_proof_length);
+            BB_ASSERT_EQ(NativeTranscript::proof_data.size(), old_proof_length);
         }
     };
 
-    using Transcript = NativeTranscript;
+    /**
+     * @brief When evaluating the sumcheck protocol - can we skip evaluation of all relations for a given row?
+     *
+     * @details When used in ClientIVC, the ECCVM has a large fixed size, which is often not fully utilized.
+     *          If a row is completely empty, the values of z_perm and z_perm_shift will match,
+     *          we can use this as a proxy to determine if we can skip Sumcheck::compute_univariate_with_row_skipping
+     **/
+    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates, typename EdgeType>
+    static bool skip_entire_row([[maybe_unused]] const ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
+                                [[maybe_unused]] const EdgeType edge_idx)
+    {
+        // skip conditions. TODO: add detailed commentary during audit.
+        // The most important skip condition is that `z_perm == z_perm_shift`. This implies that none of the wire values
+        // for the present input are involved in non-trivial copy constraints. Edge cases where nonzero rows do not
+        // contribute to permutation:
+        //
+        // 1: If `lagrange_last != 0`, the permutation polynomial identity is updated even if
+        // z_perm == z_perm_shift
+        //
+        // 2: The final MSM row won't add to the permutation but still has polynomial identitiy
+        //    contributions. This is because the permutation argument uses the SHIFTED msm columns when performing
+        //    lookups i.e. `polynomials.msm_accumulator_x[last_edge_idx] will change z_perm[last_edge_idx - 1] and
+        //    z_perm_shift[last_edge_idx - 1]
+        //
+        // 3. The value of `transcript_mul` can be non-zero at the end of a long MSM of points-at-infinity, which will
+        //    cause `full_msm_count` to be non-zero while `transcript_msm_count` vanishes.
+        //
+        // 4. For similar reasons, we must add that `transcript_op==0`.
+        return (polynomials.z_perm[edge_idx] == polynomials.z_perm_shift[edge_idx]) &&
+               (polynomials.z_perm[edge_idx + 1] == polynomials.z_perm_shift[edge_idx + 1]) &&
+               (polynomials.lagrange_last[edge_idx] == 0 && polynomials.lagrange_last[edge_idx + 1]) == 0 &&
+               (polynomials.msm_transition[edge_idx] == 0 && polynomials.msm_transition[edge_idx + 1] == 0) &&
+               (polynomials.transcript_mul[edge_idx] == 0 && polynomials.transcript_mul[edge_idx + 1] == 0) &&
+               (polynomials.transcript_op[edge_idx] == 0 && polynomials.transcript_op[edge_idx + 1] == 0);
+    }
 };
 
 // NOLINTEND(cppcoreguidelines-avoid-const-or-ref-data-members)

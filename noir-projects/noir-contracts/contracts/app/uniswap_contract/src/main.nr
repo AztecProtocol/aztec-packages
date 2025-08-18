@@ -14,8 +14,12 @@ pub contract Uniswap {
             set_authorized,
         },
         macros::{functions::{initializer, internal, private, public}, storage::storage},
-        prelude::{AztecAddress, EthAddress, FunctionSelector, PublicImmutable},
-        protocol_types::traits::ToField,
+        protocol_types::{
+            abis::function_selector::FunctionSelector,
+            address::{AztecAddress, EthAddress},
+            traits::ToField,
+        },
+        state_vars::PublicImmutable,
     };
 
     use crate::util::{compute_swap_private_content_hash, compute_swap_public_content_hash};
@@ -51,7 +55,7 @@ pub contract Uniswap {
         secret_hash_for_L1_to_l2_message: Field,
         caller_on_L1: EthAddress,
         // nonce for someone to call swap on sender's behalf
-        nonce_for_swap_approval: Field,
+        _nonce_for_swap_approval: Field,
     ) {
         if (!sender.eq(context.msg_sender())) {
             assert_current_call_valid_authwit_public(&mut context, sender);

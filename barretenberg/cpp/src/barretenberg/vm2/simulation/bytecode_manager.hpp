@@ -10,9 +10,9 @@
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/map.hpp"
-#include "barretenberg/vm2/simulation/address_derivation.hpp"
 #include "barretenberg/vm2/simulation/bytecode_hashing.hpp"
 #include "barretenberg/vm2/simulation/class_id_derivation.hpp"
+#include "barretenberg/vm2/simulation/contract_instance_manager.hpp"
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
@@ -24,12 +24,15 @@
 namespace bb::avm2::simulation {
 
 struct BytecodeNotFoundError : public std::runtime_error {
-    BytecodeNotFoundError(BytecodeId id, const std::string& message)
+    BytecodeNotFoundError(const std::string& message)
         : std::runtime_error(message)
-        , bytecode_id(id)
     {}
+};
 
-    BytecodeId bytecode_id;
+struct InstructionFetchingError : public std::runtime_error {
+    InstructionFetchingError(const std::string& message)
+        : std::runtime_error(message)
+    {}
 };
 
 // Manages the bytecode operations of all calls in a transaction.
@@ -53,8 +56,7 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
                       Poseidon2Interface& poseidon2,
                       BytecodeHashingInterface& bytecode_hasher,
                       RangeCheckInterface& range_check,
-                      UpdateCheckInterface& update_check,
-                      uint64_t current_timestamp,
+                      ContractInstanceManagerInterface& contract_instance_manager,
                       EventEmitterInterface<BytecodeRetrievalEvent>& retrieval_events,
                       EventEmitterInterface<BytecodeDecompositionEvent>& decomposition_events,
                       EventEmitterInterface<InstructionFetchingEvent>& fetching_events)
@@ -63,8 +65,7 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
         , poseidon2(poseidon2)
         , bytecode_hasher(bytecode_hasher)
         , range_check(range_check)
-        , update_check(update_check)
-        , current_timestamp(current_timestamp)
+        , contract_instance_manager(contract_instance_manager)
         , retrieval_events(retrieval_events)
         , decomposition_events(decomposition_events)
         , fetching_events(fetching_events)
@@ -79,20 +80,11 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
     Poseidon2Interface& poseidon2;
     BytecodeHashingInterface& bytecode_hasher;
     RangeCheckInterface& range_check;
-    UpdateCheckInterface& update_check;
-    // We need the current timestamp for the update check interaction
-    uint64_t current_timestamp;
+    ContractInstanceManagerInterface& contract_instance_manager;
     EventEmitterInterface<BytecodeRetrievalEvent>& retrieval_events;
     EventEmitterInterface<BytecodeDecompositionEvent>& decomposition_events;
     EventEmitterInterface<InstructionFetchingEvent>& fetching_events;
     unordered_flat_map<BytecodeId, std::shared_ptr<std::vector<uint8_t>>> bytecodes;
-    BytecodeId next_bytecode_id = 0;
-
-    struct ResolvedAddress {
-        BytecodeId bytecode_id;
-        bool not_found = false;
-    };
-    unordered_flat_map<AztecAddress, ResolvedAddress> resolved_addresses;
 };
 
 // Manages the bytecode of a single nested call.
@@ -102,8 +94,14 @@ class BytecodeManagerInterface {
     virtual ~BytecodeManagerInterface() = default;
 
     virtual Instruction read_instruction(uint32_t pc) = 0;
+
     // Returns the id of the current bytecode. Tries to fetch it if not already done.
+    // Throws BytecodeNotFoundError if contract does not exist.
     virtual BytecodeId get_bytecode_id() = 0;
+
+    // Returns the id of the current bytecode, or nullopt if contract does not exist.
+    // Does not throw (for use in during context serialization before execution is expecting errors)
+    virtual std::optional<BytecodeId> try_get_bytecode_id() = 0;
 };
 
 class BytecodeManager : public BytecodeManagerInterface {
@@ -117,10 +115,23 @@ class BytecodeManager : public BytecodeManagerInterface {
     {
         return tx_bytecode_manager.read_instruction(get_bytecode_id(), pc);
     }
+
     BytecodeId get_bytecode_id() override
     {
         if (!bytecode_id.has_value()) {
             bytecode_id = tx_bytecode_manager.get_bytecode(address);
+        }
+        return bytecode_id.value();
+    }
+
+    std::optional<BytecodeId> try_get_bytecode_id() override
+    {
+        if (!bytecode_id.has_value()) {
+            try {
+                bytecode_id = tx_bytecode_manager.get_bytecode(address);
+            } catch (const BytecodeNotFoundError&) {
+                return std::nullopt;
+            }
         }
         return bytecode_id.value();
     }
