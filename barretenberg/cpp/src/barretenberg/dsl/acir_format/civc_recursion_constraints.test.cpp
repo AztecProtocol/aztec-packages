@@ -124,6 +124,24 @@ TEST_F(CivcRecursionConstraintTest, GenerateRecursiveCivcVerifierVKFromConstrain
         AcirProgram program = create_acir_program(civc_data);
         auto proving_key = get_civc_recursive_verifier_pk(program);
         actual_vk = std::make_shared<VerificationKey>(proving_key->get_precomputed());
+
+        // Prove and verify
+        UltraProver_<UltraRollupFlavor> prover(proving_key, actual_vk);
+        HonkProof proof = prover.prove();
+
+        VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
+        UltraVerifier_<UltraRollupFlavor> verifier(actual_vk, ipa_verification_key);
+
+        // Split the proof
+        auto ultra_proof =
+            HonkProof(proof.begin(), proof.begin() + static_cast<std::ptrdiff_t>(proof.size() - IPA_PROOF_LENGTH));
+        auto ipa_proof =
+            HonkProof(proof.begin() + static_cast<std::ptrdiff_t>(proof.size() - IPA_PROOF_LENGTH), proof.end());
+
+        info(ultra_proof.size());
+        info(ipa_proof.size());
+
+        EXPECT_TRUE(verifier.verify_proof<bb::RollupIO>(proof, ipa_proof));
     }
 
     std::shared_ptr<VerificationKey> expected_vk;
