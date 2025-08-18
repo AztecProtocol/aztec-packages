@@ -37,3 +37,11 @@ export type ValidatorsStats = {
 };
 
 export type ValidatorsEpochPerformance = Record<`0x${string}`, { missed: number; total: number }>;
+
+export type SingleValidatorStats = {
+  validator: ValidatorStats;
+  allTimeProvenPerformance: { missed: number; total: number; epoch: bigint }[];
+  lastProcessedSlot?: bigint;
+  initialSlot?: bigint;
+  slotWindow: number;
+};

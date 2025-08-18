@@ -95,7 +95,7 @@ import {
   type TxValidationResult,
 } from '@aztec/stdlib/tx';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
-import type { ValidatorsStats } from '@aztec/stdlib/validators';
+import type { SingleValidatorStats, ValidatorsStats } from '@aztec/stdlib/validators';
 import {
   Attributes,
   type TelemetryClient,
@@ -1123,6 +1123,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
   public getValidatorsStats(): Promise<ValidatorsStats> {
     return this.validatorsSentinel?.computeStats() ?? Promise.resolve({ stats: {}, slotWindow: 0 });
+  }
+
+  public getValidatorStats(
+    validatorAddress: EthAddress,
+    fromSlot?: bigint,
+    toSlot?: bigint,
+  ): Promise<SingleValidatorStats | undefined> {
+    return this.validatorsSentinel?.getValidatorStats(validatorAddress, fromSlot, toSlot) ?? Promise.resolve(undefined);
   }
 
   public async startSnapshotUpload(location: string): Promise<void> {
