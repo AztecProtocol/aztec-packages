@@ -14,8 +14,8 @@ import {
 import type { RollupCheatCodes } from '@aztec/aztec/testing';
 import type { RollupContract, ViemClient } from '@aztec/ethereum';
 import { timesAsync } from '@aztec/foundation/collection';
+import type { EmpireSlashingProposerAbi } from '@aztec/l1-artifacts/EmpireSlashingProposerAbi';
 import type { SlashFactoryAbi } from '@aztec/l1-artifacts/SlashFactoryAbi';
-import type { SlashingProposerAbi } from '@aztec/l1-artifacts/SlashingProposerAbi';
 import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { TestContract, TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
 import { PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe/server';
@@ -109,7 +109,7 @@ export async function createPXEServiceAndPrepareTransactions(
 }
 
 export async function awaitProposalExecution(
-  slashingProposer: GetContractReturnType<typeof SlashingProposerAbi, ViemClient>,
+  slashingProposer: GetContractReturnType<typeof EmpireSlashingProposerAbi, ViemClient>,
   timeoutSeconds: number,
 ) {
   await retryUntil(
@@ -172,7 +172,7 @@ export async function awaitCommitteeKicked({
   committee: readonly `0x${string}`[];
   slashingAmount: bigint;
   slashFactory: GetContractReturnType<typeof SlashFactoryAbi, ViemClient>;
-  slashingProposer: GetContractReturnType<typeof SlashingProposerAbi, ViemClient>;
+  slashingProposer: GetContractReturnType<typeof EmpireSlashingProposerAbi, ViemClient>;
   slashingRoundSize: number;
   aztecSlotDuration: number;
   logger: Logger;
