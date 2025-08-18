@@ -523,9 +523,10 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         element operator[](const size_t idx) const { return element_table[idx]; }
 
         std::array<element, table_size> element_table;
-        // TODO: avoid hard coding the number of coordinates (use Fq::NUM_LIMBS)
-        std::array<twin_rom_table<Builder>, 5> coordinates;
-        std::array<uint256_t, 8> limb_max;
+
+        // Each coordinate is an Fq element, which has 4 binary basis limbs and 1 prime basis limb
+        std::array<twin_rom_table<Builder>, Fq::NUM_LIMBS + 1> coordinates;
+        std::array<uint256_t, Fq::NUM_LIMBS * 2> limb_max;
     };
 
     using twin_lookup_table = lookup_table_plookup<2>;
