@@ -18,6 +18,9 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {ExtRollupLib} from "@aztec/core/libraries/rollup/ExtRollupLib.sol";
 import {ExtRollupLib2} from "@aztec/core/libraries/rollup/ExtRollupLib2.sol";
 import {ExtRollupLib3} from "@aztec/core/libraries/rollup/ExtRollupLib3.sol";
+import {ExtRollupLib4} from "@aztec/core/libraries/rollup/ExtRollupLib4.sol";
+import {ExtRollupLib5} from "@aztec/core/libraries/rollup/ExtRollupLib5.sol";
+import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 import {EthValue, FeeLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {STFLib, GenesisState} from "@aztec/core/libraries/rollup/STFLib.sol";
@@ -228,19 +231,33 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     );
 
     Timestamp exitDelay = Timestamp.wrap(_config.exitDelaySeconds);
-    ISlasher slasher = ExtRollupLib3.deploySlasher(
-      address(this),
-      _config.slashingVetoer,
-      _config.slasherFlavor,
-      _config.slashingQuorum,
-      _config.slashingRoundSize,
-      _config.slashingLifetimeInRounds,
-      _config.slashingExecutionDelayInRounds,
-      _config.slashingUnit,
-      _config.targetCommitteeSize,
-      _config.aztecEpochDuration,
-      _config.slashingOffsetInRounds
-    );
+    
+    // Deploy slasher based on flavor
+    ISlasher slasher;
+    
+    if (_config.slasherFlavor == SlasherFlavor.CONSENSUS) {
+      slasher = ExtRollupLib4.deployConsensusSlasher(
+        address(this),
+        _config.slashingVetoer,
+        _config.slashingQuorum,
+        _config.slashingRoundSize,
+        _config.slashingLifetimeInRounds,
+        _config.slashingExecutionDelayInRounds,
+        _config.slashingUnit,
+        _config.targetCommitteeSize,
+        _config.aztecEpochDuration,
+        _config.slashingOffsetInRounds
+      );
+    } else {
+      slasher = ExtRollupLib5.deployEmpireSlasher(
+        address(this),
+        _config.slashingVetoer,
+        _config.slashingQuorum,
+        _config.slashingRoundSize,
+        _config.slashingLifetimeInRounds,
+        _config.slashingExecutionDelayInRounds
+      );
+    }
 
     StakingLib.initialize(_stakingAsset, _gse, exitDelay, address(slasher), _config.stakingQueueConfig);
     ExtRollupLib2.initializeValidatorSelection(_config.targetCommitteeSize);

@@ -9,7 +9,6 @@ import {
   IBoosterCore,
   IValidatorSelection
 } from "@aztec/core/reward-boost/RewardBooster.sol";
-import {Slasher, ISlasher, SlasherFlavor} from "@aztec/core/slashing/Slasher.sol";
 
 /**
  * @title ExtRollupLib3 - External Rollup Library (Deployment Functions)
@@ -21,7 +20,6 @@ import {Slasher, ISlasher, SlasherFlavor} from "@aztec/core/slashing/Slasher.sol
  *      functionality to keep the main contract within the maximum contract size limit. The library contains
  *      external functions focused on deployments performed during initialization:
  *      - Reward booster contract deployment with configuration
- *      - Slasher contract deployment with governance parameters
  */
 library ExtRollupLib3 {
   function deployRewardBooster(RewardBoostConfig memory _config) external returns (IBoosterCore) {
@@ -29,32 +27,4 @@ library ExtRollupLib3 {
     return IBoosterCore(address(booster));
   }
 
-  function deploySlasher(
-    address _rollup,
-    address _vetoer,
-    SlasherFlavor _flavor,
-    uint256 _quorumSize,
-    uint256 _roundSize,
-    uint256 _lifetimeInRounds,
-    uint256 _executionDelayInRounds,
-    uint256 _slashingUnit,
-    uint256 _committeeSize,
-    uint256 _epochDuration,
-    uint256 _slashOffsetInRounds
-  ) external returns (ISlasher) {
-    Slasher slasher = new Slasher(
-      _rollup,
-      _vetoer,
-      _flavor,
-      _quorumSize,
-      _roundSize,
-      _lifetimeInRounds,
-      _executionDelayInRounds,
-      _slashingUnit,
-      _committeeSize,
-      _epochDuration,
-      _slashOffsetInRounds
-    );
-    return ISlasher(address(slasher));
-  }
 }

@@ -2,13 +2,11 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {ISlasher, SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
-import {EmpireSlashingProposer} from "@aztec/core/slashing/EmpireSlashingProposer.sol";
-import {ConsensusSlashingProposer} from "@aztec/core/slashing/ConsensusSlashingProposer.sol";
+import {ISlasher} from "@aztec/core/interfaces/ISlasher.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 
 contract Slasher is ISlasher {
-  address public immutable PROPOSER;
+  address public PROPOSER;
   address public immutable VETOER;
 
   mapping(address payload => bool vetoed) public vetoedPayloads;
@@ -17,39 +15,17 @@ contract Slasher is ISlasher {
   error Slasher__CallerNotProposer(address caller, address proposer);
   error Slasher__CallerNotVetoer(address caller, address vetoer);
   error Slasher__PayloadVetoed(address payload);
+  error Slasher__AlreadyInitialized();
+  error Slasher__ProposerZeroAddress();
 
-  constructor(
-    address _rollup,
-    address _vetoer,
-    SlasherFlavor _flavor,
-    uint256 _quorumSize,
-    uint256 _roundSize,
-    uint256 _lifetimeInRounds,
-    uint256 _executionDelayInRounds,
-    uint256 _slashingUnit,
-    uint256 _committeeSize,
-    uint256 _epochDuration,
-    uint256 _slashOffsetInRounds
-  ) {
+  constructor(address _vetoer) {
     VETOER = _vetoer;
-    PROPOSER = _flavor == SlasherFlavor.CONSENSUS
-      ? address(
-        new ConsensusSlashingProposer(
-          _rollup,
-          this,
-          _quorumSize,
-          _roundSize,
-          _lifetimeInRounds,
-          _executionDelayInRounds,
-          _slashingUnit,
-          _committeeSize,
-          _epochDuration,
-          _slashOffsetInRounds
-        )
-      )
-      : address(
-        new EmpireSlashingProposer(_rollup, this, _quorumSize, _roundSize, _lifetimeInRounds, _executionDelayInRounds)
-      );
+  }
+
+  function initializeProposer(address _proposer) external {
+    require(PROPOSER == address(0), Slasher__AlreadyInitialized());
+    require(_proposer != address(0), Slasher__ProposerZeroAddress());
+    PROPOSER = _proposer;
   }
 
   function vetoPayload(IPayload _payload) external override(ISlasher) returns (bool) {
@@ -60,6 +36,7 @@ contract Slasher is ISlasher {
   }
 
   function slash(IPayload _payload) external override(ISlasher) returns (bool) {
+    require(PROPOSER != address(0), Slasher__ProposerZeroAddress());
     require(msg.sender == PROPOSER, Slasher__CallerNotProposer(msg.sender, PROPOSER));
 
     require(!vetoedPayloads[address(_payload)], Slasher__PayloadVetoed(address(_payload)));

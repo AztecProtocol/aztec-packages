@@ -63,9 +63,12 @@ import {EmpireSlashingProposer} from "@aztec/core/slashing/EmpireSlashingPropose
 import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
+import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
+import {ConsensusSlashingProposer} from "@aztec/core/slashing/ConsensusSlashingProposer.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
+import {SlashRound} from "@aztec/shared/libraries/TimeMath.sol";
 
 // solhint-disable comprehensive-interface
 
@@ -111,6 +114,12 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     address[] signers;
   }
 
+  enum TestSlash {
+    NONE,
+    EMPIRE,
+    CONSENSUS
+  }
+
   DecoderBase.Full internal full;
 
   uint256 internal SLOT_DURATION;
@@ -134,10 +143,10 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
   Multicall3 internal multicall = new Multicall3();
 
-  EmpireSlashingProposer internal slashingProposer;
+  address internal slashingProposer;
   IPayload internal slashPayload;
 
-  modifier prepare(uint256 _validatorCount, bool _noValidators) {
+  modifier prepare(uint256 _validatorCount, bool _noValidators, TestSlash _slashing) {
     // We deploy a the rollup and sets the time and all to
     vm.warp(l1Metadata[0].timestamp - SLOT_DURATION);
 
@@ -166,11 +175,21 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       initialValidators
     ).setTargetCommitteeSize(_noValidators ? 0 : TARGET_COMMITTEE_SIZE).setStakingQueueConfig(stakingQueueConfig)
       .setSlashingQuorum(VOTING_ROUND_SIZE).setSlashingRoundSize(VOTING_ROUND_SIZE);
+
+    if (_slashing == TestSlash.CONSENSUS) {
+      // For consensus slashing, we need a round size that's a multiple of epoch duration
+      uint256 consensusRoundSize = 64; // 2 * EPOCH_DURATION (32) = 64
+      uint256 consensusQuorum = consensusRoundSize / 2 + 1; // Must be > ROUND_SIZE / 2
+      builder.setSlasherFlavor(SlasherFlavor.CONSENSUS).setSlashingQuorum(consensusQuorum).setSlashingRoundSize(
+        consensusRoundSize
+      ).setSlashingLifetimeInRounds(5).setSlashingExecutionDelayInRounds(1).setSlashingUnit(1e18);
+    }
+
     builder.deploy();
 
     asset = builder.getConfig().testERC20;
     rollup = builder.getConfig().rollup;
-    slashingProposer = EmpireSlashingProposer(Slasher(rollup.getSlasher()).PROPOSER());
+    slashingProposer = Slasher(rollup.getSlasher()).PROPOSER();
 
     SlashFactory slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
     address[] memory toSlash = new address[](0);
@@ -222,16 +241,20 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     emit log_named_uint("PROOFS_PER_EPOCH", PROOFS_PER_EPOCH);
   }
 
-  function test_no_validators() public prepare(0, true) {
-    benchmark(false);
+  function test_no_validators() public prepare(0, true, TestSlash.NONE) {
+    benchmark(TestSlash.NONE);
   }
 
-  function test_100_validators() public prepare(100, false) {
-    benchmark(false);
+  function test_100_validators() public prepare(100, false, TestSlash.NONE) {
+    benchmark(TestSlash.NONE);
   }
 
-  function test_100_slashing_validators() public prepare(100, false) {
-    benchmark(true);
+  function test_100_empire_slashing_validators() public prepare(100, false, TestSlash.EMPIRE) {
+    benchmark(TestSlash.EMPIRE);
+  }
+
+  function test_100_consensus_slashing_validators() public prepare(100, false, TestSlash.CONSENSUS) {
+    benchmark(TestSlash.CONSENSUS);
   }
 
   /**
@@ -353,21 +376,83 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
    * @param _payload The payload to signal
    * @return The EIP-712 signature
    */
-  function createSignalSignature(address _signer, IPayload _payload, Slot _slot)
+  function createEmpireSignalSignature(address _signer, IPayload _payload, Slot _slot)
     internal
     view
     returns (Signature memory)
   {
     uint256 privateKey = attesterPrivateKeys[_signer];
     require(privateKey != 0, "Private key not found for signer");
-    bytes32 digest = slashingProposer.getSignalSignatureDigest(_payload, _slot);
+    bytes32 digest = EmpireSlashingProposer(slashingProposer).getSignalSignatureDigest(_payload, _signer, _slot);
 
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
 
     return Signature({v: v, r: r, s: s});
   }
 
-  function benchmark(bool _slashing) public {
+  /**
+   * @notice Creates vote data for consensus slashing
+   * @param slashAmounts Array of slash amounts for validators (4 bits each)
+   * @return Encoded vote data
+   */
+  function createConsensusVoteData(uint8[] memory slashAmounts) internal pure returns (bytes memory) {
+    require(slashAmounts.length % 2 == 0, "Vote data must have even number of validators");
+
+    bytes memory voteData = new bytes(slashAmounts.length / 2);
+
+    for (uint256 i = 0; i < slashAmounts.length; i += 2) {
+      uint8 firstValidator = slashAmounts[i] & 0x0F;
+      uint8 secondValidator = slashAmounts[i + 1] & 0x0F;
+      voteData[i / 2] = bytes1((secondValidator << 4) | firstValidator);
+    }
+
+    return voteData;
+  }
+
+  /**
+   * @notice Creates an EIP-712 signature for consensus voting
+   * @param _signer The address that should sign (must match a proposer)
+   * @param votes The vote data to sign
+   * @param slot The current slot
+   * @return The EIP-712 signature
+   */
+  function createConsensusVoteSignature(address _signer, bytes memory votes, Slot slot)
+    internal
+    view
+    returns (Signature memory)
+  {
+    uint256 privateKey = attesterPrivateKeys[_signer];
+    require(privateKey != 0, "Private key not found for signer");
+    bytes32 digest = ConsensusSlashingProposer(slashingProposer).getVoteSignatureDigest(votes, slot);
+
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
+
+    return Signature({v: v, r: r, s: s});
+  }
+
+  function proposeWithConsensusVote(Block memory b, address proposer) internal {
+    // First propose the block
+    CommitteeAttestations memory attestations = AttestationLib.packAttestations(b.attestations);
+    vm.prank(proposer);
+    rollup.propose(b.proposeArgs, attestations, b.signers, b.blobInputs);
+
+    // Then try to cast a vote (may fail if voting not open yet)
+    try this.castConsensusVote(proposer) {} catch {}
+  }
+
+  function castConsensusVote(address proposer) external {
+    // Create empty vote data (no slashing)
+    uint256 committeeSize = rollup.getEpochCommittee(rollup.getCurrentEpoch()).length;
+    uint256 roundSizeInEpochs = 2; // Based on consensus ROUND_SIZE (64) / EPOCH_DURATION (32) = 2
+    uint8[] memory slashAmounts = new uint8[](committeeSize * roundSizeInEpochs);
+    bytes memory voteData = createConsensusVoteData(slashAmounts);
+    Signature memory sig = createConsensusVoteSignature(proposer, voteData, rollup.getCurrentSlot());
+
+    vm.prank(proposer);
+    ConsensusSlashingProposer(slashingProposer).vote(voteData, sig);
+  }
+
+  function benchmark(TestSlash _slashing) public {
     // Do nothing for the first epoch
     Slot nextSlot = Slot.wrap(EPOCH_DURATION * 3 + 1);
     Epoch nextEpoch = Epoch.wrap(4);
@@ -379,13 +464,31 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       }
 
       _loadL1Metadata(i);
-      uint256 round = slashingProposer.getCurrentRound();
+      uint256 round = EmpireSlashingProposer(slashingProposer).getCurrentRound();
 
-      if (_slashing && !warmedUp && rollup.getCurrentSlot() == Slot.wrap(EPOCH_DURATION * 2)) {
+      if (_slashing == TestSlash.EMPIRE && !warmedUp && rollup.getCurrentSlot() == Slot.wrap(EPOCH_DURATION * 2)) {
         address proposer = rollup.getCurrentProposer();
-        Signature memory sig = createSignalSignature(proposer, slashPayload, rollup.getCurrentSlot());
-        slashingProposer.signalWithSig(slashPayload, sig);
+        Signature memory sig = createEmpireSignalSignature(proposer, slashPayload, rollup.getCurrentSlot());
+        EmpireSlashingProposer(slashingProposer).signalWithSig(slashPayload, sig);
         warmedUp = true;
+      }
+
+      if (_slashing == TestSlash.CONSENSUS && !warmedUp && rollup.getCurrentSlot() >= Slot.wrap(EPOCH_DURATION * 2)) {
+        SlashRound slashRound = ConsensusSlashingProposer(slashingProposer).getCurrentRound();
+        if (SlashRound.unwrap(slashRound) >= 2) {
+          // SLASH_OFFSET_IN_ROUNDS
+          address proposer = rollup.getCurrentProposer();
+          if (proposer != address(0)) {
+            // Create empty vote data (no slashing, just to warm up the system)
+            uint256 committeeSize = rollup.getEpochCommittee(rollup.getCurrentEpoch()).length;
+            uint256 roundSizeInEpochs = 2; // Based on default ROUND_SIZE / EPOCH_DURATION
+            uint8[] memory slashAmounts = new uint8[](committeeSize * roundSizeInEpochs);
+            bytes memory voteData = createConsensusVoteData(slashAmounts);
+            Signature memory sig = createConsensusVoteSignature(proposer, voteData, rollup.getCurrentSlot());
+            ConsensusSlashingProposer(slashingProposer).vote(voteData, sig);
+            warmedUp = true;
+          }
+        }
       }
 
       // For every "new" slot we encounter, we construct a block using current L1 Data
@@ -403,8 +506,8 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
         uint256 currentBlockNumber = rollup.getPendingBlockNumber() + 1;
         blockAttestations[currentBlockNumber] = AttestationLib.packAttestations(b.attestations);
 
-        if (_slashing) {
-          Signature memory sig = createSignalSignature(proposer, slashPayload, rollup.getCurrentSlot());
+        if (_slashing == TestSlash.EMPIRE) {
+          Signature memory sig = createEmpireSignalSignature(proposer, slashPayload, rollup.getCurrentSlot());
           Multicall3.Call3[] memory calls = new Multicall3.Call3[](2);
           calls[0] = Multicall3.Call3({
             target: address(rollup),
@@ -415,10 +518,21 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
           });
           calls[1] = Multicall3.Call3({
             target: address(slashingProposer),
-            callData: abi.encodeCall(slashingProposer.signalWithSig, (slashPayload, sig)),
+            callData: abi.encodeCall(EmpireSlashingProposer(slashingProposer).signalWithSig, (slashPayload, sig)),
             allowFailure: false
           });
           multicall.aggregate3(calls);
+        } else if (_slashing == TestSlash.CONSENSUS) {
+          SlashRound slashRound = ConsensusSlashingProposer(slashingProposer).getCurrentRound();
+          if (SlashRound.unwrap(slashRound) >= 2) {
+            // SLASH_OFFSET_IN_ROUNDS
+            proposeWithConsensusVote(b, proposer);
+          } else {
+            // Before slash offset, just propose normally
+            CommitteeAttestations memory attestations = AttestationLib.packAttestations(b.attestations);
+            vm.prank(proposer);
+            rollup.propose(b.proposeArgs, attestations, b.signers, b.blobInputs);
+          }
         } else {
           CommitteeAttestations memory attestations = AttestationLib.packAttestations(b.attestations);
 
