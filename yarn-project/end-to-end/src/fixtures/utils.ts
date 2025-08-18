@@ -99,7 +99,7 @@ import getPort from 'get-port';
 import { tmpdir } from 'os';
 import * as path from 'path';
 import { type Chain, type HDAccount, type Hex, type PrivateKeyAccount, getContract } from 'viem';
-import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
+import { generatePrivateKey, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { MNEMONIC, TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
@@ -625,6 +625,12 @@ export async function setup(
 
     config.p2pEnabled = opts.mockGossipSubNetwork || config.p2pEnabled;
     config.p2pIp = opts.p2pIp ?? config.p2pIp ?? '127.0.0.1';
+
+    if (!config.disableValidator) {
+      if ((config.validatorPrivateKeys?.getValue().length ?? 0) === 0) {
+        config.validatorPrivateKeys = new SecretValue([generatePrivateKey()]);
+      }
+    }
 
     const aztecNode = await AztecNodeService.createAndSync(
       config, // REFACTOR: createAndSync mutates this config
