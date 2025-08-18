@@ -138,9 +138,6 @@ TEST_F(CivcRecursionConstraintTest, GenerateRecursiveCivcVerifierVKFromConstrain
         auto ipa_proof =
             HonkProof(proof.begin() + static_cast<std::ptrdiff_t>(proof.size() - IPA_PROOF_LENGTH), proof.end());
 
-        info(ultra_proof.size());
-        info(ipa_proof.size());
-
         EXPECT_TRUE(verifier.verify_proof<bb::RollupIO>(proof, ipa_proof));
     }
 
