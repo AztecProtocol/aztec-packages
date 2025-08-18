@@ -42,6 +42,7 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
     using public_witness_ct = typename bn254::public_witness_ct;
     using witness_ct = typename bn254::witness_ct;
     using bool_ct = typename bn254::bool_ct;
+    using byte_array_ct = typename bn254::byte_array_ct;
 
   public:
     static void test_add_to_lower_limb_regression()
@@ -206,6 +207,227 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
 #endif
     }
 
+    static void test_constructor_from_two_elements()
+    {
+        auto builder = Builder();
+        {
+            fr elt_native_lo = fr(uint256_t(fr::random_element()).slice(0, fq_ct::NUM_LIMB_BITS * 2)); // 136 bits
+            fr elt_native_hi = fr(uint256_t(fr::random_element()).slice(0, fq_ct::NUM_LIMB_BITS * 2)); // 136 bits
+            fq_ct elt_witness_ct =
+                fq_ct(witness_ct(&builder, elt_native_lo), witness_ct(&builder, elt_native_hi), true);
+            fq_ct elt_constant_ct = fq_ct(fr_ct(&builder, elt_native_lo), fr_ct(&builder, elt_native_hi), true);
+        }
+        {
+            fr elt_native_lo = fr(uint256_t(fr::random_element()).slice(0, fq_ct::NUM_LIMB_BITS * 2));     // 136 bits
+            fr elt_native_hi = fr(uint256_t(fr::random_element()).slice(0, fq_ct::NUM_LIMB_BITS * 2 - 3)); // 133 bits
+            fq_ct elt_witness_ct = fq_ct(witness_ct(&builder, elt_native_lo),
+                                         witness_ct(&builder, elt_native_hi),
+                                         false, // can_overflow must be false as max_bitlength is provided
+                                         4 * fq_ct::NUM_LIMB_BITS - 3);
+            fq_ct elt_constant_ct = fq_ct(fr_ct(&builder, elt_native_lo),
+                                          fr_ct(&builder, elt_native_hi),
+                                          false, // can_overflow must be false as max_bitlength is provided
+                                          4 * fq_ct::NUM_LIMB_BITS - 3);
+        }
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, true);
+    }
+
+    static void test_unsafe_construct_from_limbs()
+    {
+        auto builder = Builder();
+        fr limb_1_native = fr(uint256_t(fr::random_element()).slice(0, fq_ct::NUM_LIMB_BITS + 10)); // 78 bits
+        fr limb_2_native = fr(uint256_t(fr::random_element()).slice(0, fq_ct::NUM_LIMB_BITS + 10)); // 78 bits
+        fr limb_3_native = fr(uint256_t(fr::random_element()).slice(0, fq_ct::NUM_LIMB_BITS + 10)); // 78 bits
+        fr limb_4_native = fr(uint256_t(fr::random_element()).slice(0, fq_ct::NUM_LIMB_BITS + 12)); // 80 bits
+
+        fr_ct limb_1_ct = fr_ct(witness_ct(&builder, limb_1_native));
+        fr_ct limb_2_ct = fr_ct(witness_ct(&builder, limb_2_native));
+        fr_ct limb_3_ct = fr_ct(witness_ct(&builder, limb_3_native));
+        fr_ct limb_4_ct = fr_ct(witness_ct(&builder, limb_4_native));
+
+        // This does not add any range constraints on the limbs, so virtually any limb values are valid.
+        // It does however correctly compute the prime basis limb (from the supplied limbs).
+        fq_ct result = fq_ct::unsafe_construct_from_limbs(limb_1_ct, limb_2_ct, limb_3_ct, limb_4_ct);
+
+        fr expected_prime_limb = limb_1_native;
+        expected_prime_limb += (limb_2_native * fq_ct::shift_1);
+        expected_prime_limb += (limb_3_native * fq_ct::shift_2);
+        expected_prime_limb += (limb_4_native * fq_ct::shift_3);
+        EXPECT_EQ(expected_prime_limb, result.prime_basis_limb.get_value());
+
+        // The other constructor takes in the prime limb as well (without any checks).
+        fq_ct result_1 = fq_ct::unsafe_construct_from_limbs(
+            limb_1_ct, limb_2_ct, limb_3_ct, limb_4_ct, witness_ct(&builder, fr::random_element()));
+        EXPECT_EQ(result.binary_basis_limbs[0].element.get_value(), result_1.binary_basis_limbs[0].element.get_value());
+
+        bool result_check = CircuitChecker::check(builder);
+        EXPECT_EQ(result_check, true);
+    }
+
+    static void test_construct_from_limbs()
+    {
+        auto builder = Builder();
+        fr limb_1_native = fr(uint256_t(fr::random_element()).slice(0, fq_ct::NUM_LIMB_BITS));      // 68 bits
+        fr limb_2_native = fr(uint256_t(fr::random_element()).slice(0, fq_ct::NUM_LIMB_BITS));      // 68 bits
+        fr limb_3_native = fr(uint256_t(fr::random_element()).slice(0, fq_ct::NUM_LIMB_BITS));      // 68 bits
+        fr limb_4_native = fr(uint256_t(fr::random_element()).slice(0, fq_ct::NUM_LAST_LIMB_BITS)); // |p|-3*68 bits
+
+        fr_ct limb_1_ct = fr_ct(witness_ct(&builder, limb_1_native));
+        fr_ct limb_2_ct = fr_ct(witness_ct(&builder, limb_2_native));
+        fr_ct limb_3_ct = fr_ct(witness_ct(&builder, limb_3_native));
+        fr_ct limb_4_ct = fr_ct(witness_ct(&builder, limb_4_native));
+
+        // This does add range constraints on the limbs, so the limbs must be in range.
+        // It also correctly computes the prime basis limb (from the supplied limbs).
+        fq_ct result = fq_ct::construct_from_limbs(limb_1_ct, limb_2_ct, limb_3_ct, limb_4_ct);
+
+        fr expected_prime_limb = limb_1_native;
+        expected_prime_limb += (limb_2_native * fq_ct::shift_1);
+        expected_prime_limb += (limb_3_native * fq_ct::shift_2);
+        expected_prime_limb += (limb_4_native * fq_ct::shift_3);
+        EXPECT_EQ(expected_prime_limb, result.prime_basis_limb.get_value());
+
+        // All four limbs as 68-bit range constrained (fourth limb is set equal to limb_3)
+        fq_ct result_1 = fq_ct::construct_from_limbs(limb_1_ct, limb_2_ct, limb_3_ct, limb_3_ct, /*can_overflow=*/true);
+        EXPECT_EQ(result.binary_basis_limbs[0].element.get_value(), result_1.binary_basis_limbs[0].element.get_value());
+
+        bool result_check = CircuitChecker::check(builder);
+        EXPECT_EQ(result_check, true);
+    }
+
+    static void test_construct_from_limbs_fails()
+    {
+        auto builder = Builder();
+        fr limb_1_native = fr(uint256_t(fr::random_element()).slice(0, fq_ct::NUM_LIMB_BITS));      // 68 bits
+        fr limb_2_native = fr(uint256_t(fr::random_element()).slice(0, fq_ct::NUM_LIMB_BITS));      // 68 bits
+        fr limb_3_native = fr(uint256_t(fr::random_element()).slice(0, fq_ct::NUM_LIMB_BITS));      // 68 bits
+        fr limb_4_native = fr(uint256_t(fr::random_element()).slice(0, fq_ct::NUM_LAST_LIMB_BITS)); // |p|-3*68 bits
+
+        // Make limb_1 out of range
+        limb_1_native = uint256_t(limb_1_native) + (uint256_t(1) << fq_ct::NUM_LIMB_BITS);
+
+        fr_ct limb_1_ct = fr_ct(witness_ct(&builder, limb_1_native));
+        fr_ct limb_2_ct = fr_ct(witness_ct(&builder, limb_2_native));
+        fr_ct limb_3_ct = fr_ct(witness_ct(&builder, limb_3_native));
+        fr_ct limb_4_ct = fr_ct(witness_ct(&builder, limb_4_native));
+
+        // This will fail because limb_1 is out of range
+        fq_ct result = fq_ct::construct_from_limbs(limb_1_ct, limb_2_ct, limb_3_ct, limb_4_ct);
+        fr expected_prime_limb = limb_1_native;
+        expected_prime_limb += (limb_2_native * fq_ct::shift_1);
+        expected_prime_limb += (limb_3_native * fq_ct::shift_2);
+        expected_prime_limb += (limb_4_native * fq_ct::shift_3);
+        EXPECT_EQ(expected_prime_limb, result.prime_basis_limb.get_value());
+
+        bool result_check = CircuitChecker::check(builder);
+        EXPECT_EQ(result_check, false);
+        EXPECT_EQ(builder.err(), "ultra_circuit_builder: sublimb of low too large");
+    }
+
+    static void test_add_two(InputType a_type, InputType b_type, InputType c_type)
+    {
+        auto builder = Builder();
+        size_t num_repetitions = 10;
+        for (size_t i = 0; i < num_repetitions; ++i) {
+            auto [a_native, a_ct] = get_random_element(&builder, a_type); // fq, fq_ct
+            auto [b_native, b_ct] = get_random_element(&builder, b_type); // fq, fq_ct
+            auto [c_native, c_ct] = get_random_element(&builder, c_type); // fq, fq_ct
+
+            a_ct.set_origin_tag(submitted_value_origin_tag);
+            b_ct.set_origin_tag(challenge_origin_tag);
+
+            fq_ct d_ct;
+            if (i == num_repetitions - 1) {
+                BENCH_GATE_COUNT_START(builder, "ADD_TWO");
+                d_ct = a_ct.add_two(b_ct, c_ct);
+                BENCH_GATE_COUNT_END(builder, "ADD_TWO");
+            } else {
+                d_ct = a_ct.add_two(b_ct, c_ct);
+            }
+            d_ct.self_reduce();
+
+            // Addition merges tags
+            EXPECT_EQ(d_ct.get_origin_tag(), first_two_merged_tag);
+
+            fq expected = (a_native + b_native + c_native).reduce_once().reduce_once();
+            expected = expected.from_montgomery_form();
+            uint512_t result = d_ct.get_value();
+
+            EXPECT_EQ(result.lo.data[0], expected.data[0]);
+            EXPECT_EQ(result.lo.data[1], expected.data[1]);
+            EXPECT_EQ(result.lo.data[2], expected.data[2]);
+            EXPECT_EQ(result.lo.data[3], expected.data[3]);
+            EXPECT_EQ(result.hi.data[0], 0ULL);
+            EXPECT_EQ(result.hi.data[1], 0ULL);
+            EXPECT_EQ(result.hi.data[2], 0ULL);
+            EXPECT_EQ(result.hi.data[3], 0ULL);
+        }
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, true);
+    }
+
+    static void test_sum(InputType a_type, bool mixed_inputs = false)
+    {
+        auto builder = Builder();
+        std::vector<size_t> num_elements_to_sum = { 1, 2, 10, 20 };
+
+        for (size_t num_elements : num_elements_to_sum) {
+            auto [a_native, a_ct] = get_random_elements(&builder, a_type, num_elements);  // fq, fq_ct
+            auto [b_native, b_ct] = get_random_elements(&builder, !a_type, num_elements); // fq, fq_ct
+
+            std::vector<fq_ct> to_sum;
+            for (size_t j = 0; j < num_elements; ++j) {
+                to_sum.push_back(a_ct[j]);
+                to_sum.back().set_origin_tag(submitted_value_origin_tag);
+
+                if (mixed_inputs) {
+                    to_sum.push_back(b_ct[j]);
+                    to_sum.back().set_origin_tag(challenge_origin_tag);
+                }
+            }
+
+            fq_ct c_ct;
+            if (num_elements == 20) {
+                BENCH_GATE_COUNT_START(builder, "SUM");
+                c_ct = fq_ct::sum(to_sum);
+                BENCH_GATE_COUNT_END(builder, "SUM");
+            } else {
+                c_ct = fq_ct::sum(to_sum);
+            }
+
+            // Need to self-reduce as we are summing potentially many elements
+            c_ct.self_reduce();
+
+            // Sum merges tags
+            const auto output_tag = (mixed_inputs) ? first_two_merged_tag : submitted_value_origin_tag;
+            EXPECT_EQ(c_ct.get_origin_tag(), output_tag);
+
+            fq expected = fq::zero();
+            for (size_t j = 0; j < num_elements; ++j) {
+                expected += a_native[j];
+
+                if (mixed_inputs) {
+                    expected += b_native[j];
+                }
+            }
+            expected = expected.from_montgomery_form();
+            uint512_t result = c_ct.get_value();
+
+            EXPECT_EQ(result.lo.data[0], expected.data[0]);
+            EXPECT_EQ(result.lo.data[1], expected.data[1]);
+            EXPECT_EQ(result.lo.data[2], expected.data[2]);
+            EXPECT_EQ(result.lo.data[3], expected.data[3]);
+            EXPECT_EQ(result.hi.data[0], 0ULL);
+            EXPECT_EQ(result.hi.data[1], 0ULL);
+            EXPECT_EQ(result.hi.data[2], 0ULL);
+            EXPECT_EQ(result.hi.data[3], 0ULL);
+        }
+
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, true);
+    }
+
     static void test_mul(InputType a_type, InputType b_type)
     {
         auto builder = Builder();
@@ -245,6 +467,105 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         }
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
+    }
+
+    // Generic assignment operator test function
+    template <typename CircuitOpFunc, typename NativeOpFunc>
+    static void test_assign_operator_generic(InputType a_type,
+                                             InputType b_type,
+                                             CircuitOpFunc circuit_op,
+                                             NativeOpFunc native_op,
+                                             const char* op_name,
+                                             size_t num_repetitions = 4,
+                                             bool need_reduced_inputs = false,
+                                             bool need_reduction_after = false)
+    {
+        auto builder = Builder();
+        for (size_t i = 0; i < num_repetitions; ++i) {
+            auto [a_native, a_ct] = get_random_element(&builder, a_type, need_reduced_inputs); // fq, fq_ct
+            auto [b_native, b_ct] = get_random_element(&builder, b_type, need_reduced_inputs); // fq, fq_ct
+            a_ct.set_origin_tag(submitted_value_origin_tag);
+            b_ct.set_origin_tag(challenge_origin_tag);
+
+            if (i == num_repetitions - 1) {
+                std::string bench_name = std::string(op_name);
+                BENCH_GATE_COUNT_START(builder, bench_name.c_str());
+                circuit_op(a_ct, b_ct);
+                BENCH_GATE_COUNT_END(builder, bench_name.c_str());
+            } else {
+                circuit_op(a_ct, b_ct);
+            }
+
+            // Need to self-reduce as assignment operators do not automatically reduce
+            a_ct.self_reduce();
+
+            // Assignment operations merge tags
+            EXPECT_EQ(a_ct.get_origin_tag(), first_two_merged_tag);
+
+            fq expected = native_op(a_native, b_native);
+            if (need_reduction_after) {
+                expected = expected.reduce_once().reduce_once();
+            }
+            expected = expected.from_montgomery_form();
+            uint512_t result = a_ct.get_value();
+
+            EXPECT_EQ(result.lo.data[0], expected.data[0]);
+            EXPECT_EQ(result.lo.data[1], expected.data[1]);
+            EXPECT_EQ(result.lo.data[2], expected.data[2]);
+            EXPECT_EQ(result.lo.data[3], expected.data[3]);
+            EXPECT_EQ(result.hi.data[0], 0ULL);
+            EXPECT_EQ(result.hi.data[1], 0ULL);
+            EXPECT_EQ(result.hi.data[2], 0ULL);
+            EXPECT_EQ(result.hi.data[3], 0ULL);
+        }
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, true);
+    }
+
+    static void test_mul_assign_operator(InputType a_type, InputType b_type)
+    {
+        test_assign_operator_generic(
+            a_type,
+            b_type,
+            [](fq_ct& a, const fq_ct& b) { a *= b; },
+            [](const fq& a, const fq& b) { return a * b; },
+            "MUL_ASSIGN",
+            4);
+    }
+
+    static void test_add_assign_operator(InputType a_type, InputType b_type)
+    {
+        test_assign_operator_generic(
+            a_type,
+            b_type,
+            [](fq_ct& a, const fq_ct& b) { a += b; },
+            [](const fq& a, const fq& b) { return a + b; },
+            "ADD_ASSIGN",
+            10);
+    }
+
+    static void test_sub_assign_operator(InputType a_type, InputType b_type)
+    {
+        test_assign_operator_generic(
+            a_type,
+            b_type,
+            [](fq_ct& a, const fq_ct& b) { a -= b; },
+            [](const fq& a, const fq& b) { return a - b; },
+            "SUB_ASSIGN",
+            10);
+    }
+
+    static void test_div_assign_operator(InputType a_type, InputType b_type)
+    {
+        test_assign_operator_generic(
+            a_type,
+            b_type,
+            [](fq_ct& a, const fq_ct& b) { a /= b; },
+            [](const fq& a, const fq& b) { return a / b; },
+            "DIV_ASSIGN",
+            10,
+            true,  // need reduced inputs to avoid overflow in division
+            true); // need reduction after division as division can produce unreduced outputs
     }
 
     static void test_sqr(InputType a_type)
@@ -938,6 +1259,26 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         EXPECT_EQ(result, true);
     }
 
+    static void test_to_byte_array()
+    {
+        auto builder = Builder();
+        size_t num_repetitions = 10;
+        for (size_t i = 0; i < num_repetitions; ++i) {
+            auto [a_native, a_ct] = get_random_witness(&builder, true); // fq, fq_ct
+            byte_array_ct a_bytes_ct = a_ct.to_byte_array();
+
+            std::vector<fr_ct> actual_bytes = a_bytes_ct.bytes();
+            EXPECT_EQ(actual_bytes.size(), 32);
+
+            for (size_t j = 0; j < actual_bytes.size(); ++j) {
+                const uint256_t expected = (uint256_t(a_native) >> (8 * j)).slice(0, 8);
+                EXPECT_EQ(actual_bytes[32 - 1 - j].get_value(), expected);
+            }
+        }
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, true);
+    }
+
     // This check tests if elements are reduced to fit quotient into range proof
     static void test_quotient_completeness()
     {
@@ -1248,6 +1589,48 @@ TYPED_TEST(stdlib_bigfield, basic_tag_logic)
 {
     TestFixture::test_basic_tag_logic();
 }
+TYPED_TEST(stdlib_bigfield, test_constructor)
+{
+    TestFixture::test_constructor_from_two_elements();
+}
+TYPED_TEST(stdlib_bigfield, test_unsafe_construct_from_limbs)
+{
+    TestFixture::test_unsafe_construct_from_limbs();
+}
+TYPED_TEST(stdlib_bigfield, test_construct_from_limbs)
+{
+    TestFixture::test_construct_from_limbs();
+}
+TYPED_TEST(stdlib_bigfield, test_construct_from_limbs_fails)
+{
+    TestFixture::test_construct_from_limbs_fails();
+}
+TYPED_TEST(stdlib_bigfield, add_two)
+{
+    TestFixture::test_add_two(InputType::WITNESS, InputType::WITNESS, InputType::WITNESS);
+}
+TYPED_TEST(stdlib_bigfield, add_two_with_constants)
+{
+    TestFixture::test_add_two(InputType::WITNESS, InputType::WITNESS, InputType::CONSTANT);
+    TestFixture::test_add_two(InputType::WITNESS, InputType::CONSTANT, InputType::WITNESS);
+    TestFixture::test_add_two(InputType::WITNESS, InputType::CONSTANT, InputType::CONSTANT);
+    TestFixture::test_add_two(InputType::CONSTANT, InputType::WITNESS, InputType::WITNESS);
+    TestFixture::test_add_two(InputType::CONSTANT, InputType::WITNESS, InputType::CONSTANT);
+    TestFixture::test_add_two(InputType::CONSTANT, InputType::CONSTANT, InputType::WITNESS);
+    TestFixture::test_add_two(InputType::CONSTANT, InputType::CONSTANT, InputType::CONSTANT);
+}
+TYPED_TEST(stdlib_bigfield, sum)
+{
+    TestFixture::test_sum(InputType::WITNESS);
+}
+TYPED_TEST(stdlib_bigfield, sum_with_mixed_inputs)
+{
+    TestFixture::test_sum(InputType::WITNESS, true);
+}
+TYPED_TEST(stdlib_bigfield, sum_with_constant)
+{
+    TestFixture::test_sum(InputType::CONSTANT);
+}
 TYPED_TEST(stdlib_bigfield, mul)
 {
     TestFixture::test_mul(InputType::WITNESS, InputType::WITNESS);
@@ -1257,6 +1640,46 @@ TYPED_TEST(stdlib_bigfield, mul_with_constant)
     TestFixture::test_mul(InputType::WITNESS, InputType::CONSTANT);
     TestFixture::test_mul(InputType::CONSTANT, InputType::WITNESS);
     TestFixture::test_mul(InputType::CONSTANT, InputType::CONSTANT);
+}
+TYPED_TEST(stdlib_bigfield, mul_assignment)
+{
+    TestFixture::test_mul_assign_operator(InputType::WITNESS, InputType::WITNESS);
+}
+TYPED_TEST(stdlib_bigfield, mul_assignment_with_constant)
+{
+    TestFixture::test_mul_assign_operator(InputType::WITNESS, InputType::CONSTANT);
+    TestFixture::test_mul_assign_operator(InputType::CONSTANT, InputType::WITNESS);
+    TestFixture::test_mul_assign_operator(InputType::CONSTANT, InputType::CONSTANT);
+}
+TYPED_TEST(stdlib_bigfield, add_assignment)
+{
+    TestFixture::test_add_assign_operator(InputType::WITNESS, InputType::WITNESS);
+}
+TYPED_TEST(stdlib_bigfield, add_assignment_with_constant)
+{
+    TestFixture::test_add_assign_operator(InputType::WITNESS, InputType::CONSTANT);
+    TestFixture::test_add_assign_operator(InputType::CONSTANT, InputType::WITNESS);
+    TestFixture::test_add_assign_operator(InputType::CONSTANT, InputType::CONSTANT);
+}
+TYPED_TEST(stdlib_bigfield, sub_assignment)
+{
+    TestFixture::test_sub_assign_operator(InputType::WITNESS, InputType::WITNESS);
+}
+TYPED_TEST(stdlib_bigfield, sub_assignment_with_constant)
+{
+    TestFixture::test_sub_assign_operator(InputType::WITNESS, InputType::CONSTANT);
+    TestFixture::test_sub_assign_operator(InputType::CONSTANT, InputType::WITNESS);
+    TestFixture::test_sub_assign_operator(InputType::CONSTANT, InputType::CONSTANT);
+}
+TYPED_TEST(stdlib_bigfield, div_assignment)
+{
+    TestFixture::test_div_assign_operator(InputType::WITNESS, InputType::WITNESS); // w / w
+}
+TYPED_TEST(stdlib_bigfield, div_assignment_with_constant)
+{
+    TestFixture::test_div_assign_operator(InputType::WITNESS, InputType::CONSTANT);  // w / c
+    TestFixture::test_div_assign_operator(InputType::CONSTANT, InputType::WITNESS);  // c / w
+    TestFixture::test_div_assign_operator(InputType::CONSTANT, InputType::CONSTANT); // c / c
 }
 TYPED_TEST(stdlib_bigfield, sqr)
 {
@@ -1409,6 +1832,10 @@ TYPED_TEST(stdlib_bigfield, assert_less_than_success)
 TYPED_TEST(stdlib_bigfield, byte_array_constructors)
 {
     TestFixture::test_byte_array_constructors();
+}
+TYPED_TEST(stdlib_bigfield, to_byte_array)
+{
+    TestFixture::test_to_byte_array();
 }
 TYPED_TEST(stdlib_bigfield, quotient_completeness_regression)
 {
