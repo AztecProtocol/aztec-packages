@@ -471,12 +471,11 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::comp
         goblin.recursively_verify_merge(circuit, merge_commitments, pg_merge_transcript);
 
     points_accumulator.aggregate(kernel_input.pairing_inputs);
-    info("Before decider");
+
     // Perform recursive decider verification
     DeciderRecursiveVerifier decider{ &circuit, recursive_verifier_native_accum };
     BB_ASSERT_EQ(!decider_proof.empty(), true, "Decider proof is empty!");
     PairingPoints decider_pairing_points = decider.verify_proof(decider_proof);
-
     points_accumulator.aggregate(decider_pairing_points);
     return { points_accumulator, merged_table_commitments };
 }
@@ -596,6 +595,7 @@ bool ClientIVC::prove_and_verify()
     start = end;
     const bool verified = verify(proof);
     end = std::chrono::steady_clock::now();
+
     diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     vinfo("time to verify ClientIVC proof: ", diff.count(), " ms.");
 
