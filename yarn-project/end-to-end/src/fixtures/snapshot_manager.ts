@@ -450,8 +450,6 @@ async function setupFromFresh(
     { prefilledPublicData },
   );
 
-  logger.info('SYNCHED NODE!!');
-
   let proverNode: ProverNode | undefined = undefined;
   if (opts.startProverNode) {
     logger.verbose('Creating and syncing a simulated prover node with p2p disabled...');
