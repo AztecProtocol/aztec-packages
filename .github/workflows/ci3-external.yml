@@ -31,6 +31,7 @@ jobs:
         with:
           # The commit to checkout.  We want our actual commit, and not the result of merging the PR to the target.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
 
       # NOTE: in ci3.yml we just rely on draft mode not being mergable.
       # Here we are a little more careful than just skipping the worklfow, in case of an edge case allowing merge.
@@ -43,7 +44,7 @@ jobs:
         run: |
           set -o pipefail
           git fetch origin ${{ github.event.pull_request.base.ref }} --depth=1 &>/dev/null
-          forbidden_changes=$(git diff --name-only origin/${{ github.event.pull_request.base.ref }} HEAD -- ci3 .github ci.sh)
+          forbidden_changes=$(git diff --name-only origin/${{ github.event.pull_request.base.ref }} HEAD -- ci3 .github ci.sh scripts)
           if echo "$forbidden_changes" | grep -q .; then
             echo "Error: External PRs can't contain CI changes (forbidden files: $forbidden_changes)."
             exit 1
@@ -62,6 +63,10 @@ jobs:
           fi
           # Remove any ci-external-once labels.
           GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} gh pr edit ${{ github.event.pull_request.number }} --remove-label "ci-external-once"
+
+      - name: CI Merge Queue Override (grind on PR)
+        if: contains(github.event.pull_request.labels.*.name, 'ci-merge-queue')
+        run: echo "CI_MERGE_QUEUE=1" >> $GITHUB_ENV
 
       - name: CI Full Override
         if: contains(github.event.pull_request.labels.*.name, 'ci-full')
@@ -82,10 +87,21 @@ jobs:
           echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
           chmod 600 ~/.ssh/build_instance_key
 
+      - name: Get Tree Hash
+        run: echo "TREE_HASH=$(git rev-parse HEAD^{tree})" >> $GITHUB_ENV
+
+      - name: Check CI Cache
+        id: ci_cache
+        uses: actions/cache@v3
+        with:
+          path: ci-success.txt
+          key: ci-external-${{ env.TREE_HASH }}
+
       #############
       # Run
       #############
       - name: Run
+        if: steps.ci_cache.outputs.cache-hit != 'true'
         env:
           # We need to pass these creds to start the AWS ec2 instance.
           # They are not injected into that instance. Instead, it has minimal
@@ -97,8 +113,32 @@ jobs:
           ARCH: amd64
           RUN_ID: ${{ github.run_id }}
         run: |
-          if [ "${CI_FULL:-0}" -eq 1 ]; then
+          if [ "${CI_MERGE_QUEUE:-0}" -eq 1 ]; then
             exec ./ci.sh merge-queue
+          elif [ "${CI_FULL:-0}" -eq 1 ]; then
+            exec ./ci.sh full
           else
             exec ./ci.sh fast
           fi
+
+      - name: Save CI Success
+        if: steps.ci_cache.outputs.cache-hit != 'true'
+        run: echo "success" > ci-success.txt
+
+      # If we have passed CI and labelled with ci-squash-and-merge, squash the PR.
+      # This will rerun CI on the squash commit - but is intended to be a no-op due to caching.
+      - name: CI Squash and Merge
+        if: contains(github.event.pull_request.labels.*.name, 'ci-squash-and-merge')
+        env:
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          # Reauth the git repo with our GITHUB_TOKEN
+          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}
+          # Get the base commit (merge-base) for the PR
+          ./scripts/merge-train/squash-pr.sh \
+            "${{ github.event.pull_request.number }}" \
+            "${{ github.event.pull_request.head.ref }}" \
+            "${{ github.event.pull_request.base.ref }}" \
+            "${{ github.event.pull_request.base.sha }}"
+          gh pr edit "${{ github.event.pull_request.number }}" --remove-label "ci-squash-and-merge"
+          gh pr merge "${{ github.event.pull_request.number }}" --auto -m || true

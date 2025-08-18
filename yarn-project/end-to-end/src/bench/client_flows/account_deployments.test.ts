@@ -82,7 +82,8 @@ describe('Deployment benchmark', () => {
               2 + // Account entrypoint (wrapped fee payload) + kernel inner
               paymentMethod.circuits + // Payment method circuits
               1 + // Kernel reset
-              1, // Kernel tail
+              1 + // Kernel tail
+              1, // Kernel hiding
           );
 
           if (process.env.SANITY_CHECKS) {

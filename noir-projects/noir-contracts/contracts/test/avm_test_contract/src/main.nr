@@ -116,17 +116,17 @@ pub contract AvmTest {
      ************************************************************************/
     #[public]
     fn set_opcode_u8() -> u8 {
-        8 as u8
+        8
     }
 
     #[public]
     fn set_opcode_u32() -> u32 {
-        1 << 30 as u8
+        1 << 30
     }
 
     #[public]
     fn set_opcode_u64() -> u64 {
-        1 << 60 as u8
+        1 << 60
     }
 
     #[public]

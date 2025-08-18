@@ -279,8 +279,6 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                                              const DeciderPKs& keys,
                                              const size_t row_idx)
     {
-        PROFILE_THIS_NAME("PG::extend_univariates");
-
         if constexpr (Flavor::USE_SHORT_MONOMIALS) {
             extended_univariates = std::move(keys.row_to_short_univariates(row_idx));
         } else {

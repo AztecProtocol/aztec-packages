@@ -68,13 +68,17 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
     // Type aliases specific to GoblinRecursion test
     using AvmRecursiveVerifier = AvmGoblinRecursiveVerifier;
     using OuterBuilder = typename UltraRollupFlavor::CircuitBuilder;
-    using UltraRollupRecursiveFlavor = UltraRollupRecursiveFlavor_<OuterBuilder>;
-    using UltraFF = UltraRollupRecursiveFlavor::FF;
+    using UltraFF = UltraRecursiveFlavor_<OuterBuilder>::FF;
     using UltraRollupProver = UltraProver_<UltraRollupFlavor>;
     using NativeVerifierCommitmentKey = typename AvmFlavor::VerifierCommitmentKey;
 
     NativeProofResult proof_result;
+    std::cout << "Creating and verifying native proof..." << std::endl;
+    std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
     ASSERT_NO_FATAL_FAILURE({ create_and_verify_native_proof(proof_result); });
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    std::cout << "Time taken (native proof): " << std::chrono::duration_cast<std::chrono::seconds>(end - start).count()
+              << "s" << std::endl;
 
     auto [proof, verification_key, public_inputs_cols] = proof_result;
     proof.insert(proof.begin(), 0); // TODO(#14234)[Unconditional PIs validation]: remove this
@@ -104,8 +108,14 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
     // Construct the AVM recursive verifier and verify the proof
     // Scoped to free memory of AvmRecursiveVerifier.
     auto verifier_output = [&]() {
+        std::cout << "Constructing AvmRecursiveVerifier and verifying proof..." << std::endl;
+        std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
         AvmRecursiveVerifier avm_rec_verifier(outer_circuit, outer_key_fields);
-        return avm_rec_verifier.verify_proof(stdlib_proof, public_inputs_ct);
+        auto result = avm_rec_verifier.verify_proof(stdlib_proof, public_inputs_ct);
+        std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+        std::cout << "Time taken (recursive verification): "
+                  << std::chrono::duration_cast<std::chrono::seconds>(end - start).count() << "s" << std::endl;
+        return result;
     }();
 
     verifier_output.points_accumulator.set_public();

@@ -253,7 +253,6 @@ template <typename FF_> class LogDerivLookupRelationImpl {
                            const Parameters& params,
                            const FF& scaling_factor)
     {
-        PROFILE_THIS_NAME("Lookup::accumulate");
         // declare the accumulator of the maximum length, in non-ZK Flavors, they are of the same length,
         // whereas in ZK Flavors, the accumulator corresponding log derivative lookup argument sub-relation is the
         // longest

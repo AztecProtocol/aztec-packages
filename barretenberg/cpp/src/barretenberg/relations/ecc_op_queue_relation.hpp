@@ -57,7 +57,6 @@ template <typename FF_> class EccOpQueueRelationImpl {
                                   const Parameters&,
                                   const FF& scaling_factor)
     {
-        PROFILE_THIS_NAME("EccOp::accumulate");
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
         // We skip using the CoefficientAccumulator type in this relation, as the overall relation degree is low (deg

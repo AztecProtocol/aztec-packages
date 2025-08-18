@@ -194,7 +194,6 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
 
   /**
    * @notice Flag controlling whether rewards can be claimed
-   * @dev Temporary mechanism, should not be deeply integrated into the rollup library
    */
   bool public isRewardsClaimable = false;
 
@@ -219,6 +218,11 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     GenesisState memory _genesisState,
     RollupConfigInput memory _config
   ) Ownable(_governance) {
+    // We do not allow the `normalFlushSizeMin` to be 0 when deployed as it would lock deposits (which is never desired
+    // from the onset). It might be updated later to 0 by governance in order to close the validator set for this
+    // instance. For details see `StakingLib.getEntryQueueFlushSize` function.
+    require(_config.stakingQueueConfig.normalFlushSizeMin > 0, Errors.Staking__InvalidStakingQueueConfig());
+
     TimeLib.initialize(
       block.timestamp, _config.aztecSlotDuration, _config.aztecEpochDuration, _config.aztecProofSubmissionEpochs
     );
@@ -251,10 +255,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     rollupStore.config.feeAsset = _feeAsset;
     rollupStore.config.epochProofVerifier = _epochProofVerifier;
 
-    // @todo handle case where L1 forks and chain ID is different
-    // @note Truncated to 32 bits to make simpler to deal with all the node changes at a separate time.
-    uint32 version =
-      uint32(uint256(keccak256(abi.encode(bytes("aztec_rollup"), block.chainid, address(this), _genesisState))));
+    uint32 version = _config.version;
     rollupStore.config.version = version;
 
     IInbox inbox = IInbox(address(new Inbox(address(this), _feeAsset, version, Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT)));
@@ -266,16 +267,6 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     rollupStore.config.feeAssetPortal = IFeeJuicePortal(inbox.getFeeAssetPortal());
 
     FeeLib.initialize(_config.manaTarget, _config.provingCostPerMana);
-  }
-
-  /**
-   * @notice Preheats the block header cache to optimize gas costs for subsequent operations
-   * @dev This function loads recent block headers into memory to reduce gas costs for operations
-   *      that need to access historical block data. Should be called before gas-intensive operations.
-   *      Used for stabilizing benchmarks.
-   */
-  function preheatHeaders() external override(IRollupCore) {
-    STFLib.preheatHeaders();
   }
 
   /**
@@ -342,29 +333,29 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
   /**
    * @notice Claims accumulated rewards for a sequencer (block proposer)
    * @dev Rewards must be enabled via isRewardsClaimable. Transfers all accumulated rewards to the recipient.
-   * @param _recipient The address to receive the rewards
+   * @param _coinbase The address that has accumulated the rewards - rewards are sent to this address
    * @return The amount of rewards claimed
    */
-  function claimSequencerRewards(address _recipient) external override(IRollupCore) returns (uint256) {
+  function claimSequencerRewards(address _coinbase) external override(IRollupCore) returns (uint256) {
     require(isRewardsClaimable, Errors.Rollup__RewardsNotClaimable());
-    return RewardLib.claimSequencerRewards(_recipient);
+    return RewardLib.claimSequencerRewards(_coinbase);
   }
 
   /**
    * @notice Claims prover rewards for specified epochs
    * @dev Rewards must be enabled. Provers earn rewards for successfully proving epoch transitions.
    *      Each epoch can only be claimed once per prover.
-   * @param _recipient The address to receive the rewards
+   * @param _coinbase The address that has accumulated the rewards - rewards are sent to this address
    * @param _epochs Array of epochs to claim rewards for
    * @return The total amount of rewards claimed
    */
-  function claimProverRewards(address _recipient, Epoch[] memory _epochs)
+  function claimProverRewards(address _coinbase, Epoch[] memory _epochs)
     external
     override(IRollupCore)
     returns (uint256)
   {
     require(isRewardsClaimable, Errors.Rollup__RewardsNotClaimable());
-    return RewardLib.claimProverRewards(_recipient, _epochs);
+    return RewardLib.claimProverRewards(_coinbase, _epochs);
   }
 
   /**
@@ -382,8 +373,8 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @dev The caller must have approved the staking asset. Validators enter a queue before becoming active.
    * @param _attester The address that will act as the validator (sign attestations)
    * @param _withdrawer The address that can withdraw the stake
-   * @param _publicKeyInG1 The G1 point for the BLS public key
-   * @param _publicKeyInG2 The G2 point for the BLS public key
+   * @param _publicKeyInG1 The G1 point for the BLS public key (used for efficient signature verification in GSE)
+   * @param _publicKeyInG2 The G2 point for the BLS public key (used for BLS aggregation and pairing operations in GSE)
    * @param _proofOfPossession The proof of possession to show that the keys in G1 and G2 share secret key
    * @param _moveWithLatestRollup Whether to follow the chain if governance migrates to a new rollup version
    */
@@ -406,8 +397,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    *      This helps maintain a controlled growth rate of the validator set.
    */
   function flushEntryQueue() external override(IStakingCore) {
-    uint256 maxAddableValidators = getEntryQueueFlushSize();
-    ExtRollupLib2.flushEntryQueue(maxAddableValidators);
+    ExtRollupLib2.flushEntryQueue();
   }
 
   /**
@@ -526,8 +516,8 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    *      `ExtRollupLib.propose(...)` -> `ProposeLib.propose(...)` -> `ValidatorSelectionLib.setupEpoch(...)`).
    *
    *      If there are missed proposals then setupEpoch does not get called automatically. Since the next committee
-   *      selection is computed based on the latest stored seed and the epoch number, we would only fail to get a
-   *      fresh seed if:
+   *      selection is computed based on the stored randao and the epoch number, failing to update the randao stored
+   *      will keep the committee predictable longer into the future. We would only fail to get a fresh randao if:
    *      1. All the proposals in the epoch were missed
    *      2. Nobody called setupEpoch on the Rollup contract
    *
@@ -540,13 +530,13 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
   }
 
   /**
-   * @notice Captures the seed for validator selection in the next epoch
-   * @dev Can be called by anyone. Takes a snapshot of the current state to ensure
-   *      unpredictable but deterministic validator selection. Automatically called
-   *      from setupEpoch.
+   * @notice Captures the randao for future validator selection
+   * @dev Can be called by anyone. Takes a snapshot of the current randao to ensure unpredictable but deterministic
+   *      validator selection. Automatically called from setupEpoch. Can be used as a cheaper alternative to
+   *      `setupEpoch` to update the randao checkpoints.
    */
-  function setupSeedSnapshotForNextEpoch() public override(IValidatorSelectionCore) {
-    ExtRollupLib2.setupSeedSnapshotForNextEpoch();
+  function checkpointRandao() public override(IValidatorSelectionCore) {
+    ExtRollupLib2.checkpointRandao();
   }
 
   /**

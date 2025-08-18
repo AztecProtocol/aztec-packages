@@ -27,6 +27,7 @@ gas_reports = [
   "RollupCore",
   "Slasher",
   "SlashingProposer",
+  "RollupWithPreheating",
 ]
 
 remappings = [

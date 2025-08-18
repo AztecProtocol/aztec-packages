@@ -145,7 +145,8 @@ describe('Transfer benchmark', () => {
                 2 + // CandyBarCoin transfer + kernel inner
                 recursions * 2 + // (CandyBarCoin _recurse_subtract_balance + kernel inner) * recursions
                 1 + // Kernel reset
-                1, // Kernel tail
+                1 + // Kernel tail
+                1, // Kernel hiding
             );
 
             expectedChange = totalAmount - BigInt(amountToSend);

@@ -779,6 +779,27 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     }
 };
 
+template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_count = 0>
+Univariate<Fr, domain_end, domain_start, skip_count> operator+(
+    const Fr& ff, const UnivariateView<Fr, domain_end, domain_start, skip_count>& uv)
+{
+    return uv + ff;
+}
+
+template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_count = 0>
+Univariate<Fr, domain_end, domain_start, skip_count> operator-(
+    const Fr& ff, const UnivariateView<Fr, domain_end, domain_start, skip_count>& uv)
+{
+    return -uv + ff;
+}
+
+template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_count = 0>
+Univariate<Fr, domain_end, domain_start, skip_count> operator*(
+    const Fr& ff, const UnivariateView<Fr, domain_end, domain_start, skip_count>& uv)
+{
+    return uv * ff;
+}
+
 /**
  * @brief Create a sub-array of `elements` at the indices given in the template pack `Is`, converting them
  * to the new type T.

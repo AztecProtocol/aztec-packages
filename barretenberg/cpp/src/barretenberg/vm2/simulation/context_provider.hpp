@@ -25,7 +25,8 @@ class ContextProviderInterface {
                                                                   uint32_t cd_size,
                                                                   bool is_static,
                                                                   Gas gas_limit,
-                                                                  SideEffectStates side_effect_states) = 0;
+                                                                  SideEffectStates side_effect_states,
+                                                                  TransactionPhase phase) = 0;
 
     virtual std::unique_ptr<ContextInterface> make_enqueued_context(AztecAddress address,
                                                                     AztecAddress msg_sender,
@@ -34,7 +35,8 @@ class ContextProviderInterface {
                                                                     bool is_static,
                                                                     Gas gas_limit,
                                                                     Gas gas_used,
-                                                                    SideEffectStates side_effect_states) = 0;
+                                                                    SideEffectStates side_effect_states,
+                                                                    TransactionPhase phase) = 0;
 
     // This can be removed if we use clk for the context id
     virtual uint32_t get_next_context_id() const = 0;
@@ -65,7 +67,8 @@ class ContextProvider : public ContextProviderInterface {
                                                           MemoryAddress cd_size_address,
                                                           bool is_static,
                                                           Gas gas_limit,
-                                                          SideEffectStates side_effect_states) override;
+                                                          SideEffectStates side_effect_states,
+                                                          TransactionPhase phase) override;
     std::unique_ptr<ContextInterface> make_enqueued_context(AztecAddress address,
                                                             AztecAddress msg_sender,
                                                             FF transaction_fee,
@@ -73,7 +76,8 @@ class ContextProvider : public ContextProviderInterface {
                                                             bool is_static,
                                                             Gas gas_limit,
                                                             Gas gas_used,
-                                                            SideEffectStates side_effect_states) override;
+                                                            SideEffectStates side_effect_states,
+                                                            TransactionPhase phase) override;
     uint32_t get_next_context_id() const override;
 
   private:

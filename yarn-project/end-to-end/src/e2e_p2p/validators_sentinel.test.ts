@@ -233,7 +233,7 @@ describe('e2e_p2p_validators_sentinel', () => {
       await retryUntil(
         async () => {
           const ignoreExpectedErrors = (err: Error) => {
-            const permissibleErrors = ['ValidatorSelection__InsufficientCommitteeSize', '0x98673597'];
+            const permissibleErrors = ['ValidatorSelection__InsufficientValidatorSetSize', '0x98673597'];
             if (permissibleErrors.some(error => err.message.includes(error))) {
               return undefined;
             }

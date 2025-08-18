@@ -59,18 +59,18 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
 
     // Set vkey->circuit_size correctly based on the proof size
     BB_ASSERT_EQ(proof_size, NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS());
-    // a lambda that adds dummy commitments (libra and gemini)
-    auto set_dummy_commitment = [&](size_t& offset) {
+    // a lambda that sets dummy commitments
+    auto set_dummy_commitment = [&builder](const std::vector<typename Flavor::FF>& fields, size_t& offset) {
         auto comm = curve::BN254::AffineElement::one() * fr::random_element();
         auto frs = field_conversion::convert_to_bn254_frs(comm);
-        builder.set_variable(proof_fields[offset].witness_index, frs[0]);
-        builder.set_variable(proof_fields[offset + 1].witness_index, frs[1]);
-        builder.set_variable(proof_fields[offset + 2].witness_index, frs[2]);
-        builder.set_variable(proof_fields[offset + 3].witness_index, frs[3]);
+        builder.set_variable(fields[offset].witness_index, frs[0]);
+        builder.set_variable(fields[offset + 1].witness_index, frs[1]);
+        builder.set_variable(fields[offset + 2].witness_index, frs[2]);
+        builder.set_variable(fields[offset + 3].witness_index, frs[3]);
         offset += 4;
     };
-
-    auto set_dummy_evaluation = [&](size_t& offset) {
+    // a lambda that sets dummy evaluation in proof fields vector
+    auto set_dummy_evaluation_in_proof_fields = [&](size_t& offset) {
         builder.set_variable(proof_fields[offset].witness_index, fr::random_element());
         offset++;
     };
@@ -89,14 +89,14 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
                                                                : public_inputs_size - bb::DefaultIO::PUBLIC_INPUTS_SIZE;
 
     for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; ++i) {
-        set_dummy_commitment(offset);
+        set_dummy_commitment(key_fields, offset);
     }
 
     offset = 0; // Reset offset for parsing proof fields
 
     // the inner public inputs
     for (size_t i = 0; i < num_inner_public_inputs; i++) {
-        set_dummy_evaluation(offset);
+        set_dummy_evaluation_in_proof_fields(offset);
     }
 
     // Get some values for a valid aggregation object and use them here to avoid divide by 0 or other issues.
@@ -111,71 +111,69 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1392): Don't use random elements here.
     if constexpr (HasIPAAccumulator<Flavor>) {
         for (size_t i = 0; i < IPA_CLAIM_SIZE; i++) {
-            set_dummy_evaluation(offset);
+            set_dummy_evaluation_in_proof_fields(offset);
         }
     }
 
     // first NUM_WITNESS_ENTITIES witness commitments
     for (size_t i = 0; i < Flavor::NUM_WITNESS_ENTITIES; i++) {
-        set_dummy_commitment(offset);
+        set_dummy_commitment(proof_fields, offset);
     }
 
     if constexpr (Flavor::HasZK) {
         // Libra concatenation commitment
-        set_dummy_commitment(offset);
+        set_dummy_commitment(proof_fields, offset);
         // libra sum
-        set_dummy_evaluation(offset);
+        set_dummy_evaluation_in_proof_fields(offset);
     }
 
     // now the univariates, which can just be 0s (8*CONST_PROOF_SIZE_LOG_N Frs, where 8 is the maximum relation
     // degree)
     for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N * Flavor::BATCHED_RELATION_PARTIAL_LENGTH; i++) {
-        set_dummy_evaluation(offset);
+        set_dummy_evaluation_in_proof_fields(offset);
     }
 
     // now the sumcheck evaluations, which is just 44 0s
     for (size_t i = 0; i < Flavor::NUM_ALL_ENTITIES; i++) {
-        set_dummy_evaluation(offset);
+        set_dummy_evaluation_in_proof_fields(offset);
     }
 
     if constexpr (Flavor::HasZK) {
         // Libra claimed evaluation
-        set_dummy_evaluation(offset);
+        set_dummy_evaluation_in_proof_fields(offset);
         // Libra grand sum commitment
-
-        set_dummy_commitment(offset);
+        set_dummy_commitment(proof_fields, offset);
         // Libra quotient commitment
-        set_dummy_commitment(offset);
+        set_dummy_commitment(proof_fields, offset);
         // Gemini masking commitment
-        set_dummy_commitment(offset);
+        set_dummy_commitment(proof_fields, offset);
         // Gemini masking evaluation
-        set_dummy_evaluation(offset);
+        set_dummy_evaluation_in_proof_fields(offset);
     }
 
     // now the gemini fold commitments which are CONST_PROOF_SIZE_LOG_N - 1
     for (size_t i = 1; i < CONST_PROOF_SIZE_LOG_N; i++) {
-        set_dummy_commitment(offset);
+        set_dummy_commitment(proof_fields, offset);
     }
 
     // the gemini fold evaluations which are also CONST_PROOF_SIZE_LOG_N
     for (size_t i = 1; i <= CONST_PROOF_SIZE_LOG_N; i++) {
-        set_dummy_evaluation(offset);
+        set_dummy_evaluation_in_proof_fields(offset);
     }
 
     if constexpr (Flavor::HasZK) {
         // NUM_SMALL_IPA_EVALUATIONS libra evals
         for (size_t i = 0; i < NUM_SMALL_IPA_EVALUATIONS; i++) {
-            set_dummy_evaluation(offset);
+            set_dummy_evaluation_in_proof_fields(offset);
         }
     }
 
     // lastly the shplonk batched quotient commitment and kzg quotient commitment
     for (size_t i = 0; i < 2; i++) {
-        set_dummy_commitment(offset);
+        set_dummy_commitment(proof_fields, offset);
     }
     // IPA Proof
     if constexpr (HasIPAAccumulator<Flavor>) {
-
         // Ls and Rs
         for (size_t i = 0; i < static_cast<size_t>(2) * CONST_ECCVM_LOG_N; i++) {
             auto comm = curve::Grumpkin::AffineElement::one() * fq::random_element();

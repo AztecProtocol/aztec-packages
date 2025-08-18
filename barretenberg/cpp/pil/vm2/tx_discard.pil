@@ -1,0 +1,48 @@
+/**
+ * Discarding on error for tx-level operations.
+ *
+ * Design Document: https://docs.google.com/document/d/1xz5sZSxTu841K8uvnT8U-nO2X5ZjY8o0TjOYKfT9b6o
+ *
+ * This subtrace is focused on managing the changes to the discard column.
+ * It is a virtual gadget, which is part of the execution trace.
+ *
+ * 1. Propagate discard by default.
+ * 2. Discard and reverted must be 0 for all rows of startup, non-revertibles, setup, fee-payment/tree-padding/cleanup.
+ * 3. If reverted is 1, discard must be 1.
+ * 4. Lift/relax propagation only in either of the following two scenarios:
+ *    * A revert is encountered.
+ *    * End of setup is encountered.
+ */
+namespace tx; // virtual to tx.pil
+    // No relations will be checked if this identity is satisfied.
+    #[skippable_if]
+    sel = 0; // from tx.pil.
+
+    pol commit discard;
+    discard * (1 - discard) = 0;
+
+    // If discard == 1, is_revertible must be 1
+    // Can ONLY discard during revertible phases (revertible insertions, app-logic, teardown)
+    #[CAN_ONLY_DISCARD_IN_REVERTIBLE_PHASES]
+    discard * (1 - is_revertible) = 0;
+
+    // If failure == 1, discard must be 1
+    #[FAILURE_MUST_DISCARD]
+    reverted * (1 - discard) = 0;
+
+    // By default, discard's value is propagated to the next row.
+    // Lift/relax propagation of discard to the next row if:
+    // 1. A failure (reverted == 1) occurs in the current row.
+    // 2. This row is the last row of SETUP.
+    //
+    // We can know that this row is the "last row of setup" iff:
+    // a. The current row is NOT revertible: `is_revertible == 0`
+    // b. AND the next row _is_ revertible: `is_revertible' == 1`
+
+    pol LAST_ROW_OF_SETUP = (1 - is_revertible) * (is_revertible');
+    pol PROPAGATE_DISCARD = (1 - LAST_ROW_OF_SETUP) * (1 - reverted);
+
+    // If propagate_discard == 1, discard' = discard.
+    #[DISCARD_PROPAGATION]
+    sel * PROPAGATE_DISCARD * (discard' - discard) = 0;
+
