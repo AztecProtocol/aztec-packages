@@ -30,6 +30,14 @@ export function getTopicTypeForClientType(clientType: P2PClientType) {
   }
 }
 
+export function getTopicsForClientAndConfig(clientType: P2PClientType, disableTransactions: boolean) {
+  const topics = getTopicTypeForClientType(clientType);
+  if (disableTransactions) {
+    return topics.filter(topic => topic !== TopicType.tx);
+  }
+  return topics;
+}
+
 /**
  * Convert the topic string into a set of labels
  *
