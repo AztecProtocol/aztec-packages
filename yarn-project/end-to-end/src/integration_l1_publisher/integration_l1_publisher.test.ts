@@ -444,6 +444,7 @@ describe('L1Publisher integration', () => {
           args: [
             {
               header: block.header.toPropose().toViem(),
+              parentHeaderHash: new Fr(0n).toString(),
               stateReference: block.header.state.toViem(),
               oracleInput: {
                 feeAssetPriceModifier: 0n,

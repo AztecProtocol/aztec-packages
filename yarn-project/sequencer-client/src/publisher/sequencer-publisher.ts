@@ -482,6 +482,7 @@ export class SequencerPublisher {
       digest: Buffer.alloc(32),
       attestations: [],
     },
+    parentHeaderHash: Fr,
     options: { forcePendingBlockNumber?: number },
   ): Promise<bigint> {
     const ts = BigInt((await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration);
@@ -512,6 +513,7 @@ export class SequencerPublisher {
     const args = [
       {
         header: block.header.toPropose().toViem(),
+        parentHeaderHash: parentHeaderHash.toString(),
         stateReference: block.header.state.toViem(),
         txHashes: block.body.txEffects.map(txEffect => txEffect.txHash.toString()),
         oracleInput: {
@@ -695,7 +697,7 @@ export class SequencerPublisher {
       //        make time consistency checks break.
       const attestationData = { digest: digest.toBuffer(), attestations: attestations ?? [] };
       // TODO(palla): Check whether we're validating twice, once here and once within addProposeTx, since we call simulateProposeTx in both places.
-      ts = await this.validateBlockForSubmission(block, attestationData, opts);
+      ts = await this.validateBlockForSubmission(block, attestationData, parentHeaderHash, opts);
     } catch (err: any) {
       this.log.error(`Block validation failed. ${err instanceof Error ? err.message : 'No error message'}`, err, {
         ...block.getStats(),
@@ -830,6 +832,7 @@ export class SequencerPublisher {
     args: readonly [
       {
         readonly header: ViemHeader;
+        readonly parentHeaderHash: `0x${string}`;
         readonly stateReference: ViemStateReference;
         readonly txHashes: `0x${string}`[];
         readonly oracleInput: {

@@ -36,6 +36,7 @@ import type { L1PublishedData, PublishedL2Block } from './structs/published.js';
 export type RetrievedL2Block = {
   l2BlockNumber: number;
   stateReference: StateReference;
+  parentHeaderHash: Hex;
   header: ProposedBlockHeader;
   body: Body;
   l1: L1PublishedData;
@@ -313,6 +314,7 @@ async function getBlockFromRollupTx(
   const [decodedArgs, packedAttestations, _signers, _blobInput] = rollupArgs! as readonly [
     {
       stateReference: ViemStateReference;
+      parentHeaderHash: Hex;
       oracleInput: {
         feeAssetPriceModifier: bigint;
       };
@@ -329,6 +331,7 @@ async function getBlockFromRollupTx(
   logger.trace(`Recovered propose calldata from tx ${txHash}`, {
     l2BlockNumber,
     headerHash: ProposedBlockHeader.fromViem(decodedArgs.header).hash().toString(),
+    parentHeaderHash: decodedArgs.parentHeaderHash,
     stateReference: decodedArgs.stateReference,
     header: decodedArgs.header,
     blobHashes,
@@ -365,6 +368,7 @@ async function getBlockFromRollupTx(
   return {
     l2BlockNumber,
     stateReference,
+    parentHeaderHash: decodedArgs.parentHeaderHash,
     header,
     body,
     attestations,

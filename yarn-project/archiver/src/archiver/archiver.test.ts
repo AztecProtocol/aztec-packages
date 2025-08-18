@@ -324,7 +324,17 @@ describe('Archiver', () => {
     let latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(0);
 
-    const rollupTxs = await Promise.all(blocks.map(b => makeRollupTx(b)));
+    const rollupTxs = await Promise.all(
+      blocks.map((b, i) =>
+        makeRollupTx(
+          b,
+          [],
+          i === 0
+            ? (new Fr(GENESIS_BLOCK_HEADER_HASH).toString() as `0x${string}`)
+            : (headerHashes[i - 1].toString() as `0x${string}`),
+        ),
+      ),
+    );
     const submitProofTxs = await Promise.all(
       blocks.map(b => {
         const previousArchive =
@@ -453,7 +463,17 @@ describe('Archiver', () => {
 
     const numL2BlocksInTest = 2;
 
-    const rollupTxs = await Promise.all(blocks.map(b => makeRollupTx(b)));
+    const rollupTxs = await Promise.all(
+      blocks.map((b, i) =>
+        makeRollupTx(
+          b,
+          [],
+          i === 0
+            ? (new Fr(GENESIS_BLOCK_HEADER_HASH).toString() as `0x${string}`)
+            : (headerHashes[i - 1].toString() as `0x${string}`),
+        ),
+      ),
+    );
 
     const submitProofTxs = await Promise.all(
       blocks.map(b => {
@@ -550,22 +570,38 @@ describe('Archiver', () => {
     archiver.on(L2BlockSourceEvents.InvalidAttestationsBlockDetected, invalidBlockDetectedSpy);
 
     // Add the attestations from the signers to all 3 blocks
-    const rollupTxs = await Promise.all(blocks.map(b => makeRollupTx(b, signers)));
+    const rollupTxs = await Promise.all(
+      blocks.map((b, i) =>
+        makeRollupTx(
+          b,
+          signers,
+          i === 0
+            ? (new Fr(GENESIS_BLOCK_HEADER_HASH).toString() as `0x${string}`)
+            : (headerHashes[i - 1].toString() as `0x${string}`),
+        ),
+      ),
+    );
     const blobHashes = await Promise.all(blocks.map(makeVersionedBlobHashes));
     const blobsFromBlocks = await Promise.all(blocks.map(b => makeBlobsFromBlock(b)));
 
     // And define bad blocks with attestations from random signers
-    const makeBadBlock = async (blockNumber: number) => {
+    const makeBadBlock = async (blockNumber: number, parentHeaderHash: `0x${string}`) => {
       const badBlock = await makeBlock(blockNumber);
       badBlock.archive.root = new Fr(0x1000 + blockNumber);
-      const badBlockRollupTx = await makeRollupTx(badBlock, times(3, Secp256k1Signer.random));
+      const badBlockRollupTx = await makeRollupTx(badBlock, times(3, Secp256k1Signer.random), parentHeaderHash);
       const badBlockBlobHashes = await makeVersionedBlobHashes(badBlock);
       const badBlockBlobs = await makeBlobsFromBlock(badBlock);
       return [badBlock, badBlockRollupTx, badBlockBlobHashes, badBlockBlobs] as const;
     };
 
-    const [badBlock2, badBlock2RollupTx, badBlock2BlobHashes, badBlock2Blobs] = await makeBadBlock(2);
-    const [badBlock3, badBlock3RollupTx, badBlock3BlobHashes, badBlock3Blobs] = await makeBadBlock(3);
+    const [badBlock2, badBlock2RollupTx, badBlock2BlobHashes, badBlock2Blobs] = await makeBadBlock(
+      2,
+      headerHashes[0].toString() as `0x${string}`,
+    );
+    const [badBlock3, badBlock3RollupTx, badBlock3BlobHashes, badBlock3Blobs] = await makeBadBlock(
+      3,
+      blocks[1].header.toPropose().hash().toString() as `0x${string}`,
+    );
 
     // Return the archive root for the bad block 2 when L1 is queried
     mockRollupRead.archiveAt.mockImplementation((args: readonly [bigint]) =>
@@ -725,7 +761,17 @@ describe('Archiver', () => {
 
     const numL2BlocksInTest = 2;
 
-    const rollupTxs = await Promise.all(blocks.map(b => makeRollupTx(b)));
+    const rollupTxs = await Promise.all(
+      blocks.map((b, i) =>
+        makeRollupTx(
+          b,
+          [],
+          i === 0
+            ? (new Fr(GENESIS_BLOCK_HEADER_HASH).toString() as `0x${string}`)
+            : (headerHashes[i - 1].toString() as `0x${string}`),
+        ),
+      ),
+    );
     const submitProofTxs = await Promise.all(
       blocks.map(b => {
         const previousArchive =
@@ -812,7 +858,17 @@ describe('Archiver', () => {
 
     const numL2BlocksInTest = 2;
 
-    const rollupTxs = await Promise.all(blocks.map(b => makeRollupTx(b)));
+    const rollupTxs = await Promise.all(
+      blocks.map((b, i) =>
+        makeRollupTx(
+          b,
+          [],
+          i === 0
+            ? (new Fr(GENESIS_BLOCK_HEADER_HASH).toString() as `0x${string}`)
+            : (headerHashes[i - 1].toString() as `0x${string}`),
+        ),
+      ),
+    );
     const blobHashes = await Promise.all(blocks.map(makeVersionedBlobHashes));
 
     let mockedBlockNum = 0n;
@@ -1001,7 +1057,17 @@ describe('Archiver', () => {
 
     const numL2BlocksInTest = 2;
 
-    const rollupTxs = await Promise.all(blocks.map(b => makeRollupTx(b)));
+    const rollupTxs = await Promise.all(
+      blocks.map((b, i) =>
+        makeRollupTx(
+          b,
+          [],
+          i === 0
+            ? (new Fr(GENESIS_BLOCK_HEADER_HASH).toString() as `0x${string}`)
+            : (headerHashes[i - 1].toString() as `0x${string}`),
+        ),
+      ),
+    );
     const submitProofTxs = await Promise.all(
       blocks.map(b => {
         const previousArchive =
@@ -1125,7 +1191,17 @@ describe('Archiver', () => {
     blocks = [l2Block];
     const blobHashes = await makeVersionedBlobHashes(l2Block);
 
-    const rollupTxs = await Promise.all(blocks.map(b => makeRollupTx(b)));
+    const rollupTxs = await Promise.all(
+      blocks.map((b, i) =>
+        makeRollupTx(
+          b,
+          [],
+          i === 0
+            ? (new Fr(GENESIS_BLOCK_HEADER_HASH).toString() as `0x${string}`)
+            : (headerHashes[i - 1].toString() as `0x${string}`),
+        ),
+      ),
+    );
     publicClient.getBlockNumber.mockResolvedValue(l1BlockForL2Block);
     mockRollup.read.status.mockResolvedValueOnce({
       provenBlockNumber: 0n,
@@ -1171,7 +1247,17 @@ describe('Archiver', () => {
     blocks = [l2Block];
     const blobHashes = await makeVersionedBlobHashes(l2Block);
 
-    const rollupTxs = await Promise.all(blocks.map(b => makeRollupTx(b)));
+    const rollupTxs = await Promise.all(
+      blocks.map((b, i) =>
+        makeRollupTx(
+          b,
+          [],
+          i === 0
+            ? (new Fr(GENESIS_BLOCK_HEADER_HASH).toString() as `0x${string}`)
+            : (headerHashes[i - 1].toString() as `0x${string}`),
+        ),
+      ),
+    );
     publicClient.getBlockNumber.mockResolvedValue(l1BlockForL2Block);
     mockRollup.read.status.mockResolvedValueOnce({
       provenBlockNumber: 0n,
@@ -1261,7 +1347,17 @@ describe('Archiver', () => {
     blocks = [l2Block];
     const blobHashes = await makeVersionedBlobHashes(l2Block);
 
-    const rollupTxs = await Promise.all(blocks.map(b => makeRollupTx(b)));
+    const rollupTxs = await Promise.all(
+      blocks.map((b, i) =>
+        makeRollupTx(
+          b,
+          [],
+          i === 0
+            ? (new Fr(GENESIS_BLOCK_HEADER_HASH).toString() as `0x${string}`)
+            : (headerHashes[i - 1].toString() as `0x${string}`),
+        ),
+      ),
+    );
     publicClient.getBlockNumber.mockResolvedValue(lastL1BlockForEpoch);
     mockRollup.read.status.mockResolvedValueOnce({
       provenBlockNumber: 0n,
@@ -1305,7 +1401,17 @@ describe('Archiver', () => {
   it('handles a block gap due to a spurious L2 prune', async () => {
     expect(await archiver.getBlockNumber()).toEqual(0);
 
-    const rollupTxs = await Promise.all(blocks.map(b => makeRollupTx(b)));
+    const rollupTxs = await Promise.all(
+      blocks.map((b, i) =>
+        makeRollupTx(
+          b,
+          [],
+          i === 0
+            ? (new Fr(GENESIS_BLOCK_HEADER_HASH).toString() as `0x${string}`)
+            : (headerHashes[i - 1].toString() as `0x${string}`),
+        ),
+      ),
+    );
     const blobHashes = await Promise.all(blocks.map(makeVersionedBlobHashes));
     const blobsFromBlocks = await Promise.all(blocks.map(b => makeBlobsFromBlock(b)));
 
@@ -1523,7 +1629,7 @@ describe('Archiver', () => {
  * @param block - The L2Block.
  * @returns A fake tx with calldata that corresponds to calling process in the Rollup contract.
  */
-async function makeRollupTx(l2Block: L2Block, signers: Secp256k1Signer[] = []) {
+async function makeRollupTx(l2Block: L2Block, signers: Secp256k1Signer[] = [], parentHeaderHash: `0x${string}`) {
   const attestations = signers
     .map(signer => makeBlockAttestationFromBlock(l2Block, signer))
     .map(blockAttestation => CommitteeAttestation.fromSignature(blockAttestation.signature))
@@ -1541,6 +1647,7 @@ async function makeRollupTx(l2Block: L2Block, signers: Secp256k1Signer[] = []) {
         // archive,
         stateReference,
         oracleInput: { feeAssetPriceModifier: 0n },
+        parentHeaderHash,
       },
       RollupContract.packAttestations(attestations),
       signers.map(signer => signer.address.toString()),

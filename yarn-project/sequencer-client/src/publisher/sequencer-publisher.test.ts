@@ -32,7 +32,6 @@ import {
   type PrivateKeyAccount,
   type TransactionReceipt,
   encodeFunctionData,
-  toHex,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
@@ -57,8 +56,8 @@ describe('SequencerPublisher', () => {
   let l2Block: L2Block;
 
   let header: ProposedBlockHeader;
-  let archive: Buffer;
-  let blockHash: Buffer;
+  let _archive: Buffer;
+  let _blockHash: Buffer;
 
   let blobSinkClient: HttpBlobSinkClient;
   let mockBlobSinkServer: Server | undefined = undefined;
@@ -79,8 +78,8 @@ describe('SequencerPublisher', () => {
     l2Block = await L2Block.random(42);
 
     header = l2Block.header.toPropose();
-    archive = l2Block.archive.root.toBuffer();
-    blockHash = (await l2Block.header.hash()).toBuffer();
+    _archive = l2Block.archive.root.toBuffer();
+    _blockHash = (await l2Block.header.hash()).toBuffer();
 
     proposeTxHash = `0x${Buffer.from('txHashPropose').toString('hex')}`; // random tx hash
 
@@ -157,8 +156,6 @@ describe('SequencerPublisher', () => {
     l2Block = await L2Block.random(42, undefined, undefined, undefined, undefined, Number(currentL2Slot));
 
     header = l2Block.header.toPropose();
-    archive = l2Block.archive.root.toBuffer();
-    blockHash = (await l2Block.header.hash()).toBuffer();
   });
 
   const closeServer = (server: Server): Promise<void> => {
@@ -252,13 +249,12 @@ describe('SequencerPublisher', () => {
     const args = [
       {
         header: header.toViem(),
-        archive: toHex(archive),
         stateReference: l2Block.header.state.toViem(),
-        blockHash: toHex(blockHash),
         oracleInput: {
           feeAssetPriceModifier: 0n,
         },
         txHashes: [],
+        parentHeaderHash: new Fr(0n).toString(),
       },
       RollupContract.packAttestations([]),
       [],
