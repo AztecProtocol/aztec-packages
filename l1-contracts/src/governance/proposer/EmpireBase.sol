@@ -292,6 +292,7 @@ abstract contract EmpireBase is EIP712, IEmpire {
     require(
       currentSlot > round.lastSignalSlot.decompress(), Errors.GovernanceProposer__SignalAlreadyCastForSlot(currentSlot)
     );
+    round.lastSignalSlot = currentSlot.compress();
 
     address signaler = selection.getCurrentProposer();
 
@@ -306,7 +307,6 @@ abstract contract EmpireBase is EIP712, IEmpire {
     }
 
     round.signalCount[_payload] += 1;
-    round.lastSignalSlot = currentSlot.compress();
 
     // @todo We can optimise here for gas by storing some of it packed with the payloadWithMostSignals.
     if (
