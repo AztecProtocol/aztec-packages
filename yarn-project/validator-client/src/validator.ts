@@ -28,7 +28,6 @@ import type { BlockAttestation, BlockProposal, BlockProposalOptions } from '@azt
 import { GlobalVariables, type ProposedBlockHeader, type StateReference, type Tx } from '@aztec/stdlib/tx';
 import {
   AttestationTimeoutError,
-  InvalidValidatorPrivateKeyError,
   ReExFailedTxsError,
   ReExStateMismatchError,
   ReExTimeoutError,
@@ -43,7 +42,6 @@ import type { TypedDataDefinition } from 'viem';
 
 import type { ValidatorClientConfig } from './config.js';
 import { ValidationService } from './duties/validation_service.js';
-import type { ValidatorKeyStore } from './key_store/interface.js';
 import { NodeKeystoreAdapter } from './key_store/node_keystore_adapter.js';
 import { ValidatorMetrics } from './metrics.js';
 
@@ -92,7 +90,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   protected constructor(
     private blockBuilder: IFullNodeBlockBuilder,
-    private keyStore: ValidatorKeyStore,
+    private keyStore: NodeKeystoreAdapter,
     private epochCache: EpochCache,
     private p2pClient: P2P,
     private blockSource: L2BlockSource,
@@ -170,23 +168,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     dateProvider: DateProvider = new DateProvider(),
     telemetry: TelemetryClient = getTelemetryClient(),
   ) {
-    // Option 1: Transparent conversion - everything goes through NodeKeystoreAdapter
-    // if (config.web3SignerUrl) {
-    //   // Build adapter directly from Web3Signer info
-    //   const addresses = config.web3SignerAddresses;
-    //   if (!addresses?.length) {
-    //     throw new Error('web3SignerAddresses is required when web3SignerUrl is provided');
-    //   }
-    //   keyStore = NodeKeystoreAdapter.fromWeb3Signer(config.web3SignerUrl, addresses);
-    // } else if (config.validatorPrivateKeys?.getValue().length) {
-    //   // Build adapter directly from private keys
-    //   const privateKeys = config.validatorPrivateKeys.getValue();
-    //   keyStore = NodeKeystoreAdapter.fromPrivateKeys(privateKeys);
-    // } else {
-    //   // No configuration provided - throw error (matches current behavior)
-    //   throw new InvalidValidatorPrivateKeyError();
-    // }
-
     const validator = new ValidatorClient(
       blockBuilder,
       NodeKeystoreAdapter.fromKeyStoreManager(keyStoreManager),
@@ -211,6 +192,14 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   public signWithAddress(addr: EthAddress, msg: TypedDataDefinition) {
     return this.keyStore.signTypedDataWithAddress(addr, msg);
+  }
+
+  public getCoinbaseForAttestor(attestor: EthAddress) {
+    return this.keyStore.getCoinbaseAddress(attestor);
+  }
+
+  public getFeeRecipientForAttestor(attestor: EthAddress) {
+    return this.keyStore.getFeeRecipient(attestor);
   }
 
   public configureSlashing(

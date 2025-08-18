@@ -4,12 +4,10 @@ import {
   GovernanceProposerContract,
   PublisherManager,
   RollupContract,
-  createEthereumChain,
-  createExtendedL1Client,
   getPublicClient,
   isAnvilTestChain,
 } from '@aztec/ethereum';
-import { L1TxUtilsWithBlobs, createL1TxUtilsWithBlobsFromViemWallet } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
@@ -65,7 +63,7 @@ export class SequencerClient {
       blobSinkClient?: BlobSinkClientInterface;
       dateProvider: DateProvider;
       epochCache?: EpochCache;
-      l1TxUtils?: L1TxUtilsWithBlobs[];
+      l1TxUtils: L1TxUtilsWithBlobs[];
     },
   ) {
     const {
@@ -78,29 +76,28 @@ export class SequencerClient {
       l1ToL2MessageSource,
       telemetry: telemetryClient,
     } = deps;
-    const { l1RpcUrls: rpcUrls, l1ChainId: chainId, publisherPrivateKey, publisherPrivateKeys } = config;
-    const firstKey = publisherPrivateKeys.length > 0 ? publisherPrivateKeys[0] : publisherPrivateKey;
-    const chain = createEthereumChain(rpcUrls, chainId);
+    //const { l1RpcUrls: rpcUrls, l1ChainId: chainId, publisherPrivateKey, publisherPrivateKeys } = config;
+    const { l1RpcUrls: rpcUrls, l1ChainId: chainId } = config;
+    //const firstKey = publisherPrivateKeys.length > 0 ? publisherPrivateKeys[0] : publisherPrivateKey;
+    //const chain = createEthereumChain(rpcUrls, chainId);
     const log = createLogger('sequencer-client');
     const publicClient = getPublicClient(config);
-    const l1Client = createExtendedL1Client(rpcUrls, firstKey.getValue(), chain.chainInfo);
-    const l1TxUtils = deps.l1TxUtils ?? [
-      createL1TxUtilsWithBlobsFromViemWallet(l1Client, log, deps.dateProvider, config),
-    ];
+    //const l1Client = createExtendedL1Client(rpcUrls, firstKey.getValue(), chain.chainInfo);
+    const l1TxUtils = deps.l1TxUtils;
     const l1Metrics = new L1Metrics(
       telemetryClient.getMeter('L1PublisherMetrics'),
       publicClient,
       l1TxUtils.map(x => x.getSenderAddress()),
     );
     const publisherManager = new PublisherManager(l1TxUtils);
-    const rollupContract = new RollupContract(l1Client, config.l1Contracts.rollupAddress.toString());
+    const rollupContract = new RollupContract(publicClient, config.l1Contracts.rollupAddress.toString());
     const [l1GenesisTime, slotDuration] = await Promise.all([
       rollupContract.getL1GenesisTime(),
       rollupContract.getSlotDuration(),
     ] as const);
 
     const governanceProposerContract = new GovernanceProposerContract(
-      l1Client,
+      publicClient,
       config.l1Contracts.governanceProposerAddress.toString(),
     );
     const epochCache =

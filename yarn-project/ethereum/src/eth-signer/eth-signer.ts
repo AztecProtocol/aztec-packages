@@ -5,7 +5,7 @@ import type { Buffer32 } from '@aztec/foundation/buffer';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
 
-import type { TypedDataDefinition } from 'viem';
+import type { TransactionSerializable, TypedDataDefinition } from 'viem';
 
 /**
  * Abstraction for signing operations used by the node keystore.
@@ -19,4 +19,7 @@ export interface EthSigner {
 
   /** Sign typed data using EIP-712 */
   signTypedData(typedData: TypedDataDefinition): Promise<Signature>;
+
+  /** Sign a transaction */
+  signTransaction(transaction: TransactionSerializable): Promise<Signature>;
 }

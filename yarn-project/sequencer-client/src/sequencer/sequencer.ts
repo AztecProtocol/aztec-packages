@@ -11,7 +11,6 @@ import { type DateProvider, Timer } from '@aztec/foundation/timer';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
-import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CommitteeAttestation, L2BlockSource, ValidateBlockResult } from '@aztec/stdlib/block';
 import { type L1RollupConstants, getSlotAtTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
@@ -93,9 +92,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   private maxTxsPerBlock = 32;
   private minTxsPerBlock = 1;
   private maxL1TxInclusionTimeIntoSlot = 0;
-  // TODO: zero values should not be allowed for the following 2 values in PROD
-  private _coinbase = EthAddress.ZERO;
-  private _feeRecipient = AztecAddress.ZERO;
   private state = SequencerState.STOPPED;
   private maxBlockSizeInBytes: number = 1024 * 1024;
   private maxBlockGas: Gas = new Gas(100e9, 100e9);
@@ -131,7 +127,14 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   ) {
     super();
 
-    this.metrics = new SequencerMetrics(telemetry, () => this.state, this.coinbase, this.rollupContract, 'Sequencer');
+    const validatorAddresses = this.validatorClient?.getValidatorAddresses() ?? [];
+    const coinbase =
+      validatorAddresses.length === 0
+        ? EthAddress.ZERO
+        : (this.validatorClient?.getCoinbaseForAttestor(validatorAddresses[0]) ?? EthAddress.ZERO);
+
+    this.metrics = new SequencerMetrics(telemetry, () => this.state, coinbase, this.rollupContract, 'Sequencer');
+
     // Initialize config
     this.updateConfig(this.config);
   }
@@ -172,13 +175,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
     if (config.maxL2BlockGas !== undefined) {
       this.maxBlockGas = new Gas(this.maxBlockGas.daGas, config.maxL2BlockGas);
-    }
-    if (config.coinbase) {
-      this._coinbase = config.coinbase;
-      this.metrics.setCoinbase(this._coinbase);
-    }
-    if (config.feeRecipient) {
-      this._feeRecipient = config.feeRecipient;
     }
     if (config.maxBlockSizeInBytes !== undefined) {
       this.maxBlockSizeInBytes = config.maxBlockSizeInBytes;
@@ -356,13 +352,10 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     this.publisher = publisher;
 
-    if (!this.config.coinbase) {
-      this._coinbase = attestorAddress;
-    }
+    const coinbase = this.validatorClient!.getCoinbaseForAttestor(attestorAddress);
+    const feeRecipient = this.validatorClient!.getFeeRecipientForAttestor(attestorAddress);
 
-    this.log.info(
-      `Using publisher with address ${publisher.getSenderAddress().toString()} for attestor ${attestorAddress.toString()}`,
-    );
+    this.metrics.setCoinbase(coinbase);
 
     // Prepare invalidation request if the pending chain is invalid (returns undefined if no need)
     this.log.info(`Checking if we need to invalidate block ${newBlockNumber}...`);
@@ -404,8 +397,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     const newGlobalVariables = await this.globalsBuilder.buildGlobalVariables(
       newBlockNumber,
-      this.coinbase,
-      this._feeRecipient,
+      coinbase,
+      feeRecipient,
       slot,
     );
 
@@ -431,6 +424,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     this.setState(SequencerState.INITIALIZING_PROPOSAL, slot);
     this.log.verbose(`Preparing proposal for block ${newBlockNumber} at slot ${slot}`, {
       proposer: proposerInNextSlot?.toString(),
+      coinbase,
+      publisher: publisher.getSenderAddress(),
+      feeRecipient,
       globalVariables: newGlobalVariables.toInspect(),
       chainTipArchive,
       blockNumber: newBlockNumber,
@@ -950,14 +946,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
   get aztecSlotDuration() {
     return this.l1Constants.slotDuration;
-  }
-
-  get coinbase(): EthAddress {
-    return this._coinbase;
-  }
-
-  get feeRecipient(): AztecAddress {
-    return this._feeRecipient;
   }
 
   get maxL2BlockGas(): number | undefined {

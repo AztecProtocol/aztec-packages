@@ -3,14 +3,24 @@
  *
  * Common interface for different signing backends (local, remote, encrypted)
  */
+/**
+ * Signer Interface and Implementations
+ *
+ * Common interface for different signing backends (local, remote, encrypted)
+ */
+import type { EthSigner } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { Secp256k1Signer } from '@aztec/foundation/crypto';
+import { Secp256k1Signer, toRecoveryBit } from '@aztec/foundation/crypto';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
-import { EthSigner } from '@aztec/stdlib/eth-signer';
 
-import type { TypedDataDefinition } from 'viem';
-import { hashTypedData } from 'viem';
+import {
+  type TransactionSerializable,
+  type TypedDataDefinition,
+  hashTypedData,
+  keccak256,
+  serializeTransaction,
+} from 'viem';
 
 import type { EthRemoteSignerConfig } from './types.js';
 
@@ -39,7 +49,7 @@ export class SignerError extends Error {
 export class LocalSigner implements EthSigner {
   private readonly signer: Secp256k1Signer;
 
-  constructor(privateKey: Buffer32) {
+  constructor(private privateKey: Buffer32) {
     this.signer = new Secp256k1Signer(privateKey);
   }
 
@@ -54,6 +64,20 @@ export class LocalSigner implements EthSigner {
   signTypedData(typedData: TypedDataDefinition): Promise<Signature> {
     const digest = hashTypedData(typedData);
     return Promise.resolve(this.signer.sign(Buffer32.fromString(digest)));
+  }
+
+  signTransaction(transaction: TransactionSerializable): Promise<Signature> {
+    const tx: TransactionSerializable =
+      transaction.type === 'eip4844'
+        ? {
+            ...transaction,
+            sidecars: false,
+          }
+        : transaction;
+    const serializedTx = serializeTransaction(tx);
+    const txHash = keccak256(serializedTx);
+    const sig = this.signer.sign(Buffer32.fromString(txHash.slice(2)));
+    return Promise.resolve(new Signature(sig.r, sig.s, toRecoveryBit(sig.v)));
   }
 }
 
@@ -81,6 +105,10 @@ export class RemoteSigner implements EthSigner {
    */
   async signTypedData(typedData: TypedDataDefinition): Promise<Signature> {
     return await this.makeJsonRpcSignTypedDataRequest(typedData);
+  }
+
+  signTransaction(_transaction: TransactionSerializable): Promise<Signature> {
+    throw new Error('Method not implemented.');
   }
 
   /**

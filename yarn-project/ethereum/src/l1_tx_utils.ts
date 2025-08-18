@@ -40,7 +40,7 @@ import {
   serializeTransaction,
 } from 'viem';
 
-import { type ExtendedViemWalletClient, type ViemClient, isExtendedClient } from './types.js';
+import type { ExtendedViemWalletClient, ViemClient } from './types.js';
 import { formatViemError } from './utils.js';
 
 // 1_000_000_000 Gwei = 1 ETH
@@ -572,9 +572,6 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     debugMaxGasLimit: boolean = false,
   ) {
     super(client, logger, dateProvider, config, debugMaxGasLimit);
-    if (!isExtendedClient(this.client)) {
-      throw new Error('L1TxUtils has to be instantiated with a wallet client.');
-    }
   }
 
   public get state() {
@@ -648,6 +645,10 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
         throw new Error('Transaction timed out before sending');
       }
 
+      const currentNonce = await this.client.getTransactionCount({
+        address: account,
+      });
+
       let txHash: Hex;
       if (blobInputs) {
         const txData = {
@@ -657,6 +658,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
           maxFeePerGas: gasPrice.maxFeePerGas,
           maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
           maxFeePerBlobGas: gasPrice.maxFeePerBlobGas!,
+          nonce: currentNonce,
         };
 
         const signedRequest = await this.prepareSignedTransaction(txData);
@@ -667,6 +669,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
           gas: gasLimit,
           maxFeePerGas: gasPrice.maxFeePerGas,
           maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
+          nonce: currentNonce,
         };
         const signedRequest = await this.prepareSignedTransaction(txData);
         txHash = await this.client.sendRawTransaction({ serializedTransaction: signedRequest });
@@ -1031,10 +1034,8 @@ export function createViemSigner(client: WalletClient) {
     tx: TransactionSerializable,
     _address: EthAddress,
   ): Promise<ViemTransactionSignature> => {
-    // Let viem handle everything - it knows how to deal with the transaction
     const signedTx = await client.signTransaction(tx as any);
 
-    // Parse the result to extract just the signature
     const parsed = parseTransaction(signedTx);
 
     if (!parsed.r || !parsed.s || (parsed.yParity !== 0 && parsed.yParity !== 1)) {

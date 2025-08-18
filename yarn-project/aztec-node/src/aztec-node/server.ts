@@ -11,6 +11,7 @@ import {
 } from '@aztec/constants';
 import { EpochCache, type EpochCacheInterface } from '@aztec/epoch-cache';
 import {
+  type EthSigner,
   type L1ContractAddresses,
   NULL_KEY,
   RegistryContract,
@@ -20,10 +21,7 @@ import {
   createL1TxUtilsFromViemWallet,
   getPublicClient,
 } from '@aztec/ethereum';
-import {
-  createL1TxUtilsWithBlobsFromEthSigner,
-  createL1TxUtilsWithBlobsFromViemWallet,
-} from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { createL1TxUtilsWithBlobsFromEthSigner } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { compactArray, pick } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -44,7 +42,6 @@ import {
   type SequencerPublisher,
   createValidatorForAcceptingTxs,
 } from '@aztec/sequencer-client';
-import { getPublisherPrivateKeysFromConfig } from '@aztec/sequencer-client/config';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import {
   AttestationsBlockWatcher,
@@ -364,8 +361,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     let slasherClient: SlasherClientInterface | undefined;
 
     if (!config.disableValidator) {
-      //const publisherPrivateKeys = getPublisherPrivateKeysFromConfig(config);
-
       // We create a slasher only if we have a sequencer, since all slashing actions go through the sequencer publisher
       // as they are executed when the node is selected as proposer.
       slasherClient = await createSlasher(
@@ -378,7 +373,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       );
       await slasherClient.start();
 
-      const l1TxUtils = keyStoreManager.createAllValidatorPublisherSigners().map(signer => {
+      const l1TxUtils = keyStoreManager.createAllValidatorPublisherSigners().map((signer: EthSigner) => {
         return createL1TxUtilsWithBlobsFromEthSigner(publicClient, signer, log, dateProvider, config);
       });
 

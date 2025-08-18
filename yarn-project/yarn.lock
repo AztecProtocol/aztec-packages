@@ -900,6 +900,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/node-keystore@workspace:node-keystore"
   dependencies:
+    "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@ethersproject/wallet": "npm:^5.7.0"

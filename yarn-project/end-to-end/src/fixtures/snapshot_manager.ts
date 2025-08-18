@@ -443,12 +443,14 @@ async function setupFromFresh(
   );
   await blobSink.start();
 
-  logger.verbose('Creating and synching an aztec node...');
+  logger.info('Creating and synching an aztec node...');
   const aztecNode = await AztecNodeService.createAndSync(
     aztecNodeConfig,
     { telemetry, dateProvider },
     { prefilledPublicData },
   );
+
+  logger.info('SYNCHED NODE!!');
 
   let proverNode: ProverNode | undefined = undefined;
   if (opts.startProverNode) {

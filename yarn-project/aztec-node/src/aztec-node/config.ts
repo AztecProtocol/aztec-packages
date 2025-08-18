@@ -6,7 +6,6 @@ import {
   l1ContractAddressesMapping,
 } from '@aztec/ethereum';
 import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
-import { EthAddress } from '@aztec/foundation/eth-address';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import {
   type AztecAddressHex,
@@ -33,6 +32,8 @@ import { type NodeRPCConfig, nodeRpcConfigMappings } from '@aztec/stdlib/config'
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
 import { type ValidatorClientConfig, validatorClientConfigMappings } from '@aztec/validator-client/config';
 import { type WorldStateConfig, worldStateConfigMappings } from '@aztec/world-state/config';
+
+import { privateKeyToAddress } from 'viem/accounts';
 
 import { type SentinelConfig, sentinelConfigMappings } from '../sentinel/config.js';
 
@@ -103,7 +104,11 @@ export function createKeyStoreForValidator(config: TxSenderConfig & ValidatorCli
     const ethPrivateKey: EthPrivateKey = key as Hex<32>;
     ethPrivateKeys.push(ethPrivateKey);
   }
-  const coinbase = config.coinbase ? config.coinbase.toString() : EthAddress.ZERO.toString();
+
+  if (!ethPrivateKeys.length) {
+    throw new Error(`No validator keys provided`);
+  }
+  const coinbase = config.coinbase ? config.coinbase.toString() : privateKeyToAddress(ethPrivateKeys[0]);
   const feeRecipient = config.feeRecipient ? config.feeRecipient.toString() : AztecAddress.ZERO.toString();
 
   const publisherKeys = config.publisherPrivateKeys

@@ -908,15 +908,12 @@ export class SequencerPublisher {
     timestamp: bigint,
     options: { forcePendingBlockNumber?: number },
   ) {
-    if (!this.l1TxUtils.client.account) {
-      throw new Error('L1 TX utils needs to be initialized with an account wallet.');
-    }
     const kzg = Blob.getViemKzgInstance();
     const blobInput = Blob.getPrefixedEthBlobCommitments(encodedData.blobs);
     this.log.debug('Validating blob input', { blobInput });
     const blobEvaluationGas = await this.l1TxUtils
       .estimateGas(
-        this.l1TxUtils.client.account,
+        this.getSenderAddress().toString(),
         {
           to: this.rollupContract.address,
           data: encodeFunctionData({
