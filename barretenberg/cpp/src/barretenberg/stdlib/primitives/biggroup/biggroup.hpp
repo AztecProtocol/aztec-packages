@@ -574,30 +574,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     }
 
     /**
-     * Creates a pair of 5-bit lookup tables, the former corresponding to 5 input points,
-     * the latter corresponding to the endomorphism equivalent of the 5 input points (e.g. x -> \beta * x, y -> -y)
-     **/
-    static std::pair<lookup_table_plookup<5>, lookup_table_plookup<5>> create_endo_pair_five_lookup_table(
-        const std::array<element, 5>& inputs)
-    {
-        lookup_table_plookup<5> base_table(inputs);
-        lookup_table_plookup<5> endo_table;
-        uint256_t beta_val = bb::field<typename Fq::TParams>::cube_root_of_unity();
-        Fq beta(bb::fr(beta_val.slice(0, 136)), bb::fr(beta_val.slice(136, 256)), false);
-        for (size_t i = 0; i < 16; ++i) {
-            endo_table.element_table[i + 16].x = base_table[15 - i].x * beta;
-            endo_table.element_table[i + 16].y = base_table[15 - i].y;
-
-            endo_table.element_table[15 - i] = (-endo_table.element_table[i + 16]);
-        }
-
-        endo_table.coordinates = create_group_element_rom_tables<32>(endo_table.element_table, endo_table.limb_max);
-
-        return std::make_pair<lookup_table_plookup<5>, lookup_table_plookup<5>>(
-            static_cast<lookup_table_plookup<5>>(base_table), static_cast<lookup_table_plookup<5>>(endo_table));
-    }
-
-    /**
      * Helper class to split a set of points into lookup table subsets
      *
      * Ultra version
