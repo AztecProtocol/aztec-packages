@@ -1,11 +1,12 @@
 import { EthAddress } from '@aztec/aztec.js';
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import type { EpochCache } from '@aztec/epoch-cache';
-import type { GovernanceProposerContract, PublisherManager, RollupContract } from '@aztec/ethereum';
+import type { GovernanceProposerContract, PublisherFilter, PublisherManager, RollupContract } from '@aztec/ethereum';
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import type { TelemetryClient } from '@aztec/telemetry-client';
+import { NodeKeystoreAdapter } from '@aztec/validator-client';
 
 import type { SequencerClientConfig } from '../config.js';
 import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
@@ -29,6 +30,7 @@ export class SequencerPublisherFactory {
       rollupContract: RollupContract;
       governanceProposerContract: GovernanceProposerContract;
       slashFactoryContract: SlashFactoryContract;
+      nodeKeyStore: NodeKeystoreAdapter;
     },
   ) {
     this.publisherMetrics = new SequencerPublisherMetrics(deps.telemetry, 'SequencerPublisher');
@@ -39,7 +41,20 @@ export class SequencerPublisherFactory {
    * @returns A new SequencerPublisher instance.
    */
   public async create(validatorAddress?: EthAddress): Promise<AttestorPublisherPair> {
-    const l1Publisher = await this.deps.publisherManager.getAvailablePublisher();
+    // If we have been given an attestor address we must only allow publishers permitted for that attestor
+
+    const allowedPublishers = !validatorAddress ? [] : this.deps.nodeKeyStore.getPublisherAddresses(validatorAddress);
+    const filter: PublisherFilter<L1TxUtilsWithBlobs> = !validatorAddress
+      ? () => true
+      : (utils: L1TxUtilsWithBlobs) => {
+          const publisherAddress = utils.getSenderAddress();
+          return allowedPublishers.some(allowedPublisher => allowedPublisher.equals(publisherAddress));
+        };
+
+    const l1Publisher = await this.deps.publisherManager.getAvailablePublisher(filter);
+    const attestorAddress =
+      validatorAddress ?? this.deps.nodeKeyStore.getAttestorForPublisher(l1Publisher.getSenderAddress());
+
     const rollup = this.deps.rollupContract;
     const slashingProposerContract = await rollup.getSlashingProposer();
 
@@ -55,7 +70,7 @@ export class SequencerPublisherFactory {
       dateProvider: this.deps.dateProvider,
       metrics: this.publisherMetrics,
     });
-    const attestorAddress = validatorAddress ?? EthAddress.ZERO;
+
     return {
       attestorAddress,
       publisher,

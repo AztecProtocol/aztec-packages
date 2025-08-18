@@ -338,6 +338,19 @@ export class NodeKeystoreAdapter implements ExtendedValidatorKeyStore {
     return v.publishers.map(s => s.address);
   }
 
+  getAttestorForPublisher(publisherAddress: EthAddress): EthAddress {
+    const attestorAddresses = this.getAttesterAddresses();
+    for (const attestor of attestorAddresses) {
+      const publishers = this.getPublisherAddresses(attestor);
+      const found = publishers.some(publisher => publisher.equals(publisherAddress));
+      if (found) {
+        return attestor;
+      }
+    }
+    // Could not find an attestor for this publisher
+    throw new Error(`Failed to find attestor for publisher ${publisherAddress.toString()}`);
+  }
+
   /**
    * Get the fee recipient for the validator that contains the given attester.
    * @param attesterAddress Address of an attester belonging to the validator

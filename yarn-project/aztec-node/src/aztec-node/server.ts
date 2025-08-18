@@ -202,6 +202,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       deps.blobSinkClient ?? createBlobSinkClient(config, { logger: createLogger('node:blob-sink:client') });
     const ethereumChain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
 
+    // Build a key store from file if given or from environment otherwise
     let keyStoreManager: KeystoreManager | undefined;
     if (config.keyStoreDirectory !== undefined && config.keyStoreDirectory.length) {
       const keyStores = loadKeystores(config.keyStoreDirectory);
@@ -395,6 +396,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         telemetry,
         dateProvider,
         blobSinkClient,
+        nodeKeyStore: keyStoreManager!,
       });
     }
 

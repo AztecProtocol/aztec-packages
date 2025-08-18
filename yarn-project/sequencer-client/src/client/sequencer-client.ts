@@ -11,6 +11,7 @@ import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
+import type { KeystoreManager } from '@aztec/node-keystore';
 import type { P2P } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import type { L2BlockSource } from '@aztec/stdlib/block';
@@ -18,7 +19,7 @@ import type { IFullNodeBlockBuilder, WorldStateSynchronizer } from '@aztec/stdli
 import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { L1Metrics, type TelemetryClient } from '@aztec/telemetry-client';
-import type { ValidatorClient } from '@aztec/validator-client';
+import { NodeKeystoreAdapter, type ValidatorClient } from '@aztec/validator-client';
 
 import type { SequencerClientConfig } from '../config.js';
 import { GlobalVariableBuilder } from '../global_variable_builder/index.js';
@@ -64,6 +65,7 @@ export class SequencerClient {
       dateProvider: DateProvider;
       epochCache?: EpochCache;
       l1TxUtils: L1TxUtilsWithBlobs[];
+      nodeKeyStore: KeystoreManager;
     },
   ) {
     const {
@@ -76,13 +78,9 @@ export class SequencerClient {
       l1ToL2MessageSource,
       telemetry: telemetryClient,
     } = deps;
-    //const { l1RpcUrls: rpcUrls, l1ChainId: chainId, publisherPrivateKey, publisherPrivateKeys } = config;
     const { l1RpcUrls: rpcUrls, l1ChainId: chainId } = config;
-    //const firstKey = publisherPrivateKeys.length > 0 ? publisherPrivateKeys[0] : publisherPrivateKey;
-    //const chain = createEthereumChain(rpcUrls, chainId);
     const log = createLogger('sequencer-client');
     const publicClient = getPublicClient(config);
-    //const l1Client = createExtendedL1Client(rpcUrls, firstKey.getValue(), chain.chainInfo);
     const l1TxUtils = deps.l1TxUtils;
     const l1Metrics = new L1Metrics(
       telemetryClient.getMeter('L1PublisherMetrics'),
@@ -131,6 +129,7 @@ export class SequencerClient {
         rollupContract,
         dateProvider: deps.dateProvider,
         publisherManager,
+        nodeKeyStore: NodeKeystoreAdapter.fromKeyStoreManager(deps.nodeKeyStore),
       });
     const globalsBuilder = new GlobalVariableBuilder(config);
 

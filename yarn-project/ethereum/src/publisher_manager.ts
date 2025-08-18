@@ -5,6 +5,8 @@ import { L1TxUtils, TxUtilsState } from './l1_tx_utils.js';
 const sortOrder = [TxUtilsState.IDLE, TxUtilsState.MINED];
 const invalidStates = [TxUtilsState.SENT, TxUtilsState.SPEED_UP, TxUtilsState.CANCELLED, TxUtilsState.NOT_MINED]; // Cancelled and not mined are states that can be handled by a later iteration
 
+export type PublisherFilter<UtilsType extends L1TxUtils> = (utils: UtilsType) => boolean;
+
 export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
   private log = createLogger('PublisherManager');
 
@@ -19,7 +21,7 @@ export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
   // 3. Priority based on state as defined bu sortOrder
   // 4. Then priority based on highest balance
   // 5. Then priority based on least recently used
-  public async getAvailablePublisher(filter: (utils: UtilsType) => boolean = () => true): Promise<UtilsType> {
+  public async getAvailablePublisher(filter: PublisherFilter<UtilsType> = () => true): Promise<UtilsType> {
     // Extract the valid publishers
     const validPublishers = this.publishers.filter(
       (pub: UtilsType) => !invalidStates.includes(pub.state) && filter(pub),
