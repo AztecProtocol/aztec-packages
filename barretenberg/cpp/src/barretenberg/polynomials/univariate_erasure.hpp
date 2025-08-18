@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "barretenberg/common/assert.hpp"
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -66,8 +66,6 @@ template <class Fr, class UnivariateImpl> class UnivariateModel : public Univari
     UnivariateModel(UnivariateImpl&& impl)
         : impl_(std::move(impl))
     {}
-
-    // Copy constructor
     UnivariateModel(const UnivariateModel& other)
         : impl_(other.impl_)
     {}
@@ -201,14 +199,9 @@ template <class Fr> class ErasedUnivariate {
     using View = ErasedUnivariate<Fr>;
 
     template <class UnivariateImpl>
-    explicit ErasedUnivariate(Fr value)
-        : impl_(std::make_unique<detail::UnivariateModel<Fr, UnivariateImpl>>(std::move(value)))
-    {}
-
-    template <class UnivariateImpl>
-    ErasedUnivariate(UnivariateImpl&& impl)
-        requires(std::remove_cvref_t<UnivariateImpl>::__IS_UNIVARIATE__::value)
-        : impl_(std::make_unique<detail::UnivariateModel<Fr, UnivariateImpl>>(std::forward<UnivariateImpl>(impl)))
+    ErasedUnivariate(UnivariateImpl impl)
+        requires(UnivariateImpl::__IS_UNIVARIATE__::value)
+        : impl_(std::make_unique<detail::UnivariateModel<Fr, UnivariateImpl>>(std::move(impl)))
     {}
 
     ErasedUnivariate(const ErasedUnivariate& other)
