@@ -128,6 +128,7 @@ RUN apt update && \
         libomp-dev \
         doxygen \
         # Node
+        # WARNING: Need to downgrade to this version in the basebox below as well.
         nodejs=22.16.0-1nodesource1 \
         # Python (clang bindings for wasm bindgen.)
         python3 \
@@ -201,7 +202,7 @@ RUN yes | unminimize
 
 # Install stuff devs need.
 RUN apt update && \
-    apt install -y \
+    apt install -y --allow-downgrades \
         cgroup-tools \
         clangd-16 \
         clangd-18 \
@@ -230,6 +231,8 @@ RUN apt update && \
         vim \
         zsh \
         inotify-tools \
+        # Annoyingly unminimize upgrades nodejs.
+        nodejs=22.16.0-1nodesource1 \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Install osxcross. Requires developer to mount SDK from their mac host.
