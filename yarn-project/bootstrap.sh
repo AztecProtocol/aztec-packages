@@ -70,6 +70,10 @@ function compile_all {
 
   get_projects | compile_project
 
+  # Run oracle version check for pxe after compilation
+  cd pxe && yarn check_oracle_version
+  cd ..
+
   cmds=('format --check')
   if [ "${TYPECHECK:-0}" -eq 1 ] || [ "${CI:-0}" -eq 1 ]; then
     # Fully type check and lint.
