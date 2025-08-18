@@ -89,6 +89,9 @@ template <typename Flavor> typename DeciderVerifier_<Flavor>::Output DeciderVeri
                                                sumcheck_output.claimed_libra_evaluation);
 
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
+    VerifierCommitmentKey<Curve> pcs_verification_key{};
+    auto result = pcs_verification_key.pairing_check(pairing_points[0], pairing_points[1]);
+    info("check standalone pairing: ", result);
 
     return Output{ sumcheck_output.verified, consistency_checked, { pairing_points[0], pairing_points[1] } };
 }

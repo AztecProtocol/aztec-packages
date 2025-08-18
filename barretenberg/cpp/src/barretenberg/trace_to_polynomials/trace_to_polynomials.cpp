@@ -105,6 +105,7 @@ void TraceToPolynomials<Flavor>::add_ecc_op_wires_to_proving_key(Builder& builde
     // Copy the ecc op data from the conventional wires into the op wires over the range of ecc op gates. The data is
     // stored in the ecc op wires starting from index 0, whereas the wires contain the data offset by a zero row.
     const size_t num_ecc_ops = builder.blocks.ecc_op.size();
+    info(num_ecc_ops, " ecc ops in the trace.");
     for (auto [ecc_op_wire, wire] : zip_view(polynomials.get_ecc_op_wires(), polynomials.get_wires())) {
         for (size_t i = 0; i < num_ecc_ops; ++i) {
             ecc_op_wire.at(i) = wire[i + wire_idx_offset];

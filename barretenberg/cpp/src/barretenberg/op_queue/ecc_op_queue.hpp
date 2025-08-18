@@ -53,6 +53,8 @@ class ECCOpQueue {
      */
     ECCOpQueue() { initialize_new_subtable(); }
 
+    size_t get_unmerged_subtable_size() const { return ultra_ops_table.get_unmerged_subtable_size(); }
+
     /**
      * @brief Initialize a new subtable for eccvm and ultra ops with the given merge settings.
      *
@@ -218,6 +220,7 @@ class ECCOpQueue {
     UltraOp no_op_ultra_only()
     {
         UltraOp no_op{};
+        no_op.return_is_infinity = false;
         ultra_ops_table.push(no_op);
         return no_op;
     }

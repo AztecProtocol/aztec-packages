@@ -91,8 +91,7 @@ template <typename Builder_> struct PairingPoints {
         }
 
         VerifierCommitmentKey<typename Curve::NativeCurve> pcs_verification_key{};
-        vinfo("Pairing check in aggregate stdlib: ",
-              pcs_verification_key.pairing_check(P0.get_value(), P1.get_value()));
+        info("Pairing check in aggregate stdlib: ", pcs_verification_key.pairing_check(P0.get_value(), P1.get_value()));
     }
 
     /**

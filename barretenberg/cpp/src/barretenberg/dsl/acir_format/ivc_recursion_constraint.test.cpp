@@ -388,6 +388,69 @@ TEST_F(IvcRecursionConstraintTest, GenerateResetKernelVKFromConstraints)
     EXPECT_EQ(*kernel_vk.get(), *expected_kernel_vk.get());
 }
 
+TEST_F(IvcRecursionConstraintTest, GenerateTailKernelVKFromConstraints)
+{
+    const TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
+
+    // First, construct the kernel VK by running the full IVC (accumulate one app and one kernel)
+    std::shared_ptr<MegaFlavor::VerificationKey> expected_kernel_vk;
+    {
+        auto ivc = std::make_shared<ClientIVC>(/*num_circuits=*/8, trace_settings);
+
+        const ProgramMetadata metadata{ ivc };
+
+        // Construct and accumulate mock app_circuit
+        Builder app_circuit = construct_mock_app_circuit(ivc);
+        ivc->accumulate(app_circuit, get_verification_key(app_circuit, trace_settings));
+
+        // Construct and accumulate a mock INIT kernel (oink recursion for app accumulation)
+        construct_and_accumulate_mock_kernel(ivc, trace_settings);
+        EXPECT_TRUE(ivc->verification_queue.size() == 1);
+        EXPECT_TRUE(ivc->verification_queue[0].type == bb::ClientIVC::QUEUE_TYPE::PG);
+
+        // Construct and accumulate a second mock app_circuit
+        Builder app_circuit_1 = construct_mock_app_circuit(ivc);
+        ivc->accumulate(app_circuit_1, get_verification_key(app_circuit_1, trace_settings));
+
+        // Construct and accumulate a mock inner kernel (PG recursion for kernel and app accumulation)
+        construct_and_accumulate_mock_kernel(ivc, trace_settings);
+        EXPECT_TRUE(ivc->verification_queue.size() == 1);
+        EXPECT_TRUE(ivc->verification_queue[0].type == bb::ClientIVC::QUEUE_TYPE::PG);
+
+        // Construct and accumulate a second mock app_circuit
+        Builder app_circuit_2 = construct_mock_app_circuit(ivc);
+        ivc->accumulate(app_circuit_2, get_verification_key(app_circuit_2, trace_settings));
+
+        // Construct and accumulate a mock inner kernel (PG recursion for kernel and app accumulation)
+        construct_and_accumulate_mock_kernel(ivc, trace_settings);
+        EXPECT_TRUE(ivc->verification_queue.size() == 1);
+        EXPECT_TRUE(ivc->verification_queue[0].type == bb::ClientIVC::QUEUE_TYPE::PG);
+
+        // Construct and accumulate a mock reset kernel (PG recursion for kernel and app accumulation)
+        construct_and_accumulate_mock_kernel(ivc, trace_settings);
+        EXPECT_TRUE(ivc->verification_queue.size() == 1);
+        EXPECT_TRUE(ivc->verification_queue[0].type == bb::ClientIVC::QUEUE_TYPE::PG_TAIL);
+
+        // Construct and accumulate a mock TAIL kernel (PG recursion for reset kernel accumulation)
+        construct_and_accumulate_mock_kernel(ivc, trace_settings);
+        expected_kernel_vk = ivc->verification_queue.back().honk_vk;
+    }
+
+    // Now, construct the kernel VK by mocking the IVC state prior to kernel construction
+    std::shared_ptr<MegaFlavor::VerificationKey> kernel_vk;
+    {
+        auto ivc = std::make_shared<ClientIVC>(/*num_circuits=*/1, trace_settings);
+        // construct a mock tail kernel consisting only of kernel completion logic
+        acir_format::mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG_TAIL, /*is_kernel=*/true);
+        AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
+        program.witness = {}; // remove the witness to mimick VK construction context
+        kernel_vk = construct_kernel_vk_from_acir_program(program, trace_settings);
+    }
+
+    // Compare the VK constructed via running the IVc with the one constructed via mocking
+    EXPECT_EQ(*kernel_vk.get(), *expected_kernel_vk.get());
+}
+
 // Test generation of "inner" kernel VK via dummy IVC data
 TEST_F(IvcRecursionConstraintTest, GenerateInnerKernelVKFromConstraints)
 {

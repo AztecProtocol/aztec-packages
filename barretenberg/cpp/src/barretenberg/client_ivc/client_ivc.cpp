@@ -254,9 +254,9 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     if (!is_hiding_kernel) {
         if (is_tail_kernel) {
             info("adding no-op to the tail kernel subtable");
-            // Add a no-op at the beginning of the tail kernel (the last circuit whose ecc ops subtable is prepended) to
-            // ensure the wires representing the op queue in translator circuit are shiftable polynomials, i.e. their
-            // 0th coefficient is 0.
+            // Add a no-op at the beginning of the tail kernel (the last circuit whose ecc ops subtable is prepended)
+            // to ensure the wires representing the op queue in translator circuit are shiftable polynomials, i.e.
+            // their 0th coefficient is 0.
             circuit.queue_ecc_no_op();
         }
         circuit.queue_ecc_eq();
@@ -298,6 +298,7 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 
         kernel_output.set_public();
     }
+    info("number of ops at the end of kernel circuit: ", circuit.op_queue->get_unmerged_subtable_size());
 }
 
 /**
@@ -319,6 +320,22 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
 
     // Construct the proving key for circuit
     std::shared_ptr<DeciderProvingKey> proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
+    honk_vk = precomputed_vk;
+    if (num_circuits_accumulated == num_circuits - 1) {
+        MegaFlavor::CommitmentLabels labels;
+        auto vk = std::make_shared<MegaVerificationKey>(proving_key->get_precomputed());
+        for (const auto [label, vk1, vk2] : zip_view(labels.get_precomputed(), vk->get_all(), honk_vk->get_all())) {
+            if (vk1 != vk2) {
+                info("Mismatch in precomputed VKs: ", label, " ", vk1, " != ", vk2);
+            }
+        }
+        info("Checking whether tail kernel is satisfiable");
+        UltraProver_<MegaFlavor> prover(proving_key, vk);
+        UltraVerifier_<MegaFlavor> verifier(vk);
+        auto proof = prover.construct_proof();
+        bool verified = verifier.template verify_proof<DefaultIO>(proof).result;
+        vinfo("verified: ", verified);
+    }
 
     // If the current circuit overflows past the current size of the commitment key, reinitialize accordingly.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1319)
@@ -330,7 +347,6 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
     proving_key->commitment_key = bn254_commitment_key;
     trace_usage_tracker.update(circuit);
 
-    honk_vk = precomputed_vk;
     // honk_vk = std::make_shared<MegaVerificationKey>(proving_key->get_precomputed());
 
     // We're acccumulating a kernel if the verification queue is empty (because the kernel circuit contains recursive
@@ -484,7 +500,7 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::comp
     DeciderRecursiveVerifier decider{ &circuit, recursive_verifier_native_accum };
     BB_ASSERT_EQ(!decider_proof.empty(), true, "Decider proof is empty!");
     PairingPoints decider_pairing_points = decider.verify_proof(decider_proof);
-    vinfo("is it the decier aggregate ");
+
     points_accumulator.aggregate(decider_pairing_points);
     return { points_accumulator, merged_table_commitments };
 }
