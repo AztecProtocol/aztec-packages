@@ -6,6 +6,7 @@ import { Secp256k1Signer, makeEthSignDigest } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { TestDateProvider, Timer } from '@aztec/foundation/timer';
+import { KeystoreManager } from '@aztec/node-keystore';
 import {
   AuthRequest,
   AuthResponse,
@@ -51,6 +52,7 @@ describe('ValidatorClient', () => {
   let validatorAccounts: PrivateKeyAccount[];
   let dateProvider: TestDateProvider;
   let txProvider: MockProxy<TxProvider>;
+  let keyStoreManager: MockProxy<KeystoreManager>;
 
   beforeEach(() => {
     p2pClient = mock<P2P>();
@@ -65,6 +67,7 @@ describe('ValidatorClient', () => {
     txProvider = mock<TxProvider>();
     l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue([]);
     dateProvider = new TestDateProvider();
+    keyStoreManager = mock<KeystoreManager>();
 
     const validatorPrivateKeys = [generatePrivateKey(), generatePrivateKey()];
     validatorAccounts = validatorPrivateKeys.map(privateKey => privateKeyToAccount(privateKey));
@@ -87,6 +90,7 @@ describe('ValidatorClient', () => {
       blockSource,
       l1ToL2MessageSource,
       txProvider,
+      keyStoreManager,
       dateProvider,
     );
   });
@@ -103,6 +107,7 @@ describe('ValidatorClient', () => {
           blockSource,
           l1ToL2MessageSource,
           txProvider,
+          keyStoreManager,
           dateProvider,
         ),
       ).toThrow(InvalidValidatorPrivateKeyError);

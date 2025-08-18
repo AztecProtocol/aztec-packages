@@ -3,6 +3,7 @@
  *
  * Manages keystore configuration and delegates signing operations to appropriate signers.
  */
+import type { EthSigner } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
@@ -152,7 +153,7 @@ export class KeystoreManager {
   /**
    * Create signers for validator attester accounts
    */
-  createAttesterSigners(validatorIndex: number): Signer[] {
+  createAttesterSigners(validatorIndex: number): EthSigner[] {
     const validator = this.getValidator(validatorIndex);
     return this.createSignersFromEthAccounts(validator.attester, validator.remoteSigner || this.keystore.remoteSigner);
   }
@@ -160,7 +161,7 @@ export class KeystoreManager {
   /**
    * Create signers for validator publisher accounts (falls back to attester if not specified)
    */
-  createPublisherSigners(validatorIndex: number): Signer[] {
+  createPublisherSigners(validatorIndex: number): EthSigner[] {
     const validator = this.getValidator(validatorIndex);
 
     if (validator.publisher) {
@@ -188,7 +189,7 @@ export class KeystoreManager {
   /**
    * Create signers for slasher accounts
    */
-  createSlasherSigners(): Signer[] {
+  createSlasherSigners(): EthSigner[] {
     if (!this.keystore.slasher) {
       return [];
     }
@@ -199,7 +200,7 @@ export class KeystoreManager {
   /**
    * Create signers for prover accounts
    */
-  createProverSigners(): Signer[] {
+  createProverSigners(): EthSigner[] {
     if (!this.keystore.prover) {
       return [];
     }
@@ -215,7 +216,7 @@ export class KeystoreManager {
 
     // Handle complex prover case with id and publishers
     const proverConfig = this.keystore.prover;
-    const signers: Signer[] = [];
+    const signers: EthSigner[] = [];
 
     for (const publisherAccounts of proverConfig.publisher) {
       const publisherSigners = this.createSignersFromEthAccounts(publisherAccounts, this.keystore.remoteSigner);
@@ -313,13 +314,16 @@ export class KeystoreManager {
   /**
    * Create signers from EthAccounts configuration
    */
-  private createSignersFromEthAccounts(accounts: EthAccounts, defaultRemoteSigner?: EthRemoteSignerConfig): Signer[] {
+  private createSignersFromEthAccounts(
+    accounts: EthAccounts,
+    defaultRemoteSigner?: EthRemoteSignerConfig,
+  ): EthSigner[] {
     if (typeof accounts === 'string') {
       return [this.createSignerFromEthAccount(accounts, defaultRemoteSigner)];
     }
 
     if (Array.isArray(accounts)) {
-      const signers: Signer[] = [];
+      const signers: EthSigner[] = [];
       for (const account of accounts) {
         const accountSigners = this.createSignersFromEthAccounts(account, defaultRemoteSigner);
         signers.push(...accountSigners);
@@ -344,7 +348,7 @@ export class KeystoreManager {
   /**
    * Create a signer from a single EthAccount configuration
    */
-  private createSignerFromEthAccount(account: EthAccount, defaultRemoteSigner?: EthRemoteSignerConfig): Signer {
+  private createSignerFromEthAccount(account: EthAccount, defaultRemoteSigner?: EthRemoteSignerConfig): EthSigner {
     // Private key (hex string)
     if (typeof account === 'string') {
       if (account.startsWith('0x') && account.length === 66) {
@@ -394,14 +398,14 @@ export class KeystoreManager {
   /**
    * Create signer from JSON V3 keystore file or directory
    */
-  private createSignerFromJsonV3(config: EthJsonKeyFileV3Config): Signer[] {
+  private createSignerFromJsonV3(config: EthJsonKeyFileV3Config): EthSigner[] {
     try {
       const stats = statSync(config.path);
 
       if (stats.isDirectory()) {
         // Handle directory - load all JSON files
         const files = readdirSync(config.path);
-        const signers: Signer[] = [];
+        const signers: EthSigner[] = [];
         const seenAddresses = new Map<string, string>(); // address -> file name
 
         for (const file of files) {
@@ -447,7 +451,7 @@ export class KeystoreManager {
   /**
    * Create signer from a single JSON V3 keystore file
    */
-  private createSignerFromSingleJsonV3File(filePath: string, password?: string): Signer {
+  private createSignerFromSingleJsonV3File(filePath: string, password?: string): EthSigner {
     try {
       // Read the keystore file
       const keystoreJson = readFileSync(filePath, 'utf8');
@@ -474,9 +478,9 @@ export class KeystoreManager {
   /**
    * Create signers from mnemonic configuration using BIP44 derivation
    */
-  private createSignersFromMnemonic(config: EthMnemonicConfig): Signer[] {
+  private createSignersFromMnemonic(config: EthMnemonicConfig): EthSigner[] {
     const { mnemonic, addressIndex = 0, accountIndex = 0, addressCount = 1, accountCount = 1 } = config;
-    const signers: Signer[] = [];
+    const signers: EthSigner[] = [];
 
     try {
       // Use viem's mnemonic derivation (imported at top of file)
@@ -507,14 +511,14 @@ export class KeystoreManager {
   /**
    * Sign message with a specific signer
    */
-  async signMessage(signer: Signer, message: Buffer32): Promise<Signature> {
+  async signMessage(signer: EthSigner, message: Buffer32): Promise<Signature> {
     return await signer.signMessage(message);
   }
 
   /**
    * Sign typed data with a specific signer
    */
-  async signTypedData(signer: Signer, typedData: TypedDataDefinition): Promise<Signature> {
+  async signTypedData(signer: EthSigner, typedData: TypedDataDefinition): Promise<Signature> {
     return await signer.signTypedData(typedData);
   }
 

@@ -1,10 +1,10 @@
+import type { EthSigner } from '@aztec/ethereum';
 import type { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
 import { KeystoreManager, loadKeystoreFile } from '@aztec/node-keystore';
 import type { EthRemoteSignerConfig } from '@aztec/node-keystore';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { EthSigner } from '@aztec/stdlib/eth-signer';
 import { InvalidValidatorPrivateKeyError } from '@aztec/stdlib/validators';
 
 import type { TypedDataDefinition } from 'viem';
