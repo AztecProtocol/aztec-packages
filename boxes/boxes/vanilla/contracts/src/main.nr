@@ -36,10 +36,10 @@ pub contract EasyPrivateVoting {
 
     #[private]
     fn cast_vote(candidate: Field) {
-        let msg_sender_npk_m_hash = get_public_keys(context.msg_sender_unsafe()).npk_m.hash();
+        let msg_sender_npk_m_hash = get_public_keys(context.msg_sender().unwrap()).npk_m.hash();
 
         let secret = context.request_nsk_app(msg_sender_npk_m_hash); // get secret key of caller of function
-        let nullifier = std::hash::pedersen_hash([context.msg_sender_unsafe().to_field(), secret]); // derive nullifier from sender and secret
+        let nullifier = std::hash::pedersen_hash([context.msg_sender.unwrap().to_field(), secret]); // derive nullifier from sender and secret
         context.push_nullifier(nullifier);
         EasyPrivateVoting::at(context.this_address()).add_to_tally_public(candidate).enqueue(
             &mut context,
