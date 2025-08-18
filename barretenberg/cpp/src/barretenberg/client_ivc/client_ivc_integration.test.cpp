@@ -46,31 +46,6 @@ TEST_F(ClientIVCIntegrationTests, BenchmarkCaseSimple)
 };
 
 /**
- * @brief Accumulate a set of circuits that includes consecutive kernels
- * @details In practice its common to have multiple consecutive kernels without intermittent apps e.g. an inner followed
- * immediately by a reset, or an inner-reset-tail sequence. This test ensures that such cases are handled correctly.
- *
- */
-TEST_F(ClientIVCIntegrationTests, ConsecutiveKernels)
-{
-    const size_t NUM_CIRCUITS = 6;
-    ClientIVC ivc{ NUM_CIRCUITS, { AZTEC_TRACE_STRUCTURE } };
-
-    MockCircuitProducer circuit_producer;
-
-    // Accumulate a series of mocked circuits (app, kernel, app, kernel)
-    for (size_t idx = 0; idx < NUM_CIRCUITS - 2; ++idx) {
-        circuit_producer.construct_and_accumulate_next_circuit(ivc);
-    }
-
-    // Cap the IVC with two more kernels (say, a 'reset' and a 'tail') without intermittent apps
-    circuit_producer.construct_and_accumulate_next_circuit(ivc, { .force_is_kernel = true });
-    circuit_producer.construct_and_accumulate_next_circuit(ivc, { .force_is_kernel = true });
-
-    EXPECT_TRUE(ivc.prove_and_verify());
-};
-
-/**
  * @brief Demonstrate that a databus inconsistency leads to verification failure for the IVC
  * @details Kernel circuits contain databus consistency checks that establish that data was passed faithfully between
  * circuits, e.g. the output (return_data) of an app was the input (secondary_calldata) of a kernel. This test

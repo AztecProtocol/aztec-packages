@@ -119,7 +119,6 @@ class PrivateFunctionExecutionMockCircuitProducer {
 
     size_t circuit_counter = 0;
     size_t num_app_circuits = 0;
-    size_t num_consecutive_kernels = 0;
 
     MockDatabusProducer mock_databus;
     bool large_first_app = true;
@@ -128,11 +127,8 @@ class PrivateFunctionExecutionMockCircuitProducer {
   public:
     size_t total_num_circuits = 0;
 
-    PrivateFunctionExecutionMockCircuitProducer(size_t num_app_circuits = 0,
-                                                size_t num_consecutive_kernels = 0,
-                                                bool large_first_app = true)
+    PrivateFunctionExecutionMockCircuitProducer(size_t num_app_circuits = 0, bool large_first_app = true)
         : num_app_circuits(num_app_circuits)
-        , num_consecutive_kernels(num_consecutive_kernels)
         , large_first_app(large_first_app)
     {
         // One kernel per app plus a fixed number of final kernels
