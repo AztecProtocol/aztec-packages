@@ -17,6 +17,9 @@ static constexpr uint32_t CONST_PROOF_SIZE_LOG_N = 28;
 // circuits being folded.
 static constexpr uint32_t CONST_PG_LOG_N = 21;
 
+// The size of the AVMRecursiveVerifier circuit arithmetized with Mega.
+static constexpr uint32_t MEGA_AVM_LOG_N = 21;
+
 static constexpr uint32_t CONST_ECCVM_LOG_N = 16;
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1193): potentially reenable for better memory performance

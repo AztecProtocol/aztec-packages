@@ -114,7 +114,7 @@ class UltraFlavor {
     static constexpr size_t OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS =
         /* 1. NUM_WITNESS_ENTITIES commitments */ (NUM_WITNESS_ENTITIES * num_frs_comm);
 
-    static constexpr size_t DECIDER_PROOF_LENGTH(size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N)
+    static constexpr size_t DECIDER_PROOF_LENGTH(size_t virtual_log_n = VIRTUAL_LOG_N)
     {
         return /* 2. virtual_log_n sumcheck univariates */
             (virtual_log_n * BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr) +
@@ -125,7 +125,7 @@ class UltraFlavor {
             /* 7. KZG W commitment */ (num_frs_comm);
     }
 
-    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N)
+    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = VIRTUAL_LOG_N)
     {
         return OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS + DECIDER_PROOF_LENGTH(virtual_log_n);
     }
@@ -386,7 +386,7 @@ class UltraFlavor {
          * proof.
          *
          */
-        void deserialize_full_transcript(size_t public_input_size, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N)
+        void deserialize_full_transcript(size_t public_input_size, size_t virtual_log_n = VIRTUAL_LOG_N)
         {
             // take current proof and put them into the struct
             auto& proof_data = this->proof_data;
@@ -427,7 +427,7 @@ class UltraFlavor {
          * modified.
          *
          */
-        void serialize_full_transcript(size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N)
+        void serialize_full_transcript(size_t virtual_log_n = VIRTUAL_LOG_N)
         {
             auto& proof_data = this->proof_data;
             size_t old_proof_length = proof_data.size();

@@ -44,7 +44,9 @@ class MegaFlavor {
     using TraceBlocks = MegaExecutionTraceBlocks;
     using Transcript = NativeTranscript;
 
-    static constexpr size_t VIRTUAL_LOG_N = CONST_PG_LOG_N;
+    // An upper bound on the size of the Mega-circuits. `CONST_PG_LOG_N` bounds the log circuit sizes in the CIVC
+    // context. `MEGA_AVM_LOG_N` is determined by the size of the AVMRecursiveVerifier.
+    static constexpr size_t VIRTUAL_LOG_N = std::max(CONST_PG_LOG_N, MEGA_AVM_LOG_N);
     // indicates when evaluating sumcheck, edges can be left as degree-1 monomials
     static constexpr bool USE_SHORT_MONOMIALS = true;
     // Indicates that this flavor runs with non-ZK Sumcheck.

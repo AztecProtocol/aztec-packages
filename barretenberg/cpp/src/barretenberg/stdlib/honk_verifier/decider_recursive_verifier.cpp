@@ -44,7 +44,7 @@ DeciderRecursiveVerifier_<Flavor>::PairingPoints DeciderRecursiveVerifier_<Flavo
     transcript->load_proof(proof);
 
     VerifierCommitments commitments{ accumulator->vk_and_hash->vk, accumulator->witness_commitments };
-
+    // DeciderRecursiveVerifier's log circuit size is fixed, hence we are using a trivial `padding_indicator_array`.
     std::vector<FF> padding_indicator_array(Flavor::VIRTUAL_LOG_N, 1);
 
     Sumcheck sumcheck(transcript, accumulator->alphas, Flavor::VIRTUAL_LOG_N, accumulator->target_sum);

@@ -140,6 +140,10 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     // TODO(#14234)[Unconditional PIs validation]: Inside of loop, replace pi_validation.must_imply() by
     // public_input_evaluation.assert_equal(claimed_evaluations[i]
     for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
+        // In-circuit mle evaluation efficiently handles evaluations of polynomials extended by zero, i.e.
+        // public_inputs[i] is of the size bounded by compile-time constant `AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH` but
+        // it is evaluated as a polynomial in fixed number of variables to match the sumcheck claimed evaluation, that
+        // also uses extension by zero.
         FF public_input_evaluation = evaluate_public_input_column(public_inputs[i], output.challenge);
         vinfo("public_input_evaluation failed, public inputs col ", i);
         pi_validation.must_imply(public_input_evaluation == claimed_evaluations[i], "public_input_evaluation failed");

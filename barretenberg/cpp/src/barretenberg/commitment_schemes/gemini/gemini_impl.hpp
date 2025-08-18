@@ -194,14 +194,15 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
     }
 
     // Perform virtual rounds.
-    // After the first `log_n` rounds, the prover's folds stabilize. With ZK, the verifier multiplies the evaluations by
-    // 0, otherwise, when `virtual_log_n > log_n`, the prover honestly computes and sends the constant folds.
+    // After the first `log_n - 1` rounds, the prover's `fold` univariates stabilize. With ZK, the verifier multiplies
+    // the evaluations by 0, otherwise, when `virtual_log_n > log_n`, the prover honestly computes and sends the
+    // constant folds.
     const auto& last = fold_polynomials.back();
     const Fr u_last = multilinear_challenge[log_n - 1];
     const Fr final_eval = last.at(0) + u_last * (last.at(1) - last.at(0));
     Polynomial const_fold(1);
-    // Temporary fix: when we're running a zk proof, the verifier uses a padding_indicator_array. So the evals in rounds
-    // past log_n will be ignored. So the prover also needs to ignore them, otherwise Shplonk will fail.
+    // Temporary fix: when we're running a zk proof, the verifier uses a `padding_indicator_array`. So the evals in
+    // rounds past `log_n - 1` will be ignored. Hence the prover also needs to ignore them, otherwise Shplonk will fail.
     const_fold.at(0) = final_eval * Fr(static_cast<int>(!has_zk));
     fold_polynomials.emplace_back(const_fold);
 
