@@ -916,7 +916,7 @@ template <typename Builder> class FieldBase {
         {
             (void)builder;
 
-            switch (VarianceRNG.next() % 9) {
+            switch (VarianceRNG.next() % 8) {
             case 0:
 #ifdef FUZZING_SHOW_INFORMATION
                 std::cout << "Construct via field_t" << std::endl;
