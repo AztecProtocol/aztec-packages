@@ -37,6 +37,3 @@ aztec:
   extraAccountsStartIndex: 69
   sponsoredFPC: true
 
-jobs:
-  deployL1Verifier:
-    enable: false
