@@ -31,7 +31,7 @@ import { type L1RollupConstants, getProofSubmissionDeadlineTimestamp } from '@az
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 
 import { join } from 'path';
-import { type Hex, createWalletClient } from 'viem';
+import { type Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import {
