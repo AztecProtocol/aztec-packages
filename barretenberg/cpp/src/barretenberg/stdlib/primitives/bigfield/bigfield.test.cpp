@@ -428,31 +428,49 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         EXPECT_EQ(result, true);
     }
 
-    static void test_mul(InputType a_type, InputType b_type)
+    // Generic binary operator test function
+    template <typename CircuitOpFunc, typename NativeOpFunc>
+    static void test_binary_operator_generic(InputType a_type,
+                                             InputType b_type,
+                                             CircuitOpFunc circuit_op,
+                                             NativeOpFunc native_op,
+                                             const char* op_name,
+                                             size_t num_repetitions = 10,
+                                             bool need_reduced_inputs = false,
+                                             bool need_reduction_after = false,
+                                             bool do_tags_merge = true)
     {
         auto builder = Builder();
-        size_t num_repetitions = 4;
         for (size_t i = 0; i < num_repetitions; ++i) {
-            auto [a_native, a_ct] = get_random_element(&builder, a_type); // fq, fq_ct
-            auto [b_native, b_ct] = get_random_element(&builder, b_type); // fq, fq_ct
+            auto [a_native, a_ct] = get_random_element(&builder, a_type, need_reduced_inputs); // fq, fq_ct
+            auto [b_native, b_ct] = get_random_element(&builder, b_type, need_reduced_inputs); // fq, fq_ct
             a_ct.set_origin_tag(submitted_value_origin_tag);
             b_ct.set_origin_tag(challenge_origin_tag);
 
             fq_ct c_ct;
             if (i == num_repetitions - 1) {
-                // We don't profile in the first repetition. It sets up a lookup table, cost is not representative of a
-                // typical mul.
-                BENCH_GATE_COUNT_START(builder, "MUL");
-                c_ct = a_ct * b_ct;
-                BENCH_GATE_COUNT_END(builder, "MUL");
+                std::string bench_name = std::string(op_name);
+                BENCH_GATE_COUNT_START(builder, bench_name.c_str());
+                c_ct = circuit_op(a_ct, b_ct);
+                BENCH_GATE_COUNT_END(builder, bench_name.c_str());
             } else {
-                c_ct = a_ct * b_ct;
+                c_ct = circuit_op(a_ct, b_ct);
             }
 
-            // Multiplication merges tags
-            EXPECT_EQ(c_ct.get_origin_tag(), first_two_merged_tag);
+            // Some operations (add, sub, div) may need a self-reduction to get back into the field range
+            if (need_reduction_after) {
+                c_ct.self_reduce();
+            }
 
-            fq expected = (a_native * b_native);
+            if (do_tags_merge) {
+                // Binary operations merge tags
+                EXPECT_EQ(c_ct.get_origin_tag(), first_two_merged_tag);
+            }
+
+            fq expected = native_op(a_native, b_native);
+            if (need_reduction_after) {
+                expected = expected.reduce_once().reduce_once();
+            }
             expected = expected.from_montgomery_form();
             uint512_t result = c_ct.get_value();
 
@@ -467,6 +485,54 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         }
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
+    }
+
+#define BINARY_OP_TEST(op_name, bench_name, op_symbol, repetitions, reduced_inputs, reduction_after)                   \
+    static void test_##op_name(InputType a_type, InputType b_type)                                                     \
+    {                                                                                                                  \
+        test_binary_operator_generic(                                                                                  \
+            a_type,                                                                                                    \
+            b_type,                                                                                                    \
+            [](const fq_ct& a, const fq_ct& b) { return a op_symbol b; },                                              \
+            [](const fq& a, const fq& b) { return a op_symbol b; },                                                    \
+            #bench_name,                                                                                               \
+            repetitions,                                                                                               \
+            reduced_inputs,                                                                                            \
+            reduction_after);                                                                                          \
+    }
+
+    BINARY_OP_TEST(mul, MUL, *, 10, false, false)
+    BINARY_OP_TEST(add, ADD, +, 10, false, true)
+    BINARY_OP_TEST(sub, SUB, -, 10, false, true)
+    BINARY_OP_TEST(div, DIV, /, 10, true, true)
+
+    static void test_negate(InputType a_type)
+    {
+        test_binary_operator_generic(
+            a_type,
+            InputType::CONSTANT, // b is unused
+            [](const fq_ct& a, const fq_ct&) { return -a; },
+            [](const fq& a, const fq&) { return -a; },
+            "NEGATE",
+            10,
+            false, // need_reduced_inputs
+            true,  // need_reduction_after
+            false  // check_output_tag
+        );
+    }
+
+    static void test_sqr(InputType a_type)
+    {
+        test_binary_operator_generic(
+            a_type,
+            InputType::CONSTANT, // b is unused
+            [](const fq_ct& a, const fq_ct&) { return a.sqr(); },
+            [](const fq& a, const fq&) { return a.sqr(); },
+            "SQR",
+            10,
+            false,
+            false,
+            false);
     }
 
     // Generic assignment operator test function
@@ -522,88 +588,25 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         EXPECT_EQ(result, true);
     }
 
-    static void test_mul_assign_operator(InputType a_type, InputType b_type)
-    {
-        test_assign_operator_generic(
-            a_type,
-            b_type,
-            [](fq_ct& a, const fq_ct& b) { a *= b; },
-            [](const fq& a, const fq& b) { return a * b; },
-            "MUL_ASSIGN",
-            4);
+#define ASSIGNMENT_OP_TEST(op_name, bench_name, op_symbol, repetitions, reduced_inputs, reduction_after)               \
+    static void test_##op_name(InputType a_type, InputType b_type)                                                     \
+    {                                                                                                                  \
+        test_assign_operator_generic(                                                                                  \
+            a_type,                                                                                                    \
+            b_type,                                                                                                    \
+            [](fq_ct& a, const fq_ct& b) { a op_symbol## = b; },                                                       \
+            [](const fq& a, const fq& b) { return a op_symbol b; },                                                    \
+            #bench_name,                                                                                               \
+            repetitions,                                                                                               \
+            reduced_inputs,                                                                                            \
+            reduction_after);                                                                                          \
     }
 
-    static void test_add_assign_operator(InputType a_type, InputType b_type)
-    {
-        test_assign_operator_generic(
-            a_type,
-            b_type,
-            [](fq_ct& a, const fq_ct& b) { a += b; },
-            [](const fq& a, const fq& b) { return a + b; },
-            "ADD_ASSIGN",
-            10);
-    }
-
-    static void test_sub_assign_operator(InputType a_type, InputType b_type)
-    {
-        test_assign_operator_generic(
-            a_type,
-            b_type,
-            [](fq_ct& a, const fq_ct& b) { a -= b; },
-            [](const fq& a, const fq& b) { return a - b; },
-            "SUB_ASSIGN",
-            10);
-    }
-
-    static void test_div_assign_operator(InputType a_type, InputType b_type)
-    {
-        test_assign_operator_generic(
-            a_type,
-            b_type,
-            [](fq_ct& a, const fq_ct& b) { a /= b; },
-            [](const fq& a, const fq& b) { return a / b; },
-            "DIV_ASSIGN",
-            10,
-            true,  // need reduced inputs to avoid overflow in division
-            true); // need reduction after division as division can produce unreduced outputs
-    }
-
-    static void test_sqr(InputType a_type)
-    {
-        auto builder = Builder();
-        size_t num_repetitions = 10;
-        for (size_t i = 0; i < num_repetitions; ++i) {
-            auto [a_native, a_ct] = get_random_element(&builder, a_type); // fq, fq_ct
-            a_ct.set_origin_tag(next_challenge_tag);
-
-            fq_ct c_ct;
-            if (i == num_repetitions - 1) {
-                BENCH_GATE_COUNT_START(builder, "SQR");
-                c_ct = a_ct.sqr();
-                BENCH_GATE_COUNT_END(builder, "SQR");
-            } else {
-                c_ct = a_ct.sqr();
-            }
-
-            // Squaring preserves tags
-            EXPECT_EQ(a_ct.get_origin_tag(), next_challenge_tag);
-
-            fq expected = (a_native.sqr());
-            expected = expected.from_montgomery_form();
-            uint512_t result = c_ct.get_value();
-
-            EXPECT_EQ(result.lo.data[0], expected.data[0]);
-            EXPECT_EQ(result.lo.data[1], expected.data[1]);
-            EXPECT_EQ(result.lo.data[2], expected.data[2]);
-            EXPECT_EQ(result.lo.data[3], expected.data[3]);
-            EXPECT_EQ(result.hi.data[0], 0ULL);
-            EXPECT_EQ(result.hi.data[1], 0ULL);
-            EXPECT_EQ(result.hi.data[2], 0ULL);
-            EXPECT_EQ(result.hi.data[3], 0ULL);
-        }
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, true);
-    }
+    // Generate assignment operator tests using the macro
+    ASSIGNMENT_OP_TEST(mul_assign, MUL_ASSIGN, *, 10, false, false)
+    ASSIGNMENT_OP_TEST(add_assign, ADD_ASSIGN, +, 10, false, true)
+    ASSIGNMENT_OP_TEST(sub_assign, SUB_ASSIGN, -, 10, false, true)
+    ASSIGNMENT_OP_TEST(div_assign, DIV_ASSIGN, /, 10, true, true)
 
     static void test_madd(InputType a_type, InputType b_type, InputType c_type)
     {
@@ -632,6 +635,43 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
             fq expected = (a_native * b_native) + c_native;
             expected = expected.from_montgomery_form();
             uint512_t result = d_ct.get_value();
+
+            EXPECT_EQ(result.lo.data[0], expected.data[0]);
+            EXPECT_EQ(result.lo.data[1], expected.data[1]);
+            EXPECT_EQ(result.lo.data[2], expected.data[2]);
+            EXPECT_EQ(result.lo.data[3], expected.data[3]);
+            EXPECT_EQ(result.hi.data[0], 0ULL);
+            EXPECT_EQ(result.hi.data[1], 0ULL);
+            EXPECT_EQ(result.hi.data[2], 0ULL);
+            EXPECT_EQ(result.hi.data[3], 0ULL);
+        }
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, true);
+    }
+
+    static void test_sqradd(InputType a_type, InputType b_type)
+    {
+        auto builder = Builder();
+        size_t num_repetitions = 4;
+        for (size_t i = 0; i < num_repetitions; ++i) {
+            auto [a_native, a_ct] = get_random_element(&builder, a_type); // fq, fq_ct
+            auto [b_native, b_ct] = get_random_element(&builder, b_type); // fq, fq_ct
+            a_ct.set_origin_tag(challenge_origin_tag);
+            b_ct.set_origin_tag(submitted_value_origin_tag);
+
+            fq_ct c_ct;
+            if (i == num_repetitions - 1) {
+                BENCH_GATE_COUNT_START(builder, "SQRADD");
+                c_ct = a_ct.sqradd({ b_ct });
+                BENCH_GATE_COUNT_END(builder, "SQRADD");
+            } else {
+                c_ct = a_ct.sqradd({ b_ct });
+            }
+            c_ct.self_reduce();
+
+            fq expected = (a_native.sqr()) + b_native;
+            expected = expected.from_montgomery_form();
+            uint512_t result = c_ct.get_value();
 
             EXPECT_EQ(result.lo.data[0], expected.data[0]);
             EXPECT_EQ(result.lo.data[1], expected.data[1]);
@@ -759,47 +799,6 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         if (builder.failed()) {
             info("Builder failed with error: ", builder.err());
         };
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, true);
-    }
-
-    static void test_div(InputType a_type, InputType b_type)
-    {
-        auto builder = Builder();
-        size_t num_repetitions = 10;
-        for (size_t i = 0; i < num_repetitions; ++i) {
-            // We need reduced inputs for division.
-            auto [a_native, a_ct] = get_random_element(&builder, a_type, true); // reduced fq, fq_ct
-            auto [b_native, b_ct] = get_random_element(&builder, b_type, true); // reduced fq, fq_ct
-            a_ct.set_origin_tag(submitted_value_origin_tag);
-            b_ct.set_origin_tag(challenge_origin_tag);
-
-            fq_ct c_ct;
-            if (i == num_repetitions - 1) {
-                BENCH_GATE_COUNT_START(builder, "DIV");
-                c_ct = a_ct / b_ct;
-                BENCH_GATE_COUNT_END(builder, "DIV");
-            } else {
-                c_ct = a_ct / b_ct;
-            }
-
-            // Division merges tags
-            EXPECT_EQ(c_ct.get_origin_tag(), first_two_merged_tag);
-
-            fq expected = (a_native / b_native);
-            expected = expected.reduce_once().reduce_once();
-            expected = expected.from_montgomery_form();
-            uint512_t result = c_ct.get_value();
-
-            EXPECT_EQ(result.lo.data[0], expected.data[0]);
-            EXPECT_EQ(result.lo.data[1], expected.data[1]);
-            EXPECT_EQ(result.lo.data[2], expected.data[2]);
-            EXPECT_EQ(result.lo.data[3], expected.data[3]);
-            EXPECT_EQ(result.hi.data[0], 0ULL);
-            EXPECT_EQ(result.hi.data[1], 0ULL);
-            EXPECT_EQ(result.hi.data[2], 0ULL);
-            EXPECT_EQ(result.hi.data[3], 0ULL);
-        }
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
@@ -1641,45 +1640,35 @@ TYPED_TEST(stdlib_bigfield, mul_with_constant)
     TestFixture::test_mul(InputType::CONSTANT, InputType::WITNESS);
     TestFixture::test_mul(InputType::CONSTANT, InputType::CONSTANT);
 }
-TYPED_TEST(stdlib_bigfield, mul_assignment)
+TYPED_TEST(stdlib_bigfield, sub)
 {
-    TestFixture::test_mul_assign_operator(InputType::WITNESS, InputType::WITNESS);
+    TestFixture::test_sub(InputType::WITNESS, InputType::WITNESS);
 }
-TYPED_TEST(stdlib_bigfield, mul_assignment_with_constant)
+TYPED_TEST(stdlib_bigfield, sub_with_constant)
 {
-    TestFixture::test_mul_assign_operator(InputType::WITNESS, InputType::CONSTANT);
-    TestFixture::test_mul_assign_operator(InputType::CONSTANT, InputType::WITNESS);
-    TestFixture::test_mul_assign_operator(InputType::CONSTANT, InputType::CONSTANT);
+    TestFixture::test_sub(InputType::WITNESS, InputType::CONSTANT);
+    TestFixture::test_sub(InputType::CONSTANT, InputType::WITNESS);
+    TestFixture::test_sub(InputType::CONSTANT, InputType::CONSTANT);
 }
-TYPED_TEST(stdlib_bigfield, add_assignment)
+TYPED_TEST(stdlib_bigfield, add)
 {
-    TestFixture::test_add_assign_operator(InputType::WITNESS, InputType::WITNESS);
+    TestFixture::test_add(InputType::WITNESS, InputType::WITNESS);
 }
-TYPED_TEST(stdlib_bigfield, add_assignment_with_constant)
+TYPED_TEST(stdlib_bigfield, add_with_constant)
 {
-    TestFixture::test_add_assign_operator(InputType::WITNESS, InputType::CONSTANT);
-    TestFixture::test_add_assign_operator(InputType::CONSTANT, InputType::WITNESS);
-    TestFixture::test_add_assign_operator(InputType::CONSTANT, InputType::CONSTANT);
+    TestFixture::test_add(InputType::WITNESS, InputType::CONSTANT);
+    TestFixture::test_add(InputType::CONSTANT, InputType::WITNESS);
+    TestFixture::test_add(InputType::CONSTANT, InputType::CONSTANT);
 }
-TYPED_TEST(stdlib_bigfield, sub_assignment)
+TYPED_TEST(stdlib_bigfield, div)
 {
-    TestFixture::test_sub_assign_operator(InputType::WITNESS, InputType::WITNESS);
+    TestFixture::test_div(InputType::WITNESS, InputType::WITNESS); // w / w
 }
-TYPED_TEST(stdlib_bigfield, sub_assignment_with_constant)
+TYPED_TEST(stdlib_bigfield, div_with_constant)
 {
-    TestFixture::test_sub_assign_operator(InputType::WITNESS, InputType::CONSTANT);
-    TestFixture::test_sub_assign_operator(InputType::CONSTANT, InputType::WITNESS);
-    TestFixture::test_sub_assign_operator(InputType::CONSTANT, InputType::CONSTANT);
-}
-TYPED_TEST(stdlib_bigfield, div_assignment)
-{
-    TestFixture::test_div_assign_operator(InputType::WITNESS, InputType::WITNESS); // w / w
-}
-TYPED_TEST(stdlib_bigfield, div_assignment_with_constant)
-{
-    TestFixture::test_div_assign_operator(InputType::WITNESS, InputType::CONSTANT);  // w / c
-    TestFixture::test_div_assign_operator(InputType::CONSTANT, InputType::WITNESS);  // c / w
-    TestFixture::test_div_assign_operator(InputType::CONSTANT, InputType::CONSTANT); // c / c
+    TestFixture::test_div(InputType::WITNESS, InputType::CONSTANT);  // w / c
+    TestFixture::test_div(InputType::CONSTANT, InputType::WITNESS);  // c / w
+    TestFixture::test_div(InputType::CONSTANT, InputType::CONSTANT); // c / c
 }
 TYPED_TEST(stdlib_bigfield, sqr)
 {
@@ -1688,6 +1677,50 @@ TYPED_TEST(stdlib_bigfield, sqr)
 TYPED_TEST(stdlib_bigfield, sqr_with_constant)
 {
     TestFixture::test_sqr(InputType::CONSTANT);
+}
+TYPED_TEST(stdlib_bigfield, negate)
+{
+    TestFixture::test_negate(InputType::WITNESS);
+}
+TYPED_TEST(stdlib_bigfield, mul_assignment)
+{
+    TestFixture::test_mul_assign(InputType::WITNESS, InputType::WITNESS);
+}
+TYPED_TEST(stdlib_bigfield, mul_assignment_with_constant)
+{
+    TestFixture::test_mul_assign(InputType::WITNESS, InputType::CONSTANT);
+    TestFixture::test_mul_assign(InputType::CONSTANT, InputType::WITNESS);
+    TestFixture::test_mul_assign(InputType::CONSTANT, InputType::CONSTANT);
+}
+TYPED_TEST(stdlib_bigfield, add_assignment)
+{
+    TestFixture::test_add_assign(InputType::WITNESS, InputType::WITNESS);
+}
+TYPED_TEST(stdlib_bigfield, add_assignment_with_constant)
+{
+    TestFixture::test_add_assign(InputType::WITNESS, InputType::CONSTANT);
+    TestFixture::test_add_assign(InputType::CONSTANT, InputType::WITNESS);
+    TestFixture::test_add_assign(InputType::CONSTANT, InputType::CONSTANT);
+}
+TYPED_TEST(stdlib_bigfield, sub_assignment)
+{
+    TestFixture::test_sub_assign(InputType::WITNESS, InputType::WITNESS);
+}
+TYPED_TEST(stdlib_bigfield, sub_assignment_with_constant)
+{
+    TestFixture::test_sub_assign(InputType::WITNESS, InputType::CONSTANT);
+    TestFixture::test_sub_assign(InputType::CONSTANT, InputType::WITNESS);
+    TestFixture::test_sub_assign(InputType::CONSTANT, InputType::CONSTANT);
+}
+TYPED_TEST(stdlib_bigfield, div_assignment)
+{
+    TestFixture::test_div_assign(InputType::WITNESS, InputType::WITNESS); // w / w
+}
+TYPED_TEST(stdlib_bigfield, div_assignment_with_constant)
+{
+    TestFixture::test_div_assign(InputType::WITNESS, InputType::CONSTANT);  // w / c
+    TestFixture::test_div_assign(InputType::CONSTANT, InputType::WITNESS);  // c / w
+    TestFixture::test_div_assign(InputType::CONSTANT, InputType::CONSTANT); // c / c
 }
 TYPED_TEST(stdlib_bigfield, madd)
 {
@@ -1703,6 +1736,16 @@ TYPED_TEST(stdlib_bigfield, madd_with_constants)
     TestFixture::test_madd(InputType::WITNESS, InputType::WITNESS, InputType::CONSTANT);  // w * w + c
     TestFixture::test_madd(InputType::WITNESS, InputType::CONSTANT, InputType::WITNESS);  // w * c + w
     TestFixture::test_madd(InputType::CONSTANT, InputType::WITNESS, InputType::CONSTANT); // c * w + c
+}
+TYPED_TEST(stdlib_bigfield, sqradd)
+{
+    TestFixture::test_sqradd(InputType::WITNESS, InputType::WITNESS); // w^2 + w
+}
+TYPED_TEST(stdlib_bigfield, sqradd_with_constant)
+{
+    TestFixture::test_sqradd(InputType::WITNESS, InputType::CONSTANT);  // w^2 + c
+    TestFixture::test_sqradd(InputType::CONSTANT, InputType::WITNESS);  // c^2 + w
+    TestFixture::test_sqradd(InputType::CONSTANT, InputType::CONSTANT); // c^2 + c
 }
 TYPED_TEST(stdlib_bigfield, mult_madd)
 {
@@ -1725,16 +1768,6 @@ TYPED_TEST(stdlib_bigfield, mult_madd_edge_cases)
 TYPED_TEST(stdlib_bigfield, dual_madd)
 {
     TestFixture::test_dual_madd();
-}
-TYPED_TEST(stdlib_bigfield, div)
-{
-    TestFixture::test_div(InputType::WITNESS, InputType::WITNESS); // w / w
-}
-TYPED_TEST(stdlib_bigfield, div_with_constant)
-{
-    TestFixture::test_div(InputType::WITNESS, InputType::CONSTANT);  // w / c
-    TestFixture::test_div(InputType::CONSTANT, InputType::WITNESS);  // c / w
-    TestFixture::test_div(InputType::CONSTANT, InputType::CONSTANT); // c / c
 }
 TYPED_TEST(stdlib_bigfield, div_without_denominator_check)
 {
