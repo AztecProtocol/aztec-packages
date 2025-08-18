@@ -4,6 +4,7 @@ import type { EpochCache } from '@aztec/epoch-cache';
 import { FormattedViemError, type IEmpireBase, NoCommitteeError } from '@aztec/ethereum';
 import { omit, pick } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -359,7 +360,10 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // If get proposer in next slot is undefined, then the committee is empty and anyone may propose.
     // If the committee is defined and not empty, but none of our validators are the proposer, then stop.
     const validatorAddresses = this.validatorClient!.getValidatorAddresses();
-    if (proposerInNextSlot !== undefined && !validatorAddresses.some(addr => addr.equals(proposerInNextSlot))) {
+    if (
+      proposerInNextSlot !== undefined &&
+      !validatorAddresses.some((addr: EthAddress) => addr.equals(proposerInNextSlot))
+    ) {
       this.log.debug(`Cannot propose block ${newBlockNumber} since we are not a proposer`, {
         us: validatorAddresses,
         proposer: proposerInNextSlot,
@@ -442,7 +446,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
           SignalType.GOVERNANCE,
           attestorAddress,
           governanceSignalConfig,
-          msg => this.validatorClient!.signWithAddress(attestorAddress, msg).then(s => s.toString()),
+          msg => this.validatorClient!.signWithAddress(attestorAddress, msg).then((s: Signature) => s.toString()),
         );
 
     const slashingSignalConfig = await this.getSignalConfig(slot, SignalType.SLASHING);
@@ -455,7 +459,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
           SignalType.SLASHING,
           attestorAddress,
           slashingSignalConfig,
-          msg => this.validatorClient!.signWithAddress(attestorAddress, msg).then(s => s.toString()),
+          msg => this.validatorClient!.signWithAddress(attestorAddress, msg).then((s: Signature) => s.toString()),
         );
 
     if (invalidateBlock && !this.config.skipInvalidateBlockAsProposer) {
