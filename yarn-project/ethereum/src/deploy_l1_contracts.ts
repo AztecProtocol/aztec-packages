@@ -1,6 +1,8 @@
-import { getActiveNetworkName } from '@aztec/foundation/config';
+import { SecretValue, getActiveNetworkName } from '@aztec/foundation/config';
+import { keccak256String } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 
@@ -72,7 +74,7 @@ const networkName = getActiveNetworkName();
 export type Operator = {
   attester: EthAddress;
   withdrawer: EthAddress;
-  bn254SecretKey: bigint;
+  bn254SecretKey: SecretValue<bigint>;
 };
 
 /**
@@ -527,6 +529,7 @@ export const deployRollup = async (
     manaTarget: args.manaTarget,
     provingCostPerMana: args.provingCostPerMana,
     rewardConfig: rewardConfig,
+    version: 0,
     rewardBoostConfig: getRewardBoostConfig(networkName),
     stakingQueueConfig: getEntryQueueConfig(networkName),
     exitDelaySeconds: args.exitDelaySeconds,
@@ -536,6 +539,17 @@ export const deployRollup = async (
     protocolContractTreeRoot: args.protocolContractTreeRoot.toString(),
     genesisArchiveRoot: args.genesisArchiveRoot.toString(),
   };
+
+  // Until there is an actual chain-id for the version, we will just draw a random value.
+  // TODO(https://linear.app/aztec-labs/issue/TMNT-139/version-at-deployment)
+  rollupConfigArgs.version = Buffer.from(
+    keccak256String(
+      jsonStringify({
+        rollupConfigArgs,
+        genesisStateArgs,
+      }),
+    ),
+  ).readUint32BE(0);
   logger.verbose(`Rollup config args`, rollupConfigArgs);
 
   const rollupArgs = [
@@ -771,7 +785,7 @@ export const addMultipleValidators = async (
       const multiAdder = await deployer.deploy(MultiAdderArtifact, [rollupAddress, deployer.client.account.address]);
 
       const makeValidatorTuples = async (validator: Operator) => {
-        const registrationTuple = await gseContract.makeRegistrationTuple(validator.bn254SecretKey);
+        const registrationTuple = await gseContract.makeRegistrationTuple(validator.bn254SecretKey.getValue());
         return {
           attester: getAddress(validator.attester.toString()),
           withdrawer: getAddress(validator.withdrawer.toString()),

@@ -295,8 +295,8 @@ template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(con
         return;
     }
 
-    this->x = field_t::conditional_assign(is_infinity, 0, this->x);
-    this->y = field_t::conditional_assign(is_infinity, 0, this->y);
+    this->x = field_t::conditional_assign(is_infinity, 0, this->x).normalize();
+    this->y = field_t::conditional_assign(is_infinity, 0, this->y).normalize();
 
     // We won't bump into the case where we end up with non constant coordinates
     ASSERT(!this->x.is_constant());
@@ -333,8 +333,8 @@ template <typename Builder> void cycle_group<Builder>::standardize()
     }
     this->_is_standard = true;
 
-    this->x = field_t::conditional_assign(this->_is_infinity, 0, this->x);
-    this->y = field_t::conditional_assign(this->_is_infinity, 0, this->y);
+    this->x = field_t::conditional_assign(this->_is_infinity, 0, this->x).normalize();
+    this->y = field_t::conditional_assign(this->_is_infinity, 0, this->y).normalize();
 }
 
 /**
@@ -416,7 +416,7 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
 
     context->create_ecc_dbl_gate(bb::ecc_dbl_gate_<FF>{
         .x1 = x.get_witness_index(),
-        .y1 = modified_y.get_normalized_witness_index(),
+        .y1 = modified_y.get_witness_index(),
         .x3 = result.x.get_witness_index(),
         .y3 = result.y.get_witness_index(),
     });
@@ -712,8 +712,8 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+
     result_y = field_t::conditional_assign(lhs_infinity, other.y, result_y);
 
     // if rhs infinity, return lhs
-    result_x = field_t::conditional_assign(rhs_infinity, x, result_x);
-    result_y = field_t::conditional_assign(rhs_infinity, y, result_y);
+    result_x = field_t::conditional_assign(rhs_infinity, x, result_x).normalize();
+    result_y = field_t::conditional_assign(rhs_infinity, y, result_y).normalize();
 
     // is result point at infinity?
     // yes = infinity_predicate && !lhs_infinity && !rhs_infinity
@@ -796,8 +796,8 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
     result_y = field_t::conditional_assign(lhs_infinity, (-other.y).normalize(), result_y);
 
     // if rhs infinity, return lhs
-    result_x = field_t::conditional_assign(rhs_infinity, x, result_x);
-    result_y = field_t::conditional_assign(rhs_infinity, y, result_y);
+    result_x = field_t::conditional_assign(rhs_infinity, x, result_x).normalize();
+    result_y = field_t::conditional_assign(rhs_infinity, y, result_y).normalize();
 
     // is result point at infinity?
     // yes = infinity_predicate && !lhs_infinity && !rhs_infinity
@@ -2009,8 +2009,8 @@ cycle_group<Builder> cycle_group<Builder>::conditional_assign(const bool_t& pred
                                                               const cycle_group& lhs,
                                                               const cycle_group& rhs)
 {
-    auto x_res = field_t::conditional_assign(predicate, lhs.x, rhs.x);
-    auto y_res = field_t::conditional_assign(predicate, lhs.y, rhs.y);
+    auto x_res = field_t::conditional_assign(predicate, lhs.x, rhs.x).normalize();
+    auto y_res = field_t::conditional_assign(predicate, lhs.y, rhs.y).normalize();
     auto _is_infinity_res =
         bool_t::conditional_assign(predicate, lhs.is_point_at_infinity(), rhs.is_point_at_infinity());
 

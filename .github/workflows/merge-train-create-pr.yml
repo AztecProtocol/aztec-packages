@@ -1,0 +1,57 @@
+name: Merge-Train Create PR
+
+on:
+  push:
+    branches:
+      - 'merge-train/*'
+
+jobs:
+  create-pr:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+
+      - name: Check if PR exists and create if needed
+        env:
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+            branch="${{ github.ref_name }}"
+
+            # Skip if this is a merge commit (check for multiple parents)
+            parent_count=$(git rev-list --parents -n 1 "${{ github.sha }}" | wc -w)
+            if [[ $parent_count -gt 2 ]]; then
+              echo "Skipping: This is a merge commit."
+              exit 0
+            fi
+
+            # Skip if this commit is already in the next branch
+            if git merge-base --is-ancestor "${{ github.sha }}" origin/next; then
+              echo "Skipping: This commit is already in the next branch"
+              exit 0
+            fi
+
+            # Check if PR already exists for this branch
+            existing_pr=$(gh pr list --state open --head "$branch" --json number --jq '.[0].number // empty')
+
+            if [[ -z "$existing_pr" ]]; then
+              echo "No PR exists for $branch, creating one"
+
+              # Determine base branch (default to next)
+              base_branch="next"
+
+              # Create PR with ci-no-squash label
+              gh pr create --base "$base_branch" --head "$branch" \
+                --title "feat: $branch" \
+                --body "$(echo -e "See [merge-train-readme.md](https://github.com/${{ github.repository }}/blob/next/.github/workflows/merge-train-readme.md).\nThis is a merge-train.")" \
+                --label "ci-no-squash"
+
+              echo "Created PR for $branch"
+            else
+              echo "PR #$existing_pr already exists for $branch"
+            fi

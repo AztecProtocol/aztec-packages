@@ -283,6 +283,7 @@ template <typename Flavor> class SumcheckProver {
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(idx));
             multivariate_challenge.emplace_back(round_challenge);
         }
+
         // Claimed evaluations of Prover polynomials are extracted and added to the transcript. When Flavor has ZK, the
         // evaluations of all witnesses are masked.
         ClaimedEvaluations multivariate_evaluations = extract_claimed_evaluations(partially_evaluated_polynomials);
@@ -477,8 +478,9 @@ template <typename Flavor> class SumcheckProver {
          P_j\left(u_0,\ldots, u_{i}, \vec \ell \right)    \\
        = &\ P_j\left(u_0,\ldots, u_{i-1}, 0,  \vec \ell \right) + u_{i} \cdot \left( P_j\left(u_0, \ldots, u_{i-1}, 1,
     \vec \ell ) - P_j(u_0,\ldots, u_{i-1}, 0,  \vec \ell \right)\right)  \\ =
-    &\ \texttt{partially_evaluated_polynomials}_{2 \ell,j}  + u_{i} \cdot (\texttt{partially_evaluated_polynomials}_{2
-    \ell+1,j} - \texttt{partially_evaluated_polynomials}_{2\ell,j}) \f} where \f$\vec \ell \in \{0,1\}^{d-1-i}\f$.
+    &\ \texttt{partially_evaluated_polynomials}_{2 \ell,j}  + u_{i} \cdot
+    (\texttt{partially_evaluated_polynomials}_{2 \ell+1,j} - \texttt{partially_evaluated_polynomials}_{2\ell,j}) \f}
+    where \f$\vec \ell \in \{0,1\}^{d-1-i}\f$.
      * After the final update, i.e. when \f$ i = d-1 \f$, the upper row of the table contains the evaluations of Honk
      * polynomials at the challenge point \f$ (u_0,\ldots, u_{d-1}) \f$.
      * @param polynomials Honk polynomials at initialization; partially evaluated polynomials in subsequent rounds
@@ -534,9 +536,9 @@ template <typename Flavor> class SumcheckProver {
 
     /**
      * @brief This method takes the book-keeping table containing partially evaluated prover polynomials and creates a
-     * vector containing the evaluations of all prover polynomials at the point \f$ (u_0, \ldots, u_{d-1} )\f$.
-     * For ZK Flavors: this method takes the book-keeping table containing partially evaluated prover polynomials
-     * and creates a vector containing the evaluations of all witness polynomials at the point \f$ (u_0, \ldots, u_{d-1}
+     * vector containing the evaluations of all prover polynomials at the point \f$ (u_0, \ldots, u_{d-1} )\f$. For ZK
+     * Flavors: this method takes the book-keeping table containing partially evaluated prover polynomials and creates a
+     * vector containing the evaluations of all witness polynomials at the point \f$ (u_0, \ldots, u_{d-1}
      * )\f$ masked by the terms \f$ \texttt{eval_masking_scalars}_j\cdot \sum u_i(1-u_i)\f$ and the evaluations of all
      * non-witness polynomials that are sent in clear.
      *
@@ -708,8 +710,8 @@ template <typename Flavor> class SumcheckVerifier {
         bool verified(true);
 
         // Pad gate challenges for Protogalaxy DeciderVerifier and AVM
-        if constexpr (Flavor::USE_PADDING) {
-            round.pad_gate_challenges(gate_challenges);
+        if (gate_challenges.size() < virtual_log_n) {
+            round.pad_gate_challenges(gate_challenges, virtual_log_n);
         }
 
         bb::GateSeparatorPolynomial<FF> gate_separators(gate_challenges);
@@ -760,7 +762,6 @@ template <typename Flavor> class SumcheckVerifier {
         // For ZK Flavors: compute the evaluation of the Row Disabling Polynomial at the sumcheck challenge and of the
         // libra univariate used to hide the contribution from the actual Honk relation
         if constexpr (Flavor::HasZK) {
-
             if constexpr (UseRowDisablingPolynomial<Flavor>) {
                 // Compute the evaluations of the polynomial (1 - \sum L_i) where the sum is for i corresponding to the
                 // rows where all sumcheck relations are disabled
@@ -873,8 +874,8 @@ template <typename Flavor> class SumcheckVerifier {
         // Libra polynomials
         full_honk_purported_value += libra_evaluation * libra_challenge;
 
-        // Populate claimed evaluations of Sumcheck Round Univariates at the round challenges. These will be
-        // checked as a part of Shplemini.
+        // Populate claimed evaluations of Sumcheck Round Unviariates at the round challenges. These will be checked as
+        // a part of Shplemini.
         for (size_t round_idx = 1; round_idx < virtual_log_n; round_idx++) {
             round_univariate_evaluations[round_idx - 1][2] =
                 round_univariate_evaluations[round_idx][0] + round_univariate_evaluations[round_idx][1];

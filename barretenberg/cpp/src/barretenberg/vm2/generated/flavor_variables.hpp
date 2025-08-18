@@ -54,12 +54,14 @@
 #include "relations/scalar_mul.hpp"
 #include "relations/send_l2_to_l1_msg.hpp"
 #include "relations/sha256.hpp"
+#include "relations/sha256_mem.hpp"
 #include "relations/sload.hpp"
 #include "relations/sstore.hpp"
 #include "relations/to_radix.hpp"
 #include "relations/to_radix_mem.hpp"
 #include "relations/tx.hpp"
 #include "relations/tx_context.hpp"
+#include "relations/tx_discard.hpp"
 #include "relations/update_check.hpp"
 #include "relations/written_public_data_slots_tree_check.hpp"
 
@@ -106,11 +108,13 @@
 #include "relations/lookups_scalar_mul.hpp"
 #include "relations/lookups_send_l2_to_l1_msg.hpp"
 #include "relations/lookups_sha256.hpp"
+#include "relations/lookups_sha256_mem.hpp"
 #include "relations/lookups_sload.hpp"
 #include "relations/lookups_sstore.hpp"
 #include "relations/lookups_to_radix.hpp"
 #include "relations/lookups_to_radix_mem.hpp"
 #include "relations/lookups_tx.hpp"
+#include "relations/lookups_tx_context.hpp"
 #include "relations/lookups_update_check.hpp"
 #include "relations/lookups_written_public_data_slots_tree_check.hpp"
 #include "relations/perms_ecc_mem.hpp"
@@ -118,16 +122,17 @@
 #include "relations/perms_keccakf1600.hpp"
 #include "relations/perms_poseidon2_mem.hpp"
 #include "relations/perms_public_data_check.hpp"
+#include "relations/perms_sha256_mem.hpp"
 #include "relations/perms_to_radix_mem.hpp"
 
 namespace bb::avm2 {
 
 struct AvmFlavorVariables {
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 131;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2680;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 300;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 133;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2921;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 314;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3111;
+    static constexpr size_t NUM_ALL_ENTITIES = 3368;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -183,12 +188,14 @@ struct AvmFlavorVariables {
         avm2::scalar_mul<FF_>,
         avm2::send_l2_to_l1_msg<FF_>,
         avm2::sha256<FF_>,
+        avm2::sha256_mem<FF_>,
         avm2::sload<FF_>,
         avm2::sstore<FF_>,
         avm2::to_radix<FF_>,
         avm2::to_radix_mem<FF_>,
         avm2::tx<FF_>,
         avm2::tx_context<FF_>,
+        avm2::tx_discard<FF_>,
         avm2::update_check<FF_>,
         avm2::written_public_data_slots_tree_check<FF_>>;
 
@@ -483,6 +490,7 @@ struct AvmFlavorVariables {
         lookup_public_data_check_updated_low_leaf_poseidon2_0_relation<FF_>,
         lookup_public_data_check_updated_low_leaf_poseidon2_1_relation<FF_>,
         lookup_public_data_check_write_public_data_to_public_inputs_relation<FF_>,
+        lookup_public_data_check_write_writes_length_to_public_inputs_relation<FF_>,
         lookup_range_check_dyn_diff_is_u16_relation<FF_>,
         lookup_range_check_dyn_rng_chk_pow_2_relation<FF_>,
         lookup_range_check_r0_is_u16_relation<FF_>,
@@ -504,7 +512,69 @@ struct AvmFlavorVariables {
         lookup_scalar_mul_double_relation<FF_>,
         lookup_scalar_mul_to_radix_relation<FF_>,
         lookup_send_l2_to_l1_msg_write_l2_to_l1_msg_relation<FF_>,
+        lookup_sha256_ch_and_0_relation<FF_>,
+        lookup_sha256_ch_and_1_relation<FF_>,
+        lookup_sha256_ch_xor_relation<FF_>,
+        lookup_sha256_maj_and_0_relation<FF_>,
+        lookup_sha256_maj_and_1_relation<FF_>,
+        lookup_sha256_maj_and_2_relation<FF_>,
+        lookup_sha256_maj_xor_0_relation<FF_>,
+        lookup_sha256_maj_xor_1_relation<FF_>,
+        lookup_sha256_mem_check_input_addr_in_range_relation<FF_>,
+        lookup_sha256_mem_check_output_addr_in_range_relation<FF_>,
+        lookup_sha256_mem_check_state_addr_in_range_relation<FF_>,
+        lookup_sha256_mem_mem_input_read_relation<FF_>,
+        lookup_sha256_mem_mem_op_0_relation<FF_>,
+        lookup_sha256_mem_mem_op_1_relation<FF_>,
+        lookup_sha256_mem_mem_op_2_relation<FF_>,
+        lookup_sha256_mem_mem_op_3_relation<FF_>,
+        lookup_sha256_mem_mem_op_4_relation<FF_>,
+        lookup_sha256_mem_mem_op_5_relation<FF_>,
+        lookup_sha256_mem_mem_op_6_relation<FF_>,
+        lookup_sha256_mem_mem_op_7_relation<FF_>,
+        lookup_sha256_range_comp_a_lhs_relation<FF_>,
+        lookup_sha256_range_comp_a_rhs_relation<FF_>,
+        lookup_sha256_range_comp_b_lhs_relation<FF_>,
+        lookup_sha256_range_comp_b_rhs_relation<FF_>,
+        lookup_sha256_range_comp_c_lhs_relation<FF_>,
+        lookup_sha256_range_comp_c_rhs_relation<FF_>,
+        lookup_sha256_range_comp_d_lhs_relation<FF_>,
+        lookup_sha256_range_comp_d_rhs_relation<FF_>,
+        lookup_sha256_range_comp_e_lhs_relation<FF_>,
+        lookup_sha256_range_comp_e_rhs_relation<FF_>,
+        lookup_sha256_range_comp_f_lhs_relation<FF_>,
+        lookup_sha256_range_comp_f_rhs_relation<FF_>,
+        lookup_sha256_range_comp_g_lhs_relation<FF_>,
+        lookup_sha256_range_comp_g_rhs_relation<FF_>,
+        lookup_sha256_range_comp_h_lhs_relation<FF_>,
+        lookup_sha256_range_comp_h_rhs_relation<FF_>,
+        lookup_sha256_range_comp_next_a_lhs_relation<FF_>,
+        lookup_sha256_range_comp_next_a_rhs_relation<FF_>,
+        lookup_sha256_range_comp_next_e_lhs_relation<FF_>,
+        lookup_sha256_range_comp_next_e_rhs_relation<FF_>,
+        lookup_sha256_range_comp_w_lhs_relation<FF_>,
+        lookup_sha256_range_comp_w_rhs_relation<FF_>,
+        lookup_sha256_range_rhs_a_13_relation<FF_>,
+        lookup_sha256_range_rhs_a_2_relation<FF_>,
+        lookup_sha256_range_rhs_a_22_relation<FF_>,
+        lookup_sha256_range_rhs_e_11_relation<FF_>,
+        lookup_sha256_range_rhs_e_25_relation<FF_>,
+        lookup_sha256_range_rhs_e_6_relation<FF_>,
+        lookup_sha256_range_rhs_w_10_relation<FF_>,
+        lookup_sha256_range_rhs_w_17_relation<FF_>,
+        lookup_sha256_range_rhs_w_18_relation<FF_>,
+        lookup_sha256_range_rhs_w_19_relation<FF_>,
+        lookup_sha256_range_rhs_w_3_relation<FF_>,
+        lookup_sha256_range_rhs_w_7_relation<FF_>,
         lookup_sha256_round_constant_relation<FF_>,
+        lookup_sha256_s_0_xor_0_relation<FF_>,
+        lookup_sha256_s_0_xor_1_relation<FF_>,
+        lookup_sha256_s_1_xor_0_relation<FF_>,
+        lookup_sha256_s_1_xor_1_relation<FF_>,
+        lookup_sha256_w_s_0_xor_0_relation<FF_>,
+        lookup_sha256_w_s_0_xor_1_relation<FF_>,
+        lookup_sha256_w_s_1_xor_0_relation<FF_>,
+        lookup_sha256_w_s_1_xor_1_relation<FF_>,
         lookup_sload_storage_read_relation<FF_>,
         lookup_sstore_record_written_storage_slot_relation<FF_>,
         lookup_sstore_storage_write_relation<FF_>,
@@ -518,8 +588,21 @@ struct AvmFlavorVariables {
         lookup_to_radix_mem_check_radix_lt_2_relation<FF_>,
         lookup_to_radix_mem_input_output_to_radix_relation<FF_>,
         lookup_to_radix_mem_write_mem_relation<FF_>,
+        lookup_tx_balance_read_relation<FF_>,
         lookup_tx_balance_slot_poseidon2_relation<FF_>,
+        lookup_tx_balance_update_relation<FF_>,
         lookup_tx_balance_validation_relation<FF_>,
+        lookup_tx_context_public_inputs_gas_used_relation<FF_>,
+        lookup_tx_context_public_inputs_l1_l2_tree_relation<FF_>,
+        lookup_tx_context_public_inputs_note_hash_tree_relation<FF_>,
+        lookup_tx_context_public_inputs_nullifier_tree_relation<FF_>,
+        lookup_tx_context_public_inputs_public_data_tree_relation<FF_>,
+        lookup_tx_context_public_inputs_read_gas_limit_relation<FF_>,
+        lookup_tx_context_public_inputs_write_l2_to_l1_message_count_relation<FF_>,
+        lookup_tx_context_public_inputs_write_note_hash_count_relation<FF_>,
+        lookup_tx_context_public_inputs_write_nullifier_count_relation<FF_>,
+        lookup_tx_context_public_inputs_write_unencrypted_log_count_relation<FF_>,
+        lookup_tx_context_restore_state_on_revert_relation<FF_>,
         lookup_tx_note_hash_append_relation<FF_>,
         lookup_tx_nullifier_append_relation<FF_>,
         lookup_tx_phase_jump_on_revert_relation<FF_>,
@@ -530,6 +613,7 @@ struct AvmFlavorVariables {
         lookup_tx_read_phase_table_relation<FF_>,
         lookup_tx_read_public_call_request_phase_relation<FF_>,
         lookup_tx_read_tree_insert_value_relation<FF_>,
+        lookup_tx_write_fee_public_inputs_relation<FF_>,
         lookup_tx_write_l2_l1_msg_relation<FF_>,
         lookup_update_check_delayed_public_mutable_slot_poseidon2_relation<FF_>,
         lookup_update_check_timestamp_from_public_inputs_relation<FF_>,
@@ -553,6 +637,7 @@ struct AvmFlavorVariables {
         perm_keccakf1600_write_to_slice_relation<FF_>,
         perm_poseidon2_mem_dispatch_exec_pos2_relation<FF_>,
         perm_public_data_check_squashing_relation<FF_>,
+        perm_sha256_mem_dispatch_sha256_relation<FF_>,
         perm_to_radix_mem_dispatch_exec_to_radix_relation<FF_>>;
 };
 

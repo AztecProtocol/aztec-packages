@@ -89,7 +89,9 @@ describe('e2e_p2p_reex', () => {
     // Submit the txs to the mempool. We submit a single set of txs, and then inject different behaviors
     // into the validator nodes to cause them to fail in different ways.
     t.logger.info('Submitting txs');
-    txs = await submitComplexTxsTo(t.logger, t.spamContract!, NUM_TXS_PER_NODE, { callPublic: true });
+    txs = await submitComplexTxsTo(t.logger, t.defaultAccountAddress!, t.spamContract!, NUM_TXS_PER_NODE, {
+      callPublic: true,
+    });
   }, 360 * 1000);
 
   afterAll(async () => {

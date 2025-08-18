@@ -193,7 +193,6 @@ void BytecodeTraceBuilder::process_retrieval(
                       // Contract class for bytecode operations
                       { C::bc_retrieval_artifact_hash, event.contract_class.artifact_hash },
                       { C::bc_retrieval_private_function_root, event.contract_class.private_function_root },
-                      { C::bc_retrieval_public_bytecode_commitment, event.contract_class.public_bytecode_commitment },
 
                   } });
         row++;
@@ -380,7 +379,7 @@ const InteractionDefinition BytecodeTraceBuilder::interactions =
         // .add<lookup_bc_hashing_poseidon2_hash_settings, InteractionType::LookupSequential>()
         // Bytecode Retrieval
         // .add<lookup_bc_retrieval_bytecode_hash_is_correct_settings, InteractionType::LookupSequential>()
-        .add<lookup_bc_retrieval_class_id_derivation_settings, InteractionType::LookupSequential>()
+        .add<lookup_bc_retrieval_class_id_derivation_settings, InteractionType::LookupGeneric>()
         .add<lookup_bc_retrieval_contract_instance_retrieval_settings, InteractionType::LookupSequential>()
         // Bytecode Decomposition
         .add<lookup_bc_decomposition_bytes_are_bytes_settings, InteractionType::LookupIntoIndexedByClk>()

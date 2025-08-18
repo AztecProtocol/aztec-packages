@@ -46,7 +46,7 @@ template <typename Flavor> class SumcheckProverRound {
 
     using Utils = bb::RelationUtils<Flavor>;
     using Relations = typename Flavor::Relations;
-    using SumcheckTupleOfTuplesOfUnivariates = typename Flavor::SumcheckTupleOfTuplesOfUnivariates;
+    using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
     using SubrelationSeparators = typename Flavor::SubrelationSeparators;
 
   public:
@@ -295,7 +295,6 @@ template <typename Flavor> class SumcheckProverRound {
 
     /**
      * @brief Helper struct that describes a block of non-zero unskippable rows
-     *
      */
     struct BlockOfContiguousRows {
         size_t starting_edge_idx;
@@ -305,18 +304,17 @@ template <typename Flavor> class SumcheckProverRound {
     /**
      * @brief Helper struct that will, given a vector of BlockOfContiguousRows, return the edge indices that correspond
      * to the nonzero rows
-     *
      */
     struct RowIterator {
-        std::shared_ptr<std::vector<BlockOfContiguousRows>> blocks;
+        const std::vector<BlockOfContiguousRows>* blocks;
         size_t current_block_index = 0;
         size_t current_block_count = 0;
         RowIterator(const std::vector<BlockOfContiguousRows>& _blocks, size_t starting_index = 0)
-            : blocks(std::make_shared<std::vector<BlockOfContiguousRows>>(_blocks))
+            : blocks(&_blocks)
         {
             size_t count = 0;
             for (size_t i = 0; i < blocks->size(); ++i) {
-                const BlockOfContiguousRows block = blocks.get()->at(i);
+                const BlockOfContiguousRows block = blocks->at(i);
                 if (count + (block.size / 2) > starting_index) {
                     current_block_index = i;
                     current_block_count = (starting_index - count) * 2;
@@ -328,8 +326,8 @@ template <typename Flavor> class SumcheckProverRound {
 
         size_t get_next_edge()
         {
-            BlockOfContiguousRows block = blocks.get()->at(current_block_index);
-            auto edge = block.starting_edge_idx + current_block_count;
+            const BlockOfContiguousRows& block = blocks->at(current_block_index);
+            size_t edge = block.starting_edge_idx + current_block_count;
             if (current_block_count + 2 >= block.size) {
                 current_block_index += 1;
                 current_block_count = 0;
@@ -376,7 +374,6 @@ template <typename Flavor> class SumcheckProverRound {
                         current_block_size += 2;
                     } else {
                         if (current_block_size > 0) {
-
                             thread_blocks.push_back(BlockOfContiguousRows{
                                 .starting_edge_idx = edge_idx - current_block_size, .size = current_block_size });
                             current_block_size = 0;
@@ -705,7 +702,7 @@ template <typename Flavor> class SumcheckProverRound {
 template <typename Flavor> class SumcheckVerifierRound {
     using Utils = bb::RelationUtils<Flavor>;
     using Relations = typename Flavor::Relations;
-    using TupleOfArraysOfValues = typename Flavor::TupleOfArraysOfValues;
+    using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<typename Flavor::Relations>());
     using SubrelationSeparators = typename Flavor::SubrelationSeparators;
 
   public:
@@ -808,15 +805,15 @@ template <typename Flavor> class SumcheckVerifierRound {
      *
      * @param gate_challenges
      */
-    void pad_gate_challenges(std::vector<FF>& gate_challenges)
+    void pad_gate_challenges(std::vector<FF>& gate_challenges, const size_t virtual_log_n)
     {
 
-        if (gate_challenges.size() < CONST_PROOF_SIZE_LOG_N) {
+        if (gate_challenges.size() < virtual_log_n) {
             FF zero{ 0 };
             if constexpr (IsRecursiveFlavor<Flavor>) {
                 zero.convert_constant_to_fixed_witness(gate_challenges[0].get_context());
             }
-            for (size_t idx = gate_challenges.size(); idx < CONST_PROOF_SIZE_LOG_N; idx++) {
+            for (size_t idx = gate_challenges.size(); idx < virtual_log_n; idx++) {
                 gate_challenges.emplace_back(zero);
             }
         }

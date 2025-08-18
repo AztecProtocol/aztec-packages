@@ -19,6 +19,7 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     l2Token,
     user1Wallet,
     user2Wallet,
+    user2Address,
   } = t;
   let rollup: RollupContract;
   let cheatCodes: CheatCodes;
@@ -27,7 +28,7 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     await t.applyBaseSnapshots();
     await t.setup();
     // Have to destructure again to ensure we have latest refs.
-    ({ crossChainTestHarness, user1Wallet, user2Wallet } = t);
+    ({ crossChainTestHarness, user1Wallet, user2Wallet, user2Address } = t);
 
     ethAccount = crossChainTestHarness.ethAccount;
     aztecNode = crossChainTestHarness.aztecNode;
@@ -128,7 +129,7 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     await l2Bridge
       .withWallet(user2Wallet)
       .methods.claim_private(ownerAddress, bridgeAmount, claim.claimSecret, claim.messageLeafIndex)
-      .send()
+      .send({ from: user2Address })
       .wait();
 
     await crossChainTestHarness.expectPrivateBalanceOnL2(ownerAddress, bridgeAmount);

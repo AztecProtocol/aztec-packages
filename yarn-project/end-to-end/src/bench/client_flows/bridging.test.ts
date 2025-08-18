@@ -80,6 +80,7 @@ describe('Bridging benchmark', () => {
           // 3. Consume L1 -> L2 message and mint private tokens on L2
           const paymentMethod = t.paymentMethods[benchmarkingPaymentMethod];
           const options: SimulateMethodOptions = {
+            from: benchysWallet.getAddress(),
             fee: { paymentMethod: await paymentMethod.forWallet(benchysWallet) },
           };
 
@@ -101,7 +102,8 @@ describe('Bridging benchmark', () => {
               2 + // TokenBridge claim_private + kernel inner
               2 + // BridgedAsset mint_to_private + kernel inner
               1 + // Kernel reset
-              1, // Kernel tail
+              1 + // Kernel tail
+              1, // Kernel hiding
           );
 
           if (process.env.SANITY_CHECKS) {

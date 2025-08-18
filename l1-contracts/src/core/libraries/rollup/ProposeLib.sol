@@ -7,11 +7,11 @@ import {TempBlockLog} from "@aztec/core/libraries/compressed-data/BlockLog.sol";
 import {FeeHeader} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {SignatureDomainSeparator, CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {OracleInput, FeeLib, ManaBaseFeeComponents} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
-import {SignatureDomainSeparator, CommitteeAttestations} from "@aztec/shared/libraries/SignatureLib.sol";
 import {BlobLib} from "./BlobLib.sol";
 import {ProposedHeader, ProposedHeaderLib, StateReference} from "./ProposedHeaderLib.sol";
 import {STFLib} from "./STFLib.sol";
@@ -256,9 +256,9 @@ library ProposeLib {
     // Compute attestationsHash from the attestations
     v.attestationsHash = keccak256(abi.encode(_attestations));
 
+    // Commit state changes: update chain tips and store block data
     STFLib.getStorage().tips = tips;
-    STFLib.setTempBlockLog(
-      blockNumber,
+    STFLib.addTempBlockLog(
       TempBlockLog({
         headerHash: v.headerHash,
         blobCommitmentsHash: BlobLib.calculateBlobCommitmentsHash(

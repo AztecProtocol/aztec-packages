@@ -93,9 +93,6 @@ class AvmFlavor {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
-    using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
-    using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
-
     static constexpr bool has_zero_row = true;
 
     static constexpr size_t NUM_FRS_COM = field_conversion::calc_num_bn254_frs<Commitment>();
@@ -269,27 +266,15 @@ class AvmFlavor {
             }
         }
 
-        /**
-         * @brief Serialize verification key to field elements
-         *
-         * @return std::vector<FF>
-         */
         std::vector<fr> to_field_elements() const override;
-
         /**
-         * @brief Adds the verification key hash to the transcript and returns the hash.
-         * @details Needed to make sure the Origin Tag system works. See the base class function for
-         * more details.
-         *
-         * @param domain_separator
-         * @param transcript
-         * @returns The hash of the verification key
+         * @brief Unimplemented because AVM VK is hardcoded so hash does not need to be computed. Rather, we just add
+         * the provided VK hash directly to the transcript.
          */
-        fr add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
-                                  [[maybe_unused]] Transcript& transcript) const override
+        fr hash_through_transcript([[maybe_unused]] const std::string& domain_separator,
+                                   [[maybe_unused]] Transcript& transcript) const override
         {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1466): Implement this function.
-            throw_or_abort("Not implemented yet!");
+            throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
         }
     };
 

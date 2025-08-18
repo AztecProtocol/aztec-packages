@@ -24,12 +24,9 @@
 namespace bb::avm2::simulation {
 
 struct BytecodeNotFoundError : public std::runtime_error {
-    BytecodeNotFoundError(BytecodeId id, const std::string& message)
+    BytecodeNotFoundError(const std::string& message)
         : std::runtime_error(message)
-        , bytecode_id(id)
     {}
-
-    BytecodeId bytecode_id;
 };
 
 struct InstructionFetchingError : public std::runtime_error {
@@ -88,7 +85,6 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
     EventEmitterInterface<BytecodeDecompositionEvent>& decomposition_events;
     EventEmitterInterface<InstructionFetchingEvent>& fetching_events;
     unordered_flat_map<BytecodeId, std::shared_ptr<std::vector<uint8_t>>> bytecodes;
-    BytecodeId next_bytecode_id = 0;
 };
 
 // Manages the bytecode of a single nested call.
@@ -98,8 +94,14 @@ class BytecodeManagerInterface {
     virtual ~BytecodeManagerInterface() = default;
 
     virtual Instruction read_instruction(uint32_t pc) = 0;
+
     // Returns the id of the current bytecode. Tries to fetch it if not already done.
+    // Throws BytecodeNotFoundError if contract does not exist.
     virtual BytecodeId get_bytecode_id() = 0;
+
+    // Returns the id of the current bytecode, or nullopt if contract does not exist.
+    // Does not throw (for use in during context serialization before execution is expecting errors)
+    virtual std::optional<BytecodeId> try_get_bytecode_id() = 0;
 };
 
 class BytecodeManager : public BytecodeManagerInterface {
@@ -113,10 +115,23 @@ class BytecodeManager : public BytecodeManagerInterface {
     {
         return tx_bytecode_manager.read_instruction(get_bytecode_id(), pc);
     }
+
     BytecodeId get_bytecode_id() override
     {
         if (!bytecode_id.has_value()) {
             bytecode_id = tx_bytecode_manager.get_bytecode(address);
+        }
+        return bytecode_id.value();
+    }
+
+    std::optional<BytecodeId> try_get_bytecode_id() override
+    {
+        if (!bytecode_id.has_value()) {
+            try {
+                bytecode_id = tx_bytecode_manager.get_bytecode(address);
+            } catch (const BytecodeNotFoundError&) {
+                return std::nullopt;
+            }
         }
         return bytecode_id.value();
     }

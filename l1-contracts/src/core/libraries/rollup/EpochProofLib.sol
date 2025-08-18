@@ -7,6 +7,7 @@ import {CompressedTempBlockLog} from "@aztec/core/libraries/compressed-data/Bloc
 import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {AttestationLib, CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {BlobLib} from "@aztec/core/libraries/rollup/BlobLib.sol";
 import {CompressedFeeHeader, FeeHeaderLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {RewardLib} from "@aztec/core/libraries/rollup/RewardLib.sol";
@@ -14,7 +15,6 @@ import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
-import {CommitteeAttestations, SignatureLib} from "@aztec/shared/libraries/SignatureLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
@@ -35,7 +35,7 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
  *      The submitEpochRootProof() function is the main entry point called from RollupCore.submitEpochRootProof().
  *      It serves as the mechanism by which provers can finalize epochs, advancing the proven chain tip and
  *      triggering reward distribution. This is a critical operation that moves blocks from "pending" to "proven"
- * status.
+ *      status.
  *
  *      Attestation Verification:
  *      Before accepting an epoch proof, this library verifies the attestations for the last block in the epoch.
@@ -63,15 +63,8 @@ library EpochProofLib {
   using FeeHeaderLib for CompressedFeeHeader;
   using SafeCast for uint256;
   using ChainTipsLib for CompressedChainTips;
-  using SignatureLib for CommitteeAttestations;
+  using AttestationLib for CommitteeAttestations;
   using CompressedTimeMath for CompressedSlot;
-
-  // This is a temporary struct to avoid stack too deep errors
-  struct BlobVarsTemp {
-    uint256 blobOffset;
-    uint256 offset;
-    uint256 i;
-  }
 
   /**
    * @notice Submit a validity proof for an epoch's state transitions, advancing the proven chain tip
@@ -116,6 +109,8 @@ library EpochProofLib {
     Epoch endEpoch = assertAcceptable(_args.start, _args.end);
 
     // Verify attestations for the last block in the epoch
+    // -> This serves as training wheels for the public part of the system (proving systems used in public and AVM)
+    // ensuring committee consensus on the epoch's validity alongside the cryptographic proof verification below.
     verifyLastBlockAttestations(_args.end, _args.attestations);
 
     require(verifyEpochRootProof(_args), Errors.Rollup__InvalidProof());
@@ -153,8 +148,6 @@ library EpochProofLib {
     RollupStore storage rollupStore = STFLib.getStorage();
 
     require(_args.endArchive != bytes32(0), Errors.Rollup__EndArchiveIsZero());
-
-    // TODO(#7373): Public inputs are not fully verified
 
     {
       // We do it this way to provide better error messages than passing along the storage values

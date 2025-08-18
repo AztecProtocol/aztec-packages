@@ -143,7 +143,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     EmitUnencryptedLog emit_unencrypted_log_component(execution_id_manager, greater_than, emit_unencrypted_log_emitter);
     Alu alu(greater_than, field_gt, range_check, alu_emitter);
     Bitwise bitwise(bitwise_emitter);
-    Sha256 sha256(execution_id_manager, sha256_compression_emitter);
+    Sha256 sha256(execution_id_manager, bitwise, greater_than, sha256_compression_emitter);
     KeccakF1600 keccakf1600(execution_id_manager, keccakf1600_emitter, bitwise, range_check);
 
     Ecc ecc(execution_id_manager, greater_than, to_radix, ecc_add_emitter, scalar_mul_emitter, ecc_add_memory_emitter);
@@ -206,6 +206,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                         poseidon2,
                         ecc,
                         to_radix,
+                        sha256,
                         execution_components,
                         context_provider,
                         instruction_info_db,

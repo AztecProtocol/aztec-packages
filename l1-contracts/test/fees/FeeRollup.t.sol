@@ -9,11 +9,11 @@ import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {
-  SignatureLib,
+  AttestationLib,
   Signature,
   CommitteeAttestation,
   CommitteeAttestations
-} from "@aztec/shared/libraries/SignatureLib.sol";
+} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
@@ -195,7 +195,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
             oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier}),
             parentHeaderHash: bytes32(0)
           }),
-          SignatureLib.packAttestations(b.attestations),
+          AttestationLib.packAttestations(b.attestations),
           b.signers,
           b.blobInputs
         );
@@ -286,7 +286,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
             oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier}),
             parentHeaderHash: bytes32(0)
           }),
-          SignatureLib.packAttestations(b.attestations),
+          AttestationLib.packAttestations(b.attestations),
           b.signers,
           b.blobInputs
         );
