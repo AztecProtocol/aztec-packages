@@ -253,8 +253,7 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     // current subtable. We don't do this for the hiding kernel as it succeeds another kernel.
     if (!is_hiding_kernel) {
         if (is_tail_kernel) {
-            info("AM I HERE");
-            vinfo("AM I HERE");
+            info("adding no-op to the tail kernel subtable");
             // Add a no-op at the beginning of the tail kernel (the last circuit whose ecc ops subtable is prepended) to
             // ensure the wires representing the op queue in translator circuit are shiftable polynomials, i.e. their
             // 0th coefficient is 0.
