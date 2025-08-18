@@ -57,6 +57,11 @@ export class Oracle {
     }, {} as ACIRCallback);
   }
 
+  utilityAssertOracleVersionMatches([version]: ACVMField[]) {
+    this.typedOracle.utilityAssertOracleVersionMatches(Fr.fromString(version).toNumber());
+    return Promise.resolve([]);
+  }
+
   utilityGetRandomField(): Promise<ACVMField[]> {
     const val = this.typedOracle.utilityGetRandomField();
     return Promise.resolve([toACVMField(val)]);

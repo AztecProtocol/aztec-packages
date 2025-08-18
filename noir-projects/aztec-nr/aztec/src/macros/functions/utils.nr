@@ -161,6 +161,7 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) {
         $storage_init
         $message_discovery_call
         $authorize_once_check
+        dep::aztec::oracle::oracle_version::assert_oracle_version_matches();
     };
 
     let to_append = quote {
@@ -311,6 +312,7 @@ pub(crate) comptime fn transform_utility(f: FunctionDefinition) {
         $context_creation
         $storage_init
         $message_discovery_call
+        dep::aztec::oracle::oracle_version::assert_oracle_version_matches();
     };
     let body = f.body().as_block().unwrap();
     let modified_body = modify_fn_body(body, to_prepend, quote {});
@@ -375,7 +377,7 @@ pub(crate) comptime fn create_message_discovery_call() -> Quoted {
 ///   if (!from.eq(context.msg_sender())) {
 ///         assert_current_call_valid_authwit::<N>(&mut context, from);
 ///     } else {
-///         assert(authwit_nonce, "Invalid auhtwit nonce. When 'from' and 'msg_sender' are the same, authwit_nonce must be zero");
+///         assert(authwit_nonce, "Invalid authwit nonce. When 'from' and 'msg_sender' are the same, authwit_nonce must be zero");
 ///     }
 /// ```
 /// where `from` and `authwit_nonce` are the names of the parameters that are expected to be present in the function definition.

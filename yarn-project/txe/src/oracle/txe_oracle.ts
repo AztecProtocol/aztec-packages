@@ -22,6 +22,7 @@ import {
   AddressDataProvider,
   CapsuleDataProvider,
   NoteDataProvider,
+  ORACLE_VERSION,
   PXEOracleInterface,
   PrivateEventDataProvider,
   TaggingDataProvider,
@@ -380,6 +381,12 @@ export class TXE extends TXETypedOracle {
   }
 
   // TypedOracle
+
+  override utilityAssertOracleVersionMatches(version: number): void {
+    if (version !== ORACLE_VERSION) {
+      throw new Error(`Oracle version mismatch. Expected version ${ORACLE_VERSION}, got ${version}.`);
+    }
+  }
 
   override utilityGetBlockNumber() {
     return Promise.resolve(this.blockNumber);
