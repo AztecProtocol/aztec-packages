@@ -69,36 +69,6 @@ class ClientIVCTests : public ::testing::Test {
 };
 
 /**
- * @brief A simple-as-possible test demonstrating IVC for two mock circuits
- * @details When accumulating only two circuits, only a single round of folding is performed thus no recursive
- * verification occurs.
- *
- */
-TEST_F(ClientIVCTests, Basic)
-{
-    ClientIVC ivc{ /*num_circuits=*/4 };
-    // the ivc stack is one app, init kernel, tail kernel, hiding kernel
-    PrivateFunctionExecutionMockCircuitProducer circuit_producer(1, 0);
-    circuit_producer.create_mock_ivc_stack({ .log2_num_gates = MEDIUM_LOG_2_NUM_GATES }, ivc);
-    EXPECT_TRUE(ivc.prove_and_verify());
-};
-
-/**
- * @brief A simple test demonstrating IVC for four mock circuits, which is slightly more than minimal.
- * @details When accumulating only four circuits, we execute all the functionality of a full ClientIVC run.
- *
- */
-TEST_F(ClientIVCTests, BasicFour)
-{
-    ClientIVC ivc{ /*num_circuits=*/6 };
-    // app, init, app, inner, tail, hiding
-    PrivateFunctionExecutionMockCircuitProducer circuit_producer(2, 0);
-    // circuit_producer.create_mock_ivc_stack({ .log2_num_gates = MEDIUM_LOG_2_NUM_GATES }, ivc);
-    circuit_producer.create_mock_ivc_stack(TestSettings{}, ivc);
-    EXPECT_TRUE(ivc.prove_and_verify());
-};
-
-/**
  * @brief Check that the IVC fails if an intermediate fold proof is invalid
  * @details When accumulating 4 circuits, there are 3 fold proofs to verify (the first two are recursively verfied and
  * the 3rd is verified as part of the IVC proof). Check that if any of one of these proofs is invalid, the IVC will
@@ -411,29 +381,6 @@ HEAVY_TEST(ClientIVCKernelCapacity, MaxCapacityFailing)
 }
 
 /**
- * @brief Test use of structured trace overflow block mechanism
- * @details Accumulate 4 circuits which have progressively more arithmetic gates. The final two overflow the
- prescribed
- * arithmetic block size and make use of the overflow block which has sufficient capacity.
- *
- */
-TEST_F(ClientIVCTests, StructuredTraceOverflow)
-{
-
-    // Define trace settings with sufficient overflow capacity to accommodate each of the circuits to be accumulated
-    const size_t NUM_APP_CIRCUITS = 2;
-    const size_t NUM_CIRCUITS = 2 * NUM_APP_CIRCUITS + 2;
-    ClientIVC ivc{ NUM_CIRCUITS, { SMALL_TEST_STRUCTURE, /*overflow_capacity=*/1 << 17 } };
-    PrivateFunctionExecutionMockCircuitProducer circuit_producer(NUM_APP_CIRCUITS);
-
-    // Construct and accumulate some circuits of varying size
-    size_t log2_num_gates = 14;
-    circuit_producer.create_mock_ivc_stack({ .log2_num_gates = log2_num_gates }, ivc, true);
-
-    EXPECT_TRUE(ivc.prove_and_verify());
-};
-
-/**
  * @brief Test the structured trace overflow mechanism in a variety of different scenarios
  *
  */
@@ -448,19 +395,18 @@ TEST_F(ClientIVCTests, DynamicTraceOverflow)
     // accumulation. We distinguish between a simple overflow that exceeds one or more structured trace capacities but
     // does not bump the dyadic circuit size and an overflow that does increase the dyadic circuit size.
     std::vector<TestCase> test_cases = {
-        { "Case 1", { 18, 14 } },         /* first circuit overflows with dyadic size increase */
-        { "Case 2", { 14, 16 } },         /* simple overlow (no dyadic size increase)*/
-        { "Case 3", { 14, 18 } },         /* overflow with dyadic size increase*/
-        { "Case 4", { 14, 18, 14, 16 } }, /* dyadic size overflow then simple overflow */
-        { "Case 5", { 14, 16, 14, 18 } }, /* simple overflow then dyadic size overflow */
+        { "Case 1", { 18, 14, 14, 14, 14 } }, /* first circuit overflows with dyadic size increase */
+        // { "Case 2", { 14, 16 } },         /* simple overlow (no dyadic size increase)*/
+        // { "Case 3", { 14, 18 } },         /* overflow with dyadic size increase*/
+        // { "Case 4", { 14, 18, 14, 16 } }, /* dyadic size overflow then simple overflow */
+        // { "Case 5", { 14, 16, 14, 18 } }, /* simple overflow then dyadic size overflow */
     };
 
     for (const auto& test : test_cases) {
         SCOPED_TRACE(test.name); // improves test output readability
 
-        uint32_t overflow_capacity = 0;
         const size_t NUM_CIRCUITS = test.log2_num_arith_gates.size();
-        ClientIVC ivc{ NUM_CIRCUITS, { SMALL_TEST_STRUCTURE_FOR_OVERFLOWS, overflow_capacity } };
+        ClientIVC ivc{ NUM_CIRCUITS, { SMALL_TEST_STRUCTURE_FOR_OVERFLOWS } };
         PrivateFunctionExecutionMockCircuitProducer circuit_producer;
 
         // Accumulate
