@@ -82,8 +82,8 @@ library TestConstants {
     });
   }
 
-  function getRollupConfigInput() internal pure returns (RollupConfigInput memory) {
-    return RollupConfigInput({
+  function getRollupConfigInput() internal view returns (RollupConfigInput memory) {
+    RollupConfigInput memory config = RollupConfigInput({
       aztecSlotDuration: AZTEC_SLOT_DURATION,
       aztecEpochDuration: AZTEC_EPOCH_DURATION,
       aztecProofSubmissionEpochs: AZTEC_PROOF_SUBMISSION_EPOCHS,
@@ -96,9 +96,18 @@ library TestConstants {
       manaTarget: AZTEC_MANA_TARGET,
       exitDelaySeconds: AZTEC_EXIT_DELAY_SECONDS,
       provingCostPerMana: AZTEC_PROVING_COST_PER_MANA,
+      version: 0,
       rewardConfig: getRewardConfig(),
       rewardBoostConfig: getRewardBoostConfig(),
       stakingQueueConfig: getStakingQueueConfig()
     });
+
+    // For the version we derive it based on the config (with a 0 version)
+    // TODO(https://linear.app/aztec-labs/issue/TMNT-139/version-at-deployment)
+    uint32 version =
+      uint32(uint256(keccak256(abi.encode(bytes("aztec_rollup"), block.chainid, getGenesisState(), config))));
+    config.version = version;
+
+    return config;
   }
 }

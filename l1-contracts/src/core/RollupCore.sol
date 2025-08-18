@@ -255,10 +255,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     rollupStore.config.feeAsset = _feeAsset;
     rollupStore.config.epochProofVerifier = _epochProofVerifier;
 
-    // @todo handle case where L1 forks and chain ID is different
-    // @note Truncated to 32 bits to make simpler to deal with all the node changes at a separate time.
-    uint32 version =
-      uint32(uint256(keccak256(abi.encode(bytes("aztec_rollup"), block.chainid, address(this), _genesisState))));
+    uint32 version = _config.version;
     rollupStore.config.version = version;
 
     IInbox inbox = IInbox(address(new Inbox(address(this), _feeAsset, version, Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT)));
@@ -270,16 +267,6 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     rollupStore.config.feeAssetPortal = IFeeJuicePortal(inbox.getFeeAssetPortal());
 
     FeeLib.initialize(_config.manaTarget, _config.provingCostPerMana);
-  }
-
-  /**
-   * @notice Preheats the block header cache to optimize gas costs for subsequent operations
-   * @dev This function loads recent block headers into memory to reduce gas costs for operations
-   *      that need to access historical block data. Should be called before gas-intensive operations.
-   *      Used for stabilizing benchmarks.
-   */
-  function preheatHeaders() external override(IRollupCore) {
-    STFLib.preheatHeaders();
   }
 
   /**
@@ -346,29 +333,29 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
   /**
    * @notice Claims accumulated rewards for a sequencer (block proposer)
    * @dev Rewards must be enabled via isRewardsClaimable. Transfers all accumulated rewards to the recipient.
-   * @param _recipient The address to receive the rewards
+   * @param _coinbase The address that has accumulated the rewards - rewards are sent to this address
    * @return The amount of rewards claimed
    */
-  function claimSequencerRewards(address _recipient) external override(IRollupCore) returns (uint256) {
+  function claimSequencerRewards(address _coinbase) external override(IRollupCore) returns (uint256) {
     require(isRewardsClaimable, Errors.Rollup__RewardsNotClaimable());
-    return RewardLib.claimSequencerRewards(_recipient);
+    return RewardLib.claimSequencerRewards(_coinbase);
   }
 
   /**
    * @notice Claims prover rewards for specified epochs
    * @dev Rewards must be enabled. Provers earn rewards for successfully proving epoch transitions.
    *      Each epoch can only be claimed once per prover.
-   * @param _recipient The address to receive the rewards
+   * @param _coinbase The address that has accumulated the rewards - rewards are sent to this address
    * @param _epochs Array of epochs to claim rewards for
    * @return The total amount of rewards claimed
    */
-  function claimProverRewards(address _recipient, Epoch[] memory _epochs)
+  function claimProverRewards(address _coinbase, Epoch[] memory _epochs)
     external
     override(IRollupCore)
     returns (uint256)
   {
     require(isRewardsClaimable, Errors.Rollup__RewardsNotClaimable());
-    return RewardLib.claimProverRewards(_recipient, _epochs);
+    return RewardLib.claimProverRewards(_coinbase, _epochs);
   }
 
   /**

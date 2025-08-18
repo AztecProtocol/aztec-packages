@@ -14,7 +14,7 @@ template <typename FF_> class calldataImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 3> SUBRELATION_PARTIAL_LENGTHS = { 4, 4, 6 };
+    static constexpr std::array<size_t, 3> SUBRELATION_PARTIAL_LENGTHS = { 4, 4, 5 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -52,8 +52,8 @@ template <typename FF_> class calldataImpl {
         { // CONTEXT_ID_CONTINUITY
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
             auto tmp = (FF(1) - in.get(C::precomputed_first_row)) * in.get(C::calldata_sel) *
-                       (FF(1) - in.get(C::calldata_latch)) * (FF(1) - in.get(C::calldata_context_id)) *
-                       in.get(C::calldata_context_id_shift);
+                       (FF(1) - in.get(C::calldata_latch)) *
+                       (in.get(C::calldata_context_id) - in.get(C::calldata_context_id_shift));
             tmp *= scaling_factor;
             std::get<2>(evals) += typename Accumulator::View(tmp);
         }
