@@ -108,22 +108,9 @@ struct ExecutionTraceUsageTracker {
         active_ranges.push_back(Range{ databus_data_start, databus_data_end }); // region where databus contains data
 
         // Note: start of table data is aligned with start of the lookup gates block
-        size_t lookups_start = fixed_sizes.lookup.trace_offset();
-        size_t lookups_end = lookups_start + std::max(max_tables_size, static_cast<size_t>(max_sizes.lookup));
-        active_ranges.emplace_back(Range{ lookups_start, lookups_end });
-    }
-
-    // Check whether an index is contained within the active ranges (or previous active ranges; needed for perturbator)
-    bool check_is_active(const size_t idx, bool use_prev_accumulator = false)
-    {
-        // If structured trace is not in use, assume the whole trace is active
-        if (!trace_settings.structure) {
-            return true;
-        }
-        std::vector<Range> ranges_to_check = use_prev_accumulator ? previous_active_ranges : active_ranges;
-        return std::any_of(ranges_to_check.begin(), ranges_to_check.end(), [idx](const auto& range) {
-            return idx >= range.first && idx < range.second;
-        });
+        size_t tables_start = fixed_sizes.lookup.trace_offset();
+        size_t tables_end = tables_start + max_tables_size;
+        active_ranges.emplace_back(Range{ tables_start, tables_end }); // region where table data is stored
     }
 
     void print()
