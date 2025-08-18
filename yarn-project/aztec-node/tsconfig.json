@@ -40,6 +40,9 @@
       "path": "../node-lib"
     },
     {
+      "path": "../node-keystore"
+    },
+    {
       "path": "../noir-protocol-circuits-types"
     },
     {

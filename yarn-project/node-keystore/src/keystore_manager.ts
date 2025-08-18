@@ -13,7 +13,7 @@ import { extname, join } from 'path';
 import type { TypedDataDefinition } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
-import { LocalSigner, RemoteSigner, type Signer } from './signer.js';
+import { LocalSigner, RemoteSigner } from './signer.js';
 import type {
   EthAccount,
   EthAccounts,
@@ -172,6 +172,17 @@ export class KeystoreManager {
 
     // Fall back to attester signers
     return this.createAttesterSigners(validatorIndex);
+  }
+
+  createAllValidatorPublisherSigners(): EthSigner[] {
+    const numValidators = this.getValidatorCount();
+    const allPublishers = [];
+
+    for (let i = 0; i < numValidators; i++) {
+      allPublishers.push(...this.createPublisherSigners(i));
+    }
+
+    return allPublishers;
   }
 
   /**

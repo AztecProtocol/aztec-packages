@@ -21,7 +21,10 @@ import {
   getPublicClient,
   isExtendedClient,
 } from '@aztec/ethereum';
-import { createL1TxUtilsWithBlobsFromViemWallet } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import {
+  createL1TxUtilsWithBlobsFromEthSigner,
+  createL1TxUtilsWithBlobsFromViemWallet,
+} from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { compactArray, pick } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -31,6 +34,7 @@ import { SerialQueue } from '@aztec/foundation/queue';
 import { count } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
+import { KeystoreManager, loadKeystores, mergeKeystores } from '@aztec/node-keystore';
 import { trySnapshotSync, uploadSnapshot } from '@aztec/node-lib/actions';
 import { type P2P, type P2PClientDeps, createP2PClient, getDefaultAllowedSetupFunctions } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -112,7 +116,7 @@ import { createPublicClient, fallback, http } from 'viem';
 
 import { createSentinel } from '../sentinel/factory.js';
 import { Sentinel } from '../sentinel/sentinel.js';
-import type { AztecNodeConfig } from './config.js';
+import { type AztecNodeConfig, createKeyStoreForValidator } from './config.js';
 import { NodeMetrics } from './node_metrics.js';
 
 /**
@@ -195,6 +199,19 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const blobSinkClient =
       deps.blobSinkClient ?? createBlobSinkClient(config, { logger: createLogger('node:blob-sink:client') });
     const ethereumChain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
+
+    let keyStoreManager: KeystoreManager | undefined;
+    if (config.keyStoreDirectory !== undefined && config.keyStoreDirectory.length) {
+      const keyStores = loadKeystores(config.keyStoreDirectory);
+      keyStoreManager = new KeystoreManager(mergeKeystores(keyStores));
+    } else {
+      const keyStore = createKeyStoreForValidator(config);
+      keyStoreManager = new KeystoreManager(keyStore);
+    }
+
+    if (keyStoreManager === undefined) {
+      throw new Error('Failed to create key store');
+    }
 
     // validate that the actual chain id matches that specified in configuration
     if (config.l1ChainId !== ethereumChain.chainInfo.id) {
@@ -329,6 +346,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       blockBuilder,
       blockSource: archiver,
       l1ToL2MessageSource: archiver,
+      keyStoreManager,
     });
 
     if (validatorClient) {
@@ -360,15 +378,19 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // Validator enabled, create/start relevant service
     let sequencer: SequencerClient | undefined;
     if (!config.disableValidator) {
-      const publisherPrivateKeys = getPublisherPrivateKeysFromConfig(config);
+      //const publisherPrivateKeys = getPublisherPrivateKeysFromConfig(config);
 
-      const l1TxUtils = publisherPrivateKeys.map(publisherPrivateKey => {
-        return createL1TxUtilsWithBlobsFromViemWallet(
-          createExtendedL1Client(l1RpcUrls, publisherPrivateKey.getValue(), ethereumChain.chainInfo),
-          log,
-          dateProvider,
-          config,
-        );
+      // const l1TxUtils = publisherPrivateKeys.map(publisherPrivateKey => {
+      //   return createL1TxUtilsWithBlobsFromViemWallet(
+      //     createExtendedL1Client(l1RpcUrls, publisherPrivateKey.getValue(), ethereumChain.chainInfo),
+      //     log,
+      //     dateProvider,
+      //     config,
+      //   );
+      // });
+
+      const l1TxUtils = keyStoreManager.createAllValidatorPublisherSigners().map(signer => {
+        return createL1TxUtilsWithBlobsFromEthSigner(publicClient, signer, log, dateProvider, config);
       });
 
       sequencer = await SequencerClient.new(config, {

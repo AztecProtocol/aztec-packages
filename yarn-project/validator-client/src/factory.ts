@@ -1,6 +1,7 @@
 import type { EpochCache } from '@aztec/epoch-cache';
 import { SecretValue } from '@aztec/foundation/config';
 import type { DateProvider } from '@aztec/foundation/timer';
+import type { KeystoreManager } from '@aztec/node-keystore';
 import type { P2PClient } from '@aztec/p2p';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { IFullNodeBlockBuilder, SlasherConfig } from '@aztec/stdlib/interfaces/server';
@@ -23,17 +24,18 @@ export function createValidatorClient(
     telemetry: TelemetryClient;
     dateProvider: DateProvider;
     epochCache: EpochCache;
+    keyStoreManager: KeystoreManager;
   },
 ) {
   if (config.disableValidator) {
     return undefined;
   }
-  if (
-    (config.validatorPrivateKeys === undefined || !config.validatorPrivateKeys.getValue().length) &&
-    !config.web3SignerUrl
-  ) {
-    config.validatorPrivateKeys = new SecretValue([generatePrivateKey()]);
-  }
+  // if (
+  //   (config.validatorPrivateKeys === undefined || !config.validatorPrivateKeys.getValue().length) &&
+  //   !config.web3SignerUrl
+  // ) {
+  //   config.validatorPrivateKeys = new SecretValue([generatePrivateKey()]);
+  // }
 
   const txProvider = deps.p2pClient.getTxProvider();
   return ValidatorClient.new(
@@ -44,6 +46,7 @@ export function createValidatorClient(
     deps.blockSource,
     deps.l1ToL2MessageSource,
     txProvider,
+    deps.keyStoreManager,
     deps.dateProvider,
     deps.telemetry,
   );
