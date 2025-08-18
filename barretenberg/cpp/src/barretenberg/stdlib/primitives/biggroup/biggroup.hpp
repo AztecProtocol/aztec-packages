@@ -461,33 +461,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     };
 
     static std::pair<four_bit_table_plookup, four_bit_table_plookup> create_endo_pair_four_bit_table_plookup(
-        const element& input)
-    {
-        four_bit_table_plookup P1;
-        four_bit_table_plookup endoP1;
-        element d2 = input.dbl();
-
-        P1.element_table[8] = input;
-        for (size_t i = 9; i < 16; ++i) {
-            P1.element_table[i] = P1.element_table[i - 1] + d2;
-        }
-        for (size_t i = 0; i < 8; ++i) {
-            P1.element_table[i] = (-P1.element_table[15 - i]);
-        }
-        for (size_t i = 0; i < 16; ++i) {
-            endoP1.element_table[i].y = P1.element_table[15 - i].y;
-        }
-        uint256_t beta_val = bb::field<typename Fq::TParams>::cube_root_of_unity();
-        Fq beta(bb::fr(beta_val.slice(0, 136)), bb::fr(beta_val.slice(136, 256)), false);
-        for (size_t i = 0; i < 8; ++i) {
-            endoP1.element_table[i].x = P1.element_table[i].x * beta;
-            endoP1.element_table[15 - i].x = endoP1.element_table[i].x;
-        }
-        P1.coordinates = create_group_element_rom_tables<16>(P1.element_table, P1.limb_max);
-        endoP1.coordinates = create_group_element_rom_tables<16>(endoP1.element_table, endoP1.limb_max);
-        auto result = std::make_pair(four_bit_table_plookup(P1), four_bit_table_plookup(endoP1));
-        return result;
-    }
+        const element& input);
 
     /**
      * Creates a lookup table for a set of 2, 3 or 4 points
@@ -496,7 +470,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      *
      * e.g. for 3 points A, B, C, the table represents the following values:
      *
-     * 0 0 0 ->  C+B+A
+     * 0 0 0 ->  C+B+A ==> (x, y) ==> (x_3 || x_2 || x_1 || x_0), (y_3 || y_2 || y_1 || y_0)
      * 0 0 1 ->  C+B-A
      * 0 1 0 ->  C-B+A
      * 0 1 1 ->  C-B-A
@@ -549,6 +523,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         element operator[](const size_t idx) const { return element_table[idx]; }
 
         std::array<element, table_size> element_table;
+        // TODO: avoid hard coding the number of coordinates (use Fq::NUM_LIMBS)
         std::array<twin_rom_table<Builder>, 5> coordinates;
         std::array<uint256_t, 8> limb_max;
     };

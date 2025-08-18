@@ -649,4 +649,67 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::lookup_table_base<length>::get(
     }
     return element::one(bits[0].get_context());
 }
+
+/**
+ * @brief Create a endo pair four bit table plookup object
+ *
+ * @tparam C
+ * @tparam Fq
+ * @tparam Fr
+ * @tparam G
+ * @param input
+ * @return std::pair<four_bit_table_plookup, four_bit_table_plookup>
+ *
+ * @details
+ *
+ * | Index | P = (x, y) | Q = (β.x, y) |
+ * |-------|------------|---------------|
+ * | 0     | -15.P      | Q_0           |
+ * | 1     | -13.P      | Q_1           |
+ * | 2     | -11.P      | Q_2           |
+ * | 3     | -9.P       | Q_3           |
+ * | 4     | -7.P       | Q_4           |
+ * | 5     | -5.P       | Q_5           |
+ * | 6     | -3.P       | Q_6           |
+ * | 7     | -1.P       | Q_7           |
+ * | 8     | 1.P        | Q_8           |
+ * | 9     | 3.P        | Q_9           |
+ * | 10    | 5.P        | Q_10          |
+ * | 11    | 7.P        | Q_11          |
+ * | 12    | 9.P        | Q_12          |
+ * | 13    | 11.P       | Q_13          |
+ * | 14    | 13.P       | Q_14          |
+ * | 15    | 15.P       | Q_15          |
+ */
+template <typename C, class Fq, class Fr, class G>
+std::pair<typename element<C, Fq, Fr, G>::four_bit_table_plookup,
+          typename element<C, Fq, Fr, G>::four_bit_table_plookup>
+element<C, Fq, Fr, G>::create_endo_pair_four_bit_table_plookup(const element& input)
+{
+    four_bit_table_plookup P1;
+    four_bit_table_plookup endoP1;
+    element d2 = input.dbl();
+
+    P1.element_table[8] = input;
+    for (size_t i = 9; i < 16; ++i) {
+        P1.element_table[i] = P1.element_table[i - 1] + d2;
+    }
+    for (size_t i = 0; i < 8; ++i) {
+        P1.element_table[i] = (-P1.element_table[15 - i]);
+    }
+    for (size_t i = 0; i < 16; ++i) {
+        endoP1.element_table[i].y = P1.element_table[15 - i].y;
+    }
+    uint256_t beta_val = bb::field<typename Fq::TParams>::cube_root_of_unity();
+    Fq beta(bb::fr(beta_val.slice(0, 136)), bb::fr(beta_val.slice(136, 256)));
+    for (size_t i = 0; i < 8; ++i) {
+        endoP1.element_table[i].x = P1.element_table[i].x * beta;
+        endoP1.element_table[15 - i].x = endoP1.element_table[i].x;
+    }
+    P1.coordinates = create_group_element_rom_tables<16>(P1.element_table, P1.limb_max);
+    endoP1.coordinates = create_group_element_rom_tables<16>(endoP1.element_table, endoP1.limb_max);
+    auto result = std::make_pair(four_bit_table_plookup(P1), four_bit_table_plookup(endoP1));
+    return result;
+}
+
 } // namespace bb::stdlib::element_default
