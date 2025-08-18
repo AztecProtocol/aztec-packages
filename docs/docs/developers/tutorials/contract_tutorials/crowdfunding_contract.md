@@ -29,7 +29,7 @@ This tutorial is compatible with the Aztec version `#include_aztec_version`. Ins
 
 ### Install tools
 
-Please ensure that you already have [Installed the Sandbox](../../../getting_started)
+Please ensure that you already have [Installed the Sandbox](../../getting_started)
 
 ### Create an Aztec project
 
@@ -202,7 +202,7 @@ Follow the account contract tutorial on the [next page](./write_accounts_contrac
 
 ### Optional: Learn more about concepts mentioned here
 
-- [Initializer functions](../../../guides/smart_contracts/writing_contracts/initializers.md)
-- [Versions and Updating](../../../guides/local_env/sandbox.md#updating).
-- [Authorizing actions](../../../../aztec/concepts/advanced/authwit.md)
-- [Public logs](../../../guides/smart_contracts/writing_contracts/how_to_emit_event.md)
+- [Initializer functions](../../guides/smart_contracts/writing_contracts/initializers.md)
+- [Versions and Updating](../../guides/local_env/sandbox.md#updating).
+- [Authorizing actions](../../../aztec/concepts/advanced/authwit.md)
+- [Public logs](../../guides/smart_contracts/writing_contracts/how_to_emit_event.md)
