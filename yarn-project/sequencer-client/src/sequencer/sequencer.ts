@@ -105,6 +105,11 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   protected timetable!: SequencerTimetable;
   protected enforceTimeTable: boolean = false;
 
+  // This shouldn't be here as this gets re-created each time we build/propose a block.
+  // But we have a number of tests that abuse/rely on this class having a permanent publisher.
+  // As long as those tests only configure a single publisher they will continue to work.
+  // This will get re-assigned every time the sequencer goes to build a new block to a publisher that is valid
+  // for the block proposer.
   protected publisher: SequencerPublisher | undefined;
 
   constructor(
@@ -127,6 +132,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   ) {
     super();
 
+    // Set an initial coinbase for metrics purposes, but this will potentially change with each block.
     const validatorAddresses = this.validatorClient?.getValidatorAddresses() ?? [];
     const coinbase =
       validatorAddresses.length === 0
@@ -347,7 +353,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // if all the previous checks are good, but we do it just in case.
     const proposerAddressInNextSlot = proposerInNextSlot ?? EthAddress.ZERO;
 
-    // We now need to get ourselves a publisher
+    // We now need to get ourselves a publisher.
+    // The returned attestor will be the one we provided if we provided one.
+    // Otherwise it will be a valid attestor for the returned publisher.
     const { attestorAddress, publisher } = await this.publisherFactory.create(proposerInNextSlot);
 
     this.publisher = publisher;
