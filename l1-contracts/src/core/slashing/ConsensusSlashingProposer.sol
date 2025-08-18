@@ -133,7 +133,7 @@ contract ConsensusSlashingProposer is EIP712 {
    * @param votes Array of encoded vote data, one entry per proposer vote in the round
    */
   struct RoundVotes {
-    // TODO(palla/slash): Replace with a bytes32[1024/32] for more efficient storage
+    // TODO(palla/slash): Do not use dynamic arrays given we know the size of each `votes` via the committee size
     bytes[1024] votes;
   }
 
@@ -143,14 +143,14 @@ contract ConsensusSlashingProposer is EIP712 {
    *      Older rounds are overwritten as new rounds are created. Must be larger than
    *      LIFETIME_IN_ROUNDS to prevent data corruption.
    */
-  uint256 constant ROUNDABOUT_SIZE = 128;
+  uint256 public constant ROUNDABOUT_SIZE = 128;
 
   /**
    * @notice Maximum number of votes that can be cast in a single round
    * @dev Hard limit to prevent excessive gas usage and storage requirements.
    *      Also serves as the maximum number of slots per round.
    */
-  uint256 constant MAX_ROUND_SIZE = 1024;
+  uint256 public constant MAX_ROUND_SIZE = 1024;
 
   // Circular mappings of round number to round data and votes
   CompressedRoundData[ROUNDABOUT_SIZE] private roundDatas;
@@ -786,7 +786,7 @@ contract ConsensusSlashingProposer is EIP712 {
     // Check if the requested round is within the valid roundabout range
     if (
       SlashRound.unwrap(_round) > SlashRound.unwrap(_currentRound)
-        || SlashRound.unwrap(_round) + ROUNDABOUT_SIZE < SlashRound.unwrap(_currentRound)
+        || SlashRound.unwrap(_round) + ROUNDABOUT_SIZE <= SlashRound.unwrap(_currentRound)
     ) {
       revert Errors.ConsensusSlashingProposer__RoundOutOfRange((_round), (_currentRound));
     }

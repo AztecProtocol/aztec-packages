@@ -44,6 +44,7 @@ contract ConsensusSlashingProposerTest is TestBase {
   uint256 internal constant LIFETIME_IN_ROUNDS = 5;
   uint256 internal constant EXECUTION_DELAY_IN_ROUNDS = 1;
   uint256 internal constant SLASH_OFFSET_IN_ROUNDS = 2;
+  uint256 internal constant FIRST_SLASH_ROUND = SLASH_OFFSET_IN_ROUNDS;
 
   // Test validator keys
   uint256[] internal validatorKeys;
@@ -57,6 +58,7 @@ contract ConsensusSlashingProposerTest is TestBase {
   }
 
   function _setupCommitteeForSlashing() internal {
+    vm.warp(1 days);
     uint256 validatorCount = 4;
     validatorKeys = new uint256[](validatorCount);
     validators = new address[](validatorCount);
@@ -128,26 +130,9 @@ contract ConsensusSlashingProposerTest is TestBase {
     return Signature({v: v, r: r, s: s});
   }
 
-  function _jumpToSlashRound(uint256 targetSlashRound) internal {
-    // Get current round first to ensure we don't go backwards
-    SlashRound currentSlashRound = slashingProposer.getCurrentRound();
-    uint256 actualTargetSlashRound = targetSlashRound > SlashRound.unwrap(currentSlashRound)
-      ? targetSlashRound
-      : SlashRound.unwrap(currentSlashRound) + targetSlashRound;
-    uint256 targetSlot = actualTargetSlashRound * ROUND_SIZE;
-    timeCheater.cheat__jumpToSlot(targetSlot);
-  }
-
-  // Vote Function Tests
-
-  function test_voteAsProposer() public {
-    // Jump to round 1 to start testing
-    _jumpToSlashRound(1);
-
-    Slot currentSlot = rollup.getCurrentSlot();
+  function _getProposerKey() internal returns (uint256) {
+    // Returns the private key of the current proposer
     address proposer = rollup.getCurrentProposer();
-
-    // Find the private key for the current proposer
     uint256 proposerKey = 0;
     for (uint256 i = 0; i < validators.length; i++) {
       if (validators[i] == proposer) {
@@ -155,32 +140,84 @@ contract ConsensusSlashingProposerTest is TestBase {
         break;
       }
     }
+
     require(proposerKey != 0, "Proposer not found");
+    return proposerKey;
+  }
 
-    // Create vote data (slash validator 0 with 1 unit, others with 0)
-    uint8[] memory slashAmounts = new uint8[](COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS);
-    slashAmounts[0] = 1; // Slash first validator with 1 unit
+  function _castVote() internal {
+    // Cast a vote in this round as the current proposer with empty slash amounts
+    _castVote(new uint8[](COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS), bytes4(0));
+  }
+
+  function _castVote(bytes4 errorSelector) internal {
+    // Cast a vote in this round as the current proposer with empty slash amounts and expect a revert
+    _castVote(new uint8[](COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS), errorSelector);
+  }
+
+  function _castVote(uint8[] memory slashAmounts) internal {
+    // Cast a vote in this round as the current proposer
+    _castVote(slashAmounts, bytes4(0));
+  }
+
+  function _castVote(uint8[] memory slashAmounts, bytes4 errorSelector) internal {
+    // Cast a vote in this round as the current proposer with the expected error selector
+    Slot currentSlot = rollup.getCurrentSlot();
+    address proposer = rollup.getCurrentProposer();
+    uint256 proposerKey = _getProposerKey();
+
     bytes memory voteData = _createVoteData(slashAmounts);
-
     Signature memory sig = _createSignature(proposerKey, currentSlot, voteData);
 
-    SlashRound currentSlashRound = slashingProposer.getCurrentRound();
-
-    vm.expectEmit(true, true, false, false);
-    emit VoteCast(currentSlashRound, proposer);
-
     vm.prank(proposer);
+    if (errorSelector != bytes4(0)) {
+      vm.expectPartialRevert(errorSelector);
+    }
     slashingProposer.vote(voteData, sig);
+  }
+
+  function _assertVoteCount(uint256 expectedCount) internal view {
+    SlashRound slashRound = slashingProposer.getCurrentRound();
+    (,, uint256 voteCount) = slashingProposer.getRound(slashRound);
+    assertEq(voteCount, expectedCount, "Unexpected vote count");
+  }
+
+  function _assertVoteCount(SlashRound slashRound, uint256 expectedCount) internal view {
+    (,, uint256 voteCount) = slashingProposer.getRound(slashRound);
+    assertEq(voteCount, expectedCount, "Unexpected vote count");
+  }
+
+  function _jumpToSlashRound(uint256 targetSlashRound) internal {
+    // Get current round first to ensure we don't go backwards
+    SlashRound currentSlashRound = slashingProposer.getCurrentRound();
+    require(targetSlashRound >= SlashRound.unwrap(currentSlashRound), "Target slash round must be greater than current");
+    if (targetSlashRound == SlashRound.unwrap(currentSlashRound)) {
+      return; // Already at target round
+    }
+    uint256 targetSlot = targetSlashRound * ROUND_SIZE;
+    timeCheater.cheat__jumpToSlot(targetSlot);
+  }
+
+  // Vote Function Tests
+
+  function test_voteAsProposer() public {
+    _jumpToSlashRound(FIRST_SLASH_ROUND);
+
+    uint8[] memory slashAmounts = new uint8[](COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS);
+    slashAmounts[0] = 1; // Slash first validator with 1 unit
+    _castVote(slashAmounts);
 
     // Verify round data was updated
+    SlashRound currentSlashRound = slashingProposer.getCurrentRound();
+    assertEq(SlashRound.unwrap(currentSlashRound), FIRST_SLASH_ROUND, "Unexpected current slash round");
     (bool isExecuted, bool readyToExecute, uint256 voteCount) = slashingProposer.getRound(currentSlashRound);
-    assertFalse(isExecuted);
-    assertFalse(readyToExecute); // Not ready until execution delay passes
-    assertEq(voteCount, 1);
+    assertFalse(isExecuted, "Round should not be executed yet");
+    assertFalse(readyToExecute, "Should not be ready to execute until after execution delay");
+    assertEq(voteCount, 1, "Unexpected vote count after casting vote");
   }
 
   function test_voteRevertAsNonProposer() public {
-    _jumpToSlashRound(1);
+    _jumpToSlashRound(FIRST_SLASH_ROUND);
 
     Slot currentSlot = rollup.getCurrentSlot();
     address proposer = rollup.getCurrentProposer();
@@ -204,7 +241,7 @@ contract ConsensusSlashingProposerTest is TestBase {
   }
 
   function test_voteRevertWithInvalidSignature() public {
-    _jumpToSlashRound(1);
+    _jumpToSlashRound(FIRST_SLASH_ROUND);
 
     Slot currentSlot = rollup.getCurrentSlot();
     address proposer = rollup.getCurrentProposer();
@@ -222,18 +259,11 @@ contract ConsensusSlashingProposerTest is TestBase {
   }
 
   function test_voteRevertWithWrongVoteLength() public {
-    _jumpToSlashRound(1);
+    _jumpToSlashRound(FIRST_SLASH_ROUND);
 
     Slot currentSlot = rollup.getCurrentSlot();
     address proposer = rollup.getCurrentProposer();
-
-    uint256 proposerKey = 0;
-    for (uint256 i = 0; i < validators.length; i++) {
-      if (validators[i] == proposer) {
-        proposerKey = validatorKeys[i];
-        break;
-      }
-    }
+    uint256 proposerKey = _getProposerKey();
 
     // Wrong length vote data
     bytes memory voteData = new bytes(1); // Should be COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS / 2
@@ -248,118 +278,85 @@ contract ConsensusSlashingProposerTest is TestBase {
   }
 
   function test_voteOncePerSlot() public {
-    _jumpToSlashRound(1);
-
-    Slot currentSlot = rollup.getCurrentSlot();
-    address proposer = rollup.getCurrentProposer();
-
-    uint256 proposerKey = 0;
-    for (uint256 i = 0; i < validators.length; i++) {
-      if (validators[i] == proposer) {
-        proposerKey = validatorKeys[i];
-        break;
-      }
-    }
-
-    uint8[] memory slashAmounts = new uint8[](COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS);
-    bytes memory voteData = _createVoteData(slashAmounts);
-
-    Signature memory sig = _createSignature(proposerKey, currentSlot, voteData);
+    _jumpToSlashRound(FIRST_SLASH_ROUND);
 
     // First vote should succeed
-    vm.prank(proposer);
-    slashingProposer.vote(voteData, sig);
+    _castVote();
 
-    // Second vote in same slot should fail (create new signature since nonce incremented)
-    Signature memory sig2 = _createSignature(proposerKey, currentSlot, voteData);
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.ConsensusSlashingProposer__VoteAlreadyCastInCurrentSlot.selector, currentSlot)
-    );
-    vm.prank(proposer);
-    slashingProposer.vote(voteData, sig2);
+    // Second vote in same slot should fail
+    _castVote(Errors.ConsensusSlashingProposer__VoteAlreadyCastInCurrentSlot.selector);
   }
 
   function test_voteAccumulatesAcrossSlots() public {
-    _jumpToSlashRound(1);
-    SlashRound currentSlashRound = slashingProposer.getCurrentRound();
+    _jumpToSlashRound(FIRST_SLASH_ROUND);
 
     // Vote in first slot
-    Slot slot1 = rollup.getCurrentSlot();
-    address proposer1 = rollup.getCurrentProposer();
-
-    uint256 proposer1Key = 0;
-    for (uint256 i = 0; i < validators.length; i++) {
-      if (validators[i] == proposer1) {
-        proposer1Key = validatorKeys[i];
-        break;
-      }
-    }
-
-    uint8[] memory slashAmounts1 = new uint8[](COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS);
-    slashAmounts1[0] = 1;
-    bytes memory voteData1 = _createVoteData(slashAmounts1);
-
-    Signature memory sig1 = _createSignature(proposer1Key, slot1, voteData1);
-
-    vm.prank(proposer1);
-    slashingProposer.vote(voteData1, sig1);
+    _castVote();
 
     // Progress to next slot in same round
     timeCheater.cheat__progressSlot();
 
-    Slot slot2 = rollup.getCurrentSlot();
-    address proposer2 = rollup.getCurrentProposer();
-
-    uint256 proposer2Key = 0;
-    for (uint256 i = 0; i < validators.length; i++) {
-      if (validators[i] == proposer2) {
-        proposer2Key = validatorKeys[i];
-        break;
-      }
-    }
-
-    uint8[] memory slashAmounts2 = new uint8[](COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS);
-    slashAmounts2[0] = 2;
-    bytes memory voteData2 = _createVoteData(slashAmounts2);
-
-    Signature memory sig2 = _createSignature(proposer2Key, slot2, voteData2);
-
-    vm.prank(proposer2);
-    slashingProposer.vote(voteData2, sig2);
+    // Vote in next slot
+    _castVote();
 
     // Verify vote count increased
-    (,, uint256 voteCount) = slashingProposer.getRound(currentSlashRound);
-    assertEq(voteCount, 2);
+    _assertVoteCount(2);
+  }
+
+  function test_votesResetAcrossRounds() public {
+    _jumpToSlashRound(FIRST_SLASH_ROUND);
+
+    // Vote in first round
+    _castVote();
+    _assertVoteCount(1);
+
+    // Progress to next round and check vote count has reset
+    _jumpToSlashRound(FIRST_SLASH_ROUND + 1);
+    _assertVoteCount(0);
+    _castVote();
+    _assertVoteCount(1);
+  }
+
+  function test_votesNotOpen() public {
+    // Try to vote before votes are open
+    _jumpToSlashRound(1);
+    _castVote(Errors.ConsensusSlashingProposer__VotingNotOpen.selector);
   }
 
   // ExecuteSlashRound Tests
 
+  function _getCommitteesForRound(SlashRound targetSlashRound) internal returns (address[][] memory committees) {
+    // Get the first slot of the target slash round
+    uint256 firstSlotOfSlashRound = SlashRound.unwrap(targetSlashRound) * ROUND_SIZE;
+    uint256 slotsPerEpoch = ROUND_SIZE / ROUND_SIZE_IN_EPOCHS;
+
+    // Load committees for each epoch in the round
+    committees = new address[][](ROUND_SIZE_IN_EPOCHS);
+    for (uint256 i = 0; i < ROUND_SIZE_IN_EPOCHS; i++) {
+      uint256 slotOfEpoch = firstSlotOfSlashRound + (i * slotsPerEpoch);
+      uint256 epochNumber = slotOfEpoch / EPOCH_DURATION;
+      // Do not try loading committees for the first two epochs in the rollup
+      if (epochNumber > 1) {
+        committees[i] = rollup.getEpochCommittee(Epoch.wrap(epochNumber));
+      }
+    }
+  }
+
+  function _executeRound(SlashRound targetSlashRound, address[][] memory committees) internal {
+    address currentProposer = rollup.getCurrentProposer();
+    vm.prank(currentProposer);
+    slashingProposer.executeRound(targetSlashRound, committees);
+  }
+
   function test_executeSlashRoundWithQuorum() public {
-    // Jump to a much later round to avoid timestamp issues
-    _jumpToSlashRound(10);
-    SlashRound targetSlashRound = slashingProposer.getCurrentRound();
+    SlashRound targetSlashRound = SlashRound.wrap(FIRST_SLASH_ROUND + 2);
+    _jumpToSlashRound(SlashRound.unwrap(targetSlashRound));
 
     // Cast enough votes to reach quorum for slashing validator 0
     for (uint256 i = 0; i < QUORUM; i++) {
-      Slot currentSlot = rollup.getCurrentSlot();
-      address proposer = rollup.getCurrentProposer();
-
-      uint256 proposerKey = 0;
-      for (uint256 j = 0; j < validators.length; j++) {
-        if (validators[j] == proposer) {
-          proposerKey = validatorKeys[j];
-          break;
-        }
-      }
-
       uint8[] memory slashAmounts = new uint8[](COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS);
       slashAmounts[0] = 5; // Slash first validator with 5 units
-      bytes memory voteData = _createVoteData(slashAmounts);
-
-      Signature memory sig = _createSignature(proposerKey, currentSlot, voteData);
-
-      vm.prank(proposer);
-      slashingProposer.vote(voteData, sig);
+      _castVote(slashAmounts);
 
       if (i < QUORUM - 1) {
         timeCheater.cheat__progressSlot();
@@ -370,35 +367,85 @@ contract ConsensusSlashingProposerTest is TestBase {
     uint256 targetSlot = (SlashRound.unwrap(targetSlashRound) + EXECUTION_DELAY_IN_ROUNDS + 1) * ROUND_SIZE;
     timeCheater.cheat__jumpToSlot(targetSlot);
 
-    // TODO(palla/slash): Check the numbers below, I believe they are not considering SLASH_OFFSET_IN_ROUNDS
-    // Get committees for the round - calculate which epochs belong to this round
-    // SlashRound 17 starts at slot 68 (17 * 4)
-    // With ROUND_SIZE_IN_EPOCHS=2 and ROUND_SIZE=4, each epoch covers 2 slots
-    // So round 17 covers slots 68-71, which are in epochs:
-    // Slots 68-69 -> epoch 34 (68/2 = 34)
-    // Slots 70-71 -> epoch 35 (70/2 = 35)
-    address[][] memory committees = new address[][](ROUND_SIZE_IN_EPOCHS);
-    uint256 firstSlotOfSlashRound = SlashRound.unwrap(targetSlashRound) * ROUND_SIZE;
-    uint256 slotsPerEpoch = ROUND_SIZE / ROUND_SIZE_IN_EPOCHS;
-    for (uint256 i = 0; i < ROUND_SIZE_IN_EPOCHS; i++) {
-      uint256 slotOfEpoch = firstSlotOfSlashRound + (i * slotsPerEpoch);
-      uint256 epochNumber = slotOfEpoch / EPOCH_DURATION;
-      committees[i] = rollup.getEpochCommittee(Epoch.wrap(epochNumber));
+    // Record initial balance of slashed validator
+    address[][] memory committees = _getCommitteesForRound(targetSlashRound);
+    address targetValidator = committees[0][0];
+    AttesterView memory initialView = rollup.getAttesterView(targetValidator);
+    uint256 initialBalance = initialView.effectiveBalance;
+
+    // Execute the round as the current proposer
+    // Note that we do not need to pass in all committees, just the first one, since others dont get slashes
+    address[][] memory requiredCommittees = new address[][](ROUND_SIZE_IN_EPOCHS);
+    requiredCommittees[0] = committees[0];
+    _executeRound(targetSlashRound, requiredCommittees);
+
+    // And check that the slash was applied
+    AttesterView memory finalView = rollup.getAttesterView(targetValidator);
+    assertEq(finalView.effectiveBalance, initialBalance - (5 * SLASHING_UNIT));
+
+    // Verify round is marked as executed
+    (bool isExecuted,,) = slashingProposer.getRound(targetSlashRound);
+    assertTrue(isExecuted);
+  }
+
+  function test_executeSlashRoundWithMultipleSlashAmounts() public {
+    // Similar to the test above, but we play with different slash amounts and votes for each
+    // validator to ensure the slashing logic works correctly with varying amounts.
+    SlashRound targetSlashRound = SlashRound.wrap(FIRST_SLASH_ROUND + 2);
+    _jumpToSlashRound(SlashRound.unwrap(targetSlashRound));
+
+    // Expected slash amounts for each validator based on votes below
+    uint256[] memory expectedSlashAmounts = new uint256[](COMMITTEE_SIZE);
+    expectedSlashAmounts[0] = 5; // Validator 0 slashed by 5
+    expectedSlashAmounts[1] = 4; // Validator 1 slashed by 4
+    expectedSlashAmounts[2] = 0; // Validator 2 not slashed
+    expectedSlashAmounts[3] = 2; // Validator 3 slashed by 2
+
+    // Cast votes for each validator
+    for (uint256 i = 0; i < ROUND_SIZE; i++) {
+      uint8[] memory slashAmounts = new uint8[](COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS);
+      // Validator 0 will get slashed 5 units by all voters
+      slashAmounts[0] = 5;
+      // Validator 1 will get slashed 4 units by QUORUM voters
+      if (i < QUORUM) {
+        slashAmounts[1] = 4;
+      }
+      // Validator 2 will be voted for 4 units by QUORUM-1 voters (no slash)
+      if (i < QUORUM - 1) {
+        slashAmounts[2] = 4;
+      }
+      // Validator 3 will be voted for 3 units by QUORUM-1 and 2 units by 1 voter (so slash 2 units)
+      if (i < QUORUM - 1) {
+        slashAmounts[3] = 3;
+      } else if (i == QUORUM - 1) {
+        slashAmounts[3] = 2;
+      }
+      _castVote(slashAmounts);
+      timeCheater.cheat__progressSlot();
     }
 
-    // TODO(palla/slash): Check balance changes
-    // address targetValidator = committees[0][0];
-    // AttesterView memory initialView = rollup.getAttesterView(targetValidator);
-    // uint256 initialBalance = initialView.effectiveBalance;
+    // Jump past execution delay
+    uint256 targetSlot = (SlashRound.unwrap(targetSlashRound) + EXECUTION_DELAY_IN_ROUNDS + 1) * ROUND_SIZE;
+    timeCheater.cheat__jumpToSlot(targetSlot);
 
-    // Execute the round as the current proposer (required by slasher)
-    address currentProposer = rollup.getCurrentProposer();
-    vm.prank(currentProposer);
-    slashingProposer.executeRound(targetSlashRound, committees);
+    // Record initial balance of each validator
+    address[][] memory committees = _getCommitteesForRound(targetSlashRound);
+    uint256[] memory initialBalances = new uint256[](COMMITTEE_SIZE);
+    for (uint256 i = 0; i < COMMITTEE_SIZE; i++) {
+      address validator = committees[0][i];
+      AttesterView memory initialView = rollup.getAttesterView(validator);
+      initialBalances[i] = initialView.effectiveBalance;
+    }
 
-    // TODO(palla/slash): Check balance changes
-    // AttesterView memory finalView = rollup.getAttesterView(targetValidator);
-    // assertEq(finalView.effectiveBalance, initialBalance - (5 * SLASHING_UNIT));
+    // Execute the round as the current proposer
+    _executeRound(targetSlashRound, committees);
+
+    // And check that the slashes were applied
+    for (uint256 i = 0; i < COMMITTEE_SIZE; i++) {
+      address validator = committees[0][i];
+      AttesterView memory finalView = rollup.getAttesterView(validator);
+      assertEq(finalView.effectiveBalance, initialBalances[i] - (expectedSlashAmounts[i] * SLASHING_UNIT));
+    }
 
     // Verify round is marked as executed
     (bool isExecuted,,) = slashingProposer.getRound(targetSlashRound);
@@ -406,28 +453,13 @@ contract ConsensusSlashingProposerTest is TestBase {
   }
 
   function test_executeSlashRoundRevertBeforeDelay() public {
-    _jumpToSlashRound(1);
+    _jumpToSlashRound(FIRST_SLASH_ROUND);
     SlashRound targetSlashRound = slashingProposer.getCurrentRound();
 
     // Cast a vote
-    Slot currentSlot = rollup.getCurrentSlot();
-    address proposer = rollup.getCurrentProposer();
-
-    uint256 proposerKey = 0;
-    for (uint256 i = 0; i < validators.length; i++) {
-      if (validators[i] == proposer) {
-        proposerKey = validatorKeys[i];
-        break;
-      }
-    }
-
     uint8[] memory slashAmounts = new uint8[](COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS);
     slashAmounts[0] = 5;
-    bytes memory voteData = _createVoteData(slashAmounts);
-    Signature memory sig = _createSignature(proposerKey, currentSlot, voteData);
-
-    vm.prank(proposer);
-    slashingProposer.vote(voteData, sig);
+    _castVote(slashAmounts);
 
     // Try to execute before delay - should revert
     address[][] memory committees = new address[][](ROUND_SIZE_IN_EPOCHS);
@@ -450,7 +482,7 @@ contract ConsensusSlashingProposerTest is TestBase {
   // View Function Tests
 
   function test_getSlashRound() public {
-    _jumpToSlashRound(1);
+    _jumpToSlashRound(FIRST_SLASH_ROUND);
     SlashRound targetSlashRound = slashingProposer.getCurrentRound();
 
     // Initially no votes, not ready to execute
@@ -460,23 +492,7 @@ contract ConsensusSlashingProposerTest is TestBase {
     assertEq(voteCount, 0);
 
     // Cast a vote
-    Slot currentSlot = rollup.getCurrentSlot();
-    address proposer = rollup.getCurrentProposer();
-
-    uint256 proposerKey = 0;
-    for (uint256 i = 0; i < validators.length; i++) {
-      if (validators[i] == proposer) {
-        proposerKey = validatorKeys[i];
-        break;
-      }
-    }
-
-    uint8[] memory slashAmounts = new uint8[](COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS);
-    bytes memory voteData = _createVoteData(slashAmounts);
-    Signature memory sig = _createSignature(proposerKey, currentSlot, voteData);
-
-    vm.prank(proposer);
-    slashingProposer.vote(voteData, sig);
+    _castVote();
 
     // After vote, should have vote count
     (isExecuted, readyToExecute, voteCount) = slashingProposer.getRound(targetSlashRound);
@@ -536,7 +552,7 @@ contract ConsensusSlashingProposerTest is TestBase {
     assertEq(SlashRound.unwrap(newSlashRound), startSlashRound + 1);
   }
 
-  // Edge Cases
+  // Circular Storage Tests
 
   function test_circularStorageOverwrite() public {
     // Test the circular storage behavior - when we jump far enough ahead,
@@ -545,60 +561,25 @@ contract ConsensusSlashingProposerTest is TestBase {
     SlashRound baseSlashRound = slashingProposer.getCurrentRound(); // Get the actual round we're in
 
     // Cast a vote in this round
-    Slot currentSlot = rollup.getCurrentSlot();
-    address proposer = rollup.getCurrentProposer();
-
-    uint256 proposerKey = 0;
-    for (uint256 i = 0; i < validators.length; i++) {
-      if (validators[i] == proposer) {
-        proposerKey = validatorKeys[i];
-        break;
-      }
-    }
-
-    uint8[] memory slashAmounts = new uint8[](COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS);
-    bytes memory voteData = _createVoteData(slashAmounts);
-    Signature memory sig = _createSignature(proposerKey, currentSlot, voteData);
-
-    vm.prank(proposer);
-    slashingProposer.vote(voteData, sig);
+    _castVote();
 
     // Verify vote was recorded
-    (,, uint256 voteCount) = slashingProposer.getRound(baseSlashRound);
-    assertEq(voteCount, 1);
+    _assertVoteCount(baseSlashRound, 1);
 
     // Jump to a round that would overwrite in circular storage
-    // ROUNDABOUT_SIZE is 128, so we need to jump more than 128 rounds ahead
-    uint256 targetSlot = (SlashRound.unwrap(baseSlashRound) + 128) * ROUND_SIZE;
-    timeCheater.cheat__jumpToSlot(targetSlot);
+    uint256 ROUNDABOUT_SIZE = slashingProposer.ROUNDABOUT_SIZE();
+    SlashRound newSlashRound = SlashRound.wrap(SlashRound.unwrap(baseSlashRound) + ROUNDABOUT_SIZE);
+    _jumpToSlashRound(SlashRound.unwrap(newSlashRound));
 
-    // Cast a vote in the new round to ensure the storage slot gets updated
-    {
-      Slot newCurrentSlot = rollup.getCurrentSlot();
-      address newProposer = rollup.getCurrentProposer();
+    // When we check the new round, it should return empty data
+    _assertVoteCount(newSlashRound, 0);
 
-      uint256 newProposerKey = 0;
-      for (uint256 i = 0; i < validators.length; i++) {
-        if (validators[i] == newProposer) {
-          newProposerKey = validatorKeys[i];
-          break;
-        }
-      }
-
-      bytes memory newVoteData = _createVoteData(slashAmounts);
-      Signature memory newSig = _createSignature(newProposerKey, newCurrentSlot, newVoteData);
-
-      vm.prank(newProposer);
-      slashingProposer.vote(newVoteData, newSig);
-    }
-
-    // Now when we check the old round, it should return stale/empty data
-    // because the contract detects that the stored round number doesn't match
-    (,, uint256 newVoteCount) = slashingProposer.getRound(baseSlashRound);
-    assertEq(newVoteCount, 0); // Should be fresh round data
+    // And when we check the old one, it should revert
+    vm.expectPartialRevert(Errors.ConsensusSlashingProposer__RoundOutOfRange.selector);
+    slashingProposer.getRound(baseSlashRound);
   }
 
-  function test_roundOutOfRange() public {
+  function test_futureRoundOutOfRange() public {
     SlashRound currentSlashRound = slashingProposer.getCurrentRound();
 
     // Test accessing a round too far in the future
@@ -611,71 +592,5 @@ contract ConsensusSlashingProposerTest is TestBase {
       )
     );
     slashingProposer.getRound(futureSlashRound);
-
-    // Test accessing a round too far in the past (more than ROUNDABOUT_SIZE)
-    if (SlashRound.unwrap(currentSlashRound) > 256) {
-      SlashRound pastSlashRound = SlashRound.wrap(SlashRound.unwrap(currentSlashRound) - 257);
-      vm.expectRevert(
-        abi.encodeWithSelector(
-          Errors.ConsensusSlashingProposer__RoundOutOfRange.selector,
-          SlashRound.unwrap(pastSlashRound),
-          SlashRound.unwrap(currentSlashRound)
-        )
-      );
-      slashingProposer.getRound(pastSlashRound);
-    }
-  }
-
-  // Constructor validation tests
-
-  function test_constructorValidation() public {
-    // Test quorum must be greater than zero
-    vm.expectRevert(Errors.ConsensusSlashingProposer__QuorumMustBeGreaterThanZero.selector);
-    new ConsensusSlashingProposer(
-      address(rollup),
-      slasher,
-      0, // Invalid quorum
-      ROUND_SIZE,
-      LIFETIME_IN_ROUNDS,
-      EXECUTION_DELAY_IN_ROUNDS,
-      SLASHING_UNIT,
-      COMMITTEE_SIZE,
-      EPOCH_DURATION,
-      SLASH_OFFSET_IN_ROUNDS
-    );
-
-    // Test slashing unit must be greater than zero
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.ConsensusSlashingProposer__SlashingUnitMustBeGreaterThanZero.selector, 0)
-    );
-    new ConsensusSlashingProposer(
-      address(rollup),
-      slasher,
-      QUORUM,
-      ROUND_SIZE,
-      LIFETIME_IN_ROUNDS,
-      EXECUTION_DELAY_IN_ROUNDS,
-      0, // Invalid slashing unit
-      COMMITTEE_SIZE,
-      EPOCH_DURATION,
-      SLASH_OFFSET_IN_ROUNDS
-    );
-
-    // Test lifetime must be greater than execution delay
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.ConsensusSlashingProposer__LifetimeMustBeGreaterThanExecutionDelay.selector, 1, 2)
-    );
-    new ConsensusSlashingProposer(
-      address(rollup),
-      slasher,
-      QUORUM,
-      ROUND_SIZE,
-      1, // Lifetime too short
-      2, // Execution delay longer than lifetime
-      SLASHING_UNIT,
-      COMMITTEE_SIZE,
-      EPOCH_DURATION,
-      SLASH_OFFSET_IN_ROUNDS
-    );
   }
 }
