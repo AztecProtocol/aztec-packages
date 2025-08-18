@@ -21,7 +21,7 @@ import {
  *      external functions focused on deployments performed during initialization:
  *      - Reward booster contract deployment with configuration
  */
-library ExtRollupLib3 {
+library RewardDeploymentExtLib {
   function deployRewardBooster(RewardBoostConfig memory _config) external returns (IBoosterCore) {
     RewardBooster booster = new RewardBooster(IValidatorSelection(address(this)), _config);
     return IBoosterCore(address(booster));

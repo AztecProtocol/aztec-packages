@@ -16,7 +16,7 @@ import {EmpireSlashingProposer} from "@aztec/core/slashing/EmpireSlashingPropose
  *      functionality to keep the main contract within the maximum contract size limit. Uses two-phase
  *      initialization to resolve circular dependency between Slasher and EmpireSlashingProposer.
  */
-library ExtRollupLib5 {
+library EmpireDeploymentExtLib {
   function deployEmpireSlasher(
     address _rollup,
     address _vetoer,

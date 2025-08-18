@@ -28,7 +28,7 @@ import {
  *      - Blob validation and commitment management
  *      - Chain pruning operations
  */
-library ExtRollupLib {
+library RollupOperationsExtLib {
   using TimeLib for Timestamp;
   using TimeLib for Slot;
   using AttestationLib for CommitteeAttestations;

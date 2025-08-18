@@ -26,7 +26,7 @@ import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
  *      - Slashing mechanism integration
  *      - Epoch and proposer management
  */
-library ExtRollupLib2 {
+library ValidatorOperationsExtLib {
   using TimeLib for Timestamp;
 
   function setSlasher(address _slasher) external {

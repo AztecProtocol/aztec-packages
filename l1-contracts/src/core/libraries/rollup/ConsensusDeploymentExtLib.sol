@@ -15,7 +15,7 @@ import {ConsensusSlashingProposer} from "@aztec/core/slashing/ConsensusSlashingP
  * @dev This library deploys a consensus slasher system using two-phase initialization
  *      to resolve the circular dependency between Slasher and ConsensusSlashingProposer.
  */
-library ExtRollupLib4 {
+library ConsensusDeploymentExtLib {
   function deployConsensusSlasher(
     address _rollup,
     address _vetoer,
