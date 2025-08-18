@@ -149,6 +149,19 @@ concept isRowSkippable =
         } -> std::same_as<bool>;
     };
 
+template <typename Relation> constexpr auto create_relation_univariates_()
+{
+    constexpr auto seq = std::make_index_sequence<Relation::SUBRELATION_PARTIAL_LENGTHS.size()>();
+    return []<size_t... I>(std::index_sequence<I...>) {
+        return flat_tuple::make_tuple(ErasedUnivariate<typename Relation::FF>(
+            Univariate<typename Relation::FF, Relation::SUBRELATION_PARTIAL_LENGTHS[I]>{})...);
+    }(seq);
+    // return []<size_t... I>(std::index_sequence<I...>) {
+    //     return flat_tuple::make_tuple(Univariate<typename Relation::FF,
+    //     Relation::SUBRELATION_PARTIAL_LENGTHS[I]>{}...);
+    // }(seq);
+}
+
 /**
  * @brief A wrapper for Relations to expose methods used by the Sumcheck prover or verifier to add the
  * contribution of a given relation to the corresponding accumulator.
@@ -180,6 +193,10 @@ template <typename RelationImpl> class Relation : public RelationImpl {
                                                  NUM_KEYS - 1>;
     using SumcheckTupleOfUnivariatesOverSubrelations =
         TupleOfUnivariates<FF, RelationImpl::SUBRELATION_PARTIAL_LENGTHS>;
+    // using SumcheckTupleOfUnivariatesOverSubrelations =
+    //     ErasedTupleOfUnivariates<FF, RelationImpl::SUBRELATION_PARTIAL_LENGTHS>;
+
+    static constexpr auto create_relation_univariates() { return create_relation_univariates_<RelationImpl>(); }
 
     using SumcheckArrayOfValuesOverSubrelations = ArrayOfValues<FF, RelationImpl::SUBRELATION_PARTIAL_LENGTHS>;
 

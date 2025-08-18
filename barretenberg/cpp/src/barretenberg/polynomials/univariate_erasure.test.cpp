@@ -1,5 +1,6 @@
 #include "univariate_erasure.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
 #include "univariate.hpp"
 
 #include <gtest/gtest.h>
@@ -212,4 +213,119 @@ TEST(UnivariateErasureTest, NegationReturnsNew)
     EXPECT_EQ(g.value_at(0), fr(-1));
     EXPECT_EQ(g.value_at(1), fr(-2));
     EXPECT_EQ(g.value_at(2), fr(-3));
+}
+
+/////////// WIP ///////////
+
+#include "barretenberg/common/tuple.hpp"
+#include "barretenberg/relations/relation_parameters.hpp"
+
+// Since type information is lost, we cannot just define a TupleOfTupleOfUnivariates and instantiate it.
+// Instead, we need to create the univariates manually from the Relations.
+template <typename Relation> constexpr auto create_relation_univariates()
+{
+    constexpr auto seq = std::make_index_sequence<Relation::SUBRELATION_PARTIAL_LENGTHS.size()>();
+    return []<size_t... I>(std::index_sequence<I...>) {
+        return flat_tuple::make_tuple(ErasedUnivariate<typename Relation::FF>(
+            Univariate<typename Relation::FF, Relation::SUBRELATION_PARTIAL_LENGTHS[I]>{})...);
+    }(seq);
+}
+
+// template <typename RelationsTuple> constexpr auto create_sumcheck_tuple_of_tuples_of_univariates()
+// {
+//     constexpr auto seq = std::make_index_sequence<std::tuple_size_v<RelationsTuple>>();
+//     return []<size_t... I>(std::index_sequence<I...>) {
+//         return flat_tuple::make_tuple(
+//             // typename std::tuple_element_t<I, RelationsTuple>::SumcheckTupleOfUnivariatesOverSubrelations{}...);
+//             TupleOfUnivariates<typename std::tuple_element_t<I, RelationsTuple>::FF,
+//                                std::tuple_element_t<I, RelationsTuple>::SUBRELATION_PARTIAL_LENGTHS>{}...);
+//     }(seq);
+// }
+
+struct FFEntities {
+    fr sel = 0;
+};
+
+struct UnivariateEntities {
+    // Bigger univariate.
+    bb::Univariate<fr, 7> sel{};
+};
+
+auto ViewFor(auto& acc)
+{
+    return [&acc](const auto& uv) { return acc.view(uv); };
+}
+
+struct Relation1 {
+    using FF = fr;
+    static constexpr std::array<size_t, 3> SUBRELATION_PARTIAL_LENGTHS = { 3, 2, 5 };
+
+    template <typename ContainerOverSubrelations, typename AllEntities>
+    void static accumulate(ContainerOverSubrelations& evals,
+                           const AllEntities& in,
+                           [[maybe_unused]] const RelationParameters<FF>&,
+                           [[maybe_unused]] const FF& scaling_factor)
+    {
+        {
+            auto& acc = std::get<0>(evals);
+            auto view = ViewFor(acc);
+
+            auto tmp = view(in.sel) * (FF(1) - view(in.sel));
+            tmp *= scaling_factor;
+
+            acc += tmp;
+        }
+        {
+            auto& acc = std::get<1>(evals);
+            auto view = ViewFor(acc);
+
+            auto tmp = view(in.sel) * (FF(1) - view(in.sel));
+            tmp *= scaling_factor;
+
+            acc += tmp;
+        }
+        {
+            auto& acc = std::get<2>(evals);
+            auto view = ViewFor(acc);
+
+            auto tmp = view(in.sel) * (FF(1) - view(in.sel));
+            tmp *= scaling_factor;
+
+            acc += tmp;
+        }
+    }
+};
+
+// TEST(UnivariateErasureTest, RelationUnivariateCreation)
+// {
+//     auto unis = create_relation_univariates<Relation1>();
+//     FFEntities in = { .sel = 1 };
+//     Relation1::accumulate(unis, in, RelationParameters<fr>{}, fr(1));
+//     EXPECT_EQ(std::get<0>(unis).value_at(0), fr(0));
+//     EXPECT_EQ(std::get<0>(unis).value_at(1), fr(0));
+//     EXPECT_EQ(std::get<0>(unis).value_at(2), fr(0));
+//     EXPECT_EQ(std::get<1>(unis).value_at(0), fr(0));
+//     EXPECT_EQ(std::get<1>(unis).value_at(1), fr(0));
+//     EXPECT_EQ(std::get<2>(unis).value_at(0), fr(0));
+//     EXPECT_EQ(std::get<2>(unis).value_at(1), fr(0));
+//     EXPECT_EQ(std::get<2>(unis).value_at(2), fr(0));
+//     EXPECT_EQ(std::get<2>(unis).value_at(3), fr(0));
+//     EXPECT_EQ(std::get<2>(unis).value_at(4), fr(0));
+// }
+
+TEST(UnivariateErasureTest, RelationUnivariateCreationWithUnivariateEntities)
+{
+    auto unis = create_relation_univariates<Relation1>();
+    UnivariateEntities in;
+    Relation1::accumulate(unis, in, RelationParameters<fr>{}, fr(1));
+    EXPECT_EQ(std::get<0>(unis).value_at(0), fr(0));
+    EXPECT_EQ(std::get<0>(unis).value_at(1), fr(0));
+    EXPECT_EQ(std::get<0>(unis).value_at(2), fr(0));
+    EXPECT_EQ(std::get<1>(unis).value_at(0), fr(0));
+    EXPECT_EQ(std::get<1>(unis).value_at(1), fr(0));
+    EXPECT_EQ(std::get<2>(unis).value_at(0), fr(0));
+    EXPECT_EQ(std::get<2>(unis).value_at(1), fr(0));
+    EXPECT_EQ(std::get<2>(unis).value_at(2), fr(0));
+    EXPECT_EQ(std::get<2>(unis).value_at(3), fr(0));
+    EXPECT_EQ(std::get<2>(unis).value_at(4), fr(0));
 }

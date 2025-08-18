@@ -196,12 +196,16 @@ template <class Fr, class UnivariateImpl> class UnivariateModel : public Univari
 template <class Fr> class ErasedUnivariate {
   public:
     using value_type = Fr;
-    using View = ErasedUnivariate<Fr>;
 
     template <class UnivariateImpl>
     ErasedUnivariate(UnivariateImpl impl)
         requires(UnivariateImpl::__IS_UNIVARIATE__::value)
         : impl_(std::make_unique<detail::UnivariateModel<Fr, UnivariateImpl>>(std::move(impl)))
+    {}
+
+    // Creates an invalid univariate. Should be replaced with assignment.
+    ErasedUnivariate()
+        : impl_(nullptr)
     {}
 
     ErasedUnivariate(const ErasedUnivariate& other)
@@ -213,12 +217,26 @@ template <class Fr> class ErasedUnivariate {
         // TODO: should probably make "other" still valid.
     }
 
+    // Makes a view based on the current univariate's size.
+    ErasedUnivariate view(const ErasedUnivariate& other) const
+    {
+        // TODO: not yet a proper view, it copies. But it shouldn't matter.
+        assert(other.size() >= size());
+        ErasedUnivariate result(impl_->clone());
+        for (size_t i = 0; i < size(); ++i) {
+            // Assumes shrinking.
+            result.value_at(i) = other.value_at(i);
+        }
+        return result;
+    }
+
     ErasedUnivariate& operator=(const ErasedUnivariate& other)
     {
         if (this == &other) {
             return *this;
         }
-        impl_->assign(*other.impl_);
+        // impl_->assign(*other.impl_);
+        impl_ = other.impl_->clone();
         return *this;
     }
 
@@ -320,5 +338,20 @@ template <class Fr> class ErasedUnivariate {
 
     std::unique_ptr<detail::UnivariateConcept<Fr>> impl_;
 };
+
+template <class Fr> ErasedUnivariate<Fr> operator+(const Fr& ff, const ErasedUnivariate<Fr>& uv)
+{
+    return uv + ff;
+}
+
+template <class Fr> ErasedUnivariate<Fr> operator-(const Fr& ff, const ErasedUnivariate<Fr>& uv)
+{
+    return -uv + ff;
+}
+
+template <class Fr> ErasedUnivariate<Fr> operator*(const Fr& ff, const ErasedUnivariate<Fr>& uv)
+{
+    return uv * ff;
+}
 
 } // namespace bb

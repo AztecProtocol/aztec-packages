@@ -89,7 +89,8 @@ template <typename Flavor> class SumcheckProverRound {
         PROFILE_THIS_NAME("SumcheckProverRound constructor");
 
         // Initialize univariate accumulators to 0
-        Utils::zero_univariates(univariate_accumulators);
+        // Utils::zero_univariates(univariate_accumulators);
+        univariate_accumulators = create_sumcheck_tuple_of_tuples_of_univariates<Relations>();
     }
 
     /**
@@ -264,6 +265,7 @@ template <typename Flavor> class SumcheckProverRound {
 
         // Accumulate the contribution from each sub-relation accross each edge of the hyper-cube
         parallel_for(num_threads, [&](size_t thread_idx) {
+            thread_univariate_accumulators[thread_idx] = create_sumcheck_tuple_of_tuples_of_univariates<Relations>();
             // Construct extended univariates containers; one per thread
             ExtendedEdges extended_edges;
             for (size_t chunk_idx = 0; chunk_idx < num_of_chunks; chunk_idx++) {
@@ -432,6 +434,8 @@ template <typename Flavor> class SumcheckProverRound {
         std::vector<SumcheckTupleOfTuplesOfUnivariates> thread_univariate_accumulators(num_threads);
 
         parallel_for(num_threads, [&](size_t thread_idx) {
+            thread_univariate_accumulators[thread_idx] = create_sumcheck_tuple_of_tuples_of_univariates<Relations>();
+
             const size_t start = thread_idx * iterations_per_thread;
             const size_t end = (thread_idx == num_threads - 1) ? start + iterations_for_last_thread
                                                                : (thread_idx + 1) * iterations_per_thread;
@@ -501,7 +505,10 @@ template <typename Flavor> class SumcheckProverRound {
         requires UseRowDisablingPolynomial<Flavor>
     {
         // Note: {} is required to initialize the tuple contents. Otherwise the univariates contain garbage.
-        SumcheckTupleOfTuplesOfUnivariates univariate_accumulator{};
+        // SumcheckTupleOfTuplesOfUnivariates univariate_accumulator{};
+        SumcheckTupleOfTuplesOfUnivariates univariate_accumulator =
+            create_sumcheck_tuple_of_tuples_of_univariates<Relations>();
+
         ExtendedEdges extended_edges;
         SumcheckRoundUnivariate result;
 

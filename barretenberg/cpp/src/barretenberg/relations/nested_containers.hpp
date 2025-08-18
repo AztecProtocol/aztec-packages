@@ -7,6 +7,7 @@
 #pragma once
 #include "barretenberg/common/tuple.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
+#include "barretenberg/polynomials/univariate_erasure.hpp"
 
 namespace bb {
 
@@ -38,6 +39,10 @@ struct TupleOfContainersOverArray<InnerContainer,
     using type = flat_tuple::tuple<InnerContainer<ValueType, domain_end[I], domain_start, skip_count>...>;
 };
 
+template <typename ValueType> struct ErasedTupleOfContainersOverArray {
+    using type = flat_tuple::tuple<bb::ErasedUnivariate<ValueType>>;
+};
+
 // Helpers
 template <typename ValueType, size_t, size_t, size_t> using ExtractValueType = ValueType;
 
@@ -47,6 +52,10 @@ using HomogeneousTupleToArray = std::array<std::tuple_element_t<0, Tuple>, std::
 // Types needed for sumcheck and folding.
 template <typename FF, auto LENGTHS>
 using TupleOfUnivariates = typename TupleOfContainersOverArray<bb::Univariate, FF, LENGTHS, 0, 0>::type;
+
+// WIP
+template <typename FF, auto LENGTHS>
+using ErasedTupleOfUnivariates = typename ErasedTupleOfContainersOverArray<FF>::type;
 
 // Types needed for sumcheck and folding.
 template <typename FF, auto LENGTHS, size_t SKIP_COUNT>

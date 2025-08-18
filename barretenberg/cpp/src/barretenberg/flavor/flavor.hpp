@@ -423,8 +423,9 @@ template <typename RelationsTuple> constexpr auto create_sumcheck_tuple_of_tuple
 {
     constexpr auto seq = std::make_index_sequence<std::tuple_size_v<RelationsTuple>>();
     return []<size_t... I>(std::index_sequence<I...>) {
-        return flat_tuple::make_tuple(
-            typename std::tuple_element_t<I, RelationsTuple>::SumcheckTupleOfUnivariatesOverSubrelations{}...);
+        // return flat_tuple::make_tuple(
+        //     typename std::tuple_element_t<I, RelationsTuple>::SumcheckTupleOfUnivariatesOverSubrelations{}...);
+        return flat_tuple::make_tuple(std::tuple_element_t<I, RelationsTuple>::create_relation_univariates()...);
     }(seq);
 }
 
