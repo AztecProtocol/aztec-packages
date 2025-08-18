@@ -118,14 +118,19 @@ class PrivateFunctionExecutionMockCircuitProducer {
     using VerificationKey = Flavor::VerificationKey;
 
     size_t circuit_counter = 0;
+    size_t num_app_circuits = 0;
+    size_t num_consecutive_kernels = 0;
 
     MockDatabusProducer mock_databus;
     bool large_first_app = true;
-    bool is_kernel = false; // whether the next circuit is a kernel or not
 
   public:
-    PrivateFunctionExecutionMockCircuitProducer(bool large_first_app = true)
-        : large_first_app(large_first_app)
+    PrivateFunctionExecutionMockCircuitProducer(size_t num_app_circuits = 0,
+                                                size_t num_consecutive_kernels = 0,
+                                                bool large_first_app = true)
+        : num_app_circuits(num_app_circuits)
+        , num_consecutive_kernels(num_consecutive_kernels)
+        , large_first_app(large_first_app)
     {}
 
     /**
@@ -148,10 +153,32 @@ class PrivateFunctionExecutionMockCircuitProducer {
         return vk;
     }
 
-    ClientCircuit create_simple_circuit(ClientIVC& ivc, size_t log2_num_gates, size_t num_public_inputs)
+    void create_mock_ivc_stack(TestSettings setting, ClientIVC& ivc, bool increase_sizes = false)
+    {
+        size_t size_adjustment = increase_sizes ? 1 : 0;
+        // for the number of app circuits, interleave kernels and apps
+        for (size_t i = 0; i < num_app_circuits; i++) {
+            // generate the next app circuit
+            construct_and_accumulate_next_circuit(ivc, setting);
+            setting.log2_num_gates += size_adjustment;
+            // generate the next kernel circuit (init or inner)
+            construct_and_accumulate_next_circuit(ivc, setting);
+            setting.log2_num_gates += size_adjustment;
+        }
+        // now we add the additional kernels
+        for (size_t i = 0; i < num_consecutive_kernels; i++) {
+            construct_and_accumulate_next_circuit(ivc, setting);
+        }
+        // now add the tail kernel
+        construct_and_accumulate_next_circuit(ivc, setting);
+        // add the hiding kernel
+        construct_and_accumulate_next_circuit(ivc, setting);
+        // food for thought (Khashayar), should we return a vector of all circuits generated here?
+    }
+
+    ClientCircuit create_simple_circuit(ClientIVC& ivc, size_t log2_num_gates, size_t num_public_inputs, bool is_kernel)
     {
         circuit_counter++;
-        is_kernel = (circuit_counter % 2 == 0);
         ClientCircuit circuit{ ivc.goblin.op_queue };
         MockCircuits::construct_arithmetic_circuit(circuit, log2_num_gates, /* include_public_inputs= */ false);
         if (num_public_inputs > 0) {
@@ -199,15 +226,21 @@ class PrivateFunctionExecutionMockCircuitProducer {
     std::pair<ClientCircuit, std::shared_ptr<VerificationKey>> create_next_circuit_and_vk(ClientIVC& ivc,
                                                                                           TestSettings settings = {})
     {
-
+        // we consider the following structure for our mocking
+        // ivc starts with 1 app circuit, followed by the init kernel
+        // a series of app + inner kernels
+        // a series of kernels without apps
         // If a specific number of gates is specified we create a simple circuit with only arithmetic gates to easily
+        bool is_kernel = (circuit_counter > num_app_circuits) // either we don't have any app circuits in the stack
+                         || (circuit_counter % 2 == 1) || settings.force_is_kernel; // we're on an even program counter
         // control the total number of gates.
         if (settings.log2_num_gates != 0) {
-            ClientCircuit circuit = create_simple_circuit(ivc, settings.log2_num_gates, settings.num_public_inputs);
+            ClientCircuit circuit =
+                create_simple_circuit(ivc, settings.log2_num_gates, settings.num_public_inputs, is_kernel);
             return { circuit, get_verification_key(circuit, ivc.trace_settings) };
         }
 
-        ClientCircuit circuit = create_next_circuit(ivc, settings.force_is_kernel); // construct the circuit
+        ClientCircuit circuit = create_next_circuit(ivc, is_kernel); // construct the circuit
 
         return { circuit, get_verification_key(circuit, ivc.trace_settings) };
     }
@@ -216,10 +249,6 @@ class PrivateFunctionExecutionMockCircuitProducer {
     {
         auto [circuit, vk] = create_next_circuit_and_vk(ivc, settings);
         ivc.accumulate(circuit, vk);
-
-        if (circuit_counter == ivc.get_num_circuits()) {
-            construct_hiding_kernel(ivc);
-        }
     }
 
     /**
