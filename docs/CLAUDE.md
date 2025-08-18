@@ -152,18 +152,39 @@ Use these terms consistently throughout:
 
 Every guide should include:
 
-1. **Title** - Clear, descriptive, and action-oriented
-2. **Overview** - Brief description of what the guide covers
-3. **Prerequisites** - Required knowledge, tools, or access
-4. **Steps/Content** - Main body with clear headings
-5. **Verification** - How to confirm successful completion
-6. **Troubleshooting** - Common issues and solutions (where applicable)
-7. **Next Steps** - Related guides or advanced topics
+1. **Front-matter** - YAML metadata block with required `description` field
+2. **Title** - Clear, descriptive, and action-oriented
+3. **Overview** - Brief description of what the guide covers
+4. **Prerequisites** - Required knowledge, tools, or access
+5. **Steps/Content** - Main body with clear headings
+6. **Verification** - How to confirm successful completion
+7. **Troubleshooting** - Common issues and solutions (where applicable)
+8. **Next Steps** - Related guides or advanced topics
+
+### Front-matter Requirements
+
+Every markdown file MUST include front-matter with a `description` field:
+
+```yaml
+---
+title: "Page Title"
+description: "Brief, SEO-friendly description of the page content (50-160 characters recommended)"
+---
+```
+
+The description should:
+
+- Clearly summarize the page's purpose and content
+- Be between 50-160 characters for optimal SEO
+- Use active voice and be user-focused
+- Avoid redundancy with the page title
+- Help users understand what they'll learn or accomplish
 
 ## Special Instructions
 
 ### Do Review For:
 
+- ✅ Missing front-matter or missing `description` field in front-matter
 - ✅ Ambiguous instructions that could confuse users
 - ✅ Missing context or assumptions about user knowledge
 - ✅ Outdated screenshots or version references

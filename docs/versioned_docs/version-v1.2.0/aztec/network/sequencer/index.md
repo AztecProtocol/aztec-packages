@@ -1,5 +1,6 @@
 ---
 title: Sequencer
+description: Understand the role of sequencers in Aztec, how they order transactions and produce blocks.
 tags: [protocol, sequencer]
 draft: true
 ---

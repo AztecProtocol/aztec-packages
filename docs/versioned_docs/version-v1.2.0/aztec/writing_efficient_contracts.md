@@ -1,5 +1,6 @@
 ---
 title: Writing Efficient Contracts
+description: Best practices and techniques for writing gas-efficient contracts on Aztec, optimizing for both proving and execution costs.
 sidebar_position: 2
 tags: [Developers, Contracts]
 ---

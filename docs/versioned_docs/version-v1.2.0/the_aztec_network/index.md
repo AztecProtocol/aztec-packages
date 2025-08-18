@@ -2,6 +2,7 @@
 id: index
 sidebar_position: 0
 title: Running a Full Node
+description: A guide about how to run a full node on the Aztec network.
 ---
 
 This guide will go over the steps required to run a full node on Aztec with a basic setup.
@@ -45,6 +46,7 @@ sudo sh get-docker.sh
 ```
 
 Afterwards, the currently logged in user must be added to the docker group, so sudo is not needed to invoke docker.
+
 ```console
 sudo groupadd docker
 sudo usermod -aG docker $USER

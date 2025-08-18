@@ -1,5 +1,6 @@
 ---
 title: Using Address Note in Aztec.nr
+description: Learn how to use address notes to store and manage addresses in your Aztec smart contracts.
 tags: [contracts, notes]
 ---
 

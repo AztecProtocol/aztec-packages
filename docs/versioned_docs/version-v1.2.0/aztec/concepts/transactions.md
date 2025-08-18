@@ -1,5 +1,6 @@
 ---
 title: Transactions
+description: Explore how transactions work in Aztec, including their lifecycle, structure, and the flow from creation to inclusion.
 sidebar_position: 3
 tags: [protocol]
 ---
