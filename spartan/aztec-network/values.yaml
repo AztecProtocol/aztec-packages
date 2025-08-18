@@ -372,10 +372,6 @@ proverBroker:
   dataDir: "/data"
   maxOldSpaceSize: "4608"
 
-jobs:
-  deployL1Verifier:
-    enable: false
-
 blobSink:
   enabled: false
   logLevel: "debug; info: aztec:simulator, json-rpc"

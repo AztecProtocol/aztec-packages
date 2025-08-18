@@ -65,7 +65,3 @@ ethereum:
   chainId: "11155111"
   l1GasPriceMax: 1000
   l1FixedPriorityFeePerGas: 3
-
-jobs:
-  deployL1Verifier:
-    enable: false
