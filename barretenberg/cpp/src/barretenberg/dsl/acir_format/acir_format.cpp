@@ -518,7 +518,6 @@ void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
     for (auto [constraint, queue_entry] :
          zip_view(constraints.ivc_recursion_constraints, ivc->stdlib_verification_queue)) {
 
-        info("proof type: ", constraint.proof_type);
         // Get the witness indices for the public inputs contained within the proof in the verification queue
         std::vector<uint32_t> public_input_indices =
             ProofSurgeon<uint256_t>::get_public_inputs_witness_indices_from_proof(queue_entry.proof,

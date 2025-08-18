@@ -203,18 +203,6 @@ class ClientIVC {
 
     size_t get_num_circuits() const { return num_circuits; }
 
-    bool decide_for_testing(const std::shared_ptr<DeciderProvingKey>& prover_accumulator,
-                            const std::shared_ptr<DeciderVerificationKey>& verifier_accum) const
-    {
-        DeciderProver prover(prover_accumulator);
-        prover.construct_proof();
-        auto decider_proof = prover.export_proof();
-        DeciderVerifier_<MegaFlavor> verifier{ verifier_accum };
-        auto decider_output = verifier.verify_proof(decider_proof);
-        bool result = decider_output.check();
-        return result;
-    }
-
     ClientIVC(size_t num_circuits, TraceSettings trace_settings = {});
 
     void instantiate_stdlib_verification_queue(ClientCircuit& circuit,

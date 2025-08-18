@@ -89,9 +89,6 @@ template <typename Builder_> struct PairingPoints {
             point_to_aggregate = other.P1.scalar_mul(recursion_separator, 128);
             P1 += point_to_aggregate;
         }
-
-        VerifierCommitmentKey<typename Curve::NativeCurve> pcs_verification_key{};
-        info("Pairing check in aggregate stdlib: ", pcs_verification_key.pairing_check(P0.get_value(), P1.get_value()));
     }
 
     /**
@@ -126,9 +123,9 @@ template <typename Builder_> struct PairingPoints {
 
     static std::array<fr, PUBLIC_INPUTS_SIZE> construct_dummy()
     {
-        // We just biggroup here instead of Group (which is either biggroup or biggroup_goblin) because this is
-        // the most efficient way of setting the default pairing points. If we use biggroup_goblin elements, we
-        // have to convert them back to biggroup elements anyway to add them to the public inputs...
+        // We just biggroup here instead of Group (which is either biggroup or biggroup_goblin) because this is the most
+        // efficient way of setting the default pairing points. If we use biggroup_goblin elements, we have to convert
+        // them back to biggroup elements anyway to add them to the public inputs...
         using BigGroup = element_default::
             element<Builder, bigfield<Builder, bb::Bn254FqParams>, field_t<Builder>, curve::BN254::Group>;
         std::array<fr, PUBLIC_INPUTS_SIZE> dummy_pairing_points_values;
@@ -152,8 +149,8 @@ template <typename Builder_> struct PairingPoints {
      */
     static void add_default_to_public_inputs(Builder& builder)
     {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): These are pairing points extracted from
-        // a valid proof. This is a workaround because we can't represent the point at infinity in biggroup yet.
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): These are pairing points extracted from a
+        // valid proof. This is a workaround because we can't represent the point at infinity in biggroup yet.
         bigfield<Builder, bb::Bn254FqParams> x0(
             fq("0x031e97a575e9d05a107acb64952ecab75c020998797da7842ab5d6d1986846cf"));
         bigfield<Builder, bb::Bn254FqParams> y0(

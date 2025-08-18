@@ -129,8 +129,6 @@ template <typename OpFormat> class EccOpsTable {
         return total;
     }
 
-    size_t get_unmerged_subtable_size() const { return current_subtable.size(); }
-
     size_t num_subtables() const { return table.size(); }
 
     auto& get() const { return table; }
@@ -138,9 +136,7 @@ template <typename OpFormat> class EccOpsTable {
     void push(const OpFormat& op)
     {
         // Get the reference of the subtable to update
-        if (current_subtable.empty()) {
-            info(current_subtable.size(), " ecc ops in the current subtable when adding first op");
-        }
+
         current_subtable.push_back(op);
     }
 
@@ -236,7 +232,6 @@ class UltraEccOpsTable {
 
   public:
     size_t size() const { return table.size(); }
-    size_t get_unmerged_subtable_size() const { return table.get_unmerged_subtable_size(); }
     size_t ultra_table_size() const { return table.size() * NUM_ROWS_PER_OP; }
     size_t current_ultra_subtable_size() const { return table.get()[current_subtable_idx].size() * NUM_ROWS_PER_OP; }
     size_t previous_ultra_table_size() const { return (ultra_table_size() - current_ultra_subtable_size()); }

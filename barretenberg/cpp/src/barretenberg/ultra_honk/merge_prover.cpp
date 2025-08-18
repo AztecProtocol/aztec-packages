@@ -69,8 +69,7 @@ MergeProver::MergeProof MergeProver::construct_proof()
 
     if (settings == MergeSettings::PREPEND) {
         left_table = op_queue->construct_current_ultra_ops_subtable_columns(); // t
-
-        right_table = op_queue->construct_previous_ultra_ops_table_columns(); // T_prev
+        right_table = op_queue->construct_previous_ultra_ops_table_columns();  // T_prev
     } else {
         left_table = op_queue->construct_previous_ultra_ops_table_columns();    // T_prev
         right_table = op_queue->construct_current_ultra_ops_subtable_columns(); // t

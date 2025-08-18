@@ -51,7 +51,7 @@ DeciderRecursiveVerifier_<Flavor>::PairingPoints DeciderRecursiveVerifier_<Flavo
     Sumcheck sumcheck(transcript, accumulator->alphas, CONST_PROOF_SIZE_LOG_N, accumulator->target_sum);
     SumcheckOutput<Flavor> output =
         sumcheck.verify(accumulator->relation_parameters, accumulator->gate_challenges, padding_indicator_array);
-    info("Sumcheck verified?: ", output.verified);
+
     // Execute Shplemini rounds.
     ClaimBatcher claim_batcher{
         .unshifted = ClaimBatch{ commitments.get_unshifted(), output.claimed_evaluations.get_unshifted() },
@@ -65,9 +65,6 @@ DeciderRecursiveVerifier_<Flavor>::PairingPoints DeciderRecursiveVerifier_<Flavo
                                                                       Flavor::REPEATED_COMMITMENTS,
                                                                       Flavor::HasZK);
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
-
-    info("Pairing check in recursive decider: ",
-         pcs_verification_key.pairing_check(pairing_points[0].get_value(), pairing_points[1].get_value()));
 
     return { pairing_points[0], pairing_points[1] };
 }

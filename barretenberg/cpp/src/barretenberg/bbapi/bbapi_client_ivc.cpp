@@ -139,18 +139,13 @@ static std::shared_ptr<ClientIVC::DeciderProvingKey> get_acir_program_decider_pr
 
 ClientIvcComputeStandaloneVk::Response ClientIvcComputeStandaloneVk::execute(const BBApiRequest& request) &&
 {
-    vinfo("ClientIvcComputeStandaloneVk - deriving VK for circuit '", circuit.name, "'");
+    info("ClientIvcComputeStandaloneVk - deriving VK for circuit '", circuit.name, "'");
 
     auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
 
     acir_format::AcirProgram program{ constraint_system, /*witness=*/{} };
     std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key = get_acir_program_decider_proving_key(request, program);
     auto verification_key = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->get_precomputed());
-    MegaFlavor::CommitmentLabels labels;
-    for (auto [vk, label] : zip_view(verification_key->get_all(), labels.get_precomputed())) {
-        info("VK ", label, " = ", vk);
-    }
-    vinfo("Check we've generated a satisfiable instance");
 
     return { .bytes = to_buffer(*verification_key), .fields = verification_key->to_field_elements() };
 }
@@ -159,7 +154,6 @@ ClientIvcComputeIvcVk::Response ClientIvcComputeIvcVk::execute(BB_UNUSED const B
 {
     info("ClientIvcComputeIvcVk - deriving IVC VK for circuit '", circuit.name, "'");
 
-    // WORKTODO add comment
     auto standalone_vk_response = bbapi::ClientIvcComputeStandaloneVk{
         .circuit{ .name = "standalone_circuit", .bytecode = std::move(circuit.bytecode) }
     }.execute({ .trace_settings = {} });

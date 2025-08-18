@@ -223,7 +223,6 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
 void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 {
 
-    info("ClientIVC: Completing kernel circuit logic.");
     // Transcript to be shared shared across recursive verification of the folding of K_{i-1} (kernel), A_{i,1} (app),
     // .., A_{i, n} (app) (all circuits accumulated between the previous kernel and current one)
     auto accumulation_recursive_transcript = std::make_shared<RecursiveTranscript>();
@@ -245,15 +244,11 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     bool is_tail_kernel = std::any_of(stdlib_verification_queue.begin(),
                                       stdlib_verification_queue.end(),
                                       [](const auto& entry) { return entry.type == QUEUE_TYPE::PG_TAIL; });
-
-    info("ClientIVC: is_hiding_kernel = ", is_hiding_kernel);
-    info("ClientIVC: is_tail_kernel = ", is_tail_kernel);
     // If the incoming circuit is a kernel, start its subtable with an eq and reset operation to ensure a
     // neighbouring misconfigured subtable coming from an app cannot affect the operations in the
     // current subtable. We don't do this for the hiding kernel as it succeeds another kernel.
     if (!is_hiding_kernel) {
         if (is_tail_kernel) {
-            info("adding no-op to the tail kernel subtable");
             // Add a no-op at the beginning of the tail kernel (the last circuit whose ecc ops subtable is prepended)
             // to ensure the wires representing the op queue in translator circuit are shiftable polynomials, i.e.
             // their 0th coefficient is 0.
@@ -283,7 +278,6 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     // Set the kernel output data to be propagated via the public inputs
     if (is_hiding_kernel) {
         HidingKernelIO hiding_output{ points_accumulator, T_prev_commitments };
-
         hiding_output.set_public();
         // preserve the hiding circuit so a proof for it can be created
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1502): reconsider approach once integration is
@@ -298,7 +292,6 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 
         kernel_output.set_public();
     }
-    info("number of ops at the end of kernel circuit: ", circuit.op_queue->get_unmerged_subtable_size());
 }
 
 /**
@@ -320,22 +313,6 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
 
     // Construct the proving key for circuit
     std::shared_ptr<DeciderProvingKey> proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
-    honk_vk = precomputed_vk;
-    if (num_circuits_accumulated == num_circuits - 1) {
-        MegaFlavor::CommitmentLabels labels;
-        auto vk = std::make_shared<MegaVerificationKey>(proving_key->get_precomputed());
-        for (const auto [label, vk1, vk2] : zip_view(labels.get_precomputed(), vk->get_all(), honk_vk->get_all())) {
-            if (vk1 != vk2) {
-                info("Mismatch in precomputed VKs: ", label, " ", vk1, " != ", vk2);
-            }
-        }
-        info("Checking whether tail kernel is satisfiable");
-        UltraProver_<MegaFlavor> prover(proving_key, vk);
-        UltraVerifier_<MegaFlavor> verifier(vk);
-        auto proof = prover.construct_proof();
-        bool verified = verifier.template verify_proof<DefaultIO>(proof).result;
-        vinfo("verified: ", verified);
-    }
 
     // If the current circuit overflows past the current size of the commitment key, reinitialize accordingly.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1319)
@@ -347,7 +324,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
     proving_key->commitment_key = bn254_commitment_key;
     trace_usage_tracker.update(circuit);
 
-    // honk_vk = std::make_shared<MegaVerificationKey>(proving_key->get_precomputed());
+    honk_vk = precomputed_vk;
 
     // We're acccumulating a kernel if the verification queue is empty (because the kernel circuit contains recursive
     // verifiers for all the entries previously present in the verification queue) and if it's not the first accumulate
@@ -420,7 +397,6 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
     goblin.prove_merge(prover_accumulation_transcript);
 
     num_circuits_accumulated++;
-    // info("satisfiable accumulator: ", decide_for_testing(fold_output.accumulator, native_verifier_accum));
 }
 
 /**
