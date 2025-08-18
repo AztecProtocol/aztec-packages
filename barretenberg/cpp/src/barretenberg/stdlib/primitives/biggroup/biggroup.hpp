@@ -775,14 +775,18 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
             element::chain_add_accumulator accumulator;
             if (round_accumulator.size() == 1) {
                 return element::chain_add_accumulator(round_accumulator[0]);
-            } else if (round_accumulator.size() == 2) {
-                return element::chain_add_start(round_accumulator[0], round_accumulator[1]);
-            } else {
-                accumulator = element::chain_add_start(round_accumulator[0], round_accumulator[1]);
-                for (size_t j = 2; j < round_accumulator.size(); ++j) {
-                    accumulator = element::chain_add(round_accumulator[j], accumulator);
-                }
             }
+
+            if (round_accumulator.size() == 2) {
+                return element::chain_add_start(round_accumulator[0], round_accumulator[1]);
+            }
+
+            // Use chain add for at least 3 elements
+            accumulator = element::chain_add_start(round_accumulator[0], round_accumulator[1]);
+            for (size_t j = 2; j < round_accumulator.size(); ++j) {
+                accumulator = element::chain_add(round_accumulator[j], accumulator);
+            }
+
             return (accumulator);
         }
 
@@ -829,14 +833,18 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
             element::chain_add_accumulator accumulator;
             if (round_accumulator.size() == 1) {
                 return result;
-            } else if (round_accumulator.size() == 2) {
-                return result + round_accumulator[1];
-            } else {
-                accumulator = element::chain_add_start(round_accumulator[0], round_accumulator[1]);
-                for (size_t j = 2; j < round_accumulator.size(); ++j) {
-                    accumulator = element::chain_add(round_accumulator[j], accumulator);
-                }
             }
+
+            if (round_accumulator.size() == 2) {
+                return result + round_accumulator[1];
+            }
+
+            // For 3 or more elements, use chain addition
+            accumulator = element::chain_add_start(round_accumulator[0], round_accumulator[1]);
+            for (size_t j = 2; j < round_accumulator.size(); ++j) {
+                accumulator = element::chain_add(round_accumulator[j], accumulator);
+            }
+
             return element::chain_add_end(accumulator);
         }
 
@@ -964,14 +972,18 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
                 accumulator.y3_prev = round_accumulator[0].y;
                 accumulator.is_element = true;
                 return accumulator;
-            } else if (round_accumulator.size() == 2) {
-                return element::chain_add_start(round_accumulator[0], round_accumulator[1]);
-            } else {
-                accumulator = element::chain_add_start(round_accumulator[0], round_accumulator[1]);
-                for (size_t j = 2; j < round_accumulator.size(); ++j) {
-                    accumulator = element::chain_add(round_accumulator[j], accumulator);
-                }
             }
+
+            if (round_accumulator.size() == 2) {
+                return element::chain_add_start(round_accumulator[0], round_accumulator[1]);
+            }
+
+            // For round_accumulator.size() >= 3
+            accumulator = element::chain_add_start(round_accumulator[0], round_accumulator[1]);
+            for (size_t j = 2; j < round_accumulator.size(); ++j) {
+                accumulator = element::chain_add(round_accumulator[j], accumulator);
+            }
+
             return (accumulator);
         }
 
@@ -999,14 +1011,18 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
             element::chain_add_accumulator accumulator;
             if (round_accumulator.size() == 1) {
                 return result;
-            } else if (round_accumulator.size() == 2) {
-                return result + round_accumulator[1];
-            } else {
-                accumulator = element::chain_add_start(round_accumulator[0], round_accumulator[1]);
-                for (size_t j = 2; j < round_accumulator.size(); ++j) {
-                    accumulator = element::chain_add(round_accumulator[j], accumulator);
-                }
             }
+
+            if (round_accumulator.size() == 2) {
+                return result + round_accumulator[1];
+            }
+
+            // For round_accumulator.size() >= 3
+            accumulator = element::chain_add_start(round_accumulator[0], round_accumulator[1]);
+            for (size_t j = 2; j < round_accumulator.size(); ++j) {
+                accumulator = element::chain_add(round_accumulator[j], accumulator);
+            }
+
             return element::chain_add_end(accumulator);
         }
 
