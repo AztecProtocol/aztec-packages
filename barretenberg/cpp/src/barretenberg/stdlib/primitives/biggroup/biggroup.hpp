@@ -248,17 +248,17 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         Fq y3_prev;
         bool is_element = false;
 
-        chain_add_accumulator() {};
+        chain_add_accumulator() = default;
         explicit chain_add_accumulator(const element& input)
-        {
-            x3_prev = input.x;
-            y3_prev = input.y;
-            is_element = true;
-        }
+            : x3_prev(input.x)
+            , y3_prev(input.y)
+            , is_element(true)
+        {}
         chain_add_accumulator(const chain_add_accumulator& other) = default;
-        chain_add_accumulator(chain_add_accumulator&& other) = default;
+        chain_add_accumulator(chain_add_accumulator&& other) noexcept = default;
         chain_add_accumulator& operator=(const chain_add_accumulator& other) = default;
-        chain_add_accumulator& operator=(chain_add_accumulator&& other) = default;
+        chain_add_accumulator& operator=(chain_add_accumulator&& other) noexcept = default;
+        ~chain_add_accumulator() = default;
     };
 
     /**
@@ -430,11 +430,14 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     static typename NativeGroup::affine_element compute_table_offset_generator();
 
     struct four_bit_table_plookup {
-        four_bit_table_plookup() {};
+        four_bit_table_plookup() = default;
         four_bit_table_plookup(const element& input);
 
         four_bit_table_plookup(const four_bit_table_plookup& other) = default;
         four_bit_table_plookup& operator=(const four_bit_table_plookup& other) = default;
+        four_bit_table_plookup(four_bit_table_plookup&& other) noexcept = default;
+        four_bit_table_plookup& operator=(four_bit_table_plookup&& other) noexcept = default;
+        ~four_bit_table_plookup() = default;
 
         element operator[](const field_t<Builder>& index) const;
         element operator[](const size_t idx) const { return element_table[idx]; }
@@ -447,10 +450,13 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         enum CurveType { BN254, SECP256K1, SECP256R1 };
         eight_bit_fixed_base_table(const CurveType input_curve_type, bool use_endo)
             : curve_type(input_curve_type)
-            , use_endomorphism(use_endo) {};
+            , use_endomorphism(use_endo){};
 
         eight_bit_fixed_base_table(const eight_bit_fixed_base_table& other) = default;
         eight_bit_fixed_base_table& operator=(const eight_bit_fixed_base_table& other) = default;
+        eight_bit_fixed_base_table(eight_bit_fixed_base_table&& other) noexcept = default;
+        eight_bit_fixed_base_table& operator=(eight_bit_fixed_base_table&& other) noexcept = default;
+        ~eight_bit_fixed_base_table() = default;
 
         element operator[](const field_t<Builder>& index) const;
 
@@ -487,6 +493,9 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         lookup_table_base(const std::array<element, length>& inputs);
         lookup_table_base(const lookup_table_base& other) = default;
         lookup_table_base& operator=(const lookup_table_base& other) = default;
+        lookup_table_base(lookup_table_base&& other) noexcept = default;
+        lookup_table_base& operator=(lookup_table_base&& other) noexcept = default;
+        ~lookup_table_base() = default;
 
         element get(const std::array<bool_ct, length>& bits) const;
 
@@ -513,10 +522,13 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      **/
     template <size_t length> struct lookup_table_plookup {
         static constexpr size_t table_size = (1ULL << (length));
-        lookup_table_plookup() {}
+        lookup_table_plookup() = default;
         lookup_table_plookup(const std::array<element, length>& inputs);
         lookup_table_plookup(const lookup_table_plookup& other) = default;
         lookup_table_plookup& operator=(const lookup_table_plookup& other) = default;
+        lookup_table_plookup(lookup_table_plookup&& other) noexcept = default;
+        lookup_table_plookup& operator=(lookup_table_plookup&& other) noexcept = default;
+        ~lookup_table_plookup() = default;
 
         element get(const std::array<bool_ct, length>& bits) const;
 
