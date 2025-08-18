@@ -32,23 +32,6 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --de
 
 
 ########################################################################################################################
-# Build wasi-sdk.
-FROM base-build AS wasi-sdk
-RUN git clone --depth 1 --recursive --branch wasi-sdk-22 https://github.com/WebAssembly/wasi-sdk.git \
-    && mkdir -p /wasi-sdk/build/install/opt/wasi-sdk \
-    && cd /wasi-sdk \
-    && export MAKEFLAGS="-j$(nproc)" \
-    && make build/llvm.BUILT \
-    && make build/wasi-libc.BUILT \
-    && make build/compiler-rt.BUILT \
-    && make build/libcxx.BUILT \
-    && make build/config.BUILT \
-    && make build/version.BUILT \
-    && mv build/install/opt/wasi-sdk /opt/wasi-sdk \
-    && cd / && rm -rf /wasi-sdk
-
-
-########################################################################################################################
 # Build osxcross.
 FROM base-build AS osxcross
 RUN apt update && apt-get install --no-install-recommends -y \
@@ -110,7 +93,7 @@ RUN curl -L https://foundry.paradigm.xyz | bash \
 # We use this image for test isolation.
 FROM base-build AS build
 
-# APT repo for node (22.15.0)
+# APT repo for node (22.16.0)
 RUN curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
 ENV NODE_MAJOR=22
 RUN echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list
@@ -131,22 +114,21 @@ RUN apt update && \
         lsof \
         xxd \
         zstd \
-        # C++ (clang=18, which we will move to. 16 is for current build.)
+        # C++
+        lsb-release \
+        gnupg \
+        software-properties-common \
         build-essential \
-        cmake \
-        ninja-build \
         clang \
         clang-16 \
         clang-format-16 \
+        cmake \
+        ninja-build \
         libc++-dev \
         libomp-dev \
-        clang-18 \
-        clang-format-18 \
-        libc++-18-dev \
-        libomp-18-dev \
-        libclang-rt-18-dev \
         doxygen \
-        nodejs \
+        # Node
+        nodejs=22.16.0-1nodesource1 \
         # Python (clang bindings for wasm bindgen.)
         python3 \
         python3-clang \
@@ -156,8 +138,18 @@ RUN apt update && \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
+# Install clang 18/20.
+RUN wget https://apt.llvm.org/llvm.sh && \
+    chmod +x llvm.sh && \
+    ./llvm.sh 18 all && \
+    ./llvm.sh 20 all && \
+    rm llvm.sh
+
 # Install wasi-sdk.
-COPY --from=wasi-sdk /opt/wasi-sdk /opt/wasi-sdk
+RUN wget https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-27/wasi-sdk-27.0-x86_64-linux.tar.gz && \
+    tar xvf wasi-sdk-27.0-x86_64-linux.tar.gz && \
+    mv wasi-sdk-27.0-x86_64-linux /opt/wasi-sdk && \
+    rm wasi-sdk-27.0-x86_64-linux.tar.gz
 
 # Install foundry.
 COPY --from=foundry /opt/foundry /opt/foundry
