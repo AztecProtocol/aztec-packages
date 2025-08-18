@@ -102,6 +102,8 @@ class CivcRecursionConstraintTest : public ::testing::Test {
         // Build constraints
         Builder builder = create_circuit(program, { .honk_recursion = 2 });
 
+        info("Estimate finalized number of gates: ", builder.get_estimated_num_finalized_gates());
+
         // Construct vk
         auto proving_key = std::make_shared<DeciderProvingKey>(builder);
 
