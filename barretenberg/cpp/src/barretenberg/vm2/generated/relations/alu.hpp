@@ -14,10 +14,10 @@ template <typename FF_> class aluImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 54> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 2, 5, 5, 4, 3, 3, 4, 6, 3,
+    static constexpr std::array<size_t, 55> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 2, 5, 5, 4, 3, 3, 4, 6, 3,
                                                                             3, 6, 3, 6, 3, 6, 3, 5, 3, 3, 3, 3, 6, 6,
                                                                             3, 3, 5, 6, 3, 6, 3, 3, 3, 3, 3, 3, 3, 4,
-                                                                            3, 4, 3, 3, 3, 3, 2, 2, 3, 3, 4, 3 };
+                                                                            3, 4, 2, 3, 3, 3, 3, 2, 2, 3, 3, 4, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -82,17 +82,17 @@ template <typename FF> class alu : public Relation<aluImpl<FF>> {
             return "LTE_NEGATE_RESULT_C";
         case 43:
             return "NOT_OP_MAIN";
-        case 48:
-            return "SEL_TRUNC_NON_TRIVIAL";
         case 49:
-            return "SEL_TRUNCATE";
+            return "SEL_TRUNC_NON_TRIVIAL";
         case 50:
-            return "TRUNC_TRIVIAL_CASE";
+            return "SEL_TRUNCATE";
         case 51:
-            return "SMALL_TRUNC_VAL_IS_LO";
+            return "TRUNC_TRIVIAL_CASE";
         case 52:
-            return "TRUNC_LO_128_DECOMPOSITION";
+            return "SMALL_TRUNC_VAL_IS_LO";
         case 53:
+            return "TRUNC_LO_128_DECOMPOSITION";
+        case 54:
             return "TRUNC_MID_BITS";
         }
         return std::to_string(index);
@@ -120,12 +120,12 @@ template <typename FF> class alu : public Relation<aluImpl<FF>> {
     static constexpr size_t SR_LT_SWAP_INPUTS_B = 40;
     static constexpr size_t SR_LTE_NEGATE_RESULT_C = 41;
     static constexpr size_t SR_NOT_OP_MAIN = 43;
-    static constexpr size_t SR_SEL_TRUNC_NON_TRIVIAL = 48;
-    static constexpr size_t SR_SEL_TRUNCATE = 49;
-    static constexpr size_t SR_TRUNC_TRIVIAL_CASE = 50;
-    static constexpr size_t SR_SMALL_TRUNC_VAL_IS_LO = 51;
-    static constexpr size_t SR_TRUNC_LO_128_DECOMPOSITION = 52;
-    static constexpr size_t SR_TRUNC_MID_BITS = 53;
+    static constexpr size_t SR_SEL_TRUNC_NON_TRIVIAL = 49;
+    static constexpr size_t SR_SEL_TRUNCATE = 50;
+    static constexpr size_t SR_TRUNC_TRIVIAL_CASE = 51;
+    static constexpr size_t SR_SMALL_TRUNC_VAL_IS_LO = 52;
+    static constexpr size_t SR_TRUNC_LO_128_DECOMPOSITION = 53;
+    static constexpr size_t SR_TRUNC_MID_BITS = 54;
 };
 
 } // namespace bb::avm2

@@ -174,6 +174,18 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
             { Column::alu_tag_ff_diff_inv, is_ff ? 0 : tag_diff.invert() },
         };
     }
+    case simulation::AluOperation::SHL: {
+        return {
+            { Column::alu_sel_op_shl, 1 },
+            { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::SHL).subtrace_operation_id },
+        };
+    }
+    case simulation::AluOperation::SHR: {
+        return {
+            { Column::alu_sel_op_shr, 1 },
+            { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::SHR).subtrace_operation_id },
+        };
+    }
     case simulation::AluOperation::TRUNCATE: {
         const uint256_t value = static_cast<uint256_t>(event.a.as_ff());
         const MemoryTag dst_tag = static_cast<MemoryTag>(static_cast<uint8_t>(event.b.as_ff()));
@@ -195,18 +207,6 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
             { Column::alu_mid, mid },
             { Column::alu_op_id, AVM_EXEC_OP_ID_ALU_TRUNCATE },
             { Column::alu_mid_bits, is_trivial ? 0 : 128 - dst_bits },
-        };
-    }
-    case simulation::AluOperation::SHL: {
-        return {
-            { Column::alu_sel_op_shl, 1 },
-            { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::SHL).subtrace_operation_id },
-        };
-    }
-    case simulation::AluOperation::SHR: {
-        return {
-            { Column::alu_sel_op_shr, 1 },
-            { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::SHR).subtrace_operation_id },
         };
     }
     default:

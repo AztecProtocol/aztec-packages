@@ -177,6 +177,36 @@ MemoryValue Alu::op_not(const MemoryValue& a)
     }
 }
 
+MemoryValue Alu::shl(const MemoryValue& a, const MemoryValue& b)
+{
+    try {
+        MemoryValue c = a << b; // This will throw if the tags do not match or are FF.
+        events.emit({ .operation = AluOperation::SHL, .a = a, .b = b, .c = c });
+        return c;
+    } catch (const TagMismatchException& e) {
+        events.emit({ .operation = AluOperation::SHL, .a = a, .b = b, .error = AluError::TAG_ERROR });
+        throw AluException("SHL, " + std::string(e.what()));
+    } catch (const InvalidOperationTag& e) {
+        events.emit({ .operation = AluOperation::SHL, .a = a, .b = b, .error = AluError::TAG_ERROR });
+        throw AluException("SHL, " + std::string(e.what()));
+    }
+}
+
+MemoryValue Alu::shr(const MemoryValue& a, const MemoryValue& b)
+{
+    try {
+        MemoryValue c = a >> b; // This will throw if the tags do not match or are FF.
+        events.emit({ .operation = AluOperation::SHR, .a = a, .b = b, .c = c });
+        return c;
+    } catch (const TagMismatchException& e) {
+        events.emit({ .operation = AluOperation::SHR, .a = a, .b = b, .error = AluError::TAG_ERROR });
+        throw AluException("SHR, " + std::string(e.what()));
+    } catch (const InvalidOperationTag& e) {
+        events.emit({ .operation = AluOperation::SHR, .a = a, .b = b, .error = AluError::TAG_ERROR });
+        throw AluException("SHR, " + std::string(e.what()));
+    }
+}
+
 MemoryValue Alu::truncate(const FF& a, MemoryTag dst_tag)
 {
     const MemoryValue c = MemoryValue::from_tag_truncating(dst_tag, a);
@@ -209,32 +239,6 @@ MemoryValue Alu::truncate(const FF& a, MemoryTag dst_tag)
                   .b = MemoryValue::from_tag(MemoryTag::FF, static_cast<uint8_t>(dst_tag)),
                   .c = c });
     return c;
-}
-
-MemoryValue Alu::shr(const MemoryValue& a, const MemoryValue& b)
-{
-    // todo: Tag checks need to change to ensure LHS == RHS, this is in the ShiftVisitor in tagged value
-    try {
-        MemoryValue c = a >> b;
-        events.emit({ .operation = AluOperation::SHR, .a = a, .b = b, .c = c });
-        return c;
-    } catch (const std::exception& e) {
-        events.emit({ .operation = AluOperation::SHR, .a = a, .b = b, .error = AluError::TAG_ERROR });
-        throw AluException("SHR, " + std::string(e.what()));
-    }
-}
-
-MemoryValue Alu::shl(const MemoryValue& a, const MemoryValue& b)
-{
-    // todo: Tag checks need to change to ensure LHS == RHS, this is in the ShiftVisitor in tagged value
-    try {
-        MemoryValue c = a << b;
-        events.emit({ .operation = AluOperation::SHL, .a = a, .b = b, .c = c });
-        return c;
-    } catch (const std::exception& e) {
-        events.emit({ .operation = AluOperation::SHL, .a = a, .b = b, .error = AluError::TAG_ERROR });
-        throw AluException("SHL, " + std::string(e.what()));
-    }
 }
 
 } // namespace bb::avm2::simulation
