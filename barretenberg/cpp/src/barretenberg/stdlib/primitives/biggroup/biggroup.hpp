@@ -17,6 +17,7 @@
 #include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
 #include "barretenberg/ecc/curves/secp256r1/secp256r1.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup_goblin.hpp"
+#include <cstddef>
 
 namespace bb::stdlib::element_default {
 
@@ -207,9 +208,9 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         *this = *this - other;
         return *this;
     }
-    std::array<element, 2> checked_unconditional_add_sub(const element&) const;
+    std::array<element, 2> checked_unconditional_add_sub(const element& other) const;
 
-    element operator*(const Fr& other) const;
+    element operator*(const Fr& scalar) const;
 
     element conditional_negate(const bool_ct& predicate) const
     {
@@ -269,7 +270,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     static chain_add_accumulator chain_add(const element& p1, const chain_add_accumulator& accumulator);
     static element chain_add_end(const chain_add_accumulator& accumulator);
     element montgomery_ladder(const element& other) const;
-    element montgomery_ladder(const chain_add_accumulator& accumulator);
+    element montgomery_ladder(const chain_add_accumulator& to_add);
     element multiple_montgomery_ladder(const std::vector<chain_add_accumulator>& to_add) const;
     element quadruple_and_add(const std::vector<element>& to_add) const;
 
@@ -419,7 +420,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
 
     template <size_t num_elements>
     static std::array<twin_rom_table<Builder>, 5> create_group_element_rom_tables(
-        const std::array<element, num_elements>& elements, std::array<uint256_t, 8>& limb_max);
+        const std::array<element, num_elements>& rom_data, std::array<uint256_t, 8>& limb_max);
 
     template <size_t num_elements>
     static element read_group_element_rom_tables(const std::array<twin_rom_table<Builder>, 5>& tables,
@@ -460,7 +461,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
 
         element operator[](const field_t<Builder>& index) const;
 
-        element operator[](const size_t idx) const;
+        element operator[](const size_t index) const;
 
         CurveType curve_type;
         bool use_endomorphism;
@@ -566,8 +567,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         }
 
         endo_table.coordinates = create_group_element_rom_tables<16>(endo_table.element_table, endo_table.limb_max);
-        return std::make_pair<quad_lookup_table, quad_lookup_table>((quad_lookup_table)base_table,
-                                                                    (quad_lookup_table)endo_table);
+        return std::make_pair<quad_lookup_table, quad_lookup_table>(static_cast<quad_lookup_table>(base_table),
+                                                                    static_cast<quad_lookup_table>(endo_table));
     }
 
     /**
@@ -590,8 +591,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
 
         endo_table.coordinates = create_group_element_rom_tables<32>(endo_table.element_table, endo_table.limb_max);
 
-        return std::make_pair<lookup_table_plookup<5>, lookup_table_plookup<5>>((lookup_table_plookup<5>)base_table,
-                                                                                (lookup_table_plookup<5>)endo_table);
+        return std::make_pair<lookup_table_plookup<5>, lookup_table_plookup<5>>(
+            static_cast<lookup_table_plookup<5>>(base_table), static_cast<lookup_table_plookup<5>>(endo_table));
     }
 
     /**
@@ -605,6 +606,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
             num_points = points.size();
             num_fives = num_points / 5;
             num_sixes = 0;
+
             // size-6 table is expensive and only benefits us if creating them reduces the number of total tables
             if (num_points == 1) {
                 num_fives = 0;
