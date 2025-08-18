@@ -20,6 +20,7 @@ import {
   type Watcher,
   type WatcherEmitter,
 } from '@aztec/slasher';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type { IFullNodeBlockBuilder, SequencerConfig } from '@aztec/stdlib/interfaces/server';
@@ -194,11 +195,11 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     return this.keyStore.signTypedDataWithAddress(addr, msg);
   }
 
-  public getCoinbaseForAttestor(attestor: EthAddress) {
+  public getCoinbaseForAttestor(attestor: EthAddress): EthAddress {
     return this.keyStore.getCoinbaseAddress(attestor);
   }
 
-  public getFeeRecipientForAttestor(attestor: EthAddress) {
+  public getFeeRecipientForAttestor(attestor: EthAddress): AztecAddress {
     return this.keyStore.getFeeRecipient(attestor);
   }
 
