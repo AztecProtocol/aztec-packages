@@ -3,6 +3,7 @@ import { times } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { emptyChainConfig } from '@aztec/stdlib/config';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -142,11 +143,17 @@ describe('p2p client integration batch txs', () => {
         logger,
       })
     ).map(x => x.client);
+  };
 
+  async function makeSureClientsAreStarted() {
     // Give the nodes time to discover each other
     await sleep(4000);
+    for (const c of clients) {
+      await retryUntil(async () => (await c.getPeers()).length == clients.length - 1, 'peers discovered', 12, 0.5);
+    }
+
     logger.info('Finished waiting for clients to connect');
-  };
+  }
 
   it.only('batch requester fetches all missing txs from multiple peers', async () => {
     const NUMBER_OF_PEERS = 4;
@@ -188,6 +195,7 @@ describe('p2p client integration batch txs', () => {
     }
 
     await setupClients(NUMBER_OF_PEERS, txPoolMocks);
+    await makeSureClientsAreStarted();
 
     const peerIds = clients.map(client => (client as any).p2pService.node.peerId);
     connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peerIds);
@@ -206,6 +214,7 @@ describe('p2p client integration batch txs', () => {
       5_000,
       (client0 as any).p2pService.reqresp,
       connectionSampler,
+      () => Promise.resolve(true),
       logger,
     );
 
