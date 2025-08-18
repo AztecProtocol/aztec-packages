@@ -358,29 +358,21 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
 
         // Handle IPA
         if (metadata.honk_recursion == 2) {
+            // IO
+            bb::stdlib::recursion::honk::RollupIO inputs;
+            inputs.pairing_inputs = (has_honk_recursion_constraints || has_avm_recursion_constraints)
+                                        ? honk_output.points_accumulator
+                                        : PairingPoints::default_pairing_points(builder);
+
             auto [ipa_claim, ipa_proof] =
                 handle_IPA_accumulation(builder, honk_output.nested_ipa_claims, honk_output.nested_ipa_proofs);
 
             // Set proof
             builder.ipa_proof = ipa_proof;
 
-            // IO
-            bb::stdlib::recursion::honk::RollupIO inputs;
-            inputs.pairing_inputs = (has_honk_recursion_constraints || has_avm_recursion_constraints)
-                                        ? honk_output.points_accumulator
-                                        : PairingPoints::default_pairing_points(builder);
             inputs.ipa_claim = ipa_claim;
             inputs.set_public();
         } else {
-            if (honk_output.is_root_rollup) {
-                perform_full_IPA_verification(builder, honk_output.nested_ipa_claims, honk_output.nested_ipa_proofs);
-            } else {
-                // We shouldn't accidentally have IPA proofs otherwise.
-                BB_ASSERT_EQ(honk_output.nested_ipa_proofs.size(),
-                             static_cast<size_t>(0),
-                             "IPA proofs present when not expected.");
-            }
-
             // If it is a recursive circuit, propagate pairing points
             if (metadata.honk_recursion == 1) {
                 bb::stdlib::recursion::honk::DefaultIO<Builder> inputs;
@@ -388,6 +380,15 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
                                             ? honk_output.points_accumulator
                                             : PairingPoints::default_pairing_points(builder);
                 inputs.set_public();
+            }
+
+            if (honk_output.is_root_rollup) {
+                perform_full_IPA_verification(builder, honk_output.nested_ipa_claims, honk_output.nested_ipa_proofs);
+            } else {
+                // We shouldn't accidentally have IPA proofs otherwise.
+                BB_ASSERT_EQ(honk_output.nested_ipa_proofs.size(),
+                             static_cast<size_t>(0),
+                             "IPA proofs present when not expected.");
             }
         }
     }
