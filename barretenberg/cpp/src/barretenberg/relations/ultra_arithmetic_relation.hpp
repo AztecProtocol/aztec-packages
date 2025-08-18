@@ -81,7 +81,6 @@ template <typename FF_> class UltraArithmeticRelationImpl {
                                   const Parameters&,
                                   const FF& scaling_factor)
     {
-        PROFILE_THIS_NAME("Arithmetic::accumulate");
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
