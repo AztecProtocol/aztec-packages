@@ -167,14 +167,13 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     /**
      * @brief Addition relation
      *
-     * All addition operations in ECCVMMSMRelationImpl are conditional additions!
-     * This method returns two Accumulators that represent x/y coord of output.
-     * Output is either an addition of inputs, or xa/ya dpeending on value of `selector`.
-     * Additionally, we require `lambda = 0` if `selector = 0`.
-     * The `collision_relation` accumulator tracks a subrelation that validates xb != xa.
-     * Repeated calls to this method will increase the max degree of the Accumulator output
-     * Degree of x_out, y_out = max degree of x_a/x_b + 1
-     * 4 Iterations will produce an output degree of 6
+     * All addition operations in ECCVMMSMRelationImpl are conditional additions, as we sometimes want to add values and
+     * other times simply want to propagate values. (consider, e.g., when q_add2 == 0.) This method returns two
+     * Accumulators that represent x/y coord of output. Output is either an addition of inputs (if `selector == 1`), or
+     * xa/ya (if `selector == 0`). Additionally, we require `lambda = 0` if `selector = 0`. The `collision_relation`
+     * accumulator tracks a subrelation that validates xb != xa. Repeated calls to this method will increase the max
+     * degree of the Accumulator output Degree of x_out, y_out = max degree of x_a/x_b + 1 4 Iterations will produce an
+     * output degree of 6
      */
     auto add = [&](auto& xb,
                    auto& yb,
@@ -186,6 +185,7 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
                    auto& collision_relation) {
         // L * (1 - s) = 0
         // (combine) (L * (xb - xa - 1) - yb - ya) * s + L = 0
+        // i.e., computation of lambda is valid.
         relation += selector * (lambda * (xb - xa - 1) - (yb - ya)) + lambda;
         collision_relation += selector * (xb - xa);
         // x3 = L.L + (-xb - xa) * q + (1 - q) xa
@@ -224,7 +224,7 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
         constexpr uint256_t oyu = offset_generator.y;
         const Accumulator xo(oxu);
         const Accumulator yo(oyu);
-
+        // set (x, y) to be either accumulator if `selector == 0` or OFFSET if `selector == 1`.
         auto x = xo * selector + xb * (-selector + 1);
         auto y = yo * selector + yb * (-selector + 1);
         relation += lambda * (x - xa) - (y - ya); // degree 3
@@ -235,12 +235,12 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     };
 
     // ADD operations (if row represents ADD round, not SKEW or DOUBLE)
-    Accumulator add_relation(0);
+    Accumulator add_relation(0); // validates the correctness of all elliptic curve additions.
     Accumulator x1_collision_relation(0);
     Accumulator x2_collision_relation(0);
     Accumulator x3_collision_relation(0);
     Accumulator x4_collision_relation(0);
-    // If msm_transition = 1, we have started a new MSM. We need to treat the current value of [Acc] as the point at
+    // If `msm_transition == 1`, we have started a new MSM. We need to treat the current value of [Acc] as the point at
     // infinity!
     auto [x_t1, y_t1] = first_add(acc_x, acc_y, x1, y1, lambda1, msm_transition, add_relation, x1_collision_relation);
     auto [x_t2, y_t2] = add(x2, y2, x_t1, y_t1, lambda2, add2, add_relation, x2_collision_relation);
