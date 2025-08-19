@@ -124,7 +124,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       await retryUntil(() => node.getProvenBlockNumber().then(p => p >= provenBlock), 'node sync', 10, 0.1);
 
       // Remove the proof from L1 but do not change the block number
-      await context.cheatCodes.eth.reorgWithReplacement(1);
+      await context.cheatCodes.eth.reorgWithReplacement(2);
       await expect(monitor.run(true).then(m => m.l2ProvenBlockNumber)).resolves.toEqual(0);
 
       // Create another prover node so it submits a proof
