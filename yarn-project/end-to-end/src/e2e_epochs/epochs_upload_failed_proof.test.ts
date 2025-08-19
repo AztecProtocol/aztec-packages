@@ -1,5 +1,5 @@
 import type { AztecNodeConfig } from '@aztec/aztec-node';
-import { EthAddress, Fr, type Logger, retryUntil, sleep } from '@aztec/aztec.js';
+import { EthAddress, type Logger, retryUntil, sleep } from '@aztec/aztec.js';
 import { tryRmDir } from '@aztec/foundation/fs';
 import { downloadEpochProvingJob, rerunEpochProvingJob } from '@aztec/prover-node';
 import type { TestProverNode } from '@aztec/prover-node/test';
