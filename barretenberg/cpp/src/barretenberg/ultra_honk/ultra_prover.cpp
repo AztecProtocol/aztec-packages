@@ -80,7 +80,7 @@ template <IsUltraOrMegaHonk Flavor> void UltraProver_<Flavor>::generate_gate_cha
 {
     // Determine the number of rounds in the sumcheck based on whether or not padding is employed
     const size_t virtual_log_n =
-        Flavor::USE_PADDING ? CONST_PROOF_SIZE_LOG_N : static_cast<size_t>(proving_key->log_dyadic_size());
+        Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : static_cast<size_t>(proving_key->log_dyadic_size());
 
     std::vector<FF> gate_challenges(static_cast<size_t>(virtual_log_n));
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
