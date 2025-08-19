@@ -2,7 +2,6 @@ import type { Archiver } from '@aztec/archiver';
 import type { RollupContract } from '@aztec/ethereum';
 import { assertRequired, compact, pick, sum } from '@aztec/foundation/collection';
 import { memoize } from '@aztec/foundation/decorators';
-import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
@@ -98,11 +97,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
 
     this.jobMetrics = new ProverNodeJobMetrics(meter, telemetryClient.getTracer('EpochProvingJob'));
 
-    this.rewardsMetrics = new ProverNodeRewardsMetrics(
-      meter,
-      EthAddress.fromField(this.prover.getProverId()),
-      rollupContract,
-    );
+    this.rewardsMetrics = new ProverNodeRewardsMetrics(meter, this.prover.getProverId(), rollupContract);
   }
 
   public getProverId() {

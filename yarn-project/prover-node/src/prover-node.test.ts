@@ -1,7 +1,6 @@
 import { RollupContract } from '@aztec/ethereum';
 import { timesParallel } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
@@ -81,7 +80,7 @@ describe('prover-node', () => {
 
   beforeEach(async () => {
     prover = mock<EpochProverManager>({
-      getProverId: () => Fr.random(),
+      getProverId: () => EthAddress.random(),
     });
     publisher = mock<ProverNodePublisher>();
     l2BlockSource = mock<L2BlockSource>();
