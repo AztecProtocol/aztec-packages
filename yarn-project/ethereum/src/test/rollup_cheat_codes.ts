@@ -174,18 +174,18 @@ export class RollupCheatCodes {
       if (blockNumber === undefined || blockNumber > pending) {
         blockNumber = pending;
       }
-      if (blockNumber <= proven) {
-        this.logger.debug(`Block ${blockNumber} is already proven`);
-        return;
-      }
 
       // @note @LHerskind this is heavily dependent on the storage layout and size of values
       // The rollupStore is a struct and if the size of elements or the struct changes, this can break
       const provenBlockNumberSlot = hexToBigInt(RollupContract.stfStorageSlot);
 
-      // Need to pack it as a single 32 byte word
-      const newValue = (BigInt(tipsBefore.pending) << 128n) | BigInt(blockNumber);
-      await this.ethCheatCodes.store(EthAddress.fromString(this.rollup.address), provenBlockNumberSlot, newValue);
+      if (BigInt(blockNumber) > proven) {
+        // Need to pack it as a single 32 byte word
+        const newValue = (BigInt(tipsBefore.pending) << 128n) | BigInt(blockNumber);
+        await this.ethCheatCodes.store(EthAddress.fromString(this.rollup.address), provenBlockNumberSlot, newValue);
+      } else {
+        this.logger.debug(`Block ${blockNumber} is already proven; will still set archive if provided.`);
+      }
 
       const tipsAfter = await this.getTips();
       if (tipsAfter.pending < tipsAfter.proven) {
@@ -193,7 +193,7 @@ export class RollupCheatCodes {
       }
 
       if (maybeArchive) {
-        await this.setArchiveForBlock(Number(tipsAfter.proven), maybeArchive);
+        await this.setArchiveForBlock(Number(blockNumber), maybeArchive);
       }
 
       this.logger.info(
