@@ -69,7 +69,7 @@ describe('SequencerPublisher', () => {
   // An l1 publisher with some private methods exposed
   let publisher: SequencerPublisher;
 
-  let testHarnessPrivateKey: PrivateKeyAccount;
+  let testHarnessAttesterAccount: PrivateKeyAccount;
 
   const GAS_GUESS = 300_000n;
 
@@ -94,16 +94,17 @@ describe('SequencerPublisher', () => {
       logs: [],
     } as unknown as GetTransactionReceiptReturnType;
 
+    testHarnessAttesterAccount = privateKeyToAccount(
+      '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
+    );
     l1TxUtils = mock<L1TxUtilsWithBlobs>();
     l1TxUtils.getBlock.mockResolvedValue({ timestamp: 12n } as any);
     l1TxUtils.getBlockNumber.mockResolvedValue(1n);
-    const publisherPrivateKey = `0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`;
-    testHarnessPrivateKey = privateKeyToAccount(publisherPrivateKey);
+    l1TxUtils.getSenderAddress.mockReturnValue(EthAddress.fromString(testHarnessAttesterAccount.address));
     const config = {
       blobSinkUrl: BLOB_SINK_URL,
       l1RpcUrls: [`http://127.0.0.1:8545`],
       l1ChainId: 1,
-      publisherPrivateKey,
       l1Contracts: {
         rollupAddress: EthAddress.ZERO.toString(),
         governanceProposerAddress: mockGovernanceProposerAddress,
@@ -237,8 +238,11 @@ describe('SequencerPublisher', () => {
     });
     rollup.getProposerAt.mockResolvedValueOnce(mockForwarderAddress);
     expect(
-      await publisher.enqueueGovernanceCastSignal(2n, 1n, EthAddress.fromString(testHarnessPrivateKey.address), msg =>
-        testHarnessPrivateKey.signTypedData(msg),
+      await publisher.enqueueGovernanceCastSignal(
+        2n,
+        1n,
+        EthAddress.fromString(testHarnessAttesterAccount.address),
+        msg => testHarnessAttesterAccount.signTypedData(msg),
       ),
     ).toEqual(true);
 
