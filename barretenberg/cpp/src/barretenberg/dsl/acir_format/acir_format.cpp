@@ -630,7 +630,7 @@ process_civc_recursion_constraints(Builder& builder,
             create_civc_recursion_constraints(builder, constraint, has_valid_witness_assignments);
 
         // Update the output
-        output.update(honk_output, /*has_ipa_data=*/true);
+        output.update(honk_output, /*update_ipa_data=*/true);
 
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.civc_recursion_constraints.at(idx++));
