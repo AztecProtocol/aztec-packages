@@ -124,7 +124,8 @@ export class EpochsTestContext {
       proverTestDelayMs: opts.proverTestDelayMs ?? 0,
       // We use numeric incremental prover ids for simplicity, but we can switch to
       // using the prover's eth address if the proverId is used for something in the rollup contract
-      proverId: EthAddress.fromString('1'.padStart(20, '0')),
+      // Use numeric EthAddress for deterministic prover id
+      proverId: EthAddress.fromNumber(1),
       // This must be enough so that the tx from the prover is delayed properly,
       // but not so much to hang the sequencer and timeout the teardown
       txPropagationMaxQueryAttempts: opts.txPropagationMaxQueryAttempts ?? 12,
@@ -189,7 +190,7 @@ export class EpochsTestContext {
     const proverNode = await withLogNameSuffix(suffix, () =>
       createAndSyncProverNode(
         proverNodePrivateKey,
-        { ...this.context.config, proverId: EthAddress.fromString(suffix.padStart(20, '0')) },
+        { ...this.context.config, proverId: EthAddress.fromNumber(parseInt(suffix, 10)) },
         { dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')) },
         this.context.aztecNode,
         undefined,
