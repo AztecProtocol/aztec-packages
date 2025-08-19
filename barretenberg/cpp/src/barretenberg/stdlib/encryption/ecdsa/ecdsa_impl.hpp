@@ -69,8 +69,7 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& messag
     // Note: This check is also present in the _noassert variation of this method.
     sig.v[0].assert_is_in_set({ field_t<Builder>(27), field_t<Builder>(28) }, "ecdsa: signature is non-standard");
 
-    stdlib::byte_array<Builder> hashed_message =
-        static_cast<stdlib::byte_array<Builder>>(stdlib::SHA256<Builder>::hash(message));
+    stdlib::byte_array<Builder> hashed_message = stdlib::SHA256<Builder>::hash(message);
 
     Fr z(hashed_message);
     z.assert_is_in_field();
@@ -228,8 +227,7 @@ bool_t<Builder> ecdsa_verify_signature_noassert(const stdlib::byte_array<Builder
                                                 const G1& public_key,
                                                 const ecdsa_signature<Builder>& sig)
 {
-    stdlib::byte_array<Builder> hashed_message =
-        static_cast<stdlib::byte_array<Builder>>(stdlib::SHA256<Builder>::hash(message));
+    stdlib::byte_array<Builder> hashed_message = stdlib::SHA256<Builder>::hash(message);
 
     return ecdsa_verify_signature_prehashed_message_noassert<Builder, Curve, Fq, Fr, G1>(
         hashed_message, public_key, sig);
