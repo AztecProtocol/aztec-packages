@@ -221,7 +221,6 @@ export class EpochsTestContext {
     const resolvedConfig = { ...this.context.config, ...opts };
     const p2pEnabled = resolvedConfig.p2pEnabled || mockGossipSubNetwork !== undefined;
     const p2pIp = resolvedConfig.p2pIp ?? (p2pEnabled ? '127.0.0.1' : undefined);
-    console.log(`Resolved config for node ${suffix}:`, resolvedConfig);
     const node = await withLogNameSuffix(suffix, () =>
       AztecNodeService.createAndSync(
         {
