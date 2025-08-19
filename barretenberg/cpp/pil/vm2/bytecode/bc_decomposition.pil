@@ -132,37 +132,45 @@ pol commit bytes_pc_plus_1, bytes_pc_plus_2, bytes_pc_plus_3, bytes_pc_plus_4, b
 //   39 |               1 |             1 |   0xD | 0x0 | 0x0 | ...
 
 pol commit bytes_to_read;
-pol commit sel_overflow_correction_needed;
-sel_overflow_correction_needed * (1 - sel_overflow_correction_needed) = 0;
+pol commit sel_windows_gt_remaining;
+sel_windows_gt_remaining * (1 - sel_windows_gt_remaining) = 0;
 // We need to constrain bytes_to_read = min(WINDOW_SIZE, bytes_remaining) which is equal to
 // bytes_remaining if bytes_remaining <= WINDOW_SIZE and WINDOW_SIZE otherwise.
 
-// Absolute value of WINDOW_SIZE - bytes_remaining
-pol commit abs_diff;
-// Remark: The factor sel in relation below is only required to use the skippable mechanism.
-// sel_overflow_correction_needed = 1 if bytes_remaining < WINDOW_SIZE and
-// sel_overflow_correction_needed = 0 if bytes_remaining > WINDOW_SIZE
-#[BC_DEC_ABS_DIFF]
-sel * (2 * sel_overflow_correction_needed * (WINDOW_SIZE - bytes_remaining) - WINDOW_SIZE + bytes_remaining - abs_diff) = 0;
+pol commit is_windows_eq_remaining;
+pol commit windows_min_remaining_inv;
+is_windows_eq_remaining * (1 - is_windows_eq_remaining) = 0;
 
-// We prove that the abs_diff is positive (and therefore sel_overflow_correction_needed correct) over the integers
-// using a range check over 24 bits. We know that WINDOWS_SIZE fits into 16 bits and bytes_remaining cannot be larger
-// than the trace size 2^21 (and bytecode hashing/validation could not pass). This provides guarantee that
-// abs_diff cannot be the result of an underflow. This would be only possible for bytes_remaining being very close
-// to the field order.
+// bytes_remaining == WINDOW_SIZE <==> is_windows_eq_remaining == 1
+#[IS_WINDOWS_EQ_REMAINING]
+sel * ((WINDOW_SIZE - bytes_remaining) * (is_windows_eq_remaining * (1 - windows_min_remaining_inv) + windows_min_remaining_inv) + is_windows_eq_remaining - 1) = 0;
 
-pol commit abs_diff_lo;
-pol commit abs_diff_hi;
-abs_diff = abs_diff_hi * 2**16 + abs_diff_lo;
 
-#[ABS_DIFF_LO_IS_U16]
-sel { abs_diff_lo } in precomputed.sel_range_16 { precomputed.clk };
+// We want to constrain sel_windows_gt_remaining as follows:
+// sel_windows_gt_remaining = 1 if bytes_remaining < WINDOW_SIZE and
+// sel_windows_gt_remaining = 0 if bytes_remaining >= WINDOW_SIZE
+//
+// Instead of using range-checks/GT gadget to show an inequality, we leverage on the fact that bytes_remaining
+// is a decrementing counter.
+// So the pattern for sel_windows_gt_remaining bottom-up is: 1, 1, 1, ..., 1, 0, 0, 0, ...
+// where first 0 entry is at the row where bytes_remaining == WINDOW_SIZE.
+//
+// We initialize sel_windows_gt_remaining = 1 on last row of the bytecode
+// and propagate the boolean value to the above row whenever bytes_remaining != WINDOW_SIZE.
+// If we encounter the row where bytes_remaining == WINDOW_SIZE, we swap the boolean value.
+// Whenever the bytecode is smaller than WINDOW_SIZE, we exclusively propagate the value 1.
 
-#[ABS_DIFF_HI_IS_U8]
-sel { abs_diff_hi } in precomputed.sel_range_8 { precomputed.clk };
+// Set sel_windows_gt_remaining = 1 on the last row of the bytecode.
+#[SEL_WINDOWS_GT_REMAINING_INIT]
+last_of_contract * (1 - sel_windows_gt_remaining) = 0;
 
-#[BC_DEC_OVERFLOW_CORRECTION_VALUE]
-sel * ((1 - sel_overflow_correction_needed) * (bytes_to_read - WINDOW_SIZE) + sel_overflow_correction_needed * (bytes_to_read - bytes_remaining)) = 0;
+// If we reach is_windows_eq_remaining == 1, we pass from 1 to 0. (Decrement a single time.)
+// sel_windows_gt_remaining = sel_windows_gt_remaining' - is_windows_eq_remaining
+#[SEL_WINDOWS_GT_REMAINING_PROPAGATION]
+(1 - FIRST_OR_LAST_CONTRACT) * (sel_windows_gt_remaining' - is_windows_eq_remaining - sel_windows_gt_remaining) = 0;
+
+#[SET_BYTES_TO_READ]
+sel * ((1 - sel_windows_gt_remaining) * (bytes_to_read - WINDOW_SIZE) + sel_windows_gt_remaining * (bytes_to_read - bytes_remaining)) = 0;
 
 // Constrain shifted columns.
 // We need to guard with (1 - FIRST_OR_LAST_CONTRACT) because otherwise we would need to copy value
