@@ -14,7 +14,6 @@ import {
   type Hex,
   type KeyStore,
   type KeyStoreConfig,
-  type ProverKeyStore,
   type ValidatorKeyStore,
   keyStoreConfigMappings,
 } from '@aztec/node-keystore';
