@@ -4,6 +4,7 @@
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
 #include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
+#include "barretenberg/stdlib/primitives/packed_byte_array/packed_byte_array.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
@@ -16,46 +17,28 @@ using namespace bb::stdlib;
 using namespace cdg;
 
 using Builder = UltraCircuitBuilder;
-using byte_array_ct = byte_array<Builder>;
-using field_ct = field_t<Builder>;
-
-/**
- * @brief Given a `byte_array` object, slice it into chunks of size `num_bytes_in_chunk` and compute field elements
- * reconstructed from these chunks.
- */
-
-std::vector<field_ct> pack_bytes_into_field_elements(const byte_array_ct& input, size_t num_bytes_in_chunk = 4)
-{
-    std::vector<field_t<Builder>> result;
-    const size_t byte_len = input.size();
-
-    for (size_t i = 0; i < byte_len; i += num_bytes_in_chunk) {
-        byte_array_ct chunk = input.slice(i, std::min(num_bytes_in_chunk, byte_len - i));
-        result.emplace_back(static_cast<field_ct>(chunk));
-    }
-
-    return result;
-}
+using byte_array_pt = byte_array<Builder>;
+using packed_byte_array_pt = packed_byte_array<Builder>;
+using field_pt = field_t<Builder>;
 
 /**
  static analyzer usually prints input and output variables as variables in one gate. In tests these variables
  are not dangerous and usually we can filter them by adding gate for fixing witness. Then these variables will be
  in 2 gates, and static analyzer won't print them. functions fix_vector and fix_byte_array do it
- for vector of variables and byte_array respectively
+ for vector of variables and packed_byte_array respectively
 */
 
-void fix_vector(std::vector<field_ct>& vector)
+void fix_vector(std::vector<field_pt>& vector)
 {
     for (auto& elem : vector) {
         elem.fix_witness();
     }
 }
 
-void fix_byte_array(byte_array_ct& input)
+void fix_byte_array(packed_byte_array_pt& input)
 {
-    for (size_t idx = 0; idx < input.size(); idx++) {
-        input[idx].fix_witness();
-    }
+    std::vector<field_pt> limbs = input.get_limbs();
+    fix_vector(limbs);
 }
 
 /**
@@ -72,12 +55,12 @@ TEST(boomerang_stdlib_sha256, test_graph_for_sha256_55_bytes)
     // 55 bytes is the largest number of bytes that can be hashed in a single block,
     // accounting for the single padding bit, and the 64 size bits required by the SHA-256 standard.
     auto builder = Builder();
-    byte_array_ct input(&builder, "An 8 character password? Snow White and the 7 Dwarves..");
+    packed_byte_array_pt input(&builder, "An 8 character password? Snow White and the 7 Dwarves..");
     fix_byte_array(input);
 
-    byte_array_ct output_bytes = stdlib::SHA256<Builder>::hash(input);
+    packed_byte_array_pt output_bits = stdlib::SHA256<Builder>::hash(input);
 
-    std::vector<field_ct> output = pack_bytes_into_field_elements(output_bytes);
+    std::vector<field_pt> output = output_bits.to_unverified_byte_slices(4);
     fix_vector(output);
 
     StaticAnalyzer graph = StaticAnalyzer(builder);
@@ -104,7 +87,7 @@ HEAVY_TEST(boomerang_stdlib_sha256, test_graph_for_sha256_NIST_vector_five)
 {
     auto builder = Builder();
 
-    byte_array_ct input(
+    packed_byte_array_pt input(
         &builder,
         "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
         "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
@@ -118,9 +101,9 @@ HEAVY_TEST(boomerang_stdlib_sha256, test_graph_for_sha256_NIST_vector_five)
         "AAAAAAAAAA");
 
     fix_byte_array(input);
-    byte_array_ct output_bytes = stdlib::SHA256<bb::UltraCircuitBuilder>::hash(input);
+    packed_byte_array_pt output_bits = stdlib::SHA256<bb::UltraCircuitBuilder>::hash(input);
 
-    std::vector<field_ct> output = pack_bytes_into_field_elements(output_bytes);
+    std::vector<field_pt> output = output_bits.to_unverified_byte_slices(4);
     fix_vector(output);
 
     StaticAnalyzer graph = StaticAnalyzer(builder);
@@ -143,10 +126,10 @@ HEAVY_TEST(boomerang_stdlib_sha256, test_graph_for_sha256_NIST_vector_five)
 TEST(boomerang_stdlib_sha256, test_graph_for_sha256_NIST_vector_one)
 {
     auto builder = Builder();
-    byte_array_ct input(&builder, "abc");
+    packed_byte_array_pt input(&builder, "abc");
     fix_byte_array(input);
-    byte_array_ct output_bytes = stdlib::SHA256<Builder>::hash(input);
-    fix_byte_array(output_bytes);
+    packed_byte_array_pt output_bits = stdlib::SHA256<Builder>::hash(input);
+    fix_byte_array(output_bits);
     StaticAnalyzer graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
@@ -163,10 +146,10 @@ TEST(boomerang_stdlib_sha256, test_graph_for_sha256_NIST_vector_one)
 TEST(boomerang_stdlib_sha256, test_graph_for_sha256_NIST_vector_two)
 {
     auto builder = Builder();
-    byte_array_ct input(&builder, "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq");
+    packed_byte_array_pt input(&builder, "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq");
     fix_byte_array(input);
-    byte_array_ct output_bytes = stdlib::SHA256<Builder>::hash(input);
-    fix_byte_array(output_bytes);
+    packed_byte_array_pt output_bits = stdlib::SHA256<Builder>::hash(input);
+    fix_byte_array(output_bits);
     StaticAnalyzer graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
@@ -185,10 +168,10 @@ TEST(boomerang_stdlib_sha256, test_graph_for_sha256_NIST_vector_three)
     auto builder = Builder();
 
     // one byte, 0xbd
-    byte_array_ct input(&builder, std::vector<uint8_t>{ 0xbd });
+    packed_byte_array_pt input(&builder, std::vector<uint8_t>{ 0xbd });
     fix_byte_array(input);
-    byte_array_ct output_bytes = stdlib::SHA256<Builder>::hash(input);
-    fix_byte_array(output_bytes);
+    packed_byte_array_pt output_bits = stdlib::SHA256<Builder>::hash(input);
+    fix_byte_array(output_bits);
     StaticAnalyzer graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
@@ -207,10 +190,10 @@ TEST(boomerang_stdlib_sha256, test_graph_for_sha256_NIST_vector_four)
     auto builder = Builder();
 
     // 4 bytes, 0xc98c8e55
-    byte_array_ct input(&builder, std::vector<uint8_t>{ 0xc9, 0x8c, 0x8e, 0x55 });
+    packed_byte_array_pt input(&builder, std::vector<uint8_t>{ 0xc9, 0x8c, 0x8e, 0x55 });
     fix_byte_array(input);
-    byte_array_ct output_bytes = stdlib::SHA256<Builder>::hash(input);
-    fix_byte_array(output_bytes);
+    packed_byte_array_pt output_bits = stdlib::SHA256<Builder>::hash(input);
+    fix_byte_array(output_bits);
     StaticAnalyzer graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
