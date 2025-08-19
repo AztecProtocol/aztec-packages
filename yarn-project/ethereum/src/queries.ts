@@ -3,7 +3,7 @@ import { SlasherAbi } from '@aztec/l1-artifacts/SlasherAbi';
 
 import { getContract } from 'viem';
 
-import type { L1ContractsConfig } from './config.js';
+import { DefaultL1ContractsConfig, type L1ContractsConfig } from './config.js';
 import { ReadOnlyGovernanceContract } from './contracts/governance.js';
 import { GovernanceProposerContract } from './contracts/governance_proposer.js';
 import { RollupContract } from './contracts/rollup.js';
@@ -95,5 +95,9 @@ export async function getL1ContractsConfig(
     rollupVersion: Number(rollupVersion),
     genesisArchiveTreeRoot,
     exitDelaySeconds: Number(exitDelay),
+    // TODO(palla/slash): Load from L1 contracts to support consensus slashing proposer
+    slasherFlavor: 'empire',
+    slashingOffsetInRounds: DefaultL1ContractsConfig.slashingOffsetInRounds,
+    slashingUnit: DefaultL1ContractsConfig.slashingUnit,
   };
 }

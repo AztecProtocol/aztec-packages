@@ -160,6 +160,26 @@ export function optionalNumberConfigHelper(): Pick<ConfigMapping, 'parseEnv'> {
   };
 }
 
+/** Generates parseEnv for an enum-like config value. */
+export function enumConfigHelper<T extends string>(
+  values: T[],
+  defaultValue?: NoInfer<T>,
+): Pick<ConfigMapping, 'parseEnv' | 'defaultValue'> {
+  return {
+    parseEnv: (val: string) => {
+      const sanitizedVal = (val ?? '').trim().toLowerCase();
+      if (values.includes(sanitizedVal as T)) {
+        return sanitizedVal as T;
+      }
+      if (!val && defaultValue) {
+        return defaultValue;
+      }
+      throw new Error(`Invalid config value '${val}' (must be one of ${values.join(', ')})`);
+    },
+    defaultValue,
+  };
+}
+
 /**
  * Generates parseEnv and default values for a boolean config value.
  * @param defaultVal - The default value to use if the environment variable is not set or is invalid

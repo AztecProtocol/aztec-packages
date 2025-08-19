@@ -147,11 +147,29 @@ export class RollupContract {
     return this.rollup;
   }
 
-  public async getSlashingProposer() {
+  public async getSlashingProposer(): Promise<SlashingProposerContract> {
     const slasherAddress = await this.rollup.read.getSlasher();
     const slasher = getContract({ address: slasherAddress, abi: SlasherAbi, client: this.client });
     const proposerAddress = await slasher.read.PROPOSER();
-    return new SlashingProposerContract(this.client, proposerAddress);
+    const proposerAbi = [
+      {
+        type: 'function',
+        name: 'SLASHING_PROPOSER_TYPE',
+        inputs: [],
+        outputs: [{ name: '', type: 'string', internalType: 'string' }],
+        stateMutability: 'view',
+      },
+    ] as const;
+
+    const proposer = getContract({ address: proposerAddress, abi: proposerAbi, client: this.client });
+    const proposerType = await proposer.read.SLASHING_PROPOSER_TYPE();
+    if (proposerType === 'Consensus') {
+      throw new Error(`Unsupported slashing proposer type: ${proposerType}`);
+    } else if (proposerType === 'Empire') {
+      return new SlashingProposerContract(this.client, proposerAddress);
+    } else {
+      throw new Error(`Unknown slashing proposer type: ${proposerType}`);
+    }
   }
 
   @memoize

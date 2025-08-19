@@ -5,6 +5,8 @@ import {
   ConsensusDeploymentExtLibBytecode,
   EmpireDeploymentExtLibAbi,
   EmpireDeploymentExtLibBytecode,
+  EmpireSlashingProposerAbi,
+  EmpireSlashingProposerBytecode,
   FeeAssetHandlerAbi,
   FeeAssetHandlerBytecode,
   FeeJuicePortalAbi,
@@ -161,6 +163,12 @@ export const SlasherArtifact = {
   name: 'Slasher',
   contractAbi: SlasherAbi,
   contractBytecode: SlasherBytecode as Hex,
+};
+
+export const EmpireSlashingProposerArtifact = {
+  name: 'EmpireSlashingProposer',
+  contractAbi: EmpireSlashingProposerAbi,
+  contractBytecode: EmpireSlashingProposerBytecode as Hex,
 };
 
 export const SlashFactoryArtifact = {
