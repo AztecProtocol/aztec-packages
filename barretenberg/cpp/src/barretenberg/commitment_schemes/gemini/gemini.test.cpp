@@ -253,12 +253,12 @@ TYPED_TEST(GeminiTest, SoundnessRegression)
         EXPECT_FALSE(prover_opening_claims[idx].opening_pair == verifier_claims[idx].opening_pair);
     }
 }
-
 /**
- * @brief Implementation of the [attack described by Ariel](https://hackmd.io/zm5SDfBqTKKXGpI-zQHtpA?view).
+ * @brief Compute a polynomial of high degree (~2^12), such that the gemini verifier accepts the evaluation at the
+ * public point after 3 rounds.
  *
  */
-TYPED_TEST(GeminiTest, HighDegreeAttack)
+TYPED_TEST(GeminiTest, HighDegreeAtackAtPublicPoint)
 {
     using ClaimBatcher = ClaimBatcher_<TypeParam>;
     using ClaimBatch = ClaimBatcher::Batch;
@@ -266,9 +266,9 @@ TYPED_TEST(GeminiTest, HighDegreeAttack)
     using Commitment = TypeParam::AffineElement;
     using Fr = TypeParam::ScalarField;
     using CK = CommitmentKey<TypeParam>;
-
+    // The number of rounds the verifier expects
     const size_t log_n = 3;
-    // const size_t n = 8;
+    // The prover can have access to an srs of a much bigger size.
     const size_t big_ck_size(1 << 14);
     auto big_ck = create_commitment_key<CK>(big_ck_size);
 
@@ -277,31 +277,35 @@ TYPED_TEST(GeminiTest, HighDegreeAttack)
     const Fr rho = prover_transcript->template get_challenge<Fr>("rho");
     std::vector<Polynomial<Fr>> fold_polynomials;
     fold_polynomials.reserve(log_n);
-
+    // `fold` polynomials are of high degrees, as the srs allows for it
     Polynomial<Fr> fold_0(4096);
     Polynomial<Fr> fold_1(2048);
     Polynomial<Fr> fold_2(1024);
 
+    // Sample public opening point (u_0, u_1, u_2)
     auto u = this->random_evaluation_point(log_n);
 
+    // Chose a claimed eval at `u`
     Fr claimed_multilinear_eval = Fr::random_element();
 
     // Go through the Gemini Prover steps: compute fold polynomials and their evaluations
     std::vector<Fr> fold_evals;
     fold_evals.reserve(log_n);
 
+    // The penultimate `fold` is of high degree, but it collapses to a constant `claimed_multilinear_eval`
     fold_2.at(1) = claimed_multilinear_eval / u[2];
     fold_2.at(1022) = 1;
     fold_2.at(1023) = -(Fr(1) - u[2]) / u[2];
 
-    // The coefficients of fold_1 are determined by the constant term of fold_2.
+    // Compute a poly, whose fold is `fold_2`
     fold_1.at(0) = Fr(0);
     fold_1.at(1) = Fr(0);
     fold_1.at(2) = claimed_multilinear_eval / (u[2] * (Fr(1) - u[1]));
     fold_1.at(2044) = Fr(1) / (Fr(1) - u[1]);
     fold_1.at(2046) = -(Fr(1) - u[2]) / (u[2] * (Fr(1) - u[1]));
 
-    Fr tail = ((Fr(1) - u[0]) * (Fr(1) - u[1])).invert();
+    // Compute a poly, whose fold is `fold_1`
+    const Fr tail = ((Fr(1) - u[0]) * (Fr(1) - u[1])).invert();
     fold_0.at(4) = claimed_multilinear_eval * tail / u[2];
     fold_0.at(4088) = tail;
     fold_0.at(4092) = -tail * (Fr(1) - u[2]) / u[2];
