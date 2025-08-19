@@ -97,6 +97,11 @@ contract ConsensusSlashingProposer is EIP712 {
   bytes32 public constant VOTE_TYPEHASH = keccak256("Vote(uint256 slot,bytes votes)");
 
   /**
+   * @notice Type of slashing proposer (either Consensus or Empire)
+   */
+  string public constant SLASHING_PROPOSER_TYPE = "Consensus";
+
+  /**
    * @notice Contains metadata about a slashing round stored in uncompressed format
    * @dev Used for in-memory operations and as the return type for getRoundData()
    * @param roundNumber The actual round number (used to detect stale data in circular storage)

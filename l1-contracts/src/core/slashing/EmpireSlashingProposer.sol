@@ -15,6 +15,11 @@ contract EmpireSlashingProposer is IEmpire, EmpireBase {
   ISlasher public immutable SLASHER;
 
   /**
+   * @notice Type of slashing proposer (either Consensus or Empire)
+   */
+  string public constant SLASHING_PROPOSER_TYPE = "Empire";
+
+  /**
    * @notice Constructor for the EmpireSlashingProposer contract.
    *
    * @param _instance - The specific rollup that the proposer will be used for
