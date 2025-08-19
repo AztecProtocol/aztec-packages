@@ -1,5 +1,6 @@
 ---
 title: "Token Bridge Tutorial"
+description: Code-along tutorial for building a token bridge between L1 and Aztec.
 sidebar_position: 4
 ---
 

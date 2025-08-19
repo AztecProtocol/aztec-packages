@@ -1,5 +1,6 @@
 ---
 title: Using Capsules
+description: Learn how to use capsules to add data to the private execution environment for use in your Aztec smart contracts.
 sidebar_position: 5
 tags: [functions, oracles]
 ---

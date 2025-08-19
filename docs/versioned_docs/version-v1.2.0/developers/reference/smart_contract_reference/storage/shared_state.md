@@ -1,5 +1,6 @@
 ---
 title: Shared State
+description: Learn how to manage shared state between private and public contexts in your Aztec smart contracts.
 ---
 
 This page covers an advanced type of state called shared state, which is public state that can also be read in private (and hence _shared_ by both domains). It is highly recommended that you're familiar with both [private](./private_state.md) and [public](./public_state.md) state before reading this page.

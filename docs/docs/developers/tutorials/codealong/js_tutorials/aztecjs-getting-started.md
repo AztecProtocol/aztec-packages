@@ -1,5 +1,6 @@
 ---
 title: Getting started with Aztec.js
+description: Getting started with Aztec.js for building JavaScript applications on Aztec.
 sidebar_position: 0
 ---
 

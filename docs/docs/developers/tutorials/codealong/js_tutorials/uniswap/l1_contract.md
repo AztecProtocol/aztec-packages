@@ -1,5 +1,6 @@
 ---
 title: L1 contracts (EVM)
+description: L1 contract for the Uniswap on Aztec tutorial.
 sidebar_position: 2
 ---
 
