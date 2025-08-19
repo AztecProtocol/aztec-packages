@@ -3,9 +3,10 @@ import { Fr, Point } from '@aztec/foundation/fields';
 import { applyStringFormatting, createLogger } from '@aztec/foundation/log';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
+import type { ContractInstance, PartialAddress } from '@aztec/stdlib/contract';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
+import type { PublicKeys } from '@aztec/stdlib/keys';
 import { IndexedTaggingSecret } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { UtilityContext } from '@aztec/stdlib/oracle';
@@ -142,13 +143,18 @@ export class UtilityExecutionOracle extends TypedOracle {
   }
 
   /**
-   * Retrieve the complete address associated to a given address.
+   * Retrieve the public keys and partial address associated to a given address.
    * @param account - The account address.
-   * @returns A complete address associated with the input address.
-   * @throws An error if the account is not registered in the database.
+   * @returns The public keys and partial address associated with the input address.
    */
-  public override utilityGetCompleteAddress(account: AztecAddress): Promise<CompleteAddress> {
-    return this.executionDataProvider.getCompleteAddress(account);
+  public override async utilityGetPublicKeysAndPartialAddress(
+    account: AztecAddress,
+  ): Promise<{ publicKeys: PublicKeys; partialAddress: PartialAddress }> {
+    const completeAddress = await this.executionDataProvider.getCompleteAddress(account);
+    return {
+      publicKeys: completeAddress.publicKeys,
+      partialAddress: completeAddress.partialAddress,
+    };
   }
 
   /**

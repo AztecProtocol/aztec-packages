@@ -2,8 +2,9 @@ import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { Fr, Point } from '@aztec/foundation/fields';
 import type { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
+import type { ContractInstance, PartialAddress } from '@aztec/stdlib/contract';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
+import type { PublicKeys } from '@aztec/stdlib/keys';
 import type { ContractClassLog, IndexedTaggingSecret } from '@aztec/stdlib/logs';
 import type { Note, NoteStatus } from '@aztec/stdlib/note';
 import { UtilityContext } from '@aztec/stdlib/oracle';
@@ -115,8 +116,10 @@ export abstract class TypedOracle {
     return Promise.reject(new OracleMethodNotAvailableError('utilityGetBlockHeader'));
   }
 
-  utilityGetCompleteAddress(_account: AztecAddress): Promise<CompleteAddress> {
-    return Promise.reject(new OracleMethodNotAvailableError('utilityGetCompleteAddress'));
+  utilityGetPublicKeysAndPartialAddress(
+    _account: AztecAddress,
+  ): Promise<{ publicKeys: PublicKeys; partialAddress: PartialAddress }> {
+    return Promise.reject(new OracleMethodNotAvailableError('utilityGetPublicKeysAndPartialAddress'));
   }
 
   utilityGetAuthWitness(_messageHash: Fr): Promise<Fr[] | undefined> {
