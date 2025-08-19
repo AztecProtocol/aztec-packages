@@ -7,7 +7,7 @@ cd $(dirname $0)/..
 
 DEFAULT_TESTS=PersistedIndexedTreeTest.*:PersistedAppendOnlyTreeTest.*:LMDBTreeStoreTest.*:PersistedContentAddressedIndexedTreeTest.*:PersistedContentAddressedAppendOnlyTreeTest.*:ContentAddressedCacheTest.*
 TEST=${1:-$DEFAULT_TESTS}
-PRESET=${PRESET:-clang16}
+PRESET=${PRESET:-clang20}
 
 cmake --build --preset $PRESET --target crypto_merkle_tree_tests
 ./build/bin/crypto_merkle_tree_tests --gtest_filter=$TEST
