@@ -2,13 +2,14 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Ownable} from "@oz/access/Ownable.sol";
 import {ISlasher} from "@aztec/core/interfaces/ISlasher.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
+import {Ownable} from "@oz/access/Ownable.sol";
 
 contract Slasher is ISlasher, Ownable {
-  address public PROPOSER;
   address public immutable VETOER;
+  // solhint-disable-next-line var-name-mixedcase
+  address public PROPOSER;
 
   mapping(address payload => bool vetoed) public vetoedPayloads;
 
@@ -23,6 +24,7 @@ contract Slasher is ISlasher, Ownable {
     VETOER = _vetoer;
   }
 
+  // solhint-disable-next-line comprehensive-interface
   function initializeProposer(address _proposer) external {
     require(PROPOSER == address(0), Slasher__AlreadyInitialized());
     require(_proposer != address(0), Slasher__ProposerZeroAddress());

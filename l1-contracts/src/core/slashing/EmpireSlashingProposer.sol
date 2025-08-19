@@ -11,13 +11,13 @@ import {EmpireBase} from "@aztec/governance/proposer/EmpireBase.sol";
  * @notice  A SlashingProposer implementation following the empire model
  */
 contract EmpireSlashingProposer is IEmpire, EmpireBase {
-  address public immutable INSTANCE;
-  ISlasher public immutable SLASHER;
-
   /**
    * @notice Type of slashing proposer (either Consensus or Empire)
    */
   string public constant SLASHING_PROPOSER_TYPE = "Empire";
+
+  address public immutable INSTANCE;
+  ISlasher public immutable SLASHER;
 
   /**
    * @notice Constructor for the EmpireSlashingProposer contract.

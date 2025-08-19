@@ -1,21 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2024 Aztec Labs.
+// solhint-disable comprehensive-interface
 pragma solidity >=0.8.27;
 
-import {SafeCast} from "@oz/utils/math/SafeCast.sol";
-import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
 import {ISlasher} from "@aztec/core/interfaces/ISlasher.sol";
-import {IEmperor} from "@aztec/governance/interfaces/IEmpire.sol";
+import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
-import {SignatureLib, Signature} from "@aztec/shared/libraries/SignatureLib.sol";
-import {Slot, Timestamp, Epoch, SlashRound} from "@aztec/shared/libraries/TimeMath.sol";
+import {SlashPayload} from "@aztec/periphery/SlashPayload.sol";
 import {
   CompressedSlot, CompressedSlashRound, CompressedTimeMath
 } from "@aztec/shared/libraries/CompressedTimeMath.sol";
-import {TimeLib} from "@aztec/core/libraries/TimeLib.sol";
-import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
-import {SlashPayload} from "@aztec/periphery/SlashPayload.sol";
+import {SignatureLib, Signature} from "@aztec/shared/libraries/SignatureLib.sol";
+import {Slot, Epoch, SlashRound} from "@aztec/shared/libraries/TimeMath.sol";
+import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
+import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 /**
  * @title ConsensusSlashingProposer
@@ -91,17 +90,6 @@ contract ConsensusSlashingProposer is EIP712 {
   using CompressedTimeMath for SlashRound;
 
   /**
-   * @notice EIP-712 type hash for the Vote struct used in signature verification
-   * @dev Defines the structure: Vote(uint256 slot,bytes votes) for EIP-712 signing
-   */
-  bytes32 public constant VOTE_TYPEHASH = keccak256("Vote(uint256 slot,bytes votes)");
-
-  /**
-   * @notice Type of slashing proposer (either Consensus or Empire)
-   */
-  string public constant SLASHING_PROPOSER_TYPE = "Consensus";
-
-  /**
    * @notice Contains metadata about a slashing round stored in uncompressed format
    * @dev Used for in-memory operations and as the return type for getRoundData()
    * @param roundNumber The actual round number (used to detect stale data in circular storage)
@@ -143,6 +131,28 @@ contract ConsensusSlashingProposer is EIP712 {
   }
 
   /**
+   * @notice Represents a slashing action to be executed against a specific validator
+   * @dev Used to package slashing decisions for execution by the Slasher contract
+   * @param validator The address of the validator to be slashed
+   * @param slashAmount The amount of stake to slash from the validator (in wei)
+   */
+  struct SlashAction {
+    address validator;
+    uint256 slashAmount;
+  }
+
+  /**
+   * @notice EIP-712 type hash for the Vote struct used in signature verification
+   * @dev Defines the structure: Vote(uint256 slot,bytes votes) for EIP-712 signing
+   */
+  bytes32 public constant VOTE_TYPEHASH = keccak256("Vote(uint256 slot,bytes votes)");
+
+  /**
+   * @notice Type of slashing proposer (either Consensus or Empire)
+   */
+  string public constant SLASHING_PROPOSER_TYPE = "Consensus";
+
+  /**
    * @notice Size of the circular storage buffer for round data
    * @dev Determines how many recent rounds can be kept in storage simultaneously.
    *      Older rounds are overwritten as new rounds are created. Must be larger than
@@ -156,21 +166,6 @@ contract ConsensusSlashingProposer is EIP712 {
    *      Also serves as the maximum number of slots per round.
    */
   uint256 public constant MAX_ROUND_SIZE = 1024;
-
-  // Circular mappings of round number to round data and votes
-  CompressedRoundData[ROUNDABOUT_SIZE] private roundDatas;
-  RoundVotes[ROUNDABOUT_SIZE] private roundVotes;
-
-  /**
-   * @notice Represents a slashing action to be executed against a specific validator
-   * @dev Used to package slashing decisions for execution by the Slasher contract
-   * @param validator The address of the validator to be slashed
-   * @param slashAmount The amount of stake to slash from the validator (in wei)
-   */
-  struct SlashAction {
-    address validator;
-    uint256 slashAmount;
-  }
 
   /**
    * @notice Address of the main rollup contract that this slashing proposer integrates with
@@ -231,6 +226,10 @@ contract ConsensusSlashingProposer is EIP712 {
    * @dev Creates temporal separation between the time of misbehavior and voting for slashing
    */
   uint256 public immutable SLASH_OFFSET_IN_ROUNDS;
+
+  // Circular mappings of round number to round data and votes
+  CompressedRoundData[ROUNDABOUT_SIZE] private roundDatas;
+  RoundVotes[ROUNDABOUT_SIZE] private roundVotes;
 
   /**
    * @notice Emitted when a proposer casts a vote in a slashing round
@@ -505,6 +504,134 @@ contract ConsensusSlashingProposer is EIP712 {
   }
 
   /**
+   * @notice Get the current round number based on the current slot from the rollup
+   * @dev Calculates the current round by dividing the current slot number by ROUND_SIZE.
+   *      This determines which voting round is currently active.
+   * @return The current SlashRound number
+   */
+  function getCurrentRound() public view returns (SlashRound) {
+    // Get current slot from the rollup instance
+    IValidatorSelection rollup = IValidatorSelection(INSTANCE);
+    Slot currentSlot = rollup.getCurrentSlot();
+    // Divide slot by round size to get round number
+    return SlashRound.wrap(Slot.unwrap(currentSlot) / ROUND_SIZE);
+  }
+
+  /**
+   * @notice Get the epoch number that will be slashed during a specific round at a given epoch index
+   * @dev Calculates which epoch's validators are being voted on for slashing in a given round.
+   *      The epoch is determined by looking back SLASH_OFFSET_IN_ROUNDS rounds from the voting round
+   *      and then adding the epoch index within that round.
+   *
+   * @param _round The round number during which voting is taking place
+   * @param _epochIndex The index of the epoch within the round (must be 0 to ROUND_SIZE_IN_EPOCHS-1)
+   * @return epochNumber The epoch number whose validators will be considered for slashing
+   *
+   * Reverts with:
+   * - ConsensusSlashingProposer__VotingNotOpen: If the round is less than SLASH_OFFSET_IN_ROUNDS
+   */
+  function getEpochSlashed(SlashRound _round, uint256 _epochIndex) public view returns (Epoch epochNumber) {
+    require(_round >= SlashRound.wrap(SLASH_OFFSET_IN_ROUNDS), Errors.ConsensusSlashingProposer__VotingNotOpen(_round));
+    return Epoch.wrap((SlashRound.unwrap(_round) - SLASH_OFFSET_IN_ROUNDS) * ROUND_SIZE_IN_EPOCHS + _epochIndex);
+  }
+
+  /**
+   * @notice Generate the EIP-712 signature digest for a vote to prevent replay attacks
+   * @dev Creates a typed data hash according to EIP-712 standard that includes both the vote data
+   *      and the slot number. The slot number inclusion prevents votes from being replayed in
+   *      different slots, ensuring each vote is tied to a specific time.
+   *
+   * @param _votes The encoded vote data that will be signed by the proposer
+   * @param _slot The slot number when the vote is being cast (prevents replay attacks)
+   * @return The EIP-712 compliant signature digest that should be signed by the proposer
+   */
+  function getVoteSignatureDigest(bytes calldata _votes, Slot _slot) public view returns (bytes32) {
+    return _hashTypedDataV4(keccak256(abi.encode(VOTE_TYPEHASH, keccak256(_votes), Slot.unwrap(_slot))));
+  }
+
+  /**
+   * @notice Get the address of the validator who is authorized to propose in the current slot
+   * @dev Queries the rollup contract to determine which validator has proposing rights.
+   *      This is used to verify that vote signatures come from the authorized proposer.
+   * @return The address of the current slot's designated proposer
+   */
+  function getCurrentProposer() internal returns (address) {
+    // Query the rollup for who is allowed to propose in the current slot
+    IValidatorSelection rollup = IValidatorSelection(INSTANCE);
+    return rollup.getCurrentProposer();
+  }
+
+  /**
+   * @notice Get the committee commitment from the Rollup.
+   * @param _epoch The epoch number
+   */
+  function getCommitteeCommitment(Epoch _epoch) internal returns (bytes32) {
+    IValidatorSelection rollup = IValidatorSelection(INSTANCE);
+    (bytes32 commitment,) = rollup.getEpochCommitteeCommitment(_epoch);
+
+    return commitment;
+  }
+
+  /**
+   * @notice Deploy a slash payload contract with the given actions
+   * @dev Deploys a SlashPayload contract using CREATE2 for deterministic addresses
+   * @param _round The round number (mixed into the salt)
+   * @param _actions Array of slash actions to encode in the payload
+   */
+  function deploySlashPayload(SlashRound _round, SlashAction[] memory _actions) internal returns (IPayload) {
+    // Prepare arrays for the SlashPayload constructor and get the predicted address
+    (address[] memory validators, uint96[] memory amounts, bytes32 salt, address predictedAddress) =
+      preparePayloadDataAndAddress(_round, _actions);
+
+    // Return existing payload if already deployed
+    if (predictedAddress.code.length > 0) {
+      return IPayload(predictedAddress);
+    }
+
+    // Deploy new SlashPayload contract
+    SlashPayload payload = new SlashPayload{salt: salt}(validators, amounts, IValidatorSelection(INSTANCE));
+
+    return IPayload(address(payload));
+  }
+
+  /**
+   * @notice Load committees for all slashed epochs in a round from the rollup instance
+   * @dev This is an expensive call, use only from external view functions
+   * @param _round The round number to load committees for
+   * @return committees Array of committees, one for each epoch in the round
+   */
+  function getCommitteesSlashed(SlashRound _round) internal returns (address[][] memory committees) {
+    committees = new address[][](ROUND_SIZE_IN_EPOCHS);
+
+    for (uint256 epochIndex = 0; epochIndex < ROUND_SIZE_IN_EPOCHS; epochIndex++) {
+      Epoch epoch = getEpochSlashed(_round, epochIndex);
+      IValidatorSelection rollup = IValidatorSelection(INSTANCE);
+      committees[epochIndex] = rollup.getEpochCommittee(epoch);
+    }
+
+    return committees;
+  }
+
+  /**
+   * @notice Set round data in the circular storage
+   * This function DOES NOT check for round validity or range within the roundabout
+   * @param roundNumber The round number to set
+   * @param lastVoteSlot The last slot for which a vote was received
+   * @param voteCount The number of votes collected so far in this round
+   * @param executed Whether this round has been executed
+   * @dev This is an internal function that should only be called after verifying the round is valid and within range
+   * @dev It updates the round data in the circular storage buffer
+   */
+  function setRoundData(SlashRound roundNumber, Slot lastVoteSlot, uint256 voteCount, bool executed) internal {
+    roundDatas[SlashRound.unwrap(roundNumber) % ROUNDABOUT_SIZE] = CompressedRoundData({
+      roundNumber: roundNumber.compress(),
+      lastVoteSlot: lastVoteSlot.compress(),
+      voteCount: SafeCast.toUint16(voteCount), // Ensure voteCount fits in uint16
+      executed: executed
+    });
+  }
+
+  /**
    * @notice Tally votes for a specific round and return the slash actions to execute
    * @param _roundData The round data containing votes to tally
    * @param _committees The committees for each epoch in the round
@@ -605,32 +732,6 @@ contract ConsensusSlashingProposer is EIP712 {
   }
 
   /**
-   * @notice Get the current round number based on the current slot from the rollup
-   * @dev Calculates the current round by dividing the current slot number by ROUND_SIZE.
-   *      This determines which voting round is currently active.
-   * @return The current SlashRound number
-   */
-  function getCurrentRound() public view returns (SlashRound) {
-    // Get current slot from the rollup instance
-    IValidatorSelection rollup = IValidatorSelection(INSTANCE);
-    Slot currentSlot = rollup.getCurrentSlot();
-    // Divide slot by round size to get round number
-    return SlashRound.wrap(Slot.unwrap(currentSlot) / ROUND_SIZE);
-  }
-
-  /**
-   * @notice Get the address of the validator who is authorized to propose in the current slot
-   * @dev Queries the rollup contract to determine which validator has proposing rights.
-   *      This is used to verify that vote signatures come from the authorized proposer.
-   * @return The address of the current slot's designated proposer
-   */
-  function getCurrentProposer() internal returns (address) {
-    // Query the rollup for who is allowed to propose in the current slot
-    IValidatorSelection rollup = IValidatorSelection(INSTANCE);
-    return rollup.getCurrentProposer();
-  }
-
-  /**
    * @notice Get the current slot number from the rollup contract
    * @dev Retrieves the current time-based slot number which determines the active round and proposer.
    * @return The current Slot number
@@ -656,57 +757,6 @@ contract ConsensusSlashingProposer is EIP712 {
     // This gives time for review before execution and prevents stale executions
     return SlashRound.unwrap(_currentRound) > SlashRound.unwrap(_round) + EXECUTION_DELAY_IN_ROUNDS
       && SlashRound.unwrap(_currentRound) <= SlashRound.unwrap(_round) + LIFETIME_IN_ROUNDS;
-  }
-
-  /**
-   * @notice Get the committee commitment from the Rollup.
-   * @param _epoch The epoch number
-   */
-  function getCommitteeCommitment(Epoch _epoch) internal returns (bytes32) {
-    IValidatorSelection rollup = IValidatorSelection(INSTANCE);
-    (bytes32 commitment,) = rollup.getEpochCommitteeCommitment(_epoch);
-
-    return commitment;
-  }
-
-  /**
-   * @notice Get the epoch number that will be slashed during a specific round at a given epoch index
-   * @dev Calculates which epoch's validators are being voted on for slashing in a given round.
-   *      The epoch is determined by looking back SLASH_OFFSET_IN_ROUNDS rounds from the voting round
-   *      and then adding the epoch index within that round.
-   *
-   * @param _round The round number during which voting is taking place
-   * @param _epochIndex The index of the epoch within the round (must be 0 to ROUND_SIZE_IN_EPOCHS-1)
-   * @return epochNumber The epoch number whose validators will be considered for slashing
-   *
-   * Reverts with:
-   * - ConsensusSlashingProposer__VotingNotOpen: If the round is less than SLASH_OFFSET_IN_ROUNDS
-   */
-  function getEpochSlashed(SlashRound _round, uint256 _epochIndex) public view returns (Epoch epochNumber) {
-    require(_round >= SlashRound.wrap(SLASH_OFFSET_IN_ROUNDS), Errors.ConsensusSlashingProposer__VotingNotOpen(_round));
-    return Epoch.wrap((SlashRound.unwrap(_round) - SLASH_OFFSET_IN_ROUNDS) * ROUND_SIZE_IN_EPOCHS + _epochIndex);
-  }
-
-  /**
-   * @notice Deploy a slash payload contract with the given actions
-   * @dev Deploys a SlashPayload contract using CREATE2 for deterministic addresses
-   * @param _round The round number (mixed into the salt)
-   * @param _actions Array of slash actions to encode in the payload
-   */
-  function deploySlashPayload(SlashRound _round, SlashAction[] memory _actions) internal returns (IPayload) {
-    // Prepare arrays for the SlashPayload constructor and get the predicted address
-    (address[] memory validators, uint96[] memory amounts, bytes32 salt, address predictedAddress) =
-      preparePayloadDataAndAddress(_round, _actions);
-
-    // Return existing payload if already deployed
-    if (predictedAddress.code.length > 0) {
-      return IPayload(predictedAddress);
-    }
-
-    // Deploy new SlashPayload contract
-    SlashPayload payload = new SlashPayload{salt: salt}(validators, amounts, IValidatorSelection(INSTANCE));
-
-    return IPayload(address(payload));
   }
 
   /**
@@ -745,24 +795,6 @@ contract ConsensusSlashingProposer is EIP712 {
       address(uint160(uint256(keccak256(abi.encodePacked(bytes1(0xff), address(this), salt, creationCodeHash)))));
 
     return (validators, amounts, salt, predictedAddress);
-  }
-
-  /**
-   * @notice Load committees for all slashed epochs in a round from the rollup instance
-   * @dev This is an expensive call, use only from external view functions
-   * @param _round The round number to load committees for
-   * @return committees Array of committees, one for each epoch in the round
-   */
-  function getCommitteesSlashed(SlashRound _round) internal returns (address[][] memory committees) {
-    committees = new address[][](ROUND_SIZE_IN_EPOCHS);
-
-    for (uint256 epochIndex = 0; epochIndex < ROUND_SIZE_IN_EPOCHS; epochIndex++) {
-      Epoch epoch = getEpochSlashed(_round, epochIndex);
-      IValidatorSelection rollup = IValidatorSelection(INSTANCE);
-      committees[epochIndex] = rollup.getEpochCommittee(epoch);
-    }
-
-    return committees;
   }
 
   /**
@@ -813,25 +845,6 @@ contract ConsensusSlashingProposer is EIP712 {
   }
 
   /**
-   * @notice Set round data in the circular storage
-   * This function DOES NOT check for round validity or range within the roundabout
-   * @param roundNumber The round number to set
-   * @param lastVoteSlot The last slot for which a vote was received
-   * @param voteCount The number of votes collected so far in this round
-   * @param executed Whether this round has been executed
-   * @dev This is an internal function that should only be called after verifying the round is valid and within range
-   * @dev It updates the round data in the circular storage buffer
-   */
-  function setRoundData(SlashRound roundNumber, Slot lastVoteSlot, uint256 voteCount, bool executed) internal {
-    roundDatas[SlashRound.unwrap(roundNumber) % ROUNDABOUT_SIZE] = CompressedRoundData({
-      roundNumber: roundNumber.compress(),
-      lastVoteSlot: lastVoteSlot.compress(),
-      voteCount: SafeCast.toUint16(voteCount), // Ensure voteCount fits in uint16
-      executed: executed
-    });
-  }
-
-  /**
    * @notice Computes the round at the given slot
    * @param _slot - The slot to compute round for
    * @return The round number
@@ -847,19 +860,5 @@ contract ConsensusSlashingProposer is EIP712 {
     // Hash the committee addresses to create a commitment for verification
     // Duplicated from ValidatorSelectionLib.sol
     return keccak256(abi.encode(_committee));
-  }
-
-  /**
-   * @notice Generate the EIP-712 signature digest for a vote to prevent replay attacks
-   * @dev Creates a typed data hash according to EIP-712 standard that includes both the vote data
-   *      and the slot number. The slot number inclusion prevents votes from being replayed in
-   *      different slots, ensuring each vote is tied to a specific time.
-   *
-   * @param _votes The encoded vote data that will be signed by the proposer
-   * @param _slot The slot number when the vote is being cast (prevents replay attacks)
-   * @return The EIP-712 compliant signature digest that should be signed by the proposer
-   */
-  function getVoteSignatureDigest(bytes calldata _votes, Slot _slot) public view returns (bytes32) {
-    return _hashTypedDataV4(keccak256(abi.encode(VOTE_TYPEHASH, keccak256(_votes), Slot.unwrap(_slot))));
   }
 }
