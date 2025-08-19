@@ -116,17 +116,17 @@ pub contract AvmTest {
      ************************************************************************/
     #[public]
     fn set_opcode_u8() -> u8 {
-        8 as u8
+        8
     }
 
     #[public]
     fn set_opcode_u32() -> u32 {
-        1 << 30 as u8
+        1 << 30
     }
 
     #[public]
     fn set_opcode_u64() -> u64 {
-        1 << 60 as u8
+        1 << 60
     }
 
     #[public]
@@ -215,6 +215,16 @@ pub contract AvmTest {
         let max_u128: u128 = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
         let one: u128 = 1;
         max_u128 + one
+    }
+
+    #[public]
+    fn integer_division(x: u8, y: u8) -> u8 {
+        x / y
+    }
+
+    #[public]
+    fn field_division(x: Field, y: Field) -> Field {
+        x / y
     }
 
     // TODO(#16099): Re-enable this test
@@ -675,6 +685,10 @@ pub contract AvmTest {
         let _ = std::hash::pedersen_hash(args_field);
         dep::aztec::oracle::debug_log::debug_log("pedersen_hash_with_index");
         let _ = std::hash::pedersen_hash_with_separator(args_field, /*index=*/ 20);
+        dep::aztec::oracle::debug_log::debug_log("integer_division");
+        let _ = integer_division(args_u8[0], args_u8[1]);
+        dep::aztec::oracle::debug_log::debug_log("field_division");
+        let _ = field_division(args_field[0], args_field[1]);
         dep::aztec::oracle::debug_log::debug_log("test_get_contract_instance");
         test_get_contract_instance_matches(
             get_instance_for_address,

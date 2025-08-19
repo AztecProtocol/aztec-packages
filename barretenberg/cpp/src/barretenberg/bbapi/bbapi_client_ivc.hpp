@@ -16,14 +16,6 @@
 namespace bb::bbapi {
 
 /**
- * @brief Helper function to compute verification key for IVC
- * @param request The API request context
- * @param num_public_inputs_in_final_circuit Number of public inputs in the final circuit
- * @return The computed IVC verification key
- */
-ClientIVC::VerificationKey compute_civc_vk(const BBApiRequest& request, size_t num_public_inputs_in_final_circuit);
-
-/**
  * @struct ClientIvcStart
  * @brief Initialize a new ClientIVC instance for incremental proof accumulation
  *
@@ -97,6 +89,31 @@ struct ClientIvcAccumulate {
     Response execute(BBApiRequest& request) &&;
     MSGPACK_FIELDS(witness);
     bool operator==(const ClientIvcAccumulate&) const = default;
+};
+
+/**
+ * @struct ClientIvcHidingKernel
+ * @brief Accumulate the previously loaded circuit into the IVC proof
+ */
+struct ClientIvcHidingKernel {
+    static constexpr const char* MSGPACK_SCHEMA_NAME = "ClientIvcHidingKernel";
+
+    /**
+     * @struct Response
+     * @brief Empty response indicating successful circuit accumulation
+     */
+    struct Response {
+        static constexpr const char* MSGPACK_SCHEMA_NAME = "ClientIvcHidingKernelResponse";
+        // Empty response - success indicated by no exception
+        void msgpack(auto&& pack_fn) { pack_fn(); }
+        bool operator==(const Response&) const = default;
+    };
+
+    /** @brief Serialized witness data for the last loaded circuit */
+    std::vector<uint8_t> witness;
+    Response execute(BBApiRequest& request) &&;
+    MSGPACK_FIELDS(witness);
+    bool operator==(const ClientIvcHidingKernel&) const = default;
 };
 
 /**
@@ -237,18 +254,18 @@ struct ClientIvcCheckPrecomputedVk {
 };
 
 /**
- * @struct ClientIvcGates
+ * @struct ClientIvcStats
  * @brief Get gate counts for a circuit
  */
-struct ClientIvcGates {
-    static constexpr const char* MSGPACK_SCHEMA_NAME = "ClientIvcGates";
+struct ClientIvcStats {
+    static constexpr const char* MSGPACK_SCHEMA_NAME = "ClientIvcStats";
 
     /**
      * @struct Response
      * @brief Contains gate count information
      */
     struct Response {
-        static constexpr const char* MSGPACK_SCHEMA_NAME = "ClientIvcGatesResponse";
+        static constexpr const char* MSGPACK_SCHEMA_NAME = "ClientIvcStatsResponse";
 
         /** @brief Number of ACIR opcodes */
         uint32_t acir_opcodes;
@@ -266,7 +283,7 @@ struct ClientIvcGates {
     bool include_gates_per_opcode;
     Response execute(BBApiRequest& request) &&;
     MSGPACK_FIELDS(circuit, include_gates_per_opcode);
-    bool operator==(const ClientIvcGates&) const = default;
+    bool operator==(const ClientIvcStats&) const = default;
 };
 
 } // namespace bb::bbapi

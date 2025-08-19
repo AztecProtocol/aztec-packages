@@ -6,5 +6,5 @@ type = "lib"
 
 [dependencies]
 protocol_types = { path = "../../noir-protocol-circuits/crates/types" }
-sha256 = { tag = "v0.1.4", git = "https://github.com/noir-lang/sha256" }
+sha256 = { git = "https://github.com/noir-lang/sha256", tag = "v0.2.0" }
 poseidon = { tag = "v0.1.1", git = "https://github.com/noir-lang/poseidon" }

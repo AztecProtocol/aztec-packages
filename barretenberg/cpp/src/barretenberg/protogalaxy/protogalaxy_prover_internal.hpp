@@ -279,8 +279,6 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                                              const DeciderPKs& keys,
                                              const size_t row_idx)
     {
-        PROFILE_THIS_NAME("PG::extend_univariates");
-
         if constexpr (Flavor::USE_SHORT_MONOMIALS) {
             extended_univariates = std::move(keys.row_to_short_univariates(row_idx));
         } else {
@@ -445,7 +443,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
         // Note: {} is required to initialize the tuple contents. Otherwise the univariates contain garbage.
         TupleOfTuplesOfUnivariatesNoOptimisticSkipping result{};
-        RelationUtils::template apply_to_tuple_of_tuples(result, deoptimise);
+        RelationUtils::apply_to_tuple_of_tuples(result, deoptimise);
         return result;
     }
 
@@ -468,7 +466,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
             idx++;
         };
 
-        RelationUtils::template apply_to_tuple_of_tuples(univariate_accumulators, scale_and_sum);
+        RelationUtils::apply_to_tuple_of_tuples(univariate_accumulators, scale_and_sum);
         RelationUtils::zero_univariates(univariate_accumulators);
 
         return result;

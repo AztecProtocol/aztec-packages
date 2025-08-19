@@ -76,7 +76,8 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
     }
     case simulation::AluOperation::DIV: {
         bool div_0_error = event.error == simulation::AluError::DIV_0_ERROR;
-        auto remainder = no_tag_err ? event.a - event.b * event.c : MemoryValue::from_tag(event.a.get_tag(), 0);
+        auto remainder =
+            no_tag_err && !div_0_error ? event.a - event.b * event.c : MemoryValue::from_tag(event.a.get_tag(), 0);
         // Columns shared for all tags in a DIV:
         std::vector<std::pair<Column, FF>> res = {
             { Column::alu_sel_op_div, 1 },
@@ -110,6 +111,19 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
                        });
         }
         return res;
+    }
+    case simulation::AluOperation::FDIV: {
+        bool div_0_error = event.error == simulation::AluError::DIV_0_ERROR;
+        return {
+            { Column::alu_sel_op_fdiv, 1 },
+            { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::FDIV).subtrace_operation_id },
+            { Column::alu_sel_is_ff, is_ff },
+            { Column::alu_tag_ff_diff_inv,
+              is_ff
+                  ? 0
+                  : (FF(static_cast<uint8_t>(event.a.get_tag())) - FF(static_cast<uint8_t>(MemoryTag::FF))).invert() },
+            { Column::alu_b_inv, div_0_error ? 0 : event.b.as_ff().invert() },
+        };
     }
     case simulation::AluOperation::EQ: {
         const FF diff = event.a.as_ff() - event.b.as_ff();
@@ -183,6 +197,18 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
             { Column::alu_mid_bits, is_trivial ? 0 : 128 - dst_bits },
         };
     }
+    case simulation::AluOperation::SHL: {
+        return {
+            { Column::alu_sel_op_shl, 1 },
+            { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::SHL).subtrace_operation_id },
+        };
+    }
+    case simulation::AluOperation::SHR: {
+        return {
+            { Column::alu_sel_op_shr, 1 },
+            { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::SHR).subtrace_operation_id },
+        };
+    }
     default:
         throw std::runtime_error("Unknown ALU operation");
         break;
@@ -200,8 +226,9 @@ std::vector<std::pair<Column, FF>> get_tag_error_columns(const simulation::AluEv
     // 2. Mismatched tags for inputs a and b for all opcodes apart from TRUNC
 
     // Case 1:
-    bool ff_tag_err = (event.a.get_tag() == MemoryTag::FF) && (event.operation == simulation::AluOperation::NOT ||
-                                                               event.operation == simulation::AluOperation::DIV);
+    bool ff_tag_err = ((event.a.get_tag() == MemoryTag::FF) && (event.operation == simulation::AluOperation::NOT ||
+                                                                event.operation == simulation::AluOperation::DIV)) ||
+                      ((event.a.get_tag() != MemoryTag::FF) && (event.operation == simulation::AluOperation::FDIV));
     // Case 2:
     bool ab_tags_mismatch = (a_tag_ff != b_tag_ff) && (event.operation != simulation::AluOperation::TRUNCATE);
     // Note: both cases can occur at the same time. Case 1 only requires sel_tag_error to be on, so we
@@ -247,7 +274,9 @@ void AluTraceBuilder::process(const simulation::EventEmitterInterface<simulation
         if (div_0_error) {
             // TODO(MW): Below needed?
             // Should not emit a divide by 0 error if we are not in DIV or FDIV or have no 0 divisor:
-            assert((event.b.as_ff() == FF(0)) && (event.operation == simulation::AluOperation::DIV) &&
+            assert((event.b.as_ff() == FF(0)) &&
+                   ((event.operation == simulation::AluOperation::DIV) ||
+                    (event.operation == simulation::AluOperation::FDIV)) &&
                    "ALU Event emitted with divide by zero error, but none exists");
         }
 
