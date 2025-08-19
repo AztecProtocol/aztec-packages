@@ -126,8 +126,8 @@ Also, both bigfield and safeuint fuzzer containt the SHOW_INFORMATION preprocess
 Build with coverage instrumentation:
 
 ```bash
-cmake --preset clang18-coverage -DFUZZING=ON
-cmake --build --preset clang18-coverage
+cmake --preset clang20-coverage -DFUZZING=ON
+cmake --build --preset clang20-coverage
 ```
 
 Then run the fuzzer on the corpus and generate the HTML coverage reports:
