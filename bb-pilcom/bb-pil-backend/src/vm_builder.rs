@@ -90,10 +90,20 @@ pub fn analyzed_to_cpp<F: FieldElement>(
         .sorted()
         .collect_vec();
 
+    let optimized_relations = bb_files.get_optimized_relations_file_names();
+
+    // Filter out any relation file names that are in the optimized relations list
+    let generated_relations: Vec<String> = relations
+        .iter()
+        .filter(|name| !optimized_relations.contains(name))
+        .cloned()
+        .collect();
+
     // ----------------------- Create the flavor files -----------------------
     bb_files.create_flavor_variables_hpp(
         vm_name,
-        &relations,
+        &generated_relations,
+        &optimized_relations,
         &inverses,
         &lookup_and_permutations_names,
         &lookup_and_perm_file_names,

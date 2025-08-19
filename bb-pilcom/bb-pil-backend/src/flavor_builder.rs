@@ -9,6 +9,7 @@ pub trait FlavorBuilder {
         &mut self,
         name: &str,
         relation_file_names: &[String],
+        optimized_relations_file_names: &[String],
         inverses: &[String],
         lookups: &[String],
         lookup_and_perm_file_names: &[String],
@@ -42,6 +43,7 @@ impl FlavorBuilder for BBFiles {
         &mut self,
         name: &str,
         relation_file_names: &[String],
+        optimized_relations_file_names: &[String],
         inverses: &[String],
         lookups: &[String],
         lookup_and_perm_file_names: &[String],
@@ -58,6 +60,7 @@ impl FlavorBuilder for BBFiles {
         let data = &json!({
             "name": name,
             "relation_file_names": relation_file_names,
+            "optimized_relations_file_names": optimized_relations_file_names,
             "lookups": lookups,
             "lookup_and_perm_file_names": lookup_and_perm_file_names,
             "inverses": inverses,
