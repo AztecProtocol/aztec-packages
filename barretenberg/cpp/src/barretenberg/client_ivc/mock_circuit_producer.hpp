@@ -204,6 +204,8 @@ class PrivateFunctionExecutionMockCircuitProducer {
 
         if (is_kernel) {
             ivc.complete_kernel_circuit_logic(circuit);
+        } else {
+            stdlib::recursion::PairingPoints<ClientCircuit>::add_default_to_public_inputs(circuit);
         }
         return circuit;
     }
