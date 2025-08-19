@@ -140,7 +140,7 @@ resource "helm_release" "aztec-gke-cluster" {
   }
 
   # Setting timeout and wait conditions
-  timeout       = 1200 # 20 minutes in seconds
+  timeout       = 600
   wait          = true
   wait_for_jobs = true
 

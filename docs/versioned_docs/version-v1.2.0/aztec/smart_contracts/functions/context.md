@@ -1,5 +1,6 @@
 ---
 title: Understanding Function Context
+description: Learn about the execution context available to Aztec contract functions, including caller information and block data.
 sidebar_position: 1
 tags: [functions, context]
 ---

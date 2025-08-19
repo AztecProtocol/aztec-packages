@@ -59,6 +59,5 @@ bot:
       memory: 15Gi
       cpu: 7
 
-jobs:
-  deployL1Verifier:
-    enable: true
+web3signer:
+  enabled: true

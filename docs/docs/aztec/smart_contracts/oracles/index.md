@@ -2,6 +2,7 @@
 title: Oracle Functions
 sidebar_position: 4
 tags: [functions, oracles]
+description: Learn about oracles in Aztec, which provide external data to smart contracts during execution.
 ---
 
 This page goes over what oracles are in Aztec and how they work.

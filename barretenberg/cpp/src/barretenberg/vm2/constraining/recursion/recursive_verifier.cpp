@@ -17,16 +17,17 @@
 
 namespace bb::avm2 {
 
-AvmRecursiveVerifier::AvmRecursiveVerifier(Builder& builder,
-                                           const std::shared_ptr<NativeVerificationKey>& native_verification_key)
-    : key(std::make_shared<VerificationKey>(&builder, native_verification_key))
-    , builder(builder)
-{}
-
+// TODO(#15892): Remove vk argument from all functions once its fixed.
 AvmRecursiveVerifier::AvmRecursiveVerifier(Builder& builder, const std::shared_ptr<VerificationKey>& vkey)
-    : key(vkey)
-    , builder(builder)
-{}
+    : builder(builder)
+    , key(vkey)
+{
+    // TODO(#15892): Uncomment this when we make the AVM vk and vk
+    // hash fixed.
+    // key->fix_witness();
+    // compute the vk hash from the native vk fields
+    // this->vk_hash.fix_witness();
+}
 
 // Evaluate the given public input column over the multivariate challenge points
 AvmRecursiveVerifier::FF AvmRecursiveVerifier::evaluate_public_input_column(const std::vector<FF>& points,
@@ -90,10 +91,12 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
 
     transcript->load_proof(stdlib_proof);
 
+    // TODO(#15892): Fiat-Shamir the vk hash by uncommenting the add_to_hash_buffer.
+    // transcript->add_to_hash_buffer("avm_vk_hash", vk_hash);
+    info("AVM vk hash in recursive verifier: ", vk_hash);
+
     RelationParams relation_parameters;
     VerifierCommitments commitments{ key };
-
-    transcript->template receive_from_prover<FF>("circuit_size");
 
     // Get commitments to VM wires
     for (auto [comm, label] : zip_view(commitments.get_wires(), commitments.get_wires_labels())) {

@@ -53,11 +53,6 @@ UltraCircuit::UltraCircuit(CircuitSchema& circuit_info,
         lookup_cursor = this->handle_lookup_relation(lookup_cursor);
     }
 
-    size_t memory_cursor = 0;
-    while (memory_cursor < this->selectors[BlockType::MEMORY].size()) {
-        memory_cursor = this->handle_memory_relation(memory_cursor);
-    }
-
     size_t nnf_cursor = 0;
     while (nnf_cursor < this->selectors[BlockType::NNF].size()) {
         nnf_cursor = this->handle_nnf_relation(nnf_cursor);
@@ -84,20 +79,20 @@ UltraCircuit::UltraCircuit(CircuitSchema& circuit_info,
  */
 size_t UltraCircuit::handle_arithmetic_relation(size_t cursor)
 {
-    bb::fr q_m = this->selectors[BlockType::ARITHMETIC][cursor][0];
-    bb::fr q_l = this->selectors[BlockType::ARITHMETIC][cursor][1];
-    bb::fr q_r = this->selectors[BlockType::ARITHMETIC][cursor][2];
-    bb::fr q_o = this->selectors[BlockType::ARITHMETIC][cursor][3];
-    bb::fr q_4 = this->selectors[BlockType::ARITHMETIC][cursor][4];
-    bb::fr q_c = this->selectors[BlockType::ARITHMETIC][cursor][5];
-    bb::fr q_arith = this->selectors[BlockType::ARITHMETIC][cursor][6];
+    bb::fr q_m = this->selectors[BlockType::ARITHMETIC][cursor][SelectorType::q_m];
+    bb::fr q_l = this->selectors[BlockType::ARITHMETIC][cursor][SelectorType::q_1];
+    bb::fr q_r = this->selectors[BlockType::ARITHMETIC][cursor][SelectorType::q_2];
+    bb::fr q_o = this->selectors[BlockType::ARITHMETIC][cursor][SelectorType::q_3];
+    bb::fr q_4 = this->selectors[BlockType::ARITHMETIC][cursor][SelectorType::q_4];
+    bb::fr q_c = this->selectors[BlockType::ARITHMETIC][cursor][SelectorType::q_c];
+    bb::fr q_arith = this->selectors[BlockType::ARITHMETIC][cursor][SelectorType::q_arith];
 
-    uint32_t w_l_idx = this->wires_idxs[BlockType::ARITHMETIC][cursor][0];
-    uint32_t w_r_idx = this->wires_idxs[BlockType::ARITHMETIC][cursor][1];
-    uint32_t w_o_idx = this->wires_idxs[BlockType::ARITHMETIC][cursor][2];
-    uint32_t w_4_idx = this->wires_idxs[BlockType::ARITHMETIC][cursor][3];
-    uint32_t w_l_shift_idx = this->wires_idxs[BlockType::ARITHMETIC][cursor][4];
-    uint32_t w_4_shift_idx = this->wires_idxs[BlockType::ARITHMETIC][cursor][7];
+    uint32_t w_l_idx = this->wires_idxs[BlockType::ARITHMETIC][cursor][WireType::w_l];
+    uint32_t w_r_idx = this->wires_idxs[BlockType::ARITHMETIC][cursor][WireType::w_r];
+    uint32_t w_o_idx = this->wires_idxs[BlockType::ARITHMETIC][cursor][WireType::w_o];
+    uint32_t w_4_idx = this->wires_idxs[BlockType::ARITHMETIC][cursor][WireType::w_4];
+    uint32_t w_l_shift_idx = this->wires_idxs[BlockType::ARITHMETIC][cursor][WireType::w_l_shift];
+    uint32_t w_4_shift_idx = this->wires_idxs[BlockType::ARITHMETIC][cursor][WireType::w_4_shift];
 
     STerm w_l = this->symbolic_vars[w_l_idx];
     STerm w_r = this->symbolic_vars[w_r_idx];
@@ -156,6 +151,7 @@ size_t UltraCircuit::handle_arithmetic_relation(size_t cursor)
         optimized[w_r_idx] = false;
         optimized[w_o_idx] = false;
         optimized[w_4_idx] = false;
+        optimized[w_4_shift_idx] = false;
     }
 
     if (q_arith * (q_arith - 1) * (q_arith - 2) != 0) {
@@ -201,7 +197,7 @@ void UltraCircuit::process_new_table(uint32_t table_idx)
     this->tables_sizes.insert({ table_idx, new_table.size() });
 
     info(table_name, RESET);
-    SymSet<STuple> new_stable(new_table, this->tag + table_name);
+    SymSet<STuple> new_stable(new_table, table_name + this->tag);
     this->cached_symbolic_tables.insert({ table_idx, new_stable });
 }
 
@@ -215,22 +211,22 @@ void UltraCircuit::process_new_table(uint32_t table_idx)
  */
 size_t UltraCircuit::handle_lookup_relation(size_t cursor)
 {
-    bb::fr q_m = this->selectors[BlockType::LOOKUP][cursor][0];
-    bb::fr q_r = this->selectors[BlockType::LOOKUP][cursor][2];
-    bb::fr q_o = this->selectors[BlockType::LOOKUP][cursor][3];
-    bb::fr q_c = this->selectors[BlockType::LOOKUP][cursor][5];
-    bb::fr q_lookup = this->selectors[BlockType::LOOKUP][cursor][10];
+    bb::fr q_m = this->selectors[BlockType::LOOKUP][cursor][SelectorType::q_m];
+    bb::fr q_r = this->selectors[BlockType::LOOKUP][cursor][SelectorType::q_2];
+    bb::fr q_o = this->selectors[BlockType::LOOKUP][cursor][SelectorType::q_3];
+    bb::fr q_c = this->selectors[BlockType::LOOKUP][cursor][SelectorType::q_c];
+    bb::fr q_lookup = this->selectors[BlockType::LOOKUP][cursor][SelectorType::q_lookup];
 
     if (q_lookup.is_zero()) {
         return cursor + 1;
     }
 
-    uint32_t w_l_idx = this->wires_idxs[BlockType::LOOKUP][cursor][0];
-    uint32_t w_r_idx = this->wires_idxs[BlockType::LOOKUP][cursor][1];
-    uint32_t w_o_idx = this->wires_idxs[BlockType::LOOKUP][cursor][2];
-    uint32_t w_l_shift_idx = this->wires_idxs[BlockType::LOOKUP][cursor][4];
-    uint32_t w_r_shift_idx = this->wires_idxs[BlockType::LOOKUP][cursor][5];
-    uint32_t w_o_shift_idx = this->wires_idxs[BlockType::LOOKUP][cursor][6];
+    uint32_t w_l_idx = this->wires_idxs[BlockType::LOOKUP][cursor][WireType::w_l];
+    uint32_t w_r_idx = this->wires_idxs[BlockType::LOOKUP][cursor][WireType::w_r];
+    uint32_t w_o_idx = this->wires_idxs[BlockType::LOOKUP][cursor][WireType::w_o];
+    uint32_t w_l_shift_idx = this->wires_idxs[BlockType::LOOKUP][cursor][WireType::w_l_shift];
+    uint32_t w_r_shift_idx = this->wires_idxs[BlockType::LOOKUP][cursor][WireType::w_r_shift];
+    uint32_t w_o_shift_idx = this->wires_idxs[BlockType::LOOKUP][cursor][WireType::w_o_shift];
 
     optimized[w_l_idx] = false;
     optimized[w_r_idx] = false;
@@ -309,19 +305,19 @@ size_t UltraCircuit::handle_lookup_relation(size_t cursor)
  */
 size_t UltraCircuit::handle_elliptic_relation(size_t cursor)
 {
-    bb::fr q_is_double = this->selectors[BlockType::ELLIPTIC][cursor][0];
-    bb::fr q_sign = this->selectors[BlockType::ELLIPTIC][cursor][1];
-    bb::fr q_elliptic = this->selectors[BlockType::ELLIPTIC][cursor][8];
+    bb::fr q_is_double = this->selectors[BlockType::ELLIPTIC][cursor][SelectorType::q_m];
+    bb::fr q_sign = this->selectors[BlockType::ELLIPTIC][cursor][SelectorType::q_1];
+    bb::fr q_elliptic = this->selectors[BlockType::ELLIPTIC][cursor][SelectorType::q_elliptic];
     if (q_elliptic.is_zero()) {
         return cursor + 1;
     }
 
-    uint32_t w_r_idx = this->wires_idxs[BlockType::ELLIPTIC][cursor][1];
-    uint32_t w_o_idx = this->wires_idxs[BlockType::ELLIPTIC][cursor][2];
-    uint32_t w_l_shift_idx = this->wires_idxs[BlockType::ELLIPTIC][cursor][4];
-    uint32_t w_r_shift_idx = this->wires_idxs[BlockType::ELLIPTIC][cursor][5];
-    uint32_t w_o_shift_idx = this->wires_idxs[BlockType::ELLIPTIC][cursor][6];
-    uint32_t w_4_shift_idx = this->wires_idxs[BlockType::ELLIPTIC][cursor][7];
+    uint32_t w_r_idx = this->wires_idxs[BlockType::ELLIPTIC][cursor][WireType::w_r];
+    uint32_t w_o_idx = this->wires_idxs[BlockType::ELLIPTIC][cursor][WireType::w_o];
+    uint32_t w_l_shift_idx = this->wires_idxs[BlockType::ELLIPTIC][cursor][WireType::w_l_shift];
+    uint32_t w_r_shift_idx = this->wires_idxs[BlockType::ELLIPTIC][cursor][WireType::w_r_shift];
+    uint32_t w_o_shift_idx = this->wires_idxs[BlockType::ELLIPTIC][cursor][WireType::w_o_shift];
+    uint32_t w_4_shift_idx = this->wires_idxs[BlockType::ELLIPTIC][cursor][WireType::w_4_shift];
     optimized[w_r_idx] = false;
     optimized[w_o_idx] = false;
     optimized[w_l_shift_idx] = false;
@@ -351,7 +347,7 @@ size_t UltraCircuit::handle_elliptic_relation(size_t cursor)
         y_add_identity == 0; // scaling_factor = 1
     }
 
-    bb::fr curve_b = this->selectors[BlockType::ELLIPTIC][cursor][11];
+    bb::fr curve_b = this->selectors[BlockType::ELLIPTIC][cursor][SelectorType::curve_b];
     auto x_pow_4 = (y1_sqr - curve_b) * x_1;
     auto y1_sqr_mul_4 = y1_sqr + y1_sqr;
     y1_sqr_mul_4 += y1_sqr_mul_4;
@@ -378,16 +374,16 @@ size_t UltraCircuit::handle_elliptic_relation(size_t cursor)
  */
 size_t UltraCircuit::handle_delta_range_relation(size_t cursor)
 {
-    bb::fr q_delta_range = this->selectors[BlockType::DELTA_RANGE][cursor][7];
+    bb::fr q_delta_range = this->selectors[BlockType::DELTA_RANGE][cursor][SelectorType::q_delta_range];
     if (q_delta_range == 0) {
         return cursor + 1;
     }
 
-    uint32_t w_l_idx = this->wires_idxs[BlockType::DELTA_RANGE][cursor][0];
-    uint32_t w_r_idx = this->wires_idxs[BlockType::DELTA_RANGE][cursor][1];
-    uint32_t w_o_idx = this->wires_idxs[BlockType::DELTA_RANGE][cursor][2];
-    uint32_t w_4_idx = this->wires_idxs[BlockType::DELTA_RANGE][cursor][3];
-    uint32_t w_l_shift_idx = this->wires_idxs[BlockType::DELTA_RANGE][cursor][4];
+    uint32_t w_l_idx = this->wires_idxs[BlockType::DELTA_RANGE][cursor][WireType::w_l];
+    uint32_t w_r_idx = this->wires_idxs[BlockType::DELTA_RANGE][cursor][WireType::w_r];
+    uint32_t w_o_idx = this->wires_idxs[BlockType::DELTA_RANGE][cursor][WireType::w_o];
+    uint32_t w_4_idx = this->wires_idxs[BlockType::DELTA_RANGE][cursor][WireType::w_4];
+    uint32_t w_l_shift_idx = this->wires_idxs[BlockType::DELTA_RANGE][cursor][WireType::w_l_shift];
 
     STerm w_1 = this->symbolic_vars[w_l_idx];
     STerm w_2 = this->symbolic_vars[w_r_idx];
@@ -435,10 +431,10 @@ void UltraCircuit::handle_range_constraints()
             if (this->type == TermType::FFTerm || !this->enable_optimizations) {
                 if (!this->cached_range_tables.contains(range)) {
                     std::vector<STerm> new_range_table;
-                    for (size_t entry = 0; entry < range; entry++) {
+                    for (size_t entry = 0; entry <= range; entry++) {
                         new_range_table.push_back(STerm(entry, this->solver, this->type));
                     }
-                    std::string table_name = this->tag + "RANGE_" + std::to_string(range);
+                    std::string table_name = "RANGE_" + std::to_string(range) + this->tag;
                     SymSet<STerm> new_range_stable(new_range_table, table_name);
                     info(RED, "Initialized new range: ", table_name, RESET);
                     this->cached_range_tables.insert({ range, new_range_stable });
@@ -453,75 +449,6 @@ void UltraCircuit::handle_range_constraints()
 }
 
 /**
- * @brief Adds all the memory constraints to the solver.
- *
- * @param cursor current selector
- * @return new cursor value
- */
-
-size_t UltraCircuit::handle_memory_relation(size_t cursor)
-{
-    // Note: all of the hardcoded indices for extracting components in this module seem to be wrong/outdated
-    bb::fr q_memory = this->selectors[BlockType::MEMORY][cursor][9];
-    if (q_memory == 0) {
-        return cursor + 1;
-    }
-
-    uint32_t w_l_idx = this->wires_idxs[BlockType::MEMORY][cursor][0];
-    uint32_t w_r_idx = this->wires_idxs[BlockType::MEMORY][cursor][1];
-    uint32_t w_o_idx = this->wires_idxs[BlockType::MEMORY][cursor][2];
-    uint32_t w_4_idx = this->wires_idxs[BlockType::MEMORY][cursor][3];
-    uint32_t w_l_shift_idx = this->wires_idxs[BlockType::MEMORY][cursor][4];
-    uint32_t w_r_shift_idx = this->wires_idxs[BlockType::MEMORY][cursor][5];
-    uint32_t w_o_shift_idx = this->wires_idxs[BlockType::MEMORY][cursor][6];
-    uint32_t w_4_shift_idx = this->wires_idxs[BlockType::MEMORY][cursor][7];
-
-    STerm w_1 = this->symbolic_vars[w_l_idx];
-    STerm w_2 = this->symbolic_vars[w_r_idx];
-    STerm w_3 = this->symbolic_vars[w_o_idx];
-    STerm w_4 = this->symbolic_vars[w_4_idx];
-    STerm w_1_shift = this->symbolic_vars[w_l_shift_idx];
-    STerm w_2_shift = this->symbolic_vars[w_r_shift_idx];
-    STerm w_3_shift = this->symbolic_vars[w_o_shift_idx];
-    STerm w_4_shift = this->symbolic_vars[w_4_shift_idx];
-
-    bb::fr q_m = this->selectors[BlockType::MEMORY][cursor][0];
-    bb::fr q_1 = this->selectors[BlockType::MEMORY][cursor][1];
-    bb::fr q_2 = this->selectors[BlockType::MEMORY][cursor][2];
-    bb::fr q_3 = this->selectors[BlockType::MEMORY][cursor][3];
-    bb::fr q_4 = this->selectors[BlockType::MEMORY][cursor][4];
-
-    // reassure that only one entry
-    size_t entry_flag = 0;
-
-    // Skip RAM/ROM relations here
-    if (q_1 != 0 && q_m != 0) {
-        entry_flag += 1;
-        // RAM/ROM access gate
-    }
-
-    if (q_1 != 0 && q_4 != 0) {
-        entry_flag += 1;
-        // RAM timestamp check
-    }
-
-    if (q_1 != 0 && q_2 != 0) {
-        entry_flag += 1;
-        // ROM consistency check
-    }
-
-    if (q_3) {
-        entry_flag += 1;
-        // RAM consistency check
-    }
-
-    if (entry_flag > 1) {
-        throw std::runtime_error("Double entry in AUX");
-    }
-    return cursor + 1;
-}
-
-/**
  * @brief Adds all the nnf constraints to the solver.
  *
  * @param cursor current selector
@@ -530,19 +457,19 @@ size_t UltraCircuit::handle_memory_relation(size_t cursor)
 
 size_t UltraCircuit::handle_nnf_relation(size_t cursor)
 {
-    bb::fr q_nnf = this->selectors[BlockType::NNF][cursor][9]; // Magic 9?
+    bb::fr q_nnf = this->selectors[BlockType::NNF][cursor][SelectorType::q_nnf];
     if (q_nnf == 0) {
         return cursor + 1;
     }
 
-    uint32_t w_l_idx = this->wires_idxs[BlockType::NNF][cursor][0];
-    uint32_t w_r_idx = this->wires_idxs[BlockType::NNF][cursor][1];
-    uint32_t w_o_idx = this->wires_idxs[BlockType::NNF][cursor][2];
-    uint32_t w_4_idx = this->wires_idxs[BlockType::NNF][cursor][3];
-    uint32_t w_l_shift_idx = this->wires_idxs[BlockType::NNF][cursor][4];
-    uint32_t w_r_shift_idx = this->wires_idxs[BlockType::NNF][cursor][5];
-    uint32_t w_o_shift_idx = this->wires_idxs[BlockType::NNF][cursor][6];
-    uint32_t w_4_shift_idx = this->wires_idxs[BlockType::NNF][cursor][7];
+    uint32_t w_l_idx = this->wires_idxs[BlockType::NNF][cursor][WireType::w_l];
+    uint32_t w_r_idx = this->wires_idxs[BlockType::NNF][cursor][WireType::w_r];
+    uint32_t w_o_idx = this->wires_idxs[BlockType::NNF][cursor][WireType::w_o];
+    uint32_t w_4_idx = this->wires_idxs[BlockType::NNF][cursor][WireType::w_4];
+    uint32_t w_l_shift_idx = this->wires_idxs[BlockType::NNF][cursor][WireType::w_l_shift];
+    uint32_t w_r_shift_idx = this->wires_idxs[BlockType::NNF][cursor][WireType::w_r_shift];
+    uint32_t w_o_shift_idx = this->wires_idxs[BlockType::NNF][cursor][WireType::w_o_shift];
+    uint32_t w_4_shift_idx = this->wires_idxs[BlockType::NNF][cursor][WireType::w_4_shift];
 
     STerm w_1 = this->symbolic_vars[w_l_idx];
     STerm w_2 = this->symbolic_vars[w_r_idx];
@@ -553,11 +480,10 @@ size_t UltraCircuit::handle_nnf_relation(size_t cursor)
     STerm w_3_shift = this->symbolic_vars[w_o_shift_idx];
     STerm w_4_shift = this->symbolic_vars[w_4_shift_idx];
 
-    bb::fr q_m = this->selectors[BlockType::NNF][cursor][0];
-    bb::fr q_1 = this->selectors[BlockType::NNF][cursor][1];
-    bb::fr q_2 = this->selectors[BlockType::NNF][cursor][2];
-    bb::fr q_3 = this->selectors[BlockType::NNF][cursor][3];
-    bb::fr q_4 = this->selectors[BlockType::NNF][cursor][4];
+    bb::fr q_m = this->selectors[BlockType::NNF][cursor][SelectorType::q_m];
+    bb::fr q_2 = this->selectors[BlockType::NNF][cursor][SelectorType::q_2];
+    bb::fr q_3 = this->selectors[BlockType::NNF][cursor][SelectorType::q_3];
+    bb::fr q_4 = this->selectors[BlockType::NNF][cursor][SelectorType::q_4];
 
     bb::fr LIMB_SIZE(uint256_t(1) << 68);
     bb::fr SUBLIMB_SHIFT(uint256_t(1) << 14);
@@ -631,7 +557,7 @@ size_t UltraCircuit::handle_nnf_relation(size_t cursor)
     }
 
     if (entry_flag > 1) {
-        throw std::runtime_error("Double entry in AUX");
+        throw std::runtime_error("Double entry in NNF");
     }
     return cursor + 1;
 }

@@ -1,6 +1,7 @@
 ---
 title: Communication
 sidebar_position: 7
+description: Learn about communication patterns in Aztec including cross-chain calls with Ethereum through Portals and private/public function interactions.
 ---
 
 ## Cross-chain communication

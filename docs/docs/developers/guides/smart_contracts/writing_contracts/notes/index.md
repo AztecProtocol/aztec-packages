@@ -2,6 +2,7 @@
 title: Notes
 sidebar_position: 3
 tags: [contracts, notes]
+description: Comprehensive guide to using notes for private state management in your Aztec smart contracts.
 ---
 
 Notes are the fundamental data structure in Aztec when working with private state. Using Aztec.nr, developers can define note types which allow flexibility in how notes are stored and nullified.

@@ -1,5 +1,6 @@
 ---
 title: Cloning a box
+description: Learn how to clone and use Aztec starter boxes for rapid development.
 sidebar_position: 4
 tags: [accounts]
 ---

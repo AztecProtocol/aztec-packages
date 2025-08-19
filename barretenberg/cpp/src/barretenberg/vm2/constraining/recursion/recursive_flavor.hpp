@@ -89,12 +89,22 @@ class AvmRecursiveFlavor {
             info("num_frs_read: ", num_frs_read);
         }
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1466): Implement these functions.
-        std::vector<FF> to_field_elements() const override { throw_or_abort("Not implemented yet!"); }
+        std::vector<FF> to_field_elements() const override { throw_or_abort("Not intended to be used."); }
         FF hash_through_transcript([[maybe_unused]] const std::string& domain_separator,
                                    [[maybe_unused]] Transcript& transcript) const override
         {
-            throw_or_abort("Not implemented yet!");
+            throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
+        }
+
+        /**
+         * @brief Fixes witnesses of VK to be constants.
+         *
+         */
+        void fix_witness()
+        {
+            for (Commitment& commitment : this->get_all()) {
+                commitment.fix_witness();
+            }
         }
     };
 

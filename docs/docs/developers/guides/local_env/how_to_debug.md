@@ -2,6 +2,7 @@
 title: How to Debug
 sidebar_position: 5
 tags: [debugging, errors, logging, sandbox, aztec.nr]
+description: This guide shows you how to debug issues in your Aztec contracts.
 ---
 
 This guide shows you how to debug issues in your Aztec development environment.
@@ -47,26 +48,26 @@ LOG_LEVEL="verbose;info:sequencer" aztec start --sandbox
 
 ### Contract Errors
 
-| Error | Solution |
-|-------|----------|
-| `Aztec dependency not found` | Add to Nargo.toml: `aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/aztec" }` |
-| `Public state writes only supported in public functions` | Move state writes to public functions |
-| `Unknown contract 0x0` | Call `pxe.addContracts(...)` to register contract |
-| `No public key registered for address` | Call `pxe.registerRecipient(...)` or `pxe.registerAccount(...)` |
-| `Failed to solve brillig function` | Check function parameters and note validity |
+| Error                                                    | Solution                                                                                                                                                        |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Aztec dependency not found`                             | Add to Nargo.toml: `aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/aztec" }` |
+| `Public state writes only supported in public functions` | Move state writes to public functions                                                                                                                           |
+| `Unknown contract 0x0`                                   | Call `pxe.addContracts(...)` to register contract                                                                                                               |
+| `No public key registered for address`                   | Call `pxe.registerRecipient(...)` or `pxe.registerAccount(...)`                                                                                                 |
+| `Failed to solve brillig function`                       | Check function parameters and note validity                                                                                                                     |
 
 ### Circuit Errors
 
-| Error Code | Meaning | Fix |
-|------------|---------|-----|
-| `2002` | Invalid contract address | Ensure contract is deployed and address is correct |
-| `2005/2006` | Static call violations | Remove state modifications from static calls |
-| `2017` | User intent mismatch | Verify transaction parameters match function call |
-| `3001` | Unsupported operation | Check if operation is supported in current context |
-| `3005` | Non-empty private call stack | Ensure private functions complete before public |
-| `4007/4008` | Chain ID/version mismatch | Verify L1 chain ID and Aztec version |
-| `7008` | Membership check failed | Ensure using valid historical state |
-| `7009` | Array overflow | Reduce number of operations in transaction |
+| Error Code  | Meaning                      | Fix                                                |
+| ----------- | ---------------------------- | -------------------------------------------------- |
+| `2002`      | Invalid contract address     | Ensure contract is deployed and address is correct |
+| `2005/2006` | Static call violations       | Remove state modifications from static calls       |
+| `2017`      | User intent mismatch         | Verify transaction parameters match function call  |
+| `3001`      | Unsupported operation        | Check if operation is supported in current context |
+| `3005`      | Non-empty private call stack | Ensure private functions complete before public    |
+| `4007/4008` | Chain ID/version mismatch    | Verify L1 chain ID and Aztec version               |
+| `7008`      | Membership check failed      | Ensure using valid historical state                |
+| `7009`      | Array overflow               | Reduce number of operations in transaction         |
 
 ### Quick Fixes for Common Issues
 
@@ -87,9 +88,9 @@ aztec-wallet send transfer --from test0 --to test0 --amount 0
 // In vite.config.ts or similar
 export default {
   define: {
-    'process.env.BB_WASM_PATH': JSON.stringify('https://debug.wasm.url')
-  }
-}
+    "process.env.BB_WASM_PATH": JSON.stringify("https://debug.wasm.url"),
+  },
+};
 ```
 
 ### Profile Transactions
@@ -138,12 +139,12 @@ Current limits that trigger `7009 - ARRAY_OVERFLOW`:
 
 ### Common Sequencer Errors
 
-| Error | Cause | Solution |
-|-------|-------|----------|
-| `tree root mismatch` | State inconsistency | Restart sandbox or check state transitions |
-| `next available leaf index mismatch` | Tree corruption | Verify tree updates are sequential |
-| `Public call stack size exceeded` | Too many public calls | Reduce public function calls |
-| `Failed to publish block` | L1 submission failed | Check L1 connection and gas |
+| Error                                | Cause                 | Solution                                   |
+| ------------------------------------ | --------------------- | ------------------------------------------ |
+| `tree root mismatch`                 | State inconsistency   | Restart sandbox or check state transitions |
+| `next available leaf index mismatch` | Tree corruption       | Verify tree updates are sequential         |
+| `Public call stack size exceeded`    | Too many public calls | Reduce public function calls               |
+| `Failed to publish block`            | L1 submission failed  | Check L1 connection and gas                |
 
 ## How to Report Issues
 

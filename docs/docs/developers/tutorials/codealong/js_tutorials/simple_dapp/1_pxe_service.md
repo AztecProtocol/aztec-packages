@@ -1,3 +1,7 @@
+---
+description: "Connect your JavaScript app to the Aztec Sandbox PXE service and load pre-initialized user accounts"
+---
+
 # Connecting to the Private eXecution Environment (PXE)
 
 PXE is a component of the Aztec Protocol that provides a private execution environment for your application.

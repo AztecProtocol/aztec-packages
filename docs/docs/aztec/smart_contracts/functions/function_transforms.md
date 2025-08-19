@@ -2,6 +2,7 @@
 title: Inner Workings of Functions
 sidebar_position: 2
 tags: [functions]
+description: Understand how Aztec transforms contract functions during compilation for privacy and efficiency.
 ---
 
 Below, we go more into depth of what is happening under the hood when you create a function in an Aztec contract. The [next page](./attributes.md) will give you more information about what the attributes are really doing.

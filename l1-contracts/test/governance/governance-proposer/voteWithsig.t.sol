@@ -63,6 +63,9 @@ contract SignalWithSigTest is GovernanceProposerBase {
 
     // We jump into the future since slot 0, will behave as if already signald in
     vm.warp(Timestamp.unwrap(validatorSelection.getTimestampForSlot(Slot.wrap(1))));
+
+    // Also we need to generate a signature because it is using the address of the instance as part of it.
+    signature = createSignature(privateKey, proposal);
     _;
   }
 
@@ -359,20 +362,7 @@ contract SignalWithSigTest is GovernanceProposerBase {
 
   function getDigest(uint256 _privateKey, IPayload _payload, uint256 _round) internal view returns (bytes32) {
     address p = vm.addr(_privateKey);
-    uint256 nonce = governanceProposer.nonces(p);
-    bytes32 domainSeparator = keccak256(
-      abi.encode(
-        keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-        keccak256(bytes("EmpireBase")),
-        keccak256(bytes("1")),
-        block.chainid,
-        address(governanceProposer)
-      )
-    );
-    bytes32 digest = MessageHashUtils.toTypedDataHash(
-      domainSeparator, keccak256(abi.encode(governanceProposer.SIGNAL_TYPEHASH(), _payload, nonce, _round))
-    );
-    return digest;
+    return governanceProposer.getSignalSignatureDigest(_payload, p, _round);
   }
 
   function createSignature(uint256 _privateKey, IPayload _payload) internal view returns (Signature memory) {

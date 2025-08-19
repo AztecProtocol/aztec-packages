@@ -26,7 +26,7 @@ contract SetupEpochTest is ValidatorSelectionTestBase {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.ValidatorSelection__InsufficientCommitteeSize.selector, 0, rollup.getTargetCommitteeSize()
+        Errors.ValidatorSelection__InsufficientValidatorSetSize.selector, 0, rollup.getTargetCommitteeSize()
       )
     );
     rollup.setupEpoch();
@@ -65,7 +65,7 @@ contract SetupEpochTest is ValidatorSelectionTestBase {
     // Call setupEpoch again, from the current epoch it should not change the sample seed
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.ValidatorSelection__InsufficientCommitteeSize.selector, 0, rollup.getTargetCommitteeSize()
+        Errors.ValidatorSelection__InsufficientValidatorSetSize.selector, 0, rollup.getTargetCommitteeSize()
       )
     );
     rollup.setupEpoch();

@@ -1,5 +1,6 @@
 ---
 title: Accounts
+description: Learn about Aztec's native account abstraction, where every account is a smart contract, and how wallets interact with account contracts for authentication and transaction execution.
 sidebar_position: 1
 tags: [accounts]
 ---

@@ -599,7 +599,7 @@ library ValidatorSelectionLib {
    * @param _seed The cryptographic seed for sampling randomness
    * @return sampleTime The timestamp used for validator set sampling
    * @return indices Array of validator indices selected for the committee
-   * @custom:reverts Errors.ValidatorSelection__InsufficientCommitteeSize if not enough validators available
+   * @custom:reverts Errors.ValidatorSelection__InsufficientValidatorSetSize if not enough validators available
    */
   function sampleValidatorsIndices(Epoch _epoch, uint256 _seed) private returns (uint32, uint256[] memory) {
     ValidatorSelectionStorage storage store = getStorage();
@@ -609,7 +609,7 @@ library ValidatorSelectionLib {
 
     require(
       validatorSetSize >= targetCommitteeSize,
-      Errors.ValidatorSelection__InsufficientCommitteeSize(validatorSetSize, targetCommitteeSize)
+      Errors.ValidatorSelection__InsufficientValidatorSetSize(validatorSetSize, targetCommitteeSize)
     );
 
     if (targetCommitteeSize == 0) {

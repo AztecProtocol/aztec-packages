@@ -1,5 +1,6 @@
 ---
 title: Sandbox Reference
+description: Comprehensive reference for the Aztec sandbox development environment.
 tags: [sandbox]
 sidebar_position: 1
 ---

@@ -3,6 +3,7 @@ set -euo pipefail
 
 trap 'docker rm -f $1 &>/dev/null' SIGINT SIGTERM EXIT
 docker rm -f $1 &>/dev/null || true
+docker pull aztecprotocol/dind
 docker run --rm \
   -d \
   --privileged \

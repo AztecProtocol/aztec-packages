@@ -21,44 +21,6 @@ namespace acir_format {
 template <typename FF> class ProofSurgeon {
   public:
     /**
-     * @brief Construct a string containing the inputs to a noir verify_proof call (to be written to a .toml)
-     *
-     * @param proof A complete bberg style proof (i.e. contains the public inputs)
-     * @param verification_key
-     * @param toml_path
-     */
-    template <typename VerificationKey>
-    static std::string construct_recursion_inputs_toml_data(std::vector<FF>& proof,
-                                                            const std::shared_ptr<VerificationKey>& verification_key,
-                                                            bool ipa_accumulation)
-    {
-        // Convert verification key to fields
-        auto vk_fields = verification_key->to_field_elements();
-
-        // Get public inputs by cutting them out of the proof
-        size_t num_public_inputs_to_extract =
-            ipa_accumulation
-                ? static_cast<uint32_t>(verification_key->num_public_inputs) - bb::RollupIO::PUBLIC_INPUTS_SIZE
-                : static_cast<uint32_t>(verification_key->num_public_inputs) - bb::DefaultIO::PUBLIC_INPUTS_SIZE;
-        debug("proof size: ", proof.size());
-        debug("number of public inputs to extract: ", num_public_inputs_to_extract);
-        std::vector<FF> public_inputs = cut_public_inputs_from_proof(proof, num_public_inputs_to_extract);
-
-        // Construct json-style output for each component
-        std::string proof_json = field_elements_to_json(proof);
-        std::string pub_inputs_json = field_elements_to_json(public_inputs);
-        std::string vk_json = field_elements_to_json(vk_fields);
-
-        // Format with labels for noir recursion input
-        std::string toml_content = "key_hash = " + format("\"", FF(0), "\"") + "\n"; // not used by honk
-        toml_content += "proof = " + proof_json + "\n";
-        toml_content += "public_inputs = " + pub_inputs_json + "\n";
-        toml_content += "verification_key = " + vk_json + "\n";
-
-        return toml_content;
-    }
-
-    /**
      * @brief Reconstruct a bberg style proof from a acir style proof + public inputs
      * @details Insert the public inputs in the middle the proof fields after 'inner_public_input_offset' because this
      * is how the core barretenberg library processes proofs (with the public inputs starting at the third element and

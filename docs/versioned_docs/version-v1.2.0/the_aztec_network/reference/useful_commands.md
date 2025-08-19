@@ -1,6 +1,7 @@
 ---
 sidebar_position: 5
 title: Useful Commands
+description: Learn about useful commands for interacting with the Aztec network.
 ---
 
 These commands are useful to sequencer operators. If you're trying to do something that is not listed here, ask in the appropriate discord channel.

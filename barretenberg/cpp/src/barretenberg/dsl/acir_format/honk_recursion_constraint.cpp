@@ -7,6 +7,7 @@
 #include "honk_recursion_constraint.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/constants.hpp"
+#include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/ultra_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
@@ -54,150 +55,37 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
 {
     using Builder = typename Flavor::CircuitBuilder;
     using NativeFlavor = typename Flavor::NativeFlavor;
-
-    static constexpr size_t IPA_CLAIM_SIZE = stdlib::recursion::honk::RollupIO::IpaClaim::PUBLIC_INPUTS_SIZE;
+    using IO = std::conditional_t<HasIPAAccumulator<Flavor>,
+                                  stdlib::recursion::honk::RollupIO,
+                                  stdlib::recursion::honk::DefaultIO<Builder>>;
 
     // Set vkey->circuit_size correctly based on the proof size
     BB_ASSERT_EQ(proof_size, NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS());
-    // a lambda that adds dummy commitments (libra and gemini)
-    auto set_dummy_commitment = [&](size_t& offset) {
-        auto comm = curve::BN254::AffineElement::one() * fr::random_element();
-        auto frs = field_conversion::convert_to_bn254_frs(comm);
-        builder.set_variable(proof_fields[offset].witness_index, frs[0]);
-        builder.set_variable(proof_fields[offset + 1].witness_index, frs[1]);
-        builder.set_variable(proof_fields[offset + 2].witness_index, frs[2]);
-        builder.set_variable(proof_fields[offset + 3].witness_index, frs[3]);
-        offset += 4;
-    };
 
-    auto set_dummy_evaluation = [&](size_t& offset) {
-        builder.set_variable(proof_fields[offset].witness_index, fr::random_element());
-        offset++;
-    };
-
-    // Note: this computation should always result in log_circuit_size = CONST_PROOF_SIZE_LOG_N
-    auto log_circuit_size = CONST_PROOF_SIZE_LOG_N;
-    size_t offset = 0;
-    // First key field is circuit size
-    builder.set_variable(key_fields[offset++].witness_index, 1 << log_circuit_size);
-    // Second key field is number of public inputs
-    builder.set_variable(key_fields[offset++].witness_index, public_inputs_size);
-    // Third key field is the pub inputs offset
+    size_t num_inner_public_inputs = public_inputs_size - IO::PUBLIC_INPUTS_SIZE;
     uint32_t pub_inputs_offset = NativeFlavor::has_zero_row ? 1 : 0;
-    builder.set_variable(key_fields[offset++].witness_index, pub_inputs_offset);
-    size_t num_inner_public_inputs = HasIPAAccumulator<Flavor> ? public_inputs_size - bb::RollupIO::PUBLIC_INPUTS_SIZE
-                                                               : public_inputs_size - bb::DefaultIO::PUBLIC_INPUTS_SIZE;
 
-    for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; ++i) {
-        set_dummy_commitment(offset);
-    }
+    // Generate mock honk vk
+    // Note: log_circuit_size = CONST_PROOF_SIZE_LOG_N
+    auto honk_vk = create_mock_honk_vk<typename Flavor::NativeFlavor, IO>(
+        1 << CONST_PROOF_SIZE_LOG_N, pub_inputs_offset, num_inner_public_inputs);
 
-    offset = 0; // Reset offset for parsing proof fields
+    size_t offset = 0;
 
-    // the inner public inputs
-    for (size_t i = 0; i < num_inner_public_inputs; i++) {
-        set_dummy_evaluation(offset);
-    }
-
-    // Get some values for a valid aggregation object and use them here to avoid divide by 0 or other issues.
-    std::array<fr, PairingPoints<Builder>::PUBLIC_INPUTS_SIZE> dummy_pairing_points_values =
-        PairingPoints<Builder>::construct_dummy();
-    for (size_t i = 0; i < PairingPoints<Builder>::PUBLIC_INPUTS_SIZE; i++) {
-        builder.set_variable(proof_fields[offset].witness_index, dummy_pairing_points_values[i]);
+    // Set honk vk in builder
+    for (auto& vk_element : honk_vk->to_field_elements()) {
+        builder.set_variable(key_fields[offset].witness_index, vk_element);
         offset++;
     }
 
-    // IPA claim
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1392): Don't use random elements here.
-    if constexpr (HasIPAAccumulator<Flavor>) {
-        for (size_t i = 0; i < IPA_CLAIM_SIZE; i++) {
-            set_dummy_evaluation(offset);
-        }
-    }
+    // Generate dummy honk proof
+    bb::HonkProof honk_proof = create_mock_honk_proof<typename Flavor::NativeFlavor, IO>(num_inner_public_inputs);
 
-    // first NUM_WITNESS_ENTITIES witness commitments
-    for (size_t i = 0; i < Flavor::NUM_WITNESS_ENTITIES; i++) {
-        set_dummy_commitment(offset);
-    }
-
-    if constexpr (Flavor::HasZK) {
-        // Libra concatenation commitment
-        set_dummy_commitment(offset);
-        // libra sum
-        set_dummy_evaluation(offset);
-    }
-
-    // now the univariates, which can just be 0s (8*CONST_PROOF_SIZE_LOG_N Frs, where 8 is the maximum relation
-    // degree)
-    for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N * Flavor::BATCHED_RELATION_PARTIAL_LENGTH; i++) {
-        set_dummy_evaluation(offset);
-    }
-
-    // now the sumcheck evaluations, which is just 44 0s
-    for (size_t i = 0; i < Flavor::NUM_ALL_ENTITIES; i++) {
-        set_dummy_evaluation(offset);
-    }
-
-    if constexpr (Flavor::HasZK) {
-        // Libra claimed evaluation
-        set_dummy_evaluation(offset);
-        // Libra grand sum commitment
-
-        set_dummy_commitment(offset);
-        // Libra quotient commitment
-        set_dummy_commitment(offset);
-        // Gemini masking commitment
-        set_dummy_commitment(offset);
-        // Gemini masking evaluation
-        set_dummy_evaluation(offset);
-    }
-
-    // now the gemini fold commitments which are CONST_PROOF_SIZE_LOG_N - 1
-    for (size_t i = 1; i < CONST_PROOF_SIZE_LOG_N; i++) {
-        set_dummy_commitment(offset);
-    }
-
-    // the gemini fold evaluations which are also CONST_PROOF_SIZE_LOG_N
-    for (size_t i = 1; i <= CONST_PROOF_SIZE_LOG_N; i++) {
-        set_dummy_evaluation(offset);
-    }
-
-    if constexpr (Flavor::HasZK) {
-        // NUM_SMALL_IPA_EVALUATIONS libra evals
-        for (size_t i = 0; i < NUM_SMALL_IPA_EVALUATIONS; i++) {
-            set_dummy_evaluation(offset);
-        }
-    }
-
-    // lastly the shplonk batched quotient commitment and kzg quotient commitment
-    for (size_t i = 0; i < 2; i++) {
-        set_dummy_commitment(offset);
-    }
-    // IPA Proof
-    if constexpr (HasIPAAccumulator<Flavor>) {
-
-        // Ls and Rs
-        for (size_t i = 0; i < static_cast<size_t>(2) * CONST_ECCVM_LOG_N; i++) {
-            auto comm = curve::Grumpkin::AffineElement::one() * fq::random_element();
-            auto frs = field_conversion::convert_to_bn254_frs(comm);
-            builder.set_variable(proof_fields[offset].witness_index, frs[0]);
-            builder.set_variable(proof_fields[offset + 1].witness_index, frs[1]);
-            offset += 2;
-        }
-
-        // G_zero
-        auto G_zero = curve::Grumpkin::AffineElement::one() * fq::random_element();
-        auto G_zero_frs = field_conversion::convert_to_bn254_frs(G_zero);
-        builder.set_variable(proof_fields[offset].witness_index, G_zero_frs[0]);
-        builder.set_variable(proof_fields[offset + 1].witness_index, G_zero_frs[1]);
-        offset += 2;
-
-        // a_zero
-        auto a_zero = fq::random_element();
-        auto a_zero_frs = field_conversion::convert_to_bn254_frs(a_zero);
-        builder.set_variable(proof_fields[offset].witness_index, a_zero_frs[0]);
-        builder.set_variable(proof_fields[offset + 1].witness_index, a_zero_frs[1]);
-        offset += 2;
+    offset = 0;
+    // Set honk proof in builder
+    for (auto& proof_element : honk_proof) {
+        builder.set_variable(proof_fields[offset].witness_index, proof_element);
+        offset++;
     }
 
     BB_ASSERT_EQ(offset, proof_size + public_inputs_size);

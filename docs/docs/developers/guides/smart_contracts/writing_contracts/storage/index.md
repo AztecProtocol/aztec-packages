@@ -2,6 +2,7 @@
 title: Declaring Storage
 sidebar_position: 2
 tags: [contracts, storage]
+description: Comprehensive guide to storage management in your Aztec smart contracts.
 ---
 
 On this page, you will learn how to define storage in your smart contract.
