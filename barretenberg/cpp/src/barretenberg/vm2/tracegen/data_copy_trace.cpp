@@ -26,7 +26,6 @@ void DataCopyTraceBuilder::process(
     // When processing the events, we need to handle any potential errors and create the respective error columns
     for (const auto& event : events) {
         // We first set elements of the row that are unconditional, i.e. they are always set regardless of success/error
-
         bool is_cd_copy = event.operation == simulation::DataCopyOperation::CD_COPY;
         bool is_rd_copy = event.operation == simulation::DataCopyOperation::RD_COPY;
 
@@ -102,6 +101,25 @@ void DataCopyTraceBuilder::process(
 
         auto reads_left = data_offset > max_read_index ? 0 : max_read_index - data_offset;
 
+        /////////////////////////////
+        // Check for Zero Sized Copy
+        /////////////////////////////
+        // This has to happen outside of the next loop since we will not enter it if the copy size is zero
+        if (copy_size == 0) {
+            trace.set(row,
+                      { {
+                          { C::data_copy_sel_start_no_err, 1 },
+                          { C::data_copy_sel_end, 1 },
+                          { C::data_copy_sel_write_count_is_zero, 1 },
+                          { C::data_copy_write_count_zero_inv, copy_size == 0 ? 0 : FF(copy_size).invert() },
+                      } });
+            row++;
+            continue; // Go to the next event
+        }
+
+        /////////////////////////////
+        // Process Data Copy Rows
+        /////////////////////////////
         for (uint32_t i = 0; i < event.calldata.size(); i++) {
             bool start = i == 0;
             auto current_copy_size = copy_size - i;
@@ -153,6 +171,9 @@ void DataCopyTraceBuilder::process(
                           // Reads Left
                           { C::data_copy_reads_left, reads_left },
                           { C::data_copy_offset_gt_max_read_index, (start && data_offset > max_read_index) ? 1 : 0 },
+
+                          // Non-zero Copy Size
+                          { C::data_copy_write_count_zero_inv, start ? FF(copy_size).invert() : 0 },
                       } });
 
             reads_left = reads_left == 0 ? 0 : reads_left - 1;
