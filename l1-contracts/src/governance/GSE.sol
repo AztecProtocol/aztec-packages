@@ -661,8 +661,9 @@ contract GSE is IGSE, GSECore {
   /**
    * @notice  Get the effective balance of the attester at the instance.
    *
-   *          The effective balance is the balance of the attester at the instance,
-   *          plus the balance of the attester at the bonus instance if the instance is the latest rollup.
+   *          The effective balance is the balance of the attester at the specific instance or at the bonus if the
+   *          instance is the latest rollup and he was not at the specific. We can do this as an `or` since the
+   *          attester may only be active at one of them.
    *
    * @param _instance   - The instance to look at
    * @param _attester   - The attester to look at
@@ -671,8 +672,8 @@ contract GSE is IGSE, GSECore {
    */
   function effectiveBalanceOf(address _instance, address _attester) external view override(IGSE) returns (uint256) {
     uint256 balance = delegation.getBalanceOf(_instance, _attester);
-    if (getLatestRollup() == _instance) {
-      balance += delegation.getBalanceOf(BONUS_INSTANCE_ADDRESS, _attester);
+    if (balance == 0 && getLatestRollup() == _instance) {
+      return delegation.getBalanceOf(BONUS_INSTANCE_ADDRESS, _attester);
     }
     return balance;
   }
