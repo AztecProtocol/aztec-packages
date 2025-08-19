@@ -20,13 +20,14 @@ library EmpireDeploymentExtLib {
   function deployEmpireSlasher(
     address _rollup,
     address _vetoer,
+    address _governance,
     uint256 _quorumSize,
     uint256 _roundSize,
     uint256 _lifetimeInRounds,
     uint256 _executionDelayInRounds
   ) external returns (ISlasher) {
     // Deploy slasher first
-    Slasher slasher = new Slasher(_vetoer);
+    Slasher slasher = new Slasher(_vetoer, _governance);
 
     // Deploy proposer with slasher address
     EmpireSlashingProposer proposer = new EmpireSlashingProposer(

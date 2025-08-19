@@ -239,6 +239,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
       slasher = ConsensusDeploymentExtLib.deployConsensusSlasher(
         address(this),
         _config.slashingVetoer,
+        _governance,
         _config.slashingQuorum,
         _config.slashingRoundSize,
         _config.slashingLifetimeInRounds,
@@ -252,6 +253,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
       slasher = EmpireDeploymentExtLib.deployEmpireSlasher(
         address(this),
         _config.slashingVetoer,
+        _governance,
         _config.slashingQuorum,
         _config.slashingRoundSize,
         _config.slashingLifetimeInRounds,

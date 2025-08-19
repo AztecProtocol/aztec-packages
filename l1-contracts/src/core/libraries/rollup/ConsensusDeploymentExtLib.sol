@@ -19,6 +19,7 @@ library ConsensusDeploymentExtLib {
   function deployConsensusSlasher(
     address _rollup,
     address _vetoer,
+    address _governance,
     uint256 _quorum,
     uint256 _roundSize,
     uint256 _lifetimeInRounds,
@@ -29,7 +30,7 @@ library ConsensusDeploymentExtLib {
     uint256 _slashOffsetInRounds
   ) external returns (ISlasher) {
     // Deploy slasher first
-    Slasher slasher = new Slasher(_vetoer);
+    Slasher slasher = new Slasher(_vetoer, _governance);
 
     // Deploy proposer with slasher address
     ConsensusSlashingProposer proposer = new ConsensusSlashingProposer(
