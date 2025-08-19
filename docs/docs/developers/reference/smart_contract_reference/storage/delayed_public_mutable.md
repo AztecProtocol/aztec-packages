@@ -1,5 +1,6 @@
 ---
 title: Delayed Public Mutable State
+description: This page covers an advanced type of state called "Delayed Public Mutable" state, which is public state that can also be read in private.
 ---
 
 This page covers an advanced type of state called "Delayed Public Mutable" state, which is public state that can also be read in private. It is highly recommended that you're familiar with both [private](./private_state.md) and [public](./public_state.md) state before reading this page.
@@ -26,7 +27,7 @@ While `DelayedPublicMutable` state variables are much less leaky than the assert
 
 ### Choosing Delays
 
-The `include_by_timestamp` transaction property will be set to a value close to the current timestamp plus the duration of the delay in seconds. The exact value depends on the historical block over which the private proof is constructed. For example, if current timestamp is `X` and a `DelayedPublicMutable` state variable has a delay of 3000 seconds, then transactions that read this value privately will set `include_by_timestamp` to a value close to 'X  + 3000' (clients building proofs on older state will select a lower `include_by_timestamp`). This implicitly leaks the duration of the delay.
+The `include_by_timestamp` transaction property will be set to a value close to the current timestamp plus the duration of the delay in seconds. The exact value depends on the historical block over which the private proof is constructed. For example, if current timestamp is `X` and a `DelayedPublicMutable` state variable has a delay of 3000 seconds, then transactions that read this value privately will set `include_by_timestamp` to a value close to 'X + 3000' (clients building proofs on older state will select a lower `include_by_timestamp`). This implicitly leaks the duration of the delay.
 
 Applications using similar delays will therefore be part of the same privacy set. It is expected for social coordination to result in small set of predetermined delays that developers choose from depending on their needs, as an example a viable set might be: 12 hours (for time-sensitive operations, such as emergency mechanisms), 5 days (for middle-of-the-road operations) and 2 weeks (for operations that require lengthy public scrutiny). These delays can be changed during the contract lifetime as the application's needs evolve.
 

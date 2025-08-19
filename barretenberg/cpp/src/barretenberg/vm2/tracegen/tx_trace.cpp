@@ -136,6 +136,9 @@ std::vector<std::pair<Column, FF>> insert_state(const TxContextEvent& prev_state
         // Next sideffect state
         { Column::tx_next_num_unencrypted_logs, next_state.side_effect_states.numUnencryptedLogs },
         { Column::tx_next_num_l2_to_l1_messages, next_state.side_effect_states.numL2ToL1Messages },
+
+        // Execution context
+        { Column::tx_next_context_id, prev_state.next_context_id },
     };
 }
 
@@ -207,7 +210,9 @@ std::vector<std::pair<Column, FF>> handle_gas_limit(Gas gas_limit)
 }
 
 std::vector<std::pair<Column, FF>> handle_enqueued_call_event(TransactionPhase phase,
-                                                              const simulation::EnqueuedCallEvent& event)
+                                                              const simulation::EnqueuedCallEvent& event,
+                                                              const TxContextEvent& state_before,
+                                                              const TxContextEvent& state_after)
 {
     return {
         { Column::tx_is_public_call_request, 1 },
@@ -226,6 +231,9 @@ std::vector<std::pair<Column, FF>> handle_enqueued_call_event(TransactionPhase p
         { Column::tx_gas_limit_pi_offset,
           is_teardown_phase(phase) ? AVM_PUBLIC_INPUTS_GAS_SETTINGS_TEARDOWN_GAS_LIMITS_ROW_IDX : 0 },
         { Column::tx_should_read_gas_limit, is_teardown_phase(phase) },
+        // The enqueued call consumes the next context id, so its starting next context id is incremented by one.
+        { Column::tx_next_context_id_sent_to_enqueued_call, state_before.next_context_id + 1 },
+        { Column::tx_next_context_id_from_enqueued_call, state_after.next_context_id },
     };
 };
 
@@ -601,7 +609,11 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
             // Pattern match on the variant event type and call the appropriate handler
             std::visit(
                 overloaded{ [&](const simulation::EnqueuedCallEvent& event) {
-                               trace.set(row, handle_enqueued_call_event(tx_phase_event->phase, event));
+                               trace.set(row,
+                                         handle_enqueued_call_event(tx_phase_event->phase,
+                                                                    event,
+                                                                    tx_phase_event->state_before,
+                                                                    tx_phase_event->state_after));
                                // No explicit write counter for this phase
                                trace.set(row, handle_pi_read(tx_phase_event->phase, phase_length, phase_counter));
 

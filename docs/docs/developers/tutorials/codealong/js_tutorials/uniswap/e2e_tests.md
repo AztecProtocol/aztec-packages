@@ -1,5 +1,6 @@
 ---
 title: e2e tests (TypeScript)
+description: End-to-end tests for the Uniswap on Aztec tutorial.
 sidebar_position: 3
 ---
 

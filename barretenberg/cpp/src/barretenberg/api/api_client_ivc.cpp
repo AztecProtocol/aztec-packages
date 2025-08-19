@@ -71,6 +71,7 @@ std::vector<uint8_t> write_civc_vk(const std::string& output_format,
         throw_or_abort("Unsupported output format for ClientIVC vk: " + output_format);
     }
     // compute the hiding kernel's vk
+    info("ClientIVC: computing IVC vk for hiding kernel circuit");
     auto response = bbapi::ClientIvcComputeIvcVk{
         .circuit{ .name = "standalone_circuit", .bytecode = std::move(bytecode) }
     }.execute({ .trace_settings = {} });
@@ -95,7 +96,7 @@ void ClientIVCAPI::prove(const Flags& flags,
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
     bbapi::ClientIvcStart{ .num_circuits = raw_steps.size() - 1 }.execute(request);
-
+    info("ClientIVC: starting with ", raw_steps.size(), " circuits");
     for (size_t i = 0; i < raw_steps.size() - 1; ++i) {
         const auto& step = raw_steps[i];
         bbapi::ClientIvcLoad{
@@ -268,7 +269,7 @@ void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per
 void write_arbitrary_valid_client_ivc_proof_and_vk_to_file(const std::filesystem::path& output_dir)
 {
 
-    const size_t NUM_CIRCUITS = 2;
+    const size_t NUM_CIRCUITS = 6;
     ClientIVC ivc{ NUM_CIRCUITS, { AZTEC_TRACE_STRUCTURE } };
 
     // Construct and accumulate a series of mocked private function execution circuits
