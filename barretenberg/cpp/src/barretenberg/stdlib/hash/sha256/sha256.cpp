@@ -25,9 +25,17 @@ constexpr size_t get_num_blocks(const size_t num_bits)
 
 template <typename Builder> void SHA256<Builder>::prepare_constants(std::array<field_t<Builder>, 8>& input)
 {
-    for (size_t i = 0; i < 8; i++) {
-        input[i] = init_constants[i];
-    }
+    constexpr uint64_t init_constants[8]{ 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+                                          0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19 };
+
+    input[0] = init_constants[0];
+    input[1] = init_constants[1];
+    input[2] = init_constants[2];
+    input[3] = init_constants[3];
+    input[4] = init_constants[4];
+    input[5] = init_constants[5];
+    input[6] = init_constants[6];
+    input[7] = init_constants[7];
 }
 
 template <typename Builder>
@@ -82,28 +90,43 @@ std::array<field_t<Builder>, 64> SHA256<Builder>::extend_witness(const std::arra
             w_right = convert_witness(w_right.normal);
         }
 
-        std::array<field_pt, 4> left{
+        constexpr fr base(16);
+        constexpr fr left_multipliers[4]{
+            (base.pow(32 - 7) + base.pow(32 - 18)),
+            (base.pow(32 - 18 + 3) + 1),
+            (base.pow(32 - 18 + 10) + base.pow(10 - 7) + base.pow(10 - 3)),
+            (base.pow(18 - 7) + base.pow(18 - 3) + 1),
+        };
+
+        constexpr fr right_multipliers[4]{
+            base.pow(32 - 17) + base.pow(32 - 19),
+            base.pow(32 - 17 + 3) + base.pow(32 - 19 + 3),
+            base.pow(32 - 19 + 10) + fr(1),
+            base.pow(18 - 17) + base.pow(18 - 10),
+        };
+
+        field_pt left[4]{
             w_left.sparse_limbs[0] * left_multipliers[0],
             w_left.sparse_limbs[1] * left_multipliers[1],
             w_left.sparse_limbs[2] * left_multipliers[2],
             w_left.sparse_limbs[3] * left_multipliers[3],
         };
 
-        std::array<field_pt, 4> right{
+        field_pt right[4]{
             w_right.sparse_limbs[0] * right_multipliers[0],
             w_right.sparse_limbs[1] * right_multipliers[1],
             w_right.sparse_limbs[2] * right_multipliers[2],
             w_right.sparse_limbs[3] * right_multipliers[3],
         };
 
-        const field_pt left_xor_sparse =
+        const auto left_xor_sparse =
             left[0].add_two(left[1], left[2]).add_two(left[3], w_left.rotated_limbs[1]) * fr(4);
 
-        const field_pt xor_result_sparse = right[0]
-                                               .add_two(right[1], right[2])
-                                               .add_two(right[3], w_right.rotated_limbs[2])
-                                               .add_two(w_right.rotated_limbs[3], left_xor_sparse)
-                                               .normalize();
+        const auto xor_result_sparse = right[0]
+                                           .add_two(right[1], right[2])
+                                           .add_two(right[3], w_right.rotated_limbs[2])
+                                           .add_two(w_right.rotated_limbs[3], left_xor_sparse)
+                                           .normalize();
 
         field_pt xor_result = plookup_read<Builder>::read_from_1_to_2_table(SHA256_WITNESS_OUTPUT, xor_result_sparse);
 
@@ -238,6 +261,18 @@ std::array<field_t<Builder>, 8> SHA256<Builder>::sha256_block(const std::array<f
                                                               const std::array<field_t<Builder>, 16>& input)
 {
     typedef field_t<Builder> field_pt;
+
+    constexpr uint64_t round_constants[64]{
+        0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+        0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+        0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+        0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+        0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+        0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+        0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+        0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+    };
+
     /**
      * Initialize round variables with previous block output
      **/
@@ -305,75 +340,44 @@ std::array<field_t<Builder>, 8> SHA256<Builder>::sha256_block(const std::array<f
     return output;
 }
 
-template <typename Builder> byte_array<Builder> SHA256<Builder>::hash(const byte_array_ct& input)
+template <typename Builder> packed_byte_array<Builder> SHA256<Builder>::hash(const packed_byte_array<Builder>& input)
 {
+    typedef field_t<Builder> field_pt;
+
     Builder* ctx = input.get_context();
-    std::vector<field_ct> message_schedule;
-    const size_t message_length_bytes = input.size();
 
-    for (size_t idx = 0; idx < message_length_bytes; idx++) {
-        message_schedule.push_back(input[idx]);
-    }
+    packed_byte_array<Builder> message_schedule(input);
 
-    message_schedule.push_back(field_ct(ctx, 128));
+    const size_t message_bits = message_schedule.size() * 8;
+    message_schedule.append(field_t(ctx, 128), 1);
 
     constexpr size_t bytes_per_block = 64;
-    // Include message length
     const size_t num_bytes = message_schedule.size() + 8;
     const size_t num_blocks = num_bytes / bytes_per_block + (num_bytes % bytes_per_block != 0);
 
     const size_t num_total_bytes = num_blocks * bytes_per_block;
-    // Pad with zeroes to make the number divisible by 64
     for (size_t i = num_bytes; i < num_total_bytes; ++i) {
-        message_schedule.push_back(field_ct(ctx, 0));
+        message_schedule.append(field_t(ctx, 0), 1);
     }
 
-    // Append the message length bits represented as a byte array of length 8.
-    const size_t message_bits = message_length_bytes * 8;
-    byte_array_ct message_length_byte_decomposition(field_ct(message_bits), 8);
+    message_schedule.append(field_t(ctx, message_bits), 8);
 
-    for (size_t idx = 0; idx < 8; idx++) {
-        message_schedule.push_back(message_length_byte_decomposition[idx]);
-    }
-
-    // Compute 4-byte slices
-    std::vector<field_ct> slices;
-
-    for (size_t i = 0; i < message_schedule.size(); i += 4) {
-        std::vector<field_ct> chunk;
-        for (size_t j = 0; j < 4; ++j) {
-            const size_t shift = 8 * (3 - j);
-            chunk.push_back(message_schedule[i + j] * field_ct(ctx, uint256_t(1) << shift));
-        }
-        slices.push_back(field_ct::accumulate(chunk));
-    }
+    const std::vector<field_pt> slices = message_schedule.to_unverified_byte_slices(4);
 
     constexpr size_t slices_per_block = 16;
 
-    std::array<field_ct, 8> rolling_hash;
+    std::array<field_pt, 8> rolling_hash;
     prepare_constants(rolling_hash);
     for (size_t i = 0; i < num_blocks; ++i) {
-        std::array<field_ct, 16> hash_input;
+        std::array<field_pt, 16> hash_input;
         for (size_t j = 0; j < 16; ++j) {
             hash_input[j] = slices[i * slices_per_block + j];
         }
         rolling_hash = sha256_block(rolling_hash, hash_input);
     }
 
-    std::vector<field_ct> output;
-    // Each element of rolling_hash is a 4-byte field_t, decompose rolling hash into bytes.
-    for (const auto& word : rolling_hash) {
-        // This constructor constrains
-        // - word length to be <=4 bytes
-        // - the element reconstructed from bytes is equal to the given input.
-        // - each entry to be a byte
-        byte_array_ct word_byte_decomposition(word, 4);
-        for (size_t i = 0; i < 4; i++) {
-            output.push_back(word_byte_decomposition[i]);
-        }
-    }
-    //
-    return byte_array<Builder>(ctx, output);
+    std::vector<field_pt> output(rolling_hash.begin(), rolling_hash.end());
+    return packed_byte_array<Builder>(output, 4);
 }
 
 template class SHA256<bb::UltraCircuitBuilder>;
