@@ -201,10 +201,9 @@ export class Oracle {
     return [witness.map(toACVMField)];
   }
 
-  // TODO(benesjan): This doesn't map to the underlying oracle name which is just ugly.
   async utilityGetPublicKeysAndPartialAddress([address]: ACVMField[]): Promise<ACVMField[][]> {
     const parsedAddress = AztecAddress.fromField(Fr.fromString(address));
-    const { publicKeys, partialAddress } = await this.typedOracle.utilityGetCompleteAddress(parsedAddress);
+    const { publicKeys, partialAddress } = await this.typedOracle.utilityGetPublicKeysAndPartialAddress(parsedAddress);
 
     return [[...publicKeys.toFields(), partialAddress].map(toACVMField)];
   }

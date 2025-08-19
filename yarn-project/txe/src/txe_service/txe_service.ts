@@ -488,7 +488,7 @@ export class TXEService {
     }
 
     const parsedAddress = addressFromSingle(address);
-    const { publicKeys, partialAddress } = await this.txe.utilityGetCompleteAddress(parsedAddress);
+    const { publicKeys, partialAddress } = await this.txe.utilityGetPublicKeysAndPartialAddress(parsedAddress);
     return toForeignCallResult([toArray([...publicKeys.toFields(), partialAddress])]);
   }
 

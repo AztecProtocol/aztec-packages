@@ -438,7 +438,7 @@ export class TXE {
     return this.stateMachine.archiver.getBlockHeader(blockNumber);
   }
 
-  utilityGetCompleteAddress(account: AztecAddress) {
+  utilityGetPublicKeysAndPartialAddress(account: AztecAddress) {
     return Promise.resolve(this.accountDataProvider.getAccount(account));
   }
 
@@ -966,8 +966,7 @@ export class TXE {
 
     const noteCache = new ExecutionNoteCache(this.getTxRequestHash());
 
-    // TODO(benesjan): Fix stale 'context' name.
-    const context = new PrivateExecutionOracle(
+    const privateExecutionOracle = new PrivateExecutionOracle(
       argsHash,
       txContext,
       callContext,
@@ -992,7 +991,7 @@ export class TXE {
       from,
     );
 
-    context.privateStoreInExecutionCache(args, argsHash);
+    privateExecutionOracle.privateStoreInExecutionCache(args, argsHash);
 
     // Note: This is a slight modification of simulator.run without any of the checks. Maybe we should modify simulator.run with a boolean value to skip checks.
     let result: PrivateExecutionResult;
@@ -1000,7 +999,7 @@ export class TXE {
     try {
       executionResult = await executePrivateFunction(
         this.simulator,
-        context,
+        privateExecutionOracle,
         artifact,
         targetContractAddress,
         functionSelector,
@@ -1016,7 +1015,7 @@ export class TXE {
       );
       const publicFunctionsCalldata = await Promise.all(
         publicCallRequests.map(async r => {
-          const calldata = await context.privateLoadFromExecutionCache(r.calldataHash);
+          const calldata = await privateExecutionOracle.privateLoadFromExecutionCache(r.calldataHash);
           return new HashedValues(calldata, r.calldataHash);
         }),
       );
