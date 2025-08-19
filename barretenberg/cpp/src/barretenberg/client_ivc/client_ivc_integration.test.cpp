@@ -32,15 +32,13 @@ class ClientIVCIntegrationTests : public ::testing::Test {
  */
 TEST_F(ClientIVCIntegrationTests, BenchmarkCaseSimple)
 {
-    const size_t NUM_CIRCUITS = 6;
+    const size_t NUM_APP_CIRCUITS = 2;
+    MockCircuitProducer circuit_producer{ NUM_APP_CIRCUITS };
+    const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
     ClientIVC ivc{ NUM_CIRCUITS, { AZTEC_TRACE_STRUCTURE } };
 
-    MockCircuitProducer circuit_producer;
-
     // Construct and accumulate a series of mocked private function execution circuits
-    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        circuit_producer.construct_and_accumulate_next_circuit(ivc);
-    }
+    circuit_producer.create_mock_ivc_stack(TestSettings{}, ivc);
 
     EXPECT_TRUE(ivc.prove_and_verify());
 };
@@ -59,10 +57,10 @@ TEST_F(ClientIVCIntegrationTests, BenchmarkCaseSimple)
  */
 TEST_F(ClientIVCIntegrationTests, DatabusFailure)
 {
-    size_t NUM_CIRCUITS = 6;
+    size_t NUM_APP_CIRCUITS = 3;
+    MockCircuitProducer circuit_producer{ NUM_APP_CIRCUITS };
+    size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
     ClientIVC ivc{ NUM_CIRCUITS, { AZTEC_TRACE_STRUCTURE } };
-
-    MockCircuitProducer circuit_producer;
 
     // Construct and accumulate a series of mocked private function execution circuits
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
@@ -74,9 +72,6 @@ TEST_F(ClientIVCIntegrationTests, DatabusFailure)
         }
 
         ivc.accumulate(circuit, vk);
-        if (ivc.num_circuits_accumulated == NUM_CIRCUITS) {
-            circuit_producer.construct_hiding_kernel(ivc);
-        }
     }
 
     EXPECT_FALSE(ivc.prove_and_verify());
