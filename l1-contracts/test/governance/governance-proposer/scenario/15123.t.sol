@@ -80,7 +80,10 @@ contract Test15123 is GovernanceProposerBase {
     bytes32 domainSeparator =
       keccak256(abi.encode(TYPE_HASH, hashedName, hashedVersion, block.chainid, address(governanceProposer)));
     bytes32 digest = MessageHashUtils.toTypedDataHash(
-      domainSeparator, keccak256(abi.encode(governanceProposer.SIGNAL_TYPEHASH(), _payload, _nonce, _round))
+      domainSeparator,
+      keccak256(
+        abi.encode(governanceProposer.SIGNAL_TYPEHASH(), _payload, _nonce, _round, governanceProposer.getInstance())
+      )
     );
 
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, digest);

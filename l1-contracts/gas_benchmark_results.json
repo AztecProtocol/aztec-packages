@@ -3,26 +3,26 @@
     "no_validators": {
       "propose": {
         "calls": 100,
-        "min": 149608,
-        "mean": 152636,
-        "median": 152418,
-        "max": 169163,
+        "min": 139463,
+        "mean": 142569,
+        "median": 142433,
+        "max": 157723,
         "calldata_size": 1060,
         "calldata_gas": 16960
       },
       "setupEpoch": {
         "calls": 100,
-        "min": 37692,
-        "mean": 40827,
-        "median": 39692,
-        "max": 108414
+        "min": 29235,
+        "mean": 31585,
+        "median": 29235,
+        "max": 108397
       },
       "submitEpochRootProof": {
         "calls": 2,
-        "min": 546487,
-        "mean": 569702,
-        "median": 569702,
-        "max": 592918,
+        "min": 544611,
+        "mean": 567842,
+        "median": 567842,
+        "max": 591073,
         "calldata_size": 3812,
         "calldata_gas": 60992
       }
@@ -30,35 +30,35 @@
     "validators": {
       "propose": {
         "calls": 100,
-        "min": 204064,
-        "mean": 210504,
-        "median": 209860,
-        "max": 227206,
+        "min": 200706,
+        "mean": 206977,
+        "median": 207326,
+        "max": 226338,
         "calldata_size": 2852,
         "calldata_gas": 45632
       },
       "setupEpoch": {
         "calls": 100,
-        "min": 37692,
-        "mean": 47388,
-        "median": 39692,
-        "max": 327101
+        "min": 29235,
+        "mean": 38145,
+        "median": 29235,
+        "max": 327074
       },
       "submitEpochRootProof": {
         "calls": 2,
-        "min": 656895,
-        "mean": 680098,
-        "median": 680098,
-        "max": 703302,
+        "min": 657681,
+        "mean": 679690,
+        "median": 679690,
+        "max": 701700,
         "calldata_size": 5092,
         "calldata_gas": 81472
       },
       "aggregate3": {
         "calls": 100,
-        "min": 247273,
-        "mean": 257879,
-        "median": 255561,
-        "max": 281656
+        "min": 243742,
+        "mean": 256679,
+        "median": 253598,
+        "max": 286474
       }
     }
   },
@@ -66,26 +66,26 @@
     "no_validators": {
       "propose": {
         "calls": 100,
-        "min": 221621,
-        "mean": 230591,
-        "median": 229876,
-        "max": 247557,
+        "min": 212503,
+        "mean": 219926,
+        "median": 219136,
+        "max": 235984,
         "calldata_size": 1060,
         "calldata_gas": 16960
       },
       "setupEpoch": {
         "calls": 100,
-        "min": 37692,
-        "mean": 42002,
-        "median": 39692,
-        "max": 110935
+        "min": 29235,
+        "mean": 32376,
+        "median": 29235,
+        "max": 108397
       },
       "submitEpochRootProof": {
         "calls": 3,
-        "min": 669888,
-        "mean": 689363,
-        "median": 669984,
-        "max": 728218,
+        "min": 667612,
+        "mean": 687107,
+        "median": 667708,
+        "max": 726001,
         "calldata_size": 3812,
         "calldata_gas": 60992
       }
@@ -93,35 +93,35 @@
     "validators": {
       "propose": {
         "calls": 100,
-        "min": 323268,
-        "mean": 337553,
-        "median": 337214,
-        "max": 355991,
+        "min": 318448,
+        "mean": 334025,
+        "median": 334471,
+        "max": 351385,
         "calldata_size": 4580,
         "calldata_gas": 73280
       },
       "setupEpoch": {
         "calls": 100,
-        "min": 37692,
-        "mean": 59354,
-        "median": 39692,
-        "max": 544742
+        "min": 29235,
+        "mean": 49728,
+        "median": 29235,
+        "max": 542190
       },
       "submitEpochRootProof": {
         "calls": 3,
-        "min": 876819,
-        "mean": 897057,
-        "median": 879324,
-        "max": 935029,
+        "min": 874800,
+        "mean": 895025,
+        "median": 877195,
+        "max": 933081,
         "calldata_size": 6308,
         "calldata_gas": 100928
       },
       "aggregate3": {
         "calls": 100,
-        "min": 366564,
-        "mean": 389910,
-        "median": 389226,
-        "max": 411588
+        "min": 362550,
+        "mean": 386141,
+        "median": 384626,
+        "max": 411884
       }
     }
   }
