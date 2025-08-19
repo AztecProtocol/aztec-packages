@@ -2,7 +2,6 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {console2} from "forge-std/console2.sol";
 import {RollupStore, IRollupCore, BlockHeaderValidationFlags} from "@aztec/core/interfaces/IRollup.sol";
 import {TempBlockLog} from "@aztec/core/libraries/compressed-data/BlockLog.sol";
 import {FeeHeader} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
