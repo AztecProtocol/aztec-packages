@@ -201,8 +201,16 @@ namespace tx;
     pol commit should_process_call_request;
     should_process_call_request = is_public_call_request * (1 - is_padded);
 
-    pol commit context_id; // TODO: Constrain
-    pol commit next_context_id; // TODO: Constrain
+    // When sending a call to execution, next context id is incremented by one, since we use next_context_id for the call.
+    pol commit next_context_id_sent_to_enqueued_call;
+    // When coming back from a call, the next context id may have incremented an amount we can't predict from the tx trace.
+    pol commit next_context_id_from_enqueued_call;
+
+    // When issuing a call, context id is used for the call, making the next context id it plus one.
+    should_process_call_request * ((next_context_id + 1) - next_context_id_sent_to_enqueued_call) = 0;
+    // When comming back from the call, the newly available context id is the next_context_id that comes from the end of the call.
+    should_process_call_request * (next_context_id_from_enqueued_call - next_context_id') = 0;
+
     pol commit is_teardown_phase; // TODO: Constrain
     is_teardown_phase * (1 - is_teardown_phase) = 0;
 
@@ -224,8 +232,8 @@ namespace tx;
     // Commented out for now since we dont have enqueued call flags in execution set
     // #[DISPATCH_EXEC_START]
     // should_process_call_request {
-    //     context_id,
     //     next_context_id,
+    //     next_context_id_sent_to_enqueued_call,
     //     discard,
     //     msg_sender,
     //     contract_addr,
@@ -284,8 +292,8 @@ namespace tx;
     // Commented out for now since we dont have enqueued call flags in execution set
     //#[DISPATCH_EXEC_GET_REVERT]
     //should_process_call_request {
-    //    context_id,
     //    next_context_id,
+    //    next_context_id_from_enqueued_call,
     //    reverted,
     //    discard,
     //    // Tree State
