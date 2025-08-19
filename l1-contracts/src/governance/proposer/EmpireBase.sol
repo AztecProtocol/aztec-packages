@@ -107,7 +107,8 @@ abstract contract EmpireBase is EIP712, IEmpire {
   using CompressedTimeMath for CompressedSlot;
 
   // EIP-712 type hash for the Signal struct
-  bytes32 public constant SIGNAL_TYPEHASH = keccak256("Signal(address payload,uint256 nonce,uint256 round)");
+  bytes32 public constant SIGNAL_TYPEHASH =
+    keccak256("Signal(address payload,uint256 nonce,uint256 round,address instance)");
 
   // The number of signals needed for a payload to be considered submittable.
   uint256 public immutable QUORUM_SIZE;
@@ -269,7 +270,7 @@ abstract contract EmpireBase is EIP712, IEmpire {
   }
 
   function getSignalSignatureDigest(IPayload _payload, address _signaler, uint256 _round) public view returns (bytes32) {
-    return _hashTypedDataV4(keccak256(abi.encode(SIGNAL_TYPEHASH, _payload, nonces[_signaler], _round)));
+    return _hashTypedDataV4(keccak256(abi.encode(SIGNAL_TYPEHASH, _payload, nonces[_signaler], _round, getInstance())));
   }
 
   // Virtual functions

@@ -53,6 +53,7 @@ export async function signSignalWithSig(
   payload: Hex,
   nonce: bigint,
   round: bigint,
+  instance: Hex,
   verifyingContract: Hex,
   chainId: number,
 ): Promise<Signature> {
@@ -68,6 +69,7 @@ export async function signSignalWithSig(
       { name: 'payload', type: 'address' },
       { name: 'nonce', type: 'uint256' },
       { name: 'round', type: 'uint256' },
+      { name: 'instance', type: 'address' },
     ],
   };
 
@@ -75,6 +77,7 @@ export async function signSignalWithSig(
     payload,
     nonce,
     round,
+    instance,
   };
 
   const typedData = { domain, types, primaryType: 'Signal', message };
