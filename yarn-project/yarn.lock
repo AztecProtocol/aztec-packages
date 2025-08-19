@@ -1203,6 +1203,7 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
+    "@aztec/node-keystore": "workspace:^"
     "@aztec/node-lib": "workspace:^"
     "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/p2p": "workspace:^"

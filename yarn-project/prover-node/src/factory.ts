@@ -3,21 +3,21 @@ import { BBCircuitVerifier, QueuedIVCVerifier, TestCircuitVerifier } from '@azte
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
+  type EthSigner,
   L1TxUtils,
   PublisherManager,
   RollupContract,
-  type ViemPublicClient,
   createEthereumChain,
-  createExtendedL1Client,
-  createL1TxUtilsFromViemWallet,
+  createL1TxUtilsFromEthSigner,
 } from '@aztec/ethereum';
 import { pick } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
+import { type KeyStoreConfig, KeystoreManager, loadKeystores, mergeKeystores } from '@aztec/node-keystore';
 import { trySnapshotSync } from '@aztec/node-lib/actions';
 import { NodeRpcTxSource, createP2PClient } from '@aztec/p2p';
-import { createProverClient } from '@aztec/prover-client';
+import { type ProverClientConfig, createProverClient } from '@aztec/prover-client';
 import { createAndStartProvingBroker } from '@aztec/prover-client/broker';
 import type { AztecNode, ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
 import { P2PClientType } from '@aztec/stdlib/p2p';
@@ -26,7 +26,9 @@ import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import { L1Metrics, type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
-import { type ProverNodeConfig, resolveConfig } from './config.js';
+import { createPublicClient, fallback, http } from 'viem';
+
+import { type ProverNodeConfig, createKeyStoreForProver } from './config.js';
 import { EpochMonitor } from './monitors/epoch-monitor.js';
 import { ProverNode } from './prover-node.js';
 import { ProverPublisherFactory } from './prover-publisher-factory.js';
@@ -45,18 +47,40 @@ export type ProverNodeDeps = {
 
 /** Creates a new prover node given a config. */
 export async function createProverNode(
-  userConfig: ProverNodeConfig & DataStoreConfig,
+  userConfig: ProverNodeConfig & DataStoreConfig & KeyStoreConfig,
   deps: ProverNodeDeps = {},
   options: {
     prefilledPublicData?: PublicDataTreeLeaf[];
   } = {},
 ) {
-  const config = resolveConfig(userConfig);
+  const config = { ...userConfig };
   const telemetry = deps.telemetry ?? getTelemetryClient();
   const dateProvider = deps.dateProvider ?? new DateProvider();
   const blobSinkClient =
     deps.blobSinkClient ?? createBlobSinkClient(config, { logger: createLogger('prover-node:blob-sink:client') });
   const log = deps.log ?? createLogger('prover-node');
+
+  // Build a key store from file if given or from environment otherwise
+  let keyStoreManager: KeystoreManager | undefined;
+  if (config.keyStoreDirectory !== undefined && config.keyStoreDirectory.length) {
+    const keyStores = loadKeystores(config.keyStoreDirectory);
+    keyStoreManager = new KeystoreManager(mergeKeystores(keyStores));
+  } else {
+    const keyStore = createKeyStoreForProver(config);
+    if (keyStore) {
+      keyStoreManager = new KeystoreManager(keyStore);
+    }
+  }
+
+  const proverSigners = keyStoreManager?.createProverSigners();
+
+  if (proverSigners === undefined) {
+    throw new Error('Failed to create prover key store configuration');
+  } else if (proverSigners.signers.length === 0) {
+    throw new Error('No prover signers found in the key store');
+  }
+
+  const proverId = proverSigners.id ?? proverSigners.signers[0].address;
 
   await trySnapshotSync(config, log);
 
@@ -77,21 +101,35 @@ export async function createProverNode(
   await worldStateSynchronizer.start();
 
   const broker = deps.broker ?? (await createAndStartProvingBroker(config, telemetry));
-  const prover = await createProverClient(config, worldStateSynchronizer, broker, telemetry);
 
-  const { l1RpcUrls: rpcUrls, l1ChainId: chainId, publisherPrivateKey } = config;
+  const proverClientConfig: ProverClientConfig = {
+    ...config,
+    proverId,
+  };
+  const prover = await createProverClient(proverClientConfig, worldStateSynchronizer, broker, telemetry);
+
+  const { l1RpcUrls: rpcUrls, l1ChainId: chainId } = config;
   const chain = createEthereumChain(rpcUrls, chainId);
-  const l1Client = createExtendedL1Client(rpcUrls, publisherPrivateKey.getValue(), chain.chainInfo);
 
-  const rollupContract = new RollupContract(l1Client, config.l1Contracts.rollupAddress.toString());
+  const publicClient = createPublicClient({
+    chain: chain.chainInfo,
+    transport: fallback(config.l1RpcUrls.map((url: string) => http(url))),
+    pollingInterval: config.viemPollingIntervalMS,
+  });
 
-  const l1TxUtils = deps.l1TxUtils ?? createL1TxUtilsFromViemWallet(l1Client, log, deps.dateProvider, config);
+  const rollupContract = new RollupContract(publicClient, config.l1Contracts.rollupAddress.toString());
+
+  const l1TxUtils = deps.l1TxUtils
+    ? [deps.l1TxUtils]
+    : proverSigners.signers.map((signer: EthSigner) => {
+        return createL1TxUtilsFromEthSigner(publicClient, signer, log, dateProvider, config);
+      });
 
   const publisherFactory =
     deps.publisherFactory ??
     new ProverPublisherFactory(config, {
       rollupContract,
-      publisherManager: new PublisherManager([l1TxUtils]),
+      publisherManager: new PublisherManager(l1TxUtils),
       telemetry,
     });
 
@@ -143,8 +181,8 @@ export async function createProverNode(
 
   const l1Metrics = new L1Metrics(
     telemetry.getMeter('ProverNodeL1Metrics'),
-    l1TxUtils.client as unknown as ViemPublicClient,
-    [l1TxUtils.getSenderAddress()],
+    publicClient,
+    l1TxUtils.map(utils => utils.getSenderAddress()),
   );
 
   return new ProverNode(

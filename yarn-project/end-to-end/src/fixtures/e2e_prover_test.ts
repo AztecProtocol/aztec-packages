@@ -296,7 +296,7 @@ export class FullProverTest {
       ...this.context.aztecNodeConfig,
       txCollectionNodeRpcUrls: [],
       dataDirectory: undefined,
-      proverId: this.proverAddress.toField(),
+      proverId: this.proverAddress,
       realProofs: this.realProofs,
       proverAgentCount: 2,
       publisherPrivateKey: new SecretValue(`0x${proverNodePrivateKey!.toString('hex')}` as const),

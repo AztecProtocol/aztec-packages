@@ -200,9 +200,9 @@ export class KeystoreManager {
   /**
    * Create signers for prover accounts
    */
-  createProverSigners(): EthSigner[] {
+  createProverSigners(): { id: EthAddress | undefined; signers: EthSigner[] } | undefined {
     if (!this.keystore.prover) {
-      return [];
+      return undefined;
     }
 
     // Handle simple prover case (just a private key)
@@ -211,7 +211,11 @@ export class KeystoreManager {
       'path' in this.keystore.prover ||
       'address' in this.keystore.prover
     ) {
-      return this.createSignersFromEthAccounts(this.keystore.prover as EthAccount, this.keystore.remoteSigner);
+      const signers = this.createSignersFromEthAccounts(this.keystore.prover as EthAccount, this.keystore.remoteSigner);
+      return {
+        id: undefined,
+        signers,
+      };
     }
 
     // Handle complex prover case with id and publishers
@@ -223,7 +227,10 @@ export class KeystoreManager {
       signers.push(...publisherSigners);
     }
 
-    return signers;
+    return {
+      id: EthAddress.fromString(proverConfig.id),
+      signers,
+    };
   }
 
   /**

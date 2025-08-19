@@ -1,6 +1,6 @@
 import { type ACVMConfig, type BBConfig, BBNativeRollupProver, TestCircuitProver } from '@aztec/bb-prover';
 import { times } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { NativeACVMSimulator } from '@aztec/simulator/server';
 import {
@@ -49,7 +49,7 @@ export class ProverClient implements EpochProverManager {
     return new ServerEpochProver(facade, orchestrator);
   }
 
-  public getProverId(): Fr {
+  public getProverId(): EthAddress {
     return this.config.proverId;
   }
 
