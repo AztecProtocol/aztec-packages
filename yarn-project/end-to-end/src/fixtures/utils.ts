@@ -460,6 +460,7 @@ export async function setup(
       publisherHdAccount = privateKeyToAccount(config.publisherPrivateKeys[0].getValue());
     } else if (config.publisherPrivateKey && config.publisherPrivateKey.getValue() != NULL_KEY) {
       publisherHdAccount = privateKeyToAccount(config.publisherPrivateKey.getValue());
+      config.publisherPrivateKeys = [new SecretValue(config.publisherPrivateKey.getValue())];
     } else if (!MNEMONIC) {
       throw new Error(`Mnemonic not provided and no publisher private key`);
     } else {
@@ -467,6 +468,7 @@ export async function setup(
       const publisherPrivKeyRaw = publisherHdAccount.getHdKey().privateKey;
       publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
       config.publisherPrivateKey = new SecretValue(`0x${publisherPrivKey!.toString('hex')}` as const);
+      config.publisherPrivateKeys = [new SecretValue(config.publisherPrivateKey.getValue())];
     }
 
     config.coinbase = EthAddress.fromString(publisherHdAccount.address);
