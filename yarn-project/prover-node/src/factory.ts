@@ -80,7 +80,11 @@ export async function createProverNode(
     throw new Error('No prover signers found in the key store');
   }
 
-  const proverId = proverSigners.id ?? proverSigners.signers[0].address;
+  // Only consider user provided config if it is valid
+  const proverIdInUserConfig = config.proverId === undefined || config.proverId.isZero() ? undefined : config.proverId;
+
+  // Take from key store if provided, otherwise from user config if valid, otherwise from first signer
+  const proverId = proverSigners.id ?? proverIdInUserConfig ?? proverSigners.signers[0].address;
 
   await trySnapshotSync(config, log);
 
