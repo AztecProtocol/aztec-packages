@@ -36,6 +36,8 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
         using Commitment = typename Flavor::Commitment;
         TranscriptManifest manifest_expected;
 
+        const size_t virtual_log_n = Flavor::VIRTUAL_LOG_N;
+
         size_t NUM_PUBLIC_INPUTS =
             stdlib::recursion::honk::DefaultIO<typename Flavor::CircuitBuilder>::PUBLIC_INPUTS_SIZE;
         size_t MAX_PARTIAL_RELATION_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
@@ -92,7 +94,7 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
         manifest_expected.add_challenge(round, alpha_labels);
         round++;
 
-        for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
+        for (size_t i = 0; i < virtual_log_n; i++) {
             std::string label = "Sumcheck:gate_challenge_" + std::to_string(i);
             manifest_expected.add_challenge(round, label);
             round++;
@@ -105,7 +107,7 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
             round++;
         }
 
-        for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+        for (size_t i = 0; i < virtual_log_n; ++i) {
             std::string idx = std::to_string(i);
             manifest_expected.add_entry(round, "Sumcheck:univariate_" + idx, frs_per_uni);
             std::string label = "Sumcheck:u_" + idx;
@@ -126,13 +128,13 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
         manifest_expected.add_challenge(round, "rho");
 
         round++;
-        for (size_t i = 1; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+        for (size_t i = 1; i < virtual_log_n; ++i) {
             std::string idx = std::to_string(i);
             manifest_expected.add_entry(round, "Gemini:FOLD_" + idx, frs_per_G);
         }
         manifest_expected.add_challenge(round, "Gemini:r");
         round++;
-        for (size_t i = 1; i <= CONST_PROOF_SIZE_LOG_N; ++i) {
+        for (size_t i = 1; i <= virtual_log_n; ++i) {
             std::string idx = std::to_string(i);
             manifest_expected.add_entry(round, "Gemini:a_" + idx, frs_per_Fr);
         }

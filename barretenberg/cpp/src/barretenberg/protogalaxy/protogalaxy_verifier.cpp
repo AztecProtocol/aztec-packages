@@ -105,8 +105,8 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
     const Univariate<FF, BATCHED_EXTENDED_LENGTH, NUM_KEYS> combiner_quotient(combiner_quotient_evals);
     const FF combiner_quotient_evaluation = combiner_quotient.evaluate(combiner_challenge);
 
-    // Set the accumulator circuit size data based on the max of the keys being accumulated
-    const size_t accumulator_log_circuit_size = keys_to_fold.get_max_log_circuit_size();
+    // Set a constant virtual log circuit size in the accumulator
+    const size_t accumulator_log_circuit_size = CONST_PG_LOG_N;
     accumulator->vk->log_circuit_size = accumulator_log_circuit_size;
 
     // Compute next folding parameters

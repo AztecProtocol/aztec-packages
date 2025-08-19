@@ -33,7 +33,7 @@ DeciderProver_<Flavor>::DeciderProver_(const std::shared_ptr<DeciderPK>& proving
  */
 template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::execute_relation_check_rounds()
 {
-    const size_t virtual_log_n = Flavor::USE_PADDING ? CONST_PROOF_SIZE_LOG_N : proving_key->log_dyadic_size();
+    const size_t virtual_log_n = Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : proving_key->log_dyadic_size();
 
     using Sumcheck = SumcheckProver<Flavor>;
     size_t polynomial_size = proving_key->dyadic_size();

@@ -1,7 +1,13 @@
 #pragma once
+#include <cstddef>
 #include <cstdint>
 
 namespace bb {
+
+// Arbitrarily large constant (> size of the BN254 srs) used to ensure that the evaluations on the hypercube of the
+// permutation argument polynomials (sigmas, ids) are unique, e.g. id[i][j] == id[m][n] iff (i == m && j == n)
+constexpr uint32_t PERMUTATION_ARGUMENT_VALUE_SEPARATOR = 1 << 28;
+
 // The log of the max circuit size assumed in order to achieve constant sized Honk proofs
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1046): Remove the need for const sized proofs
 static constexpr uint32_t CONST_PROOF_SIZE_LOG_N = 28;
@@ -9,7 +15,10 @@ static constexpr uint32_t CONST_PROOF_SIZE_LOG_N = 28;
 // The log of the max circuit size of circuits being folded. This size is assumed by the PG prover and verifier in order
 // to ensure a constant PG proof size and a PG recursive verifier circuit that is independent of the size of the
 // circuits being folded.
-static constexpr uint32_t CONST_PG_LOG_N = 20;
+static constexpr uint32_t CONST_PG_LOG_N = 21;
+
+// The size of the AVMRecursiveVerifier circuit arithmetized with Mega.
+static constexpr uint32_t MEGA_AVM_LOG_N = 21;
 
 static constexpr uint32_t CONST_ECCVM_LOG_N = 16;
 
@@ -49,5 +58,5 @@ static constexpr uint32_t NUM_INTERLEAVING_CLAIMS = 2;
 // When we branch a transcript, we want to clearly distinguish between what happened before and after the branching. We
 // increase the `round_index` of the original transcript by `BRANCHING_JUMP`, so that there is a gap of `BRANCHING_JUMP`
 // round indices between what happened before and after the branching. This constant is arbitrary.
-static constexpr std::size_t BRANCHING_JUMP = 5;
+static constexpr size_t BRANCHING_JUMP = 5;
 } // namespace bb

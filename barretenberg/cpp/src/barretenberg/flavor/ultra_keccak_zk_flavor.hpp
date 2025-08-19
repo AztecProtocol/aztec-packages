@@ -22,7 +22,7 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
                   "LIBRA_UNIVARIATES_LENGTH must be equal to UltraKeccakZKFlavor::BATCHED_RELATION_PARTIAL_LENGTH");
 
     // Proof length formula method
-    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N)
+    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = VIRTUAL_LOG_N)
     {
         return /* 1. NUM_WITNESS_ENTITIES commitments */ (NUM_WITNESS_ENTITIES * num_elements_comm) +
                /* 2. Libra concatenation commitment*/ (num_elements_comm) +
@@ -86,7 +86,7 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
          * proof.
          *
          */
-        void deserialize_full_transcript(size_t public_input_size, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N)
+        void deserialize_full_transcript(size_t public_input_size, size_t virtual_log_n = VIRTUAL_LOG_N)
         {
             // take current proof and put them into the struct
             size_t num_frs_read = 0;
@@ -141,7 +141,7 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
          * modified.
          *
          */
-        void serialize_full_transcript(size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N)
+        void serialize_full_transcript(size_t virtual_log_n = VIRTUAL_LOG_N)
         {
             auto& proof_data = this->proof_data;
             size_t old_proof_length = proof_data.size();
