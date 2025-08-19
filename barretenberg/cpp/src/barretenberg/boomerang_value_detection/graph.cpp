@@ -573,6 +573,15 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_ram_table_
     return ram_table_variables;
 }
 
+/**
+ * @brief this method creates connected components from databus gates
+ * @tparam FF field type
+ * @param index index of the current gate
+ * @param block_idx index of the current block
+ * @param blk block containing the gates
+ * @return std::vector<uint32_t> vector of connected variables from the gate
+ * @details Processes databus read operations by collecting variables from left and right wires
+ */
 template <typename FF, typename CircuitBuilder>
 inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_databus_connected_component(size_t index,
                                                                                                   size_t block_idx,
@@ -587,6 +596,16 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_databus_co
     return gate_variables;
 }
 
+/**
+ * @brief this method creates connected components from elliptic curve operation gates
+ * @tparam FF field type
+ * @param index index of the current gate
+ * @param block_idx index of the current block
+ * @param blk block containing the gates
+ * @return std::vector<uint32_t> vector of connected variables from the gate
+ * @details Processes elliptic curve operations by collecting variables from current and next gates,
+ *          handling opcodes and coordinate variables for curve operations
+ */
 template <typename FF, typename CircuitBuilder>
 inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_eccop_part_connected_component(size_t index,
                                                                                                      size_t block_idx,
@@ -621,6 +640,14 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_eccop_part
     return gate_variables;
 }
 
+/**
+ * @brief this method processes the entire execution trace of the circuit
+ * @tparam FF field type
+ * @details This method iterates through all blocks and gates in the circuit builder,
+ *          processing different types of gates and creating connections between variables.
+ *          It handles arithmetic, elliptic, lookup, poseidon2, memory, non-native field,
+ *          and delta range gates, as well as ROM/RAM tables and special MegaCircuitBuilder gates.
+ */
 template <typename FF, typename CircuitBuilder> void StaticAnalyzer_<FF, CircuitBuilder>::process_execution_trace()
 {
     auto block_data = circuit_builder.blocks.get();
@@ -926,6 +953,13 @@ void StaticAnalyzer_<FF, CircuitBuilder>::mark_range_list_connected_components()
     }
 }
 
+/**
+ * @brief this method marks connected components that represent finalize witnesses
+ * @tparam FF field type
+ * @details Identifies connected components that contain only finalize witnesses.
+ *          A connected component is marked as a finalize component if all its variables
+ *          are present in the finalize_witnesses set.
+ */
 template <typename FF, typename CircuitBuilder>
 void StaticAnalyzer_<FF, CircuitBuilder>::mark_finalize_connected_components()
 {
