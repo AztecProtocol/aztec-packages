@@ -7,6 +7,7 @@ import {
   RollupContract,
   SlasherArtifact,
 } from '@aztec/ethereum';
+import { tryJsonStringify } from '@aztec/foundation/json-rpc';
 import { GSEAbi } from '@aztec/l1-artifacts/GSEAbi';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { SlasherAbi } from '@aztec/l1-artifacts/SlasherAbi';
@@ -127,7 +128,7 @@ describe('veto slash', () => {
     const deployer = new L1Deployer(deployerClient, 42, undefined, false, undefined, undefined);
 
     const vetoer = deployerClient.account.address;
-    const governance = EthAddress.ZERO.toString(); // We don't need a real governance address for this test
+    const governance = EthAddress.random().toString(); // We don't need a real governance address for this test
     debugLogger.info(`\n\ndeploying slasher with vetoer: ${vetoer}\n\n`);
     const slasher = await deployer.deploy(SlasherArtifact, [vetoer, governance]);
     await deployer.waitForDeployments();
@@ -140,7 +141,7 @@ describe('veto slash', () => {
       BigInt(LIFETIME_IN_ROUNDS),
       BigInt(EXECUTION_DELAY_IN_ROUNDS),
     ] as const;
-    debugLogger.info(`\n\ndeploying slasher proposer with args: ${JSON.stringify(proposerArgs)}\n\n`);
+    debugLogger.info(`\n\ndeploying slasher proposer with args: ${tryJsonStringify(proposerArgs)}\n\n`);
     const proposer = await deployer.deploy(EmpireSlashingProposerArtifact, proposerArgs);
 
     debugLogger.info(`\n\ninitializing slasher with proposer: ${proposer}\n\n`);
