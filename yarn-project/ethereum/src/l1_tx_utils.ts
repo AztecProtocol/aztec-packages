@@ -43,6 +43,7 @@ import {
 } from 'viem';
 import { jsonRpc } from 'viem/nonce';
 
+import type { EthSigner } from './eth-signer/eth-signer.js';
 import type { ExtendedViemWalletClient, ViemClient } from './types.js';
 import { formatViemError } from './utils.js';
 
@@ -1074,6 +1075,20 @@ export function createL1TxUtilsFromViemWallet(
     config,
     debugMaxGasLimit,
   );
+}
+
+export function createL1TxUtilsFromEthSigner(
+  client: ViemClient,
+  signer: EthSigner,
+  logger: Logger = createLogger('L1TxUtils'),
+  dateProvider: DateProvider = new DateProvider(),
+  config?: Partial<L1TxUtilsConfig>,
+  debugMaxGasLimit: boolean = false,
+) {
+  const callback: SigningCallback = async (transaction: TransactionSerializable, _signingAddress) => {
+    return (await signer.signTransaction(transaction)).toViemTransactionSignature();
+  };
+  return new L1TxUtils(client, signer.address, callback, logger, dateProvider, config, debugMaxGasLimit);
 }
 
 export function tryGetCustomErrorNameContractFunction(err: ContractFunctionExecutionError) {

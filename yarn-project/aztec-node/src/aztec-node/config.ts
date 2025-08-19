@@ -132,27 +132,3 @@ export function createKeyStoreForValidator(config: TxSenderConfig & ValidatorCli
   };
   return keyStore;
 }
-
-export function createKeyStoreForProver(config: TxSenderConfig) {
-  const publisherKeys = config.publisherPrivateKeys
-    ? config.publisherPrivateKeys.map(k => k.getValue() as EthAddressHex)
-    : [];
-
-  if (publisherKeys.length === 0) {
-    throw new Error('No publisher configured');
-  }
-
-  const proverKeyStore: ProverKeyStore = {
-    id: publisherKeys[0],
-    publisher: publisherKeys,
-  };
-
-  const keyStore: KeyStore = {
-    schemaVersion: 1,
-    slasher: undefined,
-    prover: proverKeyStore,
-    remoteSigner: undefined,
-    validators: undefined,
-  };
-  return keyStore;
-}

@@ -17,7 +17,7 @@ import { elapsed } from '@aztec/foundation/timer';
 import type { TreeNodeLocation } from '@aztec/foundation/trees';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { readAvmMinimalPublicTxInputsFromFile } from '@aztec/simulator/public/fixtures';
-import { L2Block } from '@aztec/stdlib/block';
+import { EthAddress, L2Block } from '@aztec/stdlib/block';
 import type {
   EpochProver,
   ForkMerkleTreeOperations,
@@ -89,7 +89,7 @@ export class ProvingOrchestrator implements EpochProver {
   constructor(
     private dbProvider: ForkMerkleTreeOperations,
     private prover: ServerCircuitProver,
-    private readonly proverId: Fr,
+    private readonly proverId: EthAddress,
     telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {
     this.metrics = new ProvingOrchestratorMetrics(telemetryClient, 'ProvingOrchestrator');
@@ -99,7 +99,7 @@ export class ProvingOrchestrator implements EpochProver {
     return this.metrics.tracer;
   }
 
-  public getProverId(): Fr {
+  public getProverId(): EthAddress {
     return this.proverId;
   }
 

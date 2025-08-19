@@ -1,9 +1,15 @@
 import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/config';
 import type { ACVMConfig, BBConfig } from '@aztec/bb-prover/config';
-import { type GenesisStateConfig, genesisStateConfigMappings, getAddressFromPrivateKey } from '@aztec/ethereum';
+import { type GenesisStateConfig, genesisStateConfigMappings } from '@aztec/ethereum';
 import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
-import { Fr } from '@aztec/foundation/fields';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
+import {
+  type EthAddressHex,
+  type KeyStore,
+  type KeyStoreConfig,
+  type ProverKeyStore,
+  keyStoreConfigMappings,
+} from '@aztec/node-keystore';
 import { type SharedNodeConfig, sharedNodeConfigMappings } from '@aztec/node-lib/config';
 import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
 import {
@@ -12,12 +18,7 @@ import {
   proverAgentConfigMappings,
   proverBrokerConfigMappings,
 } from '@aztec/prover-client/broker';
-import {
-  type ProverClientConfig,
-  type ProverClientUserConfig,
-  bbConfigMappings,
-  proverClientConfigMappings,
-} from '@aztec/prover-client/config';
+import { type ProverClientUserConfig, bbConfigMappings, proverClientConfigMappings } from '@aztec/prover-client/config';
 import {
   type PublisherConfig,
   type TxSenderConfig,
@@ -33,6 +34,7 @@ export type ProverNodeConfig = ArchiverConfig &
   PublisherConfig &
   TxSenderConfig &
   DataStoreConfig &
+  KeyStoreConfig &
   SharedNodeConfig &
   SpecificProverNodeConfig &
   GenesisStateConfig;
@@ -93,6 +95,7 @@ const specificProverNodeConfigMappings: ConfigMappingsType<SpecificProverNodeCon
 
 export const proverNodeConfigMappings: ConfigMappingsType<ProverNodeConfig> = {
   ...dataConfigMappings,
+  ...keyStoreConfigMappings,
   ...archiverConfigMappings,
   ...proverClientConfigMappings,
   ...p2pConfigMappings,
@@ -121,10 +124,26 @@ export function getProverNodeAgentConfigFromEnv(): ProverAgentConfig & BBConfig 
   };
 }
 
-export function resolveConfig(userConfig: ProverNodeConfig): ProverNodeConfig & ProverClientConfig {
-  const proverId =
-    userConfig.proverId && !userConfig.proverId.isZero()
-      ? userConfig.proverId
-      : Fr.fromHexString(getAddressFromPrivateKey(userConfig.publisherPrivateKey.getValue()));
-  return { ...userConfig, proverId };
+export function createKeyStoreForProver(config: ProverNodeConfig) {
+  const publisherKeys = config.publisherPrivateKeys
+    ? config.publisherPrivateKeys.map(k => k.getValue() as EthAddressHex)
+    : [];
+
+  if (publisherKeys.length === 0 || config.proverId === undefined || config.proverId.isZero()) {
+    return undefined;
+  }
+
+  const proverKeyStore: ProverKeyStore = {
+    id: config.proverId.toString() as EthAddressHex,
+    publisher: publisherKeys,
+  };
+
+  const keyStore: KeyStore = {
+    schemaVersion: 1,
+    slasher: undefined,
+    prover: proverKeyStore,
+    remoteSigner: undefined,
+    validators: undefined,
+  };
+  return keyStore;
 }
