@@ -336,7 +336,8 @@ void Execution::call(ContextInterface& context,
                                                                /*cd_size=*/cd_size.as<uint32_t>(),
                                                                /*is_static=*/false,
                                                                /*gas_limit=*/gas_limit,
-                                                               /*side_effect_states=*/context.get_side_effect_states());
+                                                               /*side_effect_states=*/context.get_side_effect_states(),
+                                                               /*phase=*/context.get_phase());
 
     // We do not recurse. This context will be use on the next cycle of execution.
     handle_enter_call(context, std::move(nested_context));
@@ -374,7 +375,8 @@ void Execution::static_call(ContextInterface& context,
                                                                /*cd_size=*/cd_size.as<uint32_t>(),
                                                                /*is_static=*/true,
                                                                /*gas_limit=*/gas_limit,
-                                                               /*side_effect_states=*/context.get_side_effect_states());
+                                                               /*side_effect_states=*/context.get_side_effect_states(),
+                                                               /*phase=*/context.get_phase());
 
     // We do not recurse. This context will be use on the next cycle of execution.
     handle_enter_call(context, std::move(nested_context));
@@ -1288,6 +1290,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::RETURN:
         call_with_operands(&Execution::ret, context, resolved_operands);
+        break;
+    case ExecutionOpCode::REVERT:
+        call_with_operands(&Execution::revert, context, resolved_operands);
         break;
     case ExecutionOpCode::JUMP:
         call_with_operands(&Execution::jump, context, resolved_operands);

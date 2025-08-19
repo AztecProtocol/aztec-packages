@@ -4,6 +4,7 @@
 pragma solidity >=0.8.27;
 
 import {Rollup, GenesisState, RollupConfigInput} from "@aztec/core/Rollup.sol";
+import {RollupWithPreheating} from "../RollupWithPreheating.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
@@ -40,7 +41,7 @@ struct Config {
   TestERC20 testERC20;
   Registry registry;
   Governance governance;
-  Rollup rollup;
+  RollupWithPreheating rollup;
   GSE gse;
   RewardDistributor rewardDistributor;
   GenesisState genesisState;
@@ -264,7 +265,7 @@ contract RollupBuilder is Test {
 
     config.rollupConfigInput.rewardConfig.rewardDistributor = config.rewardDistributor;
 
-    config.rollup = new Rollup(
+    config.rollup = new RollupWithPreheating(
       config.testERC20,
       config.testERC20,
       config.gse,
@@ -273,8 +274,6 @@ contract RollupBuilder is Test {
       config.genesisState,
       config.rollupConfigInput
     );
-
-    config.rollup.preheatHeaders();
 
     if (config.flags.makeCanonical) {
       address feeAssetPortal = address(config.rollup.getFeeAssetPortal());
