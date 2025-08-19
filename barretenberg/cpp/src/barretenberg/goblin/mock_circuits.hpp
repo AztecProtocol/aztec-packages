@@ -28,7 +28,7 @@ template <typename Builder> void generate_sha256_test_circuit(Builder& builder, 
 {
     std::string in;
     in.resize(32);
-    stdlib::packed_byte_array<Builder> input(&builder, in);
+    stdlib::byte_array<Builder> input(&builder, in);
     for (size_t i = 0; i < num_iterations; i++) {
         input = stdlib::SHA256<Builder>::hash(input);
     }
