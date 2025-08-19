@@ -52,7 +52,10 @@ template <typename Builder> struct HonkRecursionConstraintsOutput {
     std::vector<stdlib::Proof<Builder>> nested_ipa_proofs;
     bool is_root_rollup = false;
 
-    void update(HonkRecursionConstraintOutput<Builder>& other, bool has_ipa_data)
+    template <class T>
+    void update(T& other, bool update_ipa_data)
+        requires(std::is_same_v<T, HonkRecursionConstraintOutput<Builder>> ||
+                 std::is_same_v<T, HonkRecursionConstraintsOutput<Builder>>)
     {
         // Update points accumulator
         if (this->points_accumulator.has_data) {
@@ -61,27 +64,19 @@ template <typename Builder> struct HonkRecursionConstraintsOutput {
             this->points_accumulator = other.points_accumulator;
         }
 
-        if (has_ipa_data) {
-            // Update ipa proofs and claims
-            this->nested_ipa_proofs.push_back(other.ipa_proof);
-            this->nested_ipa_claims.push_back(other.ipa_claim);
+        if (update_ipa_data) {
+            if constexpr (std::is_same_v<T, HonkRecursionConstraintOutput<Builder>>) {
+                // Update ipa proofs and claims
+                this->nested_ipa_proofs.push_back(other.ipa_proof);
+                this->nested_ipa_claims.push_back(other.ipa_claim);
+            } else {
+                // Update ipa proofs and claims (if other has no proofs/claims, we are not appending anything)
+                this->nested_ipa_proofs.insert(
+                    this->nested_ipa_proofs.end(), other.nested_ipa_proofs.begin(), other.nested_ipa_proofs.end());
+                this->nested_ipa_claims.insert(
+                    this->nested_ipa_claims.end(), other.nested_ipa_claims.begin(), other.nested_ipa_claims.end());
+            }
         }
-    }
-
-    void update(HonkRecursionConstraintsOutput<Builder>& other)
-    {
-        // Update points accumulator
-        if (this->points_accumulator.has_data) {
-            this->points_accumulator.aggregate(other.points_accumulator);
-        } else {
-            this->points_accumulator = other.points_accumulator;
-        }
-
-        // Update ipa proofs and claims (if other has no proofs/laims, we are not appending anything)
-        this->nested_ipa_proofs.insert(
-            this->nested_ipa_proofs.end(), other.nested_ipa_proofs.begin(), other.nested_ipa_proofs.end());
-        this->nested_ipa_claims.insert(
-            this->nested_ipa_claims.end(), other.nested_ipa_claims.begin(), other.nested_ipa_claims.end());
     }
 };
 
@@ -350,7 +345,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
             // Update honk_output: append (potentially 0) ipa claims and proofs.
             // If honk output has points accumulator, aggregate it with the one coming from the avm. Otherwise, override
             // it with the avm's one.
-            honk_output.update(avm_output);
+            honk_output.update(avm_output, /*update_ipa_data=*/!avm_output.nested_ipa_claims.empty());
         }
 #endif
 
@@ -523,7 +518,7 @@ process_honk_recursion_constraints(Builder& builder,
 
         // Update output
         output.update(honk_recursion_constraint,
-                      /*has_ipa_data=*/constraint.proof_type == ROLLUP_HONK ||
+                      /*update_ipa_data=*/constraint.proof_type == ROLLUP_HONK ||
                           constraint.proof_type == ROOT_ROLLUP_HONK);
         output.is_root_rollup = constraint.proof_type == ROOT_ROLLUP_HONK;
 
@@ -620,7 +615,7 @@ process_avm_recursion_constraints(Builder& builder,
             create_avm2_recursion_constraints_goblin(builder, constraint, has_valid_witness_assignments);
 
         // Update the output
-        output.update(avm2_recursion_output, /*has_ipa_data=*/true);
+        output.update(avm2_recursion_output, /*update_ipa_data=*/true);
 
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.avm_recursion_constraints.at(idx++));
