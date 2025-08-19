@@ -67,6 +67,7 @@ export class LocalSigner implements EthSigner {
   }
 
   signTransaction(transaction: TransactionSerializable): Promise<Signature> {
+    // Taken from viem's `signTransaction` implementation
     const tx: TransactionSerializable =
       transaction.type === 'eip4844'
         ? {

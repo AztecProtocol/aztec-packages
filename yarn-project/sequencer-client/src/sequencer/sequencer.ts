@@ -343,6 +343,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       });
       // If the pending chain is invalid, we may need to invalidate the block if no one else is doing it.
       if (!syncedTo.pendingChainValidationStatus.valid) {
+        // We pass i undefined here to get any available publisher.
         const { publisher } = await this.publisherFactory.create(undefined);
         await this.considerInvalidatingBlock(syncedTo, slot, validatorAddresses, publisher);
       }
@@ -366,14 +367,12 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     this.metrics.setCoinbase(coinbase);
 
     // Prepare invalidation request if the pending chain is invalid (returns undefined if no need)
-    this.log.info(`Checking if we need to invalidate block ${newBlockNumber}...`);
     const invalidateBlock = await publisher.simulateInvalidateBlock(syncedTo.pendingChainValidationStatus);
     const canProposeCheck = await publisher.canProposeAtNextEthBlock(
       chainTipArchive,
       proposerAddressInNextSlot,
       invalidateBlock,
     );
-    this.log.info(`Checked if we can propose block ${newBlockNumber} at slot ${slot}...`);
 
     if (canProposeCheck === undefined) {
       this.log.warn(

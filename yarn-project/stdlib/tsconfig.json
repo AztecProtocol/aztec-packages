@@ -22,5 +22,5 @@
       "path": "../l1-artifacts"
     }
   ],
-  "include": ["src", "../ethereum/src/eth-signer"]
+  "include": ["src"]
 }

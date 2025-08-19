@@ -210,7 +210,7 @@ export class SequencerPublisher {
       return undefined;
     }
     const currentL2Slot = this.getCurrentL2Slot();
-    this.log.info(`Sending requests on L2 slot ${currentL2Slot}`);
+    this.log.debug(`Sending requests on L2 slot ${currentL2Slot}`);
     const validRequests = requestsToProcess.filter(request => request.lastValidL2Slot >= currentL2Slot);
     const validActions = validRequests.map(x => x.action);
     const expiredActions = requestsToProcess
@@ -259,7 +259,7 @@ export class SequencerPublisher {
     validRequests.sort((a, b) => compareActions(a.action, b.action));
 
     try {
-      this.log.info('Forwarding transactions', { validRequests: validRequests.map(request => request.action) });
+      this.log.debug('Forwarding transactions', { validRequests: validRequests.map(request => request.action) });
       const result = await Multicall3.forward(
         validRequests.map(request => request.request),
         this.l1TxUtils,
