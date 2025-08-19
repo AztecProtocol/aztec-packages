@@ -27,11 +27,13 @@ import {
   type Hex,
   MethodNotFoundRpcError,
   MethodNotSupportedRpcError,
+  type NonceManager,
   type PrepareTransactionRequestRequest,
   type StateOverride,
   type TransactionReceipt,
   type TransactionSerializable,
   type WalletClient,
+  createNonceManager,
   decodeErrorResult,
   formatGwei,
   getContractError,
@@ -39,6 +41,7 @@ import {
   parseTransaction,
   serializeTransaction,
 } from 'viem';
+import { jsonRpc } from 'viem/nonce';
 
 import type { ExtendedViemWalletClient, ViemClient } from './types.js';
 import { formatViemError } from './utils.js';
@@ -561,6 +564,7 @@ export type Signer = (
 export class L1TxUtils extends ReadOnlyL1TxUtils {
   private txUtilsState: TxUtilsState = TxUtilsState.IDLE;
   private lastMinedBlockNumber: bigint | undefined = undefined;
+  private nonceManager: NonceManager;
 
   constructor(
     public override client: ViemClient,
@@ -572,6 +576,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     debugMaxGasLimit: boolean = false,
   ) {
     super(client, logger, dateProvider, config, debugMaxGasLimit);
+    this.nonceManager = createNonceManager({ source: jsonRpc() });
   }
 
   public get state() {
@@ -645,8 +650,10 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
         throw new Error('Transaction timed out before sending');
       }
 
-      const currentNonce = await this.client.getTransactionCount({
+      const nonce = await this.nonceManager.consume({
+        client: this.client,
         address: account,
+        chainId: this.client.chain.id,
       });
 
       let txHash: Hex;
@@ -658,7 +665,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
           maxFeePerGas: gasPrice.maxFeePerGas,
           maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
           maxFeePerBlobGas: gasPrice.maxFeePerBlobGas!,
-          nonce: currentNonce,
+          nonce,
         };
 
         const signedRequest = await this.prepareSignedTransaction(txData);
@@ -669,7 +676,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
           gas: gasLimit,
           maxFeePerGas: gasPrice.maxFeePerGas,
           maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
-          nonce: currentNonce,
+          nonce,
         };
         const signedRequest = await this.prepareSignedTransaction(txData);
         txHash = await this.client.sendRawTransaction({ serializedTransaction: signedRequest });
