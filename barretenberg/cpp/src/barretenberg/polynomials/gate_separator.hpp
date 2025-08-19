@@ -69,6 +69,19 @@ template <typename FF> struct GateSeparatorPolynomial {
     {}
 
     /**
+     * @brief Constructs a virtual GateSeparator used by the prover in rounds k > d - 1, and computes its partial
+     * evaluation at (u_0, ..., u_{d-1}).
+     *
+     */
+    GateSeparatorPolynomial(const std::vector<FF>& betas, const std::vector<FF>& challenge)
+        : betas(betas)
+    {
+        for (const auto& u_k : challenge) {
+            partially_evaluate(u_k);
+        }
+    }
+
+    /**
      * @brief Retruns the element in #beta_products at place #idx.
      *
      * @param idx

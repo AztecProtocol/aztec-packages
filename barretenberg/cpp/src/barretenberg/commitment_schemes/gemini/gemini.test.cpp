@@ -10,10 +10,14 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
     using GeminiVerifier = GeminiVerifier_<Curve>;
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
+    using ClaimBatcher = ClaimBatcher_<Curve>;
+    using ClaimBatch = ClaimBatcher::Batch;
 
   public:
     static constexpr size_t log_n = 4;
     static constexpr size_t n = 1UL << log_n;
+
+    static constexpr size_t virtual_log_n = 6;
 
     using CK = CommitmentKey<Curve>;
     using VK = VerifierCommitmentKey<Curve>;
@@ -82,7 +86,80 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
             ASSERT_EQ(prover_claim.opening_pair, verifier_claim.opening_pair);
         }
     }
-};
+
+    void open_extension_by_zero()
+    {
+        auto prover_transcript = NativeTranscript::prover_init_empty();
+
+        auto u = this->random_evaluation_point(virtual_log_n);
+
+        Polynomial<Fr> poly((1UL << log_n));
+
+        poly.at(0) = 1;
+        poly.at(1) = 2;
+        poly.at(2) = 3;
+
+        typename GeminiProver::PolynomialBatcher poly_batcher(1UL << log_n);
+        poly_batcher.set_unshifted(RefVector(poly));
+
+        // As we are opening `poly` extended by zero from `log_n` dimensions to `virtual_log_n` dimensions, it needs to
+        // be multiplied by appropriate scalars.
+        Fr eval = poly.evaluate_mle(std::span(u).subspan(0, log_n)) * (Fr(1) - u[virtual_log_n - 1]) *
+                  (Fr(1) - u[virtual_log_n - 2]);
+        auto comm = ck.commit(poly);
+        auto claim_batcher = ClaimBatcher{ .unshifted = ClaimBatch{ RefVector(comm), RefVector(eval) } };
+
+        // Compute:
+        // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
+        // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
+        auto prover_output = GeminiProver::prove(1UL << log_n, poly_batcher, u, ck, prover_transcript);
+
+        // The prover output needs to be completed by adding the "positive" Fold claims, i.e. evaluations of
+        // Fold^(i) at r^{2^i} for i=1, ..., d-1. Although here we are copying polynomials, it is not the case when
+        // GeminiProver is combined with ShplonkProver.
+        std::vector<ProverOpeningClaim<Curve>> prover_claims_with_pos_evals;
+        // `prover_output` consists of d+1 opening claims, we add another d-1 claims for each positive evaluation
+        // Fold^i(r^{2^i}) for i = 1, ..., d-1
+        const size_t total_num_claims = 2 * virtual_log_n;
+        prover_claims_with_pos_evals.reserve(total_num_claims);
+
+        for (auto& claim : prover_output) {
+            if (claim.gemini_fold) {
+                if (claim.gemini_fold) {
+                    // "positive" evaluation challenge r^{2^i} for i = 1, ..., d-1
+                    const Fr evaluation_challenge = -claim.opening_pair.challenge;
+                    // Fold^(i) at r^{2^i} for i=1, ..., d-1
+                    const Fr pos_evaluation = claim.polynomial.evaluate(evaluation_challenge);
+
+                    // Add the positive Fold claims to the vector of claims
+                    ProverOpeningClaim<Curve> pos_fold_claim = { .polynomial = claim.polynomial,
+                                                                 .opening_pair = { .challenge = evaluation_challenge,
+                                                                                   .evaluation = pos_evaluation } };
+                    prover_claims_with_pos_evals.emplace_back(pos_fold_claim);
+                }
+            }
+            prover_claims_with_pos_evals.emplace_back(claim);
+        }
+
+        // Check that the Fold polynomials have been evaluated correctly in the prover
+        this->verify_batch_opening_pair(prover_claims_with_pos_evals);
+
+        auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
+
+        // Compute:
+        // - d opening pairs: {r^{2^i}, \hat{a}_i} for i = 0, ..., d-1
+        // - 2 partially evaluated Fold polynomial commitments [Fold_{r}^(0)] and [Fold_{-r}^(0)]
+        // Aggregate: 2d opening pairs and 2d Fold poly commitments into verifier claim
+        auto verifier_claims = GeminiVerifier::reduce_verification(u, claim_batcher, verifier_transcript);
+        // Check equality of the opening pairs computed by prover and verifier
+        for (auto [prover_claim, verifier_claim] : zip_view(prover_claims_with_pos_evals, verifier_claims)) {
+            this->verify_opening_claim(verifier_claim, prover_claim.polynomial, ck);
+            ASSERT_EQ(prover_claim.opening_pair, verifier_claim.opening_pair);
+        }
+    }
+}
+
+;
 
 using ParamsTypes = ::testing::Types<curve::BN254, curve::Grumpkin>;
 TYPED_TEST_SUITE(GeminiTest, ParamsTypes);
@@ -144,6 +221,10 @@ TYPED_TEST(GeminiTest, DoubleWithShiftAndInterleaving)
     this->execute_gemini_and_verify_claims(u, mock_claims);
 }
 
+TYPED_TEST(GeminiTest, OpenExtensionByZero)
+{
+    TestFixture::open_extension_by_zero();
+}
 /**
  * @brief Implementation of the [attack described by Ariel](https://hackmd.io/zm5SDfBqTKKXGpI-zQHtpA?view).
  *
@@ -247,8 +328,8 @@ TYPED_TEST(GeminiTest, SoundnessRegression)
         EXPECT_TRUE(prover_opening_claims[idx].opening_pair == verifier_claims[idx].opening_pair);
     }
 
-    // The mismatch in claims below leads to Gemini and Shplemini Verifier rejecting the tampered proof and confirms the
-    // necessity of opening `fold_i` at r^{2^i} for i = 1, ..., log_n - 1.
+    // The mismatch in claims below leads to Gemini and Shplemini Verifier rejecting the tampered proof and confirms
+    // the necessity of opening `fold_i` at r^{2^i} for i = 1, ..., log_n - 1.
     for (auto idx : mismatching_claim_indices) {
         EXPECT_FALSE(prover_opening_claims[idx].opening_pair == verifier_claims[idx].opening_pair);
     }

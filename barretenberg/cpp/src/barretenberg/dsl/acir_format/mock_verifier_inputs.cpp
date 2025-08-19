@@ -90,11 +90,13 @@ template <typename Flavor, class PublicInputs> HonkProof create_mock_oink_proof(
  * @brief Create a mock decider proof that has the correct structure but is not in general valid
  *
  */
-template <typename Flavor> HonkProof create_mock_decider_proof(const size_t const_proof_log_n)
+template <typename Flavor> HonkProof create_mock_decider_proof()
 {
     using FF = Flavor::FF;
     using Curve = Flavor::Curve;
     HonkProof proof;
+
+    constexpr size_t const_proof_log_n = Flavor::VIRTUAL_LOG_N;
 
     if constexpr (Flavor::HasZK) {
         // Libra concatenation commitment
@@ -378,7 +380,7 @@ HonkProof create_mock_translator_proof()
     using Curve = TranslatorFlavor::Curve;
 
     HonkProof proof;
-    HonkProof decider_proof = create_mock_decider_proof<TranslatorFlavor>(TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
+    HonkProof decider_proof = create_mock_decider_proof<TranslatorFlavor>();
 
     // 1. Accumulated result
     populate_field_elements<BF>(proof, 1);
@@ -460,11 +462,11 @@ template HonkProof create_mock_oink_proof<UltraZKFlavor, stdlib::recursion::honk
     const size_t);
 template HonkProof create_mock_oink_proof<UltraRollupFlavor, stdlib::recursion::honk::RollupIO>(const size_t);
 
-template HonkProof create_mock_decider_proof<MegaFlavor>(const size_t);
-template HonkProof create_mock_decider_proof<UltraFlavor>(const size_t);
-template HonkProof create_mock_decider_proof<UltraZKFlavor>(const size_t);
-template HonkProof create_mock_decider_proof<UltraRollupFlavor>(const size_t);
-template HonkProof create_mock_decider_proof<TranslatorFlavor>(const size_t);
+template HonkProof create_mock_decider_proof<MegaFlavor>();
+template HonkProof create_mock_decider_proof<UltraFlavor>();
+template HonkProof create_mock_decider_proof<UltraZKFlavor>();
+template HonkProof create_mock_decider_proof<UltraRollupFlavor>();
+template HonkProof create_mock_decider_proof<TranslatorFlavor>();
 
 template HonkProof create_mock_honk_proof<MegaFlavor, stdlib::recursion::honk::AppIO>(const size_t);
 template HonkProof create_mock_honk_proof<MegaFlavor, stdlib::recursion::honk::KernelIO>(const size_t);

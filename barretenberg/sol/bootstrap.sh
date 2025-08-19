@@ -70,7 +70,8 @@ function bench {
 
   # Run forge test with gas report using JSON flag
   echo "Running gas report for verifier contracts..."
-  FORGE_GAS_REPORT=true forge test --no-match-contract Base --json > gas_report.json 2>&1
+  # Do not include foundry std err messages in the output
+  FORGE_GAS_REPORT=true forge test --no-match-contract Base --json 2>&1 | grep -v "non-empty stderr" > gas_report.json
 
   # Check if we got any output
   if [ ! -s gas_report.json ]; then
