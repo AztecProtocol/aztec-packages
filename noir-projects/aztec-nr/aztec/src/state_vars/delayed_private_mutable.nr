@@ -22,7 +22,7 @@ use crate::{
     state_vars::storage::HasStorageSlot,
 };
 
-mod delayed_private_mutable_note;
+pub(crate) mod delayed_private_mutable_note;
 mod test;
 
 use delayed_private_mutable_note::DelayedPrivateMutableNote;
@@ -314,7 +314,7 @@ impl<Note, let INITIAL_DELAY: u64> DelayedPrivateMutable<Note, INITIAL_DELAY, Ut
 where
     Note: NoteType,
 {
-    pub unconstrained fn view_current_note<let N: u32>(self) -> Note
+    pub unconstrained fn view_current_note(self) -> Note
     where
         Note: Eq + Packable,
     {

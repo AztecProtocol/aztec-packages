@@ -124,6 +124,13 @@ impl<let INITIAL_DELAY: u64> ScheduledDelayChange<INITIAL_DELAY> {
 
         self.pre = Option::some(self.get_current_at(historical_timestamp));
         self.post = Option::some(new_delay);
+
+        // We don't know exactly when this tx will be included.
+        // If it were to be included instantaneously, we need to give everyone
+        // `time_until_change` amount of time to react.
+        // But this tx might not be included until the `include_by_timestamp`,
+        // and in that case we _still_ need to give everyone `time_until_change`
+        // amount of time to react _from that time_.
         self.timestamp_of_change = include_by_timestamp + time_until_change;
     }
 
@@ -141,7 +148,7 @@ impl<let INITIAL_DELAY: u64> ScheduledDelayChange<INITIAL_DELAY> {
         if self.timestamp_of_change <= historical_timestamp {
             // If no delay changes were scheduled, then the delay value at the historical timestamp (post) is guaranteed to
             // hold due to how further delay changes would be scheduled by `schedule_change`.
-            self.post.unwrap_or(INITIAL_DELAY)
+            self.post.unwrap_or(INITIAL_DELAY) // This delay could technically be longer (by 1 second less than a block time)
         } else {
             // If a change is scheduled, then the effective delay might be lower than the current one (pre). At the
             // timestamp of change the current delay will be the scheduled one[confused: "current" has no meaning in private. You mean if reading at the timestamp of change?], with an overall delay from the historical
@@ -171,10 +178,25 @@ impl<let INITIAL_DELAY: u64> ScheduledDelayChange<INITIAL_DELAY> {
             let time_until_change = self.timestamp_of_change - (historical_timestamp + 1);
 
             min(
-                self.pre.unwrap_or(INITIAL_DELAY),
+                self.pre.unwrap_or(INITIAL_DELAY), // This delay could technically be longer (by 1 second less than a block time)
                 time_until_change + self.post.unwrap_or(INITIAL_DELAY),
             )
         }
+    }
+
+    /// Advanced. Only access if you know what you're doing.
+    pub fn get_timestamp_of_change(self) -> u64 {
+        self.timestamp_of_change
+    }
+
+    /// Advanced. Only access if you know what you're doing.
+    pub fn get_pre(self) -> Option<u64> {
+        self.pre
+    }
+
+    /// Advanced. Only access if you know what you're doing.
+    pub fn get_post(self) -> Option<u64> {
+        self.post
     }
 }
 

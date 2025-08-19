@@ -42,6 +42,7 @@ unconstrained fn in_utility(
  * A scheduled delay change (increase, deferred), but then a value change gets scheduled to take effect _before_ the delay change takes effect.
  * A scheduled delay change (decrease, deferred), but then a value change gets scheduled to take effect _before_ the delay change takes effect.
  * A scheduled VALUE change (increase, deferred), but then a value change gets scheduled to take effect _before_ the first value change takes effect.
+ * Schedule two value changes of the same state var, in the same public function. Show that only the latter can be read later.
  * See: https://miro.com/app/board/uXjVJe05l5o=/
  */
 
@@ -317,7 +318,7 @@ unconstrained fn get_current_value_in_private_at_change() {
         assert_eq(state_var.get_current_value(), new_value);
         assert_eq(
             context.include_by_timestamp,
-            context.get_block_header().global_variables.timestamp + TEST_INITIAL_DELAY,
+            context.get_anchor_timestamp() + TEST_INITIAL_DELAY,
         );
     });
 }
