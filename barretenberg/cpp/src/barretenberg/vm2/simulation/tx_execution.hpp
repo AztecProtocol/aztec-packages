@@ -30,7 +30,7 @@ class TxExecution final {
         , field_gt(field_gt)
         , poseidon2(poseidon2)
         , events(event_emitter)
-        , tx_context(merkle_db, written_public_data_slots_tree)
+        , tx_context(merkle_db, written_public_data_slots_tree, context_provider)
     {}
 
     void simulate(const Tx& tx);

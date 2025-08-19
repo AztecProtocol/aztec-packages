@@ -14,9 +14,9 @@ template <typename FF_> class tx_contextImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 72> SUBRELATION_PARTIAL_LENGTHS = {
-        3, 3, 2, 3, 3, 3, 2, 3, 3, 3, 2, 3, 3, 3, 3, 2, 3, 3, 2, 3, 3, 2, 3, 3, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 4, 5,
-        5, 3, 4, 4, 5, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 3, 3, 3
+    static constexpr std::array<size_t, 74> SUBRELATION_PARTIAL_LENGTHS = {
+        3, 3, 2, 3, 3, 3, 2, 3, 3, 3, 2, 3, 3, 3, 3, 2, 3, 3, 2, 3, 3, 2, 3, 3, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 4, 5, 5,
+        3, 4, 4, 5, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 3, 3, 3, 3, 5
     };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -56,6 +56,7 @@ template <typename FF_> class tx_contextImpl {
             uint256_t{ 18071747219918308973UL, 16614632998898105071UL, 15723772623334795496UL, 2914032580688149866UL });
         const auto constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE = FF(1);
         const auto tx_NOT_LAST_ROW = in.get(C::tx_sel) * in.get(C::tx_sel_shift);
+        const auto tx_NOT_LAST = in.get(C::tx_sel_shift) * in.get(C::tx_sel);
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -568,6 +569,19 @@ template <typename FF_> class tx_contextImpl {
             tmp *= scaling_factor;
             std::get<71>(evals) += typename Accumulator::View(tmp);
         }
+        { // NEXT_CONTEXT_ID_INITIAL_VALUE
+            using Accumulator = typename std::tuple_element_t<72, ContainerOverSubrelations>;
+            auto tmp = in.get(C::tx_start_tx) * (FF(1) - in.get(C::tx_next_context_id));
+            tmp *= scaling_factor;
+            std::get<72>(evals) += typename Accumulator::View(tmp);
+        }
+        { // NEXT_CONTEXT_ID_CONTINUITY
+            using Accumulator = typename std::tuple_element_t<73, ContainerOverSubrelations>;
+            auto tmp = tx_NOT_LAST * (FF(1) - in.get(C::tx_should_process_call_request)) *
+                       (in.get(C::tx_next_context_id_shift) - in.get(C::tx_next_context_id));
+            tmp *= scaling_factor;
+            std::get<73>(evals) += typename Accumulator::View(tmp);
+        }
     }
 };
 
@@ -664,6 +678,10 @@ template <typename FF> class tx_context : public Relation<tx_contextImpl<FF>> {
             return "L2_GAS_USED_IMMUTABILITY";
         case 67:
             return "DA_GAS_USED_IMMUTABILITY";
+        case 72:
+            return "NEXT_CONTEXT_ID_INITIAL_VALUE";
+        case 73:
+            return "NEXT_CONTEXT_ID_CONTINUITY";
         }
         return std::to_string(index);
     }
@@ -712,6 +730,8 @@ template <typename FF> class tx_context : public Relation<tx_contextImpl<FF>> {
     static constexpr size_t SR_L2_TO_L1_MESSAGE_COUNT_PADDED_IMMUTABILITY = 65;
     static constexpr size_t SR_L2_GAS_USED_IMMUTABILITY = 66;
     static constexpr size_t SR_DA_GAS_USED_IMMUTABILITY = 67;
+    static constexpr size_t SR_NEXT_CONTEXT_ID_INITIAL_VALUE = 72;
+    static constexpr size_t SR_NEXT_CONTEXT_ID_CONTINUITY = 73;
 };
 
 } // namespace bb::avm2
