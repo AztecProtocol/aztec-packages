@@ -237,11 +237,52 @@ contract RollupTest is RollupBase {
       header: data.header,
       stateReference: EMPTY_STATE_REFERENCE,
       oracleInput: OracleInput(0),
-      parentHeaderHash: bytes32(0)
+      parentHeaderHash: rollup.getBlock(rollup.getPendingBlockNumber()).headerHash
     });
     bytes32 realBlobHash = this.getBlobHashes(data.blobCommitments)[0];
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlobHash.selector, blobHashes[0], realBlobHash));
     rollup.propose(args, AttestationLib.packAttestations(attestations), signers, data.blobCommitments);
+  }
+
+  function testProposeInvalidParentHeaderHash() public setUpFor("mixed_block_1") {
+    // Propose a valid first block to set the chain tip
+    _proposeBlock("mixed_block_1", 1);
+
+    // Prepare the next block but use an incorrect parentHeaderHash
+    DecoderBase.Data memory data = load("mixed_block_2").block;
+    ProposedHeader memory header = data.header;
+
+    // Move to next slot relative to the first proposal to avoid prune and ensure sequential blockNumber=2
+    header.slotNumber = Slot.wrap(2);
+    header.timestamp = rollup.getTimestampForSlot(Slot.wrap(2));
+    vm.warp(Timestamp.unwrap(header.timestamp));
+
+    // Ensure fee matches expected base fee at current time
+    uint256 expectedFee = rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true);
+    header.gasFees.feePerL2Gas = uint128(expectedFee);
+    // Align inbox hash with what the contract will consume for block 2
+    header.contentCommitment.inHash = rollup.getInbox().getRoot(2);
+
+    // Use correct blob commitments and set the corresponding blob hashes so DA checks pass
+    bytes memory blobCommitments = data.blobCommitments;
+    bytes32[] memory blobHashes = this.getBlobHashes(blobCommitments);
+    vm.blobhashes(blobHashes);
+
+    bytes32 expectedParent = rollup.getBlock(rollup.getPendingBlockNumber()).headerHash;
+    bytes32 wrongParent = bytes32(uint256(0xdeadcafe));
+
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.Rollup__InvalidParentHeaderHash.selector, expectedParent, wrongParent)
+    );
+
+    ProposeArgs memory args = ProposeArgs({
+      header: header,
+      stateReference: EMPTY_STATE_REFERENCE,
+      oracleInput: OracleInput(0),
+      parentHeaderHash: wrongParent
+    });
+
+    rollup.propose(args, AttestationLib.packAttestations(attestations), signers, blobCommitments);
   }
 
   function testExtraBlobs() public setUpFor("mixed_block_1") {
@@ -453,7 +494,7 @@ contract RollupTest is RollupBase {
         header: header,
         stateReference: EMPTY_STATE_REFERENCE,
         oracleInput: OracleInput(0),
-        parentHeaderHash: bytes32(0)
+        parentHeaderHash: rollup.getBlock(rollup.getPendingBlockNumber()).headerHash
       });
       rollup.propose(args, AttestationLib.packAttestations(attestations), signers, data.blobCommitments);
       assertEq(testERC20.balanceOf(header.coinbase), 0, "invalid coinbase balance");
@@ -706,17 +747,6 @@ contract RollupTest is RollupBase {
     bytes32 wrong = bytes32(uint256(0xdeadbeef));
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidPreviousArchive.selector, blockLog.archive, wrong));
     _submitEpochProof(1, 1, wrong, data.archive, data.batchedBlobInputs, address(0));
-  }
-
-  function testSubmitProofInvalidArchive() public setUpFor("empty_block_1") {
-    _proposeBlock("empty_block_1", 1);
-
-    DecoderBase.Data memory data = load("empty_block_1").block;
-    bytes32 wrongArchive = bytes32(uint256(0xdeadbeef));
-
-    BlockLog memory blockLog = rollup.getBlock(0);
-    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidArchive.selector, data.archive, 0xdeadbeef));
-    _submitEpochProof(1, 1, blockLog.archive, wrongArchive, data.batchedBlobInputs, address(0));
   }
 
   function testInvalidBlobProof() public setUpFor("mixed_block_1") {

@@ -334,7 +334,11 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
       header: header,
       stateReference: EMPTY_STATE_REFERENCE,
       oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier}),
-      parentHeaderHash: bytes32(0)
+      parentHeaderHash: (
+        rollup.canPruneAtTime(Timestamp.wrap(block.timestamp))
+          ? rollup.getBlock(rollup.getProvenBlockNumber()).headerHash
+          : rollup.getBlock(rollup.getPendingBlockNumber()).headerHash
+      )
     });
 
     CommitteeAttestation[] memory attestations;

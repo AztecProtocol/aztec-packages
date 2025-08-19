@@ -489,7 +489,7 @@ library ValidatorSelectionLib {
    * @return slot The slot number derived from the timestamp
    * @return blockNumber The next block number that will be assigned
    * @custom:reverts Errors.Rollup__SlotAlreadyInChain if trying to propose for a past slot
-   * @custom:reverts Errors.Rollup__InvalidArchive if archive doesn't match current chain tip
+   * @custom:reverts Errors.Rollup__InvalidHeaderHash if header hash doesn't match current chain tip
    * @custom:reverts Errors.ValidatorSelection__InvalidProposer if _who is not the designated proposer
    */
   function canProposeAtTime(Timestamp _ts, bytes32 _headerHash, address _who) internal returns (Slot, uint256) {

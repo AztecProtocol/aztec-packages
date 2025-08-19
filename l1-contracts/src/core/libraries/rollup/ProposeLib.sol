@@ -2,6 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {console2} from "forge-std/console2.sol";
 import {RollupStore, IRollupCore, BlockHeaderValidationFlags} from "@aztec/core/interfaces/IRollup.sol";
 import {TempBlockLog} from "@aztec/core/libraries/compressed-data/BlockLog.sol";
 import {FeeHeader} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
@@ -228,9 +229,10 @@ library ProposeLib {
     uint256 blockNumber = tips.getPendingBlockNumber() + 1;
 
     // Parent is the current tip's header hash (we're proposing blockNumber = tip+1)
+    bytes32 expectedParent = STFLib.getHeaderHash(blockNumber - 1);
     require(
-      _args.parentHeaderHash == STFLib.getHeaderHash(blockNumber - 1),
-      Errors.Rollup__InvalidParentHeaderHash(STFLib.getHeaderHash(blockNumber - 1), _args.parentHeaderHash)
+      _args.parentHeaderHash == expectedParent,
+      Errors.Rollup__InvalidParentHeaderHash(expectedParent, _args.parentHeaderHash)
     );
 
     tips = tips.updatePendingBlockNumber(blockNumber);

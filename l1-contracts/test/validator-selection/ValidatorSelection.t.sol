@@ -515,7 +515,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       header: header,
       stateReference: EMPTY_STATE_REFERENCE,
       oracleInput: OracleInput(0),
-      parentHeaderHash: bytes32(0)
+      parentHeaderHash: rollup.getBlock(rollup.getPendingBlockNumber()).headerHash
     });
 
     skipBlobCheck(address(rollup));

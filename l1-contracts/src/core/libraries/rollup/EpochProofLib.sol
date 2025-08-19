@@ -82,7 +82,6 @@ library EpochProofLib {
    * @dev Errors Thrown:
    *      - Rollup__InvalidProof: validity proof verification failed
    *      - Rollup__InvalidPreviousArchive: Previous archive root mismatch
-   *      - Rollup__InvalidArchive: End archive root mismatch
    *      - Rollup__InvalidAttestations: Attestation verification failed for last block
    *      - Rollup__StartAndEndNotSameEpoch: Proof spans multiple epochs
    *      - Rollup__PastDeadline: Proof submitted after deadline
@@ -351,7 +350,6 @@ library EpochProofLib {
    *      - Rollup__InvalidBlobProof: Batched blob proof verification failed
    *      - Rollup__InvalidProof: validity proof verification failed
    *      - Rollup__InvalidPreviousArchive: Previous archive root mismatch in public inputs
-   *      - Rollup__InvalidArchive: End archive root mismatch in public inputs
    *
    * @param _args The epoch proof submission arguments containing proof data and public inputs
    * @return True if both blob proof and validity proof verification succeed
