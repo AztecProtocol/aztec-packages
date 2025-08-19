@@ -110,75 +110,40 @@ unconstrained fn check_public_balance(
 }
 
 // Happy path tests
+// Note: All these tests are quite long-running so I decided to create larger tests (e.g. testing add and remove
+// liquidity happy path just in 1 test case)
 
+// Tests the happy path for adding and removing liquidity from the AMM pool
+//
+// Test flow:
+// 1. Owner adds initial liquidity (1000 token0, 2000 token1)
+//    - Mints tokens to owner's private balance
+//    - Transfers tokens to AMM's public balance
+//    - Calls add_liquidity() which mints liquidity tokens to owner
+//
+// 2. User2 adds liquidity maintaining the same ratio (500 token0, 1000 token1)
+//    - Mints tokens to user2's private balance
+//    - Transfers tokens to AMM's public balance
+//    - Calls add_liquidity() which mints liquidity tokens to user2
+//    - Verifies:
+//      * AMM's public token balances increased correctly
+//      * User2's private token balances are 0 (all transferred)
+//      * User2 received correct amount of liquidity tokens (50000)
+//
+// 3. Owner removes half their liquidity position
+//    - Transfers liquidity tokens to AMM
+//    - Calls remove_liquidity() to burn tokens and receive underlying assets
+//    - Verifies:
+//      * Owner received correct proportion of tokens back (495 token0, 990 token1)
+//      * Owner's remaining liquidity token balance is correct (49500)
 #[test]
-unconstrained fn add_initial_liquidity_happy_path() {
-    let (mut env, amm_address, token0_address, token1_address, liquidity_token_address, owner, _) =
-        setup_amm_with_tokens(true);
-
-    let amount0_max = 1000 as u128;
-    let amount1_max = 2000 as u128;
-    let amount0_min = 500 as u128;
-    let amount1_min = 1000 as u128;
-    let authwit_nonce = 1;
-
-    // Mint tokens to owner
-    mint_to_private(env, token0_address, owner, owner, amount0_max);
-    mint_to_private(env, token1_address, owner, owner, amount1_max);
-
-    // Create authwits for transferring tokens to AMM
-    let transfer0_call_interface = Token::at(token0_address)
-        .transfer_to_public_and_prepare_private_balance_increase(
-            owner,
-            amm_address,
-            amount0_max,
-            authwit_nonce,
-        );
-    add_private_authwit_from_call_interface(owner, amm_address, transfer0_call_interface);
-
-    let transfer1_call_interface = Token::at(token1_address)
-        .transfer_to_public_and_prepare_private_balance_increase(
-            owner,
-            amm_address,
-            amount1_max,
-            authwit_nonce,
-        );
-    add_private_authwit_from_call_interface(owner, amm_address, transfer1_call_interface);
-
-    // Add liquidity
-    env.call_private(
-        owner,
-        AMM::at(amm_address).add_liquidity(
-            amount0_max,
-            amount1_max,
-            amount0_min,
-            amount1_min,
-            authwit_nonce,
-        ),
-    );
-
-    // Verify tokens were transferred to AMM's public balance
-    check_public_balance(env, token0_address, amm_address, amount0_max);
-    check_public_balance(env, token1_address, amm_address, amount1_max);
-    check_private_balance(env, token0_address, owner, 0);
-    check_private_balance(env, token1_address, owner, 0);
-
-    // Check liquidity tokens were minted (initial liquidity = 99000)
-    check_private_balance(env, liquidity_token_address, owner, 99000);
-
-    // Check total supply includes locked liquidity (99000 + 1000 = 100000)
-    let total_supply = env.view_public(Token::at(liquidity_token_address).total_supply());
-    assert_eq(total_supply, 100000);
-}
-
-#[test]
-unconstrained fn add_liquidity_subsequent_happy_path() {
+unconstrained fn add_and_remove_liquidity_happy_path() {
     let (mut env, amm_address, token0_address, token1_address, liquidity_token_address, owner, _) =
         setup_amm_with_tokens(true);
 
     let user2 = env.create_contract_account();
 
-    // First add initial liquidity
+    // First add initial liquidity from owner
     let initial_amount0 = 1000 as u128;
     let initial_amount1 = 2000 as u128;
 
@@ -208,7 +173,7 @@ unconstrained fn add_liquidity_subsequent_happy_path() {
         AMM::at(amm_address).add_liquidity(initial_amount0, initial_amount1, 0, 0, 1),
     );
 
-    // Now add liquidity from user2 with proper ratio
+    // Add liquidity from user2 with proper ratio
     let amount0_max = 500 as u128;
     let amount1_max = 1000 as u128; // Maintains 1:2 ratio
     let amount0_min = 400 as u128;
@@ -247,7 +212,7 @@ unconstrained fn add_liquidity_subsequent_happy_path() {
         ),
     );
 
-    // Verify balances
+    // Verify balances after adding liquidity
     check_public_balance(
         env,
         token0_address,
@@ -266,35 +231,12 @@ unconstrained fn add_liquidity_subsequent_happy_path() {
     // Check user2 received liquidity tokens proportional to their contribution
     // Expected: min((500 * 100000) / 1000, (1000 * 100000) / 2000) = 50000
     check_private_balance(env, liquidity_token_address, user2, 50000);
-}
 
-#[test]
-unconstrained fn remove_liquidity_happy_path() {
-    let (mut env, amm_address, token0_address, token1_address, liquidity_token_address, owner, _) =
-        setup_amm_with_tokens(true);
-
-    // First add liquidity
-    let amount0 = 1000 as u128;
-    let amount1 = 2000 as u128;
-
-    mint_to_private(env, token0_address, owner, owner, amount0);
-    mint_to_private(env, token1_address, owner, owner, amount1);
-
-    let transfer0_call_interface = Token::at(token0_address)
-        .transfer_to_public_and_prepare_private_balance_increase(owner, amm_address, amount0, 1);
-    add_private_authwit_from_call_interface(owner, amm_address, transfer0_call_interface);
-
-    let transfer1_call_interface = Token::at(token1_address)
-        .transfer_to_public_and_prepare_private_balance_increase(owner, amm_address, amount1, 1);
-    add_private_authwit_from_call_interface(owner, amm_address, transfer1_call_interface);
-
-    env.call_private(owner, AMM::at(amm_address).add_liquidity(amount0, amount1, 0, 0, 1));
-
-    // Now remove half the liquidity
+    // Now remove half the liquidity from owner's position
     let liquidity_to_remove = 49500 as u128; // Half of 99000
     let amount0_min = 400 as u128;
     let amount1_min = 800 as u128;
-    let authwit_nonce = 2;
+    let authwit_nonce = 3;
 
     // Create authwit for transferring liquidity tokens to AMM
     let transfer_liquidity_call_interface = Token::at(liquidity_token_address).transfer_to_public(
@@ -746,6 +688,7 @@ unconstrained fn add_liquidity_insufficient_liquidity_minted() {
     mint_to_private(env, token0_address, owner, user2, tiny_amount0);
     mint_to_private(env, token1_address, owner, user2, tiny_amount1);
 
+    // Incorrect formatting follows. Submitted an issue https://github.com/noir-lang/noir/issues/9556
     let transfer0_call_interface = Token::at(token0_address)
         .transfer_to_public_and_prepare_private_balance_increase(user2, amm_address, tiny_amount0, 2
             );
