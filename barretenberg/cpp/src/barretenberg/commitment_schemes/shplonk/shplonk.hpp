@@ -93,8 +93,8 @@ template <typename Curve> class ShplonkProver_ {
             current_nu *= nu;
         }
         // We use the same batching challenge for Gemini and Libra opening claims. The number of the claims
-        // batched before adding Libra commitments and evaluations is bounded by 2 * CONST_PROOF_SIZE_LOG_N + 2, where
-        // 2 * CONST_PROOF_SIZE_LOG_N is the number of fold claims including the dummy ones, and +2 is reserved for
+        // batched before adding Libra commitments and evaluations is bounded by 2 * `virtual_log_n` + 2, where
+        // 2 * `virtual_log_n` is the number of fold claims including the dummy ones, and +2 is reserved for
         // interleaving.
         if (!libra_opening_claims.empty()) {
             current_nu = nu.pow(2 * virtual_log_n + NUM_INTERLEAVING_CLAIMS);
