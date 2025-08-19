@@ -254,5 +254,107 @@ TYPED_TEST(GeminiTest, SoundnessRegression)
     }
 }
 
+/**
+ * @brief Implementation of the [attack described by Ariel](https://hackmd.io/zm5SDfBqTKKXGpI-zQHtpA?view).
+ *
+ */
+TYPED_TEST(GeminiTest, HighDegreeAttack)
+{
+    using ClaimBatcher = ClaimBatcher_<TypeParam>;
+    using ClaimBatch = ClaimBatcher::Batch;
+    using Claim = ProverOpeningClaim<TypeParam>;
+    using Commitment = TypeParam::AffineElement;
+    using Fr = TypeParam::ScalarField;
+    using CK = CommitmentKey<TypeParam>;
+
+    const size_t log_n = 3;
+    // const size_t n = 8;
+    const size_t big_ck_size(1 << 14);
+    auto big_ck = create_commitment_key<CK>(big_ck_size);
+
+    auto prover_transcript = NativeTranscript::prover_init_empty();
+
+    const Fr rho = prover_transcript->template get_challenge<Fr>("rho");
+    std::vector<Polynomial<Fr>> fold_polynomials;
+    fold_polynomials.reserve(log_n);
+
+    Polynomial<Fr> fold_0(4096);
+    Polynomial<Fr> fold_1(2048);
+    Polynomial<Fr> fold_2(1024);
+
+    auto u = this->random_evaluation_point(log_n);
+
+    Fr claimed_multilinear_eval = Fr::random_element();
+
+    // Go through the Gemini Prover steps: compute fold polynomials and their evaluations
+    std::vector<Fr> fold_evals;
+    fold_evals.reserve(log_n);
+
+    fold_2.at(1) = claimed_multilinear_eval / u[2];
+    fold_2.at(1022) = 1;
+    fold_2.at(1023) = -(Fr(1) - u[2]) / u[2];
+
+    // The coefficients of fold_1 are determined by the constant term of fold_2.
+    fold_1.at(0) = Fr(0);
+    fold_1.at(1) = Fr(0);
+    fold_1.at(2) = claimed_multilinear_eval / (u[2] * (Fr(1) - u[1]));
+    fold_1.at(2044) = Fr(1) / (Fr(1) - u[1]);
+    fold_1.at(2046) = -(Fr(1) - u[2]) / (u[2] * (Fr(1) - u[1]));
+
+    Fr tail = ((Fr(1) - u[0]) * (Fr(1) - u[1])).invert();
+    fold_0.at(4) = claimed_multilinear_eval * tail / u[2];
+    fold_0.at(4088) = tail;
+    fold_0.at(4092) = -tail * (Fr(1) - u[2]) / u[2];
+
+    prover_transcript->send_to_verifier("Gemini:FOLD_1", big_ck.commit(fold_1));
+    prover_transcript->send_to_verifier("Gemini:FOLD_2", big_ck.commit(fold_2));
+
+    // Get Gemini evaluation challenge
+    const Fr gemini_r = prover_transcript->template get_challenge<Fr>("Gemini:r");
+
+    // Place honest eval of fold₀(-r) to the vector of evals
+    fold_evals.emplace_back(fold_0.evaluate(-gemini_r));
+
+    // Compute univariate opening queries rₗ = r^{2ˡ} for l = 0, 1, 2
+    std::vector<Fr> r_squares = gemini::powers_of_evaluation_challenge(gemini_r, log_n);
+
+    // Compute honest evaluations fold₁(-r²) and fold₂(-r⁴)
+    fold_evals.emplace_back(fold_1.evaluate(-r_squares[1]));
+    fold_evals.emplace_back(fold_2.evaluate(-r_squares[2]));
+    prover_transcript->send_to_verifier("Gemini:a_1", fold_evals[0]);
+    prover_transcript->send_to_verifier("Gemini:a_2", fold_evals[1]);
+    prover_transcript->send_to_verifier("Gemini:a_3", fold_evals[2]);
+
+    // Compute the powers of r used by the verifier. It is an artifact of the const proof size logic.
+    const std::vector<Fr> gemini_eval_challenge_powers = gemini::powers_of_evaluation_challenge(gemini_r, log_n);
+
+    std::vector<Claim> prover_opening_claims;
+    prover_opening_claims.reserve(2 * log_n);
+
+    prover_opening_claims.emplace_back(Claim{ fold_0, { gemini_r, fold_0.evaluate(gemini_r) } });
+    prover_opening_claims.emplace_back(Claim{ fold_0, { -gemini_r, fold_0.evaluate(-gemini_r) } });
+    prover_opening_claims.emplace_back(Claim{ fold_1, { r_squares[1], fold_1.evaluate(r_squares[1]) } });
+    prover_opening_claims.emplace_back(Claim{ fold_1, { -r_squares[1], fold_evals[1] } });
+    prover_opening_claims.emplace_back(Claim{ fold_2, { r_squares[2], fold_2.evaluate(r_squares[2]) } });
+    prover_opening_claims.emplace_back(Claim{ fold_2, { -r_squares[2], fold_evals[2] } });
+
+    // Check that the Fold polynomials have been evaluated correctly in the prover
+    this->verify_batch_opening_pair(prover_opening_claims);
+
+    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
+
+    std::vector<Commitment> unshifted_commitments = { big_ck.commit(fold_0) };
+    std::vector<Fr> unshifted_evals = { claimed_multilinear_eval * rho.pow(0) };
+
+    ClaimBatcher claim_batcher{ .unshifted =
+                                    ClaimBatch{ RefVector(unshifted_commitments), RefVector(unshifted_evals) } };
+
+    auto verifier_claims = GeminiVerifier_<TypeParam>::reduce_verification(u, claim_batcher, verifier_transcript);
+
+    for (auto [prover_claim, verifier_claim] : zip_view(prover_opening_claims, verifier_claims)) {
+        EXPECT_TRUE(prover_claim.opening_pair == verifier_claim.opening_pair);
+    }
+}
+
 template <class Curve> typename GeminiTest<Curve>::CK GeminiTest<Curve>::ck;
 template <class Curve> typename GeminiTest<Curve>::VK GeminiTest<Curve>::vk;
