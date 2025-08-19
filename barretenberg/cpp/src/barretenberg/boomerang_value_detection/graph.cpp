@@ -1077,7 +1077,7 @@ inline void StaticAnalyzer_<FF>::process_current_plookup_gate(bb::UltraCircuitBu
     };
     auto& lookup_block = ultra_circuit_builder.blocks.lookup;
     auto& lookup_tables = ultra_circuit_builder.lookup_tables;
-    auto table_index = static_cast<size_t>(lookup_block.q_3()[gate_index]);
+    auto table_index = static_cast<size_t>(static_cast<uint256_t>(lookup_block.q_3()[gate_index]));
     for (const auto& table : lookup_tables) {
         if (table.table_index == table_index) {
             std::unordered_set<bb::fr> column_1(table.column_1.begin(), table.column_1.end());
