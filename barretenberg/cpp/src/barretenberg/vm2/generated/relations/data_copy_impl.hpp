@@ -18,9 +18,10 @@ void data_copyImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 
     const auto constants_AVM_HIGHEST_MEM_ADDRESS = FF(4294967295UL);
     const auto data_copy_SEL = in.get(C::data_copy_sel_rd_copy) + in.get(C::data_copy_sel_cd_copy);
-    const auto data_copy_SEL_NO_ERR = data_copy_SEL * (FF(1) - in.get(C::data_copy_err));
     const auto data_copy_MAX_READ_ADDR = in.get(C::data_copy_src_addr) + in.get(C::data_copy_max_read_index);
     const auto data_copy_MAX_WRITE_ADDR = in.get(C::data_copy_dst_addr) + in.get(C::data_copy_copy_size);
+    const auto data_copy_SEL_PERFORM_COPY =
+        data_copy_SEL * (FF(1) - in.get(C::data_copy_err)) * (FF(1) - in.get(C::data_copy_sel_write_count_is_zero));
     const auto data_copy_WRITE_COUNT_MINUS_ONE = (in.get(C::data_copy_copy_size) - FF(1));
 
     {
@@ -145,119 +146,137 @@ void data_copyImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         tmp *= scaling_factor;
         std::get<17>(evals) += typename Accumulator::View(tmp);
     }
-    { // END_WRITE_CONDITION
+    { // ZERO_SIZED_WRITE
         using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
-        auto tmp = data_copy_SEL_NO_ERR *
+        auto tmp = in.get(C::data_copy_sel_start_no_err) *
+                   ((in.get(C::data_copy_copy_size) * (in.get(C::data_copy_sel_write_count_is_zero) *
+                                                           (FF(1) - in.get(C::data_copy_write_count_zero_inv)) +
+                                                       in.get(C::data_copy_write_count_zero_inv)) -
+                     FF(1)) +
+                    in.get(C::data_copy_sel_write_count_is_zero));
+        tmp *= scaling_factor;
+        std::get<18>(evals) += typename Accumulator::View(tmp);
+    }
+    { // END_IF_WRITE_IS_ZERO
+        using Accumulator = typename std::tuple_element_t<19, ContainerOverSubrelations>;
+        auto tmp = in.get(C::data_copy_sel_start_no_err) * in.get(C::data_copy_sel_write_count_is_zero) *
+                   (in.get(C::data_copy_sel_end) - FF(1));
+        tmp *= scaling_factor;
+        std::get<19>(evals) += typename Accumulator::View(tmp);
+    }
+    { // END_WRITE_CONDITION
+        using Accumulator = typename std::tuple_element_t<20, ContainerOverSubrelations>;
+        auto tmp = data_copy_SEL_PERFORM_COPY *
                    ((data_copy_WRITE_COUNT_MINUS_ONE *
                          (in.get(C::data_copy_sel_end) * (FF(1) - in.get(C::data_copy_write_count_minus_one_inv)) +
                           in.get(C::data_copy_write_count_minus_one_inv)) -
                      FF(1)) +
                     in.get(C::data_copy_sel_end));
         tmp *= scaling_factor;
-        std::get<18>(evals) += typename Accumulator::View(tmp);
-    }
-    { // END_ON_ERR
-        using Accumulator = typename std::tuple_element_t<19, ContainerOverSubrelations>;
-        auto tmp = in.get(C::data_copy_err) * (in.get(C::data_copy_sel_end) - FF(1));
-        tmp *= scaling_factor;
-        std::get<19>(evals) += typename Accumulator::View(tmp);
-    }
-    { // INIT_READS_LEFT
-        using Accumulator = typename std::tuple_element_t<20, ContainerOverSubrelations>;
-        auto tmp =
-            in.get(C::data_copy_sel_start_no_err) *
-            (in.get(C::data_copy_reads_left) - (in.get(C::data_copy_max_read_index) - in.get(C::data_copy_offset)) *
-                                                   (FF(1) - in.get(C::data_copy_offset_gt_max_read_index)));
-        tmp *= scaling_factor;
         std::get<20>(evals) += typename Accumulator::View(tmp);
     }
-    {
+    { // END_ON_ERR
         using Accumulator = typename std::tuple_element_t<21, ContainerOverSubrelations>;
-        auto tmp = (in.get(C::data_copy_sel_mem_write) - data_copy_SEL_NO_ERR);
+        auto tmp = in.get(C::data_copy_err) * (in.get(C::data_copy_sel_end) - FF(1));
         tmp *= scaling_factor;
         std::get<21>(evals) += typename Accumulator::View(tmp);
     }
-    { // DECR_COPY_SIZE
+    { // INIT_READS_LEFT
         using Accumulator = typename std::tuple_element_t<22, ContainerOverSubrelations>;
-        auto tmp = data_copy_SEL * (FF(1) - in.get(C::data_copy_sel_end)) *
-                   ((in.get(C::data_copy_copy_size_shift) - in.get(C::data_copy_copy_size)) + FF(1));
+        auto tmp =
+            in.get(C::data_copy_sel_start_no_err) * (FF(1) - in.get(C::data_copy_sel_write_count_is_zero)) *
+            (in.get(C::data_copy_reads_left) - (in.get(C::data_copy_max_read_index) - in.get(C::data_copy_offset)) *
+                                                   (FF(1) - in.get(C::data_copy_offset_gt_max_read_index)));
         tmp *= scaling_factor;
         std::get<22>(evals) += typename Accumulator::View(tmp);
     }
-    { // INCR_WRITE_ADDR
+    {
         using Accumulator = typename std::tuple_element_t<23, ContainerOverSubrelations>;
-        auto tmp = (FF(1) - in.get(C::precomputed_first_row)) * data_copy_SEL * (FF(1) - in.get(C::data_copy_sel_end)) *
-                   ((in.get(C::data_copy_dst_addr_shift) - in.get(C::data_copy_dst_addr)) - FF(1));
+        auto tmp = (in.get(C::data_copy_sel_mem_write) - data_copy_SEL_PERFORM_COPY);
         tmp *= scaling_factor;
         std::get<23>(evals) += typename Accumulator::View(tmp);
     }
-    { // INIT_READ_ADDR
+    { // DECR_COPY_SIZE
         using Accumulator = typename std::tuple_element_t<24, ContainerOverSubrelations>;
-        auto tmp = data_copy_SEL * in.get(C::data_copy_sel_start_no_err) *
-                   ((in.get(C::data_copy_read_addr) - in.get(C::data_copy_src_addr)) - in.get(C::data_copy_offset));
+        auto tmp = data_copy_SEL * (FF(1) - in.get(C::data_copy_sel_end)) *
+                   ((in.get(C::data_copy_copy_size_shift) - in.get(C::data_copy_copy_size)) + FF(1));
         tmp *= scaling_factor;
         std::get<24>(evals) += typename Accumulator::View(tmp);
     }
-    { // INCR_READ_ADDR
+    { // INCR_WRITE_ADDR
         using Accumulator = typename std::tuple_element_t<25, ContainerOverSubrelations>;
-        auto tmp = data_copy_SEL * (FF(1) - in.get(C::data_copy_padding)) * (FF(1) - in.get(C::data_copy_sel_end)) *
-                   ((in.get(C::data_copy_read_addr_shift) - in.get(C::data_copy_read_addr)) - FF(1));
+        auto tmp = (FF(1) - in.get(C::precomputed_first_row)) * data_copy_SEL * (FF(1) - in.get(C::data_copy_sel_end)) *
+                   ((in.get(C::data_copy_dst_addr_shift) - in.get(C::data_copy_dst_addr)) - FF(1));
         tmp *= scaling_factor;
         std::get<25>(evals) += typename Accumulator::View(tmp);
     }
-    { // DECR_READ_COUNT
+    { // INIT_READ_ADDR
         using Accumulator = typename std::tuple_element_t<26, ContainerOverSubrelations>;
-        auto tmp = data_copy_SEL * (FF(1) - in.get(C::data_copy_padding)) * (FF(1) - in.get(C::data_copy_sel_end)) *
-                   ((in.get(C::data_copy_reads_left_shift) - in.get(C::data_copy_reads_left)) + FF(1));
+        auto tmp = in.get(C::data_copy_sel_start_no_err) * (FF(1) - in.get(C::data_copy_sel_write_count_is_zero)) *
+                   ((in.get(C::data_copy_read_addr) - in.get(C::data_copy_src_addr)) - in.get(C::data_copy_offset));
         tmp *= scaling_factor;
         std::get<26>(evals) += typename Accumulator::View(tmp);
     }
-    { // PADDING_CONDITION
+    { // INCR_READ_ADDR
         using Accumulator = typename std::tuple_element_t<27, ContainerOverSubrelations>;
-        auto tmp =
-            data_copy_SEL_NO_ERR * ((in.get(C::data_copy_reads_left) *
-                                         (in.get(C::data_copy_padding) * (FF(1) - in.get(C::data_copy_reads_left_inv)) +
-                                          in.get(C::data_copy_reads_left_inv)) -
-                                     FF(1)) +
-                                    in.get(C::data_copy_padding));
+        auto tmp = data_copy_SEL * (FF(1) - in.get(C::data_copy_padding)) * (FF(1) - in.get(C::data_copy_sel_end)) *
+                   ((in.get(C::data_copy_read_addr_shift) - in.get(C::data_copy_read_addr)) - FF(1));
         tmp *= scaling_factor;
         std::get<27>(evals) += typename Accumulator::View(tmp);
     }
-    {
+    { // DECR_READ_COUNT
         using Accumulator = typename std::tuple_element_t<28, ContainerOverSubrelations>;
-        auto tmp =
-            (in.get(C::data_copy_sel_mem_read) - data_copy_SEL_NO_ERR * (FF(1) - in.get(C::data_copy_is_top_level)) *
-                                                     (FF(1) - in.get(C::data_copy_padding)));
+        auto tmp = data_copy_SEL * (FF(1) - in.get(C::data_copy_padding)) * (FF(1) - in.get(C::data_copy_sel_end)) *
+                   ((in.get(C::data_copy_reads_left_shift) - in.get(C::data_copy_reads_left)) + FF(1));
         tmp *= scaling_factor;
         std::get<28>(evals) += typename Accumulator::View(tmp);
     }
-    { // PAD_VALUE
+    { // PADDING_CONDITION
         using Accumulator = typename std::tuple_element_t<29, ContainerOverSubrelations>;
-        auto tmp = data_copy_SEL_NO_ERR * in.get(C::data_copy_padding) * in.get(C::data_copy_value);
+        auto tmp = data_copy_SEL_PERFORM_COPY *
+                   ((in.get(C::data_copy_reads_left) *
+                         (in.get(C::data_copy_padding) * (FF(1) - in.get(C::data_copy_reads_left_inv)) +
+                          in.get(C::data_copy_reads_left_inv)) -
+                     FF(1)) +
+                    in.get(C::data_copy_padding));
         tmp *= scaling_factor;
         std::get<29>(evals) += typename Accumulator::View(tmp);
     }
-    { // CD_COPY_COLUMN
+    {
         using Accumulator = typename std::tuple_element_t<30, ContainerOverSubrelations>;
-        auto tmp = (in.get(C::data_copy_cd_copy_col_read) -
-                    data_copy_SEL_NO_ERR * (FF(1) - in.get(C::data_copy_padding)) * in.get(C::data_copy_is_top_level) *
-                        in.get(C::data_copy_sel_cd_copy));
+        auto tmp = (in.get(C::data_copy_sel_mem_read) - data_copy_SEL_PERFORM_COPY *
+                                                            (FF(1) - in.get(C::data_copy_is_top_level)) *
+                                                            (FF(1) - in.get(C::data_copy_padding)));
         tmp *= scaling_factor;
         std::get<30>(evals) += typename Accumulator::View(tmp);
     }
-    {
+    { // PAD_VALUE
         using Accumulator = typename std::tuple_element_t<31, ContainerOverSubrelations>;
-        auto tmp = (in.get(C::data_copy_sel_cd_copy_start) -
-                    in.get(C::data_copy_sel_start) * in.get(C::data_copy_sel_cd_copy));
+        auto tmp = data_copy_SEL_PERFORM_COPY * in.get(C::data_copy_padding) * in.get(C::data_copy_value);
         tmp *= scaling_factor;
         std::get<31>(evals) += typename Accumulator::View(tmp);
     }
-    {
+    { // CD_COPY_COLUMN
         using Accumulator = typename std::tuple_element_t<32, ContainerOverSubrelations>;
+        auto tmp = (in.get(C::data_copy_cd_copy_col_read) -
+                    data_copy_SEL_PERFORM_COPY * (FF(1) - in.get(C::data_copy_padding)) *
+                        in.get(C::data_copy_is_top_level) * in.get(C::data_copy_sel_cd_copy));
+        tmp *= scaling_factor;
+        std::get<32>(evals) += typename Accumulator::View(tmp);
+    }
+    {
+        using Accumulator = typename std::tuple_element_t<33, ContainerOverSubrelations>;
+        auto tmp = (in.get(C::data_copy_sel_cd_copy_start) -
+                    in.get(C::data_copy_sel_start) * in.get(C::data_copy_sel_cd_copy));
+        tmp *= scaling_factor;
+        std::get<33>(evals) += typename Accumulator::View(tmp);
+    }
+    {
+        using Accumulator = typename std::tuple_element_t<34, ContainerOverSubrelations>;
         auto tmp = (in.get(C::data_copy_sel_rd_copy_start) -
                     in.get(C::data_copy_sel_start) * in.get(C::data_copy_sel_rd_copy));
         tmp *= scaling_factor;
-        std::get<32>(evals) += typename Accumulator::View(tmp);
+        std::get<34>(evals) += typename Accumulator::View(tmp);
     }
 }
 
