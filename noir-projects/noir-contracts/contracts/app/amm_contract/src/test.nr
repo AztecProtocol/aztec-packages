@@ -113,7 +113,8 @@ unconstrained fn check_public_balance(
 // Note: All these tests are quite long-running so I decided to create larger tests (e.g. testing add and remove
 // liquidity happy path just in 1 test case)
 
-// Tests the happy path for adding and removing liquidity from the AMM pool
+// Tests the happy path for adding and removing liquidity from the AMM pool. We add liquidity twice to test
+// the liquidity token ratios are as expected even in the non-zero-initial-liquidity case.
 //
 // Test flow:
 // 1. Owner adds initial liquidity (1000 token0, 2000 token1)
@@ -121,13 +122,13 @@ unconstrained fn check_public_balance(
 //    - Transfers tokens to AMM's public balance
 //    - Calls add_liquidity() which mints liquidity tokens to owner
 //
-// 2. User2 adds liquidity maintaining the same ratio (500 token0, 1000 token1)
+// 2. User2 adds liquidity with excess token1 (500 token0, 1200 token1)
 //    - Mints tokens to user2's private balance
 //    - Transfers tokens to AMM's public balance
 //    - Calls add_liquidity() which mints liquidity tokens to user2
 //    - Verifies:
 //      * AMM's public token balances increased correctly
-//      * User2's private token balances are 0 (all transferred)
+//      * User2's private token balances show refund of excess token1
 //      * User2 received correct amount of liquidity tokens (50000)
 //
 // 3. Owner removes half their liquidity position
@@ -137,7 +138,7 @@ unconstrained fn check_public_balance(
 //      * Owner received correct proportion of tokens back (495 token0, 990 token1)
 //      * Owner's remaining liquidity token balance is correct (49500)
 #[test]
-unconstrained fn add_and_remove_liquidity_happy_path() {
+unconstrained fn add_liquidity_twice_and_remove_liquidity_happy_path() {
     let (mut env, amm_address, token0_address, token1_address, liquidity_token_address, owner, _) =
         setup_amm_with_tokens(true);
 
@@ -173,9 +174,9 @@ unconstrained fn add_and_remove_liquidity_happy_path() {
         AMM::at(amm_address).add_liquidity(initial_amount0, initial_amount1, 0, 0, 1),
     );
 
-    // Add liquidity from user2 with proper ratio
+    // Add liquidity from user2 with excess token1
     let amount0_max = 500 as u128;
-    let amount1_max = 1000 as u128; // Maintains 1:2 ratio
+    let amount1_max = 1200 as u128; // Intentionally higher than 1:2 ratio to test we get a refund
     let amount0_min = 400 as u128;
     let amount1_min = 800 as u128;
     let authwit_nonce = 2;
@@ -213,6 +214,7 @@ unconstrained fn add_and_remove_liquidity_happy_path() {
     );
 
     // Verify balances after adding liquidity
+    // AMM should have received 500 token0 and 1000 token1 (not 1200, as excess is refunded)
     check_public_balance(
         env,
         token0_address,
@@ -223,10 +225,12 @@ unconstrained fn add_and_remove_liquidity_happy_path() {
         env,
         token1_address,
         amm_address,
-        initial_amount1 + amount1_max,
+        initial_amount1 + 1000, // Only 1000 token1 used to maintain ratio
     );
+
+    // User2 should have 0 token0 and 200 token1 (refunded excess)
     check_private_balance(env, token0_address, user2, 0);
-    check_private_balance(env, token1_address, user2, 0);
+    check_private_balance(env, token1_address, user2, 200);
 
     // Check user2 received liquidity tokens proportional to their contribution
     // Expected: min((500 * 100000) / 1000, (1000 * 100000) / 2000) = 50000
