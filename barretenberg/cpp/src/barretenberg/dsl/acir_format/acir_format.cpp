@@ -343,6 +343,8 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         bool has_pairing_points =
             has_honk_recursion_constraints || has_civc_recursion_constraints || has_avm_recursion_constraints;
 
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1523): Only handle either HONK or CIVC + AVM and
+        // fail fast otherwise
         BB_ASSERT_EQ(has_pg_recursion_constraints,
                      false,
                      "Invalid circuit: pg recursion constraints are present with UltraBuilder.");
