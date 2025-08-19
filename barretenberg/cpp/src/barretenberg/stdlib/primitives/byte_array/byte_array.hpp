@@ -77,9 +77,6 @@ template <typename Builder> class byte_array {
 
     Builder* get_context() const { return context; }
 
-    // Create a vector of field elements reconstructed from n-byte chunks. Only used in tests.
-    std::vector<field_t<Builder>> pack_bytes_into_field_elements(size_t num_bytes_in_chunk = 4);
-
     // Out-of-circuit methods
     std::vector<uint8_t> get_value() const;
     std::string get_string() const;

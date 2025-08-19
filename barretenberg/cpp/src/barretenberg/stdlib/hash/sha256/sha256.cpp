@@ -307,7 +307,7 @@ std::array<field_t<Builder>, 8> SHA256<Builder>::sha256_block(const std::array<f
 
 template <typename Builder> byte_array<Builder> SHA256<Builder>::hash(const byte_array_ct& input)
 {
-    Builder* ctx = input[0].get_context();
+    Builder* ctx = input.get_context();
     std::vector<field_ct> message_schedule;
     const size_t message_length_bytes = input.size();
 

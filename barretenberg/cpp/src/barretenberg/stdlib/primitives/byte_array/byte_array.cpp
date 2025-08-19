@@ -309,24 +309,6 @@ template <typename Builder> byte_array<Builder> byte_array<Builder>::reverse() c
 }
 
 /**
- * @brief Given a `byte_array` object, slice it into chunks of size `num_bytes_in_chunk` and compute field elements
- * reconstructed from these chunks.
- */
-template <typename Builder>
-std::vector<field_t<Builder>> byte_array<Builder>::pack_bytes_into_field_elements(size_t num_bytes_in_chunk)
-{
-    std::vector<field_t<Builder>> result;
-    const size_t byte_len = values.size();
-
-    for (size_t i = 0; i < byte_len; i += num_bytes_in_chunk) {
-        byte_array<Builder> chunk = slice(i, std::min(num_bytes_in_chunk, byte_len - i));
-        result.emplace_back(static_cast<field_t<Builder>>(chunk));
-    }
-
-    return result;
-}
-
-/**
  * @brief A helper converting a `byte_array` into the vector of its uint8_t values.
  * @note Used only in tests.
  */

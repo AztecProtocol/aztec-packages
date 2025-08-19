@@ -21,6 +21,23 @@ using byte_array_ct = byte_array<Builder>;
 using field_ct = field_t<Builder>;
 using witness_ct = witness_t<Builder>;
 
+/**
+ * @brief Given a `byte_array` object, slice it into chunks of size `num_bytes_in_chunk` and compute field elements
+ * reconstructed from these chunks.
+ */
+
+std::vector<field_ct> pack_bytes_into_field_elements(const byte_array_ct& input, size_t num_bytes_in_chunk = 4)
+{
+    std::vector<field_t<Builder>> result;
+    const size_t byte_len = input.size();
+
+    for (size_t i = 0; i < byte_len; i += num_bytes_in_chunk) {
+        byte_array_ct chunk = input.slice(i, std::min(num_bytes_in_chunk, byte_len - i));
+        result.emplace_back(static_cast<field_ct>(chunk));
+    }
+
+    return result;
+}
 constexpr uint64_t ror(uint64_t val, uint64_t shift)
 {
     return (val >> (shift & 31U)) | (val << (32U - (shift & 31U)));
@@ -153,7 +170,7 @@ TEST(stdlib_sha256, test_plookup_55_bytes)
 
     byte_array_ct output_bytes = stdlib::SHA256<UltraCircuitBuilder>::hash(input);
 
-    std::vector<field_ct> output = output_bytes.pack_bytes_into_field_elements();
+    std::vector<field_ct> output = pack_bytes_into_field_elements(output_bytes);
 
     EXPECT_EQ(uint256_t(output[0].get_value()), 0x51b2529fU);
     EXPECT_EQ(uint256_t(output[1].get_value()), 0x872e839aU);
@@ -178,7 +195,7 @@ TEST(stdlib_sha256, test_55_bytes)
 
     byte_array_ct output_bytes = stdlib::SHA256<UltraCircuitBuilder>::hash(input);
 
-    std::vector<field_ct> output = output_bytes.pack_bytes_into_field_elements();
+    std::vector<field_ct> output = pack_bytes_into_field_elements(output_bytes);
 
     EXPECT_EQ(output[0].get_value(), fr(0x51b2529fULL));
     EXPECT_EQ(output[1].get_value(), fr(0x872e839aULL));
@@ -201,7 +218,7 @@ TEST(stdlib_sha256, test_NIST_vector_one_byte_array)
 
     byte_array_ct input(&builder, "abc");
     byte_array_ct output_bytes = stdlib::SHA256<UltraCircuitBuilder>::hash(input);
-    std::vector<field_ct> output = output_bytes.pack_bytes_into_field_elements();
+    std::vector<field_ct> output = pack_bytes_into_field_elements(output_bytes);
     EXPECT_EQ(uint256_t(output[0].get_value()).data[0], (uint64_t)0xBA7816BFU);
     EXPECT_EQ(uint256_t(output[1].get_value()).data[0], (uint64_t)0x8F01CFEAU);
     EXPECT_EQ(uint256_t(output[2].get_value()).data[0], (uint64_t)0x414140DEU);
@@ -225,7 +242,7 @@ TEST(stdlib_sha256, test_NIST_vector_one)
 
     byte_array_ct output_bytes = stdlib::SHA256<UltraCircuitBuilder>::hash(input);
 
-    std::vector<field_ct> output = output_bytes.pack_bytes_into_field_elements();
+    std::vector<field_ct> output = pack_bytes_into_field_elements(output_bytes);
 
     EXPECT_EQ(output[0].get_value(), fr(0xBA7816BFULL));
     EXPECT_EQ(output[1].get_value(), fr(0x8F01CFEAULL));
@@ -249,7 +266,7 @@ TEST(stdlib_sha256, test_NIST_vector_two)
 
     byte_array_ct output_bytes = stdlib::SHA256<UltraCircuitBuilder>::hash(input);
 
-    std::vector<field_ct> output = output_bytes.pack_bytes_into_field_elements();
+    std::vector<field_ct> output = pack_bytes_into_field_elements(output_bytes);
 
     EXPECT_EQ(output[0].get_value(), 0x248D6A61ULL);
     EXPECT_EQ(output[1].get_value(), 0xD20638B8ULL);
@@ -274,7 +291,7 @@ TEST(stdlib_sha256, test_NIST_vector_three)
 
     byte_array_ct output_bytes = stdlib::SHA256<UltraCircuitBuilder>::hash(input);
 
-    std::vector<field_ct> output = output_bytes.pack_bytes_into_field_elements();
+    std::vector<field_ct> output = pack_bytes_into_field_elements(output_bytes);
 
     EXPECT_EQ(output[0].get_value(), 0x68325720ULL);
     EXPECT_EQ(output[1].get_value(), 0xaabd7c82ULL);
@@ -299,7 +316,7 @@ TEST(stdlib_sha256, test_NIST_vector_four)
 
     byte_array_ct output_bytes = stdlib::SHA256<UltraCircuitBuilder>::hash(input);
 
-    std::vector<field_ct> output = output_bytes.pack_bytes_into_field_elements();
+    std::vector<field_ct> output = pack_bytes_into_field_elements(output_bytes);
 
     EXPECT_EQ(output[0].get_value(), 0x7abc22c0ULL);
     EXPECT_EQ(output[1].get_value(), 0xae5af26cULL);
@@ -336,7 +353,7 @@ HEAVY_TEST(stdlib_sha256, test_NIST_vector_five)
 
     byte_array_ct output_bytes = stdlib::SHA256<UltraCircuitBuilder>::hash(input);
 
-    std::vector<field_ct> output = output_bytes.pack_bytes_into_field_elements();
+    std::vector<field_ct> output = pack_bytes_into_field_elements(output_bytes);
 
     EXPECT_EQ(output[0].get_value(), 0xc2e68682ULL);
     EXPECT_EQ(output[1].get_value(), 0x3489ced2ULL);

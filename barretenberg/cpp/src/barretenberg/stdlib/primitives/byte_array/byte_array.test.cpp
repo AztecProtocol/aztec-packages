@@ -263,41 +263,6 @@ template <class Builder> class ByteArrayTest : public ::testing::Test {
         }
     }
 
-    void test_pack_bytes_into_field_elements_variable_chunk()
-    {
-        for (size_t chunk_size = 2; chunk_size <= 16; ++chunk_size) {
-            for (size_t num_bytes = 4; num_bytes <= 70; num_bytes += 3) {
-                Builder builder;
-
-                std::vector<uint8_t> native_bytes(num_bytes);
-                for (size_t i = 0; i < num_bytes; ++i) {
-                    native_bytes[i] = engine.get_random_uint8();
-                }
-
-                byte_array_ct byte_array(&builder, native_bytes);
-                auto packed_fields = byte_array.pack_bytes_into_field_elements(chunk_size);
-
-                size_t expected_chunks = (num_bytes + chunk_size - 1) / chunk_size;
-                EXPECT_EQ(packed_fields.size(), expected_chunks);
-
-                for (size_t i = 0; i < expected_chunks; ++i) {
-                    uint256_t expected = 0;
-
-                    size_t start = i * chunk_size;
-                    size_t actual_chunk_size = std::min(chunk_size, native_bytes.size() - start);
-                    for (size_t j = 0; j < actual_chunk_size; ++j) {
-                        expected <<= 8;
-                        expected += native_bytes[start + j];
-                    }
-
-                    EXPECT_EQ(packed_fields[i].get_value(), fr(expected));
-                }
-
-                EXPECT_TRUE(CircuitChecker::check(builder));
-            }
-        }
-    }
-
     void test_ostream_operator()
     {
         Builder builder;
@@ -352,11 +317,6 @@ TYPED_TEST(ByteArrayTest, InputOutputConsistency)
 TYPED_TEST(ByteArrayTest, ConvertToField)
 {
     TestFixture::test_conversion_to_field();
-}
-
-TYPED_TEST(ByteArrayTest, PackToChunks)
-{
-    TestFixture::test_pack_bytes_into_field_elements_variable_chunk();
 }
 
 TYPED_TEST(ByteArrayTest, OstreamOperator)
