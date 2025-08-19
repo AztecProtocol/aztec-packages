@@ -20,6 +20,24 @@ using byte_array_ct = byte_array<Builder>;
 using field_ct = field_t<Builder>;
 
 /**
+ * @brief Given a `byte_array` object, slice it into chunks of size `num_bytes_in_chunk` and compute field elements
+ * reconstructed from these chunks.
+ */
+
+std::vector<field_ct> pack_bytes_into_field_elements(const byte_array_ct& input, size_t num_bytes_in_chunk = 4)
+{
+    std::vector<field_t<Builder>> result;
+    const size_t byte_len = input.size();
+
+    for (size_t i = 0; i < byte_len; i += num_bytes_in_chunk) {
+        byte_array_ct chunk = input.slice(i, std::min(num_bytes_in_chunk, byte_len - i));
+        result.emplace_back(static_cast<field_ct>(chunk));
+    }
+
+    return result;
+}
+
+/**
  static analyzer usually prints input and output variables as variables in one gate. In tests these variables
  are not dangerous and usually we can filter them by adding gate for fixing witness. Then these variables will be
  in 2 gates, and static analyzer won't print them. functions fix_vector and fix_byte_array do it
@@ -59,7 +77,7 @@ TEST(boomerang_stdlib_sha256, test_graph_for_sha256_55_bytes)
 
     byte_array_ct output_bytes = stdlib::SHA256<Builder>::hash(input);
 
-    std::vector<field_ct> output = output_bytes.pack_bytes_into_field_elements();
+    std::vector<field_ct> output = pack_bytes_into_field_elements(output_bytes);
     fix_vector(output);
 
     StaticAnalyzer graph = StaticAnalyzer(builder);
@@ -102,7 +120,7 @@ HEAVY_TEST(boomerang_stdlib_sha256, test_graph_for_sha256_NIST_vector_five)
     fix_byte_array(input);
     byte_array_ct output_bytes = stdlib::SHA256<bb::UltraCircuitBuilder>::hash(input);
 
-    std::vector<field_ct> output = output_bytes.pack_bytes_into_field_elements();
+    std::vector<field_ct> output = pack_bytes_into_field_elements(output_bytes);
     fix_vector(output);
 
     StaticAnalyzer graph = StaticAnalyzer(builder);
