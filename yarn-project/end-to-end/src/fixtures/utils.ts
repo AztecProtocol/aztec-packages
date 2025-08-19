@@ -962,6 +962,7 @@ export function createAndSyncProverNode(
       txGatheringMaxParallelRequestsPerNode: 10,
       txGatheringTimeoutMs: 24_000,
       proverNodeFailedEpochStore: undefined,
+      proverId: EthAddress.fromNumber(1),
       ...proverNodeConfig,
     };
 
