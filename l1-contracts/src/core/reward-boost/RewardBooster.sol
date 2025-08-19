@@ -71,18 +71,13 @@ contract RewardBooster is IBooster {
     CONFIG_K = _config.k;
   }
 
-  function updateAndGetShares(address _prover)
-    external
-    override(IBoosterCore)
-    onlyRollup
-    returns (uint256)
-  {
+  function updateAndGetShares(address _prover) external override(IBoosterCore) onlyRollup returns (uint256) {
     Epoch currentEpoch = ROLLUP.getCurrentEpoch();
 
     CompressedActivityScore storage store = activityScores[_prover];
     ActivityScore memory curr = _activityScoreAt(store, currentEpoch);
 
-    // If the score was alrady marked active in this epoch, ignore the addition.
+    // If the score was already marked active in this epoch, ignore the addition.
     if (curr.time != store.time.decompress()) {
       store.value = Math.min(curr.value + CONFIG_INCREMENT, CONFIG_MAX_SCORE).toUint32();
       store.time = curr.time.compress();
@@ -105,12 +100,7 @@ contract RewardBooster is IBooster {
     return _toShares(getActivityScore(_prover).value);
   }
 
-  function getActivityScore(address _prover)
-    public
-    view
-    override(IBooster)
-    returns (ActivityScore memory)
-  {
+  function getActivityScore(address _prover) public view override(IBooster) returns (ActivityScore memory) {
     return _activityScoreAt(activityScores[_prover], ROLLUP.getCurrentEpoch());
   }
 
@@ -120,10 +110,8 @@ contract RewardBooster is IBooster {
     returns (ActivityScore memory)
   {
     uint256 decrease = (Epoch.unwrap(_epoch) - Epoch.unwrap(_score.time.decompress())) * 1e5;
-    return ActivityScore({
-      value: decrease > uint256(_score.value) ? 0 : _score.value - decrease.toUint32(),
-      time: _epoch
-    });
+    return
+      ActivityScore({value: decrease > uint256(_score.value) ? 0 : _score.value - decrease.toUint32(), time: _epoch});
   }
 
   function _toShares(uint256 _value) internal view returns (uint256) {

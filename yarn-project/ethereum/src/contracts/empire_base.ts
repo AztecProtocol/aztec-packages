@@ -1,3 +1,4 @@
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { EmpireBaseAbi } from '@aztec/l1-artifacts/EmpireBaseAbi';
 
@@ -6,6 +7,7 @@ import { type Hex, type TypedDataDefinition, encodeFunctionData } from 'viem';
 import type { L1TxRequest } from '../l1_tx_utils.js';
 
 export interface IEmpireBase {
+  get address(): EthAddress;
   getRoundInfo(
     rollupAddress: Hex,
     round: bigint,
@@ -51,6 +53,7 @@ export async function signSignalWithSig(
   payload: Hex,
   nonce: bigint,
   round: bigint,
+  instance: Hex,
   verifyingContract: Hex,
   chainId: number,
 ): Promise<Signature> {
@@ -66,6 +69,7 @@ export async function signSignalWithSig(
       { name: 'payload', type: 'address' },
       { name: 'nonce', type: 'uint256' },
       { name: 'round', type: 'uint256' },
+      { name: 'instance', type: 'address' },
     ],
   };
 
@@ -73,6 +77,7 @@ export async function signSignalWithSig(
     payload,
     nonce,
     round,
+    instance,
   };
 
   const typedData = { domain, types, primaryType: 'Signal', message };

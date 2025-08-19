@@ -2,6 +2,7 @@
 title: Private Execution Environment (PXE)
 sidebar_position: 8
 tags: [PXE]
+description: Explore the PXE, a client-side library that handles private function execution, proof generation, secret management, and transaction orchestration in Aztec.
 keywords: [pxe, private execution environment]
 importance: 1
 ---
@@ -104,5 +105,5 @@ Oracles are pieces of data that are injected into a smart contract function from
 
 To learn how to develop on top of the PXE, refer to these guides:
 
-- [Run more than one PXE on your local machine](../../../developers/guides/local_env/run_more_than_one_pxe_sandbox.md)
+- [Run more than one PXE on your local machine](../../../developers/guides/local_env/sandbox.md#running-multiple-pxes-in-the-sandbox)
 - [Use in-built oracles including oracles for arbitrary data](../../../developers/guides/smart_contracts/writing_contracts/how_to_use_capsules.md)

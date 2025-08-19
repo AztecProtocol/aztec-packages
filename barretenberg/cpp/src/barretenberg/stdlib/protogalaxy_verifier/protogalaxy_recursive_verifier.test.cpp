@@ -6,6 +6,7 @@
 #include "barretenberg/stdlib/hash/blake3s/blake3s.hpp"
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 #include "barretenberg/stdlib/honk_verifier/decider_recursive_verifier.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/decider_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -106,7 +107,7 @@ class ProtogalaxyRecursiveTests : public testing::Test {
 
         big_a* big_b;
 
-        stdlib::recursion::PairingPoints<InnerBuilder>::add_default_to_public_inputs(builder);
+        stdlib::recursion::honk::DefaultIO<OuterBuilder>::add_default(builder);
     };
 
     static std::tuple<std::shared_ptr<InnerDeciderProvingKey>, std::shared_ptr<InnerDeciderVerificationKey>>
@@ -233,7 +234,6 @@ class ProtogalaxyRecursiveTests : public testing::Test {
                                                      std::make_shared<typename InnerFoldingVerifier::Transcript>());
         native_folding_verifier.transcript->enable_manifest();
         std::shared_ptr<InnerDeciderVerificationKey> native_accumulator;
-        native_folding_verifier.verify_folding_proof(folding_proof.proof);
         for (size_t idx = 0; idx < num_verifiers; idx++) {
             native_accumulator = native_folding_verifier.verify_folding_proof(folding_proof.proof);
             if (idx < num_verifiers - 1) { // else the transcript is null in the test below
@@ -257,7 +257,7 @@ class ProtogalaxyRecursiveTests : public testing::Test {
 
         // Check for a failure flag in the recursive verifier circuit
         {
-            stdlib::recursion::PairingPoints<OuterBuilder>::add_default_to_public_inputs(folding_circuit);
+            stdlib::recursion::honk::DefaultIO<OuterBuilder>::add_default(folding_circuit);
             // inefficiently check finalized size
             folding_circuit.finalize_circuit(/* ensure_nonzero= */ true);
             info("Folding Recursive Verifier: num gates finalized = ", folding_circuit.num_gates);
@@ -267,7 +267,7 @@ class ProtogalaxyRecursiveTests : public testing::Test {
             OuterProver prover(decider_pk, honk_vk);
             OuterVerifier verifier(honk_vk);
             auto proof = prover.construct_proof();
-            bool verified = std::get<0>(verifier.verify_proof(proof));
+            bool verified = verifier.template verify_proof<bb::DefaultIO>(proof).result;
 
             ASSERT_TRUE(verified);
         }
@@ -312,9 +312,9 @@ class ProtogalaxyRecursiveTests : public testing::Test {
                                                   { recursive_vk_and_hash_2 },
                                                   std::make_shared<typename FoldingRecursiveVerifier::Transcript>() };
         verifier.transcript->enable_manifest();
-        auto recursive_verifier_accumulator = verifier.verify_folding_proof(stdlib_proof);
+        auto recursive_verifier_native_accum = verifier.verify_folding_proof(stdlib_proof);
         auto native_verifier_acc =
-            std::make_shared<InnerDeciderVerificationKey>(recursive_verifier_accumulator->get_value());
+            std::make_shared<InnerDeciderVerificationKey>(recursive_verifier_native_accum->get_value());
         info("Folding Recursive Verifier: num gates = ", folding_circuit.get_estimated_num_finalized_gates());
 
         // Check for a failure flag in the recursive verifier circuit
@@ -345,7 +345,12 @@ class ProtogalaxyRecursiveTests : public testing::Test {
         OuterBuilder decider_circuit;
         DeciderRecursiveVerifier decider_verifier{ &decider_circuit, native_verifier_acc };
         auto pairing_points = decider_verifier.verify_proof(decider_proof);
-        pairing_points.set_public();
+
+        // IO
+        DefaultIO<OuterBuilder> inputs;
+        inputs.pairing_inputs = pairing_points;
+        inputs.set_public();
+
         info("Decider Recursive Verifier: num gates = ", decider_circuit.num_gates);
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(decider_circuit.failed(), false) << decider_circuit.err();
@@ -365,7 +370,7 @@ class ProtogalaxyRecursiveTests : public testing::Test {
             OuterProver prover(decider_pk, honk_vk);
             OuterVerifier verifier(honk_vk);
             auto proof = prover.construct_proof();
-            bool verified = std::get<0>(verifier.verify_proof(proof));
+            bool verified = verifier.template verify_proof<bb::DefaultIO>(proof).result;
 
             ASSERT_TRUE(verified);
         }
@@ -473,7 +478,7 @@ class ProtogalaxyRecursiveTests : public testing::Test {
                                           recursive_decider_vk_1,
                                           { recursive_vk_and_hash_2 },
                                           std::make_shared<typename FoldingRecursiveVerifier::Transcript>() };
-            auto recursive_verifier_accumulator = verifier.verify_folding_proof(stdlib_proof);
+            auto recursive_verifier_native_accum = verifier.verify_folding_proof(stdlib_proof);
 
             return { fold_result.proof, verifier_circuit };
         };

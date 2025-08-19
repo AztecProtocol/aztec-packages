@@ -20,7 +20,10 @@ import {
   CountedLogHash,
   LogHash,
   OptionalNumber,
+  PrivateToPublicAccumulatedData,
+  PrivateToPublicKernelCircuitPublicInputs,
   PrivateToRollupAccumulatedData,
+  PrivateToRollupKernelCircuitPublicInputs,
   PublicCallRequest,
   PublicCallRequestArrayLengths,
   ScopedCountedLogHash,
@@ -45,6 +48,7 @@ import {
   GlobalVariables,
   PartialStateReference,
   StateReference,
+  TxConstantData,
   TxContext,
 } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
@@ -74,7 +78,10 @@ import type {
   NullifierLeafPreimage as NullifierLeafPreimageNoir,
   Option as OptionalNumberNoir,
   PartialStateReference as PartialStateReferenceNoir,
+  PrivateToPublicAccumulatedData as PrivateToPublicAccumulatedDataNoir,
+  PrivateToPublicKernelCircuitPublicInputs as PrivateToPublicKernelCircuitPublicInputsNoir,
   PrivateToRollupAccumulatedData as PrivateToRollupAccumulatedDataNoir,
+  PrivateToRollupKernelCircuitPublicInputs as PrivateToRollupKernelCircuitPublicInputsNoir,
   ProtocolContractLeafPreimage as ProtocolContractLeafPreimageNoir,
   PublicCallRequestArrayLengths as PublicCallRequestArrayLengthsNoir,
   PublicCallRequest as PublicCallRequestNoir,
@@ -83,6 +90,7 @@ import type {
   PublicLog as PublicLogNoir,
   Scoped,
   StateReference as StateReferenceNoir,
+  TxConstantData as TxConstantDataNoir,
   TxContext as TxContextNoir,
   u64 as U64Noir,
   VerificationKey as VerificationKeyNoir,
@@ -847,6 +855,19 @@ export function mapPrivateToRollupAccumulatedDataFromNoir(
   );
 }
 
+function mapPrivateToPublicAccumulatedDataToNoir(
+  data: PrivateToPublicAccumulatedData,
+): PrivateToPublicAccumulatedDataNoir {
+  return {
+    note_hashes: mapTuple(data.noteHashes, mapFieldToNoir),
+    nullifiers: mapTuple(data.nullifiers, mapFieldToNoir),
+    l2_to_l1_msgs: mapTuple(data.l2ToL1Msgs, mapScopedL2ToL1MessageToNoir),
+    private_logs: mapTuple(data.privateLogs, mapPrivateLogToNoir),
+    contract_class_logs_hashes: mapTuple(data.contractClassLogsHashes, mapScopedLogHashToNoir),
+    public_call_requests: mapTuple(data.publicCallRequests, mapPublicCallRequestToNoir),
+  };
+}
+
 /**
  * Maps a tx context to a noir tx context.
  * @param txContext - The tx context.
@@ -871,4 +892,39 @@ export function mapTxContextFromNoir(txContext: TxContextNoir): TxContext {
     mapFieldFromNoir(txContext.version),
     mapGasSettingsFromNoir(txContext.gas_settings),
   );
+}
+
+export function mapTxConstantDataToNoir(data: TxConstantData): TxConstantDataNoir {
+  return {
+    historical_header: mapHeaderToNoir(data.historicalHeader),
+    tx_context: mapTxContextToNoir(data.txContext),
+    vk_tree_root: mapFieldToNoir(data.vkTreeRoot),
+    protocol_contract_tree_root: mapFieldToNoir(data.protocolContractTreeRoot),
+  };
+}
+
+export function mapPrivateToRollupKernelCircuitPublicInputsToNoir(
+  inputs: PrivateToRollupKernelCircuitPublicInputs,
+): PrivateToRollupKernelCircuitPublicInputsNoir {
+  return {
+    constants: mapTxConstantDataToNoir(inputs.constants),
+    end: mapPrivateToRollupAccumulatedDataToNoir(inputs.end),
+    gas_used: mapGasToNoir(inputs.gasUsed),
+    fee_payer: mapAztecAddressToNoir(inputs.feePayer),
+    include_by_timestamp: mapU64ToNoir(inputs.includeByTimestamp),
+  };
+}
+
+export function mapPrivateToPublicKernelCircuitPublicInputsToNoir(
+  inputs: PrivateToPublicKernelCircuitPublicInputs,
+): PrivateToPublicKernelCircuitPublicInputsNoir {
+  return {
+    constants: mapTxConstantDataToNoir(inputs.constants),
+    non_revertible_accumulated_data: mapPrivateToPublicAccumulatedDataToNoir(inputs.nonRevertibleAccumulatedData),
+    revertible_accumulated_data: mapPrivateToPublicAccumulatedDataToNoir(inputs.revertibleAccumulatedData),
+    public_teardown_call_request: mapPublicCallRequestToNoir(inputs.publicTeardownCallRequest),
+    gas_used: mapGasToNoir(inputs.gasUsed),
+    fee_payer: mapAztecAddressToNoir(inputs.feePayer),
+    include_by_timestamp: mapU64ToNoir(inputs.includeByTimestamp),
+  };
 }

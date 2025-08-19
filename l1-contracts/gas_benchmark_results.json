@@ -1,0 +1,128 @@
+{
+  "ignition": {
+    "no_validators": {
+      "propose": {
+        "calls": 100,
+        "min": 139463,
+        "mean": 142569,
+        "median": 142433,
+        "max": 157723,
+        "calldata_size": 1060,
+        "calldata_gas": 16960
+      },
+      "setupEpoch": {
+        "calls": 100,
+        "min": 29235,
+        "mean": 31585,
+        "median": 29235,
+        "max": 108397
+      },
+      "submitEpochRootProof": {
+        "calls": 2,
+        "min": 544611,
+        "mean": 567842,
+        "median": 567842,
+        "max": 591073,
+        "calldata_size": 3812,
+        "calldata_gas": 60992
+      }
+    },
+    "validators": {
+      "propose": {
+        "calls": 100,
+        "min": 200706,
+        "mean": 206977,
+        "median": 207326,
+        "max": 226338,
+        "calldata_size": 2852,
+        "calldata_gas": 45632
+      },
+      "setupEpoch": {
+        "calls": 100,
+        "min": 29235,
+        "mean": 38145,
+        "median": 29235,
+        "max": 327074
+      },
+      "submitEpochRootProof": {
+        "calls": 2,
+        "min": 657681,
+        "mean": 679690,
+        "median": 679690,
+        "max": 701700,
+        "calldata_size": 5092,
+        "calldata_gas": 81472
+      },
+      "aggregate3": {
+        "calls": 100,
+        "min": 243742,
+        "mean": 256679,
+        "median": 253598,
+        "max": 286474
+      }
+    }
+  },
+  "alpha": {
+    "no_validators": {
+      "propose": {
+        "calls": 100,
+        "min": 212503,
+        "mean": 219926,
+        "median": 219136,
+        "max": 235984,
+        "calldata_size": 1060,
+        "calldata_gas": 16960
+      },
+      "setupEpoch": {
+        "calls": 100,
+        "min": 29235,
+        "mean": 32376,
+        "median": 29235,
+        "max": 108397
+      },
+      "submitEpochRootProof": {
+        "calls": 3,
+        "min": 667612,
+        "mean": 687107,
+        "median": 667708,
+        "max": 726001,
+        "calldata_size": 3812,
+        "calldata_gas": 60992
+      }
+    },
+    "validators": {
+      "propose": {
+        "calls": 100,
+        "min": 318448,
+        "mean": 334025,
+        "median": 334471,
+        "max": 351385,
+        "calldata_size": 4580,
+        "calldata_gas": 73280
+      },
+      "setupEpoch": {
+        "calls": 100,
+        "min": 29235,
+        "mean": 49728,
+        "median": 29235,
+        "max": 542190
+      },
+      "submitEpochRootProof": {
+        "calls": 3,
+        "min": 874800,
+        "mean": 895025,
+        "median": 877195,
+        "max": 933081,
+        "calldata_size": 6308,
+        "calldata_gas": 100928
+      },
+      "aggregate3": {
+        "calls": 100,
+        "min": 362550,
+        "mean": 386141,
+        "median": 384626,
+        "max": 411884
+      }
+    }
+  }
+}

@@ -16,7 +16,7 @@ namespace bb::avm2 {
 struct lookup_tx_read_phase_table_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_READ_PHASE_TABLE";
     static constexpr std::string_view RELATION_NAME = "tx";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 12;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 19;
     static constexpr Column SRC_SELECTOR = Column::tx_start_phase;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_phase;
     static constexpr Column COUNTS = Column::lookup_tx_read_phase_table_counts;
@@ -24,30 +24,44 @@ struct lookup_tx_read_phase_table_settings_ {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::tx_phase_value,
         ColumnAndShifts::tx_is_public_call_request,
-        ColumnAndShifts::tx_is_l2_l1_msg_phase,
         ColumnAndShifts::tx_is_collect_fee,
+        ColumnAndShifts::tx_is_tree_padding,
+        ColumnAndShifts::tx_is_cleanup,
         ColumnAndShifts::tx_is_revertible,
         ColumnAndShifts::tx_read_pi_offset,
         ColumnAndShifts::tx_read_pi_length_offset,
-        ColumnAndShifts::tx_write_pi_offset,
         ColumnAndShifts::tx_sel_non_revertible_append_note_hash,
         ColumnAndShifts::tx_sel_non_revertible_append_nullifier,
+        ColumnAndShifts::tx_sel_non_revertible_append_l2_l1_msg,
         ColumnAndShifts::tx_sel_revertible_append_note_hash,
-        ColumnAndShifts::tx_sel_revertible_append_nullifier
+        ColumnAndShifts::tx_sel_revertible_append_nullifier,
+        ColumnAndShifts::tx_sel_revertible_append_l2_l1_msg,
+        ColumnAndShifts::tx_sel_can_emit_note_hash,
+        ColumnAndShifts::tx_sel_can_emit_nullifier,
+        ColumnAndShifts::tx_sel_can_write_public_data,
+        ColumnAndShifts::tx_sel_can_emit_unencrypted_log,
+        ColumnAndShifts::tx_sel_can_emit_l2_l1_msg
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::precomputed_phase_value,
         ColumnAndShifts::precomputed_is_public_call_request_phase,
-        ColumnAndShifts::precomputed_is_l2_l1_message_phase,
         ColumnAndShifts::precomputed_sel_collect_fee,
+        ColumnAndShifts::precomputed_sel_tree_padding,
+        ColumnAndShifts::precomputed_sel_cleanup,
         ColumnAndShifts::precomputed_is_revertible,
         ColumnAndShifts::precomputed_read_public_input_offset,
         ColumnAndShifts::precomputed_read_public_input_length_offset,
-        ColumnAndShifts::precomputed_write_public_input_offset,
         ColumnAndShifts::precomputed_sel_non_revertible_append_note_hash,
         ColumnAndShifts::precomputed_sel_non_revertible_append_nullifier,
+        ColumnAndShifts::precomputed_sel_non_revertible_append_l2_l1_msg,
         ColumnAndShifts::precomputed_sel_revertible_append_note_hash,
-        ColumnAndShifts::precomputed_sel_revertible_append_nullifier
+        ColumnAndShifts::precomputed_sel_revertible_append_nullifier,
+        ColumnAndShifts::precomputed_sel_revertible_append_l2_l1_msg,
+        ColumnAndShifts::precomputed_sel_can_emit_note_hash,
+        ColumnAndShifts::precomputed_sel_can_emit_nullifier,
+        ColumnAndShifts::precomputed_sel_can_write_public_data,
+        ColumnAndShifts::precomputed_sel_can_emit_unencrypted_log,
+        ColumnAndShifts::precomputed_sel_can_emit_l2_l1_msg
     };
 };
 
@@ -224,7 +238,7 @@ struct lookup_tx_read_l2_l1_msg_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_READ_L2_L1_MSG";
     static constexpr std::string_view RELATION_NAME = "tx";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::tx_is_l2_l1_msg_phase;
+    static constexpr Column SRC_SELECTOR = Column::tx_should_try_l2_l1_msg_append;
     static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
     static constexpr Column COUNTS = Column::lookup_tx_read_l2_l1_msg_counts;
     static constexpr Column INVERSES = Column::lookup_tx_read_l2_l1_msg_inv;
@@ -252,7 +266,7 @@ struct lookup_tx_write_l2_l1_msg_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_WRITE_L2_L1_MSG";
     static constexpr std::string_view RELATION_NAME = "tx";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::tx_successful_msg_emit;
+    static constexpr Column SRC_SELECTOR = Column::tx_should_l2_l1_msg_append;
     static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
     static constexpr Column COUNTS = Column::lookup_tx_write_l2_l1_msg_counts;
     static constexpr Column INVERSES = Column::lookup_tx_write_l2_l1_msg_inv;
@@ -354,6 +368,34 @@ using lookup_tx_balance_slot_poseidon2_settings = lookup_settings<lookup_tx_bala
 template <typename FF_>
 using lookup_tx_balance_slot_poseidon2_relation = lookup_relation_base<FF_, lookup_tx_balance_slot_poseidon2_settings>;
 
+/////////////////// lookup_tx_balance_read ///////////////////
+
+struct lookup_tx_balance_read_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_TX_BALANCE_READ";
+    static constexpr std::string_view RELATION_NAME = "tx";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
+    static constexpr Column SRC_SELECTOR = Column::tx_is_collect_fee;
+    static constexpr Column DST_SELECTOR = Column::public_data_check_sel;
+    static constexpr Column COUNTS = Column::lookup_tx_balance_read_counts;
+    static constexpr Column INVERSES = Column::lookup_tx_balance_read_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::tx_fee_payer_balance,
+        ColumnAndShifts::tx_fee_juice_contract_address,
+        ColumnAndShifts::tx_fee_juice_balance_slot,
+        ColumnAndShifts::tx_prev_public_data_tree_root
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::public_data_check_value,
+        ColumnAndShifts::public_data_check_address,
+        ColumnAndShifts::public_data_check_slot,
+        ColumnAndShifts::public_data_check_root
+    };
+};
+
+using lookup_tx_balance_read_settings = lookup_settings<lookup_tx_balance_read_settings_>;
+template <typename FF_>
+using lookup_tx_balance_read_relation = lookup_relation_base<FF_, lookup_tx_balance_read_settings>;
+
 /////////////////// lookup_tx_balance_validation ///////////////////
 
 struct lookup_tx_balance_validation_settings_ {
@@ -375,5 +417,59 @@ struct lookup_tx_balance_validation_settings_ {
 using lookup_tx_balance_validation_settings = lookup_settings<lookup_tx_balance_validation_settings_>;
 template <typename FF_>
 using lookup_tx_balance_validation_relation = lookup_relation_base<FF_, lookup_tx_balance_validation_settings>;
+
+/////////////////// lookup_tx_balance_update ///////////////////
+
+struct lookup_tx_balance_update_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_TX_BALANCE_UPDATE";
+    static constexpr std::string_view RELATION_NAME = "tx";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 8;
+    static constexpr Column SRC_SELECTOR = Column::tx_is_collect_fee;
+    static constexpr Column DST_SELECTOR = Column::public_data_check_write;
+    static constexpr Column COUNTS = Column::lookup_tx_balance_update_counts;
+    static constexpr Column INVERSES = Column::lookup_tx_balance_update_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::tx_fee_payer_new_balance,      ColumnAndShifts::tx_fee_juice_contract_address,
+        ColumnAndShifts::tx_fee_juice_balance_slot,     ColumnAndShifts::tx_prev_public_data_tree_root,
+        ColumnAndShifts::tx_next_public_data_tree_root, ColumnAndShifts::tx_prev_public_data_tree_size,
+        ColumnAndShifts::tx_next_public_data_tree_size, ColumnAndShifts::tx_uint32_max
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::public_data_check_value,
+        ColumnAndShifts::public_data_check_address,
+        ColumnAndShifts::public_data_check_slot,
+        ColumnAndShifts::public_data_check_root,
+        ColumnAndShifts::public_data_check_write_root,
+        ColumnAndShifts::public_data_check_tree_size_before_write,
+        ColumnAndShifts::public_data_check_tree_size_after_write,
+        ColumnAndShifts::public_data_check_clk
+    };
+};
+
+using lookup_tx_balance_update_settings = lookup_settings<lookup_tx_balance_update_settings_>;
+template <typename FF_>
+using lookup_tx_balance_update_relation = lookup_relation_base<FF_, lookup_tx_balance_update_settings>;
+
+/////////////////// lookup_tx_write_fee_public_inputs ///////////////////
+
+struct lookup_tx_write_fee_public_inputs_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_TX_WRITE_FEE_PUBLIC_INPUTS";
+    static constexpr std::string_view RELATION_NAME = "tx";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::tx_is_collect_fee;
+    static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
+    static constexpr Column COUNTS = Column::lookup_tx_write_fee_public_inputs_counts;
+    static constexpr Column INVERSES = Column::lookup_tx_write_fee_public_inputs_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { ColumnAndShifts::tx_write_pi_offset,
+                                                                                    ColumnAndShifts::tx_fee };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_
+    };
+};
+
+using lookup_tx_write_fee_public_inputs_settings = lookup_settings<lookup_tx_write_fee_public_inputs_settings_>;
+template <typename FF_>
+using lookup_tx_write_fee_public_inputs_relation =
+    lookup_relation_base<FF_, lookup_tx_write_fee_public_inputs_settings>;
 
 } // namespace bb::avm2

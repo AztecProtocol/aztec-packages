@@ -222,7 +222,7 @@ export class EpochCache implements EpochCacheInterface {
     );
   }
 
-  computeProposerIndex(slot: bigint, epoch: bigint, seed: bigint, size: bigint): bigint {
+  public computeProposerIndex(slot: bigint, epoch: bigint, seed: bigint, size: bigint): bigint {
     // if committe size is 0, then mod 1 is 0
     if (size === 0n) {
       return 0n;
@@ -281,6 +281,20 @@ export class EpochCache implements EpochCacheInterface {
 
     const proposerIndex = this.computeProposerIndex(slot, epoch, seed, BigInt(committee.length));
     return committee[Number(proposerIndex)];
+  }
+
+  public getProposerFromEpochCommittee(epochCommitteeInfo: EpochCommitteeInfo, slot: bigint): EthAddress | undefined {
+    if (!epochCommitteeInfo.committee || epochCommitteeInfo.committee.length === 0) {
+      return undefined;
+    }
+    const proposerIndex = this.computeProposerIndex(
+      slot,
+      epochCommitteeInfo.epoch,
+      epochCommitteeInfo.seed,
+      BigInt(epochCommitteeInfo.committee.length),
+    );
+
+    return epochCommitteeInfo.committee[Number(proposerIndex)];
   }
 
   /** Check if a validator is in the given slot's committee */

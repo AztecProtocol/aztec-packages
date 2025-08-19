@@ -1,5 +1,6 @@
 ---
 title: Developer Environment
+description: Reference documentation for the Aztec development environment.
 tags: [sandbox]
 sidebar_position: 0
 ---
@@ -16,4 +17,4 @@ The current sandbox does not generate or verify proofs, but provides a working e
 
 ## Command line tools
 
-Aztec-nargo and aztec CLI are command-line tool allowing you to compile smart contracts. See the [compiling contracts guide](../../guides/local_env/run_more_than_one_pxe_sandbox.md) for more information.
+Aztec-nargo and aztec CLI are command-line tools allowing you to compile smart contracts. See the [compiling contracts guide](../../guides/smart_contracts/how_to_compile_contract.md) for more information.

@@ -27,6 +27,8 @@ enum TransactionPhase {
     APP_LOGIC = 8,
     TEARDOWN = 9,
     COLLECT_GAS_FEES = 10,
+    TREE_PADDING = 11,
+    CLEANUP = 12,
 };
 
 using InternalCallId = uint32_t;
@@ -308,6 +310,13 @@ struct TreeStates {
     TreeState publicDataTree;
 
     bool operator==(const TreeStates& other) const = default;
+};
+
+struct SideEffectStates {
+    uint32_t numUnencryptedLogs;
+    uint32_t numL2ToL1Messages;
+
+    bool operator==(const SideEffectStates& other) const = default;
 };
 
 } // namespace bb::avm2

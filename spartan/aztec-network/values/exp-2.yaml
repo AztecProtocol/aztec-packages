@@ -60,10 +60,6 @@ bot:
   enabled: true
   txIntervalSeconds: 1
 
-jobs:
-  deployL1Verifier:
-    enable: false
-
 ethereum:
   execution:
     resources:

@@ -69,7 +69,6 @@ void Polynomial<Fr>::allocate_backing_memory(size_t size, size_t virtual_size, s
  */
 template <typename Fr> Polynomial<Fr>::Polynomial(size_t size, size_t virtual_size, size_t start_index)
 {
-    PROFILE_THIS_NAME("polynomial allocation with zeroing");
 
     allocate_backing_memory(size, virtual_size, start_index);
 
@@ -96,7 +95,6 @@ template <typename Fr> Polynomial<Fr>::Polynomial(size_t size, size_t virtual_si
 template <typename Fr>
 Polynomial<Fr>::Polynomial(size_t size, size_t virtual_size, size_t start_index, [[maybe_unused]] DontZeroMemory flag)
 {
-    PROFILE_THIS_NAME("polynomial allocation without zeroing");
     allocate_backing_memory(size, virtual_size, start_index);
 }
 

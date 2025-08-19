@@ -310,14 +310,15 @@ void PrecomputedTraceBuilder::process_to_radix_safe_limbs(TraceContainer& trace)
 
     auto p_limbs_per_radix = get_p_limbs_per_radix();
 
-    trace.reserve_column(C::precomputed_sel_to_radix_safe_limbs, p_limbs_per_radix.size());
+    trace.reserve_column(C::precomputed_sel_to_radix_p_limb_counts, p_limbs_per_radix.size());
     trace.reserve_column(C::precomputed_to_radix_safe_limbs, p_limbs_per_radix.size());
 
     for (size_t i = 0; i < p_limbs_per_radix.size(); ++i) {
         size_t decomposition_len = p_limbs_per_radix[i].size();
         if (decomposition_len > 0) {
-            trace.set(C::precomputed_sel_to_radix_safe_limbs, static_cast<uint32_t>(i), 1);
+            trace.set(C::precomputed_sel_to_radix_p_limb_counts, static_cast<uint32_t>(i), 1);
             trace.set(C::precomputed_to_radix_safe_limbs, static_cast<uint32_t>(i), decomposition_len - 1);
+            trace.set(C::precomputed_to_radix_num_limbs_for_p, static_cast<uint32_t>(i), decomposition_len);
         }
     }
 }
@@ -381,7 +382,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
 
                       { C::precomputed_read_public_input_offset, nr_nullifiers.read_pi_offset },
                       { C::precomputed_read_public_input_length_offset, nr_nullifiers.read_pi_length_offset },
-                      { C::precomputed_write_public_input_offset, nr_nullifiers.write_pi_offset },
+                      { C::precomputed_sel_can_emit_nullifier, 1 },
                   },
               });
     // Non Revertible Note Hash
@@ -395,7 +396,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
 
                       { C::precomputed_read_public_input_offset, nr_note_hash.read_pi_offset },
                       { C::precomputed_read_public_input_length_offset, nr_note_hash.read_pi_length_offset },
-                      { C::precomputed_write_public_input_offset, nr_note_hash.write_pi_offset },
+                      { C::precomputed_sel_can_emit_note_hash, 1 },
                   },
               });
     // Non Revertible L2 to L1 Messages
@@ -405,11 +406,11 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
                   {
                       { C::precomputed_sel_phase, 1 },
                       { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::NR_L2_TO_L1_MESSAGE) },
-                      { C::precomputed_is_l2_l1_message_phase, 1 },
+                      { C::precomputed_sel_non_revertible_append_l2_l1_msg, 1 },
 
                       { C::precomputed_read_public_input_offset, nr_l2_to_l1_msgs.read_pi_offset },
                       { C::precomputed_read_public_input_length_offset, nr_l2_to_l1_msgs.read_pi_length_offset },
-                      { C::precomputed_write_public_input_offset, nr_l2_to_l1_msgs.write_pi_offset },
+                      { C::precomputed_sel_can_emit_l2_l1_msg, 1 },
                   },
               });
     // Setup
@@ -423,7 +424,11 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
 
                       { C::precomputed_read_public_input_offset, setup.read_pi_offset },
                       { C::precomputed_read_public_input_length_offset, setup.read_pi_length_offset },
-                      { C::precomputed_write_public_input_offset, setup.write_pi_offset },
+                      { C::precomputed_sel_can_emit_note_hash, 1 },
+                      { C::precomputed_sel_can_emit_nullifier, 1 },
+                      { C::precomputed_sel_can_write_public_data, 1 },
+                      { C::precomputed_sel_can_emit_unencrypted_log, 1 },
+                      { C::precomputed_sel_can_emit_l2_l1_msg, 1 },
                   },
               });
     // Revertible Nullifiers
@@ -439,7 +444,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
 
                       { C::precomputed_read_public_input_offset, r_nullifiers.read_pi_offset },
                       { C::precomputed_read_public_input_length_offset, r_nullifiers.read_pi_length_offset },
-                      { C::precomputed_write_public_input_offset, r_nullifiers.write_pi_offset },
+                      { C::precomputed_sel_can_emit_nullifier, 1 },
                   },
               });
     // Revertible Note Hash
@@ -455,7 +460,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
 
                       { C::precomputed_read_public_input_offset, r_note_hash.read_pi_offset },
                       { C::precomputed_read_public_input_length_offset, r_note_hash.read_pi_length_offset },
-                      { C::precomputed_write_public_input_offset, r_note_hash.write_pi_offset },
+                      { C::precomputed_sel_can_emit_note_hash, 1 },
                   },
               });
     // Revertible L2 to L1 Messages
@@ -465,13 +470,13 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
                   {
                       { C::precomputed_sel_phase, 1 },
                       { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::R_L2_TO_L1_MESSAGE) },
-                      { C::precomputed_is_l2_l1_message_phase, 1 },
+                      { C::precomputed_sel_revertible_append_l2_l1_msg, 1 },
                       { C::precomputed_is_revertible, 1 },
                       { C::precomputed_next_phase_on_revert, static_cast<uint8_t>(TransactionPhase::TEARDOWN) },
 
                       { C::precomputed_read_public_input_offset, r_l2_to_l1_msgs.read_pi_offset },
                       { C::precomputed_read_public_input_length_offset, r_l2_to_l1_msgs.read_pi_length_offset },
-                      { C::precomputed_write_public_input_offset, r_l2_to_l1_msgs.write_pi_offset },
+                      { C::precomputed_sel_can_emit_l2_l1_msg, 1 },
                   },
               });
     // App Logic
@@ -487,7 +492,11 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
 
                       { C::precomputed_read_public_input_offset, app_logic.read_pi_offset },
                       { C::precomputed_read_public_input_length_offset, app_logic.read_pi_length_offset },
-                      { C::precomputed_write_public_input_offset, app_logic.write_pi_offset },
+                      { C::precomputed_sel_can_emit_note_hash, 1 },
+                      { C::precomputed_sel_can_emit_nullifier, 1 },
+                      { C::precomputed_sel_can_write_public_data, 1 },
+                      { C::precomputed_sel_can_emit_unencrypted_log, 1 },
+                      { C::precomputed_sel_can_emit_l2_l1_msg, 1 },
                   },
               });
     // Teardown
@@ -503,7 +512,11 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
 
                       { C::precomputed_read_public_input_offset, teardown.read_pi_offset },
                       { C::precomputed_read_public_input_length_offset, teardown.read_pi_length_offset },
-                      { C::precomputed_write_public_input_offset, teardown.write_pi_offset },
+                      { C::precomputed_sel_can_emit_note_hash, 1 },
+                      { C::precomputed_sel_can_emit_nullifier, 1 },
+                      { C::precomputed_sel_can_write_public_data, 1 },
+                      { C::precomputed_sel_can_emit_unencrypted_log, 1 },
+                      { C::precomputed_sel_can_emit_l2_l1_msg, 1 },
                   },
               });
     // TODO: Complete Collect Gas Fee and Pad Tree phases
@@ -518,7 +531,29 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
 
                       { C::precomputed_read_public_input_offset, pay_gas.read_pi_offset },
                       { C::precomputed_read_public_input_length_offset, pay_gas.read_pi_length_offset },
-                      { C::precomputed_write_public_input_offset, pay_gas.write_pi_offset },
+                      { C::precomputed_sel_can_write_public_data, 1 },
+                  },
+              });
+
+    trace.set(10,
+              {
+                  {
+                      { C::precomputed_sel_phase, 1 },
+                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::TREE_PADDING) },
+                      { C::precomputed_sel_tree_padding, 1 },
+                      { C::precomputed_is_revertible, 0 },
+                      { C::precomputed_sel_can_emit_note_hash, 1 },
+                      { C::precomputed_sel_can_emit_nullifier, 1 },
+                  },
+              });
+
+    trace.set(11,
+              {
+                  {
+                      { C::precomputed_sel_phase, 1 },
+                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::CLEANUP) },
+                      { C::precomputed_sel_cleanup, 1 },
+                      { C::precomputed_is_revertible, 0 },
                   },
               });
 }

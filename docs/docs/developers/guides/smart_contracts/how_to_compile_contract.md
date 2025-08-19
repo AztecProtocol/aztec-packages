@@ -1,7 +1,8 @@
 ---
-title: How to Compile a Contract
-sidebar_position: 3
+title: Compiling a Contract
+sidebar_position: 1
 tags: [contracts]
+description: Learn how to compile your Noir smart contracts for deployment on Aztec.
 ---
 
 Once you have written a contract in Aztec.nr, you will need to compile it into an artifact in order to use it.

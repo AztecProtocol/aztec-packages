@@ -84,6 +84,10 @@ export class EpochProvingJob implements Traceable {
     return this.data.txs;
   }
 
+  private get attestations() {
+    return this.data.attestations;
+  }
+
   /**
    * Proves the given epoch and submits the proof to L1.
    */
@@ -96,6 +100,7 @@ export class EpochProvingJob implements Traceable {
       await this.scheduleEpochCheck();
     }
 
+    const attestations = this.attestations.map(attestation => attestation.toViem());
     const epochNumber = Number(this.epochNumber);
     const epochSizeBlocks = this.blocks.length;
     const epochSizeTxs = this.blocks.reduce((total, current) => total + current.body.txEffects.length, 0);
@@ -120,7 +125,7 @@ export class EpochProvingJob implements Traceable {
 
       const finalBlobBatchingChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(allBlobs);
       this.prover.startNewEpoch(epochNumber, fromBlock, epochSizeBlocks, finalBlobBatchingChallenges);
-      await this.prover.startTubeCircuits(this.txs);
+      await this.prover.startTubeCircuits(Array.from(this.txs.values()));
 
       await asyncPool(this.config.parallelBlockLimit ?? 32, this.blocks, async block => {
         this.checkState();
@@ -168,6 +173,7 @@ export class EpochProvingJob implements Traceable {
       this.log.info(`Finalised proof for epoch ${epochNumber}`, { epochNumber, uuid: this.uuid, duration: timer.ms() });
 
       this.progressState('publishing-proof');
+
       const success = await this.publisher.submitEpochProof({
         fromBlock,
         toBlock,
@@ -175,6 +181,7 @@ export class EpochProvingJob implements Traceable {
         publicInputs,
         proof,
         batchedBlobInputs,
+        attestations,
       });
       if (!success) {
         throw new Error('Failed to submit epoch proof to L1');
@@ -300,11 +307,7 @@ export class EpochProvingJob implements Traceable {
   }
 
   private getTxs(block: L2Block): Tx[] {
-    const txHashes = block.body.txEffects.map(tx => tx.txHash.toBigInt());
-    const txsAndHashes = this.txs.map(tx => ({ tx, hash: tx.getTxHash() }));
-    return txsAndHashes
-      .filter(txAndHash => txHashes.includes(txAndHash.hash.toBigInt()))
-      .map(txAndHash => txAndHash.tx);
+    return block.body.txEffects.map(txEffect => this.txs.get(txEffect.txHash.toString())!);
   }
 
   private getL1ToL2Messages(block: L2Block) {

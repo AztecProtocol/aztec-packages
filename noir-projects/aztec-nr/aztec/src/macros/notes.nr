@@ -278,9 +278,11 @@ pub comptime fn custom_note(s: TypeDefinition) -> Quoted {
 comptime fn assert_has_packable(note: TypeDefinition) {
     let packable_constraint =
         quote { crate::protocol_types::traits::Packable }.as_trait_constraint();
+    let note_name = note.name();
+
     assert(
         note.as_type().implements(packable_constraint),
-        "Note must implement Packable trait. Either implement it manually or place #[derive(Packable)] on the note struct before #[note] macro invocation.",
+        f"{note_name} does not implement Packable trait. Either implement it manually or place #[derive(Packable)] on the note struct before #[note] macro invocation.",
     );
 }
 
@@ -298,8 +300,10 @@ comptime fn assert_has_owner(note: TypeDefinition) {
             break;
         }
     }
+    let note_name = note.name();
+
     assert(
         has_owner,
-        "Note must have an 'owner' field. If your notes have no owner, use #[custom_note] insteadof #[note] and implement the NoteHashing trait manually.",
+        f"{note_name} does not have an 'owner' field. If your notes have no owner, use #[custom_note] insteadof #[note] and implement the NoteHashing trait manually.",
     );
 }

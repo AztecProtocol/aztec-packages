@@ -56,6 +56,7 @@ describe('Deployment benchmark', () => {
           it(`${accountType} contract deploys a TokenContract, pays using ${benchmarkingPaymentMethod}`, async () => {
             const paymentMethod = t.paymentMethods[benchmarkingPaymentMethod];
             const options: SimulateMethodOptions = {
+              from: benchysWallet.getAddress(),
               fee: { paymentMethod: await paymentMethod.forWallet(benchysWallet) },
             };
 
@@ -74,7 +75,8 @@ describe('Deployment benchmark', () => {
                 2 + // ContractClassRegistry assert_class_id_is_published + kernel inner
                 2 + // ContractInstanceRegistry publish + kernel inner
                 1 + // Kernel reset
-                1, // Kernel tail
+                1 + // Kernel tail
+                1, // Kernel hiding
             );
 
             if (process.env.SANITY_CHECKS) {

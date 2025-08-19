@@ -4,8 +4,8 @@
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/verifier_commitment_key.hpp"
-#include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
+#include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -228,8 +228,7 @@ TEST_F(IPARecursiveTests, AccumulationAndFullRecursiveVerifier)
 
     // Creates two IPA accumulators and accumulators from the two claims. Also constructs the accumulated h
     // polynomial.
-    auto [output_claim, ipa_proof] =
-        RecursiveIPA::template accumulate(this->ck(), transcript_1, claim_1, transcript_2, claim_2);
+    auto [output_claim, ipa_proof] = RecursiveIPA::accumulate(this->ck(), transcript_1, claim_1, transcript_2, claim_2);
     output_claim.set_public();
     builder.ipa_proof = ipa_proof;
     builder.finalize_circuit(/*ensure_nonzero=*/false);

@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # This script summarises the compilation time for the vm
 # The summary json file is outputted to $BUILD_DIR/avm_compilation_summary.json
-# it takes in two params the preset(e.g. clang16, clang16-dbg) and a target (e.g. bb, vm)
-# it can be called like this => ./analyze_vm_compile_time.sh clang16 bb
+# it takes in two params the preset(e.g. clang20, debug) and a target (e.g. bb, vm)
+# it can be called like this => ./analyze_vm_compile_time.sh clang20 bb
 set -eu
 # So we can glob recursively
 shopt -s globstar
 
-export PRESET="${1:-clang16}"
+export PRESET="${1:-clang20}"
 export TARGET="${2:-vm2}"
 
 BUILD_DIR=build-$PRESET-compiler-profile

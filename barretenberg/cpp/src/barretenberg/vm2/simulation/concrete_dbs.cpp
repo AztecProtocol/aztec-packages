@@ -1,5 +1,6 @@
 #include "barretenberg/vm2/simulation/concrete_dbs.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
 
 namespace bb::avm2::simulation {
@@ -258,6 +259,13 @@ bool MerkleDB::l1_to_l2_msg_exists(uint64_t leaf_index, const FF& msg_hash) cons
         msg_hash, leaf_value, leaf_index, path, raw_merkle_db.get_tree_roots().l1ToL2MessageTree);
 }
 
+void MerkleDB::pad_trees()
+{
+    // The public data tree is not padded.
+    raw_merkle_db.pad_tree(MerkleTreeId::NOTE_HASH_TREE, MAX_NOTE_HASHES_PER_TX - note_hash_counter);
+    raw_merkle_db.pad_tree(MerkleTreeId::NULLIFIER_TREE, MAX_NULLIFIERS_PER_TX - nullifier_counter);
+}
+
 void MerkleDB::create_checkpoint()
 {
     raw_merkle_db.create_checkpoint();
@@ -283,6 +291,11 @@ void MerkleDB::revert_checkpoint()
     for (auto& listener : checkpoint_listeners) {
         listener->on_checkpoint_reverted();
     }
+}
+
+uint32_t MerkleDB::get_checkpoint_id() const
+{
+    return raw_merkle_db.get_checkpoint_id();
 }
 
 } // namespace bb::avm2::simulation

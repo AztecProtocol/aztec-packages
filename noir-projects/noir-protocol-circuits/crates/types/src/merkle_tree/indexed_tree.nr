@@ -89,7 +89,7 @@ where
     }
 
     let empty_subtree_root = calculate_empty_tree_root(SubtreeHeight);
-    let leaf_index_subtree_depth = start_insertion_index >> (SubtreeHeight as u8);
+    let leaf_index_subtree_depth = start_insertion_index >> SubtreeHeight;
 
     assert_check_membership(
         empty_subtree_root,
@@ -103,7 +103,7 @@ where
 
     // Calculate the new root
     // We are inserting a subtree rather than a full tree here
-    let subtree_index = start_insertion_index >> (SubtreeHeight as u8);
+    let subtree_index = start_insertion_index >> SubtreeHeight;
     let new_root = root_from_sibling_path(
         subtree_root,
         subtree_index as Field,

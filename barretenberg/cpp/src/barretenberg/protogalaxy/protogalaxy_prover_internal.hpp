@@ -83,7 +83,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
     using TupleOfTuplesOfUnivariatesNoOptimisticSkipping =
         typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariatesNoOptimisticSkipping<DeciderPKs::NUM>;
 
-    using RelationEvaluations = typename Flavor::TupleOfArraysOfValues;
+    using RelationEvaluations = decltype(create_tuple_of_arrays_of_values<typename Flavor::Relations>());
 
     static constexpr size_t NUM_SUBRELATIONS = DeciderPKs::NUM_SUBRELATIONS;
 
@@ -279,8 +279,6 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                                              const DeciderPKs& keys,
                                              const size_t row_idx)
     {
-        PROFILE_THIS_NAME("PG::extend_univariates");
-
         if constexpr (Flavor::USE_SHORT_MONOMIALS) {
             extended_univariates = std::move(keys.row_to_short_univariates(row_idx));
         } else {
@@ -369,6 +367,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         using ThreadAccumulators = TupleOfTuplesOfUnivariates;
 
         // Construct univariate accumulator containers; one per thread
+        // Note: std::vector will trigger {}-initialization of the contents. Therefore no need to zero the univariates.
         std::vector<ThreadAccumulators> thread_univariate_accumulators(num_threads);
 
         // Distribute the execution trace rows across threads so that each handles an equal number of active rows
@@ -376,8 +375,6 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
         // Accumulate the contribution from each sub-relation
         parallel_for(num_threads, [&](size_t thread_idx) {
-            // Initialize the thread accumulator to 0
-            RelationUtils::zero_univariates(thread_univariate_accumulators[thread_idx]);
             // Construct extended univariates containers; one per thread
             ExtendedUnivariatesType extended_univariates;
 
@@ -419,7 +416,8 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                                                          const UnivariateRelationParameters& relation_parameters,
                                                          const UnivariateSubrelationSeparators& alphas)
     {
-        TupleOfTuplesOfUnivariates accumulators;
+        // Note: {} is required to initialize the tuple contents. Otherwise the univariates contain garbage.
+        TupleOfTuplesOfUnivariates accumulators{};
         return compute_combiner(keys, gate_separators, relation_parameters, alphas, accumulators);
     }
 
@@ -443,8 +441,9 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
             element = element_with_skipping.convert();
         };
 
-        TupleOfTuplesOfUnivariatesNoOptimisticSkipping result;
-        RelationUtils::template apply_to_tuple_of_tuples(result, deoptimise);
+        // Note: {} is required to initialize the tuple contents. Otherwise the univariates contain garbage.
+        TupleOfTuplesOfUnivariatesNoOptimisticSkipping result{};
+        RelationUtils::apply_to_tuple_of_tuples(result, deoptimise);
         return result;
     }
 
@@ -467,7 +466,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
             idx++;
         };
 
-        RelationUtils::template apply_to_tuple_of_tuples(univariate_accumulators, scale_and_sum);
+        RelationUtils::apply_to_tuple_of_tuples(univariate_accumulators, scale_and_sum);
         RelationUtils::zero_univariates(univariate_accumulators);
 
         return result;

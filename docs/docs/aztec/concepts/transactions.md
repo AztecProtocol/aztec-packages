@@ -2,6 +2,7 @@
 title: Transactions
 sidebar_position: 3
 tags: [protocol]
+description: Comprehensive guide to the Aztec transaction lifecycle, covering private execution, PXE interactions, kernel circuits, and the step-by-step process from user request to L1 settlement.
 ---
 
 import Image from '@theme/IdealImage';

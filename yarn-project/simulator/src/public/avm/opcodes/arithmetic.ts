@@ -1,6 +1,7 @@
 import type { AvmContext } from '../avm_context.js';
 import {
   type Field,
+  type IntegralValue,
   type MemoryValue,
   TaggedMemory,
   type TaggedMemoryInterface,
@@ -94,5 +95,23 @@ export class FieldDiv extends ThreeOperandArithmeticInstruction {
   protected override checkTags(memory: TaggedMemoryInterface, aOffset: number, bOffset: number) {
     memory.checkTagsAreSame(aOffset, bOffset);
     memory.checkTag(TypeTag.FIELD, aOffset); // Follows that bOffset has also tag of type Field
+  }
+}
+
+export class Shl extends ThreeOperandArithmeticInstruction {
+  static readonly type: string = 'SHL';
+  static readonly opcode = Opcode.SHL_8; // FIXME: needed for gas.
+
+  protected override compute(a: IntegralValue, b: IntegralValue): IntegralValue {
+    return a.shl(b);
+  }
+}
+
+export class Shr extends ThreeOperandArithmeticInstruction {
+  static readonly type: string = 'SHR';
+  static readonly opcode = Opcode.SHR_8; // FIXME: needed for gas.
+
+  protected override compute(a: IntegralValue, b: IntegralValue): IntegralValue {
+    return a.shr(b);
   }
 }

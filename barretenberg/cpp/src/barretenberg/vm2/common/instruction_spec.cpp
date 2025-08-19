@@ -431,6 +431,34 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
                              .add_inputs({ /*a*/ RegisterInfo::ANY_TAG,
                                            /*b*/ RegisterInfo::ANY_TAG })
                              .add_output(/*c*/) } },
+    { ExecutionOpCode::SUB,
+      { .num_addresses = 3,
+        .gas_cost = { .opcode_gas = AVM_SUB_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo()
+                             .add_inputs({ /*a*/ RegisterInfo::ANY_TAG,
+                                           /*b*/ RegisterInfo::ANY_TAG })
+                             .add_output(/*c*/) } },
+    { ExecutionOpCode::MUL,
+      { .num_addresses = 3,
+        .gas_cost = { .opcode_gas = AVM_MUL_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo()
+                             .add_inputs({ /*a*/ RegisterInfo::ANY_TAG,
+                                           /*b*/ RegisterInfo::ANY_TAG })
+                             .add_output(/*c*/) } },
+    { ExecutionOpCode::DIV,
+      { .num_addresses = 3,
+        .gas_cost = { .opcode_gas = AVM_DIV_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo()
+                             .add_inputs({ /*a*/ RegisterInfo::ANY_TAG,
+                                           /*b*/ RegisterInfo::ANY_TAG })
+                             .add_output(/*c*/) } },
+    { ExecutionOpCode::FDIV,
+      { .num_addresses = 3,
+        .gas_cost = { .opcode_gas = AVM_FDIV_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo()
+                             .add_inputs({ /*a*/ ValueTag::FF,
+                                           /*b*/ ValueTag::FF })
+                             .add_output(/*c*/) } },
     { ExecutionOpCode::EQ,
       { .num_addresses = 3,
         .gas_cost = { .opcode_gas = AVM_EQ_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
@@ -479,6 +507,14 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
                                                      /*da_gas*/ ValueTag::U32,
                                                      /*contract_address*/ ValueTag::FF,
                                                      /*cd_size*/ ValueTag::U32 }) } },
+    { ExecutionOpCode::STATICCALL,
+      { .num_addresses = 5,
+        .gas_cost = { .opcode_gas = AVM_STATICCALL_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo().add_inputs({ /*l2_gas*/ ValueTag::U32,
+                                                     /*da_gas*/ ValueTag::U32,
+                                                     /*contract_address*/ ValueTag::FF,
+                                                     /*cd_size*/ ValueTag::U32 }) } },
+
     { ExecutionOpCode::RETURN,
       { .num_addresses = 2,
         .gas_cost = { .opcode_gas = AVM_RETURN_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
@@ -504,7 +540,7 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
         .gas_cost = { .opcode_gas = AVM_SUCCESSCOPY_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
         .register_info = RegisterInfo().add_output(/*dst*/) } },
     { ExecutionOpCode::RETURNDATACOPY,
-      { .num_addresses = 2,
+      { .num_addresses = 3,
         .gas_cost = { .opcode_gas = AVM_RETURNDATACOPY_BASE_L2_GAS,
                       .base_da = 0,
                       .dyn_l2 = AVM_RETURNDATACOPY_DYN_L2_GAS,
@@ -622,7 +658,53 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
                                                      /*q_x*/ ValueTag::FF,
                                                      /*q_y*/ ValueTag::FF,
                                                      /*q_inf*/ ValueTag::U1 }) } },
+    { ExecutionOpCode::TORADIXBE,
+      { .num_addresses = 5,
+        .gas_cost = { .opcode_gas = AVM_TORADIXBE_BASE_L2_GAS,
+                      .base_da = 0,
+                      .dyn_l2 = AVM_TORADIXBE_DYN_L2_GAS,
+                      .dyn_da = 0 },
+        .dyn_gas_id = AVM_DYN_GAS_ID_TORADIX,
+        .register_info = RegisterInfo().add_inputs({ /*value*/ ValueTag::FF,
+                                                     /*radix*/ ValueTag::U32,
+                                                     /*num_limbs*/ ValueTag::U32,
+                                                     /*is_output_bit*/ ValueTag::U1 }) } },
+    { ExecutionOpCode::EMITUNENCRYPTEDLOG,
+      { .num_addresses = 2,
+        .gas_cost = { .opcode_gas = AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS,
+                      .base_da = 0,
+                      .dyn_l2 = 0,
+                      .dyn_da = AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS },
+        .dyn_gas_id = AVM_DYN_GAS_ID_EMITUNENCRYPTEDLOG,
+        .register_info = RegisterInfo().add_inputs({ RegisterInfo::ANY_TAG, ValueTag::U32 }) } },
+    { ExecutionOpCode::SENDL2TOL1MSG,
+      { .num_addresses = 2,
+        .gas_cost = { .opcode_gas = AVM_SENDL2TOL1MSG_BASE_L2_GAS,
+                      .base_da = AVM_SENDL2TOL1MSG_BASE_DA_GAS,
+                      .dyn_l2 = 0,
+                      .dyn_da = 0 },
+        .register_info = RegisterInfo().add_inputs({ /* recipient */ ValueTag::FF, /* content */ ValueTag::FF }) } },
 
+    {
+        ExecutionOpCode::SHA256COMPRESSION,
+        { .num_addresses = 3,
+          .gas_cost = { .opcode_gas = AVM_SHA256COMPRESSION_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 } },
+    },
+
+    { ExecutionOpCode::SHR,
+      { .num_addresses = 3,
+        .gas_cost = { .opcode_gas = AVM_SHR_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo()
+                             .add_inputs({ /*a*/ RegisterInfo::ANY_TAG,
+                                           /*b*/ RegisterInfo::ANY_TAG })
+                             .add_output(/*c*/) } },
+    { ExecutionOpCode::SHL,
+      { .num_addresses = 3,
+        .gas_cost = { .opcode_gas = AVM_SHL_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo()
+                             .add_inputs({ /*a*/ RegisterInfo::ANY_TAG,
+                                           /*b*/ RegisterInfo::ANY_TAG })
+                             .add_output(/*c*/) } },
 };
 
 } // namespace bb::avm2

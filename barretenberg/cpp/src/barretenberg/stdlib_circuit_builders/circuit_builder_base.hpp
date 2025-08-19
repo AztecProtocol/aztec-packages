@@ -10,9 +10,8 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/honk/execution_trace/gate_data.hpp"
-#include "barretenberg/honk/types/aggregation_object_type.hpp"
+#include "barretenberg/public_input_component/public_component_key.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
-#include "barretenberg/stdlib_circuit_builders/public_component_key.hpp"
 #include <utility>
 
 #include <unordered_map>
@@ -200,13 +199,6 @@ template <typename FF_> class CircuitBuilderBase {
      *
      */
     virtual void update_variable_names(uint32_t index);
-
-    /**
-     * After finishing the circuit can be called for automatic merging
-     * all existing collisions.
-     *
-     */
-    virtual void finalize_variable_names();
 
     /**
      * Export the existing circuit as msgpack compatible buffer.

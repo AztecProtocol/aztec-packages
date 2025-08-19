@@ -56,12 +56,20 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
     return this.proposer.read.EXECUTION_DELAY_IN_ROUNDS();
   }
 
+  public getCurrentRound() {
+    return this.proposer.read.getCurrentRound();
+  }
+
   public computeRound(slot: bigint): Promise<bigint> {
     return this.proposer.read.computeRound([slot]);
   }
 
   public getNonce(proposer: Hex): Promise<bigint> {
     return this.proposer.read.nonces([proposer]);
+  }
+
+  public getInstance() {
+    return this.proposer.read.getInstance();
   }
 
   public async getRoundInfo(
@@ -89,8 +97,15 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
     signerAddress: Hex,
     signer: (msg: TypedDataDefinition) => Promise<Hex>,
   ): Promise<L1TxRequest> {
-    const nonce = await this.getNonce(signerAddress);
-    const signature = await signSignalWithSig(signer, payload, nonce, round, this.address.toString(), chainId);
+    const signature = await signSignalWithSig(
+      signer,
+      payload,
+      await this.getNonce(signerAddress),
+      round,
+      await this.getInstance(),
+      this.address.toString(),
+      chainId,
+    );
     return {
       to: this.address.toString(),
       data: encodeSignalWithSignature(payload, signature),

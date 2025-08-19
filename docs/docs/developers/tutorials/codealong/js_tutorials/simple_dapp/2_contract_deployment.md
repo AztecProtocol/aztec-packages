@@ -1,3 +1,7 @@
+---
+description: "Create, compile, and deploy an Aztec smart contract using aztec-nargo and JavaScript deployment scripts"
+---
+
 # Contract Deployment
 
 To add contracts to your application, we'll start by creating a new `aztec-nargo` project. We'll then compile the contracts, and write a simple script to deploy them to our Sandbox.
@@ -31,7 +35,7 @@ Last, copy-paste the code from the `Token` contract into `contracts/token/main.n
 ### Helper files
 
 :::info
-Remove the `mod test;` line from `contracts/token/src/main.nr` as we will not be using TXE tests in this tutorial.
+Remove the `mod test;` line from `contracts/token/src/main.nr` as we will not be using Noir tests in this tutorial.
 :::
 
 The `Token` contract also requires some helper files. You can view the files [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/app/token_contract/src). Copy the `types.nr` and the `types` folder into `contracts/token/src`.

@@ -63,6 +63,7 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
     void create_checkpoint() override;
     void commit_checkpoint() override;
     void revert_checkpoint() override;
+    uint32_t get_checkpoint_id() const override;
 
     // Constrained.
     FF storage_read(const AztecAddress& contract_address, const FF& slot) const override;
@@ -84,6 +85,8 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
     void siloed_note_hash_write(const FF& note_hash) override;
     void unique_note_hash_write(const FF& note_hash) override;
     bool l1_to_l2_msg_exists(uint64_t leaf_index, const FF& msg_hash) const override;
+
+    void pad_trees() override;
 
     void add_checkpoint_listener(CheckpointNotifiable& listener) { checkpoint_listeners.push_back(&listener); }
 

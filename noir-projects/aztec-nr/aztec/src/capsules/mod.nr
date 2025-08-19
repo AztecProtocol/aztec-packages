@@ -127,7 +127,7 @@ mod test {
 
     #[test]
     unconstrained fn empty_array() {
-        let mut env = TestEnvironment::new();
+        let env = TestEnvironment::new();
         env.private_context(|context| {
             let contract_address = context.this_address();
 
@@ -138,7 +138,7 @@ mod test {
 
     #[test(should_fail_with = "Attempted to read past the length of a CapsuleArray")]
     unconstrained fn empty_array_read() {
-        let mut env = TestEnvironment::new();
+        let env = TestEnvironment::new();
         env.private_context(|context| {
             let contract_address = context.this_address();
 
@@ -149,7 +149,7 @@ mod test {
 
     #[test]
     unconstrained fn array_push() {
-        let mut env = TestEnvironment::new();
+        let env = TestEnvironment::new();
         env.private_context(|context| {
             let contract_address = context.this_address();
 
@@ -163,7 +163,7 @@ mod test {
 
     #[test(should_fail_with = "Attempted to read past the length of a CapsuleArray")]
     unconstrained fn read_past_len() {
-        let mut env = TestEnvironment::new();
+        let env = TestEnvironment::new();
         env.private_context(|context| {
             let contract_address = context.this_address();
 
@@ -176,7 +176,7 @@ mod test {
 
     #[test]
     unconstrained fn array_remove_last() {
-        let mut env = TestEnvironment::new();
+        let env = TestEnvironment::new();
         env.private_context(|context| {
             let contract_address = context.this_address();
 
@@ -191,7 +191,7 @@ mod test {
 
     #[test]
     unconstrained fn array_remove_some() {
-        let mut env = TestEnvironment::new();
+        let env = TestEnvironment::new();
         env.private_context(|context| {
             let contract_address = context.this_address();
 
@@ -216,7 +216,7 @@ mod test {
 
     #[test]
     unconstrained fn array_remove_all() {
-        let mut env = TestEnvironment::new();
+        let env = TestEnvironment::new();
         env.private_context(|context| {
             let contract_address = context.this_address();
 
@@ -236,7 +236,7 @@ mod test {
 
     #[test]
     unconstrained fn for_each_called_with_all_elements() {
-        let mut env = TestEnvironment::new();
+        let env = TestEnvironment::new();
         env.private_context(|context| {
             let contract_address = context.this_address();
             let array = CapsuleArray::at(contract_address, SLOT);
@@ -259,7 +259,7 @@ mod test {
 
     #[test]
     unconstrained fn for_each_remove_some() {
-        let mut env = TestEnvironment::new();
+        let env = TestEnvironment::new();
         env.private_context(|context| {
             let contract_address = context.this_address();
             let array = CapsuleArray::at(contract_address, SLOT);
@@ -282,7 +282,7 @@ mod test {
 
     #[test]
     unconstrained fn for_each_remove_all() {
-        let mut env = TestEnvironment::new();
+        let env = TestEnvironment::new();
         env.private_context(|context| {
             let contract_address = context.this_address();
             let array = CapsuleArray::at(contract_address, SLOT);
@@ -299,7 +299,7 @@ mod test {
 
     #[test]
     unconstrained fn for_each_remove_all_no_copy() {
-        let mut env = TestEnvironment::new();
+        let env = TestEnvironment::new();
         env.private_context(|context| {
             let contract_address = context.this_address();
             let array = CapsuleArray::at(contract_address, SLOT);
@@ -308,8 +308,8 @@ mod test {
             array.push(5);
             array.push(6);
 
-            // We test that the copyCapsule was never called, which is the expensive operation we want to avoid.
-            let mock = std::test::OracleMock::mock("copyCapsule");
+            // We test that the utilityCopyCapsule was never called, which is the expensive operation we want to avoid.
+            let mock = std::test::OracleMock::mock("utilityCopyCapsule");
 
             array.for_each(|index, _| { array.remove(index); });
 

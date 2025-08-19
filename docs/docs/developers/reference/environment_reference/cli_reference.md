@@ -1,5 +1,6 @@
 ---
 title: CLI Reference
+description: Comprehensive reference for the Aztec command-line interface (CLI).
 tags: [sandbox]
 sidebar_position: 2
 ---
@@ -254,7 +255,7 @@ aztec start --port 8081 --pxe --pxe.nodeUrl=$BOOTNODE --pxe.proverEnabled true -
 - `-r, --prover [options]`: Starts the Prover Agent with specified options.
 - `-o, --prover-node [options]`: Starts the Prover Node with specified options.
 - `-p2p, --p2p-bootstrap [options]`: Starts the P2P Bootstrap node with specified options.
-- `-t, --txe [options]`: Starts the TXE (Transaction Execution Environment) with specified options.
+- `-t, --txe [options]`: Starts the TXE (Test eXecution Environment) with specified options.
 - `--faucet [options]`: Starts the Aztec faucet service with specified options.
 - `--sequencer.validator-private-key <value>`: The private key of the validator participating in attestation duties.
 - `--sequencer.disable-validator <value>`: Do not run the validator.

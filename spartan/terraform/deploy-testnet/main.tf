@@ -185,6 +185,11 @@ resource "helm_release" "prover" {
   ]
 
   set {
+    name  = "node.node.env.NODE_HOSTS"
+    value = "${var.RELEASE_PREFIX}-validator-headless.${var.NAMESPACE}.svc.cluster.local"
+  }
+
+  set {
     name  = "global.aztecImage.repository"
     value = split(":", var.AZTEC_DOCKER_IMAGE)[0] # e.g. aztecprotocol/aztec
   }
@@ -426,6 +431,59 @@ resource "helm_release" "archive_node" {
   wait_for_jobs = false
 }
 
+resource "helm_release" "bot" {
+  provider         = helm.gke-cluster
+  name             = "${var.RELEASE_PREFIX}-bot"
+  repository       = "../../"
+  chart            = "aztec-bot"
+  namespace        = var.NAMESPACE
+  create_namespace = true
+  upgrade_install  = true
+
+  values = [
+    file("./values/${var.BOT_VALUES}"),
+  ]
+
+  set {
+    name  = "global.aztecImage.repository"
+    value = split(":", var.AZTEC_DOCKER_IMAGE)[0] # e.g. aztecprotocol/aztec
+  }
+
+  set {
+    name  = "global.aztecImage.tag"
+    value = split(":", var.AZTEC_DOCKER_IMAGE)[1] # e.g. latest
+  }
+
+  set {
+    name  = "global.otelCollectorEndpoint"
+    value = "http://${data.terraform_remote_state.metrics.outputs.otel_collector_ip}:4318"
+  }
+
+  set {
+    name  = "global.useGcloudLogging"
+    value = true
+  }
+
+  set {
+    name  = "bot.nodeUrl"
+    value = "https://${var.RPC_HOSTNAME}"
+  }
+
+  set_list {
+    name  = "global.l1ExecutionUrls"
+    value = local.ethereum_hosts
+  }
+
+  set {
+    name  = "bot.mnemonic"
+    value = data.google_secret_manager_secret_version.mnemonic_latest.secret_data
+  }
+
+  timeout       = 300
+  wait          = false
+  wait_for_jobs = false
+}
+
 data "kubernetes_service" "rpc_admin_svc" {
   depends_on = [helm_release.rpc]
   provider   = kubernetes.gke-cluster
@@ -451,6 +509,65 @@ resource "helm_release" "snapshots" {
   set {
     name  = "snapshots.aztecNodeAdminUrl"
     value = "http://${data.kubernetes_service.rpc_admin_svc.metadata.0.name}.${data.kubernetes_service.rpc_admin_svc.metadata.0.namespace}.svc.cluster.local:8880"
+  }
+
+  timeout       = 300
+  wait          = false
+  wait_for_jobs = false
+}
+
+# temporary node to debug memory usage
+resource "helm_release" "no_p2p_node" {
+  provider         = helm.gke-cluster
+  name             = "${var.RELEASE_PREFIX}-no-p2p"
+  repository       = "../../"
+  chart            = "aztec-node"
+  namespace        = var.NAMESPACE
+  create_namespace = true
+  upgrade_install  = true
+
+  values = [
+    file("./values/testnet-no-p2p-node.yaml"),
+  ]
+
+  set {
+    name  = "global.aztecImage.repository"
+    value = split(":", var.AZTEC_DOCKER_IMAGE)[0] # e.g. aztecprotocol/aztec
+  }
+
+  set {
+    name  = "global.aztecImage.tag"
+    value = split(":", var.AZTEC_DOCKER_IMAGE)[1] # e.g. latest
+  }
+
+  set {
+    name  = "global.otelCollectorEndpoint"
+    value = "http://${data.terraform_remote_state.metrics.outputs.otel_collector_ip}:4318"
+  }
+
+  set {
+    name  = "global.useGcloudLogging"
+    value = true
+  }
+
+  set_list {
+    name  = "global.l1ExecutionUrls"
+    value = local.ethereum_hosts
+  }
+
+  set_list {
+    name  = "global.l1ConsensusUrls"
+    value = local.consensus_hosts
+  }
+
+  set_list {
+    name  = "global.l1ConsensusHostApiKeys"
+    value = local.consensus_api_keys
+  }
+
+  set_list {
+    name  = "global.l1ConsensusHostApiKeyHeaders"
+    value = local.consensus_api_key_headers
   }
 
   timeout       = 300

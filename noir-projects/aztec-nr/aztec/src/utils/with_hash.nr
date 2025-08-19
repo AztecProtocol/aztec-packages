@@ -86,6 +86,11 @@ where
     }
 }
 
+// Note: I don't derive Packable on `WithHash` because `derive_serialize` function does not support setting "N = M"
+// as I do here 3 lines below. This could be worked around by placing the "where" clause directly on the `WithHash`
+// struct, but Jake mentioned that the syntax is not expected to be supported at least until Noir 1.0.
+// Relevant discussion on Slack:
+// https://aztecprotocol.slack.com/archives/C04QF64EDNV/p1752593876160699?thread_ts=1752589887.955379&cid=C04QF64EDNV
 impl<T, let M: u32> Packable for WithHash<T, M>
 where
     T: Packable<N = M>,
@@ -138,7 +143,7 @@ mod test {
 
     #[test]
     unconstrained fn read_uninitialized_value() {
-        let mut env = TestEnvironment::new();
+        let env = TestEnvironment::new();
 
         env.private_context(|context| {
             let result = WithHash::<MockStruct, _>::historical_public_storage_read(
@@ -153,7 +158,7 @@ mod test {
 
     #[test]
     unconstrained fn read_initialized_value() {
-        let mut env = TestEnvironment::new();
+        let env = TestEnvironment::new();
 
         let value = MockStruct { a: 5, b: 3 };
         let value_with_hash = WithHash::new(value);
@@ -172,7 +177,7 @@ mod test {
 
     #[test(should_fail_with = "Non-zero hint for zero hash")]
     unconstrained fn bad_hint_uninitialized_value() {
-        let mut env = TestEnvironment::new();
+        let env = TestEnvironment::new();
 
         env.private_context(|context| {
             let block_header = context.historical_header;
@@ -180,7 +185,7 @@ mod test {
 
             // Mock the oracle to return a non-zero hint/packed value
             let value_packed = MockStruct { a: 1, b: 1 }.pack();
-            let _ = OracleMock::mock("storageRead")
+            let _ = OracleMock::mock("utilityStorageRead")
                 .with_params((
                     address.to_field(), STORAGE_SLOT, block_header.global_variables.block_number,
                     value_packed.len(),
@@ -199,7 +204,7 @@ mod test {
 
     #[test(should_fail_with = "Hint values do not match hash")]
     unconstrained fn bad_hint_initialized_value() {
-        let mut env = TestEnvironment::new();
+        let env = TestEnvironment::new();
 
         env.public_context(|context| {
             // Write the value and hash separately so that the hash is wrong

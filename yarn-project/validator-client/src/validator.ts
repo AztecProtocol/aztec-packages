@@ -1,6 +1,5 @@
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
-import { Buffer32 } from '@aztec/foundation/buffer';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
@@ -12,8 +11,8 @@ import type { P2P, PeerId } from '@aztec/p2p';
 import { AuthRequest, AuthResponse, ReqRespSubProtocol, TxProvider } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import { computeInHashFromL1ToL2Messages } from '@aztec/prover-client/helpers';
+import { Offense } from '@aztec/slasher';
 import {
-  Offense,
   type SlasherConfig,
   WANT_TO_SLASH_EVENT,
   type WantToSlashArgs,
@@ -39,11 +38,12 @@ import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/te
 import { EventEmitter } from 'events';
 import type { TypedDataDefinition } from 'viem';
 
+// import { privateKeyToAccount } from 'viem/accounts';
+
 import type { ValidatorClientConfig } from './config.js';
 import { ValidationService } from './duties/validation_service.js';
 import type { ValidatorKeyStore } from './key_store/interface.js';
-import { LocalKeyStore } from './key_store/local_key_store.js';
-import { Web3SignerKeyStore } from './key_store/web3signer_key_store.js';
+import { NodeKeystoreAdapter } from './key_store/node_keystore_adapter.js';
 import { ValidatorMetrics } from './metrics.js';
 
 // We maintain a set of proposers who have proposed invalid blocks.
@@ -87,7 +87,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   private blockProposalValidator: BlockProposalValidator;
 
-  private proposersOfInvalidBlocks: Set<EthAddress> = new Set();
+  private proposersOfInvalidBlocks: Set<string> = new Set();
 
   protected constructor(
     private blockBuilder: IFullNodeBlockBuilder,
@@ -160,18 +160,21 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   ) {
     let keyStore: ValidatorKeyStore;
 
+    // Option 1: Transparent conversion - everything goes through NodeKeystoreAdapter
     if (config.web3SignerUrl) {
+      // Build adapter directly from Web3Signer info
       const addresses = config.web3SignerAddresses;
       if (!addresses?.length) {
         throw new Error('web3SignerAddresses is required when web3SignerUrl is provided');
       }
-      keyStore = new Web3SignerKeyStore(addresses, config.web3SignerUrl);
+      keyStore = NodeKeystoreAdapter.fromWeb3Signer(config.web3SignerUrl, addresses);
+    } else if (config.validatorPrivateKeys?.getValue().length) {
+      // Build adapter directly from private keys
+      const privateKeys = config.validatorPrivateKeys.getValue();
+      keyStore = NodeKeystoreAdapter.fromPrivateKeys(privateKeys);
     } else {
-      const privateKeys = config.validatorPrivateKeys?.getValue().map(validatePrivateKey);
-      if (!privateKeys?.length) {
-        throw new InvalidValidatorPrivateKeyError();
-      }
-      keyStore = new LocalKeyStore(privateKeys);
+      // No configuration provided - throw error (matches current behavior)
+      throw new InvalidValidatorPrivateKeyError();
     }
 
     const validator = new ValidatorClient(
@@ -228,7 +231,10 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       this.log.info(`Started validator with addresses: ${myAddresses.map(a => a.toString()).join(', ')}`);
     }
     this.epochCacheUpdateLoop.start();
+
+    this.p2pClient.registerThisValidatorAddresses(myAddresses);
     await this.p2pClient.addReqRespSubProtocol(ReqRespSubProtocol.AUTH, this.handleAuthRequest.bind(this));
+
     return Promise.resolve();
   }
 
@@ -459,13 +465,13 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       this.proposersOfInvalidBlocks.delete(this.proposersOfInvalidBlocks.values().next().value!);
     }
 
-    this.proposersOfInvalidBlocks.add(proposer);
+    this.proposersOfInvalidBlocks.add(proposer.toString());
 
     this.emit(WANT_TO_SLASH_EVENT, [
       {
         validator: proposer,
         amount: this.config.slashInvalidBlockPenalty,
-        offense: Offense.INVALID_BLOCK,
+        offense: Offense.BROADCASTED_INVALID_BLOCK_PROPOSAL,
       },
     ]);
   }
@@ -485,7 +491,8 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   public shouldSlash(args: WantToSlashArgs): Promise<boolean> {
     // note we don't check the offence here: we know this person is bad and we're willing to slash up to the max penalty.
     return Promise.resolve(
-      args.amount <= this.config.slashInvalidBlockMaxPenalty && this.proposersOfInvalidBlocks.has(args.validator),
+      args.amount <= this.config.slashInvalidBlockMaxPenalty &&
+        this.proposersOfInvalidBlocks.has(args.validator.toString()),
     );
   }
 
@@ -520,6 +527,13 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     await this.p2pClient.broadcastProposal(proposal);
   }
 
+  async collectOwnAttestations(proposal: BlockProposal): Promise<BlockAttestation[]> {
+    const slot = proposal.payload.header.slotNumber.toBigInt();
+    const inCommittee = await this.epochCache.filterInCommittee(slot, this.keyStore.getAddresses());
+    this.log.debug(`Collecting ${inCommittee.length} self-attestations for slot ${slot}`, { inCommittee });
+    return this.doAttestToProposal(proposal, inCommittee);
+  }
+
   async collectAttestations(proposal: BlockProposal, required: number, deadline: Date): Promise<BlockAttestation[]> {
     // Wait and poll the p2pClient's attestation pool for this block until we have enough attestations
     const slot = proposal.payload.header.slotNumber.toBigInt();
@@ -532,11 +546,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       throw new AttestationTimeoutError(0, required, slot);
     }
 
-    const proposalId = proposal.archive.toString();
-    // adds attestations for all of my addresses locally
-    const inCommittee = await this.epochCache.filterInCommittee(slot, this.keyStore.getAddresses());
-    await this.doAttestToProposal(proposal, inCommittee);
+    await this.collectOwnAttestations(proposal);
 
+    const proposalId = proposal.archive.toString();
     const myAddresses = this.keyStore.getAddresses();
 
     let attestations: BlockAttestation[] = [];
@@ -599,10 +611,4 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   }
 }
 
-function validatePrivateKey(privateKey: string): Buffer32 {
-  try {
-    return Buffer32.fromString(privateKey);
-  } catch {
-    throw new InvalidValidatorPrivateKeyError();
-  }
-}
+// Conversion helpers moved into NodeKeystoreAdapter.

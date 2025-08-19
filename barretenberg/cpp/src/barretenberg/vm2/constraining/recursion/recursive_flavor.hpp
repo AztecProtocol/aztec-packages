@@ -49,9 +49,6 @@ class AvmRecursiveFlavor {
     // and Shplemini
     static constexpr bool USE_PADDING = true;
 
-    // define the containers for storing the contributions from each relation in Sumcheck
-    using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
-
     /**
      * @brief A field element for each entity of the flavor. These entities represent the prover polynomials
      * evaluated at one point.
@@ -87,13 +84,11 @@ class AvmRecursiveFlavor {
             size_t num_frs_FF = stdlib::field_conversion::calc_num_bn254_frs<CircuitBuilder, FF>();
             size_t num_frs_Comm = stdlib::field_conversion::calc_num_bn254_frs<CircuitBuilder, Commitment>();
 
-            this->log_circuit_size = uint64_t(stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
-                                                  builder, elements.subspan(num_frs_read, num_frs_FF))
-                                                  .get_value());
+            this->log_circuit_size = stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
+                builder, elements.subspan(num_frs_read, num_frs_FF));
             num_frs_read += num_frs_FF;
-            this->num_public_inputs = uint64_t(stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
-                                                   builder, elements.subspan(num_frs_read, num_frs_FF))
-                                                   .get_value());
+            this->num_public_inputs = stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
+                builder, elements.subspan(num_frs_read, num_frs_FF));
             num_frs_read += num_frs_FF;
 
             for (Commitment& comm : this->get_all()) {
@@ -103,12 +98,22 @@ class AvmRecursiveFlavor {
             }
         }
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1466): Implement these functions.
-        std::vector<FF> to_field_elements() const override { throw_or_abort("Not implemented yet!"); }
-        FF add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
-                                  [[maybe_unused]] Transcript& transcript) const override
+        std::vector<FF> to_field_elements() const override { throw_or_abort("Not intended to be used."); }
+        FF hash_through_transcript([[maybe_unused]] const std::string& domain_separator,
+                                   [[maybe_unused]] Transcript& transcript) const override
         {
-            throw_or_abort("Not implemented yet!");
+            throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
+        }
+
+        /**
+         * @brief Fixes witnesses of VK to be constants.
+         *
+         */
+        void fix_witness()
+        {
+            for (Commitment& commitment : this->get_all()) {
+                commitment.fix_witness();
+            }
         }
     };
 

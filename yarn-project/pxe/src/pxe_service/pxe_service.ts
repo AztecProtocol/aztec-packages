@@ -214,7 +214,7 @@ export class PXEService implements PXE {
     if (!result) {
       throw new Error(`L2 to L1 message not found in block ${blockNumber}`);
     }
-    return [result.l2MessageIndex, result.siblingPath];
+    return [result.leafIndex, result.siblingPath];
   }
 
   public getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
@@ -356,7 +356,6 @@ export class PXEService implements PXE {
   async #executePrivate(
     contractFunctionSimulator: ContractFunctionSimulator,
     txRequest: TxExecutionRequest,
-    msgSender?: AztecAddress,
     scopes?: AztecAddress[],
   ): Promise<PrivateExecutionResult> {
     const { origin: contractAddress, functionSelector } = txRequest;
@@ -366,7 +365,7 @@ export class PXEService implements PXE {
         txRequest,
         contractAddress,
         functionSelector,
-        msgSender,
+        undefined,
         // The sender for tags is set by contracts, typically by an account
         // contract entrypoint
         undefined, // senderForTags
@@ -757,7 +756,6 @@ export class PXEService implements PXE {
     txRequest: TxExecutionRequest,
     profileMode: 'full' | 'execution-steps' | 'gates',
     skipProofGeneration: boolean = true,
-    msgSender?: AztecAddress,
   ): Promise<TxProfileResult> {
     // We disable concurrent profiles for consistency with simulateTx.
     return this.#putInJobQueue(async () => {
@@ -767,7 +765,6 @@ export class PXEService implements PXE {
           origin: txRequest.origin,
           functionSelector: txRequest.functionSelector,
           simulatePublic: false,
-          msgSender,
           chainId: txRequest.txContext.chainId,
           version: txRequest.txContext.version,
           authWitnesses: txRequest.authWitnesses.map(w => w.requestHash),
@@ -781,7 +778,7 @@ export class PXEService implements PXE {
         const syncTime = syncTimer.ms();
 
         const contractFunctionSimulator = this.#getSimulatorForTx();
-        const privateExecutionResult = await this.#executePrivate(contractFunctionSimulator, txRequest, msgSender);
+        const privateExecutionResult = await this.#executePrivate(contractFunctionSimulator, txRequest);
 
         const { executionSteps, timings: { proving } = {} } = await this.#prove(
           txRequest,
@@ -822,12 +819,7 @@ export class PXEService implements PXE {
         const simulatorStats = contractFunctionSimulator.getStats();
         return new TxProfileResult(executionSteps, { timings, nodeRPCCalls: simulatorStats.nodeRPCCalls });
       } catch (err: any) {
-        throw this.#contextualizeError(
-          err,
-          inspect(txRequest),
-          `profileMode=${profileMode}`,
-          `msgSender=${msgSender?.toString() ?? 'undefined'}`,
-        );
+        throw this.#contextualizeError(err, inspect(txRequest), `profileMode=${profileMode}`);
       }
     });
   }
@@ -851,7 +843,6 @@ export class PXEService implements PXE {
           origin: txRequest.origin,
           functionSelector: txRequest.functionSelector,
           simulatePublic,
-          msgSender: overrides?.msgSender,
           chainId: txRequest.txContext.chainId,
           version: txRequest.txContext.version,
           authWitnesses: txRequest.authWitnesses.map(w => w.requestHash),
@@ -871,12 +862,7 @@ export class PXEService implements PXE {
         const skipKernels = overrides?.contracts !== undefined && Object.keys(overrides.contracts ?? {}).length > 0;
 
         // Execution of private functions only; no proving, and no kernel logic.
-        const privateExecutionResult = await this.#executePrivate(
-          contractFunctionSimulator,
-          txRequest,
-          overrides?.msgSender,
-          scopes,
-        );
+        const privateExecutionResult = await this.#executePrivate(contractFunctionSimulator, txRequest, scopes);
 
         let publicInputs: PrivateKernelTailCircuitPublicInputs | undefined;
         let executionSteps: PrivateExecutionStep[] = [];
@@ -968,7 +954,6 @@ export class PXEService implements PXE {
           err,
           inspect(txRequest),
           `simulatePublic=${simulatePublic}`,
-          `msgSender=${overrides?.msgSender?.toString() ?? 'undefined'}`,
           `skipTxValidation=${skipTxValidation}`,
           `scopes=${scopes?.map(s => s.toString()).join(', ') ?? 'undefined'}`,
         );
