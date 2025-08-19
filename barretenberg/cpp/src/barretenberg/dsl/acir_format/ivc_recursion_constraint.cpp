@@ -141,7 +141,6 @@ ClientIVC::VerifierInputs create_mock_verification_queue_entry(const ClientIVC::
             proof = create_mock_oink_proof<Flavor, AppIO>();
             break;
         case ClientIVC::QUEUE_TYPE::PG:
-        case ClientIVC::QUEUE_TYPE::PG_FINAL:
             proof = create_mock_pg_proof<Flavor, AppIO>();
             break;
         default:
