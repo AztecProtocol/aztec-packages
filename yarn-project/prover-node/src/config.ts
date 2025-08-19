@@ -1,9 +1,11 @@
 import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/config';
 import type { ACVMConfig, BBConfig } from '@aztec/bb-prover/config';
 import { type GenesisStateConfig, genesisStateConfigMappings, getAddressFromPrivateKey } from '@aztec/ethereum';
+import { NULL_KEY } from '@aztec/ethereum';
 import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/fields';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
+import { type KeyStoreConfig, keyStoreConfigMappings } from '@aztec/node-keystore';
 import { type SharedNodeConfig, sharedNodeConfigMappings } from '@aztec/node-lib/config';
 import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
 import {
@@ -22,6 +24,7 @@ import {
   type PublisherConfig,
   type TxSenderConfig,
   getPublisherConfigMappings,
+  getPublisherPrivateKeysFromConfig,
   getTxSenderConfigMappings,
 } from '@aztec/sequencer-client/config';
 import { type WorldStateConfig, worldStateConfigMappings } from '@aztec/world-state/config';
@@ -35,7 +38,8 @@ export type ProverNodeConfig = ArchiverConfig &
   DataStoreConfig &
   SharedNodeConfig &
   SpecificProverNodeConfig &
-  GenesisStateConfig;
+  GenesisStateConfig &
+  KeyStoreConfig;
 
 export type SpecificProverNodeConfig = {
   proverNodeMaxPendingJobs: number;
@@ -102,6 +106,7 @@ export const proverNodeConfigMappings: ConfigMappingsType<ProverNodeConfig> = {
   ...specificProverNodeConfigMappings,
   ...genesisStateConfigMappings,
   ...sharedNodeConfigMappings,
+  ...keyStoreConfigMappings,
 };
 
 export function getProverNodeConfigFromEnv(): ProverNodeConfig {
@@ -122,9 +127,29 @@ export function getProverNodeAgentConfigFromEnv(): ProverAgentConfig & BBConfig 
 }
 
 export function resolveConfig(userConfig: ProverNodeConfig): ProverNodeConfig & ProverClientConfig {
-  const proverId =
-    userConfig.proverId && !userConfig.proverId.isZero()
-      ? userConfig.proverId
-      : Fr.fromHexString(getAddressFromPrivateKey(userConfig.publisherPrivateKey.getValue()));
-  return { ...userConfig, proverId };
+  // Prefer explicit proverId
+  if (userConfig.proverId && !userConfig.proverId.isZero()) {
+    return { ...userConfig, proverId: userConfig.proverId } as ProverNodeConfig & ProverClientConfig;
+  }
+
+  // Derive from multi-EOA publisher keys if available
+  const keys = getPublisherPrivateKeysFromConfig(userConfig);
+  if (keys.length && keys[0]?.getValue() && keys[0].getValue() !== NULL_KEY) {
+    return {
+      ...userConfig,
+      proverId: Fr.fromHexString(getAddressFromPrivateKey(keys[0].getValue())),
+    } as ProverNodeConfig & ProverClientConfig;
+  }
+
+  // Fallback to single publisherPrivateKey if set
+  const pk = userConfig.publisherPrivateKey?.getValue?.();
+  if (pk && pk !== NULL_KEY) {
+    return {
+      ...userConfig,
+      proverId: Fr.fromHexString(getAddressFromPrivateKey(pk)),
+    } as ProverNodeConfig & ProverClientConfig;
+  }
+
+  // Last resort to zero
+  return { ...userConfig, proverId: Fr.ZERO } as ProverNodeConfig & ProverClientConfig;
 }

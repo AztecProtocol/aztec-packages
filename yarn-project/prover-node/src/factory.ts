@@ -2,23 +2,19 @@ import { type Archiver, createArchiver } from '@aztec/archiver';
 import { BBCircuitVerifier, QueuedIVCVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import { EpochCache } from '@aztec/epoch-cache';
-import {
-  L1TxUtils,
-  PublisherManager,
-  RollupContract,
-  type ViemPublicClient,
-  createEthereumChain,
-  createExtendedL1Client,
-  createL1TxUtilsFromViemWallet,
-} from '@aztec/ethereum';
+import { L1TxUtils, PublisherManager, RollupContract, type ViemPublicClient, getPublicClient } from '@aztec/ethereum';
+import { createL1TxUtilsWithBlobsFromEthSigner } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { pick } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
+import { KeystoreManager, LocalSigner, loadKeystores, mergeKeystores } from '@aztec/node-keystore';
 import { trySnapshotSync } from '@aztec/node-lib/actions';
 import { NodeRpcTxSource, createP2PClient } from '@aztec/p2p';
 import { createProverClient } from '@aztec/prover-client';
 import { createAndStartProvingBroker } from '@aztec/prover-client/broker';
+import { getPublisherPrivateKeysFromConfig } from '@aztec/sequencer-client/config';
 import type { AztecNode, ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
 import { P2PClientType } from '@aztec/stdlib/p2p';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
@@ -39,7 +35,7 @@ export type ProverNodeDeps = {
   publisherFactory?: ProverPublisherFactory;
   blobSinkClient?: BlobSinkClientInterface;
   broker?: ProvingJobBroker;
-  l1TxUtils?: L1TxUtils;
+  l1TxUtils?: L1TxUtils[];
   dateProvider?: DateProvider;
 };
 
@@ -79,19 +75,46 @@ export async function createProverNode(
   const broker = deps.broker ?? (await createAndStartProvingBroker(config, telemetry));
   const prover = await createProverClient(config, worldStateSynchronizer, broker, telemetry);
 
-  const { l1RpcUrls: rpcUrls, l1ChainId: chainId, publisherPrivateKey } = config;
-  const chain = createEthereumChain(rpcUrls, chainId);
-  const l1Client = createExtendedL1Client(rpcUrls, publisherPrivateKey.getValue(), chain.chainInfo);
+  const { l1RpcUrls: rpcUrls, l1ChainId: chainId } = config;
+  const publicClient = getPublicClient(config);
 
-  const rollupContract = new RollupContract(l1Client, config.l1Contracts.rollupAddress.toString());
+  const rollupContract = new RollupContract(publicClient, config.l1Contracts.rollupAddress.toString());
 
-  const l1TxUtils = deps.l1TxUtils ?? createL1TxUtilsFromViemWallet(l1Client, log, deps.dateProvider, config);
+  // Build list of L1TxUtils from deps or keystore/env config
+  let l1TxUtilsList: L1TxUtils[];
+  if (deps.l1TxUtils && deps.l1TxUtils.length) {
+    l1TxUtilsList = deps.l1TxUtils;
+  } else if (config.keyStoreDirectory && config.keyStoreDirectory.length) {
+    const merged = mergeKeystores(loadKeystores(config.keyStoreDirectory));
+    const ks = new KeystoreManager(merged);
+    const signers = ks.createProverSigners();
+    if (!signers.length) {
+      throw new Error('No prover publishers configured in keystore');
+    }
+    l1TxUtilsList = signers.map(s =>
+      createL1TxUtilsWithBlobsFromEthSigner(publicClient, s, log, deps.dateProvider, config),
+    );
+  } else {
+    const keys = getPublisherPrivateKeysFromConfig(config);
+    if (!keys.length) {
+      throw new Error('A publisher private key is required');
+    }
+    l1TxUtilsList = keys.map(k =>
+      createL1TxUtilsWithBlobsFromEthSigner(
+        publicClient,
+        new LocalSigner(Buffer32.fromString(k.getValue())),
+        log,
+        deps.dateProvider,
+        config,
+      ),
+    );
+  }
 
   const publisherFactory =
     deps.publisherFactory ??
     new ProverPublisherFactory(config, {
       rollupContract,
-      publisherManager: new PublisherManager([l1TxUtils]),
+      publisherManager: new PublisherManager(l1TxUtilsList),
       telemetry,
     });
 
@@ -143,8 +166,8 @@ export async function createProverNode(
 
   const l1Metrics = new L1Metrics(
     telemetry.getMeter('ProverNodeL1Metrics'),
-    l1TxUtils.client as unknown as ViemPublicClient,
-    [l1TxUtils.getSenderAddress()],
+    publicClient as unknown as ViemPublicClient,
+    l1TxUtilsList.map(x => x.getSenderAddress()),
   );
 
   return new ProverNode(
