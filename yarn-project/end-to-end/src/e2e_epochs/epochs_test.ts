@@ -221,6 +221,7 @@ export class EpochsTestContext {
     const resolvedConfig = { ...this.context.config, ...opts };
     const p2pEnabled = resolvedConfig.p2pEnabled || mockGossipSubNetwork !== undefined;
     const p2pIp = resolvedConfig.p2pIp ?? (p2pEnabled ? '127.0.0.1' : undefined);
+    console.log(`Resolved config for node ${suffix}:`, resolvedConfig);
     const node = await withLogNameSuffix(suffix, () =>
       AztecNodeService.createAndSync(
         {
@@ -243,14 +244,18 @@ export class EpochsTestContext {
       ),
     );
 
-    const l1Client = createExtendedL1Client(opts.l1RpcUrls!, opts.publisherPrivateKey!.getValue());
-
     // REFACTOR: We're getting too much into the internals of the sequencer here.
     // We should have a single method for constructing an aztec node that returns a TestAztecNodeService
     // which directly exposes the delayer and sets any test config.
     if (opts.txDelayerMaxInclusionTimeIntoSlot !== undefined) {
       this.logger.info(
         `Setting tx delayer max inclusion time into slot to ${opts.txDelayerMaxInclusionTimeIntoSlot} seconds`,
+      );
+      // Here we reach into the sequencer and hook in a tx delayer. The problem is that the sequencer's l1 utils only uses a public client, not a wallet.
+      // The delayer needs a wallet (a client that can sign), so we have to create one here.
+      const l1Client = createExtendedL1Client(
+        resolvedConfig.l1RpcUrls!,
+        resolvedConfig.publisherPrivateKey!.getValue(),
       );
       const sequencer = node.getSequencer() as TestSequencerClient;
       const publisher = sequencer.sequencer.publisher;
