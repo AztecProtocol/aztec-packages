@@ -499,9 +499,7 @@ export class PeerManager implements PeerManagerInterface {
   private discover() {
     const connections = this.libP2PNode.getConnections();
 
-    const healthyConnections = this.prioritizePeers(
-      this.pruneUnhealthyPeers(this.getNonProtectedPeers(this.pruneDuplicatePeers(connections))),
-    );
+    const healthyConnections = this.prioritizePeers(this.pruneUnhealthyPeers(this.getNonProtectedPeers(connections)));
 
     // Calculate how many connections we're looking to make
     const protectedPeerCount = this.getProtectedPeerCount();
@@ -621,38 +619,6 @@ export class PeerManager implements PeerManagerInterface {
     } else {
       return connections;
     }
-  }
-
-  /**
-   * If multiple connections to the same peer are found, the oldest connection is kept and the duplicates are pruned.
-   *
-   * This is necessary to resolve a race condition where multiple connections to the same peer are established if
-   * they are discovered at the same time.
-   *
-   * @param connections - The list of connections to prune duplicate peers from.
-   * @returns The pruned list of connections.
-   */
-  private pruneDuplicatePeers(connections: Connection[]): Connection[] {
-    const peerConnections = new Map<string, Connection>();
-
-    for (const conn of connections) {
-      const peerId = conn.remotePeer.toString();
-      const existingConnection = peerConnections.get(peerId);
-      if (!existingConnection) {
-        peerConnections.set(peerId, conn);
-      } else {
-        // Keep the oldest connection for each peer
-        this.logger.debug(`Found duplicate connection to peer ${peerId}, keeping oldest connection`);
-        if (conn.timeline.open < existingConnection.timeline.open) {
-          peerConnections.set(peerId, conn);
-          void existingConnection.close();
-        } else {
-          void conn.close();
-        }
-      }
-    }
-
-    return [...peerConnections.values()];
   }
 
   private async goodbyeAndDisconnectPeer(peer: PeerId, reason: GoodByeReason) {
