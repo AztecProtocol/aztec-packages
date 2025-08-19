@@ -6,6 +6,7 @@ import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {AttesterConfig} from "@aztec/governance/GSE.sol";
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
 import {WithGSE} from "./base.sol";
+import {GSEWithSkip} from "@test/GSEWithSkip.sol";
 
 contract DepositBN254Test is WithGSE {
   using stdStorage for StdStorage;
@@ -23,7 +24,7 @@ contract DepositBN254Test is WithGSE {
 
   function setUp() public override {
     super.setUp();
-    stdstore.target(address(gse)).sig("checkProofOfPossession()").checked_write(true);
+    GSEWithSkip(address(gse)).setCheckProofOfPossession(true);
     // See yarn-project/ethereum/src/test/bn254_registration.test.ts for construction of pk2
     // Prefilling here, and the rest of the data will be generated using the helper
     // generateProofsOfPossession()

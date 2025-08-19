@@ -19,6 +19,7 @@ import {Test} from "forge-std/Test.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {CoinIssuer} from "@aztec/governance/CoinIssuer.sol";
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
+import {GSEWithSkip} from "@test/GSEWithSkip.sol";
 
 // Stack the layers to avoid the stack too deep 🧌
 struct ConfigFlags {
@@ -228,12 +229,11 @@ contract RollupBuilder is Test {
     }
 
     if (address(config.gse) == address(0)) {
-      config.gse =
-        new GSE(address(this), config.testERC20, TestConstants.ACTIVATION_THRESHOLD, TestConstants.EJECTION_THRESHOLD);
-
-      stdstore.target(address(config.gse)).sig("checkProofOfPossession()").checked_write(
-        config.flags.checkProofOfPossession
+      config.gse = new GSEWithSkip(
+        address(this), config.testERC20, TestConstants.ACTIVATION_THRESHOLD, TestConstants.EJECTION_THRESHOLD
       );
+
+      GSEWithSkip(address(config.gse)).setCheckProofOfPossession(config.flags.checkProofOfPossession);
     }
 
     if (address(config.registry) == address(0)) {
