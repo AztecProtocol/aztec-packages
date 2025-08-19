@@ -108,7 +108,7 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
     // Input commitments to be passed to the merge recursive verification
     MergeCommitments merge_commitments;
     merge_commitments.T_prev_commitments = T_prev_commitments;
-
+    info("the queue type is:", static_cast<uint>(verifier_inputs.type));
     switch (verifier_inputs.type) {
     case QUEUE_TYPE::PG_TAIL:
     case QUEUE_TYPE::PG: {
@@ -517,9 +517,9 @@ ClientIVC::Proof ClientIVC::prove()
 
     // A transcript is shared between the Hiding circuit prover and the Goblin prover
     goblin.transcript = transcript;
-
+    auto goblin_proof = goblin.prove();
     // Prove ECCVM and Translator
-    return { mega_proof, goblin.prove() };
+    return { mega_proof, goblin_proof };
 };
 
 bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
