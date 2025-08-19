@@ -71,7 +71,8 @@ class Goblin {
      *
      * @param transcript
      */
-    void prove_merge(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+    void prove_merge(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
+                     const MergeSettings merge_settings = MergeSettings::PREPEND);
 
     /**
      * @brief Construct an ECCVM proof and the translation polynomial evaluations
@@ -89,7 +90,7 @@ class Goblin {
      *
      * @return Proof
      */
-    GoblinProof prove();
+    GoblinProof prove(const MergeSettings merge_settings = MergeSettings::PREPEND);
 
     /**
      * @brief Recursively verify the next merge proof in the merge verification queue.
@@ -98,12 +99,14 @@ class Goblin {
      * @param builder The circuit in which the recursive verification will be performed.
      * @param inputs_commitments The commitment used by the Merge verifier
      * @param transcript The transcript to be passed to the MergeRecursiveVerifier.
+     * @param merge_settings How the most recent ecc op subtable is going to be merged into the table of ecc ops
      * @return Pair of PairingPoints and commitments to the merged tables as read from the proof by the Merge verifier
      */
     std::pair<PairingPoints, RecursiveTableCommitments> recursively_verify_merge(
         MegaBuilder& builder,
         const RecursiveMergeCommitments& merge_commitments,
-        const std::shared_ptr<RecursiveTranscript>& transcript);
+        const std::shared_ptr<RecursiveTranscript>& transcript,
+        const MergeSettings merge_settings = MergeSettings::PREPEND);
 
     /**
      * @brief Verify a full Goblin proof (ECCVM, Translator, merge)
@@ -112,13 +115,14 @@ class Goblin {
      * @param inputs_commitments The commitments used by the Merge verifier
      * @param merged_table_commitment The commitment to the merged table as read from the proof
      * @param transcript
-     *
+     * @param merge_settings How the most recent ecc op subtable is going to be merged into the table of ecc ops
      * @return Pair of verification result and commitments to the merged tables as read from the proof by the Merge
      * verifier
      */
     static bool verify(const GoblinProof& proof,
                        const MergeCommitments& merge_commitments,
-                       const std::shared_ptr<Transcript>& transcript);
+                       const std::shared_ptr<Transcript>& transcript,
+                       const MergeSettings merge_settings = MergeSettings::PREPEND);
 };
 
 } // namespace bb
