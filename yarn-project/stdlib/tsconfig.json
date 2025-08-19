@@ -19,5 +19,5 @@
       "path": "../foundation"
     }
   ],
-  "include": ["src", "../ethereum/src/eth-signer"]
+  "include": ["src"]
 }
