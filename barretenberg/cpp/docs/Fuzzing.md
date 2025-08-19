@@ -46,6 +46,7 @@ The `run.sh` script supports several configuration options:
 To build with standard clang:
 
 ```bash
+sudo apt-get install libclang-rt-18-dev
 cmake --preset fuzzing
 cmake --build --preset fuzzing
 ```
@@ -125,8 +126,8 @@ Also, both bigfield and safeuint fuzzer containt the SHOW_INFORMATION preprocess
 Build with coverage instrumentation:
 
 ```bash
-cmake --preset clang16-coverage -DFUZZING=ON
-cmake --build --preset clang16-coverage
+cmake --preset clang20-coverage -DFUZZING=ON
+cmake --build --preset clang20-coverage
 ```
 
 Then run the fuzzer on the corpus and generate the HTML coverage reports:
