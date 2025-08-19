@@ -147,12 +147,10 @@ RUN wget https://apt.llvm.org/llvm.sh && \
     rm llvm.sh
 
 # Install wasi-sdk.
-RUN arch=$(uname -m) && \
-    if [ "$arch" = "aarch64" ]; then arch="arm64"; fi && \
-    wget https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-27/wasi-sdk-27.0-${arch}-linux.tar.gz && \
-    tar xvf wasi-sdk-27.0-${arch}-linux.tar.gz && \
-    mv wasi-sdk-27.0-${arch}-linux /opt/wasi-sdk && \
-    rm wasi-sdk-27.0-${arch}-linux.tar.gz
+RUN wget https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-27/wasi-sdk-27.0-x86_64-linux.tar.gz && \
+    tar xvf wasi-sdk-27.0-x86_64-linux.tar.gz && \
+    mv wasi-sdk-27.0-x86_64-linux /opt/wasi-sdk && \
+    rm wasi-sdk-27.0-x86_64-linux.tar.gz
 
 # Install foundry.
 COPY --from=foundry /opt/foundry /opt/foundry

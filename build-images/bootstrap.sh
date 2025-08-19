@@ -105,11 +105,12 @@ case "$cmd" in
     build_ec2 64 arm64
     ;;
   "deploy")
-    git diff --quiet && git diff --cached --quiet || { echo "Uncommitted changes detected. Please commit or stash them before deploying."; exit 1; }
     docker_login
     build_all
     update_manifests
-    parallel --tag --line-buffer ARCH={} $ci3/aws/ami_update.sh ::: amd64 arm64
+    ;;
+  "amis")
+      parallel --tag --line-buffer ARCH={} $ci3/aws/ami_update.sh ::: amd64 arm64
     ;;
   *)
     echo "Unknown command: $cmd"
