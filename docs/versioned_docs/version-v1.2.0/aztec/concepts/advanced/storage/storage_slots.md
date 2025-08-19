@@ -1,5 +1,6 @@
 ---
 title: Storage Slots
+description: Learn how Aztec manages public and private storage slots, siloing data by contract address to maintain privacy and prevent cross-contract data collisions.
 tags: [storage, concepts, advanced]
 sidebar_position: 1
 ---

@@ -1,5 +1,6 @@
 ---
 title: Calling Other Contracts
+description: Learn how to call functions within your Aztec smart contracts.
 sidebar_position: 4
 tags: [functions, contracts]
 ---

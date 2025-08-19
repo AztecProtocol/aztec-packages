@@ -1,5 +1,6 @@
 ---
 title: Data Structures
+description: Learn about the data structures used in Aztec portals for L1-L2 communication.
 ---
 
 The `DataStructures` are structs that we are using throughout the message infrastructure and registry.

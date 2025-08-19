@@ -2,6 +2,7 @@
 title: Understanding Function Context
 sidebar_position: 1
 tags: [functions, context]
+description: Learn about the execution context available to Aztec contract functions, including caller information and block data.
 ---
 
 import Image from '@theme/IdealImage';
