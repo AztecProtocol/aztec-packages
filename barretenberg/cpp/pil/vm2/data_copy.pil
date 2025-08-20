@@ -6,13 +6,33 @@ include "range_check.pil";
 include "context.pil";
 
 /** This trace handles CALLDATACOPY and RETURNDATACOPY
- * The data_copy gadget handles CALLDATACOPY (both enqueued and nested) and RETURNDATACOPY
+ * The data_copy gadget handles CALLDATACOPY and RETURNDATACOPY (both enqueued and nested)
+ *
+ * Opcode operands (relevant in EXECUTION when interacting with this gadget):
+ * - register[0]: copy_size
+ * - register[1]: copy_offset
+ * - rop[2]: dst_addr
+ *
+ * Memory I/O, this subtrace can potentially read and write across two different memory space ids (indicated by the context_ids)
+ * All reads are performed in the src context (using the src_context_id) and writes are performed in the current executing
+ * context (using dst_context_id).
+ * - M[src_addr]: aka value[0] (the first value read from the src context)
+ *     - the memory tag is ignored for these reads
+ * - M[src_addr + max_read_index]: aka value[max_read_index] (the last value read from the src context)
+ *     - max_read_index is derived from the copy_size, see pil relations for an explanation
+ *     - the memory tag is ignored for these reads
+ * - M[dst_addr]: aka output[0] (the first value written to the dst context)
+ *     - guaranteed by this gadget to be FF
+ * - M[dst_addr + copy_size]: aka output[copy_size] (the last value written to the dst context)
+ *     - guaranteed by this gadget to be FF
+ *
  * ERROR HANDLING:
  * There is one potential errors that is checked: memory out of range accesses
  * If there are no errors, we read and write the calldata/returndata from the parent/child context to the current context
  * COMPUTING AMOUNT OF DATA TO READ
  * We need to ensure that we do not read outside the bounds designated by the parent/child context for their respective data.
  * this max_read_index is computed via min(data_size, copy_size + copy_offset).
+ *
  * READING / WRITING DATA
  * At each row, the i-th data is simultaneously read from the parent/child and written into the current context
  * For top level calldatacopy, the data is retrieved from the calldata column.
@@ -104,20 +124,8 @@ namespace data_copy;
     pol commit clk;
 
     // Things are range checked to 32 bits
-    pol commit thirty_two;
+    pol commit thirty_two; // todo: while we do not support constants in lookups
     SEL * (thirty_two - 32) = 0;
-
-    //////////////////////////////
-    // Error Flags
-    //////////////////////////////
-    pol commit src_out_of_range_err; // Read slices should be in MEM range
-    src_out_of_range_err * (1 - src_out_of_range_err) = 0;
-    pol commit dst_out_of_range_err; // Write slices should be in MEM range
-    dst_out_of_range_err * (1 - dst_out_of_range_err) = 0;
-
-    // Consolidate the errors
-    pol commit err;
-    err = 1 - (1 - dst_out_of_range_err) * (1 - src_out_of_range_err);
 
     ///////////////////////////////
     // Inputs from execution trace
@@ -137,14 +145,14 @@ namespace data_copy;
     //////////////////////////////
     // These relations occur independent of if we error (mainly because they help in finding out if there is an error)
     // Start and end constrained in "Control Flow Management" section
-    pol commit sel_start;
-    sel_start * (1 - sel_start) = 0;
+    pol commit sel_start; // sel_start = 1 <==> SEL = 1
+    sel_start * (1 - SEL) = 0;
 
     // End controls most of the row propagation, so if we error we also set end to turn off row propagation
-    pol commit sel_end;
-    sel_end * (1 - sel_end) = 0;
+    pol commit sel_end; // sel_end = 1 <==> SEL = 1
+    sel_end * (1 - SEL) = 0;
 
-    // Check if this is a nested or enqueued call
+    // is_top_level if this is an enqueued call
     pol commit is_top_level; // == 1 iff parent_id == 0
     is_top_level * (1 - is_top_level) = 0;
     pol commit parent_id_inv; // For zero-check of has_parent_ctx
@@ -161,48 +169,51 @@ namespace data_copy;
     // 1) (offset + copy_size) > src_data_size or
     // 2) (offset + copy_size) <= src_data_size
     // if (1) then max_read_index = src_data_size, otherwise max_read_index = (offset + copy_size)
-    // these are enforced to be correct by are 32 bit range check of |a - b|
+    pol commit offset_plus_size;
+    offset_plus_size = sel_start * (offset + copy_size);
+    pol commit offset_plus_size_is_gt;
 
-    // Convert comparisons to subtractions - check we don't underflow by range checking the absolute difference
-    pol OFFSET_PLUS_SIZE = offset + copy_size;
-    pol DATA_SIZE_LT = OFFSET_PLUS_SIZE - src_data_size - 1; // (offset + copy_size) > src_data_size
-    pol DATA_SIZE_GTE = src_data_size - OFFSET_PLUS_SIZE;    // (offset + copy_size) <= src_data_size
+    #[MAX_READ_INDEX_GT]
+    sel_start { offset_plus_size, src_data_size, offset_plus_size_is_gt }
+    in
+    gt.sel { gt.input_a, gt.input_b, gt.res };
 
-    pol commit src_data_size_is_lt; // Prover claims which one is the smaller of the two
-    src_data_size_is_lt * (1 - src_data_size_is_lt) = 0;
-
-    pol MAX_READ_DIFF = src_data_size_is_lt * DATA_SIZE_LT + (1 - src_data_size_is_lt) * DATA_SIZE_GTE;
-    pol commit abs_diff_max_read_index; // Needed for the range check lookup
-    SEL * sel_start * (abs_diff_max_read_index - MAX_READ_DIFF) = 0;
-    #[RANGE_MAX_READ_SIZE_DIFF]
-    sel_start { abs_diff_max_read_index, thirty_two } in range_check.sel { range_check.value, range_check.rng_chk_bits };
-
-    // Based on the prover's claim, we select the smaller of the two
-    pol MAX_READ_INDEX = src_data_size_is_lt * src_data_size + (1 - src_data_size_is_lt) * OFFSET_PLUS_SIZE;
+    // Set max_read_index based on the conditions (1) or (2) from above
+    pol commit max_read_index;
+    max_read_index = sel_start * ((src_data_size - offset_plus_size) * offset_plus_size_is_gt + offset_plus_size);
 
     //////////////////////////////
     // Error Handling
     //////////////////////////////
-    // The one error that we need to handle
-    // Memory Out of Range: If reading or writing would access an address outside of the AVM memory range
-    // If there is an error, no data copy operation is performed
+    pol commit src_out_of_range_err; // Read slices should be in MEM range
+    src_out_of_range_err * (1 - src_out_of_range_err) = 0;
+    pol commit dst_out_of_range_err; // Write slices should be in MEM range
+    dst_out_of_range_err * (1 - dst_out_of_range_err) = 0;
 
-    // Memory Out of Range, this section checks that the maximum number of reads ans writes do not
-    // If top level, we trivially succeed since there is no mem read i.e. we cannot have a src_out_of_range_err
-    pol MAX_READ_ADDR = (src_addr + MAX_READ_INDEX) * (1 - is_top_level);
-    pol commit abs_read_diff;
-    #[SRC_OUT_OF_RANGE] // MAX_MEM_ADDR < MAX_READ_ADDR or MAX_MEM_ADDR >= MAX_READ_ADDR
-    SEL * sel_start * (src_out_of_range_err * (MAX_READ_ADDR - MAX_MEM_ADDR - 1) + (1 - src_out_of_range_err) * (MAX_MEM_ADDR - MAX_READ_ADDR) - abs_read_diff) = 0;
+    pol commit max_mem_addr; // todo: While we do not support constants
+    sel_start * (max_mem_addr - constants.AVM_HIGHEST_MEM_ADDRESS) = 0;
+
+    // MAX_READ_ADDR = 0 if this is a top level call since there aren't any memory reads at the top level
+    // conceptually cd copy and rd copy don't perform reads at the top level.
+    pol MAX_READ_ADDR = src_addr + max_read_index;
+    pol commit max_read_addr;
+    max_read_addr = sel_start * MAX_READ_ADDR;
+    #[CHECK_SRC_ADDR_IN_RANGE]
+    sel_start { max_read_addr, max_mem_addr, src_out_of_range_err }
+    in
+    gt.sel { gt.input_a, gt.input_b, gt.res };
 
     pol MAX_WRITE_ADDR = dst_addr + copy_size;
-    pol commit abs_write_diff;
-    #[DST_OUT_OF_RANGE] // MAX_MEM_ADDR < MAX_WRITE_ADDR or MAX_MEM_ADDR >= MAX_WRITE_ADDR
-    SEL * sel_start * (dst_out_of_range_err * (MAX_WRITE_ADDR - MAX_MEM_ADDR - 1) + (1 - dst_out_of_range_err) * (MAX_MEM_ADDR - MAX_WRITE_ADDR) - abs_write_diff) = 0;
+    pol commit max_write_addr;
+    max_write_addr = sel_start * MAX_WRITE_ADDR;
+    #[CHECK_DST_ADDR_IN_RANGE]
+    sel_start { max_write_addr, max_mem_addr, dst_out_of_range_err }
+    in
+    gt.sel { gt.input_a, gt.input_b, gt.res };
 
-    #[RANGE_READ]
-    sel_start { abs_read_diff, thirty_two } in range_check.sel { range_check.value, range_check.rng_chk_bits };
-    #[RANGE_WRITE]
-    sel_start { abs_write_diff, thirty_two } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+    // Consolidate the errors
+    pol commit err;
+    err = 1 - (1 - dst_out_of_range_err) * (1 - src_out_of_range_err);
 
     //////////////////////////////
     // Control flow management
@@ -225,23 +236,19 @@ namespace data_copy;
     err * (sel_end - 1) = 0;
 
     pol commit reads_left; // Number of reads of the src data, if reads_left = 0 but copy_size != 0 then it is a padding row
-    // Src data elements are read from indicies [offset, MAX_READ_INDEX], therefore reads_left = MAX_READ_INDEX - offset
-    // We need to be careful that MAX_READ_INDEX - offset does not underflow (i.e. when offset > MAX_READ_INDEX, reads_left = 0)
-    pol OFFSET_GT_MAX_READ = offset - MAX_READ_INDEX - 1; // offset > MAX_READ_INDEX
-    pol OFFSET_LTE_MAX_READ = MAX_READ_INDEX - offset; // offset <= MAX_READ_INDEX
-    pol commit sel_offset_gt_max_read;
-    sel_offset_gt_max_read * (1 - sel_offset_gt_max_read) = 0;
-
-    pol commit abs_max_read_offset; // Needed for lookup
-    abs_max_read_offset = SEL * sel_start_no_err * (sel_offset_gt_max_read * OFFSET_GT_MAX_READ + (1 - sel_offset_gt_max_read) * OFFSET_LTE_MAX_READ);
-
-    #[RANGE_READS_LEFT]
-    sel_start_no_err { abs_max_read_offset, thirty_two } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+    // src data elements are read from indicies [offset, max_read_index], therefore reads_left = max_read_index - offset
+    // We need to be careful that max_read_index - offset does not underflow (i.e. when offset > max_read_index, reads_left = 0)
+    // We test that condition here
+    pol commit offset_gt_max_read_index;
+    #[OFFSET_GT_MAX_READ_INDEX]
+    sel_start_no_err { offset, max_read_index, offset_gt_max_read_index }
+    in
+    gt.sel { gt.input_a, gt.input_b, gt.res };
 
     // If sel_offset_gt_max_read = 1 (i.e. when offset > MAX_READ_INDEX, reads_left = 0)
     // otherwise, reads_left = MAX_READ_INDEX - offset
     #[INIT_READS_LEFT]
-    SEL * sel_start_no_err * (reads_left - OFFSET_LTE_MAX_READ * (1 - sel_offset_gt_max_read))  = 0;
+    sel_start_no_err * ( reads_left - (max_read_index - offset) * (1 - offset_gt_max_read_index)) = 0;
 
     //////////////////////////////
     // Execute Data Copy

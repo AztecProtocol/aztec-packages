@@ -56,27 +56,15 @@ DataCopyEvent create_rd_event(ContextInterface& context,
 
 } // namespace
 
-// This also creates the relevant range check event depending if a <= b or not.
-bool DataCopy::is_lte(uint64_t a, uint64_t b)
-{
-    if (a <= b) {
-        range_check.assert_range(b - a, 32);
-        return true;
-    }
-    // !(a < b), i.e. a >= b
-    range_check.assert_range(a - b - 1, 32);
-    return false;
-}
-
-// This is std::min but creates the relevant range check event
+// This is std::min but creates the relevant greater than event
 uint64_t DataCopy::min(uint64_t a, uint64_t b)
 {
     // Looks weird but ironically similar to the std::min implementation
     // i.e if a == b, return a
-    if (is_lte(a, b)) {
-        return a;
+    if (gt.gt(a, b)) {
+        return b;
     }
-    return b;
+    return a;
 }
 
 /**
@@ -105,35 +93,31 @@ void DataCopy::cd_copy(ContextInterface& context,
     uint32_t clk = execution_id_manager.get_execution_id();
 
     try {
-        // It's safe to assume that the calldata size and offset are both u32, since we checked above.
-
-        // This section is a bit leaky, but is necessary to ensure the correct range check events are generated.
-        // This work is duplicated in context.get_calldata() - but it avoids us having a range check there.
+        // This section is a bit leaky, but is necessary to ensure the correct gt events are generated.
+        // This work is duplicated in context.get_calldata() - but it avoids us having a gt there.
 
         // Operations are performed over uint64_t in case the addition overflows, but the result in guaranteed to
         // fit in 32 bits since get_parent_cd_size() returns a u32 (constrained by a CALL or 0 if an enqueued call).
-        uint32_t max_read_index = static_cast<uint32_t>(
-            min(static_cast<uint64_t>(offset) + copy_size, static_cast<uint64_t>(context.get_parent_cd_size())));
+        uint64_t max_read_index = min(static_cast<uint64_t>(offset) + copy_size, context.get_parent_cd_size());
 
         // Check that we will not access out of bounds memory.
         // todo(ilyas): think of a way to not need to leak enqueued/nested context information here.
-        uint64_t max_read_addr = context.has_parent() ? max_read_index + context.get_parent_cd_addr() : 0;
+        uint64_t max_read_addr = max_read_index + context.get_parent_cd_addr();
         uint64_t max_write_addr = static_cast<uint64_t>(dst_addr) + copy_size;
 
         // Need all of this to happen regardless
-        bool read_in_range = is_lte(max_read_addr, MAX_MEM_ADDR);
-        bool write_in_range = is_lte(max_write_addr, MAX_MEM_ADDR);
+        bool read_out_of_range = gt.gt(max_read_addr, MAX_MEM_ADDR);
+        bool write_out_of_range = gt.gt(max_write_addr, MAX_MEM_ADDR);
 
-        if (!read_in_range || !write_in_range) {
+        if (read_out_of_range || write_out_of_range) {
             throw std::runtime_error("Attempting to access out of bounds memory");
         }
 
         // If we get to this point, we know we will be error free
         std::vector<FF> padded_calldata(copy_size, 0); // Initialize with zeros
-        // This is handled by the loop within get_calldata(), but we need to emit a range check in circuit
         // Calldata is retrieved from [offset, max_read_index]
         // if offset > max_read_index, we will read nothing
-        if (is_lte(offset, max_read_index)) {
+        if (!gt.gt(offset, max_read_index)) {
             padded_calldata = context.get_calldata(offset, copy_size);
         }
 
@@ -168,17 +152,16 @@ void DataCopy::rd_copy(ContextInterface& context,
 
     try {
         // Check cd_copy for why we do this here even though it is in get_returndata()
-        uint32_t max_read_index = static_cast<uint32_t>(
-            min(static_cast<uint64_t>(offset) + copy_size, static_cast<uint64_t>(context.get_last_rd_size())));
+        uint64_t max_read_index = min(static_cast<uint64_t>(offset) + copy_size, context.get_last_rd_size());
 
         uint64_t max_read_addr = max_read_index + context.get_last_rd_addr();
         uint64_t max_write_addr = static_cast<uint64_t>(dst_addr) + copy_size;
 
         // Need both of this to happen regardless
-        bool read_in_range = is_lte(max_read_addr, MAX_MEM_ADDR);
-        bool write_in_range = is_lte(max_write_addr, MAX_MEM_ADDR);
+        bool read_out_of_range = gt.gt(max_read_addr, MAX_MEM_ADDR);
+        bool write_out_of_range = gt.gt(max_write_addr, MAX_MEM_ADDR);
 
-        if (!read_in_range || !write_in_range) {
+        if (read_out_of_range || write_out_of_range) {
             throw std::runtime_error("Attempting to access out of bounds memory");
         }
 
@@ -188,7 +171,7 @@ void DataCopy::rd_copy(ContextInterface& context,
         // so we need to be explicit about it.
         // Returndata is retrieved from [offset, max_read_index], if offset > max_read_index, we will read nothing.
         std::vector<FF> padded_returndata(copy_size, 0); // Initialize with zeros
-        if (is_lte(offset, max_read_index)) {
+        if (!gt.gt(offset, max_read_index)) {
             padded_returndata = context.get_returndata(offset, copy_size);
         }
 
