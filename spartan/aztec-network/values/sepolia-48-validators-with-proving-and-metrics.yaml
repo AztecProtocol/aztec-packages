@@ -66,6 +66,3 @@ bot:
       cpu: "7"
       ephemeral-storage: "8Gi"
 
-jobs:
-  deployL1Verifier:
-    enable: true

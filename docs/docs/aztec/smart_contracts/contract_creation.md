@@ -2,6 +2,7 @@
 title: Contract Deployment
 sidebar_position: 1
 tags: [contracts, protocol]
+description: Learn how contract classes and instances are created and deployed on the Aztec network.
 ---
 
 In the Aztec protocol, contracts are created as _instances_ of contract _classes_. The deployment process consists of two main steps: first publishing the contract _class_ (if not already published), and then creating a contract _instance_ that references this class.

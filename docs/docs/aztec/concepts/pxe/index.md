@@ -2,6 +2,7 @@
 title: Private Execution Environment (PXE)
 sidebar_position: 8
 tags: [PXE]
+description: Explore the PXE, a client-side library that handles private function execution, proof generation, secret management, and transaction orchestration in Aztec.
 keywords: [pxe, private execution environment]
 importance: 1
 ---

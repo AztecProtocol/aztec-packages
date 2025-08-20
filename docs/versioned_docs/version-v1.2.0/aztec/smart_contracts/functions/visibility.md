@@ -1,5 +1,6 @@
 ---
 title: Visibility
+description: Understand function visibility modifiers in Aztec and how they affect function execution and accessibility.
 sidebar_position: 0
 tags: [functions]
 ---

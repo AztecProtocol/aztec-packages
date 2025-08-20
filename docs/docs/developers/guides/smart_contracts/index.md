@@ -1,6 +1,7 @@
 ---
 title: Aztec.nr
 tags: [aztec.nr]
+description: Comprehensive guide to writing smart contracts for the Aztec network using Noir.
 ---
 
 import DocCardList from "@theme/DocCardList";
