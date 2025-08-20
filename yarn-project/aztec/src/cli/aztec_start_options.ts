@@ -22,8 +22,6 @@ import { proverNodeConfigMappings } from '@aztec/prover-node/config';
 import { allPxeConfigMappings } from '@aztec/pxe/config';
 import { telemetryClientConfigMappings } from '@aztec/telemetry-client';
 
-import { DefaultMnemonic } from '../mnemonic.js';
-
 // Define an interface for options
 export interface AztecStartOption {
   flag: string;
@@ -146,12 +144,6 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       parseVal: val => parseInt(val, 10),
     },
     {
-      flag: '--l1-mnemonic <value>',
-      description: 'Mnemonic for L1 accounts. Will be used if no publisher private keys are provided',
-      defaultValue: DefaultMnemonic,
-      envVar: 'MNEMONIC',
-    },
-    {
       flag: '--l1-consensus-host-urls <value>',
       description: 'List of URLs of the Ethereum consensus nodes that services will connect to (comma separated)',
       defaultValue: [],
@@ -249,32 +241,12 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: 'ARCHIVER_URL',
     },
     {
-      flag: '--node.deployAztecContracts',
-      description: 'Deploys L1 Aztec contracts before starting the node. Needs mnemonic or private key to be set.',
-      envVar: 'DEPLOY_AZTEC_CONTRACTS',
-      defaultValue: undefined,
-    },
-    {
-      flag: '--node.deployAztecContractsSalt <value>',
-      description:
-        'Numeric salt for deploying L1 Aztec contracts before starting the node. Needs mnemonic or private key to be set. Implies --node.deployAztecContracts.',
-      envVar: 'DEPLOY_AZTEC_CONTRACTS_SALT',
-      defaultValue: undefined,
-      parseVal: (val: string) => (val ? parseInt(val) : undefined),
-    },
-    {
       flag: '--node.assumeProvenThroughBlockNumber <value>',
       description:
         'Cheats the rollup contract into assuming every block until this one is proven. Useful for speeding up bootstraps.',
       envVar: 'ASSUME_PROVEN_THROUGH_BLOCK_NUMBER',
       parseVal: (val: string) => parseInt(val, 10),
       defaultValue: 0,
-    },
-    {
-      flag: '--node.publisherPrivateKey <value>',
-      description: 'Private key of account for publishing L1 contracts',
-      defaultValue: undefined,
-      envVar: 'L1_PRIVATE_KEY',
     },
     {
       flag: '--node.worldStateBlockCheckIntervalMS <value>',

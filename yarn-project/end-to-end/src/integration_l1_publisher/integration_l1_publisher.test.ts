@@ -223,7 +223,6 @@ describe('L1Publisher integration', () => {
         l1RpcUrls: config.l1RpcUrls,
         l1Contracts: l1ContractAddresses,
         publisherPrivateKeys: [new SecretValue(sequencerPK)],
-        publisherPrivateKey: new SecretValue(sequencerPK),
         l1PublishRetryIntervalMS: 100,
         l1ChainId: chainId,
         viemPollingIntervalMS: 100,

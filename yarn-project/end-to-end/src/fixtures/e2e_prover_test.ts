@@ -299,7 +299,7 @@ export class FullProverTest {
       proverId: this.proverAddress,
       realProofs: this.realProofs,
       proverAgentCount: 2,
-      publisherPrivateKey: new SecretValue(`0x${proverNodePrivateKey!.toString('hex')}` as const),
+      publisherPrivateKeys: [new SecretValue(`0x${proverNodePrivateKey!.toString('hex')}` as const)],
       proverNodeMaxPendingJobs: 100,
       proverNodeMaxParallelBlocksPerEpoch: 32,
       proverNodePollingIntervalMs: 100,
