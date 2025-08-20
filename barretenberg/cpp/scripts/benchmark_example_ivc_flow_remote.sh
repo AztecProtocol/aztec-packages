@@ -18,7 +18,7 @@ scp $BB_SSH_KEY ../../yarn-project/end-to-end/example-app-ivc-inputs-out/$FLOW/i
 ./scripts/benchmark_remote.sh "$TARGET"\
                               "./$TARGET prove -o output --ivc_inputs_path ivc-inputs.msgpack --scheme client_ivc\
                               --op_counts_out=$TARGET.json"\
-                              clang20\
+                              clang16-assert\
                               "$BUILD_DIR"
 
 # Retrieve output from benching instance
