@@ -2,6 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity ^0.8.27;
 
+import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Signature, SignatureLib} from "@aztec/shared/libraries/SignatureLib.sol";
 
 /**
@@ -71,7 +72,7 @@ library AttestationLib {
     returns (Signature memory)
   {
     bytes memory signaturesOrAddresses = _attestations.signaturesOrAddresses;
-    require(isSignature(_attestations, _index), "Not a signature at this index");
+    require(isSignature(_attestations, _index), Errors.AttestationLib__NotASignatureAtIndex(_index));
 
     uint256 dataPtr;
     assembly {
@@ -105,7 +106,7 @@ library AttestationLib {
    */
   function getAddress(CommitteeAttestations memory _attestations, uint256 _index) internal pure returns (address) {
     bytes memory signaturesOrAddresses = _attestations.signaturesOrAddresses;
-    require(!isSignature(_attestations, _index), "A signature at this index");
+    require(!isSignature(_attestations, _index), Errors.AttestationLib__NotAnAddressAtIndex(_index));
 
     uint256 dataPtr;
     assembly {
@@ -127,7 +128,54 @@ library AttestationLib {
   }
 
   /**
+   * @notice Assert that the size of `_attestations` is as expected, throw otherwise
+   *
+   * @custom:reverts SignatureIndicesSizeMismatch if the signature indices have a wrong size
+   * @custom:reverts SignaturesOrAddressesSizeMismatch if the signatures or addresses object has wrong size
+   *
+   * @param _attestations - The attestation struct
+   * @param _expectedCount - The expected size of the validator set
+   */
+  function assertSizes(CommitteeAttestations memory _attestations, uint256 _expectedCount) internal pure {
+    // Count signatures (1s) and addresses (0s) from bitmap
+    uint256 signatureCount = 0;
+    uint256 addressCount = 0;
+    uint256 bitmapBytes = (_expectedCount + 7) / 8; // Round up to nearest byte
+    require(
+      bitmapBytes == _attestations.signatureIndices.length,
+      Errors.AttestationLib__SignatureIndicesSizeMismatch(bitmapBytes, _attestations.signatureIndices.length)
+    );
+
+    for (uint256 i = 0; i < _expectedCount; i++) {
+      uint256 byteIndex = i / 8;
+      uint256 bitIndex = 7 - (i % 8);
+      uint8 bitMask = uint8(1 << bitIndex);
+
+      if (uint8(_attestations.signatureIndices[byteIndex]) & bitMask != 0) {
+        signatureCount++;
+      } else {
+        addressCount++;
+      }
+    }
+
+    // Calculate expected size
+    uint256 sizeOfSignaturesAndAddresses = (signatureCount * SIGNATURE_LENGTH) + (addressCount * ADDRESS_LENGTH);
+
+    // Validate actual size matches expected
+    require(
+      sizeOfSignaturesAndAddresses == _attestations.signaturesOrAddresses.length,
+      Errors.AttestationLib__SignaturesOrAddressesSizeMismatch(
+        sizeOfSignaturesAndAddresses, _attestations.signaturesOrAddresses.length
+      )
+    );
+  }
+
+  /**
    * Recovers the committee from the addresses in the attestations and signers.
+   *
+   * @custom:reverts SignatureIndicesSizeMismatch if the signature indices have a wrong size
+   * @custom:reverts OutOfBounds throws if reading data beyond the `_attestations`
+   * @custom:reverts SignaturesOrAddressesSizeMismatch if the signatures or addresses object has wrong size
    *
    * @param _attestations - The committee attestations
    * @param _signers The addresses of the committee members that signed the attestations. Provided in order to not have
@@ -141,8 +189,14 @@ library AttestationLib {
     address[] memory _signers,
     uint256 _length
   ) internal pure returns (address[] memory) {
+    uint256 bitmapBytes = (_length + 7) / 8; // Round up to nearest byte
+    require(
+      bitmapBytes == _attestations.signatureIndices.length,
+      Errors.AttestationLib__SignatureIndicesSizeMismatch(bitmapBytes, _attestations.signatureIndices.length)
+    );
+
+    // To get a ref that we can easily use with the assembly down below.
     bytes memory signaturesOrAddresses = _attestations.signaturesOrAddresses;
-    bytes memory signatureIndices = _attestations.signatureIndices;
     address[] memory addresses = new address[](_length);
 
     uint256 signersIndex;
@@ -154,12 +208,13 @@ library AttestationLib {
       // Skip length
       dataPtr := add(signaturesOrAddresses, 0x20)
     }
+    uint256 offset = dataPtr;
 
     for (uint256 i = 0; i < _length; ++i) {
       // Load new byte every 8 iterations
       if (i % 8 == 0) {
         uint256 byteIndex = i / 8;
-        currentByte = uint8(signatureIndices[byteIndex]);
+        currentByte = uint8(_attestations.signatureIndices[byteIndex]);
         bitMask = 128; // 0b10000000
       }
 
@@ -179,6 +234,23 @@ library AttestationLib {
         addresses[i] = addr;
       }
     }
+
+    // Ensure that the reads were within the boundaries of the data.
+    // As `dataPtr` will always be increasing (and unlikely to wrap around because it would require insane size)
+    // we can just check that the last dataPtr value is inside the limit, as all the others would be as well then.
+    uint256 upperLimit = offset + _attestations.signaturesOrAddresses.length;
+    // As the offset was added already part of both values, we can subtract to give a more meaningful error.
+    require(dataPtr <= upperLimit, Errors.AttestationLib__OutOfBounds(dataPtr - offset, upperLimit - offset));
+
+    // Ensure that the size of data provided actually matches what we expect
+    uint256 sizeOfSignaturesAndAddresses =
+      (signersIndex * SIGNATURE_LENGTH) + ((_length - signersIndex) * ADDRESS_LENGTH);
+    require(
+      sizeOfSignaturesAndAddresses == _attestations.signaturesOrAddresses.length,
+      Errors.AttestationLib__SignaturesOrAddressesSizeMismatch(
+        sizeOfSignaturesAndAddresses, _attestations.signaturesOrAddresses.length
+      )
+    );
 
     return addresses;
   }
