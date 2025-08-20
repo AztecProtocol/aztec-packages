@@ -27,28 +27,7 @@ template <typename FF_> class nullifier_existsImpl {
     void static accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& in,
                            [[maybe_unused]] const RelationParameters<FF>&,
-                           [[maybe_unused]] const FF& scaling_factor)
-    {
-        using C = ColumnAndShifts;
-
-        PROFILE_THIS_NAME("accumulate/nullifier_exists");
-
-        const auto constants_MEM_TAG_U1 = FF(1);
-
-        { // NULLIFIER_EXISTS_U1_OUTPUT_TAG
-            using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_execute_nullifier_exists) *
-                       (constants_MEM_TAG_U1 - in.get(C::execution_mem_tag_reg_2_));
-            tmp *= scaling_factor;
-            std::get<0>(evals) += typename Accumulator::View(tmp);
-        }
-        { // NULLIFIER_EXISTS_SUCCESS
-            using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_opcode_error) * in.get(C::execution_sel_execute_nullifier_exists);
-            tmp *= scaling_factor;
-            std::get<1>(evals) += typename Accumulator::View(tmp);
-        }
-    }
+                           [[maybe_unused]] const FF& scaling_factor);
 };
 
 template <typename FF> class nullifier_exists : public Relation<nullifier_existsImpl<FF>> {
