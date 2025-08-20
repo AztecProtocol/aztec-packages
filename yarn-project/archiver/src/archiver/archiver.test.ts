@@ -555,7 +555,7 @@ describe('Archiver', () => {
     );
   }, 10_000);
 
-  it.skip('ignores blocks because of invalid attestations', async () => {
+  it('ignores blocks because of invalid attestations', async () => {
     let latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(0);
 
@@ -608,6 +608,29 @@ describe('Archiver', () => {
       Promise.resolve((args[0] === 2n ? badBlock2 : blocks[Number(args[0] - 1n)]).archive.root.toString()),
     );
 
+    mockRollupRead.getBlock.mockImplementation((args: readonly [bigint]) => {
+      const n = Number(args[0]);
+      const blockIndex = n - 1;
+      if (n === 2) {
+        const block = badBlock2;
+        return Promise.resolve({
+          archive: block.archive.root.toString() as `0x${string}`,
+          headerHash: block.header.toPropose().hash().toString() as `0x${string}`,
+          blobCommitmentsHash: block.header.contentCommitment.blobsHash.toString() as `0x${string}`,
+          slotNumber: BigInt(block.header.globalVariables.slotNumber.toBigInt()),
+          feeHeader: { excessMana: 0n, feeAssetPriceNumerator: 0n, manaUsed: 0n },
+        });
+      }
+      const block = blocks[blockIndex];
+      return Promise.resolve({
+        archive: block.archive.root.toString() as `0x${string}`,
+        headerHash: headerHashes[blockIndex].toString() as `0x${string}`,
+        blobCommitmentsHash: block.header.contentCommitment.blobsHash.toString() as `0x${string}`,
+        slotNumber: BigInt(block.header.globalVariables.slotNumber.toBigInt()),
+        feeHeader: { excessMana: 0n, feeAssetPriceNumerator: 0n, manaUsed: 0n },
+      });
+    });
+
     blocks.forEach(b => logger.warn(`Created valid block ${b.number} with root ${b.archive.root.toString()}`));
     logger.warn(`Created invalid block 2 with root ${badBlock2.archive.root.toString()}`);
     logger.warn(`Created invalid block 3 with root ${badBlock3.archive.root.toString()}`);
@@ -637,8 +660,22 @@ describe('Archiver', () => {
       provenEpochNumber: 0n,
       isBlockHeaderHashStale: false,
     } as ViemRollupStatus);
-    publicClient.getTransaction.mockResolvedValueOnce(rollupTxs[0]).mockResolvedValueOnce(badBlock2RollupTx);
-    blobSinkClient.getBlobSidecar.mockResolvedValueOnce(blobsFromBlocks[0]).mockResolvedValueOnce(badBlock2Blobs);
+    publicClient.getTransaction.mockImplementation(((args: { hash?: `0x${string}` }) => {
+      switch (args.hash) {
+        case '0x1-propose':
+          return Promise.resolve(rollupTxs[0]);
+        case '0x2-propose':
+          return Promise.resolve(badBlock2RollupTx);
+        case '0x3-propose':
+          return Promise.resolve(badBlock3RollupTx);
+        default:
+          throw new Error(`Unexpected tx hash ${args.hash}`);
+      }
+    }) as any);
+    blobSinkClient.getBlobSidecar
+      .mockResolvedValueOnce(blobsFromBlocks[0])
+      .mockResolvedValueOnce(badBlock2Blobs)
+      .mockResolvedValueOnce(badBlock3Blobs);
 
     // Start archiver, the bad block 2 should not be synced
     await archiver.start(true);
@@ -664,6 +701,40 @@ describe('Archiver', () => {
     // Now another loop, where we propose a block 3 with bad attestations
     logger.warn(`Adding new block 3 with bad attestations`);
     publicClient.getBlockNumber.mockResolvedValue(90n);
+    // For this phase, ignore block 2 by returning a mismatching headerHash (so retrieval skips it),
+    // and include bad header for block 3 so it gets retrieved and validated.
+    mockRollupRead.getBlock.mockImplementation((args: readonly [bigint]) => {
+      const n = Number(args[0]);
+      const blockIndex = n - 1;
+      if (n === 2) {
+        const block = blocks[1];
+        return Promise.resolve({
+          archive: block.archive.root.toString() as `0x${string}`,
+          headerHash: headerHashes[1].toString() as `0x${string}`,
+          blobCommitmentsHash: block.header.contentCommitment.blobsHash.toString() as `0x${string}`,
+          slotNumber: BigInt(block.header.globalVariables.slotNumber.toBigInt()),
+          feeHeader: { excessMana: 0n, feeAssetPriceNumerator: 0n, manaUsed: 0n },
+        });
+      }
+      if (n === 3) {
+        const block = badBlock3;
+        return Promise.resolve({
+          archive: block.archive.root.toString() as `0x${string}`,
+          headerHash: block.header.toPropose().hash().toString() as `0x${string}`,
+          blobCommitmentsHash: block.header.contentCommitment.blobsHash.toString() as `0x${string}`,
+          slotNumber: BigInt(block.header.globalVariables.slotNumber.toBigInt()),
+          feeHeader: { excessMana: 0n, feeAssetPriceNumerator: 0n, manaUsed: 0n },
+        });
+      }
+      const block = blocks[blockIndex];
+      return Promise.resolve({
+        archive: block.archive.root.toString() as `0x${string}`,
+        headerHash: headerHashes[blockIndex].toString() as `0x${string}`,
+        blobCommitmentsHash: block.header.contentCommitment.blobsHash.toString() as `0x${string}`,
+        slotNumber: BigInt(block.header.globalVariables.slotNumber.toBigInt()),
+        feeHeader: { excessMana: 0n, feeAssetPriceNumerator: 0n, manaUsed: 0n },
+      });
+    });
     makeL2BlockProposedEvent(
       85n,
       3n,
@@ -676,12 +747,11 @@ describe('Archiver', () => {
       provenArchive: GENESIS_ROOT,
       pendingBlockNumber: 3n,
       pendingHeaderHash: badBlock3.header.toPropose().hash().toString(),
-      headerHashOfMyBlock: blocks[0].archive.root.toString(),
+      headerHashOfMyBlock: headerHashes[0].toString(),
       provenEpochNumber: 0n,
       isBlockHeaderHashStale: false,
     } as ViemRollupStatus);
-    publicClient.getTransaction.mockResolvedValueOnce(badBlock3RollupTx);
-    blobSinkClient.getBlobSidecar.mockResolvedValueOnce(badBlock3Blobs);
+    // getTransaction/blob sidecar already mapped above
 
     // We should still be at block 1, and the pending chain validation status should still be invalid and point to block 2
     // since we want the archiver to always return the earliest block with invalid attestations
@@ -691,7 +761,10 @@ describe('Archiver', () => {
     const validationStatus = await archiver.getPendingChainValidationStatus();
     assert(!validationStatus.valid);
     expect(validationStatus.block.block.number).toEqual(2);
-    expect(validationStatus.block.block.archive.root.toString()).toEqual(badBlock2.archive.root.toString());
+    // expect(validationStatus.block.block.archive.root.toString()).toEqual(badBlock2.archive.root.toString());
+    expect(validationStatus.block.block.header.toPropose().hash().toString()).toEqual(
+      badBlock2.header.toPropose().hash().toString(),
+    );
 
     // Check that InvalidBlockDetected event was also emitted for bad block 3
     expect(invalidBlockDetectedSpy).toHaveBeenCalledWith(
@@ -708,6 +781,19 @@ describe('Archiver', () => {
     // IRL there would be an "Invalidated" event, but we are not currently relying on it
     logger.warn(`Adding new blocks 2 and 3 with correct attestations`);
     publicClient.getBlockNumber.mockResolvedValue(100n);
+    // Restore on-chain header hashes to valid blocks 2 and 3
+    mockRollupRead.getBlock.mockImplementation((args: readonly [bigint]) => {
+      const n = Number(args[0]);
+      const blockIndex = n - 1;
+      const block = blocks[blockIndex];
+      return Promise.resolve({
+        archive: block.archive.root.toString() as `0x${string}`,
+        headerHash: headerHashes[blockIndex].toString() as `0x${string}`,
+        blobCommitmentsHash: block.header.contentCommitment.blobsHash.toString() as `0x${string}`,
+        slotNumber: BigInt(block.header.globalVariables.slotNumber.toBigInt()),
+        feeHeader: { excessMana: 0n, feeAssetPriceNumerator: 0n, manaUsed: 0n },
+      });
+    });
     makeL2BlockProposedEvent(
       94n,
       2n,
@@ -726,8 +812,8 @@ describe('Archiver', () => {
       provenBlockNumber: 0n,
       provenArchive: GENESIS_ROOT,
       pendingBlockNumber: 3n,
-      pendingHeaderHash: blocks[2].archive.root.toString(),
-      headerHashOfMyBlock: blocks[0].archive.root.toString(),
+      pendingHeaderHash: headerHashes[2].toString(),
+      headerHashOfMyBlock: headerHashes[0].toString(),
       provenEpochNumber: 0n,
       isBlockHeaderHashStale: false,
     } as ViemRollupStatus);
@@ -746,7 +832,7 @@ describe('Archiver', () => {
     // And block 2 should return the proper one
     const [block2] = await archiver.getPublishedBlocks(2, 1);
     expect(block2.block.number).toEqual(2);
-    expect(block2.block.archive.root.toString()).toEqual(blocks[1].archive.root.toString());
+    expect(block2.block.header.toPropose().hash().toString()).toEqual(headerHashes[1].toString());
     expect(block2.attestations.length).toEqual(3);
 
     // With a valid pending chain validation status
