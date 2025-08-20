@@ -19,6 +19,8 @@ library Errors {
   error Governance__NoCheckpointsFound();
   error Governance__InsufficientPower(address voter, uint256 have, uint256 required);
   error Governance__InvalidConfiguration();
+  error Governance__CannotWithdrawToAddressZero();
+  error Governance__WithdrawalNotInitiated();
   error Governance__WithdrawalAlreadyClaimed();
   error Governance__WithdrawalNotUnlockedYet(Timestamp currentTime, Timestamp unlocksAt);
   error Governance__ProposalNotActive();

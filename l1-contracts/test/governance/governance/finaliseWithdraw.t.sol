@@ -18,7 +18,7 @@ contract FinaliseWithdrawTest is GovernanceBase {
 
   function test_WhenIdMatchNoPendingWithdrawal(uint256 _id) external {
     // it revert
-    vm.expectRevert(abi.encodeWithSelector(IERC20Errors.ERC20InvalidReceiver.selector, address(0)));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Governance__WithdrawalNotInitiated.selector));
     governance.finaliseWithdraw(_id);
   }
 
