@@ -62,7 +62,7 @@ export async function createProverNode(
 
   // Build a key store from file if given or from environment otherwise
   let keyStoreManager: KeystoreManager | undefined;
-  if (config.keyStoreDirectory !== undefined && config.keyStoreDirectory.length) {
+  if (config.keyStoreDirectory) {
     const keyStores = loadKeystores(config.keyStoreDirectory);
     keyStoreManager = new KeystoreManager(mergeKeystores(keyStores));
   } else {
