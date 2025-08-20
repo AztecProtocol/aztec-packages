@@ -27,70 +27,7 @@ template <typename FF_> class contract_instance_retrievalImpl {
     void static accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& in,
                            [[maybe_unused]] const RelationParameters<FF>&,
-                           [[maybe_unused]] const FF& scaling_factor)
-    {
-        using C = ColumnAndShifts;
-
-        PROFILE_THIS_NAME("accumulate/contract_instance_retrieval");
-
-        const auto constants_CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS = FF(2);
-
-        {
-            using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp =
-                in.get(C::contract_instance_retrieval_sel) * (FF(1) - in.get(C::contract_instance_retrieval_sel));
-            tmp *= scaling_factor;
-            std::get<0>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = in.get(C::contract_instance_retrieval_sel) *
-                       (constants_CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS -
-                        in.get(C::contract_instance_retrieval_deployer_protocol_contract_address));
-            tmp *= scaling_factor;
-            std::get<1>(evals) += typename Accumulator::View(tmp);
-        }
-        { // INSTANCE_MEMBER_SALT_IS_ZERO_IF_DNE
-            using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = in.get(C::contract_instance_retrieval_sel) *
-                       (FF(1) - in.get(C::contract_instance_retrieval_exists)) *
-                       in.get(C::contract_instance_retrieval_salt);
-            tmp *= scaling_factor;
-            std::get<2>(evals) += typename Accumulator::View(tmp);
-        }
-        { // INSTANCE_MEMBER_DEPLOYER_IS_ZERO_IF_DNE
-            using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-            auto tmp = in.get(C::contract_instance_retrieval_sel) *
-                       (FF(1) - in.get(C::contract_instance_retrieval_exists)) *
-                       in.get(C::contract_instance_retrieval_deployer_addr);
-            tmp *= scaling_factor;
-            std::get<3>(evals) += typename Accumulator::View(tmp);
-        }
-        { // INSTANCE_MEMBER_CLASS_ID_IS_ZERO_IF_DNE
-            using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = in.get(C::contract_instance_retrieval_sel) *
-                       (FF(1) - in.get(C::contract_instance_retrieval_exists)) *
-                       in.get(C::contract_instance_retrieval_current_class_id);
-            tmp *= scaling_factor;
-            std::get<4>(evals) += typename Accumulator::View(tmp);
-        }
-        { // INSTANCE_MEMBER_ORIGINAL_CLASS_ID_IS_ZERO_IF_DNE
-            using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp = in.get(C::contract_instance_retrieval_sel) *
-                       (FF(1) - in.get(C::contract_instance_retrieval_exists)) *
-                       in.get(C::contract_instance_retrieval_original_class_id);
-            tmp *= scaling_factor;
-            std::get<5>(evals) += typename Accumulator::View(tmp);
-        }
-        { // INSTANCE_MEMBER_INIT_HASH_IS_ZERO_IF_DNE
-            using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
-            auto tmp = in.get(C::contract_instance_retrieval_sel) *
-                       (FF(1) - in.get(C::contract_instance_retrieval_exists)) *
-                       in.get(C::contract_instance_retrieval_init_hash);
-            tmp *= scaling_factor;
-            std::get<6>(evals) += typename Accumulator::View(tmp);
-        }
-    }
+                           [[maybe_unused]] const FF& scaling_factor);
 };
 
 template <typename FF> class contract_instance_retrieval : public Relation<contract_instance_retrievalImpl<FF>> {

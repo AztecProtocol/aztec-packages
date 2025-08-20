@@ -61,6 +61,7 @@
 #include "relations/to_radix_mem.hpp"
 #include "relations/tx.hpp"
 #include "relations/tx_context.hpp"
+#include "relations/tx_discard.hpp"
 #include "relations/update_check.hpp"
 #include "relations/written_public_data_slots_tree_check.hpp"
 
@@ -128,10 +129,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 133;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2921;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 312;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2924;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 315;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3366;
+    static constexpr size_t NUM_ALL_ENTITIES = 3372;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -194,6 +195,7 @@ struct AvmFlavorVariables {
         avm2::to_radix_mem<FF_>,
         avm2::tx<FF_>,
         avm2::tx_context<FF_>,
+        avm2::tx_discard<FF_>,
         avm2::update_check<FF_>,
         avm2::written_public_data_slots_tree_check<FF_>>;
 
@@ -601,6 +603,8 @@ struct AvmFlavorVariables {
         lookup_tx_context_public_inputs_write_nullifier_count_relation<FF_>,
         lookup_tx_context_public_inputs_write_unencrypted_log_count_relation<FF_>,
         lookup_tx_context_restore_state_on_revert_relation<FF_>,
+        lookup_tx_dispatch_exec_end_relation<FF_>,
+        lookup_tx_dispatch_exec_start_relation<FF_>,
         lookup_tx_note_hash_append_relation<FF_>,
         lookup_tx_nullifier_append_relation<FF_>,
         lookup_tx_phase_jump_on_revert_relation<FF_>,

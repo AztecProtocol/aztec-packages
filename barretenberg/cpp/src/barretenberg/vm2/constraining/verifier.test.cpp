@@ -53,35 +53,20 @@ TEST_F(AvmVerifierTests, NegativeBadPublicInputs)
 {
     NativeProofResult proof_result = create_proof_and_vk();
     auto [proof, verification_key, public_inputs_cols] = proof_result;
-
+    auto verify_with_corrupt_pi_col = [&](size_t col_idx) {
+        public_inputs_cols[col_idx][5] += FF::one();
+        Verifier verifier(verification_key);
+        const bool verified = verifier.verify_proof(proof, public_inputs_cols);
+        ASSERT_FALSE(verified)
+            << "native proof verification succeeded, but should have failed due to corruption of public inputs col "
+            << col_idx;
+        public_inputs_cols[col_idx][5] -= FF::one(); // reset
+    };
+    for (size_t col_idx = 0; col_idx < 4; col_idx++) {
+        verify_with_corrupt_pi_col(col_idx);
+    }
     Verifier verifier(verification_key);
-
-    // corrupt public inputs col 0
-    public_inputs_cols[0][5] += FF::one();
-    const bool verified0 = verifier.verify_proof(proof, public_inputs_cols);
-    ASSERT_FALSE(verified0)
-        << "native proof verification succeeded, but should have failed due to corruption of public inputs col 0";
-    public_inputs_cols[0][5] -= FF::one(); // reset
-
-    // corrupt public inputs col 1
-    public_inputs_cols[1][5] += FF::one();
-    const bool verified1 = verifier.verify_proof(proof, public_inputs_cols);
-    ASSERT_FALSE(verified1)
-        << "native proof verification succeeded, but should have failed due to corruption of public inputs col 1";
-    public_inputs_cols[1][5] -= FF::one(); // reset
-
-    // corrupt public inputs col 2
-    public_inputs_cols[2][5] += FF::one();
-    const bool verified2 = verifier.verify_proof(proof, public_inputs_cols);
-    ASSERT_FALSE(verified2)
-        << "native proof verification succeeded, but should have failed due to corruption of public inputs col 2";
-    public_inputs_cols[2][5] -= FF::one(); // reset
-
-    // corrupt public inputs col 3
-    public_inputs_cols[3][5] += FF::one();
-    const bool verified3 = verifier.verify_proof(proof, public_inputs_cols);
-    ASSERT_FALSE(verified3)
-        << "native proof verification succeeded, but should have failed due to corruption of public inputs col 3";
-    public_inputs_cols[3][5] -= FF::one(); // reset
+    const bool verified = verifier.verify_proof(proof, public_inputs_cols);
+    ASSERT_TRUE(verified) << "native proof verification failed, but should have succeeded";
 }
 } // namespace bb::avm2::constraining

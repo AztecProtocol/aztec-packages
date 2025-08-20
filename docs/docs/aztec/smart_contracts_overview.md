@@ -2,6 +2,7 @@
 title: Smart Contracts
 sidebar_position: 0
 tags: [contracts]
+description: Introduction to Aztec smart contracts, their unique features, and how they differ from traditional blockchain contracts.
 ---
 
 Smart contracts in Aztec are privacy-first, and can include both public and private elements. They are written in Noir framework called Aztec.nr, and allow high-level programs to be converted into ZK circuits.

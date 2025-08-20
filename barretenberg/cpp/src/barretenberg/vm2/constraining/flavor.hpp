@@ -266,27 +266,15 @@ class AvmFlavor {
             }
         }
 
-        /**
-         * @brief Serialize verification key to field elements
-         *
-         * @return std::vector<FF>
-         */
         std::vector<fr> to_field_elements() const override;
-
         /**
-         * @brief Hashes the vk using the transcript's independent buffer and returns the hash.
-         * @details Needed to make sure the Origin Tag system works. See the base class function for
-         * more details.
-         *
-         * @param domain_separator
-         * @param transcript
-         * @returns The hash of the verification key
+         * @brief Unimplemented because AVM VK is hardcoded so hash does not need to be computed. Rather, we just add
+         * the provided VK hash directly to the transcript.
          */
         fr hash_through_transcript([[maybe_unused]] const std::string& domain_separator,
                                    [[maybe_unused]] Transcript& transcript) const override
         {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1466): Implement this function.
-            throw_or_abort("Not implemented yet!");
+            throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
         }
     };
 

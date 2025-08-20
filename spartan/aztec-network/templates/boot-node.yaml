@@ -104,6 +104,8 @@ spec:
               value: "{{ .Values.ethereum.l1FixedPriorityFeePerGas }}"
             - name: AZTEC_MANA_TARGET
               value: "{{ .Values.aztec.manaTarget }}"
+            - name: REAL_VERIFIER
+              value: "{{ .Values.aztec.realProofs }}"
             - name: K8S_POD_UID
               valueFrom:
                 fieldRef:

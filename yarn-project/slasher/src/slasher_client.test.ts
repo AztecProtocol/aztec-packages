@@ -202,8 +202,8 @@ describe('SlasherClient', () => {
           const permissibleErrors = [
             'GovernanceProposer__OnlyProposerCanVote',
             '0xea36d1ac',
-            'ValidatorSelection__InsufficientCommitteeSize',
-            '0x98673597',
+            'ValidatorSelection__InsufficientValidatorSetSize',
+            '0xf4f28e99',
           ];
           if (permissibleErrors.some(error => err.message.includes(error))) {
             return;
@@ -233,7 +233,7 @@ describe('SlasherClient', () => {
         // Have the slasher sign the vote request
         const signalRequest = await slashingProposer.createSignalRequestWithSignature(
           payload!.toString(),
-          round,
+          slotNumAtNextL1Block,
           slasherL1Client.chain.id,
           slasherPrivateKey.address,
           msg => slasherPrivateKey.signTypedData(msg),

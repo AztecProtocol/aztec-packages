@@ -61,6 +61,10 @@ tests:
     error_regex: "call_indirect to a null table entry"
     owners:
       - *adam
+  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
+    error_regex: "Input is not large enough"
+    owners:
+      - *adam
 
   # noir
   # Something to do with how I run the tests now. Think these are fine in nextest.

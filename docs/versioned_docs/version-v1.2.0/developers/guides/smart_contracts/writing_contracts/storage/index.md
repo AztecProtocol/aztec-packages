@@ -1,5 +1,6 @@
 ---
 title: Declaring Storage
+description: Comprehensive guide to storage management in your Aztec smart contracts.
 sidebar_position: 2
 tags: [contracts, storage]
 ---

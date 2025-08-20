@@ -60,8 +60,8 @@ import {TransientSlot} from "@oz/utils/TransientSlot.sol";
  *      4. Seed Management:
  *         - Sample seeds determine committee and proposer selection for each epoch
  *         - Seeds use prevrandao from L1 blocks combined with epoch number for unpredictability
- *         - Seeds are set 2 epochs in advance to prevent last-minute manipulation and provide L1-reorg resistance
- *         - First two epochs use maximum seed values (type(uint224).max) for bootstrap (this results in the committee
+ *         - Prevrandao are set 2 epochs in advance to prevent last-minute manipulation and provide L1-reorg resistance
+ *         - First two epochs use randao values (type(uint224).max) for bootstrap (this results in the committee
  *           being predictable in the first 2 epochs which is considered acceptable when bootstrapping the network)
  *
  *      5. Caching and Optimization:
@@ -86,7 +86,7 @@ import {TransientSlot} from "@oz/utils/TransientSlot.sol";
  *      Time-based Architecture:
  *      - Epochs define committee boundaries (committee stable within epoch)
  *      - Slots define proposer assignments (one proposer per slot)
- *      - Sample time uses epoch start minus one epoch to ensure validator set stability
+ *      - Sampling uses a lagging time for the epoch to ensure validator set stability
  *      - Validator set snapshots taken at deterministic timestamps for consistency
  */
 library ValidatorSelectionLib {
@@ -134,9 +134,8 @@ library ValidatorSelectionLib {
     ValidatorSelectionStorage storage store = getStorage();
     store.targetCommitteeSize = _targetCommitteeSize;
 
-    // Set the sample seed for the first 2 epochs to max
-    store.seeds.push(0, type(uint224).max);
-    store.seeds.push(1, type(uint224).max);
+    // Set the initial randao
+    store.randaos.push(0, uint224(block.prevrandao));
   }
 
   /**
@@ -153,21 +152,24 @@ library ValidatorSelectionLib {
   function setupEpoch(Epoch _epochNumber) internal {
     ValidatorSelectionStorage storage store = getStorage();
 
+    bytes32 committeeCommitment = store.committeeCommitments[_epochNumber];
+    if (committeeCommitment != bytes32(0)) {
+      // We already have the commitment stored for the epoch meaning the epoch has already been setup.
+      return;
+    }
+
     //################ Seeds ################
     // Get the sample seed for this current epoch.
-    uint224 sampleSeed = getSampleSeed(_epochNumber);
+    uint256 sampleSeed = getSampleSeed(_epochNumber);
 
-    // Set the sample seed for the next epoch if required
+    // Checkpoint randao for future sampling if required
     // function handles the case where it is already set
-    setSampleSeedForNextEpoch(_epochNumber);
+    checkpointRandao(_epochNumber);
 
     //################ Committee ################
     // If the committee is not set for this epoch, we need to sample it
-    bytes32 committeeCommitment = store.committeeCommitments[_epochNumber];
-    if (committeeCommitment == bytes32(0)) {
-      address[] memory committee = sampleValidators(_epochNumber, sampleSeed);
-      store.committeeCommitments[_epochNumber] = computeCommitteeCommitment(committee);
-    }
+    address[] memory committee = sampleValidators(_epochNumber, sampleSeed);
+    store.committeeCommitments[_epochNumber] = computeCommitteeCommitment(committee);
   }
 
   /**
@@ -228,11 +230,15 @@ library ValidatorSelectionLib {
       }
 
       // Get the proposer from the committee based on the epoch, slot, and sample seed
-      uint224 sampleSeed = getSampleSeed(_epochNumber);
+      uint256 sampleSeed = getSampleSeed(_epochNumber);
       proposerIndex = computeProposerIndex(_epochNumber, _slot, sampleSeed, committeeSize);
       proposer = committee[proposerIndex];
 
       setCachedProposer(_slot, proposer, proposerIndex);
+    } else {
+      // Assert that the size of the attestations is as expected, to avoid memory abuse on sizes.
+      // These checks are also performed inside `reconstructCommitteeFromSigners`.
+      _attestations.assertSizes(getStorage().targetCommitteeSize);
     }
 
     // We check that the proposer agrees with the proposal by checking that he attested to it. If we fail to get
@@ -384,7 +390,7 @@ library ValidatorSelectionLib {
 
     Epoch epochNumber = _slot.epochFromSlot();
 
-    uint224 sampleSeed = getSampleSeed(epochNumber);
+    uint256 sampleSeed = getSampleSeed(epochNumber);
     (uint32 ts, uint256[] memory indices) = sampleValidatorsIndices(epochNumber, sampleSeed);
     uint256 committeeSize = indices.length;
     if (committeeSize == 0) {
@@ -402,7 +408,7 @@ library ValidatorSelectionLib {
    * @param _seed The cryptographic seed for sampling randomness
    * @return The array of validator addresses selected for the committee
    */
-  function sampleValidators(Epoch _epoch, uint224 _seed) internal returns (address[] memory) {
+  function sampleValidators(Epoch _epoch, uint256 _seed) internal returns (address[] memory) {
     (uint32 ts, uint256[] memory indices) = sampleValidatorsIndices(_epoch, _seed);
     return StakingLib.getAttestersFromIndicesAtTime(Timestamp.wrap(ts), indices);
   }
@@ -415,7 +421,7 @@ library ValidatorSelectionLib {
    * @return The array of committee member addresses for the epoch
    */
   function getCommitteeAt(Epoch _epochNumber) internal returns (address[] memory) {
-    uint224 seed = getSampleSeed(_epochNumber);
+    uint256 seed = getSampleSeed(_epochNumber);
     return sampleValidators(_epochNumber, seed);
   }
 
@@ -444,41 +450,34 @@ library ValidatorSelectionLib {
   }
 
   /**
-   * @notice Sets the sample seed for the epoch two epochs in the future
-   * @dev Calls setSampleSeedForEpoch with _epoch + 2 to maintain the two-epoch advance requirement.
-   *      This ensures randomness seeds are set well in advance to prevent manipulation.
-   * @param _epoch The current epoch (seed will be set for _epoch + 2)
+   * @notice Checkpoints randao value for future usage
+   * @dev Checks if already stored before computing and storing the randao value.
+   *      Offset the epoch by 2 to maintain the two-epoch advance requirement.
+   *      This ensures randomness are set well in advance to prevent manipulation.
+   * @param _epoch The current epoch (randao will be set for _epoch + 2)
+   *       Passed to reduce recomputation
    */
-  function setSampleSeedForNextEpoch(Epoch _epoch) internal {
-    setSampleSeedForEpoch(_epoch + Epoch.wrap(2));
-  }
-
-  /**
-   * @notice Sets the sample seed for a specific epoch if not already set
-   * @dev Checks if the seed is already stored before computing and storing a new one.
-   *      Uses computeNextSeed() to generate cryptographically secure randomness.
-   * @param _epoch The epoch to set the sample seed for
-   */
-  function setSampleSeedForEpoch(Epoch _epoch) internal {
+  function checkpointRandao(Epoch _epoch) internal {
     ValidatorSelectionStorage storage store = getStorage();
-    uint32 epoch = Epoch.unwrap(_epoch).toUint32();
+
+    // Compute the offset
+    uint32 epoch = Epoch.unwrap(_epoch).toUint32() + 2;
 
     // Check if the latest checkpoint is for the next epoch
-    // It should be impossible that zero epoch snapshots exist, as in the genesis state we push the first sample seed
+    // It should be impossible that zero epoch snapshots exist, as in the genesis state we push the first values
     // into the store
-    (, uint32 mostRecentSeedEpoch,) = store.seeds.latestCheckpoint();
+    (, uint32 mostRecentEpoch,) = store.randaos.latestCheckpoint();
 
-    // If the sample seed for the next epoch is already set, we can skip the computation
-    if (mostRecentSeedEpoch == epoch) {
+    // If the randao for the next epoch is already set, we can skip the computation
+    if (mostRecentEpoch == epoch) {
       return;
     }
 
-    // If the most recently stored seed is less than the epoch we are querying, then we need to compute its seed for
+    // If the most recently stored epoch is less than the epoch we are querying, then we need to store randao for
     // later use
-    if (mostRecentSeedEpoch < epoch) {
-      // Compute the sample seed for the next epoch
-      uint224 nextSeed = computeNextSeed(_epoch);
-      store.seeds.push(epoch, nextSeed);
+    if (mostRecentEpoch < epoch) {
+      // Truncate the randao to be used for future sampling.
+      store.randaos.push(epoch, uint224(block.prevrandao));
     }
   }
 
@@ -558,15 +557,14 @@ library ValidatorSelectionLib {
 
   /**
    * @notice Gets the cryptographic sample seed for an epoch
-   * @dev Retrieves the seed from the checkpointed seeds mapping using upperLookup.
-   *      The seed is computed as keccak256(epoch, block.prevrandao) during epoch setup.
-   *      Never called for epoch 0 or future epochs - only for current/past epochs.
+   * @dev Retrieves the randao from the checkpointed randaos mapping using upperLookup.
+   *      Then computes the sample seed using keccak256(epoch, randao)
    * @param _epoch The epoch to get the sample seed for
-   * @return The 224-bit sample seed used for validator selection randomness
+   * @return The sample seed used for validator selection randomness
    */
-  function getSampleSeed(Epoch _epoch) internal view returns (uint224) {
+  function getSampleSeed(Epoch _epoch) internal view returns (uint256) {
     ValidatorSelectionStorage storage store = getStorage();
-    return store.seeds.upperLookup(Epoch.unwrap(_epoch).toUint32());
+    return uint256(keccak256(abi.encode(_epoch, store.randaos.upperLookup(Epoch.unwrap(_epoch).toUint32()))));
   }
 
   /**
@@ -605,9 +603,9 @@ library ValidatorSelectionLib {
    * @param _seed The cryptographic seed for sampling randomness
    * @return sampleTime The timestamp used for validator set sampling
    * @return indices Array of validator indices selected for the committee
-   * @custom:reverts Errors.ValidatorSelection__InsufficientCommitteeSize if not enough validators available
+   * @custom:reverts Errors.ValidatorSelection__InsufficientValidatorSetSize if not enough validators available
    */
-  function sampleValidatorsIndices(Epoch _epoch, uint224 _seed) private returns (uint32, uint256[] memory) {
+  function sampleValidatorsIndices(Epoch _epoch, uint256 _seed) private returns (uint32, uint256[] memory) {
     ValidatorSelectionStorage storage store = getStorage();
     uint32 ts = epochToSampleTime(_epoch);
     uint256 validatorSetSize = StakingLib.getAttesterCountAtTime(Timestamp.wrap(ts));
@@ -615,7 +613,7 @@ library ValidatorSelectionLib {
 
     require(
       validatorSetSize >= targetCommitteeSize,
-      Errors.ValidatorSelection__InsufficientCommitteeSize(validatorSetSize, targetCommitteeSize)
+      Errors.ValidatorSelection__InsufficientValidatorSetSize(validatorSetSize, targetCommitteeSize)
     );
 
     if (targetCommitteeSize == 0) {
@@ -623,18 +621,6 @@ library ValidatorSelectionLib {
     }
 
     return (ts, SampleLib.computeCommittee(targetCommitteeSize, validatorSetSize, _seed));
-  }
-
-  /**
-   * @notice Computes the cryptographic seed for an epoch using L1 randomness
-   * @dev Combines epoch number with block.prevrandao to create unpredictable but deterministic seed.
-   *      Including epoch prevents foundry testing issues where prevrandao might be zero.
-   * @param _epoch The epoch to compute the seed for
-   * @return The computed 224-bit seed (truncated from 256-bit keccak output)
-   */
-  function computeNextSeed(Epoch _epoch) private view returns (uint224) {
-    // Allow for unsafe (lossy) downcast as we do not care if we loose bits
-    return uint224(uint256(keccak256(abi.encode(_epoch, block.prevrandao))));
   }
 
   /**

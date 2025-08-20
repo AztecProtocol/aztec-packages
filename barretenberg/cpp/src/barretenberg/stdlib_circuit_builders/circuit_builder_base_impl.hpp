@@ -128,30 +128,6 @@ template <typename FF_> void CircuitBuilderBase<FF_>::update_variable_names(uint
     failure("No previously assigned names found");
 }
 
-template <typename FF_> void CircuitBuilderBase<FF_>::finalize_variable_names()
-{
-    std::vector<uint32_t> keys;
-    std::vector<uint32_t> firsts;
-
-    for (auto& tup : variable_names) {
-        keys.push_back(tup.first);
-        firsts.push_back(get_first_variable_in_class(tup.first));
-    }
-
-    for (size_t i = 0; i < keys.size() - 1; i++) {
-        for (size_t j = i + 1; j < keys.size(); i++) {
-            uint32_t first_idx_a = firsts[i];
-            uint32_t first_idx_b = firsts[j];
-            if (first_idx_a == first_idx_b) {
-                std::string substr1 = variable_names[keys[i]];
-                std::string substr2 = variable_names[keys[j]];
-                failure("Variables from the same equivalence class have separate names: " + substr2 + ", " + substr2);
-                update_variable_names(first_idx_b);
-            }
-        }
-    }
-}
-
 template <typename FF_> size_t CircuitBuilderBase<FF_>::get_circuit_subgroup_size(const size_t num_gates) const
 {
     auto log2_n = static_cast<size_t>(numeric::get_msb(num_gates));

@@ -48,12 +48,13 @@ template <typename Flavor> typename DeciderVerifier_<Flavor>::Output DeciderVeri
 
     const size_t log_circuit_size = static_cast<size_t>(accumulator->vk->log_circuit_size);
 
-    const size_t virtual_log_n = Flavor::USE_PADDING ? CONST_PROOF_SIZE_LOG_N : log_circuit_size;
+    const size_t virtual_log_n = Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : log_circuit_size;
 
-    std::vector<FF> padding_indicator_array(virtual_log_n);
-
-    for (size_t idx = 0; idx < virtual_log_n; idx++) {
-        padding_indicator_array[idx] = (idx < log_circuit_size) ? FF{ 1 } : FF{ 0 };
+    std::vector<FF> padding_indicator_array(virtual_log_n, 1);
+    if constexpr (Flavor::HasZK) {
+        for (size_t idx = 0; idx < virtual_log_n; idx++) {
+            padding_indicator_array[idx] = (idx < log_circuit_size) ? FF{ 1 } : FF{ 0 };
+        }
     }
 
     SumcheckVerifier<Flavor> sumcheck(transcript, accumulator->alphas, virtual_log_n, accumulator->target_sum);

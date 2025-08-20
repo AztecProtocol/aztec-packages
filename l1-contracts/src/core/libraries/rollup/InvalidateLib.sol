@@ -101,7 +101,10 @@ library InvalidateLib {
       recovered = _attestations.getAddress(_invalidIndex);
     } else {
       Signature memory signature = _attestations.getSignature(_invalidIndex);
-      recovered = ECDSA.recover(digest, signature.v, signature.r, signature.s);
+      // We use `tryRecover` instead of `recover` since we want improper signatures to return `address(0)` rather than
+      // revert. Since `address(0)` is not allowed as an attester, this will cause the recovered address to not match
+      // the committee data.
+      (recovered,,) = ECDSA.tryRecover(digest, signature.v, signature.r, signature.s);
     }
 
     require(recovered != _committee[_invalidIndex], Errors.Rollup__AttestationsAreValid());

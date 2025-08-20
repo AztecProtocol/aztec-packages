@@ -1,6 +1,5 @@
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
-import { Buffer32 } from '@aztec/foundation/buffer';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
@@ -39,11 +38,12 @@ import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/te
 import { EventEmitter } from 'events';
 import type { TypedDataDefinition } from 'viem';
 
+// import { privateKeyToAccount } from 'viem/accounts';
+
 import type { ValidatorClientConfig } from './config.js';
 import { ValidationService } from './duties/validation_service.js';
 import type { ValidatorKeyStore } from './key_store/interface.js';
-import { LocalKeyStore } from './key_store/local_key_store.js';
-import { Web3SignerKeyStore } from './key_store/web3signer_key_store.js';
+import { NodeKeystoreAdapter } from './key_store/node_keystore_adapter.js';
 import { ValidatorMetrics } from './metrics.js';
 
 // We maintain a set of proposers who have proposed invalid blocks.
@@ -160,18 +160,21 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   ) {
     let keyStore: ValidatorKeyStore;
 
+    // Option 1: Transparent conversion - everything goes through NodeKeystoreAdapter
     if (config.web3SignerUrl) {
+      // Build adapter directly from Web3Signer info
       const addresses = config.web3SignerAddresses;
       if (!addresses?.length) {
         throw new Error('web3SignerAddresses is required when web3SignerUrl is provided');
       }
-      keyStore = new Web3SignerKeyStore(addresses, config.web3SignerUrl);
+      keyStore = NodeKeystoreAdapter.fromWeb3Signer(config.web3SignerUrl, addresses);
+    } else if (config.validatorPrivateKeys?.getValue().length) {
+      // Build adapter directly from private keys
+      const privateKeys = config.validatorPrivateKeys.getValue();
+      keyStore = NodeKeystoreAdapter.fromPrivateKeys(privateKeys);
     } else {
-      const privateKeys = config.validatorPrivateKeys?.getValue().map(validatePrivateKey);
-      if (!privateKeys?.length) {
-        throw new InvalidValidatorPrivateKeyError();
-      }
-      keyStore = new LocalKeyStore(privateKeys);
+      // No configuration provided - throw error (matches current behavior)
+      throw new InvalidValidatorPrivateKeyError();
     }
 
     const validator = new ValidatorClient(
@@ -608,10 +611,4 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   }
 }
 
-function validatePrivateKey(privateKey: string): Buffer32 {
-  try {
-    return Buffer32.fromString(privateKey);
-  } catch {
-    throw new InvalidValidatorPrivateKeyError();
-  }
-}
+// Conversion helpers moved into NodeKeystoreAdapter.

@@ -1,6 +1,7 @@
 ---
 title: Keys
 tags: [accounts, keys]
+description: Understand the key pairs used in Aztec accounts - nullifier keys, address keys, incoming viewing keys, and signing keys - and how they enable privacy and authentication.
 ---
 
 import Image from "@theme/IdealImage";

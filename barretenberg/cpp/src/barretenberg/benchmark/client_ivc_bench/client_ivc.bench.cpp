@@ -32,15 +32,12 @@ class ClientIVCBench : public benchmark::Fixture {
  */
 BENCHMARK_DEFINE_F(ClientIVCBench, VerificationOnly)(benchmark::State& state)
 {
-    ClientIVC ivc{ /*num_circuits=*/2, { AZTEC_TRACE_STRUCTURE } };
+    ClientIVC ivc{ /*num_circuits=*/4, { AZTEC_TRACE_STRUCTURE } };
 
     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
-
-    // Initialize the IVC with an arbitrary circuit
-    circuit_producer.construct_and_accumulate_next_circuit(ivc);
-
-    // Create another circuit and accumulate
-    circuit_producer.construct_and_accumulate_next_circuit(ivc);
+    for (size_t idx = 0; idx < 4; ++idx) {
+        circuit_producer.construct_and_accumulate_next_circuit(ivc);
+    }
 
     auto proof = ivc.prove();
 

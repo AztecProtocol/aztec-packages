@@ -1,5 +1,6 @@
 ---
 title: Sandbox PXE Proving
+description: Learn how to use the Aztec sandbox for local contract testing and proving.
 tags: [sandbox, PXE]
 ---
 

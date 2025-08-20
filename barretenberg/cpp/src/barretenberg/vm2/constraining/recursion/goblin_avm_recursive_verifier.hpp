@@ -63,14 +63,18 @@ class AvmGoblinRecursiveVerifier {
         Goblin::VerificationKey goblin_vk;                    // VK_G
     };
 
-    std::vector<UltraFF> outer_key_fields;
-
     UltraBuilder& ultra_builder;
+    std::vector<UltraFF> outer_key_fields;
+    UltraFF vk_hash; // this should be a constant witness
 
     explicit AvmGoblinRecursiveVerifier(UltraBuilder& builder, const std::vector<UltraFF>& outer_key_fields)
-        : outer_key_fields(outer_key_fields)
-        , ultra_builder(builder)
-    {}
+        : ultra_builder(builder)
+        , outer_key_fields(outer_key_fields)
+    {
+        // TODO(#15892): Set this to be the actual vk hash when vk is fixed.
+        vk_hash = UltraFF::from_witness(&builder, /* should be native hash of vk fields*/ 0);
+        vk_hash.fix_witness();
+    }
 
     /**
      * @brief Recursively verify an AVM proof using Goblin and two layers of recursive verification.
@@ -126,7 +130,9 @@ class AvmGoblinRecursiveVerifier {
         for (const std::vector<FF>& input_vec : public_inputs) {
             hash_buffer.insert(hash_buffer.end(), input_vec.begin(), input_vec.end());
         }
+        // TODO(#15892): Remove vk from hash buffer when vk/hash are fixed in circuit. Keep the vk_hash in the buffer
         hash_buffer.insert(hash_buffer.end(), outer_key_fields.begin(), outer_key_fields.end());
+        hash_buffer.emplace_back(vk_hash);
 
         // Recursively verify the Mega proof \pi_M in the Ultra circuit
         // All verifier components share a single transcript
@@ -135,6 +141,7 @@ class AvmGoblinRecursiveVerifier {
         // Fix the inner mega vk and vk hash to be constants in the outer circuit.
         mega_vk_and_hash->vk->fix_witness();
         mega_vk_and_hash->hash.fix_witness();
+        // TODO(#16352): Figure out how not to add hashing gates to mega recursive verifier.
         MegaRecursiveVerifier mega_verifier(&ultra_builder, mega_vk_and_hash, transcript);
         stdlib::Proof<UltraBuilder> mega_proof(ultra_builder, inner_output.mega_proof);
         auto mega_verifier_output = mega_verifier.template verify_proof<IO>(mega_proof);
@@ -204,7 +211,13 @@ class AvmGoblinRecursiveVerifier {
         for (const std::vector<UltraFF>& input_vec : public_inputs) {
             mega_public_inputs.emplace_back(convert_stdlib_ultra_to_stdlib_mega(input_vec));
         }
+        // TODO(#15892): Remove key_fields from hash buffer when vk/hash are fixed in circuit. Keep the vk_hash in the
+        // buffer
         std::vector<FF> key_fields = convert_stdlib_ultra_to_stdlib_mega(outer_key_fields);
+        FF mega_vk_hash = convert_stdlib_ultra_to_stdlib_mega({ vk_hash })[0];
+        // TODO(#15892): We call fix_witness on the vk hash twice here because we hash it here and also for
+        // fiat-shamiring.
+        mega_vk_hash.fix_witness(); // fix witness because vk hash should be a circuit constant
 
         // Compute the hash and set it public
         const FF mega_hash = stdlib::poseidon2<MegaBuilder>::hash(mega_builder, mega_hash_buffer);
@@ -224,6 +237,11 @@ class AvmGoblinRecursiveVerifier {
         std::shared_ptr<Goblin::Transcript> transcript = std::make_shared<Goblin::Transcript>();
         // Construct Mega proof \pi_M of the AVM recursive verifier circuit
         auto mega_proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(mega_builder);
+        // Detect when MEGA_AVM_LOG_N needs to be bumped.
+        BB_ASSERT_LTE(
+            mega_proving_key->log_dyadic_size(),
+            MEGA_AVM_LOG_N,
+            "AVMRecursiveVerifier: circuit size exceeded current upper bound. If expected, bump MEGA_AVM_LOG_N");
         auto mega_vk = std::make_shared<MegaVerificationKey>(mega_proving_key->get_precomputed());
         MegaProver mega_prover(mega_proving_key, mega_vk, transcript);
         HonkProof mega_proof = mega_prover.construct_proof();

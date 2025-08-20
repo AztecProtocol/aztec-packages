@@ -1,5 +1,6 @@
 ---
 title: Account Contract
+description: Code-along tutorial for writing custom account contracts on Aztec.
 sidebar_position: 4
 tags: [accounts]
 ---

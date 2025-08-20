@@ -103,6 +103,18 @@ template <class Builder> class goblin_field {
         this->unset_free_witness_tag();
     }
 
+    /**
+     * Fix a witness. The value of the witness is constrained with a selector
+     **/
+    void fix_witness()
+    {
+        for (auto& limb : limbs) {
+            limb.fix_witness();
+        }
+        // This is now effectively a constant
+        unset_free_witness_tag();
+    }
+
     static goblin_field conditional_assign(const bool_ct& predicate, const goblin_field& lhs, goblin_field& rhs)
     {
         goblin_field result;

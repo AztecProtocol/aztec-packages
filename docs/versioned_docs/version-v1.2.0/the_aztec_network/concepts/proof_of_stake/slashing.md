@@ -1,6 +1,7 @@
 ---
 sidebar_position: 2
 title: Slashing
+description: Learn about the slashing mechanism on the Aztec network.
 draft: true
 ---
 
