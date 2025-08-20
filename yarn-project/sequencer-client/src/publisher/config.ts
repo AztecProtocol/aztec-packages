@@ -21,8 +21,6 @@ export type TxSenderConfig = L1ReaderConfig & {
   /**
    * The private key to be used by the publisher.
    */
-  publisherPrivateKey: SecretValue<`0x${string}`>;
-
   publisherPrivateKeys: SecretValue<`0x${string}`>[];
 
   /**
@@ -52,16 +50,12 @@ export const getTxSenderConfigMappings: (
     description: 'The address of the custom forwarder contract.',
     defaultValue: EthAddress.ZERO,
   },
-  publisherPrivateKey: {
-    env: scope === 'PROVER' ? `PROVER_PUBLISHER_PRIVATE_KEY` : `SEQ_PUBLISHER_PRIVATE_KEY`,
-    description: 'The private key to be used by the publisher.',
-    ...secretValueConfigHelper(val => (val ? `0x${val.replace('0x', '')}` : NULL_KEY)),
-  },
   publisherPrivateKeys: {
     env: scope === 'PROVER' ? `PROVER_PUBLISHER_PRIVATE_KEYS` : `SEQ_PUBLISHER_PRIVATE_KEYS`,
     description: 'The private keys to be used by the publisher.',
-    parseEnv: (val: string) => val.split(',').map(key => `0x${key.replace('0x', '')}`),
-    defaultValue: [],
+    ...secretValueConfigHelper<`0x${string}`[]>(val =>
+      val ? val.split(',').map<`0x${string}`>(key => `0x${key.replace('0x', '')}`) : [],
+    ),
     fallback: scope === 'PROVER' ? ['PROVER_PUBLISHER_PRIVATE_KEY'] : ['SEQ_PUBLISHER_PRIVATE_KEY'],
   },
 });
@@ -88,17 +82,12 @@ export function getPublisherConfigFromEnv(scope: 'PROVER' | 'SEQ'): PublisherCon
 }
 
 export function getPublisherPrivateKeysFromConfig(config: TxSenderConfig) {
-  const { publisherPrivateKeys, publisherPrivateKey } = config;
-  if (
-    publisherPrivateKeys.length === 0 ||
-    !publisherPrivateKey?.getValue() ||
-    publisherPrivateKeys[0]?.getValue() === NULL_KEY
-  ) {
-    // This shouldn't happen, validators need a publisher private key.
-    if (!publisherPrivateKey?.getValue() || publisherPrivateKey?.getValue() === NULL_KEY) {
-      throw new Error('A publisher private key is required');
-    }
-    return [publisherPrivateKey];
+  const { publisherPrivateKeys } = config;
+  if (publisherPrivateKeys.length === 0) {
+    throw new Error('Publisher private keys are required in the configuration.');
   }
-  return [...publisherPrivateKeys];
+  if (publisherPrivateKeys.some(k => k.getValue() === NULL_KEY)) {
+    throw new Error('Invalid publisher private keys found in configuration.');
+  }
+  return publisherPrivateKeys;
 }

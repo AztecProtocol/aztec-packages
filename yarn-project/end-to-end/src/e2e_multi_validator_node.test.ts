@@ -50,7 +50,7 @@ describe('e2e_multi_validator_node', () => {
       { length: VALIDATOR_COUNT },
       (_, i) => `0x${getPrivateKeyFromIndex(i)!.toString('hex')}` as `0x${string}`,
     );
-    const publisherPrivateKey = new SecretValue(initialValidatorPrivateKeys[0]);
+    const publisherPrivateKeys = initialValidatorPrivateKeys.map(k => new SecretValue(k));
     validatorAddresses = initialValidatorPrivateKeys.map(pk => {
       const account = privateKeyToAccount(pk);
       return EthAddress.fromString(account.address).toString();
@@ -78,7 +78,7 @@ describe('e2e_multi_validator_node', () => {
     } = await setup(1, {
       initialValidators,
       aztecTargetCommitteeSize: COMMITTEE_SIZE,
-      publisherPrivateKey,
+      publisherPrivateKeys,
       minTxsPerBlock: 1,
       archiverPollingIntervalMS: 200,
       transactionPollingIntervalMS: 200,

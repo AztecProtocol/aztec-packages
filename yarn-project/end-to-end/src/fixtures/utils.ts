@@ -458,17 +458,13 @@ export async function setup(
       config.publisherPrivateKeys[0].getValue() != NULL_KEY
     ) {
       publisherHdAccount = privateKeyToAccount(config.publisherPrivateKeys[0].getValue());
-    } else if (config.publisherPrivateKey && config.publisherPrivateKey.getValue() != NULL_KEY) {
-      publisherHdAccount = privateKeyToAccount(config.publisherPrivateKey.getValue());
-      config.publisherPrivateKeys = [new SecretValue(config.publisherPrivateKey.getValue())];
     } else if (!MNEMONIC) {
       throw new Error(`Mnemonic not provided and no publisher private key`);
     } else {
       publisherHdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
       const publisherPrivKeyRaw = publisherHdAccount.getHdKey().privateKey;
       publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
-      config.publisherPrivateKey = new SecretValue(`0x${publisherPrivKey!.toString('hex')}` as const);
-      config.publisherPrivateKeys = [new SecretValue(config.publisherPrivateKey.getValue())];
+      config.publisherPrivateKeys = [new SecretValue(`0x${publisherPrivKey!.toString('hex')}` as const)];
     }
 
     config.coinbase = EthAddress.fromString(publisherHdAccount.address);
@@ -957,7 +953,7 @@ export function createAndSyncProverNode(
       txCollectionNodeRpcUrls: [],
       realProofs: false,
       proverAgentCount: 2,
-      publisherPrivateKey: new SecretValue(proverNodePrivateKey),
+      publisherPrivateKeys: [new SecretValue(proverNodePrivateKey)],
       proverNodeMaxPendingJobs: 10,
       proverNodeMaxParallelBlocksPerEpoch: 32,
       proverNodePollingIntervalMs: 200,
