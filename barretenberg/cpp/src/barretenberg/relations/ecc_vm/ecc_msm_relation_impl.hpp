@@ -87,11 +87,11 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     const auto& msm_transition_shift = View(in.msm_transition_shift);
     const auto& round = View(in.msm_round);
     const auto& round_shift = View(in.msm_round_shift);
-    const auto& q_add = View(in.msm_add);
+    const auto& q_add = View(in.msm_add); // is 1 iff we are at an ADD row in Straus algorithm
     const auto& q_add_shift = View(in.msm_add_shift);
     const auto& q_skew = View(in.msm_skew);
     const auto& q_skew_shift = View(in.msm_skew_shift);
-    const auto& q_double = View(in.msm_double);
+    const auto& q_double = View(in.msm_double); // is 1 iff we are at an DOUBLE row in Straus algorithm
     const auto& q_double_shift = View(in.msm_double_shift);
     const auto& msm_size = View(in.msm_size_of_msm);
     // const auto& msm_size_shift = View(in.msm_size_of_msm_shift);
@@ -168,12 +168,12 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
      * @brief Addition relation
      *
      * All addition operations in ECCVMMSMRelationImpl are conditional additions, as we sometimes want to add values and
-     * other times simply want to propagate values. (consider, e.g., when q_add2 == 0.) This method returns two
+     * other times simply want to propagate values. (consider, e.g., when `q_add2 == 0`.) This method returns two
      * Accumulators that represent x/y coord of output. Output is either an addition of inputs (if `selector == 1`), or
      * xa/ya (if `selector == 0`). Additionally, we require `lambda = 0` if `selector = 0`. The `collision_relation`
      * accumulator tracks a subrelation that validates xb != xa. Repeated calls to this method will increase the max
-     * degree of the Accumulator output Degree of x_out, y_out = max degree of x_a/x_b + 1 4 Iterations will produce an
-     * output degree of 6
+     * degree of the Accumulator output: degree of x_out, y_out = max degree of x_a/x_b + 1. 4 Iterations will produce
+     * an output degree of 5.
      */
     auto add = [&](auto& xb,
                    auto& yb,
@@ -183,9 +183,9 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
                    auto& selector,
                    auto& relation,
                    auto& collision_relation) {
-        // L * (1 - s) = 0
-        // (combine) (L * (xb - xa - 1) - yb - ya) * s + L = 0
-        // i.e., computation of lambda is valid.
+        // computation of lambda is valid: if s == 1, then L == (yb - ya) / (xb - xa)
+        // if s == 0, then L == 0. combining these into a single constraint yields:
+        // s * (L * (xb - xa - 1) - (yb - ya)) + L = 0
         relation += selector * (lambda * (xb - xa - 1) - (yb - ya)) + lambda;
         collision_relation += selector * (xb - xa);
         // x3 = L.L + (-xb - xa) * q + (1 - q) xa
