@@ -235,6 +235,10 @@ library ValidatorSelectionLib {
       proposer = committee[proposerIndex];
 
       setCachedProposer(_slot, proposer, proposerIndex);
+    } else {
+      // Assert that the size of the attestations is as expected, to avoid memory abuse on sizes.
+      // These checks are also performed inside `reconstructCommitteeFromSigners`.
+      _attestations.assertSizes(getStorage().targetCommitteeSize);
     }
 
     // We check that the proposer agrees with the proposal by checking that he attested to it. If we fail to get
