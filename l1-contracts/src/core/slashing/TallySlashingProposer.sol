@@ -3,17 +3,17 @@
 // solhint-disable comprehensive-interface
 pragma solidity >=0.8.27;
 
-import { ISlasher, SlasherFlavor } from "@aztec/core/interfaces/ISlasher.sol";
-import { IValidatorSelection } from "@aztec/core/interfaces/IValidatorSelection.sol";
-import { Errors } from "@aztec/core/libraries/Errors.sol";
-import { IPayload } from "@aztec/governance/interfaces/IPayload.sol";
-import { SlashPayload } from "@aztec/periphery/SlashPayload.sol";
-import { CompressedSlot, CompressedTimeMath } from "@aztec/shared/libraries/CompressedTimeMath.sol";
-import { SignatureLib, Signature } from "@aztec/shared/libraries/SignatureLib.sol";
-import { SlashRound, CompressedSlashRound, CompressedSlashRoundMath } from "@aztec/shared/libraries/SlashRoundLib.sol";
-import { Slot, Epoch } from "@aztec/shared/libraries/TimeMath.sol";
-import { EIP712 } from "@oz/utils/cryptography/EIP712.sol";
-import { SafeCast } from "@oz/utils/math/SafeCast.sol";
+import {ISlasher, SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
+import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
+import {SlashPayload} from "@aztec/periphery/SlashPayload.sol";
+import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
+import {SignatureLib, Signature} from "@aztec/shared/libraries/SignatureLib.sol";
+import {SlashRound, CompressedSlashRound, CompressedSlashRoundMath} from "@aztec/shared/libraries/SlashRoundLib.sol";
+import {Slot, Epoch} from "@aztec/shared/libraries/TimeMath.sol";
+import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
+import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 /**
  * @title TallySlashingProposer
