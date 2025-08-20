@@ -2,7 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {ISlasher} from "@aztec/core/interfaces/ISlasher.sol";
+import {ISlasher, SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 import {IEmpire} from "@aztec/governance/interfaces/IEmpire.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {EmpireBase} from "@aztec/governance/proposer/EmpireBase.sol";
@@ -14,7 +14,7 @@ contract EmpireSlashingProposer is IEmpire, EmpireBase {
   /**
    * @notice Type of slashing proposer (either Consensus or Empire)
    */
-  string public constant SLASHING_PROPOSER_TYPE = "Empire";
+  SlasherFlavor public constant SLASHING_PROPOSER_TYPE = SlasherFlavor.EMPIRE;
 
   address public immutable INSTANCE;
   ISlasher public immutable SLASHER;

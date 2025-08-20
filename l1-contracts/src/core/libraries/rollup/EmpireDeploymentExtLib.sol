@@ -7,7 +7,7 @@ import {Slasher, ISlasher} from "@aztec/core/slashing/Slasher.sol";
 import {EmpireSlashingProposer} from "@aztec/core/slashing/EmpireSlashingProposer.sol";
 
 /**
- * @title ExtRollupLib5 - External Rollup Library (Empire Slasher Deployment)
+ * @title EmpireDeploymentExtLib - External Rollup Library (Empire Slasher Deployment)
  * @author Aztec Labs
  * @notice External library containing empire slasher deployment function for the Rollup contract
  * to avoid exceeding max contract size.

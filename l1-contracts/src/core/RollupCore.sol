@@ -235,6 +235,8 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     // Deploy slasher based on flavor
     ISlasher slasher;
 
+    // We call one external library or another based on the slasher flavor
+    // This allows us to keep the slash flavors in separate external libraries so we do not exceed max contract size
     if (_config.slasherFlavor == SlasherFlavor.CONSENSUS) {
       slasher = ConsensusDeploymentExtLib.deployConsensusSlasher(
         address(this),

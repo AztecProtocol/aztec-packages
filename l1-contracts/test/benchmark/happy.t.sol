@@ -68,7 +68,7 @@ import {ConsensusSlashingProposer} from "@aztec/core/slashing/ConsensusSlashingP
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
-import {SlashRound} from "@aztec/shared/libraries/TimeMath.sol";
+import {SlashRound} from "@aztec/shared/libraries/SlashRoundLib.sol";
 
 // solhint-disable comprehensive-interface
 
@@ -249,11 +249,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     benchmark(TestSlash.NONE);
   }
 
-  function test_100_empire_slashing_validators() public prepare(100, false, TestSlash.EMPIRE) {
-    benchmark(TestSlash.EMPIRE);
-  }
-
-  function test_100_consensus_slashing_validators() public prepare(100, false, TestSlash.CONSENSUS) {
+  function test_100_slashing_validators() public prepare(100, false, TestSlash.CONSENSUS) {
     benchmark(TestSlash.CONSENSUS);
   }
 

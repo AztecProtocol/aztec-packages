@@ -4,9 +4,9 @@ pragma solidity >=0.8.27;
 
 import {ISlasher} from "@aztec/core/interfaces/ISlasher.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
-import {Ownable} from "@oz/access/Ownable.sol";
 
-contract Slasher is ISlasher, Ownable {
+contract Slasher is ISlasher {
+  address public immutable GOVERNANCE;
   address public immutable VETOER;
   // solhint-disable-next-line var-name-mixedcase
   address public PROPOSER;
@@ -20,7 +20,8 @@ contract Slasher is ISlasher, Ownable {
   error Slasher__AlreadyInitialized();
   error Slasher__ProposerZeroAddress();
 
-  constructor(address _vetoer, address _owner) Ownable(_owner) {
+  constructor(address _vetoer, address _governance) {
+    GOVERNANCE = _governance;
     VETOER = _vetoer;
   }
 
@@ -39,7 +40,7 @@ contract Slasher is ISlasher, Ownable {
   }
 
   function slash(IPayload _payload) external override(ISlasher) returns (bool) {
-    require(msg.sender == PROPOSER || msg.sender == owner(), Slasher__CallerNotAuthorizedToSlash(msg.sender));
+    require(msg.sender == PROPOSER || msg.sender == GOVERNANCE, Slasher__CallerNotAuthorizedToSlash(msg.sender));
     require(!vetoedPayloads[address(_payload)], Slasher__PayloadVetoed(address(_payload)));
 
     IPayload.Action[] memory actions = _payload.getActions();

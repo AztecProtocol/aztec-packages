@@ -3,16 +3,15 @@
 // solhint-disable comprehensive-interface
 pragma solidity >=0.8.27;
 
-import {ISlasher} from "@aztec/core/interfaces/ISlasher.sol";
+import {ISlasher, SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {SlashPayload} from "@aztec/periphery/SlashPayload.sol";
-import {
-  CompressedSlot, CompressedSlashRound, CompressedTimeMath
-} from "@aztec/shared/libraries/CompressedTimeMath.sol";
+import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {SignatureLib, Signature} from "@aztec/shared/libraries/SignatureLib.sol";
-import {Slot, Epoch, SlashRound} from "@aztec/shared/libraries/TimeMath.sol";
+import {Slot, Epoch} from "@aztec/shared/libraries/TimeMath.sol";
+import {SlashRound, CompressedSlashRound, CompressedSlashRoundMath} from "@aztec/shared/libraries/SlashRoundLib.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
@@ -85,9 +84,9 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 contract ConsensusSlashingProposer is EIP712 {
   using SignatureLib for Signature;
   using CompressedTimeMath for CompressedSlot;
-  using CompressedTimeMath for CompressedSlashRound;
   using CompressedTimeMath for Slot;
-  using CompressedTimeMath for SlashRound;
+  using CompressedSlashRoundMath for CompressedSlashRound;
+  using CompressedSlashRoundMath for SlashRound;
 
   /**
    * @notice Contains metadata about a slashing round stored in uncompressed format
@@ -150,7 +149,7 @@ contract ConsensusSlashingProposer is EIP712 {
   /**
    * @notice Type of slashing proposer (either Consensus or Empire)
    */
-  string public constant SLASHING_PROPOSER_TYPE = "Consensus";
+  SlasherFlavor public constant SLASHING_PROPOSER_TYPE = SlasherFlavor.CONSENSUS;
 
   /**
    * @notice Size of the circular storage buffer for round data
@@ -223,7 +222,11 @@ contract ConsensusSlashingProposer is EIP712 {
 
   /**
    * @notice How many rounds in the past to look when determining which validators to slash
-   * @dev Creates temporal separation between the time of misbehavior and voting for slashing
+   * @dev During round N, we cannot slash the validators from the epochs of the same round, since the round is not over,
+   * and besides we would be asking the current validators to vote to slash themselves. So during round N we look at the
+   * epochs spanned during round N - SLASH_OFFSET_IN_ROUNDS. This offset means that the epochs we slash are complete,
+   * and also gives nodes time to detect any misbehavior (eg slashing for prunes requires the proof submission window to
+   * pass).
    */
   uint256 public immutable SLASH_OFFSET_IN_ROUNDS;
 
@@ -236,7 +239,7 @@ contract ConsensusSlashingProposer is EIP712 {
    * @param round The round number in which the vote was cast
    * @param proposer The address of the proposer who cast the vote
    */
-  event VoteCast(SlashRound indexed round, address indexed proposer);
+  event VoteCast(SlashRound indexed round, Slot indexed slot, address indexed proposer);
 
   /**
    * @notice Emitted when a slashing round is executed and validators are slashed
@@ -342,21 +345,21 @@ contract ConsensusSlashingProposer is EIP712 {
    * - ConsensusSlashingProposer__VoteAlreadyCastInCurrentSlot: If proposer already voted in this slot
    */
   function vote(bytes calldata _votes, Signature calldata _sig) external {
-    Slot slot = getCurrentSlot();
-    SlashRound round = computeRound(slot);
+    Slot slot = _getCurrentSlot();
+    SlashRound round = _computeRound(slot);
 
     // We vote for slashing validators for epochs from SLASH_OFFSET_IN_ROUNDS ago, so in early rounds there is no one to
     // be slashed.
     require(round >= SlashRound.wrap(SLASH_OFFSET_IN_ROUNDS), Errors.ConsensusSlashingProposer__VotingNotOpen(round));
 
     // Get the current proposer from the rollup - only they can submit votes
-    address proposer = getCurrentProposer();
+    address proposer = _getCurrentProposer();
 
     // Verify EIP-712 signature (which includes slot to prevent replay attacks)
     bytes32 digest = getVoteSignatureDigest(_votes, slot);
     require(_sig.verify(proposer, digest), Errors.ConsensusSlashingProposer__InvalidSignature());
 
-    // Each byte encodes 2 validators (4 bits each), so we need half the total validators in bytes
+    // Each byte encodes 2 validators (4 bits each), so each validator is represented as a nibble in the byte array.
     uint256 expectedLength = COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS / 2;
     require(
       _votes.length == expectedLength,
@@ -364,17 +367,19 @@ contract ConsensusSlashingProposer is EIP712 {
     );
 
     // Get the round data for the current round
-    RoundData memory roundData = getRoundData(round, round);
+    RoundData memory roundData = _getRoundData(round, round);
 
     // Check if a vote has already been cast in the current slot
     require(roundData.lastVoteSlot < slot, Errors.ConsensusSlashingProposer__VoteAlreadyCastInCurrentSlot(slot));
 
-    // Store the vote for this round and update round data
+    // Store the vote for this round
     uint256 voteCount = roundData.voteCount;
-    getRoundVotes(round).votes[voteCount] = _votes;
-    setRoundData(round, slot, voteCount + 1, roundData.executed);
+    _getRoundVotes(round).votes[voteCount] = _votes;
 
-    emit VoteCast(round, proposer);
+    // Increment the vote count for this round (all other fields remain unchanged)
+    _setRoundData(round, slot, voteCount + 1, roundData.executed);
+
+    emit VoteCast(round, slot, proposer);
   }
 
   /**
@@ -401,14 +406,14 @@ contract ConsensusSlashingProposer is EIP712 {
   function executeRound(SlashRound _round, address[][] calldata _committees) external {
     // Get round data to check if already executed
     SlashRound currentRound = getCurrentRound();
-    RoundData memory roundData = getRoundData(_round, currentRound);
+    RoundData memory roundData = _getRoundData(_round, currentRound);
     require(!roundData.executed, Errors.ConsensusSlashingProposer__RoundAlreadyExecuted(_round));
 
     // Ensure enough time has passed (execution delay) but not too much (lifetime)
-    require(isRoundReadyToExecute(_round, currentRound), Errors.ConsensusSlashingProposer__RoundNotComplete(_round));
+    require(_isRoundReadyToExecute(_round, currentRound), Errors.ConsensusSlashingProposer__RoundNotComplete(_round));
 
     // Get the slash actions by tallying votes and which committees have slashes
-    (SlashAction[] memory actions, bool[] memory committeesWithSlashes) = tally(roundData, _committees);
+    (SlashAction[] memory actions, bool[] memory committeesWithSlashes) = _tally(roundData, _committees);
 
     // Only verify committees that have slashed validators
     for (uint256 i = 0; i < committeesWithSlashes.length; i++) {
@@ -417,23 +422,25 @@ contract ConsensusSlashingProposer is EIP712 {
       }
 
       // Check committee commitments against the stored on-chain data
-      bytes32 commitment = computeCommitteeCommitment(_committees[i]);
-      Epoch epochNumber = getEpochSlashed(_round, i);
+      bytes32 commitment = _computeCommitteeCommitment(_committees[i]);
+      Epoch epochNumber = getSlashTargetEpoch(_round, i);
       require(
-        commitment == getCommitteeCommitment(epochNumber),
+        commitment == _getCommitteeCommitment(epochNumber),
         Errors.ConsensusSlashingProposer__InvalidCommitteeCommitment()
       );
     }
 
+    // Mark round as executed to prevent re-execution
+    // We set this flag before actually slashing to avoid re-entrancy issues
+    _setRoundData(_round, roundData.lastVoteSlot, roundData.voteCount, /*executed=*/ true);
+
     // Execute slashes if any were determined
     if (actions.length > 0) {
       // Deploy payload contract and execute slashes
-      IPayload slashPayload = deploySlashPayload(_round, actions);
+      IPayload slashPayload = _deploySlashPayload(_round, actions);
       SLASHER.slash(slashPayload);
     }
 
-    // Mark round as executed to prevent re-execution
-    setRoundData(_round, roundData.lastVoteSlot, roundData.voteCount, true);
     emit RoundExecuted(_round, actions.length);
   }
 
@@ -449,13 +456,13 @@ contract ConsensusSlashingProposer is EIP712 {
    */
   function getTally(SlashRound _round) external returns (SlashAction[] memory) {
     // Get the round data for the specified round
-    RoundData memory roundData = getRoundData(_round, getCurrentRound());
+    RoundData memory roundData = _getRoundData(_round, getCurrentRound());
 
     // Load the committees for this round
-    address[][] memory committees = getCommitteesSlashed(_round);
+    address[][] memory committees = _getSlashTargetCommittees(_round);
 
     // Tally votes and return slash actions
-    (SlashAction[] memory actions,) = tally(roundData, committees);
+    (SlashAction[] memory actions,) = _tally(roundData, committees);
     return actions;
   }
 
@@ -474,7 +481,7 @@ contract ConsensusSlashingProposer is EIP712 {
     if (_actions.length == 0) {
       return address(0);
     }
-    (,,, address predictedAddress) = preparePayloadDataAndAddress(_round, _actions);
+    (,,, address predictedAddress) = _preparePayloadDataAndAddress(_round, _actions);
     return predictedAddress;
   }
 
@@ -490,10 +497,10 @@ contract ConsensusSlashingProposer is EIP712 {
     SlashRound currentRound = getCurrentRound();
 
     // Load round data from the circular storage
-    RoundData memory roundData = getRoundData(_round, currentRound);
+    RoundData memory roundData = _getRoundData(_round, currentRound);
 
     // Check if the round is ready to execute based on current round number
-    bool isReady = isRoundReadyToExecute(_round, currentRound);
+    bool isReady = _isRoundReadyToExecute(_round, currentRound);
 
     // If we have not written to this round yet, return fresh round data
     if (roundData.roundNumber != _round) {
@@ -530,8 +537,12 @@ contract ConsensusSlashingProposer is EIP712 {
    * Reverts with:
    * - ConsensusSlashingProposer__VotingNotOpen: If the round is less than SLASH_OFFSET_IN_ROUNDS
    */
-  function getEpochSlashed(SlashRound _round, uint256 _epochIndex) public view returns (Epoch epochNumber) {
+  function getSlashTargetEpoch(SlashRound _round, uint256 _epochIndex) public view returns (Epoch epochNumber) {
     require(_round >= SlashRound.wrap(SLASH_OFFSET_IN_ROUNDS), Errors.ConsensusSlashingProposer__VotingNotOpen(_round));
+    require(
+      _epochIndex < ROUND_SIZE_IN_EPOCHS,
+      Errors.ConsensusSlashingProposer__InvalidEpochIndex(_epochIndex, ROUND_SIZE_IN_EPOCHS)
+    );
     return Epoch.wrap((SlashRound.unwrap(_round) - SLASH_OFFSET_IN_ROUNDS) * ROUND_SIZE_IN_EPOCHS + _epochIndex);
   }
 
@@ -555,7 +566,7 @@ contract ConsensusSlashingProposer is EIP712 {
    *      This is used to verify that vote signatures come from the authorized proposer.
    * @return The address of the current slot's designated proposer
    */
-  function getCurrentProposer() internal returns (address) {
+  function _getCurrentProposer() internal returns (address) {
     // Query the rollup for who is allowed to propose in the current slot
     IValidatorSelection rollup = IValidatorSelection(INSTANCE);
     return rollup.getCurrentProposer();
@@ -565,7 +576,7 @@ contract ConsensusSlashingProposer is EIP712 {
    * @notice Get the committee commitment from the Rollup.
    * @param _epoch The epoch number
    */
-  function getCommitteeCommitment(Epoch _epoch) internal returns (bytes32) {
+  function _getCommitteeCommitment(Epoch _epoch) internal returns (bytes32) {
     IValidatorSelection rollup = IValidatorSelection(INSTANCE);
     (bytes32 commitment,) = rollup.getEpochCommitteeCommitment(_epoch);
 
@@ -578,10 +589,10 @@ contract ConsensusSlashingProposer is EIP712 {
    * @param _round The round number (mixed into the salt)
    * @param _actions Array of slash actions to encode in the payload
    */
-  function deploySlashPayload(SlashRound _round, SlashAction[] memory _actions) internal returns (IPayload) {
+  function _deploySlashPayload(SlashRound _round, SlashAction[] memory _actions) internal returns (IPayload) {
     // Prepare arrays for the SlashPayload constructor and get the predicted address
     (address[] memory validators, uint96[] memory amounts, bytes32 salt, address predictedAddress) =
-      preparePayloadDataAndAddress(_round, _actions);
+      _preparePayloadDataAndAddress(_round, _actions);
 
     // Return existing payload if already deployed
     if (predictedAddress.code.length > 0) {
@@ -595,17 +606,17 @@ contract ConsensusSlashingProposer is EIP712 {
   }
 
   /**
-   * @notice Load committees for all slashed epochs in a round from the rollup instance
+   * @notice Load committees for all epochs to be potentially slashed in a round from the rollup instance
    * @dev This is an expensive call, use only from external view functions
    * @param _round The round number to load committees for
    * @return committees Array of committees, one for each epoch in the round
    */
-  function getCommitteesSlashed(SlashRound _round) internal returns (address[][] memory committees) {
+  function _getSlashTargetCommittees(SlashRound _round) internal returns (address[][] memory committees) {
     committees = new address[][](ROUND_SIZE_IN_EPOCHS);
 
+    IValidatorSelection rollup = IValidatorSelection(INSTANCE);
     for (uint256 epochIndex = 0; epochIndex < ROUND_SIZE_IN_EPOCHS; epochIndex++) {
-      Epoch epoch = getEpochSlashed(_round, epochIndex);
-      IValidatorSelection rollup = IValidatorSelection(INSTANCE);
+      Epoch epoch = getSlashTargetEpoch(_round, epochIndex);
       committees[epochIndex] = rollup.getEpochCommittee(epoch);
     }
 
@@ -622,7 +633,7 @@ contract ConsensusSlashingProposer is EIP712 {
    * @dev This is an internal function that should only be called after verifying the round is valid and within range
    * @dev It updates the round data in the circular storage buffer
    */
-  function setRoundData(SlashRound roundNumber, Slot lastVoteSlot, uint256 voteCount, bool executed) internal {
+  function _setRoundData(SlashRound roundNumber, Slot lastVoteSlot, uint256 voteCount, bool executed) internal {
     roundDatas[SlashRound.unwrap(roundNumber) % ROUNDABOUT_SIZE] = CompressedRoundData({
       roundNumber: roundNumber.compress(),
       lastVoteSlot: lastVoteSlot.compress(),
@@ -638,7 +649,7 @@ contract ConsensusSlashingProposer is EIP712 {
    * @return slashActions Array of slash actions that reached quorum
    * @return committeesWithSlashes Boolean array indicating which committees have at least one slashed validator
    */
-  function tally(RoundData memory _roundData, address[][] memory _committees)
+  function _tally(RoundData memory _roundData, address[][] memory _committees)
     internal
     view
     returns (SlashAction[] memory slashActions, bool[] memory committeesWithSlashes)
@@ -650,12 +661,13 @@ contract ConsensusSlashingProposer is EIP712 {
     );
 
     uint256 voteCount = _roundData.voteCount;
-    SlashRound roundNumber = _roundData.roundNumber;
 
     // No votes cast, return empty array
     if (voteCount == 0) {
       return (new SlashAction[](0), new bool[](ROUND_SIZE_IN_EPOCHS));
     }
+
+    SlashRound roundNumber = _roundData.roundNumber;
 
     // Create a 2D voting tally matrix: tallyMatrix[validatorIndex][slashAmountInUnits] = voteCount
     // - First dimension: validator index (0 to COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS - 1)
@@ -669,7 +681,7 @@ contract ConsensusSlashingProposer is EIP712 {
     // - Upper 4 bits (0xF0): slash amount for validator at index (j * 2 + 1)
     for (uint256 i = 0; i < voteCount; i++) {
       // Load the i-th votes from this round from storage into memory
-      bytes memory currentVote = getRoundVotes(roundNumber).votes[i];
+      bytes memory currentVote = _getRoundVotes(roundNumber).votes[i];
       for (uint256 j = 0; j < currentVote.length; j++) {
         // Extract lower 4 bits for first validator in the byte
         uint8 validatorSlash = uint8(currentVote[j]) & 0x0F;
@@ -736,7 +748,7 @@ contract ConsensusSlashingProposer is EIP712 {
    * @dev Retrieves the current time-based slot number which determines the active round and proposer.
    * @return The current Slot number
    */
-  function getCurrentSlot() internal view returns (Slot) {
+  function _getCurrentSlot() internal view returns (Slot) {
     IValidatorSelection rollup = IValidatorSelection(INSTANCE);
     return rollup.getCurrentSlot();
   }
@@ -752,7 +764,7 @@ contract ConsensusSlashingProposer is EIP712 {
    * @param _currentRound The current round number for comparison
    * @return True if the round is ready for execution, false otherwise
    */
-  function isRoundReadyToExecute(SlashRound _round, SlashRound _currentRound) internal view returns (bool) {
+  function _isRoundReadyToExecute(SlashRound _round, SlashRound _currentRound) internal view returns (bool) {
     // Round must have passed execution delay but not exceeded lifetime
     // This gives time for review before execution and prevents stale executions
     return SlashRound.unwrap(_currentRound) > SlashRound.unwrap(_round) + EXECUTION_DELAY_IN_ROUNDS
@@ -768,7 +780,7 @@ contract ConsensusSlashingProposer is EIP712 {
    * @return salt The computed salt for CREATE2 deployment
    * @return predictedAddress The predicted address where the payload would be deployed
    */
-  function preparePayloadDataAndAddress(SlashRound _round, SlashAction[] memory _actions)
+  function _preparePayloadDataAndAddress(SlashRound _round, SlashAction[] memory _actions)
     internal
     view
     returns (address[] memory validators, uint96[] memory amounts, bytes32 salt, address predictedAddress)
@@ -807,7 +819,7 @@ contract ConsensusSlashingProposer is EIP712 {
    * @param _round The round number to get votes for
    * @return A storage reference to the RoundVotes struct containing the vote data for this round
    */
-  function getRoundVotes(SlashRound _round) internal view returns (RoundVotes storage) {
+  function _getRoundVotes(SlashRound _round) internal view returns (RoundVotes storage) {
     // Map round number to circular storage index using modulo
     // This allows reuse of storage slots as older rounds become irrelevant
     return roundVotes[SlashRound.unwrap(_round) % ROUNDABOUT_SIZE];
@@ -816,10 +828,11 @@ contract ConsensusSlashingProposer is EIP712 {
   /**
    * @notice Get round data for a specific round, loading from circular storage and decompressing it
    * @param _round The round number to retrieve data for
-   * @param _currentRound The current round number (so we dont try loading data outside the valid roundabout range)
+   * @param _currentRound The current round number, so we dont try loading data outside the valid roundabout range.
+   * Required as a parameter to avoid having to recompute it on every call to this function.
    * @return RoundData struct containing the round's data
    */
-  function getRoundData(SlashRound _round, SlashRound _currentRound) internal view returns (RoundData memory) {
+  function _getRoundData(SlashRound _round, SlashRound _currentRound) internal view returns (RoundData memory) {
     // Check if the requested round is within the valid roundabout range
     if (
       SlashRound.unwrap(_round) > SlashRound.unwrap(_currentRound)
@@ -849,14 +862,14 @@ contract ConsensusSlashingProposer is EIP712 {
    * @param _slot - The slot to compute round for
    * @return The round number
    */
-  function computeRound(Slot _slot) internal view returns (SlashRound) {
+  function _computeRound(Slot _slot) internal view returns (SlashRound) {
     return SlashRound.wrap(Slot.unwrap(_slot) / ROUND_SIZE);
   }
 
   /**
    * @notice Reconstruct committee commitment from addresses
    */
-  function computeCommitteeCommitment(address[] calldata _committee) internal pure returns (bytes32) {
+  function _computeCommitteeCommitment(address[] calldata _committee) internal pure returns (bytes32) {
     // Hash the committee addresses to create a commitment for verification
     // Duplicated from ValidatorSelectionLib.sol
     return keccak256(abi.encode(_committee));

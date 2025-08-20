@@ -8,8 +8,6 @@ type Slot is uint256;
 
 type Epoch is uint256;
 
-type SlashRound is uint256;
-
 function addTimestamp(Timestamp _a, Timestamp _b) pure returns (Timestamp) {
   return Timestamp.wrap(Timestamp.unwrap(_a) + Timestamp.unwrap(_b));
 }
@@ -110,40 +108,6 @@ function ltEpoch(Epoch _a, Epoch _b) pure returns (bool) {
   return Epoch.unwrap(_a) < Epoch.unwrap(_b);
 }
 
-// SlashRound
-
-function addSlashRound(SlashRound _a, SlashRound _b) pure returns (SlashRound) {
-  return SlashRound.wrap(SlashRound.unwrap(_a) + SlashRound.unwrap(_b));
-}
-
-function subSlashRound(SlashRound _a, SlashRound _b) pure returns (SlashRound) {
-  return SlashRound.wrap(SlashRound.unwrap(_a) - SlashRound.unwrap(_b));
-}
-
-function eqSlashRound(SlashRound _a, SlashRound _b) pure returns (bool) {
-  return SlashRound.unwrap(_a) == SlashRound.unwrap(_b);
-}
-
-function neqSlashRound(SlashRound _a, SlashRound _b) pure returns (bool) {
-  return SlashRound.unwrap(_a) != SlashRound.unwrap(_b);
-}
-
-function ltSlashRound(SlashRound _a, SlashRound _b) pure returns (bool) {
-  return SlashRound.unwrap(_a) < SlashRound.unwrap(_b);
-}
-
-function lteSlashRound(SlashRound _a, SlashRound _b) pure returns (bool) {
-  return SlashRound.unwrap(_a) <= SlashRound.unwrap(_b);
-}
-
-function gtSlashRound(SlashRound _a, SlashRound _b) pure returns (bool) {
-  return SlashRound.unwrap(_a) > SlashRound.unwrap(_b);
-}
-
-function gteSlashRound(SlashRound _a, SlashRound _b) pure returns (bool) {
-  return SlashRound.unwrap(_a) >= SlashRound.unwrap(_b);
-}
-
 using {
   addTimestamp as +,
   subTimestamp as -,
@@ -176,14 +140,3 @@ using {
   addSlot as +,
   subSlot as -
 } for Slot global;
-
-using {
-  addSlashRound as +,
-  subSlashRound as -,
-  eqSlashRound as ==,
-  neqSlashRound as !=,
-  ltSlashRound as <,
-  lteSlashRound as <=,
-  gtSlashRound as >,
-  gteSlashRound as >=
-} for SlashRound global;

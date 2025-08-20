@@ -7,7 +7,7 @@ import {Slasher, ISlasher} from "@aztec/core/slashing/Slasher.sol";
 import {ConsensusSlashingProposer} from "@aztec/core/slashing/ConsensusSlashingProposer.sol";
 
 /**
- * @title ExtRollupLib4 - External Rollup Library (Consensus Slasher Deployment)
+ * @title ConsensusDeploymentExtLib - External Rollup Library (Consensus Slasher Deployment)
  * @author Aztec Labs
  * @notice External library containing consensus slasher deployment function for the Rollup contract
  * to avoid exceeding max contract size.

@@ -11,7 +11,7 @@ import {
 } from "@aztec/core/reward-boost/RewardBooster.sol";
 
 /**
- * @title ExtRollupLib3 - External Rollup Library (Deployment Functions)
+ * @title RewardDeploymentExtLib - External Rollup Library (Reward Booster Deployment)
  * @author Aztec Labs
  * @notice External library containing deployment functions for the Rollup contract to avoid exceeding max contract
  * size.

@@ -13,7 +13,7 @@ import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 import {ConsensusSlashingProposer} from "@aztec/core/slashing/ConsensusSlashingProposer.sol";
-import {SlashRound} from "@aztec/shared/libraries/TimeMath.sol";
+import {SlashRound} from "@aztec/shared/libraries/SlashRoundLib.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {TestBase} from "@test/base/Base.sol";

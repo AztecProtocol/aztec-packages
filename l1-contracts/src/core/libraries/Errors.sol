@@ -2,7 +2,8 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Timestamp, Slot, Epoch, SlashRound} from "@aztec/core/libraries/TimeLib.sol";
+import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
+import {SlashRound} from "@aztec/shared/libraries/SlashRoundLib.sol";
 
 /**
  * @title Errors Library
@@ -187,4 +188,5 @@ library Errors {
   error ConsensusSlashingProposer__RoundSizeMustBeMultipleOfEpochDuration(uint256 roundSize, uint256 epochDuration);
   error ConsensusSlashingProposer__VotingNotOpen(SlashRound currentRound);
   error ConsensusSlashingProposer__SlashOffsetMustBeGreaterThanZero(uint256 slashOffset);
+  error ConsensusSlashingProposer__InvalidEpochIndex(uint256 epochIndex, uint256 roundSizeInEpochs);
 }
