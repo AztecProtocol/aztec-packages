@@ -39,9 +39,9 @@ class ClientIVCTests : public ::testing::Test {
     using FoldingVerifier = ProtogalaxyVerifier_<DeciderVerificationKeys>;
     using CircuitProducer = PrivateFunctionExecutionMockCircuitProducer;
 
+  public:
     /**
      * @brief Tamper with a proof
-     *
      * @details The first value in the proof after the public inputs is the commitment to the wire w.l (see
      * OinkProver). We modify the commitment by adding Commitment::one().
      *
@@ -245,10 +245,8 @@ TEST_F(ClientIVCTests, VKIndependenceTest)
 /**
  * @brief Ensure that the CIVC VK is independent of whether any of the circuits being accumulated overflows the
  * structured trace
- * @details If one of the circuits being accumulated overflows the structured trace, the dyadic size of the
- accumulator
- * may increase. In this case we want to ensure that the CIVC VK (and in particular the hiding circuit VK) is
- identical
+ * @details If one of the circuits being accumulated overflows the structured trace, the dyadic size of the accumulator
+ * may increase. In this case we want to ensure that the CIVC VK (and in particular the hiding circuit VK) is identical
  * to the non-overflow case. This requires, for example, that the padding_indicator_array logic used in somecheck is
  * functioning properly.
  */
@@ -276,44 +274,24 @@ TEST_F(ClientIVCTests, VKIndependenceWithOverflow)
     EXPECT_EQ(*civc_vk_1.translator.get(), *civc_vk_2.translator.get());
 };
 
-// /**
-//  * @brief Test that running the benchmark suite with mocked verification keys will not error out.
-//  */
-// HEAVY_TEST(ClientIVCBenchValidation, Full6MockedVKs)
-// {
-//     const auto run_test = []() {
-//         bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
-
-//         const size_t total_num_circuits{ 12 };
-//         ClientIVC ivc{ total_num_circuits, { AZTEC_TRACE_STRUCTURE } };
-//         PrivateFunctionExecutionMockCircuitProducer circuit_producer;
-//         auto mocked_vks = mock_vks(total_num_circuits);
-//         perform_ivc_accumulation_rounds(total_num_circuits, ivc, mocked_vks, /* mock_vk */ true);
-//         auto proof = ivc.prove();
-//         verify_ivc(proof, ivc);
-//     };
-//     ASSERT_NO_FATAL_FAILURE(run_test());
-// }
-
+/**
+ * @brief Test to establish the "max" number of apps that can be accumulated due to limitations on the ECCVM size
+ *
+ */
 HEAVY_TEST(ClientIVCKernelCapacity, MaxCapacityPassing)
 {
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
-    // WORKTODO: Figure out what max number of apps is!
-    const size_t num_app_circuits = 6;
-    PrivateFunctionExecutionMockCircuitProducer circuit_producer(num_app_circuits);
-    const size_t num_circuits = circuit_producer.total_num_circuits;
-    ClientIVC ivc{ num_circuits };
+    const size_t NUM_APP_CIRCUITS = 14;
+    auto [proof, vk] = ClientIVCTests::accumulate_and_prove_ivc(NUM_APP_CIRCUITS);
 
-    auto proof = ivc.prove();
-    bool verified = verify_ivc(proof, ivc);
+    bool verified = ClientIVC::verify(proof, vk);
     EXPECT_TRUE(verified);
 };
 
 /**
  * @brief Test use of structured trace overflow block mechanism
- * @details Accumulate 4 circuits which have progressively more arithmetic gates. The final two overflow the
- prescribed
+ * @details Accumulate 4 circuits which have progressively more arithmetic gates. The final two overflow the prescribed
  * arithmetic block size and make use of the overflow block which has sufficient capacity.
  *
  */
@@ -419,42 +397,29 @@ TEST_F(ClientIVCTests, MsgpackProofFromFileOrBuffer)
 /**
  * @brief Demonstrate that a databus inconsistency leads to verification failure for the IVC
  * @details Kernel circuits contain databus consistency checks that establish that data was passed faithfully between
- * circuits, e.g. the output (return_data) of an app was the input (secondary_calldata) of a kernel. This test
- tampers
- * with the databus in such a way that one of the kernels receives secondary_calldata based on tampered app return
- data.
- * This leads to an invalid witness in the check that ensures that the two corresponding commitments are equal and
- thus
+ * circuits, e.g. the output (return_data) of an app was the input (secondary_calldata) of a kernel. This test tampers
+ * with the databus in such a way that one of the kernels receives secondary_calldata based on tampered app return data.
+ * This leads to an invalid witness in the check that ensures that the two corresponding commitments are equal and thus
  * causes failure of the IVC to verify.
  *
  */
 TEST_F(ClientIVCTests, DatabusFailure)
 {
-    size_t NUM_CIRCUITS = 6;
+    PrivateFunctionExecutionMockCircuitProducer circuit_producer{ /*num_app_circuits=*/1 };
+    const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
     ClientIVC ivc{ NUM_CIRCUITS, { AZTEC_TRACE_STRUCTURE } };
 
-    PrivateFunctionExecutionMockCircuitProducer circuit_producer;
+    // Construct and accumulate a series of mocked private function execution circuits
+    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+        auto [circuit, vk] = circuit_producer.create_next_circuit_and_vk(ivc);
 
-    // Initialize the IVC with an arbitrary circuit
-    circuit_producer.construct_and_accumulate_next_circuit(ivc);
+        // Tamper with the return data of the app circuit before it is processed as input to the next kernel
+        if (idx == 0) {
+            circuit_producer.tamper_with_databus();
+        }
 
-    // Create another circuit and accumulate
-    circuit_producer.construct_and_accumulate_next_circuit(ivc);
-
-    const auto proof = ivc.prove();
-
-    // Serialize/deserialize proof to msgpack buffer, check that it verifies
-    msgpack::sbuffer buffer = proof.to_msgpack_buffer();
-    auto proof_deserialized = ClientIVC::Proof::from_msgpack_buffer(buffer);
-    EXPECT_TRUE(ivc.verify(proof_deserialized));
-
-    // Overwrite the buffer with random bytes for testing failure case
-    {
-        std::vector<uint8_t> random_bytes(buffer.size());
-        std::generate(random_bytes.begin(), random_bytes.end(), []() { return static_cast<uint8_t>(rand() % 256); });
-        std::copy(random_bytes.begin(), random_bytes.end(), buffer.data());
+        ivc.accumulate(circuit, vk);
     }
 
-    // Expect deserialization to fail with error msgpack::v1::type_error with description "std::bad_cast"
-    EXPECT_THROW(ClientIVC::Proof::from_msgpack_buffer(buffer), msgpack::v1::type_error);
+    EXPECT_FALSE(ivc.prove_and_verify());
 };
