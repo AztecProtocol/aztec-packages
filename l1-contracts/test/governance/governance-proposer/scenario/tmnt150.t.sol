@@ -69,26 +69,21 @@ contract TestTmnt150 is GovernanceProposerBase {
 
     // Create a signature for the proposer
     uint256 round = governanceProposer.getCurrentRound();
-    signature = createSignature(privateKey, address(proposal), round);
+    signature = createSignature(privateKey, address(proposal), rollup1.getCurrentSlot());
 
     rollup1.maliciousValues(5, governanceProposer, proposal);
 
-    assertEq(governanceProposer.signalCount(address(rollup1), 0, proposal), 0, "invalid number of votes");
+    assertEq(governanceProposer.signalCount(address(rollup1), round, proposal), 0, "invalid number of votes");
 
     vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__SignalAlreadyCastForSlot.selector, 1));
 
     rollup1.commenceAttack();
 
-    assertEq(governanceProposer.signalCount(address(rollup1), 0, proposal), 0, "invalid number of votes");
+    assertEq(governanceProposer.signalCount(address(rollup1), round, proposal), 0, "invalid number of votes");
   }
 
-  function createSignature(uint256 _privateKey, address _payload, uint256 _round)
-    internal
-    view
-    returns (Signature memory)
-  {
-    address signer = vm.addr(_privateKey);
-    bytes32 digest = governanceProposer.getSignalSignatureDigest(IPayload(_payload), signer, _round);
+  function createSignature(uint256 _privateKey, address _payload, Slot _slot) internal view returns (Signature memory) {
+    bytes32 digest = governanceProposer.getSignalSignatureDigest(IPayload(_payload), _slot);
 
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, digest);
 

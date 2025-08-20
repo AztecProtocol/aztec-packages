@@ -24,6 +24,7 @@ contract SignalWithSigTest is GovernanceProposerBase {
 
   function setUp() public override {
     super.setUp();
+    validatorSelection = new Fakerollup();
   }
 
   // Skipping this test since the it matches the for now skipped check in `EmpireBase::signal`
@@ -54,7 +55,6 @@ contract SignalWithSigTest is GovernanceProposerBase {
   }
 
   modifier givenCanonicalRollupHoldCode() {
-    validatorSelection = new Fakerollup();
     proposer = vm.addr(privateKey);
     validatorSelection.setProposer(proposer);
 
@@ -95,8 +95,7 @@ contract SignalWithSigTest is GovernanceProposerBase {
     // fast forward a round
     vm.warp(block.timestamp + _slotsToFastForward * validatorSelection.getSlotDuration());
 
-    uint256 round = governanceProposer.getCurrentRound();
-    bytes32 digest = getDigest(privateKey, proposal, round);
+    bytes32 digest = getDigest(proposal, validatorSelection.getCurrentSlot());
 
     // signal
     address expectedInvalidSigner = ecrecover(digest, signature.v, signature.r, signature.s);
@@ -186,7 +185,7 @@ contract SignalWithSigTest is GovernanceProposerBase {
     Slot freshSlot = freshInstance.getCurrentSlot();
     uint256 freshRound = governanceProposer.computeRound(freshSlot);
 
-    signature = createSignature(privateKey, proposal);
+    signature = createSignature(privateKey, proposal, freshSlot);
 
     vm.expectEmit(true, true, true, true, address(governanceProposer));
     emit IEmpire.SignalCast(proposal, freshRound, proposer);
@@ -360,14 +359,16 @@ contract SignalWithSigTest is GovernanceProposerBase {
     }
   }
 
-  function getDigest(uint256 _privateKey, IPayload _payload, uint256 _round) internal view returns (bytes32) {
-    address p = vm.addr(_privateKey);
-    return governanceProposer.getSignalSignatureDigest(_payload, p, _round);
+  function getDigest(IPayload _payload, Slot _slot) internal view returns (bytes32) {
+    return governanceProposer.getSignalSignatureDigest(_payload, _slot);
   }
 
   function createSignature(uint256 _privateKey, IPayload _payload) internal view returns (Signature memory) {
-    uint256 round = governanceProposer.getCurrentRound();
-    bytes32 digest = getDigest(_privateKey, _payload, round);
+    return createSignature(_privateKey, _payload, validatorSelection.getCurrentSlot());
+  }
+
+  function createSignature(uint256 _privateKey, IPayload _payload, Slot _slot) internal view returns (Signature memory) {
+    bytes32 digest = getDigest(_payload, _slot);
 
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, digest);
 

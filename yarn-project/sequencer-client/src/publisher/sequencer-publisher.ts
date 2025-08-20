@@ -558,7 +558,7 @@ export class SequencerPublisher {
 
     const request = await base.createSignalRequestWithSignature(
       payload.toString(),
-      round,
+      slotNumber,
       this.config.l1ChainId,
       signerAddress.toString(),
       signer,
