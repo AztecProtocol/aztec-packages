@@ -21,40 +21,63 @@ class ECCVMTranscriptBuilder {
     using Accumulator = typename std::vector<Element>;
 
     struct TranscriptRow {
-
+        /////////////////////////////////////
         // These fields are populated in the first loop
-        bool transcript_msm_infinity = false;
-        bool accumulator_not_empty = false;
+        /////////////////////////////////////
+
+        bool transcript_msm_infinity = false; // are we at the end of an MSM *and* is the output the point at infinity?
+        bool accumulator_not_empty = false;   // not(is the accumulator either empty or point-at-infinity?)
         bool q_add = false;
         bool q_mul = false;
         bool q_eq = false;
         bool q_reset_accumulator = false;
         bool msm_transition = false;
         uint32_t pc = 0;
-        uint32_t msm_count = 0;
-        bool msm_count_zero_at_transition = false;
-        FF base_x = 0;
-        FF base_y = 0;
-        bool base_infinity = false;
-        uint256_t z1 = 0;
-        uint256_t z2 = 0;
-        bool z1_zero = false;
-        bool z2_zero = false;
-        uint32_t opcode = 0;
+        uint32_t msm_count = 0; // number of multiplications in the MSM *up until and not including* this step.
+        bool msm_count_zero_at_transition =
+            false;     // is the number of scalar muls we have completed at the end of our "MSM block" zero?
+        FF base_x = 0; // [P] = (base_x, base_y)
+        FF base_y = 0; // [P] = (base_x, base_y)
+        bool base_infinity = false; // is [P] == neutral element?
+        uint256_t z1 = 0; // `scalar` = z1 - \lambda * z2 = z1 + \zeta * z2, where $\zeta$ is a primitive sixth root of
+                          // unity and \lambda is -\zeta.
+        uint256_t z2 = 0; // `scalar` = z1 - \lambda * z2 = z1 + \zeta * z2, where $\zeta$ is a primitive sixth root of
+                          // unity and \lambda is -\zeta.
+        bool z1_zero = false; // `z1 == 0`
+        bool z2_zero = false; // `z2 == 0`
+        uint32_t opcode = 0;  // opcode value, in {0, .., 15}, given by 8 * q_add + 4 * q_mul + 2 * q_eq + q_reset.
 
-        // These fields are populated after converting Jacobian to affine coordinates
-        FF accumulator_x = 0;
-        FF accumulator_y = 0;
-        FF msm_output_x = 0;
-        FF msm_output_y = 0;
-        FF transcript_msm_intermediate_x = 0;
-        FF transcript_msm_intermediate_y = 0;
+        /////////////////////////////////////
+        // These fields are populated after converting projective to affine coordinates
+        /////////////////////////////////////
 
+        // [A] is the current accumulated point, in affine coordinates, for all EC operations.
+        // this is affected by an `add` op-code, or the end of an MSM, or a reset.
+        FF accumulator_x = 0; // [A] = (`accumulator_x`, `accumulator_y`)
+        FF accumulator_y = 0; // [A] = (`accumulator_x`, `accumulator_y`)
+
+        // the following two are accumulators for the MSM.
+        // the difference between (`msm_output_x`, `msm_output_y`) and (`transcript_msm_intermediate_x`,
+        // `transcript_msm_intermediate_y`) is the OFFSET.
+        FF msm_output_x = 0; // if we are at the end of an MSM, output of MSM + OFFSET = (`msm_output_x`,
+                             // `msm_output_y`), else, 0.
+        FF msm_output_y = 0; // if we are at the end of an MSM, output of MSM + OFFSET = (`msm_output_x`,
+                             // `msm_output_y`), else 0.
+        FF transcript_msm_intermediate_x =
+            0; // if we are at the end of an MSM, output of MSM  =
+               // (`transcript_msm_intermediate_x`, `transcript_msm_intermediate_y`), else, 0.
+        FF transcript_msm_intermediate_y =
+            0; // if we are at the end of an MSM, output of MSM  =
+               // (`transcript_msm_intermediate_x`, `transcript_msm_intermediate_y`), else, 0.
+
+        /////////////////////////////////////
         // Computed during the lambda numerator and denominator computation
+        /////////////////////////////////////
         bool transcript_add_x_equal = false;
         bool transcript_add_y_equal = false;
-
+        /////////////////////////////////////
         // Computed after the batch inversion
+        /////////////////////////////////////
         FF base_x_inverse = 0;
         FF base_y_inverse = 0;
         FF transcript_add_lambda = 0;
@@ -83,11 +106,16 @@ class ECCVMTranscriptBuilder {
     {
         return AffineElement(Element(other) - offset_generator());
     }
+
+    // maintains the state of the VM at any given "time" (i.e., at any given value of pc).
     struct VMState {
-        uint32_t pc = 0;
-        uint32_t count = 0;
-        Element accumulator = CycleGroup::affine_point_at_infinity;
-        Element msm_accumulator = offset_generator();
+        uint32_t pc = 0; // decreasing program counter that tracks the total number of multiplications that our virtual
+                         // machine has left to compute.
+        uint32_t count = 0; // Number of muls in the current MSM _excluding the current row_.
+        Element accumulator = CycleGroup::affine_point_at_infinity; // accumulator for all group operations.
+        Element msm_accumulator =
+            offset_generator(); // accumulator for the current MSM with an offset. (we start with offset_generator,
+                                // i.e. random element of the group, to avoid bifurcated logic at each operation step.)
         bool is_accumulator_empty = true;
     };
 
@@ -98,8 +126,8 @@ class ECCVMTranscriptBuilder {
      * multi-scalar multiplications and point additions, while creating the
      * transcript of the operations. In the first loop over the rows of ECCOpQueue, it mostly populates the
      * TranscriptRow with boolean flags indicating the structure of the ops being performed, while performing
-     * elliptic curve operations in Jacobian coordinates, and then normalizes these points to affine coordinates. Batch
-     * inversion is used to optimize expensive finite field inversions.
+     * elliptic curve operations in Jacobian (a.k.a projective) coordinates, and then normalizes these points to affine
+     * coordinates. Batch inversion is used to optimize expensive finite field inversions.
      *
      * @param vm_operations ECCOpQueue
      * @param total_number_of_muls The total number of multiplications in the series of operations.
@@ -112,6 +140,7 @@ class ECCVMTranscriptBuilder {
         const size_t num_vm_entries = vm_operations.size();
         // The transcript contains an extra zero row at the beginning and the accumulated state at the end
         const size_t transcript_size = num_vm_entries + 2;
+        // `transcript_state[i+1]` corresponds to `vm_operation[i]`.
         std::vector<TranscriptRow> transcript_state(transcript_size);
 
         // These vectors track quantities that we need to invert.
@@ -123,9 +152,12 @@ class ECCVMTranscriptBuilder {
         std::vector<FF> add_lambda_numerator(num_vm_entries);
         std::vector<FF> msm_count_at_transition_inverse_trace(num_vm_entries);
 
-        Accumulator msm_accumulator_trace(num_vm_entries);
-        Accumulator accumulator_trace(num_vm_entries);
-        Accumulator intermediate_accumulator_trace(num_vm_entries);
+        Accumulator msm_accumulator_trace(num_vm_entries); // ith entry is either neutral element or the value of the
+                                                           // just-completed MSM (shifted by the OFFSET).
+        Accumulator accumulator_trace(num_vm_entries);     // ith entry is the total accumulated value up-to-now
+        Accumulator intermediate_accumulator_trace(
+            num_vm_entries); // ith entry is either the neutral element, or the actual value of the just-completed MSM
+                             // (i.e., there is no OFFSET).
 
         VMState state{
             .pc = total_number_of_muls,
@@ -137,12 +169,12 @@ class ECCVMTranscriptBuilder {
 
         VMState updated_state;
 
-        // add an empty row. 1st row all zeroes because of our shiftable polynomials
+        // add an empty row: first row is all zeroes because of our shiftable polynomials.
         transcript_state[0] = (TranscriptRow{});
 
-        // during the first iteration over the ECCOpQueue, the operations are being performed using Jacobian
-        // coordinates and the base point coordinates are recorded in the transcript. at the same time, the transcript
-        // logic is being populated
+        // during the first iteration over the ECCOpQueue, the operations are being performed using Jacobian (a.k.a.
+        // projective) coordinates and the base point coordinates are recorded in the transcript. at the same time, the
+        // transcript logic is being populated
         for (size_t i = 0; i < num_vm_entries; i++) {
             TranscriptRow& row = transcript_state[i + 1];
             const ECCVMOperation& entry = vm_operations[i];
@@ -154,7 +186,8 @@ class ECCVMTranscriptBuilder {
             const bool z2_zero = is_mul ? entry.z2 == 0 : true;
 
             const bool base_point_infinity = entry.base_point.is_point_at_infinity();
-            uint32_t num_muls = 0;
+            uint32_t num_muls = 0; // number of 128-bit multiplications the vm processes in this op_code.
+                                   // `num_muls` ∈ {0, 1, 2}.
             if (is_mul) {
                 num_muls = static_cast<uint32_t>(!z1_zero) + static_cast<uint32_t>(!z2_zero);
                 if (base_point_infinity) {
@@ -162,7 +195,9 @@ class ECCVMTranscriptBuilder {
                 }
             }
             updated_state.pc = state.pc - num_muls;
-
+            // if we are at a `reset` or null op, reset the state.
+            // logically, we should add `updated_state.count = 0`, but this is taken care of later by conditional
+            // logic and hence is unnecessary here.
             if (entry.op_code.reset || entry.op_code.value() == 0) {
                 updated_state.is_accumulator_empty = true;
                 updated_state.accumulator = CycleGroup::point_at_infinity;
@@ -170,20 +205,23 @@ class ECCVMTranscriptBuilder {
             }
 
             const bool last_row = (i == (num_vm_entries - 1));
-
-            // msm transition = current row is doing a lookup to validate output = msm output
-            // i.e. next row is not part of MSM and current row is part of MSM
-            //   or next row is irrelevant and current row is a straight MUL
+            // next_not_msm == True if either we are at the last row or the next op_code is *not* a mul.
             const bool next_not_msm = last_row || !vm_operations[i + 1].op_code.mul;
 
-            // we reset the count in updated state if we are not accumulating and not doing an msm
+            // `msm_transition == True` iff we are at the end of an MSM.
+            // this holds iff: current op_code is `mul`, `next_not_msm == True`, and the total number of muls so far in
+            // this MSM (including this op_code) is positive. This later total number
+            // is `state.count + num_muls`.
             const bool msm_transition = is_mul && next_not_msm && (state.count + num_muls > 0);
 
-            // determine ongoing msm and update the respective counter
+            // determine ongoing/continuing msm and update the respective counter
             const bool current_ongoing_msm = is_mul && !next_not_msm;
-
+            // we reset the count in updated state if we are not accumulating and not doing an msm
             updated_state.count = current_ongoing_msm ? state.count + num_muls : 0;
 
+            // process state based on whether we are at a `mul`, then whether or not this is the last mul in an MSM,
+            // then finally if this is an add. note that this mutates `updated_state`. (note that the middle option
+            // depends on the first.)
             if (is_mul) {
                 process_mul(entry, updated_state, state);
             }
@@ -204,14 +242,15 @@ class ECCVMTranscriptBuilder {
 
             msm_count_at_transition_inverse_trace[i] = ((state.count + num_muls) == 0) ? 0 : FF(state.count + num_muls);
 
-            // update the accumulators
+            // update the accumulators. note that `msm_accumulator_trace` and `intermediate_accumulate_trace` are the
+            // point-at-infinity *unless* we are at the end of an MSM.
             accumulator_trace[i] = state.accumulator;
             msm_accumulator_trace[i] = msm_transition ? updated_state.msm_accumulator : Element::infinity();
             intermediate_accumulator_trace[i] =
                 msm_transition ? (updated_state.msm_accumulator - offset_generator()) : Element::infinity();
 
             state = updated_state;
-
+            // if we are the last `mul`in an MSM, set the next state's `msm_accumulator` to the offset.
             if (is_mul && next_not_msm) {
                 state.msm_accumulator = offset_generator();
             }
@@ -461,7 +500,7 @@ class ECCVMTranscriptBuilder {
      * the intermediate accumulator and the point in the current accumulator.
      *
      * In the case of point addition, we compute the difference between the coordinates of the current row in
-     * ECCVMOperations and the point in the accumulator.
+     * ECCVMOperations and the point in the current accumulator.
      *
      */
 
