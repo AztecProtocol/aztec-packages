@@ -25,6 +25,7 @@ void TxExecution::emit_public_call_request(const PublicCallRequestWithCalldata& 
     events.emit(TxPhaseEvent{ .phase = phase,
                               .state_before = state_before,
                               .state_after = state_after,
+                              .reverted = !success,
                               .event = EnqueuedCallEvent{
                                   .msg_sender = call.request.msgSender,
                                   .contract_address = call.request.contractAddress,
@@ -80,8 +81,13 @@ void TxExecution::simulate(const Tx& tx)
                                                               call.request.isStaticCall,
                                                               gas_limit,
                                                               start_gas,
-                                                              tx_context.side_effect_states);
+                                                              tx_context.side_effect_states,
+                                                              TransactionPhase::SETUP);
         ExecutionResult result = call_execution.execute(std::move(context));
+        if (!result.success) {
+            throw std::runtime_error(
+                format("[SETUP] UNRECOVERABLE ERROR! Enqueued call to ", call.request.contractAddress, " failed"));
+        }
         tx_context.side_effect_states = result.side_effect_states;
         tx_context.gas_used = result.gas_used;
         emit_public_call_request(call,
@@ -113,7 +119,8 @@ void TxExecution::simulate(const Tx& tx)
                                                                   call.request.isStaticCall,
                                                                   gas_limit,
                                                                   start_gas,
-                                                                  tx_context.side_effect_states);
+                                                                  tx_context.side_effect_states,
+                                                                  TransactionPhase::APP_LOGIC);
             ExecutionResult result = call_execution.execute(std::move(context));
             tx_context.side_effect_states = result.side_effect_states;
             tx_context.gas_used = result.gas_used;
@@ -132,14 +139,11 @@ void TxExecution::simulate(const Tx& tx)
         }
     } catch (const std::runtime_error& e) {
         info("Revertible failure while simulating tx ", tx.hash, ": ", e.what());
-        // TODO(fcarreiro): Enable the following lines once we stop truncating the bulk trace.
-        // We can't execute this code because TS will not fail here, and therefore not revert and create a checkpoint.
-
         // We revert to the post-setup state.
-        // merkle_db.revert_checkpoint();
+        merkle_db.revert_checkpoint();
         // But we also create a new fork so that the teardown phase can transparently
         // commit or rollback to the end of teardown.
-        // merkle_db.create_checkpoint();
+        merkle_db.create_checkpoint();
     }
 
     // Compute the transaction fee here so it can be passed to teardown
@@ -164,7 +168,8 @@ void TxExecution::simulate(const Tx& tx)
                                                                   tx.teardownEnqueuedCall->request.isStaticCall,
                                                                   gas_limit,
                                                                   start_gas,
-                                                                  tx_context.side_effect_states);
+                                                                  tx_context.side_effect_states,
+                                                                  TransactionPhase::TEARDOWN);
             ExecutionResult result = call_execution.execute(std::move(context));
             tx_context.side_effect_states = result.side_effect_states;
             // Check what to do here for GAS
@@ -183,14 +188,12 @@ void TxExecution::simulate(const Tx& tx)
             }
         }
 
-        // TODO(fcarreiro): Enable the following lines once we stop truncating the bulk trace.
         // We commit the forked state and we are done.
-        // merkle_db.commit_checkpoint();
+        merkle_db.commit_checkpoint();
     } catch (const std::runtime_error& e) {
         info("Teardown failure while simulating tx ", tx.hash, ": ", e.what());
-        // TODO(fcarreiro): Enable the following lines once we stop truncating the bulk trace.
         // We rollback to the post-setup state.
-        // merkle_db.revert_checkpoint();
+        merkle_db.revert_checkpoint();
     }
 
     // Fee payment

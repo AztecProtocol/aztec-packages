@@ -359,6 +359,7 @@ TEST(TxContextConstrainingTest, InitialStateChecks)
             { C::tx_next_l2_gas_used, start_gas_used.l2Gas },
             { C::tx_next_da_gas_used, start_gas_used.daGas },
             { C::tx_setup_phase_value, static_cast<uint8_t>(TransactionPhase::SETUP) },
+            { C::tx_next_context_id, 1 },
         },
     });
 
@@ -478,6 +479,45 @@ TEST(TxContextConstrainingTest, EndStateChecks)
                       lookup_tx_context_public_inputs_write_l2_to_l1_message_count_settings,
                       lookup_tx_context_public_inputs_write_unencrypted_log_count_settings,
                       lookup_tx_context_restore_state_on_revert_settings>(trace);
+}
+
+TEST(TxContextConstrainingTest, NegativeContextIdChecks)
+{
+    TestTraceContainer trace({
+        {
+            // Row 0
+            { C::precomputed_first_row, 1 },
+        },
+        {
+            // Row 1
+            { C::tx_sel, 1 },
+            { C::tx_start_tx, 1 },
+            { C::tx_next_context_id, 1 },
+        },
+        {
+            // Row 2
+            { C::tx_sel, 1 },
+            { C::tx_next_context_id, 1 },
+            { C::tx_should_process_call_request, 1 },
+        },
+        {
+            // Row 3
+            { C::tx_sel, 1 },
+            { C::tx_next_context_id, 5 },
+        },
+    });
+    check_relation<tx_context>(
+        trace, tx_context::SR_NEXT_CONTEXT_ID_CONTINUITY, tx_context::SR_NEXT_CONTEXT_ID_INITIAL_VALUE);
+
+    // Negative test: initial context id should be 1
+    trace.set(C::tx_next_context_id, 1, 2);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NEXT_CONTEXT_ID_INITIAL_VALUE),
+                              "NEXT_CONTEXT_ID_INITIAL_VALUE");
+
+    // Negative test: continuity check
+    trace.set(C::tx_next_context_id, 2, 42);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NEXT_CONTEXT_ID_CONTINUITY),
+                              "NEXT_CONTEXT_ID_CONTINUITY");
 }
 
 } // namespace

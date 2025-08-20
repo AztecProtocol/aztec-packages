@@ -1,5 +1,6 @@
 ---
 title: Try Testnet
+description: Quick guide to get started with the Aztec testnet and deploy your first contract.
 keywords: [testnet, aztec, migration]
 tags: [testnet, migration]
 id: try_testnet

@@ -1,5 +1,6 @@
 ---
 title: "Private voting contract"
+description: Code-along tutorial for building a private voting contract on Aztec.
 sidebar_position: 1
 ---
 

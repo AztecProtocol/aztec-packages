@@ -295,7 +295,6 @@ template <typename Flavor> class SumcheckProverRound {
 
     /**
      * @brief Helper struct that describes a block of non-zero unskippable rows
-     *
      */
     struct BlockOfContiguousRows {
         size_t starting_edge_idx;
@@ -305,18 +304,17 @@ template <typename Flavor> class SumcheckProverRound {
     /**
      * @brief Helper struct that will, given a vector of BlockOfContiguousRows, return the edge indices that correspond
      * to the nonzero rows
-     *
      */
     struct RowIterator {
-        std::shared_ptr<std::vector<BlockOfContiguousRows>> blocks;
+        const std::vector<BlockOfContiguousRows>* blocks;
         size_t current_block_index = 0;
         size_t current_block_count = 0;
         RowIterator(const std::vector<BlockOfContiguousRows>& _blocks, size_t starting_index = 0)
-            : blocks(std::make_shared<std::vector<BlockOfContiguousRows>>(_blocks))
+            : blocks(&_blocks)
         {
             size_t count = 0;
             for (size_t i = 0; i < blocks->size(); ++i) {
-                const BlockOfContiguousRows block = blocks.get()->at(i);
+                const BlockOfContiguousRows block = blocks->at(i);
                 if (count + (block.size / 2) > starting_index) {
                     current_block_index = i;
                     current_block_count = (starting_index - count) * 2;
@@ -328,8 +326,8 @@ template <typename Flavor> class SumcheckProverRound {
 
         size_t get_next_edge()
         {
-            BlockOfContiguousRows block = blocks.get()->at(current_block_index);
-            auto edge = block.starting_edge_idx + current_block_count;
+            const BlockOfContiguousRows& block = blocks->at(current_block_index);
+            size_t edge = block.starting_edge_idx + current_block_count;
             if (current_block_count + 2 >= block.size) {
                 current_block_index += 1;
                 current_block_count = 0;
@@ -376,7 +374,6 @@ template <typename Flavor> class SumcheckProverRound {
                         current_block_size += 2;
                     } else {
                         if (current_block_size > 0) {
-
                             thread_blocks.push_back(BlockOfContiguousRows{
                                 .starting_edge_idx = edge_idx - current_block_size, .size = current_block_size });
                             current_block_size = 0;
@@ -529,6 +526,32 @@ template <typename Flavor> class SumcheckProverRound {
         return result;
     }
 
+    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
+    SumcheckRoundUnivariate compute_virtual_contribution(
+        ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
+        const bb::RelationParameters<FF>& relation_parameters,
+        const GateSeparatorPolynomial<FF>& gate_separator,
+        const SubrelationSeparators& alphas)
+    {
+        // Note: {} is required to initialize the tuple contents. Otherwise the univariates contain garbage.
+        SumcheckTupleOfTuplesOfUnivariates univariate_accumulator{};
+        ExtendedEdges extended_edges;
+
+        // For a given prover polynomial P_i(X_0, ..., X_{d-1}) extended by zero, i.e. multiplied by
+        //      \tau(X_d, ..., X_{virtual_log_n - 1}) =  \prod (1 - X_k)
+        // for k = d, ..., virtual_log_n - 1, the computation of the virtual sumcheck round univariate reduces to the
+        // edge (0, ...,0).
+        const size_t virtual_contribution_edge_idx = 0;
+
+        // Perform the usual sumcheck accumulation, but for a single edge.
+        extend_edges(extended_edges, polynomials, virtual_contribution_edge_idx);
+        // The tail of G(X) = \prod_{k} (1 + X_k(\beta_k - 1) ) evaluated at the edge (0, ..., 0).
+        const FF gate_separator_tail{ 1 };
+        accumulate_relation_univariates(
+            univariate_accumulator, extended_edges, relation_parameters, gate_separator_tail);
+
+        return batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulator, alphas, gate_separator);
+    };
     /**
      * @brief Given a tuple of tuples of extended per-relation contributions,  \f$ (t_0, t_1, \ldots,
      * t_{\text{NUM_SUBRELATIONS}-1}) \f$ and a challenge \f$ \alpha \f$, scale them by the relation separator
@@ -798,28 +821,6 @@ template <typename Flavor> class SumcheckVerifierRound {
                                                                            gate_separators.partial_evaluation_result);
 
         return Utils::scale_and_batch_elements(relation_evaluations, alphas);
-    }
-
-    /**
-     * @brief Temporary method to pad Protogalaxy gate challenges and the gate challenges in
-     * TestBasicSingleAvmRecursionConstraint to CONST_PROOF_SIZE_LOG_N. Will be deprecated by more flexible padded size
-     * handling in Sumcheck and Flavor Provers/Verifiers.
-     * TODO(https://github.com/AztecProtocol/barretenberg/issues/1310): Recursive Protogalaxy issues
-     *
-     * @param gate_challenges
-     */
-    void pad_gate_challenges(std::vector<FF>& gate_challenges, const size_t virtual_log_n)
-    {
-
-        if (gate_challenges.size() < virtual_log_n) {
-            FF zero{ 0 };
-            if constexpr (IsRecursiveFlavor<Flavor>) {
-                zero.convert_constant_to_fixed_witness(gate_challenges[0].get_context());
-            }
-            for (size_t idx = gate_challenges.size(); idx < virtual_log_n; idx++) {
-                gate_challenges.emplace_back(zero);
-            }
-        }
     }
 };
 } // namespace bb

@@ -136,6 +136,9 @@ std::vector<std::pair<Column, FF>> insert_state(const TxContextEvent& prev_state
         // Next sideffect state
         { Column::tx_next_num_unencrypted_logs, next_state.side_effect_states.numUnencryptedLogs },
         { Column::tx_next_num_l2_to_l1_messages, next_state.side_effect_states.numL2ToL1Messages },
+
+        // Execution context
+        { Column::tx_next_context_id, prev_state.next_context_id },
     };
 }
 
@@ -209,24 +212,22 @@ std::vector<std::pair<Column, FF>> handle_gas_limit(Gas gas_limit)
 std::vector<std::pair<Column, FF>> handle_enqueued_call_event(TransactionPhase phase,
                                                               const simulation::EnqueuedCallEvent& event)
 {
-    return {
-        { Column::tx_is_public_call_request, 1 },
-        { Column::tx_should_process_call_request, 1 },
-        { Column::tx_is_teardown_phase, is_teardown_phase(phase) },
-        { Column::tx_msg_sender, event.msg_sender },
-        { Column::tx_contract_addr, event.contract_address },
-        { Column::tx_fee, event.transaction_fee },
-        { Column::tx_is_static, event.is_static },
-        { Column::tx_calldata_hash, event.calldata_hash },
-        { Column::tx_reverted, !event.success },
-        { Column::tx_prev_da_gas_used_sent_to_enqueued_call, event.start_gas.daGas },
-        { Column::tx_prev_l2_gas_used_sent_to_enqueued_call, event.start_gas.l2Gas },
-        { Column::tx_next_da_gas_used_sent_to_enqueued_call, event.end_gas.daGas },
-        { Column::tx_next_l2_gas_used_sent_to_enqueued_call, event.end_gas.l2Gas },
-        { Column::tx_gas_limit_pi_offset,
-          is_teardown_phase(phase) ? AVM_PUBLIC_INPUTS_GAS_SETTINGS_TEARDOWN_GAS_LIMITS_ROW_IDX : 0 },
-        { Column::tx_should_read_gas_limit, is_teardown_phase(phase) },
-    };
+    return { { Column::tx_is_public_call_request, 1 },
+             { Column::tx_should_process_call_request, 1 },
+             { Column::tx_is_teardown_phase, is_teardown_phase(phase) },
+             { Column::tx_msg_sender, event.msg_sender },
+             { Column::tx_contract_addr, event.contract_address },
+             { Column::tx_fee, event.transaction_fee },
+             { Column::tx_is_static, event.is_static },
+             { Column::tx_calldata_hash, event.calldata_hash },
+             { Column::tx_reverted, !event.success },
+             { Column::tx_prev_da_gas_used_sent_to_enqueued_call, event.start_gas.daGas },
+             { Column::tx_prev_l2_gas_used_sent_to_enqueued_call, event.start_gas.l2Gas },
+             { Column::tx_next_da_gas_used_sent_to_enqueued_call, event.end_gas.daGas },
+             { Column::tx_next_l2_gas_used_sent_to_enqueued_call, event.end_gas.l2Gas },
+             { Column::tx_gas_limit_pi_offset,
+               is_teardown_phase(phase) ? AVM_PUBLIC_INPUTS_GAS_SETTINGS_TEARDOWN_GAS_LIMITS_ROW_IDX : 0 },
+             { Column::tx_should_read_gas_limit, is_teardown_phase(phase) } };
 };
 
 std::vector<std::pair<Column, FF>> handle_note_hash_append(const simulation::PrivateAppendTreeEvent& event,
@@ -397,7 +398,7 @@ std::vector<std::pair<Column, FF>> handle_first_row()
     return columns;
 }
 
-std::vector<std::pair<Column, FF>> handle_padded_row(TransactionPhase phase, Gas gas_used)
+std::vector<std::pair<Column, FF>> handle_padded_row(TransactionPhase phase, Gas gas_used, bool discard)
 {
     // We should throw here - but tests are currently unsuitable
     // assert(phase != TransactionPhase::COLLECT_GAS_FEES);
@@ -406,7 +407,7 @@ std::vector<std::pair<Column, FF>> handle_padded_row(TransactionPhase phase, Gas
     // phase.
     std::vector<std::pair<Column, FF>> columns = {
         { Column::tx_sel, 1 },
-        { Column::tx_discard, 0 }, // TODO: Actually reconstruct discard in the tx.
+        { Column::tx_discard, discard ? 1 : 0 },
         { Column::tx_phase_value, static_cast<uint8_t>(phase) },
         { Column::tx_setup_phase_value, static_cast<uint8_t>(TransactionPhase::SETUP) },
         { Column::tx_is_padded, 1 },
@@ -494,6 +495,8 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
 
     std::optional<simulation::TxStartupEvent> startup_event;
 
+    bool r_insertion_or_app_logic_failure = false;
+    bool teardown_failure = false;
     for (const auto& tx_event : events) {
         if (std::holds_alternative<simulation::TxStartupEvent>(tx_event)) {
             startup_event = std::get<simulation::TxStartupEvent>(tx_event);
@@ -501,6 +504,20 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
             const simulation::TxPhaseEvent& tx_phase_event = std::get<simulation::TxPhaseEvent>(tx_event);
             // Minus 1 since the enum is 1-indexed
             phase_buckets[static_cast<uint8_t>(tx_phase_event.phase) - 1].push_back(&tx_phase_event);
+
+            // Set some flags for use when populating the discard column.
+            if (tx_phase_event.reverted) {
+                if (!is_revertible(tx_phase_event.phase)) {
+                    throw std::runtime_error("Reverted in non-revertible phase: " +
+                                             std::to_string(static_cast<uint8_t>(tx_phase_event.phase)));
+                }
+
+                if (tx_phase_event.phase == TransactionPhase::TEARDOWN) {
+                    teardown_failure = true;
+                } else {
+                    r_insertion_or_app_logic_failure = true;
+                }
+            }
         }
     }
 
@@ -522,13 +539,24 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
         const auto& phase_events = phase_buckets[i];
 
         TransactionPhase phase = phase_array[i];
+
+        bool discard = false;
+        if (is_revertible(phase)) {
+            if (phase == TransactionPhase::TEARDOWN) {
+                discard = teardown_failure;
+            } else {
+                // Even if we don't fail until later in teardown, all revertible phases discard.
+                discard = teardown_failure || r_insertion_or_app_logic_failure;
+            }
+        }
+
         if (is_teardown_phase(phase)) {
             current_gas_limit = teardown_gas_limit;
         }
 
         if (phase_events.empty()) {
             trace.set(row, insert_state(propagated_state, propagated_state));
-            trace.set(row, handle_padded_row(phase, gas_used));
+            trace.set(row, handle_padded_row(phase, gas_used, discard));
             trace.set(row, handle_pi_read(phase, /*phase_length=*/0, /*read_counter*/ 0));
             trace.set(row, handle_prev_gas_used(gas_used));
             trace.set(row, handle_next_gas_used(gas_used));
@@ -555,7 +583,7 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
                 row,
                 { {
                     { C::tx_sel, 1 },
-                    { C::tx_discard, 0 }, // TODO: Actually reconstruct discard in the tx.
+                    { C::tx_discard, discard ? 1 : 0 },
                     { C::tx_phase_value, static_cast<uint8_t>(tx_phase_event->phase) },
                     { Column::tx_setup_phase_value, static_cast<uint8_t>(TransactionPhase::SETUP) },
                     { C::tx_is_padded, 0 },
@@ -636,8 +664,8 @@ const InteractionDefinition TxTraceBuilder::interactions =
         .add<lookup_tx_phase_jump_on_revert_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_read_phase_length_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_read_public_call_request_phase_settings, InteractionType::LookupGeneric>()
-        // .add<lookup_tx_dispatch_exec_start_settings, InteractionType::LookupGeneric>()
-        // .add<lookup_tx_dispatch_exec_get_revert_settings, InteractionType::LookupGeneric>()
+        .add<lookup_tx_dispatch_exec_start_settings, InteractionType::LookupGeneric>()
+        .add<lookup_tx_dispatch_exec_end_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_read_tree_insert_value_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_read_l2_l1_msg_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_write_l2_l1_msg_settings, InteractionType::LookupGeneric>()

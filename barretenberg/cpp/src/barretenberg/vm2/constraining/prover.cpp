@@ -24,8 +24,11 @@ using FF = Flavor::FF;
  *
  * @tparam settings Settings class.
  */
-AvmProver::AvmProver(std::shared_ptr<Flavor::ProvingKey> input_key, const PCSCommitmentKey& commitment_key)
+AvmProver::AvmProver(std::shared_ptr<Flavor::ProvingKey> input_key,
+                     std::shared_ptr<Flavor::VerificationKey> vk,
+                     const PCSCommitmentKey& commitment_key)
     : key(std::move(input_key))
+    , vk(std::move(vk))
     , prover_polynomials(*key)
     , commitment_key(commitment_key)
 {}
@@ -36,9 +39,10 @@ AvmProver::AvmProver(std::shared_ptr<Flavor::ProvingKey> input_key, const PCSCom
  */
 void AvmProver::execute_preamble_round()
 {
-    const auto circuit_size = static_cast<uint32_t>(key->circuit_size);
-
-    transcript->send_to_verifier("circuit_size", circuit_size);
+    // TODO(#15892): Fiat-shamir the vk hash by uncommenting the line below.
+    FF vk_hash = vk->hash();
+    // transcript->add_to_hash_buffer("avm_vk_hash", vk_hash);
+    info("AVM vk hash in prover: ", vk_hash);
 }
 
 /**
@@ -52,7 +56,8 @@ void AvmProver::execute_wire_commitments_round()
     auto wire_polys = prover_polynomials.get_wires();
     const auto& labels = prover_polynomials.get_wires_labels();
     for (size_t idx = 0; idx < wire_polys.size(); ++idx) {
-        transcript->send_to_verifier(labels[idx], commitment_key.commit(wire_polys[idx]));
+        auto comm = commitment_key.commit(wire_polys[idx]);
+        transcript->send_to_verifier(labels[idx], comm);
     }
 }
 
@@ -100,7 +105,7 @@ void AvmProver::execute_relation_check_rounds()
     // Multiply each linearly independent subrelation contribution by `alpha^i` for i = 0, ..., NUM_SUBRELATIONS - 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
-    std::vector<FF> gate_challenges(numeric::get_msb(key->circuit_size));
+    std::vector<FF> gate_challenges(CONST_PROOF_SIZE_LOG_N);
 
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));

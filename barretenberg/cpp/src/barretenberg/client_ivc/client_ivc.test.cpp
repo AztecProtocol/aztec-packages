@@ -17,7 +17,9 @@ using namespace bb;
 
 // static constexpr size_t MAX_NUM_KERNELS = 15;
 static constexpr size_t SMALL_LOG_2_NUM_GATES = 5;
-// static constexpr size_t MEDIUM_LOG_2_NUM_GATES = 16;
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1511): The CIVC class should enforce the minimum number of
+// circuits in a test flow.
+static constexpr size_t MIN_NUM_CIRCUITS = 4;
 
 class ClientIVCTests : public ::testing::Test {
   protected:
@@ -109,7 +111,7 @@ TEST_F(ClientIVCTests, BadProofFailure)
         TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
 
         // Construct and accumulate a set of mocked private function execution circuits
-        for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+        for (size_t idx = 0; idx < MIN_NUM_CIRCUITS; ++idx) {
             circuit_producer.construct_and_accumulate_next_circuit(ivc, settings);
         }
         EXPECT_TRUE(ivc.prove_and_verify());
@@ -124,7 +126,7 @@ TEST_F(ClientIVCTests, BadProofFailure)
         size_t num_public_inputs = 0;
 
         // Construct and accumulate a set of mocked private function execution circuits
-        for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+        for (size_t idx = 0; idx < MIN_NUM_CIRCUITS; ++idx) {
             auto [circuit, vk] =
                 circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = SMALL_LOG_2_NUM_GATES });
             ivc.accumulate(circuit, vk);
@@ -149,7 +151,7 @@ TEST_F(ClientIVCTests, BadProofFailure)
         ClientIVC ivc{ NUM_CIRCUITS, trace_settings };
 
         // Construct and accumulate a set of mocked private function execution circuits
-        for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+        for (size_t idx = 0; idx < MIN_NUM_CIRCUITS; ++idx) {
             auto [circuit, vk] =
                 circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = SMALL_LOG_2_NUM_GATES });
             ivc.accumulate(circuit, vk);
@@ -306,9 +308,49 @@ HEAVY_TEST(ClientIVCKernelCapacity, MaxCapacityPassing)
     ClientIVC ivc{ num_circuits };
 
     auto proof = ivc.prove();
-
-    EXPECT_TRUE(ivc.verify(proof));
+    bool verified = verify_ivc(proof, ivc);
+    EXPECT_TRUE(verified);
 }
+
+HEAVY_TEST(ClientIVCKernelCapacity, MaxCapacityFailing)
+{
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
+
+    const size_t total_num_circuits{ 2 * (MAX_NUM_KERNELS + 1) };
+    ClientIVC ivc{ total_num_circuits, { AZTEC_TRACE_STRUCTURE } };
+    PrivateFunctionExecutionMockCircuitProducer circuit_producer;
+    for (size_t j = 0; j < total_num_circuits; ++j) {
+        circuit_producer.construct_and_accumulate_next_circuit(ivc);
+    }
+    EXPECT_ANY_THROW(ivc.prove());
+}
+
+/**
+ * @brief Test use of structured trace overflow block mechanism
+ * @details Accumulate 4 circuits which have progressively more arithmetic gates. The final two overflow the
+ prescribed
+ * arithmetic block size and make use of the overflow block which has sufficient capacity.
+ *
+ */
+TEST_F(ClientIVCTests, StructuredTraceOverflow)
+{
+
+    // Define trace settings with sufficient overflow capacity to accommodate each of the circuits to be accumulated
+
+    ClientIVC ivc{ MIN_NUM_CIRCUITS, { SMALL_TEST_STRUCTURE, /*overflow_capacity=*/1 << 17 } };
+    TestSettings settings;
+    PrivateFunctionExecutionMockCircuitProducer circuit_producer;
+
+    // Construct and accumulate some circuits of varying size
+    size_t log2_num_gates = 14;
+    for (size_t idx = 0; idx < MIN_NUM_CIRCUITS; ++idx) {
+        settings.log2_num_gates = log2_num_gates;
+        circuit_producer.construct_and_accumulate_next_circuit(ivc, settings);
+        log2_num_gates += 1;
+    }
+
+    EXPECT_TRUE(ivc.prove_and_verify());
+};
 
 /**
  * @brief Test the structured trace overflow mechanism in a variety of different scenarios
@@ -337,7 +379,7 @@ TEST_F(ClientIVCTests, DynamicTraceOverflow)
         ClientIVC ivc{ NUM_CIRCUITS, { SMALL_TEST_STRUCTURE_FOR_OVERFLOWS } };
 
         // Accumulate
-        for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+        for (size_t idx = 0; idx < MIN_NUM_CIRCUITS; ++idx) {
             circuit_producer.construct_and_accumulate_next_circuit(
                 ivc, { .log2_num_gates = test.log2_num_arith_gates[idx] });
         }
@@ -387,3 +429,73 @@ TEST_F(ClientIVCTests, MsgpackProofFromFileOrBuffer)
         EXPECT_THROW(ClientIVC::Proof::from_msgpack_buffer(buffer), msgpack::v1::type_error);
     }
 };
+
+/**
+ * @brief Accumulate a set of circuits that includes consecutive kernels
+ * @details In practice its common to have multiple consecutive kernels without intermittent apps e.g. an inner followed
+ * immediately by a reset, or an inner-reset-tail sequence. This test ensures that such cases are handled correctly.
+ *
+ */
+TEST_F(ClientIVCTests, ConsecutiveKernels)
+{
+    const size_t NUM_CIRCUITS = 6;
+    ClientIVC ivc{ NUM_CIRCUITS, { AZTEC_TRACE_STRUCTURE } };
+
+    PrivateFunctionExecutionMockCircuitProducer circuit_producer;
+
+    // Accumulate a series of mocked circuits (app, kernel, app, kernel)
+    for (size_t idx = 0; idx < NUM_CIRCUITS - 2; ++idx) {
+        circuit_producer.construct_and_accumulate_next_circuit(ivc);
+    }
+
+    // Cap the IVC with two more kernels (say, a 'reset' and a 'tail') without intermittent apps
+    circuit_producer.construct_and_accumulate_next_circuit(ivc, { .force_is_kernel = true });
+    circuit_producer.construct_and_accumulate_next_circuit(ivc, { .force_is_kernel = true });
+
+    EXPECT_TRUE(ivc.prove_and_verify());
+};
+
+/**
+ * @brief Demonstrate that a databus inconsistency leads to verification failure for the IVC
+ * @details Kernel circuits contain databus consistency checks that establish that data was passed faithfully between
+ * circuits, e.g. the output (return_data) of an app was the input (secondary_calldata) of a kernel. This test
+ tampers
+ * with the databus in such a way that one of the kernels receives secondary_calldata based on tampered app return
+ data.
+ * This leads to an invalid witness in the check that ensures that the two corresponding commitments are equal and
+ thus
+ * causes failure of the IVC to verify.
+ *
+ */
+TEST_F(ClientIVCTests, DatabusFailure)
+{
+    size_t NUM_CIRCUITS = 6;
+    ClientIVC ivc{ NUM_CIRCUITS, { AZTEC_TRACE_STRUCTURE } };
+
+    PrivateFunctionExecutionMockCircuitProducer circuit_producer;
+
+    // Initialize the IVC with an arbitrary circuit
+    circuit_producer.construct_and_accumulate_next_circuit(ivc);
+
+    // Create another circuit and accumulate
+    circuit_producer.construct_and_accumulate_next_circuit(ivc);
+
+    const auto proof = ivc.prove();
+
+    // Serialize/deserialize proof to msgpack buffer, check that it verifies
+    msgpack::sbuffer buffer = proof.to_msgpack_buffer();
+    auto proof_deserialized = ClientIVC::Proof::from_msgpack_buffer(buffer);
+    EXPECT_TRUE(ivc.verify(proof_deserialized));
+
+    // Overwrite the buffer with random bytes for testing failure case
+    {
+        std::vector<uint8_t> random_bytes(buffer.size());
+        std::generate(random_bytes.begin(), random_bytes.end(), []() { return static_cast<uint8_t>(rand() % 256); });
+        std::copy(random_bytes.begin(), random_bytes.end(), buffer.data());
+    }
+
+    // Expect deserialization to fail with error msgpack::v1::type_error with description "std::bad_cast"
+    EXPECT_THROW(ClientIVC::Proof::from_msgpack_buffer(buffer), msgpack::v1::type_error);
+}
+}
+;

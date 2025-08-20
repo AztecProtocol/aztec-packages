@@ -158,7 +158,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     }
 
     StakingQueueConfig memory stakingQueueConfig = TestConstants.getStakingQueueConfig();
-    stakingQueueConfig.normalFlushSizeMin = _validatorCount;
+    stakingQueueConfig.normalFlushSizeMin = _validatorCount == 0 ? 1 : _validatorCount;
 
     RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost).setManaTarget(
       MANA_TARGET
@@ -353,14 +353,14 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
    * @param _payload The payload to signal
    * @return The EIP-712 signature
    */
-  function createSignalSignature(address _signer, IPayload _payload, uint256 _round)
+  function createSignalSignature(address _signer, IPayload _payload, Slot _slot)
     internal
     view
     returns (Signature memory)
   {
     uint256 privateKey = attesterPrivateKeys[_signer];
     require(privateKey != 0, "Private key not found for signer");
-    bytes32 digest = slashingProposer.getSignalSignatureDigest(_payload, _signer, _round);
+    bytes32 digest = slashingProposer.getSignalSignatureDigest(_payload, _slot);
 
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
 
@@ -383,7 +383,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
       if (_slashing && !warmedUp && rollup.getCurrentSlot() == Slot.wrap(EPOCH_DURATION * 2)) {
         address proposer = rollup.getCurrentProposer();
-        Signature memory sig = createSignalSignature(proposer, slashPayload, round);
+        Signature memory sig = createSignalSignature(proposer, slashPayload, rollup.getCurrentSlot());
         slashingProposer.signalWithSig(slashPayload, sig);
         warmedUp = true;
       }
@@ -404,7 +404,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
         blockAttestations[currentBlockNumber] = AttestationLib.packAttestations(b.attestations);
 
         if (_slashing) {
-          Signature memory sig = createSignalSignature(proposer, slashPayload, round);
+          Signature memory sig = createSignalSignature(proposer, slashPayload, rollup.getCurrentSlot());
           Multicall3.Call3[] memory calls = new Multicall3.Call3[](2);
           calls[0] = Multicall3.Call3({
             target: address(rollup),

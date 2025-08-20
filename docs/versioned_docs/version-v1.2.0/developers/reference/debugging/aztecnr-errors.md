@@ -1,5 +1,6 @@
 ---
 title: Aztec.nr Errors
+description: Common Aztec.nr compilation and runtime errors and how to resolve them.
 tags: [contracts]
 ---
 

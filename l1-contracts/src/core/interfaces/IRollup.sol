@@ -63,6 +63,7 @@ struct RollupConfigInput {
   address slashingVetoer;
   uint256 manaTarget;
   uint256 exitDelaySeconds;
+  uint32 version;
   EthValue provingCostPerMana;
   RewardConfig rewardConfig;
   RewardBoostConfig rewardBoostConfig;
@@ -97,8 +98,6 @@ interface IRollupCore {
   event ManaTargetUpdated(uint256 indexed manaTarget);
   event PrunedPending(uint256 provenBlockNumber, uint256 pendingBlockNumber);
   event RewardsClaimableUpdated(bool isRewardsClaimable);
-
-  function preheatHeaders() external;
 
   function setRewardsClaimable(bool _isRewardsClaimable) external;
   function claimSequencerRewards(address _recipient) external returns (uint256);
