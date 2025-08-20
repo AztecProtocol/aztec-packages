@@ -58,6 +58,24 @@ images:
   nethermind:
     image: nethermind/nethermind:1.32.2
     pullPolicy: IfNotPresent
+  web3signer:
+    image: consensys/web3signer:25.3.0
+    pullPolicy: IfNotPresent
+
+web3signer:
+  enabled: false
+  image:
+    repository: consensys/web3signer
+    tag: 25.3.0
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 9000
+  init:
+    image: aztecprotocol/aztec:latest
+  addresses:
+    validatorsCount: 0
+    keyIndexStart: 2000
 
 aztec:
   bootstrapENRs: ""
@@ -74,6 +92,7 @@ aztec:
   l1Salt: "" # leave empty for random salt
   testAccounts: true
   sponsoredFPC: false
+  # WARNING: this is not a secure way to handle a mnemonic. This value will be stored in plain text in helm state. Instead opt to storing the mnemonic in a secret/external secret manager and mount into pods as needed
   l1DeploymentMnemonic: "test test test test test test test test test test test junk" # the mnemonic used when deploying contracts
   manaTarget: "" # use default value
 
@@ -371,10 +390,6 @@ proverBroker:
   storageSize: "1Gi"
   dataDir: "/data"
   maxOldSpaceSize: "4608"
-
-jobs:
-  deployL1Verifier:
-    enable: false
 
 blobSink:
   enabled: false

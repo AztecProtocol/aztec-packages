@@ -1,5 +1,6 @@
 ---
 title: Communicating with L1
+description: Learn how to communicate with L1 contracts through portals in your Aztec smart contracts.
 tags: [contracts, portals]
 ---
 

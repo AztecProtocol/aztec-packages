@@ -1,5 +1,6 @@
 ---
 title: Using FaceID to Sign Transactions (Mac Only)
+description: Code-along tutorial for building a wallet with Face ID authentication on Aztec.
 tags: [sandbox, wallet, cli]
 keywords: [wallet, cli wallet, faceid]
 sidebar_position: 5

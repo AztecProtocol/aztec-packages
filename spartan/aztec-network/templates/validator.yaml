@@ -96,7 +96,8 @@ spec:
               value: {{ .Values.validator.keysPerNode | quote }}
             - name: MNEMONIC
               value: {{ .Values.aztec.l1DeploymentMnemonic }}
-
+            - name: WEB3_SIGNER_ENABLED
+              value: {{ .Values.web3signer.enabled | quote }}
             - name: K8S_POD_UID
               valueFrom:
                 fieldRef:
@@ -220,6 +221,10 @@ spec:
               value: {{ .Values.aztec.slash.invalidBlockMaxPenalty | quote }}
             - name: SENTINEL_ENABLED
               value: "{{ .Values.validator.sentinelEnabled }}"
+            {{- if .Values.web3signer.enabled }}
+            - name: WEB3_SIGNER_URL
+              value: "http://{{ include "aztec-network.fullname" . }}-web3signer.{{ .Release.Namespace }}.svc.cluster.local:9000/"
+            {{- end }}
           ports:
             - containerPort: {{ .Values.validator.service.nodePort }}
             - containerPort: {{ .Values.validator.service.p2pPort }}

@@ -2,6 +2,7 @@
 title: Noir VSCode Extension
 sidebar_position: 1
 tags: [sandbox]
+description: Learn how to install and configure the Noir Language Server for a better development experience.
 ---
 
 Install the [Noir Language Support extension](https://marketplace.visualstudio.com/items?itemName=noir-lang.vscode-noir) to get syntax highlighting, syntax error detection and go-to definitions for your Aztec contracts.

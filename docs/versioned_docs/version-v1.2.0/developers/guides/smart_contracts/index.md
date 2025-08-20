@@ -1,5 +1,6 @@
 ---
 title: Aztec.nr
+description: Comprehensive guide to writing smart contracts for the Aztec network using Noir.
 tags: [aztec.nr]
 ---
 

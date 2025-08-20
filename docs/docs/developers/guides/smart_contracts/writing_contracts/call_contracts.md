@@ -2,6 +2,7 @@
 title: Calling Other Contracts
 sidebar_position: 4
 tags: [functions, contracts]
+description: Learn how to call other contracts from your Aztec smart contracts.
 ---
 
 A contract is a collection of persistent state variables and functions which may manipulate these variables.

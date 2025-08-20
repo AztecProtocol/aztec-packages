@@ -1,5 +1,6 @@
 ---
 title: Counter Contract
+description: Code-along tutorial for creating a simple counter contract on Aztec.
 sidebar_position: 0
 ---
 

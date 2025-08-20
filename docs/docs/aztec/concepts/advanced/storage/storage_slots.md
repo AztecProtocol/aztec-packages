@@ -2,6 +2,7 @@
 title: Storage Slots
 tags: [storage, concepts, advanced]
 sidebar_position: 1
+description: Understand how storage slots work in Aztec for both public and private state, including siloing mechanisms and note hash commitments.
 ---
 
 # Storage Slots

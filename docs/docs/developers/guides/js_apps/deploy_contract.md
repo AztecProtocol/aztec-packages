@@ -2,6 +2,7 @@
 title: How to Deploy a Contract
 tags: [contracts]
 sidebar_position: 1
+description: Learn how to deploy smart contracts to the Aztec network using Aztec.js.
 ---
 
 Once you have [compiled](../smart_contracts/how_to_compile_contract.md) your contracts you can proceed to deploying them using Aztec.js.

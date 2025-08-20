@@ -1,6 +1,7 @@
 ---
 title: Storage slots
 tags: [contracts, storage]
+description: Detailed walkthrough of storage slot computation in Aztec smart contracts, including private state note hash creation and siloing mechanisms.
 ---
 
 From the description of storage slots [in the Concepts](../../../../../aztec/concepts/advanced/storage/storage_slots.md) you will get an idea around the logic of storage slots. In this section we will go into more detail and walk through an entire example of how storage slots are computed for private state to improve our storage slot intuition. Recall, that storage slots in the private domain is just a logical construct, and are not "actually" used for lookups, but rather just as a value to constrain against.
