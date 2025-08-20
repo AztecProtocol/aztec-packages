@@ -21,11 +21,16 @@ class ECCVMPointTablePrecomputationBuilder {
     static constexpr size_t NUM_WNAF_DIGITS_PER_SCALAR = bb::eccvm::NUM_WNAF_DIGITS_PER_SCALAR;
     static constexpr size_t WNAF_DIGITS_PER_ROW = bb::eccvm::WNAF_DIGITS_PER_ROW;
     static constexpr size_t NUM_WNAF_DIGIT_BITS = bb::eccvm::NUM_WNAF_DIGIT_BITS;
-    // TODO(RAJU): write a detailed account of this data structure. Note that our implementation takes advantage of a
-    // numerical coincidence: `NUM_WNAF_DIGITS_PER_SCALAR`/`WNAF_DIGITS_PER_ROW`, the number of rows per scalar
-    // multiplication, is the same as |{P, 3P, ..., (2ʷ-1)P}| = 2ʷ⁻¹, which is basically the number of multiples of P we
-    // need to precompute. (To be precise, we also compute 2P, but this occurs on every row.)
+    // Note that our implementation takes advantage of a numerical coincidence:
+    // `NUM_WNAF_DIGITS_PER_SCALAR`/`WNAF_DIGITS_PER_ROW`, the number of rows per scalar multiplication, is the same as
+    // |{P, 3P, ..., (2ʷ-1)P}| = 2ʷ⁻¹ == 8, which is basically the number of multiples of P we need to precompute. (To
+    // be precise, we also compute 2P, but this occurs on every row.)
     struct PointTablePrecomputationRow {
+        // s1, ..., s8 are each 2 bits, so they jointly encode 16 bits of information, which corresponds precisely to
+        // the data of 4 wNAF digits. they are ordered from "highest order" to "lowest order". this means that s1s2
+        // encodes the first (highest order) wNAF digit in consideration, and so on. the explicit encoding is: the
+        // concatenation, s_{2i}s_{2i+1}, is naturally a number in {0, 1, ..., 15}; to obtain the corresponding wNAF
+        // digit, multiply by 2 and subtract 15.
         int s1 = 0;
         int s2 = 0;
         int s3 = 0;

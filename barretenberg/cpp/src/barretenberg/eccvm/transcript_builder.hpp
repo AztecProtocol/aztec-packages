@@ -62,7 +62,7 @@ class ECCVMTranscriptBuilder {
         FF msm_output_x = 0; // if we are at the end of an MSM, output of MSM + OFFSET = (`msm_output_x`,
                              // `msm_output_y`), else, 0.
         FF msm_output_y = 0; // if we are at the end of an MSM, output of MSM + OFFSET = (`msm_output_x`,
-                             // `msm_output_y`), else,
+                             // `msm_output_y`), else 0.
         FF transcript_msm_intermediate_x =
             0; // if we are at the end of an MSM, output of MSM  =
                // (`transcript_msm_intermediate_x`, `transcript_msm_intermediate_y`), else, 0.
@@ -111,7 +111,7 @@ class ECCVMTranscriptBuilder {
     struct VMState {
         uint32_t pc = 0; // decreasing program counter that tracks the total number of multiplications that our virtual
                          // machine has left to compute.
-        uint32_t count = 0; // RAJU: check. Number of muls in the *current* MSM. (reset after each MSM.)
+        uint32_t count = 0; // Number of muls in the current MSM _excluding the current row_.
         Element accumulator = CycleGroup::affine_point_at_infinity; // accumulator for all group operations.
         Element msm_accumulator =
             offset_generator(); // accumulator for the current MSM with an offset. (we start with offset_generator,

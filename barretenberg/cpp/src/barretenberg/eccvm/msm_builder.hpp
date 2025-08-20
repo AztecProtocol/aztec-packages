@@ -267,11 +267,10 @@ class ECCVMMSMMBuilder {
             const size_t msm_size = msm.size();
             const size_t num_rows_per_digit =
                 (msm_size / ADDITIONS_PER_ROW) +
-                ((msm_size % ADDITIONS_PER_ROW != 0)
-                     ? 1
-                     : 0); // the Straus algorithm proceeds by incrementing through the digit-slots and doing
-                           // computations *across* the `ScalarMul`s that make up our MSM. Each digit-slot therefore
-                           // contributes the *ceiling* of `msm_size`/`ADDITIONS_PER_ROW`.
+                (msm_size % ADDITIONS_PER_ROW !=
+                 0); // the Straus algorithm proceeds by incrementing through the digit-slots and doing
+                     // computations *across* the `ScalarMul`s that make up our MSM. Each digit-slot therefore
+                     // contributes the *ceiling* of `msm_size`/`ADDITIONS_PER_ROW`.
             size_t trace_index =
                 (msm_row_counts[msm_idx] - 1) * 4; // tracks the index in the traces of `p1`, `p2`, `p3`, and
                                                    // `accumulator_trace` that we are filling out

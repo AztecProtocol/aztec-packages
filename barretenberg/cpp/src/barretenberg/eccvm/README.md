@@ -14,7 +14,7 @@ $\newcommand{\qreset}{q_{\text{reset}}}$
 
 ## Punchline
 
-The ECCVM efficiently proves the correct execution of accumulated elliptic curve operations. It does this by witnessing the correct execution into a table of numbers (in the same field as the base field of the elliptic curve) and applying polynomial constraints, multiset equality-checks, and lookup arguments.
+The ECCVM efficiently proves the correct execution of accumulated elliptic curve operations on the BN-254 curve. It does this by witnessing the correct execution into a table of numbers (in the same field as the base field of the elliptic curve) and applying polynomial constraints, multiset equality-checks, and lookup arguments.
 
 ## Notation
 
@@ -43,9 +43,11 @@ We also use the following constants:
 
 In a nutshell, the ECCVM is a simple virtual machine to facilitate the verification of native elliptic curve computations. In our setting, this means that given an `op_queue` of BN-254 operations, the ECCVM compiles the execution of these operations into an _execution trace representation_ over $\fq$, the _field of definition_ (a.k.a. base field) of BN-254. (This field is also the _scalar field_ of Grumpkin.)
 
-In a bit more detail, the ECCVM is an compiler that takes a sequence of operations (in BN-254) and produces a table of numbers, such that the correct evaluation of the sequence of operations precisely corresponds to polynomial constraints vanishing on the rows of this table of numbers. Moreover, these polynomial constraints are independent of the specific sequence of operations. The core complication in the ECCVM comes from the _efficient_ handling of scalar multiplications.
+In a bit more detail, the ECCVM is an compiler that takes a sequence of operations (in BN-254) and produces a table of numbers (in $\fq$), such that the correct evaluation of the sequence of operations precisely corresponds to polynomial constraints vanishing on the rows of this table of numbers. Moreover, these polynomial constraints are independent of the specific sequence of operations. As our tables of numbers have elements in $\fq$, we say that the _native field_ of the circuit is $\fq$. Looking forward, when we want to prove that all of these constraints are satisfied, we will use the Grumpkin curve $C$.
 
-In fact, due to our MSM optimizations, we morally produce _three_ tables, where each table has its own set of multivariate polynomials, such that the correct evaluation of the operations corresponds to each table's multivariates evaluating to zero on each row. These tables will "communicate" with each other via (strict) lookup arguments and multiset-equality checks.
+The core complication in the ECCVM comes from the _efficient_ handling of scalar multiplications. In fact, due to our MSM optimizations, we morally produce _three_ tables, where each table has its own set of multivariate polynomials, such that the correct evaluation of the operations corresponds to each table's multivariates evaluating to zero on each row. These tables will "communicate" with each other via (strict) lookup arguments and multiset-equality checks.
+
+We alert the reader to the following earlier [documentation](https://hackmd.io/@aztec-network/rJ5xhuCsn?type=view) of the ECCVM. While the document does not exactly correspond to what is in the codebase, it is a helpful guide for navigating the ECCVM. This document is in many ways an updated version and explication of the aforementioned document.
 
 ## Op Queue
 
@@ -57,11 +59,11 @@ At any moment, we have an accumulated value $A$, and the potential operations ar
 `add`, `mul`, `eq`, `reset`, `eq_and_reset`. There are four selectors: $\qadd$, $\qmul$, $\qeq$, and $\qreset$, so all the operations except for `eq_and_reset` correspond to a unique selector being on. Given an operation, we have an associated op code value.
 | `EccOpCode` | Op Code Value |
 |-----------|---------|
-| `add` | $8$ |
-| `mul` | $4$ |
-| `eq_and_reset` | $3$ |
-| `eq` | $2$ |
-| `reset` | $1$ |
+| `add` | $\texttt{1000} \equiv 8$ |
+| `mul` | $\texttt{0100} \equiv 4$ |
+| `eq_and_reset` | $\texttt{0011} \equiv 3$ |
+| `eq` | $\texttt{0010} \equiv 2$ |
+| `reset` | $\texttt{0001} \equiv 1$ |
 
 On the level of selectors, `opcode_value`=$8\qadd + 4 \qmul + 2 \qeq + \qreset$.
 
@@ -125,11 +127,11 @@ Breaking abstraction, the _reason_ we choose this model of witnessing the comput
 
 ## Architecture
 
-In trying to build the execution trace of `ECCOpQueue`, the `mul` opcode is the only one that is non-trivial to evaluate, especially efficieintly. One straightforward way to encode the `mul` operation is to break up the scalar into its bit representation and use a double-and-add procedure. We opt for the Straus MSM algorithm with $w=4$, which requires more precomputing but is significantly more efficient.
+In trying to build the execution trace of `ECCOpQueue`, the `mul` opcode is the only one that is non-trivial to evaluate, especially efficiently. One straightforward way to encode the `mul` operation is to break up the scalar into its bit representation and use a double-and-add procedure. We opt for the Straus MSM algorithm with $w=4$, which requires more precomputing but is significantly more efficient.
 
 ### High level summary of the operation of the VM
 
-Before we dive into the Straus algorithm, here is the high-level organization. We go "row by row" in the `ECCOpQueue`; if the instruction is _not_ a `mul`, the `Transcript` tabel handles it. If it is a `mul` operation, it is _automatically_ part of an MSM (potentially one of length 1), and we defer evaluation to the Straus mechanism (which involves two separate tables: an `MSM` table and a `Precomputed` table). Eventually, at the _end_ of an MSM (i.e., if an op is a `mul` and the next op is not), the Transcript Columns will pick up the claimed evaluation from the MSM tables and continue along their merry way.
+Before we dive into the Straus algorithm, here is the high-level organization. We go "row by row" in the `ECCOpQueue`; if the instruction is _not_ a `mul`, the `Transcript` table handles it. If it is a `mul` operation, it is _automatically_ part of an MSM (potentially one of length 1), and we defer evaluation to the Straus mechanism (which involves two separate tables: an `MSM` table and a `Precomputed` table). Eventually, at the _end_ of an MSM (i.e., if an op is a `mul` and the next op is not), the Transcript Columns will pick up the claimed evaluation from the MSM tables and continue along their merry way.
 
 To do this in a moderately efficient manner is involved; we include logic for skipping computations when we can. For instance, if we have a `mul` operation with the base point $P=\NeutralElt$, then we will have a column that bears witness to this fact and skip the explicit scalar multiplication. Analogously, if the scalar is 0 in a `mul` operation, we also encode skipping the explicit scalar multiplication. This intelligent computation, together with the delegation of work to multiple tables, itself required by the Straus algorithm, results in somewhat complicated column structure.
 
@@ -304,7 +306,7 @@ If our `op` is a `mul`, with scalars `z1` and `z2`, the situation is more compli
 - In other words, we simply avoid (our deferred) computations if $\transcriptzonezero = 1$ and/or $\transcriptztwozero = 1$.
 - Similarly, $\transcriptpc$ _decrements_ by $2 - \transcriptzonezero - \transcriptztwozero$. We use a decreasing program counter (only counting short `mul`s) for efficiency reasons, as it allows for cheaper commitments.
 - If the next `op` is not a `mul`, and the total number of active `mul` operations (which is $\transcriptmsmcount + (2 - \transcriptzonezero - \transcriptztwozero)$) is non-zero, set the $\transcriptmsmtransition = 1$. Else, set $\transcriptmsmcountzeroattransition = 1$. Either way, the current `mul` then represents the end of an MSM. This is where $\transcriptmsmcountattransitioninverse$ is used.
-- If $\transcriptmsmtransition = 0$, then $\transcriptmsmx$, $\transcriptmsmy$, $\transcriptmsmintermediatex$, and $\transcriptmsmintermediatey$ are all $0$. Otherwise, we call $\transcriptmsmx$ and $\transcriptmsmy$ from the multiset argument, i.e., from the MSM table. Then the values of $\transcriptmsmintermediatex$ and $\transcriptmsmintermediatey$ are obtained by subtracting off the `OFFSET`.
+- If $\transcriptmsmtransition = 0$, then $\transcriptmsmx$, $\transcriptmsmy$, $\transcriptmsmintermediatex$, and $\transcriptmsmintermediatey$ are all $0$. (In particular, this holds when we are in the middle of an MSM.) Otherwise, we call $\transcriptmsmx$ and $\transcriptmsmy$ from the multiset argument, i.e., from the MSM table. Then the values of $\transcriptmsmintermediatex$ and $\transcriptmsmintermediatey$ are obtained by subtracting off the `OFFSET`.
 
 #### Transcript size
 
@@ -347,7 +349,7 @@ where
 
 Given a wNAF digit $\in \{-15, -13, \ldots, 15\}$, we $\text{compress}$ it via the map:
 $$\text{compress}\colon d\mapsto \frac{d+15}{2},$$
-which is of course a bijection $\{-15, -13, \ldots, 15\}\rightarrow \{0,\ldots, 15\}$
+which is of course a bijection $\{-15, -13, \ldots, 15\}\rightarrow \{0,\ldots, 15\}$. (This compression is helpful for indexing later: looking forward, the values $[-15P, -13P, \ldots, 15P]$ will be stored in an array, so if we want to looking up $kP$, where $k\in \{-15, -13, \ldots, 15\}$, we can go to the $\text{compress}(k)$ index of our array associated to $P$.)
 
 The following is one row in the Precomputed table; there are `NUM_WNAF_DIGITS_PER_SCALAR / WNAF_DIGITS_PER_ROW == 32/4 = 8` rows. The row index is `i`. (This number is is also witnessed as `round`.)
 | column name | builder name | value range | computation | description |
@@ -429,7 +431,7 @@ The constraints are straightforward.
 - We constrain the elliptic curve values. Note that we may assume that $P\neq \NeutralElt$; indeed, we only populate this table when we are doing non-trivial scalar multiplications. It follows that $nP\neq \NeutralElt$ for $0<n< r$, as $r$ is prime. This means that the following constraints have _no special case analysis_:
 
   - if $\precomputepointtransition = 1$, constrain $2P = (\precomputedx, \precomputedy)$
-  - if $\precomputepointtransition = 0$, constrain $(\textbf{shift}(\precomputedx), \textbf{shift}(\precomputedy)) = (\precomputedx, \precomputedy)$
+  - if $\precomputepointtransition = 0$, constrain $(\textbf{shift}(\precomputedx), \textbf{shift}(\precomputedy)) = (\precomputedx, \precomputedy)$. (Here, $\textbf{shift}$ means "the next value of the column".)
   - if $\precomputepointtransition = 0$, constrain $$(\textbf{shift}(\precomputetx), \textbf{shift}(\precomputety)) = (\precomputedx, \precomputedy) + (\precomputetx, \precomputety),$$where the latter addition of course happens on $E$.
 
 - We emphasize that these EC constraints will only be turned on after the first row, as these values have no _neutral_ value that we can use for the first row (especially as it is critical that they are never $\NeutralElt$).
@@ -581,7 +583,7 @@ This indeed breaks completeness, inasmuch as there are valid `EccOpQueue`s which
 Finally, we may describe the algorithm. We implicitly organize our data in the following type of table (as indicated in the [Straus Section](#straus)). Each row of our table corresponds to a scalar multiplication: the elements of the row are the wNAF digits (including the `skew` bit). In other words, the columns of our table correspond to wNAF digits. Our algorithm will proceed column by column, from most significant to least significant digit, processing one vertical chunk of four elements after another. To emphasize: this table syntactically encoding our MSM is _not_ what we refer to as the MSM table of the VM, which rather witnesses the correct execution of the MSM.
 
 1. Set the first row of the MSM table (of our VM) to be 0.
-2. Initialize lookup table read counts: `point_table_read_counts[0]` and `point_table_read_counts[1]` to track the positive and negative lookups corresponding to $kP$, where $n\in \{-15, -13, \ldots, 13, 15\}$. Each table will have size `total_number_of_muls * 8` (since `POINT_TABLE_SIZE/2 = 8`).
+2. Initialize lookup table read counts: `point_table_read_counts[0]` and `point_table_read_counts[1]` to track the positive and negative lookups corresponding to $nP$, where $n\in \{-15, -13, \ldots, 13, 15\}$. Each table will have size `total_number_of_muls * 8` (since `POINT_TABLE_SIZE/2 = 8`).
 3. Compute the MSM row boundaries: for each MSM, fill out the indices of where it starts and the starting $\msmpc$. This requires a calculation of the number of rows required, which we come back to in the [next section](#msm-size).
 4. First pass: populate `point_table_read_counts` based on `msm[point_idx].wnaf_digits[digit_idx]`. Update read counts based on skew as well.
 
