@@ -34,32 +34,20 @@ $ ./bootstrap.sh
 
 This will take significant time and compute however, as it builds several toolchains from the ground up.
 
-## Updating Dockerhub
+## Updating Dockerhub and AMI's
 
 If the image needs to be changed, decide if the old image is still needed, in which case bump the version number.
-Only do this if essential. To rebuild images and push to dockerhub run:
+Only do this if essential. To rebuild images and push to dockerhub and build ci amis run:
 
 ```
 $ ./bootstrap.sh deploy
 ```
 
-This will launch x86 and arm machines to build the images, and then push them to Dockerhub.
-You will need `DOCKERHUB_PASSWORD` set in your environment.
+This will launch x86 and arm machines to build the images, and then push them to Dockerhub, then rebuild the AMI's.
 
-## AMI's
-
-CI uses AMI's with the image preloaded on them. To update the AMIs:
-
-- Start with a clean working tree.
-- Update dockerhub as above.
-- Rebuild the new ami's:
-
-```
-$ ./bootstrap.sh amis
-```
-
+- You will need `DOCKERHUB_PASSWORD` set in your environment.
 - AMI id's will be updated in current working tree.
-- Commit.
+- Commit the result.
 
 ## Sysbox
 
