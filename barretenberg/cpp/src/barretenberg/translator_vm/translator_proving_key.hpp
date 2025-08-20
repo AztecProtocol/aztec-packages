@@ -95,6 +95,11 @@ class TranslatorProvingKey {
         // Construct the ordered polynomials, containing the values of the interleaved polynomials + enough values to
         // bridge the range from 0 to 3 (3 is the maximum allowed range defined by the range constraint).
         compute_translator_range_constraint_ordered_polynomials();
+
+        auto& op = proving_key->polynomials.op;
+        for (size_t i = 0; i < 100; i++) {
+            info("val of op in translator proving key: ", op[i]);
+        }
     };
 
     /**
