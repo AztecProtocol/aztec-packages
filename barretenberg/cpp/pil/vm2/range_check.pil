@@ -1,3 +1,12 @@
+// Usage:
+//
+// sel { val, num_bits } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+//
+// Asserts that val < 2^num_bits.
+// Supported for any 0 <= val < 2^128. Any val > 2^128 is not satisfiable (would fail #[CHECK_RECOMPOSITION] combined with
+// the 16-bit range checks #[R0_IS_U16]...#[R7_IS_U16] on the limbs).
+// Note that we use the unsatisfiability of val > 2^128 as part of an assumption in gt.pil. Should a modification
+// here changes the assumption, the gt.pil needs to be modified as well.
 namespace range_check;
     // Range check selector
     pol commit sel;

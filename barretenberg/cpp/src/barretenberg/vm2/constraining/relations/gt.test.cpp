@@ -23,33 +23,33 @@ using gt = bb::avm2::gt<FF>;
 using tracegen::GreaterThanTraceBuilder;
 using tracegen::RangeCheckTraceBuilder;
 
-const std::vector<std::array<uint128_t, 2>> TEST_VALUES = { { 1, 2 },
-                                                            { 2, 1 },
-                                                            { 2, 2 },
-                                                            { uint128_t{ (uint256_t(1) << 128) - 1 }, 1 },
-                                                            { 1, uint128_t{ (uint256_t(1) << 128) - 1 } } };
+const std::vector<std::array<uint128_t, 3>> TEST_VALUES = { { 1, 2, 16 },
+                                                            { 2, 1, 16 },
+                                                            { 2, 2, 16 },
+                                                            { uint128_t{ (uint256_t(1) << 128) - 1 }, 1, 128 },
+                                                            { 1, uint128_t{ (uint256_t(1) << 128) - 1 }, 128 } };
 
-class GreaterThanTest : public ::testing::TestWithParam<std::array<uint128_t, 2>> {};
+class GreaterThanTest : public ::testing::TestWithParam<std::array<uint128_t, 3>> {};
 
 INSTANTIATE_TEST_SUITE_P(GreaterThanConstrainingTest, GreaterThanTest, ::testing::ValuesIn(TEST_VALUES));
 
 TEST_P(GreaterThanTest, GreaterThan)
 {
     RangeCheckTraceBuilder range_check_builder;
-    auto [a, b] = GetParam();
+    auto [a, b, num_bits] = GetParam();
     bool res = a > b;
     uint128_t abs_diff = res ? a - b - 1 : b - a;
     auto trace = TestTraceContainer::from_rows({
         {
             .gt_abs_diff = abs_diff,
-            .gt_constant_128 = 128,
             .gt_input_a = a,
             .gt_input_b = b,
+            .gt_num_bits = num_bits,
             .gt_res = static_cast<uint8_t>(res),
             .gt_sel = 1,
         },
     });
-    range_check_builder.process({ { .value = abs_diff, .num_bits = 128 } }, trace);
+    range_check_builder.process({ { .value = abs_diff, .num_bits = static_cast<uint8_t>(num_bits) } }, trace);
     check_all_interactions<GreaterThanTraceBuilder>(trace);
     check_relation<gt>(trace);
 }
@@ -59,7 +59,7 @@ TEST_P(GreaterThanTest, GreaterThanTraceGen)
     RangeCheckTraceBuilder range_check_builder;
     TestTraceContainer trace;
     GreaterThanTraceBuilder builder;
-    auto [a, b] = GetParam();
+    auto [a, b, num_bits] = GetParam();
     builder.process(
         {
             {
@@ -69,7 +69,8 @@ TEST_P(GreaterThanTest, GreaterThanTraceGen)
             },
         },
         trace);
-    range_check_builder.process({ { .value = a > b ? a - b - 1 : b - a, .num_bits = 128 } }, trace);
+    range_check_builder.process({ { .value = a > b ? a - b - 1 : b - a, .num_bits = static_cast<uint8_t>(num_bits) } },
+                                trace);
     check_all_interactions<GreaterThanTraceBuilder>(trace);
     check_relation<gt>(trace);
 }
@@ -84,14 +85,14 @@ TEST(GreaterThanConstrainingTest, NegativeGT)
     auto trace = TestTraceContainer::from_rows({
         {
             .gt_abs_diff = abs_diff,
-            .gt_constant_128 = 128,
             .gt_input_a = a,
             .gt_input_b = b,
+            .gt_num_bits = 16,
             .gt_res = static_cast<uint8_t>(res),
             .gt_sel = 1,
         },
     });
-    range_check_builder.process({ { .value = abs_diff, .num_bits = 128 } }, trace);
+    range_check_builder.process({ { .value = abs_diff, .num_bits = 16 } }, trace);
     check_all_interactions<GreaterThanTraceBuilder>(trace);
     check_relation<gt>(trace);
     auto wrong_b = res ? FF(a) + 1 : FF(a) - 1;
@@ -119,14 +120,14 @@ TEST(GreaterThanConstrainingTest, NegativeGTResult)
     auto trace = TestTraceContainer::from_rows({
         {
             .gt_abs_diff = abs_diff,
-            .gt_constant_128 = 128,
             .gt_input_a = a,
             .gt_input_b = b,
+            .gt_num_bits = 16,
             .gt_res = static_cast<uint8_t>(res),
             .gt_sel = 1,
         },
     });
-    range_check_builder.process({ { .value = abs_diff, .num_bits = 128 } }, trace);
+    range_check_builder.process({ { .value = abs_diff, .num_bits = 16 } }, trace);
     check_all_interactions<GreaterThanTraceBuilder>(trace);
     check_relation<gt>(trace);
     trace.set(Column::gt_res, 0, static_cast<uint8_t>(!res));

@@ -22,7 +22,7 @@ struct lookup_gt_gt_range_settings_ {
     static constexpr Column COUNTS = Column::lookup_gt_gt_range_counts;
     static constexpr Column INVERSES = Column::lookup_gt_gt_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { ColumnAndShifts::gt_abs_diff,
-                                                                                    ColumnAndShifts::gt_constant_128 };
+                                                                                    ColumnAndShifts::gt_num_bits };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
     };
