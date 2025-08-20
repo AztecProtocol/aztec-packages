@@ -157,6 +157,7 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
       slashUnknownPenalty: 1000n,
       slashUnknownMaxPenalty: 1000n,
       slashGracePeriodL2Slots: 0,
+      slasherClientType: 'empire' as const,
     });
   }
   startSnapshotUpload(_location: string): Promise<void> {

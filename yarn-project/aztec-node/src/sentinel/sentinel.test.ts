@@ -5,8 +5,8 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { P2PClient } from '@aztec/p2p';
 import { OffenseType } from '@aztec/slasher';
-import type { SlasherConfig, WantToSlashArgs } from '@aztec/slasher/config';
-import { WANT_TO_SLASH_EVENT } from '@aztec/slasher/config';
+import { WANT_TO_SLASH_EVENT, type WantToSlashArgs } from '@aztec/slasher';
+import type { SlasherConfig } from '@aztec/slasher/config';
 import {
   type L2BlockSource,
   type L2BlockStream,

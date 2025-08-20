@@ -9,9 +9,8 @@ describe('SlasherOffensesStore', () => {
   let store: SlasherOffensesStore;
 
   const defaultSettings = {
-    slashingRoundSize: 100n,
+    slashingRoundSize: 100,
     epochDuration: 32,
-    proofSubmissionEpochs: 2,
   };
 
   beforeEach(() => {
@@ -45,7 +44,7 @@ describe('SlasherOffensesStore', () => {
     epochOrSlot,
   });
 
-  describe('addPendingOffense and getPendingOffenses', () => {
+  describe('addPendingOffense', () => {
     it('should add and retrieve a single offense', async () => {
       const offense = createOffense();
 
@@ -127,6 +126,24 @@ describe('SlasherOffensesStore', () => {
       expect(pendingOffenses[0].amount).toBe(12345n);
       expect(pendingOffenses[0].offenseType).toBe(OffenseType.ATTESTED_DESCENDANT_OF_INVALID);
       expect(pendingOffenses[0].epochOrSlot).toBe(54321n);
+    });
+
+    it('should get offenses for a specific round', async () => {
+      // Use slot-based offenses for more predictable round calculation
+      // With slashingRoundSize: 100, slot 150-199 should be in round 1, slot 200-299 in round 2
+      const round = 1n;
+      const offense1 = createOffense(EthAddress.random(), 1000n, OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, 150n); // slot 150 -> round 1
+      const offense2 = createOffense(EthAddress.random(), 1000n, OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, 199n); // slot 199 -> round 1
+      const offense3 = createOffense(EthAddress.random(), 1000n, OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, 200n); // slot 200 -> round 2
+
+      await store.addPendingOffense(offense1);
+      await store.addPendingOffense(offense2);
+      await store.addPendingOffense(offense3);
+
+      const offenses = await store.getOffensesForRound(round);
+      expect(offenses).toHaveLength(2);
+      expect(offenses).toContainEqual(offense1);
+      expect(offenses).toContainEqual(offense2);
     });
   });
 

@@ -17,7 +17,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import EventEmitter from 'node:events';
 import type { Hex } from 'viem';
 
-import { WANT_TO_SLASH_EVENT, type WantToSlashArgs } from '../config.js';
+import { WANT_TO_SLASH_EVENT, type WantToSlashArgs } from '../watcher.js';
 import { EpochPruneWatcher } from './epoch_prune_watcher.js';
 
 describe('EpochPruneWatcher', () => {

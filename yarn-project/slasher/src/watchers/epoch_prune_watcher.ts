@@ -20,7 +20,7 @@ import {
 
 import EventEmitter from 'node:events';
 
-import { WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher, type WatcherEmitter } from '../config.js';
+import { WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher, type WatcherEmitter } from '../watcher.js';
 
 /**
  * This watcher is responsible for detecting chain prunes and creating slashing arguments for the committee.

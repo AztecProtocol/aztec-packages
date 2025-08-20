@@ -18,7 +18,7 @@ import {
   type WantToSlashArgs,
   type Watcher,
   type WatcherEmitter,
-} from '@aztec/slasher/config';
+} from '@aztec/slasher';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type { IFullNodeBlockBuilder, SequencerConfig } from '@aztec/stdlib/interfaces/server';

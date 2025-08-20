@@ -8,14 +8,8 @@ import {
   serializeSlashPayload,
   serializeSlashPayloadRound,
 } from './serialization.js';
-import {
-  type Offense,
-  OffenseType,
-  type SlashPayload,
-  type SlashPayloadRound,
-  type ValidatorSlash,
-  type ValidatorSlashOffense,
-} from './types.js';
+import type { Offense, SlashPayload, SlashPayloadRound, ValidatorSlash, ValidatorSlashOffense } from './types.js';
+import { OffenseType } from './types.js';
 
 describe('slashing/serialization', () => {
   const createValidatorSlashOffense = (

@@ -3,6 +3,8 @@ import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
+export type SlasherClientType = 'empire' | 'tally';
+
 export interface SlasherConfig {
   slashOverridePayload?: EthAddress;
   slashPayloadTtlSeconds: number; // TTL for payloads, in seconds

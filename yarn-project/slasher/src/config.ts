@@ -6,34 +6,9 @@ import {
   numberConfigHelper,
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
-import { OffenseType } from '@aztec/stdlib/slashing';
 
 export type { SlasherConfig };
-
-export const WANT_TO_SLASH_EVENT = 'want-to-slash' as const;
-
-export interface WantToSlashArgs {
-  validator: EthAddress;
-  amount: bigint;
-  offenseType: OffenseType;
-  epochOrSlot: bigint; // Epoch number for epoch-based offenses, block number for block-based
-}
-
-// Event map for specific, known events of a watcher
-export interface WatcherEventMap {
-  [WANT_TO_SLASH_EVENT]: (args: WantToSlashArgs[]) => void;
-}
-
-export type WatcherEmitter = TypedEventEmitter<WatcherEventMap>;
-
-export type CheckSlashFn = (args: WantToSlashArgs) => Promise<boolean>;
-
-export type Watcher = WatcherEmitter & {
-  start?: () => Promise<void>;
-  stop?: () => Promise<void>;
-};
 
 export const DefaultSlasherConfig: SlasherConfig = {
   slashPayloadTtlSeconds: 60 * 60 * 24, // 1 day

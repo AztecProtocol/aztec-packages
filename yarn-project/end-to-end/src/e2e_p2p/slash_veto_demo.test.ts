@@ -2,6 +2,7 @@ import type { AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress, createLogger, retryUntil } from '@aztec/aztec.js';
 import {
   EmpireSlashingProposerArtifact,
+  EmpireSlashingProposerContract,
   type ExtendedViemWalletClient,
   L1Deployer,
   RollupContract,
@@ -185,6 +186,10 @@ describe('veto slash', () => {
       expect(slasherVetoer).toEqual(l1Client.account.address);
 
       const slashingProposer = await rollup.getSlashingProposer();
+      if (slashingProposer.type !== 'empire') {
+        throw new Error('This test requires Empire slashing');
+      }
+      const empireSlashingProposer = slashingProposer as EmpireSlashingProposerContract;
 
       //#######################################//
       //                                       //
@@ -193,7 +198,7 @@ describe('veto slash', () => {
       //#######################################//
 
       const awaitSubmittableRound = new Promise<{ payload: `0x${string}`; round: bigint }>(resolve => {
-        slashingProposer.listenToSubmittablePayloads(args => {
+        empireSlashingProposer.listenToSubmittablePayloads(args => {
           resolve(args);
         });
       });
@@ -205,12 +210,12 @@ describe('veto slash', () => {
       const diagnosticInterval = setInterval(() => {
         void (async () => {
           try {
-            const currentRound = await slashingProposer.getCurrentRound();
-            const roundInfo = await slashingProposer.getRoundInfo(rollup.address, currentRound);
+            const currentRound = await empireSlashingProposer.getCurrentRound();
+            const roundInfo = await empireSlashingProposer.getRoundInfo(rollup.address, currentRound);
             debugLogger.info(`\n\ncurrentRound: ${currentRound}\n\n`);
             debugLogger.info(`\n\npayloadWithMostSignals: ${roundInfo.payloadWithMostSignals}\n\n`);
 
-            const signals = await slashingProposer.getPayloadSignals(
+            const signals = await empireSlashingProposer.getPayloadSignals(
               rollup.address,
               currentRound,
               roundInfo.payloadWithMostSignals,
@@ -285,7 +290,7 @@ describe('veto slash', () => {
       //###################################//
 
       const awaitPayloadSubmitted = new Promise<{ round: bigint; payload: `0x${string}` }>(resolve => {
-        slashingProposer.listenToPayloadSubmitted(args => {
+        empireSlashingProposer.listenToPayloadSubmitted(args => {
           resolve(args);
         });
       });

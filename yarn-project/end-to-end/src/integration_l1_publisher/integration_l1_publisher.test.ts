@@ -7,11 +7,11 @@ import { GENESIS_ARCHIVE_ROOT, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_P
 import { EpochCache } from '@aztec/epoch-cache';
 import {
   type DeployL1ContractsArgs,
+  EmpireSlashingProposerContract,
   type ExtendedViemWalletClient,
   GovernanceProposerContract,
   type L1ContractAddresses,
   RollupContract,
-  SlashingProposerContract,
   createEthereumChain,
   createExtendedL1Client,
 } from '@aztec/ethereum';
@@ -204,7 +204,7 @@ describe('L1Publisher integration', () => {
     const l1TxUtils = new L1TxUtilsWithBlobs(sequencerL1Client, logger, dateProvider, config);
     const rollupContract = new RollupContract(sequencerL1Client, l1ContractAddresses.rollupAddress.toString());
     const slashingProposerAddress = await rollupContract.getSlashingProposerAddress();
-    const slashingProposerContract = new SlashingProposerContract(
+    const slashingProposerContract = new EmpireSlashingProposerContract(
       sequencerL1Client,
       slashingProposerAddress.toString(),
     );
@@ -633,7 +633,7 @@ describe('L1Publisher integration', () => {
 
       await publisher.enqueueProposeL2Block(block);
       await publisher.enqueueSlashingActions(
-        [{ type: 'vote-payload', payload: EthAddress.random() }],
+        [{ type: 'vote-empire-payload', payload: EthAddress.random() }],
         block.slot,
         block.timestamp,
         EthAddress.random(),

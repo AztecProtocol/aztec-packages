@@ -11,13 +11,8 @@ import { OffenseType } from '@aztec/stdlib/slashing';
 
 import EventEmitter from 'node:events';
 
-import {
-  type SlasherConfig,
-  WANT_TO_SLASH_EVENT,
-  type WantToSlashArgs,
-  type Watcher,
-  type WatcherEmitter,
-} from '../config.js';
+import type { SlasherConfig } from '../config.js';
+import { WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher, type WatcherEmitter } from '../watcher.js';
 
 /**
  * This watcher is responsible for detecting invalid blocks and creating slashing arguments for offenders.

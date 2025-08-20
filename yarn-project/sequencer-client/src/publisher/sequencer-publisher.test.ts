@@ -3,6 +3,7 @@ import { HttpBlobSinkClient } from '@aztec/blob-sink/client';
 import { inboundTransform } from '@aztec/blob-sink/encoding';
 import type { EpochCache } from '@aztec/epoch-cache';
 import {
+  type EmpireSlashingProposerContract,
   FormattedViemError,
   type GasPrice,
   type GovernanceProposerContract,
@@ -10,7 +11,6 @@ import {
   type L1TxUtilsConfig,
   Multicall3,
   RollupContract,
-  type SlashingProposerContract,
   defaultL1TxUtilsConfig,
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
@@ -47,7 +47,7 @@ const BLOB_SINK_URL = `http://localhost:${BLOB_SINK_PORT}`;
 
 describe('SequencerPublisher', () => {
   let rollup: MockProxy<RollupContract>;
-  let slashingProposerContract: MockProxy<SlashingProposerContract>;
+  let slashingProposerContract: MockProxy<EmpireSlashingProposerContract>;
   let governanceProposerContract: MockProxy<GovernanceProposerContract>;
   let slashFactoryContract: MockProxy<SlashFactoryContract>;
   let l1TxUtils: MockProxy<L1TxUtilsWithBlobs>;
@@ -120,7 +120,7 @@ describe('SequencerPublisher', () => {
     (rollup as any).address = mockRollupAddress;
     forwardSpy = jest.spyOn(Multicall3, 'forward');
 
-    slashingProposerContract = mock<SlashingProposerContract>();
+    slashingProposerContract = mock<EmpireSlashingProposerContract>();
     governanceProposerContract = mock<GovernanceProposerContract>();
     slashFactoryContract = mock<SlashFactoryContract>();
 

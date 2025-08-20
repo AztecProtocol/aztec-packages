@@ -18,7 +18,7 @@ import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import type { L1RollupConstants } from '../epoch-helpers/index.js';
-import { OffenseType, type ValidatorSlash, type ValidatorSlashOffense } from '../slashing/types.js';
+import { OffenseType, type ValidatorSlash, type ValidatorSlashOffense } from '../slashing/index.js';
 import { SlashFactoryContract, packValidatorSlashOffense, unpackValidatorSlashOffense } from './slash_factory.js';
 
 describe('SlashFactory', () => {
@@ -34,8 +34,8 @@ describe('SlashFactory', () => {
   let slashFactory: SlashFactoryContract;
 
   const constants: L1RollupConstants & {
-    slashingRoundSize: bigint;
-    slashingPayloadLifetimeInRounds: bigint;
+    slashingRoundSize: number;
+    slashingPayloadLifetimeInRounds: number;
     logsBatchSize: number;
   } = {
     l1StartBlock: 0n,
@@ -44,8 +44,8 @@ describe('SlashFactory', () => {
     epochDuration: 32,
     ethereumSlotDuration: 12,
     proofSubmissionEpochs: 2,
-    slashingRoundSize: 100n,
-    slashingPayloadLifetimeInRounds: 3n,
+    slashingRoundSize: 100,
+    slashingPayloadLifetimeInRounds: 3,
     logsBatchSize: 50,
   };
 
@@ -278,7 +278,9 @@ describe('SlashFactory', () => {
       const receipt = await createSlashPayload(slashes);
       const payloadAddress = getPayloadAddressFromReceipt(receipt);
 
-      await cheatCodes.mine((constants.slashingPayloadLifetimeInRounds - 1n) * constants.slashingRoundSize * 2n);
+      await cheatCodes.mine(
+        (BigInt(constants.slashingPayloadLifetimeInRounds) - 1n) * BigInt(constants.slashingRoundSize) * 2n,
+      );
       const result = await slashFactory.getSlashPayloadFromEvents(payloadAddress, constants);
 
       expect(result).toBeDefined();
@@ -293,7 +295,9 @@ describe('SlashFactory', () => {
       const receipt = await createSlashPayload(slashes);
       const payloadAddress = getPayloadAddressFromReceipt(receipt);
 
-      await cheatCodes.mine((constants.slashingPayloadLifetimeInRounds + 5n) * constants.slashingRoundSize * 2n);
+      await cheatCodes.mine(
+        (BigInt(constants.slashingPayloadLifetimeInRounds) + 5n) * BigInt(constants.slashingRoundSize) * 2n,
+      );
       const result = await slashFactory.getSlashPayloadFromEvents(payloadAddress, constants);
 
       expect(result).toBeUndefined();

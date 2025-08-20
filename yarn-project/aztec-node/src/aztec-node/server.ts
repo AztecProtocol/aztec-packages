@@ -43,7 +43,7 @@ import { PublicProcessorFactory } from '@aztec/simulator/server';
 import {
   AttestationsBlockWatcher,
   EpochPruneWatcher,
-  SlasherClient,
+  type SlasherClientInterface,
   type Watcher,
   createSlasher,
 } from '@aztec/slasher';
@@ -141,7 +141,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     protected readonly l1ToL2MessageSource: L1ToL2MessageSource,
     protected readonly worldStateSynchronizer: WorldStateSynchronizer,
     protected readonly sequencer: SequencerClient | undefined,
-    protected readonly slasherClient: SlasherClient | undefined,
+    protected readonly slasherClient: SlasherClientInterface | undefined,
     protected readonly validatorsSentinel: Sentinel | undefined,
     protected readonly epochPruneWatcher: EpochPruneWatcher | undefined,
     protected readonly l1ChainId: number,
@@ -345,6 +345,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       getPublicClient(config),
       watchers,
       dateProvider,
+      epochCache,
     );
 
     await slasherClient?.start();

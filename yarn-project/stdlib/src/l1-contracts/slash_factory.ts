@@ -1,10 +1,10 @@
-import type { L1TxRequest, ViemClient } from '@aztec/ethereum';
+import { type L1TxRequest, type ViemClient, tryExtractEvent } from '@aztec/ethereum';
 import { maxBigint } from '@aztec/foundation/bigint';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { SlashFactoryAbi } from '@aztec/l1-artifacts/SlashFactoryAbi';
 
-import { type GetContractReturnType, type Hex, encodeFunctionData, getContract } from 'viem';
+import { type GetContractReturnType, type Hex, type Log, encodeFunctionData, getContract } from 'viem';
 
 import type { L1RollupConstants } from '../epoch-helpers/index.js';
 import {
@@ -13,7 +13,7 @@ import {
   type ValidatorSlash,
   type ValidatorSlashOffense,
   bigIntToOffense,
-} from '../slashing/types.js';
+} from '../slashing/index.js';
 
 export class SlashFactoryContract {
   private readonly logger = createLogger('contracts:slash_factory');
@@ -51,6 +51,11 @@ export class SlashFactoryContract {
     };
   }
 
+  /** Tries to extract a SlashPayloadCreated event from the given logs. */
+  public tryExtractSlashPayloadCreatedEvent(logs: Log[]) {
+    return tryExtractEvent(logs, this.address.toString(), SlashFactoryAbi, 'SlashPayloadCreated');
+  }
+
   public async getSlashPayloadCreatedEvents(): Promise<SlashPayload[]> {
     const events = await this.contract.getEvents.SlashPayloadCreated();
     return Promise.all(
@@ -78,8 +83,8 @@ export class SlashFactoryContract {
     payloadAddress: EthAddress,
     settings: {
       logsBatchSize?: number;
-      slashingRoundSize: bigint;
-      slashingPayloadLifetimeInRounds: bigint;
+      slashingRoundSize: number;
+      slashingPayloadLifetimeInRounds: number;
     } & Pick<L1RollupConstants, 'slotDuration' | 'ethereumSlotDuration'>,
   ): Promise<Omit<SlashPayload, 'votes'> | undefined> {
     // We query for the log where the payload was emitted walking backwards until we go past payload expiration time
@@ -91,7 +96,7 @@ export class SlashFactoryContract {
     const earliestBlockNumber = maxBigint(
       0n,
       currentBlockNumber -
-        ((slashingPayloadLifetimeInRounds + 1n) * slashingRoundSize * BigInt(slotDuration)) /
+        ((BigInt(slashingPayloadLifetimeInRounds) + 1n) * BigInt(slashingRoundSize) * BigInt(slotDuration)) /
           BigInt(ethereumSlotDuration),
     );
 

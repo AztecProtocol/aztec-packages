@@ -24,39 +24,6 @@ export enum OffenseType {
 
 export const OffenseTypeSchema = z.nativeEnum(OffenseType);
 
-export type ValidatorSlashOffense = {
-  epochOrSlot: bigint;
-  offenseType: OffenseType;
-};
-
-export type ValidatorSlash = {
-  validator: EthAddress;
-  amount: bigint;
-  offenses: ValidatorSlashOffense[];
-};
-
-export type SlashPayload = {
-  address: EthAddress;
-  slashes: ValidatorSlash[];
-  timestamp: bigint;
-};
-
-export type SlashPayloadRound = SlashPayload & { votes: bigint; round: bigint };
-
-export const SlashPayloadRoundSchema = z.object({
-  address: schemas.EthAddress,
-  timestamp: schemas.BigInt,
-  votes: schemas.BigInt,
-  round: schemas.BigInt,
-  slashes: z.array(
-    z.object({
-      validator: schemas.EthAddress,
-      amount: schemas.BigInt,
-      offenses: z.array(z.object({ offenseType: OffenseTypeSchema, epochOrSlot: schemas.BigInt })),
-    }),
-  ),
-}) satisfies ZodFor<SlashPayloadRound>;
-
 export const OffenseToBigInt: Record<OffenseType, bigint> = {
   [OffenseType.UNKNOWN]: 0n,
   [OffenseType.DATA_WITHHOLDING]: 1n,
@@ -107,9 +74,56 @@ export const OffenseSchema = z.object({
   epochOrSlot: schemas.BigInt,
 }) satisfies ZodFor<Offense>;
 
+/** Offense by a validator in the context of a slash payload */
+export type ValidatorSlashOffense = {
+  epochOrSlot: bigint;
+  offenseType: OffenseType;
+};
+
+/** Slashed amount and total offenses by a validator in the context of a slash payload */
+export type ValidatorSlash = {
+  validator: EthAddress;
+  amount: bigint;
+  offenses: ValidatorSlashOffense[];
+};
+
+/** Slash payload as published by the empire slash proposer */
+export type SlashPayload = {
+  address: EthAddress;
+  slashes: ValidatorSlash[];
+  timestamp: bigint;
+};
+
+/** Slash payload with round information from empire slash proposer */
+export type SlashPayloadRound = SlashPayload & { votes: bigint; round: bigint };
+
+export const SlashPayloadRoundSchema = z.object({
+  address: schemas.EthAddress,
+  timestamp: schemas.BigInt,
+  votes: schemas.BigInt,
+  round: schemas.BigInt,
+  slashes: z.array(
+    z.object({
+      validator: schemas.EthAddress,
+      amount: schemas.BigInt,
+      offenses: z.array(z.object({ offenseType: OffenseTypeSchema, epochOrSlot: schemas.BigInt })),
+    }),
+  ),
+}) satisfies ZodFor<SlashPayloadRound>;
+
+/** Votes for a validator slash in the consensus slash proposer */
+export type ValidatorSlashVote = number;
+
 export type ProposerSlashAction =
-  | { type: 'create-payload'; data: ValidatorSlash[] }
-  | { type: 'vote-payload'; payload: EthAddress }
-  | { type: 'execute-payload'; round: bigint };
+  /** Create a new slash payload on an empire-based slash proposer */
+  | { type: 'create-empire-payload'; data: ValidatorSlash[] }
+  /** Vote for a slashing payload on an empire-based slash proposer */
+  | { type: 'vote-empire-payload'; payload: EthAddress }
+  /** Execute a slashing payload on an empire-based slash proposer */
+  | { type: 'execute-empire-payload'; round: bigint }
+  /** Vote for offenses on a consensus slashing proposer */
+  | { type: 'vote-offenses'; votes: ValidatorSlashVote[]; committees: EthAddress[][]; round: bigint }
+  /** Execute a slashing round on a consensus slashing proposer */
+  | { type: 'execute-slash'; committees: EthAddress[][]; round: bigint };
 
 export type ProposerSlashActionType = ProposerSlashAction['type'];

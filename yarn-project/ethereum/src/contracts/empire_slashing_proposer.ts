@@ -25,9 +25,11 @@ export class ProposalAlreadyExecutedError extends Error {
   }
 }
 
-export class SlashingProposerContract extends EventEmitter implements IEmpireBase {
-  private readonly logger = createLogger('ethereum:contracts:slashing_proposer');
+export class EmpireSlashingProposerContract extends EventEmitter implements IEmpireBase {
+  private readonly logger = createLogger('ethereum:contracts:empire_slashing_proposer');
   private readonly proposer: GetContractReturnType<typeof EmpireSlashingProposerAbi, ViemClient>;
+
+  public readonly type = 'empire' as const;
 
   constructor(
     public readonly client: ViemClient,
@@ -171,6 +173,7 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
     };
   }
 
+  /** Tries to extract a PayloadSubmitted event from the given logs. */
   public tryExtractPayloadSubmittedEvent(logs: Log[]) {
     return tryExtractEvent(logs, this.address.toString(), EmpireSlashingProposerAbi, 'PayloadSubmitted');
   }

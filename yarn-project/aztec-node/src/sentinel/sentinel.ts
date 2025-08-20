@@ -6,8 +6,8 @@ import { RunningPromise } from '@aztec/foundation/running-promise';
 import { L2TipsMemoryStore, type L2TipsStore } from '@aztec/kv-store/stores';
 import type { P2PClient } from '@aztec/p2p';
 import { OffenseType } from '@aztec/slasher';
-import type { SlasherConfig, WantToSlashArgs, Watcher, WatcherEmitter } from '@aztec/slasher/config';
-import { WANT_TO_SLASH_EVENT } from '@aztec/slasher/config';
+import { WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher, type WatcherEmitter } from '@aztec/slasher';
+import type { SlasherConfig } from '@aztec/slasher/config';
 import {
   type L2BlockSource,
   L2BlockStream,

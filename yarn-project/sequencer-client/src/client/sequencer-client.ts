@@ -3,7 +3,6 @@ import { EpochCache } from '@aztec/epoch-cache';
 import {
   GovernanceProposerContract,
   RollupContract,
-  SlashingProposerContract,
   createEthereumChain,
   createExtendedL1Client,
   isAnvilTestChain,
@@ -13,7 +12,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { P2P } from '@aztec/p2p';
-import type { SlasherClient } from '@aztec/slasher';
+import type { SlasherClientInterface } from '@aztec/slasher';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { IFullNodeBlockBuilder, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -54,7 +53,7 @@ export class SequencerClient {
       validatorClient: ValidatorClient | undefined; // allowed to be undefined while we migrate
       p2pClient: P2P;
       worldStateSynchronizer: WorldStateSynchronizer;
-      slasherClient: SlasherClient | undefined;
+      slasherClient: SlasherClientInterface | undefined;
       blockBuilder: IFullNodeBlockBuilder;
       l2BlockSource: L2BlockSource;
       l1ToL2MessageSource: L1ToL2MessageSource;
@@ -91,8 +90,7 @@ export class SequencerClient {
       l1Client,
       config.l1Contracts.governanceProposerAddress.toString(),
     );
-    const slashingProposerAddress = await rollupContract.getSlashingProposerAddress();
-    const slashingProposerContract = new SlashingProposerContract(l1Client, slashingProposerAddress.toString());
+    const slashingProposerContract = await rollupContract.getSlashingProposer();
     const epochCache =
       deps.epochCache ??
       (await EpochCache.create(
