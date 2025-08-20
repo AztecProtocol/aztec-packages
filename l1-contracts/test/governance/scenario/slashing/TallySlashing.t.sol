@@ -53,7 +53,7 @@ contract SlashingTest is TestBase {
   uint256 constant VALIDATOR_COUNT = 4;
   uint256 constant COMMITTEE_SIZE = 4;
   uint256 constant HOW_MANY_SLASHED = 4;
-  uint256 constant ROUND_SIZE = 32;
+  uint256 constant ROUND_SIZE_IN_EPOCHS = 1;
 
   function _getProposerKey() internal returns (uint256) {
     // Returns the private key of the current proposer
@@ -156,11 +156,12 @@ contract SlashingTest is TestBase {
       });
     }
 
+    uint256 roundSize = ROUND_SIZE_IN_EPOCHS * TestConstants.AZTEC_EPOCH_DURATION;
     RollupBuilder builder = new RollupBuilder(address(this)).setValidators(initialValidators).setTargetCommitteeSize(
       COMMITTEE_SIZE
     ).setSlashingLifetimeInRounds(_slashingLifetimeInRounds).setSlashingExecutionDelayInRounds(
       _slashingExecutionDelayInRounds
-    ).setSlasherFlavor(SlasherFlavor.TALLY).setSlashingRoundSize(ROUND_SIZE).setSlashingQuorum(ROUND_SIZE / 2 + 1)
+    ).setSlasherFlavor(SlasherFlavor.TALLY).setSlashingRoundSize(roundSize).setSlashingQuorum(roundSize / 2 + 1)
       .setSlashingOffsetInRounds(2);
     builder.deploy();
 
