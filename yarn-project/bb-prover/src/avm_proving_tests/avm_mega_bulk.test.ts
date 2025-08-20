@@ -1,5 +1,5 @@
 import { createLogger } from '@aztec/foundation/log';
-import { TestExecutorMetrics, bulkTest, defaultGlobals } from '@aztec/simulator/public/fixtures';
+import { TestExecutorMetrics, defaultGlobals, megaBulkTest } from '@aztec/simulator/public/fixtures';
 
 import { mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
@@ -8,8 +8,9 @@ import { AvmProvingTester } from './avm_proving_tester.js';
 
 const TIMEOUT = 180_000;
 
-describe('AVM proven bulk test', () => {
-  const logger = createLogger('avm-bulk-test');
+// Note: this test is meant to be run locally for measurements. It is skipped in CI.
+describe.skip('AVM proven MEGA bulk test', () => {
+  const logger = createLogger('avm-proven-bulk-test');
   const metrics = new TestExecutorMetrics();
   let tester: AvmProvingTester;
 
@@ -31,9 +32,9 @@ describe('AVM proven bulk test', () => {
   });
 
   it(
-    'Prove and verify',
+    'Prove and verify mega bulk test',
     async () => {
-      await bulkTest(tester, logger, (b: boolean) => expect(b).toBe(true));
+      await megaBulkTest(tester, logger, (b: boolean) => expect(b).toBe(true));
     },
     TIMEOUT,
   );

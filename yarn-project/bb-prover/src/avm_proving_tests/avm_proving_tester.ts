@@ -1,4 +1,5 @@
 import type { LogFn, LogLevel, Logger } from '@aztec/foundation/log';
+import { Timer } from '@aztec/foundation/timer';
 import {
   PublicTxSimulationTester,
   SimpleContractDataSource,
@@ -6,6 +7,7 @@ import {
   type TestExecutorMetrics,
   type TestPrivateInsertions,
 } from '@aztec/simulator/public/fixtures';
+import type { PublicTxResult } from '@aztec/simulator/server';
 import { type AvmCircuitInputs, AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
@@ -202,7 +204,7 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     feePayer = sender,
     privateInsertions?: TestPrivateInsertions,
     txLabel: string = 'unlabeledTx',
-  ) {
+  ): Promise<PublicTxResult> {
     const simRes = await this.simulateTx(
       sender,
       setupCalls,
@@ -214,8 +216,35 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     );
     expect(simRes.revertCode.isOK()).toBe(expectRevert ? false : true);
 
+    const opString = this.checkCircuitOnly ? 'Check circuit' : 'Proving and verification';
+
     const avmCircuitInputs = simRes.avmProvingRequest.inputs;
+    const timer = new Timer();
     await this.proveVerify(avmCircuitInputs, txLabel);
+    this.logger.info(`${opString} took ${timer.ms()} ms for tx ${txLabel}`);
+
+    return simRes;
+  }
+
+  public override async executeTxWithLabel(
+    txLabel: string,
+    sender: AztecAddress,
+    setupCalls?: TestEnqueuedCall[],
+    appCalls?: TestEnqueuedCall[],
+    teardownCall?: TestEnqueuedCall,
+    feePayer?: AztecAddress,
+    privateInsertions?: TestPrivateInsertions,
+  ) {
+    return await this.simProveVerify(
+      sender,
+      setupCalls ?? [],
+      appCalls ?? [],
+      teardownCall,
+      /*expectRevert=*/ false,
+      feePayer,
+      privateInsertions,
+      txLabel,
+    );
   }
 
   public async simProveVerifyAppLogic(

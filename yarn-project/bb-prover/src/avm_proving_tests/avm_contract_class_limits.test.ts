@@ -8,7 +8,7 @@ import { AvmProvingTester } from './avm_proving_tester.js';
 
 const TIMEOUT = 300_000;
 
-describe('AVM WitGen & Circuit – check circuit - contract class limits', () => {
+describe('AVM check-circuit - contract class limits', () => {
   const deployer = AztecAddress.fromNumber(42);
   let instances: ContractInstanceWithAddress[];
   let tester: AvmProvingTester;
