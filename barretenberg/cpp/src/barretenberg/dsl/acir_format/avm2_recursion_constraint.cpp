@@ -82,8 +82,6 @@ void create_dummy_vkey_and_proof(Builder& builder,
     //     (proof_size - Flavor::NUM_WITNESS_ENTITIES * Flavor::NUM_FRS_COM -
     //      (Flavor::NUM_ALL_ENTITIES + 1) * Flavor::NUM_FRS_FR - Flavor::NUM_FRS_COM) /
     //     (Flavor::NUM_FRS_COM + Flavor::NUM_FRS_FR * (Flavor::BATCHED_RELATION_PARTIAL_LENGTH + 1));
-    const auto log_circuit_size = avm2::MAX_AVM_TRACE_LOG_SIZE;
-
     size_t offset = 0;
     for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; ++i) {
         set_dummy_commitment(key_fields, offset);
