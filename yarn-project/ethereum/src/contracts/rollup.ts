@@ -94,6 +94,11 @@ export type ViemAppendOnlyTreeSnapshot = {
   nextAvailableLeafIndex: number;
 };
 
+export enum SlashingProposerType {
+  Empire = 0,
+  Tally = 1,
+}
+
 export class RollupContract {
   private readonly rollup: GetContractReturnType<typeof RollupAbi, ViemClient>;
 
@@ -156,16 +161,16 @@ export class RollupContract {
         type: 'function',
         name: 'SLASHING_PROPOSER_TYPE',
         inputs: [],
-        outputs: [{ name: '', type: 'string', internalType: 'string' }],
+        outputs: [{ name: '', type: 'uint8', internalType: 'enum SlasherFlavor' }],
         stateMutability: 'view',
       },
     ] as const;
 
     const proposer = getContract({ address: proposerAddress, abi: proposerAbi, client: this.client });
     const proposerType = await proposer.read.SLASHING_PROPOSER_TYPE();
-    if (proposerType === 'Consensus') {
+    if (proposerType === SlashingProposerType.Tally.valueOf()) {
       throw new Error(`Unsupported slashing proposer type: ${proposerType}`);
-    } else if (proposerType === 'Empire') {
+    } else if (proposerType === SlashingProposerType.Empire.valueOf()) {
       return new SlashingProposerContract(this.client, proposerAddress);
     } else {
       throw new Error(`Unknown slashing proposer type: ${proposerType}`);
