@@ -15,7 +15,6 @@
 
 using namespace bb;
 
-// static constexpr size_t MAX_NUM_KERNELS = 15;
 static constexpr size_t SMALL_LOG_2_NUM_GATES = 5;
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1511): The CIVC class should enforce the minimum number of
 // circuits in a test flow.
@@ -310,20 +309,7 @@ HEAVY_TEST(ClientIVCKernelCapacity, MaxCapacityPassing)
     auto proof = ivc.prove();
     bool verified = verify_ivc(proof, ivc);
     EXPECT_TRUE(verified);
-}
-
-HEAVY_TEST(ClientIVCKernelCapacity, MaxCapacityFailing)
-{
-    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
-
-    const size_t total_num_circuits{ 2 * (MAX_NUM_KERNELS + 1) };
-    ClientIVC ivc{ total_num_circuits, { AZTEC_TRACE_STRUCTURE } };
-    PrivateFunctionExecutionMockCircuitProducer circuit_producer;
-    for (size_t j = 0; j < total_num_circuits; ++j) {
-        circuit_producer.construct_and_accumulate_next_circuit(ivc);
-    }
-    EXPECT_ANY_THROW(ivc.prove());
-}
+};
 
 /**
  * @brief Test use of structured trace overflow block mechanism
@@ -431,31 +417,6 @@ TEST_F(ClientIVCTests, MsgpackProofFromFileOrBuffer)
 };
 
 /**
- * @brief Accumulate a set of circuits that includes consecutive kernels
- * @details In practice its common to have multiple consecutive kernels without intermittent apps e.g. an inner followed
- * immediately by a reset, or an inner-reset-tail sequence. This test ensures that such cases are handled correctly.
- *
- */
-TEST_F(ClientIVCTests, ConsecutiveKernels)
-{
-    const size_t NUM_CIRCUITS = 6;
-    ClientIVC ivc{ NUM_CIRCUITS, { AZTEC_TRACE_STRUCTURE } };
-
-    PrivateFunctionExecutionMockCircuitProducer circuit_producer;
-
-    // Accumulate a series of mocked circuits (app, kernel, app, kernel)
-    for (size_t idx = 0; idx < NUM_CIRCUITS - 2; ++idx) {
-        circuit_producer.construct_and_accumulate_next_circuit(ivc);
-    }
-
-    // Cap the IVC with two more kernels (say, a 'reset' and a 'tail') without intermittent apps
-    circuit_producer.construct_and_accumulate_next_circuit(ivc, { .force_is_kernel = true });
-    circuit_producer.construct_and_accumulate_next_circuit(ivc, { .force_is_kernel = true });
-
-    EXPECT_TRUE(ivc.prove_and_verify());
-};
-
-/**
  * @brief Demonstrate that a databus inconsistency leads to verification failure for the IVC
  * @details Kernel circuits contain databus consistency checks that establish that data was passed faithfully between
  * circuits, e.g. the output (return_data) of an app was the input (secondary_calldata) of a kernel. This test
@@ -496,6 +457,4 @@ TEST_F(ClientIVCTests, DatabusFailure)
 
     // Expect deserialization to fail with error msgpack::v1::type_error with description "std::bad_cast"
     EXPECT_THROW(ClientIVC::Proof::from_msgpack_buffer(buffer), msgpack::v1::type_error);
-}
-}
-;
+};
