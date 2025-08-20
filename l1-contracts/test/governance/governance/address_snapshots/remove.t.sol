@@ -98,6 +98,10 @@ contract AddressSnapshotRemoveTest is AddressSnapshotsBase {
     assertEq(validatorSet.getAddressFromIndexAtTimestamp(0, ts2), address(1));
     assertEq(validatorSet.getAddressFromIndexAtTimestamp(1, ts2), address(3));
 
+    // Ensure that the values read outside the boundary are `address(0)`
+    assertEq(validatorSet.unsafeGetRecentAddressFromIndexAtTimestamp(2, ts2), address(0));
+    assertEq(validatorSet.unsafeGetRecentAddressFromIndexAtTimestamp(2000, ts2), address(0));
+
     assertEq(validatorSet.getAddressFromIndexAtTimestamp(0, ts3), address(3));
 
     vals = validatorSet.valuesAtTimestamp(ts);

@@ -121,21 +121,18 @@ library AddressSnapshotLib {
     // then update Charlie in addressToCurrentIndex to reflect the new index of 1.
 
     uint224 lastIndex = currentSize - 1;
-    address lastValidator = address(_self.indexToAddressHistory[lastIndex].latest().toUint160());
-
     uint32 key = block.timestamp.toUint32();
 
-    // If we are removing the last item, we cannot swap it with anything
-    // so we append a new address of zero for this timestamp
-    // And since we are removing it, we set the location to 0
-    if (lastIndex == _index) {
-      _self.indexToAddressHistory[_index].push(key, uint224(0));
-    } else {
-      // Otherwise, we swap the last item with the item we are removing
-      // and update the location of the last item
+    // If not removing the last item, swap the value of the last item into the `_index` to remove
+    if (lastIndex != _index) {
+      address lastValidator = address(_self.indexToAddressHistory[lastIndex].latest().toUint160());
+
       _self.addressToCurrentIndex[lastValidator] = Index({exists: true, index: _index.toUint224()});
       _self.indexToAddressHistory[_index].push(key, uint160(lastValidator).toUint224());
     }
+
+    // Then "pop" the last index by setting the value to `address(0)`
+    _self.indexToAddressHistory[lastIndex].push(key, uint224(0));
 
     // Finally, we update the size to reflect the new size of the set.
     _self.size.push(key, (lastIndex).toUint224());
