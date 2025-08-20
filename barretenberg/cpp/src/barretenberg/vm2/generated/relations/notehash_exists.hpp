@@ -27,50 +27,7 @@ template <typename FF_> class notehash_existsImpl {
     void static accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& in,
                            [[maybe_unused]] const RelationParameters<FF>&,
-                           [[maybe_unused]] const FF& scaling_factor)
-    {
-        using C = ColumnAndShifts;
-
-        PROFILE_THIS_NAME("accumulate/notehash_exists");
-
-        const auto constants_NOTE_HASH_TREE_LEAF_COUNT = FF(1099511627776UL);
-        const auto constants_MEM_TAG_U1 = FF(1);
-
-        {
-            using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp =
-                in.get(C::execution_note_hash_leaf_in_range) * (FF(1) - in.get(C::execution_note_hash_leaf_in_range));
-            tmp *= scaling_factor;
-            std::get<0>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_execute_notehash_exists) *
-                       (in.get(C::execution_note_hash_tree_leaf_count) - constants_NOTE_HASH_TREE_LEAF_COUNT);
-            tmp *= scaling_factor;
-            std::get<1>(evals) += typename Accumulator::View(tmp);
-        }
-        { // NOTE_HASH_EXISTS_OUT_OF_RANGE_FALSE
-            using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_execute_notehash_exists) *
-                       (FF(1) - in.get(C::execution_note_hash_leaf_in_range)) * in.get(C::execution_register_2_);
-            tmp *= scaling_factor;
-            std::get<2>(evals) += typename Accumulator::View(tmp);
-        }
-        { // NOTEHASH_EXISTS_U1_OUTPUT_TAG
-            using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_execute_notehash_exists) *
-                       (constants_MEM_TAG_U1 - in.get(C::execution_mem_tag_reg_2_));
-            tmp *= scaling_factor;
-            std::get<3>(evals) += typename Accumulator::View(tmp);
-        }
-        { // NOTE_HASH_EXISTS_SUCCESS
-            using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_execute_notehash_exists) * in.get(C::execution_sel_opcode_error);
-            tmp *= scaling_factor;
-            std::get<4>(evals) += typename Accumulator::View(tmp);
-        }
-    }
+                           [[maybe_unused]] const FF& scaling_factor);
 };
 
 template <typename FF> class notehash_exists : public Relation<notehash_existsImpl<FF>> {
