@@ -77,6 +77,6 @@ describe('upgrade via cli', () => {
       const newNumberOfVersions = await registry.getNumberOfVersions();
       expect(newNumberOfVersions).toBe(oldNumberOfVersions + 1);
     },
-    6 * config.AZTEC_PROOF_SUBMISSION_WINDOW * config.AZTEC_SLOT_DURATION * 1000,
+    6 * config.AZTEC_EPOCH_DURATION * config.AZTEC_SLOT_DURATION * 1000,
   );
 });

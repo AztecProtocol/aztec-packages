@@ -1,7 +1,6 @@
 aztec:
   slotDuration: 36
   epochDuration: 4
-  proofSubmissionWindow: 4
   realProofs: false
   testAccounts: true
   sponsoredFPC: true

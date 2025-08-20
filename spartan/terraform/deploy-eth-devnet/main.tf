@@ -1,7 +1,7 @@
 terraform {
   backend "gcs" {
     bucket = "aztec-terraform"
-    prefix = "network-deploy/us-west1-a/aztec-gke-private/eth-devnet/terraform.tfstate"
+    prefix = "eth-devnet/terraform.tfstate"
   }
   required_providers {
     helm = {
@@ -31,14 +31,14 @@ provider "google" {
 provider "kubernetes" {
   alias          = "gke-cluster"
   config_path    = "~/.kube/config"
-  config_context = var.GKE_CLUSTER_CONTEXT
+  config_context = var.K8S_CLUSTER_CONTEXT
 }
 
 provider "helm" {
   alias = "gke-cluster"
   kubernetes {
     config_path    = "~/.kube/config"
-    config_context = var.GKE_CLUSTER_CONTEXT
+    config_context = var.K8S_CLUSTER_CONTEXT
   }
 }
 
@@ -49,6 +49,7 @@ data "google_secret_manager_secret_version" "mnemonic_latest" {
 
 # Static IP addresses for eth-devnet services
 resource "google_compute_address" "eth_execution_ip" {
+  count        = var.CREATE_STATIC_IPS ? 1 : 0
   provider     = google
   name         = "${var.RELEASE_PREFIX}-execution-ip"
   address_type = "EXTERNAL"
@@ -60,6 +61,7 @@ resource "google_compute_address" "eth_execution_ip" {
 }
 
 resource "google_compute_address" "eth_beacon_ip" {
+  count        = var.CREATE_STATIC_IPS ? 1 : 0
   provider     = google
   name         = "${var.RELEASE_PREFIX}-beacon-ip"
   address_type = "EXTERNAL"
@@ -107,7 +109,6 @@ resource "null_resource" "generate_genesis" {
 
 # Deploy eth-devnet helm chart
 resource "helm_release" "eth_devnet" {
-  depends_on       = [null_resource.generate_genesis]
   provider         = helm.gke-cluster
   name             = var.RELEASE_PREFIX
   repository       = "../../"
@@ -118,6 +119,7 @@ resource "helm_release" "eth_devnet" {
 
   values = [
     file("./values/${var.ETH_DEVNET_VALUES}"),
+    file("./values/resources-${var.RESOURCE_PROFILE}.yaml"),
   ]
 
   set {
@@ -125,14 +127,21 @@ resource "helm_release" "eth_devnet" {
     value = data.google_secret_manager_secret_version.mnemonic_latest.secret_data
   }
 
-  set {
-    name  = "ethereum.execution.service.loadBalancerIP"
-    value = google_compute_address.eth_execution_ip.address
+
+  dynamic "set" {
+    for_each = var.CREATE_STATIC_IPS ? [1] : []
+    content {
+      name  = "ethereum.execution.service.loadBalancerIP"
+      value = google_compute_address.eth_execution_ip[0].address
+    }
   }
 
-  set {
-    name  = "ethereum.beacon.service.loadBalancerIP"
-    value = google_compute_address.eth_beacon_ip.address
+  dynamic "set" {
+    for_each = var.CREATE_STATIC_IPS ? [1] : []
+    content {
+      name  = "ethereum.beacon.service.loadBalancerIP"
+      value = google_compute_address.eth_beacon_ip[0].address
+    }
   }
 
   timeout       = 300

@@ -153,8 +153,8 @@ describe('spartan_upgrade_rollup_version', () => {
           return tips.provenBlockNumber > oldRollupTips.provenBlockNumber;
         },
         'old rollup should be building blocks',
-        // +5 just as a buffer
-        (config.AZTEC_PROOF_SUBMISSION_WINDOW + 5) * config.AZTEC_SLOT_DURATION,
+        // +1 to get past the proof submission window, +0.5 just as a buffer
+        (config.AZTEC_EPOCH_DURATION + 1.5) * config.AZTEC_SLOT_DURATION,
         5,
       );
 
@@ -189,12 +189,12 @@ describe('spartan_upgrade_rollup_version', () => {
             return tips.provenBlockNumber > l2Tips.provenBlockNumber;
           },
           'new rollup should be building/proving blocks',
-          // +5 just as a buffer
-          (config.AZTEC_PROOF_SUBMISSION_WINDOW + 5) * config.AZTEC_SLOT_DURATION,
+          // +1 to get past the proof submission window, +0.5 just as a buffer
+          (config.AZTEC_EPOCH_DURATION + 1.5) * config.AZTEC_SLOT_DURATION,
           5,
         ),
       ).resolves.toBe(true);
     },
-    6 * config.AZTEC_PROOF_SUBMISSION_WINDOW * config.AZTEC_SLOT_DURATION * 1000,
+    6 * config.AZTEC_EPOCH_DURATION * config.AZTEC_SLOT_DURATION * 1000,
   );
 });

@@ -5,7 +5,6 @@ network:
 aztec:
   slotDuration: 36
   epochDuration: 32
-  proofSubmissionWindow: 64
   realProofs: true
   testAccounts: true
   sponsoredFPC: true

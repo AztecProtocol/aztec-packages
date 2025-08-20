@@ -1,0 +1,190 @@
+name: Deploy Eth Devnet
+
+on:
+  workflow_call:
+    inputs:
+      cluster:
+        description: The cluster to deploy to, e.g. aztec-gke-private or kind-kind
+        required: true
+        type: string
+      namespace:
+        description: The namespace to deploy to
+        required: true
+        type: string
+      ref:
+        description: The branch name to deploy from
+        required: false
+        type: string
+        default: "next"
+      chain_id:
+        description: Ethereum chain ID for genesis generation
+        required: false
+        type: number
+        default: 1337
+      block_time:
+        description: Block time in seconds for genesis generation
+        required: false
+        type: number
+        default: 12
+      gas_limit:
+        description: Gas limit for blocks in genesis generation
+        required: false
+        type: string
+        default: "32000000"
+      resource_profile:
+        description: Resource profile to use (dev or prod)
+        required: false
+        type: string
+        default: "prod"
+    secrets:
+      GCP_SA_KEY:
+        description: The JSON key for the GCP service account
+        required: true
+      KUBECONFIG_B64:
+        description: The base64 encoded kubeconfig
+        required: true
+
+  workflow_dispatch:
+    inputs:
+      cluster:
+        description: The cluster to deploy to, e.g. aztec-gke-private or kind-kind
+        required: false
+        type: string
+        default: "kind-kind"
+      namespace:
+        description: The namespace to deploy to
+        required: false
+        type: string
+        default: "eth-devnet"
+      ref:
+        description: The branch name to deploy from.
+        required: false
+        type: string
+        default: "next"
+      chain_id:
+        description: Ethereum chain ID for genesis generation
+        required: false
+        type: number
+        default: 1337
+      block_time:
+        description: Block time in seconds for genesis generation
+        required: false
+        type: number
+        default: 12
+      gas_limit:
+        description: Gas limit for blocks in genesis generation
+        required: false
+        type: string
+        default: "32000000"
+      resource_profile:
+        description: Resource profile to use (dev or prod)
+        required: false
+        type: string
+        default: "prod"
+
+jobs:
+  deploy_eth_devnet:
+    runs-on: ubuntu-latest
+    env:
+      TF_STATE_BUCKET: aztec-terraform
+      REGION: us-west1-a
+
+    steps:
+      - name: Check if directory exists
+        id: check_dir
+        run: |
+          if [ -d ".git" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      # if running with `act`, skip the checkout since the code is mounted in
+      - name: Checkout code
+        if: ${{ steps.check_dir.outputs.exists != 'true' }}
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@6fc4af4b145ae7821d527454aa9bd537d1f2dc5f
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@6189d56e4096ee891640bb02ac264be376592d6a
+
+      - name: Install GKE Auth Plugin
+        run: |
+          gcloud components install gke-gcloud-auth-plugin --quiet
+
+      - name: Configure kubectl with GKE cluster
+        if: ${{ inputs.cluster != 'kind-kind' }}
+        run: |
+          gcloud container clusters get-credentials ${{ inputs.cluster }} --region ${{ env.REGION }}
+
+      - name: Configure kubectl with kind cluster
+        if: ${{ inputs.cluster == 'kind-kind' }}
+        run: |
+          # fail if kubeconfig is not provided
+          if [ -z "${{ secrets.KUBECONFIG_B64 }}" ]; then
+            echo "KUBECONFIG_B64 is not set"
+            exit 1
+          fi
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBECONFIG_B64 }}" | base64 -d > $HOME/.kube/config
+          kubectl config use-context kind-kind
+
+      - name: Terraform Init (GCS Backend)
+        if: ${{ inputs.cluster != 'kind-kind' }}
+        working-directory: ./spartan/terraform/deploy-eth-devnet
+        run: |
+          # ensure we're using the GCS backend. override is set in the kind-kind deployment
+          rm -f backend_override.tf
+          terraform init \
+            -reconfigure \
+            -backend-config="bucket=${{ env.TF_STATE_BUCKET }}" \
+            -backend-config="prefix=network-deploy/us-west1-a/${{ inputs.cluster }}/${{ inputs.namespace }}/terraform.tfstate"
+
+      - name: Terraform Init (Local Backend)
+        if: ${{ inputs.cluster == 'kind-kind' }}
+        working-directory: ./spartan/terraform/deploy-eth-devnet
+        run: |
+          # Create a temporary backend configuration for local state
+          cat > backend_override.tf << EOF
+          terraform {
+            backend "local" {
+              path = "./terraform.tfstate"
+            }
+          }
+          EOF
+          terraform init -migrate-state -force-copy
+
+      - name: Terraform Plan
+        working-directory: ./spartan/terraform/deploy-eth-devnet
+        run: |
+          # if going to kind, static-ips is not supported
+          if [ "${{ inputs.cluster }}" == "kind-kind" ]; then
+            CREATE_STATIC_IPS=false
+          else
+            CREATE_STATIC_IPS=true
+          fi
+
+          CLUSTER_CONTEXT=$(kubectl config current-context)
+
+          terraform plan \
+            -var="CREATE_STATIC_IPS=${CREATE_STATIC_IPS}" \
+            -var="K8S_CLUSTER_CONTEXT=${CLUSTER_CONTEXT}" \
+            -var="NAMESPACE=${{ inputs.namespace || 'eth-devnet' }}" \
+            -var="CHAIN_ID=${{ inputs.chain_id || 1337 }}" \
+            -var="BLOCK_TIME=${{ inputs.block_time || 12 }}" \
+            -var="GAS_LIMIT=${{ inputs.gas_limit || '32000000' }}" \
+            -var="MNEMONIC_SECRET_NAME=eth-devnet-genesis-mnemonic" \
+            -var="PREFUNDED_MNEMONIC_INDICES=0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,1000,1001,1002,1003" \
+            -var="RESOURCE_PROFILE=${{ inputs.resource_profile || 'prod' }}" \
+            -out=tfplan
+
+      - name: Terraform Apply
+        working-directory: ./spartan/terraform/deploy-eth-devnet
+        run: |
+          terraform apply tfplan

@@ -88,21 +88,6 @@ describe('token transfer test', () => {
         .simulate({ from: testWallets.tokenAdminAddress }),
     );
 
-    // For each round, make both private and public transfers
-    // for (let i = 1n; i <= ROUNDS; i++) {
-    //   const interactions = await Promise.all([
-    //     ...testWallets.wallets.map(async w =>
-    //       (
-    //         await TokenContract.at(testWallets.tokenAddress, w)
-    //       ).methods.transfer_in_public(w.getAddress(), recipient, transferAmount, 0),
-    //     ),
-    //   ]);
-
-    //   const txs = await Promise.all(interactions.map(async i => await i.prove()));
-
-    //   await Promise.all(txs.map(t => t.send().wait({ timeout: 600 })));
-    // }
-
     const wallet = testWallets.wallets[0];
 
     const baseTx = await (await TokenContract.at(testWallets.tokenAddress, wallet)).methods
@@ -164,16 +149,5 @@ describe('token transfer test', () => {
       .balance_of_public(recipient)
       .simulate({ from: testWallets.tokenAdminAddress });
     logger.info(`recipientBalance: ${recipientBalance}`);
-    // expect(recipientBalance).toBe(100n * transferAmount);
-
-    // for (const w of testWallets.wallets) {
-    //   expect(MINT_AMOUNT - ROUNDS * transferAmount).toBe(
-    //     await testWallets.tokenAdminWallet.methods.balance_of_public(w.getAddress()).simulate(),
-    //   );
-    // }
-
-    // expect(ROUNDS * transferAmount * BigInt(testWallets.wallets.length)).toBe(
-    //   await testWallets.tokenAdminWallet.methods.balance_of_public(recipient).simulate(),
-    // );
   });
 });

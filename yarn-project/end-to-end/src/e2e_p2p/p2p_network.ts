@@ -51,7 +51,7 @@ export const WAIT_FOR_TX_TIMEOUT = l1ContractsConfig.aztecSlotDuration * 3;
 export const SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES = {
   aztecSlotDuration: 12,
   ethereumSlotDuration: 4,
-  aztecProofSubmissionWindow: 640,
+  aztecProofSubmissionEpochs: 1000,
 };
 
 export class P2PNetworkTest {

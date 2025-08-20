@@ -86,7 +86,7 @@ aztec:
 
   slotDuration: 36 # in seconds, aka L2 slot duration. Must be a multiple of {{ ethereum.blockTime }}
   epochDuration: 32 # how many L2 slots in an epoch
-  proofSubmissionWindow: 64 # in L2 slots, from the start of the epoch to be proven
+  proofSubmissionEpochs: 1 # how many epochs after an epoch ends to submit proofs
   realProofs: false
 
   l1Salt: "" # leave empty for random salt

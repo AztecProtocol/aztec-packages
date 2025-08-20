@@ -33,7 +33,7 @@ const k8sLocalConfigSchema = z.object({
   ETHEREUM_SLOT_DURATION: z.coerce.number().min(1, 'ETHEREUM_SLOT_DURATION env variable must be set'),
   AZTEC_SLOT_DURATION: z.coerce.number().min(1, 'AZTEC_SLOT_DURATION env variable must be set'),
   AZTEC_EPOCH_DURATION: z.coerce.number().min(1, 'AZTEC_EPOCH_DURATION env variable must be set'),
-  AZTEC_PROOF_SUBMISSION_WINDOW: z.coerce.number().min(1, 'AZTEC_PROOF_SUBMISSION_WINDOW env variable must be set'),
+  AZTEC_PROOF_SUBMISSION_EPOCHS: z.coerce.number().min(1, 'AZTEC_PROOF_SUBMISSION_EPOCHS env variable must be set'),
   AZTEC_REAL_PROOFS: z.string().default('false'),
   INSTANCE_NAME: z.string().min(1, 'INSTANCE_NAME env variable must be set'),
   NAMESPACE: z.string().min(1, 'NAMESPACE env variable must be set'),

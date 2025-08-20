@@ -1,6 +1,5 @@
 aztec:
   epochDuration: 4
-  proofSubmissionWindow: 8
   realProofs: false
   l1DeploymentMnemonic: ""
   numberOfDefaultAccounts: 0

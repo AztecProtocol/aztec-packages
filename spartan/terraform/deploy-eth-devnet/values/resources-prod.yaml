@@ -1,0 +1,37 @@
+# Production resource specifications for eth-devnet
+ethereum:
+  execution:
+    service:
+      type: LoadBalancer
+      annotations: {}
+    nodeSelector:
+      local-ssd: "false"
+      node-type: "network"
+    storageSize: "10Gi"
+    resources:
+      requests:
+        memory: "12Gi"
+        cpu: "2.5"
+
+  beacon:
+    service:
+      type: LoadBalancer
+      annotations: {}
+    nodeSelector:
+      local-ssd: "false"
+      node-type: "network"
+    storageSize: "10Gi"
+    resources:
+      requests:
+        memory: "12Gi"
+        cpu: "2.5"
+
+  validator:
+    nodeSelector:
+      local-ssd: "false"
+      node-type: "network"
+    storageSize: "10Gi"
+    resources:
+      requests:
+        memory: "12Gi"
+        cpu: "2.5"

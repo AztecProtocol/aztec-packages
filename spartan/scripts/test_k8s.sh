@@ -136,7 +136,8 @@ value_yamls="../aztec-network/values/$values_file ../aztec-network/values.yaml"
 ethereum_slot_duration=$(./read_value.sh "ethereum.blockTime" $value_yamls)
 aztec_slot_duration=$(./read_value.sh "aztec.slotDuration" $value_yamls)
 aztec_epoch_duration=$(./read_value.sh "aztec.epochDuration" $value_yamls)
-aztec_proof_submission_window=$(./read_value.sh "aztec.proofSubmissionWindow" $value_yamls)
+aztec_proof_submission_epochs=$(./read_value.sh "aztec.proofSubmissionEpochs" $value_yamls)
+real_proofs=$(./read_value.sh "aztec.realProofs" $value_yamls)
 
 if [ "$sepolia_run" = "true" ]; then
   # Read the mnemonic from tmp file
@@ -170,7 +171,8 @@ export LOG_LEVEL="${LOG_LEVEL:-"debug; info: aztec:simulator, json-rpc"}"
 export ETHEREUM_SLOT_DURATION="$ethereum_slot_duration"
 export AZTEC_SLOT_DURATION="$aztec_slot_duration"
 export AZTEC_EPOCH_DURATION="$aztec_epoch_duration"
-export AZTEC_PROOF_SUBMISSION_WINDOW="$aztec_proof_submission_window"
+export AZTEC_PROOF_SUBMISSION_EPOCHS="$aztec_proof_submission_epochs"
+export AZTEC_REAL_PROOFS="$real_proofs"
 set +x
 export L1_ACCOUNT_MNEMONIC="$l1_account_mnemonic"
 set -x

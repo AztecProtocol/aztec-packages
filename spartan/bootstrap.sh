@@ -216,7 +216,7 @@ case "$cmd" in
     ;;
   "test-gke-transfer")
     shift
-    execution_client="$1"
+  execution_client="$1"
     # TODO(#12163) reenable bot once not conflicting with transfer
     OVERRIDES="blobSink.enabled=true,bot.enabled=false"
     if [ -n "$execution_client" ]; then

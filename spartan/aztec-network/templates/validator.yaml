@@ -152,8 +152,8 @@ spec:
               value: "{{ .Values.aztec.slotDuration }}"
             - name: AZTEC_EPOCH_DURATION
               value: "{{ .Values.aztec.epochDuration }}"
-            - name: AZTEC_PROOF_SUBMISSION_WINDOW
-              value: "{{ .Values.aztec.proofSubmissionWindow }}"
+            - name: AZTEC_PROOF_SUBMISSION_EPOCHS
+              value: "{{ .Values.aztec.proofSubmissionEpochs }}"
             - name: VALIDATOR_ATTESTATIONS_POLLING_INTERVAL_MS
               value: {{ .Values.validator.attestationPollingInterval | quote }}
             - name: ARCHIVER_POLLING_INTERVAL_MS
