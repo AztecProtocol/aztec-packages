@@ -383,7 +383,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   {
     uint256 privateKey = attesterPrivateKeys[_signer];
     require(privateKey != 0, "Private key not found for signer");
-    bytes32 digest = EmpireSlashingProposer(slashingProposer).getSignalSignatureDigest(_payload, _signer, _slot);
+    bytes32 digest = EmpireSlashingProposer(slashingProposer).getSignalSignatureDigest(_payload, _slot);
 
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
 
@@ -464,7 +464,6 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       }
 
       _loadL1Metadata(i);
-      uint256 round = EmpireSlashingProposer(slashingProposer).getCurrentRound();
 
       if (_slashing == TestSlash.EMPIRE && !warmedUp && rollup.getCurrentSlot() == Slot.wrap(EPOCH_DURATION * 2)) {
         address proposer = rollup.getCurrentProposer();
