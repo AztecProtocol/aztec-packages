@@ -16,7 +16,7 @@
 // For tracking time spent in a block of code.
 #define AVM_TRACK_TIME(key, body) ::bb::avm2::Stats::get().time(key, [&]() { body; });
 // For tracking time spent in a block of code and returning a value.
-#define AVM_TRACK_TIME_V(key, body) ::bb::avm2::Stats::get().time_r(key, [&]() { return body; });
+#define AVM_TRACK_TIME_V(key, body) ::bb::avm2::Stats::get().template time_r(key, [&]() { return body; });
 #else
 #define AVM_TRACK_TIME(key, body) body
 #define AVM_TRACK_TIME_V(key, body) body

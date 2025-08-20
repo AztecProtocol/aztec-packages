@@ -53,6 +53,7 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
   public:
     TxBytecodeManager(ContractDBInterface& contract_db,
                       HighLevelMerkleDBInterface& merkle_db,
+                      Poseidon2Interface& poseidon2,
                       BytecodeHashingInterface& bytecode_hasher,
                       RangeCheckInterface& range_check,
                       ContractInstanceManagerInterface& contract_instance_manager,
@@ -61,6 +62,7 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
                       EventEmitterInterface<InstructionFetchingEvent>& fetching_events)
         : contract_db(contract_db)
         , merkle_db(merkle_db)
+        , poseidon2(poseidon2)
         , bytecode_hasher(bytecode_hasher)
         , range_check(range_check)
         , contract_instance_manager(contract_instance_manager)
@@ -75,6 +77,7 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
   private:
     ContractDBInterface& contract_db;
     HighLevelMerkleDBInterface& merkle_db;
+    Poseidon2Interface& poseidon2;
     BytecodeHashingInterface& bytecode_hasher;
     RangeCheckInterface& range_check;
     ContractInstanceManagerInterface& contract_instance_manager;

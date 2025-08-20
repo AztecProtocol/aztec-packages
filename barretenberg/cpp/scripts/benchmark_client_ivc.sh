@@ -14,7 +14,7 @@ cd $(dirname $0)/..
                               "BB_USE_OP_COUNT_TIME=1 ./$TARGET --benchmark_filter=$FILTER\
                                          --benchmark_out=$TARGET.json\
                                          --benchmark_out_format=json"\
-                              clang20\
+                              clang16-assert\
                               "$BUILD_DIR"
 
 # Retrieve output from benching instance
