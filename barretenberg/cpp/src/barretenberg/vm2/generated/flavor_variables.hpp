@@ -133,10 +133,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 133;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2933;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2934;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 316;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3382;
+    static constexpr size_t NUM_ALL_ENTITIES = 3383;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -260,13 +260,13 @@ struct AvmFlavorVariables {
         lookup_contract_instance_retrieval_address_derivation_relation<FF_>,
         lookup_contract_instance_retrieval_deployment_nullifier_read_relation<FF_>,
         lookup_contract_instance_retrieval_update_check_relation<FF_>,
+        lookup_data_copy_check_dst_addr_in_range_relation<FF_>,
+        lookup_data_copy_check_src_addr_in_range_relation<FF_>,
         lookup_data_copy_col_read_relation<FF_>,
+        lookup_data_copy_max_read_index_gt_relation<FF_>,
         lookup_data_copy_mem_read_relation<FF_>,
         lookup_data_copy_mem_write_relation<FF_>,
-        lookup_data_copy_range_max_read_size_diff_relation<FF_>,
-        lookup_data_copy_range_read_relation<FF_>,
-        lookup_data_copy_range_reads_left_relation<FF_>,
-        lookup_data_copy_range_write_relation<FF_>,
+        lookup_data_copy_offset_gt_max_read_index_relation<FF_>,
         lookup_ecc_mem_check_dst_addr_in_range_relation<FF_>,
         lookup_ecc_mem_input_output_ecc_add_relation<FF_>,
         lookup_ecc_mem_write_mem_0_relation<FF_>,
