@@ -601,6 +601,9 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         num_gates += 2;
     }
 
+    // And put them into the wires
+    create_accumulation_gate(first_accumulation_step);
+
     // Generate witness values from all the UltraOps
     for (size_t i = op_idx + 1; i < ultra_ops.size(); i++) {
         const auto& ultra_op = ultra_ops[i];
