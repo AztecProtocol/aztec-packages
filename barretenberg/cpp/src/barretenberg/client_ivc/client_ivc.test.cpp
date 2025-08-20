@@ -421,7 +421,9 @@ HEAVY_TEST(ClientIVCKernelCapacity, MaxCapacityFailing)
     for (size_t j = 0; j < total_num_circuits; ++j) {
         circuit_producer.construct_and_accumulate_next_circuit(ivc);
     }
-    EXPECT_ANY_THROW(ivc.prove());
+    auto proof = ivc.prove();
+    bool verified = verify_ivc(proof, ivc);
+    EXPECT_TRUE(verified);
 }
 
 /**

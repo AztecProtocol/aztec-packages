@@ -125,6 +125,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
 
     // If Sumcheck did not verify, return false
     if (!sumcheck_output.verified) {
+        info("here?");
         return false;
     }
 
@@ -140,6 +141,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
         .interleaved = InterleavedBatch{ .commitments_groups = commitments.get_groups_to_be_interleaved(),
                                          .evaluations = sumcheck_output.claimed_evaluations.get_interleaved() }
     };
+
     const BatchOpeningClaim<Curve> opening_claim =
         Shplemini::compute_batch_opening_claim(padding_indicator_array,
                                                claim_batcher,
@@ -155,6 +157,8 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
 
     VerifierCommitmentKey pcs_vkey{};
     auto verified = pcs_vkey.pairing_check(pairing_points[0], pairing_points[1]);
+    info("PCS pairing check: ", verified);
+    info("consistency checked: ", consistency_checked);
     return verified && consistency_checked;
 }
 

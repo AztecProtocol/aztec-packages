@@ -87,6 +87,8 @@ TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
     // Add the same operations to the ECC op queue; the native computation is performed under the hood.
     auto op_queue = std::make_shared<ECCOpQueue>();
     op_queue->no_op_ultra_only();
+    op_queue->no_op_ultra_only();
+    op_queue->no_op_ultra_only();
     op_queue->add_accumulate(P1);
     op_queue->mul_accumulate(P2, z);
     Fq op_accumulator = 0;
@@ -97,7 +99,6 @@ TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
     Fq batching_challenge = fq::random_element();
 
     op_queue->eq_and_reset();
-    op_queue->empty_row_for_testing();
     op_queue->merge();
 
     // Sample the evaluation input x
@@ -106,7 +107,7 @@ TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
     Fq x_inv = x.invert();
     // Compute the batched evaluation of polynomials (multiplying by inverse to go from lower to higher)
     const auto& ultra_ops = op_queue->get_ultra_ops();
-    for (size_t i = 1; i < ultra_ops.size(); i++) {
+    for (size_t i = 3; i < ultra_ops.size(); i++) {
         const auto& ecc_op = ultra_ops[i];
         op_accumulator = op_accumulator * x_inv + ecc_op.op_code.value();
         const auto [x_u256, y_u256] = ecc_op.get_base_point_standard_form();
@@ -116,7 +117,7 @@ TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
         z_2_accumulator = z_2_accumulator * x_inv + uint256_t(ecc_op.z_2);
     }
     // The degree is ultra_ops.size() - 2 as we ignore the first no-op in computation
-    Fq x_pow = x.pow(ultra_ops.size() - 2);
+    Fq x_pow = x.pow(ultra_ops.size() - 4);
 
     // Multiply by an appropriate power of x to get rid of the inverses
     Fq result = ((((z_2_accumulator * batching_challenge + z_1_accumulator) * batching_challenge + p_y_accumulator) *
@@ -133,4 +134,34 @@ TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
     // Check the accumulation result stored as 4 limbs in the circuit and then reconstructed is consistent with the
     // value computed by hand.
     EXPECT_EQ(result, CircuitChecker::get_computation_result(circuit_builder));
+}
+
+TEST(TranslatorCircuitBuilder, SeveralNoops)
+{
+
+    using G1 = g1::affine_element;
+    using Fr = fr;
+    using Fq = fq;
+
+    auto P1 = G1::random_element();
+    auto P2 = G1::random_element();
+    auto z = Fr::random_element();
+
+    Fq batching_challenge_v = Fq::random_element();
+    Fq evaluation_challenge_x = Fq::random_element();
+
+    // Add the same operations to the ECC op queue; the native computation is performed under the hood.
+    auto op_queue = std::make_shared<bb::ECCOpQueue>();
+    op_queue->no_op_ultra_only();
+
+    op_queue->no_op_ultra_only();
+    op_queue->no_op_ultra_only();
+
+    for (size_t i = 0; i < 10; i++) {
+        op_queue->add_accumulate(P1);
+        op_queue->mul_accumulate(P2, z);
+    }
+    op_queue->merge();
+
+    auto circuit_builder = TranslatorCircuitBuilder{ batching_challenge_v, evaluation_challenge_x, op_queue };
 }

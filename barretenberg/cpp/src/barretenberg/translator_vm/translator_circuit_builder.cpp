@@ -425,6 +425,9 @@ void TranslatorCircuitBuilder::create_accumulation_gate(const AccumulationInput&
 
     populate_wires_from_ultra_op(acc_step.ultra_op);
 
+    wires[WireIds::NO_OP].push_back(add_variable(zero_idx));
+    wires[WireIds::NO_OP].push_back(add_variable(zero_idx));
+
     // Insert limbs used in bigfield evaluations
     insert_pair_into_wire(P_X_LOW_LIMBS, acc_step.P_x_limbs[0], acc_step.P_x_limbs[1]);
     insert_pair_into_wire(P_X_HIGH_LIMBS, acc_step.P_x_limbs[2], acc_step.P_x_limbs[3]);
@@ -509,7 +512,7 @@ void TranslatorCircuitBuilder::create_accumulation_gate(const AccumulationInput&
     num_gates += 2;
 
     // Check that all the wires are filled equally
-    bb::constexpr_for<0, TOTAL_COUNT, 1>([&]<size_t i>() { BB_ASSERT_EQ(std::get<i>(wires).size(), num_gates); });
+    bb::constexpr_for<0, NUM_WIRES, 1>([&]<size_t i>() { BB_ASSERT_EQ(std::get<i>(wires).size(), num_gates); });
 }
 
 void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_ptr<ECCOpQueue> ecc_op_queue)
@@ -539,8 +542,9 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
 
     // We need to precompute the accumulators at each step, because in the actual circuit we compute the values starting
     // from the later indices. We need to know the previous accumulator to create the gate
-    for (size_t i = 1; i < ultra_ops.size(); i++) {
-        const auto& ultra_op = ultra_ops[ultra_ops.size() - i];
+    size_t op_idx = ultra_ops.size() - 1;
+    while (op_idx > 0 && ultra_ops[op_idx].op_code.value() != 0) {
+        const auto& ultra_op = ultra_ops[op_idx];
         current_accumulator *= evaluation_input_x;
         const auto [x_256, y_256] = ultra_op.get_base_point_standard_form();
         current_accumulator +=
@@ -550,13 +554,58 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
                              (y_256 + batching_challenge_v *
                                           (uint256_t(ultra_op.z_1) + batching_challenge_v * uint256_t(ultra_op.z_2))));
         accumulator_trace.push_back(current_accumulator);
+        op_idx--;
     }
+    // Go back to the index of the first genuine UltraOp
+    op_idx++;
+    info(op_idx);
 
     // We don't care about the last value since we'll recompute it during witness generation anyway
     accumulator_trace.pop_back();
 
+    Fq previous_accumulator = 0;
+    // Pop the last value from accumulator trace and use it as previous accumulator
+    if (!accumulator_trace.empty()) {
+        previous_accumulator = accumulator_trace.back();
+        accumulator_trace.pop_back();
+    }
+    // Compute witness values
+    AccumulationInput first_accumulation_step =
+        generate_witness_values(ultra_ops[op_idx], previous_accumulator, batching_challenge_v, evaluation_input_x);
+
+    auto lay_limbs_in_row = [this]<size_t array_size>(std::array<Fr, array_size> input, WireIds starting_wire) {
+        size_t wire_index = starting_wire;
+        for (auto element : input) {
+            wires[wire_index].push_back(add_variable(element));
+            wire_index++;
+        }
+    };
+
+    auto final_accumulator_binary_limbs = first_accumulation_step.current_accumulator;
+    for (size_t i = 1; i < op_idx; i++) {
+        wires[WireIds::NO_OP].push_back(add_variable(one_idx));
+        wires[WireIds::NO_OP].push_back(add_variable(one_idx));
+
+        populate_wires_from_ultra_op(ultra_ops[op_idx]);
+        lay_limbs_in_row(final_accumulator_binary_limbs, ACCUMULATORS_BINARY_LIMBS_0);
+        lay_limbs_in_row(final_accumulator_binary_limbs, ACCUMULATORS_BINARY_LIMBS_0);
+        for (size_t idx = P_X_LOW_LIMBS; idx < ACCUMULATORS_BINARY_LIMBS_0; idx++) {
+            wires[idx].push_back(zero_idx);
+            wires[idx].push_back(zero_idx);
+        }
+        for (size_t idx = QUOTIENT_LOW_BINARY_LIMBS; idx < wires.size(); idx++) {
+            wires[idx].push_back(zero_idx);
+            wires[idx].push_back(zero_idx);
+        }
+        // to do set no-op wire idx to 1 for the two rows
+        num_gates += 2;
+    }
+
+    // And put them into the wires
+    create_accumulation_gate(first_accumulation_step);
+
     // Generate witness values from all the UltraOps
-    for (size_t i = 1; i < ultra_ops.size(); i++) {
+    for (size_t i = op_idx + 1; i < ultra_ops.size(); i++) {
         const auto& ultra_op = ultra_ops[i];
         Fq previous_accumulator = 0;
         // Pop the last value from accumulator trace and use it as previous accumulator
@@ -570,6 +619,9 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
 
         // And put them into the wires
         create_accumulation_gate(one_accumulation_step);
+
+        // TODO: copy the accumulator binary limbs into the wires above the first real op
+        // enforce the transfer real
     }
 }
 } // namespace bb

@@ -35,6 +35,7 @@ void TranslatorDeltaRangeConstraintRelationImpl<FF>::accumulate(ContainerOverSub
     static const auto maximum_sort_value = -FF((1 << micro_limb_bits) - 1);
 
     [&]() {
+        // WORKTODO: these stay the same
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
         using View = typename Accumulator::View;
         auto ordered_range_constraints_0 = View(in.ordered_range_constraints_0);
