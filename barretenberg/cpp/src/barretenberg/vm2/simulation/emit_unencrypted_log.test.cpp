@@ -41,8 +41,10 @@ TEST(EmitUnencryptedLogTest, Basic)
     EXPECT_CALL(context, get_side_effect_states()).WillOnce(ReturnRef(side_effect_states));
     EXPECT_CALL(context, set_side_effect_states(next_side_effect_states));
 
-    EXPECT_CALL(memory, get(_)).WillRepeatedly([](MemoryAddress address) {
-        return MemoryValue::from<FF>(FF(address));
+    EXPECT_CALL(memory, get(_)).WillRepeatedly([](MemoryAddress address) -> const MemoryValue& {
+        static thread_local MemoryValue value;
+        value = MemoryValue::from<FF>(FF(address));
+        return value;
     });
 
     EXPECT_CALL(memory, get_space_id()).WillOnce(Return(57));
@@ -93,8 +95,10 @@ TEST(EmitUnencryptedLogTest, NegativeTooLarge)
     EXPECT_CALL(context, get_side_effect_states()).WillOnce(ReturnRef(side_effect_states));
     EXPECT_CALL(context, set_side_effect_states(next_side_effect_states));
 
-    EXPECT_CALL(memory, get(_)).WillRepeatedly([](MemoryAddress address) {
-        return MemoryValue::from<FF>(FF(address));
+    EXPECT_CALL(memory, get(_)).WillRepeatedly([](MemoryAddress address) -> const MemoryValue& {
+        static thread_local MemoryValue value;
+        value = MemoryValue::from<FF>(FF(address));
+        return value;
     });
 
     EXPECT_CALL(memory, get_space_id()).WillOnce(Return(57));
@@ -201,8 +205,10 @@ TEST(EmitUnencryptedLogTest, NegativeTooManyLogs)
     EXPECT_CALL(context, get_side_effect_states()).WillOnce(ReturnRef(side_effect_states));
     EXPECT_CALL(context, set_side_effect_states(next_side_effect_states));
 
-    EXPECT_CALL(memory, get(_)).WillRepeatedly([](MemoryAddress address) {
-        return MemoryValue::from<FF>(FF(address));
+    EXPECT_CALL(memory, get(_)).WillRepeatedly([](MemoryAddress address) -> const MemoryValue& {
+        static thread_local MemoryValue value;
+        value = MemoryValue::from<FF>(FF(address));
+        return value;
     });
 
     EXPECT_CALL(memory, get_space_id()).WillOnce(Return(57));
@@ -254,8 +260,10 @@ TEST(EmitUnencryptedLogTest, NegativeTagMismatch)
     EXPECT_CALL(context, get_side_effect_states()).WillOnce(ReturnRef(side_effect_states));
     EXPECT_CALL(context, set_side_effect_states(next_side_effect_states));
 
-    EXPECT_CALL(memory, get(_)).WillRepeatedly([](MemoryAddress address) {
-        return MemoryValue::from<uint32_t>(address);
+    EXPECT_CALL(memory, get(_)).WillRepeatedly([](MemoryAddress address) -> const MemoryValue& {
+        static thread_local MemoryValue value;
+        value = MemoryValue::from<uint32_t>(address);
+        return value;
     });
 
     EXPECT_CALL(memory, get_space_id()).WillOnce(Return(57));
@@ -307,8 +315,10 @@ TEST(EmitUnencryptedLogTest, NegativeStatic)
     EXPECT_CALL(context, get_side_effect_states()).WillOnce(ReturnRef(side_effect_states));
     EXPECT_CALL(context, set_side_effect_states(next_side_effect_states));
 
-    EXPECT_CALL(memory, get(_)).WillRepeatedly([](MemoryAddress address) {
-        return MemoryValue::from<FF>(FF(address));
+    EXPECT_CALL(memory, get(_)).WillRepeatedly([](MemoryAddress address) -> const MemoryValue& {
+        static thread_local MemoryValue value;
+        value = MemoryValue::from<FF>(FF(address));
+        return value;
     });
 
     EXPECT_CALL(memory, get_space_id()).WillOnce(Return(57));
