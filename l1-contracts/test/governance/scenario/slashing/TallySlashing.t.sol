@@ -54,6 +54,7 @@ contract SlashingTest is TestBase {
   uint256 constant COMMITTEE_SIZE = 4;
   uint256 constant HOW_MANY_SLASHED = 4;
   uint256 constant ROUND_SIZE_IN_EPOCHS = 1;
+  uint256 constant INITIAL_EPOCH = 6 + ROUND_SIZE_IN_EPOCHS;
 
   function _getProposerKey() internal returns (uint256) {
     // Returns the private key of the current proposer
@@ -78,10 +79,7 @@ contract SlashingTest is TestBase {
     return Signature({v: v, r: r, s: s});
   }
 
-  function _createSlashingVotes(address[] memory, /* _attesters */ uint96 _slashAmount, uint256 _howMany)
-    internal
-    returns (SlashRound)
-  {
+  function _createSlashingVotes(uint256 _slashAmount, uint256 _howMany) internal returns (SlashRound) {
     // Jump to start of next round for voting
     SlashRound currentRound = slashingProposer.getCurrentRound();
     uint256 desiredSlot = (SlashRound.unwrap(currentRound) + 1) * slashingProposer.ROUND_SIZE();
@@ -183,7 +181,7 @@ contract SlashingTest is TestBase {
     // We jump forward enough epochs so that when we vote for slashing epochs from the past,
     // those epochs actually have validators in them. With SLASH_OFFSET_IN_ROUNDS = 2,
     // we need to be far enough ahead that the epochs we're slashing had validators.
-    timeCheater.cheat__jumpForwardEpochs(6);
+    timeCheater.cheat__jumpForwardEpochs(INITIAL_EPOCH);
 
     assertEq(rollup.getActiveAttesterCount(), validatorCount, "Invalid attester count");
   }
@@ -195,9 +193,9 @@ contract SlashingTest is TestBase {
     _lifetimeInRounds = bound(_lifetimeInRounds, _executionDelayInRounds + 1, 127); // Must be < ROUNDABOUT_SIZE
 
     _setupCommitteeForSlashing(_lifetimeInRounds, _executionDelayInRounds);
-    address[] memory attesters = rollup.getEpochCommittee(Epoch.wrap(6));
+    address[] memory attesters = rollup.getEpochCommittee(Epoch.wrap(INITIAL_EPOCH));
     uint96 slashAmount = 10e18;
-    SlashRound firstSlashingRound = _createSlashingVotes(attesters, slashAmount, attesters.length);
+    SlashRound firstSlashingRound = _createSlashingVotes(slashAmount, attesters.length);
 
     uint256 firstExecutableSlot =
       (SlashRound.unwrap(firstSlashingRound) + _executionDelayInRounds + 1) * slashingProposer.ROUND_SIZE();
@@ -223,9 +221,9 @@ contract SlashingTest is TestBase {
     _lifetimeInRounds = bound(_lifetimeInRounds, _executionDelayInRounds + 1, 127); // Must be < ROUNDABOUT_SIZE
 
     _setupCommitteeForSlashing(_lifetimeInRounds, _executionDelayInRounds);
-    address[] memory attesters = rollup.getEpochCommittee(Epoch.wrap(6));
+    address[] memory attesters = rollup.getEpochCommittee(Epoch.wrap(INITIAL_EPOCH));
     uint96 slashAmount = 10e18;
-    SlashRound firstSlashingRound = _createSlashingVotes(attesters, slashAmount, attesters.length);
+    SlashRound firstSlashingRound = _createSlashingVotes(slashAmount, attesters.length);
 
     uint256 firstExecutableSlot =
       (SlashRound.unwrap(firstSlashingRound) + _executionDelayInRounds + 1) * slashingProposer.ROUND_SIZE();
@@ -265,9 +263,9 @@ contract SlashingTest is TestBase {
     _lifetimeInRounds = bound(_lifetimeInRounds, _executionDelayInRounds + 1, 127); // Must be < ROUNDABOUT_SIZE
 
     _setupCommitteeForSlashing(_lifetimeInRounds, _executionDelayInRounds);
-    address[] memory attesters = rollup.getEpochCommittee(Epoch.wrap(6));
+    address[] memory attesters = rollup.getEpochCommittee(Epoch.wrap(INITIAL_EPOCH));
     uint96 slashAmount = 10e18;
-    SlashRound firstSlashingRound = _createSlashingVotes(attesters, slashAmount, attesters.length);
+    SlashRound firstSlashingRound = _createSlashingVotes(slashAmount, attesters.length);
 
     // For tally slashing, we need to predict the payload address and veto it
     // Get the actual slash actions that will be created by calling getTally
@@ -301,30 +299,35 @@ contract SlashingTest is TestBase {
     _setupCommitteeForSlashing();
     uint256 howManyToSlash = HOW_MANY_SLASHED;
 
-    address[] memory attesters = rollup.getEpochCommittee(Epoch.wrap(6));
-    uint256[] memory stakes = new uint256[](attesters.length);
-    for (uint256 i = 0; i < attesters.length; i++) {
-      AttesterView memory attesterView = rollup.getAttesterView(attesters[i]);
-      stakes[i] = attesterView.effectiveBalance;
-      assertTrue(attesterView.status == Status.VALIDATING, "Invalid status");
-    }
-
     // We slash a small amount and see that they are all still validating, but less stake
     uint96 slashAmount1 = 10e18;
-    SlashRound firstSlashingRound = _createSlashingVotes(attesters, slashAmount1, howManyToSlash);
+    SlashRound firstSlashingRound = _createSlashingVotes(slashAmount1, howManyToSlash);
+
+    // Grab the attesters and their initial stakes
+    address[][] memory committees = new address[][](slashingProposer.ROUND_SIZE_IN_EPOCHS());
+    address[] memory attesters = new address[](slashingProposer.ROUND_SIZE_IN_EPOCHS() * COMMITTEE_SIZE);
+    uint256[] memory stakes = new uint256[](attesters.length);
+    for (uint256 i = 0; i < slashingProposer.ROUND_SIZE_IN_EPOCHS(); i++) {
+      Epoch epochSlashed = slashingProposer.getSlashTargetEpoch(firstSlashingRound, i);
+      address[] memory committee = rollup.getEpochCommittee(epochSlashed);
+      committees[i] = committee;
+      for (uint256 j = 0; j < committee.length; j++) {
+        address attester = committee[j];
+        attesters[i * COMMITTEE_SIZE + j] = attester;
+        AttesterView memory attesterView = rollup.getAttesterView(attester);
+        stakes[i * COMMITTEE_SIZE + j] = attesterView.effectiveBalance;
+        assertTrue(attesterView.status == Status.VALIDATING, "Invalid status");
+      }
+    }
 
     // Wait for execution delay and execute - need to be in the next round for execution
     uint256 roundsToWait = slashingProposer.EXECUTION_DELAY_IN_ROUNDS() + 1;
     timeCheater.cheat__jumpForwardSlots(roundsToWait * slashingProposer.ROUND_SIZE());
 
-    // Get the actual committees for the epochs being slashed
-    address[][] memory committees = new address[][](slashingProposer.ROUND_SIZE_IN_EPOCHS());
-    for (uint256 i = 0; i < committees.length; i++) {
-      Epoch epochSlashed = slashingProposer.getSlashTargetEpoch(firstSlashingRound, i);
-      committees[i] = rollup.getEpochCommittee(epochSlashed);
-    }
+    // Execute the slash
     slashingProposer.executeRound(firstSlashingRound, committees);
 
+    // Check balances
     for (uint256 i = 0; i < howManyToSlash; i++) {
       AttesterView memory attesterView = rollup.getAttesterView(attesters[i]);
       assertEq(attesterView.effectiveBalance, stakes[i] - slashAmount1);
@@ -340,28 +343,32 @@ contract SlashingTest is TestBase {
     _setupCommitteeForSlashing();
     uint256 howManyToSlash = HOW_MANY_SLASHED;
 
-    address[] memory attesters = rollup.getEpochCommittee(Epoch.wrap(6));
-    uint256[] memory stakes = new uint256[](attesters.length);
-    for (uint256 i = 0; i < attesters.length; i++) {
-      AttesterView memory attesterView = rollup.getAttesterView(attesters[i]);
-      stakes[i] = attesterView.effectiveBalance;
-      assertTrue(attesterView.status == Status.VALIDATING, "Invalid status");
-    }
-
-    // We slash a large amount and see that they are no longer validating
+    // We slash a small amount and see that they are all still validating, but less stake
     uint96 slashAmount1 = 60e18;
-    SlashRound firstSlashingRound = _createSlashingVotes(attesters, slashAmount1, howManyToSlash);
+    SlashRound firstSlashingRound = _createSlashingVotes(slashAmount1, howManyToSlash);
+
+    // Grab the attesters and their initial stakes
+    address[][] memory committees = new address[][](slashingProposer.ROUND_SIZE_IN_EPOCHS());
+    address[] memory attesters = new address[](slashingProposer.ROUND_SIZE_IN_EPOCHS() * COMMITTEE_SIZE);
+    uint256[] memory stakes = new uint256[](attesters.length);
+    for (uint256 i = 0; i < slashingProposer.ROUND_SIZE_IN_EPOCHS(); i++) {
+      Epoch epochSlashed = slashingProposer.getSlashTargetEpoch(firstSlashingRound, i);
+      address[] memory committee = rollup.getEpochCommittee(epochSlashed);
+      committees[i] = committee;
+      for (uint256 j = 0; j < committee.length; j++) {
+        address attester = committee[j];
+        attesters[i * COMMITTEE_SIZE + j] = attester;
+        AttesterView memory attesterView = rollup.getAttesterView(attester);
+        stakes[i * COMMITTEE_SIZE + j] = attesterView.effectiveBalance;
+        assertTrue(attesterView.status == Status.VALIDATING, "Invalid status");
+      }
+    }
 
     // Wait for execution delay and execute - need to be in the next round for execution
     uint256 roundsToWait = slashingProposer.EXECUTION_DELAY_IN_ROUNDS() + 1;
     timeCheater.cheat__jumpForwardSlots(roundsToWait * slashingProposer.ROUND_SIZE());
 
-    // Get the actual committees for the epochs being slashed
-    address[][] memory committees = new address[][](slashingProposer.ROUND_SIZE_IN_EPOCHS());
-    for (uint256 i = 0; i < committees.length; i++) {
-      Epoch epochSlashed = slashingProposer.getSlashTargetEpoch(firstSlashingRound, i);
-      committees[i] = rollup.getEpochCommittee(epochSlashed);
-    }
+    // Execute the slash
     slashingProposer.executeRound(firstSlashingRound, committees);
 
     // Verify that slashing was successful and validators are kicked out
