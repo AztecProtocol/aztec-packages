@@ -3,22 +3,19 @@
  *
  * Common interface for different signing backends (local, remote, encrypted)
  */
-/**
- * Signer Interface and Implementations
- *
- * Common interface for different signing backends (local, remote, encrypted)
- */
 import type { EthSigner } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { Secp256k1Signer, toRecoveryBit } from '@aztec/foundation/crypto';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { Signature } from '@aztec/foundation/eth-signature';
+import { Signature, type ViemTransactionSignature } from '@aztec/foundation/eth-signature';
+import { withHexPrefix } from '@aztec/foundation/string';
 
 import {
   type TransactionSerializable,
   type TypedDataDefinition,
   hashTypedData,
   keccak256,
+  parseTransaction,
   serializeTransaction,
 } from 'viem';
 
@@ -30,7 +27,7 @@ import type { EthRemoteSignerConfig } from './types.js';
 export class SignerError extends Error {
   constructor(
     message: string,
-    public method: 'eth_sign' | 'eth_signTypedData_v4',
+    public method: 'eth_sign' | 'eth_signTransaction' | 'eth_signTypedData_v4',
     public url: string,
     public statusCode?: number,
     public errorCode?: number,
@@ -40,9 +37,6 @@ export class SignerError extends Error {
   }
 }
 
-/**
- * Local signer using in-memory private key
- */
 /**
  * Local signer that holds an in-memory Secp256k1 private key.
  */
@@ -82,9 +76,23 @@ export class LocalSigner implements EthSigner {
   }
 }
 
-/**
- * Remote signer using Web3Signer HTTP API
- */
+// reference - https://docs.web3signer.consensys.io/reference/api/json-rpc#eth_signtransaction
+type RemoteSignerTxObject = {
+  from: string;
+  to?: string | null;
+  gas?: string;
+  maxPriorityFeePerGas?: string;
+  maxFeePerGas?: string;
+  nonce?: string;
+  value?: string;
+  data?: string;
+
+  // EIP-4844 extension - https://github.com/Consensys/web3signer/pull/1096
+  maxFeePerBlobGas?: string;
+  blobVersionedHashes?: readonly string[];
+  blobs?: readonly string[];
+};
+
 /**
  * Remote signer that proxies signing operations to a Web3Signer-compatible HTTP endpoint.
  */
@@ -92,6 +100,7 @@ export class RemoteSigner implements EthSigner {
   constructor(
     public readonly address: EthAddress,
     private readonly config: EthRemoteSignerConfig,
+    private fetch: typeof globalThis.fetch = globalThis.fetch,
   ) {}
 
   /**
@@ -108,8 +117,8 @@ export class RemoteSigner implements EthSigner {
     return await this.makeJsonRpcSignTypedDataRequest(typedData);
   }
 
-  signTransaction(_transaction: TransactionSerializable): Promise<Signature> {
-    throw new Error('Method not implemented.');
+  signTransaction(transaction: TransactionSerializable): Promise<Signature> {
+    return this.makeJsonRpcSignTransactionRequest(transaction);
   }
 
   /**
@@ -128,7 +137,7 @@ export class RemoteSigner implements EthSigner {
       id: 1,
     };
 
-    const response = await fetch(url, {
+    const response = await this.fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -171,9 +180,6 @@ export class RemoteSigner implements EthSigner {
   }
 
   /**
-   * Make a JSON-RPC sign typed data request using eth_signTypedData_v4
-   */
-  /**
    * Make a JSON-RPC eth_signTypedData_v4 request.
    */
   private async makeJsonRpcSignTypedDataRequest(typedData: TypedDataDefinition): Promise<Signature> {
@@ -186,7 +192,7 @@ export class RemoteSigner implements EthSigner {
       id: 1,
     };
 
-    const response = await fetch(url, {
+    const response = await this.fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -226,6 +232,94 @@ export class RemoteSigner implements EthSigner {
     }
 
     return Signature.fromString(signatureHex as `0x${string}`);
+  }
+
+  /**
+   * Make a JSON-RPC eth_signTransaction request.
+   */
+  private async makeJsonRpcSignTransactionRequest(tx: TransactionSerializable): Promise<Signature> {
+    if (tx.type !== 'eip1559') {
+      throw new Error('This signer does not support tx type: ' + tx.type);
+    }
+
+    const url = this.getSignerUrl();
+
+    const txObject: RemoteSignerTxObject = {
+      from: this.address.toString(),
+      to: tx.to ?? null,
+      data: tx.data,
+      value: typeof tx.value !== 'undefined' ? withHexPrefix(tx.value.toString(16)) : undefined,
+      nonce: typeof tx.nonce !== 'undefined' ? withHexPrefix(tx.nonce.toString(16)) : undefined,
+      gas: typeof tx.gas !== 'undefined' ? withHexPrefix(tx.gas.toString(16)) : undefined,
+      maxFeePerGas: typeof tx.maxFeePerGas !== 'undefined' ? withHexPrefix(tx.maxFeePerGas.toString(16)) : undefined,
+      maxPriorityFeePerGas:
+        typeof tx.maxPriorityFeePerGas !== 'undefined'
+          ? withHexPrefix(tx.maxPriorityFeePerGas.toString(16))
+          : undefined,
+
+      // maxFeePerBlobGas:
+      //   typeof tx.maxFeePerBlobGas !== 'undefined' ? withHexPrefix(tx.maxFeePerBlobGas.toString(16)) : undefined,
+      // blobVersionedHashes: tx.blobVersionedHashes,
+      // blobs: tx.blobs?.map(blob => (typeof blob === 'string' ? blob : bufferToHex(Buffer.from(blob)))),
+    };
+
+    const body = {
+      jsonrpc: '2.0',
+      method: 'eth_signTransaction',
+      params: [txObject],
+      id: 1,
+    };
+
+    const response = await this.fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new SignerError(
+        `Web3Signer request failed for eth_signTransaction at ${url}: ${response.status} ${response.statusText} - ${errorText}`,
+        'eth_signTransaction',
+        url,
+        response.status,
+      );
+    }
+
+    const result = await response.json();
+
+    if (result.error) {
+      throw new SignerError(
+        `Web3Signer JSON-RPC error for eth_signTransaction at ${url}: ${result.error.code} - ${result.error.message}`,
+        'eth_signTransaction',
+        url,
+        undefined,
+        result.error.code,
+      );
+    }
+
+    if (!result.result) {
+      throw new Error('Invalid response from Web3Signer: no result found');
+    }
+
+    let rawTxHex = result.result;
+    if (!rawTxHex.startsWith('0x')) {
+      rawTxHex = '0x' + rawTxHex;
+    }
+
+    // we get back to whole signed tx. Deserialize it in order to read the signature
+    const parsedTxWithSignature = parseTransaction(rawTxHex);
+    if (
+      parsedTxWithSignature.r === undefined ||
+      parsedTxWithSignature.s === undefined ||
+      parsedTxWithSignature.v === undefined
+    ) {
+      throw new Error('Tx not signed by Web3Signer');
+    }
+
+    return Signature.fromViemTransactionSignature(parsedTxWithSignature as ViemTransactionSignature);
   }
 
   /**

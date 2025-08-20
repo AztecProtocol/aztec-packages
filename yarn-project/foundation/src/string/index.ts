@@ -6,6 +6,10 @@ export function withoutHexPrefix(str: string): string {
   return hasHexPrefix(str) ? str.slice(2) : str;
 }
 
+export function withHexPrefix(str: string): string {
+  return hasHexPrefix(str) ? str : `0x${str}`;
+}
+
 export function isHex(str: string): boolean {
   return /^(0x)?[0-9a-fA-F]*$/.test(str);
 }
