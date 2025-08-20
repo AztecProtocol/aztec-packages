@@ -5,12 +5,14 @@ import {
 } from '@aztec/accounts/schnorr';
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import { type Archiver, createArchiver } from '@aztec/archiver';
+import type { AztecNodeService } from '@aztec/aztec-node';
 import {
   type AccountWalletWithSecretKey,
   type AztecNode,
   type CompleteAddress,
   EthAddress,
   type Logger,
+  MerkleTreeId,
   type PXE,
   createLogger,
 } from '@aztec/aztec.js';
@@ -221,7 +223,14 @@ export class FullProverTest {
     await this.context.cheatCodes.rollup.advanceToNextEpoch();
 
     this.logger.verbose(`Marking current block as proven`);
-    await this.context.cheatCodes.rollup.markAsProven();
+
+    // Get the epoch info
+    const l2Tips = await this.aztecNode.getL2Tips();
+    const previousEpochLastBlock = l2Tips.proven.number;
+    const snapshot = (this.aztecNode as AztecNodeService)['worldStateSynchronizer'].getSnapshot(previousEpochLastBlock);
+    const archiveTreeInfo = await snapshot.getTreeInfo(MerkleTreeId.ARCHIVE);
+    const realArchive = `0x${archiveTreeInfo.root.toString('hex').replace('0x', '')}` as `0x${string}`;
+    await this.context.cheatCodes.rollup.markAsProven(previousEpochLastBlock, realArchive);
 
     this.logger.verbose(`Main setup completed, initializing full prover PXE, Node, and Prover Node`);
     for (let i = 0; i < 2; i++) {

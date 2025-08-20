@@ -175,9 +175,13 @@ contract RollupBase is DecoderBase {
 
     ProposeArgs memory args = ProposeArgs({
       header: full.block.header,
-      archive: full.block.archive,
       stateReference: EMPTY_STATE_REFERENCE,
-      oracleInput: OracleInput(0)
+      oracleInput: OracleInput(0),
+      parentHeaderHash: (
+        rollup.canPruneAtTime(Timestamp.wrap(block.timestamp))
+          ? rollup.getBlock(rollup.getProvenBlockNumber()).headerHash
+          : rollup.getBlock(rollup.getPendingBlockNumber()).headerHash
+      )
     });
 
     if (_revertMsg.length > 0) {
@@ -227,8 +231,6 @@ contract RollupBase is DecoderBase {
     } else {
       assertEq(root, bytes32(0), "Invalid outbox root");
     }
-
-    assertEq(rollup.archive(), args.archive, "Invalid archive");
   }
 
   function _populateInbox(address _sender, bytes32 _recipient, bytes32[] memory _contents) internal {

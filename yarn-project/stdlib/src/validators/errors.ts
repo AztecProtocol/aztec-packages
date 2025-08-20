@@ -37,8 +37,8 @@ export class FailedToReExecuteTransactionsError extends ValidatorError {
 
 export class ReExStateMismatchError extends ValidatorError {
   constructor(
-    public readonly expectedArchiveRoot: Fr,
-    public readonly actualArchiveRoot: Fr,
+    public readonly expectedHeaderHash: Fr,
+    public readonly actualHeaderHash: Fr,
     public readonly expectedStateReference?: StateReference,
     public readonly actualStateReference?: StateReference,
   ) {

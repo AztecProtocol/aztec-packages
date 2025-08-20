@@ -37,7 +37,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
 
   protected initialSlot: bigint | undefined;
   protected lastProcessedSlot: bigint | undefined;
-  protected slotNumberToBlock: Map<bigint, { blockNumber: number; archive: string; attestors: EthAddress[] }> =
+  protected slotNumberToBlock: Map<bigint, { blockNumber: number; blockHeaderHash: string; attestors: EthAddress[] }> =
     new Map();
 
   constructor(
@@ -85,16 +85,18 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
   public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
     await this.l2TipsStore.handleBlockStreamEvent(event);
     if (event.type === 'blocks-added') {
-      // Store mapping from slot to archive, block number, and attestors
+      // Store mapping from slot to block header hash, block number, and attestors
       for (const block of event.blocks) {
+        const blockHeader = block.block.header;
+        const blockHeaderHash = (await blockHeader.hash()).toString();
         this.slotNumberToBlock.set(block.block.header.getSlot(), {
           blockNumber: block.block.number,
-          archive: block.block.archive.root.toString(),
+          blockHeaderHash,
           attestors: getAttestationsFromPublishedL2Block(block).map(att => att.getSender()),
         });
       }
 
-      // Prune the archive map to only keep at most N entries
+      // Prune the block header hash map to only keep at most N entries
       const historyLength = this.store.getHistoryLength();
       if (this.slotNumberToBlock.size > historyLength) {
         const toDelete = Array.from(this.slotNumberToBlock.keys())
@@ -307,7 +309,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     // We gather from both p2p (contains the ones seen on the p2p layer) and archiver
     // (contains the ones synced from mined blocks, which we may have missed from p2p).
     const block = this.slotNumberToBlock.get(slot);
-    const p2pAttested = await this.p2p.getAttestationsForSlot(slot, block?.archive);
+    const p2pAttested = await this.p2p.getAttestationsForSlot(slot, block?.blockHeaderHash);
     const attestors = new Set([
       ...p2pAttested.map(a => a.getSender().toString()),
       ...(block?.attestors.map(a => a.toString()) ?? []),

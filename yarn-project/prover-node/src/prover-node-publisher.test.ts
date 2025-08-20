@@ -135,12 +135,16 @@ describe('prover-node-publisher', () => {
       });
 
       // Return the requested block
-      rollup.getBlock.mockImplementation((blockNumber: bigint) =>
-        Promise.resolve({
-          archive: blocks[Number(blockNumber) - 1].endArchiveRoot.toString(),
+      rollup.getBlock.mockImplementation((blockNumber: bigint) => {
+        const block = blocks[Number(blockNumber) - 1];
+        const headerHash = block.proposedBlockHeaderHashes[Number(blockNumber) - fromBlock]?.toString() ?? '0x';
+        return Promise.resolve({
+          // only blocks at end of epoch have an archive
+          archive:
+            Number(blockNumber) === fromBlock - 1 ? blocks[Number(blockNumber) - 1].endArchiveRoot.toString() : '0x',
+          headerHash: headerHash as `0x${string}`,
           attestationsHash: '0x', // unused,
           payloadDigest: '0x', // unused,
-          headerHash: '0x', // unused,
           blobCommitmentsHash: '0x', // unused,
           slotNumber: 0n, // unused,
           feeHeader: {
@@ -150,14 +154,15 @@ describe('prover-node-publisher', () => {
             congestionCost: 0n, // unused
             proverCost: 0n, // unused
           },
-        }),
-      );
+        });
+      });
 
       // We have built a rollup proof of the range fromBlock - toBlock
       // so we need to set our archives and hashes accordingly
       const ourPublicInputs = RootRollupPublicInputs.random();
       ourPublicInputs.previousArchiveRoot = blocks[fromBlock - 2]?.endArchiveRoot ?? Fr.ZERO;
-      ourPublicInputs.endArchiveRoot = blocks[toBlock - 1]?.endArchiveRoot ?? Fr.ZERO;
+      ourPublicInputs.proposedBlockHeaderHashes[toBlock - fromBlock] =
+        blocks[toBlock - 1]?.proposedBlockHeaderHashes[toBlock - fromBlock] ?? Fr.ZERO;
 
       const ourBatchedBlob = new BatchedBlob(
         ourPublicInputs.blobPublicInputs.blobCommitmentsHash,

@@ -62,7 +62,6 @@ struct ManaBaseFeeComponents {
 struct FeeStore {
   CompressedFeeConfig config;
   L1GasOracleValues l1GasOracleValues;
-  mapping(uint256 blockNumber => CompressedFeeHeader feeHeader) feeHeaders;
 }
 
 library FeeLib {

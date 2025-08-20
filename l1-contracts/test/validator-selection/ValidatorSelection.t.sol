@@ -513,9 +513,9 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
     ree.proposeArgs = ProposeArgs({
       header: header,
-      archive: full.block.archive,
       stateReference: EMPTY_STATE_REFERENCE,
-      oracleInput: OracleInput(0)
+      oracleInput: OracleInput(0),
+      parentHeaderHash: rollup.getBlock(rollup.getPendingBlockNumber()).headerHash
     });
 
     skipBlobCheck(address(rollup));
@@ -524,7 +524,6 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       ree.needed = ree.committee.length * 2 / 3 + 1;
       ree.attestationsCount = _attestationCount;
       ree.proposePayload = ProposePayload({
-        archive: ree.proposeArgs.archive,
         stateReference: ree.proposeArgs.stateReference,
         oracleInput: ree.proposeArgs.oracleInput,
         headerHash: ProposedHeaderLib.hash(header)
@@ -692,8 +691,6 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     } else {
       assertEq(root, bytes32(0), "Invalid outbox root");
     }
-
-    assertEq(rollup.archive(), ree.proposeArgs.archive, "Invalid archive");
   }
 
   function _populateInbox(address _sender, bytes32 _recipient, bytes32[] memory _contents) internal {

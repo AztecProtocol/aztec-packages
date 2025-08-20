@@ -1,5 +1,5 @@
 import { retrieveL2ProofVerifiedEvents } from '@aztec/archiver';
-import { type ViemPublicClient, createEthereumChain } from '@aztec/ethereum';
+import { RollupContract, type ViemPublicClient, createEthereumChain } from '@aztec/ethereum';
 import { compactArray, mapValues, unique } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type LogFn, type Logger, createLogger } from '@aztec/foundation/log';
@@ -8,7 +8,7 @@ import { createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
 
 import chunk from 'lodash.chunk';
 import groupBy from 'lodash.groupby';
-import { createPublicClient, fallback, getAbiItem, getAddress, http } from 'viem';
+import { type GetContractReturnType, createPublicClient, fallback, getAbiItem, getAddress, http } from 'viem';
 
 export async function proverStats(opts: {
   l1RpcUrls: string[];
@@ -157,13 +157,18 @@ async function getL2ProofVerifiedEvents(
   batchSize: bigint,
   debugLog: Logger,
   publicClient: ViemPublicClient,
-  rollup: EthAddress,
+  rollupAddress: EthAddress,
 ) {
   let blockNum = startBlock;
   const events = [];
+  const rollup = new RollupContract(publicClient, rollupAddress);
   while (blockNum <= lastBlockNum) {
     const end = blockNum + batchSize > lastBlockNum + 1n ? lastBlockNum + 1n : blockNum + batchSize;
-    const newEvents = await retrieveL2ProofVerifiedEvents(publicClient, rollup, blockNum, end);
+    const newEvents = await retrieveL2ProofVerifiedEvents(
+      rollup.getContract() as GetContractReturnType<typeof RollupAbi, ViemPublicClient>,
+      blockNum,
+      end,
+    );
     events.push(...newEvents);
     debugLog.verbose(`Got ${newEvents.length} events querying l2 proof verified from block ${blockNum} to ${end}`);
     blockNum += batchSize;

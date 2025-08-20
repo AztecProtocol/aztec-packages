@@ -35,8 +35,8 @@ describe('TxProvider', () => {
   };
 
   const buildProposal = (txs: Tx[], txHashes: TxHash[]) => {
-    const payload = new ConsensusPayload(ProposedBlockHeader.empty(), Fr.random(), StateReference.empty());
-    return new BlockProposal(1, payload, Signature.empty(), txHashes, txs);
+    const payload = new ConsensusPayload(ProposedBlockHeader.empty(), StateReference.empty());
+    return new BlockProposal(1, payload, Signature.empty(), Fr.ZERO, txHashes, txs);
   };
 
   const setupTxPools = (txsInPool: number, txsOnP2P: number, txs: Tx[]) => {

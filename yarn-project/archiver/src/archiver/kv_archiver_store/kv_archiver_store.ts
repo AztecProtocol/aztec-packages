@@ -1,5 +1,5 @@
 import type { L1BlockId } from '@aztec/ethereum';
-import type { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, CustomRange, StoreSize } from '@aztec/kv-store';
@@ -198,6 +198,16 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
    */
   unwindBlocks(from: number, blocksToUnwind: number): Promise<boolean> {
     return this.#blockStore.unwindBlocks(from, blocksToUnwind);
+  }
+
+  /**
+   * Updates an existing block with its archive root when it gets proven.
+   * @param blockNumber - The block number to update.
+   * @param archiveRoot - The proven archive root.
+   * @returns True if the operation is successful.
+   */
+  updateBlockArchive(blockNumber: number, archiveRoot: Fr): Promise<boolean> {
+    return this.#blockStore.updateBlockArchive(blockNumber, archiveRoot);
   }
 
   getPublishedBlock(number: number): Promise<PublishedL2Block | undefined> {

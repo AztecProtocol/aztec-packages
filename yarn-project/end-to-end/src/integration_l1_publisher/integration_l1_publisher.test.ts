@@ -3,7 +3,7 @@ import { getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecAddress, Fr, GlobalVariables, type L2Block, createLogger } from '@aztec/aztec.js';
 import { BatchedBlob, Blob } from '@aztec/blob-lib';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
-import { GENESIS_ARCHIVE_ROOT, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
+import { MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
   type DeployL1ContractsArgs,
@@ -328,9 +328,6 @@ describe('L1Publisher integration', () => {
     };
 
     const buildAndPublishBlock = async (numTxs: number, jsonFileNamePrefix: string) => {
-      const archiveInRollup_ = await rollup.archive();
-      expect(hexToBuffer(archiveInRollup_.toString())).toEqual(new Fr(GENESIS_ARCHIVE_ROOT).toBuffer());
-
       const blockNumber = await l1Client.getBlockNumber();
 
       // random recipient address, just kept consistent for easy testing ts/sol.
@@ -410,7 +407,7 @@ describe('L1Publisher integration', () => {
           deployerAccount.address,
         );
 
-        await publisher.enqueueProposeL2Block(block);
+        await publisher.enqueueProposeL2Block(block, new Fr(0n));
         await publisher.sendRequests();
 
         const logs = await l1Client.getLogs({
@@ -447,7 +444,7 @@ describe('L1Publisher integration', () => {
           args: [
             {
               header: block.header.toPropose().toViem(),
-              archive: `0x${block.archive.root.toBuffer().toString('hex')}`,
+              parentHeaderHash: new Fr(0n).toString(),
               stateReference: block.header.state.toViem(),
               oracleInput: {
                 feeAssetPriceModifier: 0n,
@@ -523,7 +520,7 @@ describe('L1Publisher integration', () => {
     });
 
     const expectPublishBlock = async (block: L2Block, attestations: CommitteeAttestation[]) => {
-      await publisher.enqueueProposeL2Block(block, attestations);
+      await publisher.enqueueProposeL2Block(block, new Fr(0n), attestations);
       const result = await publisher.sendRequests();
       expect(result!.successfulActions).toEqual(['propose']);
       expect(result!.failedActions).toEqual([]);
@@ -535,7 +532,7 @@ describe('L1Publisher integration', () => {
       const blockAttestations = validators.map(v => makeBlockAttestationFromBlock(block, v));
       const attestations = orderAttestations(blockAttestations, committee!);
 
-      const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
+      const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(0), proposer!);
       expect(canPropose?.slot).toEqual(block.header.getSlot());
       await publisher.validateBlockHeader(block.header.toPropose());
 
@@ -549,11 +546,11 @@ describe('L1Publisher integration', () => {
       // Reverse attestations to break proposer attestation
       const attestations = orderAttestations(blockAttestations, committee!).reverse();
 
-      const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
+      const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(0), proposer!);
       expect(canPropose?.slot).toEqual(block.header.getSlot());
       await publisher.validateBlockHeader(block.header.toPropose());
 
-      await expect(publisher.enqueueProposeL2Block(block, attestations)).rejects.toThrow(
+      await expect(publisher.enqueueProposeL2Block(block, new Fr(0n), attestations)).rejects.toThrow(
         /ValidatorSelection__InvalidCommitteeCommitment/,
       );
     });
@@ -597,10 +594,9 @@ describe('L1Publisher integration', () => {
       expect(forcePendingBlockNumber).toEqual(0);
 
       // We cannot propose directly, we need to assume the previous block is invalidated
-      const genesis = new Fr(GENESIS_ARCHIVE_ROOT);
-      logger.warn(`Checking can propose at next eth block on top of genesis ${genesis}`);
-      expect(await publisher.canProposeAtNextEthBlock(genesis, proposer!)).toBeUndefined();
-      const canPropose = await publisher.canProposeAtNextEthBlock(genesis, proposer!, { forcePendingBlockNumber });
+      logger.warn(`Checking can propose at next eth block on top of genesis`);
+      expect(await publisher.canProposeAtNextEthBlock(new Fr(0), proposer!)).toBeUndefined();
+      const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(0), proposer!, { forcePendingBlockNumber });
       expect(canPropose?.slot).toEqual(block.header.getSlot());
 
       // Same for validation
@@ -611,7 +607,7 @@ describe('L1Publisher integration', () => {
       // Invalidate and propose
       logger.warn('Enqueuing requests to invalidate and propose the block');
       publisher.enqueueInvalidateBlock(invalidateRequest);
-      await publisher.enqueueProposeL2Block(block, attestations, undefined, { forcePendingBlockNumber });
+      await publisher.enqueueProposeL2Block(block, new Fr(0n), attestations, undefined, { forcePendingBlockNumber });
       const result = await publisher.sendRequests();
       expect(result!.successfulActions).toEqual(['invalidate-by-insufficient-attestations', 'propose']);
       expect(result!.failedActions).toEqual([]);
@@ -627,7 +623,7 @@ describe('L1Publisher integration', () => {
       const block = await buildSingleBlock();
       publisher.registerSlashPayloadGetter(() => Promise.resolve(EthAddress.random()));
 
-      await publisher.enqueueProposeL2Block(block);
+      await publisher.enqueueProposeL2Block(block, new Fr(0n));
       await publisher.enqueueCastSignal(
         block.header.getSlot(),
         block.header.globalVariables.timestamp,
@@ -651,7 +647,7 @@ describe('L1Publisher integration', () => {
 
       // Expect the simulation to fail
       const loggerErrorSpy = jest.spyOn((publisher as any).log, 'error');
-      await expect(publisher.enqueueProposeL2Block(block)).rejects.toThrow(/Rollup__InvalidInHash/);
+      await expect(publisher.enqueueProposeL2Block(block, new Fr(0n))).rejects.toThrow(/Rollup__InvalidInHash/);
       expect(loggerErrorSpy).toHaveBeenNthCalledWith(
         2,
         expect.stringMatching('Rollup__InvalidInHash'),

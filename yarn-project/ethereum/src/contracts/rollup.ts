@@ -94,6 +94,16 @@ export type ViemAppendOnlyTreeSnapshot = {
   nextAvailableLeafIndex: number;
 };
 
+export type ViemRollupStatus = {
+  provenBlockNumber: bigint;
+  provenArchive: `0x${string}`;
+  pendingBlockNumber: bigint;
+  pendingHeaderHash: `0x${string}`;
+  headerHashOfMyBlock: `0x${string}`;
+  provenEpochNumber: bigint;
+  isBlockHeaderHashStale: boolean;
+};
+
 export class RollupContract {
   private readonly rollup: GetContractReturnType<typeof RollupAbi, ViemClient>;
 
@@ -509,12 +519,12 @@ export class RollupContract {
    *
    * @dev     Throws if unable to propose
    *
-   * @param archive - The archive that we expect to be current state
+   * @param lastHeaderHash - The hash of the last header that we expect to be current state
    * @return [slot, blockNumber] - If you can propose, the L2 slot number and L2 block number of the next Ethereum block,
    * @throws otherwise
    */
   public async canProposeAtNextEthBlock(
-    archive: Buffer,
+    lastHeaderHash: Buffer,
     account: `0x${string}` | Account,
     slotDuration: bigint | number,
     opts: { forcePendingBlockNumber?: number } = {},
@@ -533,7 +543,7 @@ export class RollupContract {
         address: this.address,
         abi: RollupAbi,
         functionName: 'canProposeAtTime',
-        args: [timeOfNextL1Slot, `0x${archive.toString('hex')}`, who],
+        args: [timeOfNextL1Slot, `0x${lastHeaderHash.toString('hex')}`, who],
         account,
         stateOverride: await this.makePendingBlockNumberOverride(opts.forcePendingBlockNumber),
       });
@@ -623,7 +633,7 @@ export class RollupContract {
     return this.rollup.read.getSlotAt([timestamp]);
   }
 
-  async status(blockNumber: bigint, options?: { blockNumber?: bigint }) {
+  async status(blockNumber: bigint, options?: { blockNumber?: bigint }): Promise<ViemRollupStatus> {
     await checkBlockTag(options?.blockNumber, this.client);
     return this.rollup.read.status([blockNumber], options);
   }
@@ -631,10 +641,6 @@ export class RollupContract {
   async canPruneAtTime(timestamp: bigint, options?: { blockNumber?: bigint }) {
     await checkBlockTag(options?.blockNumber, this.client);
     return this.rollup.read.canPruneAtTime([timestamp], options);
-  }
-
-  archive() {
-    return this.rollup.read.archive();
   }
 
   archiveAt(blockNumber: bigint) {

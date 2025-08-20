@@ -209,11 +209,14 @@ describe('e2e_cheat_codes', () => {
     it('markAsProven', async () => {
       const { pendingBlockNumber, provenBlockNumber } = await rollup.getTips();
       expect(pendingBlockNumber).toBeGreaterThan(provenBlockNumber);
-
-      await cc.rollup.markAsProven();
+      const archive = '0x000000000000000000000000000000000000000000000000000000000000cafe';
+      await cc.rollup.markAsProven(pendingBlockNumber, archive);
 
       const { pendingBlockNumber: pendingBlockNumber2, provenBlockNumber: provenBlockNumber2 } = await rollup.getTips();
       expect(pendingBlockNumber2).toBe(provenBlockNumber2);
+
+      const block = await rollup.getBlock(pendingBlockNumber);
+      expect(block.archive).toBe(archive);
 
       // If this test fails, it is likely because the storage updated and is not updated in the cheatcodes.
     });

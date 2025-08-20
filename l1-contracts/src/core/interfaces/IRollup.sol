@@ -45,6 +45,26 @@ struct BlockHeaderValidationFlags {
   bool ignoreDA;
 }
 
+/**
+ * @notice Struct for rollup status information
+ * @param provenBlockNumber - The latest proven block number
+ * @param provenArchive - Archive root of the latest proven block
+ * @param pendingBlockNumber - The latest pending block number
+ * @param pendingHeaderHash - Header hash of the latest pending block
+ * @param headerHashOfMyBlock - Header hash of the requested block number
+ * @param provenEpochNumber - Epoch number of the latest proven block
+ * @param isBlockHeaderHashStale - Whether the header hash for the requested block is stale
+ */
+struct RollupStatus {
+  uint256 provenBlockNumber;
+  bytes32 provenArchive;
+  uint256 pendingBlockNumber;
+  bytes32 pendingHeaderHash;
+  bytes32 headerHashOfMyBlock;
+  Epoch provenEpochNumber;
+  bool isBlockHeaderHashStale;
+}
+
 struct GenesisState {
   bytes32 vkTreeRoot;
   bytes32 protocolContractTreeRoot;
@@ -91,7 +111,12 @@ struct RollupStore {
 }
 
 interface IRollupCore {
-  event L2BlockProposed(uint256 indexed blockNumber, bytes32 indexed archive, bytes32[] versionedBlobHashes);
+  event L2BlockProposed(
+    uint256 indexed blockNumber,
+    bytes32 indexed headerHash,
+    bytes32 indexed parentHeaderHash,
+    bytes32[] versionedBlobHashes
+  );
   event L2ProofVerified(uint256 indexed blockNumber, address indexed proverId);
   event BlockInvalidated(uint256 indexed blockNumber);
   event RewardConfigUpdated(RewardConfig rewardConfig);
@@ -147,21 +172,11 @@ interface IRollup is IRollupCore, IHaveVersion {
     BlockHeaderValidationFlags memory _flags
   ) external;
 
-  function canProposeAtTime(Timestamp _ts, bytes32 _archive, address _who) external returns (Slot, uint256);
+  function canProposeAtTime(Timestamp _ts, bytes32 _headerHash, address _who) external returns (Slot, uint256);
 
   function getTips() external view returns (ChainTips memory);
 
-  function status(uint256 _myHeaderBlockNumber)
-    external
-    view
-    returns (
-      uint256 provenBlockNumber,
-      bytes32 provenArchive,
-      uint256 pendingBlockNumber,
-      bytes32 pendingArchive,
-      bytes32 archiveOfMyBlock,
-      Epoch provenEpochNumber
-    );
+  function status(uint256 _myHeaderBlockNumber) external view returns (RollupStatus memory);
 
   function getEpochProofPublicInputs(
     uint256 _start,

@@ -10,7 +10,7 @@ import type {
 } from '@aztec/ethereum';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
-import type { EthAddress } from '@aztec/foundation/eth-address';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
@@ -24,7 +24,6 @@ import {
   type GetContractReturnType,
   type Hex,
   decodeFunctionData,
-  getAbiItem,
   hexToBytes,
   multicall3Abi,
 } from 'viem';
@@ -36,8 +35,8 @@ import type { L1PublishedData, PublishedL2Block } from './structs/published.js';
 
 export type RetrievedL2Block = {
   l2BlockNumber: number;
-  archiveRoot: Fr;
   stateReference: StateReference;
+  parentHeaderHash: Hex;
   header: ProposedBlockHeader;
   body: Body;
   l1: L1PublishedData;
@@ -46,10 +45,14 @@ export type RetrievedL2Block = {
   attestations: CommitteeAttestation[];
 };
 
-export function retrievedBlockToPublishedL2Block(retrievedBlock: RetrievedL2Block): PublishedL2Block {
+/**
+ * Converts a retrieved block from L1 (using retrieveBlocksFromRollup) to a published block data-type.
+ * @param retrievedBlock - The retrieved block.
+ * @returns The published block.
+ */
+export function retrievedBlockToPublishedL2Block(retrievedBlock: RetrievedL2Block, archive?: Fr): PublishedL2Block {
   const {
     l2BlockNumber,
-    archiveRoot,
     stateReference,
     header: proposedHeader,
     body,
@@ -58,11 +61,6 @@ export function retrievedBlockToPublishedL2Block(retrievedBlock: RetrievedL2Bloc
     version,
     attestations,
   } = retrievedBlock;
-
-  const archive = new AppendOnlyTreeSnapshot(
-    archiveRoot,
-    l2BlockNumber + 1, // nextAvailableLeafIndex
-  );
 
   const globalVariables = GlobalVariables.from({
     chainId,
@@ -84,7 +82,7 @@ export function retrievedBlockToPublishedL2Block(retrievedBlock: RetrievedL2Bloc
     totalManaUsed: proposedHeader.totalManaUsed,
   });
 
-  const block = new L2Block(archive, header, body);
+  const block = new L2Block(new AppendOnlyTreeSnapshot(archive ?? Fr.ZERO, l2BlockNumber + 1), header, body);
 
   return {
     block,
@@ -94,7 +92,7 @@ export function retrievedBlockToPublishedL2Block(retrievedBlock: RetrievedL2Bloc
 }
 
 /**
- * Fetches new L2 blocks.
+ * Fetches new L2 blocks by retrieving L2BlockProposed logs.
  * @param publicClient - The viem public client to use for transaction retrieval.
  * @param rollupAddress - The address of the rollup contract.
  * @param searchStartBlock - The block number to use for starting the search.
@@ -170,26 +168,28 @@ export async function retrieveBlocksFromRollup(
  * Processes newly received L2BlockProposed logs.
  * @param rollup - The rollup contract
  * @param publicClient - The viem public client to use for transaction retrieval.
- * @param logs - L2BlockProposed logs.
+ * @param l1EventLogs - L2BlockProposed logs.
+ * @param constants - Constants from the rollup contract.
+ * @param logger - The logger to use for logging.
  * @returns - An array blocks.
  */
 async function processL2BlockProposedLogs(
   rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>,
   publicClient: ViemPublicClient,
   blobSinkClient: BlobSinkClientInterface,
-  logs: GetContractEventsReturnType<typeof RollupAbi, 'L2BlockProposed'>,
+  l1EventLogs: GetContractEventsReturnType<typeof RollupAbi, 'L2BlockProposed'>,
   { chainId, version, targetCommitteeSize }: { chainId: Fr; version: Fr; targetCommitteeSize: number },
   logger: Logger,
 ): Promise<RetrievedL2Block[]> {
   const retrievedBlocks: RetrievedL2Block[] = [];
-  await asyncPool(10, logs, async log => {
+  await asyncPool(10, l1EventLogs, async log => {
     const l2BlockNumber = Number(log.args.blockNumber!);
-    const archive = log.args.archive!;
-    const archiveFromChain = await rollup.read.archiveAt([BigInt(l2BlockNumber)]);
+    const headerHash = log.args.headerHash!;
+    const blockFromChain = await rollup.read.getBlock([BigInt(l2BlockNumber)]);
     const blobHashes = log.args.versionedBlobHashes!.map(blobHash => Buffer.from(blobHash.slice(2), 'hex'));
 
     // The value from the event and contract will match only if the block is in the chain.
-    if (archive === archiveFromChain) {
+    if (headerHash === blockFromChain.headerHash) {
       const block = await getBlockFromRollupTx(
         publicClient,
         blobSinkClient,
@@ -211,13 +211,13 @@ async function processL2BlockProposedLogs(
       logger.trace(`Retrieved L2 block ${l2BlockNumber} from L1 tx ${log.transactionHash}`, {
         l1BlockNumber: log.blockNumber,
         l2BlockNumber,
-        archive: archive.toString(),
+        blockHeaderHash: blockFromChain.headerHash,
         attestations: block.attestations,
       });
     } else {
-      logger.warn(`Ignoring L2 block ${l2BlockNumber} due to archive root mismatch`, {
-        actual: archive,
-        expected: archiveFromChain,
+      logger.warn(`Ignoring L2 block ${l2BlockNumber} due to block header hash mismatch`, {
+        actual: headerHash,
+        expected: blockFromChain.headerHash,
       });
     }
   });
@@ -313,8 +313,8 @@ async function getBlockFromRollupTx(
 
   const [decodedArgs, packedAttestations, _signers, _blobInput] = rollupArgs! as readonly [
     {
-      archive: Hex;
       stateReference: ViemStateReference;
+      parentHeaderHash: Hex;
       oracleInput: {
         feeAssetPriceModifier: bigint;
       };
@@ -330,7 +330,8 @@ async function getBlockFromRollupTx(
 
   logger.trace(`Recovered propose calldata from tx ${txHash}`, {
     l2BlockNumber,
-    archive: decodedArgs.archive,
+    headerHash: ProposedBlockHeader.fromViem(decodedArgs.header).hash().toString(),
+    parentHeaderHash: decodedArgs.parentHeaderHash,
     stateReference: decodedArgs.stateReference,
     header: decodedArgs.header,
     blobHashes,
@@ -362,14 +363,12 @@ async function getBlockFromRollupTx(
   // The blob source gives us blockFields, and we must construct the body from them:
   const body = Body.fromBlobFields(blockFields);
 
-  const archiveRoot = new Fr(Buffer.from(hexToBytes(decodedArgs.archive)));
-
   const stateReference = StateReference.fromViem(decodedArgs.stateReference);
 
   return {
     l2BlockNumber,
-    archiveRoot,
     stateReference,
+    parentHeaderHash: decodedArgs.parentHeaderHash,
     header,
     body,
     attestations,
@@ -436,41 +435,43 @@ function mapLogsInboxMessage(logs: GetContractEventsReturnType<typeof InboxAbi, 
 
 /** Retrieves L2ProofVerified events from the rollup contract. */
 export async function retrieveL2ProofVerifiedEvents(
-  publicClient: ViemPublicClient,
-  rollupAddress: EthAddress,
+  rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>,
   searchStartBlock: bigint,
   searchEndBlock?: bigint,
 ): Promise<{ l1BlockNumber: bigint; l2BlockNumber: number; proverId: Fr; txHash: Hex }[]> {
-  const logs = await publicClient.getLogs({
-    address: rollupAddress.toString(),
-    fromBlock: searchStartBlock,
-    toBlock: searchEndBlock ? searchEndBlock : undefined,
-    strict: true,
-    event: getAbiItem({ abi: RollupAbi, name: 'L2ProofVerified' }),
-  });
+  const logs = await rollup.getEvents.L2ProofVerified({}, { fromBlock: searchStartBlock, toBlock: searchEndBlock });
 
-  return logs.map(log => ({
+  return (logs || []).map(log => ({
     l1BlockNumber: log.blockNumber,
     l2BlockNumber: Number(log.args.blockNumber),
-    proverId: Fr.fromHexString(log.args.proverId),
+    proverId: Fr.fromHexString(log.args.proverId ?? EthAddress.ZERO.toString()),
     txHash: log.transactionHash,
   }));
 }
 
 /** Retrieve submitted proofs from the rollup contract */
 export async function retrieveL2ProofsFromRollup(
+  rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>,
   publicClient: ViemPublicClient,
-  rollupAddress: EthAddress,
   searchStartBlock: bigint,
   searchEndBlock?: bigint,
-): Promise<DataRetrieval<{ proof: Proof; proverId: Fr; l2BlockNumber: number; txHash: `0x${string}` }>> {
-  const logs = await retrieveL2ProofVerifiedEvents(publicClient, rollupAddress, searchStartBlock, searchEndBlock);
-  const retrievedData: { proof: Proof; proverId: Fr; l2BlockNumber: number; txHash: `0x${string}` }[] = [];
+): Promise<
+  DataRetrieval<{ proof: Proof; proverId: Fr; l2BlockNumber: number; txHash: `0x${string}`; archiveRoot: Fr }>
+> {
+  const logs = await retrieveL2ProofVerifiedEvents(rollup, searchStartBlock, searchEndBlock);
+  const retrievedData: { proof: Proof; proverId: Fr; l2BlockNumber: number; txHash: `0x${string}`; archiveRoot: Fr }[] =
+    [];
   const lastProcessedL1BlockNumber = logs.length > 0 ? logs.at(-1)!.l1BlockNumber : searchStartBlock - 1n;
 
   for (const { txHash, proverId, l2BlockNumber } of logs) {
     const proofData = await getProofFromSubmitProofTx(publicClient, txHash, proverId);
-    retrievedData.push({ proof: proofData.proof, proverId: proofData.proverId, l2BlockNumber, txHash });
+    retrievedData.push({
+      proof: proofData.proof,
+      proverId: proofData.proverId,
+      l2BlockNumber,
+      txHash,
+      archiveRoot: proofData.archiveRoot,
+    });
   }
   return {
     retrievedData,
@@ -493,7 +494,7 @@ export type SubmitBlockProof = {
  * @param l2BlockNum - L2 block number.
  * @returns L2 block metadata (header and archive) from the calldata, deserialized
  */
-export async function getProofFromSubmitProofTx(
+async function getProofFromSubmitProofTx(
   publicClient: ViemPublicClient,
   txHash: `0x${string}`,
   expectedProverId: Fr,

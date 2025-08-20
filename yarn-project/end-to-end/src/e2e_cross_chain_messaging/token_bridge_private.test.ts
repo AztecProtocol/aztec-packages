@@ -1,4 +1,5 @@
-import { Fr } from '@aztec/aztec.js';
+import type { AztecNodeService } from '@aztec/aztec-node';
+import { Fr, MerkleTreeId } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec/testing';
 import { RollupContract } from '@aztec/ethereum';
 import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
@@ -95,7 +96,10 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     );
 
     // Since the outbox is only consumable when the block is proven, we need to set the block to be proven
-    await cheatCodes.rollup.markAsProven(await rollup.getBlockNumber());
+    const snapshot = (aztecNode as AztecNodeService)['worldStateSynchronizer'].getSnapshot(l2TxReceipt.blockNumber!);
+    const archiveTreeInfo = await snapshot.getTreeInfo(MerkleTreeId.ARCHIVE);
+    const realArchive = `0x${archiveTreeInfo.root.toString('hex').replace('0x', '')}` as `0x${string}`;
+    await cheatCodes.rollup.markAsProven(await rollup.getBlockNumber(), realArchive);
 
     // Check balance before and after exit.
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);

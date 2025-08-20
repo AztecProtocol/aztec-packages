@@ -450,7 +450,10 @@ describe('e2e_synching', () => {
         await cheatCodes.eth.mine();
       }
       // If it breaks here, first place you should look is the pruning.
-      await publisher.enqueueProposeL2Block(block);
+      await publisher.enqueueProposeL2Block(
+        block,
+        block.number === 0 ? Fr.ZERO : blocks[block.number - 1].header.toPropose().hash(),
+      );
 
       await cheatCodes.rollup.markAsProven(provenThrough);
     }

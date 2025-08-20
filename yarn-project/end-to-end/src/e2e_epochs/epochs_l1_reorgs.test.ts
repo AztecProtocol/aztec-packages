@@ -124,7 +124,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       await retryUntil(() => node.getProvenBlockNumber().then(p => p >= provenBlock), 'node sync', 10, 0.1);
 
       // Remove the proof from L1 but do not change the block number
-      await context.cheatCodes.eth.reorgWithReplacement(1);
+      await context.cheatCodes.eth.reorgWithReplacement(2);
       await expect(monitor.run(true).then(m => m.l2ProvenBlockNumber)).resolves.toEqual(0);
 
       // Create another prover node so it submits a proof
@@ -143,6 +143,89 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       expect(await node.getBlockNumber()).toBeWithin(currentBlock - 1, currentBlock + 1);
 
       logger.warn(`Test succeeded`);
+    });
+
+    it('archiver rolls back to the last proven checkpoint on L1 reorg', async () => {
+      // Helper to wait for the next proven event strictly increasing
+      const waitForNextProven = async (minL2Proven: number) =>
+        await executeTimeout(
+          signal => {
+            return new Promise<{ l2ProvenBlockNumber: number; l1BlockNumber: number }>((res, rej) => {
+              const handleMsg = (...[ev]: ChainMonitorEventMap['l2-block-proven']) => {
+                if (ev.l2ProvenBlockNumber > minL2Proven) {
+                  res(ev);
+                  monitor.off('l2-block-proven', handleMsg);
+                }
+              };
+              signal.onabort = () => {
+                monitor.off('l2-block-proven', handleMsg);
+                rej(new AbortError());
+              };
+              monitor.on('l2-block-proven', handleMsg);
+            });
+          },
+          test.constants.epochDuration * test.constants.slotDuration * 4 * 1000,
+        );
+
+      // 1) Wait for the first proof to land
+      logger.warn(`Waiting for first proof to land`);
+      const firstProven = await waitForNextProven(0);
+      await retryUntil(
+        () => archiver.getProvenBlockNumber().then(n => n >= firstProven.l2ProvenBlockNumber),
+        'archiver first checkpoint',
+        20,
+        0.1,
+      );
+
+      // 2) Wait for a second proof to land, creating a later checkpoint
+      logger.warn(`Waiting for second proof to land`);
+      const secondProven = await waitForNextProven(firstProven.l2ProvenBlockNumber);
+      await retryUntil(
+        () => archiver.getProvenBlockNumber().then(n => n >= secondProven.l2ProvenBlockNumber),
+        'archiver second checkpoint',
+        20,
+        0.1,
+      );
+
+      // 3) Advance a couple more blocks after the second checkpoint
+      const targetAfterSecond = secondProven.l2ProvenBlockNumber + 2;
+      await test.waitUntilL2BlockNumber(targetAfterSecond, L2_SLOT_DURATION_IN_S * (targetAfterSecond + 4));
+      await retryUntil(() => archiver.getBlockNumber().then(n => n >= targetAfterSecond), 'archiver latest', 20, 0.1);
+
+      // 4) Stop prover to avoid re-submitting the second proof after we reorg it out
+      await proverNode.stop();
+
+      // 5) Reorg L1 to before the second proof so only it is removed, keeping the first checkpoint
+      logger.warn(`Reorging L1 to before second proof at L1 block ${secondProven.l1BlockNumber}`);
+      await context.cheatCodes.eth.reorgTo(secondProven.l1BlockNumber - 1);
+
+      // Proven tip should roll back to the first proven block
+      await retryUntil(
+        () => monitor.run(true).then(m => m.l2ProvenBlockNumber === firstProven.l2ProvenBlockNumber),
+        'monitor proven rolled back to first',
+        20,
+        0.1,
+      );
+
+      // 6) Archiver proven rolls back to the first  checkpoint
+      await retryUntil(
+        () => archiver.getProvenBlockNumber().then(n => n === firstProven.l2ProvenBlockNumber),
+        'archiver proven rolled back',
+        L2_SLOT_DURATION_IN_S * 6,
+        0.1,
+      );
+
+      // Pending head may prune but must be >= proven
+      const [archProv, archLatest] = await Promise.all([archiver.getProvenBlockNumber(), archiver.getBlockNumber()]);
+      expect(archLatest).toBeGreaterThanOrEqual(archProv);
+
+      // 7) Node also reflects rollback to the first checkpoint
+      await retryUntil(
+        () => node.getProvenBlockNumber().then(n => n === firstProven.l2ProvenBlockNumber),
+        'node proven rolled back',
+        20,
+        0.1,
+      );
     });
 
     it('restores L2 blocks if a proof is added due to an L1 reorg', async () => {

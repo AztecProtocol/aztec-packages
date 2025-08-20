@@ -186,7 +186,7 @@ describe('p2p client integration message propagation', () => {
     const attestation = mockAttestation(
       Secp256k1Signer.random(),
       Number(dummyPayload.header!.getSlot()),
-      dummyPayload.archive,
+      dummyPayload.header,
     );
     await (client1 as any).p2pService.broadcastAttestation(attestation);
 
@@ -335,7 +335,7 @@ describe('p2p client integration message propagation', () => {
         const attestation = mockAttestation(
           Secp256k1Signer.random(),
           Number(dummyPayload.header!.getSlot()),
-          dummyPayload.archive,
+          dummyPayload.header,
         );
         await (client1.client as any).p2pService.broadcastAttestation(attestation);
 

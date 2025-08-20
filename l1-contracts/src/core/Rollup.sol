@@ -12,7 +12,8 @@ import {
   FeeAssetPerEthE9,
   BlockHeaderValidationFlags,
   FeeHeader,
-  RollupConfigInput
+  RollupConfigInput,
+  RollupStatus
 } from "@aztec/core/interfaces/IRollup.sol";
 import {IStaking, AttesterConfig, Exit, AttesterView, Status} from "@aztec/core/interfaces/IStaking.sol";
 import {IValidatorSelection, IEmperor} from "@aztec/core/interfaces/IValidatorSelection.sol";
@@ -152,18 +153,18 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @notice  Check if msg.sender can propose at a given time
    *
    * @param _ts - The timestamp to check
-   * @param _archive - The archive to check (should be the latest archive)
+   * @param _headerHash - The header hash to check
    * @param _who - The address to check
    *
    * @return uint256 - The slot at the given timestamp
    * @return uint256 - The block number at the given timestamp
    */
-  function canProposeAtTime(Timestamp _ts, bytes32 _archive, address _who)
+  function canProposeAtTime(Timestamp _ts, bytes32 _headerHash, address _who)
     external
     override(IRollup)
     returns (Slot, uint256)
   {
-    return ExtRollupLib2.canProposeAtTime(_ts, _archive, _who);
+    return ExtRollupLib2.canProposeAtTime(_ts, _headerHash, _who);
   }
 
   function getTargetCommitteeSize() external view override(IValidatorSelection) returns (uint256) {
@@ -222,30 +223,22 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return ChainTipsLib.decompress(STFLib.getStorage().tips);
   }
 
-  function status(uint256 _myHeaderBlockNumber)
-    external
-    view
-    override(IRollup)
-    returns (
-      uint256 provenBlockNumber,
-      bytes32 provenArchive,
-      uint256 pendingBlockNumber,
-      bytes32 pendingArchive,
-      bytes32 archiveOfMyBlock,
-      Epoch provenEpochNumber
-    )
-  {
+  function status(uint256 _myHeaderBlockNumber) external view override(IRollup) returns (RollupStatus memory) {
     RollupStore storage rollupStore = STFLib.getStorage();
     ChainTips memory tips = ChainTipsLib.decompress(rollupStore.tips);
 
-    return (
-      tips.provenBlockNumber,
-      rollupStore.archives[tips.provenBlockNumber],
-      tips.pendingBlockNumber,
-      rollupStore.archives[tips.pendingBlockNumber],
-      archiveAt(_myHeaderBlockNumber),
-      getEpochForBlock(tips.provenBlockNumber)
-    );
+    bool isStale = STFLib.isTempStale(_myHeaderBlockNumber);
+    bytes32 headerHash = isStale ? bytes32(0) : STFLib.getHeaderHash(_myHeaderBlockNumber);
+
+    return RollupStatus({
+      provenBlockNumber: tips.provenBlockNumber,
+      provenArchive: rollupStore.archives[tips.provenBlockNumber],
+      pendingBlockNumber: tips.pendingBlockNumber,
+      pendingHeaderHash: STFLib.getHeaderHash(tips.pendingBlockNumber),
+      headerHashOfMyBlock: headerHash,
+      provenEpochNumber: getEpochForBlock(tips.provenBlockNumber),
+      isBlockHeaderHashStale: isStale
+    });
   }
 
   /**

@@ -82,7 +82,6 @@ library EpochProofLib {
    * @dev Errors Thrown:
    *      - Rollup__InvalidProof: validity proof verification failed
    *      - Rollup__InvalidPreviousArchive: Previous archive root mismatch
-   *      - Rollup__InvalidArchive: End archive root mismatch
    *      - Rollup__InvalidAttestations: Attestation verification failed for last block
    *      - Rollup__StartAndEndNotSameEpoch: Proof spans multiple epochs
    *      - Rollup__PastDeadline: Proof submitted after deadline
@@ -116,6 +115,7 @@ library EpochProofLib {
     require(verifyEpochRootProof(_args), Errors.Rollup__InvalidProof());
 
     RollupStore storage rollupStore = STFLib.getStorage();
+    rollupStore.archives[_args.end] = _args.args.endArchive;
     rollupStore.tips =
       rollupStore.tips.updateProvenBlockNumber(Math.max(rollupStore.tips.getProvenBlockNumber(), _args.end));
 
@@ -146,20 +146,16 @@ library EpochProofLib {
   ) internal view returns (bytes32[] memory) {
     RollupStore storage rollupStore = STFLib.getStorage();
 
+    require(_args.endArchive != bytes32(0), Errors.Rollup__EndArchiveIsZero());
+
     {
       // We do it this way to provide better error messages than passing along the storage values
       {
         bytes32 expectedPreviousArchive = rollupStore.archives[_start - 1];
+        require(expectedPreviousArchive != bytes32(0), Errors.Rollup__PreviousArchiveIsZero());
         require(
           expectedPreviousArchive == _args.previousArchive,
           Errors.Rollup__InvalidPreviousArchive(expectedPreviousArchive, _args.previousArchive)
-        );
-      }
-
-      {
-        bytes32 expectedEndArchive = rollupStore.archives[_end];
-        require(
-          expectedEndArchive == _args.endArchive, Errors.Rollup__InvalidArchive(expectedEndArchive, _args.endArchive)
         );
       }
     }
@@ -354,7 +350,6 @@ library EpochProofLib {
    *      - Rollup__InvalidBlobProof: Batched blob proof verification failed
    *      - Rollup__InvalidProof: validity proof verification failed
    *      - Rollup__InvalidPreviousArchive: Previous archive root mismatch in public inputs
-   *      - Rollup__InvalidArchive: End archive root mismatch in public inputs
    *
    * @param _args The epoch proof submission arguments containing proof data and public inputs
    * @return True if both blob proof and validity proof verification succeed

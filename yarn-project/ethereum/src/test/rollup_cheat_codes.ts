@@ -13,6 +13,7 @@ import {
   getContract,
   hexToBigInt,
   http,
+  keccak256,
 } from 'viem';
 import { foundry } from 'viem/chains';
 
@@ -81,7 +82,6 @@ export class RollupCheatCodes {
     const provenNum = await rollup.getProvenBlockNumber();
     const validators = await rollup.getAttesters();
     const committee = await rollup.getCurrentEpochCommittee();
-    const archive = await rollup.archive();
     const slot = await this.getSlot();
     const epochNum = await rollup.getEpochNumberForSlotNumber(slot);
 
@@ -89,7 +89,6 @@ export class RollupCheatCodes {
     this.logger.info(`Proven block num: ${provenNum}`);
     this.logger.info(`Validators: ${validators.map(v => v.toString()).join(', ')}`);
     this.logger.info(`Committee: ${committee?.map(v => v.toString()).join(', ')}`);
-    this.logger.info(`Archive: ${archive}`);
     this.logger.info(`Epoch num: ${epochNum}`);
     this.logger.info(`Slot: ${slot}`);
   }
@@ -166,7 +165,7 @@ export class RollupCheatCodes {
    * Marks the specified block (or latest if none) as proven
    * @param maybeBlockNumber - The block number to mark as proven (defaults to latest pending)
    */
-  public markAsProven(maybeBlockNumber?: number | bigint) {
+  public markAsProven(maybeBlockNumber?: number | bigint, maybeArchive?: `0x${string}`) {
     return this.ethCheatCodes.execWithPausedAnvil(async () => {
       const tipsBefore = await this.getTips();
       const { pending, proven } = tipsBefore;
@@ -175,27 +174,54 @@ export class RollupCheatCodes {
       if (blockNumber === undefined || blockNumber > pending) {
         blockNumber = pending;
       }
-      if (blockNumber <= proven) {
-        this.logger.debug(`Block ${blockNumber} is already proven`);
-        return;
-      }
 
       // @note @LHerskind this is heavily dependent on the storage layout and size of values
       // The rollupStore is a struct and if the size of elements or the struct changes, this can break
       const provenBlockNumberSlot = hexToBigInt(RollupContract.stfStorageSlot);
 
-      // Need to pack it as a single 32 byte word
-      const newValue = (BigInt(tipsBefore.pending) << 128n) | BigInt(blockNumber);
-      await this.ethCheatCodes.store(EthAddress.fromString(this.rollup.address), provenBlockNumberSlot, newValue);
+      if (BigInt(blockNumber) > proven) {
+        // Need to pack it as a single 32 byte word
+        const newValue = (BigInt(tipsBefore.pending) << 128n) | BigInt(blockNumber);
+        await this.ethCheatCodes.store(EthAddress.fromString(this.rollup.address), provenBlockNumberSlot, newValue);
+      } else {
+        this.logger.debug(`Block ${blockNumber} is already proven; will still set archive if provided.`);
+      }
 
       const tipsAfter = await this.getTips();
       if (tipsAfter.pending < tipsAfter.proven) {
         throw new Error('Overwrote pending tip to a block in the past');
       }
 
+      if (maybeArchive) {
+        await this.setArchiveForBlock(Number(blockNumber), maybeArchive);
+      }
+
       this.logger.info(
         `Proven tip moved: ${tipsBefore.proven} -> ${tipsAfter.proven}. Pending tip: ${tipsAfter.pending}.`,
       );
+    });
+  }
+
+  /**
+   * Sets the archive for a specific block number in the rollup storage.
+   * @param blockNumber - The block number to set the archive for
+   * @param archive - The archive value
+   */
+  public async setArchiveForBlock(blockNumber: number, archive: `0x${string}`) {
+    await this.ethCheatCodes.execWithPausedAnvil(async () => {
+      // Get the base storage slot for the rollup store
+      const storageSlot = keccak256(Buffer.from('aztec.stf.storage', 'utf-8'));
+      const baseSlot = BigInt(storageSlot);
+
+      // The archives mapping is at offset 1 in the RollupStore struct
+      // (after CompressedChainTips tips at offset 0)
+      const archivesMapSlot = baseSlot + 1n;
+
+      // Calculate the storage slot for archives[blockNumber]
+      const archiveSlot = this.ethCheatCodes.keccak256(archivesMapSlot, BigInt(blockNumber));
+
+      // Set the archive value
+      await this.ethCheatCodes.store(EthAddress.fromString(this.rollup.address), archiveSlot, BigInt(archive));
     });
   }
 

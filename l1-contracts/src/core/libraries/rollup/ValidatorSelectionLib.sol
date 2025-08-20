@@ -2,7 +2,6 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {RollupStore} from "@aztec/core/interfaces/IRollup.sol";
 import {ValidatorSelectionStorage} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {SampleLib} from "@aztec/core/libraries/crypto/SampleLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
@@ -484,17 +483,16 @@ library ValidatorSelectionLib {
    *      - Archive consistency (must build on current chain tip)
    *      - Proposer authorization (must be the designated proposer for the slot)
    * @param _ts The timestamp of the proposed block
-   * @param _archive The archive root the block claims to build on
+   * @param _headerHash The header hash the block claims to build on
    * @param _who The address attempting to propose the block
    * @return slot The slot number derived from the timestamp
    * @return blockNumber The next block number that will be assigned
    * @custom:reverts Errors.Rollup__SlotAlreadyInChain if trying to propose for a past slot
-   * @custom:reverts Errors.Rollup__InvalidArchive if archive doesn't match current chain tip
+   * @custom:reverts Errors.Rollup__InvalidHeaderHash if header hash doesn't match current chain tip
    * @custom:reverts Errors.ValidatorSelection__InvalidProposer if _who is not the designated proposer
    */
-  function canProposeAtTime(Timestamp _ts, bytes32 _archive, address _who) internal returns (Slot, uint256) {
+  function canProposeAtTime(Timestamp _ts, bytes32 _headerHash, address _who) internal returns (Slot, uint256) {
     Slot slot = _ts.slotFromTimestamp();
-    RollupStore storage rollupStore = STFLib.getStorage();
 
     // Pending chain tip
     uint256 pendingBlockNumber = STFLib.getEffectivePendingBlockNumber(_ts);
@@ -503,10 +501,9 @@ library ValidatorSelectionLib {
 
     require(slot > lastSlot, Errors.Rollup__SlotAlreadyInChain(lastSlot, slot));
 
-    // Make sure that the proposer is up to date and on the right chain (ie no reorgs)
-    bytes32 tipArchive = rollupStore.archives[pendingBlockNumber];
-    require(tipArchive == _archive, Errors.Rollup__InvalidArchive(tipArchive, _archive));
-
+    // Use the header hash of the pending block as the check
+    bytes32 tipHeaderHash = STFLib.getHeaderHash(pendingBlockNumber);
+    require(tipHeaderHash == _headerHash, Errors.Rollup__InvalidHeaderHash(tipHeaderHash, _headerHash));
     (address proposer,) = getProposerAt(slot);
     require(proposer == _who, Errors.ValidatorSelection__InvalidProposer(proposer, _who));
 

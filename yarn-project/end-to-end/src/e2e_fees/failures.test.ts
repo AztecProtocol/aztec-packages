@@ -3,6 +3,7 @@ import {
   type AztecAddress,
   Fr,
   FunctionSelector,
+  MerkleTreeId,
   PrivateFeePaymentMethod,
   PublicFeePaymentMethod,
   TxStatus,
@@ -80,6 +81,16 @@ describe('e2e_fees failures', () => {
     // We wait until the proven chain is caught up so all previous fees are paid out.
     await t.context.watcher.trigger();
     await t.cheatCodes.rollup.advanceToNextEpoch();
+
+    // Get the epoch info
+    const l2Tips = await t.context.aztecNode.getL2Tips();
+    const previousEpochLastBlock = l2Tips.proven.number;
+
+    const snapshot = t.context.aztecNode['worldStateSynchronizer'].getSnapshot(previousEpochLastBlock);
+    const archiveTreeInfo = await snapshot.getTreeInfo(MerkleTreeId.ARCHIVE);
+    const realArchive = `0x${archiveTreeInfo.root.toString('hex').replace('0x', '')}` as `0x${string}`;
+    await t.cheatCodes.rollup.markAsProven(previousEpochLastBlock, realArchive);
+
     await t.catchUpProvenChain();
 
     const currentSequencerRewards = await t.getCoinbaseSequencerRewards();

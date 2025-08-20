@@ -17,7 +17,6 @@ import {ProposedHeader, ProposedHeaderLib, StateReference} from "./ProposedHeade
 import {STFLib} from "./STFLib.sol";
 
 struct ProposeArgs {
-  bytes32 archive;
   // Including stateReference here so that the archiver can reconstruct the full block header.
   // It doesn't need to be in the proposed header as the values are not used in propose() and they are committed to
   // by the last archive and blobs hash.
@@ -25,10 +24,10 @@ struct ProposeArgs {
   StateReference stateReference;
   OracleInput oracleInput;
   ProposedHeader header;
+  bytes32 parentHeaderHash;
 }
 
 struct ProposePayload {
-  bytes32 archive;
   StateReference stateReference;
   OracleInput oracleInput;
   bytes32 headerHash;
@@ -193,9 +192,6 @@ library ProposeLib {
     // similar to blobCommitmentsHash, see comment in BlobLib.sol -> validateBlobs().
     (v.blobHashes, v.blobsHashesCommitment, v.blobCommitments) = BlobLib.validateBlobs(_blobsInput, _checkBlob);
 
-    ProposedHeader memory header = _args.header;
-
-    // Compute header hash for computing the payload digest
     v.headerHash = ProposedHeaderLib.hash(_args.header);
 
     // Setup epoch by sampling the committee for the current epoch and setting the seed for the one after the next.
@@ -203,63 +199,57 @@ library ProposeLib {
     v.currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
     ValidatorSelectionLib.setupEpoch(v.currentEpoch);
 
-    // Calculate mana base fee components for header validation
-    ManaBaseFeeComponents memory components;
-    if (v.isTxsEnabled) {
-      // Since ignition have no transactions, we need not waste gas computing the fee components
-      components = getManaBaseFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
-    }
+    uint256 manaBaseFee =
+      v.isTxsEnabled ? FeeLib.summedBaseFee(getManaBaseFeeComponentsAt(Timestamp.wrap(block.timestamp), true)) : 0;
 
     // Create payload digest signed by the committee members
     v.payloadDigest = digest(
-      ProposePayload({
-        archive: _args.archive,
-        stateReference: _args.stateReference,
-        oracleInput: _args.oracleInput,
-        headerHash: v.headerHash
-      })
+      ProposePayload({stateReference: _args.stateReference, oracleInput: _args.oracleInput, headerHash: v.headerHash})
     );
 
     // Validate block header
     validateHeader(
       ValidateHeaderArgs({
-        header: header,
+        header: _args.header,
         digest: v.payloadDigest,
-        manaBaseFee: FeeLib.summedBaseFee(components),
+        manaBaseFee: manaBaseFee,
         blobsHashesCommitment: v.blobsHashesCommitment,
         flags: BlockHeaderValidationFlags({ignoreDA: false})
       })
     );
 
-    // Verify that the proposer is the correct one for this slot by checking their signature in the attestations
-    ValidatorSelectionLib.verifyProposer(header.slotNumber, v.currentEpoch, _attestations, _signers, v.payloadDigest);
+    ValidatorSelectionLib.verifyProposer(
+      _args.header.slotNumber, v.currentEpoch, _attestations, _signers, v.payloadDigest
+    );
 
-    // Begin state updates - get storage reference and current chain tips
-    RollupStore storage rollupStore = STFLib.getStorage();
-    CompressedChainTips tips = rollupStore.tips;
+    CompressedChainTips tips = STFLib.getStorage().tips;
 
     // Increment block number and update chain tips
     uint256 blockNumber = tips.getPendingBlockNumber() + 1;
+
+    // Parent is the current tip's header hash (we're proposing blockNumber = tip+1)
+    bytes32 expectedParent = STFLib.getHeaderHash(blockNumber - 1);
+    require(
+      _args.parentHeaderHash == expectedParent,
+      Errors.Rollup__InvalidParentHeaderHash(expectedParent, _args.parentHeaderHash)
+    );
+
     tips = tips.updatePendingBlockNumber(blockNumber);
 
     // Calculate accumulated blob commitments hash for this block
     // Blob commitments are collected and proven per root rollup proof (per epoch),
     // so we need to know whether we are at the epoch start:
     v.isFirstBlockOfEpoch = v.currentEpoch > STFLib.getEpochForBlock(blockNumber - 1) || blockNumber == 1;
-    bytes32 blobCommitmentsHash = BlobLib.calculateBlobCommitmentsHash(
-      STFLib.getBlobCommitmentsHash(blockNumber - 1), v.blobCommitments, v.isFirstBlockOfEpoch
-    );
-
-    // Compute fee header for block metadata
     FeeHeader memory feeHeader;
     if (v.isTxsEnabled) {
-      // Since ignition have no transactions, we need not waste gas deriving the fee header
+      // Since ignition have no TX's, we need not waste gas deriving the fee header
+      ManaBaseFeeComponents memory feeComponents = getManaBaseFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
       feeHeader = FeeLib.computeFeeHeader(
         blockNumber,
         _args.oracleInput.feeAssetPriceModifier,
-        header.totalManaUsed,
-        components.congestionCost,
-        components.proverCost
+        _args.header.totalManaUsed,
+        feeComponents.congestionCost,
+        feeComponents.proverCost
       );
     }
 
@@ -268,15 +258,16 @@ library ProposeLib {
     v.attestationsHash = keccak256(abi.encode(_attestations));
 
     // Commit state changes: update chain tips and store block data
-    rollupStore.tips = tips;
-    rollupStore.archives[blockNumber] = _args.archive;
+    STFLib.getStorage().tips = tips;
     STFLib.addTempBlockLog(
       TempBlockLog({
         headerHash: v.headerHash,
-        blobCommitmentsHash: blobCommitmentsHash,
+        blobCommitmentsHash: BlobLib.calculateBlobCommitmentsHash(
+          STFLib.getBlobCommitmentsHash(blockNumber - 1), v.blobCommitments, v.isFirstBlockOfEpoch
+        ),
         attestationsHash: v.attestationsHash,
         payloadDigest: v.payloadDigest,
-        slotNumber: header.slotNumber,
+        slotNumber: _args.header.slotNumber,
         feeHeader: feeHeader
       })
     );
@@ -289,18 +280,17 @@ library ProposeLib {
 
       // Consume pending L1->L2 messages and validate against header commitment
       // @note  The block number here will always be >=1 as the genesis block is at 0
-      v.inHash = rollupStore.config.inbox.consume(blockNumber);
+      RollupStore storage rollupStore2 = STFLib.getStorage();
+      v.inHash = rollupStore2.config.inbox.consume(blockNumber);
       require(
-        header.contentCommitment.inHash == v.inHash,
-        Errors.Rollup__InvalidInHash(v.inHash, header.contentCommitment.inHash)
+        _args.header.contentCommitment.inHash == v.inHash,
+        Errors.Rollup__InvalidInHash(v.inHash, _args.header.contentCommitment.inHash)
       );
 
-      // Insert L2->L1 messages into outbox for later consumption
-      rollupStore.config.outbox.insert(blockNumber, header.contentCommitment.outHash);
+      rollupStore2.config.outbox.insert(blockNumber, _args.header.contentCommitment.outHash);
     }
 
-    // Emit event for external listeners. Nodes rely on this event to update their state.
-    emit IRollupCore.L2BlockProposed(blockNumber, _args.archive, v.blobHashes);
+    emit IRollupCore.L2BlockProposed(blockNumber, v.headerHash, STFLib.getHeaderHash(blockNumber - 1), v.blobHashes);
   }
 
   /**
@@ -327,15 +317,8 @@ library ProposeLib {
     require(_args.header.totalManaUsed <= FeeLib.getManaLimit(), Errors.Rollup__ManaLimitExceeded());
 
     Timestamp currentTime = Timestamp.wrap(block.timestamp);
-    RollupStore storage rollupStore = STFLib.getStorage();
 
     uint256 pendingBlockNumber = STFLib.getEffectivePendingBlockNumber(currentTime);
-
-    bytes32 tipArchive = rollupStore.archives[pendingBlockNumber];
-    require(
-      tipArchive == _args.header.lastArchiveRoot,
-      Errors.Rollup__InvalidArchive(tipArchive, _args.header.lastArchiveRoot)
-    );
 
     Slot slot = _args.header.slotNumber;
     Slot lastSlot = STFLib.getSlotNumber(pendingBlockNumber);

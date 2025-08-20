@@ -9,6 +9,7 @@ import {
   ContractFunctionInteraction,
   Fr,
   type Logger,
+  MerkleTreeId,
   type PXE,
   TxStatus,
   type Wallet,
@@ -624,7 +625,11 @@ describe('e2e_block_building', () => {
     it('detects an upcoming reorg and builds a block for the correct slot', async () => {
       // Advance to a fresh epoch and mark the current one as proven
       await cheatCodes.rollup.advanceToNextEpoch();
-      await cheatCodes.rollup.markAsProven();
+
+      const snapshot = (aztecNode as AztecNodeService)['worldStateSynchronizer'].getSnapshot(initialBlockNumber);
+      const archiveTreeInfo = await snapshot.getTreeInfo(MerkleTreeId.ARCHIVE);
+      const realArchive = `0x${archiveTreeInfo.root.toString('hex').replace('0x', '')}` as `0x${string}`;
+      await cheatCodes.rollup.markAsProven(undefined, realArchive);
 
       // Send a tx to the contract that creates a note. This tx will be reorgd but re-included,
       // since it is being built against a proven block number.

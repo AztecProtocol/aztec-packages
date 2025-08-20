@@ -14,7 +14,11 @@ import { makeAppendOnlyTreeSnapshot, makeHeader } from './l2_block_code_to_purge
  */
 export class L2Block {
   constructor(
-    /** Snapshot of archive tree after the block is applied. */
+    /**
+     * Snapshot of archive tree after the block is applied.
+     *
+     * Note: This is 0 for most blocks, except for epoch 'end' blocks.
+     */
     public archive: AppendOnlyTreeSnapshot,
     /** L2 block header. */
     public header: BlockHeader,
@@ -152,6 +156,7 @@ export class L2Block {
     return {
       blockHash: this.blockHash?.toString(),
       archive: this.archive.root.toString(),
+      headerHash: this.header.toPropose().hash().toString(),
       blockNumber: this.number,
       slotNumber: Number(this.header.getSlot()),
       txCount: this.body.txEffects.length,
@@ -164,8 +169,9 @@ export class L2Block {
 }
 
 export type BlockInfo = {
+  archive?: string;
+  headerHash: string;
   blockHash?: string;
-  archive: string;
   blockNumber: number;
   slotNumber: number;
   txCount: number;

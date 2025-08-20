@@ -1,7 +1,7 @@
 import { getSchnorrWalletWithSecretKey } from '@aztec/accounts/schnorr';
 import { type InitialAccountData, deployFundedSchnorrAccount, getInitialTestAccounts } from '@aztec/accounts/testing';
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { EthAddress, Fr, generateClaimSecret, retryUntil, sleep } from '@aztec/aztec.js';
+import { EthAddress, Fr, MerkleTreeId, generateClaimSecret, retryUntil, sleep } from '@aztec/aztec.js';
 import { RollupCheatCodes } from '@aztec/aztec/testing';
 import { createBlobSinkServer } from '@aztec/blob-sink/server';
 import {
@@ -315,7 +315,12 @@ describe('e2e_p2p_add_rollup', () => {
 
         // We need to mark things as proven
         const cheatcodes = RollupCheatCodes.create(l1RpcUrls, l1ContractAddresses);
-        await cheatcodes.markAsProven();
+        const snapshot = (node as AztecNodeService)['worldStateSynchronizer'].getSnapshot(
+          l2OutgoingReceipt!.blockNumber,
+        );
+        const archiveTreeInfo = await snapshot.getTreeInfo(MerkleTreeId.ARCHIVE);
+        const realArchive = `0x${archiveTreeInfo.root.toString('hex').replace('0x', '')}` as `0x${string}`;
+        await cheatcodes.markAsProven(l2OutgoingReceipt!.blockNumber, realArchive);
 
         // Then we want to go and comsume it!
         const outbox = getContract({
