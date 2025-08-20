@@ -150,8 +150,8 @@ class TranslatorFlavor {
                                   TranslatorDeltaRangeConstraintRelation<FF>,
                                   TranslatorOpcodeConstraintRelation<FF>,
                                   TranslatorAccumulatorTransferRelation<FF>,
-                                  TranslatorDecompositionRelation<FF>,
-                                  TranslatorNonNativeFieldRelation<FF>,
+                                  //   TranslatorDecompositionRelation<FF>,
+                                  //   TranslatorNonNativeFieldRelation<FF>,
                                   TranslatorZeroConstraintsRelation<FF>>;
     using Relations = Relations_<FF>;
 

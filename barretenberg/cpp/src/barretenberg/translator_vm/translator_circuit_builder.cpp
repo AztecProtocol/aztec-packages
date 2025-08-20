@@ -586,7 +586,7 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         wires[WireIds::NO_OP].push_back(add_variable(one_idx));
         wires[WireIds::NO_OP].push_back(add_variable(one_idx));
 
-        populate_wires_from_ultra_op(ultra_ops[i]);
+        populate_wires_from_ultra_op(ultra_ops[op_idx]);
         lay_limbs_in_row(final_accumulator_binary_limbs, ACCUMULATORS_BINARY_LIMBS_0);
         lay_limbs_in_row(final_accumulator_binary_limbs, ACCUMULATORS_BINARY_LIMBS_0);
         for (size_t idx = P_X_LOW_LIMBS; idx < ACCUMULATORS_BINARY_LIMBS_0; idx++) {
@@ -600,9 +600,6 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         // to do set no-op wire idx to 1 for the two rows
         num_gates += 2;
     }
-
-    // And put them into the wires
-    create_accumulation_gate(first_accumulation_step);
 
     // Generate witness values from all the UltraOps
     for (size_t i = op_idx + 1; i < ultra_ops.size(); i++) {
