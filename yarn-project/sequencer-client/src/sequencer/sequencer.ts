@@ -9,7 +9,7 @@ import { RunningPromise } from '@aztec/foundation/running-promise';
 import { type DateProvider, Timer } from '@aztec/foundation/timer';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
-import type { SlasherClient } from '@aztec/slasher';
+import type { SlasherClientInterface } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CommitteeAttestation, L2BlockSource, ValidateBlockResult } from '@aztec/stdlib/block';
 import { type L1RollupConstants, getSlotAtTimestamp } from '@aztec/stdlib/epoch-helpers';
@@ -113,7 +113,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     protected globalsBuilder: GlobalVariableBuilder,
     protected p2pClient: P2P,
     protected worldState: WorldStateSynchronizer,
-    protected slasherClient: SlasherClient | undefined,
+    protected slasherClient: SlasherClientInterface | undefined,
     protected l2BlockSource: L2BlockSource,
     protected l1ToL2MessageSource: L1ToL2MessageSource,
     protected blockBuilder: IFullNodeBlockBuilder,
@@ -959,7 +959,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     return this.config.maxL2BlockGas;
   }
 
-  public getSlasherClient(): SlasherClient | undefined {
+  public getSlasherClient(): SlasherClientInterface | undefined {
     return this.slasherClient;
   }
 }
