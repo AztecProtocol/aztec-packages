@@ -19,7 +19,7 @@ import { setup } from './fixtures/utils.js';
 
 const NUM_PUBLISHERS = 4;
 
-// In this test, we set the publisher keys to be the first NUM_PUBLISHER keys starting at index 0
+// In this test, we set the publisher keys to be the first NUM_PUBLISHER keys starting at index 1
 // We use index 0 for publishing L1 contracts
 const createPublisherKeysAndAddresses = () => {
   return times(NUM_PUBLISHERS + 1, i => {
@@ -278,7 +278,7 @@ describe('e2e_multi_eoa', () => {
       const validAddresses = sortedAddresses.slice(1);
       const sortedValidAddresses = await getSortedAddressesByBalance(validAddresses);
 
-      // Tll of our address have published transactions so will be in MINED state
+      // All of our valid addresses have published transactions so will be in MINED state
       // the sequencer should select the 2 highest balance accounts in this next test
       await testAccountRotation(
         getAddressIndex(sortedValidAddresses[0].address),
