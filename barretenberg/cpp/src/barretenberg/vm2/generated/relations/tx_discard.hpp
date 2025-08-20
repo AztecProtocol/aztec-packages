@@ -27,40 +27,7 @@ template <typename FF_> class tx_discardImpl {
     void static accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& in,
                            [[maybe_unused]] const RelationParameters<FF>&,
-                           [[maybe_unused]] const FF& scaling_factor)
-    {
-        using C = ColumnAndShifts;
-
-        PROFILE_THIS_NAME("accumulate/tx_discard");
-
-        const auto tx_LAST_ROW_OF_SETUP = (FF(1) - in.get(C::tx_is_revertible)) * in.get(C::tx_is_revertible_shift);
-        const auto tx_PROPAGATE_DISCARD = (FF(1) - tx_LAST_ROW_OF_SETUP) * (FF(1) - in.get(C::tx_reverted));
-
-        {
-            using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_discard) * (FF(1) - in.get(C::tx_discard));
-            tmp *= scaling_factor;
-            std::get<0>(evals) += typename Accumulator::View(tmp);
-        }
-        { // CAN_ONLY_DISCARD_IN_REVERTIBLE_PHASES
-            using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_discard) * (FF(1) - in.get(C::tx_is_revertible));
-            tmp *= scaling_factor;
-            std::get<1>(evals) += typename Accumulator::View(tmp);
-        }
-        { // FAILURE_MUST_DISCARD
-            using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_reverted) * (FF(1) - in.get(C::tx_discard));
-            tmp *= scaling_factor;
-            std::get<2>(evals) += typename Accumulator::View(tmp);
-        }
-        { // DISCARD_PROPAGATION
-            using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_sel) * tx_PROPAGATE_DISCARD * (in.get(C::tx_discard_shift) - in.get(C::tx_discard));
-            tmp *= scaling_factor;
-            std::get<3>(evals) += typename Accumulator::View(tmp);
-        }
-    }
+                           [[maybe_unused]] const FF& scaling_factor);
 };
 
 template <typename FF> class tx_discard : public Relation<tx_discardImpl<FF>> {
