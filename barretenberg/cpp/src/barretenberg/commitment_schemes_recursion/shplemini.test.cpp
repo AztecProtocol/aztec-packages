@@ -48,14 +48,11 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
 
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
     auto run_shplemini = [](size_t log_circuit_size) {
-        using diff_t = std::vector<NativeFr>::difference_type;
-
         size_t N = 1 << log_circuit_size;
-        const auto padding_indicator_array =
-            stdlib::compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(log_circuit_size);
+        const std::vector<Fr> padding_indicator_array(CONST_PROOF_SIZE_LOG_N, 1);
         constexpr size_t NUM_POLYS = 5;
         constexpr size_t NUM_SHIFTED = 2;
-        constexpr size_t NUM_RIGHT_SHIFTED_BY_K = 1;
+        constexpr size_t NUM_RIGHT_SHIFTED_BY_K = 0;
 
         CommitmentKey commitment_key(16384);
 
@@ -65,12 +62,8 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
             u_challenge.emplace_back(NativeFr::random_element(&shplemini_engine));
         };
 
-        // Truncate to real size to create mock claims.
-        std::vector<NativeFr> truncated_u_challenge(u_challenge.begin(),
-                                                    u_challenge.begin() + static_cast<diff_t>(log_circuit_size));
         // Construct mock multivariate polynomial opening claims
-        MockClaimGen mock_claims(
-            N, NUM_POLYS, NUM_SHIFTED, NUM_RIGHT_SHIFTED_BY_K, truncated_u_challenge, commitment_key);
+        MockClaimGen mock_claims(N, NUM_POLYS, NUM_SHIFTED, NUM_RIGHT_SHIFTED_BY_K, u_challenge, commitment_key);
 
         // Initialize an empty NativeTranscript
         auto prover_transcript = NativeTranscript::prover_init_empty();

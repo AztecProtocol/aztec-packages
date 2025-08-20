@@ -173,8 +173,6 @@ TEST(TxExecutionConstrainingTest, SimpleControlFlowRead)
             { C::tx_calldata_hash, first_setup_call_request.calldataHash },
             // Context id
             { C::tx_next_context_id, 1 },
-            { C::tx_next_context_id_sent_to_enqueued_call, 2 },
-            { C::tx_next_context_id_from_enqueued_call, 4 },
         },
         // Row 5
         {
@@ -197,8 +195,6 @@ TEST(TxExecutionConstrainingTest, SimpleControlFlowRead)
             { C::tx_end_phase, 1 },
             // Context id
             { C::tx_next_context_id, 4 },
-            { C::tx_next_context_id_sent_to_enqueued_call, 5 },
-            { C::tx_next_context_id_from_enqueued_call, 5 },
         },
 
         // Row 6
@@ -289,8 +285,6 @@ TEST(TxExecutionConstrainingTest, SimpleControlFlowRead)
             { C::tx_end_phase, 1 },
             // Context id
             { C::tx_next_context_id, 5 },
-            { C::tx_next_context_id_sent_to_enqueued_call, 6 },
-            { C::tx_next_context_id_from_enqueued_call, 10 },
         },
 
         // Row 10
@@ -312,8 +306,6 @@ TEST(TxExecutionConstrainingTest, SimpleControlFlowRead)
             { C::tx_end_phase, 1 },
             // Context id
             { C::tx_next_context_id, 10 },
-            { C::tx_next_context_id_sent_to_enqueued_call, 11 },
-            { C::tx_next_context_id_from_enqueued_call, 12 },
         },
 
         // Row 11
@@ -785,8 +777,6 @@ TEST(TxExecutionConstrainingTest, CollectFees)
             { C::tx_next_l2_gas_used_sent_to_enqueued_call, 200 },
             // Context id
             { C::tx_next_context_id, 1 },
-            { C::tx_next_context_id_sent_to_enqueued_call, 2 },
-            { C::tx_next_context_id_from_enqueued_call, 2 },
         },
 
         // Row 5
@@ -818,8 +808,6 @@ TEST(TxExecutionConstrainingTest, CollectFees)
             { C::tx_next_l2_gas_used_sent_to_enqueued_call, 300 },
             // Context id
             { C::tx_next_context_id, 2 },
-            { C::tx_next_context_id_sent_to_enqueued_call, 3 },
-            { C::tx_next_context_id_from_enqueued_call, 3 },
         },
 
         // Row 6
@@ -930,8 +918,6 @@ TEST(TxExecutionConstrainingTest, CollectFees)
             { C::tx_next_l2_gas_used_sent_to_enqueued_call, 400 },
             // Context id
             { C::tx_next_context_id, 3 },
-            { C::tx_next_context_id_sent_to_enqueued_call, 4 },
-            { C::tx_next_context_id_from_enqueued_call, 4 },
         },
 
         // Row 10
@@ -970,8 +956,6 @@ TEST(TxExecutionConstrainingTest, CollectFees)
             { C::tx_next_l2_gas_used_sent_to_enqueued_call, 456789 },
             // Context id
             { C::tx_next_context_id, 4 },
-            { C::tx_next_context_id_sent_to_enqueued_call, 5 },
-            { C::tx_next_context_id_from_enqueued_call, 5 },
         },
 
         // Row 11

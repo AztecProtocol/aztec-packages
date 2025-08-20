@@ -25,8 +25,8 @@ FIELD_OP_COSTS=field_op_costs.json
 if [ ! -f $FIELD_OP_COSTS ]; then
     cd ../
     FIELD_OPS_TARGET=fr_straight_bench
-    cmake --preset clang20
-    cmake --build --preset clang20 --target $FIELD_OPS_TARGET
+    cmake --preset clang16
+    cmake --build --preset clang16 --target $FIELD_OPS_TARGET
     cd build
     ./bin/$FIELD_OPS_TARGET --benchmark_out=../$BUILD_OP_COUNT_TRACK_DIR/$FIELD_OP_COSTS \
                             --benchmark_out_format=json

@@ -83,7 +83,7 @@ class AsyncMessageProcessor {
             auto data = std::make_shared<std::vector<char>>(length);
             std::copy_n(buffer.Data(), length, data->data());
 
-            auto* op = new bb::nodejs::AsyncOperation(env, deferred, [data, this, length](msgpack::sbuffer& buf) {
+            auto* op = new bb::nodejs::AsyncOperation(env, deferred, [=](msgpack::sbuffer& buf) {
                 msgpack::object_handle obj_handle = msgpack::unpack(data->data(), length);
                 msgpack::object obj = obj_handle.get();
                 dispatcher.on_new_data(obj, buf);
