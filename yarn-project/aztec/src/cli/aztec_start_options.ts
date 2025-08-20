@@ -22,6 +22,8 @@ import { proverNodeConfigMappings } from '@aztec/prover-node/config';
 import { allPxeConfigMappings } from '@aztec/pxe/config';
 import { telemetryClientConfigMappings } from '@aztec/telemetry-client';
 
+import { DefaultMnemonic } from '../mnemonic.js';
+
 // Define an interface for options
 export interface AztecStartOption {
   flag: string;
@@ -104,6 +106,20 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       description: 'Do not expose PXE service on sandbox start',
       envVar: 'NO_PXE',
       ...booleanConfigHelper(),
+    },
+    {
+      flag: '--sandbox.l1Mnemonic <value>',
+      description: 'Mnemonic for L1 accounts. Will be used ',
+      defaultValue: DefaultMnemonic,
+      envVar: 'MNEMONIC',
+    },
+    {
+      flag: '--sandbox.deployAztecContractsSalt <value>',
+      description:
+        'Numeric salt for deploying L1 Aztec contracts before starting the sandbox. Needs mnemonic or private key to be set.',
+      envVar: 'DEPLOY_AZTEC_CONTRACTS_SALT',
+      defaultValue: undefined,
+      parseVal: (val: string) => (val ? parseInt(val) : undefined),
     },
   ],
   API: [
