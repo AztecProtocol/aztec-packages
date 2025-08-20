@@ -164,7 +164,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
     const l1ContractAddresses = await deployContractsToL1(aztecNodeConfig, hdAccount, undefined, {
       assumeProvenThroughBlockNumber: Number.MAX_SAFE_INTEGER,
       genesisArchiveRoot,
-      salt: config.l1Salt ? parseInt(config.l1Salt) : undefined,
+      salt: config.deployAztecContractsSalt ? parseInt(config.deployAztecContractsSalt) : undefined,
       feeJuicePortalInitialBalance: fundingNeeded,
     });
 
