@@ -64,10 +64,6 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
     return this.proposer.read.computeRound([slot]);
   }
 
-  public getNonce(proposer: Hex): Promise<bigint> {
-    return this.proposer.read.nonces([proposer]);
-  }
-
   public getInstance() {
     return this.proposer.read.getInstance();
   }
@@ -92,7 +88,7 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
 
   public async createSignalRequestWithSignature(
     payload: Hex,
-    round: bigint,
+    slot: bigint,
     chainId: number,
     signerAddress: Hex,
     signer: (msg: TypedDataDefinition) => Promise<Hex>,
@@ -100,8 +96,7 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
     const signature = await signSignalWithSig(
       signer,
       payload,
-      await this.getNonce(signerAddress),
-      round,
+      slot,
       await this.getInstance(),
       this.address.toString(),
       chainId,
