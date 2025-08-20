@@ -72,6 +72,7 @@ export async function createProverNode(
     }
   }
 
+  // Extract the prover signers from the key store and verify that we have one.
   const proverSigners = keyStoreManager?.createProverSigners();
 
   if (proverSigners === undefined) {
@@ -83,8 +84,14 @@ export async function createProverNode(
   // Only consider user provided config if it is valid
   const proverIdInUserConfig = config.proverId === undefined || config.proverId.isZero() ? undefined : config.proverId;
 
-  // Take from key store if provided, otherwise from user config if valid, otherwise from first signer
+  // ProverId: Take from key store if provided, otherwise from user config if valid, otherwise address of first signer
   const proverId = proverSigners.id ?? proverIdInUserConfig ?? proverSigners.signers[0].address;
+
+  // Now create the prover client configuration from this.
+  const proverClientConfig: ProverClientConfig = {
+    ...config,
+    proverId,
+  };
 
   await trySnapshotSync(config, log);
 
@@ -106,10 +113,6 @@ export async function createProverNode(
 
   const broker = deps.broker ?? (await createAndStartProvingBroker(config, telemetry));
 
-  const proverClientConfig: ProverClientConfig = {
-    ...config,
-    proverId,
-  };
   const prover = await createProverClient(proverClientConfig, worldStateSynchronizer, broker, telemetry);
 
   const { l1RpcUrls: rpcUrls, l1ChainId: chainId } = config;

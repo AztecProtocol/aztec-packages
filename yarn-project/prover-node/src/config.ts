@@ -4,10 +4,10 @@ import { type GenesisStateConfig, genesisStateConfigMappings } from '@aztec/ethe
 import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import {
+  type EthAccount,
   type EthAddressHex,
   type KeyStore,
   type KeyStoreConfig,
-  type ProverKeyStore,
   keyStoreConfigMappings,
 } from '@aztec/node-keystore';
 import { type SharedNodeConfig, sharedNodeConfigMappings } from '@aztec/node-lib/config';
@@ -125,23 +125,32 @@ export function getProverNodeAgentConfigFromEnv(): ProverAgentConfig & BBConfig 
 }
 
 export function createKeyStoreForProver(config: ProverNodeConfig) {
+  // Extract the publisher keys from the provided config.
   const publisherKeys = config.publisherPrivateKeys
     ? config.publisherPrivateKeys.map(k => k.getValue() as EthAddressHex)
     : [];
 
-  if (publisherKeys.length === 0 || config.proverId === undefined || config.proverId.isZero()) {
+  // There must be at least 1.
+  if (publisherKeys.length === 0) {
     return undefined;
   }
 
-  const proverKeyStore: ProverKeyStore = {
-    id: config.proverId.toString() as EthAddressHex,
-    publisher: publisherKeys,
-  };
+  // Now see what we have been given for proverId.
+  const proverId = config.proverId ? (config.proverId.toString() as EthAddressHex) : undefined;
+
+  // If we have a valid proverId then create a prover key store of the form { id, publisher: [publisherKeys] }
+  // Otherwise create one of the form ("0x12345678....." as EthAccount).
 
   const keyStore: KeyStore = {
     schemaVersion: 1,
     slasher: undefined,
-    prover: proverKeyStore,
+    prover:
+      proverId === undefined
+        ? (publisherKeys[0] as EthAccount)
+        : {
+            id: proverId,
+            publisher: publisherKeys.map(key => key as EthAccount),
+          },
     remoteSigner: undefined,
     validators: undefined,
   };
