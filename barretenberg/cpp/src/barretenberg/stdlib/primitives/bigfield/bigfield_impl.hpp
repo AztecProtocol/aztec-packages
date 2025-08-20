@@ -81,6 +81,7 @@ bigfield<Builder, T>::bigfield(const field_t<Builder>& low_bits_in,
     // if maximum_bitlength is set, this supercedes can_overflow
     if (maximum_bitlength > 0) {
         BB_ASSERT_GT(maximum_bitlength, 3 * NUM_LIMB_BITS);
+        BB_ASSERT_LTE(maximum_bitlength, 4 * NUM_LIMB_BITS);
         num_last_limb_bits = maximum_bitlength - (3 * NUM_LIMB_BITS);
     }
     // We create the high limb values similar to the low limb ones above
