@@ -27,44 +27,7 @@ template <typename FF_> class l1_to_l2_message_tree_checkImpl {
     void static accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& in,
                            [[maybe_unused]] const RelationParameters<FF>&,
-                           [[maybe_unused]] const FF& scaling_factor)
-    {
-        using C = ColumnAndShifts;
-
-        PROFILE_THIS_NAME("accumulate/l1_to_l2_message_tree_check");
-
-        const auto constants_L1_TO_L2_MSG_TREE_HEIGHT = FF(39);
-        const auto l1_to_l2_message_tree_check_LEAF_VALUE_MSG_HASH_DIFF =
-            (in.get(C::l1_to_l2_message_tree_check_leaf_value) - in.get(C::l1_to_l2_message_tree_check_msg_hash));
-
-        {
-            using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp =
-                in.get(C::l1_to_l2_message_tree_check_sel) * (FF(1) - in.get(C::l1_to_l2_message_tree_check_sel));
-            tmp *= scaling_factor;
-            std::get<0>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = in.get(C::l1_to_l2_message_tree_check_sel) *
-                       ((l1_to_l2_message_tree_check_LEAF_VALUE_MSG_HASH_DIFF *
-                             (in.get(C::l1_to_l2_message_tree_check_exists) *
-                                  (FF(1) - in.get(C::l1_to_l2_message_tree_check_leaf_value_msg_hash_diff_inv)) +
-                              in.get(C::l1_to_l2_message_tree_check_leaf_value_msg_hash_diff_inv)) -
-                         FF(1)) +
-                        in.get(C::l1_to_l2_message_tree_check_exists));
-            tmp *= scaling_factor;
-            std::get<1>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = in.get(C::l1_to_l2_message_tree_check_sel) *
-                       (constants_L1_TO_L2_MSG_TREE_HEIGHT -
-                        in.get(C::l1_to_l2_message_tree_check_l1_to_l2_message_tree_height));
-            tmp *= scaling_factor;
-            std::get<2>(evals) += typename Accumulator::View(tmp);
-        }
-    }
+                           [[maybe_unused]] const FF& scaling_factor);
 };
 
 template <typename FF> class l1_to_l2_message_tree_check : public Relation<l1_to_l2_message_tree_checkImpl<FF>> {
