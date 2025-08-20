@@ -18,7 +18,6 @@ using namespace bb;
 static constexpr size_t SMALL_LOG_2_NUM_GATES = 5;
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1511): The CIVC class should enforce the minimum number of
 // circuits in a test flow.
-static constexpr size_t MIN_NUM_CIRCUITS = 4;
 
 class ClientIVCTests : public ::testing::Test {
   protected:
@@ -110,7 +109,7 @@ TEST_F(ClientIVCTests, BadProofFailure)
         TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
 
         // Construct and accumulate a set of mocked private function execution circuits
-        for (size_t idx = 0; idx < MIN_NUM_CIRCUITS; ++idx) {
+        for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
             circuit_producer.construct_and_accumulate_next_circuit(ivc, settings);
         }
         EXPECT_TRUE(ivc.prove_and_verify());
@@ -125,7 +124,7 @@ TEST_F(ClientIVCTests, BadProofFailure)
         size_t num_public_inputs = 0;
 
         // Construct and accumulate a set of mocked private function execution circuits
-        for (size_t idx = 0; idx < MIN_NUM_CIRCUITS; ++idx) {
+        for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
             auto [circuit, vk] =
                 circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = SMALL_LOG_2_NUM_GATES });
             ivc.accumulate(circuit, vk);
@@ -150,7 +149,7 @@ TEST_F(ClientIVCTests, BadProofFailure)
         ClientIVC ivc{ NUM_CIRCUITS, trace_settings };
 
         // Construct and accumulate a set of mocked private function execution circuits
-        for (size_t idx = 0; idx < MIN_NUM_CIRCUITS; ++idx) {
+        for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
             auto [circuit, vk] =
                 circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = SMALL_LOG_2_NUM_GATES });
             ivc.accumulate(circuit, vk);
@@ -322,14 +321,15 @@ TEST_F(ClientIVCTests, StructuredTraceOverflow)
 {
 
     // Define trace settings with sufficient overflow capacity to accommodate each of the circuits to be accumulated
-
-    ClientIVC ivc{ MIN_NUM_CIRCUITS, { SMALL_TEST_STRUCTURE, /*overflow_capacity=*/1 << 17 } };
+    size_t NUM_APP_CIRCUITS = 1;
+    CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
+    size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
+    ClientIVC ivc{ NUM_CIRCUITS, { SMALL_TEST_STRUCTURE, /*overflow_capacity=*/1 << 17 } };
     TestSettings settings;
-    PrivateFunctionExecutionMockCircuitProducer circuit_producer;
 
     // Construct and accumulate some circuits of varying size
     size_t log2_num_gates = 14;
-    for (size_t idx = 0; idx < MIN_NUM_CIRCUITS; ++idx) {
+    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
         settings.log2_num_gates = log2_num_gates;
         circuit_producer.construct_and_accumulate_next_circuit(ivc, settings);
         log2_num_gates += 1;
@@ -365,7 +365,7 @@ TEST_F(ClientIVCTests, DynamicTraceOverflow)
         ClientIVC ivc{ NUM_CIRCUITS, { SMALL_TEST_STRUCTURE_FOR_OVERFLOWS } };
 
         // Accumulate
-        for (size_t idx = 0; idx < MIN_NUM_CIRCUITS; ++idx) {
+        for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
             circuit_producer.construct_and_accumulate_next_circuit(
                 ivc, { .log2_num_gates = test.log2_num_arith_gates[idx] });
         }
