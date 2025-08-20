@@ -27,75 +27,7 @@ template <typename FF_> class bc_hashingImpl {
     void static accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& in,
                            [[maybe_unused]] const RelationParameters<FF>&,
-                           [[maybe_unused]] const FF& scaling_factor)
-    {
-        using C = ColumnAndShifts;
-
-        PROFILE_THIS_NAME("accumulate/bc_hashing");
-
-        const auto bc_hashing_LATCH_CONDITION = in.get(C::bc_hashing_latch) + in.get(C::precomputed_first_row);
-
-        {
-            using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = in.get(C::bc_hashing_sel) * (FF(1) - in.get(C::bc_hashing_sel));
-            tmp *= scaling_factor;
-            std::get<0>(evals) += typename Accumulator::View(tmp);
-        }
-        { // TRACE_CONTINUITY
-            using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - in.get(C::precomputed_first_row)) * (FF(1) - in.get(C::bc_hashing_sel)) *
-                       in.get(C::bc_hashing_sel_shift);
-            tmp *= scaling_factor;
-            std::get<1>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = in.get(C::bc_hashing_latch) * (FF(1) - in.get(C::bc_hashing_latch));
-            tmp *= scaling_factor;
-            std::get<2>(evals) += typename Accumulator::View(tmp);
-        }
-        { // SEL_TOGGLED_AT_LATCH
-            using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-            auto tmp = in.get(C::bc_hashing_latch) * (FF(1) - in.get(C::bc_hashing_sel));
-            tmp *= scaling_factor;
-            std::get<3>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = in.get(C::bc_hashing_start) * (FF(1) - in.get(C::bc_hashing_start));
-            tmp *= scaling_factor;
-            std::get<4>(evals) += typename Accumulator::View(tmp);
-        }
-        { // START_AFTER_LATCH
-            using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp =
-                in.get(C::bc_hashing_sel_shift) * (in.get(C::bc_hashing_start_shift) - bc_hashing_LATCH_CONDITION);
-            tmp *= scaling_factor;
-            std::get<5>(evals) += typename Accumulator::View(tmp);
-        }
-        { // PC_INCREMENTS
-            using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
-            auto tmp = in.get(C::bc_hashing_sel) *
-                       (in.get(C::bc_hashing_pc_index_shift) -
-                        (FF(1) - bc_hashing_LATCH_CONDITION) * (FF(31) + in.get(C::bc_hashing_pc_index)));
-            tmp *= scaling_factor;
-            std::get<6>(evals) += typename Accumulator::View(tmp);
-        }
-        { // ID_CONSISTENCY
-            using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - bc_hashing_LATCH_CONDITION) *
-                       (in.get(C::bc_hashing_bytecode_id_shift) - in.get(C::bc_hashing_bytecode_id));
-            tmp *= scaling_factor;
-            std::get<7>(evals) += typename Accumulator::View(tmp);
-        }
-        { // CHAIN_OUTPUT_TO_INCR
-            using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - bc_hashing_LATCH_CONDITION) *
-                       (in.get(C::bc_hashing_incremental_hash_shift) - in.get(C::bc_hashing_output_hash));
-            tmp *= scaling_factor;
-            std::get<8>(evals) += typename Accumulator::View(tmp);
-        }
-    }
+                           [[maybe_unused]] const FF& scaling_factor);
 };
 
 template <typename FF> class bc_hashing : public Relation<bc_hashingImpl<FF>> {

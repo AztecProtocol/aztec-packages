@@ -11,6 +11,9 @@
 #include "barretenberg/vm2/constraining/flavor.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 
+#include "barretenberg/vm2/constraining/relations/interactions_base_impl.hpp"
+#include "barretenberg/vm2/generated/relations/relations_impls.hpp"
+
 using namespace benchmark;
 using namespace bb::avm2;
 
