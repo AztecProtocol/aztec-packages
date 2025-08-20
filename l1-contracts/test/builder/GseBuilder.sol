@@ -4,6 +4,7 @@
 pragma solidity >=0.8.27;
 
 import {GSE} from "@aztec/governance/GSE.sol";
+import {GSEWithSkip} from "@test/GSEWithSkip.sol";
 import {TestBase} from "@test/base/Base.sol";
 import {TestConstants} from "@test/harnesses/TestConstants.sol";
 
@@ -70,12 +71,12 @@ contract GSEBuilder is TestBase {
     }
 
     if (address(config.gse) == address(0)) {
-      config.gse =
-        new GSE(address(this), config.testERC20, TestConstants.ACTIVATION_THRESHOLD, TestConstants.EJECTION_THRESHOLD);
-      vm.label(address(config.gse), "GSE");
-      stdstore.target(address(config.gse)).sig("checkProofOfPossession()").checked_write(
-        config.flags.checkProofOfPossession
+      config.gse = new GSEWithSkip(
+        address(this), config.testERC20, TestConstants.ACTIVATION_THRESHOLD, TestConstants.EJECTION_THRESHOLD
       );
+      vm.label(address(config.gse), "GSE");
+
+      GSEWithSkip(address(config.gse)).setCheckProofOfPossession(config.flags.checkProofOfPossession);
     }
 
     if (address(config.registry) == address(0)) {
