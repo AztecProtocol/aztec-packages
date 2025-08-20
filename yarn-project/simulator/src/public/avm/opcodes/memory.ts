@@ -279,8 +279,8 @@ export class ReturndataCopy extends Instruction {
     const [copySizeOffset, rdStartOffset, dstOffset] = addressing.resolve(operands, memory);
 
     memory.checkTags(TypeTag.UINT32, rdStartOffset, copySizeOffset);
-    const rdStart = memory.get(rdStartOffset).toNumber();
     const copySize = memory.get(copySizeOffset).toNumber();
+    const rdStart = memory.get(rdStartOffset).toNumber();
     context.machineState.consumeGas(this.dynamicGasCost(copySize));
 
     // Values which are out-of-range of the returndata array will be set with Field(0);

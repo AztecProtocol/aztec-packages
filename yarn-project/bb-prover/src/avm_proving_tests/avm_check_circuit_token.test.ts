@@ -1,21 +1,21 @@
 import { createLogger } from '@aztec/foundation/log';
-import { TestExecutorMetrics, bulkTest, defaultGlobals } from '@aztec/simulator/public/fixtures';
+import { TestExecutorMetrics, defaultGlobals, tokenTest } from '@aztec/simulator/public/fixtures';
 
 import { mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
 
 import { AvmProvingTester } from './avm_proving_tester.js';
 
-const TIMEOUT = 180_000;
+const TIMEOUT = 60_000;
 
-describe('AVM proven bulk test', () => {
-  const logger = createLogger('avm-bulk-test');
+describe('AVM proven TokenContract', () => {
+  const logger = createLogger('avm-proven-tests-token');
   const metrics = new TestExecutorMetrics();
   let tester: AvmProvingTester;
 
-  beforeEach(async () => {
-    // FULL PROVING! Not check-circuit.
-    tester = await AvmProvingTester.new(/*checkCircuitOnly=*/ false, /*globals=*/ defaultGlobals(), metrics);
+  beforeAll(async () => {
+    // Check-circuit only (no full proving).
+    tester = await AvmProvingTester.new(/*checkCircuitOnly=*/ true, /*globals=*/ defaultGlobals(), metrics);
   });
 
   afterAll(() => {
@@ -31,9 +31,9 @@ describe('AVM proven bulk test', () => {
   });
 
   it(
-    'Prove and verify',
+    'proven token transfer (simulates constructor, mint, burn, check balance)',
     async () => {
-      await bulkTest(tester, logger, (b: boolean) => expect(b).toBe(true));
+      await tokenTest(tester, logger, (b: boolean) => expect(b).toBe(true));
     },
     TIMEOUT,
   );
