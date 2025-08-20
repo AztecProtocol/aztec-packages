@@ -162,6 +162,12 @@ library Errors {
   // SignatureLib (duplicated)
   error SignatureLib__InvalidSignature(address, address); // 0xd9cbae6c
 
+  error AttestationLib__OutOfBounds(uint256, uint256);
+  error AttestationLib__SignatureIndicesSizeMismatch(uint256, uint256);
+  error AttestationLib__SignaturesOrAddressesSizeMismatch(uint256, uint256);
+  error AttestationLib__NotASignatureAtIndex(uint256 index);
+  error AttestationLib__NotAnAddressAtIndex(uint256 index);
+
   // RewardBooster
   error RewardBooster__OnlyRollup(address caller);
 }
