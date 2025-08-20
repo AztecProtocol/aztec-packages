@@ -115,7 +115,7 @@ class PrivateFunctionExecutionMockCircuitProducer {
     using VerificationKey = Flavor::VerificationKey;
 
     size_t circuit_counter = 0;
-    size_t num_app_circuits = 0;
+    std::vector<bool> is_kernel_flags;
 
     MockDatabusProducer mock_databus;
     bool large_first_app = true;
@@ -124,12 +124,17 @@ class PrivateFunctionExecutionMockCircuitProducer {
   public:
     size_t total_num_circuits = 0;
 
-    PrivateFunctionExecutionMockCircuitProducer(size_t num_app_circuits = 0, bool large_first_app = true)
-        : num_app_circuits(num_app_circuits)
-        , large_first_app(large_first_app)
+    PrivateFunctionExecutionMockCircuitProducer(size_t num_app_circuits, bool large_first_app = true)
+        : large_first_app(large_first_app)
         , total_num_circuits(num_app_circuits * 2 +
                              NUM_TRAILING_KERNELS) /*One kernel per app, plus a fixed number of final kernels*/
-    {}
+    {
+        // Set flags indicating which circuits are kernels vs apps
+        is_kernel_flags.resize(total_num_circuits, true);
+        for (size_t i = 0; i < num_app_circuits; ++i) {
+            is_kernel_flags[2 * i] = false; // every other circuit is an app
+        }
+    }
 
     /**
      * @brief Precompute the verification key for the given circuit.
@@ -149,25 +154,6 @@ class PrivateFunctionExecutionMockCircuitProducer {
             std::make_shared<ClientIVC::DeciderProvingKey>(builder, trace_settings);
         std::shared_ptr<VerificationKey> vk = std::make_shared<VerificationKey>(proving_key->get_precomputed());
         return vk;
-    }
-
-    void create_mock_ivc_stack(TestSettings setting, ClientIVC& ivc, bool increase_sizes = false)
-    {
-        size_t size_adjustment = increase_sizes ? 1 : 0;
-        // for the number of app circuits, interleave kernels and apps
-        for (size_t i = 0; i < num_app_circuits; i++) {
-            // generate the next app circuit
-            construct_and_accumulate_next_circuit(ivc, setting);
-            setting.log2_num_gates += size_adjustment;
-            // generate the next kernel circuit (init or inner)
-            construct_and_accumulate_next_circuit(ivc, setting);
-            setting.log2_num_gates += size_adjustment;
-        }
-        // now we add the additional kernels (reset, tail, hiding)
-        for (size_t i = 0; i < NUM_TRAILING_KERNELS; i++) {
-            construct_and_accumulate_next_circuit(ivc, setting);
-        }
-        // food for thought (Khashayar), should we return a vector of all circuits generated here?
     }
 
     /**
@@ -216,13 +202,7 @@ class PrivateFunctionExecutionMockCircuitProducer {
     std::pair<ClientCircuit, std::shared_ptr<VerificationKey>> create_next_circuit_and_vk(ClientIVC& ivc,
                                                                                           TestSettings settings = {})
     {
-        // we consider the following structure for our mocking
-        // ivc starts with 1 app circuit, followed by the init kernel
-        // a series of app + inner kernels
-        // a series of kernels without apps
-        // If a specific number of gates is specified we create a simple circuit with only arithmetic gates to easily
-        bool is_kernel = (circuit_counter > num_app_circuits) // either we don't have any app circuits in the stack
-                         || (circuit_counter % 2 == 1);       // we're on an even program counter
+        bool is_kernel = is_kernel_flags[circuit_counter];
 
         auto circuit = create_next_circuit(ivc, is_kernel, settings.log2_num_gates, settings.num_public_inputs);
         return { circuit, get_verification_key(circuit, ivc.trace_settings) };
@@ -238,16 +218,6 @@ class PrivateFunctionExecutionMockCircuitProducer {
      * @brief Tamper with databus data to facilitate failure testing
      */
     void tamper_with_databus() { mock_databus.tamper_with_app_return_data(); }
-    /**
-     * @brief Creates the hiding circuit to complete IVC accumulation
-     */
-    static void construct_hiding_kernel(ClientIVC& ivc)
-    {
-        // create a builder from the goblin op_queue
-        ClientIVC::ClientCircuit circuit{ ivc.goblin.op_queue };
-        // complete the hiding kernel logic
-        ivc.complete_kernel_circuit_logic(circuit);
-    }
 };
 
 } // namespace

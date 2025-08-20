@@ -267,11 +267,11 @@ void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per
 void write_arbitrary_valid_client_ivc_proof_and_vk_to_file(const std::filesystem::path& output_dir)
 {
 
-    const size_t NUM_CIRCUITS = 6;
+    PrivateFunctionExecutionMockCircuitProducer circuit_producer{ /*num_app_circuits=*/1 };
+    const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
     ClientIVC ivc{ NUM_CIRCUITS, { AZTEC_TRACE_STRUCTURE } };
 
     // Construct and accumulate a series of mocked private function execution circuits
-    PrivateFunctionExecutionMockCircuitProducer circuit_producer;
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
         circuit_producer.construct_and_accumulate_next_circuit(ivc);
     }
