@@ -129,7 +129,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
    * Ethereum finality occurs after 2 epochs (~12.8 min = ~64 L1 blocks at 12s avg).
    * We add a conservative buffer for edge cases and network conditions.
    */
-  private static readonly MAX_L1_REORG_DEPTH = 80; // ~2 epochs + buffer
+  private static readonly MAX_L1_REORG_DEPTH = 80n; // ~2 epochs + buffer
 
   public readonly tracer: Tracer;
 
@@ -987,7 +987,8 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
         (latestLocalL2BlockNumber > 0
           ? await this.store.getPublishedBlocks(latestLocalL2BlockNumber, 1).then(([b]) => b)
           : undefined);
-      const targetL1BlockNumber = latestLocalL2Block?.l1.blockNumber ?? maxBigint(currentL1BlockNumber - 64n, 0n);
+      const targetL1BlockNumber =
+        latestLocalL2Block?.l1.blockNumber ?? maxBigint(currentL1BlockNumber - Archiver.MAX_L1_REORG_DEPTH, 0n);
       const latestLocalL2BlockArchive = latestLocalL2Block?.block.archive.root.toString();
       this.log.warn(
         `Failed to reach L2 block ${pendingBlockNumber} at ${currentL1BlockNumber} (latest is ${latestLocalL2BlockNumber}). ` +
