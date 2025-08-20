@@ -1,5 +1,5 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type EthAddressHex } from '@aztec/node-keystore';
+import type { EthAddressHex } from '@aztec/node-keystore';
 
 import { type ProverNodeConfig, createKeyStoreForProver } from './config.js';
 
