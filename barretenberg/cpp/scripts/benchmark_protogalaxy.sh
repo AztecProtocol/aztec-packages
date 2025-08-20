@@ -13,7 +13,7 @@ cd $(dirname $0)/..
                               "BB_USE_OP_COUNT_TIME=1 ./protogalaxy_bench --benchmark_filter=$FILTER\
                                                   --benchmark_out=$TARGET.json\
                                                   --benchmark_out_format=json"\
-                              clang16-assert\
+                              clang20\
                               $BUILD_DIR
 
 # Retrieve output from benching instance
