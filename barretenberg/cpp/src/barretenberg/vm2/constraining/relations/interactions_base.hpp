@@ -71,6 +71,13 @@ template <typename FF_, typename Settings_> struct lookup_relation_base : public
         return (in.get(static_cast<ColumnAndShifts>(Settings::INVERSES))).is_zero();
     }
 
+    // This obscures the definition from GenericLookupRelation, so that we can instantiate it somewhere else.
+    template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
+    static void accumulate(ContainerOverSubrelations& accumulator,
+                           const AllEntities& in,
+                           const Parameters& params,
+                           const FF_& scaling_factor);
+
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {

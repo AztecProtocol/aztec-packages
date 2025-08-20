@@ -27,28 +27,7 @@ template <typename FF_> class sloadImpl {
     void static accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& in,
                            [[maybe_unused]] const RelationParameters<FF>&,
-                           [[maybe_unused]] const FF& scaling_factor)
-    {
-        using C = ColumnAndShifts;
-
-        PROFILE_THIS_NAME("accumulate/sload");
-
-        const auto constants_MEM_TAG_FF = FF(0);
-
-        { // SLOAD_SUCCESS
-            using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_execute_sload) * in.get(C::execution_sel_opcode_error);
-            tmp *= scaling_factor;
-            std::get<0>(evals) += typename Accumulator::View(tmp);
-        }
-        { // SLOAD_FF_OUTPUT_TAG
-            using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp =
-                in.get(C::execution_sel_execute_sload) * (constants_MEM_TAG_FF - in.get(C::execution_mem_tag_reg_1_));
-            tmp *= scaling_factor;
-            std::get<1>(evals) += typename Accumulator::View(tmp);
-        }
-    }
+                           [[maybe_unused]] const FF& scaling_factor);
 };
 
 template <typename FF> class sload : public Relation<sloadImpl<FF>> {
