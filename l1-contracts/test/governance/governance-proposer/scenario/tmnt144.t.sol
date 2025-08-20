@@ -38,7 +38,7 @@ contract TestTmnt144 is GovernanceProposerBase {
 
     // Create a signature for the proposer
     uint256 round = governanceProposer.getCurrentRound();
-    signature = createSignature(privateKey, address(proposal), round);
+    signature = createSignature(privateKey, address(proposal), rollup1.getCurrentSlot());
 
     // For some reason, before he signals, the time progresses and he is no longer the proposer!
     // It is not even the same round actually
@@ -67,13 +67,8 @@ contract TestTmnt144 is GovernanceProposerBase {
     assertEq(governanceProposer.signalCount(address(rollup2), 0, proposal), 0, "invalid number of votes");
   }
 
-  function createSignature(uint256 _privateKey, address _payload, uint256 _round)
-    internal
-    view
-    returns (Signature memory)
-  {
-    address signer = vm.addr(_privateKey);
-    bytes32 digest = governanceProposer.getSignalSignatureDigest(IPayload(_payload), signer, _round);
+  function createSignature(uint256 _privateKey, address _payload, Slot _slot) internal view returns (Signature memory) {
+    bytes32 digest = governanceProposer.getSignalSignatureDigest(IPayload(_payload), _slot);
 
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, digest);
 
