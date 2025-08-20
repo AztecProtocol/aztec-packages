@@ -210,31 +210,24 @@ std::vector<std::pair<Column, FF>> handle_gas_limit(Gas gas_limit)
 }
 
 std::vector<std::pair<Column, FF>> handle_enqueued_call_event(TransactionPhase phase,
-                                                              const simulation::EnqueuedCallEvent& event,
-                                                              const TxContextEvent& state_before,
-                                                              const TxContextEvent& state_after)
+                                                              const simulation::EnqueuedCallEvent& event)
 {
-    return {
-        { Column::tx_is_public_call_request, 1 },
-        { Column::tx_should_process_call_request, 1 },
-        { Column::tx_is_teardown_phase, is_teardown_phase(phase) },
-        { Column::tx_msg_sender, event.msg_sender },
-        { Column::tx_contract_addr, event.contract_address },
-        { Column::tx_fee, event.transaction_fee },
-        { Column::tx_is_static, event.is_static },
-        { Column::tx_calldata_hash, event.calldata_hash },
-        { Column::tx_reverted, !event.success },
-        { Column::tx_prev_da_gas_used_sent_to_enqueued_call, event.start_gas.daGas },
-        { Column::tx_prev_l2_gas_used_sent_to_enqueued_call, event.start_gas.l2Gas },
-        { Column::tx_next_da_gas_used_sent_to_enqueued_call, event.end_gas.daGas },
-        { Column::tx_next_l2_gas_used_sent_to_enqueued_call, event.end_gas.l2Gas },
-        { Column::tx_gas_limit_pi_offset,
-          is_teardown_phase(phase) ? AVM_PUBLIC_INPUTS_GAS_SETTINGS_TEARDOWN_GAS_LIMITS_ROW_IDX : 0 },
-        { Column::tx_should_read_gas_limit, is_teardown_phase(phase) },
-        // The enqueued call consumes the next context id, so its starting next context id is incremented by one.
-        { Column::tx_next_context_id_sent_to_enqueued_call, state_before.next_context_id + 1 },
-        { Column::tx_next_context_id_from_enqueued_call, state_after.next_context_id },
-    };
+    return { { Column::tx_is_public_call_request, 1 },
+             { Column::tx_should_process_call_request, 1 },
+             { Column::tx_is_teardown_phase, is_teardown_phase(phase) },
+             { Column::tx_msg_sender, event.msg_sender },
+             { Column::tx_contract_addr, event.contract_address },
+             { Column::tx_fee, event.transaction_fee },
+             { Column::tx_is_static, event.is_static },
+             { Column::tx_calldata_hash, event.calldata_hash },
+             { Column::tx_reverted, !event.success },
+             { Column::tx_prev_da_gas_used_sent_to_enqueued_call, event.start_gas.daGas },
+             { Column::tx_prev_l2_gas_used_sent_to_enqueued_call, event.start_gas.l2Gas },
+             { Column::tx_next_da_gas_used_sent_to_enqueued_call, event.end_gas.daGas },
+             { Column::tx_next_l2_gas_used_sent_to_enqueued_call, event.end_gas.l2Gas },
+             { Column::tx_gas_limit_pi_offset,
+               is_teardown_phase(phase) ? AVM_PUBLIC_INPUTS_GAS_SETTINGS_TEARDOWN_GAS_LIMITS_ROW_IDX : 0 },
+             { Column::tx_should_read_gas_limit, is_teardown_phase(phase) } };
 };
 
 std::vector<std::pair<Column, FF>> handle_note_hash_append(const simulation::PrivateAppendTreeEvent& event,
@@ -609,11 +602,7 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
             // Pattern match on the variant event type and call the appropriate handler
             std::visit(
                 overloaded{ [&](const simulation::EnqueuedCallEvent& event) {
-                               trace.set(row,
-                                         handle_enqueued_call_event(tx_phase_event->phase,
-                                                                    event,
-                                                                    tx_phase_event->state_before,
-                                                                    tx_phase_event->state_after));
+                               trace.set(row, handle_enqueued_call_event(tx_phase_event->phase, event));
                                // No explicit write counter for this phase
                                trace.set(row, handle_pi_read(tx_phase_event->phase, phase_length, phase_counter));
 
@@ -675,8 +664,8 @@ const InteractionDefinition TxTraceBuilder::interactions =
         .add<lookup_tx_phase_jump_on_revert_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_read_phase_length_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_read_public_call_request_phase_settings, InteractionType::LookupGeneric>()
-        // .add<lookup_tx_dispatch_exec_start_settings, InteractionType::LookupGeneric>()
-        // .add<lookup_tx_dispatch_exec_get_revert_settings, InteractionType::LookupGeneric>()
+        .add<lookup_tx_dispatch_exec_start_settings, InteractionType::LookupGeneric>()
+        .add<lookup_tx_dispatch_exec_end_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_read_tree_insert_value_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_read_l2_l1_msg_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_write_l2_l1_msg_settings, InteractionType::LookupGeneric>()
