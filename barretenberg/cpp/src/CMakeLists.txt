@@ -26,7 +26,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     endif()
 
     if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 18)
-        # We target clang18 and need this, eventually warning should be fixed or this will be unconditional.
+        # We target clang20 and need this, eventually warning should be fixed or this will be unconditional.
         add_compile_options(-Wno-vla-cxx-extension)
         # This gets in the way of a partial object initialization (i.e. MyClass my_class{ .my_member = init_value })
         add_compile_options(-Wno-missing-field-initializers)

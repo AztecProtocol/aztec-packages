@@ -21,23 +21,14 @@ RUN export DEBIAN_FRONTEND="noninteractive" \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-
-########################################################################################################################
-# Build wasi-sdk.
-FROM base-build AS wasi-sdk
-RUN apt update && apt install cargo -y
-RUN git clone --depth 1 --recursive --branch wasi-sdk-22 https://github.com/WebAssembly/wasi-sdk.git \
-    && mkdir -p /wasi-sdk/build/install/opt/wasi-sdk \
-    && cd /wasi-sdk \
-    && export MAKEFLAGS="-j$(nproc)" \
-    && make build/llvm.BUILT \
-    && make build/wasi-libc.BUILT \
-    && make build/compiler-rt.BUILT \
-    && make build/libcxx.BUILT \
-    && make build/config.BUILT \
-    && make build/version.BUILT \
-    && mv build/install/opt/wasi-sdk /opt/wasi-sdk \
-    && cd / && rm -rf /wasi-sdk
+# Install rust and cross-compilers. Noir specifically uses 1.85.0.
+# We give everyone write ownership so downstream boxes can write.
+ENV RUSTUP_HOME=/opt/rust/rustup
+ENV CARGO_HOME=/opt/rust/cargo
+ENV PATH="/opt/rust/cargo/bin:$PATH"
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.85.0 && \
+    rustup target add wasm32-unknown-unknown wasm32-wasip1 aarch64-apple-darwin && \
+    chmod -R a+w /opt/rust
 
 
 ########################################################################################################################
@@ -81,7 +72,6 @@ ENV RUSTUP_HOME=/opt/rust/rustup
 ENV CARGO_HOME=/opt/rust/cargo
 ENV PATH="/opt/rust/cargo/bin:$PATH"
 ENV RUSTFLAGS="-C target-cpu=generic"
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 RUN curl -L https://foundry.paradigm.xyz | bash \
     && $FOUNDRY_BIN_DIR/foundryup -i $FOUNDRY_VERSION \
     && mkdir -p /opt/foundry/bin \
@@ -103,7 +93,7 @@ RUN curl -L https://foundry.paradigm.xyz | bash \
 # We use this image for test isolation.
 FROM base-build AS build
 
-# APT repo for node (22.15.0)
+# APT repo for node (22.16.0)
 RUN curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
 ENV NODE_MAJOR=22
 RUN echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list
@@ -124,22 +114,22 @@ RUN apt update && \
         lsof \
         xxd \
         zstd \
-        # C++ (clang=18, which we will move to. 16 is for current build.)
+        # C++
+        lsb-release \
+        gnupg \
+        software-properties-common \
         build-essential \
-        cmake \
-        ninja-build \
         clang \
         clang-16 \
         clang-format-16 \
+        cmake \
+        ninja-build \
         libc++-dev \
         libomp-dev \
-        clang-18 \
-        clang-format-18 \
-        libc++-18-dev \
-        libomp-18-dev \
-        libclang-rt-18-dev \
         doxygen \
-        nodejs \
+        # Node
+        # WARNING: Need to downgrade to this version in the basebox below as well.
+        nodejs=22.16.0-1nodesource1 \
         # Python (clang bindings for wasm bindgen.)
         python3 \
         python3-clang \
@@ -149,21 +139,24 @@ RUN apt update && \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
+# Install clang 18/20.
+RUN wget https://apt.llvm.org/llvm.sh && \
+    chmod +x llvm.sh && \
+    ./llvm.sh 18 all && \
+    ./llvm.sh 20 all && \
+    rm llvm.sh
+
 # Install wasi-sdk.
-COPY --from=wasi-sdk /opt/wasi-sdk /opt/wasi-sdk
+RUN arch=$(uname -m) && \
+    if [ "$arch" = "aarch64" ]; then arch="arm64"; fi && \
+    wget https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-27/wasi-sdk-27.0-${arch}-linux.tar.gz && \
+    tar xvf wasi-sdk-27.0-${arch}-linux.tar.gz && \
+    mv wasi-sdk-27.0-${arch}-linux /opt/wasi-sdk && \
+    rm wasi-sdk-27.0-${arch}-linux.tar.gz
 
 # Install foundry.
 COPY --from=foundry /opt/foundry /opt/foundry
 ENV PATH="/opt/foundry/bin:$PATH"
-
-# Install rust and cross-compilers. Noir specifically uses 1.85.0.
-# We give everyone write ownership so downstream boxes can write.
-ENV RUSTUP_HOME=/opt/rust/rustup
-ENV CARGO_HOME=/opt/rust/cargo
-ENV PATH="/opt/rust/cargo/bin:$PATH"
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.85.0 && \
-    rustup target add wasm32-unknown-unknown wasm32-wasip1 aarch64-apple-darwin && \
-    chmod -R a+w /opt/rust
 
 # Install corepack and yarn.
 RUN npm install --global corepack && corepack enable && corepack install --global yarn@4.5.2
@@ -211,7 +204,7 @@ RUN yes | unminimize
 
 # Install stuff devs need.
 RUN apt update && \
-    apt install -y \
+    apt install -y --allow-downgrades \
         cgroup-tools \
         clangd-16 \
         clangd-18 \
@@ -240,6 +233,8 @@ RUN apt update && \
         vim \
         zsh \
         inotify-tools \
+        # Annoyingly unminimize upgrades nodejs.
+        nodejs=22.16.0-1nodesource1 \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Install osxcross. Requires developer to mount SDK from their mac host.

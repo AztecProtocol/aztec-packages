@@ -6,7 +6,7 @@ cd ..
 # For more verbose logging
 export CI=1
 # Affects meaning of 'native' in bootstrap and run_test.sh
-export NATIVE_PRESET=clang16-coverage
+export NATIVE_PRESET=clang20-coverage
 # target max time of 15 minutes, but timing out at all is painful so bump high
 export TIMEOUT=40m
 ./bootstrap.sh build_native
