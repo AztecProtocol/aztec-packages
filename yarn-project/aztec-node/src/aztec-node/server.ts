@@ -204,8 +204,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     // Build a key store from file if given or from environment otherwise
     let keyStoreManager: KeystoreManager | undefined;
-    if (config.keyStoreDirectory !== undefined && config.keyStoreDirectory.length) {
-      const keyStores = loadKeystores(config.keyStoreDirectory);
+    const keyStoreProvided = config.keyStoreDirectory !== undefined && config.keyStoreDirectory.length > 0;
+    if (keyStoreProvided) {
+      const keyStores = loadKeystores(config.keyStoreDirectory!);
       keyStoreManager = new KeystoreManager(mergeKeystores(keyStores));
     } else {
       const keyStore = createKeyStoreForValidator(config);
@@ -218,6 +219,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     if (!config.disableValidator) {
       if (keyStoreManager === undefined) {
         throw new Error('Failed to create key store, a requirement for running a validator');
+      }
+      if (!keyStoreProvided) {
+        log.warn(
+          'KEY STORE CREATED FROM ENVIRONMENT, IT IS RECOMMENDED TO USE A FILE-BASED KEY STORE IN PRODUCTION ENVIRONMENTS',
+        );
       }
       ValidatorClient.validateKeyStoreConfiguration(keyStoreManager);
     }

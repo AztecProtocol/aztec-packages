@@ -62,8 +62,9 @@ export async function createProverNode(
 
   // Build a key store from file if given or from environment otherwise
   let keyStoreManager: KeystoreManager | undefined;
-  if (config.keyStoreDirectory) {
-    const keyStores = loadKeystores(config.keyStoreDirectory);
+  const keyStoreProvided = config.keyStoreDirectory !== undefined && config.keyStoreDirectory.length > 0;
+  if (keyStoreProvided) {
+    const keyStores = loadKeystores(config.keyStoreDirectory!);
     keyStoreManager = new KeystoreManager(mergeKeystores(keyStores));
   } else {
     const keyStore = createKeyStoreForProver(config);
@@ -79,6 +80,10 @@ export async function createProverNode(
     throw new Error('Failed to create prover key store configuration');
   } else if (proverSigners.signers.length === 0) {
     throw new Error('No prover signers found in the key store');
+  } else if (!keyStoreProvided) {
+    log.warn(
+      'KEY STORE CREATED FROM ENVIRONMENT, IT IS RECOMMENDED TO USE A FILE-BASED KEY STORE IN PRODUCTION ENVIRONMENTS',
+    );
   }
 
   // Only consider user provided config if it is valid
