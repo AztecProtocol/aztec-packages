@@ -227,7 +227,7 @@ function bump_noir_repo_ref {
   git add noir-repo-ref
 
   # Update the Cargo.lock file in the transpiler to match the new ref.
-  cargo check --manifest-path="../avm-transpiler/Cargo.toml"
+  cargo update --workspace --manifest-path="../avm-transpiler/Cargo.toml"
 
   # Build nargo and run formatter on `noir-projects`
   build_native
