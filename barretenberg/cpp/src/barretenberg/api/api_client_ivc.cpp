@@ -94,7 +94,7 @@ void ClientIVCAPI::prove(const Flags& flags,
     bbapi::BBApiRequest request;
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
-    bbapi::ClientIvcStart{ .num_circuits = raw_steps.size() - 1 }.execute(request);
+    bbapi::ClientIvcStart{ .num_circuits = raw_steps.size() }.execute(request);
 
     for (size_t i = 0; i < raw_steps.size() - 1; ++i) {
         const auto& step = raw_steps[i];
@@ -158,8 +158,6 @@ bool ClientIVCAPI::prove_and_verify(const std::filesystem::path& input_path)
 
     std::shared_ptr<ClientIVC> ivc = steps.accumulate();
     // Construct the hiding kernel as the final step of the IVC
-    ClientIVC::ClientCircuit circuit{ ivc->goblin.op_queue };
-    ivc->complete_kernel_circuit_logic(circuit);
 
     const bool verified = ivc->prove_and_verify();
     return verified;

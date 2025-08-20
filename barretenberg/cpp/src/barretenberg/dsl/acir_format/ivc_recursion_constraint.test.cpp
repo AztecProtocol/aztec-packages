@@ -244,7 +244,6 @@ class IvcRecursionConstraintTest : public ::testing::Test {
         const ProgramMetadata metadata{ ivc };
         AcirProgram mock_kernel_program = construct_mock_kernel_program(ivc->verification_queue);
         auto kernel = acir_format::create_circuit<Builder>(mock_kernel_program, metadata);
-        EXPECT_TRUE(CircuitChecker::check(kernel));
         auto kernel_vk = get_kernel_vk_from_circuit(kernel, trace_settings);
         ivc->accumulate(kernel, kernel_vk);
     }

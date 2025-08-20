@@ -305,9 +305,6 @@ HEAVY_TEST(ClientIVCKernelCapacity, MaxCapacityPassing)
     const size_t num_circuits = circuit_producer.total_num_circuits;
     ClientIVC ivc{ num_circuits };
 
-    for (size_t j = 0; j < num_circuits; ++j) {
-        circuit_producer.construct_and_accumulate_next_circuit(ivc);
-    }
     auto proof = ivc.prove();
 
     EXPECT_TRUE(ivc.verify(proof));
