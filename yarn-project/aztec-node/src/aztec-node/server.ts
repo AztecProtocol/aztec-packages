@@ -111,7 +111,7 @@ import {
   getTelemetryClient,
   trackSpan,
 } from '@aztec/telemetry-client';
-import { createValidatorClient } from '@aztec/validator-client';
+import { ValidatorClient, createValidatorClient } from '@aztec/validator-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
 import { createPublicClient, fallback, http } from 'viem';
@@ -214,8 +214,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       }
     }
 
-    if (keyStoreManager === undefined && !config.disableValidator) {
-      throw new Error('Failed to create key store, a requirement for running a validator');
+    // If we are a validator, verify our configuration before doing too much more.
+    if (!config.disableValidator) {
+      if (keyStoreManager === undefined) {
+        throw new Error('Failed to create key store, a requirement for running a validator');
+      }
+      ValidatorClient.validateKeyStoreConfiguration(keyStoreManager);
     }
 
     // validate that the actual chain id matches that specified in configuration
