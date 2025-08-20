@@ -7,7 +7,7 @@ import {Slasher, ISlasher} from "@aztec/core/slashing/Slasher.sol";
 import {EmpireSlashingProposer} from "@aztec/core/slashing/EmpireSlashingProposer.sol";
 
 /**
- * @title EmpireDeploymentExtLib - External Rollup Library (Empire Slasher Deployment)
+ * @title EmpireSlasherDeploymentExtLib - External Rollup Library (Empire Slasher Deployment)
  * @author Aztec Labs
  * @notice External library containing empire slasher deployment function for the Rollup contract
  * to avoid exceeding max contract size.
@@ -16,7 +16,7 @@ import {EmpireSlashingProposer} from "@aztec/core/slashing/EmpireSlashingPropose
  *      functionality to keep the main contract within the maximum contract size limit. Uses two-phase
  *      initialization to resolve circular dependency between Slasher and EmpireSlashingProposer.
  */
-library EmpireDeploymentExtLib {
+library EmpireSlasherDeploymentExtLib {
   function deployEmpireSlasher(
     address _rollup,
     address _vetoer,

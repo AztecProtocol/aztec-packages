@@ -6,7 +6,7 @@ import {Rollup} from "@aztec/core/Rollup.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {Slasher, IPayload} from "@aztec/core/slashing/Slasher.sol";
-import {ConsensusSlashingProposer} from "@aztec/core/slashing/ConsensusSlashingProposer.sol";
+import {TallySlashingProposer} from "@aztec/core/slashing/TallySlashingProposer.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
@@ -23,7 +23,7 @@ import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.so
 import {Status, AttesterView} from "@aztec/core/interfaces/IStaking.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 
-import {ConsensusSlashingProposer} from "@aztec/core/slashing/ConsensusSlashingProposer.sol";
+import {TallySlashingProposer} from "@aztec/core/slashing/TallySlashingProposer.sol";
 
 import {Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {TimeCheater} from "../../../staking/TimeCheater.sol";
@@ -43,7 +43,7 @@ contract SlashingTest is TestBase {
   Rollup internal rollup;
   Slasher internal slasher;
   SlashFactory internal slashFactory;
-  ConsensusSlashingProposer internal slashingProposer;
+  TallySlashingProposer internal slashingProposer;
   TimeCheater internal timeCheater;
 
   // Test validator keys for signing
@@ -89,7 +89,7 @@ contract SlashingTest is TestBase {
     timeCheater.cheat__jumpToSlot(desiredSlot);
     SlashRound votingRound = slashingProposer.getCurrentRound();
 
-    // Create votes - for consensus slashing we need to encode votes as bytes
+    // Create votes - for tally slashing we need to encode votes as bytes
     // Each validator gets a slash amount between 1-15 units
     // For simplicity, we'll vote to slash all validators by the same amount
     uint256 slashUnits = _slashAmount / slashingProposer.SLASHING_UNIT();
@@ -160,7 +160,7 @@ contract SlashingTest is TestBase {
       COMMITTEE_SIZE
     ).setSlashingLifetimeInRounds(_slashingLifetimeInRounds).setSlashingExecutionDelayInRounds(
       _slashingExecutionDelayInRounds
-    ).setSlasherFlavor(SlasherFlavor.CONSENSUS).setSlashingRoundSize(ROUND_SIZE).setSlashingQuorum(ROUND_SIZE / 2 + 1)
+    ).setSlasherFlavor(SlasherFlavor.TALLY).setSlashingRoundSize(ROUND_SIZE).setSlashingQuorum(ROUND_SIZE / 2 + 1)
       .setSlashingOffsetInRounds(2);
     builder.deploy();
 
@@ -168,7 +168,7 @@ contract SlashingTest is TestBase {
     testERC20 = builder.getConfig().testERC20;
 
     slasher = Slasher(rollup.getSlasher());
-    slashingProposer = ConsensusSlashingProposer(slasher.PROPOSER());
+    slashingProposer = TallySlashingProposer(slasher.PROPOSER());
     slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
 
     timeCheater = new TimeCheater(
@@ -204,7 +204,7 @@ contract SlashingTest is TestBase {
 
     timeCheater.cheat__jumpToSlot(_jumpToSlot);
 
-    // For consensus slashing, we need to prepare committees for execution
+    // For tally slashing, we need to prepare committees for execution
     address[][] memory committees = new address[][](slashingProposer.ROUND_SIZE_IN_EPOCHS());
     for (uint256 i = 0; i < committees.length; i++) {
       Epoch epochSlashed = slashingProposer.getSlashTargetEpoch(firstSlashingRound, i);
@@ -240,7 +240,7 @@ contract SlashingTest is TestBase {
       assertTrue(attesterView.status == Status.VALIDATING, "Invalid status");
     }
 
-    // For consensus slashing, we need to prepare committees for execution
+    // For tally slashing, we need to prepare committees for execution
     address[][] memory committees = new address[][](slashingProposer.ROUND_SIZE_IN_EPOCHS());
     for (uint256 i = 0; i < committees.length; i++) {
       Epoch epochSlashed = slashingProposer.getSlashTargetEpoch(firstSlashingRound, i);
@@ -268,9 +268,9 @@ contract SlashingTest is TestBase {
     uint96 slashAmount = 10e18;
     SlashRound firstSlashingRound = _createSlashingVotes(attesters, slashAmount, attesters.length);
 
-    // For consensus slashing, we need to predict the payload address and veto it
+    // For tally slashing, we need to predict the payload address and veto it
     // Get the actual slash actions that will be created by calling getTally
-    ConsensusSlashingProposer.SlashAction[] memory actions = slashingProposer.getTally(firstSlashingRound);
+    TallySlashingProposer.SlashAction[] memory actions = slashingProposer.getTally(firstSlashingRound);
     address payloadAddress = slashingProposer.getPayloadAddress(firstSlashingRound, actions);
 
     // Veto the predicted payload
@@ -285,7 +285,7 @@ contract SlashingTest is TestBase {
 
     timeCheater.cheat__jumpToSlot(_jumpToSlot);
 
-    // For consensus slashing, we need to prepare committees for execution
+    // For tally slashing, we need to prepare committees for execution
     address[][] memory committees = new address[][](slashingProposer.ROUND_SIZE_IN_EPOCHS());
     for (uint256 i = 0; i < committees.length; i++) {
       Epoch epochSlashed = slashingProposer.getSlashTargetEpoch(firstSlashingRound, i);

@@ -12,14 +12,14 @@ cd $(git rev-parse --show-toplevel)/yarn-project/l1-artifacts
 
 contracts=(
   "CoinIssuer"
-  "ConsensusSlashingProposer"
+  "TallySlashingProposer"
   "EmpireBase"
   "EmpireSlashingProposer"
   "RollupOperationsExtLib"
   "ValidatorOperationsExtLib"
   "RewardDeploymentExtLib"
-  "ConsensusDeploymentExtLib"
-  "EmpireDeploymentExtLib"
+  "TallySlasherDeploymentExtLib"
+  "EmpireSlasherDeploymentExtLib"
   "FeeJuicePortal"
   "Governance"
   "GovernanceProposer"

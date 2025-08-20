@@ -28,7 +28,7 @@ gas_reports = [
   "Slasher",
   "RollupWithPreheating",
   "EmpireSlashingProposer",
-  "ConsensusSlashingProposer",
+  "TallySlashingProposer",
 ]
 
 remappings = [

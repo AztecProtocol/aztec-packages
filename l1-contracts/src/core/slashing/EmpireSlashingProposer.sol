@@ -12,7 +12,7 @@ import {EmpireBase} from "@aztec/governance/proposer/EmpireBase.sol";
  */
 contract EmpireSlashingProposer is IEmpire, EmpireBase {
   /**
-   * @notice Type of slashing proposer (either Consensus or Empire)
+   * @notice Type of slashing proposer (either Tally or Empire)
    */
   SlasherFlavor public constant SLASHING_PROPOSER_TYPE = SlasherFlavor.EMPIRE;
 

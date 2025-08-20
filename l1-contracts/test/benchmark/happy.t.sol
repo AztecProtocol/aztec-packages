@@ -64,7 +64,7 @@ import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
-import {ConsensusSlashingProposer} from "@aztec/core/slashing/ConsensusSlashingProposer.sol";
+import {TallySlashingProposer} from "@aztec/core/slashing/TallySlashingProposer.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
@@ -117,7 +117,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   enum TestSlash {
     NONE,
     EMPIRE,
-    CONSENSUS
+    TALLY
   }
 
   DecoderBase.Full internal full;
@@ -176,13 +176,12 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     ).setTargetCommitteeSize(_noValidators ? 0 : TARGET_COMMITTEE_SIZE).setStakingQueueConfig(stakingQueueConfig)
       .setSlashingQuorum(VOTING_ROUND_SIZE).setSlashingRoundSize(VOTING_ROUND_SIZE);
 
-    if (_slashing == TestSlash.CONSENSUS) {
-      // For consensus slashing, we need a round size that's a multiple of epoch duration
-      uint256 consensusRoundSize = 64; // 2 * EPOCH_DURATION (32) = 64
-      uint256 consensusQuorum = consensusRoundSize / 2 + 1; // Must be > ROUND_SIZE / 2
-      builder.setSlasherFlavor(SlasherFlavor.CONSENSUS).setSlashingQuorum(consensusQuorum).setSlashingRoundSize(
-        consensusRoundSize
-      ).setSlashingLifetimeInRounds(5).setSlashingExecutionDelayInRounds(1).setSlashingUnit(1e18);
+    if (_slashing == TestSlash.TALLY) {
+      // For tally slashing, we need a round size that's a multiple of epoch duration
+      uint256 tallyRoundSize = 64; // 2 * EPOCH_DURATION (32) = 64
+      uint256 tallyQuorum = tallyRoundSize / 2 + 1; // Must be > ROUND_SIZE / 2
+      builder.setSlasherFlavor(SlasherFlavor.TALLY).setSlashingQuorum(tallyQuorum).setSlashingRoundSize(tallyRoundSize)
+        .setSlashingLifetimeInRounds(5).setSlashingExecutionDelayInRounds(1).setSlashingUnit(1e18);
     }
 
     builder.deploy();
@@ -249,8 +248,8 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     benchmark(TestSlash.NONE);
   }
 
-  function test_100_slashing_validators() public prepare(100, false, TestSlash.CONSENSUS) {
-    benchmark(TestSlash.CONSENSUS);
+  function test_100_slashing_validators() public prepare(100, false, TestSlash.TALLY) {
+    benchmark(TestSlash.TALLY);
   }
 
   /**
@@ -387,11 +386,11 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   }
 
   /**
-   * @notice Creates vote data for consensus slashing
+   * @notice Creates vote data for tally slashing
    * @param slashAmounts Array of slash amounts for validators (4 bits each)
    * @return Encoded vote data
    */
-  function createConsensusVoteData(uint8[] memory slashAmounts) internal pure returns (bytes memory) {
+  function createTallyVoteData(uint8[] memory slashAmounts) internal pure returns (bytes memory) {
     require(slashAmounts.length % 2 == 0, "Vote data must have even number of validators");
 
     bytes memory voteData = new bytes(slashAmounts.length / 2);
@@ -406,46 +405,46 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   }
 
   /**
-   * @notice Creates an EIP-712 signature for consensus voting
+   * @notice Creates an EIP-712 signature for tally voting
    * @param _signer The address that should sign (must match a proposer)
    * @param votes The vote data to sign
    * @param slot The current slot
    * @return The EIP-712 signature
    */
-  function createConsensusVoteSignature(address _signer, bytes memory votes, Slot slot)
+  function createTallyVoteSignature(address _signer, bytes memory votes, Slot slot)
     internal
     view
     returns (Signature memory)
   {
     uint256 privateKey = attesterPrivateKeys[_signer];
     require(privateKey != 0, "Private key not found for signer");
-    bytes32 digest = ConsensusSlashingProposer(slashingProposer).getVoteSignatureDigest(votes, slot);
+    bytes32 digest = TallySlashingProposer(slashingProposer).getVoteSignatureDigest(votes, slot);
 
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
 
     return Signature({v: v, r: r, s: s});
   }
 
-  function proposeWithConsensusVote(Block memory b, address proposer) internal {
+  function proposeWithTallyVote(Block memory b, address proposer) internal {
     // First propose the block
     CommitteeAttestations memory attestations = AttestationLib.packAttestations(b.attestations);
     vm.prank(proposer);
     rollup.propose(b.proposeArgs, attestations, b.signers, b.blobInputs);
 
     // Then try to cast a vote (may fail if voting not open yet)
-    try this.castConsensusVote(proposer) {} catch {}
+    try this.castTallyVote(proposer) {} catch {}
   }
 
-  function castConsensusVote(address proposer) external {
+  function castTallyVote(address proposer) external {
     // Create empty vote data (no slashing)
     uint256 committeeSize = rollup.getEpochCommittee(rollup.getCurrentEpoch()).length;
-    uint256 roundSizeInEpochs = 2; // Based on consensus ROUND_SIZE (64) / EPOCH_DURATION (32) = 2
+    uint256 roundSizeInEpochs = 2; // Based on tally ROUND_SIZE (64) / EPOCH_DURATION (32) = 2
     uint8[] memory slashAmounts = new uint8[](committeeSize * roundSizeInEpochs);
-    bytes memory voteData = createConsensusVoteData(slashAmounts);
-    Signature memory sig = createConsensusVoteSignature(proposer, voteData, rollup.getCurrentSlot());
+    bytes memory voteData = createTallyVoteData(slashAmounts);
+    Signature memory sig = createTallyVoteSignature(proposer, voteData, rollup.getCurrentSlot());
 
     vm.prank(proposer);
-    ConsensusSlashingProposer(slashingProposer).vote(voteData, sig);
+    TallySlashingProposer(slashingProposer).vote(voteData, sig);
   }
 
   function benchmark(TestSlash _slashing) public {
@@ -468,8 +467,8 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
         warmedUp = true;
       }
 
-      if (_slashing == TestSlash.CONSENSUS && !warmedUp && rollup.getCurrentSlot() >= Slot.wrap(EPOCH_DURATION * 2)) {
-        SlashRound slashRound = ConsensusSlashingProposer(slashingProposer).getCurrentRound();
+      if (_slashing == TestSlash.TALLY && !warmedUp && rollup.getCurrentSlot() >= Slot.wrap(EPOCH_DURATION * 2)) {
+        SlashRound slashRound = TallySlashingProposer(slashingProposer).getCurrentRound();
         if (SlashRound.unwrap(slashRound) >= 2) {
           // SLASH_OFFSET_IN_ROUNDS
           address proposer = rollup.getCurrentProposer();
@@ -478,9 +477,9 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
             uint256 committeeSize = rollup.getEpochCommittee(rollup.getCurrentEpoch()).length;
             uint256 roundSizeInEpochs = 2; // Based on default ROUND_SIZE / EPOCH_DURATION
             uint8[] memory slashAmounts = new uint8[](committeeSize * roundSizeInEpochs);
-            bytes memory voteData = createConsensusVoteData(slashAmounts);
-            Signature memory sig = createConsensusVoteSignature(proposer, voteData, rollup.getCurrentSlot());
-            ConsensusSlashingProposer(slashingProposer).vote(voteData, sig);
+            bytes memory voteData = createTallyVoteData(slashAmounts);
+            Signature memory sig = createTallyVoteSignature(proposer, voteData, rollup.getCurrentSlot());
+            TallySlashingProposer(slashingProposer).vote(voteData, sig);
             warmedUp = true;
           }
         }
@@ -517,11 +516,11 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
             allowFailure: false
           });
           multicall.aggregate3(calls);
-        } else if (_slashing == TestSlash.CONSENSUS) {
-          SlashRound slashRound = ConsensusSlashingProposer(slashingProposer).getCurrentRound();
+        } else if (_slashing == TestSlash.TALLY) {
+          SlashRound slashRound = TallySlashingProposer(slashingProposer).getCurrentRound();
           if (SlashRound.unwrap(slashRound) >= 2) {
             // SLASH_OFFSET_IN_ROUNDS
-            proposeWithConsensusVote(b, proposer);
+            proposeWithTallyVote(b, proposer);
           } else {
             // Before slash offset, just propose normally
             CommitteeAttestations memory attestations = AttestationLib.packAttestations(b.attestations);

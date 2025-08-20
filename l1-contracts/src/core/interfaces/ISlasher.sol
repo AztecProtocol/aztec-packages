@@ -6,7 +6,7 @@ import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 
 enum SlasherFlavor {
   EMPIRE,
-  CONSENSUS
+  TALLY
 }
 
 interface ISlasher {

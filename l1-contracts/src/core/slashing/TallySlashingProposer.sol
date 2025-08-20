@@ -16,9 +16,9 @@ import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 /**
- * @title ConsensusSlashingProposer
+ * @title TallySlashingProposer
  * @author Aztec Labs
- * @notice Consensus-based slashing proposer that aggregates validator votes to determine which validators should be
+ * @notice Tally-based slashing proposer that aggregates validator votes to determine which validators should be
  * slashed
  *
  * @dev This contract implements a voting-based slashing mechanism where block proposers signal their intent to slash
@@ -81,7 +81,7 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
  *      - SLASHING_UNIT: Base amount of slashing per unit voted
  *      - COMMITTEE_SIZE: Number of validators per committee
  */
-contract ConsensusSlashingProposer is EIP712 {
+contract TallySlashingProposer is EIP712 {
   using SignatureLib for Signature;
   using CompressedTimeMath for CompressedSlot;
   using CompressedTimeMath for Slot;
@@ -147,9 +147,9 @@ contract ConsensusSlashingProposer is EIP712 {
   bytes32 public constant VOTE_TYPEHASH = keccak256("Vote(uint256 slot,bytes votes)");
 
   /**
-   * @notice Type of slashing proposer (either Consensus or Empire)
+   * @notice Type of slashing proposer (either Tally or Empire)
    */
-  SlasherFlavor public constant SLASHING_PROPOSER_TYPE = SlasherFlavor.CONSENSUS;
+  SlasherFlavor public constant SLASHING_PROPOSER_TYPE = SlasherFlavor.TALLY;
 
   /**
    * @notice Size of the circular storage buffer for round data
@@ -186,7 +186,7 @@ contract ConsensusSlashingProposer is EIP712 {
 
   /**
    * @notice Minimum number of votes required to slash a validator
-   * @dev Must be greater than ROUND_SIZE/2 to ensure majority consensus
+   * @dev Must be greater than ROUND_SIZE/2 to ensure majority agreement
    */
   uint256 public immutable QUORUM;
 
@@ -249,7 +249,7 @@ contract ConsensusSlashingProposer is EIP712 {
   event RoundExecuted(SlashRound indexed round, uint256 slashCount);
 
   /**
-   * @notice Initializes the ConsensusSlashingProposer with configuration parameters
+   * @notice Initializes the TallySlashingProposer with configuration parameters
    * @dev Sets up all the voting and slashing parameters and validates their correctness.
    *      The constructor enforces several important invariants to ensure the system operates correctly.
    *
@@ -278,7 +278,7 @@ contract ConsensusSlashingProposer is EIP712 {
     uint256 _committeeSize,
     uint256 _epochDuration,
     uint256 _slashOffsetInRounds
-  ) EIP712("ConsensusSlashingProposer", "1") {
+  ) EIP712("TallySlashingProposer", "1") {
     INSTANCE = _instance;
     SLASHER = _slasher;
     SLASHING_UNIT = _slashingUnit;
@@ -291,36 +291,33 @@ contract ConsensusSlashingProposer is EIP712 {
     SLASH_OFFSET_IN_ROUNDS = _slashOffsetInRounds;
 
     require(
-      SLASH_OFFSET_IN_ROUNDS > 0,
-      Errors.ConsensusSlashingProposer__SlashOffsetMustBeGreaterThanZero(SLASH_OFFSET_IN_ROUNDS)
+      SLASH_OFFSET_IN_ROUNDS > 0, Errors.TallySlashingProposer__SlashOffsetMustBeGreaterThanZero(SLASH_OFFSET_IN_ROUNDS)
     );
     require(
       ROUND_SIZE_IN_EPOCHS * _epochDuration == ROUND_SIZE,
-      Errors.ConsensusSlashingProposer__RoundSizeMustBeMultipleOfEpochDuration(ROUND_SIZE, _epochDuration)
+      Errors.TallySlashingProposer__RoundSizeMustBeMultipleOfEpochDuration(ROUND_SIZE, _epochDuration)
     );
-    require(QUORUM > 0, Errors.ConsensusSlashingProposer__QuorumMustBeGreaterThanZero());
-    require(ROUND_SIZE > 1, Errors.ConsensusSlashingProposer__InvalidQuorumAndRoundSize(QUORUM, ROUND_SIZE));
-    require(QUORUM > ROUND_SIZE / 2, Errors.ConsensusSlashingProposer__InvalidQuorumAndRoundSize(QUORUM, ROUND_SIZE));
-    require(QUORUM <= ROUND_SIZE, Errors.ConsensusSlashingProposer__InvalidQuorumAndRoundSize(QUORUM, ROUND_SIZE));
-    require(SLASHING_UNIT > 0, Errors.ConsensusSlashingProposer__SlashingUnitMustBeGreaterThanZero(SLASHING_UNIT));
+    require(QUORUM > 0, Errors.TallySlashingProposer__QuorumMustBeGreaterThanZero());
+    require(ROUND_SIZE > 1, Errors.TallySlashingProposer__InvalidQuorumAndRoundSize(QUORUM, ROUND_SIZE));
+    require(QUORUM > ROUND_SIZE / 2, Errors.TallySlashingProposer__InvalidQuorumAndRoundSize(QUORUM, ROUND_SIZE));
+    require(QUORUM <= ROUND_SIZE, Errors.TallySlashingProposer__InvalidQuorumAndRoundSize(QUORUM, ROUND_SIZE));
+    require(SLASHING_UNIT > 0, Errors.TallySlashingProposer__SlashingUnitMustBeGreaterThanZero(SLASHING_UNIT));
     require(
       LIFETIME_IN_ROUNDS > EXECUTION_DELAY_IN_ROUNDS,
-      Errors.ConsensusSlashingProposer__LifetimeMustBeGreaterThanExecutionDelay(
+      Errors.TallySlashingProposer__LifetimeMustBeGreaterThanExecutionDelay(
         LIFETIME_IN_ROUNDS, EXECUTION_DELAY_IN_ROUNDS
       )
     );
     require(
       LIFETIME_IN_ROUNDS < ROUNDABOUT_SIZE,
-      Errors.ConsensusSlashingProposer__LifetimeMustBeLessThanRoundabout(LIFETIME_IN_ROUNDS, ROUNDABOUT_SIZE)
+      Errors.TallySlashingProposer__LifetimeMustBeLessThanRoundabout(LIFETIME_IN_ROUNDS, ROUNDABOUT_SIZE)
     );
     require(
       ROUND_SIZE_IN_EPOCHS > 0,
-      Errors.ConsensusSlashingProposer__RoundSizeInEpochsMustBeGreaterThanZero(ROUND_SIZE_IN_EPOCHS)
+      Errors.TallySlashingProposer__RoundSizeInEpochsMustBeGreaterThanZero(ROUND_SIZE_IN_EPOCHS)
     );
-    require(
-      ROUND_SIZE < MAX_ROUND_SIZE, Errors.ConsensusSlashingProposer__RoundSizeTooLarge(ROUND_SIZE, MAX_ROUND_SIZE)
-    );
-    require(COMMITTEE_SIZE > 0, Errors.ConsensusSlashingProposer__CommitteeSizeMustBeGreaterThanZero(COMMITTEE_SIZE));
+    require(ROUND_SIZE < MAX_ROUND_SIZE, Errors.TallySlashingProposer__RoundSizeTooLarge(ROUND_SIZE, MAX_ROUND_SIZE));
+    require(COMMITTEE_SIZE > 0, Errors.TallySlashingProposer__CommitteeSizeMustBeGreaterThanZero(COMMITTEE_SIZE));
   }
 
   /**
@@ -339,10 +336,10 @@ contract ConsensusSlashingProposer is EIP712 {
    * - VoteCast: When the vote is successfully recorded
    *
    * Reverts with:
-   * - ConsensusSlashingProposer__VotingNotOpen: If current round is less than SLASH_OFFSET_IN_ROUNDS
-   * - ConsensusSlashingProposer__InvalidSignature: If signature verification fails
-   * - ConsensusSlashingProposer__InvalidVoteLength: If vote data length is incorrect
-   * - ConsensusSlashingProposer__VoteAlreadyCastInCurrentSlot: If proposer already voted in this slot
+   * - TallySlashingProposer__VotingNotOpen: If current round is less than SLASH_OFFSET_IN_ROUNDS
+   * - TallySlashingProposer__InvalidSignature: If signature verification fails
+   * - TallySlashingProposer__InvalidVoteLength: If vote data length is incorrect
+   * - TallySlashingProposer__VoteAlreadyCastInCurrentSlot: If proposer already voted in this slot
    */
   function vote(bytes calldata _votes, Signature calldata _sig) external {
     Slot slot = _getCurrentSlot();
@@ -350,27 +347,26 @@ contract ConsensusSlashingProposer is EIP712 {
 
     // We vote for slashing validators for epochs from SLASH_OFFSET_IN_ROUNDS ago, so in early rounds there is no one to
     // be slashed.
-    require(round >= SlashRound.wrap(SLASH_OFFSET_IN_ROUNDS), Errors.ConsensusSlashingProposer__VotingNotOpen(round));
+    require(round >= SlashRound.wrap(SLASH_OFFSET_IN_ROUNDS), Errors.TallySlashingProposer__VotingNotOpen(round));
 
     // Get the current proposer from the rollup - only they can submit votes
     address proposer = _getCurrentProposer();
 
     // Verify EIP-712 signature (which includes slot to prevent replay attacks)
     bytes32 digest = getVoteSignatureDigest(_votes, slot);
-    require(_sig.verify(proposer, digest), Errors.ConsensusSlashingProposer__InvalidSignature());
+    require(_sig.verify(proposer, digest), Errors.TallySlashingProposer__InvalidSignature());
 
     // Each byte encodes 2 validators (4 bits each), so each validator is represented as a nibble in the byte array.
     uint256 expectedLength = COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS / 2;
     require(
-      _votes.length == expectedLength,
-      Errors.ConsensusSlashingProposer__InvalidVoteLength(expectedLength, _votes.length)
+      _votes.length == expectedLength, Errors.TallySlashingProposer__InvalidVoteLength(expectedLength, _votes.length)
     );
 
     // Get the round data for the current round
     RoundData memory roundData = _getRoundData(round, round);
 
     // Check if a vote has already been cast in the current slot
-    require(roundData.lastVoteSlot < slot, Errors.ConsensusSlashingProposer__VoteAlreadyCastInCurrentSlot(slot));
+    require(roundData.lastVoteSlot < slot, Errors.TallySlashingProposer__VoteAlreadyCastInCurrentSlot(slot));
 
     // Store the vote for this round
     uint256 voteCount = roundData.voteCount;
@@ -397,20 +393,20 @@ contract ConsensusSlashingProposer is EIP712 {
    * - RoundExecuted: When the round execution completes, regardless of whether any slashing occurred
    *
    * Reverts with:
-   * - ConsensusSlashingProposer__RoundAlreadyExecuted: If the round has already been executed
-   * - ConsensusSlashingProposer__RoundNotComplete: If the round is not yet ready for execution or has expired
-   * - ConsensusSlashingProposer__InvalidCommitteeCommitment: If any committee commitment doesn't match on-chain data
-   * - ConsensusSlashingProposer__InvalidNumberOfCommittees: If the number of committees doesn't match
+   * - TallySlashingProposer__RoundAlreadyExecuted: If the round has already been executed
+   * - TallySlashingProposer__RoundNotComplete: If the round is not yet ready for execution or has expired
+   * - TallySlashingProposer__InvalidCommitteeCommitment: If any committee commitment doesn't match on-chain data
+   * - TallySlashingProposer__InvalidNumberOfCommittees: If the number of committees doesn't match
    * ROUND_SIZE_IN_EPOCHS
    */
   function executeRound(SlashRound _round, address[][] calldata _committees) external {
     // Get round data to check if already executed
     SlashRound currentRound = getCurrentRound();
     RoundData memory roundData = _getRoundData(_round, currentRound);
-    require(!roundData.executed, Errors.ConsensusSlashingProposer__RoundAlreadyExecuted(_round));
+    require(!roundData.executed, Errors.TallySlashingProposer__RoundAlreadyExecuted(_round));
 
     // Ensure enough time has passed (execution delay) but not too much (lifetime)
-    require(_isRoundReadyToExecute(_round, currentRound), Errors.ConsensusSlashingProposer__RoundNotComplete(_round));
+    require(_isRoundReadyToExecute(_round, currentRound), Errors.TallySlashingProposer__RoundNotComplete(_round));
 
     // Get the slash actions by tallying votes and which committees have slashes
     (SlashAction[] memory actions, bool[] memory committeesWithSlashes) = _tally(roundData, _committees);
@@ -425,8 +421,7 @@ contract ConsensusSlashingProposer is EIP712 {
       bytes32 commitment = _computeCommitteeCommitment(_committees[i]);
       Epoch epochNumber = getSlashTargetEpoch(_round, i);
       require(
-        commitment == _getCommitteeCommitment(epochNumber),
-        Errors.ConsensusSlashingProposer__InvalidCommitteeCommitment()
+        commitment == _getCommitteeCommitment(epochNumber), Errors.TallySlashingProposer__InvalidCommitteeCommitment()
       );
     }
 
@@ -535,13 +530,13 @@ contract ConsensusSlashingProposer is EIP712 {
    * @return epochNumber The epoch number whose validators will be considered for slashing
    *
    * Reverts with:
-   * - ConsensusSlashingProposer__VotingNotOpen: If the round is less than SLASH_OFFSET_IN_ROUNDS
+   * - TallySlashingProposer__VotingNotOpen: If the round is less than SLASH_OFFSET_IN_ROUNDS
    */
   function getSlashTargetEpoch(SlashRound _round, uint256 _epochIndex) public view returns (Epoch epochNumber) {
-    require(_round >= SlashRound.wrap(SLASH_OFFSET_IN_ROUNDS), Errors.ConsensusSlashingProposer__VotingNotOpen(_round));
+    require(_round >= SlashRound.wrap(SLASH_OFFSET_IN_ROUNDS), Errors.TallySlashingProposer__VotingNotOpen(_round));
     require(
       _epochIndex < ROUND_SIZE_IN_EPOCHS,
-      Errors.ConsensusSlashingProposer__InvalidEpochIndex(_epochIndex, ROUND_SIZE_IN_EPOCHS)
+      Errors.TallySlashingProposer__InvalidEpochIndex(_epochIndex, ROUND_SIZE_IN_EPOCHS)
     );
     return Epoch.wrap((SlashRound.unwrap(_round) - SLASH_OFFSET_IN_ROUNDS) * ROUND_SIZE_IN_EPOCHS + _epochIndex);
   }
@@ -657,7 +652,7 @@ contract ConsensusSlashingProposer is EIP712 {
     // Must have one committee per epoch in the round
     require(
       _committees.length == ROUND_SIZE_IN_EPOCHS,
-      Errors.ConsensusSlashingProposer__InvalidNumberOfCommittees(ROUND_SIZE_IN_EPOCHS, _committees.length)
+      Errors.TallySlashingProposer__InvalidNumberOfCommittees(ROUND_SIZE_IN_EPOCHS, _committees.length)
     );
 
     uint256 voteCount = _roundData.voteCount;
@@ -793,7 +788,7 @@ contract ConsensusSlashingProposer is EIP712 {
     for (uint256 i = 0; i < actionCount; i++) {
       validators[i] = _actions[i].validator;
       // Convert uint256 to uint96, checking for overflow
-      require(_actions[i].slashAmount <= type(uint96).max, Errors.ConsensusSlashingProposer__SlashAmountTooLarge());
+      require(_actions[i].slashAmount <= type(uint96).max, Errors.TallySlashingProposer__SlashAmountTooLarge());
       amounts[i] = uint96(_actions[i].slashAmount);
     }
 
@@ -838,7 +833,7 @@ contract ConsensusSlashingProposer is EIP712 {
       SlashRound.unwrap(_round) > SlashRound.unwrap(_currentRound)
         || SlashRound.unwrap(_round) + ROUNDABOUT_SIZE <= SlashRound.unwrap(_currentRound)
     ) {
-      revert Errors.ConsensusSlashingProposer__RoundOutOfRange((_round), (_currentRound));
+      revert Errors.TallySlashingProposer__RoundOutOfRange((_round), (_currentRound));
     }
 
     // Load round data from the circular storage into memory in a single SLOAD

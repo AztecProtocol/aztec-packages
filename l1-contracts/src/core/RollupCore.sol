@@ -18,8 +18,8 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {RollupOperationsExtLib} from "@aztec/core/libraries/rollup/RollupOperationsExtLib.sol";
 import {ValidatorOperationsExtLib} from "@aztec/core/libraries/rollup/ValidatorOperationsExtLib.sol";
 import {RewardDeploymentExtLib} from "@aztec/core/libraries/rollup/RewardDeploymentExtLib.sol";
-import {ConsensusDeploymentExtLib} from "@aztec/core/libraries/rollup/ConsensusDeploymentExtLib.sol";
-import {EmpireDeploymentExtLib} from "@aztec/core/libraries/rollup/EmpireDeploymentExtLib.sol";
+import {TallySlasherDeploymentExtLib} from "@aztec/core/libraries/rollup/TallySlasherDeploymentExtLib.sol";
+import {EmpireSlasherDeploymentExtLib} from "@aztec/core/libraries/rollup/EmpireSlasherDeploymentExtLib.sol";
 import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 import {EthValue, FeeLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
@@ -237,8 +237,8 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
 
     // We call one external library or another based on the slasher flavor
     // This allows us to keep the slash flavors in separate external libraries so we do not exceed max contract size
-    if (_config.slasherFlavor == SlasherFlavor.CONSENSUS) {
-      slasher = ConsensusDeploymentExtLib.deployConsensusSlasher(
+    if (_config.slasherFlavor == SlasherFlavor.TALLY) {
+      slasher = TallySlasherDeploymentExtLib.deployTallySlasher(
         address(this),
         _config.slashingVetoer,
         _governance,
@@ -252,7 +252,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
         _config.slashingOffsetInRounds
       );
     } else {
-      slasher = EmpireDeploymentExtLib.deployEmpireSlasher(
+      slasher = EmpireSlasherDeploymentExtLib.deployEmpireSlasher(
         address(this),
         _config.slashingVetoer,
         _governance,

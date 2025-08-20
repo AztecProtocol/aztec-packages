@@ -3,7 +3,7 @@
 pragma solidity >=0.8.27;
 
 /**
- * @title ConsensusSlashingProposer Test Suite
+ * @title TallySlashingProposer Test Suite
  */
 import {Rollup} from "@aztec/core/Rollup.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
@@ -12,7 +12,7 @@ import {TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
-import {ConsensusSlashingProposer} from "@aztec/core/slashing/ConsensusSlashingProposer.sol";
+import {TallySlashingProposer} from "@aztec/core/slashing/TallySlashingProposer.sol";
 import {SlashRound} from "@aztec/shared/libraries/SlashRoundLib.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
@@ -29,11 +29,11 @@ import {SlashPayload} from "@aztec/periphery/SlashPayload.sol";
 // solhint-disable comprehensive-interface
 // solhint-disable func-name-mixedcase
 
-contract ConsensusSlashingProposerTest is TestBase {
+contract TallySlashingProposerTest is TestBase {
   TestERC20 internal testERC20;
   Rollup internal rollup;
   Slasher internal slasher;
-  ConsensusSlashingProposer internal slashingProposer;
+  TallySlashingProposer internal slashingProposer;
   TimeCheater internal timeCheater;
 
   // Test parameters
@@ -88,13 +88,13 @@ contract ConsensusSlashingProposerTest is TestBase {
     ).setSlashingQuorum(QUORUM).setSlashingRoundSize(ROUND_SIZE).setSlashingLifetimeInRounds(LIFETIME_IN_ROUNDS)
       .setSlashingExecutionDelayInRounds(EXECUTION_DELAY_IN_ROUNDS).setEpochDuration(EPOCH_DURATION).setSlashingUnit(
       SLASHING_UNIT
-    ).setSlasherFlavor(SlasherFlavor.CONSENSUS);
+    ).setSlasherFlavor(SlasherFlavor.TALLY);
     builder.deploy();
 
     rollup = builder.getConfig().rollup;
     testERC20 = builder.getConfig().testERC20;
     slasher = Slasher(rollup.getSlasher());
-    slashingProposer = ConsensusSlashingProposer(slasher.PROPOSER());
+    slashingProposer = TallySlashingProposer(slasher.PROPOSER());
 
     timeCheater = new TimeCheater(
       address(rollup),
@@ -272,9 +272,7 @@ contract ConsensusSlashingProposerTest is TestBase {
     Signature memory sig = _createSignature(proposerKey, currentSlot, voteData);
 
     uint256 expectedLength = COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS / 2;
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.ConsensusSlashingProposer__InvalidVoteLength.selector, expectedLength, 1)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.TallySlashingProposer__InvalidVoteLength.selector, expectedLength, 1));
     vm.prank(proposer);
     slashingProposer.vote(voteData, sig);
   }
@@ -286,7 +284,7 @@ contract ConsensusSlashingProposerTest is TestBase {
     _castVote();
 
     // Second vote in same slot should fail
-    _castVote(Errors.ConsensusSlashingProposer__VoteAlreadyCastInCurrentSlot.selector);
+    _castVote(Errors.TallySlashingProposer__VoteAlreadyCastInCurrentSlot.selector);
   }
 
   function test_voteAccumulatesAcrossSlots() public {
@@ -322,7 +320,7 @@ contract ConsensusSlashingProposerTest is TestBase {
   function test_votesNotOpen() public {
     // Try to vote before votes are open
     _jumpToSlashRound(1);
-    _castVote(Errors.ConsensusSlashingProposer__VotingNotOpen.selector);
+    _castVote(Errors.TallySlashingProposer__VotingNotOpen.selector);
   }
 
   // ExecuteSlashRound Tests
@@ -475,7 +473,7 @@ contract ConsensusSlashingProposerTest is TestBase {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.ConsensusSlashingProposer__RoundNotComplete.selector, SlashRound.unwrap(targetSlashRound)
+        Errors.TallySlashingProposer__RoundNotComplete.selector, SlashRound.unwrap(targetSlashRound)
       )
     );
     slashingProposer.executeRound(targetSlashRound, committees);
@@ -514,9 +512,9 @@ contract ConsensusSlashingProposerTest is TestBase {
   }
 
   function test_getPayloadAddress() public view {
-    ConsensusSlashingProposer.SlashAction[] memory actions = new ConsensusSlashingProposer.SlashAction[](2);
-    actions[0] = ConsensusSlashingProposer.SlashAction({validator: validators[0], slashAmount: 5 * SLASHING_UNIT});
-    actions[1] = ConsensusSlashingProposer.SlashAction({validator: validators[1], slashAmount: 3 * SLASHING_UNIT});
+    TallySlashingProposer.SlashAction[] memory actions = new TallySlashingProposer.SlashAction[](2);
+    actions[0] = TallySlashingProposer.SlashAction({validator: validators[0], slashAmount: 5 * SLASHING_UNIT});
+    actions[1] = TallySlashingProposer.SlashAction({validator: validators[1], slashAmount: 3 * SLASHING_UNIT});
 
     SlashRound testSlashRound = SlashRound.wrap(1);
     address predictedAddress = slashingProposer.getPayloadAddress(testSlashRound, actions);
@@ -533,7 +531,7 @@ contract ConsensusSlashingProposerTest is TestBase {
     assertTrue(predictedAddress != predictedAddress3);
 
     // Empty actions should return zero address
-    ConsensusSlashingProposer.SlashAction[] memory emptyActions = new ConsensusSlashingProposer.SlashAction[](0);
+    TallySlashingProposer.SlashAction[] memory emptyActions = new TallySlashingProposer.SlashAction[](0);
     address zeroAddress = slashingProposer.getPayloadAddress(testSlashRound, emptyActions);
     assertEq(zeroAddress, address(0));
   }
@@ -577,7 +575,7 @@ contract ConsensusSlashingProposerTest is TestBase {
     _assertVoteCount(newSlashRound, 0);
 
     // And when we check the old one, it should revert
-    vm.expectPartialRevert(Errors.ConsensusSlashingProposer__RoundOutOfRange.selector);
+    vm.expectPartialRevert(Errors.TallySlashingProposer__RoundOutOfRange.selector);
     slashingProposer.getRound(baseSlashRound);
   }
 
@@ -588,7 +586,7 @@ contract ConsensusSlashingProposerTest is TestBase {
     SlashRound futureSlashRound = SlashRound.wrap(SlashRound.unwrap(currentSlashRound) + 1);
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.ConsensusSlashingProposer__RoundOutOfRange.selector,
+        Errors.TallySlashingProposer__RoundOutOfRange.selector,
         SlashRound.unwrap(futureSlashRound),
         SlashRound.unwrap(currentSlashRound)
       )
