@@ -99,7 +99,7 @@ export type SandboxConfig = AztecNodeConfig & {
   /** Mnemonic used to derive the L1 deployer private key.*/
   l1Mnemonic: string;
   /** Salt used to deploy L1 contracts.*/
-  l1Salt: string;
+  deployAztecContractsSalt: string;
   /** Whether to expose PXE service on sandbox start.*/
   noPXE: boolean;
   /** Whether to deploy test accounts on sandbox start.*/
