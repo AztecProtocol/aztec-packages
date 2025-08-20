@@ -36,7 +36,7 @@ class EcdsaCircuit {
         }
 
         // This is the message that we would like to confirm
-        std::string message_string = "goblin";
+        std::string message_string(NUM_PUBLIC_INPUTS, '\0');
         auto message = typename curve::byte_array_ct(&builder, message_string);
 
         // Assert that the public inputs buffer matches the message we want
