@@ -8,7 +8,7 @@ import {
 } from '@aztec/ethereum';
 import {
   type ConfigMappingsType,
-  type SecretValue,
+  SecretValue,
   getConfigFromMappings,
   secretValueConfigHelper,
 } from '@aztec/foundation/config';
@@ -53,9 +53,8 @@ export const getTxSenderConfigMappings: (
   publisherPrivateKeys: {
     env: scope === 'PROVER' ? `PROVER_PUBLISHER_PRIVATE_KEYS` : `SEQ_PUBLISHER_PRIVATE_KEYS`,
     description: 'The private keys to be used by the publisher.',
-    ...secretValueConfigHelper<`0x${string}`[]>(val =>
-      val ? val.split(',').map<`0x${string}`>(key => `0x${key.replace('0x', '')}`) : [],
-    ),
+    parseEnv: (val: string) => val.split(',').map(key => new SecretValue(`0x${key.replace('0x', '')}`)),
+    defaultValue: [],
     fallback: scope === 'PROVER' ? ['PROVER_PUBLISHER_PRIVATE_KEY'] : ['SEQ_PUBLISHER_PRIVATE_KEY'],
   },
 });
