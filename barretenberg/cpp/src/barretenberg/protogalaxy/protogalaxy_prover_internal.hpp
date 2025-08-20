@@ -436,10 +436,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
             return tup;
         }
 
-        const auto deoptimise = [&]<size_t outer_idx, size_t inner_idx>(auto& element) {
-            auto& element_with_skipping = std::get<inner_idx>(std::get<outer_idx>(tup));
-            element = element_with_skipping.convert();
-        };
+        const auto deoptimise = [](auto& element) { element = element.convert(); };
 
         // Note: {} is required to initialize the tuple contents. Otherwise the univariates contain garbage.
         TupleOfTuplesOfUnivariatesNoOptimisticSkipping result{};
@@ -455,14 +452,12 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
             std::get<0>(std::get<0>(univariate_accumulators)).template extend_to<DeciderPKs::BATCHED_EXTENDED_LENGTH>();
 
         size_t idx = 0;
-        const auto scale_and_sum = [&]<size_t outer_idx, size_t inner_idx>(auto& element) {
-            if constexpr (outer_idx == 0 && inner_idx == 0) {
-                return;
+        const auto scale_and_sum = [&](auto& element) {
+            if (idx != 0) {
+                auto extended = element.template extend_to<DeciderPKs::BATCHED_EXTENDED_LENGTH>();
+                extended *= alphas[idx - 1];
+                result += extended;
             }
-
-            auto extended = element.template extend_to<DeciderPKs::BATCHED_EXTENDED_LENGTH>();
-            extended *= alphas[idx];
-            result += extended;
             idx++;
         };
 
