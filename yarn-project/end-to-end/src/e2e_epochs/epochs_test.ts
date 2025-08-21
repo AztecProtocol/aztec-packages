@@ -255,7 +255,7 @@ export class EpochsTestContext {
       // The delayer needs a wallet (a client that can sign), so we have to create one here.
       const l1Client = createExtendedL1Client(
         resolvedConfig.l1RpcUrls!,
-        resolvedConfig.publisherPrivateKeys[0]!.getValue(),
+        resolvedConfig.publisherPrivateKeys![0]!.getValue(),
       );
       const sequencer = node.getSequencer() as TestSequencerClient;
       const publisher = sequencer.sequencer.publisher;
