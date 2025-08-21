@@ -32,7 +32,7 @@ AvmRecursiveVerifier::AvmRecursiveVerifier(Builder& builder, const std::shared_p
 AvmRecursiveVerifier::FF AvmRecursiveVerifier::evaluate_public_input_column(const std::vector<FF>& points,
                                                                             const std::vector<FF>& challenges)
 {
-    size_t circuit_size = 1 << static_cast<uint32_t>(key->log_circuit_size.get_value());
+    size_t circuit_size = 1 << CONST_PROOF_SIZE_LOG_N;
     auto coefficients = SharedShiftedVirtualZeroesArray<FF>{
         .start_ = 0,
         .end_ = points.size(),
@@ -112,18 +112,15 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
         commitment = transcript->template receive_from_prover<Commitment>(label);
     }
 
-    // unconstrained
-    const size_t log_circuit_size = static_cast<uint32_t>(key->log_circuit_size.get_value());
-    const auto padding_indicator_array =
-        stdlib::compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(FF(log_circuit_size));
+    const std::vector<FF> padding_indicator_array(CONST_PROOF_SIZE_LOG_N, 1);
 
     // Multiply each linearly independent subrelation contribution by `alpha^i` for i = 0, ..., NUM_SUBRELATIONS - 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
     SumcheckVerifier<Flavor> sumcheck(transcript, alpha, CONST_PROOF_SIZE_LOG_N);
 
-    auto gate_challenges = std::vector<FF>(log_circuit_size);
-    for (size_t idx = 0; idx < log_circuit_size; idx++) {
+    auto gate_challenges = std::vector<FF>(CONST_PROOF_SIZE_LOG_N);
+    for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
@@ -131,10 +128,6 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     // when called over a "circuit field" types.
     SumcheckOutput<Flavor> output = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator_array);
     vinfo("verified sumcheck: ", (output.verified));
-
-    // Public columns evaluation checks
-    std::vector<FF> mle_challenge(output.challenge.begin(),
-                                  output.challenge.begin() + static_cast<int>(log_circuit_size));
 
     std::array<FF, AVM_NUM_PUBLIC_INPUT_COLUMNS> claimed_evaluations = {
         output.claimed_evaluations.public_inputs_cols_0_,
@@ -146,7 +139,11 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     // TODO(#14234)[Unconditional PIs validation]: Inside of loop, replace pi_validation.must_imply() by
     // public_input_evaluation.assert_equal(claimed_evaluations[i]
     for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
-        FF public_input_evaluation = evaluate_public_input_column(public_inputs[i], mle_challenge);
+        // In-circuit mle evaluation efficiently handles evaluations of polynomials extended by zero, i.e.
+        // public_inputs[i] is of the size bounded by compile-time constant `AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH` but
+        // it is evaluated as a polynomial in fixed number of variables to match the sumcheck claimed evaluation, that
+        // also uses extension by zero.
+        FF public_input_evaluation = evaluate_public_input_column(public_inputs[i], output.challenge);
         vinfo("public_input_evaluation failed, public inputs col ", i);
         pi_validation.must_imply(public_input_evaluation == claimed_evaluations[i], "public_input_evaluation failed");
     }

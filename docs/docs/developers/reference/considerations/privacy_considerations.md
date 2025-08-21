@@ -1,5 +1,6 @@
 ---
 title: Privacy Considerations
+description: Learn about key privacy considerations when building applications on Aztec.
 sidebar_position: 5
 tags: [protocol, PXE]
 ---

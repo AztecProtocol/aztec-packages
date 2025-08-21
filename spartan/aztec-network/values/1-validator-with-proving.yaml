@@ -22,6 +22,3 @@ bot:
   enabled: true
   txIntervalSeconds: 200
 
-jobs:
-  deployL1Verifier:
-    enable: true

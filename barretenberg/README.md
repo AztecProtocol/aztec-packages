@@ -319,15 +319,15 @@ cmake --build --preset default --target run_ecc_bench
 
 ### Debugging
 
-#### Debugging Verifification Failures
+#### Debugging Verification Failures
 
 The CircuitChecker::check_circuit function is used to get the gate index and block information about a failing circuit constraint.
 If you are in a scenario where you have a failing call to check_circuit and wish to get more information out of it than just the gate index, you can use this feature to get a stack trace, see example below.
 
 Usage instructions:
 
-- On ubuntu (or our mainframe accounts) use `sudo apt-get install libdw-dev` to support trace printing
-- Use `cmake --preset clang16-dbg-fast-circuit-check-traces` and `cmake --build --preset clang16-dbg-fast-circuit-check-traces` to enable the backward-cpp dependency through the CHECK_CIRCUIT_STACKTRACES CMake variable.
+- On ubuntu (or our mainframe accounts) use `sudo apt-get install libdw-dev libelf-dev libbackward-cpp-dev` to support trace printing
+- Use `cmake --preset debug-fast-circuit-check-traces` and `cmake --build --preset debug-fast-circuit-check-traces` to enable the backward-cpp dependency through the CHECK_CIRCUIT_STACKTRACES CMake variable.
 - Run any case where you have a failing check_circuit call, you will now have a stack trace illuminating where this constraint was added in code.
 
 Caveats:

@@ -1,5 +1,6 @@
 ---
 title: How to Pay Fees
+description: Learn how to manage and pay for transaction fees in your Aztec.js applications.
 tags: [fees, transactions, developers]
 sidebar_position: 3
 ---

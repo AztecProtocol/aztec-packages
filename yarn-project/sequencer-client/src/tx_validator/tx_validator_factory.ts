@@ -9,6 +9,7 @@ import {
   GasTxValidator,
   MetadataTxValidator,
   PhasesTxValidator,
+  TxPermittedValidator,
   TxProofValidator,
 } from '@aztec/p2p';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
@@ -38,6 +39,7 @@ export function createValidatorForAcceptingTxs(
     skipFeeEnforcement,
     timestamp,
     blockNumber,
+    txsPermitted,
   }: {
     l1ChainId: number;
     rollupVersion: number;
@@ -46,9 +48,11 @@ export function createValidatorForAcceptingTxs(
     skipFeeEnforcement?: boolean;
     timestamp: UInt64;
     blockNumber: number;
+    txsPermitted: boolean;
   },
 ): TxValidator<Tx> {
   const validators: TxValidator<Tx>[] = [
+    new TxPermittedValidator(txsPermitted),
     new DataTxValidator(),
     new MetadataTxValidator({
       l1ChainId: new Fr(l1ChainId),

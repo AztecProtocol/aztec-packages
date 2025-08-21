@@ -132,20 +132,6 @@ template <IsUltraOrMegaHonk Flavor_, size_t NUM_ = 2> struct DeciderVerification
     };
 
     /**
-     * @brief Get the max log circuit size from the set of decider verification keys
-     *
-     * @return size_t
-     */
-    size_t get_max_log_circuit_size() const
-    {
-        size_t max_log_circuit_size{ 0 };
-        for (auto key : _data) {
-            max_log_circuit_size = std::max(max_log_circuit_size, static_cast<size_t>(key->vk->log_circuit_size));
-        }
-        return max_log_circuit_size;
-    }
-
-    /**
      * @brief Get the precomputed commitments grouped by commitment index
      * @example If the commitments are grouped as in
      *           VK 0    VK 1    VK 2    VK 3

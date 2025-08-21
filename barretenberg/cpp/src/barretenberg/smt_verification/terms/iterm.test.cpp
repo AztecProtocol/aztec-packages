@@ -1,7 +1,6 @@
 #include <unordered_map>
 
 #include "barretenberg/smt_verification/util/smt_util.hpp"
-#include "barretenberg/stdlib/primitives/uint/uint.hpp"
 #include "term.hpp"
 
 #include <gtest/gtest.h>

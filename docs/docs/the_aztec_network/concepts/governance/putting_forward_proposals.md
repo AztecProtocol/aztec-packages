@@ -1,6 +1,7 @@
 ---
 sidebar_position: 0
 title: Putting forward Proposals
+description: Learn how to put forward proposals for governance on the Aztec network.
 ---
 
 Sequencers of the _current_ canonical rollup (as indicated by the Registry) can propose changes to the Aztec community for voting. In order for a proposal to be voted on through the governance process, _N_ sequencers must nominate the proposal in any given round. A round is defined as a sequence of contiguous _M_ L2 blocks. Both _N_ and _M_ are governance defined parameters.

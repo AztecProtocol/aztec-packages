@@ -2,6 +2,7 @@
 title: Building in Public
 sidebar_position: 0
 id: building_in_public
+description: Learn about Aztec's open-source development approach, including the core technologies Noir and Honk that enable privacy-preserving smart contracts and zero-knowledge proofs.
 ---
 
 import Disclaimer from "@site/src/components/Disclaimers/\_wip_disclaimer.mdx";

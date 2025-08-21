@@ -2,6 +2,7 @@
 title: Emitting Events
 sidebar_position: 4
 tags: [contracts]
+description: Learn how to emit events from your Aztec smart contracts for off-chain applications to consume.
 ---
 
 Events in Aztec work similarly to Ethereum events in the sense that they are a way for contracts to communicate with the outside world.

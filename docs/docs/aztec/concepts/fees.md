@@ -2,6 +2,7 @@
 title: Fees
 sidebar_position: 4
 tags: [fees]
+description: Understand Aztec's fee system including mana-based transaction pricing, fee-juice payments, and how L1 and L2 costs are transparently calculated for users.
 ---
 
 import { Why_Fees } from '@site/src/components/Snippets/general_snippets';

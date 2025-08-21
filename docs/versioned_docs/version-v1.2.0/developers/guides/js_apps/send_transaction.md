@@ -1,5 +1,6 @@
 ---
 title: How to Send a Transaction
+description: Learn how to send transactions to the Aztec network using Aztec.js.
 sidebar_position: 4
 ---
 

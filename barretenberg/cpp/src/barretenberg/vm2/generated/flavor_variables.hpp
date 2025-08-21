@@ -129,8 +129,8 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 133;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2921;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 314;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2919;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 316;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     static constexpr size_t NUM_ALL_ENTITIES = 3368;
 
@@ -243,8 +243,6 @@ struct AvmFlavorVariables {
         lookup_alu_range_check_trunc_mid_relation<FF_>,
         lookup_alu_register_tag_value_relation<FF_>,
         lookup_alu_tag_max_bits_value_relation<FF_>,
-        lookup_bc_decomposition_abs_diff_hi_is_u8_relation<FF_>,
-        lookup_bc_decomposition_abs_diff_lo_is_u16_relation<FF_>,
         lookup_bc_decomposition_bytes_are_bytes_relation<FF_>,
         lookup_bc_hashing_get_packed_field_relation<FF_>,
         lookup_bc_hashing_iv_is_len_relation<FF_>,
@@ -603,6 +601,8 @@ struct AvmFlavorVariables {
         lookup_tx_context_public_inputs_write_nullifier_count_relation<FF_>,
         lookup_tx_context_public_inputs_write_unencrypted_log_count_relation<FF_>,
         lookup_tx_context_restore_state_on_revert_relation<FF_>,
+        lookup_tx_dispatch_exec_end_relation<FF_>,
+        lookup_tx_dispatch_exec_start_relation<FF_>,
         lookup_tx_note_hash_append_relation<FF_>,
         lookup_tx_nullifier_append_relation<FF_>,
         lookup_tx_phase_jump_on_revert_relation<FF_>,

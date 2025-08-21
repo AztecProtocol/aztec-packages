@@ -73,11 +73,11 @@ function check_toolchains {
     echo -e "${bold}${yellow}WARN: Rust ${rust_version} is not installed. Performance will be degraded.${reset}"
   fi
   # Check wasi-sdk version.
-  if ! cat /opt/wasi-sdk/VERSION 2> /dev/null | grep 22.0 > /dev/null; then
+  if ! cat /opt/wasi-sdk/VERSION 2> /dev/null | grep 27.0 > /dev/null; then
     encourage_dev_container
-    echo "wasi-sdk-22 not found at /opt/wasi-sdk."
+    echo "wasi-sdk-27 not found at /opt/wasi-sdk."
     echo "Use dev container, build from source, or you can install linux x86 version with:"
-    echo "  curl -s -L https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-22/wasi-sdk-22.0-linux.tar.gz | tar zxf - && sudo mv wasi-sdk-22.0 /opt/wasi-sdk"
+    echo "  curl -s -L https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-27/wasi-sdk-27.0-x86_64-linux.tar.gz | tar zxf - && sudo mv wasi-sdk-27.0-x86_64-linux /opt/wasi-sdk"
     exit 1
   fi
   # Check foundry version.

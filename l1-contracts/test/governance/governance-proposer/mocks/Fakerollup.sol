@@ -47,7 +47,7 @@ contract Fakerollup {
     return TimeLib.getStorage().proofSubmissionEpochs;
   }
 
-  function getCurrentProposer() external view returns (address) {
+  function getCurrentProposer() external virtual returns (address) {
     return proposer;
   }
 

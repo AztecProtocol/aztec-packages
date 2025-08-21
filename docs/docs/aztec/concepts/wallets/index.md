@@ -2,6 +2,7 @@
 title: Wallets
 sidebar_position: 2
 tags: [accounts]
+description: Overview of wallet responsibilities in Aztec including account management, private state tracking, transaction execution, key management, and authorization handling.
 ---
 
 On this page we will cover the main responsibilities of a wallet in the Aztec network.

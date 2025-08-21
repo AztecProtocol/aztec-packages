@@ -43,6 +43,7 @@ network_arg="--net=none"
 # Launch the container in the background.
 # Don't launch in the foreground or you can't process SIGINT/SIGTERM.
 # Don't use & as we want to block, and be sure it starts before processing any signals.
+# We use --pid=host so that we can rely on $$ in bash scripts being (temporally) unique.
 set -x
 cid=$(docker run -d \
   ${name_arg:-} \
@@ -50,6 +51,7 @@ cid=$(docker run -d \
   ${cpuset_arg:-} \
   --cpus=$CPUS \
   --memory=$MEM \
+  --pid=host \
   --user $(id -u):$(id -g) \
   -v$HOME:$HOME \
   --mount type=tmpfs,target=/tmp,tmpfs-size=1g \

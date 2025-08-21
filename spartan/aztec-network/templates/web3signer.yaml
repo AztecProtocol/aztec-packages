@@ -1,0 +1,101 @@
+{{- if .Values.web3signer.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-web3signer-config
+  namespace: {{ .Release.Namespace }}
+data:
+  config.yaml: |
+    data-path: "/data"
+    http-host-allowlist: "{{ include "aztec-network.fullname" . }}-web3signer.{{ .Release.Namespace }}.svc.cluster.local"
+    key-store-path: "/shared/key-store"
+    eth1.chain-id: {{ .Values.ethereum.chainId }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-web3signer
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: web3signer
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: web3signer
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: web3signer
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: web3signer
+          image: {{ .Values.images.web3signer.image }}
+          imagePullPolicy: {{ .Values.images.web3signer.pullPolicy }}
+          command: ["/bin/bash","-c"]
+          args: ["/opt/web3signer/bin/web3signer --config-file /data/config.yaml eth1"]
+          ports:
+            - name: http
+              containerPort: 9000
+          volumeMounts:
+            - name: config
+              mountPath: /data/config.yaml
+              subPath: config.yaml
+            - name: shared
+              mountPath: /shared
+      initContainers:
+        - name: keys-from-mnemonic
+          image: {{ .Values.images.aztec.image }}
+          imagePullPolicy: {{ .Values.images.aztec.pullPolicy }}
+          command: ["/bin/bash","-c"]
+          args:
+            - |
+              set -euo pipefail
+              KS_DIR=/shared/key-store
+              KS_FILE=$KS_DIR/attesters.yaml
+              mkdir -p "$KS_DIR"; : > "$KS_FILE"
+              for ((i=0;i<VALIDATORS;i++)); do
+                idx=$((KEY_INDEX_START + i))
+                pk="$(cast wallet private-key "$MNEMONIC" --mnemonic-index "$idx")"
+                [[ $i -gt 0 ]] && echo '---' >> "$KS_FILE"
+                cat >> "$KS_FILE" <<EOF
+              type: file-raw
+              keyType: SECP256K1
+              privateKey: "$pk"
+              EOF
+              done
+          env:
+            - name: MNEMONIC
+              value: {{ .Values.aztec.l1DeploymentMnemonic | quote }}
+            - name: VALIDATORS
+              value: {{ mul .Values.validator.replicas .Values.validator.keysPerNode | toString | quote }}
+            - name: KEY_INDEX_START
+              value: {{ .Values.aztec.validatorKeyIndexStart | quote }}
+          volumeMounts:
+            - name: shared
+              mountPath: /shared
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "aztec-network.fullname" . }}-web3signer-config
+        - name: shared
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-web3signer
+  namespace: {{ .Release.Namespace }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: web3signer
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: http
+      port: 9000
+      targetPort: http
+{{- end }}

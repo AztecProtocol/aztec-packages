@@ -24,7 +24,7 @@ class MegaZKFlavor : public bb::MegaFlavor {
                   "LIBRA_UNIVARIATES_LENGTH must be equal to MegaZKFlavor::BATCHED_RELATION_PARTIAL_LENGTH");
 
     // Proof length formula
-    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N)
+    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = MegaFlavor::VIRTUAL_LOG_N)
     {
         return /* 1. NUM_WITNESS_ENTITIES commitments */ (NUM_WITNESS_ENTITIES * num_frs_comm) +
                /* 2. Libra concatenation commitment*/ (num_frs_comm) +

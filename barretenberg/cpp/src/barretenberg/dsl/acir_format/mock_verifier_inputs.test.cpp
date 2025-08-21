@@ -16,9 +16,12 @@
 using namespace acir_format;
 using namespace bb;
 
-template <typename Flavor> class MockVerifierInputsTest : public ::testing::Test {};
+template <typename Flavor> class MockVerifierInputsTest : public ::testing::Test {
+  public:
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
+};
 
-using FlavorTypes = testing::Types<UltraFlavor, MegaFlavor>;
+using FlavorTypes = testing::Types<MegaFlavor, UltraFlavor, UltraZKFlavor, UltraRollupFlavor>;
 
 TYPED_TEST_SUITE(MockVerifierInputsTest, FlavorTypes);
 
@@ -29,6 +32,33 @@ TEST(MockVerifierInputsTest, MockMergeProofSize)
 {
     Goblin::MergeProof merge_proof = create_mock_merge_proof();
     EXPECT_EQ(merge_proof.size(), MERGE_PROOF_SIZE);
+}
+
+/**
+ * @brief Check that the size of a mock pre-ipa proof matches expectation
+ */
+TEST(MockVerifierInputsTest, MockPreIpaProofSize)
+{
+    HonkProof pre_ipa_proof = create_mock_pre_ipa_proof();
+    EXPECT_EQ(pre_ipa_proof.size(), ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH);
+}
+
+/**
+ * @brief Check that the size of a mock ipa proof matches expectation
+ */
+TEST(MockVerifierInputsTest, MockIPAProofSize)
+{
+    HonkProof ipa_proof = create_mock_ipa_proof();
+    EXPECT_EQ(ipa_proof.size(), IPA_PROOF_LENGTH);
+}
+
+/**
+ * @brief Check that the size of a mock translator proof matches expectation
+ */
+TEST(MockVerifierInputsTest, MockTranslatorProofSize)
+{
+    HonkProof translator_proof = create_mock_translator_proof();
+    EXPECT_EQ(translator_proof.size(), TranslatorFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
 }
 
 /**
@@ -63,18 +93,24 @@ TEST(MockVerifierInputsTest, MockMegaOinkProofSize)
 }
 
 /**
- * @brief Check that the size of a mock Oink proof matches expectation for UltraFlavor
+ * @brief Check that the size of a mock Oink proof matches expectation for Ultra flavors
  *
  */
-TEST(MockVerifierInputsTest, MockUltraOinkProofSize)
+TYPED_TEST(MockVerifierInputsTest, MockUltraOinkProofSize)
 {
-    using Flavor = UltraFlavor;
-    using Builder = UltraCircuitBuilder;
+    using Flavor = TypeParam;
+    using Builder = Flavor::CircuitBuilder;
+    using IO = std::conditional_t<HasIPAAccumulator<Flavor>,
+                                  stdlib::recursion::honk::RollupIO,
+                                  stdlib::recursion::honk::DefaultIO<Builder>>;
 
-    // DefaultIO
-    const size_t NUM_PUBLIC_INPUTS = stdlib::recursion::honk::DefaultIO<Builder>::PUBLIC_INPUTS_SIZE;
-    HonkProof honk_proof = create_mock_oink_proof<Flavor, stdlib::recursion::honk::DefaultIO<Builder>>();
-    EXPECT_EQ(honk_proof.size(), Flavor::OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS + NUM_PUBLIC_INPUTS);
+    if (!std::is_same_v<Flavor, MegaFlavor>) {
+        const size_t NUM_PUBLIC_INPUTS = IO::PUBLIC_INPUTS_SIZE;
+        HonkProof honk_proof = create_mock_oink_proof<Flavor, IO>();
+        EXPECT_EQ(honk_proof.size(), Flavor::OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS + NUM_PUBLIC_INPUTS);
+    } else {
+        GTEST_SKIP();
+    }
 }
 
 /**
@@ -85,8 +121,12 @@ TYPED_TEST(MockVerifierInputsTest, MockDeciderProofSize)
 {
     using Flavor = TypeParam;
 
-    HonkProof honk_proof = create_mock_decider_proof<Flavor>();
-    EXPECT_EQ(honk_proof.size(), Flavor::DECIDER_PROOF_LENGTH());
+    if (!std::is_same_v<Flavor, UltraZKFlavor>) {
+        HonkProof honk_proof = create_mock_decider_proof<Flavor>();
+        EXPECT_EQ(honk_proof.size(), Flavor::DECIDER_PROOF_LENGTH());
+    } else {
+        GTEST_SKIP();
+    }
 }
 
 /**
@@ -121,16 +161,22 @@ TEST(MockVerifierInputsTest, MockMegaHonkProofSize)
 }
 
 /**
- * @brief Check that the size of a mock Honk proof matches expectation for UltraFlavor
+ * @brief Check that the size of a mock Honk proof matches expectation for Ultra flavors
  *
  */
-TEST(MockVerifierInputsTest, MockHonkProofSize)
+TYPED_TEST(MockVerifierInputsTest, MockHonkProofSize)
 {
-    using Flavor = UltraFlavor;
-    using Builder = UltraCircuitBuilder;
+    using Flavor = TypeParam;
+    using Builder = Flavor::CircuitBuilder;
+    using IO = std::conditional_t<HasIPAAccumulator<Flavor>,
+                                  stdlib::recursion::honk::RollupIO,
+                                  stdlib::recursion::honk::DefaultIO<Builder>>;
 
-    // DefaultIO
-    const size_t NUM_PUBLIC_INPUTS = stdlib::recursion::honk::DefaultIO<Builder>::PUBLIC_INPUTS_SIZE;
-    HonkProof honk_proof = create_mock_honk_proof<Flavor, stdlib::recursion::honk::DefaultIO<Builder>>();
-    EXPECT_EQ(honk_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS() + NUM_PUBLIC_INPUTS);
+    if (!std::is_same_v<Flavor, MegaFlavor>) {
+        const size_t NUM_PUBLIC_INPUTS = IO::PUBLIC_INPUTS_SIZE;
+        HonkProof honk_proof = create_mock_honk_proof<Flavor, IO>();
+        EXPECT_EQ(honk_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS() + NUM_PUBLIC_INPUTS);
+    } else {
+        GTEST_SKIP();
+    }
 }

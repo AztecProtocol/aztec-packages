@@ -14,6 +14,9 @@
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/tracegen/lib/trace_conversion.hpp"
 
+// We'll instantiate all debug relation impls in this cpp, and not in each relation cpp.
+#include "barretenberg/vm2/generated/relations/relations_impls.hpp"
+
 namespace bb::avm2 {
 namespace {
 

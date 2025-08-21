@@ -1,5 +1,6 @@
 ---
 title: "Crowdfunding contract"
+description: Code-along tutorial for building a crowdfunding contract on Aztec.
 sidebar_position: 3
 tags: [developers, tutorial, example]
 ---

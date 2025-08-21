@@ -1,5 +1,6 @@
 ---
 title: Notes (UTXOs)
+description: Understand how notes work in Aztec as the fundamental unit of private state, including their lifecycle, storage, and consumption.
 sidebar_position: 5
 tags: [notes, storage]
 ---

@@ -14,6 +14,9 @@ struct TxContextEvent {
 
     // Side Effect States
     SideEffectStates side_effect_states;
+
+    // Execution context
+    uint32_t next_context_id;
 };
 
 } // namespace bb::avm2::simulation

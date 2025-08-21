@@ -109,6 +109,7 @@ class Solver {
             solver.setOption("stats", "true");
         }
         if (config.debug >= 2) {
+            solver.setOption("lang", "smt2");
             solver.setOption("output", "inst");
             solver.setOption("output", "learned-lits");
             solver.setOption("output", "subs");

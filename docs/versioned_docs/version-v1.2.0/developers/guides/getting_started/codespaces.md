@@ -1,5 +1,6 @@
 ---
 title: Codespaces
+description: Set up an Aztec development environment in GitHub Codespaces for a quick and easy start.
 sidebar_position: 1
 draft: true
 ---

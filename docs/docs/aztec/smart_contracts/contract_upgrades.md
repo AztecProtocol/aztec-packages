@@ -2,6 +2,7 @@
 title: Contract Upgrades
 sidebar_position: 2
 tags: [contracts]
+description: Understand contract upgrade patterns in Aztec and how to implement upgradeable contracts.
 ---
 
 For familiarity we've used terminology like "deploying a contract instance of a contract class". When considering how it works with contract upgrades it helps to be more specific.

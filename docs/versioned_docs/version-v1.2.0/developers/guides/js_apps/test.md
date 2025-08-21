@@ -1,5 +1,6 @@
 ---
 title: Testing Aztec.nr contracts with TypeScript
+description: Learn how to write and run tests for your Aztec.js applications.
 tags: [contracts, tests]
 sidebar_position: 6
 ---

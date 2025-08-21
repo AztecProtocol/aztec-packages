@@ -1,6 +1,7 @@
 ---
 sidebar_position: 0
 title: Provers and Sequencers
+description: Learn about the roles of provers and sequencers on the Aztec network.
 draft: true
 ---
 

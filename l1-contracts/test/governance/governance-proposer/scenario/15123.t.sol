@@ -55,36 +55,23 @@ contract Test15123 is GovernanceProposerBase {
     vm.warp(Timestamp.unwrap(validatorSelection.getTimestampForSlot(Slot.wrap(1))));
 
     uint256 round = governanceProposer.getCurrentRound();
-    signature = createSignature(privateKey, address(proposal), 0, round);
+    signature = createSignature(privateKey, proposal, validatorSelection.getCurrentSlot());
 
     governanceProposer.signalWithSig(proposal, signature);
 
-    assertEq(governanceProposer.signalCount(address(validatorSelection), 0, proposal), 1, "invalid number of votes");
+    assertEq(governanceProposer.signalCount(address(validatorSelection), round, proposal), 1, "invalid number of votes");
 
     vm.warp(Timestamp.unwrap(validatorSelection.getTimestampForSlot(Slot.wrap(2))));
 
     vm.expectRevert();
     governanceProposer.signalWithSig(proposal, signature);
 
-    assertEq(governanceProposer.signalCount(address(validatorSelection), 0, proposal), 1, "invalid number of votes");
+    assertEq(governanceProposer.signalCount(address(validatorSelection), round, proposal), 1, "invalid number of votes");
   }
 
-  function createSignature(uint256 _privateKey, address _payload, uint256 _nonce, uint256 _round)
-    internal
-    view
-    returns (Signature memory)
-  {
-    bytes32 TYPE_HASH = keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
-    bytes32 hashedName = keccak256(bytes("EmpireBase"));
-    bytes32 hashedVersion = keccak256(bytes("1"));
-    bytes32 domainSeparator =
-      keccak256(abi.encode(TYPE_HASH, hashedName, hashedVersion, block.chainid, address(governanceProposer)));
-    bytes32 digest = MessageHashUtils.toTypedDataHash(
-      domainSeparator, keccak256(abi.encode(governanceProposer.SIGNAL_TYPEHASH(), _payload, _nonce, _round))
-    );
-
+  function createSignature(uint256 _privateKey, IPayload _payload, Slot _slot) internal view returns (Signature memory) {
+    bytes32 digest = governanceProposer.getSignalSignatureDigest(_payload, _slot);
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, digest);
-
     return Signature({v: v, r: r, s: s});
   }
 }

@@ -2,6 +2,7 @@ import type { FeeOptions, TxExecutionOptions, UserFeeOptions } from '@aztec/entr
 import type { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { createLogger } from '@aztec/foundation/log';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasSettings } from '@aztec/stdlib/gas';
 import type { Capsule, TxExecutionRequest, TxProvingResult } from '@aztec/stdlib/tx';
 
@@ -48,6 +49,11 @@ export abstract class BaseContractInteraction {
    * @returns The proving result.
    */
   protected async proveInternal(options: SendMethodOptions): Promise<TxProvingResult> {
+    if (options.from !== AztecAddress.ZERO && !options.from.equals(this.wallet.getAddress())) {
+      throw new Error(
+        `The address provided as from does not match the wallet address. Expected ${this.wallet.getAddress().toString()}, got ${options.from.toString()}.`,
+      );
+    }
     const txRequest = await this.create(options);
     return await this.wallet.proveTx(txRequest);
   }
@@ -60,11 +66,6 @@ export abstract class BaseContractInteraction {
    */
   public async prove(options: SendMethodOptions): Promise<ProvenTx> {
     // docs:end:prove
-    if (!options.from.equals(this.wallet.getAddress())) {
-      throw new Error(
-        `The address provided as from does not match the wallet address. Expected ${this.wallet.getAddress().toString()}, got ${options.from.toString()}.`,
-      );
-    }
     const txProvingResult = await this.proveInternal(options);
     return new ProvenTx(
       this.wallet,

@@ -27,28 +27,7 @@ template <typename FF_> class context_stackImpl {
     void static accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& in,
                            [[maybe_unused]] const RelationParameters<FF>&,
-                           [[maybe_unused]] const FF& scaling_factor)
-    {
-        using C = ColumnAndShifts;
-
-        PROFILE_THIS_NAME("accumulate/context_stack");
-
-        {
-            using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = in.get(C::context_stack_sel) * (FF(1) - in.get(C::context_stack_sel));
-            tmp *= scaling_factor;
-            std::get<0>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::context_stack_context_id) * ((FF(1) - in.get(C::context_stack_sel)) *
-                                                                   (FF(1) - in.get(C::context_stack_context_id_inv)) +
-                                                               in.get(C::context_stack_context_id_inv)) -
-                        in.get(C::context_stack_sel));
-            tmp *= scaling_factor;
-            std::get<1>(evals) += typename Accumulator::View(tmp);
-        }
-    }
+                           [[maybe_unused]] const FF& scaling_factor);
 };
 
 template <typename FF> class context_stack : public Relation<context_stackImpl<FF>> {

@@ -27,72 +27,7 @@ template <typename FF_> class send_l2_to_l1_msgImpl {
     void static accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& in,
                            [[maybe_unused]] const RelationParameters<FF>&,
-                           [[maybe_unused]] const FF& scaling_factor)
-    {
-        using C = ColumnAndShifts;
-
-        PROFILE_THIS_NAME("accumulate/send_l2_to_l1_msg");
-
-        const auto constants_MAX_L2_TO_L1_MSGS_PER_TX = FF(8);
-        const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX = FF(503);
-        const auto execution_REMAINING_L2_TO_L1_MSG_WRITES =
-            (constants_MAX_L2_TO_L1_MSGS_PER_TX - in.get(C::execution_prev_num_l2_to_l1_messages));
-
-        {
-            using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_l2_to_l1_msg_limit_error) *
-                       (FF(1) - in.get(C::execution_sel_l2_to_l1_msg_limit_error));
-            tmp *= scaling_factor;
-            std::get<0>(evals) += typename Accumulator::View(tmp);
-        }
-        { // MAX_WRITES_REACHED
-            using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_execute_send_l2_to_l1_msg) *
-                       ((execution_REMAINING_L2_TO_L1_MSG_WRITES *
-                             (in.get(C::execution_sel_l2_to_l1_msg_limit_error) *
-                                  (FF(1) - in.get(C::execution_remaining_l2_to_l1_msgs_inv)) +
-                              in.get(C::execution_remaining_l2_to_l1_msgs_inv)) -
-                         FF(1)) +
-                        in.get(C::execution_sel_l2_to_l1_msg_limit_error));
-            tmp *= scaling_factor;
-            std::get<1>(evals) += typename Accumulator::View(tmp);
-        }
-        { // OPCODE_ERROR
-            using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_execute_send_l2_to_l1_msg) *
-                       ((FF(1) - in.get(C::execution_sel_l2_to_l1_msg_limit_error)) *
-                            (FF(1) - in.get(C::execution_is_static)) -
-                        (FF(1) - in.get(C::execution_sel_opcode_error)));
-            tmp *= scaling_factor;
-            std::get<2>(evals) += typename Accumulator::View(tmp);
-        }
-        { // SEND_L2_TO_L1_MSG_CONDITION
-            using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_execute_send_l2_to_l1_msg) *
-                       ((FF(1) - in.get(C::execution_sel_opcode_error)) * (FF(1) - in.get(C::execution_discard)) -
-                        in.get(C::execution_sel_write_l2_to_l1_msg));
-            tmp *= scaling_factor;
-            std::get<3>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_execute_send_l2_to_l1_msg) *
-                       ((constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX +
-                         in.get(C::execution_prev_num_l2_to_l1_messages)) -
-                        in.get(C::execution_public_inputs_index));
-            tmp *= scaling_factor;
-            std::get<4>(evals) += typename Accumulator::View(tmp);
-        }
-        { // EMIT_L2_TO_L1_MSG_NUM_L2_TO_L1_MSGS_EMITTED_INCREASE
-            using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp =
-                in.get(C::execution_sel_execute_send_l2_to_l1_msg) *
-                ((in.get(C::execution_prev_num_l2_to_l1_messages) + (FF(1) - in.get(C::execution_sel_opcode_error))) -
-                 in.get(C::execution_num_l2_to_l1_messages));
-            tmp *= scaling_factor;
-            std::get<5>(evals) += typename Accumulator::View(tmp);
-        }
-    }
+                           [[maybe_unused]] const FF& scaling_factor);
 };
 
 template <typename FF> class send_l2_to_l1_msg : public Relation<send_l2_to_l1_msgImpl<FF>> {

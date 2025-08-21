@@ -1,5 +1,6 @@
 ---
 title: All About Fees
+description: Code-along tutorial for understanding and paying fees on Aztec.
 sidebar_position: 4
 tags: [fees, accounts, transactions, cli, contracts]
 ---

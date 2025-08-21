@@ -1,5 +1,6 @@
 ---
 title: Creating Schnorr Accounts
+description: Learn how to create Schnorr accounts for your Aztec applications.
 sidebar_position: 2
 draft: true
 tags: [accounts]

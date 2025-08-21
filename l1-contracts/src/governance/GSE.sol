@@ -184,13 +184,6 @@ contract GSECore is IGSECore, Ownable {
   // intended.
   IERC20 public immutable ASSET;
 
-  // the `gap` pushes the `checkProofOfPossession` into its own slot
-  // so we don't have the trouble of being in the middle of a slot
-  uint256 private gap = 0;
-
-  // @note  Always true, exists to override to false for testing only.
-  bool public checkProofOfPossession = true;
-
   // The GSE's history of rollups.
   Checkpoints.Trace224 internal rollups;
   // Mapping from instance address to its historical attester information.
@@ -332,28 +325,7 @@ contract GSECore is IGSECore, Ownable {
       instances[recipientInstance].attesters.add(_attester), Errors.GSE__AlreadyRegistered(recipientInstance, _attester)
     );
 
-    if (checkProofOfPossession) {
-      // Make sure the attester has not registered before
-      G1Point memory previouslyRegisteredPoint = configOf[_attester].publicKey;
-      require(
-        (previouslyRegisteredPoint.x == 0 && previouslyRegisteredPoint.y == 0),
-        Errors.GSE__CannotChangePublicKeys(previouslyRegisteredPoint.x, previouslyRegisteredPoint.y)
-      );
-
-      // Make sure the incoming point has not been seen before
-      // NOTE: we only need to check for the existence of Pk1, and not also for Pk2,
-      // as the Pk2 will be constrained to have the same underlying secret key as part of the proofOfPossession,
-      // so existence/correctness of Pk2 is implied by existence/correctness of Pk1.
-      bytes32 hashedIncomingPoint = keccak256(abi.encodePacked(_publicKeyInG1.x, _publicKeyInG1.y));
-      require((!ownedPKs[hashedIncomingPoint]), Errors.GSE__ProofOfPossessionAlreadySeen(hashedIncomingPoint));
-
-      require(
-        BN254Lib.proofOfPossession(_publicKeyInG1, _publicKeyInG2, _proofOfPossession),
-        Errors.GSE__InvalidProofOfPossession()
-      );
-
-      ownedPKs[hashedIncomingPoint] = true;
-    }
+    _checkProofOfPossession(_attester, _publicKeyInG1, _publicKeyInG2, _proofOfPossession);
 
     // This is the ONLY place where we set the configuration for an attester.
     // This means that their withdrawer and public keys are set once, globally.
@@ -616,6 +588,33 @@ contract GSECore is IGSECore, Ownable {
     getGovernance().vote(_proposalId, _amount, _support);
   }
 
+  function _checkProofOfPossession(
+    address _attester,
+    G1Point memory _publicKeyInG1,
+    G2Point memory _publicKeyInG2,
+    G1Point memory _proofOfPossession
+  ) internal virtual {
+    // Make sure the attester has not registered before
+    G1Point memory previouslyRegisteredPoint = configOf[_attester].publicKey;
+    require(
+      (previouslyRegisteredPoint.x == 0 && previouslyRegisteredPoint.y == 0),
+      Errors.GSE__CannotChangePublicKeys(previouslyRegisteredPoint.x, previouslyRegisteredPoint.y)
+    );
+
+    // Make sure the incoming point has not been seen before
+    // NOTE: we only need to check for the existence of Pk1, and not also for Pk2,
+    // as the Pk2 will be constrained to have the same underlying secret key as part of the proofOfPossession,
+    // so existence/correctness of Pk2 is implied by existence/correctness of Pk1.
+    bytes32 hashedIncomingPoint = keccak256(abi.encodePacked(_publicKeyInG1.x, _publicKeyInG1.y));
+    require((!ownedPKs[hashedIncomingPoint]), Errors.GSE__ProofOfPossessionAlreadySeen(hashedIncomingPoint));
+    ownedPKs[hashedIncomingPoint] = true;
+
+    require(
+      BN254Lib.proofOfPossession(_publicKeyInG1, _publicKeyInG2, _proofOfPossession),
+      Errors.GSE__InvalidProofOfPossession()
+    );
+  }
+
   function _pendingThrough(uint256 _proposalId) internal view returns (Timestamp) {
     return getGovernance().getProposal(_proposalId).pendingThroughMemory();
   }
@@ -662,8 +661,9 @@ contract GSE is IGSE, GSECore {
   /**
    * @notice  Get the effective balance of the attester at the instance.
    *
-   *          The effective balance is the balance of the attester at the instance,
-   *          plus the balance of the attester at the bonus instance if the instance is the latest rollup.
+   *          The effective balance is the balance of the attester at the specific instance or at the bonus if the
+   *          instance is the latest rollup and he was not at the specific. We can do this as an `or` since the
+   *          attester may only be active at one of them.
    *
    * @param _instance   - The instance to look at
    * @param _attester   - The attester to look at
@@ -672,8 +672,8 @@ contract GSE is IGSE, GSECore {
    */
   function effectiveBalanceOf(address _instance, address _attester) external view override(IGSE) returns (uint256) {
     uint256 balance = delegation.getBalanceOf(_instance, _attester);
-    if (getLatestRollup() == _instance) {
-      balance += delegation.getBalanceOf(BONUS_INSTANCE_ADDRESS, _attester);
+    if (balance == 0 && getLatestRollup() == _instance) {
+      return delegation.getBalanceOf(BONUS_INSTANCE_ADDRESS, _attester);
     }
     return balance;
   }

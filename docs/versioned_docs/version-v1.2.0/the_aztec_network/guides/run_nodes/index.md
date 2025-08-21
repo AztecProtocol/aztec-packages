@@ -2,6 +2,7 @@
 id: index
 sidebar_position: 0
 title: Run a Sequencer or Prover / Advanced Node Setup
+description: Learn how to participate in the Aztec Network by running different types of nodes including sequencers and provers.
 ---
 
 ## Running Aztec Nodes

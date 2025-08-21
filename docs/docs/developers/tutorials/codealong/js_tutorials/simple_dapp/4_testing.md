@@ -1,5 +1,6 @@
 ---
 title: Testing
+description: "Part 4 of the simple dApp tutorial: Testing the dApp."
 ---
 
 To wrap up this tutorial, we'll set up a simple automated test for our dapp contracts. We will be using [jest](https://jestjs.io/), but any nodejs test runner works fine.

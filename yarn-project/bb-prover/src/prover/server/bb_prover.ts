@@ -98,9 +98,6 @@ import { readProofAsFields, writeClientIVCProofToOutputDirectory } from '../proo
 
 const logger = createLogger('bb-prover');
 
-// All `ServerCircuitArtifact` are recursive.
-const SERVER_CIRCUIT_RECURSIVE = true;
-
 export interface BBProverConfig extends BBConfig, ACVMConfig {
   // list of circuits supported by this prover. defaults to all circuits if empty
   circuitFilter?: ServerProtocolArtifact[];
@@ -470,7 +467,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       workingDirectory,
       circuitType,
       Buffer.from(artifact.bytecode, 'base64'),
-      SERVER_CIRCUIT_RECURSIVE,
       outputWitnessFile,
       getUltraHonkFlavorForCircuit(circuitType),
       logger,

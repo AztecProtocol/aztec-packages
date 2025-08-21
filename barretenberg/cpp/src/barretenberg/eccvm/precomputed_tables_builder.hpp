@@ -21,8 +21,16 @@ class ECCVMPointTablePrecomputationBuilder {
     static constexpr size_t NUM_WNAF_DIGITS_PER_SCALAR = bb::eccvm::NUM_WNAF_DIGITS_PER_SCALAR;
     static constexpr size_t WNAF_DIGITS_PER_ROW = bb::eccvm::WNAF_DIGITS_PER_ROW;
     static constexpr size_t NUM_WNAF_DIGIT_BITS = bb::eccvm::NUM_WNAF_DIGIT_BITS;
-
-    struct PointTablePrecoputationRow {
+    // Note that our implementation takes advantage of a numerical coincidence:
+    // `NUM_WNAF_DIGITS_PER_SCALAR`/`WNAF_DIGITS_PER_ROW`, the number of rows per scalar multiplication, is the same as
+    // |{P, 3P, ..., (2ʷ-1)P}| = 2ʷ⁻¹ == 8, which is basically the number of multiples of P we need to precompute. (To
+    // be precise, we also compute 2P, but this occurs on every row.)
+    struct PointTablePrecomputationRow {
+        // s1, ..., s8 are each 2 bits, so they jointly encode 16 bits of information, which corresponds precisely to
+        // the data of 4 wNAF digits. they are ordered from "highest order" to "lowest order". this means that s1s2
+        // encodes the first (highest order) wNAF digit in consideration, and so on. the explicit encoding is: the
+        // concatenation, s_{2i}s_{2i+1}, is naturally a number in {0, 1, ..., 15}; to obtain the corresponding wNAF
+        // digit, multiply by 2 and subtract 15.
         int s1 = 0;
         int s2 = 0;
         int s3 = 0;
@@ -36,19 +44,21 @@ class ECCVMPointTablePrecomputationBuilder {
         uint32_t pc = 0;
         uint32_t round = 0;
         uint256_t scalar_sum = 0;
-        AffineElement precompute_accumulator{ 0, 0 };
+        AffineElement precompute_accumulator{
+            0, 0
+        }; // contains a precomputed element, i.e., something in {P, 3P, ..., 15P}.
         AffineElement precompute_double{ 0, 0 };
     };
 
-    static std::vector<PointTablePrecoputationRow> compute_rows(
+    static std::vector<PointTablePrecomputationRow> compute_rows(
         const std::vector<bb::eccvm::ScalarMul<CycleGroup>>& ecc_muls)
     {
         static constexpr size_t num_rows_per_scalar = NUM_WNAF_DIGITS_PER_SCALAR / WNAF_DIGITS_PER_ROW;
         const size_t num_precompute_rows = num_rows_per_scalar * ecc_muls.size() + 1;
-        std::vector<PointTablePrecoputationRow> precompute_state(num_precompute_rows);
+        std::vector<PointTablePrecomputationRow> precompute_state(num_precompute_rows);
 
         // start with empty row (shiftable polynomials must have 0 as first coefficient)
-        precompute_state[0] = PointTablePrecoputationRow{};
+        precompute_state[0] = PointTablePrecomputationRow{};
 
         // current impl doesn't work if not 4
         static_assert(WNAF_DIGITS_PER_ROW == 4);
@@ -60,12 +70,13 @@ class ECCVMPointTablePrecomputationBuilder {
                 uint256_t scalar_sum = 0;
 
                 for (size_t i = 0; i < num_rows_per_scalar; ++i) {
-                    PointTablePrecoputationRow row;
+                    PointTablePrecomputationRow row;
                     const int slice0 = slices[i * WNAF_DIGITS_PER_ROW];
                     const int slice1 = slices[i * WNAF_DIGITS_PER_ROW + 1];
                     const int slice2 = slices[i * WNAF_DIGITS_PER_ROW + 2];
                     const int slice3 = slices[i * WNAF_DIGITS_PER_ROW + 3];
 
+                    // {-15, -13. ..., 13, 15} --> {0, 1, ..., 15}
                     const int slice0base2 = (slice0 + 15) / 2;
                     const int slice1base2 = (slice1 + 15) / 2;
                     const int slice2base2 = (slice2 + 15) / 2;
@@ -105,9 +116,12 @@ class ECCVMPointTablePrecomputationBuilder {
                     if (last_row) {
                         ASSERT(scalar_sum - entry.wnaf_skew, entry.scalar);
                     }
-
+                    // the last element of the `precomputed_table` field of a `ScalarMul` is the double of the point.
                     row.precompute_double = entry.precomputed_table[bb::eccvm::POINT_TABLE_SIZE];
                     // fill accumulator in reverse order i.e. first row = 15[P], then 13[P], ..., 1[P]
+                    // note that this reflects a coincidence: the number of rows (per scalar multiplication) is
+                    // the number of multiples that we need to precompute. Indeed, the latter is 2ʷ⁻¹, while the former
+                    // depends both on w and on `NUM_SCALAR_BITS`.
                     row.precompute_accumulator = entry.precomputed_table[bb::eccvm::POINT_TABLE_SIZE - 1 - i];
                     precompute_state[j * num_rows_per_scalar + i + 1] = (row);
                 }

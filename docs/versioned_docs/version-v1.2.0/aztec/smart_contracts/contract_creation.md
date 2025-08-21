@@ -1,5 +1,6 @@
 ---
 title: Contract Deployment
+description: Learn how contract classes and instances are created and deployed on the Aztec network.
 sidebar_position: 1
 tags: [contracts, protocol]
 ---

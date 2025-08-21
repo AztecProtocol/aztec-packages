@@ -1,5 +1,6 @@
 ---
 title: WASM Errors
+description: Common WASM-related errors in Aztec development and how to resolve them.
 tags: [bb.js, wasm, errors, applications, wallets]
 ---
 

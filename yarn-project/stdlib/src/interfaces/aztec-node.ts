@@ -7,6 +7,7 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
 import { type L1ContractAddresses, L1ContractAddressesSchema } from '@aztec/ethereum/l1-contract-addresses';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
 import { createSafeJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
 import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
@@ -48,8 +49,8 @@ import {
   TxValidationResultSchema,
   indexedTxSchema,
 } from '../tx/index.js';
-import { ValidatorsStatsSchema } from '../validators/schemas.js';
-import type { ValidatorsStats } from '../validators/types.js';
+import { SingleValidatorStatsSchema, ValidatorsStatsSchema } from '../validators/schemas.js';
+import type { SingleValidatorStats, ValidatorsStats } from '../validators/types.js';
 import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning/index.js';
 import { MAX_RPC_BLOCKS_LEN, MAX_RPC_LEN, MAX_RPC_TXS_LEN } from './api_limit.js';
 import {
@@ -397,6 +398,13 @@ export interface AztecNode
   /** Returns stats for validators if enabled. */
   getValidatorsStats(): Promise<ValidatorsStats>;
 
+  /** Returns stats for a single validator if enabled. */
+  getValidatorStats(
+    validatorAddress: EthAddress,
+    fromSlot?: bigint,
+    toSlot?: bigint,
+  ): Promise<SingleValidatorStats | undefined>;
+
   /**
    * Simulates the public part of a transaction with the current state.
    * This currently just checks that the transaction execution succeeds.
@@ -576,6 +584,11 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getBlockHeader: z.function().args(optional(L2BlockNumberSchema)).returns(BlockHeader.schema.optional()),
 
   getValidatorsStats: z.function().returns(ValidatorsStatsSchema),
+
+  getValidatorStats: z
+    .function()
+    .args(schemas.EthAddress, optional(schemas.BigInt), optional(schemas.BigInt))
+    .returns(SingleValidatorStatsSchema.optional()),
 
   simulatePublicCalls: z.function().args(Tx.schema, optional(z.boolean())).returns(PublicSimulationOutput.schema),
 

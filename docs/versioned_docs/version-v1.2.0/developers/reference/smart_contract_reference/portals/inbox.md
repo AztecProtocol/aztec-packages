@@ -1,5 +1,6 @@
 ---
 title: Inbox
+description: Learn about the inbox mechanism in Aztec portals for receiving messages from L1.
 tags: [portals, contracts]
 ---
 

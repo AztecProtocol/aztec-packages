@@ -47,12 +47,12 @@ export class GovernanceProposerContract implements IEmpireBase {
     return this.proposer.read.ROUND_SIZE();
   }
 
-  public computeRound(slot: bigint): Promise<bigint> {
-    return this.proposer.read.computeRound([slot]);
+  public getInstance() {
+    return this.proposer.read.getInstance();
   }
 
-  public getNonce(proposer: Hex): Promise<bigint> {
-    return this.proposer.read.nonces([proposer]);
+  public computeRound(slot: bigint): Promise<bigint> {
+    return this.proposer.read.computeRound([slot]);
   }
 
   public async getRoundInfo(
@@ -75,13 +75,19 @@ export class GovernanceProposerContract implements IEmpireBase {
 
   public async createSignalRequestWithSignature(
     payload: Hex,
-    round: bigint,
+    slot: bigint,
     chainId: number,
     signerAddress: Hex,
     signer: (msg: TypedDataDefinition) => Promise<Hex>,
   ): Promise<L1TxRequest> {
-    const nonce = await this.getNonce(signerAddress);
-    const signature = await signSignalWithSig(signer, payload, nonce, round, this.address.toString(), chainId);
+    const signature = await signSignalWithSig(
+      signer,
+      payload,
+      slot,
+      await this.getInstance(),
+      this.address.toString(),
+      chainId,
+    );
     return {
       to: this.address.toString(),
       data: encodeSignalWithSignature(payload, signature),

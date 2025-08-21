@@ -27,66 +27,7 @@ template <typename FF_> class get_env_varImpl {
     void static accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& in,
                            [[maybe_unused]] const RelationParameters<FF>&,
-                           [[maybe_unused]] const FF& scaling_factor)
-    {
-        using C = ColumnAndShifts;
-
-        PROFILE_THIS_NAME("accumulate/get_env_var");
-
-        { // FROM_PUBLIC_INPUTS
-            using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp =
-                in.get(C::execution_sel_execute_get_env_var) *
-                (in.get(C::execution_sel_envvar_pi_lookup_col0) + in.get(C::execution_sel_envvar_pi_lookup_col1)) *
-                (in.get(C::execution_register_0_) - in.get(C::execution_value_from_pi));
-            tmp *= scaling_factor;
-            std::get<0>(evals) += typename Accumulator::View(tmp);
-        }
-        { // ADDRESS_FROM_CONTEXT
-            using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_execute_get_env_var) * in.get(C::execution_is_address) *
-                       (in.get(C::execution_register_0_) - in.get(C::execution_contract_address));
-            tmp *= scaling_factor;
-            std::get<1>(evals) += typename Accumulator::View(tmp);
-        }
-        { // SENDER_FROM_CONTEXT
-            using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_execute_get_env_var) * in.get(C::execution_is_sender) *
-                       (in.get(C::execution_register_0_) - in.get(C::execution_msg_sender));
-            tmp *= scaling_factor;
-            std::get<2>(evals) += typename Accumulator::View(tmp);
-        }
-        { // TRANSACTION_FEE_FROM_CONTEXT
-            using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_execute_get_env_var) * in.get(C::execution_is_transactionfee) *
-                       (in.get(C::execution_register_0_) - in.get(C::execution_transaction_fee));
-            tmp *= scaling_factor;
-            std::get<3>(evals) += typename Accumulator::View(tmp);
-        }
-        { // ISSTATICCALL_FROM_CONTEXT
-            using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_execute_get_env_var) * in.get(C::execution_is_isstaticcall) *
-                       (in.get(C::execution_register_0_) - in.get(C::execution_is_static));
-            tmp *= scaling_factor;
-            std::get<4>(evals) += typename Accumulator::View(tmp);
-        }
-        { // L2GASLEFT_FROM_GAS
-            using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_execute_get_env_var) * in.get(C::execution_is_l2gasleft) *
-                       (in.get(C::execution_register_0_) -
-                        (in.get(C::execution_l2_gas_limit) - in.get(C::execution_l2_gas_used)));
-            tmp *= scaling_factor;
-            std::get<5>(evals) += typename Accumulator::View(tmp);
-        }
-        { // DAGASLEFT_FROM_GAS
-            using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_execute_get_env_var) * in.get(C::execution_is_dagasleft) *
-                       (in.get(C::execution_register_0_) -
-                        (in.get(C::execution_da_gas_limit) - in.get(C::execution_da_gas_used)));
-            tmp *= scaling_factor;
-            std::get<6>(evals) += typename Accumulator::View(tmp);
-        }
-    }
+                           [[maybe_unused]] const FF& scaling_factor);
 };
 
 template <typename FF> class get_env_var : public Relation<get_env_varImpl<FF>> {

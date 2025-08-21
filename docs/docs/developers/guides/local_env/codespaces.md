@@ -2,6 +2,7 @@
 title: Use a Codespace
 sidebar_position: 0
 draft: true
+description: If you do not want to run the sandbox locally, or if your machine is unsupported (eg Windows), it is possible to run it within a GitHub Codespace.
 ---
 
 If you do not want to run the sandbox locally, or if your machine is unsupported (eg Windows), it is possible to run it within a GitHub Codespace.

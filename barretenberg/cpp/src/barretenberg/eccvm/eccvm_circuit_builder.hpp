@@ -39,10 +39,12 @@ class ECCVMCircuitBuilder {
     static constexpr size_t WNAF_DIGITS_PER_ROW = bb::eccvm::WNAF_DIGITS_PER_ROW;
     static constexpr size_t ADDITIONS_PER_ROW = bb::eccvm::ADDITIONS_PER_ROW;
 
-    using MSM = bb::eccvm::MSM<CycleGroup>;
     std::shared_ptr<ECCOpQueue> op_queue;
+    // `ScalarMul` represents a single scalar multiplication, i.e., a pair of a scalar and point on the curve,
+    // which will eventually be multiplied and accumulated.
     using ScalarMul = bb::eccvm::ScalarMul<CycleGroup>;
-
+    // `MSM` is an ordered container of `ScalarMul`s
+    using MSM = bb::eccvm::MSM<CycleGroup>;
     ECCVMCircuitBuilder(std::shared_ptr<ECCOpQueue>& op_queue)
         : op_queue(op_queue){};
 
@@ -51,8 +53,13 @@ class ECCVMCircuitBuilder {
     std::vector<MSM> get_msms() const
     {
         const uint32_t num_muls = get_number_of_muls();
+
+        // `compute_precomputed_table` and `compute_wnaf_digits` are helper functions that will be used when we
+        // populate our vector of MSMs.
+
         /**
          * For input point [P], return { -15[P], -13[P], ..., -[P], [P], ..., 13[P], 15[P] }
+         * this "precomputed table" will be an entry in `ScalarMuls` corresponding to [P]
          */
         const auto compute_precomputed_table =
             [](const AffineElement& base_point) -> std::array<AffineElement, POINT_TABLE_SIZE + 1> {
@@ -74,6 +81,15 @@ class ECCVMCircuitBuilder {
             }
             return result;
         };
+        /**
+         * Computes the WNAF representation of `scalar`. When `scalar` is even, we represent this by adding 1 to the
+         * least-significant slice. we will also later set the `skew` boolean to True when we populate `ScalarMul`.
+         * (this is necessary because otherwise we would only be able to represent odd multiples of our point.)
+         * Note also that in our applications, `NUM_WNAF_DIGITS_PER_SCALAR = 32`; this corresponds to the fact that we
+         * split up our scalar into two 128 bit numbers, using the endomorphism of the curve (corresponding to a
+         * primitive cube root of unity).
+         *
+         */
         const auto compute_wnaf_digits = [](uint256_t scalar) -> std::array<int, NUM_WNAF_DIGITS_PER_SCALAR> {
             std::array<int, NUM_WNAF_DIGITS_PER_SCALAR> output;
             int previous_slice = 0;
@@ -89,7 +105,7 @@ class ECCVMCircuitBuilder {
                     // if least significant slice is even, we add 1 to create an odd value && set 'skew' to true
                     wnaf_slice += 1;
                 } else if (is_even) {
-                    // for other slices, if it's even, we add 1 to the slice value
+                    // for other slices, if it's even, we add 1 to the slice value, again to create an odd value,
                     // and subtract 16 from the previous slice to preserve the total scalar sum
                     static constexpr int borrow_constant = static_cast<int>(1ULL << NUM_WNAF_DIGIT_BITS);
                     previous_slice -= borrow_constant;
@@ -112,11 +128,26 @@ class ECCVMCircuitBuilder {
 
             return output;
         };
+        // the variables and vectors here correspond to the EC ops that we will actually do; in particular, we have
+        // compilation skipping logic for both when the scalar is 0 and when the EC point is the point-at-infinity, as
+        // terms of each of these types do not contribute to the final sum.
 
-        size_t msm_count = 0;
-        size_t active_mul_count = 0;
-        std::vector<size_t> msm_opqueue_index;
-        std::vector<std::pair<size_t, size_t>> msm_mul_index;
+        // more precisely, we will break up our op_queue into a sequence of MSMs, where we throw away computations that
+        // obviously don't contribute to the final desired value.
+        size_t msm_count = 0; // total number of MSMs
+        size_t active_mul_count =
+            0; // number of scalar multiplications required in the current MSM. Given a scalar n in F_q and a point P,
+               // we in general get *two* scalar multiplications, as we break up n into 128-bit chunks (using the extra
+               // endomorphism). this is an optimization.
+        std::vector<size_t>
+            msm_opqueue_index; // a vector recording which op from the op_queue we are performing in our VM.
+        std::vector<std::pair<size_t, size_t>>
+            msm_mul_index; // recording pairs, where the first element specifies "which MSM are we in" (via an index)
+                           // and the second element specifies "which scalar multiplication is this in our VM simulation
+                           // of this  MSM". note that the second element, the `active_mul_count`, incorporates some
+                           // skipping logic: what contributes to it are multiplications we actually need to perform.
+                           // generically each scalar multiplication contributes to 2 VM mul operations, as we
+                           // split up each Fq element into 2 128-bit elements.
         std::vector<size_t> msm_sizes;
 
         const auto& eccvm_ops = op_queue->get_eccvm_ops();
@@ -141,12 +172,18 @@ class ECCVMCircuitBuilder {
             msm_sizes.push_back(active_mul_count);
             msm_count++;
         }
-        std::vector<MSM> result(msm_count);
+
+        std::vector<MSM> result(
+            msm_count); // the vector we will return, containing all of the MSMs that our VM will have to perform.
+                        // this amounts to breaking up our op-queue, splitting the elmenets of Fq into two 128
+                        // bit scalars, and throwing out operations that a priori won't contribute.
         for (size_t i = 0; i < msm_count; ++i) {
             auto& msm = result[i];
             msm.resize(msm_sizes[i]);
         }
-
+        // populate result using the auxiliary vectors `msm_opqueue_index` and `msm_mul_index`, together with
+        // `eccvm_ops`. this first pass will *not* get the pc (program counter) correct. we explain why when we set it
+        // correctly.
         parallel_for_range(msm_opqueue_index.size(), [&](size_t start, size_t end) {
             for (size_t i = start; i < end; i++) {
                 const auto& op = eccvm_ops[msm_opqueue_index[i]];
@@ -187,7 +224,9 @@ class ECCVMCircuitBuilder {
         // 2: the value of pc for the final mul = 1
         // The latter point is valuable as it means that we can add empty rows (where pc = 0) and still satisfy our
         // sumcheck relations that involve pc (if we did the other way around, starting at 1 and ending at num_muls,
-        // we create a discontinuity in pc values between the last transcript row and the following empty row)
+        // we create a discontinuity in pc values between the last transcript row and the following empty row).
+        // TL;DR we choose a decreasing `pc` so that the subsequent entries of the column (after the last entry) are 0.
+        // this is simply an optimization.
         uint32_t pc = num_muls;
         for (auto& msm : result) {
             for (auto& mul : msm) {

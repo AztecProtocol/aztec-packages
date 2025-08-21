@@ -1,6 +1,7 @@
 ---
 title: Communicating with L1
 tags: [contracts, portals]
+description: Learn how to communicate with L1 contracts through portals in your Aztec smart contracts.
 ---
 
 Follow the [token bridge tutorial](../../../../../developers/tutorials/codealong/js_tutorials/token_bridge.md) for hands-on experience writing and deploying a Portal contract.

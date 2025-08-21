@@ -1,6 +1,7 @@
 ---
 title: Glossary
 tags: [protocol, glossary]
+description: Comprehensive glossary of terms used throughout the Aztec documentation and protocol.
 ---
 
 import { Glossary } from '@site/src/components/Snippets/glossary_snippets';

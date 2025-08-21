@@ -1,5 +1,6 @@
 ---
 title: "NFT contract"
+description: Code-along tutorial for creating a non-fungible token (NFT) contract on Aztec.
 sidebar_position: 5
 ---
 

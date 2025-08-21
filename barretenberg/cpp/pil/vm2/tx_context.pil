@@ -396,3 +396,16 @@ namespace tx;
         precomputed.clk,
         public_inputs.cols[0]
     };
+
+    // ===== EXECUTION CONTEXT ID =====
+
+    // The next available context id. When peforming an enqueued call, this is the context id used by it.
+    pol commit next_context_id;
+    // Initial next context id is 1
+    #[NEXT_CONTEXT_ID_INITIAL_VALUE]
+    start_tx * (1 - next_context_id) = 0;
+
+    // We normally propagate the next context id, unless a call is issued, where the execution trace
+    // controls the next row's next context id.
+    #[NEXT_CONTEXT_ID_CONTINUITY]
+    NOT_LAST * (1 - should_process_call_request) * (next_context_id' - next_context_id) = 0;

@@ -2,6 +2,7 @@
 id: index
 sidebar_position: 0
 title: Build
+description: Start building on Aztec with tutorials, guides, and resources for smart contract development and dApp creation.
 ---
 
 # Build
