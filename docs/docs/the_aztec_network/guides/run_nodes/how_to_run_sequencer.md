@@ -114,8 +114,7 @@ aztec add-l1-validator --staking-asset-handler=0xF739D03e98e23A7B65940848aBA8921
   --l1-rpc-urls $ETHEREUM_HOSTS \
   --l1-chain-id 11155111 \
   --private-key "0x<hex value>" \
-  --attester "0x<eth address>" \
-  --proposer-eoa "0x<eth address>"
+  --attester "0x<eth address>"
 ```
 
 **Tip**: Use `aztec help add-l1-validator` for further parameter details.
