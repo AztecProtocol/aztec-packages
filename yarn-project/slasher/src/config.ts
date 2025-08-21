@@ -30,7 +30,6 @@ export const DefaultSlasherConfig: SlasherConfig = {
   slashAttestDescendantOfInvalidMaxPenalty: 100n,
   slashUnknownPenalty: 1n,
   slashUnknownMaxPenalty: 100n,
-  slashProposerRoundPollingIntervalSeconds: 12,
   slashOffenseExpirationRounds: 4,
   slashMaxPayloadSize: 50,
   slashGracePeriodL2Slots: 0,
@@ -142,10 +141,6 @@ export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
     env: 'SLASH_UNKNOWN_MAX_PENALTY',
     description: 'Maximum penalty amount for slashing a validator for an unknown offense.',
     ...bigintConfigHelper(DefaultSlasherConfig.slashUnknownMaxPenalty),
-  },
-  slashProposerRoundPollingIntervalSeconds: {
-    description: 'Polling interval for slashing proposer round in seconds.',
-    ...numberConfigHelper(DefaultSlasherConfig.slashProposerRoundPollingIntervalSeconds),
   },
   slashOffenseExpirationRounds: {
     description: 'Number of rounds after which pending offenses expire.',

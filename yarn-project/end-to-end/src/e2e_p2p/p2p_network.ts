@@ -71,6 +71,7 @@ export class P2PNetworkTest {
 
   public deployedAccounts: InitialAccountData[] = [];
   public prefilledPublicData: PublicDataTreeLeaf[] = [];
+
   // The re-execution test needs a wallet and a spam contract
   public wallet?: AccountWalletWithSecretKey;
   public defaultAccountAddress?: AztecAddress;

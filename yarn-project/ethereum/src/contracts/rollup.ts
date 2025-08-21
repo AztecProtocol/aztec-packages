@@ -746,4 +746,19 @@ export class RollupContract {
       },
     );
   }
+
+  public listenToSlash(callback: (args: { amount: bigint; attester: EthAddress }) => unknown) {
+    return this.rollup.watchEvent.Slashed(
+      {},
+      {
+        strict: true,
+        onLogs: logs => {
+          for (const log of logs) {
+            const args = log.args;
+            callback({ amount: args.amount!, attester: EthAddress.fromString(args.attester!) });
+          }
+        },
+      },
+    );
+  }
 }

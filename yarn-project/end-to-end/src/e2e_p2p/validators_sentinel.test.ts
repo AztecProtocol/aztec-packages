@@ -1,7 +1,7 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { retryUntil, sleep } from '@aztec/aztec.js';
-import { EmpireSlashingProposerContract, RollupContract } from '@aztec/ethereum';
-import { RollupAbi } from '@aztec/l1-artifacts';
+import { EthAddress, retryUntil, sleep } from '@aztec/aztec.js';
+import { RollupContract } from '@aztec/ethereum';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
 import type { ValidatorsStats } from '@aztec/stdlib/validators';
 
 import { jest } from '@jest/globals';
@@ -9,16 +9,15 @@ import fs from 'fs';
 import 'jest-extended';
 import os from 'os';
 import path from 'path';
-import { getContract } from 'viem';
 
 import { createNode, createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest } from './p2p_network.js';
 
-const NUM_NODES = 4;
+const NUM_NODES = 5;
 const NUM_VALIDATORS = NUM_NODES + 1; // We create an extra validator, who will not have a running node
 const BOOT_NODE_UDP_PORT = 4500;
 const BLOCK_COUNT = 3;
-const EPOCH_DURATION = 10;
+const EPOCH_DURATION = 5;
 const SLASHING_QUORUM = 3;
 const SLASHING_ROUND_SIZE = 5;
 const AZTEC_SLOT_DURATION = 12;
@@ -33,6 +32,7 @@ describe('e2e_p2p_validators_sentinel', () => {
   let nodes: AztecNodeService[];
   let slashingAmount: bigint;
   let additionalNode: AztecNodeService | undefined;
+  let rollup: RollupContract;
 
   beforeAll(async () => {
     t = await P2PNetworkTest.create({
@@ -54,14 +54,13 @@ describe('e2e_p2p_validators_sentinel', () => {
         slashingRoundSize: SLASHING_ROUND_SIZE,
         slashInactivityCreateTargetPercentage: 0.5,
         slashInactivitySignalTargetPercentage: 0.1,
-        slashProposerRoundPollingIntervalSeconds: 1,
       },
     });
 
     await t.applyBaseSnapshots();
     await t.setup();
 
-    const { rollup } = await t.getContracts();
+    ({ rollup } = await t.getContracts());
     slashingAmount = (await rollup.getActivationThreshold()) - (await rollup.getEjectionThreshold()) + 1n;
     t.ctx.aztecNodeConfig.slashInactivityEnabled = true;
     t.ctx.aztecNodeConfig.slashInactivityCreatePenalty = slashingAmount;
@@ -165,6 +164,18 @@ describe('e2e_p2p_validators_sentinel', () => {
       expect(attestorStats.missedAttestations.rate).toBeLessThan(1);
     });
 
+    it('slashes inactive validator', async () => {
+      // Reenable block building so we dont end up slashing everyone
+      await Promise.all(nodes.map(node => node.getSequencer()?.updateSequencerConfig({ minTxsPerBlock: 0 })));
+
+      // Wait until we emit a slashing event for the inactive validator
+      const offlineValidator = EthAddress.fromString(t.validators.at(-1)!.attester.toString());
+      const slashPromise = promiseWithResolvers<bigint>();
+      rollup.listenToSlash(args => offlineValidator.equals(args.attester) && slashPromise.resolve(args.amount));
+      const amount = await slashPromise.promise;
+      expect(amount).toEqual(slashingAmount);
+    });
+
     // Regression test for #13142
     it('starts a sentinel on a fresh node', async () => {
       const l2BlockNumber = t.monitor.l2BlockNumber;
@@ -201,75 +212,6 @@ describe('e2e_p2p_validators_sentinel', () => {
       expect(stats.stats[newNodeValidator]).toBeDefined();
       expect(stats.stats[newNodeValidator].history.length).toBeGreaterThanOrEqual(1);
       expect(Object.keys(stats.stats).length).toBeGreaterThan(1);
-    });
-
-    it("tries to slash the validator that didn't sign proven blocks", async () => {
-      // turn back on block building
-      await Promise.all(nodes.map(node => node.getSequencer()?.updateSequencerConfig({ minTxsPerBlock: 0 })));
-
-      // wait until we're beyond the second epoch
-      await retryUntil(
-        async () => {
-          const tips = await nodes[0].getL2Tips();
-          return tips.proven.number > 1;
-        },
-        'proven blocks',
-        EPOCH_DURATION * AZTEC_SLOT_DURATION * 2,
-        1,
-      );
-
-      const rollupRaw = getContract({
-        address: t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
-        abi: RollupAbi,
-        client: t.ctx.deployL1ContractsValues.l1Client,
-      });
-
-      const rollup = new RollupContract(
-        t.ctx.deployL1ContractsValues.l1Client,
-        t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
-      );
-      const slashingProposer = await rollup.getSlashingProposer();
-      if (slashingProposer.type !== 'empire') {
-        throw new Error('This test requires Empire slashing');
-      }
-      const empireSlashingProposer = slashingProposer as EmpireSlashingProposerContract;
-
-      await retryUntil(
-        async () => {
-          const ignoreExpectedErrors = (err: Error) => {
-            const permissibleErrors = ['ValidatorSelection__InsufficientValidatorSetSize', '0x98673597'];
-            if (permissibleErrors.some(error => err.message.includes(error))) {
-              return undefined;
-            }
-            t.logger.error('Error:', err);
-            throw err;
-          };
-          const currentProposer = await rollup.getCurrentProposer().catch(ignoreExpectedErrors);
-          t.logger.verbose(`Current proposer is ${currentProposer}`);
-          const round = await empireSlashingProposer.computeRound(await rollup.getSlotNumber());
-          const roundInfo = await empireSlashingProposer.getRoundInfo(rollup.address, round);
-          const leaderSignals = await empireSlashingProposer.getPayloadSignals(
-            rollup.address,
-            round,
-            roundInfo.payloadWithMostSignals,
-          );
-          t.logger.verbose(`Currently in round ${round}`);
-          t.logger.verbose(`Leader signals: ${leaderSignals}`);
-
-          const slashEvents = await rollupRaw.getEvents.Slashed();
-          return slashEvents.length >= 1;
-        },
-        'slash event',
-        // wait up to 10 full rounds, because we know that 1/5 validators are not voting
-        // so give us some time to make sure we get a round that is majority honest
-        AZTEC_SLOT_DURATION * SLASHING_ROUND_SIZE * 10,
-        1,
-      );
-      const slashEvents = await rollupRaw.getEvents.Slashed();
-      const { attester, amount } = slashEvents[0].args;
-      expect(slashEvents.length).toBe(1);
-      expect(attester?.toLowerCase()).toBe(t.validators.at(-1)!.attester.toString().toLowerCase());
-      expect(amount).toBe(slashingAmount);
     });
   });
 });
