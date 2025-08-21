@@ -20,10 +20,11 @@
  *
  * Given a message \$m\$, a couple \$(r,s)\$ is a valid signature for the message \$m\$ with respect to the public key
  * \$P\$ if:
- *  1. \$0 < r < n\$
- *  2. \$0 < s < (n+1) / 2\$
- *  3. Define \$e := \mathcal{H}(m) mod n$ and \$Q := e s^{-1} G + r s^{-1} P \$
- *  4. \$Q\$ is not the point at infinity AND \$Q_x = r mod n\$ (note that \$Q_x \in \mathbb{F}_q\$)
+ *  1. \$P\$ is a point on \$E\$
+ *  2. \$0 < r < n\$
+ *  3. \$0 < s < (n+1) / 2\$
+ *  4. Define \$e := \mathcal{H}(m) mod n$ and \$Q := e s^{-1} G + r s^{-1} P \$
+ *  5. \$Q\$ is not the point at infinity AND \$Q_x = r mod n\$ (note that \$Q_x \in \mathbb{F}_q\$)
  *
  * @note The requirement of step 2. is to avoid transaction malleability: if \$(r,s)\$ is a valid signature for message
  * \$m\$ and public key \$P\$, so is \$(r,n-s)\$. We protect against malleability by enforcing that \$s\$ is always the
