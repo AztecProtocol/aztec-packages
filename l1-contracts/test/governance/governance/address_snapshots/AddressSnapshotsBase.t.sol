@@ -69,6 +69,7 @@ contract AddressSnapshotsBase is Test {
     // Ensure addresses within _addrSet1 are unique
     vm.assume(_addrs.length > 0 && _addrs.length < 16);
     for (uint256 i = 0; i < _addrs.length; i++) {
+      vm.assume(_addrs[i] != address(0));
       for (uint256 j = 0; j < i; j++) {
         vm.assume(_addrs[i] != _addrs[j]);
       }
