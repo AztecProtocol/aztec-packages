@@ -218,7 +218,7 @@ describe('e2e_2_pxes', () => {
     const contractWithSharedWalletA = await TokenContract.at(token.address, sharedWalletOnA);
     await contractWithSharedWalletA.methods
       .transfer(accountBAddress, transferAmount2)
-      .send({ from: accountAAddress })
+      .send({ from: sharedAccountAddress })
       .wait();
 
     // check balances from PXE-A's perspective
