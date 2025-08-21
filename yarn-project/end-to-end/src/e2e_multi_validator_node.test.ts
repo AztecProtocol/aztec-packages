@@ -30,6 +30,7 @@ import { getPrivateKeyFromIndex, setup } from './fixtures/utils.js';
 
 const VALIDATOR_COUNT = 5;
 const COMMITTEE_SIZE = VALIDATOR_COUNT - 2;
+const PUBLISHER_COUNT = 2;
 
 describe('e2e_multi_validator_node', () => {
   let initialValidatorPrivateKeys: `0x${string}`[];
@@ -50,7 +51,10 @@ describe('e2e_multi_validator_node', () => {
       { length: VALIDATOR_COUNT },
       (_, i) => `0x${getPrivateKeyFromIndex(i)!.toString('hex')}` as `0x${string}`,
     );
-    const publisherPrivateKeys = initialValidatorPrivateKeys.map(k => new SecretValue(k));
+    const publisherPrivateKeys = Array.from(
+      { length: PUBLISHER_COUNT },
+      (_, i) => `0x${getPrivateKeyFromIndex(i + VALIDATOR_COUNT)!.toString('hex')}` as `0x${string}`,
+    );
     validatorAddresses = initialValidatorPrivateKeys.map(pk => {
       const account = privateKeyToAccount(pk);
       return EthAddress.fromString(account.address).toString();
@@ -78,7 +82,7 @@ describe('e2e_multi_validator_node', () => {
     } = await setup(1, {
       initialValidators,
       aztecTargetCommitteeSize: COMMITTEE_SIZE,
-      publisherPrivateKeys,
+      publisherPrivateKeys: publisherPrivateKeys.map(k => new SecretValue(k)),
       minTxsPerBlock: 1,
       archiverPollingIntervalMS: 200,
       transactionPollingIntervalMS: 200,
