@@ -92,340 +92,357 @@ void bc_decompositionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
-        auto tmp = in.get(C::bc_decomposition_sel_overflow_correction_needed) *
-                   (FF(1) - in.get(C::bc_decomposition_sel_overflow_correction_needed));
+        auto tmp = in.get(C::bc_decomposition_sel_windows_gt_remaining) *
+                   (FF(1) - in.get(C::bc_decomposition_sel_windows_gt_remaining));
         tmp *= scaling_factor;
         std::get<9>(evals) += typename Accumulator::View(tmp);
     }
-    { // BC_DEC_ABS_DIFF
+    {
         using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
-        auto tmp = in.get(C::bc_decomposition_sel) *
-                   (((FF(2) * in.get(C::bc_decomposition_sel_overflow_correction_needed) *
-                          (bc_decomposition_WINDOW_SIZE - in.get(C::bc_decomposition_bytes_remaining)) -
-                      bc_decomposition_WINDOW_SIZE) +
-                     in.get(C::bc_decomposition_bytes_remaining)) -
-                    in.get(C::bc_decomposition_abs_diff));
+        auto tmp = in.get(C::bc_decomposition_is_windows_eq_remaining) *
+                   (FF(1) - in.get(C::bc_decomposition_is_windows_eq_remaining));
         tmp *= scaling_factor;
         std::get<10>(evals) += typename Accumulator::View(tmp);
     }
-    {
+    { // IS_WINDOWS_EQ_REMAINING
         using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
-        auto tmp = (in.get(C::bc_decomposition_abs_diff) -
-                    (in.get(C::bc_decomposition_abs_diff_hi) * FF(65536) + in.get(C::bc_decomposition_abs_diff_lo)));
+        auto tmp = in.get(C::bc_decomposition_sel) *
+                   (((bc_decomposition_WINDOW_SIZE - in.get(C::bc_decomposition_bytes_remaining)) *
+                         (in.get(C::bc_decomposition_is_windows_eq_remaining) *
+                              (FF(1) - in.get(C::bc_decomposition_windows_min_remaining_inv)) +
+                          in.get(C::bc_decomposition_windows_min_remaining_inv)) +
+                     in.get(C::bc_decomposition_is_windows_eq_remaining)) -
+                    FF(1));
         tmp *= scaling_factor;
         std::get<11>(evals) += typename Accumulator::View(tmp);
     }
-    { // BC_DEC_OVERFLOW_CORRECTION_VALUE
+    { // SEL_WINDOWS_GT_REMAINING_INIT
         using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
-        auto tmp = in.get(C::bc_decomposition_sel) *
-                   ((FF(1) - in.get(C::bc_decomposition_sel_overflow_correction_needed)) *
-                        (in.get(C::bc_decomposition_bytes_to_read) - bc_decomposition_WINDOW_SIZE) +
-                    in.get(C::bc_decomposition_sel_overflow_correction_needed) *
-                        (in.get(C::bc_decomposition_bytes_to_read) - in.get(C::bc_decomposition_bytes_remaining)));
+        auto tmp = in.get(C::bc_decomposition_last_of_contract) *
+                   (FF(1) - in.get(C::bc_decomposition_sel_windows_gt_remaining));
         tmp *= scaling_factor;
         std::get<12>(evals) += typename Accumulator::View(tmp);
     }
-    {
+    { // SEL_WINDOWS_GT_REMAINING_PROPAGATION
         using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
-        auto tmp = (in.get(C::bc_decomposition_bytes_pc_plus_1) -
-                    (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_shift));
+        auto tmp = (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) *
+                   ((in.get(C::bc_decomposition_sel_windows_gt_remaining_shift) -
+                     in.get(C::bc_decomposition_is_windows_eq_remaining)) -
+                    in.get(C::bc_decomposition_sel_windows_gt_remaining));
         tmp *= scaling_factor;
         std::get<13>(evals) += typename Accumulator::View(tmp);
     }
-    {
+    { // SET_BYTES_TO_READ
         using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
-        auto tmp =
-            (in.get(C::bc_decomposition_bytes_pc_plus_2) -
-             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_1_shift));
+        auto tmp = in.get(C::bc_decomposition_sel) *
+                   ((FF(1) - in.get(C::bc_decomposition_sel_windows_gt_remaining)) *
+                        (in.get(C::bc_decomposition_bytes_to_read) - bc_decomposition_WINDOW_SIZE) +
+                    in.get(C::bc_decomposition_sel_windows_gt_remaining) *
+                        (in.get(C::bc_decomposition_bytes_to_read) - in.get(C::bc_decomposition_bytes_remaining)));
         tmp *= scaling_factor;
         std::get<14>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
-        auto tmp =
-            (in.get(C::bc_decomposition_bytes_pc_plus_3) -
-             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_2_shift));
+        auto tmp = (in.get(C::bc_decomposition_bytes_pc_plus_1) -
+                    (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_shift));
         tmp *= scaling_factor;
         std::get<15>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
         auto tmp =
-            (in.get(C::bc_decomposition_bytes_pc_plus_4) -
-             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_3_shift));
+            (in.get(C::bc_decomposition_bytes_pc_plus_2) -
+             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_1_shift));
         tmp *= scaling_factor;
         std::get<16>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
         auto tmp =
-            (in.get(C::bc_decomposition_bytes_pc_plus_5) -
-             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_4_shift));
+            (in.get(C::bc_decomposition_bytes_pc_plus_3) -
+             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_2_shift));
         tmp *= scaling_factor;
         std::get<17>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
         auto tmp =
-            (in.get(C::bc_decomposition_bytes_pc_plus_6) -
-             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_5_shift));
+            (in.get(C::bc_decomposition_bytes_pc_plus_4) -
+             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_3_shift));
         tmp *= scaling_factor;
         std::get<18>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<19, ContainerOverSubrelations>;
         auto tmp =
-            (in.get(C::bc_decomposition_bytes_pc_plus_7) -
-             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_6_shift));
+            (in.get(C::bc_decomposition_bytes_pc_plus_5) -
+             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_4_shift));
         tmp *= scaling_factor;
         std::get<19>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<20, ContainerOverSubrelations>;
         auto tmp =
-            (in.get(C::bc_decomposition_bytes_pc_plus_8) -
-             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_7_shift));
+            (in.get(C::bc_decomposition_bytes_pc_plus_6) -
+             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_5_shift));
         tmp *= scaling_factor;
         std::get<20>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<21, ContainerOverSubrelations>;
         auto tmp =
-            (in.get(C::bc_decomposition_bytes_pc_plus_9) -
-             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_8_shift));
+            (in.get(C::bc_decomposition_bytes_pc_plus_7) -
+             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_6_shift));
         tmp *= scaling_factor;
         std::get<21>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<22, ContainerOverSubrelations>;
         auto tmp =
-            (in.get(C::bc_decomposition_bytes_pc_plus_10) -
-             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_9_shift));
+            (in.get(C::bc_decomposition_bytes_pc_plus_8) -
+             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_7_shift));
         tmp *= scaling_factor;
         std::get<22>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<23, ContainerOverSubrelations>;
         auto tmp =
-            (in.get(C::bc_decomposition_bytes_pc_plus_11) -
-             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_10_shift));
+            (in.get(C::bc_decomposition_bytes_pc_plus_9) -
+             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_8_shift));
         tmp *= scaling_factor;
         std::get<23>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<24, ContainerOverSubrelations>;
         auto tmp =
-            (in.get(C::bc_decomposition_bytes_pc_plus_12) -
-             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_11_shift));
+            (in.get(C::bc_decomposition_bytes_pc_plus_10) -
+             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_9_shift));
         tmp *= scaling_factor;
         std::get<24>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<25, ContainerOverSubrelations>;
         auto tmp =
-            (in.get(C::bc_decomposition_bytes_pc_plus_13) -
-             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_12_shift));
+            (in.get(C::bc_decomposition_bytes_pc_plus_11) -
+             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_10_shift));
         tmp *= scaling_factor;
         std::get<25>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<26, ContainerOverSubrelations>;
         auto tmp =
-            (in.get(C::bc_decomposition_bytes_pc_plus_14) -
-             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_13_shift));
+            (in.get(C::bc_decomposition_bytes_pc_plus_12) -
+             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_11_shift));
         tmp *= scaling_factor;
         std::get<26>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<27, ContainerOverSubrelations>;
         auto tmp =
-            (in.get(C::bc_decomposition_bytes_pc_plus_15) -
-             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_14_shift));
+            (in.get(C::bc_decomposition_bytes_pc_plus_13) -
+             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_12_shift));
         tmp *= scaling_factor;
         std::get<27>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<28, ContainerOverSubrelations>;
         auto tmp =
-            (in.get(C::bc_decomposition_bytes_pc_plus_16) -
-             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_15_shift));
+            (in.get(C::bc_decomposition_bytes_pc_plus_14) -
+             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_13_shift));
         tmp *= scaling_factor;
         std::get<28>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<29, ContainerOverSubrelations>;
         auto tmp =
-            (in.get(C::bc_decomposition_bytes_pc_plus_17) -
-             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_16_shift));
+            (in.get(C::bc_decomposition_bytes_pc_plus_15) -
+             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_14_shift));
         tmp *= scaling_factor;
         std::get<29>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<30, ContainerOverSubrelations>;
         auto tmp =
-            (in.get(C::bc_decomposition_bytes_pc_plus_18) -
-             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_17_shift));
+            (in.get(C::bc_decomposition_bytes_pc_plus_16) -
+             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_15_shift));
         tmp *= scaling_factor;
         std::get<30>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<31, ContainerOverSubrelations>;
         auto tmp =
-            (in.get(C::bc_decomposition_bytes_pc_plus_19) -
-             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_18_shift));
+            (in.get(C::bc_decomposition_bytes_pc_plus_17) -
+             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_16_shift));
         tmp *= scaling_factor;
         std::get<31>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<32, ContainerOverSubrelations>;
         auto tmp =
-            (in.get(C::bc_decomposition_bytes_pc_plus_20) -
-             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_19_shift));
+            (in.get(C::bc_decomposition_bytes_pc_plus_18) -
+             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_17_shift));
         tmp *= scaling_factor;
         std::get<32>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<33, ContainerOverSubrelations>;
         auto tmp =
-            (in.get(C::bc_decomposition_bytes_pc_plus_21) -
-             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_20_shift));
+            (in.get(C::bc_decomposition_bytes_pc_plus_19) -
+             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_18_shift));
         tmp *= scaling_factor;
         std::get<33>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<34, ContainerOverSubrelations>;
         auto tmp =
-            (in.get(C::bc_decomposition_bytes_pc_plus_22) -
-             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_21_shift));
+            (in.get(C::bc_decomposition_bytes_pc_plus_20) -
+             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_19_shift));
         tmp *= scaling_factor;
         std::get<34>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<35, ContainerOverSubrelations>;
         auto tmp =
-            (in.get(C::bc_decomposition_bytes_pc_plus_23) -
-             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_22_shift));
+            (in.get(C::bc_decomposition_bytes_pc_plus_21) -
+             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_20_shift));
         tmp *= scaling_factor;
         std::get<35>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<36, ContainerOverSubrelations>;
         auto tmp =
-            (in.get(C::bc_decomposition_bytes_pc_plus_24) -
-             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_23_shift));
+            (in.get(C::bc_decomposition_bytes_pc_plus_22) -
+             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_21_shift));
         tmp *= scaling_factor;
         std::get<36>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<37, ContainerOverSubrelations>;
         auto tmp =
-            (in.get(C::bc_decomposition_bytes_pc_plus_25) -
-             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_24_shift));
+            (in.get(C::bc_decomposition_bytes_pc_plus_23) -
+             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_22_shift));
         tmp *= scaling_factor;
         std::get<37>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<38, ContainerOverSubrelations>;
         auto tmp =
-            (in.get(C::bc_decomposition_bytes_pc_plus_26) -
-             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_25_shift));
+            (in.get(C::bc_decomposition_bytes_pc_plus_24) -
+             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_23_shift));
         tmp *= scaling_factor;
         std::get<38>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<39, ContainerOverSubrelations>;
         auto tmp =
-            (in.get(C::bc_decomposition_bytes_pc_plus_27) -
-             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_26_shift));
+            (in.get(C::bc_decomposition_bytes_pc_plus_25) -
+             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_24_shift));
         tmp *= scaling_factor;
         std::get<39>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<40, ContainerOverSubrelations>;
         auto tmp =
-            (in.get(C::bc_decomposition_bytes_pc_plus_28) -
-             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_27_shift));
+            (in.get(C::bc_decomposition_bytes_pc_plus_26) -
+             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_25_shift));
         tmp *= scaling_factor;
         std::get<40>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<41, ContainerOverSubrelations>;
         auto tmp =
-            (in.get(C::bc_decomposition_bytes_pc_plus_29) -
-             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_28_shift));
+            (in.get(C::bc_decomposition_bytes_pc_plus_27) -
+             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_26_shift));
         tmp *= scaling_factor;
         std::get<41>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<42, ContainerOverSubrelations>;
         auto tmp =
-            (in.get(C::bc_decomposition_bytes_pc_plus_30) -
-             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_29_shift));
+            (in.get(C::bc_decomposition_bytes_pc_plus_28) -
+             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_27_shift));
         tmp *= scaling_factor;
         std::get<42>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<43, ContainerOverSubrelations>;
         auto tmp =
-            (in.get(C::bc_decomposition_bytes_pc_plus_31) -
-             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_30_shift));
+            (in.get(C::bc_decomposition_bytes_pc_plus_29) -
+             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_28_shift));
         tmp *= scaling_factor;
         std::get<43>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<44, ContainerOverSubrelations>;
         auto tmp =
-            (in.get(C::bc_decomposition_bytes_pc_plus_32) -
-             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_31_shift));
+            (in.get(C::bc_decomposition_bytes_pc_plus_30) -
+             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_29_shift));
         tmp *= scaling_factor;
         std::get<44>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<45, ContainerOverSubrelations>;
         auto tmp =
-            (in.get(C::bc_decomposition_bytes_pc_plus_33) -
-             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_32_shift));
+            (in.get(C::bc_decomposition_bytes_pc_plus_31) -
+             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_30_shift));
         tmp *= scaling_factor;
         std::get<45>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<46, ContainerOverSubrelations>;
         auto tmp =
-            (in.get(C::bc_decomposition_bytes_pc_plus_34) -
-             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_33_shift));
+            (in.get(C::bc_decomposition_bytes_pc_plus_32) -
+             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_31_shift));
         tmp *= scaling_factor;
         std::get<46>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<47, ContainerOverSubrelations>;
         auto tmp =
-            (in.get(C::bc_decomposition_bytes_pc_plus_35) -
-             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_34_shift));
+            (in.get(C::bc_decomposition_bytes_pc_plus_33) -
+             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_32_shift));
         tmp *= scaling_factor;
         std::get<47>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<48, ContainerOverSubrelations>;
         auto tmp =
-            (in.get(C::bc_decomposition_bytes_pc_plus_36) -
-             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_35_shift));
+            (in.get(C::bc_decomposition_bytes_pc_plus_34) -
+             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_33_shift));
         tmp *= scaling_factor;
         std::get<48>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<49, ContainerOverSubrelations>;
-        auto tmp = in.get(C::bc_decomposition_sel_packed) * (FF(1) - in.get(C::bc_decomposition_sel_packed));
+        auto tmp =
+            (in.get(C::bc_decomposition_bytes_pc_plus_35) -
+             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_34_shift));
         tmp *= scaling_factor;
         std::get<49>(evals) += typename Accumulator::View(tmp);
     }
-    { // SEL_TOGGLED_AT_PACKED
+    {
         using Accumulator = typename std::tuple_element_t<50, ContainerOverSubrelations>;
-        auto tmp = in.get(C::bc_decomposition_sel_packed) * (FF(1) - in.get(C::bc_decomposition_sel));
+        auto tmp =
+            (in.get(C::bc_decomposition_bytes_pc_plus_36) -
+             (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) * in.get(C::bc_decomposition_bytes_pc_plus_35_shift));
         tmp *= scaling_factor;
         std::get<50>(evals) += typename Accumulator::View(tmp);
     }
-    { // BC_DECOMPOSITION_REPACKING
+    {
         using Accumulator = typename std::tuple_element_t<51, ContainerOverSubrelations>;
+        auto tmp = in.get(C::bc_decomposition_sel_packed) * (FF(1) - in.get(C::bc_decomposition_sel_packed));
+        tmp *= scaling_factor;
+        std::get<51>(evals) += typename Accumulator::View(tmp);
+    }
+    { // SEL_TOGGLED_AT_PACKED
+        using Accumulator = typename std::tuple_element_t<52, ContainerOverSubrelations>;
+        auto tmp = in.get(C::bc_decomposition_sel_packed) * (FF(1) - in.get(C::bc_decomposition_sel));
+        tmp *= scaling_factor;
+        std::get<52>(evals) += typename Accumulator::View(tmp);
+    }
+    { // BC_DECOMPOSITION_REPACKING
+        using Accumulator = typename std::tuple_element_t<53, ContainerOverSubrelations>;
         auto tmp =
             in.get(C::bc_decomposition_sel_packed) *
             ((FF(1) * in.get(C::bc_decomposition_bytes_pc_plus_30) +
@@ -461,7 +478,7 @@ void bc_decompositionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
               FF(uint256_t{ 0UL, 0UL, 0UL, 281474976710656UL }) * in.get(C::bc_decomposition_bytes)) -
              in.get(C::bc_decomposition_packed_field));
         tmp *= scaling_factor;
-        std::get<51>(evals) += typename Accumulator::View(tmp);
+        std::get<53>(evals) += typename Accumulator::View(tmp);
     }
 }
 

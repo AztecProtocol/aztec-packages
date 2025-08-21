@@ -26,7 +26,5 @@
 namespace bb::avm2 {
 
 INSTANTIATE_LOOKUP(lookup_bc_decomposition_bytes_are_bytes_relation);
-INSTANTIATE_LOOKUP(lookup_bc_decomposition_abs_diff_lo_is_u16_relation);
-INSTANTIATE_LOOKUP(lookup_bc_decomposition_abs_diff_hi_is_u8_relation);
 
 } // namespace bb::avm2
