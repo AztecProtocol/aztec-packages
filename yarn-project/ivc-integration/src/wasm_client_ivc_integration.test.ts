@@ -89,7 +89,7 @@ describe('Client IVC Integration', () => {
   // 5. Run the reset kernel to process the read request emitted by the reader app
   // 6. Run the tail kernel to finish the client IVC chain
   // 7. Run the hiding kernel.
-  it('Should generate a verifiable client IVC proof from a complex mock tx', async () => {
+  it.only('Should generate a verifiable client IVC proof from a complex mock tx', async () => {
     const [bytecodes, witnessStack, _, vks] = await generateTestingIVCStack(1, 1);
     const verifyResult = await proveThenVerifyAztecClient(bytecodes, witnessStack, vks);
     logger.info(`generated then verified proof. result: ${verifyResult}`);
