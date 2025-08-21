@@ -13,7 +13,7 @@ namespace bb {
 
 MergeVerifier::MergeVerifier(const MergeSettings settings, const std::shared_ptr<Transcript>& transcript)
     : transcript(transcript)
-    , settings(settings){};
+    , settings(settings) {};
 
 /**
  * @brief Verify proper construction of the aggregate Goblin ECC op queue polynomials T_j, j = 1,2,3,4.
