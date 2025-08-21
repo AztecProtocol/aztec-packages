@@ -59,7 +59,8 @@ template <size_t rate, size_t capacity, size_t t, typename Permutation, typename
         : builder(&builder_)
     {
         for (size_t i = 0; i < rate; ++i) {
-            state[i] = witness_t<Builder>::create_constant_witness(builder, 0);
+            // The witness at idx = 0 is constrained to be 0.
+            state[i] = field_t::from_witness_index(builder, 0);
         }
         state[rate] = witness_t<Builder>::create_constant_witness(builder, domain_iv.get_value());
     }
@@ -68,7 +69,7 @@ template <size_t rate, size_t capacity, size_t t, typename Permutation, typename
     {
         // zero-pad the cache
         for (size_t i = cache_size; i < rate; ++i) {
-            cache[i] = witness_t<Builder>::create_constant_witness(builder, 0);
+            cache[i] = field_t::from_witness_index(builder, 0);
         }
         // add the cache into sponge state
         for (size_t i = 0; i < rate; ++i) {
@@ -135,7 +136,7 @@ template <size_t rate, size_t capacity, size_t t, typename Permutation, typename
             cache[i - 1] = cache[i];
         }
         cache_size -= 1;
-        cache[cache_size] = witness_t<Builder>::create_constant_witness(builder, 0);
+        cache[cache_size] = field_t::from_witness_index(builder, 0);
         return result;
     }
 
@@ -155,7 +156,7 @@ template <size_t rate, size_t capacity, size_t t, typename Permutation, typename
         FieldSponge sponge(builder, iv);
 
         for (size_t i = 0; i < in_len; ++i) {
-            BB_ASSERT_EQ(input[i].witness_index == IS_CONSTANT, false, "Sponge inputs should not be stdlib constants.");
+            BB_ASSERT_EQ(input[i].is_constant(), false, "Sponge inputs should not be stdlib constants.");
             sponge.absorb(input[i]);
         }
 

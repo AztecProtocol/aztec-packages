@@ -65,7 +65,7 @@ template <typename Params, typename Builder> class Poseidon2Permutation {
      * @param builder
      * @param state
      */
-    static void matrix_multiplication_external(Builder* builder, State& state);
+    static void matrix_multiplication_external(State& state);
 };
 
 } // namespace bb::stdlib
