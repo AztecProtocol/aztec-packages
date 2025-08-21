@@ -301,16 +301,20 @@ contract GSECore is IGSECore, Ownable {
     bool isMsgSenderLatestRollup = getLatestRollup() == msg.sender;
 
     // If _moveWithLatestRollup is true, then msg.sender must be the latest rollup.
-    require(!_moveWithLatestRollup || isMsgSenderLatestRollup, Errors.GSE__NotLatestRollup(msg.sender));
+    if (_moveWithLatestRollup) {
+      require(isMsgSenderLatestRollup, Errors.GSE__NotLatestRollup(msg.sender));
+    }
 
     // Ensure that we are not already attesting on the rollup
     require(!isRegistered(msg.sender, _attester), Errors.GSE__AlreadyRegistered(msg.sender, _attester));
 
     // Ensure that if we are the latest rollup, we are not already attesting on the bonus instance.
-    require(
-      !isMsgSenderLatestRollup || !isRegistered(BONUS_INSTANCE_ADDRESS, _attester),
-      Errors.GSE__AlreadyRegistered(BONUS_INSTANCE_ADDRESS, _attester)
-    );
+    if (isMsgSenderLatestRollup) {
+      require(
+        !isRegistered(BONUS_INSTANCE_ADDRESS, _attester),
+        Errors.GSE__AlreadyRegistered(BONUS_INSTANCE_ADDRESS, _attester)
+      );
+    }
 
     // Set the recipient instance address, i.e. the one that will receive the attester.
     // From above, we know that if we are here, and _moveWithLatestRollup is true,
