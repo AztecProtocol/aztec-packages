@@ -211,31 +211,6 @@ bool_t<Builder> ecdsa_verify_signature_prehashed_message_noassert(const stdlib::
 }
 
 /**
- * @brief Verify ECDSA signature. Returns 0 if signature fails (i.e. does not produce unsatisfiable constraints)
- *
- * @tparam Builder
- * @tparam Curve
- * @tparam Fq
- * @tparam Fr
- * @tparam G1
- * @param message
- * @param public_key
- * @param sig
- * @return bool_t<Builder>
- */
-template <typename Builder, typename Curve, typename Fq, typename Fr, typename G1>
-bool_t<Builder> ecdsa_verify_signature_noassert(const stdlib::byte_array<Builder>& message,
-                                                const G1& public_key,
-                                                const ecdsa_signature<Builder>& sig)
-{
-    stdlib::byte_array<Builder> hashed_message =
-        static_cast<stdlib::byte_array<Builder>>(stdlib::SHA256<Builder>::hash(message));
-
-    return ecdsa_verify_signature_prehashed_message_noassert<Builder, Curve, Fq, Fr, G1>(
-        hashed_message, public_key, sig);
-}
-
-/**
  * @brief Generate a simple ecdsa verification circuit for testing purposes
  *
  * @tparam Builder
