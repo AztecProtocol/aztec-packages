@@ -359,6 +359,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // Otherwise it will be a valid attestor for the returned publisher.
     const { attestorAddress, publisher } = await this.publisherFactory.create(proposerInNextSlot);
 
+    this.log.verbose(`Created publisher at address ${publisher.getSenderAddress()} for attestor ${attestorAddress}`);
+
     this.publisher = publisher;
 
     const coinbase = this.validatorClient!.getCoinbaseForAttestor(attestorAddress);
