@@ -2,9 +2,10 @@
 title: Storage slots
 tags: [contracts, storage]
 description: Detailed walkthrough of storage slot computation in Aztec smart contracts, including private state note hash creation and siloing mechanisms.
+draft: true
 ---
 
-From the description of storage slots [in the Concepts](../../../../../aztec/concepts/advanced/storage/storage_slots.md) you will get an idea around the logic of storage slots. In this section we will go into more detail and walk through an entire example of how storage slots are computed for private state to improve our storage slot intuition. Recall, that storage slots in the private domain is just a logical construct, and are not "actually" used for lookups, but rather just as a value to constrain against.
+From the description of storage slots [in the Concepts](../../../../aztec/concepts/advanced/storage/storage_slots.md) you will get an idea around the logic of storage slots. In this section we will go into more detail and walk through an entire example of how storage slots are computed for private state to improve our storage slot intuition. Recall, that storage slots in the private domain is just a logical construct, and are not "actually" used for lookups, but rather just as a value to constrain against.
 
 For the case of the example, we will look at what is inserted into the note hashes tree when adding a note in the Token contract. Specifically, we are looking at the last part of the `transfer` function:
 
@@ -48,7 +49,7 @@ siloed_note_hash = H(contract_address, H(H(tx_hash, note_index_in_tx), note_hash
 siloed_note_hash = H(contract_address, H(H(tx_hash, note_index_in_tx), MSM([G_amt, G_to, G_rand, G_slot], [amount, to, randomness, derived_slot]).x))
 ```
 
-MSM is a multi scalar multiplication on a grumpkin curve and G_* values are generators.
+MSM is a multi scalar multiplication on a grumpkin curve and G\_\* values are generators.
 
 And `to` is the actor who receives the note, `amount` of the note and `randomness` is the randomness used to make the note hiding. Without the `randomness` the note could just as well be plaintext (computational cost of a preimage attack would be trivial in such a case).
 

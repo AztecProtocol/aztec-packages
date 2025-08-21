@@ -22,7 +22,7 @@ This page will focus on how private variables are implemented with Notes and sto
 #### Side-note about execution
 
 Under the hood, the Aztec protocol handles some important details around public and private function calls. Calls between them are asynchronous due to different execution contexts (local execution vs. node execution).
-A detailed explanation of the transaction lifecycle can be found [here](../../../../../aztec/concepts/transactions.md#simple-example-of-the-private-transaction-lifecycle).
+A detailed explanation of the transaction lifecycle can be found [here](../../../../aztec/concepts/transactions.md#simple-example-of-the-private-transaction-lifecycle).
 
 ## Private state variables in Aztec
 
@@ -34,7 +34,7 @@ A couple of things to unpack here:
 
 #### Storage "slot"
 
-Storage slots are more literal for public storage, a place where a value is stored. For private storage, a storage slot is logical (more [here](../../../../../aztec/concepts/advanced/storage/storage_slots.md)).
+Storage slots are more literal for public storage, a place where a value is stored. For private storage, a storage slot is logical (more [here](../../../../aztec/concepts/advanced/storage/storage_slots.md)).
 
 #### Silos
 
@@ -83,9 +83,9 @@ To update a value, its previous note hash(es) are nullified. The new note value 
 
 Some optional background resources on notes can be found here:
 
-- [High level network architecture](../../../../../aztec/index.md), specifically the Private Execution Environment
-- [Transaction lifecycle (simple diagram)](../../../../../aztec/concepts/transactions.md#simple-example-of-the-private-transaction-lifecycle)
-- [Public and Private state](../../../../../aztec/concepts/storage/state_model.md)
+- [High level network architecture](../../../../aztec/index.md), specifically the Private Execution Environment
+- [Transaction lifecycle (simple diagram)](../../../../aztec/concepts/transactions.md#simple-example-of-the-private-transaction-lifecycle)
+- [Public and Private state](../../../../aztec/concepts/storage/state_model.md)
 
 Notes touch several core components of the protocol, but we will focus on a the essentials first.
 
@@ -150,7 +150,7 @@ Notice how the `add` function shows the simplicity of appending a new note to al
 
 ### Apply
 
-Try the [NFT tutorial](../../../../tutorials/contract_tutorials/nft_contract.md) to see what notes can achieve. In this section you will also find other tutorials using notes in different ways.
+Try the [NFT tutorial](../../../tutorials/codealong/contract_tutorials/nft_contract.md) to see what notes can achieve. In this section you will also find other tutorials using notes in different ways.
 
 ### Further reading
 

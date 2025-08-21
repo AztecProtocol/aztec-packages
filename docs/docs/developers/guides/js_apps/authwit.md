@@ -5,7 +5,7 @@ sidebar_position: 5
 description: Learn how to use authentication witnesses in your Aztec.js applications for secure, delegated transactions.
 ---
 
-This page assumes you have authwit set up correctly in your contract. To learn how to do that, [go here](../smart_contracts/writing_contracts/authwit.md).
+This page assumes you have authwit set up correctly in your contract. To learn how to do that, [go here](../smart_contracts/authwit.md).
 
 For an introduction to authentication witnesses on Aztec, [read this explainer](../../../aztec/concepts/advanced/authwit.md).
 
@@ -78,7 +78,7 @@ Private execution uses oracles and are executed locally by the PXE, so the authw
 
 ### Private
 
-This is expected to be used alongside [private authwits in Aztec.nr contract](../smart_contracts/writing_contracts/authwit.md#private-functions).
+This is expected to be used alongside [private authwits in Aztec.nr contract](../smart_contracts/authwit.md#private-functions).
 
 Create a private authwit like this:
 
@@ -100,7 +100,7 @@ Then add it to the wallet of the authwit receiver (the caller of the function):
 
 ### Public
 
-This is expected to be used alongside [public authwits in Aztec.nr contract](../smart_contracts/writing_contracts/authwit.md#public-functions).
+This is expected to be used alongside [public authwits in Aztec.nr contract](../smart_contracts/authwit.md#public-functions).
 
 Set a public authwit like this:
 
@@ -120,4 +120,4 @@ If you created an arbitrary message, you would replace the first param struct wi
 ## Further reading
 
 - [An explainer of authentication witnesses](../../../aztec/concepts/advanced/authwit.md)
-- [Authwits in Aztec.nr](../smart_contracts/writing_contracts/authwit.md)
+- [Authwits in Aztec.nr](../smart_contracts/authwit.md)

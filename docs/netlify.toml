@@ -4,7 +4,7 @@
 
 [[redirects]]
     from = "/guides/smart_contracts/writing_contracts/initializers"
-    to = "/developers/guides/smart_contracts/writing_contracts/initializers"
+    to = "/developers/guides/smart_contracts/initializers"
 
 [[redirects]]
     from = "/reference/aztecjs/accounts"
