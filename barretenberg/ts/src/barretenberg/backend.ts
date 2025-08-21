@@ -248,16 +248,12 @@ export class AztecClientBackend {
           verificationKey: Buffer.from(vk),
         }
       });
-      if (i != this.acirBuf.length-1){
-        // Accumulate with witness
-        this.api.clientIvcAccumulate({
-          witness: Buffer.from(witness),
-        });
-      } else{
-        this.api.clientIvcHidingKernel({
-          witness: Buffer.from(witness),
-        });
-      }
+
+      // Accumulate with witness
+      this.api.clientIvcAccumulate({
+        witness: Buffer.from(witness),
+      });
+
     }
 
 

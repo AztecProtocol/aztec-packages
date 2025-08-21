@@ -97,8 +97,7 @@ void ClientIVCAPI::prove(const Flags& flags,
 
     bbapi::ClientIvcStart{ .num_circuits = raw_steps.size() }.execute(request);
     info("ClientIVC: starting with ", raw_steps.size(), " circuits");
-    for (size_t i = 0; i < raw_steps.size() - 1; ++i) {
-        const auto& step = raw_steps[i];
+    for (const auto& step : raw_steps) {
         bbapi::ClientIvcLoad{
             .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk }
         }.execute(request);
@@ -107,12 +106,6 @@ void ClientIVCAPI::prove(const Flags& flags,
         info("ClientIVC: accumulating " + step.function_name);
         bbapi::ClientIvcAccumulate{ .witness = step.witness }.execute(request);
     }
-    // the last step is the hiding kernel
-    const auto& step = raw_steps[raw_steps.size() - 1];
-    bbapi::ClientIvcLoad{
-        .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk }
-    }.execute(request);
-    bbapi::ClientIvcHidingKernel{ .witness = step.witness }.execute(request);
 
     auto proof = bbapi::ClientIvcProve{}.execute(request).proof;
 
@@ -135,7 +128,8 @@ void ClientIVCAPI::prove(const Flags& flags,
 
     if (flags.write_vk) {
         vinfo("writing ClientIVC vk in directory ", output_dir);
-        auto vk_buf = write_civc_vk("bytes", step.bytecode, output_dir);
+        // we get the bytecode of the hiding circuit (the last step of the execution)
+        auto vk_buf = write_civc_vk("bytes", raw_steps[raw_steps.size() - 1].bytecode, output_dir);
         auto vk = from_buffer<ClientIVC::VerificationKey>(vk_buf);
     }
 }
