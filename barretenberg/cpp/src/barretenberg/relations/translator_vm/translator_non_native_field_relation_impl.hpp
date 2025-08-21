@@ -78,6 +78,8 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
                                                           const FF& scaling_factor)
 {
 
+    // WORKTODO: tweaked in noop region
+
     using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
     using View = typename Accumulator::View;
 
@@ -152,6 +154,9 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
     const auto& relation_wide_limbs = View(in.relation_wide_limbs);
     const auto& relation_wide_limbs_shift = View(in.relation_wide_limbs_shift);
     const auto& lagrange_even_in_minicircuit = View(in.lagrange_even_in_minicircuit);
+    const auto& no_op = View(in.no_op);
+
+    static const FF minus_one = FF(-1);
 
     // Contribution (1) Computing the mod 2²⁷² relation over lower 136 bits
     // clang-format off
@@ -183,7 +188,7 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
     // clang-format on
     // subtract large value; vanishing shows the desired relation holds on low 136-bit limb
     tmp -= relation_wide_limbs * shiftx2;
-    tmp *= lagrange_even_in_minicircuit;
+    tmp *= lagrange_even_in_minicircuit * (no_op + minus_one);
     tmp *= scaling_factor;
     std::get<0>(accumulators) += tmp;
 
@@ -236,7 +241,7 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
     // clang-format on
     // subtract large value; vanishing shows the desired relation holds on high 136-bit limb
     tmp -= relation_wide_limbs_shift * shiftx2;
-    tmp *= lagrange_even_in_minicircuit;
+    tmp *= lagrange_even_in_minicircuit * (no_op + minus_one);
     tmp *= scaling_factor;
     std::get<1>(accumulators) += tmp;
 
@@ -278,7 +283,7 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
                      + reconstructed_quotient * NEGATIVE_MODULUS_LIMBS[4]
                      - reconstructed_current_accumulator;
     // clang-format on
-    tmp *= lagrange_even_in_minicircuit;
+    tmp *= lagrange_even_in_minicircuit * (no_op + minus_one);
     tmp *= scaling_factor;
     std::get<2>(accumulators) += tmp;
 };

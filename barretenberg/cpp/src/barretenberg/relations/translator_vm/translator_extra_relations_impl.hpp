@@ -31,6 +31,7 @@ void TranslatorOpcodeConstraintRelationImpl<FF>::accumulate(ContainerOverSubrela
     using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
     using View = typename Accumulator::View;
 
+    // WORKTODO: we need a lagrange masking for where randomness is for op queue
     auto op = View(in.op);
     auto lagrange_mini_masking = View(in.lagrange_mini_masking);
     static const FF minus_three = FF(-3);
@@ -90,32 +91,35 @@ void TranslatorAccumulatorTransferRelationImpl<FF>::accumulate(ContainerOverSubr
     auto accumulators_binary_limbs_1_shift = View(in.accumulators_binary_limbs_1_shift);
     auto accumulators_binary_limbs_2_shift = View(in.accumulators_binary_limbs_2_shift);
     auto accumulators_binary_limbs_3_shift = View(in.accumulators_binary_limbs_3_shift);
+    auto no_op = View(in.no_op);
 
     FF minus_one = FF(-1);
 
     // Contribution (0) (0-12 ensure that the accumulator is transferred correctly
+    // WORKTODO lagrange_odd_in_minicircuit + no_op and not in the region when no-op should be masked
     // Contribution (1) (1-4 ensure transfer of accumulator limbs at odd indices of the minicircuit)
     auto tmp_1 = accumulators_binary_limbs_0 - accumulators_binary_limbs_0_shift;
-    tmp_1 *= lagrange_odd_in_minicircuit * (lagrange_last_in_minicircuit + minus_one);
+    tmp_1 *= (lagrange_odd_in_minicircuit + no_op) * (lagrange_last_in_minicircuit + minus_one);
     tmp_1 *= scaling_factor;
     std::get<0>(accumulators) += tmp_1;
 
     // Contribution (2)
     auto tmp_2 = accumulators_binary_limbs_1 - accumulators_binary_limbs_1_shift;
-    tmp_2 *= lagrange_odd_in_minicircuit * (lagrange_last_in_minicircuit + minus_one);
+    tmp_2 *= (lagrange_odd_in_minicircuit + no_op) * (lagrange_last_in_minicircuit + minus_one);
     tmp_2 *= scaling_factor;
     std::get<1>(accumulators) += tmp_2;
     // Contribution (3)
     auto tmp_3 = accumulators_binary_limbs_2 - accumulators_binary_limbs_2_shift;
-    tmp_3 *= lagrange_odd_in_minicircuit * (lagrange_last_in_minicircuit + minus_one);
+    tmp_3 *= (lagrange_odd_in_minicircuit + no_op) * (lagrange_last_in_minicircuit + minus_one);
     tmp_3 *= scaling_factor;
     std::get<2>(accumulators) += tmp_3;
     // Contribution (4)
     auto tmp_4 = accumulators_binary_limbs_3 - accumulators_binary_limbs_3_shift;
-    tmp_4 *= lagrange_odd_in_minicircuit * (lagrange_last_in_minicircuit + minus_one);
+    tmp_4 *= (lagrange_odd_in_minicircuit + no_op) * (lagrange_last_in_minicircuit + minus_one);
     tmp_4 *= scaling_factor;
     std::get<3>(accumulators) += tmp_4;
 
+    // WORKTODO: these stay the same
     // Contribution (5) (5-9 ensure that accumulator starts with zeroed-out limbs)
     auto tmp_5 = accumulators_binary_limbs_0 * lagrange_last_in_minicircuit;
     tmp_5 *= (lagrange_mini_masking + minus_one) * scaling_factor;
@@ -136,6 +140,7 @@ void TranslatorAccumulatorTransferRelationImpl<FF>::accumulate(ContainerOverSubr
     tmp_8 *= (lagrange_mini_masking + minus_one) * scaling_factor;
     std::get<7>(accumulators) += tmp_8;
 
+    // WORKTODO: these stay the same
     // Contribution (9) (9-12 ensure the output is as stated, we basically use this to get the result out of the
     // // proof)
     auto tmp_9 = (accumulators_binary_limbs_0 - params.accumulated_result[0]) * lagrange_result_row;
@@ -183,6 +188,7 @@ void TranslatorZeroConstraintsRelationImpl<FF>::accumulate(ContainerOverSubrelat
     auto lagrange_even_in_minicircuit = View(in.lagrange_even_in_minicircuit);
     auto lagrange_odd_in_minicircuit = View(in.lagrange_odd_in_minicircuit);
 
+    // WORKTODO: maybe we have to make sure these are 0 also in no-op region
     auto p_x_low_limbs_range_constraint_0 = View(in.p_x_low_limbs_range_constraint_0);
     auto p_x_low_limbs_range_constraint_1 = View(in.p_x_low_limbs_range_constraint_1);
     auto p_x_low_limbs_range_constraint_2 = View(in.p_x_low_limbs_range_constraint_2);

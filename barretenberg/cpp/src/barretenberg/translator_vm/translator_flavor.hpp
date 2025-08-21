@@ -113,13 +113,13 @@ class TranslatorFlavor {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We
     // often need containers of this size to hold related data, so we choose a name more agnostic than
     // `NUM_POLYNOMIALS`. Note: this number does not include the individual sorted list polynomials.
-    static constexpr size_t NUM_ALL_ENTITIES = 187;
+    static constexpr size_t NUM_ALL_ENTITIES = 188;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 10;
     // The total number of witness entities not including shifts.
-    static constexpr size_t NUM_WITNESS_ENTITIES = 91;
-    static constexpr size_t NUM_WIRES_NON_SHIFTED = 1;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 92;
+    static constexpr size_t NUM_WIRES_NON_SHIFTED = 2;
     static constexpr size_t NUM_SHIFTED_WITNESSES = 86;
     static constexpr size_t NUM_INTERLEAVED = NUM_INTERLEAVED_WIRES * INTERLEAVING_GROUP_SIZE;
     // Number of elements in WireToBeShiftedWithoutConcatenated
@@ -329,7 +329,8 @@ class TranslatorFlavor {
     template <typename DataType> class WireNonshiftedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              op // column 0
+                              no_op, // column 0
+                              op     // column 1
         );
     };
     template <typename DataType> class DerivedWitnessEntities {
@@ -875,6 +876,7 @@ class TranslatorFlavor {
       public:
         CommitmentLabels()
         {
+            this->no_op = "NO_OP";
             this->op = "OP";
             this->x_lo_y_hi = "X_LO_Y_HI";
             this->x_hi_z_1 = "X_HI_Z_1";

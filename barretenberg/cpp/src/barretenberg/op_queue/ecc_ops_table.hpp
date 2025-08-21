@@ -129,15 +129,18 @@ template <typename OpFormat> class EccOpsTable {
         return total;
     }
 
+    size_t get_unmerged_subtable_size() const { return current_subtable.size(); }
+
     size_t num_subtables() const { return table.size(); }
 
     auto& get() const { return table; }
 
-    void push(const OpFormat& op)
-    {
-        // Get the reference of the subtable to update
+    void push(const OpFormat& op) { current_subtable.push_back(op); }
 
-        current_subtable.push_back(op);
+    void push_front(const OpFormat& op)
+    {
+        auto it = current_subtable.begin();
+        current_subtable.insert(it, op);
     }
 
     void create_new_subtable(size_t size_hint = 0)
@@ -232,11 +235,15 @@ class UltraEccOpsTable {
 
   public:
     size_t size() const { return table.size(); }
+    size_t get_unmerged_subtable_size() const { return table.get_unmerged_subtable_size(); }
+
     size_t ultra_table_size() const { return table.size() * NUM_ROWS_PER_OP; }
     size_t current_ultra_subtable_size() const { return table.get()[current_subtable_idx].size() * NUM_ROWS_PER_OP; }
     size_t previous_ultra_table_size() const { return (ultra_table_size() - current_ultra_subtable_size()); }
     void create_new_subtable(size_t size_hint = 0) { table.create_new_subtable(size_hint); }
     void push(const UltraOp& op) { table.push(op); }
+    void push_front(const UltraOp& op) { table.push_front(op); }
+
     void merge(MergeSettings settings = MergeSettings::PREPEND)
     {
         table.merge(settings);

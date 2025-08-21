@@ -74,7 +74,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     using Fq = bb::fq;
 
   public:
-    static constexpr size_t NUM_WIRES = 81;
+    static constexpr size_t NUM_WIRES = 82;
     static constexpr size_t NUM_SELECTORS = 0;
 
     /**
@@ -91,6 +91,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
      * @brief There are so many wires that naming them has no sense, it is easier to access them with enums
      */
     enum WireIds : size_t {
+        NO_OP,
         OP, // The first 4 wires contain the standard values from the EccQueue wire
         X_LOW_Y_HI,
         X_HIGH_Z_1,
@@ -177,8 +178,6 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
         RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_1,
         RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_2,
         RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_3,
-
-        TOTAL_COUNT
 
     };
 

@@ -70,9 +70,9 @@ class TranslatorProvingKey {
             });
         }
 
-        // Iterate over all circuit wire polynomials, except the ones representing the op queue, and add random values
-        // at the end.
-        for (size_t idx = Flavor::NUM_OP_QUEUE_WIRES; idx < wires.size(); idx++) {
+        // Iterate over all circuit wire polynomials, except the ones representing the op queue and no-op wire, and add
+        // random values at the end.
+        for (size_t idx = Flavor::NUM_OP_QUEUE_WIRES + 1; idx < wires.size(); idx++) {
             auto& wire = wires[idx];
             for (size_t i = wire.end_index() - NUM_DISABLED_ROWS_IN_SUMCHECK; i < wire.end_index(); i++) {
                 wire.at(i) = FF::random_element();

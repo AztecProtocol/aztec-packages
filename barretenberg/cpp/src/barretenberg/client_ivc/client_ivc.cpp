@@ -253,6 +253,7 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
             // to ensure the wires representing the op queue in translator circuit are shiftable polynomials, i.e.
             // their 0th coefficient is 0.
             circuit.queue_ecc_no_op();
+            circuit.queue_ecc_no_op();
         }
         circuit.queue_ecc_eq();
     }
@@ -291,6 +292,10 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
         kernel_output.ecc_op_tables = T_prev_commitments;
 
         kernel_output.set_public();
+    }
+    if (is_tail_kernel) {
+        info("Tail kernel completed, number of ecc ops in the subtable: ",
+             circuit.op_queue->get_unmerged_subtable_size());
     }
 }
 
@@ -485,8 +490,13 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::comp
  */
 std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::compute_hiding_circuit_proving_key()
 {
+    ASSERT(hiding_circuit != nullptr, "hiding circuit should have been constructed before attempted to create its key");
+    ASSERT(hiding_circuit->op_queue->get_unmerged_subtable_size() == NUM_ECC_OPS_IN_HIDING_CIRCUIT,
+           "number of ecc ops in hiding circuit has changed!");
+    info("Number of ops in hiding circuit:", hiding_circuit->op_queue->get_unmerged_subtable_size());
     auto hiding_decider_pk =
         std::make_shared<DeciderZKProvingKey>(*hiding_circuit, TraceSettings(), bn254_commitment_key);
+
     return hiding_decider_pk;
 }
 

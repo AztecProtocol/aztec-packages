@@ -87,6 +87,8 @@ class ECCOpQueue {
         return ultra_ops_table.construct_current_ultra_ops_subtable_columns();
     }
 
+    size_t get_unmerged_subtable_size() const { return ultra_ops_table.get_unmerged_subtable_size(); }
+
     // Reconstruct the full table of eccvm ops in contiguous memory from the independent subtables
     void construct_full_eccvm_ops_table() { eccvm_ops_reconstructed = eccvm_ops_table.get_reconstructed(); }
 

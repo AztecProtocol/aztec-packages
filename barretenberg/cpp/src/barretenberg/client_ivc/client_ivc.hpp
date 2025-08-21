@@ -86,6 +86,9 @@ class ClientIVC {
     // Merge commitments
     using TableCommitments = std::array<RecursiveFlavor::Commitment, ClientCircuit::NUM_WIRES>;
 
+    static constexpr size_t NUM_ECC_OPS_IN_HIDING_CIRCUIT = 290;
+    static constexpr size_t NUM_ECC_OPS_IN_TAIL_KERNEL = 409;
+
     /**
      * @brief A full proof for the IVC scheme containing a Mega proof showing correctness of the hiding circuit (which
      * recursive verified the last folding and decider proof) and a Goblin proof (translator VM, ECCVM and last merge

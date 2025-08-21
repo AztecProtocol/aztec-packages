@@ -32,6 +32,7 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
         compute_relation_inputs_limbs(circuit.batching_challenge_v, circuit.evaluation_input_x);
     // Get the main wires (we will operate with range constraint wires mainly through indices, since this is
     // easier)
+    auto& no_op_wire = std::get<WireIds::NO_OP>(circuit.wires);
     auto& op_wire = std::get<WireIds::OP>(circuit.wires);
     auto& x_lo_y_hi_wire = std::get<WireIds::X_LOW_Y_HI>(circuit.wires);
     auto& x_hi_z_1_wire = std::get<WireIds::X_HIGH_Z_1>(circuit.wires);
@@ -90,7 +91,51 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
 
     for (size_t i = 2; i < circuit.num_gates - 1; i += 2) {
         {
+
             // Get the values of P.x
+            Fr no_op = circuit.get_variable(no_op_wire[i]);
+
+            // Current accumulator (updated value)
+            const std::vector current_accumulator_binary_limbs = {
+                circuit.get_variable(accumulators_binary_limbs_0_wire[i]),
+                circuit.get_variable(accumulators_binary_limbs_1_wire[i]),
+                circuit.get_variable(accumulators_binary_limbs_2_wire[i]),
+                circuit.get_variable(accumulators_binary_limbs_3_wire[i]),
+            };
+
+            // Previous accumulator
+            const std::vector previous_accumulator_binary_limbs = {
+                circuit.get_variable(accumulators_binary_limbs_0_wire[i + 1]),
+                circuit.get_variable(accumulators_binary_limbs_1_wire[i + 1]),
+                circuit.get_variable(accumulators_binary_limbs_2_wire[i + 1]),
+                circuit.get_variable(accumulators_binary_limbs_3_wire[i + 1]),
+            };
+
+            if (no_op == 1) {
+
+                const std::vector current_accumulator_binary_limbs_next_gate = {
+                    circuit.get_variable(accumulators_binary_limbs_0_wire[i + 2]),
+                    circuit.get_variable(accumulators_binary_limbs_1_wire[i + 2]),
+                    circuit.get_variable(accumulators_binary_limbs_2_wire[i + 2]),
+                    circuit.get_variable(accumulators_binary_limbs_3_wire[i + 2]),
+                };
+
+                for (auto [current, prev, next] : zip_view(current_accumulator_binary_limbs,
+                                                           previous_accumulator_binary_limbs,
+                                                           current_accumulator_binary_limbs_next_gate)) {
+                    if (current != prev && prev != next) {
+                        return report_fail("no-op handling failed at row", i);
+                    }
+                }
+
+                // WORKTODO: Also check everything else is zero
+                continue;
+            }
+
+            if (no_op != 0) {
+                return report_fail("no-op value is not 0 or 1 at row", i);
+            }
+
             Fr op_code = circuit.get_variable(op_wire[i]);
             Fr p_x_lo = circuit.get_variable(x_lo_y_hi_wire[i]);
             Fr p_x_hi = circuit.get_variable(x_hi_z_1_wire[i]);
@@ -122,22 +167,6 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
             // Relation limbs
             Fr low_wide_relation_limb = circuit.get_variable(relation_wide_limbs_wire[i]);
             Fr high_wide_relation_limb = circuit.get_variable(relation_wide_limbs_wire[i + 1]);
-
-            // Current accumulator (updated value)
-            const std::vector current_accumulator_binary_limbs = {
-                circuit.get_variable(accumulators_binary_limbs_0_wire[i]),
-                circuit.get_variable(accumulators_binary_limbs_1_wire[i]),
-                circuit.get_variable(accumulators_binary_limbs_2_wire[i]),
-                circuit.get_variable(accumulators_binary_limbs_3_wire[i]),
-            };
-
-            // Previous accumulator
-            const std::vector previous_accumulator_binary_limbs = {
-                circuit.get_variable(accumulators_binary_limbs_0_wire[i + 1]),
-                circuit.get_variable(accumulators_binary_limbs_1_wire[i + 1]),
-                circuit.get_variable(accumulators_binary_limbs_2_wire[i + 1]),
-                circuit.get_variable(accumulators_binary_limbs_3_wire[i + 1]),
-            };
 
             // Quotient
             const std::vector quotient_binary_limbs = {
