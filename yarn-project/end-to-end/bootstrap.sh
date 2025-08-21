@@ -50,6 +50,8 @@ function test_cmds {
     echo "$hash:ONLY_TERM_PARENT=1 $run_test_script compose $test"
   done
 
+  echo "$hash:ONLY_TERM_PARENT=1 $run_test_script web3signer src/composed/web3signer/integration_remote_signer.test.ts"
+
   # TODO(AD): figure out workaround for mainframe subnet exhaustion
   if [ "$CI" -eq 1 ]; then
     # compose-based tests with custom scripts
