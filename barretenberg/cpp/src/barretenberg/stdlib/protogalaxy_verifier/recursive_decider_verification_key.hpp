@@ -49,7 +49,7 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
     CommitmentLabels commitment_labels;
 
     RecursiveDeciderVerificationKey_(Builder* builder)
-        : builder(builder){};
+        : builder(builder) {};
 
     // Constructor from native vk
     RecursiveDeciderVerificationKey_(Builder* builder, std::shared_ptr<NativeVerificationKey> vk)
@@ -61,7 +61,7 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
     // Constructor from stdlib vk and hash
     RecursiveDeciderVerificationKey_(Builder* builder, std::shared_ptr<VKAndHash> vk_and_hash)
         : builder(builder)
-        , vk_and_hash(vk_and_hash){};
+        , vk_and_hash(vk_and_hash) {};
 
     RecursiveDeciderVerificationKey_(Builder* builder, std::shared_ptr<NativeDeciderVerificationKey> verification_key)
         : RecursiveDeciderVerificationKey_(builder, verification_key->vk)

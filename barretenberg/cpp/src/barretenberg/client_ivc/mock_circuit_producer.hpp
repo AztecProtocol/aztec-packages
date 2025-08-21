@@ -177,8 +177,9 @@ class PrivateFunctionExecutionMockCircuitProducer {
     {
         circuit_counter++;
 
-        // Assume only every second circuit is a kernel, unless force_is_kernel == true
-        bool is_kernel = (circuit_counter % 2 == 0) || force_is_kernel;
+        // Assume only every second circuit is a kernel, unless force_is_kernel == true or we accumulate an odd number
+        // of circuits in which case we have to explicitly enforce the last circuit is a kernel
+        bool is_kernel = (circuit_counter % 2 == 0) || circuit_counter == ivc.get_num_circuits() || force_is_kernel;
 
         ClientCircuit circuit{ ivc.goblin.op_queue };
         if (is_kernel) {
