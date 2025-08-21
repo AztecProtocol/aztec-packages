@@ -86,7 +86,7 @@ contract GovernanceProposer is IGovernanceProposer, EmpireBase {
    * @return true if the proposal was proposed successfully, reverts otherwise.
    */
   function _handleRoundWinner(IPayload _payload) internal override(EmpireBase) returns (bool) {
-    GSEPayload extendedPayload = new GSEPayload(_payload, GSE);
+    GSEPayload extendedPayload = new GSEPayload(_payload, GSE, REGISTRY);
     uint256 proposalId = IGovernance(getGovernance()).propose(IPayload(address(extendedPayload)));
     proposalProposer[proposalId] = getInstance();
     return true;
