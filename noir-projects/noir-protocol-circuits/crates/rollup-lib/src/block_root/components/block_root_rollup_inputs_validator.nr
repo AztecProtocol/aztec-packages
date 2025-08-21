@@ -1,11 +1,11 @@
 use crate::{
-    abis::{BaseOrMergeRollupPublicInputs, ParityRootProofData, RollupProofData},
-    merge::utils::validate_consecutive_rollups::validate_consecutive_rollups,
+    abis::{ParityRootProofData, RollupProofData, TxRollupPublicInputs},
+    tx_merge::utils::validate_consecutive_tx_rollups::validate_consecutive_tx_rollups,
 };
-use types::constants::{PROOF_TYPE_HONK, PROOF_TYPE_ROLLUP_HONK, ROOT_PARITY_INDEX};
+use types::constants::{PARITY_ROOT_VK_INDEX, PROOF_TYPE_HONK, PROOF_TYPE_ROLLUP_HONK};
 
 pub fn validate_previous_rollups<let NumPreviousRollups: u32, let NumVkIndices: u32>(
-    previous_rollups: [RollupProofData<BaseOrMergeRollupPublicInputs>; NumPreviousRollups],
+    previous_rollups: [RollupProofData<TxRollupPublicInputs>; NumPreviousRollups],
     allowed_previous_vk_indices: [u32; NumVkIndices],
 ) {
     if !dep::std::runtime::is_unconstrained() {
@@ -21,7 +21,7 @@ pub fn validate_previous_rollups<let NumPreviousRollups: u32, let NumVkIndices: 
 
     // If there is more than one previous rollup, validate that they are consecutive.
     for i in 1..NumPreviousRollups {
-        validate_consecutive_rollups(
+        validate_consecutive_tx_rollups(
             previous_rollups[i - 1].public_inputs,
             previous_rollups[i].public_inputs,
         );
@@ -42,7 +42,11 @@ pub fn validate_parity_root(data: ParityRootProofData, vk_tree_root: Field) {
     if !dep::std::runtime::is_unconstrained() {
         data.verify(PROOF_TYPE_HONK);
 
-        assert(data.vk_data.leaf_index == ROOT_PARITY_INDEX);
+        assert_eq(
+            data.vk_data.leaf_index,
+            PARITY_ROOT_VK_INDEX,
+            "Incorrect vk index for parity root",
+        );
 
         // Check that the `vk_tree_root` in the public inputs matches the one in the rollup's constants, as it was used
         // to verify the vk of the base parity proofs.

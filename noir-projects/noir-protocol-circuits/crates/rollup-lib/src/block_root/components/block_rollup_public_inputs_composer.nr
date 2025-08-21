@@ -1,7 +1,4 @@
-use crate::{
-    abis::{BaseOrMergeRollupPublicInputs, BlockRollupPublicInputs},
-    merge::utils::merge_rollups::merge_rollups,
-};
+use crate::{abis::{BlockRollupPublicInputs, TxRollupPublicInputs}, tx_merge::merge_tx_rollups};
 use parity_lib::ParityPublicInputs;
 use types::{
     abis::{
@@ -69,7 +66,7 @@ impl BlockRollupPublicInputsComposer {
         }
     }
 
-    pub fn new_from_single_rollup(rollup: BaseOrMergeRollupPublicInputs) -> Self {
+    pub fn new_from_single_rollup(rollup: TxRollupPublicInputs) -> Self {
         let global_variables = rollup.constants.global_variables;
         let constants = CheckpointConstantData {
             chain_id: global_variables.chain_id,
@@ -91,8 +88,8 @@ impl BlockRollupPublicInputsComposer {
             constants,
             previous_archive: rollup.constants.last_archive,
             previous_l1_to_l2: rollup.constants.last_l1_to_l2,
-            start_partial_state: rollup.start,
-            end_partial_state: rollup.end,
+            start_partial_state: rollup.start_partial_state,
+            end_partial_state: rollup.end_partial_state,
             start_sponge_blob: rollup.start_sponge_blob,
             end_sponge_blob,
             timestamp: global_variables.timestamp,
@@ -105,8 +102,8 @@ impl BlockRollupPublicInputsComposer {
         }
     }
 
-    pub fn new_from_two_rollups(rollups: [BaseOrMergeRollupPublicInputs; 2]) -> Self {
-        let merged_rollup = merge_rollups(rollups[0], rollups[1]);
+    pub fn new_from_two_rollups(rollups: [TxRollupPublicInputs; 2]) -> Self {
+        let merged_rollup = merge_tx_rollups(rollups[0], rollups[1]);
         Self::new_from_single_rollup(merged_rollup)
     }
 
@@ -168,7 +165,7 @@ impl BlockRollupPublicInputsComposer {
     }
 
     /// Demarcates the end of a block in a checkpoint's blobs.
-    fn create_block_end_marker(num_txs: u32) -> Field {
+    pub fn create_block_end_marker(num_txs: u16) -> Field {
         // BLOCK_END_PREFIX | num_txs (2 bytes)
         (BLOCK_END_PREFIX * 256 * 256) + num_txs as Field
     }

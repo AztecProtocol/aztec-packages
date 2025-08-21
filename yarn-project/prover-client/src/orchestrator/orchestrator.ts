@@ -33,7 +33,7 @@ import {
   BlockRootSingleTxRollupPrivateInputs,
   CheckpointConstantData,
   CheckpointRootSingleBlockRollupPrivateInputs,
-  PrivateBaseRollupInputs,
+  PrivateTxBaseRollupPrivateInputs,
   RootRollupPublicInputs,
   TubeInputs,
 } from '@aztec/stdlib/rollup';
@@ -673,23 +673,25 @@ export class ProvingOrchestrator implements EpochProver {
       wrapCallbackInSpan(
         this.tracer,
         `ProvingOrchestrator.prover.${
-          inputs instanceof PrivateBaseRollupInputs ? 'getPrivateBaseRollupProof' : 'getPublicBaseRollupProof'
+          inputs instanceof PrivateTxBaseRollupPrivateInputs
+            ? 'getPrivateTxBaseRollupProof'
+            : 'getPublicTxBaseRollupProof'
         }`,
         {
           [Attributes.TX_HASH]: processedTx.hash.toString(),
           [Attributes.PROTOCOL_CIRCUIT_NAME]: rollupType,
         },
         signal => {
-          if (inputs instanceof PrivateBaseRollupInputs) {
-            return this.prover.getPrivateBaseRollupProof(inputs, signal, provingState.epochNumber);
+          if (inputs instanceof PrivateTxBaseRollupPrivateInputs) {
+            return this.prover.getPrivateTxBaseRollupProof(inputs, signal, provingState.epochNumber);
           } else {
-            return this.prover.getPublicBaseRollupProof(inputs, signal, provingState.epochNumber);
+            return this.prover.getPublicTxBaseRollupProof(inputs, signal, provingState.epochNumber);
           }
         },
       ),
       async result => {
         logger.debug(`Completed proof for ${rollupType} for tx ${processedTx.hash.toString()}`);
-        validatePartialState(result.inputs.end, txProvingState.treeSnapshots);
+        validatePartialState(result.inputs.endPartialState, txProvingState.treeSnapshots);
         const leafLocation = provingState.setBaseRollupProof(txIndex, result);
         if (provingState.totalNumTxs === 1) {
           await this.checkAndEnqueueBlockRootRollup(provingState);
@@ -774,11 +776,11 @@ export class ProvingOrchestrator implements EpochProver {
       provingState,
       wrapCallbackInSpan(
         this.tracer,
-        'ProvingOrchestrator.prover.getMergeRollupProof',
+        'ProvingOrchestrator.prover.getTxMergeRollupProof',
         {
-          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'merge-rollup' satisfies CircuitName,
+          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'rollup-tx-merge' satisfies CircuitName,
         },
-        signal => this.prover.getMergeRollupProof(inputs, signal, provingState.epochNumber),
+        signal => this.prover.getTxMergeRollupProof(inputs, signal, provingState.epochNumber),
       ),
       async result => {
         provingState.setMergeRollupProof(location, result);
@@ -873,7 +875,7 @@ export class ProvingOrchestrator implements EpochProver {
         this.tracer,
         'ProvingOrchestrator.prover.getBaseParityProof',
         {
-          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'base-parity' satisfies CircuitName,
+          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'parity-base' satisfies CircuitName,
         },
         signal => this.prover.getBaseParityProof(inputs, signal, provingState.epochNumber),
       ),
@@ -906,7 +908,7 @@ export class ProvingOrchestrator implements EpochProver {
     }
     provingState.startProvingRootParity();
 
-    const inputs = provingState.getRootParityInputs();
+    const inputs = provingState.getParityRootInputs();
 
     this.deferredProving(
       provingState,
@@ -914,7 +916,7 @@ export class ProvingOrchestrator implements EpochProver {
         this.tracer,
         'ProvingOrchestrator.prover.getRootParityProof',
         {
-          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'root-parity' satisfies CircuitName,
+          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'parity-root' satisfies CircuitName,
         },
         signal => this.prover.getRootParityProof(inputs, signal, provingState.epochNumber),
       ),
@@ -946,7 +948,7 @@ export class ProvingOrchestrator implements EpochProver {
         this.tracer,
         'ProvingOrchestrator.prover.getBlockMergeRollupProof',
         {
-          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'block-merge-rollup' satisfies CircuitName,
+          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'rollup-block-merge' satisfies CircuitName,
         },
         signal => this.prover.getBlockMergeRollupProof(inputs, signal, provingState.epochNumber),
       ),
@@ -1038,7 +1040,7 @@ export class ProvingOrchestrator implements EpochProver {
         this.tracer,
         'ProvingOrchestrator.prover.getCheckpointMergeRollupProof',
         {
-          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'checkpoint-merge-rollup' satisfies CircuitName,
+          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'rollup-checkpoint-merge' satisfies CircuitName,
         },
         signal => this.prover.getCheckpointMergeRollupProof(inputs, signal, provingState.epochNumber),
       ),
@@ -1072,7 +1074,7 @@ export class ProvingOrchestrator implements EpochProver {
         this.tracer,
         'ProvingOrchestrator.prover.getCheckpointPaddingRollupProof',
         {
-          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'checkpoint-padding-rollup' satisfies CircuitName,
+          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'rollup-checkpoint-padding' satisfies CircuitName,
         },
         signal => this.prover.getCheckpointPaddingRollupProof(inputs, signal, provingState.epochNumber),
       ),
@@ -1101,7 +1103,7 @@ export class ProvingOrchestrator implements EpochProver {
         this.tracer,
         'ProvingOrchestrator.prover.getRootRollupProof',
         {
-          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'root-rollup' satisfies CircuitName,
+          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'rollup-root' satisfies CircuitName,
         },
         signal => this.prover.getRootRollupProof(inputs, signal, provingState.epochNumber),
       ),

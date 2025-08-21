@@ -22,7 +22,7 @@ import {
 import type { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
-import { toRollupProofData } from './block-building-helpers.js';
+import { toProofData } from './block-building-helpers.js';
 import type { BlockProvingState, ProofState } from './block-proving-state.js';
 import { CheckpointProvingState } from './checkpoint-proving-state.js';
 
@@ -246,7 +246,7 @@ export class EpochProvingState {
       throw new Error('At least one child is not ready for the checkpoint merge rollup.');
     }
 
-    return new CheckpointMergeRollupPrivateInputs([toRollupProofData(left), toRollupProofData(right)]);
+    return new CheckpointMergeRollupPrivateInputs([toProofData(left), toProofData(right)]);
   }
 
   public getRootRollupInputs() {
@@ -256,7 +256,7 @@ export class EpochProvingState {
     }
 
     return RootRollupPrivateInputs.from({
-      previousRollups: [toRollupProofData(left), toRollupProofData(right)],
+      previousRollups: [toProofData(left), toProofData(right)],
     });
   }
 

@@ -4,7 +4,7 @@ use crate::{
     traits::Empty,
 };
 
-pub fn compute_zero_hashes<let N: u32>(mut hashes: [Field; N]) -> [Field; N] {
+fn compute_zero_hashes<let N: u32>(mut hashes: [Field; N]) -> [Field; N] {
     hashes[0] = merkle_hash(0, 0);
 
     for i in 1..N {
@@ -198,6 +198,30 @@ impl<let SUBTREE_ITEMS: u32, let TREE_HEIGHT: u32, let SUPERTREE_HEIGHT: u32, le
     pub fn get_next_available_index(_self: Self) -> u32 {
         SUBTREE_ITEMS
     }
+}
+
+/// Builds a Merkle tree that has only one non-empty leaf. Returns the root and the sibling path to the leaf.
+/// Useful for situations where the membership check is done against the only leaf.
+pub fn build_with_single_leaf<let TreeHeight: u32>(
+    leaf_index: u32,
+    value: Field,
+) -> (Field, [Field; TreeHeight]) {
+    let zero_hashes = compute_zero_hashes([0; TreeHeight]);
+    let mut node = value;
+    let mut index = leaf_index;
+
+    for level in 0..TreeHeight {
+        let is_right_node = index % 2 == 1;
+        let (left_node, right_node) = if is_right_node {
+            (zero_hashes[level], node)
+        } else {
+            (node, zero_hashes[level])
+        };
+        node = merkle_hash(left_node, right_node);
+        index = index / 2;
+    }
+
+    (node, zero_hashes)
 }
 
 #[test]

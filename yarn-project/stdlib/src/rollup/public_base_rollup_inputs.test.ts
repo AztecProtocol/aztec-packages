@@ -1,11 +1,11 @@
-import { makePublicBaseRollupInputs } from '../tests/factories.js';
-import { PublicBaseRollupInputs } from './public_base_rollup_inputs.js';
+import { makePublicTxBaseRollupPrivateInputs } from '../tests/factories.js';
+import { PublicTxBaseRollupPrivateInputs } from './public_base_rollup_inputs.js';
 
-describe('PublicBaseRollupInputs', () => {
+describe('PublicTxBaseRollupPrivateInputs', () => {
   it('serializes to buffer and deserializes it back', () => {
-    const expected = makePublicBaseRollupInputs();
+    const expected = makePublicTxBaseRollupPrivateInputs();
     const buffer = expected.toBuffer();
-    const res = PublicBaseRollupInputs.fromBuffer(buffer);
+    const res = PublicTxBaseRollupPrivateInputs.fromBuffer(buffer);
     expect(res).toEqual(expected);
   });
 });

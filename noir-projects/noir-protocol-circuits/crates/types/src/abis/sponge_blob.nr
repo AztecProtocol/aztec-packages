@@ -1,5 +1,5 @@
 use crate::{
-    constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB, SPONGE_BLOB_LENGTH, TWO_POW_64},
+    constants::{SPONGE_BLOB_LENGTH, TWO_POW_64},
     hash::poseidon2_absorb_chunks_existing_sponge,
     poseidon2::Poseidon2Sponge,
     traits::{Deserialize, Empty, Serialize},
@@ -19,7 +19,6 @@ use crate::{
 // The hash is used as part of the blob challenge, as we've proven it encompasses all elts of the blob(s).
 
 // Init is given by input len * 2^64 (see noir/noir-repo/noir_stdlib/src/hash/poseidon2.nr -> hash_internal)
-global IV: Field = (FIELDS_PER_BLOB * BLOBS_PER_BLOCK) as Field * TWO_POW_64;
 
 #[derive(Deserialize, Eq, Serialize)]
 pub struct SpongeBlob {
@@ -29,10 +28,6 @@ pub struct SpongeBlob {
 }
 
 impl SpongeBlob {
-    pub fn new_full_blobs() -> Self {
-        Self { sponge: Poseidon2Sponge::new(IV), fields: 0, expected_fields: 0 }
-    }
-
     pub fn new(expected_fields_hint: u32) -> Self {
         Self {
             sponge: Poseidon2Sponge::new((expected_fields_hint as Field) * TWO_POW_64),

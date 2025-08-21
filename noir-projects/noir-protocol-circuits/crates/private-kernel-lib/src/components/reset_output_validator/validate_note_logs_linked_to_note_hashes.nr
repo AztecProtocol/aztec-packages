@@ -77,7 +77,7 @@ mod tests {
             side_effect::scoped::Scoped,
         },
         address::AztecAddress,
-        tests::utils::{make_fixture, pad_end_with_empty},
+        tests::utils::{make_fixture, pad_end},
         traits::FromField,
         utils::arrays::ClaimedLengthArray,
     };
@@ -116,9 +116,9 @@ mod tests {
             ];
 
             Self {
-                logs: ClaimedLengthArray { array: pad_end_with_empty(logs), length: logs.len() },
+                logs: ClaimedLengthArray { array: pad_end(logs), length: logs.len() },
                 note_hashes: ClaimedLengthArray {
-                    array: pad_end_with_empty(note_hashes),
+                    array: pad_end(note_hashes),
                     length: note_hashes.len(),
                 },
                 note_hash_index_hint: 0,

@@ -4,7 +4,7 @@ use crate::{
 };
 use types::{
     abis::{block_header::BlockHeader, sponge_blob::SpongeBlob},
-    constants::{ARCHIVE_HEIGHT, PROOF_TYPE_ROLLUP_HONK},
+    constants::{ARCHIVE_HEIGHT, BLOBS_PER_BLOCK, FIELDS_PER_BLOB, PROOF_TYPE_ROLLUP_HONK},
     merkle_tree::membership::check_membership,
     traits::Hash,
 };
@@ -42,6 +42,8 @@ impl<let NumPreviousRollups: u32, let NumVkIndices: u32> CheckpointRootInputsVal
         }
 
         self.validate_start_states();
+
+        self.validate_end_states();
     }
 
     fn validate_previous_rollup_proofs_and_vks(self) {
@@ -62,13 +64,13 @@ impl<let NumPreviousRollups: u32, let NumVkIndices: u32> CheckpointRootInputsVal
         let first_rollup = self.previous_rollups[0].public_inputs;
 
         // Asserts that the first sponge blob was empty to begin with.
-        // This prevents injecting unchecked tx effects in the first base of a rollup.
+        // This prevents injecting unexpected tx effects via the first tx_base of a checkpoint.
         let expected_start_sponge_blob =
             SpongeBlob::new(first_rollup.start_sponge_blob.expected_fields);
         assert_eq(
             first_rollup.start_sponge_blob,
             expected_start_sponge_blob,
-            "block's first blob sponge was not empty",
+            "The start blob sponge was not empty",
         );
 
         assert_eq(
@@ -101,7 +103,29 @@ impl<let NumPreviousRollups: u32, let NumVkIndices: u32> CheckpointRootInputsVal
                 self.previous_archive_sibling_path,
                 previous_archive.root,
             ),
-            "hash of the previous block header is not the last leaf in the archive tree",
+            "Hash of the previous block header is not the last leaf in the archive tree",
         );
+    }
+
+    fn validate_end_states(self) {
+        let end_sponge_blob =
+            self.previous_rollups[NumPreviousRollups - 1].public_inputs.end_sponge_blob;
+
+        // Check that the number of absorbed blob fields is not larger than the maximum number of fields allowed.
+        assert(
+            end_sponge_blob.expected_fields <= FIELDS_PER_BLOB * BLOBS_PER_BLOCK,
+            "Attempted to overfill blobs",
+        );
+
+        // Check that the sponge blob has absorbed all the fields it expected to.
+        assert_eq(
+            end_sponge_blob.expected_fields,
+            end_sponge_blob.fields,
+            "Mismatched expected and actual number of blob fields",
+        );
+
+        // The `end_sponge_blob` is validated against the injected blob fields in `checkpoint_rollup_public_inputs_composer.nr`
+        // where we receive the hash of the blob fields from batching and use it to check against the hash of the
+        // `end_sponge_blob`.
     }
 }

@@ -22,19 +22,19 @@ import MockPrivateKernelInitVk from '../artifacts/keys/mock_private_kernel_init.
 import MockPrivateKernelInnerVk from '../artifacts/keys/mock_private_kernel_inner.vk.data.json' with { type: 'json' };
 import MockPrivateKernelResetVk from '../artifacts/keys/mock_private_kernel_reset.vk.data.json' with { type: 'json' };
 import MockPrivateKernelTailVk from '../artifacts/keys/mock_private_kernel_tail.vk.data.json' with { type: 'json' };
-import MockRollupBasePrivateVk from '../artifacts/keys/mock_rollup_base_private.vk.data.json' with { type: 'json' };
-import MockRollupBasePublicVk from '../artifacts/keys/mock_rollup_base_public.vk.data.json' with { type: 'json' };
-import MockRollupMergeVk from '../artifacts/keys/mock_rollup_merge.vk.data.json' with { type: 'json' };
 import MockRollupRootVk from '../artifacts/keys/mock_rollup_root.vk.data.json' with { type: 'json' };
+import MockRollupBasePrivateVk from '../artifacts/keys/mock_rollup_tx_base_private.vk.data.json' with { type: 'json' };
+import MockRollupBasePublicVk from '../artifacts/keys/mock_rollup_tx_base_public.vk.data.json' with { type: 'json' };
+import MockRollupMergeVk from '../artifacts/keys/mock_rollup_tx_merge.vk.data.json' with { type: 'json' };
 import MockHidingCircuit from '../artifacts/mock_hiding.json' with { type: 'json' };
 import MockPrivateKernelInitCircuit from '../artifacts/mock_private_kernel_init.json' with { type: 'json' };
 import MockPrivateKernelInnerCircuit from '../artifacts/mock_private_kernel_inner.json' with { type: 'json' };
 import MockPrivateKernelResetCircuit from '../artifacts/mock_private_kernel_reset.json' with { type: 'json' };
 import MockPrivateKernelTailCircuit from '../artifacts/mock_private_kernel_tail.json' with { type: 'json' };
-import MockRollupBasePrivateCircuit from '../artifacts/mock_rollup_base_private.json' with { type: 'json' };
-import MockRollupBasePublicCircuit from '../artifacts/mock_rollup_base_public.json' with { type: 'json' };
-import MockRollupMergeCircuit from '../artifacts/mock_rollup_merge.json' with { type: 'json' };
 import MockRollupRootCircuit from '../artifacts/mock_rollup_root.json' with { type: 'json' };
+import MockRollupBasePrivateCircuit from '../artifacts/mock_rollup_tx_base_private.json' with { type: 'json' };
+import MockRollupBasePublicCircuit from '../artifacts/mock_rollup_tx_base_public.json' with { type: 'json' };
+import MockRollupMergeCircuit from '../artifacts/mock_rollup_tx_merge.json' with { type: 'json' };
 import type {
   AppCreatorInputType,
   AppPublicInputs,
@@ -46,10 +46,10 @@ import type {
   MockPrivateKernelInnerInputType,
   MockPrivateKernelResetInputType,
   MockPrivateKernelTailInputType,
-  MockRollupBasePrivateInputType,
-  MockRollupBasePublicInputType,
-  MockRollupMergeInputType,
   MockRollupRootInputType,
+  MockRollupTxBasePrivateInputType,
+  MockRollupTxBasePublicInputType,
+  MockRollupTxMergeInputType,
   PrivateKernelPublicInputs,
   RollupPublicInputs,
   VerificationKey,
@@ -192,7 +192,7 @@ export async function witnessGenMockHidingCircuit(
 }
 
 export async function witnessGenMockPublicBaseCircuit(
-  args: MockRollupBasePublicInputType,
+  args: MockRollupTxBasePublicInputType,
 ): Promise<WitnessGenResult<RollupPublicInputs>> {
   const program = new Noir(MockRollupBasePublicCircuit);
   const { witness, returnValue } = await program.execute(args, foreignCallHandler);
@@ -203,7 +203,7 @@ export async function witnessGenMockPublicBaseCircuit(
 }
 
 export async function witnessGenMockRollupBasePrivateCircuit(
-  args: MockRollupBasePrivateInputType,
+  args: MockRollupTxBasePrivateInputType,
 ): Promise<WitnessGenResult<RollupPublicInputs>> {
   const program = new Noir(MockRollupBasePrivateCircuit);
   const { witness, returnValue } = await program.execute(args, foreignCallHandler);
@@ -214,7 +214,7 @@ export async function witnessGenMockRollupBasePrivateCircuit(
 }
 
 export async function witnessGenMockRollupMergeCircuit(
-  args: MockRollupMergeInputType,
+  args: MockRollupTxMergeInputType,
 ): Promise<WitnessGenResult<RollupPublicInputs>> {
   const program = new Noir(MockRollupMergeCircuit);
   const { witness, returnValue } = await program.execute(args, foreignCallHandler);

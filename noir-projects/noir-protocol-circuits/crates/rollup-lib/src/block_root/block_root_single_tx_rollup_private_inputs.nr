@@ -1,21 +1,23 @@
 use crate::{
-    abis::{BaseOrMergeRollupPublicInputs, BlockRollupPublicInputs, RollupProofData},
+    abis::{BlockRollupPublicInputs, RollupProofData, TxRollupPublicInputs},
     block_root::components::{BlockRollupPublicInputsComposer, validate_previous_rollups},
 };
-use types::constants::{ARCHIVE_HEIGHT, PRIVATE_BASE_ROLLUP_VK_INDEX, PUBLIC_BASE_ROLLUP_VK_INDEX};
+use types::constants::{
+    ARCHIVE_HEIGHT, PRIVATE_TX_BASE_ROLLUP_VK_INDEX, PUBLIC_TX_BASE_ROLLUP_VK_INDEX,
+};
 
-// MERGE_ROLLUP_VK_INDEX is not allowed if there is only one previous rollup.
+// TX_MERGE_ROLLUP_VK_INDEX is not allowed if there is only one previous rollup.
 global ALLOWED_PREVIOUS_VK_INDICES: [u32; 2] =
-    [PRIVATE_BASE_ROLLUP_VK_INDEX, PUBLIC_BASE_ROLLUP_VK_INDEX];
+    [PRIVATE_TX_BASE_ROLLUP_VK_INDEX, PUBLIC_TX_BASE_ROLLUP_VK_INDEX];
 
-/// VkIndex: BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX
 pub struct BlockRootSingleTxRollupPrivateInputs {
-    previous_rollup: RollupProofData<BaseOrMergeRollupPublicInputs>,
+    pub(crate) previous_rollup: RollupProofData<TxRollupPublicInputs>,
     // Hint for inserting the new block hash to the last archive.
-    new_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
+    pub(crate) new_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
 }
 
 impl BlockRootSingleTxRollupPrivateInputs {
+    /// VkIndex: BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX
     pub fn execute(self) -> BlockRollupPublicInputs {
         validate_previous_rollups([self.previous_rollup], ALLOWED_PREVIOUS_VK_INDICES);
 

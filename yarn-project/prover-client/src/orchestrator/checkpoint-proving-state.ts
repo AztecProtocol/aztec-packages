@@ -17,7 +17,7 @@ import { BLS12Point, Fr } from '@aztec/foundation/fields';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
 import type { PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
-import { BaseParityInputs } from '@aztec/stdlib/parity';
+import { ParityBasePrivateInputs } from '@aztec/stdlib/parity';
 import {
   BlockMergeRollupPrivateInputs,
   BlockRollupPublicInputs,
@@ -32,7 +32,7 @@ import type { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
-import { accumulateBlobs, buildBlobHints, toRollupProofData } from './block-building-helpers.js';
+import { accumulateBlobs, buildBlobHints, toProofData } from './block-building-helpers.js';
 import { BlockProvingState, type ProofState } from './block-proving-state.js';
 import type { EpochProvingState } from './epoch-proving-state.js';
 
@@ -181,7 +181,7 @@ export class CheckpointProvingState {
       Fr.ZERO,
       NUM_MSGS_PER_BASE_PARITY,
     );
-    return new BaseParityInputs(messages, this.constants.vkTreeRoot);
+    return new ParityBasePrivateInputs(messages, this.constants.vkTreeRoot);
   }
 
   public async accumulateBlobs(startBlobAccumulator: BatchedBlobAccumulator) {
@@ -210,7 +210,7 @@ export class CheckpointProvingState {
       throw new Error('At least one child is not ready for the block merge rollup.');
     }
 
-    return new BlockMergeRollupPrivateInputs([toRollupProofData(left), toRollupProofData(right)]);
+    return new BlockMergeRollupPrivateInputs([toProofData(left), toProofData(right)]);
   }
 
   public async getCheckpointRootRollupTypeAndInputs() {
@@ -233,15 +233,15 @@ export class CheckpointProvingState {
       blobsHash,
     });
 
-    const [left, right] = nonEmptyProofs.map(p => toRollupProofData(p));
+    const [left, right] = nonEmptyProofs.map(p => toProofData(p));
 
     return !right
       ? {
-          rollupType: 'checkpoint-root-single-block-rollup' satisfies CircuitName,
+          rollupType: 'rollup-checkpoint-root-single-block' satisfies CircuitName,
           inputs: new CheckpointRootSingleBlockRollupPrivateInputs(left, hints),
         }
       : {
-          rollupType: 'checkpoint-root-rollup' satisfies CircuitName,
+          rollupType: 'rollup-checkpoint-root' satisfies CircuitName,
           inputs: new CheckpointRootRollupPrivateInputs([left, right], hints),
         };
   }

@@ -10,9 +10,9 @@ import { ProofData } from '../proofs/proof_data.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { StateReference } from '../tx/state_reference.js';
 import type { UInt64 } from '../types/shared.js';
-import { BaseOrMergeRollupPublicInputs } from './base_or_merge_rollup_public_inputs.js';
 import { CheckpointConstantData } from './checkpoint_constant_data.js';
 import type { RollupProofData, RootParityProofData } from './rollup_proof_data.js';
+import { TxRollupPublicInputs } from './tx_rollup_public_inputs.js';
 
 export class BlockRootFirstRollupPrivateInputs {
   constructor(
@@ -23,10 +23,7 @@ export class BlockRootFirstRollupPrivateInputs {
     /**
      * The previous rollup proof data from base or merge rollup circuits.
      */
-    public previousRollups: [
-      RollupProofData<BaseOrMergeRollupPublicInputs>,
-      RollupProofData<BaseOrMergeRollupPublicInputs>,
-    ],
+    public previousRollups: [RollupProofData<TxRollupPublicInputs>, RollupProofData<TxRollupPublicInputs>],
     /**
      * Hint for inserting the new l1 to l2 message subtree.
      */
@@ -58,10 +55,7 @@ export class BlockRootFirstRollupPrivateInputs {
     const reader = BufferReader.asReader(buffer);
     return new BlockRootFirstRollupPrivateInputs(
       ProofData.fromBuffer(reader, ParityPublicInputs),
-      [
-        ProofData.fromBuffer(reader, BaseOrMergeRollupPublicInputs),
-        ProofData.fromBuffer(reader, BaseOrMergeRollupPublicInputs),
-      ],
+      [ProofData.fromBuffer(reader, TxRollupPublicInputs), ProofData.fromBuffer(reader, TxRollupPublicInputs)],
       reader.readArray(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, Fr),
       reader.readArray(ARCHIVE_HEIGHT, Fr),
     );
@@ -85,7 +79,7 @@ export class BlockRootSingleTxFirstRollupPrivateInputs {
     /**
      * The previous rollup proof data from base or merge rollup circuits.
      */
-    public previousRollup: RollupProofData<BaseOrMergeRollupPublicInputs>,
+    public previousRollup: RollupProofData<TxRollupPublicInputs>,
     /**
      * Hint for inserting the new l1 to l2 message subtree.
      */
@@ -119,7 +113,7 @@ export class BlockRootSingleTxFirstRollupPrivateInputs {
     const reader = BufferReader.asReader(buffer);
     return new BlockRootSingleTxFirstRollupPrivateInputs(
       ProofData.fromBuffer(reader, ParityPublicInputs),
-      ProofData.fromBuffer(reader, BaseOrMergeRollupPublicInputs),
+      ProofData.fromBuffer(reader, TxRollupPublicInputs),
       reader.readArray(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, Fr),
       reader.readArray(ARCHIVE_HEIGHT, Fr),
     );
@@ -229,10 +223,7 @@ export class BlockRootRollupPrivateInputs {
     /**
      * The previous rollup proof data from base or merge rollup circuits.
      */
-    public previousRollups: [
-      RollupProofData<BaseOrMergeRollupPublicInputs>,
-      RollupProofData<BaseOrMergeRollupPublicInputs>,
-    ],
+    public previousRollups: [RollupProofData<TxRollupPublicInputs>, RollupProofData<TxRollupPublicInputs>],
     /**
      * Hint for inserting the new block hash to the last archive.
      */
@@ -254,10 +245,7 @@ export class BlockRootRollupPrivateInputs {
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new BlockRootRollupPrivateInputs(
-      [
-        ProofData.fromBuffer(reader, BaseOrMergeRollupPublicInputs),
-        ProofData.fromBuffer(reader, BaseOrMergeRollupPublicInputs),
-      ],
+      [ProofData.fromBuffer(reader, TxRollupPublicInputs), ProofData.fromBuffer(reader, TxRollupPublicInputs)],
       reader.readArray(ARCHIVE_HEIGHT, Fr),
     );
   }
@@ -276,7 +264,7 @@ export class BlockRootSingleTxRollupPrivateInputs {
     /**
      * The previous rollup proof data from base or merge rollup circuits.
      */
-    public previousRollup: RollupProofData<BaseOrMergeRollupPublicInputs>,
+    public previousRollup: RollupProofData<TxRollupPublicInputs>,
     /**
      * Hint for inserting the new block hash to the last archive.
      */
@@ -298,7 +286,7 @@ export class BlockRootSingleTxRollupPrivateInputs {
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new BlockRootSingleTxRollupPrivateInputs(
-      ProofData.fromBuffer(reader, BaseOrMergeRollupPublicInputs),
+      ProofData.fromBuffer(reader, TxRollupPublicInputs),
       reader.readArray(ARCHIVE_HEIGHT, Fr),
     );
   }

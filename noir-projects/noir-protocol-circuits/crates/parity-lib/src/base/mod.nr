@@ -1,1 +1,1 @@
-pub mod base_parity_inputs;
+pub mod parity_base_private_inputs;

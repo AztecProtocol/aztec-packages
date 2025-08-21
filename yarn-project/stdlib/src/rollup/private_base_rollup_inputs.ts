@@ -6,31 +6,34 @@ import type { FieldsOf } from '@aztec/foundation/types';
 import { PrivateBaseRollupHints } from './base_rollup_hints.js';
 import { PrivateTubeData } from './private_tube_data.js';
 
-export class PrivateBaseRollupInputs {
+export class PrivateTxBaseRollupPrivateInputs {
   constructor(
     public tubeData: PrivateTubeData,
     public hints: PrivateBaseRollupHints,
   ) {}
 
-  static from(fields: FieldsOf<PrivateBaseRollupInputs>): PrivateBaseRollupInputs {
-    return new PrivateBaseRollupInputs(...PrivateBaseRollupInputs.getFields(fields));
+  static from(fields: FieldsOf<PrivateTxBaseRollupPrivateInputs>): PrivateTxBaseRollupPrivateInputs {
+    return new PrivateTxBaseRollupPrivateInputs(...PrivateTxBaseRollupPrivateInputs.getFields(fields));
   }
 
-  static getFields(fields: FieldsOf<PrivateBaseRollupInputs>) {
+  static getFields(fields: FieldsOf<PrivateTxBaseRollupPrivateInputs>) {
     return [fields.tubeData, fields.hints] as const;
   }
 
-  static fromBuffer(buffer: Buffer | BufferReader): PrivateBaseRollupInputs {
+  static fromBuffer(buffer: Buffer | BufferReader): PrivateTxBaseRollupPrivateInputs {
     const reader = BufferReader.asReader(buffer);
-    return new PrivateBaseRollupInputs(reader.readObject(PrivateTubeData), reader.readObject(PrivateBaseRollupHints));
+    return new PrivateTxBaseRollupPrivateInputs(
+      reader.readObject(PrivateTubeData),
+      reader.readObject(PrivateBaseRollupHints),
+    );
   }
 
   toBuffer() {
-    return serializeToBuffer(...PrivateBaseRollupInputs.getFields(this));
+    return serializeToBuffer(...PrivateTxBaseRollupPrivateInputs.getFields(this));
   }
 
   static fromString(str: string) {
-    return PrivateBaseRollupInputs.fromBuffer(hexToBuffer(str));
+    return PrivateTxBaseRollupPrivateInputs.fromBuffer(hexToBuffer(str));
   }
 
   toString() {
@@ -38,7 +41,7 @@ export class PrivateBaseRollupInputs {
   }
 
   static empty() {
-    return new PrivateBaseRollupInputs(PrivateTubeData.empty(), PrivateBaseRollupHints.empty());
+    return new PrivateTxBaseRollupPrivateInputs(PrivateTubeData.empty(), PrivateBaseRollupHints.empty());
   }
 
   /** Returns a buffer representation for JSON serialization. */
@@ -48,6 +51,6 @@ export class PrivateBaseRollupInputs {
 
   /** Creates an instance from a hex string. */
   static get schema() {
-    return bufferSchemaFor(PrivateBaseRollupInputs);
+    return bufferSchemaFor(PrivateTxBaseRollupPrivateInputs);
   }
 }

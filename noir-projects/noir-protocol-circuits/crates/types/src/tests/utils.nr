@@ -19,19 +19,19 @@ pub fn swap_items<T, let N: u32>(vec: &mut BoundedVec<T, N>, from_index: u32, to
     vec.set(to_index, tmp);
 }
 
-pub fn pad_end<T, let N: u32, let M: u32>(items: [T; N], emptyItem: T) -> [T; M] {
-    let mut output = [emptyItem; M];
+pub fn pad_end_with<T, let N: u32, let M: u32>(items: [T; N], padded_item: T) -> [T; M] {
+    let mut output = [padded_item; M];
     for i in 0..N {
         output[i] = items[i];
     }
     output
 }
 
-pub fn pad_end_with_empty<T, let N: u32, let M: u32>(items: [T; N]) -> [T; M]
+pub fn pad_end<T, let N: u32, let M: u32>(items: [T; N]) -> [T; M]
 where
     T: Empty,
 {
-    pad_end(items, T::empty())
+    pad_end_with(items, T::empty())
 }
 
 pub fn make_fixture<T>(seed: Field) -> T

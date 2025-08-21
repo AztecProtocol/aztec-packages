@@ -117,9 +117,9 @@ mod tests {
                 TestValue { value: 50, counter: 29 },
             ];
 
-            let transformed_value_array_lt = pad_end([40, 30, 80], 0);
+            let transformed_value_array_lt = pad_end([40, 30, 80]);
 
-            let transformed_value_array_gte = pad_end([10, 50], 0);
+            let transformed_value_array_gte = pad_end([10, 50]);
 
             TestBuilder {
                 sorted_array,

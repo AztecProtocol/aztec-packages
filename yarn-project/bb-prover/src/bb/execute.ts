@@ -228,7 +228,7 @@ export async function generateProof(
     return { status: BB_RESULT.FAILURE, reason: `Working directory ${workingDirectory} does not exist` };
   }
 
-  // The bytecode is written to e.g. /workingDirectory/BaseParityArtifact-bytecode
+  // The bytecode is written to e.g. /workingDirectory/ParityBaseArtifact-bytecode
   const bytecodePath = `${workingDirectory}/${circuitName}-bytecode`;
 
   // The proof is written to e.g. /workingDirectory/ultra_honk/proof
@@ -684,7 +684,7 @@ export async function computeGateCountForCircuit(
     return { status: BB_RESULT.FAILURE, reason: `Working directory ${workingDirectory} does not exist` };
   }
 
-  // The bytecode is written to e.g. /workingDirectory/BaseParityArtifact-bytecode
+  // The bytecode is written to e.g. /workingDirectory/ParityBaseArtifact-bytecode
   const bytecodePath = `${workingDirectory}/${circuitName}-bytecode`;
 
   const binaryPresent = await fs
