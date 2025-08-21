@@ -51,8 +51,9 @@ BENCHMARK_DEFINE_F(ClientIVCBench, VerificationOnly)(benchmark::State& state)
  */
 BENCHMARK_DEFINE_F(ClientIVCBench, Full)(benchmark::State& state)
 {
-
-    auto total_num_circuits = 2 * static_cast<size_t>(state.range(0)); // 2x accounts for kernel circuits
+    size_t NUM_APP_CIRCUITS = static_cast<size_t>(state.range(0));
+    PrivateFunctionExecutionMockCircuitProducer circuit_producer{ NUM_APP_CIRCUITS };
+    auto total_num_circuits = circuit_producer.total_num_circuits;
     ClientIVC ivc{ total_num_circuits, { AZTEC_TRACE_STRUCTURE } };
     auto mocked_vks = mock_vks(total_num_circuits);
 
@@ -68,8 +69,9 @@ BENCHMARK_DEFINE_F(ClientIVCBench, Full)(benchmark::State& state)
  */
 BENCHMARK_DEFINE_F(ClientIVCBench, Ambient_17_in_20)(benchmark::State& state)
 {
-
-    auto total_num_circuits = 2 * static_cast<size_t>(state.range(0)); // 2x accounts for kernel circuits
+    size_t NUM_APP_CIRCUITS = static_cast<size_t>(state.range(0));
+    PrivateFunctionExecutionMockCircuitProducer circuit_producer{ NUM_APP_CIRCUITS };
+    auto total_num_circuits = circuit_producer.total_num_circuits;
     ClientIVC ivc{ total_num_circuits, { AZTEC_TRACE_STRUCTURE } };
     const bool large_first_app = false;
     auto mocked_vks = mock_vks(total_num_circuits, large_first_app);
