@@ -38,7 +38,7 @@ class EcdsaCircuit {
         // This is the message that we would like to confirm
         std::string message_string(NUM_PUBLIC_INPUTS, '\0');
         for (size_t i = 0; i < NUM_PUBLIC_INPUTS; ++i) {
-            message_string[i] = char(uint8_t(inputs[i]));
+            message_string[i] = static_cast<char>(static_cast<uint8_t>(public_inputs[i]));
         }
         auto message = typename curve::byte_array_ct(&builder, message_string);
 
