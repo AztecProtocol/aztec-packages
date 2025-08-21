@@ -11,6 +11,31 @@
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 
+/**
+ * Fix the following notation:
+ *  1. \$E\$ is an elliptic curve over the base field \$\mathbb{F}_q\$.
+ *  2. \$G\$ is a generator of the group of points of \$E\$, the order of \$G\$ is \$n\$.
+ *  3. \$a \in \mathbb{F}_n^{\ast}$ is a private key, and \$P := aG\$ is the associated public key
+ *  4. \$\mathcal{H}\$ is a hash function
+ *
+ * Given a message \$m\$, a couple \$(r,s)\$ is a valid signature for the message \$m\$ with respect to the public key
+ * \$P\$ if:
+ *  1. \$0 < r < n\$
+ *  2. \$0 < s < (n+1) / 2\$
+ *  3. Define \$e := \mathcal{H}(m) mod n$ and \$Q := e s^{-1} G + r s^{-1} P \$
+ *  4. \$Q\$ is not the point at infinity AND \$Q_x = r mod n\$ (note that \$Q_x \in \mathbb{F}_q\$)
+ *
+ * @note The requirement of step 2. is to avoid transaction malleability: if \$(r,s)\$ is a valid signature for message
+ * \$m\$ and public key \$P\$, so is \$(r,n-s)\$. We protect against malleability by enforcing that \$s\$ is always the
+ * lowest of the two possible values.
+ *
+ * @note In Ethereum signatures contain also a recovery byte \$v\$ which is used to recover the public key for which
+ * the signature is to be validated. As we receive the public key as part of the inputs to the verification function, we
+ * do not handle the recovery byte. The signature which is the input to the verification function is given by \$(r,s)\$.
+ * The users of the verification function should handle the recovery byte if that is in their interest.
+ *
+ */
+
 namespace bb::stdlib {
 
 namespace {
