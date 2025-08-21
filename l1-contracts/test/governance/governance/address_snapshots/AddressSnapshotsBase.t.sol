@@ -50,6 +50,10 @@ contract AddressSetWrapper {
   function valuesAtTimestamp(uint32 _timestamp) public view returns (address[] memory) {
     return validatorSet.valuesAtTimestamp(_timestamp);
   }
+
+  function unsafeGetRecentAddressFromIndexAtTimestamp(uint256 _index, uint32 _timestamp) public view returns (address) {
+    return validatorSet.unsafeGetRecentAddressFromIndexAtTimestamp(_index, _timestamp);
+  }
 }
 
 contract AddressSnapshotsBase is Test {
