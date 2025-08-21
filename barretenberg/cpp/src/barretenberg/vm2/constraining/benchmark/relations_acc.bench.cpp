@@ -1,3 +1,5 @@
+#ifdef AVM_COMPILE_BENCHMARKS
+
 #include <benchmark/benchmark.h>
 
 #include <cstddef>
@@ -141,3 +143,15 @@ int main(int argc, char** argv)
     ::benchmark::Initialize(&argc, argv);
     ::benchmark::RunSpecifiedBenchmarks();
 }
+
+#else
+
+#include <iostream>
+
+int main(int, char**)
+{
+    std::cout << "This benchmark is disabled. To enable it, define AVM_COMPILE_BENCHMARKS." << std::endl;
+    return 0;
+}
+
+#endif // AVM_COMPILE_BENCHMARKS
