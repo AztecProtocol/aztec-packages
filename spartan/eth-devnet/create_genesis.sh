@@ -19,9 +19,37 @@ XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-"$HOME/.config"}
 
 # Install cast if it is not installed
 if ! command -v cast &>/dev/null; then
+  # Use optional FOUNDRY_DIR environment variable, fallback to HOME
+  FOUNDRY_INSTALL_DIR=${FOUNDRY_DIR:-"$HOME/.foundry"}
+
+  echo "Installing Foundry to: $FOUNDRY_INSTALL_DIR"
+
+  # Create the directory if it doesn't exist
+  mkdir -p "$FOUNDRY_INSTALL_DIR"
+
+  # Set FOUNDRY_DIR for the installer
+  export FOUNDRY_DIR="$FOUNDRY_INSTALL_DIR"
+
+  # Install foundry
   curl -L https://foundry.paradigm.xyz | bash
-  ## add cast to path
-  $HOME/.foundry/bin/foundryup && export PATH="$PATH:$HOME/.foundry/bin" || $XDG_CONFIG_HOME/.foundry/bin/foundryup && export PATH="$PATH:$XDG_CONFIG_HOME/.foundry/bin"
+
+  # Add to PATH for current session
+  export PATH="$FOUNDRY_INSTALL_DIR/bin:$PATH"
+
+  # Run foundryup to install the binaries
+  if [ -f "$FOUNDRY_INSTALL_DIR/bin/foundryup" ]; then
+    "$FOUNDRY_INSTALL_DIR/bin/foundryup"
+  else
+    echo "Warning: foundryup not found at expected location"
+  fi
+
+  # Verify installation
+  if command -v cast &>/dev/null; then
+    echo "Foundry installed successfully: $(cast --version)"
+  else
+    echo "Error: Foundry installation failed or cast not found in PATH"
+    exit 1
+  fi
 fi
 
 # Function to create execution genesis

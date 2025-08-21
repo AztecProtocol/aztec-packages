@@ -92,6 +92,9 @@ resource "null_resource" "generate_genesis" {
       export MNEMONIC="${data.google_secret_manager_secret_version.mnemonic_latest.secret_data}"
       export PREFUNDED_MNEMONIC_INDICES="${var.PREFUNDED_MNEMONIC_INDICES}"
 
+      # Use a custom directory for Foundry installation to avoid permission issues
+      export FOUNDRY_DIR="$(pwd)/tmp/.foundry"
+
       ./create_genesis.sh
     EOT
   }
@@ -102,13 +105,14 @@ resource "null_resource" "generate_genesis" {
     command = <<-EOT
       cd ../../eth-devnet
       rm -rf out/ tmp/
-      echo "Genesis files cleaned up"
+      echo "Genesis files and Foundry installation cleaned up"
     EOT
   }
 }
 
 # Deploy eth-devnet helm chart
 resource "helm_release" "eth_devnet" {
+  depends_on       = [null_resource.generate_genesis]
   provider         = helm.gke-cluster
   name             = var.RELEASE_PREFIX
   repository       = "../../"

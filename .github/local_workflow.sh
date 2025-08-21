@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # example usage:
-# export GOOGLE_APPLICATION_DEFAULT=/home/mitch/tokens/testnet-helm-sa.json
+# export GOOGLE_APPLICATION_CREDENTIALS=/home/mitch/tokens/testnet-helm-sa.json
 # alias lwfl=/home/mitch/aztec-clones/alpha/.github/local_workflow.sh
 # lwfl deploy_eth_devnet --input cluster=kind-kind --input resource_profile=dev
 
