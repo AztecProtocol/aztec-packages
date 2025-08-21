@@ -116,9 +116,7 @@ describe('Transfer benchmark', () => {
               caller: adminWallet.getAddress(),
               action: interaction,
             });
-            await interaction
-              .send({ from: benchysWallet.getAddress(), authWitnesses: [witness] })
-              .wait({ timeout: 120 });
+            await interaction.send({ from: adminAddress, authWitnesses: [witness] }).wait({ timeout: 120 });
           });
 
           // Ensure we create a change note, by sending an amount that is not a multiple of the note amount

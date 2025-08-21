@@ -289,6 +289,7 @@ describe('e2e_block_building', () => {
 
     beforeAll(async () => {
       ({ teardown, pxe, logger, wallet: owner } = await setup(1));
+      ownerAddress = owner.getAddress();
       contract = await TestContract.deploy(owner).send({ from: ownerAddress }).deployed();
       logger.info(`Test contract deployed at ${contract.address}`);
     });
@@ -515,6 +516,7 @@ describe('e2e_block_building', () => {
         skipProtocolContracts: true,
         ethereumSlotDuration: 6,
       }));
+      ownerAddress = owner.getAddress();
 
       logger.info('Deploying token contract');
       const token = await TokenContract.deploy(owner, owner.getCompleteAddress(), 'TokenName', 'TokenSymbol', 18)
