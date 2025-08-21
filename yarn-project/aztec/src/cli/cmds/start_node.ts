@@ -1,8 +1,8 @@
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, aztecNodeConfigMappings, getConfigEnvVars } from '@aztec/aztec-node';
-import { EthAddress, Fr } from '@aztec/aztec.js';
+import { Fr } from '@aztec/aztec.js';
 import { getSponsoredFPCAddress } from '@aztec/cli/cli-utils';
-import { getAddressFromPrivateKey, getPublicClient } from '@aztec/ethereum';
+import { getPublicClient } from '@aztec/ethereum';
 import { SecretValue } from '@aztec/foundation/config';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import type { LogFn } from '@aztec/foundation/log';
@@ -64,7 +64,7 @@ export async function startNode(
     typeof nodeConfig.rollupVersion !== 'number' || (nodeConfig.rollupVersion as unknown as string) === 'canonical';
 
   if (!nodeConfig.l1Contracts.registryAddress || nodeConfig.l1Contracts.registryAddress.isZero()) {
-    throw new Error('L1 registry address is required to start Aztec Node without --deploy-aztec-contracts option');
+    throw new Error('L1 registry address is required to start Aztec Node');
   }
   const { addresses, config } = await getL1Config(
     nodeConfig.l1Contracts.registryAddress,
@@ -109,15 +109,12 @@ export async function startNode(
       ...extractNamespacedOptions(options, 'sequencer'),
     };
     // If no publisher private keys have been given, use the first validator key
-    if (!sequencerConfig.publisherPrivateKeys.length) {
+    if (sequencerConfig.publisherPrivateKeys === undefined || !sequencerConfig.publisherPrivateKeys.length) {
       if (sequencerConfig.validatorPrivateKeys?.getValue().length) {
         sequencerConfig.publisherPrivateKeys = [new SecretValue(sequencerConfig.validatorPrivateKeys.getValue()[0])];
       }
     }
     nodeConfig.publisherPrivateKeys = sequencerConfig.publisherPrivateKeys;
-    nodeConfig.coinbase ??= EthAddress.fromString(
-      getAddressFromPrivateKey(nodeConfig.publisherPrivateKeys[0].getValue()),
-    );
   }
 
   if (nodeConfig.p2pEnabled) {

@@ -1,19 +1,23 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { AztecAddressHex, EthAddressHex, EthPrivateKey } from '@aztec/node-keystore';
+import type { SharedNodeConfig } from '@aztec/node-lib/config';
 import type { SequencerClientConfig, TxSenderConfig } from '@aztec/sequencer-client/config';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ValidatorClientConfig } from '@aztec/validator-client/config';
 
-import { privateKeyToAddress } from 'viem/accounts';
+import { generatePrivateKey, privateKeyToAddress } from 'viem/accounts';
 
 import { createKeyStoreForValidator } from './config.js';
 
 describe('createKeyStoreForValidator', () => {
-  const mockValidatorKey1 = ('0x' + '1'.repeat(64)) as EthPrivateKey;
-  const mockValidatorKey2 = ('0x' + '2'.repeat(64)) as EthPrivateKey;
-  const mockPublisherKey1 = EthAddress.random().toString() as EthAddressHex;
-  const mockPublisherKey2 = EthAddress.random().toString() as EthAddressHex;
+  const mockValidatorKey1 = generatePrivateKey() as EthPrivateKey;
+  const mockValidatorKey2 = generatePrivateKey() as EthPrivateKey;
+  const mockPublisherKey1 = generatePrivateKey() as EthPrivateKey;
+  const mockPublisherKey2 = generatePrivateKey() as EthPrivateKey;
   const mockCoinbase = EthAddress.random().toString() as EthAddressHex;
+  const web3SignerUrl = 'http://web3signer:1000';
+  const mockValidatorAddresses = [mockValidatorKey1, mockValidatorKey2].map(privateKeyToAddress);
+  const mockPublisherAddresses = [mockPublisherKey1, mockPublisherKey2].map(privateKeyToAddress);
   let mockFeeRecipient: AztecAddressHex;
 
   const createMockConfig = (
@@ -21,7 +25,10 @@ describe('createKeyStoreForValidator', () => {
     publisherKeys: string[] = [],
     coinbase?: string,
     feeRecipient?: string,
-  ): TxSenderConfig & ValidatorClientConfig & SequencerClientConfig => {
+    web3SignerUrl?: string,
+    validatorAddresses: string[] = [],
+    publisherAddresses: string[] = [],
+  ): TxSenderConfig & ValidatorClientConfig & SequencerClientConfig & SharedNodeConfig => {
     const mockValidatorPrivateKeys =
       validatorKeys.length > 0
         ? {
@@ -37,7 +44,10 @@ describe('createKeyStoreForValidator', () => {
       publisherPrivateKeys: mockPublisherPrivateKeys,
       coinbase: coinbase ? { toString: () => coinbase } : undefined,
       feeRecipient: feeRecipient ? { toString: () => feeRecipient } : undefined,
-    } as TxSenderConfig & ValidatorClientConfig & SequencerClientConfig;
+      web3SignerUrl,
+      validatorAddresses: validatorAddresses.map(addr => EthAddress.fromString(addr)),
+      publisherAddresses: publisherAddresses.map(addr => EthAddress.fromString(addr)),
+    } as TxSenderConfig & ValidatorClientConfig & SequencerClientConfig & SharedNodeConfig;
   };
 
   beforeAll(async () => {
@@ -56,7 +66,7 @@ describe('createKeyStoreForValidator', () => {
       publisherPrivateKeys: undefined,
       coinbase: undefined,
       feeRecipient: undefined,
-    } as unknown as TxSenderConfig & ValidatorClientConfig & SequencerClientConfig;
+    } as unknown as TxSenderConfig & ValidatorClientConfig & SequencerClientConfig & SharedNodeConfig;
     const result = createKeyStoreForValidator(config);
     expect(result).toBeUndefined();
   });
@@ -198,5 +208,34 @@ describe('createKeyStoreForValidator', () => {
     const result = createKeyStoreForValidator(config);
 
     expect(result?.validators?.[0]?.feeRecipient).toBe(AztecAddress.ZERO.toString());
+  });
+
+  it('should create keystore with remote signer details', () => {
+    const config = createMockConfig(
+      [],
+      [],
+      mockCoinbase,
+      mockFeeRecipient,
+      web3SignerUrl,
+      mockValidatorAddresses,
+      mockPublisherAddresses,
+    );
+    const result = createKeyStoreForValidator(config);
+
+    expect(result).toEqual({
+      schemaVersion: 1,
+      slasher: undefined,
+      prover: undefined,
+      remoteSigner: undefined,
+      validators: [
+        {
+          attester: mockValidatorAddresses,
+          feeRecipient: mockFeeRecipient,
+          coinbase: mockCoinbase,
+          remoteSigner: web3SignerUrl,
+          publisher: mockPublisherAddresses,
+        },
+      ],
+    });
   });
 });

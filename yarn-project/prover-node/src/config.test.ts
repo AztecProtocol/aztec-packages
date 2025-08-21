@@ -1,18 +1,29 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
-import type { EthAddressHex } from '@aztec/node-keystore';
+import type { EthAddressHex, EthPrivateKey } from '@aztec/node-keystore';
+
+import { generatePrivateKey, privateKeyToAddress } from 'viem/accounts';
 
 import { type ProverNodeConfig, createKeyStoreForProver } from './config.js';
 
 describe('createKeyStoreForProver', () => {
-  const mockAddress1 = EthAddress.random().toString() as EthAddressHex;
-  const mockAddress2 = EthAddress.random().toString() as EthAddressHex;
+  const mockKey1 = generatePrivateKey() as EthPrivateKey;
+  const mockKey2 = generatePrivateKey() as EthPrivateKey;
+  const mockAddresses = [mockKey1, mockKey2].map(privateKey => privateKeyToAddress(privateKey) as EthAddressHex);
   const mockProverId = EthAddress.random().toString() as EthAddressHex;
+  const mockSignerUrl = 'http://web3signer:1000';
 
-  const createMockConfig = (publisherPrivateKeys: any[] = [], proverId?: EthAddressHex): ProverNodeConfig => {
+  const createMockConfig = (
+    publisherPrivateKeys: string[] = [],
+    proverId?: EthAddressHex,
+    publisherAddresses: string[] = [],
+    web3SignerUrl?: string,
+  ): ProverNodeConfig => {
     const mockValue = (val: string) => ({ getValue: () => val });
     return {
       publisherPrivateKeys: publisherPrivateKeys.map(mockValue),
       proverId,
+      publisherAddresses: publisherAddresses.map(addr => EthAddress.fromString(addr)),
+      web3SignerUrl,
     } as ProverNodeConfig;
   };
 
@@ -32,33 +43,33 @@ describe('createKeyStoreForProver', () => {
   });
 
   it('should create keystore with single publisher key and no proverId', () => {
-    const config = createMockConfig([mockAddress1]);
+    const config = createMockConfig([mockKey1]);
     const result = createKeyStoreForProver(config);
 
     expect(result).toEqual({
       schemaVersion: 1,
       slasher: undefined,
-      prover: mockAddress1,
+      prover: mockKey1,
       remoteSigner: undefined,
       validators: undefined,
     });
   });
 
   it('should create keystore with multiple publisher keys and no proverId', () => {
-    const config = createMockConfig([mockAddress1, mockAddress2]);
+    const config = createMockConfig([mockKey1, mockKey2]);
     const result = createKeyStoreForProver(config);
 
     expect(result).toEqual({
       schemaVersion: 1,
       slasher: undefined,
-      prover: mockAddress1,
+      prover: mockKey1,
       remoteSigner: undefined,
       validators: undefined,
     });
   });
 
   it('should create keystore with proverId and single publisher key', () => {
-    const config = createMockConfig([mockAddress1], mockProverId);
+    const config = createMockConfig([mockKey1], mockProverId);
     const result = createKeyStoreForProver(config);
 
     expect(result).toEqual({
@@ -66,7 +77,7 @@ describe('createKeyStoreForProver', () => {
       slasher: undefined,
       prover: {
         id: mockProverId,
-        publisher: [mockAddress1],
+        publisher: [mockKey1],
       },
       remoteSigner: undefined,
       validators: undefined,
@@ -74,7 +85,7 @@ describe('createKeyStoreForProver', () => {
   });
 
   it('should create keystore with proverId and multiple publisher keys', () => {
-    const config = createMockConfig([mockAddress1, mockAddress2], mockProverId);
+    const config = createMockConfig([mockKey1, mockKey2], mockProverId);
     const result = createKeyStoreForProver(config);
 
     expect(result).toEqual({
@@ -82,9 +93,25 @@ describe('createKeyStoreForProver', () => {
       slasher: undefined,
       prover: {
         id: mockProverId,
-        publisher: [mockAddress1, mockAddress2],
+        publisher: [mockKey1, mockKey2],
       },
       remoteSigner: undefined,
+      validators: undefined,
+    });
+  });
+
+  it('should create keystore with proverId and multiple publisher addresses', () => {
+    const config = createMockConfig([], mockProverId, mockAddresses, mockSignerUrl);
+    const result = createKeyStoreForProver(config);
+
+    expect(result).toEqual({
+      schemaVersion: 1,
+      slasher: undefined,
+      prover: {
+        id: mockProverId,
+        publisher: mockAddresses,
+      },
+      remoteSigner: mockSignerUrl,
       validators: undefined,
     });
   });
