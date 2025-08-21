@@ -61,7 +61,7 @@ class GoblinRecursiveVerifier {
                             const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>())
         : builder(builder)
         , verification_keys(verification_keys)
-        , transcript(transcript){};
+        , transcript(transcript) {};
 
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] GoblinRecursiveVerifierOutput verify(
         const GoblinProof&,

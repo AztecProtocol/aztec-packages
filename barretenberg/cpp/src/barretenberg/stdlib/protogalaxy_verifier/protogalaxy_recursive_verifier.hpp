@@ -42,7 +42,7 @@ template <class DeciderVerificationKeys> class ProtogalaxyRecursiveVerifier_ {
                                   const std::shared_ptr<Transcript>& transcript)
         : builder(builder)
         , keys_to_fold(DeciderVerificationKeys(builder, accumulator, vk_and_hashs))
-        , transcript(transcript){};
+        , transcript(transcript) {};
 
     /**
      * @brief Process the public data ϕ for the decider verification keys to be folded.

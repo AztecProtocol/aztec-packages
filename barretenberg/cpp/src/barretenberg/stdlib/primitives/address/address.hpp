@@ -23,16 +23,16 @@ class address {
     address() noexcept { address_ = fr(); }
 
     address(address const& other)
-        : address_(other.address_){};
+        : address_(other.address_) {};
 
     address(fr const& address)
-        : address_(address){};
+        : address_(address) {};
 
     address(uint256_t const& address)
-        : address_(address){};
+        : address_(address) {};
 
     address(int const& address)
-        : address_(fr(address)){};
+        : address_(fr(address)) {};
 
     operator fr() { return address_; }
 
@@ -75,19 +75,19 @@ template <typename Builder> class address_t {
 
     address_t(address_t<Builder> const& other)
         : address_(other.address_)
-        , context_(other.context_){};
+        , context_(other.context_) {};
 
     address_t(field_t<Builder> const& address)
         : address_(address)
-        , context_(address.context){};
+        , context_(address.context) {};
 
     address_t(uint256_t const& address)
         : address_(address)
-        , context_(nullptr){};
+        , context_(nullptr) {};
 
     address_t(int const& address)
         : address_(address)
-        , context_(nullptr){};
+        , context_(nullptr) {};
 
     address_t(witness_t<Builder> const& witness)
     {

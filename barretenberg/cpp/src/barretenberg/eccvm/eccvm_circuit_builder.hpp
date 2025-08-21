@@ -46,7 +46,7 @@ class ECCVMCircuitBuilder {
     // `MSM` is an ordered container of `ScalarMul`s
     using MSM = bb::eccvm::MSM<CycleGroup>;
     ECCVMCircuitBuilder(std::shared_ptr<ECCOpQueue>& op_queue)
-        : op_queue(op_queue){};
+        : op_queue(op_queue) {};
 
     [[nodiscard]] uint32_t get_number_of_muls() const { return op_queue->get_number_of_muls(); }
 

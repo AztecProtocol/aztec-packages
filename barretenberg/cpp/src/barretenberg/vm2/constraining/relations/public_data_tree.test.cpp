@@ -79,7 +79,7 @@ AztecAddress contract_address = 1;
 class PublicDataTreeCheckConstrainingTest : public ::testing::Test {
   protected:
     PublicDataTreeCheckConstrainingTest()
-        : execution_id_manager(0){};
+        : execution_id_manager(0) {};
 
     EventEmitter<Poseidon2HashEvent> hash_event_emitter;
     EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;

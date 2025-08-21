@@ -286,7 +286,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         , range_lists(other.range_lists)
         , cached_partial_non_native_field_multiplications(other.cached_partial_non_native_field_multiplications)
         , circuit_finalized(other.circuit_finalized)
-        , ipa_proof(other.ipa_proof){};
+        , ipa_proof(other.ipa_proof) {};
     UltraCircuitBuilder_& operator=(const UltraCircuitBuilder_& other) = default;
     UltraCircuitBuilder_& operator=(UltraCircuitBuilder_&& other) noexcept
     {

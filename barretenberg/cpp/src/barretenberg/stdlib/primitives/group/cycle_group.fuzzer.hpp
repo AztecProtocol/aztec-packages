@@ -103,7 +103,7 @@ template <typename Builder> class CycleGroupBase {
         struct Element {
             Element(ScalarField s = ScalarField::one(), GroupElement g = GroupElement::one())
                 : scalar(s)
-                , value(g){};
+                , value(g) {};
             ScalarField scalar;
             GroupElement value;
         };
@@ -141,7 +141,7 @@ template <typename Builder> class CycleGroupBase {
 
         struct ArgumentContents {
             ArgumentContents()
-                : randomseed(0){};
+                : randomseed(0) {};
             uint32_t randomseed;
             Element element;
             TwoArgs twoArgs;
