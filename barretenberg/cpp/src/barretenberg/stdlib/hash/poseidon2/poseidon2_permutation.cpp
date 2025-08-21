@@ -29,9 +29,6 @@ typename Poseidon2Permutation<Params, Builder>::State Poseidon2Permutation<Param
     NativeState current_native_state;
     for (size_t i = 0; i < t; ++i) {
         current_native_state[i] = current_state[i].get_value();
-        if (!current_state[i].is_normalized()) {
-            info("poseidon 2 input not normalized");
-        }
     }
 
     // Apply 1st linear layer
@@ -41,10 +38,10 @@ typename Poseidon2Permutation<Params, Builder>::State Poseidon2Permutation<Param
     // First set of external rounds
     constexpr size_t rounds_f_beginning = rounds_f / 2;
     for (size_t i = 0; i < rounds_f_beginning; ++i) {
-        poseidon2_external_gate_<FF> in{ current_state[0].witness_index,
-                                         current_state[1].witness_index,
-                                         current_state[2].witness_index,
-                                         current_state[3].witness_index,
+        poseidon2_external_gate_<FF> in{ current_state[0].get_witness_index(),
+                                         current_state[1].get_witness_index(),
+                                         current_state[2].get_witness_index(),
+                                         current_state[3].get_witness_index(),
                                          i };
         builder->create_poseidon2_external_gate(in);
         // calculate the new witnesses
@@ -59,10 +56,10 @@ typename Poseidon2Permutation<Params, Builder>::State Poseidon2Permutation<Param
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): dummy gate required since the last external gate
     // from above otherwise expects to read into the first internal gate which is sorted out of sequence
     builder->create_dummy_gate(builder->blocks.poseidon2_external,
-                               current_state[0].witness_index,
-                               current_state[1].witness_index,
-                               current_state[2].witness_index,
-                               current_state[3].witness_index);
+                               current_state[0].get_witness_index(),
+                               current_state[1].get_witness_index(),
+                               current_state[2].get_witness_index(),
+                               current_state[3].get_witness_index());
 
     // Internal rounds
     const size_t p_end = rounds_f_beginning + rounds_p;
@@ -83,18 +80,15 @@ typename Poseidon2Permutation<Params, Builder>::State Poseidon2Permutation<Param
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): dummy gate required since the last internal gate
     // otherwise expects to read into the next external gate which is sorted out of sequence
-    builder->create_dummy_gate(builder->blocks.poseidon2_internal,
-                               current_state[0].witness_index,
-                               current_state[1].witness_index,
-                               current_state[2].witness_index,
-                               current_state[3].witness_index);
+    builder->create_dummy_gate(
+        builder->blocks.poseidon2_internal, builder->zero_idx, builder->zero_idx, builder->zero_idx, builder->zero_idx);
 
     // Remaining external rounds
     for (size_t i = p_end; i < NUM_ROUNDS; ++i) {
-        poseidon2_external_gate_<FF> in{ current_state[0].witness_index,
-                                         current_state[1].witness_index,
-                                         current_state[2].witness_index,
-                                         current_state[3].witness_index,
+        poseidon2_external_gate_<FF> in{ current_state[0].get_witness_index(),
+                                         current_state[1].get_witness_index(),
+                                         current_state[2].get_witness_index(),
+                                         current_state[3].get_witness_index(),
                                          i };
         builder->create_poseidon2_external_gate(in);
         // calculate the new witnesses
@@ -110,10 +104,10 @@ typename Poseidon2Permutation<Params, Builder>::State Poseidon2Permutation<Param
     // compare with the result from the 64th round of Poseidon2. Note that it does not activate any selectors since it
     // only serves as a comparison through the shifted wires.
     builder->create_dummy_gate(builder->blocks.poseidon2_external,
-                               current_state[0].witness_index,
-                               current_state[1].witness_index,
-                               current_state[2].witness_index,
-                               current_state[3].witness_index);
+                               current_state[0].get_witness_index(),
+                               current_state[1].get_witness_index(),
+                               current_state[2].get_witness_index(),
+                               current_state[3].get_witness_index());
     return current_state;
 }
 
@@ -152,6 +146,8 @@ void Poseidon2Permutation<Params, Builder>::matrix_multiplication_external(
 
     // gate 6: Compute v3 = v4 + tmp2
     state[2] = state[3] + tmp2;
+    ASSERT(state[0].is_normalized() && state[1].is_normalized() && state[2].is_normalized() &&
+           state[3].is_normalized());
 }
 
 template class Poseidon2Permutation<crypto::Poseidon2Bn254ScalarFieldParams, MegaCircuitBuilder>;
