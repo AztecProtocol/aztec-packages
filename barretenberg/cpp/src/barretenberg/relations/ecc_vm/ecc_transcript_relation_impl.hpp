@@ -55,48 +55,48 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
         static const Accumulator oy(qy);
         return std::array<Accumulator, 2>{ ox, oy };
     };
-    auto z1 = View(in.transcript_z1);
-    auto z2 = View(in.transcript_z2);
-    auto z1_zero = View(in.transcript_z1zero);
-    auto z2_zero = View(in.transcript_z2zero);
-    auto op = View(in.transcript_op);
-    auto q_add = View(in.transcript_add);
-    auto q_mul = View(in.transcript_mul);
-    auto q_mul_shift = View(in.transcript_mul_shift);
-    auto q_eq = View(in.transcript_eq);
-    auto msm_transition = View(in.transcript_msm_transition);
-    auto msm_count = View(in.transcript_msm_count);
-    auto msm_count_shift = View(in.transcript_msm_count_shift);
-    auto pc = View(in.transcript_pc);
-    auto pc_shift = View(in.transcript_pc_shift);
-    auto transcript_accumulator_x_shift = View(in.transcript_accumulator_x_shift);
-    auto transcript_accumulator_y_shift = View(in.transcript_accumulator_y_shift);
-    auto transcript_accumulator_x = View(in.transcript_accumulator_x);
-    auto transcript_accumulator_y = View(in.transcript_accumulator_y);
-    auto msm_count_zero_at_transition = View(in.transcript_msm_count_zero_at_transition);
-    auto msm_count_at_transition_inverse = View(in.transcript_msm_count_at_transition_inverse);
-    auto transcript_msm_x = View(in.transcript_msm_intermediate_x);
-    auto transcript_msm_y = View(in.transcript_msm_intermediate_y);
-    auto transcript_Px = View(in.transcript_Px);
-    auto transcript_Py = View(in.transcript_Py);
-    auto is_accumulator_empty = -View(in.transcript_accumulator_not_empty) + 1;
-    auto lagrange_first = View(in.lagrange_first);
-    auto lagrange_last = View(in.lagrange_last);
-    auto is_accumulator_empty_shift = -View(in.transcript_accumulator_not_empty_shift) + 1;
-    auto q_reset_accumulator = View(in.transcript_reset_accumulator);
-    auto lagrange_second = View(in.lagrange_second);
-    auto transcript_Pinfinity = View(in.transcript_base_infinity);
-    auto transcript_Px_inverse = View(in.transcript_base_x_inverse);
-    auto transcript_Py_inverse = View(in.transcript_base_y_inverse);
-    auto transcript_add_x_equal = View(in.transcript_add_x_equal);
-    auto transcript_add_y_equal = View(in.transcript_add_y_equal);
-    auto transcript_add_lambda = View(in.transcript_add_lambda);
-    auto transcript_msm_infinity = View(in.transcript_msm_infinity);
+    const auto z1 = View(in.transcript_z1);
+    const auto z2 = View(in.transcript_z2);
+    const auto z1_zero = View(in.transcript_z1zero);
+    const auto z2_zero = View(in.transcript_z2zero);
+    const auto op = View(in.transcript_op);
+    const auto q_add = View(in.transcript_add);
+    const auto q_mul = View(in.transcript_mul);
+    const auto q_mul_shift = View(in.transcript_mul_shift);
+    const auto q_eq = View(in.transcript_eq);
+    const auto msm_transition = View(in.transcript_msm_transition);
+    const auto msm_count = View(in.transcript_msm_count);
+    const auto msm_count_shift = View(in.transcript_msm_count_shift);
+    const auto pc = View(in.transcript_pc);
+    const auto pc_shift = View(in.transcript_pc_shift);
+    const auto transcript_accumulator_x_shift = View(in.transcript_accumulator_x_shift);
+    const auto transcript_accumulator_y_shift = View(in.transcript_accumulator_y_shift);
+    const auto transcript_accumulator_x = View(in.transcript_accumulator_x);
+    const auto transcript_accumulator_y = View(in.transcript_accumulator_y);
+    const auto msm_count_zero_at_transition = View(in.transcript_msm_count_zero_at_transition);
+    const auto msm_count_at_transition_inverse = View(in.transcript_msm_count_at_transition_inverse);
+    const auto transcript_msm_x = View(in.transcript_msm_intermediate_x);
+    const auto transcript_msm_y = View(in.transcript_msm_intermediate_y);
+    const auto transcript_Px = View(in.transcript_Px);
+    const auto transcript_Py = View(in.transcript_Py);
+    const auto is_accumulator_empty = -View(in.transcript_accumulator_not_empty) + 1;
+    const auto lagrange_first = View(in.lagrange_first);
+    const auto lagrange_last = View(in.lagrange_last);
+    const auto is_accumulator_empty_shift = -View(in.transcript_accumulator_not_empty_shift) + 1;
+    const auto q_reset_accumulator = View(in.transcript_reset_accumulator);
+    const auto lagrange_second = View(in.lagrange_second);
+    const auto transcript_Pinfinity = View(in.transcript_base_infinity);
+    const auto transcript_Px_inverse = View(in.transcript_base_x_inverse);
+    const auto transcript_Py_inverse = View(in.transcript_base_y_inverse);
+    const auto transcript_add_x_equal = View(in.transcript_add_x_equal);
+    const auto transcript_add_y_equal = View(in.transcript_add_y_equal);
+    const auto transcript_add_lambda = View(in.transcript_add_lambda);
+    const auto transcript_msm_infinity = View(in.transcript_msm_infinity);
 
-    auto is_not_first_row = (-lagrange_first + 1);
-    auto is_not_last_row = (-lagrange_last + 1);
-    auto is_not_first_or_last_row = (-lagrange_first + -lagrange_last + 1);
-    auto is_not_infinity = (-transcript_Pinfinity + 1);
+    const auto is_not_first_row = (-lagrange_first + 1);
+    const auto is_not_last_row = (-lagrange_last + 1);
+    const auto is_not_first_or_last_row = (-lagrange_first + -lagrange_last + 1);
+    const auto is_not_infinity = (-transcript_Pinfinity + 1);
     /**
      * @brief Validate correctness of z1_zero, z2_zero.
      * If z1_zero = 0 and operation is a MUL, we will write a scalar mul instruction into our multiplication table.
@@ -166,7 +166,7 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
     auto msm_count_zero_at_transition_check = msm_count_zero_at_transition * msm_count_total;
     msm_count_zero_at_transition_check +=
         (msm_count_total * msm_count_at_transition_inverse - 1) * (-msm_count_zero_at_transition + 1); // degree 4
-    // forces that `msm_count_zero_at_transition` to have the following property at a syntactic transition: if
+    // forces `msm_count_zero_at_transition` to have the following property at a syntactic transition: if
     // `msm_count_zero_at_transition == 1`, then `msm_count_total == 0`. else if `msm_count_zero_at_transition == 0`,
     // then `msm_count_total != 0` and is in fact the inverse of `msm_count_at_transition_inverse` (which is a witness
     // column).
