@@ -18,7 +18,7 @@ auto& engine = numeric::get_debug_randomness();
 }
 
 /**
- * @brief Verify ECDSA signature. Produces unsatisfiable constraints if signature fails
+ * @brief Verify ECDSA signature. Returns bool_t(true/false) depending on whether the signature is valid or not.
  *
  * @details Fix the following notation:
  *  1. \f$E\f$ is an elliptic curve over the base field \f$\mathbb{F}_q\f$.
@@ -43,85 +43,9 @@ auto& engine = numeric::get_debug_randomness();
  * do not handle the recovery byte. The signature which is the input to the verification function is given by \$(r,s)\$.
  * The users of the verification function should handle the recovery byte if that is in their interest.
  *
- * @tparam Builder
- * @tparam Curve
- * @tparam Fq
- * @tparam Fr
- * @tparam G1
- * @param message
- * @param public_key
- * @param sig
- * @return bool_t<Builder>
- */
-template <typename Builder, typename Curve, typename Fq, typename Fr, typename G1>
-bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& message,
-                                       const G1& public_key,
-                                       const ecdsa_signature<Builder>& sig)
-{
-    Builder* ctx = message.get_context() ? message.get_context() : public_key.x.context;
-
-    stdlib::byte_array<Builder> hashed_message =
-        static_cast<stdlib::byte_array<Builder>>(stdlib::SHA256<Builder>::hash(message));
-
-    Fr z(hashed_message);
-    z.assert_is_in_field();
-
-    Fr r(sig.r);
-    // force r to be < secp256k1 group modulus, so we can compare with `result_mod_r` below
-    r.assert_is_in_field();
-
-    Fr s(sig.s);
-
-    // r and s should not be zero
-    r.assert_is_not_equal(Fr::zero());
-    s.assert_is_not_equal(Fr::zero());
-
-    // s should be less than |Fr| / 2
-    // Read more about this at: https://www.derpturkey.com/inherent-malleability-of-ecdsa-signatures/amp/
-    s.assert_less_than((Fr::modulus + 1) / 2);
-
-    // We already checked that s is nonzero
-    Fr u1 = z.div_without_denominator_check(s);
-    Fr u2 = r.div_without_denominator_check(s);
-
-    public_key.validate_on_curve();
-
-    G1 result;
-    // TODO(Cody): Having Plookup should not determine which curve is used.
-    // Use special plookup secp256k1 ECDSA mul if available (this relies on k1 endomorphism, and cannot be used for
-    // other curves)
-    if constexpr (Curve::type == bb::CurveType::SECP256K1) {
-        result = G1::secp256k1_ecdsa_mul(public_key, u1, u2);
-    } else {
-        result = G1::batch_mul({ G1::one(ctx), public_key }, { u1, u2 });
-    }
-    result.x.self_reduce();
-
-    // transfer Fq value x to an Fr element and reduce mod r
-    Fr result_mod_r(ctx, 0);
-    result_mod_r.binary_basis_limbs[0].element = result.x.binary_basis_limbs[0].element;
-    result_mod_r.binary_basis_limbs[1].element = result.x.binary_basis_limbs[1].element;
-    result_mod_r.binary_basis_limbs[2].element = result.x.binary_basis_limbs[2].element;
-    result_mod_r.binary_basis_limbs[3].element = result.x.binary_basis_limbs[3].element;
-    result_mod_r.binary_basis_limbs[0].maximum_value = result.x.binary_basis_limbs[0].maximum_value;
-    result_mod_r.binary_basis_limbs[1].maximum_value = result.x.binary_basis_limbs[1].maximum_value;
-    result_mod_r.binary_basis_limbs[2].maximum_value = result.x.binary_basis_limbs[2].maximum_value;
-    result_mod_r.binary_basis_limbs[3].maximum_value = result.x.binary_basis_limbs[3].maximum_value;
-
-    result_mod_r.prime_basis_limb = result.x.prime_basis_limb;
-
-    result_mod_r.assert_is_in_field();
-
-    result_mod_r.binary_basis_limbs[0].element.assert_equal(r.binary_basis_limbs[0].element);
-    result_mod_r.binary_basis_limbs[1].element.assert_equal(r.binary_basis_limbs[1].element);
-    result_mod_r.binary_basis_limbs[2].element.assert_equal(r.binary_basis_limbs[2].element);
-    result_mod_r.binary_basis_limbs[3].element.assert_equal(r.binary_basis_limbs[3].element);
-    result_mod_r.prime_basis_limb.assert_equal(r.prime_basis_limb);
-    return bool_t<Builder>(ctx, true);
-}
-
-/**
- * @brief Verify ECDSA signature. Returns 0 if signature fails (i.e. does not produce unsatisfiable constraints)
+ * @note This function verifies that `sig` is a valid signature for the public key `public_key`. The function returns
+ * an in-circuit boolean value which bears witness to whether the signature verification was successfull or not. The
+ * boolean is NOT constrained to be equal to bool_t(true).
  *
  * @tparam Builder
  * @tparam Curve
@@ -134,67 +58,81 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& messag
  * @return bool_t<Builder>
  */
 template <typename Builder, typename Curve, typename Fq, typename Fr, typename G1>
-bool_t<Builder> ecdsa_verify_signature_prehashed_message_noassert(const stdlib::byte_array<Builder>& hashed_message,
-                                                                  const G1& public_key,
-                                                                  const ecdsa_signature<Builder>& sig)
+bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed_message,
+                                       const G1& public_key,
+                                       const ecdsa_signature<Builder>& sig)
 {
-    Builder* ctx = hashed_message.get_context() ? hashed_message.get_context() : public_key.x.context;
+    bool message_is_not_constant = hashed_message.get_context() != nullptr;
+    bool public_key_is_not_constant = public_key.get_context() != nullptr;
+    bool sig_is_not_constant = sig.get_context() != nullptr;
+    BB_ASSERT_EQ(message_is_not_constant || public_key_is_not_constant || sig_is_not_constant,
+                 true,
+                 "At least one of the inputs should be non-constant.");
 
+    Builder* ctx = nullptr;
+    if (message_is_not_constant) {
+        ctx = hashed_message.get_context();
+    } else if (public_key_is_not_constant) {
+        ctx = public_key.get_context();
+    } else if (sig_is_not_constant) {
+        ctx = sig.get_context();
+    } else {
+        throw_or_abort(
+            "At least one of the inputs passed should be non-constant. Assert failed to catch this condition.");
+    }
+
+    // Turn the hashed message into an element of Fr
+    // The assertion means that an honest prover has a small probability of not being able to generate a valid proof if
+    // H(m) > n. Enforcing this condition introduces a small number of gates, and ensures that signatures cannot be
+    // forged by finding a collision of H modulo n. While finding such a collision is supposed to be hard even modulo n,
+    // we protect against this case with this cheap check.
     Fr z(hashed_message);
     z.assert_is_in_field();
 
-    Fr r(sig.r);
-    // force r to be < secp256k1 group modulus, so we can compare with `result_mod_r` below
-    r.assert_is_in_field();
-
-    Fr s(sig.s);
-
-    // r and s should not be zero
-    r.assert_is_not_equal(Fr::zero());
-    s.assert_is_not_equal(Fr::zero());
-
-    // s should be less than |Fr| / 2
-    // Read more about this at: https://www.derpturkey.com/inherent-malleability-of-ecdsa-signatures/amp/
-    s.assert_less_than((Fr::modulus + 1) / 2);
-
-    Fr u1 = z / s;
-    Fr u2 = r / s;
-
+    // Step 1.
     public_key.validate_on_curve();
 
+    // Step 2.
+    Fr r(sig.r);
+    r.assert_is_in_field();            // r < n
+    r.assert_is_not_equal(Fr::zero()); // 0 < r
+
+    // Step 3.
+    Fr s(sig.s);
+    s.assert_less_than((Fr::modulus + 1) / 2); // s < (n+1) / 2
+    s.assert_is_not_equal(Fr::zero());         // 0 < s
+
+    // Step 4.
+    Fr u1 = z.div_without_denominator_check(s);
+    Fr u2 = r.div_without_denominator_check(s);
+
     G1 result;
-    // Use special plookup secp256k1 ECDSA mul if available (this relies on k1 endomorphism, and cannot be used for
-    // other curves)
     if constexpr (Curve::type == bb::CurveType::SECP256K1) {
         result = G1::secp256k1_ecdsa_mul(public_key, u1, u2);
     } else {
         result = G1::batch_mul({ G1::one(ctx), public_key }, { u1, u2 });
     }
-    result.x.self_reduce();
 
-    // transfer Fq value x to an Fr element and reduce mod r
-    Fr result_mod_r(ctx, 0);
-    result_mod_r.binary_basis_limbs[0].element = result.x.binary_basis_limbs[0].element;
-    result_mod_r.binary_basis_limbs[1].element = result.x.binary_basis_limbs[1].element;
-    result_mod_r.binary_basis_limbs[2].element = result.x.binary_basis_limbs[2].element;
-    result_mod_r.binary_basis_limbs[3].element = result.x.binary_basis_limbs[3].element;
-    result_mod_r.binary_basis_limbs[0].maximum_value = result.x.binary_basis_limbs[0].maximum_value;
-    result_mod_r.binary_basis_limbs[1].maximum_value = result.x.binary_basis_limbs[1].maximum_value;
-    result_mod_r.binary_basis_limbs[2].maximum_value = result.x.binary_basis_limbs[2].maximum_value;
-    result_mod_r.binary_basis_limbs[3].maximum_value = result.x.binary_basis_limbs[3].maximum_value;
+    // Step 5.
+    // TODO(federicobarbacovi): Confirm with Suyash usage is correct!
+    result.is_point_at_infinity().assert_equal(bool_t<Builder>(false));
 
-    result_mod_r.prime_basis_limb = result.x.prime_basis_limb;
+    // Transfer Fq value result.x to Fr
+    Fr result_x_mod_r = Fr::unsafe_construct_from_limbs(result.x.binary_basis_limbs[0].element,
+                                                        result.x.binary_basis_limbs[1].element,
+                                                        result.x.binary_basis_limbs[2].element,
+                                                        result.x.binary_basis_limbs[3].element);
 
-    result_mod_r.assert_is_in_field();
+    // Check result.x = r mod n
+    bool_t<Builder> is_signature_valid = result_x_mod_r == r;
 
-    bool_t<Builder> output(ctx, true);
-    output &= result_mod_r.binary_basis_limbs[0].element == (r.binary_basis_limbs[0].element);
-    output &= result_mod_r.binary_basis_limbs[1].element == (r.binary_basis_limbs[1].element);
-    output &= result_mod_r.binary_basis_limbs[2].element == (r.binary_basis_limbs[2].element);
-    output &= result_mod_r.binary_basis_limbs[3].element == (r.binary_basis_limbs[3].element);
-    output &= result_mod_r.prime_basis_limb == (r.prime_basis_limb);
+    if (is_signature_valid.get_value()) {
+        vinfo("Signature verification succeeded.");
+    } else {
+        vinfo("Signature verification failed");
+    }
 
-    return output;
+    return is_signature_valid;
 }
 
 /**
@@ -237,11 +175,13 @@ template <typename Builder> void generate_ecdsa_verification_test_circuit(Builde
         typename curve::byte_array_ct message(&builder, message_string);
 
         // Verify ecdsa signature
-        stdlib::ecdsa_verify_signature<Builder,
-                                       curve,
-                                       typename curve::fq_ct,
-                                       typename curve::bigfr_ct,
-                                       typename curve::g1_bigfr_ct>(message, public_key, sig);
+        typename curve::bool_ct result =
+            stdlib::ecdsa_verify_signature<Builder,
+                                           curve,
+                                           typename curve::fq_ct,
+                                           typename curve::bigfr_ct,
+                                           typename curve::g1_bigfr_ct>(message, public_key, sig);
+        result.assert_equal(curve::bool_ct(true));
     }
 }
 
