@@ -181,7 +181,7 @@ template <typename Builder> void generate_ecdsa_verification_test_circuit(Builde
                                            typename curve::fq_ct,
                                            typename curve::bigfr_ct,
                                            typename curve::g1_bigfr_ct>(message, public_key, sig);
-        result.assert_equal(curve::bool_ct(true));
+        result.assert_equal(typename curve::bool_ct(true));
     }
 }
 
