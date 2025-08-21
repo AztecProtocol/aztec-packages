@@ -97,7 +97,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
 
     // The lookup subrelations are "linearly dependent" in the sense that they establish the value of a sum across the
     // entire execution trace rather than a per-row identity.
-    static constexpr std::array<bool, NUM_SUB_RELATION_PER_IDX* NUM_BUS_COLUMNS> SUBRELATION_LINEARLY_INDEPENDENT = {
+    static constexpr std::array<bool, NUM_SUB_RELATION_PER_IDX * NUM_BUS_COLUMNS> SUBRELATION_LINEARLY_INDEPENDENT = {
         INVERSE_SUBREL_LIN_INDEPENDENT, LOOKUP_SUBREL_LIN_INDEPENDENT, READ_TAG_BOOLEAN_CHECK_LIN_INDEPENDENT,
         INVERSE_SUBREL_LIN_INDEPENDENT, LOOKUP_SUBREL_LIN_INDEPENDENT, READ_TAG_BOOLEAN_CHECK_LIN_INDEPENDENT,
         INVERSE_SUBREL_LIN_INDEPENDENT, LOOKUP_SUBREL_LIN_INDEPENDENT, READ_TAG_BOOLEAN_CHECK_LIN_INDEPENDENT
