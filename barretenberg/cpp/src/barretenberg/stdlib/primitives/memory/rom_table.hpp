@@ -18,7 +18,7 @@ template <typename Builder> class rom_table {
     typedef field_t<Builder> field_pt;
 
   public:
-    rom_table(){};
+    rom_table() {};
     rom_table(const std::vector<field_pt>& table_entries);
     rom_table(const rom_table& other);
     rom_table(rom_table&& other);

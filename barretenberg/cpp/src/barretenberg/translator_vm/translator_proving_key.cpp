@@ -193,7 +193,7 @@ void TranslatorProvingKey::split_interleaved_random_coefficients_to_ordered()
     const size_t num_random_values_per_ordered = total_num_random_values / num_ordered_polynomials;
     const size_t remaining_random_values = total_num_random_values % num_ordered_polynomials;
 
-    std::array<FF, NUM_DISABLED_ROWS_IN_SUMCHECK* Flavor::NUM_INTERLEAVED_WIRES* Flavor::INTERLEAVING_GROUP_SIZE>
+    std::array<FF, NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::NUM_INTERLEAVED_WIRES * Flavor::INTERLEAVING_GROUP_SIZE>
         random_values = {};
 
     // Add the random values from all interleaved polynomials to an array

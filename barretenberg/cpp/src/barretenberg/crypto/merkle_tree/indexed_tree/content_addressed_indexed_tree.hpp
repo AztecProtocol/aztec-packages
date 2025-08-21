@@ -71,7 +71,7 @@ class ContentAddressedIndexedTree : public ContentAddressedAppendOnlyTree<Store,
     ContentAddressedIndexedTree(std::unique_ptr<Store> store,
                                 std::shared_ptr<ThreadPool> workers,
                                 const index_t& initial_size)
-        : ContentAddressedIndexedTree(std::move(store), workers, initial_size, std::vector<LeafValueType>()){};
+        : ContentAddressedIndexedTree(std::move(store), workers, initial_size, std::vector<LeafValueType>()) {};
     ContentAddressedIndexedTree(ContentAddressedIndexedTree const& other) = delete;
     ContentAddressedIndexedTree(ContentAddressedIndexedTree&& other) = delete;
     ~ContentAddressedIndexedTree() = default;
