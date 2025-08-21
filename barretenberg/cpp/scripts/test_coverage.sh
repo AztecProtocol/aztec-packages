@@ -30,7 +30,7 @@ for bin in ./build-coverage/bin/*_tests; do
 done
 
 # Generate coverage report with llvm-cov
-llvm-cov-16 show \
+llvm-cov-20 show \
   -instr-profile=build-coverage/coverage.profdata \
   -format=html \
   -output-dir=build-coverage/coverage-report \

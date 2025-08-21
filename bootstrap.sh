@@ -52,10 +52,10 @@ function check_toolchains {
     exit 1
   fi
   # Check clang version.
-  if ! clang++-16 --version | grep "clang version 16." > /dev/null; then
+  if ! clang++-20 --version | grep "clang version 20." > /dev/null; then
     encourage_dev_container
     echo "clang 16 not installed."
-    echo "Installation: sudo apt install clang-16"
+    echo "Installation: sudo apt install clang-20"
     exit 1
   fi
   # Check rustup installed.
