@@ -19,7 +19,7 @@ namespace {
 class ClientIVCBench : public benchmark::Fixture {
   public:
     // Number of function circuits to accumulate (based on Zac's target numbers)
-    static constexpr size_t NUM_ITERATIONS_MEDIUM_COMPLEXITY = 6;
+    static constexpr size_t NUM_ITERATIONS_MEDIUM_COMPLEXITY = 5;
 
     void SetUp([[maybe_unused]] const ::benchmark::State& state) override
     {
@@ -59,7 +59,7 @@ BENCHMARK_DEFINE_F(ClientIVCBench, Full)(benchmark::State& state)
 
     for (auto _ : state) {
         BB_REPORT_OP_COUNT_IN_BENCH(state);
-        perform_ivc_accumulation_rounds(total_num_circuits, ivc, mocked_vks);
+        perform_ivc_accumulation_rounds(NUM_APP_CIRCUITS, ivc, mocked_vks);
         ivc.prove();
     }
 }
@@ -78,7 +78,7 @@ BENCHMARK_DEFINE_F(ClientIVCBench, Ambient_17_in_20)(benchmark::State& state)
 
     for (auto _ : state) {
         BB_REPORT_OP_COUNT_IN_BENCH(state);
-        perform_ivc_accumulation_rounds(total_num_circuits, ivc, mocked_vks, large_first_app);
+        perform_ivc_accumulation_rounds(NUM_APP_CIRCUITS, ivc, mocked_vks, large_first_app);
         ivc.prove();
     }
 }

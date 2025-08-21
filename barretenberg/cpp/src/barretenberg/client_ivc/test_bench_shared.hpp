@@ -35,15 +35,16 @@ bool verify_ivc(ClientIVC::Proof& proof, ClientIVC& ivc)
  *
  * @param NUM_CIRCUITS Number of circuits to accumulate (apps + kernels)
  */
-void perform_ivc_accumulation_rounds(size_t NUM_CIRCUITS,
+void perform_ivc_accumulation_rounds(size_t num_app_circuits,
                                      ClientIVC& ivc,
                                      auto& precomputed_vks,
 
                                      const bool large_first_app = true)
 {
-    BB_ASSERT_EQ(precomputed_vks.size(), NUM_CIRCUITS, "There should be a precomputed VK for each circuit");
 
-    PrivateFunctionExecutionMockCircuitProducer circuit_producer(large_first_app);
+    PrivateFunctionExecutionMockCircuitProducer circuit_producer(num_app_circuits, large_first_app);
+    size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
+    BB_ASSERT_EQ(precomputed_vks.size(), NUM_CIRCUITS, "There should be a precomputed VK for each circuit");
 
     for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
         MegaCircuitBuilder circuit;
