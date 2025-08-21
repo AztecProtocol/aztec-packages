@@ -34,8 +34,6 @@ describe('RemoteSigner integration: Web3Signer (compose)', () => {
 
     chainId = parseInt(L1_CHAIN_ID, 10);
     web3SignerUrl = WEB3_SIGNER_URL;
-
-    console.log({ privateKey, address, chainId, web3SignerUrl });
   });
 
   beforeEach(() => {
