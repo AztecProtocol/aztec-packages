@@ -122,7 +122,11 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
   }
   const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...config };
   const hdAccount = mnemonicToAccount(config.l1Mnemonic || DefaultMnemonic);
-  if (!aztecNodeConfig.publisherPrivateKeys.length || aztecNodeConfig.publisherPrivateKeys[0].getValue() === NULL_KEY) {
+  if (
+    aztecNodeConfig.publisherPrivateKeys == undefined ||
+    !aztecNodeConfig.publisherPrivateKeys.length ||
+    aztecNodeConfig.publisherPrivateKeys[0].getValue() === NULL_KEY
+  ) {
     const privKey = hdAccount.getHdKey().privateKey;
     aztecNodeConfig.publisherPrivateKeys = [new SecretValue(`0x${Buffer.from(privKey!).toString('hex')}` as const)];
   }

@@ -2,7 +2,6 @@ import { type BlobSinkConfig, blobSinkConfigMapping } from '@aztec/blob-sink/cli
 import {
   type L1ReaderConfig,
   type L1TxUtilsConfig,
-  NULL_KEY,
   l1ReaderConfigMappings,
   l1TxUtilsConfigMappings,
 } from '@aztec/ethereum';
@@ -21,7 +20,12 @@ export type TxSenderConfig = L1ReaderConfig & {
   /**
    * The private key to be used by the publisher.
    */
-  publisherPrivateKeys: SecretValue<`0x${string}`>[];
+  publisherPrivateKeys?: SecretValue<`0x${string}`>[];
+
+  /**
+   * Publisher addresses to be used with a remote signer
+   */
+  publisherAddresses?: EthAddress[];
 
   /**
    * The address of the custom forwarder contract.
@@ -57,6 +61,12 @@ export const getTxSenderConfigMappings: (
     defaultValue: [],
     fallback: scope === 'PROVER' ? ['PROVER_PUBLISHER_PRIVATE_KEY'] : ['SEQ_PUBLISHER_PRIVATE_KEY'],
   },
+  publisherAddresses: {
+    env: scope === 'PROVER' ? `PROVER_PUBLISHER_ADDRESSES` : `SEQ_PUBLISHER_ADDRESSES`,
+    description: 'The addresses of the publishers to use with remote signers',
+    parseEnv: (val: string) => val.split(',').map(address => EthAddress.fromString(address)),
+    defaultValue: [],
+  },
 });
 
 export function getTxSenderConfigFromEnv(scope: 'PROVER' | 'SEQ'): Omit<TxSenderConfig, 'l1Contracts'> {
@@ -78,15 +88,4 @@ export const getPublisherConfigMappings: (
 
 export function getPublisherConfigFromEnv(scope: 'PROVER' | 'SEQ'): PublisherConfig {
   return getConfigFromMappings(getPublisherConfigMappings(scope));
-}
-
-export function getPublisherPrivateKeysFromConfig(config: TxSenderConfig) {
-  const { publisherPrivateKeys } = config;
-  if (publisherPrivateKeys.length === 0) {
-    throw new Error('Publisher private keys are required in the configuration.');
-  }
-  if (publisherPrivateKeys.some(k => k.getValue() === NULL_KEY)) {
-    throw new Error('Invalid publisher private keys found in configuration.');
-  }
-  return publisherPrivateKeys;
 }

@@ -6,6 +6,7 @@ import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config
 import {
   type EthAccount,
   type EthAddressHex,
+  type EthRemoteSignerAccount,
   type KeyStore,
   type KeyStoreConfig,
   keyStoreConfigMappings,
@@ -124,7 +125,38 @@ export function getProverNodeAgentConfigFromEnv(): ProverAgentConfig & BBConfig 
   };
 }
 
-export function createKeyStoreForProver(config: ProverNodeConfig) {
+function createKeyStoreFromWeb3Signer(config: ProverNodeConfig) {
+  // See what we have been given for proverId.
+  const proverId = config.proverId ? (config.proverId.toString() as EthAddressHex) : undefined;
+
+  // If we don't have a valid prover Id then we can't build a valid key store with remote signers
+  if (proverId === undefined) {
+    return undefined;
+  }
+
+  // Also, we need at least one publisher address.
+  const publishers = config.publisherAddresses
+    ? config.publisherAddresses.map(k => k.toChecksumString() as EthRemoteSignerAccount)
+    : [];
+
+  if (publishers.length === 0) {
+    return undefined;
+  }
+
+  const keyStore: KeyStore = {
+    schemaVersion: 1,
+    slasher: undefined,
+    prover: {
+      id: proverId,
+      publisher: publishers,
+    },
+    remoteSigner: config.web3SignerUrl,
+    validators: undefined,
+  };
+  return keyStore;
+}
+
+function createKeyStoreFromPublisherKeys(config: ProverNodeConfig) {
   // Extract the publisher keys from the provided config.
   const publisherKeys = config.publisherPrivateKeys
     ? config.publisherPrivateKeys.map(k => k.getValue() as EthAddressHex)
@@ -155,4 +187,12 @@ export function createKeyStoreForProver(config: ProverNodeConfig) {
     validators: undefined,
   };
   return keyStore;
+}
+
+export function createKeyStoreForProver(config: ProverNodeConfig) {
+  if (config.web3SignerUrl !== undefined && config.web3SignerUrl.length > 0) {
+    return createKeyStoreFromWeb3Signer(config);
+  }
+
+  return createKeyStoreFromPublisherKeys(config);
 }

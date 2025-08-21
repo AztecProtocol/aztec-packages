@@ -11,6 +11,7 @@ import {
   type AztecAddressHex,
   type EthAddressHex,
   type EthPrivateKey,
+  type EthRemoteSignerAccount,
   type Hex,
   type KeyStore,
   type KeyStoreConfig,
@@ -94,7 +95,48 @@ export function getConfigEnvVars(): AztecNodeConfig {
   return getConfigFromMappings<AztecNodeConfig>(aztecNodeConfigMappings);
 }
 
-export function createKeyStoreForValidator(config: TxSenderConfig & ValidatorClientConfig & SequencerClientConfig) {
+type ConfigRequiredToBuildKeyStore = TxSenderConfig & SequencerClientConfig & SharedNodeConfig & ValidatorClientConfig;
+
+function createKeyStoreFromWeb3Signer(config: ConfigRequiredToBuildKeyStore) {
+  const validatorKeyStores: ValidatorKeyStore[] = [];
+
+  if (
+    config.web3SignerUrl === undefined ||
+    config.web3SignerUrl.length === 0 ||
+    config.validatorAddresses === undefined ||
+    config.validatorAddresses.length === 0
+  ) {
+    return undefined;
+  }
+  const coinbase = config.coinbase ? config.coinbase.toString() : config.validatorAddresses[0].toString();
+  const feeRecipient = config.feeRecipient ? config.feeRecipient.toString() : AztecAddress.ZERO.toString();
+
+  const publisherAddresses =
+    config.publisherAddresses && config.publisherAddresses.length > 0
+      ? config.publisherAddresses.map(k => k.toChecksumString() as EthRemoteSignerAccount)
+      : [];
+
+  const attestors = config.validatorAddresses.map(k => k.toChecksumString() as EthRemoteSignerAccount);
+
+  validatorKeyStores.push({
+    attester: attestors,
+    feeRecipient: feeRecipient as AztecAddressHex,
+    coinbase: coinbase as EthAddressHex,
+    remoteSigner: config.web3SignerUrl,
+    publisher: publisherAddresses,
+  });
+
+  const keyStore: KeyStore = {
+    schemaVersion: 1,
+    slasher: undefined,
+    prover: undefined,
+    remoteSigner: undefined,
+    validators: validatorKeyStores,
+  };
+  return keyStore;
+}
+
+function createKeyStoreFromPrivateKeys(config: ConfigRequiredToBuildKeyStore) {
   const validatorKeyStores: ValidatorKeyStore[] = [];
   const ethPrivateKeys: EthPrivateKey[] = [];
   const validatorKeys = config.validatorPrivateKeys ? config.validatorPrivateKeys.getValue() : [];
@@ -111,7 +153,7 @@ export function createKeyStoreForValidator(config: TxSenderConfig & ValidatorCli
   const feeRecipient = config.feeRecipient ? config.feeRecipient.toString() : AztecAddress.ZERO.toString();
 
   const publisherKeys = config.publisherPrivateKeys
-    ? config.publisherPrivateKeys.map(k => k.getValue() as EthAddressHex)
+    ? config.publisherPrivateKeys.map(k => k.getValue() as EthPrivateKey)
     : [];
 
   validatorKeyStores.push({
@@ -130,4 +172,12 @@ export function createKeyStoreForValidator(config: TxSenderConfig & ValidatorCli
     validators: validatorKeyStores,
   };
   return keyStore;
+}
+
+export function createKeyStoreForValidator(config: TxSenderConfig & SequencerClientConfig & SharedNodeConfig) {
+  if (config.web3SignerUrl !== undefined && config.web3SignerUrl.length > 0) {
+    return createKeyStoreFromWeb3Signer(config);
+  }
+
+  return createKeyStoreFromPrivateKeys(config);
 }
