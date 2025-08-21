@@ -67,6 +67,14 @@ spec:
               privateKey: "$pk"
               EOF
               done
+
+              prover_publisher=$(cast wallet private-key "$MNEMONIC" --mnemonic-index {{ .Values.aztec.proverKeyIndexStart }})
+              cat >> "$KS_FILE" <<EOF
+              ---
+              type: file-raw
+              keyType: SECP256K1
+              privateKey: "$prover_publisher"
+              EOF
           env:
             - name: MNEMONIC
               value: {{ .Values.aztec.l1DeploymentMnemonic | quote }}
