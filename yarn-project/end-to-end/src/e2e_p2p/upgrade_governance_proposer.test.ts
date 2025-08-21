@@ -12,7 +12,7 @@ import { jest } from '@jest/globals';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { getAddress, getContract } from 'viem';
+import { encodeFunctionData, getAddress, getContract } from 'viem';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
@@ -181,11 +181,16 @@ describe('e2e_p2p_governance_proposer', () => {
     await waitL1Block();
 
     t.logger.info(`Submitting winner of round ${govData.round}`);
-    const txHash = await governanceProposer.write.submitRoundWinner([govData.round], {
-      account: emperor,
-      gas: 1_000_000n,
+
+    await l1TxUtils.sendAndMonitorTransaction({
+      to: governanceProposer.address,
+      data: encodeFunctionData({
+        abi: GovernanceProposerAbi,
+        functionName: 'submitRoundWinner',
+        args: [govData.round],
+      }),
     });
-    await t.ctx.deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: txHash });
+
     t.logger.info(`Submitted winner of round ${govData.round}`);
 
     const proposal = await governance.read.getProposal([0n]);
@@ -203,7 +208,7 @@ describe('e2e_p2p_governance_proposer', () => {
 
     const proposalState = await governance.read.getProposal([0n]);
     t.logger.info(`Proposal state`, proposalState);
-    400000000000000000000;
+
     const timeToExecutable = timeToActive + proposal.config.votingDuration + proposal.config.executionDelay + 1n;
     t.logger.info(`Warping to ${timeToExecutable}`);
     await t.ctx.cheatCodes.eth.warp(Number(timeToExecutable));

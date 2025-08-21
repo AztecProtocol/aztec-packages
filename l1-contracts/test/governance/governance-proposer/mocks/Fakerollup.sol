@@ -3,8 +3,9 @@ pragma solidity >=0.8.27;
 
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {TestConstants} from "../../../harnesses/TestConstants.sol";
+import {IHaveVersion} from "@aztec/governance/interfaces/IRegistry.sol";
 
-contract Fakerollup {
+contract Fakerollup is IHaveVersion {
   using TimeLib for Slot;
   using TimeLib for Timestamp;
 
