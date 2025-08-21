@@ -28,6 +28,7 @@ struct Index {
 // AddressSnapshotLib
 error AddressSnapshotLib__IndexOutOfBounds(uint256 index, uint256 size); // 0xd789b71a
 error AddressSnapshotLib__AddressNotInSet(address addr);
+error AddressSnapshotLib__CannotAddAddressZero();
 
 /**
  * @title AddressSnapshotLib
@@ -52,6 +53,7 @@ library AddressSnapshotLib {
    * @return bool True if the address was added, false if it was already present
    */
   function add(SnapshottedAddressSet storage _self, address _address) internal returns (bool) {
+    require(_address != address(0), AddressSnapshotLib__CannotAddAddressZero());
     // Prevent against double insertion
     if (_self.addressToCurrentIndex[_address].exists) {
       return false;
