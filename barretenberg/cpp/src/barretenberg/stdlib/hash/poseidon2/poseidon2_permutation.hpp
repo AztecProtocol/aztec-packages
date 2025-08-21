@@ -15,8 +15,9 @@
 
 namespace bb::stdlib {
 
-template <typename Params, typename Builder> class Poseidon2Permutation {
+template <typename Builder> class Poseidon2Permutation {
   public:
+    using Params = crypto::Poseidon2Bn254ScalarFieldParams;
     using NativePermutation = crypto::Poseidon2Permutation<Params>;
     // t = sponge permutation size (in field elements)
     // t = rate + capacity

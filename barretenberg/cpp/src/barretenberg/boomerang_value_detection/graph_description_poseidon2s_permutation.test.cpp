@@ -20,7 +20,7 @@ auto& engine = numeric::get_debug_randomness();
 
 using Params = crypto::Poseidon2Bn254ScalarFieldParams;
 using Builder = UltraCircuitBuilder;
-using Permutation = stdlib::Poseidon2Permutation<Params, Builder>;
+using Permutation = stdlib::Poseidon2Permutation<Builder>;
 using field_t = stdlib::field_t<Builder>;
 using witness_t = stdlib::witness_t<Builder>;
 using _curve = stdlib::bn254<Builder>;

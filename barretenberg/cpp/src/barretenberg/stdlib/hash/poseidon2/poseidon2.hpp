@@ -26,7 +26,7 @@ template <typename Builder> class poseidon2 {
     using field_ct = stdlib::field_t<Builder>;
     using bool_ct = stdlib::bool_t<Builder>;
     using Params = crypto::Poseidon2Bn254ScalarFieldParams;
-    using Permutation = Poseidon2Permutation<Params, Builder>;
+    using Permutation = Poseidon2Permutation<Builder>;
     // We choose our rate to be t-1 and capacity to be 1.
     using Sponge = FieldSponge<Params::t - 1, 1, Params::t, Permutation, Builder>;
 

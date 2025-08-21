@@ -20,9 +20,9 @@ namespace bb::stdlib {
  * @param input
  * @return State
  */
-template <typename Params, typename Builder>
-typename Poseidon2Permutation<Params, Builder>::State Poseidon2Permutation<Params, Builder>::permutation(
-    Builder* builder, const typename Poseidon2Permutation<Params, Builder>::State& input)
+template <typename Builder>
+typename Poseidon2Permutation<Builder>::State Poseidon2Permutation<Builder>::permutation(
+    Builder* builder, const typename Poseidon2Permutation<Builder>::State& input)
 {
     // deep copy
     State current_state(input);
@@ -124,9 +124,8 @@ typename Poseidon2Permutation<Params, Builder>::State Poseidon2Permutation<Param
  * @param builder
  * @param state
  */
-template <typename Params, typename Builder>
-void Poseidon2Permutation<Params, Builder>::matrix_multiplication_external(
-    typename Poseidon2Permutation<Params, Builder>::State& state)
+template <typename Builder>
+void Poseidon2Permutation<Builder>::matrix_multiplication_external(typename Poseidon2Permutation<Builder>::State& state)
 {
     // create the 6 gates for the initial matrix multiplication
     // gate 1: Compute tmp1 = state[0] + state[1] + 2 * state[3]
@@ -150,7 +149,7 @@ void Poseidon2Permutation<Params, Builder>::matrix_multiplication_external(
            state[3].is_normalized());
 }
 
-template class Poseidon2Permutation<crypto::Poseidon2Bn254ScalarFieldParams, MegaCircuitBuilder>;
-template class Poseidon2Permutation<crypto::Poseidon2Bn254ScalarFieldParams, UltraCircuitBuilder>;
+template class Poseidon2Permutation<MegaCircuitBuilder>;
+template class Poseidon2Permutation<UltraCircuitBuilder>;
 
 } // namespace bb::stdlib

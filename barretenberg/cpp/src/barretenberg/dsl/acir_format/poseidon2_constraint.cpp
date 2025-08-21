@@ -29,7 +29,7 @@ template <typename Builder> void create_poseidon2_permutations(Builder& builder,
         state[i] = to_field_ct(constraint.state[i], builder);
     }
     State output_state;
-    output_state = stdlib::Poseidon2Permutation<Poseidon2Params, Builder>::permutation(&builder, state);
+    output_state = stdlib::Poseidon2Permutation<Builder>::permutation(&builder, state);
     for (size_t i = 0; i < output_state.size(); ++i) {
         poly_triple assert_equal{
             .a = output_state[i].normalize().witness_index,
