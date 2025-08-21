@@ -32,9 +32,7 @@ template <typename... Ts> size_t hash_as_tuple(const Ts&... ts)
 // Define std::hash for any type that has a hash() method.
 template <typename T>
 concept Hashable = requires(const T& t) {
-    {
-        t.hash()
-    } -> std::same_as<std::size_t>;
+    { t.hash() } -> std::same_as<std::size_t>;
 };
 
 template <Hashable T> struct std::hash<T> {

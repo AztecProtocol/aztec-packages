@@ -33,13 +33,13 @@ std::size_t peak_rss_bytes()
         return static_cast<std::size_t>(pmc.PeakWorkingSetSize);
 
 #elif defined(__APPLE__) || defined(__FreeBSD__)
-    struct rusage usage {};
+    struct rusage usage{};
     if (getrusage(RUSAGE_SELF, &usage) == 0)
         // ru_maxrss is already bytes on macOS / BSD
         return static_cast<std::size_t>(usage.ru_maxrss);
 
 #elif defined(__linux__)
-    struct rusage usage {};
+    struct rusage usage{};
     if (getrusage(RUSAGE_SELF, &usage) == 0)
         // ru_maxrss is kilobytes on Linux → convert to bytes
         return static_cast<std::size_t>(usage.ru_maxrss) * 1024ULL;
