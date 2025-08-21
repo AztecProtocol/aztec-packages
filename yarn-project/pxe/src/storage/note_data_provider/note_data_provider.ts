@@ -270,7 +270,7 @@ export class NoteDataProvider implements DataProvider {
     return result;
   }
 
-  removeNullifiedNotes(nullifiers: InBlock<Fr>[], recipient: AztecAddress): Promise<NoteDao[]> {
+  removeNullifiedNotes(nullifiers: InBlock<Fr>[]): Promise<NoteDao[]> {
     if (nullifiers.length === 0) {
       return Promise.resolve([]);
     }
@@ -292,9 +292,6 @@ export class NoteDataProvider implements DataProvider {
         }
         const noteScopes = (await toArray(this.#notesToScope.getValuesAsync(noteIndex))) ?? [];
         const note = NoteDao.fromBuffer(noteBuffer);
-        if (!note.recipient.equals(recipient)) {
-          throw new Error("Tried to nullify someone else's note");
-        }
 
         nullifiedNotes.push(note);
 

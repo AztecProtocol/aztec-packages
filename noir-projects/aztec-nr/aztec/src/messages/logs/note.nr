@@ -33,51 +33,75 @@ pub fn compute_note_log<Note>(
 where
     Note: NoteType + Packable,
 {
-    compute_log(note, storage_slot, recipient, PRIVATE_NOTE_MSG_TYPE_ID)
+    let message_plaintext = private_note_to_message_plaintext(note, storage_slot);
+    let message_ciphertext = AES128::encrypt_log(message_plaintext, recipient);
+
+    prefix_with_tag(message_ciphertext, recipient)
 }
 
-pub fn compute_partial_note_log<Note>(
-    note: Note,
+pub fn compute_partial_note_private_content_log<PartialNotePrivateContent>(
+    partial_note_private_content: PartialNotePrivateContent,
     storage_slot: Field,
     recipient: AztecAddress,
 ) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
 where
-    Note: NoteType + Packable,
+    PartialNotePrivateContent: NoteType + Packable,
 {
-    compute_log(
-        note,
+    let message_plaintext = partial_note_private_content_to_message_plaintext(
+        partial_note_private_content,
         storage_slot,
-        recipient,
+    );
+    let message_ciphertext = AES128::encrypt_log(message_plaintext, recipient);
+
+    prefix_with_tag(message_ciphertext, recipient)
+}
+
+pub fn partial_note_private_content_to_message_plaintext<PartialNotePrivateContent>(
+    partial_note_private_content: PartialNotePrivateContent,
+    storage_slot: Field,
+) -> [Field; <PartialNotePrivateContent as Packable>::N + 2]
+where
+    PartialNotePrivateContent: NoteType + Packable,
+{
+    let packed_private_content = partial_note_private_content.pack();
+
+    // A partial note message's content is the storage slot followed by the packed private content representation
+    let mut msg_content = [0; 1 + <PartialNotePrivateContent as Packable>::N];
+    msg_content[0] = storage_slot;
+    for i in 0..packed_private_content.len() {
+        msg_content[1 + i] = packed_private_content[i];
+    }
+
+    encode_message(
         PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID,
+        // Notes use the note type id for metadata
+        PartialNotePrivateContent::get_id() as u64,
+        msg_content,
     )
 }
 
-fn compute_log<Note>(
+pub fn private_note_to_message_plaintext<Note>(
     note: Note,
     storage_slot: Field,
-    recipient: AztecAddress,
-    msg_type: u64,
-) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
+) -> [Field; <Note as Packable>::N + 2]
 where
     Note: NoteType + Packable,
 {
     let packed_note = note.pack();
 
-    // A note message's content is the storage slot followed by the packed note representation
+    // A private note message's content is the storage slot followed by the packed note representation
     let mut msg_content = [0; 1 + <Note as Packable>::N];
     msg_content[0] = storage_slot;
     for i in 0..packed_note.len() {
         msg_content[1 + i] = packed_note[i];
     }
 
-    // Notes use the note type id for metadata
-    let plaintext = encode_message(msg_type, Note::get_id() as u64, msg_content);
-
-    let ciphertext = AES128::encrypt_log(plaintext, recipient);
-
-    let log = prefix_with_tag(ciphertext, recipient);
-
-    log
+    encode_message(
+        PRIVATE_NOTE_MSG_TYPE_ID,
+        // Notes use the note type id for metadata
+        Note::get_id() as u64,
+        msg_content,
+    )
 }
 
 /// Sends an encrypted message to `recipient` with the content of the note, which they will discover when processing

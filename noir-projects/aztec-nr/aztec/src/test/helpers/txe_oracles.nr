@@ -3,7 +3,7 @@ use crate::{context::inputs::PrivateContextInputs, test::helpers::utils::TestAcc
 use protocol_types::{
     abis::function_selector::FunctionSelector,
     address::AztecAddress,
-    constants::CONTRACT_INSTANCE_LENGTH,
+    constants::{CONTRACT_INSTANCE_LENGTH, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX},
     contract_instance::ContractInstance,
     traits::{Deserialize, ToField},
     utils::reader::Reader,
@@ -64,6 +64,9 @@ pub unconstrained fn public_call_new_flow(
 
 #[oracle(txeGetLastBlockTimestamp)]
 pub unconstrained fn get_last_block_timestamp() -> u64 {}
+
+#[oracle(txeGetLastTxEffects)]
+pub unconstrained fn get_last_tx_effects() -> (Field, BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>, BoundedVec<Field, MAX_NULLIFIERS_PER_TX>) {}
 
 #[oracle(txeSetContractAddress)]
 pub unconstrained fn set_contract_address(address: AztecAddress) {}
