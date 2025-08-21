@@ -1,9 +1,12 @@
 ---
-title: Implementing a note in Aztec.nr
+title: Custom Types
 tags: [contracts, notes]
+sidebar_position: 3
 keywords: [implementing note, note]
 description: Learn how to implement custom note types in your Aztec smart contracts.
 ---
+
+Notes are the fundamental data structure in Aztec when working with private state. Using Aztec.nr, developers can define note types which allow flexibility in how notes are stored and nullified.
 
 You may want to create your own note type if you need to use a specific type of private data or struct that is not already implemented in Aztec.nr, or if you want to experiment with custom note hashing and nullifier schemes. For custom hashing and nullifier schemes, use the `#[custom_note]` macro instead of `#[note]`, as it does not automatically derive the `NoteHash` trait.
 
@@ -123,6 +126,6 @@ The `decrement` function works similarly except the `amount` is the number that 
 
 ## Further reading
 
-- [What is `#[note]` actually doing? + functions such as serialize() and deserialize()](../../../../aztec/smart_contracts/functions/attributes.md#implementing-notes)
-- [Macros reference](../../../../developers/reference/smart_contract_reference/macros.md)
-- [Keys, including npk_m_hash (nullifier public key master)](../../../../aztec/concepts/accounts/keys.md)
+- [What is `#[note]` actually doing? + functions such as serialize() and deserialize()](../../../aztec/smart_contracts/functions/attributes.md#implementing-notes)
+- [Macros reference](../../../developers/reference/smart_contract_reference/macros.md)
+- [Keys, including npk_m_hash (nullifier public key master)](../../../aztec/concepts/accounts/keys.md)

@@ -1,7 +1,8 @@
 ---
-title: Authentication Witness
-description: Developer Documentation to use Authentication Witness for authentication actions on Aztec.
+title: Permit Contract Actions
+description: Developer Documentation to use Authentication Witness for authorizing actions by other contracts.
 tags: [accounts, authwit]
+sidebar_position: 7
 ---
 
 This page introduces the authwit library and how you can use it in your Aztec.nr smart contracts. [Skip to the usage](#usage).

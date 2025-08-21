@@ -5,7 +5,7 @@ description: Comprehensive guide to storage management in Aztec smart contracts.
 
 Smart contracts rely on storage, acting as the persistent memory on the blockchain. In Aztec, because of its hybrid, privacy-first architecture, the management of this storage is more complex than other blockchains like Ethereum.
 
-To learn how to define a storage struct, read [this guide](../../../guides/smart_contracts/storage/index.md).
+To learn how to define a storage struct, read [this guide](../../../guides/smart_contracts/storage.md).
 To learn more about storage slots, read [this explainer in the Concepts section](../../../../aztec/concepts/storage/index.md).
 
 You control this storage in Aztec using a struct annotated with `#[storage]`. This struct serves as the housing unit for all your smart contract's state variables - the data it needs to keep track of and maintain.

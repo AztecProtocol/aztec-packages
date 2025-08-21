@@ -1,6 +1,5 @@
 ---
 title: Portals
-sidebar_position: 7
 description: Comprehensive guide to using portals for L1-L2 communication in your Aztec smart contracts.
 ---
 
