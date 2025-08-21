@@ -48,7 +48,7 @@ TEST(SymbolicBool, or)
     ASSERT_EQ(bb::fr(c), zvals);
 }
 
-TEST(SymbolicBool, not )
+TEST(SymbolicBool, not)
 {
     Solver slv("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001");
     bool a = static_cast<bool>(engine.get_random_uint8() & 1);
