@@ -1,6 +1,6 @@
 ---
-title: Compiling a Contract
-sidebar_position: 1
+title: Compile Contracts
+sidebar_position: 7
 tags: [contracts]
 description: Learn how to compile your Noir smart contracts for deployment on Aztec.
 ---
@@ -48,7 +48,7 @@ Read more about interacting with contracts using `aztec.js` [by following this t
 
 ### Aztec.nr interfaces
 
-An Aztec.nr contract can [call a function](./writing_contracts/call_contracts.md) in another contract via `context.call_private_function` or `context.call_public_function`. However, this requires manually assembling the function selector and manually serializing the arguments, which is not type-safe.
+An Aztec.nr contract can [call a function](./call_contracts.md) in another contract via `context.call_private_function` or `context.call_public_function`. However, this requires manually assembling the function selector and manually serializing the arguments, which is not type-safe.
 
 To make this easier, the compiler automatically generates interface structs that expose a convenience method for each function listed in a given contract artifact. These structs are intended to be used from another contract project that calls into the current one.
 

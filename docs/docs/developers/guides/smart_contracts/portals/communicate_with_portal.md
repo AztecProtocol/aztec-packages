@@ -4,7 +4,7 @@ tags: [contracts, portals]
 description: Learn how to communicate with L1 contracts through portals in your Aztec smart contracts.
 ---
 
-Follow the [token bridge tutorial](../../../../../developers/tutorials/codealong/js_tutorials/token_bridge.md) for hands-on experience writing and deploying a Portal contract.
+Follow the [token bridge tutorial](../../../tutorials/codealong/js_tutorials/token_bridge.md) for hands-on experience writing and deploying a Portal contract.
 
 ## Passing data to the rollup
 
@@ -42,7 +42,7 @@ Note that while the `secret` and the `content` are both hashed, they are actuall
 
 ### Token bridge example
 
-Computing the `content` must currently be done manually, as we are still adding a number of bytes utilities. A good example exists within the [Token bridge example (codealong tutorial)](../../../../../developers/tutorials/codealong/js_tutorials/token_bridge.md).
+Computing the `content` must currently be done manually, as we are still adding a number of bytes utilities. A good example exists within the [Token bridge example (codealong tutorial)](../../../tutorials/codealong/js_tutorials/token_bridge.md).
 
 #include_code claim_public /noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr rust
 
