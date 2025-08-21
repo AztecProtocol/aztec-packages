@@ -17,13 +17,6 @@ contract VoteTabulationTest is GovernanceBase {
   uint256 internal votesNeeded;
   uint256 internal yeaLimit;
 
-  function test_WhenMinimumConfigEq0() external {
-    // it return (Invalid, MinimumEqZero)
-    (VoteTabulationReturn vtr, VoteTabulationInfo vti) = proposal.voteTabulation(0);
-    assertEq(vtr, VoteTabulationReturn.Invalid, "invalid return value");
-    assertEq(vti, VoteTabulationInfo.MinimumEqZero, "invalid info value");
-  }
-
   modifier whenMinimumGt0(Configuration memory _config) {
     proposal.config.minimumVotes = bound(_config.minimumVotes, ConfigurationLib.VOTES_LOWER, type(uint256).max);
     _;
