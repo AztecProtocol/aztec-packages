@@ -618,6 +618,50 @@ TEST(AvmSimulationAluTest, NotFFTagError)
                                       .error = AluError::TAG_ERROR }));
 }
 
+TEST(AvmSimulationAluTest, Shl)
+{
+    EventEmitter<AluEvent> alu_event_emitter;
+    StrictMock<MockGreaterThan> gt;
+    StrictMock<MockFieldGreaterThan> field_gt;
+    StrictMock<MockRangeCheck> range_check;
+    Alu alu(gt, field_gt, range_check, alu_event_emitter);
+
+    auto a = MemoryValue::from<uint32_t>(64);
+    auto b = MemoryValue::from<uint32_t>(2);
+
+    EXPECT_CALL(range_check, assert_range(64, 30)).Times(1);
+    EXPECT_CALL(range_check, assert_range(0, 2)).Times(1);
+
+    auto c = alu.shl(a, b);
+
+    EXPECT_EQ(c, MemoryValue::from<uint32_t>(256));
+
+    auto events = alu_event_emitter.dump_events();
+    EXPECT_THAT(events, ElementsAre(AluEvent{ .operation = AluOperation::SHL, .a = a, .b = b, .c = c }));
+}
+
+TEST(AvmSimulationAluTest, Shr)
+{
+    EventEmitter<AluEvent> alu_event_emitter;
+    StrictMock<MockGreaterThan> gt;
+    StrictMock<MockFieldGreaterThan> field_gt;
+    StrictMock<MockRangeCheck> range_check;
+    Alu alu(gt, field_gt, range_check, alu_event_emitter);
+
+    auto a = MemoryValue::from<uint32_t>(64);
+    auto b = MemoryValue::from<uint32_t>(2);
+
+    EXPECT_CALL(range_check, assert_range(0, 2)).Times(1);
+    EXPECT_CALL(range_check, assert_range(16, 30)).Times(1);
+
+    auto c = alu.shr(a, b);
+
+    EXPECT_EQ(c, MemoryValue::from<uint32_t>(16));
+
+    auto events = alu_event_emitter.dump_events();
+    EXPECT_THAT(events, ElementsAre(AluEvent{ .operation = AluOperation::SHR, .a = a, .b = b, .c = c }));
+}
+
 TEST(AvmSimulationAluTest, TruncateTrivial)
 {
     EventEmitter<AluEvent> alu_event_emitter;

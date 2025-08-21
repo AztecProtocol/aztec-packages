@@ -1687,6 +1687,288 @@ TEST_P(AluNotConstrainingTest, AluNotTraceGenTagError)
     check_relation<alu>(trace);
 }
 
+// SHIFT TESTS
+
+const std::vector<MemoryValue> TEST_VALUES_SHL_OUT = {
+    MemoryValue::from_tag(MemoryTag::U1, 1),
+    MemoryValue::from_tag(MemoryTag::U8, 0),
+    MemoryValue::from_tag(MemoryTag::U16, 0),
+    MemoryValue::from_tag(MemoryTag::U32, 0xfffffec0),
+    MemoryValue::from_tag(MemoryTag::U64, 0xfffffffffffffec0ULL),
+    MemoryValue::from_tag(MemoryTag::U128, (uint256_t(1) << 128) - 320), // 0xfffffffffffffffffffffffffffffec0
+};
+
+const std::vector<ThreeOperandTestParams> TEST_VALUES_SHL = zip_helper(TEST_VALUES_SHL_OUT);
+
+class AluShlConstrainingTest : public AluConstrainingTest,
+                               public ::testing::WithParamInterface<ThreeOperandTestParams> {
+  public:
+    TestTraceContainer process_shl_trace(ThreeOperandTestParams params)
+    {
+        auto [a, b, c] = params;
+
+        auto mem_tag = a.get_tag();
+        auto tag = static_cast<uint8_t>(mem_tag);
+        auto tag_bits = get_tag_bits(mem_tag);
+        auto a_num = static_cast<uint128_t>(a.as_ff());
+        auto b_num = static_cast<uint128_t>(b.as_ff());
+
+        auto overflow = b_num > tag_bits;
+        uint128_t shift_lo_bits = overflow ? tag_bits : tag_bits - b_num;
+        uint128_t shift_hi_bits = overflow ? tag_bits : b_num;
+        auto two_pow_shift_lo_bits = static_cast<uint128_t>(1) << shift_lo_bits;
+        auto a_lo = overflow ? b_num - tag_bits : a_num % two_pow_shift_lo_bits;
+        auto a_hi = a_num >> shift_lo_bits;
+
+        auto trace = TestTraceContainer::from_rows({
+            {
+                .alu_a_hi = a_hi,
+                .alu_a_hi_bits = shift_hi_bits,
+                .alu_a_lo = a_lo,
+                .alu_a_lo_bits = shift_lo_bits,
+                .alu_helper1 = 1 << b_num,
+                .alu_ia = a,
+                .alu_ia_tag = tag,
+                .alu_ib = b,
+                .alu_ib_tag = tag,
+                .alu_ic = c,
+                .alu_ic_tag = tag,
+                .alu_max_bits = tag_bits,
+                .alu_max_value = get_tag_max_value(mem_tag),
+                .alu_op_id = AVM_EXEC_OP_ID_ALU_SHL,
+                .alu_sel = 1,
+                .alu_sel_decompose_a = 1,
+                .alu_sel_op_shl = 1,
+                .alu_sel_shift_ops = 1,
+                .alu_sel_shift_ops_no_overflow = overflow ? 0 : 1,
+                .alu_shift_lo_bits = shift_lo_bits,
+                .alu_tag_ff_diff_inv = FF(tag - static_cast<uint8_t>(MemoryTag::FF)).invert(),
+                .alu_two_pow_shift_lo_bits = two_pow_shift_lo_bits,
+                .execution_mem_tag_reg_0_ = tag,                           // = ia_tag
+                .execution_mem_tag_reg_1_ = tag,                           // = ib_tag
+                .execution_mem_tag_reg_2_ = tag,                           // = ic_tag
+                .execution_register_0_ = a,                                // = ia
+                .execution_register_1_ = b,                                // = ib
+                .execution_register_2_ = c,                                // = ic
+                .execution_sel_execute_alu = 1,                            // = sel
+                .execution_subtrace_operation_id = AVM_EXEC_OP_ID_ALU_SHL, // = alu_op_id
+
+            },
+        });
+
+        precomputed_builder.process_misc(trace, std::max(NUM_OF_TAGS, static_cast<uint8_t>(shift_lo_bits + 1)));
+        precomputed_builder.process_tag_parameters(trace);
+        precomputed_builder.process_power_of_2(trace);
+        range_check_builder.process({ { .value = a_lo, .num_bits = static_cast<uint8_t>(shift_lo_bits) },
+                                      { .value = a_hi, .num_bits = static_cast<uint8_t>(shift_hi_bits) } },
+                                    trace);
+
+        return trace;
+    }
+
+    TestTraceContainer process_shl_with_tracegen(ThreeOperandTestParams params)
+    {
+        TestTraceContainer trace;
+        auto [a, b, c] = params;
+        auto b_num = static_cast<uint128_t>(b.as_ff());
+        auto tag_bits = get_tag_bits(a.get_tag());
+        auto overflow = b_num > tag_bits;
+        uint128_t shift_lo_bits = overflow ? tag_bits : tag_bits - b_num;
+        auto a_lo = overflow ? b_num - tag_bits
+                             : static_cast<uint128_t>(a.as_ff()) % (static_cast<uint128_t>(1) << shift_lo_bits);
+
+        builder.process(
+            {
+                { .operation = simulation::AluOperation::SHL, .a = a, .b = b, .c = c },
+            },
+            trace);
+
+        precomputed_builder.process_misc(trace, std::max(NUM_OF_TAGS, static_cast<uint8_t>(shift_lo_bits + 1)));
+        precomputed_builder.process_tag_parameters(trace);
+        precomputed_builder.process_power_of_2(trace);
+        range_check_builder.process({ { .value = a_lo, .num_bits = static_cast<uint8_t>(shift_lo_bits) },
+                                      { .value = static_cast<uint128_t>(a.as_ff()) >> shift_lo_bits,
+                                        .num_bits = static_cast<uint8_t>(overflow ? tag_bits : b_num) } },
+                                    trace);
+        return trace;
+    }
+};
+
+INSTANTIATE_TEST_SUITE_P(AluConstrainingTest, AluShlConstrainingTest, ::testing::ValuesIn(TEST_VALUES_SHL));
+
+TEST_P(AluShlConstrainingTest, AluShl)
+{
+    auto trace = process_shl_trace(GetParam());
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_relation<alu>(trace);
+}
+
+TEST_P(AluShlConstrainingTest, AluShlTraceGen)
+{
+    auto trace = process_shl_with_tracegen(GetParam());
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_relation<alu>(trace);
+}
+
+TEST_F(AluShlConstrainingTest, NegativeAluShlFF)
+{
+    auto a = MemoryValue::from_tag(MemoryTag::FF, 2);
+    auto b = MemoryValue::from_tag(MemoryTag::FF, 5);
+    auto c = MemoryValue::from_tag(MemoryTag::FF, 2 << 5);
+    auto trace = process_shl_with_tracegen({ a, b, c });
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "TAG_ERR_CHECK");
+    // This case should be recoverable, so we set the tag err selectors:
+    trace.set(Column::alu_sel_tag_err, 0, 1);
+    trace.set(Column::alu_sel_err, 0, 1);
+    check_relation<alu>(trace);
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+}
+
+// TODO(MW): More tests
+
+const std::vector<MemoryValue> TEST_VALUES_SHR_OUT = {
+    MemoryValue::from_tag(MemoryTag::U1, 1),
+    MemoryValue::from_tag(MemoryTag::U8, 0),
+    MemoryValue::from_tag(MemoryTag::U16, 0),
+    MemoryValue::from_tag(MemoryTag::U32, 0x7ffffff),
+    MemoryValue::from_tag(MemoryTag::U64, 0x7ffffffffffffffULL),
+    MemoryValue::from_tag(MemoryTag::U128,
+                          (uint256_t(1) << 128) - 1 - (uint256_t(248) << 120)), // 0x7ffffffffffffffffffffffffffffff
+};
+
+const std::vector<ThreeOperandTestParams> TEST_VALUES_SHR = zip_helper(TEST_VALUES_SHR_OUT);
+
+class AluShrConstrainingTest : public AluConstrainingTest,
+                               public ::testing::WithParamInterface<ThreeOperandTestParams> {
+  public:
+    TestTraceContainer process_shr_trace(ThreeOperandTestParams params)
+    {
+        auto [a, b, c] = params;
+
+        auto mem_tag = a.get_tag();
+        auto tag = static_cast<uint8_t>(mem_tag);
+        auto tag_bits = get_tag_bits(mem_tag);
+        auto a_num = static_cast<uint128_t>(a.as_ff());
+        auto b_num = static_cast<uint128_t>(b.as_ff());
+
+        auto overflow = b_num > tag_bits;
+        uint128_t shift_lo_bits = overflow ? tag_bits : b_num;
+        uint128_t shift_hi_bits = overflow ? tag_bits : tag_bits - b_num;
+        auto two_pow_shift_lo_bits = static_cast<uint128_t>(1) << shift_lo_bits;
+        auto a_lo = overflow ? b_num - tag_bits : a_num % two_pow_shift_lo_bits;
+        auto a_hi = a_num >> shift_lo_bits;
+
+        auto trace = TestTraceContainer::from_rows({
+            {
+                .alu_a_hi = a_hi,
+                .alu_a_hi_bits = shift_hi_bits,
+                .alu_a_lo = a_lo,
+                .alu_a_lo_bits = shift_lo_bits,
+                .alu_ia = a,
+                .alu_ia_tag = tag,
+                .alu_ib = b,
+                .alu_ib_tag = tag,
+                .alu_ic = c,
+                .alu_ic_tag = tag,
+                .alu_max_bits = tag_bits,
+                .alu_max_value = get_tag_max_value(mem_tag),
+                .alu_op_id = AVM_EXEC_OP_ID_ALU_SHR,
+                .alu_sel = 1,
+                .alu_sel_decompose_a = 1,
+                .alu_sel_op_shr = 1,
+                .alu_sel_shift_ops = 1,
+                .alu_sel_shift_ops_no_overflow = overflow ? 0 : 1,
+                .alu_shift_lo_bits = shift_lo_bits,
+                .alu_tag_ff_diff_inv = FF(tag - static_cast<uint8_t>(MemoryTag::FF)).invert(),
+                .alu_two_pow_shift_lo_bits = two_pow_shift_lo_bits,
+                .execution_mem_tag_reg_0_ = tag,                           // = ia_tag
+                .execution_mem_tag_reg_1_ = tag,                           // = ib_tag
+                .execution_mem_tag_reg_2_ = tag,                           // = ic_tag
+                .execution_register_0_ = a,                                // = ia
+                .execution_register_1_ = b,                                // = ib
+                .execution_register_2_ = c,                                // = ic
+                .execution_sel_execute_alu = 1,                            // = sel
+                .execution_subtrace_operation_id = AVM_EXEC_OP_ID_ALU_SHR, // = alu_op_id
+
+            },
+        });
+
+        precomputed_builder.process_misc(trace, std::max(NUM_OF_TAGS, static_cast<uint8_t>(shift_lo_bits + 1)));
+        precomputed_builder.process_tag_parameters(trace);
+        precomputed_builder.process_power_of_2(trace);
+        range_check_builder.process({ { .value = a_lo, .num_bits = static_cast<uint8_t>(shift_lo_bits) },
+                                      { .value = a_hi, .num_bits = static_cast<uint8_t>(shift_hi_bits) } },
+                                    trace);
+
+        return trace;
+    }
+
+    TestTraceContainer process_shr_with_tracegen(ThreeOperandTestParams params)
+    {
+        TestTraceContainer trace;
+        auto [a, b, c] = params;
+        auto b_num = static_cast<uint128_t>(b.as_ff());
+        auto tag_bits = get_tag_bits(a.get_tag());
+        auto overflow = b_num > tag_bits;
+        uint128_t shift_lo_bits = overflow ? tag_bits : b_num;
+        auto a_lo = overflow ? b_num - tag_bits
+                             : static_cast<uint128_t>(a.as_ff()) % (static_cast<uint128_t>(1) << shift_lo_bits);
+
+        builder.process(
+            {
+                { .operation = simulation::AluOperation::SHR, .a = a, .b = b, .c = c },
+            },
+            trace);
+
+        precomputed_builder.process_misc(trace, std::max(NUM_OF_TAGS, static_cast<uint8_t>(shift_lo_bits + 1)));
+        precomputed_builder.process_tag_parameters(trace);
+        precomputed_builder.process_power_of_2(trace);
+        range_check_builder.process({ { .value = a_lo, .num_bits = static_cast<uint8_t>(shift_lo_bits) },
+                                      { .value = static_cast<uint128_t>(a.as_ff()) >> shift_lo_bits,
+                                        .num_bits = static_cast<uint8_t>(overflow ? tag_bits : tag_bits - b_num) } },
+                                    trace);
+        return trace;
+    }
+};
+
+INSTANTIATE_TEST_SUITE_P(AluConstrainingTest, AluShrConstrainingTest, ::testing::ValuesIn(TEST_VALUES_SHR));
+
+TEST_P(AluShrConstrainingTest, AluShr)
+{
+    auto trace = process_shr_trace(GetParam());
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_relation<alu>(trace);
+}
+
+TEST_P(AluShrConstrainingTest, AluShrTraceGen)
+{
+    auto trace = process_shr_with_tracegen(GetParam());
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_relation<alu>(trace);
+}
+
+TEST_F(AluShrConstrainingTest, NegativeAluShrFF)
+{
+    auto a = MemoryValue::from_tag(MemoryTag::FF, 2);
+    auto b = MemoryValue::from_tag(MemoryTag::FF, 5);
+    auto c = MemoryValue::from_tag(MemoryTag::FF, 2 << 5);
+    auto trace = process_shr_with_tracegen({ a, b, c });
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "TAG_ERR_CHECK");
+    // This case should be recoverable, so we set the tag err selectors:
+    trace.set(Column::alu_sel_tag_err, 0, 1);
+    trace.set(Column::alu_sel_err, 0, 1);
+    check_relation<alu>(trace);
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+}
+
+// TODO(MW): More tests
+
 // TRUNCATE operation (SET/CAST opcodes)
 
 // Truncation is a special case as we always have FF TaggedValue inputs:
