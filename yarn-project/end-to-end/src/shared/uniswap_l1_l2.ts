@@ -747,7 +747,7 @@ export const uniswapL1L2TestSuite = (
           nonceForSwap,
         );
       const validateActionInteraction = await ownerWallet.setPublicAuthWit({ caller: approvedUser, action }, true);
-      await validateActionInteraction.send({ from: sponsorAddress }).wait();
+      await validateActionInteraction.send({ from: ownerAddress }).wait();
 
       await expect(action.simulate({ from: sponsorAddress })).rejects.toThrow(/unauthorized/);
     });

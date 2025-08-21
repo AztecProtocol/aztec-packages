@@ -6,7 +6,7 @@ cd ..
 # For more verbose logging
 export CI=1
 # Affects meaning of 'native' in bootstrap and run_test.sh
-export NATIVE_PRESET=clang16-coverage
+export NATIVE_PRESET=clang20-coverage
 # target max time of 15 minutes, but timing out at all is painful so bump high
 export TIMEOUT=40m
 ./bootstrap.sh build_native
@@ -30,7 +30,7 @@ for bin in ./build-coverage/bin/*_tests; do
 done
 
 # Generate coverage report with llvm-cov
-llvm-cov-16 show \
+llvm-cov-20 show \
   -instr-profile=build-coverage/coverage.profdata \
   -format=html \
   -output-dir=build-coverage/coverage-report \

@@ -17,7 +17,7 @@ namespace bb::crypto::merkle_tree {
 class Signal {
   public:
     Signal(uint32_t initial_level = 1)
-        : signal_(initial_level){};
+        : signal_(initial_level) {};
     ~Signal() = default;
     Signal(const Signal& other)
         : signal_(other.signal_.load())

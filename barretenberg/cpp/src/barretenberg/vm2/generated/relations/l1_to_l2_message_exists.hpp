@@ -27,50 +27,7 @@ template <typename FF_> class l1_to_l2_message_existsImpl {
     void static accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& in,
                            [[maybe_unused]] const RelationParameters<FF>&,
-                           [[maybe_unused]] const FF& scaling_factor)
-    {
-        using C = ColumnAndShifts;
-
-        PROFILE_THIS_NAME("accumulate/l1_to_l2_message_exists");
-
-        const auto constants_L1_TO_L2_MSG_TREE_LEAF_COUNT = FF(549755813888UL);
-        const auto constants_MEM_TAG_U1 = FF(1);
-
-        {
-            using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_l1_to_l2_msg_leaf_in_range) *
-                       (FF(1) - in.get(C::execution_l1_to_l2_msg_leaf_in_range));
-            tmp *= scaling_factor;
-            std::get<0>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_execute_l1_to_l2_message_exists) *
-                       (in.get(C::execution_l1_to_l2_msg_tree_leaf_count) - constants_L1_TO_L2_MSG_TREE_LEAF_COUNT);
-            tmp *= scaling_factor;
-            std::get<1>(evals) += typename Accumulator::View(tmp);
-        }
-        { // L1_TO_L2_MSG_EXISTS_OUT_OF_RANGE_FALSE
-            using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_execute_l1_to_l2_message_exists) *
-                       (FF(1) - in.get(C::execution_l1_to_l2_msg_leaf_in_range)) * in.get(C::execution_register_2_);
-            tmp *= scaling_factor;
-            std::get<2>(evals) += typename Accumulator::View(tmp);
-        }
-        { // L1_TO_L2_MSG_EXISTS_U1_OUTPUT_TAG
-            using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_execute_l1_to_l2_message_exists) *
-                       (constants_MEM_TAG_U1 - in.get(C::execution_mem_tag_reg_2_));
-            tmp *= scaling_factor;
-            std::get<3>(evals) += typename Accumulator::View(tmp);
-        }
-        { // L1_TO_L2_MSG_EXISTS_SUCCESS
-            using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_execute_l1_to_l2_message_exists) * in.get(C::execution_sel_opcode_error);
-            tmp *= scaling_factor;
-            std::get<4>(evals) += typename Accumulator::View(tmp);
-        }
-    }
+                           [[maybe_unused]] const FF& scaling_factor);
 };
 
 template <typename FF> class l1_to_l2_message_exists : public Relation<l1_to_l2_message_existsImpl<FF>> {
