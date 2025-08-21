@@ -11,7 +11,7 @@ For development, it may be useful to deploy, transact, or create notes in a non-
 - Deploying contracts
 - Sending transactions
 - Bridging L1 "Fee Juice" into Aztec
-- Pushing arbitrary [notes](../../guides/smart_contracts/notes/index.md) to your PXE
+- Pushing arbitrary [notes](../../guides/smart_contracts/custom_types.md) to your PXE
 - Creating [authwits](../../guides/smart_contracts/authwit.md)
 - Aliasing info and secrets for further usage
 - Proving your transactions and profile gate counts

@@ -1,6 +1,5 @@
 ---
 title: Compile Contracts
-sidebar_position: 7
 tags: [contracts]
 description: Learn how to compile your Noir smart contracts for deployment on Aztec.
 ---

@@ -1,7 +1,7 @@
 ---
-title: Calling Other Contracts
-sidebar_position: 4
-tags: [functions, contracts]
+title: Contract Composability
+sidebar_position: 6
+tags: [functions, contracts, composability]
 description: Learn how to call other contracts from your Aztec smart contracts.
 ---
 

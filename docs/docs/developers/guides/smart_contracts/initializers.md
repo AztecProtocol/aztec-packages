@@ -1,6 +1,6 @@
 ---
 title: Defining Initializer Functions
-sidebar_position: 7
+sidebar_position: 5
 tags: [functions, contracts]
 description: Learn how to write and use initializer functions in your Aztec smart contracts.
 ---
