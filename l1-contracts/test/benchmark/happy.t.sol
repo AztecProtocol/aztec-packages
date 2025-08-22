@@ -181,7 +181,8 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       uint256 tallyRoundSize = EPOCH_DURATION * 2; // 64; // 2 * EPOCH_DURATION (32) = 64
       uint256 tallyQuorum = tallyRoundSize / 2 + 1; // Must be > ROUND_SIZE / 2
       builder.setSlasherFlavor(SlasherFlavor.TALLY).setSlashingQuorum(tallyQuorum).setSlashingRoundSize(tallyRoundSize)
-        .setSlashingLifetimeInRounds(5).setSlashingExecutionDelayInRounds(1).setSlashingUnit(1e18);
+        .setSlashingLifetimeInRounds(5).setSlashingExecutionDelayInRounds(1)
+        .setSlashAmountSmall(1e18).setSlashAmountMedium(2e18).setSlashAmountLarge(3e18);
     }
 
     builder.deploy();

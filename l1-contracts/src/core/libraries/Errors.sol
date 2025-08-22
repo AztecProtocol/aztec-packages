@@ -182,7 +182,7 @@ library Errors {
   error TallySlashingProposer__InvalidCommitteeCommitment();
   error TallySlashingProposer__InvalidQuorumAndRoundSize(uint256 quorum, uint256 roundSize);
   error TallySlashingProposer__QuorumMustBeGreaterThanZero();
-  error TallySlashingProposer__SlashingUnitMustBeGreaterThanZero(uint256 slashingUnit);
+  error TallySlashingProposer__InvalidSlashAmounts(uint256[3] slashAmounts);
   error TallySlashingProposer__LifetimeMustBeGreaterThanExecutionDelay(uint256 lifetime, uint256 executionDelay);
   error TallySlashingProposer__LifetimeMustBeLessThanRoundabout(uint256 lifetime, uint256 roundabout);
   error TallySlashingProposer__RoundSizeInEpochsMustBeGreaterThanZero(uint256 roundSizeInEpochs);

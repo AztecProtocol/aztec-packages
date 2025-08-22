@@ -204,8 +204,18 @@ contract RollupBuilder is Test {
     return this;
   }
 
-  function setSlashingUnit(uint256 _slashingUnit) public returns (RollupBuilder) {
-    config.rollupConfigInput.slashingUnit = _slashingUnit;
+  function setSlashAmountSmall(uint256 _slashAmountSmall) public returns (RollupBuilder) {
+    config.rollupConfigInput.slashAmounts[0] = _slashAmountSmall;
+    return this;
+  }
+
+  function setSlashAmountMedium(uint256 _slashAmountMedium) public returns (RollupBuilder) {
+    config.rollupConfigInput.slashAmounts[1] = _slashAmountMedium;
+    return this;
+  }
+
+  function setSlashAmountLarge(uint256 _slashAmountLarge) public returns (RollupBuilder) {
+    config.rollupConfigInput.slashAmounts[2] = _slashAmountLarge;
     return this;
   }
 

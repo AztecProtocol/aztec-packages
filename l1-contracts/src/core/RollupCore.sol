@@ -246,7 +246,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
         _config.slashingRoundSize,
         _config.slashingLifetimeInRounds,
         _config.slashingExecutionDelayInRounds,
-        _config.slashingUnit,
+        _config.slashAmounts,
         _config.targetCommitteeSize,
         _config.aztecEpochDuration,
         _config.slashingOffsetInRounds
