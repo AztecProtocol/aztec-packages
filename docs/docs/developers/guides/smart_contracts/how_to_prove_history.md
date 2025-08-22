@@ -1,6 +1,6 @@
 ---
 title: Prove Historic State
-sidebar_position: 6
+sidebar_position: 7
 tags: [contracts]
 description: Learn how to prove historical state transitions in your Aztec smart contracts.
 ---
