@@ -26,7 +26,7 @@ import { BlockAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
 import { getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
-import { getPrivateKeyFromIndex, setup } from './fixtures/utils.js';
+import { getPrivateKeyFromIndex, setup } from '../fixtures/utils.js';
 
 const VALIDATOR_COUNT = 5;
 const COMMITTEE_SIZE = VALIDATOR_COUNT - 2;
