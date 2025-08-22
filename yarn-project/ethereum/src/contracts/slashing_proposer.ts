@@ -1,7 +1,7 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
-import { SlashingProposerAbi } from '@aztec/l1-artifacts/SlashingProposerAbi';
+import { EmpireSlashingProposerAbi } from '@aztec/l1-artifacts/EmpireSlashingProposerAbi';
 
 import EventEmitter from 'events';
 import {
@@ -26,14 +26,14 @@ export class ProposalAlreadyExecutedError extends Error {
 
 export class SlashingProposerContract extends EventEmitter implements IEmpireBase {
   private readonly logger = createLogger('SlashingProposerContract');
-  private readonly proposer: GetContractReturnType<typeof SlashingProposerAbi, ViemClient>;
+  private readonly proposer: GetContractReturnType<typeof EmpireSlashingProposerAbi, ViemClient>;
 
   constructor(
     public readonly client: ViemClient,
     address: Hex,
   ) {
     super();
-    this.proposer = getContract({ address, abi: SlashingProposerAbi, client });
+    this.proposer = getContract({ address, abi: EmpireSlashingProposerAbi, client });
   }
 
   public get address() {
@@ -169,8 +169,8 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
     if (typeof round === 'number') {
       round = BigInt(round);
     }
-    const args: EncodeFunctionDataParameters<typeof SlashingProposerAbi, 'submitRoundWinner'> = {
-      abi: SlashingProposerAbi,
+    const args: EncodeFunctionDataParameters<typeof EmpireSlashingProposerAbi, 'submitRoundWinner'> = {
+      abi: EmpireSlashingProposerAbi,
       functionName: 'submitRoundWinner',
       args: [round],
     };

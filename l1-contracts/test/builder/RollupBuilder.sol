@@ -10,6 +10,7 @@ import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
 import {EthValue} from "@aztec/core/interfaces/IRollup.sol";
+import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 import {GSE} from "@aztec/governance/GSE.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
@@ -195,6 +196,21 @@ contract RollupBuilder is Test {
 
   function setSlashingExecutionDelayInRounds(uint256 _slashingExecutionDelayInRounds) public returns (RollupBuilder) {
     config.rollupConfigInput.slashingExecutionDelayInRounds = _slashingExecutionDelayInRounds;
+    return this;
+  }
+
+  function setSlashingOffsetInRounds(uint256 _slashingOffsetInRounds) public returns (RollupBuilder) {
+    config.rollupConfigInput.slashingOffsetInRounds = _slashingOffsetInRounds;
+    return this;
+  }
+
+  function setSlashingUnit(uint256 _slashingUnit) public returns (RollupBuilder) {
+    config.rollupConfigInput.slashingUnit = _slashingUnit;
+    return this;
+  }
+
+  function setSlasherFlavor(SlasherFlavor _slasherFlavor) public returns (RollupBuilder) {
+    config.rollupConfigInput.slasherFlavor = _slasherFlavor;
     return this;
   }
 
