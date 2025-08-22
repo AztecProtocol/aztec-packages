@@ -14,7 +14,6 @@ namespace bb::stdlib {
 template <typename Builder> struct ecdsa_signature {
     stdlib::byte_array<Builder> r;
     stdlib::byte_array<Builder> s;
-    stdlib::byte_array<Builder> v; // v is single byte (byte_array of size 1)
 };
 
 template <typename Builder, typename Curve, typename Fq, typename Fr, typename G1>
