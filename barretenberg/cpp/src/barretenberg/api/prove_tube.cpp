@@ -27,11 +27,10 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     auto proof = ClientIVC::Proof::from_file_msgpack(proof_path);
     auto vk = from_buffer<ClientIVC::VerificationKey>(read_file(vk_path));
 
-    auto builder = std::make_shared<Builder>();
+    Builder builder;
+    ClientIVCRecursiveVerifier verifier{ &builder, vk.mega };
 
-    ClientIVCRecursiveVerifier verifier{ builder, vk };
-
-    StdlibProof stdlib_proof(*builder, proof);
+    StdlibProof stdlib_proof(builder, proof);
     ClientIVCRecursiveVerifier::Output client_ivc_rec_verifier_output = verifier.verify(stdlib_proof);
 
     // The public inputs in the proof are propagated to the base rollup by making them public inputs of this circuit.
@@ -49,12 +48,12 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     inputs.set_public();
 
     // The tube only calls an IPA recursive verifier once, so we can just add this IPA proof
-    builder->ipa_proof = client_ivc_rec_verifier_output.ipa_proof.get_value();
-    BB_ASSERT_EQ(builder->ipa_proof.size(), IPA_PROOF_LENGTH, "IPA proof should be set.");
+    builder.ipa_proof = client_ivc_rec_verifier_output.ipa_proof.get_value();
+    BB_ASSERT_EQ(builder.ipa_proof.size(), IPA_PROOF_LENGTH, "IPA proof should be set.");
 
     using Prover = UltraProver_<UltraRollupFlavor>;
     using Verifier = UltraVerifier_<UltraRollupFlavor>;
-    auto proving_key = std::make_shared<DeciderProvingKey_<UltraRollupFlavor>>(*builder);
+    auto proving_key = std::make_shared<DeciderProvingKey_<UltraRollupFlavor>>(builder);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1201): Precompute tube vk and pass it in.
     info("WARNING: computing tube vk in prove_tube, but a precomputed vk should be passed in.");
     auto tube_verification_key = std::make_shared<UltraRollupFlavor::VerificationKey>(proving_key->get_precomputed());

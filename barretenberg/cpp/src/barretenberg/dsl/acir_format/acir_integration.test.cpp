@@ -5,7 +5,7 @@
 #include "barretenberg/client_ivc/private_execution_steps.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
-#include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
+#include "barretenberg/dsl/acir_format/pg_recursion_constraint.hpp"
 #include "barretenberg/honk/proving_key_inspector.hpp"
 
 #include <filesystem>
@@ -538,7 +538,7 @@ TEST_F(AcirIntegrationTest, DISABLED_DummyWitnessVkConsistency)
         {
             auto program = program_in;
             program.witness = {}; // erase the witness to mimmic the "dummy witness" case
-            auto& ivc_constraints = program.constraints.ivc_recursion_constraints;
+            auto& ivc_constraints = program.constraints.pg_recursion_constraints;
             const acir_format::ProgramMetadata metadata{
                 .ivc = ivc_constraints.empty() ? nullptr
                                                : create_mock_ivc_from_constraints(ivc_constraints, trace_settings)
@@ -551,7 +551,7 @@ TEST_F(AcirIntegrationTest, DISABLED_DummyWitnessVkConsistency)
         // Compute the verification key using the genuine witness
         {
             auto program = program_in;
-            auto& ivc_constraints = program.constraints.ivc_recursion_constraints;
+            auto& ivc_constraints = program.constraints.pg_recursion_constraints;
             const acir_format::ProgramMetadata metadata{
                 .ivc = ivc_constraints.empty() ? nullptr
                                                : create_mock_ivc_from_constraints(ivc_constraints, trace_settings)

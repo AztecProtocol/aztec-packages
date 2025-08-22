@@ -153,19 +153,10 @@ HonkRecursionConstraintOutput<Builder> create_avm2_recursion_constraints_goblin(
 
     BB_ASSERT_EQ(input.proof_type, AVM);
 
-    auto fields_from_witnesses = [&](const std::vector<uint32_t>& input) {
-        std::vector<field_ct> result;
-        result.reserve(input.size());
-        for (const auto& idx : input) {
-            result.emplace_back(field_ct::from_witness_index(&builder, idx));
-        }
-        return result;
-    };
-
     // Construct in-circuit representations of the verification key, proof and public inputs
-    const auto key_fields = fields_from_witnesses(input.key);
-    const auto proof_fields = fields_from_witnesses(input.proof);
-    const auto public_inputs_flattened = fields_from_witnesses(input.public_inputs);
+    const auto key_fields = RecursionConstraint::fields_from_witnesses(builder, input.key);
+    const auto proof_fields = RecursionConstraint::fields_from_witnesses(builder, input.proof);
+    const auto public_inputs_flattened = RecursionConstraint::fields_from_witnesses(builder, input.public_inputs);
 
     // Populate the key fields and proof fields with dummy values to prevent issues (e.g. points must be on curve).
     if (!has_valid_witness_assignments) {
