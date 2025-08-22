@@ -6,7 +6,8 @@ cmd=${1:-}
 export TRANSPILER=$PWD/../avm-transpiler/target/release/avm-transpiler
 export BB=$PWD/../barretenberg/cpp/build/bin/bb
 export NARGO=$PWD/../noir/noir-repo/target/release/nargo
-export AZTEC_NARGO=$PWD/../aztec-nargo/compile_then_postprocess.sh
+export AZTEC_NARGO=$PWD/../aztec-up/bin/aztec-nargo
+export AZTEC_POSTPROCESS_CONTRACT=$PWD/../aztec-up/bin/aztec-postprocess-contract
 export AZTEC_BUILDER=$PWD/../yarn-project/builder/aztec-builder-dest
 
 hash=$(hash_str \

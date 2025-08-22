@@ -6,6 +6,10 @@ if [[ $PWD != ${HOME}* ]]; then
   exit 1
 fi
 
+# Special-case nargo's LSP command:
+# 1. include --rm for cleanup
+# 2. don't specify a user (run as root)
+# 3. don't specify a workdir
 if [ "${1:-}" == "lsp" ]; then
   docker run --rm -i \
     --name aztec-nargo-lsp \
@@ -16,6 +20,7 @@ if [ "${1:-}" == "lsp" ]; then
   exit
 fi
 
+# Determine if we need interactive/tty flags
 if [ -t 0 ]; then
   if [ -t 1 ]; then
     args="-ti"
@@ -24,10 +29,11 @@ if [ -t 0 ]; then
   fi
 fi
 
+# Pass through directly to vanilla nargo
 docker run ${args:-} \
   --user $(id -u):$(id -g) \
   -v $HOME:$HOME \
   -e HOME=$HOME \
   --workdir="$PWD" \
-  --entrypoint /usr/src/aztec-nargo/compile_then_postprocess.sh \
+  --entrypoint=/usr/src/noir/noir-repo/target/release/nargo \
   aztecprotocol/aztec "$@"

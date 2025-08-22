@@ -125,19 +125,20 @@ This is a `utility` function which is used to obtain the counter information out
 
 ## Compile
 
-Now we've written a simple Aztec.nr smart contract, we can compile it with `aztec-nargo`.
+Now we've written a simple Aztec.nr smart contract, we can compile it.
 
 ### Compile the smart contract
 
-In `./counter/` directory, run this:
+In `./counter/` directory, run these commands:
 
 ```bash
-aztec-nargo compile
+aztec-nargo compile # generate contract artifacts
+aztec-postprocess-contract # transpile contracts and generate verification keys
 ```
 
-This will compile the smart contract and create a `target` folder with a `.json` artifact inside. Do not worry if you see some warnings - Aztec is in fast development and it is likely you will see some irrelevant warning messages.
+The first command compiles your Noir contract and creates a `target` folder with a `.json` artifact inside. The second command processes these artifacts for use with Aztec (transpiling for the AVM and generating verification keys). Do not worry if you see some warnings - Aztec is in fast development and it is likely you will see some irrelevant warning messages.
 
-After compiling, you can generate a typescript class using `aztec codegen` command.
+After compiling and processing, you can generate a typescript class using `aztec codegen` command.
 
 In the same directory, run this:
 
