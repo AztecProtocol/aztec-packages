@@ -1,18 +1,18 @@
+import type { AztecAddress } from '@aztec/aztec.js';
 import { getAddressFromPrivateKey } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { EthPrivateKey } from '@aztec/node-keystore';
 
 import { writeFile } from 'fs/promises';
 import { createServer } from 'http';
-import type { WalletClient } from 'viem';
 import { signMessage, signTypedData } from 'viem/accounts';
 
-export type KeyAndWallet = {
-  key: EthPrivateKey;
-  wallet: WalletClient;
-};
+// Create a mock JSON RPC signer
+// Only supports signing messages and type data
 
-export function createJSONRPCSigner(keyLookup: Map<string, KeyAndWallet>) {
+const SUPPORTED_METHODS = ['eth_sign', 'eth_signTypedData_v4'];
+
+export function createJSONRPCSigner(keyLookup: Map<string, EthPrivateKey>, stats: Map<string, number>) {
   return createServer((req, res) => {
     if (req.method === 'POST') {
       let body = '';
@@ -22,68 +22,9 @@ export function createJSONRPCSigner(keyLookup: Map<string, KeyAndWallet>) {
       req.on('end', () => {
         try {
           const jsonRequest = JSON.parse(body);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
 
-          if (jsonRequest.method === 'eth_sign') {
-            const [address, message] = jsonRequest.params;
-
-            // Find the private key for the address
-            const wallet = keyLookup.get(address.toLowerCase());
-            if (!wallet) {
-              res.writeHead(200, { 'Content-Type': 'application/json' });
-              res.end(
-                JSON.stringify({
-                  jsonrpc: '2.0',
-                  id: jsonRequest.id,
-                  error: { code: -32602, message: `No private key found for address ${address}` },
-                }),
-              );
-              return;
-            }
-
-            // Sign the message
-            void signMessage({ message: { raw: message as `0x${string}` }, privateKey: wallet.key }).then(signature => {
-              res.writeHead(200, { 'Content-Type': 'application/json' });
-              res.end(
-                JSON.stringify({
-                  jsonrpc: '2.0',
-                  id: jsonRequest.id,
-                  result: signature,
-                }),
-              );
-            });
-          } else if (jsonRequest.method === 'eth_signTypedData_v4') {
-            const [address, typedData] = jsonRequest.params;
-
-            // Find the private key for the address
-            const wallet = keyLookup.get(address.toLowerCase());
-            if (!wallet) {
-              res.writeHead(200, { 'Content-Type': 'application/json' });
-              res.end(
-                JSON.stringify({
-                  jsonrpc: '2.0',
-                  id: jsonRequest.id,
-                  error: { code: -32602, message: `No private key found for address ${address}` },
-                }),
-              );
-              return;
-            }
-
-            // Sign the typed data
-            void signTypedData({
-              privateKey: wallet.key,
-              ...typedData,
-            }).then(signature => {
-              res.writeHead(200, { 'Content-Type': 'application/json' });
-              res.end(
-                JSON.stringify({
-                  jsonrpc: '2.0',
-                  id: jsonRequest.id,
-                  result: signature,
-                }),
-              );
-            });
-          } else {
-            res.writeHead(200, { 'Content-Type': 'application/json' });
+          if (!SUPPORTED_METHODS.includes(jsonRequest.method)) {
             res.end(
               JSON.stringify({
                 jsonrpc: '2.0',
@@ -91,9 +32,46 @@ export function createJSONRPCSigner(keyLookup: Map<string, KeyAndWallet>) {
                 error: { code: -32601, message: 'Method not supported' },
               }),
             );
+            return;
           }
+
+          // Get the address sending the transaction
+          const [address, data] = jsonRequest.params;
+
+          const lowerCaseAddress = address.toLowerCase();
+          stats.set(lowerCaseAddress, (stats.get(lowerCaseAddress) ?? 0) + 1);
+
+          // Find the private key for the address
+          const privateKey = keyLookup.get(address.toLowerCase());
+          if (!privateKey) {
+            res.end(
+              JSON.stringify({
+                jsonrpc: '2.0',
+                id: jsonRequest.id,
+                error: { code: -32602, message: `No private key found for address ${address}` },
+              }),
+            );
+            return;
+          }
+
+          const promise =
+            jsonRequest.method === 'eth_sign'
+              ? signMessage({ message: { raw: data as `0x${string}` }, privateKey })
+              : signTypedData({
+                  privateKey,
+                  ...data,
+                });
+
+          void promise.then(signature => {
+            res.end(
+              JSON.stringify({
+                jsonrpc: '2.0',
+                id: jsonRequest.id,
+                result: signature,
+              }),
+            );
+          });
         } catch (_) {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
           res.end(
             JSON.stringify({
               jsonrpc: '2.0',
@@ -110,6 +88,7 @@ export function createJSONRPCSigner(keyLookup: Map<string, KeyAndWallet>) {
   });
 }
 
+// Functions for creating file based key stores for the e2e_multi_validator_node_key_store test
 export async function createKeyFile1(
   fileName: string,
   mnemonic: string,
@@ -117,6 +96,7 @@ export async function createKeyFile1(
   publisher1Key: EthPrivateKey,
   publisher2Key: EthPrivateKey,
   coinbase: EthAddress,
+  feeRecipient: AztecAddress,
 ) {
   const obj = {
     schemaVersion: 1,
@@ -130,7 +110,7 @@ export async function createKeyFile1(
         },
         coinbase: coinbase.toChecksumString(),
         publisher: [publisher1Key, publisher2Key],
-        feeRecipient: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+        feeRecipient: feeRecipient.toString(),
       },
     ],
   };
@@ -140,9 +120,10 @@ export async function createKeyFile1(
 export async function createKeyFile2(
   fileName: string,
   validatorKey: EthPrivateKey,
-  publisher1Key: EthPrivateKey,
-  publisher2Key: EthPrivateKey,
+  publisherMnemonic: string,
+  publisher1Index: number,
   coinbase: EthAddress,
+  feeRecipient: AztecAddress,
 ) {
   const obj = {
     schemaVersion: 1,
@@ -150,8 +131,13 @@ export async function createKeyFile2(
       {
         attester: validatorKey,
         coinbase: coinbase.toChecksumString(),
-        publisher: [publisher1Key, publisher2Key],
-        feeRecipient: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+        publisher: {
+          mnemonic: publisherMnemonic,
+          accountIndex: 0,
+          addressIndex: publisher1Index,
+          addressCount: 2,
+        },
+        feeRecipient: feeRecipient.toString(),
       },
     ],
   };
@@ -165,6 +151,7 @@ export async function createKeyFile3(
   publisher2Key: EthPrivateKey,
   coinbase: EthAddress,
   remoteSignerUrl: string,
+  feeRecipient: AztecAddress,
 ) {
   const obj = {
     schemaVersion: 1,
@@ -175,7 +162,7 @@ export async function createKeyFile3(
         },
         coinbase: coinbase.toChecksumString(),
         publisher: [publisher1Key, publisher2Key],
-        feeRecipient: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+        feeRecipient: feeRecipient.toString(),
         remoteSigner: {
           remoteSignerUrl: remoteSignerUrl,
         },
@@ -196,6 +183,8 @@ export async function createKeyFile4(
   coinbase1: EthAddress,
   coinbase2: EthAddress,
   remoteSignerUrl: string,
+  feeRecipient1: AztecAddress,
+  feeRecipient2: AztecAddress,
 ) {
   const obj = {
     schemaVersion: 1,
@@ -214,7 +203,7 @@ export async function createKeyFile4(
           addressIndex: publisher1Index,
           addressCount: 2,
         },
-        feeRecipient: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+        feeRecipient: feeRecipient1.toString(),
       },
       {
         attester: {
@@ -222,7 +211,7 @@ export async function createKeyFile4(
         },
         coinbase: coinbase2.toChecksumString(),
         publisher: [publisher2Key, publisher3Key],
-        feeRecipient: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+        feeRecipient: feeRecipient2.toString(),
       },
     ],
   };
@@ -241,6 +230,31 @@ export async function createKeyFile5(fileName: string, proverAddress: EthAddress
         },
       ],
     },
+  };
+  await writeFile(fileName, JSON.stringify(obj, null, 2));
+}
+
+export async function createKeyFile6(
+  fileName: string,
+  mnemonic: string,
+  validator1Index: number,
+  coinbase: EthAddress,
+  feeRecipient: AztecAddress,
+) {
+  const obj = {
+    schemaVersion: 1,
+    validators: [
+      {
+        attester: {
+          mnemonic: mnemonic,
+          accountIndex: 0,
+          addressIndex: validator1Index,
+          addressCount: 2,
+        },
+        coinbase: coinbase.toChecksumString(),
+        feeRecipient: feeRecipient.toString(),
+      },
+    ],
   };
   await writeFile(fileName, JSON.stringify(obj, null, 2));
 }
