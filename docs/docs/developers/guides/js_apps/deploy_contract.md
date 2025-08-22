@@ -23,7 +23,8 @@ Contracts can be deployed using the `aztec.js` library.
 Compile the contract:
 
 ```bash
-aztec-nargo compile
+aztec-nargo compile # generate contract artifacts
+aztec-postprocess-contract # transpile contract and generate verification keys
 ```
 
 Generate the typescript class:

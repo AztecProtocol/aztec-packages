@@ -9,6 +9,30 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+## [Aztec Tools]
+
+### Contract compilation now requires two steps
+
+The `aztec-nargo` command is now a direct pass-through to vanilla nargo, without any special compilation flags or postprocessing. Contract compilation for Aztec now requires two explicit steps:
+
+1. Compile your contracts with `aztec-nargo compile`
+2. Run postprocessing with the new `aztec-postprocess-contract` command
+
+The postprocessing step includes:
+- Transpiling functions for the Aztec VM
+- Generating verification keys for private functions
+- Caching verification keys for faster subsequent compilations
+
+Update your build scripts accordingly:
+
+```diff
+- aztec-nargo compile
++ aztec-nargo compile
++ aztec-postprocess-contract
+```
+
+If you're using the `aztec-up` installer, the `aztec-postprocess-contract` command will be automatically installed alongside `aztec-nargo`.
+
 ## [Aztec.js] Mandatory `from`
 
 As we prepare for a bigger `Wallet` interface refactor and the upcoming `WalletSDK`, a new parameter has been added to contract interactions, which now should indicate *explicitly* the address of the entrypoint (usually the account contract) that will be used to authenticate the request. This will be checked in runtime against the current `this.wallet.getAddress()` value, to ensure consistent behavior while the rest of the API is reworked.

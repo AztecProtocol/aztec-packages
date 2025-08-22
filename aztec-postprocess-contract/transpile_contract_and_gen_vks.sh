@@ -1,32 +1,33 @@
 #!/usr/bin/env bash
-# This is a wrapper script for nargo.
-# Pass any args that you'd normally pass to nargo.
-# If the first arg is "compile",
-# run nargo and then postprocess any created artifacts.
+# This script performs postprocessing on compiled Noir contracts.
+# It expects to find compiled artifacts and transforms them via
+# transpilation and verification key generation.
 #
-# Usage: compile_then_postprocess.sh [nargo args]
+# Usage: compile-contract [artifact_path ...]
+# If no paths provided, searches for artifacts in target/ directories
 set -euo pipefail
 
 dir=$(dirname $0)
-NARGO=${NARGO:-"$dir/../noir/noir-repo/target/release/nargo"}
 TRANSPILER=${TRANSPILER:-"$dir/../avm-transpiler/target/release/avm-transpiler"}
 BB=${BB:-"$dir/../barretenberg/cpp/build/bin/bb"}
-
-
-if [ "${1:-}" != "compile" ]; then
-  # if not compiling, just pass through to nargo verbatim
-  $NARGO $@
-  exit $?
-fi
-shift # remove the compile arg so we can inject --show-artifact-paths
 
 # bb --version returns 00000000.00000000.00000000, so we compute
 # the binary hash to ensure we invalidate vk cache artifacts when bb changes
 bb_hash=$(sha256sum "$BB" | cut -d' ' -f1)
 
-# Forward all arguments to nargo, tee output to console.
-# Nargo should be outputting errors to stderr, but it doesn't. Use tee to duplicate stdout to stderr to display errors.
-artifacts_to_process=$($NARGO compile --pedantic-solving --inliner-aggressiveness 0 --show-artifact-paths $@ | tee >(cat >&2) | grep -oP 'Saved contract artifact to: \K.*')
+# If artifact paths are provided as arguments, use those
+# Otherwise, search for contract artifacts in target directories
+if [ $# -gt 0 ]; then
+  artifacts_to_process="$@"
+else
+  # Find all contract artifacts in target directories
+  artifacts_to_process=$(find . -name "*.json" -path "*/target/*" | grep -v "/cache/" | grep -v ".function_artifact_" || true)
+  
+  if [ -z "$artifacts_to_process" ]; then
+    echo "No contract artifacts found. Please compile your contracts first with 'nargo compile'."
+    exit 1
+  fi
+fi
 
 # Postprocess each artifact
 # `$artifacts_to_process` needs to be unquoted here, otherwise it will break if there are multiple artifacts
@@ -82,3 +83,5 @@ for artifact in $artifacts_to_process; do
     mv "$artifact.tmp" "$artifact"
   done
 done
+
+echo "Contract postprocessing complete!"

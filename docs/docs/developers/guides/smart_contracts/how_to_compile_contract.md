@@ -13,18 +13,29 @@ We'll also cover how to generate a helper [TypeScript interface](#typescript-int
 
 ## Compile using aztec-nargo
 
-To compile a contract using the Aztec's build of nargo.
+To compile a contract for Aztec, you need to run two commands:
 
-Run the `aztec-nargo compile` command within your contract project folder (the one that contains the `Nargo.toml` file):
+1. First, compile your Noir contracts:
 
 ```bash
 aztec-nargo compile
 ```
 
-This will output a JSON artifact for each contract in the project to a `target` folder containing the Noir ABI artifacts.
+This will output JSON artifacts for each contract in the project to a `target` folder.
+
+2. Then, run the postprocessing step to prepare contracts for Aztec:
+
+```bash
+aztec-postprocess-contract
+```
+
+This command will find all contract artifacts in `target` directories and process them for use with Aztec. The postprocessing includes:
+- Transpiling functions for the Aztec VM
+- Generating verification keys for private functions
+- Caching verification keys to speed up subsequent compilations
 
 :::note
-This command looks for `Nargo.toml` files by ascending up the parent directories, and will compile the top-most Nargo.toml file it finds.
+The `aztec-nargo compile` command looks for `Nargo.toml` files by ascending up the parent directories, and will compile the top-most Nargo.toml file it finds.
 Eg: if you are in `/hobbies/cool-game/contracts/easter-egg/`, and both `cool-game` and `easter-egg` contain a Nargo.toml file, then `aztec-nargo compile` will be performed on `cool-game/Nargo.toml` and compile the project(s) specified within it. Eg
 
 ```
@@ -34,6 +45,7 @@ members = [
 ]
 ```
 
+The `aztec-postprocess-contract` command will process all contract artifacts it finds in `target` directories within the current directory tree.
 :::
 
 ### Typescript Interfaces

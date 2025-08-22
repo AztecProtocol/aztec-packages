@@ -309,7 +309,9 @@ TORADIXLE
 Tpkm
 transactionfee
 TRANSACTIONFEE
+transpile
 transpiles
+transpiling
 trasaction
 trixie
 trustlessly
