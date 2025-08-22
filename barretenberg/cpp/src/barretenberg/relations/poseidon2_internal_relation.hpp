@@ -96,12 +96,12 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
         Accumulator barycentric_term;
 
         // Add round constants stored in the `q_l` selector and convert to Lagrange basis
-        auto s1 = Accumulator(w_1_m + q_l_m);
+        auto u1 = Accumulator(w_1_m + q_l_m);
 
         // Apply s-box round. Note that the multiplication is performed point-wise
-        auto u1 = s1.sqr();
         u1 = u1.sqr();
-        u1 *= s1;
+        u1 = u1.sqr();
+        u1 *= u1;
 
         const auto q_pos_by_scaling_m = (q_poseidon2_internal_m * scaling_factor);
         const auto q_pos_by_scaling = Accumulator(q_pos_by_scaling_m);
