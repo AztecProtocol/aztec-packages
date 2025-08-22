@@ -17,15 +17,15 @@ class MockTransaction {
     using Ptr = std::unique_ptr<MockTransaction>;
     bool get_node(uint32_t, index_t, std::vector<uint8_t>&) const { return false; }
 
-    template <typename T> void get_value_by_integer(T&, std::vector<uint8_t>&){};
+    template <typename T> void get_value_by_integer(T&, std::vector<uint8_t>&) {};
 
-    void get_value(std::vector<uint8_t>&, std::vector<uint8_t>&){};
+    void get_value(std::vector<uint8_t>&, std::vector<uint8_t>&) {};
 
     void put_node(uint32_t, index_t, const std::vector<uint8_t>&) {}
 
-    template <typename T> void put_value_by_integer(T&, std::vector<uint8_t>&){};
+    template <typename T> void put_value_by_integer(T&, std::vector<uint8_t>&) {};
 
-    void put_value(std::vector<uint8_t>&, std::vector<uint8_t>&){};
+    void put_value(std::vector<uint8_t>&, std::vector<uint8_t>&) {};
 };
 
 class MockPersistedStore {
@@ -88,8 +88,8 @@ template <typename PersistedStore> class ArrayStore {
         root = meta.root;
     }
 
-    void commit(){};
-    void rollback(){};
+    void commit() {};
+    void rollback() {};
 
     ReadTransactionPtr create_read_transactiono() { return std::make_unique<ReadTransaction>(); }
 

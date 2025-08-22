@@ -65,7 +65,7 @@ using NullifierLeafValue = crypto::merkle_tree::NullifierLeafValue;
 class NullifierTreeCheckTracegenTest : public ::testing::Test {
   protected:
     NullifierTreeCheckTracegenTest()
-        : execution_id_manager(0){};
+        : execution_id_manager(0) {};
 
     EventEmitter<Poseidon2HashEvent> hash_event_emitter;
     EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;

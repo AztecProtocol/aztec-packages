@@ -29,9 +29,7 @@ using GetParameterView = std::conditional_t<IsField<typename Params::DataType>, 
 
 template <typename T>
 concept HasSubrelationLinearlyIndependentMember = requires(T) {
-    {
-        std::get<0>(T::SUBRELATION_LINEARLY_INDEPENDENT)
-    } -> std::convertible_to<bool>;
+    { std::get<0>(T::SUBRELATION_LINEARLY_INDEPENDENT) } -> std::convertible_to<bool>;
 };
 
 template <typename T>
@@ -127,9 +125,7 @@ consteval std::array<size_t, NUM_SUBRELATIONS> compute_composed_subrelation_part
  */
 template <typename Relation, typename AllEntities>
 concept isSkippable = requires(const AllEntities& input) {
-    {
-        Relation::skip(input)
-    } -> std::same_as<bool>;
+    { Relation::skip(input) } -> std::same_as<bool>;
 };
 
 /**
@@ -144,9 +140,7 @@ concept isSkippable = requires(const AllEntities& input) {
 template <typename Flavor, typename ProverPolynomialsOrPartiallyEvaluatedMultivariates, typename EdgeType>
 concept isRowSkippable =
     requires(const ProverPolynomialsOrPartiallyEvaluatedMultivariates& input, const EdgeType edge_idx) {
-        {
-            Flavor::skip_entire_row(input, edge_idx)
-        } -> std::same_as<bool>;
+        { Flavor::skip_entire_row(input, edge_idx) } -> std::same_as<bool>;
     };
 
 /**

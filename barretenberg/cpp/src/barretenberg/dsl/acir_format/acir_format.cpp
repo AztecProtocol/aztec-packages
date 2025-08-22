@@ -10,8 +10,9 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/dsl/acir_format/civc_recursion_constraints.hpp"
 #include "barretenberg/dsl/acir_format/honk_recursion_constraint.hpp"
-#include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
+#include "barretenberg/dsl/acir_format/pg_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/honk/proving_key_inspector.hpp"
@@ -292,11 +293,12 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     // RecursionConstraints
     bool has_honk_recursion_constraints = !constraint_system.honk_recursion_constraints.empty();
     bool has_avm_recursion_constraints = !constraint_system.avm_recursion_constraints.empty();
-    bool has_ivc_recursion_constraints = !constraint_system.ivc_recursion_constraints.empty();
+    bool has_pg_recursion_constraints = !constraint_system.pg_recursion_constraints.empty();
+    bool has_civc_recursion_constraints = !constraint_system.civc_recursion_constraints.empty();
 
     if constexpr (IsMegaBuilder<Builder>) {
-        // We shouldn't have both honk recursion constraints and ivc recursion constraints.
-        BB_ASSERT_EQ(!has_honk_recursion_constraints || !has_ivc_recursion_constraints,
+        // We shouldn't have both honk recursion constraints and pg recursion constraints.
+        BB_ASSERT_EQ(!has_honk_recursion_constraints || !has_pg_recursion_constraints,
                      true,
                      "Invalid circuit: both honk and ivc recursion constraints present.");
 
@@ -313,8 +315,8 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
             stdlib::recursion::honk::DefaultIO<Builder> inputs;
             inputs.pairing_inputs = output.points_accumulator;
             inputs.set_public();
-        } else if (has_ivc_recursion_constraints) {
-            process_ivc_recursion_constraints(
+        } else if (has_pg_recursion_constraints) {
+            process_pg_recursion_constraints(
                 builder, constraint_system, metadata.ivc, has_valid_witness_assignments, gate_counter);
         } else {
             // If its an app circuit that has no recursion constraints, add default pairing points to public inputs.
@@ -322,18 +324,33 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         }
     } else {
         bool is_recursive_circuit = metadata.honk_recursion != 0;
-        BB_ASSERT_EQ(has_ivc_recursion_constraints,
+        bool has_pairing_points =
+            has_honk_recursion_constraints || has_civc_recursion_constraints || has_avm_recursion_constraints;
+
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1523): Only handle either HONK or CIVC + AVM and
+        // fail fast otherwise
+        BB_ASSERT_EQ(has_pg_recursion_constraints,
                      false,
-                     "Invalid circuit: ivc recursion constraints are present with UltraBuilder.");
-        BB_ASSERT_EQ(!(has_honk_recursion_constraints || has_avm_recursion_constraints) || is_recursive_circuit,
+                     "Invalid circuit: pg recursion constraints are present with UltraBuilder.");
+        BB_ASSERT_EQ(!(has_honk_recursion_constraints && has_civc_recursion_constraints),
                      true,
-                     "Invalid circuit: honk or avm recursion constraints present but the circuit is not recursive.");
+                     "Invalid circuit: both honk and civc recursion constraints are present.");
+        BB_ASSERT_EQ(
+            !(has_honk_recursion_constraints || has_civc_recursion_constraints || has_avm_recursion_constraints) ||
+                is_recursive_circuit,
+            true,
+            "Invalid circuit: honk, civc, or avm recursion constraints present but the circuit is not recursive.");
 
         // Container for data to be propagated
         HonkRecursionConstraintsOutput<Builder> honk_output;
 
         if (has_honk_recursion_constraints) {
             honk_output = process_honk_recursion_constraints(
+                builder, constraint_system, has_valid_witness_assignments, gate_counter);
+        }
+
+        if (has_civc_recursion_constraints) {
+            honk_output = process_civc_recursion_constraints(
                 builder, constraint_system, has_valid_witness_assignments, gate_counter);
         }
 
@@ -353,7 +370,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
             // Proving with UltraRollupFlavor
 
             // Propagate pairing points
-            if (has_honk_recursion_constraints || has_avm_recursion_constraints) {
+            if (has_pairing_points) {
                 honk_output.points_accumulator.set_public();
             } else {
                 PairingPoints::add_default_to_public_inputs(builder);
@@ -373,7 +390,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
             if (metadata.honk_recursion == 1) {
                 using IO = bb::stdlib::recursion::honk::DefaultIO<Builder>;
 
-                if (has_honk_recursion_constraints || has_avm_recursion_constraints) {
+                if (has_pairing_points) {
                     IO inputs;
                     inputs.pairing_inputs = honk_output.points_accumulator;
                     inputs.set_public();
@@ -530,11 +547,11 @@ process_honk_recursion_constraints(Builder& builder,
     return output;
 }
 
-void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
-                                       AcirFormat& constraints,
-                                       std::shared_ptr<ClientIVC> ivc,
-                                       bool has_valid_witness_assignments,
-                                       GateCounter<MegaCircuitBuilder>& gate_counter)
+void process_pg_recursion_constraints(MegaCircuitBuilder& builder,
+                                      AcirFormat& constraints,
+                                      std::shared_ptr<ClientIVC> ivc,
+                                      bool has_valid_witness_assignments,
+                                      GateCounter<MegaCircuitBuilder>& gate_counter)
 {
     using StdlibVerificationKey = ClientIVC::RecursiveVerificationKey;
     using StdlibVKAndHash = ClientIVC::RecursiveVKAndHash;
@@ -543,11 +560,11 @@ void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
     // If an ivc instance is not provided, we mock one with the state required to construct the recursion
     // constraints present in the program. This is for when we write_vk.
     if (ivc == nullptr) {
-        ivc = create_mock_ivc_from_constraints(constraints.ivc_recursion_constraints, { AZTEC_TRACE_STRUCTURE });
+        ivc = create_mock_ivc_from_constraints(constraints.pg_recursion_constraints, { AZTEC_TRACE_STRUCTURE });
     }
 
     // We expect the length of the internal verification queue to match the number of ivc recursion constraints
-    BB_ASSERT_EQ(constraints.ivc_recursion_constraints.size(),
+    BB_ASSERT_EQ(constraints.pg_recursion_constraints.size(),
                  ivc->verification_queue.size(),
                  "WARNING: Mismatch in number of recursive verifications during kernel creation!");
 
@@ -555,8 +572,7 @@ void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
     // that the present kernel circuit is constructed correctly. (Used for constructing VKs without witnesses).
     if (!has_valid_witness_assignments) {
         // Create stdlib representations of each {proof, vkey} pair to be recursively verified
-        for (auto [constraint, queue_entry] :
-             zip_view(constraints.ivc_recursion_constraints, ivc->verification_queue)) {
+        for (auto [constraint, queue_entry] : zip_view(constraints.pg_recursion_constraints, ivc->verification_queue)) {
             populate_dummy_vk_in_constraint(builder, queue_entry.honk_vk, constraint.key);
             builder.set_variable(constraint.key_hash, queue_entry.honk_vk->hash());
         }
@@ -564,8 +580,8 @@ void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
 
     // Construct a stdlib verification key for each constraint based on the verification key witness indices therein
     std::vector<std::shared_ptr<StdlibVKAndHash>> stdlib_vk_and_hashs;
-    stdlib_vk_and_hashs.reserve(constraints.ivc_recursion_constraints.size());
-    for (const auto& constraint : constraints.ivc_recursion_constraints) {
+    stdlib_vk_and_hashs.reserve(constraints.pg_recursion_constraints.size());
+    for (const auto& constraint : constraints.pg_recursion_constraints) {
         stdlib_vk_and_hashs.push_back(
             std::make_shared<StdlibVKAndHash>(std::make_shared<StdlibVerificationKey>(
                                                   StdlibVerificationKey::from_witness_indices(builder, constraint.key)),
@@ -578,7 +594,7 @@ void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
     // internal verification queue. This ensures that the witnesses utilized in constraints generated based on acir
     // are properly connected to the constraints generated herein via the ivc scheme (e.g. recursive verifications).
     for (auto [constraint, queue_entry] :
-         zip_view(constraints.ivc_recursion_constraints, ivc->stdlib_verification_queue)) {
+         zip_view(constraints.pg_recursion_constraints, ivc->stdlib_verification_queue)) {
 
         // Get the witness indices for the public inputs contained within the proof in the verification queue
         std::vector<uint32_t> public_input_indices =
@@ -594,10 +610,33 @@ void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
     // Complete the kernel circuit with all required recursive verifications, databus consistency checks etc.
     ivc->complete_kernel_circuit_logic(builder);
 
-    // Note: we can't easily track the gate contribution from each individual ivc_recursion_constraint since they
+    // Note: we can't easily track the gate contribution from each individual pg_recursion_constraint since they
     // are handled simultaneously in the above function call; instead we track the total contribution
     gate_counter.track_diff(constraints.gates_per_opcode,
-                            constraints.original_opcode_indices.ivc_recursion_constraints.at(0));
+                            constraints.original_opcode_indices.pg_recursion_constraints.at(0));
+}
+
+[[nodiscard("IPA claim and Pairing points should be accumulated")]] HonkRecursionConstraintsOutput<Builder>
+process_civc_recursion_constraints(Builder& builder,
+                                   AcirFormat& constraint_system,
+                                   bool has_valid_witness_assignments,
+                                   GateCounter<Builder>& gate_counter)
+{
+    HonkRecursionConstraintsOutput<Builder> output;
+    // Add recursion constraints
+    size_t idx = 0;
+    for (auto& constraint : constraint_system.civc_recursion_constraints) {
+        HonkRecursionConstraintOutput<Builder> honk_output =
+            create_civc_recursion_constraints(builder, constraint, has_valid_witness_assignments);
+
+        // Update the output
+        output.update(honk_output, /*update_ipa_data=*/true);
+
+        gate_counter.track_diff(constraint_system.gates_per_opcode,
+                                constraint_system.original_opcode_indices.civc_recursion_constraints.at(idx++));
+    }
+
+    return output;
 }
 
 #ifndef DISABLE_AZTEC_VM

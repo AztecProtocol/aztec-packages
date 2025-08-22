@@ -18,11 +18,9 @@ ClientIVCRecursiveVerifier::Output ClientIVCRecursiveVerifier::verify(const Stdl
 {
     using MergeCommitments = GoblinVerifier::MergeVerifier::InputCommitments;
     std::shared_ptr<Transcript> civc_rec_verifier_transcript(std::make_shared<Transcript>());
-    // Construct stdlib Mega verification key
-    auto stdlib_mega_vk_and_hash = std::make_shared<RecursiveVKAndHash>(*builder, ivc_verification_key.mega);
 
     // Perform recursive decider verification
-    MegaVerifier verifier{ builder.get(), stdlib_mega_vk_and_hash, civc_rec_verifier_transcript };
+    MegaVerifier verifier{ builder, stdlib_mega_vk_and_hash, civc_rec_verifier_transcript };
     MegaVerifier::Output mega_output = verifier.template verify_proof<HidingKernelIO<Builder>>(proof.mega_proof);
 
     // Perform Goblin recursive verification
@@ -33,7 +31,7 @@ ClientIVCRecursiveVerifier::Output ClientIVCRecursiveVerifier::verify(const Stdl
         .T_prev_commitments = std::move(mega_output.ecc_op_tables) // Commitments to the state of the ecc op_queue as
                                                                    // computed insided the hiding kernel
     };
-    GoblinVerifier goblin_verifier{ builder.get(), goblin_verification_key, civc_rec_verifier_transcript };
+    GoblinVerifier goblin_verifier{ builder, goblin_verification_key, civc_rec_verifier_transcript };
     GoblinRecursiveVerifierOutput output =
         goblin_verifier.verify(proof.goblin_proof, merge_commitments, MergeSettings::APPEND);
     output.points_accumulator.aggregate(mega_output.points_accumulator);

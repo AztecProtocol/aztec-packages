@@ -97,7 +97,41 @@ class ClientIVC {
         HonkProof mega_proof;
         GoblinProof goblin_proof;
 
+        /**
+         * @brief The size of a ClientIVC proof without backend-added public inputs
+         *
+         * @param virtual_log_n
+         * @return constexpr size_t
+         */
+        static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = MegaZKFlavor::VIRTUAL_LOG_N)
+        {
+            return /*mega_proof*/ MegaZKFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n) +
+                   /*merge_proof*/ MERGE_PROOF_SIZE +
+                   /*eccvm pre-ipa proof*/ (ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH) +
+                   /*eccvm ipa proof*/ IPA_PROOF_LENGTH +
+                   /*translator*/ TranslatorFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS;
+        }
+
+        /**
+         * @brief The size of a ClientIVC proof with backend-added public inputs: HidingKernelIO
+         *
+         * @param virtual_log_n
+         * @return constexpr size_t
+         */
+        static constexpr size_t PROOF_LENGTH(size_t virtual_log_n = MegaZKFlavor::VIRTUAL_LOG_N)
+        {
+            return PROOF_LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n) +
+                   /*public_inputs*/ bb::HidingKernelIO::PUBLIC_INPUTS_SIZE;
+        }
+
         size_t size() const;
+
+        /**
+         * @brief Serialize proof to field elements
+         *
+         * @return std::vector<FF>
+         */
+        std::vector<FF> to_field_elements() const;
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1299): The following msgpack methods are generic
         // and should leverage some kind of shared msgpack utility.
@@ -138,7 +172,13 @@ class ClientIVC {
         MSGPACK_FIELDS(mega, eccvm, translator);
     };
 
-    enum class QUEUE_TYPE { OINK, PG, PG_FINAL, PG_TAIL }; // for specifying type of proof in the verification queue
+    enum class QUEUE_TYPE {
+        OINK,
+        PG,
+        PG_FINAL, // the final PG verification, used in hiding kernel
+        PG_TAIL,  // used in tail to indicate special handling of merge for ZK
+        MEGA
+    }; // for specifying type of proof in the verification queue
 
     // An entry in the native verification queue
     struct VerifierInputs {
@@ -169,8 +209,6 @@ class ClientIVC {
 
     // Transcript to be shared across the folding of K_{i-1} (kernel), A_{i,1} (app), .., A_{i, n}
     std::shared_ptr<Transcript> prover_accumulation_transcript = std::make_shared<Transcript>();
-
-    std::unique_ptr<ClientCircuit> hiding_circuit;
 
     size_t num_circuits; // total number of circuits to be accumulated in the IVC
   public:
@@ -236,10 +274,10 @@ class ClientIVC {
 
     Proof prove();
 
-    std::shared_ptr<ClientIVC::DeciderZKProvingKey> construct_hiding_circuit_key();
-    std::shared_ptr<ClientIVC::DeciderZKProvingKey> compute_hiding_circuit_proving_key();
+    std::shared_ptr<ClientIVC::DeciderZKProvingKey> construct_hiding_circuit_key(ClientCircuit& circuit);
+    std::shared_ptr<ClientIVC::DeciderZKProvingKey> compute_hiding_circuit_proving_key(ClientCircuit& circuit);
     static void hide_op_queue_accumulation_result(ClientCircuit& circuit);
-    HonkProof prove_hiding_circuit();
+    HonkProof prove_hiding_circuit(ClientCircuit& circuit);
 
     static bool verify(const Proof& proof, const VerificationKey& vk);
 
