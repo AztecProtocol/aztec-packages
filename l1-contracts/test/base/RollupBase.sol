@@ -18,6 +18,7 @@ import {ProposeArgs, OracleInput, ProposeLib} from "@aztec/core/libraries/rollup
 import {
   CommitteeAttestation, CommitteeAttestations, AttestationLib
 } from "@aztec/core/libraries/rollup/AttestationLib.sol";
+import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.sol";
 
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
@@ -183,7 +184,7 @@ contract RollupBase is DecoderBase {
     if (_revertMsg.length > 0) {
       vm.expectRevert(_revertMsg);
     }
-    rollup.propose(args, AttestationLib.packAttestations(attestations), signers, blobCommitments);
+    rollup.propose(args, AttestationLibHelper.packAttestations(attestations), signers, blobCommitments);
 
     if (_revertMsg.length > 0) {
       return;
