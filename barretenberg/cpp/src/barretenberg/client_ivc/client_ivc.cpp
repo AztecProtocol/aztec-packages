@@ -167,7 +167,6 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
         return { pairing_points, merged_table_commitments };
     }
     default: {
-        vinfo("queue_type", static_cast<int>(verifier_inputs.type));
         throw_or_abort("Invalid queue type! Only OINK, PG, PG_TAIL and PG_FINAL are supported");
     }
     }
