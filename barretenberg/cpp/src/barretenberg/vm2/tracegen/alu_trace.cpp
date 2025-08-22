@@ -60,8 +60,11 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
                        {
                            { Column::alu_sel_mul_u128, 1 },
                            { Column::alu_sel_mul_div_u128, 1 },
+                           { Column::alu_sel_decompose_a, 1 },
                            { Column::alu_a_lo, a_decomp.lo },
+                           { Column::alu_a_lo_bits, 64 },
                            { Column::alu_a_hi, a_decomp.hi },
+                           { Column::alu_a_hi_bits, 64 },
                            { Column::alu_b_lo, b_decomp.lo },
                            { Column::alu_b_hi, b_decomp.hi },
                            { Column::alu_c_hi, (((a_int * b_int) >> 128) - hi_operand) % (uint256_t(1) << 64) },
@@ -104,9 +107,11 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
             res.insert(res.end(),
                        {
                            { Column::alu_sel_mul_div_u128, 1 },
-                           // TODO(MW): { Column::alu_sel_decompose_a, 1 },
+                           { Column::alu_sel_decompose_a, 1 },
                            { Column::alu_a_lo, c_decomp.lo },
+                           { Column::alu_a_lo_bits, 64 },
                            { Column::alu_a_hi, c_decomp.hi },
+                           { Column::alu_a_hi_bits, 64 },
                            { Column::alu_b_lo, b_decomp.lo },
                            { Column::alu_b_hi, b_decomp.hi },
                        });
