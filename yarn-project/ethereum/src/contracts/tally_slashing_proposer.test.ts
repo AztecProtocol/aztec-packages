@@ -1,13 +1,15 @@
-import type { ExtendedViemWalletClient } from '@aztec/ethereum';
+import type { DeployL1ContractsArgs, ExtendedViemWalletClient } from '@aztec/ethereum';
 import { DefaultL1ContractsConfig, RollupContract, createExtendedL1Client, deployL1Contracts } from '@aztec/ethereum';
-import { EthCheatCodes, startAnvil } from '@aztec/ethereum/test';
+import { EthCheatCodes, RollupCheatCodes, startAnvil } from '@aztec/ethereum/test';
+import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { bufferToHex } from '@aztec/foundation/string';
 import { TallySlashingProposerAbi } from '@aztec/l1-artifacts/TallySlashingProposerAbi';
 
 import type { Anvil } from '@viem/anvil';
-import { type Hex, encodeFunctionData } from 'viem';
+import { type Hex, type TypedDataDefinition, encodeFunctionData, hashTypedData } from 'viem';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
@@ -16,12 +18,19 @@ import { TallySlashingProposerContract } from './tally_slashing_proposer.js';
 describe('TallySlashingProposer', () => {
   let anvil: Anvil;
   let rpcUrl: string;
-  let privateKey: PrivateKeyAccount;
+  let deployerPrivateKey: PrivateKeyAccount;
   let logger: Logger;
   let writeClient: ExtendedViemWalletClient;
+
+  let validatorsPrivateKeys: PrivateKeyAccount[];
+  let validatorsAddresses: EthAddress[];
+
   let cheatCodes: EthCheatCodes;
+  let rollupCheatCodes: RollupCheatCodes;
+  let rollup: RollupContract;
   let tallySlashingProposer: TallySlashingProposerContract;
   let tallySlashingProposerAddress: EthAddress;
+  let testConfig: DeployL1ContractsArgs;
 
   const mockSignature = {
     v: 27,
@@ -30,30 +39,47 @@ describe('TallySlashingProposer', () => {
   };
 
   // Test configuration values
-  const testSlashingRoundSize = 192; // Multiple of aztecEpochDuration (32): 192 = 32 * 6
-  const testConfig = {
-    ...DefaultL1ContractsConfig,
-    salt: undefined,
-    vkTreeRoot: Fr.random(),
-    protocolContractTreeRoot: Fr.random(),
-    genesisArchiveRoot: Fr.random(),
-    realVerifier: false,
-    slasherFlavor: 'tally' as const,
-    slashingRoundSize: testSlashingRoundSize,
-  };
+  const testSlashingRoundSize = 192;
 
   beforeAll(async () => {
     logger = createLogger('ethereum:test:tally_slashing_proposer');
-    privateKey = privateKeyToAccount('0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba');
+    deployerPrivateKey = privateKeyToAccount('0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba');
 
     ({ anvil, rpcUrl } = await startAnvil());
 
+    validatorsPrivateKeys = (
+      [
+        '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d',
+        '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a',
+        '0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6',
+        '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a',
+      ] as const
+    ).map(key => privateKeyToAccount(key));
+    validatorsAddresses = validatorsPrivateKeys.map(key => EthAddress.fromString(key.address));
+
+    testConfig = {
+      ...DefaultL1ContractsConfig,
+      salt: undefined,
+      vkTreeRoot: Fr.random(),
+      protocolContractTreeRoot: Fr.random(),
+      genesisArchiveRoot: Fr.random(),
+      realVerifier: false,
+      slasherFlavor: 'tally' as const,
+      slashingRoundSize: testSlashingRoundSize,
+      aztecTargetCommitteeSize: 4,
+      initialValidators: validatorsAddresses.map(attester => ({
+        attester,
+        withdrawer: attester,
+        bn254SecretKey: new SecretValue(Fr.random().toBigInt()),
+      })),
+    };
+
+    const deployed = await deployL1Contracts([rpcUrl], deployerPrivateKey, foundry, logger, testConfig);
     cheatCodes = new EthCheatCodes([rpcUrl]);
+    rollupCheatCodes = new RollupCheatCodes(cheatCodes, deployed.l1ContractAddresses);
 
-    const deployed = await deployL1Contracts([rpcUrl], privateKey, foundry, logger, testConfig);
-
-    writeClient = createExtendedL1Client([rpcUrl], privateKey);
-    const rollup = new RollupContract(writeClient, deployed.l1ContractAddresses.rollupAddress!);
+    writeClient = createExtendedL1Client([rpcUrl], deployerPrivateKey);
+    rollup = new RollupContract(writeClient, deployed.l1ContractAddresses.rollupAddress!);
     tallySlashingProposer = (await rollup.getSlashingProposer()) as TallySlashingProposerContract;
     tallySlashingProposerAddress = tallySlashingProposer.address;
   });
@@ -130,7 +156,7 @@ describe('TallySlashingProposer', () => {
   });
 
   describe('buildVoteRequest', () => {
-    it('builds vote request', async () => {
+    it('builds vote request with random signature', async () => {
       const votes = '0x1234567890abcdef' as Hex;
       const request = tallySlashingProposer.buildVoteRequestWithSignature(votes, mockSignature);
 
@@ -141,6 +167,30 @@ describe('TallySlashingProposer', () => {
         // Verify it's a revert error from the contract, not a formatting error
         expect(error.message || error.toString()).toMatch(/custom error/i);
       }
+    });
+
+    it('builds correct typed data to sign', async () => {
+      const votes = bufferToHex(Buffer.alloc(testSlashingRoundSize / testConfig.aztecEpochDuration, 1));
+      const slot = 1n;
+      const typedData = tallySlashingProposer.buildVoteTypedData(votes, slot);
+      const expectedDigest = await tallySlashingProposer.getVoteDataDigest(votes, slot);
+      expect(hashTypedData(typedData)).toEqual(expectedDigest.toString());
+    });
+
+    it('builds vote request with signer', async () => {
+      await rollupCheatCodes.advanceToEpoch(12n);
+      const votes = bufferToHex(Buffer.alloc(testSlashingRoundSize / testConfig.aztecEpochDuration, 1));
+      const slot = await rollup.getSlotNumber();
+      const proposer = EthAddress.fromString(await rollup.getCurrentProposer());
+      const proposerIndex = validatorsAddresses.findIndex(addr => addr.equals(proposer));
+      expect(proposerIndex).toBeGreaterThanOrEqual(0);
+      const proposerKey = validatorsPrivateKeys[proposerIndex];
+
+      const signer = (typedData: TypedDataDefinition) => proposerKey.signTypedData(typedData);
+      const request = await tallySlashingProposer.buildVoteRequestFromSigner(votes, slot, signer);
+
+      const hash = await writeClient.sendTransaction(request);
+      await writeClient.waitForTransactionReceipt({ hash });
     });
 
     it('encodes vote function correctly', () => {
