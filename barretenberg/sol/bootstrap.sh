@@ -28,7 +28,7 @@ function build_sol {
 
     local artifact=barretenberg-sol-$hash.zst
     if ! cache_download $artifact; then
-        generate_vks
+
         rm -rf broadcast cache out
         forge install
         # Ensure libraries are at the correct version
