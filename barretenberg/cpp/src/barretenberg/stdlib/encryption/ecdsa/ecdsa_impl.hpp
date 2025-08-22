@@ -18,7 +18,7 @@ auto& engine = numeric::get_debug_randomness();
 }
 
 /**
- * @brief Validate the inputs used by the verification function and return messages if they produce and invalid circuit.
+ * @brief Validate the inputs used by the verification function and return messages if they produce an invalid circuit.
  *
  * @tparam Builder
  * @tparam Curve
@@ -103,7 +103,6 @@ void validate_inputs(const stdlib::byte_array<Builder>& hashed_message,
  * @note This function verifies that `sig` is a valid signature for the public key `public_key`. The function returns
  * an in-circuit boolean value which bears witness to whether the signature verification was successfull or not. The
  * boolean is NOT constrained to be equal to bool_t(true).
- *
  *
  * @note The circuit introduces constraints for the following assertions:
  *          1. \$P\$ is on the curve
@@ -225,44 +224,46 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
  */
 template <typename Builder> void generate_ecdsa_verification_test_circuit(Builder& builder, size_t num_iterations)
 {
-    using curve = stdlib::secp256k1<Builder>;
-    using fr = typename curve::fr;
-    using fq = typename curve::fq;
-    using g1 = typename curve::g1;
+    using Curve = stdlib::secp256k1<Builder>;
+
+    // Native types
+    using FrNative = typename Curve::fr;
+    using FqNative = typename Curve::fq;
+    using G1Native = typename Curve::g1;
+
+    // Stdlib types
+    using Fr = typename Curve::bigfr_ct;
+    using Fq = typename Curve::fq_ct;
+    using G1 = typename Curve::g1_bigfr_ct;
 
     std::string message_string = "Instructions unclear, ask again later.";
 
     crypto::ecdsa_key_pair<fr, g1> account;
     for (size_t i = 0; i < num_iterations; i++) {
         // Generate unique signature for each iteration
-        account.private_key = curve::fr::random_element(&engine);
-        account.public_key = curve::g1::one * account.private_key;
+        account.private_key = FrNative::random_element(&engine);
+        account.public_key = G1Native::one * account.private_key;
 
         crypto::ecdsa_signature signature =
-            crypto::ecdsa_construct_signature<crypto::Sha256Hasher, fq, fr, g1>(message_string, account);
+            crypto::ecdsa_construct_signature<crypto::Sha256Hasher, FqNative, FrNative, G1Native>(message_string,
+                                                                                                  account);
 
-        bool first_result = crypto::ecdsa_verify_signature<crypto::Sha256Hasher, fq, fr, g1>(
+        bool native_verification = crypto::ecdsa_verify_signature<crypto::Sha256Hasher, FqNative, FrNative, G1Native>(
             message_string, account.public_key, signature);
-        static_cast<void>(first_result); // TODO(Cody): This is not used anywhere.
+        BB_ASSERT_EQ(native_verification, true, "Native ECDSA verification failed while generating test circuit.");
 
         std::vector<uint8_t> rr(signature.r.begin(), signature.r.end());
         std::vector<uint8_t> ss(signature.s.begin(), signature.s.end());
 
-        typename curve::g1_bigfr_ct public_key = curve::g1_bigfr_ct::from_witness(&builder, account.public_key);
+        G1 public_key = G1::from_witness(&builder, account.public_key);
 
-        stdlib::ecdsa_signature<Builder> sig{ typename curve::byte_array_ct(&builder, rr),
-                                              typename curve::byte_array_ct(&builder, ss) };
+        ecdsa_signature<Builder> sig{ byte_array<Builder>(&builder, rr), byte_array<Builder>(&builder, ss) };
 
-        typename curve::byte_array_ct message(&builder, message_string);
+        byte_array<Builder> message(&builder, message_string);
 
         // Verify ecdsa signature
-        typename curve::bool_ct result =
-            stdlib::ecdsa_verify_signature<Builder,
-                                           curve,
-                                           typename curve::fq_ct,
-                                           typename curve::bigfr_ct,
-                                           typename curve::g1_bigfr_ct>(message, public_key, sig);
-        result.assert_equal(typename curve::bool_ct(true));
+        bool_t<Builder> result = stdlib::ecdsa_verify_signature<Builder, Curve, Fq, Fr, G1>(message, public_key, sig);
+        result.assert_equal(bool_t<Builder>(true));
     }
 }
 

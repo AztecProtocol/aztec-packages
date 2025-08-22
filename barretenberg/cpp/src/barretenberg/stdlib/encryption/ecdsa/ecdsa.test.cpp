@@ -63,8 +63,7 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
         std::vector<uint8_t> vv = { signature.v };
 
         stdlib::ecdsa_signature<Builder> sig{ stdlib::byte_array<Builder>(&builder, rr),
-                                              stdlib::byte_array<Builder>(&builder, ss),
-                                              stdlib::byte_array<Builder>(&builder, vv) };
+                                              stdlib::byte_array<Builder>(&builder, ss) };
 
         return { message, pub_key, sig };
     }

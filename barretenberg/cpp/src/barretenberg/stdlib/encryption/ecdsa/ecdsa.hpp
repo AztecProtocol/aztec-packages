@@ -25,10 +25,6 @@ template <typename Builder> struct ecdsa_signature {
             return s.get_context();
         }
 
-        if (v.get_context() != nullptr) {
-            return v.get_context();
-        }
-
         return nullptr;
     }
 };
