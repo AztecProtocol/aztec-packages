@@ -172,7 +172,7 @@ library StakingLib {
     // We load it into memory to cache it, as we will delete it before we use it.
     Exit memory exit = store.exits[_attester];
     require(exit.exists, Errors.Staking__NotExiting(_attester));
-    require(exit.isRecipient, Errors.Staking__NotExiting(_attester));
+    require(exit.isRecipient, Errors.Staking__InitiateWithdrawNeeded(_attester));
     require(
       exit.exitableAt <= Timestamp.wrap(block.timestamp),
       Errors.Staking__WithdrawalNotUnlockedYet(Timestamp.wrap(block.timestamp), exit.exitableAt)

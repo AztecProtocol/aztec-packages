@@ -54,6 +54,7 @@ import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol
 
 import {MinimalFeeModel} from "./MinimalFeeModel.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
+import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.sol";
 
 // solhint-disable comprehensive-interface
 
@@ -191,7 +192,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
             stateReference: EMPTY_STATE_REFERENCE,
             oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier})
           }),
-          AttestationLib.packAttestations(b.attestations),
+          AttestationLibHelper.packAttestations(b.attestations),
           b.signers,
           b.blobInputs
         );
@@ -282,7 +283,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
             stateReference: EMPTY_STATE_REFERENCE,
             oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier})
           }),
-          AttestationLib.packAttestations(b.attestations),
+          AttestationLibHelper.packAttestations(b.attestations),
           b.signers,
           b.blobInputs
         );
