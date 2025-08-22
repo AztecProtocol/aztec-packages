@@ -43,6 +43,7 @@ template <typename Builder> class StdlibPoseidon2 : public testing::Test {
 
         auto result = stdlib::poseidon2<Builder>::hash(builder, inputs);
         auto expected = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(inputs_native);
+        info("num gates = ", builder.get_estimated_num_finalized_gates());
 
         EXPECT_EQ(result.get_value(), expected);
 
@@ -130,6 +131,8 @@ TYPED_TEST(StdlibPoseidon2, TestHashZeros)
 
 TYPED_TEST(StdlibPoseidon2, TestHashSmall)
 {
+    TestFixture::test_hash(1);
+
     TestFixture::test_hash(10);
 }
 

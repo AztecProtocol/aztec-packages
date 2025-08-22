@@ -31,7 +31,7 @@ typename Poseidon2Permutation<Builder>::State Poseidon2Permutation<Builder>::per
         current_native_state[i] = current_state[i].get_value();
     }
 
-    // Apply 1st linear layer
+    // Apply 1st linear layer both natively and in-circuit.
     NativePermutation::matrix_multiplication_external(current_native_state);
     matrix_multiplication_external(current_state);
 
@@ -80,8 +80,11 @@ typename Poseidon2Permutation<Builder>::State Poseidon2Permutation<Builder>::per
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): dummy gate required since the last internal gate
     // otherwise expects to read into the next external gate which is sorted out of sequence
-    builder->create_dummy_gate(
-        builder->blocks.poseidon2_internal, builder->zero_idx, builder->zero_idx, builder->zero_idx, builder->zero_idx);
+    builder->create_dummy_gate(builder->blocks.poseidon2_internal,
+                               current_state[0].get_witness_index(),
+                               current_state[1].get_witness_index(),
+                               current_state[2].get_witness_index(),
+                               current_state[3].get_witness_index());
 
     // Remaining external rounds
     for (size_t i = p_end; i < NUM_ROUNDS; ++i) {
@@ -127,24 +130,28 @@ typename Poseidon2Permutation<Builder>::State Poseidon2Permutation<Builder>::per
 template <typename Builder>
 void Poseidon2Permutation<Builder>::matrix_multiplication_external(typename Poseidon2Permutation<Builder>::State& state)
 {
+    const bb::fr two(2);
+    const bb::fr four(4);
     // create the 6 gates for the initial matrix multiplication
     // gate 1: Compute tmp1 = state[0] + state[1] + 2 * state[3]
-    field_t<Builder> tmp1 = state[0].add_two(state[1], state[3] * 2);
+    field_t<Builder> tmp1 = state[0].add_two(state[1], state[3] * two);
 
     // gate 2: Compute tmp2 = 2 * state[1] + state[2] + state[3]
-    field_t<Builder> tmp2 = state[2].add_two(state[1] * 2, state[3]);
+    field_t<Builder> tmp2 = state[2].add_two(state[1] * two, state[3]);
 
     // gate 3: Compute v2 = 4 * state[0] + 4 * state[1] + tmp2
-    state[1] = tmp2.add_two(state[0] * 4, state[1] * 4);
+    state[1] = tmp2.add_two(state[0] * four, state[1] * four);
 
     // gate 4: Compute v1 = v2 + tmp1
     state[0] = state[1] + tmp1;
 
     // gate 5: Compute v4 = tmp1 + 4 * state[2] + 4 * state[3]
-    state[3] = tmp1.add_two(state[2] * 4, state[3] * 4);
+    state[3] = tmp1.add_two(state[2] * four, state[3] * four);
 
     // gate 6: Compute v3 = v4 + tmp2
     state[2] = state[3] + tmp2;
+
+    // This can only happen if the input contained constant `field_t` elements.
     ASSERT(state[0].is_normalized() && state[1].is_normalized() && state[2].is_normalized() &&
            state[3].is_normalized());
 }

@@ -21,6 +21,11 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
         7, // internal poseidon2 round sub-relation for fourth value
     };
 
+    static constexpr FF D1 = crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[0];
+    static constexpr FF D2 = crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[1];
+    static constexpr FF D3 = crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[2];
+    static constexpr FF D4 = crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[3];
+    static constexpr FF D1_plus_1 = FF{ 1 } + D1;
     /**
      * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
      *
@@ -33,16 +38,34 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
     /**
      * @brief Expression for the poseidon2 internal round relation, based on I_i in Section 6 of
      * https://eprint.iacr.org/2023/323.pdf.
-     * @details This relation is defined as C(in(X)...) :=
-     * q_poseidon2_internal * ( (v1 - w_1_shift) + \alpha * (v2 - w_2_shift) +
-     * \alpha^2 * (v3 - w_3_shift) + \alpha^3 * (v4 - w_4_shift) ) = 0 where:
-     *      u1 := (w_1 + q_1)^5
-     *      sum := u1 + w_2 + w_3 + w_4
-     *      v1 := u1 * D1 + sum
-     *      v2 := w_2 * D2 + sum
-     *      v3 := w_3 * D3 + sum
-     *      v4 := w_4 * D4 + sum
-     *      Di is the ith internal diagonal value - 1 of the internal matrix M_I
+     * @details Given internal matrix M_I, which is a 4x4 diagonal matrix
+     *  M_I = {{D_1 - 1, 1      , 1       ,  1      },
+     *         {1      , D_2 - 1, 1       ,  1      },
+     *         {1      , 1      , D_3 - 1 ,  1      },
+     *         {1      , 1      , 1       ,  D_4 -1 }}
+     *
+     * We enforce the relation
+     * (w_1_shift, w_2_shift, w_3_shift, w_4_shift) = M_i * ((w_1 + c0)^5, w_2, w_3, w_4)
+     * which boils down to 4 linearly independent relations that can be represented as follows:
+     * \f{align}
+     *   q_poseidon2_internal *
+     *   \big[
+     *      \alpha_0 * (v1 - w_1_shift) +
+     *      \alpha_1 * (v2 - w_2_shift) +
+     *      \alpha_2 * (v3 - w_3_shift) +
+     *      \alpha_3 * (v4 - w_4_shift)
+     *   big]
+     *   = 0
+     * \f}
+     * where:
+     *      u1 := (w_1 + c0)^5
+     *      c0 := corresponding internal round constant placed in q_l selector
+     *      v1 := u_1 * D1 + w_2       + w_3       + w_4
+     *      v2 := u_1      + w_2 * D_2 + w_3       + w_4
+     *      v3 := u_1      + w_2       + w_3 * D_3 + w_4
+     *      v4 := u_1      + w_2       + w_3       + w_4 * D_4
+     *
+     *      Di is the ith diagonal value of the internal matrix M_I
      *
      * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
      * @param in an std::array containing the fully extended Univariate edges.
@@ -58,59 +81,64 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
-        auto w_l_m = CoefficientAccumulator(in.w_l);
-        auto w_l_shift_m = CoefficientAccumulator(in.w_l_shift);
-        auto w_r_shift_m = CoefficientAccumulator(in.w_r_shift);
-        auto w_o_shift_m = CoefficientAccumulator(in.w_o_shift);
-        auto w_4_shift_m = CoefficientAccumulator(in.w_4_shift);
-        auto q_l_m = CoefficientAccumulator(in.q_l);
-        auto q_poseidon2_internal_m = CoefficientAccumulator(in.q_poseidon2_internal);
+        // Low-degree univariates represented in monomial basis
+        const auto w_1_m = CoefficientAccumulator(in.w_l);
+        const auto w_1_shift_m = CoefficientAccumulator(in.w_l_shift);
+        const auto w_2_shift_m = CoefficientAccumulator(in.w_r_shift);
+        const auto w_3_shift_m = CoefficientAccumulator(in.w_o_shift);
+        const auto w_4_shift_m = CoefficientAccumulator(in.w_4_shift);
+        const auto q_l_m = CoefficientAccumulator(in.q_l);
+        const auto q_poseidon2_internal_m = CoefficientAccumulator(in.q_poseidon2_internal);
+        const auto w_2_m = CoefficientAccumulator(in.w_r);
+        const auto w_3_m = CoefficientAccumulator(in.w_o);
+        const auto w_4_m = CoefficientAccumulator(in.w_4);
 
-        // add round constants
-        auto s1 = Accumulator(w_l_m + q_l_m);
+        Accumulator barycentric_term;
 
-        // apply s-box round
+        // Add round constants stored in the `q_l` selector and convert to Lagrange basis
+        auto s1 = Accumulator(w_1_m + q_l_m);
+
+        // Apply s-box round. Note that the multiplication is performed point-wise
         auto u1 = s1.sqr();
         u1 = u1.sqr();
         u1 *= s1;
-        auto u2_m = CoefficientAccumulator(in.w_r);
-        auto u3_m = CoefficientAccumulator(in.w_o);
-        auto u4_m = CoefficientAccumulator(in.w_4);
 
-        auto q_pos_by_scaling_m = (q_poseidon2_internal_m * scaling_factor);
-        auto q_pos_by_scaling = Accumulator(q_pos_by_scaling_m);
-        // matrix mul with v = M_I * u 4 muls and 7 additions
-        auto partial_sum = u2_m + u3_m + u4_m;
-        auto scaled_u1 = u1 * q_pos_by_scaling;
+        const auto q_pos_by_scaling_m = (q_poseidon2_internal_m * scaling_factor);
+        const auto q_pos_by_scaling = Accumulator(q_pos_by_scaling_m);
+        // Common terms
+        const auto partial_sum = w_2_m + w_3_m + w_4_m;
+        const auto scaled_u1 = u1 * q_pos_by_scaling;
+        // Row 1:
+        {
+            barycentric_term = scaled_u1 * D1_plus_1;
+            auto monomial_term = partial_sum - w_1_shift_m;
+            barycentric_term += Accumulator(monomial_term * q_pos_by_scaling_m);
+            std::get<0>(evals) += barycentric_term;
+        }
 
-        static const auto diagonal_term = FF(1) + crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[0];
-        auto barycentric_term = scaled_u1 * (diagonal_term);
-        auto monomial_term = partial_sum;
-        monomial_term -= w_l_shift_m;
-        barycentric_term += Accumulator(monomial_term * q_pos_by_scaling_m);
-        std::get<0>(evals) += barycentric_term;
+        // Row 2:
+        {
+            auto v2_m = w_2_m * D2 + partial_sum - w_2_shift_m;
+            barycentric_term = Accumulator(v2_m * q_pos_by_scaling_m);
+            barycentric_term += scaled_u1;
+            std::get<1>(evals) += barycentric_term;
+        }
 
-        auto v2_m = u2_m * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[1];
-        v2_m += partial_sum;
-        v2_m -= w_r_shift_m;
-        barycentric_term = Accumulator(v2_m * q_pos_by_scaling_m);
-        barycentric_term += scaled_u1;
-        std::get<1>(evals) += barycentric_term;
+        // Row 3:
+        {
+            auto v3_m = w_3_m * D3 + partial_sum - w_3_shift_m;
+            barycentric_term = Accumulator(v3_m * q_pos_by_scaling_m);
+            barycentric_term += scaled_u1;
+            std::get<2>(evals) += barycentric_term;
+        }
 
-        auto v3_m = u3_m * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[2];
-        v3_m += partial_sum;
-        v3_m -= w_o_shift_m;
-        barycentric_term = Accumulator(v3_m * q_pos_by_scaling_m);
-        barycentric_term += scaled_u1;
-        std::get<2>(evals) += barycentric_term;
-
-        auto v4_m = u4_m * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[3];
-        v4_m += partial_sum;
-        v4_m -= w_4_shift_m;
-
-        barycentric_term = Accumulator(v4_m * q_pos_by_scaling_m);
-        barycentric_term += scaled_u1;
-        std::get<3>(evals) += barycentric_term;
+        // Row 4:
+        {
+            auto v4_m = w_4_m * D4 + partial_sum - w_4_shift_m;
+            barycentric_term = Accumulator(v4_m * q_pos_by_scaling_m);
+            barycentric_term += scaled_u1;
+            std::get<3>(evals) += barycentric_term;
+        }
     };
 }; // namespace bb
 
