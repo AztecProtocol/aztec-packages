@@ -259,14 +259,14 @@ class UltraEccOpsTable {
         if (settings == MergeSettings::APPEND) {
             // All appends are treated as fixed-location for ultra ops
             ASSERT(!has_fixed_append, "Can only perform fixed-location append once");
-            fixed_append_offset = offset; // May be nullopt, which means append right after prepended tables
+            // Set fixed location at which to append ultra ops. If nullopt --> append right after prepended tables
+            fixed_append_offset = offset;
             has_fixed_append = true;
-            // Still merge normally, but we'll handle the placement specially during column construction
             table.merge(settings);
             current_subtable_idx = table.num_subtables() - 1;
-        } else {
+        } else { // MergeSettings::PREPEND
             table.merge(settings);
-            current_subtable_idx = settings == MergeSettings::PREPEND ? 0 : table.num_subtables() - 1;
+            current_subtable_idx = 0;
         }
     }
 
