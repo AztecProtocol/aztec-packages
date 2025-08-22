@@ -1,5 +1,17 @@
 include "range_check.pil";
 
+// Important Precondition:
+// Both inputs (input_a and input_b) must be bounded by p - 1 - 2^128
+// and the asbolute difference between them must be less than 2^128. These
+// properties need to be constrained by the caller.
+// In the avm, we will use this gadget with both inputs bounded by 2^128.
+// Note that simulation (gt.cpp) is taking uint128_t input values. Values of
+// types FF use ff_gt gadget.
+//
+// Usage:
+//
+// sel { a, b, result } in gt.sel { gt.input_a, gt.input_b, gt.res };
+// where gt.res is a boolean value that is true if input_a > input_b, false otherwise.
 namespace gt;
 
     pol commit sel;
@@ -14,17 +26,23 @@ namespace gt;
     pol commit res; // Boolean
     res * (1 - res) = 0;
 
-    // NOTE: We currently range check all abs diffs against 128 bits, which for most calls will be sub-optimal,
-    // but allows us to avoid forwarding a rng_chk_bits value and deduplicate more events.
-    // TODO: Investigate whether we want to define the rng_chk_bits here or continue checking all against 128.
-    pol commit constant_128;
-    sel * (128 - constant_128) = 0;
-
     pol A_LTE_B = input_b - input_a;
     pol A_GT_B = input_a - input_b - 1;
     pol commit abs_diff;
 
+    // In trace generation, we will pick num_bits to be the smallest multiple of 16 such that
+    // 2^num_bits > abs_diff. This deterministic derivation leads to a deduplication of the range_check
+    // event whenever the inputs are the same. In other words, whenever the gt event deduplicates,
+    // the range_check event will also deduplicate.
+    // num_bits is not constrained here but range_check forces that abs_diff < 2^128 no matter what.
+    // A range-check on abs_diff with any number of bits <= 128 therefore asserts that #[GT_RESULT]
+    // is correct (assuming the preconditions are met).
+    // The reason to pick num_bits smaller than 128 is to reduce the number of activated 16-bit range checks
+    // in range_check.pil. This is a performance optimization. Choosing a tighter num_bits being not a
+    // multiple of 16 would not reduce the number of 16-bit range checks.
+    pol commit num_bits;
+
     #[GT_RESULT]
     sel * ( (A_GT_B - A_LTE_B) * res + A_LTE_B - abs_diff ) = 0;
     #[GT_RANGE]
-    sel { abs_diff, constant_128 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+    sel { abs_diff, num_bits } in range_check.sel { range_check.value, range_check.rng_chk_bits };

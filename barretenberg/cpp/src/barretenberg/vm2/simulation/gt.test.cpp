@@ -26,7 +26,27 @@ TEST(AvmSimulationGTTest, GTTrue)
     uint128_t a = 2;
     uint128_t b = 1;
 
-    EXPECT_CALL(range_check, assert_range(0, /*num_bits=*/128));
+    EXPECT_CALL(range_check, assert_range(0, /*num_bits=*/16));
+
+    auto c = gt.gt(a, b);
+
+    EXPECT_EQ(c, true);
+
+    auto events = gt_event_emitter.dump_events();
+    EXPECT_THAT(events, ElementsAre(GreaterThanEvent{ .a = a, .b = b, .result = c }));
+}
+
+TEST(AvmSimulationGTTest, GTTrueDiffPowerOf2To16)
+{
+    EventEmitter<GreaterThanEvent> gt_event_emitter;
+    StrictMock<MockRangeCheck> range_check;
+    StrictMock<MockFieldGreaterThan> field_gt;
+    GreaterThan gt(field_gt, range_check, gt_event_emitter);
+
+    uint128_t a = (1 << 16) + 23;
+    uint128_t b = 22; // a - b - 1 == 1 << 16
+
+    EXPECT_CALL(range_check, assert_range(1 << 16, /*num_bits=*/32));
 
     auto c = gt.gt(a, b);
 
@@ -85,7 +105,7 @@ TEST(AvmSimulationGTTest, GTMemoryValue)
     auto a = MemoryValue::from<uint64_t>(2);
     auto b = MemoryValue::from<uint64_t>(1);
 
-    EXPECT_CALL(range_check, assert_range(0, /*num_bits=*/128));
+    EXPECT_CALL(range_check, assert_range(0, /*num_bits=*/16));
     EXPECT_TRUE(gt.gt(a, b));
 
     auto a_ff = MemoryValue::from<FF>(1);
