@@ -261,8 +261,13 @@ template <typename Builder> void generate_ecdsa_verification_test_circuit(Builde
 
         byte_array<Builder> message(&builder, message_string);
 
+        // Compute H(m)
+        stdlib::byte_array<Builder> hashed_message =
+            static_cast<stdlib::byte_array<Builder>>(stdlib::SHA256<Builder>::hash(message));
+
         // Verify ecdsa signature
-        bool_t<Builder> result = stdlib::ecdsa_verify_signature<Builder, Curve, Fq, Fr, G1>(message, public_key, sig);
+        bool_t<Builder> result =
+            stdlib::ecdsa_verify_signature<Builder, Curve, Fq, Fr, G1>(hashed_message, public_key, sig);
         result.assert_equal(bool_t<Builder>(true));
     }
 }
