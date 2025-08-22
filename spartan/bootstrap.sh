@@ -105,7 +105,7 @@ function stop_env {
 
 function test {
   echo_header "spartan test"
-  test_cmds | filter_test_cmds | parallelise
+  test_cmds | filter_test_cmds | parallelize
 }
 
 case "$cmd" in

@@ -67,7 +67,7 @@ interface IGovernance {
 
   event Deposit(address indexed depositor, address indexed onBehalfOf, uint256 amount);
   event WithdrawInitiated(uint256 indexed withdrawalId, address indexed recipient, uint256 amount);
-  event WithdrawFinalised(uint256 indexed withdrawalId);
+  event WithdrawFinalized(uint256 indexed withdrawalId);
 
   function addBeneficiary(address _beneficiary) external;
   function openFloodgates() external;
@@ -76,7 +76,7 @@ interface IGovernance {
   function updateConfiguration(Configuration memory _configuration) external;
   function deposit(address _onBehalfOf, uint256 _amount) external;
   function initiateWithdraw(address _to, uint256 _amount) external returns (uint256);
-  function finaliseWithdraw(uint256 _withdrawalId) external;
+  function finalizeWithdraw(uint256 _withdrawalId) external;
   function propose(IPayload _proposal) external returns (uint256);
   function proposeWithLock(IPayload _proposal, address _to) external returns (uint256);
   function vote(uint256 _proposalId, uint256 _amount, bool _support) external returns (bool);

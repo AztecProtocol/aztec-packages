@@ -42,7 +42,7 @@ describe('prover/orchestrator/errors', () => {
 
       const block = await orchestrator.setBlockCompleted(context.blockNumber);
       expect(block.number).toEqual(context.blockNumber);
-      await orchestrator.finaliseEpoch();
+      await orchestrator.finalizeEpoch();
     });
 
     it('throws if adding too many blocks', async () => {

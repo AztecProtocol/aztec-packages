@@ -918,7 +918,7 @@ void Execution::to_radix_be(ContextInterface& context,
     // The range check for a valid radix (2 <= radix <= 256) is done in the gadget.
     // However, in order to compute the dynamic gas value we need to constrain the radix
     // to be <= 256 since the `get_p_limbs_per_radix` lookup table is only defined for the range [0, 256].
-    // This does mean that the <= 256 check is duplicated - this can be optimised later.
+    // This does mean that the <= 256 check is duplicated - this can be optimized later.
 
     // The dynamic gas factor is the maximum of the num_limbs requested by the opcode and the number of limbs
     // the gadget that the field modulus, p, decomposes into given a radix (num_p_limbs).

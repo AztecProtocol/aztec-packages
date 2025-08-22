@@ -26,7 +26,7 @@ describe('prover/orchestrator/blocks', () => {
       await context.orchestrator.startNewBlock(context.globalVariables, [], context.getPreviousBlockHeader());
 
       const block = await context.orchestrator.setBlockCompleted(context.blockNumber);
-      await context.orchestrator.finaliseEpoch();
+      await context.orchestrator.finalizeEpoch();
       expect(block.number).toEqual(context.blockNumber);
     });
 
@@ -45,7 +45,7 @@ describe('prover/orchestrator/blocks', () => {
       await context.orchestrator.addTxs(txs);
 
       const block = await context.orchestrator.setBlockCompleted(context.blockNumber);
-      await context.orchestrator.finaliseEpoch();
+      await context.orchestrator.finalizeEpoch();
       expect(block.number).toEqual(context.blockNumber);
     });
 
@@ -68,7 +68,7 @@ describe('prover/orchestrator/blocks', () => {
       await context.orchestrator.addTxs(txs);
 
       const block = await context.orchestrator.setBlockCompleted(context.blockNumber);
-      await context.orchestrator.finaliseEpoch();
+      await context.orchestrator.finalizeEpoch();
       expect(block.number).toEqual(context.blockNumber);
     });
   });

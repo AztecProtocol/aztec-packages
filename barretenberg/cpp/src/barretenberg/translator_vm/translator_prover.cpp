@@ -159,7 +159,7 @@ void TranslatorProver::execute_relation_check_rounds()
                       Flavor::CONST_TRANSLATOR_LOG_N);
 
     const size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Flavor::Curve::SUBGROUP_SIZE));
-    // Create a temporary commitment key that is only used to initialise the ZKSumcheckData
+    // Create a temporary commitment key that is only used to initialize the ZKSumcheckData
     // If proving in WASM, the commitment key that is part of the Translator proving key remains deallocated
     // until we enter the PCS round
     CommitmentKey ck(1 << (log_subgroup_size + 1));
@@ -182,7 +182,7 @@ void TranslatorProver::execute_pcs_rounds()
     using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
     using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
 
-    // Check whether the commitment key has been deallocated and reinitialise it if necessary
+    // Check whether the commitment key has been deallocated and reinitialize it if necessary
     auto& ck = key->proving_key->commitment_key;
     if (!ck.initialized()) {
         ck = CommitmentKey(key->proving_key->circuit_size);

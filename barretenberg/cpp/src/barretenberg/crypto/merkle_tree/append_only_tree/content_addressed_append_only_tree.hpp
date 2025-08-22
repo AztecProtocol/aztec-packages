@@ -58,7 +58,7 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
     using RollbackCallback = EmptyResponseCallback;
     using RemoveHistoricBlockCallback = std::function<void(TypedResponse<RemoveHistoricResponse>&)>;
     using UnwindBlockCallback = std::function<void(TypedResponse<UnwindResponse>&)>;
-    using FinaliseBlockCallback = EmptyResponseCallback;
+    using FinalizeBlockCallback = EmptyResponseCallback;
     using GetBlockForIndexCallback = std::function<void(TypedResponse<BlockForIndexResponse>&)>;
     using CheckpointCallback = EmptyResponseCallback;
     using CheckpointCommitCallback = EmptyResponseCallback;
@@ -249,7 +249,7 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
 
     void unwind_block(const block_number_t& blockNumber, const UnwindBlockCallback& on_completion);
 
-    void finalise_block(const block_number_t& blockNumber, const FinaliseBlockCallback& on_completion);
+    void finalize_block(const block_number_t& blockNumber, const FinalizeBlockCallback& on_completion);
 
     void checkpoint(const CheckpointCallback& on_completion);
     void commit_checkpoint(const CheckpointCommitCallback& on_completion);
@@ -340,7 +340,7 @@ ContentAddressedAppendOnlyTree<Store, HashingPolicy>::ContentAddressedAppendOnly
 
         signal.wait_for_level(0);
         if (!result.success) {
-            throw std::runtime_error(format("Failed to initialise tree: ", result.message));
+            throw std::runtime_error(format("Failed to initialize tree: ", result.message));
         }
 
         store_->get_meta(meta);
@@ -1037,16 +1037,16 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::unwind_block(const bl
 }
 
 template <typename Store, typename HashingPolicy>
-void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::finalise_block(const block_number_t& blockNumber,
-                                                                          const FinaliseBlockCallback& on_completion)
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::finalize_block(const block_number_t& blockNumber,
+                                                                          const FinalizeBlockCallback& on_completion)
 {
     auto job = [=, this]() {
         execute_and_report(
             [=, this]() {
                 if (blockNumber == 0) {
-                    throw std::runtime_error("Unable to finalise block 0");
+                    throw std::runtime_error("Unable to finalize block 0");
                 }
-                store_->advance_finalised_block(blockNumber);
+                store_->advance_finalized_block(blockNumber);
             },
             on_completion);
     };

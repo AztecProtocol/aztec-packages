@@ -1,4 +1,4 @@
-FinaliseWithdrawTest
+FinalizeWithdrawTest
 ├── given status is not exiting
 │   └── it revert
 └── given status is exiting
@@ -8,4 +8,4 @@ FinaliseWithdrawTest
         ├── it deletes the exit
         ├── it deletes the operator info
         ├── it transfer funds to recipient
-        └── it emits a {WithdrawFinalised} event
+        └── it emits a {WithdrawFinalized} event

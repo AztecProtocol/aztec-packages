@@ -307,7 +307,7 @@ export class EpochsTestContext {
   }
 
   /** Waits for the aztec node to sync to the target block number. */
-  public async waitForNodeToSync(blockNumber: number, type: 'proven' | 'finalised' | 'historic') {
+  public async waitForNodeToSync(blockNumber: number, type: 'proven' | 'finalized' | 'historic') {
     const waitTime = ARCHIVER_POLL_INTERVAL + WORLD_STATE_BLOCK_CHECK_INTERVAL;
     let synched = false;
     while (!synched) {
@@ -319,8 +319,8 @@ export class EpochsTestContext {
       this.logger.info(`Wait for node synch ${blockNumber} ${type}`, { blockNumber, type, syncState, tips });
       if (type === 'proven') {
         synched = tips.proven.number >= blockNumber && syncState.latestBlockNumber >= blockNumber;
-      } else if (type === 'finalised') {
-        synched = syncState.finalisedBlockNumber >= blockNumber;
+      } else if (type === 'finalized') {
+        synched = syncState.finalizedBlockNumber >= blockNumber;
       } else {
         synched = syncState.oldestHistoricBlockNumber >= blockNumber;
       }

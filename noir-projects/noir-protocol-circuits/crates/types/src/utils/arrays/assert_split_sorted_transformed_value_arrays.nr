@@ -12,7 +12,7 @@ use crate::{
 
 // original_array must be valid, i.e. validate_array(original_array) == true
 // transformed_value_array must be verified against original_array before calling this function.
-// TODO: this can be optimised.
+// TODO: this can be optimized.
 fn assert_split_sorted_transformed_value_arrays<T, S, let N: u32>(
     original_array: [T; N],
     transformed_value_array: [S; N],

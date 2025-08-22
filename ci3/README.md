@@ -50,7 +50,7 @@ Tools are provided for the following themes.
    - **`cache_upload_flag`, `cache_download_flag`**: Mark or detect a particular test's success state. Avoids re-running long tests.
 
 2. **Test Parallelization & Caching**
-   - **`parallelise`**: Reads test commands from STDIN, executes in parallel, aggregates logs.
+   - **`parallelize`**: Reads test commands from STDIN, executes in parallel, aggregates logs.
    - **`run_test_cmd`**: Single test runner that can skip tests cached as “already passed.”
    - **`filter_cached_test_cmd`**: Filters out test commands known to have succeeded (based on flags in redis).
 
@@ -78,8 +78,8 @@ Tools are provided for the following themes.
    - If not changed, do `cache_download` to restore a previously built artifact.
 
 2. **In test scripts**:
-   - We gather test commands (`test_cmds`) in a form easily read by `parallelise`.
-   - `parallelise` calls `run_test_cmd` on each line, skipping or running tests as needed.
+   - We gather test commands (`test_cmds`) in a form easily read by `parallelize`.
+   - `parallelize` calls `run_test_cmd` on each line, skipping or running tests as needed.
 
 3. **In local or ephemeral servers**:
    - Either manually run `./bootstrap.sh fast` or let the CI invoke it on a fresh machine.

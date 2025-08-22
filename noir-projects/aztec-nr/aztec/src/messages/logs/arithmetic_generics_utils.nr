@@ -4,7 +4,7 @@ use crate::messages::encryption::log_encryption::HEADER_CIPHERTEXT_SIZE_IN_BYTES
 // Disgusting arithmetic on generics
 /********************************************************/
 
-// In this section, instead of initialising arrays with very complicated generic
+// In this section, instead of initializing arrays with very complicated generic
 // arithmetic, such as:
 // let my_arr: [u8; (((Pt + (16 - (Pt % 16))) + (HEADER_CIPHERTEXT_SIZE_IN_BYTES + 1)) + ((((((Pt + (16 - (Pt % 16))) + (HEADER_CIPHERTEXT_SIZE_IN_BYTES + 1)) + 30) / 31) * 31) - ((Pt + (16 - (Pt % 16))) + (HEADER_CIPHERTEXT_SIZE_IN_BYTES + 1))))] = [0; (((Pt + (16 - (Pt % 16))) + (HEADER_CIPHERTEXT_SIZE_IN_BYTES + 1)) + ((((((Pt + (16 - (Pt % 16))) + (HEADER_CIPHERTEXT_SIZE_IN_BYTES + 1)) + 30) / 31) * 31) - ((Pt + (16 - (Pt % 16))) + (HEADER_CIPHERTEXT_SIZE_IN_BYTES + 1))))];
 //... we instead do the arithmetic a little bit at a time, so that the computation

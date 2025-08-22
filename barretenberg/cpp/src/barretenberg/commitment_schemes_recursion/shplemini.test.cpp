@@ -132,7 +132,7 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
         VerifierCommitmentKey<NativeCurve> vk;
         EXPECT_EQ(vk.pairing_check(pairing_points[0].get_value(), pairing_points[1].get_value()), true);
 
-        // Return finalised number of gates;
+        // Return finalized number of gates;
         return builder.num_gates;
     };
 

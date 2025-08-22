@@ -67,8 +67,8 @@ describe('ServerWorldStateSynchronizer', () => {
     latestHandledBlockNumber = 0;
 
     merkleTreeDb.getStatusSummary.mockResolvedValue({
-      unfinalisedBlockNumber: BigInt(latestHandledBlockNumber),
-      finalisedBlockNumber: 0n,
+      unfinalizedBlockNumber: BigInt(latestHandledBlockNumber),
+      finalizedBlockNumber: 0n,
       oldestHistoricalBlock: 0n,
       treesAreSynched: true,
     } satisfies WorldStateStatusSummary);

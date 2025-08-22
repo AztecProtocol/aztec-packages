@@ -656,7 +656,7 @@ class TranslatorFlavor {
       public:
         /**
          * @brief ProverPolynomials constructor
-         * @details Initialises wire polynomials efficiently to be only minicircuit size..
+         * @details Initializes wire polynomials efficiently to be only minicircuit size..
          */
         ProverPolynomials()
         {

@@ -32,7 +32,7 @@ export enum WorldStateMessageType {
   CREATE_FORK,
   DELETE_FORK,
 
-  FINALISE_BLOCKS,
+  FINALIZE_BLOCKS,
   UNWIND_BLOCKS,
   REMOVE_HISTORICAL_BLOCKS,
 
@@ -55,9 +55,9 @@ interface WithTreeId {
 
 export interface WorldStateStatusSummary {
   /** Last block number that can still be unwound. */
-  unfinalisedBlockNumber: bigint;
-  /** Last block number that is finalised and cannot be unwound. */
-  finalisedBlockNumber: bigint;
+  unfinalizedBlockNumber: bigint;
+  /** Last block number that is finalized and cannot be unwound. */
+  finalizedBlockNumber: bigint;
   /** Oldest block still available for historical queries and forks. */
   oldestHistoricalBlock: bigint;
   /** Whether the trees are in sync with each other */
@@ -81,10 +81,10 @@ export interface TreeMeta {
   initialRoot: Fr;
   /** The current oldest historical block number of the tree */
   oldestHistoricBlock: bigint;
-  /** The current unfinalised block number of the tree */
-  unfinalisedBlockHeight: bigint;
-  /** The current finalised block number of the tree */
-  finalisedBlockHeight: bigint;
+  /** The current unfinalized block number of the tree */
+  unfinalizedBlockHeight: bigint;
+  /** The current finalized block number of the tree */
+  finalizedBlockHeight: bigint;
 }
 
 export interface DBStats {
@@ -172,8 +172,8 @@ export function buildEmptyTreeMeta() {
     depth: 0,
     size: 0n,
     committedSize: 0n,
-    unfinalisedBlockHeight: 0n,
-    finalisedBlockHeight: 0n,
+    unfinalizedBlockHeight: 0n,
+    finalizedBlockHeight: 0n,
     oldestHistoricBlock: 0n,
     root: Fr.ZERO,
     initialRoot: Fr.ZERO,
@@ -203,8 +203,8 @@ export function buildEmptyWorldStateDBStats() {
 
 export function buildEmptyWorldStateSummary() {
   return {
-    unfinalisedBlockNumber: 0n,
-    finalisedBlockNumber: 0n,
+    unfinalizedBlockNumber: 0n,
+    finalizedBlockNumber: 0n,
     oldestHistoricalBlock: 0n,
     treesAreSynched: true,
   } as WorldStateStatusSummary;
@@ -218,62 +218,62 @@ export function buildEmptyWorldStateStatusFull() {
   } as WorldStateStatusFull;
 }
 
-export function sanitiseSummary(summary: WorldStateStatusSummary) {
-  summary.finalisedBlockNumber = BigInt(summary.finalisedBlockNumber);
-  summary.unfinalisedBlockNumber = BigInt(summary.unfinalisedBlockNumber);
+export function sanitizeSummary(summary: WorldStateStatusSummary) {
+  summary.finalizedBlockNumber = BigInt(summary.finalizedBlockNumber);
+  summary.unfinalizedBlockNumber = BigInt(summary.unfinalizedBlockNumber);
   summary.oldestHistoricalBlock = BigInt(summary.oldestHistoricalBlock);
   return summary;
 }
 
-export function sanitiseDBStats(stats: DBStats) {
+export function sanitizeDBStats(stats: DBStats) {
   stats.numDataItems = BigInt(stats.numDataItems);
   stats.totalUsedSize = BigInt(stats.totalUsedSize);
   return stats;
 }
 
-export function sanitiseMeta(meta: TreeMeta) {
+export function sanitizeMeta(meta: TreeMeta) {
   meta.committedSize = BigInt(meta.committedSize);
-  meta.finalisedBlockHeight = BigInt(meta.finalisedBlockHeight);
+  meta.finalizedBlockHeight = BigInt(meta.finalizedBlockHeight);
   meta.initialSize = BigInt(meta.initialSize);
   meta.oldestHistoricBlock = BigInt(meta.oldestHistoricBlock);
   meta.size = BigInt(meta.size);
-  meta.unfinalisedBlockHeight = BigInt(meta.unfinalisedBlockHeight);
+  meta.unfinalizedBlockHeight = BigInt(meta.unfinalizedBlockHeight);
   return meta;
 }
 
-export function sanitiseTreeDBStats(stats: TreeDBStats) {
-  stats.blocksDBStats = sanitiseDBStats(stats.blocksDBStats);
-  stats.leafIndicesDBStats = sanitiseDBStats(stats.leafIndicesDBStats);
-  stats.leafPreimagesDBStats = sanitiseDBStats(stats.leafPreimagesDBStats);
-  stats.blockIndicesDBStats = sanitiseDBStats(stats.blockIndicesDBStats);
-  stats.nodesDBStats = sanitiseDBStats(stats.nodesDBStats);
+export function sanitizeTreeDBStats(stats: TreeDBStats) {
+  stats.blocksDBStats = sanitizeDBStats(stats.blocksDBStats);
+  stats.leafIndicesDBStats = sanitizeDBStats(stats.leafIndicesDBStats);
+  stats.leafPreimagesDBStats = sanitizeDBStats(stats.leafPreimagesDBStats);
+  stats.blockIndicesDBStats = sanitizeDBStats(stats.blockIndicesDBStats);
+  stats.nodesDBStats = sanitizeDBStats(stats.nodesDBStats);
   stats.mapSize = BigInt(stats.mapSize);
   stats.physicalFileSize = BigInt(stats.physicalFileSize);
   return stats;
 }
 
-export function sanitiseWorldStateDBStats(stats: WorldStateDBStats) {
-  stats.archiveTreeStats = sanitiseTreeDBStats(stats.archiveTreeStats);
-  stats.messageTreeStats = sanitiseTreeDBStats(stats.messageTreeStats);
-  stats.noteHashTreeStats = sanitiseTreeDBStats(stats.noteHashTreeStats);
-  stats.nullifierTreeStats = sanitiseTreeDBStats(stats.nullifierTreeStats);
-  stats.publicDataTreeStats = sanitiseTreeDBStats(stats.publicDataTreeStats);
+export function sanitizeWorldStateDBStats(stats: WorldStateDBStats) {
+  stats.archiveTreeStats = sanitizeTreeDBStats(stats.archiveTreeStats);
+  stats.messageTreeStats = sanitizeTreeDBStats(stats.messageTreeStats);
+  stats.noteHashTreeStats = sanitizeTreeDBStats(stats.noteHashTreeStats);
+  stats.nullifierTreeStats = sanitizeTreeDBStats(stats.nullifierTreeStats);
+  stats.publicDataTreeStats = sanitizeTreeDBStats(stats.publicDataTreeStats);
   return stats;
 }
 
-export function sanitiseWorldStateTreeMeta(meta: WorldStateMeta) {
-  meta.archiveTreeMeta = sanitiseMeta(meta.archiveTreeMeta);
-  meta.messageTreeMeta = sanitiseMeta(meta.messageTreeMeta);
-  meta.noteHashTreeMeta = sanitiseMeta(meta.noteHashTreeMeta);
-  meta.nullifierTreeMeta = sanitiseMeta(meta.nullifierTreeMeta);
-  meta.publicDataTreeMeta = sanitiseMeta(meta.publicDataTreeMeta);
+export function sanitizeWorldStateTreeMeta(meta: WorldStateMeta) {
+  meta.archiveTreeMeta = sanitizeMeta(meta.archiveTreeMeta);
+  meta.messageTreeMeta = sanitizeMeta(meta.messageTreeMeta);
+  meta.noteHashTreeMeta = sanitizeMeta(meta.noteHashTreeMeta);
+  meta.nullifierTreeMeta = sanitizeMeta(meta.nullifierTreeMeta);
+  meta.publicDataTreeMeta = sanitizeMeta(meta.publicDataTreeMeta);
   return meta;
 }
 
-export function sanitiseFullStatus(status: WorldStateStatusFull) {
-  status.dbStats = sanitiseWorldStateDBStats(status.dbStats);
-  status.summary = sanitiseSummary(status.summary);
-  status.meta = sanitiseWorldStateTreeMeta(status.meta);
+export function sanitizeFullStatus(status: WorldStateStatusFull) {
+  status.dbStats = sanitizeWorldStateDBStats(status.dbStats);
+  status.summary = sanitizeSummary(status.summary);
+  status.meta = sanitizeWorldStateTreeMeta(status.meta);
   return status;
 }
 
@@ -477,7 +477,7 @@ export type WorldStateRequest = {
 
   [WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS]: BlockShiftRequest;
   [WorldStateMessageType.UNWIND_BLOCKS]: BlockShiftRequest;
-  [WorldStateMessageType.FINALISE_BLOCKS]: BlockShiftRequest;
+  [WorldStateMessageType.FINALIZE_BLOCKS]: BlockShiftRequest;
 
   [WorldStateMessageType.GET_STATUS]: WithCanonicalForkId;
 
@@ -522,7 +522,7 @@ export type WorldStateResponse = {
 
   [WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS]: WorldStateStatusFull;
   [WorldStateMessageType.UNWIND_BLOCKS]: WorldStateStatusFull;
-  [WorldStateMessageType.FINALISE_BLOCKS]: WorldStateStatusSummary;
+  [WorldStateMessageType.FINALIZE_BLOCKS]: WorldStateStatusSummary;
 
   [WorldStateMessageType.GET_STATUS]: WorldStateStatusSummary;
 

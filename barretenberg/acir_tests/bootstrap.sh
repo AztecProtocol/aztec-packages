@@ -131,7 +131,7 @@ function build {
 
 function test {
   echo_header "acir_tests testing"
-  test_cmds | filter_test_cmds | parallelise
+  test_cmds | filter_test_cmds | parallelize
 }
 
 # Prints to stdout, one per line, the command to execute each individual test.
@@ -213,7 +213,7 @@ function bench_cmds {
 # TODO(https://github.com/AztecProtocol/barretenberg/issues/1254): More complete testing, including failure tests
 function bench {
   rm -rf bench-out && mkdir -p bench-out
-  bench_cmds | STRICT_SCHEDULING=1 parallelise
+  bench_cmds | STRICT_SCHEDULING=1 parallelize
 }
 
 case "$cmd" in

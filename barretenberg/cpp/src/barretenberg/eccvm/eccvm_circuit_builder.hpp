@@ -217,7 +217,7 @@ class ECCVMCircuitBuilder {
             }
         });
 
-        // update pc. easier to do this serially but in theory could be optimised out
+        // update pc. easier to do this serially but in theory could be optimized out
         // We start pc at `num_muls` and decrement for each mul processed.
         // This gives us two desired properties:
         // 1: the value of pc at the 1st row = number of muls (easy to check)

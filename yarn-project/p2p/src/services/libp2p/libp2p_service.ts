@@ -697,7 +697,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     try {
       resultAndObj = await validationFunc();
     } catch (err) {
-      this.logger.error(`Error deserialising and validating message `, err);
+      this.logger.error(`Error deserializing and validating message `, err);
     }
 
     if (resultAndObj.result) {

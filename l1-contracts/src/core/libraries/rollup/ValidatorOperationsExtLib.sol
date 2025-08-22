@@ -58,8 +58,8 @@ library ValidatorOperationsExtLib {
     return StakingLib.initiateWithdraw(_attester, _recipient);
   }
 
-  function finaliseWithdraw(address _attester) external {
-    StakingLib.finaliseWithdraw(_attester);
+  function finalizeWithdraw(address _attester) external {
+    StakingLib.finalizeWithdraw(_attester);
   }
 
   function initializeValidatorSelection(uint256 _targetCommitteeSize) external {
