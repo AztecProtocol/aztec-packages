@@ -4,6 +4,7 @@ import {
   EmpireSlashingProposerArtifact,
   type ExtendedViemWalletClient,
   L1Deployer,
+  L1TxUtils,
   RollupContract,
   SlasherArtifact,
 } from '@aztec/ethereum';
@@ -15,7 +16,7 @@ import { SlasherAbi } from '@aztec/l1-artifacts/SlasherAbi';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { getContract } from 'viem';
+import { encodeFunctionData, getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import { createNodes } from '../fixtures/setup_p2p_test.js';
@@ -49,6 +50,7 @@ describe('veto slash', () => {
   let slashingAmount: bigint;
   let additionalNode: AztecNodeService | undefined;
   let rollup: RollupContract;
+  let l1TxUtils: L1TxUtils;
 
   beforeAll(async () => {
     t = await P2PNetworkTest.create({
@@ -89,6 +91,7 @@ describe('veto slash', () => {
     );
 
     ({ rollup } = await t.getContracts());
+    l1TxUtils = new L1TxUtils(t.ctx.deployL1ContractsValues.l1Client);
     // slash amount is just below the ejection threshold
     slashingAmount = (await rollup.getActivationThreshold()) - (await rollup.getEjectionThreshold()) - 1n;
     t.ctx.aztecNodeConfig.slashInactivityEnabled = true;
@@ -145,9 +148,15 @@ describe('veto slash', () => {
     const proposer = await deployer.deploy(EmpireSlashingProposerArtifact, proposerArgs);
 
     debugLogger.info(`\n\ninitializing slasher with proposer: ${proposer}\n\n`);
-    const slasherContract = getContract({ address: slasher.toString(), abi: SlasherAbi, client: deployerClient });
-    const txHash = await slasherContract.write.initializeProposer([proposer.toString()]);
-    await deployerClient.waitForTransactionReceipt({ hash: txHash });
+    const txUtils = new L1TxUtils(deployerClient);
+    await txUtils.sendAndMonitorTransaction({
+      to: slasher.toString(),
+      data: encodeFunctionData({
+        abi: SlasherAbi,
+        functionName: 'initializeProposer',
+        args: [proposer.toString()],
+      }),
+    });
 
     return slasher;
   }
@@ -164,13 +173,14 @@ describe('veto slash', () => {
       const l1Client = t.ctx.deployL1ContractsValues.l1Client;
       const newSlasherAddress = await deployNewSlasher(l1Client);
       debugLogger.info(`\n\nnewSlasherAddress: ${newSlasherAddress}\n\n`);
-      const rollupRaw = getContract({
-        address: rollup.address,
-        abi: RollupAbi,
-        client: l1Client,
+      const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
+        to: rollup.address,
+        data: encodeFunctionData({
+          abi: RollupAbi,
+          functionName: 'setSlasher',
+          args: [newSlasherAddress.toString()],
+        }),
       });
-      const tx = await rollupRaw.write.setSlasher([newSlasherAddress.toString()]);
-      const receipt = await l1Client.waitForTransactionReceipt({ hash: tx });
       expect(receipt.status).toEqual('success');
       const slasherAddress = await rollup.getSlasher();
       expect(slasherAddress.toLowerCase()).toEqual(newSlasherAddress.toString().toLowerCase());
@@ -268,13 +278,15 @@ describe('veto slash', () => {
       //##############################//
 
       if (shouldVeto) {
-        const slasher = getContract({
-          address: await rollup.getSlasher(),
-          abi: SlasherAbi,
-          client: t.ctx.deployL1ContractsValues.l1Client,
+        const slasherAddress = await rollup.getSlasher();
+        const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
+          to: slasherAddress,
+          data: encodeFunctionData({
+            abi: SlasherAbi,
+            functionName: 'vetoPayload',
+            args: [submittableRound.payload],
+          }),
         });
-        const tx = await slasher.write.vetoPayload([submittableRound.payload]);
-        const receipt = await t.ctx.deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: tx });
         debugLogger.info(`\n\nvetoPayload tx receipt: ${receipt.status}\n\n`);
       }
 
