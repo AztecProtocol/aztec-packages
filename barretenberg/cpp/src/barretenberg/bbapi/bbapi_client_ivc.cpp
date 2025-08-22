@@ -66,30 +66,6 @@ ClientIvcAccumulate::Response ClientIvcAccumulate::execute(BBApiRequest& request
     return Response{};
 }
 
-ClientIvcHidingKernel::Response ClientIvcHidingKernel::execute(BBApiRequest& request) &&
-{
-    if (!request.ivc_in_progress) {
-        throw_or_abort("ClientIVC not started. Call ClientIvcStart first.");
-    }
-
-    if (!request.loaded_circuit_constraints.has_value()) {
-        throw_or_abort("No circuit loaded. Call ClientIvcLoad first.");
-    }
-
-    acir_format::WitnessVector witness_data = acir_format::witness_buf_to_witness_data(std::move(witness));
-    acir_format::AcirProgram program{ std::move(request.loaded_circuit_constraints.value()), std::move(witness_data) };
-
-    const acir_format::ProgramMetadata metadata{ request.ivc_in_progress };
-    auto circuit = acir_format::create_circuit<ClientIVC::ClientCircuit>(program, metadata);
-
-    info("ClientIvcHidingKernel - we are processing the hiding circuit: '", request.loaded_circuit_name, "'");
-
-    request.loaded_circuit_constraints.reset();
-    request.loaded_circuit_vk.clear();
-
-    return Response{};
-}
-
 ClientIvcProve::Response ClientIvcProve::execute(BBApiRequest& request) &&
 {
     if (!request.ivc_in_progress) {

@@ -29,6 +29,8 @@ class IvcRecursionConstraintTest : public ::testing::Test {
     using ArithmeticConstraint = AcirFormat::PolyTripleConstraint;
     using PairingPoints = ClientIVC::PairingPoints;
 
+    static constexpr size_t NUM_TRAILING_KERNELS = 3; // reset, tail, hiding
+
     /**
      * @brief Constuct a simple arbitrary circuit to represent a mock app circuit
      *
@@ -57,6 +59,26 @@ class IvcRecursionConstraintTest : public ::testing::Test {
             std::make_shared<ClientIVC::DeciderProvingKey>(builder, trace_settings);
         std::shared_ptr<VerificationKey> vk = std::make_shared<VerificationKey>(proving_key->get_precomputed());
         return vk;
+    }
+
+    static void construct_and_accumulate_trailing_kernels(const std::shared_ptr<ClientIVC>& ivc,
+                                                          TraceSettings trace_settings)
+    {
+
+        // Reset kernel
+        EXPECT_EQ(ivc->verification_queue.size(), 1);
+        EXPECT_EQ(ivc->verification_queue[0].type, QUEUE_TYPE::PG);
+        construct_and_accumulate_mock_kernel(ivc, trace_settings);
+
+        // Tail kernel
+        EXPECT_EQ(ivc->verification_queue.size(), 1);
+        EXPECT_EQ(ivc->verification_queue[0].type, QUEUE_TYPE::PG_TAIL);
+        construct_and_accumulate_mock_kernel(ivc, trace_settings);
+
+        // Hiding kernel
+        EXPECT_EQ(ivc->verification_queue.size(), 1);
+        EXPECT_EQ(ivc->verification_queue[0].type, QUEUE_TYPE::PG_FINAL);
+        construct_and_accumulate_mock_kernel(ivc, TraceSettings{});
     }
 
     static UltraCircuitBuilder create_inner_circuit(size_t log_num_gates = 10)
@@ -222,14 +244,15 @@ class IvcRecursionConstraintTest : public ::testing::Test {
         const ProgramMetadata metadata{ ivc };
         AcirProgram mock_kernel_program = construct_mock_kernel_program(ivc->verification_queue);
         auto kernel = acir_format::create_circuit<Builder>(mock_kernel_program, metadata);
-        EXPECT_TRUE(CircuitChecker::check(kernel));
-        auto kernel_vk = construct_kernel_vk_from_acir_program(mock_kernel_program, trace_settings);
+        auto kernel_vk = get_kernel_vk_from_circuit(kernel, trace_settings);
         ivc->accumulate(kernel, kernel_vk);
+    }
 
-        if (ivc->num_circuits_accumulated == ivc->get_num_circuits()) {
-            Builder circuit{ ivc->goblin.op_queue };
-            ivc->complete_kernel_circuit_logic(circuit);
-        }
+    static void construct_and_accumulate_mock_app(std::shared_ptr<ClientIVC> ivc, TraceSettings trace_settings)
+    {
+        // construct a mock kernel program (acir) from the ivc verification queue
+        auto app_circuit = construct_mock_app_circuit(ivc);
+        ivc->accumulate(app_circuit, get_verification_key(app_circuit, trace_settings));
     }
 
     /**
@@ -251,6 +274,14 @@ class IvcRecursionConstraintTest : public ::testing::Test {
         return verification_key;
     }
 
+    static std::shared_ptr<ClientIVC::MegaVerificationKey> get_kernel_vk_from_circuit(Builder& kernel,
+                                                                                      TraceSettings trace_settings)
+    {
+        auto proving_key = std::make_shared<ClientIVC::DeciderProvingKey>(kernel, trace_settings);
+        auto verification_key = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->get_precomputed());
+        return verification_key;
+    }
+
   protected:
     void SetUp() override { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
@@ -265,18 +296,38 @@ TEST_F(IvcRecursionConstraintTest, MockMergeProofSize)
 }
 
 /**
+ * @brief Test IVC accumulation of a one app and one kernel; The kernel includes a recursive oink verification for the
+ * app, specified via an ACIR RecursionConstraint.
+ */
+TEST_F(IvcRecursionConstraintTest, AccumulateSingleApp)
+{
+    TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
+    auto ivc = std::make_shared<ClientIVC>(/*num_circuits=*/5 /* app, kernel, reset, tail, hiding */, trace_settings);
+
+    // construct a mock app_circuit
+    construct_and_accumulate_mock_app(ivc, trace_settings);
+
+    // Construct kernel consisting only of the kernel completion logic
+    construct_and_accumulate_mock_kernel(ivc, trace_settings);
+
+    // add the trailing kernels
+    construct_and_accumulate_trailing_kernels(ivc, trace_settings);
+
+    EXPECT_TRUE(ivc->prove_and_verify());
+}
+
+/**
  * @brief Test IVC accumulation of two apps and two kernels; The first kernel contains a recursive oink verification and
  * the second contains two recursive PG verifications, all specified via ACIR RecursionConstraints.
  */
-TEST_F(IvcRecursionConstraintTest, AccumulateFour)
+TEST_F(IvcRecursionConstraintTest, AccumulateTwoApps)
 {
-    TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
+    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
     // 4 ciruits and the tail kernel
-    auto ivc = std::make_shared<ClientIVC>(/*num_circuits=*/5, trace_settings);
+    auto ivc = std::make_shared<ClientIVC>(/*num_circuits=*/7, trace_settings);
 
     // construct a mock app_circuit
-    Builder app_circuit_0 = construct_mock_app_circuit(ivc);
-    ivc->accumulate(app_circuit_0, get_verification_key(app_circuit_0, trace_settings));
+    construct_and_accumulate_mock_app(ivc, trace_settings);
 
     const ProgramMetadata metadata{ ivc };
 
@@ -284,16 +335,14 @@ TEST_F(IvcRecursionConstraintTest, AccumulateFour)
     construct_and_accumulate_mock_kernel(ivc, trace_settings);
 
     // construct a mock app_circuit
-    Builder app_circuit_1 = construct_mock_app_circuit(ivc);
-    ivc->accumulate(app_circuit_1, get_verification_key(app_circuit_1, trace_settings));
+    construct_and_accumulate_mock_app(ivc, trace_settings);
 
-    // construct and accumulate a "Reset" Kernel circuit
+    // Construct and accumulate another Kernel circuit
     construct_and_accumulate_mock_kernel(ivc, trace_settings);
 
-    // Now we add the tail kernel
-    EXPECT_EQ(ivc->verification_queue.size(), 1);
-    EXPECT_EQ(ivc->verification_queue[0].type, QUEUE_TYPE::PG_TAIL);
-    construct_and_accumulate_mock_kernel(ivc, trace_settings);
+    // Accumulate the trailing kernels
+    construct_and_accumulate_trailing_kernels(ivc, trace_settings);
+
     EXPECT_TRUE(ivc->prove_and_verify());
 }
 
@@ -305,11 +354,10 @@ TEST_F(IvcRecursionConstraintTest, GenerateInitKernelVKFromConstraints)
     // First, construct the kernel VK by running the full IVC (accumulate one app and one kernel)
     std::shared_ptr<MegaFlavor::VerificationKey> expected_kernel_vk;
     {
-        auto ivc = std::make_shared<ClientIVC>(/*num_circuits=*/2, trace_settings);
+        auto ivc = std::make_shared<ClientIVC>(/*num_circuits=*/5, trace_settings);
 
         // Construct and accumulate mock app_circuit
-        Builder app_circuit = construct_mock_app_circuit(ivc);
-        ivc->accumulate(app_circuit, get_verification_key(app_circuit, trace_settings));
+        construct_and_accumulate_mock_app(ivc, trace_settings);
 
         // Construct and accumulate kernel consisting only of the kernel completion logic
         construct_and_accumulate_mock_kernel(ivc, trace_settings);
@@ -319,7 +367,7 @@ TEST_F(IvcRecursionConstraintTest, GenerateInitKernelVKFromConstraints)
     // Now, construct the kernel VK by mocking the post app accumulation state of the IVC
     std::shared_ptr<MegaFlavor::VerificationKey> kernel_vk;
     {
-        auto ivc = std::make_shared<ClientIVC>(/*num_circuits=*/2, trace_settings);
+        auto ivc = std::make_shared<ClientIVC>(/*num_circuits=*/5, trace_settings);
 
         // Construct kernel consisting only of the kernel completion logic
         acir_format::mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::OINK, /*is_kernel=*/false);
@@ -333,7 +381,7 @@ TEST_F(IvcRecursionConstraintTest, GenerateInitKernelVKFromConstraints)
     EXPECT_EQ(*kernel_vk.get(), *expected_kernel_vk.get());
 }
 
-// Test generation of "reset" or "tail" kernel VK via dummy IVC data
+// Test generation of "reset" kernel VK via dummy IVC data
 TEST_F(IvcRecursionConstraintTest, GenerateResetKernelVKFromConstraints)
 {
     const TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
@@ -346,24 +394,14 @@ TEST_F(IvcRecursionConstraintTest, GenerateResetKernelVKFromConstraints)
         const ProgramMetadata metadata{ ivc };
 
         // Construct and accumulate mock app_circuit
-        Builder app_circuit = construct_mock_app_circuit(ivc);
-        ivc->accumulate(app_circuit, get_verification_key(app_circuit, trace_settings));
+        construct_and_accumulate_mock_app(ivc, trace_settings);
 
         // Construct and accumulate a mock INIT kernel (oink recursion for app accumulation)
         construct_and_accumulate_mock_kernel(ivc, trace_settings);
         EXPECT_TRUE(ivc->verification_queue.size() == 1);
         EXPECT_TRUE(ivc->verification_queue[0].type == bb::ClientIVC::QUEUE_TYPE::PG);
 
-        // Construct and accumulate a second mock app_circuit
-        Builder app_circuit_1 = construct_mock_app_circuit(ivc);
-        ivc->accumulate(app_circuit, get_verification_key(app_circuit_1, trace_settings));
-
-        // Construct and accumulate a mock inner kernel (PG recursion for kernel and app accumulation)
-        construct_and_accumulate_mock_kernel(ivc, trace_settings);
-        EXPECT_TRUE(ivc->verification_queue.size() == 1);
-        EXPECT_TRUE(ivc->verification_queue[0].type == bb::ClientIVC::QUEUE_TYPE::PG_TAIL);
-
-        // Construct and accumulate a mock RESET/TAIL kernel (PG recursion for kernel accumulation)
+        // Construct and accumulate a mock RESET kernel (PG recursion for kernel accumulation)
         construct_and_accumulate_mock_kernel(ivc, trace_settings);
         expected_kernel_vk = ivc->verification_queue.back().honk_vk;
     }
@@ -371,11 +409,58 @@ TEST_F(IvcRecursionConstraintTest, GenerateResetKernelVKFromConstraints)
     // Now, construct the kernel VK by mocking the IVC state prior to kernel construction
     std::shared_ptr<MegaFlavor::VerificationKey> kernel_vk;
     {
-        auto ivc = std::make_shared<ClientIVC>(/*num_circuits=*/1, trace_settings);
-        // construct a mock tail kernel consisting only of kernel completion logic
+        auto ivc = std::make_shared<ClientIVC>(/*num_circuits=*/5, trace_settings);
+
+        // Construct kernel consisting only of the kernel completion logic
+        acir_format::mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG, /*is_kernel=*/true);
+        AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
+        program.witness = {}; // remove the witness to mimick VK construction context
+        kernel_vk = construct_kernel_vk_from_acir_program(program, trace_settings);
+    }
+
+    // Compare the VK constructed via running the IVc with the one constructed via mocking
+    EXPECT_EQ(*kernel_vk.get(), *expected_kernel_vk.get());
+}
+
+// Test generation of "tail" kernel VK via dummy IVC data
+TEST_F(IvcRecursionConstraintTest, GenerateTailKernelVKFromConstraints)
+{
+    const TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
+
+    // First, construct the kernel VK by running the full IVC (accumulate one app and one kernel)
+    std::shared_ptr<MegaFlavor::VerificationKey> expected_kernel_vk;
+    {
+        auto ivc = std::make_shared<ClientIVC>(/*num_circuits=*/5, trace_settings);
+
+        const ProgramMetadata metadata{ ivc };
+
+        // Construct and accumulate mock app_circuit
+        construct_and_accumulate_mock_app(ivc, trace_settings);
+
+        // Construct and accumulate a mock INIT kernel (oink recursion for app accumulation)
+        construct_and_accumulate_mock_kernel(ivc, trace_settings);
+
+        // Construct and accumulate a mock RESET kernel (PG recursion for kernel accumulation)
+        construct_and_accumulate_mock_kernel(ivc, trace_settings);
+
+        // Construct and accumulate a mock TAIL kernel (PG recursion for kernel accumulation)
+        EXPECT_TRUE(ivc->verification_queue.size() == 1);
+        EXPECT_TRUE(ivc->verification_queue[0].type == bb::ClientIVC::QUEUE_TYPE::PG_TAIL);
+        construct_and_accumulate_mock_kernel(ivc, trace_settings);
+
+        expected_kernel_vk = ivc->verification_queue.back().honk_vk;
+    }
+
+    // Now, construct the kernel VK by mocking the IVC state prior to kernel construction
+    std::shared_ptr<MegaFlavor::VerificationKey> kernel_vk;
+    {
+        auto ivc = std::make_shared<ClientIVC>(/*num_circuits=*/5, trace_settings);
+
+        // Construct kernel consisting only of the kernel completion logic
         acir_format::mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG_TAIL, /*is_kernel=*/true);
         AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
         program.witness = {}; // remove the witness to mimick VK construction context
+
         kernel_vk = construct_kernel_vk_from_acir_program(program, trace_settings);
     }
 
@@ -393,21 +478,19 @@ TEST_F(IvcRecursionConstraintTest, GenerateInnerKernelVKFromConstraints)
     {
         // we have to set the number of circuits one more than the number of circuits we're accumulating as otherwise
         // the last circuit will be seen as a tail
-        auto ivc = std::make_shared<ClientIVC>(/*num_circuits=*/5, trace_settings);
+        auto ivc = std::make_shared<ClientIVC>(/*num_circuits=*/6, trace_settings);
 
         const ProgramMetadata metadata{ ivc };
 
         { // Construct and accumulate mock app_circuit
-            Builder app_circuit = construct_mock_app_circuit(ivc);
-            ivc->accumulate(app_circuit, get_verification_key(app_circuit, trace_settings));
+            construct_and_accumulate_mock_app(ivc, trace_settings);
         }
 
         // Construct and accumulate a mock INIT kernel (oink recursion for app accumulation)
         construct_and_accumulate_mock_kernel(ivc, trace_settings);
 
         { // Construct and accumulate a second mock app_circuit
-            Builder app_circuit = construct_mock_app_circuit(ivc);
-            ivc->accumulate(app_circuit, get_verification_key(app_circuit, trace_settings));
+            construct_and_accumulate_mock_app(ivc, trace_settings);
         }
 
         { // Construct and accumulate a mock INNER kernel (PG recursion for kernel accumulation)
@@ -445,13 +528,12 @@ TEST_F(IvcRecursionConstraintTest, GenerateHidingKernelVKFromConstraints)
     // First, construct the kernel VK by running the full IVC
     std::shared_ptr<MegaFlavor::VerificationKey> expected_hiding_kernel_vk;
     {
-        auto ivc = std::make_shared<ClientIVC>(/*num_circuits=*/3, trace_settings);
+        auto ivc = std::make_shared<ClientIVC>(/*num_circuits=*/5, trace_settings);
         const ProgramMetadata metadata{ ivc };
 
         {
             // Construct and accumulate mock app_circuit
-            Builder app_circuit = construct_mock_app_circuit(ivc);
-            ivc->accumulate(app_circuit, get_verification_key(app_circuit, trace_settings));
+            construct_and_accumulate_mock_app(ivc, trace_settings);
         }
 
         {
@@ -459,31 +541,18 @@ TEST_F(IvcRecursionConstraintTest, GenerateHidingKernelVKFromConstraints)
             construct_and_accumulate_mock_kernel(ivc, trace_settings);
         }
 
-        { // Construct and accumulate a mock TAIL kernel (PG recursion for kernel accumulation)
-            EXPECT_TRUE(ivc->verification_queue.size() == 1);
-            EXPECT_TRUE(ivc->verification_queue[0].type == bb::ClientIVC::QUEUE_TYPE::PG_TAIL);
-            AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
-            Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
-            ivc->accumulate(kernel, construct_kernel_vk_from_acir_program(program, trace_settings));
-        }
+        construct_and_accumulate_trailing_kernels(ivc, trace_settings);
 
-        {
-            // Construct the hiding kernel and its VK
-            EXPECT_TRUE(ivc->verification_queue.size() == 1);
-            EXPECT_TRUE(ivc->verification_queue[0].type == bb::ClientIVC::QUEUE_TYPE::PG_FINAL);
-            AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
-            Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
-            // Note: Cannot call ivc->accumulate(kernel) here; hiding circuit is not yet supported
-            auto proving_key = ivc->compute_hiding_circuit_proving_key();
-            expected_hiding_kernel_vk =
-                std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->get_precomputed());
-        }
+        // The single entry in the verification queue corresponds to the hiding kernel
+        expected_hiding_kernel_vk = ivc->verification_queue[0].honk_vk;
     }
 
     // Now, construct the kernel VK by mocking the IVC state prior to kernel construction
     std::shared_ptr<MegaFlavor::VerificationKey> kernel_vk;
     {
-        auto ivc = std::make_shared<ClientIVC>(/*num_circuits=*/1, TraceSettings());
+        // mock IVC accumulation increases the num_circuits_accumualted, hence we need to assume the tail kernel has
+        // been accumulated
+        auto ivc = std::make_shared<ClientIVC>(/*num_circuits=*/5, TraceSettings());
         // construct a mock tail kernel
         acir_format::mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG_FINAL, /*is_kernel=*/true);
         AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
@@ -513,15 +582,7 @@ TEST_F(IvcRecursionConstraintTest, RecursiveVerifierAppCircuitTest)
     // Construct kernel consisting only of the kernel completion logic
     construct_and_accumulate_mock_kernel(ivc, trace_settings);
 
-    // construct and accumulate another  simple mock app circuit
-    Builder app_circuit_1 = construct_mock_app_circuit(ivc);
-    ivc->accumulate(app_circuit_1, get_verification_key(app_circuit_1, trace_settings));
-
-    // Construct kernel consisting only of the kernel completion logic
-    construct_and_accumulate_mock_kernel(ivc, trace_settings);
-
-    // Construct tail kernel consisting only of the kernel completion logic
-    construct_and_accumulate_mock_kernel(ivc, trace_settings);
+    construct_and_accumulate_trailing_kernels(ivc, trace_settings);
 
     EXPECT_TRUE(ivc->prove_and_verify());
 }
@@ -535,24 +596,15 @@ TEST_F(IvcRecursionConstraintTest, BadRecursiveVerifierAppCircuitTest)
     TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
     auto ivc = std::make_shared<ClientIVC>(/*num_circuits*/ 5, trace_settings);
 
-    // construct a mock app_circuit with a UH recursion call that has bad pairing point object
+    // construct and accumulate mock app_circuit that has bad pairing point object
     Builder app_circuit = construct_mock_UH_recursion_app_circuit(ivc, /*tamper_vk=*/true);
-
-    // Complete instance and generate an oink proof
     ivc->accumulate(app_circuit, get_verification_key(app_circuit, trace_settings));
 
-    // Construct tail kernel consisting only of the kernel completion logic
-    construct_and_accumulate_mock_kernel(ivc, trace_settings);
-
-    // construct and accumulate another  simple mock app circuit
-    Builder app_circuit_1 = construct_mock_app_circuit(ivc);
-    ivc->accumulate(app_circuit_1, get_verification_key(app_circuit_1, trace_settings));
-
     // Construct kernel consisting only of the kernel completion logic
     construct_and_accumulate_mock_kernel(ivc, trace_settings);
 
-    // Construct kernel consisting only of the kernel completion logic
-    construct_and_accumulate_mock_kernel(ivc, trace_settings);
+    // add the trailing kernels
+    construct_and_accumulate_trailing_kernels(ivc, trace_settings);
 
     // We expect the CIVC proof to fail due to the app with a failed UH recursive verification
     EXPECT_FALSE(ivc->prove_and_verify());
