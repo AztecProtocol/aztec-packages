@@ -1,6 +1,7 @@
 import { MAX_L2_GAS_PER_TX_PUBLIC_PORTION } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { Timer } from '@aztec/foundation/timer';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GlobalVariables } from '@aztec/stdlib/tx';
 
@@ -135,7 +136,7 @@ export class AvmSimulator implements AvmSimulatorInterface {
    * This method is useful for testing and debugging.
    */
   public async executeBytecode(bytecode: Buffer): Promise<AvmContractCallResult> {
-    const startTotalTime = performance.now();
+    const timer = new Timer();
     assert(bytecode.length > 0, "AVM simulator can't execute empty bytecode");
 
     this.bytecode = bytecode;
@@ -210,9 +211,7 @@ export class AvmSimulator implements AvmSimulatorInterface {
 
       this.tallyPrintFunction();
 
-      const endTotalTime = performance.now();
-      const totalTime = endTotalTime - startTotalTime;
-      this.log.debug(`Core AVM simulation took ${totalTime}ms`);
+      this.log.debug(`Core AVM simulation took ${timer.ms()}ms`);
 
       // Return results for processing by calling context
       return results;

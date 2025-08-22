@@ -13,9 +13,9 @@ import type { UInt64 } from '@aztec/stdlib/types';
 
 import { AvmProvingTester } from './avm_proving_tester.js';
 
-const TIMEOUT = 300_000;
+const TIMEOUT = 60_000;
 
-describe.skip('AVM WitGen & Circuit - contract updates', () => {
+describe('AVM check-circuit - contract updates', () => {
   const sender = AztecAddress.fromNumber(42);
 
   const avmTestContractClassSeed = 0;
