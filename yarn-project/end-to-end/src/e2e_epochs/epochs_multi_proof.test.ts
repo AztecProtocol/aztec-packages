@@ -1,6 +1,5 @@
 import { type Logger, retryUntil, sleep } from '@aztec/aztec.js';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import { EthAddress } from '@aztec/foundation/eth-address';
 import { type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 
 import { jest } from '@jest/globals';
@@ -33,7 +32,7 @@ describe('e2e_epochs/epochs_multi_proof', () => {
   it('submits proofs from multiple prover-nodes', async () => {
     await test.createProverNode();
     await test.createProverNode();
-    const proverIds = test.proverNodes.map(prover => EthAddress.fromField(prover.getProverId()));
+    const proverIds = test.proverNodes.map(prover => prover.getProverId());
     logger.info(`Prover nodes running with ids ${proverIds.map(id => id.toString()).join(', ')}`);
 
     // Add a delay to prover nodes so not all txs land on the same place

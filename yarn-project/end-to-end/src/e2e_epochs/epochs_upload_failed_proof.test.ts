@@ -1,5 +1,5 @@
 import type { AztecNodeConfig } from '@aztec/aztec-node';
-import { Fr, type Logger, retryUntil, sleep } from '@aztec/aztec.js';
+import { EthAddress, type Logger, retryUntil, sleep } from '@aztec/aztec.js';
 import { tryRmDir } from '@aztec/foundation/fs';
 import { downloadEpochProvingJob, rerunEpochProvingJob } from '@aztec/prover-node';
 import type { TestProverNode } from '@aztec/prover-node/test';
@@ -92,7 +92,7 @@ describe('e2e_epochs/epochs_upload_failed_proof', () => {
       dataStoreMapSizeKB: 1024 * 1024,
       dataDirectory: rerunDataDir,
       proverAgentCount: 2,
-      proverId: Fr.random(),
+      proverId: EthAddress.random(),
       ...(await getACVMConfig(logger)),
       ...(await getBBConfig(logger)),
     });

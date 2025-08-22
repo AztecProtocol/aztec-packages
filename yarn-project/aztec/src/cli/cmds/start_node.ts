@@ -1,12 +1,11 @@
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, aztecNodeConfigMappings, getConfigEnvVars } from '@aztec/aztec-node';
-import { EthAddress, Fr } from '@aztec/aztec.js';
+import { Fr } from '@aztec/aztec.js';
 import { getSponsoredFPCAddress } from '@aztec/cli/cli-utils';
-import { NULL_KEY, getAddressFromPrivateKey, getPublicClient } from '@aztec/ethereum';
+import { getPublicClient } from '@aztec/ethereum';
 import { SecretValue } from '@aztec/foundation/config';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import type { LogFn } from '@aztec/foundation/log';
-import { bufferToHex } from '@aztec/foundation/string';
 import { AztecNodeAdminApiSchema, AztecNodeApiSchema, type PXE } from '@aztec/stdlib/interfaces/client';
 import { P2PApiSchema } from '@aztec/stdlib/interfaces/server';
 import {
@@ -16,9 +15,7 @@ import {
 } from '@aztec/telemetry-client';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
-import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
-
-import { createAztecNode, deployContractsToL1 } from '../../sandbox/index.js';
+import { createAztecNode } from '../../sandbox/index.js';
 import { getL1Config } from '../get_l1_config.js';
 import {
   extractNamespacedOptions,
@@ -34,9 +31,6 @@ export async function startNode(
   adminServices: NamespacedApiHandlers,
   userLog: LogFn,
 ): Promise<{ config: AztecNodeConfig }> {
-  // options specifically namespaced with --node.<option>
-  const nodeSpecificOptions = extractNamespacedOptions(options, 'node');
-
   // All options set from environment variables
   const configFromEnvVars = getConfigEnvVars();
 
@@ -62,61 +56,40 @@ export async function startNode(
 
   userLog(`Initial funded accounts: ${initialFundedAccounts.map(a => a.toString()).join(', ')}`);
 
-  const { genesisArchiveRoot, prefilledPublicData, fundingNeeded } = await getGenesisValues(initialFundedAccounts);
+  const { genesisArchiveRoot, prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
 
   userLog(`Genesis archive root: ${genesisArchiveRoot.toString()}`);
 
   const followsCanonicalRollup =
     typeof nodeConfig.rollupVersion !== 'number' || (nodeConfig.rollupVersion as unknown as string) === 'canonical';
 
-  // Deploy contracts if needed
-  if (nodeSpecificOptions.deployAztecContracts || nodeSpecificOptions.deployAztecContractsSalt) {
-    let account;
-    if (nodeSpecificOptions.publisherPrivateKey) {
-      account = privateKeyToAccount(nodeSpecificOptions.publisherPrivateKey);
-    } else if (options.l1Mnemonic) {
-      account = mnemonicToAccount(options.l1Mnemonic);
-    } else {
-      throw new Error('--node.publisherPrivateKey or --l1-mnemonic is required to deploy L1 contracts');
-    }
-    // REFACTOR: We should not be calling a method from sandbox on the prod start flow
-    await deployContractsToL1(nodeConfig, account!, undefined, {
-      assumeProvenThroughBlockNumber: nodeSpecificOptions.assumeProvenThroughBlockNumber,
-      salt: nodeSpecificOptions.deployAztecContractsSalt,
-      genesisArchiveRoot,
-      feeJuicePortalInitialBalance: fundingNeeded,
-    });
+  if (!nodeConfig.l1Contracts.registryAddress || nodeConfig.l1Contracts.registryAddress.isZero()) {
+    throw new Error('L1 registry address is required to start Aztec Node');
   }
-  // If not deploying, validate that any addresses and config provided are correct.
-  else {
-    if (!nodeConfig.l1Contracts.registryAddress || nodeConfig.l1Contracts.registryAddress.isZero()) {
-      throw new Error('L1 registry address is required to start Aztec Node without --deploy-aztec-contracts option');
-    }
-    const { addresses, config } = await getL1Config(
-      nodeConfig.l1Contracts.registryAddress,
-      nodeConfig.l1RpcUrls,
-      nodeConfig.l1ChainId,
-      nodeConfig.rollupVersion,
+  const { addresses, config } = await getL1Config(
+    nodeConfig.l1Contracts.registryAddress,
+    nodeConfig.l1RpcUrls,
+    nodeConfig.l1ChainId,
+    nodeConfig.rollupVersion,
+  );
+
+  process.env.ROLLUP_CONTRACT_ADDRESS ??= addresses.rollupAddress.toString();
+
+  if (!Fr.fromHexString(config.genesisArchiveTreeRoot).equals(genesisArchiveRoot)) {
+    throw new Error(
+      `The computed genesis archive tree root ${genesisArchiveRoot} does not match the expected genesis archive tree root ${config.genesisArchiveTreeRoot} for the rollup deployed at ${addresses.rollupAddress}`,
     );
-
-    process.env.ROLLUP_CONTRACT_ADDRESS ??= addresses.rollupAddress.toString();
-
-    if (!Fr.fromHexString(config.genesisArchiveTreeRoot).equals(genesisArchiveRoot)) {
-      throw new Error(
-        `The computed genesis archive tree root ${genesisArchiveRoot} does not match the expected genesis archive tree root ${config.genesisArchiveTreeRoot} for the rollup deployed at ${addresses.rollupAddress}`,
-      );
-    }
-
-    // TODO(#12272): will clean this up.
-    nodeConfig = {
-      ...nodeConfig,
-      l1Contracts: {
-        ...addresses,
-        slashFactoryAddress: nodeConfig.l1Contracts.slashFactoryAddress,
-      },
-      ...config,
-    };
   }
+
+  // TODO(#12272): will clean this up.
+  nodeConfig = {
+    ...nodeConfig,
+    l1Contracts: {
+      ...addresses,
+      slashFactoryAddress: nodeConfig.l1Contracts.slashFactoryAddress,
+    },
+    ...config,
+  };
 
   if (!options.archiver) {
     // expect archiver url in node config
@@ -135,29 +108,13 @@ export async function startNode(
       ...configFromEnvVars,
       ...extractNamespacedOptions(options, 'sequencer'),
     };
-    let account;
-    if (sequencerConfig.publisherPrivateKey.getValue() === NULL_KEY) {
+    // If no publisher private keys have been given, use the first validator key
+    if (sequencerConfig.publisherPrivateKeys === undefined || !sequencerConfig.publisherPrivateKeys.length) {
       if (sequencerConfig.validatorPrivateKeys?.getValue().length) {
-        sequencerConfig.publisherPrivateKey = new SecretValue(sequencerConfig.validatorPrivateKeys.getValue()[0]);
-      } else if (!options.l1Mnemonic) {
-        userLog(
-          '--sequencer.publisherPrivateKey or --l1-mnemonic is required to start Aztec Node with --sequencer option',
-        );
-        throw new Error('Private key or Mnemonic is required to start Aztec Node with --sequencer option');
-      } else {
-        account = mnemonicToAccount(options.l1Mnemonic);
-        const privKey = account.getHdKey().privateKey;
-        sequencerConfig.publisherPrivateKey = new SecretValue(`0x${Buffer.from(privKey!).toString('hex')}` as const);
+        sequencerConfig.publisherPrivateKeys = [new SecretValue(sequencerConfig.validatorPrivateKeys.getValue()[0])];
       }
     }
-    nodeConfig.publisherPrivateKey = sequencerConfig.publisherPrivateKey;
-    nodeConfig.coinbase ??= EthAddress.fromString(getAddressFromPrivateKey(nodeConfig.publisherPrivateKey.getValue()));
-  }
-
-  // If we dont have a slasher private key, derive one from the mnemonic if provided, using account index 1 (zero was used for the sequencer)
-  if (options.l1Mnemonic && (!nodeConfig.slasherPrivateKey || nodeConfig.slasherPrivateKey.getValue() === NULL_KEY)) {
-    const account = mnemonicToAccount(options.l1Mnemonic, { accountIndex: 1 });
-    nodeConfig.slasherPrivateKey = new SecretValue(bufferToHex(Buffer.from(account.getHdKey().privateKey!)));
+    nodeConfig.publisherPrivateKeys = sequencerConfig.publisherPrivateKeys;
   }
 
   if (nodeConfig.p2pEnabled) {

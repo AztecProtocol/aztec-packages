@@ -107,7 +107,7 @@ const redactedPaths = [
   'validatorPrivateKeys',
   'slasherPrivateKey',
   // for both the validator and the prover
-  'publisherPrivateKey',
+  'publisherPrivateKeys',
   'peerIdPrivateKey',
   // bot keys
   'l1PrivateKey',

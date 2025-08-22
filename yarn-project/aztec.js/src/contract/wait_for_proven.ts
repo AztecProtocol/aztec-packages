@@ -10,7 +10,7 @@ import { DefaultWaitOpts } from './sent_tx.js';
 export type WaitForProvenOpts = {
   /** Time to wait for the tx to be proven before timing out */
   provenTimeout?: number;
-  /** Ellapsed time between polls to the node */
+  /** Elapsed time between polls to the node */
   interval?: number;
 };
 
