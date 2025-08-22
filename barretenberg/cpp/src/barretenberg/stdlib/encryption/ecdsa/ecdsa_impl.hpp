@@ -195,7 +195,8 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
     Fr result_x_mod_r = Fr::unsafe_construct_from_limbs(result.x.binary_basis_limbs[0].element,
                                                         result.x.binary_basis_limbs[1].element,
                                                         result.x.binary_basis_limbs[2].element,
-                                                        result.x.binary_basis_limbs[3].element);
+                                                        result.x.binary_basis_limbs[3].element,
+                                                        /*can_overflow=*/true);
 
     // Check result.x = r mod n
     bool_t<Builder> is_signature_valid = result_x_mod_r == r;
