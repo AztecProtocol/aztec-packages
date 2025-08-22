@@ -110,7 +110,7 @@ library EpochProofLib {
 
     // Verify attestations for the last block in the epoch
     // -> This serves as training wheels for the public part of the system (proving systems used in public and AVM)
-    // ensuring committee consensus on the epoch's validity alongside the cryptographic proof verification below.
+    // ensuring committee agreement on the epoch's validity alongside the cryptographic proof verification below.
     verifyLastBlockAttestations(_args.end, _args.attestations);
 
     require(verifyEpochRootProof(_args), Errors.Rollup__InvalidProof());

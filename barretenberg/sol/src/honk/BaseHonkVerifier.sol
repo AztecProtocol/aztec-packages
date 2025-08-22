@@ -434,7 +434,7 @@ abstract contract BaseHonkVerifier is IVerifier {
             commitments[NUMBER_UNSHIFTED + 1 + i] = proof.geminiFoldComms[i];
         }
 
-        // Finalise the batch opening claim
+        // Finalize the batch opening claim
         commitments[NUMBER_UNSHIFTED + $LOG_N] = Honk.G1Point({x: 1, y: 2});
         scalars[NUMBER_UNSHIFTED + $LOG_N] = mem.constantTermAccumulator;
 

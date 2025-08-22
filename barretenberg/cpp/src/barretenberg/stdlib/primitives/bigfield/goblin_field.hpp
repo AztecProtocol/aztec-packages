@@ -146,7 +146,7 @@ template <class Builder> class goblin_field {
     }
 
     // done in the translator circuit
-    void assert_is_in_field(){};
+    void assert_is_in_field() {};
 
     OriginTag get_origin_tag() const { return OriginTag(limbs[0].get_origin_tag(), limbs[1].get_origin_tag()); }
 

@@ -36,7 +36,7 @@ TYPED_TEST(ShplonkTest, ShplonkSimple)
     // An intermediate check to confirm the opening of the shplonk prover witness Q
     this->verify_opening_pair(batched_opening_claim.opening_pair, batched_opening_claim.polynomial);
 
-    // Initialise verifier transcript from prover transcript
+    // Initialize verifier transcript from prover transcript
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
     // Execute the shplonk verifier functionality

@@ -60,7 +60,7 @@ class WorldStateWrapper : public Napi::ObjectWrap<WorldStateWrapper> {
 
     bool close(msgpack::object& obj, msgpack::sbuffer& buffer);
 
-    bool set_finalised(msgpack::object& obj, msgpack::sbuffer& buffer) const;
+    bool set_finalized(msgpack::object& obj, msgpack::sbuffer& buffer) const;
     bool unwind(msgpack::object& obj, msgpack::sbuffer& buffer) const;
     bool remove_historical(msgpack::object& obj, msgpack::sbuffer& buffer) const;
 

@@ -1,5 +1,5 @@
-FinaliseWithdrawTest
+FinalizeWithdrawTest
 ├── given withdrawal not claimed
-│   └── it finalises withdrawal in governance
+│   └── it finalizes withdrawal in governance
 └── given withdrawal already claimed
     └── it does nothing

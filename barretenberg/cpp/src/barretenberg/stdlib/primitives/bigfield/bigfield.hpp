@@ -409,7 +409,7 @@ template <typename Builder, typename T> class bigfield {
      * elements are witnesses.
      *
      * @details Naive addition of two bigfield elements would require 5 gates: 4 gates to add the binary basis limbs and
-     * 1 gate to add the prime basis limbs. However, if both elements are witnesses, we can use an optimised addition
+     * 1 gate to add the prime basis limbs. However, if both elements are witnesses, we can use an optimized addition
      * trick that uses 4 gates instead of 5. In this case, we add the prime basis limbs and one of the binary basis
      * limbs in a single gate.
      *
@@ -509,7 +509,7 @@ template <typename Builder, typename T> class bigfield {
      * @return bigfield
      *
      * @details Costs the same as operator* as it just sets a = b.
-     * NOTE(https://github.com/AztecProtocol/aztec-packages/issues/15089): Can optimise this further to save a gate.
+     * NOTE(https://github.com/AztecProtocol/aztec-packages/issues/15089): Can optimize this further to save a gate.
      */
     bigfield sqr() const;
 

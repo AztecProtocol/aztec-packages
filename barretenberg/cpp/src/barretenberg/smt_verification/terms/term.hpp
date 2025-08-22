@@ -126,13 +126,13 @@ class STerm {
     STerm()
         : solver(nullptr)
         , term(cvc5::Term())
-        , type(TermType::FFTerm){};
+        , type(TermType::FFTerm) {};
 
     STerm(const cvc5::Term& term, Solver* s, TermType type)
         : solver(s)
         , term(term)
         , type(type)
-        , operations(typed_operations.at(type)){};
+        , operations(typed_operations.at(type)) {};
 
     explicit STerm(
         const std::string& t, Solver* slv, bool isconst = false, uint32_t base = 16, TermType type = TermType::FFTerm);

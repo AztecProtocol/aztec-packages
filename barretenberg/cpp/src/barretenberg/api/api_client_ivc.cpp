@@ -95,10 +95,9 @@ void ClientIVCAPI::prove(const Flags& flags,
     bbapi::BBApiRequest request;
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
-    bbapi::ClientIvcStart{ .num_circuits = raw_steps.size() - 1 }.execute(request);
+    bbapi::ClientIvcStart{ .num_circuits = raw_steps.size() }.execute(request);
     info("ClientIVC: starting with ", raw_steps.size(), " circuits");
-    for (size_t i = 0; i < raw_steps.size() - 1; ++i) {
-        const auto& step = raw_steps[i];
+    for (const auto& step : raw_steps) {
         bbapi::ClientIvcLoad{
             .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk }
         }.execute(request);
@@ -107,12 +106,6 @@ void ClientIVCAPI::prove(const Flags& flags,
         info("ClientIVC: accumulating " + step.function_name);
         bbapi::ClientIvcAccumulate{ .witness = step.witness }.execute(request);
     }
-    // the last step is the hiding kernel
-    const auto& step = raw_steps[raw_steps.size() - 1];
-    bbapi::ClientIvcLoad{
-        .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk }
-    }.execute(request);
-    bbapi::ClientIvcHidingKernel{ .witness = step.witness }.execute(request);
 
     auto proof = bbapi::ClientIvcProve{}.execute(request).proof;
 
@@ -135,7 +128,8 @@ void ClientIVCAPI::prove(const Flags& flags,
 
     if (flags.write_vk) {
         vinfo("writing ClientIVC vk in directory ", output_dir);
-        auto vk_buf = write_civc_vk("bytes", step.bytecode, output_dir);
+        // we get the bytecode of the hiding circuit (the last step of the execution)
+        auto vk_buf = write_civc_vk("bytes", raw_steps[raw_steps.size() - 1].bytecode, output_dir);
         auto vk = from_buffer<ClientIVC::VerificationKey>(vk_buf);
     }
 }
@@ -159,8 +153,6 @@ bool ClientIVCAPI::prove_and_verify(const std::filesystem::path& input_path)
 
     std::shared_ptr<ClientIVC> ivc = steps.accumulate();
     // Construct the hiding kernel as the final step of the IVC
-    ClientIVC::ClientCircuit circuit{ ivc->goblin.op_queue };
-    ivc->complete_kernel_circuit_logic(circuit);
 
     const bool verified = ivc->prove_and_verify();
     return verified;
@@ -269,11 +261,11 @@ void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per
 void write_arbitrary_valid_client_ivc_proof_and_vk_to_file(const std::filesystem::path& output_dir)
 {
 
-    const size_t NUM_CIRCUITS = 6;
+    PrivateFunctionExecutionMockCircuitProducer circuit_producer{ /*num_app_circuits=*/1 };
+    const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
     ClientIVC ivc{ NUM_CIRCUITS, { AZTEC_TRACE_STRUCTURE } };
 
     // Construct and accumulate a series of mocked private function execution circuits
-    PrivateFunctionExecutionMockCircuitProducer circuit_producer;
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
         circuit_producer.construct_and_accumulate_next_circuit(ivc);
     }

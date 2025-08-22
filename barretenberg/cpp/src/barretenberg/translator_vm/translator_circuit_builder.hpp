@@ -81,10 +81,10 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
      * We won't need these standard gates that are defined as virtual in circuit builder base
      *
      */
-    void create_add_gate(const add_triple_<Fr>&) override{};
-    void create_mul_gate(const mul_triple_<Fr>&) override{};
-    void create_bool_gate(const uint32_t) override{};
-    void create_poly_gate(const poly_triple_<Fr>&) override{};
+    void create_add_gate(const add_triple_<Fr>&) override {};
+    void create_mul_gate(const mul_triple_<Fr>&) override {};
+    void create_bool_gate(const uint32_t) override {};
+    void create_poly_gate(const poly_triple_<Fr>&) override {};
     [[nodiscard]] size_t get_num_constant_gates() const override { return 0; };
 
     /**
@@ -324,7 +324,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     TranslatorCircuitBuilder(Fq batching_challenge_v_, Fq evaluation_input_x_)
         : CircuitBuilderBase(DEFAULT_TRANSLATOR_VM_LENGTH)
         , batching_challenge_v(batching_challenge_v_)
-        , evaluation_input_x(evaluation_input_x_){};
+        , evaluation_input_x(evaluation_input_x_) {};
 
     /**
      * @brief Construct a new Translator Circuit Builder object and feed op_queue inside
@@ -346,7 +346,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     TranslatorCircuitBuilder() = default;
     TranslatorCircuitBuilder(const TranslatorCircuitBuilder& other) = delete;
     TranslatorCircuitBuilder(TranslatorCircuitBuilder&& other) noexcept
-        : CircuitBuilderBase(std::move(other)){};
+        : CircuitBuilderBase(std::move(other)) {};
     TranslatorCircuitBuilder& operator=(const TranslatorCircuitBuilder& other) = delete;
     TranslatorCircuitBuilder& operator=(TranslatorCircuitBuilder&& other) noexcept
     {

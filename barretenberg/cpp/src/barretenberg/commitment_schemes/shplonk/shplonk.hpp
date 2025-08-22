@@ -381,7 +381,7 @@ template <typename Curve> class ShplonkVerifier_ {
         pows_of_nu.reserve(num_claims);
 
         commitments.insert(commitments.end(), polynomial_commitments.begin(), polynomial_commitments.end());
-        scalars.insert(scalars.end(), commitments.size() - 1, Fr(0)); // Initialised as circuit constants
+        scalars.insert(scalars.end(), commitments.size() - 1, Fr(0)); // Initialized as circuit constants
         // The first two powers of nu have already been initialized, we need another `num_claims - 2` powers to batch
         // all the claims
         for (size_t idx = 0; idx < num_claims - 2; idx++) {

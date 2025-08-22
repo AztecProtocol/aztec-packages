@@ -73,7 +73,7 @@ class PGInternalTest : public ProtogalaxyProverInternal<DeciderProvingKeys_<Flav
         const size_t common_polynomial_size = keys[0]->polynomials.w_l.virtual_size();
         const size_t num_threads = compute_num_threads(common_polynomial_size);
 
-        // Univariates are optimised for usual PG, but we need the unoptimised version for tests (it's a version that
+        // Univariates are optimized for usual PG, but we need the unoptimized version for tests (it's a version that
         // doesn't skip computation), so we need to define types depending on the template instantiation
         using ThreadAccumulators = TupleOfTuplesOfUnivariatesNoOptimisticSkipping;
         // Construct univariate accumulator containers; one per thread
@@ -92,7 +92,7 @@ class PGInternalTest : public ProtogalaxyProverInternal<DeciderProvingKeys_<Flav
                 for (size_t idx = range.first; idx < range.second; idx++) {
                     // Instantiate univariates, possibly with skipping toto ignore computation in those indices (they
                     // are still available for skipping relations, but all derived univariate will ignore those
-                    // evaluations) No need to initialise extended_univariates to 0, as it's assigned to.
+                    // evaluations) No need to initialize extended_univariates to 0, as it's assigned to.
                     constexpr size_t skip_count = 0;
                     extend_univariates<skip_count>(extended_univariates, keys, idx);
 
@@ -117,7 +117,7 @@ class PGInternalTest : public ProtogalaxyProverInternal<DeciderProvingKeys_<Flav
         }
         // This does nothing if TupleOfTuples is TupleOfTuplesOfUnivariates
         TupleOfTuplesOfUnivariatesNoOptimisticSkipping deoptimized_univariates =
-            deoptimise_univariates(univariate_accumulators);
+            deoptimize_univariates(univariate_accumulators);
         //  Batch the univariate contributions from each sub-relation to obtain the round univariate
         return batch_over_relations(deoptimized_univariates, alphas);
     }

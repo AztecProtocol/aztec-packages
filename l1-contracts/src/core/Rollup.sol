@@ -38,8 +38,8 @@ import {
   Timestamp,
   Errors,
   CommitteeAttestations,
-  ExtRollupLib,
-  ExtRollupLib2,
+  RollupOperationsExtLib,
+  ValidatorOperationsExtLib,
   EthValue,
   STFLib,
   RollupStore,
@@ -93,7 +93,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     BlockHeaderValidationFlags memory _flags
   ) external override(IRollup) {
     Timestamp currentTime = Timestamp.wrap(block.timestamp);
-    ExtRollupLib.validateHeaderWithAttestations(
+    RollupOperationsExtLib.validateHeaderWithAttestations(
       ValidateHeaderArgs({
         header: _header,
         digest: _digest,
@@ -134,7 +134,19 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @return The committee size for the given timestamp
    */
   function getCommitteeCommitmentAt(Timestamp _ts) external override(IValidatorSelection) returns (bytes32, uint256) {
-    return ExtRollupLib2.getCommitteeCommitmentAt(getEpochAt(_ts));
+    return ValidatorOperationsExtLib.getCommitteeCommitmentAt(getEpochAt(_ts));
+  }
+
+  /**
+   * @notice Get the committee commitment a the given epoch
+   *
+   * @param _epoch - The epoch to get the committee for
+   *
+   * @return The committee commitment for the given epoch
+   * @return The committee size for the given epoch
+   */
+  function getEpochCommitteeCommitment(Epoch _epoch) external override(IValidatorSelection) returns (bytes32, uint256) {
+    return ValidatorOperationsExtLib.getCommitteeCommitmentAt(_epoch);
   }
 
   /**
@@ -163,11 +175,11 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IRollup)
     returns (Slot, uint256)
   {
-    return ExtRollupLib2.canProposeAtTime(_ts, _archive, _who);
+    return ValidatorOperationsExtLib.canProposeAtTime(_ts, _archive, _who);
   }
 
   function getTargetCommitteeSize() external view override(IValidatorSelection) returns (uint256) {
-    return ExtRollupLib2.getTargetCommitteeSize();
+    return ValidatorOperationsExtLib.getTargetCommitteeSize();
   }
 
   function getGenesisTime() external view override(IValidatorSelection) returns (Timestamp) {
@@ -267,7 +279,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     bytes32[] calldata _fees,
     bytes calldata _blobPublicInputs
   ) external view override(IRollup) returns (bytes32[] memory) {
-    return ExtRollupLib.getEpochProofPublicInputs(_start, _end, _args, _fees, _blobPublicInputs);
+    return RollupOperationsExtLib.getEpochProofPublicInputs(_start, _end, _args, _fees, _blobPublicInputs);
   }
 
   /**
@@ -280,7 +292,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IRollup)
     returns (bytes32[] memory, bytes32, bytes[] memory)
   {
-    return ExtRollupLib.validateBlobs(_blobsInput, checkBlob);
+    return RollupOperationsExtLib.validateBlobs(_blobsInput, checkBlob);
   }
 
   /**
@@ -365,7 +377,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @return The sample seed for the given timestamp
    */
   function getSampleSeedAt(Timestamp _ts) external view override(IValidatorSelection) returns (uint256) {
-    return ExtRollupLib2.getSampleSeedAt(getEpochAt(_ts));
+    return ValidatorOperationsExtLib.getSampleSeedAt(getEpochAt(_ts));
   }
 
   /**
@@ -374,7 +386,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @return The sample seed for the current epoch
    */
   function getCurrentSampleSeed() external view override(IValidatorSelection) returns (uint256) {
-    return ExtRollupLib2.getSampleSeedAt(getCurrentEpoch());
+    return ValidatorOperationsExtLib.getSampleSeedAt(getCurrentEpoch());
   }
 
   /**
@@ -532,7 +544,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @return The validator set for the given epoch
    */
   function getEpochCommittee(Epoch _epoch) public override(IValidatorSelection) returns (address[] memory) {
-    return ExtRollupLib2.getCommitteeAt(_epoch);
+    return ValidatorOperationsExtLib.getCommitteeAt(_epoch);
   }
 
   /**
@@ -557,7 +569,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @return The address of the proposer
    */
   function getProposerAt(Timestamp _ts) public override(IValidatorSelection) returns (address) {
-    return ExtRollupLib2.getProposerAt(_ts.slotFromTimestamp());
+    return ValidatorOperationsExtLib.getProposerAt(_ts.slotFromTimestamp());
   }
 
   /**

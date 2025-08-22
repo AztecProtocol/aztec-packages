@@ -4,6 +4,10 @@ version = "0.1.0"
 authors = ["Aztec Labs"]
 edition = "2021"
 
+[features]
+default = ["use_optimized"]
+use_optimized = []
+
 [dependencies]
 num-bigint = "0.4.3"
 

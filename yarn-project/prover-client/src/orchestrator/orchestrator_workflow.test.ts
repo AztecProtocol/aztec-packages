@@ -122,7 +122,7 @@ describe('prover/orchestrator', () => {
         // now finish the block
         await orchestrator.setBlockCompleted(context.blockNumber);
 
-        const result = await orchestrator.finaliseEpoch();
+        const result = await orchestrator.finalizeEpoch();
         expect(result.proof).toBeDefined();
       });
 
@@ -148,7 +148,7 @@ describe('prover/orchestrator', () => {
         await context.setTreeRoots(processedTxs);
         await orchestrator.addTxs(processedTxs);
         await orchestrator.setBlockCompleted(context.blockNumber);
-        const result = await orchestrator.finaliseEpoch();
+        const result = await orchestrator.finalizeEpoch();
         expect(result.proof).toBeDefined();
         expect(getTubeSpy).toHaveBeenCalledTimes(0);
       });

@@ -24,8 +24,8 @@ set -exu
 # where:
 #  - aztec-docker-tag is the tag of the aztec docker image to use.
 #  - registry is the address of the registry contract.
-#  - test-accounts is optional, and if provided, will initialise the genesis state with funded test accounts.
-#  - sponsored-fpc is optional, and if provided, will initialise the genesis state with a funded FPC.
+#  - test-accounts is optional, and if provided, will initialize the genesis state with funded test accounts.
+#  - sponsored-fpc is optional, and if provided, will initialize the genesis state with a funded FPC.
 #
 # It can also be used locally by providing an --aztec-bin argument to the path of the aztec binary.
 # For example, --aztec-bin /usr/src/yarn-project/aztec/dest/bin/index.js

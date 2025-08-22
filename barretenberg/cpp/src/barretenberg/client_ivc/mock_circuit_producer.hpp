@@ -95,9 +95,6 @@ struct TestSettings {
     // number of public inputs to manually add to circuits, by default this would be 0 because we use the
     // MockDatabusProducer to test public inputs handling
     size_t num_public_inputs = 0;
-    // force the next circuit to be a kernel in order to test the occurence of consecutive kernels (expected behaviour
-    // in real flows)
-    bool force_is_kernel = false;
     // by default we will create more complex apps and kernel with various types of gates but in case we want to
     // specifically test overflow behaviour or unstructured circuits we can manually construct simple circuits with a
     // specified number of gates
@@ -118,15 +115,26 @@ class PrivateFunctionExecutionMockCircuitProducer {
     using VerificationKey = Flavor::VerificationKey;
 
     size_t circuit_counter = 0;
+    std::vector<bool> is_kernel_flags;
 
     MockDatabusProducer mock_databus;
     bool large_first_app = true;
-    bool is_kernel = false; // whether the next circuit is a kernel or not
+    constexpr static size_t NUM_TRAILING_KERNELS = 3; // reset, tail, hiding
 
   public:
-    PrivateFunctionExecutionMockCircuitProducer(bool large_first_app = true)
+    size_t total_num_circuits = 0;
+
+    PrivateFunctionExecutionMockCircuitProducer(size_t num_app_circuits, bool large_first_app = true)
         : large_first_app(large_first_app)
-    {}
+        , total_num_circuits(num_app_circuits * 2 +
+                             NUM_TRAILING_KERNELS) /*One kernel per app, plus a fixed number of final kernels*/
+    {
+        // Set flags indicating which circuits are kernels vs apps
+        is_kernel_flags.resize(total_num_circuits, true);
+        for (size_t i = 0; i < num_app_circuits; ++i) {
+            is_kernel_flags[2 * i] = false; // every other circuit is an app
+        }
+    }
 
     /**
      * @brief Precompute the verification key for the given circuit.
@@ -148,48 +156,42 @@ class PrivateFunctionExecutionMockCircuitProducer {
         return vk;
     }
 
-    ClientCircuit create_simple_circuit(ClientIVC& ivc, size_t log2_num_gates, size_t num_public_inputs)
+    /**
+     * @brief Create either a circuit with certain number of gates or a more realistic circuit (withv various custom
+     * gates and databus usage) in case number of gates is not specified, that is also filled up to 2^17 or 2^19 if
+     * large.
+     *
+     */
+    ClientCircuit create_next_circuit(ClientIVC& ivc, size_t log2_num_gates = 0, size_t num_public_inputs = 0)
     {
+        const bool is_kernel = is_kernel_flags[circuit_counter];
+
         circuit_counter++;
-        is_kernel = (circuit_counter % 2 == 0);
+
         ClientCircuit circuit{ ivc.goblin.op_queue };
-        MockCircuits::construct_arithmetic_circuit(circuit, log2_num_gates, /* include_public_inputs= */ false);
-        if (num_public_inputs > 0) {
-            // Add some public inputs to the circuit
+        // if the number of gates is specified we just add a number of arithmetic gates
+        if (log2_num_gates != 0) {
+            MockCircuits::construct_arithmetic_circuit(circuit, log2_num_gates, /* include_public_inputs= */ false);
+            // Add some public inputs
             for (size_t i = 0; i < num_public_inputs; ++i) {
                 circuit.add_public_variable(13634816 + i); // arbitrary number
             }
+        } else {
+            // If the number of gates is not specified we create a structured mock circuit
+            if (is_kernel) {
+                GoblinMockCircuits::construct_mock_folding_kernel(circuit); // construct mock base logic
+                mock_databus.populate_kernel_databus(circuit);              // populate databus inputs/outputs
+            } else {
+                bool use_large_circuit = large_first_app && (circuit_counter == 1); // first circuit is size 2^19
+                GoblinMockCircuits::construct_mock_app_circuit(circuit, use_large_circuit); // construct mock app
+                mock_databus.populate_app_databus(circuit);                                 // populate databus outputs
+            }
         }
+
         if (is_kernel) {
             ivc.complete_kernel_circuit_logic(circuit);
         } else {
             stdlib::recursion::PairingPoints<ClientCircuit>::add_default_to_public_inputs(circuit);
-        }
-        return circuit;
-    }
-
-    /**
-     * @brief Create a more realistic circuit (withv various custom gates and databus usage) that is also filled up to
-     * 2^17 or 2^19 if large.
-     *
-     */
-    ClientCircuit create_next_circuit(ClientIVC& ivc, bool force_is_kernel = false)
-    {
-        circuit_counter++;
-
-        // Assume only every second circuit is a kernel, unless force_is_kernel == true or we accumulate an odd number
-        // of circuits in which case we have to explicitly enforce the last circuit is a kernel
-        bool is_kernel = (circuit_counter % 2 == 0) || circuit_counter == ivc.get_num_circuits() || force_is_kernel;
-
-        ClientCircuit circuit{ ivc.goblin.op_queue };
-        if (is_kernel) {
-            GoblinMockCircuits::construct_mock_folding_kernel(circuit); // construct mock base logic
-            mock_databus.populate_kernel_databus(circuit);              // populate databus inputs/outputs
-            ivc.complete_kernel_circuit_logic(circuit);                 // complete with recursive verifiers etc
-        } else {
-            bool use_large_circuit = large_first_app && (circuit_counter == 1);         // first circuit is size 2^19
-            GoblinMockCircuits::construct_mock_app_circuit(circuit, use_large_circuit); // construct mock app
-            mock_databus.populate_app_databus(circuit);                                 // populate databus outputs
         }
         return circuit;
     }
@@ -200,16 +202,7 @@ class PrivateFunctionExecutionMockCircuitProducer {
     std::pair<ClientCircuit, std::shared_ptr<VerificationKey>> create_next_circuit_and_vk(ClientIVC& ivc,
                                                                                           TestSettings settings = {})
     {
-
-        // If a specific number of gates is specified we create a simple circuit with only arithmetic gates to easily
-        // control the total number of gates.
-        if (settings.log2_num_gates != 0) {
-            ClientCircuit circuit = create_simple_circuit(ivc, settings.log2_num_gates, settings.num_public_inputs);
-            return { circuit, get_verification_key(circuit, ivc.trace_settings) };
-        }
-
-        ClientCircuit circuit = create_next_circuit(ivc, settings.force_is_kernel); // construct the circuit
-
+        auto circuit = create_next_circuit(ivc, settings.log2_num_gates, settings.num_public_inputs);
         return { circuit, get_verification_key(circuit, ivc.trace_settings) };
     }
 
@@ -217,26 +210,12 @@ class PrivateFunctionExecutionMockCircuitProducer {
     {
         auto [circuit, vk] = create_next_circuit_and_vk(ivc, settings);
         ivc.accumulate(circuit, vk);
-
-        if (circuit_counter == ivc.get_num_circuits()) {
-            construct_hiding_kernel(ivc);
-        }
     }
 
     /**
      * @brief Tamper with databus data to facilitate failure testing
      */
     void tamper_with_databus() { mock_databus.tamper_with_app_return_data(); }
-    /**
-     * @brief Creates the hiding circuit to complete IVC accumulation
-     */
-    static void construct_hiding_kernel(ClientIVC& ivc)
-    {
-        // create a builder from the goblin op_queue
-        ClientIVC::ClientCircuit circuit{ ivc.goblin.op_queue };
-        // complete the hiding kernel logic
-        ivc.complete_kernel_circuit_logic(circuit);
-    }
 };
 
 } // namespace

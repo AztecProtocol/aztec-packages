@@ -71,9 +71,8 @@ TEST(Flavor, GetRow)
     using Flavor = UltraFlavor;
     using FF = typename Flavor::FF;
     std::array<std::vector<FF>, Flavor::NUM_ALL_ENTITIES> data;
-    std::generate(data.begin(), data.end(), []() {
-        return std::vector<FF>({ FF::random_element(), FF::random_element() });
-    });
+    std::generate(
+        data.begin(), data.end(), []() { return std::vector<FF>({ FF::random_element(), FF::random_element() }); });
     Flavor::ProverPolynomials prover_polynomials;
     for (auto [poly, entry] : zip_view(prover_polynomials.get_all(), data)) {
         poly = Flavor::Polynomial(entry);

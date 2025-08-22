@@ -12,7 +12,7 @@ import {CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib
 import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 /**
- * @title ExtRollupLib2 - External Rollup Library (Staking Functions)
+ * @title ValidatorOperationsExtLib - External Rollup Library (Validator and Staking Functions)
  * @author Aztec Labs
  * @notice External library containing staking-related functions for the Rollup contract to avoid exceeding max contract
  * size.
@@ -26,7 +26,7 @@ import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
  *      - Slashing mechanism integration
  *      - Epoch and proposer management
  */
-library ExtRollupLib2 {
+library ValidatorOperationsExtLib {
   using TimeLib for Timestamp;
 
   function setSlasher(address _slasher) external {
@@ -58,8 +58,8 @@ library ExtRollupLib2 {
     return StakingLib.initiateWithdraw(_attester, _recipient);
   }
 
-  function finaliseWithdraw(address _attester) external {
-    StakingLib.finaliseWithdraw(_attester);
+  function finalizeWithdraw(address _attester) external {
+    StakingLib.finalizeWithdraw(_attester);
   }
 
   function initializeValidatorSelection(uint256 _targetCommitteeSize) external {

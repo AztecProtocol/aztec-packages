@@ -98,7 +98,7 @@ template <typename Builder> class cycle_group {
             , hi(_hi)
             , _num_bits(bits)
             , _skip_primality_test(skip_primality_test)
-            , _use_bn254_scalar_field_for_primality_test(use_bn254_scalar_field_for_primality_test){};
+            , _use_bn254_scalar_field_for_primality_test(use_bn254_scalar_field_for_primality_test) {};
         cycle_scalar(const ScalarField& _in = 0);
         cycle_scalar(const field_t& _lo, const field_t& _hi);
         cycle_scalar(const field_t& _in);

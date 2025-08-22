@@ -43,7 +43,7 @@ function shorten_cpp_names() {
 }
 
 # Process benchmark file.
-llvm-xray-16 stack xray-log.$EXECUTABLE.* \
+llvm-xray-20 stack xray-log.$EXECUTABLE.* \
   --instr_map=./bin/$EXECUTABLE --stack-format=flame --aggregate-threads --aggregation-type=time --all-stacks \
   | node ../scripts/llvm_xray_stack_flame_corrector.js \
   | shorten_cpp_names \

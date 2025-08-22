@@ -20,7 +20,7 @@ template <typename Builder> class twin_rom_table {
     typedef std::array<field_pt, 2> field_pair_pt;
 
   public:
-    twin_rom_table(){};
+    twin_rom_table() {};
     twin_rom_table(const std::vector<field_pair_pt>& table_entries);
     twin_rom_table(const twin_rom_table& other);
     twin_rom_table(twin_rom_table&& other);

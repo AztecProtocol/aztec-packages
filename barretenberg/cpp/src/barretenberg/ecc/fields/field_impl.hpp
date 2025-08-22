@@ -438,7 +438,7 @@ template <class T> void field<T>::batch_invert(std::span<field> coeffs) noexcept
 }
 
 /**
- * @brief Implements an optimised variant of Tonelli-Shanks via lookup tables.
+ * @brief Implements an optimized variant of Tonelli-Shanks via lookup tables.
  * Algorithm taken from https://cr.yp.to/papers/sqroot-20011123-retypeset20220327.pdf
  * "FASTER SQUARE ROOTS IN ANNOYING FINITE FIELDS" by D. Bernstein
  * Page 5 "Accelerated Discrete Logarithm"

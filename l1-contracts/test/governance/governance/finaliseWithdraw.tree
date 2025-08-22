@@ -1,4 +1,4 @@
-FinaliseWithdrawTest
+FinalizeWithdrawTest
 ├── when id match no pending withdrawal
 │   └── it revert
 └── when it match pending withdrawal
@@ -10,4 +10,4 @@ FinaliseWithdrawTest
         └── when time is after or at unlock
             ├── it mark withdrawal as claimed
             ├── it transfer funds to account
-            └── it emits {WithdrawalFinalised} event
+            └── it emits {WithdrawalFinalized} event

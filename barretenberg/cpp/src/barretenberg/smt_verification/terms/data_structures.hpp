@@ -21,12 +21,12 @@ class STuple {
 
     STuple()
         : solver(nullptr)
-        , term(cvc5::Term()){};
+        , term(cvc5::Term()) {};
 
     STuple(const cvc5::Term& term, Solver* s, TermType type = TermType::STuple)
         : solver(s)
         , term(term)
-        , type(type){};
+        , type(type) {};
 
     /**
      * @brief Construct a new STuple object
@@ -91,9 +91,7 @@ class STuple {
 };
 
 template <typename T>
-concept ConstructibleFromTerm = requires(const cvc5::Term& term, Solver* s, TermType type) {
-    T{ term, s, type };
-};
+concept ConstructibleFromTerm = requires(const cvc5::Term& term, Solver* s, TermType type) { T{ term, s, type }; };
 
 /**
  * @brief symbolic Array class
@@ -121,7 +119,7 @@ template <typename sym_index, ConstructibleFromTerm sym_entry> class SymArray {
         : solver(nullptr)
         , term(cvc5::Term())
         , ind_type(TermType::FFTerm)
-        , entry_type(TermType::FFTerm){};
+        , entry_type(TermType::FFTerm) {};
 
     SymArray(const cvc5::Term& term, Solver* s, TermType type = TermType::SymArray)
         : solver(s)
@@ -300,12 +298,12 @@ template <ConstructibleFromTerm sym_entry> class SymSet {
     SymSet()
         : solver(nullptr)
         , term(cvc5::Term())
-        , entry_type(TermType::FFTerm){};
+        , entry_type(TermType::FFTerm) {};
 
     SymSet(const cvc5::Term& term, Solver* s, TermType type = TermType::SymSet)
         : solver(s)
         , term(term)
-        , type(type){};
+        , type(type) {};
 
     /**
      * @brief Construct a new empty Symbolic Set object

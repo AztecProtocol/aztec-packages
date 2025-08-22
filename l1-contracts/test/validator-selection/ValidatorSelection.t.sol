@@ -273,7 +273,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
   function testNukeFromOrbit() public setup(4, 4) progressEpochs(2) {
     // We propose some blocks, and have a bunch of validators attest to them.
     // Then we slash EVERYONE that was in the committees because the epoch never
-    // got finalised.
+    // got finalized.
     // This is LIKELY, not the action you really want to take, you want to slash
     // the people actually attesting, etc, but for simplicity we can do this as showcase.
     _testBlock("mixed_block_1", NO_REVERT, 3, 4, TestFlagsLib.empty());

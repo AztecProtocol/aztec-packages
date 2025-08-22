@@ -15,7 +15,7 @@ import {
 } from "./ProposeLib.sol";
 
 /**
- * @title ExtRollupLib - External Rollup Library (Proposal Functions)
+ * @title RollupOperationsExtLib - External Rollup Library (Proposal and Proof Verification Functions)
  * @author Aztec Labs
  * @notice External library containing proposal-related functions for the Rollup contract to avoid exceeding max
  * contract size.
@@ -28,7 +28,7 @@ import {
  *      - Blob validation and commitment management
  *      - Chain pruning operations
  */
-library ExtRollupLib {
+library RollupOperationsExtLib {
   using TimeLib for Timestamp;
   using TimeLib for Slot;
   using AttestationLib for CommitteeAttestations;

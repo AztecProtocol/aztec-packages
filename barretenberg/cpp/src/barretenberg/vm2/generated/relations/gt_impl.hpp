@@ -31,18 +31,12 @@ void gtImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         tmp *= scaling_factor;
         std::get<1>(evals) += typename Accumulator::View(tmp);
     }
-    {
-        using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-        auto tmp = in.get(C::gt_sel) * (FF(128) - in.get(C::gt_constant_128));
-        tmp *= scaling_factor;
-        std::get<2>(evals) += typename Accumulator::View(tmp);
-    }
     { // GT_RESULT
-        using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
         auto tmp =
             in.get(C::gt_sel) * (((gt_A_GT_B - gt_A_LTE_B) * in.get(C::gt_res) + gt_A_LTE_B) - in.get(C::gt_abs_diff));
         tmp *= scaling_factor;
-        std::get<3>(evals) += typename Accumulator::View(tmp);
+        std::get<2>(evals) += typename Accumulator::View(tmp);
     }
 }
 

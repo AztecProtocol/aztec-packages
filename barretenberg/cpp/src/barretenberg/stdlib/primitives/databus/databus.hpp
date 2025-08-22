@@ -25,7 +25,7 @@ template <typename Builder> class databus {
 
       public:
         bus_vector(const BusId bus_idx)
-            : bus_idx(bus_idx){};
+            : bus_idx(bus_idx) {};
 
         /**
          * @brief Set the entries of the bus vector from possibly unnormalized or constant inputs

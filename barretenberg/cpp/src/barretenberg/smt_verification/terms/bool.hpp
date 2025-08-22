@@ -21,11 +21,11 @@ class Bool {
     Bool(const cvc5::Term& t, Solver* slv, TermType type = TermType::SBool)
         : solver(slv)
         , term(t)
-        , type(type){};
+        , type(type) {};
 
     explicit Bool(const STerm& t)
         : solver(t.solver)
-        , term(t.normalize().term){};
+        , term(t.normalize().term) {};
 
     explicit Bool(const std::string& name, Solver* slv)
         : solver(slv)

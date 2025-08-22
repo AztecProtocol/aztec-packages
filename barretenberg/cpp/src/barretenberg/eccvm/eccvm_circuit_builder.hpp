@@ -46,7 +46,7 @@ class ECCVMCircuitBuilder {
     // `MSM` is an ordered container of `ScalarMul`s
     using MSM = bb::eccvm::MSM<CycleGroup>;
     ECCVMCircuitBuilder(std::shared_ptr<ECCOpQueue>& op_queue)
-        : op_queue(op_queue){};
+        : op_queue(op_queue) {};
 
     [[nodiscard]] uint32_t get_number_of_muls() const { return op_queue->get_number_of_muls(); }
 
@@ -217,7 +217,7 @@ class ECCVMCircuitBuilder {
             }
         });
 
-        // update pc. easier to do this serially but in theory could be optimised out
+        // update pc. easier to do this serially but in theory could be optimized out
         // We start pc at `num_muls` and decrement for each mul processed.
         // This gives us two desired properties:
         // 1: the value of pc at the 1st row = number of muls (easy to check)

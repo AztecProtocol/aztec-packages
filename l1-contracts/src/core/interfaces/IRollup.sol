@@ -3,6 +3,7 @@
 pragma solidity >=0.8.27;
 
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
+import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
@@ -60,6 +61,9 @@ struct RollupConfigInput {
   uint256 slashingRoundSize;
   uint256 slashingLifetimeInRounds;
   uint256 slashingExecutionDelayInRounds;
+  uint256 slashingUnit;
+  uint256 slashingOffsetInRounds;
+  SlasherFlavor slasherFlavor;
   address slashingVetoer;
   uint256 manaTarget;
   uint256 exitDelaySeconds;
