@@ -238,7 +238,7 @@ template <typename Builder> void generate_ecdsa_verification_test_circuit(Builde
 
     std::string message_string = "Instructions unclear, ask again later.";
 
-    crypto::ecdsa_key_pair<fr, g1> account;
+    crypto::ecdsa_key_pair<FrNative, G1Native> account;
     for (size_t i = 0; i < num_iterations; i++) {
         // Generate unique signature for each iteration
         account.private_key = FrNative::random_element(&engine);
