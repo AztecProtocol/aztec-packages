@@ -138,12 +138,19 @@ namespace bb {
  * is equal to \f$ 1-  u_2 \cdots u_{d-1} \f$ otherwise.
  */
 
-template <typename FF> struct RowDisablingPolynomial {
+template <typename Flavor> struct RowDisablingPolynomial {
+    using FF = typename Flavor::FF;
     // initialized as a constant linear polynomial = 1
     FF eval_at_0{ 1 };
     FF eval_at_1{ 1 };
 
-    RowDisablingPolynomial() = default;
+    RowDisablingPolynomial()
+    {
+        if constexpr (std::is_same_v<Flavor, UltraZKFlavor>) {
+            eval_at_0 = 1;
+            eval_at_1 = 1;
+        }
+    };
     /**
      * @brief Compute the evaluations of L^{(i)} at 0 and 1.
      *
@@ -155,6 +162,7 @@ template <typename FF> struct RowDisablingPolynomial {
      * @param round_idx Sumcheck round index
      */
     void update_evaluations(FF round_challenge, size_t round_idx)
+        requires(!std::is_same_v<Flavor, UltraZKFlavor>)
     {
         if (round_idx == 1) {
             eval_at_0 = FF{ 0 };
@@ -162,6 +170,17 @@ template <typename FF> struct RowDisablingPolynomial {
         if (round_idx >= 2) {
             eval_at_1 *= round_challenge;
         }
+    }
+    void update_evaluations(FF round_challenge, size_t round_idx)
+        requires(std::is_same_v<Flavor, UltraZKFlavor>)
+    {
+        if (round_idx == 1) {
+            eval_at_1 = 0;
+        };
+
+        if (round_idx > 1) {
+            eval_at_0 = eval_at_0 * (FF{ 1 } - round_challenge);
+        };
     }
     /**
      * @brief Compute the evaluation of \f$ 1 - L \f$ at the sumcheck challenge
@@ -171,11 +190,26 @@ template <typename FF> struct RowDisablingPolynomial {
      * @return FF
      */
     static FF evaluate_at_challenge(std::vector<FF> multivariate_challenge, const size_t log_circuit_size)
+        requires(!std::is_same_v<Flavor, UltraZKFlavor>)
+
     {
         FF evaluation_at_multivariate_challenge{ 1 };
 
         for (size_t idx = 2; idx < log_circuit_size; idx++) {
             evaluation_at_multivariate_challenge *= multivariate_challenge[idx];
+        }
+
+        return FF{ 1 } - evaluation_at_multivariate_challenge;
+    }
+
+    static FF evaluate_at_challenge(std::vector<FF> multivariate_challenge, const size_t log_circuit_size)
+        requires(std::is_same_v<Flavor, UltraZKFlavor>)
+
+    {
+        FF evaluation_at_multivariate_challenge{ 1 };
+
+        for (size_t idx = 2; idx < log_circuit_size; idx++) {
+            evaluation_at_multivariate_challenge *= (FF{ 1 } - multivariate_challenge[idx]);
         }
 
         return FF{ 1 } - evaluation_at_multivariate_challenge;
@@ -189,6 +223,8 @@ template <typename FF> struct RowDisablingPolynomial {
      */
     static FF evaluate_at_challenge(std::span<FF> multivariate_challenge,
                                     const std::vector<FF>& padding_indicator_array)
+        requires(!std::is_same_v<Flavor, UltraZKFlavor>)
+
     {
         FF evaluation_at_multivariate_challenge{ 1 };
 
@@ -197,6 +233,19 @@ template <typename FF> struct RowDisablingPolynomial {
             evaluation_at_multivariate_challenge *= FF{ 1 } - indicator + indicator * multivariate_challenge[idx];
         }
 
+        return FF{ 1 } - evaluation_at_multivariate_challenge;
+    }
+
+    static FF evaluate_at_challenge(std::span<FF> multivariate_challenge,
+                                    [[maybe_unused]] const std::vector<FF>& padding_indicator_array)
+        requires(std::is_same_v<Flavor, UltraZKFlavor>)
+
+    {
+        FF evaluation_at_multivariate_challenge{ 1 };
+
+        for (size_t idx = 2; idx < padding_indicator_array.size(); idx++) {
+            evaluation_at_multivariate_challenge *= FF{ 1 } - multivariate_challenge[idx];
+        }
         return FF{ 1 } - evaluation_at_multivariate_challenge;
     }
 };

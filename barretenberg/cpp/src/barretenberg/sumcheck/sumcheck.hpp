@@ -173,7 +173,7 @@ template <typename Flavor> class SumcheckProver {
     std::vector<FF> eval_domain = {};
     FF libra_evaluation = FF{ 0 };
 
-    RowDisablingPolynomial<FF> row_disabling_polynomial;
+    RowDisablingPolynomial<Flavor> row_disabling_polynomial;
 
     /**
     *
@@ -749,6 +749,7 @@ template <typename Flavor> class SumcheckVerifier {
             multivariate_challenge.emplace_back(round_challenge);
 
             const bool checked = round.check_sum(round_univariate, padding_indicator_array[round_idx]);
+            info("checked? ", checked, " rounds index");
             round.compute_next_target_sum(round_univariate, round_challenge, padding_indicator_array[round_idx]);
             gate_separators.partially_evaluate(round_challenge, padding_indicator_array[round_idx]);
 
@@ -774,8 +775,8 @@ template <typename Flavor> class SumcheckVerifier {
             if constexpr (UseRowDisablingPolynomial<Flavor>) {
                 // Compute the evaluations of the polynomial (1 - \sum L_i) where the sum is for i corresponding to the
                 // rows where all sumcheck relations are disabled
-                full_honk_purported_value *=
-                    RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge, padding_indicator_array);
+                full_honk_purported_value *= RowDisablingPolynomial<Flavor>::evaluate_at_challenge(
+                    multivariate_challenge, padding_indicator_array);
             }
 
             libra_evaluation = transcript->template receive_from_prover<FF>("Libra:claimed_evaluation");
@@ -875,7 +876,7 @@ template <typename Flavor> class SumcheckVerifier {
         // Compute the evaluations of the polynomial (1 - \sum L_i) where the sum is for i corresponding to the rows
         // where all sumcheck relations are disabled
         full_honk_purported_value *=
-            RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge, virtual_log_n);
+            RowDisablingPolynomial<Flavor>::evaluate_at_challenge(multivariate_challenge, virtual_log_n);
 
         // Extract claimed evaluations of Libra univariates and compute their sum multiplied by the Libra challenge
         const FF libra_evaluation = transcript->template receive_from_prover<FF>("Libra:claimed_evaluation");

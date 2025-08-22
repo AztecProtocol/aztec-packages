@@ -270,7 +270,13 @@ void OinkProver<Flavor>::commit_to_witness_polynomial(Polynomial<FF>& polynomial
 {
     // Mask the polynomial when proving in zero-knowledge
     if constexpr (Flavor::HasZK) {
-        polynomial.mask();
+        if constexpr (!std::is_same_v<Flavor, UltraZKFlavor>) {
+            polynomial.mask();
+        } else {
+            for (size_t idx = 1; idx < 4; idx++) {
+                polynomial.at(idx) = 0;
+            }
+        }
     };
 
     typename Flavor::Commitment commitment;

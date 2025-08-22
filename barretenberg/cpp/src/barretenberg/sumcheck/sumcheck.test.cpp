@@ -304,6 +304,107 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         EXPECT_EQ(verified, true);
     };
 
+    // TODO(#225): make the inputs to this test more interesting, e.g. non-trivial permutations
+    void test_zk_prover_verifier_flow()
+    {
+        const size_t multivariate_d(3);
+        const size_t multivariate_n(1 << multivariate_d);
+
+        const size_t virtual_log_n = 3;
+        // Construct prover polynomials where each is the zero polynomial.
+        // Note: ProverPolynomials are defined as spans so the polynomials they point to need to exist in memory.
+        std::vector<Polynomial<FF>> zero_polynomials(NUM_POLYNOMIALS);
+        for (auto& poly : zero_polynomials) {
+            poly = bb::Polynomial<FF>(multivariate_n);
+        }
+        auto full_polynomials = construct_ultra_full_polynomials(zero_polynomials);
+
+        // Add some non-trivial values to certain polynomials so that the arithmetic relation will have non-trivial
+        // contribution. Note: since all other polynomials are set to 0, all other relations are trivially
+        // satisfied.
+        std::array<FF, multivariate_n> w_l = { 0, 0, 0, 7, 0, 1, 2, 0 };
+        std::array<FF, multivariate_n> w_r = { 0, 53, 2, 4, 0, 1, 2, 0 };
+        std::array<FF, multivariate_n> w_o = { 0, 10, 0, 2, 0, 2, 4, 0 };
+        std::array<FF, multivariate_n> w_4 = { 0, 0, 10, 1, 0, 0, 0, 0 };
+        std::array<FF, multivariate_n> q_m = { 0, 3, 2, 44, 0, 0, 1, 0 };
+        std::array<FF, multivariate_n> q_l = { 0, 11, 0, 1, 0, 1, 0, 0 };
+        std::array<FF, multivariate_n> q_r = { 0, 0, 0, 2, 0, 1, 0, 0 };
+        std::array<FF, multivariate_n> q_o = { 0, 4, 53, 5, 0, -1, -1, 0 };
+        std::array<FF, multivariate_n> q_c = { 0, 0, 0, 0, 0, 0, 0, 0 };
+        std::array<FF, multivariate_n> q_arith = { 0, 0, 0, 0, 0, 1, 1, 0 };
+        // Setting all of these to 0 ensures the GrandProductRelation is satisfied
+
+        full_polynomials.w_l = bb::Polynomial<FF>(w_l);
+        full_polynomials.w_r = bb::Polynomial<FF>(w_r);
+        full_polynomials.w_o = bb::Polynomial<FF>(w_o);
+        full_polynomials.w_4 = bb::Polynomial<FF>(w_4);
+        full_polynomials.q_m = bb::Polynomial<FF>(q_m);
+        full_polynomials.q_l = bb::Polynomial<FF>(q_l);
+        full_polynomials.q_r = bb::Polynomial<FF>(q_r);
+        full_polynomials.q_o = bb::Polynomial<FF>(q_o);
+        full_polynomials.q_c = bb::Polynomial<FF>(q_c);
+        full_polynomials.q_arith = bb::Polynomial<FF>(q_arith);
+
+        // Set aribitrary random relation parameters
+        RelationParameters<FF> relation_parameters{
+            .beta = FF::random_element(),
+            .gamma = FF::random_element(),
+            .public_input_delta = FF::one(),
+        };
+        auto prover_transcript = Flavor::Transcript::prover_init_empty();
+        SubrelationSeparators prover_alpha{ 1 };
+        for (size_t idx = 1; idx < prover_alpha.size(); idx++) {
+            prover_alpha[idx] = prover_transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
+        }
+
+        std::vector<FF> prover_gate_challenges(virtual_log_n);
+        for (size_t idx = 0; idx < virtual_log_n; idx++) {
+            prover_gate_challenges[idx] =
+                prover_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
+        }
+
+        SumcheckProver<Flavor> sumcheck_prover(multivariate_n,
+                                               full_polynomials,
+                                               prover_transcript,
+                                               prover_alpha,
+                                               prover_gate_challenges,
+                                               relation_parameters,
+                                               virtual_log_n);
+
+        SumcheckOutput<Flavor> output;
+        ZKData zk_sumcheck_data = ZKData(multivariate_d, prover_transcript);
+        output = sumcheck_prover.prove(zk_sumcheck_data);
+
+        auto verifier_transcript = Flavor::Transcript::verifier_init_empty(prover_transcript);
+
+        SubrelationSeparators verifier_alpha{ 1 };
+        for (size_t idx = 1; idx < verifier_alpha.size(); idx++) {
+            verifier_alpha[idx] =
+                verifier_transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
+        }
+        auto sumcheck_verifier = SumcheckVerifier<Flavor>(verifier_transcript, verifier_alpha, virtual_log_n);
+
+        std::vector<FF> verifier_gate_challenges(virtual_log_n);
+        for (size_t idx = 0; idx < virtual_log_n; idx++) {
+            verifier_gate_challenges[idx] =
+                verifier_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
+        }
+
+        std::vector<FF> padding_indicator_array(virtual_log_n, 1);
+        if constexpr (Flavor::HasZK) {
+            for (size_t idx = 0; idx < virtual_log_n; idx++) {
+                padding_indicator_array[idx] = (idx < multivariate_d) ? FF{ 1 } : FF{ 0 };
+            }
+        }
+
+        auto verifier_output =
+            sumcheck_verifier.verify(relation_parameters, verifier_gate_challenges, padding_indicator_array);
+
+        auto verified = verifier_output.verified;
+
+        EXPECT_EQ(verified, true);
+    };
+
     void test_failure_prover_verifier_flow()
     {
         // Since the last 4 rows in ZK Flavors are disabled, we extend an invalid circuit of size 4 to size 8 by padding
@@ -438,6 +539,16 @@ TYPED_TEST(SumcheckTests, ProverAndVerifierSimple)
 {
     this->test_prover_verifier_flow();
 }
+
+TYPED_TEST(SumcheckTests, ZKFlow)
+{
+    if constexpr (std::is_same_v<TypeParam, UltraZKFlavor>) {
+        this->test_zk_prover_verifier_flow();
+    } else {
+        GTEST_SKIP() << "Skipping test for ZK-enabled flavors";
+    }
+}
+
 // This tests is fed an invalid circuit and checks that the verifier would output false.
 TYPED_TEST(SumcheckTests, ProverAndVerifierSimpleFailure)
 {

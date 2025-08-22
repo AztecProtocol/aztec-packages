@@ -473,7 +473,7 @@ template <typename Flavor> class SumcheckProverRound {
         const bb::GateSeparatorPolynomial<FF>& gate_separators,
         const SubrelationSeparators& alpha,
         const ZKData& zk_sumcheck_data,
-        const RowDisablingPolynomial<FF> row_disabling_polynomial)
+        const RowDisablingPolynomial<Flavor> row_disabling_polynomial)
         requires Flavor::HasZK
     {
         auto hiding_univariate = compute_libra_univariate(zk_sumcheck_data, round_idx);
@@ -497,7 +497,7 @@ template <typename Flavor> class SumcheckProverRound {
         const bb::GateSeparatorPolynomial<FF>& gate_separators,
         const SubrelationSeparators& alphas,
         const size_t round_idx,
-        const RowDisablingPolynomial<FF> row_disabling_polynomial)
+        const RowDisablingPolynomial<Flavor> row_disabling_polynomial)
         requires UseRowDisablingPolynomial<Flavor>
     {
         // Note: {} is required to initialize the tuple contents. Otherwise the univariates contain garbage.
@@ -507,9 +507,16 @@ template <typename Flavor> class SumcheckProverRound {
 
         // In Round 0, we have to compute the contribution from 2 edges: (1, 1,..., 1) and (0, 1, ..., 1) (as points on
         // (d-1) - dimensional Boolean hypercube).
-        size_t start_edge_idx = (round_idx == 0) ? round_size - 4 : round_size - 2;
-
-        for (size_t edge_idx = start_edge_idx; edge_idx < round_size; edge_idx += 2) {
+        size_t start_edge_idx{ 0 };
+        size_t end_edge_idx{ 0 };
+        if constexpr (!std::is_same_v<Flavor, UltraZKFlavor>) {
+            start_edge_idx = (round_idx == 0) ? round_size - 4 : round_size - 2;
+            end_edge_idx = round_size;
+        } else {
+            start_edge_idx = 0;
+            end_edge_idx = (round_idx == 0) ? 4 : 2;
+        }
+        for (size_t edge_idx = start_edge_idx; edge_idx < end_edge_idx; edge_idx += 2) {
             extend_edges(extended_edges, polynomials, edge_idx);
             accumulate_relation_univariates(univariate_accumulator,
                                             extended_edges,
