@@ -1,11 +1,10 @@
+import { BLOCK_END_PREFIX, TX_START_PREFIX } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader } from '@aztec/foundation/serialize';
 
 import type { Blob as BlobBuffer } from 'c-kzg';
 
 // Note duplicated from stdlib !
-// This will appear as 0x74785f7374617274 in logs
-export const TX_START_PREFIX = 8392562855083340404n;
 // These are helper constants to decode tx effects from blob encoded fields
 export const TX_START_PREFIX_BYTES_LENGTH = TX_START_PREFIX.toString(16).length / 2;
 // 7 bytes for: | 0 | txlen[0] | txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revertCode |
@@ -59,6 +58,12 @@ export function deserializeEncodedBlobToFields(blob: BlobBuffer): Fr[] {
       break;
     }
 
+    if (isBlockEndMarker(currentField)) {
+      // Include the block end marker in the result
+      fieldReader.skip(1);
+      break;
+    }
+
     // Skip the remaining fields in this transaction
     const len = getLengthFromFirstField(currentField);
     fieldReader.skip(len);
@@ -76,7 +81,7 @@ export function deserializeEncodedBlobToFields(blob: BlobBuffer): Fr[] {
  *
  * @throws If the first field does not include the correct prefix - encoding invalid.
  */
-export function getLengthFromFirstField(firstField: Fr): number {
+function getLengthFromFirstField(firstField: Fr): number {
   // Check that the first field includes the correct prefix
   if (!isValidFirstField(firstField)) {
     throw new Error('Invalid prefix');
@@ -88,7 +93,7 @@ export function getLengthFromFirstField(firstField: Fr): number {
 /**
  * Determines whether a field is the first field of a tx effect
  */
-export function isValidFirstField(field: Fr): boolean {
+function isValidFirstField(field: Fr): boolean {
   const buf = field.toBuffer();
   if (
     !buf
@@ -109,6 +114,12 @@ export function isValidFirstField(field: Fr): boolean {
     return false;
   }
   return true;
+}
+
+function isBlockEndMarker(field: Fr) {
+  const value = field.toBigInt();
+  const numTxs = value & 0xffffn;
+  return value - numTxs === BLOCK_END_PREFIX * 256n * 256n;
 }
 
 /**

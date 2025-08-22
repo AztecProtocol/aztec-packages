@@ -5,6 +5,7 @@ use dep::types::{
     traits::{Empty, Serialize},
 };
 
+/// Deprecated. Use `RollupProofData` instead.
 #[derive(Eq)]
 pub struct PreviousRollupData {
     pub base_or_merge_rollup_public_inputs: BaseOrMergeRollupPublicInputs,

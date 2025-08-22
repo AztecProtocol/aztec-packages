@@ -32,8 +32,9 @@ import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, ErrorsAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { CommitteeAttestation, type ValidateBlockResult } from '@aztec/stdlib/block';
 import { ConsensusPayload, SignatureDomainSeparator, getHashedSignaturePayload } from '@aztec/stdlib/p2p';
+import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { L1PublishBlockStats } from '@aztec/stdlib/stats';
-import { type ProposedBlockHeader, StateReference, TxHash } from '@aztec/stdlib/tx';
+import { StateReference, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
@@ -45,7 +46,7 @@ import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
 /** Arguments to the process method of the rollup contract */
 type L1ProcessArgs = {
   /** The L2 block header. */
-  header: ProposedBlockHeader;
+  header: CheckpointHeader;
   /** A root of the archive tree after the L2 block is applied. */
   archive: Buffer;
   /** State reference after the L2 block is applied. */
@@ -340,10 +341,7 @@ export class SequencerPublisher {
    *          It will throw if the block header is invalid.
    * @param header - The block header to validate
    */
-  public async validateBlockHeader(
-    header: ProposedBlockHeader,
-    opts?: { forcePendingBlockNumber: number | undefined },
-  ) {
+  public async validateBlockHeader(header: CheckpointHeader, opts?: { forcePendingBlockNumber: number | undefined }) {
     const flags = { ignoreDA: true, ignoreSignatures: true };
 
     const args = [
@@ -508,7 +506,7 @@ export class SequencerPublisher {
 
     const args = [
       {
-        header: block.header.toPropose().toViem(),
+        header: block.getCheckpointHeader().toViem(),
         archive: toHex(block.archive.root.toBuffer()),
         stateReference: block.header.state.toViem(),
         txHashes: block.body.txEffects.map(txEffect => txEffect.txHash.toString()),
@@ -666,14 +664,14 @@ export class SequencerPublisher {
     txHashes?: TxHash[],
     opts: { txTimeoutAt?: Date; forcePendingBlockNumber?: number } = {},
   ): Promise<boolean> {
-    const proposedBlockHeader = block.header.toPropose();
+    const checkpointHeader = block.getCheckpointHeader();
 
     const consensusPayload = ConsensusPayload.fromBlock(block);
     const digest = getHashedSignaturePayload(consensusPayload, SignatureDomainSeparator.blockAttestation);
 
     const blobs = await Blob.getBlobsPerBlock(block.body.toBlobFields());
     const proposeTxArgs = {
-      header: proposedBlockHeader,
+      header: checkpointHeader,
       archive: block.archive.root.toBuffer(),
       stateReference: block.header.state,
       body: block.body.toBuffer(),

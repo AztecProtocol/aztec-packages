@@ -1,77 +1,49 @@
-use crate::abis::block_root_or_block_merge_public_inputs::BlockRootOrBlockMergePublicInputs;
+use crate::{abis::BlockRollupPublicInputs, merge::assert_rollups_filled_greedily};
 
 pub fn validate_consecutive_block_rollups(
-    left: BlockRootOrBlockMergePublicInputs,
-    right: BlockRootOrBlockMergePublicInputs,
+    left: BlockRollupPublicInputs,
+    right: BlockRollupPublicInputs,
 ) {
-    assert_blocks_filled_from_left(left, right);
+    assert_rollups_filled_greedily(left.num_blocks(), right.num_blocks());
+    assert_equal_constants(left, right);
     assert_prev_block_rollups_follow_on_from_each_other(left, right);
 }
 
-fn assert_blocks_filled_from_left(
-    left: BlockRootOrBlockMergePublicInputs,
-    right: BlockRootOrBlockMergePublicInputs,
-) {
-    let left_num_blocks = left.num_blocks();
-    let right_num_blocks = right.num_blocks();
-    // assert that the left rollup is either a block root (1 block) or a balanced tree (num_blocks == power of 2)
-    if (left_num_blocks != 1) {
-        // See https://graphics.stanford.edu/~seander/bithacks.html#DetermineIfPowerOf2
-        assert_eq(
-            (left_num_blocks) & (left_num_blocks - 1),
-            0,
-            "The rollup should be filled greedily from L to R, but received an unbalanced left subtree",
-        );
-        assert(
-            right_num_blocks <= left_num_blocks,
-            "The rollup should be filled greedily from L to R, but received a L txs < R txs",
-        );
-    } else {
-        assert_eq(
-            right_num_blocks,
-            1,
-            "The rollup should be filled greedily from L to R, but received a L base and R merge",
-        );
-    }
+fn assert_equal_constants(left: BlockRollupPublicInputs, right: BlockRollupPublicInputs) {
+    assert(left.constants.eq(right.constants), "Mismatched constants in block rollups");
 }
 
 fn assert_prev_block_rollups_follow_on_from_each_other(
-    left: BlockRootOrBlockMergePublicInputs,
-    right: BlockRootOrBlockMergePublicInputs,
+    left: BlockRollupPublicInputs,
+    right: BlockRollupPublicInputs,
 ) {
-    assert_eq(left.constants, right.constants, "input blocks have different constants");
     assert_eq(
         left.new_archive,
         right.previous_archive,
-        "input blocks have different archive tree snapshots",
+        "Mismatched archives: expected right.previous_archive to match left.new_archive",
     );
+
     assert_eq(
-        left.end_global_variables.chain_id,
-        right.start_global_variables.chain_id,
-        "input blocks have different chain id",
+        left.end_state,
+        right.start_state,
+        "Mismatched states: expected right.start_state to match left.end_state",
     );
+
     assert_eq(
-        left.end_global_variables.version,
-        right.start_global_variables.version,
-        "input blocks have different chain version",
+        left.end_sponge_blob,
+        right.start_sponge_blob,
+        "Mismatched sponge blobs: expected right.start_sponge_blob to match left.end_sponge_blob",
     );
-    assert_eq(
-        left.end_global_variables.block_number + 1,
-        right.start_global_variables.block_number,
-        "input block numbers do not follow on from each other",
-    );
+
     assert(
-        left.end_global_variables.timestamp < right.start_global_variables.timestamp,
-        "input block timestamps do not follow on from each other",
+        left.end_timestamp < right.start_timestamp,
+        "Rollup block timestamps do not follow on from each other",
     );
-    assert_eq(
-        left.blob_public_inputs.end_blob_accumulator,
-        right.blob_public_inputs.start_blob_accumulator,
-        "input block blob accumulators do not follow on from each other",
-    );
-    assert_eq(
-        left.blob_public_inputs.final_blob_challenges,
-        right.blob_public_inputs.final_blob_challenges,
-        "input blocks have different epoch blob challenges",
-    );
+
+    // Ensure `in_hash` is set on the left rollup. It originates from the first block root and must propagate through
+    // all merge steps via the left rollup only.
+    assert(left.in_hash != 0, "in_hash must be set on the left rollup when merging blocks");
+
+    // The right rollup must not carry or propagate the `in_hash`, only the left rollup does.
+    assert_eq(right.in_hash, 0, "Right rollup must not carry in_hash");
 }

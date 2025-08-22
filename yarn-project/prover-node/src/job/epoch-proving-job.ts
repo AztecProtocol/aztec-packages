@@ -3,6 +3,8 @@ import { asyncPool } from '@aztec/foundation/async-pool';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { Timer } from '@aztec/foundation/timer';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import type { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
 import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
 import {
@@ -11,6 +13,7 @@ import {
   EpochProvingJobTerminalState,
   type ForkMerkleTreeOperations,
 } from '@aztec/stdlib/interfaces/server';
+import { CheckpointConstantData } from '@aztec/stdlib/rollup';
 import type { ProcessedTx, Tx } from '@aztec/stdlib/tx';
 import { Attributes, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
@@ -119,12 +122,14 @@ export class EpochProvingJob implements Traceable {
     this.runPromise = promise;
 
     try {
-      const allBlobs = (
-        await Promise.all(this.blocks.map(async block => await Blob.getBlobsPerBlock(block.body.toBlobFields())))
-      ).flat();
-
+      const blockBlobFields = this.blocks.map(block => block.body.toBlobFields());
+      const allBlobs = (await Promise.all(blockBlobFields.map(blobFields => Blob.getBlobsPerBlock(blobFields)))).flat();
       const finalBlobBatchingChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(allBlobs);
-      this.prover.startNewEpoch(epochNumber, fromBlock, epochSizeBlocks, finalBlobBatchingChallenges);
+
+      // Every checkpoint has only one block.
+      const totalNumCheckpoints = epochSizeBlocks;
+
+      this.prover.startNewEpoch(epochNumber, totalNumCheckpoints, finalBlobBatchingChallenges);
       await this.prover.startTubeCircuits(Array.from(this.txs.values()));
 
       await asyncPool(this.config.parallelBlockLimit ?? 32, this.blocks, async block => {
@@ -147,8 +152,32 @@ export class EpochProvingJob implements Traceable {
           ...globalVariables,
         });
 
+        const checkpointConstants = CheckpointConstantData.from({
+          chainId: globalVariables.chainId,
+          version: globalVariables.version,
+          vkTreeRoot: getVKTreeRoot(),
+          protocolContractTreeRoot: protocolContractTreeRoot,
+          proverId: this.prover.getProverId(),
+          slotNumber: globalVariables.slotNumber,
+          coinbase: globalVariables.coinbase,
+          feeRecipient: globalVariables.feeRecipient,
+          gasFees: globalVariables.gasFees,
+        });
+
+        // Each checkpoint has only one block.
+        const totalNumBlocks = 1;
+        const blockIndex = block.number - fromBlock;
+        const totalNumBlobFields = blockBlobFields[blockIndex].length;
+        await this.prover.startNewCheckpoint(
+          checkpointConstants,
+          l1ToL2Messages,
+          totalNumBlocks,
+          totalNumBlobFields,
+          previousHeader,
+        );
+
         // Start block proving
-        await this.prover.startNewBlock(globalVariables, l1ToL2Messages, previousHeader);
+        await this.prover.startNewBlock(block.number, globalVariables.timestamp, txs.length);
 
         // Process public fns
         const db = await this.dbProvider.fork(block.number - 1);
@@ -163,7 +192,8 @@ export class EpochProvingJob implements Traceable {
         });
 
         // Mark block as completed to pad it
-        await this.prover.setBlockCompleted(block.number, block.header);
+        const expectedBlockHeader = block.getBlockHeader();
+        await this.prover.setBlockCompleted(block.number, expectedBlockHeader);
       });
 
       const executionTime = timer.ms();
@@ -292,7 +322,7 @@ export class EpochProvingJob implements Traceable {
   private getBlockHeader(blockNumber: number) {
     const block = this.blocks.find(b => b.number === blockNumber);
     if (block) {
-      return block.header;
+      return block.getBlockHeader();
     }
 
     if (blockNumber === Number(this.data.previousBlockHeader.getBlockNumber())) {

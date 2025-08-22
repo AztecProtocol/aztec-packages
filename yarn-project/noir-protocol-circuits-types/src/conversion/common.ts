@@ -44,7 +44,6 @@ import {
 } from '@aztec/stdlib/trees';
 import {
   BlockHeader,
-  ContentCommitment,
   GlobalVariables,
   PartialStateReference,
   StateReference,
@@ -58,7 +57,6 @@ import type {
   AppendOnlyTreeSnapshot as AppendOnlyTreeSnapshotNoir,
   BlockHeader as BlockHeaderNoir,
   ClaimedLengthArray as ClaimedLengthArrayNoir,
-  ContentCommitment as ContentCommitmentNoir,
   Counted,
   FixedLengthArray,
   FunctionSelector as FunctionSelectorNoir,
@@ -400,39 +398,15 @@ export function mapAppendOnlyTreeSnapshotToNoir(snapshot: AppendOnlyTreeSnapshot
 }
 
 /**
- * Maps a content commitment to Noir
- *
- */
-export function mapContentCommitmentToNoir(contentCommitment: ContentCommitment): ContentCommitmentNoir {
-  return {
-    blobs_hash: mapFieldToNoir(contentCommitment.blobsHash),
-    in_hash: mapFieldToNoir(contentCommitment.inHash),
-    out_hash: mapFieldToNoir(contentCommitment.outHash),
-  };
-}
-
-/**
- * Maps a content commitment to Noir
- *
- */
-export function mapContentCommitmentFromNoir(contentCommitment: ContentCommitmentNoir): ContentCommitment {
-  return new ContentCommitment(
-    mapFieldFromNoir(contentCommitment.blobs_hash),
-    mapFieldFromNoir(contentCommitment.in_hash),
-    mapFieldFromNoir(contentCommitment.out_hash),
-  );
-}
-
-/**
  * Maps a block header to Noir
  * @param header - The block header.
  * @returns BlockHeader.
  */
-export function mapHeaderToNoir(header: BlockHeader): BlockHeaderNoir {
+export function mapBlockHeaderToNoir(header: BlockHeader): BlockHeaderNoir {
   return {
     last_archive: mapAppendOnlyTreeSnapshotToNoir(header.lastArchive),
-    content_commitment: mapContentCommitmentToNoir(header.contentCommitment),
     state: mapStateReferenceToNoir(header.state),
+    sponge_blob_hash: mapFieldToNoir(header.spongeBlobHash),
     global_variables: mapGlobalVariablesToNoir(header.globalVariables),
     total_fees: mapFieldToNoir(header.totalFees),
     total_mana_used: mapFieldToNoir(header.totalManaUsed),
@@ -444,11 +418,11 @@ export function mapHeaderToNoir(header: BlockHeader): BlockHeaderNoir {
  * @param header - The block header.
  * @returns BlockHeader.
  */
-export function mapHeaderFromNoir(header: BlockHeaderNoir): BlockHeader {
+export function mapBlockHeaderFromNoir(header: BlockHeaderNoir): BlockHeader {
   return new BlockHeader(
     mapAppendOnlyTreeSnapshotFromNoir(header.last_archive),
-    mapContentCommitmentFromNoir(header.content_commitment),
     mapStateReferenceFromNoir(header.state),
+    mapFieldFromNoir(header.sponge_blob_hash),
     mapGlobalVariablesFromNoir(header.global_variables),
     mapFieldFromNoir(header.total_fees),
     mapFieldFromNoir(header.total_mana_used),
@@ -894,9 +868,18 @@ export function mapTxContextFromNoir(txContext: TxContextNoir): TxContext {
   );
 }
 
+export function mapTxConstantDataFromNoir(txConstantData: TxConstantDataNoir): TxConstantData {
+  return new TxConstantData(
+    mapBlockHeaderFromNoir(txConstantData.historical_header),
+    mapTxContextFromNoir(txConstantData.tx_context),
+    mapFieldFromNoir(txConstantData.vk_tree_root),
+    mapFieldFromNoir(txConstantData.protocol_contract_tree_root),
+  );
+}
+
 export function mapTxConstantDataToNoir(data: TxConstantData): TxConstantDataNoir {
   return {
-    historical_header: mapHeaderToNoir(data.historicalHeader),
+    historical_header: mapBlockHeaderToNoir(data.historicalHeader),
     tx_context: mapTxContextToNoir(data.txContext),
     vk_tree_root: mapFieldToNoir(data.vkTreeRoot),
     protocol_contract_tree_root: mapFieldToNoir(data.protocolContractTreeRoot),

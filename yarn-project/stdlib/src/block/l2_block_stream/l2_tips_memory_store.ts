@@ -70,6 +70,6 @@ export class L2TipsMemoryStore implements L2BlockStreamEventHandler, L2BlockStre
   }
 
   protected computeBlockHash(block: L2Block) {
-    return block.header.hash().then(hash => hash.toString());
+    return block.hash().then(hash => hash.toString());
   }
 }

@@ -3,8 +3,9 @@ import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { P2PClient, type PeerId, type TxPool, TxProvider } from '@aztec/p2p';
 import { BlockProposal, ConsensusPayload } from '@aztec/stdlib/p2p';
+import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { mockTx } from '@aztec/stdlib/testing';
-import { ProposedBlockHeader, StateReference, Tx, type TxHash } from '@aztec/stdlib/tx';
+import { StateReference, Tx, type TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -35,7 +36,7 @@ describe('TxProvider', () => {
   };
 
   const buildProposal = (txs: Tx[], txHashes: TxHash[]) => {
-    const payload = new ConsensusPayload(ProposedBlockHeader.empty(), Fr.random(), StateReference.empty());
+    const payload = new ConsensusPayload(CheckpointHeader.empty(), Fr.random(), StateReference.empty());
     return new BlockProposal(1, payload, Signature.empty(), txHashes, txs);
   };
 

@@ -55,7 +55,7 @@ export class Synchronizer implements L2BlockStreamEventHandler {
           archive: lastBlock.archive.root.toString(),
           header: lastBlock.header.toInspect(),
         });
-        await this.syncDataProvider.setHeader(lastBlock.header);
+        await this.syncDataProvider.setHeader(lastBlock.getBlockHeader());
         break;
       }
       case 'chain-pruned': {

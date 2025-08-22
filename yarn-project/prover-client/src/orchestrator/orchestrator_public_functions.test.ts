@@ -4,6 +4,7 @@ import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testin
 import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing/files';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { getBlockBlobFields } from '@aztec/stdlib/block';
 import { mockTx } from '@aztec/stdlib/testing';
 
 import TOML from '@iarna/toml';
@@ -40,18 +41,30 @@ describe('prover/orchestrator/public-functions', () => {
       // Since this TX is mocked/garbage, it will revert because it calls a non-existent contract,
       // but it reverts in app logic so it can still be included.
       const [processed, _] = await context.processPublicFunctions([tx], 1);
-      const blobs = await Blob.getBlobsPerBlock(processed.map(tx => tx.txEffect.toBlobFields()).flat());
+      const blobFields = getBlockBlobFields(processed.flatMap(tx => tx.txEffect));
+      const blobs = await Blob.getBlobsPerBlock(blobFields);
       const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
 
       // This will need to be a 2 tx block
-      context.orchestrator.startNewEpoch(1, 1, 1, finalBlobChallenges);
-      await context.orchestrator.startNewBlock(context.globalVariables, [], context.getPreviousBlockHeader());
+      context.orchestrator.startNewEpoch(1, 1 /* numCheckpoints */, finalBlobChallenges);
+      await context.orchestrator.startNewCheckpoint(
+        context.checkpointConstants,
+        [],
+        1, // numBlocks
+        blobFields.length,
+        context.getPreviousBlockHeader(),
+      );
+      await context.orchestrator.startNewBlock(
+        context.blockNumber,
+        context.globalVariables.timestamp,
+        processed.length,
+      );
 
       await context.orchestrator.addTxs(processed);
 
-      const block = await context.orchestrator.setBlockCompleted(context.blockNumber);
+      const header = await context.orchestrator.setBlockCompleted(context.blockNumber);
       await context.orchestrator.finaliseEpoch();
-      expect(block.number).toEqual(context.blockNumber);
+      expect(header.getBlockNumber()).toEqual(context.blockNumber);
     });
 
     it('generates public base test data', async () => {
@@ -67,12 +80,26 @@ describe('prover/orchestrator/public-functions', () => {
       tx.data.constants.protocolContractTreeRoot = protocolContractTreeRoot;
 
       const [processed, _] = await context.processPublicFunctions([tx], 1);
-      const blobs = await Blob.getBlobsPerBlock(processed.map(tx => tx.txEffect.toBlobFields()).flat());
+      const blobFields = getBlockBlobFields(processed.flatMap(tx => tx.txEffect));
+      const blobs = await Blob.getBlobsPerBlock(blobFields);
       const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
-      context.orchestrator.startNewEpoch(1, 1, 1, finalBlobChallenges);
-      await context.orchestrator.startNewBlock(context.globalVariables, [], context.getPreviousBlockHeader());
+      context.orchestrator.startNewEpoch(1, 1 /* numCheckpoints */, finalBlobChallenges);
+      await context.orchestrator.startNewCheckpoint(
+        context.checkpointConstants,
+        [],
+        1, // numBlocks
+        blobFields.length,
+        context.getPreviousBlockHeader(),
+      );
+      await context.orchestrator.startNewBlock(
+        context.blockNumber,
+        context.globalVariables.timestamp,
+        processed.length,
+      );
       await context.orchestrator.addTxs(processed);
-      await context.orchestrator.setBlockCompleted(context.blockNumber);
+      const header = await context.orchestrator.setBlockCompleted(context.blockNumber);
+      await context.orchestrator.finaliseEpoch();
+      expect(header.getBlockNumber()).toEqual(context.blockNumber);
       const data = getTestData('rollup-base-public');
       if (data) {
         updateProtocolCircuitSampleInputs('rollup-base-public', TOML.stringify(data[0] as any));

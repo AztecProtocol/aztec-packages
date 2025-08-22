@@ -10,7 +10,6 @@ export * from './tx_constant_data.js';
 export * from './tx_context.js';
 export * from './tx_request.js';
 export * from './private_execution_result.js';
-export * from './proposed_block_header.js';
 export * from './public_call_request_with_calldata.js';
 export * from './tx_hash.js';
 export * from './tx_receipt.js';

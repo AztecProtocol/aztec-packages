@@ -104,7 +104,7 @@ describe('epoch-proving-job', () => {
 
     l2BlockSource.getBlockHeader.mockResolvedValue(initialHeader);
     l2BlockSource.getL1Constants.mockResolvedValue({ ethereumSlotDuration: 0.1 } as L1RollupConstants);
-    l2BlockSource.getBlockHeadersForEpoch.mockResolvedValue(blocks.map(b => b.header));
+    l2BlockSource.getBlockHeadersForEpoch.mockResolvedValue(blocks.map(b => b.getBlockHeader()));
     l2BlockSource.getPublishedBlocks.mockResolvedValue([{ block: blocks.at(-1)!, attestations } as PublishedL2Block]);
     publicProcessorFactory.create.mockReturnValue(publicProcessor);
     db.getInitialHeader.mockReturnValue(initialHeader);
@@ -192,7 +192,8 @@ describe('epoch-proving-job', () => {
 
   it('halts if a new block for the epoch is found', async () => {
     const newBlocks = await timesParallel(NUM_BLOCKS + 1, i => L2Block.random(i + 1, TXS_PER_BLOCK));
-    l2BlockSource.getBlockHeadersForEpoch.mockResolvedValue(newBlocks.map(b => b.header));
+    const newHeaders = newBlocks.map(b => b.getBlockHeader());
+    l2BlockSource.getBlockHeadersForEpoch.mockResolvedValue(newHeaders);
 
     const job = createJob();
     await job.run();

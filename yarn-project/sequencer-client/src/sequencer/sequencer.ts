@@ -23,17 +23,11 @@ import {
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { BlockProposalOptions } from '@aztec/stdlib/p2p';
 import { orderAttestations } from '@aztec/stdlib/p2p';
+import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { pickFromSchema } from '@aztec/stdlib/schemas';
 import type { L2BlockBuiltStats } from '@aztec/stdlib/stats';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
-import {
-  ContentCommitment,
-  type FailedTx,
-  GlobalVariables,
-  ProposedBlockHeader,
-  Tx,
-  type TxHash,
-} from '@aztec/stdlib/tx';
+import { ContentCommitment, type FailedTx, GlobalVariables, Tx, type TxHash } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
 import {
   Attributes,
@@ -445,7 +439,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     });
 
     // If I created a "partial" header here that should make our job much easier.
-    const proposalHeader = ProposedBlockHeader.from({
+    const proposalHeader = CheckpointHeader.from({
       ...newGlobalVariables,
       timestamp: newGlobalVariables.timestamp,
       lastArchiveRoot: chainTipArchive,
@@ -596,7 +590,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   }))
   private async buildBlockAndEnqueuePublish(
     pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
-    proposalHeader: ProposedBlockHeader,
+    proposalHeader: CheckpointHeader,
     newGlobalVariables: GlobalVariables,
     proposerAddress: EthAddress | undefined,
     invalidateBlock: InvalidateBlockRequest | undefined,
@@ -635,7 +629,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
       // TODO(@PhilWindle) We should probably periodically check for things like another
       // block being published before ours instead of just waiting on our block
-      await this.publisher.validateBlockHeader(block.header.toPropose(), invalidateBlock);
+      await this.publisher.validateBlockHeader(block.getCheckpointHeader(), invalidateBlock);
 
       const blockStats: L2BlockBuiltStats = {
         eventName: 'l2-block-built',
@@ -714,7 +708,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const blockProposalOptions: BlockProposalOptions = { publishFullTxs: !!this.config.publishTxsWithProposals };
     const proposal = await this.validatorClient.createBlockProposal(
       block.header.globalVariables.blockNumber,
-      block.header.toPropose(),
+      block.getCheckpointHeader(),
       block.archive.root,
       block.header.state,
       txs,

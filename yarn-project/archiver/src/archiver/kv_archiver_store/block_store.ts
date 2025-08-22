@@ -6,7 +6,7 @@ import { BufferReader } from '@aztec/foundation/serialize';
 import { bufferToHex } from '@aztec/foundation/string';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton, Range } from '@aztec/kv-store';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { Body, CommitteeAttestation, L2Block, L2BlockHash } from '@aztec/stdlib/block';
+import { Body, CommitteeAttestation, L2Block, L2BlockHash, L2BlockHeader } from '@aztec/stdlib/block';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import {
   BlockHeader,
@@ -201,7 +201,7 @@ export class BlockStore {
    */
   async *getBlockHeaders(start: number, limit: number): AsyncIterableIterator<BlockHeader> {
     for await (const [blockNumber, blockStorage] of this.getBlockStorages(start, limit)) {
-      const header = BlockHeader.fromBuffer(blockStorage.header);
+      const header = L2BlockHeader.fromBuffer(blockStorage.header).toBlockHeader();
       if (header.getBlockNumber() !== blockNumber) {
         throw new Error(
           `Block number mismatch when retrieving block header from archive (expected ${blockNumber} but got ${header.getBlockNumber()})`,
@@ -225,7 +225,7 @@ export class BlockStore {
   }
 
   private async getBlockFromBlockStorage(blockNumber: number, blockStorage: BlockStorage) {
-    const header = BlockHeader.fromBuffer(blockStorage.header);
+    const header = L2BlockHeader.fromBuffer(blockStorage.header);
     const archive = AppendOnlyTreeSnapshot.fromBuffer(blockStorage.archive);
     const blockHash = blockStorage.blockHash;
     const blockHashString = bufferToHex(blockHash);

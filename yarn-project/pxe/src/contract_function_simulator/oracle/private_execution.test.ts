@@ -210,7 +210,6 @@ describe('Private Execution test suite', () => {
     if (name === 'noteHash' || name === 'l1ToL2Messages' || name === 'publicData') {
       header = new BlockHeader(
         header.lastArchive,
-        header.contentCommitment,
         new StateReference(
           name === 'l1ToL2Messages' ? newSnap : header.state.l1ToL2MessageTree,
           new PartialStateReference(
@@ -219,6 +218,7 @@ describe('Private Execution test suite', () => {
             name === 'publicData' ? newSnap : header.state.partial.publicDataTree,
           ),
         ),
+        header.spongeBlobHash,
         header.globalVariables,
         header.totalFees,
         header.totalManaUsed,
@@ -226,8 +226,8 @@ describe('Private Execution test suite', () => {
     } else {
       header = new BlockHeader(
         header.lastArchive,
-        header.contentCommitment,
         new StateReference(newSnap, header.state.partial),
+        header.spongeBlobHash,
         header.globalVariables,
         header.totalFees,
         header.totalManaUsed,

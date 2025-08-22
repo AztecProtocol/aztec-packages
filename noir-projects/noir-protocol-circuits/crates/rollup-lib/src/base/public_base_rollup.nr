@@ -26,6 +26,8 @@ pub struct PublicBaseRollupInputs {
     last_archive: AppendOnlyTreeSnapshot,
     archive_root_membership_witness: MembershipWitness<ARCHIVE_HEIGHT>,
     contract_class_log_fields: [[Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS]; MAX_CONTRACT_CLASS_LOGS_PER_TX],
+
+    prover_id: Field,
 }
 
 impl PublicBaseRollupInputs {
@@ -93,6 +95,7 @@ impl PublicBaseRollupInputs {
             global_variables: avm_data.global_variables,
             vk_tree_root: tube_data.constants.vk_tree_root,
             protocol_contract_tree_root: tube_data.constants.protocol_contract_tree_root,
+            prover_id: self.prover_id,
         }
     }
 
@@ -290,6 +293,7 @@ mod tests {
                 last_archive: self.tube_data.archive_tree,
                 archive_root_membership_witness: self.tube_data.archive_root_membership_witness,
                 contract_class_log_fields: self.contract_class_log_fields.storage(),
+                prover_id: 0,
             }
         }
 

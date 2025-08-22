@@ -19,11 +19,16 @@ export type ServerProtocolArtifact =
   | 'PrivateBaseRollupArtifact'
   | 'PublicBaseRollupArtifact'
   | 'MergeRollupArtifact'
+  | 'BlockRootFirstRollupArtifact'
+  | 'BlockRootSingleTxFirstRollupArtifact'
+  | 'BlockRootEmptyTxFirstRollupArtifact'
   | 'BlockRootRollupArtifact'
-  | 'SingleTxBlockRootRollupArtifact'
-  | 'EmptyBlockRootRollupArtifact'
-  | 'PaddingBlockRootRollupArtifact'
+  | 'BlockRootSingleTxRollupArtifact'
   | 'BlockMergeRollupArtifact'
+  | 'CheckpointRootRollupArtifact'
+  | 'CheckpointRootSingleBlockRollupArtifact'
+  | 'CheckpointPaddingRollupArtifact'
+  | 'CheckpointMergeRollupArtifact'
   | 'RootRollupArtifact';
 
 export type ProtocolArtifact = ServerProtocolArtifact | ClientProtocolArtifact;

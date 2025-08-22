@@ -1,5 +1,6 @@
 import { BLS12Point, Fr } from '@aztec/foundation/fields';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
+import { getBlockBlobFields } from '@aztec/stdlib/block';
 import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import { buildBlobHints, getEmptyBlockBlobsHash } from './block-building-helpers.js';
@@ -7,13 +8,9 @@ import { buildBlobHints, getEmptyBlockBlobsHash } from './block-building-helpers
 function fieldArrToStr(arr: Fr[]) {
   return `[${arr.map(f => (f.isZero() ? '0' : f.toString())).join(', ')}]`;
 }
-
 describe('buildBlobHints', () => {
   it('correctly builds hints for empty blob fields', async () => {
-    const { blobFields, blobCommitments, blobsHash, blobs } = await buildBlobHints([]);
-
-    expect(blobFields).toEqual([]);
-
+    const { blobCommitments, blobsHash, blobs } = await buildBlobHints([]);
     expect(blobCommitments.length).toBe(1);
     const blobCommitmentStr = blobCommitments[0].compress().toString('hex');
     expect(blobCommitmentStr).toEqual(BLS12Point.COMPRESSED_ZERO.toString('hex'));
@@ -26,25 +23,6 @@ describe('buildBlobHints', () => {
     expect(blobs[0].evaluate().y).toEqual(Buffer.alloc(32));
     const zStr = blobs[0].challengeZ.toString();
     expect(zStr).toMatchInlineSnapshot(`"0x0ac4f3ee53aedc4865073ae7fb664e7401d10eadbe3bbcc266c35059f14826bb"`);
-
-    const blobCommitmentsFields = blobCommitments[0].toBN254Fields();
-
-    // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data.
-    updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/block_root/empty_block_root_rollup_inputs.nr',
-      'expected_empty_effect_blob_commitment_fields',
-      fieldArrToStr(blobCommitmentsFields),
-    );
-    updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/block_root/empty_block_root_rollup_inputs.nr',
-      'expected_empty_effect_blobs_hash',
-      blobsHashStr,
-    );
-    updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/block_root/empty_block_root_rollup_inputs.nr',
-      'expected_empty_effect_challenge_z',
-      zStr,
-    );
   });
 
   it('correctly builds hints for non-empty blob fields', async () => {
@@ -55,48 +33,49 @@ describe('buildBlobHints', () => {
     txEffect1.txHash = new TxHash(new Fr(43));
     txEffect1.noteHashes[0] = new Fr(0x6789);
     txEffect1.nullifiers[0] = new Fr(0x45);
-    const { blobFields, blobCommitments, blobsHash, blobs } = await buildBlobHints([txEffect0, txEffect1]);
+    const blobFields = getBlockBlobFields([txEffect0, txEffect1]);
+    const { blobCommitments, blobsHash, blobs } = await buildBlobHints(blobFields);
 
     const blobFields0Str = fieldArrToStr(blobFields.slice(0, 5));
-    const blobFields1Str = fieldArrToStr(blobFields.slice(5));
-    expect(blobFields.length).toBe(5 + 7);
+    const blobFields1Str = fieldArrToStr(blobFields.slice(5, -1));
+    expect(blobFields.length).toBe(5 + 7 + 1);
 
     expect(blobCommitments.length).toBe(1);
     const blobCommitmentStr = blobCommitments[0].compress().toString('hex');
     expect(blobCommitmentStr).toMatchInlineSnapshot(
-      `"8c32fe581c8fdba12c0d7597911dead2d937d68525bae655508412bb53bb986aaa0680f21270e7d8de4e19da5164f95c"`,
+      `"b6a72d9aa6fb01ee6a0dd8a53a734dc499bbe6f88b6b43380878a643b1735825a3a664e9ae3ca778116790bcf988457c"`,
     );
 
     const blobsHashStr = blobsHash.toString();
-    expect(blobsHashStr).toMatchInlineSnapshot(`"0x00a965619c8668b834755678b32d023b9c5e8588ce449f44f7fa9335455b5cc5"`);
+    expect(blobsHashStr).toMatchInlineSnapshot(`"0x0099cbfdd6f70f6e0f26f4462998aaadd7c3e36e07b67891d544f0513b3e870d"`);
 
     expect(blobs.length).toBe(1);
     expect(blobs[0].evaluate().y.toString('hex')).toMatchInlineSnapshot(
-      `"25fb571bd6a15d4e3a8f6fe199b714c51e1e03ef40366e2e77e5c5733ab9e57d"`,
+      `"6ce7b00c406888c4967abe3108e2387aba885229cccbfbb03981781e08525053"`,
     );
     const zStr = blobs[0].challengeZ.toString();
-    expect(zStr).toMatchInlineSnapshot(`"0x1f92b871671f27a378d23f1cef10fbd8f0d90dd7172da9e3c3fc1aa745a072c3"`);
+    expect(zStr).toMatchInlineSnapshot(`"0x1d7ceb7a6a43b63cd57ba894701c9aa5f2f2e6f55aa93200ca95616572eddf56"`);
 
     const blobCommitmentsFields = blobCommitments[0].toBN254Fields();
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data.
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/block_root/block_root_rollup_inputs.nr',
+      'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/checkpoint_root/checkpoint_root_rollup_private_inputs.nr',
       'blob_fields_0',
       blobFields0Str,
     );
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/block_root/block_root_rollup_inputs.nr',
+      'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/checkpoint_root/checkpoint_root_rollup_private_inputs.nr',
       'blob_fields_1',
       blobFields1Str,
     );
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/block_root/block_root_rollup_inputs.nr',
+      'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/checkpoint_root/checkpoint_root_rollup_private_inputs.nr',
       'expected_blob_commitment_fields_fixture',
       fieldArrToStr(blobCommitmentsFields),
     );
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/block_root/block_root_rollup_inputs.nr',
+      'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/checkpoint_root/checkpoint_root_rollup_private_inputs.nr',
       'expected_challenge_z_fixture',
       zStr,
     );

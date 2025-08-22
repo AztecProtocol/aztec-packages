@@ -24,7 +24,7 @@ describe('EpochProvingJobData', () => {
         2: [Fr.random(), Fr.random(), Fr.random()],
         3: [Fr.random()],
       },
-      previousBlockHeader: await L2Block.random(0).then(b => b.header),
+      previousBlockHeader: await L2Block.random(0).then(b => b.getBlockHeader()),
       attestations: times(3, CommitteeAttestation.random),
     };
 
