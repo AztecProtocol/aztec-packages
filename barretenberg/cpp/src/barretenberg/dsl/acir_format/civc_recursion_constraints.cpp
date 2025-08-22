@@ -48,9 +48,9 @@ void create_dummy_vkey_and_proof(Builder& builder,
     uint32_t pub_inputs_offset = MegaZKFlavor::has_zero_row ? 1 : 0;
 
     // Generate mock honk vk
-    // Note: log_circuit_size = CONST_PROOF_SIZE_LOG_N
-    auto honk_vk =
-        create_mock_honk_vk<MegaZKFlavor, IO>(1 << CONST_PROOF_SIZE_LOG_N, pub_inputs_offset, num_inner_public_inputs);
+    // Note: log_circuit_size = VIRTUAL_LOG_N
+    auto honk_vk = create_mock_honk_vk<MegaZKFlavor, IO>(
+        1 << MegaZKFlavor::VIRTUAL_LOG_N, pub_inputs_offset, num_inner_public_inputs);
 
     // Set honk vk in builder
     size_t offset = 0;

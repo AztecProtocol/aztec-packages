@@ -97,7 +97,26 @@ class ClientIVC {
         HonkProof mega_proof;
         GoblinProof goblin_proof;
 
+        // The size of a ClientIVC proof. We don't need the size without public inputs as a ClientIVC proof always has a
+        // fixed number of backend public inputs: they are the Hiding Kernel public inputs
+        static constexpr size_t PROOF_LENGTH(size_t virtual_log_n = Flavor::VIRTUAL_LOG_N)
+        {
+            return /*mega_proof*/ Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n) +
+                   /*merge_proof*/ MERGE_PROOF_SIZE +
+                   /*eccvm pre-ipa proof*/ (ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH) +
+                   /*eccvm ipa proof*/ IPA_PROOF_LENGTH +
+                   /*translator*/ TranslatorFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS +
+                   /*public_inputs*/ bb::HidingKernelIO::PUBLIC_INPUTS_SIZE;
+        }
+
         size_t size() const;
+
+        /**
+         * @brief Serialize proof to field elements
+         *
+         * @return std::vector<FF>
+         */
+        std::vector<FF> to_field_elements() const;
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1299): The following msgpack methods are generic
         // and should leverage some kind of shared msgpack utility.

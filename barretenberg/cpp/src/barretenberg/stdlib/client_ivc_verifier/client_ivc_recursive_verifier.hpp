@@ -33,13 +33,9 @@ class ClientIVCRecursiveVerifier {
         using StdlibHonkProof = bb::stdlib::Proof<Builder>;
         using StdlibGoblinProof = GoblinRecursiveVerifier::StdlibProof;
 
-        static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N)
+        static constexpr size_t PROOF_LENGTH(size_t virtual_log_n = Flavor::VIRTUAL_LOG_N)
         {
-            return /*mega_proof*/ RecursiveFlavor::NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n) +
-                   /*merge_proof*/ MERGE_PROOF_SIZE +
-                   /*eccvm pre-ipa proof*/ (ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH) +
-                   /*eccvm ipa proof*/ IPA_PROOF_LENGTH +
-                   /*translator*/ TranslatorFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS;
+            return bb::ClientIVC::Proof::PROOF_LENGTH(virtual_log_n);
         }
 
         StdlibHonkProof mega_proof; // proof of the hiding circuit
@@ -50,11 +46,17 @@ class ClientIVCRecursiveVerifier {
             , goblin_proof(builder, proof.goblin_proof)
         {}
 
-        StdlibProof(const std::vector<field_t<Builder>>& proof_indices, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N)
+        /**
+         * @brief Construct a new Stdlib Proof object from indices in a builder
+         *
+         * @param proof_indices
+         * @param virtual_log_n
+         */
+        StdlibProof(const std::vector<field_t<Builder>>& proof_indices, size_t virtual_log_n = Flavor::VIRTUAL_LOG_N)
         {
 
             BB_ASSERT_EQ(proof_indices.size(),
-                         PROOF_LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n) + HidingKernelIO<Builder>::PUBLIC_INPUTS_SIZE,
+                         PROOF_LENGTH(virtual_log_n),
                          "Number of indices differs from the expected proof size.");
 
             auto it = proof_indices.begin();
@@ -89,18 +91,18 @@ class ClientIVCRecursiveVerifier {
             goblin_proof.translator_proof.insert(goblin_proof.translator_proof.end(), it + start_idx, it + end_idx);
 
             BB_ASSERT_EQ(static_cast<uint32_t>(end_idx),
-                         PROOF_LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n) + HidingKernelIO<Builder>::PUBLIC_INPUTS_SIZE,
-                         "Reconstructed wrong ClientIVC proof from proof indices.");
+                         PROOF_LENGTH(virtual_log_n),
+                         "Reconstructed a ClientIVC proof of wrong the length from proof indices.");
         }
     };
 
     ClientIVCRecursiveVerifier(Builder* builder, const std::shared_ptr<VerificationKey>& native_mega_vk)
         : builder(builder)
-        , stdlib_mega_vk_and_hash(std::make_shared<RecursiveVKAndHash>(*builder, native_mega_vk)){};
+        , stdlib_mega_vk_and_hash(std::make_shared<RecursiveVKAndHash>(*builder, native_mega_vk)) {};
 
     ClientIVCRecursiveVerifier(Builder* builder, const std::shared_ptr<RecursiveVKAndHash>& stdlib_mega_vk_and_hash)
         : builder(builder)
-        , stdlib_mega_vk_and_hash(stdlib_mega_vk_and_hash){};
+        , stdlib_mega_vk_and_hash(stdlib_mega_vk_and_hash) {};
 
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] Output verify(const StdlibProof&);
 

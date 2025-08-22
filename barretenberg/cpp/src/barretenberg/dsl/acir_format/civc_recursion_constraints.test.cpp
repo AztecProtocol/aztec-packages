@@ -34,13 +34,13 @@ class CivcRecursionConstraintTest : public ::testing::Test {
 
     static ClientIVCData get_civc_data(TraceSettings trace_settings)
     {
-        static constexpr size_t NUM_CIRCUITS = 4;
+        static constexpr size_t NUM_APP_CIRCUITS = 4;
 
-        ClientIVC ivc(NUM_CIRCUITS, trace_settings);
+        PrivateFunctionExecutionMockCircuitProducer circuit_producer(NUM_APP_CIRCUITS);
 
-        PrivateFunctionExecutionMockCircuitProducer circuit_producer;
+        ClientIVC ivc(circuit_producer.total_num_circuits, trace_settings);
 
-        for (size_t idx = 0; idx < NUM_CIRCUITS; idx++) {
+        for (size_t idx = 0; idx < circuit_producer.total_num_circuits; idx++) {
             circuit_producer.construct_and_accumulate_next_circuit(ivc);
         }
 
@@ -56,21 +56,7 @@ class CivcRecursionConstraintTest : public ::testing::Test {
         // Extract the witnesses from the provided data
         auto key_witnesses = civc_data.mega_vk->to_field_elements();
         auto key_hash_witness = civc_data.mega_vk->hash();
-        std::vector<fr> proof_witnesses;
-        proof_witnesses.insert(
-            proof_witnesses.end(), civc_data.proof.mega_proof.begin(), civc_data.proof.mega_proof.end());
-        proof_witnesses.insert(proof_witnesses.end(),
-                               civc_data.proof.goblin_proof.merge_proof.begin(),
-                               civc_data.proof.goblin_proof.merge_proof.end());
-        proof_witnesses.insert(proof_witnesses.end(),
-                               civc_data.proof.goblin_proof.eccvm_proof.pre_ipa_proof.begin(),
-                               civc_data.proof.goblin_proof.eccvm_proof.pre_ipa_proof.end());
-        proof_witnesses.insert(proof_witnesses.end(),
-                               civc_data.proof.goblin_proof.eccvm_proof.ipa_proof.begin(),
-                               civc_data.proof.goblin_proof.eccvm_proof.ipa_proof.end());
-        proof_witnesses.insert(proof_witnesses.end(),
-                               civc_data.proof.goblin_proof.translator_proof.begin(),
-                               civc_data.proof.goblin_proof.translator_proof.end());
+        std::vector<fr> proof_witnesses = civc_data.proof.to_field_elements();
 
         // Construct witness indices for each component in the constraint; populate the witness array
         auto [key_indices, key_hash_index, proof_indices, public_inputs_indices] =
@@ -121,18 +107,18 @@ TEST_F(CivcRecursionConstraintTest, GenerateRecursiveCivcVerifierVKFromConstrain
 
     ClientIVCData civc_data = CivcRecursionConstraintTest::get_civc_data(TraceSettings());
 
-    std::shared_ptr<VerificationKey> actual_vk;
+    std::shared_ptr<VerificationKey> vk_from_valid_witness;
     {
         AcirProgram program = create_acir_program(civc_data);
         auto proving_key = get_civc_recursive_verifier_pk(program);
-        actual_vk = std::make_shared<VerificationKey>(proving_key->get_precomputed());
+        vk_from_valid_witness = std::make_shared<VerificationKey>(proving_key->get_precomputed());
 
         // Prove and verify
-        UltraProver_<UltraRollupFlavor> prover(proving_key, actual_vk);
+        UltraProver_<UltraRollupFlavor> prover(proving_key, vk_from_valid_witness);
         HonkProof proof = prover.prove();
 
         VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
-        UltraVerifier_<UltraRollupFlavor> verifier(actual_vk, ipa_verification_key);
+        UltraVerifier_<UltraRollupFlavor> verifier(vk_from_valid_witness, ipa_verification_key);
 
         // Split the proof
         auto ultra_proof =
@@ -143,13 +129,13 @@ TEST_F(CivcRecursionConstraintTest, GenerateRecursiveCivcVerifierVKFromConstrain
         EXPECT_TRUE(verifier.verify_proof<bb::RollupIO>(proof, ipa_proof));
     }
 
-    std::shared_ptr<VerificationKey> expected_vk;
+    std::shared_ptr<VerificationKey> vk_from_constraints;
     {
         AcirProgram program = create_acir_program(civc_data);
         program.witness.clear();
         auto proving_key = get_civc_recursive_verifier_pk(program);
-        expected_vk = std::make_shared<VerificationKey>(proving_key->get_precomputed());
+        vk_from_constraints = std::make_shared<VerificationKey>(proving_key->get_precomputed());
     }
 
-    EXPECT_EQ(*actual_vk, *expected_vk);
+    EXPECT_EQ(*vk_from_valid_witness, *vk_from_constraints);
 }

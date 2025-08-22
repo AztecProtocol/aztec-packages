@@ -248,11 +248,8 @@ template <typename Builder> HonkProof create_mock_civc_proof(const size_t inner_
     ECCVMProof eccvm_proof{ create_mock_pre_ipa_proof(), create_mock_ipa_proof() };
     HonkProof translator_proof = create_mock_translator_proof();
 
-    proof.insert(proof.end(), mega_proof.begin(), mega_proof.end());
-    proof.insert(proof.end(), merge_proof.begin(), merge_proof.end());
-    proof.insert(proof.end(), eccvm_proof.pre_ipa_proof.begin(), eccvm_proof.pre_ipa_proof.end());
-    proof.insert(proof.end(), eccvm_proof.ipa_proof.begin(), eccvm_proof.ipa_proof.end());
-    proof.insert(proof.end(), translator_proof.begin(), translator_proof.end());
+    ClientIVC::Proof civc_proof{ mega_proof, { merge_proof, eccvm_proof, translator_proof } };
+    proof = civc_proof.to_field_elements();
 
     return proof;
 }
