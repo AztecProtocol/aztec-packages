@@ -80,8 +80,6 @@ template <typename Builder> class databus {
  * default commitment value. We set the same value for the missing return data herein so that the commitments agree
  * and the corresponding consistency check will be satisfied in the kernel in which it's performed.
  *
- * TODO(https://github.com/AztecProtocol/barretenberg/issues/1138): scrutinize the use of a default value for
- * consistency of default databus commitments.
  * @tparam Builder
  */
 template <class Builder> class DataBusDepot {
