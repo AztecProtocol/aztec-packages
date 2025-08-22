@@ -50,10 +50,11 @@ contract SlashingTest is TestBase {
   uint256[] internal validatorKeys;
   address[] internal validatorAddresses;
 
-  uint256 constant VALIDATOR_COUNT = 4;
-  uint256 constant COMMITTEE_SIZE = 4;
-  uint256 constant HOW_MANY_SLASHED = 4;
-  uint256 constant ROUND_SIZE_IN_EPOCHS = 1;
+  uint256 constant VALIDATOR_COUNT = 128;
+  uint256 constant COMMITTEE_SIZE = 48;
+  uint256 constant HOW_MANY_SLASHED = 2;
+  uint256 constant ROUND_SIZE_IN_EPOCHS = 2;
+  uint256 constant EPOCH_DURATION = 32;
   uint256 constant INITIAL_EPOCH = 6 + ROUND_SIZE_IN_EPOCHS;
 
   function _getProposerKey() internal returns (uint256) {
@@ -160,7 +161,7 @@ contract SlashingTest is TestBase {
     ).setSlashingLifetimeInRounds(_slashingLifetimeInRounds).setSlashingExecutionDelayInRounds(
       _slashingExecutionDelayInRounds
     ).setSlasherFlavor(SlasherFlavor.TALLY).setSlashingRoundSize(roundSize).setSlashingQuorum(roundSize / 2 + 1)
-      .setSlashingOffsetInRounds(2);
+      .setSlashingOffsetInRounds(2).setEpochDuration(EPOCH_DURATION).setEntryQueueFlushSizeMin(VALIDATOR_COUNT);
     builder.deploy();
 
     rollup = builder.getConfig().rollup;
@@ -174,7 +175,7 @@ contract SlashingTest is TestBase {
       address(rollup),
       block.timestamp,
       TestConstants.AZTEC_SLOT_DURATION,
-      TestConstants.AZTEC_EPOCH_DURATION,
+      EPOCH_DURATION,
       TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS
     );
 
