@@ -24,7 +24,8 @@ import type { L1ReaderConfig } from '../l1_reader.js';
 import type { L1TxRequest, L1TxUtils } from '../l1_tx_utils.js';
 import type { ViemClient } from '../types.js';
 import { formatViemError } from '../utils.js';
-import { SlashingProposerContract } from './slashing_proposer.js';
+import { EmpireSlashingProposerContract } from './empire_slashing_proposer.js';
+import { TallySlashingProposerContract } from './tally_slashing_proposer.js';
 import { checkBlockTag } from './utils.js';
 
 export type ViemCommitteeAttestation = {
@@ -152,7 +153,7 @@ export class RollupContract {
     return this.rollup;
   }
 
-  public async getSlashingProposer(): Promise<SlashingProposerContract> {
+  public async getSlashingProposer(): Promise<EmpireSlashingProposerContract | TallySlashingProposerContract> {
     const slasherAddress = await this.rollup.read.getSlasher();
     const slasher = getContract({ address: slasherAddress, abi: SlasherAbi, client: this.client });
     const proposerAddress = await slasher.read.PROPOSER();
@@ -169,9 +170,9 @@ export class RollupContract {
     const proposer = getContract({ address: proposerAddress, abi: proposerAbi, client: this.client });
     const proposerType = await proposer.read.SLASHING_PROPOSER_TYPE();
     if (proposerType === SlashingProposerType.Tally.valueOf()) {
-      throw new Error(`Unsupported slashing proposer type: ${proposerType}`);
+      return new TallySlashingProposerContract(this.client, proposerAddress);
     } else if (proposerType === SlashingProposerType.Empire.valueOf()) {
-      return new SlashingProposerContract(this.client, proposerAddress);
+      return new EmpireSlashingProposerContract(this.client, proposerAddress);
     } else {
       throw new Error(`Unknown slashing proposer type: ${proposerType}`);
     }

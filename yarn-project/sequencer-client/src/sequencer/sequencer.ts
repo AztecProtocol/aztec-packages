@@ -9,7 +9,7 @@ import { RunningPromise } from '@aztec/foundation/running-promise';
 import { type DateProvider, Timer } from '@aztec/foundation/timer';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
-import type { SlasherClient } from '@aztec/slasher';
+import type { SlasherClientInterface } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CommitteeAttestation, L2BlockSource, ValidateBlockResult } from '@aztec/stdlib/block';
 import { type L1RollupConstants, getSlotAtTimestamp } from '@aztec/stdlib/epoch-helpers';
@@ -46,14 +46,10 @@ import {
 import type { ValidatorClient } from '@aztec/validator-client';
 
 import EventEmitter from 'node:events';
+import type { TypedDataDefinition } from 'viem';
 
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
-import {
-  type Action,
-  type InvalidateBlockRequest,
-  type SequencerPublisher,
-  SignalType,
-} from '../publisher/sequencer-publisher.js';
+import type { Action, InvalidateBlockRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
 import type { SequencerConfig } from './config.js';
 import { SequencerMetrics } from './metrics.js';
 import { SequencerTimetable, SequencerTooSlowError } from './timetable.js';
@@ -117,7 +113,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     protected globalsBuilder: GlobalVariableBuilder,
     protected p2pClient: P2P,
     protected worldState: WorldStateSynchronizer,
-    protected slasherClient: SlasherClient,
+    protected slasherClient: SlasherClientInterface | undefined,
     protected l2BlockSource: L2BlockSource,
     protected l1ToL2MessageSource: L1ToL2MessageSource,
     protected blockBuilder: IFullNodeBlockBuilder,
@@ -141,9 +137,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       publisher.l1TxUtils.client as unknown as ViemPublicClient,
       [publisher.getSenderAddress()],
     );
-
-    // Register the slasher on the publisher to fetch slashing payloads
-    this.publisher.registerSlashPayloadGetter(this.slasherClient.getSlashPayload.bind(this.slasherClient));
 
     // Initialize config
     this.updateConfig(this.config);
@@ -415,21 +408,20 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       slot,
     );
 
-    const enqueueGovernanceVotePromise = this.publisher.enqueueCastSignal(
+    const { timestamp } = newGlobalVariables;
+    const signerFn = (msg: TypedDataDefinition) =>
+      this.validatorClient!.signWithAddress(proposerAddress, msg).then(s => s.toString());
+
+    const enqueueGovernanceSignalPromise = this.publisher.enqueueGovernanceCastSignal(
       slot,
-      newGlobalVariables.timestamp,
-      SignalType.GOVERNANCE,
+      timestamp,
       proposerAddress,
-      msg => this.validatorClient!.signWithAddress(proposerAddress, msg).then(s => s.toString()),
+      signerFn,
     );
 
-    const enqueueSlashingVotePromise = this.publisher.enqueueCastSignal(
-      slot,
-      newGlobalVariables.timestamp,
-      SignalType.SLASHING,
-      proposerAddress,
-      msg => this.validatorClient!.signWithAddress(proposerAddress, msg).then(s => s.toString()),
-    );
+    const enqueueSlashingActionsPromise = this.slasherClient
+      ?.getProposerActions(slot)
+      ?.then(actions => this.publisher.enqueueSlashingActions(actions, slot, timestamp, proposerAddress, signerFn));
 
     if (invalidateBlock && !this.config.skipInvalidateBlockAsProposer) {
       this.publisher.enqueueInvalidateBlock(invalidateBlock);
@@ -484,11 +476,11 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.emit('tx-count-check-failed', { minTxs: this.minTxsPerBlock, availableTxs: pendingTxCount });
     }
 
-    await enqueueGovernanceVotePromise.catch(err => {
+    await enqueueGovernanceSignalPromise?.catch(err => {
       this.log.error(`Error enqueuing governance vote`, err, { blockNumber: newBlockNumber, slot });
     });
-    await enqueueSlashingVotePromise.catch(err => {
-      this.log.error(`Error enqueuing slashing vote`, err, { blockNumber: newBlockNumber, slot });
+    await enqueueSlashingActionsPromise?.catch(err => {
+      this.log.error(`Error enqueuing slashing actions`, err, { blockNumber: newBlockNumber, slot });
     });
 
     const l1Response = await this.publisher.sendRequests();
@@ -781,12 +773,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // Publishes new block to the network and awaits the tx to be mined
     this.setState(SequencerState.PUBLISHING_BLOCK, block.header.globalVariables.slotNumber.toBigInt());
 
-    // Time out tx at the end of the slot
-    const slot = block.header.globalVariables.slotNumber.toNumber();
-    const txTimeoutAt = new Date((this.getSlotStartBuildTimestamp(slot) + this.aztecSlotDuration) * 1000);
-
     const enqueued = await this.publisher.enqueueProposeL2Block(block, attestations, txHashes, {
-      txTimeoutAt,
+      txTimeoutAt: this.getTxTimeoutForSlot(block.slot),
       forcePendingBlockNumber: invalidateBlock?.forcePendingBlockNumber,
     });
 
@@ -942,6 +930,10 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     );
   }
 
+  private getTxTimeoutForSlot(slotNumber: number | bigint): Date {
+    return new Date((this.getSlotStartBuildTimestamp(slotNumber) + this.aztecSlotDuration) * 1000);
+  }
+
   private getSecondsIntoSlot(slotNumber: number | bigint): number {
     const slotStartTimestamp = this.getSlotStartBuildTimestamp(slotNumber);
     return Number((this.dateProvider.now() / 1000 - slotStartTimestamp).toFixed(3));
@@ -967,7 +959,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     return this.config.maxL2BlockGas;
   }
 
-  public getSlasherClient(): SlasherClient {
+  public getSlasherClient(): SlasherClientInterface | undefined {
     return this.slasherClient;
   }
 }
