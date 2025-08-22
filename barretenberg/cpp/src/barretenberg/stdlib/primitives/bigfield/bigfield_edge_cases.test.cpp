@@ -384,6 +384,65 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
                                                 "negation",
                                                 false);
     }
+
+    static void test_assert_is_in_field()
+    {
+        Builder builder = Builder();
+        for (const auto& value : edge_case_values) {
+            fq_ct edge_case = fq_ct::create_from_u512_as_witness(&builder, value, true);
+            edge_case.assert_is_in_field();
+        }
+
+        for (const auto& large_value : values_larger_than_bigfield) {
+            fq_ct large_case = fq_ct::create_from_u512_as_witness(&builder, large_value, true);
+
+            // Since assert_is_in_field first reduces the value mod p, and then checks if the remainder is < 2^s,
+            // all of our "large" test values will reduce to something < p, so this should always pass.
+            large_case.assert_is_in_field();
+        }
+
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, true);
+    }
+
+    static void test_assert_less_than()
+    {
+        Builder builder = Builder();
+
+        for (size_t i = 0; i < edge_case_values.size() - 1; ++i) {
+            // Check against all larger edge case values
+            for (size_t j = i + 1; j < edge_case_values.size(); ++j) {
+                fq_ct edge_case_small = fq_ct::create_from_u512_as_witness(&builder, edge_case_values[i], true);
+
+                // This should always pass since edge_case_values is sorted in ascending order
+                edge_case_small.assert_less_than(edge_case_values[j].lo);
+            }
+        }
+
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, true);
+    }
+
+    static void test_assert_equal_edge_case()
+    {
+        Builder builder = Builder();
+
+        // One is n, other is (p + n)
+        fq_ct value_n = fq_ct::create_from_u512_as_witness(&builder, edge_case_values[3], true);
+        fq_ct value_p_plus_n = fq_ct::create_from_u512_as_witness(&builder, values_larger_than_bigfield[1], true);
+
+        // Both should be equal to n mod p
+        value_p_plus_n.assert_equal(value_n);
+
+        // Create random bigfield element and add p to it
+        auto [random_native, random_ct] = get_random_witness(&builder, false);
+        fq_ct random_plus_p =
+            fq_ct::create_from_u512_as_witness(&builder, uint512_t(random_native) + uint512_t(fq_ct::modulus), true);
+        random_plus_p.assert_equal(random_ct);
+
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, true);
+    }
 };
 
 // Define types for which the above tests will be constructed.
@@ -410,6 +469,8 @@ TYPED_TEST(stdlib_bigfield_edge_cases, max_value_tracking_during_addition)
 {
     TestFixture::test_maximum_value_tracking_during_addition();
 }
+
+// invariant checks during operations
 TYPED_TEST(stdlib_bigfield_edge_cases, invariants_during_addition)
 {
     TestFixture::test_invariants_during_addition();
@@ -433,4 +494,18 @@ TYPED_TEST(stdlib_bigfield_edge_cases, invariants_during_squaring)
 TYPED_TEST(stdlib_bigfield_edge_cases, invariants_during_negation)
 {
     TestFixture::test_invariants_during_negation();
+}
+
+// assert related checks
+TYPED_TEST(stdlib_bigfield_edge_cases, assert_is_in_field)
+{
+    TestFixture::test_assert_is_in_field();
+}
+TYPED_TEST(stdlib_bigfield_edge_cases, assert_less_than)
+{
+    TestFixture::test_assert_less_than();
+}
+TYPED_TEST(stdlib_bigfield_edge_cases, assert_equal_edge_case)
+{
+    TestFixture::test_assert_equal_edge_case();
 }
