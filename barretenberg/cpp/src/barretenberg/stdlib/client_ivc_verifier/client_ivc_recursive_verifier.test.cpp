@@ -71,19 +71,19 @@ TEST_F(ClientIVCRecursionTests, Basic)
     auto [proof, vk] = construct_client_ivc_prover_output();
 
     // Construct the ClientIVC recursive verifier
-    auto builder = std::make_shared<Builder>();
-    ClientIVCVerifier verifier{ builder, vk };
+    Builder builder;
+    ClientIVCVerifier verifier{ &builder, vk.mega };
 
     // Generate the recursive verification circuit
-    StdlibProof stdlib_proof(*builder, proof);
+    StdlibProof stdlib_proof(builder, proof);
     CIVCRecVerifierOutput output = verifier.verify(stdlib_proof);
 
-    EXPECT_EQ(builder->failed(), false) << builder->err();
+    EXPECT_EQ(builder.failed(), false) << builder.err();
 
-    EXPECT_TRUE(CircuitChecker::check(*builder));
+    EXPECT_TRUE(CircuitChecker::check(builder));
 
     // Print the number of gates post finalisation
-    info("Recursive Verifier: finalised num gates = ", builder->num_gates);
+    info("Recursive Verifier: finalised num gates = ", builder.num_gates);
 }
 
 TEST_F(ClientIVCRecursionTests, ClientTubeBase)
@@ -94,11 +94,11 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     auto [proof, vk] = construct_client_ivc_prover_output();
 
     // Construct the ClientIVC recursive verifier
-    auto tube_builder = std::make_shared<Builder>();
-    ClientIVCVerifier verifier{ tube_builder, vk };
+    Builder tube_builder;
+    ClientIVCVerifier verifier{ &tube_builder, vk.mega };
 
     // Generate the recursive verification circuit
-    StdlibProof stdlib_proof(*tube_builder, proof);
+    StdlibProof stdlib_proof(tube_builder, proof);
     CIVCRecVerifierOutput client_ivc_rec_verifier_output = verifier.verify(stdlib_proof);
 
     {
@@ -110,16 +110,16 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     }
 
     // The tube only calls an IPA recursive verifier once, so we can just add this IPA proof
-    tube_builder->ipa_proof = client_ivc_rec_verifier_output.ipa_proof.get_value();
+    tube_builder.ipa_proof = client_ivc_rec_verifier_output.ipa_proof.get_value();
 
-    info("ClientIVC Recursive Verifier: num prefinalized gates = ", tube_builder->num_gates);
+    info("ClientIVC Recursive Verifier: num prefinalized gates = ", tube_builder.num_gates);
 
-    EXPECT_EQ(tube_builder->failed(), false) << tube_builder->err();
+    EXPECT_EQ(tube_builder.failed(), false) << tube_builder.err();
 
-    // EXPECT_TRUE(CircuitChecker::check(*tube_builder));
+    // EXPECT_TRUE(CircuitChecker::check(tube_builder));
 
     // Construct and verify a proof for the ClientIVC Recursive Verifier circuit
-    auto proving_key = std::make_shared<DeciderProvingKey_<NativeFlavor>>(*tube_builder);
+    auto proving_key = std::make_shared<DeciderProvingKey_<NativeFlavor>>(tube_builder);
     auto native_vk_with_ipa = std::make_shared<NativeFlavor::VerificationKey>(proving_key->get_precomputed());
     UltraProver_<NativeFlavor> tube_prover{ proving_key, native_vk_with_ipa };
     // Prove the CIVCRecursiveVerifier circuit
@@ -170,10 +170,10 @@ TEST_F(ClientIVCRecursionTests, TubeVKIndependentOfInputCircuits)
         -> std::tuple<typename Builder::ExecutionTrace, std::shared_ptr<NativeFlavor::VerificationKey>> {
         auto [proof, ivc_vk] = construct_client_ivc_prover_output(num_app_circuits);
 
-        auto tube_builder = std::make_shared<Builder>();
-        ClientIVCVerifier verifier{ tube_builder, ivc_vk };
+        Builder tube_builder;
+        ClientIVCVerifier verifier{ &tube_builder, ivc_vk.mega };
 
-        StdlibProof stdlib_proof(*tube_builder, proof);
+        StdlibProof stdlib_proof(tube_builder, proof);
         auto client_ivc_rec_verifier_output = verifier.verify(stdlib_proof);
 
         // IO
@@ -183,18 +183,18 @@ TEST_F(ClientIVCRecursionTests, TubeVKIndependentOfInputCircuits)
         inputs.set_public();
 
         // The tube only calls an IPA recursive verifier once, so we can just add this IPA proof
-        tube_builder->ipa_proof = client_ivc_rec_verifier_output.ipa_proof.get_value();
+        tube_builder.ipa_proof = client_ivc_rec_verifier_output.ipa_proof.get_value();
 
-        info("ClientIVC Recursive Verifier: num prefinalized gates = ", tube_builder->num_gates);
+        info("ClientIVC Recursive Verifier: num prefinalized gates = ", tube_builder.num_gates);
 
-        EXPECT_EQ(tube_builder->failed(), false) << tube_builder->err();
+        EXPECT_EQ(tube_builder.failed(), false) << tube_builder.err();
 
         // Construct and verify a proof for the ClientIVC Recursive Verifier circuit
-        auto proving_key = std::make_shared<DeciderProvingKey_<NativeFlavor>>(*tube_builder);
+        auto proving_key = std::make_shared<DeciderProvingKey_<NativeFlavor>>(tube_builder);
 
         auto tube_vk = std::make_shared<NativeFlavor::VerificationKey>(proving_key->get_precomputed());
 
-        return { tube_builder->blocks, tube_vk };
+        return { tube_builder.blocks, tube_vk };
     };
 
     auto [blocks_4, verification_key_4] = get_blocks(/*num_app_circuits=*/1);
