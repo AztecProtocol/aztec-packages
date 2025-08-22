@@ -31,6 +31,8 @@ impl<T, let INITIAL_DELAY: u64> DelayedPublicMutableValues<T, INITIAL_DELAY> {
     }
 }
 
+/// Extracts a ScheduledValueChange struct from the packed representation of the full DelayedPublicMutable.
+/// TODO: impl the packable trait for ScheduledValueChange
 pub fn unpack_value_change<T, let M: u32>(packed: [Field; 2 * M + 1]) -> ScheduledValueChange<T>
 where
     T: Packable<N = M>,
@@ -48,47 +50,18 @@ where
     )
 }
 
+/// Extracts a ScheduledDelayChange struct from 0th field of the packed representation of the full DelayedPublicMutable.
+/// This function expects to be called with just the first field of the packed representation, which contains sdc
+/// and svc timestamp_of_change. We'll discard the svc component.
 pub fn unpack_delay_change<let INITIAL_DELAY: u64>(
     packed: Field,
 ) -> ScheduledDelayChange<INITIAL_DELAY> {
-    // This function expects to be called with just the first field of the packed representation, which contains sdc
-    // and svc timestamp_of_change. We'll discard the svc component.
-    let svc_timestamp_of_change = packed as u32;
-
-    let mut tmp = (packed - svc_timestamp_of_change as Field) / TWO_POW_32;
-    let sdc_timestamp_of_change = tmp as u32;
-
-    tmp = (tmp - sdc_timestamp_of_change as Field) / TWO_POW_32;
-    let sdc_post_is_some = (tmp as u1) != 0;
-
-    tmp = (tmp - sdc_post_is_some as Field) / TWO_POW_8;
-    let sdc_post_inner = tmp as u32;
-
-    tmp = (tmp - sdc_post_inner as Field) / TWO_POW_32;
-    let sdc_pre_is_some = (tmp as u1) != 0;
-
-    tmp = (tmp - sdc_pre_is_some as Field) / TWO_POW_8;
-    let sdc_pre_inner = tmp as u32;
-
-    // Note that below we cast the values to u64 as that is the default type of timestamp in the system. Us packing
-    // the values as u32 is a tech debt that is not worth tackling.
-    ScheduledDelayChange {
-        pre: if sdc_pre_is_some {
-            Option::some(sdc_pre_inner as u64)
-        } else {
-            Option::none()
-        },
-        post: if sdc_post_is_some {
-            Option::some(sdc_post_inner as u64)
-        } else {
-            Option::none()
-        },
-        timestamp_of_change: sdc_timestamp_of_change as u64,
-    }
+    ScheduledDelayChange::unpack([packed])
 }
 
-global TWO_POW_32: Field = 2.pow_32(32);
-global TWO_POW_8: Field = 2.pow_32(8);
+// TODO: check whether this evaluates at comptime or runtime.
+// global TWO_POW_32: Field = 2.pow_32(32);
+// global TWO_POW_8: Field = 2.pow_32(8);
 
 // We pack to `2 * N + 1` fields because ScheduledValueChange contains T twice (hence `2 * N`) and we need one extra
 // field to store ScheduledDelayChange and the timestamp_of_change of ScheduledValueChange.

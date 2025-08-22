@@ -66,6 +66,8 @@ pub trait ProveNoteNotNullified {
 }
 
 impl ProveNoteNotNullified for BlockHeader {
+    // TODO: "prove" is too broad; everything is being proven.
+    // Renaming suggestion: assert_note_not_nullified.
     // docs:start:prove_note_not_nullified
     fn prove_note_not_nullified<Note>(
         self,

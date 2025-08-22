@@ -22,6 +22,8 @@ pub trait ProveNoteInclusion {
 }
 
 impl ProveNoteInclusion for BlockHeader {
+    // TODO: "prove" is too broad; everything is being proven.
+    // Renaming suggestion: assert_note_exists
     fn prove_note_inclusion<Note>(self, retrieved_note: RetrievedNote<Note>, storage_slot: Field)
     where
         Note: NoteHash,

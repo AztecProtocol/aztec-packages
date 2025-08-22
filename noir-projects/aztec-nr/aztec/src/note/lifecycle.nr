@@ -49,6 +49,9 @@ where
     destroy_note_unsafe(context, retrieved_note, note_hash_for_read_request)
 }
 
+// Computes and pushes the nullifier for a given note.
+// "Unsafe" because it presumes the param `note_hash_for_read_request` is
+// actually the note hash for the param `retrieved_note`, without checking.
 pub fn destroy_note_unsafe<Note>(
     context: &mut PrivateContext,
     retrieved_note: RetrievedNote<Note>,
@@ -61,8 +64,8 @@ where
         compute_note_hash_for_nullify_from_read_request(retrieved_note, note_hash_for_read_request);
     let nullifier = retrieved_note.note.compute_nullifier(context, note_hash_for_nullify);
 
-    let note_hash = if retrieved_note.metadata.is_settled() {
-        // Counter is zero, so we're nullifying a settled note and we don't populate the note_hash with real value.
+    let pending_note_hash = if retrieved_note.metadata.is_settled() {
+        // Counter is zero, so we're nullifying a settled note and we don't populate the transient_note_hash with a real value.
         0
     } else {
         // A non-zero note hash counter implies that we're nullifying a pending note (i.e. one that has not yet been
@@ -73,5 +76,5 @@ where
         note_hash_for_nullify
     };
 
-    context.push_nullifier_for_note_hash(nullifier, note_hash)
+    context.push_nullifier_for_note_hash(nullifier, pending_note_hash)
 }

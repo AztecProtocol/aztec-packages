@@ -20,7 +20,12 @@ pub trait NoteHash {
     /// Returns the non-siloed nullifier (also called inner-nullifier), which will be later siloed by contract address
     /// by the kernels before being committed to the state tree.
     ///
-    /// This function MUST be called with the correct note hash for consumption! It will otherwise silently fail and
+    /// @param &mut PrivateContext: required to enable zcash-style nullification, where the nullifier secret key is
+    /// queried via an oracle call.
+    /// Advanced: It is mutable, to enable the context to line-up a Key Validation Request to
+    /// the kernel circuit as part of that nullifier secret key retrieval.
+    ///
+    /// @param note_hash_for_nullify: This function MUST be called with the correct note hash for consumption! It will otherwise silently fail and
     /// compute an incorrect value. The reason why we receive this as an argument instead of computing it ourselves
     /// directly is because the caller will typically already have computed this note hash, and we can reuse that value
     /// to reduce the total gate count of the circuit.

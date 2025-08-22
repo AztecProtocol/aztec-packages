@@ -11,7 +11,7 @@ use dep::protocol_types::{
     address::AztecAddress,
     constants::{GENERATOR_INDEX__NOTE_HASH, GENERATOR_INDEX__NOTE_NULLIFIER},
     hash::poseidon2_hash_with_separator,
-    traits::Packable,
+    traits::{Empty, Packable},
 };
 
 #[derive(Eq, Packable)]
@@ -94,5 +94,11 @@ impl MockNoteBuilder {
 impl MockNote {
     pub(crate) fn new(value: Field) -> MockNoteBuilder {
         MockNoteBuilder::new(value)
+    }
+}
+
+impl Empty for MockNote {
+    fn empty() -> Self {
+        MockNote { value: 0 }
     }
 }

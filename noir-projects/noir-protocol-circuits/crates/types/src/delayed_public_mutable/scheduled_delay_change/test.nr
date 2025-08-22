@@ -22,18 +22,18 @@ unconstrained fn test_get_current() {
 
     let delay_change = get_non_initial_delay_change(pre, post, timestamp_of_change);
 
-    assert_eq(delay_change.get_current(0), pre);
-    assert_eq(delay_change.get_current(timestamp_of_change - 1), pre);
-    assert_eq(delay_change.get_current(timestamp_of_change), post);
-    assert_eq(delay_change.get_current(timestamp_of_change + 1), post);
+    assert_eq(delay_change.get_current_at(0), pre);
+    assert_eq(delay_change.get_current_at(timestamp_of_change - 1), pre);
+    assert_eq(delay_change.get_current_at(timestamp_of_change), post);
+    assert_eq(delay_change.get_current_at(timestamp_of_change + 1), post);
 }
 
 #[test]
 unconstrained fn test_get_current_initial() {
     let delay_change = get_initial_delay_change();
 
-    assert_eq(delay_change.get_current(0), TEST_INITIAL_DELAY);
-    assert_eq(delay_change.get_current(1), TEST_INITIAL_DELAY);
+    assert_eq(delay_change.get_current_at(0), TEST_INITIAL_DELAY);
+    assert_eq(delay_change.get_current_at(1), TEST_INITIAL_DELAY);
 }
 
 #[test]
@@ -123,7 +123,7 @@ unconstrained fn test_schedule_change_to_longer_delay_before_change() {
     assert_eq(delay_change.pre.unwrap(), pre);
     assert_eq(delay_change.post.unwrap(), new);
     assert_eq(delay_change.timestamp_of_change, current_timestamp);
-    assert_eq(delay_change.get_current(current_timestamp), new);
+    assert_eq(delay_change.get_current_at(current_timestamp), new);
 }
 
 #[test]
@@ -142,7 +142,7 @@ unconstrained fn test_schedule_change_to_longer_delay_after_change() {
     assert_eq(delay_change.pre.unwrap(), post);
     assert_eq(delay_change.post.unwrap(), new);
     assert_eq(delay_change.timestamp_of_change, current_timestamp);
-    assert_eq(delay_change.get_current(current_timestamp), new);
+    assert_eq(delay_change.get_current_at(current_timestamp), new);
 }
 
 #[test]
@@ -158,7 +158,7 @@ unconstrained fn test_schedule_change_to_longer_delay_from_initial() {
     assert_eq(delay_change.pre.unwrap(), TEST_INITIAL_DELAY);
     assert_eq(delay_change.post.unwrap(), new);
     assert_eq(delay_change.timestamp_of_change, current_timestamp);
-    assert_eq(delay_change.get_current(current_timestamp), new);
+    assert_eq(delay_change.get_current_at(current_timestamp), new);
 }
 
 unconstrained fn assert_effective_minimum_delay_invariants<let INITIAL_DELAY: u64>(
@@ -178,14 +178,14 @@ unconstrained fn assert_effective_minimum_delay_invariants<let INITIAL_DELAY: u6
         let delay_change_timestamp = delay_change.timestamp_of_change;
 
         let value_change_timestamp =
-            delay_change_timestamp + delay_change.get_current(delay_change_timestamp);
+            delay_change_timestamp + delay_change.get_current_at(delay_change_timestamp);
         assert(expected_earliest_value_change_timestamp <= value_change_timestamp);
     }
 
     // Another possibility would be to schedule a value change immediately after the historical timestamp.
     let change_schedule_timestamp = historical_timestamp + 1;
     let value_change_timestamp =
-        change_schedule_timestamp + delay_change.get_current(change_schedule_timestamp);
+        change_schedule_timestamp + delay_change.get_current_at(change_schedule_timestamp);
     assert(expected_earliest_value_change_timestamp <= value_change_timestamp);
 
     // Finally, a delay reduction could be scheduled immediately after the historical timestamp. We reduce the delay to

@@ -15,26 +15,13 @@ pub struct ScheduledValueChange<T> {
     pub(crate) timestamp_of_change: u64,
 }
 
+// TODO: consider lacing the context through these impls, so we know which functions are compatible with public/private/utility. For now, I've added comments to that effect.
 impl<T> ScheduledValueChange<T> {
+
+    // PUBLIC ONLY
+
     pub fn new(pre: T, post: T, timestamp_of_change: u64) -> Self {
         Self { pre, post, timestamp_of_change }
-    }
-
-    /// Returns the value stored in the data structure at a given timestamp. This function can be called both in public
-    /// (where `timestamp` is simply the current timestamp, i.e. the timestamp at which the current transaction will be
-    /// included) and in private (where `timestamp` is the historical timestamp that is used to construct the proof).
-    /// Reading in private is only safe if the transaction's `include_by_timestamp` property is set to a value lower or
-    /// equal to the time horizon (see `get_time_horizon()`).
-    pub fn get_current_at(self, timestamp: u64) -> T {
-        // The post value becomes the current one at the timestamp of change. This means different things in each realm:
-        // - in public, any transaction that is included at the timestamp of change will use the post value
-        // - in private, any transaction that includes the timestamp of change as part of the historical state will use
-        //   the post value (barring any follow-up changes)
-        if timestamp < self.timestamp_of_change {
-            self.pre
-        } else {
-            self.post
-        }
     }
 
     /// Returns the scheduled change, i.e. the post-change value and the timestamp at which it will become the current
@@ -50,6 +37,81 @@ impl<T> ScheduledValueChange<T> {
         (self.pre, self.timestamp_of_change)
     }
 
+    /// Mutates the value by scheduling a change at the current timestamp. This function is only meaningful when
+    /// called in public with the current timestamp.
+    pub fn schedule_change(
+        &mut self,
+        new_value: T,
+        current_timestamp: u64,
+        minimum_delay: u64, // TODO: call this "current delay", as every time this is called, it's with the "current delay"
+        timestamp_of_change: u64,
+    ) {
+        assert(timestamp_of_change >= current_timestamp + minimum_delay);
+
+        // Notice: we don't set self.pre = self.post, in case this `schedule_change`
+        // function is called a 2nd time before this 1st call's change takes effect.
+        // In such an edge case, self.pre = self.pre: the 2nd call effectively replaces
+        // the 1st scheduled change, so the 1st `post` value will never take effect.
+        self.pre = self.get_current_at(current_timestamp);
+        self.post = new_value;
+        self.timestamp_of_change = timestamp_of_change;
+    }
+
+    // PUBLIC & PRIVATE & UTILITY.
+
+    /// Returns the value stored in the data structure at a given timestamp. This function can be called both in public
+    /// (where `timestamp` is simply the current timestamp, i.e. the timestamp at which the current transaction will be
+    /// included) and in private (where `timestamp` is the historical timestamp that is used to construct the proof).
+    /// Reading in private is only safe if the transaction's `include_by_timestamp` property is set to a value lower or
+    /// equal to the time horizon (see `get_time_horizon_at()`).
+    pub fn get_current_at(self, timestamp: u64) -> T {
+        // The post value becomes the current one at the timestamp of change. This means different things in each realm:
+        // - in public, any transaction that is included at the timestamp of change will use the post value
+        // - in private, any transaction that includes the timestamp of change as part of the historical state will use
+        //   the post value (barring any follow-up changes)
+        if timestamp < self.timestamp_of_change {
+            self.pre
+        } else {
+            self.post
+        }
+    }
+
+    /// Advanced. Only access if you know what you're doing.
+    pub fn get_timestamp_of_change(self) -> u64 {
+        self.timestamp_of_change
+    }
+
+    /// Advanced. Only access if you know what you're doing.
+    pub fn get_pre(self) -> T {
+        self.pre
+    }
+
+    /// Advanced. Only access if you know what you're doing.
+    pub fn get_post(self) -> T {
+        self.post
+    }
+
+    // PRIVATE ONLY
+
+    /// Mutates the value by scheduling a change.
+    pub fn schedule_change_in_private(
+        &mut self,
+        new_value: T,
+        historical_timestamp: u64,
+        include_by_timestamp: u64,
+        minimum_delay: u64,
+        timestamp_of_change: u64,
+    ) {
+        // We don't know exactly when this tx will be included. Worst case, it's only
+        // included by the include_by_timestamp, in which case we still need minimum_delay
+        // amount of time before the new value takes effect.
+        assert(timestamp_of_change >= include_by_timestamp + minimum_delay);
+
+        self.pre = self.get_current_at(historical_timestamp);
+        self.post = new_value;
+        self.timestamp_of_change = timestamp_of_change;
+    }
+
     /// Returns the largest timestamp at which the value returned by `get_current_at` is known to remain the current
     /// value. This value is only meaningful in private when constructing a proof at some `historical_timestamp`
     /// (timestamp of a historical block at which we are constructing a proof), since due to its asynchronous nature
@@ -62,7 +124,7 @@ impl<T> ScheduledValueChange<T> {
     /// The value returned by `get_current_at` in private when called with a historical timestamp is only safe to use
     /// if the transaction's `include_by_timestamp` property is set to a value lower or equal to the time horizon
     /// computed using the same historical timestamp.
-    pub fn get_time_horizon(self, historical_timestamp: u64, minimum_delay: u64) -> u64 {
+    pub fn get_time_horizon_at(self, historical_timestamp: u64, minimum_delay: u64) -> u64 {
         // The time horizon is the very last timestamp in which the current value is known. Any timestamp past the
         // horizon (i.e. with a timestamp larger than the time horizon) may have a different current value.
         // Reading the current value in private typically requires constraining the maximum valid timestamp to be equal
@@ -85,7 +147,7 @@ impl<T> ScheduledValueChange<T> {
         } else {
             // If the timestamp of change has not yet been reached however, then there are two possible scenarios.
             //   a) It could be so far into the future that the time horizon is actually determined by the minimum
-            //      delay, because a new change could be scheduled and take place _before_ the currently scheduled one.
+            //      delay, because a new change could be scheduled and take place _before_ the currently scheduled one. // Q: Why is this allowed? Do we want this? Sounds like it could bring some confusion.
             //      This is similar to the scenario where the timestamp of change is in the past: the time horizon is
             //      the timestamp prior to the earliest one in which a new timestamp of change might land.
             //
@@ -120,22 +182,6 @@ impl<T> ScheduledValueChange<T> {
                 historical_timestamp + minimum_delay,
             )
         }
-    }
-
-    /// Mutates the value by scheduling a change at the current timestamp. This function is only meaningful when
-    /// called in public with the current timestamp.
-    pub fn schedule_change(
-        &mut self,
-        new_value: T,
-        current_timestamp: u64,
-        minimum_delay: u64,
-        timestamp_of_change: u64,
-    ) {
-        assert(timestamp_of_change >= current_timestamp + minimum_delay);
-
-        self.pre = self.get_current_at(current_timestamp);
-        self.post = new_value;
-        self.timestamp_of_change = timestamp_of_change;
     }
 }
 

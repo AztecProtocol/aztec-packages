@@ -412,7 +412,7 @@ where
         destroy_note_unsafe(self.context, retrieved_note, note_hash_for_read_request);
 
         // Add the same note again.
-        // Because a nonce is added to every note in the kernel, its nullifier will be different.
+        // Because a note_nonce is added to every note in the kernel, its nullifier will be different.
         create_note(self.context, self.storage_slot, retrieved_note.note)
     }
     // docs:end:get_note

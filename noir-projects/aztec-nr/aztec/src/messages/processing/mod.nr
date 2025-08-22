@@ -46,6 +46,7 @@ global LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT: Field = sha256_to_field(
 
 /// Searches for private logs emitted by `contract_address` that might contain messages for one of the local accounts,
 /// and stores them in a `CapsuleArray` which is then returned.
+/// TODO: if this fn only gets called from within ../discovery/, shouldn't it live there?
 pub(crate) unconstrained fn get_private_logs(
     contract_address: AztecAddress,
 ) -> CapsuleArray<PendingTaggedLog> {

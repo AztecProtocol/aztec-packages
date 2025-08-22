@@ -61,7 +61,7 @@ unconstrained fn test_get_time_horizon_change_in_past() {
     let mut value_change: ScheduledValueChange<Field> =
         ScheduledValueChange::new(1, 2, timestamp_of_change);
 
-    let time_horizon = value_change.get_time_horizon(historical_timestamp, TEST_DELAY);
+    let time_horizon = value_change.get_time_horizon_at(historical_timestamp, TEST_DELAY);
     assert_eq(time_horizon, historical_timestamp + TEST_DELAY);
 
     assert_time_horizon_invariants(&mut value_change, historical_timestamp, time_horizon);
@@ -75,7 +75,7 @@ unconstrained fn test_get_time_horizon_change_in_immediate_past() {
     let mut value_change: ScheduledValueChange<Field> =
         ScheduledValueChange::new(1, 2, timestamp_of_change);
 
-    let time_horizon = value_change.get_time_horizon(historical_timestamp, TEST_DELAY);
+    let time_horizon = value_change.get_time_horizon_at(historical_timestamp, TEST_DELAY);
     assert_eq(time_horizon, historical_timestamp + TEST_DELAY);
 
     assert_time_horizon_invariants(&mut value_change, historical_timestamp, time_horizon);
@@ -92,7 +92,7 @@ unconstrained fn test_get_time_horizon_change_in_near_future() {
     // Note that this is the only scenario in which the timestamp of change informs the time horizon.
     // This may result in privacy leaks when interacting with applications that have a scheduled change
     // in the near future.
-    let time_horizon = value_change.get_time_horizon(historical_timestamp, TEST_DELAY);
+    let time_horizon = value_change.get_time_horizon_at(historical_timestamp, TEST_DELAY);
     assert_eq(time_horizon, timestamp_of_change - 1);
 
     assert_time_horizon_invariants(&mut value_change, historical_timestamp, time_horizon);
@@ -106,7 +106,7 @@ unconstrained fn test_get_time_horizon_change_in_far_future() {
     let mut value_change: ScheduledValueChange<Field> =
         ScheduledValueChange::new(1, 2, timestamp_of_change);
 
-    let time_horizon = value_change.get_time_horizon(historical_timestamp, TEST_DELAY);
+    let time_horizon = value_change.get_time_horizon_at(historical_timestamp, TEST_DELAY);
     assert_eq(time_horizon, historical_timestamp + TEST_DELAY);
 
     assert_time_horizon_invariants(&mut value_change, historical_timestamp, time_horizon);
@@ -120,7 +120,7 @@ unconstrained fn test_get_time_horizon_n0_delay() {
     let mut value_change: ScheduledValueChange<Field> =
         ScheduledValueChange::new(1, 2, timestamp_of_change);
 
-    let time_horizon = value_change.get_time_horizon(historical_timestamp, 0);
+    let time_horizon = value_change.get_time_horizon_at(historical_timestamp, 0);
     // Since the time horizon equals the historical timestamp, it is not possible to read the current value in
     // private since the transaction `include_by_timestamp` property would equal an already mined timestamp.
     assert_eq(time_horizon, historical_timestamp);

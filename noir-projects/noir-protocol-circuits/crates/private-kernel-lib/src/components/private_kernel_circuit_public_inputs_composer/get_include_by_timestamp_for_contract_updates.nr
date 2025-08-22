@@ -10,7 +10,7 @@ use dep::types::{
 
 /// Computes the include_by_timestamp value for contract updates based on the delayed public mutable values stored inside
 /// the `private_call`. The timestamp is set to the time horizon value of the given `DelayedPublicMutable`.
-/// See documentation of the `get_time_horizon` function in
+/// See documentation of the `get_time_horizon_at` function in
 /// `noir-projects/noir-protocol-circuits/crates/types/src/delayed_public_mutable/scheduled_value_change.nr` for more details
 /// on what is a time horizon.
 pub fn get_include_by_timestamp_for_contract_updates(private_call: PrivateCallData) -> u64 {
