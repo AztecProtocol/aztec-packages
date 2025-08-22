@@ -17,6 +17,19 @@ namespace {
 auto& engine = numeric::get_debug_randomness();
 }
 
+/**
+ * @brief Validate the inputs used by the verification function and return messages if they produce and invalid circuit.
+ *
+ * @tparam Builder
+ * @tparam Curve
+ * @tparam Fq
+ * @tparam Fr
+ * @tparam G1
+ * @param hashed_message
+ * @param public_key
+ * @param sig
+ * @param scalar_mul_result
+ */
 template <typename Builder, typename Curve, typename Fq, typename Fr, typename G1>
 void validate_inputs(const stdlib::byte_array<Builder>& hashed_message,
                      const G1& public_key,
@@ -29,12 +42,16 @@ void validate_inputs(const stdlib::byte_array<Builder>& hashed_message,
                                   const std::string& max_value_label) {
         std::string msg =
             "The " + value_label + " is bigger than " + max_value_label + ". This will produce an unsatisfied circuit.";
-        BB_ASSERT_LT(value, max_value, msg);
+        if (value > max_value) {
+            info(msg);
+        }
     };
 
     auto assert_is_not_zero = [](const uint512_t& value, const std::string& label) {
         std::string msg = "The " + label + " is equal to zero. This will produce an unsatisfied circuit.";
-        BB_ASSERT_GT(value, 0U, msg);
+        if (value == 0) {
+            info(msg);
+        }
     };
 
     // H(m) < n
@@ -42,9 +59,9 @@ void validate_inputs(const stdlib::byte_array<Builder>& hashed_message,
     assert_smaller_than(hash_value, Fr::modulus, "hash of the message", "order of the elliptic curve");
 
     // P \in E
-    BB_ASSERT_EQ(public_key.get_value().on_curve(),
-                 true,
-                 "The public key is not a point on the elliptic curve. This will produce an unsatisfied circuit.");
+    if (!public_key.get_value().on_curve()) {
+        info("The public key is not a point on the elliptic curve. This will produce an unsatisfied circuit.");
+    }
 
     // 0 < r < n
     uint512_t r_value = static_cast<uint512_t>(Fr(sig.r).get_value());
@@ -57,10 +74,10 @@ void validate_inputs(const stdlib::byte_array<Builder>& hashed_message,
     assert_is_not_zero(s_value, "s component of the signature");
 
     // Q = H(m) s^{-1} G + r s^{-1} P is not the point at infinity
-    BB_ASSERT_EQ(
-        scalar_mul_result.get_value().is_point_at_infinity(),
-        false,
-        "The result of the scalar multiplication is the point at infinity. This will produce an unsatisfied circuit.");
+    if (scalar_mul_result.get_value().is_point_at_infinity()) {
+        info("The result of the scalar multiplication is the point at infinity. This will produce an unsatisfied "
+             "circuit.");
+    }
 }
 
 /**
@@ -185,9 +202,9 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
 
     // Logging
     if (is_signature_valid.get_value()) {
-        vinfo("Signature verification succeeded.");
+        info("Signature verification succeeded.");
     } else {
-        vinfo("Signature verification failed");
+        info("Signature verification failed");
     }
 
     // Validate inputs for debugging
