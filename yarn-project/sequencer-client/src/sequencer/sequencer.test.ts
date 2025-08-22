@@ -8,7 +8,7 @@ import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { TestDateProvider, Timer } from '@aztec/foundation/timer';
 import { type P2P, P2PClientState } from '@aztec/p2p';
-import type { SlasherClientInterface } from '@aztec/slasher';
+import type { SlasherClient } from '@aztec/slasher';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CommitteeAttestation, type L2BlockSource } from '@aztec/stdlib/block';
@@ -52,7 +52,7 @@ describe('sequencer', () => {
   let merkleTreeOps: MockProxy<MerkleTreeReadOperations>;
   let l2BlockSource: MockProxy<L2BlockSource>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
-  let slasherClient: MockProxy<SlasherClientInterface>;
+  let slasherClient: MockProxy<SlasherClient>;
 
   let dateProvider: TestDateProvider;
 
@@ -173,8 +173,7 @@ describe('sequencer', () => {
     publisher.getSenderAddress.mockImplementation(() => EthAddress.random());
     publisher.validateBlockHeader.mockResolvedValue();
     publisher.enqueueProposeL2Block.mockResolvedValue(true);
-    publisher.enqueueGovernanceCastSignal.mockResolvedValue(true);
-    publisher.enqueueSlashingActions.mockResolvedValue(true);
+    publisher.enqueueCastSignal.mockResolvedValue(true);
     publisher.canProposeAtNextEthBlock.mockResolvedValue({
       slot: BigInt(newSlotNumber),
       blockNumber: BigInt(newBlockNumber),
@@ -252,7 +251,7 @@ describe('sequencer', () => {
     validatorClient.collectAttestations.mockImplementation(() => Promise.resolve(getAttestations()));
     validatorClient.createBlockProposal.mockImplementation(() => Promise.resolve(createBlockProposal()));
 
-    slasherClient = mock<SlasherClientInterface>();
+    slasherClient = mock<SlasherClient>();
 
     dateProvider = new TestDateProvider();
 
