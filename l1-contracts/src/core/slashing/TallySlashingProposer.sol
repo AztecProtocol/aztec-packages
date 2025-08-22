@@ -36,8 +36,8 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
  *      1. Time is divided into rounds (ROUND_SIZE slots each).
  *      2. During each round, block proposers can submit votes indicating which validators from the epochs that span
  *         SLASH_OFFSET_IN_ROUNDS rounds ago should be slashed.
- *      3. Votes are encoded as bytes where the i-th nibble (4 bits) represents the slash amount (0-15 slash units) for
- *         the i-th validator slashed in the round.
+ *      3. Votes are encoded as bytes where each 2-bit pair represents the slash amount (0-3 slash units) for
+ *         the corresponding validator slashed in the round.
  *      4. After a round ends, there is an execution delay period for review so the VETOER in the Slasher can veto the
  *         expected payload address if needed.
  *      5. Once the delay passes, anyone can call executeRound() to tally votes and execute slashing.
@@ -121,7 +121,7 @@ contract TallySlashingProposer is EIP712 {
   /**
    * @notice Contains all vote data for a single round
    * @dev Stores up to MAX_ROUND_SIZE votes as bytes arrays. Each vote encodes slash amounts
-   *      for all validators in the round using 4-bit nibbles per validator.
+   *      for all validators in the round using 2 bits per validator.
    * @param votes Array of encoded vote data, one entry per proposer vote in the round
    */
   struct RoundVotes {
@@ -180,7 +180,7 @@ contract TallySlashingProposer is EIP712 {
 
   /**
    * @notice Base amount of stake to slash per slashing unit (in wei)
-   * @dev Validators can be voted to be slashed by 1-15 units, multiplied by this base amount
+   * @dev Validators can be voted to be slashed by 1-3 units, multiplied by this base amount
    */
   uint256 public immutable SLASHING_UNIT;
 
@@ -323,12 +323,12 @@ contract TallySlashingProposer is EIP712 {
   /**
    * @notice Submit a vote for slashing validators from SLASH_OFFSET_IN_ROUNDS rounds ago
    * @dev Only the current block proposer can submit votes, enforced via EIP-712 signature verification.
-   *      Each byte in the votes encodes slash amounts for 2 validators using 4-bit nibbles (0-15 units each).
+   *      Each byte in the votes encodes slash amounts for 4 validators using 2 bits each (0-3 units each).
    *      The vote includes the current slot number to prevent replay attacks.
    *
-   * @param _votes Encoded voting data where each byte represents slash amounts for 2 validators.
-   *               Lower 4 bits for first validator, upper 4 bits for second validator in each byte.
-   *               Length must equal (COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS) / 2 bytes.
+   * @param _votes Encoded voting data where each byte represents slash amounts for 4 validators.
+   *               Bits 0-1 for first validator, bits 2-3 for second, bits 4-5 for third, bits 6-7 for fourth.
+   *               Length must equal (COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS) / 4 bytes.
    * @param _sig EIP-712 signature from the current proposer proving authorization to vote.
    *             Signature covers the vote data and current slot number.
    *
@@ -356,8 +356,8 @@ contract TallySlashingProposer is EIP712 {
     bytes32 digest = getVoteSignatureDigest(_votes, slot);
     require(_sig.verify(proposer, digest), Errors.TallySlashingProposer__InvalidSignature());
 
-    // Each byte encodes 2 validators (4 bits each), so each validator is represented as a nibble in the byte array.
-    uint256 expectedLength = COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS / 2;
+    // Each byte encodes 4 validators (2 bits each), so each validator is represented as 2 bits in the byte array.
+    uint256 expectedLength = COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS / 4;
     require(
       _votes.length == expectedLength, Errors.TallySlashingProposer__InvalidVoteLength(expectedLength, _votes.length)
     );
@@ -676,28 +676,41 @@ contract TallySlashingProposer is EIP712 {
 
     // Create a 2D voting tally matrix: tallyMatrix[validatorIndex][slashAmountInUnits] = voteCount
     // - First dimension: validator index (0 to COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS - 1)
-    // - Second dimension: slash amount in units (0-15, where 0 means no slash)
-    // Each validator can be voted to be slashed by 1-15 units (0 represents no slashing)
-    uint256[16][] memory tallyMatrix = new uint256[16][](COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS);
+    // - Second dimension: slash amount in units (0-3, where 0 means no slash)
+    // Each validator can be voted to be slashed by 1-3 units (0 represents no slashing)
+    uint256[4][] memory tallyMatrix = new uint256[4][](COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS);
 
     // Process all votes cast during this round to populate the tally matrix
-    // Vote encoding: each byte contains 2 validator votes using 4-bit nibbles
-    // - Lower 4 bits (0x0F): slash amount for validator at index (j * 2)
-    // - Upper 4 bits (0xF0): slash amount for validator at index (j * 2 + 1)
+    // Vote encoding: each byte contains 4 validator votes using 2 bits each
+    // - Bits 0-1 (0x03): slash amount for validator at index (j * 4)
+    // - Bits 2-3 (0x0C): slash amount for validator at index (j * 4 + 1)
+    // - Bits 4-5 (0x30): slash amount for validator at index (j * 4 + 2)
+    // - Bits 6-7 (0xC0): slash amount for validator at index (j * 4 + 3)
     for (uint256 i = 0; i < voteCount; i++) {
       // Load the i-th votes from this round from storage into memory
       bytes memory currentVote = _getRoundVotes(roundNumber).votes[i];
       for (uint256 j = 0; j < currentVote.length; j++) {
-        // Extract lower 4 bits for first validator in the byte
-        uint8 validatorSlash = uint8(currentVote[j]) & 0x0F;
-        if (validatorSlash > 0) {
-          tallyMatrix[j * 2][validatorSlash]++;
+        uint8 currentByte = uint8(currentVote[j]);
+
+        // Extract 2 bits for each of the 4 validators in this byte
+        uint8 validatorSlash0 = currentByte & 0x03;
+        if (validatorSlash0 > 0) {
+          tallyMatrix[j * 4][validatorSlash0]++;
         }
 
-        // Extract upper 4 bits for second validator in the byte
-        validatorSlash = (uint8(currentVote[j]) >> 4) & 0x0F;
-        if (validatorSlash > 0) {
-          tallyMatrix[j * 2 + 1][validatorSlash]++;
+        uint8 validatorSlash1 = (currentByte >> 2) & 0x03;
+        if (validatorSlash1 > 0) {
+          tallyMatrix[j * 4 + 1][validatorSlash1]++;
+        }
+
+        uint8 validatorSlash2 = (currentByte >> 4) & 0x03;
+        if (validatorSlash2 > 0) {
+          tallyMatrix[j * 4 + 2][validatorSlash2]++;
+        }
+
+        uint8 validatorSlash3 = (currentByte >> 6) & 0x03;
+        if (validatorSlash3 > 0) {
+          tallyMatrix[j * 4 + 3][validatorSlash3]++;
         }
       }
     }
@@ -712,10 +725,10 @@ contract TallySlashingProposer is EIP712 {
     for (uint256 i = 0; i < tallyMatrix.length; i++) {
       uint256 voteCountForValidator = 0;
 
-      // Check slash amounts from highest (15 units) to lowest (1 unit)
+      // Check slash amounts from highest (3 units) to lowest (1 unit)
       // Cumulative voting: a vote for N units counts as votes for N-1, N-2, ..., 1 units
-      // This means if someone votes to slash 5 units, it also counts as votes for 1-4 units
-      for (uint256 j = 15; j > 0; j--) {
+      // This means if someone votes to slash 3 units, it also counts as votes for 1-2 units
+      for (uint256 j = 3; j > 0; j--) {
         voteCountForValidator += tallyMatrix[i][j];
 
         // Check if this slash amount has reached quorum

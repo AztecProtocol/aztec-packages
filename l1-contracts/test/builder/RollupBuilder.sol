@@ -224,6 +224,16 @@ contract RollupBuilder is Test {
     return this;
   }
 
+  function setEntryQueueFlushSizeMin(uint256 _flushSizeMin) public returns (RollupBuilder) {
+    config.rollupConfigInput.stakingQueueConfig.normalFlushSizeMin = _flushSizeMin;
+    return this;
+  }
+
+  function setEntryQueueFlushSizeQuotient(uint256 _flushSizeQuotient) public returns (RollupBuilder) {
+    config.rollupConfigInput.stakingQueueConfig.normalFlushSizeQuotient = _flushSizeQuotient;
+    return this;
+  }
+
   function setValidators(CheatDepositArgs[] memory _validators) public returns (RollupBuilder) {
     for (uint256 i = 0; i < _validators.length; i++) {
       config.validators.push(_validators[i]);
