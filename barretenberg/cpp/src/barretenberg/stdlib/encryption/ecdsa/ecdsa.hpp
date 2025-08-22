@@ -41,8 +41,7 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
 template <typename Builder, typename Curve, typename Fq, typename Fr, typename G1>
 void validate_inputs(const stdlib::byte_array<Builder>& hashed_message,
                      const G1& public_key,
-                     const ecdsa_signature<Builder>& sig,
-                     const G1& scalar_mul_result);
+                     const ecdsa_signature<Builder>& sig);
 
 template <typename Builder> void generate_ecdsa_verification_test_circuit(Builder& builder, size_t num_iterations);
 

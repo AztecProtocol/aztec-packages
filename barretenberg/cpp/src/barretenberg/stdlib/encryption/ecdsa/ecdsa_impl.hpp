@@ -33,8 +33,7 @@ auto& engine = numeric::get_debug_randomness();
 template <typename Builder, typename Curve, typename Fq, typename Fr, typename G1>
 void validate_inputs(const stdlib::byte_array<Builder>& hashed_message,
                      const G1& public_key,
-                     const ecdsa_signature<Builder>& sig,
-                     const G1& scalar_mul_result)
+                     const ecdsa_signature<Builder>& sig)
 {
     auto assert_smaller_than = [](const uint512_t& value,
                                   const uint256_t& max_value,
@@ -72,12 +71,6 @@ void validate_inputs(const stdlib::byte_array<Builder>& hashed_message,
     uint512_t s_value = static_cast<uint512_t>(Fr(sig.r).get_value());
     assert_smaller_than(s_value, Fr::modulus, "s component of the signature", "order of the elliptic curve");
     assert_is_not_zero(s_value, "s component of the signature");
-
-    // Q = H(m) s^{-1} G + r s^{-1} P is not the point at infinity
-    if (scalar_mul_result.get_value().is_point_at_infinity()) {
-        info("The result of the scalar multiplication is the point at infinity. This will produce an unsatisfied "
-             "circuit.");
-    }
 }
 
 /**
@@ -136,6 +129,10 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
                                        const G1& public_key,
                                        const ecdsa_signature<Builder>& sig)
 {
+    // Validate inputs for debugging
+    validate_inputs<Builder, Curve, Fq, Fr>(hashed_message, public_key, sig);
+
+    // Fetch the context
     bool message_is_not_constant = hashed_message.get_context() != nullptr;
     bool public_key_is_not_constant = public_key.get_context() != nullptr;
     bool sig_is_not_constant = sig.get_context() != nullptr;
@@ -188,15 +185,22 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
     }
 
     // Step 5.
+    if (result.get_value().is_point_at_infinity()) {
+        info("The result of the batch multiplication is the point at infinity. This will produce an unsatisfied "
+             "circuit.");
+    }
     result.is_point_at_infinity().assert_equal(bool_t<Builder>(false));
 
-    // TODO(federicobarbacovi): Confirm with Suyash usage is correct!
-    // Transfer Fq value result.x to Fr
+    // Step 6.
+    // We reduce result.x to 2^s, where s is the smallest s.t. 2^s > q. It is cheap in terms of constraints, and avoids
+    // possible edge cases
+    result.x.self_reduce();
+
+    // Transfer Fq value result.x to Fr (this is just moving from a C++ class to another)
     Fr result_x_mod_r = Fr::unsafe_construct_from_limbs(result.x.binary_basis_limbs[0].element,
                                                         result.x.binary_basis_limbs[1].element,
                                                         result.x.binary_basis_limbs[2].element,
-                                                        result.x.binary_basis_limbs[3].element,
-                                                        /*can_overflow=*/true);
+                                                        result.x.binary_basis_limbs[3].element);
 
     // Check result.x = r mod n
     bool_t<Builder> is_signature_valid = result_x_mod_r == r;
@@ -207,9 +211,6 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
     } else {
         info("Signature verification failed");
     }
-
-    // Validate inputs for debugging
-    validate_inputs<Builder, Curve, Fq, Fr>(hashed_message, public_key, sig, result);
 
     return is_signature_valid;
 }
