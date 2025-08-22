@@ -20,6 +20,8 @@ A note type can be defined with the macro `#[note]` used on a struct:
 
 #include_code state_vars-CardNote noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/types/card_note.nr rust
 
+<!-- TODO: Explain what #[derive(Eq, Serialize, Deserialize, Packable)] are in the code block -->
+
 In this example, we are implementing a card note that holds a number of `points` as `u8`.
 
 `randomness` is not enforced by the protocol and should be implemented by the application developer. If you do not include `randomness`, and the note preimage can be guessed by an attacker, it makes the note vulnerable to preimage attacks.
@@ -47,21 +49,21 @@ This is the AddressNote:
 
 #include_code address_note_def noir-projects/aztec-nr/address-note/src/address_note.nr rust
 
-### Importing AddressNote
+#### Importing AddressNote
 
-#### In Nargo.toml
+##### In Nargo.toml
 
 ```toml
 address_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/address-note" }
 ```
 
-#### In your contract
+##### In your contract
 
 #include_code addressnote_import noir-projects/noir-contracts/contracts/app/escrow_contract/src/main.nr rust
 
-### Working with AddressNote
+#### Working with AddressNote
 
-#### Creating a new note
+##### Creating a new note
 
 Creating a new `AddressNote` takes the following args:
 
@@ -78,21 +80,21 @@ This is the ValueNote struct:
 
 #include_code value-note-def noir-projects/aztec-nr/value-note/src/value_note.nr rust
 
-### Importing ValueNote
+#### Importing ValueNote
 
-#### In Nargo.toml
+##### In Nargo.toml
 
 ```toml
 value_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/value-note" }
 ```
 
-#### In your contract
+##### In your contract
 
 #include_code import_valuenote noir-projects/noir-contracts/contracts/test/child_contract/src/main.nr rust
 
-### Working with ValueNote
+#### Working with ValueNote
 
-#### Creating a new note
+##### Creating a new note
 
 Creating a new `ValueNote` takes the following args:
 
@@ -101,7 +103,7 @@ Creating a new `ValueNote` takes the following args:
 
 #include_code valuenote_new noir-projects/noir-contracts/contracts/test/child_contract/src/main.nr rust
 
-#### Getting a balance
+##### Getting a balance
 
 A user may have multiple notes in a set that all refer to the same content (e.g. a set of notes representing a single token balance). By using the `ValueNote` type to represent token balances, you do not have to manually add each of these notes and can instead use a helper function `get_balance()`.
 
@@ -111,7 +113,7 @@ It takes one argument - the set of notes.
 
 This can only be used in an unconstrained function.
 
-#### Incrementing and decrementing
+##### Incrementing and decrementing
 
 Both `increment` and `decrement` functions take the same args:
 

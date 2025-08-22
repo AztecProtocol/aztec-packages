@@ -1,6 +1,6 @@
 ---
 title: Contract Composability
-sidebar_position: 6
+sidebar_position: 5
 tags: [functions, contracts, composability]
 description: Learn how to call other contracts from your Aztec smart contracts.
 ---
