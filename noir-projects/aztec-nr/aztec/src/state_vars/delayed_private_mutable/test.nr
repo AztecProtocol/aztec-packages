@@ -590,12 +590,18 @@ unconstrained fn get_current_note_immediately_after_scheduling_replacement() {
     // 1000 is arbitrary
     env.mine_block_at(initial_note_timestamp_of_change + 1000);
 
-    env.private_context(|context| {
+    let replacement_wrapper_note_emission = env.private_context(|context| {
         let state_var = in_private(context);
 
         let replacement_note = MockNote::new(REPLACEMENT_VALUE).build_note();
 
-        let _ = state_var.schedule_replacement(replacement_note);
+        state_var.schedule_replacement(replacement_note)
+    });
+
+    env.discover_note(replacement_wrapper_note_emission);
+
+    env.private_context(|context| {
+        let state_var = in_private(context);
 
         let current_note = state_var.get_current_note();
 
@@ -627,7 +633,7 @@ unconstrained fn get_scheduled_note_immediately_after_scheduling_replacement() {
     // 1000 is arbitrary
     env.mine_block_at(initial_note_timestamp_of_change + 1000);
 
-    env.private_context(|context| {
+    let (replacement_wrapper_note_emission, replacement_note) = env.private_context(|context| {
         let state_var = in_private(context);
 
         let replacement_note = MockNote::new(REPLACEMENT_VALUE).build_note();
@@ -635,7 +641,15 @@ unconstrained fn get_scheduled_note_immediately_after_scheduling_replacement() {
         // We don't use the setup_initialization_then_replacement helper function here, because that
         // function calls `get_scheduled_note` immediately -- which is the very thing we
         // want to test in this test!
-        let _ = state_var.schedule_replacement(replacement_note);
+        let replacement_wrapper_note_emission = state_var.schedule_replacement(replacement_note);
+
+        (replacement_wrapper_note_emission, replacement_note)
+    });
+
+    env.discover_note(replacement_wrapper_note_emission);
+
+    env.private_context(|context| {
+        let state_var = in_private(context);
 
         // Note: we have to compute the expected_ts _before_ we get_scheduled_note, because the
         // act of getting the scheduled note will mutate the `context.include_by_timestamp`.
@@ -668,8 +682,6 @@ unconstrained fn get_current_note_just_before_scheduled_replacement_takes_effect
 
     let (initial_note, _, _, _, timestamp_of_change) = setup_initialization_then_replacement(env);
 
-    // env.discover_note(wrapper_note_emission);
-
     // Just before scheduled initialization takes effect:
     env.mine_block_at(timestamp_of_change - 1);
 
@@ -680,7 +692,7 @@ unconstrained fn get_current_note_just_before_scheduled_replacement_takes_effect
 
         let current_note = state_var.get_current_note();
 
-        // The `replacement_note` does not take effect until after a delay (see later tests).
+        // The `replacement_note` does not take effect until the timestamp_of_change.
         assert_eq(current_note, initial_note);
 
         // When we call get_current_note, the returned note is only valid for
@@ -1298,7 +1310,7 @@ unconstrained fn schedule_delay_decrease_but_then_schedule_value_change_before_t
 // takes effect, because a scheduled delay INCREASE takes effect immediately.
 
 #[test]
-unconstrained fn get_current_delay_immediately_after_scheduling_delay_change() {
+unconstrained fn get_current_delay_immediately_after_scheduling_delay_increase() {
     let env = TestEnvironment::_new();
 
     let (_, _, _, initial_note_timestamp_of_change) = setup_schedule_initialization(env);
@@ -1306,24 +1318,65 @@ unconstrained fn get_current_delay_immediately_after_scheduling_delay_change() {
     // 1000 is arbitrary
     env.mine_block_at(initial_note_timestamp_of_change + 1000);
 
+    let delay_change_wrapper_note_emission = env.private_context(|context| {
+        let state_var = in_private(context);
+
+        state_var.schedule_delay_change(LONGER_DELAY)
+    });
+
+    env.discover_note(delay_change_wrapper_note_emission);
+
     env.private_context(|context| {
         let state_var = in_private(context);
 
-        let _ = state_var.schedule_delay_change(LONGER_DELAY);
+        let current_delay = state_var.get_current_delay();
+
+        // The delay_change does not take effect until the include_by_timestamp
+        assert_eq(current_delay, TEST_INITIAL_DELAY);
+
+        // When we call get_current_delay, the returned note is only valid for
+        // the min of:
+        // - pre delay (100)
+        // - time until just before the change (time until the scheduled change is included - 1) + post delay (200)
+        // So 100 bites.
+        let include_by_ts_after_get = context.include_by_timestamp;
+
+        let expected_include_by_ts_after_get = context.get_anchor_timestamp() + TEST_INITIAL_DELAY;
+
+        assert_eq(include_by_ts_after_get, expected_include_by_ts_after_get)
+    });
+}
+
+#[test]
+unconstrained fn get_current_delay_immediately_after_scheduling_delay_decrease() {
+    let env = TestEnvironment::_new();
+
+    let (_, _, _, initial_note_timestamp_of_change) = setup_schedule_initialization(env);
+
+    // 1000 is arbitrary
+    env.mine_block_at(initial_note_timestamp_of_change + 1000);
+
+    let delay_change_wrapper_note_emission = env.private_context(|context| {
+        let state_var = in_private(context);
+
+        state_var.schedule_delay_change(LONGER_DELAY)
+    });
+
+    env.discover_note(delay_change_wrapper_note_emission);
+
+    env.private_context(|context| {
+        let state_var = in_private(context);
 
         let current_delay = state_var.get_current_delay();
 
-        // The delay_change does not take effect until after a delay (see later tests).
+        // The delay_change does not take effect until the include_by_timestamp
         assert_eq(current_delay, TEST_INITIAL_DELAY);
 
-        // When we call get_current_delay, the returned delay is only valid for
+        // When we call get_current_delay, the returned note is only valid for
         // the min of:
-        // - TEST_INITIAL_DELAY amount of time from the anchor timestamp.
-        // - 1 second before the `timestamp_of_change` of the delay.
-        // We check that the `include_by_timestamp` has been set accordingly.
-        // In the case of this test, since we're reading immediately after
-        // setting the note, the case "TEST_INITIAL_DELAY amount of time from
-        // the anchor timestamp" will bite.
+        // - pre delay (100)
+        // - time until just before the change (time until the scheduled change is included + (100 - 75) - 1) + post delay (75)
+        // So 100 bites.
         let include_by_ts_after_get = context.include_by_timestamp;
 
         let expected_include_by_ts_after_get = context.get_anchor_timestamp() + TEST_INITIAL_DELAY;
@@ -1360,9 +1413,11 @@ unconstrained fn get_scheduled_delay_immediately_after_scheduling_delay_increase
         assert_eq(scheduled_delay, LONGER_DELAY);
         assert_eq(scheduled_ts, expected_scheduled_ts);
 
-        // When we call get_scheduled_delay, the returned data is only valid for
-        // TEST_INITIAL_DELAY amount of time from the anchor timestamp.
-        // We check that the `include_by_timestamp` has been set accordingly.
+        // When we call get_scheduled_delay, the returned note is only valid for
+        // the min of:
+        // - pre delay (100)
+        // - time until just before the change (time until the scheduled change is included - 1) + post delay (200)
+        // So 100 bites.
         let include_by_ts_after_get = context.include_by_timestamp;
 
         let expected_include_by_ts_after_get = context.get_anchor_timestamp() + TEST_INITIAL_DELAY;
@@ -1400,9 +1455,11 @@ unconstrained fn get_scheduled_delay_immediately_after_scheduling_delay_decrease
         assert_eq(scheduled_delay, SHORTER_DELAY);
         assert_eq(scheduled_ts, expected_scheduled_ts);
 
-        // When we call get_scheduled_delay, the returned data is only valid for
-        // TEST_INITIAL_DELAY amount of time from the anchor timestamp.
-        // We check that the `include_by_timestamp` has been set accordingly.
+        // When we call get_current_delay, the returned note is only valid for
+        // the min of:
+        // - pre delay (100)
+        // - time until just before the change (time until the scheduled change is included + (100 - 75) - 1) + post delay (75)
+        // So 100 bites.
         let include_by_ts_after_get = context.include_by_timestamp;
 
         let expected_include_by_ts_after_get = context.get_anchor_timestamp() + TEST_INITIAL_DELAY;
@@ -1412,13 +1469,14 @@ unconstrained fn get_scheduled_delay_immediately_after_scheduling_delay_decrease
 }
 
 #[test]
-unconstrained fn get_current_note_just_before_scheduled_delay_change_takes_effect() {
+unconstrained fn get_current_delay_just_before_scheduled_delay_increase_takes_effect() {
     let env = TestEnvironment::_new();
 
-    let (_, _, _, timestamp_of_change) = setup_initialization_then_delay_change(env, LONGER_DELAY);
+    let (_, _, _, delay_change_timestamp_of_change) =
+        setup_initialization_then_delay_change(env, LONGER_DELAY);
 
     // Just before scheduled initialization takes effect:
-    env.mine_block_at(timestamp_of_change - 1);
+    env.mine_block_at(delay_change_timestamp_of_change - 1);
 
     // The context defaults to reading from the latest-mined block as the
     // anchor block.
@@ -1427,162 +1485,277 @@ unconstrained fn get_current_note_just_before_scheduled_delay_change_takes_effec
 
         let current_delay = state_var.get_current_delay();
 
-        // The `replacement_note` does not take effect until after a delay (see later tests).
+        // The delay change does not take effect until the delay_change_timestamp_of_change.
         assert_eq(current_delay, TEST_INITIAL_DELAY);
 
         // When we call get_current_delay, the returned note is only valid for
         // the min of:
-        // - TEST_INITIAL_DELAY amount of time from the anchor timestamp.
-        // - 1 second before the `timestamp_of_change` of the delayed_private_mutable_note.
-        // We check that the `include_by_timestamp` has been set accordingly.
-        // In the case of this test, the anchor block is only 1 second before
-        // the timestamp_of_change, so we'll have 0 seconds until the tx expires.
-        // This is clearly not a realistic or valid tx.
+        // - pre delay (100)
+        // - time until just before the change (0) + post delay (200)
+        // So 100 bites.
         let include_by_ts_after_get = context.include_by_timestamp;
-        let expected_include_by_ts_after_get = timestamp_of_change - 1;
+        let expected_include_by_ts_after_get = context.get_anchor_timestamp() + current_delay;
 
         assert_eq(include_by_ts_after_get, expected_include_by_ts_after_get);
     })
 }
 
-// #[test]
-// unconstrained fn get_scheduled_note_just_before_scheduled_delay_change_takes_effect() {
-//     let mut env = TestEnvironment::_new();
+#[test]
+unconstrained fn get_current_delay_just_before_scheduled_delay_decrease_takes_effect() {
+    let env = TestEnvironment::_new();
 
-//     let (_, _, _, replacement_note, timestamp_of_change) =
-//         setup_initialization_then_replacement(env);
+    let (_, _, _, delay_change_timestamp_of_change) =
+        setup_initialization_then_delay_change(env, SHORTER_DELAY);
 
-//     env.mine_block_at(timestamp_of_change - 1);
+    // Just before scheduled initialization takes effect:
+    env.mine_block_at(delay_change_timestamp_of_change - 1);
 
-//     // The context defaults to reading from the latest-mined block as the
-//     // anchor block.
-//     env.private_context(|context| {
-//         let state_var = in_private(context);
+    env.private_context(|context| {
+        let state_var = in_private(context);
 
-//         let (scheduled_note, scheduled_ts) = state_var.get_scheduled_note();
+        let current_delay = state_var.get_current_delay();
 
-//         assert_eq(scheduled_note, replacement_note);
-//         assert_eq(scheduled_ts, timestamp_of_change);
+        // The delay change does not take effect until the delay_change_timestamp_of_change.
+        assert_eq(current_delay, TEST_INITIAL_DELAY);
 
-//         // When we call get_scheduled_note, the returned note is only valid for
-//         // the min of:
-//         // - TEST_INITIAL_DELAY amount of time from the anchor timestamp.
-//         // - 1 second before the `timestamp_of_change` of the delayed_private_mutable_note.
-//         // We check that the `include_by_timestamp` has been set accordingly.
-//         // In the case of this test, the anchor block is only 1 second before
-//         // the timestamp_of_change, so we'll have 0 seconds until the tx expires.
-//         // This is clearly not a realistic or valid tx.
-//         let include_by_ts_after_get = context.include_by_timestamp;
-//         let expected_include_by_ts_after_get = timestamp_of_change - 1;
+        // When we call get_current_delay, the returned note is only valid for
+        // the min of:
+        // - pre delay (100)
+        // - time until just before the change (0) + post delay (75)
+        // So 75 bites.
+        let include_by_ts_after_get = context.include_by_timestamp;
+        let expected_include_by_ts_after_get = context.get_anchor_timestamp() + SHORTER_DELAY;
 
-//         assert_eq(include_by_ts_after_get, expected_include_by_ts_after_get);
-//     })
-// }
+        assert_eq(include_by_ts_after_get, expected_include_by_ts_after_get);
+    })
+}
 
-// #[test]
-// unconstrained fn get_current_note_at_the_time_scheduled_delay_change_takes_effect() {
-//     let env = TestEnvironment::_new();
+#[test]
+unconstrained fn get_scheduled_delay_just_before_scheduled_delay_increase_takes_effect() {
+    let mut env = TestEnvironment::_new();
 
-//     let (_, _, _, replacement_note, timestamp_of_change) =
-//         setup_initialization_then_replacement(env);
+    let (_, _, _, delay_change_timestamp_of_change) =
+        setup_initialization_then_delay_change(env, LONGER_DELAY);
 
-//     env.mine_block_at(timestamp_of_change);
+    env.mine_block_at(delay_change_timestamp_of_change - 1);
 
-//     // The context defaults to reading from the latest-mined block as the
-//     // anchor block, so it will have an anchor timestamp of `timestamp_of_change`.
-//     env.private_context(|context| {
-//         let state_var = in_private(context);
-//         let current_note = state_var.get_current_note();
+    env.private_context(|context| {
+        let state_var = in_private(context);
 
-//         assert_eq(current_note, replacement_note);
-//     })
-// }
+        let (scheduled_delay, scheduled_ts) = state_var.get_scheduled_delay();
 
-// #[test]
-// unconstrained fn get_scheduled_note_at_the_time_scheduled_delay_change_takes_effect() {
-//     let env = TestEnvironment::_new();
+        assert_eq(scheduled_delay, LONGER_DELAY);
+        assert_eq(scheduled_ts, delay_change_timestamp_of_change);
 
-//     let (_, _, _, replacement_note, timestamp_of_change) = setup_initialization_then_replacement(env);
+        // When we call get_scheduled_delay, the returned note is only valid for
+        // the min of:
+        // - pre delay (100)
+        // - time until just before the change (0) + post delay (200)
+        // So 100 bites.
+        let include_by_ts_after_get = context.include_by_timestamp;
+        let expected_include_by_ts_after_get = context.get_anchor_timestamp() + TEST_INITIAL_DELAY;
 
-//     env.mine_block_at(timestamp_of_change);
+        assert_eq(include_by_ts_after_get, expected_include_by_ts_after_get);
+    })
+}
 
-//     // The context defaults to reading from the latest-mined block as the
-//     // anchor block, so it will have an anchor timestamp of `timestamp_of_change`.
-//     env.private_context(|context| {
-//         // Double-check the test env works as expected:
-//         assert_eq(context.get_anchor_timestamp(), timestamp_of_change);
+#[test]
+unconstrained fn get_scheduled_delay_just_before_scheduled_delay_decrease_takes_effect() {
+    let mut env = TestEnvironment::_new();
 
-//         let state_var = in_private(context);
+    let (_, _, _, delay_change_timestamp_of_change) =
+        setup_initialization_then_delay_change(env, SHORTER_DELAY);
 
-//         let (scheduled_note, scheduled_ts) = state_var.get_scheduled_note();
+    env.mine_block_at(delay_change_timestamp_of_change - 1);
 
-//         assert_eq(scheduled_note, replacement_note);
-//         assert_eq(scheduled_ts, timestamp_of_change);
+    env.private_context(|context| {
+        let state_var = in_private(context);
 
-//         // When we call get_scheduled_note, the returned note is only valid for
-//         // TEST_INITIAL_DELAY amount of time from the anchor timestamp.
-//         // We check that the `include_by_timestamp` has been set accordingly.
-//         let include_by_ts_after_get = context.include_by_timestamp;
-//         let expected_include_by_ts_after_get = context.get_anchor_timestamp() + TEST_INITIAL_DELAY;
+        let (scheduled_delay, scheduled_ts) = state_var.get_scheduled_delay();
 
-//         assert_eq(include_by_ts_after_get, expected_include_by_ts_after_get);
+        assert_eq(scheduled_delay, SHORTER_DELAY);
+        assert_eq(scheduled_ts, delay_change_timestamp_of_change);
 
-//         // The scheduled and current notes should align, now that the scheduled
-//         // note has taken effect:
-//         let current_note = state_var.get_current_note();
-//         assert_eq(scheduled_note, current_note);
-//     })
-// }
+        // When we call get_scheduled_delay, the returned note is only valid for
+        // the min of:
+        // - pre delay (100)
+        // - time until just before the change (0) + post delay (75)
+        // So 75 bites.
+        let include_by_ts_after_get = context.include_by_timestamp;
+        let expected_include_by_ts_after_get = context.get_anchor_timestamp() + SHORTER_DELAY;
 
-// #[test]
-// unconstrained fn get_current_note_after_scheduled_delay_change_takes_effect() {
-//     let env = TestEnvironment::_new();
+        assert_eq(include_by_ts_after_get, expected_include_by_ts_after_get);
+    })
+}
 
-//     let (_, _, _, replacement_note, timestamp_of_change) = setup_initialization_then_replacement(env);
+#[test]
+unconstrained fn get_current_delay_at_the_time_scheduled_delay_increase_takes_effect() {
+    let env = TestEnvironment::_new();
 
-//     // + 7 is arbitrarily "some time after the expected timestamp of change".
-//     env.mine_block_at(timestamp_of_change + 7);
+    let (_, _, _, delay_change_timestamp_of_change) =
+        setup_initialization_then_delay_change(env, LONGER_DELAY);
 
-//     // The context defaults to reading from the latest-mined block as the
-//     // anchor block, so it will have an anchor timestamp of `timestamp_of_change + 7`.
-//     env.private_context(|context| {
-//         let state_var = in_private(context);
-//         let current_note = state_var.get_current_note();
+    env.mine_block_at(delay_change_timestamp_of_change);
 
-//         assert_eq(current_note, replacement_note);
-//     })
-// }
+    env.private_context(|context| {
+        let state_var = in_private(context);
 
-// #[test]
-// unconstrained fn get_scheduled_note_after_scheduled_delay_change_takes_effect() {
-//     let env = TestEnvironment::_new();
+        let current_delay = state_var.get_current_delay();
 
-//     let (_, _, _, replacement_note, timestamp_of_change) = setup_initialization_then_replacement(env);
+        assert_eq(current_delay, LONGER_DELAY);
 
-//     // + 7 is arbitrarily "some time after the expected timestamp of change".
-//     env.mine_block_at(timestamp_of_change + 7);
+        // Should be valid for as long as the new delay that's just taken effect.
+        let include_by_ts_after_get = context.include_by_timestamp;
+        let expected_include_by_ts_after_get = context.get_anchor_timestamp() + current_delay;
 
-//     // The context defaults to reading from the latest-mined block as the
-//     // anchor block, so it will have an anchor timestamp of `timestamp_of_change + 7`.
-//     env.private_context(|context| {
-//         let state_var = in_private(context);
+        assert_eq(include_by_ts_after_get, expected_include_by_ts_after_get);
+    })
+}
 
-//         let (scheduled_note, scheduled_ts) = state_var.get_scheduled_note();
+#[test]
+unconstrained fn get_current_delay_at_the_time_scheduled_delay_decrease_takes_effect() {
+    let env = TestEnvironment::_new();
 
-//         assert_eq(scheduled_note, replacement_note);
-//         assert_eq(scheduled_ts, timestamp_of_change);
+    let (_, _, _, delay_change_timestamp_of_change) =
+        setup_initialization_then_delay_change(env, SHORTER_DELAY);
 
-//         // When we call get_scheduled_note, the returned note is only valid for
-//         // TEST_INITIAL_DELAY amount of time from the anchor timestamp.
-//         // We check that the `include_by_timestamp` has been set accordingly.
-//         let include_by_ts_after_get = context.include_by_timestamp;
-//         let expected_include_by_ts_after_get = context.get_anchor_timestamp() + TEST_INITIAL_DELAY;
+    env.mine_block_at(delay_change_timestamp_of_change);
 
-//         assert_eq(include_by_ts_after_get, expected_include_by_ts_after_get);
+    env.private_context(|context| {
+        let state_var = in_private(context);
 
-//         // The scheduled and current notes should align, now that the scheduled
-//         // note has taken effect:
-//         let current_note = state_var.get_current_note();
-//         assert_eq(scheduled_note, current_note);
-//     })
-// }
+        let current_delay = state_var.get_current_delay();
+
+        assert_eq(current_delay, SHORTER_DELAY);
+
+        // Should be valid for as long as the new delay that's just taken effect.
+        let include_by_ts_after_get = context.include_by_timestamp;
+        let expected_include_by_ts_after_get = context.get_anchor_timestamp() + current_delay;
+
+        assert_eq(include_by_ts_after_get, expected_include_by_ts_after_get);
+    })
+}
+
+#[test]
+unconstrained fn get_scheduled_delay_at_the_time_scheduled_delay_increase_takes_effect() {
+    let mut env = TestEnvironment::_new();
+
+    let (_, _, _, delay_change_timestamp_of_change) =
+        setup_initialization_then_delay_change(env, LONGER_DELAY);
+
+    env.mine_block_at(delay_change_timestamp_of_change);
+
+    env.private_context(|context| {
+        let state_var = in_private(context);
+
+        let (scheduled_delay, scheduled_ts) = state_var.get_scheduled_delay();
+
+        assert_eq(scheduled_delay, LONGER_DELAY);
+        assert_eq(scheduled_ts, delay_change_timestamp_of_change);
+
+        // Should be valid for as long as the new delay that's just taken effect.
+        let include_by_ts_after_get = context.include_by_timestamp;
+        let expected_include_by_ts_after_get = context.get_anchor_timestamp() + LONGER_DELAY;
+
+        assert_eq(include_by_ts_after_get, expected_include_by_ts_after_get);
+    })
+}
+
+#[test]
+unconstrained fn get_scheduled_delay_at_the_time_scheduled_delay_decrease_takes_effect() {
+    let mut env = TestEnvironment::_new();
+
+    let (_, _, _, delay_change_timestamp_of_change) =
+        setup_initialization_then_delay_change(env, SHORTER_DELAY);
+
+    env.mine_block_at(delay_change_timestamp_of_change);
+
+    env.private_context(|context| {
+        let state_var = in_private(context);
+
+        let (scheduled_delay, scheduled_ts) = state_var.get_scheduled_delay();
+
+        assert_eq(scheduled_delay, SHORTER_DELAY);
+        assert_eq(scheduled_ts, delay_change_timestamp_of_change);
+
+        // Should be valid for as long as the new delay that's just taken effect.
+        let include_by_ts_after_get = context.include_by_timestamp;
+        let expected_include_by_ts_after_get = context.get_anchor_timestamp() + SHORTER_DELAY;
+
+        assert_eq(include_by_ts_after_get, expected_include_by_ts_after_get);
+    })
+}
+
+#[test]
+unconstrained fn get_current_delay_after_scheduled_delay_increase_takes_effect() {
+    let env = TestEnvironment::_new();
+
+    let (_, _, _, delay_change_timestamp_of_change) =
+        setup_initialization_then_delay_change(env, LONGER_DELAY);
+
+    env.mine_block_at(delay_change_timestamp_of_change + 10); // 10 is arbitrary
+
+    env.private_context(|context| {
+        let state_var = in_private(context);
+
+        let current_delay = state_var.get_current_delay();
+
+        assert_eq(current_delay, LONGER_DELAY);
+    })
+}
+
+#[test]
+unconstrained fn get_current_delay_after_scheduled_delay_decrease_takes_effect() {
+    let env = TestEnvironment::_new();
+
+    let (_, _, _, delay_change_timestamp_of_change) =
+        setup_initialization_then_delay_change(env, SHORTER_DELAY);
+
+    env.mine_block_at(delay_change_timestamp_of_change + 10); // 10 is arbitrary
+
+    env.private_context(|context| {
+        let state_var = in_private(context);
+
+        let current_delay = state_var.get_current_delay();
+
+        assert_eq(current_delay, SHORTER_DELAY);
+    })
+}
+
+#[test]
+unconstrained fn get_scheduled_delay_after_scheduled_delay_increase_takes_effect() {
+    let mut env = TestEnvironment::_new();
+
+    let (_, _, _, delay_change_timestamp_of_change) =
+        setup_initialization_then_delay_change(env, LONGER_DELAY);
+
+    env.mine_block_at(delay_change_timestamp_of_change + 10); // 10 is arbitrary
+
+    env.private_context(|context| {
+        let state_var = in_private(context);
+
+        let (scheduled_delay, scheduled_ts) = state_var.get_scheduled_delay();
+
+        assert_eq(scheduled_delay, LONGER_DELAY);
+        assert_eq(scheduled_ts, delay_change_timestamp_of_change);
+    })
+}
+
+#[test]
+unconstrained fn get_scheduled_delay_after_scheduled_delay_decrease_takes_effect() {
+    let mut env = TestEnvironment::_new();
+
+    let (_, _, _, delay_change_timestamp_of_change) =
+        setup_initialization_then_delay_change(env, SHORTER_DELAY);
+
+    env.mine_block_at(delay_change_timestamp_of_change + 10); // 10 is arbitrary
+
+    env.private_context(|context| {
+        let state_var = in_private(context);
+
+        let (scheduled_delay, scheduled_ts) = state_var.get_scheduled_delay();
+
+        assert_eq(scheduled_delay, SHORTER_DELAY);
+        assert_eq(scheduled_ts, delay_change_timestamp_of_change);
+    })
+}

@@ -33,19 +33,6 @@ unconstrained fn in_utility(
     DelayedPublicMutable::new(context, storage_slot)
 }
 
-/**
- * Some missing tests:
- * get_storage_slot
- * explicit tests of schedule_and_return_value_change
- * Scheduling a new delay which is _bigger_ than the current delay, with the timestamp_of_change taking effect _immediately_ at the time of scheduling.
- * Scheduling a new delay which is _bigger_ than the current delay, with the timestamp_of_change being deferred for some time.
- * A scheduled delay change (increase, deferred), but then a value change gets scheduled to take effect _before_ the delay change takes effect.
- * A scheduled delay change (decrease, deferred), but then a value change gets scheduled to take effect _before_ the delay change takes effect.
- * A scheduled VALUE change (increase, deferred), but then a value change gets scheduled to take effect _before_ the first value change takes effect.
- * Schedule two value changes of the same state var, in the same public function. Show that only the latter can be read later.
- * See: https://miro.com/app/board/uXjVJe05l5o=/
- */
-
 #[test]
 unconstrained fn get_current_value_in_public_initial() {
     let env = TestEnvironment::_new();
