@@ -94,7 +94,7 @@ Note that while the `secret` and the `content` are both hashed, they are actuall
 
 ### Token bridge example
 
-Computing the `content` must currently be done manually, as we are still adding a number of bytes utilities. A good example exists within the [Token bridge example (codealong tutorial)](../../tutorials/codealong/js_tutorials/token_bridge.md).
+Computing the `content` must currently be done manually, as we are still adding a number of bytes utilities. A good example exists within the [Token bridge example (codealong tutorial)](../../tutorials/js_tutorials/token_bridge.md).
 
 #include_code claim_public /noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr rust
 
@@ -239,4 +239,4 @@ Designated callers are enforced at the contract level for contracts that are not
 
 ## Further reading
 
-Follow the [token bridge tutorial](../../tutorials/codealong/js_tutorials/token_bridge.md) for hands-on experience writing and deploying a Portal contract.
+Follow the [token bridge tutorial](../../tutorials/js_tutorials/token_bridge.md) for hands-on experience writing and deploying a Portal contract.
