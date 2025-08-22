@@ -1,10 +1,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: alpha-testnet-monitor
-  namespace: staging-testnet-monitoring
+  name: testnet-monitor
   labels:
-    app: alpha-testnet-monitor
+    app: testnet-monitor
 spec:
   type: ClusterIP
   ports:
@@ -13,4 +12,4 @@ spec:
       protocol: TCP
       name: http
   selector:
-    app: alpha-testnet-monitor
+    app: testnet-monitor

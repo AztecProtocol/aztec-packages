@@ -205,9 +205,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"alpha-testnet-monitor@workspace:.":
+"testnet-monitor@workspace:.":
   version: 0.0.0-use.local
-  resolution: "alpha-testnet-monitor@workspace:."
+  resolution: "testnet-monitor@workspace:."
   dependencies:
     "@types/express": "npm:^4.17.21"
     "@types/node": "npm:^20.11.30"

@@ -328,6 +328,6 @@
   "timepicker": {},
   "timezone": "browser",
   "title": "Alpha Testnet Block Height Monitor",
-  "uid": "alpha-testnet-monitor",
+  "uid": "testnet-monitor",
   "version": 5
 }

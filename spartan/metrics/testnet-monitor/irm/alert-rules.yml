@@ -16,7 +16,7 @@ groups:
             datasourceUid: grafanacloud-prom
             model:
               editorMode: code
-              expr: changes(rollup_pending_block_number[5m])
+              expr: (changes(rollup_pending_block_number[5m]) == 0) and on(job, instance) (time() - process_start_time_seconds > 600)
               instant: true
               intervalMs: 1000
               legendFormat: __auto
@@ -48,13 +48,13 @@ groups:
               maxDataPoints: 43200
               refId: C
               type: threshold
-        dashboardUid: alpha-testnet-monitor
+        dashboardUid: testnet-monitor
         panelId: 3
         noDataState: NoData
         execErrState: Error
         for: 5m
         annotations:
-          __dashboardUid__: alpha-testnet-monitor
+          __dashboardUid__: testnet-monitor
           __panelId__: "3"
           summary: Alpha Testnet pending block number hasn't increased in 5 minutes
         labels: {}

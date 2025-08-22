@@ -1,5 +1,5 @@
 {
-  "name": "alpha-testnet-monitor",
+  "name": "testnet-monitor",
   "version": "1.0.0",
   "description": "Monitors rollup block height",
   "main": "dist/index.js",

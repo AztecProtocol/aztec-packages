@@ -97,3 +97,6 @@ app.listen(port, () => {
 
 setInterval(updateBlockNumbers, 36000);
 updateBlockNumbers();
+
+// Expose default process metrics, including process_start_time_seconds
+client.collectDefaultMetrics();
