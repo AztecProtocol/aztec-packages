@@ -1,12 +1,12 @@
-import { type ContractInstanceWithAddress, Fr, Point } from '@aztec/aztec.js';
 import { CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS } from '@aztec/constants';
+import { Fr, Point } from '@aztec/foundation/fields';
 import type { Logger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { ProtocolContract } from '@aztec/protocol-contracts';
 import { packAsRetrievedNote } from '@aztec/pxe/simulator';
 import { type ContractArtifact, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { computePartialAddress } from '@aztec/stdlib/contract';
+import { type ContractInstanceWithAddress, computePartialAddress } from '@aztec/stdlib/contract';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import { TXE } from '../oracle/txe_oracle.js';
