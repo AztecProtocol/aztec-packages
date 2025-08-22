@@ -24,7 +24,7 @@ import type {
 } from '@aztec/stdlib/rollup';
 
 import { ServerCircuitArtifacts, SimulatedServerCircuitArtifacts } from '../artifacts/server.js';
-import { mapProtocolArtifactNameToCircuitName } from '../artifacts/types.js';
+import { type ServerProtocolArtifact, mapProtocolArtifactNameToCircuitName } from '../artifacts/types.js';
 import {
   mapBlockMergeRollupPrivateInputsToNoir,
   mapBlockRollupPublicInputsFromNoir,
@@ -63,7 +63,6 @@ import type {
   RollupTxBasePrivateReturnType,
   RollupTxBasePublicReturnType,
   RollupTxMergeReturnType,
-  ServerProtocolArtifact,
 } from '../types/index.js';
 import type { DecodedInputs } from '../utils/decoded_inputs.js';
 
