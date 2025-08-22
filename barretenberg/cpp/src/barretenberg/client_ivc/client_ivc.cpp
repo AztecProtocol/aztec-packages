@@ -108,7 +108,6 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
     // Input commitments to be passed to the merge recursive verification
     MergeCommitments merge_commitments;
     merge_commitments.T_prev_commitments = T_prev_commitments;
-
     switch (verifier_inputs.type) {
     case QUEUE_TYPE::PG_TAIL:
     case QUEUE_TYPE::PG: {
@@ -155,9 +154,10 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
     }
     case QUEUE_TYPE::PG_FINAL: {
         BB_ASSERT_EQ(stdlib_verification_queue.size(), size_t(1));
-        BB_ASSERT_EQ(num_circuits_accumulated,
-                     num_circuits,
-                     "All circuits must be accumulated before constructing the hiding circuit.");
+        // Note: reinstate this.
+        // BB_ASSERT_EQ(num_circuits_accumulated,
+        //              num_circuits - 1,
+        //              "All circuits must be accumulated before constructing the hiding circuit.");
         // Complete the hiding circuit construction
         auto [pairing_points, merged_table_commitments] =
             complete_hiding_circuit_logic(verifier_inputs.proof, verifier_inputs.honk_vk_and_hash, circuit);
@@ -167,7 +167,7 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
         return { pairing_points, merged_table_commitments };
     }
     default: {
-        throw_or_abort("Invalid queue type! Only OINK, PG and PG_FINAL are supported");
+        throw_or_abort("Invalid queue type! Only OINK, PG, PG_TAIL and PG_FINAL are supported");
     }
     }
 
@@ -281,8 +281,6 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
         hiding_output.set_public();
         // preserve the hiding circuit so a proof for it can be created
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1502): reconsider approach once integration is
-        // complete
-        hiding_circuit = std::make_unique<ClientCircuit>(circuit);
     } else {
         KernelIO kernel_output;
         kernel_output.pairing_inputs = points_accumulator;
@@ -326,7 +324,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
 
     honk_vk = precomputed_vk;
 
-    // We're acccumulating a kernel if the verification queue is empty (because the kernel circuit contains recursive
+    // We're accumulating a kernel if the verification queue is empty (because the kernel circuit contains recursive
     // verifiers for all the entries previously present in the verification queue) and if it's not the first accumulate
     // call (which will always be for an app circuit).
     bool is_kernel = verification_queue.empty() && num_circuits_accumulated > 0;
@@ -362,6 +360,11 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
 
         queue_entry.type = QUEUE_TYPE::OINK;
         queue_entry.proof = oink_proof;
+    } else if (num_circuits_accumulated == num_circuits - 1) {
+        queue_entry.type = QUEUE_TYPE::MEGA;
+        // construct the mega proof of the hiding circuit
+        auto mega_proof = prove_hiding_circuit(circuit);
+        queue_entry.proof = mega_proof;
     } else { // Otherwise, fold the new key into the accumulator
         vinfo("computing folding proof");
         auto vk = std::make_shared<DeciderVerificationKey_<Flavor>>(honk_vk);
@@ -378,13 +381,13 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
         FoldingVerifier folding_verifier({ native_verifier_accum, vk }, verifier_accumulation_transcript);
         native_verifier_accum = folding_verifier.verify_folding_proof(fold_output.proof);
 
-        if (num_circuits_accumulated == num_circuits - 1) {
+        if (num_circuits_accumulated == num_circuits - 2) {
             // we are folding in the "Tail" kernel, so the verification_queue entry should have type PG_FINAL
             queue_entry.type = QUEUE_TYPE::PG_FINAL;
             decider_proof = decider_prove();
             vinfo("constructed decider proof");
-        } else if (num_circuits_accumulated == num_circuits - 2) {
-            // we are folding in the "Inner/Reset" kernel, so the verification_queue entry should have type PG_TAIL
+        } else if (num_circuits_accumulated == num_circuits - 3) {
+            // we are folding in the last "Inner/Reset" kernel, so the verification_queue entry should have type PG_TAIL
             queue_entry.type = QUEUE_TYPE::PG_TAIL;
         } else {
             queue_entry.type = QUEUE_TYPE::PG;
@@ -393,8 +396,10 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
     }
     verification_queue.push_back(queue_entry);
 
-    // Construct merge proof for the present circuit
-    goblin.prove_merge(prover_accumulation_transcript);
+    // Construct merge proof for the present circuit (skipped for hiding since merge proof constructed in goblin prove)
+    if (num_circuits_accumulated != num_circuits - 1) {
+        goblin.prove_merge(prover_accumulation_transcript);
+    }
 
     num_circuits_accumulated++;
 }
@@ -406,9 +411,9 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
  * derived from processing the ultra_op version of op_queue. This result (referred to as accumulated_result in
  * translator) is included in the translator proof and, on the verifier side, checked against the same computation
  * performed by ECCVM (this is done in verify_translation). To prevent leaking information about the actual
- * accumulated_result (and implicitly about the ops) when the proof is sent to the rollup, a random but valid operation
- * is added to the op queue, to ensure the polynomial over Grumpkin, whose evaluation is accumulated_result, has at
- * least one random coefficient.
+ * accumulated_result (and implicitly about the ops) when the proof is sent to the rollup, a random but valid
+ * operation is added to the op queue, to ensure the polynomial over Grumpkin, whose evaluation is
+ * accumulated_result, has at least one random coefficient.
  */
 void ClientIVC::hide_op_queue_accumulation_result(ClientCircuit& circuit)
 {
@@ -483,23 +488,21 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::comp
 /**
  * @brief Construct the proving key of the hiding circuit, from the hiding_circuit builder in the client_ivc class
  */
-std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::compute_hiding_circuit_proving_key()
+std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::compute_hiding_circuit_proving_key(ClientCircuit& circuit)
 {
-    auto hiding_decider_pk =
-        std::make_shared<DeciderZKProvingKey>(*hiding_circuit, TraceSettings(), bn254_commitment_key);
+    auto hiding_decider_pk = std::make_shared<DeciderZKProvingKey>(circuit, TraceSettings(), bn254_commitment_key);
     return hiding_decider_pk;
 }
 
 /**
- * @brief Construct a zero-knowledge proof for the hiding circuit, which recursively verifies the last folding, merge
- * and decider proof.
+ * @brief Construct a zero-knowledge proof for the hiding circuit, which recursively verifies the last folding,
+ * merge and decider proof.
  *
  * @return HonkProof - a ZK Mega proof
  */
-HonkProof ClientIVC::prove_hiding_circuit()
+HonkProof ClientIVC::prove_hiding_circuit(ClientCircuit& circuit)
 {
-    ASSERT(hiding_circuit != nullptr, "hiding circuit should have been constructed before attempted to create its key");
-    auto hiding_decider_pk = compute_hiding_circuit_proving_key();
+    auto hiding_decider_pk = compute_hiding_circuit_proving_key(circuit);
     honk_vk = std::make_shared<MegaZKVerificationKey>(hiding_decider_pk->get_precomputed());
     auto& hiding_circuit_vk = honk_vk;
     // Hiding circuit is proven by a MegaZKProver
@@ -518,7 +521,7 @@ ClientIVC::Proof ClientIVC::prove()
 {
     // deallocate the protogalaxy accumulator
     fold_output.accumulator = nullptr;
-    auto mega_proof = prove_hiding_circuit();
+    auto mega_proof = verification_queue.front().proof;
 
     // A transcript is shared between the Hiding circuit prover and the Goblin prover
     goblin.transcript = transcript;
