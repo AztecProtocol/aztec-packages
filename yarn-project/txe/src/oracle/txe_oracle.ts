@@ -1,5 +1,6 @@
 import { type AztecNode, Body, L2Block, Note } from '@aztec/aztec.js';
 import {
+  CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
   DEFAULT_GAS_LIMIT,
   DEFAULT_TEARDOWN_GAS_LIMIT,
   type L1_TO_L2_MSG_TREE_HEIGHT,
@@ -13,7 +14,7 @@ import {
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Aes128, Schnorr } from '@aztec/foundation/crypto';
 import { Fr, Point } from '@aztec/foundation/fields';
-import { type Logger, applyStringFormatting } from '@aztec/foundation/log';
+import { type Logger, applyStringFormatting, createLogger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { KeyStore } from '@aztec/key-store';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
@@ -61,7 +62,7 @@ import {
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { ContractInstance, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import { type ContractInstance, type ContractInstanceWithAddress, computePartialAddress } from '@aztec/stdlib/contract';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import {
   computeCalldataHash,
@@ -190,7 +191,9 @@ export class TXE {
     );
   }
 
-  static async create(logger: Logger, store: AztecAsyncKVStore, protocolContracts: ProtocolContract[]) {
+  static async create(store: AztecAsyncKVStore, protocolContracts: ProtocolContract[]) {
+    const logger = createLogger('txe:oracle');
+
     const executionCache = new HashedValuesCache();
 
     const stateMachine = await TXEStateMachine.create(store);
@@ -264,8 +267,71 @@ export class TXE {
     this.blockNumber = blockNumber;
   }
 
+  async txeAdvanceBlocksBy(blocks: number) {
+    this.logger.debug(`time traveling ${blocks} blocks`);
+
+    for (let i = 0; i < blocks; i++) {
+      const blockNumber = await this.utilityGetBlockNumber();
+      await this.commitState();
+      this.setBlockNumber(blockNumber + 1);
+    }
+  }
+
   txeAdvanceTimestampBy(duration: UInt64) {
+    this.logger.debug(`time traveling ${duration} seconds`);
     this.timestamp = this.timestamp + duration;
+  }
+
+  async txeDeploy(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: Fr) {
+    // Emit deployment nullifier
+    await this.noteCache.nullifierCreated(
+      AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS),
+      instance.address.toField(),
+    );
+
+    // Make sure the deployment nullifier gets included in a tx in a block
+    const blockNumber = await this.utilityGetBlockNumber();
+    await this.commitState();
+    this.setBlockNumber(blockNumber + 1);
+
+    if (!secret.equals(Fr.ZERO)) {
+      await this.txeAddAccount(artifact, instance, secret);
+    } else {
+      await this.addContractInstance(instance);
+      await this.addContractArtifact(instance.currentContractClassId, artifact);
+      this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
+    }
+  }
+
+  async txeAddAccount(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: Fr) {
+    const partialAddress = await computePartialAddress(instance);
+
+    this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
+    await this.addContractInstance(instance);
+    await this.addContractArtifact(instance.currentContractClassId, artifact);
+
+    const keyStore = this.getKeyStore();
+    const completeAddress = await keyStore.addAccount(secret, partialAddress);
+    const accountDataProvider = this.getAccountDataProvider();
+    await accountDataProvider.setAccount(completeAddress.address, completeAddress);
+    const addressDataProvider = this.getAddressDataProvider();
+    await addressDataProvider.addCompleteAddress(completeAddress);
+    this.logger.debug(`Created account ${completeAddress.address}`);
+
+    return completeAddress;
+  }
+
+  async txeCreateAccount(secret: Fr) {
+    const keyStore = this.getKeyStore();
+    // This is a footgun !
+    const completeAddress = await keyStore.addAccount(secret, secret);
+    const accountDataProvider = this.getAccountDataProvider();
+    await accountDataProvider.setAccount(completeAddress.address, completeAddress);
+    const addressDataProvider = this.getAddressDataProvider();
+    await addressDataProvider.addCompleteAddress(completeAddress);
+    this.logger.debug(`Created account ${completeAddress.address}`);
+
+    return completeAddress;
   }
 
   getContractDataProvider() {
@@ -316,6 +382,9 @@ export class TXE {
     );
     inputs.callContext = new CallContext(this.msgSender, this.contractAddress, this.functionSelector, isStaticCall);
     inputs.startSideEffectCounter = sideEffectsCounter;
+
+    this.logger.info(`Created private context for block ${blockNumber}`);
+
     return inputs;
   }
 
@@ -476,6 +545,13 @@ export class TXE {
         .map(n => `${n.noteNonce.toString()}:[${n.note.items.map(i => i.toString()).join(',')}]`)
         .join(', ')}`,
     );
+
+    if (notes.length > 0) {
+      const noteLength = notes[0].note.items.length;
+      if (!notes.every(({ note }) => noteLength === note.items.length)) {
+        throw new Error('Notes should all be the same length.');
+      }
+    }
 
     return notes;
   }
