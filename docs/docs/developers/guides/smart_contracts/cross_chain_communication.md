@@ -94,14 +94,7 @@ Note that while the `secret` and the `content` are both hashed, they are actuall
 
 ### Token bridge example
 
-<<<<<<< HEAD:docs/docs/developers/guides/smart_contracts/portals/communicate_with_portal.md
-<<<<<<< HEAD:docs/docs/developers/guides/smart_contracts/writing_contracts/portals/communicate_with_portal.md
-Computing the `content` must currently be done manually, as we are still adding a number of bytes utilities. A good example exists within the [Token bridge example (codealong tutorial)](../../../../../developers/tutorials/js_tutorials/token_bridge.md).
-=======
-Computing the `content` must currently be done manually, as we are still adding a number of bytes utilities. A good example exists within the [Token bridge example (codealong tutorial)](../../../tutorials/codealong/js_tutorials/token_bridge.md).
-=======
 Computing the `content` must currently be done manually, as we are still adding a number of bytes utilities. A good example exists within the [Token bridge example (codealong tutorial)](../../tutorials/codealong/js_tutorials/token_bridge.md).
->>>>>>> 684308a759 (reordering):docs/docs/developers/guides/smart_contracts/cross_chain_communication.md
 
 #include_code claim_public /noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr rust
 
