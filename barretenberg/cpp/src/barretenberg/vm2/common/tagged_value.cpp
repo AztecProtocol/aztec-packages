@@ -28,6 +28,7 @@ struct shift_left {
         if constexpr (std::is_same_v<T, uint1_t>) {
             return static_cast<T>(a.operator<<(b));
         } else {
+            // TODO(MW): This doesn't always return 0 when b > bit size
             return static_cast<T>(a << b);
         }
     }

@@ -1696,7 +1696,7 @@ TEST_P(AluNotConstrainingTest, AluNotTraceGenTagError)
     check_relation<alu>(trace);
 }
 
-// SHIFT TESTS
+// SHL TESTS
 
 const std::vector<MemoryValue> TEST_VALUES_SHL_OUT = {
     MemoryValue::from_tag(MemoryTag::U1, 1),
@@ -1735,7 +1735,7 @@ class AluShlConstrainingTest : public AluConstrainingTest,
                 .alu_a_hi_bits = shift_hi_bits,
                 .alu_a_lo = a_lo,
                 .alu_a_lo_bits = shift_lo_bits,
-                .alu_helper1 = 1 << b_num,
+                .alu_helper1 = static_cast<uint128_t>(1) << b_num,
                 .alu_ia = a,
                 .alu_ia_tag = tag,
                 .alu_ib = b,
@@ -1837,6 +1837,7 @@ TEST_F(AluShlConstrainingTest, NegativeAluShlFF)
 }
 
 // TODO(MW): More tests
+// SHR TESTS
 
 const std::vector<MemoryValue> TEST_VALUES_SHR_OUT = {
     MemoryValue::from_tag(MemoryTag::U1, 1),

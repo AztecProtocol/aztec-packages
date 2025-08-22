@@ -211,7 +211,7 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
                   ? 0
                   : (FF(static_cast<uint8_t>(event.a.get_tag())) - FF(static_cast<uint8_t>(MemoryTag::FF))).invert() },
             { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::SHL).subtrace_operation_id },
-            { Column::alu_helper1, 1 << b_num },
+            { Column::alu_helper1, static_cast<uint128_t>(1) << b_num },
         };
     }
     case simulation::AluOperation::SHR: {
