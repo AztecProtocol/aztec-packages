@@ -5,17 +5,15 @@ tags: [accounts, authwit]
 sidebar_position: 7
 ---
 
-This page introduces the authwit library and how you can use it in your Aztec.nr smart contracts. [Skip to the usage](#usage).
+This page introduces the authwit library and how you can use it in your Aztec.nr smart contracts.
 
-For a guide on using authwit in Aztec.js, [read this](../js_apps/authwit.md).
+For a conceptual overview of authwits, see [Authentication Witnesses](../../../aztec/concepts/advanced/authwit.md).
 
-## Prerequisite reading
-
-- [Authwit](../../../aztec/concepts/advanced/authwit.md)
+Read more about how to use authwits in Aztec.js [here](../js_apps/authwit.md).
 
 ## Introduction
 
-Authentication Witness (authwit) is a scheme for authentication actions on Aztec, so users can allow third-parties (eg other contracts) to execute an action on their behalf. Authwits can only authorize actions for contracts that your account is calling, they cannot be used to permit other users to take actions on your behalf.
+Authentication Witness (authwit) is a scheme for authentication actions on Aztec, so users can allow third-parties (e.g. other contracts) to execute an action on their behalf. Authwits can only authorize actions for contracts that your account is calling, they cannot be used to permit other users to take actions on your behalf.
 
 How it works logically is explained in the [concepts](../../../aztec/concepts/advanced/authwit.md) but we will do a short recap here.
 

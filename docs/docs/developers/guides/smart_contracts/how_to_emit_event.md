@@ -1,6 +1,7 @@
 ---
 title: Emitting Events
-tags: [contracts]
+tags: [contracts, events]
+sidebar_position: 6
 description: Learn how to emit events from your Aztec smart contracts for off-chain applications to consume.
 ---
 
