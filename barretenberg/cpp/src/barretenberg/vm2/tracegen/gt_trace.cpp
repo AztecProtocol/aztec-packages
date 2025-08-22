@@ -18,6 +18,8 @@ void GreaterThanTraceBuilder::process(
         FF a_ff = FF(event.a);
         FF b_ff = FF(event.b);
         FF abs_diff = event.result ? a_ff - b_ff - 1 : b_ff - a_ff;
+        const uint8_t num_bits_bound = static_cast<uint8_t>(static_cast<uint256_t>(abs_diff).get_msb() + 1);
+        const uint8_t num_bits_bound_16 = ((num_bits_bound - 1) / 16 + 1) * 16; // round up to multiple of 16
         trace.set(row,
                   { {
                       { C::gt_sel, 1 },
@@ -25,7 +27,7 @@ void GreaterThanTraceBuilder::process(
                       { C::gt_input_b, event.b },
                       { C::gt_res, event.result ? 1 : 0 },
                       { C::gt_abs_diff, abs_diff },
-                      { C::gt_constant_128, 128 },
+                      { C::gt_num_bits, num_bits_bound_16 },
                   } });
         row++;
     };

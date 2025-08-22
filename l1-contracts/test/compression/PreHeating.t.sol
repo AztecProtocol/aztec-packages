@@ -58,7 +58,7 @@ import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
-import {SlashingProposer} from "@aztec/core/slashing/SlashingProposer.sol";
+import {EmpireSlashingProposer} from "@aztec/core/slashing/EmpireSlashingProposer.sol";
 import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
@@ -131,7 +131,7 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
   // Track attestations by block number for proof submission
   mapping(uint256 => CommitteeAttestations) internal blockAttestations;
 
-  SlashingProposer internal slashingProposer;
+  EmpireSlashingProposer internal slashingProposer;
   IPayload internal slashPayload;
 
   modifier prepare(uint256 _validatorCount, uint256 _targetCommitteeSize) {
@@ -168,7 +168,7 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
 
     asset = builder.getConfig().testERC20;
     rollup = builder.getConfig().rollup;
-    slashingProposer = Slasher(rollup.getSlasher()).PROPOSER();
+    slashingProposer = EmpireSlashingProposer(Slasher(rollup.getSlasher()).PROPOSER());
 
     SlashFactory slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
     address[] memory toSlash = new address[](0);

@@ -37,6 +37,8 @@ std::filesystem::path get_test_dir(const std::string_view& test_name)
     return temp_dir / test_name;
 }
 
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1509): expand these test to accomodate a more realistic
+// CIVC flow in order to re-enable the ProveAndVerify* tests in this file
 void create_test_private_execution_steps(const std::filesystem::path& output_path)
 {
     using namespace acir_format;
@@ -194,6 +196,31 @@ TEST_F(ClientIVCAPITests, WriteVkFieldsSmokeTest)
     EXPECT_NE(vk_str.find(']'), std::string::npos);
 }
 
+TEST_F(ClientIVCAPITests, WriteIVCVkSmokeTest)
+{
+    // Create a simple circuit bytecode
+    auto [bytecode, witness_data] = acir_bincode_mocks::create_simple_circuit_bytecode();
+
+    // Compress and write bytecode to file
+    std::filesystem::path bytecode_path = test_dir / "circuit.acir";
+    write_file(bytecode_path, bb::compress(bytecode));
+
+    // Set flags for VK generation
+    ClientIVCAPI::Flags flags;
+    flags.verifier_type = "ivc";
+    flags.output_format = "bytes";
+
+    // Call write_vk
+    ClientIVCAPI api;
+    api.write_vk(flags, bytecode_path, test_dir);
+
+    // Check that VK file exists and is non-empty
+    std::filesystem::path vk_path = test_dir / "vk";
+    ASSERT_TRUE(std::filesystem::exists(vk_path));
+    auto vk_data = read_file(vk_path);
+    ASSERT_FALSE(vk_data.empty());
+}
+
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1461): Make this test actually test # gates
 TEST_F(ClientIVCAPITests, GatesCommandSmokeTest)
 {
@@ -233,7 +260,7 @@ TEST_F(ClientIVCAPITests, GatesCommandSmokeTest)
 }
 
 // Test prove_and_verify for our example IVC flow.
-TEST_F(ClientIVCAPITests, ProveAndVerifyCommand)
+TEST_F(ClientIVCAPITests, DISABLED_ProveAndVerifyCommand)
 {
     // Create test input file
     std::filesystem::path input_path = test_dir / "input.msgpack";

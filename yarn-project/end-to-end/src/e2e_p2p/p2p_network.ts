@@ -16,7 +16,7 @@ import {
 import { ChainMonitor } from '@aztec/ethereum/test';
 import { SecretValue } from '@aztec/foundation/config';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { RollupAbi, SlashFactoryAbi, SlasherAbi, SlashingProposerAbi, TestERC20Abi } from '@aztec/l1-artifacts';
+import { EmpireSlashingProposerAbi, RollupAbi, SlashFactoryAbi, SlasherAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import type { BootstrapNode } from '@aztec/p2p/bootstrap';
 import { createBootstrapNodeFromPrivateKey, getBootstrapNodeEnr } from '@aztec/p2p/test-helpers';
@@ -391,7 +391,7 @@ export class P2PNetworkTest {
   async getContracts(): Promise<{
     rollup: RollupContract;
     slasherContract: GetContractReturnType<typeof SlasherAbi, ViemClient>;
-    slashingProposer: GetContractReturnType<typeof SlashingProposerAbi, ViemClient>;
+    slashingProposer: GetContractReturnType<typeof EmpireSlashingProposerAbi, ViemClient>;
     slashFactory: GetContractReturnType<typeof SlashFactoryAbi, ViemClient>;
   }> {
     if (!this.ctx.deployL1ContractsValues) {
@@ -411,7 +411,7 @@ export class P2PNetworkTest {
 
     const slashingProposer = getContract({
       address: getAddress(await slasherContract.read.PROPOSER()),
-      abi: SlashingProposerAbi,
+      abi: EmpireSlashingProposerAbi,
       client: this.ctx.deployL1ContractsValues.l1Client,
     });
 

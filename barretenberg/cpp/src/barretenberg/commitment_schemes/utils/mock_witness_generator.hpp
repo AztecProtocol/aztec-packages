@@ -87,15 +87,36 @@ template <typename Curve> struct MockClaimGenerator {
         , polynomial_batcher(poly_size)
 
     {
+        size_t log_size = numeric::get_msb(poly_size);
+        // If the size of the opening point is bigger than the log of the poly size, we assume that the prover is
+        // extending all of its polynomials by zero outside of the hypercube of size 2^{log_size}.
+        bool has_virtual_rounds = (mle_opening_point.size() > log_size);
+
+        std::span<const Fr> challenge;
+
+        if (has_virtual_rounds) {
+            // The evaluation on the full domain can be obtain by scaling by extension-by-zero factor `ebz_factor`
+            // computed below.
+            challenge = std::span<const Fr>(mle_opening_point).subspan(0, log_size);
+        } else {
+            challenge = std::span<const Fr>(mle_opening_point);
+        }
+
         const size_t total_num_to_be_shifted = num_to_be_shifted + num_to_be_right_shifted_by_k;
         BB_ASSERT_GTE(num_polynomials, total_num_to_be_shifted);
         const size_t num_not_to_be_shifted = num_polynomials - total_num_to_be_shifted;
+
+        Fr ebz_factor = 1;
+
+        for (size_t idx = log_size; idx < mle_opening_point.size(); idx++) {
+            ebz_factor *= (Fr(1) - mle_opening_point[idx]);
+        }
 
         // Construct claim data for polynomials that are NOT to be shifted
         for (size_t idx = 0; idx < num_not_to_be_shifted; idx++) {
             Polynomial poly = Polynomial::random(poly_size);
             unshifted.commitments.push_back(ck.commit(poly));
-            unshifted.evals.push_back(poly.evaluate_mle(mle_opening_point));
+            unshifted.evals.push_back(poly.evaluate_mle(challenge) * ebz_factor);
             unshifted.polys.push_back(std::move(poly));
         }
 
@@ -104,11 +125,11 @@ template <typename Curve> struct MockClaimGenerator {
             Polynomial poly = Polynomial::random(poly_size, /*shiftable*/ 1);
             Commitment commitment = ck.commit(poly);
             to_be_shifted.commitments.push_back(commitment);
-            to_be_shifted.evals.push_back(poly.shifted().evaluate_mle(mle_opening_point));
+            to_be_shifted.evals.push_back(poly.shifted().evaluate_mle(challenge) * ebz_factor);
             to_be_shifted.polys.push_back(poly.share());
             // Populate the unshifted counterpart in the unshifted claims
             unshifted.commitments.push_back(commitment);
-            unshifted.evals.push_back(poly.evaluate_mle(mle_opening_point));
+            unshifted.evals.push_back(poly.evaluate_mle(challenge) * ebz_factor);
             unshifted.polys.push_back(std::move(poly));
         }
 
@@ -117,11 +138,12 @@ template <typename Curve> struct MockClaimGenerator {
             Polynomial poly = Polynomial::random(poly_size - k_magnitude, poly_size, 0);
             Commitment commitment = ck.commit(poly);
             to_be_right_shifted_by_k.commitments.push_back(commitment);
-            to_be_right_shifted_by_k.evals.push_back(poly.right_shifted(k_magnitude).evaluate_mle(mle_opening_point));
+            to_be_right_shifted_by_k.evals.push_back(poly.right_shifted(k_magnitude).evaluate_mle(challenge) *
+                                                     ebz_factor);
             to_be_right_shifted_by_k.polys.push_back(poly.share());
             // Populate the unshifted counterpart in the unshifted claims
             unshifted.commitments.push_back(commitment);
-            unshifted.evals.push_back(poly.evaluate_mle(mle_opening_point));
+            unshifted.evals.push_back(poly.evaluate_mle(challenge) * ebz_factor);
             unshifted.polys.push_back(std::move(poly));
         }
 

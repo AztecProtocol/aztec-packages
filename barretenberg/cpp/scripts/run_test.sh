@@ -4,7 +4,7 @@
 # It means we can return a concise, easy to read, easy to run command for reproducing a test run.
 set -eu
 
-export native_preset=${NATIVE_PRESET:-clang16-assert}
+export native_preset=${NATIVE_PRESET:-clang20}
 
 cd $(dirname $0)/..
 # E.g. build, build-debug or build-coverage

@@ -14,10 +14,10 @@ template <typename FF_> class bc_decompositionImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 52> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 4, 4, 5, 3, 4, 4, 3, 3, 4, 2, 4,
-                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
+    static constexpr std::array<size_t, 54> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 4, 4, 5, 3, 4, 4, 3, 3, 3, 5, 3, 3,
+                                                                            4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -54,13 +54,17 @@ template <typename FF> class bc_decomposition : public Relation<bc_decomposition
             return "BC_DEC_BYTES_REMAINING_DECREMENT";
         case 8:
             return "BC_DEC_ID_CONSTANT";
-        case 10:
-            return "BC_DEC_ABS_DIFF";
+        case 11:
+            return "IS_WINDOWS_EQ_REMAINING";
         case 12:
-            return "BC_DEC_OVERFLOW_CORRECTION_VALUE";
-        case 50:
+            return "SEL_WINDOWS_GT_REMAINING_INIT";
+        case 13:
+            return "SEL_WINDOWS_GT_REMAINING_PROPAGATION";
+        case 14:
+            return "SET_BYTES_TO_READ";
+        case 52:
             return "SEL_TOGGLED_AT_PACKED";
-        case 51:
+        case 53:
             return "BC_DECOMPOSITION_REPACKING";
         }
         return std::to_string(index);
@@ -74,10 +78,12 @@ template <typename FF> class bc_decomposition : public Relation<bc_decomposition
     static constexpr size_t SR_BC_DEC_PC_INCREMENT = 6;
     static constexpr size_t SR_BC_DEC_BYTES_REMAINING_DECREMENT = 7;
     static constexpr size_t SR_BC_DEC_ID_CONSTANT = 8;
-    static constexpr size_t SR_BC_DEC_ABS_DIFF = 10;
-    static constexpr size_t SR_BC_DEC_OVERFLOW_CORRECTION_VALUE = 12;
-    static constexpr size_t SR_SEL_TOGGLED_AT_PACKED = 50;
-    static constexpr size_t SR_BC_DECOMPOSITION_REPACKING = 51;
+    static constexpr size_t SR_IS_WINDOWS_EQ_REMAINING = 11;
+    static constexpr size_t SR_SEL_WINDOWS_GT_REMAINING_INIT = 12;
+    static constexpr size_t SR_SEL_WINDOWS_GT_REMAINING_PROPAGATION = 13;
+    static constexpr size_t SR_SET_BYTES_TO_READ = 14;
+    static constexpr size_t SR_SEL_TOGGLED_AT_PACKED = 52;
+    static constexpr size_t SR_BC_DECOMPOSITION_REPACKING = 53;
 };
 
 } // namespace bb::avm2
