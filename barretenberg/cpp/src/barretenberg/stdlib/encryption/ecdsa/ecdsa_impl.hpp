@@ -11,32 +11,6 @@
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 
-/**
- * Fix the following notation:
- *  1. \$E\$ is an elliptic curve over the base field \$\mathbb{F}_q\$.
- *  2. \$G\$ is a generator of the group of points of \$E\$, the order of \$G\$ is \$n\$.
- *  3. \$a \in \mathbb{F}_n^{\ast}$ is a private key, and \$P := aG\$ is the associated public key
- *  4. \$\mathcal{H}\$ is a hash function
- *
- * Given a message \$m\$, a couple \$(r,s)\$ is a valid signature for the message \$m\$ with respect to the public key
- * \$P\$ if:
- *  1. \$P\$ is a point on \$E\$
- *  2. \$0 < r < n\$
- *  3. \$0 < s < (n+1) / 2\$
- *  4. Define \$e := \mathcal{H}(m) mod n$ and \$Q := e s^{-1} G + r s^{-1} P \$
- *  5. \$Q\$ is not the point at infinity AND \$Q_x = r mod n\$ (note that \$Q_x \in \mathbb{F}_q\$)
- *
- * @note The requirement of step 2. is to avoid transaction malleability: if \$(r,s)\$ is a valid signature for message
- * \$m\$ and public key \$P\$, so is \$(r,n-s)\$. We protect against malleability by enforcing that \$s\$ is always the
- * lowest of the two possible values.
- *
- * @note In Ethereum signatures contain also a recovery byte \$v\$ which is used to recover the public key for which
- * the signature is to be validated. As we receive the public key as part of the inputs to the verification function, we
- * do not handle the recovery byte. The signature which is the input to the verification function is given by \$(r,s)\$.
- * The users of the verification function should handle the recovery byte if that is in their interest.
- *
- */
-
 namespace bb::stdlib {
 
 namespace {
@@ -45,6 +19,29 @@ auto& engine = numeric::get_debug_randomness();
 
 /**
  * @brief Verify ECDSA signature. Produces unsatisfiable constraints if signature fails
+ *
+ * @details Fix the following notation:
+ *  1. \f$E\f$ is an elliptic curve over the base field \f$\mathbb{F}_q\f$.
+ *  2. \f$G\f$ is a generator of the group of points of \f$E\f$, the order of \f$G\f$ is \f$n\f$.
+ *  3. \f$a \in \mathbb{F}_n^{\ast}\f$ is a private key, and \f$P := aG\f$ is the associated public key
+ *  4. \f$\mathbf{H}\f$ is a hash function
+ *
+ * Given a message \f$m\f$, a couple \f$(r,s)\f$ is a valid signature for the message \f$m\f$ with respect to the public
+ * key \f$P\f$ if:
+ *  1. \f$P\f$ is a point on \f$E\f$
+ *  2. \f$0 < r < n\f$
+ *  3. \f$0 < s < (n+1) / 2\f$
+ *  4. Define \f$e := \mathbf{H}(m) \mod n\f$ and \f$Q := e s^{-1} G + r s^{-1} P \f$
+ *  5. \f$Q\f$ is not the point at infinity AND \f$Q_x = r \mod n\f$ (note that \f$Q_x \in \mathbb{F}_q\f$)
+ *
+ * @note The requirement of step 2. is to avoid transaction malleability: if \f$(r,s)\f$ is a valid signature for
+ * message \f$m\f$ and public key \f$P\f$, so is \f$(r,n-s)\f$. We protect against malleability by enforcing that
+ * \f$s\f$ is always the lowest of the two possible values.
+ *
+ * @note In Ethereum signatures contain also a recovery byte \$v\$ which is used to recover the public key for which
+ * the signature is to be validated. As we receive the public key as part of the inputs to the verification function, we
+ * do not handle the recovery byte. The signature which is the input to the verification function is given by \$(r,s)\$.
+ * The users of the verification function should handle the recovery byte if that is in their interest.
  *
  * @tparam Builder
  * @tparam Curve
