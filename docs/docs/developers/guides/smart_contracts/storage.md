@@ -21,4 +21,10 @@ For example, the following is the storage struct for the NFT contract:
 
 #include_code storage_struct /noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr rust
 
+:::info
+
+The `Context` parameter is injected into storage and contract functions. It provides information about the current execution mode (e.g. private or public).
+
+:::
+
 Read more about the data types available in the [Data Types](./data_types.md) page.
