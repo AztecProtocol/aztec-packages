@@ -98,8 +98,11 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
         PROFILE_THIS_NAME("DeciderProvingKey(Circuit&)");
         vinfo("Constructing DeciderProvingKey");
         auto start = std::chrono::steady_clock::now();
-
-        circuit.finalize_circuit(/* ensure_nonzero = */ true);
+        // Decider proving keys can be constructed multiple times, hence, we check whether the circuit has been
+        // finalized
+        if (!circuit.circuit_finalized) {
+            circuit.finalize_circuit(/* ensure_nonzero = */ true);
+        }
 
         // If using a structured trace, set fixed block sizes, check their validity, and set the dyadic circuit size
         if constexpr (std::same_as<Circuit, UltraCircuitBuilder>) {
