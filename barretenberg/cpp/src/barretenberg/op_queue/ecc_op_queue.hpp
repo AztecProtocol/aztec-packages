@@ -63,10 +63,10 @@ class ECCOpQueue {
         ultra_ops_table.create_new_subtable();
     }
 
-    void merge(MergeSettings settings = MergeSettings::PREPEND)
+    void merge(MergeSettings settings = MergeSettings::PREPEND, std::optional<size_t> ultra_fixed_offset = std::nullopt)
     {
         eccvm_ops_table.merge(settings);
-        ultra_ops_table.merge(settings);
+        ultra_ops_table.merge(settings, ultra_fixed_offset);
     }
 
     // Construct polynomials corresponding to the columns of the full aggregate ultra ecc ops table
