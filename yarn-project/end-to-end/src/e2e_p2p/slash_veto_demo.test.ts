@@ -195,7 +195,7 @@ describe('veto slash', () => {
       expect(slasherVetoer).toEqual(l1Client.account.address);
 
       const slashingProposer = await rollup.getSlashingProposer();
-      if (slashingProposer.type !== 'empire') {
+      if (slashingProposer!.type !== 'empire') {
         throw new Error('This test requires Empire slashing');
       }
       const empireSlashingProposer = slashingProposer as EmpireSlashingProposerContract;
@@ -251,7 +251,7 @@ describe('veto slash', () => {
       //##############################//
 
       await retryUntil(async () => {
-        const currentRound = await slashingProposer.getCurrentRound();
+        const currentRound = await slashingProposer!.getCurrentRound();
         return currentRound > submittableRound.round;
       });
 
@@ -306,7 +306,7 @@ describe('veto slash', () => {
         });
       });
       const awaitPayloadExpiredPromise = retryUntil(async () => {
-        const currentRound = await slashingProposer.getCurrentRound();
+        const currentRound = await slashingProposer!.getCurrentRound();
         return currentRound > submittableRound.round + BigInt(LIFETIME_IN_ROUNDS);
       });
 

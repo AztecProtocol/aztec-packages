@@ -153,8 +153,14 @@ export class RollupContract {
     return this.rollup;
   }
 
-  public async getSlashingProposer(): Promise<EmpireSlashingProposerContract | TallySlashingProposerContract> {
+  public async getSlashingProposer(): Promise<
+    EmpireSlashingProposerContract | TallySlashingProposerContract | undefined
+  > {
     const slasherAddress = await this.rollup.read.getSlasher();
+    if (EthAddress.fromString(slasherAddress).isZero()) {
+      return undefined;
+    }
+
     const slasher = getContract({ address: slasherAddress, abi: SlasherAbi, client: this.client });
     const proposerAddress = await slasher.read.PROPOSER();
     const proposerAbi = [
