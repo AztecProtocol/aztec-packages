@@ -160,13 +160,14 @@ Here, we are asserting that the `msg_sender()` is equal to the `admin` stored in
 
 ## Compiling and codegen
 
-The easiest way to compile the contract is with `aztec-nargo`. Run the following command in the directory with your Nargo.toml file:
+The easiest way to compile the contract is with `aztec-nargo` and `aztec-postprocess-contract`. Run the following commands in the directory with your Nargo.toml file:
 
 ```bash
-aztec-nargo compile
+aztec-nargo compile        # generate contract artifacts
+aztec-postprocess-contract # transpile contract and generate verification keys
 ```
 
-This will create a new directory called `target` and a JSON artifact inside it.
+This will create a new directory called `target` and JSON artifacts inside it, processed for use with Aztec.
 
 Use `aztec codegen` to generate the Typescript artifact for the contract:
 
