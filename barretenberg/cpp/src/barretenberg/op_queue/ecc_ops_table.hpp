@@ -280,12 +280,12 @@ class UltraEccOpsTable {
         if (has_fixed_append) {
             // Handle fixed-location append: prepended tables first, then appended table at fixed offset
             return construct_column_polynomials_with_fixed_append(poly_size);
-        } else {
-            // Normal case: all subtables in order
-            const size_t subtable_start_idx = 0; // include all subtables
-            const size_t subtable_end_idx = table.num_subtables();
-            return construct_column_polynomials_from_subtables(poly_size, subtable_start_idx, subtable_end_idx);
         }
+
+        // Normal case: all subtables in order
+        const size_t subtable_start_idx = 0; // include all subtables
+        const size_t subtable_end_idx = table.num_subtables();
+        return construct_column_polynomials_from_subtables(poly_size, subtable_start_idx, subtable_end_idx);
     }
 
     // Construct the columns of the previous full ultra ecc ops table
@@ -298,8 +298,8 @@ class UltraEccOpsTable {
         return construct_column_polynomials_from_subtables(poly_size, subtable_start_idx, subtable_end_idx);
     }
 
-    // Construct the columns of the current ultra ecc ops subtable which is either the first or the last one depening on
-    // whether it has been prepended or appended
+    // Construct the columns of the current ultra ecc ops subtable which is either the first or the last one
+    // depening on whether it has been prepended or appended
     ColumnPolynomials construct_current_ultra_ops_subtable_columns() const
     {
         const size_t poly_size = current_ultra_subtable_size();
