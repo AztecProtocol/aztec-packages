@@ -21,18 +21,18 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
         7, // internal poseidon2 round sub-relation for fourth value
     };
 
-    static constexpr FF D1 = crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[0];
-    static constexpr FF D2 = crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[1];
-    static constexpr FF D3 = crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[2];
-    static constexpr FF D4 = crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[3];
-    static constexpr FF D1_plus_1 = FF{ 1 } + D1;
+    static constexpr fr D1 = crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[0];
+    static constexpr fr D2 = crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[1];
+    static constexpr fr D3 = crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[2];
+    static constexpr fr D4 = crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[3];
+    static constexpr fr D1_plus_1 = fr{ 1 } + D1;
     /**
      * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
      *
      */
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.q_poseidon2_internal.is_zero();
+        return (in.q_poseidon2_internal.value_at(0) == 0) && (in.q_poseidon2_internal.value_at(1) == 0);
     }
 
     /**
