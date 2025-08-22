@@ -797,6 +797,6 @@ const InteractionDefinition KeccakF1600TraceBuilder::interactions =
         .add<lookup_keccakf1600_src_abs_diff_positive_settings, InteractionType::LookupGeneric>()
         .add<lookup_keccakf1600_dst_abs_diff_positive_settings, InteractionType::LookupGeneric>()
         // Keccak slice memory to memory sub-trace
-        .add<lookup_keccak_memory_slice_to_mem_settings, InteractionType::LookupSequential>();
+        .add<lookup_keccak_memory_slice_to_mem_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen
