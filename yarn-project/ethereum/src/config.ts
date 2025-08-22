@@ -69,7 +69,7 @@ export const DefaultL1ContractsConfig = {
   aztecProofSubmissionEpochs: 1, // you have a full epoch to submit a proof after the epoch to prove ends
   activationThreshold: BigInt(100e18),
   ejectionThreshold: BigInt(50e18),
-  slashingUnit: BigInt(5e18),
+  slashingUnit: BigInt(20e18),
   slashingRoundSize: 32 * 6, // 6 epochs
   slashingQuorum: (32 * 6) / 2 + 1, // 6 epochs, majority of validators
   slashingLifetimeInRounds: 5,
@@ -254,7 +254,7 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
   },
   slashingUnit: {
     env: 'AZTEC_SLASHING_UNIT',
-    description: 'Minimum slashing unit for consensus-based slashing (all slashes will be a 1-15x this value)',
+    description: 'Minimum slashing unit for consensus-based slashing (all slashes will be a 1-3x this value)',
     ...bigintConfigHelper(DefaultL1ContractsConfig.slashingUnit),
   },
   slashingQuorum: {

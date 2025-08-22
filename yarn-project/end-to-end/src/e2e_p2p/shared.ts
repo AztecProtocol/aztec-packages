@@ -12,15 +12,12 @@ import {
   retryUntil,
 } from '@aztec/aztec.js';
 import type { RollupCheatCodes } from '@aztec/aztec/testing';
-import type { RollupContract, ViemClient } from '@aztec/ethereum';
+import type { EmpireSlashingProposerContract, RollupContract, TallySlashingProposerContract } from '@aztec/ethereum';
 import { timesAsync, unique } from '@aztec/foundation/collection';
-import type { EmpireSlashingProposerAbi } from '@aztec/l1-artifacts/EmpireSlashingProposerAbi';
 import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { TestContract, TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
 import { PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe/server';
 import type { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
-
-import type { GetContractReturnType } from 'viem';
 
 import type { NodeContext } from '../fixtures/setup_p2p_test.js';
 import { submitTxsTo } from '../shared/submit-transactions.js';
@@ -107,25 +104,36 @@ export async function createPXEServiceAndPrepareTransactions(
   return { txs, pxeService: pxe, node };
 }
 
-export async function awaitProposalExecution(
-  slashingProposer: GetContractReturnType<typeof EmpireSlashingProposerAbi, ViemClient>,
+export function awaitProposalExecution(
+  slashingProposer: EmpireSlashingProposerContract | TallySlashingProposerContract,
   timeoutSeconds: number,
-) {
-  await retryUntil(
-    async () => {
-      const events = await slashingProposer.getEvents.PayloadSubmitted();
-      if (events.length === 0) {
-        return false;
-      }
-      const event = events[0];
-      const roundNumber = event.args.round;
-      const payload = event.args.payload;
-      return roundNumber && payload;
-    },
-    'payload submitted',
-    timeoutSeconds,
-    1,
-  );
+  logger: Logger,
+): Promise<bigint> {
+  return new Promise<bigint>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      logger.warn(`Timed out waiting for proposal execution`);
+      reject(new Error(`Timeout waiting for proposal execution after ${timeoutSeconds}s`));
+    }, timeoutSeconds * 1000);
+
+    if (slashingProposer.type === 'empire') {
+      const unwatch = slashingProposer.listenToPayloadSubmitted(args => {
+        logger.warn(`Proposal ${args.payload} from round ${args.round} executed`);
+        clearTimeout(timeout);
+        unwatch();
+        resolve(args.round);
+      });
+    } else if (slashingProposer.type === 'tally') {
+      const unwatch = slashingProposer.listenToRoundExecuted(args => {
+        logger.warn(`Slash from round ${args.round} executed`);
+        clearTimeout(timeout);
+        unwatch();
+        resolve(args.round);
+      });
+    } else {
+      clearTimeout(timeout);
+      reject(new Error(`Unknown slashing proposer type: ${(slashingProposer as any).type}`));
+    }
+  });
 }
 
 export async function awaitCommitteeExists({
@@ -167,31 +175,38 @@ export async function awaitCommitteeKicked({
   cheatCodes: RollupCheatCodes;
   committee: readonly `0x${string}`[];
   slashFactory: SlashFactoryContract;
-  slashingProposer: GetContractReturnType<typeof EmpireSlashingProposerAbi, ViemClient>;
+  slashingProposer: EmpireSlashingProposerContract | TallySlashingProposerContract | undefined;
   slashingRoundSize: number;
   aztecSlotDuration: number;
   logger: Logger;
   sendDummyTx: () => Promise<void>;
 }) {
+  if (!slashingProposer) {
+    throw new Error('No slashing proposer configured - cannot test slashing');
+  }
+
   logger.info(`Advancing epochs so slash payload gets deployed`);
   await cheatCodes.debugRollup();
   await cheatCodes.advanceToNextEpoch();
   await cheatCodes.advanceToNextEpoch();
 
-  // Await for the slash payload to be created and check that all committee members are slashed
-  const slashPayloadEvents = await retryUntil(
-    async () => {
-      const events = await slashFactory.getSlashPayloadCreatedEvents();
-      return events.length > 0 ? events : undefined;
-    },
-    'slash payload created',
-    120,
-    1,
-  );
-  expect(slashPayloadEvents.length).toBe(1);
-
-  // The uniqueness check is needed since a validator may be slashed more than once on the same round (eg because they let two epochs be pruned)
-  expect(unique(slashPayloadEvents[0].slashes.map(slash => slash.validator.toString()))).toHaveLength(committee.length);
+  // Await for the slash payload to be created if empire
+  if (slashingProposer.type === 'empire') {
+    const slashPayloadEvents = await retryUntil(
+      async () => {
+        const events = await slashFactory.getSlashPayloadCreatedEvents();
+        return events.length > 0 ? events : undefined;
+      },
+      'slash payload created',
+      120,
+      1,
+    );
+    expect(slashPayloadEvents.length).toBe(1);
+    // The uniqueness check is needed since a validator may be slashed more than once on the same round (eg because they let two epochs be pruned)
+    expect(unique(slashPayloadEvents[0].slashes.map(slash => slash.validator.toString()))).toHaveLength(
+      committee.length,
+    );
+  }
 
   const attestersPre = await rollup.getAttesters();
   expect(attestersPre.length).toBe(committee.length);
@@ -203,7 +218,7 @@ export async function awaitCommitteeKicked({
   }
 
   logger.info(`Waiting for slash proposal to be executed`);
-  await awaitProposalExecution(slashingProposer, slashingRoundSize * 2 * aztecSlotDuration);
+  await awaitProposalExecution(slashingProposer, slashingRoundSize * 2 * aztecSlotDuration, logger);
 
   // The attesters should still form the committee
   // but they should be reduced to the "living" status

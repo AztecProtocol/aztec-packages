@@ -48,6 +48,8 @@ import {
   StakingAssetHandlerBytecode,
   TallySlasherDeploymentExtLibAbi,
   TallySlasherDeploymentExtLibBytecode,
+  TallySlashingProposerAbi,
+  TallySlashingProposerBytecode,
   TestERC20Abi,
   TestERC20Bytecode,
   ValidatorOperationsExtLibAbi,
@@ -169,6 +171,12 @@ export const EmpireSlashingProposerArtifact = {
   name: 'EmpireSlashingProposer',
   contractAbi: EmpireSlashingProposerAbi,
   contractBytecode: EmpireSlashingProposerBytecode as Hex,
+};
+
+export const TallySlashingProposerArtifact = {
+  name: 'TallySlashingProposer',
+  contractAbi: TallySlashingProposerAbi,
+  contractBytecode: TallySlashingProposerBytecode as Hex,
 };
 
 export const SlashFactoryArtifact = {
