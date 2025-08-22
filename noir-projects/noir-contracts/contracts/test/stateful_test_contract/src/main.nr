@@ -34,7 +34,7 @@ pub contract StatefulTest {
     #[initializer]
     fn wrong_constructor() {
         let selector = FunctionSelector::from_signature("not_exists(Field)");
-        let _res = context.call_public_function(context.this_address(), selector, [42]);
+        let _res = context.call_public_function(context.this_address(), selector, [42], false);
     }
 
     #[public]
@@ -65,7 +65,7 @@ pub contract StatefulTest {
     #[private]
     fn destroy_and_create(recipient: AztecAddress, amount: Field) {
         assert_is_initialized_private(&mut context);
-        let sender = context.msg_sender();
+        let sender = context.msg_sender().unwrap();
 
         let sender_notes = storage.notes.at(sender);
         decrement(sender_notes, amount, sender);
@@ -77,7 +77,7 @@ pub contract StatefulTest {
     #[private]
     #[noinitcheck]
     fn destroy_and_create_no_init_check(recipient: AztecAddress, amount: Field) {
-        let sender = context.msg_sender();
+        let sender = context.msg_sender().unwrap();
 
         let sender_notes = storage.notes.at(sender);
         decrement(sender_notes, amount, sender);

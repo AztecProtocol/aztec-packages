@@ -1,3 +1,7 @@
+// This file generates call interface stub functions for Aztec contract methods.
+// It creates wrapper functions that serialize arguments and return appropriate call interfaces
+// for invoking contract functions across different contexts (private, public, static, utility).
+
 use crate::macros::utils::{
     add_to_field_array, AsStrQuote, compute_fn_selector, is_fn_private, is_fn_public, is_fn_view,
 };

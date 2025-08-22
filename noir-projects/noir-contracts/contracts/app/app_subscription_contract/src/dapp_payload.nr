@@ -57,6 +57,7 @@ impl DAppPayload {
                     call.target_address,
                     call.args_hash,
                     call.is_static,
+                    false, // TODO: this could be parametrised.
                 );
             } else {
                 let _result = context.call_private_function_with_args_hash(

@@ -39,7 +39,7 @@ pub contract StateVars {
 
     #[public]
     fn initialize_public_immutable(value: u8) {
-        let mut new_mock_struct = MockStruct { account: context.msg_sender(), value };
+        let mut new_mock_struct = MockStruct { account: context.msg_sender().unwrap(), value };
         storage.public_immutable.initialize(new_mock_struct);
     }
 
@@ -99,31 +99,31 @@ pub contract StateVars {
 
     #[private]
     fn initialize_private_immutable(randomness: Field, value: Field) {
-        let new_note = ValueNote::new(value, context.msg_sender());
+        let new_note = ValueNote::new(value, context.msg_sender().unwrap());
 
         storage.private_immutable.initialize(new_note).emit(encode_and_encrypt_note(
             &mut context,
-            context.msg_sender(),
+            context.msg_sender().unwrap(),
         ));
     }
 
     #[private]
     fn initialize_private(randomness: Field, value: Field) {
-        let private_mutable = ValueNote::new(value, context.msg_sender());
+        let private_mutable = ValueNote::new(value, context.msg_sender().unwrap());
 
         storage.private_mutable.initialize(private_mutable).emit(encode_and_encrypt_note(
             &mut context,
-            context.msg_sender(),
+            context.msg_sender().unwrap(),
         ));
     }
 
     #[private]
     fn update_private_mutable(randomness: Field, value: Field) {
-        let new_note = ValueNote::new(value, context.msg_sender());
+        let new_note = ValueNote::new(value, context.msg_sender().unwrap());
 
         storage.private_mutable.replace(new_note).emit(encode_and_encrypt_note(
             &mut context,
-            context.msg_sender(),
+            context.msg_sender().unwrap(),
         ));
     }
 
@@ -136,12 +136,12 @@ pub contract StateVars {
         let new_value = current.value() + 1;
 
         // Create new note with incremented value
-        let new_note = ValueNote::new(new_value, context.msg_sender());
+        let new_note = ValueNote::new(new_value, context.msg_sender().unwrap());
 
         // Replace existing note with new note
         storage.private_mutable.replace(new_note).emit(encode_and_encrypt_note(
             &mut context,
-            context.msg_sender(),
+            context.msg_sender().unwrap(),
         ));
     }
 

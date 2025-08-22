@@ -97,7 +97,7 @@ pub contract Token {
     // docs:start:set_admin
     #[public]
     fn set_admin(new_admin: AztecAddress) {
-        assert(storage.admin.read().eq(context.msg_sender()), "caller is not admin");
+        assert(storage.admin.read().eq(context.msg_sender().unwrap()), "caller is not admin");
         // docs:start:write_admin
         storage.admin.write(new_admin);
         // docs:end:write_admin
@@ -176,7 +176,7 @@ pub contract Token {
     #[public]
     fn set_minter(minter: AztecAddress, approve: bool) {
         // docs:start:read_admin
-        assert(storage.admin.read().eq(context.msg_sender()), "caller is not admin");
+        assert(storage.admin.read().eq(context.msg_sender().unwrap()), "caller is not admin");
         // docs:end:read_admin
         // docs:start:write_minter
         storage.minters.at(minter).write(approve);
@@ -188,7 +188,7 @@ pub contract Token {
     #[public]
     fn mint_to_public(to: AztecAddress, amount: u128) {
         // docs:start:read_minter
-        assert(storage.minters.at(context.msg_sender()).read(), "caller is not minter");
+        assert(storage.minters.at(context.msg_sender().unwrap()).read(), "caller is not minter");
         // docs:end:read_minter
         let new_balance = storage.public_balances.at(to).read().add(amount);
         let supply = storage.total_supply.read().add(amount);
@@ -272,7 +272,7 @@ pub contract Token {
     // docs:start:transfer
     #[private]
     fn transfer(to: AztecAddress, amount: u128) {
-        let from = context.msg_sender();
+        let from = context.msg_sender().unwrap();
 
         // We reduce `from`'s balance by amount by recursively removing notes over potentially multiple calls. This
         // method keeps the gate count for each individual call low - reading too many notes at once could result in
@@ -367,7 +367,7 @@ pub contract Token {
     // docs:start:cancel_authwit
     #[private]
     fn cancel_authwit(inner_hash: Field) {
-        let on_behalf_of = context.msg_sender();
+        let on_behalf_of = context.msg_sender().unwrap();
         let nullifier = compute_authwit_nullifier(on_behalf_of, inner_hash);
         context.push_nullifier(nullifier);
     }
@@ -405,7 +405,7 @@ pub contract Token {
     #[private]
     fn transfer_to_private(to: AztecAddress, amount: u128) {
         // `from` is the owner of the public balance from which we'll subtract the `amount`.
-        let from = context.msg_sender();
+        let from = context.msg_sender().unwrap();
         let token = Token::at(context.this_address());
 
         // We prepare the private balance increase (the partial note).
@@ -445,7 +445,7 @@ pub contract Token {
             storage.balances.at(to).set.storage_slot,
             context,
             to,
-            context.msg_sender(),
+            context.msg_sender().unwrap(),
         );
 
         partial_note
@@ -464,7 +464,7 @@ pub contract Token {
     fn finalize_transfer_to_private(amount: u128, partial_note: PartialUintNote) {
         // Completer is the entity that can complete the partial note. In this case, it's the same as the account
         // `from` from whose balance we're subtracting the `amount`.
-        let from_and_completer = context.msg_sender();
+        let from_and_completer = context.msg_sender().unwrap();
         _finalize_transfer_to_private(
             from_and_completer,
             amount,
@@ -494,7 +494,7 @@ pub contract Token {
         // First we subtract the `amount` from the private balance of `from`
         storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(&mut context, from));
 
-        partial_note.complete_from_private(&mut context, context.msg_sender(), amount);
+        partial_note.complete_from_private(&mut context, context.msg_sender().unwrap(), amount);
     }
 
     // docs:start:finalize_transfer_to_private_unsafe
@@ -550,9 +550,9 @@ pub contract Token {
         // At last we finalize the mint. Usage of the `unsafe` method here is safe because we set
         // the `minter_and_completer` function argument to a message sender, guaranteeing that only a message sender
         // with minter permissions can successfully execute the function.
-        token._finalize_mint_to_private_unsafe(context.msg_sender(), amount, partial_note).enqueue(
-            &mut context,
-        );
+        token
+            ._finalize_mint_to_private_unsafe(context.msg_sender().unwrap(), amount, partial_note)
+            .enqueue(&mut context);
     }
     // docs:end:mint_to_private
 
@@ -568,7 +568,7 @@ pub contract Token {
     fn finalize_mint_to_private(amount: u128, partial_note: PartialUintNote) {
         // Completer is the entity that can complete the partial note. In this case, it's the same as the minter
         // account.
-        let minter_and_completer = context.msg_sender();
+        let minter_and_completer = context.msg_sender().unwrap();
         assert(storage.minters.at(minter_and_completer).read(), "caller is not minter");
 
         _finalize_mint_to_private(

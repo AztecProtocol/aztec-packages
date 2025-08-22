@@ -22,9 +22,12 @@ pub contract NoteGetter {
 
     #[private]
     fn insert_note(value: Field) {
-        let note = ValueNote::new(value, context.msg_sender());
+        let note = ValueNote::new(value, context.msg_sender().unwrap());
 
-        storage.set.insert(note).emit(encode_and_encrypt_note(&mut context, context.msg_sender()));
+        storage.set.insert(note).emit(encode_and_encrypt_note(
+            &mut context,
+            context.msg_sender().unwrap(),
+        ));
     }
 
     #[utility]

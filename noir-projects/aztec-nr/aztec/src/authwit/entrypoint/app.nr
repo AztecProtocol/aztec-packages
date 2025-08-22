@@ -52,6 +52,8 @@ impl AppPayload {
                         call.target_address,
                         call.args_hash,
                         call.is_static,
+                        false, // TODO: update FunctionCall to include a
+// `hide_msg_sender: bool` item.
                     );
                 } else {
                     let _result = context.call_private_function_with_args_hash(

@@ -111,8 +111,11 @@ pub contract Lending {
         on_behalf_of: Field,
         collateral_asset: AztecAddress,
     ) {
-        let on_behalf_of =
-            compute_identifier(secret, on_behalf_of, context.msg_sender().to_field());
+        let on_behalf_of = compute_identifier(
+            secret,
+            on_behalf_of,
+            context.msg_sender().unwrap().to_field(),
+        );
         let _res = Token::at(collateral_asset)
             .transfer_to_public(from, context.this_address(), amount, authwit_nonce)
             .call(&mut context);
@@ -132,7 +135,12 @@ pub contract Lending {
     ) {
         // docs:start:public_to_public_call
         let _ = Token::at(collateral_asset)
-            .transfer_in_public(context.msg_sender(), context.this_address(), amount, authwit_nonce)
+            .transfer_in_public(
+                context.msg_sender().unwrap(),
+                context.this_address(),
+                amount,
+                authwit_nonce,
+            )
             .call(&mut context);
         // docs:end:public_to_public_call
         let _ = Lending::at(context.this_address())
@@ -155,7 +163,7 @@ pub contract Lending {
 
     #[private]
     fn withdraw_private(secret: Field, to: AztecAddress, amount: u128) {
-        let on_behalf_of = compute_identifier(secret, 0, context.msg_sender().to_field());
+        let on_behalf_of = compute_identifier(secret, 0, context.msg_sender().unwrap().to_field());
         Lending::at(context.this_address())
             ._withdraw(AztecAddress::from_field(on_behalf_of), to, amount)
             .enqueue(&mut context);
@@ -164,7 +172,7 @@ pub contract Lending {
     #[public]
     fn withdraw_public(to: AztecAddress, amount: u128) {
         let _ = Lending::at(context.this_address())
-            ._withdraw(context.msg_sender(), to, amount)
+            ._withdraw(context.msg_sender().unwrap(), to, amount)
             .call(&mut context);
     }
 
@@ -204,7 +212,7 @@ pub contract Lending {
 
     #[private]
     fn borrow_private(secret: Field, to: AztecAddress, amount: u128) {
-        let on_behalf_of = compute_identifier(secret, 0, context.msg_sender().to_field());
+        let on_behalf_of = compute_identifier(secret, 0, context.msg_sender().unwrap().to_field());
         let _ = Lending::at(context.this_address())
             ._borrow(AztecAddress::from_field(on_behalf_of), to, amount)
             .enqueue(&mut context);
@@ -212,9 +220,9 @@ pub contract Lending {
 
     #[public]
     fn borrow_public(to: AztecAddress, amount: u128) {
-        let _ = Lending::at(context.this_address())._borrow(context.msg_sender(), to, amount).call(
-            &mut context,
-        );
+        let _ = Lending::at(context.this_address())
+            ._borrow(context.msg_sender().unwrap(), to, amount)
+            .call(&mut context);
     }
 
     #[public]
@@ -249,8 +257,11 @@ pub contract Lending {
         on_behalf_of: Field,
         stable_coin: AztecAddress,
     ) {
-        let on_behalf_of =
-            compute_identifier(secret, on_behalf_of, context.msg_sender().to_field());
+        let on_behalf_of = compute_identifier(
+            secret,
+            on_behalf_of,
+            context.msg_sender().unwrap().to_field(),
+        );
         // docs:start:private_call
         let _ = Token::at(stable_coin).burn_private(from, amount, authwit_nonce).call(&mut context);
         // docs:end:private_call
@@ -267,7 +278,7 @@ pub contract Lending {
         stable_coin: AztecAddress,
     ) {
         let _ = Token::at(stable_coin)
-            .burn_public(context.msg_sender(), amount, authwit_nonce)
+            .burn_public(context.msg_sender().unwrap(), amount, authwit_nonce)
             .call(&mut context);
         let _ = Lending::at(context.this_address())._repay(owner, amount, stable_coin).call(
             &mut context,
