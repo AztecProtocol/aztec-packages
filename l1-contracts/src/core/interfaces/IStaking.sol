@@ -28,7 +28,7 @@ interface IStakingCore {
     G1Point proofOfPossession
   );
   event WithdrawInitiated(address indexed attester, address indexed recipient, uint256 amount);
-  event WithdrawFinalised(address indexed attester, address indexed recipient, uint256 amount);
+  event WithdrawFinalized(address indexed attester, address indexed recipient, uint256 amount);
   event Slashed(address indexed attester, uint256 amount);
   event StakingQueueConfigUpdated(StakingQueueConfig config);
 
@@ -43,7 +43,7 @@ interface IStakingCore {
   ) external;
   function flushEntryQueue() external;
   function initiateWithdraw(address _attester, address _recipient) external returns (bool);
-  function finaliseWithdraw(address _attester) external;
+  function finalizeWithdraw(address _attester) external;
   function slash(address _attester, uint256 _amount) external returns (bool);
   function vote(uint256 _proposalId) external;
   function updateStakingQueueConfig(StakingQueueConfig memory _config) external;

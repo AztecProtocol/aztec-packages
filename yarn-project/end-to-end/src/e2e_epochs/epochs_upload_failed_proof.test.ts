@@ -54,9 +54,9 @@ describe('e2e_epochs/epochs_upload_failed_proof', () => {
     const origCreateEpochProver = proverManager.createEpochProver.bind(proverManager);
     proverManager.createEpochProver = () => {
       const epochProver = origCreateEpochProver();
-      epochProver.finaliseEpoch = async () => {
+      epochProver.finalizeEpoch = async () => {
         await sleep(1000);
-        logger.warn(`Triggering error on finaliseEpoch`);
+        logger.warn(`Triggering error on finalizeEpoch`);
         throw new Error(`Fake error while proving epoch`);
       };
       return epochProver;

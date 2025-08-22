@@ -200,10 +200,10 @@ library BlobLib {
   ) internal pure returns (bytes32 currentBlobCommitmentsHash) {
     uint256 i = 0;
     currentBlobCommitmentsHash = _previousBlobCommitmentsHash;
-    // If we are at the first block of an epoch, we reinitialise the blobCommitmentsHash.
+    // If we are at the first block of an epoch, we reinitialize the blobCommitmentsHash.
     // Blob commitments are collected and proven per root rollup proof => per epoch.
     if (_isFirstBlockOfEpoch) {
-      // Initialise the blobCommitmentsHash
+      // Initialize the blobCommitmentsHash
       currentBlobCommitmentsHash = Hash.sha256ToField(abi.encodePacked(_blobCommitments[i++]));
     }
     for (i; i < _blobCommitments.length; i++) {
