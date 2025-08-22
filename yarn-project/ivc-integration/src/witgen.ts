@@ -22,10 +22,10 @@ import MockPrivateKernelInitVk from '../artifacts/keys/mock_private_kernel_init.
 import MockPrivateKernelInnerVk from '../artifacts/keys/mock_private_kernel_inner.vk.data.json' with { type: 'json' };
 import MockPrivateKernelResetVk from '../artifacts/keys/mock_private_kernel_reset.vk.data.json' with { type: 'json' };
 import MockPrivateKernelTailVk from '../artifacts/keys/mock_private_kernel_tail.vk.data.json' with { type: 'json' };
+import MockRollupBasePrivateVk from '../artifacts/keys/mock_rollup_base_private.vk.data.json' with { type: 'json' };
+import MockRollupBasePublicVk from '../artifacts/keys/mock_rollup_base_public.vk.data.json' with { type: 'json' };
+import MockRollupMergeVk from '../artifacts/keys/mock_rollup_merge.vk.data.json' with { type: 'json' };
 import MockRollupRootVk from '../artifacts/keys/mock_rollup_root.vk.data.json' with { type: 'json' };
-import MockRollupBasePrivateVk from '../artifacts/keys/mock_rollup_tx_base_private.vk.data.json' with { type: 'json' };
-import MockRollupBasePublicVk from '../artifacts/keys/mock_rollup_tx_base_public.vk.data.json' with { type: 'json' };
-import MockRollupMergeVk from '../artifacts/keys/mock_rollup_tx_merge.vk.data.json' with { type: 'json' };
 import MockHidingCircuit from '../artifacts/mock_hiding.json' with { type: 'json' };
 import MockPrivateKernelInitCircuit from '../artifacts/mock_private_kernel_init.json' with { type: 'json' };
 import MockPrivateKernelInnerCircuit from '../artifacts/mock_private_kernel_inner.json' with { type: 'json' };
