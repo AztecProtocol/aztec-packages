@@ -114,9 +114,9 @@ void validate_inputs(const stdlib::byte_array<Builder>& hashed_message,
  * @note The circuit introduces constraints for the following assertions:
  *          1. \$P\$ is on the curve
  *          2. \$H(m) < n\$
- *          2. \$0 < r < n\$
- *          3. \$0 < s < (n+1)/2\$
- *          4. \$Q := H(m) s^{-1} G + r s^{-1} P\$ is not the point at infinity
+ *          3. \$0 < r < n\$
+ *          4. \$0 < s < (n+1)/2\$
+ *          5. \$Q := H(m) s^{-1} G + r s^{-1} P\$ is not the point at infinity
  * Therefore, if the witnesses passed to this function do not satisfy these constraints, the resulting circuit
  * will be unsatisfied. If a user wants to use the verification inside a in-circuit branch, then they need to supply
  * valid data for \$P, r, s\$, even though \$(r,s)\$ doesn't need to be a valid signature.
