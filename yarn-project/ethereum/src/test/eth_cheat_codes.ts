@@ -83,8 +83,8 @@ export class EthCheatCodes {
    * Advance the chain by a number of blocks
    * @param numberOfBlocks - The number of blocks to mine
    */
-  public async mine(numberOfBlocks = 1): Promise<void> {
-    await this.doMine(numberOfBlocks);
+  public async mine(numberOfBlocks: number | bigint = 1): Promise<void> {
+    await this.doMine(Number(numberOfBlocks));
     this.logger.warn(`Mined ${numberOfBlocks} L1 blocks`);
   }
 

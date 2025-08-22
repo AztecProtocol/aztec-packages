@@ -90,6 +90,17 @@ export async function timesAsync<T>(n: number, fn: (i: number) => Promise<T>): P
 }
 
 /**
+ * Filters an array with an async predicate. Fires all predicate promises in parallel.
+ * @param arr - The array to filter.
+ * @param fn - The async function to determine if an item should be included.
+ * @returns A promise that resolves to the filtered array.
+ */
+export async function filterAsync<T>(arr: T[], fn: (item: T) => Promise<boolean>): Promise<T[]> {
+  const results = await Promise.all(arr.map(fn));
+  return arr.filter((_, i) => results[i]);
+}
+
+/**
  * Executes the given async function n times in parallel and returns the results in an array.
  * @param n - How many times to repeat.
  * @param fn - Mapper from index to value.
@@ -157,7 +168,7 @@ export function areArraysEqual<T>(a: T[], b: T[], eq: (a: T, b: T) => boolean = 
  * @param arr - The array.
  * @param fn - The function to get the value to compare.
  */
-export function maxBy<T>(arr: T[], fn: (x: T) => number): T | undefined {
+export function maxBy<T>(arr: T[], fn: (x: T) => number | bigint): T | undefined {
   return arr.reduce((max, x) => (fn(x) > fn(max) ? x : max), arr[0]);
 }
 
