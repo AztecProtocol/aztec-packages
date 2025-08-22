@@ -671,7 +671,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   /**
-   * Method to retrieve a single tx from the mempool or unfinalised chain.
+   * Method to retrieve a single tx from the mempool or unfinalized chain.
    * @param txHash - The transaction hash to return.
    * @returns - The tx if it exists.
    */
@@ -680,7 +680,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   /**
-   * Method to retrieve txs from the mempool or unfinalised chain.
+   * Method to retrieve txs from the mempool or unfinalized chain.
    * @param txHash - The transaction hash to return.
    * @returns - The txs if it exists.
    */

@@ -793,7 +793,7 @@ export const addMultipleValidators = async (
 
       const validatorsTuples = await Promise.all(validators.map(makeValidatorTuples));
 
-      // Mint tokens, approve them, use cheat code to initialise validator set without setting up the epoch.
+      // Mint tokens, approve them, use cheat code to initialize validator set without setting up the epoch.
       const stakeNeeded = activationThreshold * BigInt(validators.length);
       const { txHash } = await deployer.sendTransaction({
         to: stakingAssetAddress,

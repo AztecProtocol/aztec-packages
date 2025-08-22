@@ -118,7 +118,7 @@ This matters because verifying a transaction is effectively free work being perf
 
 If we reserve 10% of the block production time for verifying user proofs, at 10 transaction per seconds this gives us 0.01s per transaction. i.e. 10ms per proof.
 
-If the block producer has access to more than one physical machine that they can use to parallelise verification, we can extend the maximum tolerable verification time. For an MVP that requires 20ms to verify each proof, each block producer would require at least 2 physical machines to successfully build blocks.
+If the block producer has access to more than one physical machine that they can use to parallelize verification, we can extend the maximum tolerable verification time. For an MVP that requires 20ms to verify each proof, each block producer would require at least 2 physical machines to successfully build blocks.
 
 100tps with one physical machine would require a verification time of 1ms per proof.
 
