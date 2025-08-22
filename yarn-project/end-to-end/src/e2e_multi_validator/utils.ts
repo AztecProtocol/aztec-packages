@@ -71,12 +71,12 @@ export function createJSONRPCSigner(keyLookup: Map<string, EthPrivateKey>, stats
               }),
             );
           });
-        } catch (_) {
+        } catch (err) {
           res.end(
             JSON.stringify({
               jsonrpc: '2.0',
               id: 1,
-              error: { code: -32603, message: 'Internal error' },
+              error: { code: -32603, message: `${err}` },
             }),
           );
         }
