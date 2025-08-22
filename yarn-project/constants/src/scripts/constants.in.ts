@@ -433,7 +433,7 @@ function processConstantsSolidity(constants: { [key: string]: string }, prefix =
  */
 function generateTypescriptConstants({ constants, generatorIndexEnum }: ParsedContent, targetPath: string) {
   const result = [
-    '/* eslint-disable */\n// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants',
+    '// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants',
     processConstantsTS(constants),
     processEnumTS('GeneratorIndex', generatorIndexEnum),
   ].join('\n');
@@ -580,6 +580,7 @@ function evaluateExpressions(expressions: [string, string][]): { [key: string]: 
         // Remove 'as u8' and 'as u32' castings
         .replaceAll(' as u8', '')
         .replaceAll(' as u32', '')
+        .replaceAll(' as u64', '')
         // Remove the 'AztecAddress::from_field(...)' pattern
         .replace(/AztecAddress::from_field\((0x[a-fA-F0-9]+|[0-9]+)\)/g, '$1')
         // We make some space around the parentheses, so that constant numbers are still split.
