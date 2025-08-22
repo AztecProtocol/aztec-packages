@@ -129,11 +129,9 @@ Witnesses::WitnessStack deserialize_witness_stack(std::vector<uint8_t>&& buf)
 // TODO(tom): clean this up.
 uint256_t from_be_bytes(std::vector<uint8_t> const& bytes)
 {
-    if (bytes.size() != 32) {
-        throw_or_abort("Error, uint256 constructed from bytes array with invalid length");
-    }
+    BB_ASSERT_EQ(bytes.size(), 32U, "uint256 constructed from bytes array with invalid length");
     uint256_t result = 0;
-    for (unsigned char byte : bytes) {
+    for (uint8_t byte : bytes) {
         result <<= 8;
         result |= byte;
     }
