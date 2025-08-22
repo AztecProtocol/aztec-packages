@@ -167,7 +167,7 @@ describe('TallySlasherClient', () => {
         const currentSlot = currentRound * BigInt(roundSize); // Round 5
         const targetRound = 3n;
 
-        // Add slot-based offenses for the target round (slots 600-799 are in round 3)
+        // Add slot-based offenses for the target round (slots 576-767 are in round 3)
         await offensesStore.addPendingOffense(
           createOffense({
             validator: committee[0],

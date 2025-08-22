@@ -19,7 +19,6 @@ export interface SlasherConfig {
   slashInactivitySignalTargetPercentage: number; // 0-1, 0.6 means 60%. Must be greater than 0
   slashInactivityCreatePenalty: bigint;
   slashInactivityMaxPenalty: bigint;
-  slashProposerRoundPollingIntervalSeconds: number;
   slashProposeInvalidAttestationsPenalty: bigint;
   slashProposeInvalidAttestationsMaxPenalty: bigint;
   slashAttestDescendantOfInvalidPenalty: bigint;
@@ -45,7 +44,6 @@ export const SlasherConfigSchema = z.object({
   slashInactivitySignalTargetPercentage: z.number(),
   slashInactivityCreatePenalty: schemas.BigInt,
   slashInactivityMaxPenalty: schemas.BigInt,
-  slashProposerRoundPollingIntervalSeconds: z.number(),
   slashProposeInvalidAttestationsPenalty: schemas.BigInt,
   slashProposeInvalidAttestationsMaxPenalty: schemas.BigInt,
   slashAttestDescendantOfInvalidPenalty: schemas.BigInt,

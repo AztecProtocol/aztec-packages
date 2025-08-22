@@ -114,7 +114,7 @@ describe('spartan_upgrade_governance_proposer', () => {
         NewGovernanceProposerPayloadAbi,
         NewGovernanceProposerPayloadBytecode,
         [nodeInfo.l1ContractAddresses.registryAddress.toString()],
-        '0x2a', // salt
+        { salt: '0x2a' },
       );
       expect(newGovernanceProposerAddress).toBeDefined();
       expect(newGovernanceProposerAddress.equals(EthAddress.ZERO)).toBeFalsy();

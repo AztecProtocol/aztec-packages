@@ -70,8 +70,8 @@ export const DefaultL1ContractsConfig = {
   activationThreshold: BigInt(100e18),
   ejectionThreshold: BigInt(50e18),
   slashingUnit: BigInt(5e18),
-  slashingQuorum: 101,
-  slashingRoundSize: 200,
+  slashingRoundSize: 32 * 6, // 6 epochs
+  slashingQuorum: (32 * 6) / 2 + 1, // 6 epochs, majority of validators
   slashingLifetimeInRounds: 5,
   slashingExecutionDelayInRounds: 0, // round N may be submitted in round N + 1
   slashingVetoer: EthAddress.ZERO,
@@ -80,7 +80,7 @@ export const DefaultL1ContractsConfig = {
   manaTarget: BigInt(1e10),
   provingCostPerMana: BigInt(100),
   exitDelaySeconds: 2 * 24 * 60 * 60,
-  slasherFlavor: 'empire' as const,
+  slasherFlavor: 'tally' as const,
   slashingOffsetInRounds: 2,
 } satisfies L1ContractsConfig;
 

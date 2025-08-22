@@ -30,11 +30,11 @@ const NUM_VALIDATORS = NUM_NODES + 1; // We create an extra validator, who will 
 const BOOT_NODE_UDP_PORT = 4500;
 const ETHEREUM_SLOT_DURATION = 6;
 const AZTEC_SLOT_DURATION = 12;
-const EPOCH_DURATION = 4;
+const EPOCH_DURATION = 3;
 // how many l2 slots make up a slashing round
-const SLASHING_ROUND_SIZE = 5;
+const SLASHING_ROUND_SIZE = 6;
 // how many block builders must signal for a single payload in a single round for it to be executable
-const SLASHING_QUORUM = 3;
+const SLASHING_QUORUM = 4;
 // an attester must not attest to 50% of proven blocks over an epoch to warrant a slash payload being created
 const SLASH_INACTIVITY_CREATE_TARGET_PERCENTAGE = 0.5;
 // an attester must not attest to 10% of proven blocks over an epoch to agree with a slash
@@ -73,7 +73,6 @@ describe('veto slash', () => {
         slashingQuorum: SLASHING_QUORUM,
         slashInactivityCreateTargetPercentage: SLASH_INACTIVITY_CREATE_TARGET_PERCENTAGE,
         slashInactivitySignalTargetPercentage: SLASH_INACTIVITY_SIGNAL_TARGET_PERCENTAGE,
-        slashProposerRoundPollingIntervalSeconds: 1,
       },
     });
 
@@ -196,7 +195,7 @@ describe('veto slash', () => {
       expect(slasherVetoer).toEqual(l1Client.account.address);
 
       const slashingProposer = await rollup.getSlashingProposer();
-      if (slashingProposer.type !== 'empire') {
+      if (slashingProposer!.type !== 'empire') {
         throw new Error('This test requires Empire slashing');
       }
       const empireSlashingProposer = slashingProposer as EmpireSlashingProposerContract;
@@ -252,7 +251,7 @@ describe('veto slash', () => {
       //##############################//
 
       await retryUntil(async () => {
-        const currentRound = await slashingProposer.getCurrentRound();
+        const currentRound = await slashingProposer!.getCurrentRound();
         return currentRound > submittableRound.round;
       });
 
@@ -307,7 +306,7 @@ describe('veto slash', () => {
         });
       });
       const awaitPayloadExpiredPromise = retryUntil(async () => {
-        const currentRound = await slashingProposer.getCurrentRound();
+        const currentRound = await slashingProposer!.getCurrentRound();
         return currentRound > submittableRound.round + BigInt(LIFETIME_IN_ROUNDS);
       });
 
