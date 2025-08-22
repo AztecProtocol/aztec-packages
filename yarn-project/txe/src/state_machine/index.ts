@@ -69,7 +69,7 @@ export class TXEStateMachine {
           attestations: [],
         },
       ]),
-      this.syncDataProvider.setHeader(block.header),
+      this.syncDataProvider.setHeader(block.getBlockHeader()),
     ]);
   }
 }

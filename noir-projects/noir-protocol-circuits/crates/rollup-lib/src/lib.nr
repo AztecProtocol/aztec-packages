@@ -12,6 +12,9 @@ pub mod block_root;
 // Block merge rollup
 pub mod block_merge;
 
+pub mod checkpoint_root;
+pub mod checkpoint_merge;
+
 // Root rollup
 pub mod root;
 

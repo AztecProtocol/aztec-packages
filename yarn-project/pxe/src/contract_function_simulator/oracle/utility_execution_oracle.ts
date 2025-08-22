@@ -129,7 +129,7 @@ export class UtilityExecutionOracle extends TypedOracle {
     if (!block) {
       return undefined;
     }
-    return block.header;
+    return block.getBlockHeader();
   }
 
   /**

@@ -1,2 +1,5 @@
-pub mod block_root_rollup_inputs_validator;
-pub mod block_root_rollup_output_composer;
+mod block_root_rollup_inputs_validator;
+mod block_rollup_public_inputs_composer;
+
+pub use block_rollup_public_inputs_composer::BlockRollupPublicInputsComposer;
+pub use block_root_rollup_inputs_validator::{validate_parity_root, validate_previous_rollups};

@@ -281,8 +281,6 @@ export class PrivateKernelExecutionProver {
       includeByTimestampUpperBound,
     );
 
-    pushTestData('private-kernel-inputs-ordering', privateInputs);
-
     const witgenTimer = new Timer();
     const tailOutput = generateWitnesses
       ? await this.proofCreator.generateTailOutput(privateInputs)

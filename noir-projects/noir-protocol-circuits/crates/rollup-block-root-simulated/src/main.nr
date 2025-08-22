@@ -1,5 +1,5 @@
-use dep::rollup_lib::block_root::{BlockRootOrBlockMergePublicInputs, BlockRootRollupInputs};
+use dep::rollup_lib::block_root::{BlockRollupPublicInputs, BlockRootRollupPrivateInputs};
 
-unconstrained fn main(inputs: BlockRootRollupInputs) -> pub BlockRootOrBlockMergePublicInputs {
-    inputs.block_root_rollup_circuit()
+unconstrained fn main(inputs: BlockRootRollupPrivateInputs) -> pub BlockRollupPublicInputs {
+    inputs.execute()
 }
