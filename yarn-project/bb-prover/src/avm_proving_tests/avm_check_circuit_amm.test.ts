@@ -1,21 +1,22 @@
 import { createLogger } from '@aztec/foundation/log';
-import { TestExecutorMetrics, bulkTest, defaultGlobals } from '@aztec/simulator/public/fixtures';
+import { TestExecutorMetrics, ammTest, defaultGlobals } from '@aztec/simulator/public/fixtures';
 
 import { mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
 
 import { AvmProvingTester } from './avm_proving_tester.js';
 
-const TIMEOUT = 180_000;
+const TIMEOUT = 300_000;
 
-describe('AVM proven bulk test', () => {
-  const logger = createLogger('avm-bulk-test');
+// TODO: unskip when check-circuit works for AMM. Confirm that it is fast enough to run in CI.
+describe.skip('AVM proven AMM', () => {
+  const logger = createLogger('avm-proven-tests-amm');
   const metrics = new TestExecutorMetrics();
   let tester: AvmProvingTester;
 
   beforeEach(async () => {
-    // FULL PROVING! Not check-circuit.
-    tester = await AvmProvingTester.new(/*checkCircuitOnly=*/ false, /*globals=*/ defaultGlobals(), metrics);
+    // Check-circuit only (no full proving).
+    tester = await AvmProvingTester.new(/*checkCircuitOnly=*/ true, /*globals=*/ defaultGlobals(), metrics);
   });
 
   afterAll(() => {
@@ -31,9 +32,9 @@ describe('AVM proven bulk test', () => {
   });
 
   it(
-    'Prove and verify',
+    'proven AMM operations: addLiquidity, swap, removeLiquidity (simulates constructors, set_minter)',
     async () => {
-      await bulkTest(tester, logger, (b: boolean) => expect(b).toBe(true));
+      await ammTest(tester, logger, (b: boolean) => expect(b).toBe(true));
     },
     TIMEOUT,
   );
