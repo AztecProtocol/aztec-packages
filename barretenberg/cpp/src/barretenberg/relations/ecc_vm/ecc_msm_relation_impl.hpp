@@ -94,7 +94,6 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     const auto& q_double = View(in.msm_double); // is 1 iff we are at an DOUBLE row in Straus algorithm
     const auto& q_double_shift = View(in.msm_double_shift);
     const auto& msm_size = View(in.msm_size_of_msm);
-    // const auto& msm_size_shift = View(in.msm_size_of_msm_shift);
     const auto& pc = View(in.msm_pc);
     const auto& pc_shift = View(in.msm_pc_shift);
     const auto& count = View(in.msm_count);
@@ -153,7 +152,8 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
      *      4. The set of reads into (pc_{count + 3}, round, wnaf_slice_{count + 3}) is constructed when q_add = 1 AND
      * q_add4 = 1
      *
-     * To ensure that all q_addi values are correctly set we apply consistency checks to q_add1/q_add2/q_add3/q_add4:
+     * To ensure that all q_addi values are correctly set we apply consistency/continuity checks to
+     * q_add1/q_add2/q_add3/q_add4:
      * 1. If q_add2 = 1, require q_add1 = 1
      * 2. If q_add3 = 1, require q_add2 = 1
      * 3. If q_add4 = 1, require q_add3 = 1
@@ -171,9 +171,11 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
      * other times simply want to propagate values. (consider, e.g., when `q_add2 == 0`.) This method returns two
      * Accumulators that represent x/y coord of output. Output is either an addition of inputs (if `selector == 1`), or
      * xa/ya (if `selector == 0`). Additionally, we require `lambda = 0` if `selector = 0`. The `collision_relation`
-     * accumulator tracks a subrelation that validates xb != xa. Repeated calls to this method will increase the max
-     * degree of the Accumulator output: degree of x_out, y_out = max degree of x_a/x_b + 1. 4 Iterations will produce
-     * an output degree of 5.
+     * accumulator tracks a subrelation that validates xb != xa.
+     * Repeated calls to this method will increase the max degree of the Accumulator output:
+     * deg(x_out) = 1 + max(deg(xa, xb)), deg(y_out) = max(1 + deg(x_out), 1 + deg(ya))
+     * in our application, we chain together 4 of these with the pattern in such a way that the final x_out will have
+     * degree 5 and the final y_out will have degree 6.
      */
     auto add = [&](auto& xb,
                    auto& yb,
@@ -183,15 +185,18 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
                    auto& selector,
                    auto& relation,
                    auto& collision_relation) {
-        // computation of lambda is valid: if s == 1, then L == (yb - ya) / (xb - xa)
-        // if s == 0, then L == 0. combining these into a single constraint yields:
-        // s * (L * (xb - xa - 1) - (yb - ya)) + L = 0
+        // computation of lambda is valid: if q == 1, then L == (yb - ya) / (xb - xa)
+        // if q == 0, then L == 0. combining these into a single constraint yields:
+        // q * (L * (xb - xa - 1) - (yb - ya)) + L = 0
         relation += selector * (lambda * (xb - xa - 1) - (yb - ya)) + lambda;
         collision_relation += selector * (xb - xa);
-        // x3 = L.L + (-xb - xa) * q + (1 - q) xa
+        // x_out = L.L + (-xb - xa) * q + (1 - q) xa
+        // deg L = 1, deg q = 1, min(deg(xa), deg(xb))≥ 1.
+        // hence deg(x_out) = 1 + max(deg(xa, xb))
         auto x_out = lambda.sqr() + (-xb - xa - xa) * selector + xa;
 
-        // y3 = L . (xa - x3) - ya * q + (1 - q) ya
+        // y_out = L . (xa - x_out) - ya * q + (1 - q) ya
+        // hence deg(y_out) = max(1 + deg(x_out), 1 + deg(ya))
         auto y_out = lambda * (xa - x_out) + (-ya - ya) * selector + ya;
         return std::array<Accumulator, 2>{ x_out, y_out };
     };
@@ -242,13 +247,13 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     Accumulator x4_collision_relation(0);
     // If `msm_transition == 1`, we have started a new MSM. We need to treat the current value of [Acc] as the point at
     // infinity!
-    auto [x_t1, y_t1] = first_add(acc_x, acc_y, x1, y1, lambda1, msm_transition, add_relation, x1_collision_relation);
-    auto [x_t2, y_t2] = add(x2, y2, x_t1, y_t1, lambda2, add2, add_relation, x2_collision_relation);
-    auto [x_t3, y_t3] = add(x3, y3, x_t2, y_t2, lambda3, add3, add_relation, x3_collision_relation);
-    auto [x_t4, y_t4] = add(x4, y4, x_t3, y_t3, lambda4, add4, add_relation, x4_collision_relation);
+    auto [x_t1, y_t1] =
+        first_add(acc_x, acc_y, x1, y1, lambda1, msm_transition, add_relation, x1_collision_relation); // [deg 2, deg 3]
+    auto [x_t2, y_t2] = add(x2, y2, x_t1, y_t1, lambda2, add2, add_relation, x2_collision_relation);   // [deg 3, deg 4]
+    auto [x_t3, y_t3] = add(x3, y3, x_t2, y_t2, lambda3, add3, add_relation, x3_collision_relation);   // [deg 4, deg 5]
+    auto [x_t4, y_t4] = add(x4, y4, x_t3, y_t3, lambda4, add4, add_relation, x4_collision_relation);   // [deg 5, deg 6]
 
     // Validate accumulator output matches ADD output if q_add = 1
-    // (this is a degree-6 relation)
     std::get<0>(accumulator) += q_add * (acc_x_shift - x_t4) * scaling_factor;
     std::get<1>(accumulator) += q_add * (acc_y_shift - y_t4) * scaling_factor;
     std::get<2>(accumulator) += q_add * add_relation * scaling_factor;
@@ -280,7 +285,8 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
      *
      * As with additions, the column q_double describes whether row is a double round. It is Prover-defined.
      * The value of `msm_round` can only update when `q_double = 1` and we use this to ensure Prover correctly sets
-     * `q_double`. (see round transition relations further down)
+     * `q_double`. The reason for this is that `msm_round` witnesses the wNAF digit we are processing, and we only
+     * perform the four doublings when we are done processing a wNAF digit. See round transition relations further down.
      */
     Accumulator double_relation(0);
     auto [x_d1, y_d1] = dbl(acc_x, acc_y, lambda1, double_relation);
@@ -299,6 +305,10 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
      * If scalar slice == 7, we add into accumulator (point_table[7] maps to -[P])
      * If scalar slice == 0, we do not add into accumulator
      * i.e. for the skew round we can use the slice values as our "selector" when doing conditional point adds
+     *
+     * As with addition and doubling, the column q_skew is prover-defined. It is precisely turned on when the round
+     * is 32. We implement this constraint slightly differently. For more details, see the round transition relations
+     * below.
      */
     Accumulator skew_relation(0);
     static FF inverse_seven = FF(7).invert();
@@ -321,7 +331,6 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     auto [x_s4, y_s4] = add(x4, y4, x_s3, y_s3, lambda4, skew4_select, skew_relation, x4_skew_collision_relation);
 
     // Validate accumulator output matches SKEW output if q_skew = 1
-    // (this is a degree-6 relation)
     std::get<3>(accumulator) += q_skew * (acc_x_shift - x_s4) * scaling_factor;
     std::get<4>(accumulator) += q_skew * (acc_y_shift - y_s4) * scaling_factor;
     std::get<5>(accumulator) += q_skew * skew_relation * scaling_factor;
@@ -333,7 +342,8 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     const auto add_second_point = add2 * q_add + q_skew * skew2_select;
     const auto add_third_point = add3 * q_add + q_skew * skew3_select;
     const auto add_fourth_point = add4 * q_add + q_skew * skew4_select;
-    // Step 2: construct the delta between x-coordinates for each point add (depending on if row is ADD or SKEW)
+    // Step 2: construct the difference a.k.a. delta between x-coordinates for each point add (depending on if row is
+    // ADD or SKEW)
     const auto x1_delta = x1_skew_collision_relation * q_skew + x1_collision_relation * q_add;
     const auto x2_delta = x2_skew_collision_relation * q_skew + x2_collision_relation * q_add;
     const auto x3_delta = x3_skew_collision_relation * q_skew + x3_collision_relation * q_add;
@@ -345,65 +355,83 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     std::get<9>(accumulator) += (x4_delta * collision_inverse4 - add_fourth_point) * scaling_factor;
 
     // Validate that if q_add = 1 or q_skew = 1, add1 also is 1
-    // TODO(@zac-williamson) Once we have a stable base to work off of, remove q_add1 and replace with q_msm_add +
-    // q_msm_skew (issue #2222)
+    // Optimize(@zac-williamson): could just get rid of add1 as a column, as it is a linear combination, see issue #2222
     std::get<32>(accumulator) += (add1 - q_add - q_skew) * scaling_factor;
 
-    // If add_i = 0, slice_i = 0
     // When add_i = 0, force slice_i to ALSO be 0
     std::get<13>(accumulator) += (-add1 + 1) * slice1 * scaling_factor;
     std::get<14>(accumulator) += (-add2 + 1) * slice2 * scaling_factor;
     std::get<15>(accumulator) += (-add3 + 1) * slice3 * scaling_factor;
     std::get<16>(accumulator) += (-add4 + 1) * slice4 * scaling_factor;
 
-    // only one of q_skew, q_double, q_add can be nonzero
+    // SELECTORS ARE MUTUALLY EXCLUSIVE
+    // at most one of q_skew, q_double, q_add can be nonzero
     std::get<17>(accumulator) += (q_add * q_double + q_add * q_skew + q_double * q_skew) * scaling_factor;
 
-    // We look up wnaf slices by mapping round + pc -> slice
-    // We use an exact set membership check to validate that
-    // wnafs written in wnaf_relation == wnafs read in msm relation
-    // We use `add1/add2/add3/add4` to flag whether we are performing a wnaf read op
-    // We can set these to be Prover-defined as the set membership check implicitly ensures that the correct reads
-    // have occurred.
-    // if msm_transition = 0, round_shift - round = 0 or 1
-    const auto round_delta = round_shift - round;
+    // ROUND TRANSITION LOGIC
+    // `round_transition` describes whether we are transitioning between "rounds" of the MSM according to the Straus
+    // algorithm. In particular, the `round` corresponds to the wNAF digit we are currently processing.
 
-    // ROUND TRANSITION LOGIC (when round does not change)
-    // If msm_transition = 0 (next row) then round_delta = 0 or 1
+    const auto round_delta = round_shift - round;
+    // If `msm_transition == 0` (next row) then `round_delta` is boolean; the round is internal to a given MSM and
+    // represents the wNAF digit currently being processed. `round_delta == 0` means that the current and next steps of
+    // the Straus algorithm are processing the same wNAF digit place.
+
+    // `round_transition == 0` if `round_delta == 0` or the next row is an MSM transition.
+    // if `round_transition != 1`, then `round_transition == round_delta == 1` by the following constraint.
+    // in particular, `round_transition` is boolean. (`round_delta` is not boolean precisely one step before an MSM
+    // transition, but that does not concern us.)
     const auto round_transition = round_delta * (-msm_transition_shift + 1);
     std::get<18>(accumulator) += round_transition * (round_delta - 1) * scaling_factor;
 
-    // ROUND TRANSITION LOGIC (when round DOES change)
-    // round_transition describes whether we are transitioning between rounds of an MSM
-    // If round_transition = 1, the next row is either a double (if round != 31) or we are adding skew (if round ==
-    // 31) round_transition * skew * (round - 31) = 0 (if round tx and skew, round == 31) round_transition * (skew +
-    // double - 1) = 0 (if round tx, skew XOR double = 1) i.e. if round tx and round != 31, double = 1
+    // If `round_transition == 1`, then `round_delta == 1` and `msm_transition_shift == 0`. Therefore, the
+    // next row in the VM is either a double (if `round != 31`) or skew (if `round == 31`). In either case, the point is
+    // that we have finished processing a wNAF digit place and need to either perform the doublings to move on to the
+    // next place _or_ we are at the last place and need to perform the skew computation to finish. These are
+    // equationally represented as:
+    //      round_transition * skew_shift * (round - 31) = 0 (if round tx and skew, then round == 31);
+    //      round_transition * (skew_shift + double_shift - 1) = 0 (if round tx, then skew XOR double = 1).
+    // together, these have the following implications: if round tx and round != 31, then double_shift = 1.
+    // conversely, if round tx and double_shift == 0, then `skew_shift == 1`, which then forces `round == 31`.
+    //
+    // NOTE(@notnotraju): we must also constrain q_skew == 1 when round == 32. As far as I can tell, this is not done
+    // anywhere. Here is the potential bad thing that could happen: we could set q_skew to be 0 after the only place
+    // where it is forced (at round transition). Or worse, we could alternative q_skew and double in this round 32. As
+    // far as I can tell, this requires adding an extra column, which bears witness to the fact that the round is 32.
     std::get<19>(accumulator) += round_transition * q_skew_shift * (round - 31) * scaling_factor;
     std::get<20>(accumulator) += round_transition * (q_skew_shift + q_double_shift - 1) * scaling_factor;
 
-    // if no double or no skew, round_delta = 0
+    // if the next is neither double nor skew, and we are not at an msm_transition, then round_delta = 0 and the next
+    // "row" of our VM is processing the same wNAF digit place.
     std::get<21>(accumulator) += round_transition * (-q_double_shift + 1) * (-q_skew_shift + 1) * scaling_factor;
 
-    // if double, next double != 1
-    std::get<22>(accumulator) += q_double * q_double_shift * scaling_factor;
+    // if double, next add = 1. As q_double, q_add, and q_skew are mutually exclusive, this suffices to force
+    // q_double_shift == q_skew_shift == 0.
+    std::get<22>(accumulator) += q_double * (-q_add_shift + 1) * scaling_factor;
 
-    // if double, next add = 1
-    std::get<23>(accumulator) += q_double * (-q_add_shift + 1) * scaling_factor;
+    // UPDATING THE COUNT
 
-    // updating count
-    // if msm_transition = 0 and round_transition = 0, count_shift = count + add1 + add2 + add3 + add4
-    // todo: we need this?
+    // if we are changing the "round" (i.e. starting to process a new wNAF digit), the count_shift must be 0.
+    std::get<23>(accumulator) += round_delta * count_shift * scaling_factor;
+    // if msm_transition = 0 and round_transition = 0, then the next "row" of the VM is processing the same wNAF digit.
+    // this means that the count must increase: count_shift = count + add1 + add2 + add3 + add4
     std::get<24>(accumulator) += (-msm_transition_shift + 1) * (-round_delta + 1) *
                                  (count_shift - count - add1 - add2 - add3 - add4) * scaling_factor;
 
+    // at least one of the following must be true:
+    //      the next step is an MSM transition;
+    //      the next count is zero (meaning we are starting the processing of a new wNAF digit)
+    //      the next step is processing the same wNAF digit (i.e., round_delta == 0)
+    // (note that at the start of a new MSM, the count is also zero, so the above are not mutually exclusive.)
     std::get<25>(accumulator) +=
         is_not_first_row * (-msm_transition_shift + 1) * round_delta * count_shift * scaling_factor;
 
-    // if msm_transition = 1, count_shift = 0
-    std::get<26>(accumulator) += is_not_first_row * msm_transition_shift * count_shift * scaling_factor;
+    // if msm_transition = 1, then count = 0 (as we are starting a new MSM and hence a new wNAF
+    // digit)
+    std::get<26>(accumulator) += msm_transition * count * scaling_factor;
 
-    // if msm_transition = 1, pc = pc_shift + msm_size
-    // `ecc_set_relation` ensures `msm_size` maps to `transcript.msm_count` for the current value of `pc`
+    // if msm_transition_shift = 1, pc = pc_shift + msm_size
+    // NB: `ecc_set_relation` ensures `msm_size` maps to `transcript.msm_count` for the current value of `pc`
     std::get<27>(accumulator) += is_not_first_row * msm_transition_shift * (msm_size + pc_shift - pc) * scaling_factor;
 
     // Addition continuity checks
@@ -413,8 +441,7 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     // Case 3: add4 = 1, add3 = 0
     // These checks ensure that the current row does not skip points (for both ADD and SKEW ops)
     // This is part of a wider set of checks we use to ensure that all point data is used in the assigned
-    // multiscalar multiplication operation.
-    // (and not in a different MSM operation)
+    // multiscalar multiplication operation (and not in a different MSM operation).
     std::get<28>(accumulator) += add2 * (-add1 + 1) * scaling_factor;
     std::get<29>(accumulator) += add3 * (-add2 + 1) * scaling_factor;
     std::get<30>(accumulator) += add4 * (-add3 + 1) * scaling_factor;
@@ -433,6 +460,13 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     // when transition occurs, perform set membership lookup on (accumulator / pc / msm_size)
     // perform set membership lookups on add_i * (pc / round / slice_i)
     // perform lookups on (pc / slice_i / x / y)
+
+    // We look up wnaf slices by mapping round + pc -> slice
+    // We use an exact set membership check to validate that
+    // wnafs written in wnaf_relation == wnafs read in msm relation
+    // We use `add1/add2/add3/add4` to flag whether we are performing a wnaf read op
+    // We can set these to be Prover-defined as the set membership check implicitly ensures that the correct reads
+    // have occurred.
 }
 
 } // namespace bb
