@@ -56,7 +56,8 @@ struct AcirFormatOriginalOpcodeIndices {
     std::vector<size_t> ec_add_constraints;
     std::vector<size_t> honk_recursion_constraints;
     std::vector<size_t> avm_recursion_constraints;
-    std::vector<size_t> ivc_recursion_constraints;
+    std::vector<size_t> pg_recursion_constraints;
+    std::vector<size_t> civc_recursion_constraints;
     std::vector<size_t> bigint_from_le_bytes_constraints;
     std::vector<size_t> bigint_to_le_bytes_constraints;
     std::vector<size_t> bigint_operations;
@@ -98,7 +99,8 @@ struct AcirFormat {
     std::vector<EcAdd> ec_add_constraints;
     std::vector<RecursionConstraint> honk_recursion_constraints;
     std::vector<RecursionConstraint> avm_recursion_constraints;
-    std::vector<RecursionConstraint> ivc_recursion_constraints;
+    std::vector<RecursionConstraint> pg_recursion_constraints;
+    std::vector<RecursionConstraint> civc_recursion_constraints;
     std::vector<BigIntFromLeBytes> bigint_from_le_bytes_constraints;
     std::vector<BigIntToLeBytes> bigint_to_le_bytes_constraints;
     std::vector<BigIntOperation> bigint_operations;
@@ -148,7 +150,8 @@ struct AcirFormat {
                    ec_add_constraints,
                    honk_recursion_constraints,
                    avm_recursion_constraints,
-                   ivc_recursion_constraints,
+                   pg_recursion_constraints,
+                   civc_recursion_constraints,
                    poly_triple_constraints,
                    quad_constraints,
                    big_quad_constraints,
