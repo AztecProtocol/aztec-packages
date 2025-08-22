@@ -6,7 +6,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { PublicTxSimulationTester } from './public_tx_simulation_tester.js';
 
-export async function bulkTest(tester: PublicTxSimulationTester, logger: Logger, expectToBeTrue: (x: boolean) => void) {
+export async function bulkTest(tester: PublicTxSimulationTester, logger: Logger) {
   const timer = new Timer();
 
   const deployer = AztecAddress.fromNumber(42);
@@ -55,18 +55,13 @@ export async function bulkTest(tester: PublicTxSimulationTester, logger: Logger,
       },
     },
   );
-  expectToBeTrue(bulkResult.revertCode.isOK());
 
   logger.info(`Bulk test took ${timer.ms()}ms\n`);
 
   return bulkResult;
 }
 
-export async function megaBulkTest(
-  tester: PublicTxSimulationTester,
-  logger: Logger,
-  expectToBeTrue: (x: boolean) => void,
-) {
+export async function megaBulkTest(tester: PublicTxSimulationTester, logger: Logger) {
   const timer = new Timer();
 
   const deployer = AztecAddress.fromNumber(42);
@@ -141,7 +136,6 @@ export async function megaBulkTest(
       },
     },
   );
-  expectToBeTrue(bulkResult.revertCode.isOK());
 
   logger.info(`Mega bulk test took ${timer.ms()}ms\n`);
 

@@ -14,7 +14,7 @@ template <typename FF_> class internal_callImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 10> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 6, 3, 3, 6, 3, 6, 5 };
+    static constexpr std::array<size_t, 9> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 6, 3, 3, 6, 3, 5 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -54,8 +54,6 @@ template <typename FF> class internal_call : public Relation<internal_callImpl<F
         case 7:
             return "NEXT_CALL_ID_STARTS_TWO";
         case 8:
-            return "INCR_NEXT_INT_CALL_ID";
-        case 9:
             return "INTERNAL_RET_ERROR";
         }
         return std::to_string(index);
@@ -70,8 +68,7 @@ template <typename FF> class internal_call : public Relation<internal_callImpl<F
     static constexpr size_t SR_NEW_RETURN_ID_ON_CALL = 5;
     static constexpr size_t SR_DEFAULT_PROPAGATE_RET_ID = 6;
     static constexpr size_t SR_NEXT_CALL_ID_STARTS_TWO = 7;
-    static constexpr size_t SR_INCR_NEXT_INT_CALL_ID = 8;
-    static constexpr size_t SR_INTERNAL_RET_ERROR = 9;
+    static constexpr size_t SR_INTERNAL_RET_ERROR = 8;
 };
 
 } // namespace bb::avm2

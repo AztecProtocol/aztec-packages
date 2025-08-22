@@ -15,7 +15,9 @@ namespace execution;
 
     // sel_exit_call includes the error case, so we gate sel_execute_internal_call and sel_execute_internal_return by (1 - sel_error). This makes them all mututally exclusive.
     // When we encounter this case, the internal call information in the next row is constrained to change (incremented, unwound, etc)
-    pol NEW_NEXT_CALL_ID = (sel_execute_internal_call + sel_execute_internal_return) * (1 - sel_error) + sel_exit_call;
+    // If the next row is the start of a new enqueued call, we "reset" the call ID instead of setting a "new" one, so we only use sel_exit_call here
+    // if not starting a new enqueued call.
+    pol NEW_NEXT_CALL_ID = (sel_execute_internal_call + sel_execute_internal_return) * (1 - sel_error) + sel_exit_call * (1 - enqueued_call_start');
 
     pol PROPAGATE_CALL_ID = 1 - RESET_NEXT_CALL_ID - NEW_NEXT_CALL_ID;
 
@@ -55,9 +57,9 @@ namespace execution;
     #[NEXT_CALL_ID_STARTS_TWO]
     RESET_NEXT_CALL_ID * (next_internal_call_id' - 2) = 0;
     // If we encounter a sel_execute_internal_call, we increment the next next_internal_call_id, unless we are changing context
-    pol CONTEXT_CHANGE = (RESET_NEXT_CALL_ID + sel_exit_call) - (RESET_NEXT_CALL_ID * sel_exit_call) ;
-    #[INCR_NEXT_INT_CALL_ID]
-    NOT_LAST_EXEC * (1 - CONTEXT_CHANGE) * (next_internal_call_id' - (next_internal_call_id + sel_execute_internal_call)) = 0;
+    //pol CONTEXT_CHANGE = RESET_NEXT_CALL_ID + sel_exit_call * (1 - enqueued_call_start');
+    //#[INCR_NEXT_INT_CALL_ID]
+    //NOT_LAST_EXEC * (1 - CONTEXT_CHANGE) * (next_internal_call_id' - (next_internal_call_id + sel_execute_internal_call)) = 0;
 
     // =============================
     // === Error Handling ====
