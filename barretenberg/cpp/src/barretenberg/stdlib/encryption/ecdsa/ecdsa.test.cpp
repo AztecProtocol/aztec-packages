@@ -36,11 +36,11 @@ TEST(stdlib_ecdsa, verify_signature)
 
     std::vector<uint8_t> rr(signature.r.begin(), signature.r.end());
     std::vector<uint8_t> ss(signature.s.begin(), signature.s.end());
-    std::vector<uint8_t> vv = { signature.v };
 
-    stdlib::ecdsa_signature<Builder> sig{ curve_::byte_array_ct(&builder, rr),
-                                          curve_::byte_array_ct(&builder, ss),
-                                          curve_::byte_array_ct(&builder, vv) };
+    stdlib::ecdsa_signature<Builder> sig{
+        curve_::byte_array_ct(&builder, rr),
+        curve_::byte_array_ct(&builder, ss),
+    };
 
     curve_::byte_array_ct message(&builder, message_string);
 
@@ -81,11 +81,8 @@ TEST(stdlib_ecdsa, verify_r1_signature)
 
     std::vector<uint8_t> rr(signature.r.begin(), signature.r.end());
     std::vector<uint8_t> ss(signature.s.begin(), signature.s.end());
-    std::vector<uint8_t> vv = { signature.v };
 
-    stdlib::ecdsa_signature<Builder> sig{ curveR1::byte_array_ct(&builder, rr),
-                                          curveR1::byte_array_ct(&builder, ss),
-                                          curveR1::byte_array_ct(&builder, vv) };
+    stdlib::ecdsa_signature<Builder> sig{ curveR1::byte_array_ct(&builder, rr), curveR1::byte_array_ct(&builder, ss) };
 
     curveR1::byte_array_ct message(&builder, message_string);
 
@@ -127,13 +124,8 @@ TEST(stdlib_ecdsa, ecdsa_verify_signature_noassert_succeed)
 
     std::vector<uint8_t> rr(signature.r.begin(), signature.r.end());
     std::vector<uint8_t> ss(signature.s.begin(), signature.s.end());
-    std::vector<uint8_t> vv = { signature.v };
 
-    stdlib::ecdsa_signature<Builder> sig{
-        curve_::byte_array_ct(&builder, rr),
-        curve_::byte_array_ct(&builder, ss),
-        curve_::byte_array_ct(&builder, vv),
-    };
+    stdlib::ecdsa_signature<Builder> sig{ curve_::byte_array_ct(&builder, rr), curve_::byte_array_ct(&builder, ss) };
 
     curve_::byte_array_ct message(&builder, message_string);
 
@@ -184,11 +176,8 @@ TEST(stdlib_ecdsa, ecdsa_verify_signature_noassert_fail)
 
     std::vector<uint8_t> rr(signature.r.begin(), signature.r.end());
     std::vector<uint8_t> ss(signature.s.begin(), signature.s.end());
-    std::vector<uint8_t> vv = { 27 }; // Use a valid recovery id
 
-    stdlib::ecdsa_signature<Builder> sig{ curve_::byte_array_ct(&builder, rr),
-                                          curve_::byte_array_ct(&builder, ss),
-                                          curve_::byte_array_ct(&builder, vv) };
+    stdlib::ecdsa_signature<Builder> sig{ curve_::byte_array_ct(&builder, rr), curve_::byte_array_ct(&builder, ss) };
 
     curve_::byte_array_ct message(&builder, message_string);
 

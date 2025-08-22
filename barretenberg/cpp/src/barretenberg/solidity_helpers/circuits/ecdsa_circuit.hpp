@@ -67,12 +67,10 @@ class EcdsaCircuit {
 
         std::vector<uint8_t> rr(signature.r.begin(), signature.r.end());
         std::vector<uint8_t> ss(signature.s.begin(), signature.s.end());
-        std::vector<uint8_t> vv = { signature.v };
 
         // IN CIRCUIT: create a witness with the sig in our circuit
         stdlib::ecdsa_signature<Builder> sig{ typename curve::byte_array_ct(&builder, rr),
-                                              typename curve::byte_array_ct(&builder, ss),
-                                              typename curve::byte_array_ct(&builder, vv) };
+                                              typename curve::byte_array_ct(&builder, ss) };
 
         // IN CIRCUIT: verify the signature
         typename curve::bool_ct signature_result = stdlib::ecdsa_verify_signature<Builder,
