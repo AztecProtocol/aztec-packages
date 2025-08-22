@@ -8,6 +8,7 @@ import { siloNullifier } from '@aztec/stdlib/hash';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { IndexedTaggingSecret } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
+import { UtilityContext } from '@aztec/stdlib/oracle';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, Capsule } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
@@ -54,6 +55,14 @@ export class UtilityExecutionOracle extends TypedOracle {
 
   public override utilityGetVersion(): Promise<Fr> {
     return Promise.resolve(this.executionDataProvider.getVersion().then(v => new Fr(v)));
+  }
+
+  public override async utilityGetUtilityContext(): Promise<UtilityContext> {
+    const contextWithoutContractAddress = await this.executionDataProvider.getUtilityContextWithoutContractAddress();
+    return UtilityContext.fromUtilityContextWithoutContractAddressAndContractAddress(
+      contextWithoutContractAddress,
+      this.contractAddress,
+    );
   }
 
   /**

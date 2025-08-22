@@ -83,6 +83,7 @@ import {
 } from '@aztec/stdlib/kernel';
 import { ContractClassLog, IndexedTaggingSecret, PrivateLog, type PublicLog } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
+import { UtilityContext } from '@aztec/stdlib/oracle';
 import { ClientIvcProof } from '@aztec/stdlib/proofs';
 import {
   makeAppendOnlyTreeSnapshot,
@@ -249,6 +250,18 @@ export class TXE {
 
   utilityGetVersion(): Promise<Fr> {
     return Promise.resolve(new Fr(this.ROLLUP_VERSION));
+  }
+
+  utilityGetUtilityContext() {
+    return Promise.resolve(
+      UtilityContext.from({
+        blockNumber: this.blockNumber,
+        timestamp: this.timestamp,
+        contractAddress: this.contractAddress,
+        version: new Fr(this.ROLLUP_VERSION),
+        chainId: new Fr(this.CHAIN_ID),
+      }),
+    );
   }
 
   getMsgSender() {

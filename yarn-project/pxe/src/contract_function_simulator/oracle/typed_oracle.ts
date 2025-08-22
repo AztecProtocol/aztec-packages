@@ -6,6 +6,7 @@ import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import type { ContractClassLog, IndexedTaggingSecret } from '@aztec/stdlib/logs';
 import type { Note, NoteStatus } from '@aztec/stdlib/note';
+import { UtilityContext } from '@aztec/stdlib/oracle';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
@@ -74,6 +75,10 @@ export abstract class TypedOracle {
 
   utilityGetVersion(): Promise<Fr> {
     return Promise.reject(new OracleMethodNotAvailableError('utilityGetVersion'));
+  }
+
+  utilityGetUtilityContext(): Promise<UtilityContext> {
+    return Promise.reject(new OracleMethodNotAvailableError('utilityGetUtilityContext'));
   }
 
   utilityGetKeyValidationRequest(_pkMHash: Fr): Promise<KeyValidationRequest> {

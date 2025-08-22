@@ -34,6 +34,10 @@ import { GasFees } from '../gas/gas_fees.js';
 import { type LogFilter, LogFilterSchema } from '../logs/log_filter.js';
 import { PrivateLog } from '../logs/private_log.js';
 import { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
+import {
+  type UtilityContextWithoutContractAddress,
+  UtilityContextWithoutContractAddressSchema,
+} from '../oracle/utility_context_without_contract_address.js';
 import { type ApiSchemaFor, optional, schemas } from '../schemas/schemas.js';
 import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierMembershipWitness } from '../trees/nullifier_membership_witness.js';
@@ -276,6 +280,14 @@ export interface AztecNode
    * @returns The chain id.
    */
   getChainId(): Promise<number>;
+
+  /**
+   * Fetches the current utility context without the contract address.
+   * @dev PXE uses this along with the locally stored contract address to construct the full UtilityContext when
+   * processing the utilityGetUtilityContext oracle.
+   * @returns The utility context containing block number, timestamp, version and chain ID.
+   */
+  getUtilityContextWithoutContractAddress(): Promise<UtilityContextWithoutContractAddress>;
 
   /**
    * Method to fetch the currently deployed l1 contract addresses.
@@ -535,6 +547,8 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getVersion: z.function().returns(z.number()),
 
   getChainId: z.function().returns(z.number()),
+
+  getUtilityContextWithoutContractAddress: z.function().returns(UtilityContextWithoutContractAddressSchema),
 
   getL1ContractAddresses: z.function().returns(L1ContractAddressesSchema),
 

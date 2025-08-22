@@ -27,6 +27,7 @@ import {
 } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
+import { UtilityContextWithoutContractAddress } from '@aztec/stdlib/oracle';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 import { TxHash } from '@aztec/stdlib/tx';
@@ -256,16 +257,26 @@ export class PXEOracleInterface implements ExecutionDataProvider {
    * Fetches the current chain id.
    * @returns The chain id.
    */
-  public async getChainId(): Promise<number> {
-    return await this.aztecNode.getChainId();
+  public getChainId(): Promise<number> {
+    return this.aztecNode.getChainId();
   }
 
   /**
    * Fetches the current version.
    * @returns The version.
    */
-  public async getVersion(): Promise<number> {
-    return await this.aztecNode.getVersion();
+  public getVersion(): Promise<number> {
+    return this.aztecNode.getVersion();
+  }
+
+  /**
+   * Fetches the current utility context without the contract address.
+   * @dev PXE uses this along with the locally stored contract address to construct the full UtilityContext when
+   * processing the utilityGetUtilityContext oracle.
+   * @returns The utility context containing block number, timestamp, version and chain ID.
+   */
+  public getUtilityContextWithoutContractAddress(): Promise<UtilityContextWithoutContractAddress> {
+    return this.aztecNode.getUtilityContextWithoutContractAddress();
   }
 
   public getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string> {
