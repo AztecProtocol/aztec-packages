@@ -9,7 +9,7 @@ import type {
   MerkleTreeWriteOperations,
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import { Offense } from '@aztec/stdlib/slashing';
+import { OffenseType } from '@aztec/stdlib/slashing';
 import { Tx } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
@@ -17,7 +17,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import EventEmitter from 'node:events';
 import type { Hex } from 'viem';
 
-import { WANT_TO_SLASH_EVENT } from './config.js';
+import { WANT_TO_SLASH_EVENT, type WantToSlashArgs } from '../watcher.js';
 import { EpochPruneWatcher } from './epoch_prune_watcher.js';
 
 describe('EpochPruneWatcher', () => {
@@ -29,7 +29,6 @@ describe('EpochPruneWatcher', () => {
   let blockBuilder: MockProxy<IFullNodeBlockBuilder>;
   let fork: MockProxy<MerkleTreeWriteOperations>;
   const penalty = BigInt(1000000000000000000n);
-  const maxPenalty = penalty * 2n;
 
   beforeEach(async () => {
     l2BlockSource = new MockL2BlockSource() as unknown as L2BlockSourceEventEmitter;
@@ -41,15 +40,7 @@ describe('EpochPruneWatcher', () => {
     fork = mock<MerkleTreeWriteOperations>();
     blockBuilder.getFork.mockResolvedValue(fork);
 
-    watcher = new EpochPruneWatcher(
-      l2BlockSource,
-      l1ToL2MessageSource,
-      epochCache,
-      txProvider,
-      blockBuilder,
-      penalty,
-      maxPenalty,
-    );
+    watcher = new EpochPruneWatcher(l2BlockSource, l1ToL2MessageSource, epochCache, txProvider, blockBuilder, penalty);
     await watcher.start();
   });
 
@@ -89,53 +80,16 @@ describe('EpochPruneWatcher', () => {
       {
         validator: EthAddress.fromString(committee[0]),
         amount: penalty,
-        offense: Offense.DATA_WITHHOLDING,
+        offenseType: OffenseType.DATA_WITHHOLDING,
+        epochOrSlot: 1n,
       },
       {
         validator: EthAddress.fromString(committee[1]),
         amount: penalty,
-        offense: Offense.DATA_WITHHOLDING,
+        offenseType: OffenseType.DATA_WITHHOLDING,
+        epochOrSlot: 1n,
       },
-    ]);
-
-    await expect(
-      watcher.shouldSlash({
-        validator: EthAddress.fromString(committee[0]),
-        amount: penalty,
-        offense: Offense.DATA_WITHHOLDING,
-      }),
-    ).resolves.toBe(true);
-    await expect(
-      watcher.shouldSlash({
-        validator: EthAddress.fromString(committee[1]),
-        amount: penalty,
-        offense: Offense.DATA_WITHHOLDING,
-      }),
-    ).resolves.toBe(true);
-    await expect(
-      watcher.shouldSlash({
-        validator: EthAddress.fromString('0x0000000000000000000000000000000000000000'),
-        amount: penalty,
-        offense: Offense.DATA_WITHHOLDING,
-      }),
-    ).resolves.toBe(false);
-
-    // Should slash if the penalty is within the max penalty
-    await expect(
-      watcher.shouldSlash({
-        validator: EthAddress.fromString(committee[0]),
-        amount: maxPenalty,
-        offense: Offense.DATA_WITHHOLDING,
-      }),
-    ).resolves.toBe(true);
-    // Should not slash if the penalty is above the max penalty
-    await expect(
-      watcher.shouldSlash({
-        validator: EthAddress.fromString(committee[0]),
-        amount: maxPenalty + 1n,
-        offense: Offense.DATA_WITHHOLDING,
-      }),
-    ).resolves.toBe(false);
+    ] satisfies WantToSlashArgs[]);
   });
 
   it('should slash if the data is available and the epoch could have been proven', async () => {
@@ -176,14 +130,16 @@ describe('EpochPruneWatcher', () => {
       {
         validator: EthAddress.fromString(committee[0]),
         amount: penalty,
-        offense: Offense.VALID_EPOCH_PRUNED,
+        offenseType: OffenseType.VALID_EPOCH_PRUNED,
+        epochOrSlot: 1n,
       },
       {
         validator: EthAddress.fromString(committee[1]),
         amount: penalty,
-        offense: Offense.VALID_EPOCH_PRUNED,
+        offenseType: OffenseType.VALID_EPOCH_PRUNED,
+        epochOrSlot: 1n,
       },
-    ]);
+    ] satisfies WantToSlashArgs[]);
 
     expect(blockBuilder.buildBlock).toHaveBeenCalledWith([tx], [], block.header.globalVariables, {}, fork);
   });

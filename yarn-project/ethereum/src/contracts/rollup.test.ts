@@ -107,4 +107,11 @@ describe('Rollup', () => {
       expect(actualPendingBlockNumber).toBe(testPendingBlockNumber);
     });
   });
+
+  describe('getSlashingProposer', () => {
+    it('returns a slashing proposer', async () => {
+      const slashingProposer = await rollup.getSlashingProposer();
+      expect(slashingProposer).toBeDefined();
+    });
+  });
 });

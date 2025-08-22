@@ -16,11 +16,12 @@ import {
 import { ChainMonitor } from '@aztec/ethereum/test';
 import { SecretValue } from '@aztec/foundation/config';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { EmpireSlashingProposerAbi, RollupAbi, SlashFactoryAbi, SlasherAbi, TestERC20Abi } from '@aztec/l1-artifacts';
+import { EmpireSlashingProposerAbi, RollupAbi, SlasherAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import type { BootstrapNode } from '@aztec/p2p/bootstrap';
 import { createBootstrapNodeFromPrivateKey, getBootstrapNodeEnr } from '@aztec/p2p/test-helpers';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
+import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
 import { getGenesisValues } from '@aztec/world-state/testing';
@@ -392,7 +393,7 @@ export class P2PNetworkTest {
     rollup: RollupContract;
     slasherContract: GetContractReturnType<typeof SlasherAbi, ViemClient>;
     slashingProposer: GetContractReturnType<typeof EmpireSlashingProposerAbi, ViemClient>;
-    slashFactory: GetContractReturnType<typeof SlashFactoryAbi, ViemClient>;
+    slashFactory: SlashFactoryContract;
   }> {
     if (!this.ctx.deployL1ContractsValues) {
       throw new Error('DeployL1ContractsValues not set');
@@ -415,11 +416,10 @@ export class P2PNetworkTest {
       client: this.ctx.deployL1ContractsValues.l1Client,
     });
 
-    const slashFactory = getContract({
-      address: getAddress(this.ctx.deployL1ContractsValues.l1ContractAddresses.slashFactoryAddress!.toString()),
-      abi: SlashFactoryAbi,
-      client: this.ctx.deployL1ContractsValues.l1Client,
-    });
+    const slashFactory = new SlashFactoryContract(
+      this.ctx.deployL1ContractsValues.l1Client,
+      getAddress(this.ctx.deployL1ContractsValues.l1ContractAddresses.slashFactoryAddress!.toString()),
+    );
 
     return { rollup, slasherContract, slashingProposer, slashFactory };
   }

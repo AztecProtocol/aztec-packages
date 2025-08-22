@@ -1,4 +1,5 @@
-import type { SlasherClient } from '@aztec/slasher';
+import type { TestAztecNodeService } from '@aztec/aztec-node/test';
+import type { SlasherClientInterface } from '@aztec/slasher';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
 import { setup } from '../fixtures/utils.js';
@@ -8,7 +9,7 @@ describe('e2e_slasher_config', () => {
   let aztecNode: AztecNode;
 
   beforeAll(async () => {
-    ({ aztecNodeAdmin, aztecNode } = await setup(1, {
+    ({ aztecNodeAdmin, aztecNode } = await setup(0, {
       slashInactivityCreateTargetPercentage: 1,
       slashInactivitySignalTargetPercentage: 1,
       slashInactivityEnabled: true,
@@ -21,8 +22,9 @@ describe('e2e_slasher_config', () => {
   });
 
   it('should update slasher config', async () => {
-    const slasherClient = (aztecNode as any).slasherClient as SlasherClient;
-    const currentConfig = slasherClient.config;
+    const slasherClient = (aztecNode as TestAztecNodeService).slasherClient as SlasherClientInterface;
+    expect(slasherClient).toBeDefined();
+    const currentConfig = slasherClient.getConfig();
     expect(currentConfig.slashInactivityCreateTargetPercentage).toBe(1);
     expect(currentConfig.slashInactivitySignalTargetPercentage).toBe(1);
     expect(currentConfig.slashInactivityCreatePenalty).toBe(42n);
@@ -31,7 +33,7 @@ describe('e2e_slasher_config', () => {
       slashInactivityCreateTargetPercentage: 0.9,
       slashInactivitySignalTargetPercentage: 0.6,
     });
-    const updatedConfig = slasherClient.config;
+    const updatedConfig = slasherClient.getConfig();
     expect(updatedConfig.slashInactivityCreateTargetPercentage).toBe(0.9);
     expect(updatedConfig.slashInactivitySignalTargetPercentage).toBe(0.6);
     expect(updatedConfig.slashInactivityCreatePenalty).toBe(42n);
