@@ -17,6 +17,52 @@ namespace {
 auto& engine = numeric::get_debug_randomness();
 }
 
+template <typename Builder, typename Curve, typename Fq, typename Fr, typename G1>
+void validate_inputs(const stdlib::byte_array<Builder>& hashed_message,
+                     const G1& public_key,
+                     const ecdsa_signature<Builder>& sig,
+                     const G1& scalar_mul_result)
+{
+    auto assert_smaller_than = [](const uint512_t& value,
+                                  const uint256_t& max_value,
+                                  const std::string& value_label,
+                                  const std::string& max_value_label) {
+        std::string msg =
+            "The " + value_label + " is bigger than " + max_value_label + ". This will produce an unsatisfied circuit.";
+        BB_ASSERT_LT(value, max_value, msg);
+    };
+
+    auto assert_is_not_zero = [](const uint512_t& value, const std::string& label) {
+        std::string msg = "The " + label + " is equal to zero. This will produce an unsatisfied circuit.";
+        BB_ASSERT_GT(value, 0U, msg);
+    };
+
+    // H(m) < n
+    uint512_t hash_value = static_cast<uint512_t>(Fr(hashed_message).get_value());
+    assert_smaller_than(hash_value, Fr::modulus, "hash of the message", "order of the elliptic curve");
+
+    // P \in E
+    BB_ASSERT_EQ(public_key.get_value().on_curve(),
+                 true,
+                 "The public key is not a point on the elliptic curve. This will produce an unsatisfied circuit.");
+
+    // 0 < r < n
+    uint512_t r_value = static_cast<uint512_t>(Fr(sig.r).get_value());
+    assert_smaller_than(r_value, Fr::modulus, "r component of the signature", "order of the elliptic curve");
+    assert_is_not_zero(r_value, "r component of the signature");
+
+    // 0 < s < (n+1)/2
+    uint512_t s_value = static_cast<uint512_t>(Fr(sig.r).get_value());
+    assert_smaller_than(s_value, Fr::modulus, "s component of the signature", "order of the elliptic curve");
+    assert_is_not_zero(s_value, "s component of the signature");
+
+    // Q = H(m) s^{-1} G + r s^{-1} P is not the point at infinity
+    BB_ASSERT_EQ(
+        scalar_mul_result.get_value().is_point_at_infinity(),
+        false,
+        "The result of the scalar multiplication is the point at infinity. This will produce an unsatisfied circuit.");
+}
+
 /**
  * @brief Verify ECDSA signature. Returns bool_t(true/false) depending on whether the signature is valid or not.
  *
@@ -46,6 +92,17 @@ auto& engine = numeric::get_debug_randomness();
  * @note This function verifies that `sig` is a valid signature for the public key `public_key`. The function returns
  * an in-circuit boolean value which bears witness to whether the signature verification was successfull or not. The
  * boolean is NOT constrained to be equal to bool_t(true).
+ *
+ *
+ * @note The circuit introduces constraints for the following assertions:
+ *          1. \$P\$ is on the curve
+ *          2. \$H(m) < n\$
+ *          2. \$0 < r < n\$
+ *          3. \$0 < s < (n+1)/2\$
+ *          4. \$Q := H(m) s^{-1} G + r s^{-1} P\$ is not the point at infinity
+ * Therefore, if the witnesses passed to this function do not satisfy these constraints, the resulting circuit
+ * will be unsatisfied. If a user wants to use the verification inside a in-circuit branch, then they need to supply
+ * valid data for \$P, r, s\$, even though \$(r,s)\$ doesn't need to be a valid signature.
  *
  * @tparam Builder
  * @tparam Curve
@@ -114,9 +171,9 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
     }
 
     // Step 5.
-    // TODO(federicobarbacovi): Confirm with Suyash usage is correct!
     result.is_point_at_infinity().assert_equal(bool_t<Builder>(false));
 
+    // TODO(federicobarbacovi): Confirm with Suyash usage is correct!
     // Transfer Fq value result.x to Fr
     Fr result_x_mod_r = Fr::unsafe_construct_from_limbs(result.x.binary_basis_limbs[0].element,
                                                         result.x.binary_basis_limbs[1].element,
@@ -126,11 +183,15 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
     // Check result.x = r mod n
     bool_t<Builder> is_signature_valid = result_x_mod_r == r;
 
+    // Logging
     if (is_signature_valid.get_value()) {
         vinfo("Signature verification succeeded.");
     } else {
         vinfo("Signature verification failed");
     }
+
+    // Validate inputs for debugging
+    validate_inputs<Builder, Curve, Fq, Fr>(hashed_message, public_key, sig, result);
 
     return is_signature_valid;
 }
