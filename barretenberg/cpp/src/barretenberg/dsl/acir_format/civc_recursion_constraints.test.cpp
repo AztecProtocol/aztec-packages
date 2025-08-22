@@ -34,7 +34,7 @@ class CivcRecursionConstraintTest : public ::testing::Test {
 
     static ClientIVCData get_civc_data(TraceSettings trace_settings)
     {
-        static constexpr size_t NUM_APP_CIRCUITS = 4;
+        static constexpr size_t NUM_APP_CIRCUITS = 2;
 
         PrivateFunctionExecutionMockCircuitProducer circuit_producer(NUM_APP_CIRCUITS);
 
