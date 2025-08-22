@@ -32,12 +32,14 @@ class ClientIVCRecursionTests : public testing::Test {
      * @brief Construct a genuine ClientIVC prover output based on accumulation of an arbitrary set of mock circuits
      *
      */
-    static ClientIVCProverOutput construct_client_ivc_prover_output(ClientIVC& ivc)
+    static ClientIVCProverOutput construct_client_ivc_prover_output(const size_t num_app_circuits = 1)
     {
         // Construct and accumulate a series of mocked private function execution circuits
-        MockCircuitProducer circuit_producer;
+        MockCircuitProducer circuit_producer{ num_app_circuits };
+        const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
+        ClientIVC ivc{ NUM_CIRCUITS, trace_settings };
 
-        for (size_t idx = 0; idx < ivc.get_num_circuits(); ++idx) {
+        for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
             circuit_producer.construct_and_accumulate_next_circuit(ivc);
         }
 
@@ -45,19 +47,16 @@ class ClientIVCRecursionTests : public testing::Test {
     }
 };
 
-static constexpr size_t MIN_NUM_CIRCUITS = 4;
-
 /**
  * @brief Ensure the ClientIVC proof used herein can be natively verified
  *
  */
 TEST_F(ClientIVCRecursionTests, NativeVerification)
 {
-    ClientIVC ivc{ MIN_NUM_CIRCUITS, trace_settings };
-    auto [proof, ivc_vk] = construct_client_ivc_prover_output(ivc);
+    auto [proof, vk] = construct_client_ivc_prover_output();
 
     // Confirm that the IVC proof can be natively verified
-    EXPECT_TRUE(ivc.verify(proof));
+    EXPECT_TRUE(ClientIVC::verify(proof, vk));
 }
 
 /**
@@ -69,13 +68,11 @@ TEST_F(ClientIVCRecursionTests, Basic)
     using CIVCRecVerifierOutput = ClientIVCRecursiveVerifier::Output;
 
     // Generate a genuine ClientIVC prover output
-
-    ClientIVC ivc{ MIN_NUM_CIRCUITS, trace_settings };
-    auto [proof, ivc_vk] = construct_client_ivc_prover_output(ivc);
+    auto [proof, vk] = construct_client_ivc_prover_output();
 
     // Construct the ClientIVC recursive verifier
     auto builder = std::make_shared<Builder>();
-    ClientIVCVerifier verifier{ builder, ivc_vk };
+    ClientIVCVerifier verifier{ builder, vk };
 
     // Generate the recursive verification circuit
     StdlibProof stdlib_proof(*builder, proof);
@@ -94,13 +91,11 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     using CIVCRecVerifierOutput = ClientIVCRecursiveVerifier::Output;
 
     // Generate a genuine ClientIVC prover output
-
-    ClientIVC ivc{ MIN_NUM_CIRCUITS, trace_settings };
-    auto [proof, ivc_vk] = construct_client_ivc_prover_output(ivc);
+    auto [proof, vk] = construct_client_ivc_prover_output();
 
     // Construct the ClientIVC recursive verifier
     auto tube_builder = std::make_shared<Builder>();
-    ClientIVCVerifier verifier{ tube_builder, ivc_vk };
+    ClientIVCVerifier verifier{ tube_builder, vk };
 
     // Generate the recursive verification circuit
     StdlibProof stdlib_proof(*tube_builder, proof);
@@ -171,11 +166,9 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
 TEST_F(ClientIVCRecursionTests, TubeVKIndependentOfInputCircuits)
 {
     // Retrieves the trace blocks (each consisting of a specific gate) from the recursive verifier circuit
-    auto get_blocks = [](size_t inner_size)
+    auto get_blocks = [](size_t num_app_circuits)
         -> std::tuple<typename Builder::ExecutionTrace, std::shared_ptr<NativeFlavor::VerificationKey>> {
-        ClientIVC ivc{ inner_size, trace_settings };
-
-        auto [proof, ivc_vk] = construct_client_ivc_prover_output(ivc);
+        auto [proof, ivc_vk] = construct_client_ivc_prover_output(num_app_circuits);
 
         auto tube_builder = std::make_shared<Builder>();
         ClientIVCVerifier verifier{ tube_builder, ivc_vk };
@@ -204,8 +197,8 @@ TEST_F(ClientIVCRecursionTests, TubeVKIndependentOfInputCircuits)
         return { tube_builder->blocks, tube_vk };
     };
 
-    auto [blocks_4, verification_key_4] = get_blocks(4);
-    auto [blocks_5, verification_key_5] = get_blocks(5);
+    auto [blocks_4, verification_key_4] = get_blocks(/*num_app_circuits=*/1);
+    auto [blocks_5, verification_key_5] = get_blocks(/*num_app_circuits=*/2);
 
     compare_ultra_blocks_and_verification_keys<NativeFlavor>({ blocks_4, blocks_5 },
                                                              { verification_key_4, verification_key_5 });
