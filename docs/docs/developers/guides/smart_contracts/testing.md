@@ -2,8 +2,7 @@
 title: Testing Contracts
 tags: [contracts, tests, testing, noir]
 keywords: [tests, testing, noir]
-sidebar_position: 2
-importance: 1
+sidebar_position: 10
 description: Learn how to write and run tests for your Aztec smart contracts.
 ---
 
@@ -43,7 +42,7 @@ The complete process for running tests:
 3. Run `aztec test`
 
 :::warning
-Under the hood, `TestEnvironment` expects an oracle resolver called 'TXE' (Test eXecution Environment) to be available. This means that a regular `nargo test` command will not suffice - you *must* use `aztec test` instead.
+Under the hood, `TestEnvironment` expects an oracle resolver called 'TXE' (Test eXecution Environment) to be available. This means that a regular `nargo test` command will not suffice - you _must_ use `aztec test` instead.
 :::
 
 ## Writing Aztec Noir tests
@@ -144,7 +143,7 @@ Once accounts have been created they can be used as the `from` parameter to meth
 
 ### Private
 
-[Authwits](writing_contracts/authwit.md) are currently added via the `add_private_authwit_from_call_interface` and `add_public_authwit_from_call_interface` experimental functions. Here is an example of testing a private token transfer using authwits:
+[Authwits](authwit.md) are currently added via the `add_private_authwit_from_call_interface` and `add_public_authwit_from_call_interface` experimental functions. Here is an example of testing a private token transfer using authwits:
 
 #include_code private_authwit /noir-projects/noir-contracts/contracts/app/token_contract/src/test/transfer_in_private.nr rust
 
@@ -178,7 +177,6 @@ For example:
 ## Logging
 
 You can use `aztec.nr`'s oracles as usual for debug logging, as explained [here](../local_env/how_to_debug.md)
-
 
 :::warning
 Remember to set the following environment variables to activate debug logging:

@@ -24,7 +24,7 @@ There are also special oracle functions, which can get data from outside of the 
 ## Learn more about functions
 
 - [How function visibility works in Aztec](./visibility.md)
-- How to write an [initializer function](../../../developers/guides/smart_contracts/writing_contracts/initializers.md)
+- How to write an [initializer function](../../../developers/guides/smart_contracts/define_functions.md#initializer-functions)
 - [Oracles](../oracles/index.md) and how Aztec smart contracts might use them
 - [How functions work under the hood](./attributes.md)
 
