@@ -117,9 +117,6 @@ unconstrained fn public_call_new_flow_oracle(
     is_static_call: bool,
 ) -> [Field; 2] {}
 
-#[oracle(txeEnableContextChecks)]
-pub unconstrained fn enable_context_checks() {}
-
 #[oracle(txeSetTopLevelTXEContext)]
 pub unconstrained fn set_top_level_txe_context() {}
 
