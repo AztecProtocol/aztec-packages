@@ -192,11 +192,10 @@ void PrecomputedTraceBuilder::process_wire_instruction_spec(TraceContainer& trac
     };
 
     // First set the selector for this table lookup.
-    constexpr uint32_t num_rows = 1 << 8; // 256
     constexpr uint32_t num_opcodes = static_cast<uint32_t>(WireOpCode::LAST_OPCODE_SENTINEL);
-    trace.reserve_column(C::precomputed_opcode_out_of_range, num_rows - num_opcodes);
-    for (uint32_t i = num_opcodes; i < num_rows; i++) {
-        trace.set(C::precomputed_opcode_out_of_range, i, 1);
+    trace.reserve_column(C::precomputed_opcode_in_range, num_opcodes);
+    for (uint32_t i = 0; i < num_opcodes; i++) {
+        trace.set(C::precomputed_opcode_in_range, i, 1);
     }
 
     for (size_t i = 0; i < NUM_OP_DC_SELECTORS; i++) {

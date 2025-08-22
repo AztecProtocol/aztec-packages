@@ -25,8 +25,8 @@
 
 namespace bb::avm2 {
 
-INSTANTIATE_LOOKUP(lookup_instr_fetching_pc_abs_diff_positive_relation);
-INSTANTIATE_LOOKUP(lookup_instr_fetching_instr_abs_diff_positive_relation);
+INSTANTIATE_LOOKUP(lookup_instr_fetching_pc_in_range_toggle_relation);
+INSTANTIATE_LOOKUP(lookup_instr_fetching_instr_out_of_range_toggle_relation);
 INSTANTIATE_LOOKUP(lookup_instr_fetching_tag_value_validation_relation);
 INSTANTIATE_LOOKUP(lookup_instr_fetching_bytecode_size_from_bc_dec_relation);
 INSTANTIATE_LOOKUP(lookup_instr_fetching_bytes_from_bc_dec_relation);

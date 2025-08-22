@@ -11,51 +11,57 @@
 
 namespace bb::avm2 {
 
-/////////////////// lookup_instr_fetching_pc_abs_diff_positive ///////////////////
+/////////////////// lookup_instr_fetching_pc_in_range_toggle ///////////////////
 
-struct lookup_instr_fetching_pc_abs_diff_positive_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_INSTR_FETCHING_PC_ABS_DIFF_POSITIVE";
+struct lookup_instr_fetching_pc_in_range_toggle_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_INSTR_FETCHING_PC_IN_RANGE_TOGGLE";
     static constexpr std::string_view RELATION_NAME = "instr_fetching";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::instr_fetching_sel;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
-    static constexpr Column COUNTS = Column::lookup_instr_fetching_pc_abs_diff_positive_counts;
-    static constexpr Column INVERSES = Column::lookup_instr_fetching_pc_abs_diff_positive_inv;
+    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column COUNTS = Column::lookup_instr_fetching_pc_in_range_toggle_counts;
+    static constexpr Column INVERSES = Column::lookup_instr_fetching_pc_in_range_toggle_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::instr_fetching_pc_abs_diff, ColumnAndShifts::instr_fetching_pc_size_in_bits
+        ColumnAndShifts::instr_fetching_bytecode_size,
+        ColumnAndShifts::instr_fetching_pc,
+        ColumnAndShifts::instr_fetching_sel_pc_in_range
     };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
+                                                                                    ColumnAndShifts::gt_input_b,
+                                                                                    ColumnAndShifts::gt_res };
 };
 
-using lookup_instr_fetching_pc_abs_diff_positive_settings =
-    lookup_settings<lookup_instr_fetching_pc_abs_diff_positive_settings_>;
+using lookup_instr_fetching_pc_in_range_toggle_settings =
+    lookup_settings<lookup_instr_fetching_pc_in_range_toggle_settings_>;
 template <typename FF_>
-using lookup_instr_fetching_pc_abs_diff_positive_relation =
-    lookup_relation_base<FF_, lookup_instr_fetching_pc_abs_diff_positive_settings>;
+using lookup_instr_fetching_pc_in_range_toggle_relation =
+    lookup_relation_base<FF_, lookup_instr_fetching_pc_in_range_toggle_settings>;
 
-/////////////////// lookup_instr_fetching_instr_abs_diff_positive ///////////////////
+/////////////////// lookup_instr_fetching_instr_out_of_range_toggle ///////////////////
 
-struct lookup_instr_fetching_instr_abs_diff_positive_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_INSTR_FETCHING_INSTR_ABS_DIFF_POSITIVE";
+struct lookup_instr_fetching_instr_out_of_range_toggle_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_INSTR_FETCHING_INSTR_OUT_OF_RANGE_TOGGLE";
     static constexpr std::string_view RELATION_NAME = "instr_fetching";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
-    static constexpr Column SRC_SELECTOR = Column::instr_fetching_sel;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_8;
-    static constexpr Column COUNTS = Column::lookup_instr_fetching_instr_abs_diff_positive_counts;
-    static constexpr Column INVERSES = Column::lookup_instr_fetching_instr_abs_diff_positive_inv;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
+    static constexpr Column SRC_SELECTOR = Column::instr_fetching_opcode_in_range;
+    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column COUNTS = Column::lookup_instr_fetching_instr_out_of_range_toggle_counts;
+    static constexpr Column INVERSES = Column::lookup_instr_fetching_instr_out_of_range_toggle_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::instr_fetching_instr_abs_diff
+        ColumnAndShifts::instr_fetching_instr_size,
+        ColumnAndShifts::instr_fetching_bytes_to_read,
+        ColumnAndShifts::instr_fetching_instr_out_of_range
     };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
+                                                                                    ColumnAndShifts::gt_input_b,
+                                                                                    ColumnAndShifts::gt_res };
 };
 
-using lookup_instr_fetching_instr_abs_diff_positive_settings =
-    lookup_settings<lookup_instr_fetching_instr_abs_diff_positive_settings_>;
+using lookup_instr_fetching_instr_out_of_range_toggle_settings =
+    lookup_settings<lookup_instr_fetching_instr_out_of_range_toggle_settings_>;
 template <typename FF_>
-using lookup_instr_fetching_instr_abs_diff_positive_relation =
-    lookup_relation_base<FF_, lookup_instr_fetching_instr_abs_diff_positive_settings>;
+using lookup_instr_fetching_instr_out_of_range_toggle_relation =
+    lookup_relation_base<FF_, lookup_instr_fetching_instr_out_of_range_toggle_settings>;
 
 /////////////////// lookup_instr_fetching_tag_value_validation ///////////////////
 
@@ -202,7 +208,7 @@ struct lookup_instr_fetching_wire_instruction_info_settings_ {
     static constexpr Column COUNTS = Column::lookup_instr_fetching_wire_instruction_info_counts;
     static constexpr Column INVERSES = Column::lookup_instr_fetching_wire_instruction_info_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::instr_fetching_bd0,          ColumnAndShifts::instr_fetching_opcode_out_of_range,
+        ColumnAndShifts::instr_fetching_bd0,          ColumnAndShifts::instr_fetching_opcode_in_range,
         ColumnAndShifts::instr_fetching_exec_opcode,  ColumnAndShifts::instr_fetching_instr_size,
         ColumnAndShifts::instr_fetching_sel_has_tag,  ColumnAndShifts::instr_fetching_sel_tag_is_op2,
         ColumnAndShifts::instr_fetching_sel_op_dc_0,  ColumnAndShifts::instr_fetching_sel_op_dc_1,
@@ -216,7 +222,7 @@ struct lookup_instr_fetching_wire_instruction_info_settings_ {
         ColumnAndShifts::instr_fetching_sel_op_dc_16
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,          ColumnAndShifts::precomputed_opcode_out_of_range,
+        ColumnAndShifts::precomputed_clk,          ColumnAndShifts::precomputed_opcode_in_range,
         ColumnAndShifts::precomputed_exec_opcode,  ColumnAndShifts::precomputed_instr_size,
         ColumnAndShifts::precomputed_sel_has_tag,  ColumnAndShifts::precomputed_sel_tag_is_op2,
         ColumnAndShifts::precomputed_sel_op_dc_0,  ColumnAndShifts::precomputed_sel_op_dc_1,
