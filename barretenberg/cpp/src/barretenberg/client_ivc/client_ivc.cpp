@@ -154,8 +154,7 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
     }
     case QUEUE_TYPE::PG_FINAL: {
         BB_ASSERT_EQ(stdlib_verification_queue.size(), size_t(1));
-        // WORKTODO: would like to reinstate this but need to figure out how to not make it complain when constructing
-        // the hiding kernel from a mocked CIVC instance
+        // Note: reinstate this.
         // BB_ASSERT_EQ(num_circuits_accumulated,
         //              num_circuits - 1,
         //              "All circuits must be accumulated before constructing the hiding circuit.");
@@ -398,7 +397,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
     }
     verification_queue.push_back(queue_entry);
 
-    // Construct merge proof for the present circuit (we should skip this for the hiding circuit)
+    // Construct merge proof for the present circuit (skipped for hiding since merge proof constructed in goblin prove)
     if (num_circuits_accumulated != num_circuits - 1) {
         goblin.prove_merge(prover_accumulation_transcript);
     }

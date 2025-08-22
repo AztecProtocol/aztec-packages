@@ -299,7 +299,7 @@ TEST_F(IvcRecursionConstraintTest, MockMergeProofSize)
  * @brief Test IVC accumulation of a one app and one kernel; The kernel includes a recursive oink verification for the
  * app, specified via an ACIR RecursionConstraint.
  */
-TEST_F(IvcRecursionConstraintTest, AccumulateTwo)
+TEST_F(IvcRecursionConstraintTest, AccumulateSingleApp)
 {
     TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
     auto ivc = std::make_shared<ClientIVC>(/*num_circuits=*/5 /* app, kernel, reset, tail, hiding */, trace_settings);
@@ -320,7 +320,7 @@ TEST_F(IvcRecursionConstraintTest, AccumulateTwo)
  * @brief Test IVC accumulation of two apps and two kernels; The first kernel contains a recursive oink verification and
  * the second contains two recursive PG verifications, all specified via ACIR RecursionConstraints.
  */
-TEST_F(IvcRecursionConstraintTest, AccumulateFour)
+TEST_F(IvcRecursionConstraintTest, AccumulateTwoApps)
 {
     TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
     // 4 ciruits and the tail kernel
@@ -601,8 +601,6 @@ TEST_F(IvcRecursionConstraintTest, BadRecursiveVerifierAppCircuitTest)
     ivc->accumulate(app_circuit, get_verification_key(app_circuit, trace_settings));
 
     // Construct kernel consisting only of the kernel completion logic
-    // WORKTODO: circuit checker is failing here but I dont see why that would happen even with the tampered pairing
-    // points..
     construct_and_accumulate_mock_kernel(ivc, trace_settings);
 
     // add the trailing kernels

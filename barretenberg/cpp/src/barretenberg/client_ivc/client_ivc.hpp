@@ -141,8 +141,8 @@ class ClientIVC {
     enum class QUEUE_TYPE {
         OINK,
         PG,
-        PG_FINAL,
-        PG_TAIL,
+        PG_FINAL, // the final PG verification, used in hiding kernel
+        PG_TAIL,  // used in tail to indicate special handling of merge for ZK
         MEGA
     }; // for specifying type of proof in the verification queue
 
