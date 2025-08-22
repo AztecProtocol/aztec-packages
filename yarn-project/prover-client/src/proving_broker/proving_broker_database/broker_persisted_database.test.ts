@@ -50,7 +50,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
       db.addProvingJob({
         id,
         epochNumber: 42,
-        type: ProvingRequestType.BASE_PARITY,
+        type: ProvingRequestType.PARITY_BASE,
         inputsUri: makeInputsUri(),
       }),
     ).resolves.not.toThrow();
@@ -64,7 +64,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
         db.addProvingJob({
           id,
           epochNumber: 42,
-          type: ProvingRequestType.BASE_PARITY,
+          type: ProvingRequestType.PARITY_BASE,
           inputsUri: makeInputsUri(),
         }),
       ).resolves.not.toThrow();
@@ -77,7 +77,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
     await db.addProvingJob({
       id,
       epochNumber: 42,
-      type: ProvingRequestType.BASE_PARITY,
+      type: ProvingRequestType.PARITY_BASE,
       inputsUri: makeInputsUri(),
     });
     await expect(db.setProvingJobResult(id, 'Proof' as ProofUri)).resolves.not.toThrow();
@@ -89,7 +89,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
     await db.addProvingJob({
       id,
       epochNumber: 42,
-      type: ProvingRequestType.BASE_PARITY,
+      type: ProvingRequestType.PARITY_BASE,
       inputsUri: makeInputsUri(),
     });
 
@@ -106,7 +106,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
     await db.addProvingJob({
       id,
       epochNumber: 42,
-      type: ProvingRequestType.BASE_PARITY,
+      type: ProvingRequestType.PARITY_BASE,
       inputsUri: makeInputsUri(),
     });
 
@@ -119,7 +119,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
     await db.addProvingJob({
       id,
       epochNumber: 42,
-      type: ProvingRequestType.BASE_PARITY,
+      type: ProvingRequestType.PARITY_BASE,
       inputsUri: makeInputsUri(),
     });
 
@@ -139,7 +139,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
         db.addProvingJob({
           id,
           epochNumber: startEpoch + i,
-          type: ProvingRequestType.BASE_PARITY,
+          type: ProvingRequestType.PARITY_BASE,
           inputsUri: makeInputsUri(),
         }),
       ).resolves.not.toThrow();
@@ -157,7 +157,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
       const job: ProvingJob = {
         id,
         epochNumber: startEpoch + i,
-        type: ProvingRequestType.BASE_PARITY,
+        type: ProvingRequestType.PARITY_BASE,
         inputsUri: makeInputsUri(),
       };
       await db.addProvingJob(job);
@@ -187,7 +187,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
       await db.addProvingJob({
         id,
         epochNumber: startEpoch + i,
-        type: ProvingRequestType.BASE_PARITY,
+        type: ProvingRequestType.PARITY_BASE,
         inputsUri: makeInputsUri(),
       });
       epochs.push(startEpoch + i);
@@ -204,7 +204,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
       const job: ProvingJob = {
         id,
         epochNumber: startEpoch + i,
-        type: ProvingRequestType.BASE_PARITY,
+        type: ProvingRequestType.PARITY_BASE,
         inputsUri: makeInputsUri(),
       };
       await db.addProvingJob(job);
@@ -249,7 +249,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
       const job: ProvingJob = {
         id,
         epochNumber: startEpoch + i,
-        type: ProvingRequestType.BASE_PARITY,
+        type: ProvingRequestType.PARITY_BASE,
         inputsUri: makeInputsUri(),
       };
       await db.addProvingJob(job);
@@ -289,7 +289,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
       const job: ProvingJob = {
         id,
         epochNumber: startEpoch + i,
-        type: ProvingRequestType.BASE_PARITY,
+        type: ProvingRequestType.PARITY_BASE,
         inputsUri: makeInputsUri(),
       };
       await db.addProvingJob(job);
@@ -357,7 +357,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
           db.addProvingJob({
             id,
             epochNumber: 42,
-            type: ProvingRequestType.BASE_PARITY,
+            type: ProvingRequestType.PARITY_BASE,
             inputsUri: makeInputsUri(),
           }),
         );
@@ -384,7 +384,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
         db.addProvingJob({
           id: makeRandomProvingJobId(42),
           epochNumber: 42,
-          type: ProvingRequestType.BASE_PARITY,
+          type: ProvingRequestType.PARITY_BASE,
           inputsUri: makeInputsUri(),
         }),
       );
@@ -392,7 +392,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
         db.addProvingJob({
           id: makeRandomProvingJobId(42),
           epochNumber: 42,
-          type: ProvingRequestType.BASE_PARITY,
+          type: ProvingRequestType.PARITY_BASE,
           inputsUri: makeInputsUri(),
         }),
       );
@@ -400,7 +400,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
         db.addProvingJob({
           id: makeRandomProvingJobId(42),
           epochNumber: 42,
-          type: ProvingRequestType.BASE_PARITY,
+          type: ProvingRequestType.PARITY_BASE,
           inputsUri: makeInputsUri(),
         }),
       );
@@ -418,7 +418,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
         db.addProvingJob({
           id: makeRandomProvingJobId(42),
           epochNumber: 42,
-          type: ProvingRequestType.BASE_PARITY,
+          type: ProvingRequestType.PARITY_BASE,
           inputsUri: makeInputsUri(),
         }),
       );

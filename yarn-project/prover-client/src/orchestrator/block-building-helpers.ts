@@ -559,12 +559,11 @@ export function validateTx(tx: ProcessedTx) {
   }
 }
 
-export function toRollupProofData<T extends Bufferable, PROOF_LENGTH extends number>({
-  inputs,
-  proof,
-  verificationKey,
-}: PublicInputsAndRecursiveProof<T, PROOF_LENGTH>) {
-  const leafIndex = getVKIndex(verificationKey.keyAsFields);
+export function toProofData<T extends Bufferable, PROOF_LENGTH extends number>(
+  { inputs, proof, verificationKey }: PublicInputsAndRecursiveProof<T, PROOF_LENGTH>,
+  vkIndex?: number,
+) {
+  const leafIndex = vkIndex || getVKIndex(verificationKey.keyAsFields);
   const vkData = new VkData(verificationKey, leafIndex, getVKSiblingPath(leafIndex));
   return new ProofData(inputs, proof, vkData);
 }

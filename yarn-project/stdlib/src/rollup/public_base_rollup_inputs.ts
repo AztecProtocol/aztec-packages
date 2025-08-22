@@ -7,24 +7,24 @@ import { AvmProofData } from './avm_proof_data.js';
 import { PublicBaseRollupHints } from './base_rollup_hints.js';
 import { PublicTubeData } from './public_tube_data.js';
 
-export class PublicBaseRollupInputs {
+export class PublicTxBaseRollupPrivateInputs {
   constructor(
     public tubeData: PublicTubeData,
     public avmProofData: AvmProofData,
     public hints: PublicBaseRollupHints,
   ) {}
 
-  static from(fields: FieldsOf<PublicBaseRollupInputs>): PublicBaseRollupInputs {
-    return new PublicBaseRollupInputs(...PublicBaseRollupInputs.getFields(fields));
+  static from(fields: FieldsOf<PublicTxBaseRollupPrivateInputs>): PublicTxBaseRollupPrivateInputs {
+    return new PublicTxBaseRollupPrivateInputs(...PublicTxBaseRollupPrivateInputs.getFields(fields));
   }
 
-  static getFields(fields: FieldsOf<PublicBaseRollupInputs>) {
+  static getFields(fields: FieldsOf<PublicTxBaseRollupPrivateInputs>) {
     return [fields.tubeData, fields.avmProofData, fields.hints] as const;
   }
 
-  static fromBuffer(buffer: Buffer | BufferReader): PublicBaseRollupInputs {
+  static fromBuffer(buffer: Buffer | BufferReader): PublicTxBaseRollupPrivateInputs {
     const reader = BufferReader.asReader(buffer);
-    return new PublicBaseRollupInputs(
+    return new PublicTxBaseRollupPrivateInputs(
       reader.readObject(PublicTubeData),
       reader.readObject(AvmProofData),
       reader.readObject(PublicBaseRollupHints),
@@ -32,11 +32,11 @@ export class PublicBaseRollupInputs {
   }
 
   toBuffer() {
-    return serializeToBuffer(...PublicBaseRollupInputs.getFields(this));
+    return serializeToBuffer(...PublicTxBaseRollupPrivateInputs.getFields(this));
   }
 
   static fromString(str: string) {
-    return PublicBaseRollupInputs.fromBuffer(hexToBuffer(str));
+    return PublicTxBaseRollupPrivateInputs.fromBuffer(hexToBuffer(str));
   }
 
   toString() {
@@ -44,7 +44,11 @@ export class PublicBaseRollupInputs {
   }
 
   static empty() {
-    return new PublicBaseRollupInputs(PublicTubeData.empty(), AvmProofData.empty(), PublicBaseRollupHints.empty());
+    return new PublicTxBaseRollupPrivateInputs(
+      PublicTubeData.empty(),
+      AvmProofData.empty(),
+      PublicBaseRollupHints.empty(),
+    );
   }
 
   /** Returns a representation for JSON serialization. */
@@ -54,6 +58,6 @@ export class PublicBaseRollupInputs {
 
   /** Creates an instance from a string. */
   static get schema() {
-    return bufferSchemaFor(PublicBaseRollupInputs);
+    return bufferSchemaFor(PublicTxBaseRollupPrivateInputs);
   }
 }

@@ -108,21 +108,32 @@ impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
     }
 
     fn get_end_blob_accumulator(self) -> BlobAccumulatorPublicInputs {
+        let mut end_sponge_blob = self.merged_rollup.end_sponge_blob;
+        let sponge_blob_hash = end_sponge_blob.squeeze();
+
         if !dep::std::runtime::is_unconstrained() {
-            evaluate_blobs_and_batch(
+            let (end_blob_accumulator, hashed_blobs_fields) = evaluate_blobs_and_batch(
                 self.blobs_fields,
+                end_sponge_blob.expected_fields,
                 self.blob_commitments,
-                self.merged_rollup.end_sponge_blob,
                 self.final_blob_challenges,
                 self.start_blob_accumulator,
-            )
+            );
+
+            // Check that the injected fields do match what's been absorbed into the sponge by comparing their hashes.
+            assert_eq(sponge_blob_hash, hashed_blobs_fields, "Mismatched blob fields hash");
+
+            end_blob_accumulator
         } else {
             // Safety: TODO(#10323): this was added to save simulation time, if/when simulation times of unconstrained are improved, remove this.
+            // The sponge_blob_hash is checked in the oracle against the `hashed_blobs_fields`, so that we can mock the
+            // entire oracle call and assume it's correct when it is not relevant for the tests.
             unsafe {
                 blob::mock_blob_oracle::evaluate_blobs_and_batch(
                     self.blobs_fields,
+                    end_sponge_blob.fields,
+                    sponge_blob_hash,
                     self.blob_commitments,
-                    self.merged_rollup.end_sponge_blob,
                     self.final_blob_challenges,
                     self.start_blob_accumulator,
                 )

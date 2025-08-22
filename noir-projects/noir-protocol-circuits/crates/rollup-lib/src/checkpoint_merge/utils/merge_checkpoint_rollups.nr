@@ -9,7 +9,7 @@ pub fn merge_checkpoint_rollups(
     // merged arrays (`checkpoint_header_hashes`, `fees`) from being truncated.
     let num_checkpoints = left.num_checkpoints() + right.num_checkpoints();
     assert(
-        num_checkpoints <= AZTEC_MAX_EPOCH_DURATION,
+        num_checkpoints <= AZTEC_MAX_EPOCH_DURATION as u16,
         "total number of checkpoints exceeds max allowed in an epoch",
     );
 

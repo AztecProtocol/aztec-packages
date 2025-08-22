@@ -17,13 +17,13 @@ global ALLOWED_PREVIOUS_VK_INDICES: [u32; 3] = [
     BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX,
 ];
 
-/// VkIndex: CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP_VK_INDEX
 pub struct CheckpointRootSingleBlockRollupPrivateInputs {
-    previous_rollup: RollupProofData<BlockRollupPublicInputs>,
-    hints: CheckpointRootRollupHints,
+    pub(crate) previous_rollup: RollupProofData<BlockRollupPublicInputs>,
+    pub(crate) hints: CheckpointRootRollupHints,
 }
 
 impl CheckpointRootSingleBlockRollupPrivateInputs {
+    /// VkIndex: CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP_VK_INDEX
     pub fn execute(self) -> CheckpointRollupPublicInputs {
         let hints = self.hints;
         CheckpointRootInputsValidator::new(

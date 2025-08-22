@@ -9,7 +9,7 @@
     "./client/bundle": "./dest/entrypoint/client/bundle.js",
     "./client/lazy": "./dest/entrypoint/client/lazy.js",
     "./vk-tree": "./dest/entrypoint/vk-tree.js",
-    "./types": "./dest/types/index.js"
+    "./types": "./dest/artifacts/types.js"
   },
   "inherits": [
     "../package.common.json",

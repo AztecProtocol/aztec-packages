@@ -7,10 +7,9 @@ import type {
 } from '@aztec/constants';
 
 import type { AvmCircuitInputs } from '../avm/avm.js';
-import type { BaseParityInputs } from '../parity/base_parity_inputs.js';
+import type { ParityBasePrivateInputs } from '../parity/parity_base_private_inputs.js';
 import type { ParityPublicInputs } from '../parity/parity_public_inputs.js';
-import type { RootParityInputs } from '../parity/root_parity_inputs.js';
-import type { BaseOrMergeRollupPublicInputs } from '../rollup/base_or_merge_rollup_public_inputs.js';
+import type { ParityRootPrivateInputs } from '../parity/parity_root_private_inputs.js';
 import type { BlockMergeRollupPrivateInputs } from '../rollup/block_merge_rollup.js';
 import type { BlockRollupPublicInputs } from '../rollup/block_rollup_public_inputs.js';
 import type {
@@ -27,11 +26,12 @@ import type {
   CheckpointRootRollupPrivateInputs,
   CheckpointRootSingleBlockRollupPrivateInputs,
 } from '../rollup/checkpoint_root_rollup.js';
-import type { MergeRollupInputs } from '../rollup/merge_rollup.js';
-import type { PrivateBaseRollupInputs } from '../rollup/private_base_rollup_inputs.js';
-import type { PublicBaseRollupInputs } from '../rollup/public_base_rollup_inputs.js';
+import type { PrivateTxBaseRollupPrivateInputs } from '../rollup/private_base_rollup_inputs.js';
+import type { PublicTxBaseRollupPrivateInputs } from '../rollup/public_base_rollup_inputs.js';
 import type { RootRollupPrivateInputs, RootRollupPublicInputs } from '../rollup/root_rollup.js';
 import type { TubeInputs } from '../rollup/tube_inputs.js';
+import type { TxMergeRollupPrivateInputs } from '../rollup/tx_merge_rollup.js';
+import type { TxRollupPublicInputs } from '../rollup/tx_rollup_public_inputs.js';
 import type { Tx } from '../tx/tx.js';
 import type { ProofAndVerificationKey, PublicInputsAndRecursiveProof } from './proving-job.js';
 
@@ -44,7 +44,7 @@ export interface ServerCircuitProver {
    * @param input - Input to the circuit.
    */
   getBaseParityProof(
-    inputs: BaseParityInputs,
+    inputs: ParityBasePrivateInputs,
     signal?: AbortSignal,
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof RECURSIVE_PROOF_LENGTH>>;
@@ -54,7 +54,7 @@ export interface ServerCircuitProver {
    * @param input - Input to the circuit.
    */
   getRootParityProof(
-    inputs: RootParityInputs,
+    inputs: ParityRootPrivateInputs,
     signal?: AbortSignal,
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof NESTED_RECURSIVE_PROOF_LENGTH>>;
@@ -63,21 +63,17 @@ export interface ServerCircuitProver {
    * Creates a proof for the given input.
    * @param input - Input to the circuit.
    */
-  getPrivateBaseRollupProof(
-    baseRollupInput: PrivateBaseRollupInputs,
+  getPrivateTxBaseRollupProof(
+    baseRollupInput: PrivateTxBaseRollupPrivateInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<
-    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
-  >;
+  ): Promise<PublicInputsAndRecursiveProof<TxRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>>;
 
-  getPublicBaseRollupProof(
-    inputs: PublicBaseRollupInputs,
+  getPublicTxBaseRollupProof(
+    inputs: PublicTxBaseRollupPrivateInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<
-    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
-  >;
+  ): Promise<PublicInputsAndRecursiveProof<TxRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>>;
 
   /**
    * Get a recursively verified client IVC proof (making it a compatible honk proof for the rest of the rollup).
@@ -93,13 +89,11 @@ export interface ServerCircuitProver {
    * Creates a proof for the given input.
    * @param input - Input to the circuit.
    */
-  getMergeRollupProof(
-    input: MergeRollupInputs,
+  getTxMergeRollupProof(
+    input: TxMergeRollupPrivateInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<
-    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
-  >;
+  ): Promise<PublicInputsAndRecursiveProof<TxRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>>;
 
   /**
    * Creates a proof for the given input.

@@ -12,11 +12,11 @@ import {
   AvmProofData,
   type BaseRollupHints,
   PrivateBaseRollupHints,
-  PrivateBaseRollupInputs,
   PrivateTubeData,
+  PrivateTxBaseRollupPrivateInputs,
   PublicBaseRollupHints,
-  PublicBaseRollupInputs,
   PublicTubeData,
+  PublicTxBaseRollupPrivateInputs,
   TubeInputs,
 } from '@aztec/stdlib/rollup';
 import type { CircuitName } from '@aztec/stdlib/stats';
@@ -58,12 +58,12 @@ export class TxProvingState {
   public getBaseRollupTypeAndInputs() {
     if (this.requireAvmProof) {
       return {
-        rollupType: 'public-base-rollup' satisfies CircuitName,
+        rollupType: 'rollup-tx-base-public' satisfies CircuitName,
         inputs: this.#getPublicBaseInputs(),
       };
     } else {
       return {
-        rollupType: 'private-base-rollup' satisfies CircuitName,
+        rollupType: 'rollup-tx-base-private' satisfies CircuitName,
         inputs: this.#getPrivateBaseInputs(),
       };
     }
@@ -92,7 +92,7 @@ export class TxProvingState {
     if (!(this.baseRollupHints instanceof PrivateBaseRollupHints)) {
       throw new Error('Mismatched base rollup hints, expected private base rollup hints');
     }
-    return new PrivateBaseRollupInputs(tubeData, this.baseRollupHints);
+    return new PrivateTxBaseRollupPrivateInputs(tubeData, this.baseRollupHints);
   }
 
   #getPublicBaseInputs() {
@@ -122,7 +122,7 @@ export class TxProvingState {
       throw new Error('Mismatched base rollup hints, expected public base rollup hints');
     }
 
-    return new PublicBaseRollupInputs(tubeData, avmProofData, this.baseRollupHints);
+    return new PublicTxBaseRollupPrivateInputs(tubeData, avmProofData, this.baseRollupHints);
   }
 
   #getVkData(verificationKey: VerificationKeyData, vkIndex: number) {

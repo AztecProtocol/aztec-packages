@@ -13,8 +13,6 @@ import { createLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
 import {
   type ServerProtocolArtifact,
-  convertBaseParityInputsToWitnessMap,
-  convertBaseParityOutputsFromWitnessMap,
   convertBlockMergeRollupOutputsFromWitnessMap,
   convertBlockMergeRollupPrivateInputsToWitnessMap,
   convertBlockRootEmptyTxFirstRollupOutputsFromWitnessMap,
@@ -35,19 +33,22 @@ import {
   convertCheckpointRootRollupPrivateInputsToWitnessMap,
   convertCheckpointRootSingleBlockRollupOutputsFromWitnessMap,
   convertCheckpointRootSingleBlockRollupPrivateInputsToWitnessMap,
-  convertMergeRollupInputsToWitnessMap,
-  convertMergeRollupOutputsFromWitnessMap,
-  convertPrivateBaseRollupInputsToWitnessMap,
-  convertPrivateBaseRollupOutputsFromWitnessMap,
-  convertPublicBaseRollupInputsToWitnessMap,
-  convertPublicBaseRollupOutputsFromWitnessMap,
-  convertRootParityInputsToWitnessMap,
-  convertRootParityOutputsFromWitnessMap,
+  convertParityBaseOutputsFromWitnessMap,
+  convertParityBasePrivateInputsToWitnessMap,
+  convertParityRootOutputsFromWitnessMap,
+  convertParityRootPrivateInputsToWitnessMap,
+  convertPrivateTxBaseRollupOutputsFromWitnessMap,
+  convertPrivateTxBaseRollupPrivateInputsToWitnessMap,
+  convertPublicTxBaseRollupOutputsFromWitnessMap,
+  convertPublicTxBaseRollupPrivateInputsToWitnessMap,
   convertRootRollupOutputsFromWitnessMap,
   convertRootRollupPrivateInputsToWitnessMap,
+  convertTxMergeRollupOutputsFromWitnessMap,
+  convertTxMergeRollupPrivateInputsToWitnessMap,
   getServerCircuitArtifact,
 } from '@aztec/noir-protocol-circuits-types/server';
 import { ServerCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
+import { mapProtocolArtifactNameToCircuitName } from '@aztec/noir-protocol-circuits-types/types';
 import type { WitnessMap } from '@aztec/noir-types';
 import { NativeACVMSimulator } from '@aztec/simulator/server';
 import type { AvmCircuitInputs, AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
@@ -59,10 +60,9 @@ import {
   makeProofAndVerificationKey,
   makePublicInputsAndRecursiveProof,
 } from '@aztec/stdlib/interfaces/server';
-import type { BaseParityInputs, ParityPublicInputs, RootParityInputs } from '@aztec/stdlib/parity';
+import type { ParityBasePrivateInputs, ParityPublicInputs, ParityRootPrivateInputs } from '@aztec/stdlib/parity';
 import { Proof, RecursiveProof, makeRecursiveProofFromBinary } from '@aztec/stdlib/proofs';
 import {
-  type BaseOrMergeRollupPublicInputs,
   BlockMergeRollupPrivateInputs,
   BlockRollupPublicInputs,
   BlockRootEmptyTxFirstRollupPrivateInputs,
@@ -75,12 +75,13 @@ import {
   CheckpointRollupPublicInputs,
   CheckpointRootRollupPrivateInputs,
   CheckpointRootSingleBlockRollupPrivateInputs,
-  type MergeRollupInputs,
-  type PrivateBaseRollupInputs,
-  PublicBaseRollupInputs,
+  type PrivateTxBaseRollupPrivateInputs,
+  PublicTxBaseRollupPrivateInputs,
   type RootRollupPrivateInputs,
   type RootRollupPublicInputs,
   type TubeInputs,
+  type TxMergeRollupPrivateInputs,
+  type TxRollupPublicInputs,
   enhanceProofWithPiValidationFlag,
 } from '@aztec/stdlib/rollup';
 import type { CircuitProvingStats, CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
@@ -107,7 +108,6 @@ import {
 import type { ACVMConfig, BBConfig } from '../../config.js';
 import { type UltraHonkFlavor, getUltraHonkFlavorForCircuit } from '../../honk.js';
 import { ProverInstrumentation } from '../../instrumentation.js';
-import { mapProtocolArtifactNameToCircuitName } from '../../stats.js';
 import { extractAvmVkData, extractVkData } from '../../verification_key/verification_key_data.js';
 import { PRIVATE_TAIL_CIVC_VK, PUBLIC_TAIL_CIVC_VK } from '../../verifier/bb_verifier.js';
 import { readProofAsFields, writeClientIVCProofToOutputDirectory } from '../proof_utils.js';
@@ -152,16 +152,16 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    * @param inputs - Inputs to the circuit.
    * @returns The public inputs of the parity circuit.
    */
-  @trackSpan('BBNativeRollupProver.getBaseParityProof', { [Attributes.PROTOCOL_CIRCUIT_NAME]: 'base-parity' })
+  @trackSpan('BBNativeRollupProver.getBaseParityProof', { [Attributes.PROTOCOL_CIRCUIT_NAME]: 'parity-base' })
   public getBaseParityProof(
-    inputs: BaseParityInputs,
+    inputs: ParityBasePrivateInputs,
   ): Promise<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
     return this.createRecursiveProofAndVerify(
       inputs,
-      'BaseParityArtifact',
+      'ParityBaseArtifact',
       RECURSIVE_PROOF_LENGTH,
-      convertBaseParityInputsToWitnessMap,
-      convertBaseParityOutputsFromWitnessMap,
+      convertParityBasePrivateInputsToWitnessMap,
+      convertParityBaseOutputsFromWitnessMap,
     );
   }
 
@@ -170,16 +170,16 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    * @param inputs - Inputs to the circuit.
    * @returns The public inputs of the parity circuit.
    */
-  @trackSpan('BBNativeRollupProver.getRootParityProof', { [Attributes.PROTOCOL_CIRCUIT_NAME]: 'root-parity' })
+  @trackSpan('BBNativeRollupProver.getRootParityProof', { [Attributes.PROTOCOL_CIRCUIT_NAME]: 'parity-root' })
   public getRootParityProof(
-    inputs: RootParityInputs,
+    inputs: ParityRootPrivateInputs,
   ): Promise<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof NESTED_RECURSIVE_PROOF_LENGTH>> {
     return this.createRecursiveProofAndVerify(
       inputs,
-      'RootParityArtifact',
+      'ParityRootArtifact',
       NESTED_RECURSIVE_PROOF_LENGTH,
-      convertRootParityInputsToWitnessMap,
-      convertRootParityOutputsFromWitnessMap,
+      convertParityRootPrivateInputsToWitnessMap,
+      convertParityRootOutputsFromWitnessMap,
     );
   }
 
@@ -208,17 +208,15 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    * @param inputs - Inputs to the circuit.
    * @returns The public inputs as outputs of the simulation.
    */
-  public getPrivateBaseRollupProof(
-    inputs: PrivateBaseRollupInputs,
-  ): Promise<
-    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
-  > {
+  public getPrivateTxBaseRollupProof(
+    inputs: PrivateTxBaseRollupPrivateInputs,
+  ): Promise<PublicInputsAndRecursiveProof<TxRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
     return this.createRecursiveProofAndVerify(
       inputs,
-      'PrivateBaseRollupArtifact',
+      'PrivateTxBaseRollupArtifact',
       NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-      convertPrivateBaseRollupInputsToWitnessMap,
-      convertPrivateBaseRollupOutputsFromWitnessMap,
+      convertPrivateTxBaseRollupPrivateInputsToWitnessMap,
+      convertPrivateTxBaseRollupOutputsFromWitnessMap,
     );
   }
 
@@ -227,17 +225,15 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    * @param kernelRequest - The object encapsulating the request for a proof
    * @returns The requested circuit's public inputs and proof
    */
-  public getPublicBaseRollupProof(
-    inputs: PublicBaseRollupInputs,
-  ): Promise<
-    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
-  > {
+  public getPublicTxBaseRollupProof(
+    inputs: PublicTxBaseRollupPrivateInputs,
+  ): Promise<PublicInputsAndRecursiveProof<TxRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
     return this.createRecursiveProofAndVerify(
       inputs,
-      'PublicBaseRollupArtifact',
+      'PublicTxBaseRollupArtifact',
       NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-      convertPublicBaseRollupInputsToWitnessMap,
-      convertPublicBaseRollupOutputsFromWitnessMap,
+      convertPublicTxBaseRollupPrivateInputsToWitnessMap,
+      convertPublicTxBaseRollupOutputsFromWitnessMap,
     );
   }
 
@@ -246,17 +242,15 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    * @param input - Inputs to the circuit.
    * @returns The public inputs as outputs of the simulation.
    */
-  public getMergeRollupProof(
-    input: MergeRollupInputs,
-  ): Promise<
-    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
-  > {
+  public getTxMergeRollupProof(
+    input: TxMergeRollupPrivateInputs,
+  ): Promise<PublicInputsAndRecursiveProof<TxRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
     return this.createRecursiveProofAndVerify(
       input,
-      'MergeRollupArtifact',
+      'TxMergeRollupArtifact',
       NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-      convertMergeRollupInputsToWitnessMap,
-      convertMergeRollupOutputsFromWitnessMap,
+      convertTxMergeRollupPrivateInputsToWitnessMap,
+      convertTxMergeRollupOutputsFromWitnessMap,
     );
   }
 

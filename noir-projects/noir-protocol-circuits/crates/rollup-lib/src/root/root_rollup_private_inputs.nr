@@ -25,12 +25,12 @@ global ALLOWED_RIGHT_ROLLUP_VK_INDICES: [u32; 4] = [
     CHECKPOINT_PADDING_ROLLUP_VK_INDEX,
 ];
 
-/// VkIndex: ROOT_ROLLUP_VK_INDEX
 pub struct RootRollupPrivateInputs {
-    pub previous_rollups: [RollupProofData<CheckpointRollupPublicInputs>; 2],
+    pub(crate) previous_rollups: [RollupProofData<CheckpointRollupPublicInputs>; 2],
 }
 
 impl RootRollupPrivateInputs {
+    /// VkIndex: ROOT_ROLLUP_VK_INDEX
     pub fn execute(self) -> RootRollupPublicInputs {
         // Verify the previous rollup proofs
         if !dep::std::runtime::is_unconstrained() {

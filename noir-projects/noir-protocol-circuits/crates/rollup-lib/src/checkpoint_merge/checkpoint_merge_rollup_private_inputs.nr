@@ -16,12 +16,12 @@ global ALLOWED_VK_INDICES: [u32; 3] = [
     CHECKPOINT_MERGE_ROLLUP_VK_INDEX,
 ];
 
-/// VkIndex: CHECKPOINT_MERGE_ROLLUP_VK_INDEX
 pub struct CheckpointMergeRollupPrivateInputs {
-    pub previous_rollups: [RollupProofData<CheckpointRollupPublicInputs>; 2],
+    pub(crate) previous_rollups: [RollupProofData<CheckpointRollupPublicInputs>; 2],
 }
 
 impl CheckpointMergeRollupPrivateInputs {
+    /// VkIndex: CHECKPOINT_MERGE_ROLLUP_VK_INDEX
     pub fn execute(self) -> CheckpointRollupPublicInputs {
         // Verify the previous rollup proofs and vks.
         if !dep::std::runtime::is_unconstrained() {

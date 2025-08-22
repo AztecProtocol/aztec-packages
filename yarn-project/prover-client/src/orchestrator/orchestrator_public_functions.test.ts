@@ -100,9 +100,9 @@ describe('prover/orchestrator/public-functions', () => {
       const header = await context.orchestrator.setBlockCompleted(context.blockNumber);
       await context.orchestrator.finaliseEpoch();
       expect(header.getBlockNumber()).toEqual(context.blockNumber);
-      const data = getTestData('rollup-base-public');
+      const data = getTestData('rollup-tx-base-public');
       if (data) {
-        updateProtocolCircuitSampleInputs('rollup-base-public', TOML.stringify(data[0] as any));
+        updateProtocolCircuitSampleInputs('rollup-tx-base-public', TOML.stringify(data[0] as any));
       }
     });
   });

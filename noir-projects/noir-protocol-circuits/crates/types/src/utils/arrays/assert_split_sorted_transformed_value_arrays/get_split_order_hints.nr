@@ -100,7 +100,6 @@ where
 mod tests {
     use crate::{
         tests::{types::TestValue, utils::pad_end},
-        traits::Empty,
         utils::arrays::assert_split_sorted_transformed_value_arrays::get_split_order_hints::{
             get_split_order_hints_asc, get_split_order_hints_desc, SplitOrderHints,
         },
@@ -127,7 +126,7 @@ mod tests {
 
     impl TestBuilder<7> {
         pub fn new_padded() -> Self {
-            TestBuilder { array: pad_end(full_array, TestValue::empty()), split_counter: 0 }
+            TestBuilder { array: pad_end(full_array), split_counter: 0 }
         }
     }
 

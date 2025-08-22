@@ -2,7 +2,11 @@ import { runInDirectory } from '@aztec/foundation/fs';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ServerCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
-import type { ClientProtocolArtifact, ServerProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
+import {
+  type ClientProtocolArtifact,
+  type ServerProtocolArtifact,
+  mapProtocolArtifactNameToCircuitName,
+} from '@aztec/noir-protocol-circuits-types/types';
 import type { ClientProtocolCircuitVerifier, IVCProofVerificationResult } from '@aztec/stdlib/interfaces/server';
 import type { Proof } from '@aztec/stdlib/proofs';
 import type { CircuitVerificationStats } from '@aztec/stdlib/stats';
@@ -24,7 +28,6 @@ import {
 import type { BBConfig } from '../config.js';
 import { getUltraHonkFlavorForCircuit } from '../honk.js';
 import { writeClientIVCProofToOutputDirectory } from '../prover/proof_utils.js';
-import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 

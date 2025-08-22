@@ -1,7 +1,7 @@
 import { makeBlockMergeRollupPrivateInputs } from '../tests/factories.js';
 import { BlockMergeRollupPrivateInputs } from './block_merge_rollup.js';
 
-describe('BlockMergeRollupInputs', () => {
+describe('BlockMergeRollupPrivateInputs', () => {
   it('serializes to buffer and deserializes it back', () => {
     const expected = makeBlockMergeRollupPrivateInputs();
     const buffer = expected.toBuffer();

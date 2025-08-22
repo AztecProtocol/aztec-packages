@@ -35,8 +35,8 @@ describe('ProverAgentApiSchema', () => {
     },
     {
       status: 'proving',
-      jobId: makeProvingJobId(42, ProvingRequestType.PUBLIC_BASE_ROLLUP, randomBytes(64).toString('hex')),
-      proofType: ProvingRequestType.PUBLIC_BASE_ROLLUP,
+      jobId: makeProvingJobId(42, ProvingRequestType.PUBLIC_TX_BASE_ROLLUP, randomBytes(64).toString('hex')),
+      proofType: ProvingRequestType.PUBLIC_TX_BASE_ROLLUP,
       startedAtISO: new Date().toISOString(),
     },
   ])('getStatus', async expectedStatus => {

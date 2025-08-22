@@ -1,5 +1,5 @@
-use dep::parity_lib::{BaseParityInputs, ParityPublicInputs};
+use dep::parity_lib::{ParityBasePrivateInputs, ParityPublicInputs};
 
-fn main(inputs: BaseParityInputs) -> pub ParityPublicInputs {
-    inputs.base_parity_circuit()
+fn main(inputs: ParityBasePrivateInputs) -> pub ParityPublicInputs {
+    inputs.execute()
 }

@@ -3,7 +3,7 @@ import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundati
 
 import { ProvingRequestType } from '../proofs/proving_request_type.js';
 import { makeRecursiveProof } from '../proofs/recursive_proof.js';
-import { BaseOrMergeRollupPublicInputs } from '../rollup/base_or_merge_rollup_public_inputs.js';
+import { TxRollupPublicInputs } from '../rollup/tx_rollup_public_inputs.js';
 import { VerificationKeyData } from '../vks/verification_key.js';
 import { type ProvingJobSource, ProvingJobSourceSchema } from './proving-job-source.js';
 import {
@@ -48,12 +48,9 @@ describe('ProvingJobSourceSchema', () => {
 
   it('resolveProvingJob', async () => {
     await context.client.resolveProvingJob('a-job-id', {
-      type: ProvingRequestType.PRIVATE_BASE_ROLLUP,
-      result: makePublicInputsAndRecursiveProof<
-        BaseOrMergeRollupPublicInputs,
-        typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
-      >(
-        BaseOrMergeRollupPublicInputs.empty(),
+      type: ProvingRequestType.PRIVATE_TX_BASE_ROLLUP,
+      result: makePublicInputsAndRecursiveProof<TxRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>(
+        TxRollupPublicInputs.empty(),
         makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
         VerificationKeyData.makeFakeRollupHonk(),
       ),
@@ -69,7 +66,7 @@ class MockProvingJobSource implements ProvingJobSource {
   getProvingJob(): Promise<ProvingJob | undefined> {
     return Promise.resolve({
       id: 'a-job-id',
-      type: ProvingRequestType.PRIVATE_BASE_ROLLUP,
+      type: ProvingRequestType.PRIVATE_TX_BASE_ROLLUP,
       inputsUri: 'inputs-uri' as ProofUri,
       epochNumber: 1,
     });
@@ -80,8 +77,8 @@ class MockProvingJobSource implements ProvingJobSource {
   }
   resolveProvingJob(jobId: string, result: ProvingJobResult): Promise<void> {
     expect(typeof jobId).toEqual('string');
-    const baseRollupResult = result as ProvingRequestResultFor<typeof ProvingRequestType.PRIVATE_BASE_ROLLUP>;
-    expect(baseRollupResult.result.inputs).toBeInstanceOf(BaseOrMergeRollupPublicInputs);
+    const baseRollupResult = result as ProvingRequestResultFor<typeof ProvingRequestType.PRIVATE_TX_BASE_ROLLUP>;
+    expect(baseRollupResult.result.inputs).toBeInstanceOf(TxRollupPublicInputs);
     return Promise.resolve();
   }
   rejectProvingJob(jobId: string, reason: string): Promise<void> {
