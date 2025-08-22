@@ -43,11 +43,11 @@ jobs:
             optional: false
           - label: amd64-darwin-starknet
             runner: macos-13
-            cmake_flags: "-DCMAKE_CXX_FLAGS=\"-DSTARKNET_GARAGA_FLAVORS=1\""
+            cmake_flags: '-DCMAKE_CXX_FLAGS="-DSTARKNET_GARAGA_FLAVORS=1"'
             optional: true
           - label: arm64-darwin-starknet
             runner: macos-14
-            cmake_flags: "-DCMAKE_CXX_FLAGS=\"-DSTARKNET_GARAGA_FLAVORS=1\""
+            cmake_flags: '-DCMAKE_CXX_FLAGS="-DSTARKNET_GARAGA_FLAVORS=1"'
             optional: true
     steps:
       - name: Checkout
@@ -69,14 +69,14 @@ jobs:
 
       - name: Compile Barretenberg
         working-directory: barretenberg/cpp
-        continue-on-error: ${{ matrix.optional }}
+        continue-on-error: ${{ matrix.optional }}
         run: |
           cmake --preset homebrew ${{ matrix.cmake_flags }}
           cmake --build --preset homebrew --target bb
 
       - name: Package barretenberg artifact (${{ matrix.label }})
         working-directory: barretenberg/cpp/build/bin
-        continue-on-error: ${{ matrix.optional }}
+        continue-on-error: ${{ matrix.optional }}
         run: |
           mkdir dist
           cp ./bb ./dist/bb
@@ -84,7 +84,7 @@ jobs:
 
       - name: Upload artifact (${{ matrix.label }})
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        continue-on-error: ${{ matrix.optional }}
+        continue-on-error: ${{ matrix.optional }}
         with:
           name: barretenberg-${{ matrix.label }}.tar.gz
           path: ./barretenberg/cpp/build/bin/barretenberg-${{ matrix.label }}.tar.gz

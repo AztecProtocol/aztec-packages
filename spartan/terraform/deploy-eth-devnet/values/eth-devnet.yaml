@@ -23,41 +23,7 @@ ethereum:
 
   execution:
     client: "reth"
-    nodeSelector:
-      local-ssd: "false"
-      node-type: "network"
 
-    service:
-      type: LoadBalancer 
-      annotations: {} 
+  beacon: {}
 
-    storageSize: "10Gi"
-    resources:
-      requests:
-        memory: "12Gi"
-        cpu: "2.5"
-
-  beacon:
-    nodeSelector:
-      local-ssd: "false"
-      node-type: "network"
-
-    service:
-      type: LoadBalancer
-      annotations: {}
-    storageSize: "10Gi"
-    resources:
-      requests:
-        memory: "12Gi"
-        cpu: "2.5"
-
-  validator:
-    nodeSelector:
-      local-ssd: "false"
-      node-type: "network"
-
-    storageSize: "10Gi"
-    resources:
-      requests:
-        memory: "12Gi"
-        cpu: "2.5"
+  validator: {}

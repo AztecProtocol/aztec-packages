@@ -1,26 +1,26 @@
 output "eth_execution_ip" {
   description = "Static IP address for Ethereum execution client"
-  value       = google_compute_address.eth_execution_ip.address
+  value       = var.CREATE_STATIC_IPS ? google_compute_address.eth_execution_ip[0].address : null
 }
 
 output "eth_beacon_ip" {
   description = "Static IP address for Ethereum beacon client"
-  value       = google_compute_address.eth_beacon_ip.address
+  value       = var.CREATE_STATIC_IPS ? google_compute_address.eth_beacon_ip[0].address : null
 }
 
 output "eth_execution_rpc_url" {
   description = "Ethereum execution RPC URL"
-  value       = "http://${google_compute_address.eth_execution_ip.address}:8545"
+  value       = var.CREATE_STATIC_IPS ? "http://${google_compute_address.eth_execution_ip[0].address}:8545" : null
 }
 
 output "eth_execution_ws_url" {
   description = "Ethereum execution WebSocket URL"
-  value       = "ws://${google_compute_address.eth_execution_ip.address}:8546"
+  value       = var.CREATE_STATIC_IPS ? "ws://${google_compute_address.eth_execution_ip[0].address}:8546" : null
 }
 
 output "eth_beacon_api_url" {
   description = "Ethereum beacon API URL"
-  value       = "http://${google_compute_address.eth_beacon_ip.address}:5052"
+  value       = var.CREATE_STATIC_IPS ? "http://${google_compute_address.eth_beacon_ip[0].address}:5052" : null
 }
 
 output "chain_id" {
