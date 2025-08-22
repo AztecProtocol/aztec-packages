@@ -2,6 +2,7 @@
 title: Testing Contracts
 tags: [contracts, tests, testing, noir]
 keywords: [tests, testing, noir]
+sidebar_position: 10
 description: Learn how to write and run tests for your Aztec smart contracts.
 ---
 

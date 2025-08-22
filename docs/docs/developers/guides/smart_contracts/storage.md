@@ -25,4 +25,4 @@ The `Context` parameter is injected into storage and contract functions. It prov
 
 :::
 
-Read more about the data types available in the [Data Types](./storage_types.md) page.
+Read more about the data types available in the [Storage Types](./storage_types.md) page.

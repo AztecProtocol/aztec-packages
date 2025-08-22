@@ -1,6 +1,5 @@
 ---
 title: Get Notes
-sidebar_position: 4
 tags: [private-state, smart-contracts, notes]
 description: Learn how to get notes from a data oracle in Aztec.nr.
 ---
