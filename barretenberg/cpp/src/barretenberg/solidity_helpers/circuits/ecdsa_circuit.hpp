@@ -75,20 +75,22 @@ class EcdsaCircuit {
         stdlib::ecdsa_signature<Builder> sig{ typename curve::byte_array_ct(&builder, rr),
                                               typename curve::byte_array_ct(&builder, ss) };
 
+        stdlib::byte_array<Builder> hashed_message =
+            static_cast<stdlib::byte_array<Builder>>(stdlib::SHA256<Builder>::hash(input_buffer));
+
         // IN CIRCUIT: verify the signature
         typename curve::bool_ct signature_result = stdlib::ecdsa_verify_signature<Builder,
                                                                                   curve,
                                                                                   typename curve::fq_ct,
                                                                                   typename curve::bigfr_ct,
                                                                                   typename curve::g1_bigfr_ct>(
-            // input_buffer, public_key, sig);
-            input_buffer,
+            // hashed_message, public_key, sig);
+            hashed_message,
             public_key,
             sig);
 
-        // Assert the signature is true, we hash the message inside the verify sig stdlib call
-        bool_ct is_true = bool_ct(true);
-        signature_result.must_imply(is_true, "signature verification failed");
+        // Assert the signature is true
+        signature_result.assert_equal(bool_ct(true));
 
         return builder;
     }
