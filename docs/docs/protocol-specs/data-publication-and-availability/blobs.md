@@ -105,7 +105,7 @@ impl SpongeBlob {
         }
         self.fields += in_len;
     }
-    // Finalise the sponge and output poseidon2 hash of all fields absorbed
+    // Finalize the sponge and output poseidon2 hash of all fields absorbed
     fn squeeze(&mut self) -> Field {
         self.sponge.squeeze()
     }

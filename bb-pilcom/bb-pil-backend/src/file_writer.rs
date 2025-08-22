@@ -39,4 +39,17 @@ impl BBFiles {
         let mut file = File::create(joined).unwrap();
         file.write_all(contents.as_bytes()).unwrap();
     }
+
+    #[cfg(feature = "use_optimized")]
+    pub fn get_optimized_relations_file_names(&self) -> Vec<String> {
+        {
+            vec!["poseidon2_perm".to_string()]
+        }
+    }
+
+    #[cfg(not(feature = "use_optimized"))]
+    // Use this if we ever want to go back to using all generated files
+    pub fn get_optimized_relations_file_names(&self) -> Vec<String> {
+        vec![]
+    }
 }

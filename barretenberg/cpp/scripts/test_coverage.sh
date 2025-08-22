@@ -20,7 +20,7 @@ function test_cmds {
   # ../acir_tests/bootstrap.sh test_cmds | grep -v main.js | grep -v browser
   # echo "disabled-cache NO_WASM=1 barretenberg/cpp/bootstrap.sh bench_ivc origin/master"
 }
-(test_cmds || exit 1) | parallelise
+(test_cmds || exit 1) | parallelize
 # Run llvm-profdata to merge raw profiles
 llvm-profdata-16 merge -sparse build-coverage/profdata/*.profraw -o build-coverage/coverage.profdata
 
@@ -30,7 +30,7 @@ for bin in ./build-coverage/bin/*_tests; do
 done
 
 # Generate coverage report with llvm-cov
-llvm-cov-16 show \
+llvm-cov-20 show \
   -instr-profile=build-coverage/coverage.profdata \
   -format=html \
   -output-dir=build-coverage/coverage-report \

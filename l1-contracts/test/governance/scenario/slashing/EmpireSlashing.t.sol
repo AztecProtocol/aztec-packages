@@ -6,7 +6,7 @@ import {Rollup} from "@aztec/core/Rollup.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {Slasher, IPayload} from "@aztec/core/slashing/Slasher.sol";
-import {SlashingProposer} from "@aztec/core/slashing/SlashingProposer.sol";
+import {EmpireSlashingProposer} from "@aztec/core/slashing/EmpireSlashingProposer.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
@@ -23,7 +23,7 @@ import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.so
 import {Status, AttesterView} from "@aztec/core/interfaces/IStaking.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 
-import {SlashingProposer} from "@aztec/core/slashing/SlashingProposer.sol";
+import {EmpireSlashingProposer} from "@aztec/core/slashing/EmpireSlashingProposer.sol";
 
 import {Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {TimeCheater} from "../../../staking/TimeCheater.sol";
@@ -40,7 +40,7 @@ contract SlashingTest is TestBase {
   Rollup internal rollup;
   Slasher internal slasher;
   SlashFactory internal slashFactory;
-  SlashingProposer internal slashingProposer;
+  EmpireSlashingProposer internal slashingProposer;
   TimeCheater internal timeCheater;
 
   function _createPayloadAndSignalForSlashing(address[] memory _attesters, uint96 _slashAmount, uint256 _howMany)
@@ -110,7 +110,7 @@ contract SlashingTest is TestBase {
     testERC20 = builder.getConfig().testERC20;
 
     slasher = Slasher(rollup.getSlasher());
-    slashingProposer = slasher.PROPOSER();
+    slashingProposer = EmpireSlashingProposer(slasher.PROPOSER());
     slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
 
     timeCheater = new TimeCheater(

@@ -183,7 +183,7 @@ This is emitting an event, which we will need to create. Paste this earlier in o
 
 #include_code withdrawal-processed-event /noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr rust
 
-You should be able to compile successfully with `aztec-nargo compile`.
+You should be able to compile successfully with `aztec-nargo compile` and `aztec-postprocess-contract`.
 
 **Congratulations,** you have just built a multi-contract project on Aztec!
 
