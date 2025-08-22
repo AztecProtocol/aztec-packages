@@ -37,8 +37,8 @@ enum class ColumnAndShifts {
     SENTINEL_DO_NOT_USE,
 };
 
-constexpr auto NUM_COLUMNS_WITH_SHIFTS = 3368;
-constexpr auto NUM_COLUMNS_WITHOUT_SHIFTS = 3052;
+constexpr auto NUM_COLUMNS_WITH_SHIFTS = 3377;
+constexpr auto NUM_COLUMNS_WITHOUT_SHIFTS = 3061;
 constexpr auto TO_BE_SHIFTED_COLUMNS_ARRAY = []() { return std::array{ AVM2_TO_BE_SHIFTED_COLUMNS }; }();
 constexpr auto SHIFTED_COLUMNS_ARRAY = []() { return std::array{ AVM2_SHIFTED_COLUMNS }; }();
 static_assert(TO_BE_SHIFTED_COLUMNS_ARRAY.size() == SHIFTED_COLUMNS_ARRAY.size());
