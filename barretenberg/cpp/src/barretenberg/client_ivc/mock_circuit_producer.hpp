@@ -162,12 +162,12 @@ class PrivateFunctionExecutionMockCircuitProducer {
      * large.
      *
      */
-    ClientCircuit create_next_circuit(ClientIVC& ivc,
-                                      bool is_kernel = false,
-                                      size_t log2_num_gates = 0,
-                                      size_t num_public_inputs = 0)
+    ClientCircuit create_next_circuit(ClientIVC& ivc, size_t log2_num_gates = 0, size_t num_public_inputs = 0)
     {
+        const bool is_kernel = is_kernel_flags[circuit_counter];
+
         circuit_counter++;
+
         ClientCircuit circuit{ ivc.goblin.op_queue };
         // if the number of gates is specified we just add a number of arithmetic gates
         if (log2_num_gates != 0) {
@@ -202,9 +202,7 @@ class PrivateFunctionExecutionMockCircuitProducer {
     std::pair<ClientCircuit, std::shared_ptr<VerificationKey>> create_next_circuit_and_vk(ClientIVC& ivc,
                                                                                           TestSettings settings = {})
     {
-        bool is_kernel = is_kernel_flags[circuit_counter];
-
-        auto circuit = create_next_circuit(ivc, is_kernel, settings.log2_num_gates, settings.num_public_inputs);
+        auto circuit = create_next_circuit(ivc, settings.log2_num_gates, settings.num_public_inputs);
         return { circuit, get_verification_key(circuit, ivc.trace_settings) };
     }
 

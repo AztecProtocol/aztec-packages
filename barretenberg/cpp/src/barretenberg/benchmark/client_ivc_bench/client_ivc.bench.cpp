@@ -32,17 +32,12 @@ class ClientIVCBench : public benchmark::Fixture {
  */
 BENCHMARK_DEFINE_F(ClientIVCBench, VerificationOnly)(benchmark::State& state)
 {
-    PrivateFunctionExecutionMockCircuitProducer circuit_producer{ /*num_app_circuits=*/1 };
-    ClientIVC ivc{ circuit_producer.total_num_circuits, { AZTEC_TRACE_STRUCTURE } };
-
-    for (size_t idx = 0; idx < 4; ++idx) {
-        circuit_producer.construct_and_accumulate_next_circuit(ivc);
-    }
-
-    auto proof = ivc.prove();
+    size_t NUM_APP_CIRCUITS = 1;
+    auto precomputed_vks = precompute_vks(NUM_APP_CIRCUITS);
+    auto [proof, vk] = accumulate_and_prove_ivc_with_precomputed_vks(NUM_APP_CIRCUITS, precomputed_vks);
 
     for (auto _ : state) {
-        benchmark::DoNotOptimize(ivc.verify(proof));
+        benchmark::DoNotOptimize(ClientIVC::verify(proof, vk));
     }
 }
 
@@ -52,41 +47,17 @@ BENCHMARK_DEFINE_F(ClientIVCBench, VerificationOnly)(benchmark::State& state)
 BENCHMARK_DEFINE_F(ClientIVCBench, Full)(benchmark::State& state)
 {
     size_t NUM_APP_CIRCUITS = static_cast<size_t>(state.range(0));
-    PrivateFunctionExecutionMockCircuitProducer circuit_producer{ NUM_APP_CIRCUITS };
-    auto total_num_circuits = circuit_producer.total_num_circuits;
-    ClientIVC ivc{ total_num_circuits, { AZTEC_TRACE_STRUCTURE } };
-    auto mocked_vks = mock_vks(total_num_circuits);
+    auto precomputed_vks = precompute_vks(NUM_APP_CIRCUITS);
 
     for (auto _ : state) {
         BB_REPORT_OP_COUNT_IN_BENCH(state);
-        perform_ivc_accumulation_rounds(NUM_APP_CIRCUITS, ivc, mocked_vks);
-        ivc.prove();
-    }
-}
-/**
- * @brief Benchmark the prover work for the full PG-Goblin IVC protocol
- * @details Processes "dense" circuits of size 2^17 in a size 2^20 structured trace
- */
-BENCHMARK_DEFINE_F(ClientIVCBench, Ambient_17_in_20)(benchmark::State& state)
-{
-    size_t NUM_APP_CIRCUITS = static_cast<size_t>(state.range(0));
-    PrivateFunctionExecutionMockCircuitProducer circuit_producer{ NUM_APP_CIRCUITS };
-    auto total_num_circuits = circuit_producer.total_num_circuits;
-    ClientIVC ivc{ total_num_circuits, { AZTEC_TRACE_STRUCTURE } };
-    const bool large_first_app = false;
-    auto mocked_vks = mock_vks(total_num_circuits, large_first_app);
-
-    for (auto _ : state) {
-        BB_REPORT_OP_COUNT_IN_BENCH(state);
-        perform_ivc_accumulation_rounds(NUM_APP_CIRCUITS, ivc, mocked_vks, large_first_app);
-        ivc.prove();
+        accumulate_and_prove_ivc_with_precomputed_vks(NUM_APP_CIRCUITS, precomputed_vks);
     }
 }
 
 #define ARGS Arg(ClientIVCBench::NUM_ITERATIONS_MEDIUM_COMPLEXITY)->Arg(2)
 
 BENCHMARK_REGISTER_F(ClientIVCBench, Full)->Unit(benchmark::kMillisecond)->ARGS;
-BENCHMARK_REGISTER_F(ClientIVCBench, Ambient_17_in_20)->Unit(benchmark::kMillisecond)->ARGS;
 BENCHMARK_REGISTER_F(ClientIVCBench, VerificationOnly)->Unit(benchmark::kMillisecond);
 
 } // namespace
