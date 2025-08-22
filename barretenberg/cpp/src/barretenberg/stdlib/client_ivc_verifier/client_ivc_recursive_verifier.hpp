@@ -33,6 +33,11 @@ class ClientIVCRecursiveVerifier {
         using StdlibHonkProof = bb::stdlib::Proof<Builder>;
         using StdlibGoblinProof = GoblinRecursiveVerifier::StdlibProof;
 
+        static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = Flavor::VIRTUAL_LOG_N)
+        {
+            return bb::ClientIVC::Proof::PROOF_LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n);
+        }
+
         static constexpr size_t PROOF_LENGTH(size_t virtual_log_n = Flavor::VIRTUAL_LOG_N)
         {
             return bb::ClientIVC::Proof::PROOF_LENGTH(virtual_log_n);

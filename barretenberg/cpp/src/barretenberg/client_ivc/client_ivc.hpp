@@ -97,15 +97,30 @@ class ClientIVC {
         HonkProof mega_proof;
         GoblinProof goblin_proof;
 
-        // The size of a ClientIVC proof. We don't need the size without public inputs as a ClientIVC proof always has a
-        // fixed number of backend public inputs: they are the Hiding Kernel public inputs
-        static constexpr size_t PROOF_LENGTH(size_t virtual_log_n = Flavor::VIRTUAL_LOG_N)
+        /**
+         * @brief The size of a ClientIVC proof without backend-added public inputs
+         *
+         * @param virtual_log_n
+         * @return constexpr size_t
+         */
+        static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = MegaZKFlavor::VIRTUAL_LOG_N)
         {
-            return /*mega_proof*/ Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n) +
+            return /*mega_proof*/ MegaZKFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n) +
                    /*merge_proof*/ MERGE_PROOF_SIZE +
                    /*eccvm pre-ipa proof*/ (ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH) +
                    /*eccvm ipa proof*/ IPA_PROOF_LENGTH +
-                   /*translator*/ TranslatorFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS +
+                   /*translator*/ TranslatorFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS;
+        }
+
+        /**
+         * @brief The size of a ClientIVC proof with backend-added public inputs: HidingKernelIO
+         *
+         * @param virtual_log_n
+         * @return constexpr size_t
+         */
+        static constexpr size_t PROOF_LENGTH(size_t virtual_log_n = MegaZKFlavor::VIRTUAL_LOG_N)
+        {
+            return PROOF_LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n) +
                    /*public_inputs*/ bb::HidingKernelIO::PUBLIC_INPUTS_SIZE;
         }
 
