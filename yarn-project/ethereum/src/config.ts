@@ -46,7 +46,7 @@ export type L1ContractsConfig = {
   /** How many slashing rounds back we slash (ie when slashing in round N, we slash for offenses committed during epochs of round N-offset) */
   slashingOffsetInRounds: number;
   /** Type of slasher proposer */
-  slasherFlavor: 'empire' | 'consensus';
+  slasherFlavor: 'empire' | 'tally';
   /** Minimum slashing unit for consensus-based slashing (all slashes will be a 1-15x this value) */
   slashingUnit: bigint;
   /** Governance proposing quorum */
@@ -249,8 +249,8 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
   },
   slasherFlavor: {
     env: 'AZTEC_SLASHER_FLAVOR',
-    description: 'Type of slasher proposer (empire or consensus)',
-    ...enumConfigHelper(['empire', 'consensus'] as const, DefaultL1ContractsConfig.slasherFlavor),
+    description: 'Type of slasher proposer (empire or tally)',
+    ...enumConfigHelper(['empire', 'tally'] as const, DefaultL1ContractsConfig.slasherFlavor),
   },
   slashingUnit: {
     env: 'AZTEC_SLASHING_UNIT',
