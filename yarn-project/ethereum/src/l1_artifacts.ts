@@ -1,12 +1,10 @@
 import {
   CoinIssuerAbi,
   CoinIssuerBytecode,
-  ExtRollupLib2Abi,
-  ExtRollupLib2Bytecode,
-  ExtRollupLib3Abi,
-  ExtRollupLib3Bytecode,
-  ExtRollupLibAbi,
-  ExtRollupLibBytecode,
+  EmpireSlasherDeploymentExtLibAbi,
+  EmpireSlasherDeploymentExtLibBytecode,
+  EmpireSlashingProposerAbi,
+  EmpireSlashingProposerBytecode,
   FeeAssetHandlerAbi,
   FeeAssetHandlerBytecode,
   FeeJuicePortalAbi,
@@ -33,19 +31,27 @@ import {
   RegisterNewRollupVersionPayloadBytecode,
   RegistryAbi,
   RegistryBytecode,
+  RewardDeploymentExtLibAbi,
+  RewardDeploymentExtLibBytecode,
   RewardDistributorAbi,
   RewardDistributorBytecode,
   RollupAbi,
   RollupBytecode,
   RollupLinkReferences,
+  RollupOperationsExtLibAbi,
+  RollupOperationsExtLibBytecode,
   SlashFactoryAbi,
   SlashFactoryBytecode,
   SlasherAbi,
   SlasherBytecode,
   StakingAssetHandlerAbi,
   StakingAssetHandlerBytecode,
+  TallySlasherDeploymentExtLibAbi,
+  TallySlasherDeploymentExtLibBytecode,
   TestERC20Abi,
   TestERC20Bytecode,
+  ValidatorOperationsExtLibAbi,
+  ValidatorOperationsExtLibBytecode,
   ValidatorSelectionLibAbi,
   ValidatorSelectionLibBytecode,
 } from '@aztec/l1-artifacts';
@@ -82,20 +88,30 @@ export const RollupArtifact = {
         contractAbi: ValidatorSelectionLibAbi,
         contractBytecode: ValidatorSelectionLibBytecode as Hex,
       },
-      ExtRollupLib: {
-        name: 'ExtRollupLib',
-        contractAbi: ExtRollupLibAbi,
-        contractBytecode: ExtRollupLibBytecode as Hex,
+      RollupOperationsExtLib: {
+        name: 'RollupOperationsExtLib',
+        contractAbi: RollupOperationsExtLibAbi,
+        contractBytecode: RollupOperationsExtLibBytecode as Hex,
       },
-      ExtRollupLib2: {
-        name: 'ExtRollupLib2',
-        contractAbi: ExtRollupLib2Abi,
-        contractBytecode: ExtRollupLib2Bytecode as Hex,
+      ValidatorOperationsExtLib: {
+        name: 'ValidatorOperationsExtLib',
+        contractAbi: ValidatorOperationsExtLibAbi,
+        contractBytecode: ValidatorOperationsExtLibBytecode as Hex,
       },
-      ExtRollupLib3: {
-        name: 'ExtRollupLib3',
-        contractAbi: ExtRollupLib3Abi,
-        contractBytecode: ExtRollupLib3Bytecode as Hex,
+      RewardDeploymentExtLib: {
+        name: 'RewardDeploymentExtLib',
+        contractAbi: RewardDeploymentExtLibAbi,
+        contractBytecode: RewardDeploymentExtLibBytecode as Hex,
+      },
+      TallySlasherDeploymentExtLib: {
+        name: 'TallySlasherDeploymentExtLib',
+        contractAbi: TallySlasherDeploymentExtLibAbi,
+        contractBytecode: TallySlasherDeploymentExtLibBytecode as Hex,
+      },
+      EmpireSlasherDeploymentExtLib: {
+        name: 'EmpireSlasherDeploymentExtLib',
+        contractAbi: EmpireSlasherDeploymentExtLibAbi,
+        contractBytecode: EmpireSlasherDeploymentExtLibBytecode as Hex,
       },
     },
   },
@@ -147,6 +163,12 @@ export const SlasherArtifact = {
   name: 'Slasher',
   contractAbi: SlasherAbi,
   contractBytecode: SlasherBytecode as Hex,
+};
+
+export const EmpireSlashingProposerArtifact = {
+  name: 'EmpireSlashingProposer',
+  contractAbi: EmpireSlashingProposerAbi,
+  contractBytecode: EmpireSlashingProposerBytecode as Hex,
 };
 
 export const SlashFactoryArtifact = {

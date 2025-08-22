@@ -2,7 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {ISlasher} from "@aztec/core/interfaces/ISlasher.sol";
+import {ISlasher, SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 import {IEmpire} from "@aztec/governance/interfaces/IEmpire.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {EmpireBase} from "@aztec/governance/proposer/EmpireBase.sol";
@@ -10,16 +10,22 @@ import {EmpireBase} from "@aztec/governance/proposer/EmpireBase.sol";
 /**
  * @notice  A SlashingProposer implementation following the empire model
  */
-contract SlashingProposer is IEmpire, EmpireBase {
+contract EmpireSlashingProposer is IEmpire, EmpireBase {
+  /**
+   * @notice Type of slashing proposer (either Tally or Empire)
+   */
+  SlasherFlavor public constant SLASHING_PROPOSER_TYPE = SlasherFlavor.EMPIRE;
+
   address public immutable INSTANCE;
   ISlasher public immutable SLASHER;
 
   /**
-   * @notice Constructor for the SlashingProposer contract.
+   * @notice Constructor for the EmpireSlashingProposer contract.
    *
    * @param _instance - The specific rollup that the proposer will be used for
    * @param _slasher - The entity that can slash on the _instance
-   *                    The SlashingProposer `address(this)` should be able to use the slasher for this contract to
+   *                    The EmpireSlashingProposer `address(this)` should be able to use the slasher for this contract
+   * to
    *                    make sense.
    * @param _slashingQuorum The number of signals needed in a round for a slash to pass.
    * @param _roundSize The number of signals that can be cast in a round.

@@ -1,6 +1,13 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { createLogger, retryUntil } from '@aztec/aztec.js';
-import { type ExtendedViemWalletClient, L1Deployer, RollupContract, SlasherArtifact } from '@aztec/ethereum';
+import { EthAddress, createLogger, retryUntil } from '@aztec/aztec.js';
+import {
+  EmpireSlashingProposerArtifact,
+  type ExtendedViemWalletClient,
+  L1Deployer,
+  RollupContract,
+  SlasherArtifact,
+} from '@aztec/ethereum';
+import { tryJsonStringify } from '@aztec/foundation/json-rpc';
 import { GSEAbi } from '@aztec/l1-artifacts/GSEAbi';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { SlasherAbi } from '@aztec/l1-artifacts/SlasherAbi';
@@ -119,18 +126,30 @@ describe('veto slash', () => {
    */
   async function deployNewSlasher(deployerClient: ExtendedViemWalletClient) {
     const deployer = new L1Deployer(deployerClient, 42, undefined, false, undefined, undefined);
-    const args = [
-      rollup.address,
-      SLASHING_QUORUM,
-      SLASHING_ROUND_SIZE,
-      LIFETIME_IN_ROUNDS, // lifetime in rounds
-      EXECUTION_DELAY_IN_ROUNDS, // execution delay in rounds
-      deployerClient.account.address, // vetoer
-    ] as const;
-    debugLogger.info(`\n\ndeploying slasher with args: ${JSON.stringify(args)}\n\n`);
-    const slashFactoryAddress = await deployer.deploy(SlasherArtifact, args);
+
+    const vetoer = deployerClient.account.address;
+    const governance = EthAddress.random().toString(); // We don't need a real governance address for this test
+    debugLogger.info(`\n\ndeploying slasher with vetoer: ${vetoer}\n\n`);
+    const slasher = await deployer.deploy(SlasherArtifact, [vetoer, governance]);
     await deployer.waitForDeployments();
-    return slashFactoryAddress;
+
+    const proposerArgs = [
+      rollup.address, // instance
+      slasher.toString(), // slasher
+      BigInt(SLASHING_QUORUM),
+      BigInt(SLASHING_ROUND_SIZE),
+      BigInt(LIFETIME_IN_ROUNDS),
+      BigInt(EXECUTION_DELAY_IN_ROUNDS),
+    ] as const;
+    debugLogger.info(`\n\ndeploying slasher proposer with args: ${tryJsonStringify(proposerArgs)}\n\n`);
+    const proposer = await deployer.deploy(EmpireSlashingProposerArtifact, proposerArgs);
+
+    debugLogger.info(`\n\ninitializing slasher with proposer: ${proposer}\n\n`);
+    const slasherContract = getContract({ address: slasher.toString(), abi: SlasherAbi, client: deployerClient });
+    const txHash = await slasherContract.write.initializeProposer([proposer.toString()]);
+    await deployerClient.waitForTransactionReceipt({ hash: txHash });
+
+    return slasher;
   }
 
   it.each([true])(

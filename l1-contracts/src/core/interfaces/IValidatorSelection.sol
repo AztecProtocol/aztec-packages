@@ -27,6 +27,7 @@ interface IValidatorSelection is IValidatorSelectionCore, IEmperor {
   function getCommitteeAt(Timestamp _ts) external returns (address[] memory);
   function getCommitteeCommitmentAt(Timestamp _ts) external returns (bytes32, uint256);
   function getEpochCommittee(Epoch _epoch) external returns (address[] memory);
+  function getEpochCommitteeCommitment(Epoch _epoch) external returns (bytes32, uint256);
 
   // Stable
   function getCurrentEpoch() external view returns (Epoch);
