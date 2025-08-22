@@ -8,7 +8,7 @@ use protocol_types::{abis::function_selector::FunctionSelector, address::AztecAd
 
 #[test]
 unconstrained fn create_light_account_does_not_repeat_accounts() {
-    let mut env = TestEnvironment::_new();
+    let mut env = TestEnvironment::new();
 
     let first_account = env.create_light_account();
     let second_account = env.create_light_account();

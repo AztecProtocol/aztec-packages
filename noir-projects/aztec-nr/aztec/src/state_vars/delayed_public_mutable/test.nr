@@ -35,7 +35,7 @@ unconstrained fn in_utility(
 
 #[test]
 unconstrained fn get_current_value_in_public_initial() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     env.public_context(|context| {
         let state_var = in_public(context);
@@ -45,7 +45,7 @@ unconstrained fn get_current_value_in_public_initial() {
 
 #[test]
 unconstrained fn get_scheduled_value_in_public() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     env.public_context(|context| {
         let state_var = in_public(context);
@@ -62,7 +62,7 @@ unconstrained fn get_scheduled_value_in_public() {
 
 #[test]
 unconstrained fn get_current_value_in_public_before_scheduled_change() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     let (original_value, timestamp_of_change) = env.public_context(|context| {
         let state_var = in_public(context);
@@ -90,7 +90,7 @@ unconstrained fn get_current_value_in_public_before_scheduled_change() {
 
 #[test]
 unconstrained fn get_current_value_in_public_at_scheduled_change() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     let (_, timestamp_of_change) = env.public_context(|context| {
         let state_var = in_public(context);
@@ -109,7 +109,7 @@ unconstrained fn get_current_value_in_public_at_scheduled_change() {
 
 #[test]
 unconstrained fn get_current_value_in_public_after_scheduled_change() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     let (_, timestamp_of_change) = env.public_context(|context| {
         let state_var = in_public(context);
@@ -129,7 +129,7 @@ unconstrained fn get_current_value_in_public_after_scheduled_change() {
 
 #[test]
 unconstrained fn get_current_delay_in_public_initial() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
     env.public_context(|context| {
         let state_var = in_public(context);
         assert_eq(state_var.get_current_delay(), TEST_INITIAL_DELAY);
@@ -138,7 +138,7 @@ unconstrained fn get_current_delay_in_public_initial() {
 
 #[test]
 unconstrained fn get_scheduled_delay_in_public() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     env.public_context(|context| {
         let state_var = in_public(context);
@@ -154,7 +154,7 @@ unconstrained fn get_scheduled_delay_in_public() {
 
 #[test]
 unconstrained fn get_current_delay_in_public_before_scheduled_change() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     let (original_delay, timestamp_of_change) = env.public_context(|context| {
         let state_var = in_public(context);
@@ -182,7 +182,7 @@ unconstrained fn get_current_delay_in_public_before_scheduled_change() {
 
 #[test]
 unconstrained fn get_current_delay_in_public_at_scheduled_change() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     let (_, timestamp_of_change) = env.public_context(|context| {
         let state_var = in_public(context);
@@ -202,7 +202,7 @@ unconstrained fn get_current_delay_in_public_at_scheduled_change() {
 
 #[test]
 unconstrained fn get_current_delay_in_public_after_scheduled_change() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     let (_, timestamp_of_change) = env.public_context(|context| {
         let state_var = in_public(context);
@@ -222,7 +222,7 @@ unconstrained fn get_current_delay_in_public_after_scheduled_change() {
 
 #[test]
 unconstrained fn get_current_value_in_private_initial() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     env.private_context(|context| {
         let state_var = in_private(context);
@@ -237,7 +237,7 @@ unconstrained fn get_current_value_in_private_initial() {
 
 #[test]
 unconstrained fn get_current_value_in_private_before_change() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     let (_, timestamp_of_change) = env.public_context(|context| {
         let state_var = in_public(context);
@@ -257,7 +257,7 @@ unconstrained fn get_current_value_in_private_before_change() {
 
 #[test]
 unconstrained fn get_current_value_in_private_immediately_before_change() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     let (_, timestamp_of_change) = env.public_context(|context| {
         let state_var = in_public(context);
@@ -284,7 +284,7 @@ unconstrained fn get_current_value_in_private_immediately_before_change() {
 
 #[test]
 unconstrained fn get_current_value_in_private_at_change() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     let (_, timestamp_of_change) = env.public_context(|context| {
         let state_var = in_public(context);
@@ -312,7 +312,7 @@ unconstrained fn get_current_value_in_private_at_change() {
 
 #[test]
 unconstrained fn get_current_value_in_private_after_change() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     let (_, timestamp_of_change) = env.public_context(|context| {
         let state_var = in_public(context);
@@ -340,7 +340,7 @@ unconstrained fn get_current_value_in_private_after_change() {
 
 #[test]
 unconstrained fn get_current_value_in_private_with_non_initial_delay() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     let ((_, value_timestamp_of_change), (_, delay_timestamp_of_change)) = env
         .public_context(|context| {
@@ -368,7 +368,7 @@ unconstrained fn get_current_value_in_private_with_non_initial_delay() {
 
 #[test]
 unconstrained fn get_current_value_in_utility_initial() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
     env.utility_context(|context| {
         let state_var = in_utility(context);
         assert_eq(state_var.get_current_value(), zeroed());
@@ -377,7 +377,7 @@ unconstrained fn get_current_value_in_utility_initial() {
 
 #[test]
 unconstrained fn get_current_value_in_utility_before_scheduled_change() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     let (_, timestamp_of_change) = env.public_context(|context| {
         let state_var = in_public(context);
@@ -400,7 +400,7 @@ unconstrained fn get_current_value_in_utility_before_scheduled_change() {
 
 #[test]
 unconstrained fn get_current_value_in_utility_at_scheduled_change() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     let (_, timestamp_of_change) = env.public_context(|context| {
         let state_var = in_public(context);
@@ -423,7 +423,7 @@ unconstrained fn get_current_value_in_utility_at_scheduled_change() {
 
 #[test]
 unconstrained fn get_current_value_in_utility_after_scheduled_change() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     let (_, timestamp_of_change) = env.public_context(|context| {
         let state_var = in_public(context);
