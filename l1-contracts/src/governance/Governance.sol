@@ -508,8 +508,17 @@ contract Governance is IGovernance {
 
   /**
    * @notice Get the power of an address at a given timestamp.
-   * @dev If the timestamp is the current block timestamp, we return the powerNow.
-   * Otherwise, we return the powerAt the timestamp.
+   *
+   * @param _owner The address to get the power of.
+   * @param _ts The timestamp to get the power at.
+   * @return The power of the address at the given timestamp.
+   */
+  function powerAt(address _owner, Timestamp _ts) external view override(IGovernance) returns (uint256) {
+    return users[_owner].valueAt(_ts);
+  }
+
+  /**
+   * @notice Get the power of an address at the current block timestamp.
    *
    * Note that `powerNow` with the current block timestamp is NOT STABLE.
    *
@@ -522,33 +531,30 @@ contract Governance is IGovernance {
    *  The powerNow at 4 will be different from the powerNow at 2.
    *
    * @param _owner The address to get the power of.
-   * @param _ts The timestamp to get the power at.
-   * @return The power of the address at the given timestamp.
+   * @return The power of the address at the current block timestamp.
    */
-  function powerAt(address _owner, Timestamp _ts) external view override(IGovernance) returns (uint256) {
-    if (_ts == Timestamp.wrap(block.timestamp)) {
-      return users[_owner].valueNow();
-    }
-    return users[_owner].valueAt(_ts);
+  function powerNow(address _owner) external view override(IGovernance) returns (uint256) {
+    return users[_owner].valueNow();
   }
 
   /**
    * @notice Get the total power in Governance at a given timestamp.
-   * @dev If the timestamp is the current block timestamp, we return the powerNow.
-   * Otherwise, we return the powerAt the timestamp.
-   *
-   * Note that `powerNow` with the current block timestamp is NOT STABLE.
-   *
-   * See `powerAt` for more details.
    *
    * @param _ts The timestamp to get the power at.
    * @return The total power at the given timestamp.
    */
   function totalPowerAt(Timestamp _ts) external view override(IGovernance) returns (uint256) {
-    if (_ts == Timestamp.wrap(block.timestamp)) {
-      return total.valueNow();
-    }
     return total.valueAt(_ts);
+  }
+
+  /**
+   * @notice Get the total power in Governance at the current block timestamp.
+   * Note that `powerNow` with the current block timestamp is NOT STABLE.
+   *
+   * @return The total power at the current block timestamp.
+   */
+  function totalPowerNow() external view override(IGovernance) returns (uint256) {
+    return total.valueNow();
   }
 
   /**
