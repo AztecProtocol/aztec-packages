@@ -1,9 +1,11 @@
 ---
-title: Data Types
+title: Storage Types
 sidebar_position: 2
 tags: [data-types, smart-contracts]
-description: Learn about the data types available in Aztec.nr.
+description: Learn about how data is stored in Aztec contracts.
 ---
+
+Interacting with the protocol in a reliable, private manner is simplified by using the storage types described below, provided by the Aztec.nr library for writing contracts.
 
 ## Map
 
@@ -57,7 +59,7 @@ To simplify the experience of writing private state, Aztec.nr provides three dif
 
 These three structs abstract-away many of Aztec's protocol complexities, by providing intuitive methods to modify notes in the utxo tree in a privacy-preserving way.
 
-Unlike public state variables, which can be arbitrary types, private state variables operate on `NoteType`. See [custom types](./custom_types.md) for more information about how to define your own note types.
+Unlike public state variables, which can be arbitrary types, private state variables operate on `NoteType`. See [Note Types](./note_types.md) for more information about how to define your own note types.
 
 Notes are the fundamental elements of private state.
 
@@ -65,7 +67,7 @@ Notes are the fundamental elements of private state.
 
 PrivateMutable is a private state variable that is unique in a way. When a PrivateMutable is initialized, a note is created to represent its value. And the way to update the value is to destroy the current note, and create a new one with the updated value.
 
-Like for public state, we define the struct to have context and a storage slot. You can view the implementation [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/aztec-nr/aztec/src/state_vars/private_mutable.nr).
+Like for public state, we define the struct to have context and a storage slot. You can view the implementation [here](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/aztec-nr/aztec/src/state_vars/private_mutable.nr).
 
 An example of `PrivateMutable` usage in the account contracts is keeping track of public keys. The `PrivateMutable` is added to the `Storage` struct as follows:
 
@@ -103,11 +105,17 @@ An unconstrained method to check whether the PrivateMutable has been initialized
 
 #### `replace`
 
-To update the value of a `PrivateMutable`, we can use the `replace` method. The method takes a new note as input, and replaces the current note with the new one. It emits a nullifier for the old value, and inserts the new note into the data tree.
+To update the value of a `PrivateMutable`, we can use the `replace` method. The method takes a new note as input and replaces the current note with the new one. It emits a nullifier for the old value, and inserts the new note into the data tree.
 
 An example of this is seen in a example card game, where we create a new note (a `CardNote`) containing some new data, and replace the current note with it:
 
 #include_code state_vars-PrivateMutableReplace /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
+
+:::info
+
+Calling `emit(encode_and_encrypt_note())` on the `replace` method will encrypt the new note and post it to the data availability layer so that the note information is retrievable by the recipient.
+
+:::
 
 If two people are trying to modify the PrivateMutable at the same time, only one will succeed as we don't allow duplicate nullifiers! Developers should put in place appropriate access controls to avoid race conditions (unless a race is intended!).
 
@@ -151,6 +159,12 @@ Set the value of an PrivateImmutable by calling the `initialize` method:
 
 #include_code initialize-private-mutable /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
 
+:::info
+
+Calling `emit(encode_and_encrypt_note())` on `initialize` will encrypt the new note and post it to the data availability layer so that the note information is retrievable by the recipient.
+
+:::
+
 Once initialized, an PrivateImmutable's value remains unchangeable. This method can only be called once.
 
 #### `is_initialized`
@@ -175,21 +189,11 @@ Functionally similar to `get_note`, but executed unconstrained and can be used b
 
 ### PrivateSet
 
-`PrivateSet` is used for managing a collection of notes. All notes in a `PrivateSet` are of the same `NoteType`. But whether these notes all belong to one entity, or are accessible and editable by different entities, is up to the developer. The set is a collection of notes inserted into the data-tree, but notes are never removed from the tree itself, they are only nullified.
+`PrivateSet` is used for managing a collection of notes. All notes in a `PrivateSet` are of the same `NoteType`. But whether these notes all belong to one entity, or are accessible and editable by different entities, is up to the developer.
 
-You can view the implementation [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/state_vars/private_set.nr).
+For example, adding a mapping of private NFTs to storage, indexed by `AztecAddress`:
 
-And can be added to the `Storage` struct as follows. Here adding a set for a custom note.
-
-#include_code storage-set-declaration /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
-
-#### `new`
-
-The `new` method tells the contract how to operate on the underlying storage.
-
-We can initialize the set as follows:
-
-#include_code storage-set-init /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
+#include_code private_map /noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr rust
 
 #### `insert`
 
@@ -198,6 +202,12 @@ Allows us to modify the storage by inserting a note into the `PrivateSet`.
 A hash of the note will be generated, and inserted into the note hash tree, allowing us to later use in contract interactions. Recall that the content of the note should be shared with the owner to allow them to use it, as mentioned this can be done via an encrypted log or offchain via web2, or completely offline.
 
 #include_code insert /noir-projects/aztec-nr/easy-private-state/src/easy_private_uint.nr rust
+
+:::info
+
+Calling `emit(encode_and_encrypt_note())` on `insert` will encrypt the new note and post it to the data availability layer so that the note information is retrievable by the recipient.
+
+:::
 
 #### `insert_from_public`
 
@@ -243,19 +253,15 @@ This function requires a `NoteViewerOptions`. The `NoteViewerOptions` is essenti
 
 ### PublicMutable
 
-The `PublicMutable` (formerly known as `PublicState`) struct is generic over the variable type `T`.
+The `PublicMutable` struct is generic over the variable type `T`.
 
 The struct contains a `storage_slot` which, similar to Ethereum, is used to figure out _where_ in storage the variable is located.
 
 For a version of `PublicMutable` that can also be read in private, head to [`DelayedPublicMutable`](#delayed-public-mutable).
 
 :::info
-An example using a larger struct can be found in the [lending example (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/noir-contracts/contracts/app/lending_contract)'s use of an [`Asset` (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/app/lending_contract/src/asset.nr).
+An example using a larger struct can be found in the [lending example](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/noir-contracts/contracts/app/lending_contract)'s use of an [`Asset`](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/app/lending_contract/src/asset.nr).
 :::
-
-#### `new`
-
-When declaring the storage for `T` as a persistent public storage variable, we use the `PublicMutable::new()` constructor. As seen below, this takes the `storage_slot` and the `serialization_methods` as arguments along with the `Context`, which in this case is used to share interface with other structures. You can view the implementation [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/state_vars/public_mutable.nr).
 
 ##### Single value example
 
