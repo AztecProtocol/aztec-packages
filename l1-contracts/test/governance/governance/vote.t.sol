@@ -106,7 +106,7 @@ contract VoteTest is GovernanceBase {
     vm.stopPrank();
 
     assertEq(token.balanceOf(address(governance)), depositPower);
-    assertEq(governance.powerAt(_voter, Timestamp.wrap(block.timestamp)), depositPower);
+    assertEq(governance.powerNow(_voter), depositPower);
 
     _stateActive("empty");
 
