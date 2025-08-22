@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-agent-config
+data:
+  agent.yml: |
+    server:
+      log_level: info
+    metrics:
+      wal_directory: /tmp/wal
+      global:
+        scrape_interval: 30s
+      configs:
+        - name: default
+          scrape_configs:
+            - job_name: 'testnet-monitor'
+              metrics_path: /metrics
+              static_configs:
+                - targets: ['localhost:8080']
+          remote_write:
+            - url: https://prometheus-prod-55-prod-gb-south-1.grafana.net/api/prom/push
+              basic_auth:
+                username: 2476101
+                password_file: /etc/agent/secret/grafana-cloud-password
