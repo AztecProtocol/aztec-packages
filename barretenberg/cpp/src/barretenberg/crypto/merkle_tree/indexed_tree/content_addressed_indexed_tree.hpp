@@ -43,7 +43,7 @@
 namespace bb::crypto::merkle_tree {
 
 /**
- * @brief Implements a parallelised batch insertion indexed tree
+ * @brief Implements a parallelized batch insertion indexed tree
  * Accepts template argument of the type of store backing the tree, the type of store containing the leaves and the
  * hashing policy
  * All public methods are asynchronous unless marked otherwise
@@ -305,7 +305,7 @@ ContentAddressedIndexedTree<Store, HashingPolicy>::ContentAddressedIndexedTree(
     TreeMeta meta;
     store_->get_meta(meta);
 
-    // if the tree already contains leaves then it's been initialised in the past
+    // if the tree already contains leaves then it's been initialized in the past
     if (meta.size > 0) {
         return;
     }
@@ -346,7 +346,7 @@ ContentAddressedIndexedTree<Store, HashingPolicy>::ContentAddressedIndexedTree(
     ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(appended_hashes, completion, false);
     signal.wait_for_level(0);
     if (!result.success) {
-        throw std::runtime_error(format("Failed to initialise tree: ", result.message));
+        throw std::runtime_error(format("Failed to initialize tree: ", result.message));
     }
     store_->get_meta(meta);
     meta.initialRoot = result.inner.root;

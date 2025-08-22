@@ -42,11 +42,11 @@ describe('e2e_epochs/epochs_multi_proof', () => {
       const origCreateEpochProver = proverManager.createEpochProver.bind(proverManager);
       proverManager.createEpochProver = () => {
         const epochProver = origCreateEpochProver();
-        const origFinaliseEpoch = epochProver.finaliseEpoch.bind(epochProver);
-        epochProver.finaliseEpoch = async () => {
-          const result = await origFinaliseEpoch();
+        const origFinalizeEpoch = epochProver.finalizeEpoch.bind(epochProver);
+        epochProver.finalizeEpoch = async () => {
+          const result = await origFinalizeEpoch();
           const sleepTime = index * 1000 * test.constants.ethereumSlotDuration;
-          logger.warn(`Delaying finaliseEpoch for prover node ${index} by ${sleepTime}ms`);
+          logger.warn(`Delaying finalizeEpoch for prover node ${index} by ${sleepTime}ms`);
           await sleep(sleepTime);
           return result;
         };

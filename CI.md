@@ -23,7 +23,7 @@ CI3:
   - Restricting resources such a vcpus, memory and storage.
   - Building a single final slim release image from `release-image`.
 - Provides a consistent command interface on `./bootstrap.sh` scripts, e.g. `./bootstrap.sh clean|fast|full|test|test_cmds`.
-- Unifies how projects are tested allowing for a "build then test the entire repo" workflow. Projects expose their individual tests via `test_cmds` and they can all be parallelised at once to leverage maximum system throughput.
+- Unifies how projects are tested allowing for a "build then test the entire repo" workflow. Projects expose their individual tests via `test_cmds` and they can all be parallelized at once to leverage maximum system throughput.
 - Runs on a single (currently large, 128 vcpu) machine.
 - Significantly reduces the chance of flakey tests making their way into master, by "grinding" the tests in the master merge queue. This simply executes the tests as above, but across N instances. (TBD)
 - Provides a shared redis cache at the test level, meaning the same test never needs to be run twice in CI (except when grinding).
@@ -323,7 +323,7 @@ dl e6b8532f0c020b44
 Let's say you open up a test run log, you'll see something like:
 
 ```
-Command: parallelise 64 (exit: 0)
+Command: parallelize 64 (exit: 0)
 Starting test run with max 64 jobs...
 PASSED (http://ci.aztec-labs.com/736ae186bdf66226): yarn-project/end-to-end/scripts/run_test.sh simple e2e_synching
 PASSED (http://ci.aztec-labs.com/066e837f7af23761): yarn-project/end-to-end/scripts/run_test.sh simple e2e_public_testnet_transfer

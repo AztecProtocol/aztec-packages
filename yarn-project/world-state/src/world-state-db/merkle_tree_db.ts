@@ -62,11 +62,11 @@ export interface MerkleTreeAdminDatabase extends ForkMerkleTreeOperations {
   unwindBlocks(toBlockNumber: bigint): Promise<WorldStateStatusFull>;
 
   /**
-   * Advances the finalised block number to be the number provided
-   * @param toBlockNumber The block number that is now the tip of the finalised chain
+   * Advances the finalized block number to be the number provided
+   * @param toBlockNumber The block number that is now the tip of the finalized chain
    * @returns The new WorldStateStatus
    */
-  setFinalised(toBlockNumber: bigint): Promise<WorldStateStatusSummary>;
+  setFinalized(toBlockNumber: bigint): Promise<WorldStateStatusSummary>;
 
   /**
    * Gets the current status summary of the database.

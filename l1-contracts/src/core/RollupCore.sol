@@ -443,8 +443,8 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @dev Can be called by anyone. Transfers the stake to the designated recipient.
    * @param _attester The validator address whose withdrawal to finalize
    */
-  function finaliseWithdraw(address _attester) external override(IStakingCore) {
-    ValidatorOperationsExtLib.finaliseWithdraw(_attester);
+  function finalizeWithdraw(address _attester) external override(IStakingCore) {
+    ValidatorOperationsExtLib.finalizeWithdraw(_attester);
   }
 
   /**

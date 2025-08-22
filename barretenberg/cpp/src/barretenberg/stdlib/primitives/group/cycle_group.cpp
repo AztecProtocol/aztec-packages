@@ -953,7 +953,7 @@ typename cycle_group<Builder>::cycle_scalar cycle_group<Builder>::cycle_scalar::
  *
  * @tparam Builder
  * @param _value
- * @todo (https://github.com/AztecProtocol/barretenberg/issues/1016): Optimise this method
+ * @todo (https://github.com/AztecProtocol/barretenberg/issues/1016): Optimize this method
  */
 template <typename Builder> cycle_group<Builder>::cycle_scalar::cycle_scalar(BigScalarField& scalar)
 {
