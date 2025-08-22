@@ -254,7 +254,7 @@ tests:
   - regex: "ivc-integration/src/rollup_ivc_integration.test.ts"
     error_regex: "Exceeded timeout of"
     owners:
-      - *lucas
+      - *luke
   - regex: "e2e_prover/full"
     error_regex: "ProvingError: Failed to verify proof from key!"
   - regex: "slasher/src/slasher_client.test.ts"
