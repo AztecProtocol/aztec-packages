@@ -270,7 +270,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
 
         bb::Univariate<FF, 11> expected_eta{ { 1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21 } };
         EXPECT_EQ(relation_parameters_no_optimistic_skipping.eta, expected_eta);
-        // Optimised relation parameters are the same, we just don't compute any values for non-used indices when
+        // Optimized relation parameters are the same, we just don't compute any values for non-used indices when
         // deriving values from them
         for (size_t i = 0; i < 11; i++) {
             EXPECT_EQ(relation_parameters.eta.evaluations[i], expected_eta.evaluations[i]);

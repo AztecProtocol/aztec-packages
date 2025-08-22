@@ -334,7 +334,7 @@ aztec-wallet deploy-account --from accBFJ --payment method=fee_juice,claim
 
 The equivalent using aztec.js - bridge fee juice, (pass two txs), create and use payment method:
 
-(See also the [aztec-wallet](https://github.com/AztecProtocol/aztec-packages/blob/v1.2.0/yarn-project/cli-wallet/src/cmds/bridge_fee_juice.ts#L32) implementation to initialise a fee juice portal manager)
+(See also the [aztec-wallet](https://github.com/AztecProtocol/aztec-packages/blob/v1.2.0/yarn-project/cli-wallet/src/cmds/bridge_fee_juice.ts#L32) implementation to initialize a fee juice portal manager)
 
 ```javascript
 import {

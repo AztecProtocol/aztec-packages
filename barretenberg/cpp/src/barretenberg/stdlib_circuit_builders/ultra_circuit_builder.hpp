@@ -514,7 +514,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      * 3) Number of Rom array-associated gates
      * 4) Number of range-list associated gates
      * 5) Number of non-native field multiplication gates.
-     * !!! WARNING: This function is predictive and might report an incorrect number. Make sure to finalise the circuit
+     * !!! WARNING: This function is predictive and might report an incorrect number. Make sure to finalize the circuit
      * and then check the number of gates for a precise result. Kesha: it's basically voodoo
      *
      * @return size_t

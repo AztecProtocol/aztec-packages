@@ -234,8 +234,8 @@ WorldStateWrapper::WorldStateWrapper(const Napi::CallbackInfo& info)
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return delete_fork(obj, buffer); });
 
     _dispatcher.register_target(
-        WorldStateMessageType::FINALISE_BLOCKS,
-        [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return set_finalised(obj, buffer); });
+        WorldStateMessageType::FINALIZE_BLOCKS,
+        [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return set_finalized(obj, buffer); });
 
     _dispatcher.register_target(WorldStateMessageType::UNWIND_BLOCKS,
                                 [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return unwind(obj, buffer); });
@@ -784,14 +784,14 @@ bool WorldStateWrapper::close(msgpack::object& obj, msgpack::sbuffer& buf)
     return true;
 }
 
-bool WorldStateWrapper::set_finalised(msgpack::object& obj, msgpack::sbuffer& buf) const
+bool WorldStateWrapper::set_finalized(msgpack::object& obj, msgpack::sbuffer& buf) const
 {
     TypedMessage<BlockShiftRequest> request;
     obj.convert(request);
-    WorldStateStatusSummary status = _ws->set_finalised_blocks(request.value.toBlockNumber);
+    WorldStateStatusSummary status = _ws->set_finalized_blocks(request.value.toBlockNumber);
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<WorldStateStatusSummary> resp_msg(
-        WorldStateMessageType::FINALISE_BLOCKS, header, { status });
+        WorldStateMessageType::FINALIZE_BLOCKS, header, { status });
     msgpack::pack(buf, resp_msg);
 
     return true;
