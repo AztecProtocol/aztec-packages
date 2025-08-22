@@ -88,9 +88,10 @@ void validate_inputs(const stdlib::byte_array<Builder>& hashed_message,
  *  2. \f$0 < r < n\f$
  *  3. \f$0 < s < (n+1) / 2\f$
  *  4. Define \f$e := \mathbf{H}(m) \mod n\f$ and \f$Q := e s^{-1} G + r s^{-1} P \f$
- *  5. \f$Q\f$ is not the point at infinity AND \f$Q_x = r \mod n\f$ (note that \f$Q_x \in \mathbb{F}_q\f$)
+ *  5. \f$Q\f$ is not the point at infinity
+ *  6. \f$Q_x = r \mod n\f$ (note that \f$Q_x \in \mathbb{F}_q\f$)
  *
- * @note The requirement of step 2. is to avoid transaction malleability: if \f$(r,s)\f$ is a valid signature for
+ * @note The requirement of step 2. is to avoid signature malleability: if \f$(r,s)\f$ is a valid signature for
  * message \f$m\f$ and public key \f$P\f$, so is \f$(r,n-s)\f$. We protect against malleability by enforcing that
  * \f$s\f$ is always the lowest of the two possible values.
  *
