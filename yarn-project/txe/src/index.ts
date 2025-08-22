@@ -212,7 +212,7 @@ class TXEDispatcher {
           protocolContractNames.map(name => new BundledProtocolContractsProvider().getProtocolContractArtifact(name)),
         );
       }
-      TXESessions.set(sessionId, await TXEService.init(this.logger, this.protocolContracts));
+      TXESessions.set(sessionId, await TXEService.init(this.protocolContracts));
     }
 
     switch (functionName) {
