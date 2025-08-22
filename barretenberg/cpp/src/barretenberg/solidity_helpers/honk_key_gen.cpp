@@ -20,7 +20,7 @@ using VerificationKey = UltraKeccakFlavor::VerificationKey;
 
 template <typename Circuit> void generate_keys_honk(const std::string& output_path, std::string circuit_name)
 {
-    uint256_t public_inputs[4] = { 0, 0, 0, 0 };
+    uint256_t public_inputs[6] = { 0, 0, 0, 0, 0, 0 };
     UltraCircuitBuilder builder = Circuit::generate(public_inputs);
 
     if constexpr (!std::same_as<Circuit, RecursiveCircuit>) {
