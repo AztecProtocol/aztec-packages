@@ -13,13 +13,25 @@ using simulation::InstrDeserializationError;
 using simulation::Instruction;
 using simulation::Operand;
 
+Instruction deserialize_instruction_no_events(std::span<const uint8_t> bytecode, size_t pos)
+{
+    simulation::NoopEventEmitter<simulation::RangeCheckEvent> range_check_event_emitter;
+    simulation::RangeCheck range_check(range_check_event_emitter);
+    simulation::NoopEventEmitter<simulation::FieldGreaterThanEvent> field_gt_event_emitter;
+    simulation::FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
+    simulation::NoopEventEmitter<simulation::GreaterThanEvent> gt_event_emitter;
+    simulation::GreaterThan gt(field_gt, range_check, gt_event_emitter);
+
+    return deserialize_instruction(bytecode, pos, gt);
+}
+
 // Testing serialization with some u8 variants
 TEST(SerializationTest, Not8RoundTrip)
 {
     const Instruction instr = { .opcode = WireOpCode::NOT_8,
                                 .indirect = 5,
                                 .operands = { Operand::from<uint8_t>(123), Operand::from<uint8_t>(45) } };
-    const auto decoded = deserialize_instruction(instr.serialize(), 0);
+    const auto decoded = deserialize_instruction_no_events(instr.serialize(), 0);
     EXPECT_EQ(instr, decoded);
 }
 
@@ -31,7 +43,7 @@ TEST(SerializationTest, Add16RoundTrip)
         .indirect = 3,
         .operands = { Operand::from<uint16_t>(1000), Operand::from<uint16_t>(1001), Operand::from<uint16_t>(1002) }
     };
-    const auto decoded = deserialize_instruction(instr.serialize(), 0);
+    const auto decoded = deserialize_instruction_no_events(instr.serialize(), 0);
     EXPECT_EQ(instr, decoded);
 }
 
@@ -41,7 +53,7 @@ TEST(SerializationTest, Jumpi32RoundTrip)
     const Instruction instr = { .opcode = WireOpCode::JUMPI_32,
                                 .indirect = 7,
                                 .operands = { Operand::from<uint16_t>(12345), Operand::from<uint32_t>(678901234) } };
-    const auto decoded = deserialize_instruction(instr.serialize(), 0);
+    const auto decoded = deserialize_instruction_no_events(instr.serialize(), 0);
     EXPECT_EQ(instr, decoded);
 }
 
@@ -55,7 +67,7 @@ TEST(SerializationTest, Set64RoundTrip)
                                 .operands = { Operand::from<uint16_t>(1002),
                                               Operand::from<uint8_t>(static_cast<uint8_t>(MemoryTag::U64)),
                                               Operand::from<uint64_t>(value_64) } };
-    const auto decoded = deserialize_instruction(instr.serialize(), 0);
+    const auto decoded = deserialize_instruction_no_events(instr.serialize(), 0);
     EXPECT_EQ(instr, decoded);
 }
 
@@ -69,7 +81,7 @@ TEST(SerializationTest, Set128RoundTrip)
                                 .operands = { Operand::from<uint16_t>(1002),
                                               Operand::from<uint8_t>(static_cast<uint8_t>(MemoryTag::U128)),
                                               Operand::from<uint128_t>(value_128) } };
-    const auto decoded = deserialize_instruction(instr.serialize(), 0);
+    const auto decoded = deserialize_instruction_no_events(instr.serialize(), 0);
     EXPECT_EQ(instr, decoded);
 }
 
@@ -83,7 +95,7 @@ TEST(SerializationTest, SetFFRoundTrip)
                                 .operands = { Operand::from<uint16_t>(1002),
                                               Operand::from<uint8_t>(static_cast<uint8_t>(MemoryTag::FF)),
                                               Operand::from<FF>(large_ff) } };
-    const auto decoded = deserialize_instruction(instr.serialize(), 0);
+    const auto decoded = deserialize_instruction_no_events(instr.serialize(), 0);
     EXPECT_EQ(instr, decoded);
 }
 
@@ -105,7 +117,7 @@ TEST(SerializationTest, DeserializeLargeFF)
     const auto buf = to_buffer(value_256);
     serialized_instruction.insert(serialized_instruction.end() - 32, buf.begin(), buf.end());
 
-    const auto decoded = deserialize_instruction(serialized_instruction, 0);
+    const auto decoded = deserialize_instruction_no_events(serialized_instruction, 0);
     ASSERT_EQ(3, decoded.operands.size());
     EXPECT_EQ(decoded.operands[2].as<FF>(), 145);
 }
@@ -117,7 +129,7 @@ TEST(SerializationTest, PCOutOfRange)
     bytecode.resize(35, 0);
 
     try {
-        deserialize_instruction(bytecode, bytecode.size() + 1);
+        deserialize_instruction_no_events(bytecode, bytecode.size() + 1);
     } catch (const InstrDeserializationError& error) {
         EXPECT_EQ(error, InstrDeserializationError::PC_OUT_OF_RANGE);
     }
@@ -130,7 +142,7 @@ TEST(SerializationTest, OpcodeOutOfRange)
     bytecode.push_back(static_cast<uint8_t>(WireOpCode::LAST_OPCODE_SENTINEL) + 1); // Invalid opcode
 
     try {
-        deserialize_instruction(bytecode, 0);
+        deserialize_instruction_no_events(bytecode, 0);
     } catch (const InstrDeserializationError& error) {
         EXPECT_EQ(error, InstrDeserializationError::OPCODE_OUT_OF_RANGE);
     }
@@ -152,7 +164,7 @@ TEST(SerializationTest, InstructionOutOfRange)
     bytecode.resize(bytecode.size() - 1);
 
     try {
-        deserialize_instruction(bytecode, 0);
+        deserialize_instruction_no_events(bytecode, 0);
     } catch (const InstrDeserializationError& error) {
         EXPECT_EQ(error, InstrDeserializationError::INSTRUCTION_OUT_OF_RANGE);
     }

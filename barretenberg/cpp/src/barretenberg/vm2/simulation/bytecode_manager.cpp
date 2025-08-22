@@ -101,7 +101,7 @@ Instruction TxBytecodeManager::read_instruction(BytecodeId bytecode_id, uint32_t
     const auto& bytecode = *bytecode_ptr;
 
     try {
-        instr_fetching_event.instruction = deserialize_instruction(bytecode, pc);
+        instr_fetching_event.instruction = deserialize_instruction(bytecode, pc, gt);
 
         // If the following code is executed, no error was thrown in deserialize_instruction().
         if (!check_tag(instr_fetching_event.instruction)) {
@@ -117,12 +117,6 @@ Instruction TxBytecodeManager::read_instruction(BytecodeId bytecode_id, uint32_t
         vinfo("Invalid execution opcode: ", instr_fetching_event.instruction.get_exec_opcode(), " at pc: ", pc);
         instr_fetching_event.error = InstrDeserializationError::INVALID_EXECUTION_OPCODE;
     }
-
-    // We are showing whether bytecode_size > pc or not. If there is no fetching error,
-    // we always have bytecode_size > pc.
-    const auto bytecode_size = bytecode_ptr->size();
-    const uint128_t pc_diff = bytecode_size > pc ? bytecode_size - pc - 1 : pc - bytecode_size;
-    range_check.assert_range(pc_diff, AVM_PC_SIZE_IN_BITS);
 
     // The event will be deduplicated internally.
     fetching_events.emit(InstructionFetchingEvent(instr_fetching_event));

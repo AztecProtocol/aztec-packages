@@ -1,6 +1,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <cstdint>
 #include <memory>
 #include <vector>
@@ -10,21 +11,21 @@
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/instr_fetching.hpp"
-#include "barretenberg/vm2/simulation/events/range_check_event.hpp"
+#include "barretenberg/vm2/simulation/events/gt_event.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/bytecode_trace.hpp"
+#include "barretenberg/vm2/tracegen/gt_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
-#include "barretenberg/vm2/tracegen/range_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
 namespace bb::avm2::constraining {
 namespace {
 
 using tracegen::BytecodeTraceBuilder;
+using tracegen::GreaterThanTraceBuilder;
 using tracegen::PrecomputedTraceBuilder;
-using tracegen::RangeCheckTraceBuilder;
 using tracegen::TestTraceContainer;
 
 using FF = AvmFlavorSettings::FF;
@@ -34,11 +35,11 @@ using instr_fetching = instr_fetching<FF>;
 
 using simulation::BytecodeDecompositionEvent;
 using simulation::BytecodeId;
+using simulation::GreaterThanEvent;
 using simulation::InstrDeserializationError;
 using simulation::Instruction;
 using simulation::InstructionFetchingEvent;
 using simulation::Operand;
-using simulation::RangeCheckEvent;
 
 TEST(InstrFetchingConstrainingTest, EmptyRow)
 {
@@ -217,20 +218,34 @@ TEST(InstrFetchingConstrainingTest, WireInstructionSpecInteractions)
     check_relation<instr_fetching>(trace);
 }
 
-std::vector<RangeCheckEvent> gen_range_check_events(const std::vector<InstructionFetchingEvent>& instr_events)
+std::vector<GreaterThanEvent> gen_gt_events(const std::vector<InstructionFetchingEvent>& instr_events)
 {
-    std::vector<RangeCheckEvent> range_check_events;
-    range_check_events.reserve(instr_events.size());
+    std::vector<GreaterThanEvent> gt_events;
+    gt_events.reserve(2 * instr_events.size());
 
     for (const auto& instr_event : instr_events) {
-        range_check_events.emplace_back(RangeCheckEvent{
-            .value = instr_event.error == InstrDeserializationError::PC_OUT_OF_RANGE
-                         ? instr_event.pc - instr_event.bytecode->size()
-                         : instr_event.bytecode->size() - instr_event.pc - 1,
-            .num_bits = AVM_PC_SIZE_IN_BITS,
+        // GT events related to pc_out_of_range error. (#[PC_IN_RANGE_TOGGLE])
+        gt_events.emplace_back(GreaterThanEvent{
+            .a = instr_event.bytecode->size(),
+            .b = instr_event.pc,
+            .result = instr_event.error != InstrDeserializationError::PC_OUT_OF_RANGE,
         });
+
+        // GT events related to instr_out_of_range error. (#[INSTR_OUT_OF_RANGE_TOGGLE])
+        if (instr_event.error != InstrDeserializationError::PC_OUT_OF_RANGE &&
+            instr_event.error != InstrDeserializationError::OPCODE_OUT_OF_RANGE) {
+            const uint32_t bytes_remaining = static_cast<uint32_t>(instr_event.bytecode->size() - instr_event.pc);
+            const uint32_t bytes_to_read = std::min(bytes_remaining, DECOMPOSE_WINDOW_SIZE);
+            const auto& wire_instr_spec =
+                WIRE_INSTRUCTION_SPEC.at(static_cast<WireOpCode>(instr_event.bytecode->at(instr_event.pc)));
+            gt_events.emplace_back(GreaterThanEvent{
+                .a = wire_instr_spec.size_in_bytes,
+                .b = bytes_to_read,
+                .result = instr_event.error == InstrDeserializationError::INSTRUCTION_OUT_OF_RANGE,
+            });
+        }
     }
-    return range_check_events;
+    return gt_events;
 }
 
 // Positive test for the interaction with bytecode decomposition table.
@@ -261,13 +276,13 @@ TEST(InstrFetchingConstrainingTest, BcDecompositionInteractions)
 }
 
 void check_all(const std::vector<InstructionFetchingEvent>& instr_events,
-               const std::vector<RangeCheckEvent>& range_check_events,
+               const std::vector<GreaterThanEvent>& gt_events,
                const std::vector<BytecodeDecompositionEvent>& decomposition_events)
 {
     TestTraceContainer trace;
     BytecodeTraceBuilder bytecode_builder;
     PrecomputedTraceBuilder precomputed_builder;
-    RangeCheckTraceBuilder range_check_builder;
+    GreaterThanTraceBuilder gt_builder;
 
     precomputed_builder.process_wire_instruction_spec(trace);
     precomputed_builder.process_sel_range_8(trace);
@@ -275,7 +290,7 @@ void check_all(const std::vector<InstructionFetchingEvent>& instr_events,
     precomputed_builder.process_memory_tag_range(trace);
     bytecode_builder.process_instruction_fetching(instr_events, trace);
     bytecode_builder.process_decomposition(decomposition_events, trace);
-    range_check_builder.process(range_check_events, trace);
+    gt_builder.process(gt_events, trace);
     precomputed_builder.process_misc(trace, trace.get_num_rows()); // Limit to the number of rows we need.
 
     check_interaction<BytecodeTraceBuilder,
@@ -283,41 +298,15 @@ void check_all(const std::vector<InstructionFetchingEvent>& instr_events,
                       lookup_instr_fetching_bytecode_size_from_bc_dec_settings,
                       lookup_instr_fetching_wire_instruction_info_settings,
                       lookup_instr_fetching_tag_value_validation_settings,
-                      lookup_instr_fetching_pc_abs_diff_positive_settings,
-                      lookup_instr_fetching_instr_abs_diff_positive_settings>(trace);
+                      lookup_instr_fetching_pc_in_range_toggle_settings,
+                      lookup_instr_fetching_instr_out_of_range_toggle_settings>(trace);
 
     EXPECT_EQ(trace.get_num_rows(), 1 << 16); // 2^16 for range checks
 
     check_relation<instr_fetching>(trace);
 }
 
-void check_without_range_check(const std::vector<InstructionFetchingEvent>& instr_events,
-                               const std::vector<BytecodeDecompositionEvent>& decomposition_events)
-{
-    TestTraceContainer trace;
-    BytecodeTraceBuilder bytecode_builder;
-    PrecomputedTraceBuilder precomputed_builder;
-
-    precomputed_builder.process_wire_instruction_spec(trace);
-    precomputed_builder.process_sel_range_8(trace);
-    precomputed_builder.process_memory_tag_range(trace);
-    bytecode_builder.process_instruction_fetching(instr_events, trace);
-    bytecode_builder.process_decomposition(decomposition_events, trace);
-    precomputed_builder.process_misc(trace, trace.get_num_rows()); // Limit to the number of rows we need.
-
-    check_interaction<BytecodeTraceBuilder,
-                      lookup_instr_fetching_bytes_from_bc_dec_settings,
-                      lookup_instr_fetching_bytecode_size_from_bc_dec_settings,
-                      lookup_instr_fetching_wire_instruction_info_settings,
-                      lookup_instr_fetching_tag_value_validation_settings,
-                      lookup_instr_fetching_instr_abs_diff_positive_settings>(trace);
-
-    EXPECT_EQ(trace.get_num_rows(), 1 << 8); // 2^8 for range checks
-
-    check_relation<instr_fetching>(trace);
-}
-
-// Positive test with 5 five bytecodes and bytecode_id = 0,1,2,3,4
+// Positive test with 5 bytecodes and bytecode_id = 0,1,2,3,4
 // Bytecode i is generated by truncating instr_fetch_events to i * 6 instructions.
 // Check relations and all interactions.
 TEST(InstrFetchingConstrainingTest, MultipleBytecodes)
@@ -354,7 +343,7 @@ TEST(InstrFetchingConstrainingTest, MultipleBytecodes)
         });
     }
 
-    check_all(instr_events, gen_range_check_events(instr_events), decomposition_events);
+    check_all(instr_events, gen_gt_events(instr_events), decomposition_events);
 }
 
 // Positive test with one single instruction with error INSTRUCTION_OUT_OF_RANGE.
@@ -388,7 +377,7 @@ TEST(InstrFetchingConstrainingTest, SingleInstructionOutOfRange)
         },
     };
 
-    check_without_range_check(instr_events, decomposition_events);
+    check_all(instr_events, gen_gt_events(instr_events), decomposition_events);
 }
 
 // Positive test with one single instruction (SET_FF) with error INSTRUCTION_OUT_OF_RANGE.
@@ -425,7 +414,7 @@ TEST(InstrFetchingConstrainingTest, SingleInstructionOutOfRangeSplitOperand)
         },
     };
 
-    check_without_range_check(instr_events, decomposition_events);
+    check_all(instr_events, gen_gt_events(instr_events), decomposition_events);
 }
 
 // Positive test with error case PC_OUT_OF_RANGE. We pass a pc which is out of range.
@@ -463,7 +452,7 @@ TEST(InstrFetchingConstrainingTest, SingleInstructionPcOutOfRange)
         },
     };
 
-    check_all(instr_events, gen_range_check_events(instr_events), decomposition_events);
+    check_all(instr_events, gen_gt_events(instr_events), decomposition_events);
 }
 
 // Positive test with error case OPCODE_OUT_OF_RANGE. We generate bytecode of a SET_128 instruction and
@@ -504,7 +493,7 @@ TEST(InstrFetchingConstrainingTest, SingleInstructionOpcodeOutOfRange)
         },
     };
 
-    check_without_range_check(instr_events, decomposition_events);
+    check_all(instr_events, gen_gt_events(instr_events), decomposition_events);
 }
 
 // Positive test with one single instruction (SET_16) with error TAG_OUT_OF_RANGE.
@@ -538,7 +527,7 @@ TEST(InstrFetchingConstrainingTest, SingleInstructionTagOutOfRange)
         },
     };
 
-    check_without_range_check(instr_events, decomposition_events);
+    check_all(instr_events, gen_gt_events(instr_events), decomposition_events);
 }
 
 // Negative interaction test with some values not matching the instruction spec table.
@@ -752,19 +741,27 @@ TEST(InstrFetchingConstrainingTest, NegativeNotTogglingInstrOutOfRange)
         { .precomputed_first_row = 1 },
         {
             .instr_fetching_bytes_to_read = 11,
-            .instr_fetching_instr_abs_diff = 0,
             .instr_fetching_instr_out_of_range = 1, // Will be mutated to zero
             .instr_fetching_instr_size = 12,
+            .instr_fetching_opcode_in_range = 1, // Activate the lookup
             .instr_fetching_sel = 1,
         },
     });
 
-    check_relation<instr_fetching>(trace, instr_fetching::SR_INSTR_OUT_OF_RANGE_TOGGLE);
+    std::vector<GreaterThanEvent> gt_events = {
+        { .a = 12, .b = 11, .result = 1 },
+    };
+
+    GreaterThanTraceBuilder gt_builder;
+    gt_builder.process(gt_events, trace);
+
+    check_interaction<BytecodeTraceBuilder, lookup_instr_fetching_instr_out_of_range_toggle_settings>(trace);
 
     trace.set(C::instr_fetching_instr_out_of_range, 1, 0); // Mutate to wrong value
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace, instr_fetching::SR_INSTR_OUT_OF_RANGE_TOGGLE),
-                              "INSTR_OUT_OF_RANGE_TOGGLE");
+    EXPECT_THROW_WITH_MESSAGE(
+        (check_interaction<BytecodeTraceBuilder, lookup_instr_fetching_instr_out_of_range_toggle_settings>(trace)),
+        "Failed.*LOOKUP_INSTR_FETCHING_INSTR_OUT_OF_RANGE_TOGGLE.*Could not find tuple in destination.");
 }
 
 // Negative test on wrongly toggling instr_out_of_range when instr_size <= bytes_to_read
@@ -774,19 +771,26 @@ TEST(InstrFetchingConstrainingTest, NegativeTogglingInstrInRange)
         { .precomputed_first_row = 1 },
         {
             .instr_fetching_bytes_to_read = 12,
-            .instr_fetching_instr_abs_diff = 0,
             .instr_fetching_instr_out_of_range = 0, // Will be mutated to 1
             .instr_fetching_instr_size = 12,
+            .instr_fetching_opcode_in_range = 1, // Activate the lookup
             .instr_fetching_sel = 1,
         },
     });
 
-    check_relation<instr_fetching>(trace, instr_fetching::SR_INSTR_OUT_OF_RANGE_TOGGLE);
+    std::vector<GreaterThanEvent> gt_events = {
+        { .a = 12, .b = 12, .result = 0 },
+    };
+
+    GreaterThanTraceBuilder gt_builder;
+    gt_builder.process(gt_events, trace);
+
+    check_interaction<BytecodeTraceBuilder, lookup_instr_fetching_instr_out_of_range_toggle_settings>(trace);
 
     trace.set(C::instr_fetching_instr_out_of_range, 1, 1); // Mutate to wrong value
-
-    EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace, instr_fetching::SR_INSTR_OUT_OF_RANGE_TOGGLE),
-                              "INSTR_OUT_OF_RANGE_TOGGLE");
+    EXPECT_THROW_WITH_MESSAGE(
+        (check_interaction<BytecodeTraceBuilder, lookup_instr_fetching_instr_out_of_range_toggle_settings>(trace)),
+        "Failed.*LOOKUP_INSTR_FETCHING_INSTR_OUT_OF_RANGE_TOGGLE.*Could not find tuple in destination.");
 }
 
 // Negative test on not toggling pc_out_of_range when pc >= bytecode_size
@@ -797,18 +801,25 @@ TEST(InstrFetchingConstrainingTest, NegativeNotTogglingPcOutOfRange)
         {
             .instr_fetching_bytecode_size = 12,
             .instr_fetching_pc = 12,
-            .instr_fetching_pc_abs_diff = 0,
-            .instr_fetching_pc_out_of_range = 1, // Will be mutated to 0
             .instr_fetching_sel = 1,
+            .instr_fetching_sel_pc_in_range = 0, // Will be mutated to 1
         },
     });
 
-    check_relation<instr_fetching>(trace, instr_fetching::SR_PC_OUT_OF_RANGE_TOGGLE);
+    std::vector<GreaterThanEvent> gt_events = {
+        { .a = 12, .b = 12, .result = 0 },
+    };
 
-    trace.set(C::instr_fetching_pc_out_of_range, 1, 0); // Mutate to wrong value
+    GreaterThanTraceBuilder gt_builder;
+    gt_builder.process(gt_events, trace);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace, instr_fetching::SR_PC_OUT_OF_RANGE_TOGGLE),
-                              "PC_OUT_OF_RANGE_TOGGLE");
+    check_interaction<BytecodeTraceBuilder, lookup_instr_fetching_pc_in_range_toggle_settings>(trace);
+
+    trace.set(C::instr_fetching_sel_pc_in_range, 1, 1); // Mutate to wrong value
+
+    EXPECT_THROW_WITH_MESSAGE(
+        (check_interaction<BytecodeTraceBuilder, lookup_instr_fetching_pc_in_range_toggle_settings>(trace)),
+        "Failed.*LOOKUP_INSTR_FETCHING_PC_IN_RANGE_TOGGLE.*Could not find tuple in destination.");
 }
 
 // Negative test on wrongly toggling pc_out_of_range when pc < bytecode_size
@@ -819,18 +830,25 @@ TEST(InstrFetchingConstrainingTest, NegativeTogglingPcInRange)
         {
             .instr_fetching_bytecode_size = 12,
             .instr_fetching_pc = 11,
-            .instr_fetching_pc_abs_diff = 0,
-            .instr_fetching_pc_out_of_range = 0, // Will be mutated to 1
             .instr_fetching_sel = 1,
+            .instr_fetching_sel_pc_in_range = 1, // Will be mutated to 0
         },
     });
 
-    check_relation<instr_fetching>(trace, instr_fetching::SR_PC_OUT_OF_RANGE_TOGGLE);
+    std::vector<GreaterThanEvent> gt_events = {
+        { .a = 12, .b = 11, .result = 1 },
+    };
 
-    trace.set(C::instr_fetching_pc_out_of_range, 1, 1); // Mutate to wrong value
+    GreaterThanTraceBuilder gt_builder;
+    gt_builder.process(gt_events, trace);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace, instr_fetching::SR_PC_OUT_OF_RANGE_TOGGLE),
-                              "PC_OUT_OF_RANGE_TOGGLE");
+    check_interaction<BytecodeTraceBuilder, lookup_instr_fetching_pc_in_range_toggle_settings>(trace);
+
+    trace.set(C::instr_fetching_sel_pc_in_range, 1, 0); // Mutate to wrong value
+
+    EXPECT_THROW_WITH_MESSAGE(
+        (check_interaction<BytecodeTraceBuilder, lookup_instr_fetching_pc_in_range_toggle_settings>(trace)),
+        "Failed.*LOOKUP_INSTR_FETCHING_PC_IN_RANGE_TOGGLE.*Could not find tuple in destination.");
 }
 
 } // namespace

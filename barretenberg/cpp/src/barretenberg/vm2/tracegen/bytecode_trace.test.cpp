@@ -460,10 +460,7 @@ TEST(BytecodeTraceGenTest, InstrFetchingSingleBytecode)
         const auto bytes_to_read = std::min<size_t>(DECOMPOSE_WINDOW_SIZE, bytes_remaining);
 
         EXPECT_LE(instr_size, bytes_to_read);
-        const auto instr_abs_diff = bytes_to_read - instr_size;
-
         EXPECT_LT(pc, bytecode_size);
-        const auto pc_abs_diff = bytecode_size - pc - 1;
 
         ASSERT_LE(bytecode_size, UINT16_MAX);
 
@@ -475,10 +472,7 @@ TEST(BytecodeTraceGenTest, InstrFetchingSingleBytecode)
                           ROW_FIELD_EQ(instr_fetching_bytes_to_read, bytes_to_read),
                           ROW_FIELD_EQ(instr_fetching_bytecode_size, bytecode_size),
                           ROW_FIELD_EQ(instr_fetching_instr_size, instr_size),
-                          ROW_FIELD_EQ(instr_fetching_instr_abs_diff, instr_abs_diff),
-                          ROW_FIELD_EQ(instr_fetching_pc_abs_diff, pc_abs_diff),
-                          ROW_FIELD_EQ(instr_fetching_pc_out_of_range, 0),
-                          ROW_FIELD_EQ(instr_fetching_opcode_out_of_range, 0),
+                          ROW_FIELD_EQ(instr_fetching_opcode_in_range, 1),
                           ROW_FIELD_EQ(instr_fetching_instr_out_of_range, 0),
                           ROW_FIELD_EQ(instr_fetching_tag_out_of_range, 0),
                           ROW_FIELD_EQ(instr_fetching_sel_parsing_err, 0),
@@ -580,11 +574,10 @@ TEST(BytecodeTraceGenTest, InstrFetchingParsingErrors)
                       ROW_FIELD_EQ(instr_fetching_pc, 0),
                       ROW_FIELD_EQ(instr_fetching_bytes_to_read, 20),
                       ROW_FIELD_EQ(instr_fetching_instr_size, 0),
-                      ROW_FIELD_EQ(instr_fetching_instr_abs_diff,
-                                   20), // instr_size <= bytes_to_read: bytes_to_read - instr_size
                       ROW_FIELD_EQ(instr_fetching_sel_parsing_err, 1),
-                      ROW_FIELD_EQ(instr_fetching_pc_abs_diff, 19), // bytecode_size - pc - 1   if bytecode_size > pc
-                      ROW_FIELD_EQ(instr_fetching_opcode_out_of_range, 1)));
+                      ROW_FIELD_EQ(instr_fetching_opcode_in_range, 0),
+                      ROW_FIELD_EQ(instr_fetching_instr_out_of_range, 0),
+                      ROW_FIELD_EQ(instr_fetching_tag_out_of_range, 0)));
 
     EXPECT_THAT(rows.at(2),
                 AllOf(ROW_FIELD_EQ(instr_fetching_sel, 1),
@@ -592,23 +585,21 @@ TEST(BytecodeTraceGenTest, InstrFetchingParsingErrors)
                       ROW_FIELD_EQ(instr_fetching_pc, 19), // OR_16 opcode
                       ROW_FIELD_EQ(instr_fetching_bytes_to_read, 1),
                       ROW_FIELD_EQ(instr_fetching_instr_size, 8), // OR_16 is 8 bytes long
-                      ROW_FIELD_EQ(instr_fetching_instr_abs_diff,
-                                   6), // instr_size > bytes_to_read: instr_size - bytes_to_read - 1
                       ROW_FIELD_EQ(instr_fetching_sel_parsing_err, 1),
-                      ROW_FIELD_EQ(instr_fetching_pc_abs_diff, 0), // bytecode_size - pc - 1   if bytecode_size > pc
-                      ROW_FIELD_EQ(instr_fetching_instr_out_of_range, 1)));
+                      ROW_FIELD_EQ(instr_fetching_opcode_in_range, 1),
+                      ROW_FIELD_EQ(instr_fetching_instr_out_of_range, 1),
+                      ROW_FIELD_EQ(instr_fetching_tag_out_of_range, 0)));
 
-    EXPECT_THAT(
-        rows.at(3),
-        AllOf(ROW_FIELD_EQ(instr_fetching_sel, 1),
-              ROW_FIELD_EQ(instr_fetching_sel_pc_in_range, 0),
-              ROW_FIELD_EQ(instr_fetching_pc, 38),
-              ROW_FIELD_EQ(instr_fetching_bytes_to_read, 0),
-              ROW_FIELD_EQ(instr_fetching_instr_size, 0),
-              ROW_FIELD_EQ(instr_fetching_instr_abs_diff, 0), // instr_size <= bytes_to_read: bytes_to_read - instr_size
-              ROW_FIELD_EQ(instr_fetching_sel_parsing_err, 1),
-              ROW_FIELD_EQ(instr_fetching_pc_abs_diff, 18), // pc - bytecode_size if bytecode_size <= pc
-              ROW_FIELD_EQ(instr_fetching_pc_out_of_range, 1)));
+    EXPECT_THAT(rows.at(3),
+                AllOf(ROW_FIELD_EQ(instr_fetching_sel, 1),
+                      ROW_FIELD_EQ(instr_fetching_sel_pc_in_range, 0),
+                      ROW_FIELD_EQ(instr_fetching_pc, 38),
+                      ROW_FIELD_EQ(instr_fetching_bytes_to_read, 0),
+                      ROW_FIELD_EQ(instr_fetching_instr_size, 0),
+                      ROW_FIELD_EQ(instr_fetching_sel_parsing_err, 1),
+                      ROW_FIELD_EQ(instr_fetching_opcode_in_range, 0),
+                      ROW_FIELD_EQ(instr_fetching_instr_out_of_range, 0),
+                      ROW_FIELD_EQ(instr_fetching_tag_out_of_range, 0)));
 }
 
 // Test on error tag out of range
@@ -619,6 +610,13 @@ TEST(BytecodeTraceGenTest, InstrFetchingErrorTagOutOfRange)
     using testing::random_instruction;
     TestTraceContainer trace;
     BytecodeTraceBuilder builder;
+
+    simulation::NoopEventEmitter<simulation::RangeCheckEvent> range_check_event_emitter;
+    simulation::RangeCheck range_check(range_check_event_emitter);
+    simulation::NoopEventEmitter<simulation::FieldGreaterThanEvent> field_gt_event_emitter;
+    simulation::FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
+    simulation::NoopEventEmitter<simulation::GreaterThanEvent> gt_event_emitter;
+    simulation::GreaterThan gt(field_gt, range_check, gt_event_emitter);
 
     auto instr_cast = random_instruction(WireOpCode::CAST_16);
     auto instr_set = random_instruction(WireOpCode::SET_64);
@@ -642,7 +640,8 @@ TEST(BytecodeTraceGenTest, InstrFetchingErrorTagOutOfRange)
     events.emplace_back(InstructionFetchingEvent{
         .bytecode_id = 1,
         .pc = 0,
-        .instruction = deserialize_instruction(bytecode, 0), // Reflect more the real code path than passing instr_cast.
+        .instruction =
+            deserialize_instruction(bytecode, 0, gt), // Reflect more the real code path than passing instr_cast.
         .bytecode = bytecode_ptr,
         .error = simulation::InstrDeserializationError::TAG_OUT_OF_RANGE,
     });
@@ -651,7 +650,7 @@ TEST(BytecodeTraceGenTest, InstrFetchingErrorTagOutOfRange)
         .bytecode_id = 1,
         .pc = cast_size,
         .instruction =
-            deserialize_instruction(bytecode, cast_size), // Reflect more the real code path than passing instr_set.
+            deserialize_instruction(bytecode, cast_size, gt), // Reflect more the real code path than passing instr_set.
         .bytecode = bytecode_ptr,
         .error = simulation::InstrDeserializationError::TAG_OUT_OF_RANGE,
     });
@@ -671,27 +670,20 @@ TEST(BytecodeTraceGenTest, InstrFetchingErrorTagOutOfRange)
                       ROW_FIELD_EQ(instr_fetching_pc, 0),
                       ROW_FIELD_EQ(instr_fetching_bytes_to_read, cast_size + set_64_size),
                       ROW_FIELD_EQ(instr_fetching_instr_size, cast_size),
-                      ROW_FIELD_EQ(instr_fetching_instr_abs_diff,
-                                   set_64_size), // instr_size <= bytes_to_read: bytes_to_read - instr_size
                       ROW_FIELD_EQ(instr_fetching_sel_parsing_err, 1),
-                      ROW_FIELD_EQ(instr_fetching_pc_abs_diff,
-                                   cast_size + set_64_size - 1), // bytecode_size - pc - 1 if bytecode_size > pc
                       ROW_FIELD_EQ(instr_fetching_tag_out_of_range, 1)));
 
-    EXPECT_THAT(
-        rows.at(2),
-        AllOf(ROW_FIELD_EQ(instr_fetching_sel, 1),
-              ROW_FIELD_EQ(instr_fetching_sel_pc_in_range, 1),
-              ROW_FIELD_EQ(instr_fetching_sel_has_tag, 1),
-              ROW_FIELD_EQ(instr_fetching_sel_tag_is_op2, 1),
-              ROW_FIELD_EQ(instr_fetching_tag_value, 10),
-              ROW_FIELD_EQ(instr_fetching_pc, cast_size),
-              ROW_FIELD_EQ(instr_fetching_bytes_to_read, set_64_size),
-              ROW_FIELD_EQ(instr_fetching_instr_size, set_64_size),
-              ROW_FIELD_EQ(instr_fetching_instr_abs_diff, 0), // instr_size <= bytes_to_read: bytes_to_read - instr_size
-              ROW_FIELD_EQ(instr_fetching_sel_parsing_err, 1),
-              ROW_FIELD_EQ(instr_fetching_pc_abs_diff, set_64_size - 1), // bytecode_size - pc - 1 if bytecode_size > pc
-              ROW_FIELD_EQ(instr_fetching_tag_out_of_range, 1)));
+    EXPECT_THAT(rows.at(2),
+                AllOf(ROW_FIELD_EQ(instr_fetching_sel, 1),
+                      ROW_FIELD_EQ(instr_fetching_sel_pc_in_range, 1),
+                      ROW_FIELD_EQ(instr_fetching_sel_has_tag, 1),
+                      ROW_FIELD_EQ(instr_fetching_sel_tag_is_op2, 1),
+                      ROW_FIELD_EQ(instr_fetching_tag_value, 10),
+                      ROW_FIELD_EQ(instr_fetching_pc, cast_size),
+                      ROW_FIELD_EQ(instr_fetching_bytes_to_read, set_64_size),
+                      ROW_FIELD_EQ(instr_fetching_instr_size, set_64_size),
+                      ROW_FIELD_EQ(instr_fetching_sel_parsing_err, 1),
+                      ROW_FIELD_EQ(instr_fetching_tag_out_of_range, 1)));
 }
 
 } // namespace

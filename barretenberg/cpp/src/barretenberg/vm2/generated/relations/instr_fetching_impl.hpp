@@ -16,9 +16,10 @@ void instr_fetchingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 
     PROFILE_THIS_NAME("accumulate/instr_fetching");
 
-    const auto constants_AVM_PC_SIZE_IN_BITS = FF(32);
-    const auto instr_fetching_PARSING_ERROR_EXCEPT_TAG_ERROR = in.get(C::instr_fetching_pc_out_of_range) +
-                                                               in.get(C::instr_fetching_opcode_out_of_range) +
+    const auto instr_fetching_PC_OUT_OF_RANGE_ERROR = (FF(1) - in.get(C::instr_fetching_sel_pc_in_range));
+    const auto instr_fetching_OPCODE_OUT_OF_RANGE_ERROR = (FF(1) - in.get(C::instr_fetching_opcode_in_range));
+    const auto instr_fetching_PARSING_ERROR_EXCEPT_TAG_ERROR = instr_fetching_PC_OUT_OF_RANGE_ERROR +
+                                                               instr_fetching_OPCODE_OUT_OF_RANGE_ERROR +
                                                                in.get(C::instr_fetching_instr_out_of_range);
     const auto instr_fetching_SEL_OP_DC_17 =
         in.get(C::instr_fetching_sel_op_dc_2) + in.get(C::instr_fetching_sel_op_dc_6);
@@ -31,7 +32,7 @@ void instr_fetchingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-        auto tmp = in.get(C::instr_fetching_pc_out_of_range) * (FF(1) - in.get(C::instr_fetching_pc_out_of_range));
+        auto tmp = in.get(C::instr_fetching_sel_pc_in_range) * (FF(1) - in.get(C::instr_fetching_sel_pc_in_range));
         tmp *= scaling_factor;
         std::get<1>(evals) += typename Accumulator::View(tmp);
     }
@@ -48,61 +49,27 @@ void instr_fetchingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         tmp *= scaling_factor;
         std::get<3>(evals) += typename Accumulator::View(tmp);
     }
-    { // PC_OUT_OF_RANGE_TOGGLE
-        using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-        auto tmp = (in.get(C::instr_fetching_pc_abs_diff) -
-                    in.get(C::instr_fetching_sel) *
-                        (((FF(2) * in.get(C::instr_fetching_pc_out_of_range) - FF(1)) *
-                              (in.get(C::instr_fetching_pc) - in.get(C::instr_fetching_bytecode_size)) -
-                          FF(1)) +
-                         in.get(C::instr_fetching_pc_out_of_range)));
-        tmp *= scaling_factor;
-        std::get<4>(evals) += typename Accumulator::View(tmp);
-    }
-    {
-        using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-        auto tmp =
-            in.get(C::instr_fetching_sel) * (in.get(C::instr_fetching_pc_size_in_bits) - constants_AVM_PC_SIZE_IN_BITS);
-        tmp *= scaling_factor;
-        std::get<5>(evals) += typename Accumulator::View(tmp);
-    }
-    { // INSTR_OUT_OF_RANGE_TOGGLE
-        using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
-        auto tmp = (in.get(C::instr_fetching_instr_abs_diff) -
-                    ((FF(2) * in.get(C::instr_fetching_instr_out_of_range) - FF(1)) *
-                         (in.get(C::instr_fetching_instr_size) - in.get(C::instr_fetching_bytes_to_read)) -
-                     in.get(C::instr_fetching_instr_out_of_range)));
-        tmp *= scaling_factor;
-        std::get<6>(evals) += typename Accumulator::View(tmp);
-    }
     { // TAG_VALUE
-        using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
         auto tmp = (in.get(C::instr_fetching_tag_value) -
                     ((in.get(C::instr_fetching_sel_has_tag) - in.get(C::instr_fetching_sel_tag_is_op2)) *
                          in.get(C::instr_fetching_op3) +
                      in.get(C::instr_fetching_sel_tag_is_op2) * in.get(C::instr_fetching_op2)));
         tmp *= scaling_factor;
-        std::get<7>(evals) += typename Accumulator::View(tmp);
-    }
-    {
-        using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
-        auto tmp = (in.get(C::instr_fetching_sel_pc_in_range) -
-                    in.get(C::instr_fetching_sel) * (FF(1) - in.get(C::instr_fetching_pc_out_of_range)));
-        tmp *= scaling_factor;
-        std::get<8>(evals) += typename Accumulator::View(tmp);
+        std::get<4>(evals) += typename Accumulator::View(tmp);
     }
     { // INDIRECT_BYTES_DECOMPOSITION
-        using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
         auto tmp = (in.get(C::instr_fetching_indirect) -
                     (FF(1) - instr_fetching_PARSING_ERROR_EXCEPT_TAG_ERROR) *
                         (in.get(C::instr_fetching_sel_op_dc_0) *
                              (in.get(C::instr_fetching_bd1) * FF(256) + in.get(C::instr_fetching_bd2) * FF(1)) +
                          instr_fetching_SEL_OP_DC_17 * in.get(C::instr_fetching_bd1) * FF(1)));
         tmp *= scaling_factor;
-        std::get<9>(evals) += typename Accumulator::View(tmp);
+        std::get<5>(evals) += typename Accumulator::View(tmp);
     }
     { // OP1_BYTES_DECOMPOSITION
-        using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
         auto tmp = (in.get(C::instr_fetching_op1) -
                     (FF(1) - instr_fetching_PARSING_ERROR_EXCEPT_TAG_ERROR) *
                         (in.get(C::instr_fetching_sel_op_dc_0) *
@@ -114,10 +81,10 @@ void instr_fetchingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                              (in.get(C::instr_fetching_bd1) * FF(16777216) + in.get(C::instr_fetching_bd2) * FF(65536) +
                               in.get(C::instr_fetching_bd3) * FF(256) + in.get(C::instr_fetching_bd4) * FF(1))));
         tmp *= scaling_factor;
-        std::get<10>(evals) += typename Accumulator::View(tmp);
+        std::get<6>(evals) += typename Accumulator::View(tmp);
     }
     { // OP2_BYTES_DECOMPOSITION
-        using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
         auto tmp = (in.get(C::instr_fetching_op2) -
                     (FF(1) - instr_fetching_PARSING_ERROR_EXCEPT_TAG_ERROR) *
                         (in.get(C::instr_fetching_sel_op_dc_0) *
@@ -130,10 +97,10 @@ void instr_fetchingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                              (in.get(C::instr_fetching_bd4) * FF(16777216) + in.get(C::instr_fetching_bd5) * FF(65536) +
                               in.get(C::instr_fetching_bd6) * FF(256) + in.get(C::instr_fetching_bd7) * FF(1))));
         tmp *= scaling_factor;
-        std::get<11>(evals) += typename Accumulator::View(tmp);
+        std::get<7>(evals) += typename Accumulator::View(tmp);
     }
     { // OP3_BYTES_DECOMPOSITION
-        using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
         auto tmp =
             (in.get(C::instr_fetching_op3) -
              (FF(1) - instr_fetching_PARSING_ERROR_EXCEPT_TAG_ERROR) *
@@ -202,10 +169,10 @@ void instr_fetchingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                       (in.get(C::instr_fetching_bd5) * FF(256) + in.get(C::instr_fetching_bd6) * FF(1)) +
                   in.get(C::instr_fetching_sel_op_dc_14) * in.get(C::instr_fetching_bd4) * FF(1)));
         tmp *= scaling_factor;
-        std::get<12>(evals) += typename Accumulator::View(tmp);
+        std::get<8>(evals) += typename Accumulator::View(tmp);
     }
     { // OP4_BYTES_DECOMPOSITION
-        using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
         auto tmp = (in.get(C::instr_fetching_op4) -
                     (FF(1) - instr_fetching_PARSING_ERROR_EXCEPT_TAG_ERROR) *
                         (in.get(C::instr_fetching_sel_op_dc_0) *
@@ -213,31 +180,31 @@ void instr_fetchingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                          in.get(C::instr_fetching_sel_op_dc_5) *
                              (in.get(C::instr_fetching_bd8) * FF(256) + in.get(C::instr_fetching_bd9) * FF(1))));
         tmp *= scaling_factor;
-        std::get<13>(evals) += typename Accumulator::View(tmp);
+        std::get<9>(evals) += typename Accumulator::View(tmp);
     }
     { // OP5_BYTES_DECOMPOSITION
-        using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
         auto tmp = (in.get(C::instr_fetching_op5) -
                     (FF(1) - instr_fetching_PARSING_ERROR_EXCEPT_TAG_ERROR) * in.get(C::instr_fetching_sel_op_dc_0) *
                         (in.get(C::instr_fetching_bd11) * FF(256) + in.get(C::instr_fetching_bd12) * FF(1)));
         tmp *= scaling_factor;
-        std::get<14>(evals) += typename Accumulator::View(tmp);
+        std::get<10>(evals) += typename Accumulator::View(tmp);
     }
     { // OP6_BYTES_DECOMPOSITION
-        using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
         auto tmp = (in.get(C::instr_fetching_op6) -
                     (FF(1) - instr_fetching_PARSING_ERROR_EXCEPT_TAG_ERROR) * in.get(C::instr_fetching_sel_op_dc_1) *
                         (in.get(C::instr_fetching_bd13) * FF(256) + in.get(C::instr_fetching_bd14) * FF(1)));
         tmp *= scaling_factor;
-        std::get<15>(evals) += typename Accumulator::View(tmp);
+        std::get<11>(evals) += typename Accumulator::View(tmp);
     }
     { // OP7_BYTES_DECOMPOSITION
-        using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
         auto tmp = (in.get(C::instr_fetching_op7) -
                     (FF(1) - instr_fetching_PARSING_ERROR_EXCEPT_TAG_ERROR) * in.get(C::instr_fetching_sel_op_dc_1) *
                         (in.get(C::instr_fetching_bd15) * FF(256) + in.get(C::instr_fetching_bd16) * FF(1)));
         tmp *= scaling_factor;
-        std::get<16>(evals) += typename Accumulator::View(tmp);
+        std::get<12>(evals) += typename Accumulator::View(tmp);
     }
 }
 

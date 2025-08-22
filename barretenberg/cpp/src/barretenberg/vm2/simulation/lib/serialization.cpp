@@ -1,5 +1,6 @@
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <iomanip>
@@ -210,11 +211,11 @@ bool is_wire_opcode_valid(uint8_t w_opcode)
 
 } // namespace
 
-Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t pos)
+Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t pos, GreaterThanInterface& gt)
 {
-    const auto bytecode_length = bytecode.size();
+    const auto bytecode_length = static_cast<uint32_t>(bytecode.size());
 
-    if (pos >= bytecode_length) {
+    if (!gt.gt(bytecode_length, pos)) {
         vinfo("PC is out of range. Position: ", pos, " Bytecode length: ", bytecode_length);
         throw InstrDeserializationError::PC_OUT_OF_RANGE;
     }
@@ -233,9 +234,13 @@ Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t po
 
     const uint32_t instruction_size = WIRE_INSTRUCTION_SPEC.at(opcode).size_in_bytes;
 
+    // Circuit leakage: We never read more than DECOMPOSE_WINDOW_SIZE number of bytes and
+    // therefore comparison with instruction_size is performed with bytes_to_read.
+    const uint32_t bytes_to_read = std::min(DECOMPOSE_WINDOW_SIZE, bytecode_length - static_cast<uint32_t>(pos));
+
     // We know we will encounter a parsing error, but continue processing because
     // we need the partial instruction to be parsed for witness generation.
-    if (pos + instruction_size > bytecode_length) {
+    if (gt.gt(instruction_size, bytes_to_read)) {
         vinfo("Instruction does not fit in remaining bytecode. Wire opcode: ",
               opcode,
               " pos: ",

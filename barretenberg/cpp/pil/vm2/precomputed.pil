@@ -90,9 +90,8 @@ pol constant instr_size; // Instruction size in bytes
 pol constant sel_has_tag; // With current instruction specs, tag can appear at op2 (SET_XXX) or op3 (CAST_8, CAST_16)
 pol constant sel_tag_is_op2; // (sel_tag_is_op2 == 0 && sel_has_tag == 1) ==> op3 is a tag
 
-// Toggled at rows whose clk interpreted as a byte does not correspond to a valid wire opcode
-// Toggled only up to clk = 255. (within range specified by sel_range_8)
-pol constant opcode_out_of_range;
+// Toggled at rows whose clk interpreted as a byte corresponds to a valid wire opcode
+pol constant opcode_in_range;
 
 // Used for getting the number of safe limbs for a given radix.
 // The selector is on for 1 < clk <= 256

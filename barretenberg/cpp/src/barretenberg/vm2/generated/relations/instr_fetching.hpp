@@ -14,8 +14,7 @@ template <typename FF_> class instr_fetchingImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 17> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 4, 3, 3, 3, 3,
-                                                                            4, 4, 4, 4, 4, 4, 4, 4 };
+    static constexpr std::array<size_t, 13> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -39,43 +38,37 @@ template <typename FF> class instr_fetching : public Relation<instr_fetchingImpl
     {
         switch (index) {
         case 4:
-            return "PC_OUT_OF_RANGE_TOGGLE";
-        case 6:
-            return "INSTR_OUT_OF_RANGE_TOGGLE";
-        case 7:
             return "TAG_VALUE";
-        case 9:
+        case 5:
             return "INDIRECT_BYTES_DECOMPOSITION";
-        case 10:
+        case 6:
             return "OP1_BYTES_DECOMPOSITION";
-        case 11:
+        case 7:
             return "OP2_BYTES_DECOMPOSITION";
-        case 12:
+        case 8:
             return "OP3_BYTES_DECOMPOSITION";
-        case 13:
+        case 9:
             return "OP4_BYTES_DECOMPOSITION";
-        case 14:
+        case 10:
             return "OP5_BYTES_DECOMPOSITION";
-        case 15:
+        case 11:
             return "OP6_BYTES_DECOMPOSITION";
-        case 16:
+        case 12:
             return "OP7_BYTES_DECOMPOSITION";
         }
         return std::to_string(index);
     }
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_PC_OUT_OF_RANGE_TOGGLE = 4;
-    static constexpr size_t SR_INSTR_OUT_OF_RANGE_TOGGLE = 6;
-    static constexpr size_t SR_TAG_VALUE = 7;
-    static constexpr size_t SR_INDIRECT_BYTES_DECOMPOSITION = 9;
-    static constexpr size_t SR_OP1_BYTES_DECOMPOSITION = 10;
-    static constexpr size_t SR_OP2_BYTES_DECOMPOSITION = 11;
-    static constexpr size_t SR_OP3_BYTES_DECOMPOSITION = 12;
-    static constexpr size_t SR_OP4_BYTES_DECOMPOSITION = 13;
-    static constexpr size_t SR_OP5_BYTES_DECOMPOSITION = 14;
-    static constexpr size_t SR_OP6_BYTES_DECOMPOSITION = 15;
-    static constexpr size_t SR_OP7_BYTES_DECOMPOSITION = 16;
+    static constexpr size_t SR_TAG_VALUE = 4;
+    static constexpr size_t SR_INDIRECT_BYTES_DECOMPOSITION = 5;
+    static constexpr size_t SR_OP1_BYTES_DECOMPOSITION = 6;
+    static constexpr size_t SR_OP2_BYTES_DECOMPOSITION = 7;
+    static constexpr size_t SR_OP3_BYTES_DECOMPOSITION = 8;
+    static constexpr size_t SR_OP4_BYTES_DECOMPOSITION = 9;
+    static constexpr size_t SR_OP5_BYTES_DECOMPOSITION = 10;
+    static constexpr size_t SR_OP6_BYTES_DECOMPOSITION = 11;
+    static constexpr size_t SR_OP7_BYTES_DECOMPOSITION = 12;
 };
 
 } // namespace bb::avm2

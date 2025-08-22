@@ -5,6 +5,7 @@
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/common/tagged_value.hpp"
+#include "barretenberg/vm2/simulation/gt.hpp"
 
 #include <cstdint>
 #include <memory>
@@ -67,7 +68,7 @@ enum class InstrDeserializationError : uint8_t {
  * @throws runtime_error exception when the bytecode is invalid or pos is out-of-range
  * @return The instruction
  */
-Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t pos);
+Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t pos, GreaterThanInterface& gt);
 
 /**
  * @brief Check whether the instruction must have a tag operand and whether the operand
