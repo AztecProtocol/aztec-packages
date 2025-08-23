@@ -115,7 +115,7 @@ contract MinimalDelegationTest is GSEBase {
 
     vm.warp(ts.ts6);
 
-    assertEq(governance.totalPowerAt(Timestamp.wrap(ts.ts6)), activationThreshold * 3);
+    assertEq(governance.totalPowerNow(), activationThreshold * 3);
 
     if (_overwriteDelay) {
       stdstore.enable_packed_slots().target(address(ROLLUP)).sig("getExitDelay()").checked_write(5);
@@ -124,7 +124,7 @@ contract MinimalDelegationTest is GSEBase {
     vm.prank(WITHDRAWER);
     ROLLUP.initiateWithdraw(ATTESTER2, WITHDRAWER);
 
-    assertEq(governance.totalPowerAt(Timestamp.wrap(ts.ts6)), activationThreshold * 2);
+    assertEq(governance.totalPowerNow(), activationThreshold * 2);
 
     vm.warp(ts.ts7);
 
@@ -224,7 +224,7 @@ contract MinimalDelegationTest is GSEBase {
     }
     ROLLUP.finalizeWithdraw(ATTESTER2);
 
-    assertEq(governance.totalPowerAt(Timestamp.wrap(block.timestamp)), activationThreshold * 2);
+    assertEq(governance.totalPowerNow(), activationThreshold * 2);
     assertEq(stakingAsset.balanceOf(WITHDRAWER), activationThreshold);
 
     assertEq(governance.getProposal(proposalId).summedBallot.yea, activationThreshold * 3, "yeas");
