@@ -98,6 +98,7 @@ std::tuple<std::shared_ptr<ClientIVC::RecursiveDeciderVerificationKey>,
 ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     ClientCircuit& circuit,
     const StdlibVerifierInputs& verifier_inputs,
+    const std::shared_ptr<ClientIVC::RecursiveDeciderVerificationKey>& input_stdlib_verifier_accumulator,
     const TableCommitments& T_prev_commitments,
     const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript)
 {
@@ -110,34 +111,27 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     // Input commitments to be passed to the merge recursive verification
     MergeCommitments merge_commitments;
     merge_commitments.T_prev_commitments = T_prev_commitments;
-    std::shared_ptr<ClientIVC::RecursiveDeciderVerificationKey> stdlib_verifier_accumulator;
+    std::shared_ptr<ClientIVC::RecursiveDeciderVerificationKey> output_stdlib_verifier_accumulator;
     std::optional<StdlibFF> prev_accum_hash = std::nullopt;
     switch (verifier_inputs.type) {
     case QUEUE_TYPE::PG_TAIL:
     case QUEUE_TYPE::PG: {
-        // Construct stdlib verifier accumulator from the native counterpart computed on a previous round
-        auto stdlib_verifier_accum =
-            std::make_shared<RecursiveDeciderVerificationKey>(&circuit, recursive_verifier_native_accum);
-
+        BB_ASSERT_NEQ(input_stdlib_verifier_accumulator, nullptr);
         if (verifier_inputs
                 .is_kernel) { // this is what I'm using to determine if this is the first circuit we're folding...
             // Fiat-Shamir the accumulator.
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1390): assert_equal on accumulator hash with
-            // public input hash.
-            prev_accum_hash = stdlib_verifier_accum->hash_through_transcript("", *accumulation_recursive_transcript);
+            prev_accum_hash =
+                input_stdlib_verifier_accumulator->hash_through_transcript("", *accumulation_recursive_transcript);
             accumulation_recursive_transcript->add_to_hash_buffer("accum_hash", *prev_accum_hash);
             info("Previous accumulator hash in PG rec verifier: ", *prev_accum_hash);
         }
         // Perform folding recursive verification to update the verifier accumulator
-        FoldingRecursiveVerifier verifier{
-            &circuit, stdlib_verifier_accum, { verifier_inputs.honk_vk_and_hash }, accumulation_recursive_transcript
-        };
-        stdlib_verifier_accumulator =
+        FoldingRecursiveVerifier verifier{ &circuit,
+                                           input_stdlib_verifier_accumulator,
+                                           { verifier_inputs.honk_vk_and_hash },
+                                           accumulation_recursive_transcript };
+        output_stdlib_verifier_accumulator =
             verifier.verify_folding_proof(verifier_inputs.proof); // WORKTODO: connect this to previous/next accumulator
-
-        // Extract native verifier accumulator from the stdlib accum for use on the next round
-        recursive_verifier_native_accum =
-            std::make_shared<DeciderVerificationKey>(stdlib_verifier_accumulator->get_value());
 
         witness_commitments = std::move(verifier.keys_to_fold[1]->witness_commitments);
         public_inputs = std::move(verifier.public_inputs);
@@ -146,23 +140,22 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     }
 
     case QUEUE_TYPE::OINK: {
+        BB_ASSERT_EQ(input_stdlib_verifier_accumulator, nullptr);
         // Construct an incomplete stdlib verifier accumulator from the corresponding stdlib verification key
-        stdlib_verifier_accumulator =
+        output_stdlib_verifier_accumulator =
             std::make_shared<RecursiveDeciderVerificationKey>(&circuit, verifier_inputs.honk_vk_and_hash);
 
         // Perform oink recursive verification to complete the initial verifier accumulator
-        OinkRecursiveVerifier verifier{ &circuit, stdlib_verifier_accumulator, accumulation_recursive_transcript };
+        OinkRecursiveVerifier verifier{ &circuit,
+                                        output_stdlib_verifier_accumulator,
+                                        accumulation_recursive_transcript };
         verifier.verify_proof(verifier_inputs.proof);
 
-        stdlib_verifier_accumulator->target_sum = StdlibFF::from_witness_index(&circuit, circuit.zero_idx);
-        stdlib_verifier_accumulator->gate_challenges.assign(CONST_PG_LOG_N,
-                                                            StdlibFF::from_witness_index(&circuit, circuit.zero_idx));
+        output_stdlib_verifier_accumulator->target_sum = StdlibFF::from_witness_index(&circuit, circuit.zero_idx);
+        output_stdlib_verifier_accumulator->gate_challenges.assign(
+            CONST_PG_LOG_N, StdlibFF::from_witness_index(&circuit, circuit.zero_idx));
 
-        // Extract native verifier accumulator from the stdlib accum for use on the next round
-        recursive_verifier_native_accum =
-            std::make_shared<DeciderVerificationKey>(stdlib_verifier_accumulator->get_value());
-
-        witness_commitments = std::move(stdlib_verifier_accumulator->witness_commitments);
+        witness_commitments = std::move(output_stdlib_verifier_accumulator->witness_commitments);
         public_inputs = std::move(verifier.public_inputs);
 
         // T_prev = 0 in the first recursive verification
@@ -235,7 +228,7 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
 
     pairing_points.aggregate(nested_pairing_points);
 
-    return { stdlib_verifier_accumulator, pairing_points, merged_table_commitments };
+    return { output_stdlib_verifier_accumulator, pairing_points, merged_table_commitments };
 }
 
 /**
@@ -285,33 +278,44 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 
     // Perform Oink/PG and Merge recursive verification + databus consistency checks for each entry in the queue
     PairingPoints points_accumulator;
-    std::shared_ptr<RecursiveDeciderVerificationKey> output_stdlib_verifier_accumulator;
+    std::shared_ptr<RecursiveDeciderVerificationKey> current_stdlib_verifier_accumulator = nullptr;
+    if (recursive_verifier_native_accum) {
+        current_stdlib_verifier_accumulator =
+            std::make_shared<RecursiveDeciderVerificationKey>(&circuit, recursive_verifier_native_accum);
+    }
     while (!stdlib_verification_queue.empty()) {
         const StdlibVerifierInputs& verifier_input = stdlib_verification_queue.front();
 
         auto [stdlib_verifier_accumulator, pairing_points, merged_table_commitments] =
-            perform_recursive_verification_and_databus_consistency_checks(
-                circuit, verifier_input, T_prev_commitments, accumulation_recursive_transcript);
+            perform_recursive_verification_and_databus_consistency_checks(circuit,
+                                                                          verifier_input,
+                                                                          current_stdlib_verifier_accumulator,
+                                                                          T_prev_commitments,
+                                                                          accumulation_recursive_transcript);
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1376): Optimize recursion aggregation - seems
         // we can use `batch_mul` here to decrease the size of the `ECCOpQueue`, but must be cautious with FS security.
         points_accumulator.aggregate(pairing_points);
         // Update commitment to the status of the op_queue
         T_prev_commitments = merged_table_commitments;
         // Update the output verifier accumulator
-        output_stdlib_verifier_accumulator = stdlib_verifier_accumulator;
+        current_stdlib_verifier_accumulator = stdlib_verifier_accumulator;
 
         stdlib_verification_queue.pop_front();
     }
 
+    // Extract native verifier accumulator from the stdlib accum for use on the next round
+    recursive_verifier_native_accum =
+        std::make_shared<DeciderVerificationKey>(current_stdlib_verifier_accumulator->get_value());
+
     // Set the kernel output data to be propagated via the public inputs
     if (is_hiding_kernel) {
-        BB_ASSERT_EQ(output_stdlib_verifier_accumulator, nullptr);
+        BB_ASSERT_EQ(current_stdlib_verifier_accumulator, nullptr);
         HidingKernelIO hiding_output{ points_accumulator, T_prev_commitments };
         hiding_output.set_public();
         // preserve the hiding circuit so a proof for it can be created
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1502): reconsider approach once integration is
     } else {
-        BB_ASSERT_NEQ(output_stdlib_verifier_accumulator, nullptr);
+        BB_ASSERT_NEQ(current_stdlib_verifier_accumulator, nullptr);
         KernelIO kernel_output;
         kernel_output.pairing_inputs = points_accumulator;
         kernel_output.kernel_return_data = bus_depot.get_kernel_return_data_commitment(circuit);
@@ -319,7 +323,7 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
         kernel_output.ecc_op_tables = T_prev_commitments;
         RecursiveTranscript hash_transcript;
         kernel_output.output_pg_accum_hash =
-            output_stdlib_verifier_accumulator->hash_through_transcript("", hash_transcript);
+            current_stdlib_verifier_accumulator->hash_through_transcript("", hash_transcript);
         info("kernel output pg hash: ", kernel_output.output_pg_accum_hash);
         kernel_output.set_public();
     }
