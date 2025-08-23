@@ -1,0 +1,340 @@
+name: Deploy Rollup Contracts
+
+# This workflow is used to deploy rollup contracts to a cluster.
+# It can be used to deploy to kind or a GKE cluster.
+#
+# Note that you can provide your own docker image. This helps to deploy into GKE.
+# But if you're running against KIND, you can just load your aztecprotocol/aztec image with
+# kind load docker-image aztecprotocol/aztec:yourtag
+#
+# example:
+# export GOOGLE_APPLICATION_CREDENTIALS=/your/path/to/testnet-helm-sa.json
+# alias lwfl=/your/path/to/aztec-clones/alpha/.github/local_workflow.sh
+#
+# lwfl deploy_rollup_contracts --input cluster=aztec-gke-private --input namespace=mitch-eth-devnet --input aztec_docker_image="iamjustmitch/aztec:8ebe8d7c45190b002c77e29358f2b307a23b5336" --input l1_rpc_urls="http://34.83.173.208:8545" --input mnemonic="test test test test test test test test test test test junk" --input l1_chain_id="1337" --input salt="456" --input sponsored_fpc=true --input real_verifier=true --input aztec_target_commitee_size=48
+
+on:
+  workflow_call:
+    inputs:
+      cluster:
+        description: The cluster to deploy to, e.g. aztec-gke-private or kind
+        required: true
+        type: string
+      namespace:
+        description: The namespace to deploy to
+        required: true
+        type: string
+      ref:
+        description: The branch name to deploy from
+        required: false
+        type: string
+        default: "next"
+      aztec_docker_image:
+        description: Aztec Docker image with tag
+        required: true
+        type: string
+      l1_rpc_urls:
+        description: Comma-separated list of L1 RPC URLs
+        required: true
+        type: string
+      mnemonic:
+        description: Mnemonic for deployment
+        required: true
+        type: string
+      l1_chain_id:
+        description: L1 chain ID
+        required: false
+        type: string
+        default: "31337"
+      salt:
+        description: Salt for deployment
+        required: false
+        type: string
+      validators:
+        description: Comma-separated list of validators
+        required: true
+        type: string
+      sponsored_fpc:
+        description: Enable sponsored FPC
+        required: false
+        type: boolean
+        default: false
+      real_verifier:
+        description: Deploy real verifier
+        required: false
+        type: boolean
+        default: false
+      # Aztec environment variables
+      aztec_slot_duration:
+        description: Aztec slot duration
+        required: true
+        type: string
+      aztec_epoch_duration:
+        description: Aztec epoch duration
+        required: true
+        type: string
+      aztec_target_committee_size:
+        description: Aztec target committee size
+        required: true
+        type: string
+      aztec_proof_submission_epochs:
+        description: Aztec proof submission epochs
+        required: true
+        type: string
+      aztec_activation_threshold:
+        description: Aztec activation threshold
+        required: true
+        type: string
+      aztec_ejection_threshold:
+        description: Aztec ejection threshold
+        required: true
+        type: string
+      aztec_slashing_quorum:
+        description: Aztec slashing quorum
+        required: true
+        type: string
+      aztec_slashing_round_size:
+        description: Aztec slashing round size
+        required: true
+        type: string
+      aztec_governance_proposer_quorum:
+        description: Aztec governance proposer quorum
+        required: true
+        type: string
+      aztec_governance_proposer_round_size:
+        description: Aztec governance proposer round size
+        required: true
+        type: string
+      aztec_mana_target:
+        description: Aztec mana target
+        required: true
+        type: string
+      aztec_proving_cost_per_mana:
+        description: Aztec proving cost per mana
+        required: true
+        type: string
+    secrets:
+      GCP_SA_KEY:
+        description: The JSON key for the GCP service account
+        required: true
+      KUBECONFIG_B64:
+        description: The base64 encoded kubeconfig
+        required: true
+
+  workflow_dispatch:
+    inputs:
+      cluster:
+        description: The cluster to deploy to, e.g. aztec-gke-private or kind
+        required: false
+        type: string
+        default: "kind"
+      namespace:
+        description: The namespace to deploy to
+        required: false
+        type: string
+        default: "rollup-contracts"
+      ref:
+        description: The branch name to deploy from
+        required: false
+        type: string
+        default: "next"
+      aztec_docker_image:
+        description: Aztec Docker image with tag
+        required: false
+        type: string
+        default: "aztecprotocol/aztec:latest"
+      l1_rpc_urls:
+        description: Comma-separated list of L1 RPC URLs
+        required: false
+        type: string
+        default: "http://localhost:8545"
+      mnemonic:
+        description: Mnemonic for deployment
+        required: false
+        type: string
+        default: "test test test test test test test test test test test junk"
+      l1_chain_id:
+        description: L1 chain ID
+        required: false
+        type: string
+        default: "1337"
+      salt:
+        description: Salt for deployment
+        required: false
+        type: string
+      validators:
+        description: Comma-separated list of validators
+        required: false
+        type: string
+        default: "0x123456789abcdef"
+      sponsored_fpc:
+        description: Enable sponsored FPC
+        required: false
+        type: boolean
+        default: false
+      real_verifier:
+        description: Deploy real verifier
+        required: false
+        type: boolean
+        default: false
+      # Aztec environment variables
+      aztec_slot_duration:
+        description: Aztec slot duration
+        required: false
+        type: string
+        default: "12"
+      aztec_epoch_duration:
+        description: Aztec epoch duration
+        required: false
+        type: string
+        default: "32"
+      aztec_target_committee_size:
+        description: Aztec target committee size
+        required: false
+        type: string
+        default: "4"
+      aztec_proof_submission_epochs:
+        description: Aztec proof submission epochs
+        required: false
+        type: string
+        default: "2"
+      aztec_activation_threshold:
+        description: Aztec activation threshold
+        required: false
+        type: string
+        default: "100"
+      aztec_ejection_threshold:
+        description: Aztec ejection threshold
+        required: false
+        type: string
+        default: "50"
+      aztec_slashing_quorum:
+        description: Aztec slashing quorum
+        required: false
+        type: string
+        default: "6"
+      aztec_slashing_round_size:
+        description: Aztec slashing round size
+        required: false
+        type: string
+        default: "10"
+      aztec_governance_proposer_quorum:
+        description: Aztec governance proposer quorum
+        required: false
+        type: string
+        default: "6"
+      aztec_governance_proposer_round_size:
+        description: Aztec governance proposer round size
+        required: false
+        type: string
+        default: "10"
+      aztec_mana_target:
+        description: Aztec mana target
+        required: false
+        type: string
+        default: "1000000"
+      aztec_proving_cost_per_mana:
+        description: Aztec proving cost per mana
+        required: false
+        type: string
+        default: "100"
+
+jobs:
+  deploy_rollup_contracts:
+    runs-on: ubuntu-latest
+    env:
+      TF_STATE_BUCKET: aztec-terraform
+      REGION: us-west1-a
+      # Common Terraform variables as environment variables
+      TF_VAR_GCP_PROJECT: ${{ vars.GCP_PROJECT }}
+      TF_VAR_GCP_REGION: us-west1
+      TF_VAR_NAMESPACE: ${{ inputs.namespace || 'rollup-contracts' }}
+      TF_VAR_AZTEC_DOCKER_IMAGE: ${{ inputs.aztec_docker_image || 'aztecprotocol/aztec:latest' }}
+      TF_VAR_L1_RPC_URLS: ${{ inputs.l1_rpc_urls || 'http://localhost:8545' }}
+      TF_VAR_MNEMONIC: ${{ inputs.mnemonic || 'test test test test test test test test test test test junk' }}
+      TF_VAR_L1_CHAIN_ID: ${{ inputs.l1_chain_id || '1337' }}
+      TF_VAR_SALT: ${{ inputs.salt }}
+      TF_VAR_VALIDATORS: ${{ inputs.validators || '0x123456789abcdef' }}
+      TF_VAR_SPONSORED_FPC: ${{ inputs.sponsored_fpc || false }}
+      TF_VAR_REAL_VERIFIER: ${{ inputs.real_verifier || false }}
+      TF_VAR_AZTEC_SLOT_DURATION: ${{ inputs.aztec_slot_duration || '12' }}
+      TF_VAR_AZTEC_EPOCH_DURATION: ${{ inputs.aztec_epoch_duration || '32' }}
+      TF_VAR_AZTEC_TARGET_COMMITTEE_SIZE: ${{ inputs.aztec_target_committee_size || '4' }}
+      TF_VAR_AZTEC_PROOF_SUBMISSION_EPOCHS: ${{ inputs.aztec_proof_submission_epochs || '2' }}
+      TF_VAR_AZTEC_ACTIVATION_THRESHOLD: ${{ inputs.aztec_activation_threshold || '10' }}
+      TF_VAR_AZTEC_EJECTION_THRESHOLD: ${{ inputs.aztec_ejection_threshold || '5' }}
+      TF_VAR_AZTEC_SLASHING_QUORUM: ${{ inputs.aztec_slashing_quorum || '3' }}
+      TF_VAR_AZTEC_SLASHING_ROUND_SIZE: ${{ inputs.aztec_slashing_round_size || '10' }}
+      TF_VAR_AZTEC_GOVERNANCE_PROPOSER_QUORUM: ${{ inputs.aztec_governance_proposer_quorum || '100' }}
+      TF_VAR_AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE: ${{ inputs.aztec_governance_proposer_round_size || '1000' }}
+      TF_VAR_AZTEC_MANA_TARGET: ${{ inputs.aztec_mana_target || '1000000' }}
+      TF_VAR_AZTEC_PROVING_COST_PER_MANA: ${{ inputs.aztec_proving_cost_per_mana || '100' }}
+
+    steps:
+      - name: debug inputs
+        run: |
+          echo "cluster: ${{ inputs.cluster }}"
+          echo "namespace: ${{ inputs.namespace }}"
+          echo "ref: ${{ inputs.ref }}"
+          echo "aztec_docker_image: ${{ inputs.aztec_docker_image }}"
+          echo "l1_rpc_urls: ${{ inputs.l1_rpc_urls }}"
+          echo "l1_chain_id: ${{ inputs.l1_chain_id }}"
+          echo "validators: ${{ inputs.validators }}"
+          echo "sponsored_fpc: ${{ inputs.sponsored_fpc }}"
+          echo "real_verifier: ${{ inputs.real_verifier }}"
+
+      - name: Setup K8s and Terraform
+        uses: ./.github/actions/setup-k8s-terraform
+        with:
+          cluster: ${{ inputs.cluster }}
+          namespace: ${{ inputs.namespace }}
+          ref: ${{ inputs.ref || github.ref }}
+          gcp_sa_key: ${{ secrets.GCP_SA_KEY }}
+          kubeconfig_b64: ${{ secrets.KUBECONFIG_B64 }}
+          terraform_dir: spartan/terraform/deploy-rollup-contracts
+          tf_state_prefix: deploy-rollup-contracts
+          additional_state_path: ${{ inputs.salt }}
+
+      - name: Terraform Plan
+        working-directory: spartan/terraform/deploy-rollup-contracts
+        run: |
+          # All variables are now set as TF_VAR_ environment variables
+          terraform plan -out=tfplan
+
+      - name: Terraform Apply
+        working-directory: spartan/terraform/deploy-rollup-contracts
+        run: |
+          terraform apply tfplan
+
+      - name: Get deployment results
+        working-directory: spartan/terraform/deploy-rollup-contracts
+        run: |
+          echo "=== Deployment Results ==="
+          echo "Job Name: $(terraform output -raw job_name)"
+
+          if [ "$(terraform output -raw deployment_successful)" = "true" ]; then
+            echo "✅ Rollup contracts deployed successfully!"
+            echo ""
+            echo "Contract Addresses:"
+            echo "  Governance Address: $(terraform output -raw governance_address)"
+            echo "  Governance Proposer Address: $(terraform output -raw governance_proposer_address)"
+            echo "  Rollup Address: $(terraform output -raw rollup_address)"
+            echo "  Registry Address: $(terraform output -raw registry_address)"
+            echo "  Inbox Address: $(terraform output -raw inbox_address)"
+            echo "  Outbox Address: $(terraform output -raw outbox_address)"
+            echo "  Fee Asset Handler Address: $(terraform output -raw fee_asset_handler_address)"
+            echo "  Staking Asset Address: $(terraform output -raw staking_asset_address)"
+            echo "  Reward Distributor Address: $(terraform output -raw reward_distributor_address)"
+            echo "  GSE Address: $(terraform output -raw gse_address)"
+            echo "  Coin Issuer Address: $(terraform output -raw coin_issuer_address)"
+            echo "  Slash Factory Address: $(terraform output -raw slash_factory_address)"
+            echo "  Fee Juice Portal Address: $(terraform output -raw fee_juice_portal_address)"
+            echo "  ZK Passport Verifier Address: $(terraform output -raw zk_passport_verifier_address)"
+            echo "  Staking Asset Handler Address: $(terraform output -raw staking_asset_handler_address)"
+            echo ""
+          else
+            echo "⚠️ JSON output not found in logs, but job completed."
+            echo "Raw output:"
+            terraform output -json contract_addresses_json
+            exit 1
+          fi
