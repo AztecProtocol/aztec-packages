@@ -130,7 +130,7 @@ class KernelIO {
             table_commitment.convert_constant_to_fixed_witness(&builder);
             table_commitment.set_public();
         }
-        FF output_pg_accum_hash = FF::from_witness(&builder, 0); // WORKTODO: is this ok?
+        FF output_pg_accum_hash = FF::from_witness(&builder, 0);
         output_pg_accum_hash.set_public();
     }
 };
