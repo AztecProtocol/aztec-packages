@@ -11,6 +11,10 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 contract AttestationLibWrapper {
   using AttestationLib for CommitteeAttestations;
 
+  function isEmpty(CommitteeAttestations memory _attestations) external pure returns (bool) {
+    return AttestationLib.isEmpty(_attestations);
+  }
+
   function assertSizes(CommitteeAttestations memory _attestations, uint256 _expectedCount) external pure {
     AttestationLib.assertSizes(_attestations, _expectedCount);
   }
@@ -185,6 +189,22 @@ contract AttestationLibTest is TestBase {
     );
 
     attestationLibWrapper.reconstructCommitteeFromSigners($attestations, getSigners(), SIZE);
+  }
+
+  function test_isEmpty(uint256 _signatureCount) public createValidAttestations(_signatureCount) {
+    CommitteeAttestations memory attestations = attestationLibWrapper.packAttestations(new CommitteeAttestation[](0));
+    assertTrue(attestationLibWrapper.isEmpty(attestations));
+    assertFalse(attestationLibWrapper.isEmpty($attestations));
+  }
+
+  function test_isEmpty_emptyIndices() public {
+    $attestations.signatureIndices = new bytes(0);
+    assertTrue(attestationLibWrapper.isEmpty($attestations));
+  }
+
+  function test_isEmpty_emptySignaturesOrAddresses() public {
+    $attestations.signaturesOrAddresses = new bytes(0);
+    assertTrue(attestationLibWrapper.isEmpty($attestations));
   }
 
   function getSigners() internal view returns (address[] memory) {

@@ -109,15 +109,6 @@ impl TestEnvironment {
         }
     }
 
-    pub unconstrained fn _new() -> Self {
-        txe_oracles::enable_context_checks();
-        Self {
-            light_account_secret: Counter::new(),
-            contract_account_secret: Counter::new(),
-            contract_deployment_secret: Counter::new(),
-        }
-    }
-
     /// Creates a `PublicContext`, which allows using aztec-nr features as if inside a public contract function. Useful
     /// for low-level testing of public state variables and utilities.
     ///

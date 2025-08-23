@@ -1,7 +1,7 @@
 From 8ca3b8e97ac85629d879856f882623e73b7c39f0 Mon Sep 17 00:00:00 2001
 From: TomAFrench <tom@tomfren.ch>
 Date: Sat, 15 Mar 2025 15:36:12 +0000
-Subject: [PATCH 1/4] chore: turn on `skipLibCheck`
+Subject: [PATCH 1/2] chore: turn on `skipLibCheck`
 
 ---
  tooling/noir_codegen/tsconfig.json | 1 +
@@ -19,64 +19,13 @@ index 30dd2a7..a2712fd 100644
    },
    "include": [
      "src/**/*.ts"
--- 
-2.43.0
-
-From 8de78a95d79ddab74305e4de4b4ed3e44c09ffae Mon Sep 17 00:00:00 2001
-From: Tom French <15848336+TomAFrench@users.noreply.github.com>
-Date: Wed, 20 Aug 2025 14:10:23 +0000
-Subject: [PATCH 2/4] chore: fix acvm_js test
-
----
- acvm-repo/acvm_js/test/node/build_info.test.ts | 5 ++---
- acvm-repo/acvm_js/tsconfig.json                | 6 +++---
- 2 files changed, 5 insertions(+), 6 deletions(-)
-
-diff --git a/acvm-repo/acvm_js/test/node/build_info.test.ts b/acvm-repo/acvm_js/test/node/build_info.test.ts
-index 362fd91af..8b4c7f2eb 100644
---- a/acvm-repo/acvm_js/test/node/build_info.test.ts
-+++ b/acvm-repo/acvm_js/test/node/build_info.test.ts
-@@ -1,9 +1,8 @@
- import { expect } from 'chai';
--import acvm_js from '@noir-lang/acvm_js';
--const { buildInfo } = acvm_js;
-+import { buildInfo } from '@noir-lang/acvm_js';
- 
- import child_process from 'child_process';
--import pkg from '../../package.json' with { type: 'json' };
-+import pkg from '../../package.json';
- 
- it('returns the correct build info', () => {
-   let revision: string;
-diff --git a/acvm-repo/acvm_js/tsconfig.json b/acvm-repo/acvm_js/tsconfig.json
-index 4fd8e50df..791d6527a 100644
---- a/acvm-repo/acvm_js/tsconfig.json
-+++ b/acvm-repo/acvm_js/tsconfig.json
-@@ -2,8 +2,8 @@
-   "compilerOptions": {
-     "moduleResolution": "node",
-     "outDir": "lib",
--    "target": "ESNext",
--    "module": "ESNext",
-+    "target": "esnext",
-+    "module": "esnext",
-     "strict": true,
-     "experimentalDecorators": true,
-     "esModuleInterop": true,
-@@ -13,4 +13,4 @@
-     "sourceMap": true,
-     "resolveJsonModule": true,
-   }
--}
-\ No newline at end of file
-+}
--- 
+--
 2.43.0
 
 From 16fd73b7a2fa2dd52d9a36343517bbcf76889740 Mon Sep 17 00:00:00 2001
 From: dbanks12 <david@aztec-labs.com>
 Date: Thu, 21 Aug 2025 17:02:22 +0000
-Subject: [PATCH 4/4] feat!: force inliner aggressiveness to 0 for for
+Subject: [PATCH 2/2] feat!: force inliner aggressiveness to 0 for for
  public_dispatch contract fn
 
 ---
@@ -90,7 +39,7 @@ index 3c5a9a5cf..b25610fbd 100644
 @@ -645,6 +645,10 @@ fn compile_contract_inner(
              }
          };
- 
+
 +        if name == "public_dispatch" {
 +            options.inliner_aggressiveness = 0;
 +        }
@@ -98,6 +47,5 @@ index 3c5a9a5cf..b25610fbd 100644
          let function = match compile_no_check(context, &options, function_id, None, true) {
              Ok(function) => function,
              Err(new_error) => {
--- 
+--
 2.43.0
-
