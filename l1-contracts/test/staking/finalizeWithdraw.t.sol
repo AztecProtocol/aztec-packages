@@ -31,9 +31,10 @@ contract FinalizeWithdrawTest is StakingBase {
     staking.finalizeWithdraw(ATTESTER);
 
     vm.prank(SLASHER);
-    staking.slash(ATTESTER, ACTIVATION_THRESHOLD);
+    uint256 amount = ACTIVATION_THRESHOLD - EJECTION_THRESHOLD + 1;
+    staking.slash(ATTESTER, amount);
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__NotExiting.selector, ATTESTER));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__InitiateWithdrawNeeded.selector, ATTESTER));
     staking.finalizeWithdraw(ATTESTER);
   }
 

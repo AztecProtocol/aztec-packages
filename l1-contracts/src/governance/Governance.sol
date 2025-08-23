@@ -396,7 +396,7 @@ contract Governance is IGovernance {
    * @dev this is intended to only be used in an emergency, where the governanceProposer is compromised.
    *
    * @dev We don't actually need to check available power here, since if the msg.sender does not have
-   * sufficient balance, the .
+   * sufficient balance, the `_initiateWithdraw` would revert with an underflow.
    *
    * @param _proposal The IPayload address, which is a contract that contains the proposed actions to be executed by
    * the governance.
@@ -501,6 +501,8 @@ contract Governance is IGovernance {
     require(getProposalState(_proposalId) == ProposalState.Droppable, Errors.Governance__ProposalCannotBeDropped());
 
     self.cachedState = ProposalState.Dropped;
+
+    emit ProposalDropped(_proposalId);
     return true;
   }
 

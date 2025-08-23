@@ -62,6 +62,7 @@ interface IGovernance {
   event Proposed(uint256 indexed proposalId, address indexed proposal);
   event VoteCast(uint256 indexed proposalId, address indexed voter, bool support, uint256 amount);
   event ProposalExecuted(uint256 indexed proposalId);
+  event ProposalDropped(uint256 indexed proposalId);
   event GovernanceProposerUpdated(address indexed governanceProposer);
   event ConfigurationUpdated(Timestamp indexed time);
 

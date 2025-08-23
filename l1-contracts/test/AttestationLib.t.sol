@@ -5,11 +5,13 @@ import {TestBase} from "@test/base/Base.sol";
 import {
   AttestationLib, CommitteeAttestations, CommitteeAttestation
 } from "@aztec/core/libraries/rollup/AttestationLib.sol";
+import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.sol";
 import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 
 contract AttestationLibWrapper {
   using AttestationLib for CommitteeAttestations;
+  using AttestationLibHelper for CommitteeAttestations;
 
   function isEmpty(CommitteeAttestations memory _attestations) external pure returns (bool) {
     return AttestationLib.isEmpty(_attestations);
@@ -32,7 +34,7 @@ contract AttestationLibWrapper {
     pure
     returns (CommitteeAttestations memory)
   {
-    return AttestationLib.packAttestations(_attestations);
+    return AttestationLibHelper.packAttestations(_attestations);
   }
 }
 
