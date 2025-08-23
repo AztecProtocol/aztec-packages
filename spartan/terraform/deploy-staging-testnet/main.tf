@@ -27,7 +27,6 @@ provider "kubernetes" {
 }
 
 provider "helm" {
-  alias = "gke-cluster"
   kubernetes {
     config_path    = "~/.kube/config"
     config_context = var.GKE_CLUSTER_CONTEXT
@@ -102,8 +101,20 @@ locals {
   ]
 }
 
+module "web3signer" {
+  source                 = "../modules/web3signer"
+  NAMESPACE              = var.NAMESPACE
+  CHAIN_ID               = "11155111"
+  MNEMONIC               = data.google_secret_manager_secret_version.mnemonic_latest.secret_data
+  ADDRESS_CONFIGMAP_NAME = "${var.RELEASE_PREFIX}-attester-addresses"
+  MNEMONIC_INDEX_START   = 2000
+  NODE_COUNT             = 4
+  ATTESTERS_PER_NODE     = 12
+  RELEASE_NAME           = var.RELEASE_PREFIX
+  AZTEC_DOCKER_IMAGE     = var.AZTEC_DOCKER_IMAGE
+}
+
 resource "helm_release" "p2p_bootstrap" {
-  provider         = helm.gke-cluster
   name             = "${var.RELEASE_PREFIX}-p2p-bootstrap"
   repository       = "../../"
   chart            = "aztec-node"
@@ -157,7 +168,6 @@ resource "helm_release" "p2p_bootstrap" {
 }
 
 resource "helm_release" "validators" {
-  provider         = helm.gke-cluster
   name             = "${var.RELEASE_PREFIX}-validator"
   repository       = "../../"
   chart            = "aztec-validator"
@@ -168,6 +178,27 @@ resource "helm_release" "validators" {
   values = [
     file("./values/${var.VALIDATOR_VALUES}"),
     file("./values/staging-testnet.yaml"),
+
+    yamlencode({
+      validator = {
+        node = {
+          env = {
+            WEB3_SIGNER_URL = module.web3signer.web3signer_url
+            # KEY_INDEX_START = "2000"
+          }
+          extraVolumes = [{
+            name = "addresses"
+            configMap = {
+              name = module.web3signer.addresses_configmap_name
+            }
+          }]
+          extraVolumeMounts = [{
+            name      = "addresses"
+            mountPath = "/addresses"
+          }]
+        }
+      }
+    })
   ]
 
 
@@ -227,7 +258,6 @@ resource "helm_release" "validators" {
 }
 
 resource "helm_release" "prover" {
-  provider         = helm.gke-cluster
   name             = "${var.RELEASE_PREFIX}-prover"
   repository       = "../../"
   chart            = "aztec-prover-stack"
@@ -306,7 +336,6 @@ resource "google_compute_address" "rpc_ingress" {
 }
 
 resource "helm_release" "rpc" {
-  provider         = helm.gke-cluster
   name             = "${var.RELEASE_PREFIX}-rpc"
   repository       = "../../"
   chart            = "aztec-node"
@@ -374,4 +403,3 @@ resource "helm_release" "rpc" {
   wait          = false
   wait_for_jobs = false
 }
-

@@ -33,8 +33,6 @@ validator:
   node:
     logLevel: "debug; info: aztec:simulator, json-rpc"
     preStartScript: |
-      source /scripts/get-private-key.sh
-
       until curl --silent --head --fail "${BOOT_NODE_HOST}/status" > /dev/null; do
         echo "Waiting for boot node..."
         sleep 1
@@ -42,6 +40,19 @@ validator:
       echo "Boot node is ready!"
 
       export BOOTSTRAP_NODES=$(curl -X POST --data '{"method": "bootstrap_getEncodedEnr"}' $BOOT_NODE_HOST | jq -r .result)
+
+      source /scripts/get-private-key.sh
+
+      # TODO: renable this code once staging has web3signer support
+      #if [[ -n "$WEB3_SIGNER_URL" ]]; then
+      #  POD_INDEX=$(echo $K8S_POD_NAME | awk -F'-' '{print $NF}')
+      #  KEY_INDEX=$((POD_INDEX * VALIDATORS_PER_NODE))
+      #  PUBLISHER_INDEX=$((KEY_INDEX_START + KEY_INDEX))
+      #  export L1_PRIVATE_KEY=$(cast wallet private-key --mnemonic "$MNEMONIC" --mnemonic-index $PUBLISHER_INDEX)
+      #  export WEB3_SIGNER_ADDRESSES="$(cat /addresses/node_$POD_INDEX)"
+      #else
+      #  source /scripts/get-private-key.sh
+      #fi
 
     env:
       SPONSORED_FPC: true

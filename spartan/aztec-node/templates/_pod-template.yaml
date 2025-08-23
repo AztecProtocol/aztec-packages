@@ -114,9 +114,8 @@ spec:
           mountPath: /shared
         - name: scripts
           mountPath: /scripts/
-        {{- if .Values.node.configMap.extraScriptsEnabled }}
-        - name: extra-scripts
-          mountPath: /extra-scripts/
+        {{- if .Values.node.extraVolumeMounts }}
+        {{- toYaml .Values.node.extraVolumeMounts | nindent 8 }}
         {{- end }}
         {{- if .Values.node.secret.filesEnabled }}
         - name: secrets
@@ -241,15 +240,13 @@ spec:
     - name: scripts
       configMap:
         name: {{ include "chart.fullname" . }}-scripts
-    {{- if .Values.node.configMap.extraScriptsEnabled }}
-    - name: extra-scripts
-      configMap:
-        name: {{ include "chart.fullname" . }}-extra-scripts
+    {{- if .Values.node.extraVolumes }}
+    {{- toYaml .Values.node.extraVolumes | nindent 4 }}
     {{- end }}
     {{- if .Values.node.secret.filesEnabled }}
     - name: config
       secret:
-        secretName: name: {{ include "chart.fullname" . }}-files
+        secretName: {{ include "chart.fullname" . }}-files
     {{- end }}
     {{- if .Values.persistence.enabled }}
     {{- if .Values.persistence.existingClaim }}

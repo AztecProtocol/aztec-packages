@@ -81,9 +81,11 @@ node:
     configMapEnabled: false
     secretEnabled: false
 
+  extraVolumes: []
+  extraVolumeMounts: []
+
   configMap:
     envEnabled: false
-    extraScriptsEnabled: false
 
   secret:
     envEnabled: false
