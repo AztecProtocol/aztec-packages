@@ -220,11 +220,11 @@ This public function checks that the `token_id` is not 0 and does not already ex
 
 #include_code transfer_in_public /noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr rust
 
-##### Authorizing token spends (via authwits)
+##### Authorizing token transfers (via authwits)
 
-If the `msg_sender` is **NOT** the same as the account to debit from, the function checks that the account has authorized the `msg_sender` contract to debit tokens on its behalf. This check is done by computing the function selector that needs to be authorized, computing the hash of the message that the account contract has approved. This is a hash of the contract that is approved to spend (`context.msg_sender`), the token contract that can be spent from (`context.this_address()`), the `selector`, the account to spend from (`from`), the `amount` and a `nonce` to prevent multiple spends. This hash is passed to `assert_inner_hash_valid_authwit_public` to ensure that the Account Contract has approved tokens to be spent on it's behalf.
+If the `msg_sender` is **NOT** the same as the account to debit from, the function checks that the account has authorized the `msg_sender` contract to transfer the token on its behalf. This check is done by computing the function selector that needs to be authorized, computing the hash of the message that the account contract has approved. This is a hash of the contract that is approved to act (`context.msg_sender`), the token contract involved (`context.this_address()`), the `selector`, the account to transfer from (`from`), the **`token_id`**, and a `nonce` to prevent multiple uses. This hash is passed to `assert_inner_hash_valid_authwit_public` to ensure that the Account Contract has approved this transfer.
 
-If the `msg_sender` is the same as the account to debit from, the authorization check is bypassed and the function proceeds to update the public owner.
+If the `msg_sender` is the same as the account to transfer from, the authorization check is bypassed and the function proceeds to update the public owner.
 
 #### `finalize_transfer_to_private`
 
