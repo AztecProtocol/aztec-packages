@@ -104,7 +104,7 @@ describe('prover/orchestrator/public-functions', () => {
         await context.orchestrator.addTxs(processed);
 
         const block = await context.orchestrator.setBlockCompleted(context.blockNumber);
-        await context.orchestrator.finaliseEpoch();
+        await context.orchestrator.finalizeEpoch();
 
         expect(block.number).toEqual(context.blockNumber);
       },

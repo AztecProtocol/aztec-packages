@@ -111,14 +111,16 @@ contract TallySlashingProposerTest is TestBase {
   }
 
   function _createVoteData(uint8[] memory slashAmounts) internal pure returns (bytes memory) {
-    require(slashAmounts.length % 2 == 0, "Vote data must have even number of validators");
+    require(slashAmounts.length % 4 == 0, "Vote data must have multiple of 4 validators");
 
-    bytes memory voteData = new bytes(slashAmounts.length / 2);
+    bytes memory voteData = new bytes(slashAmounts.length / 4);
 
-    for (uint256 i = 0; i < slashAmounts.length; i += 2) {
-      uint8 firstValidator = slashAmounts[i] & 0x0F;
-      uint8 secondValidator = slashAmounts[i + 1] & 0x0F;
-      voteData[i / 2] = bytes1((secondValidator << 4) | firstValidator);
+    for (uint256 i = 0; i < slashAmounts.length; i += 4) {
+      uint8 validator0 = slashAmounts[i] & 0x03; // 2 bits
+      uint8 validator1 = slashAmounts[i + 1] & 0x03; // 2 bits
+      uint8 validator2 = slashAmounts[i + 2] & 0x03; // 2 bits
+      uint8 validator3 = slashAmounts[i + 3] & 0x03; // 2 bits
+      voteData[i / 4] = bytes1((validator3 << 6) | (validator2 << 4) | (validator1 << 2) | validator0);
     }
 
     return voteData;
@@ -268,10 +270,10 @@ contract TallySlashingProposerTest is TestBase {
     uint256 proposerKey = _getProposerKey();
 
     // Wrong length vote data
-    bytes memory voteData = new bytes(1); // Should be COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS / 2
+    bytes memory voteData = new bytes(1); // Should be COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS / 4
     Signature memory sig = _createSignature(proposerKey, currentSlot, voteData);
 
-    uint256 expectedLength = COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS / 2;
+    uint256 expectedLength = COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS / 4;
     vm.expectRevert(abi.encodeWithSelector(Errors.TallySlashingProposer__InvalidVoteLength.selector, expectedLength, 1));
     vm.prank(proposer);
     slashingProposer.vote(voteData, sig);
@@ -355,7 +357,7 @@ contract TallySlashingProposerTest is TestBase {
     // Cast enough votes to reach quorum for slashing validator 0
     for (uint256 i = 0; i < QUORUM; i++) {
       uint8[] memory slashAmounts = new uint8[](COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS);
-      slashAmounts[0] = 5; // Slash first validator with 5 units
+      slashAmounts[0] = 3; // Slash first validator with 3 units (max for 2-bit encoding)
       _castVote(slashAmounts);
 
       if (i < QUORUM - 1) {
@@ -381,7 +383,7 @@ contract TallySlashingProposerTest is TestBase {
 
     // And check that the slash was applied
     AttesterView memory finalView = rollup.getAttesterView(targetValidator);
-    assertEq(finalView.effectiveBalance, initialBalance - (5 * SLASHING_UNIT));
+    assertEq(finalView.effectiveBalance, initialBalance - (3 * SLASHING_UNIT));
 
     // Verify round is marked as executed
     (bool isExecuted,,) = slashingProposer.getRound(targetSlashRound);
@@ -396,23 +398,23 @@ contract TallySlashingProposerTest is TestBase {
 
     // Expected slash amounts for each validator based on votes below
     uint256[] memory expectedSlashAmounts = new uint256[](COMMITTEE_SIZE);
-    expectedSlashAmounts[0] = 5; // Validator 0 slashed by 5
-    expectedSlashAmounts[1] = 4; // Validator 1 slashed by 4
+    expectedSlashAmounts[0] = 3; // Validator 0 slashed by 3 (max for 2-bit)
+    expectedSlashAmounts[1] = 2; // Validator 1 slashed by 2
     expectedSlashAmounts[2] = 0; // Validator 2 not slashed
     expectedSlashAmounts[3] = 2; // Validator 3 slashed by 2
 
     // Cast votes for each validator
     for (uint256 i = 0; i < ROUND_SIZE; i++) {
       uint8[] memory slashAmounts = new uint8[](COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS);
-      // Validator 0 will get slashed 5 units by all voters
-      slashAmounts[0] = 5;
-      // Validator 1 will get slashed 4 units by QUORUM voters
+      // Validator 0 will get slashed 3 units by all voters
+      slashAmounts[0] = 3;
+      // Validator 1 will get slashed 2 units by QUORUM voters
       if (i < QUORUM) {
-        slashAmounts[1] = 4;
+        slashAmounts[1] = 2;
       }
-      // Validator 2 will be voted for 4 units by QUORUM-1 voters (no slash)
+      // Validator 2 will be voted for 2 units by QUORUM-1 voters (no slash)
       if (i < QUORUM - 1) {
-        slashAmounts[2] = 4;
+        slashAmounts[2] = 2;
       }
       // Validator 3 will be voted for 3 units by QUORUM-1 and 2 units by 1 voter (so slash 2 units)
       if (i < QUORUM - 1) {
@@ -458,7 +460,7 @@ contract TallySlashingProposerTest is TestBase {
 
     // Cast a vote
     uint8[] memory slashAmounts = new uint8[](COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS);
-    slashAmounts[0] = 5;
+    slashAmounts[0] = 3;
     _castVote(slashAmounts);
 
     // Try to execute before delay - should revert

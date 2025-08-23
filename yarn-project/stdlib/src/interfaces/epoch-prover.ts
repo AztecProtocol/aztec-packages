@@ -33,7 +33,7 @@ export interface EpochProver extends Omit<IBlockFactory, 'setBlockCompleted'> {
   setBlockCompleted(blockNumber: number, expectedBlockHeader?: BlockHeader): Promise<L2Block>;
 
   /** Pads the epoch with empty block roots if needed and blocks until proven. Throws if proving has failed. */
-  finaliseEpoch(): Promise<{ publicInputs: RootRollupPublicInputs; proof: Proof; batchedBlobInputs: BatchedBlob }>;
+  finalizeEpoch(): Promise<{ publicInputs: RootRollupPublicInputs; proof: Proof; batchedBlobInputs: BatchedBlob }>;
 
   /** Cancels all proving jobs. */
   cancel(): void;

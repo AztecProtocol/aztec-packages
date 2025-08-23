@@ -95,6 +95,8 @@ contract FakeCanonical is IRewardDistributor {
   }
 
   function updateRegistry(IRegistry _registry) external {}
+
+  function recover(address _asset, address _to, uint256 _amount) external {}
 }
 
 contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
@@ -391,16 +393,18 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
    * @return Encoded vote data
    */
   function createTallyVoteData(uint256 _size) internal returns (bytes memory) {
-    require(_size % 2 == 0, "Vote data must have even number of validators");
+    require(_size % 4 == 0, "Vote data must have multiple of 4 validators");
 
     bytes32 seed = keccak256(abi.encode(_size, block.timestamp));
 
-    bytes memory voteData = new bytes(_size / 2);
+    bytes memory voteData = new bytes(_size / 4);
 
-    for (uint256 i = 0; i < _size; i += 2) {
-      uint8 firstValidator = uint8(uint256(keccak256(abi.encode(seed, i)))) & 0x0F;
-      uint8 secondValidator = uint8(uint256(keccak256(abi.encode(seed, i + 1)))) & 0x0F;
-      voteData[i / 2] = bytes1((secondValidator << 4) | firstValidator);
+    for (uint256 i = 0; i < _size; i += 4) {
+      uint8 validator0 = uint8(uint256(keccak256(abi.encode(seed, i)))) & 0x03; // 2 bits
+      uint8 validator1 = uint8(uint256(keccak256(abi.encode(seed, i + 1)))) & 0x03; // 2 bits
+      uint8 validator2 = uint8(uint256(keccak256(abi.encode(seed, i + 2)))) & 0x03; // 2 bits
+      uint8 validator3 = uint8(uint256(keccak256(abi.encode(seed, i + 3)))) & 0x03; // 2 bits
+      voteData[i / 4] = bytes1((validator3 << 6) | (validator2 << 4) | (validator1 << 2) | validator0);
     }
 
     return voteData;

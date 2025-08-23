@@ -88,7 +88,7 @@ template <typename Builder, typename T> constexpr size_t calc_num_bn254_frs()
  * @param builder
  * @param fr_vec
  * @return T
- * @todo https://github.com/AztecProtocol/barretenberg/issues/1065  optimise validate_on_curve and check points
+ * @todo https://github.com/AztecProtocol/barretenberg/issues/1065  optimize validate_on_curve and check points
  * reconstructed from the transcript
  */
 template <typename Builder, typename T> T convert_from_bn254_frs(Builder& builder, std::span<const fr<Builder>> fr_vec)

@@ -461,6 +461,13 @@ template <typename TranscriptParams> class BaseTranscript {
             }
         }
         auto element_frs = TranscriptParams::serialize(element);
+        if constexpr (in_circuit) {
+            for (const auto& fr : element_frs) {
+                BB_ASSERT_EQ(fr.witness_index == stdlib::IS_CONSTANT,
+                             false,
+                             "Transcript elements should not be stdlib constants.");
+            }
+        }
 
 #ifdef LOG_INTERACTIONS
         if constexpr (Loggable<T>) {
@@ -484,8 +491,8 @@ template <typename TranscriptParams> class BaseTranscript {
 
     /**
      * @brief Adds an element to the transcript.
-     * @details Serializes the element to frs and adds it to the current_round_data buffer. Does NOT add the element to
-     * the proof.
+     * @details Serializes the element to frs and adds it to the current_round_data buffer. Does NOT add the element
+     * to the proof.
      *
      * @param label Human-readable name for the challenge.
      * @param element Element to be added.
@@ -495,8 +502,8 @@ template <typename TranscriptParams> class BaseTranscript {
         DEBUG_LOG(label, element);
         // In case the transcript is used for recursive verification, we can track proper Fiat-Shamir usage
         if constexpr (in_circuit) {
-            // The verifier is receiving data from the prover. If before this we were in the challenge generation phase,
-            // then we need to increment the round index
+            // The verifier is receiving data from the prover. If before this we were in the challenge generation
+            // phase, then we need to increment the round index
             if (!reception_phase) {
                 reception_phase = true;
                 round_index++;
@@ -596,8 +603,8 @@ template <typename TranscriptParams> class BaseTranscript {
 
         // In case the transcript is used for recursive verification, we can track proper Fiat-Shamir usage
         if constexpr (in_circuit) {
-            // The verifier is receiving data from the prover. If before this we were in the challenge generation phase,
-            // then we need to increment the round index
+            // The verifier is receiving data from the prover. If before this we were in the challenge generation
+            // phase, then we need to increment the round index
             if (!reception_phase) {
                 reception_phase = true;
                 round_index++;
@@ -682,27 +689,27 @@ template <typename TranscriptParams> class BaseTranscript {
 
     /**
      * @brief Branch a transcript to perform verifier-only computations
-     * @details This function takes the current state of a transcript and creates a new transcript that starts from that
-     * state. In this way, computations that are not part of the prover's transcript (e.g., computations that can be
-     * used to perform calculations more efficiently) will not affect the verifier's transcript.
+     * @details This function takes the current state of a transcript and creates a new transcript that starts from
+     * that state. In this way, computations that are not part of the prover's transcript (e.g., computations that
+     * can be used to perform calculations more efficiently) will not affect the verifier's transcript.
      *
      * If `transcript = (.., previous_challenge)`, then for soundness it is enough that `branched_transcript =
      * (previous_challenge, ...)` However, there are a few implementation details we need to take into account:
      *  1. `branched_transcript` will interact with witnesses that come from `transcript`. To prevent the tool that
      *      detects FS bugs from raising an error, we must ensure that `branched_transcript.transcript_index =
      *      transcript.transcript_index`.
-     *  2. To aid debugging, we set `branched_transcript.round_index = transcript.round_index`, so that it is clear that
-     *      `branched_transcript` builds on the current state of `transcript`.
-     *  3. To aid debugging, we increase `transcript.round_index` by `BRANCHING_JUMP`, so that there is a gap between
-     *      what happens before and after the transcript is branched.
+     *  2. To aid debugging, we set `branched_transcript.round_index = transcript.round_index`, so that it is clear
+     * that `branched_transcript` builds on the current state of `transcript`.
+     *  3. To aid debugging, we increase `transcript.round_index` by `BRANCHING_JUMP`, so that there is a gap
+     * between what happens before and after the transcript is branched.
      *  4. To ensure soundness:
      *      a. We add to the hash buffer of `branched_transcript` the value `transcript.previous_challenge`
      *      b. We enforce ASSERT(current_round_data.empty())
      *
      * @note We could remove 4.b and add to the hash buffer of `branched_transcript` both
-     * `transcript.previous_challenge` and `transcript.current_round_data`. However, this would conflict with 3 (as the
-     * round in `transcript` is not finished yet). There seems to be no reason why the branching cannot happen after the
-     * round is concluded, so we choose this implementation.
+     * `transcript.previous_challenge` and `transcript.current_round_data`. However, this would conflict with 3 (as
+     * the round in `transcript` is not finished yet). There seems to be no reason why the branching cannot happen
+     * after the round is concluded, so we choose this implementation.
      *
      * The relation between the transcript and the branched transcript is the following:
      *

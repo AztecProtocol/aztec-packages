@@ -51,7 +51,7 @@ interface IGSECore {
   function delegate(address _instance, address _attester, address _delegatee) external;
   function vote(uint256 _proposalId, uint256 _amount, bool _support) external;
   function voteWithBonus(uint256 _proposalId, uint256 _amount, bool _support) external;
-  function finaliseWithdraw(uint256 _withdrawalId) external;
+  function finalizeWithdraw(uint256 _withdrawalId) external;
   function proposeWithLock(IPayload _proposal, address _to) external returns (uint256);
 
   function isRegistered(address _instance, address _attester) external view returns (bool);
@@ -427,7 +427,7 @@ contract GSECore is IGSECore, Ownable {
   }
 
   /**
-   * @notice  A helper function to make it easy for users of the GSE to finalise
+   * @notice  A helper function to make it easy for users of the GSE to finalize
    *          a pending exit in the governance.
    *
    *          Kept in here since it is already connected to Governance:
@@ -437,10 +437,10 @@ contract GSECore is IGSECore, Ownable {
    *
    * @param _withdrawalId - The id of the withdrawal
    */
-  function finaliseWithdraw(uint256 _withdrawalId) external override(IGSECore) {
+  function finalizeWithdraw(uint256 _withdrawalId) external override(IGSECore) {
     Governance gov = getGovernance();
     if (!gov.getWithdrawal(_withdrawalId).claimed) {
-      gov.finaliseWithdraw(_withdrawalId);
+      gov.finalizeWithdraw(_withdrawalId);
     }
   }
 
@@ -460,7 +460,7 @@ contract GSECore is IGSECore, Ownable {
    * @param _payload - The IPayload address, which is a contract that contains the proposed actions to be executed by
    * the governance.
    * @param _to - The address that will receive the withdrawn funds when the withdrawal is finalized (see
-   * `finaliseWithdraw`)
+   * `finalizeWithdraw`)
    *
    * @return The id of the proposal
    */

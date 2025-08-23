@@ -153,7 +153,7 @@ function build {
 
 function test {
   echo_header "noir test"
-  test_cmds | filter_test_cmds | parallelise
+  test_cmds | filter_test_cmds | parallelize
 }
 
 # Prints the commands to run tests, one line per test, prefixed with the appropriate content hash.
