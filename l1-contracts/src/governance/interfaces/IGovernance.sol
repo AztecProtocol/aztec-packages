@@ -88,7 +88,9 @@ interface IGovernance {
   function isAllBeneficiariesAllowed() external view returns (bool);
 
   function powerAt(address _owner, Timestamp _ts) external view returns (uint256);
+  function powerNow(address _owner) external view returns (uint256);
   function totalPowerAt(Timestamp _ts) external view returns (uint256);
+  function totalPowerNow() external view returns (uint256);
   function getProposalState(uint256 _proposalId) external view returns (ProposalState);
   function getConfiguration() external view returns (Configuration memory);
   function getProposal(uint256 _proposalId) external view returns (Proposal memory);

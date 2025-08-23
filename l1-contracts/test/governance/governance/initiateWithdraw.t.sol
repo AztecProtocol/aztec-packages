@@ -103,7 +103,7 @@ contract InitiateWithdrawTest is GovernanceBase {
       assertEq(withdrawal.unlocksAt, Timestamp.wrap(block.timestamp) + config.withdrawalDelay(), "Invalid timestamp");
       assertEq(withdrawal.recipient, recipient, "invalid recipient");
       assertFalse(withdrawal.claimed, "already claimed");
-      assertEq(governance.totalPowerAt(Timestamp.wrap(block.timestamp)), sum);
+      assertEq(governance.totalPowerNow(), sum);
 
       withdrawalId++;
 

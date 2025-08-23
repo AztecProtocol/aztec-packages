@@ -127,7 +127,7 @@ contract GetProposalStateTest is GovernanceBase {
     // it return Rejected
     _stateRejected("empty");
 
-    uint256 totalPower = governance.totalPowerAt(Timestamp.wrap(block.timestamp));
+    uint256 totalPower = governance.totalPowerNow();
     (VoteTabulationReturn vtr,) = proposal.voteTabulation(totalPower);
     assertEq(vtr, VoteTabulationReturn.Rejected, "invalid return value");
     assertEq(governance.getProposalState(proposalId), ProposalState.Rejected);
@@ -151,7 +151,7 @@ contract GetProposalStateTest is GovernanceBase {
     );
     assertEq(governance.getProposal(proposalId).config.quorum, 0);
 
-    uint256 totalPower = governance.totalPowerAt(Timestamp.wrap(block.timestamp));
+    uint256 totalPower = governance.totalPowerNow();
 
     proposal = governance.getProposal(proposalId);
     (VoteTabulationReturn vtr,) = proposal.voteTabulation(totalPower);
