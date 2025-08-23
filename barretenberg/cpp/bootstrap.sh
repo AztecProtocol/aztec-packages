@@ -156,6 +156,10 @@ function build_release {
   inject_version build-release/bb
   tar -czf build-release/barretenberg-$arch-linux.tar.gz -C build-release --remove-files bb
 
+  cp build/lib/libbarretenberg.so build-release/libbarretenberg.so
+  inject_version build-release/libbarretenberg.so
+  tar -czf build-release/libbarretenberg-$arch-linux.tar.gz -C build-release --remove-files libbarretenberg.so
+
   # Only release wasms built on amd64.
   if [ "$arch" == "amd64" ]; then
     tar -czf build-release/barretenberg-wasm.tar.gz -C build-wasm/bin barretenberg.wasm
