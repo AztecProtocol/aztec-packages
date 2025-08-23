@@ -1,9 +1,9 @@
 import { createLogger } from '@aztec/foundation/log';
 
+import { ammTest } from '../../fixtures/amm_test.js';
 import { PublicTxSimulationTester } from '../../fixtures/public_tx_simulation_tester.js';
-import { ammTest } from './amm_test.js';
 
-describe('AVM Witgen & Circuit apps tests: AMM', () => {
+describe('Public TX simulator apps tests: AMM Contract', () => {
   const logger = createLogger('public-tx-apps-tests-amm');
 
   let tester: PublicTxSimulationTester;
@@ -13,6 +13,6 @@ describe('AVM Witgen & Circuit apps tests: AMM', () => {
   });
 
   it('amm operations', async () => {
-    await ammTest(tester, logger);
+    await ammTest(tester, logger, (b: boolean) => expect(b).toBe(true));
   });
 });

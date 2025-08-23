@@ -12,14 +12,12 @@ import {
 import { EpochCache, type EpochCacheInterface } from '@aztec/epoch-cache';
 import {
   type L1ContractAddresses,
-  L1TxUtils,
   NULL_KEY,
   RegistryContract,
   RollupContract,
   createEthereumChain,
   createExtendedL1Client,
   getPublicClient,
-  isExtendedClient,
 } from '@aztec/ethereum';
 import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { compactArray, pick } from '@aztec/foundation/collection';
@@ -42,7 +40,13 @@ import {
   createValidatorForAcceptingTxs,
 } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
-import { AttestationsBlockWatcher, EpochPruneWatcher, SlasherClient, type Watcher } from '@aztec/slasher';
+import {
+  AttestationsBlockWatcher,
+  EpochPruneWatcher,
+  type SlasherClientInterface,
+  type Watcher,
+  createSlasher,
+} from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type InBlock,
@@ -80,7 +84,7 @@ import {
 import type { LogFilter, PrivateLog, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { P2PClientType } from '@aztec/stdlib/p2p';
-import type { MonitoredSlashPayload } from '@aztec/stdlib/slashing';
+import type { Offense, SlashPayloadRound } from '@aztec/stdlib/slashing';
 import type { NullifierLeafPreimage, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import {
@@ -137,14 +141,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     protected readonly l1ToL2MessageSource: L1ToL2MessageSource,
     protected readonly worldStateSynchronizer: WorldStateSynchronizer,
     protected readonly sequencer: SequencerClient | undefined,
-    protected readonly slasherClient: SlasherClient | undefined,
+    protected readonly slasherClient: SlasherClientInterface | undefined,
     protected readonly validatorsSentinel: Sentinel | undefined,
     protected readonly epochPruneWatcher: EpochPruneWatcher | undefined,
     protected readonly l1ChainId: number,
     protected readonly version: number,
     protected readonly globalVariableBuilder: GlobalVariableBuilderInterface,
-    private readonly epochCache: EpochCacheInterface,
-    private readonly packageVersion: string,
+    protected readonly epochCache: EpochCacheInterface,
+    protected readonly packageVersion: string,
     private proofVerifier: ClientProtocolCircuitVerifier,
     private telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('node'),
@@ -306,7 +310,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         p2pClient.getTxProvider(),
         blockBuilder,
         config.slashPrunePenalty,
-        config.slashPruneMaxPenalty,
       );
       await epochPruneWatcher.start();
       watchers.push(epochPruneWatcher);
@@ -336,28 +339,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     log.verbose(`All Aztec Node subsystems synced`);
 
-    const { slasherPrivateKey, l1RpcUrls } = config;
-    const slasherPrivateKeyString = slasherPrivateKey.getValue();
-    const slasherL1Client =
-      slasherPrivateKeyString && slasherPrivateKeyString !== NULL_KEY
-        ? createExtendedL1Client(l1RpcUrls, slasherPrivateKeyString, ethereumChain.chainInfo)
-        : getPublicClient(config);
-    const slasherL1TxUtils = isExtendedClient(slasherL1Client)
-      ? new L1TxUtils(slasherL1Client, log, dateProvider, config)
-      : undefined;
-
-    const slasherClient = await SlasherClient.new(
-      config,
-      config.l1Contracts,
-      slasherL1TxUtils,
-      slasherL1Client,
-      watchers,
-      dateProvider,
-    );
-    await slasherClient.start();
-
     // Validator enabled, create/start relevant service
     let sequencer: SequencerClient | undefined;
+    let slasherClient: SlasherClientInterface | undefined;
+
     if (!config.disableValidator) {
       // This shouldn't happen, validators need a publisher private key.
       const { publisherPrivateKey } = config;
@@ -365,7 +350,23 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         throw new Error('A publisher private key is required to run a validator');
       }
 
-      const l1Client = createExtendedL1Client(l1RpcUrls, publisherPrivateKey.getValue(), ethereumChain.chainInfo);
+      // We create a slasher only if we have a sequencer, since all slashing actions go through the sequencer publisher
+      // as they are executed when the node is selected as proposer.
+      slasherClient = await createSlasher(
+        config,
+        config.l1Contracts,
+        getPublicClient(config),
+        watchers,
+        dateProvider,
+        epochCache,
+      );
+      await slasherClient.start();
+
+      const l1Client = createExtendedL1Client(
+        config.l1RpcUrls,
+        publisherPrivateKey.getValue(),
+        ethereumChain.chainInfo,
+      );
       const l1TxUtils = new L1TxUtilsWithBlobs(l1Client, log, dateProvider, config);
 
       sequencer = await SequencerClient.new(config, {
@@ -671,7 +672,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   /**
-   * Method to retrieve a single tx from the mempool or unfinalised chain.
+   * Method to retrieve a single tx from the mempool or unfinalized chain.
    * @param txHash - The transaction hash to return.
    * @returns - The tx if it exists.
    */
@@ -680,7 +681,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   /**
-   * Method to retrieve txs from the mempool or unfinalised chain.
+   * Method to retrieve txs from the mempool or unfinalized chain.
    * @param txHash - The transaction hash to return.
    * @returns - The txs if it exists.
    */
@@ -1220,11 +1221,22 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return Promise.resolve();
   }
 
-  public getSlasherMonitoredPayloads(): Promise<MonitoredSlashPayload[]> {
+  public getSlashPayloads(): Promise<SlashPayloadRound[]> {
     if (!this.slasherClient) {
-      throw new Error('Slasher client is not initialized.');
+      throw new Error(`Slasher client not enabled`);
     }
-    return Promise.resolve(this.slasherClient.getMonitoredPayloads());
+    return this.slasherClient.getSlashPayloads();
+  }
+
+  public getSlashOffenses(round: bigint | 'all' | 'current'): Promise<Offense[]> {
+    if (!this.slasherClient) {
+      throw new Error(`Slasher client not enabled`);
+    }
+    if (round === 'all') {
+      return this.slasherClient.getPendingOffenses();
+    } else {
+      return this.slasherClient.gatherOffensesForRound(round === 'current' ? undefined : BigInt(round));
+    }
   }
 
   /**

@@ -7,12 +7,12 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {StakingBase} from "./base.t.sol";
 import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
-contract FinaliseWithdrawTest is StakingBase {
+contract FinalizeWithdrawTest is StakingBase {
   function test_GivenStatusIsNotExiting() external {
     // it revert
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Staking__NotExiting.selector, ATTESTER));
-    staking.finaliseWithdraw(ATTESTER);
+    staking.finalizeWithdraw(ATTESTER);
 
     mint(address(this), ACTIVATION_THRESHOLD);
     stakingAsset.approve(address(staking), ACTIVATION_THRESHOLD);
@@ -28,13 +28,13 @@ contract FinaliseWithdrawTest is StakingBase {
     staking.flushEntryQueue();
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Staking__NotExiting.selector, ATTESTER));
-    staking.finaliseWithdraw(ATTESTER);
+    staking.finalizeWithdraw(ATTESTER);
 
     vm.prank(SLASHER);
     staking.slash(ATTESTER, ACTIVATION_THRESHOLD);
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Staking__NotExiting.selector, ATTESTER));
-    staking.finaliseWithdraw(ATTESTER);
+    staking.finalizeWithdraw(ATTESTER);
   }
 
   modifier givenStatusIsExiting() {
@@ -69,14 +69,14 @@ contract FinaliseWithdrawTest is StakingBase {
         Timestamp.wrap(block.timestamp) + staking.getExitDelay()
       )
     );
-    staking.finaliseWithdraw(ATTESTER);
+    staking.finalizeWithdraw(ATTESTER);
   }
 
   function test_GivenTimeIsAfterUnlock(bool _claimedFromGov) external givenStatusIsExiting {
     // it deletes the exit
     // it deletes the operator info
     // it transfer funds to recipient
-    // it emits a {WithdrawFinalised} event
+    // it emits a {WithdrawFinalized} event
 
     AttesterView memory attesterView = staking.getAttesterView(ATTESTER);
     assertTrue(attesterView.status == Status.EXITING);
@@ -87,7 +87,7 @@ contract FinaliseWithdrawTest is StakingBase {
     vm.warp(Timestamp.unwrap(attesterView.exit.exitableAt));
 
     if (_claimedFromGov) {
-      staking.getGSE().getGovernance().finaliseWithdraw(0);
+      staking.getGSE().getGovernance().finalizeWithdraw(0);
     }
 
     address lookup = _claimedFromGov ? address(staking) : address(staking.getGSE().getGovernance());
@@ -96,8 +96,8 @@ contract FinaliseWithdrawTest is StakingBase {
     assertEq(stakingAsset.balanceOf(RECIPIENT), 0);
 
     vm.expectEmit(true, true, true, true, address(staking));
-    emit IStakingCore.WithdrawFinalised(ATTESTER, RECIPIENT, ACTIVATION_THRESHOLD);
-    staking.finaliseWithdraw(ATTESTER);
+    emit IStakingCore.WithdrawFinalized(ATTESTER, RECIPIENT, ACTIVATION_THRESHOLD);
+    staking.finalizeWithdraw(ATTESTER);
 
     attesterView = staking.getAttesterView(ATTESTER);
     assertEq(attesterView.exit.recipientOrWithdrawer, address(0));

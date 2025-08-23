@@ -527,7 +527,7 @@ export const deployRollup = async (
     rewardBoostConfig: getRewardBoostConfig(networkName),
     stakingQueueConfig: getEntryQueueConfig(networkName),
     exitDelaySeconds: BigInt(args.exitDelaySeconds),
-    slasherFlavor: args.slasherFlavor === 'consensus' ? 1 : 0,
+    slasherFlavor: args.slasherFlavor === 'tally' ? 1 : 0,
     slashingOffsetInRounds: BigInt(args.slashingOffsetInRounds),
     slashingUnit: args.slashingUnit,
   };
@@ -793,7 +793,7 @@ export const addMultipleValidators = async (
 
       const validatorsTuples = await Promise.all(validators.map(makeValidatorTuples));
 
-      // Mint tokens, approve them, use cheat code to initialise validator set without setting up the epoch.
+      // Mint tokens, approve them, use cheat code to initialize validator set without setting up the epoch.
       const stakeNeeded = activationThreshold * BigInt(validators.length);
       const { txHash } = await deployer.sendTransaction({
         to: stakingAssetAddress,

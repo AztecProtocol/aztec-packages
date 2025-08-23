@@ -106,7 +106,7 @@ contract InitiateWithdrawTest is StakingBase {
     staking.initiateWithdraw(ATTESTER, RECIPIENT);
 
     // @todo We should look at updating these, the location of balance depends on time
-    // and whether the governance.finaliseWithdraw have been called now.
+    // and whether the governance.finalizeWithdraw have been called now.
     assertEq(stakingAsset.balanceOf(lookup), ACTIVATION_THRESHOLD);
     assertEq(stakingAsset.balanceOf(RECIPIENT), 0);
 

@@ -239,13 +239,6 @@ export class Oracle {
       +status,
     );
 
-    if (noteDatas.length > 0) {
-      const noteLength = noteDatas[0].note.items.length;
-      if (!noteDatas.every(({ note }) => noteLength === note.items.length)) {
-        throw new Error('Notes should all be the same length.');
-      }
-    }
-
     const returnDataAsArrayOfPackedRetrievedNotes = noteDatas.map(packAsRetrievedNote);
 
     // Now we convert each sub-array to an array of ACVMField

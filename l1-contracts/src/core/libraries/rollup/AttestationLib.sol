@@ -36,11 +36,12 @@ library AttestationLib {
 
   /**
    * @notice Checks if the given CommitteeAttestations is empty
+   *          Wll return true if either component is empty as they are needed together.
    * @param _attestations - The committee attestations
    * @return True if the committee attestations are empty, false otherwise
    */
   function isEmpty(CommitteeAttestations memory _attestations) internal pure returns (bool) {
-    return _attestations.signatureIndices.length == 0 && _attestations.signaturesOrAddresses.length == 0;
+    return _attestations.signatureIndices.length == 0 || _attestations.signaturesOrAddresses.length == 0;
   }
 
   /**

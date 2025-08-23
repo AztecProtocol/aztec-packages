@@ -11,14 +11,14 @@ import type { P2P, PeerId } from '@aztec/p2p';
 import { AuthRequest, AuthResponse, ReqRespSubProtocol, TxProvider } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import { computeInHashFromL1ToL2Messages } from '@aztec/prover-client/helpers';
-import { Offense } from '@aztec/slasher';
+import { OffenseType } from '@aztec/slasher';
 import {
   type SlasherConfig,
   WANT_TO_SLASH_EVENT,
   type WantToSlashArgs,
   type Watcher,
   type WatcherEmitter,
-} from '@aztec/slasher/config';
+} from '@aztec/slasher';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type { IFullNodeBlockBuilder, SequencerConfig } from '@aztec/stdlib/interfaces/server';
@@ -99,7 +99,12 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     private txProvider: TxProvider,
     private config: ValidatorClientConfig &
       Pick<SequencerConfig, 'txPublicSetupAllowList'> &
-      Pick<SlasherConfig, 'slashInvalidBlockEnabled' | 'slashInvalidBlockPenalty' | 'slashInvalidBlockMaxPenalty'>,
+      Pick<
+        SlasherConfig,
+        | 'slashBroadcastedInvalidBlockEnabled'
+        | 'slashBroadcastedInvalidBlockPenalty'
+        | 'slashBroadcastedInvalidBlockMaxPenalty'
+      >,
     private dateProvider: DateProvider = new DateProvider(),
     telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('validator'),
@@ -148,7 +153,12 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   static new(
     config: ValidatorClientConfig &
-      Pick<SlasherConfig, 'slashInvalidBlockEnabled' | 'slashInvalidBlockPenalty' | 'slashInvalidBlockMaxPenalty'>,
+      Pick<
+        SlasherConfig,
+        | 'slashBroadcastedInvalidBlockEnabled'
+        | 'slashBroadcastedInvalidBlockPenalty'
+        | 'slashBroadcastedInvalidBlockMaxPenalty'
+      >,
     blockBuilder: IFullNodeBlockBuilder,
     epochCache: EpochCache,
     p2pClient: P2P,
@@ -205,13 +215,20 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   public configureSlashing(
     config: Partial<
-      Pick<SlasherConfig, 'slashInvalidBlockEnabled' | 'slashInvalidBlockPenalty' | 'slashInvalidBlockMaxPenalty'>
+      Pick<
+        SlasherConfig,
+        | 'slashBroadcastedInvalidBlockEnabled'
+        | 'slashBroadcastedInvalidBlockPenalty'
+        | 'slashBroadcastedInvalidBlockMaxPenalty'
+      >
     >,
   ) {
-    this.config.slashInvalidBlockEnabled = config.slashInvalidBlockEnabled ?? this.config.slashInvalidBlockEnabled;
-    this.config.slashInvalidBlockPenalty = config.slashInvalidBlockPenalty ?? this.config.slashInvalidBlockPenalty;
-    this.config.slashInvalidBlockMaxPenalty =
-      config.slashInvalidBlockMaxPenalty ?? this.config.slashInvalidBlockMaxPenalty;
+    this.config.slashBroadcastedInvalidBlockEnabled =
+      config.slashBroadcastedInvalidBlockEnabled ?? this.config.slashBroadcastedInvalidBlockEnabled;
+    this.config.slashBroadcastedInvalidBlockPenalty =
+      config.slashBroadcastedInvalidBlockPenalty ?? this.config.slashBroadcastedInvalidBlockPenalty;
+    this.config.slashBroadcastedInvalidBlockMaxPenalty =
+      config.slashBroadcastedInvalidBlockMaxPenalty ?? this.config.slashBroadcastedInvalidBlockMaxPenalty;
   }
 
   public async start() {
@@ -375,7 +392,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     } catch (error: any) {
       this.metrics.incFailedAttestations(1, error instanceof Error ? error.name : 'unknown');
       this.log.error(`Error reexecuting txs while processing block proposal`, error, proposalInfo);
-      if (error instanceof ReExStateMismatchError && this.config.slashInvalidBlockEnabled) {
+      if (error instanceof ReExStateMismatchError && this.config.slashBroadcastedInvalidBlockEnabled) {
         this.log.warn(`Slashing proposer for invalid block proposal`, proposalInfo);
         this.slashInvalidBlock(proposal);
       }
@@ -470,8 +487,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     this.emit(WANT_TO_SLASH_EVENT, [
       {
         validator: proposer,
-        amount: this.config.slashInvalidBlockPenalty,
-        offense: Offense.BROADCASTED_INVALID_BLOCK_PROPOSAL,
+        amount: this.config.slashBroadcastedInvalidBlockPenalty,
+        offenseType: OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL,
+        epochOrSlot: proposal.slotNumber.toBigInt(),
       },
     ]);
   }
@@ -491,7 +509,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   public shouldSlash(args: WantToSlashArgs): Promise<boolean> {
     // note we don't check the offence here: we know this person is bad and we're willing to slash up to the max penalty.
     return Promise.resolve(
-      args.amount <= this.config.slashInvalidBlockMaxPenalty &&
+      args.amount <= this.config.slashBroadcastedInvalidBlockMaxPenalty &&
         this.proposersOfInvalidBlocks.has(args.validator.toString()),
     );
   }

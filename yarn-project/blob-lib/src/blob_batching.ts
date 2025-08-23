@@ -71,7 +71,7 @@ export class BatchedBlob {
   static async precomputeBatchedBlobChallenges(blobs: Blob[]): Promise<FinalBlobBatchingChallenges> {
     // We need to precompute the final challenge values to evaluate the blobs.
     let z = blobs[0].challengeZ;
-    // We start at i = 1, because z is initialised as the first blob's challenge.
+    // We start at i = 1, because z is initialized as the first blob's challenge.
     for (let i = 1; i < blobs.length; i++) {
       z = await poseidon2Hash([z, blobs[i].challengeZ]);
     }
@@ -80,7 +80,7 @@ export class BatchedBlob {
     const evaluations = proofObjects.map(([_, evaluation]) => BLS12Fr.fromBuffer(Buffer.from(evaluation)));
     // ...and find the challenge for the linear combination of blobs.
     let gamma = await hashNoirBigNumLimbs(evaluations[0]);
-    // We start at i = 1, because gamma is initialised as the first blob's evaluation.
+    // We start at i = 1, because gamma is initialized as the first blob's evaluation.
     for (let i = 1; i < blobs.length; i++) {
       gamma = await poseidon2Hash([gamma, await hashNoirBigNumLimbs(evaluations[i])]);
     }
@@ -287,7 +287,7 @@ export class BatchedBlobAccumulator {
    * @returns An updated blob accumulator.
    */
   async accumulateBlobs(blobs: Blob[]) {
-    // Initialise the acc to iterate over:
+    // Initialize the acc to iterate over:
     let acc: BatchedBlobAccumulator = this.clone();
     for (let i = 0; i < blobs.length; i++) {
       acc = await acc.accumulate(blobs[i]);

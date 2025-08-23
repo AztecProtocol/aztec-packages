@@ -347,7 +347,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
   ) internal {
     // If the attester is currently exiting, we finalize the exit for them.
     if (_rollup.getExit(_attester).exists) {
-      _rollup.finaliseWithdraw(_attester);
+      _rollup.finalizeWithdraw(_attester);
     }
 
     STAKING_ASSET.approve(address(_rollup), _activationThreshold);

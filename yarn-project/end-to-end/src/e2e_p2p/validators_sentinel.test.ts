@@ -1,6 +1,6 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { retryUntil, sleep } from '@aztec/aztec.js';
-import { RollupContract } from '@aztec/ethereum';
+import { EmpireSlashingProposerContract, RollupContract } from '@aztec/ethereum';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import type { ValidatorsStats } from '@aztec/stdlib/validators';
 
@@ -229,6 +229,10 @@ describe('e2e_p2p_validators_sentinel', () => {
         t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
       );
       const slashingProposer = await rollup.getSlashingProposer();
+      if (slashingProposer.type !== 'empire') {
+        throw new Error('This test requires Empire slashing');
+      }
+      const empireSlashingProposer = slashingProposer as EmpireSlashingProposerContract;
 
       await retryUntil(
         async () => {
@@ -242,9 +246,9 @@ describe('e2e_p2p_validators_sentinel', () => {
           };
           const currentProposer = await rollup.getCurrentProposer().catch(ignoreExpectedErrors);
           t.logger.verbose(`Current proposer is ${currentProposer}`);
-          const round = await slashingProposer.computeRound(await rollup.getSlotNumber());
-          const roundInfo = await slashingProposer.getRoundInfo(rollup.address, round);
-          const leaderSignals = await slashingProposer.getPayloadSignals(
+          const round = await empireSlashingProposer.computeRound(await rollup.getSlotNumber());
+          const roundInfo = await empireSlashingProposer.getRoundInfo(rollup.address, round);
+          const leaderSignals = await empireSlashingProposer.getPayloadSignals(
             rollup.address,
             round,
             roundInfo.payloadWithMostSignals,
