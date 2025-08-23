@@ -5,7 +5,7 @@ sidebar_position: 1
 description: Learn how to deploy smart contracts to the Aztec network using Aztec.js.
 ---
 
-Once you have [compiled](../smart_contracts/how_to_compile_contract.md) your contracts you can proceed to deploying them using Aztec.js.
+Once you have [compiled](../smart_contracts/how_to_compile_contract.md) your contracts you can proceed to deploy them using Aztec.js.
 
 You can use this method to deploy your contracts to the sandbox or to a remote network.
 
@@ -49,7 +49,7 @@ To use the `Contract` class to deploy a contract:
 
 #### Deploy Arguments
 
-There are several optional arguments that can be passed:
+Several optional arguments can be passed:
 
 The `deploy(...)` method is generated automatically with the typescript class representing your contract.
 
@@ -74,5 +74,5 @@ async function main(){
 ```
 
 :::note
-You can try running the deployment with the same salt the second time in which case the transaction will fail because the address has been already deployed to.
+You can try running the deployment with the same salt the second time in which case the transaction will fail because the address has already been deployed to.
 :::
