@@ -29,7 +29,9 @@ class ECCVMMSMMBuilder {
     struct alignas(64) MSMRow {
         uint32_t pc = 0;        // counter over all half-length (128 bit) scalar muls used to compute the required MSMs
         uint32_t msm_size = 0;  // the number of points that will be scaled and summed
-        uint32_t msm_count = 0; // number of multiplications processed so far in current MSM round
+        uint32_t msm_count = 0; // number of multiplications processed so far (not including this row) in current MSM
+                                // round (a.k.a. wNAF digit slot). this specifically refers to the number of wNAF-digit
+                                // * point scalar products we have looked up and accumulated.
         uint32_t msm_round = 0; // current "round" of MSM, in {0, ..., 32 = `NUM_WNAF_DIGITS_PER_SCALAR`}. With the
                                 // Straus algorithm, we proceed wNAF digit by wNAF digit, from left to right. (final
                                 // round deals with the `skew` bit.)
