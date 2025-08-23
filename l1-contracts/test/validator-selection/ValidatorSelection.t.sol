@@ -34,6 +34,7 @@ import {ValidatorSelectionTestBase} from "./ValidatorSelectionBase.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {ECDSA} from "@oz/utils/cryptography/ECDSA.sol";
+import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.sol";
 
 import {
   BlockLog,
@@ -243,7 +244,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     uint256 blockNumber = rollup.getPendingBlockNumber();
 
     _proveBlocks(
-      "mixed_block_", blockNumber - 1, blockNumber, AttestationLib.packAttestations(ree2.attestations), NO_REVERT
+      "mixed_block_", blockNumber - 1, blockNumber, AttestationLibHelper.packAttestations(ree2.attestations), NO_REVERT
     );
   }
 
@@ -256,7 +257,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       "mixed_block_",
       blockNumber - 1,
       blockNumber,
-      AttestationLib.packAttestations(ree1.attestations),
+      AttestationLibHelper.packAttestations(ree1.attestations),
       Errors.Rollup__InvalidAttestations.selector
     );
   }
@@ -359,7 +360,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       "mixed_block_",
       1,
       1,
-      AttestationLib.packAttestations(ree.attestations),
+      AttestationLibHelper.packAttestations(ree.attestations),
       Errors.Rollup__InvalidBlockNumber.selector
     );
   }
@@ -378,7 +379,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       "mixed_block_",
       1,
       1,
-      AttestationLib.packAttestations(ree.attestations),
+      AttestationLibHelper.packAttestations(ree.attestations),
       Errors.Rollup__InvalidBlockNumber.selector
     );
   }
@@ -397,7 +398,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       "mixed_block_",
       1,
       1,
-      AttestationLib.packAttestations(ree.attestations),
+      AttestationLibHelper.packAttestations(ree.attestations),
       Errors.Rollup__InvalidBlockNumber.selector
     );
   }
@@ -449,7 +450,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
   function _invalidateByAttestationCount(ProposeTestData memory ree, bytes4 _revertData) internal {
     uint256 blockNumber = rollup.getPendingBlockNumber();
-    CommitteeAttestations memory attestations = AttestationLib.packAttestations(ree.attestations);
+    CommitteeAttestations memory attestations = AttestationLibHelper.packAttestations(ree.attestations);
     if (_revertData != NO_REVERT) {
       vm.expectPartialRevert(_revertData);
     }
@@ -472,7 +473,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     uint256 _blockToInvalidate
   ) internal {
     uint256 blockNumber = rollup.getPendingBlockNumber();
-    CommitteeAttestations memory attestations = AttestationLib.packAttestations(ree.attestations);
+    CommitteeAttestations memory attestations = AttestationLibHelper.packAttestations(ree.attestations);
     if (_revertData != NO_REVERT) {
       vm.expectPartialRevert(_revertData);
     }
@@ -578,7 +579,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       // Only works in the same tx.
       rollup.validateHeaderWithAttestations(
         ree.proposeArgs.header,
-        AttestationLib.packAttestations(ree.attestations),
+        AttestationLibHelper.packAttestations(ree.attestations),
         ree.signers,
         digest,
         bytes32(0),
@@ -649,7 +650,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
     vm.prank(ree.sender);
     rollup.propose(
-      ree.proposeArgs, AttestationLib.packAttestations(ree.attestations), ree.signers, full.block.blobCommitments
+      ree.proposeArgs, AttestationLibHelper.packAttestations(ree.attestations), ree.signers, full.block.blobCommitments
     );
 
     if (_revertData != NO_REVERT) {

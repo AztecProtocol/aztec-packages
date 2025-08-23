@@ -69,6 +69,7 @@ import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {SlashRound} from "@aztec/core/libraries/SlashRoundLib.sol";
+import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.sol";
 
 // solhint-disable comprehensive-interface
 
@@ -433,7 +434,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
   function proposeWithTallyVote(Block memory b, address proposer) internal {
     // First propose the block
-    CommitteeAttestations memory attestations = AttestationLib.packAttestations(b.attestations);
+    CommitteeAttestations memory attestations = AttestationLibHelper.packAttestations(b.attestations);
 
     uint256 committeeSize = rollup.getEpochCommittee(rollup.getCurrentEpoch()).length;
     uint256 roundSizeInEpochs = 2;
@@ -487,7 +488,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
         // Store the attestations for the current block number
         uint256 currentBlockNumber = rollup.getPendingBlockNumber() + 1;
-        blockAttestations[currentBlockNumber] = AttestationLib.packAttestations(b.attestations);
+        blockAttestations[currentBlockNumber] = AttestationLibHelper.packAttestations(b.attestations);
 
         if (_slashing == TestSlash.EMPIRE) {
           Signature memory sig = createEmpireSignalSignature(proposer, slashPayload, rollup.getCurrentSlot());
@@ -495,7 +496,8 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
           calls[0] = Multicall3.Call3({
             target: address(rollup),
             callData: abi.encodeCall(
-              rollup.propose, (b.proposeArgs, AttestationLib.packAttestations(b.attestations), b.signers, b.blobInputs)
+              rollup.propose,
+              (b.proposeArgs, AttestationLibHelper.packAttestations(b.attestations), b.signers, b.blobInputs)
             ),
             allowFailure: false
           });
@@ -514,12 +516,12 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
             proposeWithTallyVote(b, proposer);
           } else {
             // Before slash offset, just propose normally
-            CommitteeAttestations memory attestations = AttestationLib.packAttestations(b.attestations);
+            CommitteeAttestations memory attestations = AttestationLibHelper.packAttestations(b.attestations);
             vm.prank(proposer);
             rollup.propose(b.proposeArgs, attestations, b.signers, b.blobInputs);
           }
         } else {
-          CommitteeAttestations memory attestations = AttestationLib.packAttestations(b.attestations);
+          CommitteeAttestations memory attestations = AttestationLibHelper.packAttestations(b.attestations);
 
           // Emit calldata size for propose
           bytes memory proposeCalldata =
