@@ -95,7 +95,7 @@ case ${1:-} in
     export CONTAINER_NAME=aztec-start-$(printf "%08x" $((RANDOM * RANDOM)))
 
     if [ "${1:-}" == "--sandbox" ]; then
-      if [ "$SUPERVISED" == "1" ]; then 
+      if [ "$SUPERVISED" == "1" ]; then
         echo "supervised-start is not compatible with --sandbox. Please use regular start command"
         exit 1
       fi
@@ -127,19 +127,22 @@ case ${1:-} in
         node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start \"\$@\"
       " bash "$@"
     else
-      export P2P_PORT="${P2P_PORT:-40400}"
-      # If the p2p broadcast port if provided, then map it to the p2p port on the container.
-      if [ -n "${P2P_BROADCAST_PORT:-}" ]; then
-        export P2P_BROADCAST_PORT
-        P2P_TCP_BROADCAST_MAPPING="$P2P_BROADCAST_PORT:$P2P_PORT"
-        P2P_UDP_BROADCAST_MAPPING="${P2P_TCP_BROADCAST_MAPPING}/udp"
+      # Only set P2P port if P2P is enabled or if P2P_PORT is explicitly set
+      if [ "${P2P_ENABLED:-false}" = "true" ] || [ -n "${P2P_PORT:-}" ]; then
+        export P2P_PORT="${P2P_PORT:-40400}"
+        # If the p2p broadcast port if provided, then map it to the p2p port on the container.
+        if [ -n "${P2P_BROADCAST_PORT:-}" ]; then
+          export P2P_BROADCAST_PORT
+          P2P_TCP_BROADCAST_MAPPING="$P2P_BROADCAST_PORT:$P2P_PORT"
+          P2P_UDP_BROADCAST_MAPPING="${P2P_TCP_BROADCAST_MAPPING}/udp"
 
-        PORTS_TO_EXPOSE="${PORTS_TO_EXPOSE:-} $P2P_TCP_BROADCAST_MAPPING $P2P_UDP_BROADCAST_MAPPING"
-      else
-        P2P_TCP_LISTEN_MAPPING="$P2P_PORT:$P2P_PORT"
-        P2P_UDP_LISTEN_MAPPING="${P2P_TCP_LISTEN_MAPPING}/udp"
+          PORTS_TO_EXPOSE="${PORTS_TO_EXPOSE:-} $P2P_TCP_BROADCAST_MAPPING $P2P_UDP_BROADCAST_MAPPING"
+        else
+          P2P_TCP_LISTEN_MAPPING="$P2P_PORT:$P2P_PORT"
+          P2P_UDP_LISTEN_MAPPING="${P2P_TCP_LISTEN_MAPPING}/udp"
 
-        PORTS_TO_EXPOSE="${PORTS_TO_EXPOSE:-} $P2P_TCP_LISTEN_MAPPING $P2P_UDP_LISTEN_MAPPING"
+          PORTS_TO_EXPOSE="${PORTS_TO_EXPOSE:-} $P2P_TCP_LISTEN_MAPPING $P2P_UDP_LISTEN_MAPPING"
+        fi
       fi
 
       if [ -n "${ADMIN_PORT:-}" ]; then
