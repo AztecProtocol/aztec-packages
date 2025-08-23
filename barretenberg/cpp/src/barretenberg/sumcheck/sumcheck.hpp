@@ -428,15 +428,39 @@ template <typename Flavor> class SumcheckProver {
         }
         vinfo("completed ", multivariate_d, " rounds of sumcheck");
 
-        // Zero univariates are used to pad the proof to the fixed size virtual_log_n.
-        auto zero_univariate = bb::Univariate<FF, Flavor::BATCHED_RELATION_PARTIAL_LENGTH>::zero();
-        for (size_t idx = multivariate_d; idx < virtual_log_n; idx++) {
-            transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(idx), zero_univariate);
+        GateSeparatorPolynomial<FF> virtual_gate_separator(gate_challenges, multivariate_challenge);
+        // If required, extend prover's multilinear polynomials in `multivariate_d` variables by zero to get multilinear
+        // polynomials in `virtual_log_n` variables.
+        for (size_t k = multivariate_d; k < virtual_log_n; ++k) {
+            // Compute the contribution from the extensions by zero. It is sufficient to evaluate the main constraint at
+            // `MAX_PARTIAL_RELATION_LENGTH` points.
+            auto virtual_round_univariate = round.compute_virtual_contribution(
+                partially_evaluated_polynomials, relation_parameters, virtual_gate_separator, alphas);
+            auto disabled_contribution = round.compute_hiding_univariate(k,
+                                                                         partially_evaluated_polynomials,
+                                                                         relation_parameters,
+                                                                         virtual_gate_separator,
+                                                                         alphas,
+                                                                         zk_sumcheck_data,
+                                                                         row_disabling_polynomial);
+            virtual_round_univariate += disabled_contribution;
 
-            FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(idx));
+            transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(k), virtual_round_univariate);
+
+            const FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(k));
             multivariate_challenge.emplace_back(round_challenge);
-        }
 
+            // Update the book-keeping table of partial evaluations of the prover polynomials extended by zero.
+            for (auto& poly : partially_evaluated_polynomials.get_all()) {
+                // Avoid bad access if polynomials are set to be of size 0, which can happen in AVM.
+                if (poly.size() > 0) {
+                    poly.at(0) *= (FF(1) - round_challenge);
+                }
+            }
+            zk_sumcheck_data.update_zk_sumcheck_data(round_challenge, k);
+            row_disabling_polynomial.update_evaluations(round_challenge, k);
+            virtual_gate_separator.partially_evaluate(round_challenge);
+        }
         // Claimed evaluations of Prover polynomials are extracted and added to the transcript. When Flavor has ZK, the
         // evaluations of all witnesses are masked.
         ClaimedEvaluations multivariate_evaluations = extract_claimed_evaluations(partially_evaluated_polynomials);

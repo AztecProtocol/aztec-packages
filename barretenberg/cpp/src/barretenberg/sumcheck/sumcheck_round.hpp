@@ -509,19 +509,23 @@ template <typename Flavor> class SumcheckProverRound {
         // (d-1) - dimensional Boolean hypercube).
         size_t start_edge_idx{ 0 };
         size_t end_edge_idx{ 0 };
+
         if constexpr (!std::is_same_v<Flavor, UltraZKFlavor>) {
             start_edge_idx = (round_idx == 0) ? round_size - 4 : round_size - 2;
             end_edge_idx = round_size;
+
         } else {
             start_edge_idx = 0;
             end_edge_idx = (round_idx == 0) ? 4 : 2;
         }
         for (size_t edge_idx = start_edge_idx; edge_idx < end_edge_idx; edge_idx += 2) {
             extend_edges(extended_edges, polynomials, edge_idx);
-            accumulate_relation_univariates(univariate_accumulator,
-                                            extended_edges,
-                                            relation_parameters,
-                                            gate_separators[(edge_idx >> 1) * gate_separators.periodicity]);
+
+            FF tail = 1;
+            if (!(std::is_same_v<Flavor, UltraZKFlavor> && round_idx > 0)) {
+                tail = gate_separators[(edge_idx >> 1) * gate_separators.periodicity];
+            }
+            accumulate_relation_univariates(univariate_accumulator, extended_edges, relation_parameters, tail);
         }
         result = batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulator, alphas, gate_separators);
         bb::Univariate<FF, 2> row_disabling_factor =

@@ -274,7 +274,7 @@ void OinkProver<Flavor>::commit_to_witness_polynomial(Polynomial<FF>& polynomial
             polynomial.mask();
         } else {
             for (size_t idx = 1; idx < 4; idx++) {
-                polynomial.at(idx) = 0;
+                polynomial.at(idx) = FF::random_element();
             }
         }
     };

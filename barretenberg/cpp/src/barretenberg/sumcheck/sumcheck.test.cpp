@@ -310,7 +310,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         const size_t multivariate_d(3);
         const size_t multivariate_n(1 << multivariate_d);
 
-        const size_t virtual_log_n = 3;
+        const size_t virtual_log_n = 6;
         // Construct prover polynomials where each is the zero polynomial.
         // Note: ProverPolynomials are defined as spans so the polynomials they point to need to exist in memory.
         std::vector<Polynomial<FF>> zero_polynomials(NUM_POLYNOMIALS);
@@ -372,7 +372,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
                                                virtual_log_n);
 
         SumcheckOutput<Flavor> output;
-        ZKData zk_sumcheck_data = ZKData(multivariate_d, prover_transcript);
+        ZKData zk_sumcheck_data = ZKData(virtual_log_n, prover_transcript);
         output = sumcheck_prover.prove(zk_sumcheck_data);
 
         auto verifier_transcript = Flavor::Transcript::verifier_init_empty(prover_transcript);
@@ -391,11 +391,6 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         }
 
         std::vector<FF> padding_indicator_array(virtual_log_n, 1);
-        if constexpr (Flavor::HasZK) {
-            for (size_t idx = 0; idx < virtual_log_n; idx++) {
-                padding_indicator_array[idx] = (idx < multivariate_d) ? FF{ 1 } : FF{ 0 };
-            }
-        }
 
         auto verifier_output =
             sumcheck_verifier.verify(relation_parameters, verifier_gate_challenges, padding_indicator_array);
