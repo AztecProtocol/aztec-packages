@@ -58,11 +58,9 @@ void create_ecdsa_r1_verify_constraints(Builder& builder,
 
     std::vector<uint8_t> rr(new_sig.r.begin(), new_sig.r.end());
     std::vector<uint8_t> ss(new_sig.s.begin(), new_sig.s.end());
-    std::vector<uint8_t> vv = { new_sig.v };
 
     stdlib::ecdsa_signature<Builder> sig{ stdlib::byte_array<Builder>(&builder, rr),
-                                          stdlib::byte_array<Builder>(&builder, ss),
-                                          stdlib::byte_array<Builder>(&builder, vv) };
+                                          stdlib::byte_array<Builder>(&builder, ss) };
 
     pub_key_x_fq.assert_is_in_field();
     pub_key_y_fq.assert_is_in_field();

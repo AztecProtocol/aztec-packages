@@ -168,6 +168,7 @@ template <typename Builder, typename T> std::vector<fr<Builder>> convert_to_bn25
     } else if constexpr (IsAnyOf<T, goblin_field<Builder>>) {
         return convert_goblin_fr_to_bn254_frs(val);
     } else if constexpr (IsAnyOf<T, bn254_element<Builder>>) {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1527): Consider handling point at infinity.
         using BaseField = bn254_element<Builder>::BaseField;
         auto fr_vec_x = convert_to_bn254_frs<Builder, BaseField>(val.x);
         auto fr_vec_y = convert_to_bn254_frs<Builder, BaseField>(val.y);
