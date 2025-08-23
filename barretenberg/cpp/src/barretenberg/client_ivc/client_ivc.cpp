@@ -302,11 +302,6 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 
         stdlib_verification_queue.pop_front();
     }
-
-    // Extract native verifier accumulator from the stdlib accum for use on the next round
-    recursive_verifier_native_accum =
-        std::make_shared<DeciderVerificationKey>(current_stdlib_verifier_accumulator->get_value());
-
     // Set the kernel output data to be propagated via the public inputs
     if (is_hiding_kernel) {
         BB_ASSERT_EQ(current_stdlib_verifier_accumulator, nullptr);
@@ -316,6 +311,10 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1502): reconsider approach once integration is
     } else {
         BB_ASSERT_NEQ(current_stdlib_verifier_accumulator, nullptr);
+        // Extract native verifier accumulator from the stdlib accum for use on the next round
+        recursive_verifier_native_accum =
+            std::make_shared<DeciderVerificationKey>(current_stdlib_verifier_accumulator->get_value());
+
         KernelIO kernel_output;
         kernel_output.pairing_inputs = points_accumulator;
         kernel_output.kernel_return_data = bus_depot.get_kernel_return_data_commitment(circuit);
