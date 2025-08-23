@@ -59,7 +59,7 @@ pub contract Auth {
 
     #[public]
     #[view]
-    fn get_authorized_delay() -> pub u64 {
+    fn get_authorized_delay() -> u64 {
         storage.authorized.get_current_delay()
     }
 
