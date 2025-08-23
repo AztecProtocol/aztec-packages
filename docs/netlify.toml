@@ -1,6 +1,6 @@
 [build]
   # Only build if changes are made in the docs directory
-  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF"
+  ignore = "git diff --name-only origin/next HEAD -- docs"
 
 [[redirects]]
     from = "/guides/smart_contracts/writing_contracts/initializers"
