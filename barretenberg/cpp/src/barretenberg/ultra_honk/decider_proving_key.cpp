@@ -352,6 +352,10 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::populate_me
 {
     // Store the read/write records as indices into the full trace by accounting for the offset of the memory block.
     uint32_t ram_rom_offset = circuit.blocks.memory.trace_offset();
+    if constexpr (std::is_same_v<Flavor, UltraZKFlavor>) {
+        ram_rom_offset += 4;
+    }
+
     memory_read_records.reserve(circuit.memory_read_records.size());
     for (auto& index : circuit.memory_read_records) {
         memory_read_records.emplace_back(index + ram_rom_offset);
