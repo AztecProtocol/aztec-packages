@@ -539,13 +539,6 @@ template <typename Curve> class GeminiVerifier_ {
      * In the case of interleaving, the first "negative" evaluation has to be corrected by the contribution from \f$
      * P_{-}(-r^s)\f$, where \f$ s \f$ is the size of the group to be interleaved.
      *
-     * This method uses `padding_indicator_array`, whose i-th entry is FF{1} if i < log_n and 0 otherwise.
-     * We use these entries to either assign `eval_pos_prev` the value `eval_pos` computed in the current iteration of
-     * the loop, or to propagate the batched evaluation of the multilinear polynomials to the next iteration. This
-     * ensures the correctnes of the computation of the required positive evaluations.
-     *
-     * To ensure that dummy evaluations cannot be used to tamper with the final batch_mul result, we multiply dummy
-     * positive evaluations by the entries of `padding_indicator_array`.
      *
      * @param batched_evaluation The evaluation of the batched polynomial at \f$ (u_0, \ldots, u_{d-1})\f$.
      * @param evaluation_point Evaluation point \f$ (u_0, \ldots, u_{d-1}) \f$. Depending on the context, might be
