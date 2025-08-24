@@ -52,8 +52,8 @@ fi
 # Set up host.docker.internal alias on Linux, just like it is on mac.
 if [[ -z "${SKIP_NET:-}" && "$uname" == "Linux" ]]; then
   if [ -n "${ROOTLESS:-}" ]; then
-    # We're in rootless docker. Probe for the host ip and use that.
-    ip=$(hostname -I | head | tr -d ' ')
+    # We're in rootless docker. Probe for the first host ip and use that.
+    ip=$(hostname -I | head -n 1 | cut -d ' ' -f 1)
     warn "WARNING: Running within rootless docker. Using $ip as host ip. Ensure listening services are listening on this interface."
     arg_host_binds="--add-host host.docker.internal:$ip"
   else
