@@ -2,7 +2,7 @@
 
 All the packages that make up [Aztec](https://docs.aztec.network).
 
-- [**`barretenberg`**](/noir-projects): The ZK prover backend that provides succinct verifiability for Aztec. Also houses the Aztec VM.
+- [**`barretenberg`**](/barretenberg): The ZK prover backend that provides succinct verifiability for Aztec. Also houses the Aztec VM.
 - [**`l1-contracts`**](/l1-contracts): Solidity code for the Ethereum contracts that process rollups
 - [**`noir-projects`**](/noir-projects): Noir code for Aztec contracts and protocol circuits.
 - [**`yarn-project`**](/yarn-project): Typescript code for client and backend
