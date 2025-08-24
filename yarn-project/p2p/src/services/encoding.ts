@@ -6,12 +6,35 @@ import type { DataTransform } from '@chainsafe/libp2p-gossipsub/types';
 import type { Message } from '@libp2p/interface';
 import { compressSync, uncompressSync } from 'snappy';
 import xxhashFactory from 'xxhash-wasm';
+import { randomBytes } from 'crypto';
 
 // Load WASM
 const xxhash = await xxhashFactory();
 
-// Use salt to prevent msgId from being mined for collisions
-const h64Seed = BigInt(Math.floor(Math.random() * 1e9));
+/**
+ * Derive a 64-bit seed for xxhash using a cryptographically secure RNG.
+ * Allows deterministic override for tests via AZTEC_P2P_MSGID_SEED
+ * (accepts decimal or hex strings, with or without "0x").
+ */
+function deriveH64Seed(): bigint {
+  const override = typeof process !== 'undefined' ? process.env?.AZTEC_P2P_MSGID_SEED : undefined;
+  if (override && override.length > 0) {
+    // Allow decimal or hex input (with or without 0x)
+    const normalized = override.startsWith('0x') ? override : ( /^[0-9]+$/.test(override) ? override : `0x${override}` );
+    try {
+      return BigInt(normalized);
+    } catch {
+      throw new Error(
+        `Invalid AZTEC_P2P_MSGID_SEED value: "${override}". Provide a 64-bit integer (decimal or hex).`,
+      );
+    }
+  }
+  // 64-bit seed from CSPRNG
+  return BigInt('0x' + randomBytes(8).toString('hex'));
+}
+
+// Use non-predictable seed to prevent msgId collision mining
+const h64Seed: bigint = deriveH64Seed();
 
 // Shared buffer to convert msgId to string
 const sharedMsgIdBuf = Buffer.alloc(20);
