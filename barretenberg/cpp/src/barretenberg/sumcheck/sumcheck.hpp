@@ -799,7 +799,7 @@ template <typename Flavor> class SumcheckVerifier {
                 // Compute the evaluations of the polynomial (1 - \sum L_i) where the sum is for i corresponding to the
                 // rows where all sumcheck relations are disabled
                 full_honk_purported_value *=
-                    RowDisablingPolynomial<Flavor>::evaluate_at_challenge(multivariate_challenge);
+                    RowDisablingPolynomial<Flavor>::evaluate_at_challenge(multivariate_challenge, virtual_log_n);
             }
 
             libra_evaluation = transcript->template receive_from_prover<FF>("Libra:claimed_evaluation");
