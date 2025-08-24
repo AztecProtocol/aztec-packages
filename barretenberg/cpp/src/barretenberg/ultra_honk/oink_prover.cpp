@@ -274,15 +274,16 @@ void OinkProver<Flavor>::commit_to_witness_polynomial(Polynomial<FF>& polynomial
             polynomial.mask();
         } else {
             for (size_t idx = 1; idx < 4; idx++) {
-                polynomial.at(idx) = FF::random_element();
+                if (polynomial.start_index() < 4) {
+                    polynomial.at(idx) = FF::random_element();
+                }
             }
         }
     };
 
     typename Flavor::Commitment commitment;
 
-    commitment =
-        proving_key->commitment_key.commit_with_type(polynomial, type, proving_key->active_region_data.get_ranges());
+    commitment = proving_key->commitment_key.commit_with_type(polynomial, type);
     // Send the commitment to the verifier
     transcript->send_to_verifier(domain_separator + label, commitment);
 }
