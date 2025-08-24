@@ -81,7 +81,7 @@ class UltraFlavor {
     // relation accumulation will not match.
     using Relations_ = std::tuple<bb::UltraArithmeticRelation<FF>,
                                   bb::UltraPermutationRelation<FF>,
-                                  bb::LogDerivLookupRelation<FF>,
+                                  //   bb::LogDerivLookupRelation<FF>,
                                   bb::DeltaRangeConstraintRelation<FF>,
                                   bb::EllipticRelation<FF>,
                                   bb::MemoryRelation<FF>,

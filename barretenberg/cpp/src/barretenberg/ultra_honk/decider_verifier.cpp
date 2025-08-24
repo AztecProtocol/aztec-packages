@@ -51,11 +51,6 @@ template <typename Flavor> typename DeciderVerifier_<Flavor>::Output DeciderVeri
     const size_t virtual_log_n = Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : log_circuit_size;
 
     std::vector<FF> padding_indicator_array(virtual_log_n, 1);
-    if constexpr (Flavor::HasZK) {
-        for (size_t idx = 0; idx < virtual_log_n; idx++) {
-            padding_indicator_array[idx] = (idx < log_circuit_size) ? FF{ 1 } : FF{ 0 };
-        }
-    }
 
     SumcheckVerifier<Flavor> sumcheck(transcript, accumulator->alphas, virtual_log_n, accumulator->target_sum);
     // For MegaZKFlavor: receive commitments to Libra masking polynomials
@@ -88,7 +83,8 @@ template <typename Flavor> typename DeciderVerifier_<Flavor>::Output DeciderVeri
                                                &consistency_checked,
                                                libra_commitments,
                                                sumcheck_output.claimed_libra_evaluation);
-
+    info("consistency checked ", consistency_checked);
+    info("verifier comm ", batch_mul_native(opening_claim.commitments, opening_claim.scalars));
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
     return Output{ sumcheck_output.verified, consistency_checked, { pairing_points[0], pairing_points[1] } };

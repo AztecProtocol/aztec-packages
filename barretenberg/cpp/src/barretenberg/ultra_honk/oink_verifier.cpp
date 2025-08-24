@@ -134,8 +134,13 @@ template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_log_deriv
  */
 template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_grand_product_computation_round()
 {
-    const FF public_input_delta = compute_public_input_delta<Flavor>(
-        public_inputs, relation_parameters.beta, relation_parameters.gamma, verification_key->vk->pub_inputs_offset);
+    size_t zk_offset = std::is_same_v<Flavor, UltraFlavor> ? 4 : 0;
+
+    const FF public_input_delta =
+        compute_public_input_delta<Flavor>(public_inputs,
+                                           relation_parameters.beta,
+                                           relation_parameters.gamma,
+                                           verification_key->vk->pub_inputs_offset + zk_offset);
 
     relation_parameters.public_input_delta = public_input_delta;
 

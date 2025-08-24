@@ -310,7 +310,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         const size_t multivariate_d(3);
         const size_t multivariate_n(1 << multivariate_d);
 
-        const size_t virtual_log_n = 6;
+        const size_t virtual_log_n = 24;
         // Construct prover polynomials where each is the zero polynomial.
         // Note: ProverPolynomials are defined as spans so the polynomials they point to need to exist in memory.
         std::vector<Polynomial<FF>> zero_polynomials(NUM_POLYNOMIALS);

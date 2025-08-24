@@ -773,7 +773,7 @@ template <typename Flavor> class SumcheckVerifier {
             multivariate_challenge.emplace_back(round_challenge);
 
             const bool checked = round.check_sum(round_univariate, padding_indicator_array[round_idx]);
-            info("checked? ", checked, " rounds index");
+            info("checked? ", checked, " rounds index ", round_idx);
             round.compute_next_target_sum(round_univariate, round_challenge, padding_indicator_array[round_idx]);
             gate_separators.partially_evaluate(round_challenge, padding_indicator_array[round_idx]);
 
@@ -819,7 +819,7 @@ template <typename Flavor> class SumcheckVerifier {
             final_check = (full_honk_purported_value == round.target_total_sum);
             verified = verified && final_check;
         }
-
+        info("sumcheck verified ", verified);
         return SumcheckOutput<Flavor>{ .challenge = multivariate_challenge,
                                        .claimed_evaluations = purported_evaluations,
                                        .verified = verified,

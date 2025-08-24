@@ -63,8 +63,9 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::allocate_la
     PROFILE_THIS_NAME("allocate_lagrange_polynomials");
 
     // First and last lagrange polynomials (in the full circuit size)
+    size_t lagrange_first_idx = std::is_same_v<Flavor, UltraZKFlavor> ? 4 : 0;
     polynomials.lagrange_first = Polynomial(
-        /* size=*/1, /*virtual size=*/dyadic_size(), /*start_index=*/0);
+        /* size=*/1 + lagrange_first_idx, /*virtual size=*/dyadic_size(), /*start_index=*/lagrange_first_idx);
 
     // Even though lagrange_last has a single non-zero element, we cannot set its size to 0 as different
     // keys being folded might have lagrange_last set at different indexes and folding does not work
@@ -77,6 +78,9 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::allocate_se
 {
     PROFILE_THIS_NAME("allocate_selectors");
 
+    // Shift only for UltraZKFlavor
+    constexpr bool is_ultra_zk = std::is_same_v<Flavor, UltraZKFlavor>;
+    constexpr uint32_t base_shift = is_ultra_zk ? 4 : 0;
     // Define gate selectors over the block they are isolated to
     for (auto [selector, block] : zip_view(polynomials.get_gate_selectors(), circuit.blocks.get_gate_blocks())) {
 
@@ -85,9 +89,10 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::allocate_se
         if (&block == &circuit.blocks.arithmetic) {
             size_t arith_size = circuit.blocks.memory.trace_offset() - circuit.blocks.arithmetic.trace_offset() +
                                 circuit.blocks.memory.get_fixed_size(is_structured);
-            selector = Polynomial(arith_size, dyadic_size(), circuit.blocks.arithmetic.trace_offset());
+            selector = Polynomial(arith_size, dyadic_size(), circuit.blocks.arithmetic.trace_offset() + base_shift);
         } else {
-            selector = Polynomial(block.get_fixed_size(is_structured), dyadic_size(), block.trace_offset());
+            selector =
+                Polynomial(block.get_fixed_size(is_structured), dyadic_size(), block.trace_offset() + base_shift);
         }
     }
 
