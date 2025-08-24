@@ -289,15 +289,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
                 verifier_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
         }
 
-        std::vector<FF> padding_indicator_array(virtual_log_n, 1);
-        if constexpr (Flavor::HasZK) {
-            for (size_t idx = 0; idx < virtual_log_n; idx++) {
-                padding_indicator_array[idx] = (idx < multivariate_d) ? FF{ 1 } : FF{ 0 };
-            }
-        }
-
-        auto verifier_output =
-            sumcheck_verifier.verify(relation_parameters, verifier_gate_challenges, padding_indicator_array);
+        auto verifier_output = sumcheck_verifier.verify(relation_parameters, verifier_gate_challenges);
 
         auto verified = verifier_output.verified;
 
@@ -390,10 +382,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
                 verifier_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
         }
 
-        std::vector<FF> padding_indicator_array(virtual_log_n, 1);
-
-        auto verifier_output =
-            sumcheck_verifier.verify(relation_parameters, verifier_gate_challenges, padding_indicator_array);
+        auto verifier_output = sumcheck_verifier.verify(relation_parameters, verifier_gate_challenges);
 
         auto verified = verifier_output.verified;
 
@@ -491,10 +480,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
                 verifier_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
         }
 
-        std::vector<FF> padding_indicator_array(multivariate_d);
-        std::ranges::fill(padding_indicator_array, FF{ 1 });
-        auto verifier_output =
-            sumcheck_verifier.verify(relation_parameters, verifier_gate_challenges, padding_indicator_array);
+        auto verifier_output = sumcheck_verifier.verify(relation_parameters, verifier_gate_challenges);
 
         auto verified = verifier_output.verified;
 

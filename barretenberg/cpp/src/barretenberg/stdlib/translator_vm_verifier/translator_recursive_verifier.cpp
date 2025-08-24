@@ -150,13 +150,7 @@ TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_p
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
     libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
 
-    FF one{ 1 };
-    one.convert_constant_to_fixed_witness(builder);
-
-    std::vector<FF> padding_indicator_array(TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
-    std::ranges::fill(padding_indicator_array, one);
-
-    auto sumcheck_output = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator_array);
+    auto sumcheck_output = sumcheck.verify(relation_parameters, gate_challenges);
 
     libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
@@ -171,8 +165,7 @@ TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_p
                                          .evaluations = sumcheck_output.claimed_evaluations.get_interleaved() }
     };
     const BatchOpeningClaim<Curve> opening_claim =
-        Shplemini::compute_batch_opening_claim(padding_indicator_array,
-                                               claim_batcher,
+        Shplemini::compute_batch_opening_claim(claim_batcher,
                                                sumcheck_output.challenge,
                                                Commitment::one(builder),
                                                transcript,

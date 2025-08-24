@@ -112,8 +112,6 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
         commitment = transcript->template receive_from_prover<Commitment>(label);
     }
 
-    const std::vector<FF> padding_indicator_array(CONST_PROOF_SIZE_LOG_N, 1);
-
     // Multiply each linearly independent subrelation contribution by `alpha^i` for i = 0, ..., NUM_SUBRELATIONS - 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
@@ -126,7 +124,7 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
 
     // No need to constrain that sumcheck_verified is true as this is guaranteed by the implementation of
     // when called over a "circuit field" types.
-    SumcheckOutput<Flavor> output = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator_array);
+    SumcheckOutput<Flavor> output = sumcheck.verify(relation_parameters, gate_challenges);
     vinfo("verified sumcheck: ", (output.verified));
 
     std::array<FF, AVM_NUM_PUBLIC_INPUT_COLUMNS> claimed_evaluations = {

@@ -741,8 +741,7 @@ template <typename Flavor> class SumcheckVerifier {
      * @param transcript
      */
     SumcheckOutput<Flavor> verify(const bb::RelationParameters<FF>& relation_parameters,
-                                  std::vector<FF>& gate_challenges,
-                                  const std::vector<FF>& padding_indicator_array)
+                                  std::vector<FF>& gate_challenges)
         requires(!IsGrumpkinFlavor<Flavor>)
     {
         bool verified(true);
@@ -772,10 +771,10 @@ template <typename Flavor> class SumcheckVerifier {
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
             multivariate_challenge.emplace_back(round_challenge);
 
-            const bool checked = round.check_sum(round_univariate, padding_indicator_array[round_idx]);
+            const bool checked = round.check_sum(round_univariate);
             info("checked? ", checked, " rounds index ", round_idx);
-            round.compute_next_target_sum(round_univariate, round_challenge, padding_indicator_array[round_idx]);
-            gate_separators.partially_evaluate(round_challenge, padding_indicator_array[round_idx]);
+            round.compute_next_target_sum(round_univariate, round_challenge);
+            gate_separators.partially_evaluate(round_challenge);
 
             verified = verified && checked;
         }
@@ -799,8 +798,8 @@ template <typename Flavor> class SumcheckVerifier {
             if constexpr (UseRowDisablingPolynomial<Flavor>) {
                 // Compute the evaluations of the polynomial (1 - \sum L_i) where the sum is for i corresponding to the
                 // rows where all sumcheck relations are disabled
-                full_honk_purported_value *= RowDisablingPolynomial<Flavor>::evaluate_at_challenge(
-                    multivariate_challenge, padding_indicator_array);
+                full_honk_purported_value *=
+                    RowDisablingPolynomial<Flavor>::evaluate_at_challenge(multivariate_challenge);
             }
 
             libra_evaluation = transcript->template receive_from_prover<FF>("Libra:claimed_evaluation");

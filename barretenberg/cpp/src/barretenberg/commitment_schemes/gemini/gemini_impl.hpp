@@ -209,8 +209,7 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
     const Fr u_last = multilinear_challenge[log_n - 1];
     const Fr final_eval = last.at(0) + u_last * (last.at(1) - last.at(0));
     Polynomial const_fold(1);
-    // Temporary fix: when we're running a zk proof, the verifier uses a `padding_indicator_array`. So the evals in
-    // rounds past `log_n - 1` will be ignored. Hence the prover also needs to ignore them, otherwise Shplonk will fail.
+
     const_fold.at(0) = final_eval;
     fold_polynomials.emplace_back(const_fold);
 

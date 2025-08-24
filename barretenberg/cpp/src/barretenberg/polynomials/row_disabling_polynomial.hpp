@@ -214,40 +214,6 @@ template <typename Flavor> struct RowDisablingPolynomial {
 
         return FF{ 1 } - evaluation_at_multivariate_challenge;
     }
-
-    /**
-     * @brief A variant of the above that uses `padding_indicator_array`.
-     *
-     * @param multivariate_challenge Sumcheck evaluation challenge
-     * @param padding_indicator_array An array with first log_n entries equal to 1, and the remaining entries are 0.
-     */
-    static FF evaluate_at_challenge(std::span<FF> multivariate_challenge,
-                                    const std::vector<FF>& padding_indicator_array)
-        requires(!std::is_same_v<Flavor, UltraZKFlavor>)
-
-    {
-        FF evaluation_at_multivariate_challenge{ 1 };
-
-        for (size_t idx = 2; idx < padding_indicator_array.size(); idx++) {
-            const FF& indicator = padding_indicator_array[idx];
-            evaluation_at_multivariate_challenge *= FF{ 1 } - indicator + indicator * multivariate_challenge[idx];
-        }
-
-        return FF{ 1 } - evaluation_at_multivariate_challenge;
-    }
-
-    static FF evaluate_at_challenge(std::span<FF> multivariate_challenge,
-                                    [[maybe_unused]] const std::vector<FF>& padding_indicator_array)
-        requires(std::is_same_v<Flavor, UltraZKFlavor>)
-
-    {
-        FF evaluation_at_multivariate_challenge{ 1 };
-
-        for (size_t idx = 2; idx < padding_indicator_array.size(); idx++) {
-            evaluation_at_multivariate_challenge *= FF{ 1 } - multivariate_challenge[idx];
-        }
-        return FF{ 1 } - evaluation_at_multivariate_challenge;
-    }
 };
 
 } // namespace bb
