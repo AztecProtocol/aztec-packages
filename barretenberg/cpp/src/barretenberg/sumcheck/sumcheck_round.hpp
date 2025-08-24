@@ -513,7 +513,6 @@ template <typename Flavor> class SumcheckProverRound {
         if constexpr (!std::is_same_v<Flavor, UltraZKFlavor>) {
             start_edge_idx = (round_idx == 0) ? round_size - 4 : round_size - 2;
             end_edge_idx = round_size;
-
         } else {
             start_edge_idx = 0;
             end_edge_idx = (round_idx == 0) ? 4 : 2;

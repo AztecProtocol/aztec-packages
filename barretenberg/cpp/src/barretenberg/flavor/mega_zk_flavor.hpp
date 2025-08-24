@@ -16,6 +16,7 @@ namespace bb {
 */
 class MegaZKFlavor : public bb::MegaFlavor {
   public:
+    static constexpr bool USE_PADDING = false;
     // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = true;
     // The degree has to be increased because the relation is multiplied by the Row Disabling Polynomial
