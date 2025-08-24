@@ -1,0 +1,261 @@
+name: Deploy Eth Devnet
+
+# This workflow is used to deploy the eth devnet to a cluster.
+# It can be used to deploy to kind or a GKE cluster.
+#
+# Set yourself up to run locally with:
+# export GOOGLE_APPLICATION_CREDENTIALS=/your/path/to/testnet-helm-sa.json
+# alias lwfl=/your/path/to/aztec-clones/alpha/.github/local_workflow.sh
+#
+# Then deploy to kind:
+# lwfl deploy_eth_devnet --input cluster=kind --input resource_profile=dev --input namespace=mitch-eth-devnet --input create_static_ips=false
+#
+# Or to a GKE cluster:
+# lwfl deploy_eth_devnet --input cluster=aztec-gke-private --input resource_profile=prod --input namespace=mitch-eth-devnet --input create_static_ips=false
+
+on:
+  workflow_call:
+    inputs:
+      cluster:
+        description: The cluster to deploy to, e.g. aztec-gke-private or kind
+        required: true
+        type: string
+      namespace:
+        description: The namespace to deploy to
+        required: true
+        type: string
+      ref:
+        description: The branch name to deploy from
+        required: false
+        type: string
+        default: "next"
+      chain_id:
+        description: Ethereum chain ID for genesis generation
+        required: false
+        type: number
+        default: 1337
+      block_time:
+        description: Block time in seconds for genesis generation
+        required: false
+        type: number
+        default: 12
+      gas_limit:
+        description: Gas limit for blocks in genesis generation
+        required: false
+        type: string
+        default: "32000000"
+      resource_profile:
+        description: Resource profile to use (dev or prod)
+        required: false
+        type: string
+        default: "prod"
+      create_static_ips:
+        description: Whether to create static IPs as part of the eth devnet for the execution and beacon nodes
+        required: false
+        type: string
+        default: "false"
+      run_terraform_destroy:
+        description: Whether to run the terraform destroy
+        required: false
+        type: string
+        default: "false"
+    secrets:
+      GCP_SA_KEY:
+        description: The JSON key for the GCP service account
+        required: true
+      KUBECONFIG_B64:
+        description: The base64 encoded kubeconfig
+        required: true
+
+  workflow_dispatch:
+    inputs:
+      cluster:
+        description: The cluster to deploy to, e.g. aztec-gke-private or kind
+        required: false
+        type: string
+        default: "kind"
+      namespace:
+        description: The namespace to deploy to
+        required: false
+        type: string
+        default: "eth-devnet"
+      ref:
+        description: The branch name to deploy from.
+        required: false
+        type: string
+        default: "next"
+      chain_id:
+        description: Ethereum chain ID for genesis generation
+        required: false
+        type: number
+        default: 1337
+      block_time:
+        description: Block time in seconds for genesis generation
+        required: false
+        type: number
+        default: 12
+      gas_limit:
+        description: Gas limit for blocks in genesis generation
+        required: false
+        type: string
+        default: "32000000"
+      resource_profile:
+        description: Resource profile to use (dev or prod)
+        required: false
+        type: string
+        default: "prod"
+      create_static_ips:
+        description: Whether to create static IPs as part of the eth devnet for the execution and beacon nodes
+        required: false
+        type: string
+        default: "false"
+      run_terraform_destroy:
+        description: Whether to run the terraform destroy
+        required: false
+        type: string
+        default: "false"
+
+jobs:
+  deploy_eth_devnet:
+    runs-on: ubuntu-latest
+    env:
+      TF_STATE_BUCKET: aztec-terraform
+      REGION: us-west1-a
+      # Common Terraform variables as environment variables
+      TF_VAR_NAMESPACE: ${{ inputs.namespace || 'eth-devnet' }}
+      TF_VAR_CHAIN_ID: ${{ inputs.chain_id || 1337 }}
+      TF_VAR_BLOCK_TIME: ${{ inputs.block_time || 12 }}
+      TF_VAR_GAS_LIMIT: ${{ inputs.gas_limit || '32000000' }}
+      TF_VAR_MNEMONIC_SECRET_NAME: eth-devnet-genesis-mnemonic
+      TF_VAR_PREFUNDED_MNEMONIC_INDICES: "0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,1000,1001,1002,1003"
+      TF_VAR_RESOURCE_PROFILE: ${{ inputs.resource_profile || 'prod' }}
+
+    steps:
+      - name: debug inputs
+        run: |
+          echo "cluster: ${{ inputs.cluster }}"
+          echo "namespace: ${{ inputs.namespace }}"
+          echo "ref: ${{ inputs.ref }}"
+          echo "chain_id: ${{ inputs.chain_id }}"
+          echo "block_time: ${{ inputs.block_time }}"
+          echo "gas_limit: ${{ inputs.gas_limit }}"
+          echo "resource_profile: ${{ inputs.resource_profile }}"
+          echo "create_static_ips: ${{ inputs.create_static_ips }}"
+          echo "run_terraform_destroy: ${{ inputs.run_terraform_destroy }}"
+
+      - name: Check if directory exists
+        id: check_dir
+        run: |
+          if [ -d ".git" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      # if running with `act`, skip the checkout since the code is mounted in
+      - name: Checkout code
+        if: ${{ steps.check_dir.outputs.exists != 'true' }}
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@6fc4af4b145ae7821d527454aa9bd537d1f2dc5f
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@6189d56e4096ee891640bb02ac264be376592d6a
+
+      - name: Install GKE Auth Plugin
+        run: |
+          gcloud components install gke-gcloud-auth-plugin --quiet
+
+      - name: Configure kubectl with GKE cluster
+        if: ${{ inputs.cluster != 'kind' }}
+        run: |
+          gcloud container clusters get-credentials ${{ inputs.cluster }} --region ${{ env.REGION }}
+
+      - name: Configure kubectl with kind cluster
+        if: ${{ inputs.cluster == 'kind' }}
+        run: |
+          # fail if kubeconfig is not provided
+          if [ -z "${{ secrets.KUBECONFIG_B64 }}" ]; then
+            echo "KUBECONFIG_B64 is not set"
+            exit 1
+          fi
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBECONFIG_B64 }}" | base64 -d > $HOME/.kube/config
+          kubectl config use-context kind-kind
+
+      - name: Set up Terraform variables
+        id: setup_vars
+        run: |
+          # Set CREATE_STATIC_IPS based on cluster type
+          # Note: Terraform boolean values must be "true" or "false" (lowercase, unquoted)
+          if [ "${{ inputs.cluster }}" == "kind" ]; then
+            CREATE_STATIC_IPS=false
+          else
+            # Convert string "true"/"false" to boolean for Terraform
+            if [ "${{ inputs.create_static_ips }}" == "true" ]; then
+              CREATE_STATIC_IPS=true
+            else
+              CREATE_STATIC_IPS=false
+            fi
+          fi
+
+          # Get kubectl context
+          CLUSTER_CONTEXT=$(kubectl config current-context)
+
+          # Export all as TF_VAR for Terraform
+          echo "TF_VAR_CREATE_STATIC_IPS=${CREATE_STATIC_IPS}" >> $GITHUB_ENV
+          echo "TF_VAR_K8S_CLUSTER_CONTEXT=${CLUSTER_CONTEXT}" >> $GITHUB_ENV
+
+      - name: Terraform Init
+        working-directory: ./spartan/terraform/deploy-eth-devnet
+        run: |
+          # Clean up any previous backend overrides
+          rm -f backend_override.tf
+
+          if [ "${{ inputs.cluster }}" == "kind" ]; then
+            # For kind, use local backend with explicit path
+            cat > backend_override.tf << EOF
+          terraform {
+            backend "local" {
+              path = "state/${{ inputs.cluster }}/${{ inputs.namespace }}/terraform.tfstate"
+            }
+          }
+          EOF
+          else
+            # For GKE, use GCS backend with explicit path
+            cat > backend_override.tf << EOF
+          terraform {
+            backend "gcs" {
+              bucket = "${{ env.TF_STATE_BUCKET }}"
+              prefix = "deploy-eth-devnet/${{ env.REGION }}/${{ inputs.cluster }}/${{ inputs.namespace }}/terraform.tfstate"
+            }
+          }
+          EOF
+          fi
+
+          terraform init -reconfigure
+
+      - name: Terraform Destroy
+        working-directory: ./spartan/terraform/deploy-eth-devnet
+        if: ${{ inputs.run_terraform_destroy == 'true' }}
+        # Destroy fails if the resources are already destroyed, so we continue on error
+        continue-on-error: true
+        run: |
+          # All variables are now set as TF_VAR_ environment variables
+          terraform destroy -auto-approve
+
+      - name: Terraform Plan
+        working-directory: ./spartan/terraform/deploy-eth-devnet
+        run: |
+          # All variables are now set as TF_VAR_ environment variables
+          terraform plan -out=tfplan
+
+      - name: Terraform Apply
+        working-directory: ./spartan/terraform/deploy-eth-devnet
+        run: |
+          terraform apply tfplan
