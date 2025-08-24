@@ -59,6 +59,11 @@ on:
         required: false
         type: string
         default: "false"
+      mnemonic:
+        description: The mnemonic to use for the eth devnet
+        required: false
+        type: string
+        default: "test test test test test test test test test test test junk"
     secrets:
       GCP_SA_KEY:
         description: The JSON key for the GCP service account
@@ -66,6 +71,19 @@ on:
       KUBECONFIG_B64:
         description: The base64 encoded kubeconfig
         required: true
+    outputs:
+      rpc_url:
+        description: The RPC URL for the eth devnet
+        value: ${{ jobs.deploy_eth_devnet.outputs.rpc_url }}
+      ws_url:
+        description: The WebSocket URL for the eth devnet
+        value: ${{ jobs.deploy_eth_devnet.outputs.ws_url }}
+      beacon_url:
+        description: The Beacon URL for the eth devnet
+        value: ${{ jobs.deploy_eth_devnet.outputs.beacon_url }}
+      chain_id:
+        description: The chain ID for the eth devnet
+        value: ${{ jobs.deploy_eth_devnet.outputs.chain_id }}
 
   workflow_dispatch:
     inputs:
@@ -114,10 +132,20 @@ on:
         required: false
         type: string
         default: "false"
+      mnemonic:
+        description: The mnemonic to use for the eth devnet
+        required: false
+        type: string
+        default: "test test test test test test test test test test test junk"
 
 jobs:
   deploy_eth_devnet:
     runs-on: ubuntu-latest
+    outputs:
+      rpc_url: ${{ steps.get-eth-devnet-results.outputs.rpc_url }}
+      ws_url: ${{ steps.get-eth-devnet-results.outputs.ws_url }}
+      beacon_url: ${{ steps.get-eth-devnet-results.outputs.beacon_url }}
+      chain_id: ${{ steps.get-eth-devnet-results.outputs.chain_id }}
     env:
       TF_STATE_BUCKET: aztec-terraform
       REGION: us-west1-a
@@ -131,6 +159,11 @@ jobs:
       TF_VAR_RESOURCE_PROFILE: ${{ inputs.resource_profile || 'prod' }}
 
     steps:
+      - name: Mask the mnemonic
+        id: mask-mnemonic
+        run: |
+          echo "::add-mask::${{ inputs.mnemonic }}"
+
       - name: Debug inputs
         run: |
           echo "cluster: ${{ inputs.cluster }}"
@@ -179,3 +212,27 @@ jobs:
         working-directory: ./spartan/terraform/deploy-eth-devnet
         run: |
           terraform apply tfplan
+
+      - name: Get eth devnet deployment results
+        id: get-eth-devnet-results
+        working-directory: ./spartan/terraform/deploy-eth-devnet
+
+        run: |
+          echo "=== Eth Devnet Deployment Results ==="
+
+          # Get outputs from the eth-devnet deployment
+          RPC_URL=$(terraform output -raw eth_execution_rpc_url)
+          WS_URL=$(terraform output -raw eth_execution_ws_url)
+          BEACON_URL=$(terraform output -raw eth_beacon_api_url)
+          CHAIN_ID=$(terraform output -raw chain_id)
+
+          echo "RPC_URL: $RPC_URL"
+          echo "WS_URL: $WS_URL"
+          echo "BEACON_URL: $BEACON_URL"
+          echo "CHAIN_ID: $CHAIN_ID"
+
+          # Export as outputs for other steps
+          echo "rpc_url=$RPC_URL" >> $GITHUB_OUTPUT
+          echo "ws_url=$WS_URL" >> $GITHUB_OUTPUT
+          echo "beacon_url=$BEACON_URL" >> $GITHUB_OUTPUT
+          echo "chain_id=$CHAIN_ID" >> $GITHUB_OUTPUT
