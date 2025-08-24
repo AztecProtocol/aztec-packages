@@ -13,29 +13,29 @@
     "spellcheck:appendwords": "yarn cspell --words-only --unique | sort --ignore-case >> docs-words.txt"
   },
   "dependencies": {
-    "@cookbookdev/docsbot": "^4.21.12",
-    "@docusaurus/core": "3.6.0",
-    "@docusaurus/plugin-content-docs": "3.6.0",
-    "@docusaurus/plugin-ideal-image": "3.6.0",
-    "@docusaurus/preset-classic": "3.6.0",
-    "@docusaurus/theme-mermaid": "3.6.0",
-    "clsx": "^2.0.0",
-    "docusaurus-theme-search-typesense": "0.23.0-0",
-    "prism-react-renderer": "^2.3.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-markdown": "6.0.0",
-    "react-player": "^2.12.0",
+    "@cookbookdev/docsbot": "^4.25.11",
+    "@docusaurus/core": "3.8.1",
+    "@docusaurus/plugin-content-docs": "3.8.1",
+    "@docusaurus/plugin-ideal-image": "3.8.1",
+    "@docusaurus/preset-classic": "3.8.1",
+    "@docusaurus/theme-mermaid": "3.8.1",
+    "clsx": "^2.1.1",
+    "docusaurus-theme-search-typesense": "0.25.0",
+    "prism-react-renderer": "^2.4.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-markdown": "6.0.3",
+    "react-player": "^2.16.1",
     "rehype-katex": "7",
     "remark-math": "6"
   },
   "devDependencies": {
-    "@docusaurus/tsconfig": "3.6.0",
-    "@tsconfig/docusaurus": "^1.0.5",
+    "@docusaurus/tsconfig": "3.8.1",
+    "@tsconfig/docusaurus": "^1.0.7",
     "cspell": "^8.19.4",
-    "docusaurus-plugin-llms": "^0.1.5",
-    "dotenv": "^16.3.1",
-    "netlify-cli": "^17.23.0"
+    "docusaurus-plugin-llms": "^0.2.0",
+    "dotenv": "^16.6.1",
+    "netlify-cli": "^17.38.1"
   },
   "cspell": {
     "import": [
