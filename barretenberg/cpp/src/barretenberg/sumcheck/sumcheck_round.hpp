@@ -801,7 +801,8 @@ template <typename Flavor> class SumcheckVerifierRound {
      * @param round_challenge \f$ u_i\f$
      *
      */
-    void compute_next_target_sum(bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& univariate, FF& round_challenge)
+    void compute_next_target_sum(bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& univariate,
+                                 const FF& round_challenge)
     {
         // Evaluate \f$\tilde{S}^{i}(u_{i}) \f$
         target_total_sum = univariate.evaluate(round_challenge);

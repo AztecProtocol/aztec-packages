@@ -140,13 +140,17 @@ namespace bb {
 
 template <typename Flavor> struct RowDisablingPolynomial {
     using FF = typename Flavor::FF;
+    static constexpr bool is_ultra_zk = IsAnyOf<Flavor,
+                                                UltraZKFlavor,
+                                                UltraZKRecursiveFlavor_<UltraCircuitBuilder>,
+                                                UltraZKRecursiveFlavor_<MegaCircuitBuilder>>;
     // initialized as a constant linear polynomial = 1
     FF eval_at_0{ 1 };
     FF eval_at_1{ 1 };
 
     RowDisablingPolynomial()
     {
-        if constexpr (std::is_same_v<Flavor, UltraZKFlavor>) {
+        if constexpr (is_ultra_zk) {
             eval_at_0 = 1;
             eval_at_1 = 1;
         }
@@ -162,7 +166,7 @@ template <typename Flavor> struct RowDisablingPolynomial {
      * @param round_idx Sumcheck round index
      */
     void update_evaluations(FF round_challenge, size_t round_idx)
-        requires(!std::is_same_v<Flavor, UltraZKFlavor>)
+        requires(!is_ultra_zk)
     {
         if (round_idx == 1) {
             eval_at_0 = FF{ 0 };
@@ -172,7 +176,7 @@ template <typename Flavor> struct RowDisablingPolynomial {
         }
     }
     void update_evaluations(FF round_challenge, size_t round_idx)
-        requires(std::is_same_v<Flavor, UltraZKFlavor>)
+        requires(is_ultra_zk)
     {
         if (round_idx == 1) {
             eval_at_1 = 0;
@@ -190,7 +194,7 @@ template <typename Flavor> struct RowDisablingPolynomial {
      * @return FF
      */
     static FF evaluate_at_challenge(std::vector<FF> multivariate_challenge, const size_t log_circuit_size)
-        requires(!std::is_same_v<Flavor, UltraZKFlavor>)
+        requires(!is_ultra_zk)
 
     {
         FF evaluation_at_multivariate_challenge{ 1 };
@@ -203,7 +207,7 @@ template <typename Flavor> struct RowDisablingPolynomial {
     }
 
     static FF evaluate_at_challenge(std::vector<FF> multivariate_challenge, const size_t log_circuit_size)
-        requires(std::is_same_v<Flavor, UltraZKFlavor>)
+        requires(is_ultra_zk)
 
     {
         FF evaluation_at_multivariate_challenge{ 1 };

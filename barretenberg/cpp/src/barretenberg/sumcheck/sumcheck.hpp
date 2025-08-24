@@ -769,7 +769,8 @@ template <typename Flavor> class SumcheckVerifier {
             round_univariate =
                 transcript->template receive_from_prover<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
                     round_univariate_label);
-            FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
+            const FF round_challenge =
+                transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
             multivariate_challenge.emplace_back(round_challenge);
 
             const bool checked = round.check_sum(round_univariate);
