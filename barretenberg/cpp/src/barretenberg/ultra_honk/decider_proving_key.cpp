@@ -108,28 +108,30 @@ void DeciderProvingKey_<Flavor>::allocate_table_lookup_polynomials(const Circuit
     PROFILE_THIS_NAME("allocate_table_lookup_and_lookup_read_polynomials");
 
     size_t table_offset = circuit.blocks.lookup.trace_offset();
+    size_t table_start_idx = std::is_same_v<Flavor, UltraZKFlavor> ? 1 : table_offset;
+    size_t zk_offset = std::is_same_v<Flavor, UltraZKFlavor> ? 4 : 0;
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1193): can potentially improve memory footprint
-    const size_t max_tables_size = dyadic_size() - table_offset;
+    const size_t max_tables_size = dyadic_size() - table_offset - zk_offset;
     BB_ASSERT_GT(dyadic_size(), max_tables_size);
 
     // Allocate the polynomials containing the actual table data
     if constexpr (IsUltraOrMegaHonk<Flavor>) {
         for (auto& poly : polynomials.get_tables()) {
-            poly = Polynomial(max_tables_size, dyadic_size(), table_offset);
+            poly = Polynomial(max_tables_size + zk_offset, dyadic_size(), table_start_idx);
         }
     }
 
     // Allocate the read counts and tags polynomials
-    polynomials.lookup_read_counts = Polynomial(max_tables_size, dyadic_size(), table_offset);
-    polynomials.lookup_read_tags = Polynomial(max_tables_size, dyadic_size(), table_offset);
+    polynomials.lookup_read_counts = Polynomial(max_tables_size + zk_offset, dyadic_size(), table_start_idx);
+    polynomials.lookup_read_tags = Polynomial(max_tables_size + zk_offset, dyadic_size(), table_start_idx);
 
     const size_t lookup_block_end =
-        static_cast<size_t>(circuit.blocks.lookup.trace_offset() + circuit.blocks.lookup.get_fixed_size(is_structured));
-    const auto tables_end = circuit.blocks.lookup.trace_offset() + max_tables_size;
+        static_cast<size_t>(table_offset + circuit.blocks.lookup.get_fixed_size(is_structured));
+    const auto tables_end = table_offset + max_tables_size + zk_offset;
 
     // Allocate the lookup_inverses polynomial
 
-    const size_t lookup_inverses_start = table_offset;
+    const size_t lookup_inverses_start = table_start_idx;
     const size_t lookup_inverses_end = std::max(lookup_block_end, tables_end);
 
     polynomials.lookup_inverses =

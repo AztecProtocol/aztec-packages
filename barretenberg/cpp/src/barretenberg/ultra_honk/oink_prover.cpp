@@ -112,9 +112,9 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_wire_commit
         auto commit_type = (proving_key->get_is_structured()) ? CommitmentKey::CommitType::Structured
                                                               : CommitmentKey::CommitType::Default;
 
-        commit_to_witness_polynomial(proving_key->polynomials.w_l, commitment_labels.w_l, commit_type);
-        commit_to_witness_polynomial(proving_key->polynomials.w_r, commitment_labels.w_r, commit_type);
-        commit_to_witness_polynomial(proving_key->polynomials.w_o, commitment_labels.w_o, commit_type);
+        commit_to_witness_polynomial(proving_key->polynomials.w_l, commitment_labels.w_l, commit_type, "w_l");
+        commit_to_witness_polynomial(proving_key->polynomials.w_r, commitment_labels.w_r, commit_type, "w_r");
+        commit_to_witness_polynomial(proving_key->polynomials.w_o, commitment_labels.w_o, commit_type, "w_o");
     }
 
     if constexpr (IsMegaFlavor<Flavor>) {
@@ -167,18 +167,20 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_sorted_list
         PROFILE_THIS_NAME("COMMIT::lookup_counts_tags");
         commit_to_witness_polynomial(proving_key->polynomials.lookup_read_counts,
                                      commitment_labels.lookup_read_counts,
-                                     CommitmentKey::CommitType::Sparse);
+                                     CommitmentKey::CommitType::Sparse,
+                                     "lookup read counts");
 
         commit_to_witness_polynomial(proving_key->polynomials.lookup_read_tags,
                                      commitment_labels.lookup_read_tags,
-                                     CommitmentKey::CommitType::Sparse);
+                                     CommitmentKey::CommitType::Sparse,
+                                     "lookup read tags");
     }
     {
         PROFILE_THIS_NAME("COMMIT::wires");
         auto commit_type = (proving_key->get_is_structured()) ? CommitmentKey::CommitType::Structured
                                                               : CommitmentKey::CommitType::Default;
         commit_to_witness_polynomial(
-            proving_key->polynomials.w_4, domain_separator + commitment_labels.w_4, commit_type);
+            proving_key->polynomials.w_4, domain_separator + commitment_labels.w_4, commit_type, "w_4");
     }
 }
 
@@ -201,7 +203,8 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_log_derivat
         PROFILE_THIS_NAME("COMMIT::lookup_inverses");
         commit_to_witness_polynomial(proving_key->polynomials.lookup_inverses,
                                      commitment_labels.lookup_inverses,
-                                     CommitmentKey::CommitType::Sparse);
+                                     CommitmentKey::CommitType::Sparse,
+                                     "lookup inverses");
     }
 
     // If Mega, commit to the databus inverse polynomials and send
@@ -236,7 +239,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_grand_produ
         PROFILE_THIS_NAME("COMMIT::z_perm");
         auto commit_type = (proving_key->get_is_structured()) ? CommitmentKey::CommitType::StructuredNonZeroComplement
                                                               : CommitmentKey::CommitType::Default;
-        commit_to_witness_polynomial(proving_key->polynomials.z_perm, commitment_labels.z_perm, commit_type);
+        commit_to_witness_polynomial(proving_key->polynomials.z_perm, commitment_labels.z_perm, commit_type, "z_perm");
     }
 }
 
@@ -266,17 +269,17 @@ template <IsUltraOrMegaHonk Flavor> typename Flavor::SubrelationSeparators OinkP
 template <IsUltraOrMegaHonk Flavor>
 void OinkProver<Flavor>::commit_to_witness_polynomial(Polynomial<FF>& polynomial,
                                                       const std::string& label,
-                                                      const CommitmentKey::CommitType type)
+                                                      const CommitmentKey::CommitType type,
+                                                      std::string msg)
 {
     // Mask the polynomial when proving in zero-knowledge
     if constexpr (Flavor::HasZK) {
         if constexpr (!std::is_same_v<Flavor, UltraZKFlavor>) {
             polynomial.mask();
         } else {
+            info("masking ", msg);
             for (size_t idx = 1; idx < 4; idx++) {
-                if (polynomial.start_index() < 4) {
-                    polynomial.at(idx) = FF::random_element();
-                }
+                polynomial.at(idx) = FF::random_element();
             }
         }
     };

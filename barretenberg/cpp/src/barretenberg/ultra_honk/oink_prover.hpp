@@ -77,7 +77,8 @@ template <IsUltraOrMegaHonk Flavor> class OinkProver {
     SubrelationSeparators generate_alphas_round();
     void commit_to_witness_polynomial(Polynomial<FF>& polynomial,
                                       const std::string& label,
-                                      const CommitmentKey::CommitType type = CommitmentKey::CommitType::Default);
+                                      const CommitmentKey::CommitType type = CommitmentKey::CommitType::Default,
+                                      std::string msg = "");
 };
 
 using MegaOinkProver = OinkProver<MegaFlavor>;
