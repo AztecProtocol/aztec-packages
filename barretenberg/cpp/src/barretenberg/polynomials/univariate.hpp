@@ -69,6 +69,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         return result;
     }
 
+    // Compute Lagrange coefficients of a given linear polynomial represented in monomial basis.
     template <bool has_a0_plus_a1> Univariate(UnivariateCoefficientBasis<Fr, 2, has_a0_plus_a1> monomial)
     {
         static_assert(domain_start == 0);
@@ -86,6 +87,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         }
     }
 
+    // Compute Lagrange coefficients of a given quadratic polynomial represented in monomial basis.
     template <bool has_a0_plus_a1> Univariate(UnivariateCoefficientBasis<Fr, 3, has_a0_plus_a1> monomial)
     {
         static_assert(domain_start == 0);
