@@ -5,6 +5,10 @@ use aztec::{
 };
 use token::Token;
 
+global AUTHWIT_NONCE: Field = 1;
+global DEFAULT_AMOUNT_0_MIN: u128 = 0;
+global DEFAULT_AMOUNT_1_MIN: u128 = 0;
+
 #[test]
 unconstrained fn add_liquidity_twice_and_remove_liquidity_happy_path() {
     let (mut env, amm_address, token0_address, token1_address, liquidity_token_address, minter) =
@@ -29,7 +33,7 @@ unconstrained fn add_liquidity_twice_and_remove_liquidity_happy_path() {
         liquidity_provider_1,
         amm_address,
         initial_amount0,
-        1,
+        AUTHWIT_NONCE,
     );
     add_private_authwit_from_call_interface(
         liquidity_provider_1,
@@ -41,7 +45,7 @@ unconstrained fn add_liquidity_twice_and_remove_liquidity_happy_path() {
         liquidity_provider_1,
         amm_address,
         initial_amount1,
-        1,
+        AUTHWIT_NONCE,
     );
     add_private_authwit_from_call_interface(
         liquidity_provider_1,
@@ -51,15 +55,25 @@ unconstrained fn add_liquidity_twice_and_remove_liquidity_happy_path() {
 
     env.call_private(
         liquidity_provider_1,
-        amm.add_liquidity(initial_amount0, initial_amount1, 0, 0, 1),
+        amm.add_liquidity(
+            initial_amount0,
+            initial_amount1,
+            DEFAULT_AMOUNT_0_MIN,
+            DEFAULT_AMOUNT_1_MIN,
+            AUTHWIT_NONCE,
+        ),
     );
 
     // Add liquidity from liquidity provider 2 with excess token1
-    let amount0_max = 500 as u128;
-    let amount1_max = 1200 as u128; // Intentionally higher than 1:2 ratio to test we get a refund
-    let amount0_min = 400 as u128;
-    let amount1_min = 800 as u128;
-    let authwit_nonce = 2;
+    let amount0_max = initial_amount0 / 2;
+
+    // We intentionally set the amount1_max to be higher than the liquidity ration to check that we get a refund.
+    let expected_refund_amount1 = 200 as u128;
+    let amount1_max = initial_amount1 / 2 + expected_refund_amount1;
+
+    // We don't care about the mins here and we set them somewhat arbitrarily.
+    let amount0_min = amount0_max / 4;
+    let amount1_min = amount1_max / 4;
 
     env.call_private(minter, token0.mint_to_private(liquidity_provider_2, amount0_max));
     env.call_private(minter, token1.mint_to_private(liquidity_provider_2, amount1_max));
@@ -68,7 +82,7 @@ unconstrained fn add_liquidity_twice_and_remove_liquidity_happy_path() {
         liquidity_provider_2,
         amm_address,
         amount0_max,
-        authwit_nonce,
+        AUTHWIT_NONCE,
     );
     add_private_authwit_from_call_interface(
         liquidity_provider_2,
@@ -80,7 +94,7 @@ unconstrained fn add_liquidity_twice_and_remove_liquidity_happy_path() {
         liquidity_provider_2,
         amm_address,
         amount1_max,
-        authwit_nonce,
+        AUTHWIT_NONCE,
     );
     add_private_authwit_from_call_interface(
         liquidity_provider_2,
@@ -90,7 +104,7 @@ unconstrained fn add_liquidity_twice_and_remove_liquidity_happy_path() {
 
     env.call_private(
         liquidity_provider_2,
-        amm.add_liquidity(amount0_max, amount1_max, amount0_min, amount1_min, authwit_nonce),
+        amm.add_liquidity(amount0_max, amount1_max, amount0_min, amount1_min, AUTHWIT_NONCE),
     );
 
     // Verify balances after adding liquidity
@@ -104,9 +118,12 @@ unconstrained fn add_liquidity_twice_and_remove_liquidity_happy_path() {
         initial_amount1 + 1000, // Only 1000 token1 used to maintain ratio
     );
 
-    // Liquidity provider 2 should have 0 token0 and 200 token1 (refunded excess)
+    // Liquidity provider 2 should have 0 token0 and the refund amount of token1
     assert_eq(env.simulate_utility(token0.balance_of_private(liquidity_provider_2)), 0);
-    assert_eq(env.simulate_utility(token1.balance_of_private(liquidity_provider_2)), 200);
+    assert_eq(
+        env.simulate_utility(token1.balance_of_private(liquidity_provider_2)),
+        expected_refund_amount1,
+    );
 
     // Check liquidity provider 2 received liquidity tokens proportional to their contribution
     // Expected: min((500 * 100000) / 1000, (1000 * 100000) / 2000) = 50000
@@ -119,14 +136,13 @@ unconstrained fn add_liquidity_twice_and_remove_liquidity_happy_path() {
     let liquidity_to_remove = 49500 as u128; // Half of 99000
     let amount0_min = 400 as u128;
     let amount1_min = 800 as u128;
-    let authwit_nonce = 3;
 
     // Create authwit for transferring liquidity tokens to AMM
     let transfer_liquidity_call_interface = liquidity_token.transfer_to_public(
         liquidity_provider_1,
         amm_address,
         liquidity_to_remove,
-        authwit_nonce,
+        AUTHWIT_NONCE,
     );
     add_private_authwit_from_call_interface(
         liquidity_provider_1,
@@ -136,7 +152,7 @@ unconstrained fn add_liquidity_twice_and_remove_liquidity_happy_path() {
 
     env.call_private(
         liquidity_provider_1,
-        amm.remove_liquidity(liquidity_to_remove, amount0_min, amount1_min, authwit_nonce),
+        amm.remove_liquidity(liquidity_to_remove, amount0_min, amount1_min, AUTHWIT_NONCE),
     );
 
     // Verify liquidity provider 1 got tokens back (proportional to liquidity burned)
@@ -174,7 +190,7 @@ unconstrained fn swap_exact_tokens_for_tokens_happy_path() {
         liquidity_provider,
         amm_address,
         liquidity_amount0,
-        1,
+        AUTHWIT_NONCE,
     );
     add_private_authwit_from_call_interface(
         liquidity_provider,
@@ -186,7 +202,7 @@ unconstrained fn swap_exact_tokens_for_tokens_happy_path() {
         liquidity_provider,
         amm_address,
         liquidity_amount1,
-        1,
+        AUTHWIT_NONCE,
     );
     add_private_authwit_from_call_interface(
         liquidity_provider,
@@ -196,19 +212,18 @@ unconstrained fn swap_exact_tokens_for_tokens_happy_path() {
 
     env.call_private(
         liquidity_provider,
-        amm.add_liquidity(liquidity_amount0, liquidity_amount1, 0, 0, 1),
+        amm.add_liquidity(liquidity_amount0, liquidity_amount1, 0, 0, AUTHWIT_NONCE),
     );
 
     // Now perform a swap
     let amount_in = 1000 as u128;
     let amount_out_min = 1800 as u128; // Expect ~1814 with 0.3% fee
-    let authwit_nonce = 2;
 
     env.call_private(minter, token0.mint_to_private(swapper, amount_in));
 
     // Create authwit for transferring tokens to AMM
     let transfer_call_interface =
-        token0.transfer_to_public(swapper, amm_address, amount_in, authwit_nonce);
+        token0.transfer_to_public(swapper, amm_address, amount_in, AUTHWIT_NONCE);
     add_private_authwit_from_call_interface(swapper, amm_address, transfer_call_interface);
 
     env.call_private(
@@ -218,7 +233,7 @@ unconstrained fn swap_exact_tokens_for_tokens_happy_path() {
             token1_address,
             amount_in,
             amount_out_min,
-            authwit_nonce,
+            AUTHWIT_NONCE,
         ),
     );
 
@@ -252,7 +267,7 @@ unconstrained fn swap_tokens_for_exact_tokens_happy_path() {
         liquidity_provider,
         amm_address,
         liquidity_amount0,
-        1,
+        AUTHWIT_NONCE,
     );
     add_private_authwit_from_call_interface(
         liquidity_provider,
@@ -264,7 +279,7 @@ unconstrained fn swap_tokens_for_exact_tokens_happy_path() {
         liquidity_provider,
         amm_address,
         liquidity_amount1,
-        1,
+        AUTHWIT_NONCE,
     );
     add_private_authwit_from_call_interface(
         liquidity_provider,
@@ -274,13 +289,12 @@ unconstrained fn swap_tokens_for_exact_tokens_happy_path() {
 
     env.call_private(
         liquidity_provider,
-        amm.add_liquidity(liquidity_amount0, liquidity_amount1, 0, 0, 1),
+        amm.add_liquidity(liquidity_amount0, liquidity_amount1, 0, 0, AUTHWIT_NONCE),
     );
 
     // Now perform a swap for exact tokens out
     let amount_out = 1000 as u128;
     let amount_in_max = 600 as u128; // Should need ~503 tokens in with 0.3% fee
-    let authwit_nonce = 2;
 
     env.call_private(minter, token0.mint_to_private(swapper, amount_in_max));
 
@@ -289,7 +303,7 @@ unconstrained fn swap_tokens_for_exact_tokens_happy_path() {
         swapper,
         amm_address,
         amount_in_max,
-        authwit_nonce,
+        AUTHWIT_NONCE,
     );
     add_private_authwit_from_call_interface(swapper, amm_address, transfer_call_interface);
 
@@ -300,7 +314,7 @@ unconstrained fn swap_tokens_for_exact_tokens_happy_path() {
             token1_address,
             amount_out,
             amount_in_max,
-            authwit_nonce,
+            AUTHWIT_NONCE,
         ),
     );
 
@@ -327,11 +341,10 @@ unconstrained fn add_liquidity_incorrect_token0_limits() {
     let amount1_max = 1000 as u128;
     let amount0_min = 600 as u128; // Invalid: min > max
     let amount1_min = 500 as u128;
-    let authwit_nonce = 1;
 
     env.call_private(
         liquidity_provider,
-        amm.add_liquidity(amount0_max, amount1_max, amount0_min, amount1_min, authwit_nonce),
+        amm.add_liquidity(amount0_max, amount1_max, amount0_min, amount1_min, AUTHWIT_NONCE),
     );
 }
 
@@ -348,11 +361,10 @@ unconstrained fn add_liquidity_incorrect_token1_limits() {
     let amount1_max = 1000 as u128;
     let amount0_min = 400 as u128;
     let amount1_min = 1100 as u128; // Invalid: min > max
-    let authwit_nonce = 1;
 
     env.call_private(
         liquidity_provider,
-        amm.add_liquidity(amount0_max, amount1_max, amount0_min, amount1_min, authwit_nonce),
+        amm.add_liquidity(amount0_max, amount1_max, amount0_min, amount1_min, AUTHWIT_NONCE),
     );
 }
 
@@ -368,11 +380,10 @@ unconstrained fn add_liquidity_zero_amount0_max() {
     let amount1_max = 1000 as u128;
     let amount0_min = 0 as u128;
     let amount1_min = 500 as u128;
-    let authwit_nonce = 1;
 
     env.call_private(
         liquidity_provider,
-        amm.add_liquidity(amount0_max, amount1_max, amount0_min, amount1_min, authwit_nonce),
+        amm.add_liquidity(amount0_max, amount1_max, amount0_min, amount1_min, AUTHWIT_NONCE),
     );
 }
 
@@ -388,11 +399,10 @@ unconstrained fn add_liquidity_zero_amount1_max() {
     let amount1_max = 0 as u128; // Invalid: zero amount
     let amount0_min = 500 as u128;
     let amount1_min = 0 as u128;
-    let authwit_nonce = 1;
 
     env.call_private(
         liquidity_provider,
-        amm.add_liquidity(amount0_max, amount1_max, amount0_min, amount1_min, authwit_nonce),
+        amm.add_liquidity(amount0_max, amount1_max, amount0_min, amount1_min, AUTHWIT_NONCE),
     );
 }
 
@@ -409,7 +419,6 @@ unconstrained fn swap_exact_tokens_invalid_token_in() {
     let invalid_token = AztecAddress::from_field(999);
     let amount_in = 1000 as u128;
     let amount_out_min = 900 as u128;
-    let authwit_nonce = 1;
 
     env.call_private(
         swapper,
@@ -418,7 +427,7 @@ unconstrained fn swap_exact_tokens_invalid_token_in() {
             token1_address,
             amount_in,
             amount_out_min,
-            authwit_nonce,
+            AUTHWIT_NONCE,
         ),
     );
 }
@@ -434,7 +443,6 @@ unconstrained fn swap_exact_tokens_invalid_token_out() {
     let invalid_token = AztecAddress::from_field(999);
     let amount_in = 1000 as u128;
     let amount_out_min = 900 as u128;
-    let authwit_nonce = 1;
 
     env.call_private(
         swapper,
@@ -443,7 +451,7 @@ unconstrained fn swap_exact_tokens_invalid_token_out() {
             invalid_token,
             amount_in,
             amount_out_min,
-            authwit_nonce,
+            AUTHWIT_NONCE,
         ),
     );
 }
@@ -458,7 +466,6 @@ unconstrained fn swap_exact_tokens_same_tokens() {
 
     let amount_in = 1000 as u128;
     let amount_out_min = 900 as u128;
-    let authwit_nonce = 1;
 
     env.call_private(
         swapper,
@@ -467,7 +474,7 @@ unconstrained fn swap_exact_tokens_same_tokens() {
             token0_address, // Same token for in and out
             amount_in,
             amount_out_min,
-            authwit_nonce,
+            AUTHWIT_NONCE,
         ),
     );
 }
@@ -485,7 +492,6 @@ unconstrained fn swap_tokens_for_exact_invalid_token_in() {
     let invalid_token = AztecAddress::from_field(999);
     let amount_out = 1000 as u128;
     let amount_in_max = 1200 as u128;
-    let authwit_nonce = 1;
 
     env.call_private(
         swapper,
@@ -494,7 +500,7 @@ unconstrained fn swap_tokens_for_exact_invalid_token_in() {
             token1_address,
             amount_out,
             amount_in_max,
-            authwit_nonce,
+            AUTHWIT_NONCE,
         ),
     );
 }
@@ -510,7 +516,6 @@ unconstrained fn swap_tokens_for_exact_invalid_token_out() {
     let invalid_token = AztecAddress::from_field(999);
     let amount_out = 1000 as u128;
     let amount_in_max = 1200 as u128;
-    let authwit_nonce = 1;
 
     env.call_private(
         swapper,
@@ -519,7 +524,7 @@ unconstrained fn swap_tokens_for_exact_invalid_token_out() {
             invalid_token,
             amount_out,
             amount_in_max,
-            authwit_nonce,
+            AUTHWIT_NONCE,
         ),
     );
 }
@@ -534,7 +539,6 @@ unconstrained fn swap_tokens_for_exact_same_tokens() {
 
     let amount_out = 1000 as u128;
     let amount_in_max = 1200 as u128;
-    let authwit_nonce = 1;
 
     env.call_private(
         swapper,
@@ -543,7 +547,7 @@ unconstrained fn swap_tokens_for_exact_same_tokens() {
             token0_address, // Same token for in and out
             amount_out,
             amount_in_max,
-            authwit_nonce,
+            AUTHWIT_NONCE,
         ),
     );
 }
@@ -573,7 +577,7 @@ unconstrained fn add_liquidity_insufficient_liquidity_minted() {
         liquidity_provider_1,
         amm_address,
         initial_amount0,
-        1,
+        AUTHWIT_NONCE,
     );
     add_private_authwit_from_call_interface(
         liquidity_provider_1,
@@ -585,7 +589,7 @@ unconstrained fn add_liquidity_insufficient_liquidity_minted() {
         liquidity_provider_1,
         amm_address,
         initial_amount1,
-        1,
+        AUTHWIT_NONCE,
     );
     add_private_authwit_from_call_interface(
         liquidity_provider_1,
@@ -595,7 +599,7 @@ unconstrained fn add_liquidity_insufficient_liquidity_minted() {
 
     env.call_private(
         liquidity_provider_1,
-        amm.add_liquidity(initial_amount0, initial_amount1, 0, 0, 1),
+        amm.add_liquidity(initial_amount0, initial_amount1, 0, 0, AUTHWIT_NONCE),
     );
 
     // Now try to add very small liquidity that would result in 0 liquidity tokens
@@ -609,7 +613,7 @@ unconstrained fn add_liquidity_insufficient_liquidity_minted() {
         liquidity_provider_2,
         amm_address,
         tiny_amount0,
-        2,
+        AUTHWIT_NONCE,
     );
     add_private_authwit_from_call_interface(
         liquidity_provider_2,
@@ -630,7 +634,10 @@ unconstrained fn add_liquidity_insufficient_liquidity_minted() {
     );
 
     // This should fail because the liquidity minted would be 0
-    env.call_private(liquidity_provider_2, amm.add_liquidity(tiny_amount0, tiny_amount1, 0, 0, 2));
+    env.call_private(
+        liquidity_provider_2,
+        amm.add_liquidity(tiny_amount0, tiny_amount1, 0, 0, AUTHWIT_NONCE),
+    );
 }
 
 #[test(should_fail_with = "INSUFFICIENT_0_AMOUNT")]
@@ -656,7 +663,7 @@ unconstrained fn remove_liquidity_insufficient_amount0() {
         liquidity_provider,
         amm_address,
         amount0,
-        1,
+        AUTHWIT_NONCE,
     );
     add_private_authwit_from_call_interface(
         liquidity_provider,
@@ -668,7 +675,7 @@ unconstrained fn remove_liquidity_insufficient_amount0() {
         liquidity_provider,
         amm_address,
         amount1,
-        1,
+        AUTHWIT_NONCE,
     );
     add_private_authwit_from_call_interface(
         liquidity_provider,
@@ -676,19 +683,18 @@ unconstrained fn remove_liquidity_insufficient_amount0() {
         transfer1_call_interface,
     );
 
-    env.call_private(liquidity_provider, amm.add_liquidity(amount0, amount1, 0, 0, 1));
+    env.call_private(liquidity_provider, amm.add_liquidity(amount0, amount1, 0, 0, AUTHWIT_NONCE));
 
     // Try to remove liquidity with unrealistic minimum expectations
     let liquidity_to_remove = 49500 as u128; // Half of 99000
     let amount0_min = 10000 as u128; // Unrealistically high minimum
     let amount1_min = 800 as u128;
-    let authwit_nonce = 2;
 
     let transfer_liquidity_call_interface = liquidity_token.transfer_to_public(
         liquidity_provider,
         amm_address,
         liquidity_to_remove,
-        authwit_nonce,
+        AUTHWIT_NONCE,
     );
     add_private_authwit_from_call_interface(
         liquidity_provider,
@@ -698,7 +704,7 @@ unconstrained fn remove_liquidity_insufficient_amount0() {
 
     env.call_private(
         liquidity_provider,
-        amm.remove_liquidity(liquidity_to_remove, amount0_min, amount1_min, authwit_nonce),
+        amm.remove_liquidity(liquidity_to_remove, amount0_min, amount1_min, AUTHWIT_NONCE),
     );
 }
 
@@ -725,7 +731,7 @@ unconstrained fn remove_liquidity_insufficient_amount1() {
         liquidity_provider,
         amm_address,
         amount0,
-        1,
+        AUTHWIT_NONCE,
     );
     add_private_authwit_from_call_interface(
         liquidity_provider,
@@ -737,7 +743,7 @@ unconstrained fn remove_liquidity_insufficient_amount1() {
         liquidity_provider,
         amm_address,
         amount1,
-        1,
+        AUTHWIT_NONCE,
     );
     add_private_authwit_from_call_interface(
         liquidity_provider,
@@ -745,19 +751,18 @@ unconstrained fn remove_liquidity_insufficient_amount1() {
         transfer1_call_interface,
     );
 
-    env.call_private(liquidity_provider, amm.add_liquidity(amount0, amount1, 0, 0, 1));
+    env.call_private(liquidity_provider, amm.add_liquidity(amount0, amount1, 0, 0, AUTHWIT_NONCE));
 
     // Try to remove liquidity with unrealistic minimum expectations
     let liquidity_to_remove = 49500 as u128; // Half of 99000
     let amount0_min = 400 as u128;
     let amount1_min = 20000 as u128; // Unrealistically high minimum
-    let authwit_nonce = 2;
 
     let transfer_liquidity_call_interface = liquidity_token.transfer_to_public(
         liquidity_provider,
         amm_address,
         liquidity_to_remove,
-        authwit_nonce,
+        AUTHWIT_NONCE,
     );
     add_private_authwit_from_call_interface(
         liquidity_provider,
@@ -767,6 +772,6 @@ unconstrained fn remove_liquidity_insufficient_amount1() {
 
     env.call_private(
         liquidity_provider,
-        amm.remove_liquidity(liquidity_to_remove, amount0_min, amount1_min, authwit_nonce),
+        amm.remove_liquidity(liquidity_to_remove, amount0_min, amount1_min, AUTHWIT_NONCE),
     );
 }
