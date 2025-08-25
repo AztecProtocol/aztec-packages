@@ -121,14 +121,14 @@ struct AcirFormat {
 
     // Number of gates added to the circuit per original opcode.
     // Has length equal to num_acir_opcodes.
-    std::vector<size_t> gates_per_opcode = {};
+    std::vector<size_t> gates_per_opcode;
 
     // Set of constrained witnesses
-    std::set<uint32_t> constrained_witness = {};
+    std::set<uint32_t> constrained_witness;
     // map witness with their minimal bit-range
-    std::map<uint32_t, uint32_t> minimal_range = {};
+    std::map<uint32_t, uint32_t> minimal_range;
     // map witness with their minimal bit-range implied by array operations
-    std::map<uint32_t, uint32_t> index_range = {};
+    std::map<uint32_t, uint32_t> index_range;
 
     // Indices of the original opcode that originated each constraint in AcirFormat.
     AcirFormatOriginalOpcodeIndices original_opcode_indices;
