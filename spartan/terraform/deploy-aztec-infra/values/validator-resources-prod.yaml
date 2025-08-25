@@ -1,0 +1,30 @@
+validator:
+  hostNetwork: true
+  nodeSelector:
+    local-ssd: "false"
+    node-type: "network"
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - node
+          topologyKey: "kubernetes.io/hostname"
+          namespaceSelector: {}
+  node:
+    resources:
+      requests:
+        cpu: "3"
+        memory: "12Gi"
+  statefulSet:
+    volumeClaimTemplates:
+      - metadata:
+          name: data
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 16Gi

@@ -6,17 +6,10 @@ terraform {
       source  = "hashicorp/kubernetes"
       version = "~> 2.24.0"
     }
-    google = {
-      source  = "hashicorp/google"
-      version = "~> 5.0"
-    }
+
   }
 }
 
-provider "google" {
-  project = var.GCP_PROJECT
-  region  = var.GCP_REGION
-}
 
 provider "kubernetes" {
   alias          = "cluster"

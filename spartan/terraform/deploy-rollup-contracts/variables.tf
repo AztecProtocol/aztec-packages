@@ -1,13 +1,3 @@
-variable "GCP_PROJECT" {
-  description = "GCP project ID"
-  type        = string
-}
-
-variable "GCP_REGION" {
-  description = "GCP region"
-  type        = string
-  default     = "us-west1"
-}
 
 variable "K8S_CLUSTER_CONTEXT" {
   description = "Kubernetes cluster context"

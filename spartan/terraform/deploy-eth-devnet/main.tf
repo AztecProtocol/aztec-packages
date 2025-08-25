@@ -50,9 +50,7 @@ resource "google_compute_address" "eth_execution_ip" {
   address_type = "EXTERNAL"
   region       = var.region
 
-  lifecycle {
-    prevent_destroy = true
-  }
+
 }
 
 resource "google_compute_address" "eth_beacon_ip" {
@@ -62,9 +60,7 @@ resource "google_compute_address" "eth_beacon_ip" {
   address_type = "EXTERNAL"
   region       = var.region
 
-  lifecycle {
-    prevent_destroy = true
-  }
+
 }
 
 # Generate genesis files before deploying
