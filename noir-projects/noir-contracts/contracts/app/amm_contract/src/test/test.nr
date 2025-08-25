@@ -7,40 +7,52 @@ use token::Token;
 
 #[test]
 unconstrained fn add_liquidity_twice_and_remove_liquidity_happy_path() {
-    let (mut env, amm_address, token0_address, token1_address, liquidity_token_address, owner) =
+    let (mut env, amm_address, token0_address, token1_address, liquidity_token_address, minter) =
         setup();
 
-    let user2 = env.create_contract_account();
+    let liquidity_provider_1 = env.create_contract_account();
+    let liquidity_provider_2 = env.create_contract_account();
 
     let token0 = Token::at(token0_address);
     let token1 = Token::at(token1_address);
     let liquidity_token = Token::at(liquidity_token_address);
     let amm = AMM::at(amm_address);
 
-    // First add initial liquidity from owner
+    // First add initial liquidity from minter
     let initial_amount0 = 1000 as u128;
     let initial_amount1 = 2000 as u128;
 
-    env.call_private(owner, token0.mint_to_private(owner, initial_amount0));
-    env.call_private(owner, token1.mint_to_private(owner, initial_amount1));
+    env.call_private(minter, token0.mint_to_private(liquidity_provider_1, initial_amount0));
+    env.call_private(minter, token1.mint_to_private(liquidity_provider_1, initial_amount1));
 
     let transfer0_call_interface = token0.transfer_to_public_and_prepare_private_balance_increase(
-        owner,
+        liquidity_provider_1,
         amm_address,
         initial_amount0,
         1,
     );
-    add_private_authwit_from_call_interface(owner, amm_address, transfer0_call_interface);
+    add_private_authwit_from_call_interface(
+        liquidity_provider_1,
+        amm_address,
+        transfer0_call_interface,
+    );
 
     let transfer1_call_interface = token1.transfer_to_public_and_prepare_private_balance_increase(
-        owner,
+        liquidity_provider_1,
         amm_address,
         initial_amount1,
         1,
     );
-    add_private_authwit_from_call_interface(owner, amm_address, transfer1_call_interface);
+    add_private_authwit_from_call_interface(
+        liquidity_provider_1,
+        amm_address,
+        transfer1_call_interface,
+    );
 
-    env.call_private(owner, amm.add_liquidity(initial_amount0, initial_amount1, 0, 0, 1));
+    env.call_private(
+        liquidity_provider_1,
+        amm.add_liquidity(initial_amount0, initial_amount1, 0, 0, 1),
+    );
 
     // Add liquidity from user2 with excess token1
     let amount0_max = 500 as u128;
@@ -49,27 +61,35 @@ unconstrained fn add_liquidity_twice_and_remove_liquidity_happy_path() {
     let amount1_min = 800 as u128;
     let authwit_nonce = 2;
 
-    env.call_private(owner, token0.mint_to_private(user2, amount0_max));
-    env.call_private(owner, token1.mint_to_private(user2, amount1_max));
+    env.call_private(minter, token0.mint_to_private(liquidity_provider_2, amount0_max));
+    env.call_private(minter, token1.mint_to_private(liquidity_provider_2, amount1_max));
 
     let transfer0_call_interface = token0.transfer_to_public_and_prepare_private_balance_increase(
-        user2,
+        liquidity_provider_2,
         amm_address,
         amount0_max,
         authwit_nonce,
     );
-    add_private_authwit_from_call_interface(user2, amm_address, transfer0_call_interface);
+    add_private_authwit_from_call_interface(
+        liquidity_provider_2,
+        amm_address,
+        transfer0_call_interface,
+    );
 
     let transfer1_call_interface = token1.transfer_to_public_and_prepare_private_balance_increase(
-        user2,
+        liquidity_provider_2,
         amm_address,
         amount1_max,
         authwit_nonce,
     );
-    add_private_authwit_from_call_interface(user2, amm_address, transfer1_call_interface);
+    add_private_authwit_from_call_interface(
+        liquidity_provider_2,
+        amm_address,
+        transfer1_call_interface,
+    );
 
     env.call_private(
-        user2,
+        liquidity_provider_2,
         amm.add_liquidity(amount0_max, amount1_max, amount0_min, amount1_min, authwit_nonce),
     );
 
@@ -85,14 +105,17 @@ unconstrained fn add_liquidity_twice_and_remove_liquidity_happy_path() {
     );
 
     // User2 should have 0 token0 and 200 token1 (refunded excess)
-    assert_eq(env.simulate_utility(token0.balance_of_private(user2)), 0);
-    assert_eq(env.simulate_utility(token1.balance_of_private(user2)), 200);
+    assert_eq(env.simulate_utility(token0.balance_of_private(liquidity_provider_2)), 0);
+    assert_eq(env.simulate_utility(token1.balance_of_private(liquidity_provider_2)), 200);
 
     // Check user2 received liquidity tokens proportional to their contribution
     // Expected: min((500 * 100000) / 1000, (1000 * 100000) / 2000) = 50000
-    assert_eq(env.simulate_utility(liquidity_token.balance_of_private(user2)), 50000);
+    assert_eq(
+        env.simulate_utility(liquidity_token.balance_of_private(liquidity_provider_2)),
+        50000,
+    );
 
-    // Now remove half the liquidity from owner's position
+    // Now remove half the liquidity from minter's position
     let liquidity_to_remove = 49500 as u128; // Half of 99000
     let amount0_min = 400 as u128;
     let amount1_min = 800 as u128;
@@ -100,26 +123,26 @@ unconstrained fn add_liquidity_twice_and_remove_liquidity_happy_path() {
 
     // Create authwit for transferring liquidity tokens to AMM
     let transfer_liquidity_call_interface =
-        liquidity_token.transfer_to_public(owner, amm_address, liquidity_to_remove, authwit_nonce);
-    add_private_authwit_from_call_interface(owner, amm_address, transfer_liquidity_call_interface);
+        liquidity_token.transfer_to_public(minter, amm_address, liquidity_to_remove, authwit_nonce);
+    add_private_authwit_from_call_interface(minter, amm_address, transfer_liquidity_call_interface);
 
     env.call_private(
-        owner,
+        minter,
         amm.remove_liquidity(liquidity_to_remove, amount0_min, amount1_min, authwit_nonce),
     );
 
-    // Verify owner got tokens back (proportional to liquidity burned)
+    // Verify minter got tokens back (proportional to liquidity burned)
     // 49500/100000 of 1000 = 495, 49500/100000 of 2000 = 990
-    assert_eq(env.simulate_utility(token0.balance_of_private(owner)), 495);
-    assert_eq(env.simulate_utility(token1.balance_of_private(owner)), 990);
+    assert_eq(env.simulate_utility(token0.balance_of_private(minter)), 495);
+    assert_eq(env.simulate_utility(token1.balance_of_private(minter)), 990);
 
     // Check remaining liquidity tokens
-    assert_eq(env.simulate_utility(liquidity_token.balance_of_private(owner)), 49500); // Other half
+    assert_eq(env.simulate_utility(liquidity_token.balance_of_private(minter)), 49500); // Other half
 }
 
 #[test]
 unconstrained fn swap_exact_tokens_for_tokens_happy_path() {
-    let (mut env, amm_address, token0_address, token1_address, _liquidity_token_address, owner) =
+    let (mut env, amm_address, token0_address, token1_address, _liquidity_token_address, minter) =
         setup();
 
     let swapper = env.create_contract_account();
@@ -132,33 +155,33 @@ unconstrained fn swap_exact_tokens_for_tokens_happy_path() {
     let liquidity_amount0 = 10000 as u128;
     let liquidity_amount1 = 20000 as u128;
 
-    env.call_private(owner, token0.mint_to_private(owner, liquidity_amount0));
-    env.call_private(owner, token1.mint_to_private(owner, liquidity_amount1));
+    env.call_private(minter, token0.mint_to_private(minter, liquidity_amount0));
+    env.call_private(minter, token1.mint_to_private(minter, liquidity_amount1));
 
     let transfer0_call_interface = token0.transfer_to_public_and_prepare_private_balance_increase(
-        owner,
+        minter,
         amm_address,
         liquidity_amount0,
         1,
     );
-    add_private_authwit_from_call_interface(owner, amm_address, transfer0_call_interface);
+    add_private_authwit_from_call_interface(minter, amm_address, transfer0_call_interface);
 
     let transfer1_call_interface = token1.transfer_to_public_and_prepare_private_balance_increase(
-        owner,
+        minter,
         amm_address,
         liquidity_amount1,
         1,
     );
-    add_private_authwit_from_call_interface(owner, amm_address, transfer1_call_interface);
+    add_private_authwit_from_call_interface(minter, amm_address, transfer1_call_interface);
 
-    env.call_private(owner, amm.add_liquidity(liquidity_amount0, liquidity_amount1, 0, 0, 1));
+    env.call_private(minter, amm.add_liquidity(liquidity_amount0, liquidity_amount1, 0, 0, 1));
 
     // Now perform a swap
     let amount_in = 1000 as u128;
     let amount_out_min = 1800 as u128; // Expect ~1814 with 0.3% fee
     let authwit_nonce = 2;
 
-    env.call_private(owner, token0.mint_to_private(swapper, amount_in));
+    env.call_private(minter, token0.mint_to_private(swapper, amount_in));
 
     // Create authwit for transferring tokens to AMM
     let transfer_call_interface =
@@ -185,7 +208,7 @@ unconstrained fn swap_exact_tokens_for_tokens_happy_path() {
 
 #[test]
 unconstrained fn swap_tokens_for_exact_tokens_happy_path() {
-    let (mut env, amm_address, token0_address, token1_address, _liquidity_token_address, owner) =
+    let (mut env, amm_address, token0_address, token1_address, _liquidity_token_address, minter) =
         setup();
 
     let swapper = env.create_contract_account();
@@ -198,33 +221,33 @@ unconstrained fn swap_tokens_for_exact_tokens_happy_path() {
     let liquidity_amount0 = 10000 as u128;
     let liquidity_amount1 = 20000 as u128;
 
-    env.call_private(owner, token0.mint_to_private(owner, liquidity_amount0));
-    env.call_private(owner, token1.mint_to_private(owner, liquidity_amount1));
+    env.call_private(minter, token0.mint_to_private(minter, liquidity_amount0));
+    env.call_private(minter, token1.mint_to_private(minter, liquidity_amount1));
 
     let transfer0_call_interface = token0.transfer_to_public_and_prepare_private_balance_increase(
-        owner,
+        minter,
         amm_address,
         liquidity_amount0,
         1,
     );
-    add_private_authwit_from_call_interface(owner, amm_address, transfer0_call_interface);
+    add_private_authwit_from_call_interface(minter, amm_address, transfer0_call_interface);
 
     let transfer1_call_interface = token1.transfer_to_public_and_prepare_private_balance_increase(
-        owner,
+        minter,
         amm_address,
         liquidity_amount1,
         1,
     );
-    add_private_authwit_from_call_interface(owner, amm_address, transfer1_call_interface);
+    add_private_authwit_from_call_interface(minter, amm_address, transfer1_call_interface);
 
-    env.call_private(owner, amm.add_liquidity(liquidity_amount0, liquidity_amount1, 0, 0, 1));
+    env.call_private(minter, amm.add_liquidity(liquidity_amount0, liquidity_amount1, 0, 0, 1));
 
     // Now perform a swap for exact tokens out
     let amount_out = 1000 as u128;
     let amount_in_max = 600 as u128; // Should need ~503 tokens in with 0.3% fee
     let authwit_nonce = 2;
 
-    env.call_private(owner, token0.mint_to_private(swapper, amount_in_max));
+    env.call_private(minter, token0.mint_to_private(swapper, amount_in_max));
 
     // Create authwit for transferring tokens to AMM
     let transfer_call_interface = token0.transfer_to_public_and_prepare_private_balance_increase(
@@ -258,8 +281,8 @@ unconstrained fn swap_tokens_for_exact_tokens_happy_path() {
 
 #[test(should_fail_with = "INCORRECT_TOKEN0_LIMITS")]
 unconstrained fn add_liquidity_incorrect_token0_limits() {
-    let (mut env, amm_address, _token0_address, _token1_address, _liquidity_token_address, owner) =
-        setup();
+    let (mut env, amm_address, _token0_address, _token1_address, _liquidity_token_address, minter)
+         = setup();
 
     let amm = AMM::at(amm_address);
 
@@ -271,15 +294,15 @@ unconstrained fn add_liquidity_incorrect_token0_limits() {
     let authwit_nonce = 1;
 
     env.call_private(
-        owner,
+        minter,
         amm.add_liquidity(amount0_max, amount1_max, amount0_min, amount1_min, authwit_nonce),
     );
 }
 
 #[test(should_fail_with = "INCORRECT_TOKEN1_LIMITS")]
 unconstrained fn add_liquidity_incorrect_token1_limits() {
-    let (mut env, amm_address, _token0_address, _token1_address, _liquidity_token_address, owner) =
-        setup();
+    let (mut env, amm_address, _token0_address, _token1_address, _liquidity_token_address, minter)
+         = setup();
 
     let amm = AMM::at(amm_address);
 
@@ -291,15 +314,15 @@ unconstrained fn add_liquidity_incorrect_token1_limits() {
     let authwit_nonce = 1;
 
     env.call_private(
-        owner,
+        minter,
         amm.add_liquidity(amount0_max, amount1_max, amount0_min, amount1_min, authwit_nonce),
     );
 }
 
 #[test(should_fail_with = "INSUFFICIENT_INPUT_AMOUNTS")]
 unconstrained fn add_liquidity_zero_amount0_max() {
-    let (mut env, amm_address, _token0_address, _token1_address, _liquidity_token_address, owner) =
-        setup();
+    let (mut env, amm_address, _token0_address, _token1_address, _liquidity_token_address, minter)
+         = setup();
 
     let amm = AMM::at(amm_address);
 
@@ -310,15 +333,15 @@ unconstrained fn add_liquidity_zero_amount0_max() {
     let authwit_nonce = 1;
 
     env.call_private(
-        owner,
+        minter,
         amm.add_liquidity(amount0_max, amount1_max, amount0_min, amount1_min, authwit_nonce),
     );
 }
 
 #[test(should_fail_with = "INSUFFICIENT_INPUT_AMOUNTS")]
 unconstrained fn add_liquidity_zero_amount1_max() {
-    let (mut env, amm_address, _token0_address, _token1_address, _liquidity_token_address, owner) =
-        setup();
+    let (mut env, amm_address, _token0_address, _token1_address, _liquidity_token_address, minter)
+         = setup();
 
     let amm = AMM::at(amm_address);
 
@@ -329,7 +352,7 @@ unconstrained fn add_liquidity_zero_amount1_max() {
     let authwit_nonce = 1;
 
     env.call_private(
-        owner,
+        minter,
         amm.add_liquidity(amount0_max, amount1_max, amount0_min, amount1_min, authwit_nonce),
     );
 }
@@ -338,7 +361,7 @@ unconstrained fn add_liquidity_zero_amount1_max() {
 
 #[test(should_fail_with = "TOKEN_IN_IS_INVALID")]
 unconstrained fn swap_exact_tokens_invalid_token_in() {
-    let (mut env, amm_address, _token0_address, token1_address, _liquidity_token_address, owner) =
+    let (mut env, amm_address, _token0_address, token1_address, _liquidity_token_address, minter) =
         setup();
 
     let amm = AMM::at(amm_address);
@@ -349,7 +372,7 @@ unconstrained fn swap_exact_tokens_invalid_token_in() {
     let authwit_nonce = 1;
 
     env.call_private(
-        owner,
+        minter,
         amm.swap_exact_tokens_for_tokens(
             invalid_token,
             token1_address,
@@ -362,7 +385,7 @@ unconstrained fn swap_exact_tokens_invalid_token_in() {
 
 #[test(should_fail_with = "TOKEN_OUT_IS_INVALID")]
 unconstrained fn swap_exact_tokens_invalid_token_out() {
-    let (mut env, amm_address, token0_address, _token1_address, _liquidity_token_address, owner) =
+    let (mut env, amm_address, token0_address, _token1_address, _liquidity_token_address, minter) =
         setup();
 
     let amm = AMM::at(amm_address);
@@ -373,7 +396,7 @@ unconstrained fn swap_exact_tokens_invalid_token_out() {
     let authwit_nonce = 1;
 
     env.call_private(
-        owner,
+        minter,
         amm.swap_exact_tokens_for_tokens(
             token0_address,
             invalid_token,
@@ -386,7 +409,7 @@ unconstrained fn swap_exact_tokens_invalid_token_out() {
 
 #[test(should_fail_with = "SAME_TOKEN_SWAP")]
 unconstrained fn swap_exact_tokens_same_tokens() {
-    let (mut env, amm_address, token0_address, _token1_address, _liquidity_token_address, owner) =
+    let (mut env, amm_address, token0_address, _token1_address, _liquidity_token_address, minter) =
         setup();
 
     let amm = AMM::at(amm_address);
@@ -396,7 +419,7 @@ unconstrained fn swap_exact_tokens_same_tokens() {
     let authwit_nonce = 1;
 
     env.call_private(
-        owner,
+        minter,
         amm.swap_exact_tokens_for_tokens(
             token0_address,
             token0_address, // Same token for in and out
@@ -411,7 +434,7 @@ unconstrained fn swap_exact_tokens_same_tokens() {
 
 #[test(should_fail_with = "TOKEN_IN_IS_INVALID")]
 unconstrained fn swap_tokens_for_exact_invalid_token_in() {
-    let (mut env, amm_address, _token0_address, token1_address, _liquidity_token_address, owner) =
+    let (mut env, amm_address, _token0_address, token1_address, _liquidity_token_address, minter) =
         setup();
 
     let amm = AMM::at(amm_address);
@@ -422,7 +445,7 @@ unconstrained fn swap_tokens_for_exact_invalid_token_in() {
     let authwit_nonce = 1;
 
     env.call_private(
-        owner,
+        minter,
         amm.swap_tokens_for_exact_tokens(
             invalid_token,
             token1_address,
@@ -435,7 +458,7 @@ unconstrained fn swap_tokens_for_exact_invalid_token_in() {
 
 #[test(should_fail_with = "TOKEN_OUT_IS_INVALID")]
 unconstrained fn swap_tokens_for_exact_invalid_token_out() {
-    let (mut env, amm_address, token0_address, _token1_address, _liquidity_token_address, owner) =
+    let (mut env, amm_address, token0_address, _token1_address, _liquidity_token_address, minter) =
         setup();
 
     let amm = AMM::at(amm_address);
@@ -446,7 +469,7 @@ unconstrained fn swap_tokens_for_exact_invalid_token_out() {
     let authwit_nonce = 1;
 
     env.call_private(
-        owner,
+        minter,
         amm.swap_tokens_for_exact_tokens(
             token0_address,
             invalid_token,
@@ -459,7 +482,7 @@ unconstrained fn swap_tokens_for_exact_invalid_token_out() {
 
 #[test(should_fail_with = "SAME_TOKEN_SWAP")]
 unconstrained fn swap_tokens_for_exact_same_tokens() {
-    let (mut env, amm_address, token0_address, _token1_address, _liquidity_token_address, owner) =
+    let (mut env, amm_address, token0_address, _token1_address, _liquidity_token_address, minter) =
         setup();
 
     let amm = AMM::at(amm_address);
@@ -469,7 +492,7 @@ unconstrained fn swap_tokens_for_exact_same_tokens() {
     let authwit_nonce = 1;
 
     env.call_private(
-        owner,
+        minter,
         amm.swap_tokens_for_exact_tokens(
             token0_address,
             token0_address, // Same token for in and out
@@ -484,7 +507,7 @@ unconstrained fn swap_tokens_for_exact_same_tokens() {
 
 #[test(should_fail_with = "INSUFFICIENT_LIQUIDITY_MINTED")]
 unconstrained fn add_liquidity_insufficient_liquidity_minted() {
-    let (mut env, amm_address, token0_address, token1_address, _liquidity_token_address, owner) =
+    let (mut env, amm_address, token0_address, token1_address, _liquidity_token_address, minter) =
         setup();
 
     let token0 = Token::at(token0_address);
@@ -495,34 +518,34 @@ unconstrained fn add_liquidity_insufficient_liquidity_minted() {
     let initial_amount0 = 100000000 as u128; // Very large amount
     let initial_amount1 = 200000000 as u128;
 
-    env.call_private(owner, token0.mint_to_private(owner, initial_amount0));
-    env.call_private(owner, token1.mint_to_private(owner, initial_amount1));
+    env.call_private(minter, token0.mint_to_private(minter, initial_amount0));
+    env.call_private(minter, token1.mint_to_private(minter, initial_amount1));
 
     let transfer0_call_interface = token0.transfer_to_public_and_prepare_private_balance_increase(
-        owner,
+        minter,
         amm_address,
         initial_amount0,
         1,
     );
-    add_private_authwit_from_call_interface(owner, amm_address, transfer0_call_interface);
+    add_private_authwit_from_call_interface(minter, amm_address, transfer0_call_interface);
 
     let transfer1_call_interface = token1.transfer_to_public_and_prepare_private_balance_increase(
-        owner,
+        minter,
         amm_address,
         initial_amount1,
         1,
     );
-    add_private_authwit_from_call_interface(owner, amm_address, transfer1_call_interface);
+    add_private_authwit_from_call_interface(minter, amm_address, transfer1_call_interface);
 
-    env.call_private(owner, amm.add_liquidity(initial_amount0, initial_amount1, 0, 0, 1));
+    env.call_private(minter, amm.add_liquidity(initial_amount0, initial_amount1, 0, 0, 1));
 
     // Now try to add very small liquidity that would result in 0 liquidity tokens
     let user2 = env.create_contract_account();
     let tiny_amount0 = 1 as u128; // Very small amount
     let tiny_amount1 = 2 as u128;
 
-    env.call_private(owner, token0.mint_to_private(user2, tiny_amount0));
-    env.call_private(owner, token1.mint_to_private(user2, tiny_amount1));
+    env.call_private(minter, token0.mint_to_private(user2, tiny_amount0));
+    env.call_private(minter, token1.mint_to_private(user2, tiny_amount1));
 
     // Incorrect formatting follows. Submitted an issue https://github.com/noir-lang/noir/issues/9556
     let transfer0_call_interface = token0.transfer_to_public_and_prepare_private_balance_increase(
@@ -547,7 +570,7 @@ unconstrained fn add_liquidity_insufficient_liquidity_minted() {
 
 #[test(should_fail_with = "INSUFFICIENT_0_AMOUNT")]
 unconstrained fn remove_liquidity_insufficient_amount0() {
-    let (mut env, amm_address, token0_address, token1_address, liquidity_token_address, owner) =
+    let (mut env, amm_address, token0_address, token1_address, liquidity_token_address, minter) =
         setup();
 
     let token0 = Token::at(token0_address);
@@ -559,26 +582,26 @@ unconstrained fn remove_liquidity_insufficient_amount0() {
     let amount0 = 1000 as u128;
     let amount1 = 2000 as u128;
 
-    env.call_private(owner, token0.mint_to_private(owner, amount0));
-    env.call_private(owner, token1.mint_to_private(owner, amount1));
+    env.call_private(minter, token0.mint_to_private(minter, amount0));
+    env.call_private(minter, token1.mint_to_private(minter, amount1));
 
     let transfer0_call_interface = token0.transfer_to_public_and_prepare_private_balance_increase(
-        owner,
+        minter,
         amm_address,
         amount0,
         1,
     );
-    add_private_authwit_from_call_interface(owner, amm_address, transfer0_call_interface);
+    add_private_authwit_from_call_interface(minter, amm_address, transfer0_call_interface);
 
     let transfer1_call_interface = token1.transfer_to_public_and_prepare_private_balance_increase(
-        owner,
+        minter,
         amm_address,
         amount1,
         1,
     );
-    add_private_authwit_from_call_interface(owner, amm_address, transfer1_call_interface);
+    add_private_authwit_from_call_interface(minter, amm_address, transfer1_call_interface);
 
-    env.call_private(owner, amm.add_liquidity(amount0, amount1, 0, 0, 1));
+    env.call_private(minter, amm.add_liquidity(amount0, amount1, 0, 0, 1));
 
     // Try to remove liquidity with unrealistic minimum expectations
     let liquidity_to_remove = 49500 as u128; // Half of 99000
@@ -587,18 +610,18 @@ unconstrained fn remove_liquidity_insufficient_amount0() {
     let authwit_nonce = 2;
 
     let transfer_liquidity_call_interface =
-        liquidity_token.transfer_to_public(owner, amm_address, liquidity_to_remove, authwit_nonce);
-    add_private_authwit_from_call_interface(owner, amm_address, transfer_liquidity_call_interface);
+        liquidity_token.transfer_to_public(minter, amm_address, liquidity_to_remove, authwit_nonce);
+    add_private_authwit_from_call_interface(minter, amm_address, transfer_liquidity_call_interface);
 
     env.call_private(
-        owner,
+        minter,
         amm.remove_liquidity(liquidity_to_remove, amount0_min, amount1_min, authwit_nonce),
     );
 }
 
 #[test(should_fail_with = "INSUFFICIENT_1_AMOUNT")]
 unconstrained fn remove_liquidity_insufficient_amount1() {
-    let (mut env, amm_address, token0_address, token1_address, liquidity_token_address, owner) =
+    let (mut env, amm_address, token0_address, token1_address, liquidity_token_address, minter) =
         setup();
 
     let token0 = Token::at(token0_address);
@@ -610,26 +633,26 @@ unconstrained fn remove_liquidity_insufficient_amount1() {
     let amount0 = 1000 as u128;
     let amount1 = 2000 as u128;
 
-    env.call_private(owner, token0.mint_to_private(owner, amount0));
-    env.call_private(owner, token1.mint_to_private(owner, amount1));
+    env.call_private(minter, token0.mint_to_private(minter, amount0));
+    env.call_private(minter, token1.mint_to_private(minter, amount1));
 
     let transfer0_call_interface = token0.transfer_to_public_and_prepare_private_balance_increase(
-        owner,
+        minter,
         amm_address,
         amount0,
         1,
     );
-    add_private_authwit_from_call_interface(owner, amm_address, transfer0_call_interface);
+    add_private_authwit_from_call_interface(minter, amm_address, transfer0_call_interface);
 
     let transfer1_call_interface = token1.transfer_to_public_and_prepare_private_balance_increase(
-        owner,
+        minter,
         amm_address,
         amount1,
         1,
     );
-    add_private_authwit_from_call_interface(owner, amm_address, transfer1_call_interface);
+    add_private_authwit_from_call_interface(minter, amm_address, transfer1_call_interface);
 
-    env.call_private(owner, amm.add_liquidity(amount0, amount1, 0, 0, 1));
+    env.call_private(minter, amm.add_liquidity(amount0, amount1, 0, 0, 1));
 
     // Try to remove liquidity with unrealistic minimum expectations
     let liquidity_to_remove = 49500 as u128; // Half of 99000
@@ -638,11 +661,11 @@ unconstrained fn remove_liquidity_insufficient_amount1() {
     let authwit_nonce = 2;
 
     let transfer_liquidity_call_interface =
-        liquidity_token.transfer_to_public(owner, amm_address, liquidity_to_remove, authwit_nonce);
-    add_private_authwit_from_call_interface(owner, amm_address, transfer_liquidity_call_interface);
+        liquidity_token.transfer_to_public(minter, amm_address, liquidity_to_remove, authwit_nonce);
+    add_private_authwit_from_call_interface(minter, amm_address, transfer_liquidity_call_interface);
 
     env.call_private(
-        owner,
+        minter,
         amm.remove_liquidity(liquidity_to_remove, amount0_min, amount1_min, authwit_nonce),
     );
 }
