@@ -87,12 +87,15 @@ export interface NoirCompiledCircuit {
   abi: NoirFunctionAbi;
   /** The bytecode of the circuit in base64. */
   bytecode: string;
-  /** The verification key of the circuit. hex-encoded binary */
-  verificationKeyAsBytes: string;
-  /** The verification key of the circuit. list of hex-encoded fields */
-  verificationKeyAsFields: string[];
-  /** The hex-encoded hash. */
-  verificationKeyHash: string;
+  /** The verification key of the circuit. */
+  verificationKey: {
+    /** hex-encoded binary */
+    bytes: string;
+    /** list of hex-encoded fields */
+    fields: string[];
+    /** The hex-encoded hash. */
+    hash: string;
+  };
   /** The debug information, compressed and base64 encoded. */
   debug_symbols: string;
   /** The map of file ID to the source code and path of the file. */

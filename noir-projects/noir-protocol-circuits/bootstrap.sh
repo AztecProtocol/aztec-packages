@@ -78,7 +78,7 @@ function compile {
   # Add verification key to original json, similar to contracts.
   # This adds keyAsBytes and keyAsFields to the JSON artifact.
   local bytecode_hash=$(jq -r '.bytecode' $json_path | sha256sum | tr -d ' -')
-  local hash=$(hash_str "$BB_HASH-$bytecode_hash-$name-2")
+  local hash=$(hash_str "$BB_HASH-$bytecode_hash-$name-3")
   local key_path="$key_dir/$name.vk.data.json"
   if ! cache_download vk-$hash.tar.gz 1>&2; then
     SECONDS=0
@@ -103,8 +103,14 @@ function compile {
     jq -r '.bytecode' $json_path | base64 -d | gunzip | write_vk
     vk_bytes=$(cat $outdir/vk | xxd -p -c 0)
     vk_fields=$(cat $outdir/vk_fields.json)
-    # echo_stderr $vkf_cmd
-    jq -n --arg vk "$vk_bytes" --argjson vkf "$vk_fields" '{keyAsBytes: $vk, keyAsFields: $vkf}' > $key_path
+    if [ -f $outdir/vk_hash ]; then
+      # not created in civc
+      vk_hash=$(cat $outdir/vk_hash | xxd -p -c 0)
+    else
+      vk_hash=""
+    fi
+    jq -n --arg vk "$vk_bytes" --argjson vk_fields "$vk_fields" --arg vk_hash "$vk_hash" \
+      '{verificationKey: {bytes: $vk, fields: $vk_fields, hash: $vk_hash}}' > $key_path
     echo_stderr "Key output at: $key_path (${SECONDS}s)"
 
     if echo "$name" | grep -qE "rollup_root"; then
@@ -130,15 +136,10 @@ function compile {
     fi
   fi
   # VK was downloaded from cache, update the JSON artifact with VK information
-  local key_path="$key_dir/$name.vk.data.json"
-  vk_bytes=$(jq -r '.keyAsBytes' "$key_path")
-  vk_fields=$(jq -r '.keyAsFields' "$key_path")
-  local tmp_json="${json_path}.tmp"
-  jq --arg vk "$vk_bytes" --argjson vkf "$vk_fields" '. + {verificationKeyAsBytes: $vk, verificationKeyAsFields: $vkf}' "$json_path" > "$tmp_json"
-  mv "$tmp_json" "$json_path"
+  jq -s '.[0] * .[1]' "$json_path" "$key_path" > "${json_path}.tmp"
+  mv "${json_path}.tmp" "$json_path"
   # remove temporary json file
   rm $key_path
-  echo_stderr "Updated $json_path with VK information from cache"
 }
 export -f compile
 

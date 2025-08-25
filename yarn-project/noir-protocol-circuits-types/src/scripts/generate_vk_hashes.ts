@@ -19,8 +19,11 @@ async function generateFakeTubeVK(name: string) {
   await fs.writeFile(
     tubeVKPath,
     JSON.stringify({
-      verificationKeyAsBytes: tubeVK.keyAsBytes.toString('hex'),
-      verificationKeyAsFields: tubeVK.keyAsFields.key.map((field: Fr) => field.toString()),
+      verificationKey: {
+        bytes: tubeVK.keyAsBytes.toString('hex'),
+        fields: tubeVK.keyAsFields.key.map((field: Fr) => field.toString()),
+        hash: tubeVK.keyAsFields.hash.toString(),
+      },
     }),
   );
 }
@@ -36,10 +39,11 @@ const main = async () => {
     if (fileName.endsWith('.json')) {
       const keyPath = join(resolveRelativePath(`../../artifacts`), fileName);
       const content = JSON.parse(await fs.readFile(keyPath, 'utf-8'));
-      if (!content.vkHash) {
-        const { keyAsFields } = content;
+      // Check if this has verificationKey field (from noir-protocol-circuits)
+      if (content.verificationKey && !content.verificationKey.hash) {
+        const { fields } = content.verificationKey;
 
-        content.vkHash = (await hashVK(keyAsFields.map((str: string) => Fr.fromHexString(str)))).toString();
+        content.verificationKey.hash = (await hashVK(fields.map((str: string) => Fr.fromHexString(str)))).toString();
         await fs.writeFile(keyPath, JSON.stringify(content, null, 2));
       }
     }

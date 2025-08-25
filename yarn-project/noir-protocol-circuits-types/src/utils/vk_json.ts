@@ -2,13 +2,22 @@ import { Fr } from '@aztec/foundation/fields';
 import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
 import { VerificationKeyAsFields, VerificationKeyData } from '@aztec/stdlib/vks';
 
-export function abiToVKData(json: NoirCompiledCircuit): VerificationKeyData {
-  const { verificationKeyAsBytes, verificationKeyAsFields, verificationKeyHash } = json;
+// Type for VK-only JSON files
+interface VkOnlyJson {
+  verificationKey: {
+    bytes: string;
+    fields: string[];
+    hash: string;
+  };
+}
+
+export function abiToVKData(json: NoirCompiledCircuit | VkOnlyJson): VerificationKeyData {
+  const { verificationKey } = json;
   return new VerificationKeyData(
     new VerificationKeyAsFields(
-      verificationKeyAsFields.map((str: string) => Fr.fromHexString(str)),
-      Fr.fromHexString(verificationKeyHash),
+      verificationKey.fields.map((str: string) => Fr.fromHexString(str)),
+      Fr.fromHexString(verificationKey.hash),
     ),
-    Buffer.from(verificationKeyAsBytes, 'hex'),
+    Buffer.from(verificationKey.bytes, 'hex'),
   );
 }
