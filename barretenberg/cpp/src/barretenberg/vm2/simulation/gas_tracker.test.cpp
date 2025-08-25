@@ -123,7 +123,7 @@ TEST_F(GasTrackerTest, DynamicGasConsumption)
 
     EXPECT_CALL(context, get_gas_used);
     EXPECT_CALL(context, get_gas_limit);
-    uint32_t l2_base_gas = AVM_SET_BASE_L2_GAS + compute_addressing_gas(instruction.indirect);
+    uint32_t l2_base_gas = AVM_CALLDATACOPY_BASE_L2_GAS + compute_addressing_gas(instruction.indirect);
     uint32_t l2_dyn_computation = AVM_CALLDATACOPY_DYN_L2_GAS * 10;
     EXPECT_CALL(context, set_gas_used(Gas{ l2_base_gas + l2_dyn_computation, 0 }));
 

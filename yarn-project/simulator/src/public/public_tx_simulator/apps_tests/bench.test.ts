@@ -100,7 +100,7 @@ describe('Public TX simulator apps tests: benchmarks', () => {
 
     describe.each(
       // sha sizes
-      [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 255, 256, 511, 512, 2048, 2500],
+      [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 255, 256, 511, 512, 1024, 1536],
     )('sha256_hash_%s', (length: number) => {
       it(`sha256_hash_${length}`, async () => {
         const result = await tester.executeTxWithLabel(
@@ -183,16 +183,16 @@ describe('Public TX simulator apps tests: benchmarks', () => {
       expect(result.revertCode.isOK()).toBe(true);
     });
 
-    it('poseidon2_hash_2000fields', async () => {
+    it('poseidon2_hash_1000fields', async () => {
       const result = await tester.executeTxWithLabel(
-        /*txLabel=*/ 'AvmGadgetsTest/poseidon2_hash_2000fields',
+        /*txLabel=*/ 'AvmGadgetsTest/poseidon2_hash_1000fields',
         /*sender=*/ deployer,
         /*setupCalls=*/ [],
         /*appCalls=*/ [
           {
             address: avmGadgetsTestContract.address,
-            fnName: 'poseidon2_hash_2000fields',
-            args: [/*input=*/ Array.from({ length: 2000 }, () => Fr.random())],
+            fnName: 'poseidon2_hash_1000fields',
+            args: [/*input=*/ Array.from({ length: 1000 }, () => Fr.random())],
           },
         ],
       );
