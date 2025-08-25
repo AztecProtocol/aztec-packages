@@ -174,7 +174,6 @@ namespace execution;
     #[BYTECODE_ID_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (bytecode_id' - bytecode_id) = 0;
 
-
     // transaction fee gets set at the start of an enqueued call and remains the same throughout
     // TODO(dbanks12): tracegen and test this
     #[TRANSACTION_FEE_NEXT_ROW]
@@ -222,6 +221,17 @@ namespace execution;
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (last_child_returndata_size' - last_child_returndata_size) = 0;
     NOT_LAST_EXEC * NESTED_RET_REV_ONLY  * (last_child_returndata_size' - register[0]) = 0;
     NOT_LAST_EXEC * (sel_enter_call + sel_error) * last_child_returndata_size' = 0;
+
+    
+    // nested_exit_call  = 1 ==> last_child_id' = context_id
+    // sel_enter_call = 1 ==> last_child_id' = 0
+    // otherwise          ==> last_child_id' = last_child_id
+    #[EXIT_CALL_LAST_CHILD_ID]
+    NOT_LAST_EXEC * NESTED_RET_REV_ONLY * (last_child_id' - context_id) = 0;
+    #[ENTER_CALL_LAST_CHILD_ID]
+    NOT_LAST_EXEC * (sel_enter_call + sel_error) * last_child_id' = 0;
+    #[PROPAGATE_LAST_CHILD_ID]
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (last_child_id' - last_child_id) = 0;
 
     // nested_exit_call = 1 ==> l2_gas_limit' = parent_l2_gas_limit
     // sel_enter_call   = 1 ==> constraints come from call logic
