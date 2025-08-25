@@ -38,6 +38,9 @@ unconstrained fn add_liquidity_twice_and_remove_liquidity_happy_path() {
         DEFAULT_AMOUNT_1_MIN,
     );
 
+    let initial_liquidity_token_supply = env.view_public(liquidity_token.total_supply());
+    assert_eq(initial_liquidity_token_supply, AMM::MINIMUM_LIQUIDITY + AMM::INITIAL_LIQUIDITY);
+
     // Add liquidity from liquidity provider 2 with excess token1
     let amount0_max = initial_amount0 / 2;
 
@@ -79,14 +82,15 @@ unconstrained fn add_liquidity_twice_and_remove_liquidity_happy_path() {
     );
 
     // Check liquidity provider 2 received liquidity tokens proportional to their contribution
-    // Expected: min((500 * 100000) / 1000, (1000 * 100000) / 2000) = 50000
+    let expected_liquidity_tokens =
+        (amount0_max * initial_liquidity_token_supply) / initial_amount0;
     assert_eq(
         env.simulate_utility(liquidity_token.balance_of_private(liquidity_provider_2)),
-        50000,
+        expected_liquidity_tokens,
     );
 
     // Now remove half the liquidity from liquidity provider 1's position
-    let liquidity_to_remove = 49500 as u128; // Half of 99000
+    let liquidity_to_remove = AMM::INITIAL_LIQUIDITY / 2;
     let amount0_min = 400 as u128;
     let amount1_min = 800 as u128;
 
@@ -101,15 +105,25 @@ unconstrained fn add_liquidity_twice_and_remove_liquidity_happy_path() {
     );
 
     // Verify liquidity provider 1 got tokens back (proportional to liquidity burned)
-    // 49500/100000 of 1000 = 495, 49500/100000 of 2000 = 990
-    assert_eq(env.simulate_utility(token0.balance_of_private(liquidity_provider_1)), 495);
-    assert_eq(env.simulate_utility(token1.balance_of_private(liquidity_provider_1)), 990);
+    let expected_token0_back =
+        (liquidity_to_remove * initial_amount0) / initial_liquidity_token_supply;
+    let expected_token1_back =
+        (liquidity_to_remove * initial_amount1) / initial_liquidity_token_supply;
+    assert_eq(
+        env.simulate_utility(token0.balance_of_private(liquidity_provider_1)),
+        expected_token0_back,
+    );
+    assert_eq(
+        env.simulate_utility(token1.balance_of_private(liquidity_provider_1)),
+        expected_token1_back,
+    );
 
     // Check remaining liquidity tokens
     assert_eq(
         env.simulate_utility(liquidity_token.balance_of_private(liquidity_provider_1)),
-        49500,
-    ); // Other half
+        // The expected remaining liquidity is the other half of the initial liquidity.
+        AMM::INITIAL_LIQUIDITY / 2,
+    );
 }
 
 #[test]
