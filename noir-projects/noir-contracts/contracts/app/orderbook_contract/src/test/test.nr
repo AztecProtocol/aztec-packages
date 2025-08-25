@@ -13,23 +13,23 @@ global FULFILL_ORDER_AUTHWIT_NONCE: Field = 2;
 
 #[test]
 unconstrained fn create_order_happy_path() {
-    let (mut env, orderbook_address, token0_address, token1_address, owner) =
+    let (mut env, orderbook_address, token0_address, token1_address, minter, maker) =
         setup_orderbook_with_tokens(true);
 
     let token0 = Token::at(token0_address);
     let orderbook = Orderbook::at(orderbook_address);
 
-    // Mint tokens to owner
-    env.call_private(owner, Token::at(token0_address).mint_to_private(owner, BID_AMOUNT));
+    // Mint tokens to maker
+    env.call_private(minter, Token::at(token0_address).mint_to_private(maker, BID_AMOUNT));
 
     // Create authwit for transferring tokens to orderbook
     let transfer_call_interface =
-        token0.transfer_to_public(owner, orderbook_address, BID_AMOUNT, CREATE_ORDER_AUTHWIT_NONCE);
-    add_private_authwit_from_call_interface(owner, orderbook_address, transfer_call_interface);
+        token0.transfer_to_public(maker, orderbook_address, BID_AMOUNT, CREATE_ORDER_AUTHWIT_NONCE);
+    add_private_authwit_from_call_interface(maker, orderbook_address, transfer_call_interface);
 
     // Create order
     let _order_id = env.call_private(
-        owner,
+        maker,
         orderbook.create_order(
             token0_address,
             token1_address,
@@ -41,12 +41,12 @@ unconstrained fn create_order_happy_path() {
 
     // Verify tokens were transferred to orderbook's public balance
     assert_eq(env.view_public(token0.balance_of_public(orderbook_address)), BID_AMOUNT);
-    assert_eq(env.simulate_utility(token0.balance_of_private(owner)), 0);
+    assert_eq(env.simulate_utility(token0.balance_of_private(maker)), 0);
 }
 
 #[test]
 unconstrained fn full_flow() {
-    let (mut env, orderbook_address, token0_address, token1_address, maker) =
+    let (mut env, orderbook_address, token0_address, token1_address, minter, maker) =
         setup_orderbook_with_tokens(true);
 
     let token0 = Token::at(token0_address);
@@ -55,10 +55,9 @@ unconstrained fn full_flow() {
 
     let taker = env.create_contract_account();
 
-    // Setup: mint tokens to maker and taker
-
-    env.call_private(maker, token0.mint_to_private(maker, BID_AMOUNT));
-    env.call_private(maker, token1.mint_to_private(taker, ASK_AMOUNT));
+    // Mint tokens to maker and taker
+    env.call_private(minter, token0.mint_to_private(maker, BID_AMOUNT));
+    env.call_private(minter, token1.mint_to_private(taker, ASK_AMOUNT));
 
     // Create order first
     let transfer_call_interface =
@@ -119,7 +118,7 @@ unconstrained fn full_flow() {
 
 #[test(should_fail_with = "ZERO_BID_AMOUNT")]
 unconstrained fn create_order_zero_bid_amount() {
-    let (mut env, orderbook_address, token0_address, token1_address, owner) =
+    let (mut env, orderbook_address, token0_address, token1_address, _, maker) =
         setup_orderbook_with_tokens(false);
 
     let orderbook = Orderbook::at(orderbook_address);
@@ -127,7 +126,7 @@ unconstrained fn create_order_zero_bid_amount() {
     let bid_amount = 0 as u128;
 
     let _order_id = env.call_private(
-        owner,
+        maker,
         orderbook.create_order(
             token0_address,
             token1_address,
@@ -140,7 +139,7 @@ unconstrained fn create_order_zero_bid_amount() {
 
 #[test(should_fail_with = "ZERO_ASK_AMOUNT")]
 unconstrained fn create_order_zero_ask_amount() {
-    let (mut env, orderbook_address, token0_address, token1_address, owner) =
+    let (mut env, orderbook_address, token0_address, token1_address, _, maker) =
         setup_orderbook_with_tokens(false);
 
     let orderbook = Orderbook::at(orderbook_address);
@@ -148,7 +147,7 @@ unconstrained fn create_order_zero_ask_amount() {
     let ask_amount = 0 as u128;
 
     let _order_id = env.call_private(
-        owner,
+        maker,
         orderbook.create_order(
             token0_address,
             token1_address,
@@ -161,7 +160,7 @@ unconstrained fn create_order_zero_ask_amount() {
 
 #[test(should_fail_with = "BID_TOKEN_IS_INVALID")]
 unconstrained fn create_order_invalid_bid_token() {
-    let (mut env, orderbook_address, _token0_address, token1_address, owner) =
+    let (mut env, orderbook_address, _token0_address, token1_address, _, maker) =
         setup_orderbook_with_tokens(false);
 
     let orderbook = Orderbook::at(orderbook_address);
@@ -169,7 +168,7 @@ unconstrained fn create_order_invalid_bid_token() {
     let invalid_token = AztecAddress::from_field(999);
 
     let _order_id = env.call_private(
-        owner,
+        maker,
         orderbook.create_order(
             invalid_token,
             token1_address,
@@ -182,7 +181,7 @@ unconstrained fn create_order_invalid_bid_token() {
 
 #[test(should_fail_with = "ASK_TOKEN_IS_INVALID")]
 unconstrained fn create_order_invalid_ask_token() {
-    let (mut env, orderbook_address, token0_address, _token1_address, owner) =
+    let (mut env, orderbook_address, token0_address, _token1_address, _, maker) =
         setup_orderbook_with_tokens(false);
 
     let orderbook = Orderbook::at(orderbook_address);
@@ -190,7 +189,7 @@ unconstrained fn create_order_invalid_ask_token() {
     let invalid_token = AztecAddress::from_field(999);
 
     let _order_id = env.call_private(
-        owner,
+        maker,
         orderbook.create_order(
             token0_address,
             invalid_token,
@@ -203,13 +202,13 @@ unconstrained fn create_order_invalid_ask_token() {
 
 #[test(should_fail_with = "SAME_TOKEN_TRADE")]
 unconstrained fn create_order_same_tokens() {
-    let (mut env, orderbook_address, token0_address, _token1_address, owner) =
+    let (mut env, orderbook_address, token0_address, _token1_address, _, maker) =
         setup_orderbook_with_tokens(false);
 
     let orderbook = Orderbook::at(orderbook_address);
 
     let _order_id = env.call_private(
-        owner,
+        maker,
         orderbook.create_order(
             token0_address,
             token0_address,
