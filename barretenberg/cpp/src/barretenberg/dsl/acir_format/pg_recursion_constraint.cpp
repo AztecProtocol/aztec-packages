@@ -82,11 +82,6 @@ std::shared_ptr<ClientIVC> create_mock_ivc_from_constraints(const std::vector<Re
     // Case: HIDING kernel; single PG_FINAL recursive verification of a kernel
     if (constraints.size() == 1 && constraints[0].proof_type == pg_final_type) {
         ivc->recursive_verifier_native_accum = create_mock_decider_vk<ClientIVC::Flavor>();
-
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): We need to set the log circuit size here due
-        // to an invalid out of circuit max operation in the PG recursive verifier. Once that is resolved this should
-        // not be necessary.
-        ivc->recursive_verifier_native_accum->vk->log_circuit_size = 18;
         mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG_FINAL, /*is_kernel=*/true);
         return ivc;
     }
