@@ -129,7 +129,8 @@ TEST(ContextConstrainingTest, ContextSwitchingCallReturn)
               { C::execution_next_context_id, 3 },
               { C::execution_context_id, 1 },
               { C::execution_parent_id, 0 },
-              { C::execution_pc, 2 }, // Based on next_pc of CALL step
+              { C::execution_last_child_id, 2 }, // Previous context id
+              { C::execution_pc, 2 },            // Based on next_pc of CALL step
               { C::execution_msg_sender, 0 },
               { C::execution_contract_address, 0 },
               { C::execution_bytecode_id, top_bytecode_id }, // Restored from context stack
