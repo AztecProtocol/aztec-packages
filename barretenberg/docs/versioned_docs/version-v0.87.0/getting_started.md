@@ -18,7 +18,7 @@ Although it is a standandalone prover, Barretenberg is designed to be used with 
 Inspired by `rustup`, `noirup` and similar tools, you can use the `bbup` installation script to quickly install and update Barretenberg's CLI tool:
 
 ```bash
-curl -L https://raw.githubusercontent.com/AztecProtocol/aztec-packages/refs/heads/master/barretenberg/bbup/install | bash
+curl -L https://raw.githubusercontent.com/AztecProtocol/aztec-packages/refs/heads/next/barretenberg/bbup/install | bash
 bbup
 ```
 
