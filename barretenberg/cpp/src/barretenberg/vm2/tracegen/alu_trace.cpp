@@ -60,8 +60,11 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
                        {
                            { Column::alu_sel_mul_u128, 1 },
                            { Column::alu_sel_mul_div_u128, 1 },
+                           { Column::alu_sel_decompose_a, 1 },
                            { Column::alu_a_lo, a_decomp.lo },
+                           { Column::alu_a_lo_bits, 64 },
                            { Column::alu_a_hi, a_decomp.hi },
+                           { Column::alu_a_hi_bits, 64 },
                            { Column::alu_b_lo, b_decomp.lo },
                            { Column::alu_b_hi, b_decomp.hi },
                            { Column::alu_c_hi, (((a_int * b_int) >> 128) - hi_operand) % (uint256_t(1) << 64) },
@@ -104,8 +107,11 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
             res.insert(res.end(),
                        {
                            { Column::alu_sel_mul_div_u128, 1 },
+                           { Column::alu_sel_decompose_a, 1 },
                            { Column::alu_a_lo, c_decomp.lo },
+                           { Column::alu_a_lo_bits, 64 },
                            { Column::alu_a_hi, c_decomp.hi },
+                           { Column::alu_a_hi_bits, 64 },
                            { Column::alu_b_lo, b_decomp.lo },
                            { Column::alu_b_hi, b_decomp.hi },
                        });
@@ -174,6 +180,69 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
             { Column::alu_tag_ff_diff_inv, is_ff ? 0 : tag_diff.invert() },
         };
     }
+    case simulation::AluOperation::SHL: {
+        auto a_num = static_cast<uint128_t>(event.a.as_ff());
+        auto b_num = static_cast<uint128_t>(event.b.as_ff());
+        auto tag_bits = get_tag_bits(event.a.get_tag());
+        // Whether we shift by more than the bit size (=> result is 0):
+        bool overflow = b_num > tag_bits;
+        // The bit size of the low limb of decomposed input a (if overflow, assigned as max_bits to range check
+        // b - max_bits):
+        auto shift_lo_bits = overflow ? tag_bits : tag_bits - b_num;
+        // The low limb of decomposed input a (if overflow, assigned as b - max_bits to range check and
+        // prove b > max_bits):
+        auto a_lo = overflow ? b_num - tag_bits : a_num % (static_cast<uint128_t>(1) << shift_lo_bits);
+        return {
+            { Column::alu_sel_op_shl, 1 },
+            { Column::alu_sel_shift_ops, 1 },
+            { Column::alu_sel_shift_ops_no_overflow, overflow ? 0 : 1 },
+            { Column::alu_sel_decompose_a, is_ff ? 0 : 1 },
+            { Column::alu_a_lo, a_lo },
+            { Column::alu_a_lo_bits, shift_lo_bits },
+            { Column::alu_a_hi, a_num >> shift_lo_bits },
+            { Column::alu_a_hi_bits, overflow ? tag_bits : b_num },
+            { Column::alu_shift_lo_bits, shift_lo_bits },
+            { Column::alu_two_pow_shift_lo_bits, static_cast<uint128_t>(1) << shift_lo_bits },
+            { Column::alu_sel_is_ff, is_ff },
+            { Column::alu_tag_ff_diff_inv,
+              is_ff
+                  ? 0
+                  : (FF(static_cast<uint8_t>(event.a.get_tag())) - FF(static_cast<uint8_t>(MemoryTag::FF))).invert() },
+            { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::SHL).subtrace_operation_id },
+            { Column::alu_helper1, static_cast<uint128_t>(1) << b_num },
+        };
+    }
+    case simulation::AluOperation::SHR: {
+        auto a_num = static_cast<uint128_t>(event.a.as_ff());
+        auto b_num = static_cast<uint128_t>(event.b.as_ff());
+        auto tag_bits = get_tag_bits(event.a.get_tag());
+        // Whether we shift by more than the bit size (=> result is 0):
+        bool overflow = b_num > tag_bits;
+        // The bit size of the low limb of decomposed input a (if overflow, assigned as max_bits to range check
+        // b - max_bits):
+        auto shift_lo_bits = overflow ? tag_bits : b_num;
+        // The low limb of decomposed input a (if overflow, assigned as b - max_bits to range check and
+        // prove b > max_bits):
+        auto a_lo = overflow ? b_num - tag_bits : a_num % (static_cast<uint128_t>(1) << shift_lo_bits);
+        return {
+            { Column::alu_sel_op_shr, 1 },
+            { Column::alu_sel_shift_ops, 1 },
+            { Column::alu_sel_shift_ops_no_overflow, overflow ? 0 : 1 },
+            { Column::alu_sel_decompose_a, is_ff ? 0 : 1 },
+            { Column::alu_a_lo, a_lo },
+            { Column::alu_a_lo_bits, shift_lo_bits },
+            { Column::alu_a_hi, a_num >> shift_lo_bits },
+            { Column::alu_a_hi_bits, overflow ? tag_bits : tag_bits - b_num },
+            { Column::alu_shift_lo_bits, shift_lo_bits },
+            { Column::alu_two_pow_shift_lo_bits, static_cast<uint128_t>(1) << shift_lo_bits },
+            { Column::alu_sel_is_ff, is_ff },
+            { Column::alu_tag_ff_diff_inv,
+              is_ff
+                  ? 0
+                  : (FF(static_cast<uint8_t>(event.a.get_tag())) - FF(static_cast<uint8_t>(MemoryTag::FF))).invert() },
+            { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::SHR).subtrace_operation_id },
+        };
+    }
     case simulation::AluOperation::TRUNCATE: {
         const uint256_t value = static_cast<uint256_t>(event.a.as_ff());
         const MemoryTag dst_tag = static_cast<MemoryTag>(static_cast<uint8_t>(event.b.as_ff()));
@@ -197,18 +266,6 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
             { Column::alu_mid_bits, is_trivial ? 0 : 128 - dst_bits },
         };
     }
-    case simulation::AluOperation::SHL: {
-        return {
-            { Column::alu_sel_op_shl, 1 },
-            { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::SHL).subtrace_operation_id },
-        };
-    }
-    case simulation::AluOperation::SHR: {
-        return {
-            { Column::alu_sel_op_shr, 1 },
-            { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::SHR).subtrace_operation_id },
-        };
-    }
     default:
         throw std::runtime_error("Unknown ALU operation");
         break;
@@ -226,9 +283,11 @@ std::vector<std::pair<Column, FF>> get_tag_error_columns(const simulation::AluEv
     // 2. Mismatched tags for inputs a and b for all opcodes apart from TRUNC
 
     // Case 1:
-    bool ff_tag_err = ((event.a.get_tag() == MemoryTag::FF) && (event.operation == simulation::AluOperation::NOT ||
-                                                                event.operation == simulation::AluOperation::DIV)) ||
-                      ((event.a.get_tag() != MemoryTag::FF) && (event.operation == simulation::AluOperation::FDIV));
+    bool ff_tag_err =
+        ((event.a.get_tag() == MemoryTag::FF) &&
+         (event.operation == simulation::AluOperation::NOT || event.operation == simulation::AluOperation::DIV ||
+          event.operation == simulation::AluOperation::SHL || event.operation == simulation::AluOperation::SHR)) ||
+        ((event.a.get_tag() != MemoryTag::FF) && (event.operation == simulation::AluOperation::FDIV));
     // Case 2:
     bool ab_tags_mismatch = (a_tag_ff != b_tag_ff) && (event.operation != simulation::AluOperation::TRUNCATE);
     // Note: both cases can occur at the same time. Case 1 only requires sel_tag_error to be on, so we
@@ -305,14 +364,15 @@ void AluTraceBuilder::process(const simulation::EventEmitterInterface<simulation
 const InteractionDefinition AluTraceBuilder::interactions =
     InteractionDefinition()
         .add<lookup_alu_tag_max_bits_value_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_alu_range_check_decomposition_a_lo_settings, InteractionType::LookupGeneric>()
+        .add<lookup_alu_range_check_decomposition_a_hi_settings, InteractionType::LookupGeneric>()
+        .add<lookup_alu_range_check_decomposition_b_lo_settings, InteractionType::LookupGeneric>()
+        .add<lookup_alu_range_check_decomposition_b_hi_settings, InteractionType::LookupGeneric>()
+        .add<lookup_alu_range_check_mul_u128_c_hi_settings, InteractionType::LookupGeneric>()
+        .add<lookup_alu_gt_div_remainder_settings, InteractionType::LookupGeneric>()
         .add<lookup_alu_ff_gt_settings, InteractionType::LookupGeneric>()
         .add<lookup_alu_int_gt_settings, InteractionType::LookupGeneric>()
-        .add<lookup_alu_gt_div_remainder_settings, InteractionType::LookupGeneric>()
-        .add<lookup_alu_range_check_mul_u128_a_lo_settings, InteractionType::LookupGeneric>()
-        .add<lookup_alu_range_check_mul_u128_a_hi_settings, InteractionType::LookupGeneric>()
-        .add<lookup_alu_range_check_mul_u128_b_lo_settings, InteractionType::LookupGeneric>()
-        .add<lookup_alu_range_check_mul_u128_b_hi_settings, InteractionType::LookupGeneric>()
-        .add<lookup_alu_range_check_mul_u128_c_hi_settings, InteractionType::LookupGeneric>()
+        .add<lookup_alu_shifts_two_pow_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_alu_range_check_trunc_mid_settings, InteractionType::LookupGeneric>()
         .add<lookup_alu_large_trunc_canonical_dec_settings, InteractionType::LookupGeneric>();
 } // namespace bb::avm2::tracegen
