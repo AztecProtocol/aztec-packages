@@ -33,15 +33,9 @@ async function main() {
     const contractArtifact = JSON.parse(
         await fsp.readFile(contractArtifactPath, "utf8")
     );
-    contractArtifact.functions.forEach(async func => {
+    contractArtifact.functions.forEach(async (func, i) => {
         if (func.custom_attributes.includes("public")) {
-            if (func.brillig_names.length != 1) {
-                console.log(
-                    "Expected only a single Brillig function"
-                );
-                return;
-            }
-            let func_with_contract_name = contractArtifact.name + "::" + func.brillig_names[0];
+            let func_with_contract_name = contractArtifact.name + "::" + i;
             let program_report = {
               package_name: "",
               functions: [],

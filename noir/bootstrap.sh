@@ -17,7 +17,7 @@ export js_projects="
 export js_include=$(printf " --include %s" $js_projects)
 
 # Get the actual commit hash from the noir-repo-ref file
-export GIT_COMMIT="$(cat noir-repo-ref | head -n1)-aztec"
+export GIT_COMMIT="$(git -C noir-repo rev-list --max-count 1 "$(cat noir-repo-ref)")-aztec"
 export SOURCE_DATE_EPOCH=0
 export GIT_DIRTY=false
 export RUSTFLAGS="-Dwarnings"

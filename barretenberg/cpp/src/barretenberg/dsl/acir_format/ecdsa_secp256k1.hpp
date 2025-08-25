@@ -6,6 +6,7 @@
 
 #pragma once
 #include "barretenberg/crypto/ecdsa/ecdsa.hpp"
+#include "barretenberg/dsl/acir_format/witness_constant.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
 #include "barretenberg/stdlib/primitives/witness/witness.hpp"
@@ -34,6 +35,11 @@ struct EcdsaSecp256k1Constraint {
 
     // This is the result of verifying the signature
     uint32_t result;
+
+    // Predicate indicating whether the constraint should be disabled:
+    // - true: the constraint is valid
+    // - false: the constraint is disabled, i.e it must not fail and can return whatever.
+    WitnessOrConstant<bb::fr> predicate;
 
     // for serialization, update with any new fields
     MSGPACK_FIELDS(hashed_message, signature, pub_x_indices, pub_y_indices, result);
