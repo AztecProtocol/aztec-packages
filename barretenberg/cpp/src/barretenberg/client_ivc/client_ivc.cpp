@@ -103,11 +103,16 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
 
     // Witness commitments and public inputs corresponding to the incoming instance
     WitnessCommitments witness_commitments;
+    // The pairing points produced by the verification of the decider proof
+    PairingPoints decider_pairing_points;
     std::vector<StdlibFF> public_inputs;
 
     // Input commitments to be passed to the merge recursive verification
     MergeCommitments merge_commitments;
     merge_commitments.T_prev_commitments = T_prev_commitments;
+    // The decider proof exists if the tail kernel has been accumulated
+    bool is_hiding_kernel = !decider_proof.empty();
+
     switch (verifier_inputs.type) {
     case QUEUE_TYPE::PG_TAIL:
     case QUEUE_TYPE::PG: {
@@ -154,17 +159,45 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
     }
     case QUEUE_TYPE::PG_FINAL: {
         BB_ASSERT_EQ(stdlib_verification_queue.size(), size_t(1));
+        auto stdlib_proof = verifier_inputs.proof;
+        auto stdlib_vk_and_hash = verifier_inputs.honk_vk_and_hash;
         // Note: reinstate this.
         // BB_ASSERT_EQ(num_circuits_accumulated,
         //              num_circuits - 1,
         //              "All circuits must be accumulated before constructing the hiding circuit.");
         // Complete the hiding circuit construction
-        auto [pairing_points, merged_table_commitments] =
-            complete_hiding_circuit_logic(verifier_inputs.proof, verifier_inputs.honk_vk_and_hash, circuit);
-        // Return early since the hiding circuit method performs merge and public inputs handling
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1501): we should remove the code duplication for
-        // the consistency checks at some point
-        return { pairing_points, merged_table_commitments };
+
+        hide_op_queue_accumulation_result(circuit);
+
+        // Construct stdlib accumulator, decider vkey and folding proof
+        auto stdlib_verifier_accumulator =
+            std::make_shared<RecursiveDeciderVerificationKey>(&circuit, recursive_verifier_native_accum);
+
+        // Propagate the public inputs of the tail kernel by converting them to public inputs of the hiding circuit.
+        auto num_public_inputs = static_cast<size_t>(honk_vk->num_public_inputs);
+        num_public_inputs -= KernelIO::PUBLIC_INPUTS_SIZE; // exclude fixed kernel_io public inputs
+        for (size_t i = 0; i < num_public_inputs; i++) {
+            stdlib_proof[i].set_public();
+        }
+
+        // Perform recursive folding verification of the last folding proof
+        FoldingRecursiveVerifier folding_verifier{
+            &circuit, stdlib_verifier_accumulator, { stdlib_vk_and_hash }, accumulation_recursive_transcript
+        };
+        auto recursive_verifier_native_accum = folding_verifier.verify_folding_proof(verifier_inputs.proof);
+        verification_queue.clear();
+
+        // // Get the completed decider verification key corresponding to the tail kernel from the folding verifier
+        public_inputs = folding_verifier.public_inputs;
+
+        witness_commitments = folding_verifier.keys_to_fold[1]->witness_commitments;
+
+        // Perform recursive decider verification
+        DeciderRecursiveVerifier decider{ &circuit, recursive_verifier_native_accum };
+        BB_ASSERT_EQ(decider_proof.empty(), false, "Decider proof is empty!");
+
+        decider_pairing_points = decider.verify_proof(decider_proof);
+        break;
     }
     default: {
         throw_or_abort("Invalid queue type! Only OINK, PG, PG_TAIL and PG_FINAL are supported");
@@ -177,19 +210,22 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
         // Reconstruct the input from the previous kernel from its public inputs
         KernelIO kernel_input; // pairing points, databus return data commitments
         kernel_input.reconstruct_from_public(public_inputs);
-
         nested_pairing_points = kernel_input.pairing_inputs;
-        // T_prev is read by the public input of the previous kernel K_{i-1} at the beginning of the recursive
-        // verification of of the folding of K_{i-1} (kernel), A_{i,1} (app), .., A_{i, n} (app). This verification
-        // happens in K_{i}
-        merge_commitments.T_prev_commitments = kernel_input.ecc_op_tables;
-
         // Perform databus consistency checks
         kernel_input.kernel_return_data.assert_equal(witness_commitments.calldata);
         kernel_input.app_return_data.assert_equal(witness_commitments.secondary_calldata);
 
+        // T_prev is read by the public input of the previous kernel K_{i-1} at the beginning of the recursive
+        // verification of of the folding of K_{i-1} (kernel), A_{i,1} (app), .., A_{i, n} (app). This verification
+        // happens in K_{i}
+        merge_commitments.T_prev_commitments = std::move(kernel_input.ecc_op_tables);
+
         // Set the kernel return data commitment to be propagated via the public inputs
-        bus_depot.set_kernel_return_data_commitment(witness_commitments.return_data);
+
+        if (!is_hiding_kernel) {
+            // The hiding kernel has no return data but uses the traditional public-inputs mechanism
+            bus_depot.set_kernel_return_data_commitment(witness_commitments.return_data);
+        }
     } else {
         // Reconstruct the input from the previous app from its public inputs
         AppIO app_input; // pairing points
@@ -208,6 +244,9 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
         goblin.recursively_verify_merge(circuit, merge_commitments, accumulation_recursive_transcript);
 
     pairing_points.aggregate(nested_pairing_points);
+    if (is_hiding_kernel) {
+        pairing_points.aggregate(decider_pairing_points);
+    }
 
     return { pairing_points, merged_table_commitments };
 }
@@ -421,68 +460,6 @@ void ClientIVC::hide_op_queue_accumulation_result(ClientCircuit& circuit)
     FF random_scalar = FF::random_element();
     circuit.queue_ecc_mul_accum(random_point, random_scalar);
     circuit.queue_ecc_eq();
-}
-
-std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::complete_hiding_circuit_logic(
-    const StdlibProof& stdlib_proof,
-    const std::shared_ptr<RecursiveVKAndHash>& stdlib_vk_and_hash,
-    ClientCircuit& circuit)
-{
-    using MergeCommitments = Goblin::MergeRecursiveVerifier::InputCommitments;
-    trace_usage_tracker.print();
-
-    // Shared transcript between PG and Merge
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1453): Investigate whether Decider/PG/Merge need to
-    // share a transcript
-    std::shared_ptr<RecursiveTranscript> pg_merge_transcript = std::make_shared<RecursiveTranscript>();
-
-    hide_op_queue_accumulation_result(circuit);
-
-    // Construct stdlib accumulator, decider vkey and folding proof
-    auto stdlib_verifier_accumulator =
-        std::make_shared<RecursiveDeciderVerificationKey>(&circuit, recursive_verifier_native_accum);
-
-    // Propagate the public inputs of the tail kernel by converting them to public inputs of the hiding circuit.
-    auto num_public_inputs = static_cast<size_t>(honk_vk->num_public_inputs);
-    num_public_inputs -= KernelIO::PUBLIC_INPUTS_SIZE; // exclude fixed kernel_io public inputs
-    for (size_t i = 0; i < num_public_inputs; i++) {
-        stdlib_proof[i].set_public();
-    }
-
-    // Perform recursive folding verification of the last folding proof
-    FoldingRecursiveVerifier folding_verifier{
-        &circuit, stdlib_verifier_accumulator, { stdlib_vk_and_hash }, pg_merge_transcript
-    };
-    auto recursive_verifier_native_accum = folding_verifier.verify_folding_proof(stdlib_proof);
-    verification_queue.clear();
-
-    // Get the completed decider verification key corresponding to the tail kernel from the folding verifier
-    const std::vector<StdlibFF>& public_inputs = folding_verifier.public_inputs;
-    WitnessCommitments& witness_commitments = folding_verifier.keys_to_fold[1]->witness_commitments;
-
-    // Reconstruct the KernelIO from the public inputs of the tail kernel and perform databus consistency checks
-    KernelIO kernel_input; // pairing points, databus return data commitments
-    kernel_input.reconstruct_from_public(public_inputs);
-    kernel_input.kernel_return_data.assert_equal(witness_commitments.calldata);
-    kernel_input.app_return_data.assert_equal(witness_commitments.secondary_calldata);
-
-    // Extract the commitments to the subtable corresponding to the incoming circuit
-    MergeCommitments merge_commitments;
-    merge_commitments.t_commitments = witness_commitments.get_ecc_op_wires().get_copy();
-    merge_commitments.T_prev_commitments = std::move(
-        kernel_input.ecc_op_tables); // Commitment to the status of the op_queue before folding the tail kernel
-    // Perform recursive verification of the last merge proof
-    auto [points_accumulator, merged_table_commitments] =
-        goblin.recursively_verify_merge(circuit, merge_commitments, pg_merge_transcript);
-
-    points_accumulator.aggregate(kernel_input.pairing_inputs);
-
-    // Perform recursive decider verification
-    DeciderRecursiveVerifier decider{ &circuit, recursive_verifier_native_accum };
-    BB_ASSERT_EQ(!decider_proof.empty(), true, "Decider proof is empty!");
-    PairingPoints decider_pairing_points = decider.verify_proof(decider_proof);
-    points_accumulator.aggregate(decider_pairing_points);
-    return { points_accumulator, merged_table_commitments };
 }
 
 /**
