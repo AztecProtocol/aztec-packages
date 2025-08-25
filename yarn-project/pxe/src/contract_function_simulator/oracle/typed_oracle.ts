@@ -10,6 +10,7 @@ import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness }
 import type { BlockHeader } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
+import { ORACLE_VERSION } from '../../oracle_version.js';
 import type { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 
 /**
@@ -44,6 +45,12 @@ class OracleMethodNotAvailableError extends Error {
  * and are unavailable by default.
  */
 export abstract class TypedOracle {
+  utilityAssertOracleVersionMatches(version: number): void {
+    if (version !== ORACLE_VERSION) {
+      throw new Error(`Oracle version mismatch. Expected version ${ORACLE_VERSION}, got ${version}.`);
+    }
+  }
+
   utilityGetRandomField(): Fr {
     throw new OracleMethodNotAvailableError('utilityGetRandomField');
   }

@@ -126,6 +126,11 @@ export class TXEService {
 
   // PXE oracles
 
+  utilityAssertOracleVersionMatches(version: ForeignCallSingle) {
+    this.txe.utilityAssertOracleVersionMatches(fromSingle(version).toNumber());
+    return toForeignCallResult([]);
+  }
+
   utilityGetRandomField() {
     const randomField = this.txe.utilityGetRandomField();
 
