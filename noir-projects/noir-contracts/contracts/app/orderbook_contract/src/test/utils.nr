@@ -36,7 +36,7 @@ pub(crate) unconstrained fn setup_tokens(
 // Utility function to setup orderbook with two tokens
 pub(crate) unconstrained fn setup_orderbook_with_tokens(
     with_account_contracts: bool,
-) -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, AztecAddress, AztecAddress) {
+) -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, AztecAddress) {
     let mut env = TestEnvironment::new();
     let owner = if with_account_contracts {
         env.create_contract_account()
@@ -51,5 +51,5 @@ pub(crate) unconstrained fn setup_orderbook_with_tokens(
     let orderbook_address =
         env.deploy("Orderbook").with_public_initializer(owner, orderbook_initializer);
 
-    (env, orderbook_address, token0_address, token1_address, owner, owner)
+    (env, orderbook_address, token0_address, token1_address, owner)
 }
