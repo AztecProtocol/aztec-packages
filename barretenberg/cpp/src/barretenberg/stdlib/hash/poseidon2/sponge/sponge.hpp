@@ -31,8 +31,9 @@ namespace bb::stdlib {
  * @tparam t
  * @tparam Permutation
  */
-template <size_t rate, size_t capacity, size_t t, typename Permutation, typename Builder> class FieldSponge {
+template <size_t rate, size_t capacity, size_t t, typename Builder> class FieldSponge {
   public:
+    using Permutation = Poseidon2Permutation<Builder>;
     /**
      * @brief Defines what phase of the sponge algorithm we are in.
      *
@@ -65,7 +66,7 @@ template <size_t rate, size_t capacity, size_t t, typename Permutation, typename
         state[rate] = witness_t<Builder>::create_constant_witness(builder, domain_iv.get_value());
     }
 
-    std::array<field_t, rate> perform_duplex()
+    void perform_duplex()
     {
         // zero-pad the cache
         for (size_t i = cache_size; i < rate; ++i) {
@@ -76,11 +77,7 @@ template <size_t rate, size_t capacity, size_t t, typename Permutation, typename
             state[i] += cache[i];
         }
         state = Permutation::permutation(builder, state);
-        // return `rate` number of field elements from the sponge state.
-        std::array<field_t, rate> output;
-        for (size_t i = 0; i < rate; ++i) {
-            output[i] = state[i];
-        }
+
         // variables with indices from rate to size of state - 1 won't be used anymore
         // after permutation. But they aren't dangerous and needed to put in used witnesses
         if constexpr (IsUltraBuilder<Builder>) {
@@ -88,45 +85,33 @@ template <size_t rate, size_t capacity, size_t t, typename Permutation, typename
                 builder->update_used_witnesses(state[i].witness_index);
             }
         }
-        return output;
     }
 
     void absorb(const field_t& input)
     {
-        if (mode == Mode::ABSORB && cache_size == rate) {
+        if (cache_size == rate) {
             // If we're absorbing, and the cache is full, apply the sponge permutation to compress the cache
             perform_duplex();
             cache[0] = input;
             cache_size = 1;
-        } else if (mode == Mode::ABSORB && cache_size < rate) {
+        } else if (cache_size < rate) {
             // If we're absorbing, and the cache is not full, add the input into the cache
             cache[cache_size] = input;
             cache_size += 1;
-        } else if (mode == Mode::SQUEEZE) {
-            // If we're in squeeze mode, switch to absorb mode and add the input into the cache.
-            // N.B. I don't think this code path can be reached?!
-            cache[0] = input;
-            cache_size = 1;
-            mode = Mode::ABSORB;
         }
     }
 
     field_t squeeze()
     {
-        if (mode == Mode::SQUEEZE && cache_size == 0) {
-            // If we're in squeze mode and the cache is empty, there is nothing left to squeeze out of the sponge!
-            // Switch to absorb mode.
-            mode = Mode::ABSORB;
-            cache_size = 0;
-        }
+
         if (mode == Mode::ABSORB) {
             // If we're in absorb mode, apply sponge permutation to compress the cache, populate cache with compressed
             // state and switch to squeeze mode. Note: this code block will execute if the previous `if` condition was
             // matched
-            auto new_output_elements = perform_duplex();
+            perform_duplex();
             mode = Mode::SQUEEZE;
             for (size_t i = 0; i < rate; ++i) {
-                cache[i] = new_output_elements[i];
+                cache[i] = state[i];
             }
             cache_size = rate;
         }
@@ -148,11 +133,11 @@ template <size_t rate, size_t capacity, size_t t, typename Permutation, typename
      * @param input
      * @return std::array<field_t, out_len>
      */
-    template <size_t out_len>
-    static std::array<field_t, out_len> hash_internal(Builder& builder, std::span<const field_t> input)
+
+    static field_t hash_internal(Builder& builder, std::span<const field_t> input)
     {
         size_t in_len = input.size();
-        const uint256_t iv = (static_cast<uint256_t>(in_len) << 64) + out_len - 1;
+        const uint256_t iv = (static_cast<uint256_t>(in_len) << 64);
         FieldSponge sponge(builder, iv);
 
         for (size_t i = 0; i < in_len; ++i) {
@@ -160,10 +145,8 @@ template <size_t rate, size_t capacity, size_t t, typename Permutation, typename
             sponge.absorb(input[i]);
         }
 
-        std::array<field_t, out_len> output;
-        for (size_t i = 0; i < out_len; ++i) {
-            output[i] = sponge.squeeze();
-        }
+        field_t output = sponge.squeeze();
+
         // variables with indices won't be used in the circuit.
         // but they aren't dangerous and needed to put in used witnesses
         if constexpr (IsUltraBuilder<Builder>) {
@@ -174,11 +157,6 @@ template <size_t rate, size_t capacity, size_t t, typename Permutation, typename
             }
         }
         return output;
-    }
-
-    static field_t hash_internal(Builder& builder, std::span<const field_t> input)
-    {
-        return hash_internal<1>(builder, input)[0];
     }
 };
 } // namespace bb::stdlib

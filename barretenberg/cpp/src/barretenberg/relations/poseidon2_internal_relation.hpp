@@ -83,10 +83,7 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
      * At the end of each Sumcheck round, the subrelation accumulators are aggregated with independent challenges
      * \f$ \alpha_i = \alpha_{i,\mathrm{Poseidon2Int}} \f$ (from the `SubrelationSeparators`)
      * \f[
-     *   q_{\mathrm{poseidon2\_internal}}\cdot
-     *   \Big[
      *     \alpha_{0}A_1 + \alpha_{1}A_2 + \alpha_{2}A_3 + \alpha_{3}A_4
-     *   \Big].
      * \f]
      * and multiplied by the linear factor of the `GateSeparatorPolynomial`.
      * @param evals A tuple of tuples of univariate accumulators; the subtuple for this relation is
@@ -135,36 +132,29 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
         const auto partial_sum = w_2_m + w_3_m + w_4_m;
         const auto scaled_u1 = u1 * q_pos_by_scaling;
         // Row 1:
-        {
-            barycentric_term = scaled_u1 * D1_plus_1;
-            auto monomial_term = partial_sum - w_1_shift_m;
-            barycentric_term += Accumulator(monomial_term * q_pos_by_scaling_m);
-            std::get<0>(evals) += barycentric_term;
-        }
+
+        barycentric_term = scaled_u1 * D1_plus_1;
+        auto monomial_term = partial_sum - w_1_shift_m;
+        barycentric_term += Accumulator(monomial_term * q_pos_by_scaling_m);
+        std::get<0>(evals) += barycentric_term;
 
         // Row 2:
-        {
-            auto v2_m = w_2_m * D2 + partial_sum - w_2_shift_m;
-            barycentric_term = Accumulator(v2_m * q_pos_by_scaling_m);
-            barycentric_term += scaled_u1;
-            std::get<1>(evals) += barycentric_term;
-        }
+        auto v2_m = w_2_m * D2 + partial_sum - w_2_shift_m;
+        barycentric_term = Accumulator(v2_m * q_pos_by_scaling_m);
+        barycentric_term += scaled_u1;
+        std::get<1>(evals) += barycentric_term;
 
         // Row 3:
-        {
-            auto v3_m = w_3_m * D3 + partial_sum - w_3_shift_m;
-            barycentric_term = Accumulator(v3_m * q_pos_by_scaling_m);
-            barycentric_term += scaled_u1;
-            std::get<2>(evals) += barycentric_term;
-        }
+        auto v3_m = w_3_m * D3 + partial_sum - w_3_shift_m;
+        barycentric_term = Accumulator(v3_m * q_pos_by_scaling_m);
+        barycentric_term += scaled_u1;
+        std::get<2>(evals) += barycentric_term;
 
         // Row 4:
-        {
-            auto v4_m = w_4_m * D4 + partial_sum - w_4_shift_m;
-            barycentric_term = Accumulator(v4_m * q_pos_by_scaling_m);
-            barycentric_term += scaled_u1;
-            std::get<3>(evals) += barycentric_term;
-        }
+        auto v4_m = w_4_m * D4 + partial_sum - w_4_shift_m;
+        barycentric_term = Accumulator(v4_m * q_pos_by_scaling_m);
+        barycentric_term += scaled_u1;
+        std::get<3>(evals) += barycentric_term;
     };
 }; // namespace bb
 

@@ -28,11 +28,10 @@ template <typename Builder> class poseidon2 {
     using Params = crypto::Poseidon2Bn254ScalarFieldParams;
     using Permutation = Poseidon2Permutation<Builder>;
     // We choose our rate to be t-1 and capacity to be 1.
-    using Sponge = FieldSponge<Params::t - 1, 1, Params::t, Permutation, Builder>;
+    using Sponge = FieldSponge<Params::t - 1, 1, Params::t, Builder>;
 
   public:
     static field_ct hash(Builder& builder, const std::vector<field_ct>& in);
-    static field_ct hash_buffer(Builder& builder, const stdlib::byte_array<Builder>& input);
 };
 
 } // namespace bb::stdlib

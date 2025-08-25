@@ -29,7 +29,7 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
     }
 
     /**
-     * @brief Expression for the poseidon2 external round relation, based on E_i in Section 6 of
+     * @brief Expression for the poseidon2 external round relation, based on \f$ E_i \f$ in Section 6 of
      * https://eprint.iacr.org/2023/323.pdf.
      * @details For state \f$ \mathbf{u} = (u_1, u_2, u_3, u_4)\f$ with \f$ u_i = \big(w_i + c_i^{(i)}\big)^5 \f$, the
      * external round computes \f$ \mathbf{v} = M_E \cdot \mathbf{u}^{\top}\f$, where \f$M_E\f$ is the external round
@@ -67,13 +67,10 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
      * At the end of each Sumcheck Round, the subrelation accumulators are aggregated with independent challenges
      * \f$\alpha_{i} = \alpha_{i, \text{Poseidon2Ext}}\f$ taken from the array of `SubrelationSeparators`
      * \f[
-     *   \text{q_poseidon2_internal}\cdot
-     *   \Big[
      *     \alpha_{0} A_1 +
      *     \alpha_{1} A_2 +
      *     \alpha_{2} A_3 +
      *     \alpha_{3} A_4
-     *   \Big]
      * \f]
      * and multiplied by the linear factor of the `GateSeparatorPolynomial`.
      *
