@@ -59,7 +59,7 @@ pub contract Benchmarking {
 
     // Does a bunch of heavy compute
     #[public]
-    fn sha256_hash_2048(data: [u8; 2048]) -> [u8; 32] {
+    fn sha256_hash_1024(data: [u8; 1024]) -> [u8; 32] {
         sha256::sha256_var(data, data.len() as u64)
     }
 }
