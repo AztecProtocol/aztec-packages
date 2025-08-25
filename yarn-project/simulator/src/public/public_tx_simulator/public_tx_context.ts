@@ -15,7 +15,6 @@ import {
   AvmCircuitPublicInputs,
   PublicDataWrite,
   RevertCode,
-  clampGasSettingsForAVM,
 } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { SimulationError } from '@aztec/stdlib/errors';
@@ -73,7 +72,6 @@ export class PublicTxContext {
     private readonly startTreeSnapshots: TreeSnapshots,
     private readonly globalVariables: GlobalVariables,
     private readonly gasSettings: GasSettings,
-    private readonly clampedGasSettings: GasSettings,
     private readonly gasUsedByPrivate: Gas,
     private readonly gasAllocatedToPublic: Gas,
     private readonly gasAllocatedToPublicTeardown: Gas,
@@ -113,10 +111,8 @@ export class PublicTxContext {
 
     const gasSettings = tx.data.constants.txContext.gasSettings;
     const gasUsedByPrivate = tx.data.gasUsed;
-    // Gas allocated to public is "whatever's left" after private, but with some max applied.
-    const clampedGasSettings = clampGasSettingsForAVM(gasSettings, gasUsedByPrivate);
-    const gasAllocatedToPublic = clampedGasSettings.gasLimits.sub(gasUsedByPrivate);
-    const gasAllocatedToPublicTeardown = clampedGasSettings.teardownGasLimits;
+    const gasAllocatedToPublic = gasSettings.gasLimits.sub(gasUsedByPrivate);
+    const gasAllocatedToPublicTeardown = gasSettings.teardownGasLimits;
 
     return new PublicTxContext(
       tx.getTxHash(),
@@ -124,7 +120,6 @@ export class PublicTxContext {
       await txStateManager.getTreeSnapshots(),
       globalVariables,
       gasSettings,
-      clampedGasSettings,
       gasUsedByPrivate,
       gasAllocatedToPublic,
       gasAllocatedToPublicTeardown,
@@ -383,7 +378,7 @@ export class PublicTxContext {
       this.globalVariables,
       this.startTreeSnapshots,
       /*startGasUsed=*/ this.gasUsedByPrivate,
-      this.clampedGasSettings,
+      this.gasSettings,
       computeEffectiveGasFees(this.globalVariables.gasFees, this.gasSettings),
       this.feePayer,
       /*publicCallRequestArrayLengths=*/ new PublicCallRequestArrayLengths(
