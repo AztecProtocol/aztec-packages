@@ -80,7 +80,6 @@ interface IGSE is IGSECore {
     view
     returns (address[] memory);
   function getG1PublicKeysFromAddresses(address[] memory _attesters) external view returns (G1Point[] memory);
-  function getAttestersAtTime(address _instance, Timestamp _timestamp) external view returns (address[] memory);
   function getAttesterFromIndexAtTime(address _instance, uint256 _index, Timestamp _timestamp)
     external
     view
@@ -696,29 +695,6 @@ contract GSE is IGSE, GSECore {
 
   function getVotingPower(address _delegatee) external view override(IGSE) returns (uint256) {
     return delegation.getVotingPower(_delegatee);
-  }
-
-  /**
-   * @notice  Get the addresses of the attesters at the instance at the time of `_timestamp`
-   *
-   * @param _instance   - The instance to look at
-   * @param _timestamp  - The timestamp to lookup
-   *
-   * @return The attesters at the instance at the time of `_timestamp`
-   */
-  function getAttestersAtTime(address _instance, Timestamp _timestamp)
-    external
-    view
-    override(IGSE)
-    returns (address[] memory)
-  {
-    uint256 count = getAttesterCountAtTime(_instance, _timestamp);
-    uint256[] memory indices = new uint256[](count);
-    for (uint256 i = 0; i < count; i++) {
-      indices[i] = i;
-    }
-
-    return _getAddressFromIndicesAtTimestamp(_instance, indices, _timestamp);
   }
 
   function getAttestersFromIndicesAtTime(address _instance, Timestamp _timestamp, uint256[] memory _indices)
