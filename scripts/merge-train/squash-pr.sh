@@ -13,21 +13,17 @@ branch="$2"
 base_branch="$3"
 base_sha="$4"
 
-# Get PR info including author
-pr_info=$(gh pr view "$pr_number" --json title,body,author)
+# Get PR info including author and repository information
+pr_info=$(gh pr view "$pr_number" --json title,body,author,headRepository,isCrossRepository)
 pr_title=$(echo "$pr_info" | jq -r '.title')
 pr_body=$(echo "$pr_info" | jq -r '.body // ""')
 pr_author=$(echo "$pr_info" | jq -r '.author.login')
+head_repo=$(echo "$pr_info" | jq -r '.headRepository.nameWithOwner')
+is_fork=$(echo "$pr_info" | jq -r '.isCrossRepository')
 
-# Try to get author email from the most recent non-merge commit
-author_email=$(git log --no-merges -1 --format='%ae')
-author_name=$(git log --no-merges -1 --format='%an')
-
-# Fall back to GitHub username if needed
-if [[ -z "$author_email" ]] || [[ "$author_email" == "null" ]]; then
-  author_email="${pr_author}@users.noreply.github.com"
-  author_name="$pr_author"
-fi
+# We'll use AztecBot as the committer
+author_name="AztecBot"
+author_email="tech@aztecprotocol.com"
 
 # Create a temporary worktree to do the squashing
 worktree_dir=$(mktemp -d)
@@ -58,6 +54,20 @@ git fetch origin "$base_branch"
 # Find the merge-base between our branch and the base branch
 merge_base=$(git merge-base "$original_head" "origin/$base_branch")
 
+# Collect all unique authors from non-merge commits that are not in the base branch
+# Get all commits between merge_base and HEAD, excluding merges
+authors_info=$(git log "$merge_base..$original_head" --no-merges --format='%an <%ae>' | sort -u)
+
+# Build Co-authored-by trailers
+co_authors=""
+while IFS= read -r author_line; do
+  # Skip empty lines and AztecBot itself
+  if [[ -n "$author_line" ]] && [[ "$author_line" != *"AztecBot"* ]] && [[ "$author_line" != *"tech@aztecprotocol.com"* ]]; then
+    co_authors="${co_authors}Co-authored-by: ${author_line}
+"
+  fi
+done <<< "$authors_info"
+
 # Reset to the merge-base
 git reset --hard "$merge_base"
 
@@ -71,13 +81,28 @@ git merge "$original_head" --no-edit || {
 # Now squash all the PR commits into one by resetting to the base
 git reset --soft "$merge_base"
 
-# Create commit with PR title and body
+# Create commit with PR title, body, and co-authors
 commit_message="$pr_title${pr_body:+
 
-$pr_body}"
+$pr_body}${co_authors:+
+
+$co_authors}"
 git commit -m "$commit_message" --no-verify
 
-# Push (use full ref to handle case where branch doesn't exist on remote)
-git push --force origin "HEAD:refs/heads/$branch"
+# Push to the correct repository (fork or origin)
+if [[ "$is_fork" == "true" ]]; then
+  # It's a fork - need to push to the fork repository
+  echo "Detected fork: pushing to $head_repo"
+  
+  # Add the fork as a remote (assumes GITHUB_TOKEN env var is set from workflow)
+  git remote add fork "https://x-access-token:${GITHUB_TOKEN}@github.com/${head_repo}.git"
+  
+  # Push to the fork
+  git push --force fork "HEAD:refs/heads/$branch"
+else
+  # Not a fork - push to origin as before
+  echo "Not a fork: pushing to origin"
+  git push --force origin "HEAD:refs/heads/$branch"
+fi
 
 echo "Squashed PR #$pr_number!"
