@@ -10,7 +10,7 @@ contract AvmGadgetsTest {
     }
 
     #[public]
-    fn keccak_hash_2400(data: [u8; 2400]) -> [u8; 32] {
+    fn keccak_hash_1400(data: [u8; 1400]) -> [u8; 32] {
         keccak256::keccak256(data, data.len())
     }
 
@@ -25,7 +25,7 @@ contract AvmGadgetsTest {
     }
 
     #[public]
-    fn poseidon2_hash_2000fields(data: [Field; 2000]) -> Field {
+    fn poseidon2_hash_1000fields(data: [Field; 1000]) -> Field {
         poseidon::poseidon2::Poseidon2::hash(data, data.len())
     }
 
@@ -87,12 +87,12 @@ contract AvmGadgetsTest {
     }
 
     #[public]
-    fn sha256_hash_2048(data: [u8; 2048]) -> [u8; 32] {
+    fn sha256_hash_1024(data: [u8; 1024]) -> [u8; 32] {
         sha256::sha256_var(data, data.len() as u64)
     }
 
     #[public]
-    fn sha256_hash_2500(data: [u8; 2500]) -> [u8; 32] {
+    fn sha256_hash_1536(data: [u8; 1536]) -> [u8; 32] {
         sha256::sha256_var(data, data.len() as u64)
     }
 
