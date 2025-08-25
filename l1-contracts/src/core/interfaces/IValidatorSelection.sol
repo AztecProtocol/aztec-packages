@@ -35,10 +35,6 @@ interface IValidatorSelection is IValidatorSelectionCore, IEmperor {
   // Consider removing below this point
   function getTimestampForSlot(Slot _slotNumber) external view returns (Timestamp);
 
-  // Likely removal of these to replace with a size and individual getter
-  // Get the current epoch committee
-  function getAttesters() external view returns (address[] memory);
-
   function getSampleSeedAt(Timestamp _ts) external view returns (uint256);
   function getCurrentSampleSeed() external view returns (uint256);
 

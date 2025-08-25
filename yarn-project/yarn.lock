@@ -682,6 +682,7 @@ __metadata:
     get-port: "npm:^7.1.0"
     jest: "npm:^30.0.0"
     jest-mock-extended: "npm:^4.0.0"
+    lodash.chunk: "npm:^4.2.0"
     lodash.omit: "npm:^4.5.0"
     lodash.pickby: "npm:^4.5.0"
     ts-node: "npm:^10.9.1"
