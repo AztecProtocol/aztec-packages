@@ -13,8 +13,8 @@
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_poseidon2.hpp"
-#include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 
 using ::testing::_;
@@ -41,7 +41,7 @@ class BytecodeManagerTest : public ::testing::Test {
     StrictMock<MockContractDB> contract_db;
     StrictMock<MockHighLevelMerkleDB> merkle_db;
     StrictMock<MockPoseidon2> poseidon2;
-    StrictMock<MockRangeCheck> range_check;
+    StrictMock<MockGreaterThan> gt;
     StrictMock<MockContractInstanceManager> contract_instance_manager;
 
     EventEmitter<BytecodeRetrievalEvent> retrieval_events;
@@ -56,7 +56,7 @@ TEST_F(BytecodeManagerTest, RetrievalAndDeduplication)
     TxBytecodeManager tx_bytecode_manager(contract_db,
                                           merkle_db,
                                           bytecode_hasher,
-                                          range_check,
+                                          gt,
                                           contract_instance_manager,
                                           retrieval_events,
                                           decomposition_events,

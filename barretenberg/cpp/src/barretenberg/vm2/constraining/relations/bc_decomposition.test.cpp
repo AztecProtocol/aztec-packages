@@ -5,6 +5,7 @@
 #include <memory>
 #include <vector>
 
+#include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -19,9 +20,7 @@ namespace bb::avm2::constraining {
 namespace {
 
 using testing::random_bytes;
-using testing::random_contract_class;
 using tracegen::BytecodeTraceBuilder;
-using tracegen::DECOMPOSE_WINDOW_SIZE;
 using tracegen::TestTraceContainer;
 
 using FF = AvmFlavorSettings::FF;

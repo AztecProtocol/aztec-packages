@@ -12,6 +12,12 @@
 namespace bb::avm2 {
 
 constexpr size_t NUM_OP_DC_SELECTORS = 18;
+constexpr uint32_t DECOMPOSE_WINDOW_SIZE = 37; // Max size of instruction in bytes.
+// We do not use a static constant to compute this value from WIRE_INSTRUCTION_SPEC
+// because we do not want it to be changed transparently. Namely, if this constant
+// is changed, we need to make significant changes in pil/vm2/bytecode/bc_decomposition.pil
+// and pil/vm2/bytecode/instr_fetching.pil.
+// We rely on the unit test InstructionSpecTest.CheckDecomposeWindowSize to detect if this constant is changed.
 
 struct ExecInstructionSpec {
     struct GasInfo {

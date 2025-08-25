@@ -1,6 +1,6 @@
 include "bc_decomposition.pil";
 
-include "../range_check.pil";
+include "../gt.pil";
 include "../constants_gen.pil";
 
 // Explanations
@@ -60,21 +60,25 @@ pol commit bytecode_id;
 //                List of errors
 // ****************************************************************************
 
+// pc "is in range" boolean
+pol commit sel_pc_in_range;
+sel_pc_in_range * (1 - sel_pc_in_range) = 0;
+
 // pc out-of-range error boolean
-pol commit pc_out_of_range;
-pc_out_of_range * (1 - pc_out_of_range) = 0;
+pol PC_OUT_OF_RANGE_ERROR = 1 - sel_pc_in_range;
 
 // Instruction out-of-range error boolean (happens iff instr_size > bytes_to_read)
 pol commit instr_out_of_range;
 instr_out_of_range * (1 - instr_out_of_range) = 0;
 
 // opcode is out-of-range error boolean
-pol commit opcode_out_of_range; // copied from precomputed.pil
+pol commit opcode_in_range; // copied from precomputed.pil
+pol OPCODE_OUT_OF_RANGE_ERROR = 1 - opcode_in_range;
 
 // memory tag is out-of-range error boolean
 pol commit tag_out_of_range; // copied from precomputed.pil
 
-pol PARSING_ERROR_EXCEPT_TAG_ERROR = pc_out_of_range + opcode_out_of_range + instr_out_of_range;
+pol PARSING_ERROR_EXCEPT_TAG_ERROR = PC_OUT_OF_RANGE_ERROR + OPCODE_OUT_OF_RANGE_ERROR + instr_out_of_range;
 
 // If any error occurs, we toggle the following boolean:
 pol commit sel_parsing_err;
@@ -91,25 +95,11 @@ sel_parsing_err * (1 - sel_parsing_err) = 0; // enforces disjoint errors
 // Retrieved from bc_decomposition.pil based on bytecode_id with pc == 0
 pol commit bytecode_size;
 
-// We have to enforce that: pc < bytecode_size <==> pc_out_of_range == 0
-// We use a specific absolute difference value to distinguish pc < bytecode_size
-// from pc >= bytecode_size.
+// We have to enforce that: pc < bytecode_size <==> sel_pc_in_range == 1
+// which is equivalent to pc >= bytecode_size <==> PC_OUT_OF_RANGE_ERROR == 1.
 
-// pc - bytecode_size       if bytecode_size <= pc
-// bytecode_size - pc - 1   if bytecode_size > pc
-pol commit pc_abs_diff;
-#[PC_OUT_OF_RANGE_TOGGLE]
-pc_abs_diff = sel * ((2 * pc_out_of_range - 1) * (pc - bytecode_size) - 1 + pc_out_of_range);
-
-// TODO: Remove this one once we support constant in lookup tuples
-// A column with the value 32 at each row.
-pol commit pc_size_in_bits;
-sel * (pc_size_in_bits - constants.AVM_PC_SIZE_IN_BITS) = 0;
-
-// pc_abs_diff is 32-bit long (pc is uint32_t)
-// Use constant AVM_PC_SIZE_IN_BITS once we support constants in lookup tuples.
-#[PC_ABS_DIFF_POSITIVE]
-sel { pc_abs_diff, pc_size_in_bits } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+#[PC_IN_RANGE_TOGGLE]
+sel { bytecode_size, pc, sel_pc_in_range } in gt.sel { gt.input_a, gt.input_b, gt.res };
 
 // ****************************************************************************
 //                Handling instr_out_of_range error
@@ -121,18 +111,10 @@ pol commit bytes_to_read;
 // Instruction size in bytes. Copied from precomputed.pil
 pol commit instr_size;
 
-// Absolute difference variant where we compute:
-// bytes_to_read - instr_size      if instr_size <= bytes_to_read
-// instr_size - bytes_to_read - 1  if instr_size > bytes_to_read (instr_out_of_range == 1)
-pol commit instr_abs_diff;
-
-// From the following relation, we have: instr_abs_diff >= 0 ==> [instr_size > bytes_to_read <==> instr_out_of_range == 1]
+// We enforce that: instr_size > bytes_to_read <==> instr_out_of_range == 1.
+// We activate this lookup only when opcode is in range (event for destination is not emitted when opcode is out of range).
 #[INSTR_OUT_OF_RANGE_TOGGLE]
-instr_abs_diff = (2 * instr_out_of_range - 1) * (instr_size - bytes_to_read) - instr_out_of_range;
-
-#[INSTR_ABS_DIFF_POSITIVE]
-sel { instr_abs_diff } in precomputed.sel_range_8 { precomputed.clk };
-
+opcode_in_range { instr_size, bytes_to_read, instr_out_of_range } in gt.sel { gt.input_a, gt.input_b, gt.res };
 
 // ****************************************************************************
 //                Handling tag_out_of_range error
@@ -172,12 +154,9 @@ pol commit bd0, bd1, bd2, bd3, bd4,
            bd31, bd32, bd33, bd34, bd35,
            bd36;
 
-// Source selector for lookups to bc_decomposition.pil and instruction specifications in precomputed.pil.
-// When the pc is in range, we can at least fetch the byte of the wire opcode which allows to proceed to
-// the next errors checking.
-pol commit sel_pc_in_range;
-// Toggled except when pc is out of range.
-sel_pc_in_range = sel * (1 - pc_out_of_range);
+// sel_pc_in_range is the source selector for lookups to bc_decomposition.pil and instruction specifications
+// in precomputed.pil. When the pc is in range, we can at least fetch the byte of the wire opcode which allows
+// to proceed to the next errors checking.
 
 // Bring in the bytes from the bytecode columns.
 #[BYTES_FROM_BC_DEC]
@@ -234,7 +213,7 @@ pol commit sel_op_dc_16;
 #[WIRE_INSTRUCTION_INFO]
 sel_pc_in_range {
      bd0,
-     opcode_out_of_range,
+     opcode_in_range,
      exec_opcode,
      instr_size,
      sel_has_tag,
@@ -247,7 +226,7 @@ sel_pc_in_range {
 } in
 precomputed.sel_range_8 {
     precomputed.clk,
-    precomputed.opcode_out_of_range,
+    precomputed.opcode_in_range,
     precomputed.exec_opcode,
     precomputed.instr_size,
     precomputed.sel_has_tag,

@@ -176,7 +176,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     TxBytecodeManager bytecode_manager(contract_db,
                                        merkle_db,
                                        bytecode_hasher,
-                                       range_check,
+                                       greater_than,
                                        contract_instance_manager,
                                        bytecode_retrieval_emitter,
                                        bytecode_decomposition_emitter,
