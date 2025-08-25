@@ -11,8 +11,8 @@ global ASK_AMOUNT: u128 = 2000;
 global CREATE_ORDER_AUTHWIT_NONCE: Field = 1;
 global FULFILL_ORDER_AUTHWIT_NONCE: Field = 2;
 
-/// Test that checks the full flow of creating an order, fulfilling it and verifying the intermittent and the final
-/// balances.
+/// Checks the full flow of creating an order and fulfilling it.
+//
 // Note: Ideally this test would be split into 2 separate test cases - one for order creation and one for order
 // fulfillment, with the second test running on the state from the first test. Since this feature is not currently
 // supported, combining them into a single comprehensive test is the best approach.
@@ -56,7 +56,7 @@ unconstrained fn full_flow() {
     assert_eq(order.bid_token_is_zero, true); // token0 -> token1
     assert_eq(is_fulfilled, false);
 
-    // Verify tokens were transferred to orderbook's public balance
+    // Verify that all maker's tokens were transferred to orderbook's public balance
     assert_eq(env.view_public(token0.balance_of_public(orderbook_address)), BID_AMOUNT);
     assert_eq(env.simulate_utility(token0.balance_of_private(maker)), 0);
 
