@@ -1,4 +1,4 @@
-use crate::{Orderbook, test::utils::setup_orderbook_with_tokens};
+use crate::{Orderbook, test::utils::setup};
 use aztec::{
     protocol_types::{address::AztecAddress, traits::FromField},
     test::helpers::authwit::add_private_authwit_from_call_interface,
@@ -13,8 +13,7 @@ global FULFILL_ORDER_AUTHWIT_NONCE: Field = 2;
 
 #[test]
 unconstrained fn create_order_happy_path() {
-    let (mut env, orderbook_address, token0_address, token1_address, minter, maker) =
-        setup_orderbook_with_tokens(true);
+    let (mut env, orderbook_address, token0_address, token1_address, minter, maker) = setup(true);
 
     let token0 = Token::at(token0_address);
     let orderbook = Orderbook::at(orderbook_address);
@@ -46,8 +45,7 @@ unconstrained fn create_order_happy_path() {
 
 #[test]
 unconstrained fn full_flow() {
-    let (mut env, orderbook_address, token0_address, token1_address, minter, maker) =
-        setup_orderbook_with_tokens(true);
+    let (mut env, orderbook_address, token0_address, token1_address, minter, maker) = setup(true);
 
     let token0 = Token::at(token0_address);
     let token1 = Token::at(token1_address);
@@ -118,8 +116,7 @@ unconstrained fn full_flow() {
 
 #[test(should_fail_with = "ZERO_BID_AMOUNT")]
 unconstrained fn create_order_zero_bid_amount() {
-    let (mut env, orderbook_address, token0_address, token1_address, _, maker) =
-        setup_orderbook_with_tokens(false);
+    let (mut env, orderbook_address, token0_address, token1_address, _, maker) = setup(false);
 
     let orderbook = Orderbook::at(orderbook_address);
 
@@ -139,8 +136,7 @@ unconstrained fn create_order_zero_bid_amount() {
 
 #[test(should_fail_with = "ZERO_ASK_AMOUNT")]
 unconstrained fn create_order_zero_ask_amount() {
-    let (mut env, orderbook_address, token0_address, token1_address, _, maker) =
-        setup_orderbook_with_tokens(false);
+    let (mut env, orderbook_address, token0_address, token1_address, _, maker) = setup(false);
 
     let orderbook = Orderbook::at(orderbook_address);
 
@@ -160,8 +156,7 @@ unconstrained fn create_order_zero_ask_amount() {
 
 #[test(should_fail_with = "BID_TOKEN_IS_INVALID")]
 unconstrained fn create_order_invalid_bid_token() {
-    let (mut env, orderbook_address, _token0_address, token1_address, _, maker) =
-        setup_orderbook_with_tokens(false);
+    let (mut env, orderbook_address, _token0_address, token1_address, _, maker) = setup(false);
 
     let orderbook = Orderbook::at(orderbook_address);
 
@@ -181,8 +176,7 @@ unconstrained fn create_order_invalid_bid_token() {
 
 #[test(should_fail_with = "ASK_TOKEN_IS_INVALID")]
 unconstrained fn create_order_invalid_ask_token() {
-    let (mut env, orderbook_address, token0_address, _token1_address, _, maker) =
-        setup_orderbook_with_tokens(false);
+    let (mut env, orderbook_address, token0_address, _token1_address, _, maker) = setup(false);
 
     let orderbook = Orderbook::at(orderbook_address);
 
@@ -202,8 +196,7 @@ unconstrained fn create_order_invalid_ask_token() {
 
 #[test(should_fail_with = "SAME_TOKEN_TRADE")]
 unconstrained fn create_order_same_tokens() {
-    let (mut env, orderbook_address, token0_address, _token1_address, _, maker) =
-        setup_orderbook_with_tokens(false);
+    let (mut env, orderbook_address, token0_address, _token1_address, _, maker) = setup(false);
 
     let orderbook = Orderbook::at(orderbook_address);
 
