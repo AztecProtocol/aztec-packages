@@ -1,6 +1,8 @@
 import { randomInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
+import { AMMContractArtifact } from '@aztec/noir-contracts.js/AMM';
+import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { AvmGadgetsTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmGadgetsTest';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -39,22 +41,22 @@ describe('Public TX simulator apps tests: benchmarks', () => {
 
   it('Token Contract test', async () => {
     tester.setMetricsPrefix('Token contract tests');
-    await tokenTest(tester, logger, (b: boolean) => expect(b).toBe(true));
+    await tokenTest(tester, logger, TokenContractArtifact, (b: boolean) => expect(b).toBe(true));
   });
 
   it('AMM Contract test', async () => {
     tester.setMetricsPrefix('AMM contract tests');
-    await ammTest(tester, logger, (b: boolean) => expect(b).toBe(true));
+    await ammTest(tester, logger, TokenContractArtifact, AMMContractArtifact, (b: boolean) => expect(b).toBe(true));
   });
 
   it('AVM simulator bulk test', async () => {
     tester.setMetricsPrefix('AvmTest contract tests');
-    await bulkTest(tester, logger, (b: boolean) => expect(b).toBe(true));
+    await bulkTest(tester, logger, AvmTestContractArtifact, (b: boolean) => expect(b).toBe(true));
   });
 
   it('AVM simulator MEGA bulk test', async () => {
     tester.setMetricsPrefix('AvmTest contract tests');
-    await megaBulkTest(tester, logger, (b: boolean) => expect(b).toBe(true));
+    await megaBulkTest(tester, logger, AvmTestContractArtifact, (b: boolean) => expect(b).toBe(true));
   });
 
   it('AVM large calldata test', async () => {
