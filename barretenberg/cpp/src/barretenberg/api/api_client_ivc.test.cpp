@@ -210,7 +210,6 @@ TEST_F(ClientIVCAPITests, WriteIVCVkSmokeTest)
     // Set flags for VK generation
     ClientIVCAPI::Flags flags;
     flags.verifier_type = "ivc";
-    flags.output_format = "bytes";
 
     // Call write_vk
     ClientIVCAPI api;

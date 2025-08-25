@@ -77,7 +77,6 @@ TEST_F(ApiUltraHonkTest, ProveAndVerify)
     auto [bytecode_path, witness_path] = create_test_circuit_files(test_dir);
 
     API::Flags flags;
-    flags.output_format = "bytes";
     flags.oracle_hash_type = "poseidon2"; // Set default oracle hash type
 
     UltraHonkAPI api;
@@ -193,7 +192,6 @@ TEST_F(ApiUltraHonkTest, ProveWithDifferentSettings)
 TEST_F(ApiUltraHonkTest, WriteVk)
 {
     auto [bytecode_path, witness_path] = create_test_circuit_files(test_dir);
-<<<<<<< HEAD
     API::Flags flags;
     flags.oracle_hash_type = "poseidon2";
 
@@ -215,45 +213,6 @@ TEST_F(ApiUltraHonkTest, WriteVk)
     auto vk_from_bytes = from_buffer<UltraFlavor::VerificationKey>(expected_vk.bytes);
     auto vk_from_file = from_buffer<UltraFlavor::VerificationKey>(read_file(test_dir / "vk"));
     EXPECT_EQ(vk_from_bytes.to_field_elements(), vk_from_file.to_field_elements());
-=======
-
-    // Smoke test fields format (no real verification)
-    {
-        API::Flags flags;
-        flags.output_format = "fields";
-        flags.oracle_hash_type = "poseidon2";
-
-        UltraHonkAPI api;
-        api.write_vk(flags, bytecode_path, test_dir);
-
-        EXPECT_TRUE(std::filesystem::exists(test_dir / "vk_fields.json"));
-        EXPECT_TRUE(std::filesystem::exists(test_dir / "vk_hash_fields.json"));
-
-        EXPECT_FALSE(std::filesystem::exists(test_dir / "vk"));
-        EXPECT_FALSE(std::filesystem::exists(test_dir / "vk_hash"));
-    }
-
-    // Test with bytes format, simple vk recalculation
-    {
-        API::Flags flags;
-        flags.output_format = "bytes";
-        flags.oracle_hash_type = "poseidon2";
-
-        UltraHonkAPI api;
-        api.write_vk(flags, bytecode_path, test_dir);
-
-        // Test against bbapi::CircuitComputeVk
-        auto bytecode = read_file(bytecode_path);
-        auto expected_vk =
-            bbapi::CircuitComputeVk({ .circuit = { .bytecode = bb::decompress(bytecode.data(), bytecode.size()) },
-                                      .settings = { .oracle_hash_type = flags.oracle_hash_type } })
-                .execute();
-
-        info("after write_vk, expected_vk size: {}", expected_vk.bytes.size());
-        EXPECT_EQ(expected_vk.bytes, read_file(test_dir / "vk"));
-        EXPECT_EQ(expected_vk.hash, read_file(test_dir / "vk_hash"));
-    }
->>>>>>> origin/merge-train/barretenberg
 }
 
 // NOTE: very light test

@@ -119,14 +119,15 @@
       "inherits": "clang20",
       "binaryDir": "build-debug",
       "environment": {
-        "CMAKE_BUILD_TYPE": "Debug",
         "CFLAGS": "-gdwarf-4",
         "CXXFLAGS": "-gdwarf-4",
         "LDFLAGS": "-gdwarf-4"
       },
       "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
         "ENABLE_ASAN": "OFF",
-        "DISABLE_ASM": "ON"
+        "DISABLE_ASM": "ON",
+        "ENABLE_STACKTRACES": "ON"
       }
     },
     {
@@ -163,12 +164,12 @@
       "binaryDir": "build-tracy-time-sampled",
       "inherits": "clang20",
       "environment": {
-        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
         "CFLAGS": "-g -fno-omit-frame-pointer",
         "CXXFLAGS": "-g -fno-omit-frame-pointer",
         "LDFLAGS": "-g -fno-omit-frame-pointer -rdynamic"
       },
       "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
         "ENABLE_TRACY": "ON"
       }
     },
@@ -190,7 +191,6 @@
       "inherits": "debug",
       "binaryDir": "build-debug-fast",
       "environment": {
-        "CMAKE_BUILD_TYPE": "Debug",
         "CFLAGS": "-O2 -gdwarf",
         "CXXFLAGS": "-O2 -gdwarf-4",
         "LDFLAGS": "-O2 -gdwarf-4"
@@ -207,13 +207,25 @@
       }
     },
     {
+      "name": "debug-fast-no-avm",
+      "displayName": "Debug build with Clang-20 (no AVM)",
+      "description": "Build with globally installed Clang-20 in debug mode excluding the Aztec VM",
+      "inherits": "debug-fast",
+      "binaryDir": "build-debug-no-avm",
+      "cacheVariables": {
+        "DISABLE_AZTEC_VM": "ON",
+        "ENABLE_STACKTRACES": "ON"
+      }
+    },
+    {
       "name": "debug-no-avm",
-      "displayName": "Optimized debug build with Clang-20 (no AVM)",
+      "displayName": "Debug build with Clang-20 (no AVM)",
       "description": "Build with globally installed Clang-20 in debug mode excluding the Aztec VM",
       "inherits": "debug",
       "binaryDir": "build-debug-no-avm",
       "cacheVariables": {
-        "DISABLE_AZTEC_VM": "ON"
+        "DISABLE_AZTEC_VM": "ON",
+        "ENABLE_STACKTRACES": "ON"
       }
     },
     {
@@ -244,9 +256,6 @@
       "description": "Build with address sanitizer on clang20 with debugging information",
       "inherits": "debug",
       "binaryDir": "build-asan",
-      "environment": {
-        "CMAKE_BUILD_TYPE": "Debug"
-      },
       "cacheVariables": {
         "ENABLE_ASAN": "ON",
         "DISABLE_ASM": "ON"
@@ -279,9 +288,7 @@
       "binaryDir": "build-fuzzing",
       "cacheVariables": {
         "FUZZING": "ON",
-        "DISABLE_AZTEC_VM": "ON"
-      },
-      "environment": {
+        "DISABLE_AZTEC_VM": "ON",
         "CMAKE_BUILD_TYPE": "RelWithAssert"
       }
     },
@@ -294,9 +301,7 @@
       "cacheVariables": {
         "FUZZING": "ON",
         "DISABLE_AZTEC_VM": "ON",
-        "DISABLE_ASM": "ON"
-      },
-      "environment": {
+        "DISABLE_ASM": "ON",
         "CMAKE_BUILD_TYPE": "RelWithAssert"
       }
     },
@@ -311,9 +316,7 @@
         "FUZZING_SHOW_INFORMATION": "ON",
         "DISABLE_AZTEC_VM": "ON",
         "ENABLE_ASAN": "ON",
-        "DISABLE_ASM": "ON"
-      },
-      "environment": {
+        "DISABLE_ASM": "ON",
         "CMAKE_BUILD_TYPE": "RelWithAssert"
       }
     },
@@ -326,11 +329,11 @@
       "cacheVariables": {
         "FUZZING": "ON",
         "DISABLE_ASM": "ON",
-        "DISABLE_AZTEC_VM": "ON"
+        "DISABLE_AZTEC_VM": "ON",
+        "CMAKE_BUILD_TYPE": "RelWithAssert"
       },
       "environment": {
-        "CXXFLAGS": "-fprofile-instr-generate -fcoverage-mapping",
-        "CMAKE_BUILD_TYPE": "RelWithAssert"
+        "CXXFLAGS": "-fprofile-instr-generate -fcoverage-mapping"
       }
     },
     {
@@ -446,10 +449,8 @@
       "description": "Build for pthread enabled WASM",
       "inherits": "wasm",
       "binaryDir": "build-wasm-threads",
-      "environment": {
-        "CMAKE_BUILD_TYPE": "Release"
-      },
       "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
         "MULTITHREADING": "ON"
       }
     },
@@ -459,10 +460,8 @@
       "binaryDir": "build-wasm-threads-dbg",
       "description": "Build with wasi-sdk to create debug wasm",
       "inherits": "wasm",
-      "environment": {
-        "CMAKE_BUILD_TYPE": "Debug"
-      },
       "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
         "MULTITHREADING": "ON"
       }
     },
@@ -516,6 +515,11 @@
       "name": "clang20-no-avm",
       "inherits": "default",
       "configurePreset": "clang20-no-avm"
+    },
+    {
+      "name": "debug-fast-no-avm",
+      "inherits": "default",
+      "configurePreset": "debug-fast-no-avm"
     },
     {
       "name": "debug-no-avm",

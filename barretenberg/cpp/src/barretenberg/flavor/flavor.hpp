@@ -180,7 +180,7 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      * @brief Calculate the number of field elements needed for serialization
      * @return size_t Number of field elements
      */
-    static size_t calc_num_frs()
+    static size_t calc_num_data_typess()
     {
         using namespace bb::field_conversion;
         // Create a temporary instance to get the number of precomputed entities
@@ -241,8 +241,7 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
 
         size_t idx = 0;
         auto deserialize = [&idx, &elements]<typename T>(T& target) {
-            target = Transcript::template deserialize<T>(elements.subspan(idx));
-            idx += 1;
+            target = Transcript::template deserialize<T>(elements.subspan(idx), &idx);
         };
 
         if constexpr (SerializeMetadata == VKSerializationMode::FULL) {
@@ -550,7 +549,8 @@ inline void read(uint8_t const*& it, NativeVerificationKey_<PrecomputedCommitmen
     using serialize::read;
 
     // Get the size directly from the static method
-    size_t num_frs = NativeVerificationKey_<PrecomputedCommitments, Transcript, SerializeMetadata>::calc_num_frs();
+    size_t num_frs =
+        NativeVerificationKey_<PrecomputedCommitments, Transcript, SerializeMetadata>::calc_num_data_typess();
 
     // Read exactly num_frs field elements from the buffer
     std::vector<typename Transcript::DataType> field_elements(num_frs);
@@ -573,7 +573,8 @@ inline void write(std::vector<uint8_t>& buf,
         write(buf, element);
     }
     size_t after = buf.size();
-    size_t num_frs = NativeVerificationKey_<PrecomputedCommitments, Transcript, SerializeMetadata>::calc_num_frs();
+    size_t num_frs =
+        NativeVerificationKey_<PrecomputedCommitments, Transcript, SerializeMetadata>::calc_num_data_typess();
     BB_ASSERT_EQ(after - before, num_frs * sizeof(bb::fr), "VK serialization mismatch");
 }
 
