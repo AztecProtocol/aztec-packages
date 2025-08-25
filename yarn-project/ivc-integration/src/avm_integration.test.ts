@@ -6,6 +6,7 @@ import {
 } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 import { mapAvmCircuitPublicInputsToNoir } from '@aztec/noir-protocol-circuits-types/server';
+import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { PublicTxSimulationTester, bulkTest, createAvmMinimalPublicTx } from '@aztec/simulator/public/fixtures';
 import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import type { ProofAndVerificationKey } from '@aztec/stdlib/interfaces/server';
@@ -102,7 +103,9 @@ describe('AVM Integration', () => {
   });
 
   it('Should generate and verify an ultra honk proof from an AVM verification of the bulk test', async () => {
-    const avmSimulationResult = await bulkTest(simTester, logger, (b: boolean) => expect(b).toBe(true));
+    const avmSimulationResult = await bulkTest(simTester, logger, AvmTestContractArtifact, (b: boolean) =>
+      expect(b).toBe(true),
+    );
     const avmCircuitInputs = avmSimulationResult.avmProvingRequest.inputs;
 
     await proveMockPublicBaseRollup(

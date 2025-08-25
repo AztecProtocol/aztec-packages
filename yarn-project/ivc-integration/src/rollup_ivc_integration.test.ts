@@ -7,6 +7,7 @@ import {
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { mapAvmCircuitPublicInputsToNoir } from '@aztec/noir-protocol-circuits-types/server';
+import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { PublicTxSimulationTester, bulkTest } from '@aztec/simulator/public/fixtures';
 import { AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
 import type { ProofAndVerificationKey } from '@aztec/stdlib/interfaces/server';
@@ -73,7 +74,9 @@ describe('Rollup IVC Integration', () => {
     const avmWorkingDirectory = await getWorkingDirectory('bb-rollup-ivc-integration-avm-');
 
     const simTester = await PublicTxSimulationTester.create();
-    const avmSimulationResult = await bulkTest(simTester, logger, (b: boolean) => expect(b).toBe(true));
+    const avmSimulationResult = await bulkTest(simTester, logger, AvmTestContractArtifact, (b: boolean) =>
+      expect(b).toBe(true),
+    );
 
     const avmCircuitInputs = avmSimulationResult.avmProvingRequest.inputs;
     ({
