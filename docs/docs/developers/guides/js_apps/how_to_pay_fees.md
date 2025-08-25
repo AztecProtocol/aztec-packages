@@ -77,11 +77,11 @@ aztec-wallet create-account -a alice --payment method=fee_juice,feePayer=test0
 import { FeeJuicePaymentMethod } from "@aztec/aztec.js";
 
 const paymentMethod = new FeeJuicePaymentMethod(fundedAccount.getAddress());
-await newAccount.deploy({ 
-  fee: { 
-    deployWallet: fundedAccount, 
-    paymentMethod 
-  } 
+await newAccount.deploy({
+  fee: {
+    deployWallet: fundedAccount,
+    paymentMethod
+  }
 }).wait();
 ```
 
@@ -281,4 +281,4 @@ new PrivateFeePaymentMethod(fpcAddress, wallet)
 
 - [Fees on Aztec](../../../aztec/concepts/fees.md)
 - [CLI Wallet Reference](../../reference/environment_reference/cli_wallet_reference.md)
-- [Token Bridge Tutorial](../../tutorials/codealong/js_tutorials/token_bridge.md)
+- [Token Bridge Tutorial](../../tutorials/js_tutorials/token_bridge.md)
