@@ -34,17 +34,6 @@ namespace bb::stdlib {
 template <size_t rate, size_t capacity, size_t t, typename Builder> class FieldSponge {
   public:
     using Permutation = Poseidon2Permutation<Builder>;
-    /**
-     * @brief Defines what phase of the sponge algorithm we are in.
-     *
-     *        ABSORB: 'absorbing' field elements into the sponge
-     *        SQUEEZE: compressing the sponge and extracting a field element
-     *
-     */
-    enum Mode {
-        ABSORB,
-        SQUEEZE,
-    };
     using field_t = stdlib::field_t<Builder>;
 
     // sponge state. t = rate + capacity. capacity = 1 field element (~256 bits)
@@ -53,7 +42,6 @@ template <size_t rate, size_t capacity, size_t t, typename Builder> class FieldS
     // cached elements that have been absorbed.
     std::array<field_t, rate> cache;
     size_t cache_size = 0;
-    Mode mode = Mode::ABSORB;
     Builder* builder;
 
     FieldSponge(Builder& builder_, field_t domain_iv = 0)
@@ -104,17 +92,12 @@ template <size_t rate, size_t capacity, size_t t, typename Builder> class FieldS
     field_t squeeze()
     {
 
-        if (mode == Mode::ABSORB) {
-            // If we're in absorb mode, apply sponge permutation to compress the cache, populate cache with compressed
-            // state and switch to squeeze mode. Note: this code block will execute if the previous `if` condition was
-            // matched
-            perform_duplex();
-            mode = Mode::SQUEEZE;
-            for (size_t i = 0; i < rate; ++i) {
-                cache[i] = state[i];
-            }
-            cache_size = rate;
+        perform_duplex();
+        for (size_t i = 0; i < rate; ++i) {
+            cache[i] = state[i];
         }
+        cache_size = rate;
+
         // By this point, we should have a non-empty cache. Pop one item off the top of the cache and return it.
         field_t result = cache[0];
         for (size_t i = 1; i < cache_size; ++i) {
@@ -151,7 +134,7 @@ template <size_t rate, size_t capacity, size_t t, typename Builder> class FieldS
         // but they aren't dangerous and needed to put in used witnesses
         if constexpr (IsUltraBuilder<Builder>) {
             for (const auto& elem : sponge.cache) {
-                if (elem.witness_index != IS_CONSTANT) {
+                if (!elem.is_constant()) {
                     builder.update_used_witnesses(elem.witness_index);
                 }
             }
