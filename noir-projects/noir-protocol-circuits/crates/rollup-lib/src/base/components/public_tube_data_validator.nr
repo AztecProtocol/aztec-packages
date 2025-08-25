@@ -1,6 +1,5 @@
 use crate::base::components::{
-    constants::validate_tx_constant_data, gas::clamp_gas_settings_for_avm,
-    include_by_timestamp::validate_include_by_timestamp,
+    constants::validate_tx_constant_data, include_by_timestamp::validate_include_by_timestamp,
 };
 use super::fees::compute_effective_gas_fees;
 use dep::types::{
@@ -8,7 +7,7 @@ use dep::types::{
         avm_circuit_public_inputs::AvmCircuitPublicInputs, block_constant_data::BlockConstantData,
         tube::PublicTubeData,
     },
-    constants::ARCHIVE_HEIGHT,
+    constants::{ARCHIVE_HEIGHT, AVM_MAX_PROCESSABLE_L2_GAS},
     merkle_tree::MembershipWitness,
     proof::traits::Verifiable,
     traits::Empty,
@@ -37,6 +36,15 @@ pub struct PublicTubeDataValidator {
 impl PublicTubeDataValidator {
     pub fn new(data: PublicTubeData) -> Self {
         PublicTubeDataValidator { data }
+    }
+
+    // TODO: This should be moved to the private kernels once they are not used for gas estimation anymore.
+    pub fn validate_gas_settings(self) {
+        let gas_settings = self.data.public_inputs.constants.tx_context.gas_settings;
+        assert(
+            gas_settings.gas_limits.l2_gas <= AVM_MAX_PROCESSABLE_L2_GAS,
+            "l2 gas limit exceeds max processable l2 gas",
+        );
     }
 
     pub fn validate_proof_and_vk(self) {
@@ -84,10 +92,7 @@ impl PublicTubeDataValidator {
         );
 
         assert_eq(
-            clamp_gas_settings_for_avm(
-                tube_data.constants.tx_context.gas_settings,
-                tube_data.gas_used,
-            ),
+            tube_data.constants.tx_context.gas_settings,
             avm_data.gas_settings,
             "unexpected gas settings used in the AVM",
         );

@@ -2,6 +2,7 @@
 export const TX_ERROR_INSUFFICIENT_FEE_PER_GAS = 'Insufficient fee per gas';
 export const TX_ERROR_INSUFFICIENT_FEE_PAYER_BALANCE = 'Insufficient fee payer balance';
 export const TX_ERROR_INSUFFICIENT_GAS_LIMIT = 'Gas limit is below the minimum fixed cost';
+export const TX_ERROR_GAS_LIMIT_TOO_HIGH = 'Gas limit is higher than the amount of gas that the AVM can process';
 
 // Phases
 export const TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED = 'Setup function not on allow list';

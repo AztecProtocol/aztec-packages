@@ -1,3 +1,4 @@
+import { AVM_MAX_PROCESSABLE_L2_GAS } from '@aztec/constants';
 import type { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -144,6 +145,12 @@ export class PublicTxSimulator {
       }
 
       context.halt();
+
+      if (context.getActualGasUsed().l2Gas > AVM_MAX_PROCESSABLE_L2_GAS) {
+        throw new Error(
+          `Transaction consumes ${context.getActualGasUsed().l2Gas} L2 gas, which exceeds the AVM maximum processable gas of ${AVM_MAX_PROCESSABLE_L2_GAS}`,
+        );
+      }
       await this.payFee(context);
 
       const publicInputs = await context.generateAvmCircuitPublicInputs();

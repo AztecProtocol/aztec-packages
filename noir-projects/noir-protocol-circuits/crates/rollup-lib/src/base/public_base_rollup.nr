@@ -101,6 +101,7 @@ impl PublicBaseRollupInputs {
 
         let tube_data_validator = PublicTubeDataValidator::new(self.tube_data);
         tube_data_validator.validate_proof_and_vk();
+        tube_data_validator.validate_gas_settings();
         tube_data_validator.validate_with_block_constant_data(
             constants,
             self.archive_root_membership_witness,
@@ -156,8 +157,8 @@ mod tests {
         },
         constants::{
             AVM_VK_INDEX, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, CONTRACT_CLASS_LOGS_PREFIX,
-            L2_L1_MSGS_PREFIX, MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
-            MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
+            L2_L1_MSGS_PREFIX, MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
+            MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
             MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTES_PREFIX, NULLIFIERS_PREFIX,
             PRIVATE_LOG_SIZE_IN_FIELDS, PRIVATE_LOGS_PREFIX, PUBLIC_DATA_UPDATE_REQUESTS_PREFIX,
             PUBLIC_LOG_SIZE_IN_FIELDS, PUBLIC_LOGS_PREFIX, PUBLIC_TUBE_VK_INDEX, REVERT_CODE_PREFIX,
@@ -170,6 +171,7 @@ mod tests {
         traits::{Empty, Hash, ToField},
         utils::field::field_from_bytes,
     };
+    use types::constants::AVM_MAX_PROCESSABLE_L2_GAS;
 
     #[derive(Eq)]
     struct NullifierInsertion {
@@ -686,64 +688,12 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn allows_clamping_of_gas_settings_in_avm() {
-        let mut builder = PublicBaseRollupInputsBuilder::new();
-        let gas_used_by_private = Gas::new(0, 1000);
-
-        builder.tube_data.gas_used = gas_used_by_private;
-        builder.avm_data.start_gas_used = gas_used_by_private;
-
-        let mut gas_settings = GasSettings {
-            gas_limits: Gas::new(
-                0,
-                MAX_L2_GAS_PER_TX_PUBLIC_PORTION + gas_used_by_private.l2_gas + 1,
-            ),
-            teardown_gas_limits: Gas::new(0, MAX_L2_GAS_PER_TX_PUBLIC_PORTION + 1),
-            max_fees_per_gas: GasFees::new(0, 0),
-            max_priority_fees_per_gas: GasFees::new(0, 0),
-        };
-
-        builder.tube_data.tx_context.gas_settings = gas_settings;
-        // Clamped values in the AVM
-        gas_settings.gas_limits.l2_gas =
-            MAX_L2_GAS_PER_TX_PUBLIC_PORTION + gas_used_by_private.l2_gas;
-        gas_settings.teardown_gas_limits.l2_gas = MAX_L2_GAS_PER_TX_PUBLIC_PORTION;
-        builder.avm_data.tx_context.gas_settings = gas_settings;
-
-        builder.succeeds();
-    }
-
-    #[test(should_fail_with = "unexpected gas settings used in the AVM")]
-    unconstrained fn wrong_clamping_of_gas_settings_in_avm() {
-        let mut builder = PublicBaseRollupInputsBuilder::new();
-        let gas_used_by_private = Gas::new(0, 1000);
-
-        builder.tube_data.gas_used = gas_used_by_private;
-        builder.avm_data.start_gas_used = gas_used_by_private;
-
-        let gas_settings = GasSettings {
-            gas_limits: Gas::new(
-                0,
-                MAX_L2_GAS_PER_TX_PUBLIC_PORTION + gas_used_by_private.l2_gas + 1,
-            ),
-            teardown_gas_limits: Gas::new(0, MAX_L2_GAS_PER_TX_PUBLIC_PORTION + 1),
-            max_fees_per_gas: GasFees::new(0, 0),
-            max_priority_fees_per_gas: GasFees::new(0, 0),
-        };
-
-        builder.tube_data.tx_context.gas_settings = gas_settings;
-        builder.avm_data.tx_context.gas_settings = gas_settings;
-
-        builder.fails();
-    }
-
-    #[test]
     unconstrained fn avm_effective_gas_fees() {
         let mut builder = PublicBaseRollupInputsBuilder::new();
         builder.avm_data.global_variables.gas_fees = GasFees::new(100, 100);
 
         let gas_settings = GasSettings {
-            gas_limits: Gas::new(1000, MAX_L2_GAS_PER_TX_PUBLIC_PORTION),
+            gas_limits: Gas::new(1000, AVM_MAX_PROCESSABLE_L2_GAS),
             teardown_gas_limits: Gas::new(1000, 1000),
             max_fees_per_gas: GasFees::new(150, 150),
             max_priority_fees_per_gas: GasFees::new(100, 100),
@@ -763,7 +713,7 @@ mod tests {
         builder.avm_data.global_variables.gas_fees = GasFees::new(100, 100);
 
         let gas_settings = GasSettings {
-            gas_limits: Gas::new(1000, MAX_L2_GAS_PER_TX_PUBLIC_PORTION),
+            gas_limits: Gas::new(1000, AVM_MAX_PROCESSABLE_L2_GAS),
             teardown_gas_limits: Gas::new(1000, 1000),
             max_fees_per_gas: GasFees::new(150, 150),
             max_priority_fees_per_gas: GasFees::new(25, 25),
