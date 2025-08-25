@@ -43,24 +43,6 @@ void write_standalone_vk(const std::filesystem::path& bytecode_path, const std::
     }
 }
 
-void write_civc_vk(size_t num_public_inputs_in_final_circuit, const std::filesystem::path& output_dir)
-{
-    // Since we need to specify the number of public inputs but ClientIvcComputeIvcVk derives it from bytecode,
-    // we need to create a mock circuit with the correct number of public inputs
-    // For now, we'll use the compute_civc_vk function directly as it was designed for this purpose
-    bbapi::BBApiRequest request;
-    auto vk = bbapi::compute_civc_vk(request, num_public_inputs_in_final_circuit);
-    const auto buf = to_buffer(vk);
-
-    const bool output_to_stdout = output_dir == "-";
-
-    if (output_to_stdout) {
-        write_bytes_to_stdout(buf);
-    } else {
-        write_file(output_dir / "vk", buf);
-    }
-}
-
 void write_civc_vk(const std::string& bytecode_path, const std::filesystem::path& output_dir)
 {
     auto bytecode = get_bytecode(bytecode_path);
@@ -116,7 +98,6 @@ void ClientIVCAPI::prove(const Flags& flags,
     };
 
     write_proof();
-
     if (flags.write_vk) {
         vinfo("writing ClientIVC vk in directory ", output_dir);
         write_civc_vk(loaded_circuit_public_inputs_size, output_dir);

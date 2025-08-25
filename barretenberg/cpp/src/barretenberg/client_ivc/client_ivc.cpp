@@ -164,7 +164,6 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
         // Return early since the hiding circuit method performs merge and public inputs handling
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1501): we should remove the code duplication for
         // the consistency checks at some point
->>>>>>> origin/merge-train/barretenberg
         return { pairing_points, merged_table_commitments };
     }
     default: {
