@@ -5,7 +5,7 @@ import {WithGSE} from "./base.sol";
 import {Withdrawal} from "@aztec/governance/interfaces/IGovernance.sol";
 import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 
-contract FinaliseWithdrawTest is WithGSE {
+contract FinalizeWithdrawTest is WithGSE {
   uint256 internal withdrawalId;
 
   address internal ATTESTER = address(0xcafe);
@@ -25,7 +25,7 @@ contract FinaliseWithdrawTest is WithGSE {
   }
 
   function test_GivenWithdrawalNotClaimed() external {
-    // it finalises withdrawal in governance
+    // it finalizes withdrawal in governance
 
     Withdrawal memory withdrawal = governance.getWithdrawal(withdrawalId);
 
@@ -33,7 +33,7 @@ contract FinaliseWithdrawTest is WithGSE {
 
     assertEq(stakingAsset.balanceOf(INSTANCE), 0);
 
-    gse.finaliseWithdraw(withdrawalId);
+    gse.finalizeWithdraw(withdrawalId);
 
     assertEq(stakingAsset.balanceOf(INSTANCE), 100);
     withdrawal = governance.getWithdrawal(withdrawalId);
@@ -47,14 +47,14 @@ contract FinaliseWithdrawTest is WithGSE {
     vm.warp(Timestamp.unwrap(withdrawal.unlocksAt));
     assertEq(stakingAsset.balanceOf(INSTANCE), 0);
 
-    gse.finaliseWithdraw(withdrawalId);
+    gse.finalizeWithdraw(withdrawalId);
 
     assertEq(stakingAsset.balanceOf(INSTANCE), 100);
     withdrawal = governance.getWithdrawal(withdrawalId);
     assertEq(withdrawal.claimed, true);
 
     vm.record();
-    gse.finaliseWithdraw(withdrawalId);
+    gse.finalizeWithdraw(withdrawalId);
     (, bytes32[] memory writes) = vm.accesses(address(gse));
     assertEq(writes.length, 0);
   }

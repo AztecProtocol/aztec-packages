@@ -20,7 +20,7 @@ function test_cmds {
   # ../acir_tests/bootstrap.sh test_cmds | grep -v main.js | grep -v browser
   # echo "disabled-cache NO_WASM=1 barretenberg/cpp/bootstrap.sh bench_ivc origin/master"
 }
-(test_cmds || exit 1) | parallelise
+(test_cmds || exit 1) | parallelize
 # Run llvm-profdata to merge raw profiles
 llvm-profdata-16 merge -sparse build-coverage/profdata/*.profraw -o build-coverage/coverage.profdata
 

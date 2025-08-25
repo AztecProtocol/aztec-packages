@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "compile": "cd src/contracts && ${AZTEC_NARGO:-aztec-nargo} compile --silence-warnings",
+    "compile": "cd src/contracts && ${AZTEC_NARGO:-aztec-nargo} compile --silence-warnings && ${AZTEC_POSTPROCESS_CONTRACT:-aztec-postprocess-contract}",
     "codegen": "${AZTEC_BUILDER:-aztec} codegen src/contracts/target -o artifacts",
     "clean": "rm -rf ./dist .tsbuildinfo ./codegenCache.json ./artifacts ./src/contracts/target",
     "prep": "yarn clean && yarn compile && yarn codegen",

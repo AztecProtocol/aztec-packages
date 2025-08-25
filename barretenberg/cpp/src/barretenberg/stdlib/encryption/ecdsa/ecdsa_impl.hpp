@@ -20,6 +20,29 @@ auto& engine = numeric::get_debug_randomness();
 /**
  * @brief Verify ECDSA signature. Produces unsatisfiable constraints if signature fails
  *
+ * @details Fix the following notation:
+ *  1. \f$E\f$ is an elliptic curve over the base field \f$\mathbb{F}_q\f$.
+ *  2. \f$G\f$ is a generator of the group of points of \f$E\f$, the order of \f$G\f$ is \f$n\f$.
+ *  3. \f$a \in \mathbb{F}_n^{\ast}\f$ is a private key, and \f$P := aG\f$ is the associated public key
+ *  4. \f$\mathbf{H}\f$ is a hash function
+ *
+ * Given a message \f$m\f$, a couple \f$(r,s)\f$ is a valid signature for the message \f$m\f$ with respect to the public
+ * key \f$P\f$ if:
+ *  1. \f$P\f$ is a point on \f$E\f$
+ *  2. \f$0 < r < n\f$
+ *  3. \f$0 < s < (n+1) / 2\f$
+ *  4. Define \f$e := \mathbf{H}(m) \mod n\f$ and \f$Q := e s^{-1} G + r s^{-1} P \f$
+ *  5. \f$Q\f$ is not the point at infinity AND \f$Q_x = r \mod n\f$ (note that \f$Q_x \in \mathbb{F}_q\f$)
+ *
+ * @note The requirement of step 2. is to avoid transaction malleability: if \f$(r,s)\f$ is a valid signature for
+ * message \f$m\f$ and public key \f$P\f$, so is \f$(r,n-s)\f$. We protect against malleability by enforcing that
+ * \f$s\f$ is always the lowest of the two possible values.
+ *
+ * @note In Ethereum signatures contain also a recovery byte \$v\$ which is used to recover the public key for which
+ * the signature is to be validated. As we receive the public key as part of the inputs to the verification function, we
+ * do not handle the recovery byte. The signature which is the input to the verification function is given by \$(r,s)\$.
+ * The users of the verification function should handle the recovery byte if that is in their interest.
+ *
  * @tparam Builder
  * @tparam Curve
  * @tparam Fq
@@ -36,38 +59,6 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& messag
                                        const ecdsa_signature<Builder>& sig)
 {
     Builder* ctx = message.get_context() ? message.get_context() : public_key.x.context;
-
-    BB_ASSERT_EQ(sig.v.size(), 1ULL, "ecdsa: v must be a single byte");
-
-    /**
-     * Check if recovery id v is either 27 ot 28.
-     *
-     * The v in an (r, s, v) ecdsa signature is the 8-bit recovery id s.t. v ∈ {0, 1, 2, 3}.
-     * It is used to recover signing public key from an ecdsa signature. In practice, the value
-     * of v is offset by 27 following the convention from the original bitcoin whitepaper.
-     *
-     * The value of v depends on the point R = (x, y) s.t. r = x % |Fr|
-     * 0: y is even  &&  x < |Fr| (x = r)
-     * 1: y is odd   &&  x < |Fr| (x = r)
-     * 2: y is even  &&  |Fr| <= x < |Fq| (x = r + |Fr|)
-     * 3: y is odd   &&  |Fr| <= x < |Fq| (x = r + |Fr|)
-     *
-     * It is highly unlikely for x be be in [|Fr|, |Fq|) for the secp256k1 curve because:
-     * P(|Fr| <= x < |Fq|) = 1 - |Fr|/|Fq| ≈ 0.
-     * Therefore, it is reasonable to assume that the value of v will always be 0 or 1
-     * (i.e. 27 or 28 with offset). In fact, the ethereum yellow paper [1] only allows v to be 27 or 28
-     * and considers signatures with v ∈ {29, 30} to be non-standard.
-     *
-     * TODO(Suyash): EIP-155 allows v > 35 to ensure different v on different chains.
-     * Do we need to consider that in our circuits?
-     *
-     * References:
-     * [1] Ethereum yellow paper, Appendix E: https://ethereum.github.io/yellowpaper/paper.pdf
-     * [2] EIP-155: https://eips.ethereum.org/EIPS/eip-155
-     *
-     */
-    // Note: This check is also present in the _noassert variation of this method.
-    sig.v[0].assert_is_in_set({ field_t<Builder>(27), field_t<Builder>(28) }, "ecdsa: signature is non-standard");
 
     stdlib::byte_array<Builder> hashed_message =
         static_cast<stdlib::byte_array<Builder>>(stdlib::SHA256<Builder>::hash(message));
@@ -149,8 +140,6 @@ bool_t<Builder> ecdsa_verify_signature_prehashed_message_noassert(const stdlib::
 {
     Builder* ctx = hashed_message.get_context() ? hashed_message.get_context() : public_key.x.context;
 
-    BB_ASSERT_EQ(sig.v.size(), 1ULL, "ecdsa: v must be a single byte");
-
     Fr z(hashed_message);
     z.assert_is_in_field();
 
@@ -205,8 +194,6 @@ bool_t<Builder> ecdsa_verify_signature_prehashed_message_noassert(const stdlib::
     output &= result_mod_r.binary_basis_limbs[3].element == (r.binary_basis_limbs[3].element);
     output &= result_mod_r.prime_basis_limb == (r.prime_basis_limb);
 
-    sig.v[0].assert_is_in_set({ field_t<Builder>(27), field_t<Builder>(28) }, "ecdsa: signature is non-standard");
-
     return output;
 }
 
@@ -241,13 +228,11 @@ template <typename Builder> void generate_ecdsa_verification_test_circuit(Builde
 
         std::vector<uint8_t> rr(signature.r.begin(), signature.r.end());
         std::vector<uint8_t> ss(signature.s.begin(), signature.s.end());
-        std::vector<uint8_t> vv = { signature.v };
 
         typename curve::g1_bigfr_ct public_key = curve::g1_bigfr_ct::from_witness(&builder, account.public_key);
 
         stdlib::ecdsa_signature<Builder> sig{ typename curve::byte_array_ct(&builder, rr),
-                                              typename curve::byte_array_ct(&builder, ss),
-                                              typename curve::byte_array_ct(&builder, vv) };
+                                              typename curve::byte_array_ct(&builder, ss) };
 
         typename curve::byte_array_ct message(&builder, message_string);
 

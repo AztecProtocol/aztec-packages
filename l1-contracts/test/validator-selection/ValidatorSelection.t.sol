@@ -273,7 +273,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
   function testNukeFromOrbit() public setup(4, 4) progressEpochs(2) {
     // We propose some blocks, and have a bunch of validators attest to them.
     // Then we slash EVERYONE that was in the committees because the epoch never
-    // got finalised.
+    // got finalized.
     // This is LIKELY, not the action you really want to take, you want to slash
     // the people actually attesting, etc, but for simplicity we can do this as showcase.
     _testBlock("mixed_block_1", NO_REVERT, 3, 4, TestFlagsLib.empty());
@@ -281,7 +281,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
     address[] memory attesters = rollup.getAttesters();
     uint256[] memory stakes = new uint256[](attesters.length);
-    uint256[] memory offenses = new uint256[](attesters.length);
+    uint128[][] memory offenses = new uint128[][](attesters.length);
     uint96[] memory amounts = new uint96[](attesters.length);
 
     // We say, these things are bad, call the baba yaga to take care of them!
@@ -290,6 +290,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       AttesterView memory attesterView = rollup.getAttesterView(attesters[i]);
       stakes[i] = attesterView.effectiveBalance;
       amounts[i] = slashAmount;
+      offenses[i] = new uint128[](0); // Empty array of offenses for each validator
       assertTrue(attesterView.status == Status.VALIDATING, "Invalid status");
     }
 

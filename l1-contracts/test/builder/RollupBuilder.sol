@@ -10,6 +10,7 @@ import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
 import {EthValue} from "@aztec/core/interfaces/IRollup.sol";
+import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 import {GSE} from "@aztec/governance/GSE.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
@@ -198,6 +199,21 @@ contract RollupBuilder is Test {
     return this;
   }
 
+  function setSlashingOffsetInRounds(uint256 _slashingOffsetInRounds) public returns (RollupBuilder) {
+    config.rollupConfigInput.slashingOffsetInRounds = _slashingOffsetInRounds;
+    return this;
+  }
+
+  function setSlashingUnit(uint256 _slashingUnit) public returns (RollupBuilder) {
+    config.rollupConfigInput.slashingUnit = _slashingUnit;
+    return this;
+  }
+
+  function setSlasherFlavor(SlasherFlavor _slasherFlavor) public returns (RollupBuilder) {
+    config.rollupConfigInput.slasherFlavor = _slasherFlavor;
+    return this;
+  }
+
   function setTargetCommitteeSize(uint256 _targetCommitteeSize) public returns (RollupBuilder) {
     config.rollupConfigInput.targetCommitteeSize = _targetCommitteeSize;
     return this;
@@ -205,6 +221,16 @@ contract RollupBuilder is Test {
 
   function setStakingQueueConfig(StakingQueueConfig memory _stakingQueueConfig) public returns (RollupBuilder) {
     config.rollupConfigInput.stakingQueueConfig = _stakingQueueConfig;
+    return this;
+  }
+
+  function setEntryQueueFlushSizeMin(uint256 _flushSizeMin) public returns (RollupBuilder) {
+    config.rollupConfigInput.stakingQueueConfig.normalFlushSizeMin = _flushSizeMin;
+    return this;
+  }
+
+  function setEntryQueueFlushSizeQuotient(uint256 _flushSizeQuotient) public returns (RollupBuilder) {
+    config.rollupConfigInput.stakingQueueConfig.normalFlushSizeQuotient = _flushSizeQuotient;
     return this;
   }
 

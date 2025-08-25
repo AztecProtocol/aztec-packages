@@ -30,8 +30,8 @@ import {
   type WorldStateStatusFull,
   type WorldStateStatusSummary,
   blockStateReference,
-  sanitiseFullStatus,
-  sanitiseSummary,
+  sanitizeFullStatus,
+  sanitizeSummary,
   treeStateReferenceToSnapshot,
   worldStateRevision,
 } from './message.js';
@@ -80,7 +80,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     try {
       await worldState.init();
     } catch (e) {
-      log.error(`Error initialising world state: ${e}`);
+      log.error(`Error initializing world state: ${e}`);
       throw e;
     }
 
@@ -200,7 +200,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
           blockStateRef: blockStateReference(l2Block.header.state),
           canonical: true,
         },
-        this.sanitiseAndCacheSummaryFromFull.bind(this),
+        this.sanitizeAndCacheSummaryFromFull.bind(this),
         this.deleteCachedSummary.bind(this),
       );
     } catch (err) {
@@ -219,16 +219,16 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     return BlockHeader.empty({ state });
   }
 
-  private sanitiseAndCacheSummaryFromFull(response: WorldStateStatusFull) {
-    const sanitised = sanitiseFullStatus(response);
-    this.cachedStatusSummary = { ...sanitised.summary };
-    return sanitised;
+  private sanitizeAndCacheSummaryFromFull(response: WorldStateStatusFull) {
+    const sanitized = sanitizeFullStatus(response);
+    this.cachedStatusSummary = { ...sanitized.summary };
+    return sanitized;
   }
 
-  private sanitiseAndCacheSummary(response: WorldStateStatusSummary) {
-    const sanitised = sanitiseSummary(response);
-    this.cachedStatusSummary = { ...sanitised };
-    return sanitised;
+  private sanitizeAndCacheSummary(response: WorldStateStatusSummary) {
+    const sanitized = sanitizeSummary(response);
+    this.cachedStatusSummary = { ...sanitized };
+    return sanitized;
   }
 
   private deleteCachedSummary(_: string) {
@@ -236,19 +236,19 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   }
 
   /**
-   * Advances the finalised block number to be the number provided
-   * @param toBlockNumber The block number that is now the tip of the finalised chain
+   * Advances the finalized block number to be the number provided
+   * @param toBlockNumber The block number that is now the tip of the finalized chain
    * @returns The new WorldStateStatus
    */
-  public async setFinalised(toBlockNumber: bigint) {
+  public async setFinalized(toBlockNumber: bigint) {
     try {
       await this.instance.call(
-        WorldStateMessageType.FINALISE_BLOCKS,
+        WorldStateMessageType.FINALIZE_BLOCKS,
         {
           toBlockNumber,
           canonical: true,
         },
-        this.sanitiseAndCacheSummary.bind(this),
+        this.sanitizeAndCacheSummary.bind(this),
         this.deleteCachedSummary.bind(this),
       );
     } catch (err) {
@@ -271,7 +271,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
           toBlockNumber,
           canonical: true,
         },
-        this.sanitiseAndCacheSummaryFromFull.bind(this),
+        this.sanitizeAndCacheSummaryFromFull.bind(this),
         this.deleteCachedSummary.bind(this),
       );
     } catch (err) {
@@ -293,7 +293,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
           toBlockNumber,
           canonical: true,
         },
-        this.sanitiseAndCacheSummaryFromFull.bind(this),
+        this.sanitizeAndCacheSummaryFromFull.bind(this),
         this.deleteCachedSummary.bind(this),
       );
     } catch (err) {
@@ -309,7 +309,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     return await this.instance.call(
       WorldStateMessageType.GET_STATUS,
       { canonical: true },
-      this.sanitiseAndCacheSummary.bind(this),
+      this.sanitizeAndCacheSummary.bind(this),
     );
   }
 

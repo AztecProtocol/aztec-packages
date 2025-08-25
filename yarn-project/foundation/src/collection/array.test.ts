@@ -1,6 +1,8 @@
+import { sleep } from '../sleep/index.js';
 import {
   chunk,
   compactArray,
+  filterAsync,
   maxBy,
   mean,
   median,
@@ -20,6 +22,71 @@ describe('times', () => {
   it('should return an empty array when n is 0', () => {
     const result = times(0, i => i * 2);
     expect(result).toEqual([]);
+  });
+});
+
+describe('filterAsync', () => {
+  it('filters array with async predicate', async () => {
+    const input = [1, 2, 3, 4, 5];
+    const predicate = (x: number) => Promise.resolve(x % 2 === 0);
+    const result = await filterAsync(input, predicate);
+    expect(result).toEqual([2, 4]);
+  });
+
+  it('returns empty array when no items match predicate', async () => {
+    const input = [1, 3, 5];
+    const predicate = (x: number) => Promise.resolve(x % 2 === 0);
+    const result = await filterAsync(input, predicate);
+    expect(result).toEqual([]);
+  });
+
+  it('returns all items when all match predicate', async () => {
+    const input = [2, 4, 6];
+    const predicate = (x: number) => Promise.resolve(x % 2 === 0);
+    const result = await filterAsync(input, predicate);
+    expect(result).toEqual([2, 4, 6]);
+  });
+
+  it('handles empty array', async () => {
+    const input: number[] = [];
+    const predicate = (x: number) => Promise.resolve(x > 0);
+    const result = await filterAsync(input, predicate);
+    expect(result).toEqual([]);
+  });
+
+  it('executes predicates in parallel', async () => {
+    const input = [1, 2, 3];
+    const calls: number[] = [];
+    const predicate = async (x: number) => {
+      calls.push(x);
+      await sleep(10);
+      return x > 1;
+    };
+
+    const result = await filterAsync(input, predicate);
+
+    expect(result).toEqual([2, 3]);
+    // All predicates should have been called before any resolved
+    expect(calls).toEqual([1, 2, 3]);
+  });
+
+  it('handles async predicate that throws', async () => {
+    const input = [1, 2, 3];
+    const predicate = (x: number) => {
+      if (x === 2) {
+        throw new Error('Test error');
+      }
+      return Promise.resolve(x > 1);
+    };
+
+    await expect(filterAsync(input, predicate)).rejects.toThrow('Test error');
+  });
+
+  it('works with different data types', async () => {
+    const input = ['apple', 'banana', 'cherry'];
+    const predicate = (s: string) => Promise.resolve(s.length > 5);
+    const result = await filterAsync(input, predicate);
+    expect(result).toEqual(['banana', 'cherry']);
   });
 });
 

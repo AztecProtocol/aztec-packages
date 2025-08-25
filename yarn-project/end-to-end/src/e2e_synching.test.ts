@@ -49,9 +49,9 @@ import { AnvilTestWatcher } from '@aztec/aztec/testing';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
+  EmpireSlashingProposerContract,
   GovernanceProposerContract,
   RollupContract,
-  SlashingProposerContract,
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
 import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
@@ -411,9 +411,14 @@ describe('e2e_synching', () => {
       config.l1Contracts.governanceProposerAddress.toString(),
     );
     const slashingProposerAddress = await rollupContract.getSlashingProposerAddress();
-    const slashingProposerContract = new SlashingProposerContract(
+    const slashingProposerContract = new EmpireSlashingProposerContract(
       deployL1ContractsValues.l1Client,
       slashingProposerAddress.toString(),
+    );
+    const { SlashFactoryContract } = await import('@aztec/stdlib/l1-contracts');
+    const slashFactoryContract = new SlashFactoryContract(
+      deployL1ContractsValues.l1Client,
+      deployL1ContractsValues.l1ContractAddresses.slashFactoryAddress!.toString(),
     );
     const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, { dateProvider });
     const publisher = new SequencerPublisher(
@@ -434,6 +439,7 @@ describe('e2e_synching', () => {
         rollupContract,
         governanceProposerContract,
         slashingProposerContract,
+        slashFactoryContract,
         epochCache,
         dateProvider: dateProvider!,
       },

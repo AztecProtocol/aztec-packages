@@ -5,7 +5,7 @@ use protocol_types::{
 
 #[test]
 unconstrained fn at_sets_contract_address() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
     let contract_address = AztecAddress::from_field(17);
 
     env.private_context_at(contract_address, |context| {
@@ -15,7 +15,7 @@ unconstrained fn at_sets_contract_address() {
 
 #[test]
 unconstrained fn opts_sets_contract_address_and_historical_block_number() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     env.mine_block();
     let historical_block_number = env.last_block_number() - 1;
