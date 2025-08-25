@@ -25,7 +25,7 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
      */
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return (in.q_poseidon2_external.at(0) == 0) && (in.q_poseidon2_external == 0);
+        return (in.q_poseidon2_external.is_zero());
     }
 
     /**
@@ -123,8 +123,8 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
         // apply s-box round
         auto u1 = sbox(Accumulator(w_1 + c_1));
         auto u2 = sbox(Accumulator(w_2 + c_2));
-        auto u3 = sbox(Accumulator(w_2 + c_3));
-        auto u4 = sbox(Accumulator(w_3 + c_4));
+        auto u3 = sbox(Accumulator(w_3 + c_3));
+        auto u4 = sbox(Accumulator(w_4 + c_4));
         // Matrix mul v = M_E * u with 14 additions.
         // Precompute common summands.
         auto t0 = u1 + u2; // u_1 + u_2

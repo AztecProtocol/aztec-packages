@@ -32,7 +32,7 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
      */
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return (in.q_poseidon2_internal.value_at(0) == 0) && (in.q_poseidon2_internal.value_at(1) == 0);
+        return (in.q_poseidon2_internal.is_zero());
     }
 
     /**
@@ -122,12 +122,12 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
         Accumulator barycentric_term;
 
         // Add ĉ₀⁽ⁱ⁾ stored in the selector and convert to Lagrange basis
-        auto u1 = Accumulator(w_1_m + c_0_int);
+        auto s1 = Accumulator(w_1_m + c_0_int);
 
         // Apply s-box round. Note that the multiplication is performed point-wise
+        auto u1 = s1.sqr();
         u1 = u1.sqr();
-        u1 = u1.sqr();
-        u1 *= u1;
+        u1 *= s1;
 
         const auto q_pos_by_scaling_m = (q_poseidon2_internal_m * scaling_factor);
         const auto q_pos_by_scaling = Accumulator(q_pos_by_scaling_m);
