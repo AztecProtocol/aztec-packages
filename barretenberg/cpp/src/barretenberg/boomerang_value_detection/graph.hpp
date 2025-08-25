@@ -57,7 +57,7 @@ struct ConnectedComponent {
     ConnectedComponent(const std::vector<uint32_t>& vector)
         : variable_indices(vector)
         , is_range_list_cc(false)
-        , is_finalize_cc(false){};
+        , is_finalize_cc(false) {};
     size_t size() const { return variable_indices.size(); }
     const std::vector<uint32_t>& vars() const { return variable_indices; }
 };
