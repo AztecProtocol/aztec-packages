@@ -20,8 +20,6 @@ namespace bb::stdlib {
 
 template <typename Builder>
 concept IsUltraArithmetic = (Builder::CIRCUIT_TYPE == CircuitType::ULTRA);
-template <typename Builder>
-concept IsNotUltraArithmetic = (Builder::CIRCUIT_TYPE != CircuitType::ULTRA);
 
 /**
  * @brief cycle_group represents a group Element of the proving system's embedded curve
@@ -239,14 +237,9 @@ template <typename Builder> class cycle_group {
     void validate_is_on_curve() const;
     cycle_group dbl(const std::optional<AffineElement> hint = std::nullopt) const
         requires IsUltraArithmetic<Builder>;
-    cycle_group dbl(const std::optional<AffineElement> hint = std::nullopt) const
-        requires IsNotUltraArithmetic<Builder>;
     cycle_group unconditional_add(const cycle_group& other,
                                   const std::optional<AffineElement> hint = std::nullopt) const
         requires IsUltraArithmetic<Builder>;
-    cycle_group unconditional_add(const cycle_group& other,
-                                  const std::optional<AffineElement> hint = std::nullopt) const
-        requires IsNotUltraArithmetic<Builder>;
     cycle_group unconditional_subtract(const cycle_group& other,
                                        const std::optional<AffineElement> hint = std::nullopt) const;
     cycle_group checked_unconditional_add(const cycle_group& other,
@@ -384,10 +377,6 @@ template <typename Builder> class cycle_group {
                                                                     std::span<AffineElement> base_points,
                                                                     std::span<AffineElement const> offset_generators)
         requires IsUltraArithmetic<Builder>;
-    static batch_mul_internal_output _fixed_base_batch_mul_internal(std::span<cycle_scalar> scalars,
-                                                                    std::span<AffineElement> base_points,
-                                                                    std::span<AffineElement const> offset_generators)
-        requires IsNotUltraArithmetic<Builder>;
 };
 
 template <typename Builder> inline std::ostream& operator<<(std::ostream& os, cycle_group<Builder> const& v)

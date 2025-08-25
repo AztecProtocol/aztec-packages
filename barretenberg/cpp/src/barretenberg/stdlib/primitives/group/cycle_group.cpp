@@ -24,6 +24,7 @@ namespace bb::stdlib {
  * @note Please don't use this constructor in case you want to assign the
  * coordinates later.
  */
+// WORKTODO: is this fuzzer only logic? if so lets mark it accordingly e.g. with sig (Builder* _context, FUZZER_ONLY)
 template <typename Builder>
 cycle_group<Builder>::cycle_group(Builder* _context)
     : x(0)
@@ -338,24 +339,6 @@ template <typename Builder> void cycle_group<Builder>::standardize()
 }
 
 /**
- * @brief Evaluates a doubling. Does not use Ultra double gate
- *
- * @tparam Builder
- * @param unused param is due to interface-compatibility with the UltraArithmetic version of `dbl`
- * @return cycle_group<Builder>
- */
-template <typename Builder>
-cycle_group<Builder> cycle_group<Builder>::dbl([[maybe_unused]] const std::optional<AffineElement> /*unused*/) const
-    requires IsNotUltraArithmetic<Builder>
-{
-    auto modified_y = field_t::conditional_assign(is_point_at_infinity(), 1, y);
-    auto lambda = (x * x * 3) / (modified_y + modified_y);
-    auto x3 = lambda.madd(lambda, -x - x);
-    auto y3 = lambda.madd(x - x3, -modified_y);
-    return cycle_group(x3, y3, is_point_at_infinity());
-}
-
-/**
  * @brief Evaluates a doubling. Uses Ultra double gate
  *
  * @tparam Builder
@@ -424,33 +407,6 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
     // We need to manually propagate the origin tag
     result.x.set_origin_tag(OriginTag(x.get_origin_tag(), y.get_origin_tag()));
     result.y.set_origin_tag(OriginTag(x.get_origin_tag(), y.get_origin_tag()));
-    return result;
-}
-
-/**
- * @brief Will evaluate ECC point addition over `*this` and `other`.
- *        Incomplete addition formula edge cases are *NOT* checked!
- *        Only use this method if you know the x-coordinates of the operands cannot collide
- *        and none of the operands is a point at infinity
- *        Standard version that does not use ecc group gate
- *
- * @tparam Builder
- * @param other
- * @return cycle_group<Builder>
- */
-template <typename Builder>
-cycle_group<Builder> cycle_group<Builder>::unconditional_add(
-    const cycle_group& other, [[maybe_unused]] const std::optional<AffineElement> /*unused*/) const
-    requires IsNotUltraArithmetic<Builder>
-{
-    auto x_diff = other.x - x;
-    auto y_diff = other.y - y;
-    // unconditional add so do not check divisor is zero
-    // (this also makes it much easier to test failure cases as this does not segfault!)
-    auto lambda = y_diff.divide_no_zero_check(x_diff);
-    auto x3 = lambda.madd(lambda, -other.x - x);
-    auto y3 = lambda.madd(x - x3, -y);
-    cycle_group result(x3, y3, /*is_infinity=*/false);
     return result;
 }
 
@@ -1696,94 +1652,6 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
      */
     // Set accumulator's origin tag to the union of all scalars' tags
     accumulator.set_origin_tag(tag);
-    return { accumulator, offset_generator_accumulator };
-}
-
-/**
- * @brief Internal algorithm to perform a fixed-base batch mul for Non-ULTRA Builders
- *
- * @details Multiples of the base point are precomputed, which avoids us having to add ecc doubling gates.
- *          More efficient than variable-base version.
- *
- * @tparam Builder
- * @param scalars
- * @param base_points
- * @param off
- * @return cycle_group<Builder>::batch_mul_internal_output
- */
-template <typename Builder>
-typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_fixed_base_batch_mul_internal(
-    const std::span<cycle_scalar> scalars,
-    const std::span<AffineElement> base_points,
-    const std::span<AffineElement const> offset_generators)
-    requires IsNotUltraArithmetic<Builder>
-
-{
-    BB_ASSERT_EQ(scalars.size(), base_points.size());
-    static_assert(TABLE_BITS == 1);
-
-    Builder* context = nullptr;
-    for (auto& scalar : scalars) {
-        if (scalar.get_context() != nullptr) {
-            context = scalar.get_context();
-            break;
-        }
-    }
-
-    size_t num_bits = 0;
-    for (auto& s : scalars) {
-        num_bits = std::max(num_bits, s.num_bits());
-    }
-    size_t num_rounds = (num_bits + TABLE_BITS - 1) / TABLE_BITS;
-    // core algorithm
-    // define a `table_bits` size lookup table
-    const size_t num_points = scalars.size();
-    using straus_round_tables = std::vector<straus_lookup_table>;
-
-    std::vector<straus_scalar_slice> scalar_slices;
-    std::vector<straus_round_tables> point_tables(num_points);
-
-    // creating these point tables should cost 0 constraints if base points are constant
-    for (size_t i = 0; i < num_points; ++i) {
-        std::vector<Element> round_points(num_rounds);
-        std::vector<Element> round_offset_generators(num_rounds);
-        round_points[0] = base_points[i];
-        round_offset_generators[0] = offset_generators[i + 1];
-        for (size_t j = 1; j < num_rounds; ++j) {
-            round_points[j] = round_points[j - 1].dbl();
-            round_offset_generators[j] = round_offset_generators[j - 1].dbl();
-        }
-        Element::batch_normalize(&round_points[0], num_rounds);
-        Element::batch_normalize(&round_offset_generators[0], num_rounds);
-        point_tables[i].resize(num_rounds);
-        for (size_t j = 0; j < num_rounds; ++j) {
-            point_tables[i][j] = straus_lookup_table(
-                context, cycle_group(round_points[j]), cycle_group(round_offset_generators[j]), TABLE_BITS);
-        }
-        scalar_slices.emplace_back(straus_scalar_slice(context, scalars[i], TABLE_BITS));
-    }
-    Element offset_generator_accumulator = offset_generators[0];
-    cycle_group accumulator = cycle_group(Element(offset_generators[0]) * (uint256_t(1) << (num_rounds - 1)));
-    for (size_t i = 0; i < num_rounds; ++i) {
-        offset_generator_accumulator = (i > 0) ? offset_generator_accumulator.dbl() : offset_generator_accumulator;
-        for (size_t j = 0; j < num_points; ++j) {
-            auto& point_table = point_tables[j][i];
-            const std::optional<field_t> scalar_slice = scalar_slices[j].read(i);
-            // if we are doing a batch mul over scalars of different bit-lengths, we may not have any scalar bits for a
-            // given round and a given scalar
-            if (scalar_slice.has_value()) {
-                const cycle_group point = point_table.read(scalar_slice.value());
-                accumulator = accumulator.unconditional_add(point);
-                offset_generator_accumulator = offset_generator_accumulator + Element(offset_generators[j + 1]);
-            }
-        }
-    }
-
-    /**
-     * offset_generator_accumulator represents the sum of all the offset generator terms present in `accumulator`.
-     * We don't subtract off yet, as we may be able to combine `offset_generator_accumulator` with other constant terms
-     * in `batch_mul` before performing the subtraction.
-     */
     return { accumulator, offset_generator_accumulator };
 }
 
