@@ -9,8 +9,11 @@ global AUTHWIT_NONCE: Field = 1;
 global DEFAULT_AMOUNT_0_MIN: u128 = 0;
 global DEFAULT_AMOUNT_1_MIN: u128 = 0;
 
+// Note: Ideally this test would be split into 2 separate test cases - one for order creation and one for order
+// fulfillment, with the second test running on the state from the first test. Since this feature is not currently
+// supported, combining them into a single comprehensive test is the best approach.
 #[test]
-unconstrained fn add_liquidity_twice_and_remove_liquidity_happy_path() {
+unconstrained fn add_liquidity_twice_and_remove_liquidity() {
     let (mut env, amm_address, token0_address, token1_address, liquidity_token_address, minter) =
         setup();
 
@@ -21,7 +24,7 @@ unconstrained fn add_liquidity_twice_and_remove_liquidity_happy_path() {
     let token1 = Token::at(token1_address);
     let liquidity_token = Token::at(liquidity_token_address);
 
-    // First add initial liquidity from minter
+    // ADDING INITIAL LIQUIDITY
     let initial_amount0 = 1000 as u128;
     let initial_amount1 = 2000 as u128;
 
@@ -38,12 +41,13 @@ unconstrained fn add_liquidity_twice_and_remove_liquidity_happy_path() {
         DEFAULT_AMOUNT_1_MIN,
     );
 
+    // We verify the initial liquidity token supply is as expected as we will need the value later on to calculate
+    // the expected tokens received.
     let initial_liquidity_token_supply = env.view_public(liquidity_token.total_supply());
     assert_eq(initial_liquidity_token_supply, AMM::MINIMUM_LIQUIDITY + AMM::INITIAL_LIQUIDITY);
 
-    // Add liquidity from liquidity provider 2 with excess token1
+    // ADDING LIQUIDITY AGAIN
     let amount0_max = initial_amount0 / 2;
-
     // The amount of token1 that is expected to be deposited.
     let expected_amount_1_in = initial_amount1 / 2;
     // We intentionally set the amount1_max to be higher than the liquidity ration to check that we get a refund.
@@ -89,7 +93,7 @@ unconstrained fn add_liquidity_twice_and_remove_liquidity_happy_path() {
         expected_liquidity_tokens,
     );
 
-    // Now remove half the liquidity from liquidity provider 1's position
+    // REMOVING LIQUIDITY
     let liquidity_to_remove = AMM::INITIAL_LIQUIDITY / 2;
     let amount0_min = 400 as u128;
     let amount1_min = 800 as u128;
@@ -127,7 +131,7 @@ unconstrained fn add_liquidity_twice_and_remove_liquidity_happy_path() {
 }
 
 #[test]
-unconstrained fn swap_exact_tokens_for_tokens_happy_path() {
+unconstrained fn swap_exact_tokens_for_tokens() {
     let (mut env, amm_address, token0_address, token1_address, _liquidity_token_address, minter) =
         setup();
 
@@ -177,15 +181,14 @@ unconstrained fn swap_exact_tokens_for_tokens_happy_path() {
         ),
     );
 
-    // Verify swap occurred
+    // Verify swap occurred - all of input tokens should be spent and hence the swapper should have 0 token0 balance.
     assert_eq(env.simulate_utility(token0.balance_of_private(swapper)), 0);
     // The exact amount out depends on the AMM formula, but should be > amount_out_min
-    let swapper_token1_balance = env.simulate_utility(token1.balance_of_private(swapper));
-    assert(swapper_token1_balance >= amount_out_min);
+    assert(env.simulate_utility(token1.balance_of_private(swapper)) >= amount_out_min);
 }
 
 #[test]
-unconstrained fn swap_tokens_for_exact_tokens_happy_path() {
+unconstrained fn swap_tokens_for_exact_tokens() {
     let (mut env, amm_address, token0_address, token1_address, _liquidity_token_address, minter) =
         setup();
 
@@ -246,8 +249,6 @@ unconstrained fn swap_tokens_for_exact_tokens_happy_path() {
     assert(swapper_token0_balance > 0);
     assert(swapper_token0_balance < amount_in_max);
 }
-
-// Unhappy path tests for add_liquidity
 
 #[test(should_fail_with = "INCORRECT_TOKEN0_LIMITS")]
 unconstrained fn add_liquidity_incorrect_token0_limits() {
@@ -327,8 +328,6 @@ unconstrained fn add_liquidity_zero_amount1_max() {
     );
 }
 
-// Unhappy path tests for swap_exact_tokens_for_tokens
-
 #[test(should_fail_with = "TOKEN_IN_IS_INVALID")]
 unconstrained fn swap_exact_tokens_invalid_token_in() {
     let (mut env, amm_address, _token0_address, token1_address, _liquidity_token_address, _minter)
@@ -399,8 +398,6 @@ unconstrained fn swap_exact_tokens_same_tokens() {
         ),
     );
 }
-
-// Unhappy path tests for swap_tokens_for_exact_tokens
 
 #[test(should_fail_with = "TOKEN_IN_IS_INVALID")]
 unconstrained fn swap_tokens_for_exact_invalid_token_in() {
@@ -473,8 +470,6 @@ unconstrained fn swap_tokens_for_exact_same_tokens() {
     );
 }
 
-// Edge case tests
-
 #[test(should_fail_with = "INSUFFICIENT_LIQUIDITY_MINTED")]
 unconstrained fn add_liquidity_insufficient_liquidity_minted() {
     let (mut env, amm_address, token0_address, token1_address, _liquidity_token_address, minter) =
@@ -543,7 +538,7 @@ unconstrained fn remove_liquidity_insufficient_amount0() {
     );
 
     // Try to remove liquidity with unrealistic minimum expectations
-    let liquidity_to_remove = 49500 as u128; // Half of 99000
+    let liquidity_to_remove = AMM::INITIAL_LIQUIDITY / 2;
     let amount0_min = 10000 as u128; // Unrealistically high minimum
     let amount1_min = 800 as u128;
 
@@ -583,7 +578,7 @@ unconstrained fn remove_liquidity_insufficient_amount1() {
     );
 
     // Try to remove liquidity with unrealistic minimum expectations
-    let liquidity_to_remove = 49500 as u128; // Half of 99000
+    let liquidity_to_remove = AMM::INITIAL_LIQUIDITY / 2;
     let amount0_min = 400 as u128;
     let amount1_min = 20000 as u128; // Unrealistically high minimum
 
