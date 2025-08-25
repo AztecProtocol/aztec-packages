@@ -354,14 +354,14 @@ which is of course a bijection $\{-15, -13, \ldots, 15\}\rightarrow \{0,\ldots, 
 The following is one row in the Precomputed table; there are `NUM_WNAF_DIGITS_PER_SCALAR / WNAF_DIGITS_PER_ROW == 32/4 = 8` rows. The row index is `i`. (This number is is also witnessed as `round`.)
 | column name | builder name | value range | computation | description |
 | ----------- | ---------------------- | ----------- | --------------------------------------------------------------- | ------------------------------------------------------- |
-| precompute_s1hi | s1 | $[0, 4)$ | | first two bits of $\text{compress}(a*{31 - 4i})$ |
-| precompute_s1lo | s2 | $[0, 4)$ | | second two bits of $\text{compress}(a*{31 - 4i})$ |
-| precompute_s2hi | s3 | $[0, 4)$ | | first two bits of $\text{compress}(a*{31 - (4i + 1)})$ |
-| precompute_s2lo | s4 | $[0, 4)$ | | second two bits of $\text{compress}(a*{31 - (4i + 1)})$ |
-| precompute_s3hi | s5 | $[0, 4)$ | | first two bits of $\text{compress}(a*{31 - (4i + 2)})$ |
-| precompute_s3lo | s6 | $[0, 4)$ | | second two bits of $\text{compress}(a*{31 - (4i + 2)})$ |
-| precompute_s4hi | s7 | $[0, 4)$ | | first two bits of $\text{compress}(a*{31 - (4i + 3)})$ |
-| precompute_s4lo | s8 | $[0, 4)$ | | second two bits of $\text{compress}(a*{31 - (4i + 3)})$ |
+| precomputes1hi | s1 | $[0, 4)$ | | first two bits of ${\text{compress}(a_{31 - 4i})}$ |
+| precomputes1lo | s2 | $[0, 4)$ | | second two bits of ${\text{compress}(a_{31 - 4i})}$ |
+| precomputes2hi | s3 | $[0, 4)$ | | first two bits of ${\text{compress}(a_{31 - (4i + 1)})}$ |
+| precomputes2lo | s4 | $[0, 4)$ | | second two bits of ${\text{compress}(a_{31 - (4i + 1)})}$ |
+| precomputes3hi | s5 | $[0, 4)$ | | first two bits of ${\text{compress}(a_{31 - (4i + 2)})}$ |
+| precomputes3lo | s6 | $[0, 4)$ | | second two bits of ${\text{compress}(a_{31 - (4i + 2)})}$ |
+| precomputes4hi | s7 | $[0, 4)$ | | first two bits of ${\text{compress}(a_{31 - (4i + 3)})}$ |
+| precomputes4lo | s8 | $[0, 4)$ | | second two bits of ${\text{compress}(a_{31 - (4i + 3)})}$ |
 | precompute_skew | skew | $\{0,1\}$ | | skew bit |
 | precompute_point_transition | point_transition | $\{0,1\}$ | | are we at the last row corresponding to this scalar? |
 | precompute_pc | pc | $\fq$ | | value of the program counter of this EC operation |
