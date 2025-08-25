@@ -1,0 +1,19 @@
+nameOverride: "node"
+
+replicaCount: 1
+
+node:
+  env:
+    OTEL_SERVICE_NAME: "boot-node"
+
+  startCmd:
+    - --p2p-bootstrap
+
+service:
+  p2p:
+    enabled: true
+    nodePortEnabled: false
+  admin:
+    enabled: false
+  headless:
+    enabled: false
