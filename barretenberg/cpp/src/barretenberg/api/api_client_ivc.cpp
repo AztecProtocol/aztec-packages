@@ -42,22 +42,20 @@ void write_standalone_vk(const std::filesystem::path& bytecode_path, const std::
         write_file(output_path / "vk", response.bytes);
     }
 }
-
-void write_civc_vk(const std::string& bytecode_path, const std::filesystem::path& output_dir)
+void write_civc_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& output_dir)
 {
-    auto bytecode = get_bytecode(bytecode_path);
+    // compute the hiding kernel's vk
+    info("ClientIVC: computing IVC vk for hiding kernel circuit");
     auto response = bbapi::ClientIvcComputeIvcVk{
         .circuit{ .name = "standalone_circuit", .bytecode = std::move(bytecode) }
     }.execute({ .trace_settings = {} });
-    auto civc_vk_bytes = response.bytes;
     const bool output_to_stdout = output_dir == "-";
     if (output_to_stdout) {
-        write_bytes_to_stdout(civc_vk_bytes);
+        write_bytes_to_stdout(response.bytes);
     } else {
-        write_file(output_dir / "vk", civc_vk_bytes);
+        write_file(output_dir / "vk", response.bytes);
     }
 }
-
 } // anonymous namespace
 
 void ClientIVCAPI::prove(const Flags& flags,
@@ -100,7 +98,8 @@ void ClientIVCAPI::prove(const Flags& flags,
     write_proof();
     if (flags.write_vk) {
         vinfo("writing ClientIVC vk in directory ", output_dir);
-        write_civc_vk(loaded_circuit_public_inputs_size, output_dir);
+        // write CIVC vk using the bytecode of the hiding circuit (the last step of the execution)
+        write_civc_vk(raw_steps[raw_steps.size() - 1].bytecode, output_dir);
     }
 }
 
@@ -176,7 +175,7 @@ void ClientIVCAPI::write_vk(const Flags& flags,
 {
 
     if (flags.verifier_type == "ivc") {
-        write_civc_vk(bytecode_path, output_path);
+        write_civc_vk(get_bytecode(bytecode_path), output_path);
     } else if (flags.verifier_type == "standalone") {
         write_standalone_vk(bytecode_path, output_path);
     } else {
