@@ -267,8 +267,8 @@ template <typename Flavor> class SumcheckProverRound {
             // Construct extended univariates containers; one per thread
             ExtendedEdges extended_edges;
             for (size_t chunk_idx = 0; chunk_idx < num_of_chunks; chunk_idx++) {
-                size_t start = chunk_idx * chunk_size + thread_idx * chunk_thread_portion_size;
-                size_t end = chunk_idx * chunk_size + (thread_idx + 1) * chunk_thread_portion_size;
+                size_t start = (chunk_idx * chunk_size) + (thread_idx * chunk_thread_portion_size);
+                size_t end = (chunk_idx * chunk_size) + ((thread_idx + 1) * chunk_thread_portion_size);
                 for (size_t edge_idx = start; edge_idx < end; edge_idx += 2) {
                     extend_edges(extended_edges, polynomials, edge_idx);
                     // Compute the \f$ \ell \f$-th edge's univariate contribution,

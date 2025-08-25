@@ -24,42 +24,42 @@ TEST(MemoryTraceGenTest, Sorting)
             .execution_clk = UINT32_MAX,
             .mode = simulation::MemoryMode::WRITE,
             .addr = 20,
-            .value = MemoryValue::from_tag(MemoryTag::U8, 5),
+            .value = MemoryValue::from_tag(MemoryTag::U8, 6),
             .space_id = 1001,
         },
         {
             .execution_clk = 20,
             .mode = simulation::MemoryMode::WRITE,
             .addr = 5,
-            .value = MemoryValue::from_tag(MemoryTag::U8, 2),
+            .value = MemoryValue::from_tag(MemoryTag::U8, 3),
             .space_id = 1000,
         },
         {
             .execution_clk = UINT32_MAX,
             .mode = simulation::MemoryMode::READ,
             .addr = 20,
-            .value = MemoryValue::from_tag(MemoryTag::U8, 4),
+            .value = MemoryValue::from_tag(MemoryTag::U8, 5),
             .space_id = 1001,
         },
         {
             .execution_clk = 10,
             .mode = simulation::MemoryMode::WRITE,
             .addr = 6,
-            .value = MemoryValue::from_tag(MemoryTag::U8, 3),
+            .value = MemoryValue::from_tag(MemoryTag::U8, 4),
             .space_id = 1000,
         },
         {
             .execution_clk = 20,
             .mode = simulation::MemoryMode::READ,
             .addr = 5,
-            .value = MemoryValue::from_tag(MemoryTag::U8, 1),
+            .value = MemoryValue::from_tag(MemoryTag::U8, 2),
             .space_id = 1000,
         },
         {
             .execution_clk = 15,
             .mode = simulation::MemoryMode::WRITE,
             .addr = 5,
-            .value = MemoryValue::from_tag(MemoryTag::U8, 0),
+            .value = MemoryValue::from_tag(MemoryTag::U8, 1),
             .space_id = 1000,
         },
     };
@@ -69,7 +69,8 @@ TEST(MemoryTraceGenTest, Sorting)
 
     const auto& rows = trace.as_rows();
 
-    ASSERT_EQ(rows.size(), 6);
+    // Add an empty row at the beginning.
+    ASSERT_EQ(rows.size(), 7);
 
     for (uint32_t i = 0; i < trace.as_rows().size(); i++) {
         EXPECT_THAT(rows.at(i), ROW_FIELD_EQ(memory_value, i));

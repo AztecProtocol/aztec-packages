@@ -16,6 +16,10 @@ void memoryImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 
     PROFILE_THIS_NAME("accumulate/memory");
 
+    const auto constants_MEM_TAG_FF = FF(0);
+    const auto memory_GLOB_ADDR_DIFF = (in.get(C::memory_global_addr_shift) - in.get(C::memory_global_addr));
+    const auto memory_TAG_FF_DIFF = (in.get(C::memory_tag) - constants_MEM_TAG_FF);
+
     {
         using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
         auto tmp = in.get(C::memory_sel) * (in.get(C::memory_sel) - FF(1));
@@ -24,9 +28,120 @@ void memoryImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-        auto tmp = in.get(C::memory_rw) * (FF(1) - in.get(C::memory_rw));
+        auto tmp = in.get(C::memory_lastAccess) * (FF(1) - in.get(C::memory_lastAccess));
         tmp *= scaling_factor;
         std::get<1>(evals) += typename Accumulator::View(tmp);
+    }
+    {
+        using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
+        auto tmp = in.get(C::memory_rw) * (FF(1) - in.get(C::memory_rw));
+        tmp *= scaling_factor;
+        std::get<2>(evals) += typename Accumulator::View(tmp);
+    }
+    {
+        using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
+        auto tmp = in.get(C::memory_sel_tag_is_ff) * (FF(1) - in.get(C::memory_sel_tag_is_ff));
+        tmp *= scaling_factor;
+        std::get<3>(evals) += typename Accumulator::View(tmp);
+    }
+    { // MEM_CONTIGUOUS
+        using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
+        auto tmp =
+            (FF(1) - in.get(C::precomputed_first_row)) * (FF(1) - in.get(C::memory_sel)) * in.get(C::memory_sel_shift);
+        tmp *= scaling_factor;
+        std::get<4>(evals) += typename Accumulator::View(tmp);
+    }
+    { // SEL_RNG_CHK
+        using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
+        auto tmp = (in.get(C::memory_sel_rng_chk) - in.get(C::memory_sel) * in.get(C::memory_sel_shift));
+        tmp *= scaling_factor;
+        std::get<5>(evals) += typename Accumulator::View(tmp);
+    }
+    { // GLOBAL_ADDR
+        using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
+        auto tmp = (in.get(C::memory_global_addr) -
+                    (in.get(C::memory_space_id) * FF(4294967296UL) + in.get(C::memory_address)));
+        tmp *= scaling_factor;
+        std::get<6>(evals) += typename Accumulator::View(tmp);
+    }
+    { // TIMESTAMP
+        using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
+        auto tmp = (in.get(C::memory_timestamp) - (FF(2) * in.get(C::memory_clk) + in.get(C::memory_rw)));
+        tmp *= scaling_factor;
+        std::get<7>(evals) += typename Accumulator::View(tmp);
+    }
+    { // LAST_ACCESS
+        using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
+        auto tmp = in.get(C::memory_sel_rng_chk) *
+                   (memory_GLOB_ADDR_DIFF *
+                        ((FF(1) - in.get(C::memory_lastAccess)) * (FF(1) - in.get(C::memory_glob_addr_diff_inv)) +
+                         in.get(C::memory_glob_addr_diff_inv)) -
+                    in.get(C::memory_lastAccess));
+        tmp *= scaling_factor;
+        std::get<8>(evals) += typename Accumulator::View(tmp);
+    }
+    { // DIFF
+        using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
+        auto tmp =
+            (in.get(C::memory_diff) -
+             in.get(C::memory_sel_rng_chk) * (in.get(C::memory_lastAccess) * memory_GLOB_ADDR_DIFF +
+                                              (FF(1) - in.get(C::memory_lastAccess)) *
+                                                  ((in.get(C::memory_timestamp_shift) - in.get(C::memory_timestamp)) -
+                                                   in.get(C::memory_rw_shift) * in.get(C::memory_rw))));
+        tmp *= scaling_factor;
+        std::get<9>(evals) += typename Accumulator::View(tmp);
+    }
+    { // DIFF_DECOMP
+        using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
+        auto tmp = (in.get(C::memory_diff) - (in.get(C::memory_limb_0_) + in.get(C::memory_limb_1_) * FF(65536) +
+                                              in.get(C::memory_limb_2_) * FF(4294967296UL)));
+        tmp *= scaling_factor;
+        std::get<10>(evals) += typename Accumulator::View(tmp);
+    }
+    { // MEMORY_INIT_VALUE
+        using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
+        auto tmp = (in.get(C::memory_lastAccess) + in.get(C::precomputed_first_row)) *
+                   (FF(1) - in.get(C::memory_rw_shift)) * in.get(C::memory_value_shift);
+        tmp *= scaling_factor;
+        std::get<11>(evals) += typename Accumulator::View(tmp);
+    }
+    { // MEMORY_INIT_TAG
+        using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
+        auto tmp = (in.get(C::memory_lastAccess) + in.get(C::precomputed_first_row)) *
+                   (FF(1) - in.get(C::memory_rw_shift)) * (in.get(C::memory_tag_shift) - constants_MEM_TAG_FF);
+        tmp *= scaling_factor;
+        std::get<12>(evals) += typename Accumulator::View(tmp);
+    }
+    { // READ_WRITE_CONSISTENCY_VALUE
+        using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
+        auto tmp = (FF(1) - in.get(C::memory_lastAccess)) * (FF(1) - in.get(C::memory_rw_shift)) *
+                   (in.get(C::memory_value_shift) - in.get(C::memory_value));
+        tmp *= scaling_factor;
+        std::get<13>(evals) += typename Accumulator::View(tmp);
+    }
+    { // READ_WRITE_CONSISTENCY_TAG
+        using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
+        auto tmp = (FF(1) - in.get(C::memory_lastAccess)) * (FF(1) - in.get(C::memory_rw_shift)) *
+                   (in.get(C::memory_tag_shift) - in.get(C::memory_tag));
+        tmp *= scaling_factor;
+        std::get<14>(evals) += typename Accumulator::View(tmp);
+    }
+    { // TAG_IS_FF
+        using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
+        auto tmp =
+            in.get(C::memory_sel) *
+            ((memory_TAG_FF_DIFF * (in.get(C::memory_sel_tag_is_ff) * (FF(1) - in.get(C::memory_tag_ff_diff_inv)) +
+                                    in.get(C::memory_tag_ff_diff_inv)) +
+              in.get(C::memory_sel_tag_is_ff)) -
+             FF(1));
+        tmp *= scaling_factor;
+        std::get<15>(evals) += typename Accumulator::View(tmp);
+    }
+    { // SEL_RNG_WRITE
+        using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
+        auto tmp = (in.get(C::memory_sel_rng_write) - in.get(C::memory_rw) * (FF(1) - in.get(C::memory_sel_tag_is_ff)));
+        tmp *= scaling_factor;
+        std::get<16>(evals) += typename Accumulator::View(tmp);
     }
 }
 

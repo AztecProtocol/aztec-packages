@@ -97,6 +97,7 @@
 #include "relations/lookups_keccakf1600.hpp"
 #include "relations/lookups_l1_to_l2_message_exists.hpp"
 #include "relations/lookups_l1_to_l2_message_tree_check.hpp"
+#include "relations/lookups_memory.hpp"
 #include "relations/lookups_merkle_check.hpp"
 #include "relations/lookups_note_hash_tree_check.hpp"
 #include "relations/lookups_notehash_exists.hpp"
@@ -131,10 +132,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 133;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2919;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 316;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2942;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 322;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3368;
+    static constexpr size_t NUM_ALL_ENTITIES = 3397;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -448,6 +449,11 @@ struct AvmFlavorVariables {
         lookup_l1_to_l2_message_exists_l1_to_l2_msg_leaf_index_in_range_relation<FF_>,
         lookup_l1_to_l2_message_exists_l1_to_l2_msg_read_relation<FF_>,
         lookup_l1_to_l2_message_tree_check_merkle_check_relation<FF_>,
+        lookup_memory_range_check_limb_0_relation<FF_>,
+        lookup_memory_range_check_limb_1_relation<FF_>,
+        lookup_memory_range_check_limb_2_relation<FF_>,
+        lookup_memory_range_check_write_tagged_value_relation<FF_>,
+        lookup_memory_tag_max_bits_relation<FF_>,
         lookup_merkle_check_merkle_poseidon2_read_relation<FF_>,
         lookup_merkle_check_merkle_poseidon2_write_relation<FF_>,
         lookup_note_hash_tree_check_merkle_check_relation<FF_>,
