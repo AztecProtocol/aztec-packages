@@ -28,7 +28,7 @@ function assertOracleInterfaceMatches(): void {
   if (oracleInterfaceHash !== ORACLE_INTERFACE_HASH) {
     // This check exists only to notify you when you need to update the ORACLE_VERSION constant.
     throw new Error(
-      `Oracle interface hash mismatch. Expected ${ORACLE_INTERFACE_HASH}, got ${oracleInterfaceHash}. Update ORACLE_INTERFACE_HASH and ORACLE_VERSION constants.`,
+      `The TypedOracle interface has changed, which implies a breaking change in the aztec.nr/PXE oracle interface. Update Bump ORACLE_INTERFACE_HASH to ${oracleInterfaceHash} and bump ORACLE_VERSION in pxe/src/oracle_version.ts.`,
     );
   }
 }
