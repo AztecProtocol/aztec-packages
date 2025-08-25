@@ -103,7 +103,7 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
 
     // Witness commitments and public inputs corresponding to the incoming instance
     WitnessCommitments witness_commitments;
-    // The pairing points required by the verification of the decider proof
+    // The pairing points produced by the verification of the decider proof
     PairingPoints decider_pairing_points;
     std::vector<StdlibFF> public_inputs;
 
@@ -197,10 +197,6 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
         BB_ASSERT_EQ(decider_proof.empty(), false, "Decider proof is empty!");
 
         decider_pairing_points = decider.verify_proof(decider_proof);
-
-        // Return early since the hiding circuit method performs merge and public inputs handling
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1501): we should remove the code duplication for
-        // the consistency checks at some point
         break;
     }
     default: {
@@ -227,6 +223,7 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
         // Set the kernel return data commitment to be propagated via the public inputs
 
         if (!is_hiding_kernel) {
+            // The hiding kernel has no return data but uses the traditional public-inputs mechanism
             bus_depot.set_kernel_return_data_commitment(witness_commitments.return_data);
         }
     } else {
