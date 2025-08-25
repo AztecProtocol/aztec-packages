@@ -12,7 +12,7 @@ use crate::{
     oracle::{
         execution::{get_block_number, get_timestamp},
         execution_cache,
-        oracle_version::assert_oracle_version_matches,
+        version::assert_oracle_version_matches,
     },
     test::helpers::{txe_oracles, utils::ContractDeployment},
 };
