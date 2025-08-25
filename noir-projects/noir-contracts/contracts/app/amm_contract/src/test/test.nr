@@ -54,7 +54,7 @@ unconstrained fn add_liquidity_twice_and_remove_liquidity_happy_path() {
         amm.add_liquidity(initial_amount0, initial_amount1, 0, 0, 1),
     );
 
-    // Add liquidity from user2 with excess token1
+    // Add liquidity from liquidity provider 2 with excess token1
     let amount0_max = 500 as u128;
     let amount1_max = 1200 as u128; // Intentionally higher than 1:2 ratio to test we get a refund
     let amount0_min = 400 as u128;
@@ -104,40 +104,51 @@ unconstrained fn add_liquidity_twice_and_remove_liquidity_happy_path() {
         initial_amount1 + 1000, // Only 1000 token1 used to maintain ratio
     );
 
-    // User2 should have 0 token0 and 200 token1 (refunded excess)
+    // Liquidity provider 2 should have 0 token0 and 200 token1 (refunded excess)
     assert_eq(env.simulate_utility(token0.balance_of_private(liquidity_provider_2)), 0);
     assert_eq(env.simulate_utility(token1.balance_of_private(liquidity_provider_2)), 200);
 
-    // Check user2 received liquidity tokens proportional to their contribution
+    // Check liquidity provider 2 received liquidity tokens proportional to their contribution
     // Expected: min((500 * 100000) / 1000, (1000 * 100000) / 2000) = 50000
     assert_eq(
         env.simulate_utility(liquidity_token.balance_of_private(liquidity_provider_2)),
         50000,
     );
 
-    // Now remove half the liquidity from minter's position
+    // Now remove half the liquidity from liquidity provider 1's position
     let liquidity_to_remove = 49500 as u128; // Half of 99000
     let amount0_min = 400 as u128;
     let amount1_min = 800 as u128;
     let authwit_nonce = 3;
 
     // Create authwit for transferring liquidity tokens to AMM
-    let transfer_liquidity_call_interface =
-        liquidity_token.transfer_to_public(minter, amm_address, liquidity_to_remove, authwit_nonce);
-    add_private_authwit_from_call_interface(minter, amm_address, transfer_liquidity_call_interface);
+    let transfer_liquidity_call_interface = liquidity_token.transfer_to_public(
+        liquidity_provider_1,
+        amm_address,
+        liquidity_to_remove,
+        authwit_nonce,
+    );
+    add_private_authwit_from_call_interface(
+        liquidity_provider_1,
+        amm_address,
+        transfer_liquidity_call_interface,
+    );
 
     env.call_private(
-        minter,
+        liquidity_provider_1,
         amm.remove_liquidity(liquidity_to_remove, amount0_min, amount1_min, authwit_nonce),
     );
 
-    // Verify minter got tokens back (proportional to liquidity burned)
+    // Verify liquidity provider 1 got tokens back (proportional to liquidity burned)
     // 49500/100000 of 1000 = 495, 49500/100000 of 2000 = 990
-    assert_eq(env.simulate_utility(token0.balance_of_private(minter)), 495);
-    assert_eq(env.simulate_utility(token1.balance_of_private(minter)), 990);
+    assert_eq(env.simulate_utility(token0.balance_of_private(liquidity_provider_1)), 495);
+    assert_eq(env.simulate_utility(token1.balance_of_private(liquidity_provider_1)), 990);
 
     // Check remaining liquidity tokens
-    assert_eq(env.simulate_utility(liquidity_token.balance_of_private(minter)), 49500); // Other half
+    assert_eq(
+        env.simulate_utility(liquidity_token.balance_of_private(liquidity_provider_1)),
+        49500,
+    ); // Other half
 }
 
 #[test]
