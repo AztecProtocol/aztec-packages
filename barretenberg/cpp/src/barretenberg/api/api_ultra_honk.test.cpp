@@ -77,10 +77,7 @@ TEST_F(ApiUltraHonkTest, ProveAndVerify)
     auto [bytecode_path, witness_path] = create_test_circuit_files(test_dir);
 
     API::Flags flags;
-<<<<<<< HEAD
-=======
     flags.output_format = "bytes";
->>>>>>> origin/merge-train/barretenberg
     flags.oracle_hash_type = "poseidon2"; // Set default oracle hash type
 
     UltraHonkAPI api;
@@ -111,10 +108,6 @@ TEST_F(ApiUltraHonkTest, ProveWithWriteVk)
     auto [bytecode_path, witness_path] = create_test_circuit_files(test_dir);
 
     API::Flags flags;
-<<<<<<< HEAD
-=======
-    flags.output_format = "bytes_and_fields"; // Test both output formats
->>>>>>> origin/merge-train/barretenberg
     flags.oracle_hash_type = "poseidon2";
     flags.write_vk = true;
 
@@ -130,11 +123,6 @@ TEST_F(ApiUltraHonkTest, ProveWithWriteVk)
     EXPECT_TRUE(std::filesystem::exists(proof_output_dir / "public_inputs"));
     EXPECT_TRUE(std::filesystem::exists(proof_output_dir / "vk"));
     EXPECT_TRUE(std::filesystem::exists(proof_output_dir / "vk_hash"));
-<<<<<<< HEAD
-=======
-    EXPECT_TRUE(std::filesystem::exists(proof_output_dir / "vk_fields.json"));
-    EXPECT_TRUE(std::filesystem::exists(proof_output_dir / "vk_hash_fields.json"));
->>>>>>> origin/merge-train/barretenberg
 
     // Verify the proof
     bool verified =
@@ -146,14 +134,8 @@ TEST_F(ApiUltraHonkTest, ProveAndVerifyWithFields)
 {
     auto [bytecode_path, witness_path] = create_test_circuit_files(test_dir);
 
-<<<<<<< HEAD
     // First generate VK for the prove step
     API::Flags vk_flags;
-=======
-    // First generate VK in bytes format for the prove step
-    API::Flags vk_flags;
-    vk_flags.output_format = "bytes";
->>>>>>> origin/merge-train/barretenberg
     vk_flags.oracle_hash_type = "poseidon2";
 
     UltraHonkAPI api;
@@ -163,33 +145,18 @@ TEST_F(ApiUltraHonkTest, ProveAndVerifyWithFields)
     api.write_vk(vk_flags, bytecode_path, vk_output_path);
     EXPECT_TRUE(std::filesystem::exists(vk_output_path / "vk"));
 
-<<<<<<< HEAD
     // Now test proof generation
     API::Flags flags;
     flags.oracle_hash_type = "poseidon2";
 
-    // Generate proof with bytes output
-=======
-    // Now test fields format for proof generation
-    API::Flags flags;
-    flags.output_format = "fields";
-    flags.oracle_hash_type = "poseidon2";
-
-    // Generate proof with fields output
->>>>>>> origin/merge-train/barretenberg
+    // Generate proof
     auto proof_output_dir = test_dir / "proof";
     std::filesystem::create_directories(proof_output_dir);
     api.prove(flags, bytecode_path, witness_path, vk_output_path / "vk", proof_output_dir);
 
-<<<<<<< HEAD
     // Check that proof files were created
     EXPECT_TRUE(std::filesystem::exists(proof_output_dir / "proof"));
     EXPECT_TRUE(std::filesystem::exists(proof_output_dir / "public_inputs"));
-=======
-    // Check that proof field files were created
-    EXPECT_TRUE(std::filesystem::exists(proof_output_dir / "proof_fields.json"));
-    EXPECT_TRUE(std::filesystem::exists(proof_output_dir / "public_inputs_fields.json"));
->>>>>>> origin/merge-train/barretenberg
 }
 
 TEST_F(ApiUltraHonkTest, ProveWithDifferentSettings)
@@ -205,10 +172,6 @@ TEST_F(ApiUltraHonkTest, ProveWithDifferentSettings)
 
     for (const auto& [oracle_hash_type, disable_zk] : test_cases) {
         API::Flags flags;
-<<<<<<< HEAD
-=======
-        flags.output_format = "bytes";
->>>>>>> origin/merge-train/barretenberg
         flags.oracle_hash_type = oracle_hash_type;
         flags.disable_zk = disable_zk;
         flags.write_vk = true;

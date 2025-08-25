@@ -91,64 +91,6 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
                 commitment = commitment_key.commit(polynomial);
             }
         }
-
-        /**
-         * @brief Adds the verification key witnesses directly to the transcript.
-         * @details Needed to make sure the Origin Tag system works. See the base class function for
-         * more details.
-         *
-         * @param domain_separator
-         * @param transcript
-         *
-         * @returns The hash of the verification key
-         */
-        fr add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const override
-        {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1427): We need to update this function to look
-            // like UltraFlavor's add_hash_to_transcript. Alternatively, the VerificationKey class will go away when we
-            // add pairing point aggregation to the solidity verifier.
-            uint64_t circuit_size = 1 << this->log_circuit_size;
-            transcript.add_to_hash_buffer(domain_separator + "vk_log_circuit_size", circuit_size);
-            transcript.add_to_hash_buffer(domain_separator + "vk_num_public_inputs", this->num_public_inputs);
-            transcript.add_to_hash_buffer(domain_separator + "vk_pub_inputs_offset", this->pub_inputs_offset);
-            return 0;
-        }
-
-        // Don't statically check for object completeness.
-        using MSGPACK_NO_STATIC_CHECK = std::true_type;
-
-        // For serialising and deserializing data
-        MSGPACK_FIELDS(log_circuit_size,
-                       num_public_inputs,
-                       pub_inputs_offset,
-                       q_m,
-                       q_c,
-                       q_l,
-                       q_r,
-                       q_o,
-                       q_4,
-                       q_lookup,
-                       q_arith,
-                       q_delta_range,
-                       q_elliptic,
-                       q_memory,
-                       q_nnf,
-                       q_poseidon2_external,
-                       q_poseidon2_internal,
-                       sigma_1,
-                       sigma_2,
-                       sigma_3,
-                       sigma_4,
-                       id_1,
-                       id_2,
-                       id_3,
-                       id_4,
-                       table_1,
-                       table_2,
-                       table_3,
-                       table_4,
-                       lagrange_first,
-                       lagrange_last);
     };
 
     // Specialize for Ultra (general case used in UltraRecursive).
