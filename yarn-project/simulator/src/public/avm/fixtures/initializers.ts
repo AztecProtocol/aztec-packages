@@ -1,4 +1,4 @@
-import { MAX_L2_GAS_PER_TX_PUBLIC_PORTION } from '@aztec/constants';
+import { AVM_MAX_PROCESSABLE_L2_GAS } from '@aztec/constants';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -97,7 +97,7 @@ export function initGlobalVariables(overrides?: Partial<GlobalVariables>): Globa
  */
 export function initMachineState(overrides?: Partial<AvmMachineState>): AvmMachineState {
   return AvmMachineState.fromState({
-    l2GasLeft: overrides?.l2GasLeft ?? MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
+    l2GasLeft: overrides?.l2GasLeft ?? AVM_MAX_PROCESSABLE_L2_GAS,
     daGasLeft: overrides?.daGasLeft ?? 1e8,
   });
 }
