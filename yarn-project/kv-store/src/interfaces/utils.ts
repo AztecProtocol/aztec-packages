@@ -17,6 +17,6 @@ export const mockLogger = {
 };
 /* eslint-enable no-console */
 
-export function isSyncStore(store: AztecKVStore | AztecAsyncKVStore): store is AztecAsyncKVStore {
+export function isSyncStore(store: AztecKVStore | AztecAsyncKVStore): store is AztecKVStore {
   return (store as AztecKVStore).syncGetters === true;
 }
