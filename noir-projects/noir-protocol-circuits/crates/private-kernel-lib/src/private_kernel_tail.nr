@@ -81,10 +81,10 @@ mod tests {
         traits::FromField,
     };
     use dep::types::constants::{
-        AVM_L2_GAS_PER_NOTE_HASH_WRITE, AVM_L2_GAS_PER_NULLIFIER_WRITE, DA_BYTES_PER_FIELD,
-        DA_GAS_PER_BYTE, GENERATOR_INDEX__IVSK_M, L2_GAS_PER_CONTRACT_CLASS_LOG,
-        L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_PRIVATE_LOG, PRIVATE_KERNEL_INNER_INDEX,
-        PRIVATE_KERNEL_TAIL_INDEX, PRIVATE_LOG_SIZE_IN_FIELDS,
+        AVM_EMITNOTEHASH_BASE_L2_GAS, AVM_EMITNULLIFIER_BASE_L2_GAS, AVM_SENDL2TOL1MSG_BASE_L2_GAS,
+        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, GENERATOR_INDEX__IVSK_M, L2_GAS_PER_CONTRACT_CLASS_LOG,
+        L2_GAS_PER_PRIVATE_LOG, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_TAIL_INDEX,
+        PRIVATE_LOG_SIZE_IN_FIELDS,
     };
 
     // TODO: Reduce the duplicated code/tests for PrivateKernelTailInputs and PrivateKernelTailToPublicInputs.
@@ -240,7 +240,7 @@ mod tests {
         let expected_gas_consumed = Gas::tx_overhead()
             + Gas::new(
                 DA_GAS_PER_BYTE * DA_BYTES_PER_FIELD * 1,
-                AVM_L2_GAS_PER_NULLIFIER_WRITE * 1,
+                AVM_EMITNULLIFIER_BASE_L2_GAS * 1,
             );
         assert_eq(public_inputs.gas_used, expected_gas_consumed);
     }
@@ -260,7 +260,7 @@ mod tests {
             Gas::tx_overhead()
                 + Gas::new(
                     4 * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE,
-                    1 * AVM_L2_GAS_PER_NULLIFIER_WRITE + 3 * L2_GAS_PER_L2_TO_L1_MSG,
+                    1 * AVM_EMITNULLIFIER_BASE_L2_GAS + 3 * AVM_SENDL2TOL1MSG_BASE_L2_GAS,
                 ),
             public_inputs.gas_used,
         );
@@ -290,7 +290,7 @@ mod tests {
         let num_da_bytes = (num_da_fields * DA_BYTES_PER_FIELD);
         let da_gas = num_da_bytes * DA_GAS_PER_BYTE;
 
-        let l2_gas = num_nullifiers * AVM_L2_GAS_PER_NULLIFIER_WRITE
+        let l2_gas = num_nullifiers * AVM_EMITNULLIFIER_BASE_L2_GAS
             + num_private_logs * L2_GAS_PER_PRIVATE_LOG
             + num_cc_logs * L2_GAS_PER_CONTRACT_CLASS_LOG;
 
@@ -348,8 +348,8 @@ mod tests {
         let num_private_log_fields = num_private_logs * (PRIVATE_LOG_SIZE_IN_FIELDS + 1); // +1 for the length field
         let num_da_fields = num_note_hashes + num_nullifiers + num_private_log_fields;
         let da_gas = num_da_fields * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
-        let l2_gas = num_note_hashes * AVM_L2_GAS_PER_NOTE_HASH_WRITE
-            + num_nullifiers * AVM_L2_GAS_PER_NULLIFIER_WRITE
+        let l2_gas = num_note_hashes * AVM_EMITNOTEHASH_BASE_L2_GAS
+            + num_nullifiers * AVM_EMITNULLIFIER_BASE_L2_GAS
             + num_private_logs * L2_GAS_PER_PRIVATE_LOG;
         assert_eq(public_inputs.gas_used, Gas::tx_overhead() + Gas::new(da_gas, l2_gas));
     }
