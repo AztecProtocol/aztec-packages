@@ -33,6 +33,14 @@ std::vector<FF> BaseContext::get_returndata(uint32_t rd_offset, uint32_t rd_copy
     return padded_returndata;
 };
 
+uint32_t BaseContext::get_last_child_id() const
+{
+    if (child_context == nullptr) {
+        return 0; // No child context, so no last child id.
+    }
+    return child_context->get_context_id();
+}
+
 /////////////////////////////
 // Enqueued Context
 /////////////////////////////
@@ -59,6 +67,7 @@ ContextEvent EnqueuedCallContext::serialize_context_event()
     return {
         .id = get_context_id(),
         .parent_id = 0,
+        .last_child_id = get_last_child_id(),
         .pc = get_pc(),
         .msg_sender = get_msg_sender(),
         .contract_addr = get_address(),
@@ -66,7 +75,7 @@ ContextEvent EnqueuedCallContext::serialize_context_event()
         .transaction_fee = get_transaction_fee(),
         .is_static = get_is_static(),
         .parent_cd_addr = 0,
-        .parent_cd_size_addr = 0,
+        .parent_cd_size = get_parent_cd_size(),
         .last_child_rd_addr = get_last_rd_addr(),
         .last_child_rd_size = get_last_rd_size(),
         .last_child_success = get_last_success(),
@@ -117,6 +126,7 @@ ContextEvent NestedContext::serialize_context_event()
     return {
         .id = get_context_id(),
         .parent_id = get_parent_id(),
+        .last_child_id = get_last_child_id(),
         .pc = get_pc(),
         .msg_sender = get_msg_sender(),
         .contract_addr = get_address(),
@@ -124,7 +134,7 @@ ContextEvent NestedContext::serialize_context_event()
         .transaction_fee = get_transaction_fee(),
         .is_static = get_is_static(),
         .parent_cd_addr = parent_cd_addr,
-        .parent_cd_size_addr = parent_cd_size,
+        .parent_cd_size = parent_cd_size,
         .last_child_rd_addr = get_last_rd_addr(),
         .last_child_rd_size = get_last_rd_size(),
         .last_child_success = get_last_success(),
