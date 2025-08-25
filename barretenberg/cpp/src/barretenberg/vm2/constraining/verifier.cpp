@@ -76,7 +76,6 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     }
 
     // Execute Sumcheck Verifier
-    std::vector<FF> padding_indicator_array(CONST_PROOF_SIZE_LOG_N, 1);
 
     // Multiply each linearly independent subrelation contribution by `alpha^i` for i = 0, ..., NUM_SUBRELATIONS - 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
@@ -88,7 +87,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
-    SumcheckOutput<Flavor> output = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator_array);
+    SumcheckOutput<Flavor> output = sumcheck.verify(relation_parameters, gate_challenges);
 
     // If Sumcheck did not verify, return false
     if (!output.verified) {
@@ -119,8 +118,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         .unshifted = ClaimBatch{ commitments.get_unshifted(), output.claimed_evaluations.get_unshifted() },
         .shifted = ClaimBatch{ commitments.get_to_be_shifted(), output.claimed_evaluations.get_shifted() }
     };
-    const BatchOpeningClaim<Curve> opening_claim = Shplemini::compute_batch_opening_claim(
-        padding_indicator_array, claim_batcher, output.challenge, Commitment::one(), transcript);
+    const BatchOpeningClaim<Curve> opening_claim =
+        Shplemini::compute_batch_opening_claim(claim_batcher, output.challenge, Commitment::one(), transcript);
 
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
     VerifierCommitmentKey pcs_vkey{};

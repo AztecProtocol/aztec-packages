@@ -39,6 +39,8 @@ namespace bb {
 template <typename BuilderType> class MegaZKRecursiveFlavor_ : public MegaRecursiveFlavor_<BuilderType> {
   public:
     using NativeFlavor = MegaZKFlavor;
+    static constexpr size_t VIRTUAL_LOG_N =
+        std::is_same_v<BuilderType, UltraCircuitBuilder> ? 20 : NativeFlavor::VIRTUAL_LOG_N;
 
     static constexpr bool HasZK = true;
 

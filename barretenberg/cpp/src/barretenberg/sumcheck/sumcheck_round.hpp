@@ -473,7 +473,7 @@ template <typename Flavor> class SumcheckProverRound {
         const bb::GateSeparatorPolynomial<FF>& gate_separators,
         const SubrelationSeparators& alpha,
         const ZKData& zk_sumcheck_data,
-        const RowDisablingPolynomial<FF> row_disabling_polynomial)
+        const RowDisablingPolynomial<Flavor> row_disabling_polynomial)
         requires Flavor::HasZK
     {
         auto hiding_univariate = compute_libra_univariate(zk_sumcheck_data, round_idx);
@@ -497,7 +497,7 @@ template <typename Flavor> class SumcheckProverRound {
         const bb::GateSeparatorPolynomial<FF>& gate_separators,
         const SubrelationSeparators& alphas,
         const size_t round_idx,
-        const RowDisablingPolynomial<FF> row_disabling_polynomial)
+        const RowDisablingPolynomial<Flavor> row_disabling_polynomial)
         requires UseRowDisablingPolynomial<Flavor>
     {
         // Note: {} is required to initialize the tuple contents. Otherwise the univariates contain garbage.
@@ -507,14 +507,24 @@ template <typename Flavor> class SumcheckProverRound {
 
         // In Round 0, we have to compute the contribution from 2 edges: (1, 1,..., 1) and (0, 1, ..., 1) (as points on
         // (d-1) - dimensional Boolean hypercube).
-        size_t start_edge_idx = (round_idx == 0) ? round_size - 4 : round_size - 2;
+        size_t start_edge_idx{ 0 };
+        size_t end_edge_idx{ 0 };
 
-        for (size_t edge_idx = start_edge_idx; edge_idx < round_size; edge_idx += 2) {
+        if constexpr (!std::is_same_v<Flavor, UltraZKFlavor>) {
+            start_edge_idx = (round_idx == 0) ? round_size - 4 : round_size - 2;
+            end_edge_idx = round_size;
+        } else {
+            start_edge_idx = 0;
+            end_edge_idx = (round_idx == 0) ? 4 : 2;
+        }
+        for (size_t edge_idx = start_edge_idx; edge_idx < end_edge_idx; edge_idx += 2) {
             extend_edges(extended_edges, polynomials, edge_idx);
-            accumulate_relation_univariates(univariate_accumulator,
-                                            extended_edges,
-                                            relation_parameters,
-                                            gate_separators[(edge_idx >> 1) * gate_separators.periodicity]);
+
+            FF tail = 1;
+            if (!(std::is_same_v<Flavor, UltraZKFlavor> && round_idx > 0)) {
+                tail = gate_separators[(edge_idx >> 1) * gate_separators.periodicity];
+            }
+            accumulate_relation_univariates(univariate_accumulator, extended_edges, relation_parameters, tail);
         }
         result = batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulator, alphas, gate_separators);
         bb::Univariate<FF, 2> row_disabling_factor =
@@ -767,17 +777,13 @@ template <typename Flavor> class SumcheckVerifierRound {
      * @param univariate Round univariate \f$\tilde{S}^{i}\f$ represented by its evaluations over \f$0,\ldots,D\f$.
      *
      */
-    bool check_sum(bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& univariate, const FF& indicator)
+    bool check_sum(bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& univariate)
     {
-        FF total_sum =
-            (FF(1) - indicator) * target_total_sum + indicator * (univariate.value_at(0) + univariate.value_at(1));
+        FF total_sum = univariate.value_at(0) + univariate.value_at(1);
         bool sumcheck_round_failed(false);
         if constexpr (IsRecursiveFlavor<Flavor>) {
             // This bool is only needed for debugging
-            if (indicator.get_value() == FF{ 1 }.get_value()) {
-                sumcheck_round_failed = (target_total_sum.get_value() != total_sum.get_value());
-            }
-
+            sumcheck_round_failed = (target_total_sum.get_value() != total_sum.get_value());
             target_total_sum.assert_equal(total_sum);
         } else {
             sumcheck_round_failed = (target_total_sum != total_sum);
@@ -796,11 +802,10 @@ template <typename Flavor> class SumcheckVerifierRound {
      *
      */
     void compute_next_target_sum(bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& univariate,
-                                 FF& round_challenge,
-                                 const FF& indicator)
+                                 const FF& round_challenge)
     {
         // Evaluate \f$\tilde{S}^{i}(u_{i}) \f$
-        target_total_sum = (FF(1) - indicator) * target_total_sum + indicator * univariate.evaluate(round_challenge);
+        target_total_sum = univariate.evaluate(round_challenge);
     }
 
     /**

@@ -30,8 +30,9 @@ void construct_lookup_table_polynomials(const RefArray<typename Flavor::Polynomi
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1033): construct tables and counts at top of trace
     const size_t tables_size = circuit.get_tables_size();
     BB_ASSERT_GT(dyadic_circuit_size, tables_size + additional_offset);
-    size_t offset = circuit.blocks.lookup.trace_offset();
 
+    size_t offset = std::is_same_v<Flavor, UltraZKFlavor> ? 5 : circuit.blocks.lookup.trace_offset();
+    info("lookup offset ", offset);
     for (const auto& table : circuit.lookup_tables) {
         const fr table_index(table.table_index);
 
@@ -59,7 +60,7 @@ void construct_lookup_read_counts(typename Flavor::Polynomial& read_counts,
                                   [[maybe_unused]] const size_t dyadic_circuit_size)
 {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1033): construct tables and counts at top of trace
-    size_t table_offset = circuit.blocks.lookup.trace_offset();
+    size_t offset = std::is_same_v<Flavor, UltraZKFlavor> ? 5 : circuit.blocks.lookup.trace_offset();
 
     // loop over all tables used in the circuit; each table contains data about the lookups made on it
     for (auto& table : circuit.lookup_tables) {
@@ -73,11 +74,11 @@ void construct_lookup_read_counts(typename Flavor::Polynomial& read_counts,
             auto index_in_table = table.index_map[table_entry];
 
             // increment the read count at the corresponding index in the full polynomial
-            size_t index_in_poly = table_offset + index_in_table;
+            size_t index_in_poly = offset + index_in_table;
             read_counts.at(index_in_poly)++;
             read_tags.at(index_in_poly) = 1; // tag is 1 if entry has been read 1 or more times
         }
-        table_offset += table.size(); // set the offset of the next table within the polynomials
+        offset += table.size(); // set the offset of the next table within the polynomials
     }
 }
 

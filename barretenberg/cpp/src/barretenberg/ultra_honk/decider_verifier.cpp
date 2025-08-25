@@ -7,7 +7,6 @@
 #include "decider_verifier.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
-#include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/decider_verification_key.hpp"
@@ -50,13 +49,6 @@ template <typename Flavor> typename DeciderVerifier_<Flavor>::Output DeciderVeri
 
     const size_t virtual_log_n = Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : log_circuit_size;
 
-    std::vector<FF> padding_indicator_array(virtual_log_n, 1);
-    if constexpr (Flavor::HasZK) {
-        for (size_t idx = 0; idx < virtual_log_n; idx++) {
-            padding_indicator_array[idx] = (idx < log_circuit_size) ? FF{ 1 } : FF{ 0 };
-        }
-    }
-
     SumcheckVerifier<Flavor> sumcheck(transcript, accumulator->alphas, virtual_log_n, accumulator->target_sum);
     // For MegaZKFlavor: receive commitments to Libra masking polynomials
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
@@ -64,7 +56,7 @@ template <typename Flavor> typename DeciderVerifier_<Flavor>::Output DeciderVeri
         libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
     }
     SumcheckOutput<Flavor> sumcheck_output =
-        sumcheck.verify(accumulator->relation_parameters, accumulator->gate_challenges, padding_indicator_array);
+        sumcheck.verify(accumulator->relation_parameters, accumulator->gate_challenges);
 
     // For MegaZKFlavor: the sumcheck output contains claimed evaluations of the Libra polynomials
     if constexpr (Flavor::HasZK) {
@@ -78,8 +70,7 @@ template <typename Flavor> typename DeciderVerifier_<Flavor>::Output DeciderVeri
         .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
     };
     const BatchOpeningClaim<Curve> opening_claim =
-        Shplemini::compute_batch_opening_claim(padding_indicator_array,
-                                               claim_batcher,
+        Shplemini::compute_batch_opening_claim(claim_batcher,
                                                sumcheck_output.challenge,
                                                Commitment::one(),
                                                transcript,
@@ -88,7 +79,8 @@ template <typename Flavor> typename DeciderVerifier_<Flavor>::Output DeciderVeri
                                                &consistency_checked,
                                                libra_commitments,
                                                sumcheck_output.claimed_libra_evaluation);
-
+    info("consistency checked ", consistency_checked);
+    info("verifier comm ", batch_mul_native(opening_claim.commitments, opening_claim.scalars));
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
     return Output{ sumcheck_output.verified, consistency_checked, { pairing_points[0], pairing_points[1] } };

@@ -235,11 +235,9 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
         ShplonkVerifier::compute_inverted_gemini_denominators(shplonk_eval_challenge, r_squares);
 
     Fr expected_constant_term_accumulator{ 0 };
-    std::vector<Fr> padding_indicator_array(this->log_n, Fr{ 1 });
 
     std::vector<Fr> gemini_fold_pos_evaluations =
-        GeminiVerifier_<Curve>::compute_fold_pos_evaluations(padding_indicator_array,
-                                                             expected_constant_term_accumulator,
+        GeminiVerifier_<Curve>::compute_fold_pos_evaluations(expected_constant_term_accumulator,
                                                              mle_opening_point,
                                                              r_squares,
                                                              prover_evaluations,
@@ -247,8 +245,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     std::vector<Commitment> commitments;
     std::vector<Fr> scalars;
 
-    ShpleminiVerifier::batch_gemini_claims_received_from_prover(padding_indicator_array,
-                                                                prover_commitments,
+    ShpleminiVerifier::batch_gemini_claims_received_from_prover(prover_commitments,
                                                                 prover_evaluations,
                                                                 gemini_fold_pos_evaluations,
                                                                 inverse_vanishing_evals,
@@ -351,10 +348,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
     bool consistency_checked = true;
 
     // Run Shplemini
-    std::vector<Fr> padding_indicator_array(this->log_n, Fr{ 1 });
-
-    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
-                                                                                    mock_claims.claim_batcher,
+    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(mock_claims.claim_batcher,
                                                                                     mle_opening_point,
                                                                                     this->vk().get_g1_identity(),
                                                                                     verifier_transcript,
@@ -459,10 +453,8 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
     bool consistency_checked = true;
 
     // Run Shplemini
-    std::vector<Fr> padding_indicator_array(this->log_n, Fr{ 1 });
 
-    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
-                                                                                    mock_claims.claim_batcher,
+    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(mock_claims.claim_batcher,
                                                                                     challenge,
                                                                                     this->vk().get_g1_identity(),
                                                                                     verifier_transcript,

@@ -247,8 +247,7 @@ TEST_F(ClientIVCTests, VKIndependenceTest)
  * structured trace
  * @details If one of the circuits being accumulated overflows the structured trace, the dyadic size of the accumulator
  * may increase. In this case we want to ensure that the CIVC VK (and in particular the hiding circuit VK) is identical
- * to the non-overflow case. This requires, for example, that the padding_indicator_array logic used in somecheck is
- * functioning properly.
+ * to the non-overflow case.
  */
 TEST_F(ClientIVCTests, VKIndependenceWithOverflow)
 {

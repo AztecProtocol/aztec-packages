@@ -180,8 +180,9 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
             }
         }
         // Set the lagrange polynomials
-        polynomials.lagrange_first.at(0) = 1;
-        polynomials.lagrange_last.at(final_active_wire_idx) = 1;
+        size_t lagrange_first_idx = std::is_same_v<Flavor, UltraZKFlavor> ? 4 : 0;
+        polynomials.lagrange_first.at(lagrange_first_idx) = 1;
+        polynomials.lagrange_last.at(final_active_wire_idx + lagrange_first_idx) = 1;
 
         {
             PROFILE_THIS_NAME("constructing lookup table polynomials");
@@ -198,7 +199,8 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
         }
         { // Public inputs handling
             metadata.num_public_inputs = circuit.blocks.pub_inputs.size();
-            metadata.pub_inputs_offset = circuit.blocks.pub_inputs.trace_offset();
+            metadata.pub_inputs_offset =
+                circuit.blocks.pub_inputs.trace_offset() + ((std::is_same_v<Flavor, UltraZKFlavor>) ? 4 : 0);
             for (size_t i = 0; i < metadata.num_public_inputs; ++i) {
                 size_t idx = i + metadata.pub_inputs_offset;
                 public_inputs.emplace_back(polynomials.w_r[idx]);

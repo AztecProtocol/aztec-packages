@@ -38,13 +38,15 @@ void TraceToPolynomials<Flavor>::populate(Builder& builder,
         compute_permutation_argument_polynomials<Flavor>(builder, polynomials, copy_cycles, active_region_data);
     }
 }
-
 template <class Flavor>
 std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_selectors_and_compute_copy_cycles(
     Builder& builder, ProverPolynomials& polynomials, ActiveRegionData& active_region_data)
 {
-
     PROFILE_THIS_NAME("construct_trace_data");
+
+    // Shift only for UltraZKFlavor
+    constexpr bool is_ultra_zk = std::is_same_v<Flavor, UltraZKFlavor>;
+    constexpr uint32_t base_shift = is_ultra_zk ? 4 : 0;
 
     std::vector<CyclicPermutation> copy_cycles;
     copy_cycles.resize(builder.get_num_variables()); // at most one copy cycle per variable
@@ -52,14 +54,13 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
     RefArray<Polynomial, NUM_WIRES> wires = polynomials.get_wires();
     auto selectors = polynomials.get_selectors();
 
-    // For each block in the trace, populate wire polys, copy cycles and selector polys
     for (auto& block : builder.blocks.get()) {
         const uint32_t offset = block.trace_offset();
         const uint32_t block_size = static_cast<uint32_t>(block.size());
 
-        // Save ranges over which the blocks are "active" for use in structured commitments
         if (block.size() > 0) {
-            active_region_data.add_range(offset, offset + block.size());
+            // record active region with the shift applied
+            active_region_data.add_range(offset + base_shift, offset + base_shift + block.size());
         }
 
         // Update wire polynomials and copy cycles
@@ -71,8 +72,9 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
                 for (uint32_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
                     uint32_t var_idx = block.wires[wire_idx][block_row_idx]; // an index into the variables array
                     uint32_t real_var_idx = builder.real_variable_index[var_idx];
-                    uint32_t trace_row_idx = block_row_idx + offset;
-                    // Insert the real witness values from this block into the wire polys at the correct offset
+                    uint32_t trace_row_idx = block_row_idx + offset + base_shift;
+
+                    // populate wires at shifted row
                     wires[wire_idx].at(trace_row_idx) = builder.get_variable(var_idx);
                     // Add the address of the witness value to its corresponding copy cycle
                     copy_cycles[real_var_idx].emplace_back(cycle_node{ wire_idx, trace_row_idx });
@@ -86,7 +88,7 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
         for (size_t selector_idx = 0; selector_idx < block_selectors.size(); selector_idx++) {
             auto& selector = block_selectors[selector_idx];
             for (size_t row_idx = 0; row_idx < block_size; ++row_idx) {
-                size_t trace_row_idx = row_idx + offset;
+                size_t trace_row_idx = row_idx + offset + base_shift;
                 selectors[selector_idx].set_if_valid_index(trace_row_idx, selector[row_idx]);
             }
         }
@@ -94,7 +96,6 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
 
     return copy_cycles;
 }
-
 template <class Flavor>
 void TraceToPolynomials<Flavor>::add_ecc_op_wires_to_proving_key(Builder& builder, ProverPolynomials& polynomials)
     requires IsMegaFlavor<Flavor>

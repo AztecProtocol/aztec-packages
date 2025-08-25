@@ -192,12 +192,8 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
         verifier_gate_challenges[idx] =
             verifier_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
-    std::vector<FF> padding_indicator_array(virtual_log_n);
-    for (size_t idx = 0; idx < padding_indicator_array.size(); idx++) {
-        padding_indicator_array[idx] = 1;
-    }
-    auto verifier_output =
-        sumcheck_verifier.verify(decider_pk->relation_parameters, verifier_gate_challenges, padding_indicator_array);
+
+    auto verifier_output = sumcheck_verifier.verify(decider_pk->relation_parameters, verifier_gate_challenges);
 
     auto verified = verifier_output.verified;
 
