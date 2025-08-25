@@ -135,15 +135,15 @@ describe('Public TX simulator apps tests: benchmarks', () => {
       expect(result.revertCode.isOK()).toBe(true);
     });
 
-    it('keccak_hash_2400', async () => {
+    it('keccak_hash_1400', async () => {
       const result = await tester.executeTxWithLabel(
-        /*txLabel=*/ 'AvmGadgetsTest/keccak_hash_2400',
+        /*txLabel=*/ 'AvmGadgetsTest/keccak_hash_1400',
         /*sender=*/ deployer,
         /*setupCalls=*/ [],
         /*appCalls=*/ [
           {
             address: avmGadgetsTestContract.address,
-            fnName: 'keccak_hash_2400',
+            fnName: 'keccak_hash_1400',
             args: [/*input=*/ Array.from({ length: 2400 }, () => randomInt(2 ** 8))],
           },
         ],

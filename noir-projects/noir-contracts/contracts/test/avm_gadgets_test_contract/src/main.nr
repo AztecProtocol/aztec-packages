@@ -10,7 +10,7 @@ contract AvmGadgetsTest {
     }
 
     #[public]
-    fn keccak_hash_2400(data: [u8; 2400]) -> [u8; 32] {
+    fn keccak_hash_1400(data: [u8; 1400]) -> [u8; 32] {
         keccak256::keccak256(data, data.len())
     }
 
