@@ -237,7 +237,9 @@ template <typename FF_> void CircuitBuilderBase<FF_>::failure(std::string msg)
 #ifndef FUZZING_DISABLE_WARNINGS
     if (!has_dummy_witnesses) {
         // We have a builder failure when we have real witnesses which is a mistake.
-        info("(Experimental) WARNING: Builder failure when we have real witnesses!"); // not a catch-all error
+        info("(Experimental) WARNING: Builder failure when we have real witnesses! Ignore if writing vk."); // not a
+                                                                                                            // catch-all
+                                                                                                            // error
     }
 #endif
     _failed = true;

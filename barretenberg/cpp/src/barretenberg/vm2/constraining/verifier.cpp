@@ -30,7 +30,7 @@ using FF = AvmFlavor::FF;
 // Evaluate the given public input column over the multivariate challenge points
 inline FF AvmVerifier::evaluate_public_input_column(const std::vector<FF>& points, std::vector<FF> challenges)
 {
-    Polynomial<FF> polynomial(points, 1UL << CONST_PROOF_SIZE_LOG_N);
+    Polynomial<FF> polynomial(points, MAX_AVM_TRACE_SIZE);
     return polynomial.evaluate_mle(challenges);
 }
 
@@ -76,15 +76,15 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     }
 
     // Execute Sumcheck Verifier
-    std::vector<FF> padding_indicator_array(CONST_PROOF_SIZE_LOG_N, 1);
+    std::vector<FF> padding_indicator_array(MAX_AVM_TRACE_LOG_SIZE, 1);
 
     // Multiply each linearly independent subrelation contribution by `alpha^i` for i = 0, ..., NUM_SUBRELATIONS - 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
-    SumcheckVerifier<Flavor> sumcheck(transcript, alpha, CONST_PROOF_SIZE_LOG_N);
+    SumcheckVerifier<Flavor> sumcheck(transcript, alpha, MAX_AVM_TRACE_LOG_SIZE);
 
-    auto gate_challenges = std::vector<FF>(CONST_PROOF_SIZE_LOG_N);
-    for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
+    auto gate_challenges = std::vector<FF>(MAX_AVM_TRACE_LOG_SIZE);
+    for (size_t idx = 0; idx < MAX_AVM_TRACE_LOG_SIZE; idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
