@@ -1,4 +1,5 @@
 import { createLogger } from '@aztec/foundation/log';
+import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { TestExecutorMetrics, defaultGlobals, tokenTest } from '@aztec/simulator/public/fixtures';
 
 import { mkdirSync, writeFileSync } from 'fs';
@@ -33,7 +34,7 @@ describe('AVM proven TokenContract', () => {
   it(
     'proven token transfer (simulates constructor, mint, burn, check balance)',
     async () => {
-      await tokenTest(tester, logger, (b: boolean) => expect(b).toBe(true));
+      await tokenTest(tester, logger, TokenContractArtifact, (b: boolean) => expect(b).toBe(true));
     },
     TIMEOUT,
   );

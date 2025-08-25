@@ -1,4 +1,5 @@
 import { createLogger } from '@aztec/foundation/log';
+import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { TestExecutorMetrics, defaultGlobals, megaBulkTest } from '@aztec/simulator/public/fixtures';
 
 import { mkdirSync, writeFileSync } from 'fs';
@@ -34,7 +35,7 @@ describe.skip('AVM proven MEGA bulk test', () => {
   it(
     'Prove and verify mega bulk test',
     async () => {
-      await megaBulkTest(tester, logger, (b: boolean) => expect(b).toBe(true));
+      await megaBulkTest(tester, logger, AvmTestContractArtifact, (b: boolean) => expect(b).toBe(true));
     },
     TIMEOUT,
   );

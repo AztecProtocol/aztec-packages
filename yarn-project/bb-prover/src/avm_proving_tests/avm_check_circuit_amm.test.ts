@@ -1,4 +1,6 @@
 import { createLogger } from '@aztec/foundation/log';
+import { AMMContractArtifact } from '@aztec/noir-contracts.js/AMM';
+import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { TestExecutorMetrics, ammTest, defaultGlobals } from '@aztec/simulator/public/fixtures';
 
 import { mkdirSync, writeFileSync } from 'fs';
@@ -34,7 +36,7 @@ describe.skip('AVM proven AMM', () => {
   it(
     'proven AMM operations: addLiquidity, swap, removeLiquidity (simulates constructors, set_minter)',
     async () => {
-      await ammTest(tester, logger, (b: boolean) => expect(b).toBe(true));
+      await ammTest(tester, logger, TokenContractArtifact, AMMContractArtifact, (b: boolean) => expect(b).toBe(true));
     },
     TIMEOUT,
   );
