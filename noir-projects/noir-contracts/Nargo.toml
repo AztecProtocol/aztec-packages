@@ -11,6 +11,7 @@ members = [
     "contracts/app/auth_contract",
     "contracts/app/card_game_contract",
     "contracts/app/claim_contract",
+    "contracts/app/closed_set_orderbook_contract",
     "contracts/app/crowdfunding_contract",
     "contracts/app/easy_private_token_contract",
     "contracts/app/easy_private_voting_contract",
