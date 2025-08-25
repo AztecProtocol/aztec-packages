@@ -180,11 +180,9 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
             { Column::alu_tag_ff_diff_inv, is_ff ? 0 : tag_diff.invert() },
         };
     }
-    // TODO(MW): Cleanup below (dedupe a lot of shift calcs):
     case simulation::AluOperation::SHL: {
         auto a_num = static_cast<uint128_t>(event.a.as_ff());
         auto b_num = static_cast<uint128_t>(event.b.as_ff());
-        // TODO(MW): change for FF tag err case?
         auto tag_bits = get_tag_bits(event.a.get_tag());
         // Whether we shift by more than the bit size (=> result is 0):
         bool overflow = b_num > tag_bits;
@@ -217,7 +215,6 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
     case simulation::AluOperation::SHR: {
         auto a_num = static_cast<uint128_t>(event.a.as_ff());
         auto b_num = static_cast<uint128_t>(event.b.as_ff());
-        // TODO(MW): change for FF tag err case?
         auto tag_bits = get_tag_bits(event.a.get_tag());
         // Whether we shift by more than the bit size (=> result is 0):
         bool overflow = b_num > tag_bits;

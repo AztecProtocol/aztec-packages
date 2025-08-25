@@ -431,7 +431,7 @@ sel_op_not * (1 - sel_tag_err) * (ia + ib - max_value) = 0;
 //  We want: 2**s (=2**ib), ideally without another precomputed.power_of_2 lookup
 //  Injecting 2**s (=helper1), we can check that 2**t == 2**(t-s) * 2**s:
 #[SHL_TWO_POW_SHIFT]
-sel_op_shl * sel_shift_ops_no_overflow * (max_value + 1 - two_pow_shift_lo_bits * helper1) = 0;
+sel_op_shl * sel_shift_ops_no_overflow * (1 - sel_tag_err) * (max_value + 1 - two_pow_shift_lo_bits * helper1) = 0;
 
 #[ALU_SHL]
 sel_op_shl * (1 - sel_tag_err) * (ic - sel_shift_ops_no_overflow * a_lo * helper1 ) = 0;
@@ -455,7 +455,6 @@ sel_op_shr * (1 - sel_tag_err) * (ic - sel_shift_ops_no_overflow * a_hi) = 0;
 
 pol commit sel_shift_ops;
 // sel_op_shl || sel_op_shr:
-// TODO(MW): Not currently gated by errs, maybe change this
 sel_shift_ops = sel_op_shl + sel_op_shr;
 
 pol commit sel_shift_ops_no_overflow;
@@ -470,10 +469,10 @@ pol commit two_pow_shift_lo_bits;
 // *For SHL and SHR, when the shift (b) > max_bits we want SHIFT_OVERFLOW == 1 and c == 0:
 //  SHL: a_lo_bits = max_bits - b -> will underflow
 //  SHR: a_hi_bits = max_bits - b -> will underflow
-//  so instead set a_lo = b - max_bits and shift_lo_bits = max_bits for both SHL and SHR and reuse the range check
+//  so instead set a_lo = b - max_bits and shift_lo_bits = max_bits for both SHL and SHR (see DECOMPOSED_A) and reuse the range check
 //  RANGE_CHECK_DECOMPOSITION_A_LO to prove that b > max_bits <==> SHIFT_OVERFLOW = 1 <==> c = 0.
+// Note: sel_decompose_a is gated by IS_NOT_FF, so no gating for the FF tag error case is required below.
 
-// TODO(MW): gating (consider ff tag error)
 #[SHIFTS_LO_BITS]
 shift_lo_bits
     - sel_shift_ops_no_overflow * (sel_op_shl * (max_bits - ib) + sel_op_shr * ib)

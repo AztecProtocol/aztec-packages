@@ -413,6 +413,7 @@ void aluImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     { // SHL_TWO_POW_SHIFT
         using Accumulator = typename std::tuple_element_t<47, ContainerOverSubrelations>;
         auto tmp = in.get(C::alu_sel_op_shl) * in.get(C::alu_sel_shift_ops_no_overflow) *
+                   (FF(1) - in.get(C::alu_sel_tag_err)) *
                    ((in.get(C::alu_max_value) + FF(1)) - in.get(C::alu_two_pow_shift_lo_bits) * in.get(C::alu_helper1));
         tmp *= scaling_factor;
         std::get<47>(evals) += typename Accumulator::View(tmp);
