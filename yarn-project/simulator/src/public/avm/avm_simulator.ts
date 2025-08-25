@@ -1,4 +1,3 @@
-import { MAX_L2_GAS_PER_TX_PUBLIC_PORTION } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -49,10 +48,6 @@ export class AvmSimulator implements AvmSimulatorInterface {
     // This will be used by the CALL opcode to create a new simulator. It is required to
     // avoid a dependency cycle.
     context.provideSimulator = AvmSimulator.build;
-    assert(
-      context.machineState.gasLeft.l2Gas <= MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
-      `Cannot allocate more than ${MAX_L2_GAS_PER_TX_PUBLIC_PORTION} to the AVM for execution.`,
-    );
     this.log = createLogger(`simulator:avm(calldata[0]: ${context.environment.calldata[0]})`);
     // Turn on tallying if explicitly enabled or if trace logging
     if (enableTallying || this.log.isLevelEnabled('trace')) {
