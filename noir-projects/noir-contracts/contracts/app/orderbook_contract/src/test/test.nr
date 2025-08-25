@@ -13,7 +13,10 @@ global FULFILL_ORDER_AUTHWIT_NONCE: Field = 2;
 
 #[test]
 unconstrained fn create_order_happy_path() {
-    let (mut env, orderbook_address, token0_address, token1_address, minter, maker) = setup(true);
+    let (mut env, orderbook_address, token0_address, token1_address, minter) = setup();
+
+    // We create a contract account (as opposed to a light account) for the maker to be able to use authwits.
+    let maker = env.create_contract_account();
 
     let token0 = Token::at(token0_address);
     let orderbook = Orderbook::at(orderbook_address);
@@ -45,13 +48,15 @@ unconstrained fn create_order_happy_path() {
 
 #[test]
 unconstrained fn full_flow() {
-    let (mut env, orderbook_address, token0_address, token1_address, minter, maker) = setup(true);
+    let (mut env, orderbook_address, token0_address, token1_address, minter) = setup();
+
+    // We create a contract account (as opposed to a light account) for the maker and taker to be able to use authwits.
+    let maker = env.create_contract_account();
+    let taker = env.create_contract_account();
 
     let token0 = Token::at(token0_address);
     let token1 = Token::at(token1_address);
     let orderbook = Orderbook::at(orderbook_address);
-
-    let taker = env.create_contract_account();
 
     // Mint tokens to maker and taker
     env.call_private(minter, token0.mint_to_private(maker, BID_AMOUNT));
@@ -116,7 +121,10 @@ unconstrained fn full_flow() {
 
 #[test(should_fail_with = "ZERO_BID_AMOUNT")]
 unconstrained fn create_order_zero_bid_amount() {
-    let (mut env, orderbook_address, token0_address, token1_address, _, maker) = setup(false);
+    let (mut env, orderbook_address, token0_address, token1_address, _minter) = setup();
+
+    // We create a light account for the maker (as opposed to a contract account) since we are not using authwits here.
+    let maker = env.create_light_account();
 
     let orderbook = Orderbook::at(orderbook_address);
 
@@ -136,7 +144,10 @@ unconstrained fn create_order_zero_bid_amount() {
 
 #[test(should_fail_with = "ZERO_ASK_AMOUNT")]
 unconstrained fn create_order_zero_ask_amount() {
-    let (mut env, orderbook_address, token0_address, token1_address, _, maker) = setup(false);
+    let (mut env, orderbook_address, token0_address, token1_address, _minter) = setup();
+
+    // We create a light account for the maker (as opposed to a contract account) since we are not using authwits here.
+    let maker = env.create_light_account();
 
     let orderbook = Orderbook::at(orderbook_address);
 
@@ -156,7 +167,10 @@ unconstrained fn create_order_zero_ask_amount() {
 
 #[test(should_fail_with = "BID_TOKEN_IS_INVALID")]
 unconstrained fn create_order_invalid_bid_token() {
-    let (mut env, orderbook_address, _token0_address, token1_address, _, maker) = setup(false);
+    let (mut env, orderbook_address, _token0_address, token1_address, _minter) = setup();
+
+    // We create a light account for the maker (as opposed to a contract account) since we are not using authwits here.
+    let maker = env.create_light_account();
 
     let orderbook = Orderbook::at(orderbook_address);
 
@@ -176,7 +190,10 @@ unconstrained fn create_order_invalid_bid_token() {
 
 #[test(should_fail_with = "ASK_TOKEN_IS_INVALID")]
 unconstrained fn create_order_invalid_ask_token() {
-    let (mut env, orderbook_address, token0_address, _token1_address, _, maker) = setup(false);
+    let (mut env, orderbook_address, token0_address, _token1_address, _minter) = setup();
+
+    // We create a light account for the maker (as opposed to a contract account) since we are not using authwits here.
+    let maker = env.create_light_account();
 
     let orderbook = Orderbook::at(orderbook_address);
 
@@ -196,7 +213,10 @@ unconstrained fn create_order_invalid_ask_token() {
 
 #[test(should_fail_with = "SAME_TOKEN_TRADE")]
 unconstrained fn create_order_same_tokens() {
-    let (mut env, orderbook_address, token0_address, _token1_address, _, maker) = setup(false);
+    let (mut env, orderbook_address, token0_address, _token1_address, _minter) = setup();
+
+    // We create a light account for the maker (as opposed to a contract account) since we are not using authwits here.
+    let maker = env.create_light_account();
 
     let orderbook = Orderbook::at(orderbook_address);
 

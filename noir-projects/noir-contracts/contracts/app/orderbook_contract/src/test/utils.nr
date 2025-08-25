@@ -4,25 +4,13 @@ use aztec::{
 };
 use token::Token;
 
-// Utility function to setup orderbook with two tokens
+// Sets up test env with orderbook with two tokens and a minter account.
 // TODO(#16560): Make it possible to return a contract instance directly from setup func
-pub(crate) unconstrained fn setup(
-    with_account_contracts: bool,
-) -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, AztecAddress, AztecAddress) {
+pub(crate) unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, AztecAddress) {
     let mut env = TestEnvironment::new();
 
-    // Setup accounts
-    let admin = if with_account_contracts {
-        env.create_contract_account()
-    } else {
-        env.create_light_account()
-    };
-
-    let maker = if with_account_contracts {
-        env.create_contract_account()
-    } else {
-        env.create_light_account()
-    };
+    // Setup admin account
+    let admin = env.create_light_account();
 
     // Deploy tokens
     let token0_initializer = Token::interface().constructor(
@@ -52,5 +40,5 @@ pub(crate) unconstrained fn setup(
     // address as 'minter' rather than 'admin'.
     let minter = admin;
 
-    (env, orderbook_address, token0_address, token1_address, minter, maker)
+    (env, orderbook_address, token0_address, token1_address, minter)
 }
