@@ -42,7 +42,6 @@ template <typename FF> void MegaCircuitBuilder_<FF>::add_mega_gates_to_ensure_al
 {
     // Add a single default value to all databus columns. Note: This value must be equal across all columns in order for
     // inter-circuit databus commitment checks to pass in IVC settings.
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1138): Consider default value.
 
     // Create an arbitrary calldata read gate
     add_public_calldata(this->add_variable(BusVector::DEFAULT_VALUE));    // add one entry in calldata
@@ -167,18 +166,43 @@ template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::populate_ecc_op_wir
     op_tuple.z_1 = this->add_variable(ultra_op.z_1);
     op_tuple.z_2 = this->add_variable(ultra_op.z_2);
 
-    this->blocks.ecc_op.populate_wires(op_tuple.op, op_tuple.x_lo, op_tuple.x_hi, op_tuple.y_lo);
-    for (auto& selector : this->blocks.ecc_op.selectors) {
+    // Set the indices for the op values for each of the two rows
+    uint32_t op_val_idx_1 = op_tuple.op;    // genuine op code value
+    uint32_t op_val_idx_2 = this->zero_idx; // second row value always set to 0
+    // If this is a random operation, the op values are randomized
+    if (ultra_op.op_code.is_random_op) {
+        op_val_idx_1 = this->add_variable(ultra_op.op_code.random_value_1);
+        op_val_idx_2 = this->add_variable(ultra_op.op_code.random_value_2);
+    }
+
+    this->blocks.ecc_op.populate_wires(op_val_idx_1, op_tuple.x_lo, op_tuple.x_hi, op_tuple.y_lo);
+    for (auto& selector : this->blocks.ecc_op.get_selectors()) {
         selector.emplace_back(0);
     }
 
-    this->blocks.ecc_op.populate_wires(this->zero_idx, op_tuple.y_hi, op_tuple.z_1, op_tuple.z_2);
-    for (auto& selector : this->blocks.ecc_op.selectors) {
+    this->blocks.ecc_op.populate_wires(op_val_idx_2, op_tuple.y_hi, op_tuple.z_1, op_tuple.z_2);
+    for (auto& selector : this->blocks.ecc_op.get_selectors()) {
         selector.emplace_back(0);
     }
 
     return op_tuple;
 };
+
+/**
+ * @brief Mechanism for populating two rows with randomness.  This "operation" doesn't return a tuple representing the
+ * indices of the ecc op values because it should never be used in subsequent logic.
+ *
+ * @note All selectors are set to 0 since the ecc op selector is derived later based on the block size/location. The
+ * method does not return a tuple of variable indices as those should not be used in subsequent steps for random ops.
+ */
+template <typename FF> void MegaCircuitBuilder_<FF>::queue_ecc_random_op()
+{
+    // Add the operation to the op queue
+    auto ultra_op = op_queue->random_op_ultra_only();
+
+    // Add corresponding gates for the operation
+    (void)populate_ecc_op_wires(ultra_op);
+}
 
 template <typename FF> void MegaCircuitBuilder_<FF>::set_goblin_ecc_op_code_constant_variables()
 {

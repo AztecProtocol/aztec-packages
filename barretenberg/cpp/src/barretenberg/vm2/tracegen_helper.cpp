@@ -20,6 +20,7 @@
 #include "barretenberg/vm2/tracegen/bytecode_trace.hpp"
 #include "barretenberg/vm2/tracegen/calldata_trace.hpp"
 #include "barretenberg/vm2/tracegen/class_id_derivation_trace.hpp"
+#include "barretenberg/vm2/tracegen/context_stack_trace.hpp"
 #include "barretenberg/vm2/tracegen/contract_instance_retrieval_trace.hpp"
 #include "barretenberg/vm2/tracegen/data_copy_trace.hpp"
 #include "barretenberg/vm2/tracegen/ecc_trace.hpp"
@@ -389,6 +390,12 @@ void AvmTraceGenHelper::fill_trace_columns(TraceContainer& trace,
                     clear_events(events.internal_call_stack_events);
                 },
                 [&]() {
+                    ContextStackTraceBuilder context_stack_builder;
+                    AVM_TRACK_TIME("tracegen/context_stack",
+                                   context_stack_builder.process(events.context_stack, trace));
+                    clear_events(events.context_stack);
+                },
+                [&]() {
                     NoteHashTreeCheckTraceBuilder note_hash_tree_check_trace_builder;
                     AVM_TRACK_TIME(
                         "tracegen/note_hash_tree_check",
@@ -435,7 +442,7 @@ void AvmTraceGenHelper::fill_trace_columns(TraceContainer& trace,
                 } });
 
         AVM_TRACK_TIME("tracegen/traces", execute_jobs(jobs));
-    } // namespace bb::avm2
+    }
 }
 
 void AvmTraceGenHelper::fill_trace_interactions(TraceContainer& trace)

@@ -1,3 +1,4 @@
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
 import type { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 
@@ -22,4 +23,7 @@ export interface PeerManagerInterface {
   shouldDisableP2PGossip(peerId: string): boolean;
 
   stop(): Promise<void>;
+
+  /** If node running this P2P stack is validator, passes in validator address to P2P layer */
+  registerThisValidatorAddresses(address: EthAddress[]): void;
 }

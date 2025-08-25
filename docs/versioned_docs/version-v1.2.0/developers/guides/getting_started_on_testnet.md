@@ -1,5 +1,6 @@
 ---
 title: Getting Started on Testnet
+description: Guide for developers to get started with the Aztec testnet, including account creation and contract deployment.
 sidebar_position: 0
 tags: [testnet]
 ---
@@ -59,7 +60,7 @@ Aztec uses account abstraction, which means:
 
 ```bash
 export NODE_URL=https://aztec-alpha-testnet-fullnode.zkv.xyz
-export SPONSORED_FPC_ADDRESS=0x1260a43ecf03e985727affbbe3e483e60b836ea821b6305bea1c53398b986047
+export SPONSORED_FPC_ADDRESS=0x19b5539ca1b104d4c3705de94e4555c9630def411f025e023a13189d0c56f8f2
 ```
 
 1. Create a new account:

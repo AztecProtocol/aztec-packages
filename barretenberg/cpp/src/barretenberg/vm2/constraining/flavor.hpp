@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
+#include "barretenberg/common/tuple.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/flavor/relation_definitions.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
@@ -18,10 +19,10 @@
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/flavor_variables.hpp"
 
-// Metaprogramming to concatenate tuple types.
-template <typename... input_t> using tuple_cat_t = decltype(std::tuple_cat(std::declval<input_t>()...));
-
 namespace bb::avm2 {
+
+// Metaprogramming to concatenate tuple types.
+template <typename... input_t> using tuple_cat_t = decltype(flat_tuple::tuple_cat(std::declval<input_t>()...));
 
 class AvmFlavor {
   public:
@@ -91,9 +92,6 @@ class AvmFlavor {
     // length = 3
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
-
-    using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
-    using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
     static constexpr bool has_zero_row = true;
 
@@ -243,11 +241,7 @@ class AvmFlavor {
         auto get_to_be_shifted() { return AvmFlavor::get_to_be_shifted<Polynomial>(*this); }
     };
 
-    // Our VerificationKey, mostly defined by NativeVerificationKey. We serialize log_circuit_size, num_public_inputs
-    // but not pub_inputs_offset (hence VKSerializationMode::NO_PUB_OFFSET).
-    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>,
-                                                          Transcript,
-                                                          VKSerializationMode::NO_PUB_OFFSET> {
+    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
       public:
         static constexpr size_t NUM_PRECOMPUTED_COMMITMENTS = NUM_PRECOMPUTED_ENTITIES;
 
@@ -272,20 +266,15 @@ class AvmFlavor {
             }
         }
 
+        std::vector<fr> to_field_elements() const override;
         /**
-         * @brief Adds the verification key hash to the transcript and returns the hash.
-         * @details Needed to make sure the Origin Tag system works. See the base class function for
-         * more details.
-         *
-         * @param domain_separator
-         * @param transcript
-         * @returns The hash of the verification key
+         * @brief Unimplemented because AVM VK is hardcoded so hash does not need to be computed. Rather, we just add
+         * the provided VK hash directly to the transcript.
          */
-        fr add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
-                                  [[maybe_unused]] Transcript& transcript) const override
+        fr hash_through_transcript([[maybe_unused]] const std::string& domain_separator,
+                                   [[maybe_unused]] Transcript& transcript) const override
         {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1466): Implement this function.
-            throw_or_abort("Not implemented yet!");
+            throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
         }
     };
 

@@ -36,7 +36,8 @@ template <typename Flavor> class DataBusTests : public ::testing::Test {
         Prover prover{ proving_key, verification_key };
         auto proof = prover.construct_proof();
         Verifier verifier{ verification_key };
-        return std::get<0>(verifier.verify_proof(proof));
+        bool result = verifier.template verify_proof<DefaultIO>(proof).result;
+        return result;
     }
 
     // Construct a Mega circuit with some arbitrary sample gates

@@ -9,23 +9,39 @@
 #include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/common/named_union.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include <cstdint>
 #include <map>
 #include <vector>
 
 namespace bb::bbapi {
 
-// CircuitInput, CircuitInputNoVK, and ProofSystemSettings are defined in bbapi_shared.hpp
+struct CircuitComputeVk {
+    static constexpr const char* MSGPACK_SCHEMA_NAME = "CircuitComputeVk";
+
+    struct Response {
+        static constexpr const char* MSGPACK_SCHEMA_NAME = "CircuitComputeVkResponse";
+
+        std::vector<uint8_t> bytes;    // Serialized verification key
+        std::vector<uint256_t> fields; // VK as field elements (unless keccak, then just uint256_t's)
+        std::vector<uint8_t> hash;     // The VK hash
+        MSGPACK_FIELDS(bytes, fields, hash);
+        bool operator==(const Response&) const = default;
+    };
+
+    CircuitInputNoVK circuit;
+    ProofSystemSettings settings;
+    MSGPACK_FIELDS(circuit, settings);
+    Response execute(const BBApiRequest& request = {}) &&;
+    bool operator==(const CircuitComputeVk&) const = default;
+};
 
 /**
  * @struct CircuitProve
  * @brief Represents a request to generate a proof.
  * Currently, UltraHonk is the only proving system supported by BB (after plonk was deprecated and removed).
  * This is used for one-shot proving, not our "IVC" scheme, ClientIVC-honk. For that, use the ClientIVC* commands.
- *
- * This structure is used to encapsulate all necessary parameters for generating a proof
- * for a specific circuit, including the circuit bytecode, verification key, witness data, and options for the proving
- * process.
  */
 struct CircuitProve {
     static constexpr const char* MSGPACK_SCHEMA_NAME = "CircuitProve";
@@ -38,9 +54,10 @@ struct CircuitProve {
     struct Response {
         static constexpr const char* MSGPACK_SCHEMA_NAME = "CircuitProveResponse";
 
-        PublicInputsVector public_inputs;
-        HonkProof proof;
-        MSGPACK_FIELDS(public_inputs, proof);
+        std::vector<uint256_t> public_inputs;
+        std::vector<uint256_t> proof;
+        CircuitComputeVk::Response vk;
+        MSGPACK_FIELDS(public_inputs, proof, vk);
         bool operator==(const Response&) const = default;
     };
 
@@ -52,39 +69,20 @@ struct CircuitProve {
     bool operator==(const CircuitProve&) const = default;
 };
 
-struct CircuitComputeVk {
-    static constexpr const char* MSGPACK_SCHEMA_NAME = "CircuitComputeVk";
-
-    struct Response {
-        static constexpr const char* MSGPACK_SCHEMA_NAME = "CircuitComputeVkResponse";
-
-        std::vector<uint8_t> bytes; // Serialized verification key
-        std::vector<uint8_t> hash;  // The VK hash
-        MSGPACK_FIELDS(bytes, hash);
-        bool operator==(const Response&) const = default;
-    };
-
-    CircuitInputNoVK circuit;
-    ProofSystemSettings settings;
-    MSGPACK_FIELDS(circuit, settings);
-    Response execute(const BBApiRequest& request = {}) &&;
-    bool operator==(const CircuitComputeVk&) const = default;
-};
-
 /**
- * @struct CircuitGates
+ * @struct CircuitStats
  * @brief Consolidated command for retrieving circuit information.
  * Combines gate count, circuit size, and other metadata into a single command.
  */
-struct CircuitGates {
-    static constexpr const char* MSGPACK_SCHEMA_NAME = "CircuitGates";
+struct CircuitStats {
+    static constexpr const char* MSGPACK_SCHEMA_NAME = "CircuitStats";
 
     struct Response {
         static constexpr const char* MSGPACK_SCHEMA_NAME = "CircuitInfoResponse";
 
-        uint32_t num_gates;
-        uint32_t num_gates_dyadic;
-        uint32_t num_acir_opcodes;
+        uint32_t num_gates{};
+        uint32_t num_gates_dyadic{};
+        uint32_t num_acir_opcodes{};
         std::vector<size_t> gates_per_opcode;
         MSGPACK_FIELDS(num_gates, num_gates_dyadic, num_acir_opcodes, gates_per_opcode);
         bool operator==(const Response&) const = default;
@@ -95,7 +93,7 @@ struct CircuitGates {
     ProofSystemSettings settings;
     MSGPACK_FIELDS(circuit, include_gates_per_opcode, settings);
     Response execute(const BBApiRequest& request = {}) &&;
-    bool operator==(const CircuitGates&) const = default;
+    bool operator==(const CircuitStats&) const = default;
 };
 
 /**
@@ -114,12 +112,36 @@ struct CircuitVerify {
     };
 
     std::vector<uint8_t> verification_key;
-    PublicInputsVector public_inputs;
-    HonkProof proof;
+    std::vector<uint256_t> public_inputs;
+    std::vector<uint256_t> proof;
     ProofSystemSettings settings;
     MSGPACK_FIELDS(verification_key, public_inputs, proof, settings);
     Response execute(const BBApiRequest& request = {}) &&;
     bool operator==(const CircuitVerify&) const = default;
+};
+
+/**
+ * @struct VkAsFields
+ * @brief Convert a verification key to field elements representation.
+ * WORKTODO(bbapi): this should become mostly obsolete with having the verification keys always reported as field
+elements as well,
+ * and having a simpler serialization method.
+ */
+struct VkAsFields {
+    static constexpr const char* MSGPACK_SCHEMA_NAME = "VkAsFields";
+
+    struct Response {
+        static constexpr const char* MSGPACK_SCHEMA_NAME = "VkAsFieldsResponse";
+
+        std::vector<bb::fr> fields;
+        MSGPACK_FIELDS(fields);
+        bool operator==(const Response&) const = default;
+    };
+
+    std::vector<uint8_t> verification_key;
+    MSGPACK_FIELDS(verification_key);
+    Response execute(const BBApiRequest& request = {}) &&;
+    bool operator==(const VkAsFields&) const = default;
 };
 
 /**

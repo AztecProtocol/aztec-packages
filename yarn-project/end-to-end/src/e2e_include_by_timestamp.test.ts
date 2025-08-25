@@ -1,4 +1,4 @@
-import type { AztecNode, Wallet } from '@aztec/aztec.js';
+import type { AztecAddress, AztecNode, Wallet } from '@aztec/aztec.js';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP } from '@aztec/stdlib/tx';
@@ -7,6 +7,7 @@ import { setup } from './fixtures/utils.js';
 
 describe('e2e_include_by_timestamp', () => {
   let wallet: Wallet;
+  let defaultAccountAddress: AztecAddress;
   let aztecNode: AztecNode;
   let teardown: () => Promise<void>;
 
@@ -15,8 +16,13 @@ describe('e2e_include_by_timestamp', () => {
   const aztecSlotDuration = BigInt(getL1ContractsConfigEnvVars().aztecSlotDuration);
 
   beforeAll(async () => {
-    ({ teardown, wallet, aztecNode } = await setup());
-    contract = await TestContract.deploy(wallet).send().deployed();
+    ({
+      teardown,
+      wallet,
+      aztecNode,
+      accounts: [defaultAccountAddress],
+    } = await setup());
+    contract = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed();
   });
 
   afterAll(() => teardown());
@@ -37,14 +43,19 @@ describe('e2e_include_by_timestamp', () => {
       const enqueuePublicCall = false;
 
       it('sets the include by timestamp', async () => {
-        const tx = await contract.methods.set_include_by_timestamp(includeByTimestamp, enqueuePublicCall).prove();
+        const tx = await contract.methods
+          .set_include_by_timestamp(includeByTimestamp, enqueuePublicCall)
+          .prove({ from: defaultAccountAddress });
         expect(tx.data.includeByTimestamp).toEqual(includeByTimestamp);
         // Note: If the expected value doesn't match, it might be because the includeByTimestamp is rounded down.
         // See compute_tx_include_by_timestamp.ts for the rounding logic.
       });
 
       it('does not invalidate the transaction', async () => {
-        await contract.methods.set_include_by_timestamp(includeByTimestamp, enqueuePublicCall).send().wait();
+        await contract.methods
+          .set_include_by_timestamp(includeByTimestamp, enqueuePublicCall)
+          .send({ from: defaultAccountAddress })
+          .wait();
       });
     });
 
@@ -52,12 +63,17 @@ describe('e2e_include_by_timestamp', () => {
       const enqueuePublicCall = true;
 
       it('sets include by timestamp', async () => {
-        const tx = await contract.methods.set_include_by_timestamp(includeByTimestamp, enqueuePublicCall).prove();
+        const tx = await contract.methods
+          .set_include_by_timestamp(includeByTimestamp, enqueuePublicCall)
+          .prove({ from: defaultAccountAddress });
         expect(tx.data.includeByTimestamp).toEqual(includeByTimestamp);
       });
 
       it('does not invalidate the transaction', async () => {
-        await contract.methods.set_include_by_timestamp(includeByTimestamp, enqueuePublicCall).send().wait();
+        await contract.methods
+          .set_include_by_timestamp(includeByTimestamp, enqueuePublicCall)
+          .send({ from: defaultAccountAddress })
+          .wait();
       });
     });
   });
@@ -78,13 +94,18 @@ describe('e2e_include_by_timestamp', () => {
       const enqueuePublicCall = false;
 
       it('sets include by timestamp', async () => {
-        const tx = await contract.methods.set_include_by_timestamp(includeByTimestamp, enqueuePublicCall).prove();
+        const tx = await contract.methods
+          .set_include_by_timestamp(includeByTimestamp, enqueuePublicCall)
+          .prove({ from: defaultAccountAddress });
         expect(tx.data.includeByTimestamp).toEqual(includeByTimestamp);
       });
 
       it('invalidates the transaction', async () => {
         await expect(
-          contract.methods.set_include_by_timestamp(includeByTimestamp, enqueuePublicCall).send().wait(),
+          contract.methods
+            .set_include_by_timestamp(includeByTimestamp, enqueuePublicCall)
+            .send({ from: defaultAccountAddress })
+            .wait(),
         ).rejects.toThrow(TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP);
       });
     });
@@ -93,13 +114,18 @@ describe('e2e_include_by_timestamp', () => {
       const enqueuePublicCall = true;
 
       it('sets include by timestamp', async () => {
-        const tx = await contract.methods.set_include_by_timestamp(includeByTimestamp, enqueuePublicCall).prove();
+        const tx = await contract.methods
+          .set_include_by_timestamp(includeByTimestamp, enqueuePublicCall)
+          .prove({ from: defaultAccountAddress });
         expect(tx.data.includeByTimestamp).toEqual(includeByTimestamp);
       });
 
       it('invalidates the transaction', async () => {
         await expect(
-          contract.methods.set_include_by_timestamp(includeByTimestamp, enqueuePublicCall).send().wait(),
+          contract.methods
+            .set_include_by_timestamp(includeByTimestamp, enqueuePublicCall)
+            .send({ from: defaultAccountAddress })
+            .wait(),
         ).rejects.toThrow(TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP);
       });
     });
@@ -122,7 +148,9 @@ describe('e2e_include_by_timestamp', () => {
 
       it('fails to prove the tx', async () => {
         await expect(
-          contract.methods.set_include_by_timestamp(includeByTimestamp, enqueuePublicCall).prove(),
+          contract.methods
+            .set_include_by_timestamp(includeByTimestamp, enqueuePublicCall)
+            .prove({ from: defaultAccountAddress }),
         ).rejects.toThrow();
       });
     });
@@ -132,7 +160,9 @@ describe('e2e_include_by_timestamp', () => {
 
       it('fails to prove the tx', async () => {
         await expect(
-          contract.methods.set_include_by_timestamp(includeByTimestamp, enqueuePublicCall).prove(),
+          contract.methods
+            .set_include_by_timestamp(includeByTimestamp, enqueuePublicCall)
+            .prove({ from: defaultAccountAddress }),
         ).rejects.toThrow();
       });
     });

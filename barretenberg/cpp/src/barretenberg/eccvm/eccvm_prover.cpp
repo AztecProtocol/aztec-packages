@@ -128,7 +128,7 @@ void ECCVMProver::execute_grand_product_computation_round()
 void ECCVMProver::execute_relation_check_rounds()
 {
 
-    using Sumcheck = SumcheckProver<Flavor, CONST_ECCVM_LOG_N>;
+    using Sumcheck = SumcheckProver<Flavor>;
 
     // Each linearly independent subrelation contribution is multiplied by `alpha^i`, where
     //  i = 0, ..., NUM_SUBRELATIONS- 1.
@@ -139,7 +139,13 @@ void ECCVMProver::execute_relation_check_rounds()
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
-    Sumcheck sumcheck(key->circuit_size, key->polynomials, transcript, alpha, gate_challenges, relation_parameters);
+    Sumcheck sumcheck(key->circuit_size,
+                      key->polynomials,
+                      transcript,
+                      alpha,
+                      gate_challenges,
+                      relation_parameters,
+                      CONST_ECCVM_LOG_N);
 
     zk_sumcheck_data = ZKData(key->log_circuit_size, transcript, key->commitment_key);
 
@@ -284,7 +290,7 @@ void ECCVMProver::compute_translation_opening_claims()
     for (auto [eval, poly, label] :
          zip_view(translation_evaluations.get_all(), translation_polynomials, translation_evaluations.labels)) {
         eval = poly.evaluate(evaluation_challenge_x);
-        transcript->template send_to_verifier(label, eval);
+        transcript->send_to_verifier(label, eval);
     }
 
     // Get another challenge to batch the evaluations of the transcript polynomials

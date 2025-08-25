@@ -22,7 +22,7 @@ import { readFile, readdir } from 'fs/promises';
 import { join, parse } from 'path';
 import { z } from 'zod';
 
-import { TXEService } from './txe_service/txe_service.js';
+import { type TXEOracleFunctionName, TXESession } from './txe_session.js';
 import {
   type ForeignCallArgs,
   ForeignCallArgsSchema,
@@ -36,7 +36,7 @@ import {
 } from './util/encoding.js';
 import type { ContractArtifactWithHash } from './util/txe_contract_data_provider.js';
 
-const TXESessions = new Map<number, TXEService>();
+const sessions = new Map<number, TXESession>();
 
 /*
  * TXE typically has to load the same contract artifacts over and over again for multiple tests,
@@ -47,13 +47,9 @@ const TXEArtifactsCache = new Map<
   { artifact: ContractArtifactWithHash; instance: ContractInstanceWithAddress }
 >();
 
-type MethodNames<T> = {
-  [K in keyof T]: T[K] extends (...args: any[]) => any ? K : never;
-}[keyof T];
-
 type TXEForeignCallInput = {
   session_id: number;
-  function: MethodNames<TXEService>;
+  function: TXEOracleFunctionName;
   root_path: string;
   package_name: string;
   inputs: ForeignCallArgs;
@@ -62,7 +58,7 @@ type TXEForeignCallInput = {
 const TXEForeignCallInputSchema = z.object({
   // eslint-disable-next-line camelcase
   session_id: z.number().int().nonnegative(),
-  function: z.string() as ZodFor<MethodNames<TXEService>>,
+  function: z.string() as ZodFor<TXEOracleFunctionName>,
   // eslint-disable-next-line camelcase
   root_path: z.string(),
   // eslint-disable-next-line camelcase
@@ -205,30 +201,28 @@ class TXEDispatcher {
     const { session_id: sessionId, function: functionName, inputs } = callData;
     this.logger.debug(`Calling ${functionName} on session ${sessionId}`);
 
-    if (!TXESessions.has(sessionId)) {
+    if (!sessions.has(sessionId)) {
       this.logger.debug(`Creating new session ${sessionId}`);
       if (!this.protocolContracts) {
         this.protocolContracts = await Promise.all(
           protocolContractNames.map(name => new BundledProtocolContractsProvider().getProtocolContractArtifact(name)),
         );
       }
-      TXESessions.set(sessionId, await TXEService.init(this.logger, this.protocolContracts));
+      sessions.set(sessionId, await TXESession.init(this.protocolContracts));
     }
 
     switch (functionName) {
-      case 'deploy': {
+      case 'txeDeploy': {
         await this.#processDeployInputs(callData);
         break;
       }
-      case 'addAccount': {
+      case 'txeAddAccount': {
         await this.#processAddAccountInputs(callData);
         break;
       }
     }
 
-    const txeService = TXESessions.get(sessionId);
-    const response = await (txeService as any)[functionName](...inputs);
-    return response;
+    return await sessions.get(sessionId)!.processFunction(functionName, inputs);
   }
 }
 

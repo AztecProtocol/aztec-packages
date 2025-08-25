@@ -1,5 +1,6 @@
 ---
 title: Try Testnet
+description: Quick guide to get started with the Aztec testnet and deploy your first contract.
 keywords: [testnet, aztec, migration]
 tags: [testnet, migration]
 id: try_testnet
@@ -24,43 +25,49 @@ id: try_testnet
 
 ## Chain Information
 
-**Version**: `0.87.8`
+**Version**: `1.2.0`
 
 **Node URL**: `https://aztec-alpha-testnet-fullnode.zkv.xyz`
 
 **L1 Chain ID**: `11155111`
 
-**Rollup Version**: `4189337207`
+**Rollup Version**: `3924331020`
 
-**Node ENR**: `enr:-MK4QGMeY-XZOb8V-1f6rDbm_E3SGk8JqvlveqFtQ80WLUbnOapCMv3fh4UAh1SeYw5KfcqPFfk_F99cnO8jDIfS_AwGhWF6dGVjsDAwLTExMTU1MTExLThkMWNjNzAyLTE1MDEwMzQzOS0wYjZiNWY2Yy0wZWE1MWRhNIJpZIJ2NIJpcIQia0KqiXNlY3AyNTZrMaEDmQTk2B2UCjSyvQfvs1SSSYE3namSE7IzmWU_vFrHP5KDdGNwgp3Qg3VkcIKd0A`
+**Node ENR**:
+
+<!-- cspell:disable -->
+
+`enr:-M24QDZDoyfM7Ys5Y7M0kSmwarvlywtVmciWA-cT8qw6RTgqDnJDtUjULKQKNVOutHhrsHDwo0lFNtRLM_Q1zAVa3n4HhWF6dGVjsTAwLTExMTU1MTExLTIxNmYwNzE2LTM5MjQzMzEwMjAtMDBkMDk4MDYtMWE1MDc5YjWCaWSCdjSCaXCEJRuLyIlzZWNwMjU2azGhA1k50LogNpVrOJ5Gc3jxHWCN7KillKXv_LaWVCvYP8nJg3RjcIKeNIN1ZHCCnjSDdmVyhTEuMS4y`
+
+<!-- cspell:enable -->
 
 ## Core L1 and L2 Precompiles and Contracts
 
 ### L1 Contract Addresses
 
-| Contract Name         | Address                                      |
-| --------------------- | -------------------------------------------- |
-| Rollup                | `0xee6d4e937f0493fb461f28a75cf591f1dba8704e` |
-| Registry              | `0x4d2cc1d5fb6be65240e0bfc8154243e69c0fb19e` |
-| L1 → L2 Inbox         | `0xf8e143bf3333ecdeaeaa29744bfe226b94f124a8` |
-| L2 → L1 Outbox        | `0x572725ffb3af63745098576152d8756c333d4525` |
-| Fee Juice             | `0x487ff89a8bdaefea2ad10d3e23727ccda8f845b9` |
-| Staking Asset         | `0x5c30c66847866a184ccb5197cbe31fce7a92eb26` |
-| Fee Juice Portal      | `0xa07a3be3f0b17594b394effb4ce579f54e76aba2` |
-| Coin Issuer           | `0xf8d7d601759cbcfb78044ba7ca9b0c0d6301a54f` |
-| Reward Distributor    | `0x169aa723de66698d6cfa97ae576ab2546e8465a2` |
-| Governance Proposer   | `0xf4bf5df1c3b2dd67a0525fc600e98ca51143a67d` |
-| Governance            | `0xee63e102e35f24c34b9ea09b597acfb491c94e78` |
-| Slash Factory         | `0x3c9ccf55a8ac3c2eeedf2ee2aa1722188fd676be` |
-| Fee Asset Handler     | `0x80d848dc9f52df56789e2d62ce66f19555ff1019` |
-| Staking Asset Handler | `0xF739D03e98e23A7B65940848aBA8921fF3bAc4b2` |
+| Contract Name             | Address                                      |
+| ------------------------- | -------------------------------------------- |
+| Rollup                    | `0x216f071653a82ced3ef9d29f3f0c0ed7829c8f81` |
+| Registry                  | `0xec4156431d0f3df66d4e24ba3d30dcb4c85fa309` |
+| L1 → L2 Inbox             | `0xc653855532932ab3d42b236b20c027d824c4834b` |
+| L2 → L1 Outbox            | `0xdb4f4c5cc724a3e4e3e9ad7b48eb3e02002ae936` |
+| Fee Juice                 | `0x98e8e6792eff2b956b6beb7da05965a8c9441722` |
+| Staking Asset             | `0x0c04089ed32638ae3cdf649f54f90544ac3fc199` |
+| Fee Juice Portal          | `0x47e85e305e971c7d19fca8cb582d1f9629d0b26d` |
+| Coin Issuer               | `0x3b218d0f26d15b36c715cb06c949210a0d630637` |
+| Reward Distributor        | `0x2d513c8a3f551a5fdbd33be7c1fcb472172bf759` |
+| Governance Proposer       | `0x76beb64eaee34eefdd747a848ba0e99faf650bc6` |
+| Governance                | `0x1b504af897af5fdf7e534a8809c88e15331814b8` |
+| Slash Factory             | `0x8b1566249dc8fb47234037538ce491f9500480b1` |
+| Fee Asset Handler         | `0x4f0376b8bcbdf72ddb38c38f48317c00e9c9aec3` |
+| Governance Staking Escrow | `0xd4b08bbb0844438a2020cd2bfc736a3f95b60458` |
 
 ### L2 Contract Addresses
 
 | Contract Name     | Address                                                              |
 | ----------------- | -------------------------------------------------------------------- |
-| Class Registerer  | `0x0000000000000000000000000000000000000000000000000000000000000003` |
+| Class Registry    | `0x0000000000000000000000000000000000000000000000000000000000000003` |
 | Fee Juice         | `0x0000000000000000000000000000000000000000000000000000000000000005` |
-| Instance Deployer | `0x0000000000000000000000000000000000000000000000000000000000000002` |
+| Instance Registry | `0x0000000000000000000000000000000000000000000000000000000000000002` |
 | MultiCall         | `0x0000000000000000000000000000000000000000000000000000000000000004` |
-| Sponsored FPC     | `0x1260a43ecf03e985727affbbe3e483e60b836ea821b6305bea1c53398b986047` |
+| Sponsored FPC     | `0x19b5539ca1b104d4c3705de94e4555c9630def411f025e023a13189d0c56f8f2` |

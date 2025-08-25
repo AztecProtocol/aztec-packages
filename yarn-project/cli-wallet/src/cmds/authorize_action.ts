@@ -6,6 +6,7 @@ import { DEFAULT_TX_TIMEOUT_S } from '../utils/pxe_wrapper.js';
 
 export async function authorizeAction(
   wallet: AccountWalletWithSecretKey,
+  from: AztecAddress,
   functionName: string,
   caller: AztecAddress,
   functionArgsIn: any[],
@@ -30,7 +31,7 @@ export async function authorizeAction(
   const action = contract.methods[functionName](...functionArgs);
 
   const setAuthwitnessInteraction = await wallet.setPublicAuthWit({ caller, action }, true);
-  const witness = await setAuthwitnessInteraction.send().wait({ timeout: DEFAULT_TX_TIMEOUT_S });
+  const witness = await setAuthwitnessInteraction.send({ from }).wait({ timeout: DEFAULT_TX_TIMEOUT_S });
 
   log(`Authorized action ${functionName} on contract ${contractAddress} for caller ${caller}`);
 

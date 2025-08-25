@@ -50,11 +50,12 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
     WitnessCommitments commitments;
     CommitmentLabels labels;
 
-    FF vkey_hash = decider_vk->vk_and_hash->vk->add_hash_to_transcript(domain_separator, *transcript);
-    vinfo("vk hash in Oink recursive verifier: ", vkey_hash);
+    FF vk_hash = decider_vk->vk_and_hash->vk->hash_through_transcript(domain_separator, *transcript);
+    transcript->add_to_hash_buffer(domain_separator + "vk_hash", vk_hash);
+    vinfo("vk hash in Oink recursive verifier: ", vk_hash);
     vinfo("expected vk hash: ", decider_vk->vk_and_hash->hash);
     // Check that the vk hash matches the hash of the verification key
-    decider_vk->vk_and_hash->hash.assert_equal(vkey_hash);
+    decider_vk->vk_and_hash->hash.assert_equal(vk_hash);
 
     size_t num_public_inputs =
         static_cast<size_t>(static_cast<uint32_t>(decider_vk->vk_and_hash->vk->num_public_inputs.get_value()));
@@ -105,11 +106,8 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
         }
     }
 
-    const FF public_input_delta = compute_public_input_delta<Flavor>(public_inputs,
-                                                                     beta,
-                                                                     gamma,
-                                                                     decider_vk->vk_and_hash->vk->log_circuit_size,
-                                                                     decider_vk->vk_and_hash->vk->pub_inputs_offset);
+    const FF public_input_delta =
+        compute_public_input_delta<Flavor>(public_inputs, beta, gamma, decider_vk->vk_and_hash->vk->pub_inputs_offset);
 
     // Get commitment to permutation and lookup grand products
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(domain_separator + labels.z_perm);
@@ -127,6 +125,7 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
         RelationParameters<FF>{ eta, eta_two, eta_three, beta, gamma, public_input_delta };
     decider_vk->witness_commitments = std::move(commitments);
     decider_vk->alphas = std::move(alphas);
+    decider_vk->is_complete = true; // instance has been completely populated
 }
 
 template class OinkRecursiveVerifier_<bb::UltraRecursiveFlavor_<UltraCircuitBuilder>>;

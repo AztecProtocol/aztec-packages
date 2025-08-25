@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 
 import {RollupStore, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {CompressedFeeHeader, FeeHeaderLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {CompressedFeeHeader, FeeHeaderLib, FeeLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Epoch, Timestamp, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
@@ -19,7 +19,7 @@ type Bps is uint32;
 
 library BpsLib {
   function mul(uint256 _a, Bps _b) internal pure returns (uint256) {
-    return _a * uint256(Bps.unwrap(_b)) / 10000;
+    return _a * uint256(Bps.unwrap(_b)) / 10_000;
   }
 }
 
@@ -81,21 +81,18 @@ library RewardLib {
     rewardStorage.config = _config;
   }
 
-  function claimSequencerRewards(address _recipient) internal returns (uint256) {
+  function claimSequencerRewards(address _sequencer) internal returns (uint256) {
     RewardStorage storage rewardStorage = getStorage();
 
     RollupStore storage rollupStore = STFLib.getStorage();
-    uint256 amount = rewardStorage.sequencerRewards[msg.sender];
-    rewardStorage.sequencerRewards[msg.sender] = 0;
-    rollupStore.config.feeAsset.transfer(_recipient, amount);
+    uint256 amount = rewardStorage.sequencerRewards[_sequencer];
+    rewardStorage.sequencerRewards[_sequencer] = 0;
+    rollupStore.config.feeAsset.transfer(_sequencer, amount);
 
     return amount;
   }
 
-  function claimProverRewards(address _recipient, Epoch[] memory _epochs)
-    internal
-    returns (uint256)
-  {
+  function claimProverRewards(address _prover, Epoch[] memory _epochs) internal returns (uint256) {
     Epoch currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
     RollupStore storage rollupStore = STFLib.getStorage();
 
@@ -109,20 +106,20 @@ library RewardLib {
       );
 
       require(
-        !rewardStorage.proverClaimed[msg.sender].get(Epoch.unwrap(_epochs[i])),
-        Errors.Rollup__AlreadyClaimed(msg.sender, _epochs[i])
+        !rewardStorage.proverClaimed[_prover].get(Epoch.unwrap(_epochs[i])),
+        Errors.Rollup__AlreadyClaimed(_prover, _epochs[i])
       );
-      rewardStorage.proverClaimed[msg.sender].set(Epoch.unwrap(_epochs[i]));
+      rewardStorage.proverClaimed[_prover].set(Epoch.unwrap(_epochs[i]));
 
       EpochRewards storage e = rewardStorage.epochRewards[_epochs[i]];
       SubEpochRewards storage se = e.subEpoch[e.longestProvenLength];
-      uint256 shares = se.shares[msg.sender];
+      uint256 shares = se.shares[_prover];
       if (shares > 0) {
         accumulatedRewards += (shares * e.rewards / se.summedShares);
       }
     }
 
-    rollupStore.config.feeAsset.transfer(_recipient, accumulatedRewards);
+    rollupStore.config.feeAsset.transfer(_prover, accumulatedRewards);
 
     return accumulatedRewards;
   }
@@ -165,9 +162,8 @@ library RewardLib {
           IRewardDistributor distributor = rewardStorage.config.rewardDistributor;
 
           if (address(this) == distributor.canonicalRollup()) {
-            uint256 amountToClaim = Math.min(
-              blockRewardsDesired, rollupStore.config.feeAsset.balanceOf(address(distributor))
-            );
+            uint256 amountToClaim =
+              Math.min(blockRewardsDesired, rollupStore.config.feeAsset.balanceOf(address(distributor)));
 
             if (amountToClaim > 0) {
               distributor.claim(address(this), amountToClaim);
@@ -176,29 +172,35 @@ library RewardLib {
           }
         }
 
-        uint256 sequencerShare =
-          BpsLib.mul(blockRewardsAvailable, rewardStorage.config.sequencerBps);
+        uint256 sequencerShare = BpsLib.mul(blockRewardsAvailable, rewardStorage.config.sequencerBps);
         v.sequencerBlockReward = sequencerShare / added;
 
         $er.rewards += (blockRewardsAvailable - sequencerShare).toUint128();
       }
 
+      bool isTxsEnabled = FeeLib.isTxsEnabled();
+
       for (uint256 i = $er.longestProvenLength; i < length; i++) {
-        CompressedFeeHeader feeHeader = STFLib.getFeeHeader(_args.start + i);
+        if (isTxsEnabled) {
+          // During ignition there can be no txs, so there can be no fees either
+          // so we can skip the fee calculation
 
-        v.manaUsed = feeHeader.getManaUsed();
+          CompressedFeeHeader feeHeader = STFLib.getFeeHeader(_args.start + i);
 
-        uint256 fee = uint256(_args.fees[1 + i * 2]);
-        uint256 burn = feeHeader.getCongestionCost() * v.manaUsed;
+          v.manaUsed = feeHeader.getManaUsed();
 
-        t.feesToClaim += fee;
-        t.totalBurn += burn;
+          uint256 fee = uint256(_args.fees[1 + i * 2]);
+          uint256 burn = feeHeader.getCongestionCost() * v.manaUsed;
 
-        // Compute the proving fee in the fee asset
-        v.proverFee = Math.min(v.manaUsed * feeHeader.getProverCost(), fee - burn);
-        $er.rewards += v.proverFee.toUint128();
+          t.feesToClaim += fee;
+          t.totalBurn += burn;
 
-        v.sequencerFee = fee - burn - v.proverFee;
+          // Compute the proving fee in the fee asset
+          v.proverFee = Math.min(v.manaUsed * feeHeader.getProverCost(), fee - burn);
+          $er.rewards += v.proverFee.toUint128();
+
+          v.sequencerFee = fee - burn - v.proverFee;
+        }
 
         {
           v.sequencer = fieldToAddress(_args.fees[i * 2]);
@@ -230,11 +232,7 @@ library RewardLib {
     return getStorage().epochRewards[_epoch].rewards;
   }
 
-  function getHasSubmitted(Epoch _epoch, uint256 _length, address _prover)
-    internal
-    view
-    returns (bool)
-  {
+  function getHasSubmitted(Epoch _epoch, uint256 _length, address _prover) internal view returns (bool) {
     return getStorage().epochRewards[_epoch].subEpoch[_length].shares[_prover] > 0;
   }
 
@@ -246,11 +244,7 @@ library RewardLib {
     return getStorage().config.blockReward;
   }
 
-  function getSpecificProverRewardsForEpoch(Epoch _epoch, address _prover)
-    internal
-    view
-    returns (uint256)
-  {
+  function getSpecificProverRewardsForEpoch(Epoch _epoch, address _prover) internal view returns (uint256) {
     RewardStorage storage rewardStorage = getStorage();
 
     if (rewardStorage.proverClaimed[_prover].get(Epoch.unwrap(_epoch))) {

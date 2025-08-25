@@ -70,6 +70,16 @@ struct less_than_equal {
     }
 };
 
+struct checked_divides {
+    template <typename T> auto operator()(T&& a, T&& b) const
+    {
+        if (b == static_cast<T>(0)) {
+            throw DivisionByZero("Dividing numeric value by zero");
+        }
+        return std::forward<T>(a) / std::forward<T>(b);
+    }
+};
+
 template <typename Op>
 constexpr bool is_bitwise_operation_v =
     std::is_same_v<Op, std::bit_and<>> || std::is_same_v<Op, std::bit_or<>> || std::is_same_v<Op, std::bit_xor<>> ||
@@ -89,18 +99,6 @@ template <typename Op> struct BinaryOperationVisitor {
         } else {
             throw TagMismatchException("Cannot perform operation between different types: " +
                                        std::to_string(tag_for_type<T>()) + " and " + std::to_string(tag_for_type<U>()));
-        }
-    }
-};
-
-// Helper visitor for shift operations. The right hand side is a different type.
-template <typename Op> struct ShiftOperationVisitor {
-    template <typename T, typename U> TaggedValue::value_type operator()(const T& a, const U& b) const
-    {
-        if constexpr (std::is_same_v<T, FF> || std::is_same_v<U, FF>) {
-            throw InvalidOperationTag("Bitwise operations not valid for FF");
-        } else {
-            return static_cast<T>(Op{}(a, b));
         }
     }
 };
@@ -272,7 +270,7 @@ TaggedValue TaggedValue::operator*(const TaggedValue& other) const
 
 TaggedValue TaggedValue::operator/(const TaggedValue& other) const
 {
-    return std::visit(BinaryOperationVisitor<std::divides<>>(), value, other.value);
+    return std::visit(BinaryOperationVisitor<checked_divides>(), value, other.value);
 }
 
 // Bitwise operators
@@ -299,12 +297,12 @@ TaggedValue TaggedValue::operator~() const
 // Shift Operations
 TaggedValue TaggedValue::operator<<(const TaggedValue& other) const
 {
-    return std::visit(ShiftOperationVisitor<shift_left>(), value, other.value);
+    return std::visit(BinaryOperationVisitor<shift_left>(), value, other.value);
 }
 
 TaggedValue TaggedValue::operator>>(const TaggedValue& other) const
 {
-    return std::visit(ShiftOperationVisitor<shift_right>(), value, other.value);
+    return std::visit(BinaryOperationVisitor<shift_right>(), value, other.value);
 }
 
 // Comparison Operators

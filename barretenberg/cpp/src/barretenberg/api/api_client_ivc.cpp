@@ -10,7 +10,7 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/common/try_catch_shim.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
-#include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
+#include "barretenberg/dsl/acir_format/pg_recursion_constraint.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/serialize/msgpack_check_eq.hpp"
 #include <algorithm>
@@ -64,18 +64,18 @@ void write_civc_vk(size_t num_public_inputs_in_final_circuit, const std::filesys
 void write_civc_vk(const std::string& bytecode_path, const std::filesystem::path& output_dir)
 {
     auto bytecode = get_bytecode(bytecode_path);
-
     auto response = bbapi::ClientIvcComputeIvcVk{
-        .circuit = { .name = "final_circuit", .bytecode = std::move(bytecode) }
-    }.execute();
-
+        .circuit{ .name = "standalone_circuit", .bytecode = std::move(bytecode) }
+    }.execute({ .trace_settings = {} });
+    auto civc_vk_bytes = response.bytes;
     const bool output_to_stdout = output_dir == "-";
     if (output_to_stdout) {
-        write_bytes_to_stdout(response.bytes);
+        write_bytes_to_stdout(civc_vk_bytes);
     } else {
-        write_file(output_dir / "vk", response.bytes);
+        write_file(output_dir / "vk", civc_vk_bytes);
     }
 }
+
 } // anonymous namespace
 
 void ClientIVCAPI::prove(const Flags& flags,
@@ -87,15 +87,13 @@ void ClientIVCAPI::prove(const Flags& flags,
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
     bbapi::ClientIvcStart{ .num_circuits = raw_steps.size() }.execute(request);
-
-    size_t loaded_circuit_public_inputs_size = 0;
+    info("ClientIVC: starting with ", raw_steps.size(), " circuits");
     for (const auto& step : raw_steps) {
         bbapi::ClientIvcLoad{
             .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk }
         }.execute(request);
 
         // NOLINTNEXTLINE(bugprone-unchecked-optional-access): we know the optional has been set here.
-        loaded_circuit_public_inputs_size = request.loaded_circuit_constraints->public_inputs.size();
         info("ClientIVC: accumulating " + step.function_name);
         bbapi::ClientIvcAccumulate{ .witness = step.witness }.execute(request);
     }
@@ -139,11 +137,12 @@ bool ClientIVCAPI::verify([[maybe_unused]] const Flags& flags,
 // WORKTODO(bbapi) remove this
 bool ClientIVCAPI::prove_and_verify(const std::filesystem::path& input_path)
 {
-
     PrivateExecutionSteps steps;
     steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
 
     std::shared_ptr<ClientIVC> ivc = steps.accumulate();
+    // Construct the hiding kernel as the final step of the IVC
+
     const bool verified = ivc->prove_and_verify();
     return verified;
 }
@@ -221,7 +220,7 @@ void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per
     bbapi::BBApiRequest request{ .trace_settings = { AZTEC_TRACE_STRUCTURE } };
 
     auto bytecode = get_bytecode(bytecode_path);
-    auto response = bbapi::ClientIvcGates{ .circuit = { .name = "ivc_circuit", .bytecode = std::move(bytecode) },
+    auto response = bbapi::ClientIvcStats{ .circuit = { .name = "ivc_circuit", .bytecode = std::move(bytecode) },
                                            .include_gates_per_opcode = include_gates_per_opcode }
                         .execute(request);
 
@@ -250,14 +249,13 @@ void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per
 void write_arbitrary_valid_client_ivc_proof_and_vk_to_file(const std::filesystem::path& output_dir)
 {
 
-    const size_t NUM_CIRCUITS = 2;
+    PrivateFunctionExecutionMockCircuitProducer circuit_producer{ /*num_app_circuits=*/1 };
+    const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
     ClientIVC ivc{ NUM_CIRCUITS, { AZTEC_TRACE_STRUCTURE } };
 
     // Construct and accumulate a series of mocked private function execution circuits
-    PrivateFunctionExecutionMockCircuitProducer circuit_producer;
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        auto circuit = circuit_producer.create_next_circuit(ivc);
-        ivc.accumulate(circuit);
+        circuit_producer.construct_and_accumulate_next_circuit(ivc);
     }
 
     ClientIVC::Proof proof = ivc.prove();

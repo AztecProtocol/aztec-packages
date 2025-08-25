@@ -36,7 +36,10 @@ class EcdsaCircuit {
         }
 
         // This is the message that we would like to confirm
-        std::string message_string = "goblin";
+        std::string message_string(NUM_PUBLIC_INPUTS, '\0');
+        for (size_t i = 0; i < NUM_PUBLIC_INPUTS; ++i) {
+            message_string[i] = static_cast<char>(static_cast<uint8_t>(public_inputs[i]));
+        }
         auto message = typename curve::byte_array_ct(&builder, message_string);
 
         // Assert that the public inputs buffer matches the message we want
@@ -67,12 +70,10 @@ class EcdsaCircuit {
 
         std::vector<uint8_t> rr(signature.r.begin(), signature.r.end());
         std::vector<uint8_t> ss(signature.s.begin(), signature.s.end());
-        uint8_t vv = signature.v;
 
         // IN CIRCUIT: create a witness with the sig in our circuit
         stdlib::ecdsa_signature<Builder> sig{ typename curve::byte_array_ct(&builder, rr),
-                                              typename curve::byte_array_ct(&builder, ss),
-                                              stdlib::uint8<Builder>(&builder, vv) };
+                                              typename curve::byte_array_ct(&builder, ss) };
 
         // IN CIRCUIT: verify the signature
         typename curve::bool_ct signature_result = stdlib::ecdsa_verify_signature<Builder,

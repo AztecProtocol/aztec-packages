@@ -34,9 +34,7 @@ contract MintTest is CoinIssuerBase {
   function test_GivenAmountLargerThanMaxMint(uint256 _amount) external givenCallerIsOwner {
     // it reverts
     uint256 amount = bound(_amount, maxMint + 1, type(uint256).max);
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.CoinIssuer__InsufficientMintAvailable.selector, maxMint, amount)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.CoinIssuer__InsufficientMintAvailable.selector, maxMint, amount));
     nom.mint(address(0xdead), amount);
   }
 

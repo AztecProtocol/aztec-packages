@@ -55,12 +55,13 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
     ProverPolynomials polynomials; // the multilinear polynomials used by the prover
     SubrelationSeparators alphas;  // a challenge for each subrelation
     bb::RelationParameters<FF> relation_parameters;
-    std::vector<FF> gate_challenges;
-    FF target_sum{ 0 }; // Sumcheck target sum; typically nonzero for a ProtogalaxyProver's accmumulator
+    std::vector<FF> gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
+    FF target_sum{ 0 }; // Sumcheck target sum; typically nonzero for a ProtogalaxyProver's accumulator
 
     HonkProof ipa_proof; // utilized only for UltraRollupFlavor
 
-    bool is_accumulator = false;
+    bool is_accumulator = false; // whether this instance the result of a Protogalaxy folding
+    bool is_complete = false;    // whether this instance has been completely populated
     std::vector<uint32_t> memory_read_records;
     std::vector<uint32_t> memory_write_records;
 
@@ -97,8 +98,11 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
         PROFILE_THIS_NAME("DeciderProvingKey(Circuit&)");
         vinfo("Constructing DeciderProvingKey");
         auto start = std::chrono::steady_clock::now();
-
-        circuit.finalize_circuit(/* ensure_nonzero = */ true);
+        // Decider proving keys can be constructed multiple times, hence, we check whether the circuit has been
+        // finalized
+        if (!circuit.circuit_finalized) {
+            circuit.finalize_circuit(/* ensure_nonzero = */ true);
+        }
 
         // If using a structured trace, set fixed block sizes, check their validity, and set the dyadic circuit size
         if constexpr (std::same_as<Circuit, UltraCircuitBuilder>) {

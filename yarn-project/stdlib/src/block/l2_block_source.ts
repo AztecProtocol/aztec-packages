@@ -1,15 +1,17 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
+import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
 import type { L1RollupConstants } from '../epoch-helpers/index.js';
+import { BlockAttestation } from '../p2p/block_attestation.js';
 import type { BlockHeader } from '../tx/block_header.js';
 import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
 import type { TxHash } from '../tx/tx_hash.js';
 import type { TxReceipt } from '../tx/tx_receipt.js';
 import type { L2Block } from './l2_block.js';
-import type { PublishedL2Block } from './published_l2_block.js';
+import { PublishedL2Block } from './published_l2_block.js';
 
 /**
  * Interface of classes allowing for the retrieval of L2 blocks.
@@ -122,9 +124,69 @@ export interface L2BlockSource {
   /** Latest synced L1 timestamp. */
   getL1Timestamp(): Promise<bigint>;
 
+  /**
+   * Returns whether the latest block in the pending chain on L1 is invalid (ie its attestations are incorrect).
+   * Note that invalid blocks do not get synced, so the latest block returned by the block source is always a valid one.
+   */
+  isPendingChainInvalid(): Promise<boolean>;
+
+  /**
+   * Returns the status of the pending chain validation. If the chain is invalid, reports the earliest consecutive block
+   * that is invalid, along with the reason for being invalid, which can be used to trigger an invalidation.
+   */
+  getPendingChainValidationStatus(): Promise<ValidateBlockResult>;
+
   /** Force a sync. */
   syncImmediate(): Promise<void>;
 }
+
+/** Subtype for invalid block validation results */
+export type ValidateBlockNegativeResult =
+  | {
+      valid: false;
+      block: PublishedL2Block;
+      committee: EthAddress[];
+      epoch: bigint;
+      seed: bigint;
+      attestations: BlockAttestation[];
+      reason: 'insufficient-attestations';
+    }
+  | {
+      valid: false;
+      block: PublishedL2Block;
+      committee: EthAddress[];
+      epoch: bigint;
+      seed: bigint;
+      reason: 'invalid-attestation';
+      attestations: BlockAttestation[];
+      invalidIndex: number;
+    };
+
+/** Result type for validating a block attestations */
+export type ValidateBlockResult = { valid: true } | ValidateBlockNegativeResult;
+
+export const ValidateBlockResultSchema = z.union([
+  z.object({ valid: z.literal(true), block: PublishedL2Block.schema.optional() }),
+  z.object({
+    valid: z.literal(false),
+    block: PublishedL2Block.schema,
+    committee: z.array(schemas.EthAddress),
+    epoch: schemas.BigInt,
+    seed: schemas.BigInt,
+    attestations: z.array(BlockAttestation.schema),
+    reason: z.literal('insufficient-attestations'),
+  }),
+  z.object({
+    valid: z.literal(false),
+    block: PublishedL2Block.schema,
+    committee: z.array(schemas.EthAddress),
+    epoch: schemas.BigInt,
+    seed: schemas.BigInt,
+    attestations: z.array(BlockAttestation.schema),
+    reason: z.literal('invalid-attestation'),
+    invalidIndex: z.number(),
+  }),
+]) satisfies ZodFor<ValidateBlockResult>;
 
 /**
  * L2BlockSource that emits events upon pending / proven chain changes.
@@ -134,6 +196,7 @@ export interface L2BlockSource {
 export type ArchiverEmitter = TypedEventEmitter<{
   [L2BlockSourceEvents.L2PruneDetected]: (args: L2BlockPruneEvent) => void;
   [L2BlockSourceEvents.L2BlockProven]: (args: L2BlockProvenEvent) => void;
+  [L2BlockSourceEvents.InvalidAttestationsBlockDetected]: (args: InvalidBlockDetectedEvent) => void;
 }>;
 export interface L2BlockSourceEventEmitter extends L2BlockSource, ArchiverEmitter {}
 
@@ -180,6 +243,7 @@ export const L2TipsSchema = z.object({
 export enum L2BlockSourceEvents {
   L2PruneDetected = 'l2PruneDetected',
   L2BlockProven = 'l2BlockProven',
+  InvalidAttestationsBlockDetected = 'invalidBlockDetected',
 }
 
 export type L2BlockProvenEvent = {
@@ -193,4 +257,9 @@ export type L2BlockPruneEvent = {
   type: 'l2PruneDetected';
   epochNumber: bigint;
   blocks: L2Block[];
+};
+
+export type InvalidBlockDetectedEvent = {
+  type: 'invalidBlockDetected';
+  validationResult: ValidateBlockNegativeResult;
 };

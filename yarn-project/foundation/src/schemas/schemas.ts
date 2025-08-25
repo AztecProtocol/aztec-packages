@@ -65,4 +65,4 @@ export const schemas = {
 };
 
 // These are needed to avoid errors such as: "The inferred type of 'YourClassSchema' cannot be named without a reference to..."
-export type { EthAddress, Point, Fr, Fq };
+export type { EthAddress, Fq, Fr, Point };

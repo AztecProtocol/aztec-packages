@@ -157,6 +157,7 @@ export class FeeOpts implements IFeeOpts {
 
   async toSendOpts(sender: AccountWallet): Promise<SendMethodOptions> {
     return {
+      from: sender.getAddress(),
       fee: {
         estimateGas: this.estimateGas,
         gasSettings: this.gasSettings,

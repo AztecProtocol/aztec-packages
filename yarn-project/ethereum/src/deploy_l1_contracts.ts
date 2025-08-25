@@ -1,12 +1,16 @@
-import { getActiveNetworkName } from '@aztec/foundation/config';
+import { SecretValue, getActiveNetworkName } from '@aztec/foundation/config';
+import { keccak256String } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
+import type { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
 import type { Abi, Narrow } from 'abitype';
 import {
   type Chain,
+  type ContractConstructorArgs,
   type HDAccount,
   type Hex,
   type PrivateKeyAccount,
@@ -31,6 +35,7 @@ import {
   getRewardBoostConfig,
   getRewardConfig,
 } from './config.js';
+import { GSEContract } from './contracts/gse.js';
 import { deployMulticall3 } from './contracts/multicall.js';
 import { RegistryContract } from './contracts/registry.js';
 import { RollupContract } from './contracts/rollup.js';
@@ -71,6 +76,7 @@ const networkName = getActiveNetworkName();
 export type Operator = {
   attester: EthAddress;
   withdrawer: EthAddress;
+  bn254SecretKey: SecretValue<bigint>;
 };
 
 /**
@@ -102,7 +108,7 @@ export interface Libraries {
 /**
  * Contract artifacts
  */
-export interface ContractArtifacts {
+export interface ContractArtifacts<TAbi extends Abi | readonly unknown[] = Abi> {
   /**
    * The contract name.
    */
@@ -110,7 +116,7 @@ export interface ContractArtifacts {
   /**
    * The contract abi.
    */
-  contractAbi: Narrow<Abi | readonly unknown[]>;
+  contractAbi: Narrow<TAbi>;
   /**
    * The contract bytecode
    */
@@ -163,32 +169,24 @@ export const deploySharedContracts = async (
 
   const txHashes: Hex[] = [];
 
-  const feeAssetAddress = await deployer.deploy(FeeAssetArtifact, [
-    'FeeJuice',
-    'FEE',
-    l1Client.account.address.toString(),
-  ]);
+  const feeAssetAddress = await deployer.deploy(FeeAssetArtifact, ['FeeJuice', 'FEE', l1Client.account.address]);
   logger.verbose(`Deployed Fee Asset at ${feeAssetAddress}`);
 
-  const stakingAssetAddress = await deployer.deploy(StakingAssetArtifact, [
-    'Staking',
-    'STK',
-    l1Client.account.address.toString(),
-  ]);
+  const stakingAssetAddress = await deployer.deploy(StakingAssetArtifact, ['Staking', 'STK', l1Client.account.address]);
   logger.verbose(`Deployed Staking Asset at ${stakingAssetAddress}`);
 
   const gseConfiguration = getGSEConfiguration(networkName);
 
   const gseAddress = await deployer.deploy(GSEArtifact, [
-    l1Client.account.address.toString(),
+    l1Client.account.address,
     stakingAssetAddress.toString(),
-    gseConfiguration.depositAmount,
-    gseConfiguration.minimumStake,
+    gseConfiguration.activationThreshold,
+    gseConfiguration.ejectionThreshold,
   ]);
   logger.verbose(`Deployed GSE at ${gseAddress}`);
 
   const registryAddress = await deployer.deploy(RegistryArtifact, [
-    l1Client.account.address.toString(),
+    l1Client.account.address,
     feeAssetAddress.toString(),
   ]);
   logger.verbose(`Deployed Registry at ${registryAddress}`);
@@ -196,8 +194,8 @@ export const deploySharedContracts = async (
   const governanceProposerAddress = await deployer.deploy(GovernanceProposerArtifact, [
     registryAddress.toString(),
     gseAddress.toString(),
-    args.governanceProposerQuorum,
-    args.governanceProposerRoundSize,
+    BigInt(args.governanceProposerQuorum),
+    BigInt(args.governanceProposerRoundSize),
   ]);
   logger.verbose(`Deployed GovernanceProposer at ${governanceProposerAddress}`);
 
@@ -330,7 +328,7 @@ export const deploySharedContracts = async (
         // Skip checks
         skipBindCheck: args.zkPassportArgs?.mockZkPassportVerifier ?? false,
         skipMerkleCheck: true, // skip merkle check - needed for testing without generating proofs
-      };
+      } as const;
 
       stakingAssetHandlerAddress = await deployer.deploy(StakingAssetHandlerArtifact, [stakingAssetHandlerDeployArgs]);
       logger.verbose(`Deployed StakingAssetHandler at ${stakingAssetHandlerAddress}`);
@@ -431,7 +429,7 @@ export const deployRollupForUpgrade = async (
   extendedClient: ExtendedViemWalletClient,
   args: Omit<
     DeployL1ContractsArgs,
-    'governanceProposerQuorum' | 'governanceProposerRoundSize' | 'minimumStake' | 'depositAmount'
+    'governanceProposerQuorum' | 'governanceProposerRoundSize' | 'ejectionThreshold' | 'activationThreshold'
   >,
   registryAddress: EthAddress,
   logger: Logger,
@@ -481,7 +479,7 @@ export const deployRollup = async (
   deployer: L1Deployer,
   args: Omit<
     DeployL1ContractsArgs,
-    'governanceProposerQuorum' | 'governanceProposerRoundSize' | 'minimumStake' | 'depositAmount'
+    'governanceProposerQuorum' | 'governanceProposerRoundSize' | 'ejectionThreshold' | 'activationThreshold'
   >,
   addresses: Pick<
     L1ContractAddresses,
@@ -512,28 +510,44 @@ export const deployRollup = async (
     rewardDistributor: addresses.rewardDistributorAddress.toString(),
   };
 
-  const rollupConfigArgs = {
-    aztecSlotDuration: args.aztecSlotDuration,
-    aztecEpochDuration: args.aztecEpochDuration,
-    targetCommitteeSize: args.aztecTargetCommitteeSize,
-    aztecProofSubmissionEpochs: args.aztecProofSubmissionEpochs,
-    slashingQuorum: args.slashingQuorum,
-    slashingRoundSize: args.slashingRoundSize,
-    slashingLifetimeInRounds: args.slashingLifetimeInRounds,
-    slashingExecutionDelayInRounds: args.slashingExecutionDelayInRounds,
+  const rollupConfigArgs: ContractConstructorArgs<typeof RollupAbi>[6] = {
+    aztecSlotDuration: BigInt(args.aztecSlotDuration),
+    aztecEpochDuration: BigInt(args.aztecEpochDuration),
+    targetCommitteeSize: BigInt(args.aztecTargetCommitteeSize),
+    aztecProofSubmissionEpochs: BigInt(args.aztecProofSubmissionEpochs),
+    slashingQuorum: BigInt(args.slashingQuorum),
+    slashingRoundSize: BigInt(args.slashingRoundSize),
+    slashingLifetimeInRounds: BigInt(args.slashingLifetimeInRounds),
+    slashingExecutionDelayInRounds: BigInt(args.slashingExecutionDelayInRounds),
     slashingVetoer: args.slashingVetoer.toString(),
     manaTarget: args.manaTarget,
     provingCostPerMana: args.provingCostPerMana,
     rewardConfig: rewardConfig,
+    version: 0,
     rewardBoostConfig: getRewardBoostConfig(networkName),
     stakingQueueConfig: getEntryQueueConfig(networkName),
-    exitDelaySeconds: args.exitDelaySeconds,
+    exitDelaySeconds: BigInt(args.exitDelaySeconds),
+    slasherFlavor: args.slasherFlavor === 'tally' ? 1 : 0,
+    slashingOffsetInRounds: BigInt(args.slashingOffsetInRounds),
+    slashingUnit: args.slashingUnit,
   };
+
   const genesisStateArgs = {
     vkTreeRoot: args.vkTreeRoot.toString(),
     protocolContractTreeRoot: args.protocolContractTreeRoot.toString(),
     genesisArchiveRoot: args.genesisArchiveRoot.toString(),
   };
+
+  // Until there is an actual chain-id for the version, we will just draw a random value.
+  // TODO(https://linear.app/aztec-labs/issue/TMNT-139/version-at-deployment)
+  rollupConfigArgs.version = Buffer.from(
+    keccak256String(
+      jsonStringify({
+        rollupConfigArgs,
+        genesisStateArgs,
+      }),
+    ),
+  ).readUint32BE(0);
   logger.verbose(`Rollup config args`, rollupConfigArgs);
 
   const rollupArgs = [
@@ -541,10 +555,10 @@ export const deployRollup = async (
     addresses.stakingAssetAddress.toString(),
     addresses.gseAddress.toString(),
     epochProofVerifier.toString(),
-    extendedClient.account.address.toString(),
+    extendedClient.account.address,
     genesisStateArgs,
     rollupConfigArgs,
-  ];
+  ] as const;
 
   const rollupAddress = await deployer.deploy(RollupArtifact, rollupArgs);
   logger.verbose(`Deployed Rollup at ${rollupAddress}`, rollupConfigArgs);
@@ -638,6 +652,7 @@ export const deployRollup = async (
     await addMultipleValidators(
       extendedClient,
       deployer,
+      addresses.gseAddress.toString(),
       rollupAddress.toString(),
       addresses.stakingAssetAddress.toString(),
       args.initialValidators,
@@ -733,6 +748,7 @@ export const handoverToGovernance = async (
 export const addMultipleValidators = async (
   extendedClient: ExtendedViemWalletClient,
   deployer: L1Deployer,
+  gseAddress: Hex,
   rollupAddress: Hex,
   stakingAssetAddress: Hex,
   validators: Operator[],
@@ -740,7 +756,7 @@ export const addMultipleValidators = async (
   logger: Logger,
 ) => {
   const rollup = new RollupContract(extendedClient, rollupAddress);
-  const depositAmount = await rollup.getDepositAmount();
+  const activationThreshold = await rollup.getActivationThreshold();
   if (validators && validators.length > 0) {
     // Check if some of the initial validators are already registered, so we support idempotent deployments
     if (!acceleratedTestDeployments) {
@@ -763,15 +779,22 @@ export const addMultipleValidators = async (
     }
 
     if (validators.length > 0) {
+      const gseContract = new GSEContract(extendedClient, gseAddress);
       const multiAdder = await deployer.deploy(MultiAdderArtifact, [rollupAddress, deployer.client.account.address]);
 
-      const validatorsTuples = validators.map(v => ({
-        attester: getAddress(v.attester.toString()),
-        withdrawer: getAddress(v.withdrawer.toString()),
-      }));
+      const makeValidatorTuples = async (validator: Operator) => {
+        const registrationTuple = await gseContract.makeRegistrationTuple(validator.bn254SecretKey.getValue());
+        return {
+          attester: getAddress(validator.attester.toString()),
+          withdrawer: getAddress(validator.withdrawer.toString()),
+          ...registrationTuple,
+        };
+      };
 
-      // Mint tokens, approve them, use cheat code to initialise validator set without setting up the epoch.
-      const stakeNeeded = depositAmount * BigInt(validators.length);
+      const validatorsTuples = await Promise.all(validators.map(makeValidatorTuples));
+
+      // Mint tokens, approve them, use cheat code to initialize validator set without setting up the epoch.
+      const stakeNeeded = activationThreshold * BigInt(validators.length);
       const { txHash } = await deployer.sendTransaction({
         to: stakingAssetAddress,
         data: encodeFunctionData({
@@ -998,14 +1021,17 @@ export class L1Deployer {
     );
   }
 
-  async deploy(params: ContractArtifacts, args: readonly unknown[] = []): Promise<EthAddress> {
+  async deploy<const TAbi extends Abi>(
+    params: ContractArtifacts<TAbi>,
+    args?: ContractConstructorArgs<TAbi>,
+  ): Promise<EthAddress> {
     this.logger.debug(`Deploying ${params.name} contract`, { args });
     try {
       const { txHash, address } = await deployL1Contract(
         this.client,
         params.contractAbi,
         params.contractBytecode,
-        args,
+        (args ?? []) as readonly unknown[],
         this.salt,
         params.libraries,
         this.logger,

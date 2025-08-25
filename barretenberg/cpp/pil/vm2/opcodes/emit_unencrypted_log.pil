@@ -309,8 +309,8 @@ namespace emit_unencrypted_log;
         execution.register[1],
         execution.contract_address,
         // Context
+        execution.prev_num_unencrypted_logs,
         execution.num_unencrypted_logs,
-        execution.next_num_unencrypted_logs,
         execution.is_static,
         // Error
         execution.sel_opcode_error,

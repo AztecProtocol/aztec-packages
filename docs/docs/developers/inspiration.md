@@ -1,6 +1,7 @@
 ---
 id: inspiration
 title: Inspiration and Ideas
+description: Discover app ideas, design explorations, contract examples, and ecosystem projects to inspire your next Aztec development project, from DeFi to gaming and governance.
 ---
 
 This page covers requests for apps on Aztec, designs that some teams are exploring, existing contract examples, and open source ecosystem projects. 

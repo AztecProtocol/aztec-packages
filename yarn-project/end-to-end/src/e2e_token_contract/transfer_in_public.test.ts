@@ -20,14 +20,14 @@ const qosAlerts: AlertConfig[] = [
 
 describe('e2e_token_contract transfer public', () => {
   const t = new TokenContractTest('transfer_in_public');
-  let { asset, accounts, tokenSim, wallets, badAccount } = t;
+  let { asset, tokenSim, admin, adminAddress, account1, account1Address, badAccount } = t;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     await t.applyMintSnapshot();
     await t.setup();
     // Have to destructure again to ensure we have latest refs.
-    ({ asset, accounts, tokenSim, wallets, badAccount } = t);
+    ({ asset, tokenSim, admin, adminAddress, account1, account1Address, badAccount } = t);
   });
 
   afterAll(async () => {
@@ -43,211 +43,214 @@ describe('e2e_token_contract transfer public', () => {
   });
 
   it('transfer less than balance', async () => {
-    const balance0 = await asset.methods.balance_of_public(accounts[0].address).simulate();
+    const balance0 = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
     const amount = balance0 / 2n;
     expect(amount).toBeGreaterThan(0n);
-    await asset.methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, 0).send().wait();
+    await asset.methods
+      .transfer_in_public(adminAddress, account1Address, amount, 0)
+      .send({ from: adminAddress })
+      .wait();
 
-    tokenSim.transferPublic(accounts[0].address, accounts[1].address, amount);
+    tokenSim.transferPublic(adminAddress, account1Address, amount);
   });
 
   it('transfer to self', async () => {
-    const balance = await asset.methods.balance_of_public(accounts[0].address).simulate();
+    const balance = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
     const amount = balance / 2n;
     expect(amount).toBeGreaterThan(0n);
-    await asset.methods.transfer_in_public(accounts[0].address, accounts[0].address, amount, 0).send().wait();
+    await asset.methods.transfer_in_public(adminAddress, adminAddress, amount, 0).send({ from: adminAddress }).wait();
 
-    tokenSim.transferPublic(accounts[0].address, accounts[0].address, amount);
+    tokenSim.transferPublic(adminAddress, adminAddress, amount);
   });
 
   it('transfer on behalf of other', async () => {
-    const balance0 = await asset.methods.balance_of_public(accounts[0].address).simulate();
+    const balance0 = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
     const amount = balance0 / 2n;
     expect(amount).toBeGreaterThan(0n);
     const authwitNonce = Fr.random();
 
     // docs:start:authwit_public_transfer_example
     const action = asset
-      .withWallet(wallets[1])
-      .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, authwitNonce);
+      .withWallet(account1)
+      .methods.transfer_in_public(adminAddress, account1Address, amount, authwitNonce);
 
-    const validateActionInteraction = await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, true);
-    await validateActionInteraction.send().wait();
+    const validateActionInteraction = await admin.setPublicAuthWit({ caller: account1Address, action }, true);
+    await validateActionInteraction.send({ from: adminAddress }).wait();
     // docs:end:authwit_public_transfer_example
 
     // Perform the transfer
-    await action.send().wait();
+    await action.send({ from: account1Address }).wait();
 
-    tokenSim.transferPublic(accounts[0].address, accounts[1].address, amount);
+    tokenSim.transferPublic(adminAddress, account1Address, amount);
 
     // Check that the message hash is no longer valid.
     await expect(
       asset
-        .withWallet(wallets[1])
-        .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, authwitNonce)
-        .simulate(),
+        .withWallet(account1)
+        .methods.transfer_in_public(adminAddress, account1Address, amount, authwitNonce)
+        .simulate({ from: account1Address }),
     ).rejects.toThrow(/unauthorized/);
   });
 
   describe('failure cases', () => {
     it('transfer more than balance', async () => {
-      const balance0 = await asset.methods.balance_of_public(accounts[0].address).simulate();
+      const balance0 = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
       const amount = balance0 + 1n;
       const authwitNonce = 0;
       await expect(
-        asset.methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, authwitNonce).simulate(),
+        asset.methods
+          .transfer_in_public(adminAddress, account1Address, amount, authwitNonce)
+          .simulate({ from: adminAddress }),
       ).rejects.toThrow(U128_UNDERFLOW_ERROR);
     });
 
     it('transfer on behalf of self with non-zero nonce', async () => {
-      const balance0 = await asset.methods.balance_of_public(accounts[0].address).simulate();
+      const balance0 = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
       const amount = balance0 - 1n;
       const authwitNonce = 1;
       await expect(
-        asset.methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, authwitNonce).simulate(),
+        asset.methods
+          .transfer_in_public(adminAddress, account1Address, amount, authwitNonce)
+          .simulate({ from: adminAddress }),
       ).rejects.toThrow(
         "Assertion failed: Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero",
       );
     });
 
     it('transfer on behalf of other without "approval"', async () => {
-      const balance0 = await asset.methods.balance_of_public(accounts[0].address).simulate();
+      const balance0 = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
       const amount = balance0 + 1n;
       const authwitNonce = Fr.random();
       await expect(
         asset
-          .withWallet(wallets[1])
-          .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, authwitNonce)
-          .simulate(),
+          .withWallet(account1)
+          .methods.transfer_in_public(adminAddress, account1Address, amount, authwitNonce)
+          .simulate({ from: account1Address }),
       ).rejects.toThrow(/unauthorized/);
     });
 
     it('transfer more than balance on behalf of other', async () => {
-      const balance0 = await asset.methods.balance_of_public(accounts[0].address).simulate();
-      const balance1 = await asset.methods.balance_of_public(accounts[1].address).simulate();
+      const balance0 = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
+      const balance1 = await asset.methods.balance_of_public(account1Address).simulate({ from: account1Address });
       const amount = balance0 + 1n;
       const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
 
       const action = asset
-        .withWallet(wallets[1])
-        .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, authwitNonce);
+        .withWallet(account1)
+        .methods.transfer_in_public(adminAddress, account1Address, amount, authwitNonce);
 
-      const intent = { caller: accounts[1].address, action };
+      const intent = { caller: account1Address, action };
       // We need to compute the message we want to sign and add it to the wallet as approved
-      const validateActionInteraction = await wallets[0].setPublicAuthWit(intent, true);
-      await validateActionInteraction.send().wait();
+      const validateActionInteraction = await admin.setPublicAuthWit(intent, true);
+      await validateActionInteraction.send({ from: adminAddress }).wait();
 
-      const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });
+      const witness = await admin.createAuthWit({ caller: account1Address, action });
 
-      expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent, witness)).toEqual({
+      expect(await admin.lookupValidity(adminAddress, intent, witness)).toEqual({
         isValidInPrivate: true,
         isValidInPublic: true,
       });
 
       // Perform the transfer
-      await expect(action.simulate({ authWitnesses: [witness] })).rejects.toThrow(U128_UNDERFLOW_ERROR);
+      await expect(action.simulate({ from: account1Address, authWitnesses: [witness] })).rejects.toThrow(
+        U128_UNDERFLOW_ERROR,
+      );
 
-      expect(await asset.methods.balance_of_public(accounts[0].address).simulate()).toEqual(balance0);
-      expect(await asset.methods.balance_of_public(accounts[1].address).simulate()).toEqual(balance1);
+      expect(await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress })).toEqual(balance0);
+      expect(await asset.methods.balance_of_public(account1Address).simulate({ from: account1Address })).toEqual(
+        balance1,
+      );
     });
 
     it('transfer on behalf of other, wrong designated caller', async () => {
-      const balance0 = await asset.methods.balance_of_public(accounts[0].address).simulate();
-      const balance1 = await asset.methods.balance_of_public(accounts[1].address).simulate();
+      const balance0 = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
+      const balance1 = await asset.methods.balance_of_public(account1Address).simulate({ from: account1Address });
       const amount = balance0 + 2n;
       const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
 
       // We need to compute the message we want to sign and add it to the wallet as approved
       const action = asset
-        .withWallet(wallets[1])
-        .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, authwitNonce);
+        .withWallet(account1)
+        .methods.transfer_in_public(adminAddress, account1Address, amount, authwitNonce);
 
-      const validateActionInteraction = await wallets[0].setPublicAuthWit(
-        { caller: accounts[0].address, action },
-        true,
-      );
-      await validateActionInteraction.send().wait();
+      const validateActionInteraction = await admin.setPublicAuthWit({ caller: adminAddress, action }, true);
+      await validateActionInteraction.send({ from: adminAddress }).wait();
 
       // Perform the transfer
-      await expect(action.simulate()).rejects.toThrow(/unauthorized/);
+      await expect(action.simulate({ from: account1Address })).rejects.toThrow(/unauthorized/);
 
-      expect(await asset.methods.balance_of_public(accounts[0].address).simulate()).toEqual(balance0);
-      expect(await asset.methods.balance_of_public(accounts[1].address).simulate()).toEqual(balance1);
+      expect(await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress })).toEqual(balance0);
+      expect(await asset.methods.balance_of_public(account1Address).simulate({ from: account1Address })).toEqual(
+        balance1,
+      );
     });
 
     it('transfer on behalf of other, wrong designated caller', async () => {
-      const balance0 = await asset.methods.balance_of_public(accounts[0].address).simulate();
-      const balance1 = await asset.methods.balance_of_public(accounts[1].address).simulate();
+      const balance0 = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
+      const balance1 = await asset.methods.balance_of_public(account1Address).simulate({ from: account1Address });
       const amount = balance0 + 2n;
       const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
 
       // We need to compute the message we want to sign and add it to the wallet as approved
       const action = asset
-        .withWallet(wallets[1])
-        .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, authwitNonce);
-      const validateActionInteraction = await wallets[0].setPublicAuthWit(
-        { caller: accounts[0].address, action },
-        true,
-      );
-      await validateActionInteraction.send().wait();
+        .withWallet(account1)
+        .methods.transfer_in_public(adminAddress, account1Address, amount, authwitNonce);
+      const validateActionInteraction = await admin.setPublicAuthWit({ caller: adminAddress, action }, true);
+      await validateActionInteraction.send({ from: adminAddress }).wait();
 
       // Perform the transfer
-      await expect(action.simulate()).rejects.toThrow(/unauthorized/);
+      await expect(action.simulate({ from: account1Address })).rejects.toThrow(/unauthorized/);
 
-      expect(await asset.methods.balance_of_public(accounts[0].address).simulate()).toEqual(balance0);
-      expect(await asset.methods.balance_of_public(accounts[1].address).simulate()).toEqual(balance1);
+      expect(await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress })).toEqual(balance0);
+      expect(await asset.methods.balance_of_public(account1Address).simulate({ from: account1Address })).toEqual(
+        balance1,
+      );
     });
 
     it('transfer on behalf of other, cancelled authwit', async () => {
-      const balance0 = await asset.methods.balance_of_public(accounts[0].address).simulate();
+      const balance0 = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
       const amount = balance0 / 2n;
       expect(amount).toBeGreaterThan(0n);
       const authwitNonce = Fr.random();
 
       const action = asset
-        .withWallet(wallets[1])
-        .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, authwitNonce);
+        .withWallet(account1)
+        .methods.transfer_in_public(adminAddress, account1Address, amount, authwitNonce);
 
-      const validateActionInteraction = await wallets[0].setPublicAuthWit(
-        { caller: accounts[1].address, action },
-        true,
-      );
-      await validateActionInteraction.send().wait();
+      const validateActionInteraction = await admin.setPublicAuthWit({ caller: account1Address, action }, true);
+      await validateActionInteraction.send({ from: adminAddress }).wait();
 
-      const cancelActionInteraction = await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, false);
-      await cancelActionInteraction.send().wait();
+      const cancelActionInteraction = await admin.setPublicAuthWit({ caller: account1Address, action }, false);
+      await cancelActionInteraction.send({ from: adminAddress }).wait();
 
       await expect(
         asset
-          .withWallet(wallets[1])
-          .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, authwitNonce)
-          .simulate(),
+          .withWallet(account1)
+          .methods.transfer_in_public(adminAddress, account1Address, amount, authwitNonce)
+          .simulate({ from: account1Address }),
       ).rejects.toThrow(/unauthorized/);
     });
 
     it('transfer on behalf of other, cancelled authwit, flow 2', async () => {
-      const balance0 = await asset.methods.balance_of_public(accounts[0].address).simulate();
+      const balance0 = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
       const amount = balance0 / 2n;
       expect(amount).toBeGreaterThan(0n);
       const authwitNonce = Fr.random();
 
       const action = asset
-        .withWallet(wallets[1])
-        .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, authwitNonce);
+        .withWallet(account1)
+        .methods.transfer_in_public(adminAddress, account1Address, amount, authwitNonce);
 
-      const validateActionInteraction = await wallets[0].setPublicAuthWit(
-        { caller: accounts[1].address, action },
-        true,
-      );
-      await validateActionInteraction.send().wait();
+      const validateActionInteraction = await admin.setPublicAuthWit({ caller: account1Address, action }, true);
+      await validateActionInteraction.send({ from: adminAddress }).wait();
 
-      const cancelActionInteraction = await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, false);
-      await cancelActionInteraction.send().wait();
+      const cancelActionInteraction = await admin.setPublicAuthWit({ caller: account1Address, action }, false);
+      await cancelActionInteraction.send({ from: adminAddress }).wait();
 
-      await expect(action.simulate()).rejects.toThrow(/unauthorized/);
+      await expect(action.simulate({ from: account1Address })).rejects.toThrow(/unauthorized/);
     });
 
     it('transfer on behalf of other, invalid spend_public_authwit on "from"', async () => {
@@ -255,9 +258,9 @@ describe('e2e_token_contract transfer public', () => {
 
       await expect(
         asset
-          .withWallet(wallets[1])
-          .methods.transfer_in_public(badAccount.address, accounts[1].address, 0, authwitNonce)
-          .simulate(),
+          .withWallet(account1)
+          .methods.transfer_in_public(badAccount.address, account1Address, 0, authwitNonce)
+          .simulate({ from: account1Address }),
       ).rejects.toThrow(/unauthorized/);
     });
 

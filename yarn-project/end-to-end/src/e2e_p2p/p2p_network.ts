@@ -1,9 +1,10 @@
 import { getSchnorrWalletWithSecretKey } from '@aztec/accounts/schnorr';
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import { type AccountWalletWithSecretKey, EthAddress } from '@aztec/aztec.js';
+import { type AccountWalletWithSecretKey, AztecAddress, EthAddress, Fr } from '@aztec/aztec.js';
 import {
   type ExtendedViemWalletClient,
+  GSEContract,
   L1TxUtils,
   MultiAdderArtifact,
   type Operator,
@@ -13,12 +14,14 @@ import {
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
 import { ChainMonitor } from '@aztec/ethereum/test';
+import { SecretValue } from '@aztec/foundation/config';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { RollupAbi, SlashFactoryAbi, SlasherAbi, SlashingProposerAbi, TestERC20Abi } from '@aztec/l1-artifacts';
+import { EmpireSlashingProposerAbi, RollupAbi, SlasherAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import type { BootstrapNode } from '@aztec/p2p/bootstrap';
 import { createBootstrapNodeFromPrivateKey, getBootstrapNodeEnr } from '@aztec/p2p/test-helpers';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
+import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
 import { getGenesisValues } from '@aztec/world-state/testing';
@@ -70,6 +73,7 @@ export class P2PNetworkTest {
   public prefilledPublicData: PublicDataTreeLeaf[] = [];
   // The re-execution test needs a wallet and a spam contract
   public wallet?: AccountWalletWithSecretKey;
+  public defaultAccountAddress?: AztecAddress;
   public spamContract?: SpamContract;
 
   public bootstrapNode?: BootstrapNode;
@@ -206,6 +210,7 @@ export class P2PNetworkTest {
       validators.push({
         attester: EthAddress.fromString(attester.address),
         withdrawer: EthAddress.fromString(attester.address),
+        bn254SecretKey: new SecretValue(Fr.random().toBigInt()),
       });
 
       this.logger.info(`Adding attester ${attester.address} as validator`);
@@ -245,7 +250,7 @@ export class P2PNetworkTest {
           client: deployL1ContractsValues.l1Client,
         });
 
-        const stakeNeeded = l1ContractsConfig.depositAmount * BigInt(this.numberOfValidators);
+        const stakeNeeded = l1ContractsConfig.activationThreshold * BigInt(this.numberOfValidators);
         await Promise.all(
           [await stakingAsset.write.mint([multiAdder.address, stakeNeeded], {} as any)].map(txHash =>
             deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: txHash }),
@@ -255,16 +260,25 @@ export class P2PNetworkTest {
         const { validators } = this.getValidators();
         this.validators = validators;
 
+        const gseAddress = deployL1ContractsValues.l1ContractAddresses.gseAddress!;
+        if (!gseAddress) {
+          throw new Error('GSE contract not deployed');
+        }
+
+        const gseContract = new GSEContract(deployL1ContractsValues.l1Client, gseAddress.toString());
+
+        const makeValidatorTuples = async (validator: Operator) => {
+          const registrationTuple = await gseContract.makeRegistrationTuple(validator.bn254SecretKey.getValue());
+          return {
+            attester: validator.attester.toString() as `0x${string}`,
+            withdrawer: validator.withdrawer.toString() as `0x${string}`,
+            ...registrationTuple,
+          };
+        };
+        const validatorTuples = await Promise.all(validators.map(makeValidatorTuples));
+
         await deployL1ContractsValues.l1Client.waitForTransactionReceipt({
-          hash: await multiAdder.write.addValidators([
-            this.validators.map(
-              v =>
-                ({
-                  attester: v.attester.toString() as `0x${string}`,
-                  withdrawer: v.withdrawer.toString() as `0x${string}`,
-                }) as const,
-            ),
-          ]),
+          hash: await multiAdder.write.addValidators([validatorTuples]),
         });
 
         const timestamp = await cheatCodes.rollup.advanceToEpoch(2n, { updateDateProvider: dateProvider });
@@ -287,6 +301,7 @@ export class P2PNetworkTest {
         this.deployedAccounts = deployedAccounts;
         const [account] = deployedAccounts;
         this.wallet = await getSchnorrWalletWithSecretKey(pxe, account.secret, account.signingKey, account.salt);
+        this.defaultAccountAddress = this.wallet.getAddress();
       },
     );
   }
@@ -299,7 +314,9 @@ export class P2PNetworkTest {
           throw new Error('Call snapshot t.setupAccount before deploying account contract');
         }
 
-        const spamContract = await SpamContract.deploy(this.wallet).send().deployed();
+        const spamContract = await SpamContract.deploy(this.wallet)
+          .send({ from: this.defaultAccountAddress! })
+          .deployed();
         return { contractAddress: spamContract.address };
       },
       async ({ contractAddress }) => {
@@ -375,8 +392,8 @@ export class P2PNetworkTest {
   async getContracts(): Promise<{
     rollup: RollupContract;
     slasherContract: GetContractReturnType<typeof SlasherAbi, ViemClient>;
-    slashingProposer: GetContractReturnType<typeof SlashingProposerAbi, ViemClient>;
-    slashFactory: GetContractReturnType<typeof SlashFactoryAbi, ViemClient>;
+    slashingProposer: GetContractReturnType<typeof EmpireSlashingProposerAbi, ViemClient>;
+    slashFactory: SlashFactoryContract;
   }> {
     if (!this.ctx.deployL1ContractsValues) {
       throw new Error('DeployL1ContractsValues not set');
@@ -395,15 +412,14 @@ export class P2PNetworkTest {
 
     const slashingProposer = getContract({
       address: getAddress(await slasherContract.read.PROPOSER()),
-      abi: SlashingProposerAbi,
+      abi: EmpireSlashingProposerAbi,
       client: this.ctx.deployL1ContractsValues.l1Client,
     });
 
-    const slashFactory = getContract({
-      address: getAddress(this.ctx.deployL1ContractsValues.l1ContractAddresses.slashFactoryAddress!.toString()),
-      abi: SlashFactoryAbi,
-      client: this.ctx.deployL1ContractsValues.l1Client,
-    });
+    const slashFactory = new SlashFactoryContract(
+      this.ctx.deployL1ContractsValues.l1Client,
+      getAddress(this.ctx.deployL1ContractsValues.l1ContractAddresses.slashFactoryAddress!.toString()),
+    );
 
     return { rollup, slasherContract, slashingProposer, slashFactory };
   }

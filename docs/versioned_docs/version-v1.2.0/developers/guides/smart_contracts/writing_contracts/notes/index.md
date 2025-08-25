@@ -1,5 +1,6 @@
 ---
 title: Notes
+description: Comprehensive guide to using notes for private state management in your Aztec smart contracts.
 sidebar_position: 3
 tags: [contracts, notes]
 ---

@@ -9,11 +9,11 @@ import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {
-  SignatureLib,
+  AttestationLib,
   Signature,
   CommitteeAttestation,
   CommitteeAttestations
-} from "@aztec/shared/libraries/SignatureLib.sol";
+} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
@@ -40,12 +40,7 @@ import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {ProposedHeaderLib} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
-import {
-  ProposeArgs,
-  ProposePayload,
-  OracleInput,
-  ProposeLib
-} from "@aztec/core/libraries/rollup/ProposeLib.sol";
+import {ProposeArgs, ProposePayload, OracleInput, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {
   FeeLib,
@@ -56,22 +51,20 @@ import {
   ManaBaseFeeComponents
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {
-  FeeModelTestPoints,
-  TestPoint,
-  FeeHeaderModel,
-  ManaBaseFeeComponentsModel
+  FeeModelTestPoints, TestPoint, FeeHeaderModel, ManaBaseFeeComponentsModel
 } from "test/fees/FeeModelTestPoints.t.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
-import {SlashingProposer} from "@aztec/core/slashing/SlashingProposer.sol";
+import {EmpireSlashingProposer} from "@aztec/core/slashing/EmpireSlashingProposer.sol";
 import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
+import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 // solhint-disable comprehensive-interface
 
 uint256 constant MANA_TARGET = 1e8;
@@ -99,6 +92,8 @@ contract FakeCanonical is IRewardDistributor {
   }
 
   function updateRegistry(IRegistry _registry) external {}
+
+  function recover(address _asset, address _to, uint256 _amount) external {}
 }
 
 /**
@@ -107,7 +102,6 @@ contract FakeCanonical is IRewardDistributor {
  */
 contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
   using MessageHashUtils for bytes32;
-  using stdStorage for StdStorage;
   using TimeLib for Slot;
   using FeeLib for uint256;
   using FeeLib for ManaBaseFeeComponents;
@@ -139,7 +133,7 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
   // Track attestations by block number for proof submission
   mapping(uint256 => CommitteeAttestations) internal blockAttestations;
 
-  SlashingProposer internal slashingProposer;
+  EmpireSlashingProposer internal slashingProposer;
   IPayload internal slashPayload;
 
   modifier prepare(uint256 _validatorCount, uint256 _targetCommitteeSize) {
@@ -153,28 +147,35 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
       address attester = vm.addr(attesterPrivateKey);
       attesterPrivateKeys[attester] = attesterPrivateKey;
 
-      initialValidators[i - 1] = CheatDepositArgs({attester: attester, withdrawer: address(this)});
+      initialValidators[i - 1] = CheatDepositArgs({
+        attester: attester,
+        withdrawer: address(this),
+        publicKeyInG1: BN254Lib.g1Zero(),
+        publicKeyInG2: BN254Lib.g2Zero(),
+        proofOfPossession: BN254Lib.g1Zero()
+      });
     }
 
     StakingQueueConfig memory stakingQueueConfig = TestConstants.getStakingQueueConfig();
     stakingQueueConfig.normalFlushSizeMin = _validatorCount;
 
-    RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost)
-      .setManaTarget(MANA_TARGET).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION)
-      .setMintFeeAmount(1e30).setValidators(initialValidators).setTargetCommitteeSize(
-      _targetCommitteeSize
-    ).setStakingQueueConfig(stakingQueueConfig).setSlashingQuorum(VOTING_ROUND_SIZE)
-      .setSlashingRoundSize(VOTING_ROUND_SIZE);
+    RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost).setManaTarget(
+      MANA_TARGET
+    ).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION).setMintFeeAmount(1e30).setValidators(
+      initialValidators
+    ).setTargetCommitteeSize(_targetCommitteeSize).setStakingQueueConfig(stakingQueueConfig).setSlashingQuorum(
+      VOTING_ROUND_SIZE
+    ).setSlashingRoundSize(VOTING_ROUND_SIZE);
     builder.deploy();
 
     asset = builder.getConfig().testERC20;
     rollup = builder.getConfig().rollup;
-    slashingProposer = Slasher(rollup.getSlasher()).PROPOSER();
+    slashingProposer = EmpireSlashingProposer(Slasher(rollup.getSlasher()).PROPOSER());
 
     SlashFactory slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
     address[] memory toSlash = new address[](0);
     uint96[] memory amounts = new uint96[](0);
-    uint256[] memory offenses = new uint256[](0);
+    uint128[][] memory offenses = new uint128[][](0);
     slashPayload = slashFactory.createSlashPayload(toSlash, amounts, offenses);
 
     vm.label(coinbase, "coinbase");
@@ -231,12 +232,10 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
 
         // Store the attestations for the current block number
         uint256 currentBlockNumber = rollup.getPendingBlockNumber() + 1;
-        blockAttestations[currentBlockNumber] = SignatureLib.packAttestations(b.attestations);
+        blockAttestations[currentBlockNumber] = AttestationLib.packAttestations(b.attestations);
 
         vm.prank(proposer);
-        rollup.propose(
-          b.proposeArgs, SignatureLib.packAttestations(b.attestations), b.signers, b.blobInputs
-        );
+        rollup.propose(b.proposeArgs, AttestationLib.packAttestations(b.attestations), b.signers, b.blobInputs);
 
         nextSlot = nextSlot + Slot.wrap(1);
       }
@@ -315,8 +314,7 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
 
     Timestamp ts = rollup.getTimestampForSlot(slotNumber);
 
-    uint128 manaBaseFee =
-      SafeCast.toUint128(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true));
+    uint128 manaBaseFee = SafeCast.toUint128(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true));
     uint256 manaSpent = point.block_header.mana_spent;
 
     address proposer = rollup.getCurrentProposer();
@@ -392,11 +390,7 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
     });
   }
 
-  function createAttestation(address _signer, bytes32 _digest)
-    internal
-    view
-    returns (CommitteeAttestation memory)
-  {
+  function createAttestation(address _signer, bytes32 _digest) internal view returns (CommitteeAttestation memory) {
     uint256 privateKey = attesterPrivateKeys[_signer];
 
     bytes32 digest = _digest.toEthSignedMessageHash();
@@ -407,34 +401,10 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
     return CommitteeAttestation({addr: _signer, signature: signature});
   }
 
-  // This is used for attestations that are not signed - we include their address to help reconstruct the committee commitment
-  function createEmptyAttestation(address _signer)
-    internal
-    pure
-    returns (CommitteeAttestation memory)
-  {
+  // This is used for attestations that are not signed - we include their address to help reconstruct the committee
+  // commitment
+  function createEmptyAttestation(address _signer) internal pure returns (CommitteeAttestation memory) {
     Signature memory emptySignature = Signature({v: 0, r: 0, s: 0});
     return CommitteeAttestation({addr: _signer, signature: emptySignature});
-  }
-
-  /**
-   * @notice Creates an EIP-712 signature for signalWithSig
-   * @param _signer The address that should sign (must match a block proposer)
-   * @param _payload The payload to signal
-   * @param _round The round to signal in
-   * @return The EIP-712 signature
-   */
-  function createSignalSignature(address _signer, IPayload _payload, uint256 _round)
-    internal
-    view
-    returns (Signature memory)
-  {
-    uint256 privateKey = attesterPrivateKeys[_signer];
-    require(privateKey != 0, "Private key not found for signer");
-    bytes32 digest = slashingProposer.getSignalSignatureDigest(_payload, _signer, _round);
-
-    (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
-
-    return Signature({v: v, r: r, s: s});
   }
 }

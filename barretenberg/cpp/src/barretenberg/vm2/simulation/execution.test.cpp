@@ -35,6 +35,7 @@
 #include "barretenberg/vm2/simulation/testing/mock_keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_poseidon2.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_sha256.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_to_radix.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 
@@ -66,6 +67,7 @@ class ExecutionSimulationTest : public ::testing::Test {
     ExecutionSimulationTest()
     {
         ON_CALL(context, get_memory).WillByDefault(ReturnRef(memory));
+        ON_CALL(context, get_bytecode_manager).WillByDefault(ReturnRef(bytecode_manager));
         execution.set_gas_tracker(gas_tracker);
     }
 
@@ -90,12 +92,15 @@ class ExecutionSimulationTest : public ::testing::Test {
     StrictMock<MockEcc> ecc;
     StrictMock<MockToRadix> to_radix;
     StrictMock<MockEmitUnencryptedLog> emit_unencrypted_log;
+    StrictMock<MockBytecodeManager> bytecode_manager;
+    StrictMock<MockSha256> sha256;
     TestingExecution execution = TestingExecution(alu,
                                                   bitwise,
                                                   data_copy,
                                                   poseidon2,
                                                   ecc,
                                                   to_radix,
+                                                  sha256,
                                                   execution_components,
                                                   context_provider,
                                                   instruction_info_db,
@@ -108,6 +113,9 @@ class ExecutionSimulationTest : public ::testing::Test {
                                                   emit_unencrypted_log,
                                                   merkle_db);
 };
+
+// NOTE: MemoryAddresses x, y used in the below tests like: execution.fn(context, x, y, ..) are just unchecked arbitrary
+// addresses. We test the MemoryValues and destination addresses.
 
 TEST_F(ExecutionSimulationTest, Add)
 {
@@ -152,6 +160,34 @@ TEST_F(ExecutionSimulationTest, Mul)
     execution.mul(context, 1, 2, 3);
 }
 
+TEST_F(ExecutionSimulationTest, Div)
+{
+    auto a = MemoryValue::from<uint128_t>(6);
+    auto b = MemoryValue::from<uint128_t>(3);
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, get).Times(2).WillOnce(ReturnRef(a)).WillOnce(ReturnRef(b));
+    EXPECT_CALL(alu, div(a, b)).WillOnce(Return(MemoryValue::from<uint128_t>(2)));
+    EXPECT_CALL(memory, set(3, MemoryValue::from<uint128_t>(2)));
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    execution.div(context, 1, 2, 3);
+}
+
+TEST_F(ExecutionSimulationTest, FDiv)
+{
+    auto a = MemoryValue::from<FF>(FF::modulus - 4);
+    auto b = MemoryValue::from<FF>(2);
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, get).Times(2).WillOnce(ReturnRef(a)).WillOnce(ReturnRef(b));
+    EXPECT_CALL(alu, fdiv(a, b)).WillOnce(Return(MemoryValue::from<FF>(FF::modulus - 2)));
+    EXPECT_CALL(memory, set(3, MemoryValue::from<FF>(FF::modulus - 2)));
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    execution.fdiv(context, 1, 2, 3);
+}
+
 // TODO(MW): Add alu tests here for other ops
 
 TEST_F(ExecutionSimulationTest, Call)
@@ -163,20 +199,64 @@ TEST_F(ExecutionSimulationTest, Call)
     MemoryValue l2_gas_allocated = MemoryValue::from<uint32_t>(6);
     MemoryValue da_gas_allocated = MemoryValue::from<uint32_t>(7);
     MemoryValue cd_size = MemoryValue::from<uint32_t>(8);
+    AppendOnlyTreeSnapshot written_public_data_slots_tree_snapshot = AppendOnlyTreeSnapshot{
+        .root = 0x12345678,
+        .nextAvailableLeafIndex = 10,
+    };
+    TreeStates tree_states = TreeStates {
+        .noteHashTree = {
+            .tree = {
+                .root = 10,
+                .nextAvailableLeafIndex = 9,
+            },
+            .counter = 8,
+        },
+        .nullifierTree = {
+            .tree = {
+                .root = 7,
+                .nextAvailableLeafIndex = 6,
+            },
+            .counter = 5,
+        },
+        .l1ToL2MessageTree = {
+            .tree = {
+                .root = 4,
+                .nextAvailableLeafIndex = 3,
+            },
+            .counter = 0,
+        },
+        .publicDataTree = {
+            .tree = {
+                .root = 2,
+                .nextAvailableLeafIndex = 1,
+            },
+            .counter = 1,
+        }
+    };
+
+    SideEffectStates side_effect_states = SideEffectStates{ .numUnencryptedLogs = 1, .numL2ToL1Messages = 2 };
 
     EXPECT_CALL(gas_tracker, compute_gas_limit_for_call(Gas{ 6, 7 })).WillOnce(Return(Gas{ 2, 3 }));
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
     // Context snapshotting
     EXPECT_CALL(context, get_context_id);
-    EXPECT_CALL(context_provider, get_next_context_id);
     EXPECT_CALL(context, get_parent_id);
+    EXPECT_CALL(context, get_bytecode_manager).WillOnce(ReturnRef(bytecode_manager));
+    EXPECT_CALL(bytecode_manager, try_get_bytecode_id);
     EXPECT_CALL(context, get_next_pc);
     EXPECT_CALL(context, get_is_static);
     EXPECT_CALL(context, get_msg_sender).WillOnce(ReturnRef(parent_address));
     EXPECT_CALL(context, get_transaction_fee).WillOnce(ReturnRef(zero));
     EXPECT_CALL(context, get_parent_gas_used);
     EXPECT_CALL(context, get_parent_gas_limit);
+    EXPECT_CALL(context, get_written_public_data_slots_tree_snapshot)
+        .WillOnce(Return(written_public_data_slots_tree_snapshot));
+    EXPECT_CALL(context, get_side_effect_states).WillRepeatedly(ReturnRef(side_effect_states));
+
+    EXPECT_CALL(context, get_phase).WillOnce(Return(TransactionPhase::APP_LOGIC));
+
+    EXPECT_CALL(merkle_db, get_tree_state).WillOnce(Return(tree_states));
 
     EXPECT_CALL(context, get_memory);
     EXPECT_CALL(context, get_address).WillRepeatedly(ReturnRef(parent_address));
@@ -189,11 +269,17 @@ TEST_F(ExecutionSimulationTest, Call)
     ON_CALL(*nested_context, halted())
         .WillByDefault(Return(true)); // We just want the recursive call to return immediately.
 
-    SideEffectStates side_effect_states = SideEffectStates{ .numUnencryptedLogs = 1, .numL2ToL1Messages = 2 };
-    EXPECT_CALL(context, get_side_effect_states).WillOnce(ReturnRef(side_effect_states));
-
     EXPECT_CALL(context_provider,
-                make_nested_context(nested_address, parent_address, _, _, _, _, _, Gas{ 2, 3 }, side_effect_states))
+                make_nested_context(nested_address,
+                                    parent_address,
+                                    _,
+                                    _,
+                                    _,
+                                    _,
+                                    _,
+                                    Gas{ 2, 3 },
+                                    side_effect_states,
+                                    TransactionPhase::APP_LOGIC))
         .WillOnce(Return(std::move(nested_context)));
 
     execution.call(context,
@@ -699,7 +785,7 @@ TEST_F(ExecutionSimulationTest, NullifierExists)
 
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
-    EXPECT_CALL(merkle_db, nullifier_exists(nullifier.as<FF>(), address.as<FF>())).WillOnce(Return(true));
+    EXPECT_CALL(merkle_db, nullifier_exists(address.as_ff(), nullifier.as_ff())).WillOnce(Return(true));
 
     EXPECT_CALL(memory, set(exists_offset, MemoryValue::from<uint1_t>(1)));
 
@@ -722,7 +808,7 @@ TEST_F(ExecutionSimulationTest, EmitNullifier)
 
     EXPECT_CALL(context, get_is_static).WillOnce(Return(false));
     EXPECT_CALL(merkle_db, get_tree_state).WillOnce(Return(tree_state));
-    EXPECT_CALL(merkle_db, nullifier_write(address, nullifier.as<FF>())).WillOnce(Return(true)); // success
+    EXPECT_CALL(merkle_db, nullifier_write(address, nullifier.as_ff())).WillOnce(Return(true)); // success
 
     execution.emit_nullifier(context, nullifier_addr);
 }
@@ -920,6 +1006,99 @@ TEST_F(ExecutionSimulationTest, EmitUnencryptedLog)
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, log_size.as<uint32_t>() }));
 
     execution.emit_unencrypted_log(context, log_offset, log_size_offset);
+}
+
+TEST_F(ExecutionSimulationTest, SendL2ToL1Msg)
+{
+    MemoryAddress recipient_addr = 10;
+    MemoryAddress content_addr = 11;
+
+    auto recipient = MemoryValue::from<FF>(42);
+    auto content = MemoryValue::from<FF>(27);
+
+    SideEffectStates side_effects_states = {};
+    side_effects_states.numL2ToL1Messages = MAX_L2_TO_L1_MSGS_PER_TX - 1;
+    SideEffectStates side_effects_states_after = side_effects_states;
+    side_effects_states_after.numL2ToL1Messages++;
+
+    EXPECT_CALL(context, get_memory);
+
+    EXPECT_CALL(memory, get(recipient_addr)).WillOnce(ReturnRef(recipient));
+    EXPECT_CALL(memory, get(content_addr)).WillOnce(ReturnRef(content));
+
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    EXPECT_CALL(context, get_is_static).WillOnce(Return(false));
+
+    EXPECT_CALL(context, get_side_effect_states).WillOnce(ReturnRef(side_effects_states));
+    EXPECT_CALL(context, set_side_effect_states(side_effects_states_after));
+
+    execution.send_l2_to_l1_msg(context, recipient_addr, content_addr);
+}
+
+TEST_F(ExecutionSimulationTest, SendL2ToL1MsgStaticCall)
+{
+    MemoryAddress recipient_addr = 10;
+    MemoryAddress content_addr = 11;
+
+    auto recipient = MemoryValue::from<FF>(42);
+    auto content = MemoryValue::from<FF>(27);
+
+    SideEffectStates side_effects_states = {};
+    side_effects_states.numL2ToL1Messages = MAX_L2_TO_L1_MSGS_PER_TX - 1;
+
+    EXPECT_CALL(context, get_memory);
+
+    EXPECT_CALL(memory, get(recipient_addr)).WillOnce(ReturnRef(recipient));
+    EXPECT_CALL(memory, get(content_addr)).WillOnce(ReturnRef(content));
+
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    EXPECT_CALL(context, get_is_static).WillOnce(Return(true));
+
+    EXPECT_CALL(context, get_side_effect_states).WillOnce(ReturnRef(side_effects_states));
+
+    EXPECT_THROW_WITH_MESSAGE(execution.send_l2_to_l1_msg(context, recipient_addr, content_addr),
+                              "SENDL2TOL1MSG: Cannot send L2 to L1 message in static context");
+}
+
+TEST_F(ExecutionSimulationTest, SendL2ToL1MsgLimitReached)
+{
+    MemoryAddress recipient_addr = 10;
+    MemoryAddress content_addr = 11;
+
+    auto recipient = MemoryValue::from<FF>(42);
+    auto content = MemoryValue::from<FF>(27);
+
+    SideEffectStates side_effects_states = {};
+    side_effects_states.numL2ToL1Messages = MAX_L2_TO_L1_MSGS_PER_TX;
+
+    EXPECT_CALL(context, get_memory);
+
+    EXPECT_CALL(memory, get(recipient_addr)).WillOnce(ReturnRef(recipient));
+    EXPECT_CALL(memory, get(content_addr)).WillOnce(ReturnRef(content));
+
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    EXPECT_CALL(context, get_is_static).WillOnce(Return(false));
+
+    EXPECT_CALL(context, get_side_effect_states).WillOnce(ReturnRef(side_effects_states));
+
+    EXPECT_THROW_WITH_MESSAGE(execution.send_l2_to_l1_msg(context, recipient_addr, content_addr),
+                              "SENDL2TOL1MSG: Maximum number of L2 to L1 messages reached");
+}
+
+TEST_F(ExecutionSimulationTest, Sha256Compression)
+{
+    MemoryAddress state_address = 10;
+    MemoryAddress input_address = 20;
+    MemoryAddress dst_address = 50;
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+    EXPECT_CALL(sha256, compression(_, state_address, input_address, dst_address));
+
+    execution.sha256_compression(context, dst_address, state_address, input_address);
 }
 
 } // namespace

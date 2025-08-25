@@ -1,4 +1,4 @@
-import { AccountWallet, Fr, type SimulateMethodOptions } from '@aztec/aztec.js';
+import { AccountWallet, AztecAddress, Fr, type SimulateMethodOptions } from '@aztec/aztec.js';
 import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
 import type { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
@@ -21,6 +21,7 @@ describe('AMM benchmark', () => {
   const t = new ClientFlowsBenchmark('amm');
   // The admin that aids in the setup of the test
   let adminWallet: AccountWallet;
+  let adminAddress: AztecAddress;
   // FPC that accepts bananas
   let bananaFPC: FPCContract;
   // BananaCoin Token contract, just used to pay fees in this scenario
@@ -43,7 +44,8 @@ describe('AMM benchmark', () => {
     await t.applyDeployCandyBarTokenSnapshot();
     await t.applyDeployAmmSnapshot();
     await t.applyDeploySponsoredFPCSnapshot();
-    ({ adminWallet, bananaFPC, bananaCoin, candyBarCoin, amm, liquidityToken, sponsoredFPC } = await t.setup());
+    ({ adminWallet, adminAddress, bananaFPC, bananaCoin, candyBarCoin, amm, liquidityToken, sponsoredFPC } =
+      await t.setup());
   });
 
   afterAll(async () => {
@@ -85,6 +87,7 @@ describe('AMM benchmark', () => {
             // Mint some CandyBarCoins for the user, separated in different notes
             await mintNotes(
               adminWallet,
+              adminAddress,
               benchysWallet.getAddress(),
               candyBarCoin,
               Array(notesToCreate).fill(BigInt(AMOUNT_PER_NOTE)),
@@ -92,6 +95,7 @@ describe('AMM benchmark', () => {
             // Mint some BananaCoins for the user, separated in different notes
             await mintNotes(
               adminWallet,
+              adminAddress,
               benchysWallet.getAddress(),
               bananaCoin,
               Array(notesToCreate).fill(BigInt(AMOUNT_PER_NOTE)),
@@ -104,6 +108,7 @@ describe('AMM benchmark', () => {
           it(`${accountType} contract adds liquidity to the AMM sending ${amountToSend} tokens using 1 recursions in both and pays using ${benchmarkingPaymentMethod}`, async () => {
             const paymentMethod = t.paymentMethods[benchmarkingPaymentMethod];
             const options: SimulateMethodOptions = {
+              from: benchysWallet.getAddress(),
               fee: { paymentMethod: await paymentMethod.forWallet(benchysWallet) },
             };
 
@@ -146,11 +151,12 @@ describe('AMM benchmark', () => {
                 2 + // Account verify_private_authwit + kernel inner
                 2 + // Token prepare_private_balance_increase + kernel inner (liquidity token mint)
                 1 + // Kernel reset
-                1, // Kernel tail
+                1 + // Kernel tail
+                1, // Kernel hiding
             );
 
             if (process.env.SANITY_CHECKS) {
-              const tx = await addLiquidityInteraction.send().wait();
+              const tx = await addLiquidityInteraction.send({ from: benchysWallet.getAddress() }).wait();
               expect(tx.transactionFee!).toBeGreaterThan(0n);
             }
           });

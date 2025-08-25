@@ -179,6 +179,8 @@ const PIL_CONSTANTS = [
   'AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX',
   'AVM_PUBLIC_INPUTS_START_GAS_USED_ROW_IDX',
   'AVM_PUBLIC_INPUTS_GAS_SETTINGS_ROW_IDX',
+  'AVM_PUBLIC_INPUTS_GAS_SETTINGS_GAS_LIMITS_ROW_IDX',
+  'AVM_PUBLIC_INPUTS_GAS_SETTINGS_TEARDOWN_GAS_LIMITS_ROW_IDX',
   'AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX',
   'AVM_PUBLIC_INPUTS_PUBLIC_SETUP_CALL_REQUESTS_ROW_IDX',
   'AVM_PUBLIC_INPUTS_PUBLIC_APP_LOGIC_CALL_REQUESTS_ROW_IDX',
@@ -225,6 +227,7 @@ const PIL_CONSTANTS = [
   'AVM_SUBTRACE_ID_ECC',
   'AVM_SUBTRACE_ID_KECCAKF1600',
   'AVM_SUBTRACE_ID_DATA_COPY',
+  'AVM_SUBTRACE_ID_SHA256_COMPRESSION',
   'AVM_DYN_GAS_ID_CALLDATACOPY',
   'AVM_DYN_GAS_ID_RETURNDATACOPY',
   'AVM_DYN_GAS_ID_TORADIX',
@@ -265,6 +268,7 @@ const PIL_CONSTANTS = [
   'AVM_EXEC_OP_ID_L1_TO_L2_MESSAGE_EXISTS',
   'AVM_EXEC_OP_ID_NULLIFIER_EXISTS',
   'AVM_EXEC_OP_ID_EMIT_NULLIFIER',
+  'AVM_EXEC_OP_ID_SENDL2TOL1MSG',
   'AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT',
   'AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_ROOT',
   'AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE',
@@ -429,7 +433,7 @@ function processConstantsSolidity(constants: { [key: string]: string }, prefix =
  */
 function generateTypescriptConstants({ constants, generatorIndexEnum }: ParsedContent, targetPath: string) {
   const result = [
-    '/* eslint-disable */\n// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants',
+    '// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants',
     processConstantsTS(constants),
     processEnumTS('GeneratorIndex', generatorIndexEnum),
   ].join('\n');
@@ -576,6 +580,7 @@ function evaluateExpressions(expressions: [string, string][]): { [key: string]: 
         // Remove 'as u8' and 'as u32' castings
         .replaceAll(' as u8', '')
         .replaceAll(' as u32', '')
+        .replaceAll(' as u64', '')
         // Remove the 'AztecAddress::from_field(...)' pattern
         .replace(/AztecAddress::from_field\((0x[a-fA-F0-9]+|[0-9]+)\)/g, '$1')
         // We make some space around the parentheses, so that constant numbers are still split.

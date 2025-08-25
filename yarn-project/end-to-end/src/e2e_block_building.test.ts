@@ -1,4 +1,4 @@
-import { type InitialAccountData, deployFundedSchnorrAccount } from '@aztec/accounts/testing';
+import { deployFundedSchnorrAccount } from '@aztec/accounts/testing';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import {
   type AccountWallet,
@@ -43,6 +43,10 @@ describe('e2e_block_building', () => {
   let logger: Logger;
   let owner: Wallet;
   let minter: Wallet;
+
+  let ownerAddress: AztecAddress;
+  let minterAddress: AztecAddress;
+
   let aztecNode: AztecNode;
   let aztecNodeAdmin: AztecNodeAdmin;
   let sequencer: TestSequencerClient;
@@ -75,6 +79,8 @@ describe('e2e_block_building', () => {
       }));
       sequencer = sequencerClient! as TestSequencerClient;
       aztecNodeAdmin = maybeAztecNodeAdmin!;
+      ownerAddress = owner.getAddress();
+      minterAddress = minter.getAddress();
     });
 
     beforeEach(async () => {
@@ -95,7 +101,9 @@ describe('e2e_block_building', () => {
       const TX_COUNT = 16;
 
       const ownerAddress = owner.getCompleteAddress().address;
-      const contract = await StatefulTestContract.deploy(owner, ownerAddress, 1).send().deployed();
+      const contract = await StatefulTestContract.deploy(owner, ownerAddress, 1)
+        .send({ from: ownerAddress })
+        .deployed();
       logger.info(`Deployed stateful test contract at ${contract.address}`);
 
       // We have to set minTxsPerBlock to 1 or we could end with dangling txs.
@@ -124,7 +132,7 @@ describe('e2e_block_building', () => {
 
       // Flood the mempool with TX_COUNT simultaneous txs
       const methods = times(TX_COUNT, i => contract.methods.increment_public_value(ownerAddress, i));
-      const provenTxs = await asyncMap(methods, method => method.prove());
+      const provenTxs = await asyncMap(methods, method => method.prove({ from: ownerAddress }));
       logger.info(`Sending ${TX_COUNT} txs to the node`);
       const txs = await Promise.all(provenTxs.map(tx => tx.send()));
       logger.info(`All ${TX_COUNT} txs have been sent`, {
@@ -145,7 +153,6 @@ describe('e2e_block_building', () => {
       await aztecNodeAdmin.setConfig({ minTxsPerBlock: TX_COUNT });
       const deployer = new ContractDeployer(artifact, owner);
 
-      const ownerAddress = owner.getCompleteAddress().address;
       // Need to have value > 0, so adding + 1
       // We need to do so, because noir currently will fail if the multiscalarmul is in an `if`
       // that we DO NOT enter. This should be fixed by https://github.com/noir-lang/noir/issues/5045.
@@ -154,6 +161,7 @@ describe('e2e_block_building', () => {
       for (let i = 0; i < TX_COUNT; i++) {
         provenTxs.push(
           await methods[i].prove({
+            from: ownerAddress,
             contractAddressSalt: new Fr(BigInt(i + 1)),
             skipClassPublication: true,
             skipInstancePublication: true,
@@ -182,7 +190,9 @@ describe('e2e_block_building', () => {
     it('assembles a block with multiple txs with public fns', async () => {
       // First deploy the contract
       const ownerAddress = owner.getCompleteAddress().address;
-      const contract = await StatefulTestContract.deploy(owner, ownerAddress, 1).send().deployed();
+      const contract = await StatefulTestContract.deploy(owner, ownerAddress, 1)
+        .send({ from: ownerAddress })
+        .deployed();
 
       // Assemble N contract deployment txs
       // We need to create them sequentially since we cannot have parallel calls to a circuit
@@ -192,7 +202,7 @@ describe('e2e_block_building', () => {
       const methods = times(TX_COUNT, i => contract.methods.increment_public_value(ownerAddress, i));
       const provenTxs = [];
       for (let i = 0; i < TX_COUNT; i++) {
-        provenTxs.push(await methods[i].prove({}));
+        provenTxs.push(await methods[i].prove({ from: ownerAddress }));
       }
 
       // Send them simultaneously to be picked up by the sequencer
@@ -211,9 +221,10 @@ describe('e2e_block_building', () => {
     // Skipped since we only use it to manually test number of invocations to world-state.
     it.skip('builds blocks with multiple public fns after multiple nullifier insertions', async () => {
       // First deploy the contracts
-      const ownerAddress = owner.getCompleteAddress().address;
-      const contract = await StatefulTestContract.deploy(owner, ownerAddress, 1).send().deployed();
-      const another = await TestContract.deploy(owner).send().deployed();
+      const contract = await StatefulTestContract.deploy(owner, ownerAddress, 1)
+        .send({ from: ownerAddress })
+        .deployed();
+      const another = await TestContract.deploy(owner).send({ from: ownerAddress }).deployed();
 
       await aztecNodeAdmin.setConfig({ minTxsPerBlock: 16, maxTxsPerBlock: 16 });
 
@@ -223,7 +234,7 @@ describe('e2e_block_building', () => {
       const NULLIFIER_COUNT = 128;
       const sentNullifierTxs = [];
       for (let i = 0; i < NULLIFIER_COUNT; i++) {
-        sentNullifierTxs.push(another.methods.emit_nullifier(Fr.random()).send());
+        sentNullifierTxs.push(another.methods.emit_nullifier(Fr.random()).send({ from: ownerAddress }));
       }
       await Promise.all(sentNullifierTxs.map(tx => tx.wait({ timeout: 600 })));
       logger.info(`Nullifier txs sent`);
@@ -234,7 +245,7 @@ describe('e2e_block_building', () => {
       const TX_COUNT = 128;
       const sentTxs = [];
       for (let i = 0; i < TX_COUNT; i++) {
-        sentTxs.push(contract.methods.increment_public_value(ownerAddress, i).send());
+        sentTxs.push(contract.methods.increment_public_value(ownerAddress, i).send({ from: ownerAddress }));
       }
 
       await Promise.all(sentTxs.map(tx => tx.wait({ timeout: 600 })));
@@ -247,8 +258,8 @@ describe('e2e_block_building', () => {
 
       // Deploy a contract in the first transaction
       // In the same block, call a public method on the contract
-      const deployer = TokenContract.deploy(owner, owner.getCompleteAddress(), 'TokenName', 'TokenSymbol', 18);
-      await deployer.create();
+      const deployer = TokenContract.deploy(owner, ownerAddress, 'TokenName', 'TokenSymbol', 18);
+      await deployer.create({ from: ownerAddress });
 
       // We can't use `TokenContract.at` to call a function because it checks the contract is deployed
       // but we are in the same block as the deployment transaction
@@ -257,11 +268,11 @@ describe('e2e_block_building', () => {
         owner,
         deployerInstance.address,
         TokenContract.artifact.functions.find(x => x.name === 'set_minter')!,
-        [minter.getCompleteAddress(), true],
+        [minterAddress, true],
       );
 
-      const deployerTx = await deployer.prove({});
-      const callInteractionTx = await callInteraction.prove();
+      const deployerTx = await deployer.prove({ from: ownerAddress });
+      const callInteractionTx = await callInteraction.prove({ from: ownerAddress });
 
       const [deployTxReceipt, callTxReceipt] = await Promise.all([
         deployerTx.send().wait(),
@@ -278,7 +289,8 @@ describe('e2e_block_building', () => {
 
     beforeAll(async () => {
       ({ teardown, pxe, logger, wallet: owner } = await setup(1));
-      contract = await TestContract.deploy(owner).send().deployed();
+      ownerAddress = owner.getAddress();
+      contract = await TestContract.deploy(owner).send({ from: ownerAddress }).deployed();
       logger.info(`Test contract deployed at ${contract.address}`);
     });
 
@@ -289,10 +301,10 @@ describe('e2e_block_building', () => {
     describe('in the same block, different tx', () => {
       it('private <-> private', async () => {
         const nullifier = Fr.random();
-        const txs = await sendAndWait([
-          contract.methods.emit_nullifier(nullifier),
-          contract.methods.emit_nullifier(nullifier),
-        ]);
+        const txs = await sendAndWait(
+          [contract.methods.emit_nullifier(nullifier), contract.methods.emit_nullifier(nullifier)],
+          ownerAddress,
+        );
 
         // One transaction should succeed, the other should fail, but in any order.
         expect(txs).toIncludeSameMembers([
@@ -306,10 +318,10 @@ describe('e2e_block_building', () => {
 
       it('public -> public', async () => {
         const nullifier = Fr.random();
-        const txs = await sendAndWait([
-          contract.methods.emit_nullifier_public(nullifier),
-          contract.methods.emit_nullifier_public(nullifier),
-        ]);
+        const txs = await sendAndWait(
+          [contract.methods.emit_nullifier_public(nullifier), contract.methods.emit_nullifier_public(nullifier)],
+          ownerAddress,
+        );
 
         // One transaction should succeed, the other should fail, but in any order.
         expect(txs).toIncludeSameMembers([
@@ -323,10 +335,10 @@ describe('e2e_block_building', () => {
 
       it('private -> public', async () => {
         const nullifier = Fr.random();
-        const txs = await sendAndWait([
-          contract.methods.emit_nullifier(nullifier),
-          contract.methods.emit_nullifier_public(nullifier),
-        ]);
+        const txs = await sendAndWait(
+          [contract.methods.emit_nullifier(nullifier), contract.methods.emit_nullifier_public(nullifier)],
+          ownerAddress,
+        );
 
         // One transaction should succeed, the other should fail, but in any order.
         expect(txs).toIncludeSameMembers([
@@ -340,10 +352,10 @@ describe('e2e_block_building', () => {
 
       it('public -> private', async () => {
         const nullifier = Fr.random();
-        const txs = await sendAndWait([
-          contract.methods.emit_nullifier_public(nullifier),
-          contract.methods.emit_nullifier(nullifier),
-        ]);
+        const txs = await sendAndWait(
+          [contract.methods.emit_nullifier_public(nullifier), contract.methods.emit_nullifier(nullifier)],
+          ownerAddress,
+        );
 
         // One transaction should succeed, the other should fail, but in any order.
         expect(txs).toIncludeSameMembers([
@@ -359,32 +371,32 @@ describe('e2e_block_building', () => {
     describe('across blocks', () => {
       it('private -> private', async () => {
         const nullifier = Fr.random();
-        await contract.methods.emit_nullifier(nullifier).send().wait();
-        await expect(contract.methods.emit_nullifier(nullifier).send().wait()).rejects.toThrow(
+        await contract.methods.emit_nullifier(nullifier).send({ from: ownerAddress }).wait();
+        await expect(contract.methods.emit_nullifier(nullifier).send({ from: ownerAddress }).wait()).rejects.toThrow(
           TX_ERROR_EXISTING_NULLIFIER,
         );
       });
 
       it('public -> public', async () => {
         const nullifier = Fr.random();
-        await contract.methods.emit_nullifier_public(nullifier).send().wait();
-        await expect(contract.methods.emit_nullifier_public(nullifier).send().wait()).rejects.toThrow(
-          DUPLICATE_NULLIFIER_ERROR,
-        );
+        await contract.methods.emit_nullifier_public(nullifier).send({ from: ownerAddress }).wait();
+        await expect(
+          contract.methods.emit_nullifier_public(nullifier).send({ from: ownerAddress }).wait(),
+        ).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
       });
 
       it('private -> public', async () => {
         const nullifier = Fr.random();
-        await contract.methods.emit_nullifier(nullifier).send().wait();
-        await expect(contract.methods.emit_nullifier_public(nullifier).send().wait()).rejects.toThrow(
-          DUPLICATE_NULLIFIER_ERROR,
-        );
+        await contract.methods.emit_nullifier(nullifier).send({ from: ownerAddress }).wait();
+        await expect(
+          contract.methods.emit_nullifier_public(nullifier).send({ from: ownerAddress }).wait(),
+        ).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
       });
 
       it('public -> private', async () => {
         const nullifier = Fr.random();
-        await contract.methods.emit_nullifier_public(nullifier).send().wait();
-        await expect(contract.methods.emit_nullifier(nullifier).send().wait()).rejects.toThrow(
+        await contract.methods.emit_nullifier_public(nullifier).send({ from: ownerAddress }).wait();
+        await expect(contract.methods.emit_nullifier(nullifier).send({ from: ownerAddress }).wait()).rejects.toThrow(
           TX_ERROR_EXISTING_NULLIFIER,
         );
       });
@@ -396,7 +408,7 @@ describe('e2e_block_building', () => {
     // to not use TestContract.
     let testContract: TestContract;
     let ownerWallet: AccountWallet;
-    let owner: InitialAccountData;
+    let ownerAddress: AztecAddress;
 
     beforeAll(async () => {
       ({
@@ -404,17 +416,16 @@ describe('e2e_block_building', () => {
         pxe,
         logger,
         wallet: ownerWallet,
-        initialFundedAccounts: [owner],
+        accounts: [ownerAddress],
       } = await setup(1));
+
       logger.info(`Deploying test contract`);
-      testContract = await TestContract.deploy(ownerWallet).send().deployed();
+      testContract = await TestContract.deploy(ownerWallet).send({ from: ownerAddress }).deployed();
     }, 60_000);
 
     afterAll(() => teardown());
 
     it('calls a method with nested encrypted logs', async () => {
-      const address = owner.address;
-
       const values = {
         value0: 5n,
         value1: 4n,
@@ -433,8 +444,8 @@ describe('e2e_block_building', () => {
       // call test contract
       const valuesAsArray = Object.values(values);
 
-      const action = testContract.methods.emit_array_as_encrypted_log(valuesAsArray, address, true);
-      const tx = await action.prove();
+      const action = testContract.methods.emit_array_as_encrypted_log(valuesAsArray, ownerAddress, true);
+      const tx = await action.prove({ from: ownerAddress });
       const rct = await tx.send().wait();
 
       // compare logs
@@ -448,7 +459,7 @@ describe('e2e_block_building', () => {
         TestContract.events.ExampleEvent,
         rct.blockNumber!,
         1,
-        [address],
+        [ownerAddress],
       );
       expect(events[0]).toEqual(values);
       expect(events[1]).toEqual(nestedValues);
@@ -505,10 +516,11 @@ describe('e2e_block_building', () => {
         skipProtocolContracts: true,
         ethereumSlotDuration: 6,
       }));
+      ownerAddress = owner.getAddress();
 
       logger.info('Deploying token contract');
       const token = await TokenContract.deploy(owner, owner.getCompleteAddress(), 'TokenName', 'TokenSymbol', 18)
-        .send()
+        .send({ from: ownerAddress })
         .deployed();
 
       logger.info('Updating txs per block to 4');
@@ -518,7 +530,7 @@ describe('e2e_block_building', () => {
       const txs = [];
       for (let i = 0; i < 24; i++) {
         const tx = token.methods.mint_to_public(owner.getAddress(), 10n);
-        txs.push(tx.send());
+        txs.push(tx.send({ from: ownerAddress }));
       }
 
       logger.info('Waiting for txs to be mined');
@@ -536,8 +548,10 @@ describe('e2e_block_building', () => {
         numberOfInitialFundedAccounts: 1,
       });
       ({ teardown, pxe, logger, aztecNode } = context);
+      owner = context.wallets[0];
+      ownerAddress = context.accounts[0];
 
-      const testContract = await TestContract.deploy(context.wallets[0]).send().deployed();
+      const testContract = await TestContract.deploy(owner).send({ from: ownerAddress }).deployed();
       logger.warn(`Test contract deployed at ${testContract.address}`);
 
       // Send two txs that emit two nullifiers each, one from private and one from public.
@@ -567,7 +581,7 @@ describe('e2e_block_building', () => {
         await origExecute.call(this, ...args);
       });
 
-      const txs = await Promise.all(batches.map(batch => batch.send()));
+      const txs = await Promise.all(batches.map(batch => batch.send({ from: ownerAddress })));
       logger.warn(`Sent two txs to test contract`, { txs: await Promise.all(txs.map(tx => tx.getTxHash())) });
       await Promise.race(txs.map(tx => tx.wait({ timeout: 60 })));
 
@@ -593,7 +607,7 @@ describe('e2e_block_building', () => {
       ({ teardown, aztecNode, pxe, logger, wallet: owner, cheatCodes, watcher } = await setup(1));
 
       ownerAddress = owner.getCompleteAddress().address;
-      contract = await StatefulTestContract.deploy(owner, ownerAddress, 1).send().deployed();
+      contract = await StatefulTestContract.deploy(owner, ownerAddress, 1).send({ from: ownerAddress }).deployed();
       initialBlockNumber = await pxe.getBlockNumber();
       logger.info(`Stateful test contract deployed at ${contract.address}`);
 
@@ -609,9 +623,7 @@ describe('e2e_block_building', () => {
 
     afterEach(() => teardown());
 
-    // TODO: Re-enable once the error regex in test patterns is fixed. For more context see this discussion on slack:
-    // https://aztecprotocol.slack.com/archives/C04BTJAA694/p1753780080508249
-    it.skip('detects an upcoming reorg and builds a block for the correct slot', async () => {
+    it('detects an upcoming reorg and builds a block for the correct slot', async () => {
       // Advance to a fresh epoch and mark the current one as proven
       await cheatCodes.rollup.advanceToNextEpoch();
       await cheatCodes.rollup.markAsProven();
@@ -619,23 +631,19 @@ describe('e2e_block_building', () => {
       // Send a tx to the contract that creates a note. This tx will be reorgd but re-included,
       // since it is being built against a proven block number.
       logger.info('Sending initial tx');
-      const tx1 = await contract.methods.create_note(ownerAddress, 20).send().wait();
+      const tx1 = await contract.methods.create_note(ownerAddress, 20).send({ from: ownerAddress }).wait();
       expect(tx1.blockNumber).toEqual(initialBlockNumber + 1);
-      expect(await contract.methods.summed_values(ownerAddress).simulate()).toEqual(21n);
+      expect(await contract.methods.summed_values(ownerAddress).simulate({ from: ownerAddress })).toEqual(21n);
 
       // And send a second one, which won't be re-included.
       logger.info('Sending second tx');
-      const tx2 = await contract.methods.create_note(ownerAddress, 30).send().wait();
+      const tx2 = await contract.methods.create_note(ownerAddress, 30).send({ from: ownerAddress }).wait();
       expect(tx2.blockNumber).toEqual(initialBlockNumber + 2);
-      expect(await contract.methods.summed_values(ownerAddress).simulate()).toEqual(51n);
+      expect(await contract.methods.summed_values(ownerAddress).simulate({ from: ownerAddress })).toEqual(51n);
 
       logger.info('Advancing past the proof submission window');
 
-      await cheatCodes.rollup.advanceToEpoch(
-        getProofSubmissionDeadlineEpoch(2n, {
-          proofSubmissionEpochs: 1,
-        }),
-      );
+      await cheatCodes.rollup.advanceToEpoch(getProofSubmissionDeadlineEpoch(2n, { proofSubmissionEpochs: 1 }));
 
       // Wait until the sequencer kicks out tx1
       logger.info(`Waiting for node to prune tx1`);
@@ -643,7 +651,7 @@ describe('e2e_block_building', () => {
         async () => (await aztecNode.getTxReceipt(tx1.txHash)).status === TxStatus.PENDING,
         'wait for pruning',
         15,
-        1,
+        0.11,
       );
 
       // And wait until it is brought back tx1
@@ -661,12 +669,12 @@ describe('e2e_block_building', () => {
       expect(newTx1Receipt.blockHash).not.toEqual(tx1.blockHash);
 
       // PXE should have cleared out the 30-note from tx2, but reapplied the 20-note from tx1
-      expect(await contract.methods.summed_values(ownerAddress).simulate()).toEqual(21n);
+      expect(await contract.methods.summed_values(ownerAddress).simulate({ from: ownerAddress })).toEqual(21n);
 
       // And we should be able to send a new tx on the new chain
       logger.info('Sending new tx on reorgd chain');
-      const tx3 = await contract.methods.create_note(ownerAddress, 10).send().wait();
-      expect(await contract.methods.summed_values(ownerAddress).simulate()).toEqual(31n);
+      const tx3 = await contract.methods.create_note(ownerAddress, 10).send({ from: ownerAddress }).wait();
+      expect(await contract.methods.summed_values(ownerAddress).simulate({ from: ownerAddress })).toEqual(31n);
       expect(tx3.blockNumber).toBeGreaterThanOrEqual(newTx1Receipt.blockNumber! + 1);
     });
   });
@@ -690,11 +698,11 @@ describe('e2e_block_building', () => {
   };
 });
 
-async function sendAndWait(calls: ContractFunctionInteraction[]) {
+async function sendAndWait(calls: ContractFunctionInteraction[], from: AztecAddress) {
   return await Promise.allSettled(
     calls
       // First we send them all.
-      .map(call => call.send())
+      .map(call => call.send({ from }))
       // Only then we wait.
       .map(p => p.wait()),
   );

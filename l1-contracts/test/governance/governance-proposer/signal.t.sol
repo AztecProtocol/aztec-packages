@@ -18,9 +18,7 @@ contract SignalTest is GovernanceProposerBase {
   // Skipping this test since the it matches the for now skipped check in `EmpireBase::signal`
   function skip__test_WhenProposalHoldNoCode() external {
     // it revert
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.GovernanceProposer__PayloadHaveNoCode.selector, proposal)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__PayloadHaveNoCode.selector, proposal));
     governanceProposer.signal(proposal);
   }
 
@@ -38,9 +36,7 @@ contract SignalTest is GovernanceProposerBase {
     registry.addRollup(IRollup(f));
     vm.etch(f, "");
 
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.GovernanceProposer__InstanceHaveNoCode.selector, address(f))
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__InstanceHaveNoCode.selector, address(f)));
     governanceProposer.signal(proposal);
   }
 
@@ -56,11 +52,7 @@ contract SignalTest is GovernanceProposerBase {
     _;
   }
 
-  function test_GivenASignalAlreadyCastInTheSlot()
-    external
-    whenProposalHoldCode
-    givenCanonicalRollupHoldCode
-  {
+  function test_GivenASignalAlreadyCastInTheSlot() external whenProposalHoldCode givenCanonicalRollupHoldCode {
     // it revert
 
     Slot currentSlot = validatorSelection.getCurrentSlot();
@@ -68,18 +60,11 @@ contract SignalTest is GovernanceProposerBase {
     vm.prank(proposer);
     governanceProposer.signal(proposal);
 
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.GovernanceProposer__SignalAlreadyCastForSlot.selector, currentSlot
-      )
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__SignalAlreadyCastForSlot.selector, currentSlot));
     governanceProposer.signal(proposal);
   }
 
-  function test_GivenSignalIsForPriorRound()
-    external
-    whenProposalHoldCode
-    givenCanonicalRollupHoldCode
+  function test_GivenSignalIsForPriorRound() external whenProposalHoldCode givenCanonicalRollupHoldCode 
   // solhint-disable-next-line no-empty-blocks
   {
     // it revert
@@ -102,9 +87,7 @@ contract SignalTest is GovernanceProposerBase {
     vm.assume(_proposer != proposer);
     vm.prank(_proposer);
     vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.GovernanceProposer__OnlyProposerCanSignal.selector, _proposer, proposer
-      )
+      abi.encodeWithSelector(Errors.GovernanceProposer__OnlyProposerCanSignal.selector, _proposer, proposer)
     );
     governanceProposer.signal(proposal);
   }
@@ -115,9 +98,7 @@ contract SignalTest is GovernanceProposerBase {
 
     for (uint256 i = 0; i < signalsOnProposal; i++) {
       vm.warp(
-        Timestamp.unwrap(
-          validatorSelection.getTimestampForSlot(validatorSelection.getCurrentSlot() + Slot.wrap(1))
-        )
+        Timestamp.unwrap(validatorSelection.getTimestampForSlot(validatorSelection.getCurrentSlot() + Slot.wrap(1)))
       );
       vm.prank(proposer);
       governanceProposer.signal(proposal);
@@ -136,9 +117,7 @@ contract SignalTest is GovernanceProposerBase {
     assertEq(Slot.unwrap(currentSlot), Slot.unwrap(r.lastSignalSlot));
 
     vm.warp(
-      Timestamp.unwrap(
-        validatorSelection.getTimestampForSlot(validatorSelection.getCurrentSlot() + Slot.wrap(1))
-      )
+      Timestamp.unwrap(validatorSelection.getTimestampForSlot(validatorSelection.getCurrentSlot() + Slot.wrap(1)))
     );
 
     _;
@@ -159,8 +138,7 @@ contract SignalTest is GovernanceProposerBase {
 
     Slot validatorSelectionSlot = validatorSelection.getCurrentSlot();
     uint256 validatorSelectionRound = governanceProposer.computeRound(validatorSelectionSlot);
-    uint256 yeaBefore =
-      governanceProposer.signalCount(address(validatorSelection), validatorSelectionRound, proposal);
+    uint256 yeaBefore = governanceProposer.signalCount(address(validatorSelection), validatorSelectionRound, proposal);
 
     Fakerollup freshInstance = new Fakerollup();
     freshInstance.setProposer(proposer);
@@ -192,21 +170,16 @@ contract SignalTest is GovernanceProposerBase {
 
     // The old instance
     {
-      RoundAccounting memory r =
-        governanceProposer.getRoundData(address(validatorSelection), validatorSelectionRound);
+      RoundAccounting memory r = governanceProposer.getRoundData(address(validatorSelection), validatorSelectionRound);
       assertEq(
-        governanceProposer.signalCount(
-          address(validatorSelection), validatorSelectionRound, proposal
-        ),
+        governanceProposer.signalCount(address(validatorSelection), validatorSelectionRound, proposal),
         yeaBefore,
         "invalid number of signals"
       );
       assertFalse(r.executed);
       assertEq(address(r.payloadWithMostSignals), address(proposal));
       assertEq(
-        Slot.unwrap(validatorSelectionSlot),
-        Slot.unwrap(r.lastSignalSlot) + 1,
-        "invalid slot [ValidatorSelection]"
+        Slot.unwrap(validatorSelectionSlot), Slot.unwrap(r.lastSignalSlot) + 1, "invalid slot [ValidatorSelection]"
       );
     }
   }
@@ -277,8 +250,7 @@ contract SignalTest is GovernanceProposerBase {
     Slot currentSlot = validatorSelection.getCurrentSlot();
     uint256 round = governanceProposer.computeRound(currentSlot);
 
-    uint256 leaderYeaBefore =
-      governanceProposer.signalCount(address(validatorSelection), round, proposal);
+    uint256 leaderYeaBefore = governanceProposer.signalCount(address(validatorSelection), round, proposal);
 
     vm.prank(proposer);
     vm.expectEmit(true, true, true, true, address(governanceProposer));
@@ -292,9 +264,7 @@ contract SignalTest is GovernanceProposerBase {
       "invalid number of signals"
     );
     assertEq(
-      governanceProposer.signalCount(
-        address(validatorSelection), round, IPayload(address(validatorSelection))
-      ),
+      governanceProposer.signalCount(address(validatorSelection), round, IPayload(address(validatorSelection))),
       1,
       "invalid number of signals"
     );
@@ -319,8 +289,7 @@ contract SignalTest is GovernanceProposerBase {
     Slot currentSlot = validatorSelection.getCurrentSlot();
     uint256 round = governanceProposer.computeRound(currentSlot);
 
-    uint256 leaderYeaBefore =
-      governanceProposer.signalCount(address(validatorSelection), round, proposal);
+    uint256 leaderYeaBefore = governanceProposer.signalCount(address(validatorSelection), round, proposal);
 
     for (uint256 i = 0; i < leaderYeaBefore + 1; i++) {
       vm.prank(proposer);
@@ -329,18 +298,14 @@ contract SignalTest is GovernanceProposerBase {
       assertTrue(governanceProposer.signal(IPayload(address(validatorSelection))));
 
       vm.warp(
-        Timestamp.unwrap(
-          validatorSelection.getTimestampForSlot(validatorSelection.getCurrentSlot() + Slot.wrap(1))
-        )
+        Timestamp.unwrap(validatorSelection.getTimestampForSlot(validatorSelection.getCurrentSlot() + Slot.wrap(1)))
       );
     }
 
     {
       RoundAccounting memory r = governanceProposer.getRoundData(address(validatorSelection), round);
       assertEq(
-        governanceProposer.signalCount(
-          address(validatorSelection), round, IPayload(address(validatorSelection))
-        ),
+        governanceProposer.signalCount(address(validatorSelection), round, IPayload(address(validatorSelection))),
         leaderYeaBefore + 1,
         "invalid number of signals"
       );

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <unordered_set>
+
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/simulation/ecc.hpp"
 #include "barretenberg/vm2/simulation/events/address_derivation_event.hpp"
@@ -30,6 +32,9 @@ class AddressDerivation : public AddressDerivationInterface {
     EventEmitterInterface<AddressDerivationEvent>& events;
     Poseidon2Interface& poseidon2;
     EccInterface& ecc;
+
+    // Cache for address derivations to avoid repeating derivations
+    std::unordered_set<AztecAddress> cached_derivations;
 };
 
 } // namespace bb::avm2::simulation

@@ -1,68 +1,73 @@
 ---
-title: Getting Started on Testnet
-sidebar_position: 0
+title: Setting up for Testnet
+sidebar_position: 1
 tags: [testnet]
+description: Guide for developers to get started with the Aztec testnet, including account creation and contract deployment.
 ---
 
 import { AztecTestnetVersion } from '@site/src/components/Snippets/general_snippets';
 
-This guide will walk you through setting up and using the Aztec testnet. By the end, you'll have created an account, deployed a contract, and performed some basic operations.
+This guide explains the differences between sandbox and testnet, how to migrate from sandbox to testnet, and how to start developing directly on testnet.
 
-If you already have an app on sandbox, you might want to check out the [sandbox to testnet guide](../../sandbox_to_testnet_guide.md).
+## Sandbox vs Testnet: Key Differences
 
-## Key Terms
+Before diving into the setup, it's important to understand the differences between sandbox and testnet:
 
-In this guide you will see these terms:
+### Sandbox (Local Development)
+- Runs locally on your machine
+- No proving by default (faster development)
+- No fees
+- Instant block times
+- Test accounts automatically deployed
+- Ideal for rapid development and testing
 
-- **aztec**: a command-line tool for interacting with aztec testnet (& sandbox local environments)
-- **aztec-nargo**: a command-line tool for compiling contracts
-- **aztec.nr**: a Noir library used for writing Aztec smart contracts
-- **aztec-wallet**: A tool for creating and interacting with Aztec wallets
-- **sandbox**: A local development environment
+### Testnet (Remote Network)
+- Remote environment with network of sequencers
+- Always has proving enabled (longer transaction times)
+- Always has fees enabled (need to pay or sponsor fees)
+- ~36 second block times, longer L1 settlement
+- No automatic test accounts
+- Ideal for production-like testing
+
+:::info
+If you're new to Aztec and want to understand local development first, check out the [sandbox guide](./local_env/sandbox.md).
+:::
 
 ## Prerequisites
 
-Before you begin, you'll need to install:
+Before working with testnet, ensure you have:
 
-1. [Docker](https://docs.docker.com/get-started/get-docker/)
-
-## Install Aztec CLI
-
-Run this:
+1. [Docker](https://docs.docker.com/get-started/get-docker/) installed
+2. Aztec CLI installed:
 
 ```sh
 bash -i <(curl -s https://install.aztec.network)
 ```
 
-Then install the version of the network running the testnet:
+3. The testnet version installed:
 
 ```bash
 aztec-up -v latest
 ```
 
 :::warning
-
-The testnet is most likely running the latest released version. Updates are backwards compatible so regularly check for updates when interacting with the testnet to reduce errors.
-
+The testnet is version dependent. It is currently running version `#include_testnet_version`. Maintain version consistency when interacting with the testnet to reduce errors.
 :::
 
-## Step 1: Deploy an account to testnet
+## Getting Started on Testnet
 
-Aztec uses account abstraction, which means:
+### Step 1: Set up your environment
 
-- All accounts are smart contracts (no EOAs)
-- Account signature schemes are private
-- Accounts only need to be published if they interact with public components
-- Private contract interactions don't require account publication
-
-0. Set some variables that we need:
+Set the required environment variables:
 
 ```bash
 export NODE_URL=https://aztec-alpha-testnet-fullnode.zkv.xyz
-export SPONSORED_FPC_ADDRESS=0x1260a43ecf03e985727affbbe3e483e60b836ea821b6305bea1c53398b986047
+export SPONSORED_FPC_ADDRESS=0x19b5539ca1b104d4c3705de94e4555c9630def411f025e023a13189d0c56f8f2
 ```
 
-1. Create a new account:
+### Step 2: Create and deploy an account
+
+Unlike sandbox, testnet has no pre-deployed accounts. You need to create your own:
 
 ```bash
 aztec-wallet create-account \
@@ -71,9 +76,7 @@ aztec-wallet create-account \
     --alias my-wallet
 ```
 
-You should see the account information displayed in your terminal.
-
-2. Register your account with the fee sponsor contract:
+This creates an account but doesn't deploy it yet. Next, register with the fee sponsor to avoid paying fees:
 
 ```bash
 aztec-wallet register-contract \
@@ -84,11 +87,7 @@ aztec-wallet register-contract \
     --salt 0
 ```
 
-This means you won't have to pay fees - a sponsor contract will pay them for you. Fees on Aztec are abstracted, so you can pay publicly or privately (even without the sequencer knowing who you are).
-
-You should see that the contract `SponsoredFPC` was added at a specific address.
-
-3. Deploy your account (required as we will be using public functions):
+Finally, deploy your account:
 
 ```bash
 aztec-wallet deploy-account \
@@ -98,15 +97,13 @@ aztec-wallet deploy-account \
     --register-class
 ```
 
-Note: The first time you run these commands, it will take longer as some binaries are installed. This command is generating a client-side proof!
+:::note
+The first transaction will take longer as it downloads proving keys. If you see `Timeout awaiting isMined`, the transaction is still processing - this is normal on testnet.
+:::
 
-You should see the tx hash in your terminal.
+### Step 3: Deploy and interact with contracts
 
-If you see an error like `Timeout awaiting isMined` please note this is not an actual error. The transaction has still been sent and is simply waiting to be mined. You may see this if the network is more congested than normal. You can proceed to the next step.
-
-## Step 2: Deploy and interact with a token contract
-
-1. Deploy a token contract:
+Deploy a token contract as an example:
 
 ```bash
 aztec-wallet deploy \
@@ -118,11 +115,9 @@ aztec-wallet deploy \
     --args accounts:my-wallet Token TOK 18 --no-wait
 ```
 
-You should see confirmation that the token contract is stored in the database.
+You can check the transaction status on [aztecscan](https://aztecscan.xyz) or [aztecexplorer](https://aztecexplorer.xyz).
 
-Wait for the transaction to be mined on testnet. You can check the transaction status with the transaction hash on [aztecscan](https://aztecscan.xyz) or [aztecexplorer](https://aztecexplorer.xyz).
-
-2. Mint 10 private tokens to yourself:
+Interact with your deployed contract:
 
 ```bash
 aztec-wallet send mint_to_private \
@@ -133,51 +128,122 @@ aztec-wallet send mint_to_private \
     --args accounts:my-wallet 10
 ```
 
-You should see confirmation that the tx hash is stored in the database.
 
-3. Send 2 private tokens to public:
+## Migrating from Sandbox to Testnet
 
-```bash
-aztec-wallet send transfer_to_public \
-    --node-url $NODE_URL \
-    --from accounts:my-wallet \
-    --payment method=fpc-sponsored,fpc=contracts:sponsoredfpc \
-    --contract-address token \
-    --args accounts:my-wallet accounts:my-wallet 2 0
+If you have an existing app running on sandbox, here's how to migrate it to testnet:
+
+### 1. Connect to Testnet Node
+
+Instead of running a local sandbox, connect to the testnet node:
+
+```sh
+export NODE_URL=https://aztec-alpha-testnet-fullnode.zkv.xyz
 ```
 
-You should see confirmation that the tx hash is stored in the database.
+When running `aztec-wallet` commands, include the node URL:
 
-4. Check your balances
-
-Private balance:
-
-```bash
-aztec-wallet simulate balance_of_private \
-    --node-url $NODE_URL \
-    --from my-wallet \
-    --contract-address token \
-    --args accounts:my-wallet
+```sh
+aztec-wallet create-account -a main --register-only --node-url $NODE_URL
 ```
 
-You should see `8n`.
+### 2. Initialize PXE for Testnet
 
-Public balance:
+You can connect to testnet directly from your app using AztecJS:
 
-```bash
-aztec-wallet simulate balance_of_public \
-    --node-url $NODE_URL \
-    --from my-wallet \
-    --contract-address token \
-    --args accounts:my-wallet
+In the browser:
+```javascript
+import { createPXEService } from "@aztec/pxe/client/lazy";
 ```
 
-You should see `2n`.
+In Node.js:
+```javascript
+import { createPXEService } from "@aztec/pxe/server";
+```
+
+Then initialize with testnet configuration:
+
+```javascript
+import { createAztecNodeClient } from "@aztec/aztec.js";
+import { getPXEServiceConfig } from "@aztec/pxe/server";
+import { createStore } from "@aztec/kv-store/lmdb";
+
+const NODE_URL = "https://aztec-alpha-testnet-fullnode.zkv.xyz";
+const node = createAztecNodeClient(NODE_URL);
+const l1Contracts = await node.getL1ContractAddresses();
+const config = getPXEServiceConfig();
+const fullConfig = { ...config, l1Contracts };
+
+const store = await createStore("pxe1", {
+  dataDirectory: "store",
+  dataStoreMapSizeKB: 1e6,
+});
+
+const pxe = await createPXEService(node, fullConfig, { store });
+```
+
+### 3. Handle Fees on Testnet
+
+Unlike sandbox, testnet requires fee payment. You have three options:
+
+1. **User pays their own fees** - Send them tokens or direct them to the faucet
+2. **Your contract sponsors fees** - Deploy a fee-paying contract
+3. **Use the canonical sponsored FPC** - Recommended for getting started
+
+Example using the sponsored FPC:
+
+```javascript
+const receiptForBob = await bananaCoin
+  .withWallet(bobWallet)
+  .methods.transfer(alice, amountTransferToAlice)
+  .send({ fee: { paymentMethod: sponsoredPaymentMethod } })
+  .wait();
+```
+
+### 4. Important Migration Considerations
+
+- **Register all contracts**: Including account contracts and the sponsored FPC in the PXE
+- **No test accounts**: You'll need to deploy accounts manually
+- **Longer transaction times**: Handle timeouts gracefully - transactions may still succeed
+- **L1-L2 messaging delays**:
+  - L1→L2: Wait ~1.5-2 minutes (vs 2 blocks on sandbox)
+  - L2→L1: Wait ~30 minutes for finalization (vs immediate on sandbox)
+
+## Key Considerations When Using Testnet
+
+### Handling Transaction Timeouts
+
+Testnet transactions take longer than sandbox. Handle timeouts gracefully:
+
+```javascript
+try {
+  const receipt = await tx.wait();
+} catch (error) {
+  if (error.message.includes('Timeout awaiting isMined')) {
+    console.log('Transaction sent but still being mined');
+    // Check block explorer for status
+  }
+}
+```
+
+### Environment Detection
+
+Detect which environment your code is running against:
+
+```javascript
+const isTestnet = process.env.NODE_URL?.includes('testnet');
+const nodeUrl = process.env.NODE_URL || 'http://localhost:8080';
+```
 
 ## Next Steps
 
-Congratulations! You've now learned the fundamentals of working with the Aztec testnet. Here are some resources to continue your journey:
+- **New to Aztec?** Start with the [sandbox guide](./local_env/sandbox.md) for faster development
+- **Ready for production testing?** Continue using testnet
+- **Learn more:** Check out our [tutorials](../tutorials/codealong/contract_tutorials/counter_contract.md)
+- **Explore:** Visit [Aztec Playground](https://play.aztec.network/)
 
-- [Aztec Playground](https://play.aztec.network/)
-- [Tutorials](../tutorials/codealong/contract_tutorials/counter_contract.md)
-- [Guide to run a node](../../the_aztec_network/index.md)
+## Additional Resources
+
+- [Fee payment guide](./js_apps/pay_fees.md)
+- [Running a node](../../the_aztec_network/index.md)
+- [Block explorers](https://aztecscan.xyz)

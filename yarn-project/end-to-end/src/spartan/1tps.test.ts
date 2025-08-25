@@ -1,4 +1,4 @@
-// TODO(#11825) finalise (probably once we have nightly tests setup for GKE) & enable in bootstrap.sh
+// TODO(#11825) finalize (probably once we have nightly tests setup for GKE) & enable in bootstrap.sh
 import {
   type PXE,
   ProvenTx,
@@ -64,7 +64,9 @@ describe('token transfer test', () => {
   });
 
   it('can get info', async () => {
-    const name = readFieldCompressedString(await testWallets.tokenAdminWallet.methods.private_get_name().simulate());
+    const name = readFieldCompressedString(
+      await testWallets.tokenAdminWallet.methods.private_get_name().simulate({ from: testWallets.tokenAdminAddress }),
+    );
     expect(name).toBe(testWallets.tokenName);
   });
 
@@ -73,10 +75,18 @@ describe('token transfer test', () => {
     const transferAmount = 1n;
 
     for (const w of testWallets.wallets) {
-      expect(MINT_AMOUNT).toBe(await testWallets.tokenAdminWallet.methods.balance_of_public(w.getAddress()).simulate());
+      expect(MINT_AMOUNT).toBe(
+        await testWallets.tokenAdminWallet.methods
+          .balance_of_public(w.getAddress())
+          .simulate({ from: testWallets.tokenAdminAddress }),
+      );
     }
 
-    expect(0n).toBe(await testWallets.tokenAdminWallet.methods.balance_of_public(recipient).simulate());
+    expect(0n).toBe(
+      await testWallets.tokenAdminWallet.methods
+        .balance_of_public(recipient)
+        .simulate({ from: testWallets.tokenAdminAddress }),
+    );
 
     // For each round, make both private and public transfers
     // for (let i = 1n; i <= ROUNDS; i++) {
@@ -98,6 +108,7 @@ describe('token transfer test', () => {
     const baseTx = await (await TokenContract.at(testWallets.tokenAddress, wallet)).methods
       .transfer_in_public(wallet.getAddress(), recipient, transferAmount, 0)
       .prove({
+        from: testWallets.tokenAdminAddress,
         fee: { paymentMethod: new SponsoredFeePaymentMethod(await getSponsoredFPCAddress()) },
       });
 
@@ -149,7 +160,9 @@ describe('token transfer test', () => {
       }),
     );
 
-    const recipientBalance = await testWallets.tokenAdminWallet.methods.balance_of_public(recipient).simulate();
+    const recipientBalance = await testWallets.tokenAdminWallet.methods
+      .balance_of_public(recipient)
+      .simulate({ from: testWallets.tokenAdminAddress });
     logger.info(`recipientBalance: ${recipientBalance}`);
     // expect(recipientBalance).toBe(100n * transferAmount);
 

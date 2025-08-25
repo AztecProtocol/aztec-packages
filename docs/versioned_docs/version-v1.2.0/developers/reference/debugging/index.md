@@ -1,5 +1,6 @@
 ---
 title: Debugging
+description: Comprehensive guide to debugging your Aztec applications and contracts.
 sidebar_position: 1
 ---
 

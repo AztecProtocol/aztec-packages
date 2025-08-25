@@ -7,7 +7,7 @@
 #pragma once
 #include "barretenberg/flavor/mega_recursive_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/stdlib/pairing_points.hpp"
+#include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib/protogalaxy_verifier/recursive_decider_verification_key.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
@@ -31,7 +31,7 @@ template <typename Flavor> class DeciderRecursiveVerifier_ {
   public:
     explicit DeciderRecursiveVerifier_(Builder* builder, std::shared_ptr<NativeDeciderVK> accumulator)
         : builder(builder)
-        , accumulator(std::make_shared<RecursiveDeciderVK>(builder, accumulator)){};
+        , accumulator(std::make_shared<RecursiveDeciderVK>(builder, accumulator)) {};
 
     /**
      * @brief Construct a decider recursive verifier directly from a stdlib accumulator, returned by a prior iteration

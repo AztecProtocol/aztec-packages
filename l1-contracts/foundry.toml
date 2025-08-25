@@ -12,10 +12,12 @@ match_path = "test/**/*.t.sol"
 # Helper to get all the contract names in the src/governance and src/core directories
 # find ./src/governance ./src/core -type f -name "*.sol" -exec grep -h "^contract [A-Za-z]" {} \; | sed -E 's/contract ([A-Za-z0-9_]+).*/"\1"/' | tr "\n" ", "
 gas_reports = [
+  "BN254KeyTest",
   "CoinIssuer",
   "FeeJuicePortal",
   "Governance",
   "GovernanceProposer",
+  "GSE",
   "Inbox",
   "Multicall3",
   "Outbox",
@@ -24,7 +26,9 @@ gas_reports = [
   "Rollup",
   "RollupCore",
   "Slasher",
-  "SlashingProposer"
+  "RollupWithPreheating",
+  "EmpireSlashingProposer",
+  "TallySlashingProposer",
 ]
 
 remappings = [
@@ -38,6 +42,7 @@ remappings = [
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
 
 fs_permissions = [
+  {access = "read", path = "./test/fixtures/bn254_constants.json"},
   {access = "read", path = "./test/fixtures/mixed_block_1.json"},
   {access = "read", path = "./test/fixtures/mixed_block_2.json"},
   {access = "read", path = "./test/fixtures/single_tx_block_1.json"},
@@ -49,15 +54,18 @@ fs_permissions = [
   {access = "read", path = "./test/staking_asset_handler/zkpassport/fixtures/valid_committed_inputs.hex"},
   {access = "read", path = "./test/staking_asset_handler/zkpassport/fixtures/valid_public_inputs.json"},
   {access = "read", path = "./test/fixtures/boosted_rewards/shares.json"},
-  {access = "read", path = "./test/fixtures/boosted_rewards/activity_scores.json"}
+  {access = "read", path = "./test/fixtures/boosted_rewards/activity_scores.json"},
 ]
 
 no_match_contract="(ScreamAndShoutTest|UniswapPortalTest|MerkleCheck)"
 
 [fmt]
-line_length = 100
+line_length = 120
 tab_width = 2
 variable_override_spacing=false
+wrap_comments = true
+number_underscore = "thousands"
+override_spacing = false
 
 [rpc_endpoints]
 mainnet_fork="https://mainnet.infura.io/v3/9928b52099854248b3a096be07a6b23c"

@@ -28,7 +28,7 @@ template <typename Builder> void generate_sha256_test_circuit(Builder& builder, 
 {
     std::string in;
     in.resize(32);
-    stdlib::packed_byte_array<Builder> input(&builder, in);
+    stdlib::byte_array<Builder> input(&builder, in);
     for (size_t i = 0; i < num_iterations; i++) {
         input = stdlib::SHA256<Builder>::hash(input);
     }
@@ -71,11 +71,6 @@ class GoblinMockCircuits {
     using VerificationKey = Flavor::VerificationKey;
 
     static constexpr size_t NUM_WIRES = Flavor::NUM_WIRES;
-
-    struct KernelInput {
-        HonkProof proof;
-        std::shared_ptr<Flavor::VerificationKey> verification_key;
-    };
 
     /**
      * @brief Populate a builder with some arbitrary but nontrivial constraints
@@ -128,6 +123,15 @@ class GoblinMockCircuits {
     }
 
     /**
+     * @brief Add some randomness into the op queue.
+     */
+    static void randomise_op_queue(MegaBuilder& builder)
+    {
+        builder.queue_ecc_random_op();
+        builder.queue_ecc_random_op();
+    }
+
+    /**
      * @brief Generate a simple test circuit with some ECC op gates and conventional arithmetic gates
      *
      * @param builder
@@ -142,9 +146,7 @@ class GoblinMockCircuits {
 
         add_some_ecc_op_gates(builder);
         MockCircuits::construct_arithmetic_circuit(builder);
-        // Flavor = bb::MegaFlavor, so the public inputs should be that of the HidingKernelIO (UltraVerifier<MegaFlavor>
-        // expects the public inputs to be that of the HidingKernel)
-        bb::stdlib::recursion::honk::HidingKernelIO<MegaBuilder>::add_default(builder);
+        bb::stdlib::recursion::honk::DefaultIO<MegaBuilder>::add_default(builder);
     }
 
     /**

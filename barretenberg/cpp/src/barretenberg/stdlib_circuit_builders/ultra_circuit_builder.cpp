@@ -13,6 +13,7 @@
  */
 #include "ultra_circuit_builder.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 #include "rom_ram_logic.hpp"
 
@@ -652,8 +653,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_add_gate(const ecc_add_gat
     }
 
     if (can_fuse_into_previous_gate) {
-        block.q_1()[block.size() - 1] = in.sign_coefficient;
-        block.q_elliptic()[block.size() - 1] = 1;
+        block.q_1().set(block.size() - 1, in.sign_coefficient);
+        block.q_elliptic().set(block.size() - 1, 1);
     } else {
         block.populate_wires(this->zero_idx, in.x1, in.y1, this->zero_idx);
         block.q_3().emplace_back(0);
@@ -713,8 +714,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_dbl_gate(const ecc_dbl_gat
     }
 
     if (can_fuse_into_previous_gate) {
-        block.q_elliptic()[block.size() - 1] = 1;
-        block.q_m()[block.size() - 1] = 1;
+        block.q_elliptic().set(block.size() - 1, 1);
+        block.q_m().set(block.size() - 1, 1);
     } else {
         block.populate_wires(this->zero_idx, in.x1, in.y1, this->zero_idx);
         block.q_elliptic().emplace_back(1);
@@ -1176,41 +1177,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint(const std::vec
     // dummy gate needed because of sort widget's check of next row
     create_dummy_gate(
         blocks.delta_range, variable_index[variable_index.size() - 1], this->zero_idx, this->zero_idx, this->zero_idx);
-}
-
-/**
- * @brief Create a gate with no constraints but with possibly non-trivial wire values
- * @details A dummy gate can be used to provide wire values to be accessed via shifts by the gate that proceeds it. The
- * dummy gate itself does not have to satisfy any constraints (all selectors are zero).
- *
- * @tparam ExecutionTrace
- * @param block Execution trace block into which the dummy gate is to be placed
- */
-template <typename ExecutionTrace>
-void UltraCircuitBuilder_<ExecutionTrace>::create_dummy_gate(
-    auto& block, const uint32_t& idx_1, const uint32_t& idx_2, const uint32_t& idx_3, const uint32_t& idx_4)
-{
-    block.populate_wires(idx_1, idx_2, idx_3, idx_4);
-    block.q_m().emplace_back(0);
-    block.q_1().emplace_back(0);
-    block.q_2().emplace_back(0);
-    block.q_3().emplace_back(0);
-    block.q_c().emplace_back(0);
-    block.q_arith().emplace_back(0);
-    block.q_4().emplace_back(0);
-    block.q_delta_range().emplace_back(0);
-    block.q_elliptic().emplace_back(0);
-    block.q_lookup_type().emplace_back(0);
-    block.q_memory().emplace_back(0);
-    block.q_nnf().emplace_back(0);
-    block.q_poseidon2_external().emplace_back(0);
-    block.q_poseidon2_internal().emplace_back(0);
-
-    if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-        block.pad_additional();
-    }
-    check_selector_length_consistency();
-    ++this->num_gates;
 }
 
 // useful to put variables in the witness that aren't already used - e.g. the dummy variables of the range constraint in
@@ -1950,7 +1916,7 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::po
     for (const auto& idx : this->public_inputs()) {
         // first two wires get a copy of the public inputs
         blocks.pub_inputs.populate_wires(idx, idx, this->zero_idx, this->zero_idx);
-        for (auto& selector : this->blocks.pub_inputs.selectors) {
+        for (auto& selector : this->blocks.pub_inputs.get_selectors()) {
             selector.emplace_back(0);
         }
     }
@@ -2479,38 +2445,6 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_internal_gate(const poseidon2_in
     }
     this->check_selector_length_consistency();
     ++this->num_gates;
-}
-
-/**
- * @brief Compute a hash of some of the main circuit components.
- * @note This hash can differ for circuits that will ultimately result in an identical verification key. For example,
- * when we construct circuits from acir programs with dummy witnesses, the hash will in general disagree with the hash
- * of the circuit constructed using a genuine witness. This is not because the hash includes geunines witness values
- * (only indices) but rather because in the dummy witness context we use add_variable and assert_equal to set the values
- * of dummy witnesses, which effects the content of real_variable_index, but in the end results in an identical
- * VK/circuit.
- *
- */
-template <typename ExecutionTrace> uint256_t UltraCircuitBuilder_<ExecutionTrace>::hash_circuit() const
-{
-    // Copy the circuit and finalize without modifying the original
-    auto circuit = *this;
-    circuit.finalize_circuit(/*ensure_nonzero=*/false);
-
-    std::vector<uint8_t> to_hash;
-    const auto convert_and_insert = [&to_hash](auto& vector) {
-        std::vector<uint8_t> buffer = to_buffer(vector);
-        to_hash.insert(to_hash.end(), buffer.begin(), buffer.end());
-    };
-
-    // Hash the selectors, the wires, and the variable index array (which captures information about copy constraints)
-    for (auto& block : blocks.get()) {
-        std::for_each(block.selectors.begin(), block.selectors.end(), convert_and_insert);
-        std::for_each(block.wires.begin(), block.wires.end(), convert_and_insert);
-    }
-    convert_and_insert(circuit.real_variable_index);
-
-    return from_buffer<uint256_t>(crypto::sha256(to_hash));
 }
 
 /**

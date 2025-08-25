@@ -17,16 +17,15 @@ contract StakingBase is TestBase {
   address internal constant WITHDRAWER = address(bytes20("WITHDRAWER"));
   address internal constant RECIPIENT = address(bytes20("RECIPIENT"));
 
-  uint256 internal DEPOSIT_AMOUNT;
-  uint256 internal MINIMUM_STAKE;
+  uint256 internal ACTIVATION_THRESHOLD;
+  uint256 internal EJECTION_THRESHOLD;
 
   uint256 internal EPOCH_DURATION_SECONDS;
 
   address internal SLASHER;
 
   function setUp() public virtual {
-    RollupBuilder builder =
-      new RollupBuilder(address(this)).setSlashingQuorum(1).setSlashingRoundSize(1);
+    RollupBuilder builder = new RollupBuilder(address(this)).setSlashingQuorum(1).setSlashingRoundSize(1);
     builder.deploy();
 
     registry = builder.getConfig().registry;
@@ -38,8 +37,8 @@ contract StakingBase is TestBase {
     staking = IStaking(address(builder.getConfig().rollup));
     stakingAsset = builder.getConfig().testERC20;
 
-    DEPOSIT_AMOUNT = staking.getDepositAmount();
-    MINIMUM_STAKE = staking.getMinimumStake();
+    ACTIVATION_THRESHOLD = staking.getActivationThreshold();
+    EJECTION_THRESHOLD = staking.getEjectionThreshold();
     SLASHER = staking.getSlasher();
   }
 

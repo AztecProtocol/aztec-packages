@@ -8,6 +8,7 @@
 #pragma once
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
+#include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
@@ -33,6 +34,32 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
   public:
     using Transcript = UltraKeccakFlavor::Transcript_<KeccakTranscriptParams>;
 
+    static constexpr bool USE_PADDING = false;
+
+    // Override as proof length is different
+    static constexpr size_t num_elements_comm = bb::field_conversion::calc_num_uint256_ts<Commitment>();
+    static constexpr size_t num_elements_fr = bb::field_conversion::calc_num_uint256_ts<FF>();
+
+    // Proof length formula methods
+    static constexpr size_t OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS =
+        /* 1. NUM_WITNESS_ENTITIES commitments */ (NUM_WITNESS_ENTITIES * num_elements_comm);
+
+    static constexpr size_t DECIDER_PROOF_LENGTH(size_t virtual_log_n = VIRTUAL_LOG_N)
+    {
+        return /* 2. virtual_log_n sumcheck univariates */
+            (virtual_log_n * BATCHED_RELATION_PARTIAL_LENGTH * num_elements_fr) +
+            /* 3. NUM_ALL_ENTITIES sumcheck evaluations */ (NUM_ALL_ENTITIES * num_elements_fr) +
+            /* 4. virtual_log_n - 1 Gemini Fold commitments */ ((virtual_log_n - 1) * num_elements_comm) +
+            /* 5. virtual_log_n Gemini a evaluations */ (virtual_log_n * num_elements_fr) +
+            /* 6. Shplonk Q commitment */ (num_elements_comm) +
+            /* 7. KZG W commitment */ (num_elements_comm);
+    }
+
+    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = VIRTUAL_LOG_N)
+    {
+        return OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS + DECIDER_PROOF_LENGTH(virtual_log_n);
+    }
+
     /**
      * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
      * polynomials used by the verifier.
@@ -45,6 +72,9 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
     // VerificationKey from UltraFlavor can be used
     class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
       public:
+        static constexpr size_t VERIFICATION_KEY_LENGTH =
+            /* 1. Metadata (log_circuit_size, num_public_inputs, pub_inputs_offset) */ (3 * num_elements_fr) +
+            /* 2. NUM_PRECOMPUTED_ENTITIES commitments */ (NUM_PRECOMPUTED_ENTITIES * num_elements_comm);
         VerificationKey() = default;
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
             : NativeVerificationKey_(circuit_size, num_public_inputs)
@@ -83,6 +113,42 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
             transcript.add_to_hash_buffer(domain_separator + "vk_pub_inputs_offset", this->pub_inputs_offset);
             return 0;
         }
+
+        // Don't statically check for object completeness.
+        using MSGPACK_NO_STATIC_CHECK = std::true_type;
+
+        // For serialising and deserializing data
+        MSGPACK_FIELDS(log_circuit_size,
+                       num_public_inputs,
+                       pub_inputs_offset,
+                       q_m,
+                       q_c,
+                       q_l,
+                       q_r,
+                       q_o,
+                       q_4,
+                       q_lookup,
+                       q_arith,
+                       q_delta_range,
+                       q_elliptic,
+                       q_memory,
+                       q_nnf,
+                       q_poseidon2_external,
+                       q_poseidon2_internal,
+                       sigma_1,
+                       sigma_2,
+                       sigma_3,
+                       sigma_4,
+                       id_1,
+                       id_2,
+                       id_3,
+                       id_4,
+                       table_1,
+                       table_2,
+                       table_3,
+                       table_4,
+                       lagrange_first,
+                       lagrange_last);
     };
 
     // Specialize for Ultra (general case used in UltraRecursive).

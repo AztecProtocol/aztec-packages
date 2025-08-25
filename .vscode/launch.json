@@ -44,11 +44,11 @@
       ],
     },
     {
-      "name": "Debug Commitment Schemes Tests",
+      "name": "Debug test_graph_for_arithmetic_gates",
       "type": "lldb",
       "request": "launch",
-      "program": "${workspaceFolder}/barretenberg/cpp/build-debug/bin/commitment_schemes_tests",
-      "args": [],
+      "program": "${workspaceFolder}/barretenberg/cpp/build-debug-no-avm/bin/boomerang_value_detection_tests",
+      "args": ["--gtest_filter=BoomerangGoblinRecursiveVerifierTests.graph_description_basic"],
       "initCommands": [
         "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
       ],
@@ -57,9 +57,9 @@
       "name": "Debug BB API Test",
       "type": "lldb",
       "request": "launch",
-      "program": "${workspaceFolder}/barretenberg/cpp/build-debug/bin/api_tests",
+      "program": "${workspaceFolder}/barretenberg/cpp/build-debug-no-avm/bin/api_tests",
       "args": ["--gtest_filter=ClientIVCAPITests.ProveAndVerifyFileBasedFlow"],
-      "cwd": "${workspaceFolder}/barretenberg/cpp/build-debug",
+      "cwd": "${workspaceFolder}/barretenberg/cpp/build-debug-no-avm",
       "initCommands": [
         "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
       ],

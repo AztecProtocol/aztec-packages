@@ -1,5 +1,5 @@
-import { createCompatibleClient } from '@aztec/aztec.js';
-import { RollupContract, createEthereumChain, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
+import { Fr, createCompatibleClient } from '@aztec/aztec.js';
+import { GSEContract, RollupContract, createEthereumChain, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
@@ -10,6 +10,7 @@ export async function sequencers(opts: {
   command: 'list' | 'add' | 'remove' | 'who-next' | 'flush';
   who?: string;
   mnemonic?: string;
+  bn254SecretKey?: bigint;
   rpcUrl: string;
   l1RpcUrls: string[];
   chainId: number;
@@ -17,7 +18,7 @@ export async function sequencers(opts: {
   log: LogFn;
   debugLogger: Logger;
 }) {
-  const { command, who: maybeWho, mnemonic, rpcUrl, l1RpcUrls, chainId, log, debugLogger } = opts;
+  const { command, who: maybeWho, mnemonic, bn254SecretKey, rpcUrl, l1RpcUrls, chainId, log, debugLogger } = opts;
   const client = await createCompatibleClient(rpcUrl, debugLogger);
   const { l1ContractAddresses } = await client.getNodeInfo();
 
@@ -72,14 +73,26 @@ export async function sequencers(opts: {
 
     const config = getL1ContractsConfigEnvVars();
 
+    const bn254SecretKeyFieldElement = bn254SecretKey ? new Fr(bn254SecretKey) : Fr.random();
+    const gseAddress = await rollup.getGSE();
+    const gseContract = new GSEContract(publicClient, gseAddress);
+    const registrationTuple = await gseContract.makeRegistrationTuple(bn254SecretKeyFieldElement.toBigInt());
+
     await Promise.all(
       [
-        await stakingAsset.write.mint([walletClient.account.address, config.depositAmount], {} as any),
-        await stakingAsset.write.approve([rollup.address, config.depositAmount], {} as any),
+        await stakingAsset.write.mint([walletClient.account.address, config.activationThreshold], {} as any),
+        await stakingAsset.write.approve([rollup.address, config.activationThreshold], {} as any),
       ].map(txHash => publicClient.waitForTransactionReceipt({ hash: txHash })),
     );
 
-    const hash = await writeableRollup.write.deposit([who, who, true]);
+    const hash = await writeableRollup.write.deposit([
+      who,
+      who,
+      registrationTuple.publicKeyInG1,
+      registrationTuple.publicKeyInG2,
+      registrationTuple.proofOfPossession,
+      true,
+    ]);
     await publicClient.waitForTransactionReceipt({ hash });
     log(`Added in tx ${hash}`);
   } else if (command === 'flush') {

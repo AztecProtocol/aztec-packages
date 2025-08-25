@@ -25,4 +25,6 @@ namespace calldata;
 
     // Context id does not change until we latch
     #[CONTEXT_ID_CONTINUITY]
-    (1 - precomputed.first_row) * sel * (1 - latch) * (1 - context_id) * context_id' = 0;
+    (1 - precomputed.first_row) * sel * (1 - latch) * (context_id - context_id') = 0;
+    
+    // TODO: does this trace need to enforce that a context_id only appears for a single calldata?

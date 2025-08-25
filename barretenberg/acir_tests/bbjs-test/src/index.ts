@@ -8,10 +8,6 @@ const logger = pino({
   name: "bbjs-test",
 });
 
-const UH_PROOF_FIELDS_LENGTH = 508; // length of UltraZKHonk flavor
-const BYTES_PER_FIELD = 32;
-const UH_PROOF_LENGTH_IN_BYTES = UH_PROOF_FIELDS_LENGTH * BYTES_PER_FIELD;
-
 const proofPath = (dir: string) => path.join(dir, "proof");
 const publicInputsPath = (dir: string) => path.join(dir, "public_inputs");
 const vkeyPath = (dir: string) => path.join(dir, "vk");
@@ -43,10 +39,6 @@ async function generateProof({
     keccakZK: oracleHash === "keccakZK",
     starknetZK: oracleHash === "starknetZK",
   });
-  assert(
-    proof.proof.length === UH_PROOF_LENGTH_IN_BYTES,
-    `Unexpected proof length ${proof.proof.length} bytes for ${bytecodePath}, should be ${UH_PROOF_LENGTH_IN_BYTES} bytes`
-  );
 
   await fs.writeFile(proofPath(outputDirectory), Buffer.from(proof.proof));
   logger.debug("Proof written to " + proofPath(outputDirectory));
@@ -79,10 +71,6 @@ async function verifyProof({ directory }: { directory: string }) {
   const verifier = new UltraHonkVerifierBackend();
 
   const proof = await fs.readFile(proofPath(directory));
-  assert(
-    proof.length === UH_PROOF_LENGTH_IN_BYTES,
-    `Unexpected proof length ${proof.length}, expected ${UH_PROOF_LENGTH_IN_BYTES}`
-  );
 
   // Read binary public inputs and convert to field strings
   const publicInputsBinary = await fs.readFile(publicInputsPath(directory));

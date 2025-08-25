@@ -1,3 +1,4 @@
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
 import type { BlockAttestation, BlockProposal, Gossipable } from '@aztec/stdlib/p2p';
 import type { Tx } from '@aztec/stdlib/tx';
@@ -84,6 +85,9 @@ export interface P2PService {
   handleAuthRequestFromPeer(authRequest: AuthRequest, peerId: PeerId): Promise<StatusMessage>;
 
   updateConfig(config: Partial<P2PReqRespConfig>): void;
+
+  /** If node running this P2P stack is validator, passes in validator address to P2P layer */
+  registerThisValidatorAddresses(address: EthAddress[]): void;
 }
 
 /**

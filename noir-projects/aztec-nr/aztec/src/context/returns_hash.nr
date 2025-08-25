@@ -45,7 +45,7 @@ mod test {
 
     #[test]
     unconstrained fn retrieves_preimage() {
-        let env = TestEnvironment::_new();
+        let env = TestEnvironment::new();
         env.private_context(|_| {
             let value = MockStruct::new(4, 7);
             let serialized = value.serialize();
@@ -59,7 +59,7 @@ mod test {
 
     #[test]
     unconstrained fn retrieves_empty_preimage() {
-        let env = TestEnvironment::_new();
+        let env = TestEnvironment::new();
         env.private_context(|_| {
             let value = ();
             let serialized = [];
@@ -81,7 +81,7 @@ mod test {
 
         let hash = hash_args_array(serialized);
 
-        let _ = OracleMock::mock("loadFromExecutionCache").returns(bad_serialized);
+        let _ = OracleMock::mock("privateLoadFromExecutionCache").returns(bad_serialized);
         assert_eq(ReturnsHash::new(hash).get_preimage(), value);
     }
 
@@ -93,7 +93,7 @@ mod test {
 
     //     let hash = hash_args_array(serialized);
 
-    //     let _ = OracleMock::mock("loadFromExecutionCache").returns([1]);
+    //     let _ = OracleMock::mock("privateLoadFromExecutionCache").returns([1]);
     //     assert_eq(ReturnsHash::new(hash).get_preimage(), value);
     // }
 }

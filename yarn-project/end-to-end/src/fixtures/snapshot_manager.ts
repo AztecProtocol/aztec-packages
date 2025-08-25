@@ -666,7 +666,7 @@ export async function publicDeployAccounts(
 
   const batch = new BatchCall(sender, calls);
 
-  const txReceipt = await batch.send().wait();
+  const txReceipt = await batch.send({ from: accountAddressesToDeploy[0] }).wait();
   if (waitUntilProven) {
     if (!pxeOrNode) {
       throw new Error('Need to provide a PXE or AztecNode to wait for proven.');

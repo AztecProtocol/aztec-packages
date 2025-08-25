@@ -73,7 +73,7 @@ template <typename Flavor> struct ZKSumcheckData {
         // If proving_key is provided, commit to the concatenated and masked libra polynomial
         if (commitment_key.initialized()) {
             auto libra_commitment = commitment_key.commit(libra_concatenated_monomial_form);
-            transcript->template send_to_verifier("Libra:concatenation_commitment", libra_commitment);
+            transcript->send_to_verifier("Libra:concatenation_commitment", libra_commitment);
         }
         // Compute the total sum of the Libra polynomials
         libra_scaling_factor = FF(1);
@@ -170,7 +170,7 @@ template <typename Flavor> struct ZKSumcheckData {
      */
     static void setup_auxiliary_data(auto& libra_univariates,
                                      FF& libra_scaling_factor,
-                                     const FF libra_challenge,
+                                     const FF& libra_challenge,
                                      FF& libra_running_sum)
     {
         libra_scaling_factor *= libra_challenge; // \rho * 2^{d-1}
@@ -272,7 +272,7 @@ template <typename Flavor> struct ZKSumcheckData {
      * @param libra_running_sum
      * @param libra_evaluations
      */
-    void update_zk_sumcheck_data(const FF round_challenge, const size_t round_idx)
+    void update_zk_sumcheck_data(const FF& round_challenge, const size_t round_idx)
     {
         static constexpr FF two_inv = FF(1) / FF(2);
         // when round_idx = d - 1, the update is not needed

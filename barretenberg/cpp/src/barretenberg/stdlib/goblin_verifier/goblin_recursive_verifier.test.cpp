@@ -54,8 +54,7 @@ class GoblinRecursiveVerifierTests : public testing::Test {
         Goblin goblin_final;
         goblin_final.op_queue = goblin.op_queue;
         MegaCircuitBuilder builder{ goblin_final.op_queue };
-        builder.queue_ecc_no_op();
-        GoblinMockCircuits::construct_simple_circuit(builder);
+        GoblinMockCircuits::construct_simple_circuit(builder, /*last_circuit=*/true);
 
         // Merge the ecc ops from the newly constructed circuit
         goblin_final.op_queue->merge();
@@ -129,7 +128,7 @@ TEST_F(GoblinRecursiveVerifierTests, Basic)
         OuterProver prover(proving_key, verification_key);
         OuterVerifier verifier(verification_key);
         auto proof = prover.construct_proof();
-        bool verified = verifier.verify_proof(proof);
+        bool verified = verifier.template verify_proof<bb::DefaultIO>(proof).result;
 
         ASSERT_TRUE(verified);
     }
@@ -320,11 +319,11 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorMergeConsistencyFailure)
             static constexpr size_t offset = bb::field_conversion::calc_num_bn254_frs<BF>();
             // Extract `op` fields and convert them to a Commitment object
             auto element_frs = std::span{ translator_proof }.subspan(offset, num_frs_comm);
-            auto op_commitment = NativeTranscriptParams::template convert_from_bn254_frs<Commitment>(element_frs);
+            auto op_commitment = NativeTranscriptParams::template deserialize<Commitment>(element_frs);
             // Modify the commitment
             op_commitment = op_commitment * FF(2);
             // Serialize the tampered commitment into the proof (overwriting the valid one).
-            auto op_commitment_reserialized = bb::NativeTranscriptParams::convert_to_bn254_frs(op_commitment);
+            auto op_commitment_reserialized = bb::NativeTranscriptParams::serialize(op_commitment);
             std::copy(op_commitment_reserialized.begin(),
                       op_commitment_reserialized.end(),
                       translator_proof.begin() + static_cast<std::ptrdiff_t>(offset));

@@ -1,15 +1,16 @@
 ---
 title: Getting Started
 sidebar_position: 0
-tags: [sandbox. testnet]
+tags: [sandbox, testnet]
+description: Quick start guide for developers to set up their environment and begin building on Aztec.
 ---
 
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
 Get started on your local environment using the sandbox. If you'd rather jump into testnet, read the [getting started on testnet guide](./guides/getting_started_on_testnet.md).
-     
-The Sandbox is an local development Aztec network running fully on your machine, and interacting with a development Ethereum node. You can develop and deploy on it just like on a testnet or mainnet (when the time comes). The sandbox makes it faster and easier to develop and test your Aztec applications.
+
+The Sandbox is a local development Aztec network running fully on your machine, and interacting with a development Ethereum node. You can develop and deploy on it just like on a testnet or mainnet (when the time comes). The sandbox makes it faster and easier to develop and test your Aztec applications.
 
 What's included in the sandbox:
 
@@ -18,9 +19,9 @@ What's included in the sandbox:
 - A set of test accounts with some test tokens to pay fees
 - Development tools to compile contracts and interact with the network (`aztec-nargo` and `aztec-wallet`)
 
-All of this comes packages in a Docker container to make it easy to install and run.
+All of this comes packaged in a Docker container to make it easy to install and run.
 
-This guide will teach you how to install the Aztec sandbox, run it using the Aztec CLI, and interact with contracts using the wallet CLI. To jump right into the testnet instead, click the `Testnet` tab.
+This guide will teach you how to install the Aztec sandbox, run it using the Aztec CLI, and interact with contracts using the wallet CLI. To jump right into the testnet instead, click the [Testnet](../try_testnet.md) tab.
 
 ## Prerequisites
 
@@ -49,6 +50,7 @@ This will install the following tools:
 
 - **aztec** - launches various infrastructure subsystems (full sandbox, sequencer, prover, pxe, etc) and provides utility commands to interact with the network
 - **aztec-nargo** - aztec's build of nargo, the noir compiler toolchain.
+- **aztec-postprocess-contract** - postprocessing tool for Aztec contracts (transpilation and VK generation).
 - **aztec-up** - a tool to upgrade the aztec toolchain to the latest, or specific versions.
 - **aztec-wallet** - a tool for interacting with the aztec network
 
@@ -75,7 +77,7 @@ In the terminal, you will see some logs:
 
 1. Sandbox version
 2. Contract addresses of rollup contracts
-3. PXE (private execution environment) setup logs
+3. [PXE (private execution environment)](../aztec/concepts/pxe/index.md) setup logs
 4. Initial accounts that are shipped with the sandbox and can be used in tests
 
 You'll know the sandbox is ready to go when you see something like this:
@@ -101,12 +103,19 @@ We'll use the first test account, `test0`, throughout to pay for transactions.
 ## Creating an account in the sandbox
 
 ```bash
-aztec-wallet create-account -a my-wallet --payment method=fee_juice,feePayer=test0
+aztec-wallet create-account -a my-wallet --payment method=fee_juice,feePayer=test0 --prover none
 ```
 
 This will create a new wallet with an account and give it the alias `my-wallet`. Accounts can be referenced with `accounts:<alias>`. You will see logs telling you the address, public key, secret key, and more.
 
-On successful depoyment of the account, you should see something like this:
+The `--payment` parameter specifies how to pay for the account deployment:
+
+- `method=fee_juice` - Uses the fee juice payment method (a test token for paying fees in the sandbox)
+- `feePayer=test0` - The `test0` account will pay the deployment fees for this new account. This account is already funded with some test tokens.
+
+The `--prover none` parameter is used to disable the prover. Generating proofs is not required for the sandbox.
+
+On successful deployment of the account, you should see something like this:
 
 ```bash
 New account:
@@ -129,16 +138,16 @@ You may need to scroll up as there are some other logs printed after it.
 
 You can double check by running `aztec-wallet get-alias accounts:my-wallet`.
 
-For simplicity we'll keep using the test account, let's deploy our own test token!
+For the rest of this tutorial, we'll use the `test0` account that comes with the sandbox since it is already funded with tokens to pay for fees, but you could also use the newly created `my-wallet` account for all subsequent operations, using fee sponsorship. Let's deploy our own test token!
 
 ## Deploying a contract
 
-The sandbox comes with some contracts that you can deploy and play with. One of these is an example token contract.
+The sandbox comes with some contracts that you can deploy and play with. One of these is an [example token contract](https://github.com/AztecProtocol/aztec-packages/blob/next/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr).
 
 Deploy it with this:
 
 ```bash
-aztec-wallet deploy TokenContractArtifact --from accounts:test0 --args accounts:test0 TestToken TST 18 -a testtoken
+aztec-wallet deploy TokenContractArtifact --from accounts:test0 --args accounts:test0 TestToken TST 18 -a testtoken --prover none
 ```
 
 This takes
@@ -168,7 +177,7 @@ In the next step, let's mint some tokens!
 Call the public mint function like this:
 
 ```bash
-aztec-wallet send mint_to_public --from accounts:test0 --contract-address contracts:testtoken --args accounts:test0 100
+aztec-wallet send mint_to_public --from accounts:test0 --contract-address contracts:testtoken --args accounts:test0 100 --prover none
 ```
 
 This takes
@@ -203,6 +212,8 @@ You can double-check by calling the function that checks your public account bal
 aztec-wallet simulate balance_of_public --from test0 --contract-address testtoken --args accounts:test0
 ```
 
+The `simulate` command runs the function locally without sending a transaction, allowing you to query contract state or test function calls without paying fees.
+
 This should print
 
 ```bash
@@ -211,10 +222,12 @@ Simulation result:  100n
 
 ## Playing with hybrid state and private functions
 
-In the following steps, we'll moving some tokens from public to private state, and check our private and public balance.
+In the following steps, we'll move some tokens from public to private state, and check our private and public balance.
+
+Aztec supports hybrid state, where contracts can have both public state (visible to everyone) and private state (encrypted and only visible to authorized users). When you transfer tokens from public to private, you're moving them from the publicly visible balance to an encrypted private balance that only you can access. You can see how this works in the [token contract's transfer_to_private function](https://github.com/AztecProtocol/aztec-packages/blob/next/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr).
 
 ```bash
-aztec-wallet send transfer_to_private --from accounts:test0 --contract-address testtoken --args accounts:test0 25
+aztec-wallet send transfer_to_private --from accounts:test0 --contract-address testtoken --args accounts:test0 25 --prover none
 ```
 
 The arguments for `transfer_to_private` function are:

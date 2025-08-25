@@ -1,5 +1,7 @@
 import { createLogger } from '@aztec/foundation/log';
 import {
+  convertHidingKernelPublicInputsToWitnessMapWithAbi,
+  convertHidingKernelToRollupInputsToWitnessMapWithAbi,
   convertPrivateKernelInitInputsToWitnessMapWithAbi,
   convertPrivateKernelInitOutputsFromWitnessMapWithAbi,
   convertPrivateKernelInnerInputsToWitnessMapWithAbi,
@@ -19,6 +21,8 @@ import type { Abi, WitnessMap } from '@aztec/noir-types';
 import type { CircuitSimulator } from '@aztec/simulator/client';
 import type { PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
 import type {
+  HidingKernelToPublicPrivateInputs,
+  HidingKernelToRollupPrivateInputs,
   PrivateExecutionStep,
   PrivateKernelCircuitPublicInputs,
   PrivateKernelInitCircuitPrivateInputs,
@@ -146,6 +150,28 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
       inputs,
       'PrivateKernelTailToPublicArtifact',
       convertPrivateKernelTailToPublicInputsToWitnessMapWithAbi,
+      convertPrivateKernelTailForPublicOutputsFromWitnessMapWithAbi,
+    );
+  }
+
+  public async generateHidingToRollupOutput(
+    inputs: HidingKernelToRollupPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
+    return await this.generateCircuitOutput(
+      inputs,
+      'HidingKernelToRollup',
+      convertHidingKernelToRollupInputsToWitnessMapWithAbi,
+      convertPrivateKernelTailOutputsFromWitnessMapWithAbi,
+    );
+  }
+
+  public async generateHidingToPublicOutput(
+    inputs: HidingKernelToPublicPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
+    return await this.generateCircuitOutput(
+      inputs,
+      'HidingKernelToPublic',
+      convertHidingKernelPublicInputsToWitnessMapWithAbi,
       convertPrivateKernelTailForPublicOutputsFromWitnessMapWithAbi,
     );
   }

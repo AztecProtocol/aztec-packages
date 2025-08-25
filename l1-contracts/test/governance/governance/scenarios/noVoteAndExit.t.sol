@@ -13,12 +13,7 @@ contract NoVoteAndExitTest is GovernanceBase {
   // Ensure that it is not possible to BOTH vote on proposal AND withdraw the funds before
   // it can be executed
 
-  function test_CannotVoteAndExit(
-    address _voter,
-    uint256 _totalPower,
-    uint256 _votesCast,
-    uint256 _yeas
-  ) external {
+  function test_CannotVoteAndExit(address _voter, uint256 _totalPower, uint256 _votesCast, uint256 _yeas) external {
     bytes32 _proposalName = "empty";
 
     vm.assume(_voter != address(0));
@@ -64,12 +59,10 @@ contract NoVoteAndExitTest is GovernanceBase {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.Governance__WithdrawalNotUnlockedYet.selector,
-        Timestamp.wrap(block.timestamp),
-        withdrawal.unlocksAt
+        Errors.Governance__WithdrawalNotUnlockedYet.selector, Timestamp.wrap(block.timestamp), withdrawal.unlocksAt
       )
     );
-    governance.finaliseWithdraw(withdrawalId);
+    governance.finalizeWithdraw(withdrawalId);
 
     governance.execute(proposalId);
   }

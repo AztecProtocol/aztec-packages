@@ -110,6 +110,14 @@ export class L2Block {
     return this.header.getBlockNumber();
   }
 
+  get slot(): bigint {
+    return this.header.getSlot();
+  }
+
+  get timestamp(): bigint {
+    return this.header.globalVariables.timestamp;
+  }
+
   /**
    * Returns the block's hash (hash of block header).
    * @returns The block's hash.
@@ -150,6 +158,7 @@ export class L2Block {
 
   toBlockInfo(): BlockInfo {
     return {
+      blockHash: this.blockHash?.toString(),
       archive: this.archive.root.toString(),
       blockNumber: this.number,
       slotNumber: Number(this.header.getSlot()),
@@ -163,6 +172,7 @@ export class L2Block {
 }
 
 export type BlockInfo = {
+  blockHash?: string;
   archive: string;
   blockNumber: number;
   slotNumber: number;

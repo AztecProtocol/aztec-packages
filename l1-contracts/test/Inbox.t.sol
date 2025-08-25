@@ -108,8 +108,7 @@ contract InboxTest is Test {
     DataStructures.L1ToL2Msg memory message = _boundMessage(_message, globalLeafIndex);
 
     bytes32 leaf = message.sha256ToField();
-    bytes16 expectedRollingHash =
-      bytes16(keccak256(abi.encodePacked(stateBefore.rollingHash, leaf)));
+    bytes16 expectedRollingHash = bytes16(keccak256(abi.encodePacked(stateBefore.rollingHash, leaf)));
     vm.expectEmit(true, true, true, true);
     // event we expect
     emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, globalLeafIndex, leaf, expectedRollingHash);
@@ -128,12 +127,9 @@ contract InboxTest is Test {
 
   function testSendDuplicateL2Messages() public checkInvariant {
     DataStructures.L1ToL2Msg memory message = _fakeMessage();
-    (bytes32 leaf1, uint256 index1) =
-      inbox.sendL2Message(message.recipient, message.content, message.secretHash);
-    (bytes32 leaf2, uint256 index2) =
-      inbox.sendL2Message(message.recipient, message.content, message.secretHash);
-    (bytes32 leaf3, uint256 index3) =
-      inbox.sendL2Message(message.recipient, message.content, message.secretHash);
+    (bytes32 leaf1, uint256 index1) = inbox.sendL2Message(message.recipient, message.content, message.secretHash);
+    (bytes32 leaf2, uint256 index2) = inbox.sendL2Message(message.recipient, message.content, message.secretHash);
+    (bytes32 leaf3, uint256 index3) = inbox.sendL2Message(message.recipient, message.content, message.secretHash);
 
     // Only 1 tree should be non-zero
     assertEq(inbox.getNumTrees(), 1);
@@ -150,20 +146,14 @@ contract InboxTest is Test {
   function testRevertIfActorTooLarge() public {
     DataStructures.L1ToL2Msg memory message = _fakeMessage();
     message.recipient.actor = bytes32(Constants.P);
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Inbox__ActorTooLarge.selector, message.recipient.actor)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__ActorTooLarge.selector, message.recipient.actor));
     inbox.sendL2Message(message.recipient, message.content, message.secretHash);
   }
 
   function testRevertIfVersionMismatch() public {
     DataStructures.L1ToL2Msg memory message = _fakeMessage();
     message.recipient.version = version + 1;
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.Inbox__VersionMismatch.selector, message.recipient.version, version
-      )
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__VersionMismatch.selector, message.recipient.version, version));
     inbox.sendL2Message(message.recipient, message.content, message.secretHash);
   }
 
@@ -177,9 +167,7 @@ contract InboxTest is Test {
   function testRevertIfSecretHashTooLarge() public {
     DataStructures.L1ToL2Msg memory message = _fakeMessage();
     message.secretHash = bytes32(Constants.P);
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Inbox__SecretHashTooLarge.selector, message.secretHash)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__SecretHashTooLarge.selector, message.secretHash));
     inbox.sendL2Message(message.recipient, message.content, message.secretHash);
   }
 
@@ -207,8 +195,7 @@ contract InboxTest is Test {
 
     // We send the messages and then check that toConsume root did not change.
     for (uint256 i = 0; i < _messages.length; i++) {
-      DataStructures.L1ToL2Msg memory message =
-        _boundMessage(_messages[i], inbox.getNextMessageIndex());
+      DataStructures.L1ToL2Msg memory message = _boundMessage(_messages[i], inbox.getNextMessageIndex());
 
       // We check whether a new tree is correctly initialized when the one in progress is full
       uint256 numTrees = inbox.getNumTrees();
@@ -222,9 +209,7 @@ contract InboxTest is Test {
     // Root of a tree waiting to be consumed should not change because we introduced a 1 block lag to prevent sequencer
     // DOS attacks
     assertEq(
-      inbox.getToConsumeRoot(blockNumber),
-      toConsumeRoot,
-      "Root of a tree waiting to be consumed should not change"
+      inbox.getToConsumeRoot(blockNumber), toConsumeRoot, "Root of a tree waiting to be consumed should not change"
     );
   }
 
@@ -237,8 +222,7 @@ contract InboxTest is Test {
     // Now we consume the trees
     for (uint256 i = 0; i < numTreesToConsume; i++) {
       uint256 numTrees = inbox.getNumTrees();
-      uint256 expectedNumTrees =
-        (blockNumber + 1 == inbox.getInProgress()) ? numTrees + 1 : numTrees;
+      uint256 expectedNumTrees = (blockNumber + 1 == inbox.getInProgress()) ? numTrees + 1 : numTrees;
       bytes32 root = inbox.consume(blockNumber);
 
       // We check whether a new tree is correctly initialized when the one which was in progress was set as to consume

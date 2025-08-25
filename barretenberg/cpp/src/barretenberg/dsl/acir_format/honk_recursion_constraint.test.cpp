@@ -1,6 +1,7 @@
 #include "honk_recursion_constraint.hpp"
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -106,28 +107,7 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
             .public_inputs = { 1, 2 },
             .logic_constraints = { logic_constraint },
             .range_constraints = { range_a, range_b },
-            .aes128_constraints = {},
-            .sha256_compression = {},
-
-            .ecdsa_k1_constraints = {},
-            .ecdsa_r1_constraints = {},
-            .blake2s_constraints = {},
-            .blake3_constraints = {},
-            .keccak_permutations = {},
-            .poseidon2_constraints = {},
-            .multi_scalar_mul_constraints = {},
-            .ec_add_constraints = {},
-            .honk_recursion_constraints = {},
-            .avm_recursion_constraints = {},
-            .ivc_recursion_constraints = {},
-            .bigint_from_le_bytes_constraints = {},
-            .bigint_to_le_bytes_constraints = {},
-            .bigint_operations = {},
-            .assert_equalities = {},
             .poly_triple_constraints = { expr_a, expr_b, expr_c, expr_d },
-            .quad_constraints = {},
-            .big_quad_constraints = {},
-            .block_constraints = {},
             .original_opcode_indices = create_empty_original_opcode_indices(),
         };
         mock_opcode_indices(constraint_system);
@@ -189,7 +169,7 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
             }();
 
             auto [key_indices, key_hash_index, proof_indices, inner_public_inputs] =
-                ProofSurgeon::populate_recursion_witness_data(
+                ProofSurgeon<fr>::populate_recursion_witness_data(
                     witness, proof_witnesses, key_witnesses, key_hash_witness, num_public_inputs_to_extract);
 
             RecursionConstraint honk_recursion_constraint{
@@ -239,19 +219,20 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
                       const std::shared_ptr<OuterVerificationKey>& verification_key,
                       const HonkProof& proof)
     {
-        if constexpr (IsMegaFlavor<OuterFlavor>) {
-            OuterVerifier verifier(verification_key);
-            return std::get<0>(verifier.verify_proof(proof));
+        using IO = std::conditional_t<HasIPAAccumulator<RecursiveFlavor>, RollupIO, DefaultIO>;
+
+        bool result = false;
+
+        if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
+            VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
+            OuterVerifier verifier(verification_key, ipa_verification_key);
+            result = verifier.template verify_proof<IO>(proof, proving_key->ipa_proof).result;
         } else {
-            if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
-                VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
-                OuterVerifier verifier(verification_key, ipa_verification_key);
-                return verifier.verify_proof(proof, proving_key->ipa_proof);
-            } else {
-                OuterVerifier verifier(verification_key);
-                return verifier.verify_proof(proof);
-            }
+            OuterVerifier verifier(verification_key);
+            result = verifier.template verify_proof<IO>(proof).result;
         }
+
+        return result;
     }
 
   protected:

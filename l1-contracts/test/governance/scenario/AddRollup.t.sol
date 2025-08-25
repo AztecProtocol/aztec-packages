@@ -27,8 +27,8 @@ import {GSEPayload} from "@aztec/governance/GSEPayload.sol";
 import {FakeRollup} from "../governance/TestPayloads.sol";
 import {RegisterNewRollupVersionPayload} from "./RegisterNewRollupVersionPayload.sol";
 import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
-import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
+import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 contract BadRollup {
   IGSE public immutable gse;
@@ -71,7 +71,7 @@ contract AddRollupTest is TestBase {
     stakingQueueConfig.normalFlushSizeMin = VALIDATOR_COUNT * 2;
 
     // We need to make a timejump that is far enough that we can go at least 2 epochs in the past
-    vm.warp(100000);
+    vm.warp(100_000);
     RollupBuilder builder = new RollupBuilder(address(this)).setGovProposerN(7).setGovProposerM(10)
       .setStakingQueueConfig(stakingQueueConfig).setTargetCommitteeSize(0);
     builder.deploy();
@@ -89,13 +89,19 @@ contract AddRollupTest is TestBase {
       address validator = vm.addr(privateKey);
       privateKeys[validator] = privateKey;
       validators[i - 1] = validator;
-      initialValidators[i - 1] = CheatDepositArgs({attester: validator, withdrawer: validator});
+      initialValidators[i - 1] = CheatDepositArgs({
+        attester: validator,
+        withdrawer: validator,
+        publicKeyInG1: BN254Lib.g1Zero(),
+        publicKeyInG2: BN254Lib.g2Zero(),
+        proofOfPossession: BN254Lib.g1Zero()
+      });
     }
 
     MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
-    uint256 depositAmount = rollup.getDepositAmount();
+    uint256 activationThreshold = rollup.getActivationThreshold();
     vm.prank(token.owner());
-    token.mint(address(multiAdder), depositAmount * VALIDATOR_COUNT);
+    token.mint(address(multiAdder), activationThreshold * VALIDATOR_COUNT);
     multiAdder.addValidators(initialValidators);
 
     registry.transferOwnership(address(governance));
@@ -103,9 +109,7 @@ contract AddRollupTest is TestBase {
 
   function test_AddRollup(bool _break) external {
     BadRollup newRollup = new BadRollup(gse);
-    payload = IPayload(
-      address(new RegisterNewRollupVersionPayload(registry, IInstance(address(newRollup))))
-    );
+    payload = IPayload(address(new RegisterNewRollupVersionPayload(registry, IInstance(address(newRollup)))));
     vm.warp(Timestamp.unwrap(rollup.getTimestampForSlot(Slot.wrap(1))));
 
     for (uint256 i = 0; i < 10; i++) {
@@ -125,18 +129,18 @@ contract AddRollupTest is TestBase {
     assertEq(gsePayload.getURI(), payload.getURI());
 
     vm.prank(token.owner());
-    token.mint(EMPEROR, 10000 ether);
+    token.mint(EMPEROR, 10_000 ether);
 
     vm.startPrank(EMPEROR);
-    token.approve(address(governance), 10000 ether);
-    governance.deposit(EMPEROR, 10000 ether);
+    token.approve(address(governance), 10_000 ether);
+    governance.deposit(EMPEROR, 10_000 ether);
     vm.stopPrank();
 
     vm.warp(Timestamp.unwrap(proposal.pendingThrough()) + 1);
     assertTrue(governance.getProposalState(0) == ProposalState.Active);
 
     vm.prank(EMPEROR);
-    governance.vote(0, 10000 ether, true);
+    governance.vote(0, 10_000 ether, true);
 
     vm.warp(Timestamp.unwrap(proposal.activeThrough()) + 1);
     assertTrue(governance.getProposalState(0) == ProposalState.Queued);
@@ -153,23 +157,23 @@ contract AddRollupTest is TestBase {
       // We need 1/3 of the total supply to be off canonical
       // So we add 1/2 of the initial supply to the specific instance
       // The result is that 1/3 of the new total supply is off canonical
-      uint256 validatorsNeeded = (gse.totalSupply() / 2) / rollup.getDepositAmount() + 1;
+      uint256 validatorsNeeded = (gse.totalSupply() / 2) / rollup.getActivationThreshold() + 1;
 
-      uint256 depositAmount = rollup.getDepositAmount();
+      uint256 activationThreshold = rollup.getActivationThreshold();
       while (val <= validatorsNeeded) {
         vm.prank(token.owner());
-        token.mint(address(this), depositAmount);
-        token.approve(address(rollup), depositAmount);
-        rollup.deposit(address(uint160(val)), address(this), false);
+        token.mint(address(this), activationThreshold);
+        token.approve(address(rollup), activationThreshold);
+        rollup.deposit(
+          address(uint160(val)), address(this), BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), false
+        );
         val++;
       }
       rollup.flushEntryQueue();
 
       // While Errors.GovernanceProposer__GSEPayloadInvalid.selector is the error, we are catching it
       // So the expected error is that the call failed and the address of it.
-      vm.expectRevert(
-        abi.encodeWithSelector(Errors.Governance__CallFailed.selector, address(gsePayload))
-      );
+      vm.expectRevert(abi.encodeWithSelector(Errors.Governance__CallFailed.selector, address(gsePayload)));
     }
 
     governance.execute(0);

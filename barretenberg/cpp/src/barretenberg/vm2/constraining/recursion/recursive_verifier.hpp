@@ -1,6 +1,6 @@
 #pragma once
 
-#include "barretenberg/stdlib/pairing_points.hpp"
+#include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_flavor.hpp"
@@ -24,8 +24,6 @@ class AvmRecursiveVerifier {
     using StdlibProof = stdlib::Proof<Builder>;
 
   public:
-    explicit AvmRecursiveVerifier(Builder& builder,
-                                  const std::shared_ptr<NativeVerificationKey>& native_verification_key);
     explicit AvmRecursiveVerifier(Builder& builder, const std::shared_ptr<VerificationKey>& vkey);
 
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] PairingPoints verify_proof(
@@ -35,8 +33,9 @@ class AvmRecursiveVerifier {
                                                       // stdlib_proof_with_pi_flag to stdlib_proof
         const std::vector<std::vector<typename Flavor::FF>>& public_inputs);
 
-    std::shared_ptr<VerificationKey> key;
     Builder& builder;
+    std::shared_ptr<VerificationKey> key;
+    FF vk_hash;
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
   private:

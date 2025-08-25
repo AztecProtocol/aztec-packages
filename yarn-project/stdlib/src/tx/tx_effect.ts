@@ -17,8 +17,6 @@ import {
 } from '@aztec/constants';
 import { type FieldsOf, makeTuple, makeTupleAsync } from '@aztec/foundation/array';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { padArrayEnd } from '@aztec/foundation/collection';
-import { sha256Trunc } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 import {
@@ -28,6 +26,7 @@ import {
   serializeToBuffer,
 } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
+import { computeUnbalancedMerkleTreeRoot } from '@aztec/foundation/trees';
 
 import { inspect } from 'util';
 import { z } from 'zod';
@@ -206,29 +205,15 @@ export class TxEffect {
 
   /**
    * Computes txOutHash of this tx effect.
-   * @dev Follows new_sha in variable_merkle_tree.nr
+   * @dev Follows new_sha in unbalanced_merkle_tree.nr
    */
-  txOutHash() {
+  txOutHash(): Buffer {
     const { l2ToL1Msgs } = this;
     if (l2ToL1Msgs.length == 0) {
       return Buffer.alloc(32);
     }
-    const depth = l2ToL1Msgs.length == 1 ? 1 : Math.ceil(Math.log2(l2ToL1Msgs.length));
-    let thisLayer = padArrayEnd(
-      l2ToL1Msgs.map(msg => msg.toBuffer()),
-      Buffer.alloc(32),
-      2 ** depth,
-    );
-    let nextLayer = [];
-    for (let i = 0; i < depth; i++) {
-      for (let j = 0; j < thisLayer.length; j += 2) {
-        // Store the hash of each pair one layer up
-        nextLayer[j / 2] = sha256Trunc(Buffer.concat([thisLayer[j], thisLayer[j + 1]]));
-      }
-      thisLayer = nextLayer;
-      nextLayer = [];
-    }
-    return thisLayer[0];
+
+    return computeUnbalancedMerkleTreeRoot(l2ToL1Msgs.map(msg => msg.toBuffer()));
   }
 
   static async random(

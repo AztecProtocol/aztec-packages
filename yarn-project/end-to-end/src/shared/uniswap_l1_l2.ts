@@ -83,7 +83,7 @@ export const uniswapL1L2TestSuite = (
     let ownerEthAddress: EthAddress;
     // does transactions on behalf of owner on Aztec:
     let sponsorWallet: AccountWallet;
-    // let sponsorAddress: AztecAddress;
+    let sponsorAddress: AztecAddress;
 
     let daiCrossChainHarness: CrossChainTestHarness;
     let wethCrossChainHarness: CrossChainTestHarness;
@@ -114,7 +114,7 @@ export const uniswapL1L2TestSuite = (
       );
       version = Number(await rollup.getVersion());
       ownerAddress = ownerWallet.getAddress();
-      // sponsorAddress = sponsorWallet.getAddress();
+      sponsorAddress = sponsorWallet.getAddress();
       ownerEthAddress = EthAddress.fromString((await l1Client.getAddresses())[0]);
 
       await ensureAccountContractsPublished(ownerWallet, [ownerWallet, sponsorWallet]);
@@ -125,6 +125,7 @@ export const uniswapL1L2TestSuite = (
         pxe,
         deployL1ContractsValues.l1Client,
         ownerWallet,
+        ownerAddress,
         logger,
         DAI_ADDRESS,
       );
@@ -135,6 +136,7 @@ export const uniswapL1L2TestSuite = (
         pxe,
         l1Client,
         ownerWallet,
+        ownerAddress,
         logger,
         WETH9_ADDRESS,
       );
@@ -150,7 +152,9 @@ export const uniswapL1L2TestSuite = (
         client: l1Client,
       });
       // deploy l2 uniswap contract and attach to portal
-      uniswapL2Contract = await UniswapContract.deploy(ownerWallet, uniswapPortalAddress).send().deployed();
+      uniswapL2Contract = await UniswapContract.deploy(ownerWallet, uniswapPortalAddress)
+        .send({ from: ownerAddress })
+        .deployed();
 
       const registryAddress = (await pxe.getNodeInfo()).l1ContractAddresses.registryAddress;
 
@@ -228,7 +232,7 @@ export const uniswapL1L2TestSuite = (
           secretHashForDepositingSwappedDai,
           ownerEthAddress,
         )
-        .send({ authWitnesses: [transferToPublicAuhtwit] })
+        .send({ from: ownerAddress, authWitnesses: [transferToPublicAuhtwit] })
         .wait();
 
       const swapPrivateFunction = 'swap_private(address,uint256,uint24,address,uint256,bytes32,address)';
@@ -290,10 +294,10 @@ export const uniswapL1L2TestSuite = (
         withdrawLeaf,
       );
 
-      const swapPrivateL2MessageIndex = swapResult!.l2MessageIndex;
+      const swapPrivateL2MessageIndex = swapResult!.leafIndex;
       const swapPrivateSiblingPath = swapResult!.siblingPath;
 
-      const withdrawL2MessageIndex = withdrawResult!.l2MessageIndex;
+      const withdrawL2MessageIndex = withdrawResult!.leafIndex;
       const withdrawSiblingPath = withdrawResult!.siblingPath;
 
       const withdrawMessageMetadata = {
@@ -634,7 +638,7 @@ export const uniswapL1L2TestSuite = (
             Fr.random(),
             ownerEthAddress,
           )
-          .simulate(),
+          .simulate({ from: ownerAddress }),
       ).rejects.toThrow(`Unknown auth witness for message hash ${expectedMessageHash.toString()}`);
     });
 
@@ -671,7 +675,7 @@ export const uniswapL1L2TestSuite = (
             Fr.random(),
             ownerEthAddress,
           )
-          .prove({ authWitnesses: [transferToPublicAuthwith] }),
+          .prove({ from: ownerAddress, authWitnesses: [transferToPublicAuthwith] }),
       ).rejects.toThrow('Assertion failed: input_asset address is not the same as seen in the bridge contract');
     });
 
@@ -695,7 +699,7 @@ export const uniswapL1L2TestSuite = (
         },
         true,
       );
-      await validateActionInteraction.send().wait();
+      await validateActionInteraction.send({ from: ownerAddress }).wait();
 
       // No approval to call `swap` but should work even without it:
       const [_, secretHashForDepositingSwappedDai] = await generateClaimSecret();
@@ -714,7 +718,7 @@ export const uniswapL1L2TestSuite = (
           ownerEthAddress,
           Fr.ZERO, // nonce for swap -> doesn't matter
         )
-        .send()
+        .send({ from: ownerAddress })
         .wait();
       // check weth balance of owner on L2 (we first bridged `wethAmountToBridge` into L2 and now withdrew it!)
       await wethCrossChainHarness.expectPublicBalanceOnL2(ownerAddress, 0n);
@@ -743,9 +747,9 @@ export const uniswapL1L2TestSuite = (
           nonceForSwap,
         );
       const validateActionInteraction = await ownerWallet.setPublicAuthWit({ caller: approvedUser, action }, true);
-      await validateActionInteraction.send().wait();
+      await validateActionInteraction.send({ from: ownerAddress }).wait();
 
-      await expect(action.simulate()).rejects.toThrow(/unauthorized/);
+      await expect(action.simulate({ from: sponsorAddress })).rejects.toThrow(/unauthorized/);
     });
 
     it("uniswap can't pull funds without transfer approval", async () => {
@@ -764,7 +768,7 @@ export const uniswapL1L2TestSuite = (
         },
         true,
       );
-      await validateActionInteraction.send().wait();
+      await validateActionInteraction.send({ from: ownerAddress }).wait();
 
       await expect(
         uniswapL2Contract.methods
@@ -781,7 +785,7 @@ export const uniswapL1L2TestSuite = (
             ownerEthAddress,
             Fr.ZERO,
           )
-          .simulate(),
+          .simulate({ from: ownerAddress }),
       ).rejects.toThrow(/unauthorized/);
     });
 
@@ -821,7 +825,7 @@ export const uniswapL1L2TestSuite = (
           secretHashForDepositingSwappedDai,
           ownerEthAddress,
         )
-        .send({ authWitnesses: [transferToPublicAuhtwit] })
+        .send({ from: ownerAddress, authWitnesses: [transferToPublicAuhtwit] })
         .wait();
 
       const swapPrivateContent = sha256ToField([
@@ -868,10 +872,10 @@ export const uniswapL1L2TestSuite = (
         withdrawLeaf,
       );
 
-      const swapPrivateL2MessageIndex = swapResult!.l2MessageIndex;
+      const swapPrivateL2MessageIndex = swapResult!.leafIndex;
       const swapPrivateSiblingPath = swapResult!.siblingPath;
 
-      const withdrawL2MessageIndex = withdrawResult!.l2MessageIndex;
+      const withdrawL2MessageIndex = withdrawResult!.leafIndex;
       const withdrawSiblingPath = withdrawResult!.siblingPath;
 
       const withdrawMessageMetadata = {
@@ -934,7 +938,7 @@ export const uniswapL1L2TestSuite = (
         },
         true,
       );
-      await validateActionInteraction.send().wait();
+      await validateActionInteraction.send({ from: ownerAddress }).wait();
 
       // Call swap_public on L2
       const secretHashForDepositingSwappedDai = Fr.random();
@@ -952,7 +956,7 @@ export const uniswapL1L2TestSuite = (
           ownerEthAddress,
           Fr.ZERO,
         )
-        .send()
+        .send({ from: ownerAddress })
         .wait();
 
       const swapPublicContent = sha256ToField([
@@ -1002,10 +1006,10 @@ export const uniswapL1L2TestSuite = (
         withdrawLeaf,
       );
 
-      const swapPublicL2MessageIndex = swapResult!.l2MessageIndex;
+      const swapPublicL2MessageIndex = swapResult!.leafIndex;
       const swapPublicSiblingPath = swapResult!.siblingPath;
 
-      const withdrawL2MessageIndex = withdrawResult!.l2MessageIndex;
+      const withdrawL2MessageIndex = withdrawResult!.leafIndex;
       const withdrawSiblingPath = withdrawResult!.siblingPath;
 
       const withdrawMessageMetadata = {

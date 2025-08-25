@@ -27,7 +27,7 @@ import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
 import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
-import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
+import { computeL2ToL1MembershipWitness, getL2ToL1MessageLeafId } from '@aztec/stdlib/messaging';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { jest } from '@jest/globals';
@@ -166,6 +166,9 @@ describe('e2e_p2p_add_rollup', () => {
         feeJuicePortalInitialBalance: fundingNeeded,
         realVerifier: false,
         exitDelaySeconds: t.ctx.aztecNodeConfig.exitDelaySeconds,
+        slasherFlavor: t.ctx.aztecNodeConfig.slasherFlavor,
+        slashingOffsetInRounds: t.ctx.aztecNodeConfig.slashingOffsetInRounds,
+        slashingUnit: t.ctx.aztecNodeConfig.slashingUnit,
       },
       t.ctx.deployL1ContractsValues.l1ContractAddresses.registryAddress,
       t.logger,
@@ -243,7 +246,9 @@ describe('e2e_p2p_add_rollup', () => {
         aliceAccount.salt,
       );
 
-      const testContract = await TestContract.deploy(alice).send().deployed();
+      const aliceAddress = alice.getAddress();
+
+      const testContract = await TestContract.deploy(alice).send({ from: aliceAddress }).deployed();
 
       const [secret, secretHash] = await generateClaimSecret();
 
@@ -266,12 +271,12 @@ describe('e2e_p2p_add_rollup', () => {
 
         l2OutgoingReceipt = await testContract.methods
           .create_l2_to_l1_message_arbitrary_recipient_private(contentOutFromRollup, ethRecipient)
-          .send()
+          .send({ from: aliceAddress })
           .wait();
 
         await testContract.methods
           .create_l2_to_l1_message_arbitrary_recipient_private(contentOutFromRollup, ethRecipient)
-          .send()
+          .send({ from: aliceAddress })
           .wait();
       };
 
@@ -283,7 +288,7 @@ describe('e2e_p2p_add_rollup', () => {
 
       await testContract.methods
         .consume_message_from_arbitrary_sender_private(message.content, secret, ethRecipient, message1Index)
-        .send()
+        .send({ from: aliceAddress })
         .wait();
 
       // Then we consume the L2 -> L1 message
@@ -309,6 +314,7 @@ describe('e2e_p2p_add_rollup', () => {
         });
 
         const l2ToL1MessageResult = await computeL2ToL1MembershipWitness(node, l2OutgoingReceipt!.blockNumber, leaf);
+        const leafId = getL2ToL1MessageLeafId(l2ToL1MessageResult!);
 
         // We need to mark things as proven
         const cheatcodes = RollupCheatCodes.create(l1RpcUrls, l1ContractAddresses);
@@ -329,7 +335,7 @@ describe('e2e_p2p_add_rollup', () => {
             args: [
               l2ToL1Message,
               BigInt(l2OutgoingReceipt!.blockNumber!),
-              BigInt(l2ToL1MessageResult!.l2MessageIndex),
+              BigInt(l2ToL1MessageResult!.leafIndex),
               l2ToL1MessageResult!.siblingPath
                 .toBufferArray()
                 .map((buf: Buffer) => `0x${buf.toString('hex')}`) as readonly `0x${string}`[],
@@ -352,13 +358,13 @@ describe('e2e_p2p_add_rollup', () => {
             l2BlockNumber: bigint;
             root: `0x${string}`;
             messageHash: `0x${string}`;
-            leafIndex: bigint;
+            leafId: bigint;
           };
         };
 
-        // We check that MessageConsumed event was emitted with the expected message hash and leaf index
+        // We check that MessageConsumed event was emitted with the expected message hash and leaf id
         expect(topics.args.messageHash).toStrictEqual(leaf.toString());
-        expect(topics.args.leafIndex).toStrictEqual(BigInt(0));
+        expect(topics.args.leafId).toStrictEqual(leafId);
       }
     };
 

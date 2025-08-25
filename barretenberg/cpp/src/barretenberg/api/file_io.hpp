@@ -87,7 +87,7 @@ inline void write_file(const std::string& filename, std::vector<uint8_t> const& 
     }
 }
 
-inline std::string field_elements_to_json(const std::vector<bb::fr>& fields)
+template <typename Fr> inline std::string field_elements_to_json(const std::vector<Fr>& fields)
 {
     std::stringstream ss;
     ss << "[";

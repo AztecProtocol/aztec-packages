@@ -10,6 +10,7 @@
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/honk/execution_trace/execution_trace_usage_tracker.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
+#include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
 #include "barretenberg/stdlib/honk_verifier/decider_recursive_verifier.hpp"
 #include "barretenberg/stdlib/honk_verifier/oink_recursive_verifier.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
@@ -53,6 +54,7 @@ class ClientIVC {
     using DeciderProvingKeys = DeciderProvingKeys_<Flavor>;
     using FoldingProver = ProtogalaxyProver_<Flavor>;
     using DeciderVerificationKeys = DeciderVerificationKeys_<Flavor>;
+    using FoldingVerifier = ProtogalaxyVerifier_<DeciderVerificationKeys>;
     using ECCVMVerificationKey = bb::ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
     using MegaProver = UltraProver_<Flavor>;
@@ -95,7 +97,41 @@ class ClientIVC {
         HonkProof mega_proof;
         GoblinProof goblin_proof;
 
+        /**
+         * @brief The size of a ClientIVC proof without backend-added public inputs
+         *
+         * @param virtual_log_n
+         * @return constexpr size_t
+         */
+        static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = MegaZKFlavor::VIRTUAL_LOG_N)
+        {
+            return /*mega_proof*/ MegaZKFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n) +
+                   /*merge_proof*/ MERGE_PROOF_SIZE +
+                   /*eccvm pre-ipa proof*/ (ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH) +
+                   /*eccvm ipa proof*/ IPA_PROOF_LENGTH +
+                   /*translator*/ TranslatorFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS;
+        }
+
+        /**
+         * @brief The size of a ClientIVC proof with backend-added public inputs: HidingKernelIO
+         *
+         * @param virtual_log_n
+         * @return constexpr size_t
+         */
+        static constexpr size_t PROOF_LENGTH(size_t virtual_log_n = MegaZKFlavor::VIRTUAL_LOG_N)
+        {
+            return PROOF_LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n) +
+                   /*public_inputs*/ bb::HidingKernelIO::PUBLIC_INPUTS_SIZE;
+        }
+
         size_t size() const;
+
+        /**
+         * @brief Serialize proof to field elements
+         *
+         * @return std::vector<FF>
+         */
+        std::vector<FF> to_field_elements() const;
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1299): The following msgpack methods are generic
         // and should leverage some kind of shared msgpack utility.
@@ -197,7 +233,13 @@ class ClientIVC {
         }
     };
 
-    enum class QUEUE_TYPE { OINK, PG, PG_FINAL }; // for specifying type of proof in the verification queue
+    enum class QUEUE_TYPE {
+        OINK,
+        PG,
+        PG_FINAL, // the final PG verification, used in hiding kernel
+        PG_TAIL,  // used in tail to indicate special handling of merge for ZK
+        MEGA
+    }; // for specifying type of proof in the verification queue
 
     // An entry in the native verification queue
     struct VerifierInputs {
@@ -227,7 +269,7 @@ class ClientIVC {
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
     // Transcript to be shared across the folding of K_{i-1} (kernel), A_{i,1} (app), .., A_{i, n}
-    std::shared_ptr<Transcript> accumulation_transcript = std::make_shared<Transcript>();
+    std::shared_ptr<Transcript> prover_accumulation_transcript = std::make_shared<Transcript>();
 
     size_t num_circuits; // total number of circuits to be accumulated in the IVC
   public:
@@ -237,7 +279,10 @@ class ClientIVC {
     HonkProof decider_proof;      // decider proof to be verified in the hiding circuit
     HonkProof mega_proof;         // proof of the hiding circuit
 
-    std::shared_ptr<DeciderVerificationKey> verifier_accumulator; // verifier accumulator
+    std::shared_ptr<DeciderVerificationKey>
+        recursive_verifier_native_accum; // native verifier accumulator used in recursive folding
+    std::shared_ptr<DeciderVerificationKey>
+        native_verifier_accum;                    //  native verifier accumulator used in prover folding
     std::shared_ptr<MegaVerificationKey> honk_vk; // honk vk to be completed and folded into the accumulator
 
     // Set of tuples {proof, verification_key, type (Oink/PG)} to be recursively verified
@@ -286,15 +331,14 @@ class ClientIVC {
      * set using the proving key produced from `circuit` in order to pass some assertions in the Oink prover.
      * @param mock_vk A boolean to say whether the precomputed vk should have its metadata set.
      */
-    void accumulate(ClientCircuit& circuit,
-                    const std::shared_ptr<MegaVerificationKey>& precomputed_vk = nullptr,
-                    const bool mock_vk = false);
+    void accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& precomputed_vk);
 
     Proof prove();
 
-    std::shared_ptr<ClientIVC::DeciderZKProvingKey> construct_hiding_circuit_key();
+    std::shared_ptr<ClientIVC::DeciderZKProvingKey> construct_hiding_circuit_key(ClientCircuit& circuit);
+    std::shared_ptr<ClientIVC::DeciderZKProvingKey> compute_hiding_circuit_proving_key(ClientCircuit& circuit);
     static void hide_op_queue_accumulation_result(ClientCircuit& circuit);
-    HonkProof construct_and_prove_hiding_circuit();
+    HonkProof prove_hiding_circuit(ClientCircuit& circuit);
 
     static bool verify(const Proof& proof, const VerificationKey& vk);
 

@@ -1,5 +1,6 @@
 ---
 title: "NFT contract"
+description: Code-along tutorial for creating a non-fungible token (NFT) contract on Aztec.
 sidebar_position: 5
 ---
 
@@ -349,7 +350,8 @@ Now that the contract is complete, you can compile it with `aztec-nargo`. See th
 Run the following command in the directory where your `Nargo.toml` file is located:
 
 ```bash
-aztec-nargo compile
+aztec-nargo compile        # generate contract artifacts
+aztec-postprocess-contract # transpile contract and generate verification keys
 ```
 
 Once your contract is compiled, optionally generate a typescript interface with the following command:

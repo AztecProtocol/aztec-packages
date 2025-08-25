@@ -1,7 +1,7 @@
 import type { L2Block } from '@aztec/aztec.js';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { FormattedViemError, NoCommitteeError, type ViemPublicClient } from '@aztec/ethereum';
-import { omit } from '@aztec/foundation/collection';
+import { omit, pick } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
@@ -9,9 +9,9 @@ import { RunningPromise } from '@aztec/foundation/running-promise';
 import { type DateProvider, Timer } from '@aztec/foundation/timer';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
-import type { SlasherClient } from '@aztec/slasher';
+import type { SlasherClientInterface } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { CommitteeAttestation, L2BlockSource } from '@aztec/stdlib/block';
+import type { CommitteeAttestation, L2BlockSource, ValidateBlockResult } from '@aztec/stdlib/block';
 import { type L1RollupConstants, getSlotAtTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
 import {
@@ -46,9 +46,10 @@ import {
 import type { ValidatorClient } from '@aztec/validator-client';
 
 import EventEmitter from 'node:events';
+import type { TypedDataDefinition } from 'viem';
 
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
-import { type Action, type SequencerPublisher, SignalType } from '../publisher/sequencer-publisher.js';
+import type { Action, InvalidateBlockRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
 import type { SequencerConfig } from './config.js';
 import { SequencerMetrics } from './metrics.js';
 import { SequencerTimetable, SequencerTooSlowError } from './timetable.js';
@@ -112,7 +113,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     protected globalsBuilder: GlobalVariableBuilder,
     protected p2pClient: P2P,
     protected worldState: WorldStateSynchronizer,
-    protected slasherClient: SlasherClient,
+    protected slasherClient: SlasherClientInterface | undefined,
     protected l2BlockSource: L2BlockSource,
     protected l1ToL2MessageSource: L1ToL2MessageSource,
     protected blockBuilder: IFullNodeBlockBuilder,
@@ -137,8 +138,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       [publisher.getSenderAddress()],
     );
 
-    // Register the slasher on the publisher to fetch slashing payloads
-    this.publisher.registerSlashPayloadGetter(this.slasherClient.getSlashPayload.bind(this.slasherClient));
+    // Initialize config
+    this.updateConfig(this.config);
   }
 
   get tracer(): Tracer {
@@ -224,7 +225,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    * Starts the sequencer and moves to IDLE state.
    */
   public start() {
-    this.updateConfig(this.config);
     this.metrics.start();
     this.runningPromise = new RunningPromise(this.work.bind(this), this.log, this.pollingIntervalMs);
     this.setState(SequencerState.IDLE, undefined, { force: true });
@@ -302,6 +302,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       nextL2Slot: slot,
       nextL2SlotTs: ts,
       l1SlotDuration: this.l1Constants.ethereumSlotDuration,
+      newBlockNumber,
+      isPendingChainValid: pick(syncedTo.pendingChainValidationStatus, 'valid', 'reason', 'invalidIndex'),
     };
 
     if (syncedTo.l1Timestamp + BigInt(this.l1Constants.ethereumSlotDuration) < ts) {
@@ -330,9 +332,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return;
     }
 
+    // Check that we are a proposer for the next slot
     let proposerInNextSlot: EthAddress | undefined;
     try {
-      // Check that we are a proposer for the next slot
       proposerInNextSlot = await this.publisher.epochCache.getProposerAttesterAddressInNextSlot();
     } catch (e) {
       if (e instanceof NoCommitteeError) {
@@ -342,25 +344,35 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         return;
       }
     }
-    const validatorAddresses = this.validatorClient!.getValidatorAddresses();
 
     // If get proposer in next slot is undefined, then the committee is empty and anyone may propose.
-    // If the committee is defined and not empty, but none of our validators are the proposer,
-    // then stop.
+    // If the committee is defined and not empty, but none of our validators are the proposer, then stop.
+    const validatorAddresses = this.validatorClient!.getValidatorAddresses();
     if (proposerInNextSlot !== undefined && !validatorAddresses.some(addr => addr.equals(proposerInNextSlot))) {
       this.log.debug(`Cannot propose block ${newBlockNumber} since we are not a proposer`, {
         us: validatorAddresses,
         proposer: proposerInNextSlot,
         ...syncLogData,
       });
+      // If the pending chain is invalid, we may need to invalidate the block if no one else is doing it.
+      if (!syncedTo.pendingChainValidationStatus.valid) {
+        await this.considerInvalidatingBlock(syncedTo, slot, validatorAddresses);
+      }
       return;
     }
 
-    // Double check we are good for proposing at the next block before we start operations.
-    // We should never fail this check assuming the logic above is good.
-    const proposerAddress = proposerInNextSlot ?? EthAddress.ZERO;
+    // Prepare invalidation request if the pending chain is invalid (returns undefined if no need)
+    const invalidateBlock = await this.publisher.simulateInvalidateBlock(syncedTo.pendingChainValidationStatus);
 
-    const canProposeCheck = await this.publisher.canProposeAtNextEthBlock(chainTipArchive.toBuffer(), proposerAddress);
+    // Check with the rollup if we can indeed propose at the next L2 slot. This check should not fail
+    // if all the previous checks are good, but we do it just in case.
+    const proposerAddress = proposerInNextSlot ?? EthAddress.ZERO;
+    const canProposeCheck = await this.publisher.canProposeAtNextEthBlock(
+      chainTipArchive,
+      proposerAddress,
+      invalidateBlock,
+    );
+
     if (canProposeCheck === undefined) {
       this.log.warn(
         `Cannot propose block ${newBlockNumber} at slot ${slot} due to failed rollup contract check`,
@@ -385,9 +397,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
 
     this.log.debug(
-      `${
-        proposerInNextSlot ? `Validator ${proposerInNextSlot.toString()} can` : 'Can'
-      } propose block ${newBlockNumber} at slot ${slot}`,
+      `Can propose block ${newBlockNumber} at slot ${slot}` + (proposerInNextSlot ? ` as ${proposerInNextSlot}` : ''),
       { ...syncLogData, validatorAddresses },
     );
 
@@ -398,21 +408,24 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       slot,
     );
 
-    const enqueueGovernanceVotePromise = this.publisher.enqueueCastSignal(
+    const { timestamp } = newGlobalVariables;
+    const signerFn = (msg: TypedDataDefinition) =>
+      this.validatorClient!.signWithAddress(proposerAddress, msg).then(s => s.toString());
+
+    const enqueueGovernanceSignalPromise = this.publisher.enqueueGovernanceCastSignal(
       slot,
-      newGlobalVariables.timestamp,
-      SignalType.GOVERNANCE,
+      timestamp,
       proposerAddress,
-      msg => this.validatorClient!.signWithAddress(proposerAddress, msg).then(s => s.toString()),
+      signerFn,
     );
 
-    const enqueueSlashingVotePromise = this.publisher.enqueueCastSignal(
-      slot,
-      newGlobalVariables.timestamp,
-      SignalType.SLASHING,
-      proposerAddress,
-      msg => this.validatorClient!.signWithAddress(proposerAddress, msg).then(s => s.toString()),
-    );
+    const enqueueSlashingActionsPromise = this.slasherClient
+      ?.getProposerActions(slot)
+      ?.then(actions => this.publisher.enqueueSlashingActions(actions, slot, timestamp, proposerAddress, signerFn));
+
+    if (invalidateBlock && !this.config.skipInvalidateBlockAsProposer) {
+      this.publisher.enqueueInvalidateBlock(invalidateBlock);
+    }
 
     this.setState(SequencerState.INITIALIZING_PROPOSAL, slot);
     this.log.verbose(`Preparing proposal for block ${newBlockNumber} at slot ${slot}`, {
@@ -445,6 +458,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
           proposalHeader,
           newGlobalVariables,
           proposerInNextSlot,
+          invalidateBlock,
         );
       } catch (err: any) {
         this.emit('block-build-failed', { reason: err.message });
@@ -462,11 +476,11 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.emit('tx-count-check-failed', { minTxs: this.minTxsPerBlock, availableTxs: pendingTxCount });
     }
 
-    await enqueueGovernanceVotePromise.catch(err => {
+    await enqueueGovernanceSignalPromise?.catch(err => {
       this.log.error(`Error enqueuing governance vote`, err, { blockNumber: newBlockNumber, slot });
     });
-    await enqueueSlashingVotePromise.catch(err => {
-      this.log.error(`Error enqueuing slashing vote`, err, { blockNumber: newBlockNumber, slot });
+    await enqueueSlashingActionsPromise?.catch(err => {
+      this.log.error(`Error enqueuing slashing actions`, err, { blockNumber: newBlockNumber, slot });
     });
 
     const l1Response = await this.publisher.sendRequests();
@@ -577,9 +591,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     proposalHeader: ProposedBlockHeader,
     newGlobalVariables: GlobalVariables,
     proposerAddress: EthAddress | undefined,
+    invalidateBlock: InvalidateBlockRequest | undefined,
   ): Promise<L2Block> {
-    // TODO(palla/sigs): We need to simulate the previous block being removed if invalid!
-    await this.publisher.validateBlockHeader(proposalHeader);
+    await this.publisher.validateBlockHeader(proposalHeader, invalidateBlock);
 
     const blockNumber = newGlobalVariables.blockNumber;
     const slot = proposalHeader.slotNumber.toBigInt();
@@ -613,7 +627,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
       // TODO(@PhilWindle) We should probably periodically check for things like another
       // block being published before ours instead of just waiting on our block
-      await this.publisher.validateBlockHeader(block.header.toPropose());
+      await this.publisher.validateBlockHeader(block.header.toPropose(), invalidateBlock);
 
       const blockStats: L2BlockBuiltStats = {
         eventName: 'l2-block-built',
@@ -644,7 +658,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         this.log.verbose(`Collected ${attestations.length} attestations`, { blockHash, blockNumber });
       }
 
-      await this.enqueuePublishL2Block(block, attestations, txHashes);
+      await this.enqueuePublishL2Block(block, attestations, txHashes, invalidateBlock);
       this.metrics.recordBuiltBlock(blockBuildDuration, publicGas.l2Gas);
       return block;
     } catch (err) {
@@ -699,9 +713,15 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       proposerAddress,
       blockProposalOptions,
     );
+
     if (!proposal) {
-      const msg = `Failed to create block proposal`;
-      throw new Error(msg);
+      throw new Error(`Failed to create block proposal`);
+    }
+
+    if (this.config.skipCollectingAttestations) {
+      this.log.warn('Skipping attestation collection as per config (attesting with own keys only)');
+      const attestations = await this.validatorClient?.collectOwnAttestations(proposal);
+      return orderAttestations(attestations ?? [], committee);
     }
 
     this.log.debug('Broadcasting block proposal to validators');
@@ -731,7 +751,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       if (err && err instanceof AttestationTimeoutError) {
         collectedAttestionsCount = err.collectedCount;
       }
-
       throw err;
     } finally {
       this.metrics.recordCollectedAttestations(collectedAttestionsCount, timer.ms());
@@ -747,18 +766,16 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   }))
   protected async enqueuePublishL2Block(
     block: L2Block,
-    attestations?: CommitteeAttestation[],
-    txHashes?: TxHash[],
+    attestations: CommitteeAttestation[] | undefined,
+    txHashes: TxHash[],
+    invalidateBlock: InvalidateBlockRequest | undefined,
   ): Promise<void> {
     // Publishes new block to the network and awaits the tx to be mined
     this.setState(SequencerState.PUBLISHING_BLOCK, block.header.globalVariables.slotNumber.toBigInt());
 
-    // Time out tx at the end of the slot
-    const slot = block.header.globalVariables.slotNumber.toNumber();
-    const txTimeoutAt = new Date((this.getSlotStartBuildTimestamp(slot) + this.aztecSlotDuration) * 1000);
-
     const enqueued = await this.publisher.enqueueProposeL2Block(block, attestations, txHashes, {
-      txTimeoutAt,
+      txTimeoutAt: this.getTxTimeoutForSlot(block.slot),
+      forcePendingBlockNumber: invalidateBlock?.forcePendingBlockNumber,
     });
 
     if (!enqueued) {
@@ -772,7 +789,14 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    * @returns Boolean indicating if our dependencies are synced to the latest block.
    */
   protected async getChainTip(): Promise<
-    { block?: L2Block; blockNumber: number; archive: Fr; l1Timestamp: bigint } | undefined
+    | {
+        block?: L2Block;
+        blockNumber: number;
+        archive: Fr;
+        l1Timestamp: bigint;
+        pendingChainValidationStatus: ValidateBlockResult;
+      }
+    | undefined
   > {
     const syncedBlocks = await Promise.all([
       this.worldState.status().then(({ syncSummary }) => ({
@@ -783,9 +807,11 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.p2pClient.getStatus().then(p2p => p2p.syncedToL2Block),
       this.l1ToL2MessageSource.getL2Tips().then(t => t.latest),
       this.l2BlockSource.getL1Timestamp(),
+      this.l2BlockSource.getPendingChainValidationStatus(),
     ] as const);
 
-    const [worldState, l2BlockSource, p2p, l1ToL2MessageSource, l1Timestamp] = syncedBlocks;
+    const [worldState, l2BlockSource, p2p, l1ToL2MessageSource, l1Timestamp, pendingChainValidationStatus] =
+      syncedBlocks;
 
     // The archiver reports 'undefined' hash for the genesis block
     // because it doesn't have access to world state to compute it (facepalm)
@@ -817,11 +843,83 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         blockNumber: block.number,
         archive: block.archive.root,
         l1Timestamp,
+        pendingChainValidationStatus,
       };
     } else {
       const archive = new Fr((await this.worldState.getCommitted().getTreeInfo(MerkleTreeId.ARCHIVE)).root);
-      return { blockNumber: INITIAL_L2_BLOCK_NUM - 1, archive, l1Timestamp };
+      return { blockNumber: INITIAL_L2_BLOCK_NUM - 1, archive, l1Timestamp, pendingChainValidationStatus };
     }
+  }
+
+  /**
+   * Considers invalidating a block if the pending chain is invalid. Depends on how long the invalid block
+   * has been there without being invalidated and whether the sequencer is in the committee or not. We always
+   * have the proposer try to invalidate, but if they fail, the sequencers in the committee are expected to try,
+   * and if they fail, any sequencer will try as well.
+   */
+  protected async considerInvalidatingBlock(
+    syncedTo: NonNullable<Awaited<ReturnType<Sequencer['getChainTip']>>>,
+    currentSlot: bigint,
+    ourValidatorAddresses: EthAddress[],
+  ): Promise<void> {
+    const { pendingChainValidationStatus, l1Timestamp } = syncedTo;
+    if (pendingChainValidationStatus.valid) {
+      return;
+    }
+
+    const invalidL1Timestamp = pendingChainValidationStatus.block.l1.timestamp;
+    const timeSinceChainInvalid = this.dateProvider.nowInSeconds() - Number(invalidL1Timestamp);
+    const invalidBlockNumber = pendingChainValidationStatus.block.block.number;
+
+    const { secondsBeforeInvalidatingBlockAsCommitteeMember, secondsBeforeInvalidatingBlockAsNonCommitteeMember } =
+      this.config;
+
+    const logData = {
+      invalidL1Timestamp,
+      l1Timestamp,
+      invalidBlock: pendingChainValidationStatus.block.block.toBlockInfo(),
+      secondsBeforeInvalidatingBlockAsCommitteeMember,
+      secondsBeforeInvalidatingBlockAsNonCommitteeMember,
+      ourValidatorAddresses,
+      currentSlot,
+    };
+
+    const inCurrentCommittee = () =>
+      this.publisher.epochCache
+        .getCommittee(currentSlot)
+        .then(c => c?.committee?.some(member => ourValidatorAddresses.some(addr => addr.equals(member))));
+
+    const invalidateAsCommitteeMember =
+      secondsBeforeInvalidatingBlockAsCommitteeMember !== undefined &&
+      secondsBeforeInvalidatingBlockAsCommitteeMember > 0 &&
+      timeSinceChainInvalid > secondsBeforeInvalidatingBlockAsCommitteeMember &&
+      (await inCurrentCommittee());
+
+    const invalidateAsNonCommitteeMember =
+      secondsBeforeInvalidatingBlockAsNonCommitteeMember !== undefined &&
+      secondsBeforeInvalidatingBlockAsNonCommitteeMember > 0 &&
+      timeSinceChainInvalid > secondsBeforeInvalidatingBlockAsNonCommitteeMember;
+
+    if (!invalidateAsCommitteeMember && !invalidateAsNonCommitteeMember) {
+      this.log.debug(`Not invalidating pending chain`, logData);
+      return;
+    }
+
+    const invalidateBlock = await this.publisher.simulateInvalidateBlock(pendingChainValidationStatus);
+    if (!invalidateBlock) {
+      this.log.warn(`Failed to simulate invalidate block`, logData);
+      return;
+    }
+
+    this.log.info(
+      invalidateAsCommitteeMember
+        ? `Invalidating block ${invalidBlockNumber} as committee member`
+        : `Invalidating block ${invalidBlockNumber} as non-committee member`,
+      logData,
+    );
+
+    this.publisher.enqueueInvalidateBlock(invalidateBlock);
+    await this.publisher.sendRequests();
   }
 
   private getSlotStartBuildTimestamp(slotNumber: number | bigint): number {
@@ -830,6 +928,10 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       Number(slotNumber) * this.l1Constants.slotDuration -
       this.l1Constants.ethereumSlotDuration
     );
+  }
+
+  private getTxTimeoutForSlot(slotNumber: number | bigint): Date {
+    return new Date((this.getSlotStartBuildTimestamp(slotNumber) + this.aztecSlotDuration) * 1000);
   }
 
   private getSecondsIntoSlot(slotNumber: number | bigint): number {
@@ -857,7 +959,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     return this.config.maxL2BlockGas;
   }
 
-  public getSlasherClient(): SlasherClient {
+  public getSlasherClient(): SlasherClientInterface | undefined {
     return this.slasherClient;
   }
 }

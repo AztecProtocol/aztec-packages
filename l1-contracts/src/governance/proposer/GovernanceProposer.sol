@@ -33,17 +33,25 @@ contract GovernanceProposer is IGovernanceProposer, EmpireBase {
    */
   mapping(uint256 proposalId => address proposer) internal proposalProposer;
 
-  constructor(IRegistry _registry, IGSE _gse, uint256 _n, uint256 _m) EmpireBase(_n, _m, 5, 0) {
+  /**
+   * @notice Constructor for the GovernanceProposer contract.
+   *
+   * @dev The _executionDelayInRounds are set to 0, as there already is a delay in the governance contract.
+   *      If this was not the case, the delay could be applied here.
+   *
+   * @param _registry The registry contract address.
+   * @param _gse The GSE contract address.
+   * @param _quorumSize The number of signals needed in a round for a payload to pass.
+   * @param _roundSize The number of signals that can be cast in a round.
+   */
+  constructor(IRegistry _registry, IGSE _gse, uint256 _quorumSize, uint256 _roundSize)
+    EmpireBase(_quorumSize, _roundSize, 5, 0)
+  {
     REGISTRY = _registry;
     GSE = _gse;
   }
 
-  function getProposalProposer(uint256 _proposalId)
-    external
-    view
-    override(IGovernanceProposer)
-    returns (address)
-  {
+  function getProposalProposer(uint256 _proposalId) external view override(IGovernanceProposer) returns (address) {
     return proposalProposer[_proposalId];
   }
 
@@ -78,7 +86,7 @@ contract GovernanceProposer is IGovernanceProposer, EmpireBase {
    * @return true if the proposal was proposed successfully, reverts otherwise.
    */
   function _handleRoundWinner(IPayload _payload) internal override(EmpireBase) returns (bool) {
-    GSEPayload extendedPayload = new GSEPayload(_payload, GSE);
+    GSEPayload extendedPayload = new GSEPayload(_payload, GSE, REGISTRY);
     uint256 proposalId = IGovernance(getGovernance()).propose(IPayload(address(extendedPayload)));
     proposalProposer[proposalId] = getInstance();
     return true;

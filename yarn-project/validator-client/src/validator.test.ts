@@ -16,10 +16,10 @@ import {
   createSecp256k1PeerId,
 } from '@aztec/p2p';
 import { computeInHashFromL1ToL2Messages } from '@aztec/prover-client/helpers';
-import { Offense, type SlasherConfig, WANT_TO_SLASH_EVENT } from '@aztec/slasher';
+import { OffenseType, WANT_TO_SLASH_EVENT } from '@aztec/slasher';
 import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
 import { Gas } from '@aztec/stdlib/gas';
-import type { BuildBlockResult, IFullNodeBlockBuilder } from '@aztec/stdlib/interfaces/server';
+import type { BuildBlockResult, IFullNodeBlockBuilder, SlasherConfig } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import { makeBlockAttestation, makeBlockProposal, makeHeader, mockTx } from '@aztec/stdlib/testing';
@@ -36,7 +36,12 @@ import { ValidatorClient } from './validator.js';
 
 describe('ValidatorClient', () => {
   let config: ValidatorClientConfig &
-    Pick<SlasherConfig, 'slashInvalidBlockEnabled' | 'slashInvalidBlockPenalty' | 'slashInvalidBlockMaxPenalty'>;
+    Pick<
+      SlasherConfig,
+      | 'slashBroadcastedInvalidBlockEnabled'
+      | 'slashBroadcastedInvalidBlockPenalty'
+      | 'slashBroadcastedInvalidBlockMaxPenalty'
+    >;
   let validatorClient: ValidatorClient;
   let p2pClient: MockProxy<P2P>;
   let blockSource: MockProxy<L2BlockSource>;
@@ -52,13 +57,9 @@ describe('ValidatorClient', () => {
     p2pClient.getAttestationsForSlot.mockImplementation(() => Promise.resolve([]));
     p2pClient.handleAuthRequestFromPeer.mockResolvedValue(StatusMessage.random());
     blockBuilder = mock<IFullNodeBlockBuilder>();
-    blockBuilder.getConfig.mockReturnValue({
-      l1GenesisTime: 1n,
-      slotDuration: 24,
-      l1ChainId: 1,
-      rollupVersion: 1,
-    });
+    blockBuilder.getConfig.mockReturnValue({ l1GenesisTime: 1n, slotDuration: 24, l1ChainId: 1, rollupVersion: 1 });
     epochCache = mock<EpochCache>();
+    epochCache.filterInCommittee.mockImplementation((_slot, addresses) => Promise.resolve(addresses));
     blockSource = mock<L2BlockSource>();
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
     txProvider = mock<TxProvider>();
@@ -74,9 +75,9 @@ describe('ValidatorClient', () => {
       disableValidator: false,
       validatorReexecute: false,
       validatorReexecuteDeadlineMs: 6000,
-      slashInvalidBlockEnabled: true,
-      slashInvalidBlockPenalty: 1n,
-      slashInvalidBlockMaxPenalty: 100n,
+      slashBroadcastedInvalidBlockEnabled: true,
+      slashBroadcastedInvalidBlockPenalty: 1n,
+      slashBroadcastedInvalidBlockMaxPenalty: 100n,
     };
     validatorClient = ValidatorClient.new(
       config,
@@ -292,8 +293,9 @@ describe('ValidatorClient', () => {
       expect(emitSpy).toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, [
         {
           validator: proposer,
-          amount: config.slashInvalidBlockPenalty,
-          offense: Offense.INVALID_BLOCK,
+          amount: config.slashBroadcastedInvalidBlockPenalty,
+          offenseType: OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL,
+          epochOrSlot: expect.any(BigInt),
         },
       ]);
 
@@ -301,8 +303,9 @@ describe('ValidatorClient', () => {
       await expect(
         validatorClient.shouldSlash({
           validator: EthAddress.fromString(proposer.toString()), // create a copy of the EthAddress
-          amount: config.slashInvalidBlockMaxPenalty,
-          offense: Offense.INVALID_BLOCK,
+          amount: config.slashBroadcastedInvalidBlockMaxPenalty,
+          offenseType: OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL,
+          epochOrSlot: 1n,
         }),
       ).resolves.toBe(true);
 
@@ -310,14 +313,15 @@ describe('ValidatorClient', () => {
       await expect(
         validatorClient.shouldSlash({
           validator: EthAddress.fromString(proposer.toString()),
-          amount: config.slashInvalidBlockMaxPenalty + 1n,
-          offense: Offense.INVALID_BLOCK,
+          amount: config.slashBroadcastedInvalidBlockMaxPenalty + 1n,
+          offenseType: OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL,
+          epochOrSlot: 1n,
         }),
       ).resolves.toBe(false);
     });
 
     it('should not emit WANT_TO_SLASH_EVENT if slashing is disabled', async () => {
-      validatorClient.configureSlashing({ slashInvalidBlockEnabled: false });
+      validatorClient.configureSlashing({ slashBroadcastedInvalidBlockEnabled: false });
 
       const emitSpy = jest.spyOn(validatorClient, 'emit');
       enableReexecution();

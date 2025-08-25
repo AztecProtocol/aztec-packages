@@ -94,7 +94,9 @@ describe('sustained 10 TPS test', () => {
   // });
 
   it('can get info', async () => {
-    const name = readFieldCompressedString(await testWallets.tokenAdminWallet.methods.private_get_name().simulate());
+    const name = readFieldCompressedString(
+      await testWallets.tokenAdminWallet.methods.private_get_name().simulate({ from: testWallets.tokenAdminAddress }),
+    );
     expect(name).toBe(testWallets.tokenName);
   });
 
@@ -103,16 +105,24 @@ describe('sustained 10 TPS test', () => {
     const transferAmount = 1n;
 
     for (const w of testWallets.wallets) {
-      expect(MINT_AMOUNT).toBe(await testWallets.tokenAdminWallet.methods.balance_of_public(w.getAddress()).simulate());
+      expect(MINT_AMOUNT).toBe(
+        await testWallets.tokenAdminWallet.methods
+          .balance_of_public(w.getAddress())
+          .simulate({ from: testWallets.tokenAdminAddress }),
+      );
     }
 
-    expect(0n).toBe(await testWallets.tokenAdminWallet.methods.balance_of_public(recipient).simulate());
+    expect(0n).toBe(
+      await testWallets.tokenAdminWallet.methods
+        .balance_of_public(recipient)
+        .simulate({ from: testWallets.tokenAdminAddress }),
+    );
 
     const wallet = testWallets.wallets[0];
 
     const baseTx = await (await TokenContract.at(testWallets.tokenAddress, wallet)).methods
       .transfer_in_public(wallet.getAddress(), recipient, transferAmount, 0)
-      .prove();
+      .prove({ from: testWallets.tokenAdminAddress });
 
     const allSentTxs: any[] = []; // Store sent transactions separately
 
@@ -196,7 +206,9 @@ describe('sustained 10 TPS test', () => {
       `Transaction inclusion summary: ${successCount} succeeded, ${failureCount} failed out of ${TOTAL_TXS} total`,
     );
 
-    const recipientBalance = await testWallets.tokenAdminWallet.methods.balance_of_public(recipient).simulate();
+    const recipientBalance = await testWallets.tokenAdminWallet.methods
+      .balance_of_public(recipient)
+      .simulate({ from: testWallets.tokenAdminAddress });
     logger.info(`recipientBalance after load test: ${recipientBalance}`);
   });
 });

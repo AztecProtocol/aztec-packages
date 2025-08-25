@@ -1,4 +1,3 @@
-mod test;
 // docs:start:setup
 use dep::aztec::macros::aztec;
 
@@ -78,6 +77,7 @@ pub contract Counter {
     unconstrained fn get_counter(owner: AztecAddress) -> Field {
         storage.counters.at(owner).get_value()
     }
+    // docs:end:get_counter
 
     #[private]
     fn increment_self_and_other(other_counter: AztecAddress, owner: AztecAddress) {
@@ -95,68 +95,77 @@ pub contract Counter {
         context.push_note_hash(n);
     }
 
-    // docs:end:get_counter
-    // docs:start:test_imports
-    use crate::test;
+    mod test {
+        // docs:start:test_imports
+        use crate::Counter;
+        use aztec::{
+            protocol_types::address::AztecAddress, test::helpers::test_environment::TestEnvironment,
+        };
+        // docs:end:test_imports
 
-    // docs:end:test_imports
-    // docs:start:txe_test_increment
-    #[test]
-    unconstrained fn test_increment() {
-        let initial_value = 5;
-        let (mut env, contract_address, owner) = test::setup(initial_value);
+        // docs:start:txe_test_increment
+        pub unconstrained fn setup(
+            initial_value: Field,
+        ) -> (TestEnvironment, AztecAddress, AztecAddress) {
+            // Setup env, generate keys
+            let mut env = TestEnvironment::new();
+            let owner = env.create_light_account();
 
-        // docs:start:txe_test_read_notes
-        // Read the stored value in the note
-        let initial_counter =
-            env.simulate_utility(Counter::at(contract_address)._experimental_get_counter(owner));
-        assert(
-            initial_counter == initial_value,
-            f"Expected {initial_value} but got {initial_counter}",
-        );
-        // docs:end:txe_test_read_notes
+            // Deploy contract and initialize
+            let initializer = Counter::interface().initialize(initial_value as u64, owner);
+            let contract_address =
+                env.deploy("Counter").with_private_initializer(owner, initializer);
+            (env, contract_address, owner)
+        }
 
-        // Increment the counter
-        env.call_private(owner, Counter::at(contract_address).increment(owner));
+        #[test]
+        unconstrained fn test_increment() {
+            let initial_value = 5;
+            let (mut env, contract_address, owner) = setup(initial_value);
 
-        let incremented_counter =
-            env.simulate_utility(Counter::at(contract_address)._experimental_get_counter(owner));
-        let expected_current_value = initial_value + 1;
-        assert(
-            expected_current_value == incremented_counter,
-            f"Expected {expected_current_value} but got {incremented_counter}",
-        );
-    }
-    // docs:end:txe_test_increment
+            // Read the stored value in the note
+            let initial_counter =
+                env.simulate_utility(Counter::at(contract_address).get_counter(owner));
+            assert(
+                initial_counter == initial_value,
+                f"Expected {initial_value} but got {initial_counter}",
+            );
 
-    #[test]
-    unconstrained fn extended_incrementing_and_decrementing() {
-        let initial_value = 5;
-        let (env, contract_address, owner) = test::setup(initial_value);
+            // Increment the counter
+            env.call_private(owner, Counter::at(contract_address).increment(owner));
 
-        // Checking that the note was discovered from private logs
-        let initial_note_value =
-            env.simulate_utility(Counter::at(contract_address)._experimental_get_counter(owner));
-        assert(initial_note_value == initial_value);
+            let incremented_counter =
+                env.simulate_utility(Counter::at(contract_address).get_counter(owner));
+            let expected_current_value = initial_value + 1;
+            assert(
+                expected_current_value == incremented_counter,
+                f"Expected {expected_current_value} but got {incremented_counter}",
+            );
+        }
+        // docs:end:txe_test_increment
 
-        env.call_private(owner, Counter::at(contract_address).increment_twice(owner));
+        #[test]
+        unconstrained fn extended_incrementing_and_decrementing() {
+            let initial_value = 5;
+            let (env, contract_address, owner) = setup(initial_value);
 
-        assert_eq(
-            env.simulate_utility(Counter::at(contract_address)._experimental_get_counter(owner)),
-            7,
-        );
+            // Checking that the note was discovered from private logs
+            let initial_note_value =
+                env.simulate_utility(Counter::at(contract_address).get_counter(owner));
+            assert(initial_note_value == initial_value);
 
-        let _ =
-            env.call_private(owner, Counter::at(contract_address).increment_and_decrement(owner));
-        assert_eq(
-            env.simulate_utility(Counter::at(contract_address)._experimental_get_counter(owner)),
-            7,
-        );
+            env.call_private(owner, Counter::at(contract_address).increment_twice(owner));
 
-        env.call_private(owner, Counter::at(contract_address).decrement(owner));
-        assert_eq(
-            env.simulate_utility(Counter::at(contract_address)._experimental_get_counter(owner)),
-            6,
-        );
+            assert_eq(env.simulate_utility(Counter::at(contract_address).get_counter(owner)), 7);
+
+            let _ = env.call_private(
+                owner,
+                Counter::at(contract_address).increment_and_decrement(owner),
+            );
+            assert_eq(env.simulate_utility(Counter::at(contract_address).get_counter(owner)), 7);
+
+            env.call_private(owner, Counter::at(contract_address).decrement(owner));
+            assert_eq(env.simulate_utility(Counter::at(contract_address).get_counter(owner)), 6);
+        }
     }
 }

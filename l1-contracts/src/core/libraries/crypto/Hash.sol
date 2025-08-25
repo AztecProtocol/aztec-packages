@@ -18,9 +18,7 @@ library Hash {
    */
   function sha256ToField(DataStructures.L1ToL2Msg memory _message) internal pure returns (bytes32) {
     return sha256ToField(
-      abi.encode(
-        _message.sender, _message.recipient, _message.content, _message.secretHash, _message.index
-      )
+      abi.encode(_message.sender, _message.recipient, _message.content, _message.secretHash, _message.index)
     );
   }
 
@@ -43,7 +41,8 @@ library Hash {
 
   /**
    * @notice Computes the sha256 hash of the provided data and converts it to a field element
-   * @dev Truncating one byte to convert the hash to a field element. We prepend a byte rather than cast bytes31(bytes32) to match Noir's to_be_bytes.
+   * @dev Truncating one byte to convert the hash to a field element. We prepend a byte rather than cast
+   * bytes31(bytes32) to match Noir's to_be_bytes.
    * @param _data - The bytes to hash
    * @return The hash of the provided data as a field element
    */

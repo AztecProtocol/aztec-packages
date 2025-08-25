@@ -3,11 +3,7 @@ pragma solidity >=0.8.27;
 
 import {GovernanceBase} from "../base.t.sol";
 import {Configuration, Proposal} from "@aztec/governance/interfaces/IGovernance.sol";
-import {
-  ProposalLib,
-  VoteTabulationReturn,
-  VoteTabulationInfo
-} from "@aztec/governance/libraries/ProposalLib.sol";
+import {ProposalLib, VoteTabulationReturn, VoteTabulationInfo} from "@aztec/governance/libraries/ProposalLib.sol";
 import {ConfigurationLib} from "@aztec/governance/libraries/ConfigurationLib.sol";
 
 import {Math, Panic} from "@oz/utils/math/Math.sol";
@@ -21,16 +17,8 @@ contract VoteTabulationTest is GovernanceBase {
   uint256 internal votesNeeded;
   uint256 internal yeaLimit;
 
-  function test_WhenMinimumConfigEq0() external {
-    // it return (Invalid, MinimumEqZero)
-    (VoteTabulationReturn vtr, VoteTabulationInfo vti) = proposal.voteTabulation(0);
-    assertEq(vtr, VoteTabulationReturn.Invalid, "invalid return value");
-    assertEq(vti, VoteTabulationInfo.MinimumEqZero, "invalid info value");
-  }
-
   modifier whenMinimumGt0(Configuration memory _config) {
-    proposal.config.minimumVotes =
-      bound(_config.minimumVotes, ConfigurationLib.VOTES_LOWER, type(uint256).max);
+    proposal.config.minimumVotes = bound(_config.minimumVotes, ConfigurationLib.VOTES_LOWER, type(uint256).max);
     _;
   }
 
@@ -78,8 +66,7 @@ contract VoteTabulationTest is GovernanceBase {
 
     // Overwriting some limits such that we do not overflow
     uint256 upperLimit = Math.mulDiv(type(uint256).max, 1e18, proposal.config.quorum);
-    proposal.config.minimumVotes =
-      bound(_config.minimumVotes, ConfigurationLib.VOTES_LOWER, upperLimit);
+    proposal.config.minimumVotes = bound(_config.minimumVotes, ConfigurationLib.VOTES_LOWER, upperLimit);
     totalPower = bound(_totalPower, proposal.config.minimumVotes, upperLimit);
 
     (VoteTabulationReturn vtr, VoteTabulationInfo vti) = proposal.voteTabulation(totalPower);
@@ -101,8 +88,7 @@ contract VoteTabulationTest is GovernanceBase {
   }
 
   modifier whenQuorumConfigValid(Configuration memory _config) {
-    proposal.config.quorum =
-      bound(_config.quorum, ConfigurationLib.QUORUM_LOWER, ConfigurationLib.QUORUM_UPPER);
+    proposal.config.quorum = bound(_config.quorum, ConfigurationLib.QUORUM_LOWER, ConfigurationLib.QUORUM_UPPER);
     votesNeeded = Math.mulDiv(totalPower, proposal.config.quorum, 1e18, Math.Rounding.Ceil);
 
     _;
@@ -113,12 +99,7 @@ contract VoteTabulationTest is GovernanceBase {
     uint256 _totalPower,
     uint256 _votes,
     uint256 _yea
-  )
-    external
-    whenMinimumGt0(_config)
-    whenTotalPowerGteMinimum(_totalPower)
-    whenQuorumConfigValid(_config)
-  {
+  ) external whenMinimumGt0(_config) whenTotalPowerGteMinimum(_totalPower) whenQuorumConfigValid(_config) {
     // it return (Rejected, VotesCastLtVotesNeeded)
 
     uint256 maxVotes = votesNeeded > 0 ? votesNeeded - 1 : votesNeeded;
@@ -159,11 +140,7 @@ contract VoteTabulationTest is GovernanceBase {
     // which is already handled as `votesCast >= votesNeeded` and `votesNeeded > 0`.
   }
 
-  function test_WhenYeaLimitGtUint256Max(
-    Configuration memory _config,
-    uint256 _totalPower,
-    uint256 _votes
-  )
+  function test_WhenYeaLimitGtUint256Max(Configuration memory _config, uint256 _totalPower, uint256 _votes)
     external
     whenMinimumGt0(_config)
     whenTotalPowerGteMinimum(_totalPower)
@@ -180,11 +157,7 @@ contract VoteTabulationTest is GovernanceBase {
     this.callVoteTabulation(totalPower);
   }
 
-  function test_WhenYeaLimitGtVotesCast(
-    Configuration memory _config,
-    uint256 _totalPower,
-    uint256 _votes
-  )
+  function test_WhenYeaLimitGtVotesCast(Configuration memory _config, uint256 _totalPower, uint256 _votes)
     external
     whenMinimumGt0(_config)
     whenTotalPowerGteMinimum(_totalPower)
@@ -197,8 +170,7 @@ contract VoteTabulationTest is GovernanceBase {
 
     // Overwriting some limits such that we do not overflow
     uint256 upperLimit = Math.mulDiv(type(uint256).max, 1e18, proposal.config.requiredYeaMargin);
-    proposal.config.minimumVotes =
-      bound(_config.minimumVotes, ConfigurationLib.VOTES_LOWER, upperLimit);
+    proposal.config.minimumVotes = bound(_config.minimumVotes, ConfigurationLib.VOTES_LOWER, upperLimit);
     totalPower = bound(_totalPower, proposal.config.minimumVotes, upperLimit);
     votesNeeded = Math.mulDiv(totalPower, proposal.config.quorum, 1e18, Math.Rounding.Ceil);
     votes = bound(_votes, votesNeeded, totalPower);
@@ -210,19 +182,14 @@ contract VoteTabulationTest is GovernanceBase {
   }
 
   modifier whenDifferentialConfigValid(Configuration memory _config) {
-    proposal.config.requiredYeaMargin =
-      bound(_config.requiredYeaMargin, 0, ConfigurationLib.REQUIRED_YEA_MARGIN_UPPER);
+    proposal.config.requiredYeaMargin = bound(_config.requiredYeaMargin, 0, ConfigurationLib.REQUIRED_YEA_MARGIN_UPPER);
     uint256 yeaFraction = Math.ceilDiv(1e18 + proposal.config.requiredYeaMargin, 2);
     yeaLimit = Math.mulDiv(votes, yeaFraction, 1e18, Math.Rounding.Ceil);
 
     _;
   }
 
-  function test_WhenYeaVotesEqVotesCast(
-    Configuration memory _config,
-    uint256 _totalPower,
-    uint256 _votes
-  )
+  function test_WhenYeaVotesEqVotesCast(Configuration memory _config, uint256 _totalPower, uint256 _votes)
     external
     whenMinimumGt0(_config)
     whenTotalPowerGteMinimum(_totalPower)
@@ -238,12 +205,7 @@ contract VoteTabulationTest is GovernanceBase {
     assertEq(vti, VoteTabulationInfo.YeaVotesEqVotesCast, "invalid info value");
   }
 
-  function test_WhenYeaVotesLteYeaLimit(
-    Configuration memory _config,
-    uint256 _totalPower,
-    uint256 _votes,
-    uint256 _yea
-  )
+  function test_WhenYeaVotesLteYeaLimit(Configuration memory _config, uint256 _totalPower, uint256 _votes, uint256 _yea)
     external
     whenMinimumGt0(_config)
     whenTotalPowerGteMinimum(_totalPower)
@@ -270,12 +232,7 @@ contract VoteTabulationTest is GovernanceBase {
     assertEq(vti, VoteTabulationInfo.YeaVotesLeYeaLimit, "invalid info value");
   }
 
-  function test_WhenYeaVotesGtYeaLimit(
-    Configuration memory _config,
-    uint256 _totalPower,
-    uint256 _votes,
-    uint256 _yea
-  )
+  function test_WhenYeaVotesGtYeaLimit(Configuration memory _config, uint256 _totalPower, uint256 _votes, uint256 _yea)
     external
     whenMinimumGt0(_config)
     whenTotalPowerGteMinimum(_totalPower)

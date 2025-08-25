@@ -12,7 +12,7 @@ import { Contract } from '../contract/contract.js';
 import { DeployMethod, type DeployOptions } from '../contract/deploy_method.js';
 import { DefaultWaitOpts, type WaitOpts } from '../contract/sent_tx.js';
 import { AccountEntrypointMetaPaymentMethod } from '../fee/account_entrypoint_meta_payment_method.js';
-import { FeeJuicePaymentMethod, type FeePaymentMethod } from '../index.js';
+import { AztecAddress, FeeJuicePaymentMethod, type FeePaymentMethod } from '../index.js';
 import { AccountWalletWithSecretKey, SignerlessWallet, type Wallet } from '../wallet/index.js';
 import { DeployAccountSentTx } from './deploy_account_sent_tx.js';
 
@@ -242,6 +242,7 @@ export class AccountManager {
             fee = { ...opts?.fee, paymentMethod: maybeWrappedPaymentMethod };
           }
           return deployMethod.send({
+            from: opts?.deployWallet?.getAddress() ?? AztecAddress.ZERO,
             contractAddressSalt: new Fr(this.salt),
             skipClassPublication: opts?.skipClassPublication ?? true,
             skipInstancePublication: opts?.skipInstancePublication ?? true,

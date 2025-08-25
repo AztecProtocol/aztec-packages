@@ -151,6 +151,8 @@ export const PUBLIC_EXECUTOR_SIMULATION_BYTECODE_SIZE = 'aztec.public_executor.s
 export const PROVING_ORCHESTRATOR_BASE_ROLLUP_INPUTS_DURATION =
   'aztec.proving_orchestrator.base_rollup.inputs_duration';
 
+export const PROVING_ORCHESTRATOR_AVM_FALLBACK_COUNT = 'aztec.proving_orchestrator.avm.fallback_count';
+
 export const PROVING_QUEUE_JOB_SIZE = 'aztec.proving_queue.job_size';
 export const PROVING_QUEUE_SIZE = 'aztec.proving_queue.size';
 export const PROVING_QUEUE_TOTAL_JOBS = 'aztec.proving_queue.enqueued_jobs_count';
@@ -182,8 +184,8 @@ export const WORLD_STATE_DB_SIZE = 'aztec.world_state.db_size';
 export const WORLD_STATE_DB_MAP_SIZE = 'aztec.world_state.db_map_size';
 export const WORLD_STATE_DB_PHYSICAL_SIZE = 'aztec.world_state.db_physical_size';
 export const WORLD_STATE_TREE_SIZE = 'aztec.world_state.tree_size';
-export const WORLD_STATE_UNFINALISED_HEIGHT = 'aztec.world_state.unfinalised_height';
-export const WORLD_STATE_FINALISED_HEIGHT = 'aztec.world_state.finalised_height';
+export const WORLD_STATE_UNFINALIZED_HEIGHT = 'aztec.world_state.unfinalized_height';
+export const WORLD_STATE_FINALIZED_HEIGHT = 'aztec.world_state.finalized_height';
 export const WORLD_STATE_OLDEST_BLOCK = 'aztec.world_state.oldest_block';
 export const WORLD_STATE_DB_USED_SIZE = 'aztec.world_state.db_used_size';
 export const WORLD_STATE_DB_NUM_ITEMS = 'aztec.world_state.db_num_items';

@@ -2,6 +2,7 @@
 title: How to Deploy a Contract
 tags: [contracts]
 sidebar_position: 1
+description: Learn how to deploy smart contracts to the Aztec network using Aztec.js.
 ---
 
 Once you have [compiled](../smart_contracts/how_to_compile_contract.md) your contracts you can proceed to deploying them using Aztec.js.
@@ -22,7 +23,8 @@ Contracts can be deployed using the `aztec.js` library.
 Compile the contract:
 
 ```bash
-aztec-nargo compile
+aztec-nargo compile # generate contract artifacts
+aztec-postprocess-contract # transpile contract and generate verification keys
 ```
 
 Generate the typescript class:

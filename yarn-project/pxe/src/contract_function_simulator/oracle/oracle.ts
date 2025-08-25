@@ -13,6 +13,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { ContractClassLog, ContractClassLogFields } from '@aztec/stdlib/logs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
+import { packAsRetrievedNote } from './note_packing_utils.js';
 import type { TypedOracle } from './typed_oracle.js';
 
 /**
@@ -26,60 +27,80 @@ export class Oracle {
   }
 
   toACIRCallback(): ACIRCallback {
-    return Object.getOwnPropertyNames(Oracle.prototype)
-      .filter(
-        name => name !== 'constructor' && name != 'toACIRCallback' && typeof this[name as keyof Oracle] === 'function',
-      )
-      .reduce((acc, name) => {
-        acc[name] = this[name as keyof Omit<Oracle, 'toACIRCallback' | 'typedOracle' | 'constructor'>].bind(this);
-        return acc;
-      }, {} as ACIRCallback);
+    const excludedProps = ['typedOracle', 'constructor', 'toACIRCallback'] as const;
+
+    // Get all the oracle function names
+    const oracleNames = Object.getOwnPropertyNames(Oracle.prototype).filter(
+      name => !excludedProps.includes(name as (typeof excludedProps)[number]),
+    );
+
+    // Validate oracle names - these must be prefixed with either "private" or "utility" to indicate their scope
+    // and must correspond to a function on the Oracle class.
+    oracleNames.forEach(name => {
+      if (!name.startsWith('private') && !name.startsWith('utility')) {
+        throw new Error(
+          `Oracle function "${name}" must be prefixed with either "private" or "utility" to indicate its scope`,
+        );
+      }
+
+      const method = this[name as keyof Omit<Oracle, (typeof excludedProps)[number]>];
+      if (typeof method !== 'function') {
+        throw new Error(`Oracle property "${name}" must be a function`);
+      }
+    });
+
+    // Build callback object and return it
+    return oracleNames.reduce((acc, name) => {
+      const method = this[name as keyof Omit<Oracle, (typeof excludedProps)[number]>];
+      acc[name] = method.bind(this);
+      return acc;
+    }, {} as ACIRCallback);
   }
 
-  getRandomField(): Promise<ACVMField[]> {
-    const val = this.typedOracle.getRandomField();
+  utilityGetRandomField(): Promise<ACVMField[]> {
+    const val = this.typedOracle.utilityGetRandomField();
     return Promise.resolve([toACVMField(val)]);
   }
 
   // Since the argument is a slice, noir automatically adds a length field to oracle call.
-  storeInExecutionCache(_length: ACVMField[], values: ACVMField[], [hash]: ACVMField[]): Promise<ACVMField[]> {
-    this.typedOracle.storeInExecutionCache(values.map(Fr.fromString), Fr.fromString(hash));
+  privateStoreInExecutionCache(_length: ACVMField[], values: ACVMField[], [hash]: ACVMField[]): Promise<ACVMField[]> {
+    this.typedOracle.privateStoreInExecutionCache(values.map(Fr.fromString), Fr.fromString(hash));
     return Promise.resolve([]);
   }
 
-  async loadFromExecutionCache([returnsHash]: ACVMField[]): Promise<ACVMField[][]> {
-    const values = await this.typedOracle.loadFromExecutionCache(Fr.fromString(returnsHash));
+  async privateLoadFromExecutionCache([returnsHash]: ACVMField[]): Promise<ACVMField[][]> {
+    const values = await this.typedOracle.privateLoadFromExecutionCache(Fr.fromString(returnsHash));
     return [values.map(toACVMField)];
   }
 
-  async getBlockNumber(): Promise<ACVMField[]> {
-    return [toACVMField(await this.typedOracle.getBlockNumber())];
+  async utilityGetBlockNumber(): Promise<ACVMField[]> {
+    return [toACVMField(await this.typedOracle.utilityGetBlockNumber())];
   }
 
-  async getTimestamp(): Promise<ACVMField[]> {
-    return [toACVMField(await this.typedOracle.getTimestamp())];
+  async utilityGetTimestamp(): Promise<ACVMField[]> {
+    return [toACVMField(await this.typedOracle.utilityGetTimestamp())];
   }
 
-  async getContractAddress(): Promise<ACVMField[]> {
-    return [toACVMField(await this.typedOracle.getContractAddress())];
+  async utilityGetContractAddress(): Promise<ACVMField[]> {
+    return [toACVMField(await this.typedOracle.utilityGetContractAddress())];
   }
 
-  async getVersion(): Promise<ACVMField[]> {
-    return [toACVMField(await this.typedOracle.getVersion())];
+  async utilityGetVersion(): Promise<ACVMField[]> {
+    return [toACVMField(await this.typedOracle.utilityGetVersion())];
   }
 
-  async getChainId(): Promise<ACVMField[]> {
-    return [toACVMField(await this.typedOracle.getChainId())];
+  async utilityGetChainId(): Promise<ACVMField[]> {
+    return [toACVMField(await this.typedOracle.utilityGetChainId())];
   }
 
-  async getKeyValidationRequest([pkMHash]: ACVMField[]): Promise<ACVMField[]> {
-    const keyValidationRequest = await this.typedOracle.getKeyValidationRequest(Fr.fromString(pkMHash));
+  async utilityGetKeyValidationRequest([pkMHash]: ACVMField[]): Promise<ACVMField[]> {
+    const keyValidationRequest = await this.typedOracle.utilityGetKeyValidationRequest(Fr.fromString(pkMHash));
 
     return keyValidationRequest.toFields().map(toACVMField);
   }
 
-  async getContractInstance([address]: ACVMField[]): Promise<ACVMField[]> {
-    const instance = await this.typedOracle.getContractInstance(AztecAddress.fromField(Fr.fromString(address)));
+  async utilityGetContractInstance([address]: ACVMField[]): Promise<ACVMField[]> {
+    const instance = await this.typedOracle.utilityGetContractInstance(AztecAddress.fromField(Fr.fromString(address)));
 
     return [
       instance.salt,
@@ -90,7 +111,7 @@ export class Oracle {
     ].map(toACVMField);
   }
 
-  async getMembershipWitness(
+  async utilityGetMembershipWitness(
     [blockNumber]: ACVMField[],
     [treeId]: ACVMField[],
     [leafValue]: ACVMField[],
@@ -99,7 +120,11 @@ export class Oracle {
     const parsedTreeId = Fr.fromString(treeId).toNumber();
     const parsedLeafValue = Fr.fromString(leafValue);
 
-    const witness = await this.typedOracle.getMembershipWitness(parsedBlockNumber, parsedTreeId, parsedLeafValue);
+    const witness = await this.typedOracle.utilityGetMembershipWitness(
+      parsedBlockNumber,
+      parsedTreeId,
+      parsedLeafValue,
+    );
     if (!witness) {
       throw new Error(
         `Leaf ${leafValue} not found in the tree ${MerkleTreeId[parsedTreeId]} at block ${parsedBlockNumber}.`,
@@ -108,28 +133,28 @@ export class Oracle {
     return [toACVMField(witness[0]), witness.slice(1).map(toACVMField)];
   }
 
-  async getNullifierMembershipWitness(
+  async utilityGetNullifierMembershipWitness(
     [blockNumber]: ACVMField[],
     [nullifier]: ACVMField[], // nullifier, we try to find the witness for (to prove inclusion)
   ): Promise<(ACVMField | ACVMField[])[]> {
     const parsedBlockNumber = Fr.fromString(blockNumber).toNumber();
     const parsedNullifier = Fr.fromString(nullifier);
 
-    const witness = await this.typedOracle.getNullifierMembershipWitness(parsedBlockNumber, parsedNullifier);
+    const witness = await this.typedOracle.utilityGetNullifierMembershipWitness(parsedBlockNumber, parsedNullifier);
     if (!witness) {
       throw new Error(`Nullifier witness not found for nullifier ${parsedNullifier} at block ${parsedBlockNumber}.`);
     }
     return witness.toNoirRepresentation();
   }
 
-  async getLowNullifierMembershipWitness(
+  async utilityGetLowNullifierMembershipWitness(
     [blockNumber]: ACVMField[],
     [nullifier]: ACVMField[], // nullifier, we try to find the low nullifier witness for (to prove non-inclusion)
   ): Promise<(ACVMField | ACVMField[])[]> {
     const parsedBlockNumber = Fr.fromString(blockNumber).toNumber();
     const parsedNullifier = Fr.fromString(nullifier);
 
-    const witness = await this.typedOracle.getLowNullifierMembershipWitness(parsedBlockNumber, parsedNullifier);
+    const witness = await this.typedOracle.utilityGetLowNullifierMembershipWitness(parsedBlockNumber, parsedNullifier);
     if (!witness) {
       throw new Error(
         `Low nullifier witness not found for nullifier ${parsedNullifier} at block ${parsedBlockNumber}.`,
@@ -138,47 +163,48 @@ export class Oracle {
     return witness.toNoirRepresentation();
   }
 
-  async getPublicDataWitness(
+  async utilityGetPublicDataWitness(
     [blockNumber]: ACVMField[],
     [leafSlot]: ACVMField[],
   ): Promise<(ACVMField | ACVMField[])[]> {
     const parsedBlockNumber = Fr.fromString(blockNumber).toNumber();
     const parsedLeafSlot = Fr.fromString(leafSlot);
 
-    const witness = await this.typedOracle.getPublicDataWitness(parsedBlockNumber, parsedLeafSlot);
+    const witness = await this.typedOracle.utilityGetPublicDataWitness(parsedBlockNumber, parsedLeafSlot);
     if (!witness) {
       throw new Error(`Public data witness not found for slot ${parsedLeafSlot} at block ${parsedBlockNumber}.`);
     }
     return witness.toNoirRepresentation();
   }
 
-  async getBlockHeader([blockNumber]: ACVMField[]): Promise<ACVMField[]> {
+  async utilityGetBlockHeader([blockNumber]: ACVMField[]): Promise<ACVMField[]> {
     const parsedBlockNumber = Fr.fromString(blockNumber).toNumber();
 
-    const header = await this.typedOracle.getBlockHeader(parsedBlockNumber);
+    const header = await this.typedOracle.utilityGetBlockHeader(parsedBlockNumber);
     if (!header) {
       throw new Error(`Block header not found for block ${parsedBlockNumber}.`);
     }
     return header.toFields().map(toACVMField);
   }
 
-  async getAuthWitness([messageHash]: ACVMField[]): Promise<ACVMField[][]> {
+  async utilityGetAuthWitness([messageHash]: ACVMField[]): Promise<ACVMField[][]> {
     const messageHashField = Fr.fromString(messageHash);
-    const witness = await this.typedOracle.getAuthWitness(messageHashField);
+    const witness = await this.typedOracle.utilityGetAuthWitness(messageHashField);
     if (!witness) {
       throw new Error(`Unknown auth witness for message hash ${messageHashField}`);
     }
     return [witness.map(toACVMField)];
   }
 
-  async getPublicKeysAndPartialAddress([address]: ACVMField[]): Promise<ACVMField[][]> {
+  // TODO(benesjan): This doesn't map to the underlying oracle name which is just ugly.
+  async utilityGetPublicKeysAndPartialAddress([address]: ACVMField[]): Promise<ACVMField[][]> {
     const parsedAddress = AztecAddress.fromField(Fr.fromString(address));
-    const { publicKeys, partialAddress } = await this.typedOracle.getCompleteAddress(parsedAddress);
+    const { publicKeys, partialAddress } = await this.typedOracle.utilityGetCompleteAddress(parsedAddress);
 
     return [[...publicKeys.toFields(), partialAddress].map(toACVMField)];
   }
 
-  async getNotes(
+  async utilityGetNotes(
     [storageSlot]: ACVMField[],
     [numSelects]: ACVMField[],
     selectByIndexes: ACVMField[],
@@ -196,7 +222,7 @@ export class Oracle {
     [maxNotes]: ACVMField[],
     [packedRetrievedNoteLength]: ACVMField[],
   ): Promise<(ACVMField | ACVMField[])[]> {
-    const noteDatas = await this.typedOracle.getNotes(
+    const noteDatas = await this.typedOracle.utilityGetNotes(
       Fr.fromString(storageSlot),
       +numSelects,
       selectByIndexes.map(s => +s),
@@ -213,40 +239,25 @@ export class Oracle {
       +status,
     );
 
-    if (noteDatas.length > 0) {
-      const noteLength = noteDatas[0].note.items.length;
-      if (!noteDatas.every(({ note }) => noteLength === note.items.length)) {
-        throw new Error('Notes should all be the same length.');
-      }
-    }
-
-    // The expected return type is a BoundedVec<[Field; packedRetrievedNoteLength], maxNotes> where each
-    // array is structured as [contract_address, note_nonce, nonzero_note_hash_counter, ...packed_note].
-
-    const returnDataAsArrayOfArrays = noteDatas.map(({ contractAddress, noteNonce, index, note }) => {
-      // If index is undefined, the note is transient which implies that the nonzero_note_hash_counter has to be true
-      const noteIsTransient = index === undefined;
-      const nonzeroNoteHashCounter = noteIsTransient ? true : false;
-      // If you change the array on the next line you have to change the `unpack_retrieved_note` function in
-      // `aztec/src/note/retrieved_note.nr`
-      return [contractAddress, noteNonce, nonzeroNoteHashCounter, ...note.items];
-    });
+    const returnDataAsArrayOfPackedRetrievedNotes = noteDatas.map(packAsRetrievedNote);
 
     // Now we convert each sub-array to an array of ACVMField
-    const returnDataAsArrayOfACVMFieldArrays = returnDataAsArrayOfArrays.map(subArray => subArray.map(toACVMField));
+    const returnDataAsArrayOfACVMFieldArrays = returnDataAsArrayOfPackedRetrievedNotes.map(subArray =>
+      subArray.map(toACVMField),
+    );
 
     // At last we convert the array of arrays to a bounded vec of arrays
     return arrayOfArraysToBoundedVecOfArrays(returnDataAsArrayOfACVMFieldArrays, +maxNotes, +packedRetrievedNoteLength);
   }
 
-  notifyCreatedNote(
+  privateNotifyCreatedNote(
     [storageSlot]: ACVMField[],
     [noteTypeId]: ACVMField[],
     note: ACVMField[],
     [noteHash]: ACVMField[],
     [counter]: ACVMField[],
   ): Promise<ACVMField[]> {
-    this.typedOracle.notifyCreatedNote(
+    this.typedOracle.privateNotifyCreatedNote(
       Fr.fromString(storageSlot),
       NoteSelector.fromField(Fr.fromString(noteTypeId)),
       note.map(Fr.fromString),
@@ -256,31 +267,31 @@ export class Oracle {
     return Promise.resolve([]);
   }
 
-  async notifyNullifiedNote(
+  async privateNotifyNullifiedNote(
     [innerNullifier]: ACVMField[],
     [noteHash]: ACVMField[],
     [counter]: ACVMField[],
   ): Promise<ACVMField[]> {
-    await this.typedOracle.notifyNullifiedNote(Fr.fromString(innerNullifier), Fr.fromString(noteHash), +counter);
+    await this.typedOracle.privateNotifyNullifiedNote(Fr.fromString(innerNullifier), Fr.fromString(noteHash), +counter);
     return [];
   }
 
-  async notifyCreatedNullifier([innerNullifier]: ACVMField[]): Promise<ACVMField[]> {
-    await this.typedOracle.notifyCreatedNullifier(Fr.fromString(innerNullifier));
+  async privateNotifyCreatedNullifier([innerNullifier]: ACVMField[]): Promise<ACVMField[]> {
+    await this.typedOracle.privateNotifyCreatedNullifier(Fr.fromString(innerNullifier));
     return [];
   }
 
-  async checkNullifierExists([innerNullifier]: ACVMField[]): Promise<ACVMField[]> {
-    const exists = await this.typedOracle.checkNullifierExists(Fr.fromString(innerNullifier));
+  async utilityCheckNullifierExists([innerNullifier]: ACVMField[]): Promise<ACVMField[]> {
+    const exists = await this.typedOracle.utilityCheckNullifierExists(Fr.fromString(innerNullifier));
     return [toACVMField(exists)];
   }
 
-  async getL1ToL2MembershipWitness(
+  async utilityGetL1ToL2MembershipWitness(
     [contractAddress]: ACVMField[],
     [messageHash]: ACVMField[],
     [secret]: ACVMField[],
   ): Promise<(ACVMField | ACVMField[])[]> {
-    const message = await this.typedOracle.getL1ToL2MembershipWitness(
+    const message = await this.typedOracle.utilityGetL1ToL2MembershipWitness(
       AztecAddress.fromString(contractAddress),
       Fr.fromString(messageHash),
       Fr.fromString(secret),
@@ -288,13 +299,13 @@ export class Oracle {
     return message.toNoirRepresentation();
   }
 
-  async storageRead(
+  async utilityStorageRead(
     [contractAddress]: ACVMField[],
     [startStorageSlot]: ACVMField[],
     [blockNumber]: ACVMField[],
     [numberOfElements]: ACVMField[],
   ): Promise<ACVMField[][]> {
-    const values = await this.typedOracle.storageRead(
+    const values = await this.typedOracle.utilityStorageRead(
       new AztecAddress(Fr.fromString(contractAddress)),
       Fr.fromString(startStorageSlot),
       +blockNumber,
@@ -303,12 +314,7 @@ export class Oracle {
     return [values.map(toACVMField)];
   }
 
-  async storageWrite([startStorageSlot]: ACVMField[], values: ACVMField[]): Promise<ACVMField[]> {
-    const newValues = await this.typedOracle.storageWrite(Fr.fromString(startStorageSlot), values.map(Fr.fromString));
-    return newValues.map(toACVMField);
-  }
-
-  notifyCreatedContractClassLog(
+  privateNotifyCreatedContractClassLog(
     [contractAddress]: ACVMField[],
     message: ACVMField[],
     [length]: ACVMField[],
@@ -317,25 +323,27 @@ export class Oracle {
     const logFields = new ContractClassLogFields(message.map(Fr.fromString));
     const log = new ContractClassLog(new AztecAddress(Fr.fromString(contractAddress)), logFields, +length);
 
-    this.typedOracle.notifyCreatedContractClassLog(log, +counter);
+    this.typedOracle.privateNotifyCreatedContractClassLog(log, +counter);
     return Promise.resolve([]);
   }
 
-  debugLog(message: ACVMField[], _ignoredFieldsSize: ACVMField[], fields: ACVMField[]): Promise<ACVMField[]> {
+  utilityDebugLog(message: ACVMField[], _ignoredFieldsSize: ACVMField[], fields: ACVMField[]): Promise<ACVMField[]> {
     const messageStr = message.map(acvmField => String.fromCharCode(Fr.fromString(acvmField).toNumber())).join('');
     const fieldsFr = fields.map(Fr.fromString);
-    this.typedOracle.debugLog(messageStr, fieldsFr);
+    this.typedOracle.utilityDebugLog(messageStr, fieldsFr);
     return Promise.resolve([]);
   }
 
-  async callPrivateFunction(
+  // This function's name is directly hardcoded in `circuit_recorder.ts`. Don't forget to update it there if you
+  // change the name here.
+  async privateCallPrivateFunction(
     [contractAddress]: ACVMField[],
     [functionSelector]: ACVMField[],
     [argsHash]: ACVMField[],
     [sideEffectCounter]: ACVMField[],
     [isStaticCall]: ACVMField[],
   ): Promise<ACVMField[][]> {
-    const { endSideEffectCounter, returnsHash } = await this.typedOracle.callPrivateFunction(
+    const { endSideEffectCounter, returnsHash } = await this.typedOracle.privateCallPrivateFunction(
       AztecAddress.fromField(Fr.fromString(contractAddress)),
       FunctionSelector.fromField(Fr.fromString(functionSelector)),
       Fr.fromString(argsHash),
@@ -345,13 +353,13 @@ export class Oracle {
     return [[endSideEffectCounter, returnsHash].map(toACVMField)];
   }
 
-  async notifyEnqueuedPublicFunctionCall(
+  async privateNotifyEnqueuedPublicFunctionCall(
     [contractAddress]: ACVMField[],
     [calldataHash]: ACVMField[],
     [sideEffectCounter]: ACVMField[],
     [isStaticCall]: ACVMField[],
   ): Promise<ACVMField[]> {
-    await this.typedOracle.notifyEnqueuedPublicFunctionCall(
+    await this.typedOracle.privateNotifyEnqueuedPublicFunctionCall(
       AztecAddress.fromString(contractAddress),
       Fr.fromString(calldataHash),
       Fr.fromString(sideEffectCounter).toNumber(),
@@ -360,13 +368,13 @@ export class Oracle {
     return [];
   }
 
-  async notifySetPublicTeardownFunctionCall(
+  async privateNotifySetPublicTeardownFunctionCall(
     [contractAddress]: ACVMField[],
     [calldataHash]: ACVMField[],
     [sideEffectCounter]: ACVMField[],
     [isStaticCall]: ACVMField[],
   ): Promise<ACVMField[]> {
-    await this.typedOracle.notifySetPublicTeardownFunctionCall(
+    await this.typedOracle.privateNotifySetPublicTeardownFunctionCall(
       AztecAddress.fromString(contractAddress),
       Fr.fromString(calldataHash),
       Fr.fromString(sideEffectCounter).toNumber(),
@@ -375,40 +383,45 @@ export class Oracle {
     return [];
   }
 
-  async notifySetMinRevertibleSideEffectCounter([minRevertibleSideEffectCounter]: ACVMField[]): Promise<ACVMField[]> {
-    await this.typedOracle.notifySetMinRevertibleSideEffectCounter(
+  async privateNotifySetMinRevertibleSideEffectCounter([minRevertibleSideEffectCounter]: ACVMField[]): Promise<
+    ACVMField[]
+  > {
+    await this.typedOracle.privateNotifySetMinRevertibleSideEffectCounter(
       Fr.fromString(minRevertibleSideEffectCounter).toNumber(),
     );
     return Promise.resolve([]);
   }
 
-  async getIndexedTaggingSecretAsSender([sender]: ACVMField[], [recipient]: ACVMField[]): Promise<ACVMField[]> {
-    const taggingSecret = await this.typedOracle.getIndexedTaggingSecretAsSender(
+  async utilityGetIndexedTaggingSecretAsSender([sender]: ACVMField[], [recipient]: ACVMField[]): Promise<ACVMField[]> {
+    const taggingSecret = await this.typedOracle.utilityGetIndexedTaggingSecretAsSender(
       AztecAddress.fromString(sender),
       AztecAddress.fromString(recipient),
     );
     return taggingSecret.toFields().map(toACVMField);
   }
 
-  async incrementAppTaggingSecretIndexAsSender([sender]: ACVMField[], [recipient]: ACVMField[]): Promise<ACVMField[]> {
-    await this.typedOracle.incrementAppTaggingSecretIndexAsSender(
+  async privateIncrementAppTaggingSecretIndexAsSender(
+    [sender]: ACVMField[],
+    [recipient]: ACVMField[],
+  ): Promise<ACVMField[]> {
+    await this.typedOracle.privateIncrementAppTaggingSecretIndexAsSender(
       AztecAddress.fromString(sender),
       AztecAddress.fromString(recipient),
     );
     return [];
   }
 
-  async fetchTaggedLogs([pendingTaggedLogArrayBaseSlot]: ACVMField[]): Promise<ACVMField[]> {
-    await this.typedOracle.fetchTaggedLogs(Fr.fromString(pendingTaggedLogArrayBaseSlot));
+  async utilityFetchTaggedLogs([pendingTaggedLogArrayBaseSlot]: ACVMField[]): Promise<ACVMField[]> {
+    await this.typedOracle.utilityFetchTaggedLogs(Fr.fromString(pendingTaggedLogArrayBaseSlot));
     return [];
   }
 
-  async validateEnqueuedNotesAndEvents(
+  async utilityValidateEnqueuedNotesAndEvents(
     [contractAddress]: ACVMField[],
     [noteValidationRequestsArrayBaseSlot]: ACVMField[],
     [eventValidationRequestsArrayBaseSlot]: ACVMField[],
   ): Promise<ACVMField[]> {
-    await this.typedOracle.validateEnqueuedNotesAndEvents(
+    await this.typedOracle.utilityValidateEnqueuedNotesAndEvents(
       AztecAddress.fromString(contractAddress),
       Fr.fromString(noteValidationRequestsArrayBaseSlot),
       Fr.fromString(eventValidationRequestsArrayBaseSlot),
@@ -417,12 +430,12 @@ export class Oracle {
     return [];
   }
 
-  async bulkRetrieveLogs(
+  async utilityBulkRetrieveLogs(
     [contractAddress]: ACVMField[],
     [logRetrievalRequestsArrayBaseSlot]: ACVMField[],
     [logRetrievalResponsesArrayBaseSlot]: ACVMField[],
   ): Promise<ACVMField[]> {
-    await this.typedOracle.bulkRetrieveLogs(
+    await this.typedOracle.utilityBulkRetrieveLogs(
       AztecAddress.fromString(contractAddress),
       Fr.fromString(logRetrievalRequestsArrayBaseSlot),
       Fr.fromString(logRetrievalResponsesArrayBaseSlot),
@@ -430,8 +443,12 @@ export class Oracle {
     return [];
   }
 
-  async storeCapsule([contractAddress]: ACVMField[], [slot]: ACVMField[], capsule: ACVMField[]): Promise<ACVMField[]> {
-    await this.typedOracle.storeCapsule(
+  async utilityStoreCapsule(
+    [contractAddress]: ACVMField[],
+    [slot]: ACVMField[],
+    capsule: ACVMField[],
+  ): Promise<ACVMField[]> {
+    await this.typedOracle.utilityStoreCapsule(
       AztecAddress.fromField(Fr.fromString(contractAddress)),
       Fr.fromString(slot),
       capsule.map(Fr.fromString),
@@ -439,12 +456,12 @@ export class Oracle {
     return [];
   }
 
-  async loadCapsule(
+  async utilityLoadCapsule(
     [contractAddress]: ACVMField[],
     [slot]: ACVMField[],
     [tSize]: ACVMField[],
   ): Promise<(ACVMField | ACVMField[])[]> {
-    const values = await this.typedOracle.loadCapsule(
+    const values = await this.typedOracle.utilityLoadCapsule(
       AztecAddress.fromField(Fr.fromString(contractAddress)),
       Fr.fromString(slot),
     );
@@ -460,18 +477,21 @@ export class Oracle {
     }
   }
 
-  async deleteCapsule([contractAddress]: ACVMField[], [slot]: ACVMField[]): Promise<ACVMField[]> {
-    await this.typedOracle.deleteCapsule(AztecAddress.fromField(Fr.fromString(contractAddress)), Fr.fromString(slot));
+  async utilityDeleteCapsule([contractAddress]: ACVMField[], [slot]: ACVMField[]): Promise<ACVMField[]> {
+    await this.typedOracle.utilityDeleteCapsule(
+      AztecAddress.fromField(Fr.fromString(contractAddress)),
+      Fr.fromString(slot),
+    );
     return [];
   }
 
-  async copyCapsule(
+  async utilityCopyCapsule(
     [contractAddress]: ACVMField[],
     [srcSlot]: ACVMField[],
     [dstSlot]: ACVMField[],
     [numEntries]: ACVMField[],
   ): Promise<ACVMField[]> {
-    await this.typedOracle.copyCapsule(
+    await this.typedOracle.utilityCopyCapsule(
       AztecAddress.fromField(Fr.fromString(contractAddress)),
       Fr.fromString(srcSlot),
       Fr.fromString(dstSlot),
@@ -480,7 +500,7 @@ export class Oracle {
     return [];
   }
 
-  async aes128Decrypt(
+  async utilityAes128Decrypt(
     ciphertextBVecStorage: ACVMField[],
     [ciphertextLength]: ACVMField[],
     iv: ACVMField[],
@@ -490,36 +510,36 @@ export class Oracle {
     const ivBuffer = fromUintArray(iv, 8);
     const symKeyBuffer = fromUintArray(symKey, 8);
 
-    const plaintext = await this.typedOracle.aes128Decrypt(ciphertext, ivBuffer, symKeyBuffer);
+    const plaintext = await this.typedOracle.utilityAes128Decrypt(ciphertext, ivBuffer, symKeyBuffer);
     return bufferToBoundedVec(plaintext, ciphertextBVecStorage.length);
   }
 
-  async getSharedSecret(
+  async utilityGetSharedSecret(
     [address]: ACVMField[],
     [ephPKField0]: ACVMField[],
     [ephPKField1]: ACVMField[],
     [ephPKField2]: ACVMField[],
   ): Promise<ACVMField[]> {
-    const secret = await this.typedOracle.getSharedSecret(
+    const secret = await this.typedOracle.utilityGetSharedSecret(
       AztecAddress.fromField(Fr.fromString(address)),
       Point.fromFields([ephPKField0, ephPKField1, ephPKField2].map(Fr.fromString)),
     );
     return secret.toFields().map(toACVMField);
   }
 
-  async emitOffchainEffect(data: ACVMField[]) {
-    await this.typedOracle.emitOffchainEffect(data.map(Fr.fromString));
+  async utilityEmitOffchainEffect(data: ACVMField[]) {
+    await this.typedOracle.utilityEmitOffchainEffect(data.map(Fr.fromString));
     return [];
   }
 
-  async getSenderForTags(): Promise<ACVMField[]> {
-    const sender = await this.typedOracle.getSenderForTags();
+  async privateGetSenderForTags(): Promise<ACVMField[]> {
+    const sender = await this.typedOracle.privateGetSenderForTags();
     // Return [1, address] for Some(address), [0, 0] for None
     return sender ? [toACVMField(1n), toACVMField(sender)] : [toACVMField(0n), toACVMField(0n)];
   }
 
-  async setSenderForTags([senderForTags]: ACVMField[]): Promise<ACVMField[]> {
-    await this.typedOracle.setSenderForTags(AztecAddress.fromField(Fr.fromString(senderForTags)));
+  async privateSetSenderForTags([senderForTags]: ACVMField[]): Promise<ACVMField[]> {
+    await this.typedOracle.privateSetSenderForTags(AztecAddress.fromField(Fr.fromString(senderForTags)));
     return [];
   }
 }

@@ -28,8 +28,10 @@ export interface TestWallets {
   pxe: PXE;
   wallets: AccountWalletWithSecretKey[];
   tokenAdminWallet: TokenContract;
+  tokenAdminAddress: AztecAddress;
   tokenName: string;
   recipientWallet: AccountWalletWithSecretKey;
+  recipientAddress: AztecAddress;
   tokenAddress: AztecAddress;
 }
 
@@ -52,7 +54,16 @@ export async function setupTestWalletsWithTokens(
   const tokenAddress = await deployTokenAndMint(wallets, tokenAdmin.getAddress(), mintAmount, undefined, logger);
   const tokenAdminWallet = await TokenContract.at(tokenAddress, tokenAdmin);
 
-  return { pxe, wallets, tokenAdminWallet, tokenName: TOKEN_NAME, tokenAddress, recipientWallet };
+  return {
+    pxe,
+    wallets,
+    tokenAdminWallet,
+    tokenAdminAddress: tokenAdmin.getAddress(),
+    tokenName: TOKEN_NAME,
+    tokenAddress,
+    recipientAddress: recipientWallet.getAddress(),
+    recipientWallet,
+  };
 }
 
 export async function deploySponsoredTestWallets(
@@ -92,7 +103,16 @@ export async function deploySponsoredTestWallets(
   );
   const tokenAdminWallet = await TokenContract.at(tokenAddress, tokenAdmin);
 
-  return { pxe, wallets, tokenAdminWallet, tokenName: TOKEN_NAME, tokenAddress, recipientWallet };
+  return {
+    pxe,
+    wallets,
+    tokenAdminAddress: tokenAdmin.getAddress(),
+    tokenAdminWallet,
+    tokenName: TOKEN_NAME,
+    tokenAddress,
+    recipientWallet,
+    recipientAddress: recipientWallet.getAddress(),
+  };
 }
 
 export async function deployTestWalletWithTokens(
@@ -139,7 +159,16 @@ export async function deployTestWalletWithTokens(
   const tokenAddress = await deployTokenAndMint(wallets, tokenAdmin.getAddress(), mintAmount, undefined, logger);
   const tokenAdminWallet = await TokenContract.at(tokenAddress, tokenAdmin);
 
-  return { pxe, wallets, tokenAdminWallet, tokenName: TOKEN_NAME, tokenAddress, recipientWallet };
+  return {
+    pxe,
+    wallets,
+    tokenAdminAddress: tokenAdmin.getAddress(),
+    tokenAdminWallet,
+    tokenName: TOKEN_NAME,
+    tokenAddress,
+    recipientWallet,
+    recipientAddress: recipientWallet.getAddress(),
+  };
 }
 
 async function bridgeL1FeeJuice(
@@ -192,6 +221,7 @@ async function deployTokenAndMint(
   logger.verbose(`Deploying TokenContract...`);
   const tokenContract = await TokenContract.deploy(wallets[0], admin, TOKEN_NAME, TOKEN_SYMBOL, TOKEN_DECIMALS)
     .send({
+      from: admin,
       fee: {
         paymentMethod,
       },
@@ -206,7 +236,7 @@ async function deployTokenAndMint(
     wallets.map(async w =>
       (await TokenContract.at(tokenAddress, w)).methods
         .mint_to_public(w.getAddress(), mintAmount)
-        .send({ fee: { paymentMethod } })
+        .send({ from: admin, fee: { paymentMethod } })
         .wait({ timeout: 600 }),
     ),
   );
@@ -228,22 +258,16 @@ export async function performTransfers({
   logger: Logger;
 }) {
   const recipient = testWallets.recipientWallet.getAddress();
-
   for (let i = 0; i < rounds; i++) {
-    const interactions = await Promise.all(
-      testWallets.wallets.map(async w =>
-        (await TokenContract.at(testWallets.tokenAddress, w)).methods.transfer_in_public(
-          w.getAddress(),
-          recipient,
-          transferAmount,
-          0,
-        ),
-      ),
+    const txs = testWallets.wallets.map(async w =>
+      (await TokenContract.at(testWallets.tokenAddress, w)).methods
+        .transfer_in_public(w.getAddress(), recipient, transferAmount, 0)
+        .prove({ from: w.getAddress() }),
     );
 
-    const txs = await Promise.all(interactions.map(async i => await i.prove()));
+    const provenTxs = await Promise.all(txs);
 
-    await Promise.all(txs.map(t => t.send().wait({ timeout: 600 })));
+    await Promise.all(provenTxs.map(t => t.send().wait({ timeout: 600 })));
 
     logger.info(`Completed round ${i + 1} / ${rounds}`);
   }

@@ -45,7 +45,7 @@ The generic implementation has 2 purposes:
 1. Building barretenberg on platforms we haven't targeted in the past (new ARM-based Macs, for example)
 2. Compile-time computation of constant expressions, since we can't use the assembly implementation for those.
 
-The assembly implementation for x86_64 is optimised. There are 2 versions:
+The assembly implementation for x86_64 is optimized. There are 2 versions:
 1. General x86_64 implementation that uses 64-bit registers. The squaring operation is equivalent to multiplication for simplicity and because the original squaring implementation was quite buggy.
 2. Implementation using Intel ADX. It allows simultaneous use of two addition-with carry operations (adox and adcx) on two separate CPU gates (units of execution that can work simultaneously on the same core), which almost halves the time spent adding up the results of uint64_t multiplication.
 
@@ -59,18 +59,18 @@ In the past we implemented a version with 32-bit limbs, but as a result, when we
 1. This spawned in a lot of masking operations
 2. We didn't use more efficient algorithms for squaring, because multiplication by 2 of intermediate products would once again overflow.
 
-Switching to 9 29-bit limbs increased the number of multiplications from 136 to 171. However, since the product of 2 limbs is 58 bits, we can safely accumulate 64 of those before we have to reduce. This allowed us to get rid of a lot of intermediate masking operations, shifts and additions, so the resulting computation turned out to be more efficient. 
+Switching to 9 29-bit limbs increased the number of multiplications from 136 to 171. However, since the product of 2 limbs is 58 bits, we can safely accumulate 64 of those before we have to reduce. This allowed us to get rid of a lot of intermediate masking operations, shifts and additions, so the resulting computation turned out to be more efficient.
 
 ## Interaction of field object with other objects
 Most of the time field is used with uint64_t or uint256_t in our codebase, but there is general logic of how we generate field elements from integers:
 1. Converting from signed int takes the sign into account. It takes the absolute value, converts it to montgomery and then negates the result if the original value was negative
 2. Unsigned integers ( <= 64 bits) are just converted to montgomery
-3. uint256_t and uint512_t: 
+3. uint256_t and uint512_t:
     1. Truncate to 256 bits
     2. Subtract the modulus until the value is within field
     3. Convert to montgomery
 
-Conversion from field elements exists only to unsigned integers and bools. The value is converted from montgomery and appropriate number of lowest bits is used to initialize the value. 
+Conversion from field elements exists only to unsigned integers and bools. The value is converted from montgomery and appropriate number of lowest bits is used to initialize the value.
 
 **N.B.** Functions for converting from uint256_t and back are not bijective, since values \f$ \ge p\f$ will be reduced.
 
@@ -100,7 +100,7 @@ def parse_field_params(s):
             raise ValueError("Couldn't find value with name "+name)
         eq_position=s[index:].find('=')
         line_end=s[index:].find(';')
-        return parse_number(s[index+eq_position+1:index+line_end])        
+        return parse_number(s[index+eq_position+1:index+line_end])
 
     def recover_single_value_if_present(name):
         nonlocal s
@@ -109,7 +109,7 @@ def parse_field_params(s):
             return None
         eq_position=s[index:].find('=')
         line_end=s[index:].find(';')
-        return parse_number(s[index+eq_position+1:index+line_end])   
+        return parse_number(s[index+eq_position+1:index+line_end])
 
     def recover_array(name):
         nonlocal s

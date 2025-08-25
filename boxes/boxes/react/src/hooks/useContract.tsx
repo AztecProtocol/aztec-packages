@@ -18,6 +18,7 @@ export function useContract() {
     const { BoxReactContract } = await import('../../artifacts/BoxReact');
 
     const tx = await BoxReactContract.deploy(wallet, Fr.random(), wallet.getCompleteAddress().address).send({
+      from: wallet.getAddress(),
       contractAddressSalt: salt,
     });
     const contract = await toast.promise(tx.deployed(), {

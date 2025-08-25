@@ -14,6 +14,8 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 # To preserve the warning, but prevent them from causing the build to fail,
 # use the flag `-Wno-error=${ERROR_NAME}`
 add_compile_options(-Werror -Wall -Wextra -Wconversion -Wsign-conversion -Wfatal-errors)
+# Needed until https://github.com/codeinred/tuplet/issues/37 is solved.
+add_compile_options(-Wno-missing-braces)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     add_compile_options(-fcolor-diagnostics -fconstexpr-steps=100000000)
@@ -24,7 +26,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     endif()
 
     if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 18)
-        # We target clang18 and need this, eventually warning should be fixed or this will be unconditional.
+        # We target clang20 and need this, eventually warning should be fixed or this will be unconditional.
         add_compile_options(-Wno-vla-cxx-extension)
         # This gets in the way of a partial object initialization (i.e. MyClass my_class{ .my_member = init_value })
         add_compile_options(-Wno-missing-field-initializers)

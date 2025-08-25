@@ -45,7 +45,7 @@ describe('validateBlockAttestations', () => {
       const block = await makeBlock([], []);
       const result = await validateBlockAttestations(block, epochCache, constants, logger);
 
-      expect(result).toBe(true);
+      expect(result.valid).toBe(true);
       expect(epochCache.getCommitteeForEpoch).toHaveBeenCalledWith(0n);
     });
 
@@ -53,7 +53,7 @@ describe('validateBlockAttestations', () => {
       const block = await makeBlock(signers, committee);
       const result = await validateBlockAttestations(block, epochCache, constants, logger);
 
-      expect(result).toBe(true);
+      expect(result.valid).toBe(true);
       expect(epochCache.getCommitteeForEpoch).toHaveBeenCalledWith(0n);
     });
   });
@@ -73,19 +73,32 @@ describe('validateBlockAttestations', () => {
       const badSigner = Secp256k1Signer.random();
       const block = await makeBlock([...signers, badSigner], [...committee, badSigner.address]);
       const result = await validateBlockAttestations(block, epochCache, constants, logger);
-      expect(result).toBe(false);
+      expect(result.valid).toBe(false);
+      if (!result.valid) {
+        expect(result.reason).toBe('invalid-attestation');
+        expect(result.block).toBe(block);
+        expect(result.committee).toEqual(committee);
+        if (result.reason === 'invalid-attestation') {
+          expect(result.invalidIndex).toBe(5); // The bad signer is at index 5
+        }
+      }
     });
 
     it('returns false if insufficient attestations', async () => {
       const block = await makeBlock(signers.slice(0, 2), committee);
       const result = await validateBlockAttestations(block, epochCache, constants, logger);
-      expect(result).toBe(false);
+      expect(result.valid).toBe(false);
+      if (!result.valid) {
+        expect(result.reason).toBe('insufficient-attestations');
+        expect(result.block).toBe(block);
+        expect(result.committee).toEqual(committee);
+      }
     });
 
     it('returns true if all attestations are valid and sufficient', async () => {
       const block = await makeBlock(signers.slice(0, 4), committee);
       const result = await validateBlockAttestations(block, epochCache, constants, logger);
-      expect(result).toBe(true);
+      expect(result.valid).toBe(true);
     });
   });
 });

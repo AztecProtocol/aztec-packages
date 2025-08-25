@@ -4,7 +4,7 @@ use protocol_types::{
 };
 
 // NOTE: this is for use in private only
-#[oracle(getContractInstance)]
+#[oracle(utilityGetContractInstance)]
 unconstrained fn get_contract_instance_oracle(_address: AztecAddress) -> ContractInstance {}
 
 // NOTE: this is for use in private only

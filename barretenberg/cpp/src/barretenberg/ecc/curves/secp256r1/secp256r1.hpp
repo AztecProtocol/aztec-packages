@@ -132,6 +132,10 @@ struct FqParams {
                                                              0x0000009fffffff5fULL, 0x000000bfffffff3fULL,
                                                              0x000000dfffffff1fULL, 0x000000fffffffeffULL,
                                                              0x0000011ffffffedfULL, 0x0000013ffffffebfULL };
+
+    // For consistency with bb::fq, if we ever represent an element of bb::secp256r1::fq in the public inputs, we do so
+    // as a bigfield element, so with 4 public inputs
+    static constexpr size_t PUBLIC_INPUTS_SIZE = BIGFIELD_PUBLIC_INPUTS_SIZE;
 };
 using fq = field<FqParams>;
 
@@ -257,6 +261,10 @@ struct FrParams {
                                                              0x0000011ffffffee0ULL, 0x0000013ffffffec0ULL,
                                                              0x0000015ffffffea0ULL, 0x0000017ffffffe80ULL,
                                                              0x0000019ffffffe60ULL, 0x000001bffffffe40ULL };
+
+    // For consistency with bb::fq, if we ever represent an element of bb::secp256r1::fq in the public inputs, we do so
+    // as a bigfield element, so with 4 public inputs
+    static constexpr size_t PUBLIC_INPUTS_SIZE = BIGFIELD_PUBLIC_INPUTS_SIZE;
 };
 using fr = field<FrParams>;
 

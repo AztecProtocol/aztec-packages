@@ -2,6 +2,9 @@ import { BackendOptions, Barretenberg, CircuitOptions } from './index.js';
 import { RawBuffer } from '../types/raw_buffer.js';
 import {
   ProofData,
+  reconstructHonkProof,
+  splitHonkProof,
+  PAIRING_POINTS_SIZE,
   uint8ArrayToHex,
   hexToUint8Array,
 } from '../proof/index.js';
@@ -122,6 +125,17 @@ export class UltraHonkBackend {
     }
   }
 
+  private getProofSettingsFromOptions(
+    options?: UltraHonkBackendOptions,
+  ): { ipaAccumulation: boolean; oracleHashType: string; disableZk: boolean } {
+    return {
+      ipaAccumulation: false,
+      oracleHashType: options?.keccak || options?.keccakZK ? 'keccak' : (options?.starknet || options?.starknetZK ? 'starknet' : 'poseidon2'),
+      // TODO no current way to target non-zk poseidon2 hash
+      disableZk: options?.keccak || options?.starknet ? true : false,
+    };
+  }
+
   async generateProof(compressedWitness: Uint8Array, options?: UltraHonkBackendOptions): Promise<ProofData> {
     await this.instantiate();
 
@@ -133,7 +147,11 @@ export class UltraHonkBackend {
         bytecode: Buffer.from(this.acirUncompressedBytecode),
         verificationKey: Buffer.from([]), // Empty VK - lower performance.
       },
+<<<<<<< HEAD
       settings: getProofSettingsFromOptions(options)
+=======
+      settings: this.getProofSettingsFromOptions(options)
+>>>>>>> origin/merge-train/barretenberg
     });
     console.log(`Generated proof for circuit with ${publicInputs.length} public inputs and ${proof.length} fields.`);
 
@@ -159,13 +177,21 @@ export class UltraHonkBackend {
         name: 'circuit',
         bytecode: this.acirUncompressedBytecode,
       },
+<<<<<<< HEAD
       settings: getProofSettingsFromOptions(options),
+=======
+      settings: this.getProofSettingsFromOptions(options),
+>>>>>>> origin/merge-train/barretenberg
     });
     const {verified} = await this.api.circuitVerify({
       verificationKey: vkResult.bytes,
       publicInputs: proofData.publicInputs.map(hexToUint8Array),
       proof: proofFrs,
+<<<<<<< HEAD
       settings: getProofSettingsFromOptions(options),
+=======
+      settings: this.getProofSettingsFromOptions(options),
+>>>>>>> origin/merge-train/barretenberg
     });
     return verified;
   }
@@ -178,7 +204,11 @@ export class UltraHonkBackend {
         name: 'circuit',
         bytecode: Buffer.from(this.acirUncompressedBytecode),
       },
+<<<<<<< HEAD
       settings: getProofSettingsFromOptions(options),
+=======
+      settings: this.getProofSettingsFromOptions(options),
+>>>>>>> origin/merge-train/barretenberg
     });
     return vkResult.bytes;
   }
@@ -213,6 +243,7 @@ export class UltraHonkBackend {
         name: 'circuit',
         bytecode: Buffer.from(this.acirUncompressedBytecode),
       },
+<<<<<<< HEAD
       settings: getProofSettingsFromOptions({}),
     });
 
@@ -226,11 +257,19 @@ export class UltraHonkBackend {
         : chunk;
       vkAsFields.push('0x' + Array.from(padded).map(b => b.toString(16).padStart(2, '0')).join(''));
     }
+=======
+      settings: this.getProofSettingsFromOptions({}),
+    });
+>>>>>>> origin/merge-train/barretenberg
 
     return {
       // TODO(https://github.com/noir-lang/noir/issues/5661)
       proofAsFields: [],
+<<<<<<< HEAD
       vkAsFields,
+=======
+      vkAsFields: vkResult.fields.map(field => field.toString()),
+>>>>>>> origin/merge-train/barretenberg
       // We use an empty string for the vk hash here as it is unneeded as part of the recursive artifacts
       // The user can be expected to hash the vk inside their circuit to check whether the vk is the circuit
       // they expect
@@ -301,18 +340,21 @@ export class AztecClientBackend {
       this.api.clientIvcAccumulate({
         witness: Buffer.from(witness),
       });
+
     }
+
+
 
     // Generate the proof (and wait for all previous steps to finish)
     const proveResult = await this.api.clientIvcProve({});
-
     // The API currently expects a msgpack-encoded API.
     const proof = new Encoder({useRecords: false}).encode(fromClientIVCProof(proveResult.proof));
     // Generate the VK
     const vkResult = await this.api.clientIvcComputeIvcVk({ circuit: {
-      name: 'tail',
+      name: 'hiding',
       bytecode: this.acirBuf[this.acirBuf.length - 1],
     } });
+
 
     // Note: Verification may not work correctly until we properly serialize the proof
     if (!(await this.verify(proof, vkResult.bytes))) {
@@ -334,7 +376,7 @@ export class AztecClientBackend {
     await this.instantiate();
     const circuitSizes: number[] = [];
     for (const buf of this.acirBuf) {
-      const gates = await this.api.clientIvcGates({
+      const gates = await this.api.clientIvcStats({
         circuit: {
           name: 'circuit',
           bytecode: buf,

@@ -5,6 +5,7 @@ import {
   PAIRING_POINTS_SIZE,
   RECURSIVE_PROOF_LENGTH,
   TUBE_PROOF_LENGTH,
+  ULTRA_KECCAK_PROOF_LENGTH,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { runInDirectory } from '@aztec/foundation/fs';
@@ -96,9 +97,6 @@ import { PRIVATE_TAIL_CIVC_VK, PUBLIC_TAIL_CIVC_VK } from '../../verifier/bb_ver
 import { readProofAsFields, writeClientIVCProofToOutputDirectory } from '../proof_utils.js';
 
 const logger = createLogger('bb-prover');
-
-// All `ServerCircuitArtifact` are recursive.
-const SERVER_CIRCUIT_RECURSIVE = true;
 
 export interface BBProverConfig extends BBConfig, ACVMConfig {
   // list of circuits supported by this prover. defaults to all circuits if empty
@@ -469,7 +467,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       workingDirectory,
       circuitType,
       Buffer.from(artifact.bytecode, 'base64'),
-      SERVER_CIRCUIT_RECURSIVE,
       outputWitnessFile,
       getUltraHonkFlavorForCircuit(circuitType),
       logger,
@@ -501,7 +498,9 @@ export class BBNativeRollupProver implements ServerCircuitProver {
         bbWorkingDirectory,
       );
       const vkData = this.getVerificationKeyDataForCircuit(circuitType);
-      const proof = await readProofAsFields(provingResult.proofPath!, vkData, RECURSIVE_PROOF_LENGTH, logger);
+
+      const PROOF_LENGTH = circuitType == 'RootRollupArtifact' ? ULTRA_KECCAK_PROOF_LENGTH : RECURSIVE_PROOF_LENGTH;
+      const proof = await readProofAsFields(provingResult.proofPath!, vkData, PROOF_LENGTH, logger);
 
       const circuitName = mapProtocolArtifactNameToCircuitName(circuitType);
 

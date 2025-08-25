@@ -1,7 +1,4 @@
-use crate::{
-    parity_public_inputs::ParityPublicInputs, root::root_parity_input::RootParityInput,
-    utils::sha256_merkle_tree::Sha256MerkleTree,
-};
+use crate::{parity_public_inputs::ParityPublicInputs, root::root_parity_input::RootParityInput};
 use dep::types::{
     constants::NUM_BASE_PARITY_PER_ROOT_PARITY, merkle_tree::MerkleTree, proof::traits::Verifiable,
 };
@@ -30,7 +27,7 @@ impl RootParityInputs {
             converted_roots[i] = self.children[i].public_inputs.converted_root;
         }
 
-        let sha_tree = Sha256MerkleTree::new(sha_roots);
+        let sha_tree = MerkleTree::new_sha(sha_roots);
         let poseidon_tree = MerkleTree::new(converted_roots);
 
         ParityPublicInputs {

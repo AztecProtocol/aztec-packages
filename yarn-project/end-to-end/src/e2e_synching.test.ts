@@ -49,9 +49,9 @@ import { AnvilTestWatcher } from '@aztec/aztec/testing';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
+  EmpireSlashingProposerContract,
   GovernanceProposerContract,
   RollupContract,
-  SlashingProposerContract,
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
 import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
@@ -178,14 +178,19 @@ class TestVariant {
     if (this.txComplexity == TxComplexity.PublicTransfer) {
       await Promise.all(
         this.wallets.map(w =>
-          this.token.methods.mint_to_public(w.getAddress(), MINT_AMOUNT).send().wait({ timeout: 600 }),
+          this.token.methods
+            .mint_to_public(w.getAddress(), MINT_AMOUNT)
+            .send({ from: w.getAddress() })
+            .wait({ timeout: 600 }),
         ),
       );
     }
 
     // Mint tokens privately if needed
     if (this.txComplexity == TxComplexity.PrivateTransfer) {
-      await Promise.all(this.wallets.map((w, _) => mintTokensToPrivate(this.token, w, w.getAddress(), MINT_AMOUNT)));
+      await Promise.all(
+        this.wallets.map((w, _) => mintTokensToPrivate(this.token, w.getAddress(), w, w.getAddress(), MINT_AMOUNT)),
+      );
     }
   }
 
@@ -214,7 +219,7 @@ class TestVariant {
       for (let i = 0; i < this.txCount; i++) {
         const recipient = this.wallets[(i + 1) % this.txCount].getAddress();
         const tk = await TokenContract.at(this.token.address, this.wallets[i]);
-        txs.push(tk.methods.transfer(recipient, 1n).send());
+        txs.push(tk.methods.transfer(recipient, 1n).send({ from: this.wallets[i].getAddress() }));
       }
       return txs;
     } else if (this.txComplexity == TxComplexity.PublicTransfer) {
@@ -224,7 +229,7 @@ class TestVariant {
         const sender = this.wallets[i].getAddress();
         const recipient = this.wallets[(i + 1) % this.txCount].getAddress();
         const tk = await TokenContract.at(this.token.address, this.wallets[i]);
-        txs.push(tk.methods.transfer_in_public(sender, recipient, 1n, 0).send());
+        txs.push(tk.methods.transfer_in_public(sender, recipient, 1n, 0).send({ from: sender }));
       }
       return txs;
     } else if (this.txComplexity == TxComplexity.Spam) {
@@ -241,7 +246,7 @@ class TestVariant {
         ]);
 
         this.seed += 100n;
-        txs.push(batch.send());
+        txs.push(batch.send({ from: this.wallets[0].getAddress() }));
       }
       return txs;
     } else {
@@ -327,8 +332,10 @@ describe('e2e_synching', () => {
       variant.setPXE(pxe as PXEService);
 
       // Deploy a token, such that we could use it
-      const token = await TokenContract.deploy(wallet, wallet.getAddress(), 'TestToken', 'TST', 18n).send().deployed();
-      const spam = await SpamContract.deploy(wallet).send().deployed();
+      const token = await TokenContract.deploy(wallet, wallet.getAddress(), 'TestToken', 'TST', 18n)
+        .send({ from: wallet.getAddress() })
+        .deployed();
+      const spam = await SpamContract.deploy(wallet).send({ from: wallet.getAddress() }).deployed();
 
       variant.setToken(token);
       variant.setSpam(spam);
@@ -404,9 +411,14 @@ describe('e2e_synching', () => {
       config.l1Contracts.governanceProposerAddress.toString(),
     );
     const slashingProposerAddress = await rollupContract.getSlashingProposerAddress();
-    const slashingProposerContract = new SlashingProposerContract(
+    const slashingProposerContract = new EmpireSlashingProposerContract(
       deployL1ContractsValues.l1Client,
       slashingProposerAddress.toString(),
+    );
+    const { SlashFactoryContract } = await import('@aztec/stdlib/l1-contracts');
+    const slashFactoryContract = new SlashFactoryContract(
+      deployL1ContractsValues.l1Client,
+      deployL1ContractsValues.l1ContractAddresses.slashFactoryAddress!.toString(),
     );
     const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, { dateProvider });
     const publisher = new SequencerPublisher(
@@ -427,6 +439,7 @@ describe('e2e_synching', () => {
         rollupContract,
         governanceProposerContract,
         slashingProposerContract,
+        slashFactoryContract,
         epochCache,
         dateProvider: dateProvider!,
       },
@@ -522,11 +535,17 @@ describe('e2e_synching', () => {
             const wallet = (await variant.deployWallets(opts.initialFundedAccounts!.slice(0, 1)))[0];
 
             contracts.push(
-              await TokenContract.deploy(wallet, wallet.getAddress(), 'TestToken', 'TST', 18n).send().deployed(),
+              await TokenContract.deploy(wallet, wallet.getAddress(), 'TestToken', 'TST', 18n)
+                .send({ from: wallet.getAddress() })
+                .deployed(),
             );
-            contracts.push(await SchnorrHardcodedAccountContract.deploy(wallet).send().deployed());
             contracts.push(
-              await TokenContract.deploy(wallet, wallet.getAddress(), 'TestToken', 'TST', 18n).send().deployed(),
+              await SchnorrHardcodedAccountContract.deploy(wallet).send({ from: wallet.getAddress() }).deployed(),
+            );
+            contracts.push(
+              await TokenContract.deploy(wallet, wallet.getAddress(), 'TestToken', 'TST', 18n)
+                .send({ from: wallet.getAddress() })
+                .deployed(),
             );
 
             await watcher.stop();

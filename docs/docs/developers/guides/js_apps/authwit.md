@@ -2,6 +2,7 @@
 title: How to use authentication witnesses (authwit)
 tags: [accounts, authwit]
 sidebar_position: 5
+description: Learn how to use authentication witnesses in your Aztec.js applications for secure, delegated transactions.
 ---
 
 This page assumes you have authwit set up correctly in your contract. To learn how to do that, [go here](../smart_contracts/writing_contracts/authwit.md).

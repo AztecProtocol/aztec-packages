@@ -1,5 +1,6 @@
 import { type AztecNode, Body, L2Block, Note } from '@aztec/aztec.js';
 import {
+  CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
   DEFAULT_GAS_LIMIT,
   DEFAULT_TEARDOWN_GAS_LIMIT,
   type L1_TO_L2_MSG_TREE_HEIGHT,
@@ -13,7 +14,7 @@ import {
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Aes128, Schnorr } from '@aztec/foundation/crypto';
 import { Fr, Point } from '@aztec/foundation/fields';
-import { type Logger, applyStringFormatting } from '@aztec/foundation/log';
+import { type Logger, applyStringFormatting, createLogger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { KeyStore } from '@aztec/key-store';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
@@ -61,7 +62,7 @@ import {
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { ContractInstance, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import { type ContractInstance, type ContractInstanceWithAddress, computePartialAddress } from '@aztec/stdlib/contract';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import {
   computeCalldataHash,
@@ -149,7 +150,7 @@ export class TXE {
 
   private authwits: Map<string, AuthWitness> = new Map();
 
-  // Used by setSenderForTags and getSenderForTags oracles.
+  // Used by privateSetSenderForTags and privateGetSenderForTags oracles.
   private senderForTags?: AztecAddress;
 
   private constructor(
@@ -190,7 +191,9 @@ export class TXE {
     );
   }
 
-  static async create(logger: Logger, store: AztecAsyncKVStore, protocolContracts: ProtocolContract[]) {
+  static async create(store: AztecAsyncKVStore, protocolContracts: ProtocolContract[]) {
+    const logger = createLogger('txe:oracle');
+
     const executionCache = new HashedValuesCache();
 
     const stateMachine = await TXEStateMachine.create(store);
@@ -243,11 +246,11 @@ export class TXE {
     return this.baseFork;
   }
 
-  getChainId(): Promise<Fr> {
+  utilityGetChainId(): Promise<Fr> {
     return Promise.resolve(new Fr(this.CHAIN_ID));
   }
 
-  getVersion(): Promise<Fr> {
+  utilityGetVersion(): Promise<Fr> {
     return Promise.resolve(new Fr(this.ROLLUP_VERSION));
   }
 
@@ -255,7 +258,7 @@ export class TXE {
     return this.msgSender;
   }
 
-  setContractAddress(contractAddress: AztecAddress) {
+  txeSetContractAddress(contractAddress: AztecAddress) {
     this.contractAddress = contractAddress;
   }
 
@@ -264,8 +267,71 @@ export class TXE {
     this.blockNumber = blockNumber;
   }
 
-  advanceTimestampBy(duration: UInt64) {
+  async txeAdvanceBlocksBy(blocks: number) {
+    this.logger.debug(`time traveling ${blocks} blocks`);
+
+    for (let i = 0; i < blocks; i++) {
+      const blockNumber = await this.utilityGetBlockNumber();
+      await this.commitState();
+      this.setBlockNumber(blockNumber + 1);
+    }
+  }
+
+  txeAdvanceTimestampBy(duration: UInt64) {
+    this.logger.debug(`time traveling ${duration} seconds`);
     this.timestamp = this.timestamp + duration;
+  }
+
+  async txeDeploy(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: Fr) {
+    // Emit deployment nullifier
+    await this.noteCache.nullifierCreated(
+      AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS),
+      instance.address.toField(),
+    );
+
+    // Make sure the deployment nullifier gets included in a tx in a block
+    const blockNumber = await this.utilityGetBlockNumber();
+    await this.commitState();
+    this.setBlockNumber(blockNumber + 1);
+
+    if (!secret.equals(Fr.ZERO)) {
+      await this.txeAddAccount(artifact, instance, secret);
+    } else {
+      await this.addContractInstance(instance);
+      await this.addContractArtifact(instance.currentContractClassId, artifact);
+      this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
+    }
+  }
+
+  async txeAddAccount(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: Fr) {
+    const partialAddress = await computePartialAddress(instance);
+
+    this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
+    await this.addContractInstance(instance);
+    await this.addContractArtifact(instance.currentContractClassId, artifact);
+
+    const keyStore = this.getKeyStore();
+    const completeAddress = await keyStore.addAccount(secret, partialAddress);
+    const accountDataProvider = this.getAccountDataProvider();
+    await accountDataProvider.setAccount(completeAddress.address, completeAddress);
+    const addressDataProvider = this.getAddressDataProvider();
+    await addressDataProvider.addCompleteAddress(completeAddress);
+    this.logger.debug(`Created account ${completeAddress.address}`);
+
+    return completeAddress;
+  }
+
+  async txeCreateAccount(secret: Fr) {
+    const keyStore = this.getKeyStore();
+    // This is a footgun !
+    const completeAddress = await keyStore.addAccount(secret, secret);
+    const accountDataProvider = this.getAccountDataProvider();
+    await accountDataProvider.setAccount(completeAddress.address, completeAddress);
+    const addressDataProvider = this.getAddressDataProvider();
+    await addressDataProvider.addCompleteAddress(completeAddress);
+    this.logger.debug(`Created account ${completeAddress.address}`);
+
+    return completeAddress;
   }
 
   getContractDataProvider() {
@@ -292,7 +358,7 @@ export class TXE {
     await this.contractDataProvider.addContractArtifact(contractClassId, artifact);
   }
 
-  async getPrivateContextInputs(
+  async txeGetPrivateContextInputs(
     blockNumber: number | null,
     sideEffectsCounter = this.sideEffectCounter,
     isStaticCall = false,
@@ -316,10 +382,13 @@ export class TXE {
     );
     inputs.callContext = new CallContext(this.msgSender, this.contractAddress, this.functionSelector, isStaticCall);
     inputs.startSideEffectCounter = sideEffectsCounter;
+
+    this.logger.info(`Created private context for block ${blockNumber}`);
+
     return inputs;
   }
 
-  async addAuthWitness(address: AztecAddress, messageHash: Fr) {
+  async txeAddAuthWitness(address: AztecAddress, messageHash: Fr) {
     const account = await this.accountDataProvider.getAccount(address);
     const privateKey = await this.keyStore.getMasterSecretKey(account.publicKeys.masterIncomingViewingPublicKey);
     const schnorr = new Schnorr();
@@ -359,31 +428,31 @@ export class TXE {
 
   // TypedOracle
 
-  getBlockNumber() {
+  utilityGetBlockNumber() {
     return Promise.resolve(this.blockNumber);
   }
 
-  getTimestamp() {
+  utilityGetTimestamp() {
     return Promise.resolve(this.timestamp);
   }
 
-  getLastBlockTimestamp() {
+  txeGetLastBlockTimestamp() {
     return this.getBlockTimestamp(this.blockNumber - 1);
   }
 
-  getContractAddress() {
+  utilityGetContractAddress() {
     return Promise.resolve(this.contractAddress);
   }
 
-  getRandomField() {
+  utilityGetRandomField() {
     return Fr.random();
   }
 
-  storeInExecutionCache(values: Fr[], hash: Fr) {
+  privateStoreInExecutionCache(values: Fr[], hash: Fr) {
     return this.executionCache.store(values, hash);
   }
 
-  loadFromExecutionCache(hash: Fr) {
+  privateLoadFromExecutionCache(hash: Fr) {
     const preimage = this.executionCache.getPreimage(hash);
     if (!preimage) {
       throw new Error(`Preimage for hash ${hash.toString()} not found in cache`);
@@ -391,47 +460,50 @@ export class TXE {
     return Promise.resolve(preimage);
   }
 
-  getKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest> {
+  utilityGetKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest> {
     return this.keyStore.getKeyValidationRequest(pkMHash, this.contractAddress);
   }
 
-  getContractInstance(address: AztecAddress): Promise<ContractInstance> {
+  utilityGetContractInstance(address: AztecAddress): Promise<ContractInstance> {
     return this.pxeOracleInterface.getContractInstance(address);
   }
 
-  getMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[] | undefined> {
+  utilityGetMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[] | undefined> {
     return this.pxeOracleInterface.getMembershipWitness(blockNumber, treeId, leafValue);
   }
 
-  getNullifierMembershipWitness(blockNumber: number, nullifier: Fr): Promise<NullifierMembershipWitness | undefined> {
+  utilityGetNullifierMembershipWitness(
+    blockNumber: number,
+    nullifier: Fr,
+  ): Promise<NullifierMembershipWitness | undefined> {
     return this.pxeOracleInterface.getNullifierMembershipWitness(blockNumber, nullifier);
   }
 
-  getPublicDataWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
+  utilityGetPublicDataWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
     return this.pxeOracleInterface.getPublicDataWitness(blockNumber, leafSlot);
   }
 
-  getLowNullifierMembershipWitness(
+  utilityGetLowNullifierMembershipWitness(
     blockNumber: number,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
     return this.pxeOracleInterface.getLowNullifierMembershipWitness(blockNumber, nullifier);
   }
 
-  getBlockHeader(blockNumber: number): Promise<BlockHeader | undefined> {
+  utilityGetBlockHeader(blockNumber: number): Promise<BlockHeader | undefined> {
     return this.stateMachine.archiver.getBlockHeader(blockNumber);
   }
 
-  getCompleteAddress(account: AztecAddress) {
+  utilityGetCompleteAddress(account: AztecAddress) {
     return Promise.resolve(this.accountDataProvider.getAccount(account));
   }
 
-  getAuthWitness(messageHash: Fr) {
+  utilityGetAuthWitness(messageHash: Fr) {
     const authwit = this.authwits.get(messageHash.toString());
     return Promise.resolve(authwit?.witness);
   }
 
-  async getNotes(
+  async utilityGetNotes(
     storageSlot: Fr,
     numSelects: number,
     selectByIndexes: number[],
@@ -474,10 +546,17 @@ export class TXE {
         .join(', ')}`,
     );
 
+    if (notes.length > 0) {
+      const noteLength = notes[0].note.items.length;
+      if (!notes.every(({ note }) => noteLength === note.items.length)) {
+        throw new Error('Notes should all be the same length.');
+      }
+    }
+
     return notes;
   }
 
-  notifyCreatedNote(storageSlot: Fr, _noteTypeId: NoteSelector, noteItems: Fr[], noteHash: Fr, counter: number) {
+  privateNotifyCreatedNote(storageSlot: Fr, _noteTypeId: NoteSelector, noteItems: Fr[], noteHash: Fr, counter: number) {
     const note = new Note(noteItems);
     this.noteCache.addNewNote(
       {
@@ -493,18 +572,18 @@ export class TXE {
     this.sideEffectCounter = counter + 1;
   }
 
-  async notifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, counter: number) {
+  async privateNotifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, counter: number) {
     await this.checkNullifiersNotInTree(this.contractAddress, [innerNullifier]);
     await this.noteCache.nullifyNote(this.contractAddress, innerNullifier, noteHash);
     this.sideEffectCounter = counter + 1;
   }
 
-  async notifyCreatedNullifier(innerNullifier: Fr): Promise<void> {
+  async privateNotifyCreatedNullifier(innerNullifier: Fr): Promise<void> {
     await this.checkNullifiersNotInTree(this.contractAddress, [innerNullifier]);
     await this.noteCache.nullifierCreated(this.contractAddress, innerNullifier);
   }
 
-  async checkNullifierExists(innerNullifier: Fr): Promise<boolean> {
+  async utilityCheckNullifierExists(innerNullifier: Fr): Promise<boolean> {
     const snap = this.nativeWorldStateService.getSnapshot(this.blockNumber - 1);
 
     const nullifier = await siloNullifier(this.contractAddress, innerNullifier!);
@@ -523,7 +602,7 @@ export class TXE {
     throw new Error('Method not implemented.');
   }
 
-  async storageRead(
+  async utilityStorageRead(
     contractAddress: AztecAddress,
     startStorageSlot: Fr,
     blockNumber: number,
@@ -571,7 +650,7 @@ export class TXE {
   }
 
   async commitState() {
-    const blockNumber = await this.getBlockNumber();
+    const blockNumber = await this.utilityGetBlockNumber();
     const { usedTxRequestHashForNonces } = this.noteCache.finish();
     if (this.committedBlocks.has(blockNumber)) {
       throw new Error('Already committed state');
@@ -659,7 +738,7 @@ export class TXE {
     );
 
     header.globalVariables.blockNumber = blockNumber;
-    header.globalVariables.timestamp = await this.getTimestamp();
+    header.globalVariables.timestamp = await this.utilityGetTimestamp();
     header.globalVariables.version = new Fr(this.ROLLUP_VERSION);
     header.globalVariables.chainId = new Fr(this.CHAIN_ID);
 
@@ -714,7 +793,7 @@ export class TXE {
         selector: call.selector,
       });
 
-      const args = await this.loadFromExecutionCache(argsHash);
+      const args = await this.privateLoadFromExecutionCache(argsHash);
       const initialWitness = toACVMWitness(0, args);
       const acirExecutionResult = await this.simulator
         .executeUserCircuit(initialWitness, entryPointArtifact, new Oracle(oracle).toACIRCallback())
@@ -736,7 +815,7 @@ export class TXE {
 
       const returnHash = await computeVarArgsHash(returnWitness);
 
-      this.storeInExecutionCache(returnWitness, returnHash);
+      this.privateStoreInExecutionCache(returnWitness, returnHash);
       return returnHash;
     } catch (err) {
       throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));
@@ -754,7 +833,7 @@ export class TXE {
 
     const historicalBlockNumber = this.blockNumber - 1; // i.e. last
 
-    const privateContextInputs = await this.getPrivateContextInputs(
+    const privateContextInputs = await this.txeGetPrivateContextInputs(
       historicalBlockNumber,
       sideEffectCounter,
       isStaticCall,
@@ -772,19 +851,22 @@ export class TXE {
     return await this.contractDataProvider.getDebugFunctionName(address, selector);
   }
 
-  debugLog(message: string, fields: Fr[]): void {
+  utilityDebugLog(message: string, fields: Fr[]): void {
     this.logger.verbose(`${applyStringFormatting(message, fields)}`, { module: `${this.logger.module}:debug_log` });
   }
 
-  async incrementAppTaggingSecretIndexAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<void> {
+  async privateIncrementAppTaggingSecretIndexAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<void> {
     await this.pxeOracleInterface.incrementAppTaggingSecretIndexAsSender(this.contractAddress, sender, recipient);
   }
 
-  async getIndexedTaggingSecretAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<IndexedTaggingSecret> {
+  async utilityGetIndexedTaggingSecretAsSender(
+    sender: AztecAddress,
+    recipient: AztecAddress,
+  ): Promise<IndexedTaggingSecret> {
     return await this.pxeOracleInterface.getIndexedTaggingSecretAsSender(this.contractAddress, sender, recipient);
   }
 
-  async fetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr) {
+  async utilityFetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr) {
     await this.pxeOracleInterface.syncTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot);
 
     await this.pxeOracleInterface.removeNullifiedNotes(this.contractAddress);
@@ -792,7 +874,7 @@ export class TXE {
     return Promise.resolve();
   }
 
-  public async validateEnqueuedNotesAndEvents(
+  public async utilityValidateEnqueuedNotesAndEvents(
     contractAddress: AztecAddress,
     noteValidationRequestsArrayBaseSlot: Fr,
     eventValidationRequestsArrayBaseSlot: Fr,
@@ -804,7 +886,7 @@ export class TXE {
     );
   }
 
-  async bulkRetrieveLogs(
+  async utilityBulkRetrieveLogs(
     contractAddress: AztecAddress,
     logRetrievalRequestsArrayBaseSlot: Fr,
     logRetrievalResponsesArrayBaseSlot: Fr,
@@ -856,7 +938,7 @@ export class TXE {
     return preimage.leaf.value;
   }
 
-  storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
+  utilityStoreCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
@@ -864,7 +946,7 @@ export class TXE {
     return this.pxeOracleInterface.storeCapsule(this.contractAddress, slot, capsule);
   }
 
-  loadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
+  utilityLoadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
@@ -872,7 +954,7 @@ export class TXE {
     return this.pxeOracleInterface.loadCapsule(this.contractAddress, slot);
   }
 
-  deleteCapsule(contractAddress: AztecAddress, slot: Fr): Promise<void> {
+  utilityDeleteCapsule(contractAddress: AztecAddress, slot: Fr): Promise<void> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
@@ -880,7 +962,7 @@ export class TXE {
     return this.pxeOracleInterface.deleteCapsule(this.contractAddress, slot);
   }
 
-  copyCapsule(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
+  utilityCopyCapsule(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
@@ -888,25 +970,25 @@ export class TXE {
     return this.pxeOracleInterface.copyCapsule(this.contractAddress, srcSlot, dstSlot, numEntries);
   }
 
-  aes128Decrypt(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer> {
+  utilityAes128Decrypt(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer> {
     const aes128 = new Aes128();
     return aes128.decryptBufferCBC(ciphertext, iv, symKey);
   }
 
-  getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
+  utilityGetSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
     return this.pxeOracleInterface.getSharedSecret(address, ephPk);
   }
 
-  getSenderForTags(): Promise<AztecAddress | undefined> {
+  privateGetSenderForTags(): Promise<AztecAddress | undefined> {
     return Promise.resolve(this.senderForTags);
   }
 
-  setSenderForTags(senderForTags: AztecAddress): Promise<void> {
+  privateSetSenderForTags(senderForTags: AztecAddress): Promise<void> {
     this.senderForTags = senderForTags;
     return Promise.resolve();
   }
 
-  async privateCallNewFlow(
+  async txePrivateCallNewFlow(
     from: AztecAddress,
     targetContractAddress: AztecAddress = AztecAddress.zero(),
     functionSelector: FunctionSelector = FunctionSelector.empty(),
@@ -947,6 +1029,7 @@ export class TXE {
 
     const noteCache = new ExecutionNoteCache(this.getTxRequestHash());
 
+    // TODO(benesjan): Fix stale 'context' name.
     const context = new PrivateExecutionOracle(
       argsHash,
       txContext,
@@ -972,7 +1055,7 @@ export class TXE {
       from,
     );
 
-    context.storeInExecutionCache(args, argsHash);
+    context.privateStoreInExecutionCache(args, argsHash);
 
     // Note: This is a slight modification of simulator.run without any of the checks. Maybe we should modify simulator.run with a boolean value to skip checks.
     let result: PrivateExecutionResult;
@@ -996,7 +1079,7 @@ export class TXE {
       );
       const publicFunctionsCalldata = await Promise.all(
         publicCallRequests.map(async r => {
-          const calldata = await context.loadFromExecutionCache(r.calldataHash);
+          const calldata = await context.privateLoadFromExecutionCache(r.calldataHash);
           return new HashedValues(calldata, r.calldataHash);
         }),
       );
@@ -1011,7 +1094,7 @@ export class TXE {
       // This is a bit of a hack to not deal with returning a slice in nr which is what normally happens.
       // Investigate whether it is faster to do this or return from the oracle directly.
       const returnValuesHash = await computeVarArgsHash(returnValues);
-      this.storeInExecutionCache(returnValues, returnValuesHash);
+      this.privateStoreInExecutionCache(returnValues, returnValuesHash);
     }
 
     // According to the protocol rules, the nonce generator for the note hashes
@@ -1121,7 +1204,7 @@ export class TXE {
     };
   }
 
-  async publicCallNewFlow(
+  async txePublicCallNewFlow(
     from: AztecAddress,
     targetContractAddress: AztecAddress,
     calldata: Fr[],
@@ -1230,7 +1313,7 @@ export class TXE {
       // This is a bit of a hack to not deal with returning a slice in nr which is what normally happens.
       // Investigate whether it is faster to do this or return from the oracle directly.
       returnValuesHash = await computeVarArgsHash(returnValues);
-      this.storeInExecutionCache(returnValues, returnValuesHash);
+      this.privateStoreInExecutionCache(returnValues, returnValuesHash);
     }
 
     if (isStaticCall) {

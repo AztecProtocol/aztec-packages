@@ -45,7 +45,8 @@ enum VoteTabulationInfo {
  *             - Ensures sufficient community participation before decisions are made
  *             - Example: 30% quorum (0.3e18) with 1000 total power requires ≥300 votes
  *
- *          3. **requiredYeaMargin**: the required minimum difference between the percentage of yea votes, and the percentage of nay votes, in 1e18 precision
+ *          3. **requiredYeaMargin**: the required minimum difference between the percentage of yea votes,
+ *                                    and the percentage of nay votes, in 1e18 precision
  *             - requiredYeaVotesFraction = ceil((1e18 + requiredYeaMargin) / 2)
  *             - requiredYeaVotes = ceil(votesCast * requiredYeaVotesFraction / 1e18)
  *             - Yea votes must be > requiredYeaVotes to pass (strict inequality to avoid ties)
@@ -101,9 +102,6 @@ library ProposalLib {
     view
     returns (VoteTabulationReturn, VoteTabulationInfo)
   {
-    if (_self.config.minimumVotes == 0) {
-      return (VoteTabulationReturn.Invalid, VoteTabulationInfo.MinimumEqZero);
-    }
     if (_totalPower < _self.config.minimumVotes) {
       return (VoteTabulationReturn.Rejected, VoteTabulationInfo.TotalPowerLtMinimum);
     }
@@ -129,8 +127,7 @@ library ProposalLib {
     }
 
     uint256 requiredApprovalVotesFraction = Math.ceilDiv(1e18 + _self.config.requiredYeaMargin, 2);
-    uint256 requiredApprovalVotes =
-      Math.mulDiv(votesCast, requiredApprovalVotesFraction, 1e18, Math.Rounding.Ceil);
+    uint256 requiredApprovalVotes = Math.mulDiv(votesCast, requiredApprovalVotesFraction, 1e18, Math.Rounding.Ceil);
 
     /*if (requiredApprovalVotes == 0) {
       // It should be impossible to hit this case as `requiredApprovalVotesFraction` cannot be 0,
@@ -143,7 +140,7 @@ library ProposalLib {
     }
 
     // We want to see that there are MORE votes on yea than needed
-    // We explictly need MORE to ensure we don't "tie".
+    // We explicitly need MORE to ensure we don't "tie".
     // If we need as many yea as there are votes, we know it is impossible already.
     // due to the check earlier, that summedBallot.yea == votesCast.
     if (_self.summedBallot.yea <= requiredApprovalVotes) {

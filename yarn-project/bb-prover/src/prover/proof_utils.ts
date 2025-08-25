@@ -3,6 +3,7 @@ import {
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   PAIRING_POINTS_SIZE,
+  ULTRA_KECCAK_PROOF_LENGTH,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import type { Logger } from '@aztec/foundation/log';
@@ -63,7 +64,9 @@ export async function readProofAsFields<PROOF_LENGTH extends number>(
 
   let numPublicInputs = vkData.numPublicInputs - PAIRING_POINTS_SIZE;
   assert(
-    proofLength == NESTED_RECURSIVE_PROOF_LENGTH || proofLength == NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+    proofLength == NESTED_RECURSIVE_PROOF_LENGTH ||
+      proofLength == NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH ||
+      proofLength == ULTRA_KECCAK_PROOF_LENGTH,
     `Proof length must be one of the expected proof lengths, received ${proofLength}`,
   );
   if (proofLength == NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH) {

@@ -5,16 +5,27 @@ import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { RollupStorage } from '@aztec/l1-artifacts/RollupStorage';
 import { SlasherAbi } from '@aztec/l1-artifacts/SlasherAbi';
 
-import { type Account, type GetContractReturnType, type Hex, encodeFunctionData, getAddress, getContract } from 'viem';
+import {
+  type Account,
+  type GetContractReturnType,
+  type Hex,
+  type StateOverride,
+  encodeFunctionData,
+  getAddress,
+  getContract,
+  hexToBigInt,
+  keccak256,
+} from 'viem';
 
 import { getPublicClient } from '../client.js';
 import type { DeployL1ContractsReturnType } from '../deploy_l1_contracts.js';
 import type { L1ContractAddresses } from '../l1_contract_addresses.js';
 import type { L1ReaderConfig } from '../l1_reader.js';
-import type { L1TxUtils } from '../l1_tx_utils.js';
+import type { L1TxRequest, L1TxUtils } from '../l1_tx_utils.js';
 import type { ViemClient } from '../types.js';
 import { formatViemError } from '../utils.js';
-import { SlashingProposerContract } from './slashing_proposer.js';
+import { EmpireSlashingProposerContract } from './empire_slashing_proposer.js';
+import { TallySlashingProposerContract } from './tally_slashing_proposer.js';
 import { checkBlockTag } from './utils.js';
 
 export type ViemCommitteeAttestation = {
@@ -84,8 +95,15 @@ export type ViemAppendOnlyTreeSnapshot = {
   nextAvailableLeafIndex: number;
 };
 
+export enum SlashingProposerType {
+  Empire = 0,
+  Tally = 1,
+}
+
 export class RollupContract {
   private readonly rollup: GetContractReturnType<typeof RollupAbi, ViemClient>;
+
+  private static cachedStfStorageSlot: Hex | undefined;
 
   static get checkBlobStorageSlot(): bigint {
     const asString = RollupStorage.find(storage => storage.label === 'checkBlob')?.slot;
@@ -93,6 +111,10 @@ export class RollupContract {
       throw new Error('checkBlobStorageSlot not found');
     }
     return BigInt(asString);
+  }
+
+  static get stfStorageSlot(): Hex {
+    return (RollupContract.cachedStfStorageSlot ??= keccak256(Buffer.from('aztec.stf.storage', 'utf-8')));
   }
 
   static getFromL1ContractsValues(deployL1ContractsValues: DeployL1ContractsReturnType) {
@@ -131,12 +153,29 @@ export class RollupContract {
     return this.rollup;
   }
 
-  @memoize
-  public async getSlashingProposer() {
+  public async getSlashingProposer(): Promise<EmpireSlashingProposerContract | TallySlashingProposerContract> {
     const slasherAddress = await this.rollup.read.getSlasher();
     const slasher = getContract({ address: slasherAddress, abi: SlasherAbi, client: this.client });
     const proposerAddress = await slasher.read.PROPOSER();
-    return new SlashingProposerContract(this.client, proposerAddress);
+    const proposerAbi = [
+      {
+        type: 'function',
+        name: 'SLASHING_PROPOSER_TYPE',
+        inputs: [],
+        outputs: [{ name: '', type: 'uint8', internalType: 'enum SlasherFlavor' }],
+        stateMutability: 'view',
+      },
+    ] as const;
+
+    const proposer = getContract({ address: proposerAddress, abi: proposerAbi, client: this.client });
+    const proposerType = await proposer.read.SLASHING_PROPOSER_TYPE();
+    if (proposerType === SlashingProposerType.Tally.valueOf()) {
+      return new TallySlashingProposerContract(this.client, proposerAddress);
+    } else if (proposerType === SlashingProposerType.Empire.valueOf()) {
+      return new EmpireSlashingProposerContract(this.client, proposerAddress);
+    } else {
+      throw new Error(`Unknown slashing proposer type: ${proposerType}`);
+    }
   }
 
   @memoize
@@ -170,13 +209,13 @@ export class RollupContract {
   }
 
   @memoize
-  getMinimumStake() {
-    return this.rollup.read.getMinimumStake();
+  getEjectionThreshold() {
+    return this.rollup.read.getEjectionThreshold();
   }
 
   @memoize
-  getDepositAmount() {
-    return this.rollup.read.getDepositAmount();
+  getActivationThreshold() {
+    return this.rollup.read.getActivationThreshold();
   }
 
   @memoize
@@ -217,6 +256,10 @@ export class RollupContract {
 
   getSlasher() {
     return this.rollup.read.getSlasher();
+  }
+
+  getOwner() {
+    return this.rollup.read.owner();
   }
 
   public async getSlashingProposerAddress() {
@@ -262,7 +305,7 @@ export class RollupContract {
         args: [timestamp],
       })
       .catch(e => {
-        if (e instanceof Error && e.message.includes('ValidatorSelection__InsufficientCommitteeSize')) {
+        if (e instanceof Error && e.message.includes('ValidatorSelection__InsufficientValidatorSetSize')) {
           return { result: undefined };
         }
         throw e;
@@ -292,7 +335,7 @@ export class RollupContract {
         args: [],
       })
       .catch(e => {
-        if (e instanceof Error && e.message.includes('ValidatorSelection__InsufficientCommitteeSize')) {
+        if (e instanceof Error && e.message.includes('ValidatorSelection__InsufficientValidatorSetSize')) {
           return { result: undefined };
         }
         throw e;
@@ -498,6 +541,7 @@ export class RollupContract {
     archive: Buffer,
     account: `0x${string}` | Account,
     slotDuration: bigint | number,
+    opts: { forcePendingBlockNumber?: number } = {},
   ): Promise<{ slot: bigint; blockNumber: bigint; timeOfNextL1Slot: bigint }> {
     if (typeof slotDuration === 'number') {
       slotDuration = BigInt(slotDuration);
@@ -515,12 +559,76 @@ export class RollupContract {
         functionName: 'canProposeAtTime',
         args: [timeOfNextL1Slot, `0x${archive.toString('hex')}`, who],
         account,
+        stateOverride: await this.makePendingBlockNumberOverride(opts.forcePendingBlockNumber),
       });
 
       return { slot, blockNumber, timeOfNextL1Slot };
     } catch (err: unknown) {
       throw formatViemError(err);
     }
+  }
+
+  /**
+   * Returns a state override that sets the pending block number to the specified value. Useful for simulations.
+   * Requires querying the current state of the contract to get the current proven block number, as they are both
+   * stored in the same slot. If the argument is undefined, it returns an empty override.
+   */
+  public async makePendingBlockNumberOverride(forcePendingBlockNumber: number | undefined): Promise<StateOverride> {
+    if (forcePendingBlockNumber === undefined) {
+      return [];
+    }
+    const slot = RollupContract.stfStorageSlot;
+    const currentValue = await this.client.getStorageAt({ address: this.address, slot });
+    const currentProvenBlockNumber = currentValue ? hexToBigInt(currentValue) & ((1n << 128n) - 1n) : 0n;
+    const newValue = (BigInt(forcePendingBlockNumber) << 128n) | currentProvenBlockNumber;
+    return [
+      {
+        address: this.address,
+        stateDiff: [{ slot, value: `0x${newValue.toString(16).padStart(64, '0')}` }],
+      },
+    ];
+  }
+
+  /** Creates a request to Rollup#invalidateBadAttestation to be simulated or sent */
+  public buildInvalidateBadAttestationRequest(
+    blockNumber: number,
+    attestations: ViemCommitteeAttestation[],
+    committee: EthAddress[],
+    invalidIndex: number,
+  ): L1TxRequest {
+    return {
+      to: this.address,
+      data: encodeFunctionData({
+        abi: RollupAbi,
+        functionName: 'invalidateBadAttestation',
+        args: [
+          BigInt(blockNumber),
+          RollupContract.packAttestations(attestations),
+          committee.map(addr => addr.toString()),
+          BigInt(invalidIndex),
+        ],
+      }),
+    };
+  }
+
+  /** Creates a request to Rollup#invalidateInsufficientAttestations to be simulated or sent */
+  public buildInvalidateInsufficientAttestationsRequest(
+    blockNumber: number,
+    attestations: ViemCommitteeAttestation[],
+    committee: EthAddress[],
+  ): L1TxRequest {
+    return {
+      to: this.address,
+      data: encodeFunctionData({
+        abi: RollupAbi,
+        functionName: 'invalidateInsufficientAttestations',
+        args: [
+          BigInt(blockNumber),
+          RollupContract.packAttestations(attestations),
+          committee.map(addr => addr.toString()),
+        ],
+      }),
+    };
   }
 
   /** Calls getHasSubmitted directly. Returns whether the given prover has submitted a proof with the given length for the given epoch. */
@@ -621,5 +729,21 @@ export class RollupContract {
         args: [proposalId],
       }),
     });
+  }
+
+  public listenToSlasherChanged(callback: (args: { oldSlasher: `0x${string}`; newSlasher: `0x${string}` }) => unknown) {
+    return this.rollup.watchEvent.SlasherUpdated(
+      {},
+      {
+        onLogs: logs => {
+          for (const log of logs) {
+            const args = log.args;
+            if (args.oldSlasher && args.newSlasher) {
+              callback(args as { oldSlasher: `0x${string}`; newSlasher: `0x${string}` });
+            }
+          }
+        },
+      },
+    );
   }
 }

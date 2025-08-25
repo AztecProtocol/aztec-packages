@@ -1,6 +1,5 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { sleep } from '@aztec/aztec.js';
-import { Offense } from '@aztec/slasher';
 
 import { jest } from '@jest/globals';
 import fs from 'fs';
@@ -12,7 +11,7 @@ import { createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest } from './p2p_network.js';
 import { awaitCommitteeExists, awaitCommitteeKicked } from './shared.js';
 
-jest.setTimeout(1000000);
+jest.setTimeout(10 * 60_000); // 10 minutes
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_VALIDATORS = 4;
@@ -77,7 +76,7 @@ describe('e2e_p2p_valid_epoch_pruned', () => {
 
     const { rollup, slashingProposer, slashFactory } = await t.getContracts();
 
-    const slashingAmount = (await rollup.getDepositAmount()) - (await rollup.getMinimumStake()) + 1n;
+    const slashingAmount = (await rollup.getActivationThreshold()) - (await rollup.getEjectionThreshold()) + 1n;
     t.ctx.aztecNodeConfig.slashPruneEnabled = true;
     t.ctx.aztecNodeConfig.slashPrunePenalty = slashingAmount;
     t.ctx.aztecNodeConfig.slashPruneMaxPenalty = slashingAmount;
@@ -116,11 +115,9 @@ describe('e2e_p2p_valid_epoch_pruned', () => {
 
     // ...and then we wait for them to be kicked.
     await awaitCommitteeKicked({
-      offense: Offense.VALID_EPOCH_PRUNED,
       rollup,
       cheatCodes: t.ctx.cheatCodes.rollup,
       committee,
-      slashingAmount,
       slashFactory,
       slashingProposer,
       slashingRoundSize,
@@ -128,5 +125,5 @@ describe('e2e_p2p_valid_epoch_pruned', () => {
       logger: t.logger,
       sendDummyTx: () => t.sendDummyTx().then(() => undefined),
     });
-  }, 1_000_000);
+  });
 });

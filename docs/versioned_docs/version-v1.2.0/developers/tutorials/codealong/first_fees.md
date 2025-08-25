@@ -1,5 +1,6 @@
 ---
 title: All About Fees
+description: Code-along tutorial for understanding and paying fees on Aztec.
 sidebar_position: 4
 tags: [fees, accounts, transactions, cli, contracts]
 ---
@@ -182,7 +183,7 @@ To bootstrap first use, a sponsored fee paying contract (the canonical sponsored
 In the case of the canonical sponsored FPC, the only criteria is an upper bound on how much it sponsors an account's transactions. This will be enough to at least deploy an account.
 
 The PXE can be queried for the canonical sponsored FPC address, and then specified as the payment method.
-For testnet this is `0x1260a43ecf03e985727affbbe3e483e60b836ea821b6305bea1c53398b986047`, which can be verified with the command: `aztec get-canonical-sponsored-fpc-address`
+For testnet this is `0x19b5539ca1b104d4c3705de94e4555c9630def411f025e023a13189d0c56f8f2`, which can be verified with the command: `aztec get-canonical-sponsored-fpc-address`
 
 Via the CLI:
 
@@ -333,7 +334,7 @@ aztec-wallet deploy-account --from accBFJ --payment method=fee_juice,claim
 
 The equivalent using aztec.js - bridge fee juice, (pass two txs), create and use payment method:
 
-(See also the [aztec-wallet](https://github.com/AztecProtocol/aztec-packages/blob/v1.2.0/yarn-project/cli-wallet/src/cmds/bridge_fee_juice.ts#L32) implementation to initialise a fee juice portal manager)
+(See also the [aztec-wallet](https://github.com/AztecProtocol/aztec-packages/blob/v1.2.0/yarn-project/cli-wallet/src/cmds/bridge_fee_juice.ts#L32) implementation to initialize a fee juice portal manager)
 
 ```javascript
 import {

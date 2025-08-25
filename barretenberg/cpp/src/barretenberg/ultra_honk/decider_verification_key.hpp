@@ -20,20 +20,22 @@ namespace bb {
 template <IsUltraOrMegaHonk Flavor> class DeciderVerificationKey_ {
   public:
     using FF = typename Flavor::FF;
+    using Commitment = typename Flavor::Commitment;
     using VerificationKey = typename Flavor::VerificationKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using SubrelationSeparators = typename Flavor::SubrelationSeparators;
+    using Transcript = typename Flavor::Transcript;
 
     std::shared_ptr<VerificationKey> vk;
 
-    bool is_accumulator = false;
+    bool is_complete = false; // whether this instance has been completely populated
 
     SubrelationSeparators alphas; // a challenge for each subrelation
     RelationParameters<FF> relation_parameters;
     std::vector<FF> gate_challenges;
-    // The target sum, which is typically nonzero for a ProtogalaxyProver's accmumulator
+    // The target sum, which is typically nonzero for a ProtogalaxyProver's accumulator
     FF target_sum{ 0 };
 
     WitnessCommitments witness_commitments;
@@ -43,6 +45,43 @@ template <IsUltraOrMegaHonk Flavor> class DeciderVerificationKey_ {
     DeciderVerificationKey_(std::shared_ptr<VerificationKey> vk)
         : vk(vk)
     {}
+
+    FF hash_through_transcript(const std::string& domain_separator, Transcript& transcript) const
+    {
+        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_log_circuit_size",
+                                                  this->vk->log_circuit_size);
+        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_num_public_inputs",
+                                                  this->vk->num_public_inputs);
+        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_pub_inputs_offset",
+                                                  this->vk->pub_inputs_offset);
+
+        for (const Commitment& commitment : this->vk->get_all()) {
+            transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_precomputed_comm", commitment);
+        }
+        for (const Commitment& comm : witness_commitments.get_all()) {
+            transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_wit_comm", comm);
+        }
+        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_alphas", this->alphas);
+        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_eta", this->relation_parameters.eta);
+        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_eta_two",
+                                                  this->relation_parameters.eta_two);
+        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_eta_three",
+                                                  this->relation_parameters.eta_three);
+        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_beta", this->relation_parameters.beta);
+        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_gamma",
+                                                  this->relation_parameters.gamma);
+        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_public_input_delta",
+                                                  this->relation_parameters.public_input_delta);
+        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_lookup_grand_product_delta",
+                                                  this->relation_parameters.lookup_grand_product_delta);
+        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_target_sum", this->target_sum);
+        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_gate_challenges",
+                                                  this->gate_challenges);
+
+        return transcript.hash_independent_buffer();
+    }
+
+    MSGPACK_FIELDS(vk, relation_parameters, alphas, is_complete, gate_challenges, target_sum, witness_commitments);
 };
 
 } // namespace bb

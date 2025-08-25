@@ -10,7 +10,8 @@
 #include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_zk_contract.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/honk/types/aggregation_object_type.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include <iomanip>
 #include <optional>
@@ -104,8 +105,8 @@ bool UltraHonkAPI::verify(const Flags& flags,
                           const std::filesystem::path& vk_path)
 {
     // Read input files
-    auto public_inputs = many_from_buffer<bb::fr>(read_file(public_inputs_path));
-    auto proof = many_from_buffer<bb::fr>(read_file(proof_path));
+    auto public_inputs = many_from_buffer<uint256_t>(read_file(public_inputs_path));
+    auto proof = many_from_buffer<uint256_t>(read_file(proof_path));
     auto vk_bytes = read_file(vk_path);
 
     // Convert flags to ProofSystemSettings
@@ -171,8 +172,8 @@ void UltraHonkAPI::gates([[maybe_unused]] const Flags& flags,
                                          .oracle_hash_type = flags.oracle_hash_type,
                                          .disable_zk = flags.disable_zk };
 
-    // Execute CircuitGates command
-    auto response = bbapi::CircuitGates{ .circuit = { .name = "circuit", .bytecode = bytecode, .verification_key = {} },
+    // Execute CircuitStats command
+    auto response = bbapi::CircuitStats{ .circuit = { .name = "circuit", .bytecode = bytecode, .verification_key = {} },
                                          .include_gates_per_opcode = flags.include_gates_per_opcode,
                                          .settings = settings }
                         .execute();
@@ -192,7 +193,7 @@ void UltraHonkAPI::gates([[maybe_unused]] const Flags& flags,
         }
     }
 
-    // For now, we'll use the CircuitGates response which includes circuit statistics
+    // For now, we'll use the CircuitStats response which includes circuit statistics
     // The num_acir_opcodes is not directly available from bytecode alone
     auto result_string = format(
         "{\n        \"acir_opcodes\": ",
@@ -233,5 +234,4 @@ void UltraHonkAPI::write_solidity_verifier(const Flags& flags,
         }
     }
 }
-
 } // namespace bb

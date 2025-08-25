@@ -54,26 +54,4 @@ TEST_F(BBApiUltraHonkTest, CircuitProve)
     }
 }
 
-TEST_F(BBApiUltraHonkTest, VerificationKeySerialization)
-{
-    auto [bytecode, witness] = acir_bincode_mocks::create_simple_circuit_bytecode();
-
-    bbapi::ProofSystemSettings settings{ .ipa_accumulation = false,
-                                         .oracle_hash_type = "poseidon2",
-                                         .disable_zk = true };
-
-    // Compute VK using CircuitComputeVk
-    auto vk_response =
-        CircuitComputeVk{ .circuit = { .name = "test_circuit", .bytecode = bytecode }, .settings = settings }.execute();
-    // Create a VK from the field elements
-    auto vk =
-        std::make_shared<UltraFlavor::VerificationKey>(from_buffer<UltraFlavor::VerificationKey>(vk_response.bytes));
-
-    // Convert back to buffer for comparison
-    auto reserialized_buffer = to_buffer(vk);
-
-    // The buffers should be identical
-    EXPECT_EQ(vk_response.bytes, reserialized_buffer);
-}
-
 } // namespace bb::bbapi

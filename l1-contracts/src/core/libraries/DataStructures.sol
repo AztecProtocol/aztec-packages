@@ -38,7 +38,8 @@ library DataStructures {
    * @param sender - The sender of the message
    * @param recipient - The recipient of the message
    * @param content - The content of the message (application specific) padded to bytes32 or hashed if larger.
-   * @param secretHash - The secret hash of the message (make it possible to hide when a specific message is consumed on L2).
+   * @param secretHash - The secret hash of the message (make it possible to hide when a specific message is consumed on
+   * L2).
    * @param index - Global leaf index on the L1 to L2 messages tree.
    */
   struct L1ToL2Msg {

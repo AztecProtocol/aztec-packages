@@ -20,7 +20,7 @@ template <typename Flavor> class DeciderVerifier_ {
     using VerificationKey = typename Flavor::VerificationKey;
     using Transcript = typename Flavor::Transcript;
     using DeciderVerificationKey = DeciderVerificationKey_<Flavor>;
-    using DeciderProof = std::vector<FF>;
+    using DeciderProof = typename Transcript::Proof;
 
   public:
     struct Output {

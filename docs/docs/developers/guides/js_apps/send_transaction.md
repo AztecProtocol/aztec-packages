@@ -1,6 +1,7 @@
 ---
 title: How to Send a Transaction
 sidebar_position: 4
+description: Learn how to send transactions to the Aztec network using Aztec.js.
 ---
 
 This guide explains how to send a transaction using Aztec.js.

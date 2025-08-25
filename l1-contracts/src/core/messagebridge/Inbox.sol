@@ -44,17 +44,13 @@ contract Inbox is IInbox {
     HEIGHT = _height;
     SIZE = 2 ** _height;
 
-    state = InboxState({
-      rollingHash: 0,
-      totalMessagesInserted: 0,
-      inProgress: uint64(Constants.INITIAL_L2_BLOCK_NUM) + 1
-    });
+    state =
+      InboxState({rollingHash: 0, totalMessagesInserted: 0, inProgress: uint64(Constants.INITIAL_L2_BLOCK_NUM) + 1});
 
     forest.initialize(_height);
     EMPTY_ROOT = trees[uint64(Constants.INITIAL_L2_BLOCK_NUM) + 1].root(forest, HEIGHT, SIZE);
 
-    FEE_ASSET_PORTAL =
-      address(new FeeJuicePortal(IRollup(_rollup), _feeAsset, IInbox(this), VERSION));
+    FEE_ASSET_PORTAL = address(new FeeJuicePortal(IRollup(_rollup), _feeAsset, IInbox(this), VERSION));
   }
 
   /**
@@ -64,27 +60,20 @@ contract Inbox is IInbox {
    *
    * @param _recipient - The recipient of the message
    * @param _content - The content of the message (application specific)
-   * @param _secretHash - The secret hash of the message (make it possible to hide when a specific message is consumed on L2)
+   * @param _secretHash - The secret hash of the message (make it possible to hide when a specific message is consumed
+   * on L2)
    *
    * @return Hash of the sent message and its leaf index in the tree.
    */
-  function sendL2Message(
-    DataStructures.L2Actor memory _recipient,
-    bytes32 _content,
-    bytes32 _secretHash
-  ) external override(IInbox) returns (bytes32, uint256) {
-    require(
-      uint256(_recipient.actor) <= Constants.MAX_FIELD_VALUE,
-      Errors.Inbox__ActorTooLarge(_recipient.actor)
-    );
-    require(
-      _recipient.version == VERSION, Errors.Inbox__VersionMismatch(_recipient.version, VERSION)
-    );
+  function sendL2Message(DataStructures.L2Actor memory _recipient, bytes32 _content, bytes32 _secretHash)
+    external
+    override(IInbox)
+    returns (bytes32, uint256)
+  {
+    require(uint256(_recipient.actor) <= Constants.MAX_FIELD_VALUE, Errors.Inbox__ActorTooLarge(_recipient.actor));
+    require(_recipient.version == VERSION, Errors.Inbox__VersionMismatch(_recipient.version, VERSION));
     require(uint256(_content) <= Constants.MAX_FIELD_VALUE, Errors.Inbox__ContentTooLarge(_content));
-    require(
-      uint256(_secretHash) <= Constants.MAX_FIELD_VALUE,
-      Errors.Inbox__SecretHashTooLarge(_secretHash)
-    );
+    require(uint256(_secretHash) <= Constants.MAX_FIELD_VALUE, Errors.Inbox__SecretHashTooLarge(_secretHash));
     require(IRollup(ROLLUP).getManaTarget() > 0, Errors.Inbox__Ignition());
 
     // Is this the best way to read a packed struct into local variables in a single SLOAD
@@ -109,8 +98,7 @@ contract Inbox is IInbox {
     // If the sender is the fee asset portal, we use a magic address to simpler have it initialized at genesis.
     // We assume that no-one will know the private key for this address and that the precompile won't change to
     // make calls into arbitrary contracts.
-    address senderAddress =
-      msg.sender == FEE_ASSET_PORTAL ? address(uint160(Constants.FEE_JUICE_ADDRESS)) : msg.sender;
+    address senderAddress = msg.sender == FEE_ASSET_PORTAL ? address(uint160(Constants.FEE_JUICE_ADDRESS)) : msg.sender;
 
     DataStructures.L1ToL2Msg memory message = DataStructures.L1ToL2Msg({
       sender: DataStructures.L1Actor(senderAddress, block.chainid),

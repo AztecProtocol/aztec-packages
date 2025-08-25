@@ -62,27 +62,27 @@ pub unconstrained fn public_call_new_flow(
     (returns_hash, tx_hash)
 }
 
-#[oracle(getLastBlockTimestamp)]
+#[oracle(txeGetLastBlockTimestamp)]
 pub unconstrained fn get_last_block_timestamp() -> u64 {}
 
-#[oracle(setContractAddress)]
+#[oracle(txeSetContractAddress)]
 pub unconstrained fn set_contract_address(address: AztecAddress) {}
 
-#[oracle(getContractAddress)]
+#[oracle(utilityGetContractAddress)]
 pub unconstrained fn get_contract_address() -> AztecAddress {}
 
-#[oracle(advanceBlocksBy)]
+#[oracle(txeAdvanceBlocksBy)]
 pub unconstrained fn advance_blocks_by(blocks: u32) {}
 
-#[oracle(advanceTimestampBy)]
+#[oracle(txeAdvanceTimestampBy)]
 pub unconstrained fn advance_timestamp_by(duration: u64) {}
 
-#[oracle(getPrivateContextInputs)]
+#[oracle(txeGetPrivateContextInputs)]
 pub unconstrained fn get_private_context_inputs(
     historical_block_number: Option<u32>,
 ) -> PrivateContextInputs {}
 
-#[oracle(deploy)]
+#[oracle(txeDeploy)]
 pub unconstrained fn deploy_oracle<let N: u32, let P: u32>(
     path: str<N>,
     initializer: str<P>,
@@ -90,16 +90,16 @@ pub unconstrained fn deploy_oracle<let N: u32, let P: u32>(
     secret: Field,
 ) -> [Field; CONTRACT_INSTANCE_LENGTH] {}
 
-#[oracle(createAccount)]
+#[oracle(txeCreateAccount)]
 pub unconstrained fn create_account(secret: Field) -> TestAccount {}
 
-#[oracle(addAccount)]
+#[oracle(txeAddAccount)]
 pub unconstrained fn add_account(secret: Field) -> TestAccount {}
 
-#[oracle(addAuthWitness)]
+#[oracle(txeAddAuthWitness)]
 pub unconstrained fn add_authwit(address: AztecAddress, message_hash: Field) {}
 
-#[oracle(privateCallNewFlow)]
+#[oracle(txePrivateCallNewFlow)]
 unconstrained fn private_call_new_flow_oracle(
     _from: AztecAddress,
     _contract_address: AztecAddress,
@@ -109,7 +109,7 @@ unconstrained fn private_call_new_flow_oracle(
     _is_static_call: bool,
 ) -> [Field; 3] {}
 
-#[oracle(publicCallNewFlow)]
+#[oracle(txePublicCallNewFlow)]
 unconstrained fn public_call_new_flow_oracle(
     from: AztecAddress,
     contract_address: AztecAddress,
@@ -117,17 +117,14 @@ unconstrained fn public_call_new_flow_oracle(
     is_static_call: bool,
 ) -> [Field; 2] {}
 
-#[oracle(enableContextChecks)]
-pub unconstrained fn enable_context_checks() {}
-
-#[oracle(setTopLevelTXEContext)]
+#[oracle(txeSetTopLevelTXEContext)]
 pub unconstrained fn set_top_level_txe_context() {}
 
-#[oracle(setPrivateTXEContext)]
+#[oracle(txeSetPrivateTXEContext)]
 pub unconstrained fn set_private_txe_context() {}
 
-#[oracle(setPublicTXEContext)]
+#[oracle(txeSetPublicTXEContext)]
 pub unconstrained fn set_public_txe_context() {}
 
-#[oracle(setUtilityTXEContext)]
+#[oracle(txeSetUtilityTXEContext)]
 pub unconstrained fn set_utility_txe_context() {}

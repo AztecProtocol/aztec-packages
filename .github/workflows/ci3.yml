@@ -34,6 +34,9 @@ jobs:
         with:
           # The commit to checkout. We want our actual commit, and not the result of merging the PR to the target.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          # Fetch PR commits depth (we'll deepen by 1 in squash script if needed)
+          fetch-depth: ${{ github.event.pull_request.commits || 0 }}
+          persist-credentials: false
 
       - name: CI Merge Queue Override (grind on PR)
         if: contains(github.event.pull_request.labels.*.name, 'ci-merge-queue')
@@ -50,10 +53,6 @@ jobs:
       - name: Fail Fast Override
         if: contains(github.event.pull_request.labels.*.name, 'ci-no-fail-fast')
         run: echo "NO_FAIL_FAST=1" >> $GITHUB_ENV
-
-      - name: Barretenberg CI Override
-        if: contains(github.event.pull_request.labels.*.name, 'ci-barretenberg')
-        run: echo "CI_BARRETENBERG=1" >> $GITHUB_ENV
 
       - name: Compute Target Branch
         id: target_branch
@@ -88,8 +87,7 @@ jobs:
           mkdir -p ~/.ssh
           echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
           chmod 600 ~/.ssh/build_instance_key
-          # Install required packages.
-          sudo apt update && sudo apt install -y redis-tools parallel
+          sudo apt install -y --no-install-recommends redis-tools parallel
 
       - name: Prepare GCP key
         env:
@@ -98,10 +96,21 @@ jobs:
           echo "$GCP_SA_KEY" | base64 -w 0 > gcp_sa_key.b64
           echo "GCP_SA_KEY_B64=$(cat gcp_sa_key.b64)" >> $GITHUB_ENV
 
+      - name: Get Tree Hash
+        run: echo "TREE_HASH=$(git rev-parse HEAD^{tree})" >> $GITHUB_ENV
+
+      - name: Check CI Cache
+        id: ci_cache
+        uses: actions/cache@v3
+        with:
+          path: ci-success.txt
+          key: ci-${{ github.event_name == 'merge_group' && 'merge-queue' || env.CI_FULL == '1' && 'full' || env.CI_DOCS == '1' && 'docs' || env.CI_BARRETENBERG == '1' && 'barretenberg' || 'fast' }}-${{ env.TREE_HASH }}
+
       #############
       # Run
       #############
       - name: Run
+        if: steps.ci_cache.outputs.cache-hit != 'true'
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -136,12 +145,34 @@ jobs:
             exec ./ci.sh fast
           fi
 
+      - name: Save CI Success
+        if: steps.ci_cache.outputs.cache-hit != 'true'
+        run: echo "success" > ci-success.txt
+
+      # If we have passed CI and labelled with ci-squash-and-merge, squash the PR.
+      # This will rerun CI on the squash commit - but is intended to be a no-op due to caching.
+      - name: CI Squash and Merge
+        if: contains(github.event.pull_request.labels.*.name, 'ci-squash-and-merge')
+        env:
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          # Reauth the git repo with our GITHUB_TOKEN
+          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}
+          # Get the base commit (merge-base) for the PR
+          ./scripts/merge-train/squash-pr.sh \
+            "${{ github.event.pull_request.number }}" \
+            "${{ github.event.pull_request.head.ref }}" \
+            "${{ github.event.pull_request.base.ref }}" \
+            "${{ github.event.pull_request.base.sha }}"
+          gh pr edit "${{ github.event.pull_request.number }}" --remove-label "ci-squash-and-merge"
+          gh pr merge "${{ github.event.pull_request.number }}" --auto -m || true
+
       - name: Download benchmarks
-        if: github.event_name == 'merge_group'
+        if: github.event_name == 'merge_group' || env.CI_FULL == '1'
         run: ./ci.sh gh-bench
 
       - name: Upload benchmarks
-        if: github.event_name == 'merge_group'
+        if: github.event_name == 'merge_group' || env.CI_FULL == '1'
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
           name: Aztec Benchmarks
@@ -155,39 +186,3 @@ jobs:
           comment-on-alert: false
           fail-on-alert: false
           max-items-in-chart: 100
-
-  notify:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && failure()
-    needs:
-      - ci
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-
-      - name: Get Context
-        id: get_context
-        run: |
-          authors=$(git log -1 --pretty=format:'%an <%ae>')
-          echo "authors=${authors}" >> $GITHUB_OUTPUT
-          # Note, we have to make sure double quotes don't break our JSON.
-          title=$(git log -1 --pretty=format:'%s' | sed s/\"/\'/g)
-          echo "commit_title=${title}" >> $GITHUB_OUTPUT
-          failed_jobs=""
-          [ "${{ needs.ci-grind.result }}" = "failure" ] && failed_jobs+="ci-grind"
-          [ "${{ needs.ci.result }}" = "failure" ] && failed_jobs+="ci"
-          echo "failed_jobs=${failed_jobs}" >> $GITHUB_OUTPUT
-          cat $GITHUB_OUTPUT
-
-      - name: Send Notification
-        uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001
-        with:
-          payload: |
-            {
-              "text": "Failure on ${{ github.ref_name }}\nCommit: ${{ steps.get_context.outputs.commit_title }}",
-              "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}",
-              "authors": "${{ steps.get_context.outputs.authors }}",
-              "failed_jobs": "${{ steps.get_context.outputs.failed_jobs }}"
-            }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NOTIFY_WORKFLOW_TRIGGER_URL2 }}

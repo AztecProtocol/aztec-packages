@@ -44,6 +44,7 @@ describe('AVM simulator apps tests: AvmTestContract', () => {
       /*expectedDeployer=*/ expectContractInstance.deployer,
       /*expectedClassId=*/ expectContractInstance.currentContractClassId,
       /*expectedInitializationHash=*/ expectContractInstance.initializationHash,
+      /*skip_strictly_limited_side_effects=*/ false,
     ];
     const results = await simTester.simulateCall(sender, /*address=*/ testContractAddress, 'bulk_testing', args);
     expect(results.reverted).toBe(false);
@@ -55,7 +56,7 @@ describe('AVM simulator apps tests: AvmTestContract', () => {
       .map(instance => instance.address)
       .slice(0, MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS);
 
-    // include the first contract again again at the end to ensure that we can call it even after the limit is reached
+    // include the first contract again at the end to ensure that we can call it even after the limit is reached
     instanceAddresses.push(instanceAddresses[0]);
 
     // include another contract address that reuses a class ID to ensure that we can call it even after the limit is reached

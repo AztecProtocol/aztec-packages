@@ -3,6 +3,7 @@ pragma solidity >=0.8.27;
 
 import {StakingAssetHandlerBase} from "./base.t.sol";
 import {StakingAssetHandler, IStakingAssetHandler} from "@aztec/mock/StakingAssetHandler.sol";
+import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 // solhint-disable comprehensive-interface
 // solhint-disable func-name-mixedcase
@@ -24,7 +25,9 @@ contract BindTest is StakingAssetHandlerBase {
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ValidatorAdded(address(staking), BOUND_ADDRESS, WITHDRAWER);
     vm.prank(BOUND_ADDRESS);
-    stakingAssetHandler.addValidator(BOUND_ADDRESS, validMerkleProof, realProof);
+    stakingAssetHandler.addValidator(
+      BOUND_ADDRESS, validMerkleProof, realProof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
+    );
   }
 
   function test_WhenNotUsingTheBoundAddress(address _attester) external {
@@ -33,11 +36,11 @@ contract BindTest is StakingAssetHandlerBase {
     vm.assume(_attester != BOUND_ADDRESS && _attester != address(this));
 
     vm.expectRevert(
-      abi.encodeWithSelector(
-        IStakingAssetHandler.ProofNotBoundToAddress.selector, BOUND_ADDRESS, _attester
-      )
+      abi.encodeWithSelector(IStakingAssetHandler.ProofNotBoundToAddress.selector, BOUND_ADDRESS, _attester)
     );
     vm.prank(_attester);
-    stakingAssetHandler.addValidator(_attester, validMerkleProof, realProof);
+    stakingAssetHandler.addValidator(
+      _attester, validMerkleProof, realProof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
+    );
   }
 }

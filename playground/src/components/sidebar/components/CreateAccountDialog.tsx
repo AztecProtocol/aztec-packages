@@ -88,6 +88,7 @@ export function CreateAccountDialog({
       if (publiclyDeploy) {
         deployMethod = await accountManager.getDeployMethod();
         opts = {
+          from: accountWallet.getAddress(),
           contractAddressSalt: salt,
           fee: {
             paymentMethod: await accountManager.getSelfPaymentMethod(feePaymentMethod),

@@ -8,7 +8,7 @@ import { RawBuffer } from '../types/raw_buffer.js';
 import { fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
 import { createDebugLogger } from '../log/index.js';
 import { AsyncApi } from '../cbind/generated/async.js';
-import { BbApiBase, CircuitComputeVk, CircuitProve, CircuitVerify, ClientIvcAccumulate, ClientIvcComputeIvcVk, ClientIvcGates, ClientIvcLoad, ClientIvcProve, ClientIvcStart, ClientIvcVerify } from '../cbind/generated/api_types.js';
+import { BbApiBase, CircuitComputeVk, CircuitProve, CircuitVerify, ClientIvcAccumulate, ClientIvcComputeIvcVk, ClientIvcStats, ClientIvcLoad, ClientIvcProve, ClientIvcStart, ClientIvcVerify, VkAsFields } from '../cbind/generated/api_types.js';
 
 export { UltraHonkBackend, UltraHonkVerifierBackend, AztecClientBackend } from './backend.js';
 
@@ -77,7 +77,8 @@ export class Barretenberg extends BarretenbergApi {
   }
 
   async initSRSForCircuitSize(circuitSize: number): Promise<void> {
-    const crs = await Crs.new(circuitSize + 1, this.options.crsPath, this.options.logger);
+    const minSRSSize = 2 ** 9; // 2**9 is the dyadic size for the SmallSubgroupIPA MSM.
+    const crs = await Crs.new(Math.max(circuitSize, minSRSSize) + 1, this.options.crsPath, this.options.logger);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1129): Do slab allocator initialization?
     // await this.commonInitSlabAllocator(circuitSize);
     await this.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
@@ -143,8 +144,8 @@ export class Barretenberg extends BarretenbergApi {
     return this.bbApi.clientIvcComputeIvcVk(command);
   }
 
-  async clientIvcGates(command: ClientIvcGates) {
-    return this.bbApi.clientIvcGates(command);
+  async clientIvcStats(command: ClientIvcStats) {
+    return this.bbApi.clientIvcStats(command);
   }
 
   // Wrap circuit methods used by BbApiUltraHonkBackend
@@ -158,6 +159,10 @@ export class Barretenberg extends BarretenbergApi {
 
   async circuitVerify(command: CircuitVerify) {
     return this.bbApi.circuitVerify(command);
+  }
+
+  async vkAsFields(command: VkAsFields) {
+    return this.bbApi.vkAsFields(command);
   }
 
 }

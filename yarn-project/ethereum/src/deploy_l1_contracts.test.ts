@@ -1,4 +1,5 @@
 import { times } from '@aztec/foundation/collection';
+import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -38,6 +39,7 @@ describe('deploy_l1_contracts', () => {
     initialValidators = times(3, () => ({
       attester: EthAddress.random(),
       withdrawer: EthAddress.random(),
+      bn254SecretKey: new SecretValue(Fr.random().toBigInt()),
     }));
 
     if (!rpcUrl) {

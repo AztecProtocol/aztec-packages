@@ -277,7 +277,7 @@ export class ProvingOrchestrator implements EpochProver {
     }
 
     if (!provingState.spongeBlobState) {
-      // If we are completing an empty block, initialise the provingState.
+      // If we are completing an empty block, initialize the provingState.
       // We will have 0 txs and no blob fields.
       provingState.startNewBlock(0, 0);
     }
@@ -339,7 +339,7 @@ export class ProvingOrchestrator implements EpochProver {
 
     await this.verifyBuiltBlockAgainstSyncedState(l2Block, newArchive);
 
-    logger.verbose(`Orchestrator finalised block ${l2Block.number}`);
+    logger.verbose(`Orchestrator finalized block ${l2Block.number}`);
     provingState.setBlock(l2Block);
   }
 
@@ -369,9 +369,9 @@ export class ProvingOrchestrator implements EpochProver {
   /**
    * Returns the proof for the current epoch.
    */
-  public async finaliseEpoch() {
+  public async finalizeEpoch() {
     if (!this.provingState || !this.provingPromise) {
-      throw new Error(`Invalid proving state, an epoch must be proven before it can be finalised`);
+      throw new Error(`Invalid proving state, an epoch must be proven before it can be finalized`);
     }
 
     const result = await this.provingPromise!;
@@ -383,7 +383,7 @@ export class ProvingOrchestrator implements EpochProver {
     // TODO(MW): EpochProvingState uses this.blocks.filter(b => !!b).length as total blocks, use this below:
     const finalBlock = this.provingState.blocks[this.provingState.totalNumBlocks - 1];
     if (!finalBlock || !finalBlock.endBlobAccumulator) {
-      throw new Error(`Epoch's final block not ready for finalise`);
+      throw new Error(`Epoch's final block not ready for finalize`);
     }
     const finalBatchedBlob = await finalBlock.endBlobAccumulator.finalize();
     this.provingState.setFinalBatchedBlob(finalBatchedBlob);
@@ -997,6 +997,7 @@ export class ProvingOrchestrator implements EpochProver {
             );
 
             try {
+              this.metrics.incAvmFallback();
               const snapshotAvmPrivateInputs = readAvmMinimalPublicTxInputsFromFile();
               return await this.prover.getAvmProof(snapshotAvmPrivateInputs, true, signal, provingState.epochNumber);
             } catch (err) {

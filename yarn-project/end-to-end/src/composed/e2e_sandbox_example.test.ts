@@ -124,7 +124,7 @@ describe('e2e_sandbox_example', () => {
 
     const initialSupply = 1_000_000n;
 
-    const tokenContractAlice = await deployToken(aliceWallet, initialSupply, logger);
+    const tokenContractAlice = await deployToken(aliceWallet, alice, initialSupply, logger);
     // docs:end:Deployment
 
     // ensure that token contract is registered in PXE
@@ -138,10 +138,10 @@ describe('e2e_sandbox_example', () => {
     // Since we already have a token link, we can simply create a new instance of the contract linked to Bob's wallet
     const tokenContractBob = tokenContractAlice.withWallet(bobWallet);
 
-    let aliceBalance = await tokenContractAlice.methods.balance_of_private(alice).simulate();
+    let aliceBalance = await tokenContractAlice.methods.balance_of_private(alice).simulate({ from: alice });
     logger.info(`Alice's balance ${aliceBalance}`);
 
-    let bobBalance = await tokenContractBob.methods.balance_of_private(bob).simulate();
+    let bobBalance = await tokenContractBob.methods.balance_of_private(bob).simulate({ from: bob });
     logger.info(`Bob's balance ${bobBalance}`);
 
     // docs:end:Balance
@@ -155,13 +155,13 @@ describe('e2e_sandbox_example', () => {
     // We will now transfer tokens from ALice to Bob
     const transferQuantity = 543n;
     logger.info(`Transferring ${transferQuantity} tokens from Alice to Bob...`);
-    await tokenContractAlice.methods.transfer(bob, transferQuantity).send().wait();
+    await tokenContractAlice.methods.transfer(bob, transferQuantity).send({ from: alice }).wait();
 
     // Check the new balances
-    aliceBalance = await tokenContractAlice.methods.balance_of_private(alice).simulate();
+    aliceBalance = await tokenContractAlice.methods.balance_of_private(alice).simulate({ from: alice });
     logger.info(`Alice's balance ${aliceBalance}`);
 
-    bobBalance = await tokenContractBob.methods.balance_of_private(bob).simulate();
+    bobBalance = await tokenContractBob.methods.balance_of_private(bob).simulate({ from: bob });
     logger.info(`Bob's balance ${bobBalance}`);
     // docs:end:Transfer
 
@@ -174,16 +174,16 @@ describe('e2e_sandbox_example', () => {
     // Now mint some further funds for Bob
 
     // Alice is nice and she adds Bob as a minter
-    await tokenContractAlice.methods.set_minter(bob, true).send().wait();
+    await tokenContractAlice.methods.set_minter(bob, true).send({ from: alice }).wait();
 
     const mintQuantity = 10_000n;
-    await mintTokensToPrivate(tokenContractBob, bobWallet, bob, mintQuantity);
+    await mintTokensToPrivate(tokenContractBob, bob, bobWallet, bob, mintQuantity);
 
     // Check the new balances
-    aliceBalance = await tokenContractAlice.methods.balance_of_private(alice).simulate();
+    aliceBalance = await tokenContractAlice.methods.balance_of_private(alice).simulate({ from: alice });
     logger.info(`Alice's balance ${aliceBalance}`);
 
-    bobBalance = await tokenContractBob.methods.balance_of_private(bob).simulate();
+    bobBalance = await tokenContractBob.methods.balance_of_private(bob).simulate({ from: bob });
     logger.info(`Bob's balance ${bobBalance}`);
     // docs:end:Mint
 
@@ -251,7 +251,7 @@ describe('e2e_sandbox_example', () => {
     const bananaCoinAddress = await getDeployedBananaCoinAddress(pxe);
     const bananaCoin = await TokenContract.at(bananaCoinAddress, fundedWallet);
     const mintAmount = 10n ** 20n;
-    await bananaCoin.methods.mint_to_private(alice, mintAmount).send().wait();
+    await bananaCoin.methods.mint_to_private(alice, mintAmount).send({ from: fundedWallet.getAddress() }).wait();
 
     ////////////// USE A NEW ACCOUNT TO SEND A TX AND PAY WITH BANANA COIN //////////////
     const amountTransferToBob = 100n;
@@ -260,17 +260,17 @@ describe('e2e_sandbox_example', () => {
     const receiptForAlice = await bananaCoin
       .withWallet(aliceWallet)
       .methods.transfer(bob, amountTransferToBob)
-      .send({ fee: { paymentMethod } })
+      .send({ from: alice, fee: { paymentMethod } })
       .wait();
     const transactionFee = receiptForAlice.transactionFee!;
     logger.info(`Transaction fee: ${transactionFee}`);
 
     // Check the balances
-    const aliceBalance = await bananaCoin.methods.balance_of_private(alice).simulate();
+    const aliceBalance = await bananaCoin.methods.balance_of_private(alice).simulate({ from: alice });
     logger.info(`Alice's balance: ${aliceBalance}`);
     expect(aliceBalance).toEqual(mintAmount - transactionFee - amountTransferToBob);
 
-    const bobBalance = await bananaCoin.methods.balance_of_private(bob).simulate();
+    const bobBalance = await bananaCoin.methods.balance_of_private(bob).simulate({ from: bob });
     logger.info(`Bob's balance: ${bobBalance}`);
     expect(bobBalance).toEqual(amountTransferToBob);
 
@@ -287,15 +287,15 @@ describe('e2e_sandbox_example', () => {
     const receiptForBob = await bananaCoin
       .withWallet(bobWallet)
       .methods.transfer(alice, amountTransferToAlice)
-      .send({ fee: { paymentMethod: sponsoredPaymentMethod } })
+      .send({ from: bob, fee: { paymentMethod: sponsoredPaymentMethod } })
       .wait();
     // docs:end:transaction_with_payment_method
     // Check the balances
-    const aliceNewBalance = await bananaCoin.methods.balance_of_private(alice).simulate();
+    const aliceNewBalance = await bananaCoin.methods.balance_of_private(alice).simulate({ from: alice });
     logger.info(`Alice's new balance: ${aliceNewBalance}`);
     expect(aliceNewBalance).toEqual(aliceBalance + amountTransferToAlice);
 
-    const bobNewBalance = await bananaCoin.methods.balance_of_private(bob).simulate();
+    const bobNewBalance = await bananaCoin.methods.balance_of_private(bob).simulate({ from: bob });
     logger.info(`Bob's new balance: ${bobNewBalance}`);
     expect(bobNewBalance).toEqual(bobBalance - amountTransferToAlice);
 

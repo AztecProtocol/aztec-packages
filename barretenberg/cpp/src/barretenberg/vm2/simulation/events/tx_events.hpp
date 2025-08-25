@@ -11,6 +11,8 @@ namespace bb::avm2::simulation {
 
 struct TxStartupEvent {
     TxContextEvent state;
+    Gas gas_limit;
+    Gas teardown_gas_limit;
 };
 
 struct EnqueuedCallEvent {
@@ -19,7 +21,8 @@ struct EnqueuedCallEvent {
     FF transaction_fee;
     bool is_static;
     FF calldata_hash;
-    Gas gas_limit;
+    Gas start_gas;
+    Gas end_gas;
     bool success;
 };
 
@@ -41,8 +44,16 @@ struct CollectGasFeeEvent {
     FF fee;
 };
 
-using TxPhaseEventType =
-    std::variant<EnqueuedCallEvent, PrivateAppendTreeEvent, PrivateEmitL2L1MessageEvent, CollectGasFeeEvent>;
+struct PadTreesEvent {};
+
+struct CleanupEvent {};
+
+using TxPhaseEventType = std::variant<EnqueuedCallEvent,
+                                      PrivateAppendTreeEvent,
+                                      PrivateEmitL2L1MessageEvent,
+                                      CollectGasFeeEvent,
+                                      PadTreesEvent,
+                                      CleanupEvent>;
 
 struct TxPhaseEvent {
     TransactionPhase phase;

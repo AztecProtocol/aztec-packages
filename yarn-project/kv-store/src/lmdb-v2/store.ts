@@ -26,6 +26,7 @@ import {
 } from './message.js';
 import { LMDBMultiMap } from './multi_map.js';
 import { ReadTransaction } from './read_transaction.js';
+import { LMDBSet } from './set.js';
 // eslint-disable-next-line import/no-cycle
 import { LMDBSingleValue } from './singleton.js';
 import { WriteTransaction } from './write_transaction.js';
@@ -118,8 +119,8 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
     return new LMDBArray(this, name);
   }
 
-  openSet<K extends Key>(_name: string): AztecAsyncSet<K> {
-    throw new Error('Not implemented');
+  openSet<K extends Key>(name: string): AztecAsyncSet<K> {
+    return new LMDBSet(this, name);
   }
 
   openCounter<K extends Key>(_name: string): AztecAsyncCounter<K> {

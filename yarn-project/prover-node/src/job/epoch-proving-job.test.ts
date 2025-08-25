@@ -49,9 +49,11 @@ describe('epoch-proving-job', () => {
 
   // Subject factory
   const createJob = (opts: { deadline?: Date; parallelBlockLimit?: number } = {}) => {
+    const txsMap = new Map<string, Tx>(txs.map(tx => [tx.getTxHash().toString(), tx]));
+
     const data: EpochProvingJobData = {
       blocks,
-      txs,
+      txs: txsMap,
       epochNumber: BigInt(epochNumber),
       l1ToL2Messages: fromEntries(blocks.map(b => [b.number, []])),
       previousBlockHeader: initialHeader,
@@ -97,11 +99,8 @@ describe('epoch-proving-job', () => {
     blocks = await timesParallel(NUM_BLOCKS, i => L2Block.random(i + 1, TXS_PER_BLOCK));
     attestations = times(3, CommitteeAttestation.random);
 
-    txs = times(NUM_TXS, i =>
-      mock<Tx>({
-        getTxHash: () => blocks[i % NUM_BLOCKS].body.txEffects[i % TXS_PER_BLOCK].txHash,
-      }),
-    );
+    const txHashes = times(NUM_TXS, i => blocks[i % NUM_BLOCKS].body.txEffects[i % TXS_PER_BLOCK].txHash);
+    txs = txHashes.map(txHash => ({ txHash, getTxHash: () => txHash }) as Tx);
 
     l2BlockSource.getBlockHeader.mockResolvedValue(initialHeader);
     l2BlockSource.getL1Constants.mockResolvedValue({ ethereumSlotDuration: 0.1 } as L1RollupConstants);
@@ -111,7 +110,7 @@ describe('epoch-proving-job', () => {
     db.getInitialHeader.mockReturnValue(initialHeader);
     worldState.fork.mockResolvedValue(db);
     prover.startNewBlock.mockImplementation(() => sleep(200));
-    prover.finaliseEpoch.mockResolvedValue({ publicInputs, proof, batchedBlobInputs });
+    prover.finalizeEpoch.mockResolvedValue({ publicInputs, proof, batchedBlobInputs });
     publisher.submitEpochProof.mockResolvedValue(true);
     publicProcessor.process.mockImplementation(async txs => {
       const txsArray = await toArray(txs);
@@ -129,6 +128,21 @@ describe('epoch-proving-job', () => {
     expect(publicProcessor.process).toHaveBeenCalledTimes(NUM_BLOCKS);
     expect(publisher.submitEpochProof).toHaveBeenCalledWith(
       expect.objectContaining({ epochNumber, proof, publicInputs, attestations: attestations.map(a => a.toViem()) }),
+    );
+  });
+
+  it('sorts txs based on block body', async () => {
+    txs.reverse();
+
+    const job = createJob();
+    await job.run();
+
+    expect(job.getState()).toEqual('completed');
+    expect(publicProcessor.process).toHaveBeenCalledTimes(NUM_BLOCKS);
+
+    const firstBlockProcessedTxs = publicProcessor.process.mock.calls[0][0] as Tx[];
+    expect(firstBlockProcessedTxs.map(tx => tx.txHash.toString())).toEqual(
+      blocks[0].body.txEffects.map(tx => tx.txHash.toString()),
     );
   });
 

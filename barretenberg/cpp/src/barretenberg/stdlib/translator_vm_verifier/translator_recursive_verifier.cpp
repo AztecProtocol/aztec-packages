@@ -91,7 +91,7 @@ TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_p
                                                                                      const BF& evaluation_input_x,
                                                                                      const BF& batching_challenge_v)
 {
-    using Sumcheck = ::bb::SumcheckVerifier<Flavor, TranslatorFlavor::CONST_TRANSLATOR_LOG_N>;
+    using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
     using PCS = Flavor::PCS;
     using Curve = Flavor::Curve;
     using Shplemini = ::bb::ShpleminiVerifier_<Curve>;
@@ -140,7 +140,7 @@ TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_p
     //  i = 0, ..., NUM_SUBRELATIONS- 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
-    Sumcheck sumcheck(transcript, alpha);
+    Sumcheck sumcheck(transcript, alpha, TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
 
     std::vector<FF> gate_challenges(TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
@@ -153,7 +153,7 @@ TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_p
     FF one{ 1 };
     one.convert_constant_to_fixed_witness(builder);
 
-    std::array<FF, TranslatorFlavor::CONST_TRANSLATOR_LOG_N> padding_indicator_array;
+    std::vector<FF> padding_indicator_array(TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
     std::ranges::fill(padding_indicator_array, one);
 
     auto sumcheck_output = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator_array);
@@ -212,7 +212,7 @@ void TranslatorRecursiveVerifier::verify_translation(const TranslationEvaluation
 }
 
 void TranslatorRecursiveVerifier::verify_consistency_with_final_merge(
-    const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES> merge_commitments)
+    const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES>& merge_commitments)
 {
     // Check the consistency with final merge
     for (auto [merge_commitment, translator_commitment] : zip_view(merge_commitments, op_queue_commitments)) {

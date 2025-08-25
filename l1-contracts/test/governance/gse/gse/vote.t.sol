@@ -26,14 +26,14 @@ contract VoteTest is WithGSE {
   ) external {
     // it reverts
 
+    vm.assume(_attester != address(0));
+
     (address voter, uint256 availablePower) = _prepare(_instance, _attester, _delegatee, _delegate);
     uint256 amount = bound(_amount, availablePower + 1, type(uint256).max);
 
     vm.prank(voter);
     vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.Delegation__InsufficientPower.selector, voter, availablePower, amount
-      )
+      abi.encodeWithSelector(Errors.Delegation__InsufficientPower.selector, voter, availablePower, amount)
     );
     gse.vote(0, amount, true);
   }
@@ -48,6 +48,8 @@ contract VoteTest is WithGSE {
   ) external {
     // it uses delegation power for proposal
     // it votes in governance
+
+    vm.assume(_attester != address(0));
 
     Proposal memory proposal = governance.getProposal(0);
     assertEq(proposal.summedBallot.yea, 0);
@@ -72,6 +74,7 @@ contract VoteTest is WithGSE {
     returns (address, uint256)
   {
     vm.assume(_instance != address(0) && _instance != gse.getBonusInstanceAddress());
+    vm.assume(_attester != address(0));
 
     vm.prank(gse.owner());
     gse.addRollup(_instance);

@@ -8,7 +8,6 @@
 #include "../bigfield/bigfield.hpp"
 #include "../biggroup/biggroup.hpp"
 #include "../field/field.hpp"
-#include "../uint/uint.hpp"
 #include "barretenberg/ecc/curves/types.hpp"
 #include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
 
@@ -38,7 +37,6 @@ template <typename CircuitBuilder> struct grumpkin {
     using public_witness_ct = public_witness_t<CircuitBuilder>;
     using byte_array_ct = byte_array<CircuitBuilder>;
     using bool_ct = bool_t<CircuitBuilder>;
-    using uint32_ct = stdlib::uint32<CircuitBuilder>;
 
     // Required by SmallSubgroupIPA argument
     static constexpr size_t SUBGROUP_SIZE = 87;

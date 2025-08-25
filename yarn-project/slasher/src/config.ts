@@ -1,90 +1,14 @@
-import { NULL_KEY } from '@aztec/ethereum';
-import type { ConfigMappingsType, SecretValue } from '@aztec/foundation/config';
+import type { ConfigMappingsType } from '@aztec/foundation/config';
 import {
   bigintConfigHelper,
   booleanConfigHelper,
   floatConfigHelper,
   numberConfigHelper,
-  secretValueConfigHelper,
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import type { TypedEventEmitter } from '@aztec/foundation/types';
+import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
 
-export enum Offense {
-  UNKNOWN = 0,
-  DATA_WITHHOLDING = 1,
-  VALID_EPOCH_PRUNED = 2,
-  INACTIVITY = 3,
-  INVALID_BLOCK = 4,
-}
-
-export const OffenseToBigInt: Record<Offense, bigint> = {
-  [Offense.UNKNOWN]: 0n,
-  [Offense.DATA_WITHHOLDING]: 1n,
-  [Offense.VALID_EPOCH_PRUNED]: 2n,
-  [Offense.INACTIVITY]: 3n,
-  [Offense.INVALID_BLOCK]: 4n,
-};
-
-export function bigIntToOffense(offense: bigint): Offense {
-  switch (offense) {
-    case 0n:
-      return Offense.UNKNOWN;
-    case 1n:
-      return Offense.DATA_WITHHOLDING;
-    case 2n:
-      return Offense.VALID_EPOCH_PRUNED;
-    case 3n:
-      return Offense.INACTIVITY;
-    case 4n:
-      return Offense.INVALID_BLOCK;
-    default:
-      throw new Error(`Unknown offense: ${offense}`);
-  }
-}
-
-export const WANT_TO_SLASH_EVENT = 'wantToSlash' as const;
-
-export interface WantToSlashArgs {
-  validator: EthAddress;
-  amount: bigint;
-  offense: Offense;
-}
-
-// Event map for specific, known events of a watcher
-export interface WatcherEventMap {
-  [WANT_TO_SLASH_EVENT]: (args: WantToSlashArgs[]) => void;
-}
-
-export type WatcherEmitter = TypedEventEmitter<WatcherEventMap>;
-
-export type CheckSlashFn = (args: WantToSlashArgs) => Promise<boolean>;
-
-export type Watcher = WatcherEmitter & {
-  shouldSlash: CheckSlashFn;
-  start?: () => Promise<void>;
-  stop?: () => Promise<void>;
-};
-
-export interface SlasherConfig {
-  // New configurations based on design doc
-  slashOverridePayload?: EthAddress;
-  slashPayloadTtlSeconds: number; // TTL for payloads, in seconds
-  slashPruneEnabled: boolean;
-  slashPrunePenalty: bigint;
-  slashPruneMaxPenalty: bigint;
-  slashInvalidBlockEnabled: boolean;
-  slashInvalidBlockPenalty: bigint;
-  slashInvalidBlockMaxPenalty: bigint;
-  slashInactivityEnabled: boolean;
-  slashInactivityCreateTargetPercentage: number; // 0-1, 0.9 means 90%. Must be greater than 0
-  slashInactivitySignalTargetPercentage: number; // 0-1, 0.6 means 60%. Must be greater than 0
-  slashInactivityCreatePenalty: bigint;
-  slashInactivityMaxPenalty: bigint;
-  slashProposerRoundPollingIntervalSeconds: number;
-  // Consider adding: slashInactivityCreateEnabled: boolean;
-  slasherPrivateKey?: SecretValue<`0x${string}`>; // Private key of the slasher account used for creating slash payloads
-}
+export type { SlasherConfig };
 
 export const DefaultSlasherConfig: SlasherConfig = {
   slashPayloadTtlSeconds: 60 * 60 * 24, // 1 day
@@ -92,15 +16,24 @@ export const DefaultSlasherConfig: SlasherConfig = {
   slashPruneEnabled: true,
   slashPrunePenalty: 1n,
   slashPruneMaxPenalty: 100n,
-  slashInvalidBlockEnabled: true,
-  slashInvalidBlockPenalty: 1n,
-  slashInvalidBlockMaxPenalty: 100n,
+  slashBroadcastedInvalidBlockEnabled: true,
+  slashBroadcastedInvalidBlockPenalty: 1n,
+  slashBroadcastedInvalidBlockMaxPenalty: 100n,
   slashInactivityEnabled: true,
   slashInactivityCreateTargetPercentage: 0.9,
   slashInactivitySignalTargetPercentage: 0.6,
   slashInactivityCreatePenalty: 1n,
   slashInactivityMaxPenalty: 100n,
+  slashProposeInvalidAttestationsPenalty: 1n,
+  slashProposeInvalidAttestationsMaxPenalty: 100n,
+  slashAttestDescendantOfInvalidPenalty: 1n,
+  slashAttestDescendantOfInvalidMaxPenalty: 100n,
+  slashUnknownPenalty: 1n,
+  slashUnknownMaxPenalty: 100n,
   slashProposerRoundPollingIntervalSeconds: 12,
+  slashOffenseExpirationRounds: 4,
+  slashMaxPayloadSize: 50,
+  slashGracePeriodL2Slots: 0,
 };
 
 export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
@@ -130,20 +63,20 @@ export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
     description: 'Maximum penalty amount for slashing validators of a pruned epoch.',
     ...bigintConfigHelper(DefaultSlasherConfig.slashPruneMaxPenalty),
   },
-  slashInvalidBlockEnabled: {
+  slashBroadcastedInvalidBlockEnabled: {
     env: 'SLASH_INVALID_BLOCK_ENABLED',
     description: 'Enable creation of slash payloads for invalid blocks.',
-    ...booleanConfigHelper(DefaultSlasherConfig.slashInvalidBlockEnabled),
+    ...booleanConfigHelper(DefaultSlasherConfig.slashBroadcastedInvalidBlockEnabled),
   },
-  slashInvalidBlockPenalty: {
+  slashBroadcastedInvalidBlockPenalty: {
     env: 'SLASH_INVALID_BLOCK_PENALTY',
     description: 'Penalty amount for slashing a validator for an invalid block.',
-    ...bigintConfigHelper(DefaultSlasherConfig.slashInvalidBlockPenalty),
+    ...bigintConfigHelper(DefaultSlasherConfig.slashBroadcastedInvalidBlockPenalty),
   },
-  slashInvalidBlockMaxPenalty: {
+  slashBroadcastedInvalidBlockMaxPenalty: {
     env: 'SLASH_INVALID_BLOCK_MAX_PENALTY',
     description: 'Maximum penalty amount for slashing a validator for an invalid block.',
-    ...bigintConfigHelper(DefaultSlasherConfig.slashInvalidBlockMaxPenalty),
+    ...bigintConfigHelper(DefaultSlasherConfig.slashBroadcastedInvalidBlockMaxPenalty),
   },
   slashInactivityEnabled: {
     env: 'SLASH_INACTIVITY_ENABLED',
@@ -180,12 +113,51 @@ export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
     description: 'Maximum penalty amount for slashing an inactive validator.',
     ...bigintConfigHelper(DefaultSlasherConfig.slashInactivityMaxPenalty),
   },
+  slashProposeInvalidAttestationsPenalty: {
+    env: 'SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY',
+    description: 'Penalty amount for slashing a proposer that proposed invalid attestations.',
+    ...bigintConfigHelper(DefaultSlasherConfig.slashProposeInvalidAttestationsPenalty),
+  },
+  slashProposeInvalidAttestationsMaxPenalty: {
+    env: 'SLASH_PROPOSE_INVALID_ATTESTATIONS_MAX_PENALTY',
+    description: 'Maximum penalty amount for slashing a proposer that proposed invalid attestations.',
+    ...bigintConfigHelper(DefaultSlasherConfig.slashProposeInvalidAttestationsMaxPenalty),
+  },
+  slashAttestDescendantOfInvalidPenalty: {
+    env: 'SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY',
+    description: 'Penalty amount for slashing a validator that attested to a descendant of an invalid block.',
+    ...bigintConfigHelper(DefaultSlasherConfig.slashAttestDescendantOfInvalidPenalty),
+  },
+  slashAttestDescendantOfInvalidMaxPenalty: {
+    env: 'SLASH_ATTEST_DESCENDANT_OF_INVALID_MAX_PENALTY',
+    description: 'Maximum penalty amount for slashing a validator that attested to a descendant of an invalid block.',
+    ...bigintConfigHelper(DefaultSlasherConfig.slashAttestDescendantOfInvalidMaxPenalty),
+  },
+  slashUnknownPenalty: {
+    env: 'SLASH_UNKNOWN_PENALTY',
+    description: 'Penalty amount for slashing a validator for an unknown offense.',
+    ...bigintConfigHelper(DefaultSlasherConfig.slashUnknownPenalty),
+  },
+  slashUnknownMaxPenalty: {
+    env: 'SLASH_UNKNOWN_MAX_PENALTY',
+    description: 'Maximum penalty amount for slashing a validator for an unknown offense.',
+    ...bigintConfigHelper(DefaultSlasherConfig.slashUnknownMaxPenalty),
+  },
   slashProposerRoundPollingIntervalSeconds: {
     description: 'Polling interval for slashing proposer round in seconds.',
     ...numberConfigHelper(DefaultSlasherConfig.slashProposerRoundPollingIntervalSeconds),
   },
-  slasherPrivateKey: {
-    description: 'Private key used for creating slash payloads.',
-    ...secretValueConfigHelper(val => (val ? `0x${val.replace('0x', '')}` : NULL_KEY)),
+  slashOffenseExpirationRounds: {
+    description: 'Number of rounds after which pending offenses expire.',
+    ...numberConfigHelper(DefaultSlasherConfig.slashOffenseExpirationRounds),
+  },
+  slashMaxPayloadSize: {
+    description: 'Maximum number of offenses to include in a single slash payload.',
+    ...numberConfigHelper(DefaultSlasherConfig.slashMaxPayloadSize),
+  },
+  slashGracePeriodL2Slots: {
+    description: 'Number of L2 slots to wait before considering a slashing offense expired.',
+    env: 'SLASH_GRACE_PERIOD_L2_SLOTS',
+    ...numberConfigHelper(DefaultSlasherConfig.slashGracePeriodL2Slots),
   },
 };

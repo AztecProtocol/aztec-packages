@@ -293,6 +293,11 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     )
     .addOption(l1ChainIdOption)
     .option('--attester <address>', 'ethereum address of the attester', parseEthereumAddress)
+    .option(
+      '--bls-secret-key <string>',
+      'The BN254 scalar field element used as a secret key for BLS signatures. Will be associated with the attester address.',
+      parseBigint,
+    )
     .option('--staking-asset-handler <address>', 'ethereum address of the staking asset handler', parseEthereumAddress)
     .option('--proof <buffer>', 'The proof to use for the attestation', arg =>
       Buffer.from(withoutHexPrefix(arg), 'hex'),
@@ -313,6 +318,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
         stakingAssetHandlerAddress: options.stakingAssetHandler,
         merkleProof: options.merkleProof,
         proofParams: options.proof,
+        blsSecretKey: options.blsSecretKey,
         log,
         debugLogger,
       });
@@ -430,35 +436,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
         log,
         debugLogger,
       });
-    });
-
-  program
-    .command('deploy-l1-verifier')
-    .description('Deploys the rollup verifier contract')
-    .addOption(l1RpcUrlsOption)
-    .addOption(l1ChainIdOption)
-    .option('--l1-private-key <string>', 'The L1 private key to use for deployment', PRIVATE_KEY)
-    .option(
-      '-m, --mnemonic <string>',
-      'The mnemonic to use in deployment',
-      'test test test test test test test test test test test junk',
-    )
-    .option('-i, --mnemonic-index <number>', 'The index of the mnemonic to use in deployment', arg => parseInt(arg), 0)
-    .requiredOption('--verifier <verifier>', 'Either mock or real', 'real')
-    .action(async options => {
-      const { deployMockVerifier, deployUltraHonkVerifier } = await import('./deploy_l1_verifier.js');
-      if (options.verifier === 'mock') {
-        await deployMockVerifier(options.l1RpcUrls, options.l1ChainId, options.l1PrivateKey, options.mnemonic, log);
-      } else {
-        await deployUltraHonkVerifier(
-          options.l1RpcUrls,
-          options.l1ChainId,
-          options.l1PrivateKey,
-          options.mnemonic,
-          options.mnemonicIndex,
-          log,
-        );
-      }
     });
 
   program

@@ -4,6 +4,7 @@
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/client_ivc_verifier/client_ivc_recursive_verifier.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include <memory>
 
 namespace bb {
@@ -19,6 +20,8 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
 
     using Builder = UltraCircuitBuilder;
     using StdlibProof = ClientIVCRecursiveVerifier::StdlibProof;
+    using HidingKernelIO = stdlib::recursion::honk::HidingKernelIO<Builder>;
+    using RollupIO = stdlib::recursion::honk::RollupIO;
 
     std::string proof_path = output_path + "/proof";
 
@@ -26,17 +29,16 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     auto proof = ClientIVC::Proof::from_file_msgpack(proof_path);
     auto vk = from_buffer<ClientIVC::VerificationKey>(read_file(vk_path));
 
-    auto builder = std::make_shared<Builder>();
+    Builder builder;
+    ClientIVCRecursiveVerifier verifier{ &builder, vk.mega };
 
-    ClientIVCRecursiveVerifier verifier{ builder, vk };
-
-    StdlibProof stdlib_proof(*builder, proof);
+    StdlibProof stdlib_proof(builder, proof);
     ClientIVCRecursiveVerifier::Output client_ivc_rec_verifier_output = verifier.verify(stdlib_proof);
 
     // The public inputs in the proof are propagated to the base rollup by making them public inputs of this circuit.
     // Exclude the public inputs of the Hiding Kernel: the pairing points are handled separately, the ecc op tables are
     // not needed after this point
-    auto num_inner_public_inputs = vk.mega->num_public_inputs - HidingKernelIO<Builder>::PUBLIC_INPUTS_SIZE;
+    auto num_inner_public_inputs = vk.mega->num_public_inputs - HidingKernelIO::PUBLIC_INPUTS_SIZE;
     for (size_t i = 0; i < num_inner_public_inputs; i++) {
         stdlib_proof.mega_proof[i].set_public();
     }
@@ -48,22 +50,21 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     inputs.set_public();
 
     // The tube only calls an IPA recursive verifier once, so we can just add this IPA proof
-    builder->ipa_proof = client_ivc_rec_verifier_output.ipa_proof.get_value();
-    BB_ASSERT_EQ(builder->ipa_proof.size(), IPA_PROOF_LENGTH, "IPA proof should be set.");
+    builder.ipa_proof = client_ivc_rec_verifier_output.ipa_proof.get_value();
+    BB_ASSERT_EQ(builder.ipa_proof.size(), IPA_PROOF_LENGTH, "IPA proof should be set.");
 
     using Prover = UltraProver_<UltraRollupFlavor>;
     using Verifier = UltraVerifier_<UltraRollupFlavor>;
-    auto proving_key = std::make_shared<DeciderProvingKey_<UltraRollupFlavor>>(*builder);
+    auto proving_key = std::make_shared<DeciderProvingKey_<UltraRollupFlavor>>(builder);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1201): Precompute tube vk and pass it in.
     info("WARNING: computing tube vk in prove_tube, but a precomputed vk should be passed in.");
-    auto tube_verification_key =
-        std::make_shared<typename UltraRollupFlavor::VerificationKey>(proving_key->get_precomputed());
+    auto tube_verification_key = std::make_shared<UltraRollupFlavor::VerificationKey>(proving_key->get_precomputed());
 
     Prover tube_prover{ proving_key, tube_verification_key };
     auto tube_proof = tube_prover.construct_proof();
     std::string tubePublicInputsPath = output_path + "/public_inputs";
     std::string tubeProofPath = output_path + "/proof";
-    PublicInputsAndProof public_inputs_and_proof{
+    PublicInputsAndProof<HonkProof> public_inputs_and_proof{
         PublicInputsVector(tube_proof.begin(),
                            tube_proof.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs)),
         HonkProof(tube_proof.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs), tube_proof.end())
@@ -80,7 +81,7 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
 
     // Break up the tube proof into the honk portion and the ipa portion
     const size_t HONK_PROOF_LENGTH_WITHOUT_INNER_PUB_INPUTS =
-        UltraRollupFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + RollupIO::PUBLIC_INPUTS_SIZE;
+        UltraRollupFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS() + RollupIO::PUBLIC_INPUTS_SIZE;
     // The extra calculation is for the IPA proof length.
     BB_ASSERT_EQ(tube_proof.size(),
                  HONK_PROOF_LENGTH_WITHOUT_INNER_PUB_INPUTS + num_inner_public_inputs,
@@ -90,7 +91,7 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
         HONK_PROOF_LENGTH_WITHOUT_INNER_PUB_INPUTS - IPA_PROOF_LENGTH + num_inner_public_inputs);
     auto ipa_proof = HonkProof(tube_proof.begin() + honk_proof_with_pub_inputs_length, tube_proof.end());
     auto tube_honk_proof = HonkProof(tube_proof.begin(), tube_proof.end() + honk_proof_with_pub_inputs_length);
-    bool verified = tube_verifier.verify_proof(tube_honk_proof, ipa_proof);
+    bool verified = tube_verifier.template verify_proof<bb::RollupIO>(tube_honk_proof, ipa_proof).result;
     info("Tube proof verification: ", verified);
 }
 

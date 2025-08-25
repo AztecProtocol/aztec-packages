@@ -90,7 +90,7 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
     // Deploy L2 token contract
     // docs:start:deploy-l2-token
     const l2TokenContract = await TokenContract.deploy(ownerWallet, ownerAztecAddress, 'L2 Token', 'L2', 18)
-      .send()
+      .send({ from: ownerAztecAddress })
       .deployed();
     logger.info(`L2 token contract deployed at ${l2TokenContract.address}`);
     // docs:end:deploy-l2-token
@@ -124,14 +124,14 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
       l2TokenContract.address,
       l1PortalContractAddress,
     )
-      .send()
+      .send({ from: ownerAztecAddress })
       .deployed();
     logger.info(`L2 token bridge contract deployed at ${l2BridgeContract.address}`);
     // docs:end:deploy-l2-bridge
 
     // Set Bridge as a minter
     // docs:start:authorize-l2-bridge
-    await l2TokenContract.methods.set_minter(l2BridgeContract.address, true).send().wait();
+    await l2TokenContract.methods.set_minter(l2BridgeContract.address, true).send({ from: ownerAztecAddress }).wait();
     // docs:end:authorize-l2-bridge
 
     // Initialize L1 portal contract
@@ -157,17 +157,19 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
 
     // Do 2 unrleated actions because
     // https://github.com/AztecProtocol/aztec-packages/blob/7e9e2681e314145237f95f79ffdc95ad25a0e319/yarn-project/end-to-end/src/shared/cross_chain_test_harness.ts#L354-L355
-    await l2TokenContract.methods.mint_to_public(ownerAztecAddress, 0n).send().wait();
-    await l2TokenContract.methods.mint_to_public(ownerAztecAddress, 0n).send().wait();
+    await l2TokenContract.methods.mint_to_public(ownerAztecAddress, 0n).send({ from: ownerAztecAddress }).wait();
+    await l2TokenContract.methods.mint_to_public(ownerAztecAddress, 0n).send({ from: ownerAztecAddress }).wait();
     // docs:end:l1-bridge-public
 
     // Claim tokens publicly on L2
     // docs:start:claim
     await l2BridgeContract.methods
       .claim_public(ownerAztecAddress, MINT_AMOUNT, claim.claimSecret, claim.messageLeafIndex)
-      .send()
+      .send({ from: ownerAztecAddress })
       .wait();
-    const balance = await l2TokenContract.methods.balance_of_public(ownerAztecAddress).simulate();
+    const balance = await l2TokenContract.methods
+      .balance_of_public(ownerAztecAddress)
+      .simulate({ from: ownerAztecAddress });
     logger.info(`Public L2 balance of ${ownerAztecAddress} is ${balance}`);
     // docs:end:claim
 
@@ -185,7 +187,7 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
       },
       true,
     );
-    await authwit.send().wait();
+    await authwit.send({ from: ownerAztecAddress }).wait();
     // docs:end:setup-withdrawal
 
     // docs:start:l2-withdraw
@@ -197,10 +199,12 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
     );
     const l2TxReceipt = await l2BridgeContract.methods
       .exit_to_l1_public(EthAddress.fromString(ownerEthAddress), withdrawAmount, EthAddress.ZERO, authwitNonce)
-      .send()
+      .send({ from: ownerAztecAddress })
       .wait();
 
-    const newL2Balance = await l2TokenContract.methods.balance_of_public(ownerAztecAddress).simulate();
+    const newL2Balance = await l2TokenContract.methods
+      .balance_of_public(ownerAztecAddress)
+      .simulate({ from: ownerAztecAddress });
     logger.info(`New L2 balance of ${ownerAztecAddress} is ${newL2Balance}`);
     // docs:end:l2-withdraw
 

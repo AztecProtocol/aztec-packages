@@ -1,7 +1,9 @@
 use crate::{
     abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-    constants::{MEGA_VK_LENGTH_IN_FIELDS, PRIVATE_KERNEL_RESET_INDEX, PROOF_TYPE_PG},
-    proof::{traits::Verifiable, vk_data::VkData},
+    constants::{
+        MEGA_VK_LENGTH_IN_FIELDS, PRIVATE_KERNEL_RESET_INDEX, PROOF_TYPE_PG, PROOF_TYPE_PG_TAIL,
+    },
+    proof::vk_data::VkData,
     utils::arrays::find_index_hint,
 };
 
@@ -38,19 +40,18 @@ impl PrivateKernelData {
         // Note: The hash of the verification key is checked in `verify_proof_with_type` against the given vk hash.
         self.vk_data.validate_in_vk_tree(self.public_inputs.constants.vk_tree_root);
     }
-}
-
-impl Verifiable for PrivateKernelData {
-    /// Verifies the proof against the verification key and public inputs.
-    /// The vk hash is also checked in the backend to match the key.
-    fn verify(self) {
+    pub fn verify(self, is_last_inner_kernel: bool) {
+        let mut proof_type = PROOF_TYPE_PG;
         // Client IVC public inputs are linked in the backend via the databus
+        if is_last_inner_kernel {
+            proof_type = PROOF_TYPE_PG_TAIL;
+        }
         std::verify_proof_with_type(
             self.vk_data.vk.key,
             [],
             [],
             self.vk_data.vk.hash,
-            PROOF_TYPE_PG,
+            proof_type,
         );
     }
 }

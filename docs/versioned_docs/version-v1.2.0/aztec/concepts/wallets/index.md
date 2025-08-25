@@ -1,5 +1,6 @@
 ---
 title: Wallets
+description: Learn about Aztec wallets, their role in managing user accounts, and how they interface with dapps and the PXE.
 sidebar_position: 2
 tags: [accounts]
 ---

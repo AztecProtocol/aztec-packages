@@ -3,6 +3,7 @@ import { Blob } from '@aztec/blob-lib';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import type { EpochCache } from '@aztec/epoch-cache';
 import {
+  type EmpireSlashingProposerContract,
   FormattedViemError,
   type GasPrice,
   type GovernanceProposerContract,
@@ -14,35 +15,33 @@ import {
   MULTI_CALL_3_ADDRESS,
   Multicall3,
   RollupContract,
-  type SlashingProposerContract,
+  type TallySlashingProposerContract,
   type TransactionStats,
   type ViemCommitteeAttestations,
   type ViemHeader,
   type ViemStateReference,
   formatViemError,
+  tryExtractEvent,
 } from '@aztec/ethereum';
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { sumBigint } from '@aztec/foundation/bigint';
 import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
+import { bufferToHex } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, ErrorsAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { CommitteeAttestation } from '@aztec/stdlib/block';
+import { type ProposerSlashAction, encodeSlashConsensusVotes } from '@aztec/slasher';
+import { CommitteeAttestation, type ValidateBlockResult } from '@aztec/stdlib/block';
+import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import { ConsensusPayload, SignatureDomainSeparator, getHashedSignaturePayload } from '@aztec/stdlib/p2p';
 import type { L1PublishBlockStats } from '@aztec/stdlib/stats';
 import { type ProposedBlockHeader, StateReference, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
-import {
-  type TransactionReceipt,
-  type TypedDataDefinition,
-  encodeFunctionData,
-  getAbiItem,
-  toEventSelector,
-  toHex,
-} from 'viem';
+import { type TransactionReceipt, type TypedDataDefinition, encodeFunctionData, toHex } from 'viem';
 
 import type { PublisherConfig, TxSenderConfig } from './config.js';
 import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
@@ -68,13 +67,29 @@ export enum SignalType {
   SLASHING,
 }
 
-type GetSlashPayloadCallBack = (slotNumber: bigint) => Promise<EthAddress | undefined>;
-
-const Actions = ['propose', 'governance-signal', 'slashing-signal'] as const;
+const Actions = [
+  'propose',
+  'governance-signal',
+  'empire-slashing-signal',
+  'create-empire-payload',
+  'execute-empire-payload',
+  'vote-offenses',
+  'execute-slash',
+  'invalidate-by-invalid-attestation',
+  'invalidate-by-insufficient-attestations',
+] as const;
 export type Action = (typeof Actions)[number];
 
-// Sorting for actions such that proposals always go first
+// Sorting for actions such that invalidations go before proposals, and proposals go before votes
 const compareActions = (a: Action, b: Action) => Actions.indexOf(b) - Actions.indexOf(a);
+
+export type InvalidateBlockRequest = {
+  request: L1TxRequest;
+  reason: 'invalid-attestation' | 'insufficient-attestations';
+  gasUsed: bigint;
+  blockNumber: number;
+  forcePendingBlockNumber: number;
+};
 
 interface RequestWithExpiry {
   action: Action;
@@ -92,15 +107,12 @@ export class SequencerPublisher {
   private interrupted = false;
   private metrics: SequencerPublisherMetrics;
   public epochCache: EpochCache;
-  private dateProvider: DateProvider;
 
   protected governanceLog = createLogger('sequencer:publisher:governance');
-  protected governanceProposerAddress?: EthAddress;
   private governancePayload: EthAddress = EthAddress.ZERO;
 
   protected slashingLog = createLogger('sequencer:publisher:slashing');
   protected slashingProposerAddress?: EthAddress;
-  private getSlashPayload?: GetSlashPayloadCallBack = undefined;
 
   private myLastSignals: Record<SignalType, bigint> = {
     [SignalType.GOVERNANCE]: 0n,
@@ -125,7 +137,8 @@ export class SequencerPublisher {
   public l1TxUtils: L1TxUtilsWithBlobs;
   public rollupContract: RollupContract;
   public govProposerContract: GovernanceProposerContract;
-  public slashingProposerContract: SlashingProposerContract;
+  public slashingProposerContract: EmpireSlashingProposerContract | TallySlashingProposerContract;
+  public slashFactoryContract: SlashFactoryContract;
 
   protected requests: RequestWithExpiry[] = [];
 
@@ -136,15 +149,15 @@ export class SequencerPublisher {
       blobSinkClient?: BlobSinkClientInterface;
       l1TxUtils: L1TxUtilsWithBlobs;
       rollupContract: RollupContract;
-      slashingProposerContract: SlashingProposerContract;
+      slashingProposerContract: EmpireSlashingProposerContract | TallySlashingProposerContract;
       governanceProposerContract: GovernanceProposerContract;
+      slashFactoryContract: SlashFactoryContract;
       epochCache: EpochCache;
       dateProvider: DateProvider;
     },
   ) {
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
     this.epochCache = deps.epochCache;
-    this.dateProvider = deps.dateProvider;
 
     this.blobSinkClient =
       deps.blobSinkClient ?? createBlobSinkClient(config, { logger: createLogger('sequencer:blob-sink:client') });
@@ -157,14 +170,17 @@ export class SequencerPublisher {
 
     this.govProposerContract = deps.governanceProposerContract;
     this.slashingProposerContract = deps.slashingProposerContract;
+
+    this.rollupContract.listenToSlasherChanged(async () => {
+      this.log.info('Slashing proposer changed');
+      const newSlashingProposer = await this.rollupContract.getSlashingProposer();
+      this.slashingProposerContract = newSlashingProposer;
+    });
+    this.slashFactoryContract = deps.slashFactoryContract;
   }
 
   public getRollupContract(): RollupContract {
     return this.rollupContract;
-  }
-
-  public registerSlashPayloadGetter(callback: GetSlashPayloadCallBack) {
-    this.getSlashPayload = callback;
   }
 
   public getSenderAddress() {
@@ -302,12 +318,16 @@ export class SequencerPublisher {
    * @param tipArchive - The archive to check
    * @returns The slot and block number if it is possible to propose, undefined otherwise
    */
-  public canProposeAtNextEthBlock(tipArchive: Buffer, msgSender: EthAddress) {
+  public canProposeAtNextEthBlock(
+    tipArchive: Fr,
+    msgSender: EthAddress,
+    opts: { forcePendingBlockNumber?: number } = {},
+  ) {
     // TODO: #14291 - should loop through multiple keys to check if any of them can propose
     const ignoredErrors = ['SlotAlreadyInChain', 'InvalidProposer', 'InvalidArchive'];
 
     return this.rollupContract
-      .canProposeAtNextEthBlock(tipArchive, msgSender.toString(), this.ethereumSlotDuration)
+      .canProposeAtNextEthBlock(tipArchive.toBuffer(), msgSender.toString(), this.ethereumSlotDuration, opts)
       .catch(err => {
         if (err instanceof FormattedViemError && ignoredErrors.find(e => err.message.includes(e))) {
           this.log.warn(`Failed canProposeAtTime check with ${ignoredErrors.find(e => err.message.includes(e))}`, {
@@ -325,7 +345,10 @@ export class SequencerPublisher {
    *          It will throw if the block header is invalid.
    * @param header - The block header to validate
    */
-  public async validateBlockHeader(header: ProposedBlockHeader) {
+  public async validateBlockHeader(
+    header: ProposedBlockHeader,
+    opts?: { forcePendingBlockNumber: number | undefined },
+  ) {
     const flags = { ignoreDA: true, ignoreSignatures: true };
 
     const args = [
@@ -347,16 +370,104 @@ export class SequencerPublisher {
         data: encodeFunctionData({ abi: RollupAbi, functionName: 'validateHeaderWithAttestations', args }),
         from: MULTI_CALL_3_ADDRESS,
       },
-      {
-        time: ts + 1n,
-      },
+      { time: ts + 1n },
       [
-        {
-          address: MULTI_CALL_3_ADDRESS,
-          balance,
-        },
+        { address: MULTI_CALL_3_ADDRESS, balance },
+        ...(await this.rollupContract.makePendingBlockNumberOverride(opts?.forcePendingBlockNumber)),
       ],
     );
+  }
+
+  /**
+   * Simulate making a call to invalidate a block with invalid attestations. Returns undefined if no need to invalidate.
+   * @param block - The block to invalidate and the criteria for invalidation (as returned by the archiver)
+   */
+  public async simulateInvalidateBlock(
+    validationResult: ValidateBlockResult,
+  ): Promise<InvalidateBlockRequest | undefined> {
+    if (validationResult.valid) {
+      return undefined;
+    }
+
+    const { reason, block } = validationResult;
+    const blockNumber = block.block.number;
+    const logData = { ...block.block.toBlockInfo(), reason };
+
+    const currentBlockNumber = await this.rollupContract.getBlockNumber();
+    if (currentBlockNumber < validationResult.block.block.number) {
+      this.log.verbose(
+        `Skipping block ${blockNumber} invalidation since it has already been removed from the pending chain`,
+        { currentBlockNumber, ...logData },
+      );
+      return undefined;
+    }
+
+    const request = this.buildInvalidateBlockRequest(validationResult);
+    this.log.debug(`Simulating invalidate block ${blockNumber}`, logData);
+
+    try {
+      const { gasUsed } = await this.l1TxUtils.simulate(request, undefined, undefined, ErrorsAbi);
+      this.log.verbose(`Simulation for invalidate block ${blockNumber} succeeded`, { ...logData, request, gasUsed });
+
+      return { request, gasUsed, blockNumber, forcePendingBlockNumber: blockNumber - 1, reason };
+    } catch (err) {
+      const viemError = formatViemError(err);
+
+      // If the error is due to the block not being in the pending chain, and it was indeed removed by someone else,
+      // we can safely ignore it and return undefined so we go ahead with block building.
+      if (viemError.message?.includes('Rollup__BlockNotInPendingChain')) {
+        this.log.verbose(
+          `Simulation for invalidate block ${blockNumber} failed due to block not being in pending chain`,
+          { ...logData, request, error: viemError.message },
+        );
+        const latestPendingBlockNumber = await this.rollupContract.getBlockNumber();
+        if (latestPendingBlockNumber < blockNumber) {
+          this.log.verbose(`Block number ${blockNumber} has already been invalidated`, { ...logData });
+          return undefined;
+        } else {
+          this.log.error(
+            `Simulation for invalidate ${blockNumber} failed and it is still in pending chain`,
+            viemError,
+            logData,
+          );
+          throw new Error(`Failed to simulate invalidate block ${blockNumber} while it is still in pending chain`, {
+            cause: viemError,
+          });
+        }
+      }
+
+      // Otherwise, throw. We cannot build the next block if we cannot invalidate the previous one.
+      this.log.error(`Simulation for invalidate block ${blockNumber} failed`, viemError, logData);
+      throw new Error(`Failed to simulate invalidate block ${blockNumber}`, { cause: viemError });
+    }
+  }
+
+  private buildInvalidateBlockRequest(validationResult: ValidateBlockResult) {
+    if (validationResult.valid) {
+      throw new Error('Cannot invalidate a valid block');
+    }
+
+    const { block, committee, reason } = validationResult;
+    const logData = { ...block.block.toBlockInfo(), reason };
+    this.log.debug(`Simulating invalidate block ${block.block.number}`, logData);
+
+    if (reason === 'invalid-attestation') {
+      return this.rollupContract.buildInvalidateBadAttestationRequest(
+        block.block.number,
+        block.attestations.map(a => a.toViem()),
+        committee,
+        validationResult.invalidIndex,
+      );
+    } else if (reason === 'insufficient-attestations') {
+      return this.rollupContract.buildInvalidateInsufficientAttestationsRequest(
+        block.block.number,
+        block.attestations.map(a => a.toViem()),
+        committee,
+      );
+    } else {
+      const _: never = reason;
+      throw new Error(`Unknown reason for invalidation`);
+    }
   }
 
   /**
@@ -374,6 +485,7 @@ export class SequencerPublisher {
       digest: Buffer.alloc(32),
       attestations: [],
     },
+    options: { forcePendingBlockNumber?: number },
   ): Promise<bigint> {
     const ts = BigInt((await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration);
 
@@ -414,7 +526,7 @@ export class SequencerPublisher {
       blobInput,
     ] as const;
 
-    await this.simulateProposeTx(args, ts);
+    await this.simulateProposeTx(args, ts, options);
     return ts;
   }
 
@@ -447,11 +559,11 @@ export class SequencerPublisher {
     const cachedLastVote = this.myLastSignals[signalType];
     this.myLastSignals[signalType] = slotNumber;
 
-    const action = signalType === SignalType.GOVERNANCE ? 'governance-signal' : 'slashing-signal';
+    const action = signalType === SignalType.GOVERNANCE ? 'governance-signal' : 'empire-slashing-signal';
 
     const request = await base.createSignalRequestWithSignature(
       payload.toString(),
-      round,
+      slotNumber,
       this.config.l1ChainId,
       signerAddress.toString(),
       signer,
@@ -467,10 +579,11 @@ export class SequencerPublisher {
       await this.l1TxUtils.simulate(request, { time: timestamp }, [], ErrorsAbi);
       this.log.debug(`Simulation for ${action} at slot ${slotNumber} succeeded`, { request });
     } catch (err) {
-      this.log.warn(`Failed simulation for ${action} at slot ${slotNumber} (enqueuing the action anyway)`, err);
+      this.log.error(`Failed simulation for ${action} at slot ${slotNumber} (enqueuing the action anyway)`, err);
       // Yes, we enqueue the request anyway, in case there was a bug with the simulation itself
     }
 
+    // TODO(palla/slash): All votes (governance and slashing) should txTimeoutAt at the end of the slot.
     this.addRequest({
       gasConfig: { gasLimit: SequencerPublisher.VOTE_GAS_GUESS },
       action,
@@ -481,21 +594,19 @@ export class SequencerPublisher {
           result &&
           result.receipt &&
           result.receipt.status === 'success' &&
-          result.receipt.logs.find(
-            log => log.topics[0] === toEventSelector(getAbiItem({ abi: EmpireBaseAbi, name: 'SignalCast' })),
-          );
+          tryExtractEvent(result.receipt.logs, base.address.toString(), EmpireBaseAbi, 'SignalCast');
 
         const logData = { ...result, slotNumber, round, payload: payload.toString() };
         if (!success) {
           this.log.error(
-            `Voting in [${action}] for ${payload} at slot ${slotNumber} in round ${round} failed`,
+            `Signaling in [${action}] for ${payload} at slot ${slotNumber} in round ${round} failed`,
             logData,
           );
           this.myLastSignals[signalType] = cachedLastVote;
           return false;
         } else {
           this.log.info(
-            `Voting in [${action}] for ${payload} at slot ${slotNumber} in round ${round} succeeded`,
+            `Signaling in [${action}] for ${payload} at slot ${slotNumber} in round ${round} succeeded`,
             logData,
           );
           return true;
@@ -505,48 +616,150 @@ export class SequencerPublisher {
     return true;
   }
 
-  private async getSignalConfig(
-    slotNumber: bigint,
-    signalType: SignalType,
-  ): Promise<{ payload: EthAddress; base: IEmpireBase } | undefined> {
-    if (signalType === SignalType.GOVERNANCE) {
-      return { payload: this.governancePayload, base: this.govProposerContract };
-    } else if (signalType === SignalType.SLASHING) {
-      if (!this.getSlashPayload) {
-        return undefined;
-      }
-      const slashPayload = await this.getSlashPayload(slotNumber);
-      if (!slashPayload) {
-        return undefined;
-      }
-      this.log.info(`Slash payload: ${slashPayload}`);
-      return { payload: slashPayload, base: this.slashingProposerContract };
-    } else {
-      const _: never = signalType;
-      throw new Error('Unreachable: Invalid signal type');
-    }
-  }
-
   /**
-   * Enqueues a castSignal transaction to cast a signal for a given slot number.
+   * Enqueues a governance castSignal transaction to cast a signal for a given slot number.
    * @param slotNumber - The slot number to cast a signal for.
    * @param timestamp - The timestamp of the slot to cast a signal for.
-   * @param signalType - The type of signal to cast.
    * @returns True if the signal was successfully enqueued, false otherwise.
    */
-  public async enqueueCastSignal(
+  public enqueueGovernanceCastSignal(
     slotNumber: bigint,
     timestamp: bigint,
-    signalType: SignalType,
     signerAddress: EthAddress,
     signer: (msg: TypedDataDefinition) => Promise<`0x${string}`>,
   ): Promise<boolean> {
-    const signalConfig = await this.getSignalConfig(slotNumber, signalType);
-    if (!signalConfig) {
+    return this.enqueueCastSignalHelper(
+      slotNumber,
+      timestamp,
+      SignalType.GOVERNANCE,
+      this.governancePayload,
+      this.govProposerContract,
+      signerAddress,
+      signer,
+    );
+  }
+
+  /** Enqueues all slashing actions as returned by the slasher client. */
+  public async enqueueSlashingActions(
+    actions: ProposerSlashAction[],
+    slotNumber: bigint,
+    timestamp: bigint,
+    signerAddress: EthAddress,
+    signer: (msg: TypedDataDefinition) => Promise<`0x${string}`>,
+  ): Promise<boolean> {
+    if (actions.length === 0) {
+      this.log.debug(`No slashing actions to enqueue for slot ${slotNumber}`);
       return false;
     }
-    const { payload, base } = signalConfig;
-    return this.enqueueCastSignalHelper(slotNumber, timestamp, signalType, payload, base, signerAddress, signer);
+
+    for (const action of actions) {
+      switch (action.type) {
+        case 'vote-empire-payload': {
+          if (this.slashingProposerContract.type !== 'empire') {
+            this.log.error('Cannot vote for empire payload on non-empire slashing contract');
+            break;
+          }
+          this.log.debug(`Enqueuing slashing vote for payload ${action.payload} at slot ${slotNumber}`, {
+            signerAddress,
+          });
+          await this.enqueueCastSignalHelper(
+            slotNumber,
+            timestamp,
+            SignalType.SLASHING,
+            action.payload,
+            this.slashingProposerContract,
+            signerAddress,
+            signer,
+          );
+          break;
+        }
+
+        case 'create-empire-payload': {
+          this.log.debug(`Enqueuing slashing create payload at slot ${slotNumber}`, { slotNumber, signerAddress });
+          const request = this.slashFactoryContract.buildCreatePayloadRequest(action.data);
+          await this.simulateAndEnqueueRequest(
+            'create-empire-payload',
+            request,
+            (receipt: TransactionReceipt) =>
+              !!this.slashFactoryContract.tryExtractSlashPayloadCreatedEvent(receipt.logs),
+            slotNumber,
+            timestamp,
+          );
+          break;
+        }
+
+        case 'execute-empire-payload': {
+          this.log.debug(`Enqueuing slashing execute payload at slot ${slotNumber}`, { slotNumber, signerAddress });
+          if (this.slashingProposerContract.type !== 'empire') {
+            this.log.error('Cannot execute slashing payload on non-empire slashing contract');
+            return false;
+          }
+          const empireSlashingProposer = this.slashingProposerContract as EmpireSlashingProposerContract;
+          const request = empireSlashingProposer.buildExecuteRoundRequest(action.round);
+          await this.simulateAndEnqueueRequest(
+            'execute-empire-payload',
+            request,
+            (receipt: TransactionReceipt) => !!empireSlashingProposer.tryExtractPayloadSubmittedEvent(receipt.logs),
+            slotNumber,
+            timestamp,
+          );
+          break;
+        }
+
+        case 'vote-offenses': {
+          this.log.debug(`Enqueuing slashing vote for ${action.votes.length} votes at slot ${slotNumber}`, {
+            slotNumber,
+            round: action.round,
+            votesCount: action.votes.length,
+            signerAddress,
+          });
+          if (this.slashingProposerContract.type !== 'tally') {
+            this.log.error('Cannot vote for slashing offenses on non-tally slashing contract');
+            return false;
+          }
+          const tallySlashingProposer = this.slashingProposerContract as TallySlashingProposerContract;
+          const votes = bufferToHex(encodeSlashConsensusVotes(action.votes));
+          const request = await tallySlashingProposer.buildVoteRequestFromSigner(votes, slotNumber, signer);
+          await this.simulateAndEnqueueRequest(
+            'vote-offenses',
+            request,
+            (receipt: TransactionReceipt) => !!tallySlashingProposer.tryExtractVoteCastEvent(receipt.logs),
+            slotNumber,
+            timestamp,
+          );
+          break;
+        }
+
+        case 'execute-slash': {
+          this.log.debug(`Enqueuing slash execution for round ${action.round} at slot ${slotNumber}`, {
+            slotNumber,
+            round: action.round,
+            signerAddress,
+          });
+          if (this.slashingProposerContract.type !== 'tally') {
+            this.log.error('Cannot execute slashing offenses on non-tally slashing contract');
+            return false;
+          }
+          const tallySlashingProposer = this.slashingProposerContract as TallySlashingProposerContract;
+          const request = tallySlashingProposer.buildExecuteRoundRequest(action.round, action.committees);
+          await this.simulateAndEnqueueRequest(
+            'execute-slash',
+            request,
+            (receipt: TransactionReceipt) => !!tallySlashingProposer.tryExtractRoundExecutedEvent(receipt.logs),
+            slotNumber,
+            timestamp,
+          );
+          break;
+        }
+
+        default: {
+          const _: never = action;
+          throw new Error(`Unknown slashing action type: ${(action as ProposerSlashAction).type}`);
+        }
+      }
+    }
+
+    return true;
   }
 
   /**
@@ -559,7 +772,7 @@ export class SequencerPublisher {
     block: L2Block,
     attestations?: CommitteeAttestation[],
     txHashes?: TxHash[],
-    opts: { txTimeoutAt?: Date } = {},
+    opts: { txTimeoutAt?: Date; forcePendingBlockNumber?: number } = {},
   ): Promise<boolean> {
     const proposedBlockHeader = block.header.toPropose();
 
@@ -584,20 +797,94 @@ export class SequencerPublisher {
       //        This means that we can avoid the simulation issues in later checks.
       //        By simulation issue, I mean the fact that the block.timestamp is equal to the last block, not the next, which
       //        make time consistency checks break.
-      ts = await this.validateBlockForSubmission(block, {
-        digest: digest.toBuffer(),
-        attestations: attestations ?? [],
-      });
+      const attestationData = { digest: digest.toBuffer(), attestations: attestations ?? [] };
+      // TODO(palla): Check whether we're validating twice, once here and once within addProposeTx, since we call simulateProposeTx in both places.
+      ts = await this.validateBlockForSubmission(block, attestationData, opts);
     } catch (err: any) {
-      this.log.error(`Block validation failed. ${err instanceof Error ? err.message : 'No error message'}`, undefined, {
+      this.log.error(`Block validation failed. ${err instanceof Error ? err.message : 'No error message'}`, err, {
         ...block.getStats(),
         slotNumber: block.header.globalVariables.slotNumber.toBigInt(),
+        forcePendingBlockNumber: opts.forcePendingBlockNumber,
       });
       throw err;
     }
 
-    this.log.debug(`Submitting propose transaction`);
+    this.log.verbose(`Enqueuing block propose transaction`, { ...block.toBlockInfo(), ...opts });
     await this.addProposeTx(block, proposeTxArgs, opts, ts);
+    return true;
+  }
+
+  public enqueueInvalidateBlock(request: InvalidateBlockRequest | undefined, opts: { txTimeoutAt?: Date } = {}) {
+    if (!request) {
+      return;
+    }
+
+    // We issued the simulation against the rollup contract, so we need to account for the overhead of the multicall3
+    const gasLimit = this.l1TxUtils.bumpGasLimit(BigInt(Math.ceil((Number(request.gasUsed) * 64) / 63)));
+
+    const logData = { ...pick(request, 'gasUsed', 'blockNumber'), gasLimit, opts };
+    this.log.verbose(`Enqueuing invalidate block request`, logData);
+    this.addRequest({
+      action: `invalidate-by-${request.reason}`,
+      request: request.request,
+      gasConfig: { gasLimit, txTimeoutAt: opts.txTimeoutAt },
+      lastValidL2Slot: this.getCurrentL2Slot() + 2n,
+      checkSuccess: (_req, result) => {
+        const success =
+          result &&
+          result.receipt &&
+          result.receipt.status === 'success' &&
+          tryExtractEvent(result.receipt.logs, this.rollupContract.address, RollupAbi, 'BlockInvalidated');
+        if (!success) {
+          this.log.warn(`Invalidate block ${request.blockNumber} failed`, { ...result, ...logData });
+        } else {
+          this.log.info(`Invalidate block ${request.blockNumber} succeeded`, { ...result, ...logData });
+        }
+        return !!success;
+      },
+    });
+  }
+
+  private async simulateAndEnqueueRequest(
+    action: RequestWithExpiry['action'],
+    request: L1TxRequest,
+    checkSuccess: (receipt: TransactionReceipt) => boolean | undefined,
+    slotNumber: bigint,
+    timestamp: bigint,
+  ) {
+    const logData = { slotNumber, timestamp, gasLimit: undefined as bigint | undefined };
+    let gasUsed: bigint;
+
+    this.log.debug(`Simulating ${action}`, logData);
+    try {
+      ({ gasUsed } = await this.l1TxUtils.simulate(request, { time: timestamp }, [], ErrorsAbi)); // TODO(palla/slash): Check the timestamp logic
+      this.log.verbose(`Simulation for ${action} succeeded`, { ...logData, request, gasUsed });
+    } catch (err) {
+      const viemError = formatViemError(err);
+      this.log.error(`Simulation for ${action} at ${slotNumber} failed`, viemError, logData);
+      return false;
+    }
+
+    // We issued the simulation against the rollup contract, so we need to account for the overhead of the multicall3
+    const gasLimit = this.l1TxUtils.bumpGasLimit(BigInt(Math.ceil((Number(gasUsed) * 64) / 63)));
+    logData.gasLimit = gasLimit;
+
+    this.log.debug(`Enqueuing ${action}`, logData);
+    this.addRequest({
+      action,
+      request,
+      gasConfig: { gasLimit },
+      lastValidL2Slot: slotNumber,
+      checkSuccess: (_req, result) => {
+        const success = result && result.receipt && result.receipt.status === 'success' && checkSuccess(result.receipt);
+        if (!success) {
+          this.log.warn(`Action ${action} at ${slotNumber} failed`, { ...result, ...logData });
+        } else {
+          this.log.info(`Action ${action} at ${slotNumber} succeeded`, { ...result, ...logData });
+        }
+        return !!success;
+      },
+    });
     return true;
   }
 
@@ -618,7 +905,11 @@ export class SequencerPublisher {
     this.l1TxUtils.restart();
   }
 
-  private async prepareProposeTx(encodedData: L1ProcessArgs, timestamp: bigint) {
+  private async prepareProposeTx(
+    encodedData: L1ProcessArgs,
+    timestamp: bigint,
+    options: { forcePendingBlockNumber?: number },
+  ) {
     if (!this.l1TxUtils.client.account) {
       throw new Error('L1 TX utils needs to be initialized with an account wallet.');
     }
@@ -671,7 +962,7 @@ export class SequencerPublisher {
       blobInput,
     ] as const;
 
-    const { rollupData, simulationResult } = await this.simulateProposeTx(args, timestamp);
+    const { rollupData, simulationResult } = await this.simulateProposeTx(args, timestamp, options);
 
     return { args, blobEvaluationGas, rollupData, simulationResult };
   }
@@ -698,12 +989,20 @@ export class SequencerPublisher {
       `0x${string}`,
     ],
     timestamp: bigint,
+    options: { forcePendingBlockNumber?: number },
   ) {
     const rollupData = encodeFunctionData({
       abi: RollupAbi,
       functionName: 'propose',
       args,
     });
+
+    // override the pending block number if requested
+    const forcePendingBlockNumberStateDiff = (
+      options.forcePendingBlockNumber !== undefined
+        ? await this.rollupContract.makePendingBlockNumberOverride(options.forcePendingBlockNumber)
+        : []
+    ).flatMap(override => override.stateDiff ?? []);
 
     const simulationResult = await this.l1TxUtils
       .simulate(
@@ -723,10 +1022,8 @@ export class SequencerPublisher {
             address: this.rollupContract.address,
             // @note we override checkBlob to false since blobs are not part simulate()
             stateDiff: [
-              {
-                slot: toPaddedHex(RollupContract.checkBlobStorageSlot, true),
-                value: toPaddedHex(0n, true),
-              },
+              { slot: toPaddedHex(RollupContract.checkBlobStorageSlot, true), value: toPaddedHex(0n, true) },
+              ...forcePendingBlockNumberStateDiff,
             ],
           },
         ],
@@ -747,12 +1044,16 @@ export class SequencerPublisher {
   private async addProposeTx(
     block: L2Block,
     encodedData: L1ProcessArgs,
-    opts: { txTimeoutAt?: Date } = {},
+    opts: { txTimeoutAt?: Date; forcePendingBlockNumber?: number } = {},
     timestamp: bigint,
   ): Promise<void> {
     const timer = new Timer();
     const kzg = Blob.getViemKzgInstance();
-    const { rollupData, simulationResult, blobEvaluationGas } = await this.prepareProposeTx(encodedData, timestamp);
+    const { rollupData, simulationResult, blobEvaluationGas } = await this.prepareProposeTx(
+      encodedData,
+      timestamp,
+      opts,
+    );
     const startBlock = await this.l1TxUtils.getBlockNumber();
     const gasLimit = this.l1TxUtils.bumpGasLimit(
       BigInt(Math.ceil((Number(simulationResult.gasUsed) * 64) / 63)) +
@@ -778,7 +1079,7 @@ export class SequencerPublisher {
         blobs: encodedData.blobs.map(b => b.data),
         kzg,
       },
-      checkSuccess: (request, result) => {
+      checkSuccess: (_request, result) => {
         if (!result) {
           return false;
         }
@@ -786,9 +1087,7 @@ export class SequencerPublisher {
         const success =
           receipt &&
           receipt.status === 'success' &&
-          receipt.logs.find(
-            log => log.topics[0] === toEventSelector(getAbiItem({ abi: RollupAbi, name: 'L2BlockProposed' })),
-          );
+          tryExtractEvent(receipt.logs, this.rollupContract.address, RollupAbi, 'L2BlockProposed');
         if (success) {
           const endBlock = receipt.blockNumber;
           const inclusionBlocks = Number(endBlock - startBlock);
@@ -810,7 +1109,7 @@ export class SequencerPublisher {
           return true;
         } else {
           this.metrics.recordFailedTx('process');
-          this.log.error(`Rollup process tx failed. ${errorMsg ?? 'No error message'}`, undefined, {
+          this.log.error(`Rollup process tx failed: ${errorMsg ?? 'no error message'}`, undefined, {
             ...block.getStats(),
             receipt,
             txHash: receipt.transactionHash,

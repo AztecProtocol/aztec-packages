@@ -24,6 +24,7 @@ import {
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { P2PClientType } from '@aztec/stdlib/p2p';
+import type { Tx } from '@aztec/stdlib/tx';
 import {
   Attributes,
   L1Metrics,
@@ -46,7 +47,7 @@ type ProverNodeOptions = SpecificProverNodeConfig & Partial<DataStoreOptions>;
 type DataStoreOptions = Pick<DataStoreConfig, 'dataDirectory'> & Pick<ChainConfig, 'l1ChainId' | 'rollupVersion'>;
 
 /**
- * An Aztec Prover Node is a standalone process that monitors the unfinalised chain on L1 for unproven epochs,
+ * An Aztec Prover Node is a standalone process that monitors the unfinalized chain on L1 for unproven epochs,
  * fetches their txs from the p2p network or external nodes, re-executes their public functions, creates a rollup
  * proof for the epoch, and submits it to L1.
  */
@@ -144,7 +145,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   }
 
   /**
-   * Starts the prover node so it periodically checks for unproven epochs in the unfinalised chain from L1 and
+   * Starts the prover node so it periodically checks for unproven epochs in the unfinalized chain from L1 and
    * starts proving jobs for them.
    */
   async start() {
@@ -303,7 +304,8 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   @trackSpan('ProverNode.gatherEpochData', epochNumber => ({ [Attributes.EPOCH_NUMBER]: Number(epochNumber) }))
   private async gatherEpochData(epochNumber: bigint): Promise<EpochProvingJobData> {
     const blocks = await this.gatherBlocks(epochNumber);
-    const txs = await this.gatherTxs(epochNumber, blocks);
+    const txArray = await this.gatherTxs(epochNumber, blocks);
+    const txs = new Map<string, Tx>(txArray.map(tx => [tx.getTxHash().toString(), tx]));
     const l1ToL2Messages = await this.gatherMessages(epochNumber, blocks);
     const previousBlockHeader = await this.gatherPreviousBlockHeader(epochNumber, blocks[0]);
     const [lastBlock] = await this.l2BlockSource.getPublishedBlocks(blocks.at(-1)!.number, 1);

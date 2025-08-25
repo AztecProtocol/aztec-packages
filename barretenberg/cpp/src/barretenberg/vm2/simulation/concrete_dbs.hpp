@@ -86,6 +86,8 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
     void unique_note_hash_write(const FF& note_hash) override;
     bool l1_to_l2_msg_exists(uint64_t leaf_index, const FF& msg_hash) const override;
 
+    void pad_trees() override;
+
     void add_checkpoint_listener(CheckpointNotifiable& listener) { checkpoint_listeners.push_back(&listener); }
 
     LowLevelMerkleDBInterface& as_unconstrained() const override { return raw_merkle_db; }
