@@ -44,6 +44,6 @@ contract MultiAdder is IMultiAdder {
         true
       );
     }
-    STAKING.flushEntryQueue();
+    try STAKING.flushEntryQueue() {} catch {}
   }
 }
