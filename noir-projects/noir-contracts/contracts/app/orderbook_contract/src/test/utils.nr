@@ -5,6 +5,7 @@ use aztec::{
 use token::Token;
 
 // Utility function to setup two token contracts
+// TODO(#16560): Make it possible to return a contract instance directly from setup func
 pub(crate) unconstrained fn setup_tokens(
     env: &mut TestEnvironment,
     owner: AztecAddress,
