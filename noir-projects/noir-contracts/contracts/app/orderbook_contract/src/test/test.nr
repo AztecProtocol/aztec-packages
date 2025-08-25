@@ -11,8 +11,6 @@ use aztec::{
 use token::Token;
 use uint_note::uint_note::PartialUintNote;
 
-// Happy path tests
-
 #[test]
 unconstrained fn create_order_happy_path() {
     let (mut env, orderbook_address, token0_address, token1_address, owner, _) =
@@ -133,8 +131,6 @@ unconstrained fn full_flow() {
     assert_eq(is_fulfilled, true);
 }
 
-// Unhappy path tests for create_order
-
 #[test(should_fail_with = "ZERO_BID_AMOUNT")]
 unconstrained fn create_order_zero_bid_amount() {
     let (mut env, orderbook_address, token0_address, token1_address, owner, _) =
@@ -144,7 +140,6 @@ unconstrained fn create_order_zero_bid_amount() {
     let ask_amount = 2000 as u128;
     let authwit_nonce = 1;
 
-    // This should fail when creating the order due to zero bid amount
     let _order_id = env.call_private(
         owner,
         Orderbook::at(orderbook_address).create_order(
@@ -166,7 +161,6 @@ unconstrained fn create_order_zero_ask_amount() {
     let ask_amount = 0 as u128;
     let authwit_nonce = 1;
 
-    // This should fail when creating the order due to zero ask amount
     let _order_id = env.call_private(
         owner,
         Orderbook::at(orderbook_address).create_order(
@@ -189,7 +183,6 @@ unconstrained fn create_order_invalid_bid_token() {
     let ask_amount = 2000 as u128;
     let authwit_nonce = 1;
 
-    // This should fail due to invalid bid token
     let _order_id = env.call_private(
         owner,
         Orderbook::at(orderbook_address).create_order(
@@ -212,7 +205,6 @@ unconstrained fn create_order_invalid_ask_token() {
     let ask_amount = 2000 as u128;
     let authwit_nonce = 1;
 
-    // This should fail due to invalid ask token
     let _order_id = env.call_private(
         owner,
         Orderbook::at(orderbook_address).create_order(
@@ -234,7 +226,6 @@ unconstrained fn create_order_same_tokens() {
     let ask_amount = 2000 as u128;
     let authwit_nonce = 1;
 
-    // This should fail due to same bid and ask tokens
     let _order_id = env.call_private(
         owner,
         Orderbook::at(orderbook_address).create_order(
