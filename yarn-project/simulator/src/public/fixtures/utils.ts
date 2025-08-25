@@ -2,8 +2,10 @@ import {
   CONTRACT_CLASS_PUBLISHED_MAGIC_VALUE,
   CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
   CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
-  DEFAULT_GAS_LIMIT,
-  MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
+  DEFAULT_DA_GAS_LIMIT,
+  DEFAULT_L2_GAS_LIMIT,
+  DEFAULT_TEARDOWN_DA_GAS_LIMIT,
+  DEFAULT_TEARDOWN_L2_GAS_LIMIT,
   PRIVATE_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -66,7 +68,7 @@ export async function createTxForPublicCalls(
     "Can't create public tx with no enqueued calls",
   );
   // use max limits
-  const gasLimits = new Gas(DEFAULT_GAS_LIMIT, MAX_L2_GAS_PER_TX_PUBLIC_PORTION);
+  const gasLimits = new Gas(DEFAULT_DA_GAS_LIMIT, DEFAULT_L2_GAS_LIMIT);
 
   const forPublic = PartialPrivateTailPublicInputsForPublic.empty();
 
@@ -125,7 +127,9 @@ export async function createTxForPublicCalls(
   }
 
   const maxFeesPerGas = feePayer.isZero() ? GasFees.empty() : new GasFees(10, 10);
-  const teardownGasLimits = teardownCallRequest ? gasLimits : Gas.empty();
+  const teardownGasLimits = teardownCallRequest
+    ? new Gas(DEFAULT_TEARDOWN_DA_GAS_LIMIT, DEFAULT_TEARDOWN_L2_GAS_LIMIT)
+    : Gas.empty();
   const gasSettings = new GasSettings(gasLimits, teardownGasLimits, maxFeesPerGas, GasFees.empty());
   const txContext = new TxContext(Fr.zero(), Fr.zero(), gasSettings);
   const header = BlockHeader.empty();
@@ -160,7 +164,7 @@ export async function createTxForPrivateOnly(
   gasUsedByPrivate: Gas = new Gas(10, 10),
 ): Promise<Tx> {
   // use max limits
-  const gasLimits = new Gas(DEFAULT_GAS_LIMIT, MAX_L2_GAS_PER_TX_PUBLIC_PORTION);
+  const gasLimits = new Gas(DEFAULT_DA_GAS_LIMIT, DEFAULT_L2_GAS_LIMIT);
 
   const forRollup = PartialPrivateTailPublicInputsForRollup.empty();
 

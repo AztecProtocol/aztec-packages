@@ -121,4 +121,4 @@ In this tutorial, we created an account with the Aztec's [CLI Wallet](./cli_wall
 
 You can use a multitude of authentication methods, for example with RSA you could use a passport as a recovery, or even as a signer in a multisig. All of this is based on the account contract.
 
-Next step is then to [code your own account contract!](../../tutorials/codealong/contract_tutorials/write_accounts_contract.md)
+Next step is then to [code your own account contract!](../../tutorials/contract_tutorials/write_accounts_contract.md)

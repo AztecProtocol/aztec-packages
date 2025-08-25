@@ -20,7 +20,6 @@ const CPP_CONSTANTS = [
   'MEM_TAG_U64',
   'MEM_TAG_U128',
   'MEM_TAG_FF',
-  'MAX_L2_GAS_PER_TX_PUBLIC_PORTION',
   'MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS',
   'CANONICAL_AUTH_REGISTRY_ADDRESS',
   'CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS',
@@ -577,7 +576,7 @@ function evaluateExpressions(expressions: [string, string][]): { [key: string]: 
   const prelude = expressions
     .map(([name, rhs]) => {
       const guardedRhs = rhs
-        // Remove 'as u8' and 'as u32' castings
+        // Remove 'as u8', 'as u32' and 'as u64' castings
         .replaceAll(' as u8', '')
         .replaceAll(' as u32', '')
         .replaceAll(' as u64', '')

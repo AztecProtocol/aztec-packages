@@ -1,10 +1,11 @@
 import { type AztecNode, Body, L2Block, Note } from '@aztec/aztec.js';
 import {
   CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
-  DEFAULT_GAS_LIMIT,
-  DEFAULT_TEARDOWN_GAS_LIMIT,
+  DEFAULT_DA_GAS_LIMIT,
+  DEFAULT_L2_GAS_LIMIT,
+  DEFAULT_TEARDOWN_DA_GAS_LIMIT,
+  DEFAULT_TEARDOWN_L2_GAS_LIMIT,
   type L1_TO_L2_MSG_TREE_HEIGHT,
-  MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   NULLIFIER_SUBTREE_HEIGHT,
@@ -17,15 +18,12 @@ import { Fr, Point } from '@aztec/foundation/fields';
 import { type Logger, applyStringFormatting, createLogger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { KeyStore } from '@aztec/key-store';
-import type { AztecAsyncKVStore } from '@aztec/kv-store';
-import type { ProtocolContract } from '@aztec/protocol-contracts';
 import {
   AddressDataProvider,
   CapsuleDataProvider,
   NoteDataProvider,
   PXEOracleInterface,
   PrivateEventDataProvider,
-  SyncDataProvider,
   TaggingDataProvider,
   enrichPublicSimulationError,
 } from '@aztec/pxe/server';
@@ -113,15 +111,18 @@ import {
   collectNested,
 } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
-import { ForkCheckpoint, NativeWorldStateService } from '@aztec/world-state/native';
+import { ForkCheckpoint } from '@aztec/world-state/native';
 
 import { TXEStateMachine } from '../state_machine/index.js';
 import { GENESIS_TIMESTAMP } from '../txe_constants.js';
 import { TXEAccountDataProvider } from '../util/txe_account_data_provider.js';
 import { TXEContractDataProvider } from '../util/txe_contract_data_provider.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
+import { TXETypedOracle } from './txe_typed_oracle.js';
 
-export class TXE {
+export class TXE extends TXETypedOracle {
+  private logger: Logger;
+
   private blockNumber = 1;
   private timestamp = GENESIS_TIMESTAMP;
 
@@ -153,23 +154,25 @@ export class TXE {
   // Used by privateSetSenderForTags and privateGetSenderForTags oracles.
   private senderForTags?: AztecAddress;
 
-  private constructor(
-    private logger: Logger,
+  private executionCache: HashedValuesCache;
+
+  constructor(
     private keyStore: KeyStore,
     private contractDataProvider: TXEContractDataProvider,
     private noteDataProvider: NoteDataProvider,
     private capsuleDataProvider: CapsuleDataProvider,
-    private syncDataProvider: SyncDataProvider,
     private taggingDataProvider: TaggingDataProvider,
     private addressDataProvider: AddressDataProvider,
     private privateEventDataProvider: PrivateEventDataProvider,
     private accountDataProvider: TXEAccountDataProvider,
-    private executionCache: HashedValuesCache,
     private contractAddress: AztecAddress,
-    private nativeWorldStateService: NativeWorldStateService,
     private baseFork: MerkleTreeWriteOperations,
     private stateMachine: TXEStateMachine,
   ) {
+    super();
+
+    this.logger = createLogger('txe:oracle');
+
     this.noteCache = new ExecutionNoteCache(this.getTxRequestHash());
 
     this.node = stateMachine.node;
@@ -177,13 +180,15 @@ export class TXE {
     // Default msg_sender (for entrypoints) is now Fr.max_value rather than 0 addr (see #7190 & #7404)
     this.msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE);
 
+    this.executionCache = new HashedValuesCache();
+
     this.pxeOracleInterface = new PXEOracleInterface(
       this.node,
       this.keyStore,
       this.contractDataProvider,
       this.noteDataProvider,
       this.capsuleDataProvider,
-      this.syncDataProvider,
+      this.stateMachine.syncDataProvider,
       this.taggingDataProvider,
       this.addressDataProvider,
       this.privateEventDataProvider,
@@ -191,74 +196,21 @@ export class TXE {
     );
   }
 
-  static async create(store: AztecAsyncKVStore, protocolContracts: ProtocolContract[]) {
-    const logger = createLogger('txe:oracle');
-
-    const executionCache = new HashedValuesCache();
-
-    const stateMachine = await TXEStateMachine.create(store);
-    const syncDataProvider = stateMachine.syncDataProvider;
-    const nativeWorldStateService = stateMachine.synchronizer.nativeWorldStateService;
-    const baseFork = await nativeWorldStateService.fork();
-
-    const addressDataProvider = new AddressDataProvider(store);
-    const privateEventDataProvider = new PrivateEventDataProvider(store);
-    const contractDataProvider = new TXEContractDataProvider(store);
-    const noteDataProvider = await NoteDataProvider.create(store);
-    const taggingDataProvider = new TaggingDataProvider(store);
-    const capsuleDataProvider = new CapsuleDataProvider(store);
-    const keyStore = new KeyStore(store);
-
-    const accountDataProvider = new TXEAccountDataProvider(store);
-
-    // Register protocol contracts.
-    for (const { contractClass, instance, artifact } of protocolContracts) {
-      await contractDataProvider.addContractArtifact(contractClass.id, artifact);
-      await contractDataProvider.addContractInstance(instance);
-    }
-
-    return new TXE(
-      logger,
-      keyStore,
-      contractDataProvider,
-      noteDataProvider,
-      capsuleDataProvider,
-      syncDataProvider,
-      taggingDataProvider,
-      addressDataProvider,
-      privateEventDataProvider,
-      accountDataProvider,
-      executionCache,
-      await AztecAddress.random(),
-      nativeWorldStateService,
-      baseFork,
-      stateMachine,
-    );
-  }
-
   // Utils
 
-  getNativeWorldStateService() {
-    return this.nativeWorldStateService;
-  }
-
-  getBaseFork() {
-    return this.baseFork;
-  }
-
-  utilityGetChainId(): Promise<Fr> {
+  override utilityGetChainId(): Promise<Fr> {
     return Promise.resolve(new Fr(this.CHAIN_ID));
   }
 
-  utilityGetVersion(): Promise<Fr> {
+  override utilityGetVersion(): Promise<Fr> {
     return Promise.resolve(new Fr(this.ROLLUP_VERSION));
   }
 
-  getMsgSender() {
+  override getMsgSender() {
     return this.msgSender;
   }
 
-  txeSetContractAddress(contractAddress: AztecAddress) {
+  override txeSetContractAddress(contractAddress: AztecAddress) {
     this.contractAddress = contractAddress;
   }
 
@@ -267,7 +219,7 @@ export class TXE {
     this.blockNumber = blockNumber;
   }
 
-  async txeAdvanceBlocksBy(blocks: number) {
+  override async txeAdvanceBlocksBy(blocks: number) {
     this.logger.debug(`time traveling ${blocks} blocks`);
 
     for (let i = 0; i < blocks; i++) {
@@ -277,12 +229,12 @@ export class TXE {
     }
   }
 
-  txeAdvanceTimestampBy(duration: UInt64) {
+  override txeAdvanceTimestampBy(duration: UInt64) {
     this.logger.debug(`time traveling ${duration} seconds`);
     this.timestamp = this.timestamp + duration;
   }
 
-  async txeDeploy(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: Fr) {
+  override async txeDeploy(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: Fr) {
     // Emit deployment nullifier
     await this.noteCache.nullifierCreated(
       AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS),
@@ -303,7 +255,7 @@ export class TXE {
     }
   }
 
-  async txeAddAccount(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: Fr) {
+  override async txeAddAccount(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: Fr) {
     const partialAddress = await computePartialAddress(instance);
 
     this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
@@ -321,7 +273,7 @@ export class TXE {
     return completeAddress;
   }
 
-  async txeCreateAccount(secret: Fr) {
+  override async txeCreateAccount(secret: Fr) {
     const keyStore = this.getKeyStore();
     // This is a footgun !
     const completeAddress = await keyStore.addAccount(secret, secret);
@@ -358,7 +310,7 @@ export class TXE {
     await this.contractDataProvider.addContractArtifact(contractClassId, artifact);
   }
 
-  async txeGetPrivateContextInputs(
+  override async txeGetPrivateContextInputs(
     blockNumber: number | null,
     sideEffectsCounter = this.sideEffectCounter,
     isStaticCall = false,
@@ -367,8 +319,8 @@ export class TXE {
     // the block being built - 1)
     blockNumber = blockNumber ?? this.blockNumber - 1;
 
-    const snap = this.nativeWorldStateService.getSnapshot(blockNumber);
-    const previousBlockState = this.nativeWorldStateService.getSnapshot(blockNumber - 1);
+    const snap = this.stateMachine.synchronizer.nativeWorldStateService.getSnapshot(blockNumber);
+    const previousBlockState = this.stateMachine.synchronizer.nativeWorldStateService.getSnapshot(blockNumber - 1);
 
     const stateReference = await snap.getStateReference();
     const inputs = PrivateContextInputs.empty();
@@ -388,13 +340,14 @@ export class TXE {
     return inputs;
   }
 
-  async txeAddAuthWitness(address: AztecAddress, messageHash: Fr) {
+  override async txeAddAuthWitness(address: AztecAddress, messageHash: Fr) {
     const account = await this.accountDataProvider.getAccount(address);
     const privateKey = await this.keyStore.getMasterSecretKey(account.publicKeys.masterIncomingViewingPublicKey);
     const schnorr = new Schnorr();
     const signature = await schnorr.constructSignature(messageHash.toBuffer(), privateKey);
     const authWitness = new AuthWitness(messageHash, [...signature.toBuffer()]);
-    return this.authwits.set(authWitness.requestHash.toString(), authWitness);
+
+    this.authwits.set(authWitness.requestHash.toString(), authWitness);
   }
 
   async addPublicDataWrites(writes: PublicDataWrite[]) {
@@ -428,31 +381,31 @@ export class TXE {
 
   // TypedOracle
 
-  utilityGetBlockNumber() {
+  override utilityGetBlockNumber() {
     return Promise.resolve(this.blockNumber);
   }
 
-  utilityGetTimestamp() {
+  override utilityGetTimestamp() {
     return Promise.resolve(this.timestamp);
   }
 
-  txeGetLastBlockTimestamp() {
+  override txeGetLastBlockTimestamp() {
     return this.getBlockTimestamp(this.blockNumber - 1);
   }
 
-  utilityGetContractAddress() {
+  override utilityGetContractAddress() {
     return Promise.resolve(this.contractAddress);
   }
 
-  utilityGetRandomField() {
+  override utilityGetRandomField() {
     return Fr.random();
   }
 
-  privateStoreInExecutionCache(values: Fr[], hash: Fr) {
+  override privateStoreInExecutionCache(values: Fr[], hash: Fr) {
     return this.executionCache.store(values, hash);
   }
 
-  privateLoadFromExecutionCache(hash: Fr) {
+  override privateLoadFromExecutionCache(hash: Fr) {
     const preimage = this.executionCache.getPreimage(hash);
     if (!preimage) {
       throw new Error(`Preimage for hash ${hash.toString()} not found in cache`);
@@ -460,50 +413,54 @@ export class TXE {
     return Promise.resolve(preimage);
   }
 
-  utilityGetKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest> {
+  override utilityGetKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest> {
     return this.keyStore.getKeyValidationRequest(pkMHash, this.contractAddress);
   }
 
-  utilityGetContractInstance(address: AztecAddress): Promise<ContractInstance> {
+  override utilityGetContractInstance(address: AztecAddress): Promise<ContractInstance> {
     return this.pxeOracleInterface.getContractInstance(address);
   }
 
-  utilityGetMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[] | undefined> {
+  override utilityGetMembershipWitness(
+    blockNumber: number,
+    treeId: MerkleTreeId,
+    leafValue: Fr,
+  ): Promise<Fr[] | undefined> {
     return this.pxeOracleInterface.getMembershipWitness(blockNumber, treeId, leafValue);
   }
 
-  utilityGetNullifierMembershipWitness(
+  override utilityGetNullifierMembershipWitness(
     blockNumber: number,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
     return this.pxeOracleInterface.getNullifierMembershipWitness(blockNumber, nullifier);
   }
 
-  utilityGetPublicDataWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
+  override utilityGetPublicDataWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
     return this.pxeOracleInterface.getPublicDataWitness(blockNumber, leafSlot);
   }
 
-  utilityGetLowNullifierMembershipWitness(
+  override utilityGetLowNullifierMembershipWitness(
     blockNumber: number,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
     return this.pxeOracleInterface.getLowNullifierMembershipWitness(blockNumber, nullifier);
   }
 
-  utilityGetBlockHeader(blockNumber: number): Promise<BlockHeader | undefined> {
+  override utilityGetBlockHeader(blockNumber: number): Promise<BlockHeader | undefined> {
     return this.stateMachine.archiver.getBlockHeader(blockNumber);
   }
 
-  utilityGetCompleteAddress(account: AztecAddress) {
+  override utilityGetCompleteAddress(account: AztecAddress) {
     return Promise.resolve(this.accountDataProvider.getAccount(account));
   }
 
-  utilityGetAuthWitness(messageHash: Fr) {
+  override utilityGetAuthWitness(messageHash: Fr) {
     const authwit = this.authwits.get(messageHash.toString());
     return Promise.resolve(authwit?.witness);
   }
 
-  async utilityGetNotes(
+  override async utilityGetNotes(
     storageSlot: Fr,
     numSelects: number,
     selectByIndexes: number[],
@@ -556,7 +513,13 @@ export class TXE {
     return notes;
   }
 
-  privateNotifyCreatedNote(storageSlot: Fr, _noteTypeId: NoteSelector, noteItems: Fr[], noteHash: Fr, counter: number) {
+  override privateNotifyCreatedNote(
+    storageSlot: Fr,
+    _noteTypeId: NoteSelector,
+    noteItems: Fr[],
+    noteHash: Fr,
+    counter: number,
+  ) {
     const note = new Note(noteItems);
     this.noteCache.addNewNote(
       {
@@ -572,19 +535,19 @@ export class TXE {
     this.sideEffectCounter = counter + 1;
   }
 
-  async privateNotifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, counter: number) {
+  override async privateNotifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, counter: number) {
     await this.checkNullifiersNotInTree(this.contractAddress, [innerNullifier]);
     await this.noteCache.nullifyNote(this.contractAddress, innerNullifier, noteHash);
     this.sideEffectCounter = counter + 1;
   }
 
-  async privateNotifyCreatedNullifier(innerNullifier: Fr): Promise<void> {
+  override async privateNotifyCreatedNullifier(innerNullifier: Fr): Promise<void> {
     await this.checkNullifiersNotInTree(this.contractAddress, [innerNullifier]);
     await this.noteCache.nullifierCreated(this.contractAddress, innerNullifier);
   }
 
-  async utilityCheckNullifierExists(innerNullifier: Fr): Promise<boolean> {
-    const snap = this.nativeWorldStateService.getSnapshot(this.blockNumber - 1);
+  override async utilityCheckNullifierExists(innerNullifier: Fr): Promise<boolean> {
+    const snap = this.stateMachine.synchronizer.nativeWorldStateService.getSnapshot(this.blockNumber - 1);
 
     const nullifier = await siloNullifier(this.contractAddress, innerNullifier!);
     const [index] = await snap.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]);
@@ -602,7 +565,7 @@ export class TXE {
     throw new Error('Method not implemented.');
   }
 
-  async utilityStorageRead(
+  override async utilityStorageRead(
     contractAddress: AztecAddress,
     startStorageSlot: Fr,
     blockNumber: number,
@@ -612,7 +575,7 @@ export class TXE {
     if (blockNumber === this.blockNumber) {
       db = this.baseFork;
     } else {
-      db = this.nativeWorldStateService.getSnapshot(blockNumber);
+      db = this.stateMachine.synchronizer.nativeWorldStateService.getSnapshot(blockNumber);
     }
 
     const values = [];
@@ -636,7 +599,7 @@ export class TXE {
     return values;
   }
 
-  async storageWrite(startStorageSlot: Fr, values: Fr[]): Promise<Fr[]> {
+  override async storageWrite(startStorageSlot: Fr, values: Fr[]): Promise<Fr[]> {
     const publicDataWrites = await Promise.all(
       values.map(async (value, i) => {
         const storageSlot = startStorageSlot.add(new Fr(i));
@@ -767,7 +730,11 @@ export class TXE {
     throw new Error('Method not implemented.');
   }
 
-  async simulateUtilityFunction(targetContractAddress: AztecAddress, functionSelector: FunctionSelector, argsHash: Fr) {
+  override async simulateUtilityFunction(
+    targetContractAddress: AztecAddress,
+    functionSelector: FunctionSelector,
+    argsHash: Fr,
+  ) {
     const artifact = await this.contractDataProvider.getFunctionArtifact(targetContractAddress, functionSelector);
     if (!artifact) {
       throw new Error(`Cannot call ${functionSelector} as there is artifact found at ${targetContractAddress}.`);
@@ -851,22 +818,25 @@ export class TXE {
     return await this.contractDataProvider.getDebugFunctionName(address, selector);
   }
 
-  utilityDebugLog(message: string, fields: Fr[]): void {
+  override utilityDebugLog(message: string, fields: Fr[]): void {
     this.logger.verbose(`${applyStringFormatting(message, fields)}`, { module: `${this.logger.module}:debug_log` });
   }
 
-  async privateIncrementAppTaggingSecretIndexAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<void> {
+  override async privateIncrementAppTaggingSecretIndexAsSender(
+    sender: AztecAddress,
+    recipient: AztecAddress,
+  ): Promise<void> {
     await this.pxeOracleInterface.incrementAppTaggingSecretIndexAsSender(this.contractAddress, sender, recipient);
   }
 
-  async utilityGetIndexedTaggingSecretAsSender(
+  override async utilityGetIndexedTaggingSecretAsSender(
     sender: AztecAddress,
     recipient: AztecAddress,
   ): Promise<IndexedTaggingSecret> {
     return await this.pxeOracleInterface.getIndexedTaggingSecretAsSender(this.contractAddress, sender, recipient);
   }
 
-  async utilityFetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr) {
+  override async utilityFetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr) {
     await this.pxeOracleInterface.syncTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot);
 
     await this.pxeOracleInterface.removeNullifiedNotes(this.contractAddress);
@@ -874,7 +844,7 @@ export class TXE {
     return Promise.resolve();
   }
 
-  public async utilityValidateEnqueuedNotesAndEvents(
+  public override async utilityValidateEnqueuedNotesAndEvents(
     contractAddress: AztecAddress,
     noteValidationRequestsArrayBaseSlot: Fr,
     eventValidationRequestsArrayBaseSlot: Fr,
@@ -886,7 +856,7 @@ export class TXE {
     );
   }
 
-  async utilityBulkRetrieveLogs(
+  override async utilityBulkRetrieveLogs(
     contractAddress: AztecAddress,
     logRetrievalRequestsArrayBaseSlot: Fr,
     logRetrievalResponsesArrayBaseSlot: Fr,
@@ -898,7 +868,7 @@ export class TXE {
     );
   }
 
-  async avmOpcodeNullifierExists(innerNullifier: Fr, targetAddress: AztecAddress): Promise<boolean> {
+  override async avmOpcodeNullifierExists(innerNullifier: Fr, targetAddress: AztecAddress): Promise<boolean> {
     const nullifier = await siloNullifier(targetAddress, innerNullifier!);
     const db = this.baseFork;
 
@@ -908,7 +878,7 @@ export class TXE {
     return treeIndex !== undefined || transientIndex !== undefined;
   }
 
-  async avmOpcodeEmitNullifier(nullifier: Fr) {
+  override async avmOpcodeEmitNullifier(nullifier: Fr) {
     const siloedNullifier = await siloNullifier(this.contractAddress, nullifier);
     this.addSiloedNullifiersFromPublic([siloedNullifier]);
 
@@ -916,13 +886,13 @@ export class TXE {
   }
 
   // Doesn't this need to get hashed w/ the nonce ?
-  async avmOpcodeEmitNoteHash(noteHash: Fr) {
+  override async avmOpcodeEmitNoteHash(noteHash: Fr) {
     const siloedNoteHash = await siloNoteHash(this.contractAddress, noteHash);
     this.addUniqueNoteHashesFromPublic([siloedNoteHash]);
     return Promise.resolve();
   }
 
-  async avmOpcodeStorageRead(slot: Fr) {
+  override async avmOpcodeStorageRead(slot: Fr) {
     const leafSlot = await computePublicDataTreeLeafSlot(this.contractAddress, slot);
 
     const lowLeafResult = await this.baseFork.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
@@ -938,7 +908,7 @@ export class TXE {
     return preimage.leaf.value;
   }
 
-  utilityStoreCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
+  override utilityStoreCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
@@ -946,7 +916,7 @@ export class TXE {
     return this.pxeOracleInterface.storeCapsule(this.contractAddress, slot, capsule);
   }
 
-  utilityLoadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
+  override utilityLoadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
@@ -954,7 +924,7 @@ export class TXE {
     return this.pxeOracleInterface.loadCapsule(this.contractAddress, slot);
   }
 
-  utilityDeleteCapsule(contractAddress: AztecAddress, slot: Fr): Promise<void> {
+  override utilityDeleteCapsule(contractAddress: AztecAddress, slot: Fr): Promise<void> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
@@ -962,7 +932,12 @@ export class TXE {
     return this.pxeOracleInterface.deleteCapsule(this.contractAddress, slot);
   }
 
-  utilityCopyCapsule(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
+  override utilityCopyCapsule(
+    contractAddress: AztecAddress,
+    srcSlot: Fr,
+    dstSlot: Fr,
+    numEntries: number,
+  ): Promise<void> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
@@ -970,25 +945,25 @@ export class TXE {
     return this.pxeOracleInterface.copyCapsule(this.contractAddress, srcSlot, dstSlot, numEntries);
   }
 
-  utilityAes128Decrypt(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer> {
+  override utilityAes128Decrypt(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer> {
     const aes128 = new Aes128();
     return aes128.decryptBufferCBC(ciphertext, iv, symKey);
   }
 
-  utilityGetSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
+  override utilityGetSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
     return this.pxeOracleInterface.getSharedSecret(address, ephPk);
   }
 
-  privateGetSenderForTags(): Promise<AztecAddress | undefined> {
+  override privateGetSenderForTags(): Promise<AztecAddress | undefined> {
     return Promise.resolve(this.senderForTags);
   }
 
-  privateSetSenderForTags(senderForTags: AztecAddress): Promise<void> {
+  override privateSetSenderForTags(senderForTags: AztecAddress): Promise<void> {
     this.senderForTags = senderForTags;
     return Promise.resolve();
   }
 
-  async txePrivateCallNewFlow(
+  override async txePrivateCallNewFlow(
     from: AztecAddress,
     targetContractAddress: AztecAddress = AztecAddress.zero(),
     functionSelector: FunctionSelector = FunctionSelector.empty(),
@@ -1017,9 +992,9 @@ export class TXE {
 
     const callContext = new CallContext(from, targetContractAddress, functionSelector, isStaticCall);
 
-    const gasLimits = new Gas(DEFAULT_GAS_LIMIT, MAX_L2_GAS_PER_TX_PUBLIC_PORTION);
+    const gasLimits = new Gas(DEFAULT_DA_GAS_LIMIT, DEFAULT_L2_GAS_LIMIT);
 
-    const teardownGasLimits = new Gas(DEFAULT_TEARDOWN_GAS_LIMIT, MAX_L2_GAS_PER_TX_PUBLIC_PORTION);
+    const teardownGasLimits = new Gas(DEFAULT_TEARDOWN_DA_GAS_LIMIT, DEFAULT_TEARDOWN_L2_GAS_LIMIT);
 
     const gasSettings = new GasSettings(gasLimits, teardownGasLimits, GasFees.empty(), GasFees.empty());
 
@@ -1204,7 +1179,7 @@ export class TXE {
     };
   }
 
-  async txePublicCallNewFlow(
+  override async txePublicCallNewFlow(
     from: AztecAddress,
     targetContractAddress: AztecAddress,
     calldata: Fr[],
@@ -1217,9 +1192,9 @@ export class TXE {
       )}@${targetContractAddress} isStaticCall=${isStaticCall}`,
     );
 
-    const gasLimits = new Gas(DEFAULT_GAS_LIMIT, MAX_L2_GAS_PER_TX_PUBLIC_PORTION);
+    const gasLimits = new Gas(DEFAULT_DA_GAS_LIMIT, DEFAULT_L2_GAS_LIMIT);
 
-    const teardownGasLimits = new Gas(DEFAULT_TEARDOWN_GAS_LIMIT, MAX_L2_GAS_PER_TX_PUBLIC_PORTION);
+    const teardownGasLimits = new Gas(DEFAULT_TEARDOWN_DA_GAS_LIMIT, DEFAULT_TEARDOWN_L2_GAS_LIMIT);
 
     const gasSettings = new GasSettings(gasLimits, teardownGasLimits, GasFees.empty(), GasFees.empty());
 

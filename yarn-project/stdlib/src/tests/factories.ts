@@ -77,7 +77,6 @@ import {
   AvmSequentialInsertHintPublicDataTree,
   AvmTxHint,
   RevertCode,
-  clampGasSettingsForAVM,
 } from '../avm/index.js';
 import { PublicDataHint } from '../avm/public_data_hint.js';
 import { PublicDataRead } from '../avm/public_data_read.js';
@@ -1713,7 +1712,7 @@ export async function makeBloatedProcessedTx({
       i => new PublicDataWrite(new Fr(i), new Fr(i + 10)),
       seed + 0x2000,
     );
-    avmOutput.gasSettings = clampGasSettingsForAVM(gasSettings, tx.data.gasUsed);
+    avmOutput.gasSettings = gasSettings;
 
     const avmCircuitInputs = await makeAvmCircuitInputs(seed + 0x3000, { publicInputs: avmOutput });
 
