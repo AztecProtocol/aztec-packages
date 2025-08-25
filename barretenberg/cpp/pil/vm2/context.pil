@@ -128,7 +128,7 @@ namespace execution;
 
     // The initial next_context_id = 2, in row = 1
     #[INCR_NEXT_CONTEXT_ID]
-    NOT_LAST_EXEC * (next_context_id' - (next_context_id + sel_enter_call)) = 0;
+    NOT_LAST_EXEC * (next_context_id' - (next_context_id + sel_enter_call + enqueued_call_start')) = 0;
 
     // nested_exit_call = 1 ==> context_id' = parent_id
     // sel_enter_call   = 1 ==> context_id' = next_context_id
@@ -235,12 +235,12 @@ namespace execution;
     #[PROPAGATE_RD_SIZE]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (last_child_returndata_size' - last_child_returndata_size) = 0;
 
-    // sel_exit_call       = 1 ==> last_child_id' = context_id;  <-- sel_exit_call includes error case
+    // nested_exit_call    = 1 ==> last_child_id' = context_id;  <-- sel_exit_call includes error case
     // sel_enter_call      = 1 ==> last_child_id' = 0;
     // enqueued_call_start = 1 ==> last_child_id = 0; <-- Current row is 0
     // otherwise           = 0 ==> last_child_id' = last_child_id;
     #[EXIT_CALL_LAST_CHILD_ID]
-    NOT_LAST_EXEC * sel_exit_call * (last_child_id' - context_id) = 0;
+    NOT_LAST_EXEC * nested_exit_call * (last_child_id' - context_id) = 0;
     #[ENTER_CALL_LAST_CHILD_ID]
     NOT_LAST_EXEC * sel_enter_call * last_child_id' = 0;
     #[LAST_CHILD_ID_IS_ZERO]

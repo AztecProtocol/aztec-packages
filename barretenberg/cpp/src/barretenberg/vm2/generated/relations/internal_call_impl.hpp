@@ -23,9 +23,9 @@ void internal_callImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         (in.get(C::execution_sel_execute_internal_call) + in.get(C::execution_sel_execute_internal_return)) *
             (FF(1) - in.get(C::execution_sel_error)) +
         in.get(C::execution_sel_exit_call);
-    const auto execution_PROPAGATE_CALL_ID = ((FF(1) - execution_RESET_NEXT_CALL_ID) - execution_NEW_NEXT_CALL_ID);
-    const auto execution_CONTEXT_CHANGE = ((execution_RESET_NEXT_CALL_ID + in.get(C::execution_sel_exit_call)) -
-                                           execution_RESET_NEXT_CALL_ID * in.get(C::execution_sel_exit_call));
+    const auto execution_RESET_OR_NEW_NEXT_CALL_ID = ((execution_RESET_NEXT_CALL_ID + execution_NEW_NEXT_CALL_ID) -
+                                                      execution_RESET_NEXT_CALL_ID * execution_NEW_NEXT_CALL_ID);
+    const auto execution_PROPAGATE_CALL_ID = (FF(1) - execution_RESET_OR_NEW_NEXT_CALL_ID);
 
     { // CALL_ID_STARTS_ONE
         using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -82,7 +82,7 @@ void internal_callImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     { // INCR_NEXT_INT_CALL_ID
         using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
-        auto tmp = execution_NOT_LAST_EXEC * (FF(1) - execution_CONTEXT_CHANGE) *
+        auto tmp = execution_NOT_LAST_EXEC * (FF(1) - execution_RESET_OR_NEW_NEXT_CALL_ID) *
                    (in.get(C::execution_next_internal_call_id_shift) -
                     (in.get(C::execution_next_internal_call_id) + in.get(C::execution_sel_execute_internal_call)));
         tmp *= scaling_factor;

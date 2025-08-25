@@ -19,7 +19,9 @@ namespace execution;
     // When we encounter this case, the internal call information in the next row is constrained to change (incremented, unwound, etc)
     pol NEW_NEXT_CALL_ID = (sel_execute_internal_call + sel_execute_internal_return) * (1 - sel_error) + sel_exit_call;
 
-    pol PROPAGATE_CALL_ID = 1 - RESET_NEXT_CALL_ID - NEW_NEXT_CALL_ID;
+    // This is an XOR
+    pol RESET_OR_NEW_NEXT_CALL_ID = (RESET_NEXT_CALL_ID + NEW_NEXT_CALL_ID) - (RESET_NEXT_CALL_ID * NEW_NEXT_CALL_ID);
+    pol PROPAGATE_CALL_ID = 1 - RESET_OR_NEW_NEXT_CALL_ID;
 
     // =============================
     // === Internal Call Pointer ===
@@ -57,9 +59,8 @@ namespace execution;
     #[NEXT_CALL_ID_STARTS_TWO]
     RESET_NEXT_CALL_ID * (next_internal_call_id' - 2) = 0;
     // If we encounter a sel_execute_internal_call, we increment the next next_internal_call_id, unless we are changing context
-    pol CONTEXT_CHANGE = (RESET_NEXT_CALL_ID + sel_exit_call) - (RESET_NEXT_CALL_ID * sel_exit_call) ;
     #[INCR_NEXT_INT_CALL_ID]
-    NOT_LAST_EXEC * (1 - CONTEXT_CHANGE) * (next_internal_call_id' - (next_internal_call_id + sel_execute_internal_call)) = 0;
+    NOT_LAST_EXEC * (1 - RESET_OR_NEW_NEXT_CALL_ID) * (next_internal_call_id' - (next_internal_call_id + sel_execute_internal_call)) = 0;
 
     // =============================
     // === Error Handling ====
