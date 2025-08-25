@@ -205,8 +205,9 @@ contract FlushEntryQueueTest is StakingBase {
     GSE gse = staking.getGSE();
     address bonusInstanceAddress = gse.BONUS_INSTANCE_ADDRESS();
     uint256 initialActiveAttesterCount = staking.getActiveAttesterCount();
-    uint256 initialCanonicalCount = gse.getAttestersAtTime(bonusInstanceAddress, Timestamp.wrap(block.timestamp)).length;
-    uint256 initialInstanceCount = gse.getAttestersAtTime(address(staking), Timestamp.wrap(block.timestamp)).length;
+    uint256 initialCanonicalCount =
+      getAttestersAtTime(gse, bonusInstanceAddress, Timestamp.wrap(block.timestamp)).length;
+    uint256 initialInstanceCount = getAttestersAtTime(gse, address(staking), Timestamp.wrap(block.timestamp)).length;
 
     for (uint256 i = 1; i <= _numValidators; i++) {
       bool onCanonical = i % 2 == 0;
@@ -293,7 +294,7 @@ contract FlushEntryQueueTest is StakingBase {
 
     // Check the canonical set has the proper validators
     address[] memory attestersOnCanonical =
-      gse.getAttestersAtTime(bonusInstanceAddress, Timestamp.wrap(block.timestamp));
+      getAttestersAtTime(gse, bonusInstanceAddress, Timestamp.wrap(block.timestamp));
     assertEq(
       attestersOnCanonical.length, initialCanonicalCount + onCanonicalCount, "invalid number of attesters on canonical"
     );
@@ -304,7 +305,7 @@ contract FlushEntryQueueTest is StakingBase {
     }
 
     // Check the instance set has the proper validators
-    address[] memory attestersOnInstance = gse.getAttestersAtTime(address(staking), Timestamp.wrap(block.timestamp));
+    address[] memory attestersOnInstance = getAttestersAtTime(gse, address(staking), Timestamp.wrap(block.timestamp));
     assertEq(attestersOnInstance.length, initialInstanceCount + depositCount, "invalid number of attesters on instance");
     emit log_named_uint("depositCount", depositCount);
     emit log_named_uint("onCanonicalCount", onCanonicalCount);
@@ -317,5 +318,18 @@ contract FlushEntryQueueTest is StakingBase {
         "invalid instance attester"
       );
     }
+  }
+
+  function getAttestersAtTime(GSE _gse, address _instance, Timestamp _timestamp)
+    internal
+    view
+    returns (address[] memory)
+  {
+    uint256 count = _gse.getAttesterCountAtTime(_instance, _timestamp);
+    address[] memory attesters = new address[](count);
+    for (uint256 i = 0; i < count; i++) {
+      attesters[i] = _gse.getAttesterFromIndexAtTime(_instance, i, _timestamp);
+    }
+    return attesters;
   }
 }

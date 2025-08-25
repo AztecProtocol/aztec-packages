@@ -5,6 +5,7 @@ import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { RollupStorage } from '@aztec/l1-artifacts/RollupStorage';
 import { SlasherAbi } from '@aztec/l1-artifacts/SlasherAbi';
 
+import chunk from 'lodash.chunk';
 import {
   type Account,
   type GetContractReturnType,
@@ -25,6 +26,7 @@ import type { L1TxRequest, L1TxUtils } from '../l1_tx_utils.js';
 import type { ViemClient } from '../types.js';
 import { formatViemError } from '../utils.js';
 import { EmpireSlashingProposerContract } from './empire_slashing_proposer.js';
+import { GSEContract } from './gse.js';
 import { TallySlashingProposerContract } from './tally_slashing_proposer.js';
 import { checkBlockTag } from './utils.js';
 
@@ -260,6 +262,10 @@ export class RollupContract {
 
   getOwner() {
     return this.rollup.read.owner();
+  }
+
+  getActiveAttesterCount() {
+    return this.rollup.read.getActiveAttesterCount();
   }
 
   public async getSlashingProposerAddress() {
@@ -679,8 +685,15 @@ export class RollupContract {
     return this.rollup.read.getSpecificProverRewardsForEpoch([epoch, prover]);
   }
 
-  getAttesters() {
-    return this.rollup.read.getAttesters();
+  async getAttesters() {
+    const attesterSize = await this.getActiveAttesterCount();
+    const gse = new GSEContract(this.client, await this.getGSE());
+    const ts = (await this.client.getBlock()).timestamp;
+
+    const indices = Array.from({ length: Number(attesterSize) }, (_, i) => BigInt(i));
+    const chunks = chunk(indices, 1000);
+
+    return (await Promise.all(chunks.map(chunk => gse.getAttestersFromIndicesAtTime(this.address, ts, chunk)))).flat();
   }
 
   getAttesterView(address: Hex | EthAddress) {

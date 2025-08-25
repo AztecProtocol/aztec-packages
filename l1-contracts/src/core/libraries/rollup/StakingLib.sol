@@ -450,10 +450,6 @@ library StakingLib {
     return getStorage().gse.getAttesterCountAtTime(address(this), _timestamp);
   }
 
-  function getAttestersAtTime(Timestamp _timestamp) internal view returns (address[] memory) {
-    return getStorage().gse.getAttestersAtTime(address(this), _timestamp);
-  }
-
   function getAttesterAtIndex(uint256 _index) internal view returns (address) {
     return getStorage().gse.getAttesterFromIndexAtTime(address(this), _index, Timestamp.wrap(block.timestamp));
   }

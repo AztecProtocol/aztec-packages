@@ -116,8 +116,19 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
   bytes4 NO_REVERT = bytes4(0);
   bytes4 ANY_REVERT = bytes4(0xFFFFFFFF);
 
+  function getAttesters() internal view returns (address[] memory) {
+    GSE gse = rollup.getGSE();
+    uint256 count = rollup.getActiveAttesterCount();
+    address[] memory attesters = new address[](count);
+    for (uint256 i = 0; i < count; i++) {
+      attesters[i] = gse.getAttesterFromIndexAtTime(address(rollup), i, Timestamp.wrap(block.timestamp));
+    }
+
+    return attesters;
+  }
+
   function testInitialCommitteeMatch() public setup(4, 4) progressEpochs(2) {
-    address[] memory attesters = rollup.getAttesters();
+    address[] memory attesters = getAttesters();
     address[] memory committee = rollup.getCurrentEpochCommittee();
     assertEq(rollup.getCurrentEpoch(), 2);
     assertEq(attesters.length, 4, "Invalid validator set size");
@@ -165,7 +176,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
     Epoch post = rollup.getCurrentEpoch();
 
-    uint256 validatorSetSize = rollup.getAttesters().length;
+    uint256 validatorSetSize = rollup.getActiveAttesterCount();
     uint256 targetCommitteeSize = rollup.getTargetCommitteeSize();
     uint256 expectedSize = validatorSetSize > targetCommitteeSize ? targetCommitteeSize : validatorSetSize;
 
@@ -220,7 +231,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
   function testValidatorSetLargerThanCommittee(bool _insufficientSigs) public setup(100, 48) progressEpochs(2) {
     uint256 committeeSize = rollup.getTargetCommitteeSize();
     uint256 signatureCount = committeeSize * 2 / 3 + (_insufficientSigs ? 0 : 1);
-    assertGt(rollup.getAttesters().length, committeeSize, "Not enough validators");
+    assertGt(rollup.getActiveAttesterCount(), committeeSize, "Not enough validators");
 
     ProposeTestData memory ree =
       _testBlock("mixed_block_1", NO_REVERT, signatureCount, committeeSize, TestFlagsLib.empty());
@@ -280,7 +291,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     _testBlock("mixed_block_1", NO_REVERT, 3, 4, TestFlagsLib.empty());
     _testBlock("mixed_block_2", NO_REVERT, 3, 4, TestFlagsLib.empty());
 
-    address[] memory attesters = rollup.getAttesters();
+    address[] memory attesters = getAttesters();
     uint256[] memory stakes = new uint256[](attesters.length);
     uint128[][] memory offenses = new uint128[][](attesters.length);
     uint96[] memory amounts = new uint96[](attesters.length);
