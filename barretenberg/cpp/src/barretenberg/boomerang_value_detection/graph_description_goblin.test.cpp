@@ -113,8 +113,13 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
     translator_pairing_points.P1.x.fix_witness();
     translator_pairing_points.P1.y.fix_witness();
     info("Recursive Verifier: num gates = ", builder.num_gates);
-    auto graph = cdg::StaticAnalyzer(builder, false);
-    auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
+    bool connect_variables = true;
+    auto graph = cdg::StaticAnalyzer(builder, connect_variables);
+    if (connect_variables) {
+        auto connected_components = graph.find_connected_components();
+        EXPECT_EQ(connected_components.size(), 1);
+    }
+    auto variables_in_one_gate = graph.get_variables_in_one_gate();
     EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
 

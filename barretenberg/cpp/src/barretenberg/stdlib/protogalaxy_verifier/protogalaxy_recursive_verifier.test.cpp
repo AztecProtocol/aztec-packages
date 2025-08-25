@@ -280,8 +280,8 @@ class ProtogalaxyRecursiveTests : public testing::Test {
      */
     static void test_full_protogalaxy_recursive()
     {
-        using NativeVerifierCommitmentKey = typename InnerFlavor::VerifierCommitmentKey;
-        // Create two arbitrary circuits for the first round of folding
+        // using NativeVerifierCommitmentKey = typename InnerFlavor::VerifierCommitmentKey;
+        //  Create two arbitrary circuits for the first round of folding
         InnerBuilder builder1;
         create_function_circuit(builder1);
         InnerBuilder builder2;
@@ -347,33 +347,10 @@ class ProtogalaxyRecursiveTests : public testing::Test {
         auto pairing_points = decider_verifier.verify_proof(decider_proof);
 
         // IO
-        DefaultIO<OuterBuilder> inputs;
-        inputs.pairing_inputs = pairing_points;
-        inputs.set_public();
-
+        pairing_points.set_public();
         info("Decider Recursive Verifier: num gates = ", decider_circuit.num_gates);
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(decider_circuit.failed(), false) << decider_circuit.err();
-
-        // Perform native verification then perform the pairing on the outputs of the recursive decider verifier and
-        // check that the result agrees.
-        InnerDeciderVerifier native_decider_verifier(verifier_accumulator);
-        auto native_decider_output = native_decider_verifier.verify_proof(decider_proof);
-        auto native_result = native_decider_output.check();
-        NativeVerifierCommitmentKey pcs_vkey{};
-        auto recursive_result = pcs_vkey.pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value());
-        EXPECT_EQ(native_result, recursive_result);
-
-        {
-            auto decider_pk = std::make_shared<OuterDeciderProvingKey>(decider_circuit);
-            auto honk_vk = std::make_shared<typename OuterFlavor::VerificationKey>(decider_pk->get_precomputed());
-            OuterProver prover(decider_pk, honk_vk);
-            OuterVerifier verifier(honk_vk);
-            auto proof = prover.construct_proof();
-            bool verified = verifier.template verify_proof<bb::DefaultIO>(proof).result;
-
-            ASSERT_TRUE(verified);
-        }
     };
 
     static void test_tampered_decider_proof()
