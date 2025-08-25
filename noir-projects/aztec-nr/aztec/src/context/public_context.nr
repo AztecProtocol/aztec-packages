@@ -305,7 +305,12 @@ impl PublicContext {
         // Use success_copy to determine whether the call succeeded
         let success = success_copy();
 
-        let result_data = returndata_copy(0, returndata_size());
+        let rd_size = returndata_size();
+        let mut result_data: [Field] = [];
+        if rd_size > 0 {
+            // If there is return data, copy it
+            result_data = returndata_copy(0, rd_size);
+        }
         if !success {
             // Rethrow the revert data.
             avm_revert(result_data);
@@ -350,7 +355,12 @@ impl PublicContext {
         // Use success_copy to determine whether the call succeeded
         let success = success_copy();
 
-        let result_data = returndata_copy(0, returndata_size());
+        let rd_size = returndata_size();
+        let mut result_data: [Field] = [];
+        if rd_size > 0 {
+            // If there is return data, copy it
+            result_data = returndata_copy(0, rd_size);
+        }
         if !success {
             // Rethrow the revert data.
             avm_revert(result_data);
