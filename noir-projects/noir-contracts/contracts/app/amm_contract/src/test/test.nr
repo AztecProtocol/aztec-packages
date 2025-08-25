@@ -41,13 +41,11 @@ unconstrained fn add_liquidity_twice_and_remove_liquidity_happy_path() {
     // Add liquidity from liquidity provider 2 with excess token1
     let amount0_max = initial_amount0 / 2;
 
+    // The amount of token1 that is expected to be deposited.
+    let expected_amount_1_in = initial_amount1 / 2;
     // We intentionally set the amount1_max to be higher than the liquidity ration to check that we get a refund.
     let expected_refund_amount1 = 200 as u128;
-    let amount1_max = initial_amount1 / 2 + expected_refund_amount1;
-
-    // We don't care about the mins here and we set them somewhat arbitrarily.
-    let amount0_min = amount0_max / 4;
-    let amount1_min = amount1_max / 4;
+    let amount1_max = expected_amount_1_in + expected_refund_amount1;
 
     add_liquidity(
         &mut env,
@@ -58,8 +56,8 @@ unconstrained fn add_liquidity_twice_and_remove_liquidity_happy_path() {
         liquidity_provider_2,
         amount0_max,
         amount1_max,
-        amount0_min,
-        amount1_min,
+        DEFAULT_AMOUNT_0_MIN,
+        DEFAULT_AMOUNT_1_MIN,
     );
 
     // Verify balances after adding liquidity
@@ -70,7 +68,7 @@ unconstrained fn add_liquidity_twice_and_remove_liquidity_happy_path() {
     );
     assert_eq(
         env.view_public(token1.balance_of_public(amm_address)),
-        initial_amount1 + 1000, // Only 1000 token1 used to maintain ratio
+        initial_amount1 + expected_amount_1_in,
     );
 
     // Liquidity provider 2 should have 0 token0 and the refund amount of token1
