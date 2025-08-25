@@ -13,11 +13,13 @@ branch="$2"
 base_branch="$3"
 base_sha="$4"
 
-# Get PR info including author
-pr_info=$(gh pr view "$pr_number" --json title,body,author)
+# Get PR info including author and repository information
+pr_info=$(gh pr view "$pr_number" --json title,body,author,headRepository,baseRepository)
 pr_title=$(echo "$pr_info" | jq -r '.title')
 pr_body=$(echo "$pr_info" | jq -r '.body // ""')
 pr_author=$(echo "$pr_info" | jq -r '.author.login')
+head_repo=$(echo "$pr_info" | jq -r '.headRepository.nameWithOwner')
+base_repo=$(echo "$pr_info" | jq -r '.baseRepository.nameWithOwner')
 
 # Try to get author email from the most recent non-merge commit
 author_email=$(git log --no-merges -1 --format='%ae')
@@ -77,7 +79,20 @@ commit_message="$pr_title${pr_body:+
 $pr_body}"
 git commit -m "$commit_message" --no-verify
 
-# Push (use full ref to handle case where branch doesn't exist on remote)
-git push --force origin "HEAD:refs/heads/$branch"
+# Push to the correct repository (fork or origin)
+if [[ "$head_repo" != "$base_repo" ]]; then
+  # It's a fork - need to push to the fork repository
+  echo "Detected fork: pushing to $head_repo"
+  
+  # Add the fork as a remote (assumes GITHUB_TOKEN env var is set from workflow)
+  git remote add fork "https://x-access-token:${GITHUB_TOKEN}@github.com/${head_repo}.git"
+  
+  # Push to the fork
+  git push --force fork "HEAD:refs/heads/$branch"
+else
+  # Not a fork - push to origin as before
+  echo "Not a fork: pushing to origin"
+  git push --force origin "HEAD:refs/heads/$branch"
+fi
 
 echo "Squashed PR #$pr_number!"
