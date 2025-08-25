@@ -88,7 +88,7 @@ template <typename Builder, typename T> constexpr size_t calc_num_bn254_frs()
  * @param builder
  * @param fr_vec
  * @return T
- * @todo https://github.com/AztecProtocol/barretenberg/issues/1065  optimise validate_on_curve and check points
+ * @todo https://github.com/AztecProtocol/barretenberg/issues/1065  optimize validate_on_curve and check points
  * reconstructed from the transcript
  */
 template <typename Builder, typename T> T convert_from_bn254_frs(Builder& builder, std::span<const fr<Builder>> fr_vec)
@@ -168,6 +168,7 @@ template <typename Builder, typename T> std::vector<fr<Builder>> convert_to_bn25
     } else if constexpr (IsAnyOf<T, goblin_field<Builder>>) {
         return convert_goblin_fr_to_bn254_frs(val);
     } else if constexpr (IsAnyOf<T, bn254_element<Builder>>) {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1527): Consider handling point at infinity.
         using BaseField = bn254_element<Builder>::BaseField;
         auto fr_vec_x = convert_to_bn254_frs<Builder, BaseField>(val.x);
         auto fr_vec_y = convert_to_bn254_frs<Builder, BaseField>(val.y);

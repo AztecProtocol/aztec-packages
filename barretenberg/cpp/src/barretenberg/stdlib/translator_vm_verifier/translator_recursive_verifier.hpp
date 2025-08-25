@@ -66,6 +66,6 @@ class TranslatorRecursiveVerifier {
      * the same commitments to the op queue as part of the proof.
      */
     void verify_consistency_with_final_merge(
-        const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES> merge_commitments);
+        const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES>& merge_commitments);
 };
 } // namespace bb

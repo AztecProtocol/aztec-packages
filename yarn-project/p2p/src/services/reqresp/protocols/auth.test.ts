@@ -9,7 +9,7 @@ describe('auth request', () => {
     expect(decoded.status.compressedComponentsVersion).toEqual(request.status.compressedComponentsVersion);
     expect(decoded.status.latestBlockNumber).toEqual(request.status.latestBlockNumber);
     expect(decoded.status.latestBlockHash).toEqual(request.status.latestBlockHash);
-    expect(decoded.status.finalisedBlockNumber).toEqual(request.status.finalisedBlockNumber);
+    expect(decoded.status.finalizedBlockNumber).toEqual(request.status.finalizedBlockNumber);
   });
 
   it('should encode and decode auth response', () => {
@@ -20,6 +20,6 @@ describe('auth request', () => {
     expect(decoded.status.compressedComponentsVersion).toEqual(request.status.compressedComponentsVersion);
     expect(decoded.status.latestBlockNumber).toEqual(request.status.latestBlockNumber);
     expect(decoded.status.latestBlockHash).toEqual(request.status.latestBlockHash);
-    expect(decoded.status.finalisedBlockNumber).toEqual(request.status.finalisedBlockNumber);
+    expect(decoded.status.finalizedBlockNumber).toEqual(request.status.finalizedBlockNumber);
   });
 });

@@ -47,7 +47,7 @@ type ProverNodeOptions = SpecificProverNodeConfig & Partial<DataStoreOptions>;
 type DataStoreOptions = Pick<DataStoreConfig, 'dataDirectory'> & Pick<ChainConfig, 'l1ChainId' | 'rollupVersion'>;
 
 /**
- * An Aztec Prover Node is a standalone process that monitors the unfinalised chain on L1 for unproven epochs,
+ * An Aztec Prover Node is a standalone process that monitors the unfinalized chain on L1 for unproven epochs,
  * fetches their txs from the p2p network or external nodes, re-executes their public functions, creates a rollup
  * proof for the epoch, and submits it to L1.
  */
@@ -145,7 +145,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   }
 
   /**
-   * Starts the prover node so it periodically checks for unproven epochs in the unfinalised chain from L1 and
+   * Starts the prover node so it periodically checks for unproven epochs in the unfinalized chain from L1 and
    * starts proving jobs for them.
    */
   async start() {

@@ -51,8 +51,7 @@ export function encodeSignalWithSignature(payload: Hex, signature: Signature) {
 export async function signSignalWithSig(
   signer: (msg: TypedDataDefinition) => Promise<Hex>,
   payload: Hex,
-  nonce: bigint,
-  round: bigint,
+  slot: bigint,
   instance: Hex,
   verifyingContract: Hex,
   chainId: number,
@@ -67,16 +66,14 @@ export async function signSignalWithSig(
   const types = {
     Signal: [
       { name: 'payload', type: 'address' },
-      { name: 'nonce', type: 'uint256' },
-      { name: 'round', type: 'uint256' },
+      { name: 'slot', type: 'uint256' },
       { name: 'instance', type: 'address' },
     ],
   };
 
   const message = {
     payload,
-    nonce,
-    round,
+    slot,
     instance,
   };
 

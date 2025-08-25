@@ -102,9 +102,6 @@ library ProposalLib {
     view
     returns (VoteTabulationReturn, VoteTabulationInfo)
   {
-    if (_self.config.minimumVotes == 0) {
-      return (VoteTabulationReturn.Invalid, VoteTabulationInfo.MinimumEqZero);
-    }
     if (_totalPower < _self.config.minimumVotes) {
       return (VoteTabulationReturn.Rejected, VoteTabulationInfo.TotalPowerLtMinimum);
     }

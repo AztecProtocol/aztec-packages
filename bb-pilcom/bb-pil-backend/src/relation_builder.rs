@@ -88,7 +88,13 @@ impl RelationBuilder for BBFiles {
         relations.sort();
 
         // ----------------------- Create the relation files -----------------------
-        for (relation_name, analyzed_idents) in grouped_relations.iter() {
+        // Skip generating relations for optimized relations
+        let optimized_relations = self.get_optimized_relations_file_names();
+
+        for (relation_name, analyzed_idents) in grouped_relations
+            .iter()
+            .filter(|(name, _)| !optimized_relations.contains(name))
+        {
             let IdentitiesOutput {
                 identities,
                 skippable_if,
@@ -103,7 +109,12 @@ impl RelationBuilder for BBFiles {
                 .collect_vec();
             let used_alias_defs_in_skippable = alias_expressions_in_order
                 .iter()
-                .filter(|(name, _, _)| skippable_if.as_ref().map(|id| id.identity == *name).unwrap_or(false))
+                .filter(|(name, _, _)| {
+                    skippable_if
+                        .as_ref()
+                        .map(|id| id.identity == *name)
+                        .unwrap_or(false)
+                })
                 .cloned()
                 .collect_vec();
 
@@ -116,6 +127,35 @@ impl RelationBuilder for BBFiles {
                 &used_alias_defs_in_skippable,
             );
         }
+
+        // ----------------------- Create the file including all impls -----------------------
+        let mut handlebars = Handlebars::new();
+        handlebars.register_escape_fn(|s| s.to_string()); // No escaping
+        handlebars
+            .register_template_string(
+                "relation_impls.hpp",
+                std::str::from_utf8(include_bytes!("../templates/relation_impls.hpp.hbs")).unwrap(),
+            )
+            .unwrap();
+
+        // Filter out any relation file names that are in the optimized relations list
+        let generated_relations: Vec<String> = relations
+            .iter()
+            .filter(|name| !optimized_relations.contains(name))
+            .cloned()
+            .collect();
+
+        let data = &json!({
+            "relation_names": generated_relations,
+            "optimized_relations_file_names": optimized_relations,
+        });
+        let relation_impls_hpp = handlebars.render("relation_impls.hpp", data).unwrap();
+
+        self.write_file(
+            Some(&self.relations),
+            "relations_impls.hpp",
+            &relation_impls_hpp,
+        );
 
         relations.sort();
 
@@ -179,13 +219,37 @@ impl RelationBuilder for BBFiles {
                 std::str::from_utf8(include_bytes!("../templates/relation.hpp.hbs")).unwrap(),
             )
             .unwrap();
+        handlebars
+            .register_template_string(
+                "relation_impl.hpp",
+                std::str::from_utf8(include_bytes!("../templates/relation_impl.hpp.hbs")).unwrap(),
+            )
+            .unwrap();
+        handlebars
+            .register_template_string(
+                "relation.cpp",
+                std::str::from_utf8(include_bytes!("../templates/relation.cpp.hbs")).unwrap(),
+            )
+            .unwrap();
 
         let relation_hpp = handlebars.render("relation.hpp", data).unwrap();
+        let relation_impl_hpp = handlebars.render("relation_impl.hpp", data).unwrap();
+        let relation_cpp = handlebars.render("relation.cpp", data).unwrap();
 
         self.write_file(
             Some(&self.relations),
             &format!("{}.hpp", snake_case(name)),
             &relation_hpp,
+        );
+        self.write_file(
+            Some(&self.relations),
+            &format!("{}_impl.hpp", snake_case(name)),
+            &relation_impl_hpp,
+        );
+        self.write_file(
+            Some(&self.relations),
+            &format!("{}.cpp", snake_case(name)),
+            &relation_cpp,
         );
     }
 }

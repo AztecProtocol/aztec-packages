@@ -55,8 +55,7 @@ class BoomerangGoblinRecursiveVerifierTests : public testing::Test {
         Goblin goblin_final;
         goblin_final.op_queue = goblin.op_queue;
         MegaCircuitBuilder builder{ goblin_final.op_queue };
-        builder.queue_ecc_no_op();
-        GoblinMockCircuits::construct_simple_circuit(builder);
+        GoblinMockCircuits::construct_simple_circuit(builder, /*last_circuit=*/true);
         goblin_final.op_queue->merge();
         // Subtable values and commitments - needed for (Recursive)MergeVerifier
         MergeCommitments merge_commitments;

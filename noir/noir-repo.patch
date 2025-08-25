@@ -1,4 +1,4 @@
-From e17834fb9768e2d5cfc053e4ce8c82da0586a099 Mon Sep 17 00:00:00 2001
+From 8ca3b8e97ac85629d879856f882623e73b7c39f0 Mon Sep 17 00:00:00 2001
 From: TomAFrench <tom@tomfren.ch>
 Date: Sat, 15 Mar 2025 15:36:12 +0000
 Subject: [PATCH 1/2] chore: turn on `skipLibCheck`
@@ -19,5 +19,33 @@ index 30dd2a7ee..a2712fd73 100644
    },
    "include": [
      "src/**/*.ts"
+--
+2.43.0
+
+From 16fd73b7a2fa2dd52d9a36343517bbcf76889740 Mon Sep 17 00:00:00 2001
+From: dbanks12 <david@aztec-labs.com>
+Date: Thu, 21 Aug 2025 17:02:22 +0000
+Subject: [PATCH 2/2] feat!: force inliner aggressiveness to 0 for for
+ public_dispatch contract fn
+
+---
+ compiler/noirc_driver/src/lib.rs | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/compiler/noirc_driver/src/lib.rs b/compiler/noirc_driver/src/lib.rs
+index 3c5a9a5cf..b25610fbd 100644
+--- a/compiler/noirc_driver/src/lib.rs
++++ b/compiler/noirc_driver/src/lib.rs
+@@ -645,6 +645,10 @@ fn compile_contract_inner(
+             }
+         };
+
++        if name == "public_dispatch" {
++            options.inliner_aggressiveness = 0;
++        }
++
+         let function = match compile_no_check(context, &options, function_id, None, true) {
+             Ok(function) => function,
+             Err(new_error) => {
 --
 2.43.0

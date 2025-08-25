@@ -162,7 +162,7 @@ groups:
                 type: threshold
           noDataState: NoData
           execErrState: Error
-          for: 5m
+          for: 10m
           annotations:
             summary: Pending chain in {{ ` {{ $labels.k8s_namespace_name  }} ` }} hasn't advanced in 5 minutes
           labels: {}

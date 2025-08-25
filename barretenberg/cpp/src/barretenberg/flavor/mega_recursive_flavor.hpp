@@ -47,7 +47,7 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
     using NativeFlavor = MegaFlavor;
 
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
-
+    static constexpr size_t VIRTUAL_LOG_N = MegaFlavor::VIRTUAL_LOG_N;
     // indicates when evaluating sumcheck, edges can be left as degree-1 monomials
     static constexpr bool USE_SHORT_MONOMIALS = MegaFlavor::USE_SHORT_MONOMIALS;
     // Note(luke): Eventually this may not be needed at all

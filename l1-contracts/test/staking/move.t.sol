@@ -164,8 +164,8 @@ contract MoveTest is StakingBase {
     vm.warp(Timestamp.unwrap(attesterView.exit.exitableAt));
 
     vm.expectEmit(true, true, true, true, address(newRollup));
-    emit IStakingCore.WithdrawFinalised(attesterToExit, RECIPIENT, ACTIVATION_THRESHOLD);
-    newRollup.finaliseWithdraw(attesterToExit);
+    emit IStakingCore.WithdrawFinalized(attesterToExit, RECIPIENT, ACTIVATION_THRESHOLD);
+    newRollup.finalizeWithdraw(attesterToExit);
 
     attesterView = newRollup.getAttesterView(attesterToExit);
     assertEq(attesterView.exit.recipientOrWithdrawer, address(0));

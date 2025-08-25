@@ -94,7 +94,7 @@ We can further abstract the above by making the following assumption:
 1. The kernel circuit is $2^{17}$ constraints
 2. The average number of constraints per function call is $2^{17}$ constraints, but the first function called has $2^{19}$ constraints
 
-Defining the first function to cost $2^{19}$ constraints is a conservative assumption due to the fact that the kernel circuit can support functions that have a max of $2^{19}$ constraints. We want to ensure that our benchmarks (and possible optimisations) capture the "heavy function" case and we don't just optimise for lightweight functions.
+Defining the first function to cost $2^{19}$ constraints is a conservative assumption due to the fact that the kernel circuit can support functions that have a max of $2^{19}$ constraints. We want to ensure that our benchmarks (and possible optimisations) capture the "heavy function" case and we don't just optimize for lightweight functions.
 
 #### Summary of what we are measuring to capture Prover time
 
@@ -118,7 +118,7 @@ This matters because verifying a transaction is effectively free work being perf
 
 If we reserve 10% of the block production time for verifying user proofs, at 10 transaction per seconds this gives us 0.01s per transaction. i.e. 10ms per proof.
 
-If the block producer has access to more than one physical machine that they can use to parallelise verification, we can extend the maximum tolerable verification time. For an MVP that requires 20ms to verify each proof, each block producer would require at least 2 physical machines to successfully build blocks.
+If the block producer has access to more than one physical machine that they can use to parallelize verification, we can extend the maximum tolerable verification time. For an MVP that requires 20ms to verify each proof, each block producer would require at least 2 physical machines to successfully build blocks.
 
 100tps with one physical machine would require a verification time of 1ms per proof.
 

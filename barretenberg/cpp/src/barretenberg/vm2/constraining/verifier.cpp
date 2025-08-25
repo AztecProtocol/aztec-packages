@@ -76,7 +76,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     }
 
     // Execute Sumcheck Verifier
-    std::vector<FF> padding_indicator_array(MAX_AVM_TRACE_LOG_SIZE, FF{ 1 });
+    std::vector<FF> padding_indicator_array(MAX_AVM_TRACE_LOG_SIZE, 1);
 
     // Multiply each linearly independent subrelation contribution by `alpha^i` for i = 0, ..., NUM_SUBRELATIONS - 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
@@ -96,7 +96,6 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         return false;
     }
 
-    // Public columns evaluation checks
     if (public_inputs.size() != AVM_NUM_PUBLIC_INPUT_COLUMNS) {
         vinfo("Public inputs size mismatch");
         return false;

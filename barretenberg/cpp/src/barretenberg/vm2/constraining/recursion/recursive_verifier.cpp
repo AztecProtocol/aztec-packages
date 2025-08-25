@@ -134,7 +134,6 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     SumcheckOutput<Flavor> output = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator_array);
     vinfo("verified sumcheck: ", (output.verified));
 
-    // Public columns evaluation checks
     std::array<FF, AVM_NUM_PUBLIC_INPUT_COLUMNS> claimed_evaluations = {
         output.claimed_evaluations.public_inputs_cols_0_,
         output.claimed_evaluations.public_inputs_cols_1_,

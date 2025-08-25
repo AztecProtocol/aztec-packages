@@ -15,9 +15,12 @@ import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {ExtRollupLib} from "@aztec/core/libraries/rollup/ExtRollupLib.sol";
-import {ExtRollupLib2} from "@aztec/core/libraries/rollup/ExtRollupLib2.sol";
-import {ExtRollupLib3} from "@aztec/core/libraries/rollup/ExtRollupLib3.sol";
+import {RollupOperationsExtLib} from "@aztec/core/libraries/rollup/RollupOperationsExtLib.sol";
+import {ValidatorOperationsExtLib} from "@aztec/core/libraries/rollup/ValidatorOperationsExtLib.sol";
+import {RewardDeploymentExtLib} from "@aztec/core/libraries/rollup/RewardDeploymentExtLib.sol";
+import {TallySlasherDeploymentExtLib} from "@aztec/core/libraries/rollup/TallySlasherDeploymentExtLib.sol";
+import {EmpireSlasherDeploymentExtLib} from "@aztec/core/libraries/rollup/EmpireSlasherDeploymentExtLib.sol";
+import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 import {EthValue, FeeLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {STFLib, GenesisState} from "@aztec/core/libraries/rollup/STFLib.sol";
@@ -228,21 +231,44 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     );
 
     Timestamp exitDelay = Timestamp.wrap(_config.exitDelaySeconds);
-    ISlasher slasher = ExtRollupLib3.deploySlasher(
-      address(this),
-      _config.slashingQuorum,
-      _config.slashingRoundSize,
-      _config.slashingLifetimeInRounds,
-      _config.slashingExecutionDelayInRounds,
-      _config.slashingVetoer
-    );
+
+    // Deploy slasher based on flavor
+    ISlasher slasher;
+
+    // We call one external library or another based on the slasher flavor
+    // This allows us to keep the slash flavors in separate external libraries so we do not exceed max contract size
+    if (_config.slasherFlavor == SlasherFlavor.TALLY) {
+      slasher = TallySlasherDeploymentExtLib.deployTallySlasher(
+        address(this),
+        _config.slashingVetoer,
+        _governance,
+        _config.slashingQuorum,
+        _config.slashingRoundSize,
+        _config.slashingLifetimeInRounds,
+        _config.slashingExecutionDelayInRounds,
+        _config.slashingUnit,
+        _config.targetCommitteeSize,
+        _config.aztecEpochDuration,
+        _config.slashingOffsetInRounds
+      );
+    } else {
+      slasher = EmpireSlasherDeploymentExtLib.deployEmpireSlasher(
+        address(this),
+        _config.slashingVetoer,
+        _governance,
+        _config.slashingQuorum,
+        _config.slashingRoundSize,
+        _config.slashingLifetimeInRounds,
+        _config.slashingExecutionDelayInRounds
+      );
+    }
 
     StakingLib.initialize(_stakingAsset, _gse, exitDelay, address(slasher), _config.stakingQueueConfig);
-    ExtRollupLib2.initializeValidatorSelection(_config.targetCommitteeSize);
+    ValidatorOperationsExtLib.initializeValidatorSelection(_config.targetCommitteeSize);
 
     // If no booster is specifically provided, deploy one.
     if (address(_config.rewardConfig.booster) == address(0)) {
-      _config.rewardConfig.booster = ExtRollupLib3.deployRewardBooster(_config.rewardBoostConfig);
+      _config.rewardConfig.booster = RewardDeploymentExtLib.deployRewardBooster(_config.rewardBoostConfig);
     }
 
     RewardLib.setConfig(_config.rewardConfig);
@@ -309,7 +335,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @param _slasher The address of the new slasher contract
    */
   function setSlasher(address _slasher) external override(IStakingCore) onlyOwner {
-    ExtRollupLib2.setSlasher(_slasher);
+    ValidatorOperationsExtLib.setSlasher(_slasher);
   }
 
   /**
@@ -327,7 +353,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @param _config New configuration including queue size limits and timing parameters
    */
   function updateStakingQueueConfig(StakingQueueConfig memory _config) external override(IStakingCore) onlyOwner {
-    ExtRollupLib2.updateStakingQueueConfig(_config);
+    ValidatorOperationsExtLib.updateStakingQueueConfig(_config);
   }
 
   /**
@@ -365,7 +391,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @param _proposalId The ID of the proposal to vote on
    */
   function vote(uint256 _proposalId) external override(IStakingCore) {
-    ExtRollupLib2.vote(_proposalId);
+    ValidatorOperationsExtLib.vote(_proposalId);
   }
 
   /**
@@ -386,7 +412,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     G1Point memory _proofOfPossession,
     bool _moveWithLatestRollup
   ) external override(IStakingCore) {
-    ExtRollupLib2.deposit(
+    ValidatorOperationsExtLib.deposit(
       _attester, _withdrawer, _publicKeyInG1, _publicKeyInG2, _proofOfPossession, _moveWithLatestRollup
     );
   }
@@ -397,7 +423,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    *      This helps maintain a controlled growth rate of the validator set.
    */
   function flushEntryQueue() external override(IStakingCore) {
-    ExtRollupLib2.flushEntryQueue();
+    ValidatorOperationsExtLib.flushEntryQueue();
   }
 
   /**
@@ -409,7 +435,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @return True if withdrawal was initiated, false if already initiated
    */
   function initiateWithdraw(address _attester, address _recipient) external override(IStakingCore) returns (bool) {
-    return ExtRollupLib2.initiateWithdraw(_attester, _recipient);
+    return ValidatorOperationsExtLib.initiateWithdraw(_attester, _recipient);
   }
 
   /**
@@ -417,8 +443,8 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @dev Can be called by anyone. Transfers the stake to the designated recipient.
    * @param _attester The validator address whose withdrawal to finalize
    */
-  function finaliseWithdraw(address _attester) external override(IStakingCore) {
-    ExtRollupLib2.finaliseWithdraw(_attester);
+  function finalizeWithdraw(address _attester) external override(IStakingCore) {
+    ValidatorOperationsExtLib.finalizeWithdraw(_attester);
   }
 
   /**
@@ -429,7 +455,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @return True if slashing was successful
    */
   function slash(address _attester, uint256 _amount) external override(IStakingCore) returns (bool) {
-    return ExtRollupLib2.slash(_attester, _amount);
+    return ValidatorOperationsExtLib.slash(_attester, _amount);
   }
 
   /**
@@ -439,7 +465,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    *      Pruning occurs at epoch boundaries and removes all blocks in unproven epochs.
    */
   function prune() external override(IRollupCore) {
-    ExtRollupLib.prune();
+    RollupOperationsExtLib.prune();
   }
 
   /**
@@ -450,7 +476,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @param _args Contains the epoch range, public inputs, fees, attestations, and the ZK proof
    */
   function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) external override(IRollupCore) {
-    ExtRollupLib.submitEpochRootProof(_args);
+    RollupOperationsExtLib.submitEpochRootProof(_args);
   }
 
   /**
@@ -471,7 +497,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     address[] calldata _signers,
     bytes calldata _blobInput
   ) external override(IRollupCore) {
-    ExtRollupLib.propose(_args, _attestations, _signers, _blobInput, checkBlob);
+    RollupOperationsExtLib.propose(_args, _attestations, _signers, _blobInput, checkBlob);
   }
 
   /**
@@ -489,7 +515,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     address[] memory _committee,
     uint256 _invalidIndex
   ) external override(IRollupCore) {
-    ExtRollupLib2.invalidateBadAttestation(_blockNumber, _attestations, _committee, _invalidIndex);
+    ValidatorOperationsExtLib.invalidateBadAttestation(_blockNumber, _attestations, _committee, _invalidIndex);
   }
 
   /**
@@ -505,7 +531,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     CommitteeAttestations memory _attestations,
     address[] memory _committee
   ) external override(IRollupCore) {
-    ExtRollupLib2.invalidateInsufficientAttestations(_blockNumber, _attestations, _committee);
+    ValidatorOperationsExtLib.invalidateInsufficientAttestations(_blockNumber, _attestations, _committee);
   }
 
   /**
@@ -513,7 +539,8 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @dev Can be called by anyone at the start of an epoch. Samples the committee and determines proposers for all
    *      slots in the epoch. Also stores a seed that is used for future sampling. The corresponding library
    *      functionality is automatically called when `RollupCore.propose(...)` is called (via the
-   *      `ExtRollupLib.propose(...)` -> `ProposeLib.propose(...)` -> `ValidatorSelectionLib.setupEpoch(...)`).
+   *      `RollupOperationsExtLib.propose(...)` -> `ProposeLib.propose(...)` ->
+   *      `ValidatorSelectionLib.setupEpoch(...)`).
    *
    *      If there are missed proposals then setupEpoch does not get called automatically. Since the next committee
    *      selection is computed based on the stored randao and the epoch number, failing to update the randao stored
@@ -526,7 +553,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    *      generation impractical.
    */
   function setupEpoch() external override(IValidatorSelectionCore) {
-    ExtRollupLib2.setupEpoch();
+    ValidatorOperationsExtLib.setupEpoch();
   }
 
   /**
@@ -536,7 +563,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    *      `setupEpoch` to update the randao checkpoints.
    */
   function checkpointRandao() public override(IValidatorSelectionCore) {
-    ExtRollupLib2.checkpointRandao();
+    ValidatorOperationsExtLib.checkpointRandao();
   }
 
   /**
@@ -555,7 +582,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @return The number of validators that can be added in the next flush
    */
   function getEntryQueueFlushSize() public view override(IStakingCore) returns (uint256) {
-    return ExtRollupLib2.getEntryQueueFlushSize();
+    return ValidatorOperationsExtLib.getEntryQueueFlushSize();
   }
 
   /**

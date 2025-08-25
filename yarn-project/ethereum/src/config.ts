@@ -3,6 +3,7 @@ import {
   type NetworkNames,
   bigintConfigHelper,
   booleanConfigHelper,
+  enumConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
 } from '@aztec/foundation/config';
@@ -42,6 +43,12 @@ export type L1ContractsConfig = {
   slashingExecutionDelayInRounds: number;
   /** The slashing vetoer. May blacklist a payload from being submitted. */
   slashingVetoer: EthAddress;
+  /** How many slashing rounds back we slash (ie when slashing in round N, we slash for offenses committed during epochs of round N-offset) */
+  slashingOffsetInRounds: number;
+  /** Type of slasher proposer */
+  slasherFlavor: 'empire' | 'tally';
+  /** Minimum slashing unit for consensus-based slashing (all slashes will be a 1-15x this value) */
+  slashingUnit: bigint;
   /** Governance proposing quorum */
   governanceProposerQuorum: number;
   /** Governance proposing round size */
@@ -62,6 +69,7 @@ export const DefaultL1ContractsConfig = {
   aztecProofSubmissionEpochs: 1, // you have a full epoch to submit a proof after the epoch to prove ends
   activationThreshold: BigInt(100e18),
   ejectionThreshold: BigInt(50e18),
+  slashingUnit: BigInt(5e18),
   slashingQuorum: 101,
   slashingRoundSize: 200,
   slashingLifetimeInRounds: 5,
@@ -72,6 +80,8 @@ export const DefaultL1ContractsConfig = {
   manaTarget: BigInt(1e10),
   provingCostPerMana: BigInt(100),
   exitDelaySeconds: 2 * 24 * 60 * 60,
+  slasherFlavor: 'empire' as const,
+  slashingOffsetInRounds: 2,
 } satisfies L1ContractsConfig;
 
 const LocalGovernanceConfiguration = {
@@ -175,17 +185,17 @@ export const getRewardBoostConfig = (networkName: NetworkNames) => {
 
 // Similar to the above, no need for environment variables for this.
 const LocalEntryQueueConfig = {
-  bootstrapValidatorSetSize: 0,
-  bootstrapFlushSize: 0,
-  normalFlushSizeMin: 48,
-  normalFlushSizeQuotient: 2,
+  bootstrapValidatorSetSize: 0n,
+  bootstrapFlushSize: 0n,
+  normalFlushSizeMin: 48n,
+  normalFlushSizeQuotient: 2n,
 };
 
 const TestnetEntryQueueConfig = {
-  bootstrapValidatorSetSize: 750,
-  bootstrapFlushSize: 75,
-  normalFlushSizeMin: 1,
-  normalFlushSizeQuotient: 2475,
+  bootstrapValidatorSetSize: 750n,
+  bootstrapFlushSize: 75n,
+  normalFlushSizeMin: 1n,
+  normalFlushSizeQuotient: 2475n,
 };
 
 export const getEntryQueueConfig = (networkName: NetworkNames) => {
@@ -230,6 +240,22 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     env: 'AZTEC_EJECTION_THRESHOLD',
     description: 'The minimum stake for a validator.',
     ...bigintConfigHelper(DefaultL1ContractsConfig.ejectionThreshold),
+  },
+  slashingOffsetInRounds: {
+    env: 'AZTEC_SLASHING_OFFSET_IN_ROUNDS',
+    description:
+      'How many slashing rounds back we slash (ie when slashing in round N, we slash for offenses committed during epochs of round N-offset)',
+    ...numberConfigHelper(DefaultL1ContractsConfig.slashingOffsetInRounds),
+  },
+  slasherFlavor: {
+    env: 'AZTEC_SLASHER_FLAVOR',
+    description: 'Type of slasher proposer (empire or tally)',
+    ...enumConfigHelper(['empire', 'tally'] as const, DefaultL1ContractsConfig.slasherFlavor),
+  },
+  slashingUnit: {
+    env: 'AZTEC_SLASHING_UNIT',
+    description: 'Minimum slashing unit for consensus-based slashing (all slashes will be a 1-15x this value)',
+    ...bigintConfigHelper(DefaultL1ContractsConfig.slashingUnit),
   },
   slashingQuorum: {
     env: 'AZTEC_SLASHING_QUORUM',

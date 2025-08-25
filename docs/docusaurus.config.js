@@ -314,8 +314,8 @@ const config = {
                 href: "https://forum.aztec.network",
               },
               {
-                label: "Discord",
-                href: "https://discord.com/invite/aztec",
+                label: "Noir Discord",
+                href: "https://discord.com/invite/JtqzkdeQ6G",
               },
               {
                 label: "X (Twitter)",

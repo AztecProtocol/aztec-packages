@@ -23,10 +23,9 @@ class MockKernelTest : public ::testing::Test {
 
 TEST_F(MockKernelTest, PinFoldingKernelSizes)
 {
-    const size_t NUM_CIRCUITS = 4;
+    MockCircuitProducer circuit_producer{ /*num_app_circuits=*/1 };
+    const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
     ClientIVC ivc{ NUM_CIRCUITS, { AZTEC_TRACE_STRUCTURE } };
-
-    MockCircuitProducer circuit_producer;
 
     // Construct and accumulate a series of mocked private function execution circuits
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {

@@ -48,7 +48,7 @@ describe('prover/orchestrator/multi-block', () => {
       }
 
       logger.info('Finalising epoch');
-      const epoch = await context.orchestrator.finaliseEpoch();
+      const epoch = await context.orchestrator.finalizeEpoch();
       expect(countProposedBlocks(epoch.publicInputs.proposedBlockHeaderHashes)).toEqual(numBlocks);
       expect(epoch.proof).toBeDefined();
     });
@@ -79,7 +79,7 @@ describe('prover/orchestrator/multi-block', () => {
         );
 
         logger.info('Finalising epoch');
-        const epoch = await context.orchestrator.finaliseEpoch();
+        const epoch = await context.orchestrator.finalizeEpoch();
         expect(countProposedBlocks(epoch.publicInputs.proposedBlockHeaderHashes)).toEqual(numBlocks);
         expect(epoch.proof).toBeDefined();
       },
@@ -121,7 +121,7 @@ describe('prover/orchestrator/multi-block', () => {
           );
 
           logger.info('Finalising epoch');
-          const epoch = await context.orchestrator.finaliseEpoch();
+          const epoch = await context.orchestrator.finalizeEpoch();
           const numProposedBlocks = countProposedBlocks(epoch.publicInputs.proposedBlockHeaderHashes);
           expect(numProposedBlocks).toEqual(numBlocks);
           expect(epoch.publicInputs.proposedBlockHeaderHashes.slice(0, numProposedBlocks)).toEqual(

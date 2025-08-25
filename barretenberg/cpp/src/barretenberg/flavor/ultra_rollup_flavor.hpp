@@ -15,7 +15,7 @@ class UltraRollupFlavor : public bb::UltraFlavor {
   public:
     static constexpr size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Commitment>();
     static constexpr size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<FF>();
-    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N)
+    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = VIRTUAL_LOG_N)
     {
         return UltraFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n) + IPA_PROOF_LENGTH;
     }
@@ -58,7 +58,7 @@ class UltraRollupFlavor : public bb::UltraFlavor {
         // Don't statically check for object completeness.
         using MSGPACK_NO_STATIC_CHECK = std::true_type;
 
-        // For serialising and deserialising data
+        // For serialising and deserializing data
         MSGPACK_FIELDS(log_circuit_size,
                        num_public_inputs,
                        pub_inputs_offset,

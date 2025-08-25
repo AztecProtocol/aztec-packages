@@ -463,6 +463,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     ['sha256_hash_511', /*input=*/ randomMemoryBytes(511), /*output=*/ sha256FromMemoryBytes],
     ['sha256_hash_512', /*input=*/ randomMemoryBytes(512), /*output=*/ sha256FromMemoryBytes],
     ['sha256_hash_2048', /*input=*/ randomMemoryBytes(2048), /*output=*/ sha256FromMemoryBytes],
+    ['sha256_hash_2500', /*input=*/ randomMemoryBytes(2500), /*output=*/ sha256FromMemoryBytes],
     ['keccak_hash', /*input=*/ randomMemoryBytes(10), /*output=*/ keccak256FromMemoryBytes],
     ['keccak_f1600', /*input=*/ randomMemoryUint64s(25), /*output=*/ keccakF1600FromMemoryUint64s],
     ['poseidon2_hash', /*input=*/ randomMemoryFields(10), /*output=*/ poseidon2FromMemoryFields],

@@ -97,7 +97,8 @@ AvmFlavor::PartiallyEvaluatedMultivariates::PartiallyEvaluatedMultivariates(cons
 
 AvmFlavor::ProvingKey::ProvingKey()
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1420): pass commitment keys by value
-    : commitment_key(this->circuit_size + 1){
+    ,
+    commitment_key(circuit_size + 1) {
         // The proving key's polynomials are not allocated here because they are later overwritten
         // AvmComposer::compute_witness(). We should probably refactor this flow.
     };

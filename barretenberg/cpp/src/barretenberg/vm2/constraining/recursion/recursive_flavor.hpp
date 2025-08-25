@@ -6,18 +6,19 @@
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/vm2/constraining/flavor.hpp"
+#include "barretenberg/vm2/constraining/recursion/recursive_flavor_settings.hpp"
 
 namespace bb::avm2 {
 
 class AvmRecursiveFlavor {
   public:
-    using CircuitBuilder = MegaCircuitBuilder;
-    using Curve = stdlib::bn254<CircuitBuilder>;
-    using PCS = KZG<Curve>;
-    using GroupElement = typename Curve::Element;
-    using Commitment = typename Curve::AffineElement;
-    using FF = typename Curve::ScalarField;
-    using BF = typename Curve::BaseField;
+    using CircuitBuilder = AvmRecursiveFlavorSettings::CircuitBuilder;
+    using Curve = AvmRecursiveFlavorSettings::Curve;
+    using PCS = AvmRecursiveFlavorSettings::PCS;
+    using GroupElement = AvmRecursiveFlavorSettings::GroupElement;
+    using Commitment = AvmRecursiveFlavorSettings::Commitment;
+    using FF = AvmRecursiveFlavorSettings::FF;
+    using BF = AvmRecursiveFlavorSettings::BF;
 
     using NativeFlavor = avm2::AvmFlavor;
     using NativeVerificationKey = NativeFlavor::VerificationKey;

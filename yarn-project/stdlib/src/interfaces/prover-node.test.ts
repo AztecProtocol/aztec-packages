@@ -53,7 +53,7 @@ describe('ProvingNodeApiSchema', () => {
 class MockProverNode implements ProverNodeApi {
   getWorldStateSyncStatus(): Promise<WorldStateSyncStatus> {
     return Promise.resolve({
-      finalisedBlockNumber: 1,
+      finalizedBlockNumber: 1,
       latestBlockHash: '0x',
       latestBlockNumber: 1,
       oldestHistoricBlockNumber: 1,

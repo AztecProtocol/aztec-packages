@@ -91,7 +91,7 @@ describe('prover/bb_prover/full-rollup', () => {
       }
 
       log.info(`Awaiting proofs`);
-      const epochResult = await context.orchestrator.finaliseEpoch();
+      const epochResult = await context.orchestrator.finalizeEpoch();
 
       if (prover) {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/13188): Handle the pairing point object without these hacks.
@@ -145,7 +145,7 @@ describe('prover/bb_prover/full-rollup', () => {
 
     await context.orchestrator.setBlockCompleted(context.blockNumber);
 
-    const result = await context.orchestrator.finaliseEpoch();
+    const result = await context.orchestrator.finalizeEpoch();
     if (prover) {
       await expect(prover.verifyProof('RootRollupArtifact', result.proof)).resolves.not.toThrow();
     }

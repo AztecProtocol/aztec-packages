@@ -374,12 +374,12 @@ bigfield<Builder, T> bigfield<Builder, T>::operator+(const bigfield& other) cons
     result.binary_basis_limbs[3].maximum_value =
         binary_basis_limbs[3].maximum_value + other.binary_basis_limbs[3].maximum_value;
 
-    // If both the elements are witnesses, we use an optimised addition trick that uses 4 gates instead of 5.
+    // If both the elements are witnesses, we use an optimized addition trick that uses 4 gates instead of 5.
     //
     // Naively, we would need 5 gates to add two bigfield elements: 4 gates to add the binary basis limbs and
     // 1 gate to add the prime basis limbs.
     //
-    // In the optimised version, we fit 15 witnesses into 4 gates (4 + 4 + 4 + 3 = 15), and we add the prime basis limbs
+    // In the optimized version, we fit 15 witnesses into 4 gates (4 + 4 + 4 + 3 = 15), and we add the prime basis limbs
     // and one of the binary basis limbs in the first gate.
     // gate 1: z.limb_0 = x.limb_0 + y.limb_0  &&  z.prime_limb = x.prime_limb + y.prime_limb
     // gate 2: z.limb_1 = x.limb_1 + y.limb_1

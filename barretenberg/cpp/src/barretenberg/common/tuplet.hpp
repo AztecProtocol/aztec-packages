@@ -75,8 +75,8 @@
 #define _TUPLET_TYPES_CMP_WITH(T, U)                                                                                   \
     ::std::enable_if_t<::tuplet::sfinae::detail::_all_true<::tuplet::sfinae::detail::_has_cmp<T, U>...>(), bool>
 #else
-#define _TUPLET_TYPES_EQ_WITH(T, U) ::std::enable_if_t<((::tuplet::sfinae::detail::_has_eq<T, U>)&&...), bool>
-#define _TUPLET_TYPES_CMP_WITH(T, U) ::std::enable_if_t<((::tuplet::sfinae::detail::_has_cmp<T, U>)&&...), bool>
+#define _TUPLET_TYPES_EQ_WITH(T, U) ::std::enable_if_t<((::tuplet::sfinae::detail::_has_eq<T, U>) && ...), bool>
+#define _TUPLET_TYPES_CMP_WITH(T, U) ::std::enable_if_t<((::tuplet::sfinae::detail::_has_cmp<T, U>) && ...), bool>
 #endif
 #endif
 
@@ -287,45 +287,31 @@ concept assignable_to = requires(U u, T t) { t = u; };
 
 template <class T>
 concept ordered = requires(T const& t) {
-    {
-        t <=> t
-    };
+    { t <=> t };
 };
 
 template <class T, class U>
 concept ordered_with = requires(T const& t, U const& u) {
-    {
-        t <=> u
-    };
+    { t <=> u };
 };
 template <class T>
 concept equality_comparable = requires(T const& t) {
-    {
-        t == t
-    } -> same_as<bool>;
+    { t == t } -> same_as<bool>;
 };
 
 template <class T, class U>
 concept equality_comparable_with = requires(T const& t, U const& u) {
-    {
-        t == u
-    } -> same_as<bool>;
+    { t == u } -> same_as<bool>;
 };
 
 template <class T>
 concept partial_comparable = equality_comparable<T> && requires(T const& t) {
-    {
-        t < t
-    } -> same_as<bool>;
+    { t < t } -> same_as<bool>;
 };
 template <class T, class U>
 concept partial_comparable_with = equality_comparable_with<T, U> && requires(T const& t, U const& u) {
-    {
-        t < u
-    } -> same_as<bool>;
-    {
-        t > u
-    } -> same_as<bool>;
+    { t < u } -> same_as<bool>;
+    { t > u } -> same_as<bool>;
 };
 
 #endif

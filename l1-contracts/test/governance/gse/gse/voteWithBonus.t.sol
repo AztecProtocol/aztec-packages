@@ -46,6 +46,8 @@ contract VoteWithBonusTest is WithGSE {
   {
     // it reverts
 
+    vm.assume(_attester != address(0));
+
     uint256 availablePower = _prepare(_instance, _attester);
     uint256 amount = bound(_amount, availablePower + 1, type(uint256).max);
 
@@ -64,6 +66,8 @@ contract VoteWithBonusTest is WithGSE {
   ) external givenCallerIsLatestAtProposalTime(_instance) {
     // it uses delegation power for bonus
     // it votes in governance
+
+    vm.assume(_attester != address(0));
 
     Proposal memory proposal = governance.getProposal(0);
     assertEq(proposal.summedBallot.yea, 0);

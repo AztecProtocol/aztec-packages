@@ -17,7 +17,6 @@ import { NullifierLeafPreimage } from '../trees/nullifier_leaf.js';
 import { PublicDataTreeLeafPreimage } from '../trees/public_data_leaf.js';
 import { GlobalVariables, PublicCallRequestWithCalldata, TreeSnapshots, type Tx } from '../tx/index.js';
 import { AvmCircuitPublicInputs } from './avm_circuit_public_inputs.js';
-import { clampGasSettingsForAVM } from './gas.js';
 import { serializeWithMessagePack } from './message_pack.js';
 
 ////////////////////////////////////////////////////////////////////////////
@@ -413,7 +412,7 @@ export class AvmTxHint {
     const setupCallRequests = tx.getNonRevertiblePublicCallRequestsWithCalldata();
     const appLogicCallRequests = tx.getRevertiblePublicCallRequestsWithCalldata();
     const teardownCallRequest = tx.getTeardownPublicCallRequestWithCalldata();
-    const gasSettings = clampGasSettingsForAVM(tx.data.constants.txContext.gasSettings, tx.data.gasUsed);
+    const gasSettings = tx.data.constants.txContext.gasSettings;
     const effectiveGasFees = computeEffectiveGasFees(
       tx.data.constants.historicalHeader.globalVariables.gasFees,
       gasSettings,

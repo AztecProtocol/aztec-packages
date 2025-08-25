@@ -68,7 +68,7 @@ function test_cmds {
 
 function test {
   echo_header "l1-contracts test"
-  test_cmds | filter_test_cmds | parallelise
+  test_cmds | filter_test_cmds | parallelize
 }
 
 function inspect {

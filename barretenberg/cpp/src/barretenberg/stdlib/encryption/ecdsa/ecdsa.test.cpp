@@ -36,11 +36,11 @@ TEST(stdlib_ecdsa, verify_signature)
 
     std::vector<uint8_t> rr(signature.r.begin(), signature.r.end());
     std::vector<uint8_t> ss(signature.s.begin(), signature.s.end());
-    std::vector<uint8_t> vv = { signature.v };
 
-    stdlib::ecdsa_signature<Builder> sig{ curve_::byte_array_ct(&builder, rr),
-                                          curve_::byte_array_ct(&builder, ss),
-                                          curve_::byte_array_ct(&builder, vv) };
+    stdlib::ecdsa_signature<Builder> sig{
+        curve_::byte_array_ct(&builder, rr),
+        curve_::byte_array_ct(&builder, ss),
+    };
 
     curve_::byte_array_ct message(&builder, message_string);
 
@@ -81,11 +81,8 @@ TEST(stdlib_ecdsa, verify_r1_signature)
 
     std::vector<uint8_t> rr(signature.r.begin(), signature.r.end());
     std::vector<uint8_t> ss(signature.s.begin(), signature.s.end());
-    std::vector<uint8_t> vv = { signature.v };
 
-    stdlib::ecdsa_signature<Builder> sig{ curveR1::byte_array_ct(&builder, rr),
-                                          curveR1::byte_array_ct(&builder, ss),
-                                          curveR1::byte_array_ct(&builder, vv) };
+    stdlib::ecdsa_signature<Builder> sig{ curveR1::byte_array_ct(&builder, rr), curveR1::byte_array_ct(&builder, ss) };
 
     curveR1::byte_array_ct message(&builder, message_string);
 
@@ -127,19 +124,20 @@ TEST(stdlib_ecdsa, ecdsa_verify_signature_noassert_succeed)
 
     std::vector<uint8_t> rr(signature.r.begin(), signature.r.end());
     std::vector<uint8_t> ss(signature.s.begin(), signature.s.end());
-    std::vector<uint8_t> vv = { signature.v };
 
-    stdlib::ecdsa_signature<Builder> sig{
-        curve_::byte_array_ct(&builder, rr),
-        curve_::byte_array_ct(&builder, ss),
-        curve_::byte_array_ct(&builder, vv),
-    };
+    stdlib::ecdsa_signature<Builder> sig{ curve_::byte_array_ct(&builder, rr), curve_::byte_array_ct(&builder, ss) };
 
     curve_::byte_array_ct message(&builder, message_string);
 
+    stdlib::byte_array<Builder> hashed_message =
+        static_cast<stdlib::byte_array<Builder>>(stdlib::SHA256<Builder>::hash(message));
+
     curve_::bool_ct signature_result =
-        stdlib::ecdsa_verify_signature_noassert<Builder, curve_, curve_::fq_ct, curve_::bigfr_ct, curve_::g1_bigfr_ct>(
-            message, public_key, sig);
+        stdlib::ecdsa_verify_signature_prehashed_message_noassert<Builder,
+                                                                  curve_,
+                                                                  curve_::fq_ct,
+                                                                  curve_::bigfr_ct,
+                                                                  curve_::g1_bigfr_ct>(hashed_message, public_key, sig);
 
     EXPECT_EQ(signature_result.get_value(), true);
 
@@ -178,17 +176,20 @@ TEST(stdlib_ecdsa, ecdsa_verify_signature_noassert_fail)
 
     std::vector<uint8_t> rr(signature.r.begin(), signature.r.end());
     std::vector<uint8_t> ss(signature.s.begin(), signature.s.end());
-    std::vector<uint8_t> vv = { 27 }; // Use a valid recovery id
 
-    stdlib::ecdsa_signature<Builder> sig{ curve_::byte_array_ct(&builder, rr),
-                                          curve_::byte_array_ct(&builder, ss),
-                                          curve_::byte_array_ct(&builder, vv) };
+    stdlib::ecdsa_signature<Builder> sig{ curve_::byte_array_ct(&builder, rr), curve_::byte_array_ct(&builder, ss) };
 
     curve_::byte_array_ct message(&builder, message_string);
 
+    stdlib::byte_array<Builder> hashed_message =
+        static_cast<stdlib::byte_array<Builder>>(stdlib::SHA256<Builder>::hash(message));
+
     curve_::bool_ct signature_result =
-        stdlib::ecdsa_verify_signature_noassert<Builder, curve_, curve_::fq_ct, curve_::bigfr_ct, curve_::g1_bigfr_ct>(
-            message, public_key, sig);
+        stdlib::ecdsa_verify_signature_prehashed_message_noassert<Builder,
+                                                                  curve_,
+                                                                  curve_::fq_ct,
+                                                                  curve_::bigfr_ct,
+                                                                  curve_::g1_bigfr_ct>(hashed_message, public_key, sig);
 
     EXPECT_EQ(signature_result.get_value(), false);
 

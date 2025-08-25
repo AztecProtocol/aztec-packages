@@ -174,8 +174,7 @@ void TxExecution::simulate(const Tx& tx)
             tx_context.side_effect_states = result.side_effect_states;
             // Check what to do here for GAS
             emit_public_call_request(*tx.teardownEnqueuedCall,
-                                     // TODO(dbanks12): This should be TEARDOWN.
-                                     TransactionPhase::APP_LOGIC,
+                                     TransactionPhase::TEARDOWN,
                                      fee,
                                      result.success,
                                      start_gas,

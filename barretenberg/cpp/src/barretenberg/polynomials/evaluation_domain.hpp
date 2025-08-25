@@ -28,7 +28,7 @@ template <typename FF> class EvaluationDomain {
         , generator(FF::zero())
         , generator_inverse(FF::zero())
         , four_inverse(FF::zero())
-        , roots(nullptr){};
+        , roots(nullptr) {};
 
     EvaluationDomain(const size_t domain_size, const size_t target_generator_size = 0);
     EvaluationDomain(const EvaluationDomain& other);

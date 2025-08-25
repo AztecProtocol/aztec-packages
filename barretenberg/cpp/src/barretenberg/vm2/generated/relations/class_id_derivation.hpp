@@ -27,28 +27,7 @@ template <typename FF_> class class_id_derivationImpl {
     void static accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& in,
                            [[maybe_unused]] const RelationParameters<FF>&,
-                           [[maybe_unused]] const FF& scaling_factor)
-    {
-        using C = ColumnAndShifts;
-
-        PROFILE_THIS_NAME("accumulate/class_id_derivation");
-
-        const auto constants_GENERATOR_INDEX__CONTRACT_LEAF = FF(16);
-
-        {
-            using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = in.get(C::class_id_derivation_sel) * (FF(1) - in.get(C::class_id_derivation_sel));
-            tmp *= scaling_factor;
-            std::get<0>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = in.get(C::class_id_derivation_sel) * (in.get(C::class_id_derivation_temp_constant_for_lookup) -
-                                                             constants_GENERATOR_INDEX__CONTRACT_LEAF);
-            tmp *= scaling_factor;
-            std::get<1>(evals) += typename Accumulator::View(tmp);
-        }
-    }
+                           [[maybe_unused]] const FF& scaling_factor);
 };
 
 template <typename FF> class class_id_derivation : public Relation<class_id_derivationImpl<FF>> {

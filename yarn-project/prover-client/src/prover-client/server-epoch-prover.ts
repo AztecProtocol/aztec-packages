@@ -31,8 +31,8 @@ export class ServerEpochProver implements EpochProver {
   setBlockCompleted(blockNumber: number, expectedBlockHeader?: BlockHeader): Promise<L2Block> {
     return this.orchestrator.setBlockCompleted(blockNumber, expectedBlockHeader);
   }
-  finaliseEpoch(): Promise<{ publicInputs: RootRollupPublicInputs; proof: Proof; batchedBlobInputs: BatchedBlob }> {
-    return this.orchestrator.finaliseEpoch();
+  finalizeEpoch(): Promise<{ publicInputs: RootRollupPublicInputs; proof: Proof; batchedBlobInputs: BatchedBlob }> {
+    return this.orchestrator.finalizeEpoch();
   }
   cancel(): void {
     this.orchestrator.cancel();

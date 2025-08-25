@@ -46,27 +46,6 @@ template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveDeciderVerific
     }
 
     /**
-     * @brief Get the max log circuit size from the set of decider verification keys
-     *
-     * @return max log circuit size
-     * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Suspicious get_value().
-     */
-    FF get_max_log_circuit_size() const
-    {
-        // Find the key with the largest circuit size and reaturn its circuit size and log circuit size
-        auto* max_key = _data[0].get();
-        size_t max_log_circuit_size =
-            static_cast<size_t>(static_cast<uint32_t>(max_key->vk_and_hash->vk->log_circuit_size.get_value()));
-        for (const auto& key : _data) {
-            if (static_cast<size_t>(static_cast<uint32_t>(key->vk_and_hash->vk->log_circuit_size.get_value())) >
-                max_log_circuit_size) {
-                max_key = key.get();
-            }
-        }
-        return max_key->vk_and_hash->vk->log_circuit_size;
-    }
-
-    /**
      * @brief Get the precomputed commitments grouped by commitment index
      * @example If the commitments are grouped as in
      *           VK 0    VK 1    VK 2    VK 3

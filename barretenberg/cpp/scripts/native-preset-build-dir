@@ -5,7 +5,7 @@
 set -euo pipefail
 cd $(dirname $0)
 
-preset=${NATIVE_PRESET:-clang16-assert}
+preset=${NATIVE_PRESET:-clang20}
 
 declare -A preset_to_dir preset_to_inherits
 

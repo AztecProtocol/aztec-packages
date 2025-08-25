@@ -35,7 +35,7 @@ template <class DeciderVerificationKeys> class ProtogalaxyVerifier_ {
     ProtogalaxyVerifier_(const std::vector<std::shared_ptr<DeciderVK>>& keys,
                          const std::shared_ptr<Transcript>& transcript)
         : keys_to_fold(DeciderVerificationKeys(keys))
-        , transcript(transcript){};
+        , transcript(transcript) {};
     ~ProtogalaxyVerifier_() = default;
 
     /**

@@ -44,6 +44,10 @@ namespace execution;
     // ==== Gas ====
     pol commit l2_gas_limit;
     pol commit da_gas_limit;
+
+    pol commit prev_l2_gas_used;
+    pol commit prev_da_gas_used;
+
     pol commit l2_gas_used;
     pol commit da_gas_used;
 
@@ -114,6 +118,11 @@ namespace execution;
 
     // next_context_id increments with each invocation of an external call or new enqueued call
     pol commit next_context_id; // Can be replaced by clk
+
+    // We always start enqueued calls with fresh context ids, so the next context id must start at context_id + 1
+    #[ENQUEUED_CALL_START_NEXT_CTX_ID]
+    enqueued_call_start * (context_id + 1 - next_context_id) = 0;
+
     // The initial next_context_id = 2, in row = 1
     #[INCR_NEXT_CONTEXT_ID]
     NOT_LAST_EXEC * (next_context_id' - (next_context_id + sel_enter_call)) = 0;
@@ -121,9 +130,11 @@ namespace execution;
     // nested_exit_call = 1 ==> context_id' = parent_id
     // sel_enter_call   = 1 ==> context_id' = next_context_id
     // otherwise        = 0 ==> context_id' = context_id
-    #[CONTEXT_ID_CALL_NEXT_ROW]
+    #[CONTEXT_ID_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (context_id' - context_id) = 0;
+    #[CONTEXT_ID_EXT_CALL]
     NOT_LAST_EXEC * sel_enter_call  * (context_id' - next_context_id) = 0;
+    #[CONTEXT_ID_NESTED_EXIT]
     NOT_LAST_EXEC * nested_exit_call   * (context_id' - parent_id) = 0;
 
     // nested_exit_call = 1 ==> constraints come from lookup
@@ -429,9 +440,6 @@ namespace execution;
     // nested_exit_call = 1 <==> prev_gas_used' = parent_gas_used + gas_used
     // sel_enter_call   = 1 <==> prev_gas_used' = 0
     // otherwise        = 0 <==> prev_gas_used' = gas_used
-    pol commit prev_l2_gas_used;
-    pol commit prev_da_gas_used;
-
     #[L2_GAS_USED_CONTINUITY]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (l2_gas_used - prev_l2_gas_used') = 0;
     #[L2_GAS_USED_ZERO_AFTER_CALL]

@@ -63,7 +63,7 @@ contract LimitedDepositTest is TestBase {
     vm.prank(_caller);
     governance.deposit(_depositor, 1000);
 
-    assertEq(governance.powerAt(_depositor, Timestamp.wrap(block.timestamp)), 1000);
+    assertEq(governance.powerNow(_depositor), 1000);
   }
 
   function test_WhenFloodgatesAreOpen(address _caller, address _depositor) external {
@@ -82,6 +82,6 @@ contract LimitedDepositTest is TestBase {
     vm.prank(_caller);
     governance.deposit(_depositor, 1000);
 
-    assertEq(governance.powerAt(_depositor, Timestamp.wrap(block.timestamp)), 1000);
+    assertEq(governance.powerNow(_depositor), 1000);
   }
 }

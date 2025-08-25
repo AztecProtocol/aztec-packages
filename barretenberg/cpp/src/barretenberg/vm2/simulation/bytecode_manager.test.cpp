@@ -55,7 +55,6 @@ TEST_F(BytecodeManagerTest, RetrievalAndDeduplication)
 {
     TxBytecodeManager tx_bytecode_manager(contract_db,
                                           merkle_db,
-                                          poseidon2,
                                           bytecode_hasher,
                                           range_check,
                                           contract_instance_manager,
