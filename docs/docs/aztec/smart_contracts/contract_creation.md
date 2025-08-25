@@ -84,4 +84,4 @@ This modular approach to contract deployment creates a flexible system that supp
 
 ## Further reading
 
-To see how to deploy a contract in practice, check out the [dapp development tutorial](../../developers/tutorials/codealong/js_tutorials/simple_dapp/index.md).
+To see how to deploy a contract in practice, check out the [dapp development tutorial](../../developers/tutorials/js_tutorials/aztecjs-getting-started.md).
