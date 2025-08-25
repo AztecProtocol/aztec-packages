@@ -212,7 +212,13 @@ unconstrained fn swap_exact_tokens_for_tokens_happy_path() {
 
     env.call_private(
         liquidity_provider,
-        amm.add_liquidity(liquidity_amount0, liquidity_amount1, 0, 0, AUTHWIT_NONCE),
+        amm.add_liquidity(
+            liquidity_amount0,
+            liquidity_amount1,
+            DEFAULT_AMOUNT_0_MIN,
+            DEFAULT_AMOUNT_1_MIN,
+            AUTHWIT_NONCE,
+        ),
     );
 
     // Now perform a swap
@@ -289,7 +295,13 @@ unconstrained fn swap_tokens_for_exact_tokens_happy_path() {
 
     env.call_private(
         liquidity_provider,
-        amm.add_liquidity(liquidity_amount0, liquidity_amount1, 0, 0, AUTHWIT_NONCE),
+        amm.add_liquidity(
+            liquidity_amount0,
+            liquidity_amount1,
+            DEFAULT_AMOUNT_0_MIN,
+            DEFAULT_AMOUNT_1_MIN,
+            AUTHWIT_NONCE,
+        ),
     );
 
     // Now perform a swap for exact tokens out
@@ -599,7 +611,13 @@ unconstrained fn add_liquidity_insufficient_liquidity_minted() {
 
     env.call_private(
         liquidity_provider_1,
-        amm.add_liquidity(initial_amount0, initial_amount1, 0, 0, AUTHWIT_NONCE),
+        amm.add_liquidity(
+            initial_amount0,
+            initial_amount1,
+            DEFAULT_AMOUNT_0_MIN,
+            DEFAULT_AMOUNT_1_MIN,
+            AUTHWIT_NONCE,
+        ),
     );
 
     // Now try to add very small liquidity that would result in 0 liquidity tokens
@@ -625,7 +643,7 @@ unconstrained fn add_liquidity_insufficient_liquidity_minted() {
         liquidity_provider_2,
         amm_address,
         tiny_amount1,
-        2,
+        AUTHWIT_NONCE,
     );
     add_private_authwit_from_call_interface(
         liquidity_provider_2,
@@ -636,7 +654,13 @@ unconstrained fn add_liquidity_insufficient_liquidity_minted() {
     // This should fail because the liquidity minted would be 0
     env.call_private(
         liquidity_provider_2,
-        amm.add_liquidity(tiny_amount0, tiny_amount1, 0, 0, AUTHWIT_NONCE),
+        amm.add_liquidity(
+            tiny_amount0,
+            tiny_amount1,
+            DEFAULT_AMOUNT_0_MIN,
+            DEFAULT_AMOUNT_1_MIN,
+            AUTHWIT_NONCE,
+        ),
     );
 }
 
@@ -683,7 +707,16 @@ unconstrained fn remove_liquidity_insufficient_amount0() {
         transfer1_call_interface,
     );
 
-    env.call_private(liquidity_provider, amm.add_liquidity(amount0, amount1, 0, 0, AUTHWIT_NONCE));
+    env.call_private(
+        liquidity_provider,
+        amm.add_liquidity(
+            amount0,
+            amount1,
+            DEFAULT_AMOUNT_0_MIN,
+            DEFAULT_AMOUNT_1_MIN,
+            AUTHWIT_NONCE,
+        ),
+    );
 
     // Try to remove liquidity with unrealistic minimum expectations
     let liquidity_to_remove = 49500 as u128; // Half of 99000
@@ -751,7 +784,16 @@ unconstrained fn remove_liquidity_insufficient_amount1() {
         transfer1_call_interface,
     );
 
-    env.call_private(liquidity_provider, amm.add_liquidity(amount0, amount1, 0, 0, AUTHWIT_NONCE));
+    env.call_private(
+        liquidity_provider,
+        amm.add_liquidity(
+            amount0,
+            amount1,
+            DEFAULT_AMOUNT_0_MIN,
+            DEFAULT_AMOUNT_1_MIN,
+            AUTHWIT_NONCE,
+        ),
+    );
 
     // Try to remove liquidity with unrealistic minimum expectations
     let liquidity_to_remove = 49500 as u128; // Half of 99000
