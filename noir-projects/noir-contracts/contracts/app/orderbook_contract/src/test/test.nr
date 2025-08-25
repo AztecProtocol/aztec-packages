@@ -11,41 +11,11 @@ global ASK_AMOUNT: u128 = 2000;
 global CREATE_ORDER_AUTHWIT_NONCE: Field = 1;
 global FULFILL_ORDER_AUTHWIT_NONCE: Field = 2;
 
-#[test]
-unconstrained fn create_order_happy_path() {
-    let (mut env, orderbook_address, token0_address, token1_address, minter) = setup();
-
-    // We create a contract account (as opposed to a light account) for the maker to be able to use authwits.
-    let maker = env.create_contract_account();
-
-    let token0 = Token::at(token0_address);
-    let orderbook = Orderbook::at(orderbook_address);
-
-    // Mint tokens to maker
-    env.call_private(minter, Token::at(token0_address).mint_to_private(maker, BID_AMOUNT));
-
-    // Create authwit for transferring tokens to orderbook
-    let transfer_call_interface =
-        token0.transfer_to_public(maker, orderbook_address, BID_AMOUNT, CREATE_ORDER_AUTHWIT_NONCE);
-    add_private_authwit_from_call_interface(maker, orderbook_address, transfer_call_interface);
-
-    // Create order
-    let _order_id = env.call_private(
-        maker,
-        orderbook.create_order(
-            token0_address,
-            token1_address,
-            BID_AMOUNT,
-            ASK_AMOUNT,
-            CREATE_ORDER_AUTHWIT_NONCE,
-        ),
-    );
-
-    // Verify tokens were transferred to orderbook's public balance
-    assert_eq(env.view_public(token0.balance_of_public(orderbook_address)), BID_AMOUNT);
-    assert_eq(env.simulate_utility(token0.balance_of_private(maker)), 0);
-}
-
+/// Test that checks the full flow of creating an order, fulfilling it and verifying the intermittent and the final
+/// balances.
+// Note: Ideally this test would be split into 2 separate test cases - one for order creation and one for order
+// fulfillment, with the second test running on the state from the first test. Since this feature is not currently
+// supported, combining them into a single comprehensive test is the best approach.
 #[test]
 unconstrained fn full_flow() {
     let (mut env, orderbook_address, token0_address, token1_address, minter) = setup();
@@ -62,7 +32,7 @@ unconstrained fn full_flow() {
     env.call_private(minter, token0.mint_to_private(maker, BID_AMOUNT));
     env.call_private(minter, token1.mint_to_private(taker, ASK_AMOUNT));
 
-    // Create order first
+    // ORDER CREATION
     let transfer_call_interface =
         token0.transfer_to_public(maker, orderbook_address, BID_AMOUNT, CREATE_ORDER_AUTHWIT_NONCE);
     add_private_authwit_from_call_interface(maker, orderbook_address, transfer_call_interface);
@@ -86,8 +56,14 @@ unconstrained fn full_flow() {
     assert_eq(order.bid_token_is_zero, true); // token0 -> token1
     assert_eq(is_fulfilled, false);
 
-    // Create authwit for taker to transfer ask tokens
-    // Convert order_id back to PartialUintNote as the orderbook does
+    // Verify tokens were transferred to orderbook's public balance
+    assert_eq(env.view_public(token0.balance_of_public(orderbook_address)), BID_AMOUNT);
+    assert_eq(env.simulate_utility(token0.balance_of_private(maker)), 0);
+
+    // ORDER FULFILLMENT
+
+    // Convert order_id back to PartialUintNote as the orderbook does and then create authwit for taker to transfer ask
+    // tokens.
     let maker_partial_note = PartialUintNote::from_field(order_id);
     let fulfill_transfer_call_interface = token1.finalize_transfer_to_private_from_private(
         taker,
@@ -101,7 +77,6 @@ unconstrained fn full_flow() {
         fulfill_transfer_call_interface,
     );
 
-    // Fulfill order
     env.call_private(taker, orderbook.fulfill_order(order_id, FULFILL_ORDER_AUTHWIT_NONCE));
 
     // Verify final balances
