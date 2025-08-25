@@ -1,4 +1,10 @@
-import { FIXED_DA_GAS, FIXED_L2_GAS } from '@aztec/constants';
+import {
+  AVM_MAX_PROCESSABLE_L2_GAS,
+  DEFAULT_DA_GAS_LIMIT,
+  DEFAULT_TEARDOWN_DA_GAS_LIMIT,
+  FIXED_DA_GAS,
+  FIXED_L2_GAS,
+} from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import type { Writeable } from '@aztec/foundation/types';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -9,6 +15,7 @@ import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { mockTx } from '@aztec/stdlib/testing';
 import type { PublicStateSource } from '@aztec/stdlib/trees';
 import {
+  TX_ERROR_GAS_LIMIT_TOO_HIGH,
   TX_ERROR_INSUFFICIENT_FEE_PAYER_BALANCE,
   TX_ERROR_INSUFFICIENT_FEE_PER_GAS,
   TX_ERROR_INSUFFICIENT_GAS_LIMIT,
@@ -136,5 +143,14 @@ describe('GasTxValidator', () => {
   it('skips txs with not enough fee per l2 gas', async () => {
     gasFees.feePerL2Gas = gasFees.feePerL2Gas + 1n;
     await expectSkipped(tx, TX_ERROR_INSUFFICIENT_FEE_PER_GAS);
+  });
+
+  it('rejects txs if the l2 gas limit is too high', async () => {
+    tx.data.constants.txContext.gasSettings = GasSettings.default({
+      gasLimits: new Gas(DEFAULT_DA_GAS_LIMIT, AVM_MAX_PROCESSABLE_L2_GAS + 1),
+      maxFeesPerGas: gasFees.clone(),
+      teardownGasLimits: new Gas(DEFAULT_TEARDOWN_DA_GAS_LIMIT, 1),
+    });
+    await expectInvalid(tx, TX_ERROR_GAS_LIMIT_TOO_HIGH);
   });
 });

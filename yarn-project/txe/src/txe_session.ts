@@ -1,8 +1,22 @@
+import { AztecAddress } from '@aztec/aztec.js';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { KeyStore } from '@aztec/key-store';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { ProtocolContract } from '@aztec/protocol-contracts';
+import {
+  AddressDataProvider,
+  CapsuleDataProvider,
+  NoteDataProvider,
+  PrivateEventDataProvider,
+  TaggingDataProvider,
+} from '@aztec/pxe/server';
 
+import { TXE } from './oracle/txe_oracle.js';
+import { TXEStateMachine } from './state_machine/index.js';
 import { TXEService } from './txe_service/txe_service.js';
 import { type ForeignCallArgs, type ForeignCallResult, toForeignCallResult } from './util/encoding.js';
+import { TXEAccountDataProvider } from './util/txe_account_data_provider.js';
+import { TXEContractDataProvider } from './util/txe_contract_data_provider.js';
 
 /**
  * A TXE Session can be ine one of four states, which change as the test progresses and different oracles are called.
@@ -59,11 +73,48 @@ export class TXESession {
 
   constructor(
     private logger: Logger,
+    private stateMachine: TXEStateMachine,
     private service: TXEService,
   ) {}
 
   static async init(protocolContracts: ProtocolContract[]) {
-    return new TXESession(createLogger('txe:session'), await TXEService.init(protocolContracts));
+    const store = await openTmpStore('txe-session');
+
+    const addressDataProvider = new AddressDataProvider(store);
+    const privateEventDataProvider = new PrivateEventDataProvider(store);
+    const contractDataProvider = new TXEContractDataProvider(store);
+    const noteDataProvider = await NoteDataProvider.create(store);
+    const taggingDataProvider = new TaggingDataProvider(store);
+    const capsuleDataProvider = new CapsuleDataProvider(store);
+    const keyStore = new KeyStore(store);
+    const accountDataProvider = new TXEAccountDataProvider(store);
+
+    // Register protocol contracts.
+    for (const { contractClass, instance, artifact } of protocolContracts) {
+      await contractDataProvider.addContractArtifact(contractClass.id, artifact);
+      await contractDataProvider.addContractInstance(instance);
+    }
+
+    const stateMachine = await TXEStateMachine.create(store);
+
+    const contractAddress = await AztecAddress.random();
+
+    const txeOracle = new TXE(
+      keyStore,
+      contractDataProvider,
+      noteDataProvider,
+      capsuleDataProvider,
+      taggingDataProvider,
+      addressDataProvider,
+      privateEventDataProvider,
+      accountDataProvider,
+      contractAddress,
+      await stateMachine.synchronizer.nativeWorldStateService.fork(),
+      stateMachine,
+    );
+    await txeOracle.txeAdvanceBlocksBy(1);
+
+    return new TXESession(createLogger('txe:session'), stateMachine, new TXEService(txeOracle));
   }
 
   /**

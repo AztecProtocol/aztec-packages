@@ -62,6 +62,7 @@ interface IGovernance {
   event Proposed(uint256 indexed proposalId, address indexed proposal);
   event VoteCast(uint256 indexed proposalId, address indexed voter, bool support, uint256 amount);
   event ProposalExecuted(uint256 indexed proposalId);
+  event ProposalDropped(uint256 indexed proposalId);
   event GovernanceProposerUpdated(address indexed governanceProposer);
   event ConfigurationUpdated(Timestamp indexed time);
 
@@ -87,7 +88,9 @@ interface IGovernance {
   function isAllBeneficiariesAllowed() external view returns (bool);
 
   function powerAt(address _owner, Timestamp _ts) external view returns (uint256);
+  function powerNow(address _owner) external view returns (uint256);
   function totalPowerAt(Timestamp _ts) external view returns (uint256);
+  function totalPowerNow() external view returns (uint256);
   function getProposalState(uint256 _proposalId) external view returns (ProposalState);
   function getConfiguration() external view returns (Configuration memory);
   function getProposal(uint256 _proposalId) external view returns (Proposal memory);
