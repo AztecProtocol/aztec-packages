@@ -13,8 +13,8 @@ use uint_note::uint_note::PartialUintNote;
 
 global BID_AMOUNT: u128 = 1000;
 global ASK_AMOUNT: u128 = 2000;
-global CREATE_ORDER_AUTHWIT_NONCE: u128 = 1;
-global FULFILL_ORDER_AUTHWIT_NONCE: u128 = 2;
+global CREATE_ORDER_AUTHWIT_NONCE: Field = 1;
+global FULFILL_ORDER_AUTHWIT_NONCE: Field = 2;
 
 #[test]
 unconstrained fn create_order_happy_path() {
