@@ -69,19 +69,6 @@ void create_dummy_vkey_and_proof(Builder& builder,
         offset++;
     };
 
-    // Relevant source for proof layout: AvmFlavor::Transcript::serialize_full_transcript()
-    // TODO(#13390): Revive this assertion (and remove the >= 0 one) once we freeze the number of colums in AVM.
-    // assert((proof_size - Flavor::NUM_WITNESS_ENTITIES * Flavor::NUM_FRS_COM -
-    //         (Flavor::NUM_ALL_ENTITIES + 1) * Flavor::NUM_FRS_FR - Flavor::NUM_FRS_COM) %
-    //            (Flavor::NUM_FRS_COM + Flavor::NUM_FRS_FR * (Flavor::BATCHED_RELATION_PARTIAL_LENGTH + 1)) ==
-    //        0);
-
-    // Derivation of circuit size based on the proof
-    // TODO#13390): Revive the following code once we freeze the number of colums in AVM.
-    // const auto log_circuit_size =
-    //     (proof_size - Flavor::NUM_WITNESS_ENTITIES * Flavor::NUM_FRS_COM -
-    //      (Flavor::NUM_ALL_ENTITIES + 1) * Flavor::NUM_FRS_FR - Flavor::NUM_FRS_COM) /
-    //     (Flavor::NUM_FRS_COM + Flavor::NUM_FRS_FR * (Flavor::BATCHED_RELATION_PARTIAL_LENGTH + 1));
     size_t offset = 0;
     for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; ++i) {
         set_dummy_commitment(key_fields, offset);
@@ -100,7 +87,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
     }
 
     // now the univariates
-    for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N * Flavor::BATCHED_RELATION_PARTIAL_LENGTH; i++) {
+    for (size_t i = 0; i < avm2::MAX_AVM_TRACE_LOG_SIZE * Flavor::BATCHED_RELATION_PARTIAL_LENGTH; i++) {
         set_dummy_evaluation_in_proof_fields(offset);
     }
 
@@ -110,12 +97,12 @@ void create_dummy_vkey_and_proof(Builder& builder,
     }
 
     // now the gemini fold commitments which are CONST_PROOF_SIZE_LOG_N - 1
-    for (size_t i = 1; i < CONST_PROOF_SIZE_LOG_N; i++) {
+    for (size_t i = 1; i < avm2::MAX_AVM_TRACE_LOG_SIZE; i++) {
         set_dummy_commitment(proof_fields, offset);
     }
 
     // the gemini fold evaluations which are CONST_PROOF_SIZE_LOG_N
-    for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
+    for (size_t i = 0; i < avm2::MAX_AVM_TRACE_LOG_SIZE; i++) {
         set_dummy_evaluation_in_proof_fields(offset);
     }
 
