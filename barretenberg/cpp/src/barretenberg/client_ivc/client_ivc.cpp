@@ -104,11 +104,8 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
 {
     using MergeCommitments = Goblin::MergeRecursiveVerifier::InputCommitments;
 
-    // Witness commitments and public inputs corresponding to the incoming instance
-    WitnessCommitments witness_commitments;
     // The pairing points produced by the verification of the decider proof
     PairingPoints decider_pairing_points;
-    std::vector<StdlibFF> public_inputs;
 
     // Input commitments to be passed to the merge recursive verification
     MergeCommitments merge_commitments{ .T_prev_commitments = T_prev_commitments };
@@ -140,16 +137,10 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
         output_stdlib_verifier_accumulator =
             verifier.verify_folding_proof(verifier_inputs.proof); // WORKTODO: connect this to previous/next accumulator
 
-        witness_commitments = std::move(verifier_instance->witness_commitments);
-        public_inputs = std::move(verifier_instance->public_inputs);
-
         break;
     }
     case QUEUE_TYPE::OINK: {
         BB_ASSERT_EQ(input_stdlib_verifier_accumulator, nullptr);
-        // // Construct an incomplete stdlib verifier accumulator from the corresponding stdlib verification key
-        // output_stdlib_verifier_accumulator =
-        //     std::make_shared<RecursiveDeciderVerificationKey>(&circuit, verifier_instance);
 
         // Perform oink recursive verification to complete the initial verifier accumulator
         OinkRecursiveVerifier verifier{ &circuit, verifier_instance, accumulation_recursive_transcript };
@@ -159,9 +150,6 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
         output_stdlib_verifier_accumulator->target_sum = StdlibFF::from_witness_index(&circuit, circuit.zero_idx);
         output_stdlib_verifier_accumulator->gate_challenges.assign(
             CONST_PG_LOG_N, StdlibFF::from_witness_index(&circuit, circuit.zero_idx));
-
-        witness_commitments = std::move(verifier_instance->witness_commitments);
-        public_inputs = std::move(verifier_instance->public_inputs);
 
         // T_prev = 0 in the first recursive verification
         merge_commitments.T_prev_commitments = stdlib::recursion::honk::empty_ecc_op_tables(circuit);
@@ -200,11 +188,6 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
         auto recursive_verifier_native_accum = folding_verifier.verify_folding_proof(verifier_inputs.proof);
         verification_queue.clear();
 
-        // // Get the completed decider verification key corresponding to the tail kernel from the folding verifier
-        public_inputs = verifier_instance->public_inputs;
-
-        witness_commitments = verifier_instance->witness_commitments;
-
         // Perform recursive decider verification
         DeciderRecursiveVerifier decider{ &circuit, recursive_verifier_native_accum };
         BB_ASSERT_EQ(decider_proof.empty(), false, "Decider proof is empty!");
@@ -222,9 +205,9 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     // // Extract native verifier accumulator from the stdlib accum for use on the next round
     // recursive_verifier_native_accum = std::make_shared<DeciderVerificationKey>(updated_verifier_accum->get_value());
 
-    // // Extract the witness commitments and public inputs from the incoming verifier instance
-    // WitnessCommitments witness_commitments = std::move(verifier_instance->witness_commitments);
-    // std::vector<StdlibFF> public_inputs = std::move(verifier_instance->public_inputs);
+    // Extract the witness commitments and public inputs from the incoming verifier instance
+    WitnessCommitments witness_commitments = std::move(verifier_instance->witness_commitments);
+    std::vector<StdlibFF> public_inputs = std::move(verifier_instance->public_inputs);
 
     PairingPoints nested_pairing_points; // to be extracted from public inputs of app or kernel proof just verified
 
