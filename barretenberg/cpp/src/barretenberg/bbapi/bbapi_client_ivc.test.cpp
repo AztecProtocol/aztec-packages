@@ -40,7 +40,7 @@ TEST_F(BBApiClientIvcTest, ClientIvcVkSerialization)
 
     // Create a VK from the field elements
     ClientIVC::VerificationKey vk = from_buffer<ClientIVC::VerificationKey>(vk_response.bytes);
-    EXPECT_EQ(vk.to_field_elements(), vk_response.fields)
+    EXPECT_EQ(to_buffer(vk.to_field_elements()), vk_response.bytes)
         << "Serialized field elements should match original field elements";
 }
 
