@@ -10,13 +10,15 @@ KEY_INDEX=$((POD_INDEX * VALIDATORS_PER_NODE))
 # Add the index to the start index to get the private key index
 PRIVATE_KEY_INDEX=$((KEY_INDEX_START + KEY_INDEX))
 
-WEB3_SIGNER_ENABLED=${WEB3_SIGNER_ENABLED:-false}
+WEB3_SIGNER_URL=${WEB3_SIGNER_URL:-}
+KEYSTORE_ENABLED=${KEYSTORE_ENABLED:-false}
 
 echo "POD_INDEX: $POD_INDEX"
 echo "KEY_INDEX: $KEY_INDEX"
 echo "KEY_INDEX_START: $KEY_INDEX_START"
 echo "PRIVATE_KEY_INDEX: $PRIVATE_KEY_INDEX"
-echo "WEB3_SIGNER_ENABLED: ${WEB3_SIGNER_ENABLED}"
+echo "WEB3_SIGNER_URL: ${WEB3_SIGNER_URL}"
+echo "KEYSTORE_ENABLED: ${KEYSTORE_ENABLED}"
 # Specific for validators that can hold multiple keys on one node
 echo "VALIDATORS_PER_NODE: ${VALIDATORS_PER_NODE}"
 echo "MNEMONIC: $(echo $MNEMONIC | cut -d' ' -f1-2)..."
@@ -29,7 +31,7 @@ for ((i = 0; i < VALIDATORS_PER_NODE; i++)); do
   private_key=$(cast wallet private-key "$MNEMONIC" --mnemonic-index $current_index)
   address=$(cast wallet address --private-key $private_key)
 
-  if [ "$WEB3_SIGNER_ENABLED" == "false" ]; then
+  if [ "$WEB3_SIGNER_URL" != "" ]; then
     private_keys+=("$private_key")
   fi
   addresses+=("$address")
@@ -59,13 +61,44 @@ if [[ -n "${SLASHER_KEY_INDEX_START:-}" ]]; then
   slasher_private_key=$(cast wallet private-key "$MNEMONIC" --mnemonic-index $SLASHER_PRIVATE_KEY_INDEX)
 fi
 
-# Note, currently writing keys for all services for convenience
-cat <<EOF >/shared/config/keys.env
+truncate -s 0 /shared/config/keys.env
+
+if [ "$KEYSTORE_ENABLED" == "true" ]; then
+  mkdir -p /shared/config/keystore/
+
+  attester_arg=()
+  publisher_arg=""
+  if [ "$WEB3_SIGNER_URL" != "" ]; then
+    attester_arg=(${addresses[*]})
+    publisher_arg=$address
+  else 
+    attester_arg=(${private_keys[*]})
+    publisher_arg=$private_key
+  fi
+
+  jq -n '.schemaVersion=1 | .remoteSigner=$WEB3_SIGNER_URL | .validators.attester=$ARGS.positional | .validators.feeRecipient=0x0000000000000000000000000000000000000000000000000000000000000000' \
+    --arg WEB3_SIGNER_URL "$WEB3_SIGNER_URL" \
+    --args ${attester_arg[*]} > /shared/config/keystore/validator.json
+
+  jq -n '.schemaVersion=1 | .remoteSigner=$WEB3_SIGNER_URL | .prover.id=$PROVER_ID | .prover.publisher=$ARGS.positional' \
+    --arg WEB3_SIGNER_URL "$WEB3_SIGNER_URL" \
+    --arg PROVER_ID "$address" \
+    --args $publisher_arg > /shared/config/keystore/prover.json
+
+  cat "export KEY_STORE_DIRECTORY=/shared/config/keystore/" >>/shared/config/keys.env
+  # not creating keystore for slasher because it'll change
+else
+  # Note, currently writing keys for all services for convenience
+  cat <<EOF >/shared/config/keys.env
 export VALIDATOR_PRIVATE_KEYS=$validator_private_keys
 export WEB3_SIGNER_ADDRESSES=$validator_addresses
 export L1_PRIVATE_KEY=$private_key
 export SEQ_PUBLISHER_PRIVATE_KEY=$private_key
 export PROVER_PUBLISHER_PRIVATE_KEY=$private_key
+EOF
+fi
+
+  cat <<EOF >>/shared/config/keys.env
 export BOT_L1_PRIVATE_KEY=$private_key
 EOF
 
