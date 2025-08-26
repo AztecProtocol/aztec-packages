@@ -210,9 +210,10 @@ where
         // for timestamp `y` to reduce the delay to 43200 seconds (12 hours), then if a value change was scheduled at
         // timestamp `y` it would go into effect at timestamp `y + 43200`, which is earlier than what we'd expect if we
         // only considered the current delay.
-        let effective_minimum_delay = delay_change.get_effective_minimum_delay_at(anchor_timestamp);
+        let max_time_a_read_remains_valid =
+            delay_change.get_max_time_a_read_remains_valid(anchor_timestamp);
         let time_horizon =
-            value_change.get_time_horizon_at(anchor_timestamp, effective_minimum_delay);
+            value_change.get_time_horizon_at(anchor_timestamp, max_time_a_read_remains_valid);
 
         // We prevent this transaction from being included in any timestamp after the time horizon, ensuring that the
         // historical public value matches the current one, since it can only change after the horizon.

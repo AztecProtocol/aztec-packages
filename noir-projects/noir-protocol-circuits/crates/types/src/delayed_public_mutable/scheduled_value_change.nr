@@ -5,7 +5,7 @@ mod test;
 
 // This data structure is used by DelayedPublicMutable to represent a value that changes from `pre` to `post` at some timestamp
 // called the `timestamp_of_change`. The value can only be made to change by scheduling a change event at some future
-// timestamp after some minimum delay measured in seconds has elapsed. This means that at any given timestamp we know
+// timestamp after some `delay_before_a_new_write_can_happen` measured in seconds has elapsed. This means that at any given timestamp we know
 // both the current value and the smallest timestamp at which the value might change - this is called the
 // 'time horizon'.
 pub struct ScheduledValueChange<T> {
@@ -43,10 +43,10 @@ impl<T> ScheduledValueChange<T> {
         &mut self,
         new_value: T,
         current_timestamp: u64,
-        minimum_delay: u64, // TODO: call this "current delay", as every time this is called, it's with the "current delay"
+        delay_before_a_new_write_can_happen: u64, // aka max_time_a_read_remains_valid. TODO: call this "current delay", as every time this is called, it's with the "current delay"
         timestamp_of_change: u64,
     ) {
-        assert(timestamp_of_change >= current_timestamp + minimum_delay);
+        assert(timestamp_of_change >= current_timestamp + delay_before_a_new_write_can_happen);
 
         // Notice: we don't set self.pre = self.post, in case this `schedule_change`
         // function is called a 2nd time before this 1st call's change takes effect.
@@ -99,13 +99,13 @@ impl<T> ScheduledValueChange<T> {
         new_value: T,
         historical_timestamp: u64,
         include_by_timestamp: u64,
-        minimum_delay: u64,
+        delay_before_a_new_write_can_happen: u64, // aka max_time_a_read_remains_valid
         timestamp_of_change: u64,
     ) {
         // We don't know exactly when this tx will be included. Worst case, it's only
-        // included by the include_by_timestamp, in which case we still need minimum_delay
+        // included by the include_by_timestamp, in which case we still need delay_before_a_new_write_can_happen
         // amount of time before the new value takes effect.
-        assert(timestamp_of_change >= include_by_timestamp + minimum_delay);
+        assert(timestamp_of_change >= include_by_timestamp + delay_before_a_new_write_can_happen);
 
         self.pre = self.get_current_at(historical_timestamp);
         self.post = new_value;
@@ -117,15 +117,19 @@ impl<T> ScheduledValueChange<T> {
     /// (timestamp of a historical block at which we are constructing a proof), since due to its asynchronous nature
     /// private execution cannot know about any later scheduled changes.
     /// The caller of this function must know how quickly the value can change due to a scheduled change in the form of
-    /// `minimum_delay`. If the delay itself is immutable, then this is just its duration. If the delay is mutable
-    /// however, then this value is the 'effective minimum delay' (obtained by calling
-    /// `ScheduledDelayChange.get_effective_minimum_delay_at`), which equals the minimum time in seconds that needs to
+    /// `max_time_a_read_remains_valid`. If the delay itself is immutable, then this is just its duration. If the delay is mutable
+    /// however, then this value is the 'max_time_a_read_remains_valid' (obtained by calling
+    /// `ScheduledDelayChange.get_max_time_a_read_remains_valid`), which equals the minimum time in seconds that needs to
     /// elapse from the next block's timestamp until the value changes, regardless of further delay changes.
     /// The value returned by `get_current_at` in private when called with a historical timestamp is only safe to use
     /// if the transaction's `include_by_timestamp` property is set to a value lower or equal to the time horizon
     /// computed using the same historical timestamp.
-    pub fn get_time_horizon_at(self, historical_timestamp: u64, minimum_delay: u64) -> u64 {
-        // The time horizon is the very last timestamp in which the current value is known. Any timestamp past the
+    pub fn get_time_horizon_at(
+        self,
+        historical_timestamp: u64,
+        max_time_a_read_remains_valid: u64,
+    ) -> u64 {
+        // The time horizon is the very last timestamp at which the current value is known. Any timestamp past the
         // horizon (i.e. with a timestamp larger than the time horizon) may have a different current value.
         // Reading the current value in private typically requires constraining the maximum valid timestamp to be equal
         // to the time horizon.
@@ -139,38 +143,39 @@ impl<T> ScheduledValueChange<T> {
             //
             //   timestamp of    historical
             //      change       timestamp          time horizon
-            //   =======|=============N===================H===========>
-            //                         ^                   ^
-            //                         ---------------------
-            //                             minimum delay
-            historical_timestamp + minimum_delay
+            //   =======|=============|===================|===========>
+            //                        ^                   ^
+            //                        ---------------------
+            //                      max_time_a_read_remains_valid
+            //
+            historical_timestamp + max_time_a_read_remains_valid
         } else {
             // If the timestamp of change has not yet been reached however, then there are two possible scenarios.
-            //   a) It could be so far into the future that the time horizon is actually determined by the minimum
-            //      delay, because a new change could be scheduled and take place _before_ the currently scheduled one. // Q: Why is this allowed? Do we want this? Sounds like it could bring some confusion.
+            //   a) It could be so far into the future that the time horizon is actually determined by the
+            //      max_time_a_read_remains_valid, because a new change could be scheduled and take place _before_ the currently scheduled one.
             //      This is similar to the scenario where the timestamp of change is in the past: the time horizon is
             //      the timestamp prior to the earliest one in which a new timestamp of change might land.
             //
             //         historical
             //         timestamp                      time horizon    timestamp of change
-            //        =====N=================================H=================|=========>
-            //              ^                                 ^
-            //              |                                 |
-            //              -----------------------------------
-            //                        minimum delay
+            //        =====|=================================|=================|=========>
+            //             ^                                 ^
+            //             |                                 |
+            //             -----------------------------------
+            //                max_time_a_read_remains_valid
             //
-            //   b) It could be fewer than `minimum_delay` seconds away from the historical timestamp, in which case
+            //   b) It could be fewer than `max_time_a_read_remains_valid` seconds away from the historical timestamp, in which case
             //      the timestamp of change would become the limiting factor for the time horizon, which would equal
             //      the timestamp right before the timestamp of change (since by definition the value changes at the
             //      timestamp of change).
             //
             //           historical                         time horizon
             //           timestamp   timestamp of change    if not scheduled
-            //        =======N=============|===================H=================>
-            //                ^           ^                     ^
-            //                |     actual horizon              |
-            //                -----------------------------------
-            //                          minimum delay
+            //        =======|=============|===================|=================>
+            //               ^            ^                    ^
+            //               |      actual horizon             |
+            //               -----------------------------------
+            //                  max_time_a_read_remains_valid
             //
             // Note that the current implementation does not allow the caller to set the timestamp of change to an
             // arbitrary value, and therefore scenario a) is not currently possible. However implementing #5501 would
@@ -179,7 +184,7 @@ impl<T> ScheduledValueChange<T> {
             // subtract 1.
             min(
                 self.timestamp_of_change - 1,
-                historical_timestamp + minimum_delay,
+                historical_timestamp + max_time_a_read_remains_valid,
             )
         }
     }

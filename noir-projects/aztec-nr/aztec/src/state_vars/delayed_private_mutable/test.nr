@@ -1,26 +1,19 @@
 use crate::{
-    context::{PrivateContext, PublicContext, UtilityContext},
-    note::{note_emission::NoteEmission, note_interface::NoteHash},
-    oracle::execution::get_contract_address,
+    context::{PrivateContext, UtilityContext},
+    note::note_interface::NoteHash,
     state_vars::delayed_private_mutable::{
         delayed_private_mutable_note::DelayedPrivateMutableNote, DelayedPrivateMutable,
     },
-    test::{
-        helpers::test_environment::{PrivateContextOptions, TestEnvironment},
-        mocks::{mock_note::{MockNote, MockNoteBuilder}, mock_struct::MockStruct},
-    },
+    test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote},
 };
 
-use std::test::OracleMock;
-
 use protocol_types::{
-    address::AztecAddress,
     delayed_public_mutable::scheduled_delay_change::ScheduledDelayChange,
     hash::{
         compute_note_hash_nonce, compute_siloed_note_hash, compute_siloed_nullifier,
         compute_unique_note_hash,
     },
-    traits::{Empty, Packable},
+    traits::Empty,
 };
 
 use dep::std::mem::zeroed;
@@ -1215,10 +1208,6 @@ unconstrained fn schedule_delay_decrease_but_then_schedule_value_change_before_t
 
     let (initial_wrapper_note, _, initial_note, initial_note_timestamp_of_change) =
         setup_schedule_initialization(env);
-
-    println(
-        f"initial_note_timestamp_of_change: {initial_note_timestamp_of_change}",
-    );
 
     // Line-up a _shorter_ delay change.
 

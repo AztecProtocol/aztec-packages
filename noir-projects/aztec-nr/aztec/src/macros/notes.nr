@@ -5,7 +5,7 @@ use std::{collections::bounded_vec::BoundedVec, meta::{ctstring::AsCtString, typ
 comptime global MAX_NOTE_TYPES: u32 = 128;
 
 /// A BoundedVec containing all the note types within this contract.
-/// TODO: rename to NOTE_TYPES
+/// TODO(https://github.com/AztecProtocol/aztec-packages/issues/16527): rename to NOTE_TYPES
 pub comptime mut global NOTES: BoundedVec<Type, MAX_NOTE_TYPES> = BoundedVec::new();
 
 comptime mut global NOTE_TYPE_ID_COUNTER: u32 = 0;
