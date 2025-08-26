@@ -1,0 +1,26 @@
+replicas: 1
+
+image:
+  pullPolicy: Always
+
+slashingprotectiondb:
+  enabled: false
+
+customCommand:
+  - /bin/bash
+  - -c
+  - |
+    /opt/web3signer/bin/web3signer --config-file /data/config.yaml eth1 
+
+extraEnv:
+  - name: K8S_NAMESPACE_NAME
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.namespace
+
+config: |
+  data-path: "/data"
+  http-host-allowlist: "{{ .Release.Name }}-web3signer.{{ .Release.Namespace }}.svc.cluster.local"
+  key-store-path: {{ .Values.keystorePath }}
+  eth1.chain-id: {{ .Values.chainId }}
+
