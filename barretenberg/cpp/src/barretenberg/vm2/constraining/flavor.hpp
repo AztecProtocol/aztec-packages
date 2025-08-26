@@ -268,7 +268,6 @@ class AvmFlavor {
             }
         }
 
-        std::vector<fr> to_field_elements() const override;
         /**
          * @brief Unimplemented because AVM VK is hardcoded so hash does not need to be computed. Rather, we just add
          * the provided VK hash directly to the transcript.
