@@ -57,24 +57,24 @@ void ECCVMPointTableRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      * In the table, the point associated with `pc = 1` is labelled P.
      *               the point associated with `pc = 0` is labelled Q.
      *
-     * | precompute_pc | precompute_point_transition  | precompute_round | Tx    | Ty    | Dx   | Dy   |
-     * | -------- | ----------------------- | ----------- | ----- | ----- | ---- | ---- |
-     * | 1        | 0                       |           0 |15P.x | 15P.y | 2P.x | 2P.y |
-     * | 1        | 0                       |           1 |13P.x | 13P.y | 2P.x | 2P.y |
-     * | 1        | 0                       |           2 |11P.x | 11P.y | 2P.x | 2P.y |
-     * | 1        | 0                       |           3 | 9P.x |  9P.y | 2P.x | 2P.y |
-     * | 1        | 0                       |           4 | 7P.x |  7P.y | 2P.x | 2P.y |
-     * | 1        | 0                       |           5 | 5P.x |  5P.y | 2P.x | 2P.y |
-     * | 1        | 0                       |           6 | 3P.x |  3P.y | 2P.x | 2P.y |
-     * | 1        | 1                       |           7 |  P.x |   P.y | 2P.x | 2P.y |
-     * | 0        | 0                       |           0 |15Q.x | 15Q.y | 2Q.x | 2Q.y |
-     * | 0        | 0                       |           1 |13Q.x | 13Q.y | 2Q.x | 2Q.y |
-     * | 0        | 0                       |           2 |11Q.x | 11Q.y | 2Q.x | 2Q.y |
-     * | 0        | 0                       |           3 | 9Q.x |  9Q.y | 2Q.x | 2Q.y |
-     * | 0        | 0                       |           4 | 7Q.x |  7Q.y | 2Q.x | 2Q.y |
-     * | 0        | 0                       |           5 | 5Q.x |  5Q.y | 2Q.x | 2Q.y |
-     * | 0        | 0                       |           6 | 3Q.x |  3Q.y | 2Q.x | 2Q.y |
-     * | 0        | 1                       |           7 |  Q.x |   Q.y | 2Q.x | 2Q.y |
+     * | precompute_pc | precompute_point_transition  | precompute_round    |  Tx    | Ty    | Dx   | Dy   |
+     * | ------------- | ---------------------------- | ------------------- |  ----- | ----- | ---- | ---- |
+     * | 1             | 0                            |                   0 | 15P.x  | 15P.y | 2P.x | 2P.y |
+     * | 1             | 0                            |                   1 | 13P.x  | 13P.y | 2P.x | 2P.y |
+     * | 1             | 0                            |                   2 | 11P.x  | 11P.y | 2P.x | 2P.y |
+     * | 1             | 0                            |                   3 |  9P.x  |  9P.y | 2P.x | 2P.y |
+     * | 1             | 0                            |                   4 |  7P.x  |  7P.y | 2P.x | 2P.y |
+     * | 1             | 0                            |                   5 |  5P.x  |  5P.y | 2P.x | 2P.y |
+     * | 1             | 0                            |                   6 |  3P.x  |  3P.y | 2P.x | 2P.y |
+     * | 1             | 1                            |                   7 |   P.x  |   P.y | 2P.x | 2P.y |
+     * | 0             | 0                            |                   0 | 15Q.x  | 15Q.y | 2Q.x | 2Q.y |
+     * | 0             | 0                            |                   1 | 13Q.x  | 13Q.y | 2Q.x | 2Q.y |
+     * | 0             | 0                            |                   2 | 11Q.x  | 11Q.y | 2Q.x | 2Q.y |
+     * | 0             | 0                            |                   3 |  9Q.x  |  9Q.y | 2Q.x | 2Q.y |
+     * | 0             | 0                            |                   4 |  7Q.x  |  7Q.y | 2Q.x | 2Q.y |
+     * | 0             | 0                            |                   5 |  5Q.x  |  5Q.y | 2Q.x | 2Q.y |
+     * | 0             | 0                            |                   6 |  3Q.x  |  3Q.y | 2Q.x | 2Q.y |
+     * | 0             | 1                            |                   7 |   Q.x  |   Q.y | 2Q.x | 2Q.y |
      *
      * We apply the following relations to constrain the above table:
      *
@@ -84,9 +84,12 @@ void ECCVMPointTableRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      *
      * The relations that constrain `precompute_point_transition` and `precompute_pc` are in `ecc_wnaf_relation.hpp`
      *
-     * When precompute_point_transition = 1, we use a strict lookup protocol in `ecc_set_relation.hpp` to validate (pc,
-     * Tx, Ty) belong to the set of points present in our transcript columns.
-     * ("strict" lookup protocol = every item in the table must be read from once, and only once)
+     * When precompute_point_transition = 1, the next row corresponds to the beginning of the processing of a new point.
+     * We use a multiset-equality check, `ecc_set_relation.hpp` to validate (pc, Tx, Ty, scalar-multiplier) is the same
+     * as something derived from the transcript columns. In other words, the multiset equality check allows the tables
+     * to communicate, and in particular validates that we are populating our PointTable with precomputed values that
+     * indeed arise from the Transcript columns. (Formerly, we referred to this as a "strict" lookup protocol = every
+     * item in the table must be read from once, and only once)
      *
      * For every row, we use a lookup protocol in `ecc_lookup_relation.hpp` to write the following tuples into a lookup
      * table:
@@ -102,15 +105,15 @@ void ECCVMPointTableRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      * negative values produces the WNAF slice values that correspond to the multipliers for (Tx, Ty) and (Tx, -Ty):
      *
      * | Tx    | Ty    | x = 15 - precompute_round | 2x - 15 | y = precompute_round | 2y - 15 |
-     * | ----- | ----- | -------------------- | ------- | --------------- | ------- |
-     * | 15P.x | 15P.y | 15                   |      15 |               0 |     -15 |
-     * | 13P.x | 13P.y | 14                   |      13 |               1 |     -13 |
-     * | 11P.x | 11P.y | 13                   |      11 |               2 |     -11 |
-     * |  9P.x |  9P.y | 12                   |       9 |               3 |      -9 |
-     * |  7P.x |  7P.y | 11                   |       7 |               4 |      -7 |
-     * |  5P.x |  5P.y | 10                   |       5 |               5 |      -5 |
-     * |  3P.x |  3P.y |  9                   |       3 |               6 |      -3 |
-     * |   P.x |   P.y |  8                   |       1 |               7 |      -1 |
+     * | ----- | ----- | --------------------      | ------- | ---------------      | ------- |
+     * | 15P.x | 15P.y | 15                        |      15 |                    0 |     -15 |
+     * | 13P.x | 13P.y | 14                        |      13 |                    1 |     -13 |
+     * | 11P.x | 11P.y | 13                        |      11 |                    2 |     -11 |
+     * |  9P.x |  9P.y | 12                        |       9 |                    3 |      -9 |
+     * |  7P.x |  7P.y | 11                        |       7 |                    4 |      -7 |
+     * |  5P.x |  5P.y | 10                        |       5 |                    5 |      -5 |
+     * |  3P.x |  3P.y |  9                        |       3 |                    6 |      -3 |
+     * |   P.x |   P.y |  8                        |       1 |                    7 |      -1 |
      */
 
     /**
@@ -161,9 +164,11 @@ void ECCVMPointTableRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      * (x_3 + x_2 + x_1) * (x_2 - x_1)^2 - (y_2 - y_1)^2 = 0
      * (y_3 + y_1) * (x_2 - x_1) + (x_3 - x_1) * (y_2 - y_1) = 0
      *
-     * We don't need to check for incomplete point addition edge case (x_1 == x_2)
-     * TODO explain why (computing simple point multiples cannot trigger the edge cases, but need to serve a proof of
-     * this...)
+     * We don't need to check for incomplete point addition edge case (x_1 == x_2); the only cases this would correspond
+     * to are y2 == y1 or y2 == -y1. Both of these cases may be ruled out as follows.
+     *      1. y2 == y1. Then 2P == kP, where k∈{1, ..., 13}, which of course cannot happen because the order r of E(Fₚ)
+     *      is a large prime and P is already assumed to not be the neutral element.
+     *      2. y2 == -y1. Again, then -2P == kP, k∈{1, ..., 13}, and we get the same contradiction.
      */
     const auto& x1 = Tx_shift;
     const auto& y1 = Ty_shift;
