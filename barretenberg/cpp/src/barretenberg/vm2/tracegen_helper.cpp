@@ -177,15 +177,6 @@ void check_interactions([[maybe_unused]] const TraceContainer& trace)
 #endif
 }
 
-// A concatenate that works with movable objects.
-template <typename T> std::vector<T> concatenate_jobs(std::vector<T>&& first, auto&&... rest)
-{
-    std::vector<T> result = std::move(first);
-    result.reserve(first.size() + (rest.size() + ...));
-    (std::move(rest.begin(), rest.end(), std::back_inserter(result)), ...);
-    return result;
-}
-
 } // namespace
 
 TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events, const PublicInputs& public_inputs)
@@ -450,7 +441,8 @@ void AvmTraceGenHelper::fill_trace_interactions(TraceContainer& trace)
     // Now we can compute lookups and permutations.
     {
         auto jobs_interactions =
-            concatenate_jobs(TxTraceBuilder::interactions.get_all_jobs(),
+            concatenate_jobs(MemoryTraceBuilder::get_all_jobs(),
+                             TxTraceBuilder::interactions.get_all_jobs(),
                              ExecutionTraceBuilder::interactions.get_all_jobs(),
                              AluTraceBuilder::interactions.get_all_jobs(),
                              Poseidon2TraceBuilder::interactions.get_all_jobs(),
