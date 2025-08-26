@@ -169,6 +169,7 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
         hide_op_queue_accumulation_result(circuit);
 
         // Propagate the public inputs of the tail kernel by converting them to public inputs of the hiding circuit.
+        // WORKTODO: can this use verifier_inputs.honk_vk_and_hash?
         auto num_public_inputs = static_cast<size_t>(honk_vk->num_public_inputs);
         num_public_inputs -= KernelIO::PUBLIC_INPUTS_SIZE; // exclude fixed kernel_io public inputs
         auto stdlib_proof = verifier_inputs.proof;
@@ -366,11 +367,19 @@ HonkProof ClientIVC::construct_oink_proof(const std::shared_ptr<DeciderProvingKe
 
 HonkProof ClientIVC::construct_pg_proof(const std::shared_ptr<DeciderProvingKey>& proving_key,
                                         const std::shared_ptr<MegaVerificationKey>& honk_vk,
-                                        const std::shared_ptr<Transcript>& transcript)
+                                        const std::shared_ptr<Transcript>& transcript,
+                                        bool is_kernel)
 {
     vinfo("computing pg proof...");
+    // Only fiat shamir if this is a kernel with the assumption that kernels are always the first being recursively
+    // verified.
+    if (is_kernel) {
+        // Fiat-Shamir the verifier accumulator
+        FF accum_hash = native_verifier_accum->hash_through_transcript("", *prover_accumulation_transcript);
+        prover_accumulation_transcript->add_to_hash_buffer("accum_hash", accum_hash);
+        info("Accumulator hash in PG prover: ", accum_hash);
+    }
     auto verifier_instance = std::make_shared<DeciderVerificationKey_<Flavor>>(honk_vk);
-
     FoldingProver folding_prover({ fold_output.accumulator, proving_key },
                                  { native_verifier_accum, verifier_instance },
                                  transcript,
@@ -378,6 +387,31 @@ HonkProof ClientIVC::construct_pg_proof(const std::shared_ptr<DeciderProvingKey>
     fold_output = folding_prover.prove();
     vinfo("pg proof constructed");
     return fold_output.proof;
+}
+
+ClientIVC::QUEUE_TYPE ClientIVC::get_queue_type() const
+{
+    // first app
+    if (num_circuits_accumulated == 0) {
+        return QUEUE_TYPE::OINK;
+    }
+    // app (excluding first) or kernel (inner or reset)
+    if ((num_circuits_accumulated > 0 && num_circuits_accumulated < num_circuits - 3)) {
+        return QUEUE_TYPE::PG;
+    }
+    // last kernel prior to tail kernel
+    if ((num_circuits_accumulated == num_circuits - 3)) {
+        return QUEUE_TYPE::PG_TAIL;
+    }
+    // tail kernel
+    if ((num_circuits_accumulated == num_circuits - 2)) {
+        return QUEUE_TYPE::PG_FINAL;
+    }
+    // hiding kernel
+    if ((num_circuits_accumulated == num_circuits - 1)) {
+        return QUEUE_TYPE::MEGA;
+    }
+    return QUEUE_TYPE{};
 }
 
 /**
@@ -427,43 +461,32 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
     auto verifier_transcript =
         Transcript::convert_prover_transcript_to_verifier_transcript(prover_accumulation_transcript);
 
-    VerifierInputs queue_entry{ .honk_vk = honk_vk, .is_kernel = is_kernel };
-    if (num_circuits_accumulated == 0) { // First circuit in the IVC
-        BB_ASSERT_EQ(queue_entry.is_kernel, false, "First circuit accumulated must always be an app");
-        // For first circuit in the IVC, use oink to complete the decider proving key and generate an oink proof
-        queue_entry.type = QUEUE_TYPE::OINK;
-        queue_entry.proof = construct_oink_proof(proving_key, honk_vk, prover_accumulation_transcript);
-    } else if (num_circuits_accumulated == num_circuits - 1) {
-        // construct a MegaHonk proof of the hiding circuit
-        queue_entry.type = QUEUE_TYPE::MEGA;
-        queue_entry.proof = prove_hiding_circuit(circuit);
-    } else { // Otherwise, fold the new key into the accumulator
-        // Only fiat shamir if this is a kernel with the assumption that kernels are always the first being recursively
-        // verified.
-        if (is_kernel) {
-            // Fiat-Shamir the verifier accumulator
-            FF accum_hash = native_verifier_accum->hash_through_transcript("", *prover_accumulation_transcript);
-            prover_accumulation_transcript->add_to_hash_buffer("accum_hash", accum_hash);
-            info("Accumulator hash in PG prover: ", accum_hash);
-        }
-        queue_entry.proof = construct_pg_proof(proving_key, honk_vk, prover_accumulation_transcript);
-
-        if (num_circuits_accumulated == num_circuits - 2) {
-            // we are folding in the "Tail" kernel, so the verification_queue entry should have type PG_FINAL
-            queue_entry.type = QUEUE_TYPE::PG_FINAL;
-            decider_proof = decider_prove();
-            vinfo("constructed decider proof");
-        } else if (num_circuits_accumulated == num_circuits - 3) {
-            // we are folding in the last "Inner/Reset" kernel, so the verification_queue entry should have type PG_TAIL
-            queue_entry.type = QUEUE_TYPE::PG_TAIL;
-        } else {
-            queue_entry.type = QUEUE_TYPE::PG;
-        }
+    QUEUE_TYPE queue_type = get_queue_type();
+    HonkProof proof;
+    switch (queue_type) {
+    case QUEUE_TYPE::OINK:
+        vinfo("Accumulating first app circuit with OINK");
+        BB_ASSERT_EQ(is_kernel, false, "First circuit accumulated must always be an app");
+        proof = construct_oink_proof(proving_key, honk_vk, prover_accumulation_transcript);
+        break;
+    case QUEUE_TYPE::PG:
+    case QUEUE_TYPE::PG_TAIL:
+        proof = construct_pg_proof(proving_key, honk_vk, prover_accumulation_transcript, is_kernel);
+        break;
+    case QUEUE_TYPE::PG_FINAL:
+        proof = construct_pg_proof(proving_key, honk_vk, prover_accumulation_transcript, is_kernel);
+        decider_proof = decider_prove();
+        break;
+    case QUEUE_TYPE::MEGA:
+        proof = prove_hiding_circuit(circuit);
+        break;
     }
+
+    VerifierInputs queue_entry{ std::move(proof), honk_vk, queue_type, is_kernel };
     verification_queue.push_back(queue_entry);
 
     // Construct merge proof for the present circuit (skipped for hiding since merge proof constructed in goblin prove)
-    if (num_circuits_accumulated != num_circuits - 1) {
+    if (queue_entry.type != QUEUE_TYPE::MEGA) {
         update_native_verifier_accumulator(queue_entry, verifier_transcript);
         goblin.prove_merge(prover_accumulation_transcript);
     }

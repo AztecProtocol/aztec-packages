@@ -298,7 +298,10 @@ class ClientIVC {
 
     HonkProof construct_pg_proof(const std::shared_ptr<DeciderProvingKey>& proving_key,
                                  const std::shared_ptr<MegaVerificationKey>& honk_vk,
-                                 const std::shared_ptr<Transcript>& transcript);
+                                 const std::shared_ptr<Transcript>& transcript,
+                                 bool is_kernel);
+
+    QUEUE_TYPE get_queue_type() const;
 };
 
 } // namespace bb
