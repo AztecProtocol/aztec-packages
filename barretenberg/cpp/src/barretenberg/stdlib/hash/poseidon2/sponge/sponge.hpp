@@ -41,7 +41,7 @@ template <typename Builder> class FieldSponge {
     using field_t = stdlib::field_t<Builder>;
 
     // sponge state. t = rate + capacity. capacity = 1 field element (~256 bits)
-    std::array<field_t, t> state;
+    std::array<field_t, t> state{};
 
     // cached elements that have been absorbed.
     std::array<field_t, rate> cache;
@@ -51,10 +51,6 @@ template <typename Builder> class FieldSponge {
     FieldSponge(Builder& builder_, size_t in_len)
         : builder(&builder_)
     {
-        for (size_t i = 0; i < rate; ++i) {
-            // The witness at idx = 0 is constrained to be 0.
-            state[i] = field_t::from_witness_index(builder, 0);
-        }
 
         field_t iv(static_cast<uint256_t>(in_len) << 64);
         iv.convert_constant_to_fixed_witness(builder);
