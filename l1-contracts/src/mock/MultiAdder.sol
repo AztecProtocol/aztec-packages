@@ -2,7 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
+import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
 import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
@@ -20,13 +20,13 @@ interface IMultiAdder {
 
 contract MultiAdder is IMultiAdder {
   address public immutable OWNER;
-  IStaking public immutable STAKING;
+  IInstance public immutable STAKING;
 
   error NotOwner();
 
   constructor(address _staking, address _owner) {
     OWNER = _owner;
-    STAKING = IStaking(_staking);
+    STAKING = IInstance(_staking);
 
     IERC20 stakingAsset = STAKING.getStakingAsset();
     stakingAsset.approve(address(STAKING), type(uint256).max);
@@ -44,6 +44,9 @@ contract MultiAdder is IMultiAdder {
         true
       );
     }
-    STAKING.flushEntryQueue();
+
+    if (STAKING.getCurrentEpoch() >= STAKING.getNextFlushableEpoch()) {
+      STAKING.flushEntryQueue();
+    }
   }
 }
