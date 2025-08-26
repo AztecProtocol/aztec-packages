@@ -119,8 +119,25 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     bool is_hiding_kernel = !decider_proof.empty();
 
     switch (verifier_inputs.type) {
-    case QUEUE_TYPE::PG_TAIL:
-    case QUEUE_TYPE::PG: {
+    case QUEUE_TYPE::OINK: {
+        BB_ASSERT_EQ(input_stdlib_verifier_accumulator, nullptr);
+
+        // Perform oink recursive verification to complete the initial verifier accumulator
+        OinkRecursiveVerifier verifier{ &circuit, verifier_instance, accumulation_recursive_transcript };
+        verifier.verify_proof(verifier_inputs.proof);
+
+        output_stdlib_verifier_accumulator = verifier_instance;
+        output_stdlib_verifier_accumulator->target_sum = StdlibFF::from_witness_index(&circuit, circuit.zero_idx);
+        output_stdlib_verifier_accumulator->gate_challenges.assign(
+            CONST_PG_LOG_N, StdlibFF::from_witness_index(&circuit, circuit.zero_idx));
+
+        // T_prev = 0 in the first recursive verification
+        merge_commitments.T_prev_commitments = stdlib::recursion::honk::empty_ecc_op_tables(circuit);
+
+        break;
+    }
+    case QUEUE_TYPE::PG:
+    case QUEUE_TYPE::PG_TAIL: {
         BB_ASSERT_NEQ(input_stdlib_verifier_accumulator, nullptr);
         if (verifier_inputs
                 .is_kernel) { // this is what I'm using to determine if this is the first circuit we're folding...
@@ -139,28 +156,10 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
 
         break;
     }
-    case QUEUE_TYPE::OINK: {
-        BB_ASSERT_EQ(input_stdlib_verifier_accumulator, nullptr);
-
-        // Perform oink recursive verification to complete the initial verifier accumulator
-        OinkRecursiveVerifier verifier{ &circuit, verifier_instance, accumulation_recursive_transcript };
-        verifier.verify_proof(verifier_inputs.proof);
-
-        output_stdlib_verifier_accumulator = verifier_instance;
-        output_stdlib_verifier_accumulator->target_sum = StdlibFF::from_witness_index(&circuit, circuit.zero_idx);
-        output_stdlib_verifier_accumulator->gate_challenges.assign(
-            CONST_PG_LOG_N, StdlibFF::from_witness_index(&circuit, circuit.zero_idx));
-
-        // T_prev = 0 in the first recursive verification
-        merge_commitments.T_prev_commitments = stdlib::recursion::honk::empty_ecc_op_tables(circuit);
-
-        break;
-    }
     case QUEUE_TYPE::PG_FINAL: {
         BB_ASSERT_NEQ(input_stdlib_verifier_accumulator, nullptr);
         BB_ASSERT_EQ(stdlib_verification_queue.size(), size_t(1));
-        auto stdlib_proof = verifier_inputs.proof;
-        // auto stdlib_vk_and_hash = verifier_inputs.honk_vk_and_hash;
+
         // Note: reinstate this.
         // BB_ASSERT_EQ(num_circuits_accumulated,
         //              num_circuits - 1,
@@ -172,6 +171,7 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
         // Propagate the public inputs of the tail kernel by converting them to public inputs of the hiding circuit.
         auto num_public_inputs = static_cast<size_t>(honk_vk->num_public_inputs);
         num_public_inputs -= KernelIO::PUBLIC_INPUTS_SIZE; // exclude fixed kernel_io public inputs
+        auto stdlib_proof = verifier_inputs.proof;
         for (size_t i = 0; i < num_public_inputs; i++) {
             stdlib_proof[i].set_public();
         }
@@ -201,9 +201,6 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
         throw_or_abort("Invalid queue type! Only OINK, PG, PG_TAIL and PG_FINAL are supported");
     }
     }
-
-    // // Extract native verifier accumulator from the stdlib accum for use on the next round
-    // recursive_verifier_native_accum = std::make_shared<DeciderVerificationKey>(updated_verifier_accum->get_value());
 
     // Extract the witness commitments and public inputs from the incoming verifier instance
     WitnessCommitments witness_commitments = std::move(verifier_instance->witness_commitments);
