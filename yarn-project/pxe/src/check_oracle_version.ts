@@ -17,9 +17,9 @@ class OracleMock extends TypedOracle {}
  * changed and the ORACLE_VERSION constant needs to be incremented and the ORACLE_INTERFACE_HASH constant needs to be
  * updated.
  *
- * TODO: The following only takes into consideration changes to the oracles defined in Oracle.ts and omits TXE oracles.
- * Ensure this checks TXE oracles as well. This hasn't been implemented yet since we don't have a clean TXE oracle
- * interface like we do in PXE (i.e., there is no single Oracle class that contains only the oracles).
+ * TODO(#16581): The following only takes into consideration changes to the oracles defined in Oracle.ts and omits TXE
+ * oracles. Ensure this checks TXE oracles as well. This hasn't been implemented yet since we don't have a clean TXE
+ * oracle interface like we do in PXE (i.e., there is no single Oracle class that contains only the oracles).
  */
 function assertOracleInterfaceMatches(): void {
   const oracle = new Oracle(new OracleMock());
