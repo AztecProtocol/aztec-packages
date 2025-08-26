@@ -15,6 +15,7 @@
 #include "barretenberg/vm2/simulation/contract_instance_manager.hpp"
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/simulation/gt.hpp"
 #include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 #include "barretenberg/vm2/simulation/range_check.hpp"
@@ -54,7 +55,7 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
     TxBytecodeManager(ContractDBInterface& contract_db,
                       HighLevelMerkleDBInterface& merkle_db,
                       BytecodeHashingInterface& bytecode_hasher,
-                      RangeCheckInterface& range_check,
+                      GreaterThanInterface& gt,
                       ContractInstanceManagerInterface& contract_instance_manager,
                       EventEmitterInterface<BytecodeRetrievalEvent>& retrieval_events,
                       EventEmitterInterface<BytecodeDecompositionEvent>& decomposition_events,
@@ -62,7 +63,7 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
         : contract_db(contract_db)
         , merkle_db(merkle_db)
         , bytecode_hasher(bytecode_hasher)
-        , range_check(range_check)
+        , gt(gt)
         , contract_instance_manager(contract_instance_manager)
         , retrieval_events(retrieval_events)
         , decomposition_events(decomposition_events)
@@ -72,11 +73,23 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
     BytecodeId get_bytecode(const AztecAddress& address) override;
     Instruction read_instruction(BytecodeId bytecode_id, uint32_t pc) override;
 
+    /**
+     * @brief Parsing of an instruction in the supplied bytecode at byte position pos. This
+     *        checks that the WireOpCode value is in the defined range and extracts the operands
+     *        for each WireOpCode based on the specification from OPCODE_WIRE_FORMAT.
+     *
+     * @param bytecode The bytecode to be parsed as a vector of bytes/uint8_t
+     * @param pos Bytecode position
+     * @throws runtime_error exception when the bytecode is invalid or pos is out-of-range
+     * @return The instruction
+     */
+    Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t pos);
+
   private:
     ContractDBInterface& contract_db;
     HighLevelMerkleDBInterface& merkle_db;
     BytecodeHashingInterface& bytecode_hasher;
-    RangeCheckInterface& range_check;
+    GreaterThanInterface& gt;
     ContractInstanceManagerInterface& contract_instance_manager;
     EventEmitterInterface<BytecodeRetrievalEvent>& retrieval_events;
     EventEmitterInterface<BytecodeDecompositionEvent>& decomposition_events;

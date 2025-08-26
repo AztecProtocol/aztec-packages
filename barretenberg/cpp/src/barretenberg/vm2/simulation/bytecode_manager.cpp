@@ -12,6 +12,15 @@
 
 namespace bb::avm2::simulation {
 
+namespace {
+
+bool is_wire_opcode_valid(uint8_t w_opcode)
+{
+    return w_opcode < static_cast<uint8_t>(WireOpCode::LAST_OPCODE_SENTINEL);
+}
+
+} // namespace
+
 BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
 {
     // Use shared ContractInstanceManager for contract instance retrieval and validation
@@ -118,12 +127,6 @@ Instruction TxBytecodeManager::read_instruction(BytecodeId bytecode_id, uint32_t
         instr_fetching_event.error = InstrDeserializationError::INVALID_EXECUTION_OPCODE;
     }
 
-    // We are showing whether bytecode_size > pc or not. If there is no fetching error,
-    // we always have bytecode_size > pc.
-    const auto bytecode_size = bytecode_ptr->size();
-    const uint128_t pc_diff = bytecode_size > pc ? bytecode_size - pc - 1 : pc - bytecode_size;
-    range_check.assert_range(pc_diff, AVM_PC_SIZE_IN_BITS);
-
     // The event will be deduplicated internally.
     fetching_events.emit(InstructionFetchingEvent(instr_fetching_event));
 
@@ -135,5 +138,115 @@ Instruction TxBytecodeManager::read_instruction(BytecodeId bytecode_id, uint32_t
 
     return instr_fetching_event.instruction;
 }
+
+Instruction TxBytecodeManager::deserialize_instruction(std::span<const uint8_t> bytecode, size_t pos)
+{
+    const auto bytecode_length = static_cast<uint32_t>(bytecode.size());
+
+    if (!gt.gt(bytecode_length, pos)) {
+        vinfo("PC is out of range. Position: ", pos, " Bytecode length: ", bytecode_length);
+        throw InstrDeserializationError::PC_OUT_OF_RANGE;
+    }
+
+    const uint8_t opcode_byte = bytecode[pos];
+
+    if (!is_wire_opcode_valid(opcode_byte)) {
+        vinfo("Invalid wire opcode byte: 0x", to_hex(opcode_byte), " at position: ", pos);
+        throw InstrDeserializationError::OPCODE_OUT_OF_RANGE;
+    }
+
+    const auto opcode = static_cast<WireOpCode>(opcode_byte);
+    const auto& inst_format = get_wire_opcode_format(opcode);
+
+    const uint32_t instruction_size = WIRE_INSTRUCTION_SPEC.at(opcode).size_in_bytes;
+
+    // Circuit leakage: We never read more than DECOMPOSE_WINDOW_SIZE number of bytes and
+    // therefore comparison with instruction_size is performed with bytes_to_read.
+    const uint32_t bytes_to_read = std::min(DECOMPOSE_WINDOW_SIZE, bytecode_length - static_cast<uint32_t>(pos));
+
+    // We know we will encounter a parsing error, but continue processing because
+    // we need the partial instruction to be parsed for witness generation.
+    if (gt.gt(instruction_size, bytes_to_read)) {
+        vinfo("Instruction does not fit in remaining bytecode. Wire opcode: ",
+              opcode,
+              " pos: ",
+              pos,
+              " instruction size: ",
+              instruction_size,
+              " bytecode length: ",
+              bytecode_length);
+        throw InstrDeserializationError::INSTRUCTION_OUT_OF_RANGE;
+    }
+
+    pos++; // move after opcode byte
+
+    uint16_t indirect = 0;
+    std::vector<Operand> operands;
+    for (const OperandType op_type : inst_format) {
+        const auto operand_size = get_operand_type_size_in_bytes(op_type);
+        assert(pos + operand_size <= bytecode_length); // Guaranteed to hold due to
+                                                       //  pos + instruction_size <= bytecode_length
+
+        switch (op_type) {
+        case OperandType::TAG:
+        case OperandType::UINT8: {
+            operands.emplace_back(Operand::from<uint8_t>(bytecode[pos]));
+            break;
+        }
+        case OperandType::INDIRECT8: {
+            indirect = bytecode[pos];
+            break;
+        }
+        case OperandType::INDIRECT16: {
+            uint16_t operand_u16 = 0;
+            uint8_t const* pos_ptr = &bytecode[pos];
+            serialize::read(pos_ptr, operand_u16);
+            indirect = operand_u16;
+            break;
+        }
+        case OperandType::UINT16: {
+            uint16_t operand_u16 = 0;
+            uint8_t const* pos_ptr = &bytecode[pos];
+            serialize::read(pos_ptr, operand_u16);
+            operands.emplace_back(Operand::from<uint16_t>(operand_u16));
+            break;
+        }
+        case OperandType::UINT32: {
+            uint32_t operand_u32 = 0;
+            uint8_t const* pos_ptr = &bytecode[pos];
+            serialize::read(pos_ptr, operand_u32);
+            operands.emplace_back(Operand::from<uint32_t>(operand_u32));
+            break;
+        }
+        case OperandType::UINT64: {
+            uint64_t operand_u64 = 0;
+            uint8_t const* pos_ptr = &bytecode[pos];
+            serialize::read(pos_ptr, operand_u64);
+            operands.emplace_back(Operand::from<uint64_t>(operand_u64));
+            break;
+        }
+        case OperandType::UINT128: {
+            uint128_t operand_u128 = 0;
+            uint8_t const* pos_ptr = &bytecode[pos];
+            serialize::read(pos_ptr, operand_u128);
+            operands.emplace_back(Operand::from<uint128_t>(operand_u128));
+            break;
+        }
+        case OperandType::FF: {
+            FF operand_ff;
+            uint8_t const* pos_ptr = &bytecode[pos];
+            read(pos_ptr, operand_ff);
+            operands.emplace_back(Operand::from<FF>(operand_ff));
+        }
+        }
+        pos += operand_size;
+    }
+
+    return {
+        .opcode = opcode,
+        .indirect = indirect,
+        .operands = std::move(operands),
+    };
+};
 
 } // namespace bb::avm2::simulation

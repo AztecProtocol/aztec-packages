@@ -5,6 +5,7 @@
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/common/tagged_value.hpp"
+#include "barretenberg/vm2/simulation/gt.hpp"
 
 #include <cstdint>
 #include <memory>
@@ -58,18 +59,6 @@ enum class InstrDeserializationError : uint8_t {
 };
 
 /**
- * @brief Parsing of an instruction in the supplied bytecode at byte position pos. This
- *        checks that the WireOpCode value is in the defined range and extracts the operands
- *        for each WireOpCode based on the specification from OPCODE_WIRE_FORMAT.
- *
- * @param bytecode The bytecode to be parsed as a vector of bytes/uint8_t
- * @param pos Bytecode position
- * @throws runtime_error exception when the bytecode is invalid or pos is out-of-range
- * @return The instruction
- */
-Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t pos);
-
-/**
  * @brief Check whether the instruction must have a tag operand and whether the operand
  *        value is in the value tag range. This is specified by OPCODE_WIRE_FORMAT. If
  *        the instruction does not have a valid wire opcode or the relevant tag operand
@@ -79,5 +68,8 @@ Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t po
  * @return Boolean telling whether instruction complies with the tag specification.
  */
 bool check_tag(const Instruction& instruction);
+
+const std::vector<OperandType>& get_wire_opcode_format(WireOpCode opcode);
+uint32_t get_operand_type_size_in_bytes(OperandType operand_type);
 
 } // namespace bb::avm2::simulation

@@ -1,6 +1,6 @@
 #include "barretenberg/vm2/tracegen/bytecode_trace.hpp"
 
-#include <cmath>
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -256,17 +256,6 @@ void BytecodeTraceBuilder::process_instruction_fetching(
             event.error == PC_OUT_OF_RANGE ? 0 : static_cast<uint32_t>(bytecode_size - event.pc);
         const uint32_t bytes_to_read = std::min(bytes_remaining, DECOMPOSE_WINDOW_SIZE);
 
-        uint32_t instr_abs_diff = 0;
-        if (size_in_bytes <= bytes_to_read) {
-            instr_abs_diff = bytes_to_read - size_in_bytes;
-        } else {
-            instr_abs_diff = size_in_bytes - bytes_to_read - 1;
-        }
-
-        uint32_t bytecode_size_u32 = static_cast<uint32_t>(bytecode_size);
-        uint32_t pc_abs_diff =
-            bytecode_size_u32 > event.pc ? bytecode_size_u32 - event.pc - 1 : event.pc - bytecode_size_u32;
-
         trace.set(row,
                   { {
                       { C::instr_fetching_sel, 1 },
@@ -346,21 +335,17 @@ void BytecodeTraceBuilder::process_instruction_fetching(
                       { C::instr_fetching_sel_op_dc_16, op_dc_selectors.at(16) },
 
                       // Parsing errors
-                      { C::instr_fetching_pc_out_of_range, event.error == PC_OUT_OF_RANGE ? 1 : 0 },
-                      { C::instr_fetching_opcode_out_of_range, event.error == OPCODE_OUT_OF_RANGE ? 1 : 0 },
+                      { C::instr_fetching_sel_pc_in_range, event.error == PC_OUT_OF_RANGE ? 0 : 1 },
+                      { C::instr_fetching_opcode_in_range,
+                        // Cannot toggle "opcode_in_range" when pc is out of range as simulation stops before.
+                        (event.error == OPCODE_OUT_OF_RANGE || event.error == PC_OUT_OF_RANGE) ? 0 : 1 },
                       { C::instr_fetching_instr_out_of_range, event.error == INSTRUCTION_OUT_OF_RANGE ? 1 : 0 },
                       { C::instr_fetching_tag_out_of_range, event.error == TAG_OUT_OF_RANGE ? 1 : 0 },
                       { C::instr_fetching_sel_parsing_err, event.error.has_value() ? 1 : 0 },
 
-                      // selector for lookups
-                      { C::instr_fetching_sel_pc_in_range, event.error != PC_OUT_OF_RANGE ? 1 : 0 },
-
+                      // Values retrieved by lookups.
                       { C::instr_fetching_bytecode_size, bytecode_size },
                       { C::instr_fetching_bytes_to_read, bytes_to_read },
-                      { C::instr_fetching_instr_abs_diff, instr_abs_diff },
-                      { C::instr_fetching_pc_abs_diff, pc_abs_diff },
-                      { C::instr_fetching_pc_size_in_bits,
-                        AVM_PC_SIZE_IN_BITS }, // Remove when we support constants in lookups
                       { C::instr_fetching_tag_value, tag_value },
                   } });
         row++;
@@ -384,8 +369,8 @@ const InteractionDefinition BytecodeTraceBuilder::interactions =
         .add<lookup_instr_fetching_bytes_from_bc_dec_settings, InteractionType::LookupGeneric>()
         .add<lookup_instr_fetching_bytecode_size_from_bc_dec_settings, InteractionType::LookupGeneric>()
         .add<lookup_instr_fetching_wire_instruction_info_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_instr_fetching_instr_abs_diff_positive_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_instr_fetching_tag_value_validation_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_instr_fetching_pc_abs_diff_positive_settings, InteractionType::LookupGeneric>();
+        .add<lookup_instr_fetching_pc_in_range_toggle_settings, InteractionType::LookupGeneric>()
+        .add<lookup_instr_fetching_instr_out_of_range_toggle_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen

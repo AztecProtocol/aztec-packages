@@ -1,5 +1,6 @@
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <iomanip>
@@ -201,123 +202,6 @@ const std::unordered_map<OperandType, uint32_t>& get_operand_type_sizes()
 
 } // namespace testonly
 
-namespace {
-
-bool is_wire_opcode_valid(uint8_t w_opcode)
-{
-    return w_opcode < static_cast<uint8_t>(WireOpCode::LAST_OPCODE_SENTINEL);
-}
-
-} // namespace
-
-Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t pos)
-{
-    const auto bytecode_length = bytecode.size();
-
-    if (pos >= bytecode_length) {
-        vinfo("PC is out of range. Position: ", pos, " Bytecode length: ", bytecode_length);
-        throw InstrDeserializationError::PC_OUT_OF_RANGE;
-    }
-
-    const uint8_t opcode_byte = bytecode[pos];
-
-    if (!is_wire_opcode_valid(opcode_byte)) {
-        vinfo("Invalid wire opcode byte: 0x", to_hex(opcode_byte), " at position: ", pos);
-        throw InstrDeserializationError::OPCODE_OUT_OF_RANGE;
-    }
-
-    const auto opcode = static_cast<WireOpCode>(opcode_byte);
-    const auto iter = WireOpCode_WIRE_FORMAT.find(opcode);
-    assert(iter != WireOpCode_WIRE_FORMAT.end());
-    const auto& inst_format = iter->second;
-
-    const uint32_t instruction_size = WIRE_INSTRUCTION_SPEC.at(opcode).size_in_bytes;
-
-    // We know we will encounter a parsing error, but continue processing because
-    // we need the partial instruction to be parsed for witness generation.
-    if (pos + instruction_size > bytecode_length) {
-        vinfo("Instruction does not fit in remaining bytecode. Wire opcode: ",
-              opcode,
-              " pos: ",
-              pos,
-              " instruction size: ",
-              instruction_size,
-              " bytecode length: ",
-              bytecode_length);
-        throw InstrDeserializationError::INSTRUCTION_OUT_OF_RANGE;
-    }
-
-    pos++; // move after opcode byte
-
-    uint16_t indirect = 0;
-    std::vector<Operand> operands;
-    for (const OperandType op_type : inst_format) {
-        const auto operand_size = OPERAND_TYPE_SIZE_BYTES.at(op_type);
-        assert(pos + operand_size <= bytecode_length); // Guaranteed to hold due to
-                                                       //  pos + instruction_size <= bytecode_length
-
-        switch (op_type) {
-        case OperandType::TAG:
-        case OperandType::UINT8: {
-            operands.emplace_back(Operand::from<uint8_t>(bytecode[pos]));
-            break;
-        }
-        case OperandType::INDIRECT8: {
-            indirect = bytecode[pos];
-            break;
-        }
-        case OperandType::INDIRECT16: {
-            uint16_t operand_u16 = 0;
-            uint8_t const* pos_ptr = &bytecode[pos];
-            serialize::read(pos_ptr, operand_u16);
-            indirect = operand_u16;
-            break;
-        }
-        case OperandType::UINT16: {
-            uint16_t operand_u16 = 0;
-            uint8_t const* pos_ptr = &bytecode[pos];
-            serialize::read(pos_ptr, operand_u16);
-            operands.emplace_back(Operand::from<uint16_t>(operand_u16));
-            break;
-        }
-        case OperandType::UINT32: {
-            uint32_t operand_u32 = 0;
-            uint8_t const* pos_ptr = &bytecode[pos];
-            serialize::read(pos_ptr, operand_u32);
-            operands.emplace_back(Operand::from<uint32_t>(operand_u32));
-            break;
-        }
-        case OperandType::UINT64: {
-            uint64_t operand_u64 = 0;
-            uint8_t const* pos_ptr = &bytecode[pos];
-            serialize::read(pos_ptr, operand_u64);
-            operands.emplace_back(Operand::from<uint64_t>(operand_u64));
-            break;
-        }
-        case OperandType::UINT128: {
-            uint128_t operand_u128 = 0;
-            uint8_t const* pos_ptr = &bytecode[pos];
-            serialize::read(pos_ptr, operand_u128);
-            operands.emplace_back(Operand::from<uint128_t>(operand_u128));
-            break;
-        }
-        case OperandType::FF: {
-            FF operand_ff;
-            uint8_t const* pos_ptr = &bytecode[pos];
-            read(pos_ptr, operand_ff);
-            operands.emplace_back(Operand::from<FF>(operand_ff));
-        }
-        }
-        pos += operand_size;
-    }
-
-    return {
-        .opcode = opcode,
-        .indirect = indirect,
-        .operands = std::move(operands),
-    };
-};
-
 std::string Instruction::to_string() const
 {
     std::ostringstream oss;
@@ -454,6 +338,18 @@ bool check_tag(const Instruction& instruction)
         pos++;
     }
     return true;
+}
+
+const std::vector<OperandType>& get_wire_opcode_format(WireOpCode opcode)
+{
+    const auto iter = WireOpCode_WIRE_FORMAT.find(opcode);
+    assert(iter != WireOpCode_WIRE_FORMAT.end());
+    return iter->second;
+}
+
+uint32_t get_operand_type_size_in_bytes(OperandType operand_type)
+{
+    return OPERAND_TYPE_SIZE_BYTES.at(operand_type);
 }
 
 } // namespace bb::avm2::simulation
