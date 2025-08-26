@@ -126,7 +126,8 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "ENABLE_ASAN": "OFF",
-        "DISABLE_ASM": "ON"
+        "DISABLE_ASM": "ON",
+        "ENABLE_STACKTRACES": "ON"
       }
     },
     {
@@ -193,6 +194,9 @@
         "CFLAGS": "-O2 -gdwarf",
         "CXXFLAGS": "-O2 -gdwarf-4",
         "LDFLAGS": "-O2 -gdwarf-4"
+      },
+      "cacheVariables": {
+        "ENABLE_STACKTRACES": "ON"
       }
     },
     {
@@ -206,13 +210,25 @@
       }
     },
     {
-      "name": "debug-no-avm",
+      "name": "debug-fast-no-avm",
       "displayName": "Optimized debug build with Clang-20 (no AVM)",
+      "description": "Build with globally installed Clang-20 in debug mode excluding the Aztec VM",
+      "inherits": "debug-fast",
+      "binaryDir": "build-debug-fast-no-avm",
+      "cacheVariables": {
+        "DISABLE_AZTEC_VM": "ON",
+        "ENABLE_STACKTRACES": "ON"
+      }
+    },
+    {
+      "name": "debug-no-avm",
+      "displayName": "Debug build with Clang-20 (no AVM)",
       "description": "Build with globally installed Clang-20 in debug mode excluding the Aztec VM",
       "inherits": "debug",
       "binaryDir": "build-debug-no-avm",
       "cacheVariables": {
-        "DISABLE_AZTEC_VM": "ON"
+        "DISABLE_AZTEC_VM": "ON",
+        "ENABLE_STACKTRACES": "ON"
       }
     },
     {
@@ -234,7 +250,8 @@
       "cacheVariables": {
         "ENABLE_ASAN": "ON",
         "DISABLE_AZTEC_VM": "ON",
-        "DISABLE_ASM": "ON"
+        "DISABLE_ASM": "ON",
+        "ENABLE_STACKTRACES": "OFF"
       }
     },
     {
@@ -245,7 +262,8 @@
       "binaryDir": "build-asan",
       "cacheVariables": {
         "ENABLE_ASAN": "ON",
-        "DISABLE_ASM": "ON"
+        "DISABLE_ASM": "ON",
+        "ENABLE_STACKTRACES": "OFF"
       }
     },
     {
@@ -502,6 +520,11 @@
       "name": "clang20-no-avm",
       "inherits": "default",
       "configurePreset": "clang20-no-avm"
+    },
+    {
+      "name": "debug-fast-no-avm",
+      "inherits": "default",
+      "configurePreset": "debug-fast-no-avm"
     },
     {
       "name": "debug-no-avm",
