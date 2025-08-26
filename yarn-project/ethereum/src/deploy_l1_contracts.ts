@@ -795,7 +795,8 @@ export const addMultipleValidators = async (
 
       // Mint tokens, approve them, use cheat code to initialize validator set without setting up the epoch.
       const stakeNeeded = activationThreshold * BigInt(validators.length);
-      const { txHash } = await deployer.sendTransaction({
+
+      await deployer.l1TxUtils.sendAndMonitorTransaction({
         to: stakingAssetAddress,
         data: encodeFunctionData({
           abi: StakingAssetArtifact.contractAbi,
@@ -803,23 +804,24 @@ export const addMultipleValidators = async (
           args: [multiAdder.toString(), stakeNeeded],
         }),
       });
-      const receipt = await extendedClient.waitForTransactionReceipt({ hash: txHash });
 
-      if (receipt.status !== 'success') {
-        throw new Error(`Failed to mint staking assets for validators: ${receipt.status}`);
+      const validatorCount = await rollup.getActiveAttesterCount();
+
+      logger.info(`Adding ${validators.length} validators to the rollup`);
+
+      await deployer.l1TxUtils.sendAndMonitorTransaction({
+        to: multiAdder.toString(),
+        data: encodeFunctionData({
+          abi: MultiAdderArtifact.contractAbi,
+          functionName: 'addValidators',
+          args: [validatorsTuples],
+        }),
+      });
+
+      const validatorCountAfter = await rollup.getActiveAttesterCount();
+      if (validatorCountAfter < validatorCount + BigInt(validators.length)) {
+        throw new Error(`Failed to add ${validators.length} validators. ${validatorCount} -> ${validatorCountAfter} `);
       }
-
-      const addValidatorsTxHash = await deployer.client.writeContract({
-        address: multiAdder.toString(),
-        abi: MultiAdderArtifact.contractAbi,
-        functionName: 'addValidators',
-        args: [validatorsTuples],
-      });
-      await extendedClient.waitForTransactionReceipt({ hash: addValidatorsTxHash });
-      logger.info(`Initialized validator set`, {
-        validators,
-        txHash: addValidatorsTxHash,
-      });
     }
   }
 };
