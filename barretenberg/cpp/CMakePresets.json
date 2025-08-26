@@ -305,7 +305,7 @@
         "ENABLE_ASAN": "ON",
         "DISABLE_ASM": "ON",
         "CMAKE_BUILD_TYPE": "RelWithAssert"
-      },
+      }
     },
     {
       "name": "fuzzing-coverage",
