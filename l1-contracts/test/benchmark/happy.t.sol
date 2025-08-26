@@ -135,6 +135,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   bool internal IS_IGNITION;
 
   Rollup internal rollup;
+  Slasher internal slasher;
 
   address internal coinbase = address(bytes20("MONEY MAKER"));
   TestERC20 internal asset;
@@ -193,7 +194,8 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
     asset = builder.getConfig().testERC20;
     rollup = builder.getConfig().rollup;
-    slashingProposer = Slasher(rollup.getSlasher()).PROPOSER();
+    slasher = Slasher(rollup.getSlasher());
+    slashingProposer = address(slasher) == address(0) ? address(0) : slasher.PROPOSER();
 
     SlashFactory slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
     address[] memory toSlash = new address[](0);
