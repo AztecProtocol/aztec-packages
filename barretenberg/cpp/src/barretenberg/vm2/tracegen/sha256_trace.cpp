@@ -622,16 +622,6 @@ const InteractionDefinition Sha256TraceBuilder::interactions =
         .add<lookup_sha256_mem_check_state_addr_in_range_settings, InteractionType::LookupGeneric>()
         .add<lookup_sha256_mem_check_input_addr_in_range_settings, InteractionType::LookupGeneric>()
         .add<lookup_sha256_mem_check_output_addr_in_range_settings, InteractionType::LookupGeneric>()
-        // Memory Interactions (These should be permutations)
-        .add<lookup_sha256_mem_mem_op_0_settings, InteractionType::LookupGeneric>()
-        .add<lookup_sha256_mem_mem_op_1_settings, InteractionType::LookupGeneric>()
-        .add<lookup_sha256_mem_mem_op_2_settings, InteractionType::LookupGeneric>()
-        .add<lookup_sha256_mem_mem_op_3_settings, InteractionType::LookupGeneric>()
-        .add<lookup_sha256_mem_mem_op_4_settings, InteractionType::LookupGeneric>()
-        .add<lookup_sha256_mem_mem_op_5_settings, InteractionType::LookupGeneric>()
-        .add<lookup_sha256_mem_mem_op_6_settings, InteractionType::LookupGeneric>()
-        .add<lookup_sha256_mem_mem_op_7_settings, InteractionType::LookupGeneric>()
-        .add<lookup_sha256_mem_mem_input_read_settings, InteractionType::LookupGeneric>()
         // Dispatch Permutation
         .add<perm_sha256_mem_dispatch_sha256_settings, InteractionType::Permutation>()
         // Bitwise operations

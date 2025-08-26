@@ -18,15 +18,130 @@ void memoryImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 
     {
         using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-        auto tmp = in.get(C::memory_sel) * (in.get(C::memory_sel) - FF(1));
+        auto tmp = in.get(C::memory_sel_addressing_base) * (FF(1) - in.get(C::memory_sel_addressing_base));
         tmp *= scaling_factor;
         std::get<0>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-        auto tmp = in.get(C::memory_rw) * (FF(1) - in.get(C::memory_rw));
+        auto tmp =
+            in.get(C::memory_sel_addressing_indirect_0_) * (FF(1) - in.get(C::memory_sel_addressing_indirect_0_));
         tmp *= scaling_factor;
         std::get<1>(evals) += typename Accumulator::View(tmp);
+    }
+    {
+        using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
+        auto tmp =
+            in.get(C::memory_sel_addressing_indirect_1_) * (FF(1) - in.get(C::memory_sel_addressing_indirect_1_));
+        tmp *= scaling_factor;
+        std::get<2>(evals) += typename Accumulator::View(tmp);
+    }
+    {
+        using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
+        auto tmp =
+            in.get(C::memory_sel_addressing_indirect_2_) * (FF(1) - in.get(C::memory_sel_addressing_indirect_2_));
+        tmp *= scaling_factor;
+        std::get<3>(evals) += typename Accumulator::View(tmp);
+    }
+    {
+        using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
+        auto tmp =
+            in.get(C::memory_sel_addressing_indirect_3_) * (FF(1) - in.get(C::memory_sel_addressing_indirect_3_));
+        tmp *= scaling_factor;
+        std::get<4>(evals) += typename Accumulator::View(tmp);
+    }
+    {
+        using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
+        auto tmp =
+            in.get(C::memory_sel_addressing_indirect_4_) * (FF(1) - in.get(C::memory_sel_addressing_indirect_4_));
+        tmp *= scaling_factor;
+        std::get<5>(evals) += typename Accumulator::View(tmp);
+    }
+    {
+        using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
+        auto tmp =
+            in.get(C::memory_sel_addressing_indirect_5_) * (FF(1) - in.get(C::memory_sel_addressing_indirect_5_));
+        tmp *= scaling_factor;
+        std::get<6>(evals) += typename Accumulator::View(tmp);
+    }
+    {
+        using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
+        auto tmp =
+            in.get(C::memory_sel_addressing_indirect_6_) * (FF(1) - in.get(C::memory_sel_addressing_indirect_6_));
+        tmp *= scaling_factor;
+        std::get<7>(evals) += typename Accumulator::View(tmp);
+    }
+    {
+        using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
+        auto tmp = in.get(C::memory_sel_keccak) * (FF(1) - in.get(C::memory_sel_keccak));
+        tmp *= scaling_factor;
+        std::get<8>(evals) += typename Accumulator::View(tmp);
+    }
+    {
+        using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
+        auto tmp = in.get(C::memory_sel_sha256_read) * (FF(1) - in.get(C::memory_sel_sha256_read));
+        tmp *= scaling_factor;
+        std::get<9>(evals) += typename Accumulator::View(tmp);
+    }
+    {
+        using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
+        auto tmp = in.get(C::memory_sel_sha256_op_0_) * (FF(1) - in.get(C::memory_sel_sha256_op_0_));
+        tmp *= scaling_factor;
+        std::get<10>(evals) += typename Accumulator::View(tmp);
+    }
+    {
+        using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
+        auto tmp = in.get(C::memory_sel_sha256_op_1_) * (FF(1) - in.get(C::memory_sel_sha256_op_1_));
+        tmp *= scaling_factor;
+        std::get<11>(evals) += typename Accumulator::View(tmp);
+    }
+    {
+        using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
+        auto tmp = in.get(C::memory_sel_sha256_op_2_) * (FF(1) - in.get(C::memory_sel_sha256_op_2_));
+        tmp *= scaling_factor;
+        std::get<12>(evals) += typename Accumulator::View(tmp);
+    }
+    {
+        using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
+        auto tmp = in.get(C::memory_sel_sha256_op_3_) * (FF(1) - in.get(C::memory_sel_sha256_op_3_));
+        tmp *= scaling_factor;
+        std::get<13>(evals) += typename Accumulator::View(tmp);
+    }
+    {
+        using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
+        auto tmp = in.get(C::memory_sel_sha256_op_4_) * (FF(1) - in.get(C::memory_sel_sha256_op_4_));
+        tmp *= scaling_factor;
+        std::get<14>(evals) += typename Accumulator::View(tmp);
+    }
+    {
+        using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
+        auto tmp = in.get(C::memory_sel_sha256_op_5_) * (FF(1) - in.get(C::memory_sel_sha256_op_5_));
+        tmp *= scaling_factor;
+        std::get<15>(evals) += typename Accumulator::View(tmp);
+    }
+    {
+        using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
+        auto tmp = in.get(C::memory_sel_sha256_op_6_) * (FF(1) - in.get(C::memory_sel_sha256_op_6_));
+        tmp *= scaling_factor;
+        std::get<16>(evals) += typename Accumulator::View(tmp);
+    }
+    {
+        using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
+        auto tmp = in.get(C::memory_sel_sha256_op_7_) * (FF(1) - in.get(C::memory_sel_sha256_op_7_));
+        tmp *= scaling_factor;
+        std::get<17>(evals) += typename Accumulator::View(tmp);
+    }
+    {
+        using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
+        auto tmp = in.get(C::memory_sel) * (in.get(C::memory_sel) - FF(1));
+        tmp *= scaling_factor;
+        std::get<18>(evals) += typename Accumulator::View(tmp);
+    }
+    {
+        using Accumulator = typename std::tuple_element_t<19, ContainerOverSubrelations>;
+        auto tmp = in.get(C::memory_rw) * (FF(1) - in.get(C::memory_rw));
+        tmp *= scaling_factor;
+        std::get<19>(evals) += typename Accumulator::View(tmp);
     }
 }
 
