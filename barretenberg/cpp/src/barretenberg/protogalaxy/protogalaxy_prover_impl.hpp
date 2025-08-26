@@ -49,17 +49,15 @@ void ProtogalaxyProver_<Flavor, NUM_KEYS>::run_oink_prover_on_each_incomplete_ke
 };
 
 template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS>
-std::tuple<std::vector<typename Flavor::FF>, Polynomial<typename Flavor::FF>> ProtogalaxyProver_<Flavor, NUM_KEYS>::
-    perturbator_round(const std::shared_ptr<const DeciderPK>& accumulator)
+Polynomial<typename Flavor::FF> ProtogalaxyProver_<Flavor, NUM_KEYS>::perturbator_round(
+    const std::shared_ptr<const DeciderPK>& accumulator)
 {
     PROFILE_THIS_NAME("ProtogalaxyProver_::perturbator_round");
 
-    const FF delta = transcript->template get_challenge<FF>("delta");
-    const std::vector<FF> deltas = compute_round_challenge_pows(CONST_PG_LOG_N, delta);
     // An honest prover with valid initial key computes that the perturbator is 0 in the first round
-    const Polynomial<FF> perturbator = accumulator->is_accumulator
-                                           ? pg_internal.compute_perturbator(accumulator, deltas)
-                                           : Polynomial<FF>(CONST_PG_LOG_N + 1);
+    const Polynomial<FF> perturbator =
+        accumulator->is_accumulator ? pg_internal.compute_perturbator(accumulator, keys_to_fold[1]->gate_challenges)
+                                    : Polynomial<FF>(CONST_PG_LOG_N + 1);
     // Prover doesn't send the constant coefficient of F because this is supposed to be equal to the target sum of
     // the accumulator which the folding verifier has from the previous iteration.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1087): Verifier circuit for first IVC step is
@@ -68,7 +66,7 @@ std::tuple<std::vector<typename Flavor::FF>, Polynomial<typename Flavor::FF>> Pr
         transcript->send_to_verifier("perturbator_" + std::to_string(idx), perturbator[idx]);
     }
 
-    return std::make_tuple(deltas, perturbator);
+    return std::make_tuple(keys_to_fold[1]->gate_challenges, perturbator);
 };
 
 template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS>
@@ -77,16 +75,14 @@ std::tuple<std::vector<typename Flavor::FF>,
            typename ProtogalaxyProver_<Flavor, NUM_KEYS>::UnivariateRelationParameters,
            typename Flavor::FF,
            typename ProtogalaxyProver_<Flavor, NUM_KEYS>::CombinerQuotient>
-ProtogalaxyProver_<Flavor, NUM_KEYS>::combiner_quotient_round(const std::vector<FF>& gate_challenges,
-                                                              const std::vector<FF>& deltas,
-                                                              const DeciderProvingKeys& keys)
+ProtogalaxyProver_<Flavor, NUM_KEYS>::combiner_quotient_round(const DeciderProvingKeys& keys)
 {
     PROFILE_THIS_NAME("ProtogalaxyProver_::combiner_quotient_round");
 
     const FF perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
 
     const std::vector<FF> updated_gate_challenges =
-        update_gate_challenges(perturbator_challenge, gate_challenges, deltas);
+        update_gate_challenges(perturbator_challenge, keys[0]->gate_challenges, keys[1]->gate_challenges);
     const UnivariateSubrelationSeparators alphas = PGInternal::compute_and_extend_alphas(keys);
     const GateSeparatorPolynomial<FF> gate_separators{ updated_gate_challenges, CONST_PG_LOG_N };
     const UnivariateRelationParameters relation_parameters =
@@ -193,11 +189,11 @@ template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS> FoldingResult<Flavor> Proto
     run_oink_prover_on_each_incomplete_key();
     vinfo("oink prover on each incomplete key");
 
-    std::tie(deltas, perturbator) = perturbator_round(accumulator);
+    perturbator = perturbator_round(accumulator);
     vinfo("perturbator round");
 
     std::tie(accumulator->gate_challenges, alphas, relation_parameters, perturbator_evaluation, combiner_quotient) =
-        combiner_quotient_round(accumulator->gate_challenges, deltas, keys_to_fold);
+        combiner_quotient_round(keys_to_fold);
     vinfo("combiner quotient round");
 
     update_target_sum_and_fold(keys_to_fold, combiner_quotient, alphas, relation_parameters, perturbator_evaluation);

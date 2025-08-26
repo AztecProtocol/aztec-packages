@@ -42,8 +42,6 @@ void _bench_round(::benchmark::State& state, void (*F)(ProtogalaxyProver_<Flavor
 
     // prepare the prover state
     folding_prover.accumulator = decider_pk_1;
-    folding_prover.deltas.resize(log2_num_gates);
-    std::fill_n(folding_prover.deltas.begin(), log2_num_gates, 0);
     folding_prover.perturbator = Flavor::Polynomial::random(1 << log2_num_gates);
     folding_prover.transcript = Flavor::Transcript::prover_init_empty();
     folding_prover.run_oink_prover_on_each_incomplete_key();
@@ -63,7 +61,7 @@ BENCHMARK_CAPTURE(bench_round_mega, oink, [](auto& prover) { prover.run_oink_pro
 BENCHMARK_CAPTURE(bench_round_mega, perturbator, [](auto& prover) { prover.perturbator_round(prover.accumulator); })
     -> DenseRange(14, 20) -> Unit(kMillisecond);
 BENCHMARK_CAPTURE(bench_round_mega, combiner_quotient, [](auto& prover) {
-    prover.combiner_quotient_round(prover.accumulator->gate_challenges, prover.deltas, prover.keys_to_fold);
+    prover.combiner_quotient_round(prover.keys_to_fold);
 }) -> DenseRange(14, 20) -> Unit(kMillisecond);
 BENCHMARK_CAPTURE(bench_round_mega, fold, [](auto& prover) {
     prover.update_target_sum_and_fold(prover.keys_to_fold,
