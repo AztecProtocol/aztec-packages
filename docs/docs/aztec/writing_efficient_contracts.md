@@ -82,9 +82,9 @@ Gates | Operation
 ~75   | Hashing 3 fields with Poseidon2
 3500  | Reading a value from a tree (public data tree, note hash tree, nullifier tree)
 4000  | Reading a shared mutable read
-X000  | Calculating sha256
-X000  | Constrained encryption of a log of Y fields
-X000  | Constrained encryption and tag a log of Y fields
+TBD  | Calculating sha256
+TBD  | Constrained encryption of a log of Y fields
+TBD  | Constrained encryption and tag a log of Y fields
 
 ### Optimization: use arithmetic instead of non-arithmetic operations
 
@@ -212,7 +212,10 @@ fn sqrt_constrained(number: Field) -> Field {
 unconstrained fn sqrt_unconstrained(number: Field) -> Field {
     let mut guess = number;
     let mut guess_squared = guess * guess;
-    while guess_squared != number {
+    for _ in 0..100 { // prevent infinite loop
+        if guess_squared == number {
+            break;
+        }
         guess = (guess + number / guess) / 2;
         guess_squared = guess * guess;
     }
@@ -244,9 +247,9 @@ Like with sqrt, we have the inefficient function that does the sort with constra
         for i in 0..super::ARRAY_SIZE as u32 {
             for j in 0..super::ARRAY_SIZE as u32 {
                 if sorted_array[i] < sorted_array[j] {
-                    let temp = sorted_array[i as u32];
-                    sorted_array[i as u32] = sorted_array[j as u32];
-                    sorted_array[j as u32] = temp;
+                    let temp = sorted_array[i];
+                    sorted_array[i] = sorted_array[j];
+                    sorted_array[j] = temp;
                 }
             }
         }
@@ -258,7 +261,7 @@ Like with sqrt, we have the inefficient function that does the sort with constra
         // Safety: calculate in unconstrained function, then constrain the result
         let sorted_array = unsafe { super::sort_array(array) };
         // constrain that sorted_array elements are sorted
-        for i in 0..super::ARRAY_SIZE as u32 {
+        for i in 0..super::ARRAY_SIZE as u32 - 1 {
             assert(sorted_array[i] <= sorted_array[i + 1], "array should be sorted");
         }
         sorted_array
@@ -270,9 +273,9 @@ unconstrained fn sort_array(array: [u32; ARRAY_SIZE]) -> [u32; ARRAY_SIZE] {
     for i in 0..ARRAY_SIZE as u32 {
         for j in 0..ARRAY_SIZE as u32 {
             if sorted_array[i] < sorted_array[j] {
-                let temp = sorted_array[i as u32];
-                sorted_array[i as u32] = sorted_array[j as u32];
-                sorted_array[j as u32] = temp;
+                let temp = sorted_array[i];
+                sorted_array[i] = sorted_array[j];
+                sorted_array[j] = temp;
             }
         }
     }
