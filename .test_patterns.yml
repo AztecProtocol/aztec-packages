@@ -45,23 +45,19 @@ tests:
     error_regex: "field_t::range_constraint"
     owners:
       - *luke
-  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
+  - regex: "barretenberg/acir_tests/scripts/browser_prove.sh"
     error_regex: "Failed to fetch"
     owners:
       - *adam
-  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
-    error_regex: "Failed to fetch"
-    owners:
-      - *adam
-  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
+  - regex: "barretenberg/acir_tests/scripts/browser_prove.sh"
     error_regex: "RuntimeError: Out of bounds memory access"
     owners:
       - *adam
-  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
+  - regex: "barretenberg/acir_tests/scripts/browser_prove.sh"
     error_regex: "call_indirect to a null table entry"
     owners:
       - *adam
-  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
+  - regex: "barretenberg/acir_tests/scripts/browser_prove.sh"
     error_regex: "Input is not large enough"
     owners:
       - *adam
