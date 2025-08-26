@@ -138,6 +138,8 @@ export class PublicPersistableStateManager {
   public async writeStorage(contractAddress: AztecAddress, slot: Fr, value: Fr, protocolWrite = false): Promise<void> {
     this.log.trace(`Storage write (address=${contractAddress}, slot=${slot}): value=${value}`);
 
+    await this.trace.tracePublicStorageWrite(contractAddress, slot, value, protocolWrite);
+
     if (this.doMerkleOperations) {
       // write to native merkle trees
       await this.treesDB.storageWrite(contractAddress, slot, value);
@@ -145,8 +147,6 @@ export class PublicPersistableStateManager {
       // Cache storage writes for later reference/reads
       this.publicStorage.write(contractAddress, slot, value);
     }
-
-    await this.trace.tracePublicStorageWrite(contractAddress, slot, value, protocolWrite);
   }
 
   public isStorageCold(contractAddress: AztecAddress, slot: Fr): boolean {
@@ -217,10 +217,10 @@ export class PublicPersistableStateManager {
    */
   public async writeUniqueNoteHash(uniqueNoteHash: Fr): Promise<void> {
     this.log.trace(`noteHashes += @${uniqueNoteHash}.`);
+    this.trace.traceNewNoteHash(uniqueNoteHash);
     if (this.doMerkleOperations) {
       await this.treesDB.writeNoteHash(uniqueNoteHash);
     }
-    this.trace.traceNewNoteHash(uniqueNoteHash);
   }
 
   /**
@@ -262,6 +262,8 @@ export class PublicPersistableStateManager {
   public async writeSiloedNullifier(siloedNullifier: Fr) {
     this.log.trace(`Inserting siloed nullifier=${siloedNullifier}`);
 
+    this.trace.traceNewNullifier(siloedNullifier);
+
     if (this.doMerkleOperations) {
       const exists = await this.treesDB.checkNullifierExists(siloedNullifier);
 
@@ -277,8 +279,6 @@ export class PublicPersistableStateManager {
       // Cache pending nullifiers for later access
       await this.nullifiers.append(siloedNullifier);
     }
-
-    this.trace.traceNewNullifier(siloedNullifier);
   }
 
   /**
