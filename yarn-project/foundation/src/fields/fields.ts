@@ -60,6 +60,8 @@ abstract class BaseField {
       this.asBigInt = BigInt(value);
       if (this.asBigInt >= this.modulus()) {
         throw new Error(`Value 0x${this.asBigInt.toString(16)} is greater or equal to field modulus.`);
+      } else if (this.asBigInt < 0n) {
+        throw new Error(`Value 0x${this.asBigInt.toString(16)} is negative.`);
       }
     } else if (value instanceof BaseField) {
       this.asBuffer = value.asBuffer;
