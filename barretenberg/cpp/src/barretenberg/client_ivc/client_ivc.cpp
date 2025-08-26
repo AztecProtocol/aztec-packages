@@ -408,11 +408,9 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
     auto verifier_transcript =
         Transcript::convert_prover_transcript_to_verifier_transcript(prover_accumulation_transcript);
 
-    VerifierInputs queue_entry{ .honk_vk = honk_vk,
-                                // first circuit accumulated should be an app
-                                .is_kernel = is_kernel };
+    VerifierInputs queue_entry{ .honk_vk = honk_vk, .is_kernel = is_kernel };
     if (num_circuits_accumulated == 0) { // First circuit in the IVC
-        BB_ASSERT_EQ(queue_entry.is_kernel, false, "First circuit accumulated is always be an app");
+        BB_ASSERT_EQ(queue_entry.is_kernel, false, "First circuit accumulated must always be an app");
         // For first circuit in the IVC, use oink to complete the decider proving key and generate an oink proof
         MegaOinkProver oink_prover{ proving_key, honk_vk, prover_accumulation_transcript };
         vinfo("computing oink proof...");
@@ -421,13 +419,6 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
         vinfo("oink proof constructed");
 
         fold_output.accumulator = proving_key; // initialize the prover accum with the completed key
-
-        auto decider_vk = std::make_shared<DeciderVerificationKey>(honk_vk);
-        verifier_transcript->load_proof(oink_proof);
-        OinkVerifier<Flavor> oink_verifier{ decider_vk, verifier_transcript };
-        oink_verifier.verify();
-        native_verifier_accum = decider_vk;
-        native_verifier_accum->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
 
         queue_entry.type = QUEUE_TYPE::OINK;
         queue_entry.proof = oink_proof;
@@ -454,14 +445,6 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
                                      trace_usage_tracker);
         fold_output = folding_prover.prove();
         vinfo("constructed folding proof");
-        if (is_kernel) {
-            // Fiat-Shamir the verifier accumulator
-            FF accum_hash = native_verifier_accum->hash_through_transcript("", *verifier_transcript);
-            verifier_transcript->add_to_hash_buffer("accum_hash", accum_hash);
-            info("Accumulator hash in PG verifier: ", accum_hash);
-        }
-        FoldingVerifier folding_verifier({ native_verifier_accum, vk }, verifier_transcript);
-        native_verifier_accum = folding_verifier.verify_folding_proof(fold_output.proof);
 
         if (num_circuits_accumulated == num_circuits - 2) {
             // we are folding in the "Tail" kernel, so the verification_queue entry should have type PG_FINAL
@@ -480,6 +463,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
 
     // Construct merge proof for the present circuit (skipped for hiding since merge proof constructed in goblin prove)
     if (num_circuits_accumulated != num_circuits - 1) {
+        update_native_verifier_accumulator(queue_entry, verifier_transcript);
         goblin.prove_merge(prover_accumulation_transcript);
     }
 
@@ -727,6 +711,12 @@ void ClientIVC::update_native_verifier_accumulator(const VerifierInputs& queue_e
         native_verifier_accum = decider_vk;
         native_verifier_accum->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
     } else {
+        if (queue_entry.is_kernel) {
+            // Fiat-Shamir the verifier accumulator
+            FF accum_hash = native_verifier_accum->hash_through_transcript("", *verifier_transcript);
+            verifier_transcript->add_to_hash_buffer("accum_hash", accum_hash);
+            info("Accumulator hash in PG verifier: ", accum_hash);
+        }
         FoldingVerifier folding_verifier({ native_verifier_accum, decider_vk }, verifier_transcript);
         native_verifier_accum = folding_verifier.verify_folding_proof(queue_entry.proof);
     }
