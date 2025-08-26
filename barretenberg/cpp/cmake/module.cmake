@@ -57,7 +57,7 @@ function(barretenberg_module MODULE_NAME)
             ${TBB_IMPORTED_TARGETS}
         )
 
-        if(CHECK_CIRCUIT_STACKTRACES)
+        if(CHECK_CIRCUIT_STACKTRACES OR ENABLE_STACKTRACES)
             target_link_libraries(
                 ${MODULE_NAME}_objects
                 PUBLIC
@@ -108,7 +108,7 @@ function(barretenberg_module MODULE_NAME)
         )
         list(APPEND exe_targets ${MODULE_NAME}_tests)
 
-        if(CHECK_CIRCUIT_STACKTRACES)
+        if(CHECK_CIRCUIT_STACKTRACES OR ENABLE_STACKTRACES)
             target_link_libraries(
                 ${MODULE_NAME}_test_objects
                 PUBLIC
@@ -236,7 +236,7 @@ function(barretenberg_module MODULE_NAME)
                 ${TRACY_LIBS}
                 ${TBB_IMPORTED_TARGETS}
             )
-            if(CHECK_CIRCUIT_STACKTRACES)
+            if(CHECK_CIRCUIT_STACKTRACES OR ENABLE_STACKTRACES)
                 target_link_libraries(
                     ${BENCHMARK_NAME}_bench_objects
                     PUBLIC
