@@ -89,7 +89,7 @@ export class ProverNodePublisher {
   }
 
   public getSenderAddress() {
-    return EthAddress.fromString(this.l1TxUtils.getSenderAddress());
+    return this.l1TxUtils.getSenderAddress();
   }
 
   public async submitEpochProof(args: {
@@ -114,7 +114,10 @@ export class ProverNodePublisher {
       }
 
       try {
-        this.metrics.recordSenderBalance(await this.l1TxUtils.getSenderBalance(), this.l1TxUtils.getSenderAddress());
+        this.metrics.recordSenderBalance(
+          await this.l1TxUtils.getSenderBalance(),
+          this.l1TxUtils.getSenderAddress().toString(),
+        );
       } catch (err) {
         this.log.warn(`Failed to record the ETH balance of the prover node: ${err}`);
       }

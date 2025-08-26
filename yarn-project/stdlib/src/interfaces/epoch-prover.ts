@@ -1,5 +1,5 @@
 import type { BatchedBlob, FinalBlobBatchingChallenges } from '@aztec/blob-lib';
-import type { Fr } from '@aztec/foundation/fields';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 
 import type { L2Block } from '../block/l2_block.js';
 import type { Proof } from '../proofs/proof.js';
@@ -39,7 +39,7 @@ export interface EpochProver extends Omit<IBlockFactory, 'setBlockCompleted'> {
   cancel(): void;
 
   /** Returns an identifier for the prover or zero if not set. */
-  getProverId(): Fr;
+  getProverId(): EthAddress;
 
   /** Returns the block assembled at a given index (zero-based) within the epoch. */
   getBlock(index: number): L2Block;

@@ -43,7 +43,13 @@ import {
   getL1ContractsConfigEnvVars,
   isAnvilTestChain,
 } from '@aztec/ethereum';
-import { DelayedTxUtils, EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
+import {
+  DelayedTxUtils,
+  EthCheatCodes,
+  EthCheatCodesWithState,
+  createDelayedL1TxUtilsFromViemWallet,
+  startAnvil,
+} from '@aztec/ethereum/test';
 import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -93,7 +99,7 @@ import getPort from 'get-port';
 import { tmpdir } from 'os';
 import * as path from 'path';
 import { type Chain, type HDAccount, type Hex, type PrivateKeyAccount, getContract } from 'viem';
-import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
+import { generatePrivateKey, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { MNEMONIC, TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
@@ -236,6 +242,7 @@ async function setupWithRemoteEnvironment(
     l1Client,
     rollupVersion,
   };
+  const ethCheatCodes = new EthCheatCodes(config.l1RpcUrls);
   const cheatCodes = await CheatCodes.create(config.l1RpcUrls, pxeClient!);
   const teardown = () => Promise.resolve();
 
@@ -262,6 +269,7 @@ async function setupWithRemoteEnvironment(
     accounts: wallets.slice(0, numberOfAccounts).map(w => w.getAddress()),
     logger,
     cheatCodes,
+    ethCheatCodes,
     prefilledPublicData: undefined,
     mockGossipSubNetwork: undefined,
     watcher: undefined,
@@ -316,6 +324,8 @@ export type SetupOptions = {
   anvilAccounts?: number;
   /** Port to start anvil (defaults to 8545) */
   anvilPort?: number;
+  /** Key to use for publishing L1 contracts */
+  l1PublisherKey?: SecretValue<`0x${string}`>;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
@@ -346,6 +356,8 @@ export type EndToEndContext = {
   logger: Logger;
   /** The cheat codes. */
   cheatCodes: CheatCodes;
+  /** The cheat codes for L1 */
+  ethCheatCodes: EthCheatCodes;
   /** The anvil test watcher (undefined if connected to remote environment) */
   watcher: AnvilTestWatcher | undefined;
   /** Allows tweaking current system time, used by the epoch cache only (undefined if connected to remote environment) */
@@ -438,16 +450,24 @@ export async function setup(
     let publisherPrivKey = undefined;
     let publisherHdAccount = undefined;
 
-    if (config.publisherPrivateKey && config.publisherPrivateKey.getValue() != NULL_KEY) {
-      publisherHdAccount = privateKeyToAccount(config.publisherPrivateKey.getValue());
+    if (opts.l1PublisherKey && opts.l1PublisherKey.getValue() && opts.l1PublisherKey.getValue() != NULL_KEY) {
+      publisherHdAccount = privateKeyToAccount(opts.l1PublisherKey.getValue());
+    } else if (
+      config.publisherPrivateKeys &&
+      config.publisherPrivateKeys.length > 0 &&
+      config.publisherPrivateKeys[0].getValue() != NULL_KEY
+    ) {
+      publisherHdAccount = privateKeyToAccount(config.publisherPrivateKeys[0].getValue());
     } else if (!MNEMONIC) {
       throw new Error(`Mnemonic not provided and no publisher private key`);
     } else {
       publisherHdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
       const publisherPrivKeyRaw = publisherHdAccount.getHdKey().privateKey;
       publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
-      config.publisherPrivateKey = new SecretValue(`0x${publisherPrivKey!.toString('hex')}` as const);
+      config.publisherPrivateKeys = [new SecretValue(`0x${publisherPrivKey!.toString('hex')}` as const)];
     }
+
+    config.coinbase = EthAddress.fromString(publisherHdAccount.address);
 
     if (PXE_URL) {
       // we are setting up against a remote environment, l1 contracts are assumed to already be deployed
@@ -603,6 +623,13 @@ export async function setup(
 
     config.p2pEnabled = opts.mockGossipSubNetwork || config.p2pEnabled;
     config.p2pIp = opts.p2pIp ?? config.p2pIp ?? '127.0.0.1';
+
+    if (!config.disableValidator) {
+      if ((config.validatorPrivateKeys?.getValue().length ?? 0) === 0) {
+        config.validatorPrivateKeys = new SecretValue([generatePrivateKey()]);
+      }
+    }
+
     const aztecNode = await AztecNodeService.createAndSync(
       config, // REFACTOR: createAndSync mutates this config
       { dateProvider, blobSinkClient, telemetry, p2pClientDeps, logger: createLogger('node:MAIN-aztec-node') },
@@ -612,7 +639,7 @@ export async function setup(
 
     if (sequencerClient) {
       const publisher = (sequencerClient as TestSequencerClient).sequencer.publisher;
-      publisher.l1TxUtils = DelayedTxUtils.fromL1TxUtils(publisher.l1TxUtils, config.ethereumSlotDuration);
+      publisher.l1TxUtils = DelayedTxUtils.fromL1TxUtils(publisher.l1TxUtils, config.ethereumSlotDuration, l1Client);
     }
 
     let proverNode: ProverNode | undefined = undefined;
@@ -687,8 +714,9 @@ export async function setup(
           await bbConfig.cleanup();
         }
 
-        await tryStop(anvil, logger);
         await tryStop(watcher, logger);
+        await tryStop(anvil, logger);
+
         await tryStop(blobSink, logger);
         await tryRmDir(directoryToCleanup, logger);
       } catch (err) {
@@ -701,6 +729,7 @@ export async function setup(
       aztecNodeAdmin: aztecNode,
       blobSink,
       cheatCodes,
+      ethCheatCodes,
       config,
       dateProvider,
       deployL1ContractsValues,
@@ -924,7 +953,7 @@ export function createAndSyncProverNode(
       txCollectionNodeRpcUrls: [],
       realProofs: false,
       proverAgentCount: 2,
-      publisherPrivateKey: new SecretValue(proverNodePrivateKey),
+      publisherPrivateKeys: [new SecretValue(proverNodePrivateKey)],
       proverNodeMaxPendingJobs: 10,
       proverNodeMaxParallelBlocksPerEpoch: 32,
       proverNodePollingIntervalMs: 200,
@@ -933,6 +962,7 @@ export function createAndSyncProverNode(
       txGatheringMaxParallelRequestsPerNode: 10,
       txGatheringTimeoutMs: 24_000,
       proverNodeFailedEpochStore: undefined,
+      proverId: EthAddress.fromNumber(1),
       ...proverNodeConfig,
     };
 
@@ -963,7 +993,7 @@ function createDelayedL1TxUtils(
   const l1Client = createExtendedL1Client(aztecNodeConfig.l1RpcUrls, privateKey, foundry);
 
   const log = createLogger(logName);
-  const l1TxUtils = new DelayedTxUtils(l1Client, log, dateProvider, aztecNodeConfig);
+  const l1TxUtils = createDelayedL1TxUtilsFromViemWallet(l1Client, log, dateProvider, aztecNodeConfig);
   l1TxUtils.enableDelayer(aztecNodeConfig.ethereumSlotDuration);
   return l1TxUtils;
 }

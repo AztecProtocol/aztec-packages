@@ -11,15 +11,14 @@ import {
 } from '@aztec/constants';
 import { EpochCache, type EpochCacheInterface } from '@aztec/epoch-cache';
 import {
+  type EthSigner,
   type L1ContractAddresses,
-  NULL_KEY,
   RegistryContract,
   RollupContract,
   createEthereumChain,
-  createExtendedL1Client,
   getPublicClient,
 } from '@aztec/ethereum';
-import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { createL1TxUtilsWithBlobsFromEthSigner } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { compactArray, pick } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -29,6 +28,7 @@ import { SerialQueue } from '@aztec/foundation/queue';
 import { count } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
+import { KeystoreManager, loadKeystores, mergeKeystores } from '@aztec/node-keystore';
 import { trySnapshotSync, uploadSnapshot } from '@aztec/node-lib/actions';
 import { type P2P, type P2PClientDeps, createP2PClient, getDefaultAllowedSetupFunctions } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -108,14 +108,14 @@ import {
   getTelemetryClient,
   trackSpan,
 } from '@aztec/telemetry-client';
-import { createValidatorClient } from '@aztec/validator-client';
+import { ValidatorClient, createValidatorClient } from '@aztec/validator-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
 import { createPublicClient, fallback, http } from 'viem';
 
 import { createSentinel } from '../sentinel/factory.js';
 import { Sentinel } from '../sentinel/sentinel.js';
-import type { AztecNodeConfig } from './config.js';
+import { type AztecNodeConfig, createKeyStoreForValidator } from './config.js';
 import { NodeMetrics } from './node_metrics.js';
 
 /**
@@ -198,6 +198,32 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const blobSinkClient =
       deps.blobSinkClient ?? createBlobSinkClient(config, { logger: createLogger('node:blob-sink:client') });
     const ethereumChain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
+
+    // Build a key store from file if given or from environment otherwise
+    let keyStoreManager: KeystoreManager | undefined;
+    const keyStoreProvided = config.keyStoreDirectory !== undefined && config.keyStoreDirectory.length > 0;
+    if (keyStoreProvided) {
+      const keyStores = loadKeystores(config.keyStoreDirectory!);
+      keyStoreManager = new KeystoreManager(mergeKeystores(keyStores));
+    } else {
+      const keyStore = createKeyStoreForValidator(config);
+      if (keyStore) {
+        keyStoreManager = new KeystoreManager(keyStore);
+      }
+    }
+
+    // If we are a validator, verify our configuration before doing too much more.
+    if (!config.disableValidator) {
+      if (keyStoreManager === undefined) {
+        throw new Error('Failed to create key store, a requirement for running a validator');
+      }
+      if (!keyStoreProvided) {
+        log.warn(
+          'KEY STORE CREATED FROM ENVIRONMENT, IT IS RECOMMENDED TO USE A FILE-BASED KEY STORE IN PRODUCTION ENVIRONMENTS',
+        );
+      }
+      ValidatorClient.validateKeyStoreConfiguration(keyStoreManager);
+    }
 
     // validate that the actual chain id matches that specified in configuration
     if (config.l1ChainId !== ethereumChain.chainInfo.id) {
@@ -331,6 +357,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       blockBuilder,
       blockSource: archiver,
       l1ToL2MessageSource: archiver,
+      keyStoreManager,
     });
 
     if (validatorClient) {
@@ -344,12 +371,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     let slasherClient: SlasherClientInterface | undefined;
 
     if (!config.disableValidator) {
-      // This shouldn't happen, validators need a publisher private key.
-      const { publisherPrivateKey } = config;
-      if (!publisherPrivateKey?.getValue() || publisherPrivateKey?.getValue() === NULL_KEY) {
-        throw new Error('A publisher private key is required to run a validator');
-      }
-
       // We create a slasher only if we have a sequencer, since all slashing actions go through the sequencer publisher
       // as they are executed when the node is selected as proposer.
       slasherClient = await createSlasher(
@@ -362,12 +383,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       );
       await slasherClient.start();
 
-      const l1Client = createExtendedL1Client(
-        config.l1RpcUrls,
-        publisherPrivateKey.getValue(),
-        ethereumChain.chainInfo,
-      );
-      const l1TxUtils = new L1TxUtilsWithBlobs(l1Client, log, dateProvider, config);
+      const l1TxUtils = keyStoreManager!.createAllValidatorPublisherSigners().map((signer: EthSigner) => {
+        return createL1TxUtilsWithBlobsFromEthSigner(publicClient, signer, log, dateProvider, config);
+      });
 
       sequencer = await SequencerClient.new(config, {
         // if deps were provided, they should override the defaults,
@@ -385,6 +403,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         telemetry,
         dateProvider,
         blobSinkClient,
+        nodeKeyStore: keyStoreManager!,
       });
     }
 
@@ -1015,8 +1034,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
 
     // If sequencer is not initialized, we just set these values to zero for simulation.
-    const coinbase = this.sequencer?.coinbase || EthAddress.ZERO;
-    const feeRecipient = this.sequencer?.feeRecipient || AztecAddress.ZERO;
+    const coinbase = EthAddress.ZERO;
+    const feeRecipient = AztecAddress.ZERO;
 
     const newGlobalVariables = await this.globalVariableBuilder.buildGlobalVariables(
       blockNumber,

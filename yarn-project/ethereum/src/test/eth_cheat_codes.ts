@@ -13,7 +13,7 @@ import type { ViemPublicClient } from '../types.js';
  * A class that provides utility functions for interacting with ethereum (L1).
  */
 export class EthCheatCodes {
-  private publicClient: ViemPublicClient;
+  public readonly publicClient: ViemPublicClient;
   constructor(
     /**
      * The RPC URL to use for interacting with the chain
