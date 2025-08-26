@@ -35,11 +35,6 @@ void ProtogalaxyProver_<Flavor, NUM_KEYS>::run_oink_prover_on_each_incomplete_ke
     auto& verifier_accum = vks_to_fold[0];
     if (!key->is_complete) {
         run_oink_prover_on_one_incomplete_key(key, verifier_accum, domain_separator);
-    } else {
-        // Fiat-Shamir the verifier accumulator
-        FF accum_hash = verifier_accum->hash_through_transcript(domain_separator + '_', *transcript);
-        transcript->add_to_hash_buffer(domain_separator + "_accum_hash", accum_hash);
-        info("Accumulator hash in PG prover: ", accum_hash);
     }
 
     idx++;
