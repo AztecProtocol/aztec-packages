@@ -4,7 +4,7 @@
 ///
 /// @dev Whenever a contract function or TXE test is run, the `utilityAssertOracleVersionMatches` is called and if
 /// there is a mismatch, an error is thrown.
-global ORACLE_VERSION: Field = 1;
+pub global ORACLE_VERSION: Field = 1;
 
 /// Asserts that the version of the oracle matches the version expected by the contract.
 pub fn assert_oracle_version_matches() {
