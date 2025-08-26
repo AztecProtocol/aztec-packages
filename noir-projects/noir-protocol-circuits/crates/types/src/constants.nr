@@ -962,32 +962,32 @@ pub global AVM_ADDRESSING_RELATIVE_L2_GAS: u32 = 3; // One range check
 
 // Base L2 GAS
 // Note: magic numbers here are derived from each op's AVM circuit trace area
-pub global AVM_ADD_BASE_L2_GAS: u32 = 15;
-pub global AVM_SUB_BASE_L2_GAS: u32 = 15;
-pub global AVM_MUL_BASE_L2_GAS: u32 = 30;
-pub global AVM_DIV_BASE_L2_GAS: u32 = 30;
-pub global AVM_FDIV_BASE_L2_GAS: u32 = 12;
-pub global AVM_EQ_BASE_L2_GAS: u32 = 15;
-pub global AVM_LT_BASE_L2_GAS: u32 = 45;
-pub global AVM_LTE_BASE_L2_GAS: u32 = 45;
-pub global AVM_AND_BASE_L2_GAS: u32 = 15;
-pub global AVM_OR_BASE_L2_GAS: u32 = 15;
-pub global AVM_XOR_BASE_L2_GAS: u32 = 15;
-pub global AVM_NOT_BASE_L2_GAS: u32 = 15;
-pub global AVM_SHL_BASE_L2_GAS: u32 = 12;
-pub global AVM_SHR_BASE_L2_GAS: u32 = 12;
-pub global AVM_CAST_BASE_L2_GAS: u32 = 30;
-pub global AVM_GETENVVAR_BASE_L2_GAS: u16 = 15;
-pub global AVM_CALLDATACOPY_BASE_L2_GAS: u32 = 21;
-pub global AVM_SUCCESSCOPY_BASE_L2_GAS: u32 = 15;
-pub global AVM_RETURNDATASIZE_BASE_L2_GAS: u32 = 15;
-pub global AVM_RETURNDATACOPY_BASE_L2_GAS: u32 = 21;
-pub global AVM_JUMP_BASE_L2_GAS: u32 = 12;
-pub global AVM_JUMPI_BASE_L2_GAS: u32 = 12;
-pub global AVM_INTERNALCALL_BASE_L2_GAS: u32 = 12;
-pub global AVM_INTERNALRETURN_BASE_L2_GAS: u32 = 12;
-pub global AVM_SET_BASE_L2_GAS: u32 = 30;
-pub global AVM_MOV_BASE_L2_GAS: u32 = 15;
+pub global AVM_ADD_BASE_L2_GAS: u32 = 12;
+pub global AVM_SUB_BASE_L2_GAS: u32 = 12;
+pub global AVM_MUL_BASE_L2_GAS: u32 = 27;
+pub global AVM_DIV_BASE_L2_GAS: u32 = 27;
+pub global AVM_FDIV_BASE_L2_GAS: u32 = 9;
+pub global AVM_EQ_BASE_L2_GAS: u32 = 12;
+pub global AVM_LT_BASE_L2_GAS: u32 = 42;
+pub global AVM_LTE_BASE_L2_GAS: u32 = 42;
+pub global AVM_AND_BASE_L2_GAS: u32 = 12;
+pub global AVM_OR_BASE_L2_GAS: u32 = 12;
+pub global AVM_XOR_BASE_L2_GAS: u32 = 12;
+pub global AVM_NOT_BASE_L2_GAS: u32 = 12;
+pub global AVM_SHL_BASE_L2_GAS: u32 = 18;
+pub global AVM_SHR_BASE_L2_GAS: u32 = 18;
+pub global AVM_CAST_BASE_L2_GAS: u32 = 27;
+pub global AVM_GETENVVAR_BASE_L2_GAS: u16 = 12;
+pub global AVM_CALLDATACOPY_BASE_L2_GAS: u32 = 18;
+pub global AVM_SUCCESSCOPY_BASE_L2_GAS: u32 = 12;
+pub global AVM_RETURNDATASIZE_BASE_L2_GAS: u32 = 12;
+pub global AVM_RETURNDATACOPY_BASE_L2_GAS: u32 = 18;
+pub global AVM_JUMP_BASE_L2_GAS: u32 = 9;
+pub global AVM_JUMPI_BASE_L2_GAS: u32 = 9;
+pub global AVM_INTERNALCALL_BASE_L2_GAS: u32 = 9;
+pub global AVM_INTERNALRETURN_BASE_L2_GAS: u32 = 9;
+pub global AVM_SET_BASE_L2_GAS: u32 = 27;
+pub global AVM_MOV_BASE_L2_GAS: u32 = 12;
 pub global AVM_SLOAD_BASE_L2_GAS: u32 = 129;
 pub global AVM_SSTORE_BASE_L2_GAS: u32 = 633 + L2_GAS_DISTRIBUTED_STORAGE_PREMIUM;
 pub global AVM_NOTEHASHEXISTS_BASE_L2_GAS: u32 = 120;
@@ -997,23 +997,18 @@ pub global AVM_EMITNULLIFIER_BASE_L2_GAS: u32 = 492 + L2_GAS_DISTRIBUTED_STORAGE
 pub global AVM_L1TOL2MSGEXISTS_BASE_L2_GAS: u32 = 117;
 pub global AVM_GETCONTRACTINSTANCE_BASE_L2_GAS: u32 = 1527; // does scalar mul
 pub global AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS: u32 = 42;
-pub global AVM_SENDL2TOL1MSG_BASE_L2_GAS: u32 = 12 + L2_GAS_PER_L2_TO_L1_MSG;
+pub global AVM_SENDL2TOL1MSG_BASE_L2_GAS: u32 = 9 + L2_GAS_PER_L2_TO_L1_MSG;
 // See PR https://github.com/AztecProtocol/aztec-packages/pull/15495 on why we need this buffer.
-pub global AVM_CALL_BUFFER: u32 = AVM_ADDRESSING_BASE_RESOLUTION_L2_GAS
-    + AVM_MAX_OPERANDS * AVM_ADDRESSING_INDIRECT_L2_GAS
-    + AVM_MAX_OPERANDS * AVM_ADDRESSING_RELATIVE_L2_GAS
-    // Operand resolution. One mem access per operand.
-    + AVM_MAX_REGISTERS * 3;
-pub global AVM_CALL_BASE_L2_GAS: u32 = 1527 + AVM_CALL_BUFFER; // does scalar mul
-pub global AVM_STATICCALL_BASE_L2_GAS: u32 = 1527 + AVM_CALL_BUFFER; // does scalar mul
-pub global AVM_RETURN_BASE_L2_GAS: u32 = 12;
-pub global AVM_REVERT_BASE_L2_GAS: u32 = 12;
-pub global AVM_DEBUGLOG_BASE_L2_GAS: u32 = 12;
-pub global AVM_POSEIDON2_BASE_L2_GAS: u32 = 24;
+pub global AVM_CALL_BASE_L2_GAS: u32 = 1527; // does scalar mul
+pub global AVM_STATICCALL_BASE_L2_GAS: u32 = 1527; // does scalar mul
+pub global AVM_RETURN_BASE_L2_GAS: u32 = 9;
+pub global AVM_REVERT_BASE_L2_GAS: u32 = 9;
+pub global AVM_DEBUGLOG_BASE_L2_GAS: u32 = 9;
+pub global AVM_POSEIDON2_BASE_L2_GAS: u32 = 21;
 pub global AVM_SHA256COMPRESSION_BASE_L2_GAS: u32 = 12288;
 pub global AVM_KECCAKF1600_BASE_L2_GAS: u32 = 58176;
 pub global AVM_ECADD_BASE_L2_GAS: u32 = 27;
-pub global AVM_TORADIXBE_BASE_L2_GAS: u32 = 27;
+pub global AVM_TORADIXBE_BASE_L2_GAS: u32 = 24;
 
 // Dynamic L2 GAS
 pub global AVM_CALLDATACOPY_DYN_L2_GAS: u32 = 3;
