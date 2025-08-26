@@ -56,21 +56,19 @@ template <typename Builder> class FieldSponge {
             state[i] = field_t::from_witness_index(builder, 0);
         }
 
-        const field_t iv(static_cast<uint256_t>(in_len) << 64);
-
-        state[rate] = iv.convert_constant_to_fixed_witness(builder);
+        field_t iv(static_cast<uint256_t>(in_len) << 64);
+        iv.convert_constant_to_fixed_witness(builder);
+        state[rate] = iv;
     }
 
     void perform_duplex()
     {
-        // zero-pad the cache
-        for (size_t i = cache_size; i < rate; ++i) {
-            cache[i] = field_t::from_witness_index(builder, 0);
-        }
-        // add the cache into sponge state
+        // Add the cache into sponge state
         for (size_t i = 0; i < rate; ++i) {
             state[i] += cache[i];
         }
+
+        // Apply Poseidon2 permutation
         state = Permutation::permutation(builder, state);
 
         // variables with indices from rate to size of state - 1 won't be used anymore
@@ -89,7 +87,7 @@ template <typename Builder> class FieldSponge {
             perform_duplex();
             cache[0] = input;
             cache_size = 1;
-        } else if (cache_size < rate) {
+        } else {
             // If we're absorbing, and the cache is not full, add the input into the cache
             cache[cache_size] = input;
             cache_size += 1;
@@ -98,21 +96,14 @@ template <typename Builder> class FieldSponge {
 
     field_t squeeze()
     {
+        // Zero-pad cache
+        for (size_t i = cache_size; i < rate; ++i) {
+            cache[i] = field_t::from_witness_index(builder, 0);
+        }
 
         perform_duplex();
-        for (size_t i = 0; i < rate; ++i) {
-            cache[i] = state[i];
-        }
-        cache_size = rate;
 
-        // By this point, we should have a non-empty cache. Pop one item off the top of the cache and return it.
-        field_t result = cache[0];
-        for (size_t i = 1; i < cache_size; ++i) {
-            cache[i - 1] = cache[i];
-        }
-        cache_size -= 1;
-        cache[cache_size] = field_t::from_witness_index(builder, 0);
-        return result;
+        return state[0];
     }
 
     /**
@@ -126,7 +117,7 @@ template <typename Builder> class FieldSponge {
 
     static field_t hash_internal(Builder& builder, std::span<const field_t> input)
     {
-        size_t in_len = input.size();
+        const size_t in_len = input.size();
         FieldSponge sponge(builder, in_len);
 
         for (size_t i = 0; i < in_len; ++i) {

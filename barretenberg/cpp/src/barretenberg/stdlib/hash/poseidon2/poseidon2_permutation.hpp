@@ -78,7 +78,7 @@ template <typename Builder> class Poseidon2Permutation {
      * @param block
      */
     template <typename BlockType>
-    static void record_current_state_into_next_row(Builder* builder, const State& state, const BlockType& block)
+    static void record_current_state_into_next_row(Builder* builder, const State& state, BlockType& block)
     {
         builder->create_dummy_gate(block,
                                    state[0].get_witness_index(),
