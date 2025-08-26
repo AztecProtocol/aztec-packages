@@ -141,26 +141,6 @@ TEST_F(UltraPlonkRAM, TestBlockConstraint)
         .varnum = static_cast<uint32_t>(num_variables),
         .num_acir_opcodes = 7,
         .public_inputs = {},
-        .logic_constraints = {},
-        .range_constraints = {},
-        .aes128_constraints = {},
-        .sha256_compression = {},
-        .ecdsa_k1_constraints = {},
-        .ecdsa_r1_constraints = {},
-        .blake2s_constraints = {},
-        .blake3_constraints = {},
-        .keccak_permutations = {},
-        .poseidon2_constraints = {},
-        .multi_scalar_mul_constraints = {},
-        .ec_add_constraints = {},
-        .honk_recursion_constraints = {},
-        .avm_recursion_constraints = {},
-        .pg_recursion_constraints = {},
-        .civc_recursion_constraints = {},
-        .assert_equalities = {},
-        .poly_triple_constraints = {},
-        .quad_constraints = {},
-        .big_quad_constraints = {},
         .block_constraints = { block },
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
@@ -182,50 +162,6 @@ TEST_F(MegaHonk, Databus)
         .varnum = static_cast<uint32_t>(num_variables),
         .num_acir_opcodes = 1,
         .public_inputs = {},
-        .logic_constraints = {},
-        .range_constraints = {},
-        .aes128_constraints = {},
-        .sha256_compression = {},
-
-        .ecdsa_k1_constraints = {},
-        .ecdsa_r1_constraints = {},
-        .blake2s_constraints = {},
-        .blake3_constraints = {},
-        .keccak_permutations = {},
-        .poseidon2_constraints = {},
-        .multi_scalar_mul_constraints = {},
-        .ec_add_constraints = {},
-        .honk_recursion_constraints = {},
-        .avm_recursion_constraints = {},
-        .pg_recursion_constraints = {},
-        .civc_recursion_constraints = {},
-        .assert_equalities = {},
-        .poly_triple_constraints = {},
-        .quad_constraints = {},
-        .big_quad_constraints = {},
-        .block_constraints = { block },
-        .original_opcode_indices = create_empty_original_opcode_indices(),
-    };
-    mock_opcode_indices(program.constraints);
-
-    // Construct a bberg circuit from the acir representation
-    auto circuit = create_circuit<Builder>(program);
-
-    EXPECT_TRUE(CircuitChecker::check(circuit));
-}
-
-TEST_F(MegaHonk, DatabusReturn)
-{
-    BlockConstraint block;
-    AcirProgram program;
-    size_t num_variables = generate_block_constraint(block, program.witness);
-    block.type = BlockType::CallData;
-
-    poly_triple rd_index{
-        .a = static_cast<uint32_t>(num_variables),
-        .b = 0,
-        .c = 0,
-        .q_m = 0,
         .q_l = 1,
         .q_r = 0,
         .q_o = 0,
@@ -284,27 +220,7 @@ TEST_F(MegaHonk, DatabusReturn)
         .varnum = static_cast<uint32_t>(num_variables),
         .num_acir_opcodes = 2,
         .public_inputs = {},
-        .logic_constraints = {},
-        .range_constraints = {},
-        .aes128_constraints = {},
-        .sha256_compression = {},
-
-        .ecdsa_k1_constraints = {},
-        .ecdsa_r1_constraints = {},
-        .blake2s_constraints = {},
-        .blake3_constraints = {},
-        .keccak_permutations = {},
-        .poseidon2_constraints = {},
-        .multi_scalar_mul_constraints = {},
-        .ec_add_constraints = {},
-        .honk_recursion_constraints = {},
-        .avm_recursion_constraints = {},
-        .pg_recursion_constraints = {},
-        .civc_recursion_constraints = {},
-        .assert_equalities = {},
         .poly_triple_constraints = { assert_equal },
-        .quad_constraints = {},
-        .big_quad_constraints = {},
         .block_constraints = { block },
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };

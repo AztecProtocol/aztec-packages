@@ -239,11 +239,11 @@ const nodeUrl = process.env.NODE_URL || 'http://localhost:8080';
 
 - **New to Aztec?** Start with the [sandbox guide](./local_env/sandbox.md) for faster development
 - **Ready for production testing?** Continue using testnet
-- **Learn more:** Check out our [tutorials](../tutorials/codealong/contract_tutorials/counter_contract.md)
+- **Learn more:** Check out our [tutorials](../tutorials/contract_tutorials/counter_contract.md)
 - **Explore:** Visit [Aztec Playground](https://play.aztec.network/)
 
 ## Additional Resources
 
-- [Fee payment guide](./js_apps/pay_fees.md)
+- [Fee payment guide](./js_apps/how_to_pay_fees.md)
 - [Running a node](../../the_aztec_network/index.md)
 - [Block explorers](https://aztecscan.xyz)

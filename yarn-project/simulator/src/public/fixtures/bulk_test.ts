@@ -1,19 +1,24 @@
 import { Fr } from '@aztec/foundation/fields';
 import type { Logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
+import type { ContractArtifact } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { PublicTxSimulationTester } from './public_tx_simulation_tester.js';
 
-export async function bulkTest(tester: PublicTxSimulationTester, logger: Logger, expectToBeTrue: (x: boolean) => void) {
+export async function bulkTest(
+  tester: PublicTxSimulationTester,
+  logger: Logger,
+  avmTestContractArtifact: ContractArtifact,
+  expectToBeTrue: (x: boolean) => void,
+) {
   const timer = new Timer();
 
   const deployer = AztecAddress.fromNumber(42);
   const avmTestContract = await tester.registerAndDeployContract(
     /*constructorArgs=*/ [],
     deployer,
-    /*contractArtifact=*/ AvmTestContractArtifact,
+    avmTestContractArtifact,
   );
 
   // Get a deployed contract instance to pass to the contract
@@ -65,6 +70,7 @@ export async function bulkTest(tester: PublicTxSimulationTester, logger: Logger,
 export async function megaBulkTest(
   tester: PublicTxSimulationTester,
   logger: Logger,
+  avmTestContractArtifact: ContractArtifact,
   expectToBeTrue: (x: boolean) => void,
 ) {
   const timer = new Timer();
@@ -73,7 +79,7 @@ export async function megaBulkTest(
   const avmTestContract = await tester.registerAndDeployContract(
     /*constructorArgs=*/ [],
     deployer,
-    /*contractArtifact=*/ AvmTestContractArtifact,
+    avmTestContractArtifact,
   );
   // Get a deployed contract instance to pass to the contract
   // for it to use as "expected" values when testing contract instance retrieval.
