@@ -80,6 +80,16 @@ function test_cmds {
     # echo "$hash:TIMEOUT=50m ./spartan/bootstrap.sh test-kind-4epochs-sepolia"
     # echo "$hash:TIMEOUT=30m ./spartan/bootstrap.sh test-prod-deployment"
   fi
+  if [ "$CI_SCENARIO_TEST" -eq 1 ]; then
+    local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
+    NAMESPACE=${NAMESPACE:-"scenario"}
+    K8S_CLUSTER=${K8S_CLUSTER:-"aztec-gke-private"}
+    PROJECT_ID=${PROJECT_ID:-"testnet-440309"}
+    REGION=${REGION:-"us-west1-a"}
+    local env_vars="NAMESPACE=$NAMESPACE K8S_CLUSTER=$K8S_CLUSTER PROJECT_ID=$PROJECT_ID REGION=$REGION"
+    echo "$hash:TIMEOUT=20m $env_vars $run_test_script simple src/spartan/smoke.test.ts"
+    echo "$hash:TIMEOUT=20m $env_vars $run_test_script simple src/spartan/transfer.test.ts"
+  fi
 }
 
 function start_env {
@@ -105,7 +115,19 @@ function stop_env {
 
 function test {
   echo_header "spartan test"
-  test_cmds | filter_test_cmds | parallelize
+  if [ "$CI" -eq 1 ]; then
+    echo "Activating service account"
+    gcloud auth activate-service-account --key-file=/tmp/gcp-key.json
+    gcloud config set project "$GCP_PROJECT_ID"
+  fi
+
+  if [ "$CI_SCENARIO_TEST" -eq 1 ]; then
+    echo "Running network scenario tests sequentially"
+    test_cmds | filter_test_cmds
+  else
+    echo "Running spartan test"
+    test_cmds | filter_test_cmds | parallelize
+  fi
 }
 
 case "$cmd" in
