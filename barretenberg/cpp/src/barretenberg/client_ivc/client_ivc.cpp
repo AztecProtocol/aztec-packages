@@ -276,7 +276,7 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     auto accumulation_recursive_transcript = std::make_shared<RecursiveTranscript>();
 
     // Commitment to the previous state of the op_queue in the recursive verification
-    TableCommitments T_prev_commitments = stdlib::recursion::honk::empty_ecc_op_tables(circuit);
+    TableCommitments T_prev_commitments;
 
     // Instantiate stdlib verifier inputs from their native counterparts
     if (stdlib_verification_queue.empty()) {
