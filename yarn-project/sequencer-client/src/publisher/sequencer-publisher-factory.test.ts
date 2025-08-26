@@ -148,7 +148,7 @@ describe('SequencerPublisherFactory', () => {
 
       expect(result.publisher).toBeDefined();
       expect(mockRollupContract.getSlashingProposer).toHaveBeenCalled();
-      expect(result.publisher.slashingProposerContract.address.equals(mockSlashingProposer.address)).toBe(true);
+      expect(result.publisher.slashingProposerContract!.address.equals(mockSlashingProposer.address)).toBe(true);
     });
   });
 });

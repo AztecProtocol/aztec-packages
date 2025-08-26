@@ -55,9 +55,7 @@ describe('Multicall3', () => {
       TestERC20Abi,
       TestERC20Bytecode,
       ['test', 'TST', privateKey.address],
-      '0x42',
-      undefined,
-      logger,
+      { salt: '0x42', logger },
     );
     expect(erc20TxHash).toBeDefined();
     await walletClient.waitForTransactionReceipt({ hash: erc20TxHash! });

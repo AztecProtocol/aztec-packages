@@ -80,7 +80,7 @@ describe('e2e_gov_proposal', () => {
         NewGovernanceProposerPayloadAbi,
         NewGovernanceProposerPayloadBytecode,
         [registryAddress.toString(), gseAddress!.toString()],
-        '0x2a', // salt
+        { salt: '0x2a' },
       );
 
       // Deploy a test contract to send msgs via the outbox, since this increases

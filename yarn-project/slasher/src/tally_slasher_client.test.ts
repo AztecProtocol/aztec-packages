@@ -1,6 +1,6 @@
 import { sleep } from '@aztec/aztec.js';
 import type { EpochCache } from '@aztec/epoch-cache';
-import { TallySlashingProposerContract } from '@aztec/ethereum/contracts';
+import { RollupContract, TallySlashingProposerContract } from '@aztec/ethereum/contracts';
 import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -22,6 +22,7 @@ import { WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher, type WatcherEm
 describe('TallySlasherClient', () => {
   let tallySlasherClient: TestTallySlasherClient;
   let tallySlashingProposer: MockProxy<TallySlashingProposerContract>;
+  let rollup: MockProxy<RollupContract>;
   let dummyWatcher: DummyWatcher;
   let kvStore: ReturnType<typeof openTmpStore>;
   let offensesStore: SlasherOffensesStore;
@@ -132,6 +133,7 @@ describe('TallySlasherClient', () => {
 
     // Create mocks for L1 contracts
     tallySlashingProposer = mockDeep<TallySlashingProposerContract>();
+    rollup = mockDeep<RollupContract>();
 
     // Setup mock responses
     tallySlashingProposer.getRound.mockResolvedValue({ isExecuted: false, readyToExecute: false, voteCount: 0n });
@@ -146,6 +148,7 @@ describe('TallySlasherClient', () => {
       config,
       settings,
       tallySlashingProposer,
+      rollup,
       [dummyWatcher],
       mockEpochCache,
       dateProvider,
@@ -167,7 +170,7 @@ describe('TallySlasherClient', () => {
         const currentSlot = currentRound * BigInt(roundSize); // Round 5
         const targetRound = 3n;
 
-        // Add slot-based offenses for the target round (slots 600-799 are in round 3)
+        // Add slot-based offenses for the target round (slots 576-767 are in round 3)
         await offensesStore.addPendingOffense(
           createOffense({
             validator: committee[0],
@@ -592,9 +595,6 @@ describe('TallySlasherClient', () => {
       expect(executeActions).toHaveLength(1);
       expectActionExecuteSlash(executeActions[0], executableRound);
 
-      // Simulate execution
-      tallySlasherClient.handleRoundExecuted(executableRound, 1n);
-
       // Verify that if round is marked as executed it won't be executed again
       tallySlashingProposer.getRound.mockResolvedValueOnce({
         isExecuted: true,
@@ -647,10 +647,6 @@ describe('TallySlasherClient', () => {
 class TestTallySlasherClient extends TallySlasherClient {
   public override handleNewRound(round: bigint): Promise<void> {
     return super.handleNewRound(round);
-  }
-
-  public override handleRoundExecuted(round: bigint, slashCount: bigint): void {
-    return super.handleRoundExecuted(round, slashCount);
   }
 
   public override getExecuteSlashAction(slotNumber: bigint): Promise<ProposerSlashAction | undefined> {

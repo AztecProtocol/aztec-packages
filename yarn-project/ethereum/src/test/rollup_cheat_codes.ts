@@ -130,13 +130,22 @@ export class RollupCheatCodes {
   }
 
   /** Warps time in L1 until the next epoch */
-  public async advanceToNextEpoch() {
+  public async advanceToNextEpoch(
+    opts: {
+      /** Optional test date provider to update with the epoch timestamp */
+      updateDateProvider?: TestDateProvider;
+    } = {},
+  ) {
     const slot = await this.getSlot();
     const { epochDuration, slotDuration } = await this.getConfig();
     const slotsUntilNextEpoch = epochDuration - (slot % epochDuration) + 1n;
     const timeToNextEpoch = slotsUntilNextEpoch * slotDuration;
     const l1Timestamp = BigInt((await this.client.getBlock()).timestamp);
-    await this.ethCheatCodes.warp(Number(l1Timestamp + timeToNextEpoch), { silent: true, resetBlockInterval: true });
+    await this.ethCheatCodes.warp(Number(l1Timestamp + timeToNextEpoch), {
+      ...opts,
+      silent: true,
+      resetBlockInterval: true,
+    });
     this.logger.warn(`Advanced to next epoch`);
   }
 

@@ -14,6 +14,7 @@ import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
 import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 
 import { EmpireSlasherClient, type EmpireSlasherSettings } from './empire_slasher_client.js';
+import { NullSlasherClient } from './null_slasher_client.js';
 import { SlasherClientFacade } from './slasher_client_facade.js';
 import type { SlasherClientInterface } from './slasher_client_interface.js';
 import { SlasherOffensesStore } from './stores/offenses_store.js';
@@ -65,7 +66,9 @@ export async function createSlasherImplementation(
   logger = createLogger('slasher'),
 ) {
   const proposer = await rollup.getSlashingProposer();
-  if (proposer.type === 'tally') {
+  if (!proposer) {
+    return new NullSlasherClient(config);
+  } else if (proposer.type === 'tally') {
     return createTallySlasher(config, rollup, proposer, watchers, dateProvider, epochCache, kvStore, logger);
   } else {
     if (!slashFactoryAddress || slashFactoryAddress.equals(EthAddress.ZERO)) {
@@ -202,6 +205,7 @@ async function createTallySlasher(
     config,
     settings,
     slashingProposer,
+    rollup,
     watchers,
     epochCache,
     dateProvider,

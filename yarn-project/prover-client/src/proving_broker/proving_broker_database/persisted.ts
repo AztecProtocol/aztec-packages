@@ -171,7 +171,7 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
       if (!db) {
         continue;
       }
-      this.logger.info(`Deleting broker database for epoch ${old}`);
+      this.logger.verbose(`Deleting broker database for epoch ${old}`);
       await db.delete();
       this.epochs.delete(old);
     }

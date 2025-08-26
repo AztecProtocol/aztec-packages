@@ -572,7 +572,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
 
     if (jobsToClean.length > 0) {
       this.cleanUpProvingJobState(jobsToClean);
-      this.logger.info(`Cleaned up jobs=${jobsToClean.length}`);
+      this.logger.verbose(`Cleaned up proving jobs=${jobsToClean.length}`);
     }
   }
 

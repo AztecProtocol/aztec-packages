@@ -43,7 +43,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     private penalty: bigint,
   ) {
     super();
-    this.log.info('EpochPruneWatcher initialized');
+    this.log.info(`EpochPruneWatcher initialized with penalty ${penalty}`);
   }
 
   public start() {

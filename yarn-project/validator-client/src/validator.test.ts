@@ -302,26 +302,6 @@ describe('ValidatorClient', () => {
           epochOrSlot: expect.any(BigInt),
         },
       ]);
-
-      // We "remember" that we want to slash this person, up to the max penalty...
-      await expect(
-        validatorClient.shouldSlash({
-          validator: EthAddress.fromString(proposer.toString()), // create a copy of the EthAddress
-          amount: config.slashBroadcastedInvalidBlockMaxPenalty,
-          offenseType: OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL,
-          epochOrSlot: 1n,
-        }),
-      ).resolves.toBe(true);
-
-      // ...but no more than that
-      await expect(
-        validatorClient.shouldSlash({
-          validator: EthAddress.fromString(proposer.toString()),
-          amount: config.slashBroadcastedInvalidBlockMaxPenalty + 1n,
-          offenseType: OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL,
-          epochOrSlot: 1n,
-        }),
-      ).resolves.toBe(false);
     });
 
     it('should not emit WANT_TO_SLASH_EVENT if slashing is disabled', async () => {

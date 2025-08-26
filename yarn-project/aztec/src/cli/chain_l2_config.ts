@@ -183,10 +183,10 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   activationThreshold: DefaultL1ContractsConfig.activationThreshold,
   /** The minimum stake for a validator. */
   ejectionThreshold: DefaultL1ContractsConfig.ejectionThreshold,
-  /** The slashing quorum */
-  slashingQuorum: 101,
   /** The slashing round size */
-  slashingRoundSize: 200,
+  slashingRoundSize: 32 * 6, // 6 epochs
+  /** The slashing quorum */
+  slashingQuorum: (32 * 6) / 2 + 1, // 6 epochs, majority of validators
   /** Governance proposing quorum */
   governanceProposerQuorum: 151,
   /** Governance proposing round size */
