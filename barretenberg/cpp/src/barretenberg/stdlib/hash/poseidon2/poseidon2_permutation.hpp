@@ -15,20 +15,28 @@
 
 namespace bb::stdlib {
 
+/**
+ * @brief Circuit form of Poseidon2 permutation from https://eprint.iacr.org/2023/323.
+ * @details The permutation consists of one initial linear layer, then a set of external rounds, a set of internal
+ * rounds, and a set of external rounds.
+ *
+ * Note that except for the inital linear layer, we compute the round results natively and record them into Poseidon2
+ * custom gates. This allows us to heavily reduce the number of arithmetic gates, that would have been otherwise
+ * required to perform expensive non-linear S-box operations in-circuit.
+ *
+ * The external rounds are constrained via `Poseidon2ExternalRelationImpl`.
+ * The internal rounds are constrained via `Poseidon2InternalRelationImpl`.
+ *
+ */
 template <typename Builder> class Poseidon2Permutation {
   public:
     using Params = crypto::Poseidon2Bn254ScalarFieldParams;
     using NativePermutation = crypto::Poseidon2Permutation<Params>;
     // t = sponge permutation size (in field elements)
     // t = rate + capacity
-    // capacity = 1 field element (256 bits)
+    // capacity = 1 field element
     // rate = number of field elements that can be compressed per permutation
     static constexpr size_t t = Params::t;
-    // d = degree of s-box polynomials. For a given field, `d` is the smallest element of `p` such that gdc(d, p - 1) =
-    // 1 (excluding 1) For bn254/grumpkin, d = 5
-    static constexpr size_t d = Params::d;
-    // sbox size = number of bits in p
-    static constexpr size_t sbox_size = Params::sbox_size;
     // number of full sbox rounds
     static constexpr size_t rounds_f = Params::rounds_f;
     // number of partial sbox rounds
@@ -54,8 +62,8 @@ template <typename Builder> class Poseidon2Permutation {
     static State permutation(Builder* builder, const State& input);
 
     /**
-     * @brief In-circuit method to efficiently multiply the inital state by the external matrix `M_E`. Uses 6 aritmetic
-     * gates.
+     * @brief In-circuit method to efficiently multiply the inital state by the external matrix \f$ M_E \f$. Uses 6
+     * aritmetic gates.
      */
     static void matrix_multiplication_external(State& state);
 

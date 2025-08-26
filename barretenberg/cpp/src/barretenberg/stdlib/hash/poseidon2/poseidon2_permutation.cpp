@@ -12,14 +12,6 @@
 
 namespace bb::stdlib {
 
-/**
- * @brief Circuit form of Poseidon2 permutation from https://eprint.iacr.org/2023/323.
- * @details The permutation consists of one initial linear layer, then a set of external rounds, a set of internal
- * rounds, and a set of external rounds.
- * @param builder
- * @param input
- * @return State
- */
 template <typename Builder>
 typename Poseidon2Permutation<Builder>::State Poseidon2Permutation<Builder>::permutation(
     Builder* builder, const typename Poseidon2Permutation<Builder>::State& input)
@@ -97,16 +89,8 @@ typename Poseidon2Permutation<Builder>::State Poseidon2Permutation<Builder>::per
 
 /**
  * @brief Separate function to do just the first linear layer (equivalent to external matrix mul).
- * @details We use 6 arithmetic gates to implement:
- *          gate 1: Compute tmp1 = state[0] + state[1] + 2 * state[3]
- *          gate 2: Compute tmp2 = 2 * state[1] + state[2] + state[3]
- *          gate 3: Compute v2 = 4 * state[0] + 4 * state[1] + tmp2
- *          gate 4: Compute v1 = v2 + tmp1
- *          gate 5: Compute v4 = tmp1 + 4 * state[2] + 4 * state[3]
- *          gate 6: Compute v3 = v4 + tmp2
- *          output state is [v1, v2, v3, v4]
- * @param builder
- * @param state
+ * @details Update the state with \f$ M_E \cdot (\text{state}[0], \text{state}[1], \text{state}[2],
+ * \text{state}[3])^{\top}\f$. Where \f$ M_E \f$ is the external round matrix. See `Poseidon2ExternalRelationImpl`.
  */
 template <typename Builder>
 void Poseidon2Permutation<Builder>::matrix_multiplication_external(typename Poseidon2Permutation<Builder>::State& state)
