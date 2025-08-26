@@ -175,7 +175,7 @@ const binaryToFields = (buffer) => {
   for (let i = 0; i < buffer.length; i += 32) {
     const chunk = buffer.slice(i, Math.min(i + 32, buffer.length));
     // Pad with leading zeros if chunk is less than 32 bytes
-    const padded = chunk.length < 32 
+    const padded = chunk.length < 32
       ? Buffer.concat([Buffer.alloc(32 - chunk.length), chunk])
       : chunk;
     fields.push('0x' + padded.toString('hex'));
@@ -247,14 +247,14 @@ try {
   var publicInputs = [];
   let numExtraPublicInputs = 0;
   let extraPublicInputs = [];
-  
+
   // For flows that use binary proof format, extract public inputs from the proof
   const proofAsFields = binaryToFields(proof);
   if (proofAsFields.length > NUMBER_OF_FIELDS_IN_PROOF) {
     // We need to extract the public inputs from the proof. This might be empty, or just the pairing point object, or be the entire public inputs...
     [numExtraPublicInputs, extraPublicInputs] = readPublicInputs(proofAsFields);
   }
-  
+
   // Read public inputs from binary file if available
   if (publicInputsPath) {
     const publicInputsBinary = readFileSync(publicInputsPath);
