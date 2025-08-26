@@ -153,8 +153,6 @@ TEST(ECDSASecp256r1, TestECDSAConstraintSucceed)
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables),
         .num_acir_opcodes = 1,
-        .public_inputs = {},
-        .num_acir_opcodes = 1,
         .ecdsa_r1_constraints = { ecdsa_r1_constraint },
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
@@ -182,7 +180,6 @@ TEST(ECDSASecp256r1, TestECDSAConstraintFail)
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables),
         .num_acir_opcodes = 1,
-        .public_inputs = {},
         .ecdsa_r1_constraints = { ecdsa_r1_constraint },
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };

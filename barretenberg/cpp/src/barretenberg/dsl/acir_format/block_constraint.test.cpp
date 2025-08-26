@@ -162,6 +162,30 @@ TEST_F(MegaHonk, Databus)
         .varnum = static_cast<uint32_t>(num_variables),
         .num_acir_opcodes = 1,
         .public_inputs = {},
+        .block_constraints = { block },
+        .original_opcode_indices = create_empty_original_opcode_indices(),
+    };
+
+    mock_opcode_indices(program.constraints);
+
+    // Construct a bberg circuit from the acir representation
+    auto circuit = create_circuit<Builder>(program);
+
+    EXPECT_TRUE(CircuitChecker::check(circuit));
+}
+
+TEST_F(MegaHonk, DatabusReturn)
+{
+    BlockConstraint block;
+    AcirProgram program;
+    size_t num_variables = generate_block_constraint(block, program.witness);
+    block.type = BlockType::CallData;
+
+    poly_triple rd_index{
+        .a = static_cast<uint32_t>(num_variables),
+        .b = 0,
+        .c = 0,
+        .q_m = 0,
         .q_l = 1,
         .q_r = 0,
         .q_o = 0,
