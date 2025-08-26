@@ -149,6 +149,25 @@ jobs:
         if: steps.ci_cache.outputs.cache-hit != 'true'
         run: echo "success" > ci-success.txt
 
+      - name: Get Semver from Tag
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        id: semver
+        run: |
+          semver="${{ github.ref_name }}"
+          # Remove 'v' prefix if present (e.g., v1.2.3 -> 1.2.3)
+          semver=${semver#v}
+          # Extract major version (e.g., 1.2.3 -> 1)
+          major_version=${semver%%.*}
+          echo "semver=$semver" >> $GITHUB_OUTPUT
+          echo "major_version=$major_version" >> $GITHUB_OUTPUT
+
+      - name: Trigger Network Deployments
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        uses: peter-evans/repository-dispatch@0ee9de00feb82e6165438c503f0bc29f628b8317
+        with:
+          event-type: network-deployments
+          client-payload: '{"ref": "${{ github.ref }}", "sha": "${{ github.sha }}", "semver": "${{ steps.semver.outputs.semver }}", "major_version": "${{ steps.semver.outputs.major_version }}"}'
+
       # If we have passed CI and labelled with ci-squash-and-merge, squash the PR.
       # This will rerun CI on the squash commit - but is intended to be a no-op due to caching.
       - name: CI Squash and Merge

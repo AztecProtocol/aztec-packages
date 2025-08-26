@@ -188,6 +188,4 @@ resource "google_compute_address" "rpc_ingress" {
   provider     = google
   name         = "${var.NAMESPACE}-${var.RELEASE_PREFIX}-rpc-ingress"
   address_type = "EXTERNAL"
-
-
 }
