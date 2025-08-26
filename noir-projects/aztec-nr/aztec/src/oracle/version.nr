@@ -23,7 +23,12 @@ unconstrained fn internal_assert_oracle_version_matches() {
 unconstrained fn assert_oracle_version_matches_oracle(version: Field) {}
 
 mod test {
-    use super::assert_oracle_version_matches_oracle;
+    use super::{assert_oracle_version_matches_oracle, ORACLE_VERSION};
+
+    #[test]
+    unconstrained fn oracle_version_match() {
+        assert_oracle_version_matches_oracle(ORACLE_VERSION);
+    }
 
     #[test(should_fail_with = "Oracle version mismatch. Expected version 1, got 318183437.")]
     unconstrained fn oracle_version_mismatch() {
