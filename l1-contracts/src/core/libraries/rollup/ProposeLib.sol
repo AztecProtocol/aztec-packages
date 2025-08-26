@@ -270,8 +270,7 @@ library ProposeLib {
     // Commit state changes: update chain tips and store block data
     rollupStore.tips = tips;
     rollupStore.archives[blockNumber] = _args.archive;
-    STFLib.setTempBlockLog(
-      blockNumber,
+    STFLib.addTempBlockLog(
       TempBlockLog({
         headerHash: v.headerHash,
         blobCommitmentsHash: blobCommitmentsHash,

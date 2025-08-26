@@ -841,8 +841,8 @@ class ECCVMFlavor {
          * @param transcript
          * @returns The hash of the verification key
          */
-        fr add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
-                                  [[maybe_unused]] Transcript& transcript) const override
+        fr hash_through_transcript([[maybe_unused]] const std::string& domain_separator,
+                                   [[maybe_unused]] Transcript& transcript) const override
         {
             throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
         }
@@ -1052,7 +1052,7 @@ class ECCVMFlavor {
         //    lookups i.e. `polynomials.msm_accumulator_x[last_edge_idx] will change z_perm[last_edge_idx - 1] and
         //    z_perm_shift[last_edge_idx - 1]
         //
-        // 3. The value of `transcript_mul` can be non-zero at the end of a long MSM of points-at-infinity, which will
+        // 3. The value of `transcript_mul` can be non-zero at the end of an MSM of points-at-infinity, which will
         //    cause `full_msm_count` to be non-zero while `transcript_msm_count` vanishes.
         //
         // 4. For similar reasons, we must add that `transcript_op==0`.

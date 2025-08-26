@@ -14,7 +14,7 @@ template <typename FF_> class calldataImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 3> SUBRELATION_PARTIAL_LENGTHS = { 4, 4, 6 };
+    static constexpr std::array<size_t, 3> SUBRELATION_PARTIAL_LENGTHS = { 4, 4, 5 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -27,37 +27,7 @@ template <typename FF_> class calldataImpl {
     void static accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& in,
                            [[maybe_unused]] const RelationParameters<FF>&,
-                           [[maybe_unused]] const FF& scaling_factor)
-    {
-        using C = ColumnAndShifts;
-
-        PROFILE_THIS_NAME("accumulate/calldata");
-
-        const auto calldata_FIRST_OR_LAST_CALLDATA = in.get(C::precomputed_first_row) + in.get(C::calldata_latch);
-
-        {
-            using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = in.get(C::calldata_sel) * (FF(1) - calldata_FIRST_OR_LAST_CALLDATA) *
-                       ((in.get(C::calldata_index_shift) - in.get(C::calldata_index)) - FF(1));
-            tmp *= scaling_factor;
-            std::get<0>(evals) += typename Accumulator::View(tmp);
-        }
-        { // TRACE_CONTINUITY
-            using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - in.get(C::precomputed_first_row)) * (FF(1) - in.get(C::calldata_sel)) *
-                       in.get(C::calldata_sel_shift);
-            tmp *= scaling_factor;
-            std::get<1>(evals) += typename Accumulator::View(tmp);
-        }
-        { // CONTEXT_ID_CONTINUITY
-            using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - in.get(C::precomputed_first_row)) * in.get(C::calldata_sel) *
-                       (FF(1) - in.get(C::calldata_latch)) * (FF(1) - in.get(C::calldata_context_id)) *
-                       in.get(C::calldata_context_id_shift);
-            tmp *= scaling_factor;
-            std::get<2>(evals) += typename Accumulator::View(tmp);
-        }
-    }
+                           [[maybe_unused]] const FF& scaling_factor);
 };
 
 template <typename FF> class calldata : public Relation<calldataImpl<FF>> {

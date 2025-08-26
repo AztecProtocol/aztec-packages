@@ -27,6 +27,8 @@ enum TransactionPhase {
     APP_LOGIC = 8,
     TEARDOWN = 9,
     COLLECT_GAS_FEES = 10,
+    TREE_PADDING = 11,
+    CLEANUP = 12,
 };
 
 using InternalCallId = uint32_t;

@@ -19,7 +19,6 @@ const fs = require("fs");
 const macros = require("./src/katex-macros.js");
 const versions = require("./versions.json");
 
-/** @type {import('@docusaurus/types').Config} */
 const config = {
   title: "Privacy-first zkRollup | Aztec Documentation",
   tagline:
@@ -78,8 +77,8 @@ const config = {
           ],
           versions: {
             current: {
-              label: 'dev',
-              path: 'dev',
+              label: "dev",
+              path: "dev",
             },
           },
         },
@@ -100,6 +99,21 @@ const config = {
     },
   ],
   plugins: [
+    [
+      "docusaurus-plugin-llms",
+      {
+        generateLLMsTxt: true,
+        generateLLMsFullTxt: true,
+        docsDir: `versioned_docs/version-${versions[0]}/`,
+        title: "Aztec Protocol Documentation",
+        excludeImports: true,
+        ignoreFiles: [`versioned_docs/**/protocol-specs/*`],
+        version: versions[0],
+        pathTransformation: {
+          ignorePaths: ["docs"],
+        },
+      },
+    ],
     [
       "@docusaurus/plugin-ideal-image",
       {
@@ -300,8 +314,8 @@ const config = {
                 href: "https://forum.aztec.network",
               },
               {
-                label: "Discord",
-                href: "https://discord.com/invite/aztec",
+                label: "Noir Discord",
+                href: "https://discord.com/invite/JtqzkdeQ6G",
               },
               {
                 label: "X (Twitter)",

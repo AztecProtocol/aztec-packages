@@ -79,7 +79,7 @@ AztecAddress contract_address = 1;
 class PublicDataTreeCheckConstrainingTest : public ::testing::Test {
   protected:
     PublicDataTreeCheckConstrainingTest()
-        : execution_id_manager(0){};
+        : execution_id_manager(0) {};
 
     EventEmitter<Poseidon2HashEvent> hash_event_emitter;
     EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
@@ -429,7 +429,7 @@ TEST_F(PublicDataTreeCheckConstrainingTest, PositiveSquashing)
 
     auto test_public_inputs = testing::PublicInputsBuilder()
                                   .set_accumulated_data(accumulated_data)
-                                  .set_accumulated_data_array_lengths({ .publicDataWrites = 1 })
+                                  .set_accumulated_data_array_lengths({ .publicDataWrites = 2 })
                                   .build();
 
     EventEmitter<MerkleCheckEvent> merkle_event_emitter;

@@ -350,9 +350,10 @@ void ExecutionTraceBuilder::process(
                 { C::execution_context_id, ex_event.after_context_event.id },
                 { C::execution_parent_id, ex_event.after_context_event.parent_id },
                 { C::execution_pc, ex_event.before_context_event.pc },
-                { C::execution_is_static, ex_event.after_context_event.is_static },
                 { C::execution_msg_sender, ex_event.after_context_event.msg_sender },
                 { C::execution_contract_address, ex_event.after_context_event.contract_addr },
+                { C::execution_transaction_fee, ex_event.after_context_event.transaction_fee },
+                { C::execution_is_static, ex_event.after_context_event.is_static },
                 { C::execution_parent_calldata_addr, ex_event.after_context_event.parent_cd_addr },
                 { C::execution_parent_calldata_size, ex_event.after_context_event.parent_cd_size_addr },
                 { C::execution_last_child_returndata_addr, ex_event.after_context_event.last_child_rd_addr },
@@ -549,7 +550,6 @@ void ExecutionTraceBuilder::process(
 
         bool should_execute_opcode = should_check_gas && !oog;
         bool opcode_execution_failed = ex_event.error == ExecutionError::OPCODE_EXECUTION;
-        prev_row_was_enter_call = sel_enter_call;
         if (should_execute_opcode) {
             // At this point we can assume instruction fetching succeeded, so this should never fail.
             const auto& dispatch_to_subtrace = SUBTRACE_INFO_MAP.at(*exec_opcode);
@@ -600,6 +600,7 @@ void ExecutionTraceBuilder::process(
                               { C::execution_sel_execute_return, is_return ? 1 : 0 },
                               { C::execution_sel_execute_revert, is_revert ? 1 : 0 },
                               { C::execution_sel_exit_call, sel_exit_call ? 1 : 0 },
+                              { C::execution_nested_return, is_return && has_parent ? 1 : 0 },
                               // Enqueued or nested exit dependent on if we are a child context
                               { C::execution_enqueued_call_end, !has_parent ? 1 : 0 },
                               { C::execution_nested_exit_call, has_parent ? 1 : 0 },
@@ -1183,8 +1184,8 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_context_ctx_stack_rollback_settings, InteractionType::LookupGeneric>()
         .add<lookup_context_ctx_stack_return_settings, InteractionType::LookupGeneric>()
         // External Call
-        .add<lookup_external_call_call_allocated_left_l2_range_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_external_call_call_allocated_left_da_range_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_external_call_call_allocated_left_l2_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_external_call_call_allocated_left_da_range_settings, InteractionType::LookupGeneric>()
         // Dispatch to gadget sub-traces
         .add<perm_execution_dispatch_keccakf1600_settings, InteractionType::Permutation>()
         // GetEnvVar opcode

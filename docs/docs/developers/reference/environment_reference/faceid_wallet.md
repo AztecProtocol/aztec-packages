@@ -3,6 +3,7 @@ title: Using FaceID to Sign Transactions (Mac Only)
 tags: [sandbox, wallet, cli]
 keywords: [wallet, cli wallet, faceid]
 sidebar_position: 5
+description: In this tutorial, we will use Apple Mac's Secure Enclave to store the private key, and use it in Aztec's CLI Wallet. This enables fully private, native, and ...
 ---
 
 In this tutorial, we will use Apple Mac's Secure Enclave to store the private key, and use it in Aztec's [CLI Wallet](./cli_wallet_reference.md). This enables fully private, native, and seedless account abstraction!
@@ -85,7 +86,8 @@ This creates a new project, skips running the sandbox (`-s`), and clones the con
 
 ```bash
 cd token_contract
-aztec-nargo compile
+aztec-nargo compile        # generate contract artifacts
+aztec-postprocess-contract # transpile contract and generate verification keys
 ```
 
 Great, our contract is ready to deploy with our TouchID wallet:
@@ -119,4 +121,4 @@ In this tutorial, we created an account with the Aztec's [CLI Wallet](./cli_wall
 
 You can use a multitude of authentication methods, for example with RSA you could use a passport as a recovery, or even as a signer in a multisig. All of this is based on the account contract.
 
-Next step is then to [code your own account contract!](../../tutorials/codealong/contract_tutorials/write_accounts_contract.md)
+Next step is then to [code your own account contract!](../../tutorials/contract_tutorials/write_accounts_contract.md)

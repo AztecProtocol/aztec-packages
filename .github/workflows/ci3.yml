@@ -36,7 +36,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           # Fetch PR commits depth (we'll deepen by 1 in squash script if needed)
           fetch-depth: ${{ github.event.pull_request.commits || 0 }}
-          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          persist-credentials: false
 
       - name: CI Merge Queue Override (grind on PR)
         if: contains(github.event.pull_request.labels.*.name, 'ci-merge-queue')
@@ -53,10 +53,6 @@ jobs:
       - name: Fail Fast Override
         if: contains(github.event.pull_request.labels.*.name, 'ci-no-fail-fast')
         run: echo "NO_FAIL_FAST=1" >> $GITHUB_ENV
-
-      - name: Barretenberg CI Override
-        if: contains(github.event.pull_request.labels.*.name, 'ci-barretenberg')
-        run: echo "CI_BARRETENBERG=1" >> $GITHUB_ENV
 
       - name: Compute Target Branch
         id: target_branch
@@ -91,8 +87,7 @@ jobs:
           mkdir -p ~/.ssh
           echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
           chmod 600 ~/.ssh/build_instance_key
-          # Install required packages.
-          sudo apt update && sudo apt install -y redis-tools parallel
+          sudo apt install -y --no-install-recommends redis-tools parallel
 
       - name: Prepare GCP key
         env:
@@ -161,6 +156,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
+          # Reauth the git repo with our GITHUB_TOKEN
+          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}
           # Get the base commit (merge-base) for the PR
           ./scripts/merge-train/squash-pr.sh \
             "${{ github.event.pull_request.number }}" \
@@ -168,14 +165,14 @@ jobs:
             "${{ github.event.pull_request.base.ref }}" \
             "${{ github.event.pull_request.base.sha }}"
           gh pr edit "${{ github.event.pull_request.number }}" --remove-label "ci-squash-and-merge"
-          gh pr ready "${{ github.event.pull_request.number }}" || true
+          gh pr merge "${{ github.event.pull_request.number }}" --auto -m || true
 
       - name: Download benchmarks
-        if: github.event_name == 'merge_group'
+        if: github.event_name == 'merge_group' || env.CI_FULL == '1'
         run: ./ci.sh gh-bench
 
       - name: Upload benchmarks
-        if: github.event_name == 'merge_group'
+        if: github.event_name == 'merge_group' || env.CI_FULL == '1'
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
           name: Aztec Benchmarks

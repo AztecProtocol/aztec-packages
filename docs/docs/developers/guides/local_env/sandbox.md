@@ -2,6 +2,7 @@
 title: Run Aztec in a Sandbox
 sidebar_position: 0
 tags: [sandbox, PXE]
+description: Information about running the Aztec sandbox development environment.
 ---
 
 - Current version: `#include_aztec_version`
@@ -137,11 +138,12 @@ To update the aztec.nr packages manually, update the tags of the `aztec.nr` depe
 +value_note = { git="https://github.com/AztecProtocol/aztec-packages", tag="#include_aztec_version", directory="noir-projects/aztec-nr/value-note" }
 ```
 
-Go to the contract directory and try compiling it with `aztec-nargo compile` to verify that the update was successful:
+Go to the contract directory and try compiling it to verify that the update was successful:
 
 ```shell
 cd /your/contract/directory
-aztec-nargo compile
+aztec-nargo compile        # generate contract artifacts
+aztec-postprocess-contract # transpile contract and generate verification keys
 ```
 
 If the dependencies fail to resolve ensure that the tag matches a tag in the [aztec-packages repository (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tags).

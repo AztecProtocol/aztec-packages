@@ -2,6 +2,7 @@
 title: How to Create a New Account
 tags: [accounts]
 sidebar_position: 0
+description: Guide to creating and managing user accounts in your Aztec.js applications.
 ---
 
 This guide explains how to create a new account using Aztec.js.
@@ -44,5 +45,5 @@ By default, Aztec.js provides several account implementations including Schnorr 
 
 ## Next Steps
 
-- Check out our section on [Writing your own Account Contract](../../tutorials/codealong/contract_tutorials/write_accounts_contract.md) leveraging our account abstraction
+- Check out our section on [Writing your own Account Contract](../../tutorials/contract_tutorials/write_accounts_contract.md) leveraging our account abstraction
 - Learn how to [deploy contracts](./deploy_contract.md) with your new account

@@ -25,12 +25,6 @@ void ProtogalaxyRecursiveVerifier_<DeciderVerificationKeys>::run_oink_verifier_o
         OinkRecursiveVerifier_<Flavor> oink_verifier{ builder, key, transcript, domain_separator + '_' };
         oink_verifier.verify();
         key->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
-    } else {
-        // Fiat-Shamir the accumulator.
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1390): assert_equal on accumulator hash with public
-        // input hash.
-        FF accum_hash = key->add_hash_to_transcript("", *transcript);
-        info("Accumulator hash in PG rec verifier: ", accum_hash);
     }
 
     key = keys_to_fold[1];
@@ -180,10 +174,10 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
 
     accumulator->gate_challenges = update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
 
-    // Set the accumulator circuit size data based on the max of the keys being accumulated
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Invalid out of circuit max operation
-    FF accumulator_log_circuit_size = keys_to_fold.get_max_log_circuit_size();
-    accumulator->vk_and_hash->vk->log_circuit_size = accumulator_log_circuit_size;
+    // Define a constant virtual log circuit size for the accumulator
+    FF virtual_log_n = FF::from_witness(builder, CONST_PG_LOG_N);
+    virtual_log_n.fix_witness();
+    accumulator->vk_and_hash->vk->log_circuit_size = virtual_log_n;
 
     // Fold the relation parameters
     for (auto [combination, to_combine] : zip_view(accumulator->alphas, keys_to_fold.get_alphas())) {

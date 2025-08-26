@@ -534,6 +534,28 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
                       { C::precomputed_sel_can_write_public_data, 1 },
                   },
               });
+
+    trace.set(10,
+              {
+                  {
+                      { C::precomputed_sel_phase, 1 },
+                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::TREE_PADDING) },
+                      { C::precomputed_sel_tree_padding, 1 },
+                      { C::precomputed_is_revertible, 0 },
+                      { C::precomputed_sel_can_emit_note_hash, 1 },
+                      { C::precomputed_sel_can_emit_nullifier, 1 },
+                  },
+              });
+
+    trace.set(11,
+              {
+                  {
+                      { C::precomputed_sel_phase, 1 },
+                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::CLEANUP) },
+                      { C::precomputed_sel_cleanup, 1 },
+                      { C::precomputed_is_revertible, 0 },
+                  },
+              });
 }
 
 void PrecomputedTraceBuilder::process_keccak_round_constants(TraceContainer& trace)

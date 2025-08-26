@@ -116,9 +116,7 @@ describe('Transfer benchmark', () => {
               caller: adminWallet.getAddress(),
               action: interaction,
             });
-            await interaction
-              .send({ from: benchysWallet.getAddress(), authWitnesses: [witness] })
-              .wait({ timeout: 120 });
+            await interaction.send({ from: adminAddress, authWitnesses: [witness] }).wait({ timeout: 120 });
           });
 
           // Ensure we create a change note, by sending an amount that is not a multiple of the note amount
@@ -145,7 +143,8 @@ describe('Transfer benchmark', () => {
                 2 + // CandyBarCoin transfer + kernel inner
                 recursions * 2 + // (CandyBarCoin _recurse_subtract_balance + kernel inner) * recursions
                 1 + // Kernel reset
-                1, // Kernel tail
+                1 + // Kernel tail
+                1, // Kernel hiding
             );
 
             expectedChange = totalAmount - BigInt(amountToSend);

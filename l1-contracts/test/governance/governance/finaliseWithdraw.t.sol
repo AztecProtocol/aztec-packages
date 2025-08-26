@@ -8,7 +8,7 @@ import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {ConfigurationLib} from "@aztec/governance/libraries/ConfigurationLib.sol";
 
-contract FinaliseWithdrawTest is GovernanceBase {
+contract FinalizeWithdrawTest is GovernanceBase {
   using ConfigurationLib for Configuration;
 
   uint256 internal constant WITHDRAWAL_COUNT = 8;
@@ -18,8 +18,8 @@ contract FinaliseWithdrawTest is GovernanceBase {
 
   function test_WhenIdMatchNoPendingWithdrawal(uint256 _id) external {
     // it revert
-    vm.expectRevert(abi.encodeWithSelector(IERC20Errors.ERC20InvalidReceiver.selector, address(0)));
-    governance.finaliseWithdraw(_id);
+    vm.expectRevert(abi.encodeWithSelector(Errors.Governance__WithdrawalNotInitiated.selector));
+    governance.finalizeWithdraw(_id);
   }
 
   // Lot of this is similar to initiateWithdraw.t.sol::test_WhenCallerHaveSufficientDeposits
@@ -68,12 +68,12 @@ contract FinaliseWithdrawTest is GovernanceBase {
     for (uint256 i = 0; i < withdrawalCount; i++) {
       Withdrawal memory withdrawal = governance.getWithdrawal(i);
       vm.warp(Timestamp.unwrap(withdrawal.unlocksAt));
-      governance.finaliseWithdraw(i);
+      governance.finalizeWithdraw(i);
     }
 
     for (uint256 i = 0; i < withdrawalCount; i++) {
       vm.expectRevert(abi.encodeWithSelector(Errors.Governance__WithdrawalAlreadyClaimed.selector));
-      governance.finaliseWithdraw(i);
+      governance.finalizeWithdraw(i);
     }
   }
 
@@ -111,7 +111,7 @@ contract FinaliseWithdrawTest is GovernanceBase {
           Errors.Governance__WithdrawalNotUnlockedYet.selector, Timestamp.wrap(block.timestamp), withdrawal.unlocksAt
         )
       );
-      governance.finaliseWithdraw(i);
+      governance.finalizeWithdraw(i);
     }
   }
 
@@ -128,7 +128,7 @@ contract FinaliseWithdrawTest is GovernanceBase {
   {
     // it mark withdrawal as claimed
     // it transfer funds to account
-    // it emits {WithdrawalFinalised} event
+    // it emits {WithdrawalFinalized} event
 
     uint256 sum = token.balanceOf(address(governance));
 
@@ -143,8 +143,8 @@ contract FinaliseWithdrawTest is GovernanceBase {
       vm.warp(time);
 
       vm.expectEmit(true, true, true, true, address(governance));
-      emit IGovernance.WithdrawFinalised(i);
-      governance.finaliseWithdraw(i);
+      emit IGovernance.WithdrawFinalized(i);
+      governance.finalizeWithdraw(i);
 
       Withdrawal memory withdrawal2 = governance.getWithdrawal(i);
       assertTrue(withdrawal2.claimed);

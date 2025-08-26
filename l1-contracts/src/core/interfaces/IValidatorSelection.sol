@@ -9,14 +9,14 @@ import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 struct ValidatorSelectionStorage {
   // A mapping to snapshots of the validator set
   mapping(Epoch => bytes32 committeeCommitment) committeeCommitments;
-  // Checkpointed map of epoch -> sample seed
-  Checkpoints.Trace224 seeds;
+  // Checkpointed map of epoch -> randao value
+  Checkpoints.Trace224 randaos;
   uint256 targetCommitteeSize;
 }
 
 interface IValidatorSelectionCore {
   function setupEpoch() external;
-  function setupSeedSnapshotForNextEpoch() external;
+  function checkpointRandao() external;
 }
 
 interface IValidatorSelection is IValidatorSelectionCore, IEmperor {
@@ -27,16 +27,13 @@ interface IValidatorSelection is IValidatorSelectionCore, IEmperor {
   function getCommitteeAt(Timestamp _ts) external returns (address[] memory);
   function getCommitteeCommitmentAt(Timestamp _ts) external returns (bytes32, uint256);
   function getEpochCommittee(Epoch _epoch) external returns (address[] memory);
+  function getEpochCommitteeCommitment(Epoch _epoch) external returns (bytes32, uint256);
 
   // Stable
   function getCurrentEpoch() external view returns (Epoch);
 
   // Consider removing below this point
   function getTimestampForSlot(Slot _slotNumber) external view returns (Timestamp);
-
-  // Likely removal of these to replace with a size and individual getter
-  // Get the current epoch committee
-  function getAttesters() external view returns (address[] memory);
 
   function getSampleSeedAt(Timestamp _ts) external view returns (uint256);
   function getCurrentSampleSeed() external view returns (uint256);

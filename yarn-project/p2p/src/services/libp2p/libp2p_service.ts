@@ -19,7 +19,7 @@ import {
   PeerErrorSeverity,
   TopicType,
   createTopicString,
-  getTopicTypeForClientType,
+  getTopicsForClientAndConfig,
   metricsTopicStrToLabels,
 } from '@aztec/stdlib/p2p';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
@@ -444,7 +444,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     await this.node.start();
 
     // Subscribe to standard GossipSub topics by default
-    for (const topic of getTopicTypeForClientType(this.clientType)) {
+    for (const topic of getTopicsForClientAndConfig(this.clientType, this.config.disableTransactions)) {
       this.subscribeToTopic(this.topicStrings[topic]);
     }
 
@@ -461,7 +461,6 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const requestResponseHandlers: Partial<ReqRespSubProtocolHandlers> = {
       [ReqRespSubProtocol.PING]: pingHandler,
       [ReqRespSubProtocol.STATUS]: statusHandler.bind(this),
-      [ReqRespSubProtocol.TX]: txHandler.bind(this),
       [ReqRespSubProtocol.GOODBYE]: goodbyeHandler.bind(this),
       [ReqRespSubProtocol.BLOCK]: blockHandler.bind(this),
     };
@@ -470,6 +469,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     if (this.mempools.attestationPool) {
       const blockTxsHandler = reqRespBlockTxsHandler(this.mempools.attestationPool, this.mempools.txPool);
       requestResponseHandlers[ReqRespSubProtocol.BLOCK_TXS] = blockTxsHandler.bind(this);
+    }
+
+    if (!this.config.disableTransactions) {
+      requestResponseHandlers[ReqRespSubProtocol.TX] = txHandler.bind(this);
     }
 
     // add GossipSub listener
@@ -694,7 +697,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     try {
       resultAndObj = await validationFunc();
     } catch (err) {
-      this.logger.error(`Error deserialising and validating message `, err);
+      this.logger.error(`Error deserializing and validating message `, err);
     }
 
     if (resultAndObj.result) {
@@ -1018,6 +1021,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       protocolContractTreeRoot,
       this.archiver,
       this.proofVerifier,
+      !this.config.disableTransactions,
       allowedInSetup,
     );
   }

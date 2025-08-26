@@ -36,7 +36,7 @@ struct CompressedRoundAccounting {
  *
  * There are two primary implementations of this contract:
  * - The GovernanceProposer
- * - The SlashingProposer
+ * - The EmpireSlashingProposer
  *
  * The GovernanceProposer is used to signal support for payloads before they are submitted to the main Governance
  * contract,
@@ -44,9 +44,10 @@ struct CompressedRoundAccounting {
  * 1. Signal gathering (GovernanceProposer contract) - validators indicate support
  * 2. Formal governance (Governance contract) - actual voting and execution
  *
- * The SlashingProposer is used to signal support for payloads before they are submitted to a Rollup instance's Slasher,
+ * The EmpireSlashingProposer is used to signal support for payloads before they are submitted to a Rollup instance's
+ * Slasher,
  * resulting in a one-stage slashing process:
- * 1. Signal gathering (SlashingProposer contract) - validators indicate support
+ * 1. Signal gathering (EmpireSlashingProposer contract) - validators indicate support
  *
  * @dev KEY CONCEPTS:
  * **Payload**: A contract with a list of actions (contract calls) to perform.
@@ -84,7 +85,7 @@ struct CompressedRoundAccounting {
  * 1. Direct signal: Current signaler calls `signal()`
  * 2. Delegated signal: Anyone submits with signaler's signature via `signalWithSig()`
  *    - Uses EIP-712 for signature verification
- *    - Includes nonce and round number to prevent replay attacks
+ *    - Includes slot and instance to prevent replay attacks
  *
  * @dev ABSTRACT FUNCTIONS:
  * Implementing contracts must provide:
@@ -107,7 +108,7 @@ abstract contract EmpireBase is EIP712, IEmpire {
   using CompressedTimeMath for CompressedSlot;
 
   // EIP-712 type hash for the Signal struct
-  bytes32 public constant SIGNAL_TYPEHASH = keccak256("Signal(address payload,uint256 nonce,uint256 round)");
+  bytes32 public constant SIGNAL_TYPEHASH = keccak256("Signal(address payload,uint256 slot,address instance)");
 
   // The number of signals needed for a payload to be considered submittable.
   uint256 public immutable QUORUM_SIZE;
@@ -120,8 +121,6 @@ abstract contract EmpireBase is EIP712, IEmpire {
 
   // Mapping of instance to round number to round accounting.
   mapping(address instance => mapping(uint256 roundNumber => CompressedRoundAccounting)) internal rounds;
-  // Mapping of instance signaler to nonce. Used to prevent replay attacks.
-  mapping(address signaler => uint256 nonce) public nonces;
 
   constructor(uint256 _quorumSize, uint256 _roundSize, uint256 _lifetimeInRounds, uint256 _executionDelayInRounds)
     EIP712("EmpireBase", "1")
@@ -268,8 +267,8 @@ abstract contract EmpireBase is EIP712, IEmpire {
     return Slot.unwrap(_slot) / ROUND_SIZE;
   }
 
-  function getSignalSignatureDigest(IPayload _payload, address _signaler, uint256 _round) public view returns (bytes32) {
-    return _hashTypedDataV4(keccak256(abi.encode(SIGNAL_TYPEHASH, _payload, nonces[_signaler], _round)));
+  function getSignalSignatureDigest(IPayload _payload, Slot _slot) public view returns (bytes32) {
+    return _hashTypedDataV4(keccak256(abi.encode(SIGNAL_TYPEHASH, _payload, _slot, getInstance())));
   }
 
   // Virtual functions
@@ -291,23 +290,22 @@ abstract contract EmpireBase is EIP712, IEmpire {
     require(
       currentSlot > round.lastSignalSlot.decompress(), Errors.GovernanceProposer__SignalAlreadyCastForSlot(currentSlot)
     );
+    round.lastSignalSlot = currentSlot.compress();
 
     address signaler = selection.getCurrentProposer();
 
     if (_sig.isEmpty()) {
       require(msg.sender == signaler, Errors.GovernanceProposer__OnlyProposerCanSignal(msg.sender, signaler));
     } else {
-      bytes32 digest = getSignalSignatureDigest(_payload, signaler, roundNumber);
-      nonces[signaler]++;
+      bytes32 digest = getSignalSignatureDigest(_payload, currentSlot);
 
       // _sig.verify will throw if invalid, it is more my sanity that I am doing this for.
       require(_sig.verify(signaler, digest), Errors.GovernanceProposer__OnlyProposerCanSignal(msg.sender, signaler));
     }
 
     round.signalCount[_payload] += 1;
-    round.lastSignalSlot = currentSlot.compress();
 
-    // @todo We can optimise here for gas by storing some of it packed with the payloadWithMostSignals.
+    // @todo We can optimize here for gas by storing some of it packed with the payloadWithMostSignals.
     if (
       round.payloadWithMostSignals != _payload
         && round.signalCount[_payload] > round.signalCount[round.payloadWithMostSignals]

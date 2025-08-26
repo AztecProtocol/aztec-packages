@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $PWD != ${HOME}* ]]; then
+  >&2 echo "Due to how we containerize our applications, we require your working directory to be somewhere within $HOME."
+  exit 1
+fi
+
+# Determine if we need interactive/tty flags
+if [ -t 0 ]; then
+  if [ -t 1 ]; then
+    args="-ti"
+  else
+    args="-i"
+  fi
+fi
+
+# Run the aztec-postprocess-contract script from within the container
+docker run ${args:-} \
+  --user $(id -u):$(id -g) \
+  -v $HOME:$HOME \
+  -e HOME=$HOME \
+  --workdir="$PWD" \
+  --entrypoint=/usr/src/aztec-postprocess-contract/transpile_contract_and_gen_vks.sh \
+  aztecprotocol/aztec "$@"

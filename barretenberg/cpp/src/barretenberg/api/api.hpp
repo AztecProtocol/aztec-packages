@@ -14,8 +14,6 @@ class API {
                                   // zero knowledge variant of the protocol by default
         std::filesystem::path crs_path{ "" }; // the location of reference strings for commitment schemes
         bool recursive{ false };              // deprecated flag indicating that a circuit is to be recursively verified
-        bool init_kzg_accumulator{ false };   // stripped down version fo `recursive` in the UltraHonk; also deprecated?
-        uint32_t honk_recursion{ 0 };         // flag that differentiates between different recursion modes; deprecated?
         bool ipa_accumulation{ false };       // indicate whether the command is doing IPA proof aggregation
         std::string scheme;                   // the proving system or IVC scheme
         std::string oracle_hash_type;         // which hash function does the prover use as a random oracle?
@@ -25,7 +23,7 @@ class API {
         bool write_vk{ false };    // should we addditionally write the verification key when writing the proof
         bool include_gates_per_opcode{ false }; // should we include gates_per_opcode in the gates command output
         bool slow_low_memory{ false };          // use file backed memory for polynomials
-        bool update_inputs{ false };            // use file backed memory for polynomials
+        bool update_inputs{ false };            // update inputs when check fails
 
         friend std::ostream& operator<<(std::ostream& os, const Flags& flags)
         {
@@ -34,9 +32,6 @@ class API {
                << "  debug: " << flags.debug << "\n"
                << "  disable_zk: " << flags.disable_zk << "\n"
                << "  crs_path: " << flags.crs_path << "\n"
-               << "  recursive: " << flags.recursive << "\n"
-               << "  init_kzg_accumulator: " << flags.init_kzg_accumulator << "\n"
-               << "  honk_recursion: " << flags.honk_recursion << "\n"
                << "  ipa_accumulation: " << flags.ipa_accumulation << "\n"
                << "  scheme: " << flags.scheme << "\n"
                << "  oracle_hash_type: " << flags.oracle_hash_type << "\n"

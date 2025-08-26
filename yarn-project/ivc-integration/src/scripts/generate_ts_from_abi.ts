@@ -10,6 +10,7 @@ const log = createConsoleLogger('mock-circuits');
 const circuits = [
   'app_creator',
   'app_reader',
+  'mock_hiding',
   'mock_private_kernel_init',
   'mock_private_kernel_inner',
   'mock_private_kernel_reset',

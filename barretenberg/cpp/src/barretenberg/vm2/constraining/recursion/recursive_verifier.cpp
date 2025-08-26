@@ -16,22 +16,23 @@
 
 namespace bb::avm2 {
 
-AvmRecursiveVerifier::AvmRecursiveVerifier(Builder& builder,
-                                           const std::shared_ptr<NativeVerificationKey>& native_verification_key)
-    : key(std::make_shared<VerificationKey>(&builder, native_verification_key))
-    , builder(builder)
-{}
-
+// TODO(#15892): Remove vk argument from all functions once its fixed.
 AvmRecursiveVerifier::AvmRecursiveVerifier(Builder& builder, const std::shared_ptr<VerificationKey>& vkey)
-    : key(vkey)
-    , builder(builder)
-{}
+    : builder(builder)
+    , key(vkey)
+{
+    // TODO(#15892): Uncomment this when we make the AVM vk and vk
+    // hash fixed.
+    // key->fix_witness();
+    // compute the vk hash from the native vk fields
+    // this->vk_hash.fix_witness();
+}
 
 // Evaluate the given public input column over the multivariate challenge points
 AvmRecursiveVerifier::FF AvmRecursiveVerifier::evaluate_public_input_column(const std::vector<FF>& points,
                                                                             const std::vector<FF>& challenges)
 {
-    size_t circuit_size = 1 << static_cast<uint32_t>(key->log_circuit_size.get_value());
+    size_t circuit_size = 1 << CONST_PROOF_SIZE_LOG_N;
     auto coefficients = SharedShiftedVirtualZeroesArray<FF>{
         .start_ = 0,
         .end_ = points.size(),
@@ -90,14 +91,12 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
 
     transcript->load_proof(stdlib_proof);
 
+    // TODO(#15892): Fiat-Shamir the vk hash by uncommenting the add_to_hash_buffer.
+    // transcript->add_to_hash_buffer("avm_vk_hash", vk_hash);
+    info("AVM vk hash in recursive verifier: ", vk_hash);
+
     RelationParams relation_parameters;
     VerifierCommitments commitments{ key };
-
-    const auto circuit_size = transcript->template receive_from_prover<FF>("circuit_size");
-    uint32_t vk_circuit_size = 1 << static_cast<uint32_t>(key->log_circuit_size.get_value());
-    if (static_cast<uint32_t>(circuit_size.get_value()) != vk_circuit_size) {
-        throw_or_abort("AvmRecursiveVerifier::verify_proof: proof circuit size does not match verification key!");
-    }
 
     // Get commitments to VM wires
     for (auto [comm, label] : zip_view(commitments.get_wires(), commitments.get_wires_labels())) {
@@ -113,18 +112,15 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
         commitment = transcript->template receive_from_prover<Commitment>(label);
     }
 
-    // unconstrained
-    const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(circuit_size.get_value()));
-    const auto padding_indicator_array =
-        stdlib::compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(FF(log_circuit_size));
+    const std::vector<FF> padding_indicator_array(CONST_PROOF_SIZE_LOG_N, 1);
 
     // Multiply each linearly independent subrelation contribution by `alpha^i` for i = 0, ..., NUM_SUBRELATIONS - 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
     SumcheckVerifier<Flavor> sumcheck(transcript, alpha, CONST_PROOF_SIZE_LOG_N);
 
-    auto gate_challenges = std::vector<FF>(log_circuit_size);
-    for (size_t idx = 0; idx < log_circuit_size; idx++) {
+    auto gate_challenges = std::vector<FF>(CONST_PROOF_SIZE_LOG_N);
+    for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
@@ -132,10 +128,6 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     // when called over a "circuit field" types.
     SumcheckOutput<Flavor> output = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator_array);
     vinfo("verified sumcheck: ", (output.verified));
-
-    // Public columns evaluation checks
-    std::vector<FF> mle_challenge(output.challenge.begin(),
-                                  output.challenge.begin() + static_cast<int>(log_circuit_size));
 
     std::array<FF, AVM_NUM_PUBLIC_INPUT_COLUMNS> claimed_evaluations = {
         output.claimed_evaluations.public_inputs_cols_0_,
@@ -147,7 +139,11 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     // TODO(#14234)[Unconditional PIs validation]: Inside of loop, replace pi_validation.must_imply() by
     // public_input_evaluation.assert_equal(claimed_evaluations[i]
     for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
-        FF public_input_evaluation = evaluate_public_input_column(public_inputs[i], mle_challenge);
+        // In-circuit mle evaluation efficiently handles evaluations of polynomials extended by zero, i.e.
+        // public_inputs[i] is of the size bounded by compile-time constant `AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH` but
+        // it is evaluated as a polynomial in fixed number of variables to match the sumcheck claimed evaluation, that
+        // also uses extension by zero.
+        FF public_input_evaluation = evaluate_public_input_column(public_inputs[i], output.challenge);
         vinfo("public_input_evaluation failed, public inputs col ", i);
         pi_validation.must_imply(public_input_evaluation == claimed_evaluations[i], "public_input_evaluation failed");
     }

@@ -56,7 +56,8 @@ struct AcirFormatOriginalOpcodeIndices {
     std::vector<size_t> ec_add_constraints;
     std::vector<size_t> honk_recursion_constraints;
     std::vector<size_t> avm_recursion_constraints;
-    std::vector<size_t> ivc_recursion_constraints;
+    std::vector<size_t> pg_recursion_constraints;
+    std::vector<size_t> civc_recursion_constraints;
     std::vector<size_t> bigint_from_le_bytes_constraints;
     std::vector<size_t> bigint_to_le_bytes_constraints;
     std::vector<size_t> bigint_operations;
@@ -98,7 +99,8 @@ struct AcirFormat {
     std::vector<EcAdd> ec_add_constraints;
     std::vector<RecursionConstraint> honk_recursion_constraints;
     std::vector<RecursionConstraint> avm_recursion_constraints;
-    std::vector<RecursionConstraint> ivc_recursion_constraints;
+    std::vector<RecursionConstraint> pg_recursion_constraints;
+    std::vector<RecursionConstraint> civc_recursion_constraints;
     std::vector<BigIntFromLeBytes> bigint_from_le_bytes_constraints;
     std::vector<BigIntToLeBytes> bigint_to_le_bytes_constraints;
     std::vector<BigIntOperation> bigint_operations;
@@ -119,14 +121,14 @@ struct AcirFormat {
 
     // Number of gates added to the circuit per original opcode.
     // Has length equal to num_acir_opcodes.
-    std::vector<size_t> gates_per_opcode = {};
+    std::vector<size_t> gates_per_opcode;
 
     // Set of constrained witnesses
-    std::set<uint32_t> constrained_witness = {};
+    std::set<uint32_t> constrained_witness;
     // map witness with their minimal bit-range
-    std::map<uint32_t, uint32_t> minimal_range = {};
+    std::map<uint32_t, uint32_t> minimal_range;
     // map witness with their minimal bit-range implied by array operations
-    std::map<uint32_t, uint32_t> index_range = {};
+    std::map<uint32_t, uint32_t> index_range;
 
     // Indices of the original opcode that originated each constraint in AcirFormat.
     AcirFormatOriginalOpcodeIndices original_opcode_indices;
@@ -148,7 +150,8 @@ struct AcirFormat {
                    ec_add_constraints,
                    honk_recursion_constraints,
                    avm_recursion_constraints,
-                   ivc_recursion_constraints,
+                   pg_recursion_constraints,
+                   civc_recursion_constraints,
                    poly_triple_constraints,
                    quad_constraints,
                    big_quad_constraints,

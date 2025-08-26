@@ -1,6 +1,7 @@
 ---
 id: inspiration
 title: Inspiration and Ideas
+description: Find inspiration and ideas for building applications on Aztec's privacy-preserving platform.
 ---
 
 This page covers requests for apps on Aztec, designs that some teams are exploring, existing contract examples, and open source ecosystem projects. 

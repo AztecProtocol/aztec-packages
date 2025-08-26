@@ -1,5 +1,6 @@
 ---
 title: Inner Workings of Functions
+description: Understand how Aztec transforms contract functions during compilation for privacy and efficiency.
 sidebar_position: 2
 tags: [functions]
 ---

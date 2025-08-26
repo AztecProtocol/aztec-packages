@@ -14,11 +14,14 @@ enum class AluOperation {
     SUB,
     MUL,
     DIV,
+    FDIV,
     EQ,
     LT,
     LTE,
     NOT,
     TRUNCATE,
+    SHR,
+    SHL,
 };
 
 enum class AluError {

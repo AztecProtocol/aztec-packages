@@ -61,6 +61,10 @@ tests:
     error_regex: "call_indirect to a null table entry"
     owners:
       - *adam
+  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
+    error_regex: "Input is not large enough"
+    owners:
+      - *adam
 
   # noir
   # Something to do with how I run the tests now. Think these are fine in nextest.
@@ -250,7 +254,7 @@ tests:
   - regex: "ivc-integration/src/rollup_ivc_integration.test.ts"
     error_regex: "Exceeded timeout of"
     owners:
-      - *lucas
+      - *luke
   - regex: "e2e_prover/full"
     error_regex: "ProvingError: Failed to verify proof from key!"
   - regex: "slasher/src/slasher_client.test.ts"

@@ -41,6 +41,8 @@ class MockContext : public ContextInterface {
     MOCK_METHOD(AppendOnlyTreeSnapshot, get_written_public_data_slots_tree_snapshot, (), (override));
     MOCK_METHOD(const GlobalVariables&, get_globals, (), (const, override));
 
+    MOCK_METHOD(TransactionPhase, get_phase, (), (const, override));
+
     // Input / Output.
     MOCK_METHOD(std::vector<FF>, get_calldata, (uint32_t cd_offset, uint32_t cd_size), (const, override));
     MOCK_METHOD(std::vector<FF>, get_returndata, (uint32_t rd_offset, uint32_t rd_size), (override));

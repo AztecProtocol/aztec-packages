@@ -35,7 +35,7 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
  *      The submitEpochRootProof() function is the main entry point called from RollupCore.submitEpochRootProof().
  *      It serves as the mechanism by which provers can finalize epochs, advancing the proven chain tip and
  *      triggering reward distribution. This is a critical operation that moves blocks from "pending" to "proven"
- * status.
+ *      status.
  *
  *      Attestation Verification:
  *      Before accepting an epoch proof, this library verifies the attestations for the last block in the epoch.
@@ -65,13 +65,6 @@ library EpochProofLib {
   using ChainTipsLib for CompressedChainTips;
   using AttestationLib for CommitteeAttestations;
   using CompressedTimeMath for CompressedSlot;
-
-  // This is a temporary struct to avoid stack too deep errors
-  struct BlobVarsTemp {
-    uint256 blobOffset;
-    uint256 offset;
-    uint256 i;
-  }
 
   /**
    * @notice Submit a validity proof for an epoch's state transitions, advancing the proven chain tip
@@ -116,6 +109,8 @@ library EpochProofLib {
     Epoch endEpoch = assertAcceptable(_args.start, _args.end);
 
     // Verify attestations for the last block in the epoch
+    // -> This serves as training wheels for the public part of the system (proving systems used in public and AVM)
+    // ensuring committee agreement on the epoch's validity alongside the cryptographic proof verification below.
     verifyLastBlockAttestations(_args.end, _args.attestations);
 
     require(verifyEpochRootProof(_args), Errors.Rollup__InvalidProof());
@@ -150,8 +145,6 @@ library EpochProofLib {
     bytes calldata _blobPublicInputs
   ) internal view returns (bytes32[] memory) {
     RollupStore storage rollupStore = STFLib.getStorage();
-
-    // TODO(#7373): Public inputs are not fully verified
 
     {
       // We do it this way to provide better error messages than passing along the storage values

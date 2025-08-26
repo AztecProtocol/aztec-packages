@@ -253,18 +253,21 @@ export class AztecClientBackend {
       this.api.clientIvcAccumulate({
         witness: Buffer.from(witness),
       });
+
     }
+
+
 
     // Generate the proof (and wait for all previous steps to finish)
     const proveResult = await this.api.clientIvcProve({});
-
     // The API currently expects a msgpack-encoded API.
     const proof = new Encoder({useRecords: false}).encode(fromClientIVCProof(proveResult.proof));
     // Generate the VK
     const vkResult = await this.api.clientIvcComputeIvcVk({ circuit: {
-      name: 'tail',
+      name: 'hiding',
       bytecode: this.acirBuf[this.acirBuf.length - 1],
     } });
+
 
     // Note: Verification may not work correctly until we properly serialize the proof
     if (!(await this.verify(proof, vkResult.bytes))) {

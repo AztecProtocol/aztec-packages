@@ -74,7 +74,7 @@ describe('prover/orchestrator/failures', () => {
       'succeeds without failed proof',
       async () => {
         await run('successful case');
-        await expect(orchestrator.finaliseEpoch()).resolves.not.toThrow();
+        await expect(orchestrator.finalizeEpoch()).resolves.not.toThrow();
       },
       LONG_TIMEOUT,
     );
@@ -116,7 +116,7 @@ describe('prover/orchestrator/failures', () => {
 
         await run(message);
 
-        await expect(() => orchestrator.finaliseEpoch()).rejects.toThrow();
+        await expect(() => orchestrator.finalizeEpoch()).rejects.toThrow();
       },
       LONG_TIMEOUT,
     );

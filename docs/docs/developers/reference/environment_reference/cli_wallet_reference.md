@@ -1,5 +1,6 @@
 ---
 title: CLI Wallet
+description: Comprehensive reference for the Aztec wallet command-line interface (CLI).
 tags: [sandbox, wallet, cli]
 keywords: [wallet, cli wallet]
 sidebar_position: 3

@@ -81,14 +81,15 @@ library BlobLib {
    * @notice  Validate an L2 block's blobs and return the blobHashes, the hashed blobHashes, and blob commitments.
    *
    *          We assume that the Aztec related blobs will be first in the propose transaction, additional blobs can be
-   * at the end.
+   *          at the end.
    *
    * Input bytes:
    * input[0] - num blobs in block
    * input[1:] - blob commitments (48 bytes * num blobs in block)
    * @param _blobsInput - The above bytes to verify our input blob commitments match real blobs
    * @param _checkBlob - Whether to skip blob related checks. Hardcoded to true (See RollupCore.sol -> checkBlob),
-   * exists only to be overriden in tests.
+   * exists only to be overridden in tests.
+   *
    * Returns for proposal:
    * @return blobHashes - All of the blob hashes included in this block, to be emitted in L2BlockProposed event.
    * @return blobsHashesCommitment - A hash of all blob hashes in this block, to be included in the block header. See
@@ -156,12 +157,10 @@ library BlobLib {
    * we know that the data in each blob of the epoch corresponds to the tx effects of all our proven txs in the epoch.
    *
    * The rollup circuits calculate each z_i and y_i as above, so if this function passes but they do not match the
-   * values from the
-   * circuit, then proof verification will fail.
+   * values from the circuit, then proof verification will fail.
    *
    * Each commitment C_i is injected into the circuits and their correctness is validated using the blobCommitmentsHash,
-   * as
-   * explained below in calculateBlobCommitmentsHash().
+   * as explained below in calculateBlobCommitmentsHash().
    *
    */
   function validateBatchedBlob(bytes calldata _blobInput) internal view returns (bool success) {
@@ -172,7 +171,7 @@ library BlobLib {
 
   /**
    * @notice  Calculate the current state of the blobCommitmentsHash. Called for each new proposed block.
-   * @param _previousblobCommitmentsHash - The previous block's blobCommitmentsHash.
+   * @param _previousBlobCommitmentsHash - The previous block's blobCommitmentsHash.
    * @param _blobCommitments - The commitments corresponding to this block's blobs.
    * @param _isFirstBlockOfEpoch - Whether this block is the first of an epoch (see below).
    *
@@ -195,20 +194,20 @@ library BlobLib {
    *
    */
   function calculateBlobCommitmentsHash(
-    bytes32 _previousblobCommitmentsHash,
+    bytes32 _previousBlobCommitmentsHash,
     bytes[] memory _blobCommitments,
     bool _isFirstBlockOfEpoch
-  ) internal pure returns (bytes32 currentblobCommitmentsHash) {
+  ) internal pure returns (bytes32 currentBlobCommitmentsHash) {
     uint256 i = 0;
-    currentblobCommitmentsHash = _previousblobCommitmentsHash;
-    // If we are at the first block of an epoch, we reinitialise the blobCommitmentsHash.
+    currentBlobCommitmentsHash = _previousBlobCommitmentsHash;
+    // If we are at the first block of an epoch, we reinitialize the blobCommitmentsHash.
     // Blob commitments are collected and proven per root rollup proof => per epoch.
     if (_isFirstBlockOfEpoch) {
-      // Initialise the blobCommitmentsHash
-      currentblobCommitmentsHash = Hash.sha256ToField(abi.encodePacked(_blobCommitments[i++]));
+      // Initialize the blobCommitmentsHash
+      currentBlobCommitmentsHash = Hash.sha256ToField(abi.encodePacked(_blobCommitments[i++]));
     }
     for (i; i < _blobCommitments.length; i++) {
-      currentblobCommitmentsHash = Hash.sha256ToField(abi.encodePacked(currentblobCommitmentsHash, _blobCommitments[i]));
+      currentBlobCommitmentsHash = Hash.sha256ToField(abi.encodePacked(currentBlobCommitmentsHash, _blobCommitments[i]));
     }
   }
 

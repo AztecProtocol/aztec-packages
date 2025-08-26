@@ -111,7 +111,6 @@ constexpr uint64_t field<T>::addc(const uint64_t a,
                                   const uint64_t carry_in,
                                   uint64_t& carry_out) noexcept
 {
-    BB_OP_COUNT_TRACK();
 #if defined(__SIZEOF_INT128__) && !defined(__wasm__)
     uint128_t res = static_cast<uint128_t>(a) + static_cast<uint128_t>(b) + static_cast<uint128_t>(carry_in);
     carry_out = static_cast<uint64_t>(res >> 64);
@@ -909,7 +908,8 @@ template <class T> constexpr field<T> field<T>::montgomery_square() const noexce
 #endif
 }
 
-template <class T> constexpr struct field<T>::wide_array field<T>::mul_512(const field& other) const noexcept {
+template <class T> constexpr struct field<T>::wide_array field<T>::mul_512(const field& other) const noexcept
+{
 #if defined(__SIZEOF_INT128__) && !defined(__wasm__)
     uint64_t carry_2 = 0;
     auto [r0, carry] = mul_wide(data[0], other.data[0]);

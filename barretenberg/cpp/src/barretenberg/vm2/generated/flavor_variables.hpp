@@ -46,7 +46,6 @@
 #include "relations/nullifier_exists.hpp"
 #include "relations/poseidon2_hash.hpp"
 #include "relations/poseidon2_mem.hpp"
-#include "relations/poseidon2_perm.hpp"
 #include "relations/public_data_check.hpp"
 #include "relations/public_data_squash.hpp"
 #include "relations/range_check.hpp"
@@ -61,8 +60,12 @@
 #include "relations/to_radix_mem.hpp"
 #include "relations/tx.hpp"
 #include "relations/tx_context.hpp"
+#include "relations/tx_discard.hpp"
 #include "relations/update_check.hpp"
 #include "relations/written_public_data_slots_tree_check.hpp"
+
+// Optimized Relations
+#include "barretenberg/vm2/optimized/relations/poseidon2_perm.hpp"
 
 // Lookup and permutation relations
 #include "relations/lookups_address_derivation.hpp"
@@ -113,6 +116,7 @@
 #include "relations/lookups_to_radix.hpp"
 #include "relations/lookups_to_radix_mem.hpp"
 #include "relations/lookups_tx.hpp"
+#include "relations/lookups_tx_context.hpp"
 #include "relations/lookups_update_check.hpp"
 #include "relations/lookups_written_public_data_slots_tree_check.hpp"
 #include "relations/perms_ecc_mem.hpp"
@@ -126,15 +130,18 @@
 namespace bb::avm2 {
 
 struct AvmFlavorVariables {
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 131;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2871;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 308;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 133;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2919;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 316;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3310;
+    static constexpr size_t NUM_ALL_ENTITIES = 3368;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
     using MainRelations_ = flat_tuple::tuple<
+
+        // Optimized Relations
+        avm2::optimized_poseidon2_perm<FF_>,
         // Relations
         avm2::address_derivation<FF_>,
         avm2::addressing<FF_>,
@@ -178,7 +185,6 @@ struct AvmFlavorVariables {
         avm2::nullifier_exists<FF_>,
         avm2::poseidon2_hash<FF_>,
         avm2::poseidon2_mem<FF_>,
-        avm2::poseidon2_perm<FF_>,
         avm2::public_data_check<FF_>,
         avm2::public_data_squash<FF_>,
         avm2::range_check<FF_>,
@@ -193,6 +199,7 @@ struct AvmFlavorVariables {
         avm2::to_radix_mem<FF_>,
         avm2::tx<FF_>,
         avm2::tx_context<FF_>,
+        avm2::tx_discard<FF_>,
         avm2::update_check<FF_>,
         avm2::written_public_data_slots_tree_check<FF_>>;
 
@@ -240,8 +247,6 @@ struct AvmFlavorVariables {
         lookup_alu_range_check_trunc_mid_relation<FF_>,
         lookup_alu_register_tag_value_relation<FF_>,
         lookup_alu_tag_max_bits_value_relation<FF_>,
-        lookup_bc_decomposition_abs_diff_hi_is_u8_relation<FF_>,
-        lookup_bc_decomposition_abs_diff_lo_is_u16_relation<FF_>,
         lookup_bc_decomposition_bytes_are_bytes_relation<FF_>,
         lookup_bc_hashing_get_packed_field_relation<FF_>,
         lookup_bc_hashing_iv_is_len_relation<FF_>,
@@ -487,6 +492,7 @@ struct AvmFlavorVariables {
         lookup_public_data_check_updated_low_leaf_poseidon2_0_relation<FF_>,
         lookup_public_data_check_updated_low_leaf_poseidon2_1_relation<FF_>,
         lookup_public_data_check_write_public_data_to_public_inputs_relation<FF_>,
+        lookup_public_data_check_write_writes_length_to_public_inputs_relation<FF_>,
         lookup_range_check_dyn_diff_is_u16_relation<FF_>,
         lookup_range_check_dyn_rng_chk_pow_2_relation<FF_>,
         lookup_range_check_r0_is_u16_relation<FF_>,
@@ -584,8 +590,23 @@ struct AvmFlavorVariables {
         lookup_to_radix_mem_check_radix_lt_2_relation<FF_>,
         lookup_to_radix_mem_input_output_to_radix_relation<FF_>,
         lookup_to_radix_mem_write_mem_relation<FF_>,
+        lookup_tx_balance_read_relation<FF_>,
         lookup_tx_balance_slot_poseidon2_relation<FF_>,
+        lookup_tx_balance_update_relation<FF_>,
         lookup_tx_balance_validation_relation<FF_>,
+        lookup_tx_context_public_inputs_gas_used_relation<FF_>,
+        lookup_tx_context_public_inputs_l1_l2_tree_relation<FF_>,
+        lookup_tx_context_public_inputs_note_hash_tree_relation<FF_>,
+        lookup_tx_context_public_inputs_nullifier_tree_relation<FF_>,
+        lookup_tx_context_public_inputs_public_data_tree_relation<FF_>,
+        lookup_tx_context_public_inputs_read_gas_limit_relation<FF_>,
+        lookup_tx_context_public_inputs_write_l2_to_l1_message_count_relation<FF_>,
+        lookup_tx_context_public_inputs_write_note_hash_count_relation<FF_>,
+        lookup_tx_context_public_inputs_write_nullifier_count_relation<FF_>,
+        lookup_tx_context_public_inputs_write_unencrypted_log_count_relation<FF_>,
+        lookup_tx_context_restore_state_on_revert_relation<FF_>,
+        lookup_tx_dispatch_exec_end_relation<FF_>,
+        lookup_tx_dispatch_exec_start_relation<FF_>,
         lookup_tx_note_hash_append_relation<FF_>,
         lookup_tx_nullifier_append_relation<FF_>,
         lookup_tx_phase_jump_on_revert_relation<FF_>,
@@ -596,6 +617,7 @@ struct AvmFlavorVariables {
         lookup_tx_read_phase_table_relation<FF_>,
         lookup_tx_read_public_call_request_phase_relation<FF_>,
         lookup_tx_read_tree_insert_value_relation<FF_>,
+        lookup_tx_write_fee_public_inputs_relation<FF_>,
         lookup_tx_write_l2_l1_msg_relation<FF_>,
         lookup_update_check_delayed_public_mutable_slot_poseidon2_relation<FF_>,
         lookup_update_check_timestamp_from_public_inputs_relation<FF_>,

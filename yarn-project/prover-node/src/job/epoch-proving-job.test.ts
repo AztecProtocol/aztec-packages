@@ -110,7 +110,7 @@ describe('epoch-proving-job', () => {
     db.getInitialHeader.mockReturnValue(initialHeader);
     worldState.fork.mockResolvedValue(db);
     prover.startNewBlock.mockImplementation(() => sleep(200));
-    prover.finaliseEpoch.mockResolvedValue({ publicInputs, proof, batchedBlobInputs });
+    prover.finalizeEpoch.mockResolvedValue({ publicInputs, proof, batchedBlobInputs });
     publisher.submitEpochProof.mockResolvedValue(true);
     publicProcessor.process.mockImplementation(async txs => {
       const txsArray = await toArray(txs);

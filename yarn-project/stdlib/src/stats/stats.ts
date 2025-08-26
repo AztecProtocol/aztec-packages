@@ -75,6 +75,16 @@ export type NodeSyncedChainHistoryStats = {
   dbSize: number;
 };
 
+export type ClientCircuitName =
+  | 'private-kernel-init'
+  | 'private-kernel-inner'
+  | 'private-kernel-reset'
+  | 'private-kernel-tail'
+  | 'private-kernel-tail-to-public'
+  | 'hiding-kernel-to-rollup'
+  | 'hiding-kernel-to-public'
+  | 'app-circuit';
+
 export type ServerCircuitName =
   | 'base-parity'
   | 'root-parity'
@@ -90,7 +100,7 @@ export type ServerCircuitName =
   | 'avm-circuit'
   | 'tube-circuit';
 
-export type CircuitName = 'ClientIVC' | ServerCircuitName;
+export type CircuitName = ClientCircuitName | ServerCircuitName;
 
 /** Stats for circuit simulation. */
 export type CircuitSimulationStats = {
@@ -192,9 +202,9 @@ export type L2BlockHandledStats = {
   /** Total duration in ms. */
   duration: number;
   /** Pending block number. */
-  unfinalisedBlockNumber: bigint;
+  unfinalizedBlockNumber: bigint;
   /** Proven block number. */
-  finalisedBlockNumber: bigint;
+  finalizedBlockNumber: bigint;
   /** Oldest historic block number. */
   oldestHistoricBlock: bigint;
 } & L2BlockStats;

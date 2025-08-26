@@ -205,7 +205,7 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
     }
 
     /**
-     * @brief Adds the verification key hash to the transcript and returns the hash.
+     * @brief Hashes the vk using the transcript's independent buffer and returns the hash.
      * @details Needed to make sure the Origin Tag system works. We need to set the origin tags of the VK witnesses in
      * the transcript. If we instead did the hashing outside of the transcript and submitted just the hash, only the
      * origin tag of the hash would be set properly. We want to avoid backpropagating origin tags to the actual VK
@@ -216,7 +216,8 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      * @param transcript
      * @returns The hash of the verification key
      */
-    virtual fr add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const
+    virtual typename Transcript::DataType hash_through_transcript(const std::string& domain_separator,
+                                                                  Transcript& transcript) const
     {
         transcript.add_to_independent_hash_buffer(domain_separator + "vk_log_circuit_size", this->log_circuit_size);
         transcript.add_to_independent_hash_buffer(domain_separator + "vk_num_public_inputs", this->num_public_inputs);
@@ -226,10 +227,8 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
             transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
         }
 
-        fr vk_hash = transcript.hash_independent_buffer();
-        transcript.add_to_hash_buffer(domain_separator + "vk_hash", vk_hash);
-        return vk_hash;
-    };
+        return transcript.hash_independent_buffer();
+    }
 };
 
 /**
@@ -299,7 +298,7 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
     }
 
     /**
-     * @brief Adds the verification key hash to the transcript and returns the hash.
+     * @brief Hashes the vk using the transcript's independent buffer and returns the hash.
      * @details Needed to make sure the Origin Tag system works. We need to set the origin tags of the VK witnesses in
      * the transcript. If we instead did the hashing outside of the transcript and submitted just the hash, only the
      * origin tag of the hash would be set properly. We want to avoid backpropagating origin tags to the actual VK
@@ -310,7 +309,7 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
      * @param transcript
      * @returns The hash of the verification key
      */
-    virtual FF add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const
+    virtual FF hash_through_transcript(const std::string& domain_separator, Transcript& transcript) const
     {
         transcript.add_to_independent_hash_buffer(domain_separator + "vk_log_circuit_size", this->log_circuit_size);
         transcript.add_to_independent_hash_buffer(domain_separator + "vk_num_public_inputs", this->num_public_inputs);
@@ -318,10 +317,8 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
         for (const Commitment& commitment : this->get_all()) {
             transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
         }
-        FF vk_hash = transcript.hash_independent_buffer();
-        transcript.add_to_hash_buffer(domain_separator + "vk_hash", vk_hash);
-        return vk_hash;
-    };
+        return transcript.hash_independent_buffer();
+    }
 };
 
 template <typename FF, typename VerificationKey> class VKAndHash_ {
@@ -397,14 +394,14 @@ template <typename Tuple> constexpr size_t compute_number_of_subrelations()
  * tuple of univariates whose size is equal to the number of subrelations of the relation. The length of a
  * univariate in an inner tuple is determined by the corresponding subrelation length and the number of keys to be
  * folded.
- * @tparam optimised Enable optimised version with skipping some of the computation
+ * @tparam optimized Enable optimized version with skipping some of the computation
  */
-template <typename Tuple, size_t NUM_KEYS, bool optimised = false>
+template <typename Tuple, size_t NUM_KEYS, bool optimized = false>
 constexpr auto create_protogalaxy_tuple_of_tuples_of_univariates()
 {
     constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
     return []<size_t... I>(std::index_sequence<I...>) {
-        if constexpr (optimised) {
+        if constexpr (optimized) {
             return flat_tuple::make_tuple(
                 typename std::tuple_element_t<I, Tuple>::template ProtogalaxyTupleOfUnivariatesOverSubrelations<
                     NUM_KEYS>{}...);

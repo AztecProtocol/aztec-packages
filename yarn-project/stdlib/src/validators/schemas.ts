@@ -2,7 +2,13 @@ import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
-import type { ValidatorStats, ValidatorStatusHistory, ValidatorStatusInSlot, ValidatorsStats } from './types.js';
+import type {
+  SingleValidatorStats,
+  ValidatorStats,
+  ValidatorStatusHistory,
+  ValidatorStatusInSlot,
+  ValidatorsStats,
+} from './types.js';
 
 export const ValidatorStatusInSlotSchema = z.enum([
   'block-mined',
@@ -51,3 +57,17 @@ export const ValidatorsStatsSchema = z.object({
   initialSlot: schemas.BigInt.optional(),
   slotWindow: schemas.Integer,
 }) satisfies ZodFor<ValidatorsStats>;
+
+export const SingleValidatorStatsSchema = z.object({
+  validator: ValidatorStatsSchema,
+  allTimeProvenPerformance: z.array(
+    z.object({
+      missed: schemas.Integer,
+      total: schemas.Integer,
+      epoch: schemas.BigInt,
+    }),
+  ),
+  lastProcessedSlot: schemas.BigInt.optional(),
+  initialSlot: schemas.BigInt.optional(),
+  slotWindow: schemas.Integer,
+}) satisfies ZodFor<SingleValidatorStats>;

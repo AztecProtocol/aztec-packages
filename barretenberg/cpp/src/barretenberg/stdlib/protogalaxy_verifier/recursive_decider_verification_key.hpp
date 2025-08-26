@@ -50,7 +50,7 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
     CommitmentLabels commitment_labels;
 
     RecursiveDeciderVerificationKey_(Builder* builder)
-        : builder(builder){};
+        : builder(builder) {};
 
     // Constructor from native vk
     RecursiveDeciderVerificationKey_(Builder* builder, std::shared_ptr<NativeVerificationKey> vk)
@@ -62,7 +62,7 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
     // Constructor from stdlib vk and hash
     RecursiveDeciderVerificationKey_(Builder* builder, std::shared_ptr<VKAndHash> vk_and_hash)
         : builder(builder)
-        , vk_and_hash(vk_and_hash){};
+        , vk_and_hash(vk_and_hash) {};
 
     RecursiveDeciderVerificationKey_(Builder* builder, std::shared_ptr<NativeDeciderVerificationKey> verification_key)
         : RecursiveDeciderVerificationKey_(builder, verification_key->vk)
@@ -146,7 +146,7 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
         return decider_vk;
     }
 
-    FF add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const
+    FF hash_through_transcript(const std::string& domain_separator, Transcript& transcript) const
     {
         transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_log_circuit_size",
                                                   this->vk_and_hash->vk->log_circuit_size);
@@ -172,15 +172,11 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
                                                   this->relation_parameters.gamma);
         transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_public_input_delta",
                                                   this->relation_parameters.public_input_delta);
-        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_lookup_grand_product_delta",
-                                                  this->relation_parameters.lookup_grand_product_delta);
         transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_target_sum", this->target_sum);
         transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_gate_challenges",
                                                   this->gate_challenges);
 
-        FF decider_vk_hash = transcript.hash_independent_buffer();
-        transcript.add_to_hash_buffer(domain_separator + "decider_vk_hash", decider_vk_hash);
-        return decider_vk_hash;
+        return transcript.hash_independent_buffer();
     }
 };
 } // namespace bb::stdlib::recursion::honk

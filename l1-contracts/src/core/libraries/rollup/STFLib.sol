@@ -35,7 +35,7 @@ import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/Compre
  *      - The temporary block logs use a circular storage pattern where blocks are stored at index (blockNumber %
  *        roundaboutSize).
  *        This reuses storage slots for old blocks that have been proven or pruned.
- *        The roundabout size is calculated as maxPrunableBlocks() + 1 to ensure at least the last provable block
+ *        The roundabout size is calculated as maxPrunableBlocks() + 1 to ensure at least the last proven block
  *        remains accessible even after pruning operations. This saves gas costs by minimizing storage writes to fresh
  *        slots.
  *
@@ -112,64 +112,17 @@ library STFLib {
   /**
    * @notice Stores a temporary block log in the circular storage buffer
    * @dev Compresses and stores block data at the appropriate index in the circular buffer.
-   *      The storage index is calculated as (_blockNumber % roundaboutSize) to implement
-   *      the circular storage pattern. Reverts if the block number is stale.
+   *      The storage index is calculated as (pending block % roundaboutSize) to implement
+   *      the circular storage pattern.
+   *      Don't need to check if storage is stale as always writing to freshest.
    *
-   * @param _blockNumber The L2 block number to store the log for
    * @param _tempBlockLog The temporary block log containing header hash, attestations,
    *        blob commitments, payload digest, slot number, and fee information
    */
-  function setTempBlockLog(uint256 _blockNumber, TempBlockLog memory _tempBlockLog) internal {
-    (, uint256 size) = innerIsStale(_blockNumber, true);
-    getStorage().tempBlockLogs[_blockNumber % size] = _tempBlockLog.compress();
-  }
-
-  /**
-   * @notice Preheats the temporary block log storage with non-zero values to optimize gas costs for accurate
-   * benchmarking
-   * @dev Iterates through all slots in the circular storage and replaces zero values with 0x1
-   *      to avoid expensive SSTORE operations when transitioning from zero to non-zero values.
-   *      This is a gas optimization technique used primarily for benchmarking and testing.
-   *
-   *      Special handling for slot 0: The slot number remains 0 for the first slot as it's
-   *      used in "already in chain" checks where 0 has semantic meaning.
-   *
-   *      Reverts if storage has already been preheated to prevent double-initialization.
-   */
-  function preheatHeaders() internal {
-    // Need to ensure that we have not already heated everything!
+  function addTempBlockLog(TempBlockLog memory _tempBlockLog) internal {
+    uint256 blockNumber = STFLib.getStorage().tips.getPendingBlockNumber();
     uint256 size = roundaboutSize();
-    require(!getFeeHeader(size - 1).isPreheated(), Errors.FeeLib__AlreadyPreheated());
-
-    RollupStore storage store = getStorage();
-
-    for (uint256 i = 0; i < size; i++) {
-      TempBlockLog memory blockLog = store.tempBlockLogs[i].decompress();
-
-      // DO NOT PREHEAT slot for 0, because there the value 0 is actually meaningful.
-      // It is being used in the already in chain checks.
-      if (i > 0 && blockLog.slotNumber == Slot.wrap(0)) {
-        blockLog.slotNumber = Slot.wrap(1);
-      }
-
-      if (blockLog.headerHash == bytes32(0)) {
-        blockLog.headerHash = bytes32(uint256(0x1));
-      }
-
-      if (blockLog.blobCommitmentsHash == bytes32(0)) {
-        blockLog.blobCommitmentsHash = bytes32(uint256(0x1));
-      }
-
-      if (blockLog.attestationsHash == bytes32(0)) {
-        blockLog.attestationsHash = bytes32(uint256(0x1));
-      }
-
-      if (blockLog.payloadDigest == bytes32(0)) {
-        blockLog.payloadDigest = bytes32(uint256(0x1));
-      }
-
-      store.tempBlockLogs[i] = blockLog.compress();
-    }
+    getStorage().tempBlockLogs[blockNumber % size] = _tempBlockLog.compress();
   }
 
   /**
@@ -195,7 +148,7 @@ library STFLib {
     uint256 pending = tips.getPendingBlockNumber();
 
     // @note  We are not deleting the blocks, but we are "winding back" the pendingTip to the last block that was
-    // proven.
+    //        proven.
     //        We can do because any new block proposed will overwrite a previous block in the block log,
     //        so no values should "survive".
     //        People must therefore read the chain using the pendingTip as a boundary.
@@ -221,13 +174,13 @@ library STFLib {
    * @return The number of slots in the circular storage buffer
    */
   function roundaboutSize() internal view returns (uint256) {
-    // Must be ensured to contain at least the last provable even after a prune.
+    // Must be ensured to contain at least the last proven block even after a prune.
     return TimeLib.maxPrunableBlocks() + 1;
   }
 
   /**
-   * @notice Determines if a block number is stale (no longer accessible in circular storage)
-   * @dev A block is considered stale if it can no longer be accessed in the circular storage buffer.
+   * @notice Determines if a temporary block log is stale (no longer accessible in circular storage)
+   * @dev A temporary block log is stale if it can no longer be accessed in the circular storage buffer.
    *      The staleness is determined by the relationship between the block number, current pending
    *      block, and the buffer size.
    *
@@ -243,42 +196,13 @@ library STFLib {
    *      are considered valid and accessible.
    *
    * @param _blockNumber The block number to check for staleness
-   * @param _throw Whether to revert if the block is stale (true) or just return the result (false)
    * @return isStale True if the block is stale and no longer accessible
-   * @return size The current size of the circular storage buffer
    */
-  function innerIsStale(uint256 _blockNumber, bool _throw) internal view returns (bool, uint256) {
+  function isTempStale(uint256 _blockNumber) internal view returns (bool) {
     uint256 pending = getStorage().tips.getPendingBlockNumber();
     uint256 size = roundaboutSize();
 
-    bool isStale = _blockNumber + size <= pending;
-
-    require(!_throw || !isStale, Errors.Rollup__StaleTempBlockLog(_blockNumber, pending, size));
-
-    return (isStale, size);
-  }
-
-  /**
-   * @notice Checks if a block number is stale without reverting
-   * @dev Convenience function that wraps innerIsStale with _throw=false
-   * @param _blockNumber The block number to check for staleness
-   * @return True if the block is stale and no longer accessible
-   */
-  function isTempStale(uint256 _blockNumber) internal view returns (bool) {
-    (bool isStale,) = innerIsStale(_blockNumber, false);
-    return isStale;
-  }
-
-  /**
-   * @notice Retrieves and decompresses a temporary block log from circular storage
-   * @dev Fetches the compressed block log from the circular buffer and decompresses it.
-   *      Reverts if the block number is stale and no longer accessible.
-   * @param _blockNumber The block number to retrieve the log for
-   * @return The decompressed temporary block log containing all block metadata
-   */
-  function getTempBlockLog(uint256 _blockNumber) internal view returns (TempBlockLog memory) {
-    (, uint256 size) = innerIsStale(_blockNumber, true);
-    return getStorage().tempBlockLogs[_blockNumber % size].decompress();
+    return _blockNumber + size <= pending;
   }
 
   /**
@@ -289,8 +213,25 @@ library STFLib {
    * @return A storage reference to the compressed temporary block log
    */
   function getStorageTempBlockLog(uint256 _blockNumber) internal view returns (CompressedTempBlockLog storage) {
-    (, uint256 size) = innerIsStale(_blockNumber, true);
+    uint256 pending = getStorage().tips.getPendingBlockNumber();
+    uint256 size = roundaboutSize();
+
+    bool isStale = _blockNumber + size <= pending;
+
+    require(!isStale, Errors.Rollup__StaleTempBlockLog(_blockNumber, pending, size));
+
     return getStorage().tempBlockLogs[_blockNumber % size];
+  }
+
+  /**
+   * @notice Retrieves and decompresses a temporary block log from circular storage
+   * @dev Fetches the compressed block log from the circular buffer and decompresses it.
+   *      Reverts if the block number is stale and no longer accessible.
+   * @param _blockNumber The block number to retrieve the log for
+   * @return The decompressed temporary block log containing all block metadata
+   */
+  function getTempBlockLog(uint256 _blockNumber) internal view returns (TempBlockLog memory) {
+    return getStorageTempBlockLog(_blockNumber).decompress();
   }
 
   /**
@@ -301,8 +242,7 @@ library STFLib {
    * @return The header hash of the specified block
    */
   function getHeaderHash(uint256 _blockNumber) internal view returns (bytes32) {
-    (, uint256 size) = innerIsStale(_blockNumber, true);
-    return getStorage().tempBlockLogs[_blockNumber % size].headerHash;
+    return getStorageTempBlockLog(_blockNumber).headerHash;
   }
 
   /**
@@ -313,8 +253,7 @@ library STFLib {
    * @return The compressed fee header containing fee-related data
    */
   function getFeeHeader(uint256 _blockNumber) internal view returns (CompressedFeeHeader) {
-    (, uint256 size) = innerIsStale(_blockNumber, true);
-    return getStorage().tempBlockLogs[_blockNumber % size].feeHeader;
+    return getStorageTempBlockLog(_blockNumber).feeHeader;
   }
 
   /**
@@ -325,8 +264,7 @@ library STFLib {
    * @return The hash of blob commitments for the specified block
    */
   function getBlobCommitmentsHash(uint256 _blockNumber) internal view returns (bytes32) {
-    (, uint256 size) = innerIsStale(_blockNumber, true);
-    return getStorage().tempBlockLogs[_blockNumber % size].blobCommitmentsHash;
+    return getStorageTempBlockLog(_blockNumber).blobCommitmentsHash;
   }
 
   /**
@@ -337,8 +275,7 @@ library STFLib {
    * @return The slot number when the block was proposed
    */
   function getSlotNumber(uint256 _blockNumber) internal view returns (Slot) {
-    (, uint256 size) = innerIsStale(_blockNumber, true);
-    return getStorage().tempBlockLogs[_blockNumber % size].slotNumber.decompress();
+    return getStorageTempBlockLog(_blockNumber).slotNumber.decompress();
   }
 
   /**
@@ -392,8 +329,9 @@ library STFLib {
    *          The deadline is the point in time where it is no longer acceptable, (if you touch the line you die)
    *      - If epoch(_ts) >= epoch N + Proof submission window + 1, pruning is allowed
    *
-   *      This mechanism ensures rollup liveness by preventing indefinite stalling on unproven blocks
-   *      while providing sufficient time for proof generation and submission.
+   *      This mechanism ensures rollup liveness by preventing indefinite stalling on unprovable blocks (e.g due to
+   *      the committee failing to disseminate the data) while providing sufficient time for proof generation and
+   *      submission.
    *
    * @param _ts The current timestamp to check against
    * @return True if pruning is allowed at the given timestamp, false otherwise

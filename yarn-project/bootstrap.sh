@@ -97,6 +97,7 @@ function build {
 
 function test_cmds {
   local hash=$(hash)
+  local avm_flag=$(../barretenberg/cpp/bootstrap.sh hash | grep -qE no-avm && echo "no-avm" || echo "avm")
 
   # Exclusions:
   # end-to-end: e2e tests handled separately with end-to-end/bootstrap.sh.
@@ -104,7 +105,7 @@ function test_cmds {
   for test in !(end-to-end|kv-store|aztec)/src/**/*.test.ts; do
     # If AVM is disabled, filter out avm_proving_tests/*.test.ts and avm_integration.test.ts
     # Also must filter out rollup_ivc_integration.test.ts as it includes AVM proving.
-    if ../barretenberg/cpp/bootstrap.sh hash | grep -qE no-avm && [[ "$test" =~ (avm_proving_tests|avm_integration|rollup_ivc_integration) ]]; then
+    if [[ $avm_flag == "no-avm" && "$test" =~ (avm_proving_tests|avm_integration|rollup_ivc_integration) ]]; then
       continue
     fi
 
@@ -141,7 +142,7 @@ function test_cmds {
     fi
 
     if [[ "$test" =~ rollup_ivc_integration || "$test" =~ avm_integration ]]; then
-      cmd_env+=" LOG_LEVEL=trace BB_VERBOSE=1 "
+      cmd_env+=" LOG_LEVEL=debug BB_VERBOSE=1 "
     fi
 
     echo "${prefix}${cmd_env} yarn-project/scripts/run_test.sh $test"
@@ -158,7 +159,7 @@ function test_cmds {
 
 function test {
   echo_header "yarn-project test"
-  test_cmds | filter_test_cmds | parallelise
+  test_cmds | filter_test_cmds | parallelize
 }
 
 function bench_cmds {

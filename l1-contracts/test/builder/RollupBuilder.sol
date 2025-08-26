@@ -4,11 +4,13 @@
 pragma solidity >=0.8.27;
 
 import {Rollup, GenesisState, RollupConfigInput} from "@aztec/core/Rollup.sol";
+import {RollupWithPreheating} from "../RollupWithPreheating.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
 import {EthValue} from "@aztec/core/interfaces/IRollup.sol";
+import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 import {GSE} from "@aztec/governance/GSE.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
@@ -18,6 +20,7 @@ import {Test} from "forge-std/Test.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {CoinIssuer} from "@aztec/governance/CoinIssuer.sol";
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
+import {GSEWithSkip} from "@test/GSEWithSkip.sol";
 
 // Stack the layers to avoid the stack too deep 🧌
 struct ConfigFlags {
@@ -40,7 +43,7 @@ struct Config {
   TestERC20 testERC20;
   Registry registry;
   Governance governance;
-  Rollup rollup;
+  RollupWithPreheating rollup;
   GSE gse;
   RewardDistributor rewardDistributor;
   GenesisState genesisState;
@@ -196,6 +199,21 @@ contract RollupBuilder is Test {
     return this;
   }
 
+  function setSlashingOffsetInRounds(uint256 _slashingOffsetInRounds) public returns (RollupBuilder) {
+    config.rollupConfigInput.slashingOffsetInRounds = _slashingOffsetInRounds;
+    return this;
+  }
+
+  function setSlashingUnit(uint256 _slashingUnit) public returns (RollupBuilder) {
+    config.rollupConfigInput.slashingUnit = _slashingUnit;
+    return this;
+  }
+
+  function setSlasherFlavor(SlasherFlavor _slasherFlavor) public returns (RollupBuilder) {
+    config.rollupConfigInput.slasherFlavor = _slasherFlavor;
+    return this;
+  }
+
   function setTargetCommitteeSize(uint256 _targetCommitteeSize) public returns (RollupBuilder) {
     config.rollupConfigInput.targetCommitteeSize = _targetCommitteeSize;
     return this;
@@ -203,6 +221,16 @@ contract RollupBuilder is Test {
 
   function setStakingQueueConfig(StakingQueueConfig memory _stakingQueueConfig) public returns (RollupBuilder) {
     config.rollupConfigInput.stakingQueueConfig = _stakingQueueConfig;
+    return this;
+  }
+
+  function setEntryQueueFlushSizeMin(uint256 _flushSizeMin) public returns (RollupBuilder) {
+    config.rollupConfigInput.stakingQueueConfig.normalFlushSizeMin = _flushSizeMin;
+    return this;
+  }
+
+  function setEntryQueueFlushSizeQuotient(uint256 _flushSizeQuotient) public returns (RollupBuilder) {
+    config.rollupConfigInput.stakingQueueConfig.normalFlushSizeQuotient = _flushSizeQuotient;
     return this;
   }
 
@@ -227,12 +255,11 @@ contract RollupBuilder is Test {
     }
 
     if (address(config.gse) == address(0)) {
-      config.gse =
-        new GSE(address(this), config.testERC20, TestConstants.ACTIVATION_THRESHOLD, TestConstants.EJECTION_THRESHOLD);
-
-      stdstore.target(address(config.gse)).sig("checkProofOfPossession()").checked_write(
-        config.flags.checkProofOfPossession
+      config.gse = new GSEWithSkip(
+        address(this), config.testERC20, TestConstants.ACTIVATION_THRESHOLD, TestConstants.EJECTION_THRESHOLD
       );
+
+      GSEWithSkip(address(config.gse)).setCheckProofOfPossession(config.flags.checkProofOfPossession);
     }
 
     if (address(config.registry) == address(0)) {
@@ -264,7 +291,7 @@ contract RollupBuilder is Test {
 
     config.rollupConfigInput.rewardConfig.rewardDistributor = config.rewardDistributor;
 
-    config.rollup = new Rollup(
+    config.rollup = new RollupWithPreheating(
       config.testERC20,
       config.testERC20,
       config.gse,
@@ -273,8 +300,6 @@ contract RollupBuilder is Test {
       config.genesisState,
       config.rollupConfigInput
     );
-
-    config.rollup.preheatHeaders();
 
     if (config.flags.makeCanonical) {
       address feeAssetPortal = address(config.rollup.getFeeAssetPortal());

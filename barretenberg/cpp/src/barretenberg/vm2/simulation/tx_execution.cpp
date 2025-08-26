@@ -19,13 +19,13 @@ void TxExecution::emit_public_call_request(const PublicCallRequestWithCalldata& 
                                            bool success,
                                            const Gas& start_gas,
                                            const Gas& end_gas,
-                                           const Gas& gas_limit,
                                            const TxContextEvent& state_before,
                                            const TxContextEvent& state_after)
 {
     events.emit(TxPhaseEvent{ .phase = phase,
                               .state_before = state_before,
                               .state_after = state_after,
+                              .reverted = !success,
                               .event = EnqueuedCallEvent{
                                   .msg_sender = call.request.msgSender,
                                   .contract_address = call.request.contractAddress,
@@ -34,7 +34,6 @@ void TxExecution::emit_public_call_request(const PublicCallRequestWithCalldata& 
                                   .calldata_hash = call.request.calldataHash,
                                   .start_gas = start_gas,
                                   .end_gas = end_gas,
-                                  .gas_limit = gas_limit,
                                   .success = success,
                               } });
 }
@@ -49,10 +48,13 @@ void TxExecution::emit_public_call_request(const PublicCallRequestWithCalldata& 
 void TxExecution::simulate(const Tx& tx)
 {
     Gas gas_limit = tx.gasSettings.gasLimits;
+    Gas teardown_gas_limit = tx.gasSettings.teardownGasLimits;
     tx_context.gas_used = tx.gasUsedByPrivate;
 
     events.emit(TxStartupEvent{
         .state = tx_context.serialize_tx_context_event(),
+        .gas_limit = gas_limit,
+        .teardown_gas_limit = teardown_gas_limit,
     });
 
     info("Simulating tx ",
@@ -79,9 +81,14 @@ void TxExecution::simulate(const Tx& tx)
                                                               call.request.isStaticCall,
                                                               gas_limit,
                                                               start_gas,
-                                                              tx_context.side_effect_states);
-        tx_context.side_effect_states = context->get_side_effect_states();
+                                                              tx_context.side_effect_states,
+                                                              TransactionPhase::SETUP);
         ExecutionResult result = call_execution.execute(std::move(context));
+        if (!result.success) {
+            throw std::runtime_error(
+                format("[SETUP] UNRECOVERABLE ERROR! Enqueued call to ", call.request.contractAddress, " failed"));
+        }
+        tx_context.side_effect_states = result.side_effect_states;
         tx_context.gas_used = result.gas_used;
         emit_public_call_request(call,
                                  TransactionPhase::SETUP,
@@ -89,7 +96,6 @@ void TxExecution::simulate(const Tx& tx)
                                  result.success,
                                  start_gas,
                                  tx_context.gas_used,
-                                 gas_limit,
                                  state_before,
                                  tx_context.serialize_tx_context_event());
     }
@@ -113,9 +119,10 @@ void TxExecution::simulate(const Tx& tx)
                                                                   call.request.isStaticCall,
                                                                   gas_limit,
                                                                   start_gas,
-                                                                  tx_context.side_effect_states);
-            tx_context.side_effect_states = context->get_side_effect_states();
+                                                                  tx_context.side_effect_states,
+                                                                  TransactionPhase::APP_LOGIC);
             ExecutionResult result = call_execution.execute(std::move(context));
+            tx_context.side_effect_states = result.side_effect_states;
             tx_context.gas_used = result.gas_used;
             emit_public_call_request(call,
                                      TransactionPhase::APP_LOGIC,
@@ -123,7 +130,6 @@ void TxExecution::simulate(const Tx& tx)
                                      result.success,
                                      start_gas,
                                      tx_context.gas_used,
-                                     gas_limit,
                                      state_before,
                                      tx_context.serialize_tx_context_event());
             if (!result.success) {
@@ -133,14 +139,11 @@ void TxExecution::simulate(const Tx& tx)
         }
     } catch (const std::runtime_error& e) {
         info("Revertible failure while simulating tx ", tx.hash, ": ", e.what());
-        // TODO(fcarreiro): Enable the following lines once we stop truncating the bulk trace.
-        // We can't execute this code because TS will not fail here, and therefore not revert and create a checkpoint.
-
         // We revert to the post-setup state.
-        // merkle_db.revert_checkpoint();
+        merkle_db.revert_checkpoint();
         // But we also create a new fork so that the teardown phase can transparently
         // commit or rollback to the end of teardown.
-        // merkle_db.create_checkpoint();
+        merkle_db.create_checkpoint();
     }
 
     // Compute the transaction fee here so it can be passed to teardown
@@ -154,29 +157,28 @@ void TxExecution::simulate(const Tx& tx)
     try {
         if (tx.teardownEnqueuedCall) {
             info("[TEARDOWN] Executing enqueued call to ", tx.teardownEnqueuedCall->request.contractAddress);
-            // Gas for teardown is tracked separately.
+            // Teardown has its own gas limit and usage.
             Gas start_gas = { 0, 0 };
+            gas_limit = teardown_gas_limit;
             TxContextEvent state_before = tx_context.serialize_tx_context_event();
             auto context = context_provider.make_enqueued_context(tx.teardownEnqueuedCall->request.contractAddress,
                                                                   tx.teardownEnqueuedCall->request.msgSender,
                                                                   fee,
                                                                   tx.teardownEnqueuedCall->calldata,
                                                                   tx.teardownEnqueuedCall->request.isStaticCall,
-                                                                  // Teardown has its own gas limit and usage.
-                                                                  tx.gasSettings.teardownGasLimits,
+                                                                  gas_limit,
                                                                   start_gas,
-                                                                  tx_context.side_effect_states);
-            tx_context.side_effect_states = context->get_side_effect_states();
+                                                                  tx_context.side_effect_states,
+                                                                  TransactionPhase::TEARDOWN);
             ExecutionResult result = call_execution.execute(std::move(context));
+            tx_context.side_effect_states = result.side_effect_states;
             // Check what to do here for GAS
             emit_public_call_request(*tx.teardownEnqueuedCall,
-                                     // TODO(dbanks12): This should be TEARDOWN.
-                                     TransactionPhase::APP_LOGIC,
+                                     TransactionPhase::TEARDOWN,
                                      fee,
                                      result.success,
                                      start_gas,
                                      result.gas_used,
-                                     tx.gasSettings.teardownGasLimits,
                                      state_before,
                                      tx_context.serialize_tx_context_event());
             if (!result.success) {
@@ -185,18 +187,20 @@ void TxExecution::simulate(const Tx& tx)
             }
         }
 
-        // TODO(fcarreiro): Enable the following lines once we stop truncating the bulk trace.
         // We commit the forked state and we are done.
-        // merkle_db.commit_checkpoint();
+        merkle_db.commit_checkpoint();
     } catch (const std::runtime_error& e) {
         info("Teardown failure while simulating tx ", tx.hash, ": ", e.what());
-        // TODO(fcarreiro): Enable the following lines once we stop truncating the bulk trace.
         // We rollback to the post-setup state.
-        // merkle_db.revert_checkpoint();
+        merkle_db.revert_checkpoint();
     }
 
     // Fee payment
     pay_fee(tx.feePayer, fee, fee_per_da_gas, fee_per_l2_gas);
+
+    pad_trees();
+
+    cleanup();
 }
 
 void TxExecution::emit_nullifier(bool revertible, const FF& nullifier)
@@ -360,17 +364,14 @@ void TxExecution::pay_fee(const FF& fee_payer,
 
     FF fee_juice_balance_slot = poseidon2.hash({ FEE_JUICE_BALANCES_SLOT, fee_payer });
 
-    // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
-    // FF fee_payer_balance = merkle_db.storage_read(FEE_JUICE_ADDRESS, fee_juice_balance_slot);
-    FF fee_payer_balance = FF::neg_one();
+    FF fee_payer_balance = merkle_db.storage_read(FEE_JUICE_ADDRESS, fee_juice_balance_slot);
 
     if (field_gt.ff_gt(fee, fee_payer_balance)) {
         // Unrecoverable error.
         throw std::runtime_error("Not enough balance for fee payer to pay for transaction");
     }
 
-    // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
-    // merkle_db.storage_write(FEE_JUICE_ADDRESS, fee_juice_balance_slot, fee_payer_balance - fee, true);
+    merkle_db.storage_write(FEE_JUICE_ADDRESS, fee_juice_balance_slot, fee_payer_balance - fee, true);
 
     events.emit(TxPhaseEvent{ .phase = TransactionPhase::COLLECT_GAS_FEES,
                               .state_before = state_before,
@@ -383,6 +384,24 @@ void TxExecution::pay_fee(const FF& fee_payer,
                                   .fee_juice_balance_slot = fee_juice_balance_slot,
                                   .fee = fee,
                               } });
+}
+
+void TxExecution::pad_trees()
+{
+    TxContextEvent state_before = tx_context.serialize_tx_context_event();
+    merkle_db.pad_trees();
+    events.emit(TxPhaseEvent{ .phase = TransactionPhase::TREE_PADDING,
+                              .state_before = state_before,
+                              .state_after = tx_context.serialize_tx_context_event(),
+                              .event = PadTreesEvent{} });
+}
+
+void TxExecution::cleanup()
+{
+    events.emit(TxPhaseEvent{ .phase = TransactionPhase::CLEANUP,
+                              .state_before = tx_context.serialize_tx_context_event(),
+                              .state_after = tx_context.serialize_tx_context_event(),
+                              .event = CleanupEvent{} });
 }
 
 } // namespace bb::avm2::simulation

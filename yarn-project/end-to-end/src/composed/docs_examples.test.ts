@@ -29,9 +29,9 @@ describe('docs_examples', () => {
     await newAccount.deploy({ deployWallet: wallet }).wait();
     const newWallet = await newAccount.getWallet();
     const newAccountAddress = newWallet.getAddress();
-    // docs:end:create_wallet
 
     const defaultAccountAddress = wallet.getAddress();
+    // docs:end:create_wallet
 
     const deployedContract = await TokenContract.deploy(
       wallet, // wallet instance
@@ -49,16 +49,11 @@ describe('docs_examples', () => {
     // docs:end:full_deploy
 
     // docs:start:send_transaction
-    const _tx = await contract.methods
-      .mint_to_public(newWallet.getAddress(), 1)
-      .send({ from: newAccountAddress })
-      .wait();
+    await contract.methods.mint_to_public(newAccountAddress, 1).send({ from: defaultAccountAddress }).wait();
     // docs:end:send_transaction
 
     // docs:start:simulate_function
-    const balance = await contract.methods
-      .balance_of_public(newWallet.getAddress())
-      .simulate({ from: newAccountAddress });
+    const balance = await contract.methods.balance_of_public(newAccountAddress).simulate({ from: newAccountAddress });
     expect(balance).toEqual(1n);
     // docs:end:simulate_function
   });

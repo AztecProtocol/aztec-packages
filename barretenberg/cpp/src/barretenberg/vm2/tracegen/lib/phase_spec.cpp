@@ -77,6 +77,20 @@ const std::unordered_map<TransactionPhase, TxPhaseOffsetsTable::Offsets> PHASE_P
           .write_pi_offset = AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX,
           .read_pi_length_offset = 0,
       } },
+
+    { TransactionPhase::TREE_PADDING,
+      {
+          .read_pi_offset = 0,
+          .write_pi_offset = 0,
+          .read_pi_length_offset = 0,
+      } },
+
+    { TransactionPhase::CLEANUP,
+      {
+          .read_pi_offset = 0,
+          .write_pi_offset = 0,
+          .read_pi_length_offset = 0,
+      } },
 } };
 
 } // namespace

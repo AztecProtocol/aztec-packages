@@ -450,7 +450,6 @@ constexpr element<Fq, Fr, T> element<Fq, Fr, T>::operator+=(const element& other
 template <class Fq, class Fr, class T>
 constexpr element<Fq, Fr, T> element<Fq, Fr, T>::operator+(const element& other) const noexcept
 {
-    BB_OP_COUNT_TRACK_NAME("element::operator+");
     element result(*this);
     return (result += other);
 }
@@ -465,7 +464,6 @@ constexpr element<Fq, Fr, T> element<Fq, Fr, T>::operator-=(const element& other
 template <class Fq, class Fr, class T>
 constexpr element<Fq, Fr, T> element<Fq, Fr, T>::operator-(const element& other) const noexcept
 {
-    BB_OP_COUNT_TRACK();
     element result(*this);
     return (result -= other);
 }
@@ -901,8 +899,7 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
     // hot loop since the slow the computation down. So it's better to just handle it here.
     if (scalar == -Fr::one()) {
         std::vector<affine_element> results(num_points);
-        parallel_for_heuristic(
-            num_points, [&](size_t i) { results[i] = -points[i]; }, thread_heuristics::FF_COPY_COST);
+        parallel_for_heuristic(num_points, [&](size_t i) { results[i] = -points[i]; }, thread_heuristics::FF_COPY_COST);
         return results;
     }
     // Compute wnaf for scalar
@@ -913,8 +910,7 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
         affine_element result{ Fq::zero(), Fq::zero() };
         result.self_set_infinity();
         std::vector<affine_element> results(num_points);
-        parallel_for_heuristic(
-            num_points, [&](size_t i) { results[i] = result; }, thread_heuristics::FF_COPY_COST);
+        parallel_for_heuristic(num_points, [&](size_t i) { results[i] = result; }, thread_heuristics::FF_COPY_COST);
         return results;
     }
 

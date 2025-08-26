@@ -29,7 +29,7 @@ void DataCopyTraceBuilder::process(
         bool is_cd_copy = event.operation == simulation::DataCopyOperation::CD_COPY;
         bool is_rd_copy = event.operation == simulation::DataCopyOperation::RD_COPY;
 
-        // todo(ilyas): Can optimise this as we only need the inverse if CD_COPY as well
+        // todo(ilyas): Can optimize this as we only need the inverse if CD_COPY as well
         bool is_top_level = event.read_context_id == 0;
         FF parent_id_inv = is_top_level ? 0 : FF(event.read_context_id).invert();
 
@@ -76,7 +76,7 @@ void DataCopyTraceBuilder::process(
                                                : static_cast<uint64_t>(event.data_size) - (data_offset + copy_size);
 
         // Additions done over uint64_t to avoid overflow issues
-        uint64_t max_read_addr = (max_read_size + event.data_addr) * (event.is_nested ? 1 : 0); // 0 if enqueued call
+        uint64_t max_read_addr = (max_read_size + event.data_addr) * (!is_top_level ? 1 : 0); // 0 if enqueued call
         uint64_t max_write_addr = static_cast<uint64_t>(event.dst_addr) + copy_size;
 
         bool read_address_overflow = max_read_addr > MAX_MEM_ADDR;

@@ -201,13 +201,6 @@ template <typename FF_> class CircuitBuilderBase {
     virtual void update_variable_names(uint32_t index);
 
     /**
-     * After finishing the circuit can be called for automatic merging
-     * all existing collisions.
-     *
-     */
-    virtual void finalize_variable_names();
-
-    /**
      * Export the existing circuit as msgpack compatible buffer.
      *
      * @return msgpack compatible buffer

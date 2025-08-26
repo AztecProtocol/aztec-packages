@@ -1,6 +1,7 @@
 ---
 sidebar_position: 4
 title: Upgrades
+description: Learn about the network upgrade process for the Aztec network.
 ---
 
 Upgrades involve transitioning the network to a new instance of the Rollup contract. They might fix vulnerabilities, introduce new features, or enhance performance.
@@ -37,4 +38,4 @@ After governance approval and a delay period, the proposal becomes executable:
 - Any Ethereum account can call `execute(_proposalId)` on the Governance contract.
 - The `execute` function calls the proposal code, transitioning the network to the new Rollup instance.
 
-For a more hands-on guide to reacting to upgrades as a sequencer/validators, read [this](../../guides/reacting_to_upgrades.md).
+For a more hands-on guide to reacting to upgrades as a sequencer/validators, read [this](../../reference/reacting_to_upgrades.md).

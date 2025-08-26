@@ -79,9 +79,9 @@ TEST(ContextConstrainingTest, ContextSwitchingCallReturn)
               { C::execution_context_id, 1 },
               { C::execution_next_context_id, 2 },
               { C::execution_bytecode_id, top_bytecode_id }, // Same as previous row (propagated)
-              { C::execution_rop_3_, /*cd offset=*/10 },
-              { C::execution_rop_4_, /*cd size=*/1 },
+              { C::execution_rop_4_, /*cd offset=*/10 },
               { C::execution_register_2_, /*contract address=*/0xdeadbeef },
+              { C::execution_register_3_, /*cd size=*/1 },
               { C::execution_parent_l2_gas_limit, 2000 },
               { C::execution_parent_da_gas_limit, 4000 },
               { C::execution_parent_l2_gas_used, 500 },
@@ -507,6 +507,78 @@ TEST(ContextConstrainingTest, BytecodeIdPropagation)
     trace.set(C::execution_bytecode_id, 1, 99);
     EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_BYTECODE_ID_NEXT_ROW),
                               "BYTECODE_ID_NEXT_ROW"); // Should fail constraint
+}
+
+TEST(ContextConstrainingTest, ContextIdPropagation)
+{
+    TestTraceContainer trace({
+        {
+            { C::precomputed_first_row, 1 },
+        },
+        {
+            { C::execution_sel, 1 },
+            { C::execution_enqueued_call_start, 1 },
+            { C::execution_context_id, 1 },
+            { C::execution_next_context_id, 2 },
+            { C::execution_sel_enter_call, 1 },
+        },
+        {
+            { C::execution_sel, 1 },
+            { C::execution_context_id, 2 },
+            { C::execution_next_context_id, 3 },
+            { C::execution_sel_exit_call, 1 },
+            { C::execution_nested_exit_call, 1 },
+            { C::execution_parent_id, 1 },
+        },
+        {
+            { C::execution_sel, 1 },
+            { C::execution_context_id, 1 },
+            { C::execution_next_context_id, 3 },
+        },
+        {
+            { C::execution_sel, 1 },
+            { C::execution_context_id, 1 },
+            { C::execution_next_context_id, 3 },
+        },
+    });
+    check_relation<context>(trace,
+                            context::SR_ENQUEUED_CALL_START_NEXT_CTX_ID,
+                            context::SR_INCR_NEXT_CONTEXT_ID,
+                            context::SR_CONTEXT_ID_NEXT_ROW,
+                            context::SR_CONTEXT_ID_EXT_CALL,
+                            context::SR_CONTEXT_ID_NESTED_EXIT);
+
+    // Negative test: next context id should be context id + 1 on enqueued call start
+    trace.set(C::execution_next_context_id, 1, 3);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_ENQUEUED_CALL_START_NEXT_CTX_ID),
+                              "ENQUEUED_CALL_START_NEXT_CTX_ID");
+    trace.set(C::execution_next_context_id, 1, 2);
+
+    // Negative test: next context id should increase on external call
+    trace.set(C::execution_next_context_id, 2, 2);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_INCR_NEXT_CONTEXT_ID), "INCR_NEXT_CONTEXT_ID");
+    trace.set(C::execution_next_context_id, 2, 3);
+
+    // Negative test: next context id should be propagated
+    trace.set(C::execution_next_context_id, 4, 4);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_INCR_NEXT_CONTEXT_ID), "INCR_NEXT_CONTEXT_ID");
+    trace.set(C::execution_next_context_id, 4, 3);
+
+    // Negative test: context id should be propagated
+    trace.set(C::execution_context_id, 4, 2);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_CONTEXT_ID_NEXT_ROW), "CONTEXT_ID_NEXT_ROW");
+    trace.set(C::execution_context_id, 4, 1);
+
+    // Negative test: context id should be next context id when entering call
+    trace.set(C::execution_context_id, 2, 1);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_CONTEXT_ID_EXT_CALL), "CONTEXT_ID_EXT_CALL");
+    trace.set(C::execution_context_id, 2, 2);
+
+    // Negative test: context id should be restored on exit
+    trace.set(C::execution_context_id, 3, 2);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_CONTEXT_ID_NESTED_EXIT),
+                              "CONTEXT_ID_NESTED_EXIT");
+    trace.set(C::execution_context_id, 3, 1);
 }
 
 } // namespace

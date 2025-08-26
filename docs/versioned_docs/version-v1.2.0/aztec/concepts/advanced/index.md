@@ -1,5 +1,6 @@
 ---
 title: Advanced Concepts
+description: Explore advanced Aztec concepts including authentication witnesses, circuits, and storage mechanisms that enable privacy-preserving smart contracts.
 sidebar_position: 9
 tags: [protocol]
 ---

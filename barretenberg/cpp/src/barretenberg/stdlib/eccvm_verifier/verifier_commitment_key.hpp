@@ -26,7 +26,7 @@ template <typename Curve_> class VerifierCommitmentKey {
      * applying the pippenger point table so the values at odd indices contain the point {srs[i-1].x * beta,
      * srs[i-1].y}, where beta is the endomorphism. We retrieve only the original SRS for IPA verification.
      *
-     * @details The Grumpkin SRS points will be initialised as constants in the circuit but might be subsequently
+     * @details The Grumpkin SRS points will be initialized as constants in the circuit but might be subsequently
      * turned into constant witnesses to make operations in the circuit more efficient.
      */
     VerifierCommitmentKey([[maybe_unused]] Builder* builder,

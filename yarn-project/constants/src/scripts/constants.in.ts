@@ -20,7 +20,6 @@ const CPP_CONSTANTS = [
   'MEM_TAG_U64',
   'MEM_TAG_U128',
   'MEM_TAG_FF',
-  'MAX_L2_GAS_PER_TX_PUBLIC_PORTION',
   'MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS',
   'CANONICAL_AUTH_REGISTRY_ADDRESS',
   'CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS',
@@ -179,6 +178,8 @@ const PIL_CONSTANTS = [
   'AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX',
   'AVM_PUBLIC_INPUTS_START_GAS_USED_ROW_IDX',
   'AVM_PUBLIC_INPUTS_GAS_SETTINGS_ROW_IDX',
+  'AVM_PUBLIC_INPUTS_GAS_SETTINGS_GAS_LIMITS_ROW_IDX',
+  'AVM_PUBLIC_INPUTS_GAS_SETTINGS_TEARDOWN_GAS_LIMITS_ROW_IDX',
   'AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX',
   'AVM_PUBLIC_INPUTS_PUBLIC_SETUP_CALL_REQUESTS_ROW_IDX',
   'AVM_PUBLIC_INPUTS_PUBLIC_APP_LOGIC_CALL_REQUESTS_ROW_IDX',
@@ -431,7 +432,7 @@ function processConstantsSolidity(constants: { [key: string]: string }, prefix =
  */
 function generateTypescriptConstants({ constants, generatorIndexEnum }: ParsedContent, targetPath: string) {
   const result = [
-    '/* eslint-disable */\n// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants',
+    '// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants',
     processConstantsTS(constants),
     processEnumTS('GeneratorIndex', generatorIndexEnum),
   ].join('\n');
@@ -575,9 +576,10 @@ function evaluateExpressions(expressions: [string, string][]): { [key: string]: 
   const prelude = expressions
     .map(([name, rhs]) => {
       const guardedRhs = rhs
-        // Remove 'as u8' and 'as u32' castings
+        // Remove 'as u8', 'as u32' and 'as u64' castings
         .replaceAll(' as u8', '')
         .replaceAll(' as u32', '')
+        .replaceAll(' as u64', '')
         // Remove the 'AztecAddress::from_field(...)' pattern
         .replace(/AztecAddress::from_field\((0x[a-fA-F0-9]+|[0-9]+)\)/g, '$1')
         // We make some space around the parentheses, so that constant numbers are still split.
