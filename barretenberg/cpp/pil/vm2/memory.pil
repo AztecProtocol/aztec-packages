@@ -10,6 +10,49 @@ pol commit tag;
 pol commit rw;
 pol commit space_id;
 
+// Permutation selectors (addressing.pil).
+pol commit sel_addressing_base;
+pol commit sel_addressing_indirect[7];
+sel_addressing_base * (1 - sel_addressing_base) = 0;
+sel_addressing_indirect[0] * (1 - sel_addressing_indirect[0]) = 0;
+sel_addressing_indirect[1] * (1 - sel_addressing_indirect[1]) = 0;
+sel_addressing_indirect[2] * (1 - sel_addressing_indirect[2]) = 0;
+sel_addressing_indirect[3] * (1 - sel_addressing_indirect[3]) = 0;
+sel_addressing_indirect[4] * (1 - sel_addressing_indirect[4]) = 0;
+sel_addressing_indirect[5] * (1 - sel_addressing_indirect[5]) = 0;
+sel_addressing_indirect[6] * (1 - sel_addressing_indirect[6]) = 0;
+
+// Permutation selectors (keccak_memory.pil).
+pol commit sel_keccak;
+sel_keccak * (1 - sel_keccak) = 0;
+
+// Permutation selectors (sha256_mem.pil).
+pol commit sel_sha256_read;
+pol commit sel_sha256_op[8];
+sel_sha256_read * (1 - sel_sha256_read) = 0;
+sel_sha256_op[0] * (1 - sel_sha256_op[0]) = 0;
+sel_sha256_op[1] * (1 - sel_sha256_op[1]) = 0;
+sel_sha256_op[2] * (1 - sel_sha256_op[2]) = 0;
+sel_sha256_op[3] * (1 - sel_sha256_op[3]) = 0;
+sel_sha256_op[4] * (1 - sel_sha256_op[4]) = 0;
+sel_sha256_op[5] * (1 - sel_sha256_op[5]) = 0;
+sel_sha256_op[6] * (1 - sel_sha256_op[6]) = 0;
+sel_sha256_op[7] * (1 - sel_sha256_op[7]) = 0;
+
+// Permutation consistency.
+/*
+sel = // Addressing.
+      sel_addressing_base
+    + sel_addressing_indirect[0] + sel_addressing_indirect[1] + sel_addressing_indirect[2] + sel_addressing_indirect[3]
+    + sel_addressing_indirect[4] + sel_addressing_indirect[5] + sel_addressing_indirect[6]
+    // Keccak.
+    + sel_keccak
+    // Sha256.
+    + sel_sha256_read
+    + sel_sha256_op[0] + sel_sha256_op[1] + sel_sha256_op[2] + sel_sha256_op[3]
+    + sel_sha256_op[4] + sel_sha256_op[5] + sel_sha256_op[6] + sel_sha256_op[7];
+*/
+
 #[skippable_if]
 sel = 0;
 
