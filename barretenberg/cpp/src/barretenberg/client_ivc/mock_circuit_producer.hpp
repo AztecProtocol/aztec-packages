@@ -191,6 +191,18 @@ class PrivateFunctionExecutionMockCircuitProducer {
         if (is_kernel) {
             ivc.complete_kernel_circuit_logic(circuit);
         } else {
+            // add bad gate
+            info("adding bad gate to circuit");
+            fr a = fr::random_element(&engine);
+            fr b = fr::random_element(&engine);
+            fr c = fr::random_element(&engine);
+            fr d = a + b + c + 1;
+            uint32_t a_idx = circuit.add_variable(a);
+            uint32_t b_idx = circuit.add_variable(b);
+            uint32_t c_idx = circuit.add_variable(c);
+            uint32_t d_idx = circuit.add_variable(d);
+
+            circuit.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
             stdlib::recursion::PairingPoints<ClientCircuit>::add_default_to_public_inputs(circuit);
         }
         return circuit;

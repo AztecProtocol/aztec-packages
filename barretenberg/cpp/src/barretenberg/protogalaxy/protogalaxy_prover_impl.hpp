@@ -57,9 +57,10 @@ std::tuple<std::vector<typename Flavor::FF>, Polynomial<typename Flavor::FF>> Pr
     const FF delta = transcript->template get_challenge<FF>("delta");
     const std::vector<FF> deltas = compute_round_challenge_pows(CONST_PG_LOG_N, delta);
     // An honest prover with valid initial key computes that the perturbator is 0 in the first round
-    const Polynomial<FF> perturbator = accumulator->is_accumulator
-                                           ? pg_internal.compute_perturbator(accumulator, deltas)
-                                           : Polynomial<FF>(CONST_PG_LOG_N + 1);
+    // const Polynomial<FF> perturbator = accumulator->is_accumulator
+    //                                        ? pg_internal.compute_perturbator(accumulator, deltas)
+    //                                        : Polynomial<FF>(CONST_PG_LOG_N + 1);
+    const Polynomial<FF> perturbator = pg_internal.compute_perturbator(accumulator, deltas);
     // Prover doesn't send the constant coefficient of F because this is supposed to be equal to the target sum of
     // the accumulator which the folding verifier has from the previous iteration.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1087): Verifier circuit for first IVC step is

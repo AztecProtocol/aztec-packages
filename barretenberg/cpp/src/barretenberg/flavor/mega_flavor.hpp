@@ -75,21 +75,21 @@ class MegaFlavor {
     // Note: made generic for use in MegaRecursive.
     template <typename FF>
     using Relations_ = std::tuple<bb::UltraArithmeticRelation<FF>,
-                                  bb::UltraPermutationRelation<FF>,
-                                  bb::LogDerivLookupRelation<FF>,
+                                  //   bb::UltraPermutationRelation<FF>,
+                                  //   bb::LogDerivLookupRelation<FF>,
                                   bb::DeltaRangeConstraintRelation<FF>,
                                   bb::EllipticRelation<FF>,
                                   bb::MemoryRelation<FF>,
                                   bb::NonNativeFieldRelation<FF>,
                                   bb::EccOpQueueRelation<FF>,
-                                  bb::DatabusLookupRelation<FF>,
+                                  //   bb::DatabusLookupRelation<FF>,
                                   bb::Poseidon2ExternalRelation<FF>,
                                   bb::Poseidon2InternalRelation<FF>>;
     using Relations = Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
     static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
-    static_assert(MAX_TOTAL_RELATION_LENGTH == 11);
+    static_assert(MAX_TOTAL_RELATION_LENGTH == 7);
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
     // length = 3

@@ -8,6 +8,7 @@
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/honk/proving_key_inspector.hpp"
+#include "barretenberg/protogalaxy/folding_test_utils.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
@@ -439,6 +440,8 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
 
         queue_entry.type = QUEUE_TYPE::OINK;
         queue_entry.proof = oink_proof;
+
+        ASSERT(check_accumulator_target_sum_manual(proving_key));
     } else if (num_circuits_accumulated == num_circuits - 1) {
         queue_entry.type = QUEUE_TYPE::MEGA;
         // construct the mega proof of the hiding circuit
@@ -458,11 +461,14 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
             prover_accumulation_transcript->add_to_hash_buffer("accum_hash", accum_hash);
             info("Accumulator hash in PG prover: ", accum_hash);
         }
+        ASSERT(check_accumulator_target_sum_manual(fold_output.accumulator));
         FoldingProver folding_prover({ fold_output.accumulator, proving_key },
                                      { native_verifier_accum, vk },
                                      prover_accumulation_transcript,
                                      trace_usage_tracker);
         fold_output = folding_prover.prove();
+        ASSERT(check_accumulator_target_sum_manual(fold_output.accumulator));
+
         vinfo("constructed folding proof");
         if (is_kernel) {
             // Fiat-Shamir the verifier accumulator
