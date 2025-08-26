@@ -3,20 +3,19 @@
 set -e
 
 # Script to deploy/update the testnet-monitor with new rollup contract address
-# Usage: ./update-monitoring.sh <network-namespace> <release-name> <monitoring-namespace>
+# Usage: ./update-monitoring.sh <network-namespace> <monitoring-namespace>
 
-NAMESPACE=${1:-"alpha-testnet"}
-RELEASE_NAME=${2:-"testnet-monitor"}
-MONITORING_NAMESPACE=${3:-"staging-testnet-monitoring"}
+NAMESPACE=${1:-"testnet"}
+MONITORING_NAMESPACE=${2:-"testnet-block-height-monitor"}
 
-echo "Updating monitoring app for namespace: $NAMESPACE, release: $RELEASE_NAME, monitoring ns: $MONITORING_NAMESPACE"
+echo "Updating monitoring app for namespace: $NAMESPACE, monitoring ns: $MONITORING_NAMESPACE"
 
 # Wait briefly for the network to settle
 echo "Waiting for network deployment to be ready..."
 sleep 30
 
 # RPC node service name
-RPC_NODE_SERVICE="$RELEASE_NAME-rpc-node"
+RPC_NODE_SERVICE="$NAMESPACE-rpc-node"
 
 # Wait for rpc node pods to be ready
 echo "Waiting for rpc node to be ready..."

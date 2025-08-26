@@ -308,9 +308,3 @@ jobs:
       - name: Terraform Apply
         working-directory: ./spartan/terraform/deploy-release
         run: terraform apply -lock=${{ env.RESPECT_TF_LOCK }} -auto-approve tfplan
-
-      - name: Update Monitoring App
-        if: ${{ inputs.sepolia_deployment == 'true' }}
-        run: |
-          echo "Checking if monitoring app needs to be updated for Sepolia deployment..."
-          ./spartan/metrics/testnet-monitor/scripts/update-monitoring.sh ${{ env.NAMESPACE }} ${{ env.NAMESPACE }} ${{ env.MONITORING_NAMESPACE }}
