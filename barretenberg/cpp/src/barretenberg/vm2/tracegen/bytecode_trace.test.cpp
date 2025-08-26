@@ -11,6 +11,14 @@
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/full_row.hpp"
+#include "barretenberg/vm2/simulation/bytecode_hashing.hpp"
+#include "barretenberg/vm2/simulation/bytecode_manager.hpp"
+#include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
+#include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_contract_instance_manager.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_poseidon2.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/bytecode_trace.hpp"
@@ -20,6 +28,8 @@ namespace bb::avm2::tracegen {
 namespace {
 
 using C = Column;
+
+using ::testing::StrictMock;
 
 using simulation::BytecodeId;
 using simulation::Instruction;
@@ -605,18 +615,38 @@ TEST(BytecodeTraceGenTest, InstrFetchingParsingErrors)
 // Test on error tag out of range
 TEST(BytecodeTraceGenTest, InstrFetchingErrorTagOutOfRange)
 {
-    using simulation::deserialize_instruction;
+    using simulation::NoopEventEmitter;
     using simulation::Operand;
     using testing::random_instruction;
     TestTraceContainer trace;
     BytecodeTraceBuilder builder;
 
-    simulation::NoopEventEmitter<simulation::RangeCheckEvent> range_check_event_emitter;
+    NoopEventEmitter<simulation::RangeCheckEvent> range_check_event_emitter;
     simulation::RangeCheck range_check(range_check_event_emitter);
-    simulation::NoopEventEmitter<simulation::FieldGreaterThanEvent> field_gt_event_emitter;
+    NoopEventEmitter<simulation::FieldGreaterThanEvent> field_gt_event_emitter;
     simulation::FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
-    simulation::NoopEventEmitter<simulation::GreaterThanEvent> gt_event_emitter;
+    NoopEventEmitter<simulation::GreaterThanEvent> gt_event_emitter;
     simulation::GreaterThan gt(field_gt, range_check, gt_event_emitter);
+
+    StrictMock<simulation::MockContractDB> contract_db;
+    StrictMock<simulation::MockHighLevelMerkleDB> merkle_db;
+    StrictMock<simulation::MockPoseidon2> poseidon2;
+    StrictMock<simulation::MockContractInstanceManager> contract_instance_manager;
+
+    NoopEventEmitter<simulation::BytecodeRetrievalEvent> retrieval_events;
+    NoopEventEmitter<simulation::BytecodeDecompositionEvent> decomposition_events;
+    NoopEventEmitter<simulation::InstructionFetchingEvent> instruction_fetching_events;
+    NoopEventEmitter<simulation::BytecodeHashingEvent> hashing_events;
+    simulation::BytecodeHasher bytecode_hasher(poseidon2, hashing_events);
+
+    simulation::TxBytecodeManager tx_bytecode_manager(contract_db,
+                                                      merkle_db,
+                                                      bytecode_hasher,
+                                                      gt,
+                                                      contract_instance_manager,
+                                                      retrieval_events,
+                                                      decomposition_events,
+                                                      instruction_fetching_events);
 
     auto instr_cast = random_instruction(WireOpCode::CAST_16);
     auto instr_set = random_instruction(WireOpCode::SET_64);
@@ -640,8 +670,8 @@ TEST(BytecodeTraceGenTest, InstrFetchingErrorTagOutOfRange)
     events.emplace_back(InstructionFetchingEvent{
         .bytecode_id = 1,
         .pc = 0,
-        .instruction =
-            deserialize_instruction(bytecode, 0, gt), // Reflect more the real code path than passing instr_cast.
+        .instruction = tx_bytecode_manager.deserialize_instruction(
+            bytecode, 0), // Reflect more the real code path than passing instr_cast.
         .bytecode = bytecode_ptr,
         .error = simulation::InstrDeserializationError::TAG_OUT_OF_RANGE,
     });
@@ -649,8 +679,8 @@ TEST(BytecodeTraceGenTest, InstrFetchingErrorTagOutOfRange)
     events.emplace_back(InstructionFetchingEvent{
         .bytecode_id = 1,
         .pc = cast_size,
-        .instruction =
-            deserialize_instruction(bytecode, cast_size, gt), // Reflect more the real code path than passing instr_set.
+        .instruction = tx_bytecode_manager.deserialize_instruction(
+            bytecode, cast_size), // Reflect more the real code path than passing instr_set.
         .bytecode = bytecode_ptr,
         .error = simulation::InstrDeserializationError::TAG_OUT_OF_RANGE,
     });

@@ -73,6 +73,18 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
     BytecodeId get_bytecode(const AztecAddress& address) override;
     Instruction read_instruction(BytecodeId bytecode_id, uint32_t pc) override;
 
+    /**
+     * @brief Parsing of an instruction in the supplied bytecode at byte position pos. This
+     *        checks that the WireOpCode value is in the defined range and extracts the operands
+     *        for each WireOpCode based on the specification from OPCODE_WIRE_FORMAT.
+     *
+     * @param bytecode The bytecode to be parsed as a vector of bytes/uint8_t
+     * @param pos Bytecode position
+     * @throws runtime_error exception when the bytecode is invalid or pos is out-of-range
+     * @return The instruction
+     */
+    Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t pos);
+
   private:
     ContractDBInterface& contract_db;
     HighLevelMerkleDBInterface& merkle_db;
