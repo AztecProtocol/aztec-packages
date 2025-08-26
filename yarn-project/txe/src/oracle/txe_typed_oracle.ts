@@ -33,7 +33,7 @@ export class TXETypedOracle extends TypedOracle {
     throw new OracleMethodNotAvailableError('avmOpcodeStorageRead');
   }
 
-  txeGetPrivateContextInputs(_blockNumber: number | null): Promise<PrivateContextInputs> {
+  txeGetPrivateContextInputs(_blockNumber?: number): Promise<PrivateContextInputs> {
     throw new OracleMethodNotAvailableError('txeGetPrivateContextInputs');
   }
 

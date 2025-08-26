@@ -311,7 +311,7 @@ export class TXE extends TXETypedOracle {
   }
 
   override async txeGetPrivateContextInputs(
-    blockNumber: number | null,
+    blockNumber?: number,
     sideEffectsCounter = this.sideEffectCounter,
     isStaticCall = false,
   ) {
