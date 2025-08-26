@@ -6,7 +6,13 @@ import { DateProvider } from '@aztec/foundation/timer';
 import { type Hex, type TransactionSerializable, formatGwei } from 'viem';
 
 import type { EthSigner } from './eth-signer/eth-signer.js';
-import { type GasPrice, L1TxUtils, type L1TxUtilsConfig, type Signer, createViemSigner } from './l1_tx_utils.js';
+import {
+  type GasPrice,
+  L1TxUtils,
+  type L1TxUtilsConfig,
+  type SigningCallback,
+  createViemSigner,
+} from './l1_tx_utils.js';
 import type { ExtendedViemWalletClient, ViemClient } from './types.js';
 
 export class L1TxUtilsWithBlobs extends L1TxUtils {
@@ -130,7 +136,7 @@ export function createL1TxUtilsWithBlobsFromEthSigner(
   config?: Partial<L1TxUtilsConfig>,
   debugMaxGasLimit: boolean = false,
 ) {
-  const callback: Signer = async (transaction: TransactionSerializable, _signingAddress) => {
+  const callback: SigningCallback = async (transaction: TransactionSerializable, _signingAddress) => {
     return (await signer.signTransaction(transaction)).toViemTransactionSignature();
   };
 

@@ -31,7 +31,7 @@ import { StandardTree } from '@aztec/merkle-tree';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { buildBlockWithCleanDB } from '@aztec/prover-client/block-factory';
-import { SequencerPublisher, SequencerPublisherMetrics, SignalType } from '@aztec/sequencer-client';
+import { SequencerPublisher, SequencerPublisherMetrics } from '@aztec/sequencer-client';
 import { type CommitteeAttestation, type L2Tips, PublishedL2Block, Signature } from '@aztec/stdlib/block';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';

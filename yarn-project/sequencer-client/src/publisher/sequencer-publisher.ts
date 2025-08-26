@@ -360,7 +360,7 @@ export class SequencerPublisher {
 
     // use sender balance to simulate
     const balance = await this.l1TxUtils.getSenderBalance();
-    console.log(`Simulating validateHeader with balance: ${balance}`);
+    this.log.debug(`Simulating validateHeader with balance: ${balance}`);
     await this.l1TxUtils.simulate(
       {
         to: this.rollupContract.address,
@@ -373,7 +373,7 @@ export class SequencerPublisher {
         ...(await this.rollupContract.makePendingBlockNumberOverride(opts?.forcePendingBlockNumber)),
       ],
     );
-    console.log(`Simulated validateHeader`);
+    this.log.debug(`Simulated validateHeader`);
   }
 
   /**

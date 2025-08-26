@@ -13,12 +13,9 @@ import { EpochCache, type EpochCacheInterface } from '@aztec/epoch-cache';
 import {
   type EthSigner,
   type L1ContractAddresses,
-  NULL_KEY,
   RegistryContract,
   RollupContract,
   createEthereumChain,
-  createExtendedL1Client,
-  createL1TxUtilsFromViemWallet,
   getPublicClient,
 } from '@aztec/ethereum';
 import { createL1TxUtilsWithBlobsFromEthSigner } from '@aztec/ethereum/l1-tx-utils-with-blobs';

@@ -39,7 +39,6 @@ import { type MockProxy, mock, mockDeep, mockFn } from 'jest-mock-extended';
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import type { AttestorPublisherPair, SequencerPublisherFactory } from '../publisher/sequencer-publisher-factory.js';
 import type { SequencerPublisher } from '../publisher/sequencer-publisher.js';
-import type { SequencerContracts } from './config.js';
 import { Sequencer } from './sequencer.js';
 import { SequencerState } from './utils.js';
 
@@ -71,7 +70,7 @@ describe('sequencer', () => {
   let block: L2Block;
   let globalVariables: GlobalVariables;
   let l1Constants: Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration' | 'ethereumSlotDuration'>;
-  let l1Contracts: SequencerContracts;
+  // Note: Removed unused l1Contracts declaration
 
   let sequencer: TestSubject;
 

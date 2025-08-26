@@ -4,13 +4,13 @@ import type { GovernanceProposerContract, PublisherManager, RollupContract } fro
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { DateProvider } from '@aztec/foundation/timer';
+import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 import { NodeKeystoreAdapter } from '@aztec/validator-client';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { SequencerClientConfig } from '../config.js';
-import type { SequencerContracts } from '../sequencer/config.js';
 import { SequencerPublisherFactory } from './sequencer-publisher-factory.js';
 
 describe('SequencerPublisherFactory', () => {
@@ -20,9 +20,9 @@ describe('SequencerPublisherFactory', () => {
   let mockBlobSinkClient: MockProxy<BlobSinkClientInterface>;
   let mockDateProvider: MockProxy<DateProvider>;
   let mockEpochCache: MockProxy<EpochCache>;
-  let mockL1Contracts: SequencerContracts;
   let mockRollupContract: MockProxy<RollupContract>;
   let mockGovernanceProposerContract: MockProxy<GovernanceProposerContract>;
+  let mockSlashFactoryContract: MockProxy<SlashFactoryContract>;
   let mockNodeKeyStore: MockProxy<NodeKeystoreAdapter>;
   let mockL1TxUtils: MockProxy<L1TxUtilsWithBlobs>;
 
@@ -42,11 +42,7 @@ describe('SequencerPublisherFactory', () => {
     mockL1TxUtils = mock<L1TxUtilsWithBlobs>();
     mockRollupContract = mock<RollupContract>();
     mockGovernanceProposerContract = mock<GovernanceProposerContract>();
-
-    mockL1Contracts = {
-      rollupContract: mockRollupContract,
-      governanceProposerContract: mockGovernanceProposerContract,
-    };
+    mockSlashFactoryContract = mock<SlashFactoryContract>();
 
     mockL1TxUtils.getSenderAddress.mockReturnValue(publisherAddress);
     mockPublisherManager.getAvailablePublisher.mockResolvedValue(mockL1TxUtils);
@@ -58,7 +54,9 @@ describe('SequencerPublisherFactory', () => {
       blobSinkClient: mockBlobSinkClient,
       dateProvider: mockDateProvider,
       epochCache: mockEpochCache,
-      l1Contracts: mockL1Contracts,
+      governanceProposerContract: mockGovernanceProposerContract,
+      rollupContract: mockRollupContract,
+      slashFactoryContract: mockSlashFactoryContract,
       nodeKeyStore: mockNodeKeyStore,
     });
   });
@@ -75,7 +73,7 @@ describe('SequencerPublisherFactory', () => {
       expect(filterFn(mockL1TxUtils)).toBe(true);
 
       expect(mockNodeKeyStore.getAttestorForPublisher).toHaveBeenCalledWith(publisherAddress);
-      expect(mockL1Contracts.rollupContract.getSlashingProposer).toHaveBeenCalled();
+      expect(mockRollupContract.getSlashingProposer).toHaveBeenCalled();
 
       expect(result.attestorAddress).toBe(attestorAddress);
       expect(result.publisher).toBeDefined();
@@ -149,7 +147,7 @@ describe('SequencerPublisherFactory', () => {
       const result = await factory.create();
 
       expect(result.publisher).toBeDefined();
-      expect(mockL1Contracts.rollupContract.getSlashingProposer).toHaveBeenCalled();
+      expect(mockRollupContract.getSlashingProposer).toHaveBeenCalled();
       expect(result.publisher.slashingProposerContract.address.equals(mockSlashingProposer.address)).toBe(true);
     });
   });

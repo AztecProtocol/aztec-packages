@@ -114,7 +114,7 @@ export class SequencerClient {
       ));
 
     const slashFactoryContract = new SlashFactoryContract(
-      l1Client,
+      publicClient,
       config.l1Contracts.slashFactoryAddress?.toString() ?? EthAddress.ZERO.toString(),
     );
 

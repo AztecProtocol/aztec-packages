@@ -5,12 +5,7 @@ import {
   l1ReaderConfigMappings,
   l1TxUtilsConfigMappings,
 } from '@aztec/ethereum';
-import {
-  type ConfigMappingsType,
-  SecretValue,
-  getConfigFromMappings,
-  secretValueConfigHelper,
-} from '@aztec/foundation/config';
+import { type ConfigMappingsType, SecretValue, getConfigFromMappings } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 /**

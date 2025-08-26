@@ -43,13 +43,8 @@ import type { TypedDataDefinition } from 'viem';
 
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import type { SequencerPublisherFactory } from '../publisher/sequencer-publisher-factory.js';
-import {
-  type Action,
-  type InvalidateBlockRequest,
-  type SequencerPublisher,
-  SignalType,
-} from '../publisher/sequencer-publisher.js';
-import type { SequencerConfig, SequencerContracts } from './config.js';
+import type { Action, InvalidateBlockRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
+import type { SequencerConfig } from './config.js';
 import { SequencerMetrics } from './metrics.js';
 import { SequencerTimetable, SequencerTooSlowError } from './timetable.js';
 import { SequencerState, type SequencerStateWithSlot } from './utils.js';

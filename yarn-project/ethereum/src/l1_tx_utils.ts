@@ -557,7 +557,7 @@ export class ReadOnlyL1TxUtils {
   }
 }
 
-export type Signer = (
+export type SigningCallback = (
   transaction: TransactionSerializable,
   signingAddress: EthAddress,
 ) => Promise<ViemTransactionSignature>;
@@ -570,7 +570,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
   constructor(
     public override client: ViemClient,
     public address: EthAddress,
-    private signer: Signer,
+    private signer: SigningCallback,
     protected override logger: Logger = createLogger('L1TxUtils'),
     dateProvider: DateProvider = new DateProvider(),
     config?: Partial<L1TxUtilsConfig>,
@@ -1038,7 +1038,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
 }
 
 export function createViemSigner(client: WalletClient) {
-  const signer: Signer = async (
+  const signer: SigningCallback = async (
     tx: TransactionSerializable,
     _address: EthAddress,
   ): Promise<ViemTransactionSignature> => {
