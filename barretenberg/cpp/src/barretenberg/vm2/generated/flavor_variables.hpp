@@ -93,7 +93,6 @@
 #include "relations/lookups_gt.hpp"
 #include "relations/lookups_instr_fetching.hpp"
 #include "relations/lookups_internal_call.hpp"
-#include "relations/lookups_keccak_memory.hpp"
 #include "relations/lookups_keccakf1600.hpp"
 #include "relations/lookups_l1_to_l2_message_exists.hpp"
 #include "relations/lookups_l1_to_l2_message_tree_check.hpp"
@@ -119,8 +118,10 @@
 #include "relations/lookups_tx_context.hpp"
 #include "relations/lookups_update_check.hpp"
 #include "relations/lookups_written_public_data_slots_tree_check.hpp"
+#include "relations/perms_addressing.hpp"
 #include "relations/perms_ecc_mem.hpp"
 #include "relations/perms_execution.hpp"
+#include "relations/perms_keccak_memory.hpp"
 #include "relations/perms_keccakf1600.hpp"
 #include "relations/perms_poseidon2_mem.hpp"
 #include "relations/perms_public_data_check.hpp"
@@ -218,14 +219,6 @@ struct AvmFlavorVariables {
         lookup_address_derivation_public_keys_hash_poseidon2_4_relation<FF_>,
         lookup_address_derivation_salted_initialization_hash_poseidon2_0_relation<FF_>,
         lookup_address_derivation_salted_initialization_hash_poseidon2_1_relation<FF_>,
-        lookup_addressing_base_address_from_memory_relation<FF_>,
-        lookup_addressing_indirect_from_memory_0_relation<FF_>,
-        lookup_addressing_indirect_from_memory_1_relation<FF_>,
-        lookup_addressing_indirect_from_memory_2_relation<FF_>,
-        lookup_addressing_indirect_from_memory_3_relation<FF_>,
-        lookup_addressing_indirect_from_memory_4_relation<FF_>,
-        lookup_addressing_indirect_from_memory_5_relation<FF_>,
-        lookup_addressing_indirect_from_memory_6_relation<FF_>,
         lookup_addressing_relative_overflow_range_0_relation<FF_>,
         lookup_addressing_relative_overflow_range_1_relation<FF_>,
         lookup_addressing_relative_overflow_range_2_relation<FF_>,
@@ -316,7 +309,6 @@ struct AvmFlavorVariables {
         lookup_instr_fetching_wire_instruction_info_relation<FF_>,
         lookup_internal_call_push_call_stack_relation<FF_>,
         lookup_internal_call_unwind_call_stack_relation<FF_>,
-        lookup_keccak_memory_slice_to_mem_relation<FF_>,
         lookup_keccakf1600_dst_abs_diff_positive_relation<FF_>,
         lookup_keccakf1600_round_cst_relation<FF_>,
         lookup_keccakf1600_src_abs_diff_positive_relation<FF_>,
@@ -525,15 +517,6 @@ struct AvmFlavorVariables {
         lookup_sha256_mem_check_input_addr_in_range_relation<FF_>,
         lookup_sha256_mem_check_output_addr_in_range_relation<FF_>,
         lookup_sha256_mem_check_state_addr_in_range_relation<FF_>,
-        lookup_sha256_mem_mem_input_read_relation<FF_>,
-        lookup_sha256_mem_mem_op_0_relation<FF_>,
-        lookup_sha256_mem_mem_op_1_relation<FF_>,
-        lookup_sha256_mem_mem_op_2_relation<FF_>,
-        lookup_sha256_mem_mem_op_3_relation<FF_>,
-        lookup_sha256_mem_mem_op_4_relation<FF_>,
-        lookup_sha256_mem_mem_op_5_relation<FF_>,
-        lookup_sha256_mem_mem_op_6_relation<FF_>,
-        lookup_sha256_mem_mem_op_7_relation<FF_>,
         lookup_sha256_range_comp_a_lhs_relation<FF_>,
         lookup_sha256_range_comp_a_rhs_relation<FF_>,
         lookup_sha256_range_comp_b_lhs_relation<FF_>,
@@ -634,14 +617,32 @@ struct AvmFlavorVariables {
         lookup_written_public_data_slots_tree_check_new_leaf_poseidon2_relation<FF_>,
         lookup_written_public_data_slots_tree_check_silo_poseidon2_relation<FF_>,
         lookup_written_public_data_slots_tree_check_updated_low_leaf_poseidon2_relation<FF_>,
+        perm_addressing_base_address_from_memory_relation<FF_>,
+        perm_addressing_indirect_from_memory_0_relation<FF_>,
+        perm_addressing_indirect_from_memory_1_relation<FF_>,
+        perm_addressing_indirect_from_memory_2_relation<FF_>,
+        perm_addressing_indirect_from_memory_3_relation<FF_>,
+        perm_addressing_indirect_from_memory_4_relation<FF_>,
+        perm_addressing_indirect_from_memory_5_relation<FF_>,
+        perm_addressing_indirect_from_memory_6_relation<FF_>,
         perm_ecc_mem_dispatch_exec_ecc_add_relation<FF_>,
         perm_execution_dispatch_get_contract_instance_relation<FF_>,
         perm_execution_dispatch_keccakf1600_relation<FF_>,
+        perm_keccak_memory_slice_to_mem_relation<FF_>,
         perm_keccakf1600_read_to_slice_relation<FF_>,
         perm_keccakf1600_write_to_slice_relation<FF_>,
         perm_poseidon2_mem_dispatch_exec_pos2_relation<FF_>,
         perm_public_data_check_squashing_relation<FF_>,
         perm_sha256_mem_dispatch_sha256_relation<FF_>,
+        perm_sha256_mem_mem_input_read_relation<FF_>,
+        perm_sha256_mem_mem_op_0_relation<FF_>,
+        perm_sha256_mem_mem_op_1_relation<FF_>,
+        perm_sha256_mem_mem_op_2_relation<FF_>,
+        perm_sha256_mem_mem_op_3_relation<FF_>,
+        perm_sha256_mem_mem_op_4_relation<FF_>,
+        perm_sha256_mem_mem_op_5_relation<FF_>,
+        perm_sha256_mem_mem_op_6_relation<FF_>,
+        perm_sha256_mem_mem_op_7_relation<FF_>,
         perm_to_radix_mem_dispatch_exec_to_radix_relation<FF_>>;
 };
 
