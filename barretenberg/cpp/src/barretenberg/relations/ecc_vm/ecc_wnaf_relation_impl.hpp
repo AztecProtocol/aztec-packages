@@ -54,7 +54,7 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
     auto q_transition = View(in.precompute_point_transition);
     auto round = View(in.precompute_round);
     auto round_shift = View(in.precompute_round_shift);
-    auto pc = View(in.precompute_pc);
+    auto pc = View(in.precompute_pc); // note that this is a _point-counter_.
     auto pc_shift = View(in.precompute_pc_shift);
     // precompute_select is a boolean column. We only evaluate the ecc_wnaf_relation and the ecc_point_table_relation if
     // `precompute_select=1`
@@ -156,15 +156,29 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
     std::get<8>(accumulator) += precompute_select * check_sum * scaled_transition_is_zero;
 
     /**
-     * @brief Round transition logic.
+     * @brief Transition logic with `round` and `q_transition`.
      * Goal: `round` is an integer in [0, ... 7] that tracks how many slices we have processed for a given scalar.
-     * i.e. number of 4-bit WNAF slices processed = round * 4.
-     * We apply the following constraints:
-     * If q_transition = 0, round increments by 1 between rows.
-     * If q_transition = 1, round value at current row = 7
-     * If q_transition = 1, round value at next row = 0
-     * Question: is this sufficient? We don't actually range constrain `round` (expensive if we don't need to!).
-     * Let us analyze...
+     * i.e., the number of 4-bit WNAF slices processed = round * 4.
+     * We must ensure that `q_transition` is well-formed and that `round` is correctly constrained. For the former, we
+     * force the following:
+     *      1. When `q_transition == 1`, then `scalar_sum_shift == 0`, `round_shift == 0`, `round == 7`, and `pc_shift
+     *      == pc - 1`.
+     *      2. When `q_transition == 0`, then `round_shift - round == 1` and `pc_shift == pc`
+     * Note that we don't actually range-constrain `round` (expensive if we don't need to!). We claim this logic is
+     * nonetheless sufficient to correctly constrain `round`, because of the multiset checks. There are two multiset
+     * equality checks that we perform that implicate the wNAF relation (note that point-counter is the `pc`):
+     *      1. (point-counter, msm_round, wnaf_slice)
+     *      2. (point-counter, P.x, P.y, scalar-multiplier)
+     * Both are used communicate with the MSM relation. (The second also implicitly facilitates communication with the
+     * PointTable relation.)
+     *
+     * Here is the logic. We must ensure that `round` can never be set to a value > 7. If this were possible at row `i`,
+     * then `q_transition == 0` for all subsequent rows by the incrementing logic. The implicit MSM round (accounted for
+     in
+     * (1)) is between `4 * round` and `4 * round + 3` (in fact `4 * round + 4` iff we are at a skew). As the `round`
+     must increment,
+     * this means that the `msm_round` will be larger than 32, which RAJU: make sure this is all kosher.
+
      * 1. When `q_transition = 1`, we use a set membership check to map the tuple of (pc, scalar_sum) into a set.
      * We compare this set with an equivalent set generated from the transcript columns. The sets must match.
      * 2. The only case where, at row `i`, a Prover can set `round` to value > 7 is if `q_transition = 0` for all j > i.
@@ -220,7 +234,7 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
     std::get<18>(accumulator) += precompute_select_zero * round;
     std::get<19>(accumulator) += precompute_select_zero * pc;
 
-    // TODO(@zac-williamson #2226)
+    // Optimize(@zac-williamson #2226)
     // if precompute_select = 0, validate pc, round, slice values are all zero
     // If we do this we can reduce the degree of the set equivalence relations
     // (currently when checking pc/round/wnaf tuples from WNAF columns match those from MSM columns,
