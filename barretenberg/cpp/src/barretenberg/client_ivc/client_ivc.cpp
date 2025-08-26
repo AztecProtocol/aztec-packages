@@ -156,10 +156,6 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
                                         accumulation_recursive_transcript };
         verifier.verify_proof(verifier_inputs.proof);
 
-        output_stdlib_verifier_accumulator->target_sum = StdlibFF::from_witness_index(&circuit, circuit.zero_idx);
-        output_stdlib_verifier_accumulator->gate_challenges.assign(
-            CONST_PG_LOG_N, StdlibFF::from_witness_index(&circuit, circuit.zero_idx));
-
         witness_commitments = std::move(output_stdlib_verifier_accumulator->witness_commitments);
         public_inputs = std::move(verifier.public_inputs);
 
@@ -435,7 +431,6 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
         OinkVerifier<Flavor> oink_verifier{ decider_vk, oink_verifier_transcript };
         oink_verifier.verify();
         native_verifier_accum = decider_vk;
-        native_verifier_accum->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
 
         queue_entry.type = QUEUE_TYPE::OINK;
         queue_entry.proof = oink_proof;

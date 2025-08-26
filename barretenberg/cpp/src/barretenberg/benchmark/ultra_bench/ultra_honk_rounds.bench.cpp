@@ -18,7 +18,8 @@ enum {
     LOG_DERIVATIVE_INVERSE,
     GRAND_PRODUCT_COMPUTATION,
     GENERATE_ALPHAS,
-    RELATION_CHECK
+    GENERATE_GATE_CHALLENGES,
+    RELATION_CHECK,
 };
 
 /**
@@ -54,8 +55,8 @@ BB_PROFILE void test_round_inner(State& state, MegaProver& prover, size_t index)
     time_if_index(LOG_DERIVATIVE_INVERSE, [&] { oink_prover.execute_log_derivative_inverse_round(); });
     time_if_index(GRAND_PRODUCT_COMPUTATION, [&] { oink_prover.execute_grand_product_computation_round(); });
     time_if_index(GENERATE_ALPHAS, [&] { prover.proving_key->alphas = oink_prover.generate_alphas_round(); });
-
-    prover.generate_gate_challenges();
+    time_if_index(GENERATE_GATE_CHALLENGES,
+                  [&] { prover.proving_key->gate_challenges = oink_prover.generate_gate_challenges_round(); });
 
     DeciderProver_<MegaFlavor> decider_prover(prover.proving_key, prover.transcript);
     time_if_index(RELATION_CHECK, [&] { decider_prover.execute_relation_check_rounds(); });
@@ -90,6 +91,7 @@ ROUND_BENCHMARK(SORTED_LIST_ACCUMULATOR)->Iterations(1);
 ROUND_BENCHMARK(LOG_DERIVATIVE_INVERSE)->Iterations(1);
 ROUND_BENCHMARK(GRAND_PRODUCT_COMPUTATION)->Iterations(1);
 ROUND_BENCHMARK(GENERATE_ALPHAS)->Iterations(1);
+ROUND_BENCHMARK(GENERATE_GATE_CHALLENGES)->Iterations(1);
 ROUND_BENCHMARK(RELATION_CHECK);
 
 BENCHMARK_MAIN();

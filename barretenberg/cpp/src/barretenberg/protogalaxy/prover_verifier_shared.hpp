@@ -17,7 +17,9 @@ std::vector<FF> update_gate_challenges(const FF& perturbator_challenge,
                                        const std::vector<FF>& gate_challenges,
                                        const std::vector<FF>& init_challenges)
 {
-    const size_t num_challenges = gate_challenges.size();
+    BB_ASSERT_EQ(
+        gate_challenges.size(), init_challenges.size(), "gate_challenges and init_challenges must have same size");
+    const size_t num_challenges = gate_challenges.size(); // WORKTODO: figure out what to do here
     std::vector<FF> next_gate_challenges(num_challenges);
 
     for (size_t idx = 0; idx < num_challenges; idx++) {

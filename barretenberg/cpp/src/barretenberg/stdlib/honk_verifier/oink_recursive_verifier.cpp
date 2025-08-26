@@ -126,6 +126,14 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
     decider_vk->witness_commitments = std::move(commitments);
     decider_vk->alphas = std::move(alphas);
     decider_vk->is_complete = true; // instance has been completely populated
+    decider_vk->target_sum = FF::from_witness_index(builder, builder->zero_idx);
+
+    static constexpr size_t VIRTUAL_LOG_N = Flavor::NativeFlavor::VIRTUAL_LOG_N;
+    decider_vk->gate_challenges.resize(VIRTUAL_LOG_N);
+    for (size_t idx = 0; idx < VIRTUAL_LOG_N; idx++) {
+        decider_vk->gate_challenges[idx] =
+            transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
+    }
 }
 
 template class OinkRecursiveVerifier_<bb::UltraRecursiveFlavor_<UltraCircuitBuilder>>;

@@ -45,17 +45,12 @@ template <IsUltraOrMegaHonk Flavor> class OinkVerifier {
     {}
 
     void verify();
-
     void execute_preamble_round();
-
     void execute_wire_commitments_round();
-
     void execute_sorted_list_accumulator_round();
-
     void execute_log_derivative_inverse_round();
-
     void execute_grand_product_computation_round();
-
     SubrelationSeparators generate_alphas_round();
+    std::vector<FF> generate_gate_challenges_round();
 };
 } // namespace bb

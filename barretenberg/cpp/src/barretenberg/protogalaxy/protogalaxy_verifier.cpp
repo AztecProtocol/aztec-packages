@@ -22,7 +22,6 @@ void ProtogalaxyVerifier_<DeciderVerificationKeys>::run_oink_verifier_on_each_in
     if (!key->is_complete) {
         OinkVerifier<Flavor> oink_verifier{ key, transcript, domain_separator + '_' };
         oink_verifier.verify();
-        key->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
     }
 
     key = keys_to_fold[1];
@@ -77,8 +76,6 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
     run_oink_verifier_on_each_incomplete_key(proof);
 
     // Perturbator round
-    const FF delta = transcript->template get_challenge<FF>("delta");
-    const std::vector<FF> deltas = compute_round_challenge_pows(CONST_PG_LOG_N, delta);
     std::vector<FF> perturbator_coeffs(CONST_PG_LOG_N + 1, 0);
     for (size_t idx = 1; idx <= CONST_PG_LOG_N; idx++) {
         perturbator_coeffs[idx] = transcript->template receive_from_prover<FF>("perturbator_" + std::to_string(idx));
@@ -110,7 +107,7 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
     accumulator->target_sum =
         perturbator_evaluation * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_evaluation;
     accumulator->gate_challenges = // note: known already in previous round
-        update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
+        update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, keys_to_fold[1]->gate_challenges);
 
     // // Fold the commitments
     for (auto [combination, to_combine] :

@@ -55,8 +55,8 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
     ProverPolynomials polynomials; // the multilinear polynomials used by the prover
     SubrelationSeparators alphas;  // a challenge for each subrelation
     bb::RelationParameters<FF> relation_parameters;
-    std::vector<FF> gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
-    FF target_sum{ 0 }; // Sumcheck target sum; typically nonzero for a ProtogalaxyProver's accumulator
+    std::vector<FF> gate_challenges;
+    FF target_sum; // Sumcheck target sum; typically nonzero for a ProtogalaxyProver's accumulator
 
     HonkProof ipa_proof; // utilized only for UltraRollupFlavor
 

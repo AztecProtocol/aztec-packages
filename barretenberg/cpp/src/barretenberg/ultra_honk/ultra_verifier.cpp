@@ -24,20 +24,10 @@ template <class IO>
 UltraVerifier_<Flavor>::UltraVerifierOutput UltraVerifier_<Flavor>::verify_proof(
     const typename UltraVerifier_<Flavor>::Proof& proof, const typename UltraVerifier_<Flavor>::Proof& ipa_proof)
 {
-    using FF = typename Flavor::FF;
-
     transcript->load_proof(proof);
     OinkVerifier<Flavor> oink_verifier{ verification_key, transcript };
     oink_verifier.verify();
     const PublicInputs& public_inputs = oink_verifier.public_inputs;
-
-    // Determine the number of rounds in the sumcheck based on whether or not padding is employed
-    const uint64_t log_n = Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : verification_key->vk->log_circuit_size;
-
-    for (size_t idx = 0; idx < log_n; idx++) {
-        verification_key->gate_challenges.emplace_back(
-            transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx)));
-    }
 
     DeciderVerifier decider_verifier{ verification_key, transcript };
     auto decider_output = decider_verifier.verify();

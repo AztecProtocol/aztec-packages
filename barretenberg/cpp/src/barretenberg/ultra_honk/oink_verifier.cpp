@@ -38,6 +38,8 @@ template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::verify()
     verification_key->relation_parameters = relation_parameters;
     verification_key->alphas = generate_alphas_round();
     verification_key->is_complete = true; // instance has been completely populated
+    verification_key->target_sum = 0;
+    verification_key->gate_challenges = generate_gate_challenges_round();
 }
 
 /**
@@ -155,6 +157,19 @@ template <IsUltraOrMegaHonk Flavor> typename Flavor::SubrelationSeparators OinkV
     SubrelationSeparators alphas = transcript->template get_challenges<FF>(challenge_labels);
 
     return alphas;
+}
+
+template <IsUltraOrMegaHonk Flavor>
+std::vector<typename Flavor::FF> OinkVerifier<Flavor>::generate_gate_challenges_round()
+{
+    // Determine the number of rounds in the sumcheck based on whether or not padding is employed
+    const size_t log_n =
+        Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : static_cast<size_t>(verification_key->vk->log_circuit_size);
+    std::vector<FF> gate_challenges(log_n);
+    for (size_t idx = 0; idx < log_n; idx++) {
+        gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
+    }
+    return gate_challenges;
 }
 
 template class OinkVerifier<UltraFlavor>;

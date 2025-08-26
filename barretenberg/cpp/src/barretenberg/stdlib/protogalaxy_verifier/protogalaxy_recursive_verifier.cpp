@@ -24,7 +24,6 @@ void ProtogalaxyRecursiveVerifier_<DeciderVerificationKeys>::run_oink_verifier_o
     if (!key->is_complete) {
         OinkRecursiveVerifier_<Flavor> oink_verifier{ builder, key, transcript, domain_separator + '_' };
         oink_verifier.verify();
-        key->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
     }
 
     key = keys_to_fold[1];
@@ -49,8 +48,6 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
     const std::shared_ptr<DeciderVK>& accumulator = keys_to_fold[0];
 
     // Perturbator round
-    const FF delta = transcript->template get_challenge<FF>("delta");
-    const std::vector<FF> deltas = compute_round_challenge_pows(CONST_PG_LOG_N, delta);
     std::vector<FF> perturbator_coeffs(CONST_PG_LOG_N + 1, 0);
     for (size_t idx = 1; idx <= CONST_PG_LOG_N; idx++) {
         perturbator_coeffs[idx] = transcript->template receive_from_prover<FF>("perturbator_" + std::to_string(idx));
@@ -173,7 +170,8 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
     accumulator->target_sum =
         perturbator_evaluation * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
 
-    accumulator->gate_challenges = update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
+    accumulator->gate_challenges =
+        update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, keys_to_fold[1]->gate_challenges);
 
     // Define a constant virtual log circuit size for the accumulator
     FF virtual_log_n = FF::from_witness(builder, CONST_PG_LOG_N);

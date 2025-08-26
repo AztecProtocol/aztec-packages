@@ -57,8 +57,6 @@ template <IsUltraOrMegaHonk Flavor_> class UltraProver_ {
 
     explicit UltraProver_(Builder&&, const std::shared_ptr<HonkVK>&);
 
-    BB_PROFILE void generate_gate_challenges();
-
     Proof export_proof();
     Proof construct_proof();
     Proof prove() { return construct_proof(); };

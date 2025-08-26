@@ -45,7 +45,6 @@ template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS = 2> class ProtogalaxyProver
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
     std::shared_ptr<DeciderPK> accumulator;
     Polynomial<FF> perturbator;
-    std::vector<FF> deltas;
     CombinerQuotient combiner_quotient;
     FF perturbator_evaluation;
     UnivariateRelationParameters relation_parameters;
@@ -94,7 +93,7 @@ template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS = 2> class ProtogalaxyProver
      * @param accumulator
      * @return std::tuple<std::vector<FF>, Polynomial<FF>> deltas, perturbator
      */
-    std::tuple<std::vector<FF>, Polynomial<FF>> perturbator_round(const std::shared_ptr<const DeciderPK>& accumulator);
+    Polynomial<FF> perturbator_round(const std::shared_ptr<const DeciderPK>& accumulator);
 
     /**
      * @brief Steps 6 - 11 of the paper.
@@ -102,9 +101,7 @@ template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS = 2> class ProtogalaxyProver
      * will be sent to the verifier.
      */
     std::tuple<std::vector<FF>, UnivariateSubrelationSeparators, UnivariateRelationParameters, FF, CombinerQuotient>
-    combiner_quotient_round(const std::vector<FF>& gate_challenges,
-                            const std::vector<FF>& deltas,
-                            const DeciderProvingKeys& keys);
+    combiner_quotient_round(const DeciderProvingKeys& keys);
 
     /**
      * @brief Steps 12 - 13 of the paper plus the prover folding work.
