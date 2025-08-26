@@ -97,6 +97,7 @@ library Errors {
 
   // MerkleLib
   error MerkleLib__InvalidRoot(bytes32 expected, bytes32 actual, bytes32 leaf, uint256 leafIndex); // 0x5f216bf1
+  error MerkleLib__InvalidIndexForPathLength();
 
   // SampleLib
   error SampleLib__IndexOutOfBounds(uint256 requested, uint256 bound); // 0xa12fc559
