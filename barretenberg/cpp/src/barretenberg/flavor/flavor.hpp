@@ -180,19 +180,19 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      * @brief Calculate the number of field elements needed for serialization
      * @return size_t Number of field elements
      */
-    static size_t calc_num_data_typess()
+    static size_t calc_num_data_types()
     {
         using namespace bb::field_conversion;
         // Create a temporary instance to get the number of precomputed entities
         PrecomputedCommitments temp;
-        size_t commitments_size = temp.get_all().size() * calc_num_bn254_frs<Commitment>();
+        size_t commitments_size = temp.get_all().size() * Transcript::template calc_num_data_types<Commitment>();
         size_t metadata_size = 0;
         if constexpr (SerializeMetadata == VKSerializationMode::FULL) {
             // 3 metadata fields + commitments
-            metadata_size = 3 * calc_num_bn254_frs<uint64_t>();
+            metadata_size = 3 * Transcript::template calc_num_data_types<uint64_t>();
         } else if constexpr (SerializeMetadata == VKSerializationMode::NO_PUB_OFFSET) {
             // 2 metadata fields + commitments
-            metadata_size = 2 * calc_num_bn254_frs<uint64_t>();
+            metadata_size = 2 * Transcript::template calc_num_data_types<uint64_t>();
         }
         // else NO_METADATA: metadata_size remains 0
         return metadata_size + commitments_size;
@@ -228,6 +228,8 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
             serialize(commitment, elements);
         }
 
+        NativeVerificationKey_ key;
+        key.from_field_elements(elements);
         return elements;
     };
 
@@ -241,7 +243,9 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
 
         size_t idx = 0;
         auto deserialize = [&idx, &elements]<typename T>(T& target) {
-            target = Transcript::template deserialize<T>(elements.subspan(idx), &idx);
+            size_t size = Transcript::template calc_num_data_types<T>();
+            target = Transcript::template deserialize<T>(elements.subspan(idx, size));
+            idx += size;
         };
 
         if constexpr (SerializeMetadata == VKSerializationMode::FULL) {
@@ -550,7 +554,7 @@ inline void read(uint8_t const*& it, NativeVerificationKey_<PrecomputedCommitmen
 
     // Get the size directly from the static method
     size_t num_frs =
-        NativeVerificationKey_<PrecomputedCommitments, Transcript, SerializeMetadata>::calc_num_data_typess();
+        NativeVerificationKey_<PrecomputedCommitments, Transcript, SerializeMetadata>::calc_num_data_types();
 
     // Read exactly num_frs field elements from the buffer
     std::vector<typename Transcript::DataType> field_elements(num_frs);
@@ -574,7 +578,7 @@ inline void write(std::vector<uint8_t>& buf,
     }
     size_t after = buf.size();
     size_t num_frs =
-        NativeVerificationKey_<PrecomputedCommitments, Transcript, SerializeMetadata>::calc_num_data_typess();
+        NativeVerificationKey_<PrecomputedCommitments, Transcript, SerializeMetadata>::calc_num_data_types();
     BB_ASSERT_EQ(after - before, num_frs * sizeof(bb::fr), "VK serialization mismatch");
 }
 

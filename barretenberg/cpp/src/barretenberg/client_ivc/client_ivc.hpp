@@ -173,12 +173,12 @@ class ClientIVC {
          * @brief Calculate the number of field elements needed for serialization
          * @return size_t Number of field elements
          */
-        static size_t calc_num_data_typess()
+        static size_t calc_num_data_types()
         {
             size_t total = 0;
-            total += MegaVerificationKey::calc_num_data_typess();
-            total += ECCVMVerificationKey::calc_num_data_typess();
-            total += TranslatorVerificationKey::calc_num_data_typess();
+            total += MegaVerificationKey::calc_num_data_types();
+            total += ECCVMVerificationKey::calc_num_data_types();
+            total += TranslatorVerificationKey::calc_num_data_types();
             return total;
         }
 
@@ -350,7 +350,7 @@ inline void read(uint8_t const*& it, ClientIVC::VerificationKey& vk)
 {
     using serialize::read;
 
-    size_t num_frs = ClientIVC::VerificationKey::calc_num_data_typess();
+    size_t num_frs = ClientIVC::VerificationKey::calc_num_data_types();
 
     // Read exactly num_frs field elements from the buffer
     std::vector<bb::fr> field_elements(num_frs);

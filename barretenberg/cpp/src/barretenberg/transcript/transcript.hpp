@@ -355,14 +355,14 @@ template <typename TranscriptParams> class BaseTranscript {
         return TranscriptParams::serialize(element);
     }
 
-    template <typename T> static T deserialize(std::span<const DataType> frs, size_t* index = nullptr)
+    template <typename T> static T deserialize(std::span<const DataType> frs)
     {
-        T value = TranscriptParams::template deserialize<T>(
-            frs.subspan(index ? *index : 0, TranscriptParams::template calc_num_data_types<T>()));
-        if (index) {
-            index++;
-        }
-        return value;
+        return TranscriptParams::template deserialize<T>(frs);
+    }
+
+    template <typename T> static size_t calc_num_data_types()
+    {
+        return TranscriptParams::template calc_num_data_types<T>();
     }
 
     /**

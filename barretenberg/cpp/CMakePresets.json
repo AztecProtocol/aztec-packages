@@ -194,6 +194,9 @@
         "CFLAGS": "-O2 -gdwarf",
         "CXXFLAGS": "-O2 -gdwarf-4",
         "LDFLAGS": "-O2 -gdwarf-4"
+      },
+      "cacheVariables": {
+        "ENABLE_STACK_TRACES": "ON"
       }
     },
     {
@@ -208,7 +211,7 @@
     },
     {
       "name": "debug-fast-no-avm",
-      "displayName": "Debug build with Clang-20 (no AVM)",
+      "displayName": "Optimized debug build with Clang-20 (no AVM)",
       "description": "Build with globally installed Clang-20 in debug mode excluding the Aztec VM",
       "inherits": "debug-fast",
       "binaryDir": "build-debug-no-avm",
