@@ -86,7 +86,7 @@ template <typename Builder> class FieldSponge {
     {
         // Zero-pad cache
         for (size_t i = cache_size; i < rate; ++i) {
-            cache[i] = field_t::from_witness_index(builder, 0);
+            cache[i] = 0;
         }
 
         perform_duplex();
