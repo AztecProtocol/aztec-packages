@@ -568,7 +568,7 @@ template <typename Builder, typename T> class bigfield {
                              const std::vector<bigfield>& mul_right,
                              const bigfield& divisor,
                              const std::vector<bigfield>& to_sub,
-                             bool enable_divisor_nz_check = false);
+                             bool enable_divisor_nz_check = true);
 
     static bigfield sum(const std::vector<bigfield>& terms);
     static bigfield internal_div(const std::vector<bigfield>& numerators,
