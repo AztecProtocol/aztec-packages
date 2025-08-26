@@ -6,8 +6,8 @@ use dep::protocol_types::{
 };
 use std::meta::derive;
 
-// 2 * 98 (FUNCTION_CALL_SIZE_IN_BYTES) + 32
-global FEE_PAYLOAD_SIZE_IN_BYTES: u32 = 228;
+// 2 * 98 (FUNCTION_CALL_SIZE_IN_BYTES) + 32 + 1 (is_fee_payer)
+global FEE_PAYLOAD_SIZE_IN_BYTES: u32 = 229;
 
 global MAX_FEE_FUNCTION_CALLS: u32 = 2;
 
