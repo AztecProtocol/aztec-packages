@@ -2139,6 +2139,9 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
     uint64_t max_lo_bits = (max_lo.get_msb() + 1);
     uint64_t max_hi_bits = max_hi.get_msb() + 1;
 
+    ASSERT(max_lo_bits > (2 * NUM_LIMB_BITS));
+    ASSERT(max_hi_bits > (2 * NUM_LIMB_BITS));
+
     uint64_t carry_lo_msb = max_lo_bits - (2 * NUM_LIMB_BITS);
     uint64_t carry_hi_msb = max_hi_bits - (2 * NUM_LIMB_BITS);
 
@@ -2581,6 +2584,9 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
 
     field_t lo = field_t<Builder>::from_witness_index(ctx, lo_1_idx) + borrow_lo;
     field_t hi = field_t<Builder>::from_witness_index(ctx, hi_1_idx);
+
+    ASSERT(max_lo_bits > (2 * NUM_LIMB_BITS));
+    ASSERT(max_hi_bits > (2 * NUM_LIMB_BITS));
 
     uint64_t carry_lo_msb = max_lo_bits - (2 * NUM_LIMB_BITS);
     uint64_t carry_hi_msb = max_hi_bits - (2 * NUM_LIMB_BITS);
