@@ -152,6 +152,7 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) {
     let context_finish = quote { context.finish() };
 
     let to_prepend = quote {
+        dep::aztec::oracle::version::assert_oracle_version_matches();
         $args_hasher
         $context_creation
         $assert_initializer
@@ -161,7 +162,6 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) {
         $storage_init
         $message_discovery_call
         $authorize_once_check
-        dep::aztec::oracle::version::assert_oracle_version_matches();
     };
 
     let to_append = quote {
@@ -309,10 +309,10 @@ pub(crate) comptime fn transform_utility(f: FunctionDefinition) {
     // Inject context creation, storage initialization, and message discovery call at the beginning of the function
     // body.
     let to_prepend = quote {
+        dep::aztec::oracle::version::assert_oracle_version_matches();
         $context_creation
         $storage_init
         $message_discovery_call
-        dep::aztec::oracle::version::assert_oracle_version_matches();
     };
     let body = f.body().as_block().unwrap();
     let modified_body = modify_fn_body(body, to_prepend, quote {});
