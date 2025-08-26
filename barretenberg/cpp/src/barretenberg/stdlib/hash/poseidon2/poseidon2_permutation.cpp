@@ -24,7 +24,6 @@ template <typename Builder>
 typename Poseidon2Permutation<Builder>::State Poseidon2Permutation<Builder>::permutation(
     Builder* builder, const typename Poseidon2Permutation<Builder>::State& input)
 {
-    // deep copy
     State current_state(input);
     NativeState current_native_state;
     for (size_t i = 0; i < t; ++i) {
@@ -53,13 +52,7 @@ typename Poseidon2Permutation<Builder>::State Poseidon2Permutation<Builder>::per
         }
     }
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): dummy gate required since the last external gate
-    // from above otherwise expects to read into the first internal gate which is sorted out of sequence
-    builder->create_dummy_gate(builder->blocks.poseidon2_external,
-                               current_state[0].get_witness_index(),
-                               current_state[1].get_witness_index(),
-                               current_state[2].get_witness_index(),
-                               current_state[3].get_witness_index());
+    record_current_state_into_next_row(builder, current_state, builder->blocks.poseidon2_external);
 
     // Internal rounds
     const size_t p_end = rounds_f_beginning + rounds_p;
@@ -78,13 +71,7 @@ typename Poseidon2Permutation<Builder>::State Poseidon2Permutation<Builder>::per
         }
     }
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): dummy gate required since the last internal gate
-    // otherwise expects to read into the next external gate which is sorted out of sequence
-    builder->create_dummy_gate(builder->blocks.poseidon2_internal,
-                               current_state[0].get_witness_index(),
-                               current_state[1].get_witness_index(),
-                               current_state[2].get_witness_index(),
-                               current_state[3].get_witness_index());
+    record_current_state_into_next_row(builder, current_state, builder->blocks.poseidon2_internal);
 
     // Remaining external rounds
     for (size_t i = p_end; i < NUM_ROUNDS; ++i) {
@@ -102,15 +89,9 @@ typename Poseidon2Permutation<Builder>::State Poseidon2Permutation<Builder>::per
             current_state[j] = witness_t<Builder>(builder, current_native_state[j]);
         }
     }
-    // The Poseidon2 permutation is 64 rounds, but needs to be a block of 65 rows, since the result of
-    // applying a round of Poseidon2 is stored in the next row (the shifted row). As a result, we need this end row to
-    // compare with the result from the 64th round of Poseidon2. Note that it does not activate any selectors since it
-    // only serves as a comparison through the shifted wires.
-    builder->create_dummy_gate(builder->blocks.poseidon2_external,
-                               current_state[0].get_witness_index(),
-                               current_state[1].get_witness_index(),
-                               current_state[2].get_witness_index(),
-                               current_state[3].get_witness_index());
+
+    record_current_state_into_next_row(builder, current_state, builder->blocks.poseidon2_external);
+
     return current_state;
 }
 

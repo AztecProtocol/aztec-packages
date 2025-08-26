@@ -54,19 +54,30 @@ template <typename Builder> class Poseidon2Permutation {
     static State permutation(Builder* builder, const State& input);
 
     /**
-     * @brief Separate function to do just the first linear layer (equivalent to external matrix mul).
-     * @details We use 6 arithmetic gates to implement:
-     *          gate 1: Compute tmp1 = state[0] + state[1] + 2 * state[3]
-     *          gate 2: Compute tmp2 = 2 * state[1] + state[2] + state[3]
-     *          gate 3: Compute v2 = 4 * state[0] + 4 * state[1] + tmp2
-     *          gate 4: Compute v1 = v2 + tmp1
-     *          gate 5: Compute v4 = tmp1 + 4 * state[2] + 4 * state[3]
-     *          gate 6: Compute v3 = v4 + tmp2
-     *          output state is [v1, v2, v3, v4]
-     * @param builder
-     * @param state
+     * @brief In-circuit method to efficiently multiply the inital state by the external matrix `M_E`. Uses 6 aritmetic
+     * gates.
      */
     static void matrix_multiplication_external(State& state);
+
+    /**
+     * @brief  The result of applying a round of Poseidon2 is stored in the next row and is accessed by Poseidon2
+     * Internal and External Relations via the shifts mechanism. Note that it does not activate any selectors since it
+     * only serves to store the values. See `Poseidon2ExternalRelationImpl` and `Poseidon2InternalRelationImpl` docs.
+     *
+     * @tparam BlockType
+     * @param builder
+     * @param state
+     * @param block
+     */
+    template <typename BlockType>
+    static void record_current_state_into_next_row(Builder* builder, const State& state, const BlockType& block)
+    {
+        builder->create_dummy_gate(block,
+                                   state[0].get_witness_index(),
+                                   state[1].get_witness_index(),
+                                   state[2].get_witness_index(),
+                                   state[3].get_witness_index());
+    };
 };
 
 } // namespace bb::stdlib
