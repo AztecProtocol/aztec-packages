@@ -270,8 +270,6 @@ class ClientIVC {
 
     Proof prove();
 
-    std::shared_ptr<ClientIVC::DeciderZKProvingKey> construct_hiding_circuit_key(ClientCircuit& circuit);
-    std::shared_ptr<ClientIVC::DeciderZKProvingKey> compute_hiding_circuit_proving_key(ClientCircuit& circuit);
     static void hide_op_queue_accumulation_result(ClientCircuit& circuit);
     HonkProof prove_hiding_circuit(ClientCircuit& circuit);
 

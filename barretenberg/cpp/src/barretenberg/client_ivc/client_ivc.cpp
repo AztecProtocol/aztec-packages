@@ -286,24 +286,17 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     bool is_hiding_kernel =
         stdlib_verification_queue.size() == 1 && (stdlib_verification_queue.front().type == QUEUE_TYPE::PG_FINAL);
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1511): this should check the queue is of size one and
-    // contains an entry of type PG_TAIL, currently it might contain several entries in case it's a minimal transaction
-    // produced by our tests which is not exactly realistic
-    bool is_tail_kernel = std::any_of(stdlib_verification_queue.begin(),
-                                      stdlib_verification_queue.end(),
-                                      [](const auto& entry) { return entry.type == QUEUE_TYPE::PG_TAIL; });
-    // If the incoming circuit is a kernel, start its subtable with an eq and reset operation to ensure a
-    // neighbouring misconfigured subtable coming from an app cannot affect the operations in the
-    // current subtable. We don't do this for the hiding kernel as it succeeds another kernel.
-    if (!is_hiding_kernel) {
-        if (is_tail_kernel) {
-            // Add a no-op at the beginning of the tail kernel (the last circuit whose ecc ops subtable is prepended)
-            // to ensure the wires representing the op queue in translator circuit are shiftable polynomials, i.e.
-            // their 0th coefficient is 0.
-            circuit.queue_ecc_no_op();
-        }
-        circuit.queue_ecc_eq();
+    bool is_tail_kernel =
+        stdlib_verification_queue.size() == 1 && (stdlib_verification_queue.front().type == QUEUE_TYPE::PG_TAIL);
+
+    // The ECC-op subtable for a kernel begins with an eq-and-reset to ensure that the preceeding circuit's subtable
+    // cannot affect the ECC-op accumulator for the kernel. For the tail kernel, we additionally add a preceeding no-op
+    // to ensure the op queue wires in translator are shiftable, i.e. their 0th coefficient is 0. (The tail kernel
+    // subtable is at the top of the final aggregate table since it is the last to be prepended).
+    if (is_tail_kernel) {
+        circuit.queue_ecc_no_op();
     }
+    circuit.queue_ecc_eq();
 
     // Perform Oink/PG and Merge recursive verification + databus consistency checks for each entry in the queue
     PairingPoints points_accumulator;
@@ -337,8 +330,6 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
         BB_ASSERT_EQ(current_stdlib_verifier_accumulator, nullptr);
         HidingKernelIO hiding_output{ points_accumulator, T_prev_commitments };
         hiding_output.set_public();
-        // preserve the hiding circuit so a proof for it can be created
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1502): reconsider approach once integration is
     } else {
         BB_ASSERT_NEQ(current_stdlib_verifier_accumulator, nullptr);
         // Extract native verifier accumulator from the stdlib accum for use on the next round
@@ -487,15 +478,6 @@ void ClientIVC::hide_op_queue_accumulation_result(ClientCircuit& circuit)
 }
 
 /**
- * @brief Construct the proving key of the hiding circuit, from the hiding_circuit builder in the client_ivc class
- */
-std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::compute_hiding_circuit_proving_key(ClientCircuit& circuit)
-{
-    auto hiding_decider_pk = std::make_shared<DeciderZKProvingKey>(circuit, TraceSettings(), bn254_commitment_key);
-    return hiding_decider_pk;
-}
-
-/**
  * @brief Construct a zero-knowledge proof for the hiding circuit, which recursively verifies the last folding,
  * merge and decider proof.
  *
@@ -503,7 +485,8 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::compute_hiding_circui
  */
 HonkProof ClientIVC::prove_hiding_circuit(ClientCircuit& circuit)
 {
-    auto hiding_decider_pk = compute_hiding_circuit_proving_key(circuit);
+    // Note: a structured trace is not used for the hiding kernel
+    auto hiding_decider_pk = std::make_shared<DeciderZKProvingKey>(circuit, TraceSettings(), bn254_commitment_key);
     honk_vk = std::make_shared<MegaZKVerificationKey>(hiding_decider_pk->get_precomputed());
     auto& hiding_circuit_vk = honk_vk;
     // Hiding circuit is proven by a MegaZKProver
