@@ -444,6 +444,65 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
+
+    static void test_divide_by_zero_fails()
+    {
+        Builder builder = Builder();
+        {
+            // numerator and denominator both are witnesses
+            auto [a_native, a_ct] = get_random_witness(&builder, false);
+            fq_ct zero = fq_ct::create_from_u512_as_witness(&builder, uint512_t(0), true);
+            fq_ct zero_modulus = fq_ct::create_from_u512_as_witness(&builder, uint512_t(fq_ct::modulus), true);
+
+            // Division by zero should trigger an assertion failure
+            fq_ct output = a_ct / zero;
+            fq_ct output_modulus = a_ct / zero_modulus;
+
+            // outputs are irrelevant
+            EXPECT_EQ(output.get_value(), 0);
+            EXPECT_EQ(output_modulus.get_value(), 0);
+
+            bool result = CircuitChecker::check(builder);
+            EXPECT_EQ(result, false);
+            EXPECT_EQ(builder.err(), "bigfield: prime limb identity failed");
+        }
+        {
+            // numerator is constant, denominator is witness
+            fq_native a_native = fq_native::random_element();
+            fq_ct a_ct(&builder, uint256_t(a_native));
+            fq_ct zero = fq_ct::create_from_u512_as_witness(&builder, uint512_t(0), true);
+
+            // Division by zero should trigger an assertion failure
+            fq_ct output = a_ct / zero;
+
+            // outputs are irrelevant
+            EXPECT_EQ(output.get_value(), 0);
+
+            bool result = CircuitChecker::check(builder);
+            EXPECT_EQ(result, false);
+            EXPECT_EQ(builder.err(), "bigfield: prime limb identity failed");
+        }
+        {
+            // numerator is witness, denominator is constant
+            [[maybe_unused]] auto [a_native, a_ct] = get_random_witness(&builder, false);
+            fq_ct constant_zero = fq_ct(&builder, uint256_t(0));
+
+#ifndef NDEBUG
+            // In debug mode, we should hit an assertion failure
+            EXPECT_DEATH(a_ct / constant_zero, "field_t::assert_is_not_zero");
+#endif
+        }
+        {
+            // numerator and denominator both are constant
+            fq_native a_native = fq_native::random_element();
+            fq_ct a_ct(&builder, uint256_t(a_native));
+
+#ifndef NDEBUG
+            fq_ct constant_zero = fq_ct(&builder, uint256_t(0));
+            EXPECT_DEATH(a_ct / constant_zero, "bigfield: division by zero in constant division");
+#endif
+        }
+    }
 };
 
 // Define types for which the above tests will be constructed.
@@ -511,4 +570,9 @@ TYPED_TEST(stdlib_bigfield_edge_cases, assert_less_than)
 TYPED_TEST(stdlib_bigfield_edge_cases, assert_equal_edge_case)
 {
     TestFixture::test_assert_equal_edge_case();
+}
+
+TYPED_TEST(stdlib_bigfield_edge_cases, divide_by_zero_fails)
+{
+    TestFixture::test_divide_by_zero_fails();
 }

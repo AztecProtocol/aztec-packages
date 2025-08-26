@@ -838,6 +838,10 @@ bigfield<Builder, T> bigfield<Builder, T>::internal_div(const std::vector<bigfie
     bigfield inverse;
     bigfield quotient;
     if (numerator_constant && denominator.is_constant()) {
+        if (check_for_zero) {
+            // We want to avoid division by zero in the constant case
+            ASSERT(denominator.get_value() != uint512_t(0), "bigfield: division by zero in constant division");
+        }
         inverse = bigfield(ctx, uint256_t(inverse_value));
         inverse.set_origin_tag(tag);
         return inverse;
