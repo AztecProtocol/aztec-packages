@@ -2104,7 +2104,24 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
         max_remainders_lo += remainder.binary_basis_limbs[0].maximum_value +
                              (remainder.binary_basis_limbs[1].maximum_value << NUM_LIMB_BITS);
     }
-    uint256_t borrow_lo_value = max_remainders_lo >> (2 * NUM_LIMB_BITS);
+
+    // While performing the subtraction of remainder r as:
+    //
+    // (a * b + q * p') - (r)
+    //
+    // we want to ensure that the lower limbs do not underflow. So we add a borrow value
+    // to the lower limbs and subtract it from the higher limbs. Naturally, such a borrow value
+    // must be a multiple of 2^2L (where L = NUM_LIMB_BITS). Let borrow_lo_value be the value
+    // borrowed from the hi limbs, then we must have:
+    //
+    // borrow_lo_value * 2^(2L) >= max_remainders_lo
+    //
+    // Thus, we can compute the minimum borrow_lo_value as:
+    //
+    // borrow_lo_value = ⌈ max_remainders_lo / 2^(2L) ⌉
+    //
+    uint256_t borrow_lo_value =
+        (max_remainders_lo + ((uint256_t(1) << (2 * NUM_LIMB_BITS)) - 1)) >> (2 * NUM_LIMB_BITS);
     field_t<Builder> borrow_lo(ctx, bb::fr(borrow_lo_value));
 
     uint512_t max_a0(0);
@@ -2348,7 +2365,24 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
         max_remainders_lo += remainder.binary_basis_limbs[0].maximum_value +
                              (remainder.binary_basis_limbs[1].maximum_value << NUM_LIMB_BITS);
     }
-    uint256_t borrow_lo_value = max_remainders_lo >> (2 * NUM_LIMB_BITS);
+
+    // While performing the subtraction of (sum of) remainder(s) as:
+    //
+    // (Σi ai * bi + q * p') - (Σj rj)
+    //
+    // we want to ensure that the lower limbs do not underflow. So we add a borrow value
+    // to the lower limbs and subtract it from the higher limbs. Naturally, such a borrow value
+    // must be a multiple of 2^2L (where L = NUM_LIMB_BITS). Let borrow_lo_value be the value
+    // borrowed from the hi limbs, then we must have:
+    //
+    // borrow_lo_value * 2^(2L) >= max_remainders_lo
+    //
+    // Thus, we can compute the minimum borrow_lo_value as:
+    //
+    // borrow_lo_value = ⌈ max_remainders_lo / 2^(2L) ⌉
+    //
+    uint256_t borrow_lo_value =
+        (max_remainders_lo + ((uint256_t(1) << (2 * NUM_LIMB_BITS)) - 1)) >> (2 * NUM_LIMB_BITS);
     field_t<Builder> borrow_lo(ctx, bb::fr(borrow_lo_value));
 
     // Compute the maximum value of the quotient times modulus.
