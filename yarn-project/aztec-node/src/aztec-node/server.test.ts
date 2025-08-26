@@ -72,6 +72,8 @@ describe('aztec node', () => {
       version: rollupVersion,
       vkTreeRoot: getVKTreeRoot(),
       protocolContractTreeRoot,
+      // calculate the real txhash
+      mockTxHash: false,
     });
   };
 
