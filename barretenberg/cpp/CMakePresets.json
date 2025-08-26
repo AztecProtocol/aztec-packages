@@ -250,7 +250,8 @@
       "cacheVariables": {
         "ENABLE_ASAN": "ON",
         "DISABLE_AZTEC_VM": "ON",
-        "DISABLE_ASM": "ON"
+        "DISABLE_ASM": "ON",
+        "ENABLE_STACKTRACES": "OFF"
       }
     },
     {
@@ -261,7 +262,8 @@
       "binaryDir": "build-asan",
       "cacheVariables": {
         "ENABLE_ASAN": "ON",
-        "DISABLE_ASM": "ON"
+        "DISABLE_ASM": "ON",
+        "ENABLE_STACKTRACES": "OFF"
       }
     },
     {
