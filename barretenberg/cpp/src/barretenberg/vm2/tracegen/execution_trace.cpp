@@ -605,7 +605,12 @@ void ExecutionTraceBuilder::process(
                               { C::execution_enqueued_call_end, !has_parent ? 1 : 0 },
                               { C::execution_nested_exit_call, has_parent ? 1 : 0 },
                           } });
-            } else if (exec_opcode == ExecutionOpCode::GETENVVAR) {
+            }
+            // Separate if-statement for opcodes.
+            // This cannot be an else-if chained to the above,
+            // because `sel_exit_call` can happen on any opcode
+            // and we still need to tracegen the opcode-specific logic.
+            if (exec_opcode == ExecutionOpCode::GETENVVAR) {
                 assert(ex_event.addressing_event.resolution_info.size() == 2 &&
                        "GETENVVAR should have exactly two resolved operands (envvar enum and output)");
                 // rop[1] is the envvar enum

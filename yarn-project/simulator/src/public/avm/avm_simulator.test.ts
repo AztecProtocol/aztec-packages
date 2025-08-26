@@ -710,9 +710,10 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         expect(results.reverted).toBe(true);
         expect(results.revertReason?.message).toMatch(/Attempted to emit duplicate nullifier/);
 
-        // Nullifier should be traced exactly once
-        expect(trace.traceNewNullifier).toHaveBeenCalledTimes(1);
-        expect(trace.traceNewNullifier).toHaveBeenCalledWith(siloedNullifier0);
+        // Nullifier should still be traced twice. Fails after second trace.
+        expect(trace.traceNewNullifier).toHaveBeenCalledTimes(2);
+        expect(trace.traceNewNullifier).toHaveBeenNthCalledWith(1, siloedNullifier0);
+        expect(trace.traceNewNullifier).toHaveBeenNthCalledWith(2, siloedNullifier0);
       });
     });
 
