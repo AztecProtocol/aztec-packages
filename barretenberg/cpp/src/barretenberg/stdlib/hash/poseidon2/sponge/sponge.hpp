@@ -66,14 +66,6 @@ template <typename Builder> class FieldSponge {
 
         // Apply Poseidon2 permutation
         state = Permutation::permutation(builder, state);
-
-        // variables with indices from rate to size of state - 1 won't be used anymore
-        // after permutation. But they aren't dangerous and needed to put in used witnesses
-        if constexpr (IsUltraBuilder<Builder>) {
-            for (size_t i = rate; i < t; i++) {
-                builder->update_used_witnesses(state[i].witness_index);
-            }
-        }
     }
 
     void absorb(const field_t& input)
@@ -126,7 +118,7 @@ template <typename Builder> class FieldSponge {
         // variables with indices won't be used in the circuit.
         // but they aren't dangerous and needed to put in used witnesses
         if constexpr (IsUltraBuilder<Builder>) {
-            for (const auto& elem : sponge.cache) {
+            for (const auto& elem : sponge.state) {
                 if (!elem.is_constant()) {
                     builder.update_used_witnesses(elem.witness_index);
                 }

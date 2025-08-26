@@ -17,7 +17,6 @@ template <typename C> field_t<C> poseidon2<C>::hash(C& builder, const std::vecto
 {
 
     /* Run the sponge by absorbing all the input and squeezing one output.
-     * This should just call the sponge variable length hash function
      *
      */
     return Sponge::hash_internal(builder, inputs);
