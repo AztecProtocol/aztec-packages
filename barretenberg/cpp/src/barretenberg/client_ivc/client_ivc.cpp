@@ -404,9 +404,9 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
         prover_accumulation_transcript = std::make_shared<Transcript>();
     }
 
-    // // make a copy of the prover_accumulation_transcript for the verifier to use
-    // auto verifier_transcript =
-    //     Transcript::convert_prover_transcript_to_verifier_transcript(prover_accumulation_transcript);
+    // make a copy of the prover_accumulation_transcript for the verifier to use
+    auto verifier_transcript =
+        Transcript::convert_prover_transcript_to_verifier_transcript(prover_accumulation_transcript);
 
     VerifierInputs queue_entry{ .honk_vk = honk_vk,
                                 // first circuit accumulated should be an app
@@ -414,8 +414,6 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
     if (num_circuits_accumulated == 0) { // First circuit in the IVC
         BB_ASSERT_EQ(queue_entry.is_kernel, false, "First circuit accumulated is always be an app");
         // For first circuit in the IVC, use oink to complete the decider proving key and generate an oink proof
-        auto oink_verifier_transcript =
-            Transcript::convert_prover_transcript_to_verifier_transcript(prover_accumulation_transcript);
         MegaOinkProver oink_prover{ proving_key, honk_vk, prover_accumulation_transcript };
         vinfo("computing oink proof...");
         oink_prover.prove();
@@ -425,8 +423,8 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
         fold_output.accumulator = proving_key; // initialize the prover accum with the completed key
 
         auto decider_vk = std::make_shared<DeciderVerificationKey>(honk_vk);
-        oink_verifier_transcript->load_proof(oink_proof);
-        OinkVerifier<Flavor> oink_verifier{ decider_vk, oink_verifier_transcript };
+        verifier_transcript->load_proof(oink_proof);
+        OinkVerifier<Flavor> oink_verifier{ decider_vk, verifier_transcript };
         oink_verifier.verify();
         native_verifier_accum = decider_vk;
         native_verifier_accum->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
@@ -434,16 +432,14 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
         queue_entry.type = QUEUE_TYPE::OINK;
         queue_entry.proof = oink_proof;
     } else if (num_circuits_accumulated == num_circuits - 1) {
-        queue_entry.type = QUEUE_TYPE::MEGA;
         // construct the mega proof of the hiding circuit
         auto mega_proof = prove_hiding_circuit(circuit);
+
+        queue_entry.type = QUEUE_TYPE::MEGA;
         queue_entry.proof = mega_proof;
     } else { // Otherwise, fold the new key into the accumulator
         vinfo("computing folding proof");
         auto vk = std::make_shared<DeciderVerificationKey_<Flavor>>(honk_vk);
-        // make a copy of the prover_accumulation_transcript for the verifier to use
-        auto verifier_accumulation_transcript =
-            Transcript::convert_prover_transcript_to_verifier_transcript(prover_accumulation_transcript);
         // Only fiat shamir if this is a kernel with the assumption that kernels are always the first being recursively
         // verified.
         if (is_kernel) {
@@ -460,11 +456,11 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
         vinfo("constructed folding proof");
         if (is_kernel) {
             // Fiat-Shamir the verifier accumulator
-            FF accum_hash = native_verifier_accum->hash_through_transcript("", *verifier_accumulation_transcript);
-            verifier_accumulation_transcript->add_to_hash_buffer("accum_hash", accum_hash);
+            FF accum_hash = native_verifier_accum->hash_through_transcript("", *verifier_transcript);
+            verifier_transcript->add_to_hash_buffer("accum_hash", accum_hash);
             info("Accumulator hash in PG verifier: ", accum_hash);
         }
-        FoldingVerifier folding_verifier({ native_verifier_accum, vk }, verifier_accumulation_transcript);
+        FoldingVerifier folding_verifier({ native_verifier_accum, vk }, verifier_transcript);
         native_verifier_accum = folding_verifier.verify_folding_proof(fold_output.proof);
 
         if (num_circuits_accumulated == num_circuits - 2) {
