@@ -214,7 +214,7 @@
       "displayName": "Optimized debug build with Clang-20 (no AVM)",
       "description": "Build with globally installed Clang-20 in debug mode excluding the Aztec VM",
       "inherits": "debug-fast",
-      "binaryDir": "build-debug-no-avm",
+      "binaryDir": "build-debug-fast-no-avm",
       "cacheVariables": {
         "DISABLE_AZTEC_VM": "ON",
         "ENABLE_STACKTRACES": "ON"
