@@ -72,13 +72,11 @@ template <typename Builder> class Poseidon2Permutation {
      * Internal and External Relations via the shifts mechanism. Note that it does not activate any selectors since it
      * only serves to store the values. See `Poseidon2ExternalRelationImpl` and `Poseidon2InternalRelationImpl` docs.
      *
-     * @tparam BlockType
      * @param builder
-     * @param state
-     * @param block
+     * @param state an array of `t` field_t elements
+     * @param block Either `poseidon2_external` or `poseidon2_internal` block of the Execution Trace
      */
-    template <typename BlockType>
-    static void record_current_state_into_next_row(Builder* builder, const State& state, BlockType& block)
+    static void record_current_state_into_next_row(Builder* builder, const State& state, auto& block)
     {
         builder->create_dummy_gate(block,
                                    state[0].get_witness_index(),

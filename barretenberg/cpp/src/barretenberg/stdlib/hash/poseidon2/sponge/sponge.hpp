@@ -115,8 +115,8 @@ template <typename Builder> class FieldSponge {
 
         field_t output = sponge.squeeze();
 
-        // variables with indices won't be used in the circuit.
-        // but they aren't dangerous and needed to put in used witnesses
+        // The final state consists of 4 elements, we only take the first element, which means that the remaining
+        // 3 witnesses are only used in a single gate.
         if constexpr (IsUltraBuilder<Builder>) {
             for (const auto& elem : sponge.state) {
                 if (!elem.is_constant()) {
