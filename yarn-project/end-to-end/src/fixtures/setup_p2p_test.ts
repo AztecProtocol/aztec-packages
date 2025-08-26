@@ -154,7 +154,7 @@ export async function createValidatorConfig(
   const attesterPrivateKey = bufferToHex(getPrivateKeyFromIndex(ATTESTER_PRIVATE_KEYS_START_INDEX + addressIndex)!);
 
   config.validatorPrivateKeys = new SecretValue([attesterPrivateKey]);
-  config.publisherPrivateKey = new SecretValue(attesterPrivateKey);
+  config.publisherPrivateKeys = [new SecretValue(attesterPrivateKey)];
 
   const nodeConfig: AztecNodeConfig = {
     ...config,
