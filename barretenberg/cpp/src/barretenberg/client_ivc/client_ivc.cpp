@@ -227,6 +227,7 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     // std::vector<StdlibFF> public_inputs = std::move(verifier_instance->public_inputs);
 
     PairingPoints nested_pairing_points; // to be extracted from public inputs of app or kernel proof just verified
+
     if (verifier_inputs.is_kernel) {
         // Reconstruct the input from the previous kernel from its public inputs
         KernelIO kernel_input; // pairing points, databus return data commitments
@@ -420,9 +421,9 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
         prover_accumulation_transcript = std::make_shared<Transcript>();
     }
 
-    // make a copy of the prover_accumulation_transcript for the verifier to use
-    auto verifier_transcript =
-        Transcript::convert_prover_transcript_to_verifier_transcript(prover_accumulation_transcript);
+    // // make a copy of the prover_accumulation_transcript for the verifier to use
+    // auto verifier_transcript =
+    //     Transcript::convert_prover_transcript_to_verifier_transcript(prover_accumulation_transcript);
 
     VerifierInputs queue_entry{ .honk_vk = honk_vk,
                                 // first circuit accumulated should be an app
@@ -430,6 +431,8 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
     if (num_circuits_accumulated == 0) { // First circuit in the IVC
         BB_ASSERT_EQ(queue_entry.is_kernel, false, "First circuit accumulated is always be an app");
         // For first circuit in the IVC, use oink to complete the decider proving key and generate an oink proof
+        auto oink_verifier_transcript =
+            Transcript::convert_prover_transcript_to_verifier_transcript(prover_accumulation_transcript);
         MegaOinkProver oink_prover{ proving_key, honk_vk, prover_accumulation_transcript };
         vinfo("computing oink proof...");
         oink_prover.prove();
@@ -437,6 +440,13 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
         vinfo("oink proof constructed");
 
         fold_output.accumulator = proving_key; // initialize the prover accum with the completed key
+
+        auto decider_vk = std::make_shared<DeciderVerificationKey>(honk_vk);
+        oink_verifier_transcript->load_proof(oink_proof);
+        OinkVerifier<Flavor> oink_verifier{ decider_vk, oink_verifier_transcript };
+        oink_verifier.verify();
+        native_verifier_accum = decider_vk;
+        native_verifier_accum->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
 
         queue_entry.type = QUEUE_TYPE::OINK;
         queue_entry.proof = oink_proof;
