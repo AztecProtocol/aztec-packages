@@ -246,12 +246,14 @@ class ClientIVC {
     void instantiate_stdlib_verification_queue(ClientCircuit& circuit,
                                                const std::vector<std::shared_ptr<RecursiveVKAndHash>>& input_keys = {});
 
-    [[nodiscard("Pairing points should be accumulated")]] std::pair<PairingPoints, TableCommitments>
-    perform_recursive_verification_and_databus_consistency_checks(
-        ClientCircuit& circuit,
-        const StdlibVerifierInputs& verifier_inputs,
-        const TableCommitments& T_prev_commitments,
-        const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript);
+    [[nodiscard("Pairing points should be accumulated")]] std::
+        tuple<std::shared_ptr<RecursiveDeciderVerificationKey>, PairingPoints, TableCommitments>
+        perform_recursive_verification_and_databus_consistency_checks(
+            ClientCircuit& circuit,
+            const StdlibVerifierInputs& verifier_inputs,
+            const std::shared_ptr<RecursiveDeciderVerificationKey>& input_stdlib_verifier_accumulator,
+            const TableCommitments& T_prev_commitments,
+            const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript);
 
     // Complete the logic of a kernel circuit (e.g. PG/merge recursive verification, databus consistency checks)
     void complete_kernel_circuit_logic(ClientCircuit& circuit);

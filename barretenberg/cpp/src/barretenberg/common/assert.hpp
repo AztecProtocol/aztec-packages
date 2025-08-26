@@ -31,6 +31,7 @@
 #define ASSERT(expression, ...) DONT_EVALUATE((expression))
 
 #define BB_ASSERT_EQ(actual, expected, ...) DONT_EVALUATE((actual) == (expected))
+#define BB_ASSERT_NEQ(actual, expected, ...) DONT_EVALUATE((actual) != (expected))
 #define BB_ASSERT_GT(left, right, ...) DONT_EVALUATE((left) > (right))
 #define BB_ASSERT_GTE(left, right, ...) DONT_EVALUATE((left) >= (right))
 #define BB_ASSERT_LT(left, right, ...) DONT_EVALUATE((left) < (right))
@@ -64,6 +65,20 @@
             oss << "Assertion failed: (" #actual " == " #expected ")\n";                                               \
             oss << "  Actual  : " << _actual << "\n";                                                                  \
             oss << "  Expected: " << _expected;                                                                        \
+            __VA_OPT__(oss << "\n  Reason  : " << __VA_ARGS__;)                                                        \
+            throw_or_abort(oss.str());                                                                                 \
+        }                                                                                                              \
+    } while (0)
+
+#define BB_ASSERT_NEQ(actual, expected, ...)                                                                           \
+    do {                                                                                                               \
+        auto _actual = (actual);                                                                                       \
+        auto _expected = (expected);                                                                                   \
+        if (!(_actual != _expected)) {                                                                                 \
+            std::ostringstream oss;                                                                                    \
+            oss << "Assertion failed: (" #actual " != " #expected ")\n";                                               \
+            oss << "  Actual  : " << _actual << "\n";                                                                  \
+            oss << "  Not expected: " << _expected;                                                                    \
             __VA_OPT__(oss << "\n  Reason  : " << __VA_ARGS__;)                                                        \
             throw_or_abort(oss.str());                                                                                 \
         }                                                                                                              \

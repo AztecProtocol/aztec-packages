@@ -72,8 +72,6 @@ template <IsUltraOrMegaHonk Flavor> class DeciderVerificationKey_ {
                                                   this->relation_parameters.gamma);
         transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_public_input_delta",
                                                   this->relation_parameters.public_input_delta);
-        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_lookup_grand_product_delta",
-                                                  this->relation_parameters.lookup_grand_product_delta);
         transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_target_sum", this->target_sum);
         transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_gate_challenges",
                                                   this->gate_challenges);
