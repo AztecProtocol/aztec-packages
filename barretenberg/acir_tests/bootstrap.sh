@@ -33,7 +33,6 @@ function run_proof_generation {
   local bb=$(realpath ../cpp/$native_build_dir/bin/bb)
   local outdir=$(mktemp -d)
   trap "rm -rf $outdir" EXIT
-  local adjustment=16
   local ipa_accumulation_flag=""
 
   cd ./acir_tests/assert_statement
@@ -42,14 +41,13 @@ function run_proof_generation {
 
   # Adjust settings based on program type
   if [[ $program == *"rollup"* ]]; then
-      adjustment=26
       ipa_accumulation_flag="--ipa_accumulation"
   fi
   # If the test program has zk in it's name would like to use the zk prover, so we empty the flag in this case.
   if [[ $program == *"zk"* ]]; then
     disable_zk=""
   fi
-  local prove_cmd="$bb prove --scheme ultra_honk $disable_zk --init_kzg_accumulator $ipa_accumulation_flag --write_vk -o $outdir -b ./target/program.json -w ./target/witness.gz"
+  local prove_cmd="$bb prove --scheme ultra_honk $disable_zk $ipa_accumulation_flag --write_vk -o $outdir -b ./target/program.json -w ./target/witness.gz"
   echo_stderr "$prove_cmd"
   dump_fail "$prove_cmd"
 
@@ -166,10 +164,10 @@ function test_cmds {
 
   # bb.js browser tests. Isolate because server.
   local browser_prefix="$tests_hash:ISOLATE=1:NET=1:CPUS=8"
-  echo "$browser_prefix:NAME=chrome_verify_honk_proof $scripts/browser_prove.sh verify_honk_proof chrome"
-  echo "$browser_prefix:NAME=chrome_a_1_mul $scripts/browser_prove.sh a_1_mul chrome"
-  echo "$browser_prefix:NAME=webkit_verify_honk_proof $scripts/browser_prove.sh verify_honk_proof webkit"
-  echo "$browser_prefix:NAME=webkit_a_1_mul $scripts/browser_prove.sh a_1_mul webkit"
+  echo "$browser_prefix $scripts/browser_prove.sh verify_honk_proof chrome"
+  echo "$browser_prefix $scripts/browser_prove.sh a_1_mul chrome"
+  echo "$browser_prefix $scripts/browser_prove.sh verify_honk_proof webkit"
+  echo "$browser_prefix $scripts/browser_prove.sh a_1_mul webkit"
 
   # bb.js tests.
   # ecdsa_secp256r1_3x through bb.js on node to check 256k support.
