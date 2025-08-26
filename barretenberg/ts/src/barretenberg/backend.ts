@@ -147,11 +147,7 @@ export class UltraHonkBackend {
         bytecode: Buffer.from(this.acirUncompressedBytecode),
         verificationKey: Buffer.from([]), // Empty VK - lower performance.
       },
-<<<<<<< HEAD
       settings: getProofSettingsFromOptions(options)
-=======
-      settings: this.getProofSettingsFromOptions(options)
->>>>>>> origin/merge-train/barretenberg
     });
     console.log(`Generated proof for circuit with ${publicInputs.length} public inputs and ${proof.length} fields.`);
 
@@ -177,21 +173,13 @@ export class UltraHonkBackend {
         name: 'circuit',
         bytecode: this.acirUncompressedBytecode,
       },
-<<<<<<< HEAD
       settings: getProofSettingsFromOptions(options),
-=======
-      settings: this.getProofSettingsFromOptions(options),
->>>>>>> origin/merge-train/barretenberg
     });
     const {verified} = await this.api.circuitVerify({
       verificationKey: vkResult.bytes,
       publicInputs: proofData.publicInputs.map(hexToUint8Array),
       proof: proofFrs,
-<<<<<<< HEAD
       settings: getProofSettingsFromOptions(options),
-=======
-      settings: this.getProofSettingsFromOptions(options),
->>>>>>> origin/merge-train/barretenberg
     });
     return verified;
   }
@@ -204,11 +192,7 @@ export class UltraHonkBackend {
         name: 'circuit',
         bytecode: Buffer.from(this.acirUncompressedBytecode),
       },
-<<<<<<< HEAD
       settings: getProofSettingsFromOptions(options),
-=======
-      settings: this.getProofSettingsFromOptions(options),
->>>>>>> origin/merge-train/barretenberg
     });
     return vkResult.bytes;
   }
@@ -243,33 +227,20 @@ export class UltraHonkBackend {
         name: 'circuit',
         bytecode: Buffer.from(this.acirUncompressedBytecode),
       },
-<<<<<<< HEAD
       settings: getProofSettingsFromOptions({}),
     });
 
     // Convert VK bytes to field elements (32-byte chunks)
     const vkAsFields: string[] = [];
     for (let i = 0; i < vkResult.bytes.length; i += 32) {
-      const chunk = vkResult.bytes.slice(i, Math.min(i + 32, vkResult.bytes.length));
-      // Pad with leading zeros if chunk is less than 32 bytes
-      const padded = chunk.length < 32 
-        ? new Uint8Array([...new Array(32 - chunk.length).fill(0), ...chunk])
-        : chunk;
-      vkAsFields.push('0x' + Array.from(padded).map(b => b.toString(16).padStart(2, '0')).join(''));
+      const chunk = vkResult.bytes.slice(i, i + 32);
+      vkAsFields.push(uint8ArrayToHex(chunk));
     }
-=======
-      settings: this.getProofSettingsFromOptions({}),
-    });
->>>>>>> origin/merge-train/barretenberg
 
     return {
       // TODO(https://github.com/noir-lang/noir/issues/5661)
       proofAsFields: [],
-<<<<<<< HEAD
       vkAsFields,
-=======
-      vkAsFields: vkResult.fields.map(field => field.toString()),
->>>>>>> origin/merge-train/barretenberg
       // We use an empty string for the vk hash here as it is unneeded as part of the recursive artifacts
       // The user can be expected to hash the vk inside their circuit to check whether the vk is the circuit
       // they expect

@@ -1,31 +1,7 @@
-From 8ca3b8e97ac85629d879856f882623e73b7c39f0 Mon Sep 17 00:00:00 2001
-From: TomAFrench <tom@tomfren.ch>
-Date: Sat, 15 Mar 2025 15:36:12 +0000
-Subject: [PATCH 1/2] chore: turn on `skipLibCheck`
-
----
- tooling/noir_codegen/tsconfig.json | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/tooling/noir_codegen/tsconfig.json b/tooling/noir_codegen/tsconfig.json
-index 30dd2a7ee..a2712fd73 100644
---- a/tooling/noir_codegen/tsconfig.json
-+++ b/tooling/noir_codegen/tsconfig.json
-@@ -10,6 +10,7 @@
-     "resolveJsonModule": true,
-     "strict": true,
-     "noImplicitAny": false,
-+    "skipLibCheck": true
-   },
-   "include": [
-     "src/**/*.ts"
---
-2.43.0
-
-From 16fd73b7a2fa2dd52d9a36343517bbcf76889740 Mon Sep 17 00:00:00 2001
+From 821cc8008e889421f276b5a9545621ef91068065 Mon Sep 17 00:00:00 2001
 From: dbanks12 <david@aztec-labs.com>
 Date: Thu, 21 Aug 2025 17:02:22 +0000
-Subject: [PATCH 2/2] feat!: force inliner aggressiveness to 0 for for
+Subject: [PATCH 1/3] feat!: force inliner aggressiveness to 0 for for
  public_dispatch contract fn
 
 ---
@@ -33,13 +9,13 @@ Subject: [PATCH 2/2] feat!: force inliner aggressiveness to 0 for for
  1 file changed, 4 insertions(+)
 
 diff --git a/compiler/noirc_driver/src/lib.rs b/compiler/noirc_driver/src/lib.rs
-index 3c5a9a5cf..b25610fbd 100644
+index d90d73dfe6..a300e27745 100644
 --- a/compiler/noirc_driver/src/lib.rs
 +++ b/compiler/noirc_driver/src/lib.rs
 @@ -645,6 +645,10 @@ fn compile_contract_inner(
              }
          };
-
+ 
 +        if name == "public_dispatch" {
 +            options.inliner_aggressiveness = 0;
 +        }
@@ -47,5 +23,140 @@ index 3c5a9a5cf..b25610fbd 100644
          let function = match compile_no_check(context, &options, function_id, None, true) {
              Ok(function) => function,
              Err(new_error) => {
---
+-- 
 2.43.0
+
+
+From 60c9a17727c8e17cdb2d53c7709ea6a1a1b3d4d1 Mon Sep 17 00:00:00 2001
+From: ludamad <domuradical@gmail.com>
+Date: Mon, 25 Aug 2025 18:15:35 +0000
+Subject: [PATCH 2/3] Noir local patch commit.
+
+-- 
+2.43.0
+
+
+From c6721c28a1c645991994bfab28cfe01d14def7ac Mon Sep 17 00:00:00 2001
+From: ludamad <domuradical@gmail.com>
+Date: Tue, 26 Aug 2025 17:29:38 +0000
+Subject: [PATCH 3/3] fix: limit thread spawning to actual workload size
+
+Prevents thread creation failures when spawning more threads than needed.
+Instead of always spawning rayon::current_num_threads() threads (which
+can be 160+ on large machines), we now:
+- Only spawn as many threads as there are files/tests/packages to process
+- Pre-filter .nr files to avoid checking extensions in the worker loop
+- Allow 0 threads when there's no work to do
+
+This fixes intermittent 'Resource temporarily unavailable' crashes when
+multiple Noir processes run concurrently on high-core-count machines.
+---
+ tooling/nargo/src/lib.rs              | 34 ++++++++++++++++++---------
+ tooling/nargo_cli/src/cli/test_cmd.rs | 12 +++++++---
+ 2 files changed, 32 insertions(+), 14 deletions(-)
+
+diff --git a/tooling/nargo/src/lib.rs b/tooling/nargo/src/lib.rs
+index 078de320a6..fa1630d24d 100644
+--- a/tooling/nargo/src/lib.rs
++++ b/tooling/nargo/src/lib.rs
+@@ -231,9 +231,29 @@ pub fn parse_all(file_manager: &FileManager) -> ParsedFiles {
+ 
+ #[cfg(not(any(target_arch = "wasm32", target_arch = "wasm64")))]
+ pub fn parse_all(file_manager: &FileManager) -> ParsedFiles {
+-    let num_threads = rayon::current_num_threads();
++    // Collect only .nr files to process
++    let nr_files: Vec<_> = file_manager
++        .as_file_map()
++        .all_file_ids()
++        .filter(|&&file_id| {
++            let file_path = file_manager.path(file_id).expect("expected file to exist");
++            let file_extension =
++                file_path.extension().expect("expected all file paths to have an extension");
++            file_extension == "nr"
++        })
++        .copied()
++        .collect();
++
++    // Limit threads to the actual number of files we need to process
++    let num_threads = std::cmp::min(rayon::current_num_threads(), nr_files.len());
++
++    // Early return if no files to process
++    if num_threads == 0 {
++        return ParsedFiles::default();
++    }
++
+     let (sender, receiver) = mpsc::channel();
+-    let iter = &Mutex::new(file_manager.as_file_map().all_file_ids());
++    let iter = &Mutex::new(nr_files.into_iter());
+ 
+     thread::scope(|scope| {
+         // Start worker threads
+@@ -247,18 +267,10 @@ pub fn parse_all(file_manager: &FileManager) -> ParsedFiles {
+                 .spawn_scoped(scope, move || {
+                     loop {
+                         // Get next file to process from the iterator.
+-                        let Some(&file_id) = iter.lock().unwrap().next() else {
++                        let Some(file_id) = iter.lock().unwrap().next() else {
+                             break;
+                         };
+ 
+-                        let file_path = file_manager.path(file_id).expect("expected file to exist");
+-                        let file_extension = file_path
+-                            .extension()
+-                            .expect("expected all file paths to have an extension");
+-                        if file_extension != "nr" {
+-                            continue;
+-                        }
+-
+                         let parsed_file = parse_file(file_manager, file_id);
+ 
+                         if thread_sender.send((file_id, parsed_file)).is_err() {
+diff --git a/tooling/nargo_cli/src/cli/test_cmd.rs b/tooling/nargo_cli/src/cli/test_cmd.rs
+index 67aff3319c..cc0992b0b7 100644
+--- a/tooling/nargo_cli/src/cli/test_cmd.rs
++++ b/tooling/nargo_cli/src/cli/test_cmd.rs
+@@ -366,12 +366,16 @@ impl<'a> TestRunner<'a> {
+             Vec<Test<'a>>,
+         ) = tests.into_iter().partition(|test| !test.has_arguments);
+ 
++        // Calculate the actual number of threads needed based on test count
++        let standard_test_count = iter_tests_without_arguments.len();
++        let num_threads = std::cmp::min(self.num_threads, standard_test_count);
++
+         let iter_tests_without_arguments = &Mutex::new(iter_tests_without_arguments.into_iter());
+         let iter_tests_with_arguments = &Mutex::new(iter_tests_with_arguments.into_iter());
+ 
+         thread::scope(|scope| {
+             // Start worker threads
+-            for _ in 0..self.num_threads {
++            for _ in 0..num_threads {
+                 // Clone sender so it's dropped once the thread finishes
+                 let test_result_thread_sender = sender.clone();
+                 let standard_tests_finished_thread_sender = standard_tests_finished_sender.clone();
+@@ -398,7 +402,7 @@ impl<'a> TestRunner<'a> {
+                     // Wait for at least half of the threads to finish processing the standard tests
+                     while standard_tests_finished_receiver.recv().is_ok() {
+                         standard_tests_threads_finished += 1;
+-                        if standard_tests_threads_finished >= max(1, self.num_threads / 2) {
++                        if standard_tests_threads_finished >= max(1, num_threads / 2) {
+                             break;
+                         }
+                     }
+@@ -493,11 +497,13 @@ impl<'a> TestRunner<'a> {
+         let mut error = None;
+ 
+         let (sender, receiver) = mpsc::channel();
++        let packages_count = self.workspace.members.len();
++        let num_threads = std::cmp::min(self.num_threads, packages_count);
+         let iter = &Mutex::new(self.workspace.into_iter());
+ 
+         thread::scope(|scope| {
+             // Start worker threads
+-            for _ in 0..self.num_threads {
++            for _ in 0..num_threads {
+                 // Clone sender so it's dropped once the thread finishes
+                 let thread_sender = sender.clone();
+                 thread::Builder::new()
+-- 
+2.43.0
+
