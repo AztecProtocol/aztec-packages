@@ -145,7 +145,8 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
                 return negative_inverse_seven;
             }
         };
-        auto adjusted_skew = precompute_skew * negative_inverse_seven();
+        auto adjusted_skew =
+            precompute_skew * negative_inverse_seven(); // `precompute_skew` ∈ {0, 7}, `adjusted_skew`∈ {0, -1}
 
         const auto& wnaf_scalar_sum = View(in.precompute_scalar_sum);
         const auto w0 = convert_to_wnaf<Accumulator>(View(in.precompute_s1hi), View(in.precompute_s1lo));
@@ -168,7 +169,7 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
         row_slice += row_slice;
         row_slice += row_slice;
         row_slice += row_slice;
-        row_slice += w3;
+        row_slice += w3; // row_slice = 2^12 w_0 + 2^8 w_1 + 2^4 w_2 + 2^0 w_3
 
         auto scalar_sum_full = wnaf_scalar_sum + wnaf_scalar_sum;
         scalar_sum_full += scalar_sum_full;
@@ -186,7 +187,8 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
         scalar_sum_full += scalar_sum_full;
         scalar_sum_full += scalar_sum_full;
         scalar_sum_full += scalar_sum_full;
-        scalar_sum_full += row_slice + adjusted_skew;
+        scalar_sum_full +=
+            row_slice + adjusted_skew; // scalar_sum_full = 2^16 * wnaf_scalar_sum + row_slice + adjusted_skew
 
         auto precompute_point_transition = View(in.precompute_point_transition);
 
@@ -314,7 +316,6 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_denominator(const Al
 
         auto lookup_first = (-z1_zero + 1);
         auto lookup_second = (-z2_zero + 1);
-        // FF endomorphism_base_field_shift = FF::cube_root_of_unity();
         FF endomorphism_base_field_shift = FF(bb::fq::cube_root_of_unity());
 
         auto transcript_input1 =
@@ -342,12 +343,6 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_denominator(const Al
         // point_table_init_write = degree 7
         auto point_table_init_write = transcript_mul * transcript_product + (-transcript_mul + 1);
         denominator *= point_table_init_write; // degree 17
-
-        // auto point_table_init_write_1 = transcript_mul * transcript_input1 + (-transcript_mul + 1);
-        // denominator *= point_table_init_write_1; // degree-11
-
-        // auto point_table_init_write_2 = transcript_mul * transcript_input2 + (-transcript_mul + 1);
-        // denominator *= point_table_init_write_2; // degree-14
     }
     /**
      * @brief Third term: tuple of (point-counter, P.x, P.y, msm-size) from ECCVMTranscriptRelation.
