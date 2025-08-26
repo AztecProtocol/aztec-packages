@@ -66,7 +66,7 @@ Polynomial<typename Flavor::FF> ProtogalaxyProver_<Flavor, NUM_KEYS>::perturbato
         transcript->send_to_verifier("perturbator_" + std::to_string(idx), perturbator[idx]);
     }
 
-    return std::make_tuple(keys_to_fold[1]->gate_challenges, perturbator);
+    return perturbator;
 };
 
 template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS>
