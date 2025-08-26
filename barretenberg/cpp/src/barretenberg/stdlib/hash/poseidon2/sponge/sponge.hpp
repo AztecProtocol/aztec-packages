@@ -31,9 +31,13 @@ namespace bb::stdlib {
  * @tparam t
  * @tparam Permutation
  */
-template <size_t rate, size_t capacity, size_t t, typename Builder> class FieldSponge {
+template <typename Builder> class FieldSponge {
   public:
     using Permutation = Poseidon2Permutation<Builder>;
+    static constexpr size_t t = crypto::Poseidon2Bn254ScalarFieldParams::t;
+    static constexpr size_t capacity = 1;
+    static constexpr size_t rate = t - capacity; // =3
+
     using field_t = stdlib::field_t<Builder>;
 
     // sponge state. t = rate + capacity. capacity = 1 field element (~256 bits)
@@ -44,14 +48,17 @@ template <size_t rate, size_t capacity, size_t t, typename Builder> class FieldS
     size_t cache_size = 0;
     Builder* builder;
 
-    FieldSponge(Builder& builder_, field_t domain_iv = 0)
+    FieldSponge(Builder& builder_, size_t in_len)
         : builder(&builder_)
     {
         for (size_t i = 0; i < rate; ++i) {
             // The witness at idx = 0 is constrained to be 0.
             state[i] = field_t::from_witness_index(builder, 0);
         }
-        state[rate] = witness_t<Builder>::create_constant_witness(builder, domain_iv.get_value());
+
+        const field_t iv(static_cast<uint256_t>(in_len) << 64);
+
+        state[rate] = iv.convert_constant_to_fixed_witness(builder);
     }
 
     void perform_duplex()
@@ -120,8 +127,7 @@ template <size_t rate, size_t capacity, size_t t, typename Builder> class FieldS
     static field_t hash_internal(Builder& builder, std::span<const field_t> input)
     {
         size_t in_len = input.size();
-        const uint256_t iv = (static_cast<uint256_t>(in_len) << 64);
-        FieldSponge sponge(builder, iv);
+        FieldSponge sponge(builder, in_len);
 
         for (size_t i = 0; i < in_len; ++i) {
             BB_ASSERT_EQ(input[i].is_constant(), false, "Sponge inputs should not be stdlib constants.");
