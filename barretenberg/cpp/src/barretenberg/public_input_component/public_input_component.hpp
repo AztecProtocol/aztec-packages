@@ -50,7 +50,6 @@ class PublicInputComponent {
         if (!key.is_set()) {
             throw_or_abort("ERROR: Trying to construct a PublicInputComponent from an invalid key!");
         }
-
         // Use the provided key to extract the limbs of the component from the public inputs then reconstruct it
         BB_ASSERT_LTE(key.start_idx + COMPONENT_SIZE,
                       public_inputs.size(),

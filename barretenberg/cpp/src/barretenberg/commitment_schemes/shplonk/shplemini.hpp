@@ -203,7 +203,6 @@ template <typename Curve> class ShpleminiVerifier_ {
      */
     template <typename Transcript>
     static BatchOpeningClaim<Curve> compute_batch_opening_claim(
-        std::span<const Fr> padding_indicator_array,
         ClaimBatcher& claim_batcher,
         const std::vector<Fr>& multivariate_challenge,
         const Commitment& g1_identity,
@@ -345,8 +344,7 @@ template <typename Curve> class ShpleminiVerifier_ {
         // Reconstruct Aᵢ(r²ⁱ) for i=0, ..., d - 1 from the batched evaluation of the multilinear polynomials and
         // Aᵢ(−r²ⁱ) for i = 0, ..., d - 1. In the case of interleaving, we compute A₀(r) as A₀₊(r) + P₊(r^s).
         const std::vector<Fr> gemini_fold_pos_evaluations =
-            GeminiVerifier_<Curve>::compute_fold_pos_evaluations(padding_indicator_array,
-                                                                 batched_evaluation,
+            GeminiVerifier_<Curve>::compute_fold_pos_evaluations(batched_evaluation,
                                                                  multivariate_challenge,
                                                                  gemini_eval_challenge_powers,
                                                                  gemini_fold_neg_evaluations,
@@ -355,8 +353,7 @@ template <typename Curve> class ShpleminiVerifier_ {
         // Place the commitments to Gemini fold polynomials Aᵢ in the vector of batch_mul commitments, compute the
         // contributions from Aᵢ(−r²ⁱ) for i=1, … , d − 1 to the constant term accumulator, add corresponding scalars
         // for the batch mul
-        batch_gemini_claims_received_from_prover(padding_indicator_array,
-                                                 fold_commitments,
+        batch_gemini_claims_received_from_prover(fold_commitments,
                                                  gemini_fold_neg_evaluations,
                                                  gemini_fold_pos_evaluations,
                                                  inverse_vanishing_evals,
@@ -431,11 +428,9 @@ template <typename Curve> class ShpleminiVerifier_ {
      * \frac{\nu^2}{z - r^2} + \frac{\nu^3}{z + r^2},
      * \frac{\nu^4}{z - r^4} + \frac{\nu^5}{z + r^4},
      * \ldots,
-     * \frac{\nu^{2 \cdot d} } {z - r^{2^{d-1}}} + \frac{\nu^{2 \cdot d + 1}}{z + r^{2^{d-1}}} \f}
-     * and multiplies them against the entries of `padding_indicator_array`. The commitments \f$ [A_1]_1, \ldots,
-     * [A_{d-1}]_1 \f$ are multiplied by these scalars in the final `batch_mul` perfomed by KZG or IPA. Since
-     * `padding_indicator_array[i]` = 1 for i < log_n, and 0 otherwise, it ensures that the contributions from "dummy"
-     * rounds do not affect the final `batch mul`.
+     * \frac{\nu^{2 \cdot d} } {z - r^{2^{d-1}}} + \frac{\nu^{2 \cdot d + 1}}{z + r^{2^{d-1}}}. \f}
+     * The commitments \f$ [A_1]_1, \ldots,
+     * [A_{d-1}]_1 \f$ are multiplied by these scalars in the final `batch_mul` perfomed by KZG or IPA.
      *
      * 3. Accumulates the summands of the constant term:
      * \f{align}{
@@ -443,7 +438,6 @@ template <typename Curve> class ShpleminiVerifier_ {
      * A_i\left(-r^{2^i}\right)}{z+ r^{2^i}} \f} for \f$ i = 1, \ldots, d-1 \f$ and adds them to the
      * 'constant_term_accumulator'.
      *
-     * @param padding_indicator_array An array with first log_n entries equal to 1, and the remaining entries are 0.
      * @param fold_commitments A vector containing the commitments to the Gemini fold polynomials \f$ A_i \f$.
      * @param gemini_neg_evaluations The evaluations of Gemini fold polynomials \f$ A_i \f$ at \f$ -r^{2^i} \f$ for \f$
      * i = 0, \ldots, d - 1 \f$.
@@ -456,8 +450,7 @@ template <typename Curve> class ShpleminiVerifier_ {
      * @param scalars Output vector where the computed scalars will be stored.
      * @param constant_term_accumulator The accumulator for the summands of the Shplonk constant term.
      */
-    static void batch_gemini_claims_received_from_prover(std::span<const Fr> padding_indicator_array,
-                                                         const std::vector<Commitment>& fold_commitments,
+    static void batch_gemini_claims_received_from_prover(const std::vector<Commitment>& fold_commitments,
                                                          std::span<const Fr> gemini_neg_evaluations,
                                                          std::span<const Fr> gemini_pos_evaluations,
                                                          std::span<const Fr> inverse_vanishing_evals,
@@ -486,7 +479,7 @@ template <typename Curve> class ShpleminiVerifier_ {
                 scaling_factor_neg * gemini_neg_evaluations[j] + scaling_factor_pos * gemini_pos_evaluations[j];
 
             // Place the scaling factor to the 'scalars' vector
-            scalars.emplace_back(-padding_indicator_array[j] * (scaling_factor_neg + scaling_factor_pos));
+            scalars.emplace_back(-(scaling_factor_neg + scaling_factor_pos));
             // Move com(Aᵢ) to the 'commitments' vector
             commitments.emplace_back(std::move(fold_commitments[j - 1]));
         }

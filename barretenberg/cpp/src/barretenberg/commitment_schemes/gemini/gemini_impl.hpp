@@ -55,7 +55,8 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     const std::shared_ptr<Transcript>& transcript,
     bool has_zk)
 {
-    // To achieve fixed proof size in Ultra and Mega, the multilinear opening challenge is be padded to a fixed size.
+    // To achieve fixed proof size in Ultra and Mega, the multilinear opening challenge is be padded to a fixed
+    // size.
     const size_t virtual_log_n = multilinear_challenge.size();
     const size_t log_n = numeric::get_msb(static_cast<uint32_t>(circuit_size));
     const size_t n = 1 << log_n;
@@ -66,8 +67,12 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
         transcript->send_to_verifier("Gemini:masking_poly_comm", commitment_key.commit(random_polynomial));
         // In the provers, the size of multilinear_challenge is `virtual_log_n`, but we need to evaluate the
         // hiding polynomial as multilinear in log_n variables
+        Fr tail_ = 1;
+        for (size_t idx = log_n; idx < virtual_log_n; idx++) {
+            tail_ *= (Fr{ 1 } - multilinear_challenge[idx]);
+        }
         transcript->send_to_verifier("Gemini:masking_poly_eval",
-                                     random_polynomial.evaluate_mle(multilinear_challenge.subspan(0, log_n)));
+                                     random_polynomial.evaluate_mle(multilinear_challenge.subspan(0, log_n)) * tail_);
         // Initialize batched unshifted poly with the random masking poly so that the full batched poly is masked
         polynomial_batcher.set_random_polynomial(std::move(random_polynomial));
     }
@@ -137,7 +142,10 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
  */
 template <typename Curve>
 std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::compute_fold_polynomials(
-    const size_t log_n, std::span<const Fr> multilinear_challenge, const Polynomial& A_0, const bool& has_zk)
+    const size_t log_n,
+    std::span<const Fr> multilinear_challenge,
+    const Polynomial& A_0,
+    [[maybe_unused]] const bool& has_zk)
 {
     const size_t num_threads = get_num_cpus_pow2();
 
@@ -201,9 +209,8 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
     const Fr u_last = multilinear_challenge[log_n - 1];
     const Fr final_eval = last.at(0) + u_last * (last.at(1) - last.at(0));
     Polynomial const_fold(1);
-    // Temporary fix: when we're running a zk proof, the verifier uses a `padding_indicator_array`. So the evals in
-    // rounds past `log_n - 1` will be ignored. Hence the prover also needs to ignore them, otherwise Shplonk will fail.
-    const_fold.at(0) = final_eval * Fr(static_cast<int>(!has_zk));
+
+    const_fold.at(0) = final_eval;
     fold_polynomials.emplace_back(const_fold);
 
     // FOLD_{log_n+1}, ..., FOLD_{d_v-1}
@@ -211,7 +218,7 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
     for (size_t k = log_n; k < virtual_log_n - 1; ++k) {
         tail *= (Fr(1) - multilinear_challenge[k]); // multiply by (1 - u_k)
         Polynomial next_const(1);
-        next_const.at(0) = final_eval * tail * Fr(static_cast<int>(!has_zk));
+        next_const.at(0) = final_eval * tail;
         fold_polynomials.emplace_back(next_const);
     }
 
@@ -228,7 +235,8 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
  */
 
 /**
- * @brief Computes/aggragates d+1 univariate polynomial opening claims of the form {polynomial, (challenge, evaluation)}
+ * @brief Computes/aggragates d+1 univariate polynomial opening claims of the form {polynomial, (challenge,
+ * evaluation)}
  *
  * @details The d+1 evaluations are A₀₊(r), A₀₋(-r), and Aₗ(−r^{2ˡ}) for l = 1, ..., d-1, where the Aₗ are the fold
  * polynomials.

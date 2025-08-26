@@ -184,9 +184,10 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
 
     // For Ultra/Mega, the first row is an inactive zero row thus the grand prod takes value 1 at both i = 0 and i = 1
     if constexpr (IsUltraOrMegaHonk<Flavor>) {
-        grand_product_polynomial.at(1) = 1;
+        // UltraZKFlavor needs to start at row 5 instead of 1
+        constexpr size_t zk_offset = std::is_same_v<Flavor, UltraZKFlavor> ? 4 : 0;
+        grand_product_polynomial.at(1 + zk_offset) = 1;
     }
-
     // Compute grand product values corresponding only to the active regions of the trace
     parallel_for(active_range_thread_data.num_threads, [&](size_t thread_idx) {
         const size_t start = active_range_thread_data.start[thread_idx];

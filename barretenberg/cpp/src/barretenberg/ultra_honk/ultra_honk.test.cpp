@@ -343,8 +343,13 @@ TYPED_TEST(UltraHonkTests, LookupFailure)
         // Turn the lookup selector on for an arbitrary row where it is not already active
         polynomials.lookup_inverses = polynomials.lookup_inverses.full();
         polynomials.q_lookup = polynomials.q_lookup.full();
-        EXPECT_TRUE(polynomials.q_lookup[25] != 1);
-        polynomials.q_lookup.at(25) = 1;
+
+        for (size_t idx = 5; idx < 30; idx++) {
+            if (polynomials.q_lookup.at(idx) != 1) {
+                polynomials.q_lookup.at(idx) = 1;
+                continue;
+            };
+        }
 
         TestFixture::prove_and_verify(proving_key, false);
     }

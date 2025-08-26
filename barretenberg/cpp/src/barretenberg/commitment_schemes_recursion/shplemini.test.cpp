@@ -9,7 +9,6 @@
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
-#include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
@@ -49,7 +48,6 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
     auto run_shplemini = [](size_t log_circuit_size) {
         size_t N = 1 << log_circuit_size;
-        const std::vector<Fr> padding_indicator_array(CONST_PROOF_SIZE_LOG_N, 1);
         constexpr size_t NUM_POLYS = 5;
         constexpr size_t NUM_SHIFTED = 2;
         constexpr size_t NUM_RIGHT_SHIFTED_BY_K = 0;
@@ -121,11 +119,8 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
             .k_shift_magnitude = MockClaimGen::k_magnitude
         };
 
-        const auto opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
-                                                                                  claim_batcher,
-                                                                                  u_challenge_in_circuit,
-                                                                                  Commitment::one(&builder),
-                                                                                  stdlib_verifier_transcript);
+        const auto opening_claim = ShpleminiVerifier::compute_batch_opening_claim(
+            claim_batcher, u_challenge_in_circuit, Commitment::one(&builder), stdlib_verifier_transcript);
         auto pairing_points = KZG<Curve>::reduce_verify_batch_opening_claim(opening_claim, stdlib_verifier_transcript);
         EXPECT_TRUE(CircuitChecker::check(builder));
 

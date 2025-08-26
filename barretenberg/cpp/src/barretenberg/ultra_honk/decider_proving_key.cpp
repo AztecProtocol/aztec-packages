@@ -33,7 +33,13 @@ template <IsUltraOrMegaHonk Flavor> size_t DeciderProvingKey_<Flavor>::compute_d
         NUM_DISABLED_ROWS_IN_SUMCHECK + num_zero_rows + std::max(min_size_due_to_lookups, min_size_of_execution_trace);
 
     // Next power of 2 (dyadic circuit size)
-    return circuit.get_circuit_subgroup_size(total_num_gates);
+    size_t out = circuit.get_circuit_subgroup_size(total_num_gates);
+
+    if constexpr (std::is_same_v<Flavor, MegaZKFlavor>) {
+        BB_ASSERT_LTE(out, 1UL << Flavor::VIRTUAL_LOG_N);
+        out = 1UL << Flavor::VIRTUAL_LOG_N;
+    }
+    return out;
 }
 
 template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::allocate_wires()
@@ -63,8 +69,9 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::allocate_la
     PROFILE_THIS_NAME("allocate_lagrange_polynomials");
 
     // First and last lagrange polynomials (in the full circuit size)
+    size_t lagrange_first_idx = std::is_same_v<Flavor, UltraZKFlavor> ? 4 : 0;
     polynomials.lagrange_first = Polynomial(
-        /* size=*/1, /*virtual size=*/dyadic_size(), /*start_index=*/0);
+        /* size=*/1 + lagrange_first_idx, /*virtual size=*/dyadic_size(), /*start_index=*/lagrange_first_idx);
 
     // Even though lagrange_last has a single non-zero element, we cannot set its size to 0 as different
     // keys being folded might have lagrange_last set at different indexes and folding does not work
@@ -77,6 +84,9 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::allocate_se
 {
     PROFILE_THIS_NAME("allocate_selectors");
 
+    // Shift only for UltraZKFlavor
+    constexpr bool is_ultra_zk = std::is_same_v<Flavor, UltraZKFlavor>;
+    constexpr uint32_t base_shift = is_ultra_zk ? 4 : 0;
     // Define gate selectors over the block they are isolated to
     for (auto [selector, block] : zip_view(polynomials.get_gate_selectors(), circuit.blocks.get_gate_blocks())) {
 
@@ -85,9 +95,10 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::allocate_se
         if (&block == &circuit.blocks.arithmetic) {
             size_t arith_size = circuit.blocks.memory.trace_offset() - circuit.blocks.arithmetic.trace_offset() +
                                 circuit.blocks.memory.get_fixed_size(is_structured);
-            selector = Polynomial(arith_size, dyadic_size(), circuit.blocks.arithmetic.trace_offset());
+            selector = Polynomial(arith_size, dyadic_size(), circuit.blocks.arithmetic.trace_offset() + base_shift);
         } else {
-            selector = Polynomial(block.get_fixed_size(is_structured), dyadic_size(), block.trace_offset());
+            selector =
+                Polynomial(block.get_fixed_size(is_structured), dyadic_size(), block.trace_offset() + base_shift);
         }
     }
 
@@ -103,28 +114,30 @@ void DeciderProvingKey_<Flavor>::allocate_table_lookup_polynomials(const Circuit
     PROFILE_THIS_NAME("allocate_table_lookup_and_lookup_read_polynomials");
 
     size_t table_offset = circuit.blocks.lookup.trace_offset();
+    size_t table_start_idx = std::is_same_v<Flavor, UltraZKFlavor> ? 1 : table_offset;
+    size_t zk_offset = std::is_same_v<Flavor, UltraZKFlavor> ? 4 : 0;
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1193): can potentially improve memory footprint
-    const size_t max_tables_size = dyadic_size() - table_offset;
+    const size_t max_tables_size = dyadic_size() - table_offset - zk_offset;
     BB_ASSERT_GT(dyadic_size(), max_tables_size);
 
     // Allocate the polynomials containing the actual table data
     if constexpr (IsUltraOrMegaHonk<Flavor>) {
         for (auto& poly : polynomials.get_tables()) {
-            poly = Polynomial(max_tables_size, dyadic_size(), table_offset);
+            poly = Polynomial(max_tables_size + zk_offset, dyadic_size(), table_start_idx);
         }
     }
 
     // Allocate the read counts and tags polynomials
-    polynomials.lookup_read_counts = Polynomial(max_tables_size, dyadic_size(), table_offset);
-    polynomials.lookup_read_tags = Polynomial(max_tables_size, dyadic_size(), table_offset);
+    polynomials.lookup_read_counts = Polynomial(max_tables_size + zk_offset, dyadic_size(), table_start_idx);
+    polynomials.lookup_read_tags = Polynomial(max_tables_size + zk_offset, dyadic_size(), table_start_idx);
 
     const size_t lookup_block_end =
-        static_cast<size_t>(circuit.blocks.lookup.trace_offset() + circuit.blocks.lookup.get_fixed_size(is_structured));
-    const auto tables_end = circuit.blocks.lookup.trace_offset() + max_tables_size;
+        static_cast<size_t>(table_offset + circuit.blocks.lookup.get_fixed_size(is_structured));
+    const auto tables_end = table_offset + max_tables_size + zk_offset;
 
     // Allocate the lookup_inverses polynomial
 
-    const size_t lookup_inverses_start = table_offset;
+    const size_t lookup_inverses_start = table_start_idx;
     const size_t lookup_inverses_end = std::max(lookup_block_end, tables_end);
 
     polynomials.lookup_inverses =
@@ -347,6 +360,10 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::populate_me
 {
     // Store the read/write records as indices into the full trace by accounting for the offset of the memory block.
     uint32_t ram_rom_offset = circuit.blocks.memory.trace_offset();
+    if constexpr (std::is_same_v<Flavor, UltraZKFlavor>) {
+        ram_rom_offset += 4;
+    }
+
     memory_read_records.reserve(circuit.memory_read_records.size());
     for (auto& index : circuit.memory_read_records) {
         memory_read_records.emplace_back(index + ram_rom_offset);

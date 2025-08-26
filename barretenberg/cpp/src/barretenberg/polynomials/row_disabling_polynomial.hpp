@@ -138,12 +138,23 @@ namespace bb {
  * is equal to \f$ 1-  u_2 \cdots u_{d-1} \f$ otherwise.
  */
 
-template <typename FF> struct RowDisablingPolynomial {
+template <typename Flavor> struct RowDisablingPolynomial {
+    using FF = typename Flavor::FF;
+    static constexpr bool is_ultra_zk = IsAnyOf<Flavor,
+                                                UltraZKFlavor,
+                                                UltraZKRecursiveFlavor_<UltraCircuitBuilder>,
+                                                UltraZKRecursiveFlavor_<MegaCircuitBuilder>>;
     // initialized as a constant linear polynomial = 1
     FF eval_at_0{ 1 };
     FF eval_at_1{ 1 };
 
-    RowDisablingPolynomial() = default;
+    RowDisablingPolynomial()
+    {
+        if constexpr (is_ultra_zk) {
+            eval_at_0 = 1;
+            eval_at_1 = 1;
+        }
+    };
     /**
      * @brief Compute the evaluations of L^{(i)} at 0 and 1.
      *
@@ -155,6 +166,7 @@ template <typename FF> struct RowDisablingPolynomial {
      * @param round_idx Sumcheck round index
      */
     void update_evaluations(FF round_challenge, size_t round_idx)
+        requires(!is_ultra_zk)
     {
         if (round_idx == 1) {
             eval_at_0 = FF{ 0 };
@@ -162,6 +174,17 @@ template <typename FF> struct RowDisablingPolynomial {
         if (round_idx >= 2) {
             eval_at_1 *= round_challenge;
         }
+    }
+    void update_evaluations(FF round_challenge, size_t round_idx)
+        requires(is_ultra_zk)
+    {
+        if (round_idx == 1) {
+            eval_at_1 = 0;
+        };
+
+        if (round_idx > 1) {
+            eval_at_0 = eval_at_0 * (FF{ 1 } - round_challenge);
+        };
     }
     /**
      * @brief Compute the evaluation of \f$ 1 - L \f$ at the sumcheck challenge
@@ -171,6 +194,8 @@ template <typename FF> struct RowDisablingPolynomial {
      * @return FF
      */
     static FF evaluate_at_challenge(std::vector<FF> multivariate_challenge, const size_t log_circuit_size)
+        requires(!is_ultra_zk)
+
     {
         FF evaluation_at_multivariate_challenge{ 1 };
 
@@ -181,20 +206,14 @@ template <typename FF> struct RowDisablingPolynomial {
         return FF{ 1 } - evaluation_at_multivariate_challenge;
     }
 
-    /**
-     * @brief A variant of the above that uses `padding_indicator_array`.
-     *
-     * @param multivariate_challenge Sumcheck evaluation challenge
-     * @param padding_indicator_array An array with first log_n entries equal to 1, and the remaining entries are 0.
-     */
-    static FF evaluate_at_challenge(std::span<FF> multivariate_challenge,
-                                    const std::vector<FF>& padding_indicator_array)
+    static FF evaluate_at_challenge(std::vector<FF> multivariate_challenge, const size_t log_circuit_size)
+        requires(is_ultra_zk)
+
     {
         FF evaluation_at_multivariate_challenge{ 1 };
 
-        for (size_t idx = 2; idx < padding_indicator_array.size(); idx++) {
-            const FF& indicator = padding_indicator_array[idx];
-            evaluation_at_multivariate_challenge *= FF{ 1 } - indicator + indicator * multivariate_challenge[idx];
+        for (size_t idx = 2; idx < log_circuit_size; idx++) {
+            evaluation_at_multivariate_challenge *= (FF{ 1 } - multivariate_challenge[idx]);
         }
 
         return FF{ 1 } - evaluation_at_multivariate_challenge;
