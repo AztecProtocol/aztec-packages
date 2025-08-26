@@ -352,6 +352,9 @@ contract Governance is IGovernance {
    */
   function finaliseWithdraw(uint256 _withdrawalId) external override(IGovernance) {
     Withdrawal storage withdrawal = withdrawals[_withdrawalId];
+    // This is a sanity check, the `recipient` will only be zero for a non-existent withdrawal, so this avoids
+    // `finalise`ing non-existent withdrawals. Note, that `_initiateWithdraw` will fail if `_to` is `address(0)`
+    require(withdrawal.recipient != address(0), Errors.Governance__WithdrawalNotInitiated());
     require(!withdrawal.claimed, Errors.Governance__WithdrawalAlreadyClaimed());
     require(
       Timestamp.wrap(block.timestamp) >= withdrawal.unlocksAt,
@@ -692,6 +695,7 @@ contract Governance is IGovernance {
    * @return The id of the withdrawal.
    */
   function _initiateWithdraw(address _from, address _to, uint256 _amount, Timestamp _delay) internal returns (uint256) {
+    require(_to != address(0), Errors.Governance__CannotWithdrawToAddressZero());
     users[_from].sub(_amount);
     total.sub(_amount);
 

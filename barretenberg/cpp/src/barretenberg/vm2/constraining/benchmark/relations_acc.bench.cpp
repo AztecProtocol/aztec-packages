@@ -1,3 +1,5 @@
+#ifdef AVM_COMPILE_BENCHMARKS
+
 #include <benchmark/benchmark.h>
 
 #include <cstddef>
@@ -10,6 +12,9 @@
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/constraining/flavor.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
+
+#include "barretenberg/vm2/constraining/relations/interactions_base_impl.hpp"
+#include "barretenberg/vm2/generated/relations/relations_impls.hpp"
 
 using namespace benchmark;
 using namespace bb::avm2;
@@ -138,3 +143,15 @@ int main(int argc, char** argv)
     ::benchmark::Initialize(&argc, argv);
     ::benchmark::RunSpecifiedBenchmarks();
 }
+
+#else
+
+#include <iostream>
+
+int main(int, char**)
+{
+    std::cout << "This benchmark is disabled. To enable it, define AVM_COMPILE_BENCHMARKS." << std::endl;
+    return 0;
+}
+
+#endif // AVM_COMPILE_BENCHMARKS

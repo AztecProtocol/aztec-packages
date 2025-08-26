@@ -46,7 +46,6 @@
 #include "relations/nullifier_exists.hpp"
 #include "relations/poseidon2_hash.hpp"
 #include "relations/poseidon2_mem.hpp"
-#include "relations/poseidon2_perm.hpp"
 #include "relations/public_data_check.hpp"
 #include "relations/public_data_squash.hpp"
 #include "relations/range_check.hpp"
@@ -64,6 +63,9 @@
 #include "relations/tx_discard.hpp"
 #include "relations/update_check.hpp"
 #include "relations/written_public_data_slots_tree_check.hpp"
+
+// Optimized Relations
+#include "barretenberg/vm2/optimized/relations/poseidon2_perm.hpp"
 
 // Lookup and permutation relations
 #include "relations/lookups_address_derivation.hpp"
@@ -129,14 +131,17 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 133;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2924;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 315;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2919;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 316;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3372;
+    static constexpr size_t NUM_ALL_ENTITIES = 3368;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
     using MainRelations_ = flat_tuple::tuple<
+
+        // Optimized Relations
+        avm2::optimized_poseidon2_perm<FF_>,
         // Relations
         avm2::address_derivation<FF_>,
         avm2::addressing<FF_>,
@@ -180,7 +185,6 @@ struct AvmFlavorVariables {
         avm2::nullifier_exists<FF_>,
         avm2::poseidon2_hash<FF_>,
         avm2::poseidon2_mem<FF_>,
-        avm2::poseidon2_perm<FF_>,
         avm2::public_data_check<FF_>,
         avm2::public_data_squash<FF_>,
         avm2::range_check<FF_>,
@@ -243,8 +247,6 @@ struct AvmFlavorVariables {
         lookup_alu_range_check_trunc_mid_relation<FF_>,
         lookup_alu_register_tag_value_relation<FF_>,
         lookup_alu_tag_max_bits_value_relation<FF_>,
-        lookup_bc_decomposition_abs_diff_hi_is_u8_relation<FF_>,
-        lookup_bc_decomposition_abs_diff_lo_is_u16_relation<FF_>,
         lookup_bc_decomposition_bytes_are_bytes_relation<FF_>,
         lookup_bc_hashing_get_packed_field_relation<FF_>,
         lookup_bc_hashing_iv_is_len_relation<FF_>,

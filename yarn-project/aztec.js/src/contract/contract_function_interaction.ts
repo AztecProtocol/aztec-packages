@@ -189,7 +189,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    * @returns An object containing the function return value and profile result.
    */
   public async profile(options: ProfileMethodOptions): Promise<TxProfileResult> {
-    if (!options.from.equals(this.wallet.getAddress())) {
+    if (options.from !== AztecAddress.ZERO && !options.from.equals(this.wallet.getAddress())) {
       throw new Error(
         `The address provided as from does not match the wallet address. Expected ${this.wallet.getAddress().toString()}, got ${options.from.toString()}.`,
       );

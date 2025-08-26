@@ -10,6 +10,7 @@ import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
 import {EthValue} from "@aztec/core/interfaces/IRollup.sol";
+import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 import {GSE} from "@aztec/governance/GSE.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
@@ -19,6 +20,7 @@ import {Test} from "forge-std/Test.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {CoinIssuer} from "@aztec/governance/CoinIssuer.sol";
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
+import {GSEWithSkip} from "@test/GSEWithSkip.sol";
 
 // Stack the layers to avoid the stack too deep 🧌
 struct ConfigFlags {
@@ -197,6 +199,21 @@ contract RollupBuilder is Test {
     return this;
   }
 
+  function setSlashingOffsetInRounds(uint256 _slashingOffsetInRounds) public returns (RollupBuilder) {
+    config.rollupConfigInput.slashingOffsetInRounds = _slashingOffsetInRounds;
+    return this;
+  }
+
+  function setSlashingUnit(uint256 _slashingUnit) public returns (RollupBuilder) {
+    config.rollupConfigInput.slashingUnit = _slashingUnit;
+    return this;
+  }
+
+  function setSlasherFlavor(SlasherFlavor _slasherFlavor) public returns (RollupBuilder) {
+    config.rollupConfigInput.slasherFlavor = _slasherFlavor;
+    return this;
+  }
+
   function setTargetCommitteeSize(uint256 _targetCommitteeSize) public returns (RollupBuilder) {
     config.rollupConfigInput.targetCommitteeSize = _targetCommitteeSize;
     return this;
@@ -228,12 +245,11 @@ contract RollupBuilder is Test {
     }
 
     if (address(config.gse) == address(0)) {
-      config.gse =
-        new GSE(address(this), config.testERC20, TestConstants.ACTIVATION_THRESHOLD, TestConstants.EJECTION_THRESHOLD);
-
-      stdstore.target(address(config.gse)).sig("checkProofOfPossession()").checked_write(
-        config.flags.checkProofOfPossession
+      config.gse = new GSEWithSkip(
+        address(this), config.testERC20, TestConstants.ACTIVATION_THRESHOLD, TestConstants.EJECTION_THRESHOLD
       );
+
+      GSEWithSkip(address(config.gse)).setCheckProofOfPossession(config.flags.checkProofOfPossession);
     }
 
     if (address(config.registry) == address(0)) {

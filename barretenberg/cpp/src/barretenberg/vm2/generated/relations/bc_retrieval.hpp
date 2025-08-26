@@ -27,61 +27,7 @@ template <typename FF_> class bc_retrievalImpl {
     void static accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& in,
                            [[maybe_unused]] const RelationParameters<FF>&,
-                           [[maybe_unused]] const FF& scaling_factor)
-    {
-        using C = ColumnAndShifts;
-
-        PROFILE_THIS_NAME("accumulate/bc_retrieval");
-
-        {
-            using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = in.get(C::bc_retrieval_sel) * (FF(1) - in.get(C::bc_retrieval_sel));
-            tmp *= scaling_factor;
-            std::get<0>(evals) += typename Accumulator::View(tmp);
-        }
-        { // TRACE_CONTINUITY
-            using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - in.get(C::bc_retrieval_sel)) * (FF(1) - in.get(C::precomputed_first_row)) *
-                       in.get(C::bc_retrieval_sel_shift);
-            tmp *= scaling_factor;
-            std::get<1>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::bc_retrieval_error) -
-                        in.get(C::bc_retrieval_sel) * (FF(1) - in.get(C::bc_retrieval_instance_exists)));
-            tmp *= scaling_factor;
-            std::get<2>(evals) += typename Accumulator::View(tmp);
-        }
-        { // CURRENT_CLASS_ID_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST
-            using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-            auto tmp = in.get(C::bc_retrieval_sel) * (FF(1) - in.get(C::bc_retrieval_instance_exists)) *
-                       in.get(C::bc_retrieval_current_class_id);
-            tmp *= scaling_factor;
-            std::get<3>(evals) += typename Accumulator::View(tmp);
-        }
-        { // ARTIFACT_HASH_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST
-            using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = in.get(C::bc_retrieval_sel) * (FF(1) - in.get(C::bc_retrieval_instance_exists)) *
-                       in.get(C::bc_retrieval_artifact_hash);
-            tmp *= scaling_factor;
-            std::get<4>(evals) += typename Accumulator::View(tmp);
-        }
-        { // PRIVATE_FUNCTION_ROOT_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST
-            using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp = in.get(C::bc_retrieval_sel) * (FF(1) - in.get(C::bc_retrieval_instance_exists)) *
-                       in.get(C::bc_retrieval_private_function_root);
-            tmp *= scaling_factor;
-            std::get<5>(evals) += typename Accumulator::View(tmp);
-        }
-        { // BYTECODE_ID_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST
-            using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
-            auto tmp = in.get(C::bc_retrieval_sel) * (FF(1) - in.get(C::bc_retrieval_instance_exists)) *
-                       in.get(C::bc_retrieval_bytecode_id);
-            tmp *= scaling_factor;
-            std::get<6>(evals) += typename Accumulator::View(tmp);
-        }
-    }
+                           [[maybe_unused]] const FF& scaling_factor);
 };
 
 template <typename FF> class bc_retrieval : public Relation<bc_retrievalImpl<FF>> {

@@ -61,7 +61,7 @@ template <typename Event> class NoopEventEmitter : public EventEmitterInterface<
 
     virtual ~NoopEventEmitter() = default;
 
-    void emit(Event&&) override{};
+    void emit(Event&&) override {};
     // TODO: Get rid of this.
     EventEmitter<Event>::Container dump_events() { return {}; };
 };

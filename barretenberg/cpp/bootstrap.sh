@@ -4,8 +4,8 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 cmd=${1:-}
 [ -n "$cmd" ] && shift
 
-export native_preset=${NATIVE_PRESET:-clang16-assert}
-export pic_preset=${PIC_PRESET:-clang16-pic-assert}
+export native_preset=${NATIVE_PRESET:-clang20}
+export pic_preset=${PIC_PRESET:-clang20-pic}
 export hash=$(cache_content_hash .rebuild_patterns)
 
 if [[ $(arch) == "arm64" && "$CI" -eq 1 ]]; then
@@ -249,10 +249,9 @@ function build_bench {
 function bench_cmds {
   prefix="$hash:CPUS=8"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/ultra_honk build/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
-  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/client_ivc build/bin/client_ivc_bench ClientIVCBench/Full/6$"
-  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/client_ivc_17_in_20 build/bin/client_ivc_bench ClientIVCBench/Ambient_17_in_20/6$"
+  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/client_ivc build/bin/client_ivc_bench ClientIVCBench/Full/5$"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/ultra_honk build-wasm-threads/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
-  echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/client_ivc build-wasm-threads/bin/client_ivc_bench ClientIVCBench/Full/6$"
+  echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/client_ivc build-wasm-threads/bin/client_ivc_bench ClientIVCBench/Full/5$"
   prefix="$hash:CPUS=1"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/client_ivc_verify build/bin/client_ivc_bench VerificationOnly$"
 }
