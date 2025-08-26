@@ -349,6 +349,37 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     }
 }
 
+HonkProof ClientIVC::construct_oink_proof(const std::shared_ptr<DeciderProvingKey>& proving_key,
+                                          const std::shared_ptr<MegaVerificationKey>& honk_vk,
+                                          const std::shared_ptr<Transcript>& transcript)
+{
+    vinfo("computing oink proof...");
+    MegaOinkProver oink_prover{ proving_key, honk_vk, transcript };
+    oink_prover.prove();
+
+    fold_output.accumulator = proving_key; // initialize the prover accum with the completed key
+
+    HonkProof oink_proof = oink_prover.export_proof();
+    vinfo("oink proof constructed");
+    return oink_proof;
+}
+
+HonkProof ClientIVC::construct_pg_proof(const std::shared_ptr<DeciderProvingKey>& proving_key,
+                                        const std::shared_ptr<MegaVerificationKey>& honk_vk,
+                                        const std::shared_ptr<Transcript>& transcript)
+{
+    vinfo("computing pg proof...");
+    auto verifier_instance = std::make_shared<DeciderVerificationKey_<Flavor>>(honk_vk);
+
+    FoldingProver folding_prover({ fold_output.accumulator, proving_key },
+                                 { native_verifier_accum, verifier_instance },
+                                 transcript,
+                                 trace_usage_tracker);
+    fold_output = folding_prover.prove();
+    vinfo("pg proof constructed");
+    return fold_output.proof;
+}
+
 /**
  * @brief Execute prover work for accumulation
  * @details Construct an proving key for the provided circuit. If this is the first step in the IVC, simply initialize
@@ -400,25 +431,13 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
     if (num_circuits_accumulated == 0) { // First circuit in the IVC
         BB_ASSERT_EQ(queue_entry.is_kernel, false, "First circuit accumulated must always be an app");
         // For first circuit in the IVC, use oink to complete the decider proving key and generate an oink proof
-        MegaOinkProver oink_prover{ proving_key, honk_vk, prover_accumulation_transcript };
-        vinfo("computing oink proof...");
-        oink_prover.prove();
-        HonkProof oink_proof = oink_prover.export_proof();
-        vinfo("oink proof constructed");
-
-        fold_output.accumulator = proving_key; // initialize the prover accum with the completed key
-
         queue_entry.type = QUEUE_TYPE::OINK;
-        queue_entry.proof = oink_proof;
+        queue_entry.proof = construct_oink_proof(proving_key, honk_vk, prover_accumulation_transcript);
     } else if (num_circuits_accumulated == num_circuits - 1) {
-        // construct the mega proof of the hiding circuit
-        auto mega_proof = prove_hiding_circuit(circuit);
-
+        // construct a MegaHonk proof of the hiding circuit
         queue_entry.type = QUEUE_TYPE::MEGA;
-        queue_entry.proof = mega_proof;
+        queue_entry.proof = prove_hiding_circuit(circuit);
     } else { // Otherwise, fold the new key into the accumulator
-        vinfo("computing folding proof");
-        auto vk = std::make_shared<DeciderVerificationKey_<Flavor>>(honk_vk);
         // Only fiat shamir if this is a kernel with the assumption that kernels are always the first being recursively
         // verified.
         if (is_kernel) {
@@ -427,12 +446,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
             prover_accumulation_transcript->add_to_hash_buffer("accum_hash", accum_hash);
             info("Accumulator hash in PG prover: ", accum_hash);
         }
-        FoldingProver folding_prover({ fold_output.accumulator, proving_key },
-                                     { native_verifier_accum, vk },
-                                     prover_accumulation_transcript,
-                                     trace_usage_tracker);
-        fold_output = folding_prover.prove();
-        vinfo("constructed folding proof");
+        queue_entry.proof = construct_pg_proof(proving_key, honk_vk, prover_accumulation_transcript);
 
         if (num_circuits_accumulated == num_circuits - 2) {
             // we are folding in the "Tail" kernel, so the verification_queue entry should have type PG_FINAL
@@ -445,7 +459,6 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
         } else {
             queue_entry.type = QUEUE_TYPE::PG;
         }
-        queue_entry.proof = fold_output.proof;
     }
     verification_queue.push_back(queue_entry);
 

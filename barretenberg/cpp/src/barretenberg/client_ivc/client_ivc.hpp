@@ -216,7 +216,6 @@ class ClientIVC {
 
     ProverFoldOutput fold_output; // prover accumulator and fold proof
     HonkProof decider_proof;      // decider proof to be verified in the hiding circuit
-    HonkProof mega_proof;         // proof of the hiding circuit
 
     std::shared_ptr<DeciderVerificationKey>
         recursive_verifier_native_accum; // native verifier accumulator used in recursive folding
@@ -292,6 +291,14 @@ class ClientIVC {
      */
     void update_native_verifier_accumulator(const VerifierInputs& queue_entry,
                                             const std::shared_ptr<Transcript>& verifier_transcript);
+
+    HonkProof construct_oink_proof(const std::shared_ptr<DeciderProvingKey>& proving_key,
+                                   const std::shared_ptr<MegaVerificationKey>& honk_vk,
+                                   const std::shared_ptr<Transcript>& transcript);
+
+    HonkProof construct_pg_proof(const std::shared_ptr<DeciderProvingKey>& proving_key,
+                                 const std::shared_ptr<MegaVerificationKey>& honk_vk,
+                                 const std::shared_ptr<Transcript>& transcript);
 };
 
 } // namespace bb
