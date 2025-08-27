@@ -68,11 +68,6 @@ yarn-project/end-to-end/scripts/run_test.sh simple e2e_block_building
 # To run this you CANNOT USE DISABLE_AVM=1. Only run this if the user asks (e.g. 'run the prover full test') You first need to confirm with the user that they want to build without AVM.
 yarn-project/end-to-end/scripts/run_test.sh simple e2e_prover/full
 
-# Common tests to verify barretenberg changes:
-yarn-project/end-to-end/scripts/run_test.sh simple e2e_blacklist_token_contract  # Complex circuits
-yarn-project/end-to-end/scripts/run_test.sh simple e2e_cross_chain_messaging     # Cross-chain tests
-yarn-project/end-to-end/scripts/run_test.sh simple e2e_deploy_contract          # Deployment tests
-
 ### yarn-project IVC integration tests
 Run IVC (Incremental Verifiable Computation) integration tests from the root:
 ```bash
