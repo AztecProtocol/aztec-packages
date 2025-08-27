@@ -46,9 +46,8 @@ void write_civc_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& o
 {
     // compute the hiding kernel's vk
     info("ClientIVC: computing IVC vk for hiding kernel circuit");
-    auto response = bbapi::ClientIvcComputeIvcVk{
-        .circuit{ .name = "standalone_circuit", .bytecode = std::move(bytecode) }
-    }.execute({ .trace_settings = {} });
+    auto response =
+        bbapi::ClientIvcComputeIvcVk{ .circuit{ .bytecode = std::move(bytecode) } }.execute({ .trace_settings = {} });
     const bool output_to_stdout = output_dir == "-";
     if (output_to_stdout) {
         write_bytes_to_stdout(response.bytes);
