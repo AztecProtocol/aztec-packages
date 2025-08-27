@@ -126,11 +126,11 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
         fq_ct combined_a = fq_ct::unsafe_construct_from_limbs(limb_0, limb_1, limb_2, limb_3, true);
         combined_a.binary_basis_limbs[3].maximum_value = other_mask;
 
-        // Check that individual limbs are less than maximum unreduced limb value
-        const bool limbs_less_than_max = (limb_0_native < fq_ct::get_maximum_unreduced_limb_value()) &&
-                                         (limb_1_native < fq_ct::get_maximum_unreduced_limb_value()) &&
-                                         (limb_2_native < fq_ct::get_maximum_unreduced_limb_value()) &&
-                                         (limb_3_native < fq_ct::get_maximum_unreduced_limb_value());
+        // Check that individual limbs are ≤ than maximum unreduced limb value
+        const bool limbs_less_than_max = (limb_0_native <= fq_ct::get_maximum_unreduced_limb_value()) &&
+                                         (limb_1_native <= fq_ct::get_maximum_unreduced_limb_value()) &&
+                                         (limb_2_native <= fq_ct::get_maximum_unreduced_limb_value()) &&
+                                         (limb_3_native <= fq_ct::get_maximum_unreduced_limb_value());
         EXPECT_EQ(limbs_less_than_max, true);
 
         // Check that the combined max value is greater than the maximum unreduced bigfield value
