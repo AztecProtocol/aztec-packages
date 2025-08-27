@@ -154,7 +154,7 @@ bool ecdsa_verify_signature(const std::string& message,
     }
 
     // Check that the s value is less than |Fr| / 2
-    if (s_uint * 2 > mod) {
+    if (s_uint >= (mod + 1) / 2) {
         throw_or_abort("s value is not less than curve order by 2");
     }
 
@@ -171,7 +171,10 @@ bool ecdsa_verify_signature(const std::string& message,
     Fr u1 = z * s_inv;
     Fr u2 = r * s_inv;
 
-    typename G1::affine_element R(typename G1::element(public_key) * u2 + G1::one * u1);
+    typename G1::affine_element R((typename G1::element(public_key) * u2) + (G1::one * u1));
+    if (R.is_point_at_infinity()) {
+        throw_or_abort("Result of the scalar multiplication is the point at infinity.");
+    }
     uint256_t Rx(R.x);
     Fr result(Rx);
     return result == r;
