@@ -1,5 +1,5 @@
 import { type AccountWallet, type AztecAddress, Fr, type Logger } from '@aztec/aztec.js';
-import { EasyPrivateVotingContract } from '@aztec/noir-contracts.js/EasyPrivateVoting';
+import { PrivateVotingContract } from '@aztec/noir-contracts.js/PrivateVoting';
 import { TX_ERROR_EXISTING_NULLIFIER } from '@aztec/stdlib/tx';
 
 import { setup } from './fixtures/utils.js';
@@ -10,7 +10,7 @@ describe('e2e_voting_contract', () => {
   let logger: Logger;
   let teardown: () => Promise<void>;
 
-  let votingContract: EasyPrivateVotingContract;
+  let votingContract: PrivateVotingContract;
   let owner: AztecAddress;
 
   beforeAll(async () => {
@@ -22,7 +22,7 @@ describe('e2e_voting_contract', () => {
       accounts: [owner],
     } = await setup(1));
 
-    votingContract = await EasyPrivateVotingContract.deploy(wallet, owner).send({ from: owner }).deployed();
+    votingContract = await PrivateVotingContract.deploy(wallet, owner).send({ from: owner }).deployed();
 
     logger.info(`Counter contract deployed at ${votingContract.address}`);
   });

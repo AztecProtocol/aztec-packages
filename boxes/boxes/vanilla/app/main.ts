@@ -6,7 +6,7 @@ import {
   type AccountWallet,
 } from '@aztec/aztec.js';
 import { EmbeddedWallet } from './embedded-wallet';
-import { EasyPrivateVotingContract } from '../artifacts/EasyPrivateVoting';
+import { PrivateVotingContract } from '../artifacts/PrivateVoting';
 
 // DOM Elements
 const createAccountButton =
@@ -45,7 +45,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Register voting contract with wallet/PXE
     displayStatusMessage('Registering contracts...');
     await wallet.registerContract(
-      EasyPrivateVotingContract.artifact,
+      PrivateVotingContract.artifact,
       AztecAddress.fromString(deployerAddress),
       Fr.fromString(deploymentSalt),
       [AztecAddress.fromString(deployerAddress)]
@@ -145,7 +145,7 @@ voteButton.addEventListener('click', async (e) => {
     }
 
     // Prepare contract interaction
-    const votingContract = await EasyPrivateVotingContract.at(
+    const votingContract = await PrivateVotingContract.at(
       AztecAddress.fromString(contractAddress),
       connectedAccount
     );
@@ -177,7 +177,7 @@ async function updateVoteTally(account: Wallet) {
   displayStatusMessage('Updating vote tally...');
 
   // Prepare contract interaction
-  const votingContract = await EasyPrivateVotingContract.at(
+  const votingContract = await PrivateVotingContract.at(
     AztecAddress.fromString(contractAddress),
     account
   );
