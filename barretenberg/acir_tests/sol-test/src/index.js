@@ -173,12 +173,8 @@ const linkLibrary = (bytecode, libraryName, libraryAddress) => {
 const binaryToFields = (buffer) => {
   const fields = [];
   for (let i = 0; i < buffer.length; i += 32) {
-    const chunk = buffer.slice(i, Math.min(i + 32, buffer.length));
-    // Pad with leading zeros if chunk is less than 32 bytes
-    const padded = chunk.length < 32
-      ? Buffer.concat([Buffer.alloc(32 - chunk.length), chunk])
-      : chunk;
-    fields.push('0x' + padded.toString('hex'));
+    const chunk = buffer.slice(i, i + 32);
+    fields.push('0x' + chunk.toString('hex'));
   }
   return fields;
 };
