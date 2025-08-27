@@ -1,9 +1,10 @@
 import { ContractDeployer, EthAddress, Fr, type Logger, TxStatus, type Wallet } from '@aztec/aztec.js';
 import { EthCheatCodes } from '@aztec/aztec/testing';
-import type { GasPrice, L1BlobInputs, L1GasConfig, L1TxRequest, PublisherManager, TxUtilsState } from '@aztec/ethereum';
+import type { PublisherManager, ViemClient } from '@aztec/ethereum';
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { times } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
+import { randomBytes } from '@aztec/foundation/crypto';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
@@ -11,7 +12,7 @@ import type { AztecNodeAdmin, PXE } from '@aztec/stdlib/interfaces/client';
 
 import { jest } from '@jest/globals';
 import 'jest-extended';
-import type { Hex } from 'viem';
+import { type Hex, type TransactionSerialized, recoverTransactionAddress } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
 import { MNEMONIC } from './fixtures/fixtures.js';
@@ -92,19 +93,6 @@ describe('e2e_multi_eoa', () => {
 
     afterAll(() => teardown());
 
-    const disableMining = async () => {
-      await ethCheatCodes.setAutomine(false);
-      await ethCheatCodes.setIntervalMining(0);
-      logger.info('Disabled Mining');
-    };
-
-    // Helper to re-enable Anvil mining
-    const enableMining = async () => {
-      await ethCheatCodes.setAutomine(true);
-      await ethCheatCodes.evmMine();
-      logger.info('Enabled Mining');
-    };
-
     // This executes a test of publisher account rotation.
     // We try and publish a block with the expected publisher account.
     // We intercept the transaction and delete it from Anvil.
@@ -123,96 +111,36 @@ describe('e2e_multi_eoa', () => {
 
       const l1Utils: L1TxUtilsWithBlobs[] = (publisherManager as any).publishers;
 
-      // Intercept the required transactions
-      let transactionHashToDrop: Hex | undefined;
-      let transactionHashToKeep: Hex | undefined;
-      let cancelTransactionHashToDrop: Hex | undefined;
+      const blockedSender = l1Utils[expectedFirstSender].getSenderAddress();
+      const blockedTxs: Hex[] = [];
+      const fallbackSender = l1Utils[expectedSecondSender].getSenderAddress();
+      const fallbackTxs: Hex[] = [];
 
-      const originalSendFunctions = l1Utils.map(l1Util => l1Util.sendTransaction.bind(l1Util));
-      const originalCancelFunctions = l1Utils.map(l1Util => l1Util.attemptTxCancellation.bind(l1Util));
+      // NOTE: we only need to spy on a single client because all l1Utils use the same ViemClient instance
+      const originalSendRawTransaction = l1Utils[expectedFirstSender].client.sendRawTransaction;
 
-      // For the expected 'first' publisher, swap out the send function with one that gets the tx hash and drops it in anvil
-      const sendTxThatWeWillDrop = async (
-        request: L1TxRequest,
-        _gasConfig?: L1GasConfig,
-        blobInputs?: L1BlobInputs,
-        stateChange?: TxUtilsState,
-      ) => {
-        await disableMining();
-        const received = await originalSendFunctions[expectedFirstSender](request, _gasConfig, blobInputs, stateChange);
-        transactionHashToDrop = received.txHash;
-        logger.info(`Dropping tx: ${transactionHashToDrop} from Anvil`);
-        await ethCheatCodes.dropTransaction(transactionHashToDrop);
+      // auto-dispose of this spy at the end of this function
+      using _ = jest
+        .spyOn(l1Utils[expectedFirstSender].client, 'sendRawTransaction')
+        .mockImplementation(async function (this: ViemClient, arg) {
+          const signerAddress = EthAddress.fromString(
+            await recoverTransactionAddress({
+              serializedTransaction: arg.serializedTransaction as TransactionSerialized<'eip1559' | 'eip4844'>,
+            }),
+          );
 
-        try {
-          await ethCheatCodes.publicClient.getTransaction({
-            hash: transactionHashToDrop!,
-          });
-          logger.error(`Failed to drop transaction ${transactionHashToDrop} from Anvil!!`);
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        } catch (_) {
-          // Should always get here
-        }
-
-        await enableMining();
-        return received;
-      };
-      l1Utils[expectedFirstSender].sendTransaction = jest.fn(sendTxThatWeWillDrop);
-
-      // Also for the expected 'first' sender, drop any cancellations that may be sent
-      const sendCancelTxThatWeWillDrop = async (
-        currentTxHash: Hex,
-        nonce: number,
-        isBlobTx: boolean,
-        previousGasPrice?: GasPrice,
-        attempts?: number,
-      ) => {
-        await disableMining();
-        const received = await originalCancelFunctions[expectedFirstSender](
-          currentTxHash,
-          nonce,
-          isBlobTx,
-          previousGasPrice,
-          attempts,
-        );
-        cancelTransactionHashToDrop = received;
-        logger.info(`Dropping cancel tx: ${cancelTransactionHashToDrop} from Anvil`);
-        await ethCheatCodes.dropTransaction(cancelTransactionHashToDrop);
-
-        try {
-          await ethCheatCodes.publicClient.getTransaction({
-            hash: transactionHashToDrop!,
-          });
-          logger.error(`Failed to drop transaction ${cancelTransactionHashToDrop} from Anvil!!`);
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        } catch (_) {
-          // Should always get here
-        }
-
-        await enableMining();
-        return received;
-      };
-      l1Utils[expectedFirstSender].attemptTxCancellation = jest.fn(sendCancelTxThatWeWillDrop);
-
-      // The 'second' sender should send the next block, we want this to succeed and we will verify against L1 later that
-      // the expected publisher was used
-      const sendTxSuccessfully = async (
-        request: L1TxRequest,
-        _gasConfig?: L1GasConfig,
-        blobInputs?: L1BlobInputs,
-        stateChange?: TxUtilsState,
-      ) => {
-        const received = await originalSendFunctions[expectedSecondSender](
-          request,
-          _gasConfig,
-          blobInputs,
-          stateChange,
-        );
-        transactionHashToKeep = received.txHash;
-        logger.info(`Tx that we expect to mine: ${transactionHashToKeep}`);
-        return received;
-      };
-      l1Utils[expectedSecondSender].sendTransaction = jest.fn(sendTxSuccessfully);
+          if (blockedSender.equals(signerAddress)) {
+            const txHash = randomEthTxHash(); // block this sender/ Its txs don't actually reach any L1 nodes
+            blockedTxs.push(txHash);
+            return txHash;
+          } else {
+            const txHash = await originalSendRawTransaction.call(this, arg);
+            if (fallbackSender.equals(signerAddress)) {
+              fallbackTxs.push(txHash);
+            }
+            return txHash;
+          }
+        });
 
       const tx = deployMethodTx.send();
       logger.info(`L2 Tx sent with hash: ${(await tx.getTxHash()).toString()} `);
@@ -220,24 +148,17 @@ describe('e2e_multi_eoa', () => {
       const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.SUCCESS);
 
-      logger.info(`Checking sender of transaction with hash ${transactionHashToKeep}`);
+      expect(blockedTxs.length).toBeGreaterThan(0);
+      expect(fallbackTxs.length).toBeGreaterThan(0);
 
+      const transactionHashToKeep = fallbackTxs.at(-1)!;
       const l1Tx = await ethCheatCodes.publicClient.getTransaction({
-        hash: transactionHashToKeep!,
+        hash: transactionHashToKeep,
       });
       const senderEthAddress = EthAddress.fromString(l1Tx.from);
       const expectedSenderEthAddress = EthAddress.fromString(sequencerKeysAndAddresses[expectedSecondSender].address);
       const areSame = senderEthAddress.equals(expectedSenderEthAddress);
       expect(areSame).toBeTrue();
-
-      // Re-instate all modified functions
-      for (let i = 0; i < l1Utils.length; i++) {
-        l1Utils[i].sendTransaction = originalSendFunctions[i];
-        l1Utils[i].attemptTxCancellation = originalCancelFunctions[i];
-      }
-
-      // Ensure mining is switched on
-      await enableMining();
     };
 
     it('publishers are rotated by the sequencer', async () => {
@@ -287,3 +208,7 @@ describe('e2e_multi_eoa', () => {
     });
   });
 });
+
+function randomEthTxHash(): Hex {
+  return `0x${randomBytes(32).toString('hex')}`;
+}
