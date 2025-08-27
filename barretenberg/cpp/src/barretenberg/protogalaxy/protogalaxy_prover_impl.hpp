@@ -35,6 +35,9 @@ void ProtogalaxyProver_<Flavor, NUM_KEYS>::run_oink_prover_on_each_incomplete_ke
     auto& verifier_accum = vks_to_fold[0];
     if (!key->is_complete) {
         run_oink_prover_on_one_incomplete_key(key, verifier_accum, domain_separator);
+        // Get the gate challenges for sumcheck/combiner computation
+        key->gate_challenges =
+            transcript->template get_powers_of_challenge<FF>(domain_separator + "_gate_challenge", CONST_PG_LOG_N);
     }
 
     idx++;

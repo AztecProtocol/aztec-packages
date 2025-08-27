@@ -113,11 +113,9 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         manifest_expected.add_challenge(round, alpha_labels);
         round++;
 
-        for (size_t i = 0; i < virtual_log_n; i++) {
-            std::string label = "Sumcheck:gate_challenge_" + std::to_string(i);
-            manifest_expected.add_challenge(round, label);
-            round++;
-        }
+        std::string label = "Sumcheck:gate_challenge";
+        manifest_expected.add_challenge(round, label);
+        round++;
 
         if constexpr (Flavor::HasZK) {
             manifest_expected.add_entry(round, "Libra:concatenation_commitment", data_types_per_G);
