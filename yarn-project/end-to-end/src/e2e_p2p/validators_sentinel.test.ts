@@ -37,13 +37,15 @@ describe('e2e_p2p_validators_sentinel', () => {
       basePort: BOOT_NODE_UDP_PORT,
       startProverNode: true,
       initialConfig: {
-        aztecTargetCommitteeSize: NUM_NODES, // ensure we can progress even after slash happens
+        aztecTargetCommitteeSize: NUM_VALIDATORS,
         aztecSlotDuration: AZTEC_SLOT_DURATION,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
         aztecProofSubmissionEpochs: 1024, // effectively do not reorg
         listenAddress: '127.0.0.1',
         minTxsPerBlock: 0,
         aztecEpochDuration: EPOCH_DURATION,
+        slashingRoundSize: EPOCH_DURATION * 2,
+        slashingQuorum: EPOCH_DURATION + 1,
         validatorReexecute: false,
         sentinelEnabled: true,
         slashInactivityEnabled: false,

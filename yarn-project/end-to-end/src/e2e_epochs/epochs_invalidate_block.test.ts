@@ -52,6 +52,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       archiverPollingIntervalMS: 200,
       anvilAccounts: 20,
       anvilPort: ++anvilPort,
+      slasherFlavor: 'tally',
     });
 
     ({ context, logger, l1Client } = test);

@@ -392,7 +392,7 @@ export async function setup(
   try {
     opts.aztecTargetCommitteeSize ??= 0;
 
-    const config = { ...getConfigEnvVars(), ...opts };
+    const config: AztecNodeConfig & SetupOptions = { ...getConfigEnvVars(), slasherFlavor: 'none', ...opts };
     // use initialValidators for the node config
     config.validatorPrivateKeys = new SecretValue(opts.initialValidators?.map(v => v.privateKey) ?? []);
 

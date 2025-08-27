@@ -36,6 +36,8 @@ describe('e2e_p2p_reqresp_tx', () => {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
         listenAddress: '127.0.0.1',
         aztecEpochDuration: 64, // stable committee
+        slashingRoundSize: 128,
+        slashingQuorum: 65,
       },
     });
     await t.applyBaseSnapshots();
