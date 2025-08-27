@@ -25,19 +25,6 @@ std::vector<FF> update_gate_challenges(const FF& perturbator_challenge,
     }
     return next_gate_challenges;
 }
-/**
- * @brief Given δ, compute the vector [δ, δ^2,..., δ^num_powers].
- * @details This is Step 2 of the protocol as written in the paper.
- */
-template <typename FF> std::vector<FF> compute_round_challenge_pows(const size_t num_powers, const FF& round_challenge)
-{
-    std::vector<FF> pows(num_powers);
-    pows[0] = round_challenge;
-    for (size_t i = 1; i < num_powers; i++) {
-        pows[i] = pows[i - 1].sqr();
-    }
-    return pows;
-}
 
 /**
  * @brief Evaluates the perturbator at a  given scalar, in a sequential manner for the recursive setting.
