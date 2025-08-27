@@ -44,7 +44,12 @@ export function encodeSlashConsensusVotes(votes: ValidatorSlashVote[]): Buffer {
   }
   const buffer = Buffer.alloc(votes.length / 4);
   for (let i = 0; i < votes.length; i += 4) {
-    const voteByte = (votes[i] << 6) | (votes[i + 1] << 4) | (votes[i + 2] << 2) | votes[i + 3]; // Combine four votes into one byte
+    // Encode votes to match Solidity's bit order (LSB to MSB)
+    // Bits 0-1: validator at index i
+    // Bits 2-3: validator at index i+1
+    // Bits 4-5: validator at index i+2
+    // Bits 6-7: validator at index i+3
+    const voteByte = votes[i] | (votes[i + 1] << 2) | (votes[i + 2] << 4) | (votes[i + 3] << 6);
     buffer.writeUInt8(voteByte, i / 4);
   }
   return buffer;

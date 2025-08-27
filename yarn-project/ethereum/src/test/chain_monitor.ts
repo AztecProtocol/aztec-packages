@@ -1,4 +1,5 @@
 import { InboxContract, type RollupContract } from '@aztec/ethereum/contracts';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { DateProvider } from '@aztec/foundation/timer';
@@ -12,6 +13,7 @@ export type ChainMonitorEventMap = {
   'l2-block': [{ l2BlockNumber: number; l1BlockNumber: number; timestamp: bigint }];
   'l2-block-proven': [{ l2ProvenBlockNumber: number; l1BlockNumber: number; timestamp: bigint }];
   'l2-messages': [{ totalL2Messages: number; l1BlockNumber: number }];
+  'l2-epoch': [{ l2EpochNumber: number; timestamp: bigint; committee: EthAddress[] | undefined }];
 };
 
 /** Utility class that polls the chain on quick intervals and logs new L1 blocks, L2 blocks, and L2 proofs. */
@@ -34,6 +36,8 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
   public l2ProvenBlockTimestamp!: bigint;
   /** Total number of L2 messages pushed into the Inbox */
   public totalL2Messages: number = 0;
+  /** Current L2 epoch number */
+  public l2EpochNumber!: bigint;
 
   constructor(
     private readonly rollup: RollupContract,
@@ -134,6 +138,14 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
 
     const [l2SlotNumber, l2Epoch] = await Promise.all([this.rollup.getSlotNumber(), this.rollup.getCurrentEpoch()]);
 
+    let committee: EthAddress[] | undefined;
+    if (l2Epoch !== this.l2EpochNumber) {
+      this.l2EpochNumber = l2Epoch;
+      committee = (await this.rollup.getCurrentEpochCommittee())?.map(addr => EthAddress.fromString(addr));
+      this.emit('l2-epoch', { l2EpochNumber: Number(l2Epoch), timestamp, committee });
+      msg += ` starting new epoch ${this.l2EpochNumber} with committee ${committee?.join(', ') ?? 'undefined'}`;
+    }
+
     this.logger.info(msg, {
       currentTimestamp: this.dateProvider.nowInSeconds(),
       l1Timestamp: timestamp,
@@ -143,6 +155,7 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
       l2BlockNumber: this.l2BlockNumber,
       l2ProvenBlockNumber: this.l2ProvenBlockNumber,
       totalL2Messages: this.totalL2Messages,
+      committee,
     });
 
     return this;

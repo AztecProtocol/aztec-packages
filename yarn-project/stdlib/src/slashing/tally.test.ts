@@ -160,7 +160,7 @@ describe('TallySlashingHelpers', () => {
       const buffer = encodeSlashConsensusVotes(votes);
 
       expect(buffer.length).toEqual(1);
-      expect(buffer[0]).toEqual((1 << 6) | (2 << 4) | (0 << 2) | 3); // 0x73
+      expect(buffer[0]).toEqual(1 | (2 << 2) | (0 << 4) | (3 << 6)); // 0xC9
     });
 
     it('throws on non-multiple-of-4 number of votes', () => {
@@ -179,7 +179,8 @@ describe('TallySlashingHelpers', () => {
       const buffer = encodeSlashConsensusVotes(votes);
 
       expect(buffer.length).toEqual(1);
-      expect(buffer[0]).toEqual((3 << 6) | (3 << 4) | (3 << 2) | 3); // 0xFF
+      // Corrected encoding: all validators get 3 units
+      expect(buffer[0]).toEqual(3 | (3 << 2) | (3 << 4) | (3 << 6)); // 0xFF
     });
 
     it('handles zero votes', () => {
@@ -187,7 +188,8 @@ describe('TallySlashingHelpers', () => {
       const buffer = encodeSlashConsensusVotes(votes);
 
       expect(buffer.length).toEqual(1);
-      expect(buffer[0]).toEqual((0 << 6) | (0 << 4) | (1 << 2) | 2); // 0x06
+      // Corrected encoding: validator[0]=0, validator[1]=0, validator[2]=1, validator[3]=2
+      expect(buffer[0]).toEqual(0 | (0 << 2) | (1 << 4) | (2 << 6)); // 0x90
     });
   });
 });
