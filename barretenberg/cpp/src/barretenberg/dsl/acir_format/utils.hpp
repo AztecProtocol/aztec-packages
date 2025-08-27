@@ -40,4 +40,17 @@ std::vector<uint32_t> add_to_witness_and_track_indices(WitnessVector& witness, s
     return indices;
 };
 
+template <typename T, std::size_t N>
+std::array<uint32_t, N> add_to_witness_and_track_indices(WitnessVector& witness, std::span<const T> input)
+{
+    std::array<uint32_t, N> indices;
+    auto witness_idx = static_cast<uint32_t>(witness.size());
+    size_t idx = 0;
+    for (const auto& value : input) {
+        witness.push_back(bb::fr(value));
+        indices[idx++] = witness_idx++;
+    }
+    return indices;
+};
+
 } // namespace acir_format
