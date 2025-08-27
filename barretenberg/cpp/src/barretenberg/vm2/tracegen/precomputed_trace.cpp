@@ -132,7 +132,7 @@ void PrecomputedTraceBuilder::process_power_of_2(TraceContainer& trace)
     constexpr auto num_rows = 1 << 8; // 2^8 = 256
     trace.reserve_column(C::precomputed_power_of_2, num_rows);
     for (uint32_t i = 0; i < num_rows; i++) {
-        trace.set(C::precomputed_power_of_2, i, 1 << i);
+        trace.set(C::precomputed_power_of_2, i, uint256_t(1) << uint256_t(i));
     }
 }
 
