@@ -8,10 +8,12 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { createEthereumChain } from './chain.js';
+import { createExtendedL1Client } from './client.js';
 import { DefaultL1ContractsConfig } from './config.js';
 import { RollupContract } from './contracts/rollup.js';
 import { type DeployL1ContractsArgs, type Operator, deployL1Contracts } from './deploy_l1_contracts.js';
 import { startAnvil } from './test/start_anvil.js';
+import type { ExtendedViemWalletClient } from './types.js';
 
 describe('deploy_l1_contracts', () => {
   let privateKey: PrivateKeyAccount;
@@ -28,6 +30,7 @@ describe('deploy_l1_contracts', () => {
   const chainId = process.env.L1_CHAIN_ID ? parseInt(process.env.L1_CHAIN_ID, 10) : 31337;
   let rpcUrl = process.env.L1_RPC_URL;
   let stop: () => Promise<void> = () => Promise.resolve();
+  let client: ExtendedViemWalletClient;
 
   beforeAll(async () => {
     logger = createLogger('ethereum:test:deploy_l1_contracts');
@@ -45,6 +48,8 @@ describe('deploy_l1_contracts', () => {
     if (!rpcUrl) {
       ({ stop, rpcUrl } = await startAnvil());
     }
+
+    client = createExtendedL1Client([rpcUrl], privateKey, createEthereumChain([rpcUrl], chainId).chainInfo);
   });
 
   afterAll(async () => {
@@ -126,5 +131,21 @@ describe('deploy_l1_contracts', () => {
         1,
       );
     }
+  });
+
+  it('deploys and adds 48 initialValidators', async () => {
+    const initialValidators = times(48, () => {
+      const addr = EthAddress.random();
+      const bn254SecretKey = new SecretValue(Fr.random().toBigInt());
+      return { attester: addr, withdrawer: addr, bn254SecretKey };
+    });
+
+    const deployment = await deploy({ initialValidators, aztecTargetCommitteeSize: initialValidators.length });
+    const rollup = new RollupContract(client, deployment.l1ContractAddresses.rollupAddress);
+
+    expect(await rollup.getActiveAttesterCount()).toEqual(BigInt(initialValidators.length));
+    expect((await rollup.getAttesters()).map(a => a.toLowerCase()).sort()).toEqual(
+      initialValidators.map(({ attester }) => attester.toString().toLowerCase()).sort(),
+    );
   });
 });
