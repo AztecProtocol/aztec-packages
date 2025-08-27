@@ -911,12 +911,12 @@ template <typename Builder, typename T> class bigfield {
     //           = 2^k * (3 * 2^2Q) + 2^k * 2^L * (4 * 2^2Q)
     //           < 2^k * (2^L + 1) * (4 * 2^2Q)
     //           < n
-    // ==> 2^k * 2^L * 2^(2Q + 2) < n
-    // ==> 2Q + 2 < (log(n) - k - L)
-    // ==> Q < ((log(n) - k - L) - 2) / 2
+    // ==> 2^k * 2^L * 2^(2Q + 3) < n
+    // ==> 2Q + 3 < (log(n) - k - L)
+    // ==> Q < ((log(n) - k - L) - 3) / 2
     //
     static constexpr uint64_t MAXIMUM_LIMB_SIZE_THAT_WOULDNT_OVERFLOW =
-        (bb::fr::modulus.get_msb() - MAX_ADDITION_LOG - NUM_LIMB_BITS - 2) / 2;
+        (bb::fr::modulus.get_msb() - MAX_ADDITION_LOG - NUM_LIMB_BITS - 3) / 2;
 
     // If the logarithm of the maximum value of a limb is more than this, we need to reduce.
     // We allow an element to be added to itself 10 times, so we allow the limb to grow by 10 bits.
