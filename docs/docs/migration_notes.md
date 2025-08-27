@@ -2945,13 +2945,13 @@ Aztec contracts are now moved outside of the `yarn-project` folder and into `noi
 Before:
 
 ```rust
-easy_private_token_contract = {git = "https://github.com/AztecProtocol/aztec-packages/", tag ="v0.23.0", directory = "yarn-project/noir-contracts/contracts/easy_private_token_contract"}
+private_token_contract = {git = "https://github.com/AztecProtocol/aztec-packages/", tag ="v0.23.0", directory = "yarn-project/noir-contracts/contracts/private_token_contract"}
 ```
 
 Now, update the `yarn-project` folder for `noir-projects`:
 
 ```rust
-easy_private_token_contract = {git = "https://github.com/AztecProtocol/aztec-packages/", tag ="v0.24.0", directory = "noir-projects/noir-contracts/contracts/easy_private_token_contract"}
+private_token_contract = {git = "https://github.com/AztecProtocol/aztec-packages/", tag ="v0.24.0", directory = "noir-projects/noir-contracts/contracts/private_token_contract"}
 ```
 
 ## 0.22.0
@@ -3536,11 +3536,11 @@ Aztec contracts are now moved outside of the `src` folder, so you need to update
 Before:
 
 ```rust
-easy_private_token_contract = {git = "https://github.com/AztecProtocol/aztec-packages/", tag ="v0.16.9", directory = "noir-projects/noir-contracts/contracts/easy_private_token_contract"}
+private_token_contract = {git = "https://github.com/AztecProtocol/aztec-packages/", tag ="v0.16.9", directory = "noir-projects/noir-contracts/contracts/private_token_contract"}
 ```
 
 Now, just remove the `src` folder,:
 
 ```rust
-easy_private_token_contract = {git = "https://github.com/AztecProtocol/aztec-packages/", tag ="v0.17.0", directory = "noir-projects/noir-contracts/contracts/easy_private_token_contract"}
+private_token_contract = {git = "https://github.com/AztecProtocol/aztec-packages/", tag ="v0.17.0", directory = "noir-projects/noir-contracts/contracts/private_token_contract"}
 ```
