@@ -5,9 +5,14 @@ use dep::protocol_types::{
     traits::Packable,
 };
 
-use crate::{context::PrivateContext, note::note_interface::{NoteHash, NoteType}};
+use crate::{
+    context::PrivateContext,
+    macros::notes::custom_note,
+    note::note_interface::{NoteHash, NoteType},
+};
 
 #[derive(Eq)]
+#[custom_note] // <-- I added this, and the macro got angry about not implementing Packable (which is implemented below)
 pub struct DelayedPrivateMutableNote<Note, let INITIAL_DELAY: u64> {
     pub delayed_mutable_values: DelayedPublicMutableValues<Note, INITIAL_DELAY>,
 }
@@ -216,15 +221,15 @@ where
     }
 }
 
-impl<Note, let INITIAL_DELAY: u64> NoteType for DelayedPrivateMutableNote<Note, INITIAL_DELAY>
-where
-    Note: NoteType,
-{
-    // The DelayedPrivateMutableNote inherits the NoteTypeId of the Note.
-    fn get_id() -> Field {
-        Note::get_id()
-    }
-}
+// impl<Note, let INITIAL_DELAY: u64> NoteType for DelayedPrivateMutableNote<Note, INITIAL_DELAY>
+// where
+//     Note: NoteType,
+// {
+//     // The DelayedPrivateMutableNote inherits the NoteTypeId of the Note.
+//     fn get_id() -> Field {
+//         Note::get_id()
+//     }
+// }
 
 impl<Note, let INITIAL_DELAY: u64, let N: u32> Packable for DelayedPrivateMutableNote<Note, INITIAL_DELAY>
 where
@@ -240,3 +245,39 @@ where
         Self { delayed_mutable_values: DelayedPublicMutableValues::unpack(fields) }
     }
 }
+
+// mod test {
+//     use crate::{
+//         test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote},
+//     };
+
+//     use dep::protocol_types::{
+//         constants::{GENERATOR_INDEX__NOTE_HASH, GENERATOR_INDEX__NOTE_NULLIFIER},
+//         delayed_public_mutable::DelayedPublicMutableValues,
+//         hash::poseidon2_hash_with_separator,
+//         traits::Packable,
+//     };
+//     use protocol_types::delayed_public_mutable::scheduled_value_change::ScheduledValueChange;
+//     use protocol_types::delayed_public_mutable::scheduled_delay_change::ScheduledDelayChange;
+
+//     global TEST_INITIAL_DELAY: u64 = 100;
+
+//     #[test]
+//     fn compute_note_hash() {
+//         let pre_note = MockNote::new(1).build_note();
+//         let post_note = MockNote::new(2).build_note();
+//         let delayed_mutable_values = DelayedPublicMutableValues::<MockNote, TEST_INITIAL_DELAY>::new(
+//             ScheduledValueChange::<MockNote>::new(
+//                 pre_note,
+//                 post_note,
+//                 1234,
+//             ),
+//             ScheduledDelayChange::<TEST_INITIAL_DELAY>::new(
+//                 Option::<u64>::none(),
+//                 Option::<u64>::none(),
+//                 0,
+//             ),
+//         );
+//     }
+
+// }

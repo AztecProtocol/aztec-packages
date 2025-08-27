@@ -10,6 +10,8 @@ use std::meta::derive;
 
 mod test;
 
+/// TODO: rename to `DelayedMutableValues`, because this gets leveraged by both the Private and Public variants.
+
 /// DelayedPublicMutableValues is just a wrapper around ScheduledValueChange and ScheduledDelayChange that then allows us
 /// to wrap both of these values in WithHash. WithHash allows for efficient read of values in private.
 ///
