@@ -66,7 +66,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     transcript->load_proof(honk_proof);
     OinkVerifier oink_verifier{ builder, key, transcript };
     oink_verifier.verify();
-    const std::vector<FF>& public_inputs = oink_verifier.public_inputs;
+    const std::vector<FF>& public_inputs = key->public_inputs;
 
     VerifierCommitments commitments{ key->vk_and_hash->vk, key->witness_commitments };
     static constexpr size_t VIRTUAL_LOG_N = Flavor::NativeFlavor::VIRTUAL_LOG_N;

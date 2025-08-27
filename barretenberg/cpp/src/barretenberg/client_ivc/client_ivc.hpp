@@ -284,6 +284,16 @@ class ClientIVC {
     HonkProof decider_prove();
 
     VerificationKey get_vk() const;
+
+  private:
+    /**
+     * @brief Update the native verifier accumulator based on the provided queue entry and transcript.
+     *
+     * @param queue_entry The verifier inputs from the queue.
+     * @param verifier_transcript Verifier transcript corresponding to the prover transcript.
+     */
+    void update_native_verifier_accumulator(const VerifierInputs& queue_entry,
+                                            const std::shared_ptr<Transcript>& verifier_transcript);
 };
 
 } // namespace bb

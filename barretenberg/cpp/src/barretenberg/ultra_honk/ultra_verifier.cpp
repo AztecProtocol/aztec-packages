@@ -29,7 +29,6 @@ UltraVerifier_<Flavor>::UltraVerifierOutput UltraVerifier_<Flavor>::verify_proof
     transcript->load_proof(proof);
     OinkVerifier<Flavor> oink_verifier{ verification_key, transcript };
     oink_verifier.verify();
-    const PublicInputs& public_inputs = oink_verifier.public_inputs;
 
     // Determine the number of rounds in the sumcheck based on whether or not padding is employed
     const uint64_t log_n = Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : verification_key->vk->log_circuit_size;
@@ -44,7 +43,7 @@ UltraVerifier_<Flavor>::UltraVerifierOutput UltraVerifier_<Flavor>::verify_proof
 
     // Reconstruct the public inputs
     IO inputs;
-    inputs.reconstruct_from_public(public_inputs);
+    inputs.reconstruct_from_public(verification_key->public_inputs);
 
     // Aggregate new pairing points with those reconstructed from the public inputs
     decider_output.pairing_points.aggregate(inputs.pairing_inputs);
