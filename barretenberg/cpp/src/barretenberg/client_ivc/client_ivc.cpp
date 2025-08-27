@@ -95,13 +95,14 @@ std::shared_ptr<ClientIVC::RecursiveDeciderVerificationKey> ClientIVC::perform_p
     const std::shared_ptr<RecursiveDeciderVerificationKey>& verifier_instance,
     const std::shared_ptr<RecursiveTranscript>& transcript,
     const StdlibProof& proof,
-    [[maybe_unused]] std::optional<StdlibFF>& prev_accum_hash,
-    [[maybe_unused]] bool is_kernel)
+    std::optional<StdlibFF>& prev_accum_hash,
+    bool is_kernel)
 {
     BB_ASSERT_NEQ(verifier_accumulator, nullptr, "verifier_accumulator cannot be null in PG recursive verification");
 
-    if (is_kernel) { // this is what I'm using to determine if this is the first circuit we're folding...
-        // Fiat-Shamir the accumulator.
+    // Fiat-Shamir the accumulator. (Only needs to be performed on the first in a series of recursive PG verifications
+    // within a given kernel and by convention the kernel proof is always verified first).
+    if (is_kernel) {
         prev_accum_hash = verifier_accumulator->hash_through_transcript("", *transcript);
         transcript->add_to_hash_buffer("accum_hash", *prev_accum_hash);
         info("Previous accumulator hash in PG rec verifier: ", *prev_accum_hash);
@@ -399,6 +400,9 @@ HonkProof ClientIVC::construct_pg_proof(const std::shared_ptr<DeciderProvingKey>
     return fold_output.proof;
 }
 
+/**
+ * @brief Get queue type for the proof of a circuit about to be accumulated based on num circuits accumulated so far.
+ */
 ClientIVC::QUEUE_TYPE ClientIVC::get_queue_type() const
 {
     // first app

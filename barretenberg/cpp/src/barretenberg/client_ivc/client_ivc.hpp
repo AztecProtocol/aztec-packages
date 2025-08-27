@@ -172,13 +172,14 @@ class ClientIVC {
         MSGPACK_FIELDS(mega, eccvm, translator);
     };
 
+    // Specifies proof type or equivalently the type of recursive verification to be performed on a given proof
     enum class QUEUE_TYPE {
         OINK,
         PG,
         PG_FINAL, // the final PG verification, used in hiding kernel
         PG_TAIL,  // used in tail to indicate special handling of merge for ZK
         MEGA
-    }; // for specifying type of proof in the verification queue
+    };
 
     // An entry in the native verification queue
     struct VerifierInputs {
@@ -250,7 +251,7 @@ class ClientIVC {
         perform_recursive_verification_and_databus_consistency_checks(
             ClientCircuit& circuit,
             const StdlibVerifierInputs& verifier_inputs,
-            const std::shared_ptr<RecursiveDeciderVerificationKey>& input_stdlib_verifier_accumulator,
+            const std::shared_ptr<RecursiveDeciderVerificationKey>& input_verifier_accumulator,
             const TableCommitments& T_prev_commitments,
             const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript);
 
@@ -303,13 +304,13 @@ class ClientIVC {
 
     QUEUE_TYPE get_queue_type() const;
 
-    std::shared_ptr<RecursiveDeciderVerificationKey> perform_oink_recursive_verification(
+    static std::shared_ptr<RecursiveDeciderVerificationKey> perform_oink_recursive_verification(
         ClientCircuit& circuit,
         const std::shared_ptr<RecursiveDeciderVerificationKey>& verifier_instance,
         const std::shared_ptr<RecursiveTranscript>& transcript,
         const StdlibProof& proof);
 
-    std::shared_ptr<RecursiveDeciderVerificationKey> perform_pg_recursive_verification(
+    static std::shared_ptr<RecursiveDeciderVerificationKey> perform_pg_recursive_verification(
         ClientCircuit& circuit,
         const std::shared_ptr<RecursiveDeciderVerificationKey>& verifier_accumulator,
         const std::shared_ptr<RecursiveDeciderVerificationKey>& verifier_instance,
