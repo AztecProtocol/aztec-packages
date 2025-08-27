@@ -101,14 +101,12 @@ This will generate a `Prover.toml` you can fill with the values you want to prov
 
 ```bash
 nargo execute <witness-name>
-bb prove -b ./target/<circuit-name>.json -w ./target/<witness-name> -o ./target --oracle_hash keccak --output_format bytes
+bb prove -b ./target/<circuit-name>.json -w ./target/<witness-name> -o ./target --oracle_hash keccak
 ```
 
 Binary Output Format
 
 Barretenberg outputs `proof` and `public_inputs` files in binary format. The binary format is fields-compatible, meaning it can be split into 32-byte chunks where each chunk represents a field element.
-
-The `--output_format bytes` flag ensures the output is in binary format, which produces a `proof` file with the proof data and a `public_inputs` file with the public input values.
 
 A programmatic example of how the `verify` function is called can be seen in the example zk voting application [here](https://github.com/noir-lang/noir-examples/blob/33e598c257e2402ea3a6b68dd4c5ad492bce1b0a/foundry-voting/src/zkVote.sol#L35):
 
