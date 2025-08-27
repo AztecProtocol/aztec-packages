@@ -262,11 +262,6 @@ tests:
     owners:
       - *mitch
 
-  - regex: "src/e2e_multi_eoa.test.ts"
-    error_regex: "TypeError: Cannot convert undefined to a BigInt"
-    owners:
-      - *alex
-
   # Nightly GKE tests
   - regex: "spartan/bootstrap.sh"
     owners:
