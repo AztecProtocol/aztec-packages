@@ -113,8 +113,7 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         manifest_expected.add_challenge(round, alpha_labels);
         round++;
 
-        std::string label = "Sumcheck:gate_challenge";
-        manifest_expected.add_challenge(round, label);
+        manifest_expected.add_challenge(round, "Sumcheck:gate_challenge");
         round++;
 
         if constexpr (Flavor::HasZK) {
