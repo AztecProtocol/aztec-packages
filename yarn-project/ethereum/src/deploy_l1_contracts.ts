@@ -810,14 +810,19 @@ export const addMultipleValidators = async (
 
       logger.info(`Adding ${validators.length} validators to the rollup`);
 
-      await deployer.l1TxUtils.sendAndMonitorTransaction({
-        to: multiAdder.toString(),
-        data: encodeFunctionData({
-          abi: MultiAdderArtifact.contractAbi,
-          functionName: 'addValidators',
-          args: [validatorsTuples],
-        }),
-      });
+      await deployer.l1TxUtils.sendAndMonitorTransaction(
+        {
+          to: multiAdder.toString(),
+          data: encodeFunctionData({
+            abi: MultiAdderArtifact.contractAbi,
+            functionName: 'addValidators',
+            args: [validatorsTuples],
+          }),
+        },
+        {
+          gasLimit: 45_000_000n,
+        },
+      );
 
       const validatorCountAfter = await rollup.getActiveAttesterCount();
       if (validatorCountAfter < validatorCount + BigInt(validators.length)) {
