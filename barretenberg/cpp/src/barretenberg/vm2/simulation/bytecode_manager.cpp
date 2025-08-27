@@ -16,6 +16,9 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
 {
     // Use shared ContractInstanceManager for contract instance retrieval and validation
     // This handles nullifier checks, address derivation, and update validation
+    AppendOnlyTreeSnapshot snapshot_before = retrieved_bytecodes_tree_check.snapshot();
+    auto tree_states = merkle_db.get_tree_state();
+
     auto maybe_instance = contract_instance_manager.get_contract_instance(address);
 
     if (!maybe_instance.has_value()) {
@@ -23,13 +26,41 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
         retrieval_events.emit({
             .bytecode_id = FF(0), // Use default ID for error case
             .address = address,
-            .error = true,
+            .nullifier_root = tree_states.nullifierTree.tree.root,
+            .public_data_tree_root = tree_states.publicDataTree.tree.root,
+            .retrieved_bytecodes_snapshot_before = snapshot_before,
+            .retrieved_bytecodes_snapshot_after = snapshot_before,
+            .instance_not_found_error = true,
         });
         vinfo("Contract ", field_to_string(address), " is not deployed!");
         throw BytecodeNotFoundError("Contract " + field_to_string(address) + " is not deployed");
     }
 
-    ContractClassId current_class_id = maybe_instance.value().current_class_id;
+    ContractInstance instance = maybe_instance.value();
+    ContractClassId current_class_id = instance.current_class_id;
+
+    bool new_bytecode = !retrieved_bytecodes_tree_check.contains(current_class_id);
+    uint32_t retrieved_bytecodes_count = retrieved_bytecodes_tree_check.size();
+
+    if (new_bytecode && retrieved_bytecodes_count == MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS) {
+        retrieval_events.emit({
+            .bytecode_id = FF(0), // Use default ID for error case
+            .address = address,
+            .current_class_id = current_class_id,
+            .nullifier_root = tree_states.nullifierTree.tree.root,
+            .public_data_tree_root = tree_states.publicDataTree.tree.root,
+            .retrieved_bytecodes_snapshot_before = snapshot_before,
+            .retrieved_bytecodes_snapshot_after = snapshot_before,
+            .new_bytecode = new_bytecode,
+            .limit_error = true,
+        });
+        throw BytecodeRetrievalLimitReachedError("Can't retrieve more than " +
+                                                 std::to_string(MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS) +
+                                                 " bytecodes per tx");
+    }
+
+    retrieved_bytecodes_tree_check.insert(current_class_id);
+    AppendOnlyTreeSnapshot snapshot_after = retrieved_bytecodes_tree_check.snapshot();
 
     // Contract class retrieval and class ID validation
     std::optional<ContractClass> maybe_klass = contract_db.get_contract_class(current_class_id);
@@ -45,7 +76,6 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     // Check if we've already processed this bytecode. If so, don't do hashing and decomposition again!
     if (bytecodes.contains(bytecode_id)) {
         // Already processed this bytecode - just emit retrieval event and return
-        auto tree_states = merkle_db.get_tree_state();
         retrieval_events.emit({
             .bytecode_id = bytecode_id,
             .address = address,
@@ -53,6 +83,9 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
             .contract_class = klass,
             .nullifier_root = tree_states.nullifierTree.tree.root,
             .public_data_tree_root = tree_states.publicDataTree.tree.root,
+            .retrieved_bytecodes_snapshot_before = snapshot_before,
+            .retrieved_bytecodes_snapshot_after = snapshot_after,
+            .new_bytecode = new_bytecode,
         });
         return bytecode_id;
     }
@@ -69,8 +102,6 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     // We now save the bytecode so that we don't repeat this process.
     bytecodes.emplace(bytecode_id, std::move(shared_bytecode));
 
-    auto tree_states = merkle_db.get_tree_state();
-
     retrieval_events.emit({
         .bytecode_id = bytecode_id,
         .address = address,
@@ -78,6 +109,9 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
         .contract_class = klass, // WARNING: this class has the whole bytecode.
         .nullifier_root = tree_states.nullifierTree.tree.root,
         .public_data_tree_root = tree_states.publicDataTree.tree.root,
+        .retrieved_bytecodes_snapshot_before = snapshot_before,
+        .retrieved_bytecodes_snapshot_after = snapshot_after,
+        .new_bytecode = new_bytecode,
     });
 
     return bytecode_id;

@@ -14,9 +14,10 @@ template <typename FF_> class tx_contextImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 74> SUBRELATION_PARTIAL_LENGTHS = {
-        3, 3, 2, 3, 3, 3, 2, 3, 3, 3, 2, 3, 3, 3, 3, 2, 3, 3, 2, 3, 3, 2, 3, 3, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 4, 5, 5,
-        3, 4, 4, 5, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 3, 3, 3, 3, 5
+    static constexpr std::array<size_t, 80> SUBRELATION_PARTIAL_LENGTHS = {
+        3, 3, 2, 3, 3, 3, 2, 3, 3, 3, 2, 3, 3, 3, 3, 2, 3, 3, 3, 3, 2, 3, 3, 2, 3, 3, 5,
+        5, 5, 5, 5, 5, 5, 5, 5, 5, 4, 4, 4, 5, 5, 3, 4, 4, 5, 5, 4, 4, 4, 4, 4, 4, 4, 4,
+        4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 3, 3, 3, 3, 5
     };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -40,146 +41,158 @@ template <typename FF> class tx_context : public Relation<tx_contextImpl<FF>> {
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
-        case 24:
-            return "NOTE_HASH_ROOT_CONTINUITY";
-        case 25:
-            return "NOTE_HASH_TREE_SIZE_CONTINUITY";
         case 26:
-            return "NUM_NOTE_HASHES_EMITTED_CONTINUITY";
+            return "NOTE_HASH_ROOT_CONTINUITY";
         case 27:
-            return "NULLIFIER_TREE_ROOT_CONTINUITY";
+            return "NOTE_HASH_TREE_SIZE_CONTINUITY";
         case 28:
-            return "NULLIFIER_TREE_SIZE_CONTINUITY";
+            return "NUM_NOTE_HASHES_EMITTED_CONTINUITY";
         case 29:
-            return "NUM_NULLIFIERS_EMITTED_CONTINUITY";
+            return "NULLIFIER_TREE_ROOT_CONTINUITY";
         case 30:
-            return "PUBLIC_DATA_TREE_ROOT_CONTINUITY";
+            return "NULLIFIER_TREE_SIZE_CONTINUITY";
         case 31:
-            return "PUBLIC_DATA_TREE_SIZE_CONTINUITY";
+            return "NUM_NULLIFIERS_EMITTED_CONTINUITY";
         case 32:
-            return "WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY";
+            return "PUBLIC_DATA_TREE_ROOT_CONTINUITY";
         case 33:
-            return "WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY";
+            return "PUBLIC_DATA_TREE_SIZE_CONTINUITY";
         case 34:
-            return "L1_L2_TREE_ROOT_CONTINUITY";
+            return "WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY";
         case 35:
-            return "NUM_UNENCRYPTED_LOGS_CONTINUITY";
+            return "WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY";
         case 36:
-            return "NUM_L2_TO_L1_MESSAGES_CONTINUITY";
+            return "L1_L2_TREE_ROOT_CONTINUITY";
+        case 37:
+            return "RETRIEVED_BYTECODES_TREE_ROOT_CONTINUITY";
         case 38:
-            return "PROPAGATE_L2_GAS_USED";
+            return "RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY";
         case 39:
-            return "PROPAGATE_DA_GAS_USED";
+            return "NUM_UNENCRYPTED_LOGS_CONTINUITY";
         case 40:
-            return "PROPAGATE_L2_GAS_LIMIT";
-        case 41:
-            return "PROPAGATE_DA_GAS_LIMIT";
+            return "NUM_L2_TO_L1_MESSAGES_CONTINUITY";
         case 42:
-            return "NOTE_HASH_ROOT_IMMUTABILITY";
+            return "PROPAGATE_L2_GAS_USED";
         case 43:
-            return "NOTE_HASH_SIZE_IMMUTABILITY";
+            return "PROPAGATE_DA_GAS_USED";
         case 44:
-            return "NOTE_HASH_COUNT_IMMUTABILITY";
+            return "PROPAGATE_L2_GAS_LIMIT";
         case 45:
-            return "NULLIFIER_ROOT_IMMUTABILITY";
+            return "PROPAGATE_DA_GAS_LIMIT";
         case 46:
-            return "NULLIFIER_SIZE_IMMUTABILITY";
+            return "NOTE_HASH_ROOT_IMMUTABILITY";
         case 47:
-            return "NULLIFIER_COUNT_IMMUTABILITY";
+            return "NOTE_HASH_SIZE_IMMUTABILITY";
         case 48:
-            return "PUBLIC_DATA_ROOT_IMMUTABILITY";
+            return "NOTE_HASH_COUNT_IMMUTABILITY";
         case 49:
-            return "PUBLIC_DATA_SIZE_IMMUTABILITY";
+            return "NULLIFIER_ROOT_IMMUTABILITY";
         case 50:
-            return "WRITTEN_PUBLIC_DATA_SLOTS_ROOT_IMMUTABILITY";
+            return "NULLIFIER_SIZE_IMMUTABILITY";
         case 51:
-            return "WRITTEN_PUBLIC_DATA_SLOTS_SIZE_IMMUTABILITY";
+            return "NULLIFIER_COUNT_IMMUTABILITY";
         case 52:
-            return "UNENCRYPTED_LOG_COUNT_IMMUTABILITY";
+            return "PUBLIC_DATA_ROOT_IMMUTABILITY";
         case 53:
-            return "L2_TO_L1_MESSAGE_COUNT_IMMUTABILITY";
+            return "PUBLIC_DATA_SIZE_IMMUTABILITY";
         case 54:
-            return "NOTE_HASH_ROOT_PADDED_IMMUTABILITY";
+            return "WRITTEN_PUBLIC_DATA_SLOTS_ROOT_IMMUTABILITY";
         case 55:
-            return "NOTE_HASH_SIZE_PADDED_IMMUTABILITY";
+            return "WRITTEN_PUBLIC_DATA_SLOTS_SIZE_IMMUTABILITY";
         case 56:
-            return "NOTE_HASH_COUNT_PADDED_IMMUTABILITY";
+            return "UNENCRYPTED_LOG_COUNT_IMMUTABILITY";
         case 57:
-            return "NULLIFIER_ROOT_PADDED_IMMUTABILITY";
+            return "L2_TO_L1_MESSAGE_COUNT_IMMUTABILITY";
         case 58:
-            return "NULLIFIER_SIZE_PADDED_IMMUTABILITY";
+            return "RETRIEVED_BYTECODES_TREE_ROOT_IMMUTABILITY";
         case 59:
-            return "NULLIFIER_COUNT_PADDED_IMMUTABILITY";
+            return "RETRIEVED_BYTECODES_TREE_SIZE_IMMUTABILITY";
         case 60:
-            return "PUBLIC_DATA_ROOT_PADDED_IMMUTABILITY";
+            return "NOTE_HASH_ROOT_PADDED_IMMUTABILITY";
         case 61:
-            return "PUBLIC_DATA_SIZE_PADDED_IMMUTABILITY";
+            return "NOTE_HASH_SIZE_PADDED_IMMUTABILITY";
         case 62:
-            return "WRITTEN_PUBLIC_DATA_SLOTS_ROOT_PADDED_IMMUTABILITY";
+            return "NOTE_HASH_COUNT_PADDED_IMMUTABILITY";
         case 63:
-            return "WRITTEN_PUBLIC_DATA_SLOTS_SIZE_PADDED_IMMUTABILITY";
+            return "NULLIFIER_ROOT_PADDED_IMMUTABILITY";
         case 64:
-            return "UNENCRYPTED_LOG_COUNT_PADDED_IMMUTABILITY";
+            return "NULLIFIER_SIZE_PADDED_IMMUTABILITY";
         case 65:
-            return "L2_TO_L1_MESSAGE_COUNT_PADDED_IMMUTABILITY";
+            return "NULLIFIER_COUNT_PADDED_IMMUTABILITY";
         case 66:
-            return "L2_GAS_USED_IMMUTABILITY";
+            return "PUBLIC_DATA_ROOT_PADDED_IMMUTABILITY";
         case 67:
-            return "DA_GAS_USED_IMMUTABILITY";
+            return "PUBLIC_DATA_SIZE_PADDED_IMMUTABILITY";
+        case 68:
+            return "WRITTEN_PUBLIC_DATA_SLOTS_ROOT_PADDED_IMMUTABILITY";
+        case 69:
+            return "WRITTEN_PUBLIC_DATA_SLOTS_SIZE_PADDED_IMMUTABILITY";
+        case 70:
+            return "UNENCRYPTED_LOG_COUNT_PADDED_IMMUTABILITY";
+        case 71:
+            return "L2_TO_L1_MESSAGE_COUNT_PADDED_IMMUTABILITY";
         case 72:
-            return "NEXT_CONTEXT_ID_INITIAL_VALUE";
+            return "L2_GAS_USED_IMMUTABILITY";
         case 73:
+            return "DA_GAS_USED_IMMUTABILITY";
+        case 78:
+            return "NEXT_CONTEXT_ID_INITIAL_VALUE";
+        case 79:
             return "NEXT_CONTEXT_ID_CONTINUITY";
         }
         return std::to_string(index);
     }
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_NOTE_HASH_ROOT_CONTINUITY = 24;
-    static constexpr size_t SR_NOTE_HASH_TREE_SIZE_CONTINUITY = 25;
-    static constexpr size_t SR_NUM_NOTE_HASHES_EMITTED_CONTINUITY = 26;
-    static constexpr size_t SR_NULLIFIER_TREE_ROOT_CONTINUITY = 27;
-    static constexpr size_t SR_NULLIFIER_TREE_SIZE_CONTINUITY = 28;
-    static constexpr size_t SR_NUM_NULLIFIERS_EMITTED_CONTINUITY = 29;
-    static constexpr size_t SR_PUBLIC_DATA_TREE_ROOT_CONTINUITY = 30;
-    static constexpr size_t SR_PUBLIC_DATA_TREE_SIZE_CONTINUITY = 31;
-    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY = 32;
-    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY = 33;
-    static constexpr size_t SR_L1_L2_TREE_ROOT_CONTINUITY = 34;
-    static constexpr size_t SR_NUM_UNENCRYPTED_LOGS_CONTINUITY = 35;
-    static constexpr size_t SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY = 36;
-    static constexpr size_t SR_PROPAGATE_L2_GAS_USED = 38;
-    static constexpr size_t SR_PROPAGATE_DA_GAS_USED = 39;
-    static constexpr size_t SR_PROPAGATE_L2_GAS_LIMIT = 40;
-    static constexpr size_t SR_PROPAGATE_DA_GAS_LIMIT = 41;
-    static constexpr size_t SR_NOTE_HASH_ROOT_IMMUTABILITY = 42;
-    static constexpr size_t SR_NOTE_HASH_SIZE_IMMUTABILITY = 43;
-    static constexpr size_t SR_NOTE_HASH_COUNT_IMMUTABILITY = 44;
-    static constexpr size_t SR_NULLIFIER_ROOT_IMMUTABILITY = 45;
-    static constexpr size_t SR_NULLIFIER_SIZE_IMMUTABILITY = 46;
-    static constexpr size_t SR_NULLIFIER_COUNT_IMMUTABILITY = 47;
-    static constexpr size_t SR_PUBLIC_DATA_ROOT_IMMUTABILITY = 48;
-    static constexpr size_t SR_PUBLIC_DATA_SIZE_IMMUTABILITY = 49;
-    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_ROOT_IMMUTABILITY = 50;
-    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_SIZE_IMMUTABILITY = 51;
-    static constexpr size_t SR_UNENCRYPTED_LOG_COUNT_IMMUTABILITY = 52;
-    static constexpr size_t SR_L2_TO_L1_MESSAGE_COUNT_IMMUTABILITY = 53;
-    static constexpr size_t SR_NOTE_HASH_ROOT_PADDED_IMMUTABILITY = 54;
-    static constexpr size_t SR_NOTE_HASH_SIZE_PADDED_IMMUTABILITY = 55;
-    static constexpr size_t SR_NOTE_HASH_COUNT_PADDED_IMMUTABILITY = 56;
-    static constexpr size_t SR_NULLIFIER_ROOT_PADDED_IMMUTABILITY = 57;
-    static constexpr size_t SR_NULLIFIER_SIZE_PADDED_IMMUTABILITY = 58;
-    static constexpr size_t SR_NULLIFIER_COUNT_PADDED_IMMUTABILITY = 59;
-    static constexpr size_t SR_PUBLIC_DATA_ROOT_PADDED_IMMUTABILITY = 60;
-    static constexpr size_t SR_PUBLIC_DATA_SIZE_PADDED_IMMUTABILITY = 61;
-    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_ROOT_PADDED_IMMUTABILITY = 62;
-    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_SIZE_PADDED_IMMUTABILITY = 63;
-    static constexpr size_t SR_UNENCRYPTED_LOG_COUNT_PADDED_IMMUTABILITY = 64;
-    static constexpr size_t SR_L2_TO_L1_MESSAGE_COUNT_PADDED_IMMUTABILITY = 65;
-    static constexpr size_t SR_L2_GAS_USED_IMMUTABILITY = 66;
-    static constexpr size_t SR_DA_GAS_USED_IMMUTABILITY = 67;
-    static constexpr size_t SR_NEXT_CONTEXT_ID_INITIAL_VALUE = 72;
-    static constexpr size_t SR_NEXT_CONTEXT_ID_CONTINUITY = 73;
+    static constexpr size_t SR_NOTE_HASH_ROOT_CONTINUITY = 26;
+    static constexpr size_t SR_NOTE_HASH_TREE_SIZE_CONTINUITY = 27;
+    static constexpr size_t SR_NUM_NOTE_HASHES_EMITTED_CONTINUITY = 28;
+    static constexpr size_t SR_NULLIFIER_TREE_ROOT_CONTINUITY = 29;
+    static constexpr size_t SR_NULLIFIER_TREE_SIZE_CONTINUITY = 30;
+    static constexpr size_t SR_NUM_NULLIFIERS_EMITTED_CONTINUITY = 31;
+    static constexpr size_t SR_PUBLIC_DATA_TREE_ROOT_CONTINUITY = 32;
+    static constexpr size_t SR_PUBLIC_DATA_TREE_SIZE_CONTINUITY = 33;
+    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY = 34;
+    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY = 35;
+    static constexpr size_t SR_L1_L2_TREE_ROOT_CONTINUITY = 36;
+    static constexpr size_t SR_RETRIEVED_BYTECODES_TREE_ROOT_CONTINUITY = 37;
+    static constexpr size_t SR_RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY = 38;
+    static constexpr size_t SR_NUM_UNENCRYPTED_LOGS_CONTINUITY = 39;
+    static constexpr size_t SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY = 40;
+    static constexpr size_t SR_PROPAGATE_L2_GAS_USED = 42;
+    static constexpr size_t SR_PROPAGATE_DA_GAS_USED = 43;
+    static constexpr size_t SR_PROPAGATE_L2_GAS_LIMIT = 44;
+    static constexpr size_t SR_PROPAGATE_DA_GAS_LIMIT = 45;
+    static constexpr size_t SR_NOTE_HASH_ROOT_IMMUTABILITY = 46;
+    static constexpr size_t SR_NOTE_HASH_SIZE_IMMUTABILITY = 47;
+    static constexpr size_t SR_NOTE_HASH_COUNT_IMMUTABILITY = 48;
+    static constexpr size_t SR_NULLIFIER_ROOT_IMMUTABILITY = 49;
+    static constexpr size_t SR_NULLIFIER_SIZE_IMMUTABILITY = 50;
+    static constexpr size_t SR_NULLIFIER_COUNT_IMMUTABILITY = 51;
+    static constexpr size_t SR_PUBLIC_DATA_ROOT_IMMUTABILITY = 52;
+    static constexpr size_t SR_PUBLIC_DATA_SIZE_IMMUTABILITY = 53;
+    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_ROOT_IMMUTABILITY = 54;
+    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_SIZE_IMMUTABILITY = 55;
+    static constexpr size_t SR_UNENCRYPTED_LOG_COUNT_IMMUTABILITY = 56;
+    static constexpr size_t SR_L2_TO_L1_MESSAGE_COUNT_IMMUTABILITY = 57;
+    static constexpr size_t SR_RETRIEVED_BYTECODES_TREE_ROOT_IMMUTABILITY = 58;
+    static constexpr size_t SR_RETRIEVED_BYTECODES_TREE_SIZE_IMMUTABILITY = 59;
+    static constexpr size_t SR_NOTE_HASH_ROOT_PADDED_IMMUTABILITY = 60;
+    static constexpr size_t SR_NOTE_HASH_SIZE_PADDED_IMMUTABILITY = 61;
+    static constexpr size_t SR_NOTE_HASH_COUNT_PADDED_IMMUTABILITY = 62;
+    static constexpr size_t SR_NULLIFIER_ROOT_PADDED_IMMUTABILITY = 63;
+    static constexpr size_t SR_NULLIFIER_SIZE_PADDED_IMMUTABILITY = 64;
+    static constexpr size_t SR_NULLIFIER_COUNT_PADDED_IMMUTABILITY = 65;
+    static constexpr size_t SR_PUBLIC_DATA_ROOT_PADDED_IMMUTABILITY = 66;
+    static constexpr size_t SR_PUBLIC_DATA_SIZE_PADDED_IMMUTABILITY = 67;
+    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_ROOT_PADDED_IMMUTABILITY = 68;
+    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_SIZE_PADDED_IMMUTABILITY = 69;
+    static constexpr size_t SR_UNENCRYPTED_LOG_COUNT_PADDED_IMMUTABILITY = 70;
+    static constexpr size_t SR_L2_TO_L1_MESSAGE_COUNT_PADDED_IMMUTABILITY = 71;
+    static constexpr size_t SR_L2_GAS_USED_IMMUTABILITY = 72;
+    static constexpr size_t SR_DA_GAS_USED_IMMUTABILITY = 73;
+    static constexpr size_t SR_NEXT_CONTEXT_ID_INITIAL_VALUE = 78;
+    static constexpr size_t SR_NEXT_CONTEXT_ID_CONTINUITY = 79;
 };
 
 } // namespace bb::avm2

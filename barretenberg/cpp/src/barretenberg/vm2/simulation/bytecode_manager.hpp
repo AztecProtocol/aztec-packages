@@ -18,6 +18,7 @@
 #include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 #include "barretenberg/vm2/simulation/range_check.hpp"
+#include "barretenberg/vm2/simulation/retrieved_bytecodes_tree_check.hpp"
 #include "barretenberg/vm2/simulation/siloing.hpp"
 #include "barretenberg/vm2/simulation/update_check.hpp"
 
@@ -25,6 +26,12 @@ namespace bb::avm2::simulation {
 
 struct BytecodeNotFoundError : public std::runtime_error {
     BytecodeNotFoundError(const std::string& message)
+        : std::runtime_error(message)
+    {}
+};
+
+struct BytecodeRetrievalLimitReachedError : public std::runtime_error {
+    BytecodeRetrievalLimitReachedError(const std::string& message)
         : std::runtime_error(message)
     {}
 };
@@ -56,6 +63,7 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
                       BytecodeHashingInterface& bytecode_hasher,
                       RangeCheckInterface& range_check,
                       ContractInstanceManagerInterface& contract_instance_manager,
+                      RetrievedBytecodesTreeCheckInterface& retrieved_bytecodes_tree_check,
                       EventEmitterInterface<BytecodeRetrievalEvent>& retrieval_events,
                       EventEmitterInterface<BytecodeDecompositionEvent>& decomposition_events,
                       EventEmitterInterface<InstructionFetchingEvent>& fetching_events)
@@ -64,6 +72,7 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
         , bytecode_hasher(bytecode_hasher)
         , range_check(range_check)
         , contract_instance_manager(contract_instance_manager)
+        , retrieved_bytecodes_tree_check(retrieved_bytecodes_tree_check)
         , retrieval_events(retrieval_events)
         , decomposition_events(decomposition_events)
         , fetching_events(fetching_events)
@@ -78,6 +87,7 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
     BytecodeHashingInterface& bytecode_hasher;
     RangeCheckInterface& range_check;
     ContractInstanceManagerInterface& contract_instance_manager;
+    RetrievedBytecodesTreeCheckInterface& retrieved_bytecodes_tree_check;
     EventEmitterInterface<BytecodeRetrievalEvent>& retrieval_events;
     EventEmitterInterface<BytecodeDecompositionEvent>& decomposition_events;
     EventEmitterInterface<InstructionFetchingEvent>& fetching_events;

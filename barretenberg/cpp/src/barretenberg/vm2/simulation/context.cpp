@@ -56,6 +56,10 @@ std::vector<FF> EnqueuedCallContext::get_calldata(uint32_t cd_offset, uint32_t c
 
 ContextEvent EnqueuedCallContext::serialize_context_event()
 {
+    // We need to do this before try to get bytecode id since it'll modify the tree. See if we should change the context
+    // getting the id or we should inject it from execution.
+    AppendOnlyTreeSnapshot retrieved_bytecodes_tree_snapshot = retrieved_bytecodes_tree.snapshot();
+
     return {
         .id = get_context_id(),
         .parent_id = 0,
@@ -81,6 +85,7 @@ ContextEvent EnqueuedCallContext::serialize_context_event()
         // Tree States
         .tree_states = merkle_db.get_tree_state(),
         .written_public_data_slots_tree_snapshot = written_public_data_slots_tree.snapshot(),
+        .retrieved_bytecodes_tree_snapshot = retrieved_bytecodes_tree_snapshot,
         // Side Effects
         .side_effect_states = get_side_effect_states(),
         // Phase
@@ -114,6 +119,10 @@ std::vector<FF> NestedContext::get_calldata(uint32_t cd_offset, uint32_t cd_copy
 
 ContextEvent NestedContext::serialize_context_event()
 {
+    // We need to do this before try to get bytecode id since it'll modify the tree. See if we should change the context
+    // getting the id or we should inject it from execution.
+    AppendOnlyTreeSnapshot retrieved_bytecodes_tree_snapshot = retrieved_bytecodes_tree.snapshot();
+
     return {
         .id = get_context_id(),
         .parent_id = get_parent_id(),
@@ -139,6 +148,7 @@ ContextEvent NestedContext::serialize_context_event()
         // Tree states
         .tree_states = merkle_db.get_tree_state(),
         .written_public_data_slots_tree_snapshot = written_public_data_slots_tree.snapshot(),
+        .retrieved_bytecodes_tree_snapshot = retrieved_bytecodes_tree_snapshot,
         // Side Effect
         .side_effect_states = get_side_effect_states(),
         // Phase

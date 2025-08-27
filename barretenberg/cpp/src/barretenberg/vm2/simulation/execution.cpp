@@ -1076,9 +1076,9 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
 
             //// Temporality group 1 starts ////
 
-            // We try to get the bytecode id. This can throw if the contract is not deployed.
-            // Note: bytecode_id is tracked in context events, not in the top-level execution event.
-            // It is already included in the before_context_event (defaulting to 0 on error/not-found).
+            // We try to get the bytecode id. This can throw if the contract is not deployed or if we have retrieved too
+            // many unique class ids. Note: bytecode_id is tracked in context events, not in the top-level execution
+            // event. It is already included in the before_context_event (defaulting to 0 on error/not-found).
             context.get_bytecode_manager().get_bytecode_id();
 
             //// Temporality group 2 starts ////

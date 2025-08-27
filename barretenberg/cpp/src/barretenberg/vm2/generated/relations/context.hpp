@@ -14,9 +14,9 @@ template <typename FF_> class contextImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 69> SUBRELATION_PARTIAL_LENGTHS = {
-        3, 3, 3, 3, 4, 3, 3, 4, 5, 5, 5, 5, 5, 6, 5, 5, 5, 5, 5, 5, 3, 5, 5, 5, 5, 5, 5, 5, 6, 5, 5, 6, 5, 5, 5,
-        5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 3, 3, 3, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 4, 5, 5
+    static constexpr std::array<size_t, 71> SUBRELATION_PARTIAL_LENGTHS = {
+        3, 3, 3, 3, 4, 3, 3, 4, 5, 5, 5, 5, 5, 6, 5, 5, 5, 5, 5, 5, 3, 5, 5, 5, 5, 5, 5, 5, 6, 5, 5, 6, 5, 5, 5, 5,
+        5, 5, 5, 5, 5, 5, 5, 5, 5, 3, 3, 3, 3, 3, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 4, 5, 5
     };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -98,43 +98,47 @@ template <typename FF> class context : public Relation<contextImpl<FF>> {
             return "PARENT_DA_GAS_USED_NEXT_ROW";
         case 44:
             return "PARENT_DA_GAS_USED_STORE_ON_ENTER";
-        case 50:
-            return "L2_GAS_USED_CONTINUITY";
-        case 51:
-            return "L2_GAS_USED_ZERO_AFTER_CALL";
+        case 45:
+            return "RETRIEVED_BYTECODES_TREE_ROOT_CONTINUITY";
+        case 46:
+            return "RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY";
         case 52:
-            return "L2_GAS_USED_INGEST_AFTER_EXIT";
+            return "L2_GAS_USED_CONTINUITY";
         case 53:
-            return "DA_GAS_USED_CONTINUITY";
+            return "L2_GAS_USED_ZERO_AFTER_CALL";
         case 54:
-            return "DA_GAS_USED_ZERO_AFTER_CALL";
+            return "L2_GAS_USED_INGEST_AFTER_EXIT";
         case 55:
-            return "DA_GAS_USED_INGEST_AFTER_EXIT";
+            return "DA_GAS_USED_CONTINUITY";
         case 56:
-            return "NOTE_HASH_TREE_ROOT_CONTINUITY";
+            return "DA_GAS_USED_ZERO_AFTER_CALL";
         case 57:
-            return "NOTE_HASH_TREE_SIZE_CONTINUITY";
+            return "DA_GAS_USED_INGEST_AFTER_EXIT";
         case 58:
-            return "NUM_NOTE_HASHES_EMITTED_CONTINUITY";
+            return "NOTE_HASH_TREE_ROOT_CONTINUITY";
         case 59:
-            return "NULLIFIER_TREE_ROOT_CONTINUITY";
+            return "NOTE_HASH_TREE_SIZE_CONTINUITY";
         case 60:
-            return "NULLIFIER_TREE_SIZE_CONTINUITY";
+            return "NUM_NOTE_HASHES_EMITTED_CONTINUITY";
         case 61:
-            return "NUM_NULLIFIERS_EMITTED_CONTINUITY";
+            return "NULLIFIER_TREE_ROOT_CONTINUITY";
         case 62:
-            return "PUBLIC_DATA_TREE_ROOT_CONTINUITY";
+            return "NULLIFIER_TREE_SIZE_CONTINUITY";
         case 63:
-            return "PUBLIC_DATA_TREE_SIZE_CONTINUITY";
+            return "NUM_NULLIFIERS_EMITTED_CONTINUITY";
         case 64:
-            return "WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY";
+            return "PUBLIC_DATA_TREE_ROOT_CONTINUITY";
         case 65:
-            return "WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY";
+            return "PUBLIC_DATA_TREE_SIZE_CONTINUITY";
         case 66:
-            return "L1_L2_TREE_ROOT_CONTINUITY";
+            return "WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY";
         case 67:
-            return "NUM_UNENCRYPTED_LOGS_CONTINUITY";
+            return "WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY";
         case 68:
+            return "L1_L2_TREE_ROOT_CONTINUITY";
+        case 69:
+            return "NUM_UNENCRYPTED_LOGS_CONTINUITY";
+        case 70:
             return "NUM_L2_TO_L1_MESSAGES_CONTINUITY";
         }
         return std::to_string(index);
@@ -170,25 +174,27 @@ template <typename FF> class context : public Relation<contextImpl<FF>> {
     static constexpr size_t SR_PARENT_L2_GAS_USED_STORE_ON_ENTER = 42;
     static constexpr size_t SR_PARENT_DA_GAS_USED_NEXT_ROW = 43;
     static constexpr size_t SR_PARENT_DA_GAS_USED_STORE_ON_ENTER = 44;
-    static constexpr size_t SR_L2_GAS_USED_CONTINUITY = 50;
-    static constexpr size_t SR_L2_GAS_USED_ZERO_AFTER_CALL = 51;
-    static constexpr size_t SR_L2_GAS_USED_INGEST_AFTER_EXIT = 52;
-    static constexpr size_t SR_DA_GAS_USED_CONTINUITY = 53;
-    static constexpr size_t SR_DA_GAS_USED_ZERO_AFTER_CALL = 54;
-    static constexpr size_t SR_DA_GAS_USED_INGEST_AFTER_EXIT = 55;
-    static constexpr size_t SR_NOTE_HASH_TREE_ROOT_CONTINUITY = 56;
-    static constexpr size_t SR_NOTE_HASH_TREE_SIZE_CONTINUITY = 57;
-    static constexpr size_t SR_NUM_NOTE_HASHES_EMITTED_CONTINUITY = 58;
-    static constexpr size_t SR_NULLIFIER_TREE_ROOT_CONTINUITY = 59;
-    static constexpr size_t SR_NULLIFIER_TREE_SIZE_CONTINUITY = 60;
-    static constexpr size_t SR_NUM_NULLIFIERS_EMITTED_CONTINUITY = 61;
-    static constexpr size_t SR_PUBLIC_DATA_TREE_ROOT_CONTINUITY = 62;
-    static constexpr size_t SR_PUBLIC_DATA_TREE_SIZE_CONTINUITY = 63;
-    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY = 64;
-    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY = 65;
-    static constexpr size_t SR_L1_L2_TREE_ROOT_CONTINUITY = 66;
-    static constexpr size_t SR_NUM_UNENCRYPTED_LOGS_CONTINUITY = 67;
-    static constexpr size_t SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY = 68;
+    static constexpr size_t SR_RETRIEVED_BYTECODES_TREE_ROOT_CONTINUITY = 45;
+    static constexpr size_t SR_RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY = 46;
+    static constexpr size_t SR_L2_GAS_USED_CONTINUITY = 52;
+    static constexpr size_t SR_L2_GAS_USED_ZERO_AFTER_CALL = 53;
+    static constexpr size_t SR_L2_GAS_USED_INGEST_AFTER_EXIT = 54;
+    static constexpr size_t SR_DA_GAS_USED_CONTINUITY = 55;
+    static constexpr size_t SR_DA_GAS_USED_ZERO_AFTER_CALL = 56;
+    static constexpr size_t SR_DA_GAS_USED_INGEST_AFTER_EXIT = 57;
+    static constexpr size_t SR_NOTE_HASH_TREE_ROOT_CONTINUITY = 58;
+    static constexpr size_t SR_NOTE_HASH_TREE_SIZE_CONTINUITY = 59;
+    static constexpr size_t SR_NUM_NOTE_HASHES_EMITTED_CONTINUITY = 60;
+    static constexpr size_t SR_NULLIFIER_TREE_ROOT_CONTINUITY = 61;
+    static constexpr size_t SR_NULLIFIER_TREE_SIZE_CONTINUITY = 62;
+    static constexpr size_t SR_NUM_NULLIFIERS_EMITTED_CONTINUITY = 63;
+    static constexpr size_t SR_PUBLIC_DATA_TREE_ROOT_CONTINUITY = 64;
+    static constexpr size_t SR_PUBLIC_DATA_TREE_SIZE_CONTINUITY = 65;
+    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY = 66;
+    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY = 67;
+    static constexpr size_t SR_L1_L2_TREE_ROOT_CONTINUITY = 68;
+    static constexpr size_t SR_NUM_UNENCRYPTED_LOGS_CONTINUITY = 69;
+    static constexpr size_t SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY = 70;
 };
 
 } // namespace bb::avm2

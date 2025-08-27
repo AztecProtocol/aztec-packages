@@ -111,6 +111,10 @@ std::vector<std::pair<Column, FF>> insert_state(const TxContextEvent& prev_state
           prev_state.written_public_data_slots_tree_snapshot.nextAvailableLeafIndex },
         // L1 to L2 Message Tree Roots
         { Column::tx_l1_l2_tree_root, prev_state.tree_states.l1ToL2MessageTree.tree.root },
+        // Retrieved bytecodes Tree Roots
+        { Column::tx_prev_retrieved_bytecodes_tree_root, prev_state.retrieved_bytecodes_tree_snapshot.root },
+        { Column::tx_prev_retrieved_bytecodes_tree_size,
+          prev_state.retrieved_bytecodes_tree_snapshot.nextAvailableLeafIndex },
 
         // Next Tree State
         { Column::tx_next_note_hash_tree_root, next_state.tree_states.noteHashTree.tree.root },
@@ -128,6 +132,10 @@ std::vector<std::pair<Column, FF>> insert_state(const TxContextEvent& prev_state
           next_state.written_public_data_slots_tree_snapshot.root },
         { Column::tx_next_written_public_data_slots_tree_size,
           next_state.written_public_data_slots_tree_snapshot.nextAvailableLeafIndex },
+        // Retrieved bytecodes Tree Roots
+        { Column::tx_next_retrieved_bytecodes_tree_root, next_state.retrieved_bytecodes_tree_snapshot.root },
+        { Column::tx_next_retrieved_bytecodes_tree_size,
+          next_state.retrieved_bytecodes_tree_snapshot.nextAvailableLeafIndex },
 
         // Prev sideffect state
         { Column::tx_prev_num_unencrypted_logs, prev_state.side_effect_states.numUnencryptedLogs },
@@ -673,6 +681,7 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
                 end_setup_snapshot.written_public_data_slots_tree_snapshot;
             propagated_state.side_effect_states = end_setup_snapshot.side_effect_states;
             // Note: we only rollback tree/side-effect states, not gas used or next_context_id.
+            // We also don't rollback the retrieved bytecodes tree state, because it is global to the transaction.
         }
     }
 }

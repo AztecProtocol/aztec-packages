@@ -356,182 +356,198 @@ void contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         tmp *= scaling_factor;
         std::get<44>(evals) += typename Accumulator::View(tmp);
     }
-    {
+    { // RETRIEVED_BYTECODES_TREE_ROOT_CONTINUITY
         using Accumulator = typename std::tuple_element_t<45, ContainerOverSubrelations>;
-        auto tmp = in.get(C::execution_rollback_context) * (FF(1) - in.get(C::execution_rollback_context));
+        auto tmp = (FF(1) - in.get(C::execution_enqueued_call_end)) *
+                   (in.get(C::execution_retrieved_bytecodes_tree_root) -
+                    in.get(C::execution_prev_retrieved_bytecodes_tree_root_shift));
         tmp *= scaling_factor;
         std::get<45>(evals) += typename Accumulator::View(tmp);
     }
-    {
+    { // RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY
         using Accumulator = typename std::tuple_element_t<46, ContainerOverSubrelations>;
-        auto tmp = (in.get(C::execution_rollback_context) -
-                    in.get(C::execution_nested_exit_call) * (FF(1) - in.get(C::execution_sel_execute_return)));
+        auto tmp = (FF(1) - in.get(C::execution_enqueued_call_end)) *
+                   (in.get(C::execution_retrieved_bytecodes_tree_size) -
+                    in.get(C::execution_prev_retrieved_bytecodes_tree_size_shift));
         tmp *= scaling_factor;
         std::get<46>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<47, ContainerOverSubrelations>;
-        auto tmp = (in.get(C::execution_nested_return) -
-                    in.get(C::execution_nested_exit_call) * in.get(C::execution_sel_execute_return));
+        auto tmp = in.get(C::execution_rollback_context) * (FF(1) - in.get(C::execution_rollback_context));
         tmp *= scaling_factor;
         std::get<47>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<48, ContainerOverSubrelations>;
-        auto tmp =
-            (((in.get(C::execution_l2_gas_limit) - execution_PREV_GAS_PLUS_USAGE_L2) * execution_SEL_CONSUMED_ALL_GAS +
-              execution_PREV_GAS_PLUS_USAGE_L2) -
-             in.get(C::execution_l2_gas_used));
+        auto tmp = (in.get(C::execution_rollback_context) -
+                    in.get(C::execution_nested_exit_call) * (FF(1) - in.get(C::execution_sel_execute_return)));
         tmp *= scaling_factor;
         std::get<48>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<49, ContainerOverSubrelations>;
+        auto tmp = (in.get(C::execution_nested_return) -
+                    in.get(C::execution_nested_exit_call) * in.get(C::execution_sel_execute_return));
+        tmp *= scaling_factor;
+        std::get<49>(evals) += typename Accumulator::View(tmp);
+    }
+    {
+        using Accumulator = typename std::tuple_element_t<50, ContainerOverSubrelations>;
+        auto tmp =
+            (((in.get(C::execution_l2_gas_limit) - execution_PREV_GAS_PLUS_USAGE_L2) * execution_SEL_CONSUMED_ALL_GAS +
+              execution_PREV_GAS_PLUS_USAGE_L2) -
+             in.get(C::execution_l2_gas_used));
+        tmp *= scaling_factor;
+        std::get<50>(evals) += typename Accumulator::View(tmp);
+    }
+    {
+        using Accumulator = typename std::tuple_element_t<51, ContainerOverSubrelations>;
         auto tmp =
             (((in.get(C::execution_da_gas_limit) - execution_PREV_GAS_PLUS_USAGE_DA) * execution_SEL_CONSUMED_ALL_GAS +
               execution_PREV_GAS_PLUS_USAGE_DA) -
              in.get(C::execution_da_gas_used));
         tmp *= scaling_factor;
-        std::get<49>(evals) += typename Accumulator::View(tmp);
+        std::get<51>(evals) += typename Accumulator::View(tmp);
     }
     { // L2_GAS_USED_CONTINUITY
-        using Accumulator = typename std::tuple_element_t<50, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<52, ContainerOverSubrelations>;
         auto tmp = execution_NOT_LAST_EXEC * execution_DEFAULT_CTX_ROW *
                    (in.get(C::execution_l2_gas_used) - in.get(C::execution_prev_l2_gas_used_shift));
         tmp *= scaling_factor;
-        std::get<50>(evals) += typename Accumulator::View(tmp);
+        std::get<52>(evals) += typename Accumulator::View(tmp);
     }
     { // L2_GAS_USED_ZERO_AFTER_CALL
-        using Accumulator = typename std::tuple_element_t<51, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<53, ContainerOverSubrelations>;
         auto tmp =
             execution_NOT_LAST_EXEC * in.get(C::execution_sel_enter_call) * in.get(C::execution_prev_l2_gas_used_shift);
         tmp *= scaling_factor;
-        std::get<51>(evals) += typename Accumulator::View(tmp);
+        std::get<53>(evals) += typename Accumulator::View(tmp);
     }
     { // L2_GAS_USED_INGEST_AFTER_EXIT
-        using Accumulator = typename std::tuple_element_t<52, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<54, ContainerOverSubrelations>;
         auto tmp = execution_NOT_LAST_EXEC * in.get(C::execution_nested_exit_call) *
                    ((in.get(C::execution_parent_l2_gas_used) + in.get(C::execution_l2_gas_used)) -
                     in.get(C::execution_prev_l2_gas_used_shift));
         tmp *= scaling_factor;
-        std::get<52>(evals) += typename Accumulator::View(tmp);
+        std::get<54>(evals) += typename Accumulator::View(tmp);
     }
     { // DA_GAS_USED_CONTINUITY
-        using Accumulator = typename std::tuple_element_t<53, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<55, ContainerOverSubrelations>;
         auto tmp = execution_NOT_LAST_EXEC * execution_DEFAULT_CTX_ROW *
                    (in.get(C::execution_da_gas_used) - in.get(C::execution_prev_da_gas_used_shift));
         tmp *= scaling_factor;
-        std::get<53>(evals) += typename Accumulator::View(tmp);
+        std::get<55>(evals) += typename Accumulator::View(tmp);
     }
     { // DA_GAS_USED_ZERO_AFTER_CALL
-        using Accumulator = typename std::tuple_element_t<54, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<56, ContainerOverSubrelations>;
         auto tmp =
             execution_NOT_LAST_EXEC * in.get(C::execution_sel_enter_call) * in.get(C::execution_prev_da_gas_used_shift);
         tmp *= scaling_factor;
-        std::get<54>(evals) += typename Accumulator::View(tmp);
+        std::get<56>(evals) += typename Accumulator::View(tmp);
     }
     { // DA_GAS_USED_INGEST_AFTER_EXIT
-        using Accumulator = typename std::tuple_element_t<55, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<57, ContainerOverSubrelations>;
         auto tmp = execution_NOT_LAST_EXEC * in.get(C::execution_nested_exit_call) *
                    ((in.get(C::execution_parent_da_gas_used) + in.get(C::execution_da_gas_used)) -
                     in.get(C::execution_prev_da_gas_used_shift));
         tmp *= scaling_factor;
-        std::get<55>(evals) += typename Accumulator::View(tmp);
+        std::get<57>(evals) += typename Accumulator::View(tmp);
     }
     { // NOTE_HASH_TREE_ROOT_CONTINUITY
-        using Accumulator = typename std::tuple_element_t<56, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<58, ContainerOverSubrelations>;
         auto tmp = execution_NOT_LAST_EXEC * execution_DEFAULT_OR_NESTED_RETURN *
                    (in.get(C::execution_note_hash_tree_root) - in.get(C::execution_prev_note_hash_tree_root_shift));
         tmp *= scaling_factor;
-        std::get<56>(evals) += typename Accumulator::View(tmp);
+        std::get<58>(evals) += typename Accumulator::View(tmp);
     }
     { // NOTE_HASH_TREE_SIZE_CONTINUITY
-        using Accumulator = typename std::tuple_element_t<57, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<59, ContainerOverSubrelations>;
         auto tmp = execution_NOT_LAST_EXEC * execution_DEFAULT_OR_NESTED_RETURN *
                    (in.get(C::execution_note_hash_tree_size) - in.get(C::execution_prev_note_hash_tree_size_shift));
         tmp *= scaling_factor;
-        std::get<57>(evals) += typename Accumulator::View(tmp);
+        std::get<59>(evals) += typename Accumulator::View(tmp);
     }
     { // NUM_NOTE_HASHES_EMITTED_CONTINUITY
-        using Accumulator = typename std::tuple_element_t<58, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<60, ContainerOverSubrelations>;
         auto tmp =
             execution_NOT_LAST_EXEC * execution_DEFAULT_OR_NESTED_RETURN *
             (in.get(C::execution_num_note_hashes_emitted) - in.get(C::execution_prev_num_note_hashes_emitted_shift));
         tmp *= scaling_factor;
-        std::get<58>(evals) += typename Accumulator::View(tmp);
+        std::get<60>(evals) += typename Accumulator::View(tmp);
     }
     { // NULLIFIER_TREE_ROOT_CONTINUITY
-        using Accumulator = typename std::tuple_element_t<59, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<61, ContainerOverSubrelations>;
         auto tmp = execution_NOT_LAST_EXEC * execution_DEFAULT_OR_NESTED_RETURN *
                    (in.get(C::execution_nullifier_tree_root) - in.get(C::execution_prev_nullifier_tree_root_shift));
         tmp *= scaling_factor;
-        std::get<59>(evals) += typename Accumulator::View(tmp);
+        std::get<61>(evals) += typename Accumulator::View(tmp);
     }
     { // NULLIFIER_TREE_SIZE_CONTINUITY
-        using Accumulator = typename std::tuple_element_t<60, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<62, ContainerOverSubrelations>;
         auto tmp = execution_NOT_LAST_EXEC * execution_DEFAULT_OR_NESTED_RETURN *
                    (in.get(C::execution_nullifier_tree_size) - in.get(C::execution_prev_nullifier_tree_size_shift));
         tmp *= scaling_factor;
-        std::get<60>(evals) += typename Accumulator::View(tmp);
+        std::get<62>(evals) += typename Accumulator::View(tmp);
     }
     { // NUM_NULLIFIERS_EMITTED_CONTINUITY
-        using Accumulator = typename std::tuple_element_t<61, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<63, ContainerOverSubrelations>;
         auto tmp =
             execution_NOT_LAST_EXEC * execution_DEFAULT_OR_NESTED_RETURN *
             (in.get(C::execution_num_nullifiers_emitted) - in.get(C::execution_prev_num_nullifiers_emitted_shift));
         tmp *= scaling_factor;
-        std::get<61>(evals) += typename Accumulator::View(tmp);
+        std::get<63>(evals) += typename Accumulator::View(tmp);
     }
     { // PUBLIC_DATA_TREE_ROOT_CONTINUITY
-        using Accumulator = typename std::tuple_element_t<62, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<64, ContainerOverSubrelations>;
         auto tmp = execution_NOT_LAST_EXEC * execution_DEFAULT_OR_NESTED_RETURN *
                    (in.get(C::execution_public_data_tree_root) - in.get(C::execution_prev_public_data_tree_root_shift));
         tmp *= scaling_factor;
-        std::get<62>(evals) += typename Accumulator::View(tmp);
+        std::get<64>(evals) += typename Accumulator::View(tmp);
     }
     { // PUBLIC_DATA_TREE_SIZE_CONTINUITY
-        using Accumulator = typename std::tuple_element_t<63, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<65, ContainerOverSubrelations>;
         auto tmp = execution_NOT_LAST_EXEC * execution_DEFAULT_OR_NESTED_RETURN *
                    (in.get(C::execution_public_data_tree_size) - in.get(C::execution_prev_public_data_tree_size_shift));
         tmp *= scaling_factor;
-        std::get<63>(evals) += typename Accumulator::View(tmp);
+        std::get<65>(evals) += typename Accumulator::View(tmp);
     }
     { // WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY
-        using Accumulator = typename std::tuple_element_t<64, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<66, ContainerOverSubrelations>;
         auto tmp = execution_NOT_LAST_EXEC * execution_DEFAULT_OR_NESTED_RETURN *
                    (in.get(C::execution_written_public_data_slots_tree_root) -
                     in.get(C::execution_prev_written_public_data_slots_tree_root_shift));
         tmp *= scaling_factor;
-        std::get<64>(evals) += typename Accumulator::View(tmp);
+        std::get<66>(evals) += typename Accumulator::View(tmp);
     }
     { // WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY
-        using Accumulator = typename std::tuple_element_t<65, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<67, ContainerOverSubrelations>;
         auto tmp = execution_NOT_LAST_EXEC * execution_DEFAULT_OR_NESTED_RETURN *
                    (in.get(C::execution_written_public_data_slots_tree_size) -
                     in.get(C::execution_prev_written_public_data_slots_tree_size_shift));
         tmp *= scaling_factor;
-        std::get<65>(evals) += typename Accumulator::View(tmp);
+        std::get<67>(evals) += typename Accumulator::View(tmp);
     }
     { // L1_L2_TREE_ROOT_CONTINUITY
-        using Accumulator = typename std::tuple_element_t<66, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<68, ContainerOverSubrelations>;
         auto tmp = execution_NOT_LAST_EXEC *
                    (in.get(C::execution_l1_l2_tree_root) - in.get(C::execution_l1_l2_tree_root_shift));
         tmp *= scaling_factor;
-        std::get<66>(evals) += typename Accumulator::View(tmp);
+        std::get<68>(evals) += typename Accumulator::View(tmp);
     }
     { // NUM_UNENCRYPTED_LOGS_CONTINUITY
-        using Accumulator = typename std::tuple_element_t<67, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<69, ContainerOverSubrelations>;
         auto tmp = execution_NOT_LAST_EXEC * execution_DEFAULT_OR_NESTED_RETURN *
                    (in.get(C::execution_num_unencrypted_logs) - in.get(C::execution_prev_num_unencrypted_logs_shift));
         tmp *= scaling_factor;
-        std::get<67>(evals) += typename Accumulator::View(tmp);
+        std::get<69>(evals) += typename Accumulator::View(tmp);
     }
     { // NUM_L2_TO_L1_MESSAGES_CONTINUITY
-        using Accumulator = typename std::tuple_element_t<68, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<70, ContainerOverSubrelations>;
         auto tmp = execution_NOT_LAST_EXEC * execution_DEFAULT_OR_NESTED_RETURN *
                    (in.get(C::execution_num_l2_to_l1_messages) - in.get(C::execution_prev_num_l2_to_l1_messages_shift));
         tmp *= scaling_factor;
-        std::get<68>(evals) += typename Accumulator::View(tmp);
+        std::get<70>(evals) += typename Accumulator::View(tmp);
     }
 }
 

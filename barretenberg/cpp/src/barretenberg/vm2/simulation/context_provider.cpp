@@ -31,6 +31,7 @@ std::unique_ptr<ContextInterface> ContextProvider::make_nested_context(AztecAddr
         internal_call_stack_manager_provider.make_internal_call_stack_manager(context_id),
         merkle_db,
         written_public_data_slots_tree,
+        retrieved_bytecodes_tree,
         side_effect_states,
         phase,
         parent_context,
@@ -66,6 +67,7 @@ std::unique_ptr<ContextInterface> ContextProvider::make_enqueued_context(AztecAd
         internal_call_stack_manager_provider.make_internal_call_stack_manager(context_id),
         merkle_db,
         written_public_data_slots_tree,
+        retrieved_bytecodes_tree,
         side_effect_states,
         phase,
         calldata);

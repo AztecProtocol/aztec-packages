@@ -338,7 +338,6 @@ void ExecutionTraceBuilder::process(
         /**************************************************************************************************
          *  Setup.
          **************************************************************************************************/
-
         trace.set(
             row,
             { {
@@ -414,6 +413,15 @@ void ExecutionTraceBuilder::process(
                 { C::execution_num_note_hashes_emitted, ex_event.after_context_event.tree_states.noteHashTree.counter },
                 // Context - tree states - L1 to L2 message tree
                 { C::execution_l1_l2_tree_root, ex_event.after_context_event.tree_states.l1ToL2MessageTree.tree.root },
+                // Context - tree states - Retrieved bytecodes tree
+                { C::execution_prev_retrieved_bytecodes_tree_root,
+                  ex_event.before_context_event.retrieved_bytecodes_tree_snapshot.root },
+                { C::execution_prev_retrieved_bytecodes_tree_size,
+                  ex_event.before_context_event.retrieved_bytecodes_tree_snapshot.nextAvailableLeafIndex },
+                { C::execution_retrieved_bytecodes_tree_root,
+                  ex_event.after_context_event.retrieved_bytecodes_tree_snapshot.root },
+                { C::execution_retrieved_bytecodes_tree_size,
+                  ex_event.after_context_event.retrieved_bytecodes_tree_snapshot.nextAvailableLeafIndex },
                 // Context - side effects
                 { C::execution_prev_num_unencrypted_logs,
                   ex_event.before_context_event.side_effect_states.numUnencryptedLogs },
