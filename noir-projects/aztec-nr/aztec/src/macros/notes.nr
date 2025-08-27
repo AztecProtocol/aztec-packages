@@ -2,7 +2,7 @@ use crate::note::note_getter_options::PropertySelector;
 use std::{collections::bounded_vec::BoundedVec, meta::{ctstring::AsCtString, type_of}};
 
 /// Maximum number of note types within 1 contract.
-comptime global MAX_NOTE_TYPES: u32 = 128;
+pub comptime global MAX_NOTE_TYPES: u32 = 128;
 
 /// A BoundedVec containing all the note types within this contract.
 /// TODO(https://github.com/AztecProtocol/aztec-packages/issues/16527): rename to NOTE_TYPES
@@ -123,7 +123,7 @@ comptime fn generate_note_hash_trait_impl(s: TypeDefinition) -> Quoted {
 ///
 /// impl aztec::note::note_interface::NoteProperties<TokenNoteProperties> for TokenNote {
 ///     fn properties() -> TokenNoteProperties {
-///         Self {
+///         TokenNoteProperties {
 ///             amount: aztec::note::note_getter_options::PropertySelector { index: 0, offset: 0, length: 32 },
 ///             npk_m_hash: aztec::note::note_getter_options::PropertySelector { index: 1, offset: 0, length: 32 },
 ///             randomness: aztec::note::note_getter_options::PropertySelector { index: 2, offset: 0, length: 32 }
