@@ -24,7 +24,10 @@ void ProtogalaxyRecursiveVerifier_<DeciderVerificationKeys>::run_oink_verifier_o
     if (!key->is_complete) {
         OinkRecursiveVerifier_<Flavor> oink_verifier{ builder, key, transcript, domain_separator + '_' };
         oink_verifier.verify();
-        key->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
+        key->target_sum = FF::from_witness(builder, builder->zero_idx);
+        // Get the gate challenges for sumcheck/combiner computation
+        key->gate_challenges =
+            transcript->template get_powers_of_challenge<FF>(domain_separator + "_gate_challenge", CONST_PG_LOG_N);
     }
 
     key = keys_to_fold[1];
@@ -48,8 +51,7 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
     const std::shared_ptr<DeciderVK>& accumulator = keys_to_fold[0];
 
     // Perturbator round
-    const FF delta = transcript->template get_challenge<FF>("delta");
-    const std::vector<FF> deltas = compute_round_challenge_pows(CONST_PG_LOG_N, delta);
+    const std::vector<FF> deltas = transcript->template get_powers_of_challenge<FF>("delta", CONST_PG_LOG_N);
     std::vector<FF> perturbator_coeffs(CONST_PG_LOG_N + 1, 0);
     for (size_t idx = 1; idx <= CONST_PG_LOG_N; idx++) {
         perturbator_coeffs[idx] = transcript->template receive_from_prover<FF>("perturbator_" + std::to_string(idx));

@@ -84,7 +84,9 @@ std::shared_ptr<ClientIVC::RecursiveDeciderVerificationKey> ClientIVC::perform_o
     verifier.verify_proof(proof);
 
     verifier_instance->target_sum = StdlibFF::from_witness_index(&circuit, circuit.zero_idx);
-    verifier_instance->gate_challenges.assign(CONST_PG_LOG_N, StdlibFF::from_witness_index(&circuit, circuit.zero_idx));
+    // Get the gate challenges for sumcheck/combiner computation
+    verifier_instance->gate_challenges =
+        transcript->template get_powers_of_challenge<StdlibFF>("gate_challenge", CONST_PG_LOG_N);
 
     return verifier_instance;
 }
@@ -369,6 +371,11 @@ HonkProof ClientIVC::construct_oink_proof(const std::shared_ptr<DeciderProvingKe
     MegaOinkProver oink_prover{ proving_key, honk_vk, transcript };
     oink_prover.prove();
 
+    proving_key->target_sum = 0;
+    // Get the gate challenges for sumcheck/combiner computation
+    proving_key->gate_challenges =
+        prover_accumulation_transcript->template get_powers_of_challenge<FF>("gate_challenge", CONST_PG_LOG_N);
+
     fold_output.accumulator = proving_key; // initialize the prover accum with the completed key
 
     HonkProof oink_proof = oink_prover.export_proof();
@@ -443,7 +450,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
     BB_ASSERT_LT(
         num_circuits_accumulated, num_circuits, "ClientIVC: Attempting to accumulate more circuits than expected.");
 
-    ASSERT(precomputed_vk != nullptr, "ClientIVC::acumulate - VK expected for the provided circuit");
+    ASSERT(precomputed_vk != nullptr, "ClientIVC::accumulate - VK expected for the provided circuit");
 
     // Construct the proving key for circuit
     std::shared_ptr<DeciderProvingKey> proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
@@ -740,7 +747,10 @@ void ClientIVC::update_native_verifier_accumulator(const VerifierInputs& queue_e
         OinkVerifier<Flavor> oink_verifier{ decider_vk, verifier_transcript };
         oink_verifier.verify();
         native_verifier_accum = decider_vk;
-        native_verifier_accum->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
+        native_verifier_accum->target_sum = 0;
+        // Get the gate challenges for sumcheck/combiner computation
+        native_verifier_accum->gate_challenges =
+            verifier_transcript->template get_powers_of_challenge<FF>("gate_challenge", CONST_PG_LOG_N);
     } else {
         if (queue_entry.is_kernel) {
             // Fiat-Shamir the verifier accumulator
