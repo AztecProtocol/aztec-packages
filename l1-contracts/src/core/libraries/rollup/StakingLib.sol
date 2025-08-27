@@ -147,7 +147,7 @@ library StakingLib {
     Proposal memory proposal = gov.getProposal(_proposalId);
     require(proposal.proposer == address(govProposer), Errors.Staking__IncorrectGovProposer(_proposalId));
 
-    Timestamp ts = proposal.pendingThroughMemory();
+    Timestamp ts = proposal.creation + proposal.config.votingDelay;
 
     // Cast votes with all our power
     uint256 vp = store.gse.getVotingPowerAt(address(this), ts);

@@ -10,7 +10,6 @@ import {
   DepositDelegationLib, DepositAndDelegationAccounting
 } from "@aztec/governance/libraries/DepositDelegationLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
-import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
 import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
@@ -122,7 +121,6 @@ contract GSECore is IGSECore, Ownable {
   using SafeCast for uint224;
   using Checkpoints for Checkpoints.Trace224;
   using DepositDelegationLib for DepositAndDelegationAccounting;
-  using ProposalLib for Proposal;
 
   /**
    * Create a special "bonus" address for use by the latest rollup.
@@ -619,7 +617,9 @@ contract GSECore is IGSECore, Ownable {
   }
 
   function _pendingThrough(uint256 _proposalId) internal view returns (Timestamp) {
-    return getGovernance().getProposal(_proposalId).pendingThroughMemory();
+    // Directly compute pendingThrough for memory proposal
+    Proposal memory proposal = getGovernance().getProposal(_proposalId);
+    return proposal.creation + proposal.config.votingDelay;
   }
 }
 

@@ -21,6 +21,7 @@ import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {CoinIssuer} from "@aztec/governance/CoinIssuer.sol";
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
 import {GSEWithSkip} from "@test/GSEWithSkip.sol";
+import {TestGov} from "@test/governance/helpers/TestGov.sol";
 
 // Stack the layers to avoid the stack too deep 🧌
 struct ConfigFlags {
@@ -272,7 +273,7 @@ contract RollupBuilder is Test {
     if (config.flags.makeGovernance) {
       GovernanceProposer proposer =
         new GovernanceProposer(config.registry, config.gse, config.values.govProposerN, config.values.govProposerM);
-      config.governance = new Governance(
+      config.governance = new TestGov(
         config.testERC20, address(proposer), address(config.gse), TestConstants.getGovernanceConfiguration()
       );
       vm.label(address(config.governance), "Governance");
