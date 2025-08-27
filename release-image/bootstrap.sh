@@ -16,7 +16,6 @@ function build_image {
     # Otherwise, use the commit hash as the version.
     local version=$(git rev-parse HEAD)
   fi
-  version="1.0.0-beta.9+f92aaf8dbec28b1aeba03a7afeabbc59897b4f39-aztec"
   docker build -f release-image/Dockerfile --build-arg VERSION=$version -t aztecprotocol/aztec:$(git rev-parse HEAD) .
   docker tag aztecprotocol/aztec:$(git rev-parse HEAD) aztecprotocol/aztec:latest
 
